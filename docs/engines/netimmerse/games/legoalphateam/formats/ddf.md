@@ -113,7 +113,7 @@ Each `.DDF` file sits beside two TGA pages (`ARIAL.DDF`, `ARIAL_0.TGA`,
 
 - **From the code** (November 2026): LoadComp reads them (the function
   that checks `FNT2`, at 0x1005e3d0), and a font class's methods (its
-  vftable at 0x10081518) give each field its use. That settled the four
-  fields after the page count, which had been read as a line height, a
-  descent, an em height (a guess) and the space's advance: they are two
-  sizes per page. See "Pages and sizes" above.
+  vftable at 0x10081518) give each field its use. The four fields after
+  the page count aren't a line height, a descent, an em height and the
+  space's advance, as they can be read: they are two sizes per page. See
+  "Pages and sizes" above.

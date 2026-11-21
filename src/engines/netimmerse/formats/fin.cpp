@@ -332,10 +332,10 @@ void readMaterialAnimator(Reader &r, FinMaterialAnimator &a, bool alpha) {
 
 // Ni3dsMorphShape: a shape, then its Ni3dsAnimationCore (the animation
 // type and four flag bytes first), two bytes (the second whether its
-// normals are updated), the numbers of targets and keys, five numbers, the keys (each its
-// time, six numbers, the number of targets again, then a weight, an
-// incoming and an outgoing tangent for each target, all the weights
-// first), and each target's vertices.
+// normals are updated), the numbers of targets and keys, five numbers, the
+// keys (each its time, six numbers, the number of targets again, then a
+// weight, an incoming and an outgoing tangent for each target, all the
+// weights first), and each target's vertices.
 void readMorph(Reader &r, FinMorph &m) {
     readShape(r, m);
     FinController c;

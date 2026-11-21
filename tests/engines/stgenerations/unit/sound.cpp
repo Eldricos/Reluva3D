@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
+// Star Trek: Generations' unit tests: sound file names and subtitles, and
+// sound cues by position and event.
+
 #include "tests/engines/stgenerations/support.h"
 
 #include <cstring>

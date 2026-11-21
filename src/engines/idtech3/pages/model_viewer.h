@@ -14,8 +14,16 @@
 
 namespace reluva::idtech3 {
 
+/**
+ * The data viewer's Models page (pages/viewer.cpp): every .md3 and .mdr
+ * drawn by the GPU renderer, players' parts put together and animated.
+ */
 class ModelViewer : public Page {
 public:
+    /**
+     * Lists the game's models, leaving out the lower-detail copies (_1, _2);
+     * a folder with a lower, upper and head is one player.
+     */
     explicit ModelViewer(PageContext &ctx);
     ~ModelViewer() override;
     const char *name() const override { return "Models"; }

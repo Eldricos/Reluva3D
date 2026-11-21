@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
+// Star Trek: Generations' unit tests: the levels: their tables and files,
+// the map and the renderer (sectors, walls, sky, lighting, visible
+// zones), the walker, missions, actors, projectiles and movers.
+
 #include "tests/engines/stgenerations/support.h"
 
 #include <algorithm>

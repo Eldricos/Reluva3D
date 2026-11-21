@@ -10,8 +10,11 @@
 
 namespace reluva {
 
-// gfx::Compute on SDL's GPU API (Vulkan, Metal), on a GPU device of its own
-// (no window needed, so reluva-tool can use it too).
+/**
+ * gfx::Compute on SDL's GPU API (Vulkan, Metal), on a GPU device of its own
+ * (no window needed, so reluva-tool can use it too).
+ * @return nullptr, with why in `error`, if there's no GPU it can use.
+ */
 std::unique_ptr<gfx::Compute> makeSdlCompute(std::string &error);
 
 } // namespace reluva

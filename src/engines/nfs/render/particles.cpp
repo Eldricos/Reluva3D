@@ -496,7 +496,6 @@ std::array<ParticleVec, 4> pictureCorners(const Particle &p, const ParticleVec &
 
 } // namespace reluva::nfs
 
-// ---------------------------------------------------------------------------
 // Rain and snow (col.md, "Rain and snow").
 
 namespace reluva::nfs {

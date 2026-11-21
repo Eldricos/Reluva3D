@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Levels: BSP models, placed actors, zone visibility through portals, and collision.
+// Levels: BSP models, placed actors, zone visibility through portals, and
+// collision.
 //
 //   reluva-tests unreal.unit.levels
 

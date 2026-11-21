@@ -1,6 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""For each "UI:" resource name in Clue.exe, the small numbers pushed near
+where the code uses it (positions, ids). Needs insns.pkl (rx.py makes it)
+in CLUE_WORK.
+
+    python3 -I py/near.py
+"""
+
 import os
 GAME = os.environ.get('CLUE_GAME', 'game')  # the installed game: Clue.exe, the DLLs, Data/
 WORK = os.environ.get('CLUE_WORK', '.')  # caches and outputs

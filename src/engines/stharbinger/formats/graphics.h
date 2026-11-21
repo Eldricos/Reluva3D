@@ -13,20 +13,27 @@
 
 namespace reluva::stharbinger {
 
-// Backgrounds (.CMP): u32 length, then PKWARE DCL "implode" data that unpacks to
-// 640x480 8-bit pixels (a few have a 768-byte VGA palette appended).
-// `palette` is set and `hasPalette` true only for those.
+/**
+ * Reads a background (.CMP): u32 length, then PKWARE DCL "implode" data that
+ * unpacks to 640x480 8-bit pixels (a few have a 768-byte VGA palette
+ * appended). 640x400, 640x350, 320x200 and any other height 640 wide are
+ * taken too. `palette` is set and `hasPalette` true only for those with a
+ * palette.
+ */
 bool loadCMP(SeekableReadStream &stream, Surface &surface, Palette *palette = nullptr, bool *hasPalette = nullptr);
 
-// Palettes (.PAL): 768 bytes of 6-bit VGA values.
+/** Reads a palette (.PAL): 768 bytes of 6-bit VGA values; false if it's shorter. */
 bool loadPAL(SeekableReadStream &stream, Palette &palette);
 
-// Animations and sprites (.RLE): an 8-byte header, u16 frame count, then frames.
-// Scene animations have the fixed header 00 00 01 01 0A FF 00 00; arcade
-// sprites keep their target data there. Frames are kept compressed and decoded
-// when drawn.
+/**
+ * Animations and sprites (.RLE): an 8-byte header, u16 frame count, then frames.
+ * Scene animations have the fixed header 00 00 01 01 0A FF 00 00; arcade
+ * sprites keep their target data there. Frames are kept compressed and decoded
+ * when drawn.
+ */
 class RleAnimation {
 public:
+    /** A frame's header and its compressed pixels. */
     struct Frame {
         uint8_t key = 0; // header byte 0, purpose unknown
         // size and position
@@ -40,18 +47,29 @@ public:
         std::vector<uint8_t> data;
     };
 
-    // Loads a scene animation (checks the fixed header).
+    /**
+     * Loads a scene animation (checks the fixed header). False if the header
+     * is wrong or no frame could be read; frames after one that runs past
+     * the end are left out.
+     */
+    ///@{
     bool load(SeekableReadStream &stream);
     bool load(const uint8_t *data, uint32_t size);
-    // Loads any RLE file and returns its 8 header bytes (arcade sprites).
+    ///@}
+    /** Loads any RLE file and returns its 8 header bytes (arcade sprites). */
     bool loadWithHeader(SeekableReadStream &stream, uint8_t header[8]);
 
+    /** How many frames were read. */
     int frameCount() const { return int(_frames.size()); }
+    /** Frame `i`, which must be below frameCount(). */
     const Frame &getFrame(int i) const { return _frames[i]; }
 
-    // Draws frame `i` at its own position plus (dx, dy), leaving skipped pixels alone.
+    /**
+     * Draws frame `i` at its own position plus (dx, dy), leaving skipped
+     * pixels alone; nothing for a frame that isn't there.
+     */
     void drawFrame(int i, Surface &dst, int dx = 0, int dy = 0) const;
-    // Draws frame `i` with its top-left at (x, y), clipped to `clip` if given.
+    /** Draws frame `i` with its top-left at (x, y), clipped to `clip` if given. */
     void drawFrameAt(int i, Surface &dst, int x, int y, const Rect *clip = nullptr) const;
 
 private:
@@ -60,13 +78,17 @@ private:
     std::vector<Frame> _frames;
 };
 
-// A phaser beam (DEEP.EXE 0x27215): a line drawn as vertical runs that taper
-// from 13 pixels at (x0, y0) to 1 pixel at (x1, y1).
+/**
+ * Draws a phaser beam (DEEP.EXE 0x27215): a line drawn as vertical runs that
+ * taper from 13 pixels at (x0, y0) to 1 pixel at (x1, y1).
+ */
 void drawPhaserBeam(Surface &dst, int x0, int y0, int x1, int y1, uint8_t color);
 
-// An enemy beam (0x273E4 / 0x2759D): a jittery line, in thirds of width 1, 3
-// and 5 in colours c, c + 1, c + 2, each point a streak of `streak` pixels
-// downward, stopping at `bottom`. `random(n)` gives 0..n-1.
+/**
+ * Draws an enemy beam (0x273E4 / 0x2759D): a jittery line, in thirds of
+ * width 1, 3 and 5 in colours c, c + 1, c + 2, each point a streak of
+ * `streak` pixels downward, stopping at `bottom`. `random(n)` gives 0..n-1.
+ */
 template<class Random>
 void drawEnemyBeam(Surface &dst, int x0, int y0, int x1, int y1, uint8_t color, int streak, int bottom, Random random) {
     int dx = std::abs(x1 - x0);

@@ -483,7 +483,6 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
         w.u8(0x09), w.u8(0xc8);                         // or eax, ecx
         w.rbx({0x89}, kEax, L.eflags);                  // mov [eflags], eax
     };
-    // eip <- what the instruction makes it, from edx.
     auto pushValue = [&](const Op &o) { // Cpu::push of edx: ESP down, then the store
         w.rbx({0x8b}, kEax, regAt(4));
         w.u8(0x83), w.u8(0xe8), w.u8(4);
@@ -880,8 +879,8 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
         storeImm32(L.eip, end);
         storeImm32(L.start, ops[count - 1].start);
     }
-    // On to the next block: straight to its code by a link where where it
-    // goes is known (the code the dispatch last found for it there, if the
+    // On to the next block: straight to its code by a link where its address
+    // is known (the code the dispatch last found for it there, if the
     // code epoch hasn't moved since: none of the code's bytes written),
     // else by the dispatch. (Jumps within the buffer: unwinding from the
     // call before doesn't take them for an epilogue.)
@@ -930,7 +929,7 @@ const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *
         w.u8(0xe9);
         Emitter::patch(w.rel32(), _dispatch);
     }
-    // A write to a page holding cached code: codeEpoch_ on (inc dword), then back.
+    // A write to a page holding cached code: _codeEpoch on (inc dword), then back.
     for (int i = 0; i < nMarks; ++i) {
         Emitter::patch(marks[i].from, w.at);
         w.rbx({0xff}, 0, L.epoch);

@@ -25,30 +25,42 @@
 
 namespace reluva::clue {
 
-// Drawing helpers the viewers share (in image_viewer.cpp), with fillRect
-// (ui.h).
+/** Drawing helpers the viewers share (in image_viewer.cpp), with fillRect (ui.h). */
+///@{
 void drawCheckerboard(Surface &s, int y0, int y1);
 void drawInfo(Surface &s, const std::string &line1, const std::string &line2 = {});
-// An image with its top-left corner at (x, y), scaled up by a whole number.
+///@}
+/** An image with its top-left corner at (x, y), scaled up by a whole number. */
 void drawImage(Surface &s, const image::Image &img, int x, int y, int scale = 1);
 
-// The mansion as clue.lvl places it, its animations playing.
-//   Arrows or a mouse drag: scroll (Shift: faster)   Home: back to the middle
-//   M: the whole house, shrunk (a click there goes to that place)
-//   W: the walls nearest the camera (layer 4): see-through, solid or hidden;
-//      then no walls at all
-//   O: the black outside on/off
-//   N: the move-number templates (tilenum) on/off   F: footprints (boxes) on/off
-//   Space: pause the animations
-// The info line names what's under the mouse pointer.
+/**
+ * The mansion as clue.lvl places it, its animations playing.
+ *   Arrows or a mouse drag: scroll (Shift: faster)   Home: back to the middle
+ *   M: the whole house, shrunk (a click there goes to that place)
+ *   W: the walls nearest the camera (layer 4): see-through, solid or hidden;
+ *      then no walls at all
+ *   O: the black outside on/off
+ *   N: the move-number templates (tilenum) on/off   F: footprints (boxes) on/off
+ *   Space: pause the animations
+ * The info line names what's under the mouse pointer.
+ */
 class MansionViewer {
 public:
+    /** Reads clue.lvl and builds the mansion; `sys`, `screen` and `data` must outlive it. */
     MansionViewer(System &sys, Surface &screen, const GameData &data);
+    /** Whether the mansion was built, and why not. */
+    ///@{
     bool loaded() const { return _error.empty(); }
     const std::string &error() const { return _error; }
+    ///@}
+    /** Whether the whole house is shown (M). */
     bool overview() const { return _overview; }
+    /** Draws the page as it's shown. */
+    /** Draws the page as it's shown. */
     void activate();
+    /** A mouse or key event on the page. */
     void handleEvent(const Event &ev);
+    /** Plays the animations on to `nowMs`, drawing the page again. */
     void update(uint64_t nowMs);
 
 private:
@@ -90,17 +102,25 @@ private:
     bool _dirty = true;
 };
 
-// The videos (the intro, the deal, the suggestions' clips), with their
-// sound. 320x240 ones are shown twice the size, filling the screen.
-//   Left/Right: previous/next (it plays at once)   Space or Enter: play again or stop
-//   Z: twice the size or not
+/**
+ * The videos (the intro, the deal, the suggestions' clips), with their
+ * sound. 320x240 ones are shown twice the size, filling the screen.
+ *   Left/Right: previous/next (it plays at once)   Space or Enter: play again or stop
+ *   Z: twice the size or not
+ */
 class VideoViewer {
 public:
+    /** Lists the videos; `mixer` may be null (no sound). */
     VideoViewer(System &sys, Surface &screen, const GameData &data, audio::Mixer *mixer);
+    /** How many items it shows; the viewer skips a page with none. */
     size_t count() const { return _files.size(); }
+    /** Draws the page as it's shown. */
     void activate();
-    void deactivate(); // stops the sound when switching to another viewer
+    /** Stops the sound when switching to another viewer. */
+    void deactivate();
+    /** A key pressed on the page. */
     void handleKey(uint32_t key);
+    /** Plays on to `nowMs`, drawing the page again when it changes. */
     void update(uint64_t nowMs);
 
 private:
@@ -126,15 +146,21 @@ private:
     size_t _drawnFrame = size_t(-1);
 };
 
-// Every image of every .res file.
-//   Left/Right: previous/next image   PageUp/PageDown: 10 at a time
-//   Up/Down: previous/next file   Home/End: first/last image   Z: zoom (1x, 2x, 4x)
-//   B: background (checks, black, white)
+/**
+ * Every image of every .res file.
+ *   Left/Right: previous/next image   PageUp/PageDown: 10 at a time
+ *   Up/Down: previous/next file   Home/End: first/last image   Z: zoom (1x, 2x, 4x)
+ *   B: background (checks, black, white)
+ */
 class ImageViewer {
 public:
+    /** Lists the .res files and counts their images. */
     ImageViewer(System &sys, Surface &screen, const GameData &data);
+    /** How many items it shows; the viewer skips a page with none. */
     size_t count() const { return _total; }
+    /** Draws the page as it's shown. */
     void activate();
+    /** A key pressed on the page. */
     void handleKey(uint32_t key);
 
 private:
@@ -151,16 +177,23 @@ private:
     int _background = 0;
 };
 
-// Every animation of every .a file, playing.
-//   Left/Right: previous/next animation   Up/Down: previous/next file
-//   Space: pause or play   ,/.: step a frame back or on (pausing)
-//   Z: zoom (1x, 2x)   A: show the anchor point   L: show one layer at a time
+/**
+ * Every animation of every .a file, playing.
+ *   Left/Right: previous/next animation   Up/Down: previous/next file
+ *   Space: pause or play   ,/.: step a frame back or on (pausing)
+ *   Z: zoom (1x, 2x)   A: show the anchor point   L: show one layer at a time
+ */
 class AnimationViewer {
 public:
+    /** Lists the .a files and counts their animations. */
     AnimationViewer(System &sys, Surface &screen, const GameData &data);
+    /** How many items it shows; the viewer skips a page with none. */
     size_t count() const { return _total; }
+    /** Draws the page as it's shown. */
     void activate();
+    /** A key pressed on the page. */
     void handleKey(uint32_t key);
+    /** Plays on to `nowMs`, drawing the page again when it changes. */
     void update(uint64_t nowMs);
 
 private:
@@ -186,19 +219,28 @@ private:
     bool _dirty = true;
 };
 
-// Every sound: the game's WAV files, and the CD's music (track02.wav ...)
-// if it's been ripped into the game folder.
-//   Left/Right: previous/next   PageUp/PageDown: 10 at a time
-//   Space or Enter: play or stop   A: play each as it's selected
+/**
+ * Every sound: the game's WAV files, and the CD's music (track02.wav ...)
+ * if it's been ripped into the game folder.
+ *   Left/Right: previous/next   PageUp/PageDown: 10 at a time
+ *   Space or Enter: play or stop   A: play each as it's selected
+ */
 class SoundViewer {
 public:
-    // mixer: the engine's, playing into the System's output; nullptr when
-    // there's no output.
+    /**
+     * Lists the sounds. `mixer`: the engine's, playing into the System's
+     * output; nullptr when there's no output.
+     */
     SoundViewer(System &sys, Surface &screen, const GameData &data, audio::Mixer *mixer);
+    /** How many items it shows; the viewer skips a page with none. */
     size_t count() const { return _files.size(); }
+    /** Draws the page as it's shown. */
     void activate();
-    void deactivate(); // stops playing when switching to another viewer
+    /** Stops playing when switching to another viewer. */
+    void deactivate();
+    /** A key pressed on the page. */
     void handleKey(uint32_t key);
+    /** Plays on to `nowMs`, drawing the page again when it changes. */
     void update(uint64_t nowMs);
 
 private:
@@ -219,14 +261,20 @@ private:
     uint64_t _lastDraw = 0;
 };
 
-// The text files: How to Play, the ticker's sentences, credits.
-//   Left/Right: previous/next file   Up/Down: scroll a line
-//   PageUp/PageDown: scroll a page   Home/End: top/bottom
+/**
+ * The text files: How to Play, the ticker's sentences, credits.
+ *   Left/Right: previous/next file   Up/Down: scroll a line
+ *   PageUp/PageDown: scroll a page   Home/End: top/bottom
+ */
 class TextViewer {
 public:
+    /** Lists the text files. */
     TextViewer(System &sys, Surface &screen, const GameData &data);
+    /** How many items it shows; the viewer skips a page with none. */
     size_t count() const { return _files.size(); }
+    /** Draws the page as it's shown. */
     void activate();
+    /** A key pressed on the page. */
     void handleKey(uint32_t key);
 
 private:

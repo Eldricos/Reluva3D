@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""Unpacks PACK files (zlib) into a folder, saying whether each came out at
+its stated size.
+
+    python3 -I py/unpack.py OUT_FOLDER FILE...
+"""
+
 import sys, zlib, struct, os
 out = sys.argv[1]
 for p in sys.argv[2:]:

@@ -21,7 +21,7 @@ recording how each format was worked out (CONTRIBUTING.md).
   so the four `.ar` files join a `SearchSet` with loose files over them
   (the original reads loose files first, which mods rely on). Deflate
   from `common/zip.cpp`.
-- `reluva-tool ar-list` and `ar-extract`.
+- `reluva-tool age ar-list` and `ar-extract`.
 - Unit tests with a small archive built in the test, as
   `tests/support/zip_writer.h` does for zips.
 - Viewer: a Files page listing the archives, and text files shown.
@@ -105,9 +105,10 @@ recording how each format was worked out (CONTRIBUTING.md).
 - Still not known: Aero's angular damping (`.vehGyro` and `.vehStuck`
   are read now, as Reluva's readings), the tyres'
   finer terms (what can be said from the 48 cars' values is in
-  [car-simulation.md](systems/car-simulation.md)), which particle texture the smoke uses, the rest of `.ter` after its
-  grid's header ([bnd.md](formats/bnd.md); the bounds' material
-  effects and sounds are all none). For watching the game run.
+  [car-simulation.md](systems/car-simulation.md)), which particle texture the smoke uses, which
+  of `.ter`'s edges the game marks 0 (its layout is all read;
+  [bnd.md](formats/bnd.md); the bounds' material effects and sounds are
+  all none). For watching the game run.
 
 ### 5. The game
 

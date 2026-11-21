@@ -54,6 +54,7 @@
 
 namespace reluva::age {
 
+/** What every page is given: the system, the game's files, where to save. */
 struct ScreenContext {
     System &sys;
     Surface &screen; // RGBA32
@@ -65,30 +66,43 @@ struct ScreenContext {
     bool openingPlayed = false;               // the opening movie has played: no splash picture after it
 };
 
+/** A screen runPages shows: one of the data viewer's pages, or the game. */
 class Page {
 public:
+    /** `ctx` must outlive the page. */
     explicit Page(ScreenContext &ctx) : _ctx(ctx) {}
     virtual ~Page() = default;
 
+    /** Its name, for the window's title. */
     virtual const char *name() const = 0;
-    virtual size_t count() const = 0; // pages with nothing to show are skipped
-    virtual void activate() = 0;      // redraw and retitle after switching here
-    virtual void deactivate() {}      // before switching away
+    /** How many things it has to show; a page with none is skipped. */
+    virtual size_t count() const = 0;
+    /** Redraws and retitles, after switching here. */
+    virtual void activate() = 0;
+    /** Before switching away. */
+    virtual void deactivate() {}
+    /** An event the pages' runner hasn't taken. */
     virtual void handleEvent(const Event &ev) = 0;
+    /** Called every frame. */
     virtual void update(uint64_t /*nowMs*/) {}
-    // Pages that draw with System::init3D; the engine puts the 2D
-    // framebuffer back when leaving one.
+    /**
+     * Whether the page draws with System::init3D; the engine puts the 2D
+     * framebuffer back when leaving one.
+     */
     virtual bool uses3D() const { return false; }
-    // Whether Esc and Tab (which otherwise leave and switch pages) go to
-    // the page instead.
+    /** Whether Esc and Tab (which otherwise leave and switch pages) go to the page instead. */
     virtual bool takesKey(const Event & /*ev*/) const { return false; }
-    // The player asked to leave the game (its Quit dialog).
+    /** Whether the player asked to leave the game (its Quit dialog). */
     virtual bool wantsToQuit() const { return false; }
 
 protected:
+    /** Drawing on the 2D screen: all of it, a rectangle (clipped to it), a line of text. */
+    ///@{
     void clear(uint8_t r, uint8_t g, uint8_t b);
     void fill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b);
     void text(int x, int y, const std::string &s, Color c = {230, 230, 230});
+    ///@}
+    /** The window's title: the game's and the page's names, then `detail`. */
     void setTitle(const std::string &detail);
 
     ScreenContext &_ctx;
@@ -100,21 +114,24 @@ constexpr int kScreenH = 480;
 /**
  * Runs pages until the player leaves (Esc that no page takes, or the
  * window closed): the first with something to show first, Tab moving to
- * the next when `tabs` (the data viewer's) is set.
+ * the next when `tabs` (the data viewer's) is set. Fails if no page has
+ * anything to show.
  */
 Error runPages(System &sys, Surface &screen, std::vector<std::unique_ptr<Page>> &pages, bool tabs);
 
-// A car the menus offer (tune/<car>.info), if its simulation and model
-// are there.
+/** A car the menus offer (`tune/<car>.info`). */
 struct CarInfo {
     std::string base;        // "vpbug"
     std::string description; // "VW New Beetle"
     std::vector<std::string> colors;
 };
+/** Every car with a .info whose simulation and model are there too. */
 std::vector<CarInfo> findCars(const SearchSet &files);
 
-// The driving keys held, as the Drive page and the race screen read them: Up/W
-// throttle, Down/S brake, Left/A and Right/D steer, Space handbrake.
+/**
+ * The driving controls held, as the Drive page and the race screen keep
+ * them: each held by the keys the Control Options bind to it (driveKeyOf).
+ */
 enum DriveKeys : uint32_t {
     kDriveThrottle = 1,
     kDriveBrake = 2,
@@ -124,54 +141,77 @@ enum DriveKeys : uint32_t {
     kDriveHorn = 32,
     kDriveReverse = 64
 };
-// The race screen's events in its menu's order (Blitz, Circuit, Checkpoint,
-// Crash Course, Cruise).
+/**
+ * The race screen's events in its menu's order (Blitz, Circuit, Checkpoint,
+ * Crash Course, Cruise); an index out of range is held to the nearest end.
+ */
 RaceKind racePageKind(int index);
 constexpr int kRacePageKinds = 5;
-// What a key is bound to (the Control Options' keys).
+/** What a key is bound to (the Control Options' keys); Control::kCount for nothing. */
 Control controlOf(uint32_t key);
-// The player's car takes the Control Options (auto reverse, steering).
+/** The player's car takes the Control Options (auto reverse, steering). */
 void applyControlOptions(CarSim &sim);
-// The scene and the city's life take the Graphics and Audio Options:
-// the sky, smart rendering (the .cpvs), how far and how finely models are
-// drawn, the ambient sounds. Cheap: called every frame.
+/**
+ * The scene and the city's life take the Graphics and Audio Options:
+ * the sky, smart rendering (the .cpvs), how far and how finely models are
+ * drawn, the ambient sounds. Cheap: called every frame.
+ */
 void applyGraphicsOptions(CityScene &scene, CityLife &life);
-// How many times the city's textures are halved (the Texture Quality:
-// none at Very High, three at Low). Taken when a city is loaded.
+/**
+ * How many times the city's textures are halved (the Texture Quality:
+ * none at Very High, three at Low). Taken when a city is loaded.
+ */
 int textureHalvings();
-// The share of pedestrians the options leave (Show Pedestrians).
+/** The share of pedestrians the options leave (Show Pedestrians): all or none. */
 float pedestrianShare();
-// Headlights lighting the road (the Lighting Quality).
+/** Whether headlights light the road (the Lighting Quality, half or more). */
 bool headlightPoolsOn();
+/** The driving control (a DriveKeys bit) a key holds, or 0. */
 uint32_t driveKeyOf(uint32_t key);
+/** The car's controls for the driving controls held. */
 CarControls controlsOf(uint32_t keys);
 
-// The speed, gear and revs, bottom right of an RGBA overlay.
-// The speed, gear, revs and (`damage` 0..1) damage: with the game's
-// pictures, if loaded, along the bottom left of the map (which starts at
-// x = `right`); else as text, bottom right, ending there.
+/**
+ * The speed, gear, revs and (`damage` 0..1) damage: with the game's
+ * pictures, if loaded, along the bottom left of the map (which starts at
+ * x = `right`); else as text, bottom right, ending there.
+ */
 void drawSpeedometer(Surface &overlay, const CarSim &sim, int right, float damage, const HudPictures &pictures);
-// The game's rear-view mirror, top right of the frame (x 447, y 0, 193 x 77
-// at 640 x 480, as on its screens): what's behind the car, flipped as a
-// mirror shows it. `world` draws the world for a view; the view and the
-// viewport are the whole frame's again after (the caller's view to set).
+/**
+ * The game's rear-view mirror, top right of the frame (x 447, y 0, 193 x 77
+ * at 640 x 480, as on its screens): what's behind the car, flipped as a
+ * mirror shows it. `world` draws the world for a view; the view and the
+ * viewport are the whole frame's again after (the caller's view to set).
+ */
 void drawRearMirror(gfx::Renderer3D &renderer, const CarSim &sim, float farClip,
                     const std::function<void(const gfx::Mat4 &viewProj, const Vec3 &eye)> &world);
 
-// A race (Blitz, Circuit, Checkpoint) from the game's race files, against
-// opponents driving their recorded paths. Keys in the header's comment.
+/**
+ * The game: its menus, and a race (Blitz, Circuit, Checkpoint) from the game's race files, against
+ * opponents driving their recorded paths; the Crash Course, Cruise and multiplayer too.
+ */
 class RaceScreen : public Page {
 public:
+    /** Finds the cities and cars; nothing's loaded until activate(). */
     explicit RaceScreen(ScreenContext &ctx);
     ~RaceScreen() override;
+    /** "Race". */
     const char *name() const override { return "Race"; }
+    /** 1, or 0 if there's no city or no car to race with. */
     size_t count() const override { return _cities.empty() || _cars.empty() ? 0 : 1; }
+    /** Starts 3D rendering, loads the menus and the city; without 3D, says so on the screen. */
     void activate() override;
+    /** Leaves any session and lets go of the city, the cars and the renderer. */
     void deactivate() override;
+    /** A key, click or typing, for the menus or the race. */
     void handleEvent(const Event &ev) override;
+    /** Steps the race, the session and the menus, and draws the frame. */
     void update(uint64_t nowMs) override;
-    bool uses3D() const override { return _renderer != nullptr; } // without one, it says so, paced as 2D
+    /** Whether 3D rendering started; without it, it says so, paced as 2D. */
+    bool uses3D() const override { return _renderer != nullptr; }
+    /** Esc in the game's menus and in a race, and Tab (the Map Toggle) in a race. */
     bool takesKey(const Event &ev) const override;
+    /** Whether the player chose to quit from the game's menus. */
     bool wantsToQuit() const override { return _quit; }
 
 private:
@@ -180,7 +220,7 @@ private:
         std::unique_ptr<CarActor> car;
         PathDriver driver; // opponents only
         std::string name;
-        size_t next = 0;           // index into targets_ of the next checkpoint (in any order: how many cleared)
+        size_t next = 0;           // index into _targets of the next checkpoint (in any order: how many cleared)
         std::vector<bool> cleared; // in a race in any order, those cleared
         size_t lastCleared = 0;
         float finishTime = -1;
@@ -305,8 +345,8 @@ private:
     LessonJudge _judge;
     std::string _beatenAll; // "You've beaten all the Blitz races!!", once they are
     float _finalLapFor = 0; // seconds "Final lap!" has left
-    float _sunkFor = 0;
-    float _resultsTime = 0; // seconds the results have been up     // and "Sleep with the fishes!", after a car's sunk
+    float _sunkFor = 0;     // seconds "Sleep with the fishes!" has left, after a car's sunk
+    float _resultsTime = 0; // seconds the results have been up
     int _lastLap = 0;
     std::vector<float> _lapEnds; // the clock at each of the player's laps' ends
     // the time shown after a checkpoint, and for how long yet
@@ -432,6 +472,7 @@ private:
     uint8_t netIdOf(const Racer &r) const;
     std::vector<GoldGame::Car> netCars() const;
     void syncNetRacers();                                      // the cars as the session's players come and go
+    void takeOverBot(Racer &r);                                // an old host's computer player, now ours to drive
     void remoteLook(Racer &r, const NetCarState &s, float dt); // another's engine and damage
     void checkProgress(Racer &r, const NetCarState &s);        // the host's count of its checkpoints
     std::set<uint8_t> _unloadable;                             // players whose cars couldn't be loaded

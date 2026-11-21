@@ -465,7 +465,7 @@ struct BoneReader {
             }
             // After its children, the bone's last fields: a 4x3 matrix
             // (identity so far), an i32 7, 2 floats (+-1e38), 2 more, 6
-            // (joint limits? +-30 degrees), then two arrays of i32s
+            // (the joint limits, read below), then two arrays of i32s
             // (usually empty).
             if (p + 92 > to || u32(p + 48) != 7) {
                 if (!failedAt)
@@ -950,10 +950,10 @@ const MeshAnimSeq *Mesh::findAnim(std::string_view name) const {
 // triangle, 2: on the mesh's origin), i32 triangle, 12 floats (its turn,
 // rows X Y Z, then its offset) and i32 kind (4 or 7); then the shared
 // animation sets it uses and places worked out in advance (below).
-// Checked: on The
-// Fallen's 419 meshes with the block, every one reads; ARD_PrisonRat's
-// BitePoint is a triangle at the end of its body on its middle line, the
-// phaser rifle's FirePoint a triangle at the end of its barrel.
+// Checked: on The Fallen's 419 meshes with the block, every one reads;
+// ARD_PrisonRat's BitePoint is a triangle at the end of its body on its
+// middle line, the phaser rifle's FirePoint a triangle at the end of its
+// barrel.
 namespace {
 
 void readAttachPoints(const std::vector<uint8_t> &data, Mesh &out) {
@@ -1660,7 +1660,7 @@ std::vector<std::string> describeBones(const Package &package, int index) {
     return out;
 }
 
-// --- Posed at draw time ---------------------------------------------------------------------
+// Posed at draw time.
 
 namespace {
 

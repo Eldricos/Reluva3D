@@ -2,12 +2,22 @@
 
 > **Status:** decoded · **Code:** `src/common/pe.cpp`, `src/engines/age/formats/lang.cpp` · **Checked on:** the English release · **Confidence:** confirmed unless marked
 
+## Overview
+
 The game's text: `mmlang.dll` in the install folder, a Windows DLL whose
 only resources are string tables (42 of them, 667 strings, in English in
 the retail release). Read by `src/common/pe.cpp` (`readPeStrings`) and
 `src/engines/age/formats/lang.cpp`; nothing in it is run.
 
-## What Reluva uses
+## Layout
+
+A DLL's resources are laid out as Microsoft's PE/COFF specification
+describes: the optional header's third data directory points to a tree
+of type, name and language. Type 6 is string tables: each table (its
+name n) holds 16 strings, ids (n - 1) x 16 to n x 16 - 1, each a 16-bit
+length and that many UTF-16 characters, empty ones length 0.
+
+### What Reluva uses
 
 | Ids | What |
 |---|---|
@@ -30,13 +40,15 @@ copies of the races' groups, 89-157, for the network races), not used
 yet. Which race group is which kind follows from their last lines
 ("You've beaten all the Circuit races!").
 
+## In Reluva
+
+`readPeStrings` (`src/common/pe.cpp`) reads the string tables, and
+`GameStrings` (`src/engines/age/formats/lang.cpp`) holds them for the
+races (`formats/race.cpp`) and the menus (`ui/front_end.cpp`,
+`ui/game_menus.cpp`, `ui/net_menus.cpp`). The ids it uses are in the
+table above.
+
 ## Sources and checks
 
-A DLL's resources are laid out as Microsoft's PE/COFF specification
-describes: the optional header's third data directory points to a tree
-of type, name and language. Type 6 is string tables: each table (its
-name n) holds 16 strings, ids (n - 1) x 16 to n x 16 - 1, each a 16-bit
-length and that many UTF-16 characters, empty ones length 0. Read that
-way, every table of this one comes out as text.
-
+- **Where the facts come from:** Microsoft's PE/COFF specification, for the resources' layout; the strings themselves, matched with the lessons' files. Read that way, every table of this one comes out as text.
 - **How it was checked:** every string table read; `common.unit.windows_resources`.

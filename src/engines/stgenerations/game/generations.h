@@ -31,17 +31,27 @@
 
 namespace reluva::stgenerations {
 
+/** A saved game's first four bytes. */
 const uint32_t kSaveMagic = tagBE('S', 'T', 'G', 'S');
-// 1: the data viewer's place; 2: adds a mission in progress; 3: doors, lifts,
-// lights and the rest the other missions need; 4: the date saved and the
-// campaign; 5: the bridge. Missions saved by an older version can't be read.
+/**
+ * The version saved games are written in. 1: the data viewer's place; 2:
+ * adds a mission in progress; 3: doors, lifts, lights and the rest the
+ * other missions need; 4: the date saved and the campaign; 5: the bridge;
+ * 6: low gravity, safe flats and the walker's step-down; 7: actors' guard
+ * targets. Missions saved by an older version than 3 can't be read.
+ */
 const uint32_t kSaveVersion = 7;
+/** The first versions that hold a mission, the date and the bridge. */
+///@{
 const uint32_t kFirstMissionSaveVersion = 3;
 const uint32_t kFirstDatedSaveVersion = 4;
 const uint32_t kFirstBridgeSaveVersion = 5;
+///@}
 
-// How the game runs: its folders and the launcher's settings for it
-// (stgenerations.cpp lists them), or reluva-tool's options.
+/**
+ * How the game runs: its folders and the launcher's settings for it
+ * (stgenerations.cpp lists them), or reluva-tool's options.
+ */
 struct Options {
     std::filesystem::path gameDir; // the installed game (or an import of it, discs in disc1/ and disc2/)
     // the discs' folders, when not in the game's
@@ -68,34 +78,53 @@ struct Options {
     int lookspring = -1;
 };
 
-// Star Trek: Generations (MicroProse, 1997): the game, from its title to
-// the credits (the front end, the story, the bridge, away missions and
-// space combat). The data viewer (pages/resource_viewer.h, in reluva-viewer
-// only) is the same class without the front end: what it changes is the
-// virtual methods below.
+/**
+ * Star Trek: Generations (MicroProse, 1997): the game, from its title to
+ * the credits (the front end, the story, the bridge, away missions and
+ * space combat). The data viewer (pages/resource_viewer.h, in reluva-viewer
+ * only) is the same class without the front end: what it changes is the
+ * virtual methods below.
+ */
 class Generations {
 public:
-    // `mixer` may be null (no sound).
+    /** The game on `system`, which it doesn't own; with no mixer there, no sound. */
     Generations(Platform *system, Options options);
     virtual ~Generations();
 
-    // Runs the game until the player quits.
+    /**
+     * Opens the game's files and runs the game until the player quits; an
+     * Error if start() gives one.
+     */
     Error run();
 
+    /** Loads a saved game from a slot; an Error saying why it can't be. */
     Error loadGameState(int slot);
+    /**
+     * Saves the game in a slot; an Error saying why it can't be (a mission
+     * waiting for PROCEED can't be saved).
+     */
     Error saveGameState(int slot, const std::string &description);
 
+    /** The game's random numbers. */
     RandomSource &getRandom() { return _random; }
+    /** Whether the player has quit, and quitting. */
+    ///@{
     bool shouldQuit() const { return _system->shouldQuit(); }
     void quitGame() { _system->quitGame(); }
+    ///@}
+    /**
+     * Pauses the game, or lets it go on: pauses nest, and the sound is
+     * paused at the first and resumed at the last.
+     */
     void pauseEngine(bool pause);
+    /** Whether the game is paused. */
     bool isPaused() const { return _pauseLevel > 0; }
-    // The volumes kept by the game's menu, applied to the mixer.
+    /** Applies the volumes kept by the game's menu to the mixer. */
     void syncSoundSettings();
 
-    // The game's own settings file (its menu's choices), in its folder.
+    /** The game's own settings file (its menu's choices), in its folder. */
     static constexpr const char *kSettingsFile = "settings.ini";
-    // A save slot's file, in the game's folder.
+    /** A save slot's file, in the game's folder: "stg.s00" and on. */
     static std::string getSaveFileName(int slot);
 
 protected:
@@ -114,142 +143,181 @@ protected:
     static constexpr int kLevelPage3D = 1;
     static constexpr int kLevelPageTextures = 2;
 
-    // What run() starts once the game's files are open: the front end,
-    // or an Error saying what of it is missing.
+    /**
+     * What run() starts once the game's files are open: the front end,
+     * or an Error saying what of it is missing.
+     */
     virtual Error start();
-    // A key pressed with no menu, bridge, combat or walking to take it:
-    // Esc opens the menu.
+    /**
+     * A key pressed with no menu, bridge, combat or walking to take it:
+     * Esc opens the menu.
+     */
     virtual void keyDown(const KeyState &kbd);
-    // A left click off the 3D view, with nothing else to take it.
+    /** A left click off the 3D view, with nothing else to take it. */
     virtual void click(int x, int y);
-    // A frame with no 3D view, menu, bridge or combat up; false if it
-    // put the last frame back on screen unchanged (no text panel drawn).
+    /**
+     * A frame with no 3D view, menu, bridge or combat up; false if it
+     * put the last frame back on screen unchanged (no text panel drawn).
+     */
     virtual bool drawPage(uint32_t delta);
-    // The away mission being played is over.
+    /** The away mission being played is over. */
     virtual void missionOver();
-    // The level put away (a mission left): nothing on screen.
+    /** The level put away (a mission left): nothing on screen. */
     virtual void clearView();
-    // A saved game with neither the story nor a mission in it: the place
-    // the data viewer saved (its image and sound, -1 for none).
+    /**
+     * A saved game with neither the story nor a mission in it: the place
+     * the data viewer saved (its image and sound, -1 for none).
+     */
     virtual Error restorePlace(int imageIndex, int soundIndex);
-    // Free the level and everything running on it.
+    /** Frees the level and everything running on it. */
     void unloadLevel();
 
+    /** Sets the palette with nothing of the game's up (kColorBlack and the rest). */
     void initPalette();
+    /** Sets the arrow pointer, and shows it. */
     void initCursor();
+    /** Loads the text font (COMMON.DAT's ACTION.FNT) and the palette its colours are in. */
     void loadFont();
+    /** Hands an event to whatever is up: the menu, combat, the bridge, the briefing or the 3D view. */
     void handleEvent(const Event &event);
+    /** Draws a frame of whatever is up, `delta` ms after the last. */
     void drawFrame(uint32_t delta);
+    /** The status and subtitle lines under a page, in the font's own colours. */
     void drawTextPanel();
-    // The 3D page with the away-team console (HudScreen).
+    /** The 3D page with the away-team console (HudScreen). */
     void drawMissionScreen(uint32_t delta);
-    // Blend the screen effects into the level's palette.
+    /** Blends the screen effects and any transition into the level's palette. */
     void applyScreenEffects();
 
-    // Load a level; with run false its scripts are set up but not started (a saved game follows).
+    /** Loads a level; with run false its scripts are set up but not started (a saved game follows). */
     void showLevel(const ResourceRef &ref, bool run = true);
-    // Page 0 is the map, page 1 the 3D view, page n + 1 the n-th texture.
+    /** Page 0 is the map, page 1 the 3D view, page n + 1 the n-th texture; it wraps round. */
     void showLevelPage(int page);
-    // Handle a key on the 3D view; returns false if it isn't a movement key.
+    /**
+     * Handles a key on the 3D view, through the player's key map and then
+     * the engine's own keys; false if neither has a use for it.
+     */
     bool handleWalkKey(const KeyState &state, bool down);
-    // An away action from the key map (KeyMap::AwayAction) pressed or released; false if it has no use here.
+    /** An away action from the key map (KeyMap::AwayAction) pressed or released; false if it has no use here. */
     bool walkAction(int action, bool down);
-    // A mouse button (virtual key 1, 2 or 4) pressed or released over the 3D view.
+    /** A mouse button (virtual key 1, 2 or 4) pressed or released over the 3D view. */
     void viewButton(int vk, bool down);
-    // Let go of every walking key and button (0x43F552).
+    /** Lets go of every walking key and button (0x43F552). */
     void releaseWalkKeys();
-    // While Mouse Look is held: the turn (radians a second) and look (pitch a second) the mouse asks for.
+    /** While Mouse Look is held: the turn (radians a second) and look (pitch a second) the mouse asks for. */
     void mouseLookRates(double &turn, double &look) const;
-    // Move the camera by the keys held, over delta ms, keeping it on the floor.
+    /** Moves the camera by the keys held, over delta ms, keeping it on the floor. */
     void updateWalk(uint32_t delta);
+    /** Sets the status line to the 3D view's readout (in developer builds; else clears it). */
     void updateWalkStatus();
-    // Set up the level's actors, loading their sprite sets.
+    /** Sets up the level's actors, loading their sprite sets. */
     void loadActors(const ResourceRef &levelRef);
-    // Find a sound file (or the subtitle next to it) by file name,
-    // preferring archives whose name starts with archivePrefix.
+    /**
+     * Finds a sound file (or the subtitle next to it) by file name,
+     * preferring archives whose name starts with archivePrefix.
+     */
     bool findSoundFile(const std::string &name, const std::string &archivePrefix, ResourceRef &ref) const;
-    // Load the level's GAME.BIN, if there is one, and start its mission.
+    /** Loads the level's GAME.BIN, if there is one, and starts its mission (unless run is false). */
     void startMission(const ResourceRef &levelRef, bool run = true);
-    // The briefing and its PROCEED button, until it is clicked.
+    /** The briefing and its PROCEED button, until it is clicked. */
     void drawBriefing(Canvas &screen, bool withProceed, bool pressed);
+    /** Whether (x, y) is on the PROCEED button. */
     bool isOverProceed(int x, int y) const;
-    // PROCEED: its sound, then the mission (event 6).
+    /** PROCEED: its sound, then the mission (event 6). */
     void proceed();
-    // A mission transition's blends over the screen (0x43E13A).
+    /** A mission transition's blends over the screen (0x43E13A). */
     void drawTransition(const Mission::TransitionView &transition, Palette &palette);
-    // Start an away mission from the list, in the 3D view.
+    /** Starts an away mission from the list, in the 3D view. */
     void playMission(int index);
-    // Back to the list, saying why.
+    /** Back to the list, saying why. */
     void leaveMission(const std::string &message);
-    // Before rendering a w x h view: where to aim, the item held up, what to pick.
+    /** Before rendering a w x h view: where to aim, the item held up, what to pick. */
     void prepareAim(int w, int h);
-    // After rendering it: the gun held up, or the punch and a crosshair at the centre.
+    /** After rendering it: the gun held up, or the punch and a crosshair at the centre. */
     void drawHands(Canvas &view, uint32_t delta);
-    // The scripts' full-view overlay (SHOW_VIEW_OVERLAY), if any.
+    /** The scripts' full-view overlay (SHOW_VIEW_OVERLAY), if any. */
     void drawViewOverlay(Canvas &view);
-    // The mouse cursor: a crosshair to aim with, or an arrow.
+    /** The mouse cursor: a crosshair to aim with, or an arrow. */
     void setCursor(bool target);
-    // The player attacks: fires the weapon in use, or else punches.
+    /** The player attacks: fires the weapon in use, or else punches. */
     void attack();
-    // Run the punch animation by delta ms and draw it over view.
+    /** Runs the punch animation by delta ms and draws it over view. */
     void updatePunch(uint32_t delta, Canvas &view);
-    // Play one of the movies (e.g. "MOVIE/MOV_01.AVI") full screen, with
-    // its sound, until it ends or a key or click skips it. False if it
-    // can't be found or read.
+    /**
+     * Plays one of the movies (e.g. "MOVIE/MOV_01.AVI") full screen, with
+     * its sound, until it ends or a key or click skips it. False if it
+     * can't be found or read.
+     */
     bool playMovie(const std::string &name);
 
     // The front end (frontend.cpp).
-    // A line of rolling text: its gap above, and whether to centre it.
+
+    /** A line of rolling text: its gap above, and whether to centre it. */
     struct RollLine {
         std::string text;
         int gap;
         bool centred;
     };
-    // The title, then the menu, and the story from STATES.INI; an Error
-    // saying what's missing if the data for it isn't there.
+    /**
+     * The title, then the menu, and the story from STATES.INI; an Error
+     * saying what's missing if the data for it isn't there.
+     */
     Error startFrontEnd();
-    // For testing: the story from one of its sections, as if a new game had got there.
+    /** For testing: the story from one of its sections, as if a new game had got there. */
     void startStoryAt(const std::string &section);
+    /**
+     * Reads the menu's settings from kSettingsFile, the launcher's
+     * settings for those it hasn't set, and applies the volumes.
+     */
     void loadSettings();
-    // Keep the settings and apply the volumes.
+    /** Keeps the settings and applies the volumes. */
     void saveSettings();
-    // Run the story until a mission starts or the game ends.
+    /** Runs the story until a mission, combat or the bridge takes over, or the game ends. */
     void runCampaign();
+    /** Starts the away mission of a game class (Location::type); false if it isn't installed. */
     bool startCampaignMission(int type);
-    // The campaign's mission is over: on to whatever comes next.
+    /** The campaign's mission is over: on to whatever comes next. */
     void campaignMissionEnded();
+    /** Opens the menu; with canReturn, it can go back to what it was opened over. */
     void openMenu(bool canReturn);
-    // resume: back to what the menu was opened over (the bridge, say).
+    /** Closes the menu; with resume, back to what it was opened over (the bridge, say). */
     void closeMenu(bool resume = true);
-    // Show the bridge (true colour), or put it away.
+    /** Shows the bridge (true colour), or puts it away. */
     void setBridgeMode(bool on);
-    // A frame of the bridge, with a command of the script.
+    /** A frame of the bridge, with a command of the script. */
     void updateBridge(uint32_t delta);
-    // Start space combat n; false if it can't be (the story goes on).
+    /** Starts space combat n; false if it can't be (the story goes on, the fight taken as won). */
     bool playSpaceCombat(int number);
-    // Switch the screen to true colour (the bridge, combat) or back.
+    /** Switches the screen to true colour (the bridge, combat) or back. */
     void setTrueColour(bool on);
-    // A frame of space combat.
+    /** A frame of space combat. */
     void updateCombat(uint32_t delta);
+    /** Hands an event to the menu, and acts on what the player chose there. */
     void handleMenuEvent(const Event &event);
+    /** Plays a menu sound from OPTIONS.DAT: M_`id`.WAV from 2000 on, X_`id`.WAV below. */
     void playMenuSound(int id);
+    /** The save slots for the menu, the automatic save's last. */
     std::vector<OptionsMenu::Slot> listSaves();
+    /** A slot's description and date (empty before version 4); false if it holds no saved game. */
     bool readSaveHeader(int slot, std::string &description, std::string &date);
-    // When a game is saved, as the menu shows it ("11/05 21:52").
+    /** When a game is saved, as the menu shows it ("11/05 21:52"). */
     std::string saveDate() const;
-    // Poll events; true on a key or click (or quitting).
+    /** Polls events; true on a key or click (or quitting). */
     bool waitForSkip();
-    // Show a bitmap full screen in its own palette.
+    /** Shows a bitmap full screen in its own palette; false if it isn't an 8-bit one that can be read. */
     bool showPicture(const ResourceRef &ref, BitmapDecoder &decoder);
+    /** The title (INTRO1.BMP) for five seconds, or until skipped. */
     void showIntro();
-    // Play a track from MUSIC.1 or MUSIC.2.
+    /** Plays a track from MUSIC.1 or MUSIC.2; false if it isn't there. */
     bool playMusic(const std::string &name);
-    // Roll lines of text up over a background while the music plays.
+    /** Rolls lines of text up over a background while the music plays. */
     void rollText(const BitmapDecoder &background, const Font &font, const std::vector<RollLine> &lines,
                   const std::vector<std::string> &music);
-    // The ending texts, TEXTn.TXT.
+    /** The ending texts, TEXTn.TXT. */
     void showScrollText(int number);
+    /** Reads the credits from their table in SGENS.EXE; false if it isn't there or can't be read. */
     bool loadCredits(std::vector<RollLine> &lines);
+    /** Rolls the credits, with their music. */
     void showCredits();
 
     Platform *_system;
@@ -299,6 +367,7 @@ protected:
     bool _paletteBlended = false;
     Camera _camera;
     uint32_t _levelTime = 0;
+    /** The walking keys held, indexing _walkKeys. */
     enum WalkKey {
         kWalkForward,
         kWalkBack,
@@ -357,6 +426,7 @@ protected:
     bool _missionSubtitle = false;
     uint32_t _subtitleUntil = 0;
     // The away missions installed, and the one chosen or being played.
+    /** An away mission installed: its folder's name and its level. */
     struct MissionEntry {
         std::string name;
         ResourceRef level;

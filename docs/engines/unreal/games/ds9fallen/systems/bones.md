@@ -172,8 +172,8 @@ last until the scripts' next tick replaces them:
 - **`InterpolateRotation(A, B, Alpha)`:** Alpha of the way from A to B,
   the shorter way round, turning evenly: Engine.dll makes the two
   quaternions and slerps them (not each angle on its own). The scripts ease
-  the IK turns and the head's look with it. While it was missing, every
-  foot target came out as turn 0, which faced the feet backward.
+  the IK turns and the head's look with it. Without it, every foot
+  target would come out as turn 0, facing the feet backward.
 
 On M01_KiraL2, standing, Kira's points and bones are:
 - head bone 35 above her middle (her top is 47);
@@ -225,8 +225,8 @@ Checked against Engine.dll (November 2026):
   - **`C3DApplyIKOnBasePose(IkChain, Val)`**: with `Val` not 0, the
     chain's bones go back to their bind pose before the solve. It isn't
     "before the layers": the solve is always after them.
-  - A skeleton with no chains of its own or borrowed keeps Reluva's
-    earlier two-bone solve. No other script sets IK.
+  - A skeleton with no chains of its own or borrowed gets Reluva's own
+    two-bone solve. No other script sets IK.
   - **A turn from another actor** (`C3DSetIkTargetOrientation(IkChain,
     Target, RelRotation, ..)`): the native only stores the request (the
     target by name, the rotator, the weight); each frame the engine
@@ -248,9 +248,9 @@ Checked against Engine.dll (November 2026):
   barrel. That needed `Rotator * Rotator` (The Fallen's own operator,
   `Object.uc`'s native 292) to turn the second rotator on in the
   first's frame, as `CTV_Player` turns the player's weapon by its
-  `IK_PreRotate`: it was multiplying them part by part, so a weapon with
-  no pre-turn was left at no rotation at all, facing the world's X
-  whichever way she faced.
+  `IK_PreRotate`. Multiplied part by part, a weapon with no pre-turn
+  would be left at no rotation at all, facing the world's X whichever
+  way she faced.
 
 ## In Reluva
 

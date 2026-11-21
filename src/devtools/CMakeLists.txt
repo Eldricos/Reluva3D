@@ -35,4 +35,5 @@ reluva_finish_tool(
     ${CMAKE_CURRENT_SOURCE_DIR}/commands.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/media.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/games.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/x86.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/x86.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/meeting.cpp)

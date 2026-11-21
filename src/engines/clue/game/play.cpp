@@ -2,8 +2,9 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Where things go and what they say is the original's, as recordings show
-// it (docs/engines/clue/systems/screen.md); what follows what is the game's own texts'
-// (Data/<lang>/Text); the pictures, sounds and dialogs are its files'.
+// it (docs/engines/clue/systems/screen.md); what follows what is the game's
+// own texts' (Data/<lang>/Text); the pictures, sounds and dialogs are its
+// files'.
 
 #include "engines/clue/game/play.h"
 
@@ -35,8 +36,8 @@ constexpr int kVideoFrameX = 427;
 constexpr int kVideoFrameY = 5;
 constexpr int kVideoFrameW = 208;
 constexpr int kVideoFrameH = 408;
-// The card shown to a human, wider: from further left.
-// Clue.exe 0x435AA1: dialog 33
+// The card shown to a human (dialog 33), wider: from further left
+// (Clue.exe 0x435AA1).
 constexpr int kShownX = 398;
 constexpr int kShownY = 5;
 // The drawer's three places, over the logo: the die (then the number
@@ -56,10 +57,9 @@ constexpr int kToldMs = 3000;
 constexpr int kTurnPanMs = 2000;
 // The ticker: a sentence stays centred 8 s, then scrolls left at 3.5 pixels
 // a second, coming round again from the right (as in recordings), between
-// the ticker's ends.
-// its text: Clue.exe 0x435630, 41 in, 558 wide
+// the ticker's ends: its text's, 41 in and 558 wide (Clue.exe 0x435630).
 constexpr int kTickerStillMs = 8000;
-constexpr int kTickerSpeed = 35;
+constexpr int kTickerSpeed = 35; // tenths of a pixel a second
 constexpr int kTickerLeft = 41;
 constexpr int kTickerRight = 599;
 
@@ -179,13 +179,14 @@ const char *const kObjectSound[] = {
 // sound of each is the object's timing 1500, 1600 or 1700.
 constexpr uint16_t kReactionFirst = 20;
 constexpr uint16_t kReactionLast = 22;
-// The weather, as Clue.exe has it (0x41C690, docs/engines/clue/systems/sounds.md): a
-// cycle of 300 s, run each 66 ms tick. At set times the drapes blow
-// (state 23, light; 24, heavy; 0, still) and the wind's gusts loop; between
-// them, now and then (one tick in 100 or 80), a thunder. Each step: from
-// the cycle's ms on, to a state, the drapes' state then (-1 unchanged), the
-// gust looping then (0 none, 1 light, 2 heavy, -1 unchanged), and the
-// thunders heard by chance until the next step (0 none, 1 small, 2 middle).
+// The weather, as Clue.exe has it (0x41C690,
+// docs/engines/clue/systems/sounds.md): a cycle of 300 s, run each 66 ms
+// tick. At set times the drapes blow (state 23, light; 24, heavy; 0, still)
+// and the wind's gusts loop; between them, now and then (one tick in 100 or
+// 80), a thunder. Each step: from the cycle's ms on, to a state, the drapes'
+// state then (-1 unchanged), the gust looping then (0 none, 1 light, 2
+// heavy, -1 unchanged), and the thunders heard by chance until the next
+// step (0 none, 1 small, 2 middle).
 struct WeatherStep {
     int fromMs;
     int drapes;
@@ -416,7 +417,7 @@ Error Play::load(std::istream &in) {
     return Error::success();
 }
 
-// ---- The sequence of events ------------------------------------------------
+// The sequence of events
 
 void Play::pause(int ms) {
     then([this, ms] { _waitUntil = _now + uint64_t(ms); });
@@ -518,7 +519,7 @@ void Play::afterAction() {
         promptHuman();
 }
 
-// ---- Actions ----------------------------------------------------------------------
+// Actions
 
 void Play::perform(const netplay::Command &c) {
     if (!_net) {
@@ -1146,7 +1147,7 @@ void Play::accusationMade(const Accusation &a) {
     });
 }
 
-// ---- The windows ----------------------------------------------------------------
+// The windows
 
 void Play::showTold(int suspect, bool can) {
     // Dialog 31, with the suspect's own portrait: the box at the top right.
@@ -1319,7 +1320,7 @@ void Play::openLoser() {
     _window = Window::kLoser;
 }
 
-// ---- Clicks -------------------------------------------------------------------
+// Clicks
 
 void Play::handleEvent(const Event &ev) {
     if (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseDown || ev.type == EventType::kMouseUp) {
@@ -1798,7 +1799,7 @@ void Play::editNote(int card) {
     _sys.setTextInput(card >= 0);
 }
 
-// ---- Time --------------------------------------------------------------------
+// Time
 
 void Play::update(uint64_t nowMs) {
     const uint64_t dt = _now == 0 ? 0 : std::min<uint64_t>(nowMs - _now, 100);
@@ -1884,7 +1885,7 @@ void Play::update(uint64_t nowMs) {
     runSteps();
 }
 
-// ---- Sounds, words, videos -----------------------------------------------------
+// Sounds, words, videos
 
 std::string Play::line(int suspect, int index) const {
     const size_t n = size_t(suspect) * kTickerBlock + size_t(index);
@@ -1964,7 +1965,7 @@ void Play::centreOn(int suspect) {
     _camY = floorDiv(w.x + w.y, 2) - 60 - kBarTop / 2;
 }
 
-// ---- Drawing -------------------------------------------------------------------
+// Drawing
 
 void Play::drawAnimation(const std::string &name, int x, int y, int frame) {
     const Animation *a = _data.animation(name);

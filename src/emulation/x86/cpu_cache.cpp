@@ -5,14 +5,16 @@
 // direct-mapped, made the first time it runs: its operands decoded once
 // (the ModRM operand as base, index, scale and displacement; the
 // immediate), and a handler that runs it, in blocks that run straight
-// through. The instructions programs run
-// most (moves, the ALU operations, pushes and pops, jumps, calls and
-// returns, LEA, MOVZX/MOVSX, shifts, SETcc) have handlers of their own;
-// the rest, and those with prefixes other than FS, run from their bytes
-// as before (Cpu::execute); those that can't go elsewhere (x87, NOT, NEG,
-// MUL, DIV, REP string operations) without ending their block; RDTSC, which reads the count, ends its own. A block keeps its instructions' bytes and is
-// remade when they've changed, however they were written (a program's
-// loader copying code with a native memcpy, say).
+// through. The instructions programs run most (moves, the ALU operations,
+// pushes and pops, jumps, calls and returns, LEA, MOVZX/MOVSX, shifts,
+// SETcc, the x87 unit's commonest) have handlers of their own; the rest,
+// and those with prefixes other than FS, run from their bytes as the
+// interpreter runs them (Cpu::execute): those that can't go elsewhere (the
+// other x87 ones, NOT, NEG, MUL, DIV, REP string operations) without
+// ending their block. RDTSC, which reads the count, ends its own. A block
+// keeps its instructions' bytes and is remade when they've changed,
+// however they were written (a program's loader copying code with a
+// native memcpy, say).
 
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/jit.h"
@@ -529,7 +531,7 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
     Block *const blocks = _blocks.data();
     const uint8_t *const memory = _memory.data();
     do {
-        if (_stop.load(std::memory_order_relaxed)) { // counted, as one instruction at a time did
+        if (_stop.load(std::memory_order_relaxed)) { // counted, as step() counts the one it stops at
             _instructionStart = eip;
             if (_executed + 1 > end)
                 events();

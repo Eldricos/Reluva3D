@@ -91,8 +91,7 @@ clock; only its drawing is paced, and it's not primed (its own `Tick`). The
 time is the real time since the texture was last drawn, with no limit
 of its own (the viewport's clock, 0x103da0e0): after a long stall it's
 `MinFrameRate` that keeps a slow texture from leaping. Reluva gives them
-that time; before, it held every frame's time to a tenth of a second,
-as it still does for the game's own tick.
+that time, though it holds the game's own tick to a tenth of a second.
 
 #### Flipbooks (AnimNext)
 
@@ -355,5 +354,5 @@ after some steps).
 - **How it was checked:** `reluva-tool unreal check`, October 2026: all
   3801 palettes read and 4029 of 4211 textures decode. The other 182 were
   procedural textures (FireTexture, WetTexture...: force fields, cloaks,
-  turret beams, explosion waves) that store no pixels at all; they now get
+  turret beams, explosion waves) that store no pixels at all; they get
   a stand-in (above).

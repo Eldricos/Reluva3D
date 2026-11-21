@@ -57,7 +57,7 @@ int red(const Glide2 &g, int x, int y) {
     return g.lfbRead(kBufferBack, x, y, false) >> 11 & 31;
 }
 
-// --- The Voodoo Rush's memory, shared with the 2D desktop -------------------------
+// The Voodoo Rush's memory, shared with the 2D desktop.
 
 void testRushDesktop() {
     // The SST-96 specification's windowed tables (System Resolutions):
@@ -199,7 +199,7 @@ void testRushDesktop() {
     CHECK(cpu.read32(hw + 16) == 1 && cpu.read32(hw + 20) == 2);
 }
 
-// --- The Banshee -----------------------------------------------------------------------
+// The Banshee.
 
 void testBanshee() {
     const Board b = bansheeBoard();
@@ -233,7 +233,7 @@ void testBanshee() {
     CHECK(Glide2(b).sstQueryHardware(hw) && hw.type == 4 && hw.nTexelfx == 1 && hw.fbRamMb == 16);
 }
 
-// --- Glide 3's extensions ------------------------------------------------------------------
+// Glide 3's extensions.
 
 void texturedSetup(Glide2 &g) {
     g.ditherMode(kDitherDisable);
@@ -377,7 +377,7 @@ void testChromaRange() {
     CHECK(!cpu.call(v1dll.exports().at("_grGetProcAddress@4"), {name}, proc) && proc == 0);
 }
 
-// --- The anti-aliased fringe of clipped primitives ----------------------------------
+// The anti-aliased fringe of clipped primitives.
 
 struct ClipV {
     float x;
@@ -451,8 +451,7 @@ void testClippedFringe() {
     ordered.drawTriangle(at(a), at(b), at(c));
     CHECK(std::abs(green(ordered.core(), 320, 119) - 31) <= 2);
     CHECK(std::abs(green(ordered.core(), 320, 240) - 31) <= 2);
-    // Wholly inside, as before: the same pixels as the window-coordinate
-    // triangle's.
+    // Wholly inside: the same pixels as the window-coordinate triangle's.
     Glide3 inside = clipAa();
     const ClipV ia{-0.5f, -0.5f, 0, 1, 0xffffffffu};
     const ClipV ib{0.5f, -0.5f, 0, 1, 0xffffffffu};

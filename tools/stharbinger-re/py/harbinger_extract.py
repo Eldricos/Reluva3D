@@ -46,23 +46,25 @@ import zlib
 from pathlib import Path
 
 
-# --------------------------------------------------------------------------
 # Small helpers
-# --------------------------------------------------------------------------
 
 def u16(d, o):
+    """The little-endian 16-bit value at `o`."""
     return d[o] | (d[o + 1] << 8)
 
 
 def u32(d, o):
+    """The little-endian 32-bit value at `o`."""
     return struct.unpack_from("<I", d, o)[0]
 
 
 def hexs(d, n=16):
+    """The first `n` bytes in hex, for the report."""
     return " ".join("%02X" % b for b in d[:n])
 
 
 def _png_chunk(tag, data):
+    """A PNG chunk: its length, tag, data and CRC."""
     body = tag + data
     return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
 
@@ -104,7 +106,7 @@ def write_wav(path, samples, rate, fmt="u8"):
 
 
 def vga_palette(pal):
-    """768-byte palette -> 8-bit RGB. Values 0..63 are 6-bit VGA DAC values."""
+    """A 768-byte palette as 8-bit RGB, and whether it was 6-bit VGA DAC values (0..63), widened."""
     pal = bytes(pal[:768]).ljust(768, b"\x00")
     if max(pal) <= 63:
         return bytes((v << 2) | (v >> 4) for v in pal), True
@@ -128,6 +130,7 @@ def false_colour_palette():
 
 
 def _hsv(h, s, v):
+    """An HSV colour (each 0..1) as 8-bit RGB."""
     i = int(h * 6)
     f = h * 6 - i
     p, q, t = v * (1 - s), v * (1 - f * s), v * (1 - (1 - f) * s)
@@ -135,12 +138,11 @@ def _hsv(h, s, v):
     return int(r * 255), int(g * 255), int(b * 255)
 
 
-# --------------------------------------------------------------------------
 # PKWARE Data Compression Library ("implode") decoder.
 # Port of Mark Adler's blast.c (zlib contrib/blast), table-driven for speed.
-# --------------------------------------------------------------------------
 
 class DCLError(Exception):
+    """A DCL stream that can't be decoded."""
     pass
 
 
@@ -158,6 +160,7 @@ _DCL_EXTRA = (0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8)
 
 
 def _dcl_table(rep, nsym):
+    """A lookup table for the codes whose lengths `rep` gives (run-length coded), and its index mask."""
     lengths = []
     for b in rep:
         lengths.extend([b & 15] * ((b >> 4) + 1))
@@ -187,6 +190,7 @@ _DCL_TABLES = None
 
 
 def _dcl_tables():
+    """The literal, length and distance tables, made once."""
     global _DCL_TABLES
     if _DCL_TABLES is None:
         _DCL_TABLES = (_dcl_table(_DCL_LITLEN, 256), _dcl_table(_DCL_LENLEN, 16),
@@ -259,9 +263,7 @@ def dcl_decompress(data, allow_truncated=False):
             out += (out[start:] * (length // dist + 1))[:length]
 
 
-# --------------------------------------------------------------------------
 # Archives: NAME.CAT (text: count, names), NAME.LST (u32 offsets), NAME.ALL (data)
-# --------------------------------------------------------------------------
 
 def sibling(path, ext):
     """Case-insensitive lookup of the same stem with another extension."""
@@ -273,6 +275,7 @@ def sibling(path, ext):
 
 
 def read_archive(lst_path):
+    """(the .ALL, [(name, start, end)], problems) for a .LST, with names from the .CAT if there is one."""
     all_path = sibling(lst_path, ".ALL")
     cat_path = sibling(lst_path, ".CAT")
     issues = []
@@ -312,6 +315,7 @@ def read_archive(lst_path):
 
 
 def has_part(path, part):
+    """Whether a path has a folder (or file) of that upper-case name."""
     return any(p.upper() == part for p in path.parts)
 
 
@@ -322,6 +326,7 @@ def phoneme_words(clip):
 
 
 def identify_exe(d):
+    """What kind of program the bytes are (MZ, PE, LE, NE, LX...), or None if not one."""
     if d[:2] not in (b"MZ", b"ZM"):
         return None
     kind = "MZ (16-bit DOS / stub)"
@@ -350,9 +355,7 @@ def find_le_header(d):
     return None
 
 
-# --------------------------------------------------------------------------
 # CMP backgrounds
-# --------------------------------------------------------------------------
 
 _NUM_RE = re.compile(r"^(.*?)(\d+)$")
 
@@ -382,6 +385,7 @@ def choose_palette(stem, names):
 
 
 def cmp_dimensions(size):
+    """(width, height, palette bytes after the pixels) for a CMP's decompressed size, or None."""
     for w, h in ((640, 480), (640, 400), (320, 200), (640, 350)):
         if size == w * h:
             return w, h, 0
@@ -393,6 +397,7 @@ def cmp_dimensions(size):
 
 
 def job_cmp(job):
+    """Converts a CMP background to PNG; returns what the report says of it."""
     src, outbase, pal, palname = job["src"], job["out"], job["pal"], job["palname"]
     d = Path(src).read_bytes()
     res = {"kind": "cmp", "file": src, "size": len(d), "palette": palname or "grey"}
@@ -421,7 +426,6 @@ def job_cmp(job):
     return res
 
 
-# --------------------------------------------------------------------------
 # RLE animations
 #   file:  8 bytes magic, u16 frame count
 #   frame: 25-byte header: +0 u8 (key colour?), +1 u16 width, +3 u16 height,
@@ -429,9 +433,9 @@ def job_cmp(job):
 #   data:  top two bits select the opcode, low six bits are the count n:
 #          00 literal n bytes, 01 new row + skip n, 10 run of n x next byte,
 #          11 skip n. Confirmed on POWGLF, CHDRK1, UP040A1, ANTI01, DR101R3X, EXPLSMM1.
-# --------------------------------------------------------------------------
 
 def parse_rle(d):
+    """(frame count field, [(offset, header, data)], bytes left over, problems) of an RLE file."""
     frames, off, issues = [], 10, []
     while off + 25 <= len(d):
         hdr = d[off:off + 25]
@@ -483,6 +487,7 @@ def decode_rle_rows(buf):
 
 
 def decode_rle_frame(hdr, body):
+    """decode_rle_rows() of a frame, and whether its rows fit the header's width and height."""
     w, h = u16(hdr, 1), u16(hdr, 3)
     rows, width, left, warnings = decode_rle_rows(body)
     while len(rows) > h and not rows[-1]:      # trailing row marker ends the frame
@@ -491,6 +496,7 @@ def decode_rle_frame(hdr, body):
 
 
 def job_rle(job):
+    """Converts an RLE animation to a PNG per frame; returns what the report says of it."""
     src, outbase, pal, palname = job["src"], job["out"], job["pal"], job["palname"]
     d = Path(src).read_bytes()
     res = {"kind": "rle", "file": src, "size": len(d), "palette": palname or "grey", "frames": []}
@@ -524,11 +530,10 @@ def job_rle(job):
     return res
 
 
-# --------------------------------------------------------------------------
 # RAW audio
-# --------------------------------------------------------------------------
 
 def _entropy(d):
+    """The bytes' entropy, in bits per byte."""
     n = len(d) or 1
     return -sum(c / n * math.log2(c / n) for c in (d.count(bytes([v])) for v in range(256)) if c)
 
@@ -550,6 +555,7 @@ def detect_raw_format(d):
 
 
 def raw_stats(d):
+    """A RAW sound's byte statistics, and guesses at its sample format."""
     n = len(d) or 1
     hist = [d.count(bytes([v])) for v in range(256)]
     entropy = -sum(c / n * math.log2(c / n) for c in hist if c)
@@ -572,6 +578,7 @@ def raw_stats(d):
 
 
 def job_raw(job):
+    """Converts a RAW sound to WAV, in the format given or detected; returns what the report says of it."""
     d = Path(job["src"]).read_bytes()
     res = {"kind": "raw", "file": job["src"], "size": len(d)}
     res.update(raw_stats(d))
@@ -581,11 +588,10 @@ def job_raw(job):
     return res
 
 
-# --------------------------------------------------------------------------
 # Palettes and map grids
-# --------------------------------------------------------------------------
 
 def job_pal(job):
+    """Converts a palette to a 16x16 swatch PNG; returns what the report says of it."""
     d = Path(job["src"]).read_bytes()
     pal, six = vga_palette(d)
     img = bytes((y // 16) * 16 + x // 16 for y in range(256) for x in range(256))
@@ -594,6 +600,7 @@ def job_pal(job):
 
 
 def guess_width(d, lo=32, hi=2048, samples=4000):
+    """The row width that best lines up a raw image's edges with the next row's, and the five best."""
     n = len(d)
     hi = min(hi, n // 4)
     edges = [i for i in range(n - 1) if d[i] != d[i + 1]]
@@ -617,6 +624,7 @@ def guess_width(d, lo=32, hi=2048, samples=4000):
 
 
 def job_map(job):
+    """Converts a deck map to PNG at its guessed width; returns what the report says of it."""
     d = Path(job["src"]).read_bytes()
     width, top = guess_width(d)
     res = {"kind": "map", "file": job["src"], "size": len(d), "width": width,
@@ -640,17 +648,17 @@ JOB_FUNCS = {"cmp": job_cmp, "rle": job_rle, "raw": job_raw, "pal": job_pal, "ma
 
 
 def run_job(job):
+    """Runs one conversion; an exception becomes the job's error in the report."""
     try:
         return JOB_FUNCS[job["kind"]](job)
     except Exception as e:  # keep going; one bad file should not stop a 2-CD run
         return {"kind": job["kind"], "file": job["src"], "error": "%s: %s" % (type(e).__name__, e)}
 
 
-# --------------------------------------------------------------------------
 # Driver
-# --------------------------------------------------------------------------
 
 class Extractor:
+    """The extract command: unpacks the discs' archives, converts every file and writes the report."""
     def __init__(self, out, discs, args):
         self.out = Path(out)
         self.discs = [Path(d) for d in discs]
@@ -664,12 +672,15 @@ class Extractor:
             self.map_palettes[m] = pal
 
     def wants(self, kind):
+        """Whether --only asks for this kind of file."""
         return self.only is None or kind in self.only
 
     def log(self, msg):
+        """Prints a progress line at once."""
         print(msg, flush=True)
 
     def run(self):
+        """Unpacks, converts and reports."""
         for i, disc in enumerate(self.discs, 1):
             label = "disc%d" % i
             self.roots.append((label, disc, self.out / label))
@@ -679,9 +690,10 @@ class Extractor:
         self.convert()
         self.write_report()
 
-    # ---- archives --------------------------------------------------------
+    # Archives.
 
     def unpack_archives(self, label, root, outdir, depth):
+        """Unpacks every archive under `root`, and archives inside those up to 3 deep."""
         for lst in sorted(p for p in root.rglob("*") if p.suffix.upper() == ".LST"):
             if not sibling(lst, ".ALL"):
                 continue
@@ -715,6 +727,7 @@ class Extractor:
                                                       "  [%s]" % "; ".join(issues) if issues else ""))
 
     def unpack_dialogue(self, entries, data, dest, info):
+        """Writes a dialogue archive's clips as WAVs."""
         empty = 0
         for i, (_, a, b) in enumerate(entries):
             clip = data[a:b]
@@ -730,6 +743,7 @@ class Extractor:
         info["empty_clips"] = empty
 
     def unpack_phonemes(self, entries, data, dest, info):
+        """Writes a phoneme archive's clips and a transcript of the words in them."""
         dest.mkdir(parents=True, exist_ok=True)
         lines = []
         for i, (_, a, b) in enumerate(entries):
@@ -739,9 +753,10 @@ class Extractor:
             lines.append("%03d  %s" % (i, phoneme_words(clip) if clip else "(empty)"))
         (dest / "transcript.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    # ---- per-file conversion ---------------------------------------------
+    # Per-file conversion.
 
     def convert(self):
+        """Converts every file of a known kind under the roots, in worker processes."""
         files = []
         for label, root, outdir in self.roots:
             for p in sorted(root.rglob("*")):
@@ -796,9 +811,10 @@ class Extractor:
         if workers != 1:
             pool.shutdown()
 
-    # ---- report ----------------------------------------------------------
+    # Report.
 
     def write_report(self):
+        """Writes report.txt (what was found and converted, and the errors) and the CSV files."""
         self.out.mkdir(parents=True, exist_ok=True)
         r, lines = self.report, []
         add = lines.append
@@ -922,6 +938,7 @@ def map_palette_sheets(out, discs, tile=200, cols=8):
 
 
 def probe_raw(out, path):
+    """Writes one RAW file as 8-bit unsigned and signed and 16-bit, at 11025 and 22050 Hz, to compare by ear."""
     d = Path(path).read_bytes()
     out = Path(out)
     st = raw_stats(d)

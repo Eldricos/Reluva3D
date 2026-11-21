@@ -100,7 +100,7 @@ bool readLobby(Reader &r, Lobby &l) {
 
 } // namespace
 
-// ---- Commands -----------------------------------------------------------------
+// Commands
 
 Bytes encodeCommand(const Command &c) {
     Writer w;
@@ -121,7 +121,7 @@ bool decodeCommand(const Bytes &b, size_t &at, Command &c) {
     return r.ok && c.type <= Command::kRoomWalk && c.seat < kSeats;
 }
 
-// ---- The channel ------------------------------------------------------------------
+// The channel
 
 void Channel::received(const Bytes &d, uint64_t nowMs, std::vector<Bytes> &out) {
     _lastHeard = nowMs;
@@ -175,7 +175,7 @@ void Channel::update(uint64_t nowMs, net::UdpSocket &socket) {
     }
 }
 
-// ---- The session ------------------------------------------------------------------
+// The session
 
 std::unique_ptr<Session> Session::host(std::unique_ptr<net::UdpSocket> socket, const std::string &gameName,
                                        const std::string &playerName, int maxHumans) {

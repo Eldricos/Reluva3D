@@ -16,24 +16,29 @@
 
 namespace reluva::netimmerse::testing {
 
+/** A file to put in a .pac archive (buildPac). */
 struct PacFile {
     std::string name;
     std::string data;
-    uint64_t modified = 0;
+    uint64_t modified = 0;   // a Windows FILETIME
     uint32_t offsetHigh = 0; // the data offset's high half
 };
 
+/** Appends a value, little-endian. */
 inline void put32(std::vector<uint8_t> &b, uint32_t v) {
     for (int i = 0; i < 4; ++i)
         b.push_back(uint8_t(v >> (8 * i)));
 }
+/** Writes a value, little-endian, at `at`, which must already be inside `b`. */
 inline void set32(std::vector<uint8_t> &b, size_t at, uint32_t v) {
     for (int i = 0; i < 4; ++i)
         b[at + size_t(i)] = uint8_t(v >> (8 * i));
 }
 
-// An archive laid out as the retail ones: header, directory, 4 zero
-// bytes, then the files in the directory's order.
+/**
+ * An archive laid out as the retail ones: header, directory, 4 zero
+ * bytes, then the files in the directory's order.
+ */
 inline std::vector<uint8_t> buildPac(const std::vector<PacFile> &files) {
     std::vector<uint8_t> dir;
     std::vector<size_t> offsetAt;
@@ -65,42 +70,51 @@ inline std::vector<uint8_t> buildPac(const std::vector<PacFile> &files) {
     return out;
 }
 
+/** Writes the bytes to a file, replacing it; its folder must be there. Returns the path. */
 inline std::filesystem::path writeFile(const std::filesystem::path &path, const std::vector<uint8_t> &bytes) {
     std::ofstream f(path, std::ios::binary | std::ios::trunc);
     f.write(reinterpret_cast<const char *>(bytes.data()), std::streamsize(bytes.size()));
     return path;
 }
 
+/** The bytes as a string. */
 inline std::string asString(const std::vector<uint8_t> &v) {
     return std::string(v.begin(), v.end());
 }
 
-// 2000-08-21 12:00:00 UTC.
+/** 2000-08-21 12:00:00 UTC, as a Windows FILETIME. */
 inline constexpr uint64_t kFileTime = 116444736000000000ULL + 966859200ULL * 10000000ULL;
 
+/** Appends a float, little-endian. */
 inline void putFloat(std::vector<uint8_t> &b, float f) {
     uint32_t u;
     std::memcpy(&u, &f, 4);
     put32(b, u);
 }
 
-// A model written as docs/engines/netimmerse/games/legoalphateam/formats/fin.md describes: a LOD node
-// (roots) over a node with a collision box, holding a textured triangle.
+/** Writes a .FIN model's objects as docs/engines/netimmerse/games/legoalphateam/formats/fin.md describes. */
 struct FinWriter {
     std::vector<uint8_t> b;
+    /** Appends a string after its 32-bit length. */
     void str(const std::string &s) {
         put32(b, uint32_t(s.size()));
         b.insert(b.end(), s.begin(), s.end());
     }
+    /** Starts an object: its type's name and its id, which other objects link to it by. */
     void object(const std::string &type, uint32_t id) {
         str(type);
         put32(b, id);
     }
+    /** An object's name, no extra data, and the first byte of its flags. */
     void objectNet(const std::string &name, uint8_t flags = 0) {
         str(name);
         put32(b, 0); // no extra data
         b.push_back(flags);
     }
+    /**
+     * A scene object's part: objectNet(), its position `t`, no rotation, a
+     * scale of 2, its properties (by id) and, if `box`, a collision volume.
+     */
     void avObject(const std::string &name, std::array<float, 3> t, const std::vector<uint32_t> &props, bool box,
                   uint8_t flags = 0) {
         objectNet(name, flags);
@@ -128,6 +142,7 @@ struct FinWriter {
                 putFloat(b, 0);
         }
     }
+    /** A node's part after avObject(): its children (by id), and no effects. */
     void nodeTail(const std::vector<uint32_t> &children) {
         put32(b, 2);
         put32(b, 0);
@@ -139,6 +154,10 @@ struct FinWriter {
     }
 };
 
+/**
+ * A model: a LOD node (the root) over a hidden node with a collision box,
+ * holding a textured triangle and a skin.
+ */
 inline std::vector<uint8_t> buildFin() {
     FinWriter w;
     const std::string header = "Dweezil 23\n";
@@ -216,10 +235,12 @@ inline std::vector<uint8_t> buildFin() {
     return w.b;
 }
 
-// A font with "A" and "B" on one 4x4 page: "A" 2x2 at the top-left, sitting
-// on the baseline, drawn one pixel right of the pen (its edges 1 and 3).
-// A font of "A" and "B" (B on page `bPage`): page 0 drawn 4 above and 1
-// below the baseline, page 1 (if `pages` is 2) at twice that.
+/**
+ * A .DDF font of "A" and "B" on 4x4 pages, "B" on page `bPage`. "A" is 2x2
+ * at the top-left, sitting on the baseline, drawn one pixel right of the
+ * pen (its edges 1 and 3). Page 0 is drawn 4 above and 1 below the
+ * baseline, page 1 (if `pages` is 2) at twice that.
+ */
 inline std::vector<uint8_t> ddfFile(int bPage, int pages = 1) {
     const size_t records = 78 + 4 * size_t(pages);
     std::vector<uint8_t> d(records + 2 * 18);
@@ -240,8 +261,11 @@ inline std::vector<uint8_t> ddfFile(int bPage, int pages = 1) {
     return d;
 }
 
-// An animated model: a 3ds node over a bone, a flip-book, an alpha
-// animator and the game's actor data with a track for each node.
+/**
+ * An animated model: a 3ds node over a bone, a flip-book, an alpha
+ * animator, a light, a morph shape and the game's actor data with a track
+ * for each node.
+ */
 inline std::vector<uint8_t> buildAnimatedFin() {
     FinWriter w;
     const std::string header = "Dweezil 23\n";

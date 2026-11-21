@@ -18,49 +18,68 @@ class LevelFile;
 class Mission;
 class ScriptFile;
 
-// The away-team screen: the 3D view in the top 640 x 252 and the console
-// below it, drawn from the game's bitmaps as the original lays it out.
-//
-// - Left, the life / map / object panel (l-m-m-o.bmp, tabs B, H, O): the
-//   body picture and health bar, the automap, or the mission's OBJECT.BMP.
-// - Middle, the weapon display, and the close-up viewer for panels the
-//   scripts open (the mission's AUXDEF.BMP when none is).
-// - Right, the inventory: 12 slots of icons from the mission's INVENT.BMP.
-// - A line of text along the bottom.
-//
-// Plain names (actionx.bmp, map\dot-romu.bmp) come from COMMON.DAT, the
-// mission's own from its folder; script images are its resource names, a
-// leading * meaning COMMON.DAT.
+/**
+ * The away-team screen: the 3D view in the top 640 x 252 and the console
+ * below it, drawn from the game's bitmaps as the original lays it out.
+ *
+ * - Left, the life / map / object panel (l-m-m-o.bmp, tabs B, H, O): the
+ *   body picture and health bar, the automap, or the mission's OBJECT.BMP.
+ * - Middle, the weapon display, and the close-up viewer for panels the
+ *   scripts open (the mission's AUXDEF.BMP when none is).
+ * - Right, the inventory: 12 slots of icons from the mission's INVENT.BMP.
+ * - A line of text along the bottom.
+ *
+ * Plain names (actionx.bmp, `map\dot-romu.bmp`) come from COMMON.DAT, the
+ * mission's own from its folder; script images are its resource names, a
+ * leading * meaning COMMON.DAT.
+ */
 class HudScreen {
 public:
+    /** Where the 3D view and the line of text go on the screen. */
+    ///@{
     static const Rect kView;
     static const Rect kTextLine;
+    ///@}
 
+    /** What the left panel shows. */
     enum LeftMode { kLeftOff, kLeftLife, kLeftMap, kLeftObject };
 
-    // palette is the level's: the console's bitmaps are drawn in its nearest colours.
+    /**
+     * The console for a level. The references must outlive it.
+     * @param palette The level's: the console's bitmaps are drawn in its nearest colours.
+     */
     HudScreen(const ResourceManager &resources, const ResourceRef &level, const ScriptFile &script,
               const Palette &palette);
     ~HudScreen();
 
-    // Whether the console's art was found; without it the viewer keeps its own layout.
+    /** Whether the console's art was found; without it the viewer keeps its own layout. */
     bool isAvailable() const { return _console != nullptr; }
 
+    /** What the left panel shows. */
+    ///@{
     LeftMode getLeftMode() const { return _leftMode; }
     void setLeftMode(LeftMode mode) { _leftMode = mode; }
+    ///@}
 
-    // Draw the console (everything but the 3D view) into screen.
+    /** Draws the console (everything but the 3D view) into screen. */
     void draw(Canvas &screen, Mission &mission, const LevelFile &level, double playerX, double playerY, double playerZ,
               double yaw, uint32_t time);
 
-    // A mouse button pressed on the screen; returns false if it missed the
-    // console. Inventory slots act when the button comes up, unless the
-    // item was dragged.
+    /**
+     * A mouse button pressed on the screen; returns false if it missed the
+     * console. Inventory slots act when the button comes up, unless the
+     * item was dragged; the right button describes what it's on.
+     */
     bool mouseDown(Mission &mission, int x, int y, bool right);
+    /** The mouse moved: an item pressed on is dragged once it has moved 4 pixels. */
     void mouseMove(int x, int y);
-    // The left button released; returns false if nothing was pressed on the console.
+    /**
+     * The left button released: a click uses the item, a drag moves it to
+     * another slot or, out of the inventory, drops it. False if nothing
+     * was pressed on the console.
+     */
     bool mouseUp(Mission &mission, int x, int y);
-    // Draw the item being dragged, over everything else.
+    /** Draws the item being dragged, over everything else. */
     void drawDrag(Canvas &screen, Mission &mission);
 
 private:

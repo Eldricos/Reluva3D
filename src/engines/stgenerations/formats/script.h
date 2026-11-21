@@ -11,9 +11,8 @@
 
 namespace reluva::stgenerations {
 
-// A compiled location script (GAME.BIN).
-//
-// Layout, from verid1/GAME.BIN and the AMARGOS1 header:
+// A compiled location script's (GAME.BIN) layout, from verid1/GAME.BIN and
+// the AMARGOS1 header:
 //
 //   char[4]  "SGEN"
 //   uint16   22 (version)
@@ -42,6 +41,8 @@ namespace reluva::stgenerations {
 // runs; afterwards the object moves to the state set by GOTO_STATE, or
 // else to the block's next state (-1 = stay). Event 2 is "enter state" and
 // event 3 "leave state". See opcodes.h for the instruction set.
+
+/** The code a state runs for one event. */
 struct ScriptBlock {
     uint16_t event;
     int16_t nextState;
@@ -49,31 +50,44 @@ struct ScriptBlock {
     uint32_t codeStart;
 };
 
+/** One state of a script object, with its blocks. */
 struct ScriptState {
     uint16_t id;
     std::vector<ScriptBlock> blocks;
 };
 
+/** A script object: a state machine, with an id the game knows it by. */
 struct ScriptObject {
     uint16_t type;
     uint16_t id;
     std::vector<ScriptState> states;
 };
 
+/** A compiled location script (GAME.BIN): its program, data sections and resource names. */
 class ScriptFile {
 public:
+    /** How many data sections follow the code. */
     static const int kSectionCount = 6;
+    /** The words that end the program, an object and a state, and that start a state. */
+    ///@{
     static const uint16_t kEndOfProgram = 0x1000;
     static const uint16_t kEndOfObject = 0x2000;
     static const uint16_t kEndOfState = 0x3000;
     static const uint16_t kStateMarker = 0x8000;
+    ///@}
 
+    /** Reads the file and splits its program into objects; false (with a warning) if it's damaged. */
     bool load(SeekableReadStream &stream);
 
+    /** The version in the header (22 in the files seen). */
     uint16_t getVersion() const { return _version; }
+    /** The program, in 16-bit words. */
     const std::vector<uint16_t> &getCode() const { return _code; }
+    /** A data section's bytes; `index` from 0 to kSectionCount - 1. */
     const std::vector<uint8_t> &getSection(int index) const { return _sections[index]; }
+    /** The resource names at the end of the file, in their order. */
     const std::vector<std::string> &getResourceNames() const { return _resourceNames; }
+    /** The program's objects, in their order. */
     const std::vector<ScriptObject> &getObjects() const { return _objects; }
 
 private:

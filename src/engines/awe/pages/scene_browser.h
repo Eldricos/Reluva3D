@@ -19,6 +19,7 @@ namespace reluva::awe {
  */
 class SceneBrowser : public ScenePage {
 public:
+    /** The page, its first scene loaded when it's first shown. */
     explicit SceneBrowser(ViewerContext &ctx) : ScenePage(ctx) {}
     const char *name() const override { return "Scenes"; }
 

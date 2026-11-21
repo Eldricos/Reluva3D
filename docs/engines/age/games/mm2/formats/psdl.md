@@ -2,6 +2,8 @@
 
 > **Status:** partial · **Code:** `src/engines/age/formats/psdl.cpp`, `src/engines/age/render/city_mesh.cpp` · **Checked on:** the English release, both cities · **Confidence:** confirmed unless marked
 
+## Overview
+
 A city's streets, sidewalks, ground and buildings: `city/sf.psdl` and
 `city/london.psdl` in `mm2core.ar` ("procedural street description", as
 the developers' file names have it). The geometry isn't stored as
@@ -77,7 +79,7 @@ count is the next word; otherwise the subtype is the count.
 | facade | 11,533 | 19,454 |
 | roof | 4,820 | 2,953 |
 
-## What the attributes draw
+### What the attributes draw
 
 Vertex heights are the ground's; heights in the heights table are
 absolute (a roof at 52.3 over ground at 36).
@@ -152,7 +154,7 @@ Texture coordinates for fans, roofs and road strips' lengths are
 Reluva's choice (a 10 m tile; a texture's height per strip width) until
 compared with the game.
 
-## Tunnels, walls and railings
+### Tunnels, walls and railings
 
 The tunnel attribute (286 in the two cities) puts walls along a road and
 sometimes a roof over it: London's Underground (`sub_tunnel`), San
@@ -179,7 +181,13 @@ walled edge of no length has the same road, or none, on one side. Not
 exact (four such corners aren't marked), so perhaps a wall's end post;
 not drawn. Word 3 is less than the outline's edge count every time and 0 in
 7 of London's 10 Underground junctions; it isn't a walled edge nor the
-longest, and isn't known.
+longest, and isn't known. It isn't tied to the outline's shape either:
+it isn't the vertex furthest along x or z, the highest or lowest, the
+furthest from the middle, nor the longest or shortest edge (each tried
+one either side too: at best 10 of the 37), nor the tunnel's place among
+the block's attributes (always second); and the railed junctions with
+the same outline and wall mask (`0011000000000`) carry 4, 9, 11, 12 and
+13.
 
 | Flag | Meaning | How it was settled |
 |---|---|---|
@@ -188,9 +196,15 @@ longest, and isn't known.
 | 0x10, 0x20 | the left half of a curved ceiling closed at the start, at the end | see below |
 | 0x40, 0x80 | the same for the right half | |
 | 0x100 | a curved ceiling | only on tunnel textures (95) |
-| 0x200-0x1000 | four more flags with the closing ones, "offset" in what's remembered of the names | not used |
+| 0x200, 0x400, 0x800, 0x1000 | each with one closing flag: 0x200 with 0x10, 0x400 with 0x20, 0x800 with 0x40, 0x1000 with 0x80; "offset" in what's remembered of the names | each is set only where its closing flag is (all 286 tunnels in the two cities: 35, 33, 30 and 30 times, never alone). Every closed end of a tunnel with a curved ceiling has them (59 of 59: London's Underground and San Francisco's road tunnels), and 10 of the 61 closed ends of walls without a ceiling (`s_wall_veg` on the freeway, two `s_conc_rail`). What they change isn't known; Reluva draws a closed end the same either way *(inferred)* |
 | 0x4 | goes with a second height of exactly 2 m (all 135 with it, none without); 116 of San Francisco's 120 and London's one are in elevated (0x40) blocks, and two have no walls at all: a 2 m fascia under a raised deck, which the footage shows as a plain light band along the deck's edge seen from below (Gimme SOMA under the Transbay ramp) | Reluva hangs a band the second height deep under both edges (a junction's under its walled edges), in the plain concrete middle of the current texture (`s_wall_veg`'s): what texture the game's band takes isn't known |
 | 0x4000 | on all London's railings (`s_conc_rail`, `tl_bridgerail_l`), San Francisco's 15 `s_conc_rail`, and every `s_wall_veg` wall of its road 4 (blocks 423-441); second height 1 or 3; always in 0x80 blocks | not known: not the texture's alpha (`pl_ggbridge_rail_f` is cut out too, without it), the strip, the block's height, nor what lies beyond the wall |
+
+**Closed ends meet junctions.** A tunnel's end is closed (0x10 to 0x80)
+exactly where the strip it walls ends at a junction block: all 120 closed
+ends of the 249 three-word tunnels have a junction past their end
+section's vertices, and none of the 378 open ends has one (they run on
+into the next road block, or into nothing, or ground).
 
 The names of these flags (sides, flat and curved ceilings, closed and
 offset ends) are what's remembered of the modding community's public
@@ -218,7 +232,7 @@ at an end, both alternating along London's lines), so a closed end fills
 the arch's end above the first height. Reluva draws the arch as a sine
 across the strip in eight pieces.
 
-## Block flags
+### Block flags
 
 | Flag | Blocks | What they are |
 |---|---|---|
@@ -278,7 +292,7 @@ each block's editor number one per line (1,171 and 1,341 lines), and
 `.inst` puts that model in (15 in San Francisco; London's Underground
 models and its river wall).
 
-## The roads
+### The roads
 
 After the bounds: a u32 count (379 in San Francisco, 540 in London: as
 many as the `.bai` road map's roads, in the same order), then each road:
@@ -349,7 +363,7 @@ seems; the one other road with kind 1 both sides (363, `r6_royalred_l`)
 hasn't it. (Its 0x2 is the end control's value 3, not a sidewalk bit.) Reluva takes the controls and the
 trams from the `.bai`, which says the same.
 
-## Water
+### Water
 
 `city/<map>.water` is text: the water's height (-1.9 in San Francisco,
 -3.8 in London), then three blocks: empty blocks at that height under the
@@ -358,7 +372,9 @@ over their outlines in the first animated water texture the city's
 texture list names (`s_ocean-0007`, `s_thames-0009`; see
 [tex.md](tex.md)), and doesn't collide with it.
 
-## Low-detail roads
+## Behaviour
+
+### Low-detail roads
 
 A road strip's third texture is a low-detail version of its road
 (`r2_lo_f`) for 962 of the 1,019 road strips and divided roads. Reluva draws a block's roads in
@@ -366,7 +382,7 @@ that texture when the block is more than 150 m from the eye (worked out
 again when the eye moves 60 m or into another block). Whether the game
 does is still to be seen; divided roads keep their own.
 
-## Street furniture rules
+### Street furniture rules
 
 A road block's second byte is which of `city/<city>/proprules.csv`'s
 rules line its road's sidewalks: 1-20 in San Francisco, which has rules
@@ -374,6 +390,17 @@ rules line its road's sidewalks: 1-20 in San Francisco, which has rules
 `.bai` road whose blocks have one has the same in all of them (332 of San
 Francisco's 379 roads, 407 of London's 540; the rest, ramps and the
 like, none). See [pathset.md](pathset.md).
+
+## In Reluva
+
+Read by `src/engines/age/formats/psdl.cpp` (`readPsdl`); the city's mesh,
+with its tunnels, walls and dividers, is built by `render/city_mesh.cpp`,
+and the water and the low-detail roads are chosen by
+`render/city_scene.cpp`.
+`game/city_collision.cpp` collides with it, and `game/props.cpp` places
+the street furniture by the blocks' rules. The World page flies through
+it. `reluva-tool age psdl-info` shows what a city's file holds and
+writes it as an OBJ; `age check` reads both cities.
 
 ## Sources and checks
 
@@ -387,7 +414,7 @@ words) and the walk ended exactly at the next block every time. The
 words' first value in a block was always a header whose bits 3-6 took 13
 values; trying a length for each kind until every block of both cities
 (2,418 that aren't empty) ended exactly where its count says gave the
-rules below. Exactly one header in each block has bit 7 set; after it,
+rules above. Exactly one header in each block has bit 7 set; after it,
 in 98 blocks, only texture attributes follow.
 
 Which texture a texture attribute picks was settled by the names: read
@@ -395,7 +422,7 @@ as 1-based, road strips get `r2_f`, `r4_f`..., building tops get
 `sliver` and roofs get roof textures; read as 0-based they get sidewalk
 and window textures. What each attribute draws, and how heights and
 texture coordinates work, was settled by drawing it and looking (see the
-attributes below). The attributes' names (sliver, facade bound, road
+attributes above). The attributes' names (sliver, facade bound, road
 fan...) and some first guesses at their layouts came from what's
 remembered of the Midtown Madness modding community's public
 descriptions of this format; every rule here was then checked against
@@ -405,8 +432,19 @@ the two cities as above, and no code from anywhere was used.
 
 ## Open questions
 
-Block flags 0x80 and 0x20 exactly; bits 6 and 7 of the divider's
-kind; a junction tunnel's word 3 and what its masks in words 6-9 mark;
-the tunnels' flag 0x4000. The program's
-own handling of these is encrypted (see ../../engines/age.md), so they're
-for observation of the game running.
+Worked at from the two cities' files alone; what's left needs the game
+running, as the program that reads them is encrypted
+([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)):
+
+- **Block flags 0x20 and 0x80**: what decides them exactly
+  ([Block flags](#block-flags)). Both were recomputed by a later tool
+  than the one that made `sfai.psdl`, so they may rest on something that
+  isn't in the file.
+- **A junction tunnel's word 3**, and what its masks in words 6-9 mark
+  ([Tunnels, walls and railings](#tunnels-walls-and-railings)).
+- **Tunnel flag 0x4000**, and what the "offset" flags 0x200-0x1000 do to
+  a closed end (same section).
+
+Settled from the files: the divider's ends (bits 0x40 and 0x80 of its
+kind, exactly), and when a tunnel's end is closed (where it meets a
+junction, exactly).

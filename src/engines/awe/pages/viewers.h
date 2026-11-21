@@ -22,9 +22,10 @@
 
 namespace reluva::awe {
 
-// Every picture in the game: backgrounds, cutouts, interface, inventory.
+/** Every picture in the game: backgrounds, cutouts, interface, inventory. */
 class PicturePage : public Page {
 public:
+    /** Lists the pictures; none is read until shown. */
     explicit PicturePage(ViewerContext &ctx);
     const char *name() const override { return "Pictures"; }
     size_t count() const override { return _names.size(); }
@@ -36,9 +37,13 @@ private:
     std::vector<std::string> _names;
     int _index = 0;
 };
-// Characters and objects (Models/**/*_model.gr2), with their animations.
+/**
+ * Characters and objects (each `<who>_model.gr2` under Models/ or
+ * People/), with their animations.
+ */
 class ModelPage : public Page {
 public:
+    /** Lists the models, each with the other files of its folder as its animations. */
     explicit ModelPage(ViewerContext &ctx);
     ~ModelPage() override;
     const char *name() const override { return "Models"; }
@@ -58,7 +63,7 @@ private:
     void releaseGpu();
 
     std::vector<Entry> _models;
-    // 0: rest pose, else animations[animation_ - 1]
+    // 0: rest pose, else animations[_animation - 1]
     int _index = 0;
     int _animation = 0;
     std::unique_ptr<GpuModel> _gpu;
@@ -81,10 +86,13 @@ private:
     uint64_t _lastMs = 0;
 };
 
-// Movies (Movies/*.bik) and the scenes' video loops (Elements/**/*.bik,
-// cutouts'), with their sound.
+/**
+ * Movies (the .bik files in Movies/) and the scenes' video loops (those
+ * under Elements/, the cutouts'), with their sound.
+ */
 class MoviePage : public Page {
 public:
+    /** Lists the movies; none is opened until shown. */
     explicit MoviePage(ViewerContext &ctx);
     ~MoviePage() override;
     const char *name() const override { return "Movies"; }
@@ -103,9 +111,10 @@ private:
     std::string _info;
 };
 
-// Text files: tables, dialogue, subtitles.
+/** Text files: tables, dialogue, subtitles. */
 class TextPage : public Page {
 public:
+    /** Lists the text files; none is read until shown. */
     explicit TextPage(ViewerContext &ctx);
     const char *name() const override { return "Text"; }
     size_t count() const override { return _names.size(); }
@@ -121,9 +130,10 @@ private:
     std::vector<std::string> _lines;
 };
 
-// Sounds: voices, effects and music.
+/** Sounds: voices, effects and music. */
 class SoundPage : public Page {
 public:
+    /** Lists the sounds; none is read until played. */
     explicit SoundPage(ViewerContext &ctx);
     const char *name() const override { return "Sounds"; }
     size_t count() const override { return _names.size(); }

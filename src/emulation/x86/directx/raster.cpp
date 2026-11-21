@@ -260,7 +260,7 @@ float planeDistance(const ClipVertex &v, int plane) {
 
 } // namespace
 
-// --- Vertices
+// Vertices.
 
 void Device::transformAndLight(const VertexLayout &layout, uint32_t vertices, uint32_t stride, uint32_t count,
                                std::vector<ClipVertex> &out) {
@@ -457,7 +457,7 @@ ClipVertex Device::project(const ClipVertex &v) const {
     return p;
 }
 
-// --- Primitives
+// Primitives.
 
 void Device::draw(uint32_t primitive, uint32_t fvf, uint32_t vertices, uint32_t stride, uint32_t vertexCount,
                   uint32_t indices, uint32_t indexCount) {
@@ -591,7 +591,7 @@ struct DrawQueue {
         std::unique_lock<std::mutex> lock(_mutex);
         _done.wait(lock, [this] { return _drawn == _pushed; });
     }
-    // Draws jobs in order on this thread (DrawThreads::One).
+    // Draws jobs in order on this thread (DrawThreads::kOne).
     static void draw(const std::vector<Job> &jobs, DirectX::DrawThreads) {
         Draw::Raster r;
         for (const Job &j : jobs) {
@@ -645,7 +645,7 @@ private:
     std::mutex _mutex;
     std::condition_variable _wake;
     std::condition_variable _done;
-    std::deque<std::shared_ptr<const Job>> _jobs; // from job number first_ on
+    std::deque<std::shared_ptr<const Job>> _jobs; // from job number _first on
     uint64_t _first = 0;
     uint64_t _pushed = 0;
     uint64_t _drawn = 0;
@@ -688,9 +688,9 @@ Draw Device::current() const {
     return d;
 }
 
-// The draw's triangles: drawn on a thread of their own (DrawQueue), in
+// The draw's triangles: drawn on threads of their own (DrawQueue), in
 // turn with the draws before them, while the program goes on; with
-// DirectX::DrawThreads::One, here and now.
+// DirectX::DrawThreads::kOne, here and now.
 void Device::drawBatch() {
     if (_batch.empty())
         return;
@@ -1296,7 +1296,7 @@ int Draw::span4(const Raster &r, int x, int last, int y, float *row, const float
     return x;
 }
 
-// --- Textures
+// Textures.
 
 const DecodedTexture *Device::texture(int stage) {
     const std::shared_ptr<Surface> &t = textures[size_t(stage)];
@@ -1462,7 +1462,7 @@ RELUVA_PIXEL_STEP uint32_t Draw::sample(const Raster &r, int stage, float u, flo
     return mix(mix(t00, t10, ax), mix(t01, t11, ax), ay);
 }
 
-// --- Pixels
+// Pixels.
 
 void Device::configure() {
     PixelConfig &c = _cfg;

@@ -131,10 +131,12 @@ SIZE = {0x01: 1, 0x04: 1, 0x02: 2, 0x08: 2, 0x10: 2, 0x18: 2, 0x40: 2, 0x20: 4}
 
 
 class ScriptError(Exception):
+    """A directive list that can't be read: a command not in ARGC."""
     pass
 
 
 def fmt_arg(t, raw):
+    """An argument as the listings write it: @variable, #constant, bN, cN, x/y/zA.B, dN."""
     v = int.from_bytes(raw, "little")
     if t == 0x02:
         return "@%d" % v
@@ -173,6 +175,7 @@ def read_list(d, p):
 
 
 def read_tree(d, p, n):
+    """(end offset, groups) of a tree of `n` non-empty groups: (line, choice, list, sub-lists) items."""
     groups, done = [], 0
     while done < n:
         k = d[p]
@@ -196,6 +199,7 @@ def read_tree(d, p, n):
 
 
 def read_dialogue(d, p):
+    """(end offset, list a, list b, NPC tree, choice tree) of one CCB.ALL dialogue."""
     p, a = read_list(d, p)
     p, b = read_list(d, p)
     p, npc = read_tree(d, p + 1, d[p])
@@ -204,6 +208,7 @@ def read_dialogue(d, p):
 
 
 def dialogue_lists(dlg):
+    """Every directive list of a dialogue, its trees' included."""
     _, a, b, npc, choices = dlg
     lists = [a, b]
     for tree in (npc, choices):
@@ -214,13 +219,11 @@ def dialogue_lists(dlg):
     return lists
 
 
-# --------------------------------------------------------------------------
 # Symbols: per-scene name lists (CA..CV) and the linker cross-reference (CCS)
 #   name list entry:  name NUL, source file NUL, flag byte
 #   CCS entry:        symbol NUL, command byte, argument slot
 # A type-02 argument is an index into the list that its (command, slot) uses,
 # a label number (labels are numbered in definition order), or a keyword.
-# --------------------------------------------------------------------------
 
 LIST_KINDS = ("CA", "CB", "CS", "CD", "CT", "CH", "CV")
 KIND_TITLE = {"CA": "animations", "CB": "backgrounds", "CS": "sounds", "CD": "dialogues",
@@ -228,6 +231,7 @@ KIND_TITLE = {"CA": "animations", "CB": "backgrounds", "CS": "sounds", "CD": "di
 
 
 def find(dirpath, name):
+    """The file in `dirpath` whose upper-case name is `name`, or None."""
     for p in Path(dirpath).iterdir():
         if p.name.upper() == name:
             return p
@@ -247,6 +251,7 @@ def load_archive(src, name):
 
 
 def read_names(d):
+    """A name list's entries: (name, source file)."""
     out, p = [], 0
     while p < len(d):
         e = d.index(b"\0", p)
@@ -258,6 +263,7 @@ def read_names(d):
 
 
 def read_xref(d):
+    """The CCS cross-reference's entries: (symbol, command, argument slot)."""
     out, p = [], 0
     while p < len(d):
         e = d.index(b"\0", p)
@@ -267,6 +273,7 @@ def read_xref(d):
 
 
 def type02_uses(lists):
+    """(command, slot, value) of every type-02 argument in the lists."""
     for lst in lists:
         for _, op, args in lst:
             for slot, t, raw in args:
@@ -275,6 +282,7 @@ def type02_uses(lists):
 
 
 class SceneSymbols:
+    """A scene's name lists and cross-reference, for naming its type-02 arguments."""
     def __init__(self, lists, xref):
         self.lists = lists                                   # kind -> [(name, source)]
         self.xref = xref
@@ -285,9 +293,11 @@ class SceneSymbols:
         self.labels, self.keywords = {}, {}
 
     def kinds_of(self, sym):
+        """The name lists (CA..CV) a symbol is in."""
         return [k for k in LIST_KINDS if sym.lower() in self.lower[k]]
 
     def learn(self, script_lists, kind_map, label_slots):
+        """Pairs the scene's label numbers and keyword values with the cross-reference's names."""
         uses = list(type02_uses(script_lists))
         label_vals = list(dict.fromkeys(v for op, slot, v in uses if op == 0xC8))
         label_names = [s for s, op, slot in self.xref if op == 0xC8]
@@ -303,6 +313,7 @@ class SceneSymbols:
                 self.keywords[key] = dict(zip(vals, syms))
 
     def resolve(self, op, slot, value, kind_map, label_slots):
+        """The name a type-02 argument stands for, or None if it can't tell."""
         kind = kind_map.get((op, slot))
         if kind and value < len(self.lists[kind]):
             name = self.lists[kind][value][0]
@@ -369,6 +380,7 @@ def learn_slot_kinds(scenes):
 
 
 def resource_paths(kind, name):
+    """Where a background, animation or sound of that name is on the disc, or ''."""
     n = name.upper()
     if kind == "CB" and len(n) >= 2:
         return "ART\\%s\\%s\\%s.CMP" % (n[0], n[1], n)
@@ -379,9 +391,7 @@ def resource_paths(kind, name):
     return ""
 
 
-# --------------------------------------------------------------------------
 # Output
-# --------------------------------------------------------------------------
 
 def dialogue_blocks(ccq, ccf):
     """Split the global CCQ/CCF line list into per-dialogue blocks, in CCB order."""
@@ -402,6 +412,7 @@ def dialogue_blocks(ccq, ccf):
 
 
 def line_note(block, n):
+    """Line `n` of a dialogue block as a listing's comment, its recording notes left out."""
     if block is None or n >= len(block):
         return ""
     clip, text = block[n]
@@ -410,11 +421,13 @@ def line_note(block, n):
 
 
 class Writer:
+    """Writes directive lists as text, naming the arguments it can."""
     def __init__(self, sym=None, kind_map=None, label_slots=None):
         self.sym, self.kind_map, self.label_slots = sym, kind_map or {}, label_slots or set()
         self.resolved = self.total = 0
 
     def arg(self, op, slot, t, raw):
+        """An argument as text: its name if `sym` resolves it, else fmt_arg()'s."""
         if t == 0x02 and self.sym:
             self.total += 1
             name = self.sym.resolve(op, slot, int.from_bytes(raw, "little"), self.kind_map, self.label_slots)
@@ -424,6 +437,7 @@ class Writer:
         return fmt_arg(t, raw)
 
     def write(self, out, lst, indent):
+        """Appends a line per directive, a label as `name:`."""
         for at, op, args in lst:
             if op == 0xC8 and self.sym:
                 label = self.arg(op, 0, args[0][1], args[0][2]) if args else "?"
@@ -434,6 +448,7 @@ class Writer:
 
 
 def scene_header(sym):
+    """A scene's name lists as comment lines, with each resource's path."""
     out = []
     for kind in LIST_KINDS:
         items = sym.lists.get(kind, [])
@@ -451,6 +466,7 @@ TYPE_TAG = {0x02: "sym", 0x40: "const", 0x01: "byte", 0x04: "byte4", 0x08: "pair
 
 
 def argument_reference(scripts, dialogues, symbols, kind_map, label_slots):
+    """A line per (command, slot): the argument types seen, what it indexes and common values."""
     types = collections.defaultdict(collections.Counter)
     examples = collections.defaultdict(collections.Counter)
     owners = [(k, [lst]) for k, lst in scripts.items()]

@@ -2,7 +2,8 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // The game's file formats: archives, scripts and name lists, animations,
-// raw sound, the folders of a disc, dialogue records, fonts and lip-sync. Ported from STDS9H's tests.
+// raw sound, the folders of a disc, dialogue records, fonts and lip-sync.
+// Ported from STDS9H's tests.
 //
 //   reluva-tests stharbinger.unit.formats
 

@@ -2,8 +2,9 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Builds small InstallShield cabinets for tests, laid out as
-// docs/common/installshield.md says: a data1.hdr and its volumes, the
-// compressed files' chunks stored deflate blocks.
+// docs/common/installshield.md says: a data1.hdr and its volumes. A
+// compressed file's chunks hold stored (uncompressed) deflate blocks, so
+// the tests need no compressor.
 
 #pragma once
 
@@ -19,6 +20,7 @@
 
 namespace reluva::test {
 
+/** A file to put in the cabinet. */
 struct CabinetFile {
     std::string folder; // "Data\\Sub", or "" for the top
     std::string name;   // "": an entry for no file
@@ -29,14 +31,17 @@ struct CabinetFile {
     bool split = false; // half its packed data in its volume, the rest first in the next
 };
 
+/** A file group: the files from index `first` to `last`, both included. */
 struct CabinetGroup {
     std::string name;
     uint32_t first;
     uint32_t last;
 };
 
-// Writes data1.hdr in volumeDirs[0], and volume n (data<n>.cab) in
-// volumeDirs[n - 1]. Files are in the order of their data in the volumes.
+/**
+ * Writes data1.hdr in volumeDirs[0], and volume n (`data<n>.cab`) in
+ * volumeDirs[n - 1]. Files are in the order of their data in the volumes.
+ */
 inline void writeCabinet(const std::vector<std::filesystem::path> &volumeDirs, const std::vector<CabinetFile> &files,
                          const std::vector<CabinetGroup> &groups) {
     auto put = [](std::vector<uint8_t> &v, size_t at, uint64_t x, int bytes) {

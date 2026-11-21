@@ -27,6 +27,7 @@ public:
         std::string detail;
         std::string page; ///< the page it starts on (Page::name)
     };
+    /** Offers the choices over the first level's picture, if the game has one. */
     StartPage(PageContext &ctx, std::vector<Choice> choices);
 
     const char *name() const override { return "Start"; }

@@ -6,7 +6,9 @@
 
 The game's menus, redrawn from its own files: their screens, layout, sounds, and the navigation bar. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## The files
+## How it works
+
+### The files
 
 - **`tune/widget.csv`**: a heading, then a line a control: the menu's
   name and number, the control's name and number, its x, y, width and
@@ -34,7 +36,7 @@ The game's menus, redrawn from its own files: their screens, layout, sounds, and
   Its fonts (Gill Sans MT, Arial Bold) aren't the game's to ship;
   Reluva writes with its own.
 
-## The screens
+### The screens
 
 - **The opening movie**, `logos.avi` (Indeo 5, 320 x 240, 333 pictures
   at 15 a second, with 8-bit sound at 22,050 Hz), first: the whole
@@ -58,7 +60,7 @@ The game's menus, redrawn from its own files: their screens, layout, sounds, and
   the event's description (`race_btz`..., a cruise's `race_rom`), and
   the best place so far. `race_veh` goes to the garage. Cruise's "races"
   are the cruise, and in San Francisco the game's stunt
-  ([cruise-and-stunt.md](cruise-and-stunt.md#cruise-and-the-stunt)).
+  ([cruise-and-stunt.md](cruise-and-stunt.md#how-it-works)).
 - **Crash Course** (`ccsf_bk`, `cclon_bk`): the city in the heading's
   box, the lesson, its description (`sf_cc<n>`, `lon_cc<n>`), and ticks
   in the PASS column of the curriculum on the background for the lessons
@@ -81,7 +83,7 @@ steps a value (on its left half back). The same goes for the Options and
 the dialogs, and in the race for the in-race menu, the results screen's
 buttons and the replay's bar. **U** opens every race, lesson and car.
 
-## Fitting the layout
+### Fitting the layout
 
 Most controls are where `widget.csv` puts them. Two things weren't: the
 garage's bars (6 high, 187 wide at x 125) sit 18 pixels lower and from x
@@ -89,7 +91,7 @@ garage's bars (6 high, 187 wide at x 125) sit 18 pixels lower and from x
 rows and PASS column aren't controls at all. Both were measured on the
 backgrounds.
 
-## Multiplayer
+### Multiplayer
 
 The Net Select Menu (sessions), Enter an Address, Enter a valid
 password, Host Options, the Host Race Menu, the Network Arena (the
@@ -99,7 +101,7 @@ boxes measured on the backgrounds, are in
 [multiplayer.md](multiplayer.md#the-menus). The garage is the
 single player's, opened from the lobby's SELECT VEHICLE.
 
-## The navigation bar and Quit
+### The navigation bar and Quit
 
 Every screen has the navigation bar at the top right, where the
 `Navigation Bar` menu of `widget.csv` puts it: **OPTIONS**
@@ -123,29 +125,29 @@ Every screen has the navigation bar at the top right, where the
   and Cancel at `quit_dlg`'s places, with the `dlg_ok` and `dlg_can`
   pictures); OK leaves the game.
 
-## The Crash Course's intro and the Vehicle Showcase
+### The Crash Course's intro and the Vehicle Showcase
 
 - **Crash Course Intro** (`jpg/ilon_bk`): Uncle Donald's two schools,
   first when the Crash Course is chosen. LONDON CABBIE (`cci_lon`) and SF
   STUNT DRIVER (`cci_sf`) choose the city's school; BACK is the
   navigation bar's (the screen's own row in `widget.csv` is garbled:
   `2,mnav_prev,4,1,290,415,90`). The Crash Course screen's background
-  names its school, so the city isn't written over its heading any more
-  (where the navigation bar now is).
+  names its school, so the city isn't written over its heading (where
+  the navigation bar is).
 - **Vehicle Showcase** (the garage's VEHICLE SHOWCASE, `veh_show`): the
   car alone, turning, the whole screen, with its name and description;
   DONE (`opt_done`) goes back. The game's `texture/VSDE_*` pictures
   (Volkswagon Beetle, Bus, Cadillac Eldorado...) are mostly only the
   car's name; the garage's fuller `<CAR>_DESC` is shown instead.
 
-## In the race
+### In the race
 
 - **Esc** stops the race: the game's in-race menu (`mmlang.dll`'s MAIN
   MENU: Resume Driving, Restart Race or Restart Lesson, Instant Replay,
   Options, Quit to Race Menu), over the race darkened. The game's
   picture for it isn't among the files, so its words are drawn as they
   are.
-  - Its Instant Replay is the race so far ([replays.md](replays.md#replays)).
+  - Its Instant Replay is the race so far ([replays.md](replays.md#how-it-works)).
     Quitting the replay runs the race on to where it was paused, so it
     can be driven on.
   - Its Options are the Options menus.
@@ -165,7 +167,7 @@ Every screen has the navigation bar at the top right, where the
     Quit?). The lessons use the same pictures; there are none of their
     own.
 
-## The menus' sounds
+### The menus' sounds
 
 - **Music.** The menus play the game's menu tune: the segment
   `aud/dmusic/csv_files/ui.csv` names (`UI.sgt`), by Reluva's
@@ -185,7 +187,19 @@ Every screen has the navigation bar at the top right, where the
   You cannot delete your only driver, a driver's name or a key already
   taken) sound the game's `uialert` (`aud/aud11/uialert`).
 
-## Not drawn
+## In Reluva
+
+- `FrontEnd` (`src/engines/age/ui/front_end.{h,cpp}`) reads the menus'
+  files and draws their screens; `GameMenus`
+  (`src/engines/age/ui/game_menus.{h,cpp}`) the Options and the
+  dialogs. `RaceScreen`'s own menus
+  (`src/engines/age/ui/race_menus.cpp`) are the in-race menu and the
+  results.
+- `HelpViewer` (`src/engines/age/ui/help_viewer.{h,cpp}`) is the Help
+  page.
+- The fonts are Reluva's own.
+
+### Not drawn
 
 These dialogs in `widget.csv` aren't drawn:
 
@@ -196,11 +210,28 @@ These dialogs in `widget.csv` aren't drawn:
   sessions have 8 at most, which the host's MAX PLAYERS keeps to.
 - **Cops & Robbers Settings** (menu 13): its controls' pictures
   (`copr_*`, `crt_*`, `aren_ready`) aren't among the files, nor is a
-  background for it. The Host Race Menu's Cops & Robbers panel and the
-  lobby's team buttons do its work.
-- **`xassign_dlg`** and **Control Warning**: no pictures (Control
-  Warning's `join_dlg` isn't shipped). Customize Controls' duplicate key
-  has its own, `ctrl_dlg`.
+  background for it. The Host Race Menu has the same choices with
+  pictures that are shipped (`free_cr`, `cpsvr_cr`, `robrs_cr` for its
+  three games, `none_cr`, `time_cr`, `point_cr` for its limits, and the
+  gold mass and limit's fields), and the lobby has the team buttons, so
+  this menu looks like an earlier design the released game dropped
+  *(inferred)*. Reluva leaves it out rather than draw a screen the game
+  likely never shows.
+- **`xassign_dlg`**: a Done button and nothing else, no picture and no
+  words in `mmlang.dll`, so what it said isn't known. Customize Controls'
+  duplicate key has its own dialog, `ctrl_dlg`.
+
+### Control Warning
+
+Control Warning (menu 21) has OK and Cancel where the defaults' dialog
+(`odef_dlg`) has them, but no picture (its `join_dlg` isn't shipped)
+and no words in `mmlang.dll`. Reluva uses it for something its
+Control Options needs: choosing a joystick, pad or wheel from the
+keyboard with none connected. It's drawn as a box the size of `odef_dlg`
+in `msg_dlg`'s purple, with Reluva's words, "NO GAME CONTROLLER IS
+CONNECTED. USE IT ANYWAY?", and the game's OK and Cancel. OK keeps the
+choice (one may be plugged in later), Cancel and Esc go back to the
+keyboard. What the game itself used it for isn't known *(guessed)*.
 - **`MessageBox`** is the game's general message box, `msg_dlg`: it's
   used wherever a message has no picture of its own.
 

@@ -1,11 +1,20 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""An early reader of the ANIM records (Reluva's own reader replaced it).
+Run alone, it reads every .a archive under clue_dl/ and counts what their
+animations' fields hold, to see which are constant.
+
+    python3 -I py/anim.py
+"""
+
 import sys,glob,collections,struct; sys.path.insert(0,'tools')
 from ddrv import load, entries
 def pstr(r,p):
+    """(the bytes of the length-prefixed string at `p`, the offset past it)."""
     n=r[p]; return r[p+1:p+1+n], p+1+n
 def parse(r):
+    """An ANIM record's fields, its frames and its tagged blocks."""
     assert r[:4]==b'ANIM'
     ver=struct.unpack('<H',r[4:6])[0]; p=6
     name,p=pstr(r,p)

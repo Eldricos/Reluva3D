@@ -14,6 +14,16 @@ A page goes in a game's folder when it was worked out from that game, and
 moves up to this folder once another game is found to share it. So far
 everything was read from LEGO Alpha Team.
 
+## Where it stands
+
+Only LEGO Alpha Team is recognised so far, and it plays through: see
+[games/legoalphateam/](games/legoalphateam/README.md#where-it-stands).
+
+## Using it
+
+The game's page says how to add it and play it:
+[LEGO Alpha Team](games/legoalphateam/README.md#using-it).
+
 ## This folder
 
 | Page | Covers |
@@ -31,8 +41,7 @@ for the game.
   objects, which the game's `.FIN` models are, under a header of their
   own: [fin.md](games/legoalphateam/formats/fin.md)), the scene graph, rendering through `gfx::Renderer3D`, sound
   through `src/audio`. Built when `engines.cfg` has `netimmerse=enabled`, as it does by
-  default (it was off at first, which left the launcher not recognising
-  the game in a default build).
+  default (without it, the launcher doesn't recognise the game).
 - Game id `legoalphateam`, with what is specific to it in
   `src/engines/netimmerse/alphateam/`.
 - Formats documented under

@@ -6,12 +6,22 @@
 
 Playing between several computers: the menus, the events and the computer players. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## Playing
+## How it works
+
+### Playing
 
 On the Race page, the main menu's **Multiplayer** button opens the
 sessions screen.
 
 - **NET NAME**: type the name the others see.
+- **MEETING SERVER** (Reluva's, in the panel under the connections): for
+  players who can't reach each other, the address of a meeting server
+  (`reluva-tool meet-server`, run by someone the players can all reach),
+  as `host` or `host:port`. Hosting then lists the session there too, the
+  list below shows its sessions beside the network's ("via server" where
+  the ping would be), and joining one goes through it
+  ([network-protocol.md](network-protocol.md#through-a-meeting-server)).
+  It's kept in the options file for next time.
 - **HOST**: the host's options (an optional password, at most 2 to 8
   players, and how many computer players: below), then the host's
   settings, then **DONE** opens the session and goes to the lobby. The
@@ -23,7 +33,8 @@ sessions screen.
   every second. With none in the list, JOIN asks for an address: a host
   name or `a.b.c.d`, with `:port` if it isn't 28520. Over the Internet,
   the host's router has to pass UDP port 28520 on to the host, which
-  Reluva asks it to do (below).
+  Reluva asks it to do (below); where it won't, a meeting server
+  (above) can stand in.
 - **A game already playing** can be joined: the joiner loads straight
   into it, and the others see their car arrive. A player who leaves (or
   is ejected) takes their car with them.
@@ -52,7 +63,7 @@ sessions screen.
 Every machine loads the game when the host starts it. The countdown
 begins once all have loaded, or after a minute for any still loading.
 
-## The events
+### The events
 
 The Host Race Menu offers the game's five: Cruise, Blitz, Checkpoint,
 Circuit and Cops & Robbers. Each player drives their own car on their
@@ -85,7 +96,7 @@ with the host's number of laps in a circuit.
 (below), facing along the road, and drive the city with no end. The host
 ends it with Esc.
 
-## Computer players
+### Computer players
 
 The host can fill the session with computer players: Host Options'
 COMPUTER PLAYERS, up to one fewer than the most players. The game has
@@ -97,7 +108,9 @@ PLAYERS the way that one is.
   They're sided like anyone, always ready, and in the lobby's list like
   anyone; the host can eject one.
 - **Where they're driven.** The host's machine drives them and sends
-  their cars on as its own, so everyone sees them alike.
+  their cars on as its own, so everyone sees them alike. If the host leaves,
+  the player who takes over drives them on
+  ([network-protocol.md](network-protocol.md#joining-late-leaving-taking-over)).
 - **In a race** they drive through the race's checkpoints, laps
   unrolled, along the roads as the single player's opponents do, at 0.9
   of their cars' top speed.
@@ -133,14 +146,14 @@ loose and recover it. Each game had a delivery or two: the gold's home
 and the bases are a kilometre or more apart, a minute and a half's
 drive.
 
-## The menus
+### The menus
 
 The multiplayer screens are `tune/widget.csv`'s, drawn as the others are
 ([menus.md](menus.md)).
 
 | Screen | Background | Controls |
 |---|---|---|
-| Net Select Menu | `jpg/sess_bk` | `sess_zn`, `sess_ipx`, `sess_ser`, `sess_mod` (not available), `sess_tcp`, NET NAME, `sess_hst`, `sess_jn`, the sessions list (`textscroll`), BACK (`mnav_prev`, picture `mnav_prv`) |
+| Net Select Menu | `jpg/sess_bk` | `sess_zn`, `sess_ipx`, `sess_ser`, `sess_mod` (not available), `sess_tcp`, NET NAME, MEETING SERVER (Reluva's), `sess_hst`, `sess_jn`, the sessions list (`textscroll`), BACK (`mnav_prev`, picture `mnav_prv`) |
 | Enter an Address | `jpg/tcp_dlg` (400 x 330 at 120, 75: `menu.csv` gives it 300 x 225 at 170, 127) | TCP/IP Address, `dlg_can`, `dlg_done`. Left blank, back to the sessions (its words: "or leave blank to search for available session") |
 | Enter a valid password | `jpg/pass_dlg` | Password, `dlg_can`, `dlg_done` |
 | Host Options | `jpg/host_dlg` | Password, Max Players, Computer Players (Reluva's), `dlg_can`, `dlg_done` |
@@ -177,21 +190,31 @@ The descriptions at the bottom left are the game's pictures:
   events.
 - `lobb_set` for HOST SETTINGS.
 
-## Not done
+## In Reluva
 
-- **Hole punching**: two players both behind routers that won't pass a
-  port on can't reach each other; that needs a server of Reluva's own on
-  the Internet to meet through, which it hasn't.
-- **Encryption**: the game's messages, chat included, go in the clear.
-- **What the host can't see**: the checks catch impossible movement and
-  progress, not a car tuned faster than it should be, within the limits.
-- **Computer players over a change of host**: they go with the old host.
+`RaceScreen` plays a session's game
+(`src/engines/age/game/race_net.cpp`), and `NetMenus`
+(`src/engines/age/ui/net_menus.{h,cpp}`) draws its screens. The session
+itself is `NetSession` ([network-protocol.md](network-protocol.md)).
+Multiplayer is Reluva to Reluva, at most 8 players, with computer
+players and late joining added
+([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
 
-## How it's tested
+### Not done
 
-`tests/test_age.cpp` has three tests, `testNetSession`, `testNetSessionMore`
-and `testGoldGame`; `tests/test_common.cpp`'s `testPortMap` asks routers
-made in the test (one with UPnP, one with NAT-PMP, one with neither).
+- **A meeting server of Reluva's own on the Internet**: players behind
+  routers that won't pass a port on need someone to run one
+  (`reluva-tool meet-server`) where they can all reach it; there's none
+  run for everyone.
+- **What the host can't see**: a car is held to its own top speed, but
+  not to its acceleration, grip or weight: one tuned to corner or pull
+  away better than it should, within its top speed, isn't caught.
+
+### How it's tested
+
+`tests/engines/age/unit/network.cpp` has three tests, `testNetSession`,
+`testNetSessionMore` and `testGoldGame`; `tests/common/portmap.cpp`'s
+`testPortMap` asks routers made in the test (one with UPnP, one with NAT-PMP, one with neither).
 
 **`testNetSessionMore`**: a wrong password refused and the right one
 proved (and HMAC-MD5 against RFC 2104's published example); a player

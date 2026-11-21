@@ -16,7 +16,7 @@
 
 namespace reluva::stharbinger {
 
-// One scene slot of CC.ALL with its name lists and cross-references.
+/** One scene slot of CC.ALL with its name lists and cross-references. */
 struct Scene {
     int slot = 0;
     std::string name; // from the .CCG source file names, e.g. BRIDGE
@@ -26,54 +26,79 @@ struct Scene {
     std::vector<XrefEntry> xref;
 };
 
-// Finds game files across the game directories, wherever they are:
-//   - a CD (or a copy of one): DS9/... for data, SSE/SSE.ALL for the scripts;
-//   - the DS9 directory itself;
-//   - an installed or extracted SSE directory holding CC.ALL, CA.ALL ...
-// Data files are looked up relative to the DS9 directory ("ART/B/R/BRDG0000.CMP"),
-// script archives by bare name ("CC.ALL").
+/**
+ * Finds game files across the game directories, wherever they are:
+ *   - a CD (or a copy of one): DS9/... for data, SSE/SSE.ALL for the scripts;
+ *   - the DS9 directory itself;
+ *   - an installed or extracted SSE directory holding CC.ALL, CA.ALL ...
+ * Data files are looked up relative to the DS9 directory ("ART/B/R/BRDG0000.CMP"),
+ * script archives by bare name ("CC.ALL").
+ */
 class Resources {
 public:
-    // Adds a game directory; earlier directories take precedence.
+    /** Adds a game directory; earlier directories take precedence. */
     void addGamePath(const std::string &nativePath);
 
+    /** Every file of the game directories, by the names above. */
     const SearchSet &getSearchSet() const { return _search; }
+    /** Whether a file is there, and a stream over it (nullptr if not). */
+    ///@{
     bool hasFile(const std::string &name) const { return _search.has(name); }
     std::unique_ptr<SeekableReadStream> openFile(const std::string &name) const;
+    ///@}
 
-    // NAME.ALL/.LST(/.CAT), cached; nullptr if missing.
+    /** NAME.ALL/.LST(/.CAT), cached (a missing one too); nullptr if missing. */
     std::shared_ptr<LstArchive> getArchive(const std::string &name);
 
+    /** Whether the file a scene's list of this kind names is there. */
     bool hasResource(ListKind kind, const std::string &name) const;
 
-    // Loads a background. If PALETTES/NAME.PAL exists it is loaded into `palette`
-    // and `paletteLoaded` is set; otherwise the current palette stays, as in the game.
+    /**
+     * Loads a background. If PALETTES/NAME.PAL exists it is loaded into `palette`
+     * and `paletteLoaded` is set; otherwise the current palette stays, as in the game.
+     * `paletteLoaded` is also set by a palette in the .CMP itself.
+     */
     bool loadBackground(const std::string &name, Surface &surface, Palette &palette, bool &paletteLoaded) const;
+    /** Loads a scene animation by its list name; false if it's missing or doesn't read. */
     bool loadAnimation(const std::string &name, RleAnimation &anim) const;
+    /** A sound's .RAW data by its list name; false if it's missing or empty. */
     bool loadSound(const std::string &name, std::vector<uint8_t> &data) const;
 
-    // Loads dialogue `index` (CCB.ALL order) with its text (CCQ, CCF, CCR).
+    /** Loads dialogue `index` (CCB.ALL order) with its text (CCQ, CCF, CCR). */
     bool loadDialogue(int index, Dialogue &dialogue, std::string &error);
-    // Opens the speech and lip-sync archives of a dialogue (DIALOGUE/NAME/NAME
-    // and PHONEMES/NAME/NAME). The game skips a conversation without them.
+    /**
+     * Opens the speech and lip-sync archives of a dialogue (DIALOGUE/NAME/NAME
+     * and PHONEMES/NAME/NAME), keeping only the last dialogue's. The game
+     * skips a conversation without them.
+     */
     bool openSpeech(const std::string &dialogueName);
-    // Entry `line` of the open speech / lip-sync archive (empty if none).
+    /** Entry `line` of the open speech / lip-sync archive; false (and empty) if none. */
+    ///@{
     bool loadSpeech(int line, std::vector<uint8_t> &data);
     bool loadPhonemes(int line, std::vector<uint8_t> &data);
+    ///@}
 
-    // The linker's tables (DS9.LCC, DS9.LVM, DS9.LDM): scene names in link order,
-    // global variable names (their index is the slot in saved games) and the
-    // dialogue slot names. Empty if the files are missing.
+    /**
+     * The linker's tables (DS9.LCC, DS9.LVM, DS9.LDM): scene names in link order,
+     * global variable names (their index is the slot in saved games) and the
+     * dialogue slot names. Empty if the files are missing.
+     */
+    ///@{
     const std::vector<std::string> &getLinkScenes();
     const std::vector<std::string> &getLinkVariables();
     const std::vector<std::string> &getLinkDialogues();
+    ///@}
 
-    // The 269 credits lines, read from DEEP.EXE (pointer table at 0x55464 in its
-    // data object). Empty if the executable is not found.
+    /**
+     * The 269 credits lines, read from DEEP.EXE (pointer table at 0x55464 in its
+     * data object). Empty if the executable is not found.
+     */
     std::vector<std::string> loadCredits() const;
 
-    // Reads every scene slot that has a script. Returns false (with `error`) if the
-    // script archives cannot be found.
+    /**
+     * Reads every scene slot that has a script. Returns false (with `error`) if the
+     * script archives cannot be found.
+     */
     bool loadScenes(std::vector<Scene> &scenes, std::string &error);
 
 private:

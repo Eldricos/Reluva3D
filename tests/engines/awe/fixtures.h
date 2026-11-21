@@ -47,8 +47,11 @@
 
 namespace reluva::awe::testing {
 
+/** Builds a file's bytes: each call appends, little-endian unless it says otherwise. */
 struct Bytes {
     std::vector<uint8_t> d;
+    /** Appends a value. */
+    ///@{
     void u16(uint16_t v) { d.push_back(uint8_t(v)), d.push_back(uint8_t(v >> 8)); }
     void u32(uint32_t v) {
         for (int i = 0; i < 4; i++)
@@ -59,8 +62,13 @@ struct Bytes {
         std::memcpy(&v, &f, 4);
         u32(v);
     }
+    ///@}
+    /** Appends a four-character code, big-endian: its first character first. */
     void tag(const char *t) { u32(uint32_t(t[0]) << 24 | uint32_t(t[1]) << 16 | uint32_t(t[2]) << 8 | uint32_t(t[3])); }
-    // UTF-16 in a fixed buffer, the rest filled as the game's files are.
+    /**
+     * Appends `s` as UTF-16 and a 0 in a buffer of `chars` characters, the
+     * rest filled with 0xcd as the game's files are.
+     */
     void text(const std::string &s, size_t chars) {
         for (char c : s)
             u16(uint8_t(c));
@@ -68,12 +76,14 @@ struct Bytes {
         for (size_t i = s.size() + 1; i < chars; i++)
             d.push_back(0xcd), d.push_back(0xcd);
     }
+    /** Writes a value at `at`, which must already be inside the bytes. */
     void put32(size_t at, uint32_t v) {
         for (int i = 0; i < 4; i++)
             d[at + size_t(i)] = uint8_t(v >> (8 * i));
     }
 };
 
+/** A UTF-16 text file of `s`, with its byte-order mark. */
 inline std::vector<uint8_t> utf16File(const std::string &s) {
     Bytes b;
     b.d = {0xff, 0xfe};
@@ -81,8 +91,11 @@ inline std::vector<uint8_t> utf16File(const std::string &s) {
         b.u16(uint8_t(c));
     return b.d;
 }
-// A world for scripts: walks and fades take until told; the rest is
-// instant. It records what it was asked.
+
+/**
+ * A world for scripts: walks, fades and talks take until told; the rest is
+ * instant. It records what it was asked, a line per event.
+ */
 struct FakeHost : ScriptHost {
     std::vector<std::string> started;
     bool start(ScriptRunner &, const ScriptEvent &e, bool wait) override {

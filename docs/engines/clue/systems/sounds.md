@@ -68,9 +68,9 @@ ones in stretches (heavy at 4:08-5:20, 10:56-11:54, 17:22-17:32,
 20:21-21:19, light around them), the small and middle thunders in them.
 Searched for as recorded, none of it is found; as `Clue.exe` plays it,
 65/64 fast, all of it is, the gusts' loops matching 0.8-0.9. Every sound
-of the game's is played so (below): an earlier search, five recordings
-with the files as recorded, found only the suggestions' videos' thunder
-(their own sound, at its own speed) and took the weather for thunder
+of the game's is played so (below). Searched for at the files' own
+speed, five recordings give only the suggestions' videos' thunder (their
+own sound, at its own speed), which makes the weather look like thunder
 alone.
 
 **How fast sounds play.** `Clue.exe`'s players (0x4330C0 for sounds,
@@ -114,6 +114,12 @@ floor under the view's middle is heard: silent 500 or more away (in
 the floor's units), else at volume 100 × (1 − distance / 500) of 127,
 panned 64 + 52 × dx / distance (0-127, 64 the middle) by how far it is
 to the right. Reluva does the same.
+
+## In Reluva
+
+`Play` (`src/engines/clue/game/play.cpp`) does the hot spots, the weather
+and the sounds; `playAsClueExe` (`game/play.h`) sets a sound's rate as
+`Clue.exe` does. The data viewer plays the game's sounds.
 
 ## Sources and checks
 

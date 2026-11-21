@@ -170,7 +170,7 @@ constexpr int32_t kInputSize = 40;        // bot_input_t
 constexpr int32_t kGoalSize = 56;         // bot_goal_t: origin, area, mins, maxs, entity, number, flags, item
 constexpr int32_t kMoveResultSize = 52;   // bot_moveresult_t
 constexpr int32_t kUserCommandSize = 24;
-// Bodies, water, slime and lava (Quake III's contents).
+// Water, slime and lava (Quake III's contents).
 constexpr int32_t kContentsLiquid = 8 | 16 | 32;
 constexpr int32_t kInitMoveSize = 68;    // bot_initmove_t
 constexpr int32_t kWeaponInfoSize = 552; // weaponinfo_t: strings of 80

@@ -2,7 +2,8 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // reluva-tool's commands for the AWE engine's games (Agatha Christie:
-// Murder on the Orient Express): see docs/engines/awe/README.md.
+// Murder on the Orient Express, And Then There Were None): see
+// docs/engines/awe/README.md.
 
 #include "engines/awe/tools/tools.h"
 #include "engines/awe/games.h"
@@ -510,13 +511,6 @@ int cmdAweShot(int argc, char **argv) {
     return 0;
 }
 
-// Plays the acts without a player (the Scenes page's autoplay): each act
-// started as "act <x>" starts it, or each developer's save loaded, then
-// moved on till it settles (nothing running, nothing said) or sticks (an
-// event that doesn't end). With -hotspots, every hotspot and character of
-// the scene it settles in is then clicked, each from the act afresh; with
-// -explore n, n clicks follow, each the one tried least so far. What
-// the scripts ask that Reluva doesn't do, or can't find, is listed.
 // reluva-tool awe game-check <game folder> <route.txt> [-3d] [-quick]: the
 // checks a change to the engine should pass, one after another, each a
 // whole game from a new game: the route by the mouse; by the player's
@@ -791,6 +785,14 @@ int cmdAwePose(int argc, char **argv) {
     return worst ? 1 : 0;
 }
 
+// reluva-tool awe game-run: plays the acts without a player (the Scenes
+// page's autoplay): each act started as "act <x>" starts it, or each
+// developer's save loaded, then moved on till it settles (nothing running,
+// nothing said) or sticks (an event that doesn't end). With -hotspots,
+// every hotspot and character of the scene it settles in is then clicked,
+// each from the act afresh; with -explore n, n clicks follow, each the one
+// tried least so far. What the scripts ask that Reluva doesn't do, or
+// can't find, is listed. With -solve or -play, play.cpp's instead.
 int cmdAweActs(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(

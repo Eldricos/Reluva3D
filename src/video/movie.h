@@ -11,11 +11,14 @@
 
 namespace reluva::video {
 
-// Plays an AVI movie (Indeo 5 picture, PCM sound) on the screen at its own
-// size, the picture following the sound, until it ends or a key or click
-// skips it. `quit` is set if the window was closed (or the launcher asked
-// for) meanwhile. `mixer` may be nullptr: then it plays silently, by the
-// clock.
+/**
+ * Plays an AVI movie (Indeo 5 picture, PCM sound) on the screen at its own
+ * size, the picture following the sound, until it ends or a key or click
+ * skips it. `quit` is set if the window was closed (or the launcher asked
+ * for) meanwhile. `mixer` may be nullptr: then it plays silently, by the
+ * clock, as it does a soundtrack that isn't 16-bit mono or stereo.
+ * @return An error if the file can't be read or isn't Indeo 5 video.
+ */
 Error playMovie(System &sys, audio::Mixer *mixer, const std::filesystem::path &file, bool &quit);
 
 } // namespace reluva::video

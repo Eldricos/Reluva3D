@@ -2,6 +2,8 @@
 
 > **Status:** partial · **Code:** `src/engines/age/formats/bound.cpp` · **Checked on:** the English release, 525 `.bnd` and 324 `.bbnd` · **Confidence:** confirmed unless marked
 
+## Overview
+
 Models' collision shapes, `bound/<model>_BOUND.bnd` in `mm2core.ar` (525
 files: every car, props, landmarks; building fronts have none). Read by
 `src/engines/age/formats/bound.cpp`. `.bbnd` (324) is the same in binary, read
@@ -42,7 +44,7 @@ tri 4 5 6 0
 Reluva checks every polygon's vertices exist. 17,515 vertices, 8,259
 quads and 4,958 triangles in all.
 
-## `.bbnd`
+### `.bbnd`
 
 The binary form, little-endian. Each of the 324 has a `.bnd` beside it,
 and read both ways all 324 are the same: vertices, materials (names,
@@ -57,9 +59,8 @@ elasticity, friction, effect and sound) and polygons.
 | 10 × polygons | four vertex numbers (u16), then the material's (u16); a fourth vertex of 0 makes it a triangle |
 
 There's no edge count; the `.bnd`s' edges are all 0 anyway.
-`loadBound` takes `bound/<model>_BOUND.bnd`, else the `.bbnd`.
 
-## `.ter`
+### `.ter`
 
 Beside 184 of the bounds, for the larger models (landmarks, the cities'
 bridges and ramps). Not read; its layout:
@@ -92,8 +93,8 @@ polygons every time):
 
 The edges and polygons match the `.bnd`'s polygons in all 184. Cells
 are numbered z × cells across + x; all 48,425 references name a
-polygon whose box overlaps its cell (an earlier reading of the lists as
-edges, at 22%, had them in the wrong order). The edge's vector is, for
+polygon whose box overlaps its cell (the lists aren't of edges: read
+so, only 22% match). The edge's vector is, for
 an edge of one polygon, the outward normal in that polygon's plane; for
 an edge two polygons share, the unit bisector of their normals (10,754
 of about 10,900). Its number is 0 for an edge of one polygon (8,634 of
@@ -103,6 +104,34 @@ concave one (3,016 of 3,076); flat shared edges have 1 or 2. So it's
 the game's edge data for colliding with the bound's edges, and a grid
 for finding polygons. Reluva works its own out from the `.bnd` (an 8 m
 grid) and doesn't read it.
+
+Counted again over all 184 files and their 19,727 edges, with each
+polygon's normal worked out from its `.bnd` vertices, the rest of what
+doesn't fit the rule above is:
+
+- **Edges three or four polygons share** (188, where a bound's pieces
+  meet): the number is one pair's half-angle cosine (131) or 2 (57),
+  so the game takes one pair of them.
+- **Shared edges with a number of 0** (108 of the 8,800 or so shared by
+  two): 68 between polygons at right angles, 9 between flat ones, 31
+  others. They're treated as if one polygon's edge; which shared edges
+  get 0, and why, isn't settled *(inferred)*.
+- **Others** (21 shared, 6 of one polygon) have numbers that fit neither
+  reading; several of those edges' vectors are straight up (0, 1, 0),
+  which 1,145 edges have, most of them of a flat polygon facing up.
+
+Every file's layout and sizes fit; what's left open is only which edges
+the game marks 0 or leaves out, which matters only to the game's own
+edge collision, not to reading the file.
+
+## In Reluva
+
+Read by `src/engines/age/formats/bound.cpp`: `readBound` the text form,
+`readBinaryBound` the binary one. `loadBound` takes
+`bound/<model>_BOUND.bnd`, else the `.bbnd`. The car, the props and the
+placed models collide with them (`game/car.cpp`, `game/props.cpp`,
+`game/city_collision.cpp`). The `.ter` isn't read. No `reluva-tool`
+command reads bounds.
 
 ## Sources and checks
 

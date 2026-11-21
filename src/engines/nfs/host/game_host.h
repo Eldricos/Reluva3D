@@ -31,13 +31,16 @@
 
 namespace reluva::nfs {
 
-// The retail nfs3.exe run in the x86 interpreter (docs/engines/nfs/games/nfs3/PLAN.md,
-// Phase 4): a Windows process whose C: is the install folder and D: the
-// CD, with the system's functions it calls stood in for. Its own renderer
-// (THRASH) and sound (iSND) DLLs run too, on DirectDraw and DirectSound
-// stood in for.
+/**
+ * The retail nfs3.exe run in the x86 interpreter (docs/engines/nfs/games/nfs3/PLAN.md,
+ * Phase 4): a Windows process whose C: is the install folder and D: the
+ * CD, with the system's functions it calls stood in for. Its own renderer
+ * (THRASH) and sound (iSND) DLLs run too, on DirectDraw and DirectSound
+ * stood in for.
+ */
 class GameHost {
 public:
+    /** How the game is run: what it's told, what draws, what it can reach. */
     struct Options {
         std::string commandLine = "nfs3.exe";
         std::string renderer = "softtria.dll"; // the THRASH DLL, as the registry names it
@@ -165,24 +168,28 @@ public:
         // an address; empty: no modem (TAPI32 isn't there).
         std::string modem;
     };
+    /** A host for the game in `folders`; load() loads it. */
     GameHost(GameFolders folders, Options options);
     ~GameHost();
 
-    // Loads nfs3.exe and binds its imports.
+    /** Loads nfs3.exe and binds its imports. */
     Error load();
-    // Runs it until it ends the process or fails.
+    /** Runs it until it ends the process or fails. */
     Error run(uint32_t &exitCode);
 
+    /** The interpreter, the Windows process it runs, and nfs3.exe's module in it (null until load()). */
+    ///@{
     x86::Cpu &cpu() { return *_cpu; }
     x86::Win32Process &process() { return *_process; }
     const x86::Win32Process::Module *exe() const { return _exe; }
+    ///@}
 
-    // Lines for the report: the calls logged, files opened, messages.
+    /** Lines for the report: the calls logged, files opened, messages. */
     std::function<void(const std::string &line)> log;
-    // How many times each native function was called.
+    /** How many times each native function was called. */
     std::map<std::string, uint64_t> callCounts() const;
 
-    // The window, as the game made it.
+    /** The window, as the game made it. */
     struct Window {
         uint32_t handle = 0;
         uint32_t wndProc = 0;
@@ -194,9 +201,10 @@ public:
         int width = 640;
         int height = 480;
     };
+    /** Every window the game has made, in the order made. */
     const std::vector<Window> &windows() const { return _windows; }
 
-    // THRASH's state, for reports.
+    /** THRASH's state, for reports. */
     struct ThrashStats {
         std::string dll;
         uint64_t frames = 0;
@@ -207,9 +215,11 @@ public:
         int bits = 0;
         uint64_t lastFrameInstructions = 0;
         uint64_t frameInstructionsTotal = 0;
-        // Each frame: when it was flipped (ms), the instructions it took, how
-        // many of them were the renderer's, and the processor's idle time
-        // since the frame before (every thread waiting: microseconds, times).
+        /**
+         * Each frame: when it was flipped (ms), the instructions it took, how
+         * many of them were the renderer's, and the processor's idle time
+         * since the frame before (every thread waiting: microseconds, times).
+         */
         struct Frame {
             uint64_t ms = 0;
             uint64_t instructions = 0;
@@ -230,69 +240,92 @@ public:
         std::map<std::string, uint64_t> callInstructions; // run inside each function, in all
         std::map<int, uint64_t> textureFormats;           // talloc's format -> how many
     };
+    /** THRASH's state so far. */
     const ThrashStats &thrash() const { return _thrash; }
-    // The Glide stand-in (Options::glide), if there is one: glide2x.dll's,
-    // or glide3x.dll's for a DLL that loads it (Options::glideDll).
+    /**
+     * The Glide stand-in (Options::glide), if there is one: glide2x.dll's,
+     * or glide3x.dll's for a DLL that loads it (Options::glideDll).
+     */
     glide::GlideDll *glide() { return _glide.get(); }
-    // With Options::glideGpu 2: each Glide frame's difference from the
-    // software reference, at its buffer swap.
+    /**
+     * With Options::glideGpu 2: each Glide frame's difference from the
+     * software reference, at its buffer swap.
+     */
     std::function<void(const glide::FrameComparison &)> onGlideComparison;
-    // What draws Glide's pixels ("software", or the GPU device's name).
+    /** What draws Glide's pixels ("software", or the GPU device's name). */
     const std::string &glideRenderer() const { return _glideRenderer; }
-    // Called after each page flip with the frame drawn so far, as RGBA.
+    /** Called after each page flip with the frame drawn so far, as RGBA. */
     std::function<void(const Surface &frame)> onFrame;
-    // With gpuThrash, called after each page flip with what THRASH drew
-    // (DirectDraw's frames, the movies', still go to onFrame).
+    /**
+     * With gpuThrash, called after each page flip with what THRASH drew
+     * (DirectDraw's frames, the movies', still go to onFrame).
+     */
     std::function<void(ThrashFrame &&frame)> onThrashFrame;
-    // With Options::glideCompare: the native drawing of each page flip.
+    /** With Options::glideCompare: the native drawing of each page flip. */
     std::function<void(const Surface &frame)> onCompareFrame;
 
-    // Input, from any thread: a key ("enter", "up", "a"...) pressed or let
-    // go, applied once the game's clock reaches `atMs` (0: at once). False
-    // for a name not known.
+    /**
+     * Input, from any thread: a key ("enter", "up", "a"...) pressed or let
+     * go, applied once the game's clock reaches `atMs` (0: at once). False
+     * for a name not known.
+     */
     bool queueKey(const std::string &name, bool down, uint64_t atMs = 0);
-    // The mouse moved by (dx, dy), or its first button pressed or let go.
+    /** The mouse moved by (dx, dy), or its first button pressed or let go, as queueKey. */
+    ///@{
     void queueMouseMove(int dx, int dy, uint64_t atMs = 0);
     void queueMouseButton(bool down, uint64_t atMs = 0);
-    // The joystick's state (Options::joystick), from any thread, applied
-    // once the game's clock reaches `atMs` (0: at once).
+    ///@}
+    /**
+     * The joystick's state (Options::joystick), from any thread, applied
+     * once the game's clock reaches `atMs` (0: at once).
+     */
     void setJoystick(const GamepadState &state, uint64_t atMs = 0);
-    // What the force feedback effects the game plays add up to now
-    // (Options::forceFeedback), from any thread.
+    /**
+     * What the force feedback effects the game plays add up to now
+     * (Options::forceFeedback), from any thread.
+     */
     GamepadForce gamepadForce();
 
-    // What the game's sound buffers play, as a stream for the mixer
-    // (thread-safe; the host must outlive it while it plays).
+    /**
+     * What the game's sound buffers play, as a stream for the mixer
+     * (thread-safe; the host must outlive it while it plays).
+     */
     std::shared_ptr<audio::OutputStream> soundStream();
-    // The sound buffers' blocks played, and of them those the game hadn't
-    // written again since they last played (it fell behind).
+    /**
+     * The sound buffers' blocks played, and of them those the game hadn't
+     * written again since they last played (it fell behind).
+     */
     struct SoundStats {
         uint64_t blocks = 0;
         uint64_t stale = 0;
         uint64_t staleAudible = 0;            // of those, the ones not silent: played as silence, if streamed
         std::vector<uint64_t> staleAudibleMs; // when (the game's clock), the first thousand
     };
+    /** The sound's counts so far, from any thread. */
     SoundStats soundStats() {
         std::lock_guard<std::mutex> lock(_soundMutex);
         return _soundStats;
     }
-    // Fills `frames` stereo frames at `rate` with what the playing buffers
-    // hold at their play cursors, from any thread.
+    /**
+     * Fills `frames` stereo frames at `rate` with what the playing buffers
+     * hold at their play cursors, from any thread.
+     */
     void mixSound(int16_t *out, int frames, int rate);
-    // Records the sound by the game's clock (-wav): each time the clock
-    // passes a 10 ms step, the frames up to the next step are mixed, in
-    // the emulation's thread, onto `to` (stereo, `rate` a second). Frame
-    // n is then what plays at the game's millisecond n * 1000 / rate, so
-    // runs with the same input line up even when their instruction counts
-    // differ. Null stops it.
+    /**
+     * Records the sound by the game's clock (-wav): each time the clock
+     * passes a 10 ms step, the frames up to the next step are mixed, in
+     * the emulation's thread, onto `to` (stereo, `rate` a second). Frame
+     * n is then what plays at the game's millisecond n * 1000 / rate, so
+     * runs with the same input line up even when their instruction counts
+     * differ. Null stops it.
+     */
     void recordSound(std::vector<int16_t> *to, int rate);
-    // What the game's own mixer (native_sound.cpp) adds to its mix, by
-    // window of the game's clock (-voices): the energy (sum of squares, in
-    // 16-bit units) going to L+R and to L-R, for voices whose two levels
-    // have the same sign (front) and for those with opposite signs (behind,
-    // in Dolby). Mixed ahead of the play cursor, by the game's lead.
-    // With Options::mmx, taken at the MMX mixers' entries instead (the mix
-    // itself still the game's, in the interpreter).
+    /**
+     * What the game's own mixer added to its mix in one window of the
+     * game's clock: the energy (sum of squares, in 16-bit units) going to
+     * L+R and to L-R, for voices whose two levels have the same sign
+     * (front) and for those with opposite signs (behind, in Dolby).
+     */
     struct VoiceEnergy {
         uint64_t ms = 0;
         uint32_t calls = 0;
@@ -302,6 +335,14 @@ public:
         double rearC = 0;
         double rearS = 0;
     };
+    /**
+     * Logs what the game's own mixer (native_sound.cpp) adds to its mix, by
+     * window of the game's clock (-voices), onto `to`; null stops it. Mixed
+     * ahead of the play cursor, by the game's lead. With Options::mmx, taken
+     * at the MMX mixers' entries instead (the mix itself still the game's,
+     * in the interpreter).
+     * @param windowMs The window's length; 0 for 100 ms.
+     */
     void logVoices(std::vector<VoiceEnergy> *to, uint32_t windowMs);
 
 private:
@@ -558,7 +599,7 @@ private:
     // force and as deferred.
     Ds3dListener _listener;
     Ds3dListener _deferredListener;
-    std::mutex _soundMutex; // soundBuffers_, between the game and the audio thread
+    std::mutex _soundMutex; // _soundBuffers, between the game and the audio thread
     std::vector<int32_t> _soundMix;
     SoundStats _soundStats;
     std::vector<VoiceEnergy> *_voiceLog = nullptr; // logVoices'

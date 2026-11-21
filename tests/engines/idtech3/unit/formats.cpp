@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// id Tech 3 unit tests: The games' file formats: text and entities, shaders, maps (BSP, patches, the light grid), models (MD3, MDR, animation).
+// id Tech 3 unit tests: the games' file formats: text and entities,
+// shaders, maps (BSP, patches, the light grid), models (MD3, MDR,
+// animation).
 
 #include "common/fs.h"
 #include "engines/idtech3/client/bindings.h"

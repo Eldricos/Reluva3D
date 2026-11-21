@@ -14,8 +14,13 @@
 
 namespace reluva::idtech3 {
 
+/**
+ * The Menu page (page.h): Holomatch's own menus, the game's vm/ui.qvm,
+ * drawn in 3D.
+ */
 class MenuPage : public Page {
 public:
+    /** Shows nothing (count() 0) unless the game is Elite Force with a vm/ui.qvm. */
     explicit MenuPage(PageContext &ctx);
     ~MenuPage() override;
     const char *name() const override { return "Menu"; }

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// id Tech 3 unit tests: The bot library: navigation (AAS), scripts, characters, the AI, chat.
+// id Tech 3 unit tests: the bot library: navigation (AAS), scripts,
+// characters, the AI, chat.
 
 #include "common/fs.h"
 #include "engines/idtech3/client/bindings.h"

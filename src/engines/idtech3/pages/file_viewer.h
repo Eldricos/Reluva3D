@@ -10,8 +10,14 @@
 
 namespace reluva::idtech3 {
 
+/**
+ * A data viewer's page listing every file in the game's search path, each
+ * with the archive it's read from, under the search order and the first
+ * problem loading them.
+ */
 class FileViewer : public Page {
 public:
+    /** Lists the game's files. */
     explicit FileViewer(PageContext &ctx);
     const char *name() const override { return "Files"; }
     size_t count() const override { return _files.size(); }

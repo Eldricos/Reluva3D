@@ -12,21 +12,24 @@
 // and Enter goes back to the menu from the results. The race's traffic,
 // pedestrians and police are about as its settings say.
 //
-// Drive (3D): a car driven round a city. Up/Down (or W/S) accelerate and
-// brake (held when stopped, backs up), Left/Right (or A/D) steer, Space
-// is the handbrake. C changes the camera (near, far, in the car),
-// PageUp/PageDown the car, P its colour, Home/End the city, T the time and
-// weather, R puts the car back at the start, I shows or hides the info.
-// The city has traffic and people on its sidewalks (Y steps through none,
-// light, normal and heavy), traffic lights, and police, who chase a car
-// speeding past them (O turns them off and on); while not chasing they
-// patrol. In the evening, at night and in fog and rain the cars'
-// headlights are on. In a police car H turns its siren on and off.
+// Drive (3D): a car driven round a city, with the keys the Control
+// Options bind (by default Up/Down accelerate and brake, held when
+// stopped backing up, Left/Right steer, Space is the handbrake, C changes
+// the camera: near, far, in the car) and the game's view controls.
+// PageUp/PageDown change the car, F8 its colour, Home/End the city, F5
+// the time and weather; F4 puts the car back at the start, F9 shows or
+// hides the info. The city has traffic and people on its sidewalks (F6
+// steps through none, light, normal and heavy), traffic lights, and
+// police, who chase a car speeding past them (F7 turns them off and on);
+// while not chasing they patrol. In the evening, at night and in fog and
+// rain the cars' headlights are on. In a police car the horn turns its
+// siren on and off.
 //
 // World (3D): a city (London, San Francisco) flown through. Left/Right
 // pick the city, drag to look, W/A/S/D move, Space/C (or E/Q) go up and
 // down, Shift goes faster, T steps through the 16 times and weathers, M
-// shows or hides the placed models, I the info, R returns to the start.
+// shows or hides the placed models, V turns the visibility culling off
+// and on, I the info, R returns to the start.
 //
 // Models (3D): every model (geometry/*.pkg), its parts placed by their
 // .mtx files. Left/Right step through them (PageUp/PageDown by 10,
@@ -67,8 +70,10 @@ std::string kindOf(const std::string &name);
  */
 std::vector<std::string> fileLines(const std::vector<uint8_t> &data, bool &isText);
 
+/** The Files page: every file in the search path (keys in the comment at the top). */
 class FileViewer : public Page {
 public:
+    /** Lists the files. */
     explicit FileViewer(ScreenContext &ctx);
     const char *name() const override { return "Files"; }
     size_t count() const override { return _files.size(); }
@@ -90,8 +95,8 @@ private:
 
     std::vector<Row> _files;
     std::vector<std::string> _folders; // top-level folders, for Left/Right
-    int _folder = -1;                  // index into folders_, -1: all
-    std::vector<size_t> _shown;        // files_ indices in the folder
+    int _folder = -1;                  // index into _folders, -1: all
+    std::vector<size_t> _shown;        // _files indices in the folder
     int _selected = 0;
     int _top = 0;
 
@@ -103,8 +108,10 @@ private:
     int _lineTop = 0;
 };
 
+/** The Textures page: every texture, one at a time (keys in the comment at the top). */
 class TextureViewer : public Page {
 public:
+    /** Lists the textures. */
     explicit TextureViewer(ScreenContext &ctx);
     const char *name() const override { return "Textures"; }
     size_t count() const override { return _names.size(); }
@@ -123,8 +130,10 @@ private:
     std::string _error;
 };
 
+/** The Models page: every model, one at a time (keys in the comment at the top). */
 class ModelViewer : public Page {
 public:
+    /** Lists the models. */
     explicit ModelViewer(ScreenContext &ctx);
     ~ModelViewer() override;
     const char *name() const override { return "Models"; }
@@ -169,10 +178,11 @@ private:
 /**
  * A city flown through: its streets and buildings from the PSDL, the
  * models placed in it, its sky, lit as at one of its 16 times and
- * weathers. Keys in the header's comment.
+ * weathers. Keys in the comment at the top of this file.
  */
 class WorldViewer : public Page {
 public:
+    /** Lists the cities. */
     explicit WorldViewer(ScreenContext &ctx);
     ~WorldViewer() override;
     const char *name() const override { return "World"; }
@@ -211,10 +221,11 @@ private:
 /**
  * A car driven round a city: Reluva's simulation of it (car.h) against
  * the city's collisions, seen from the car's own cameras, with its engine
- * sound and a HUD. Keys in the header's comment.
+ * sound and a HUD. Keys in the comment at the top of this file.
  */
 class DriveViewer : public Page {
 public:
+    /** Lists the cities and cars. */
     explicit DriveViewer(ScreenContext &ctx);
     ~DriveViewer() override;
     const char *name() const override { return "Drive"; }

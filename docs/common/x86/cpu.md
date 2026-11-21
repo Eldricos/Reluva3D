@@ -138,11 +138,12 @@ what they write. The natives called most that write only that way, or
 nothing at all, are marked so (`Cpu::setWritesTracked`): those three,
 malloc, free, operator new and delete, `_EH_prolog`, and Direct3D's and
 A3D's per-frame setters and draws (a draw fills its surface later on the
-drawing threads, which never hold code). On Visual Studio's build, the
-checks had taken about a sixth of the game's thread (a profile of LEGO
-Alpha Team). Then one block run in four still checked, nearly all after
-operator new, free and Direct3D's calls; now hardly any do, and the
-game's thread takes a tenth less time on GCC's build too.
+drawing threads, which never hold code). On Visual Studio's build,
+checking every run takes about a sixth of the game's thread (a profile
+of LEGO Alpha Team). Without the marks, one block run in four checks,
+nearly all after operator new, free and Direct3D's calls; with them
+hardly any do, and the game's thread takes a tenth less time, on GCC's
+build too.
 
 Whether an address is in memory (`Cpu::valid`, asked by every load and
 store) is one compare with the size less the first page kept by itself:

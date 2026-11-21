@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// id Tech 3 unit tests: The game's files: mounting game folders and mods, detection, the game code's file lists.
+// id Tech 3 unit tests: the game's files: mounting game folders and mods,
+// detection, the game code's file lists.
 
 #include "common/fs.h"
 #include "engines/idtech3/client/bindings.h"

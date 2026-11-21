@@ -64,7 +64,7 @@ DlsSynth::Articulation DlsSynth::articulate(const std::vector<DlsConnection> &in
                 switch (c.destination) {
                 case kDstAttenuation:
                     a.gainDb = float(c.scale) / 655360.0f;
-                    break; // negative: quieter
+                    break;
                 case kDstPan:
                     a.pan = v / 1000;
                     break;

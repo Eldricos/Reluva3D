@@ -217,6 +217,18 @@ These values are the library's settings (`phys_*`), with Quake III's
 defaults. A player is on the ground when there is floor at most 10 units
 below, no steeper than 0.7.
 
+## In Reluva
+
+The bot library is in `src/engines/idtech3/botlib/`: `aas.cpp` reads a
+level's `.aas` (`AasWorld`), `bot_script.cpp` reads the bot scripts,
+`character.cpp` the characters, `bot_config.cpp` the weights, items and
+weapons, and `bot_chat.cpp` the chat. `bot_goals.cpp` and `bot_move.cpp`
+route and move a bot, and `bot_library.cpp` (`BotLibrary`) is what the
+game module calls. `reluva-tool idtech3 game-run <map> -addbot` loads a
+level with a bot. Routing differs from the original's, as said under
+"Routing" (also in the game's
+[KNOWN_DIFFERENCES.md](../games/stvef/KNOWN_DIFFERENCES.md)).
+
 ## Sources and checks
 
 - **Where the facts come from:** the GPL ioquake3 bot library (`aasfile.h`,

@@ -54,11 +54,12 @@ constexpr const char *kSuspectPrints[] = {"printcount",       "printcountess",  
                                           "printmichel",      "printconstantine", "printklaus",     "printlucien",
                                           "printmatteo",      "printengineer",    "printfireman"};
 
-// The window's pages' places (the floats after their vtables).
-// 0x41c980
+// The window's pages' places (the floats after their vtables). A line's
+// arrows, back and on (0x41c980): left, top, right, bottom.
 constexpr int kArrowBack[4] = {46, 29, 76, 44};
 constexpr int kArrowOn[4] = {435, 29, 464, 44};
-// 0x482814, 0x482810
+// The blip's line: where it starts, and how far it goes (0x482814,
+// 0x482810).
 constexpr int kBlipLeft = 78;
 constexpr int kBlipSpan = 342;
 
@@ -120,7 +121,7 @@ bool startsWith(const std::string &s, const char *p) {
 
 } // namespace
 
-// --- When it's there ------------------------------------------------------------
+// When it's there.
 
 bool ScenePage::interfaceOn() const {
     // 0x4143c0: a scene with SHOW on (none: on), "interface on".
@@ -139,7 +140,7 @@ bool ScenePage::canAct() const {
            !_dialogue->boxShown() && _messageTime <= 0 && _ui.zoom.empty();
 }
 
-// --- Items ------------------------------------------------------------------------
+// Items.
 
 ScenePage::ItemInfo ScenePage::itemInfo(const std::string &item) const {
     // Text\itemlist.txt (0x420a70): Item Name, In-game Item Description,
@@ -290,7 +291,7 @@ void ScenePage::talkStarting(const std::string &name) {
     }
 }
 
-// --- The window -------------------------------------------------------------------
+// The window.
 
 void ScenePage::toggleInventory() {
     // 0x4194d0. Closed with an item in hand: only the item put back.
@@ -510,7 +511,7 @@ bool ScenePage::startCard(ScriptRunner &runner, const ScriptEvent &e) {
     return true;
 }
 
-// --- Text -------------------------------------------------------------------------
+// Text.
 
 int ScenePage::textHeight(int font, int width, const std::string &text, int *lines) {
     if (!_ctx.fonts || font < 0 || size_t(font) >= _ctx.fonts->styles().size())
@@ -562,7 +563,7 @@ int ScenePage::uiText(int font, int colour, int l, int t, int r, int b, int flag
     return h;
 }
 
-// --- Input ------------------------------------------------------------------------
+// Input.
 
 int ScenePage::pageButton(int x, int y, int *bx, int *by) {
     // The tabs (0x41cc90), then the page's own button (7: examine's eye,
@@ -998,7 +999,7 @@ bool ScenePage::pageClick(int x, int y) {
     return false;
 }
 
-// --- Combining and comparing ----------------------------------------------------
+// Combining and comparing.
 
 bool ScenePage::combine() {
     // The gears (0x418a50): two or more items on the left combined, or the
@@ -1101,7 +1102,7 @@ void ScenePage::comparePrints() {
     }
 }
 
-// --- Drawing ----------------------------------------------------------------------
+// Drawing.
 
 void ScenePage::drawInterface() {
     if (!interfaceOn())
@@ -1327,7 +1328,7 @@ void ScenePage::drawCards() {
     }
 }
 
-// --- The scrapbook ----------------------------------------------------------------
+// The scrapbook.
 
 std::vector<ScenePage::ScrapRow> ScenePage::scrapRows() {
     // Text\Scrapbook\<section>.txt (0x41ec60): Sub-Heading (its
@@ -1572,8 +1573,7 @@ int ScenePage::drawScrapbook(int alpha, bool drawIt, int clickX, int clickY, std
     return pages;
 }
 
-// --- A player's hand ---------------------------------------------------------------
-// The inputs a player makes, one at a time, each decided from the screen as
+// A player's hand: the inputs a player makes, one at a time, each decided from the screen as
 // it is (the window's fades and the bar's let the next wait). The places
 // are the ones the clicks above test.
 

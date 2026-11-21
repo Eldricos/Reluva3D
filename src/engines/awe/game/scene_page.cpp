@@ -832,7 +832,8 @@ void ScenePage::drawParticles(const ParticleSystem &system, bool keepAlpha) {
         float y;
         float distance;
         if (s.screenSpace) {
-            // An orthographic 1024x768 view about the screen's centre, y up.
+            // An orthographic view of the frame (1024x768 in Orient
+            // Express) about the screen's centre, y up.
             x = float(frameW()) / 2 + p.position[0];
             y = float(frameH()) / 2 - p.position[1];
             distance = std::sqrt(p.position[0] * p.position[0] + p.position[1] * p.position[1] +
@@ -2077,9 +2078,7 @@ void ScenePage::update(uint64_t nowMs) {
             if (const int alpha = whiteOut(); alpha > 0)
                 stencilQuad(0, gfx::Renderer3D::StencilMode::kInside, 2, Color{255, 255, 255}, uint8_t(alpha));
         } else if (shadows) {
-            // Where the stencil is 1, darkened (0x402ba0: black at alpha
-            // 63); then the player washed toward white with distance, in
-            // the snow (the camera's whiteoutStart and whiteoutEnd, 0x402e20).
+            // The same from the CPU's stencil.
             if (!_shadowMask)
                 _shadowMask = std::make_unique<CoverageMask>(frameW(), frameH());
             _stencil->select(1, *_shadowMask);
@@ -2926,7 +2925,7 @@ void ScenePage::logScript(const std::string &line) {
         _scriptLog.pop_front();
 }
 
-// --- Character verbs ----------------------------------------------------------
+// Character verbs.
 
 std::shared_ptr<GpuModel> ScenePage::propModel(const std::string &file) {
     // Kept with the characters' models: loading one decodes its textures.
@@ -3091,7 +3090,7 @@ bool ScenePage::startCharacterVerb(ScriptRunner &runner, Character &c, const Scr
     return false;
 }
 
-// --- Dialogue -----------------------------------------------------------------
+// Dialogue.
 
 void ScenePage::loadDialogue() {
     // The gen_ tables and the act's (the game loads the act's when it

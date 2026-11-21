@@ -129,7 +129,7 @@ is the map's data as it is; the rest comes from the running level.
     packages), less events it has disabled (`Disable('Tick')`). An actor
     placed as a ghost and never started has every bit set. Checked
     against the original's save: the masks agree with all of its actors'
-    but those (98% before the two rules, all after).
+    but those.
   - The bits' events are Core's names from 300 on: Spawned, Destroyed,
     GainedChild, LostChild, two probes, Trigger, UnTrigger, Timer,
     HitWall, Falling, Landed, ZoneChange, Touch, UnTouch, Bump,

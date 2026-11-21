@@ -67,10 +67,9 @@ Console commands (`ConsoleCommand`, `vm_console.cpp`):
     Reluva draws as the hardware drivers do. The scripts ask for it
     (`Actor.InSoftwareMode`) to hide the wrist flashlight, the breather,
     the armour belt and the drill's inductor, and the tricorder grid, in
-    software mode. Until November 2026 they were all hidden. Now the
-    flashlight shows on the raised forearm (`C3DAttach(Player, 'Wrist',
-    'Arm')`), the breather at the mouth ('Face'), and the video options
-    name "Direct3D Support".
+    software mode. So the flashlight shows on the raised forearm
+    (`C3DAttach(Player, 'Wrist', 'Arm')`), the breather at the mouth
+    ('Face'), and the video options name "Direct3D Support".
   - Picking items up: standing still within 52 of one (`ScanForItemsToPickup`),
     the player turns to it and plays the pick-up (crouching to one under
     the feet), then takes it. M05_SiskoL1a's breather at (3205, -2204)

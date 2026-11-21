@@ -16,12 +16,15 @@
 
 namespace reluva::x86 {
 
-// A COM interface as a program sees it: its methods in vtable order, each
-// with the number of 32-bit argument words it takes after `this` (what the
-// stdcall method pops). The first three are always IUnknown's.
+/**
+ * A COM interface as a program sees it: its methods in vtable order, each
+ * with the number of 32-bit argument words it takes after `this` (what the
+ * stdcall method pops). The first three are always IUnknown's.
+ */
 struct ComInterface {
     std::string name; // "IDirectDraw7"
     std::string iid;  // "{15e65ec0-3b9c-11d2-b92f-00609797ea5b}", lower-case
+    /** A method's name, and its argument words after `this`. */
     struct Method {
         const char *name;
         int args;
@@ -30,47 +33,59 @@ struct ComInterface {
     uint32_t vtable = 0; // in the process's memory, once ComHost has made it
 };
 
-// An object behind one or more interface pointers. invoke() runs method
-// `index` of `iface` (`this` is c.arg(0), its arguments c.arg(1) on) and
-// returns its result; nothing means the method isn't stood in for, which
-// ends the run naming it. IUnknown's three are ComHost's.
+/** An object behind one or more interface pointers. IUnknown's three methods are ComHost's. */
 class ComObject : public std::enable_shared_from_this<ComObject> {
 public:
     virtual ~ComObject() = default;
+    /**
+     * Runs method `index` of `iface` (`this` is c.arg(0), its arguments
+     * c.arg(1) on).
+     * @return The method's result; nothing if it isn't stood in for, which
+     *         ends the run naming it.
+     */
     virtual std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) = 0;
-    // The interface QueryInterface finds for `iid`, if the object has it.
+    /** The interface QueryInterface finds for `iid` (as guid() writes it), or null if the object hasn't it. */
     virtual const ComInterface *query(const std::string &iid) = 0;
-    uint32_t refs = 1;
+    uint32_t refs = 1; // the reference count AddRef and Release keep
 };
 
-// Makes the interface pointers programs call through: each a block of
-// memory holding a vtable pointer, whose entries are native functions that
-// find the object and call it.
+/**
+ * Makes the interface pointers programs call through: each a block of
+ * memory holding a vtable pointer, whose entries are native functions that
+ * find the object and call it. An object's pointers are freed when the
+ * program releases it for the last time.
+ */
 class ComHost {
 public:
+    /** A host whose pointers and vtables are made in `process`'s memory. */
     explicit ComHost(Win32Process &process) : _process(process) {}
 
-    // Builds `iface`'s vtable (once; it must outlive the host).
+    /** Builds `iface`'s vtable (once; it must outlive the host). */
     void define(ComInterface &iface);
-    // `object`'s pointer as `iface` (defined), made the first time.
+    /** `object`'s pointer as `iface` (defined), made the first time. */
     uint32_t pointer(const std::shared_ptr<ComObject> &object, const ComInterface &iface);
-    // The object behind an interface pointer; nullptr if it isn't one.
+    /** The object behind an interface pointer; nullptr if it isn't one. */
     ComObject *object(uint32_t pointer) const;
+    /** The object behind a pointer as a T; nullptr if it isn't one. */
     template<class T>
     T *as(uint32_t pointer) const {
         return dynamic_cast<T *>(object(pointer));
     }
-    // The object behind a pointer, shared; nullptr if it isn't a T.
+    /** The object behind a pointer, shared; nullptr if it isn't a T. */
     template<class T>
     std::shared_ptr<T> shared(uint32_t pointer) const {
         ComObject *o = object(pointer);
         return o ? std::dynamic_pointer_cast<T>(o->shared_from_this()) : nullptr;
     }
-    // A GUID in memory as "{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}".
+    /**
+     * A GUID in memory as "{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}", in
+     * lower case; "{}" if the 16 bytes aren't all there.
+     */
     static std::string guid(Cpu &c, uint32_t address);
-    // Writes a GUID given that way.
+    /** Writes a GUID given that way; nothing if it isn't 38 characters or the memory isn't there. */
     static void writeGuid(Cpu &c, uint32_t address, const std::string &guid);
 
+    /** The process the host makes its pointers in. */
     Win32Process &process() { return _process; }
 
 private:
@@ -87,6 +102,8 @@ private:
     void release(ComObject *object);
 };
 
+/** COM's HRESULTs that the stand-ins return. */
+///@{
 constexpr uint32_t kSOk = 0;
 constexpr uint32_t kSFalse = 1;
 constexpr uint32_t kENoInterface = 0x80004002u;
@@ -94,5 +111,6 @@ constexpr uint32_t kEInvalidArg = 0x80070057u;
 constexpr uint32_t kEOutOfMemory = 0x8007000eu;
 constexpr uint32_t kENotImpl = 0x80004001u;
 constexpr uint32_t kEFail = 0x80004005u;
+///@}
 
 } // namespace reluva::x86

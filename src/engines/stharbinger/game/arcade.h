@@ -18,14 +18,16 @@ namespace reluva::stharbinger {
 
 class Resources;
 
-// What a group of targets (sprite id >= 100) carries into a later sequence:
-// the Nemesis in the Defiant sequences.
+/**
+ * What a group of targets (sprite id >= 100) carries into a later sequence:
+ * the Nemesis in the Defiant sequences.
+ */
 struct ArcadeGroupState {
     int state = 0;
     int hits = 0;
 };
 
-// Results of an action sequence, as the scripts test them.
+/** Results of an action sequence, as the scripts test them. */
 enum ArcadeResult {
     kArcadeSurvived = 0,        // the video ended with the player alive
     kArcadeWon = 0x8000,        // the boss (or the plan door) was destroyed
@@ -34,38 +36,59 @@ enum ArcadeResult {
     kArcadeMissing = 999
 };
 
-// An action sequence (ACTIONSEQ types 2..6, 0x19..0x1B, 0x1E, 0x1F), after
-// DEEP.EXE's arcade engine (Run_Arcade 0x261C1, logic 0x2807F, HUD 0x29484).
-//
-// A Smacker video plays in a rectangle of the cockpit picture. Targets are RLE
-// sprites scheduled against the video frames; the player fires phasers (left
-// button) and torpedoes (right button) at the cursor's centre. Enemy shots hit
-// at once. Everything advances one step per video frame.
+/**
+ * An action sequence (ACTIONSEQ types 2..6, 0x19..0x1B, 0x1E, 0x1F), after
+ * DEEP.EXE's arcade engine (Run_Arcade 0x261C1, logic 0x2807F, HUD 0x29484).
+ *
+ * A Smacker video plays in a rectangle of the cockpit picture. Targets are RLE
+ * sprites scheduled against the video frames; the player fires phasers (left
+ * button) and torpedoes (right button) at the cursor's centre. Enemy shots hit
+ * at once. Everything advances one step per video frame.
+ */
 class Arcade {
 public:
+    /**
+     * The sequence of ACTIONSEQ type `type`; nothing is loaded until start().
+     * `resources` and `mixer` (which may be null) must outlive it.
+     */
     Arcade(Resources &resources, audio::Mixer *mixer, int type, int difficulty);
+    /** Stops the sequence's music and the video's sound. */
     ~Arcade();
 
-    // `screen` is the picture shown when the sequence starts (the cockpit).
-    // Returns false if the video is missing.
+    /**
+     * `screen` is the picture shown when the sequence starts (the cockpit).
+     * Returns false if the video is missing.
+     */
     bool start(const Surface &screen, int initialDamage, const std::map<int, ArcadeGroupState> &groups);
-    // Advances to `millis` after the start. The buttons are presses not yet
-    // handled; `aim` is the gunsight's centre. Returns true if a video frame ran
-    // (which handles the presses).
+    /**
+     * Advances to `millis` after the start. The buttons are presses not yet
+     * handled; `aim` is the gunsight's centre. Returns true if a video frame ran
+     * (which handles the presses).
+     */
     bool update(uint32_t millis, Point aim, bool leftPressed, bool rightPressed);
 
+    /** Whether the sequence is over, and how it ended (an ArcadeResult). */
+    ///@{
     bool isDone() const { return _done; }
     uint16_t getResult() const { return _result; }
+    ///@}
+    /** The player's damage; 100 or more kills. */
     int getDamage() const { return _damage; }
+    /** The video shown when the player dies in this sequence ("DEATHMIX" for an unknown type). */
     const char *getDeathVideo() const;
+    /** The sequence's name, empty for an unknown type. */
     const std::string &getName() const { return _name; }
+    /** Adds what each group of targets (id 100 and up) carries into a later sequence. */
     void saveGroups(std::map<int, ArcadeGroupState> &out) const;
 
+    /** The picture: the cockpit with the video, the sprites and the HUD. */
     const Surface &getScreen() const { return _compose; }
-    // 256 RGB entries; true once after each change.
+    /** The palette, 256 RGB entries. */
     const uint8_t *palette() const { return _palette; }
+    /** Whether the palette changed since last asked: true once after each change. */
     bool takePaletteChanged();
 
+    /** The video frame just decoded; -1 before the first. */
     int getFrame() const { return _frame; }
 
 private:
@@ -90,6 +113,7 @@ private:
         int state = -1; // -1 free, 0..3 flying, 4 impact
         int aimX = 0;
         int aimY = 0;
+        /** One of a torpedo's four sprites at one stage of its flight. */
         struct Sprite {
             const RleAnimation *anim = nullptr;
             int frame = 0;

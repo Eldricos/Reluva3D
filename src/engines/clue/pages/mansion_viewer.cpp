@@ -195,7 +195,7 @@ void MansionViewer::handleEvent(const Event &ev) {
 
 void MansionViewer::update(uint64_t nowMs) {
     _now = nowMs;
-    // The animations run at 10 frames a second.
+    // Drawn again 10 times a second, as the animations move on.
     if (!_paused && nowMs / 100 != _tick) {
         _tick = nowMs / 100;
         if (!_overview)

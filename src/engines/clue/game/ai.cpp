@@ -18,7 +18,7 @@ constexpr int kKindCount[3] = {kSuspectCount, kWeaponCount, kRoomCount};
 
 } // namespace
 
-// ---- The notebook --------------------------------------------------------------
+// The notebook
 
 void Notebook::reset(const Game &game, int me, bool countCards, bool useClues) {
     _countCards = countCards;
@@ -195,7 +195,7 @@ void Notebook::settle() {
     }
 }
 
-// ---- The player ---------------------------------------------------------------
+// The player
 
 namespace {
 

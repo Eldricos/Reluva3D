@@ -12,6 +12,13 @@ Raw 8-bit images with no header: `OPS` 301×309, `UPPER` 469×930, `LOWER` 393×
 `HABITAT` 1101×883. They use colour slots shared by a family of palettes (`OPS01` for
 Ops, `CCRUN05` and similar for the others).
 
+## In Reluva
+
+`Game::openDeckMap` (`src/engines/stharbinger/game/game_extras.cpp`) shows
+them, with their sizes in a table there. `reluva-tool stharbinger
+map-palettes <out folder> <game folder>` draws each map with every palette on
+the discs, to pick its palette by eye.
+
 ## Sources and checks
 
 *Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.

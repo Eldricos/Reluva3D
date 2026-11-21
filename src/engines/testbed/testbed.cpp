@@ -86,7 +86,8 @@ public:
     }
 
 private:
-    // An arrow in two colours, drawn here, with its hotspot at its tip.
+    // Switches between the system's pointer and the testbed's own: an arrow
+    // in two colours, drawn here, with its hotspot at its tip.
     void toggleCursor() {
         _customCursor = !_customCursor;
         if (!_customCursor) {

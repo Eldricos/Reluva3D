@@ -22,6 +22,8 @@ namespace {
 constexpr int kFrameW = 640;
 constexpr int kFrameH = 480;
 constexpr int kMaxStepsPerUpdate = 16; // a replay catching up after a slow frame
+// The roadside camera: metres ahead of the car, to its side and up; how far
+// the car gets from it before another is set down; its view, in degrees.
 constexpr float kTvAhead = 45;
 constexpr float kTvSide = 10;
 constexpr float kTvHeight = 4;

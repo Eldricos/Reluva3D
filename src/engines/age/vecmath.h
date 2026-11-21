@@ -11,6 +11,8 @@
 
 namespace reluva::age {
 
+/** Vec3's arithmetic, by component. */
+///@{
 inline Vec3 operator+(const Vec3 &a, const Vec3 &b) {
     return {a[0] + b[0], a[1] + b[1], a[2] + b[2]};
 }
@@ -32,6 +34,9 @@ inline Vec3 &operator+=(Vec3 &a, const Vec3 &b) {
 inline Vec3 &operator-=(Vec3 &a, const Vec3 &b) {
     return a = a - b;
 }
+///@}
+/** The dot and cross products, and the length. */
+///@{
 inline float dot(const Vec3 &a, const Vec3 &b) {
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
@@ -41,6 +46,8 @@ inline Vec3 cross(const Vec3 &a, const Vec3 &b) {
 inline float length(const Vec3 &a) {
     return std::sqrt(dot(a, a));
 }
+///@}
+/** The direction of `a` with length 1; zero if `a` is (nearly) zero. */
 inline Vec3 normalized(const Vec3 &a) {
     const float l = length(a);
     return l > 1e-9f ? a * (1 / l) : Vec3{0, 0, 0};
@@ -52,10 +59,12 @@ struct Mat3 {
     Vec3 y{0, 1, 0};
     Vec3 z{0, 0, 1};
 
+    /** A direction in this frame as a world one. */
     Vec3 operator*(const Vec3 &v) const { return x * v[0] + y * v[1] + z * v[2]; }
     /** The transpose's product: a world direction in this frame. */
     Vec3 inverseTimes(const Vec3 &v) const { return {dot(x, v), dot(y, v), dot(z, v)}; }
 
+    /** Turned by `angle` (radians) about Y: positive turns +Z towards +X. */
     static Mat3 rotationY(float angle) {
         const float c = std::cos(angle);
         const float s = std::sin(angle);
@@ -73,6 +82,7 @@ struct Mat3 {
                 {t * x * y - s * z, t * y * y + c, t * y * z + s * x},
                 {t * x * z + s * y, t * y * z - s * x, t * z * z + c}};
     }
+    /** `m`, then this. */
     Mat3 operator*(const Mat3 &m) const { return {*this * m.x, *this * m.y, *this * m.z}; }
     /** Square again after rounding errors build up. */
     void orthonormalize() {

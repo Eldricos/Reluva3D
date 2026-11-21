@@ -11,9 +11,10 @@
 
 namespace reluva::idtech3 {
 
+/** A point or direction in the map: x, y, z. */
 using Vec3f = std::array<float, 3>;
 
-// Content flags (the shaders' surfaceparms, as the games use them).
+/** Content flags (the shaders' surfaceparms, as the games use them). */
 namespace contents {
 constexpr int32_t kSolid = 1;
 constexpr int32_t kLava = 8;
@@ -27,6 +28,7 @@ constexpr int32_t kCorpse = 0x4000000;
 constexpr int32_t kTrigger = 0x40000000;
 } // namespace contents
 
+/** Where a trace stopped, and what stopped it. */
 struct TraceResult {
     bool allSolid = false;   // the whole move is inside something solid
     bool startSolid = false; // it starts inside something solid
@@ -38,54 +40,72 @@ struct TraceResult {
     int32_t contents = 0; // of what was hit
 };
 
-// A map's solid parts for moving things through: a box (or a point) swept
-// along a line is stopped by the brushes it meets, each a convex volume
-// bounded by planes, found through the BSP tree. Brushes count when their
-// contents share a bit with the mask. Curved surfaces (patches) collide
-// too: each is cut into triangles once, each triangle a thin convex
-// volume (its plane both ways, its edges, and its bounding box), found
-// through the same leaves. See docs/engines/idtech3/formats/bsp.md.
+/**
+ * A map's solid parts for moving things through: a box (or a point) swept
+ * along a line is stopped by the brushes it meets, each a convex volume
+ * bounded by planes, found through the BSP tree. Brushes count when their
+ * contents share a bit with the mask. Curved surfaces (patches) collide
+ * too: each is cut into triangles once, each triangle a thin convex
+ * volume (its plane both ways, its edges, and its bounding box), found
+ * through the same leaves. See docs/engines/idtech3/formats/bsp.md.
+ */
 class CollisionWorld {
 public:
+    /** Over `bsp`, which must outlive it; the patches are cut up here. */
     explicit CollisionWorld(const Bsp &bsp);
 
-    // Model 0 is the world, others brush entities' (*1, *2...), traced
-    // in their own coordinates. mins/maxs give the box around the moving
-    // point (zeros for a point).
+    /**
+     * Sweeps a box from `start` to `end` through a model. Model 0 is the
+     * world, others brush entities' (*1, *2...), traced in their own
+     * coordinates; a model the map hasn't stops nothing. mins/maxs give the
+     * box around the moving point (zeros for a point).
+     */
     TraceResult trace(const Vec3f &start, const Vec3f &end, const Vec3f &mins, const Vec3f &maxs, int model,
                       int32_t mask) const;
-    // The contents of everything at a point.
+    /** The contents of everything in a model at a point (0 for a model the map hasn't). */
     int32_t pointContents(const Vec3f &point, int model) const;
-    // The same against brush model `model` standing at `origin`, turned by
-    // `angles` (pitch, yaw, roll in degrees), as the original's
-    // CM_TransformedBoxTrace: the box is moved by its middle (an uneven
-    // box made even about it), and the move turned into the model's own
-    // axes, but not the box (the original leaves it unturned: turning it
-    // would spoil the brushes' bevels); the plane hit is turned back, and
-    // the end found along the move in the world.
+    /**
+     * The same against brush model `model` standing at `origin`, turned by
+     * `angles` (pitch, yaw, roll in degrees), as the original's
+     * CM_TransformedBoxTrace: the box is moved by its middle (an uneven
+     * box made even about it), and the move turned into the model's own
+     * axes, but not the box (the original leaves it unturned: turning it
+     * would spoil the brushes' bevels); the plane hit is turned back, and
+     * the end found along the move in the world. Model 0, the world, is
+     * never turned.
+     */
+    ///@{
     TraceResult transformedTrace(const Vec3f &start, const Vec3f &end, const Vec3f &mins, const Vec3f &maxs, int model,
                                  int32_t mask, const Vec3f &origin, const Vec3f &angles) const;
     int32_t transformedPointContents(const Vec3f &point, int model, const Vec3f &origin, const Vec3f &angles) const;
-    // A turn's axes, as Quake III works them out from (pitch, yaw, roll):
-    // forward, left and up, a point's coordinates in them its dot
-    // products with each.
+    ///@}
+    /**
+     * A turn's axes, as Quake III works them out from (pitch, yaw, roll):
+     * forward, left and up, a point's coordinates in them its dot
+     * products with each.
+     */
     static std::array<Vec3f, 3> turnAxes(const Vec3f &angles);
-    // The leaf a point is in, for visibility.
+    /** The leaf a point is in, for visibility (-1 for a map without leaves). */
     int leafAt(const Vec3f &point) const;
-    // The leaves a box touches (inside or on their edges).
+    /** Adds to `leafs` the leaves a box touches (inside or on their edges). */
     void boxLeafs(const Vec3f &mins, const Vec3f &maxs, std::vector<int> &leafs) const;
-    // The area a leaf is in (-1: none, as solid leaves).
+    /** The area a leaf is in (-1: none, as solid leaves). */
     int leafArea(int leaf) const {
         return leaf >= 0 && size_t(leaf) < _bsp.leafs.size() ? _bsp.leafs[size_t(leaf)].area : -1;
     }
-    // How many areas the map is cut into (by its area portals).
+    /** How many areas the map is cut into (by its area portals). */
     int areaCount() const { return _areaCount; }
+    /** A model's bounds, as the map gives them; false for a model it hasn't. */
     bool modelBounds(int model, Vec3f &mins, Vec3f &maxs) const;
+    /** How many models the map has, the world (0) among them. */
     int modelCount() const { return int(_bsp.models.size()); }
+    /** The map it was made from. */
     const Bsp &bsp() const { return _bsp; }
 
-    // A box of given contents, for entities that aren't brush models;
-    // traced in the same way.
+    /**
+     * A box of given contents, for entities that aren't brush models;
+     * traced in the same way. Contents 0 stop nothing.
+     */
     static TraceResult traceBox(const Vec3f &start, const Vec3f &end, const Vec3f &mins, const Vec3f &maxs,
                                 const Vec3f &boxMins, const Vec3f &boxMaxs, int32_t boxContents);
 
@@ -141,16 +161,23 @@ private:
     std::vector<PatchCollide> _patches;
 };
 
-// Which of a map's areas join up, as the original keeps it: areas meet
-// only through area portals (where doors stand), each closed until the
-// game opens it (as many times as it's opened, less times closed); areas
-// joined through open ones, step by step, are connected.
+/**
+ * Which of a map's areas join up, as the original keeps it: areas meet
+ * only through area portals (where doors stand), each closed until the
+ * game opens it (as many times as it's opened, less times closed); areas
+ * joined through open ones, step by step, are connected.
+ */
 class AreaPortals {
 public:
+    /** With every portal closed. */
     explicit AreaPortals(int areaCount);
-    // The portal between two areas opened, or closed again.
+    /**
+     * The portal between two areas opened, or closed again (closing one
+     * already closed is ignored); areas out of range
+     * are ignored.
+     */
     void adjust(int area1, int area2, bool open);
-    // Whether the areas join up (never for -1).
+    /** Whether the areas join up (never for -1). */
     bool connected(int area1, int area2) const;
 
 private:

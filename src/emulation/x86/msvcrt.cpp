@@ -276,7 +276,7 @@ void addMsvcrt(Win32Process &process) {
         });
     };
 
-    // --- Variables -------------------------------------------------------------
+    // Variables.
     st.iob = st.alloc(3 * kFileSize);
     st.tm = st.alloc(36);
     st.ctimeText = st.alloc(32);
@@ -300,7 +300,7 @@ void addMsvcrt(Win32Process &process) {
     provideCdecl("__p__commode", [s](Cpu &) { return s->commode; });
     provideCdecl("_errno", [s](Cpu &) { return s->errnoAt; });
 
-    // --- Start-up and ending -----------------------------------------------------
+    // Start-up and ending.
     provideCdecl("__set_app_type", [](Cpu &) { return 0u; });
     provideCdecl("__setusermatherr", [](Cpu &) { return 0u; });
     // __getmainargs(argc*, argv*, envp*, wildcards, startinfo*)
@@ -350,7 +350,7 @@ void addMsvcrt(Win32Process &process) {
         return 0u;
     });
 
-    // --- Exceptions -----------------------------------------------------------------
+    // Exceptions.
     // Structured and C++ exceptions aren't dispatched yet: the handlers are
     // only called when one is, so reaching them, or throwing, ends the run
     // (naming the C++ type thrown, from its ThrowInfo).
@@ -463,7 +463,7 @@ void addMsvcrt(Win32Process &process) {
     process.provideData(kDll, "?what@exception@@UBEPBDXZ", what);
     thiscall("??1type_info@@UAE@XZ", 0, [](Cpu &, uint32_t) { return 0u; });
 
-    // --- Memory -----------------------------------------------------------------------
+    // Memory.
     provideCdecl("malloc", [s](Cpu &c) { return s->p.memory().alloc(std::max(c.arg(0), 1u)); });
     provideCdecl("??2@YAPAXI@Z", [s](Cpu &c) { return s->p.memory().alloc(std::max(c.arg(0), 1u)); }); // operator new
     provideCdecl("calloc", [s](Cpu &c) {
@@ -533,7 +533,7 @@ void addMsvcrt(Win32Process &process) {
         return hit ? c.arg(0) + uint32_t(static_cast<const char *>(hit) - s->ptr(c.arg(0))) : 0u;
     });
 
-    // --- Strings (the "C" locale's) --------------------------------------------------
+    // Strings (the "C" locale's)
     provideCdecl("strlen", [s](Cpu &c) { return uint32_t(s->length(c.arg(0))); });
     provideCdecl("strcpy", [s](Cpu &c) {
         const size_t n = s->length(c.arg(1));
@@ -682,7 +682,7 @@ void addMsvcrt(Win32Process &process) {
     });
     provideCdecl("tolower", [](Cpu &c) { return uint32_t(lowerAscii(int32_t(c.arg(0)))); });
 
-    // --- Numbers ------------------------------------------------------------------------
+    // Numbers.
     provideCdecl("atoi", [s](Cpu &c) { return uint32_t(int32_t(std::strtol(s->str(c.arg(0)).c_str(), nullptr, 10))); });
     provideCdecl("atol", [s](Cpu &c) { return uint32_t(int32_t(std::strtol(s->str(c.arg(0)).c_str(), nullptr, 10))); });
     cdeclDouble("atof", [s](Cpu &c) { return std::strtod(s->str(c.arg(0)).c_str(), nullptr); });
@@ -787,7 +787,7 @@ void addMsvcrt(Win32Process &process) {
         return 0u;
     });
 
-    // --- Maths ----------------------------------------------------------------------------
+    // Maths.
     cdeclDouble("floor", [](Cpu &c) { return std::floor(argDouble(c, 0)); });
     cdeclDouble("ceil", [](Cpu &c) { return std::ceil(argDouble(c, 0)); });
     cdeclDouble("fabs", [](Cpu &c) { return std::fabs(argDouble(c, 0)); });
@@ -894,7 +894,7 @@ void addMsvcrt(Win32Process &process) {
         return wanted;
     });
 
-    // --- Formatted text ----------------------------------------------------------------------
+    // Formatted text.
     // The arguments after the fixed ones are on the stack from slot `first`.
     auto varargs = [](const Cpu &c, int first) { return c.reg[Cpu::ESP] + 4 + 4 * uint32_t(first); };
     auto put = [s](uint32_t to, const std::string &text) {
@@ -922,7 +922,7 @@ void addMsvcrt(Win32Process &process) {
         return uint32_t(scanFormat(c, s->str(c.arg(0)), s->str(c.arg(1)), varargs(c, 2)));
     });
 
-    // --- Files (FILE) -------------------------------------------------------------------------
+    // Files (FILE)
     // A FILE is 32 bytes in the program's memory; the ones it opens are
     // backed by the process's file handles. stdout and stderr go to the
     // process's output, stdin is empty. A file opened in text mode (no
@@ -1099,7 +1099,7 @@ void addMsvcrt(Win32Process &process) {
     });
     provideCdecl("setvbuf", [](Cpu &) { return 0u; });
 
-    // --- Files by name ------------------------------------------------------------------------
+    // Files by name.
     auto host = [s](uint32_t name, bool writing) {
         const std::string full = s->p.fullPath(s->str(name));
         return s->p.mapPath ? s->p.mapPath(full, writing) : std::nullopt;
@@ -1211,7 +1211,7 @@ void addMsvcrt(Win32Process &process) {
         return 0u;
     });
 
-    // --- Time -------------------------------------------------------------------------------------
+    // Time.
     provideCdecl("time", [](Cpu &c) {
         const uint32_t now = uint32_t(std::time(nullptr));
         if (c.arg(0))
@@ -1243,7 +1243,7 @@ void addMsvcrt(Win32Process &process) {
         return s->ctimeText;
     });
 
-    // --- Threads ------------------------------------------------------------------------------------
+    // Threads.
     // _beginthread(start, stack size, arg): run in turns with the main
     // thread (Win32Process::startThread).
     provideCdecl("_beginthread", [s](Cpu &c) { return s->p.startThread(c.arg(0), c.arg(2)); });

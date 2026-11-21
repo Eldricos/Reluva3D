@@ -73,7 +73,7 @@ the player to face into the wall before asking its scripts'
   done (all of it, or the step's share), and the walk goes on.
   - `PushToAutoDuckTimer` grows by each walking frame's time, as
     Engine.dll's `physWalking` adds it. It goes back to 0 on a fall or a
-    real move (over 10 a second). Reluva had only ever set it to 0.
+    real move (over 10 a second).
   - Ducking sets `CollisionHeightOverride` (to the standing height, if
     unset), `ForceDuckLocation` (the place, its feet at the ducked
     height) and `bIsCrouching`. The scripts' walking state then shrinks

@@ -169,7 +169,7 @@ void LevelView::unload() {
     _gpuMeshes.clear();
     _meshes.clear();
     _posedTopology.clear();
-    _liveMeshes.clear(); // indexes into meshes_
+    _liveMeshes.clear(); // indexes into _meshes
     _meshActors.clear();
     _jump = -1;
     _sky.reset();
@@ -1464,8 +1464,8 @@ void LevelView::update(uint64_t nowMs) {
 
 // The game's own HUD, over the world: the player's PreRender and
 // PostRender with the canvas (ScriptLevel::renderHud), then the actors and
-// tiles they drew, in screen pixels: cut out where see-through, translucent ones added,
-// modulated ones multiplied in.
+// tiles they drew, in screen pixels: cut out where see-through,
+// translucent ones added, modulated ones multiplied in.
 void LevelView::drawGameHud() {
     const int w = _renderer->width();
     const int h = _renderer->height();
@@ -1739,8 +1739,8 @@ bool LevelView::strobeSeen() const {
 // Redraws the lightmaps that pulsing, flickering... lights reach, where
 // those lights' brightness changed, and those with a light effect's
 // pattern on them every frame (it moves across them). Meshes take each
-// light's level as a whole (lightLevels_); the lightmaps theirs less a
-// pattern, which lightPattern gives texel by texel (mapLevels_). Only
+// light's level as a whole (_lightLevels); the lightmaps theirs less a
+// pattern, which lightPattern gives texel by texel (_mapLevels). Only
 // lightmaps in a zone seen are drawn; the others are drawn when it is.
 void LevelView::updateLightmaps(float dt) {
     _lightTime += dt;
@@ -2828,7 +2828,7 @@ void LevelView::actorLights(const Vec3f &at, const LevelPlay::Look &look, MeshLi
     light.specular = look.specular;
 }
 
-// --- Playing --------------------------------------------------------------------------------
+// Playing.
 
 Error LevelView::saveGame(const std::string &name) {
     if (!_play)
@@ -2985,7 +2985,7 @@ void LevelView::stopPlay() {
         _audio->reset();
     _play.reset();
     _moverActors.clear();
-    // The live actors' meshes stay uploaded (in meshes_), for playing again.
+    // The live actors' meshes stay uploaded (in _meshes), for playing again.
 }
 
 void LevelView::updatePlay(float dt) {
@@ -3205,7 +3205,7 @@ void LevelView::addCoronas(std::vector<SpriteDraw> &sprites, const gfx::Vec3 &fo
 // default): its renderer says so (GetRendererFlags bit 2), and its blob
 // shadows (CTV_Shadow) step aside. As the original's renderer does it
 // (Render.dll's PrepareProjectedShadow and DrawProjectedShadow, read for
-// what they do; docs/engines/unreal/lighting.md): the mesh flattened from
+// what they do; docs/engines/unreal/games/ds9fallen/systems/lighting.md): the mesh flattened from
 // one light onto the floor under it, darkest close to its feet, its
 // strength easing in and out as it moves between lights.
 void LevelView::drawShadow(VmObject *a, const Vec3f &at) {
@@ -3361,7 +3361,7 @@ void LevelView::drawShadow(VmObject *a, const Vec3f &at) {
 }
 
 // One of the level's actors, as it looks now: a mesh drawn, a sprite kept
-// for drawSprites. Hidden ones only if `evenHidden` (the HUD draws some).
+// for drawSprites. Hidden ones only for the HUD (`hud`: it draws some).
 void LevelView::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, const ScriptLevel::HudActor *hud) {
     constexpr int kDrawSprite = 1;
     constexpr int kDrawMesh = 2;
@@ -3519,9 +3519,10 @@ void LevelView::drawParticles(VmObject *a, const LevelPlay::Look &look, const Me
 
 // An actor's copies: its mesh posed as it is (its animation now) in each
 // one's place, turned, scaled by DrawScale and along its own axes by
-// AxisScale (along its axes before RotOrigin), in its style, as bright as its ScaleGlow (where it's lit, or
-// wholly if the actor's unlit); or, for a sprite, its texture (the copy's
-// own, else the actor's) facing the camera.
+// AxisScale (along its axes before RotOrigin), in its style, as bright as
+// its ScaleGlow (where it's lit, or wholly if the actor's unlit); or, for
+// a sprite, its texture (the copy's own, else the actor's) facing the
+// camera.
 void LevelView::drawCopies(VmObject *a, const LevelPlay::Look &look, const std::vector<LevelPlay::Copy> &copies,
                            std::vector<SpriteDraw> &sprites) {
     constexpr int kDrawSprite = 1;
@@ -3607,9 +3608,10 @@ float LevelView::tweenProgress(const LevelPlay::Look &look, const MeshAnimSeq &a
 }
 
 // A mesh with layered animations playing on parts of it, its bones bent
-// by its scripts, or its face moved: posed now from its own animation and theirs, uploaded as one frame (kept until the next
-// frame is drawn) and drawn. False if it can't be (no skeleton, an
-// animation it hasn't): drawn as its own animation alone then.
+// by its scripts, or its face moved: posed now from its own animation and
+// theirs, uploaded as one frame (kept until the next frame is drawn) and
+// drawn. False if it can't be (no skeleton, an animation it hasn't):
+// drawn as its own animation alone then.
 bool LevelView::drawLayered(VmObject *actor, const LevelPlay::Look &look, int at, const gfx::Mat4 &placement,
                             const std::vector<gfx::TextureId> &skins, const MeshLight &light) {
     auto it = _posers.find({look.mesh.package, look.mesh.exportIndex});

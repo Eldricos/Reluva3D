@@ -13,11 +13,14 @@ namespace reluva::idtech3 {
 
 class Qvm;
 
-// Console variables: named strings the engine and the game code share
-// (settings, game state). See docs/engines/idtech3/formats/qvm.md.
+/**
+ * Console variables: named strings the engine and the game code share
+ * (settings, game state), their names matched ignoring case. See
+ * docs/engines/idtech3/formats/qvm.md.
+ */
 class CvarStore {
 public:
-    // Flags as the game code passes them (the Quake III values).
+    /** Flags as the game code passes them (the Quake III values). */
     enum Flags : int32_t {
         kArchive = 1, // saved in the config file
         kUserInfo = 2,
@@ -32,6 +35,7 @@ public:
         kNoRestart = 1024,
     };
 
+    /** One variable. */
     struct Cvar {
         std::string name;
         std::string value;
@@ -45,37 +49,61 @@ public:
         std::string latched;
     };
 
-    // Creates the variable with `defaultValue` if it doesn't exist; an
-    // existing one keeps its value and gains the flags.
+    /**
+     * Creates the variable with `defaultValue` if it doesn't exist; an
+     * existing one keeps its value and gains the flags (and, if the user
+     * made it, becomes the code's, with the code's default).
+     */
     Cvar &create(std::string_view name, std::string_view defaultValue, int32_t flags);
-    // Sets (creating it, flagged UserCreated, if needed). A ReadOnly or
-    // Init variable is only changed with `force`; a Latch one keeps its
-    // value until the next level starts, unless forced (Quake III's: the
-    // console's sets wait, the game code's are forced).
+    /**
+     * Sets (creating it, flagged UserCreated, if needed). A ReadOnly or
+     * Init variable is only changed with `force`; a Latch one keeps its
+     * value until the next level starts, unless forced (Quake III's: the
+     * console's sets wait, the game code's are forced).
+     */
     void set(std::string_view name, std::string_view value, bool force = false);
-    // The values Latch variables were set to, taken: as a level starts.
+    /** The values Latch variables were set to, taken: as a level starts. */
     void applyLatched();
-    // Whether `name` waits for a new level to take a value set, and the
-    // value it will have then (its value if none waits).
+    /**
+     * Whether `name` waits for a new level to take a value set, and the
+     * value it will have then (its value if none waits).
+     */
+    ///@{
     bool hasLatched(std::string_view name) const;
     std::string pending(std::string_view name) const;
+    ///@}
 
+    /** A variable by name, or by its handle (index + 1); null if there's none. */
+    ///@{
     const Cvar *find(std::string_view name) const;
     const Cvar *byHandle(int32_t handle) const;
-    std::string string(std::string_view name) const; // "" if unset
-    float value(std::string_view name) const;        // 0 if unset or not a number
+    ///@}
+    /**
+     * A variable's value as text, a float or an integer: "" or 0 if unset,
+     * the number its text starts with (or 0) otherwise.
+     */
+    ///@{
+    std::string string(std::string_view name) const;
+    float value(std::string_view name) const;
     int32_t integer(std::string_view name) const;
+    ///@}
+    /** Every variable, in the order they were made. */
     const std::vector<Cvar> &all() const { return _cvars; }
-    // Counts every variable made and every value changed: whether anything
-    // changed since it was last looked at.
+    /**
+     * Counts every variable made and every value changed: whether anything
+     * changed since it was last looked at.
+     */
     uint64_t changes() const { return _changes; }
 
-    // The game code's view of a variable, a vmCvar_t: handle,
-    // modificationCount, value (float), integer, then the string, 256
-    // bytes. Writes the variable `handle` into it at `address`.
+    /**
+     * The game code's view of a variable, a vmCvar_t: handle,
+     * modificationCount, value (float), integer, then the string, 256
+     * bytes.
+     */
     static constexpr int32_t kVmCvarSize = 16 + 256;
+    /** Writes the variable `handle` into the vmCvar_t at `address`; nothing if either isn't valid. */
     void writeVmCvar(Qvm &vm, int32_t address, int32_t handle) const;
-    // Rewrites the vmCvar_t at `address` if its variable changed since.
+    /** Rewrites the vmCvar_t at `address` if its variable changed since. */
     void updateVmCvar(Qvm &vm, int32_t address) const;
 
 private:

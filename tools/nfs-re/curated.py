@@ -1,14 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 """Hand-curated knowledge about nfs3.exe, from Reluva's docs
-(docs/engines/nfs/games/nfs3/systems/physics.md, net.md, bnk.md, col.md; docs/engines/nfs/games/nfs3/systems/threads.md).
-make_symbols.py merges this with the doc-scraped addresses and EA's
-source-name strings into symbols.json.  Edit here, then re-run
-make_symbols.py and build_db.py.
+(docs/engines/nfs/games/nfs3/systems/physics.md, net.md, bnk.md, col.md;
+docs/engines/nfs/games/nfs3/systems/threads.md). make_symbols.py merges
+this with the doc-scraped addresses and EA's source-name strings into
+symbols.json. Edit here, then run make_symbols.py and typeflow.py again
+(or build_all.sh).
 
 Struct field types: u8 s8 u16 s16 u32 s32 f32, 'ptr:<struct>', with [n] arrays."""
 
-# --- structs -------------------------------------------------------------
+# Structs: name -> size, what it is, and its fields by offset (name, type, what it holds).
 STRUCTS = {
   'car': dict(size=0x9ac, desc='car record, 16 of them at 0x5e1120 (stride 0x9ac)', fields={
     0x4: ('slice_prev', 's32'), 0x8: ('race_distance', 's32', 'lap*slices+slice, net status sends low 16 bits'),

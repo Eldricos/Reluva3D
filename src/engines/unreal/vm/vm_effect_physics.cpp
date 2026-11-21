@@ -6,7 +6,7 @@
 // CTVE_MultiMesh list) and, for a few, itself; and the flight and
 // interpolation modes some actors use. Each is Reluva's reading of what
 // the effect's scripts set and leave undone; the original code isn't
-// known. See docs/engines/unreal_vm.md.
+// known. See docs/engines/unreal/games/ds9fallen/systems/effects.md.
 
 #include "engines/unreal/vm/vm_level.h"
 #include "engines/unreal/formats/actors.h"
@@ -116,7 +116,7 @@ void reseedEffectPhysicsRandom() {
     random().seed(24680);
 }
 
-// --- An effect's copies ---------------------------------------------------------------------
+// An effect's copies.
 
 // A copy's field, read and written.
 float ScriptLevel::copyFloat(VmObject *mm, const char *name, float otherwise) {
@@ -1125,7 +1125,7 @@ float ScriptLevel::copyAgeBefore(VmObject *mm, float age, float dt) {
     return std::max(0.0f, age - dt / it->second);
 }
 
-// --- Actors moved by The Fallen's modes -----------------------------------------------------
+// Actors moved by The Fallen's modes.
 
 // The modes that move the actor itself.
 void ScriptLevel::fallenPhysics(VmObject *a, int physics, float dt) {

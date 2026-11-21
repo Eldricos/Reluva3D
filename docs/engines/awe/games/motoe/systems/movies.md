@@ -19,6 +19,13 @@ with `binkw32.dll`'s own colour conversion.
   (`Movie::rewind`), or once and held on the last frame with `BNKX loop
   0` ([ac2.md](../formats/ac2.md)).
 
+## In Reluva
+
+`MoviePlayer` (`src/engines/awe/render/movie_player.cpp`) plays a movie
+in time, with its sound, for the `movie` verb and for the data viewer's
+Movies page. The Scenes page (`src/engines/awe/game/scene_page.cpp`)
+plays the video loops in its scenes.
+
 ## Sources and checks
 
 - `reluva-tool awe files-check <game folder> -bik` decodes every movie and

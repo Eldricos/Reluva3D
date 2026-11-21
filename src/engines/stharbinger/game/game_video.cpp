@@ -74,7 +74,7 @@ const uint32_t kCycleMillis = 300;
 
 } // namespace
 
-// ---- Videos -----------------------------------------------------------------------------
+// Videos
 
 bool Game::startVideo(const std::string &dir, const std::string &name, int x, int y, bool keepScreen,
                       RleAnimation *staticNoise) {
@@ -251,7 +251,7 @@ int Game::playVideoFile(const std::string &path) {
     return 0;
 }
 
-// ---- Action sequences ---------------------------------------------------------------------
+// Action sequences
 
 void Game::startArcade(int type, const Argument *resultVar) {
     // The scene's sounds stop; the cockpit picture the script has shown stays
@@ -347,7 +347,7 @@ void Game::rightClick(int x, int y) {
     handleEvent(event);
 }
 
-// ---- Cursors ----------------------------------------------------------------------------
+// Cursors
 
 void Game::loadCursors() {
     // art\mouse.ani: u16 count (26), then per cursor a 12-byte header (byte 1:

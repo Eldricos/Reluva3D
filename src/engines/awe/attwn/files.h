@@ -40,6 +40,7 @@ std::string plainName(std::string_view name);
  */
 class GameFiles : public Archive {
 public:
+    /** Lists the install's folder; the files are read as they're asked for. */
     Error open(const std::filesystem::path &dir);
     std::vector<std::string> list() const override;
     bool has(std::string_view name) const override;

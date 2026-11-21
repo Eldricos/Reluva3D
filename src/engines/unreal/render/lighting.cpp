@@ -131,9 +131,8 @@ bool readLight(const PackageSet &packages, const Package &package, int32_t ref, 
         const float pitch = float(rot.pitch) * 2 * kPi / 65536;
         const float yaw = float(rot.yaw) * 2 * kPi / 65536;
         l.direction = {std::cos(pitch) * std::cos(yaw), std::cos(pitch) * std::sin(yaw), std::sin(pitch)};
-        // LightCone 0-255 as 0-90 degrees off the axis.
-        // LightCone: the cosine of its edge is 1 - LightCone / 256 (as
-        // Render.dll's spot lighting has it).
+        // LightCone (0-255): the cosine of its edge is 1 - LightCone / 256
+        // (as Render.dll's spot lighting has it).
         l.cosCone = 1 - float(props.byte("LightCone", 128)) / 256.0f;
     }
     return true;
@@ -287,12 +286,10 @@ uint32_t lightSeed(const LightSource &l) {
     return uint32_t(int32_t(l.position[0] * 3 + l.position[1] * 5 + l.position[2] * 11)) ^ 0x5bd1e995u;
 }
 
-// The share a light's LightEffect gives as a whole, 0-1, `time` seconds
-// in: what moving actors get, and (shock) the lightmaps too. Reluva's
-// reading of the names, at the rates they suggest.
-// The share a light's LightEffect gives as a whole: none. The original's
-// effects all work texel by texel on the lightmaps (lightPattern); the
-// light actors get is its LightType's alone (Render.dll's GlobalLighting).
+// The share a light's LightEffect gives as a whole: none (1). The
+// original's effects all work texel by texel on the lightmaps
+// (lightPattern); the light actors get is its LightType's alone
+// (Render.dll's GlobalLighting).
 float effectLevel(const LightSource &, float) {
     return 1;
 }
@@ -458,9 +455,6 @@ LevelLights gatherLights(const PackageSet &packages, const Package &package, con
         out.zoneFog.push_back(fog);
         out.zonePan.push_back(pan);
     }
-    // The lights list repeats each light for every lightmap it reaches
-    // (hundreds of thousands of entries in a large level), so each actor
-    // is read once.
     // The level's Brightness (LevelInfo) scales every light.
     float levelBrightness = 1;
     for (size_t i = 0; i < package.exports().size(); ++i)
@@ -471,6 +465,9 @@ LevelLights gatherLights(const PackageSet &packages, const Package &package, con
             break;
         }
     out.levelBrightness = levelBrightness;
+    // The lights list repeats each light for every lightmap it reaches
+    // (hundreds of thousands of entries in a large level), so each actor
+    // is read once.
     std::map<int32_t, LightSource> byRef;
     for (int32_t ref : model.lights) {
         if (ref == 0) {

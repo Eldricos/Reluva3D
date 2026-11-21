@@ -150,8 +150,9 @@ bool CollisionWorld::sphereContact(const Vec3 &center, float radius, Contact &co
         const float d = length(away);
         if (d >= radius || radius - d <= contact.depth)
             return;
-        // On the triangle's face, out of its plane on the
-        // centre's side; otherwise away from the edge.
+        // Away from the nearest point: out of the plane over the face, out
+        // from an edge or corner. A centre on the triangle itself goes out
+        // on the side of the plane it's on.
         contact.normal = d > 1e-5f ? away * (1 / d) : (dot(t.normal, center - t.a) >= 0 ? t.normal : -t.normal);
         contact.depth = radius - d;
         contact.surface = t.surface;

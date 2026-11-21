@@ -91,7 +91,7 @@ void Glide2Dll::addAll() {
     auto b = [](Cpu &c, int i) { return c.arg(i) != 0; };
     auto n = [](Cpu &c, int i) { return int(c.arg(i)); };
 
-    // --- Start-up, the board, shut-down -----------------------------------------
+    // Start-up, the board, shut-down.
     add("grGlideInit", 0, [&g](Cpu &) {
         g.glideInit();
         return 0u;
@@ -215,7 +215,7 @@ void Glide2Dll::addAll() {
     add("grGlideShamelessPlug", 4, [](Cpu &) { return 0u; });
     add("grCheckForRoom", 4, [](Cpu &) { return 0u; });
 
-    // --- Drawing -------------------------------------------------------------------
+    // Drawing.
     add("grDrawTriangle", 12, [&g, v](Cpu &c) {
         g.drawTriangle(v(c, 0), v(c, 1), v(c, 2));
         return 0u;
@@ -286,7 +286,7 @@ void Glide2Dll::addAll() {
         return 0u;
     });
 
-    // --- State ---------------------------------------------------------------------
+    // State.
     add("grColorCombine", 20, [&g, n, b](Cpu &c) {
         g.colorCombine(n(c, 0), n(c, 1), n(c, 2), n(c, 3), b(c, 4));
         return 0u;
@@ -399,7 +399,7 @@ void Glide2Dll::addAll() {
 
     addFogUtilities();
 
-    // --- Textures ------------------------------------------------------------------
+    // Textures.
     add("grTexMinAddress", 4, [&g, n](Cpu &c) { return g.texMinAddress(n(c, 0)); });
     add("grTexMaxAddress", 4, [&g, n](Cpu &c) { return g.texMaxAddress(n(c, 0)); });
     add("grTexCalcMemRequired", 16,
@@ -493,7 +493,7 @@ void Glide2Dll::addAll() {
         return 0u;
     });
 
-    // --- The linear frame buffer ---------------------------------------------------
+    // The linear frame buffer.
     add("grLfbLock", 24,
         [this](Cpu &c) { return lfbLock(c.arg(0), c.arg(1), c.arg(2), c.arg(3), c.arg(4) != 0, c.arg(5)); });
     add("grLfbUnlock", 8, [this](Cpu &c) { return lfbUnlock(c.arg(0), c.arg(1)); });
@@ -534,7 +534,7 @@ void Glide2Dll::addAll() {
         return 0u;
     });
 
-    // --- The utility library's texture manager (Glide 2.4 Reference Manual) ----------
+    // The utility library's texture manager (Glide 2.4 Reference Manual).
     add("guTexAllocateMemory", 60, [&g, n](Cpu &c) {
         return g.guTexAllocateMemory(n(c, 0), int(c.arg(1) & 0xff), n(c, 2), n(c, 3), n(c, 4), n(c, 5), n(c, 6),
                                      n(c, 7), n(c, 8), n(c, 9), n(c, 10), n(c, 11), n(c, 12), argFloat(c, 13),
@@ -598,7 +598,7 @@ void Glide2Dll::addAll() {
     add("guEndianSwapBytes", 4, [](Cpu &c) { return uint32_t(endianSwapBytes(uint16_t(c.arg(0)))); });
     add3dfLoaders(false);
 
-    // --- Not stood in for: no document says what they do --------------------------
+    // Not stood in for, as no document says what they do:
     // guTexCreateColorMipMap and ConvertAndDownloadRle are only names and
     // signatures in glideutl.h/glide.h; the splash screen is 3dfx's art.
     stub("guTexCreateColorMipMap", 0);

@@ -15,14 +15,15 @@ namespace reluva::netimmerse {
 
 // A LEGO Alpha Team model (.FIN): a NetImmerse stream of objects, each
 // written as its class name, its address when saved (its id, which links
-// between objects use) and its fields. See docs/engines/netimmerse/games/legoalphateam/formats/fin.md.
+// between objects use) and its fields. See
+// docs/engines/netimmerse/games/legoalphateam/formats/fin.md.
 //
 // The objects are found by their headers, then each class that's
 // understood is read; a class that isn't is skipped without losing the
-// rest. Every object records whether its fields
-// were read to exactly its end, which `reluva-tool netimmerse fin-check` counts.
+// rest. Every object records whether its fields were read to exactly its
+// end, which `reluva-tool netimmerse fin-check` counts.
 
-// NiAVObject: anything placed in the scene.
+/** NiAVObject: anything placed in the scene. */
 struct FinAvObject {
     std::string name;
     // Not drawn until the game shows it: effects such as sparks,
@@ -34,8 +35,10 @@ struct FinAvObject {
     std::vector<uint32_t> properties; // ids
 };
 
-// NiNode and its subclasses (NiBillboardNode, NiLODNode, the 3ds animation
-// nodes and bones, the game's DDUnit and DDEnv).
+/**
+ * NiNode and its subclasses (NiBillboardNode, NiLODNode, the 3ds animation
+ * nodes and bones, the game's DDUnit and DDEnv).
+ */
 struct FinNode : FinAvObject {
     std::vector<uint32_t> children; // ids
     // NiLODNode: one child per level of detail, the first the nearest.
@@ -43,8 +46,7 @@ struct FinNode : FinAvObject {
     uint32_t actor = 0; // DDUnit, DDEnv: id of its DDActorSharedData
 };
 
-// NiTriShape (and NiEnvMappedTriShape): a triangle mesh with its data
-// inline.
+/** NiTriShape (and NiEnvMappedTriShape): a triangle mesh with its data inline. */
 struct FinShape : FinAvObject {
     uint16_t vertexCount = 0;
     std::vector<float> vertices;  // x, y, z per vertex
@@ -56,6 +58,7 @@ struct FinShape : FinAvObject {
     std::vector<uint16_t> triangles; // three indices each
 };
 
+/** NiMaterialProperty: colours as r, g, b. */
 struct FinMaterial {
     std::array<float, 3> ambient{};
     std::array<float, 3> diffuse{};
@@ -65,11 +68,14 @@ struct FinMaterial {
     float alpha = 1;
 };
 
-// Ni3dsSkin: a shape whose vertices follow bones. Each vertex has its
-// influences: a bone, a weight and the vertex's position in the bone's
-// space. (In the retail models every vertex has one, of weight 1.) The
-// shape's own vertices are where they were when modelled.
+/**
+ * Ni3dsSkin: a shape whose vertices follow bones. Each vertex has its
+ * influences: a bone, a weight and the vertex's position in the bone's
+ * space. (In the retail models every vertex has one, of weight 1.) The
+ * shape's own vertices are where they were when modelled.
+ */
 struct FinSkin : FinShape {
+    /** How much a bone moves a vertex. */
     struct Influence {
         uint32_t bone = 0; // id of an Ni3dsBone
         float weight = 1;
@@ -79,13 +85,17 @@ struct FinSkin : FinShape {
     std::vector<Influence> influences;
 };
 
-// Ni3dsMorphShape: a shape whose vertices move by weights keyed over time.
-// The first target is the shape as modelled; the others are offsets from
-// it, each added times its weight.
+/**
+ * Ni3dsMorphShape: a shape whose vertices move by weights keyed over time.
+ * The first target is the shape as modelled; the others are offsets from
+ * it, each added times its weight.
+ */
 struct FinMorph : FinShape {
-    // NiBaryMorphKey: an NiTCBFloatKey (its value, tension, continuity and
-    // bias, and two values worked out from them), then a weight and the
-    // tangents into and out of it for each target.
+    /**
+     * NiBaryMorphKey: an NiTCBFloatKey (its value, tension, continuity and
+     * bias, and two values worked out from them), then a weight and the
+     * tangents into and out of it for each target.
+     */
     struct Key {
         float time = 0; // ticks
         float value = 0;
@@ -102,12 +112,14 @@ struct FinMorph : FinShape {
     std::vector<std::vector<float>> targets; // each x, y, z per vertex
 };
 
-// Animation times are 3ds Max ticks, 4800 a second.
+/** Animation times are 3ds Max ticks, 4800 a second. */
 constexpr float kTicksPerSecond = 4800;
 
-// Ni3dsAnimationCore's settings (NiAnimation's AnimCoreLoadBinary): a
-// time t is t × frequency + phase, then looped, played back and forth or
-// clamped between the begin and end key times (`start`, `stop`).
+/**
+ * Ni3dsAnimationCore's settings (NiAnimation's AnimCoreLoadBinary): a
+ * time t is t × frequency + phase, then looped, played back and forth or
+ * clamped between the begin and end key times (`start`, `stop`).
+ */
 struct FinController {
     uint32_t cycle = 0; // 0 loop, 1 reverse (back and forth), 2 clamp
     float frequency = 1;
@@ -117,27 +129,30 @@ struct FinController {
     uint32_t target = 0; // id of what it animates
 };
 
-// NiFlipTextures (an NiAction): cycles its target NiTextureProperty's
-// images. At a time t (ticks), the image is images × (t − start) ÷
-// duration, past the ends as `outOfBounds` says. The rate is already in
-// the duration (images × 160 ÷ rate in every file: 160 ticks, a 30th of
-// a second, an image at rate 1).
+/**
+ * NiFlipTextures (an NiAction): cycles its target NiTextureProperty's
+ * images. At a time t (ticks), the image is images × (t − start) ÷
+ * duration, past the ends as `outOfBounds` says. The rate is already in
+ * the duration (images × 160 ÷ rate in every file: 160 ticks, a 30th of
+ * a second, an image at rate 1).
+ */
 struct FinFlip {
-    enum OutOfBounds : uint32_t { kLoop = 0, kReverse = 1, kClamp = 2 }; // reverse: back and forth
+    /** What happens past either end of the duration; kReverse plays back and forth. */
+    enum OutOfBounds : uint32_t { kLoop = 0, kReverse = 1, kClamp = 2 };
     uint32_t outOfBounds = kLoop;
     float rate = 1;
     float startTime = 0;
     float duration = 0;
     uint32_t target = 0; // id of its NiTextureProperty
-    // Its image at time t of n.
+    /** The image shown at time `t` (ticks) of `images`, as NiFlipTextures::Act works it out; 0 if none. */
     size_t image(double t, size_t images) const;
 };
 
-// Ni3dsColorAnimator and Ni3dsAlphaAnimator: a material's colour or alpha
-// over time, keyed.
+/** Ni3dsColorAnimator and Ni3dsAlphaAnimator: a material's colour or alpha over time, keyed. */
 struct FinMaterialAnimator : FinController {
     uint32_t channel = 0; // colour: 0 ambient, 1 diffuse, 3 emissive
     bool alpha = false;
+    /** A colour or alpha at a time. */
     struct Key {
         float time = 0;               // ticks
         std::array<float, 3> value{}; // alpha: the first only
@@ -145,9 +160,9 @@ struct FinMaterialAnimator : FinController {
     std::vector<Key> keys;
 };
 
-// NiLight, as NiMain's LoadBinary reads it and NiDirect3d lights vertices
-// with it (fin.md).
+/** NiLight, as NiMain's LoadBinary reads it and NiDirect3d lights vertices with it (fin.md). */
 struct FinLight : FinAvObject {
+    /** The kind of light, as the file numbers them. */
     enum Type : uint32_t { kAmbient = 0, kDirectional = 1, kPoint = 2, kSpot = 3 };
     uint32_t type = kPoint;
     bool on = true; // the light switch
@@ -168,11 +183,14 @@ struct FinLight : FinAvObject {
     std::vector<uint32_t> illuminated; // ids: the nodes it lights (none in the retail files)
 };
 
-// DDActorSharedData: the game's own data for a model. Its clips (named
-// stretches of the one animation timeline), and the keys for each 3ds node
-// (Ni3dsAnimationNode, Ni3dsBone), in the order a depth-first walk of the
-// scene graph meets them.
+/**
+ * DDActorSharedData: the game's own data for a model. Its clips (named
+ * stretches of the one animation timeline), and the keys for each 3ds node
+ * (Ni3dsAnimationNode, Ni3dsBone), in the order a depth-first walk of the
+ * scene graph meets them (FinFile::animatedNodes()).
+ */
 struct FinActor {
+    /** A named stretch of the timeline, with the sound played with it. */
     struct Clip {
         std::string name;
         // seconds
@@ -200,14 +218,17 @@ struct FinActor {
         std::vector<uint16_t> flips;
         std::vector<uint16_t> morphs;
     };
+    /** A value at a time. */
     template<typename T>
     struct Key {
         float time = 0; // ticks
         T value{};
     };
-    // Keys of types 2 and 3 curve to the next key; type 1 runs straight.
-    // A position's curve from this key to the next, u running 0 to 1 over
-    // it, is value + u (out + u (a + u b)).
+    /**
+     * A position key. Keys of types 2 and 3 curve to the next key; type 1
+     * runs straight. A position's curve from this key to the next, u
+     * running 0 to 1 over it, is value + u (out + u (a + u b)).
+     */
     struct PositionKey {
         float time = 0; // ticks
         std::array<float, 3> value{};
@@ -216,7 +237,7 @@ struct FinActor {
         std::array<float, 3> b{};
         bool curve = false;
     };
-    // Rotations curve by squad, through each key's control quaternions.
+    /** A rotation key. Rotations curve by squad, through each key's control quaternions. */
     struct RotationKey {
         float time = 0;
         // quaternions: w, x, y, z
@@ -225,8 +246,10 @@ struct FinActor {
         std::array<float, 4> out{};
         bool curve = false;
     };
-    // A number's curve is Hermite's, with the tangents into and out of each
-    // key (already scaled to the intervals either side).
+    /**
+     * A number key. A number's curve is Hermite's, with the tangents into
+     * and out of each key (already scaled to the intervals either side).
+     */
     struct FloatKey {
         float time = 0;
         float value = 0;
@@ -234,6 +257,7 @@ struct FinActor {
         float out = 0;
         bool curve = false;
     };
+    /** One 3ds node's keys. */
     struct Track {
         std::vector<PositionKey> positions;
         std::vector<RotationKey> rotations;
@@ -250,14 +274,17 @@ struct FinActor {
     std::vector<std::array<float, 3>> footprint; // a polygon on the floor
 };
 
-// NiAlphaProperty. Blend factors as NetImmerse numbers them (6 source
-// alpha, 7 one minus source alpha...).
+/**
+ * NiAlphaProperty. Blend factors as NetImmerse numbers them (6 source
+ * alpha, 7 one minus source alpha...).
+ */
 struct FinAlpha {
     bool blend = false;
     uint32_t source = 6;
     uint32_t destination = 7;
 };
 
+/** An object found in the file, read or not. */
 struct FinObjectInfo {
     std::string type;
     uint32_t id = 0;
@@ -268,12 +295,20 @@ struct FinObjectInfo {
     bool exact = false; // its fields read to exactly its end
 };
 
+/** A .FIN model's objects, read into a map per kind and linked by id. */
 class FinFile {
 public:
+    /**
+     * Reads a .FIN file, replacing what was read before. An object of a
+     * class not understood, or whose fields don't read, doesn't fail it.
+     * @return An error if there's no header, no "End Of File", no
+     *         top-level object, or an id that's 0 or used twice.
+     */
     Error parse(const std::vector<uint8_t> &data);
 
+    /** Every object found, in the file's order. */
     const std::vector<FinObjectInfo> &objects() const { return _objects; }
-    // Objects saved as top-level ones, in order: the model's roots.
+    /** Objects saved as top-level ones, in order: the model's roots. */
     const std::vector<uint32_t> &roots() const { return _roots; }
 
     // By id.
@@ -294,10 +329,12 @@ public:
     std::map<uint32_t, uint32_t> vertexColorModes;       // NiVertexColorProperty
     std::map<uint32_t, std::array<uint8_t, 2>> zBuffers; // NiZBufferProperty: test, write
 
-    // What kind of object an id is, or "" if none.
+    /** The class of the object with this id, or "" if none. */
     std::string typeOf(uint32_t id) const;
-    // The 3ds nodes in the order an actor's tracks are: depth first from
-    // the roots, each node before its children, children in order.
+    /**
+     * The 3ds nodes in the order an actor's tracks are: depth first from
+     * the roots, each node before its children, children in order.
+     */
     std::vector<uint32_t> animatedNodes() const;
 
 private:

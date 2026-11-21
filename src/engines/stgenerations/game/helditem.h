@@ -9,18 +9,21 @@
 
 namespace reluva::stgenerations {
 
-// The item in use, held up in the 3D view (the original's view+0x80):
-// a gun such as NUPHASER.OVR that follows the cursor around the bottom of
-// the view, and fires from its muzzle at what the cursor points at.
-//
-// Each overlay has 12 frames of 88 rows: 6..11 are poses (right-low,
-// right-high, centre-high, left-high, left-low, centre-low) and 0..5 the
-// same poses firing. The tables are sgens.exe's (0x5428D8 on).
+/**
+ * The item in use, held up in the 3D view (the original's view+0x80):
+ * a gun such as NUPHASER.OVR that follows the cursor around the bottom of
+ * the view, and fires from its muzzle at what the cursor points at.
+ *
+ * Each overlay has 12 frames of 88 rows: 6..11 are poses (right-low,
+ * right-high, centre-high, left-high, left-low, centre-low) and 0..5 the
+ * same poses firing. The tables are sgens.exe's (0x5428D8 on).
+ */
 class HeldItem {
 public:
     static const int kFrameHeight = 88;
     static const int kPoses = 6;
 
+    /** How an item kind is held: its overlay, its poses' hotspots and its muzzle. */
     struct Style {
         const char *overlay;
         // Each pose's hotspot in its frame, poses 6..11.
@@ -28,10 +31,10 @@ public:
         // Where shots leave from, in world units: ahead, up and to the side.
         double muzzle[3];
     };
-    // The style for an item kind (ATTACH_ITEM_BEHAVIOUR), or null if it isn't held up.
+    /** The style for an item kind (ATTACH_ITEM_BEHAVIOUR), or null if it isn't held up. */
     static const Style *getStyle(int kind);
 
-    // Where the gun goes for a cursor at (x, y) in a view w x h (view.vtFC 0x4310B8).
+    /** Where the gun goes for a cursor at (x, y) in a view w x h (view.vtFC 0x4310B8). */
     struct Placement {
         int frame;
         // Top left of the frame.
@@ -40,18 +43,25 @@ public:
         // Below the gun's line the item can't be used and the cursor is an arrow.
         bool usable;
     };
+    /** Where the gun goes for a cursor at (cursorX, cursorY) in a view w x h. */
     static Placement place(const Style &style, int cursorX, int cursorY, int w, int h);
 
-    // Where a shot leaves from, relative to the eye (0x4320D1): ahead, up,
-    // and to the left, for a cursor at (x, y) in a view w x h.
+    /**
+     * Where a shot leaves from, relative to the eye (0x4320D1): ahead, up,
+     * and to the left, for a cursor at (x, y) in a view w x h.
+     */
     static void getMuzzle(const Style &style, int cursorX, int cursorY, int w, int h, double &ahead, double &up,
                           double &left);
 
-    // Load the overlay for an item kind, from the mission's folder or COMMON.DAT.
+    /**
+     * Loads the overlay for an item kind, from the mission's folder or
+     * COMMON.DAT; 0, or a kind not held up, holds nothing.
+     */
     void load(const ResourceManager &resources, const ResourceRef &level, int kind);
+    /** The item kind load() was given. */
     int getKind() const { return _kind; }
 
-    // Draw it for a cursor at (x, y); firing shows the flash frames.
+    /** Draws it for a cursor at (x, y); firing shows the flash frames. Nothing if it didn't load. */
     void draw(Canvas &view, int cursorX, int cursorY, bool firing) const;
 
 private:

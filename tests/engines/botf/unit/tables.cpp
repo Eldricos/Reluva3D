@@ -24,7 +24,7 @@ using namespace reluva::botf::test;
 
 namespace {
 
-// A .tdb as docs/formats/botf/tdb.md describes: count, a leftover value,
+// A .tdb as docs/engines/botf/formats/tdb.md describes: count, a leftover value,
 // the longest length, 0; per string key, length, a leftover value, offset;
 // the strings, stored in another order than the records.
 Bytes makeTable(const std::vector<std::pair<uint32_t, std::string>> &strings) {

@@ -30,9 +30,9 @@ known.
   scripts scale their beams' sections along X as they're drawn.
 - **A mesh with no skin of its own** (no MultiSkins, Skin, or texture
   in the mesh) takes the actor's `Texture`, as UE1 does: the
-  transporter's strips (`Texture = StripTexture`), impact flares.
-  Before, they were drawn plain white: big white slabs over a beam-down,
-  a white square where a rifle shot hit.
+  transporter's strips (`Texture = StripTexture`), impact flares. Drawn
+  plain white, they'd be big white slabs over a beam-down, a white
+  square where a rifle shot hit.
 - **Copies by physics mode** (`moveMultiMeshes`), as Engine.dll's
   `phys*` functions for The Fallen's modes do it (read November 2026).
   Each walks the copies from the base's `Next` itself. Most fade only
@@ -150,8 +150,6 @@ known.
     below 0) or glows up and down (`bCycleFade`, turning at `MaxGlow` and
     `MinGlow`). Growing or travelling sets `bUpdate`; with it, it's laid
     out again. Its physics (Spark) then places the segments.
-  - Before, Reluva laid the segments itself each tick, jolting them only
-    on updates, so an arc held still between them.
 - **Beams** (`UpdateBeamSections`, 0x103790f0): only while sustained
   (Physics 39) with its copies. Nothing is made or removed: the sections
   the scripts made, from `BeamSectionIndexFirst` up to
@@ -170,9 +168,6 @@ known.
     `WaveStartOffset` goes down by `WaveTravelVelocity` a second. The
     phaser rifle's swells to twice as thick and back about every six
     sections, moving out along the beam.
-  - Before, Reluva bent the beam sideways for its wave, a unit at most
-    and slowly, sized the last section by how far the head had flown,
-    jittered the thickness both ways and didn't spin the beam.
 - **Sparks** (`CTVE_Sparks.SparkTick`): when its scripts' `BurstDelay`
   runs out, a burst of `MinSparksPerBurst` to `MaxSparksPerBurst` flies
   out along its X axis at `Speed`. They spread `RangeWidth` and
@@ -213,9 +208,6 @@ known.
     player jumps far) makes `Intensity` x 2000 at once from the
     weather's own place in still air, each moved on along its fall by a
     random share of its life. The drops already there stay.
-  - Before, Reluva kept 4000 x `Intensity` alive, started them at full
-    brightness, ended them where a trace met the world, and dropped
-    those left far behind.
 - **Decals** (`Decal.AttachDecal`, `DetachDecal`): stuck to the world
   surface within the trace distance behind them. They lie flat on it,
   their top along the direction given or their rotation's Z, and are

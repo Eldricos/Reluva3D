@@ -86,6 +86,19 @@ lines in `CCQ`/`CCF`.
 
 Each has 72 entries, in the same order as `CCB`.
 
+## In Reluva
+
+`readDirectiveList` and `readNameList` (`src/engines/stharbinger/formats/script.h`)
+read the directive lists and name lists, and `readDialogue`
+(`formats/dialogue.h`) a dialogue script. `Resources` (`formats/resources.h`)
+loads the scenes, the linker files (`loadLinkTables`) and the dialogues; the
+game runs them ([script reference](../systems/script-reference.md)).
+
+- `reluva-tool stharbinger script <game folder> <out folder>` lists every
+  scene and dialogue script with its arguments named.
+- `reluva-tool stharbinger dialogue <game folder> <out folder>` writes the
+  dialogue text with its clip names, as `dialogue.txt` and `dialogue.csv`.
+
 ## Sources and checks
 
 *Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.

@@ -8,8 +8,10 @@
 
 namespace reluva {
 
-// Key codes are backend-independent. Printable keys use their lowercase
-// ASCII value; everything else uses the values below.
+/**
+ * Key codes, the same whatever the backend. Printable keys are their
+ * lower-case ASCII value ('a', '1'); everything else is one of these.
+ */
 namespace key {
 constexpr uint32_t kUnknown = 0;
 constexpr uint32_t kBackspace = 8;
@@ -45,12 +47,14 @@ constexpr uint32_t kLAlt = 0x134;
 constexpr uint32_t kRAlt = 0x135;
 } // namespace key
 
+/** Bits of Event::mods: the modifier keys held, either side's. */
 namespace keymod {
 constexpr uint16_t kShift = 1 << 0;
 constexpr uint16_t kCtrl = 1 << 1;
 constexpr uint16_t kAlt = 1 << 2;
 } // namespace keymod
 
+/** What an Event says happened; the Event fields each kind uses are noted beside them. */
 enum class EventType {
     kNone,
     kQuit,             // user closed the window: leave the engine and the app
@@ -77,6 +81,7 @@ enum class EventType {
     kFocusLost,
 };
 
+/** Bits of Event::joyHat: the directions a joystick's hat is held to (two at a diagonal). */
 namespace joyhat {
 constexpr uint8_t kUp = 1;
 constexpr uint8_t kRight = 2;
@@ -84,8 +89,13 @@ constexpr uint8_t kDown = 4;
 constexpr uint8_t kLeft = 8;
 } // namespace joyhat
 
+/** Which mouse button a MouseDown or MouseUp event is about. */
 enum class MouseButton { kNone, kLeft, kRight, kMiddle };
 
+/**
+ * Something the player did, or the window had done to it, as
+ * System::pollEvent gives it. Only the fields its type uses are set.
+ */
 struct Event {
     EventType type = EventType::kNone;
     uint32_t key = key::kUnknown; // KeyDown/KeyUp
@@ -107,10 +117,12 @@ struct Event {
     uint8_t joyHat = 0; // JoyHat: joyhat bits held
 };
 
-// A game controller's state, as System::readGamepad gives it: SDL's
-// gamepad layout (an Xbox-style pad). A racing wheel comes the same way:
-// the wheel as the left stick's X, the brake and accelerator as the
-// triggers, its buttons as the pad's.
+/**
+ * A game controller's state, as System::readGamepad gives it: SDL's
+ * gamepad layout (an Xbox-style pad). A racing wheel comes the same way:
+ * the wheel as the left stick's X, the brake and accelerator as the
+ * triggers, its buttons as the pad's.
+ */
 struct GamepadState {
     // Sticks -1..1 (left X, left Y, right X, right Y; +Y down), then the
     // triggers 0..1 (left, right).
@@ -122,10 +134,12 @@ struct GamepadState {
     bool forceFeedback = false; // it can be given forces (a wheel's motor) or rumble (System::setGamepadForce)
 };
 
-// The forces a game controller is to give (System::setGamepadForce), as
-// DirectInput and SDL's haptics describe them, along X (a wheel's turn, a
-// stick's left and right). A force's sign is the side it comes from: +1
-// from the right, pushing to the left. Gains are applied already.
+/**
+ * The forces a game controller is to give (System::setGamepadForce), as
+ * DirectInput and SDL's haptics describe them, along X (a wheel's turn, a
+ * stick's left and right). A force's sign is the side it comes from: +1
+ * from the right, pushing to the left. Gains are applied already.
+ */
 struct GamepadForce {
     float constant = 0;         // -1..1: a steady push
     float spring = 0;           // 0..1: how hard it's pulled to springCentre
@@ -136,8 +150,10 @@ struct GamepadForce {
     uint32_t vibrationPeriodMs = 0;
     bool vibrationSquare = false; // a square wave, else a sine
     bool autoCentre = false;      // the device's own centring spring (DirectInput's DIPROP_AUTOCENTER)
+    /** Compared field by field, so a caller can skip passing on forces that haven't changed. */
     bool operator==(const GamepadForce &) const = default;
 };
+/** GamepadState::buttons' bits, by position on an Xbox-style pad (South is A). */
 enum GamepadButton {
     kPadSouth,
     kPadEast,

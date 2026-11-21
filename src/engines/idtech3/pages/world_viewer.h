@@ -15,8 +15,13 @@
 
 namespace reluva::idtech3 {
 
+/**
+ * The data viewer's World page (pages/viewer.cpp): a map drawn by the GPU
+ * renderer with the models its entities name, flown through.
+ */
 class WorldViewer : public Page {
 public:
+    /** Lists the game's maps (the .bsp files in maps/). */
     explicit WorldViewer(PageContext &ctx);
     ~WorldViewer() override;
     const char *name() const override { return "World"; }

@@ -10,36 +10,48 @@ namespace reluva::stgenerations {
 
 class Platform;
 
-// The game's back buffer. Everything is drawn here in 8-bit palettized
-// form and pushed to the Platform once per frame.
-//
-// 640x480 in 256 colours is assumed from the era and platform; confirm it
-// against the original executable's DirectDraw setup.
+/**
+ * The game's back buffer for its 8-bit screens: drawn here, in its
+ * palette, and pushed to the Platform once a frame.
+ *
+ * 640x480 in 256 colours is assumed from the era and platform
+ * (docs/engines/stgenerations/UNCONFIRMED.md); confirm it against the
+ * original executable's DirectDraw setup.
+ */
 class Screen {
 public:
     static const int kWidth = 640;
     static const int kHeight = 480;
 
+    /** A screen on `system`, which it doesn't own. */
     explicit Screen(Platform *system);
 
+    /** Sets the Platform's screen up 640x480 in 8-bit, and makes the buffer. */
     void init();
 
+    /** The back buffer, and its palette. */
+    ///@{
     Canvas &getSurface() { return _surface; }
     Palette &getPalette() { return _palette; }
+    ///@}
 
+    /** Fills the back buffer with one colour. */
     void clear(uint8_t color = 0);
 
-    // Upload the palette to the backend; call after changing it.
+    /** Uploads the palette to the Platform; call after changing it. */
     void applyPalette();
 
-    // Draw a surface centred on screen, converting truecolour images to the palette.
+    /** Draws a surface centred on screen, converting truecolour images to the palette. */
     void drawCentered(const Canvas &image);
 
-    // Draw an image centred in the top areaHeight rows, enlarged by the
-    // largest whole factor (up to 3x) that fits.
+    /**
+     * Draws an image centred in the top areaHeight rows, enlarged by the
+     * largest whole factor (up to 3x) that fits. A true colour one isn't
+     * enlarged, and is centred on the whole screen.
+     */
     void drawImage(const Canvas &image, int areaHeight);
 
-    // Copy the back buffer to the backend and present it.
+    /** Copies the back buffer to the Platform and shows it. */
     void update();
 
 private:

@@ -384,9 +384,9 @@ front, in three passes. A pass's first hit is the answer:
    (`GrannyGetPickingRay`) against the box (`OBBMin`, `OBBMax`) of each
    of its meshes' bone bindings whose bone's name has `Bip01` in it,
    posed as now (`GrannyGetWorldPose4x4`, `GrannyRayIntersectsBox`).
-   (Reluva first had this the other way round, bones for those with a
-   rectangle; a recording of the game putting the snowshoes on
-   Antoinette, whose record there has no rectangle, showed it wrong.)
+   (Not the other way round, bones for those with a rectangle: a
+   recording of the game putting the snowshoes on Antoinette, whose
+   record there has no rectangle, shows it.)
 3. Everything, by its hit test.
 
 The mouse and clicks use it with the same arguments; the torn letter
@@ -679,6 +679,13 @@ card, 7 taken away by `remove all`.
 `reluva-tool awe script-check` counts the words of the install's 2,175
 conditions. Reluva's evaluator is `testCondition`
 (`src/engines/awe/game/conditions.cpp`).
+
+## In Reluva
+
+`parseAc2` (`src/engines/awe/formats/ac2.cpp`) reads a scene into an
+`Ac2Scene` of records and fields. The data viewer's Scenes page shows
+and plays the scenes; `reluva-tool awe ac2-dump` prints a scene's
+records and fields. What it doesn't do yet is under "Open questions".
 
 ## Sources and checks
 

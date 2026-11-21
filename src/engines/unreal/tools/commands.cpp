@@ -486,20 +486,20 @@ private:
 // play <game folder> <map> [step...]: the Maps page on that map, driven
 // by steps, its frames drawn in software. Steps: play (Enter), wait <s>,
 // travel <url> (to "Map/Portal" and playing, as the game's ClientTravel;
-// "?load=Save1.dss" a saved game), saves <dir> (where games are saved), config <dir> (where settings are written),
-// savegame <name> (the level saved now: QuickSave, else the next Save<n>),
-// wav <file.wav> (the sound heard since the last, mixed offline), sounds
-// (what's playing),
-// hold <key> <s> (w a s d left right up down space enter escape f), down <key> and
-// up <key> (held across other steps), press <key>, watch <actor> (the
-// camera let loose in front of it), teleport <actor> <dx> <dy> <dz> <yaw>
-// (the player put by it, facing yaw degrees), where (the player's place,
-// state, physics and animation), camera <x> <y> <z> <yaw> <pitch> (the fly
-// camera put there, not playing), places <class part> (the live actors of
-// such classes and where they are), prop <actor> <property> and call
-// <actor> <function> ("player": the player's pawn),
-// drag <dx> <dy>, click <x> <y> (the left button, there), shot <file.ppm>
-// (the next frame, saved).
+// "?load=Save1.dss" a saved game), saves <dir> (where games are saved),
+// config <dir> (where settings are written), savegame <name> (the level
+// saved now: QuickSave, else named as the game names its saves), wav
+// <file.wav> (the sound heard since the last, mixed offline), sounds
+// (what's playing), hold <key> <s> (w a s d left right up down space
+// enter escape f), down <key> and up <key> (held across other steps),
+// press <key>, watch <actor> (the camera let loose in front of it),
+// teleport <actor> <dx> <dy> <dz> <yaw> (the player put by it, facing yaw
+// degrees), where (the player's place, state, physics and animation),
+// camera <x> <y> <z> <yaw> <pitch> (the fly camera put there, not
+// playing), places <class part> (the live actors of such classes and
+// where they are), prop <actor> <property> and call <actor> <function>
+// ("player": the player's pawn), drag <dx> <dy>, click <x> <y> (the left
+// button, there), shot <file.ppm> (the next frame, saved).
 int cmdUePlay(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(

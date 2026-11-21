@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// id Tech 3 unit tests: Network play: messages and deltas, pure checks, the server browser, downloads, snapshots, a game played over the network.
+// id Tech 3 unit tests: network play: messages and deltas, pure checks,
+// the server browser, downloads, snapshots, a game played over the
+// network.
 
 #include "common/fs.h"
 #include "engines/idtech3/client/bindings.h"

@@ -16,16 +16,20 @@
 
 namespace reluva::idtech3 {
 
-// One directive inside a shader or stage: its keyword (lower case) and the
-// rest of its line's tokens as written.
+/**
+ * One directive inside a shader or stage: its keyword (lower case) and the
+ * rest of its line's tokens as written.
+ */
 struct Directive {
     std::string keyword;
     std::vector<std::string> args;
 };
 
-// A rendering pass ("stage") of a shader, as described in
-// docs/engines/idtech3/formats/shader.md. Every directive is also kept, as
-// written, in `directives`.
+/**
+ * A rendering pass ("stage") of a shader, as described in
+ * docs/engines/idtech3/formats/shader.md. Every directive is also kept, as
+ * written, in `directives`.
+ */
 struct ShaderStage {
     std::vector<std::string> maps; // one image, or animMap's frames
     float animFps = 0;             // animMap's rate; 0 = not animated
@@ -36,6 +40,7 @@ struct ShaderStage {
     std::string blendSrc;
     std::string blendDst;
 
+    /** Where the stage's colour comes from (rgbGen). */
     enum class RgbGen : uint8_t {
         kDefault,
         kIdentity,
@@ -51,6 +56,7 @@ struct ShaderStage {
     } rgbGen = RgbGen::kDefault;
     gfx::Wave rgbWave;
     std::array<float, 3> rgbConst{1, 1, 1};
+    /** Where the stage's alpha comes from (alphaGen). */
     enum class AlphaGen : uint8_t {
         kDefault,
         kIdentity,
@@ -67,9 +73,12 @@ struct ShaderStage {
     float alphaConst = 1;
     float portalRange = 256; // alphaGen portal's distance
 
+    /** Where the stage's texture coordinates come from (tcGen). */
     enum class TcGen : uint8_t { kDefault, kBase, kLightmap, kEnvironment, kVector } tcGen = TcGen::kDefault;
     std::array<std::array<float, 3>, 2> tcVectors{};
+    /** A change to the texture coordinates (tcMod), applied in order. */
     struct TcMod {
+        /** Which tcMod. */
         enum class Type : uint8_t { kRotate, kScale, kScroll, kStretch, kTransform, kTurb, kEntityTranslate } type;
         std::array<float, 6> v{}; // rotate: degrees/s; scale, scroll: s t; transform: m00 m01 m10 m11 t0 t1
         gfx::Wave wave;           // stretch, turb (turb ignores func)
@@ -84,7 +93,9 @@ struct ShaderStage {
     std::vector<Directive> directives;
 };
 
+/** A deformVertexes directive: how the shader moves its surface's vertices. */
 struct ShaderDeform {
+    /** Which deformVertexes; kOther for one not handled. */
     enum class Type : uint8_t {
         kWave,
         kNormal,
@@ -105,6 +116,7 @@ struct ShaderDeform {
     float speed = 0;
 };
 
+/** A shader as its script defines it. */
 struct ShaderDef {
     std::string name;                      // as written, e.g. "textures/borg/borgfloor1"
     std::string file;                      // the .shader file it came from
@@ -112,7 +124,8 @@ struct ShaderDef {
     std::vector<ShaderStage> stages;
     std::vector<Directive> directives; // the shader-level ones
 
-    enum class Cull : uint8_t { kFront, kBack, kNone } cull = Cull::kFront; // the side that's hidden
+    /** The side of its surfaces that's hidden (cull). */
+    enum class Cull : uint8_t { kFront, kBack, kNone } cull = Cull::kFront;
     std::vector<ShaderDeform> deforms;
     float sort = 0; // 0 = not given; see sortKey() in world_renderer.cpp
     bool polygonOffset = false;
@@ -131,33 +144,51 @@ struct ShaderDef {
     // ones alike, for finding out what a game adds.
     std::vector<std::string> unknown;
 
+    /** Whether it has the surfaceparm, ignoring case. */
     bool hasSurfaceParm(std::string_view parm) const;
 };
 
-// Parse every shader in one .shader file's text, appending to `out`.
-// `file` is recorded in each definition and used in messages.
+/**
+ * Parses every shader in one .shader file's text, appending to `out`.
+ * `file` is recorded in each definition and used in messages.
+ */
 Error parseShaderFile(std::string_view text, const std::string &file, std::vector<ShaderDef> &out);
 
-// The file an image name refers to: shaders and maps name images with or
-// without an extension, and the original finds the .tga or the .jpg
-// whichever is written (.png too, for mods). Empty if there's none.
+/**
+ * The file an image name refers to: shaders and maps name images with or
+ * without an extension, and the original finds the .tga or the .jpg
+ * whichever is written (.png too, for mods). Empty if there's none.
+ */
 std::string findImage(const SearchSet &files, std::string_view name);
 
-// Every shader of a game: all scripts/*.shader files in a search set. When
-// two files define a name, the first parsed wins; files are parsed in name
-// order. Problems with single files are collected, not fatal.
+/**
+ * Every shader of a game: every .shader file in scripts/ of a search set.
+ * When two files define a name, the first parsed wins; files are parsed in name
+ * order. Problems with single files are collected, not fatal.
+ */
 class ShaderLibrary {
 public:
+    /**
+     * Replaces what it holds with the search set's scripts, keeping what
+     * parsed of a file before a problem.
+     * @param warnings Where the problems go, if given.
+     */
     void load(const SearchSet &files, std::vector<std::string> *warnings = nullptr);
+    /** Adds a shader, unless one of its name is already there. */
     void add(ShaderDef def);
 
-    // By name, ignoring case, slash direction and any extension (a model's
-    // "models/x/y.tga" finds the script "models/x/y", as in the original);
-    // nullptr if undefined (then the engine uses the image of that name,
-    // see shader.md).
+    /**
+     * By name, ignoring case, slash direction and any extension (a model's
+     * "models/x/y.tga" finds the script "models/x/y", as in the original);
+     * nullptr if undefined (then the engine uses the image of that name,
+     * see shader.md).
+     */
     const ShaderDef *find(std::string_view name) const;
+    /** How many shaders it has, and all of them in the order added. */
+    ///@{
     size_t size() const { return _shaders.size(); }
     const std::vector<ShaderDef> &all() const { return _shaders; }
+    ///@}
 
 private:
     std::vector<ShaderDef> _shaders;

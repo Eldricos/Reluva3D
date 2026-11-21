@@ -29,9 +29,13 @@ class System;
 
 namespace reluva::net {
 
-/** The pieces, for tests. */
-std::string ssdpSearch(const std::string &target);             // an M-SEARCH for `target`
-bool ssdpLocation(const std::string &reply, std::string &url); // its LOCATION header
+// The pieces, for tests.
+
+/** An SSDP M-SEARCH request for `target` (a device or service type). */
+std::string ssdpSearch(const std::string &target);
+/** A search reply's LOCATION header: where the device's description is; false if it has none. */
+bool ssdpLocation(const std::string &reply, std::string &url);
+/** An http:// address with a numeric host, split up. */
 struct Url {
     uint32_t ip = 0;
     uint16_t port = 80;
@@ -48,15 +52,26 @@ std::string xmlValue(const std::string &xml, const std::string &tag);
  * service's type and where to send its actions.
  */
 bool findWanService(const std::string &description, const Url &location, std::string &serviceType, Url &control);
+/** The text of an HTTP GET request for `url`. */
 std::string httpGet(const Url &url);
+/** The text of an HTTP POST calling a UPnP service's `action` (SOAP), with its arguments in order. */
 std::string soapRequest(const Url &control, const std::string &serviceType, const std::string &action,
                         const std::vector<std::pair<std::string, std::string>> &arguments);
+/**
+ * NAT-PMP's requests (RFC 6886) for the router's external address and for
+ * a UDP mapping, and reading their replies: false if a reply isn't one;
+ * `result` is its result code (0: success).
+ */
+///@{
 std::vector<uint8_t> natPmpAddressRequest();
 bool natPmpAddressReply(const std::vector<uint8_t> &reply, uint32_t &ip, int &result);
 std::vector<uint8_t> natPmpMapRequest(uint16_t internalPort, uint16_t externalPort, uint32_t lifetime);
 bool natPmpMapReply(const std::vector<uint8_t> &reply, uint16_t &externalPort, uint32_t &lifetime, int &result);
+///@}
 
+/** What PortMapper got from the router. */
 struct PortMapping {
+    /** How it was got, if it was. */
     enum class Way { kNone, kUpnp, kNatPmp };
     Way way = Way::kNone;
     uint32_t externalIp = 0; // the address others reach (0: not known)
@@ -64,6 +79,11 @@ struct PortMapping {
     std::string why; // when it didn't work
 };
 
+/**
+ * Asks the router to pass UDP `port` on to this machine (asking for the
+ * same port outside; the router may give another), by UPnP, else NAT-PMP,
+ * and takes it away again.
+ */
 class PortMapper {
 public:
     /** How it reaches the network. */
@@ -72,15 +92,16 @@ public:
         std::function<std::vector<std::pair<Address, std::vector<uint8_t>>>(
             const Address &to, const std::vector<uint8_t> &datagram, int waitMs)>
             udp;
-        // One HTTP exchange; the address this machine used.
+        /** One HTTP exchange; the address this machine used. */
         std::function<bool(const Address &to, const std::string &request, std::string &response, uint32_t &localIp)>
             http;
         std::vector<uint32_t> gateways; // where to ask NAT-PMP
         int waitMs = 2000;
     };
     /**
-     * The system's network, the gateways it knows and, failing those, the
-     * first address of each network the machine is on (192.168.1.1...).
+     * The system's network, the gateways it knows and, after those, the
+     * first address of each network the machine is on (192.168.1.1...),
+     * where routers usually are. `sys` must outlive the mapper.
      */
     static Transport through(System &sys);
 
@@ -94,10 +115,15 @@ public:
     PortMapper(const PortMapper &) = delete;
     PortMapper &operator=(const PortMapper &) = delete;
 
+    /** Whether map() has finished, and what it got: from any thread. */
+    ///@{
     bool done() const { return _done; }
     PortMapping result() const;
+    ///@}
 
+    /** Asks for the mapping, waiting for the answers; what the thread does first. */
     PortMapping map();
+    /** Takes the mapping away, if there is one; what the thread does last. */
     void unmap();
 
 private:

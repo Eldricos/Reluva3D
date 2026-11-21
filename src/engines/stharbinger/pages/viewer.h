@@ -17,14 +17,22 @@ namespace reluva::stharbinger {
 
 class Harbinger;
 
-// The data viewer's page (reluva-viewer): steps through each scene's
-// backgrounds, animations and sounds and shows its hotspot rectangles,
-// without running the scripts.
+/**
+ * The data viewer's page (reluva-viewer): steps through each scene's
+ * backgrounds, animations and sounds and shows its hotspot rectangles,
+ * without running the scripts.
+ */
 class SceneViewer {
 public:
+    /** Views `vm`'s scenes, which must be loaded (Harbinger::initResources()). */
     explicit SceneViewer(Harbinger *vm);
+    /** Stops every sound. */
     ~SceneViewer();
 
+    /**
+     * Shows scene `startScene` (an index into Harbinger::getScenes()) and
+     * runs until the player leaves; returns 0.
+     */
     int run(int startScene);
 
 private:

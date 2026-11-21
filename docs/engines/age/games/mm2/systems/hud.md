@@ -6,7 +6,7 @@
 
 The heads-up display: the map, and the game's speed, gear, revs, damage and clock pictures. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## The HUD
+## How it works
 
 ### The map
 
@@ -70,6 +70,13 @@ Where they go is in the game's program, but its screens show it
 
 `SPEED`, `MPH`, `TACOMETER TICKS_HALF` and the `_HALF` digits aren't on
 any of the screens seen, and aren't drawn.
+
+## In Reluva
+
+`HudMap` (`src/engines/age/ui/hud_map.{h,cpp}`) draws the map, and
+`HudPictures` (`src/engines/age/ui/hud_pictures.{h,cpp}`) the speed,
+gear, revs, damage and clock. The map is drawn at 0.92 of its Size,
+with a 30-degree field of view (above).
 
 ## Sources and checks
 

@@ -101,7 +101,7 @@ uint32_t Game::getResumePc() const {
     return _thread.active ? _thread.pc : _idlePc;
 }
 
-// ---- Settings (dlas.ds9: difficulty, autosave, last save shown) --------------
+// Settings (dlas.ds9: difficulty, autosave, last save shown)
 
 void Game::loadSettings() {
     std::vector<uint8_t> d;
@@ -126,7 +126,7 @@ void Game::saveSettings() {
     writeFile((std::filesystem::path(dir) / kSettingsFile), w.data());
 }
 
-// ---- Saving --------------------------------------------------------------------
+// Saving
 
 bool Game::saveGame(const std::string &fileName, const std::string &description, uint32_t resumePc) {
     std::string dir = getSaveDirectory();
@@ -313,7 +313,7 @@ bool Game::saveGame(const std::string &fileName, const std::string &description,
     return true;
 }
 
-// ---- Loading -------------------------------------------------------------------
+// Loading
 
 bool Game::readSaveInfo(const std::string &path, SaveInfo &info) {
     std::vector<uint8_t> d;

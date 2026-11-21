@@ -25,15 +25,16 @@
 
 namespace reluva::glide {
 
+/** The most TMUs the core keeps state for. */
 constexpr int kMaxTmus = 3;
 
-// Which Voodoo (docs/common/graphics/glide.md, Boards).
+/** Which Voodoo (docs/common/graphics/glide.md, Boards). */
 enum class Generation { kVoodoo1, kVoodooRush, kVoodoo2, kBanshee, kVoodoo3 };
 
-// Glide 3's extensions a board's hardware has (Board::extensions).
+/** Glide 3's extensions a board's hardware has (Board::extensions' bits). */
 enum Extension : uint32_t { kExtChromaRange = 1, kExtTexMirror = 2, kExtPalette6666 = 4 };
 
-// The default is the Voodoo2 (voodoo2Board()).
+/** A Voodoo board's configuration. The default is the Voodoo2 (voodoo2Board()). */
 struct Board {
     Generation generation = Generation::kVoodoo2;
     int tmus = 2;
@@ -111,56 +112,67 @@ struct Board {
     uint32_t extensions = kExtChromaRange | kExtTexMirror;
 };
 
-// The boards a host can stand in for, each as its specification gives it
-// (docs/common/graphics/glide.md, Boards; sizes that vary between cards are
-// Reluva's choice of a common one):
-// - Voodoo Graphics (SST-1): one TMU of 2 MB, 2 MB of frame buffer (the
-//   4 MB card), up to 800x600 (Programming Guide table 3.3).
-// - Voodoo Rush (SST-96): one TMU of 2 MB without a palette, 4 MB of frame
-//   buffer shared with the 2D desktop (1024x768 at 16 bits, a choice;
-//   setDesktop gives it the host's),
-//   windowed Glide, no gamma table, the linear frame buffer through the 2D
-//   chip.
-// - Voodoo2: NFS III's 12 MB card, two TMUs of 4 MB and 4 MB of frame
-//   buffer, up to 1024x768.
-// - Voodoo Banshee: 16 MB of unified memory ("The minimum amount of memory
-//   supported by Banshee is 4 Mbytes, with a maximum of 16"; "The amount
-//   of texture memory is only limited by the maximum amount of Banshee
-//   frame buffer memory"), one TMU, up to 1600x1200 (its RAMDAC's), the
-//   palette with the 6666 format (Banshee specification, Functional
-//   Overview, Modifications from SST1).
-// - Voodoo3: the same with two TMUs, up to 2048x1536 (a choice).
+/**
+ * The boards a host can stand in for, each as its specification gives it
+ * (docs/common/graphics/glide.md, Boards; sizes that vary between cards are
+ * Reluva's choice of a common one):
+ * - Voodoo Graphics (SST-1): one TMU of 2 MB, 2 MB of frame buffer (the
+ *   4 MB card), up to 800x600 (Programming Guide table 3.3).
+ * - Voodoo Rush (SST-96): one TMU of 2 MB without a palette, 4 MB of frame
+ *   buffer shared with the 2D desktop (1024x768 at 16 bits, a choice;
+ *   setDesktop gives it the host's), windowed Glide, no gamma table, the
+ *   linear frame buffer through the 2D chip.
+ * - Voodoo2: NFS III's 12 MB card, two TMUs of 4 MB and 4 MB of frame
+ *   buffer, up to 1024x768.
+ * - Voodoo Banshee: 16 MB of unified memory ("The minimum amount of memory
+ *   supported by Banshee is 4 Mbytes, with a maximum of 16"; "The amount
+ *   of texture memory is only limited by the maximum amount of Banshee
+ *   frame buffer memory"), one TMU, up to 1600x1200 (its RAMDAC's), the
+ *   palette with the 6666 format (Banshee specification, Functional
+ *   Overview, Modifications from SST1).
+ * - Voodoo3: the same with two TMUs, up to 2048x1536 (a choice).
+ */
+///@{
 Board voodoo1Board();
 Board voodooRushBoard();
 Board voodoo2Board();
 Board bansheeBoard();
 Board voodoo3Board();
-// By name: "voodoo1" (or "voodoo", "sst1"), "rush", "voodoo2", "banshee",
-// "voodoo3", then optionally ",tmu=MB", ",fb=MB", ",tmus=N", ",tmurev=N",
-// ",desktop=WxHxBITS" (the Rush's 2D desktop as setDesktop takes it,
-// applied after the other options; "desktop=0" for none)
-// ("voodoo1,tmu=4"); false for another. `desktopClamped`, if given, is set
-// when setDesktop didn't take the desktop as given.
+///@}
+/**
+ * A board by name: "voodoo1" (or "voodoo", "sst1"), "rush" (or "sst96"),
+ * "voodoo2", "banshee", "voodoo3", then optionally ",tmu=MB", ",fb=MB"
+ * (each 1-16), ",tmus=N", ",tmurev=N", ",desktop=WxHxBITS" (the Rush's 2D
+ * desktop as setDesktop takes it, applied after the other options;
+ * "desktop=0" for none), as in "voodoo1,tmu=4".
+ * @param desktopClamped If not null, set when setDesktop didn't take the
+ *        desktop as given.
+ * @return False for another name, an option it doesn't know, or a desktop
+ *         setDesktop refuses.
+ */
 bool boardByName(const std::string &spec, Board &out, bool *desktopClamped = nullptr);
-// The 2D desktop a windowed board (the Voodoo Rush) shares its memory
-// with, as the host's desktop is: width x height at `bits` per pixel (8,
-// 15, 16, 24 or 32). The SST-96 specification's windowed tables (System
-// Resolutions) have only 8- and 16-bit desktops ("8-bit Desktop ...
-// Out-of-Place 3D", "16-bit Desktop ... In-Place 3D", the latter
-// "requires equal 2D and 3D color depths"), of 1024x768 to 1600x1200 at
-// 8 bits and 1024x768 to 1280x1024 at 16. A desktop a Rush couldn't have
-// had is made one it could (a choice, docs/common/graphics/glide.md, Boards): 15
-// bits counts as 16, 24 or 32 as 16 (the depth its owner would have set to
-// play in a window), a width or height past the tables' largest at that
-// depth is cut to it, and one whose memory alone would fill the frame
-// buffer drops to the next smaller of the tables' sizes. Smaller desktops
-// are taken as they are. Returns false, changing nothing, for another
-// depth or a size of 0 or less; sets `clamped` when the desktop isn't
-// taken as given. Takes nothing on a board without a shared desktop
-// (Board::windowed false), and returns true.
+/**
+ * The 2D desktop a windowed board (the Voodoo Rush) shares its memory
+ * with, as the host's desktop is: width x height at `bits` per pixel (8,
+ * 15, 16, 24 or 32). The SST-96 specification's windowed tables (System
+ * Resolutions) have only 8- and 16-bit desktops ("8-bit Desktop ...
+ * Out-of-Place 3D", "16-bit Desktop ... In-Place 3D", the latter
+ * "requires equal 2D and 3D color depths"), of 1024x768 to 1600x1200 at
+ * 8 bits and 1024x768 to 1280x1024 at 16. A desktop a Rush couldn't have
+ * had is made one it could (a choice, docs/common/graphics/glide.md,
+ * Boards): 15 bits counts as 16, 24 or 32 as 16 (the depth its owner would
+ * have set to play in a window), a width or height past the tables'
+ * largest at that depth is cut to it, and one whose memory alone would
+ * fill the frame buffer drops to the next smaller of the tables' sizes.
+ * Smaller desktops are taken as they are. Takes nothing on a board without
+ * a shared desktop (Board::windowed false), and returns true.
+ * @param clamped If not null, set when the desktop isn't taken as given.
+ * @return False, changing nothing, for another depth or a size of 0 or
+ *         less.
+ */
 bool setDesktop(Board &board, int width, int height, int bits, bool *clamped = nullptr);
 
-// A vertex as the pipeline takes it, whatever the API's layout.
+/** A vertex as the pipeline takes it, whatever the API's layout. */
 struct Vertex {
     // pixels, the origin as grSstOrigin says
     float x = 0;
@@ -172,6 +184,7 @@ struct Vertex {
     float g = 0;
     float b = 0;
     float a = 0;
+    /** One TMU's texture coordinates. */
     struct Tmu {
         // s/w and t/w (s, t 0-256 across the texture) and 1/w
         float sow = 0;
@@ -181,12 +194,14 @@ struct Vertex {
     std::array<Tmu, kMaxTmus> tmu{};
 };
 
+/** The colour or alpha combine unit: its settings and its inputs (CombineLocal, CombineOther). */
 struct CombineUnit {
     CombineSettings settings;
     int local = kLocalIterated;
     int other = kOtherIterated;
 };
 
+/** A TMU's state: its texture source, addressing, filtering, mipmapping and combine. */
 struct TmuState {
     bool hasSource = false; // grTexSource called
     uint32_t start = 0;     // the source's start address
@@ -215,6 +230,7 @@ struct TmuState {
     float detailMax = 0;
 };
 
+/** The rendering state Glide's functions set (Glide's defaults: Pipeline::resetState). */
 struct State {
     CombineUnit color{{kFuncScaleOther, kFactorOne, false}, kLocalIterated, kOtherIterated};
     CombineUnit alpha{{kFuncScaleOther, kFactorOne, false}, kLocalConstant, kOtherConstant};
@@ -260,7 +276,7 @@ struct State {
     std::array<TmuState, kMaxTmus> tmus{};
 };
 
-// Statistics the hardware counts (grSstPerfStats).
+/** Statistics the hardware counts (grSstPerfStats), and the triangles (grTriStats). */
 struct PixelStats {
     uint64_t pixelsIn = 0;
     uint64_t chromaFail = 0;
@@ -276,181 +292,290 @@ namespace raster {
 struct Fragments; // raster_setup.h
 }
 
-// What draws: the software reference rasterizer, or later another (a GPU
-// backend). It reads the pipeline's state, buffers and texture memory, and
-// writes the buffers; sync() is called before the buffers are read or
-// written from outside (a linear frame buffer lock, a presented frame).
+/**
+ * What draws: the software reference rasterizer, or later another (a GPU
+ * backend). It reads the pipeline's state, buffers and texture memory, and
+ * writes the buffers; sync() is called before the buffers are read or
+ * written from outside (a linear frame buffer lock, a presented frame).
+ */
 class Renderer {
 public:
     virtual ~Renderer() = default;
+    /** Draws a primitive with the pipeline's state. */
+    ///@{
     virtual void triangle(Pipeline &p, const Vertex &a, const Vertex &b, const Vertex &c) = 0;
     virtual void line(Pipeline &p, const Vertex &a, const Vertex &b) = 0;
     virtual void point(Pipeline &p, const Vertex &a) = 0;
-    // Single pixels each with its own values (drawing coordinates), and the
-    // gradients for the texture LOD if `derivatives`: the coverage pixels
-    // of the anti-aliased primitives (Pipeline::aaTriangle...).
+    ///@}
+    /**
+     * Single pixels each with its own values (drawing coordinates), and the
+     * gradients for the texture LOD if `derivatives`: the coverage pixels
+     * of the anti-aliased primitives (Pipeline::aaTriangle...).
+     */
     virtual void fragments(Pipeline &p, const raster::Fragments &f) = 0;
+    /** Pipeline::clear's work. */
     virtual void clear(Pipeline &p, uint32_t argb, int alpha, int depth) = 0;
+    /** Puts what it drew into the pipeline's buffers. */
     virtual void sync(Pipeline &) {}
-    // The same for one buffer (kBufferFront...), when only it is read (a
-    // presented frame).
+    /**
+     * The same for one buffer (kBufferFront...), when only it is read (a
+     * presented frame).
+     */
     virtual void syncBuffer(Pipeline &p, int /*buffer*/) { sync(p); }
-    // A TMU's texture memory changed, `bytes` from `start`.
+    /** A TMU's texture memory changed, `bytes` from `start`. */
     virtual void textureMemoryChanged(Pipeline &, int /*tmu*/, uint32_t /*start*/, uint32_t /*bytes*/) {}
-    // A TMU's palette or NCC tables changed.
+    /** A TMU's palette or NCC tables changed. */
     virtual void tablesChanged(Pipeline &, int /*tmu*/) {}
-    // The front and back buffers were swapped (after the swap).
+    /** The front and back buffers were swapped (after the swap). */
     virtual void swapped(Pipeline &) {}
-    // A pixel was written straight into a buffer (slot, x, y), by the
-    // linear frame buffer (Pipeline::lfbWrite), after a sync.
+    /**
+     * A pixel was written straight into a buffer (slot, x, y), by the
+     * linear frame buffer (Pipeline::lfbWrite), after a sync.
+     */
     virtual void hostWrote(Pipeline &, int /*slot*/, int /*x*/, int /*y*/) {}
 };
 
-// The software reference rasterizer, drawing into the pipeline's buffers.
+/** The software reference rasterizer, drawing into the pipeline's buffers. */
 std::unique_ptr<Renderer> makeSoftwareRenderer();
 
+/**
+ * A Voodoo board's state, frame buffer and texture memory, drawing through
+ * a Renderer: the software one unless setRenderer gives another.
+ */
 class Pipeline {
 public:
+    /** A pipeline for the board, closed; its TMUs held to 1-kMaxTmus. */
     explicit Pipeline(Board board = {});
     ~Pipeline();
+    /** Movable, not copyable. */
+    ///@{
     Pipeline(Pipeline &&) noexcept = default;
     Pipeline &operator=(Pipeline &&) noexcept = default;
+    ///@}
 
+    /** The board it was made for (its TMUs held to 1-kMaxTmus). */
     const Board &board() const { return _board; }
-    // The renderer from now on. Call it before drawing (with the buffers
-    // and texture memory as they are, a GPU backend copies them over).
+    /**
+     * The renderer from now on. Call it before drawing (with the buffers
+     * and texture memory as they are, a GPU backend copies them over).
+     */
     void setRenderer(std::unique_ptr<Renderer> renderer) { _renderer = std::move(renderer); }
+    /** The renderer drawing now. */
     Renderer &renderer() { return *_renderer; }
 
-    // --- The display ------------------------------------------------------
-    // Sets up the buffers for a resolution and resets the state to Glide's
-    // defaults (grSstWinOpen): false if the board's memory can't hold them.
-    // `windowed`: in the application's window on the desktop, on a board
-    // whose desktop shares the memory (the Voodoo Rush).
+    // The display.
+
+    /**
+     * Sets up the buffers for a resolution and resets the state to Glide's
+     * defaults (grSstWinOpen): false if the size is past the board's
+     * largest or its memory can't hold them.
+     * @param windowed In the application's window on the desktop, on a
+     *        board whose desktop shares the memory (the Voodoo Rush);
+     *        ignored on another board.
+     */
     bool open(int width, int height, int colorBuffers, int auxBuffers, bool windowed = false);
-    // The bytes the buffers take, and whether they fit the board's memory
-    // (with the desktop's when `windowed`, as the SST-96 specification's
-    // tables count it: the desktop, the off-screen colour buffers, the
-    // auxiliary buffer).
+    /**
+     * The bytes the buffers take (1 to 3 colour buffers), with the
+     * desktop's when `windowed`, as the SST-96 specification's tables count
+     * it: the desktop, the off-screen colour buffers, the auxiliary buffer.
+     */
     uint64_t bufferBytes(int width, int height, int colorBuffers, int auxBuffers, bool windowed) const;
+    /**
+     * Whether the buffers fit the board: its largest size, its memory
+     * (twice that with SLI) and, `windowed`, its desktop.
+     */
     bool fits(int width, int height, int colorBuffers, int auxBuffers, bool windowed) const;
-    // A windowed board's back and auxiliary buffers resized to the window's
-    // new size, the state kept but the clip window (the whole window again)
-    // (grSstControlMode(GR_CONTROL_RESIZE)): false, nothing changed, if
-    // the memory can't hold them ("may fail if there is not enough
-    // offscreen video memory").
+    /**
+     * A windowed board's back and auxiliary buffers resized to the window's
+     * new size, the state kept but the clip window (the whole window again)
+     * (grSstControlMode(GR_CONTROL_RESIZE)): false, nothing changed, if it
+     * isn't open in a window or the memory can't hold them ("may fail if
+     * there is not enough offscreen video memory").
+     */
     bool resize(int width, int height);
+    /** Whether it was opened in a window. */
     bool windowed() const { return _windowed; }
-    // A linear frame buffer lock's scan line, in pixels (Board::lfbStride).
+    /** A linear frame buffer lock's scan line, in pixels (Board::lfbStride). */
     int lfbStride() const;
+    /** Frees the buffers; the state and texture memory stay. */
     void close();
+    /** Whether it's open, with buffers. */
     bool isOpen() const { return _open; }
-    // How many times open() succeeded: new buffers each time.
+    /** How many times open() succeeded: new buffers each time. */
     uint64_t opened() const { return _opened; }
+    /** The buffers' size in pixels, and how many colour buffers there are (1-3). */
+    ///@{
     int width() const { return _width; }
     int height() const { return _height; }
     int colorBuffers() const { return _colorBuffers; }
-    // Swaps the front and back buffers (with three, the oldest becomes the
-    // back). Counts swaps for grBufferNumPending's sake: none stay pending.
+    ///@}
+    /**
+     * Swaps the front and back buffers (with three, the oldest becomes the
+     * back). Counts swaps for grBufferNumPending's sake: none stay pending.
+     */
     void swap();
+    /** How many swaps there have been. */
     uint64_t swaps() const { return _swaps; }
 
+    /** The rendering state, which the front ends set directly. */
+    ///@{
     State &state() { return _state; }
     const State &state() const { return _state; }
-    // Glide's defaults for the state (grSstWinOpen), the clip window the
-    // screen.
+    ///@}
+    /**
+     * Glide's defaults for the state (grSstWinOpen), the clip window the
+     * screen. The video's gamma is kept.
+     */
     void resetState();
 
-    // --- Drawing ----------------------------------------------------------
+    // Drawing.
+
+    /** Draws a primitive with the state; nothing while it's closed. */
+    ///@{
     void triangle(const Vertex &a, const Vertex &b, const Vertex &c);
     void line(const Vertex &a, const Vertex &b);
     void point(const Vertex &a);
-    // Anti-aliased primitives (Glide 2's grAADraw*, Glide 3's
-    // GR_AA_ORDERED): drawn with the alpha iterator standing for the
-    // pixel's coverage (docs/common/graphics/glide.md, Anti-aliasing). A triangle:
-    // its pixels as grDrawTriangle draws them, and outside each edge asked
-    // for (ab, bc, ca) a fringe whose alpha falls from the vertex alpha to
-    // 0 a pixel out. A line: the pixels within a pixel of it, alpha falling
-    // with the distance. A point: the four pixels round it, by their share
-    // of a pixel-sized square.
+    ///@}
+    /**
+     * Anti-aliased primitives (Glide 2's grAADraw*, Glide 3's
+     * GR_AA_ORDERED): drawn with the alpha iterator standing for the
+     * pixel's coverage (docs/common/graphics/glide.md, Anti-aliasing). A
+     * triangle: its pixels as grDrawTriangle draws them, and outside each
+     * edge asked for (ab, bc, ca) a fringe whose alpha falls from the vertex
+     * alpha to 0 a pixel out. A line: the pixels within a pixel of it, alpha
+     * falling with the distance. A point: the four pixels round it, by their
+     * share of a pixel-sized square.
+     */
+    ///@{
     void aaTriangle(const Vertex &a, const Vertex &b, const Vertex &c, bool ab, bool bc, bool ca);
     void aaLine(const Vertex &a, const Vertex &b);
     void aaPoint(const Vertex &a);
+    ///@}
+    /** Draws single pixels, each with its own values (Renderer::fragments). */
     void fragments(const raster::Fragments &f);
-    // grBufferClear: the clip window of the render buffer, and of the
-    // auxiliary buffer when depth (or alpha) buffering is on and writable.
+    /**
+     * grBufferClear: the clip window of the render buffer, and of the
+     * auxiliary buffer when depth (or alpha) buffering is on and writable.
+     */
     void clear(uint32_t argb, int alpha, int depth);
 
-    // --- Textures ---------------------------------------------------------
+    // Textures.
+
+    /** The bytes each TMU addresses (Board::tmuMemory). */
     uint32_t tmuMemorySize() const { return _board.tmuMemory; }
-    // Where texture memory starts: 0, or on a UMA board the first address
-    // after the open window's buffers (aligned to the board's texture
-    // alignment).
+    /**
+     * Where texture memory starts: 0, or on a UMA board the first address
+     * after the open window's buffers (aligned to the board's texture
+     * alignment).
+     */
     uint32_t textureBase() const { return _textureBase; }
-    // One level (rows firstRow-lastRow of it) of a texture whose largest
-    // level `evenOdd` includes starts at `start`, from `data` (the level's
-    // rows, tightly packed).
+    /**
+     * One level (rows firstRow-lastRow of it) of a texture whose largest
+     * level `evenOdd` includes starts at `start`, from `data` (the level's
+     * rows, tightly packed). What would go past the memory's end is left
+     * out; on a UMA board every TMU's copy of the memory is written.
+     */
     void downloadLevel(int tmu, uint32_t start, const TextureInfo &info, int evenOdd, int lod, const uint8_t *data,
                        int firstRow, int lastRow);
-    void setPalette(int tmu, int first, int last, const uint32_t *entries); // 0x00RRGGBB
-    // Glide 3's PALETTE6666 extension: entries `first`-`last` from
-    // 0xAARRGGBB words, each channel's top 6 bits packed into the
-    // palette's 24 (alpha 23-18, red 17-12, green 11-6, blue 5-0), and the
-    // TMU's GR_TEXFMT_P_8 textures read through it as texture format 6,
-    // "8 bit Palette to RGBA" (Banshee specification, textureMode's
-    // formats). A plain palette download (setPalette) ends it.
+    /** Palette entries `first`-`last` from 0x00RRGGBB words (the top byte dropped). */
+    void setPalette(int tmu, int first, int last, const uint32_t *entries);
+    /**
+     * Glide 3's PALETTE6666 extension: entries `first`-`last` from
+     * 0xAARRGGBB words, each channel's top 6 bits packed into the
+     * palette's 24 (alpha 23-18, red 17-12, green 11-6, blue 5-0), and the
+     * TMU's GR_TEXFMT_P_8 textures read through it as texture format 6,
+     * "8 bit Palette to RGBA" (Banshee specification, textureMode's
+     * formats). A plain palette download (setPalette) ends it.
+     */
     void setPalette6666(int tmu, int first, int last, const uint32_t *entries);
+    /** Whether the TMU's palette is a 6666 one (setPalette6666). */
     bool palette6666(int tmu) const { return _palette6666[size_t(tmu)]; }
-    // The format a TMU's source is read in: its own, or format 6 for a P_8
-    // texture with the 6666 palette.
+    /**
+     * The format a TMU's source is read in: its own, or format 6 for a P_8
+     * texture with the 6666 palette.
+     */
     int textureFormat(int tmu) const;
+    /** Sets a TMU's NCC table `which` (0 or 1: its low bit). */
     void setNcc(int tmu, int which, const NccTable &table);
+    /**
+     * A TMU's texture memory (tmuMemorySize() bytes), its 256 palette
+     * entries and its NCC table `which`.
+     */
+    ///@{
     const uint8_t *tmuMemory(int tmu) const { return _tmuMemory[size_t(tmu)].data(); }
     const uint32_t *palette(int tmu) const { return _palettes[size_t(tmu)].data(); }
     const NccTable &ncc(int tmu, int which) const { return _ncc[size_t(tmu)][size_t(which & 1)]; }
-    // Where a level of the TMU's current source is (grTexMultibase's
-    // addresses if set), its first byte.
+    ///@}
+    /**
+     * Where a level of the TMU's current source is (grTexMultibase's
+     * addresses if set), its first byte.
+     */
     uint32_t levelAddress(int tmu, int lod) const;
 
-    // --- The frame buffer -------------------------------------------------
-    // The pixels of a buffer (kBufferFront, kBufferBack, kBufferTriple,
-    // kBufferAux), `width()` pixels a row, row 0 the top of the screen;
-    // null if there's no such buffer.
+    // The frame buffer.
+
+    /**
+     * The pixels of a buffer (kBufferFront, kBufferBack, kBufferTriple,
+     * kBufferAux; kBufferDepth and kBufferAlpha are the auxiliary buffer
+     * too), `width()` pixels a row, row 0 the top of the screen; null if
+     * there's no such buffer or it isn't open.
+     */
+    ///@{
     uint16_t *buffer(int id);
     const uint16_t *buffer(int id) const;
-    // Where a buffer's pixels are kept: colour buffers in slots 0-2 (a swap
-    // changes which slot is the front, not the pixels), the auxiliary
-    // buffer in slot 3; -1 if there's no such buffer. A renderer that keeps
-    // its own copies (the GPU's) keeps them by slot.
+    ///@}
+    /**
+     * Where a buffer's pixels are kept: colour buffers in slots 0-2 (a swap
+     * changes which slot is the front, not the pixels), the auxiliary
+     * buffer in slot 3. slotOf gives -1, and slotPixels null, if there's no
+     * such buffer. A renderer that keeps its own copies (the GPU's) keeps
+     * them by slot.
+     */
+    ///@{
     static constexpr int kSlots = 4;
     int slotOf(int id) const;
     uint16_t *slotPixels(int slot);
-    // TMU memory written from outside a download (a renderer's copy, a
-    // comparison's), the renderer told.
+    ///@}
+    /**
+     * TMU memory written from outside a download (a renderer's copy, a
+     * comparison's), the renderer told; cut at the memory's end.
+     */
     void writeTmuMemory(int tmu, uint32_t at, const uint8_t *data, size_t bytes);
-    // Writes one pixel the linear frame buffer way (grLfbLock's pointer,
-    // grLfbWriteRegion): `value` in write mode `mode` (32-bit modes in
-    // ARGB order), at (x, y) from the top left. Through the pixel pipeline
-    // (blending, fog, depth test...) if `pipeline`, else straight into the
-    // buffer (dithered for the 24-bit modes, as the specification says).
+    /**
+     * Writes one pixel the linear frame buffer way (grLfbLock's pointer,
+     * grLfbWriteRegion): `value` in write mode `mode` (32-bit modes in
+     * ARGB order), at (x, y) from the top left. Through the pixel pipeline
+     * (blending, fog, depth test...) if `pipeline`, else straight into the
+     * buffer (dithered for the 24-bit modes, as the specification says).
+     */
     void lfbWrite(int buffer, int x, int y, int mode, uint32_t value, bool pipeline);
-    // Makes sure what the renderer drew is in the buffers (a GPU backend's
-    // frames copied back), before they are read or written directly.
+    /**
+     * Makes sure what the renderer drew is in the buffers (a GPU backend's
+     * frames copied back), before they are read or written directly.
+     */
     void sync();
 
-    // --- Output -----------------------------------------------------------
-    // The front buffer as the monitor would show it: widened to 8 bits a
-    // channel, through the gamma table. outputFilter, if set, takes over
-    // the conversion (a later Voodoo2/3 video filter belongs there).
+    // Output.
+
+    /**
+     * The front buffer as the monitor would show it: widened to 8 bits a
+     * channel, through the gamma table. outputFilter, if set, takes over
+     * the conversion (a later Voodoo2/3 video filter belongs there).
+     * Nothing while it's closed.
+     */
     void present(Surface &out);
-    using GammaTables = std::array<std::array<uint8_t, 256>, 3>; // red, green, blue
-    // grLoadGammaTable: the hardware table's first `n` entries per channel
-    // (0-255), the rest kept; the table has the board's
-    // gammaTableEntries, read by interpolating between them (Glide 3.0
-    // Reference Manual: values "interpolated to generate an output gamma
-    // value"; the Voodoo2's clutData). A gamma value (state().gamma) set
-    // afterwards replaces it (setGammaValue).
+    /** A table for each channel: red, green, blue. */
+    using GammaTables = std::array<std::array<uint8_t, 256>, 3>;
+    /**
+     * grLoadGammaTable: the hardware table's first `n` entries per channel
+     * (0-255), the rest kept; the table has the board's
+     * gammaTableEntries, read by interpolating between them (Glide 3.0
+     * Reference Manual: values "interpolated to generate an output gamma
+     * value"; the Voodoo2's clutData). A gamma value (state().gamma) set
+     * afterwards replaces it (setGammaValue).
+     */
     void loadGammaTable(int n, const uint32_t *r, const uint32_t *g, const uint32_t *b);
+    /** Drops a loaded gamma table, after state().gamma is set, so that it's used. */
     void setGammaValue() { _gammaLoaded = false; }
     std::function<void(const uint16_t *pixels, int width, int height, const GammaTables &gamma, Surface &out)>
         outputFilter;
@@ -472,7 +597,7 @@ private:
     uint32_t _textureBase = 0;
     bool _gammaLoaded = false;
     std::array<std::vector<uint8_t>, 3> _gammaTable;
-    // Colour buffers by slot; front_ and back_ index them.
+    // Colour buffers by slot; _front, _back and _triple index them.
     std::vector<std::vector<uint16_t>> _color;
     int _front = 0;
     int _back = 1;

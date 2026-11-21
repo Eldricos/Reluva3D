@@ -14,8 +14,7 @@ namespace reluva::stgenerations {
 // The space combat's files in COMBAT.DAT, which come from a separate 3D
 // library ("DRE") and its own tools, unlike the rest of the game.
 
-// A model (.3DV, .3DR, .PCn), DRE object format v1.10 (loader 0x4E4C30):
-// parts of textured triangles, x across, y up, z forward.
+// A model's layout, DRE object format v1.10 (loader 0x4E4C30):
 //
 //   u32 size (of the rest), u16 version 110, u16 max verts, u16 max faces, char name[20]
 //   then a block whose offsets count from its start:
@@ -25,7 +24,10 @@ namespace reluva::stgenerations {
 //     u32 offsets of verts (f32[3]), uvs (16.16 pairs, or 0), 0, 0,
 //     faces (u16 material, a, b, c), vertex normals, face normals (f32[3]),
 //     plane distances (f32)
+
+/** A model (.3DV, .3DR, .PCn): parts of textured triangles, x across, y up, z forward. */
 struct Model3D {
+    /** A corner of a triangle. */
     struct Vertex {
         float x;
         float y;
@@ -34,6 +36,7 @@ struct Model3D {
         float u;
         float v;
     };
+    /** A face: its material, its corners (indices into the part's vertices) and its normal. */
     struct Triangle {
         uint16_t material;
         uint16_t a;
@@ -43,6 +46,7 @@ struct Model3D {
         float ny;
         float nz;
     };
+    /** A part of the model; a part without texture coordinates isn't textured. */
     struct Part {
         std::vector<Vertex> vertices;
         std::vector<Triangle> triangles;
@@ -54,10 +58,11 @@ struct Model3D {
     // Half the largest extent.
     float radius = 0;
 
+    /** Reads a v1.10 model; false if it's another version or damaged. */
     bool load(SeekableReadStream &stream);
 };
 
-// A model's materials (.MTL, .MTR, .DMG; loader 0x4E5520), 36 bytes each.
+/** One of a model's materials (.MTL, .MTR, .DMG; loader 0x4E5520), 36 bytes each. */
 struct CombatMaterial {
     // RGB555, for untextured faces.
     uint32_t colour = 0;
@@ -66,36 +71,46 @@ struct CombatMaterial {
     uint32_t flags = 0;
     std::string texture;
 
+    /** Reads a material file, version 110; false if it's another or damaged. */
     static bool loadList(SeekableReadStream &stream, std::vector<CombatMaterial> &list);
-    // The colour as 0xAARRGGBB.
+    /** The colour as 0xAARRGGBB. */
     uint32_t rgb() const;
 };
 
-// A true-colour picture: textures (.IMG = GIF, .LBM) and the console's .RAS.
+/** A true-colour picture: textures (.IMG = GIF, .LBM) and the console's .RAS. */
 struct CombatImage {
     int w = 0;
     int h = 0;
     // 0xAARRGGBB; alpha 0 where see-through.
     std::vector<uint32_t> pixels;
 
-    // A GIF87a/89a (the .IMG textures).
+    /** Reads a GIF87a/89a (the .IMG textures); false if it isn't one or is damaged. */
     bool loadGif(SeekableReadStream &stream);
-    // An IFF PBM (.LBM: BOOM, PHOTON, PHASER1, SHIELD).
+    /** Reads an IFF PBM (.LBM: BOOM, PHOTON, PHASER1, SHIELD); false if it isn't one or is damaged. */
     bool loadLbm(SeekableReadStream &stream);
-    // A Sun rasterfile (.RAS, loader 0x49C23E), 8-bit with its own colour
-    // map in three planes; colour (255,0,163) is see-through.
+    /**
+     * Reads a Sun rasterfile (.RAS, loader 0x49C23E), 8-bit with its own
+     * colour map in three planes; colour (255,0,163) is see-through. False if
+     * it isn't one or isn't 8-bit.
+     */
     bool loadRas(SeekableReadStream &stream);
+    /** A pixel; (x, y) must be inside the picture. */
     uint32_t get(int x, int y) const { return pixels[(size_t)y * w + x]; }
     // A .RAS picture's colour indices, for the ships' system maps (S???_STR).
     std::vector<uint8_t> indices;
 };
 
-// The palette of the animations and the starfield (STANDARD.PAL, 6-bit VGA).
+/**
+ * Reads the palette of the animations and the starfield (STANDARD.PAL, 6-bit
+ * VGA) as 0xAARRGGBB; false if the file is short.
+ */
 bool loadStandardPalette(SeekableReadStream &stream, uint32_t palette[256]);
 
-// An animation (.SPR, anim.cpp 0x4AF7B0): explosions, shield hits,
-// torpedoes and phaser beams, in STANDARD.PAL. Chunks of 'SPRT', 'LIST',
-// 'TIME' (ms a frame) and 'COMP' (a frame, packed one of four ways).
+/**
+ * An animation (.SPR, anim.cpp 0x4AF7B0): explosions, shield hits,
+ * torpedoes and phaser beams, in STANDARD.PAL. Chunks of 'SPRT', 'LIST',
+ * 'TIME' (ms a frame) and 'COMP' (a frame, packed one of four ways).
+ */
 struct SprAnimation {
     int w = 0;
     int h = 0;
@@ -103,11 +118,16 @@ struct SprAnimation {
     // Palette indices; 0 is see-through.
     std::vector<std::vector<uint8_t>> frames;
 
+    /**
+     * Reads the frames, all of one size; false if there are none or it's
+     * damaged. frameMillis is at most 90, however slow the file's.
+     */
     bool load(SeekableReadStream &stream);
 };
 
-// A ship class from SYSTEMS.DAT (parser 0x49C770).
+/** A ship class from SYSTEMS.DAT (parser 0x49C770). */
 struct ShipClass {
+    /** A ship's systems, indexing `systems`. */
     enum System {
         kShip = 0,
         kShield1 = 1, // .. kShield4 = 4
@@ -123,6 +143,7 @@ struct ShipClass {
         kPhoton0 = 23, // .. 26
         kSystemCount = 27
     };
+    /** One system's figures, as SYSTEMS.DAT gives them. */
     struct SystemInfo {
         // -1: the ship doesn't have it. Photon tubes: torpedoes a salvo.
         int max = -1;
@@ -154,10 +175,11 @@ struct ShipClass {
     // Spread, in degrees, of a salvo of 1..10 torpedoes.
     int cone[10] = {};
 
+    /** Reads every class in SYSTEMS.DAT's text; false if there are none or one is damaged. */
     static bool loadAll(const std::string &text, std::vector<ShipClass> &classes);
 };
 
-// A ship line of SCn.MIS (parser 0x4A36A4).
+/** A ship line of SCn.MIS (parser 0x4A36A4). */
 struct MissionShip {
     std::string type;
     int x = 0;
@@ -166,13 +188,15 @@ struct MissionShip {
     int yaw = 0;
     int pitch = 0;
     std::string ai;
-    int wave = 1;
+    int wave = 1; // set by the ":wave n" line before it
 };
 
+/** Reads the ships of a mission's text (SCn.MIS); false if it has none. */
 bool loadCombatMission(const std::string &text, std::vector<MissionShip> &ships);
 
-// A font (.MET): the cells of ASCII 32..127 in a .RAS strip, big endian.
+/** A font (.MET): the cells of ASCII 32..127 in a .RAS strip, big endian. */
 struct MetFont {
+    /** Where a character's picture is in the strip, in pixels. */
     struct Cell {
         int x;
         int y;
@@ -181,6 +205,7 @@ struct MetFont {
     };
     Cell cells[96] = {};
 
+    /** Reads the cells; false if the file is short. */
     bool load(SeekableReadStream &stream);
 };
 

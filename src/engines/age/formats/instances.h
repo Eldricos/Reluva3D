@@ -24,6 +24,7 @@ struct Instance {
     std::array<float, 12> matrix{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
 };
 
+/** Reads a .inst file's records. Fails on one cut short by the file's end. */
 Error readInstances(const std::vector<uint8_t> &data, std::vector<Instance> &out);
 
 } // namespace reluva::age

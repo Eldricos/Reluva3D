@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
+// Star Trek: Generations' unit tests: the script programs and their VM:
+// arithmetic, conditionals, states and events, locals, arguments,
+// natives and parents, and the opcode table.
+
 #include "tests/engines/stgenerations/support.h"
 
 #include "common/bytes.h"

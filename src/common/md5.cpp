@@ -11,6 +11,8 @@ namespace reluva {
 
 namespace {
 
+// RFC 1321, section 3.4: each step's rotation, and its table T (K here),
+// the integer part of 2^32 * |sin(i + 1)|.
 constexpr int kShift[64] = {
     7,  12, 17, 22, 7,  12, 17, 22, 7,  12, 17, 22, 7,  12, 17, 22, 5,  9,  14, 20, 5,  9,
     14, 20, 5,  9,  14, 20, 5,  9,  14, 20, 4,  11, 16, 23, 4,  11, 16, 23, 4,  11, 16, 23,
@@ -36,6 +38,7 @@ uint32_t rotl(uint32_t x, int c) {
 
 } // namespace
 
+// RFC 1321's starting words A, B, C, D (section 3.3).
 Md5::Md5() : _state{0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476} {
 }
 

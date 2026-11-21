@@ -14,6 +14,7 @@ DATA = (0x534000, 0xa19000)   # .idata, DGROUP, .bss
 
 _raw = None
 def raw():
+    """nfs3.exe's bytes, read once; exits if NFSRE_EXE doesn't name it."""
     global _raw
     if _raw is None:
         if not EXE or not os.path.isfile(EXE):
@@ -22,6 +23,7 @@ def raw():
     return _raw
 
 def sections():
+    """The exe's sections: (name, virtual address, virtual size, raw size, raw offset)."""
     d = raw()
     pe = struct.unpack_from('<I', d, 0x3c)[0]
     ns = struct.unpack_from('<H', d, pe + 6)[0]
@@ -35,16 +37,19 @@ def sections():
     return out
 
 def v2f(v):
+    """The file offset of a virtual address, or None outside the sections' raw data."""
     for n, va, vs, rs, ra in sections():
         if va <= v < va + rs:
             return v - va + ra
     return None
 
 def read(v, n):
+    """`n` bytes at a virtual address, or None outside the file."""
     o = v2f(v)
     return raw()[o:o + n] if o is not None else None
 
 def cstr(v, maxlen=200):
+    """The zero-terminated Latin-1 string at a virtual address (at most `maxlen` bytes), or None."""
     b = read(v, maxlen)
     if not b:
         return None
@@ -52,6 +57,7 @@ def cstr(v, maxlen=200):
     return b.decode('latin-1')
 
 def parse_addr(s, syms=None):
+    """An address from hex (with 0x, or 5 digits or more), a number, or a name in `syms`; else exits."""
     s = s.strip()
     try:
         return int(s, 16) if s.lower().startswith('0x') or all(c in '0123456789abcdefABCDEF' for c in s) and len(s) >= 5 else int(s, 0)
@@ -65,6 +71,7 @@ def parse_addr(s, syms=None):
 
 _db = None
 def db():
+    """db.pkl (build_db.py's), loaded once."""
     global _db
     if _db is None:
         with open(os.path.join(STORE, 'db.pkl'), 'rb') as fh:
@@ -72,6 +79,7 @@ def db():
     return _db
 
 class Syms:
+    """symbols.json: names of functions and globals, struct layouts, struct arrays and pointer tables."""
     def __init__(self):
         self.j = json.load(open(os.path.join(STORE, 'symbols.json')))
         self.names = {}
@@ -88,12 +96,15 @@ class Syms:
         self.ptrtables = [(int(a['addr'], 16), a['struct'], a['count'], n) for n, a in self.j.get('ptr_tables', {}).items()]
 
     def lookup_name(self, n):
+        """The address of a function or global by name, or None."""
         return self.byname.get(n)
 
     def fname(self, a):
+        """The name of the function or global at `a`, or None."""
         return self.names.get(a)
 
     def field_name(self, struct, off):
+        """The name of the field at `off` in a struct (an array's as name[i], +k inside one), or None."""
         s = self.structs.get(struct)
         if not s or off is None:
             return None
@@ -117,7 +128,7 @@ class Syms:
         return best[1] if best else None
 
     def data_name(self, a):
-        """name for a data address: global, array element field, or pointer table slot"""
+        """The name for a data address: a global, a field of an array's element, or a pointer table's slot."""
         if a in self.names:
             return self.names[a]
         for base, st, cnt, n in self.arrays:
@@ -132,7 +143,7 @@ class Syms:
         return None
 
 def func_of(addr):
-    """containing function start (from db)"""
+    """The start of the function holding `addr` (from db.pkl), or None."""
     D = db()
     f = D['ins_func'].get(addr)
     if f is not None:
@@ -142,10 +153,12 @@ def func_of(addr):
     return starts[i] if i >= 0 else None
 
 def label(a, syms):
+    """`a` in hex, with its name if it has one."""
     n = syms.fname(a) if syms else None
     return '0x%x%s' % (a, ' <%s>' % n if n else '')
 
 def flabel(addr, syms):
+    """The start of the function holding `addr`, in hex with its name; '?' if none does."""
     f = func_of(addr)
     if f is None:
         return '?'

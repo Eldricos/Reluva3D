@@ -13,8 +13,10 @@
 
 namespace reluva::unreal {
 
+/** The viewer's page of the game's movies (the .avi files in its movies folder). */
 class MoviePlayer : public Page {
 public:
+    /** Lists the .avi files in the game folder's movies folder (any case). */
     explicit MoviePlayer(ViewContext &ctx);
     ~MoviePlayer() override;
     const char *name() const override { return "Movies"; }
@@ -27,9 +29,10 @@ public:
 
     /**
      * Plays the movie whose file is named `name` (any case); false if
-     * there's none.
+     * there's none, or it doesn't open.
      */
     bool play(const std::string &name);
+    /** Whether a movie is playing. */
     bool playing() const { return _movie != nullptr; }
 
 private:

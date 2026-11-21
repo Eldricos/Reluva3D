@@ -14,67 +14,92 @@
 
 namespace reluva::idtech3 {
 
-// Draws a map's surfaces (every model's: the world's and brush entities')
-// with their shaders through a ShaderCache: sorted by the shaders' sort
-// order, the sky box and cloud layers behind, fog passes over fogged
-// surfaces. See docs/engines/idtech3/README.md for what's approximate or missing.
+/**
+ * Draws a map's surfaces (every model's: the world's and brush entities')
+ * with their shaders through a ShaderCache: sorted by the shaders' sort
+ * order, the sky box and cloud layers behind, fog passes over fogged
+ * surfaces. See docs/engines/idtech3/README.md for what's approximate or missing.
+ *
+ * The draws go between the renderer's beginFrame() and endFrame(), `time`
+ * seconds into the map. Drawing opaque surfaces, then models, then
+ * translucent surfaces keeps what's behind glass right.
+ */
 class WorldRenderer {
 public:
+    /** Drawing with `renderer` and `shaders`, which must outlive it. */
     WorldRenderer(gfx::Renderer3D &renderer, ShaderCache &shaders) : _r(renderer), _shaders(shaders) {}
     ~WorldRenderer() { clear(); }
     WorldRenderer(const WorldRenderer &) = delete;
     WorldRenderer &operator=(const WorldRenderer &) = delete;
 
-    // The video settings for the next load: the level lit by its vertices
-    // instead of its lightmaps; how far curves may stray from round, in
-    // units; the sky left plain (the frame's clear colour shows).
+    /**
+     * The video settings for the next load: the level lit by its vertices
+     * instead of its lightmaps; how far curves may stray from round, in
+     * units; the sky left plain (the frame's clear colour shows).
+     */
     void setOptions(bool vertexLight, float subdivisions, bool fastSky) {
         _vertexLight = vertexLight;
         _subdivisions = subdivisions;
         _fastSky = fastSky;
     }
-    // Builds the GPU data for `bsp`.
+    /**
+     * Builds the GPU data for `bsp`, its shaders from `library`.
+     * @return An error if the map has nothing to draw.
+     */
     Error load(const Bsp &bsp, const ShaderLibrary &library);
+    /** Frees the GPU data of the map loaded, if any. */
     void clear();
-    // The sky, then the map's surfaces whose shaders sort in sortMin..sortMax,
-    // `time` seconds into the map; call between beginFrame() and endFrame().
-    // Drawing opaque surfaces, then models, then translucent surfaces keeps
-    // what's behind glass right.
+    /** The sky box and its cloud layers round the camera, first, as the rest covers them. */
     void drawSky(float time) const;
-    // The level's sky surfaces seen (setView), drawn with `state`: where the
-    // sky shows, as the original draws it only there (cracks in the level
-    // elsewhere show nothing behind them, not the sky).
+    /**
+     * The level's sky surfaces seen (setView), drawn with `state`: where the
+     * sky shows, as the original draws it only there (cracks in the level
+     * elsewhere show nothing behind them, not the sky).
+     */
     void drawSkyShape(const gfx::DrawState &state) const;
+    /** Whether the map has a sky. */
     bool hasSky() const { return _skyMesh != 0; }
-    // `worldOnly`: the level's own surfaces, not its brush entities' (doors,
-    // lifts), which the game places (drawModel).
+    /**
+     * The map's surfaces whose shaders sort in sortMin..sortMax.
+     * @param worldOnly The level's own surfaces, not its brush entities'
+     *        (doors, lifts), which the game places (drawModel).
+     */
     void drawSurfaces(float time, float sortMin = 0, float sortMax = 1e9f, bool worldOnly = false) const;
-    // Brush entity `model` (*1, *2...) placed by `transform`, its surfaces
-    // that sort in sortMin..sortMax.
+    /**
+     * Brush entity `model` (*1, *2...) placed by `transform`, its surfaces
+     * that sort in sortMin..sortMax.
+     */
     void drawModel(int model, const gfx::Mat4 &transform, float time, float sortMin = 0, float sortMax = 1e9f) const;
-    // Adds `lights` to the opaque surfaces within their reach, as the
-    // original's dynamic lights: each pixel brightened in proportion to
-    // its colour. After the opaque surfaces are drawn.
+    /**
+     * Adds `lights` to the opaque surfaces within their reach, as the
+     * original's dynamic lights: each pixel brightened in proportion to
+     * its colour. After the opaque surfaces are drawn.
+     */
     void drawDynamicLights(const std::vector<gfx::DynamicLight> &lights) const;
-    // Every sort its shaders have (brush entities' included), in order.
+    /** Every sort its shaders have (brush entities' included), in order. */
     const std::vector<float> &sorts() const { return _sorts; }
-    // Where a view is and which areas closed doors hide (refdef_t's area
-    // mask: a bit set for each hidden one): from then on the draws are of
-    // only the level's surfaces that can be seen from there, as the
-    // original's renderer does, until another setView. `viewProj` (the
-    // view's projection times its placement) leaves out, each frame, the
-    // surfaces wholly outside the view. Each view `slot` (0 the player's,
-    // 1 a mirror's or portal's) keeps its own selection. Without it, every
-    // surface is drawn.
+    /**
+     * Where a view is and which areas closed doors hide (refdef_t's area
+     * mask: a bit set for each hidden one): from then on the draws are of
+     * only the level's surfaces that can be seen from there, as the
+     * original's renderer does, until another setView. `viewProj` (the
+     * view's projection times its placement) leaves out, each frame, the
+     * surfaces wholly outside the view. Each view `slot` (0 the player's,
+     * 1 a mirror's or portal's) keeps its own selection. Without it, every
+     * surface is drawn.
+     */
     void setView(int slot, const std::array<float, 3> &eye, const std::array<uint8_t, 32> &areaMask,
                  const gfx::Mat4 &viewProj);
-    // Which way the current view looks (its left, up and forward axes, and
-    // whether it's a mirror's): autosprite surfaces are turned to face it.
+    /**
+     * Which way the current view looks (its left, up and forward axes, and
+     * whether it's a mirror's): autosprite surfaces are turned to face it.
+     */
     void setCamera(const std::array<float, 3> &left, const std::array<float, 3> &up,
                    const std::array<float, 3> &forward, bool mirrored);
-    // The mirror and portal surfaces the current view draws, nearest
-    // first: the plane they lie in (its normal facing `eye`), bounds, and
-    // how far off a portal's view is drawn (0: a mirror's always is).
+    /**
+     * A mirror or portal surface: the plane it lies in, its bounds, and how
+     * far off a portal's view is drawn (0: a mirror's always is).
+     */
     struct Portal {
         int surface = -1;
         std::array<float, 3> normal{};
@@ -83,15 +108,24 @@ public:
         std::array<float, 3> maxs{};
         float range = 0;
     };
+    /**
+     * The mirror and portal surfaces the current view draws, nearest
+     * first, their planes' normals turned to face `eye`.
+     */
     std::vector<Portal> visiblePortals(const std::array<float, 3> &eye) const;
-    // A mirror or portal surface's triangles in the current view, drawn
-    // with `state` (untextured: for marking where it is, or its depth).
+    /**
+     * A mirror or portal surface's triangles in the current view, drawn
+     * with `state` (untextured: for marking where it is, or its depth).
+     */
     void drawSurfaceShape(int surface, const gfx::DrawState &state) const;
 
+    /** How many draws the map's surfaces are batched into. */
     size_t batchCount() const { return _batches.size(); }
-    // What the last setView found, for the info line: the eye's cluster
-    // (-1 outside the map), whether only what's visible is drawn, how many
-    // of the level's surfaces are, of how many, and the areas hidden.
+    /**
+     * What the last setView found, for the info line: the eye's cluster
+     * (-1 outside the map), whether only what's visible is drawn, how many
+     * of the level's surfaces are, of how many, and the areas hidden.
+     */
     struct Visibility {
         int cluster = -1;
         bool culling = false;
@@ -101,7 +135,9 @@ public:
         size_t total = 0;
         int hiddenAreas = 0;
     };
+    /** What the last setView found. */
     Visibility visibility() const;
+    /** How many triangles the map's surfaces have. */
     size_t triangleCount() const { return _triangles; }
 
 private:
@@ -220,9 +256,11 @@ private:
     uint32_t _cloudCount = 0; // the box without its bottom, from index 0
 };
 
-// Doubles a light colour the way the original does on loading (it's
-// stored at half brightness), keeping its hue when a component would pass
-// 255. Used for lightmaps, vertex colours and the light grid.
+/**
+ * Doubles a light colour the way the original does on loading (it's
+ * stored at half brightness), keeping its hue when a component would pass
+ * 255. Used for lightmaps, vertex colours and the light grid.
+ */
 void brightenLight(uint8_t *rgb);
 
 } // namespace reluva::idtech3

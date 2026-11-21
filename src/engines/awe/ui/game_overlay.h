@@ -32,6 +32,11 @@ enum class OverlayWant {
 
 /** A tool's next input to the window: wait a frame, a click, the click that does it, or nothing more needed. */
 struct OverlayHand {
+    /**
+     * Wait a frame; click at (x, y); click at (x, y), which does what was
+     * wanted; or the window's part is over (done, or it can't be), the
+     * scene's next.
+     */
     enum class Kind { kWait, kClick, kDone, kReady } kind = Kind::kWait;
     int x = 0;
     int y = 0;

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Textures: palettes and formats, compressed ones, procedural ones (fire, water, wave, wet, ice) and animated ones.
+// Textures: palettes and formats, compressed ones, procedural ones (fire,
+// water, wave, wet, ice) and animated ones.
 //
 //   reluva-tests unreal.unit.textures
 

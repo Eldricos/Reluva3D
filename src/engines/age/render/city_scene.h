@@ -20,7 +20,7 @@
 
 namespace reluva::age {
 
-/** A city the menus offer: tune/<name>.cinfo's MapName and LocalizedName. */
+/** A city the menus offer: `tune/<name>.cinfo`'s MapName and LocalizedName. */
 struct CityInfo {
     std::string map;  // the files' stem: "sf"
     std::string name; // "San Francisco"
@@ -36,11 +36,17 @@ std::vector<CityInfo> findCities(const SearchSet &files);
  */
 class CityScene {
 public:
+    /** Draws with `renderer`, reading `files`; both must outlive it. */
     CityScene(gfx::Renderer3D &renderer, const SearchSet &files);
     ~CityScene();
     CityScene(const CityScene &) = delete;
     CityScene &operator=(const CityScene &) = delete;
 
+    /**
+     * Loads a city by its map's name ("sf"), in the lighting set before.
+     * Fails only if its .psdl won't read; what else goes wrong is in
+     * notes().
+     */
     Error load(const std::string &map);
 
     /**
@@ -48,9 +54,12 @@ public:
      * cloudy, foggy, rainy), as .lt00-.lt15 and the sky dome's paint jobs.
      */
     void setLighting(int index);
+    /** The lighting (0-15), its name ("clear morning"), and the light it gives models. */
+    ///@{
     int lighting() const { return _lighting; }
     std::string lightingName() const;
     const SceneLight &light() const { return _light; }
+    ///@}
     /** Lamps lit: in the evening and at night, and in fog and rain. */
     bool lampsLit() const { return _lighting / 4 >= 2 || _lighting % 4 >= 2; }
     /**
@@ -59,7 +68,9 @@ public:
      * while the lamps are lit (pkg.md).
      */
     void drawBeacons(const FlareDrawer &flares, const Vec3 &eye) const;
+    /** How many warning lights there are. */
     size_t beacons() const { return _beacons.size(); }
+    /** Whether the lighting is one of the night's. */
     bool night() const { return _lighting / 4 == 3; }
 
     /**
@@ -89,8 +100,9 @@ public:
     void setVisibility(bool on) { _visibilityOn = on; }
     /**
      * The Graphics Options: the textured sky (else the fog's colour behind
-     * the city), how far placed models are drawn, and their detail (1 the
-     * finest: a level is chosen as if they were 1/detail further away).
+     * the city), how far placed models are drawn (900 m at most), and their
+     * detail (1 the finest: a level is chosen as if they were 1/detail
+     * further away).
      */
     void setSkyShown(bool on) { _skyShown = on; }
     /**
@@ -98,15 +110,21 @@ public:
      * (drifting with the wind by day). At night, the night tile's pools.
      */
     void setCloudShadows(int level) { _cloudShadows = level; }
+    /** How far placed models are drawn, in metres (900 at most), and in what detail (see setSkyShown). */
+    ///@{
     void setModelDistance(float metres) { _modelDistance = metres; }
     void setModelDetail(float detail) { _detail = detail; }
+    ///@}
+    /** Whether it culls: on, and the city has a visibility file. */
     bool visibility() const { return _visibilityOn && !_pvs.empty(); }
     /**
      * The block the eye was last in (0: none, or visibility off), and how
      * many blocks were drawn from it.
      */
+    ///@{
     size_t viewBlock() const { return _viewBlock; }
     size_t blocksDrawn() const { return _blocksDrawn; }
+    ///@}
     /**
      * The block `p` stands in (on or over its ground, up to 30 m above its
      * highest point), or 0.
@@ -114,6 +132,7 @@ public:
     size_t blockAt(const Vec3 &p) const;
 
     /** What was loaded, for the pages' info and the collision world. */
+    ///@{
     const std::vector<std::string> &notes() const { return _notes; }
     const Psdl &psdl() const { return _psdl; }
     const CityMesh &mesh() const { return _mesh; }
@@ -121,6 +140,7 @@ public:
     size_t placedCount() const { return _placed.size(); }
     TextureCache &textures() { return *_textures; }
     ModelCache &models() { return *_models; }
+    ///@}
 
     // On the road nearest the city's middle, at its height, and the turn
     // (about Y) that faces along it.
@@ -166,7 +186,7 @@ private:
     // The city's vertex colours for the lighting, and its mesh again.
     void relightCity();
     // The index buffer again: the triangles of the blocks seen from
-    // viewBlock_ (all of them for 0).
+    // _viewBlock (all of them for 0).
     void rebuildIndices();
 
     gfx::Renderer3D &_renderer;

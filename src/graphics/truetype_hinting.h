@@ -19,9 +19,9 @@ struct HintedGlyph {
     std::vector<int32_t> x;
     std::vector<int32_t> y;
     std::vector<bool> onCurve;
-    std::vector<int> contourEnds; ///< each contour's last point
-    int advance = 0;              ///< whole pixels
-    bool hinted = false;          ///< false: the outline as scaled, the font had no program for it
+    std::vector<int> contourEnds; // each contour's last point
+    int advance = 0;              // whole pixels
+    bool hinted = false;          // false: the outline as scaled (no program for it, or it failed)
 };
 
 /**
@@ -42,6 +42,7 @@ public:
     bool load(const std::vector<uint8_t> &font);
     /** Whether the font has a program to run (fpgm, prep or glyphs' instructions). */
     bool hasPrograms() const;
+    /** The font's design units to the em (its 'head' table's); 0 before load(). */
     int unitsPerEm() const { return _unitsPerEm; }
     /**
      * Glyph `index` at `ppem` pixels an em, hinted. False if it can't be

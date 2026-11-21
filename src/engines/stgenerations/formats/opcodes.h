@@ -7,6 +7,7 @@
 
 namespace reluva::stgenerations {
 
+/** The script opcodes the VM runs itself, and where the game's begin. */
 enum Opcode {
     kOpEnd = 0x00,
     kOpNop = 0x01,
@@ -54,6 +55,7 @@ enum Opcode {
     kOpcodeCount = 0xF5
 };
 
+/** An opcode's name and stack effect, read from the interpreter in sgens.exe (0x455A28). */
 struct OpcodeInfo {
     const char *name;
     // Values popped and pushed, in 16-bit stack slots.
@@ -61,13 +63,13 @@ struct OpcodeInfo {
     uint8_t pushes;
     // Length in words, including the opcode.
     uint8_t length;
-    const char *note;
+    const char *note; // what it does, or for a native the game methods it calls; may be empty
 };
 
-// Information about an opcode, or nullptr if the interpreter has no case for it.
+/** Information about an opcode, or nullptr if the interpreter has no case for it. */
 const OpcodeInfo *getOpcodeInfo(uint16_t op);
 
-// Length of an instruction in words, as the original's scanner computes it.
+/** Length of an instruction in words, as the original's scanner computes it. */
 inline int getInstructionLength(uint16_t op) {
     return op == kOpPush ? 2 : op == kOpPushBlock ? 8 : op == kOpPush32 ? 3 : 1;
 }

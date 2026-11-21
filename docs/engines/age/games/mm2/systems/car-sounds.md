@@ -6,7 +6,7 @@
 
 The car's engine, horn, clutch, tyre and knock sounds. The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## Sounds
+## How it works
 
 ### Engine
 
@@ -55,6 +55,13 @@ the pitch (`Mixer::setRate`).
 The waves are under `aud/aud22/` (`engines/`, `horns/`, `surfaces/`,
 `impacts/`, `suspension/`), else `aud/aud11/`. `tirewobble.csv` isn't
 used.
+
+## In Reluva
+
+`CarSounds` (`src/engines/age/audio/engine_sound.{h,cpp}`) plays a
+car's sounds: `EngineSound`, `SurfaceSounds` for the tyres and `ImpactSounds` for the knocks. The volume read from the
+throttle and the one knock sound for the hardest knock are Reluva's
+(above).
 
 ## Sources and checks
 

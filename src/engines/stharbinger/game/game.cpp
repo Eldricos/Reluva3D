@@ -93,7 +93,7 @@ int Game::run(int startScene) {
     return 0;
 }
 
-// ---- Test and debugging hooks ---------------------------------------------
+// Test and debugging hooks
 
 void Game::start(int scene) {
     draw::create(_screen, kScreenWidth, kScreenHeight);
@@ -128,7 +128,7 @@ const std::string &Game::getSceneName() const {
     return _scene ? _scene->name : kNone;
 }
 
-// ---- Scenes ---------------------------------------------------------------
+// Scenes
 
 void Game::enterScene(int index) {
     _sceneIndex = index;
@@ -257,7 +257,7 @@ std::string Game::listName(ListKind kind, int index) const {
     return index >= 0 && index < int(list.size()) ? list[index].name : std::string("?");
 }
 
-// ---- Input ------------------------------------------------------------------
+// Input
 
 int Game::findHotspotAt(int x, int y) const {
     // The lowest enabled hotspot wins; edges are inclusive (0x18DAB).
@@ -389,7 +389,7 @@ void Game::handleEvent(const InputEvent &event) {
     }
 }
 
-// ---- Clock --------------------------------------------------------------------
+// Clock
 
 void Game::step() {
     _stepCount++;

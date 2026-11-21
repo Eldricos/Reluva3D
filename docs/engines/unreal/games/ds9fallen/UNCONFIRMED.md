@@ -74,7 +74,7 @@ None yet.
 - **Character normals** (November 2026): Render.dll makes each vertex's
   normal from the triangles' winding alone; Reluva had guessed which way
   was out from each mesh's middle, which turned the EVA suit's inward.
-  Now as Render.dll, and lit as in the recording
+  Reluva does as Render.dll, and is lit as in the recording
   ([research/playthrough.md](research/playthrough.md)).
 - **Type 2 attachment points** (November 2026): Engine.dll settles that
   the stored matrix is in the skeleton's posed space

@@ -2,6 +2,8 @@
 
 > **Status:** decoded · **Code:** `src/engines/age/formats/ar_archive.cpp` · **Checked on:** the English release, all four archives · **Confidence:** confirmed unless marked
 
+## Overview
+
 The Angel Game Engine keeps a game's data in `.ar` archives. Midtown
 Madness 2 ships four in its install folder (and on the CD's `GAME` folder,
 the same files with upper-case names): `mm2core.ar`, `mm2tex.ar`,
@@ -56,6 +58,15 @@ The archives also carry what the developers had in their working folders:
 CVS bookkeeping (`CVS/Entries`), backups (`.bak`, `Copy of ...`), batch
 files and logs.
 
+## In Reluva
+
+`ArArchive` (`src/engines/age/formats/ar_archive.cpp`) reads an archive,
+and `src/engines/age/filesystem.cpp` mounts every `.ar` in the game
+folder, loose files over them. The data viewer's Files page lists every
+file with its size and archive. `reluva-tool age ar-list` lists an
+archive's files, `age ar-extract` unpacks them, and `age check` reads
+the game's textures, models and cities through them.
+
 ## Sources and checks
 
 From the retail archives alone. The first 16 bytes read as `DAVE` and
@@ -65,7 +76,7 @@ names were found to start right after the directory, and offsets that
 landed on data. Files whose two sizes differed inflated as raw deflate to
 exactly the larger one. Confirmed by unpacking all four archives (13,288
 files) with every size matching, once with a throwaway script and once
-with `reluva-tool ar-extract`, which gave the same bytes.
+with `reluva-tool age ar-extract`, which gave the same bytes.
 
 - **How it was checked:** every file of the four archives unpacked to its size; `reluva-tool age check` and `ar-list` in the game-files test; `age.unit.formats`.
 
@@ -84,7 +95,15 @@ with `reluva-tool ar-extract`, which gave the same bytes.
   between installed archives and "the real order of the .ar files
   reading of the game", and MM2 Revisited names its archive `! !RV6_Dev`,
   which sorts first by name, so archives are likely taken in name order
-  with one end winning; which end isn't stated anywhere found.
+  with one end winning; which end isn't stated anywhere found. Looked
+  for again in 2026-11 in public pages (the Racing Madness wiki, MM2
+  eXtreme's FAQ and its Game Loader page, mmarchive.com, forums): mod
+  guides say to copy a mod's `.ar` beside the game's and to take it out to
+  undo it, and that too many add-on archives crash the game, but none says
+  which archive wins. The wiki's and MM2 eXtreme's pages couldn't be read
+  in full from here (they refuse automated reading); someone reading them
+  in a browser might find it. Otherwise it needs the game itself: two
+  archives holding the same texture, and which one shows.
 - **Later games.** The Midnight Club II notes at knowledge.stien.org
   describe a lowercase `Dave` header with names scrambled in a 6-bit
   code in Angel Studios' later games; Reluva doesn't read it.

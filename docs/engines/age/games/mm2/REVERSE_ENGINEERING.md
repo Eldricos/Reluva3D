@@ -125,6 +125,7 @@ release", as `idtech3` does.
 | `pkg-info <file.pkg or game folder> [out.obj]` | A model's meshes and parts, as an OBJ, or a survey |
 | `psdl-info <game folder> <city> [out.obj]` | What a city's `.psdl` holds |
 | `check <game folder>` | Every texture, model, city, road map, placement list, path set and visibility file read |
+| `cars <game folder>` | Every car driven by Reluva's simulation, ranked against the game's figures for it |
 | `game-run <game folder>` | The game run headless, for the game-files test |
 | `viewer-run <game folder>` | The data viewer run headless, for the game-files test |
 

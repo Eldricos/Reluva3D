@@ -40,6 +40,12 @@ Everything else (`ShowStellar`, `Move`, `WarpFleetIn`, `QueAudio`, `QueMusic`,
 `Wait`, `SDTimer`, `Scanner`, ...) drives the bridge. Without it, this engine
 takes `OnTransport` at once and never `OnTactical`.
 
+## In Reluva
+
+`Campaign` (`src/engines/stgenerations/game/campaign.h`) runs the script;
+`Generations` (`game/frontend.cpp`) reads it from `STELLAR.DAT`, and `Bridge`
+(`game/bridge.h`) takes the bridge's commands.
+
 ## Sources and checks
 
 From the notes read off `sgens.exe` and the game's files, the 2 CD Windows release, while the engine was STG-Engine: [frontend](../research/frontend.md), [bridge](../research/bridge.md), in [research/](../research/README.md). [REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md) says how they were made. All values are little-endian.

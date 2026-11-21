@@ -148,8 +148,6 @@ void inverseRealDft(float *x, int n) {
 
 } // namespace
 
-// --- Bits ------------------------------------------------------------------------
-
 uint32_t Movie::Bits::get(int n) {
     // Least significant bit first, little-endian.
     uint32_t v = 0;
@@ -159,7 +157,7 @@ uint32_t Movie::Bits::get(int n) {
     return v;
 }
 
-// --- The container -------------------------------------------------------------
+// The container.
 
 Error Movie::open(std::vector<uint8_t> file) {
     _file = std::move(file);
@@ -371,7 +369,7 @@ void Movie::decodePacket(Audio &a, const uint8_t *packet, uint32_t length, std::
 }
 
 void Movie::toRgba(std::vector<uint8_t> &out, Rgb how) const {
-    // The newest frame is in old_ once swapped.
+    // The newest frame is in _old once swapped.
     const auto &y = _old[0];
     const auto &u = _old[1];
     const auto &v = _old[2];
@@ -426,7 +424,7 @@ void Movie::toRgba(std::vector<uint8_t> &out, Rgb how) const {
         }
 }
 
-// --- Video ----------------------------------------------------------------------
+// The video.
 
 void Movie::readTree(Bits &b, Tree &t) {
     // Which of the 16 code trees, and in what order its symbols come: a
@@ -950,7 +948,7 @@ void Movie::readResidue(Bits &b, int32_t block[64], int masks) {
     }
 }
 
-// --- Audio ----------------------------------------------------------------------
+// The audio.
 
 void Movie::readAudioCoefficients(Audio &a, Bits &b, float *coeffs) {
     // Two floats (5-bit exponent, 23-bit mantissa, sign), each band's

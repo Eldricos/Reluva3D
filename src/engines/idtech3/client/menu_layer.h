@@ -15,53 +15,82 @@
 
 namespace reluva::idtech3 {
 
-// The game's own menus (vm/ui.qvm) as a layer a page shows: started on a
-// menu, given the keys and the mouse, run each frame and drawn into the
-// page's frame. The Menu page shows them alone; the Play page over a
-// match, as the original's in-game menu.
+/**
+ * The game's own menus (vm/ui.qvm) as a layer a page shows: started on a
+ * menu, given the keys and the mouse, run each frame and drawn into the
+ * page's frame. The Menu page shows them alone; the Play page over a
+ * match, as the original's in-game menu.
+ */
 class MenuLayer {
 public:
-    // The menus' own numbers for the menu to start on (Quake III's).
+    /** The menus' own numbers for the menu to start on (Quake III's). */
+    ///@{
     static constexpr int32_t kMainMenu = 1;
     static constexpr int32_t kInGameMenu = 2;
-    // Their key catcher's bit while they take the keys (Quake III's).
+    ///@}
+    /** Their key catcher's bit while they take the keys (Quake III's). */
     static constexpr int32_t kCatchUi = 2;
 
+    /** For a page, with the cvars the menus read and set; nothing runs until start(). */
     MenuLayer(PageContext &ctx, CvarStore &cvars) : _ctx(ctx), _cvars(cvars) {}
     ~MenuLayer() { detach(); }
 
-    // Drawing into `renderer`'s frames of w x h pixels (detach() before
-    // the renderer goes); the menus keep running across.
+    /**
+     * Drawing into `renderer`'s frames of w x h pixels (detach() before
+     * the renderer goes); the menus keep running across.
+     */
     void attach(gfx::Renderer3D *renderer, int w, int h);
+    /** Stops drawing, and the menus' sounds; the menus themselves are kept. */
     void detach();
 
-    // Loads and starts the menus on `menu` (they're kept: start them
-    // again with reset() first); false if they stopped (error()).
+    /**
+     * Loads the menus anew and starts them on `menu`, first creating the
+     * player's settings the original's client makes at start (name,
+     * model...).
+     * @return False if they stopped (error() says why).
+     */
     bool start(int32_t menu);
-    // Shows `menu` on menus already running.
+    /** Shows `menu` on menus already running. */
     void show(int32_t menu);
+    /** Throws the menus away, with the commands not yet taken. */
     void reset();
+    /** Whether the menus are loaded and haven't stopped. */
     bool running() const { return _ui != nullptr; }
+    /** The menus' program, or null if they aren't running. */
     eliteforce::UiHost *ui() { return _ui.get(); }
-    // Whether they're taking the keys (shown, not closed by the player).
+    /** Whether they're taking the keys (shown, not closed by the player). */
     bool open() const { return _ui && (_ui->catcher() & kCatchUi); }
 
-    // Why they stopped, and where the details were written.
+    /**
+     * Why they stopped, and where the details were written (empty if
+     * nowhere); clearError() forgets both.
+     */
+    ///@{
     const std::string &error() const { return _error; }
     const std::string &reportPath() const { return _reportPath; }
     void clearError() {
         _error.clear();
         _reportPath.clear();
     }
+    ///@}
 
+    /**
+     * Key presses, typed text, clicks, the wheel and the mouse's moves, for
+     * the menus. Key and button releases aren't passed on: the menus act
+     * on a release as on a press.
+     */
     void handleEvent(const Event &ev);
-    // A key by its Quake III number (the joystick's: JOY1..., the arrows
-    // its axes give), pressed or released; the menus take presses only.
+    /**
+     * A key by its Quake III number (the joystick's: JOY1..., the arrows
+     * its axes give), pressed or released; the menus take presses only.
+     */
     void key(int32_t q3key, bool down);
-    // A frame: the menus run (time in ms since they started) and their
-    // pictures and 3D scenes drawn, after beginFrame.
+    /**
+     * A frame: the menus run (time in ms since they started) and their
+     * pictures and 3D scenes drawn, after beginFrame.
+     */
     void frame(uint64_t nowMs);
-    // The commands the menus have run since the last call, one each.
+    /** The commands the menus have run since the last call, one each. */
     std::vector<std::string> takeCommands();
 
     // Set before start(): the server list's (the Menu page's), and what

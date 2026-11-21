@@ -63,7 +63,7 @@ here anew). The Fallen's ledge and ladder tests (`TestForLedge`,
   As SpawnActor does, an actor that fits nowhere isn't spawned (`Spawn`
   returns None, and the log says so). Over all maps' first 3 seconds,
   that's 4 times: a Cardassian hypospray 60 units wide where nothing that
-  wide fits, and the like. Before, it was left at the world's origin.
+  wide fits, and the like.
   Starts are placed for the
   default pawn height (40), and The Fallen's characters are taller (Worf
   is 52), so a player starting on a lift begins a little into its floor
@@ -94,8 +94,7 @@ Physics each tick, after the actor's scripts:
   30% when walking or crouching.
   - The player's is ×0.5 strafing while walking or crouching (else ×0.8),
     ×0.8 backing, ×0.75 crawling.
-  - Others' are times `DesiredSpeed`, which the player's isn't. Before,
-    Reluva held the player to `DesiredSpeed` too, a third of its run.
+  - Others' are times `DesiredSpeed`, which the player's isn't.
 
 The Fallen added its own modes (past 10): the player's climbing,
 free flight, fish, interpolation and one for each kind of effect.
@@ -122,7 +121,7 @@ it is.
 | Climbing | By its acceleration (the scripts': `aForward` x 0.02 up the view's Z, 120 a second), while a ladder is 1.6 radii ahead at the head going up (4 under it) or the feet going down (4 over them). Onto a floor: `Landed` (the scripts walk). At the top with no ladder at the head: 4 units on, and if that's blocked by a ledge (`TestForLedge`), `ChangePhysics(Clambering)`. At the bottom with none at the feet: `ChangePhysics(Falling)` (the scripts let go). Its velocity is what it moved. |
 | Hanging | Along the ledge by its acceleration (`aStrafe` x 0.008): a hand's box (`HandCollisionHeight`) swept over the ledge, moved only where there's a hand hold. No ledge under the hands (`TestForHangLedge`): the scripts' `Falling`. |
 | Clambering | Up at `DodgeClickTimer` units a second (its scripts' `PlayClambering` sets 100 or 130; Kira's 104 or 130) until the feet are over `LedgeHeight`, feeling 4 units forward; clear there (or 4 over), `Landed` with the normal of what it felt (none if clear), which sets the rise to 0. Then forward at 120 a second until stopped, when `ChangePhysics(Walking)`; its scripts' `AnimEnd` walks too. Blocked rising: `ChangePhysics(Falling)`. |
-| RotatingYaw, RotatingPitch | Turning about the one axis by `RotationRate` a second, only with `bFixedRotationDir` (round and round) or `bRotateToDesired` (the shorter way to `DesiredRotation`, then `EndedRotation`). Before, Reluva turned them twice, so ARD_TortureMachine turned at double speed and never backward. |
+| RotatingYaw, RotatingPitch | Turning about the one axis by `RotationRate` a second, only with `bFixedRotationDir` (round and round) or `bRotateToDesired` (the shorter way to `DesiredRotation`, then `EndedRotation`). |
 | SimpleWalking (a plain pawn's: the leeches) | As APawn::physSimpleWalking: forward the way it faces at `GroundSpeed` (its acceleration has no say; `AccelRate` held at 300), along the floor found 10 over and under where that takes it, 2 above it. Blocked going down, the plain move; level or up, 60 a second up then across; no sliding. No floor ahead, or none 10 under it after: `Falling`. On a slope steeper than 0.6: `HitWall`. The Fallen's own pawns don't move in it. Spider (11): no script uses it. |
 | Particle | As physParticle (0x1035d430): no gravity; its velocity changed by its acceleration (a ship lifting off, debris settled), and, if a `CTVE_Generator` owns it, slowed by its `DeltaSpeed` and pushed by its `Forces` and wind too; moved through everything, its zone not looked at, with no events. In its last second its `DrawScale` and `ScaleGlow` fade with its `LifeSpan` (as the generator's `bFadeSize`, `bFadeGlow` say; both without one). One that makes copies stays where its scripts put it. |
 | Newtonian | Free flight by momentum. A pawn (the Vulture, the Wraith, the Arachnid): `calcVelocity` with no friction (its velocity steered toward its acceleration, at most `AccelRate`, up to `AirSpeed` times `DesiredSpeed`; a player never moves in it); an actor (a thrown drum) keeps its velocity, which only its scripts change. On a wall a pawn steps up a low one; else the wall is told (`processHitWall`) and it slides, a second wall told and the move bent along both. A pawn's velocity is then what it moved. |

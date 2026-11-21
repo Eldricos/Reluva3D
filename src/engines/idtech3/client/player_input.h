@@ -15,47 +15,58 @@
 
 namespace reluva::idtech3 {
 
-// The player's input as Quake III's client turns it into commands: keys
-// run their bindings, the engine's +buttons ("forward", "attack"...) held
-// while a key holding them is; the view turned by the mouse and keys; and
-// from those, the command's angles, buttons and movement.
+/**
+ * The player's input as Quake III's client turns it into commands: keys
+ * run their bindings, the engine's +buttons ("forward", "attack"...) held
+ * while a key holding them is; the view turned by the mouse and keys; and
+ * from those, the command's angles, buttons and movement.
+ */
 class PlayerInput {
 public:
-    // A key's binding (`line`), pressed or released: "+name" holds the
-    // engine's button while the key is down, or runs the client game's
-    // +name/-name pair through `command`; other commands run on the press.
+    /**
+     * Runs a key's binding (`line`), pressed or released: "+name" holds the
+     * engine's button while the key is down, or runs the client game's
+     * +name/-name pair through `command`; other commands run on the press.
+     */
     void runBinding(const std::string &line, int32_t key, bool down,
                     const std::function<void(const std::string &)> &command);
+    /** Whether any key holds the engine's button ("forward", "attack"...). */
     bool held(const char *button) const;
+    /** Lets go of every button, whatever keys hold them. */
     void releaseAll() { _buttons.clear(); }
-    // The buttons held, each with the keys holding it.
+    /** The buttons held, each with the keys holding it. */
     const std::map<std::string, std::set<int32_t>> &buttons() const { return _buttons; }
 
-    // The joystick's analog axes this frame, -127 to 127 (JoystickInput):
-    // x turns the view (with +strafe, steps sideways), y moves forward
-    // and back (with +mlook, looks up and down), as the original's.
+    /**
+     * The joystick's analog axes this frame, -127 to 127 (JoystickInput):
+     * x turns the view (with +strafe, steps sideways), y moves forward
+     * and back (with +mlook, looks up and down), as the original's.
+     */
     void setJoystick(int32_t x, int32_t y) {
         _joyX = x;
         _joyY = y;
     }
-    // The mouse moved (pixels), until the next turn().
+    /** The mouse moved (pixels), added up until the next turn(). */
     void addMouse(float dx, float dy) {
         _mouseX += dx;
         _mouseY += dy;
     }
-    // Turns the view by the mouse moved and the keys held over `dtMs`, at
-    // the original's settings: sensitivity, m_yaw, m_pitch, m_filter,
-    // cl_freelook (else +mlook to look up and down), cl_yawspeed and
-    // cl_pitchspeed degrees a second, times cl_anglespeedkey with +speed;
-    // with +strafe, left and right step instead of turning.
+    /**
+     * Turns the view by the mouse moved and the keys held over `dtMs`, at
+     * the original's settings: sensitivity, m_yaw, m_pitch, m_filter,
+     * cl_freelook (else +mlook to look up and down), cl_yawspeed and
+     * cl_pitchspeed degrees a second, times cl_anglespeedkey with +speed;
+     * with +strafe, left and right step instead of turning.
+     */
     void turn(const CvarStore &cvars, int32_t dtMs);
     // degrees
     float yaw = 0;
     float pitch = 0;
 
-    // The command for this moment: where the player looks (65536 to a
-    // turn), the game's button bits held, and movement (running unless
-    // +speed is held with cl_run 1, the default, or the reverse).
+    /**
+     * A command as the game takes it: where the player looks (65536 to a
+     * turn), the game's button bits held, and movement (-127 to 127).
+     */
     struct Command {
         std::array<int32_t, 3> angles{};
         int32_t buttons = 0;
@@ -63,9 +74,13 @@ public:
         int8_t right = 0;
         int8_t up = 0;
     };
+    /**
+     * The command for this moment, running unless +speed is held with
+     * cl_run 1 (the default), or the reverse.
+     */
     Command command(const CvarStore &cvars, const GameInfo &game) const;
 
-    // Whether `name` is one of the engine's buttons (not the client game's).
+    /** Whether `name` is one of the engine's buttons (not the client game's). */
     static bool isButton(const std::string &name);
 
 private:

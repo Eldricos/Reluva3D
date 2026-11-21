@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
+// Star Trek: Generations' unit tests: pixel formats, drawing on surfaces,
+// palettes, filled polygons, and 8-bit BMPs (uncompressed and RLE8).
+
 #include "tests/engines/stgenerations/support.h"
 
 #include "common/bytes.h"

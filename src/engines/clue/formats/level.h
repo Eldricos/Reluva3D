@@ -15,18 +15,22 @@
 
 namespace reluva::clue {
 
-// A 7-byte timing item, in objects and placements: perhaps "after time
-// milliseconds, go to state". Only the readme's clickable objects have them.
+/**
+ * A 7-byte timing item, in objects and placements: perhaps "after time
+ * milliseconds, go to state". Only the readme's clickable objects have them.
+ */
 struct Timing {
     uint16_t time = 0;
     uint16_t state = 0;
     std::array<uint8_t, 7> raw{};
 };
 
-// An object type, from a .o file: its states, each an animation.
+/** An object type, from a .o file: its states, each an animation. */
 struct ObjectDef {
-    // What an object is, by its type byte, as far as the objects of each
-    // type tell (3, 5, 9 and 12 are all furniture of some kind).
+    /**
+     * What an object is, by its type byte, as far as the objects of each
+     * type tell (3, 5, 9 and 12 are all furniture of some kind).
+     */
     enum Type : uint8_t {
         kWall = 0,
         kFloor = 1,
@@ -36,6 +40,7 @@ struct ObjectDef {
         kTileNumber = 11,
         kDrapes = 12
     };
+    /** One of its states: an id and the animation it shows. */
     struct State {
         // 0 the usual one; 1-16 a character's eight idle and eight "mult"
         // ones (a direction each); 19 its pawn; 20-24 an object's others.
@@ -54,11 +59,13 @@ struct ObjectDef {
     std::vector<State> states;
     std::vector<Timing> timings;
 
+    /** The state with this id, or nullptr. */
     const State *state(uint16_t id) const;
 };
+/** Reads one object's record from a .o file, replacing what `out` held. */
 Error parseObject(const std::vector<uint8_t> &record, ObjectDef &out);
 
-// An object placed in the mansion.
+/** An object placed in the mansion. */
 struct Placement {
     uint8_t flags = 0;   // 0x40 always; 0x02: tag given; 0x20: timings given
     uint16_t tag = 0;    // when flags has 0x02; not understood
@@ -75,6 +82,7 @@ struct Placement {
     std::vector<Timing> timings;
 };
 
+/** The mansion as clue.lvl holds it: the objects and where they're placed. */
 struct Level {
     std::string title;                // "Unnamed"
     std::vector<std::string> objects; // "ballroom:Oblcouch_ad", by number
@@ -83,8 +91,10 @@ struct Level {
     std::vector<uint8_t> info;
     std::vector<uint8_t> workspace;
 };
-// clue.lvl is a DDRV archive of /World.dat, /Objects.dat, /Info.dat and
-// /Workspace.dat.
+/**
+ * Reads clue.lvl, a DDRV archive of /World.dat, /Objects.dat, /Info.dat and
+ * /Workspace.dat, replacing what `out` held.
+ */
 Error parseLevel(const DataDrive &drive, Level &out);
 
 } // namespace reluva::clue

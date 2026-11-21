@@ -10,8 +10,7 @@ does, and suggests, shows cards and accuses from it.
 
 ## How it works
 
-As `Clue.exe` 2.2 plays them, read from its code (November 2026); before
-that, Reluva's were its own, fitted to the recordings below. A computer
+As `Clue.exe` 2.2 plays them, read from its code (November 2026). A computer
 player (class `AI`) keeps what it knows as the original's notebook does
 (0x42CC20 on), cards as bits: what each player is known to hold and to
 lack, and for each player a list of "holds one of these three". It
@@ -76,6 +75,14 @@ the revolver, the billiard room), read off its ticker:
 - Professor Plum, suggesting in the billiard room with nobody able to
   disprove it (23:24-23:38), accused at once, in the same turn, and was
   right: the game took 15 minutes, about ten rounds.
+
+## In Reluva
+
+`src/engines/clue/game/ai.h`: `Notebook` keeps what a computer player knows of
+who holds each card, and `ComputerPlayer` (`kNovice`, `kNormal`, `kExpert`)
+takes its turns from it; `Play` (`game/play.h`) runs them. `reluva-tool clue
+board <clue.lvl> <games> [novice|normal|expert players]` plays that many games
+of computer players on the board and reports how they went.
 
 ## Sources and checks
 

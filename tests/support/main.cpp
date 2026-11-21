@@ -4,7 +4,7 @@
 // reluva-tests: runs the suites the test files register (tests/support/test.h).
 //
 //   reluva-tests                      every suite
-//   reluva-tests <name>...            those named, or whose names start with one
+//   reluva-tests <name>...            those named, or under one
 //                                     ("idtech3" runs all of id Tech 3's)
 //   reluva-tests --list               the suites and their cases
 //   reluva-tests --covered-by <name>... fails if a suite isn't under one of the

@@ -1,6 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""Where pieces of the house are in a frame of a recording, by their edges:
+for each object named, its first picture matched against the frame's top
+410 rows (left of `xmax`), with where that puts its anchor on the screen and
+where the level places it.
+
+    python3 -I py/anchors.py FRAME.png XMAX OBJECT...      (e.g. furniture:Ochair)
+"""
+
 import os
 GAME = os.environ.get('CLUE_GAME', 'game')  # the installed game: Clue.exe, the DLLs, Data/
 WORK = os.environ.get('CLUE_WORK', '.')  # caches and outputs
@@ -11,6 +19,7 @@ import proto
 L=proto.level(proto.files['clue.lvl']); P=proto.parse_recs(L)
 fr=cv2.imread(frame).astype(np.float32)
 def grad(a):
+    """A picture's edges: the magnitude of its grey levels' gradient."""
     g=cv2.cvtColor(a,cv2.COLOR_BGR2GRAY); return cv2.magnitude(cv2.Sobel(g,cv2.CV_32F,1,0),cv2.Sobel(g,cv2.CV_32F,0,1))
 G=grad(fr)[:410,:xmax]
 for name in names:

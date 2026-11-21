@@ -350,8 +350,8 @@ void SpGameHost::updateVoiceVolumes() {
     // square of ten samples a hundred apart, their high bytes) against
     // s_threshold1-4 times the sound's peak: -1 quiet, then 5 to 8 (the
     // client game shows the head skin that many after its first, the
-    // mouth's shapes). A line that has ended
-    // leaves 0, which ends the scripts' wait for it.
+    // mouth's shapes). A line that has ended leaves 0, which ends the
+    // scripts' wait for it.
     if (!_voiceVolume)
         return;
     std::memset(_cpu->memory().data() + _voiceVolume, 0, 4 * kMaxEntities);
@@ -483,7 +483,7 @@ Error SpGameHost::consoleCommand(const std::string &text, bool *handled) {
     return e;
 }
 
-// --- Entities ---------------------------------------------------------------------
+// Entities.
 
 uint32_t SpGameHost::entities() const {
     return _exports ? _cpu->read32(_exports + 14 * 4) : 0;
@@ -604,7 +604,7 @@ std::string SpGameHost::infoString(int32_t flag) const {
     return info;
 }
 
-// --- Cvars ------------------------------------------------------------------------
+// Cvars.
 
 uint32_t SpGameHost::cvarStructure(const std::string &name) {
     const std::string key = lower(name);
@@ -648,7 +648,7 @@ void SpGameHost::syncCvars() {
     }
 }
 
-// --- Files (for both halves of the DLL) ---------------------------------------------
+// Files, for both halves of the DLL.
 
 // FS_FOpenFile(path, &handle, mode): read from the game's search path; what
 // it writes is kept only until closed, for now.
@@ -672,7 +672,7 @@ uint32_t SpGameHost::fsWrite(x86::Cpu &c, uint32_t buffer, uint32_t length, uint
     return uint32_t(_openFiles.write(handle, c.memory().data() + buffer, length));
 }
 
-// --- The client game's system calls -------------------------------------------------
+// The client game's system calls.
 
 void SpGameHost::writeVmCvar(uint32_t address, const CvarStore::Cvar &cv) {
     // vmCvar_t: handle, modification count, value, integer, text (256).
@@ -1426,7 +1426,7 @@ Error SpGameHost::clientConsoleCommand(const std::string &text) {
     return callGame(kClientCommand, {0});
 }
 
-// --- The engine's functions ---------------------------------------------------------
+// The engine's functions.
 
 void SpGameHost::addImports() {
     auto str = [](x86::Cpu &c, int n, size_t max = 1024) { return c.string(c.arg(n), max); };
@@ -1473,7 +1473,6 @@ void SpGameHost::addImports() {
 
     // Files: read from the game's search path; what it writes is kept
     // only until closed, for now.
-    // Files.
     import(kFsFOpenFile, [this](x86::Cpu &c) { return fsOpen(c, c.arg(0), c.arg(1), c.arg(2)); });
     import(kFsRead, [this](x86::Cpu &c) { return fsRead(c, c.arg(0), c.arg(1), c.arg(2)); });
     import(kFsWrite, [this](x86::Cpu &c) { return fsWrite(c, c.arg(0), c.arg(1), c.arg(2)); });
@@ -1504,7 +1503,8 @@ void SpGameHost::addImports() {
         return 0u;
     });
 
-    // Saved games: kept in memory for now.
+    // Saved games: the chunks go to and come from the save streams
+    // (setSaveStream).
     import(kAppendToSaveGame, [this](x86::Cpu &c) -> uint32_t {
         // (id, data, length): into the saved game being written.
         const uint32_t data = c.arg(1);

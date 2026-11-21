@@ -19,9 +19,13 @@ namespace reluva::unreal {
  */
 class TextureUseRecorder : public gfx::Renderer3D {
 public:
+    /** Passes everything on to `to`, which must outlive it. */
     explicit TextureUseRecorder(gfx::Renderer3D &to) : _to(to) {}
+    /** The textures drawn with since the set was last cleared (the caller clears it). */
     std::unordered_set<gfx::TextureId> &used() { return _used; }
 
+    /** Passed on to the renderer it wraps as they are; draw() notes the call's texture first. */
+    ///@{
     Error createTexture(int width, int height, const uint8_t *rgba, const gfx::TextureParams &params,
                         gfx::TextureId &out) override {
         return _to.createTexture(width, height, rgba, params, out);
@@ -69,14 +73,17 @@ public:
     int setMultisampling(int samples) override { return _to.setMultisampling(samples); }
     void captureNextFrame() override { _to.captureNextFrame(); }
     bool takeCapture(std::vector<uint8_t> &rgba) override { return _to.takeCapture(rgba); }
+    ///@}
 
 private:
     gfx::Renderer3D &_to;
     std::unordered_set<gfx::TextureId> _used;
 };
 
+/** The Maps page: a level drawn, and played with its scripts (see the top of this file). */
 class LevelView : public Page {
 public:
+    /** Over the maps in the package set. */
     explicit LevelView(ViewContext &ctx);
     ~LevelView() override;
     const char *name() const override { return "Maps"; }
@@ -88,6 +95,7 @@ public:
     bool uses3D() const override { return _renderer != nullptr; }
     /** Shows the map of that name (once active); false if there's none. */
     bool selectMap(const std::string &name);
+    /** Whether the level is being played (its scripts running). */
     bool playing() const { return _play != nullptr; }
     /**
      * As the game's own screen rather than the data viewer's page: the info
@@ -115,10 +123,15 @@ public:
      * name looking at it; false if there's none.
      */
     bool watchActor(const std::string &name);
+    /**
+     * A changing light's share of its brightness now: its curve, and while
+     * playing, for a light the scripts may change, as its live actor has
+     * it (0 once that's gone). `whole` as for lightLevel.
+     */
     float liveLightLevel(const LightSource &l, bool whole = true);
     /**
      * The player put by an actor (`offset` from it, facing `yaw` degrees),
-     * falling; and where it is, its state and physics (ue-play's tests).
+     * falling (ue-play's tests); false with no player or no such actor.
      */
     bool teleportPlayer(const std::string &name, const Vec3f &offset, float yaw);
     /**
@@ -127,8 +140,14 @@ public:
      * `classPart` in its name, with where they are (ue-play's tests: views
      * to match against a recording).
      */
+    ///@{
     void placeCamera(const Vec3f &at, float yaw, float pitch);
     std::vector<std::pair<std::string, Vec3f>> actorPlaces(const std::string &classPart);
+    ///@}
+    /**
+     * The player as text: where it is, its state, physics, animation and
+     * weapon ("no player" if there's none); ue-play's tests.
+     */
     std::string describePlayer();
     /** The level's seconds played (0 if not playing). */
     float playTime() const;
@@ -169,7 +188,7 @@ private:
         ObjectRef textureRef{};               // the level's: the texture it's drawn with, for the scripts' swaps
         uint64_t zones = ~uint64_t(0);        // the zones it's seen from (zones.h): drawn when one of them is seen
         std::array<int, 2> textureSize{1, 1}; // texels, for panning its texture
-        int tint = -1;                        // a translucent lit batch's: its entry in tints_
+        int tint = -1;                        // a translucent lit batch's: its entry in _tints
         gfx::Vec3 mirrorNormal{};             // a mirror's plane: normal . x = mirrorD (the renderer's axes)
         float mirrorD = 0;
     };
@@ -187,10 +206,10 @@ private:
     // corners and middle) of its lightmaps' light and the dynamic lights'
     // (a TriggerLight, not static, lights as those do), as they change.
     struct TintSample {
-        int anim = -1;    // in animatedLightmaps_, or -1: a lightmap that doesn't change
+        int anim = -1;    // in _animatedLightmaps, or -1: a lightmap that doesn't change
         size_t texel = 0; // in it
         Vec3f light{};    // the light there, if it doesn't change
-        Vec3f at{};       // where, for the lights that move and change (dynamic_)
+        Vec3f at{};       // where, for the lights that move and change (_dynamic)
     };
     std::vector<std::vector<TintSample>> _tints;
     Vec3f tintOf(int tint) const;
@@ -211,7 +230,7 @@ private:
     void drawSurfaceSwaps();
 
     // A mover: its polygons (in its brush's own coordinates, in
-    // moverMesh_) and where it is between its keyframes.
+    // _moverMesh) and where it is between its keyframes.
     struct MoverDraw {
         Mover mover;
         std::vector<Batch> batches;
@@ -244,7 +263,7 @@ private:
         float time = -1;
     };
     mutable std::unordered_map<const void *, ActorFade> _actorFades;
-    mutable std::unordered_map<int32_t, const LightSource *> _uniqueByRef; // lights_.unique by their actor
+    mutable std::unordered_map<int32_t, const LightSource *> _uniqueByRef; // _lights.unique by their actor
     std::set<int32_t> _staticLightRefs;                                    // the level's own lights (in its lightmaps)
     std::vector<ScriptLevel::LitActor> _litScratch;
     // A light's share of its brightness now (its level, if it changes).
@@ -284,6 +303,7 @@ public:
         double play = 0;
         double endFrame = 0;
     };
+    /** The last frame's FrameTimes. */
     const FrameTimes &frameTimes() const { return _frameTimes; }
 
 private:
@@ -296,7 +316,7 @@ private:
     static float tweenProgress(const LevelPlay::Look &look, const MeshAnimSeq &anim);
     // Actors drawn as meshes, each mesh uploaded once.
     struct MeshDraw {
-        size_t mesh = 0; // into meshes_ / gpuMeshes_
+        size_t mesh = 0; // into _meshes / _gpuMeshes
         gfx::Mat4 placement{};
         std::vector<gfx::TextureId> textures; // by texture index
         MeshLight light;
@@ -392,7 +412,7 @@ private:
     std::map<std::pair<const Package *, int>, std::pair<gfx::TextureId, std::array<int, 2>>> _seeThroughTextures;
     // A mesh for live actors (by the mesh object), with the animation
     // they play borrowed from the shared sets if it's not its own: an
-    // index into meshes_ / gpuMeshes_, -1 if it doesn't read.
+    // index into _meshes / _gpuMeshes, -1 if it doesn't read.
     int liveMesh(const ObjectRef &mesh, const std::string &anim);
     std::unique_ptr<LevelPlay> _play;
     // A travel's level, started as it loads (its start's changes drawn
@@ -409,7 +429,7 @@ private:
     std::unique_ptr<LevelAudio> _audio; // its sounds, when there's a mixer
     std::string _playError;
     std::string _portal;                  // the start playing began at, for the game's ?RESTART
-    std::vector<VmObject *> _moverActors; // each of movers_'s live actor
+    std::vector<VmObject *> _moverActors; // the live actor of each of _movers
     std::map<std::pair<const Package *, int>, int> _liveMeshes;
     // Meshes posed at draw time for The Fallen's layered animations: each
     // mesh's poser (none if it has no skeleton) and its parts, and the
@@ -428,7 +448,7 @@ private:
         MeshPose pose;
     } _lastMesh;
     void drawShadow(VmObject *actor, const Vec3f &location);
-    // Each caster's shadow: its light (in lights_.unique), how strong.
+    // Each caster's shadow: its light (in _lights.unique), how strong.
     struct ShadowState {
         int light = -1;
         float strength = 0;
@@ -450,7 +470,7 @@ private:
     bool _textured = true;
     bool _lightmaps = true; // drawn with the lightmaps (else shaded by facing)
     float _lightScale = 1;  // the lightmaps' brightness, [ and ]
-    // How the finished frame is shown: raised to displayGamma_ (- and =).
+    // How the finished frame is shown: raised to _displayGamma (- and =).
     // The original's Direct3D renderer sets the display's gamma ramp to
     // 1 / (2.5 x Brightness), Brightness 0.5 (the game's default) giving
     // 0.8: see lighting.md.
@@ -467,7 +487,7 @@ private:
     std::vector<float> _mapLevels;              // as the lightmaps were last drawn with it (less a pattern)
     std::vector<PatternNow> _patternNow;        // each one's pattern this frame
     std::vector<bool> _staleLightmaps;          // changed while out of sight: drawn once seen
-    std::map<int, MeshTopology> _posedTopology; // by meshes_ index: those posed each frame
+    std::map<int, MeshTopology> _posedTopology; // by _meshes index: those posed each frame
     std::vector<AnimatedLightmap> _animatedLightmaps;
     float _lightTime = 0;
     LightClock _lightClock; // the changing lights' (lighting.h)
@@ -477,7 +497,7 @@ private:
     std::vector<std::pair<gfx::TextureId, std::unique_ptr<AnimatedTexture>>> _animatedTextures;
     std::vector<float> _animatedSince;                     // each one's time since it was last ticked
     std::vector<std::pair<ObjectRef, bool>> _animatedRefs; // each one's texture, and whether colour 0 is see-through
-    std::unique_ptr<TextureUseRecorder> _recorder;         // renderer_ while shown: what's drawn
+    std::unique_ptr<TextureUseRecorder> _recorder;         // _renderer while shown: what's drawn
     // The overlay's rows drawn last frame, cleared before the next: [0,
     // top) and [bottom, the frame's height).
     // the first frame clears it all
@@ -496,7 +516,7 @@ private:
     float _startYaw = 0;
     float _yaw = 0;
     float _pitch = 0;
-    bool _held[12] = {}; // by map_viewer.cpp's Held
+    bool _held[12] = {}; // by level_view.cpp's Held
     bool _dragging = false;
     bool _showInfo = true;
     int _lastX = 0;

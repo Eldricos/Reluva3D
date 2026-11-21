@@ -6,7 +6,9 @@
 
 How a car drives: its files, and Reluva's model of the simulation they tune (suspension, tyres, engine, gearbox, drag). The game's program is encrypted ([REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md#the-program)), so the numbers below are the game's own and what they do is Reluva's reading of them, to be compared with the original running.
 
-## The car's files
+## How it works
+
+### The car's files
 
 | File | What Reluva takes from it |
 |---|---|
@@ -22,7 +24,7 @@ How a car drives: its files, and Reluva's model of the simulation they tune (sus
 
 The wheels are 0 front left, 1 front right, 2 back left, 3 back right.
 
-## The simulation
+### The simulation
 
 A rigid body stepped 120 times a second.
 
@@ -92,19 +94,41 @@ A rigid body stepped 120 times a second.
   the ground.
 - Left alone and nearly stopped, a car holds still.
 
-### Against the game's figures
+#### Against the game's figures
 
-On a flat plane at full throttle, every one of the 20 cars now tops out
+On a flat plane at full throttle, every one of the 20 cars tops out
 at its High (within 1%), in 9-22 seconds, and does 0-60 mph in 6-12
 seconds (the Panoz GT 6.7, the Beetle 6.9, the double-decker bus 9.8).
 The `.info` files' Horsepower, Top Speed, Durability and Mass are the
 menus' bars, not the simulation's: the Panoz GT's "240" against High's
-180, its "850" mass against 1,200 kg. Before this, two things held cars
-well below High: a "rolling" drag that grew with speed (as much as the
-air's at 60 mph), and wheelspin that took a car to its sliding friction
-for good (the Bullet's back tyres' is 1.4 / 3, so it crawled). The low
-cars also sat on their hull's spheres. Reluva's AI drivers finish the
-races 15-25% sooner than before, with fewer resets.
+180, its "850" mass against 1,200 kg. Two easy readings hold cars well
+below High, so neither is the game's: a "rolling" drag that grows with
+speed (as much as the air's at 60 mph), and wheelspin that keeps a car
+at its sliding friction for good (the Bullet's back tyres' is 1.4 / 3,
+so it crawls).
+
+**How the cars rank** is what the bars can check. `reluva-tool age cars`
+drives every car on a flat plane (0-60 and 0-100 mph, the quarter mile,
+top speed, 60-0 braking) and ranks them, and the game-files test keeps
+its output (step `cars`). Over the 20 cars, as Spearman's rank agreement
+(1: the same order):
+
+| Compared | Agreement | What it says |
+|---|---|---|
+| The bars against their files: Top Speed and High, Horsepower and MaxHorsePower, Mass and Mass, Durability and `.vehCarDamage`'s MaxDamage | 0.92, 0.79, 0.73, 0.80 | Each bar ranks the cars much as its file's figure does, but isn't a scale of it |
+| Reluva's top speed and the Top Speed bar | 0.91 | As High is |
+| Reluva's quarter mile and power to weight (MaxHorsePower / Mass) | 0.79 | Past 60 mph the cars are as quick as their engines and weight make them |
+| Reluva's 0-60 and power to weight | 0.42 | Below 60 nearly every car is held by its tyres' grip, not its engine |
+
+So off the line Reluva's cars are closer than their engines would make
+them: 0-60 in 5.7 to 12 s, the 4x4 and the Ford pickup (550 hp for
+2,500 kg) in 6.4 and 6.6 s against the Panoz GT's 6.8. The Horsepower
+bar tracks the engine alone (the semi's 900 is among the slowest cars,
+rightly, for its 3,500 kg). Whether the game's cars are as close off the
+line, so whether the grip (StaticFric / 3) or the engine's units are
+right, needs a recording of a few cars' starts *(inferred)*. The 4x4's
+60-0 mph of 89 m, against 37-57 for the rest, is its file's: its front
+BrakeCoef is 0.062.
 
 Aero's **AngCDamp**, **AngVelDamp** and **AngVel2Damp** are a damper's
 three terms per axis (x pitch, y yaw, z roll): a constant against the
@@ -172,8 +196,15 @@ down only so far without watching the game:
 - Seven files are an older layout (DrivetrainLeft, Spin*, Drift*
   fields), not read.
 
-`tests/test_age.cpp` checks a car with Reluva's default setup (250 hp,
-1,000 kg, a 90 mph top gear) settles on its springs, accelerates, tops
+## In Reluva
+
+`CarSim` (`src/engines/age/game/car.{h,cpp}`) steps the car, with
+`CarSetup` and `AxleSetup` read from its files. The Drive page drives
+any car round either city. The handling hasn't yet been compared with
+the game's ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
+
+`testCarSim` (`tests/engines/age/unit/driving.cpp`) checks a car with
+Reluva's default setup (250 hp, 1,000 kg, a 90 mph top gear) settles on its springs, accelerates, tops
 out within 5% of top gear's speed (it does 0-60 in 8 seconds and tops
 out at 89.8 mph), turns the way it's steered, backs up, changes gear by
 hand and is set upright on its roof.
@@ -181,4 +212,4 @@ hand and is set upright on its roof.
 ## Sources and checks
 
 - **Where the facts come from:** each car's `.vehCarSim`, `.vehStuck`, `.info`, wheel `.mtx` and bounds; the menus' figures (top speed, horsepower) to compare with; public gameplay videos ([research/footage.md](../research/footage.md)).
-- **How it was checked:** `age.unit.driving`; the Drive page, every car in both cities; the cars' top speeds against their `.info` figures.
+- **How it was checked:** `age.unit.driving`; the Drive page, every car in both cities; the cars' top speeds against their `.info` figures; `reluva-tool age cars`, every car's runs ranked against the game's figures (the game-files test's `cars` step).

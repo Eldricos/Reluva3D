@@ -16,7 +16,7 @@
 
 namespace reluva::glide {
 
-// grColorCombine, grAlphaCombine and grTexCombine: the function.
+/** grColorCombine, grAlphaCombine and grTexCombine: the function. */
 enum CombineFunction : int {
     kFuncZero = 0x0,
     kFuncLocal = 0x1,
@@ -31,7 +31,7 @@ enum CombineFunction : int {
     kFuncScaleMinusLocalAddLocalAlpha = 0x10,
 };
 
-// ... the scale factor.
+/** grColorCombine, grAlphaCombine and grTexCombine: the scale factor. */
 enum CombineFactor : int {
     kFactorZero = 0x0,
     kFactorLocal = 0x1,
@@ -47,11 +47,13 @@ enum CombineFactor : int {
     kFactorOneMinusLodFraction = 0xd,
 };
 
-// grColorCombine/grAlphaCombine: the local and other inputs.
+/** grColorCombine/grAlphaCombine: the local and other inputs. */
+///@{
 enum CombineLocal : int { kLocalIterated = 0x0, kLocalConstant = 0x1, kLocalDepth = 0x2 };
 enum CombineOther : int { kOtherIterated = 0x0, kOtherTexture = 0x1, kOtherConstant = 0x2 };
+///@}
 
-// grAlphaBlendFunction.
+/** grAlphaBlendFunction's factors. */
 enum BlendFactor : int {
     kBlendZero = 0x0,
     kBlendSrcAlpha = 0x1,
@@ -64,9 +66,10 @@ enum BlendFactor : int {
     kBlendAlphaSaturate = 0xf, // PREFOG_COLOR as a destination factor
 };
 
-// Comparisons (grAlphaTestFunction, grDepthBufferFunction).
+/** Comparisons (grAlphaTestFunction, grDepthBufferFunction). */
 enum CmpFunc : int { kCmpNever, kCmpLess, kCmpEqual, kCmpLequal, kCmpGreater, kCmpNotEqual, kCmpGequal, kCmpAlways };
 
+/** grDepthBufferMode. */
 enum DepthMode : int {
     kDepthDisable = 0x0,
     kDepthZBuffer = 0x1,
@@ -75,9 +78,10 @@ enum DepthMode : int {
     kDepthWCompareToBias = 0x4,
 };
 
+/** grDitherMode. */
 enum DitherMode : int { kDitherDisable = 0x0, kDither2x2 = 0x1, kDither4x4 = 0x2 };
 
-// grFogMode: one of the first four, optionally with kFogMult2 or kFogAdd2.
+/** grFogMode: one of the first four, optionally with kFogMult2 or kFogAdd2. */
 enum FogMode : int {
     kFogDisable = 0x0,
     kFogWithIteratedAlpha = 0x1,
@@ -87,12 +91,13 @@ enum FogMode : int {
     kFogAdd2 = 0x200,
 };
 
+/** grCullMode. */
 enum CullMode : int { kCullDisable = 0x0, kCullNegative = 0x1, kCullPositive = 0x2 };
 
-// Packed colours as an application passes them (grSstWinOpen's cformat).
+/** Packed colours as an application passes them (grSstWinOpen's cformat). */
 enum ColorFormat : int { kColorArgb = 0x0, kColorAbgr = 0x1, kColorRgba = 0x2, kColorBgra = 0x3 };
 
-// Buffers (grRenderBuffer, grLfbLock...).
+/** Buffers (grRenderBuffer, grLfbLock...). */
 enum BufferId : int {
     kBufferFront = 0x0,
     kBufferBack = 0x1,
@@ -102,8 +107,10 @@ enum BufferId : int {
     kBufferTriple = 0x5,
 };
 
-// Linear frame buffer write modes (grLfbLock), also grLfbWriteRegion's
-// source formats (GR_LFB_SRC_FMT_*, the same numbers).
+/**
+ * Linear frame buffer write modes (grLfbLock), also grLfbWriteRegion's
+ * source formats (GR_LFB_SRC_FMT_*, the same numbers).
+ */
 enum LfbWriteMode : int {
     kLfb565 = 0x0,
     kLfb555 = 0x1,
@@ -118,7 +125,7 @@ enum LfbWriteMode : int {
     kLfbRle16 = 0x80, // grLfbWriteRegion only
 };
 
-// Texture formats (GR_TEXFMT_*; the same numbers in Glide 2 and 3).
+/** Texture formats (GR_TEXFMT_*; the same numbers in Glide 2 and 3). */
 enum TextureFormat : int {
     kTexRgb332 = 0x0,
     kTexYiq422 = 0x1,
@@ -135,23 +142,31 @@ enum TextureFormat : int {
     kTexAp88 = 0xe,
 };
 
-// GR_TEXTURECLAMP_MIRROR_EXT (Glide 3's TEXMIRROR extension, the 3.x
-// header's 0x2).
+/**
+ * grTexClampMode; kClampMirror is GR_TEXTURECLAMP_MIRROR_EXT (Glide 3's
+ * TEXMIRROR extension, the 3.x header's 0x2).
+ */
 enum TextureClamp : int { kClampWrap = 0x0, kClampClamp = 0x1, kClampMirror = 0x2 };
+/** grTexFilterMode. */
 enum TextureFilter : int { kFilterPoint = 0x0, kFilterBilinear = 0x1 };
+/** grTexMipMapMode. */
 enum MipmapMode : int { kMipmapDisable = 0x0, kMipmapNearest = 0x1, kMipmapNearestDither = 0x2 };
 
-// grTexDownloadMipMap's evenOdd: which levels are in this TMU. Even levels
-// are those whose Glide 2 constant is even (GR_LOD_256, GR_LOD_64...), that
-// is whose log2 size is even.
+/**
+ * grTexDownloadMipMap's evenOdd: which levels are in this TMU. Even levels
+ * are those whose Glide 2 constant is even (GR_LOD_256, GR_LOD_64...), that
+ * is whose log2 size is even.
+ */
 enum EvenOdd : int { kLevelsEven = 0x1, kLevelsOdd = 0x2, kLevelsBoth = 0x3 };
 
-// grTexDownloadTable's table type.
-// GR_TEXTABLE_PALETTE_6666_EXT is Glide 3's PALETTE6666 extension (the 3.x
-// header's 0x3).
+/**
+ * grTexDownloadTable's table type. kTablePalette6666 is
+ * GR_TEXTABLE_PALETTE_6666_EXT, Glide 3's PALETTE6666 extension (the 3.x
+ * header's 0x3).
+ */
 enum TableType : int { kTableNcc0 = 0x0, kTableNcc1 = 0x1, kTablePalette = 0x2, kTablePalette6666 = 0x3 };
 
-// grSstControlMode's modes (GR_CONTROL_*, Glide 2.x's glide.h).
+/** grSstControlMode's modes (GR_CONTROL_*, Glide 2.x's glide.h). */
 enum ControlMode : uint32_t {
     kControlActivate = 0x1,
     kControlDeactivate = 0x2,
@@ -159,7 +174,8 @@ enum ControlMode : uint32_t {
     kControlMove = 0x4,
 };
 
-// grHints' types and GR_HINT_STWHINT's bits.
+/** grHints' types and GR_HINT_STWHINT's bits. */
+///@{
 enum HintType : int { kHintStw = 0, kHintFifoCheck = 1, kHintFpuPrecision = 2, kHintAllowMipmapDither = 3 };
 enum StwHint : uint32_t {
     kStwWDiffFbi = 1u << 0,
@@ -170,16 +186,18 @@ enum StwHint : uint32_t {
     kStwWDiffTmu2 = 1u << 5,
     kStwStDiffTmu2 = 1u << 6,
 };
+///@}
 
-// --- Glide 3 (glide3x.dll) ------------------------------------------------------
-// Values Glide 3 adds or changes, from the headers of 3dfx's Glide 3.x SDK
-// for Linux (glide.h, as packaged in Slackware 7.1's
-// contrib/3dfx/sdk3x.tgz; only the headers were read), named as the Glide
-// 3.0 Reference Manual names them. LODs and aspect ratios are already log2
-// (GR_LOD_LOG2_256 is 8, GR_ASPECT_LOG2_8x1 3), the core's own form.
+/**
+ * The values Glide 3 (glide3x.dll) adds or changes, from the headers of
+ * 3dfx's Glide 3.x SDK for Linux (glide.h, as packaged in Slackware 7.1's
+ * contrib/3dfx/sdk3x.tgz; only the headers were read), named as the Glide
+ * 3.0 Reference Manual names them. LODs and aspect ratios are already log2
+ * (GR_LOD_LOG2_256 is 8, GR_ASPECT_LOG2_8x1 3), the core's own form.
+ */
 namespace g3 {
 
-// grVertexLayout's parameters.
+/** grVertexLayout's parameters. */
 enum Param : uint32_t {
     kParamXy = 0x01,
     kParamZ = 0x02,
@@ -192,8 +210,9 @@ enum Param : uint32_t {
     kParamSt0 = 0x40, // ST1, ST2 follow
     kParamQ0 = 0x50,  // Q1, Q2 follow
 };
+/** grVertexLayout's mode. */
 enum ParamMode : uint32_t { kParamDisable = 0, kParamEnable = 1 };
-// grDrawVertexArray's modes.
+/** grDrawVertexArray's modes. */
 enum Primitive : uint32_t {
     kPoints = 0,
     kLineStrip = 1,
@@ -205,7 +224,7 @@ enum Primitive : uint32_t {
     kTriangleStripContinue = 7,
     kTriangleFanContinue = 8,
 };
-// grEnable/grDisable.
+/** grEnable/grDisable. */
 enum EnableMode : uint32_t {
     kAaOrdered = 0x01,
     kAllowMipmapDither = 0x02,
@@ -213,19 +232,22 @@ enum EnableMode : uint32_t {
     kShamelessPlug = 0x04,
     kVideoSmoothing = 0x05,
 };
+/** grCoordinateSpace. */
 enum CoordinateSpace : uint32_t { kWindowCoords = 0x00, kClipCoords = 0x01 };
-// grFogMode: the table indexed by q (Glide 2's GR_FOG_WITH_TABLE), the
-// iterated z as before, the iterated alpha moved to an extension number,
-// and the fog coordinate extension.
+/**
+ * grFogMode: the table indexed by q (Glide 2's GR_FOG_WITH_TABLE), the
+ * iterated z as before, the iterated alpha moved to an extension number,
+ * and the fog coordinate extension.
+ */
 enum FogMode : int {
     kFogWithTableOnFogCoordExt = 0x1,
     kFogWithTableOnQ = 0x2,
     kFogWithIteratedZ = 0x3,
     kFogWithIteratedAlphaExt = 0x4,
 };
-// grTexMultibaseAddress's ranges, renumbered from Glide 2's.
+/** grTexMultibaseAddress's ranges, renumbered from Glide 2's. */
 enum TexBase : int { kTexBase32To1 = 0x0, kTexBase64 = 0x1, kTexBase128 = 0x2, kTexBase256 = 0x3 };
-// grGet's queries.
+/** grGet's queries. */
 enum Query : uint32_t {
     kBitsDepth = 0x01,
     kBitsRgba = 0x02,
@@ -270,7 +292,7 @@ enum Query : uint32_t {
     kVertexParameter = 0x29,
     kBitsGamma = 0x2a,
 };
-// grGetString's.
+/** grGetString's queries. */
 enum StringQuery : uint32_t {
     kExtension = 0xa0,
     kHardware = 0xa1,
@@ -278,7 +300,8 @@ enum StringQuery : uint32_t {
     kVendor = 0xa3,
     kVersion = 0xa4,
 };
-constexpr uint32_t kQueryAny = 0xffffffffu; // GR_QUERY_ANY
+/** GR_QUERY_ANY: any value, in a grQueryResolutions template. */
+constexpr uint32_t kQueryAny = 0xffffffffu;
 
 } // namespace g3
 

@@ -8,11 +8,16 @@
 
 namespace reluva::stgenerations {
 
-// One instruction as text, e.g. "PUSH 32" or "NATIVE_35".
+/**
+ * The instruction at `ip` (a word index into `code`) as text, e.g. "PUSH 32"
+ * or "NATIVE_E2"; "??? 00f5" for an opcode the interpreter has no case for.
+ */
 std::string disassembleInstruction(const std::vector<uint16_t> &code, uint32_t ip);
 
-// The whole program as an indented listing: objects, states, event
-// blocks and their instructions, with if/else nesting shown.
+/**
+ * The whole program as an indented listing: objects, states, event
+ * blocks and their instructions, with if/else nesting shown.
+ */
 std::string disassembleScript(const ScriptFile &script);
 
 } // namespace reluva::stgenerations

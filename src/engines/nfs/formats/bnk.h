@@ -13,9 +13,13 @@
 
 namespace reluva::nfs {
 
-// A sound's "PT" header: tagged values describing its audio, as
-// docs/engines/nfs/games/nfs3/formats/bnk.md describes. Values not given take the defaults.
+/**
+ * A sound's "PT" header: tagged values describing its audio, as
+ * docs/engines/nfs/games/nfs3/formats/bnk.md describes. Values not given
+ * take the defaults.
+ */
 struct SoundHeader {
+    /** The compression tag's values (kPcm16 when there is none). */
     enum Compression { kPcm16 = -1, kEaXa = 7, kMicroTalk = 9 };
     int compression = kPcm16;
     int channels = 1;
@@ -29,31 +33,42 @@ struct SoundHeader {
     std::map<int, uint32_t> tags; // every tag as read, the known ones too
 };
 
-// Reads a PT header from `data` at `at` (at "PT\0\0"); `end` gets the
-// offset after it.
+/**
+ * Reads a PT header from `data` at `at` (at "PT\0\0"). Fails if it runs
+ * past `size`, or gives other than 1 or 2 channels or no rate.
+ * @param end If not null, gets the offset after the header.
+ */
 Error parseSoundHeader(const uint8_t *data, size_t size, size_t at, SoundHeader &out, size_t *end = nullptr);
 
-// A .bnk bank ("BNKl"): slots of sounds, some empty.
+/** A .bnk bank ("BNKl"): slots of sounds, some empty. */
 struct SoundBank {
     int version = 0;
     std::vector<std::optional<SoundHeader>> slots;
 };
 
+/** Reads a bank; a slot pointing at no PT header is left empty. */
 Error parseSoundBank(const std::vector<uint8_t> &data, SoundBank &out);
 
-// A bank's sound, decoded.
+/**
+ * A bank's sound, decoded from the whole bank's `data`. PCM data cut short
+ * by the bank's end gives as much as there is.
+ */
 Error decodeBankSound(const std::vector<uint8_t> &data, const SoundHeader &header, audio::Sound &out);
 
-// The pitch, in cents from the sound's own rate, that the game plays a
-// sound at (its patch parameters, bnk.md): the fine tune (0x10, a signed
-// byte) less the root key's (0x07) distance from the key played, in
-// hundreds, plus the bend (0-127, 64 none) over its range (0x0A,
-// semitones).
+/**
+ * The pitch, in cents from the sound's own rate, that the game plays a
+ * sound at (its patch parameters, bnk.md): the fine tune (0x10, a signed
+ * byte) less the root key's (0x07) distance from the key played, in
+ * hundreds, plus the bend (0-127, 64 none) over its range (0x0A,
+ * semitones).
+ */
 int patchCents(const SoundHeader &h, int key, int bend);
-// The bend the game gives the player's engine at `rpm` (nfs3.exe 0x4119a9,
-// 0x417390): 127 x rpm / (redline + 1000, 500 less while the car's field
-// at +0x164, its gear by the look of it, is above 5), at most 100. The
-// engine is played at key 60.
+/**
+ * The bend the game gives the player's engine at `rpm` (nfs3.exe 0x4119a9,
+ * 0x417390): 127 x rpm / (redline + 1000, 500 less while the car's field
+ * at +0x164, its gear by the look of it, is above 5), at most 100. The
+ * engine is played at key 60.
+ */
 int engineBend(int rpm, int redline, int gear = 1);
 
 } // namespace reluva::nfs

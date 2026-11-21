@@ -61,7 +61,9 @@ struct ScreenRect {
     int y = 0;
     int w = 0;
     int h = 0;
+    /** Whether it shares a pixel with `o`. */
     bool overlaps(const ScreenRect &o) const { return x < o.x + o.w && o.x < x + w && y < o.y + o.h && o.y < y + h; }
+    /** Whether the pixel (px, py) is inside it. */
     bool contains(int px, int py) const { return px >= x && px < x + w && py >= y && py < y + h; }
 };
 
@@ -143,6 +145,7 @@ public:
         int layer = 0; ///< its layer in the animation (walls and floors are lit by it)
         int blend = 0; ///< its part's own pixel function (2-4) in place of the light, or 0
     };
+    /** A frame of an animation: its pieces, drawn in order. */
     using Frame = std::vector<Piece>;
 
     /** A placement of the level, built. */
@@ -202,7 +205,9 @@ public:
      * @return False if it has no such state.
      */
     bool playState(const GameData &data, size_t item, uint16_t state, uint64_t startMs, bool loop = false);
+    /** Stops what playState() started; the item is back in state 0. */
     void stopState(size_t item) { _states.erase(item); }
+    /** Whether an item is playing another state at `nowMs`: looping, or not yet through once. */
     bool playingState(size_t item, uint64_t nowMs) const;
     /**
      * The item drawn uppermost at a point of the view (in the mansion's
@@ -217,10 +222,15 @@ public:
      */
     Error build(const GameData &data, const Level &level);
 
+    /** The level it was built from, or nullptr before build(); it must outlive the mansion. */
     const Level *level() const { return _level; }
+    /** Every item built. */
     const std::vector<Item> &items() const { return _items; }
-    const std::vector<size_t> &drawOrder() const { return _order; } ///< into items()
+    /** The order to draw the items in: indices into items(). */
+    const std::vector<size_t> &drawOrder() const { return _order; }
+    /** The rectangle on screen every item's frame 0 falls in. */
     const ScreenRect &bounds() const { return _bounds; }
+    /** Why placements were left out, one line each. */
     const std::vector<std::string> &problems() const { return _problems; }
 
     /** Whether the look shows an item. */

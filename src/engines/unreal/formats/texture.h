@@ -5,7 +5,7 @@
 
 // Textures and palettes (Texture and Palette objects, mostly in .utx
 // packages; maps carry their own in the MyLevel group). See
-// docs/formats/unreal/texture.md.
+// docs/engines/unreal/games/ds9fallen/formats/texture.md.
 
 #include "image/image.h"
 #include "engines/unreal/formats/package_set.h"
@@ -19,9 +19,10 @@ namespace reluva::unreal {
 
 /** How a texture's pixels are stored (its Format property). */
 enum class TextureFormat : uint8_t { kP8 = 0, kRgbA7 = 1, kRgB16 = 2, kDxT1 = 3, kRgB8 = 4, kRgbA8 = 5 };
+/** A TextureFormat's name ("P8", "DXT1"...), or "unknown". */
 const char *formatName(uint8_t format);
 
-// Surface and texture flags (a texture's PolyFlags, a level surface's).
+/** Surface and texture flags (a texture's PolyFlags, a level surface's). */
 namespace polyflag {
 constexpr uint32_t kInvisible = 0x00000001;
 constexpr uint32_t kMasked = 0x00000002;
@@ -43,14 +44,17 @@ constexpr uint32_t kPortal = 0x04000000;
 constexpr uint32_t kMirrored = 0x08000000;
 } // namespace polyflag
 
+/** A Palette object's colours; those past `count` are zero. */
 struct Palette {
     std::array<uint8_t, 256 * 4> rgba{}; // as stored: R, G, B, A
     int count = 0;
 };
+/** Reads a Palette object; fails on more than 256 colours. */
 Error readPalette(const Package &package, int exportIndex, Palette &out);
 
+/** What decodeTexture found out about a texture besides its pixels. */
 struct TextureInfo {
-    /** of the first mipmap */
+    // of the first mipmap
     int width = 0;
     int height = 0;
     uint8_t format = 0;
@@ -74,9 +78,10 @@ struct TextureInfo {
  * Decodes a texture's first mipmap to RGBA. The palette is looked up
  * through `packages` (it can be in another package, though it rarely is).
  * Procedural textures that store no pixels get a still stand-in of their
- * size (see TextureInfo::standIn): Wet and Ice textures their source
- * texture, the others (Fire, Wave, Water) a gradient through their
- * palette, until their effects are worked out. With `seeThroughZero`, a
+ * size (see TextureInfo::standIn): Fire, Water, Wave and Fli textures the
+ * first picture of their animation (openAnimatedTexture), Wet and Ice
+ * ones, and those whose animation doesn't open, their source texture, else
+ * a gradient through their palette. With `seeThroughZero`, a
  * palette texture's colour 0 is see-through as a masked one's is, whether
  * or not it's marked so (fonts aren't, and draw that way).
  */

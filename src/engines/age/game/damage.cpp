@@ -97,7 +97,7 @@ void CarDamage::update(const DamageSetup &setup, float dt) {
 }
 
 void CarWear::load(const SearchSet &files, const std::string &car, CarActor &actor) {
-    loadDamageSetup(files, car, setup); // the defaults without
+    loadDamageSetup(files, car, setup); // the defaults without one
     mend(actor);
 }
 
@@ -231,7 +231,8 @@ void SmokePuffs::loadWheelEffects(const SearchSet &files) {
         w.rule.radius *= kWheelSize;
         w.rule.radiusVar *= kWheelSize;
         w.look = look(e.texture);
-        // Its frames are of a sheet the game's own; one of this one's.
+        // The rule's frame numbers are of the game's own sheet; any of this
+        // texture's frames will do.
         const int frames = w.look.grid * w.look.grid;
         w.rule.frame = 0;
         w.rule.frameEnd = frames - 1;

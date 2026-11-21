@@ -7,7 +7,7 @@
 // them (AllPathNodes, RadiusPathNodes, RadiusVisiblePathNodes), the way
 // from a pawn to an actor or a place across them (FindPathToward,
 // FindPathTo), and line of sight (LineOfSightTo). See
-// docs/engines/unreal_vm.md.
+// docs/engines/unreal/games/ds9fallen/systems/ai.md.
 
 #include "engines/unreal/vm/vm_level.h"
 

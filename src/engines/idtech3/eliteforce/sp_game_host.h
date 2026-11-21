@@ -40,9 +40,11 @@ using raven::chunkName;
 using raven::SaveReader;
 using raven::SaveWriter;
 
-// The parts of an entity the engine and the game share (the rest is
-// the game's own), as the original's server reads them: the entity
-// state (232 bytes), then these.
+/**
+ * The parts of an entity the engine and the game share (the rest is
+ * the game's own), as the original's server reads them: the entity
+ * state (232 bytes), then these; byte offsets in the entity.
+ */
 struct SpEntityLayout {
     int32_t number = 0;
     int32_t modelIndex = 0xa0;
@@ -63,15 +65,19 @@ struct SpEntityLayout {
     int32_t owner = 0x148; // a pointer to the entity, not its number
 };
 
-// Elite Force's single-player game logic (the server side of
-// efgamex86.dll), run in the x86 interpreter, with the engine's side of the
-// interface it was built for (docs/engines/idtech3/games/stvef/systems/sp-interface.md):
-// the 40 functions GetGameAPI is handed, and calls into the 13 it hands
-// back. One player, client 0, as in the original.
+/**
+ * Elite Force's single-player game logic (the server side of
+ * efgamex86.dll), run in the x86 interpreter, with the engine's side of the
+ * interface it was built for (docs/engines/idtech3/games/stvef/systems/sp-interface.md):
+ * the 40 functions GetGameAPI is handed, and calls into the 13 it hands
+ * back. One player, client 0, as in the original.
+ */
 class SpGameHost {
 public:
-    // The game's functions, by their place in its table (after the API
-    // version at 0).
+    /**
+     * The game's functions, by their place in its table (after the API
+     * version at 0).
+     */
     enum Export : int {
         kInit = 1,
         kShutdown = 2,
@@ -93,76 +99,113 @@ public:
     static constexpr int32_t kStartTimeMs = 1000;  // a level's time as the game starts
     static constexpr uint32_t kMemory = 256u << 20;
 
+    /** Where the shared parts of the game's entities are. */
     static constexpr SpEntityLayout kEntity{};
 
+    /** Over the game's files and the cvars it shares, which must outlive it. */
     SpGameHost(const SearchSet &files, CvarStore &cvars);
     ~SpGameHost();
 
-    // Loads the DLL (efgamex86.dll's bytes), runs its start-up and
-    // GetGameAPI, and checks the version.
+    /**
+     * Loads the DLL (efgamex86.dll's bytes), runs its start-up and
+     * GetGameAPI, and checks the version.
+     */
     Error load(const std::vector<uint8_t> &dll);
-    // Starts a level: the map's cvars, then the game's Init with the map's
-    // entity text. `checksum`: the map file's (mapChecksum()).
-    // `loadMode`: 0 a new level, 1 a saved game being loaded, 2 an
-    // autosave (the game's Init and ClientConnect are told).
     // For the Expansion Pack's game code, which Init tells more: where in
     // the level the player arrives (the spawn target maptransition named:
     // "maptransition <map> <target>"), and whether the level was reached
     // by a level change.
     std::string spawnTarget;
     bool loadTransition = false;
+    /** Whether the game code is the Expansion Pack's (known once loaded). */
     bool expansion() const { return _expansion; }
+    /**
+     * Starts a level: the map's cvars, then the game's Init with the map's
+     * entity text.
+     * @param checksum The map file's (mapChecksum()).
+     * @param loadMode 0 a new level, 1 a saved game being loaded, 2 an
+     *        autosave (the game's Init and ClientConnect are told).
+     */
     Error startLevel(const std::string &mapName, std::shared_ptr<const Bsp> map, int32_t checksum,
                      int32_t randomSeed = 0, int32_t loadMode = 0);
-    // A map file's checksum as the original's engine makes it (MD4, its
-    // four words XOR'd together), which the game is handed.
+    /**
+     * A map file's checksum as the original's engine makes it (MD4, its
+     * four words XOR'd together), which the game is handed.
+     */
     static int32_t mapChecksum(const std::vector<uint8_t> &file);
-    // glconfig_t as the original engine fills it (5196 bytes, a 640 x 480
-    // screen), for the client game and the menus.
+    /**
+     * glconfig_t as the original engine fills it (5196 bytes, a 640 x 480
+     * screen), for the client game and the menus.
+     */
     static void writeGlconfigTo(x86::Cpu &cpu, uint32_t address);
-    // The player joining (ClientConnect, then ClientBegin); `refused` gets
-    // the game's reason if it says no.
+    /**
+     * The player joining (ClientConnect, then ClientBegin); `refused` gets
+     * the game's reason if it says no.
+     */
     Error connectPlayer(const std::string &userinfo, std::string &refused, int32_t loadMode = 0);
-    // One server frame: the level time moves on and the game's RunFrame;
-    // then, if `snapshot`, what the player sees is sent (made into a
-    // snapshot for the client game). As the original's server, frames
-    // caught up on together send one snapshot, after the last
-    // (sendSnapshot()).
+    /**
+     * One server frame: the level time moves on and the game's RunFrame;
+     * then, if `snapshot`, what the player sees is sent (made into a
+     * snapshot for the client game). As the original's server, frames
+     * caught up on together send one snapshot, after the last
+     * (sendSnapshot()).
+     */
     Error runFrame(bool snapshot = true);
+    /** Makes a snapshot for the client game, if it's running. */
     void sendSnapshot() {
         if (_cgameRunning)
             makeSnapshot();
     }
-    // --- Saved games (raven/savegame.h) ---------------------------------------
-    // Where the game's own chunks go (AppendToSaveGame) and come from
-    // (ReadFromSaveGame); none: it can't save or load.
+    // Saved games (raven/savegame.h).
+    /**
+     * Where the game's own chunks go (AppendToSaveGame) and come from
+     * (ReadFromSaveGame); none: it can't save or load.
+     */
     void setSaveStream(SaveWriter *writer, SaveReader *reader) {
         _saveWriter = writer;
         _saveReader = reader;
     }
-    // The game's WriteLevel and ReadLevel (`autosave`: the level's start,
-    // carrying the player over).
+    /**
+     * The game's WriteLevel and ReadLevel (`autosave`: the level's start,
+     * carrying the player over).
+     */
+    ///@{
     Error writeLevel(bool autosave);
     Error readLevel(bool autosave);
-    // The player's state into the playersave, playerammo<n> and
-    // borgadapt<n> cvars, as before a level change.
+    ///@}
+    /**
+     * The player's state into the playersave, playerammo`n` and
+     * borgadapt`n` cvars, as before a level change.
+     */
     void savePlayer();
-    // The player's state (0 if there's none yet) and health.
+    /**
+     * The player state's address in the game's memory (0 if there's none
+     * yet), and the player's health.
+     */
+    ///@{
     uint32_t playerState() const;
     int32_t playerHealth() const;
+    ///@}
     static constexpr uint32_t kPsHealth = 0xbc; // stats[STAT_HEALTH]
+    /** The level's time and configstrings, as a saved game being loaded has them. */
+    ///@{
     void setLevelTime(int32_t ms) { _levelTime = ms; }
     void replaceConfigstrings(const std::map<int32_t, std::string> &strings);
+    ///@}
 
-    // The game's GameAllowedToSaveHere(flag), which the menus ask through
-    // the engine before opening (0 if the call fails).
+    /**
+     * The game's GameAllowedToSaveHere(flag), which the menus ask through
+     * the engine before opening (0 if the call fails).
+     */
     uint32_t allowedToSaveHere(uint32_t flag);
-    // A console command the engine doesn't know, for the game
-    // (ConsoleCommand); `handled` gets whether it knew it.
+    /**
+     * A console command the engine doesn't know, for the game
+     * (ConsoleCommand); `handled` gets whether it knew it.
+     */
     Error consoleCommand(const std::string &text, bool *handled = nullptr);
 
-    // --- The client game (the DLL's other half) ---------------------------
-    // vmMain's commands.
+    // The client game (the DLL's other half).
+    /** The client game's vmMain commands. */
     enum CgameCommand : int {
         kCgInit = 0, // (serverCommandSequence)
         kCgShutdown = 1,
@@ -171,9 +214,11 @@ public:
         kCgCrosshairPlayer = 4,
         kCgCameraPos = 5, // (vec3 out) -> whether a camera is running
     };
-    // A player's input, as SP's usercmd_t (28 bytes): server time 0,
-    // buttons 4, weapon 8 (a byte), angles 12 (65536 a turn), forward,
-    // right and up moves 24-26 (-127..127).
+    /**
+     * A player's input, as SP's usercmd_t (28 bytes): server time 0,
+     * buttons 4, weapon 8 (a byte), angles 12 (65536 a turn), forward,
+     * right and up moves 24-26 (-127..127).
+     */
     struct UserCommand {
         int32_t serverTime = 0;
         int32_t buttons = 0;
@@ -187,45 +232,64 @@ public:
     static constexpr int32_t kEntityStateSize = 232;
     static constexpr int32_t kUserCmdSize = 28;
     static constexpr int32_t kRefEntitySize = 152; // refEntity_t, as the original renderer copies it
-    // Starts the client game on the level (its CG_INIT: it registers what
-    // it will draw), once the player has joined.
+    /**
+     * Starts the client game on the level (its CG_INIT: it registers what
+     * it will draw), once the player has joined.
+     */
     Error startClientGame();
-    // The player's input for a moment (its server time set by the caller),
-    // which the server game acts on at once (ClientThink), as the
-    // original's server does with each command; the client game reads it
-    // back for its prediction.
+    /**
+     * The player's input for a moment (its server time set by the caller,
+     * its weapon the client game's choice), which the server game acts on
+     * at once (ClientThink), as the original's server does with each
+     * command; the client game reads it back for its prediction.
+     */
     Error clientThink(const UserCommand &cmd);
-    // One frame of the client game (CG_DRAW_ACTIVE_FRAME) at `time`, the
-    // player's time in the level.
+    /**
+     * One frame of the client game (CG_DRAW_ACTIVE_FRAME) at `time`, the
+     * player's time in the level.
+     */
     Error drawClientFrame(int32_t time);
-    // A command the player ran (a key's binding, the console): the client
-    // game's if it knows it, else sent to the server game (ClientCommand),
-    // as the original engine does.
+    /**
+     * A command the player ran (a key's binding, the console): the client
+     * game's if it knows it, else sent to the server game (ClientCommand),
+     * as the original engine does.
+     */
     Error clientConsoleCommand(const std::string &text);
-    // The client game's loading screen into scene() and pictures(), from
-    // inside its start (updateScreen).
+    /**
+     * The client game's loading screen into scene() and pictures(), from
+     * inside its start (updateScreen).
+     */
     Error drawLoadingFrame();
     // Called when the client game asks for the screen to be shown
     // (UpdateScreen, as it loads); none: nothing is shown.
     std::function<void()> updateScreen;
-    // Whether the client game's camera (a scripted sequence's) is running,
-    // and where it is (CG_CAMERA_POS).
+    /**
+     * Whether the client game's camera (a scripted sequence's) is running,
+     * and where it is (CG_CAMERA_POS).
+     */
     bool cameraPosition(Vec3f &at);
-    // The weapon the client game has chosen (SetUserCmdValue), for commands.
+    /** The weapon the client game has chosen (SetUserCmdValue), for commands. */
     uint8_t weaponSelect() const { return _clientWeapon; }
-    // As the client game sets it (SetUserCmdValue): for a replay.
+    /** As the client game sets it (SetUserCmdValue): for a replay. */
     void setWeaponSelect(uint8_t weapon) { _clientWeapon = weapon; }
+    /** Whether startClientGame() has started the client game. */
     bool clientGameRunning() const { return _cgameRunning; }
-    // What the client game registered, by kind.
+    /** What the client game registered, by kind. */
+    ///@{
     const HandleTable &models() const { return _models; }
     const HandleTable &shaders() const { return _shaders; }
     const HandleTable &skins() const { return _skins; }
     const HandleTable &sounds() const { return _sounds; }
-    // What the last client frame drew: its scenes (each RenderScene's view
-    // of the entities, polygons and lights added) and 2D pictures, as the
-    // Holomatch client game's, for the same drawer.
+    ///@}
+    /**
+     * What the last client frame drew: its scenes (each RenderScene's view
+     * of the entities, polygons and lights added) and 2D pictures, as the
+     * Holomatch client game's, for the same drawer.
+     */
+    ///@{
     const Scene &scene() const { return _lastScene; }
     const std::vector<Picture> &pictures() const { return _lastPictures; }
+    ///@}
     // The screen capture the client game draws (R_DrawScreenShot) where
     // the level has no picture of its own, or while a saved game loads:
     // 256 x 256 RGBA, bottom row first, set by the page (the saved game's,
@@ -233,6 +297,7 @@ public:
     // last frame drew it: its rectangle (a negative height draws it the
     // right way up) after so many pictures.
     std::vector<uint8_t> screenShot;
+    /** Where a frame drew the screen capture (see screenShot). */
     struct ScreenShotDraw {
         float x = 0;
         float y = 0;
@@ -240,43 +305,66 @@ public:
         float h = 0;
         size_t picturesBefore = 0;
     };
+    /** Where the last client frame drew the screen capture, in order. */
     const std::vector<ScreenShotDraw> &screenShotDraws() const { return _lastShots; }
     // Whether a shader or picture can be found (R_RegisterShader gives 0
     // for one that can't, as the original's renderer); unset: all can.
     std::function<bool(const std::string &name)> shaderExists;
-    // A scene entity's model handle (refEntity_t's at 8).
+    /** A scene entity's model handle (refEntity_t's at 8); 0 if it's too short. */
     static int32_t entityModel(const SceneEntity &e);
-    // The snapshots made so far (one each server frame once the client
-    // game runs).
+    /**
+     * The snapshots made so far (one each server frame once the client
+     * game runs).
+     */
     int32_t snapshotCount() const { return _snapshotNumber; }
 
+    /** The level's time in ms. */
     int32_t levelTime() const { return _levelTime; }
-    // What the game's table says: its entities, how big each is, how many
-    // are in use.
+    /**
+     * What the game's table says: its entities' address, how big each is,
+     * how many are in use (0 until the game is loaded).
+     */
+    ///@{
     uint32_t entities() const;
     int32_t entitySize() const;
     int32_t entityCount() const;
+    ///@}
+    /** A field of an entity, at a byte offset (kEntity); 0 for an entity there isn't. */
+    ///@{
     int32_t entityInt(int32_t number, int32_t offset) const;
     Vec3f entityVec(int32_t number, int32_t offset) const;
+    ///@}
+    /** The entities linked into the world. */
     const std::set<int32_t> &linked() const { return _serverWorld.linked(); }
+    /** The configstrings set, by index. */
     const std::map<int32_t, std::string> &configstrings() const { return _configstrings; }
+    /** The commands the game ran at the console, in order. */
     const std::vector<std::string> &consoleCommands() const { return _consoleCommands; }
+    /** What the game sent to clients, in order: the client (-1 for all) and the command. */
     const std::vector<std::pair<int32_t, std::string>> &serverCommands() const { return _serverCommands; }
-    // How many times the game called each of the engine's functions.
+    /** How many times the game called each of the engine's functions. */
     std::map<int, int> callCounts() const { return _callCounts.map(); }
-    // The same for the client game's system calls (the server game calls
-    // into its client half too: they share the DLL), and those not yet
-    // answered.
+    /**
+     * The same for the client game's system calls (the server game calls
+     * into its client half too: they share the DLL), and those not yet
+     * answered.
+     */
+    ///@{
     std::map<int, int> cgameCallCounts() const { return _cgameCallCounts.map(); }
     const std::map<int, int> &cgameUnhandled() const { return _cgameUnhandled; }
+    ///@}
 
+    /** The interpreter the DLL runs in, its process and the DLL's module (valid after load()). */
+    ///@{
     x86::Cpu &cpu() { return *_cpu; }
     x86::Win32Process &process() { return *_process; }
     const x86::Win32Process::Module *module() const { return _module; }
+    ///@}
 
     // Where the client game's sounds play (none: silent; their lengths are
     // still known, for the game's timing).
     SoundSystem *soundSystem = nullptr;
+    /** The game's sounds, read as it asks for them. */
     SoundLibrary &soundLibrary() { return _soundLibrary; }
 
     // Voices starting and ending, for following a scene's timing: a line
@@ -432,50 +520,70 @@ private:
     uint64_t _startMs = 0;
 };
 
-// The Expansion Pack engine's FS_GetFileList (its import 16; 0x415700 in
-// its stvoy.exe): the files under `path` ending in `extension` (any, if
-// empty), named from just past the path. Paks' files up to one folder
-// below it ("sub/name.npc"), in search order and each pak's own order;
-// loose files from the folder itself only. A name already listed (any
-// case) is left out.
+/**
+ * The Expansion Pack engine's FS_GetFileList (its import 16; 0x415700 in
+ * its stvoy.exe): the files under `path` ending in `extension` (any, if
+ * empty), named from just past the path. Paks' files up to one folder
+ * below it ("sub/name.npc"), in search order and each pak's own order;
+ * loose files from the folder itself only. A name already listed (any
+ * case) is left out.
+ */
 std::vector<std::string> expansionFileList(const SearchSet &files, std::string_view path, std::string_view extension);
-// The names into a buffer of `size` bytes as that engine writes them: each
-// with its NUL, the list ended by an empty name. One that doesn't fit is
-// skipped (a shorter one later may still fit), at most 4095. Returns how
-// many were written.
+/**
+ * The names into a buffer of `size` bytes as that engine writes them: each
+ * with its NUL, the list ended by an empty name. One that doesn't fit is
+ * skipped (a shorter one later may still fit), at most 4095.
+ * @return How many were written.
+ */
 uint32_t packFileList(const std::vector<std::string> &names, uint32_t size, std::vector<uint8_t> &out);
 
 // Saving and loading a game (docs/engines/idtech3/games/stvef/systems/sp-interface.md,
 // "Saved games"), in the original engine's two steps each.
+
+/** What a saved game holds before its level: its description, map and picture. */
 struct SaveHeader {
     std::string comment;
     std::string map;
     std::vector<uint8_t> shot; // 256 x 256 RGBA, bottom row first
     bool autosave = false;
 };
-// The engine's chunks before the level, from `header` and the cvars kept
-// with a save (those flagged 2); for an autosave, the player carried over
-// from the level before (its cvars).
+/**
+ * The engine's chunks before the level, from `header` and the cvars kept
+ * with a save (those flagged 2); for an autosave, the player carried over
+ * from the level before (its cvars).
+ */
 void writeSaveHeader(SaveWriter &w, const CvarStore &cvars, const SaveHeader &header);
-// But for an autosave, the level's time and configstrings; then the game's
-// WriteLevel.
+/**
+ * But for an autosave, the level's time and configstrings; then the game's
+ * WriteLevel.
+ */
 Error writeSaveLevel(SaveWriter &w, SpGameHost &game, bool autosave);
-// The engine's chunks before the level: the comment, picture and map, the
-// cvars kept (set into `cvars`), then GAME and, for an autosave, the player
-// carried over (set too).
+/**
+ * The engine's chunks before the level: the comment, picture and map, the
+ * cvars kept (set into `cvars`), then GAME and, for an autosave, the player
+ * carried over (set too).
+ */
 Error readSaveHeader(SaveReader &r, CvarStore &cvars, SaveHeader &out);
-// Once the level has started (load mode 1, or 2 for an autosave) with
-// `r` as its save stream: but for an autosave, the time and configstrings;
-// then the game's ReadLevel.
+/**
+ * Once the level has started (load mode 1, or 2 for an autosave) with
+ * `r` as its save stream: but for an autosave, the time and configstrings;
+ * then the game's ReadLevel.
+ */
 Error readSaveLevel(SaveReader &r, SpGameHost &game, bool autosave);
 
-// Which game code wrote a saved game. 1.0's and 1.1's write the same
-// chunks; the Expansion Pack's player chunk (the game's first, GCLI) is
-// longer (3364 bytes to 2720), and neither reads the other's saves. Told
-// by that chunk's length; nothing for a file that isn't a saved game or
-// has no GCLI.
+/**
+ * Which game code wrote a saved game. 1.0's and 1.1's write the same
+ * chunks; the Expansion Pack's player chunk (the game's first, GCLI) is
+ * longer (3364 bytes to 2720), and neither reads the other's saves.
+ */
 enum class SaveKind { kOriginal, kExpansion };
+/**
+ * Which game code wrote a saved game, told by its GCLI chunk's length;
+ * nothing for a file that isn't a saved game or has no GCLI.
+ */
+///@{
 std::optional<SaveKind> saveKind(std::istream &in);
 std::optional<SaveKind> saveKind(const std::vector<uint8_t> &file);
+///@}
 
 } // namespace reluva::idtech3::eliteforce

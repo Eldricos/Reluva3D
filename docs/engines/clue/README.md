@@ -138,6 +138,18 @@ back to the house first).
 | [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was worked out, and the recordings of the original |
 | [PLAN.md](PLAN.md) | The approach, and the plan's phases with what each did |
 
+## Code
+
+| Path | What |
+|---|---|
+| `clue.cpp` | The `MetaEngine` (detection) and the `Engine` |
+| `game_data.cpp` | `GameData`: the game's level and resource files, read from its folder |
+| `formats/` | The level file, the resource files and `dialogInfo.res` ([formats/](formats/)) |
+| `game/` | The board, the rules, the computer players, the mansion and network play |
+| `ui/` | The front end, the game's screens and its movies |
+| `pages/` | The data viewer's pages (in `reluva-viewer`) |
+| `tools/` | `reluva-tool clue` commands (`reluva-tool help clue` lists them) |
+
 ## Tests
 
 The unit tests, the basic engine test and the game-files test, what they

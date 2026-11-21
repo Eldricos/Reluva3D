@@ -2,16 +2,15 @@
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/refpack.cpp` · **Checked on:** every compressed file · **Confidence:** confirmed unless marked
 
-Implemented (`src/engines/nfs/formats/refpack.cpp`). It was checked
-on all 588 compressed files in the NFS III install and on its CD. Each
-decompresses to exactly the size its header gives, uses up all its input,
-and gives an `.fsh` whose own size field matches.
+## Overview
 
-Sources: the public descriptions of EA's RefPack (MultimediaWiki and the
-NFS modding community's QFS notes), checked against the retail files as
-above.
+EA's RefPack compression, as the game's `.qfs` files use it: a short
+header, then commands that copy literal bytes and runs from earlier in
+the output. Two files use EA's Huffman scheme instead (below).
 
-## Header
+## Layout
+
+### Header
 
 | Offset | Size | Meaning |
 |---|---|---|
@@ -22,11 +21,11 @@ above.
 All 588 retail RefPack files start `10 FB`: 3-byte size, no compressed
 size.
 
-## EA Huffman (`30 FB`, `32 FB`, `34 FB`)
+### EA Huffman (`30 FB`, `32 FB`, `34 FB`)
 
 Two files, in the install and again on the CD, start `32 FB` instead:
 `trk007/tr070_8.qfs` and `tr071_8.qfs`, that track's 8-bit texture sets.
-They're read since October 2026 (`decompressEaHuffman`, `refpack.cpp`).
+They're read (`decompressEaHuffman`, `refpack.cpp`).
 
 **How it was worked out.** No public description of the scheme turned
 up, so it comes from the game's own routine (`nfs3.exe` at `0x50ed50`,
@@ -67,7 +66,7 @@ then z + 2 bits v; the number is v + 2^(z+2) − 4. So `1xx` is 0 to 3,
 Other second bytes `FB` (not RefPack, not these) are reported as
 "compressed with an EA scheme Reluva doesn't read yet"; none are in NFS III.
 
-## Commands
+### Commands
 
 Each command copies some literal bytes from the input, then copies a run
 of bytes from earlier in the output. The copy may overlap what it's
@@ -83,17 +82,27 @@ writing, which repeats a pattern.
 
 The literals follow the command's bytes.
 
-## Tests
+## In Reluva
 
-`tests/engines/nfs/unit/formats.cpp` (`nfs.unit.formats`) decodes streams written by hand:
+Implemented in `src/engines/nfs/formats/refpack.cpp`
+(`decompressRefPack`, `decompressEaHuffman`). It was checked
+on all 588 compressed files in the NFS III install and on its CD. Each
+decompresses to exactly the size its header gives, uses up all its input,
+and gives an `.fsh` whose own size field matches.
+
+## Sources and checks
+
+- **Where the facts come from:** the game's own files and `nfs3.exe`, read as each section above says, with the addresses it gives.
+- **How it was checked:** the reader run on every compressed file to its end; the unit tests (`nfs.unit.formats`) and the game-files test (`nfs.gamedata.formats`).
+
+The layout is from the public descriptions of EA's RefPack (MultimediaWiki and the
+NFS modding community's QFS notes), checked against the retail files as
+above.
+
+**Tests.** `tests/engines/nfs/unit/formats.cpp` (`nfs.unit.formats`) decodes streams written by hand:
 
 - every command form;
 - a copy from 17,000 bytes back;
 - the header flag `0x01`;
 - damaged streams (no end code, wrong size, a copy from before the
   start).
-
-## Sources and checks
-
-- **Where the facts come from:** the game's own files and `nfs3.exe`, read as each section above says, with the addresses it gives.
-- **How it was checked:** the reader run on every compressed file to its end; the unit tests (`nfs.unit.formats`) and the game-files test (`nfs.gamedata.formats`).

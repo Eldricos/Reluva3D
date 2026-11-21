@@ -8,39 +8,56 @@
 
 namespace reluva::idtech3::wire {
 
-// One end of an established connection (protocol 24, see
-// docs/engines/idtech3/games/stvef/systems/network.md): each message goes out as
-// a datagram with its sequence number (and, from the client, its qport)
-// before it, in 1300-byte pieces if it's that long or longer, and
-// scrambled after its first 6 bytes; ones that come in out of order or
-// twice are dropped.
+/**
+ * One end of an established connection (protocol 24, see
+ * docs/engines/idtech3/games/stvef/systems/network.md): each message goes out as
+ * a datagram with its sequence number (and, from the client, its qport)
+ * before it, in 1300-byte pieces if it's that long or longer, and
+ * scrambled after its first 6 bytes; ones that come in out of order or
+ * twice are dropped.
+ */
 class Netchan {
 public:
     static constexpr size_t kMaxPacket = 1400;
     static constexpr size_t kFragmentSize = 1300;
     static constexpr size_t kMaxMessage = 16384;
 
-    // `fromClient`: this end is the client's, whose datagrams carry the qport.
+    /**
+     * One end of a connection.
+     * @param fromClient This end is the client's, whose datagrams carry the qport.
+     */
     Netchan(bool fromClient, uint16_t qport) : _fromClient(fromClient), _qport(qport) {}
 
-    // The datagrams that carry `message`.
+    /** The datagrams that carry `message`, scrambled, to send in order. */
     std::vector<std::vector<uint8_t>> transmit(const std::vector<uint8_t> &message);
-    // A datagram that came in on this connection: true with the message
-    // (after its header) once a whole new one has arrived.
+    /**
+     * A datagram that came in on this connection: true with the message
+     * (after its header) once a whole new one has arrived.
+     */
     bool process(std::vector<uint8_t> datagram, std::vector<uint8_t> &message);
 
-    // The sequence of the last message sent and the last one taken in.
+    /** The sequence of the last message sent and the last one taken in. */
+    ///@{
     int32_t outgoingSequence() const { return _outgoing - 1; }
     int32_t incomingSequence() const { return _incoming; }
+    ///@}
+    /** How many messages were skipped before the last one taken in. */
     int droppedLast() const { return _dropped; }
 
-    // The qport a datagram from a client carries (0 if too short), read
-    // before it's unscrambled: it's among the bytes left as they are.
+    /**
+     * The qport a datagram from a client carries (false if it's too short),
+     * read before it's unscrambled: it's among the bytes left as they are.
+     */
     static bool clientQport(const std::vector<uint8_t> &datagram, uint16_t &qport);
-    // Scrambling as the original: bytes 6 on XORed with a sequence made
-    // from the first four bytes and the length, then shuffled.
+    /**
+     * Scrambling as the original: bytes 6 on XORed with a sequence made
+     * from the first four bytes and the length, then shuffled; and undoing
+     * it.
+     */
+    ///@{
     static void scramble(std::vector<uint8_t> &datagram);
     static void unscramble(std::vector<uint8_t> &datagram);
+    ///@}
 
 private:
     bool _fromClient;

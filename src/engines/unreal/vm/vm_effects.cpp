@@ -8,7 +8,7 @@
 // (CTVE_BeamFX); bursts of sparks (CTVE_Sparks); rain and snow
 // (CTVE_Weather); and decals stuck to the world (Decal). How each moves is
 // Reluva's reading of what the scripts set and expect; the original code
-// isn't known. See docs/engines/unreal_vm.md.
+// isn't known. See docs/engines/unreal/games/ds9fallen/systems/effects.md.
 
 #include "engines/unreal/vm/vm_level.h"
 

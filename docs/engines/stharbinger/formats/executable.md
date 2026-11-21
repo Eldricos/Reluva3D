@@ -22,6 +22,15 @@ starts at file offset `0x352A4` (LE header at `0x37CF4`). Useful addresses:
 | `0x55294` | scene name table |
 | `0x5BE40` `0x5CC50` `0x5C7A0` | animation, background and sound name tables |
 
+## In Reluva
+
+Reluva doesn't run `DEEP.EXE`. `Resources`
+(`src/engines/stharbinger/formats/resources.cpp`) reads the credits' text
+from it.
+`reluva-tool stharbinger exe-strings <DEEP.EXE> <out folder>` maps its
+strings and what refers to them, and `exe-disasm <DEEP.EXE> <start> <end>`
+disassembles its code (`src/engines/stharbinger/tools/exe.cpp`).
+
 ## Sources and checks
 
 *Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.

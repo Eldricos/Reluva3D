@@ -122,7 +122,7 @@ bool ScenePage::frozen(const Ac2Record &o) const {
     return bnkx && bnkx->i("effect") != 0;
 }
 
-// --- The options screen -----------------------------------------------------------
+// The options screen.
 
 void ScenePage::openOptions() {
     // 0x42be00: the staged values, and the toggles as they were (Cancel
@@ -153,7 +153,7 @@ int ScenePage::thumbX(int slider) const {
 }
 
 void ScenePage::optionsAction(const std::string &word) {
-    // 0x42c3b0.
+    // The screen's actions (0x42c3b0).
     OptionsMenu &m = *_optionsMenu;
     if (word == "ok") {
         _options.values[GameOptions::kMusic] = m.staged[0];

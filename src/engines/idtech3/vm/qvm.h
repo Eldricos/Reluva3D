@@ -14,82 +14,121 @@
 
 namespace reluva::idtech3 {
 
-// A Quake III virtual machine program (.qvm): game code compiled to
-// bytecode, run by an interpreter, which reaches the engine only through
-// numbered system calls. See docs/engines/idtech3/formats/qvm.md.
+/**
+ * A Quake III virtual machine program (.qvm): game code compiled to
+ * bytecode, run by an interpreter, which reaches the engine only through
+ * numbered system calls. See docs/engines/idtech3/formats/qvm.md.
+ */
 class Qvm {
 public:
-    // The engine's side: system call `number` with the VM's argument words
-    // (args[0] is the first argument; there are at least 16). It returns
-    // the call's result. A handler may read and write the VM's memory and
-    // call back into it.
+    /**
+     * The engine's side: system call `number` with the VM's argument words
+     * (args[0] is the first argument; there are at least 16). It returns
+     * the call's result. A handler may read and write the VM's memory and
+     * call back into it.
+     */
     using SystemCall = std::function<int32_t(Qvm &vm, int number, const int32_t *args)>;
 
     static constexpr int kMainArgs = 13; // vmMain's command and twelve arguments
 
+    /** Loads a .qvm file's code and data, replacing any program loaded. */
     Error load(const std::vector<uint8_t> &file);
+    /** Who answers the program's system calls. */
     void setSystemCall(SystemCall handler) { _syscall = std::move(handler); }
-    // Stops a call (with an error) after this many instructions; 0 = never.
+    /** Stops a call (with an error) after this many instructions; 0 = never. */
     void setInstructionLimit(uint64_t limit) { _limit = limit; }
 
-    // Calls vmMain(command, args...); fails on any fault in the program
-    // (bad address, bad jump, stack overflow, division by zero...), naming
-    // the instruction.
+    /**
+     * Calls vmMain(command, args...); fails on any fault in the program
+     * (bad address, bad jump, stack overflow, division by zero...), naming
+     * the instruction.
+     */
     Error call(int32_t command, const std::vector<int32_t> &args, int32_t &result);
-    // A function of the program other than vmMain, by its first
-    // instruction (for diagnosis: reluva-tool's -vmcall).
+    /**
+     * A function of the program other than vmMain, by its first
+     * instruction (for diagnosis: reluva-tool's -vmcall).
+     */
     Error callAt(int32_t instruction, const std::vector<int32_t> &args, int32_t &result);
 
-    // From a system call: ends the run once the call returns, with this
-    // error from call() (the game code's own fatal errors, or memory a
-    // call can't touch). A nested call() made since also fails.
+    /**
+     * From a system call: ends the run once the call returns, with this
+     * error from call() (the game code's own fatal errors, or memory a
+     * call can't touch). A nested call() made since also fails. Only the
+     * first message is kept.
+     */
     void abort(std::string message) {
         if (_abort.empty())
             _abort = std::move(message);
     }
 
-    // Whether a system call may write [address, address + size): inside
-    // memory and clear of the code's jump tables (see protectedRanges()).
-    // If not, the run is aborted, naming the system call, and false
-    // returned. writeInt and writeString check this themselves.
+    /**
+     * Whether a system call may write [address, address + size): inside
+     * memory and clear of the code's jump tables (see protectedRanges()).
+     * If not, the run is aborted, naming the system call, and false
+     * returned. writeInt and writeString check this themselves.
+     */
     bool checkWrite(int64_t address, int64_t size);
-    // The tables `switch` statements jump through (instruction numbers in
-    // the data), found when loading: the program never changes them, so a
-    // write there is a fault, caught where it happens rather than when a
-    // switch later jumps somewhere absurd. [first, end) byte ranges.
+    /**
+     * The tables `switch` statements jump through (instruction numbers in
+     * the data), found when loading: the program never changes them, so a
+     * write there is a fault, caught where it happens rather than when a
+     * switch later jumps somewhere absurd. [first, end) byte ranges.
+     */
     const std::vector<std::pair<uint32_t, uint32_t>> &protectedRanges() const { return _protected; }
 
-    // The VM's memory, for system calls: addresses are offsets into it.
+    /** The VM's memory, for system calls: addresses are offsets into it. */
     std::vector<uint8_t> &memory() { return _data; }
+    /** Whether [address, address + size) is inside memory. */
     bool valid(int64_t address, int64_t size) const {
         return address >= 0 && size >= 0 && address + size <= int64_t(_data.size());
     }
-    // A NUL-terminated string at `address` (cut at the end of memory or at
-    // `max` bytes); empty if the address is outside memory.
+    /**
+     * A NUL-terminated string at `address` (cut at the end of memory or at
+     * `max` bytes); empty if the address is outside memory.
+     */
     std::string string(int32_t address, size_t max = 4096) const;
+    /**
+     * A word of memory; reading outside it gives 0, and writing outside it
+     * or over a jump table writes nothing (the latter aborting the run, as
+     * checkWrite).
+     */
+    ///@{
     int32_t readInt(int32_t address) const;
     void writeInt(int32_t address, int32_t value);
-    // Copies `text` into a buffer of `size` bytes at `address`, cut to fit
-    // and NUL-terminated; false (and nothing written) if the buffer isn't
-    // inside memory or `size` is 0.
+    ///@}
+    /**
+     * Copies `text` into a buffer of `size` bytes at `address`, cut to fit
+     * and NUL-terminated; false (and nothing written) if the buffer isn't
+     * inside memory or `size` is 0.
+     */
     bool writeString(int32_t address, std::string_view text, int32_t size);
-    // A float passed in an argument word.
+    /** A float passed in an argument word, and back: the same 32 bits. */
+    ///@{
     static float asFloat(int32_t word);
     static int32_t fromFloat(float value);
+    ///@}
 
+    /** How many instructions the program has. */
     size_t instructionCount() const { return _code.size(); }
-    uint64_t executed() const { return _executed; } // by the last call(), including nested ones
+    /** Instructions run by the last call(), including nested ones. */
+    uint64_t executed() const { return _executed; }
 
+    /** An instruction as loaded: its opcode (qvmop) and operand. */
     struct Instruction {
         uint8_t op;
         int32_t operand;
     };
+    /** The program's instructions. */
     const std::vector<Instruction> &code() const { return _code; }
-    // The initialised words end at dataLength(); the literal block
-    // (strings) runs from litStart() to litEnd(); zeros follow.
+    /**
+     * The initialised words end at dataLength(); the literal block
+     * (strings) runs from litStart() to litEnd(); zeros follow.
+     */
+    ///@{
     uint32_t dataLength() const { return _dataLength; }
     uint32_t litStart() const { return _litStart; }
     uint32_t litEnd() const { return _litEnd; }
+    ///@}
 
 private:
     Error run(int32_t &result, int32_t entry = 0);
@@ -115,7 +154,7 @@ private:
     const std::pair<uint32_t, uint32_t> *protectedOverlap(int64_t address, int64_t size) const;
 };
 
-// The opcodes (docs/engines/idtech3/formats/qvm.md), in their numbering.
+/** The opcodes (docs/engines/idtech3/formats/qvm.md), in their numbering. */
 namespace qvmop {
 enum : uint8_t {
     kUndef,
@@ -180,8 +219,9 @@ enum : uint8_t {
     kCvfi,
     kCount
 };
-// Bytes of operand after each opcode: 4, 1 (Arg) or 0.
+/** Bytes of operand after each opcode: 4, 1 (Arg) or 0. */
 int operandSize(uint8_t op);
+/** An opcode's name, for listings. */
 const char *name(uint8_t op);
 } // namespace qvmop
 

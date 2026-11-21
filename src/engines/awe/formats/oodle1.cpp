@@ -147,7 +147,7 @@ private:
         }
         _cum[_seen + 1u] = 0xc000;
         // The next rebuild comes after a step that doubles each time, up to
-        // maxStep_.
+        // _maxStep.
         if (_step * 2u > _maxStep) {
             _threshold = uint16_t(_total + _maxStep);
         } else {

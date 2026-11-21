@@ -43,6 +43,13 @@ in the original sets it back to nothing, even a new game; this engine does
 on a new game, which makes no difference as each section arms it again.
 `IfClue` is true when the last away mission set any outcome code.
 
+## In Reluva
+
+`Bridge` (`src/engines/stgenerations/game/bridge.h`) reads `UNIVERSE.INI` and
+the pictures, draws the map and runs the bridge's commands of the story.
+Clearing the panel's button on a new game is listed in
+[KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md).
+
 ## Sources and checks
 
 From the notes read off `sgens.exe` and the game's files, the 2 CD Windows release, while the engine was STG-Engine: [bridge](../research/bridge.md), in [research/](../research/README.md). [REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md) says how they were made. All values are little-endian.

@@ -2,15 +2,17 @@
 
 > **Status:** decoded · **Code:** `src/engines/age/formats/pvs.cpp` · **Checked on:** the English release, 25 files · **Confidence:** confirmed unless marked
 
+## Overview
+
 Which of a city's PSDL blocks ([psdl.md](psdl.md)) can be seen from
 which: `city/sf.cpvs` and `city/london.cpvs`, with the files they were
 made from beside them. Read by `src/engines/age/formats/pvs.cpp`; the scene draws
 only the blocks seen from the eye's block, and the models standing in
 them.
 
-## `.cpvs` layout
+## Layout
 
-Little-endian.
+A `.cpvs`, little-endian:
 
 | Field | Contents |
 |---|---|
@@ -25,7 +27,10 @@ Unpacked, it's two bits for each block from block 0, the first block in
 the low bits of the first byte: 3 seen, 0 not. Rows stop after their last
 seen block.
 
-## What Reluva does with it
+## In Reluva
+
+Read by `src/engines/age/formats/pvs.cpp` (`readCpvs`), for
+`render/city_scene.cpp`; `reluva-tool age check` reads both cities'.
 
 The block the eye is in is the one whose outline holds it, between 1 m
 below its lowest point and 30 m above its highest (where blocks lie over
@@ -46,7 +51,7 @@ city's last block). `sf.pvshist` is text, lines of "block, block, 0-255":
 every pair the `.pvs` has, with a score. The `.cpvs` starts `PVS0` and a
 count one more than the PSDL's stored block count, then words that grow
 like offsets; the bytes after them looked like 2-bit patterns (`0x03`,
-`0x0f`, `0x3c`, `0xcc`) between small counts. Read as the runs below,
+`0x0f`, `0x3c`, `0xcc`) between small counts. Read as the runs above,
 every row of both cities unpacks to two bits for each block, low bits
 first, 3 or 0, and agrees with the `.pvs` but for 9,339 (San Francisco)
 and 11,238 (London) pairs it drops, and one it adds in San Francisco. The

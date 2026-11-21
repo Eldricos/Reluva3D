@@ -1,9 +1,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
+"""An early reader of clue.lvl (Reluva's own reader replaced it): level()
+gives its title, names and placement records; run alone, it prints them.
+
+    python3 -I py/lvl.py clue.lvl
+"""
+
 import sys,struct,collections; sys.path.insert(0,'tools')
 from ddrv import load, entries
 def level(path):
+    """clue.lvl's title, World.dat's names and Objects.dat's placement records."""
     d=load(path); E={e[4]:d[e[2]:e[2]+e[3]] for e in entries(d)}
     w=E['/World.dat']; title=w[:w.index(b'\0')].decode()
     p=40; n=struct.unpack('<H',w[p:p+2])[0]; p+=2; names=[]

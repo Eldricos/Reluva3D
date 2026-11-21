@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
+// Need for Speed III's unit tests: the track and what is drawn on it: lights,
+// particles, the cars' effects, weather, animated polygons, reflections,
+// placed sounds, headlights, the view, the cars' lighting and paint.
+//
 //   reluva-tests nfs.unit.track
 
 #include "tests/engines/nfs/fixtures.h"
@@ -9,7 +13,6 @@ using namespace reluva::nfs::testing;
 
 namespace {
 
-// Lights as nfs3.exe's table has them (frd.md, Lights).
 // The cars' reflection on the sky's sphere map (fce.md, flags).
 void testReflectionUv() {
     auto near = [](std::array<float, 2> a, float u, float v) {
@@ -53,6 +56,7 @@ void testPlacedSounds() {
     CHECK(t.fires(47, random) && !t.fires(48, random));
 }
 
+// Lights as nfs3.exe's table has them (frd.md, Lights).
 void testLightLook() {
     // Dimmed: k = 0.5 * 65536 >> 8 = 128, each byte * k >> 8; 1 and above unchanged.
     CHECK(dimLight(0xffdf1616, 0.5f) == 0x7f6f0b0b && dimLight(0xffdf1616, 1) == 0xffdf1616);

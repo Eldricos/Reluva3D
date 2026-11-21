@@ -13,8 +13,13 @@
 
 namespace reluva::idtech3 {
 
+/**
+ * The data viewer's Maps page (pages/viewer.cpp): a map's surfaces drawn
+ * as lines, without the GPU, by a camera that orbits it.
+ */
 class MapViewer : public Page {
 public:
+    /** Lists the game's maps (the .bsp files in maps/). */
     explicit MapViewer(PageContext &ctx);
     const char *name() const override { return "Maps"; }
     size_t count() const override { return _names.size(); }

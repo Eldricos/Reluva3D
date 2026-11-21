@@ -88,7 +88,7 @@ bool isSymbol(const Argument *a) {
 
 } // namespace
 
-// ---- Values and variables ------------------------------------------------
+// Values and variables
 
 std::string Game::variableName(const Argument *arg) const {
     if (!arg)
@@ -119,7 +119,7 @@ void Game::setVariable(const Argument *arg, uint16_t value) {
     _variables[name] = value;
 }
 
-// ---- Labels and control flow ---------------------------------------------
+// Labels and control flow
 
 void Game::buildLabels() {
     // LABEL n marks the directive after it as label n (0x10A36).
@@ -213,7 +213,7 @@ std::string Game::describe(const Directive &d) const {
     return s;
 }
 
-// ---- Commands -------------------------------------------------------------
+// Commands
 
 bool Game::executeDirective(const Directive &d) {
     const Argument *a0 = d.getArg(0);
@@ -423,8 +423,8 @@ bool Game::executeDirective(const Directive &d) {
         _actionSeqPc = _thread.pc - 1;
         startConversation(a0 ? int(a0->value) : -1, a1 ? int(a1->value) : -1);
         return _thread.active && _thread.wait == kWaitNone;
-    // Action sequences (Smacker videos with their arcade parts) are not
-    // implemented yet; they return the default result.
+    // Action sequences (Smacker videos, some with their arcade parts) and
+    // ACTIONSEQ's other functions; an unknown one returns the default result.
     case kCmdActionSeq:
         actionSequence(d);
         return _thread.wait == kWaitNone;

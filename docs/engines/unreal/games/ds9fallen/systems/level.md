@@ -62,8 +62,8 @@ physics); its physics; a player's `UpdateEyeHeight`; a pawn's
 the player only reads its input (`PlayerInput`, its axes 0) and only
 `bAlwaysTick` actors tick; the dialogue goes on. The Fallen's
 generators (sparks, the Jerrado bug swarm: one every 5 ms, each to live
-0.4 s) count on the life span: without it, M03_KiraL2's swarm had made
-17,500 actors by 20 seconds in. Any `LifeSpan` but 0 counts down (one
+0.4 s) count on the life span: without it, M03_KiraL2's swarm would
+make 17,500 actors by 20 seconds in. Any `LifeSpan` but 0 counts down (one
 below 0 goes at once); a timer that isn't looping keeps what's over the
 rate counted.
 
@@ -202,9 +202,8 @@ on 15 maps each, DS9_Kira, their EVA, ES, Beaten and Kira's Cardassian
 disguise on the rest), all with their HUD but on Entry (the menu's level,
 whose start isn't The Fallen's). 20 seconds in:
 - 65 are walking.
-- 4 are still frozen in their map's opening cut scene. Before animations
-  kept time, 7 were: cut scenes waiting on `FinishAnim` now end when
-  their animations do.
+- 4 are still frozen in their map's opening cut scene; cut scenes
+  waiting on `FinishAnim` end when their animations do.
 - 4 started in water and swim.
 - On CM_Endcredits, the credits, the player falls: there's nothing under
   its start.
@@ -231,11 +230,10 @@ there), out of the level's list until an event brings it back through
 through as well as to the live actors. Over all maps that's 1,306
 actors: mostly the enemies of later waves (179 Jem'Hadar, 126 Bajoran
 fanatics, 90 Grigari drones...), creatures, and a scene's lights,
-sounds, music and speech. Left in, they played from the start: on
-M01_WorfL1 an ensign who arrives in a later Grigari attack was already
-fighting, with no phaser (925 of the run's None accessed). Set aside,
-an all-maps run makes 178 million calls (229 before), and None is
-accessed 3,860 times (12,600 before).
+sounds, music and speech. Left in, they would play from the start: on
+M01_WorfL1 an ensign who arrives in a later Grigari attack would be
+fighting already, with no phaser. Set aside, an all-maps run makes 178
+million calls, and None is accessed 3,860 times.
 
 **What None accessed is left** (`unreal run` lists it by place in the
 code, the context expression's offset as `unreal script` lists it). It all
@@ -258,16 +256,15 @@ What's left before play, by what `unreal run` reports:
   The Fallen's own physics modes are Reluva's reading of the scripts
   (see [movement.md](movement.md) and [effects.md](effects.md)).
 - **Speed**: the biggest map, M03_KiraL2 (4,263 actors), runs 20 seconds
-  of play in about 5.7 s without drawing (21.6 s before the work in [playing.md](playing.md#in-reluva),
-  10.7 before the last of it); all 74 maps take 371 s together, 800
-  before the last of it, the slowest (M10_WorfL1A) 11.5. These are
-  October's figures; the later work and November's figures are under
-  Speed in [playing.md](playing.md#in-reluva). The last of it:
+  of play in about 5.7 s without drawing; all 74 maps take 371 s
+  together, the slowest (M10_WorfL1A) 11.5 (October 2026; November's
+  figures, and the rest of what's done for speed, are under Speed in
+  [playing.md](playing.md#in-reluva)). Among what's done for it:
   - Only actors that may be seen are looked at to draw: not hidden, in a
     zone seen through the portals (`LevelPlay::mayBeSeen`). The rest
     aren't drawn, so they don't get `C3DPreRender` or `LastRenderTime`
     either, as in UE1 (whose scripts read `LastRenderTime` to know
-    they're seen). Before, every actor got both every frame.
+    they're seen).
   - A script function that only returns, with nothing to give back
     (Actor's `C3DPreRender` and other empty events), isn't run
     (`VmFunction::doesNothing`).

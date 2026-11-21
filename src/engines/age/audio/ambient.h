@@ -14,7 +14,7 @@
 
 namespace reluva::age {
 
-/** One sound of an ambience (a row of aud/ambient/<name>.csv). */
+/** One sound of an ambience (a row of `aud/ambient/<name>.csv`). */
 struct AmbientSample {
     std::string name; // aud/aud22/Amb3D/<name>.22k.wav...
     float volume = 1; // 0..1
@@ -29,8 +29,8 @@ struct AmbientSample {
 };
 
 /**
- * aud/ambient/<name>.csv: a sound heard near a set of points (the city's
- * audio_pathsets/<name>.pathset's, written out again).
+ * `aud/ambient/<name>.csv`: a sound heard near a set of points (the city's
+ * `audio_pathsets/<name>.pathset`'s, written out again).
  */
 struct Ambience {
     float minDistance = 0; // heard in full this near a point
@@ -43,8 +43,9 @@ struct Ambience {
     std::vector<AmbientSample> samples;
     std::vector<Vec3> points; // VECTORPOINTS
 };
+/** Reads an ambience's .csv. Fails without its distances or any sample. */
 Error parseAmbience(const std::string &text, Ambience &out);
-/** aud/ambient/<city>ambientcontainer.csv: the city's ambiences, by name. */
+/** `aud/ambient/<city>ambientcontainer.csv`: the city's ambiences, by name. */
 std::vector<std::string> parseAmbientContainer(const std::string &text);
 
 /**
@@ -54,9 +55,10 @@ std::vector<std::string> parseAmbientContainer(const std::string &text);
 float ambientGain(const Ambience &a, float distance);
 
 /**
- * A city's ambiences (its aud/ambient/<city>ambientcontainer.csv) round
+ * A city's ambiences (its `aud/ambient/<city>ambientcontainer.csv`) round
  * the listener: each one's loops and its one-shots now and then, as loud
- * as its nearest point is near. See docs/engines/age/games/mm2/systems/ambient-sounds.md.
+ * as its nearest point is near. At most kMostVoices play at once. See
+ * docs/engines/age/games/mm2/systems/ambient-sounds.md.
  */
 class AmbientSounds {
 public:
@@ -65,7 +67,14 @@ public:
     AmbientSounds(const AmbientSounds &) = delete;
     AmbientSounds &operator=(const AmbientSounds &) = delete;
 
+    /**
+     * Reads the city's ambiences (those that don't read, or have no points,
+     * left out) and their sounds; without a `mixer` none is heard. Fails
+     * without the city's container file.
+     * @param seed Picks when the one-shots play.
+     */
     Error load(const SearchSet &files, const std::string &map, audio::Mixer *mixer, uint32_t seed = 1);
+    /** Stops every sound, and forgets the ambiences. */
     void clear();
     /**
      * Round the listener: where it is, its right (for each sound's pan;
@@ -75,19 +84,22 @@ public:
     /** All of them louder or quieter (the Audio Options' ambient: 0 off). */
     void setGain(float gain) { _gain = gain; }
 
+    /** The ambiences load() read. */
     const std::vector<Ambience> &ambiences() const { return _ambiences; }
     /**
      * How many sounds are playing (for tests), and a voice's pan and pitch
-     * as last set.
+     * as last set (the defaults for a voice there isn't).
      */
+    ///@{
     size_t playing() const;
+    /** A voice's pan (the mixer's units) and pitch (1 as recorded). */
     struct Heard {
         int pan = 0;
         float pitch = 1;
     };
     Heard heard(size_t voice) const { return voice < _voices.size() ? _voices[voice].heard : Heard{}; }
-    // At most this many play at once.
-    static constexpr size_t kMostVoices = 8;
+    ///@}
+    static constexpr size_t kMostVoices = 8; // at most this many play at once
 
 private:
     struct Voice {
