@@ -242,7 +242,7 @@ the editor gives it (`TaskForce.java`), checked as noted:
 |---|---|---|
 | 0x00 | `i16` | its number, as `TForceCntr` counts them |
 | 0x04 | `i32` | its ships |
-| 0x08 | `i32[9]` | the ships' numbers |
+| 0x08 | `i32[9]` | the ships' numbers, as [`GShipList`](#ships) numbers them |
 | 0x2C | `i32` | its mission: each empire's two start with 6 and 5, engage and evade by the editor's names *(published)* |
 | 0x30 | `i32` | the sector it's ordered to, row by row, or -1: 113 for column 9 of row 8 on a small galaxy's 13 columns, ordered a sector west of Sol |
 | 0x34 | `i32` | the race it belongs to |
@@ -252,6 +252,31 @@ Ordered to move, a task force's entry in `GWTForce` changes (the
 destination, and the order's number at 0x54); a turn later it's in the
 new sector and `GTForceList`, which is otherwise the same list, has it
 too.
+
+### Ships
+
+`GShipList` holds the ships, in 116-byte entries; `GShipHead` is laid out
+as `GWTForceHd`, with 116 for the size, and says how many are in use. The
+layout is the editor's (`Ship.java`); checked on the tutorials and the
+user's new game, whose 11 ships at the start are each empire's two, as
+the galaxy screen's empire panel lists the Federation's ("Science
+Vessel", "Colony Ship"), and the Edo Guardian:
+
+| Offset | Type | Field |
+|---|---|---|
+| 0x00 | `char[40]` | its name: "USS Martynov A" |
+| 0x28 | `i16` | the race it belongs to, by `race.rst`'s number (42 and 43 for space monsters' races) |
+| 0x2A | `i16` | its number. `ShipCntr` holds the next one; ships lost leave gaps: Tutorial #4 numbers its 81 ships up to 108, its `ShipCntr` 109 |
+| 0x38 | `i32` | its shields: its class's (`shiplist.sst`), 110 for the Oberth class |
+| 0x3C | `i32` | its hit points: its class's when whole, 19 |
+| 0x40 | `i32` | its crew's experience: 350 for every Klingon ship at the start, 0 for the others' |
+| 0x50 | `i16` | the task force it's in, whose entry lists it: so in all 15 saves |
+| 0x52 | `i32` | its class, by `shiplist.sst`'s number: 35, the Oberth class Science Vessel |
+
+The Edo Guardian's shields are 0 at the very start and its class's 6,350
+a turn later. The rest of the entry (accuracy and defense bonuses,
+cloaking, agility, what it can do) is the editor's and not read yet, as
+is `shipname.dat`.
 
 ### What a turn and an order change
 
@@ -323,6 +348,11 @@ player's empire; on `game0.sav` it gives "game0.sav", "Tutorial #1", turn
 research, military and labor orders; on the user's saves it gives each
 order as the screens showed it given. The unit tests ("saved orders")
 cover it.
+
+`readSavedShips` reads the ships, and `readSavedTaskForces` lists each
+task force's ships; on all 15 saves every ship is in the task force it
+names, and that task force lists it. The unit tests ("saved ships") cover
+it.
 
 `readSavedEmpires` reads the five empires' figures; on the user's saves
 they're the empire panel's. `readSavedTaskForces` reads the task forces

@@ -227,6 +227,7 @@ void testSavedTaskForces(const std::filesystem::path &tmp) {
         const size_t at = i * 108;
         list[at] = uint8_t(7 + i);
         set32(list, at + 0x04, 1);
+        set32(list, at + 0x08, 7 + i);
         set32(list, at + 0x2C, 6 - i);
         set32(list, at + 0x30, i == 0 ? 113 : 0xFFFFFFFF);
         set32(list, at + 0x34, 1);
@@ -238,6 +239,7 @@ void testSavedTaskForces(const std::filesystem::path &tmp) {
     CHECK(!readSavedTaskForces(tmp / "fleet.sav", 13, t) && t.size() == 2);
     CHECK(t[0].id == 7 && t[0].owner == 1 && t[0].ships == 1 && t[0].x == 10 && t[0].y == 8 && t[0].mission == 6);
     CHECK(t[0].destinationX == 9 && t[0].destinationY == 8 && t[1].destinationX == -1 && t[1].mission == 5);
+    CHECK(t[0].shipIds == std::vector<int>{7} && t[1].shipIds == std::vector<int>{8});
     // More in use than the list holds isn't read.
     set32(head, 0x18, 4);
     writeFile(tmp / "fleet.sav", makeLzssArchive("game0.sav", {{"GWTForceHd", head}, {"GWTForce", list}}));
@@ -321,6 +323,33 @@ void testSavedOrders(const std::filesystem::path &tmp) {
     all.pop_back();
     writeFile(tmp / "orders.sav", makeLzssArchive("game0.sav", {{"ordInfo", all}}));
     CHECK(bool(readSavedOrders(tmp / "orders.sav", o)));
+}
+
+void testSavedShips(const std::filesystem::path &tmp) {
+    // Room for two, one in use: the Oberth class Science Vessel the
+    // Federation starts with.
+    Bytes head(40, 0);
+    set32(head, 0x10, 116);
+    set32(head, 0x14, 2);
+    set32(head, 0x18, 1);
+    Bytes list(2 * 116, 0);
+    const std::string name = "USS Martynov A";
+    std::copy(name.begin(), name.end(), list.begin());
+    list[0x28] = 1;
+    list[0x2A] = 7;
+    set32(list, 0x38, 110);
+    set32(list, 0x3C, 19);
+    set32(list, 0x40, 350);
+    list[0x50] = 7;
+    set32(list, 0x52, 35);
+    writeFile(tmp / "ships.sav", makeLzssArchive("game0.sav", {{"GShipHead", head}, {"GShipList", list}}));
+    std::vector<SavedShip> s;
+    CHECK(!readSavedShips(tmp / "ships.sav", s) && s.size() == 1);
+    CHECK(s[0].name == name && s[0].race == 1 && s[0].id == 7 && s[0].shipClass == 35 && s[0].taskForce == 7);
+    CHECK(s[0].shields == 110 && s[0].hull == 19 && s[0].experience == 350);
+    set32(head, 0x10, 108);
+    writeFile(tmp / "ships.sav", makeLzssArchive("game0.sav", {{"GShipHead", head}, {"GShipList", list}}));
+    CHECK(bool(readSavedShips(tmp / "ships.sav", s)));
 }
 
 void testSaveSummary(const std::filesystem::path &tmp) {
@@ -559,6 +588,7 @@ static const reluva::test::Suite kSuite(
         {"alt.res", [](const std::filesystem::path &tmp) { testAltRes(tmp); }},
         {"saved games", [](const std::filesystem::path &tmp) { testSaveSummary(tmp); }},
         {"saved galaxy", [](const std::filesystem::path &tmp) { testSavedGalaxy(tmp); }},
+        {"saved ships", [](const std::filesystem::path &tmp) { testSavedShips(tmp); }},
         {"saved orders", [](const std::filesystem::path &tmp) { testSavedOrders(tmp); }},
         {"saved empires, fleets and research", [](const std::filesystem::path &tmp) { testSavedTaskForces(tmp); }},
         {"snd", [](const std::filesystem::path &tmp) { testSnd(tmp); }},

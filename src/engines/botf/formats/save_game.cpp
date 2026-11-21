@@ -7,6 +7,7 @@
 #include "common/text.h"
 #include "engines/botf/formats/alt_res.h"
 
+#include <algorithm>
 #include <initializer_list>
 #include <string_view>
 #include <utility>
@@ -93,6 +94,9 @@ constexpr size_t kStellarSize = 88;
 
 // GWTForce: a 108-byte entry a task force.
 constexpr size_t kTaskForceSize = 108;
+
+// GShipList: a 116-byte entry a ship.
+constexpr size_t kShipSize = 116;
 
 // The races techinfo has room for: the five empires and 30 minor races.
 constexpr size_t kRaceCount = 35;
@@ -276,6 +280,32 @@ Error readSavedEmpires(const std::filesystem::path &path, std::array<SavedEmpire
     return Error::success();
 }
 
+Error readSavedShips(const std::filesystem::path &path, std::vector<SavedShip> &ships) {
+    ships.clear();
+    std::vector<uint8_t> head;
+    std::vector<uint8_t> list;
+    if (Error err = readFiles(path, {"GShipHead", "GShipList"}, {&head, &list}))
+        return err;
+    // The head as the task forces' (GWTForceHd).
+    if (head.size() < 0x1C || s32(head, 0x10) != int(kShipSize) || s32(head, 0x18) < 0 ||
+        size_t(s32(head, 0x18)) * kShipSize > list.size())
+        return Error::fail(path.string() + ": GShipHead doesn't fit GShipList");
+    for (int i = 0; i < s32(head, 0x18); ++i) {
+        const size_t at = size_t(i) * kShipSize;
+        SavedShip s;
+        s.name = field(list, at, 40);
+        s.race = s16(list, at + 0x28);
+        s.id = s16(list, at + 0x2A);
+        s.shields = s32(list, at + 0x38);
+        s.hull = s32(list, at + 0x3C);
+        s.experience = s32(list, at + 0x40);
+        s.taskForce = s16(list, at + 0x50);
+        s.shipClass = s32(list, at + 0x52);
+        ships.push_back(std::move(s));
+    }
+    return Error::success();
+}
+
 Error readSavedTaskForces(const std::filesystem::path &path, int width, std::vector<SavedTaskForce> &taskForces) {
     taskForces.clear();
     std::vector<uint8_t> head;
@@ -292,6 +322,9 @@ Error readSavedTaskForces(const std::filesystem::path &path, int width, std::vec
         SavedTaskForce t;
         t.id = s16(list, at);
         t.ships = s32(list, at + 0x04);
+        // Room for nine ships' numbers.
+        for (int k = 0; k < std::min(t.ships, 9); ++k)
+            t.shipIds.push_back(s32(list, at + 0x08 + 4 * size_t(k)));
         t.mission = s32(list, at + 0x2C);
         // The destination is a sector's number, row by row.
         if (const int target = s32(list, at + 0x30); target >= 0 && width > 0) {

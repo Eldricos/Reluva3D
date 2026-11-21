@@ -128,6 +128,7 @@ struct SavedTaskForce {
     int id = 0;
     int owner = 0; // race.rst's number of the race it belongs to
     int ships = 0;
+    std::vector<int> shipIds; // its ships, by SavedShip::id
     /** The sector it's in, column and row. */
     ///@{
     int x = 0;
@@ -140,6 +141,21 @@ struct SavedTaskForce {
     ///@}
     int mission = 0; // its orders' number (docs/engines/botf/formats/sav.md)
 };
+
+/** A ship. */
+struct SavedShip {
+    std::string name;   // UTF-8: "USS Martynov A"
+    int id = 0;         // its number: ShipCntr counts them, so ships lost leave gaps
+    int race = 0;       // race.rst's number of the race it belongs to
+    int shipClass = 0;  // its class's shiplist.sst number: 35, the Oberth class Science Vessel
+    int taskForce = 0;  // SavedTaskForce::id of the task force it's in
+    int shields = 0;    // its class's shields when whole
+    int hull = 0;       // its hit points, its class's when whole
+    int experience = 0; // its crew's: 350 for the Klingons' at the start, 0 for the others'
+};
+
+/** Reads the ships of the saved game at `path` (its GShipList file). */
+Error readSavedShips(const std::filesystem::path &path, std::vector<SavedShip> &ships);
 
 /**
  * Reads the task forces of the saved game at `path` (its GWTForce file),
