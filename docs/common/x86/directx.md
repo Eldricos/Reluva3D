@@ -1,11 +1,11 @@
-# DirectDraw, Direct3D 7 and DirectInput
+# DirectDraw, Direct3D and DirectInput
 
 ## What it is
 
 `src/emulation/x86/com.{h,cpp}` makes COM objects programs can call. Each
 interface is a vtable of native functions in the program's memory,
 dispatching to a C++ object. `directx/` has the objects, written from the
-DirectX 7 documentation. Interfaces, method orders and IIDs are the SDK
+DirectX 7 documentation, and DirectX 5's for its Direct3D (`d3d5.cpp`). Interfaces, method orders and IIDs are the SDK
 headers' (`directx/interfaces.cpp`).
 
 ## What Reluva supports
@@ -38,6 +38,17 @@ headers' (`directx/interfaces.cpp`).
     BLENDCURRENTALPHA, mip levels and bilinear filtering;
   - colour keys, the alpha test, vertex and table fog, all the blend
     factors, and the depth test into any Z format.
+- **Direct3D 5** (`directx/d3d5.cpp`): `IDirect3D2`, which the DirectDraw
+  object gives for its IID, offers the same two devices, described in
+  DirectX 5's `D3DDEVICEDESC` (204 bytes): `EnumDevices`, with hardware
+  and software descriptions, each with its flags only on its own side;
+  `FindDevice`, by GUID and by hardware; and `CreateDevice`. The device
+  is the Direct3D 7 one, as `IDirect3DDevice2`: its methods of the same
+  name and arguments as Direct3D 7's are those; `GetCaps`,
+  `EnumTextureFormats` (each format in a `DDSURFACEDESC`) and
+  `GetDirect3D` are DirectX 5's own. Not yet: lights, materials and
+  viewports (`IDirect3DLight`, `IDirect3DMaterial2`, `IDirect3DViewport2`),
+  execute buffers, and drawing through `IDirect3DDevice2`.
 - **`directx/dinput.cpp`: DINPUT.dll**, DirectInput up to DirectX 7.
   - The system mouse (3 axes, 4 buttons) and keyboard (256 keys by scan
     code), read through the program's data format (the `c_dfDIMouse` and
@@ -87,17 +98,27 @@ checked without a GPU.
 ## Sources and checks
 
 - **Where the facts come from:** the DirectX 7 documentation, and the SDK
-  headers for interfaces, method orders and IIDs.
+  headers for interfaces, method orders and IIDs; DirectX 5's
+  documentation and headers for its Direct3D.
 
 - `testDirectX` in `tests/common/windows.cpp` (`common.unit.windows`) checks these, called through
   the vtables: a clear, a Gouraud triangle, the depth test, a textured
   quad with point sampling, and a flip.
+
+- `testDirect3D5` checks DirectX 5's Direct3D as LEGO Island reaches it:
+  `IDirect3D2` from a DirectDraw object, its devices listed and found,
+  and a device made on a surface, with its descriptions, texture formats
+  and render states.
 
 - `testInput` checks DirectInput's mouse (its state, its movement since
   the last read, its buffer) and keyboard.
 - **Confidence:** published unless marked.
 
 ## Used by
+
+- **`legoisland`**: LEGO Island makes its device through DirectX 5's
+  Direct3D, for Retained Mode
+  ([running.md](../../engines/legoisland/systems/running.md)).
 
 - **`netimmerse`**: LEGO Alpha Team draws through DirectDraw and Direct3D 7
   ([running.md](../../engines/netimmerse/games/legoalphateam/systems/running.md)).

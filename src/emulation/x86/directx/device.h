@@ -318,6 +318,8 @@ public:
     uint64_t drawsQueued();
     void finishDrawsThrough(uint64_t count);
     ///@}
+    /** IDirect3DDevice2's own methods (d3d5.cpp); nothing for those it shares with IDirect3DDevice7. */
+    std::optional<uint32_t> invoke2(std::string_view method, Cpu &c) const;
     std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override;
     const ComInterface *query(const std::string &iid) override;
 
@@ -386,5 +388,8 @@ struct VertexLayout {
  * for each, but the hardware one (kIidHalDevice) says it's hardware.
  */
 void writeDeviceDesc(Cpu &c, uint32_t p, const std::string &iid);
+
+/** Writes the D3DPRIMCAPS at `p` (56 bytes) every device offers, for lines and triangles alike. */
+void writePrimCaps(Cpu &c, uint32_t p);
 
 } // namespace reluva::x86::dx

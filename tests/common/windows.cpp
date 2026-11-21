@@ -563,6 +563,88 @@ static void testUserAndKernelMore() {
     CHECK(!cpu.call(fn("KERNEL32.dll", "OpenMutexA"), {0x1f0001, 0, text("other")}, r) && r == 0);
 }
 
+// DirectX 5's Direct3D, as LEGO Island reaches it: IDirect3D2 from the
+// DirectDraw object, its devices listed and found, and a device made on a
+// surface, with its DirectX 5 descriptions.
+static void testDirect3D5() {
+    x86::Cpu cpu(32u << 20);
+    x86::Win32Process process(cpu);
+    x86::DirectX dx(process);
+    dx.modes.push_back({64, 48, 16});
+    uint32_t r = 0;
+    auto mem = [&](uint32_t size) { return process.memory().alloc(size); };
+    auto guid = [&](const char *g) {
+        const uint32_t a = mem(16);
+        x86::ComHost::writeGuid(cpu, a, g);
+        return a;
+    };
+    auto call = [&](uint32_t self, int index, std::vector<uint32_t> args) {
+        args.insert(args.begin(), self);
+        CHECK(!cpu.call(cpu.read32(cpu.read32(self) + 4 * uint32_t(index)), args, r));
+        return r;
+    };
+    const uint32_t out = mem(4);
+    CHECK(!cpu.call(process.provided("DDRAW.dll", "DirectDrawCreate"), {0, out, 0}, r) && r == 0);
+    const uint32_t dd = cpu.read32(out);
+    CHECK(call(dd, 20, {0, 0x11}) == 0);    // SetCooperativeLevel: exclusive, fullscreen
+    CHECK(call(dd, 21, {64, 48, 16}) == 0); // SetDisplayMode
+    CHECK(call(dd, 0, {guid("{6aae1ec1-662a-11d0-889d-00aa00bbb76a}"), out}) == 0);
+    const uint32_t d3d = cpu.read32(out);
+
+    // EnumDevices: emulation, then hardware; each has its flags on its side.
+    std::vector<std::pair<std::string, bool>> devices;
+    const uint32_t callback = cpu.addNative("test!EnumDevices5", [&](x86::Cpu &c) {
+        const bool hardware = c.read32(c.arg(3)) == 204 && c.read32(c.arg(3) + 4) != 0;
+        CHECK(c.read32(c.arg(4)) == 204 && (c.read32(c.arg(4) + 4) != 0) == !hardware);
+        devices.emplace_back(c.string(c.arg(2)), hardware);
+        c.reg[x86::Cpu::EAX] = 1;
+        return 24u;
+    });
+    CHECK(call(d3d, 3, {callback, 0}) == 0);
+    CHECK((devices == std::vector<std::pair<std::string, bool>>{{"RGB Emulation", false}, {"Direct3D HAL", true}}));
+
+    // FindDevice: the hardware one.
+    const uint32_t search = mem(92);
+    std::memset(cpu.memory().data() + search, 0, 92);
+    cpu.write32(search, 92);
+    cpu.write32(search + 4, 0x4); // D3DFDS_HARDWARE
+    cpu.write32(search + 8, 1);
+    const uint32_t found = mem(428);
+    CHECK(call(d3d, 7, {search, found}) == 0 && cpu.read32(found) == 428);
+    CHECK(x86::ComHost::guid(cpu, found + 4) == "{84e63de0-46aa-11cf-816f-0000c020156e}");
+    cpu.write32(search + 4, 0x2); // D3DFDS_GUID: one there isn't
+    x86::ComHost::writeGuid(cpu, search + 16, "{00000000-0000-0000-0000-000000000001}");
+    CHECK(call(d3d, 7, {search, found}) != 0);
+
+    // A device on an offscreen 3D surface.
+    const uint32_t desc = mem(108);
+    std::memset(cpu.memory().data() + desc, 0, 108);
+    cpu.write32(desc, 108);
+    cpu.write32(desc + 4, 0x1 | 0x2 | 0x4); // CAPS, HEIGHT, WIDTH
+    cpu.write32(desc + 8, 48);
+    cpu.write32(desc + 12, 64);
+    cpu.write32(desc + 104, 0x40 | 0x2000); // OFFSCREENPLAIN, 3DDEVICE
+    CHECK(call(dd, 6, {desc, out, 0}) == 0);
+    const uint32_t surface = cpu.read32(out);
+    CHECK(call(d3d, 8, {guid("{84e63de0-46aa-11cf-816f-0000c020156e}"), surface, out}) == 0); // CreateDevice
+    const uint32_t device = cpu.read32(out);
+    const uint32_t hal = mem(204);
+    const uint32_t hel = mem(204);
+    CHECK(call(device, 3, {hal, hel}) == 0 && cpu.read32(hal) == 204 && cpu.read32(hal + 4) != 0 &&
+          cpu.read32(hel + 4) == 0); // GetCaps
+    int formats = 0;
+    const uint32_t onFormat = cpu.addNative("test!EnumTextureFormats5", [&](x86::Cpu &c) {
+        CHECK(c.read32(c.arg(0)) == 108 && c.read32(c.arg(0) + 72) == 32); // a DDSURFACEDESC, its DDPIXELFORMAT
+        ++formats;
+        c.reg[x86::Cpu::EAX] = 1;
+        return 8u;
+    });
+    CHECK(call(device, 9, {onFormat, 0}) == 0 && formats > 0);
+    CHECK(call(device, 12, {out}) == 0 && cpu.read32(out) == d3d);                                   // GetDirect3D
+    CHECK(call(device, 23, {7, 1}) == 0 && call(device, 22, {7, out}) == 0 && cpu.read32(out) == 1); // ZENABLE
+    CHECK(call(device, 10, {}) == 0 && call(device, 11, {}) == 0); // BeginScene, EndScene
+}
+
 static void testDirectX() {
     x86::Cpu cpu(32u << 20);
     x86::Win32Process process(cpu);
@@ -1200,6 +1282,7 @@ static const test::Suite
                {"input", [](const std::filesystem::path &) { testInput(); }},
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
                {"directsound", [](const std::filesystem::path &) { testDirectSound(); }},
+               {"direct3d 5", [](const std::filesystem::path &) { testDirect3D5(); }},
                {"user and kernel, more", [](const std::filesystem::path &) { testUserAndKernelMore(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
            });

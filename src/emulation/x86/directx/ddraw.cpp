@@ -53,7 +53,7 @@ int log2Size(int n) {
 
 const ComInterface *DirectDraw::query(const std::string &iid) {
     Interfaces &i = s->interfaces;
-    for (ComInterface *f : {&i.directDraw7, &i.directDraw4, &i.directDraw2, &i.directDraw, &i.direct3d7})
+    for (ComInterface *f : {&i.directDraw7, &i.directDraw4, &i.directDraw2, &i.directDraw, &i.direct3d7, &i.direct3d2})
         if (iid == f->iid)
             return f;
     return nullptr;
@@ -203,6 +203,8 @@ uint32_t DirectDraw::createSurface(Cpu &c, const ComInterface &iface) {
 std::optional<uint32_t> DirectDraw::invoke(const ComInterface &iface, int index, Cpu &c) {
     if (&iface == &s->interfaces.direct3d7)
         return invoke3d(iface, index, c);
+    if (&iface == &s->interfaces.direct3d2)
+        return invoke3d2(iface, index, c);
     s->finishDraws(); // seldom called, and some change the surfaces (the mode, restoring them)
     const std::string_view m = iface.methods[size_t(index)].name;
     if (m == "CreateSurface")
@@ -349,7 +351,7 @@ DirectX::DirectX(Win32Process &process) : _s(std::make_unique<State>(*this, proc
     dx::Interfaces &i = s->interfaces;
     for (ComInterface *f : {&i.directDraw, &i.directDraw2, &i.directDraw4, &i.directDraw7, &i.surface, &i.surface2,
                             &i.surface3, &i.surface4, &i.surface7, &i.palette, &i.clipper, &i.gammaControl,
-                            &i.direct3d7, &i.device7, &i.vertexBuffer7})
+                            &i.direct3d2, &i.direct3d7, &i.device2, &i.device7, &i.vertexBuffer7})
         s->com.define(*f);
     const char *dll = "DDRAW.dll";
     Cpu &c = process.cpu();

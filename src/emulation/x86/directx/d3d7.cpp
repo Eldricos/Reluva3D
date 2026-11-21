@@ -57,6 +57,8 @@ const DeviceKind kDevices[] = {
     {"Microsoft Direct3D Hardware acceleration through Direct3D HAL", "Direct3D HAL", kIidHalDevice, true},
 };
 
+} // namespace
+
 void writePrimCaps(Cpu &c, uint32_t p) {
     const uint32_t v[14] = {
         56,
@@ -76,8 +78,6 @@ void writePrimCaps(Cpu &c, uint32_t p) {
     for (uint32_t i = 0; i < 14; ++i)
         c.write32(p + 4 * i, v[i]);
 }
-
-} // namespace
 
 void writeDeviceDesc(Cpu &c, uint32_t p, const std::string &iid) {
     std::memset(c.memory().data() + p, 0, 236);
@@ -326,6 +326,8 @@ Device::Device(DirectX::State *state, std::shared_ptr<Surface> renderTarget) : t
 }
 
 const ComInterface *Device::query(const std::string &iid) {
+    if (iid == s->interfaces.device2.iid)
+        return &s->interfaces.device2;
     return iid == s->interfaces.device7.iid ? &s->interfaces.device7 : nullptr;
 }
 
@@ -336,6 +338,11 @@ void Device::setRenderState(uint32_t state, uint32_t value) {
 
 std::optional<uint32_t> Device::invoke(const ComInterface &iface, int index, Cpu &c) {
     const std::string_view m = iface.methods[size_t(index)].name;
+    // DirectX 5's interface: its own methods there, the rest as DirectX 7's
+    // of the same name, which take the same arguments.
+    if (&iface == &s->interfaces.device2)
+        if (std::optional<uint32_t> r = invoke2(m, c))
+            return r;
     if (m == "GetCaps") {
         writeDeviceDesc(c, c.arg(1), kIidHalDevice);
         return kDDOk;

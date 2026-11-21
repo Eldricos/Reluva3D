@@ -20,7 +20,9 @@ const char *const kIidSurface7 = "{06675a80-3b9b-11d2-b92f-00609797ea5b}";
 const char *const kIidPalette = "{6c14db84-a733-11ce-a521-0020af0be560}";
 const char *const kIidClipper = "{6c14db85-a733-11ce-a521-0020af0be560}";
 const char *const kIidGammaControl = "{69c11c3e-b46b-11d1-ad7a-00c04fc29b4e}";
+const char *const kIidDirect3D2 = "{6aae1ec1-662a-11d0-889d-00aa00bbb76a}";
 const char *const kIidDirect3D7 = "{f5049e77-4861-11d2-a407-00a0c90629a8}";
+const char *const kIidDevice2 = "{93281501-8cf8-11d0-89ab-00a0c9054129}";
 const char *const kIidDevice7 = "{f5049e79-4861-11d2-a407-00a0c90629a8}";
 const char *const kIidVertexBuffer7 = "{f5049e7d-4861-11d2-a407-00a0c90629a8}";
 const char *const kIidHalDevice = "{84e63de0-46aa-11cf-816f-0000c020156e}";
@@ -146,12 +148,50 @@ Interfaces::Interfaces() {
                      {"IsClipListChanged", 1},
                      {"SetClipList", 2},
                      {"SetHWnd", 2}})};
+    direct3d2 = {"IDirect3D2", kIidDirect3D2,
+                 with({{"EnumDevices", 2},
+                       {"CreateLight", 2},
+                       {"CreateMaterial", 2},
+                       {"CreateViewport", 2},
+                       {"FindDevice", 2},
+                       {"CreateDevice", 3}})};
     direct3d7 = {"IDirect3D7", kIidDirect3D7,
                  with({{"EnumDevices", 2},
                        {"CreateDevice", 3},
                        {"CreateVertexBuffer", 3},
                        {"EnumZBufferFormats", 3},
                        {"EvictManagedTextures", 0}})};
+    device2 = {"IDirect3DDevice2", kIidDevice2,
+               with({{"GetCaps", 2},
+                     {"SwapTextureHandles", 2},
+                     {"GetStats", 1},
+                     {"AddViewport", 1},
+                     {"DeleteViewport", 1},
+                     {"NextViewport", 3},
+                     {"EnumTextureFormats", 2},
+                     {"BeginScene", 0},
+                     {"EndScene", 0},
+                     {"GetDirect3D", 1},
+                     {"SetCurrentViewport", 1},
+                     {"GetCurrentViewport", 1},
+                     {"SetRenderTarget", 2},
+                     {"GetRenderTarget", 1},
+                     {"Begin", 3},
+                     {"BeginIndexed", 5},
+                     {"Vertex", 1},
+                     {"Index", 1},
+                     {"End", 1},
+                     {"GetRenderState", 2},
+                     {"SetRenderState", 2},
+                     {"GetLightState", 2},
+                     {"SetLightState", 2},
+                     {"SetTransform", 2},
+                     {"GetTransform", 2},
+                     {"MultiplyTransform", 2},
+                     {"DrawPrimitive", 5},
+                     {"DrawIndexedPrimitive", 7},
+                     {"SetClipStatus", 1},
+                     {"GetClipStatus", 1}})};
     device7 = {"IDirect3DDevice7", kIidDevice7,
                with({{"GetCaps", 1},
                      {"EnumTextureFormats", 2},

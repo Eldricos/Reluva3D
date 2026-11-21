@@ -15,7 +15,7 @@ documentation. It's all in `src/emulation/x86/`.
 | [cpu.md](cpu.md) | The processor: the integer instructions, the x87 unit, native functions, and the decoded-instruction cache |
 | [jit.md](jit.md) | Native code for the cache's blocks, on x86-64 |
 | [windows.md](windows.md) | A Windows process: loading, KERNEL32, files, MSVCRT, USER32 and GDI32, the registry, COM, input, threads |
-| [directx.md](directx.md) | DirectDraw, Direct3D 7 (in software) and DirectInput |
+| [directx.md](directx.md) | DirectDraw, Direct3D 5 and 7 (in software) and DirectInput |
 | [directsound.md](directsound.md) | DirectSound, on Reluva's mixer |
 | [a3d.md](a3d.md) | Aureal A3D, on Reluva's mixer |
 | [msvcp60.md](msvcp60.md) | Visual C++ 6's C++ library, rebuilt with its layouts |
