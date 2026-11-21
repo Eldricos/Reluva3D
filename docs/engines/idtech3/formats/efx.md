@@ -187,10 +187,15 @@ The client game's own primitives work the same way: lines and sprites
 (white, fading as asked), polygons of up to four corners (moving after a
 delay, turning as they go), curves (a cubic Bézier of 16 pieces facing
 the eye, fading to nothing along its length, its control points moving)
-and a saber's trail (two triangles, their texture sliding as it fades;
-the second's first two corners keep the first's alphas, as the GPL
-source's one array of corners does *(inferred)*: jk2mp.exe's own code
-wasn't traced).
+and a saber's trail (two triangles, their texture sliding as it fades).
+The trail's corners are the new muzzle, new tip, old tip and old muzzle,
+each with its own alpha. The first triangle is new muzzle, new tip, old
+muzzle. The second reuses the first's three corners and sets each one's
+position, texture and colour again, but sets an alpha only for its first.
+So it is old muzzle with the new tip's alpha, old tip with the new tip's
+alpha, and new tip with the old muzzle's *(confirmed: jk2mp.exe 0x413d50,
+the second triangle from 0x413eb8; single player's game DLL 0x200516e0,
+from 0x20051848)*.
 
 In Jedi Outcast multiplayer's renderer an effect's sizes sit in
 `refEntity_t`'s common part: a line's or electricity's width in its

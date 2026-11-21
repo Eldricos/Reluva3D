@@ -691,8 +691,8 @@ static void testEffects() {
     fx.setTime(7100, {-100, 0, 0}, view);
     fx.run(frame);
     CHECK(boltAsks == asked && fx.live() == 0 && !sprite());
-    // A saber's trail: two triangles, the second's first two corners
-    // with the first's alphas.
+    // A saber's trail: two triangles, the second's corners with the new
+    // tip's, the new tip's and the old muzzle's alphas.
     std::array<EffectSystem::TrailVertex, 4> corners{};
     for (size_t i = 0; i < 4; ++i)
         corners[i].alpha = float(10 * (i + 1));
@@ -704,7 +704,7 @@ static void testEffects() {
         const auto &first = frame.polys[0].vertices;
         const auto &second = frame.polys[1].vertices;
         CHECK(first[0].rgba[3] == 10 && first[1].rgba[3] == 20 && first[2].rgba[3] == 40);
-        CHECK(second[0].rgba[3] == 10 && second[1].rgba[3] == 20 && second[2].rgba[3] == 20);
+        CHECK(second[0].rgba[3] == 20 && second[1].rgba[3] == 20 && second[2].rgba[3] == 40);
     }
     fx.clear();
     CHECK(fx.live() == 0 && fx.registered() == 0);

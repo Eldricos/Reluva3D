@@ -82,16 +82,15 @@ What Reluva does that hasn't been checked against the running original.
   in-game cinematic's flag and the client's state
   ([systems/sp-saves.md](systems/sp-saves.md)).
 
-- A saber's trail's second triangle keeps the first's alphas for its
-  first two corners, as the GPL source's one array of corners would;
-  jk2mp.exe's own trail code wasn't traced
-  ([efx.md](../../formats/efx.md)).
-
 ## Guessed
 
 Nothing at present.
 
 ## Settled
+
+- A saber's trail's second triangle takes its alphas from the first's
+  corners as jk2mp.exe (0x413d50) and single player's game DLL
+  (0x200516e0) leave them ([efx.md](../../formats/efx.md)).
 
 - `videoMap` textures play their video: kejim_post's Mon Mothma
   hologram (`textures/video/mon_mothma`) matched the original's

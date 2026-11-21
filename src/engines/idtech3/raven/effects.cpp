@@ -859,15 +859,19 @@ void EffectSystem::draw(Live &l, Frame &out) {
             v[i].rgba = {uint8_t(std::clamp(t.rgb[0], 0.0f, 255.0f)), uint8_t(std::clamp(t.rgb[1], 0.0f, 255.0f)),
                          uint8_t(std::clamp(t.rgb[2], 0.0f, 255.0f)), uint8_t(std::clamp(t.alpha, 0.0f, 255.0f))};
         }
-        // The second's first two corners keep the first's alphas: the GPL
-        // source fills one array for both and sets only their colours again
-        // (the executable's own code not traced).
+        // The second reuses the first's corners, giving each its position,
+        // texture and colour again but only the first an alpha, the new
+        // tip's: so the old tip keeps the new tip's alpha and the new tip
+        // the old muzzle's (jk2mp.exe 0x413eb8, single player's game DLL
+        // 0x20051848).
         out.polys.push_back({l.media, {v[0], v[1], v[3]}});
         PolyVertex oldMuzzle = v[3];
         PolyVertex oldTip = v[2];
-        oldMuzzle.rgba[3] = v[0].rgba[3];
+        PolyVertex newTip = v[1];
+        oldMuzzle.rgba[3] = v[1].rgba[3];
         oldTip.rgba[3] = v[1].rgba[3];
-        out.polys.push_back({l.media, {oldMuzzle, oldTip, v[1]}});
+        newTip.rgba[3] = v[3].rgba[3];
+        out.polys.push_back({l.media, {oldMuzzle, oldTip, newTip}});
         return;
     }
     }
