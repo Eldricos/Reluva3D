@@ -68,8 +68,12 @@ What Reluva does that hasn't been checked against the running original.
   swamp's grass sprites hid what stood behind them), and list columns
   and edit fields limited by letters instead of pixels. Still open: the
   datapad's frame (`gfx/hud/datapad2`, 1024 x 1024, drawn at 640 x 480)
-  looks softer in the original, as if it shrank through mipmaps, though
-  the client game registers it without them; why isn't known.
+  looks softer in the original, as if it shrank through mipmaps, and
+  the Force page's icons (128 x 128, drawn far smaller) have a wider blue
+  halo there. The client game registers the frame without mipmaps (its
+  call 43, `R_RegisterShaderNoMip`; jk2sp.exe passes the flag at
+  0x47fe04), so why isn't known: something else in how the original
+  uploads or filters its images.
 - The network protocol beyond its tables and Huffman code (which are
   jk2mp.exe's own): a match played against the retail game both ways,
   on Windows (November 2026), Reluva hosting and joining
