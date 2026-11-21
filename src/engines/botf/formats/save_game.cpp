@@ -144,6 +144,7 @@ Error readSystems(const std::vector<uint8_t> &d, SavedGalaxy &g) {
             s.workers[i] = s32(d, at + 0x54 + 4 * i);
         s.buildOrder = s32(d, at + 0x80);
         s.building = s16(d, at + 0x88);
+        s.ship = s16(d, at + 0x90);
         // Kept as ten times what the screen shows.
         s.maxPopulation = s32(d, at + 0xBC) / 10;
         s.mapX = s32(d, at + 0x78);
@@ -155,6 +156,10 @@ Error readSystems(const std::vector<uint8_t> &d, SavedGalaxy &g) {
                             size_t(tradeRoutes) * 4 + (s.control == 2 ? kProductionQueueSize : 0);
         if (d.size() - at < size)
             return Error::fail("systInfo ends in a system");
+        // The production queue is the record's last part; its last word
+        // says the first item is to be bought.
+        if (s.control == 2)
+            s.buying = s32(d, at + size - 4) != 0;
         for (int i = 0; i < planets; ++i) {
             const size_t p = at + kSystemSize + size_t(i) * kPlanetSize;
             SavedPlanet planet;
@@ -244,6 +249,30 @@ Error readSavedGalaxy(const std::filesystem::path &path, SavedGalaxy &galaxy) {
     for (const SavedSector &s : galaxy.sectors)
         if (s.system >= int(galaxy.systems.size()) || s.stellarObject >= int(galaxy.stellarObjects.size()))
             return Error::fail(path.string() + ": a sector has a system or object that isn't there");
+    return Error::success();
+}
+
+Error readSavedEmpires(const std::filesystem::path &path, std::array<SavedEmpire, 5> &empires) {
+    empires = {};
+    std::vector<uint8_t> info;
+    if (Error err = readFiles(path, {"empsInfo"}, {&info}))
+        return err;
+    // A 444-byte entry an empire: its name and its leader's, then the
+    // turn's figures as they are now (0x54) and as the turn began (0x98).
+    constexpr size_t kEmpireSize = 444;
+    if (info.size() < empires.size() * kEmpireSize)
+        return Error::fail(path.string() + ": empsInfo is too small");
+    for (size_t e = 0; e < empires.size(); ++e) {
+        const size_t at = e * kEmpireSize;
+        SavedEmpire &m = empires[e];
+        m.name = field(info, at, 40);
+        m.leader = field(info, at + 40, 40);
+        m.credits = s32(info, at + 0x54);
+        m.creditsPerTurn = s32(info, at + 0x58);
+        m.dilithiumPerTurn = s32(info, at + 0x60);
+        m.researchPoints = s32(info, at + 0x68);
+        m.population = s32(info, at + 0x6C);
+    }
     return Error::success();
 }
 

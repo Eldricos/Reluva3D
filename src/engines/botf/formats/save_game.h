@@ -54,8 +54,10 @@ struct SavedSystem {
      * intelligence, in that order: 10 for each building manned.
      */
     std::array<int, 5> workers{};
-    int buildOrder = 0; // what it's building: 1 a building, 5 trade goods (others not yet seen)
-    int building = 0;   // with build order 1, the building's edifice.bst number
+    int buildOrder = 0;  // what it's building: 1 a building, 3 a ship, 5 trade goods (others not yet seen)
+    int building = 0;    // with build order 1, the building's edifice.bst number
+    int ship = 0;        // with build order 3, the ship's shiplist.sst number
+    bool buying = false; // the player's: the item being built is to be bought this turn
     /** Where it's drawn on the galaxy's small map, in its pixels: 5 a sector. */
     ///@{
     int mapX = 0;
@@ -106,6 +108,20 @@ struct SavedGalaxy {
  * @return An error if one is missing, or they don't agree with each other.
  */
 Error readSavedGalaxy(const std::filesystem::path &path, SavedGalaxy &galaxy);
+
+/** A major empire's state, as the galaxy screen's empire panel shows it. */
+struct SavedEmpire {
+    std::string name;   // UTF-8: "the United Federation of Planets"
+    std::string leader; // UTF-8: "the Federation President"
+    int credits = 0;    // its treasury now, after what's been bought this turn
+    int creditsPerTurn = 0;
+    int dilithiumPerTurn = 0;
+    int researchPoints = 0; // a turn's research, all fields together
+    int population = 0;     // all its systems'
+};
+
+/** Reads the five major empires, Cardassians to Romulans, from the saved game at `path` (its empsInfo file). */
+Error readSavedEmpires(const std::filesystem::path &path, std::array<SavedEmpire, 5> &empires);
 
 /** A task force: ships moving together, a single ship being one. */
 struct SavedTaskForce {

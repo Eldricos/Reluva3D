@@ -165,8 +165,9 @@ fixed part's fields read:
 | 0x6A | `i16` | its planets |
 | 0x6C | `i16` | its specials: 0 in every system seen |
 | 0x6E | `i16` | its natural dilithium *(published)* |
-| 0x80 | `i32` | what it's building: 5 trade goods, 1 a building (Sol's after a Type 2 Databank was queued) |
+| 0x80 | `i32` | what it's building: 5 trade goods, 1 a building (Sol's after a Type 2 Databank was queued), 3 a ship (after a destroyer was) |
 | 0x88 | `i16` | with 1 there, the building's `edifice.bst` number: 154, "Type 2 Databank" |
+| 0x90 | `i16` | with 3 there, the ship's `shiplist.sst` number: 30, the Miranda class Destroyer |
 | 0xBC | `i32` | its maximum population, ten times what the screen shows: Sol's 3,350 for 335 |
 | 0x78, 0x7C | `i32` | where it's drawn on the galaxy's small map, 5 pixels a sector: Acamar, in column 6 and row 0, at 32, 3 |
 | 0x308, 0x309 | `u8` | its trade routes, coming in and its own |
@@ -181,8 +182,11 @@ has passed, the fields the turn works out (output, consumption, the
 workers' shares) are all 0: the system screen works them out itself
 then, and the save a turn later has the screen's numbers (Sol's food 357,
 energy 265 less 55, industry 234, research 34). The player's production
-queue, at the end, starts with the first item's build order (as at 0x80)
-and, 8 bytes in, its building: they changed with the databank queued.
+queue, at the end, starts with the first item's build order (as at 0x80),
+8 bytes in its building and 16 bytes in its ship: they changed with the
+databank and the destroyer queued. Its last word is 1 when the first item
+is bought this turn (the editor's "buy first"): it was after the user
+bought the databank.
 
 **`stellInfo`**, 88 bytes an object:
 
@@ -192,6 +196,26 @@ and, 8 bytes in, its building: they changed with the databank queued.
 | 0x04 | `char[40]` | its name, by its sector's column letter and row from 1: "Black Hole C4" |
 | 0x2C | `char[20]` | its picture: empty in the tutorials |
 | 0x44, 0x48 | `i32` | where it's drawn on the small map, as a system: "Black Hole C4" at 12, 17 |
+
+### The empires
+
+`empsInfo` holds the five major empires, Cardassians first, in 444-byte
+entries. Read as the editor gives them (`EmpsInfo.java`), checked against
+the galaxy screen's empire panel in five of the saves:
+
+| Offset | Type | Field |
+|---|---|---|
+| 0x00 | `char[40]` | its name: "the United Federation of Planets" |
+| 0x28 | `char[40]` | its leader's: "the Federation President" |
+| 0x54 | `i32` | its credits now: 2,000 at the start, 1,835 once the databank was bought, 2,086 a turn later, 2,449 five turns later, as the panel's total credits |
+| 0x58 | `i32` | its credits a turn: 86, 70 with the databank or a destroyer in the queue instead of trade goods, 88, 92 |
+| 0x60 | `i32` | its dilithium a turn: 1. The panel shows 0 with the destroyer queued, while the file still has 1 |
+| 0x68 | `i32` | its research points a turn: 34, as Sol's research; 0 in the save at the very start, before a turn has worked them out |
+| 0x6C | `i32` | its population, all its systems': 310, 320, 335 |
+| 0x98 to 0xB0 | `i32[7]` | the same seven figures as they were when the turn began: buying lowers the credits at 0x54 and not those at 0x98 |
+
+At the start the empires' credits as the turn began were 800, 2,000,
+1,600, 1,000 and 1,200, Cardassians to Romulans, on Simple difficulty.
 
 ### Research
 
@@ -234,12 +258,15 @@ too.
 Saves from one game (Federation, small galaxy, few minor races, Simple,
 random events off), each made from the first: as it started; a turn
 later; with a building queued at Sol; with a ship ordered to move, and a
-turn after that; and with the research shares changed. Saved again
+turn after that; with the research shares changed; with a worker moved;
+with the databank bought; with a destroyer queued; five turns later.
+Saved again
 without a change, a game's `SeedInfo`, `gameInfo`, `empsInfo`,
 `ordInfo`, `result.lst`, `AIAgent0` to `AIAgent6` and the four list heads
 (`GShipHead`, `GTForceHd`, `GWTForceHd`, `GTFStasisHd`) change anyway.
-Beyond those, queuing a building changed only `systInfo`, an order only
-`GWTForce`, the research shares only `techinfo`; a turn changes most
+Beyond those, queuing a building, buying it and queuing a ship each
+changed only `systInfo`, an order only `GWTForce`, the research shares
+only `techinfo`; a turn changes most
 files, and adds the AI's tasks (`AITask#`, `TskSh#`, `TskSy#`).
 
 ## In Reluva
@@ -252,11 +279,12 @@ player's empire; on `game0.sav` it gives "game0.sav", "Tutorial #1", turn
 `decompressLzss` takes the window's fill. The unit tests
 (`botf.unit.archives`: "lzss" and "saved games") cover both.
 
-`readSavedTaskForces` reads the task forces in use, and
-`readSavedResearch` each empire's research shares; on the user's saves
+`readSavedEmpires` reads the five empires' figures; on the user's saves
+they're the empire panel's. `readSavedTaskForces` reads the task forces
+in use, and `readSavedResearch` each empire's research shares; on the user's saves
 they give the Federation's ship ordered west and the shares as the
-research screen shows them. The unit tests ("saved fleets and research")
-cover both.
+research screen shows them. The unit tests ("saved empires, fleets and
+research") cover the three.
 
 `readSavedGalaxy` reads the galaxy's four files, and refuses a save whose
 files don't agree: counts that differ from `galInfo`'s, a sector out of
@@ -285,8 +313,9 @@ layout.
   the systems' and objects' sectors agreeing with their map positions and
   their names' column letters and rows. The fields since, on seven saves
   of one new game the user made a change apart, with screenshots of the
-  system, research and galaxy screens for each, November 2026 (the
-  pairs are listed above). The unit tests use files built to
+  system, research and galaxy screens for each, and four more (a
+  worker moved, the databank bought, a destroyer queued, five turns
+  passed), November 2026 (the pairs are listed above). The unit tests use files built to
   this layout, not the game's. The window's fill is from the editor alone.
 
 ## Open questions
@@ -302,10 +331,12 @@ layout.
   `auto.sav`): the game writes both, with the same time, once a game
   started or loaded has passed a turn, but moving `Last.sav` away changes
   nothing that shows (the user, in the game).
-- Where a change to a system's workers is kept: the save made after
-  moving one changed only `systInfo`'s 0x314 (a flag the editor calls
-  "update worker assignments"), and its screenshot is the first's, so the
-  move may not have been made.
+- Where a change to a system's workers is kept. Twice, saves made after
+  taking a replicator's workers away (the second's screenshot shows
+  industry down from 234 to 218) changed only `systInfo`'s 0x314, a flag
+  the editor calls "update worker assignments", and not the workers: so
+  the game may work the assignment out again on loading. Settled by
+  loading such a save and looking at the system's production.
 - What `systInfo`'s value at 0x04 means for the computer's systems, and
   `galInfo`'s first 8 bytes.
 - The rest of `gameInfo`, of the galaxy's files, and every other file in
