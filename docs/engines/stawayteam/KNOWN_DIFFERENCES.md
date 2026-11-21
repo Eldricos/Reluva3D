@@ -38,9 +38,11 @@ None yet.
   anything yet
   ([systems/menus.md](systems/menus.md)).
 - **Maps:** the ground's values spread straight across a cell, not by
-  the program's fractal; water's warping, the minimap, the interface
-  around the view and the map's song aren't there; only models'
-  first directions are drawn
+  the program's fractal; water's warping and the map's song aren't
+  there; the map's models are drawn in their first direction; the
+  camera starts on the team, as the camera's scripts would take it; the
+  interface's buttons do nothing yet, and the team only stands and
+  walks
   ([systems/maps.md](systems/maps.md#in-reluva)).
 - **The briefing:** the items found in earlier missions aren't
   described after the lines, the text has no scroll bar (the mouse wheel

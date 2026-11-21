@@ -3,7 +3,13 @@
 
 #include "engines/stawayteam/game/map.h"
 
+#include "engines/stawayteam/formats/binary_object.h"
 #include "engines/stawayteam/formats/text_object.h"
+
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <queue>
 
 #include <cstdlib>
 
@@ -97,6 +103,12 @@ Error loadMap(const Archive &data, const std::string &path, GameMap &out) {
             const TextObject &o = *field.object;
             MapPart part;
             part.className = field.value;
+            part.name = text(o, "Name");
+            // A spawn point's facing, in its AI (CSpawnPointAI).
+            if (const TextObject *activity = o.object("Activity"))
+                for (const TextField *ai : activity->items())
+                    if (ai->object && ai->object->number("Facing Angle"))
+                        part.facing = float(*ai->object->number("Facing Angle"));
             part.model = text(o, "Model");
             part.sequence = text(o, "Cur Sequence");
             part.x = float(o.number("Position X").value_or(0.0));
@@ -110,6 +122,79 @@ Error loadMap(const Archive &data, const std::string &path, GameMap &out) {
             out.parts.push_back(std::move(part));
         }
     return Error::success();
+}
+
+Error loadWayPoints(const Archive &data, const std::string &path, WayPoints &out) {
+    std::vector<uint8_t> bytes;
+    if (Error err = data.read(path, bytes))
+        return err;
+    BinaryObject object;
+    if (Error err = readBinaryObject(bytes.data(), bytes.size(), "CWayPointMap", object))
+        return Error::fail(path + ": " + err.message);
+    out.points.clear();
+    for (const WayPoint &p : object.wayPoints)
+        out.points.push_back({float(p.x), float(p.y), {}});
+    for (const PathLine &line : object.lines) {
+        const int n = int(out.points.size());
+        if (line.a < 0 || line.b < 0 || line.a >= n || line.b >= n)
+            continue;
+        out.points[size_t(line.a)].neighbours.push_back(line.b);
+        out.points[size_t(line.b)].neighbours.push_back(line.a);
+    }
+    return Error::success();
+}
+
+int WayPoints::nearest(float x, float y) const {
+    int best = -1;
+    float bestDistance = std::numeric_limits<float>::max();
+    for (size_t i = 0; i < points.size(); ++i) {
+        const float dx = points[i].x - x;
+        const float dy = points[i].y - y;
+        if (dx * dx + dy * dy < bestDistance) {
+            bestDistance = dx * dx + dy * dy;
+            best = int(i);
+        }
+    }
+    return best;
+}
+
+std::vector<std::pair<float, float>> WayPoints::path(float x0, float y0, float x1, float y1) const {
+    // A* over the lines, by their lengths (inferred: the program's own
+    // search isn't traced).
+    const int from = nearest(x0, y0);
+    const int to = nearest(x1, y1);
+    if (from < 0 || to < 0)
+        return {};
+    const auto distance = [&](int a, int b) {
+        return std::hypot(points[size_t(a)].x - points[size_t(b)].x, points[size_t(a)].y - points[size_t(b)].y);
+    };
+    std::vector<float> cost(points.size(), std::numeric_limits<float>::max());
+    std::vector<int> came(points.size(), -1);
+    using Entry = std::pair<float, int>;
+    std::priority_queue<Entry, std::vector<Entry>, std::greater<>> open;
+    cost[size_t(from)] = 0.0f;
+    open.push({distance(from, to), from});
+    while (!open.empty()) {
+        const int at = open.top().second;
+        open.pop();
+        if (at == to)
+            break;
+        for (int next : points[size_t(at)].neighbours) {
+            const float c = cost[size_t(at)] + distance(at, next);
+            if (c < cost[size_t(next)]) {
+                cost[size_t(next)] = c;
+                came[size_t(next)] = at;
+                open.push({c + distance(next, to), next});
+            }
+        }
+    }
+    if (from != to && came[size_t(to)] < 0)
+        return {};
+    std::vector<std::pair<float, float>> out = {{x1, y1}};
+    for (int at = to; at >= 0; at = came[size_t(at)])
+        out.emplace_back(points[size_t(at)].x, points[size_t(at)].y);
+    std::reverse(out.begin(), out.end());
+    return out;
 }
 
 } // namespace reluva::stawayteam

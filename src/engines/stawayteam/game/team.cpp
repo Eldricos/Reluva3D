@@ -91,6 +91,8 @@ Error loadRoster(const Archive &data, std::vector<TeamMember> &out) {
             m.race = text(frame, "Race");
             m.gender = text(frame, "Gender");
             m.headIcon = text(frame, "Head Icon");
+            m.bodyModel = text(frame, "Body Model");
+            m.headModel = text(frame, "Head Model");
         }
         out.push_back(std::move(m));
     }

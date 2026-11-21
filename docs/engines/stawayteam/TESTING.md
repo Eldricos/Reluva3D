@@ -12,7 +12,7 @@ files):
 |---|---|
 | `stawayteam.unit.detection` | Recognising the game: an empty folder and the program alone aren't the game; its two files, whatever they hold, are an unknown release. Importing it: from a CD's `Setup` folder, the files Reluva uses and the movies in their folders, and not the rest; from an install without movies, with a note |
 
-| `stawayteam.unit.maps` | A map read (its size, camera, minimap, song, ground grid, models and polygons); its ground's cells drawn, textures blended by their values and a polygon over them; the camera kept on the map |
+| `stawayteam.unit.maps` | A map read (its size, camera, minimap, song, ground grid, models, spawn points and polygons); its ground's cells drawn, textures blended by their values and a polygon over them; the camera kept on the map; ways found along waypoints' lines, and none where there's none; an officer at their spawn point, walking where sent at the walk's pace |
 | `stawayteam.unit.menus` | Fonts: a line's width with nothing between characters, lower case drawn as capitals in a font without it, control characters left out, others it hasn't got drawn as its first; the credits' lines (comments left out, blank lines kept, long ones cut); the toolkit's widgets (a picture dimmed, a picture button's label, shortcut and click, a toggle's size and click, a frame's sides, a slider's height and dragged value, a check box's size and key); the options' file (defaults, written and read back, the sound's on the mixer); the controls (the actions' defaults as shown, a key taken from another action, a held key, kept and read back, reset); buttons: the `&` left out of the label and its shortcut kept, chosen by the shortcut (not with Ctrl), by a click, and not when let go off it; fonts' lines broken at spaces and line breaks, and beside a picture; the briefing: a mission's lines read, typed out, Space showing a line whole and the next coming, END BRIEFING leaving; the team selection: a roster, its fields, items and item types and a mission read, the team to start with, START MISSION refused while an item is missing and EXIT asking |
 | `stawayteam.unit.formats` | Frames (raw, each kind of run-length code, blended pixels with their alpha, damaged ones), objects in binary (a sequence and its frames, a waypoint map, objects in properties, another version, bytes left over, a class the game doesn't have), objects in text (arrays with and without counts, keys more than once, spaces at values' ends, LF and CRLF, written back as they were, text that isn't an object) and `.RDS` scripts (comments, labels with spaces, paragraphs) |
 
@@ -99,7 +99,11 @@ stawayteam frame-png`.
    MISSION (or END BRIEFING at mission 1) showing the map in the view,
    the ground blended and the models in front of one another as they
    stand, scrolled by the arrows and the mouse at the view's edges, Esc
-   asking before the main menu. With "Opening movies" off, the main menu's screen at once.
+   asking before the main menu; the interface round it, the info bar
+   rising under the mouse with the minimap and the view outlined on it;
+   the team at their spawn points, the first chosen with a marker under
+   them, a click elsewhere sending them walking round the walls, facing
+   the way they go. With "Opening movies" off, the main menu's screen at once.
    With `DATA.dat` missing or damaged, it says so instead.
 3. `reluva-viewer` with the game: the pictures, their colours and
    blended edges right on each background; sequences playing; a

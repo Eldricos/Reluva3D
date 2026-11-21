@@ -1,6 +1,6 @@
 # Star Trek: Away Team: maps
 
-> **Status:** partial · **Code:** `src/engines/stawayteam/game/map.cpp`, `src/engines/stawayteam/ui/map_screen.cpp`, `src/engines/stawayteam/ui/animation.cpp` · **Checked against:** the code only; Reluva's run on the US English retail install's files · **Confidence:** from the code unless marked
+> **Status:** partial · **Code:** `src/engines/stawayteam/game/map.cpp`, `src/engines/stawayteam/ui/map_screen.cpp`, `src/engines/stawayteam/ui/game_hud.cpp`, `src/engines/stawayteam/ui/animation.cpp` · **Checked against:** the code only; Reluva's run on the US English retail install's files · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -82,6 +82,54 @@ others. They share `Visible`, `Collideable` and the rest; then:
   `Warped` 29), `YSort`, and a textured one's `Static Texture`, an
   `Animated Texture` and a `Warp Effect` (water).
 
+### The interface
+
+Around the view, each at its place in Rules.txt's Custom Rules (a
+`CStarTrekCustomRules`, read at `0x599b00`), its pictures in
+`Interface/Screens/<part>`:
+
+- **The team bar** (`0x5e18f0`, drawn at `0x5e3290`) at `Team Pos`: for
+  each officer, `Team Icon Spacing` apart from `Team Icon Pos`, the
+  `Member Background`; their name, first and last, in their field's
+  colour (Command and Security Trek Small Red, Engineering Trek Small
+  Gold, Medical and Science Trek Small) at `Team Field Offset`; their head
+  icon centred on `Team Icon Offset`; and `Health Bar Foreground` over
+  its background at `Team Health Offset`, filled from the bottom as far
+  as their health (`0x5e2f50`).
+- **The button box** at `Button Box Pos`: the move, vision, sound,
+  select-all, objectives and options buttons, and CANCEL ORDERS.
+- **The info bar** (`0x4de730`) at `Info Pos`, under the screen's bottom,
+  `Info Bar Visible` (60) rows of it showing, sliding up over `Info Bar
+  Popup Time` (0.25 s) to show the rest (`0x4de991`): its open button,
+  and the minimap (`0x4dddc0`) on `MiniMap Background` at `Info MiniMap
+  Pos`, the map's minimap picture centred on `Info MiniMap Map Center
+  Pos`.
+- **The inventory** at `Inventory Pos`: the chosen officer's items along
+  its bar, `Inventory Icon Size` and `Inventory Icon Spacing` apart from
+  `Inventory Bar Offset`, between its previous and next buttons.
+- **The pause button** at `Pause Pos`.
+
+### The team on the map
+
+- **Where they start:** the map's spawn points, `Model=Editor/Spawn
+  Point` parts named `Away Team Spawn Point 1` to `6`, hidden, each with
+  a `CSpawnPointAI` facing them (`Facing Angle=225`).
+- **What they look like:** the officer's portrait's definition names a
+  `Body Model` and a `Head Model` (`Characters/Generic Male Body`,
+  `Characters/Head Cpt Marcus Refelian`). Each has the same sequences
+  (`Idle`, `Walk`, `Run`, `Crouch`...), 12 directions each; the head is
+  drawn over the body frame for frame (the body's entity's `Overlay
+  Model`), a `<sequence> Shadow` under them. Direction 0 faces left, and
+  they turn anticlockwise on the screen: 3 faces the viewer, 6 right, 9
+  away, as the frames show.
+- **Walking:** a moving sequence's frames say how far it goes
+  ([formats/binary-object.md](../formats/binary-object.md)): the
+  Generic Male Body's walk 26 pixels across, or 19 down, a 10-frame cycle
+  at 14 frames a second.
+- **The waypoints** (`<map>.way`, a `CWayPointMap`): points
+  `MinDistBetweenWayPoints` (15) apart over where walkers can go, lines
+  joining those within `MaxDistToConnect` (29).
+
 ## In Reluva
 
 `loadMap` (`game/map.cpp`) reads a map's size, camera, minimap and song,
@@ -104,10 +152,32 @@ its ground, and its parts' models, places and polygons. `MapScreen`
   edges, at the options' Scroll Speed in pixels a second *(inferred)*.
   Esc asks before going back to the main menu.
 
+The interface (`GameHud`, `ui/game_hud.cpp`) around it, its parts at
+Rules.txt's places: the team bar with each officer's slot, name, head and
+health (whole, as nothing hurts them yet), the chosen one's slot lit
+*(inferred)*; the button box's buttons as they start *(inferred)*; the
+info bar rising while the mouse is over it *(inferred)*, its minimap with
+the view outlined, a click on it moving the view there *(inferred)*; the
+chosen officer's items in the inventory; and the pause button.
+
+The team, the team selection's or, without one, the officers the mission
+says start, at the spawn points, the first at point 1 *(inferred)*, the
+camera on the first (the camera's scripts that take it there aren't
+there yet). Each is drawn from their body, its shadow and their head,
+standing (`Idle`, by the time) or walking, in front of and behind the
+map's models as they stand; the one chosen has the selection's marker
+(`Interface/Selection`) under them. A click on an officer, or their slot
+on the team bar, chooses them, a double click on the slot shows them; a
+click elsewhere on the map sends the one chosen walking there *(inferred:
+the game's mouse isn't traced)*, by the waypoints (`loadWayPoints`, the
+shortest way along their lines by A*, then straight to the place
+*(inferred)*), facing the way they go, at their walk's own pace, its
+frames by how far into its cycle they are *(inferred)*.
+
 A new game reaches it after the briefing (mission 1) or the team
-selection's START MISSION. Not there yet: the interface around the view,
-the minimap, the map's song, the team, the camera's scripts, and
-everything that moves.
+selection's START MISSION. Not there yet: the interface's buttons, the
+map's song, the camera's scripts, running and crouching, walkers going
+round each other, and everyone else on the map.
 
 ## Sources and checks
 
@@ -118,10 +188,14 @@ everything that moves.
   Klingon Outpost at its start and scrolled: the paving, dirt and dead
   grass blending, walls, buildings and crates in place and in front of
   one another as they stand; the whole ground drawn small, beside the
-  map's minimap. Not yet against the original running. Unit tests
-  (`stawayteam.unit.maps`) read a map made in the test, and check a
-  cell's textures blended by its values, a polygon on it, and the
-  camera kept on the map.
+  map's minimap; the interface around the view, the info bar rising under
+  the mouse with the minimap; the team at their spawn points, Marcus
+  Refelian chosen and walking where clicked, round the walls. Not yet
+  against the original running. Unit tests (`stawayteam.unit.maps`) read
+  a map made in the test, and check a cell's textures blended by its
+  values, a polygon on it, the camera kept on the map, a way found along
+  the waypoints' lines, and an officer at their spawn point walking where
+  sent.
 
 ## Open questions
 
@@ -133,3 +207,7 @@ everything that moves.
 - **Drawing order:** how the program sorts the models, and what
   `YSort` and `Rendering Height` do.
 - **Shadows**, and the `Trans` colours: whether the game shows those.
+- **The team:** which spawn point each officer takes, `Facing Angle`'s
+  degrees as the directions' (90 the viewer's way), the game's path
+  finding, its mouse (which button chooses and which sends), the info
+  bar's rising, and the frames' movement as a walk's pace.

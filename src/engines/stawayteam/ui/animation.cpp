@@ -8,6 +8,7 @@
 #include "engines/stawayteam/ui/widgets.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace reluva::stawayteam {
 
@@ -34,20 +35,43 @@ Error Animation::load(const Archive &data, const std::string &name, const std::s
     fps = float(seq->object.number("Frames Per Second").value_or(15.0));
     // A rotation sequence keeps each direction's frames together, the
     // first direction's first (formats/binary-object.md).
-    const size_t rotations = size_t(std::max(1L, seq->object.integer("Num Rotations").value_or(1)));
-    const size_t perDirection = std::max<size_t>(1, seq->sequence->frames.size() / rotations);
     frames.clear();
-    for (size_t i = 0; i < perDirection && i < seq->sequence->frames.size(); ++i)
-        if (const auto &frame = seq->sequence->frames[i])
-            frames.push_back({frameImage(*frame), frame->originX, frame->originY});
+    for (const auto &frame : seq->sequence->frames)
+        frames.push_back(frame ? Picture{frameImage(*frame), frame->originX, frame->originY} : Picture{});
+    moves = seq->sequence->frameExtra;
+    const long count = seq->object.integer("Num Rotations").value_or(1);
+    rotations = count > 0 && frames.size() % size_t(count) == 0 ? int(count) : 1;
     return Error::success();
 }
 
-const Animation::Picture *Animation::at(uint64_t ms, int offset) const {
-    if (frames.empty())
+const Animation::Picture *Animation::frame(int frame, int direction) const {
+    const int per = perDirection();
+    if (per == 0)
         return nullptr;
-    const auto n = uint64_t(frames.size());
-    return &frames[size_t((uint64_t(double(ms) * fps / 1000.0) + uint64_t(offset)) % n)];
+    const int d = ((direction % rotations) + rotations) % rotations;
+    const Picture &p = frames[size_t(d * per + ((frame % per) + per) % per)];
+    return p.image.w ? &p : nullptr;
+}
+
+const Animation::Picture *Animation::at(uint64_t ms, int offset, int direction) const {
+    return frame(int(uint64_t(double(ms) * fps / 1000.0) % 1000000) + offset, direction);
+}
+
+float Animation::cycleDistance(int direction) const {
+    const int per = perDirection();
+    if (per == 0 || moves.size() != frames.size())
+        return 0.0f;
+    const int d = ((direction % rotations) + rotations) % rotations;
+    const auto &m = moves[size_t(d * per)];
+    return std::hypot(float(m[0]), float(m[1]));
+}
+
+int Animation::direction(float radians) const {
+    const float turn = 6.28318531f;
+    float a = std::fmod(radians, turn);
+    if (a < 0)
+        a += turn;
+    return int(std::lround(a / turn * float(rotations))) % rotations;
 }
 
 image::Image cachePicture(const Archive &data, const std::string &name) {

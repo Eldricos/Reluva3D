@@ -207,7 +207,7 @@ bool MainMenu::run() {
                     if (!_teamSelection && _mission.showTeamSelection)
                         showTeamSelection();
                     else if (!_teamSelection)
-                        startMission();
+                        startMission(startingTeam());
                 }
                 continue;
             }
@@ -217,8 +217,9 @@ bool MainMenu::run() {
                     _briefing = std::make_unique<BriefingScreen>(_data, _install, _rules, _mission, _options, _mixer,
                                                                  _sys.getMillis());
                 } else if (choice == TeamSelectionScreen::Choice::kStartMission) {
+                    std::vector<TeamMember> team = _teamSelection->chosenTeam();
                     _teamSelection.reset();
-                    startMission();
+                    startMission(std::move(team));
                 } else if (choice != TeamSelectionScreen::Choice::kNone) {
                     _teamSelection.reset();
                 }
@@ -305,15 +306,35 @@ void MainMenu::startGame() {
         showTeamSelection();
 }
 
-void MainMenu::startMission() {
+std::vector<TeamMember> MainMenu::startingTeam() const {
+    // Without a team selection, who the mission says starts (inferred).
+    std::vector<TeamMember> roster;
+    std::vector<TeamMember> team;
+    if (loadRoster(_data, roster))
+        return team;
+    for (const std::string &id : _mission.whoShouldStart)
+        for (const TeamMember &m : roster)
+            if (m.id == id && int(team.size()) < _mission.maxMembers)
+                team.push_back(m);
+    return team;
+}
+
+void MainMenu::startMission(std::vector<TeamMember> team) {
     char folder[32];
     std::snprintf(folder, sizeof folder, "Mission %02d", _mission.number);
+    const std::string base = std::string("Levels/") + folder + "/" + _mission.mapName;
     GameMap map;
-    if (Error err = loadMap(_data, std::string("Levels/") + folder + "/" + _mission.mapName, map)) {
+    if (Error err = loadMap(_data, base, map)) {
         log::warning("Mission %d's map: %s", _mission.number, err.message.c_str());
         return;
     }
-    _mapScreen = std::make_unique<MapScreen>(_data, _rules, std::move(map), _options, _sys.getMillis());
+    // Its waypoints, the map's name with .way (formats/binary-object.md).
+    WayPoints wayPoints;
+    const size_t dot = base.rfind('.');
+    if (Error err = loadWayPoints(_data, base.substr(0, dot) + ".way", wayPoints))
+        log::warning("Mission %d's waypoints: %s", _mission.number, err.message.c_str());
+    _mapScreen = std::make_unique<MapScreen>(_data, _rules, std::move(map), _options, _sys.getMillis(), std::move(team),
+                                             std::move(wayPoints));
 }
 
 void MainMenu::showTeamSelection() {

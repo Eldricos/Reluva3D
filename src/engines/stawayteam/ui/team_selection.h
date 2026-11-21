@@ -53,6 +53,13 @@ public:
 
     /** The team, the roster's numbers, in their places' order. */
     const std::vector<size_t> &team() const { return _team; }
+    /** The team's officers, in their places' order. */
+    std::vector<TeamMember> chosenTeam() const {
+        std::vector<TeamMember> out;
+        for (size_t i : _team)
+            out.push_back(_roster[i]);
+        return out;
+    }
 
 private:
     /** An officer's pictures, loaded as they're first shown. */

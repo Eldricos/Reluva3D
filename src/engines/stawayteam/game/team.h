@@ -41,6 +41,8 @@ struct TeamMember {
     std::string race;
     std::string gender;
     std::string headIcon;
+    std::string bodyModel; // of Cache/Models: the body, and the head drawn over it
+    std::string headModel;
 
     /** "First Last", or the first alone: the name shown, and of their sequences. */
     std::string name() const;

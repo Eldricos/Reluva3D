@@ -30,6 +30,7 @@ struct GroundMap {
 /** One of a map's parts (`Tree List`): a model placed on it, or a polygon. */
 struct MapPart {
     std::string className; // "CEntityBase", "CRenderablePolygon"...
+    std::string name;      // how scripts name it; mostly empty
     std::string model;     // of Cache/Models; empty for a polygon
     std::string sequence;  // the model's sequence shown ("Idle")
     float x = 0.0f;        // where it stands, in the map's pixels
@@ -40,6 +41,7 @@ struct MapPart {
     std::string renderType;                       // a polygon's: "Textured", "Black", "Shadow", "Warped"...
     std::string texture;                          // a textured polygon's, of Cache/Textures
     bool onGround = false;
+    float facing = 0.0f; // a spawn point's facing, in degrees
 };
 
 /** A map (`Levels/Mission NN/<name>.zax`, a `CLayerSaveData`), as far as drawing it goes. */
@@ -56,5 +58,30 @@ struct GameMap {
 
 /** Reads the map at `path` in `data` ("Levels/Mission 01/01 Klingon Outpost.zax"). */
 Error loadMap(const Archive &data, const std::string &path, GameMap &out);
+
+/**
+ * A map's waypoints and the lines between them (`<map>.way`, a
+ * `CWayPointMap`): where its walkers can go.
+ */
+struct WayPoints {
+    struct Point {
+        float x = 0.0f;
+        float y = 0.0f;
+        std::vector<int> neighbours; // the points a line joins it to
+    };
+    std::vector<Point> points;
+
+    /** The point nearest (x, y), or -1 with none. */
+    int nearest(float x, float y) const;
+    /**
+     * The shortest way along the lines from the point nearest (x0, y0) to
+     * the one nearest (x1, y1), and then (x1, y1) itself; empty if there's
+     * none.
+     */
+    std::vector<std::pair<float, float>> path(float x0, float y0, float x1, float y1) const;
+};
+
+/** Reads a map's waypoints from `path` in `data` ("Levels/Mission 01/01 Klingon Outpost.way"). */
+Error loadWayPoints(const Archive &data, const std::string &path, WayPoints &out);
 
 } // namespace reluva::stawayteam

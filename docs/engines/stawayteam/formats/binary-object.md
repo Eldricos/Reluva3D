@@ -81,7 +81,11 @@ have one in these files:
   property, which has no name), a byte, 1 if the frame is there, and the
   frame ([frm16.md](frm16.md), written by `0x4b3d20`).
 - **`CRotationSequence`** (`0x550ff0`): `CSequence`'s, then 8 bytes for
-  each frame, what they hold not known.
+  each frame: two 4-byte numbers, how far a moving sequence goes. In each
+  direction, the first frame holds the whole cycle's distance, across and
+  down, and each other frame how far into it that frame is *(inferred:
+  the Generic Male Body's `Walk` going left is 26, 0, then 3, 5, 8 ... 23;
+  facing the viewer 0, 19; a standing `Idle`'s are all 0)*.
 - **`CModel`** (`0x50f6e0`): a count, a string, then that many entries:
   a byte, 1 if there's a sequence; if there is, its name, a 0 byte and a
   `CRotationSequence`.
@@ -151,8 +155,8 @@ disruptor where it fell.
 
 ## Open questions
 
-- **`CRotationSequence`'s 8 bytes a frame,** and the 8 bytes of a point
-  or a polygon's point: integers or floats.
+- **The 8 bytes of a point** or a polygon's point: integers or floats;
+  and how the game uses a rotation sequence's frames' movement.
 - **Five properties** of the table aren't identified, nor two arrays'
   items (`unknown` in [research/classes.txt](../research/classes.txt));
   none of them is in the game's binary files.

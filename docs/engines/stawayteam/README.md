@@ -45,7 +45,9 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
   game only at a later mission, by a developer setting, as mission 1 has
   none ([systems/team-selection.md](systems/team-selection.md)).
 - **Maps:** the mission's first map, its ground, polygons and models,
-  scrolled by the keys and the mouse; nothing moves on it yet
+  scrolled by the keys and the mouse, the interface around it with the
+  team bar, inventory and minimap; the team at their spawn points, an
+  officer chosen and walking where clicked, by the map's waypoints
   ([systems/maps.md](systems/maps.md)).
 - **Everything else** is still to come. The plan is in [PLAN.md](PLAN.md),
   and a first survey of the game's files is in
@@ -108,8 +110,8 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
 | Path | What |
 |---|---|
 | `stawayteam.cpp` | The `MetaEngine` (name, detection table, making an `Engine`) and the `Engine` |
-| `game/` | The game's state: `options.cpp` (its options, kept between runs), `controls.cpp` (its actions and their keys), `team.cpp` (the roster, items and the missions' descriptions), `map.cpp` (the maps) |
-| `ui/` | The game's screens: `movies.cpp` (playing a movie), `main_menu.cpp` (the main menu and the confirm dialog), `credits.cpp` (the credits), `difficulty.cpp` (the difficulty window), `settings.cpp` (the settings window), `sound_options.cpp` (the sound window), `key_config.cpp` (the keyboard screen), `briefing.cpp` (the briefing), `map_screen.cpp` (a map in the game's view), `animation.cpp` (sequences' frames in time), `team_selection.cpp` (the team selection), `static_text.cpp` (the menus' static texts), `widgets.cpp` (the window toolkit's buttons and toggles), `button.cpp` (the menus' buttons), `layout.cpp` (reading menus' places from `Rules.txt`), `font.cpp` (text in the game's fonts) |
+| `game/` | The game's state: `options.cpp` (its options, kept between runs), `controls.cpp` (its actions and their keys), `team.cpp` (the roster, items and the missions' descriptions), `map.cpp` (the maps and their waypoints) |
+| `ui/` | The game's screens: `movies.cpp` (playing a movie), `main_menu.cpp` (the main menu and the confirm dialog), `credits.cpp` (the credits), `difficulty.cpp` (the difficulty window), `settings.cpp` (the settings window), `sound_options.cpp` (the sound window), `key_config.cpp` (the keyboard screen), `briefing.cpp` (the briefing), `map_screen.cpp` (a map in the game's view, the team on it), `game_hud.cpp` (the interface around it), `animation.cpp` (sequences' frames in time), `team_selection.cpp` (the team selection), `static_text.cpp` (the menus' static texts), `widgets.cpp` (the window toolkit's buttons and toggles), `button.cpp` (the menus' buttons), `layout.cpp` (reading menus' places from `Rules.txt`), `font.cpp` (text in the game's fonts) |
 | `formats/` | Reading the game's files: `text_object.cpp` (objects in text), `binary_object.cpp` (objects in binary), `object_schema.cpp` and the generated `class_table.cpp` (the game's classes), `rds_script.cpp` (`.RDS` scripts), `frame.cpp` (pictures) |
 | `pages/` | The data viewer, in `reluva-viewer` only: `viewer.cpp` (its pages, Tab between them), a page each in `picture_viewer.cpp`, `sequence_viewer.cpp`, `model_viewer.cpp`, `font_viewer.cpp`, `sound_viewer.cpp`, `object_viewer.cpp`; what they share in `page.h`, `file_list.cpp`, `animation.cpp`, `draw.cpp` |
 | `tools/` | `reluva-tool stawayteam` commands (`reluva-tool help stawayteam` lists them): `archive.cpp` for `DATA.dat`, `text.cpp` for its text, `objects.cpp` for its objects in binary, `images.cpp` for its pictures, `files.cpp` for the game's folder |

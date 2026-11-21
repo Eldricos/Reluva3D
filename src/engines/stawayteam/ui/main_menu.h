@@ -95,7 +95,8 @@ private:
     void showTeamSelection();
     // The mission's map (its first, for now: the rest of the mission isn't
     // there yet).
-    void startMission();
+    void startMission(std::vector<TeamMember> team);
+    std::vector<TeamMember> startingTeam() const;
 
     System &_sys;
     Surface &_screen;

@@ -10,7 +10,9 @@
 #include "engines/stawayteam/formats/text_object.h"
 #include "engines/stawayteam/game/map.h"
 #include "engines/stawayteam/game/options.h"
+#include "engines/stawayteam/game/team.h"
 #include "engines/stawayteam/ui/animation.h"
+#include "engines/stawayteam/ui/game_hud.h"
 
 #include <array>
 #include <cstdint>
@@ -35,10 +37,11 @@ public:
     enum class Choice { kNone, kExit };
 
     /**
-     * `map` shown with `rules`' view; `data`, `rules` and `options` must
-     * outlive it.
+     * `map` shown with `rules`' view, `team` on it at its spawn points,
+     * walking by `wayPoints`; `data`, `rules` and `options` must outlive it.
      */
-    MapScreen(const Archive &data, const TextObject &rules, GameMap map, const GameOptions &options, uint64_t now);
+    MapScreen(const Archive &data, const TextObject &rules, GameMap map, const GameOptions &options, uint64_t now,
+              std::vector<TeamMember> team = {}, WayPoints wayPoints = {});
     ~MapScreen();
 
     /** What `ev` does to it at `now` (milliseconds). */
@@ -55,6 +58,22 @@ public:
     /** The ground's cell at (cx, cy), 64 pixels square, as drawn. */
     const image::Image &groundCell(int cx, int cy);
 
+    /** An officer on the map. */
+    struct Officer {
+        size_t member = 0; // in the team
+        float x = 0.0f;    // where they stand
+        float y = 0.0f;
+        int direction = 0;                         // of their model's 12, 0 facing left
+        std::vector<std::pair<float, float>> path; // where they're walking to, the next first
+        float travelled = 0.0f;                    // into their walk's cycle, in pixels
+    };
+    const std::vector<Officer> &officers() const { return _officers; }
+    int selected() const { return _selected; }
+    /** Sends the officer chosen walking to (x, y) on the map, by the waypoints. */
+    void order(float x, float y);
+    /** Moves everyone on to `now` (the camera, the officers walking). */
+    void update(uint64_t now);
+
 private:
     // What a ground value draws: a texture, and how much of the next one
     // over it (0-255) (0x538d20, the 16-bit table).
@@ -65,6 +84,11 @@ private:
     };
 
     void scroll(float seconds);
+    void walk(Officer &o, float seconds);
+    void drawOfficer(Surface &view, const Officer &o, int left, int top, uint64_t now);
+    const Animation &animation(const std::string &model, const std::string &sequence);
+    // The officer at (x, y) on the map, or -1.
+    int officerAt(float x, float y);
     void drawPolygon(image::Image &cell, int cellX, int cellY, const MapPart &part);
     const image::Image &texture(const std::string &name);
     const Animation &model(const MapPart &part);
@@ -94,6 +118,11 @@ private:
     int _mouseX = -1;
     int _mouseY = -1;
     uint64_t _last = 0;
+    std::vector<TeamMember> _team;
+    WayPoints _wayPoints;
+    std::vector<Officer> _officers;
+    int _selected = -1;
+    std::unique_ptr<GameHud> _hud;
     std::unique_ptr<ConfirmDialog> _confirm;
 };
 
