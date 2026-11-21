@@ -1061,6 +1061,10 @@ void PlayPage::openMenu(int32_t menu) {
     // offers the server's items (adding bots, restarting) by it.
     _cvars.create("sv_running", "0", CvarStore::kReadOnly);
     _cvars.set("sv_running", _game && !_client ? "1" : "0", true);
+    _menus.remapped = [this](const MenuHost::ShaderRemap &r) {
+        if (_shaders)
+            _shaders->remap(r.from, r.to, r.timeOffset);
+    };
     _menus.dropped = [this](const std::string &why) {
         // The match ends, back to the menus, which show why.
         stop(why);
@@ -1572,8 +1576,10 @@ void PlayPage::update(uint64_t nowMs) {
         _world->setLightStyles(_cgame->lightStyles());
         _world->setSurfaceSpriteWeather(surfaceSpriteWeather());
         _grid.setStyles(_cgame->lightStyles());
-        for (const eliteforce::CgameHost::ShaderRemap &r : _cgame->takeShaderRemaps())
+        for (const eliteforce::CgameHost::ShaderRemap &r : _cgame->takeShaderRemaps()) {
             _shaders->remap(r.from, r.to, r.timeOffset);
+            _menus.remapShader({r.from, r.to, r.timeOffset});
+        }
         size_t drawn = 0;
         bool first = true;
         // r_drawentities 0: the level alone; r_drawEffects 0 (Reluva's):

@@ -63,7 +63,7 @@ the screen, as for Elite Force.
 | 70, 71 | `S_StopBackgroundTrack`, `S_StartBackgroundTrack(intro, loop)` | the Menu page's music |
 | 72 | `RealTime(qtime)` | the local time |
 | 83–87 | `CIN_PlayCinematic(name, x, y, w, h, bits)`, `CIN_StopCinematic`, `CIN_RunCinematic`, `CIN_DrawCinematic`, `CIN_SetExtents(handle, x, y, w, h)` | the engine's videos (below) |
-| 88 | `R_RemapShader(from, to, offset)` | what's drawn with one shader drawn with another, the time offset given as text (0x410601); only a menu script's `remap` command calls it, and no menu of any release has one |
+| 88 | `R_RemapShader(from, to, offset)` | what's drawn with one shader drawn with another, everywhere the renderer draws, the time offset given as text (0x410601); only a menu script's `remap` command calls it, and no menu of any release has one |
 | 100–106 | `memset`, `memcpy`, `strncpy`, `sin`, `cos`, `atan2`, `sqrt` | the interpreter's own |
 | 200, 201 | `SP_Register(package)`, `SP_GetStringTextString(reference, buffer, size)` | the string packages, in `sp_language`'s language ([strings.md](../../../formats/strings.md)) |
 
@@ -129,8 +129,20 @@ list, is always empty) and page through it by number
   player's line (`score ping "name"`) for each player, then a last
   backslash. No address forgets the requests.
 - **Favourites.** `LAN_AddServer` returns 1 added, 0 already there, -1
-  the list full (128). `LAN_LoadCachedServers` and
-  `LAN_SaveCachedServers` read and write them (below).
+  the list full (128).
+- **The cache.** `LAN_SaveCachedServers` (0x40faa0) writes
+  `servercache.dat` in the install's folder: the Internet list's count,
+  the favourites', a third list's (empty), the arrays' size in bytes
+  (0x55800), then the three arrays whole, 2,048, 128 and 128 entries.
+  An entry is the engine's `serverInfo_t`, 152 bytes: the address
+  (`netadr_t`: its type, 4, the address's bytes, ten unused, the port in
+  network order), the host, map and game names 32 bytes each from 0x14,
+  then net type, game type, clients, most clients, least and most ping,
+  ping, whether shown, and `sv_allowAnonymous` (0x74 to 0x94; filled at
+  0x40d236 on). 1.03's and 1.04's are 164: `needpass`, `truejedi`,
+  `wdisable` and `fdisable` from 0x94 (0x40d9cc on), so 0x5c400 in all.
+  `LAN_LoadCachedServers` (0x40f990) reads them back, the local list
+  emptied; a file of another size empties them all.
 
 The Join Server menu's "Server Refresh Time" stays empty, in the
 original too: 1.02a's menus pass the same text buffer as both the

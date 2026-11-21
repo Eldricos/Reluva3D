@@ -93,6 +93,20 @@ public:
     void load(const std::filesystem::path &file);
     void save(const std::filesystem::path &file) const;
 
+    // Jedi Outcast's servercache.dat (LAN_LoadCachedServers, jk2mp.exe's
+    // 0x40f990; LAN_SaveServersToCache, 0x40faa0): the Internet list and
+    // the favourites, entries as the engine keeps them, 1.03's and 1.04's
+    // (`jediPatched`) larger. Loading a file of another size or none
+    // empties them, as the original's does.
+    void loadCache(const std::filesystem::path &file, bool jediPatched);
+    void saveCache(const std::filesystem::path &file, bool jediPatched) const;
+    // One list as the cache keeps it (`slots` entries, those past the
+    // list's zero), and back.
+    static std::vector<uint8_t> cacheEntries(const std::vector<Server> &servers, const std::vector<bool> &visible,
+                                             size_t slots, bool jediPatched);
+    static void fromCacheEntries(const std::vector<uint8_t> &bytes, size_t count, bool jediPatched,
+                                 std::vector<Server> &servers, std::vector<bool> &visible);
+
 private:
     std::vector<Server> *list(int32_t source);
     const std::vector<Server> *list(int32_t source) const;

@@ -259,13 +259,20 @@ int32_t UiHost::serverListCall(Qvm &vm, int number, const int32_t *a) {
         _servers.resetPings(a[0]);
         return 0;
     case kLanLoadCachedServers:
-        // Only the favourites are kept: the other lists are searched again.
-        if (!_favoritesFile.empty())
-            _servers.load(_favoritesFile);
+        // servercache.dat, as the original's; favourites Reluva kept before
+        // in favorites.txt beside it are taken in while there's none.
+        if (!_favoritesFile.empty()) {
+            const std::filesystem::path older = _favoritesFile.parent_path() / "favorites.txt";
+            std::error_code ec;
+            if (!std::filesystem::exists(_favoritesFile, ec) && std::filesystem::exists(older, ec))
+                _servers.load(older);
+            else
+                _servers.loadCache(_favoritesFile, _release != JediRelease::k102a);
+        }
         return 0;
     case kLanSaveCachedServers:
         if (!_favoritesFile.empty())
-            _servers.save(_favoritesFile);
+            _servers.saveCache(_favoritesFile, _release != JediRelease::k102a);
         return 0;
     case kLanAddServer: // (source, name, address)
         return _servers.add(a[0], str(1), str(2));

@@ -12,6 +12,13 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
   style full, showing a level's light as compiled. In a match they change
   as the client game sets them, as the original's do
   ([rbsp.md](../../formats/rbsp.md), In Reluva).
+- **The Internet list** asks the community's masters after Raven's,
+  which has long been gone: the masters are `sv_master1` to `sv_master5`,
+  Raven's first ([systems/network.md](systems/network.md)).
+- **The single-player menus' renderer description** (owner draw 249)
+  says Reluva's renderer's GPU, driver and version; it isn't OpenGL, so
+  there's no vendor, pixel format or extensions to show
+  ([systems/sp-menus.md](systems/sp-menus.md)).
 - **No CD key check**: a server lets every player in, and a client sends
   no key to be checked. The original's server asks Raven's authorize
   server about each player's key, but that server has long been gone,
@@ -33,18 +40,6 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
   ([systems/weather.md](systems/weather.md)).
 
 ## Not yet as the original
-
-In the multiplayer menus:
-
-- **The favourite servers** are kept in `favorites.txt` (address and
-  name a line) in the game's save folder, not in the
-  original's `servercache.dat`; the other lists aren't kept between runs
-  but searched again, as the menus do on opening.
-- **The Internet list** asks the community's masters after Raven's,
-  which has long been gone.
-- **The menus' `R_RemapShader`** changes only the menus' drawing, where
-  the original's renderer changes the shader for everything it draws
-  ([systems/syscalls.md](systems/syscalls.md)).
 
 Left for after the rest is done and tested (its phase 11):
 

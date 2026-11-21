@@ -73,7 +73,10 @@ bool MenuLayer::start(int32_t menu) {
     _ui->setScreenSize(_frameW, _frameH);
     if (!_ctx.homePath.empty()) {
         _ui->setKeyFile(_ctx.homePath / "cdkey.txt"); // whatever the mod
-        _ui->setFavoritesFile(_ctx.homePath / "favorites.txt");
+        // Where the server lists are kept: Jedi Outcast's servercache.dat
+        // (as its engine), Elite Force's favourites, a line each.
+        _ui->setFavoritesFile(_ctx.homePath /
+                              (_ctx.game.code == GameCode::kJediOutcast ? "servercache.dat" : "favorites.txt"));
     }
     if (_ctx.mixer) {
         _ui->startLocalSound = [this](const std::string &name, int channel) { playSound(name, channel); };
@@ -112,6 +115,11 @@ void MenuLayer::show(int32_t menu) {
         stop(err);
     else
         pinCursor();
+}
+
+void MenuLayer::remapShader(const MenuHost::ShaderRemap &r) {
+    if (_shaders)
+        _shaders->remap(r.from, r.to, r.timeOffset);
 }
 
 void MenuLayer::reset() {
@@ -335,8 +343,11 @@ void MenuLayer::frame(uint64_t nowMs) {
     // scene (the player model in Player settings...) and each video's
     // frame over the pictures drawn before it.
     const float seconds = float(time) / 1000.0f;
-    for (const MenuHost::ShaderRemap &r : _ui->takeShaderRemaps())
+    for (const MenuHost::ShaderRemap &r : _ui->takeShaderRemaps()) {
         _shaders->remap(r.from, r.to, r.timeOffset);
+        if (remapped)
+            remapped(r);
+    }
     const auto &scene = _ui->scene();
     const auto &images = _ui->imageDraws();
     _scene->setHandles({&_ui->models(), &_ui->skins(), &_ui->shaders()});

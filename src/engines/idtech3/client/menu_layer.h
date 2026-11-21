@@ -68,6 +68,10 @@ public:
     // the menus are told of the connection and its configstrings.
     ServerBrowser *browser = nullptr;
     std::function<void(MenuHost &)> configure;
+    // The menus' R_RemapShader goes to everything the page draws too, as
+    // the original's one renderer has it; and the page's to the menus'.
+    std::function<void(const MenuHost::ShaderRemap &)> remapped;
+    void remapShader(const MenuHost::ShaderRemap &r);
     // What ends the game when the menus' engine would (Com_Error's
     // ERR_DROP); unset, they show the main menu with why, as with no game.
     std::function<void(const std::string &why)> dropped;

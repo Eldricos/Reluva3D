@@ -1082,6 +1082,29 @@ static void testServerLists(const std::filesystem::path &tmp) {
     loaded.remove(ServerLists::kFavorites, "10.0.0.2:27960");
     CHECK(loaded.count(ServerLists::kFavorites) == 1 && loaded.count(3) == 0 &&
           loaded.visible(ServerLists::kFavorites, 0)); // alpha's, moved up
+    // Jedi Outcast's servercache.dat: 16 bytes of counts and size, then
+    // 2048 + 128 + 128 entries of 152 bytes (1.03's: 164); read back, the
+    // same; a file of the other release's size gives nothing.
+    lists.saveCache(tmp / "servercache.dat", false);
+    CHECK(std::filesystem::file_size(tmp / "servercache.dat") == 16 + 2304 * 152);
+    ServerLists cached;
+    cached.loadCache(tmp / "servercache.dat", false);
+    CHECK(cached.count(ServerLists::kFavorites) == 2 &&
+          cached.server(ServerLists::kFavorites, 1)->address.toString() == "10.0.0.1:27960" &&
+          cached.server(ServerLists::kFavorites, 1)->hostName == "alpha" && cached.count(ServerLists::kGlobal) == 0);
+    cached.loadCache(tmp / "servercache.dat", true);
+    CHECK(cached.count(ServerLists::kFavorites) == 0);
+    std::vector<ServerLists::Server> one(1);
+    one[0].hostName = "Patched";
+    one[0].needPass = 1;
+    one[0].forceDisable = 0x40;
+    std::vector<bool> shown{true};
+    const std::vector<uint8_t> bytes = ServerLists::cacheEntries(one, shown, 1, true);
+    CHECK(bytes.size() == 164 && bytes[0x94] == 1 && bytes[0xa0] == 0x40 && bytes[0x90] == 1);
+    std::vector<ServerLists::Server> back;
+    std::vector<bool> backShown(1);
+    ServerLists::fromCacheEntries(bytes, 1, true, back, backShown);
+    CHECK(back.size() == 1 && back[0].hostName == "Patched" && back[0].forceDisable == 0x40 && backShown[0]);
 
     // A server's status: asked for, then its settings and players.
     browser.requestStatus({0x7f000001u, 27960}, 2000);
