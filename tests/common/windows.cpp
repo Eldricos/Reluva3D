@@ -572,6 +572,9 @@ static void testUserAndKernelMore(const std::filesystem::path &tmp) {
     const uint32_t ofs = process.memory().alloc(136);
     CHECK(!cpu.call(fn("KERNEL32.dll", "OpenFile"), {text("C:\\data.bin"), ofs, 2}, r) && r != 0xffffffffu);
     const uint32_t file = r;
+    // On a disk: a C runtime closes a handle of no known type at once.
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetFileType"), {file}, r) && r == 1);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetFileType"), {0x7777}, r) && r == 0);
     CHECK(!cpu.call(fn("KERNEL32.dll", "_llseek"), {file, 4, 0}, r) && r == 4);
     CHECK(!cpu.call(fn("KERNEL32.dll", "_hread"), {file, buf, 3}, r) && r == 3 && cpu.read8(buf) == '4');
     CHECK(!cpu.call(fn("KERNEL32.dll", "_llseek"), {file, uint32_t(-2), 2}, r) && r == 8);

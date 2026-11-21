@@ -833,8 +833,12 @@ void Win32Process::addStandIns() {
         return which >= -12 && which <= -10 ? kStdHandles + uint32_t(-10 - which) : kInvalidHandle;
     });
     stdcall(k, "SetStdHandle", 2, [](Cpu &) { return 1u; });
-    stdcall(k, "GetFileType", 1, [](Cpu &c) {
-        return c.arg(0) >= kStdHandles && c.arg(0) <= kStdHandles + 2 ? 2u : 0u; // FILE_TYPE_CHAR
+    // The standard handles are characters; a file opened is on a disk. A C
+    // runtime asks, and closes a handle of no known type at once.
+    stdcall(k, "GetFileType", 1, [this](Cpu &c) {
+        if (c.arg(0) >= kStdHandles && c.arg(0) <= kStdHandles + 2)
+            return 2u;                   // FILE_TYPE_CHAR
+        return file(c.arg(0)) ? 1u : 0u; // FILE_TYPE_DISK
     });
     stdcall(k, "WriteFile", 5, [this, say](Cpu &c) {
         const uint32_t handle = c.arg(0);

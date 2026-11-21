@@ -34,7 +34,8 @@ C++ library have pages of their own ([directx.md](directx.md),
   - handles: `CreateFileA`, `ReadFile`, `WriteFile`, `SetFilePointer`,
     `GetFileSize`, `GetFileTime`, and the 16-bit era's `OpenFile`,
     `_lread`, `_hread`, `_hwrite` and `_llseek`; every file opened is
-    reported (`fileOpened`), whichever way;
+    reported (`fileOpened`), whichever way; `GetFileType` says a file is
+    on a disk (a C runtime closes a handle of no known type at once);
   - searches (`FindFirstFileA` with wildcards);
   - memory-mapped views: copies, as these programs only read them;
   - the current folder;
