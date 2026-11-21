@@ -329,7 +329,8 @@ void ModelCache::addSorts(int id, const Skin *skin, const std::string &shader, s
 
 void ModelCache::draw(int id, int frame, const gfx::Mat4 &transform, const PointLight &light, float time,
                       const Skin *skin, float sortMin, float sortMax, const std::string &shader,
-                      const std::array<float, 4> *entity, int oldFrame, float backLerp, const Ghoul2Pose *pose) {
+                      const std::array<float, 4> *entity, int oldFrame, float backLerp, const Ghoul2Pose *pose,
+                      const ShaderCache::Fog *fog) {
     if (id < 0)
         return;
     const Loaded &m = _models[size_t(id)];
@@ -371,6 +372,8 @@ void ModelCache::draw(int id, int frame, const gfx::Mat4 &transform, const Point
             call.lightDirection[size_t(c)] = light.direction[size_t(c)];
         }
         _shaders.draw(material, call, 0, time, false, entity);
+        if (fog)
+            _shaders.drawFog(material, call, *fog, time);
     }
     if (posed)
         _r.destroyMesh(posed);

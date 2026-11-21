@@ -112,11 +112,19 @@ public:
     };
     void draw(int material, const gfx::DrawCall &base, gfx::TextureId lightmap, float time, bool sky = false,
               const std::array<float, 4> *entity = nullptr, const std::vector<StyledLightmap> *styles = nullptr) const;
-    // A fog pass over geometry drawn with `material`.
-    // `distance`: the fog's depth for opaque; `plane`: its surface (see
+    // A fog: its colour, its depth for opaque, its surface (see
     // gfx::DrawCall::fogPlane).
+    struct Fog {
+        std::array<float, 3> color{};
+        float distance = 0;
+        std::array<float, 4> plane{0, 0, 0, 1};
+    };
+    // A fog pass over geometry drawn with `material`.
     void drawFog(int material, const gfx::DrawCall &base, const std::array<float, 3> &color, float distance,
                  const std::array<float, 4> &plane, float time) const;
+    void drawFog(int material, const gfx::DrawCall &base, const Fog &fog, float time) const {
+        drawFog(material, base, fog.color, fog.distance, fog.plane, time);
+    }
 
     size_t imageCount() const { return _images.size(); }
     int missingImages() const { return _missing; }

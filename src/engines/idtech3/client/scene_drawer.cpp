@@ -343,7 +343,8 @@ void SceneDrawer::drawLayers(float time, WorldRenderer *world, bool throughPorta
                 continue;
             _r.setDepthRange(p.depthHack && !throughPortal ? refent::kDepthHackRange : 1);
             _models.draw(p.model, p.frame, p.transform, p.light, time - p.shaderTime, p.skin, sortMin, sortMax,
-                         p.shader, &p.color, p.oldFrame, p.backLerp, p.pose.get());
+                         p.shader, &p.color, p.oldFrame, p.backLerp, p.pose.get(),
+                         world ? world->fogFor(p.fogCenter, p.fogRadius) : nullptr);
         }
         _r.setDepthRange(1);
     };
@@ -1036,6 +1037,15 @@ void SceneDrawer::placeEntities(const Scene &scene, const View &view, const Ligh
         p.model = _models.lod(model, lodLevel(model, readInt(e, _layout.frame), origin));
         p.transform =
             placement(origin, {readVec(e, _layout.axes), readVec(e, _layout.axes + 12), readVec(e, _layout.axes + 24)});
+        // The frame's sphere moved by the entity but not turned, as the
+        // original's (0x4749db).
+        if (const Md3Model &md3 = _models.model(p.model); !md3.frames.empty()) {
+            const int frames = int(md3.frames.size());
+            const Md3Frame &f = md3.frames[size_t(((readInt(e, _layout.frame) % frames) + frames) % frames)];
+            for (size_t k = 0; k < 3; ++k)
+                p.fogCenter[k] = origin[k] + f.origin[k];
+            p.fogRadius = f.radius;
+        }
         // Between two frames, as far back towards the old one as it says.
         p.frame = readInt(e, _layout.frame);
         p.oldFrame = readInt(e, _layout.oldFrame);
@@ -1103,6 +1113,9 @@ bool SceneDrawer::placeGhoul2(const std::vector<uint8_t> &e, int32_t viewTime, c
         p.thirdPerson = flags & refent::kThirdPerson;
         p.firstPerson = flags & refent::kFirstPerson;
         p.pose = std::make_shared<const Ghoul2Pose>(std::move(pose));
+        // The entity's own sphere: its origin and radius (0x467c20).
+        p.fogCenter = origin;
+        p.fogRadius = readFloat(e, _layout.radius);
         _placed.push_back(std::move(p));
     }
     return true;

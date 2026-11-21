@@ -80,7 +80,7 @@ public:
     void draw(int id, int frame, const gfx::Mat4 &transform, const PointLight &light, float time,
               const Skin *skin = nullptr, float sortMin = 0, float sortMax = 1e9f, const std::string &shader = {},
               const std::array<float, 4> *entity = nullptr, int oldFrame = 0, float backLerp = 0,
-              const Ghoul2Pose *pose = nullptr);
+              const Ghoul2Pose *pose = nullptr, const ShaderCache::Fog *fog = nullptr);
     // Adds to `out` the sorts of the shaders draw() would draw model `id`
     // with (the same `skin` and `shader`).
     void addSorts(int id, const Skin *skin, const std::string &shader, std::vector<float> &out);

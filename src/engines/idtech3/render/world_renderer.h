@@ -65,6 +65,9 @@ public:
     // elsewhere show nothing behind them, not the sky).
     void drawSkyShape(const gfx::DrawState &state) const;
     bool hasSky() const { return _skyMesh != 0; }
+    // The level's fog a model is drawn in, as the original picks it for a
+    // sphere about it (see the .cpp); none without the level's fogs.
+    const ShaderCache::Fog *fogFor(const std::array<float, 3> &center, float radius) const;
     // What each frame starts from with the level loaded: the whole level's
     // fog colour (in bytes, cut down) where it has one (0x45d09e; RBSP's
     // fog of brush -1, the last if several, 0x45f160), else black.
@@ -143,10 +146,10 @@ private:
         uint32_t indexCount = 0;
         int model = 0; // the map's model the surfaces belong to (0: the world)
     };
-    struct Fog {
-        std::array<float, 3> color{};
-        float distance = 0;
-        std::array<float, 4> plane{0, 0, 0, 1}; // its surface (see gfx::DrawCall::fogPlane)
+    struct Fog : ShaderCache::Fog {
+        std::array<float, 3> mins{};
+        std::array<float, 3> maxs{};
+        bool brush = false; // a volume, not the whole level's
     };
 
     void buildSky(const ShaderDef &sky);
@@ -178,6 +181,7 @@ private:
     };
     std::vector<StyledVertex> _styledVertices;
     std::vector<Fog> _fogs;
+    int _eyeFog = -1;            // the fog the current view's eye is in, or -1
     std::vector<Batch> _batches; // in drawing order
     std::vector<float> _sorts;   // its batches' and sprites' sorts, in order
     // Each opaque surface's triangles (in the index buffer) and bounds,

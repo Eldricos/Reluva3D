@@ -1421,6 +1421,76 @@ static void testMissingVideo() {
     CHECK(!shaders.get(b).skip && shaders.get(b).stages.size() == 1);
 }
 
+static void testLevelFog() {
+    // A water volume (a box brush, 0..100 each way) and the whole level's
+    // fog after it: frames clear to the level fog's colour, and models pick
+    // a fog as the original does.
+    Bsp bsp;
+    bsp.models.push_back({});
+    bsp.raven = true;
+    for (int k = 0; k < 3; ++k) {
+        BspPlane low;
+        low.normal[size_t(k)] = -1;
+        low.dist = 0;
+        BspPlane high;
+        high.normal[size_t(k)] = 1;
+        high.dist = 100;
+        bsp.planes.push_back(low);
+        bsp.planes.push_back(high);
+    }
+    BspBrush brush;
+    brush.numSides = 6;
+    bsp.brushes.push_back(brush);
+    for (int i = 0; i < 6; ++i)
+        bsp.brushSides.push_back({i, 0, -1});
+    BspModel model;
+    model.numSurfaces = 1;
+    bsp.models[0] = model;
+    bsp.shaders.push_back({"textures/test/wall", 0, 0});
+    BspSurface quad;
+    quad.type = SurfaceType::kPlanar;
+    quad.numVertices = 4;
+    quad.numIndices = 6;
+    quad.fog = -1;
+    bsp.surfaces.push_back(quad);
+    for (int i = 0; i < 4; ++i) {
+        BspVertex v;
+        v.pos = {float(i % 2) * 64, float(i / 2) * 64, 0};
+        bsp.vertices.push_back(v);
+    }
+    bsp.indices = {0, 1, 2, 2, 1, 3};
+    bsp.fogs.push_back({"water", 0, -1});
+    bsp.fogs.push_back({"level", -1, -1});
+    ShaderLibrary library;
+    auto fog = [](const char *name, float red) {
+        ShaderDef d;
+        d.name = name;
+        d.fog = true;
+        d.fogColor = {red, 0.5f, 0.25f};
+        d.fogDistance = 1000;
+        return d;
+    };
+    library.add(fog("water", 0.1f));
+    library.add(fog("level", 0.6f));
+    SearchSet files;
+    StyleRenderer r;
+    ShaderCache shaders(r, files, library);
+    WorldRenderer world(r, shaders);
+    CHECK(!world.load(bsp, library));
+    const Color clear = world.clearColor();
+    CHECK(clear.r == 153 && clear.g == 127 && clear.b == 63);
+    // Wholly in the water: the water. Partly in it: the level's, which
+    // holds all of it, unless the eye is in the water. Out of it: the
+    // level's.
+    world.setView(0, {500, 500, 500}, {}, gfx::identity());
+    const ShaderCache::Fog *in = world.fogFor({50, 50, 50}, 10);
+    const ShaderCache::Fog *edge = world.fogFor({95, 50, 50}, 10);
+    const ShaderCache::Fog *out = world.fogFor({300, 50, 50}, 10);
+    CHECK(in && in->color[0] == 0.1f && edge && edge->color[0] == 0.6f && out == edge);
+    world.setView(0, {50, 50, 50}, {}, gfx::identity());
+    CHECK(world.fogFor({95, 50, 50}, 10) == in);
+}
+
 static void testLightStyles() {
     // One quad lit by style 0 and style 6: its first lightmap at (0, 0) of
     // lightmap 0, style 6's at (4, 4) of lightmap 1; its vertices likewise.
@@ -1838,6 +1908,7 @@ static const reluva::test::Suite
                {"skins and placement", [](const std::filesystem::path &) { testSkinAndPlacement(); }},
                {"light grid", [](const std::filesystem::path &) { testLightGrid(); }},
                {"light styles", [](const std::filesystem::path &) { testLightStyles(); }},
+               {"level fog", [](const std::filesystem::path &) { testLevelFog(); }},
                {"shader remap", [](const std::filesystem::path &) { testShaderRemap(); }},
                {"missing video", [](const std::filesystem::path &) { testMissingVideo(); }},
                {"roff", [](const std::filesystem::path &) { testRoff(); }},

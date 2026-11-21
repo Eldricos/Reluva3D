@@ -180,6 +180,9 @@ private:
         bool thirdPerson = false;
         bool firstPerson = false;
         std::shared_ptr<const Ghoul2Pose> pose; // a Ghoul2 model's, as its game posed it
+        // The sphere its fog is picked by (WorldRenderer::fogFor).
+        gfx::Vec3 fogCenter{};
+        float fogRadius = 0;
     };
     std::vector<Placed> _placed;
     std::vector<std::pair<int, gfx::Mat4>> _brushes; // the level's models (*N) placed this view

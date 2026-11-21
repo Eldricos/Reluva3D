@@ -101,6 +101,19 @@ same are stored once (kejim_post: 496,800 cells, 32,993 points). A point:
   jk2mp.exe 0x46e399) *(confirmed)*. Single player's light amplification
   goggles clear to their own fog's colour instead (0x45d076), which
   Reluva doesn't have yet.
+- **Models in fog** (jk2sp.exe 0x4749a0 for MD3 models, 0x467bc0 for
+  Ghoul2's, 0x472990 for sprites): a sphere about the model (an MD3's,
+  its frame's centre moved by the entity, not turned, and its radius; a
+  Ghoul2 entity's, its origin and radius) picks the fog. The fogs are
+  tried in order: one whose box holds the whole sphere is taken; one
+  whose box holds a corner of the sphere's box is taken if it's the fog
+  the eye is in or has the same red and green (0x4731e0), else kept if
+  it's the first such; when none is taken, the one kept (or none). So with
+  the eye out of the water, an object half in it gets the whole level's
+  fog, which comes after the water in the list. A fog's box is its brush's first six sides
+  (0x45f1b5); the whole level's is ±65536, so it takes whatever no
+  volume does. The eye's fog (0x473230) is the first whose box holds the
+  eye, if the level's contents there are fog *(confirmed)*.
 
 ## In Reluva
 

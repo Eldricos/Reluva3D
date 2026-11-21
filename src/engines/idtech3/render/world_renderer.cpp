@@ -119,6 +119,7 @@ void WorldRenderer::clear() {
     _vertices.clear();
     _styledVertices.clear();
     _fogs.clear();
+    _eyeFog = -1;
     _clearColor = {};
     _batches.clear();
     _sorts.clear();
@@ -260,6 +261,25 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
         if (const ShaderDef *def = library.find(f.shader); def && def->fog) {
             fog.color = def->fogColor;
             fog.distance = def->fogDistance;
+        }
+        // A volume's box: its brush's first six sides, the axial ones (as
+        // the original, 0x45f1b5); the whole level's, as far as it goes
+        // (0x45f13f).
+        fog.mins = {-65536, -65536, -65536};
+        fog.maxs = {65536, 65536, 65536};
+        if (f.brush >= 0 && size_t(f.brush) < bsp.brushes.size()) {
+            const BspBrush &b = bsp.brushes[size_t(f.brush)];
+            for (size_t k = 0; k < 6 && b.firstSide + k < bsp.brushSides.size(); ++k) {
+                const size_t plane = size_t(bsp.brushSides[b.firstSide + k].plane);
+                if (plane >= bsp.planes.size())
+                    continue;
+                const float dist = bsp.planes[plane].dist;
+                if (k % 2)
+                    fog.maxs[k / 2] = dist;
+                else
+                    fog.mins[k / 2] = -dist;
+            }
+            fog.brush = true;
         }
         // The brush side the volume is seen through is its surface.
         if (f.visibleSide >= 0 && f.brush >= 0 && size_t(f.brush) < bsp.brushes.size()) {
@@ -692,8 +712,59 @@ int WorldRenderer::leafAt(const std::array<float, 3> &p) const {
     return -1 - node;
 }
 
+const ShaderCache::Fog *WorldRenderer::fogFor(const std::array<float, 3> &center, float radius) const {
+    // As the original's renderer for models and sprites (jk2sp.exe
+    // 0x4749a0, 0x467bc0, 0x472990): the first fog holding the whole
+    // sphere; else the first holding a corner of its box that's the one
+    // the eye is in or shares its red and green with it (0x4731e0), else
+    // the first holding a corner at all. The whole level's fog holds
+    // everything.
+    auto inside = [](const Fog &f, const std::array<float, 3> &p) {
+        for (size_t k = 0; k < 3; ++k)
+            if (p[k] < f.mins[k] || p[k] > f.maxs[k])
+                return false;
+        return true;
+    };
+    std::array<float, 3> low{};
+    std::array<float, 3> high{};
+    for (size_t k = 0; k < 3; ++k) {
+        low[k] = center[k] - radius;
+        high[k] = center[k] + radius;
+    }
+    const Fog *first = nullptr;
+    for (size_t i = 0; i < _fogs.size(); ++i) {
+        const Fog &f = _fogs[i];
+        if (inside(f, low) && inside(f, high))
+            return &f;
+        if (!inside(f, low) && !inside(f, high))
+            continue;
+        if (_eyeFog >= 0) {
+            const Fog &eye = _fogs[size_t(_eyeFog)];
+            if (int(i) == _eyeFog || (eye.color[0] == f.color[0] && eye.color[1] == f.color[1]))
+                return &f;
+        }
+        if (!first)
+            first = &f;
+    }
+    return first;
+}
+
 void WorldRenderer::setView(int slot, const std::array<float, 3> &eye, const std::array<uint8_t, 32> &areaMask,
                             const gfx::Mat4 &viewProj) {
+    // The fog the eye is in (0x473230): only where the level's contents
+    // say fog, which only a fog volume's brush gives; then the first fog
+    // whose box holds it.
+    _eyeFog = -1;
+    auto holds = [&eye](const Fog &f) {
+        for (size_t k = 0; k < 3; ++k)
+            if (eye[k] < f.mins[k] || eye[k] > f.maxs[k])
+                return false;
+        return true;
+    };
+    if (std::any_of(_fogs.begin(), _fogs.end(), [&](const Fog &f) { return f.brush && holds(f); }))
+        for (size_t i = 0; i < _fogs.size() && _eyeFog < 0; ++i)
+            if (holds(_fogs[i]))
+                _eyeFog = int(i);
     _slots[size_t(slot)].eye = eye;
     _slots[size_t(slot)].eyeSet = true;
     // As the original's renderer: the leaves whose cluster the eye's can
