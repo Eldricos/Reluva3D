@@ -5,6 +5,7 @@
 // x86 interpreter (docs/engines/legoisland/systems/running.md).
 
 #include "devtools/tool.h"
+#include "emulation/x86/com.h"
 #include "engines/legoisland/host/game_process.h"
 
 #include <algorithm>
@@ -95,7 +96,7 @@ int cmdRun(int argc, char **argv) {
     std::deque<std::string> calls;
     std::string last;
     unsigned repeats = 0;
-    cpu.nativeTrace = [&](x86::Cpu &, const std::string &name) {
+    cpu.nativeTrace = [&](x86::Cpu &c, const std::string &name) {
         calls.push_back(name);
         if (calls.size() > callCount)
             calls.pop_front();
@@ -107,7 +108,11 @@ int cmdRun(int argc, char **argv) {
         }
         if (repeats > 1)
             std::printf("  (x%u)\n", repeats);
-        std::printf("[call] %s\n", name.c_str());
+        std::printf("[call] %s", name.c_str());
+        // Which interface is asked for: the next one to stand in for, when refused.
+        if (name.size() > 16 && name.compare(name.size() - 16, 16, "::QueryInterface") == 0)
+            std::printf(" %s", x86::ComHost::guid(c, c.arg(1)).c_str());
+        std::printf("\n");
         last = name;
         repeats = 1;
     };

@@ -21,14 +21,15 @@ from DirectDraw, Direct3D Retained Mode (`d3drm.dll`), DirectSound,
 DirectInput, WinMM (the timer, MIDI streams, the joystick), GDI32, USER32
 and KERNEL32.
 
-What Reluva's emulator doesn't stand in for yet, 61 functions
-(DirectSound is stood in for: [directsound.md](../../../common/x86/directsound.md)):
+What Reluva's emulator doesn't stand in for yet, 43 functions
+(DirectSound is stood in for: [directsound.md](../../../common/x86/directsound.md);
+so are the timers, window settings, semaphores and named mutexes it
+calls: [windows.md](../../../common/x86/windows.md)):
 
 | DLL | Functions | What they are |
 |---|---|---|
 | `d3drm.dll` | 2 | `Direct3DRMCreate` (Retained Mode, all of it reached through the object it makes) and `D3DRMCreateColorRGBA` |
-| KERNEL32 | 18 | file mapping by name, mutexes by name, semaphores, `CreateProcessA`, locales, `MoveFileA`, `VirtualQuery`, `VirtualLock`, the 16-bit file functions (`_hread`, `_hwrite`, `_llseek`), `GetProfileStringA` |
-| USER32 | 14 | timers, window styles and placement, the menu bar, `MessageBeep`, `SystemParametersInfoA`, `LoadAcceleratorsA` |
+| KERNEL32 | 14 | file mapping by name, `CreateProcessA` and `OpenProcess`, locales, `MoveFileA`, `VirtualQuery`, `VirtualLock`, the 16-bit file functions (`_hread`, `_hwrite`, `_llseek`) |
 | GDI32 | 13 | text (fonts, `ExtTextOutA`, measuring), palettes, `StretchDIBits` |
 | WinMM | 14 | MIDI streams and devices, the joystick |
 
@@ -64,8 +65,17 @@ that far.
   DirectSound compatible sound card. Please quit all other applications
   and try again." and exits. With the stand-in, it makes the DirectSound
   object, releases it, and goes on.
-- It then reads its settings from the registry (about 15 values), and
-  asks `SystemParametersInfoA`, which nothing stands in for yet.
+- It then reads its settings from the registry (about 15 values), makes
+  its window, and sets up DirectSound: the primary buffer, its format, and
+  the 3D listener.
+- It makes DirectDraw and lists its display modes, then asks it for
+  `IDirect3D2` (`{6aae1ec1-662a-11d0-889d-00aa00bbb76a}`), DirectX 5's
+  Direct3D. Reluva's Direct3D stand-in has DirectX 7's only, so it's
+  refused: the program writes "D3D creation failed: Unrecognized error
+  value." to the debugger and, without the object, faults (in
+  `LEGO1.DLL` at 0x7a917, reading address 0x14), after 432,308
+  instructions. DirectX 5's Direct3D comes next, then Retained Mode on
+  it.
 
 ## In Reluva
 
@@ -74,7 +84,8 @@ starts the program. `reluva-tool legoisland run <game folder>` runs it and
 reports how far it gets: the functions nothing stands in for, by DLL; on
 a failure, the last stand-ins called and the last instructions (as
 module+offset); the frames shown, and how fast it ran. `-log` prints
-every stand-in called, `-files` each file the program asks for, and
+every stand-in called (and, for `QueryInterface`, the interface asked
+for), `-files` each file the program asks for, and
 `-save <folder>` lets it write. The engine doesn't run it yet: playing it
 waits for the stand-ins above.
 
