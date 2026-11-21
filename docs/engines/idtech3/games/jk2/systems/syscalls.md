@@ -223,6 +223,10 @@ decodes the frames due by the clock and answers its state: playing (1),
 or idle (0) at its end, where it's held (bit 4), starts again (bit 2),
 or is let go; its last frame stays drawn. Drawing puts the frame where
 its extents say, in screen pixels as they are. Stopping lets it go.
+Unless silent (bit 8) the video's own sound plays as its frames are
+decoded. With all 16 playing, another ends the game
+(`CIN_HandleForVideo: none free`, `Com_Error`'s drop): the main menu
+shows why.
 
 Every video the menus start is looping and silent (bits 10): Create
 Server's map preview (owner draw 255) plays `video/<map>.roq` if there's

@@ -10,7 +10,7 @@
 namespace reluva::idtech3 {
 
 int32_t CinematicSlots::play(const std::string &name, int32_t x, int32_t y, int32_t w, int32_t h, int32_t bits,
-                             int32_t nowMs) {
+                             int32_t nowMs, const std::string &soundFile) {
     // As CIN_PlayCinematic (0x404940): "video/%s" for a name without a
     // folder, ".roq" by default.
     std::string path = name.find_first_of("/\\") == std::string::npos ? "video/" + name : name;
@@ -22,15 +22,17 @@ int32_t CinematicSlots::play(const std::string &name, int32_t x, int32_t y, int3
         for (int i = 0; i < kSlots; ++i)
             if (_slots[size_t(i)].name == path)
                 return i;
-    // The first free slot; with none the original ends the game
-    // ("CIN_HandleForVideo: none free"), here it's refused.
+    // The first free slot; with none the original ends the game.
     int found = -1;
     for (int i = 0; i < kSlots && found < 0; ++i)
         if (_slots[size_t(i)].name.empty())
             found = i;
-    if (found < 0)
+    if (found < 0) {
+        error = "CIN_HandleForVideo: none free";
         return -1;
+    }
     Slot &s = _slots[size_t(found)];
+    stopSlotSound(s);
     s = Slot{};
     if (_files.read(path, s.file))
         return -1;
@@ -41,8 +43,42 @@ int32_t CinematicSlots::play(const std::string &name, int32_t x, int32_t y, int3
     s.extents = {x, y, w, h};
     s.loop = (bits & kLoop) != 0;
     s.hold = (bits & kHold) != 0;
+    s.silent = (bits & kSilent) != 0;
+    s.soundFile = soundFile;
     s.status = kPlay;
     return found;
+}
+
+void CinematicSlots::startSound(Slot &s) const {
+    s.soundStarted = true;
+    if (s.silent || !playSound)
+        return;
+    if (!s.sound) {
+        if (!s.soundFile.empty()) {
+            if (findSound)
+                s.sound = findSound(s.soundFile);
+        } else {
+            std::vector<int16_t> samples;
+            int rate = 0;
+            int channels = 0;
+            if (!s.movie.decodeAllAudio(samples, rate, channels) && !samples.empty()) {
+                auto sound = std::make_shared<audio::Sound>();
+                sound->rate = rate;
+                sound->channels = channels;
+                sound->format = 1;
+                sound->samples = std::move(samples);
+                s.sound = std::move(sound);
+            }
+        }
+    }
+    if (s.sound)
+        s.playing = playSound(s.sound);
+}
+
+void CinematicSlots::stopSlotSound(Slot &s) const {
+    if (s.playing != audio::kNoSound && stopSound)
+        stopSound(s.playing);
+    s.playing = audio::kNoSound;
 }
 
 bool CinematicSlots::restart(Slot &s, int32_t nowMs) {
@@ -57,6 +93,7 @@ int32_t CinematicSlots::stop(int32_t slot) {
     if (!valid(slot))
         return kEnded;
     Slot &s = _slots[size_t(slot)];
+    stopSlotSound(s);
     s.status = kIdle;
     s.name.clear();
     return kEnded;
@@ -79,6 +116,8 @@ int32_t CinematicSlots::run(int32_t slot, int32_t nowMs) {
             if (s.hold) {
                 s.status = kIdle;
             } else if (s.loop && restart(s, nowMs)) {
+                stopSlotSound(s);
+                s.soundStarted = false;
                 break;
             } else {
                 s.status = kIdle;
@@ -88,8 +127,11 @@ int32_t CinematicSlots::run(int32_t slot, int32_t nowMs) {
         }
         decoded = true;
     }
-    if (decoded)
+    if (decoded) {
         s.movie.toRgba(s.rgba);
+        if (!s.soundStarted)
+            startSound(s);
+    }
     return s.status;
 }
 
@@ -115,8 +157,10 @@ bool CinematicSlots::frame(int32_t slot, Frame &out) const {
 }
 
 void CinematicSlots::clear() {
-    for (Slot &s : _slots)
+    for (Slot &s : _slots) {
+        stopSlotSound(s);
         s = Slot{};
+    }
 }
 
 } // namespace reluva::idtech3

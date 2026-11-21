@@ -686,6 +686,15 @@ void SpPlayPage::start(int index, int32_t loadMode, raven::SaveReader *save) {
     // then the client half.
     _game = std::make_unique<eliteforce::SpGameHost>(_ctx.files, _cvars);
     _game->print = [this](const std::string &text) { consolePrint(text); };
+    if (_ctx.mixer) {
+        // The client game's own videos' sound, as the page's cinematics'.
+        CinematicSlots &videos = _game->cinematics();
+        videos.playSound = [this](std::shared_ptr<const audio::Sound> sound) {
+            return _ctx.mixer->play(std::move(sound), audio::SoundType::kEffects, audio::kMaxVolume);
+        };
+        videos.stopSound = [this](audio::SoundHandle h) { _ctx.mixer->stop(h); };
+        videos.findSound = [this](const std::string &name) { return _soundLibrary.find(name); };
+    }
     _game->worldEffectCommand = [this](const std::string &line) {
         WorldEffects::Outcome o = _weather.command(line);
         if (!o.error.empty() && _weatherError.empty())
@@ -1749,15 +1758,17 @@ void SpPlayPage::showClientLoading() {
 }
 
 void SpPlayPage::drawGamePictures(size_t &drawn, size_t &shotsDrawn, size_t to, float time) {
-    // The client game's pictures up to `to`, with the screen capture where
-    // it drew that between them.
+    // The client game's pictures up to `to`, with the screen capture or a
+    // video's frame where it drew that between them.
     const auto &pictures = _game->pictures();
     const auto &shots = _game->screenShotDraws();
     for (; shotsDrawn < shots.size() && shots[shotsDrawn].picturesBefore <= to; ++shotsDrawn) {
         const auto &s = shots[shotsDrawn];
         _scene->drawPictures(pictures, drawn, s.picturesBefore, 640, 480, time);
         drawn = std::max(drawn, s.picturesBefore);
-        if (_game->screenShot.size() == SpMenuHost::kShotSize)
+        if (s.rgba)
+            _scene->drawImage(s.rgba->data(), s.cols, s.rows, s.x, s.y, s.w, s.h, 640, 480);
+        else if (_game->screenShot.size() == SpMenuHost::kShotSize)
             _scene->drawImage(_game->screenShot.data(), 256, 256, s.x, s.y, s.w, s.h, 640, 480);
     }
     _scene->drawPictures(pictures, drawn, to, 640, 480, time);

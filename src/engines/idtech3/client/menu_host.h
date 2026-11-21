@@ -106,6 +106,11 @@ public:
     virtual const std::vector<std::string> &commands() const = 0;
     // The last system calls made, for reports when the menus stop.
     virtual std::vector<std::string> recentCalls() const = 0;
+    // The videos they play (CIN_*), for their sound; none for menus without.
+    virtual CinematicSlots *cinematics() { return nullptr; }
+    // An error their engine would end the game with (Com_Error's
+    // ERR_DROP), taken by whoever runs them.
+    std::string dropError;
     // Whether they're given keys by Reluva's own numbers (q3key::kFirstOwn
     // on), which only menus that change them to theirs know.
     virtual bool takesOwnKeys() const { return false; }

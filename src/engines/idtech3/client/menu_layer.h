@@ -68,6 +68,9 @@ public:
     // the menus are told of the connection and its configstrings.
     ServerBrowser *browser = nullptr;
     std::function<void(MenuHost &)> configure;
+    // What ends the game when the menus' engine would (Com_Error's
+    // ERR_DROP); unset, they show the main menu with why, as with no game.
+    std::function<void(const std::string &why)> dropped;
 
 private:
     void stop(const Error &err);

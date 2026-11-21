@@ -73,6 +73,7 @@ public:
     std::vector<std::string> recentCalls() const override;
     int32_t catcher() const override { return _catcher; }
     bool takesOwnKeys() const override { return _release != JediRelease::k102a; }
+    CinematicSlots *cinematics() override { return &_cinematics; }
 
     Qvm &vm() override { return _vm; }
     const HandleTable &sounds() const override { return _sounds; }

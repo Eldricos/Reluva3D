@@ -358,6 +358,33 @@ uint32_t SpGameHost::jediCgameCall(x86::Cpu &c) {
         if (worldEffectCommand)
             worldEffectCommand(str(0, 256));
         return 0;
+    // Videos the client game plays itself (0x401d92 on), as the engine's
+    // own slots: none of the releases' client games makes these.
+    case 90: { // CIN_PlayCinematic(name, x, y, w, h, bits, sound file or null)
+        const auto now = int32_t(_process->milliseconds());
+        const int32_t slot = _cinematics.play(str(0, 128), int32_t(a(1)), int32_t(a(2)), int32_t(a(3)), int32_t(a(4)),
+                                              int32_t(a(5)), now, a(6) ? str(6, 128) : std::string());
+        // A 17th at once ends the game, as the original's error does.
+        if (!_cinematics.error.empty()) {
+            c.abort(_cinematics.error);
+            _cinematics.error.clear();
+        }
+        return uint32_t(slot);
+    }
+    case 91: // CIN_StopCinematic(slot)
+        return uint32_t(_cinematics.stop(int32_t(a(0))));
+    case 92: // CIN_RunCinematic(slot)
+        return uint32_t(_cinematics.run(int32_t(a(0)), int32_t(_process->milliseconds())));
+    case 93: { // CIN_DrawCinematic(slot): its frame among the pictures
+        CinematicSlots::Frame frame;
+        if (_cinematics.frame(int32_t(a(0)), frame))
+            _shots.push_back(
+                {frame.x, frame.y, frame.w, frame.h, _pictures.size(), frame.rgba, frame.cols, frame.rows});
+        return 0;
+    }
+    case 94: // CIN_SetExtents(slot, x, y, w, h)
+        _cinematics.setExtents(int32_t(a(0)), int32_t(a(1)), int32_t(a(2)), int32_t(a(3)), int32_t(a(4)));
+        return 0;
     // The menus, as jk2sp.exe's (0x49f970 on): a file read in a parse
     // session, its tokens asked for one at a time, each menuDef read from
     // where the session is.

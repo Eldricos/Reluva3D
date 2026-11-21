@@ -61,10 +61,6 @@ In the multiplayer menus:
 - **The menus' `R_RemapShader`** changes only the menus' drawing, where
   the original's renderer changes the shader for everything it draws
   ([systems/syscalls.md](systems/syscalls.md)).
-- **The menus' videos** never play their sound (every video the shipped
-  menus start is silent anyway), and a 17th at once is refused, where
-  the original ends the game with an error
-  ([systems/syscalls.md](systems/syscalls.md), Videos).
 
 Left for after the rest is done and tested (its phase 11):
 

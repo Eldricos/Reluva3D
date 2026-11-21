@@ -848,6 +848,33 @@ static void testCinematicSlots() {
     CHECK(c.run(2, 500) == CinematicSlots::kIdle && c.play("test", 0, 0, 0, 0, 0, 0) == 0);
     CHECK(c.stop(0) == CinematicSlots::kEnded && c.run(0, 600) == CinematicSlots::kIdle);
     CHECK(c.run(99, 0) == CinematicSlots::kEnded && c.stop(-1) == CinematicSlots::kEnded);
+
+    // Its sound (here a separate file, single player's seventh argument)
+    // starts with its first frame shown and stops with it; silent, none.
+    std::vector<std::string> sounds;
+    c.findSound = [](const std::string &name) {
+        auto sound = std::make_shared<audio::Sound>();
+        sound->rate = 22050;
+        sound->channels = 1;
+        return name == "speech" ? std::shared_ptr<const audio::Sound>(sound) : nullptr;
+    };
+    c.playSound = [&](const std::shared_ptr<const audio::Sound> &) {
+        sounds.push_back("play");
+        return audio::SoundHandle(7);
+    };
+    c.stopSound = [&](audio::SoundHandle h) { sounds.push_back("stop " + std::to_string(h)); };
+    c.clear();
+    const int32_t spoken = c.play("test", 0, 0, 0, 0, CinematicSlots::kSystem, 0, "speech");
+    const int32_t silent = c.play("test", 0, 0, 0, 0, CinematicSlots::kSystem | CinematicSlots::kSilent, 0, "speech");
+    CHECK(sounds.empty() && c.run(spoken, 0) == CinematicSlots::kPlay && c.run(silent, 0) == CinematicSlots::kPlay);
+    CHECK(c.stop(spoken) == CinematicSlots::kEnded);
+    CHECK((sounds == std::vector<std::string>{"play", "stop 7"}));
+    // A 17th at once: refused, with the original's error.
+    c.clear();
+    for (int i = 0; i < CinematicSlots::kSlots; ++i)
+        CHECK(c.play("test", 0, 0, 0, 0, CinematicSlots::kSystem, 0) == i);
+    CHECK(c.error.empty() && c.play("test", 0, 0, 0, 0, CinematicSlots::kSystem, 0) == -1);
+    CHECK(c.error == "CIN_HandleForVideo: none free");
 }
 
 static void testGhoul2Instances() {

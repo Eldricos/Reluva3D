@@ -17,6 +17,7 @@
 #include "engines/idtech3/formats/ghoul2.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
+#include "engines/idtech3/client/cinematic_slots.h"
 #include "engines/idtech3/client/scene.h"
 #include "engines/idtech3/raven/savegame.h"
 #include "engines/idtech3/server/server_world.h"
@@ -314,8 +315,16 @@ public:
         float w = 0;
         float h = 0;
         size_t picturesBefore = 0;
+        // A video's frame drawn there instead (CIN_DrawCinematic): its
+        // RGBA, cols x rows, rows top first; null for the capture.
+        const std::vector<uint8_t> *rgba = nullptr;
+        int cols = 0;
+        int rows = 0;
     };
     const std::vector<ScreenShotDraw> &screenShotDraws() const { return _lastShots; }
+    // The videos the client game plays itself (Jedi Outcast's CIN_* calls,
+    // 90 to 94); the page gives them their sound.
+    CinematicSlots &cinematics() { return _cinematics; }
     // Whether a shader or picture can be found (R_RegisterShader gives 0
     // for one that can't, as the original's renderer); unset: all can.
     std::function<bool(const std::string &name)> shaderExists;
@@ -585,6 +594,7 @@ private:
     std::vector<Picture> _lastPictures;
     std::vector<ScreenShotDraw> _shots;
     std::vector<ScreenShotDraw> _lastShots;
+    CinematicSlots _cinematics{_files};
     std::array<float, 4> _color{1, 1, 1, 1};
     std::map<int32_t, std::shared_ptr<Md3Model>> _md3s; // by model handle, loaded for tags and bounds
     const Md3Model *md3(int32_t handle);

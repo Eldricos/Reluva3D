@@ -5,8 +5,12 @@
 
 #include "engines/idtech3/cinematic.h"
 
+#include "audio/mixer.h"
+
 #include <array>
 #include <cstdint>
+#include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -26,7 +30,8 @@ public:
     // CIN_PlayCinematic's bits.
     static constexpr int32_t kSystem = 1; // the engine's own cinematic, never shared
     static constexpr int32_t kLoop = 2;
-    static constexpr int32_t kHold = 4; // the last frame kept at the end
+    static constexpr int32_t kHold = 4;   // the last frame kept at the end
+    static constexpr int32_t kSilent = 8; // its sound not played
     // What run and stop answer (e_status).
     static constexpr int32_t kIdle = 0;
     static constexpr int32_t kPlay = 1;
@@ -34,13 +39,19 @@ public:
     static constexpr int kSlots = 16;
 
     explicit CinematicSlots(const SearchSet &files) : _files(files) {}
+    ~CinematicSlots() { clear(); }
+    CinematicSlots(const CinematicSlots &) = delete;
+    CinematicSlots &operator=(const CinematicSlots &) = delete;
 
     /**
      * CIN_PlayCinematic: `name` under video/ unless it has a folder, .roq
      * unless it has a type; the slot already playing it unless `bits`
      * has kSystem. -1 if it can't be read. `nowMs` is when it starts.
+     * @param soundFile single player's: a sound played in place of the
+     *                  video's own (empty: its own).
      */
-    int32_t play(const std::string &name, int32_t x, int32_t y, int32_t w, int32_t h, int32_t bits, int32_t nowMs);
+    int32_t play(const std::string &name, int32_t x, int32_t y, int32_t w, int32_t h, int32_t bits, int32_t nowMs,
+                 const std::string &soundFile = {});
     /** CIN_StopCinematic: the slot let go. */
     int32_t stop(int32_t slot);
     /** CIN_RunCinematic: the frames due at `nowMs` decoded; its status. */
@@ -64,6 +75,17 @@ public:
     /** Every slot let go. */
     void clear();
 
+    /** Plays a video's sound, and stops it; unset: no sound. */
+    std::function<audio::SoundHandle(std::shared_ptr<const audio::Sound>)> playSound;
+    std::function<void(audio::SoundHandle)> stopSound;
+    /** A sound file by name (for `soundFile`); unset: none found. */
+    std::function<std::shared_ptr<const audio::Sound>(const std::string &)> findSound;
+    /**
+     * Set when play() is refused for want of a free slot: the original's
+     * error, which ends the game there.
+     */
+    std::string error;
+
 private:
     struct Slot {
         std::string name; // empty: free
@@ -74,11 +96,20 @@ private:
         int32_t start = 0; // ms, at its first frame
         bool loop = false;
         bool hold = false;
+        bool silent = false;
+        std::string soundFile;
+        std::shared_ptr<const audio::Sound> sound; // decoded once, for each time round
+        audio::SoundHandle playing = audio::kNoSound;
+        bool soundStarted = false;
         std::array<int32_t, 4> extents{};
         std::vector<uint8_t> rgba; // the last frame decoded
     };
     bool valid(int32_t slot) const { return slot >= 0 && slot < kSlots && _slots[size_t(slot)].status != kEnded; }
     bool restart(Slot &s, int32_t nowMs);
+    // The sound with its first frame shown, as the original's are fed as
+    // its frames are decoded; and stopped.
+    void startSound(Slot &s) const;
+    void stopSlotSound(Slot &s) const;
 
     const SearchSet &_files;
     std::array<Slot, kSlots> _slots;

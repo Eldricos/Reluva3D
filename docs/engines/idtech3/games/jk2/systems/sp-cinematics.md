@@ -45,9 +45,15 @@ second word.
 
 The client game's own calls for movies (90 to 94: play, stop, run,
 draw, set extents; jk2sp.exe's 0x403a00, 0x402520, 0x402780,
-0x4046d0, 0x404650) aren't made by 1.02a's client game: its system
-call wrappers (through the pointer `dllEntry` keeps, 0x201172c8 in
-`jk2gamex86.dll`) cover the other numbers, none of 90 to 94.
+0x4046d0, 0x404650, cased at 0x401d92 on) aren't made by any release's
+client game: its system call wrappers (through the pointer `dllEntry`
+keeps, 0x201172c8 in 1.02a's `jk2gamex86.dll`) cover the other numbers,
+none of 90 to 94 (93 to 97 in 1.03's and 1.04's, whose DLLs are the
+same). The engine answers them as multiplayer's menus' videos
+([syscalls.md](syscalls.md), Videos): 16 slots of 0x140 bytes at
+0x4f1200, the same name rules and bits, and a seventh argument, a sound
+registered and played in place of the video's own (0x403c49). The frame
+is drawn stretched at its extents (`DrawStretchRaw`, 0x404821).
 
 ### The opening crawl (0x404cc0)
 
@@ -86,8 +92,10 @@ from the console held the logos' last frame until a key. `jk05` and
 `jk06` outside English play their separate speech
 (`GameInfo::separateSpeech`) in place of the movie's sound.
 
-The client game's movie calls (90 to 94), which 1.02a's client game
-never makes, still stop the game with their number.
+The client game's movie calls (90 to 94) play in `CinematicSlots`, as
+the menus' videos do, their frames drawn among its pictures in its 640
+x 480 screen, their sound through the page's mixer; a 17th at once ends
+the game with the original's error.
 
 ## Sources and checks
 

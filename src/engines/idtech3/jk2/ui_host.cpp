@@ -671,8 +671,11 @@ int32_t UiHost::systemCall(Qvm &vm, int number, const int32_t *a) {
     // The menus' videos (jk2mp.exe's cases 0x41057a to 0x4105e0): played
     // by the engine on the menus' clock, each frame drawn among the
     // pictures where the menus draw it.
-    case kCinPlayCinematic: // (name, x, y, w, h, bits)
-        return _cinematics.play(vm.string(a[0], 256), a[1], a[2], a[3], a[4], a[5], _time);
+    case kCinPlayCinematic: { // (name, x, y, w, h, bits)
+        const int32_t slot = _cinematics.play(vm.string(a[0], 256), a[1], a[2], a[3], a[4], a[5], _time);
+        dropError = std::exchange(_cinematics.error, {}); // (a 17th at once)
+        return slot;
+    }
     case kCinStopCinematic:
         return _cinematics.stop(a[0]);
     case kCinRunCinematic:

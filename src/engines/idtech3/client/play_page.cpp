@@ -1053,6 +1053,13 @@ void PlayPage::openMenu(int32_t menu) {
     // offers the server's items (adding bots, restarting) by it.
     _cvars.create("sv_running", "0", CvarStore::kReadOnly);
     _cvars.set("sv_running", _game && !_client ? "1" : "0", true);
+    _menus.dropped = [this](const std::string &why) {
+        // The match ends, back to the menus, which show why.
+        stop(why);
+        _cvars.create("com_errorMessage", "", 0);
+        _cvars.set("com_errorMessage", why);
+        _ctx.requestPage = "Menu";
+    };
     _menus.configure = [this](MenuHost &ui) {
         ui.clientState.connState = 8; // CA_ACTIVE
         ui.clientState.clientNum = _client ? _playerNumber : 0;

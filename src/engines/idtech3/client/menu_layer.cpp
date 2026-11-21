@@ -75,8 +75,15 @@ bool MenuLayer::start(int32_t menu) {
         _ui->setKeyFile(_ctx.homePath / "cdkey.txt"); // whatever the mod
         _ui->setFavoritesFile(_ctx.homePath / "favorites.txt");
     }
-    if (_ctx.mixer)
+    if (_ctx.mixer) {
         _ui->startLocalSound = [this](const std::string &name, int channel) { playSound(name, channel); };
+        if (CinematicSlots *videos = _ui->cinematics()) {
+            videos->playSound = [this](std::shared_ptr<const audio::Sound> sound) {
+                return _ctx.mixer->play(std::move(sound), audio::SoundType::kEffects, audio::kMaxVolume);
+            };
+            videos->stopSound = [this](audio::SoundHandle h) { _ctx.mixer->stop(h); };
+        }
+    }
     _ui->browser = browser;
     _ui->resolveHost = [this](const std::string &host, uint32_t &ip) { return _ctx.sys.resolveHost(host, ip); };
     if (configure)
@@ -307,6 +314,19 @@ void MenuLayer::frame(uint64_t nowMs) {
     if (Error err = _ui->refresh(time)) {
         stop(err);
         return;
+    }
+    if (!_ui->dropError.empty()) {
+        // As Com_Error's drop: the game ended, the main menu showing why.
+        const std::string why = std::exchange(_ui->dropError, {});
+        if (dropped) {
+            dropped(why);
+        } else {
+            _cvars.create("com_errorMessage", "", 0);
+            _cvars.set("com_errorMessage", why);
+            show(kMainMenu);
+        }
+        if (!_ui)
+            return;
     }
     const std::vector<Picture> pictures = _ui->pictures();
     findCursor();

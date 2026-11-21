@@ -110,9 +110,3 @@ The client's userinfo settings and their defaults are registered as
   and runs forward at 250 units a second, and two bots (Tavion and
   Desann) join, spawn and move about. A game-files step (`jk2-game`)
   records both runs.
-
-### Open questions
-
-- The player state's fields past the few the engine reads haven't been
-  checked against 1.02a's code (the network protocol needs them all).
-- A ROFF's notes aren't handed to the game (command 11) yet.
