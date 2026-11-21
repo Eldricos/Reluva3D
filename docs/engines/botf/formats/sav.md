@@ -1,6 +1,6 @@
 # Star Trek: Birth of the Federation: saved games (`.sav`)
 
-> **Status:** partial · **Code:** `src/engines/botf/formats/save_game.cpp` · **Checked on:** `game0.sav` of the English retail install (Tutorial #1): every file decoded, `gameInfo`'s fields read (November 2026) · **Confidence:** confirmed unless marked
+> **Status:** partial · **Code:** `src/engines/botf/formats/save_game.cpp` · **Checked on:** the English retail install's four tutorials, `game0.sav` to `game3.sav`: every file decoded, `gameInfo`'s fields and the galaxy's files read (November 2026) · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -87,6 +87,102 @@ order, which the ones seen fit *(inferred)*. The timers weren't set away
 from none in any of them, so their other values are the editor's. `auto.sav`'s description is empty, and its header's name is
 `auto.sav`.
 
+### The files
+
+What each save holds, by name; `#` is a number. The four tutorials hold 249
+to 614 files, the same kinds in each but for the AI's tasks, which only
+the later three have. What each is for is the Ultimate Editor's
+(`ue/edit/sav/files/`) *(published)*; the galaxy's four are worked out
+below.
+
+| Files | What they hold |
+|---|---|
+| `version`, `SeedInfo`, `gameInfo` | the save's version, the random seeds, the game's setup and state ([`gameInfo`](#gameinfo)) |
+| `galInfo`, `sector.lst`, `systInfo`, `stellInfo` | the galaxy: its size, its sectors, its star systems and its other objects ([below](#the-galaxy)) |
+| `starBaseInfo`, `monster.lst` | outposts and starbases; space monsters |
+| `empsInfo`, `alienInfo`, `RToSInfo`, `intelInfo`, `techinfo`, `treaty`, `incident.dat` | the empires, the minor races, their relations, intelligence, research, treaties, incidents |
+| `provInfo#`, `trdeInfo#`, `trdeInfo#.cnt`, `SphOfIn#`, `alienTFInfo#` | each empire's provinces, trade routes and sphere of influence; each minor race's task forces |
+| `strcInfo`, `ordInfo`, `result.lst` | the systems' buildings, the empires' orders, the last turn's results |
+| `GShipList`, `GShipHead`, `GTForceList`, `GTForceHd`, `GWTForce`, `GWTForceHd`, `GTFStasis`, `GTFStasisHd`, `ShipCntr`, `TForceCntr`, `shipname.dat` | ships and task forces, and the names given to ships |
+| `AIAgent#`, `AINumAgents`, `AIAgtIdCtr`, `AISysUnt`, `AIShpUnt`, `Agt*#`, `AITask#`, `AINumTasks`, `AITaskIdCtr`, `TskSh#`, `TskSy#` (and their `.cnt`) | the computer players' state: 19 agents, one for each race that plays, and their tasks |
+
+### The galaxy
+
+Four files, which the other files' numbers refer to. The layouts are the
+Ultimate Editor's (`GalInfo.java`, `Sector.java`, `SystemEntry.java`,
+`StellEntry.java`) *(published)*; what's listed was checked on the four
+tutorials, which share a medium galaxy of 16 by 12 sectors, 45 star
+systems and 12 other objects. Numbers are little-endian.
+
+**`galInfo`**, 48 bytes:
+
+| Offset | Type | Field |
+|---|---|---|
+| 0x08 | `i32` | the galaxy's size: 0 small, 1 medium, 2 large (1 in the tutorials, medium as their setup says) |
+| 0x0C | `i16` | star systems: `systInfo`'s count |
+| 0x0E | `i16` | other objects: `stellInfo`'s count |
+| 0x10 | `i16` | outposts and starbases: 0, 4, 6 and 7 in the four tutorials, as the player builds them |
+| 0x14 | `i16` | sectors: `sector.lst`'s count, 192 |
+
+The first 8 bytes are the same in the four tutorials and not known; the
+rest are zeros.
+
+**`sector.lst`**, 104 bytes a sector, row by row from the top left:
+
+| Offset | Type | Field |
+|---|---|---|
+| 0x00 | `i32` | its row, from 0 |
+| 0x04 | `i32` | its column, from 0: the last sector's row and column give the grid's size |
+| 0x08 | `i16` | its outpost or starbase, or -1 |
+| 0x0A | `i16` | its other object, an index into `stellInfo`, or -1 |
+| 0x0C | `i16` | its star system, an index into `systInfo`, or -1 |
+| 0x0E | `u16` | the empires claiming it, a bit each from the Cardassians: the Ferengi home system's sector has 4 |
+| 0x28 | `u64` | the races that have explored it, a bit each *(published)* |
+
+In each tutorial the sectors with a system are as many as `galInfo` says,
+and so are those with an object. The rest of the entry (the races'
+agreements on who owns it, task forces there, each empire's scanning) is
+the editor's and not read yet.
+
+**`systInfo`**, the systems one after another, each a fixed part of 0x328
+bytes and then what that part counts: its planets (76 bytes each), a
+32-bit word for each planet, its specials (64 bytes each), a word for each
+trade route, and, for the player's systems, its production queue (108
+bytes). Read so, each tutorial's file comes out to its last byte. The
+fixed part's fields read:
+
+| Offset | Type | Field |
+|---|---|---|
+| 0x00 | `i32` | its number, from 0 in order |
+| 0x04 | `i32` | 2 for the player's systems. The computer's are 0 or 1: each empire's home system has 0 and its colonies 1, so what the value means isn't known |
+| 0x08 | `char[40]` | its name: "Acamar" |
+| 0x31 | `u8` | the star's type *(published)* |
+| 0x32 | `char[5]` | the star's pictures' name: "s-o-" |
+| 0x40 | `i32` | its population: Romulus 355, the tutorials' biggest |
+| 0x44 | `i16` | the race living there, by `race.rst`'s number (5 and on for the minor races), or -1 |
+| 0x4C | `i32` | the race holding it, the same; 0x23 for no one |
+| 0x6A | `i16` | its planets |
+| 0x6C | `i16` | its specials: 0 in every system seen |
+| 0x6E | `i16` | its natural dilithium *(published)* |
+| 0x78, 0x7C | `i32` | where it's drawn on the galaxy's small map, 5 pixels a sector: Acamar, in column 6 and row 0, at 32, 3 |
+| 0x308, 0x309 | `u8` | its trade routes, coming in and its own |
+
+A planet, 76 bytes: its name (`char[40]`, ending in a line break:
+"Acamar I\n"), its picture (`char[14]` at 0x28: "vsal.ani"), its number
+in the system (`i16` at 0x36), its size (`i16` at 0x38, 0 to 2), and its
+type and atmosphere (`u8` at 0x48 and 0x49) *(published)*. The fixed
+part's other fields (production, morale, buildings, trade) are the
+editor's and not read yet.
+
+**`stellInfo`**, 88 bytes an object:
+
+| Offset | Type | Field |
+|---|---|---|
+| 0x00 | `i32` | its type: 0 black hole, 1 X-ray pulsar, 2 nebula, 10 wormhole, 11 radio pulsar, by the names the tutorials give them |
+| 0x04 | `char[40]` | its name, by its sector's column letter and row from 1: "Black Hole C4" |
+| 0x2C | `char[20]` | its picture: empty in the tutorials |
+| 0x44, 0x48 | `i32` | where it's drawn on the small map, as a system: "Black Hole C4" at 12, 17 |
+
 ## In Reluva
 
 `readSaveSummary` (`src/engines/botf/formats/save_game.cpp`) opens a save
@@ -97,20 +193,33 @@ player's empire; on `game0.sav` it gives "game0.sav", "Tutorial #1", turn
 `decompressLzss` takes the window's fill. The unit tests
 (`botf.unit.archives`: "lzss" and "saved games") cover both.
 
+`readSavedGalaxy` reads the galaxy's four files, and refuses a save whose
+files don't agree: counts that differ from `galInfo`'s, a sector out of
+order or pointing past a list, a system cut short. On the four tutorials
+it gives each one's 45 systems and 12 objects on a 16 by 12 grid, the
+five empires' home systems where the tutorials put them. The unit tests
+(`botf.unit.archives`: "saved galaxy") cover it on a galaxy built to this
+layout.
+
 ## Sources and checks
 
 - **Where the facts come from:** the Ultimate Editor's source
   (`ue/util/file/LzssFile.java` for the archive and its header's name,
   `ue/util/file/LzssInputStream.java` for the window,
   `ue/edit/sav/tools/SavTools.java` for which files are text,
-  `ue/edit/sav/files/GameInfo.java` for `gameInfo`'s fields; GPL-2.0, read
-  for the layout only; see [tables.md](tables.md#other-sources)), November
-  2026. The slots' file names are from a listing of the user's install.
+  `ue/edit/sav/files/GameInfo.java` for `gameInfo`'s fields, and the files
+  under `ue/edit/sav/files/` for what each file holds and the galaxy's
+  layouts; GPL-2.0, read for the layout only; see
+  [tables.md](tables.md#other-sources)), November 2026. The slots' file
+  names are from a listing of the user's install.
 - **How it was checked:** on the user's `game0.sav` (Tutorial #1, from a
   fresh install) and `auto.sav` (539 files, at turn 1), November 2026: every file decoded with each window fill,
   and `readSaveSummary` run on it, its description matching the Load Game
-  screenshot's. The unit tests use files built to this layout, not the
-  game's. The window's fill is from the editor alone.
+  screenshot's. The galaxy's files on the four tutorials, `game0.sav` to
+  `game3.sav`: each file read whole to its last byte, the counts agreeing,
+  the systems' and objects' sectors agreeing with their map positions and
+  their names' column letters and rows. The unit tests use files built to
+  this layout, not the game's. The window's fill is from the editor alone.
 
 ## Open questions
 
@@ -125,4 +234,8 @@ player's empire; on `game0.sav` it gives "game0.sav", "Tutorial #1", turn
   `auto.sav`): the game writes both, with the same time, once a game
   started or loaded has passed a turn, but moving `Last.sav` away changes
   nothing that shows (the user, in the game).
-- The rest of `gameInfo`, and every other file in the archive.
+- What `systInfo`'s value at 0x04 means for the computer's systems, and
+  `galInfo`'s first 8 bytes.
+- The rest of `gameInfo`, of the galaxy's files, and every other file in
+  the archive: settled by saves taken a turn apart, or with one change
+  between them.

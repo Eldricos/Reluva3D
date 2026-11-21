@@ -23,14 +23,16 @@ with recordings of the original filling what the data can't show.
    ([formats/tables.md](formats/tables.md)).
 5. **The first screens** (done): the main menu, game setup and empire
    selection ([systems/screens.md](systems/screens.md)).
-6. **Models** (next): the `.hob` models with their `.gif` textures, on a
+6. **Models:** the `.hob` models with their `.gif` textures, on a
    Models page with `src/graphics/gfx3d.h`.
 7. **Movies:** the CD's AVI movies (Cinepak video), through the shared
    video code: the opening movie is done; the empires' wait for a game to
    start.
-8. **Saves:** the `.sav` format, worked out by comparing saves taken a
-   turn apart in the running game: the map of the game state the rules
-   act on.
+8. **Saves** (next): the `.sav` format, worked out by comparing saves
+   taken a turn apart in the running game: the map of the game state the
+   rules act on. The archive's files are listed, and the galaxy's (its
+   sectors, star systems and planets, and other objects) are read
+   ([formats/sav.md](formats/sav.md)).
 9. **Screens:** the main menu's own screens are done (the options, Load
    and Save Game's lists, the Hall of Fame, Multiplayer Setup). Next the
    galaxy map, and the system, empire and diplomacy screens, from their

@@ -116,6 +116,95 @@ void testLzss() {
     CHECK(!decompressLzss(early.data(), early.size(), 3, out, nullptr, 0x20) && out == Bytes(3, 0x20));
 }
 
+// A saved game's galaxy: a 3x2 grid, a system in the middle of the top row
+// (the player's, with one planet and so a production queue) and a nebula
+// below it, laid out as docs/engines/botf/formats/sav.md says.
+Bytes makeGalaxySave(int16_t systems, bool withQueue) {
+    auto put16At = [](Bytes &b, size_t at, uint16_t v) {
+        b[at] = uint8_t(v);
+        b[at + 1] = uint8_t(v >> 8);
+    };
+    Bytes info(48, 0);
+    set32(info, 0x08, 1);
+    put16At(info, 0x0C, uint16_t(systems));
+    put16At(info, 0x0E, 1);
+    put16At(info, 0x14, 6);
+    Bytes sectors;
+    for (uint32_t i = 0; i < 6; ++i) {
+        Bytes e(104, 0);
+        set32(e, 0, i / 3);
+        set32(e, 4, i % 3);
+        put16At(e, 8, 0xFFFF);
+        put16At(e, 10, i == 4 ? 0 : 0xFFFF);
+        put16At(e, 12, i == 1 ? 0 : 0xFFFF);
+        put16At(e, 14, i == 1 ? 0x10 : 0);
+        set32(e, 40, i < 3 ? 0x10 : 0);
+        sectors.insert(sectors.end(), e.begin(), e.end());
+    }
+    Bytes system(0x328, 0);
+    set32(system, 4, 2);
+    const std::string name = "Romulus";
+    const std::string star = "s-r-";
+    std::copy(name.begin(), name.end(), system.begin() + 0x08);
+    system[0x31] = 4;
+    std::copy(star.begin(), star.end(), system.begin() + 0x32);
+    set32(system, 0x40, 355);
+    put16At(system, 0x44, 4);
+    set32(system, 0x4C, 4);
+    put16At(system, 0x6A, 1);
+    put16At(system, 0x6E, 3);
+    set32(system, 0x78, 7);
+    set32(system, 0x7C, 2);
+    system[0x308] = 1; // one trade route coming in
+    Bytes planet(76, 0);
+    const std::string pname = "Romulus II\n";
+    const std::string pani = "atol.ani";
+    std::copy(pname.begin(), pname.end(), planet.begin());
+    std::copy(pani.begin(), pani.end(), planet.begin() + 0x28);
+    put16At(planet, 0x38, 2);
+    planet[0x48] = 4;
+    planet[0x49] = 10;
+    system.insert(system.end(), planet.begin(), planet.end());
+    system.insert(system.end(), 4 + 4, 0); // the planet's word, the trade route's
+    if (withQueue)
+        system.insert(system.end(), 108, 0);
+    Bytes stellar(88, 0);
+    set32(stellar, 0, 2);
+    const std::string sname = "Nebula B2";
+    std::copy(sname.begin(), sname.end(), stellar.begin() + 4);
+    set32(stellar, 68, 7);
+    set32(stellar, 72, 7);
+    return makeLzssArchive("game0.sav",
+                           {{"galInfo", info}, {"sector.lst", sectors}, {"systInfo", system}, {"stellInfo", stellar}});
+}
+
+void testSavedGalaxy(const std::filesystem::path &tmp) {
+    writeFile(tmp / "galaxy.sav", makeGalaxySave(1, true));
+    SavedGalaxy g;
+    CHECK(!readSavedGalaxy(tmp / "galaxy.sav", g));
+    CHECK(g.size == 1 && g.width == 3 && g.height == 2 && g.sectors.size() == 6);
+    CHECK(g.at(1, 0).system == 0 && g.at(1, 0).claims == 0x10 && g.at(1, 0).explored == 0x10);
+    CHECK(g.at(1, 1).stellarObject == 0 && g.at(1, 1).system == -1 && g.at(0, 0).starbase == -1);
+    CHECK(g.systems.size() == 1 && g.stellarObjects.size() == 1);
+    const SavedSystem &s = g.systems[0];
+    CHECK(s.name == "Romulus" && s.starAnimation == "s-r-" && s.starType == 4 && s.control == 2);
+    CHECK(s.population == 355 && s.residentRace == 4 && s.controllingRace == 4 && s.dilithium == 3);
+    CHECK(s.mapX == 7 && s.mapY == 2 && s.planets.size() == 1);
+    // The planet's name without the line break the game ends it with.
+    CHECK(s.planets[0].name == "Romulus II" && s.planets[0].animation == "atol.ani");
+    CHECK(s.planets[0].size == 2 && s.planets[0].type == 4 && s.planets[0].atmosphere == 10);
+    CHECK(g.stellarObjects[0].type == 2 && g.stellarObjects[0].name == "Nebula B2" && g.stellarObjects[0].mapY == 7);
+    // Counts that don't agree, and a system cut short (the player's without
+    // its production queue), aren't read.
+    writeFile(tmp / "bad.sav", makeGalaxySave(2, true));
+    CHECK(bool(readSavedGalaxy(tmp / "bad.sav", g)));
+    writeFile(tmp / "short.sav", makeGalaxySave(1, false));
+    CHECK(bool(readSavedGalaxy(tmp / "short.sav", g)));
+    // Nor a save without them.
+    writeFile(tmp / "none.sav", makeSave("x", "", 0));
+    CHECK(bool(readSavedGalaxy(tmp / "none.sav", g)));
+}
+
 void testSaveSummary(const std::filesystem::path &tmp) {
     writeFile(tmp / "game0.sav", makeSave("Tutorial #1", "Irregular galaxy \xe9", 41));
     SaveSummary save;
@@ -351,6 +440,7 @@ static const reluva::test::Suite
                {"lzss", [](const std::filesystem::path &) { testLzss(); }},
                {"alt.res", [](const std::filesystem::path &tmp) { testAltRes(tmp); }},
                {"saved games", [](const std::filesystem::path &tmp) { testSaveSummary(tmp); }},
+               {"saved galaxy", [](const std::filesystem::path &tmp) { testSavedGalaxy(tmp); }},
                {"snd", [](const std::filesystem::path &tmp) { testSnd(tmp); }},
                {"game files", [](const std::filesystem::path &tmp) { testGameFiles(tmp); }},
                {"Stbof.ini written", [](const std::filesystem::path &) { testStbofIniWritten(); }},
