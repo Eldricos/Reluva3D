@@ -40,7 +40,8 @@ None yet.
   in order, their facing, the path finding by A*, the mouse's buttons,
   the info bar rising under the mouse, a walk's pace from its frames,
   characters' facing in radians, the move button's order, the view held
-  by the camera's scripts, a line's time and the beaming in's look
+  by the camera's scripts, a line's time and the beaming in's look; the
+  triggers' rules, read from the maps' fields
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **The briefing:** the voice-overs found by name under `Levels/Voice
   Overs`, the briefing music played over and over and the menu's song

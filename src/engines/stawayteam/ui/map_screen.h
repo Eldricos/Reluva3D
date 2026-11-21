@@ -85,6 +85,16 @@ public:
     /** The words of the info dialog shown; empty if none is. */
     const std::string &dialogText() const { return _dialogText; }
 
+    /** A part's state as the map's triggers change it. */
+    struct PartState {
+        bool active = true;
+        bool visible = true;
+        bool deleted = false;
+    };
+    const PartState &partState(size_t part) const { return _partStates[part]; }
+    /** Runs `action` (one of the map's), as a trigger would, `instigator` the officer who set it off (or -1). */
+    void runAction(const TextObject *action, int instigator = -1);
+
 private:
     // What a ground value draws: a texture, and how much of the next one
     // over it (0-255) (0x538d20, the 16-bit table).
@@ -97,7 +107,14 @@ private:
     void scroll(float seconds);
     // The camera's scripts and their actions (0x4776a0).
     void playScripts(float seconds);
-    void runAction(const TextObject *action);
+    // The map's triggers (map_triggers.cpp).
+    void setupTriggers();
+    void updateTriggers(float seconds);
+    // The parts named by `names`, a comma's list; "$Instigator" the officer
+    // who set it off.
+    std::vector<size_t> partsNamed(const std::string &names) const;
+    void relay(const std::string &names, int instigator);
+    bool shown(size_t part) const;
     void showDialog(const std::string &script, const std::string &line, const std::string &speaker);
     void drawDialog(Surface &screen);
     void walk(Officer &o, float seconds);
@@ -125,6 +142,7 @@ private:
     std::vector<std::vector<size_t>> _cellPolygons; // the ground polygons over each cell
     std::map<std::string, Animation> _models;       // by model and sequence
     std::vector<size_t> _standing;                  // the models, back to front
+    std::vector<size_t> _overlays;                  // the Trans polygons
     // The scroll keys held, and the mouse.
     bool _left = false;
     bool _right = false;
@@ -153,7 +171,22 @@ private:
     struct Delayed {
         float left;
         const TextObject *action;
+        int instigator;
     };
+    // A part's trigger: its AI, and how it stands.
+    struct Trigger {
+        size_t part;
+        const TextObject *ai;
+        bool done = false;             // triggered, and only once
+        std::vector<bool> touching;    // each officer's, for a touching trigger
+        std::vector<float> nextRepeat; // each officer's next Repeat Action
+        float timer = 0.0f;            // a repeat timer's seconds till it next acts
+    };
+    std::vector<PartState> _partStates;
+    std::vector<Trigger> _triggers;
+    std::map<const TextObject *, size_t> _series; // a series' next action
+    std::map<std::string, std::vector<size_t>> _byName;
+    unsigned _random = 1;
     std::vector<Delayed> _delayed;
     // The team beaming in: shown, and how long of the effect is left.
     bool _teamShown = true;

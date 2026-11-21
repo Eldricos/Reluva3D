@@ -116,11 +116,15 @@ MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, 
     _cellPolygons.resize(size_t(cellsX) * size_t(cellsY));
     for (size_t i = 0; i < _map.parts.size(); ++i) {
         const MapPart &p = _map.parts[i];
-        if (!p.visible)
-            continue;
         if (!p.polygon.empty()) {
-            if (p.renderType != "Textured" && p.renderType != "Black" && p.renderType != "Shadow")
+            // The ground's own, drawn into its cells; the Trans colours are
+            // drawn over it while they're active (below).
+            if (!p.visible || !p.active ||
+                (p.renderType != "Textured" && p.renderType != "Black" && p.renderType != "Shadow")) {
+                if (p.renderType.rfind("Trans ", 0) == 0)
+                    _overlays.push_back(i);
                 continue;
+            }
             float x0 = p.polygon[0].first;
             float x1 = x0;
             float y0 = p.polygon[0].second;
@@ -164,6 +168,7 @@ MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, 
     if (!_officers.empty())
         _selected = 0;
     _hud = std::make_unique<GameHud>(data, rules, _team, _map.minimap, _map.width, _map.height);
+    setupTriggers();
 
     // The map's camera scripts play as it starts. The team's spawn points
     // hide them (their CSpawnPointAI's CMakeVisibleAction): one of the
@@ -369,38 +374,6 @@ void MapScreen::walk(Officer &o, float seconds) {
     }
 }
 
-void MapScreen::runAction(const TextObject *action) {
-    if (!action)
-        return;
-    const std::string &kind = action->className;
-    if (kind == "CMultipleActionsAction") {
-        if (const TextObject *actions = action->object("Action"))
-            for (const TextField *item : actions->items())
-                runAction(item->object.get());
-    } else if (kind == "CDelayAction") {
-        _delayed.push_back({float(action->number("Delay").value_or(0.0)), action->object("Next Action")});
-    } else if (kind == "CInfoDialogAction") {
-        showDialog(readText(action, "Script"), readText(action, "Line"), readText(action, "Who is speaking"));
-    } else if (kind == "CAddEffectToTeam") {
-        // The team beams in: the warp's sound, and them fading in under the
-        // transporter's sparkle over its Warp Time (inferred for how it's
-        // drawn).
-        const TextObject *behavior = action->object("Warp Behavior");
-        _warpTime = behavior ? float(behavior->number("Warp Time").value_or(1.75)) : 1.75f;
-        _warpLeft = _warpTime;
-        _teamShown = true;
-        if (_mixer)
-            if (auto sound = gameSound(_data, readText(action, "Warp Sound")))
-                _mixer->play(sound, audio::SoundType::kEffects);
-    } else if (kind == "CAddCameraScriptAction") {
-        if (const TextObject *manager = action->object("Script")) {
-            const auto more = readCameraScripts(*manager);
-            _scripts.insert(_scripts.end(), more.begin(), more.end());
-        }
-    }
-    // The rest (relays, activations, objectives) aren't there yet.
-}
-
 void MapScreen::showDialog(const std::string &script, const std::string &line, const std::string &speaker) {
     _dialogText.clear();
     std::vector<uint8_t> bytes;
@@ -432,9 +405,9 @@ void MapScreen::playScripts(float seconds) {
     for (size_t i = 0; i < _delayed.size();) {
         _delayed[i].left -= seconds;
         if (_delayed[i].left <= 0.0f) {
-            const TextObject *next = _delayed[i].action;
+            const Delayed d = _delayed[i];
             _delayed.erase(_delayed.begin() + ptrdiff_t(i));
-            runAction(next);
+            runAction(d.action, d.instigator);
         } else {
             ++i;
         }
@@ -504,6 +477,8 @@ void MapScreen::update(uint64_t now) {
         scroll(seconds);
     for (Officer &o : _officers)
         walk(o, seconds);
+    // The triggers see where everyone has got to.
+    updateTriggers(seconds);
 }
 
 void MapScreen::drawOfficer(Surface &view, const Officer &o, int left, int top, uint64_t now) {
@@ -640,6 +615,35 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
     for (int cy = std::max(0, top / kCell); cy <= (top + _viewH) / kCell; ++cy)
         for (int cx = std::max(0, left / kCell); cx <= (left + _viewW) / kCell; ++cx)
             image::blit(view, groundCell(cx, cy), cx * kCell - left, cy * kCell - top);
+    // The guides laid on the ground while they're active: the Trans
+    // polygons, half see-through in their colour (inferred for how).
+    for (size_t i : _overlays) {
+        if (!shown(i))
+            continue;
+        const MapPart &p = _map.parts[i];
+        const std::string &type = p.renderType;
+        const uint8_t r = type == "Trans Red" ? 255 : 0;
+        const uint8_t g = type == "Trans Green" ? 255 : 0;
+        const uint8_t b = type == "Trans Blue" ? 255 : 0;
+        for (int y = 0; y < _viewH; ++y) {
+            const float wy = float(top + y) + 0.5f;
+            std::vector<float> xs;
+            for (size_t k = 0; k + 1 < p.polygon.size(); ++k) {
+                const auto [ax, ay] = p.polygon[k];
+                const auto [bx, by] = p.polygon[k + 1];
+                if ((ay <= wy && by > wy) || (by <= wy && ay > wy))
+                    xs.push_back(ax + (wy - ay) * (bx - ax) / (by - ay));
+            }
+            std::sort(xs.begin(), xs.end());
+            for (size_t k = 0; k + 1 < xs.size(); k += 2)
+                for (int x = std::max(0, int(xs[k]) - left); x < std::min(_viewW, int(xs[k + 1]) - left); ++x) {
+                    uint8_t *px = view.row(y) + x * 4;
+                    px[0] = uint8_t((px[0] + r) / 2);
+                    px[1] = uint8_t((px[1] + g) / 2);
+                    px[2] = uint8_t((px[2] + b) / 2);
+                }
+        }
+    }
     // The selection's marker on the ground under the officer chosen.
     if (_selected >= 0 && _teamShown) {
         const Officer &o = _officers[size_t(_selected)];
@@ -656,6 +660,8 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
     std::vector<Standing> order;
     for (size_t i : _standing) {
         const MapPart &p = _map.parts[i];
+        if (!shown(i))
+            continue;
         if (p.x < float(left - 600) || p.x > float(left + _viewW + 600) || p.y < float(top - 600) ||
             p.y > float(top + _viewH + 600))
             continue;

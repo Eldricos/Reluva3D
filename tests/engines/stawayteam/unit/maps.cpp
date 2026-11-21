@@ -195,6 +195,69 @@ void testScripts() {
     CHECK(screen.dialogText().empty());
 }
 
+void testTriggers() {
+    // An officer walking into Gate's oval relays to Lights, which turns the
+    // arrow on and, a second later, off; Gate is done after once.
+    const std::string zax =
+        "CLayerSaveData\n{\n\tWidth=1000\n\tHeight=1000\n\tView Position=100.000000,100.000000\n"
+        "\tTree List=CSortList2D\n\t{\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Gate\n\t\t\tVisible=0\n\t\t\tActive=1\n"
+        "\t\t\tActivity=Array\n\t\t\t{\n\t\t\t\tItem Count=1\n\t\t\t\tActivity=CTouchingOvalTriggerAI\n\t\t\t\t{\n"
+        "\t\t\t\t\tTrigger Only Once=1\n\t\t\t\t\tAuto-Flip Switch=1\n\t\t\t\t\tTriggered By Players=1\n"
+        "\t\t\t\t\tEnter Action=CTriggerRelayAction\n\t\t\t\t\t{\n\t\t\t\t\t\tRelay Name=Nobody, Lights\n\t\t\t\t\t}\n"
+        "\t\t\t\t\tX Radius=20\n\t\t\t\t\tYX Ratio=0.5\n\t\t\t\t}\n\t\t\t}\n"
+        "\t\t\tPosition X=200\n\t\t\tPosition Y=100\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Lights\n\t\t\tVisible=0\n\t\t\tActive=1\n"
+        "\t\t\tActivity=Array\n\t\t\t{\n\t\t\t\tItem Count=1\n\t\t\t\tActivity=CRelayAI\n\t\t\t\t{\n"
+        "\t\t\t\t\tAction=CMultipleActionsAction\n\t\t\t\t\t{\n\t\t\t\t\t\tAction=Array\n\t\t\t\t\t\t{\n"
+        "\t\t\t\t\t\t\tItem Count=2\n\t\t\t\t\t\t\tAction=CActivateAction\n\t\t\t\t\t\t\t{\n"
+        "\t\t\t\t\t\t\t\tTarget Name=arrow\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tAction=CDelayAction\n\t\t\t\t\t\t\t{\n"
+        "\t\t\t\t\t\t\t\tNext Action=CDeactivateAction\n\t\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\tTarget Name=Arrow\n"
+        "\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\tDelay=1\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n"
+        "\t\t\t\t\tTrigger Only Once=0\n\t\t\t\t}\n\t\t\t}\n\t\t}\n"
+        "\t\tLevel Part=CRenderablePolygon\n\t\t{\n\t\t\tName=Arrow\n\t\t\tVisible=1\n\t\t\tActive=0\n"
+        "\t\t\tPolygon=10, 10, 20, 10, 20, 20, 10\n\t\t\tRender Type=Trans Green\n\t\t}\n"
+        "\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    CHECK(map.parts.size() == 3 && map.parts[0].activities.size() == 1 && !map.parts[2].active);
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember officer;
+    officer.firstName = "Ann";
+    MapScreen screen(data, rules, map, options, 0, {officer});
+    Surface surface;
+    surface.create(640, 480, PixelFormat::kRGBA32);
+    // Not there yet: nothing.
+    screen.order(150.0f, 100.0f);
+    screen.update(1000);
+    CHECK(!screen.partState(2).active);
+    // In the oval: the arrow on, the gate off.
+    screen.order(195.0f, 103.0f);
+    screen.update(4000);
+    CHECK(screen.partState(2).active && !screen.partState(0).active);
+    screen.draw(surface, 4000);
+    // A second later, the arrow off; going out and back doesn't set it off
+    // again.
+    screen.update(5100);
+    CHECK(!screen.partState(2).active);
+    screen.order(100.0f, 100.0f);
+    screen.update(9000);
+    screen.order(200.0f, 100.0f);
+    screen.update(13000);
+    CHECK(!screen.partState(2).active);
+    // A relay run by hand, as any action would.
+    TextObject relay;
+    CHECK(!readTextObject("CTriggerRelayAction\n{\n\tRelay Name=Lights\n}\n", relay));
+    screen.runAction(&relay);
+    CHECK(screen.partState(2).active);
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("stawayteam.unit.maps",
@@ -204,4 +267,5 @@ static const reluva::test::Suite kSuite("stawayteam.unit.maps",
                                             {"paths", [](const std::filesystem::path &) { testPaths(); }},
                                             {"team", [](const std::filesystem::path &) { testTeam(); }},
                                             {"scripts", [](const std::filesystem::path &) { testScripts(); }},
+                                            {"triggers", [](const std::filesystem::path &) { testTriggers(); }},
                                         });

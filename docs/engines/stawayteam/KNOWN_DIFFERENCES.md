@@ -39,7 +39,8 @@ None yet.
   ([systems/menus.md](systems/menus.md)).
 - **Maps:** the ground's values spread straight across a cell, not by
   the program's fractal; water's warping and the map's song aren't
-  there; the camera's scripts' triggers aren't run; the interface's
+  there; triggers set off by enemies, passing through or colliding, and
+  the AIs' messages and objectives, aren't there; the interface's
   buttons but the move button do nothing yet, and the map's characters
   don't move
   ([systems/maps.md](systems/maps.md#in-reluva)).

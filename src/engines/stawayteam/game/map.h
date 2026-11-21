@@ -39,6 +39,8 @@ struct MapPart {
     float y = 0.0f;
     int renderingHeight = 0;
     bool visible = true;
+    bool active = true;                           // an inactive part isn't drawn, and its triggers wait (inferred)
+    std::vector<const TextObject *> activities;   // its AIs (Activity), in the map's object
     std::vector<std::pair<float, float>> polygon; // its corners, the last the first again
     std::string renderType;                       // a polygon's: "Textured", "Black", "Shadow", "Warped"...
     std::string texture;                          // a textured polygon's, of Cache/Textures

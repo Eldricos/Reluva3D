@@ -130,15 +130,20 @@ Error loadMap(const Archive &data, const std::string &path, GameMap &out) {
             part.name = text(o, "Name");
             // A spawn point's facing, in its AI (CSpawnPointAI).
             if (const TextObject *activity = o.object("Activity"))
-                for (const TextField *ai : activity->items())
-                    if (ai->object && ai->value == "CSpawnPointAI" && ai->object->number("Facing Angle"))
+                for (const TextField *ai : activity->items()) {
+                    if (!ai->object)
+                        continue;
+                    part.activities.push_back(ai->object.get());
+                    if (ai->value == "CSpawnPointAI" && ai->object->number("Facing Angle"))
                         part.facing = float(*ai->object->number("Facing Angle"));
+                }
             part.model = text(o, "Model");
             part.sequence = text(o, "Cur Sequence");
             part.x = float(o.number("Position X").value_or(0.0));
             part.y = float(o.number("Position Y").value_or(0.0));
             part.renderingHeight = int(o.integer("Rendering Height").value_or(0));
             part.visible = o.integer("Visible").value_or(1) != 0;
+            part.active = o.integer("Active").value_or(1) != 0;
             part.polygon = readPolygon(text(o, "Polygon"));
             part.angle = float(o.number("Facing Angle").value_or(0.0));
             part.overlay = text(o, "Overlay Model");

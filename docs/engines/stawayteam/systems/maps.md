@@ -162,6 +162,38 @@ another as the map starts:
 - **The team is hidden** till then: each spawn point's `CSpawnPointAI`
   makes who spawns there invisible (`CMakeVisibleAction`).
 
+### The map's triggers
+
+Parts with AIs (`Activity`) make the map's events happen: hidden
+markers (`Editor/Trigger Icon, Proximity`, `Editor/Relay`) named for
+scripts to find. Mission 01 has 103 `CRelayAI`, 31
+`CTouchingOvalTriggerAI`, 3 `CTouchingPolygonTriggerAI`, 5
+`CRepeatTimerTriggerAI`, and others (`CPassThroughTriggerAI`,
+`CollideTriggerAI`, `CProcessListAI`...). Their fields:
+
+- **Every part:** `Active` (the arrows and goto-spot markers start
+  inactive, and are switched on and off to blink) and `Visible`.
+- **A touching trigger** (`CTouchingTriggerAI`'s kinds): an oval about
+  the part, `X Radius` across and `X Radius` x `YX Ratio` down, or the
+  part's polygon; who sets it off (`Triggered By Name`, `Players`,
+  `Enemies`, `Anything`); `Enter Action`, `Exit Action`, and `Repeat
+  Action` every `Repeat Every` seconds while someone's there; `Trigger
+  Only Once` and `Auto-Flip Switch` (`CTriggerAI`).
+- **A relay** (`CRelayAI`): its `Action`, and `Trigger Only Once`; a
+  `CTriggerRelayAction`'s `Relay Name` (a list, commas between: "Sniper
+  Rom Pauser for Movie, 1st Rom Pauser for Movie") runs the relays of
+  those names.
+- **A repeat timer** (`CRepeatTimerTriggerAI`): its `Action` every
+  `Delay Between Actions` seconds, give or take `Plus or Minus`.
+- **The actions** they run (over 50 kinds in Mission 01): most often
+  `CMultipleActionsAction`, `CTriggerRelayAction`, `CDeactivateAction`,
+  `CDelayAction`, `CActivateAction`, the AIs' messages, `CTricorderDialogAction`,
+  `CPlaySoundAction`, `CInfoDialogAction`; `$Instigator` names whoever
+  set the trigger off.
+
+The program's trigger code isn't traced yet: how these fields act is
+read from the maps.
+
 The info dialog (`0x435db6`) is `Dialog Window/Background` at Rules.txt's
 `Dialog Pos`, the speaker's icon at `Dialog Icon Pos`, the line from its
 script in `Dialog Font` at `Dialog Text Pos`, wrapped to `Dialog Text
@@ -180,8 +212,9 @@ its ground, and its parts' models, places and polygons. `MapScreen`
   program's fractal, which isn't decoded yet).
 - **Polygons on the ground:** `Textured` with their texture repeated,
   `Black` black, `Shadow` halving what's under it *(inferred)*; the
-  others (`Trans` colours, `Warped`, the waypoints' and free-range ones)
-  aren't drawn.
+  `Trans` colours half see-through over the ground while they're active
+  *(inferred)*; `Warped`, the waypoints' and free-range ones aren't
+  drawn.
 - **Models:** each part's model's sequence, its first direction's frames
   in time, back to front by where they stand (with `Rendering Height`)
   *(inferred)*.
@@ -203,8 +236,22 @@ The map's other characters face their `Facing Angle`, their shadow under
 them and their head over them, as the officers are *(inferred)*.
 
 The camera's scripts play as the map starts, the view panned by them and
-not by the player meanwhile *(inferred)*; their actions as above but the
-triggers', which aren't there yet. The team beams in fading in under the
+not by the player meanwhile *(inferred)*.
+
+The triggers (`ui/map_triggers.cpp`): a part is drawn while it's visible
+and active, its triggers acting while it's active *(inferred)*. A
+touching trigger answers to any officer for `Triggered By Players` or
+`Anything`, or to the officer named; its Enter Action runs as one comes
+in, its Repeat Action then and every Repeat Every while they stay, its
+Exit Action as they leave; with Trigger Only Once it's done after the
+first that runs, and with Auto-Flip Switch its part is then turned off
+*(inferred)*. Relays, repeat timers, and these actions are run: several,
+random, series (each time the next), delays, info and tricorder lines
+(the tricorder's in the info dialog), relays, activating, deactivating,
+showing, hiding, deleting and destroying parts by name, sounds, checks
+whether a part's there (other checks fail), the team beaming in, and
+camera scripts *(inferred)*. Names compare without regard to case
+*(inferred)*. The team beams in fading in under the
 `Transporter Overlay`'s sparkle *(inferred)*. A line
 stays a second and a half after its voice-over *(inferred)*, four
 seconds without one *(inferred)*. Without scripts, the view starts on the
@@ -228,8 +275,9 @@ order)*, and the button shows it.
 
 A new game reaches it after the briefing (mission 1) or the team
 selection's START MISSION. Not there yet: the interface's other buttons,
-the map's song, the triggers, walkers going round each other, and the
-map's characters moving.
+the map's song, the triggers set off by enemies, passing through or
+colliding, the AIs' messages and tasks, objectives, walkers going round
+each other, and the map's characters moving.
 
 ## Sources and checks
 
@@ -250,8 +298,11 @@ map's characters moving.
   a map made in the test, and check a cell's textures blended by its
   values, a polygon on it, the camera kept on the map, a way found along
   the waypoints' lines, an officer at their spawn point walking where
-  sent, and a camera's script panning, eased, showing a line and beaming
-  the team in.
+  sent, a camera's script panning, eased, showing a line and beaming
+  the team in, and an officer walking into a trigger that relays to an
+  arrow, on and a second later off, once only. Mission 01 run on: the
+  opening's delayed relays bringing Data's lines that teach selecting and
+  moving the team.
 
 ## Open questions
 
@@ -262,7 +313,9 @@ map's characters moving.
   and the scrolling's speed and acceleration.
 - **Drawing order:** how the program sorts the models, and what
   `YSort` and `Rendering Height` do.
-- **Shadows**, and the `Trans` colours: whether the game shows those.
+- **Shadows**, and how the `Trans` colours are drawn.
+- **The triggers:** the program's own rules for all of the above, which
+  are read from the maps' fields, not from its code.
 - **The team:** which spawn point each officer takes, `Facing Angle`'s
   degrees as the directions' (90 the viewer's way), the game's path
   finding, its mouse (which button chooses and which sends), the info
