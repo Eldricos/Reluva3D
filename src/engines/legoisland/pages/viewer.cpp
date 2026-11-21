@@ -2,7 +2,8 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // LEGO Island's data viewer, in reluva-viewer: the SI files' objects and
-// media (see viewers.h for the page's keys). Esc leaves.
+// media, and WORLD.WDB's textures and models (see viewers.h for each
+// page's keys). Tab goes to the next page; Esc leaves.
 
 #include "audio/mixer.h"
 #include "common/fs.h"
@@ -22,6 +23,10 @@ namespace reluva {
 namespace {
 
 using legoisland::SiViewer;
+using legoisland::ViewerPage;
+using legoisland::WdbFile;
+using legoisland::WdbModelPage;
+using legoisland::WdbTexturePage;
 
 // Every .si file in the game's folder, its scripts folder first as the
 // game's own order would have it.
@@ -45,9 +50,14 @@ public:
 
     Error run() override {
         std::vector<std::filesystem::path> files = findSiFiles(_target.path);
-        if (files.empty())
+        WdbFile wdb;
+        Error wdbError = Error::fail("No lego/data/WORLD.WDB");
+        if (const auto path = fs::findFile(_target.path, "lego/data/WORLD.WDB"))
+            wdbError = wdb.open(*path);
+        if (files.empty() && wdbError)
             return Error::fail("No SI files in " + _target.path.string() +
-                               ": import the game from its CD for them (its LEGO\\SCRIPTS folder)");
+                               ": import the game from its CD for them (its LEGO\\SCRIPTS folder); " +
+                               wdbError.message);
         if (Error err = _sys.initGraphics(legoisland::kViewerW, legoisland::kViewerH, PixelFormat::kRGBA32))
             return err;
         _screen.create(legoisland::kViewerW, legoisland::kViewerH, PixelFormat::kRGBA32);
@@ -66,23 +76,42 @@ public:
             }
         } audioStop{_sys, audioOut};
 
-        SiViewer si(_sys, _screen, std::move(files), audioOut ? &mixer : nullptr);
-        si.activate();
+        std::vector<std::unique_ptr<ViewerPage>> pages;
+        pages.push_back(std::make_unique<SiViewer>(_sys, _screen, std::move(files), audioOut ? &mixer : nullptr));
+        if (!wdbError) {
+            pages.push_back(std::make_unique<WdbTexturePage>(_screen, wdb));
+            pages.push_back(std::make_unique<WdbModelPage>(_sys, _screen, wdb));
+        }
+        size_t current = 0;
+        while (pages[current]->count() == 0)
+            current++;
+        pages[current]->activate();
         while (true) {
             Event ev;
             while (_sys.pollEvent(ev)) {
-                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
-                    return Error::success();
-                if (ev.type != EventType::kKeyDown)
-                    continue;
-                if (ev.key == key::kEscape) {
-                    si.deactivate();
+                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher) {
+                    pages[current]->deactivate();
                     return Error::success();
                 }
-                si.handleKey(ev.key);
+                if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
+                    pages[current]->deactivate();
+                    return Error::success();
+                }
+                if (ev.type == EventType::kKeyDown && ev.key == key::kTab) {
+                    pages[current]->deactivate();
+                    do
+                        current = (current + 1) % pages.size();
+                    while (pages[current]->count() == 0);
+                    if (!pages[current]->uses3D())
+                        _sys.initGraphics(legoisland::kViewerW, legoisland::kViewerH, PixelFormat::kRGBA32);
+                    pages[current]->activate();
+                    continue;
+                }
+                pages[current]->handleEvent(ev);
             }
-            si.update(_sys.getMillis());
-            _sys.updateScreen(_screen);
+            pages[current]->update(_sys.getMillis());
+            if (!pages[current]->uses3D())
+                _sys.updateScreen(_screen);
             _sys.delayMillis(5);
         }
     }

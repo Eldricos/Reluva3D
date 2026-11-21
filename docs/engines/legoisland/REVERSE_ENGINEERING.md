@@ -19,7 +19,8 @@ extended. The facts themselves are on their pages, each with its source.
   and export tables and version resources. `LEGO1.DLL` exports its classes
   by their C++ names, which these pages use.
 - **Published write-ups:** the [legoisland.org wiki](https://legoisland.org/wiki/)
-  (the SI format, the releases) and the notes of the SI editor
+  (the SI format, the releases, and what `WORLD.WDB` holds, without its
+  layout) and the notes of the SI editor
   [SIEdit](https://github.com/itsmattkc/SIEdit), for file layouts only:
   each fact is checked against the game's files before it's used. The
   public decompilation of the game's code isn't read
@@ -38,6 +39,12 @@ extended. The facts themselves are on their pages, each with its source.
 - **Media checked** by rebuilding each as a standard file and checking it
   against its own format's rules (a WAV's length, a FLIC's frames, a
   Smacker file's frame sizes).
+- **A layout without a source script** (`WORLD.WDB`) taken as known once
+  every offset the file gives is met exactly: each ROI's end, each
+  part's and model's textures, each part's and model's size. Meanings
+  then from how the values fall (which materials have which values) and
+  from drawing the models: a wrong reading of the points, the
+  placements or the texture coordinates shows at once.
 
 ## The tools
 
@@ -51,6 +58,10 @@ extended. The facts themselves are on their pages, each with its source.
 | `reluva-tool legoisland si-list <file.si>` | Its objects, as a tree |
 | `reluva-tool legoisland si-chunks <file.si> <object id>` | One object's chunks |
 | `reluva-tool legoisland si-extract <file.si> <out folder> [object id]` | Its media as the files they were made from |
+| `reluva-tool legoisland wdb-info <WORLD.WDB>` | The world database's worlds, and every part and model read, with counts |
+| `reluva-tool legoisland wdb-list <WORLD.WDB>` | Each world's parts and models, and where it puts the models |
+| `reluva-tool legoisland wdb-show <WORLD.WDB> <part or model\|shared>` | A part's or model's ROIs, LODs, meshes, animation and textures |
+| `reluva-tool legoisland wdb-textures <WORLD.WDB> <out folder>` | Every texture, as PNG files |
 
 <!-- A table: command, what it does. Research scripts that aren't part of
 Reluva go in tools/legoisland-re/, with a README. -->

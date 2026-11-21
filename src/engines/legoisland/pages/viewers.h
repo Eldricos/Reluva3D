@@ -8,6 +8,8 @@
 #include "common/system.h"
 #include "common/types.h"
 #include "engines/legoisland/formats/si.h"
+#include "engines/legoisland/formats/wdb.h"
+#include "graphics/gfx3d.h"
 #include "image/image.h"
 #include "video/flic.h"
 #include "video/smacker.h"
@@ -15,13 +17,15 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
 // LEGO Island's data viewer, until the game itself runs. Its pages draw
 // into a 1024x768 RGBA32 screen, larger than the game's 640x480 so a
-// picture fits beside the list.
+// picture fits beside the list, or into 3D frames of that size. Tab goes
+// to the next page.
 
 namespace reluva::legoisland {
 
@@ -31,6 +35,24 @@ constexpr int kViewerW = 1024;
 constexpr int kViewerH = 768;
 ///@}
 
+/** A page of the viewer: what it shows, and the keys and mouse on it. */
+class ViewerPage {
+public:
+    virtual ~ViewerPage() = default;
+    /** How many things it shows; the viewer skips a page with none. */
+    virtual size_t count() const = 0;
+    /** Draws the page as it's shown; a 2D page's screen is set up for it, a 3D page sets up its own. */
+    virtual void activate() = 0;
+    /** Called as another page is shown: stops what's playing, and lets go of what the renderer holds. */
+    virtual void deactivate() = 0;
+    /** A key pressed or the mouse used on the page. */
+    virtual void handleEvent(const Event &ev) = 0;
+    /** Called every frame; `nowMs` is the system's clock. */
+    virtual void update(uint64_t nowMs) = 0;
+    /** Whether it draws its own 3D frames rather than the screen's surface. */
+    virtual bool uses3D() const { return false; }
+};
+
 /**
  * The SI files' objects, as a tree, and the selected one's details and
  * medium: a still drawn, an animation played, a sound played.
@@ -39,22 +61,23 @@ constexpr int kViewerH = 768;
  *   M: media only, or every object   Space: play or stop
  *   A: play each sound or animation as it's selected
  */
-class SiViewer {
+class SiViewer : public ViewerPage {
 public:
     /** `files` are the SI files to show; `mixer` may be null (no audio device): sounds aren't played. */
     SiViewer(System &sys, Surface &screen, std::vector<std::filesystem::path> files, audio::Mixer *mixer);
-    /** How many files it shows; the viewer skips a page with none. */
-    size_t count() const { return _files.size(); }
-    /** Draws the page as it's shown. */
-    void activate();
-    /** Called as another page is shown: stops what's playing. */
-    void deactivate();
-    /** A key pressed on the page; it draws again. */
-    void handleKey(uint32_t key);
-    /** Moves an animation on, and draws again, while one plays; `nowMs` is the system's clock. */
-    void update(uint64_t nowMs);
+    size_t count() const override { return _files.size(); }
+    void activate() override;
+    void deactivate() override;
+    void handleEvent(const Event &ev) override {
+        if (ev.type == EventType::kKeyDown)
+            handleKey(ev.key);
+    }
+    /** Moves an animation on, and draws again, while one plays. */
+    void update(uint64_t nowMs) override;
 
 private:
+    void handleKey(uint32_t key);
+
     struct Row {
         const SiObject *object;
         int depth;
@@ -95,6 +118,112 @@ private:
     uint64_t _nextFrameMs = 0;
     audio::SoundHandle _playing = audio::kNoSound;
     uint64_t _lastDrawMs = 0;
+};
+
+/**
+ * WORLD.WDB's textures, each drawn as large as fits, with its palette.
+ *   Up/Down: previous/next texture   PageUp/PageDown: jump 20   Home/End: first/last
+ */
+class WdbTexturePage : public ViewerPage {
+public:
+    /** Reads every part's and model's textures from `wdb`, which must outlive the page. */
+    WdbTexturePage(Surface &screen, const WdbFile &wdb);
+    size_t count() const override { return _rows.size(); }
+    void activate() override { redraw(); }
+    void deactivate() override {}
+    void handleEvent(const Event &ev) override;
+    void update(uint64_t) override {}
+
+private:
+    struct Row {
+        std::string owner; // the part or model it's in, or "shared"
+        const WdbTexture *texture;
+        size_t image;
+    };
+    void add(const std::string &owner, const std::vector<WdbTexture> &textures);
+    void redraw();
+
+    Surface &_screen;
+    std::vector<WdbPart> _parts;
+    std::vector<WdbModel> _models;
+    std::vector<Row> _rows;
+    std::vector<std::string> _errors;
+    size_t _current = 0;
+};
+
+/**
+ * WORLD.WDB's models and parts, drawn in 3D: a model's ROIs placed by its
+ * animation's first keys, those taken from parts with the parts' LODs.
+ *   Up/Down: previous/next   PageUp/PageDown: jump 20   Home/End: first/last
+ *   L: a less detailed LOD (round to the finest)   R: the view reset
+ *   I: the details shown or hidden   drag: turn   wheel or +/-: nearer, further
+ */
+class WdbModelPage : public ViewerPage {
+public:
+    /** `screen` is drawn on only to say why, if 3D rendering isn't available. */
+    WdbModelPage(System &sys, Surface &screen, const WdbFile &wdb);
+    ~WdbModelPage() override;
+    size_t count() const override { return _items.size(); }
+    void activate() override;
+    void deactivate() override;
+    void handleEvent(const Event &ev) override;
+    void update(uint64_t nowMs) override;
+    bool uses3D() const override { return _renderer != nullptr; }
+
+private:
+    struct Item {
+        std::string name;
+        int model = -1;     // into WdbFile::allModels(), or
+        int part = -1;      // into WdbFile::allParts(), or -1 with
+        int sharedRoi = -1; // into the shared part's ROIs
+    };
+    struct Draw {
+        gfx::MeshId mesh = 0;
+        uint32_t indices = 0;
+        gfx::TextureId texture = 0;
+        gfx::Mat4 transform = gfx::identity();
+        std::array<float, 4> color{};
+    };
+    void show(size_t index);
+    void build();
+    void clearScene();
+    void addRoi(const WdbRoi &roi, const std::map<std::string, gfx::Mat4> &placed, const WdbModel *model);
+    void addLods(const std::vector<WdbLod> &lods, const gfx::Mat4 &transform,
+                 const std::vector<const std::vector<WdbTexture> *> &textures);
+    gfx::TextureId texture(const std::string &name, const std::vector<const std::vector<WdbTexture> *> &lists);
+    void resetView();
+    void drawInfo();
+
+    System &_sys;
+    Surface &_screen;
+    const WdbFile &_wdb;
+    std::vector<WdbModelRef> _modelRefs;
+    std::vector<WdbPartRef> _partRefs;
+    std::map<std::string, WdbPart> _parts; // by name, in lower case
+    std::vector<Item> _items;
+    size_t _current = 0;
+    gfx::Renderer3D *_renderer = nullptr;
+    Surface _overlay;
+
+    WdbModel _model;
+    std::string _error;
+    std::vector<std::string> _missing;
+    int _lod = 0; // how many levels less detailed than the finest
+    int _lods = 1;
+    size_t _triangles = 0;
+    std::vector<Draw> _opaque;
+    std::vector<Draw> _translucent;
+    std::map<std::string, gfx::TextureId> _textures; // by name, in lower case
+
+    gfx::Vec3 _center{};
+    float _radius = 1;
+    float _yaw = 0;
+    float _pitch = 0;
+    float _distance = 1;
+    bool _dragging = false;
+    bool _showInfo = true;
+    int _lastX = 0;
+    int _lastY = 0;
 };
 
 } // namespace reluva::legoisland

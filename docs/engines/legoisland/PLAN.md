@@ -19,10 +19,11 @@ Each phase ends with something that runs, is tested and is committed.
 3. **Readers and the data viewer** (in progress): done: the `.SI`
    archives ([formats/si.md](formats/si.md)), their FLC animations (a
    shared FLIC decoder, [flic.md](../../common/video/flic.md)), Smacker
-   movies, WAV sounds and BMP pictures, with a viewer page playing them.
-   Next: `WORLD.WDB`'s models and textures, the `*INF.DTA` files, and the
-   SI files' 3D objects (`OBJ`), each worked out from the files
-   ([Decisions](#decisions)).
+   movies, WAV sounds and BMP pictures, with a viewer page playing them;
+   `WORLD.WDB`'s worlds, models, parts and textures
+   ([formats/wdb.md](formats/wdb.md)), drawn in 3D by the viewer.
+   Next: the `*INF.DTA` files, and the SI files' 3D objects (`OBJ`),
+   each worked out from the files ([Decisions](#decisions)).
 4. **A hosted spike:** `ISLE.EXE` and `LEGO1.DLL` loaded in the x86
    interpreter with stand-ins that log what they're asked. The gate: does
    it reach the intro's first frame, and how fast does it run?

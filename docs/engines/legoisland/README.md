@@ -19,8 +19,9 @@ files' names, and imports the game from its CD into one folder
 ([systems/game-files.md](systems/game-files.md)). It reads the SI
 archives, and gives back their pictures, sounds and animations as the
 files they were made from ([formats/si.md](formats/si.md)), which the
-data viewer shows and plays. Run, it shows
-an empty screen. The plan is in [PLAN.md](PLAN.md).
+data viewer shows and plays, and the world database's models, parts and
+textures ([formats/wdb.md](formats/wdb.md)), which it draws in 3D. Run,
+it shows an empty screen. The plan is in [PLAN.md](PLAN.md).
 
 ## Using it
 
@@ -30,12 +31,20 @@ its own; started from an install folder, *Add CD or installed game...*
 adds the CD. *Add Game...* recognises an install folder as it is, but
 without the CD's scripts the game won't be able to run from it.
 
-**The data viewer:** `reluva-viewer` with the game. Its page shows the SI
-files' objects, as a tree, and the selected one's details; a still is
-drawn, and a sound, FLC or Smacker animation played. Up/Down pick an
-object (PageUp/PageDown by 20, Home/End), Left/Right the SI file, M
-shows media only or every object, Space plays or stops, A plays each
-as it's picked.
+**The data viewer:** `reluva-viewer` with the game; Tab goes from page to
+page.
+
+- **SI files:** their objects, as a tree, and the selected one's
+  details; a still is drawn, and a sound, FLC or Smacker animation
+  played. Up/Down pick an object (PageUp/PageDown by 20, Home/End),
+  Left/Right the SI file, M shows media only or every object, Space
+  plays or stops, A plays each as it's picked.
+- **`WORLD.WDB`'s textures:** each drawn as large as fits, with its
+  palette. Up/Down pick one (PageUp/PageDown by 20, Home/End).
+- **`WORLD.WDB`'s models and parts,** in 3D (it needs a GPU with Vulkan
+  or Metal): Up/Down pick one (PageUp/PageDown by 20, Home/End), L a
+  less detailed LOD, drag to turn, the wheel or +/- to come nearer, R
+  to reset the view, I to hide the details.
 
 ## This folder
 
@@ -43,7 +52,7 @@ as it's picked.
 |---|---|
 | This page | The games, where the engine stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
-| [formats/](formats/) | A page per file format: [si.md](formats/si.md) (the SI archives) |
+| [formats/](formats/) | A page per file format: [si.md](formats/si.md) (the SI archives), [wdb.md](formats/wdb.md) (the world database) |
 | [systems/](systems/) | How the game behaves: [game-files.md](systems/game-files.md) (its files, and telling releases apart) |
 | `research/` | Working notes: address maps, raw findings, notes on recordings |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
@@ -58,7 +67,8 @@ as it's picked.
 | `legoisland.cpp` | The `MetaEngine` (name, making an `Engine`, importing) and the `Engine` |
 | `detection.cpp` | The releases it recognises, and finding and copying the game's parts for an import |
 | `formats/si.cpp` | The SI archives: their objects, their chunks, and their media as standard files |
-| `pages/` | The data viewer (`reluva-viewer` only): `si_viewer.cpp`, the SI files' page |
+| `formats/wdb.cpp` | The world database: its worlds, parts, models and textures |
+| `pages/` | The data viewer (`reluva-viewer` only): `si_viewer.cpp`, the SI files' page; `wdb_viewer.cpp`, the world database's textures and models |
 | `tools/` | `reluva-tool legoisland` commands (`reluva-tool help legoisland` lists them) |
 
 ## Tests
@@ -80,3 +90,8 @@ as it's picked.
 - **Object, chunk, piece:** an SI file's `MxOb` records, the `MxCh`
   chunks of their data, and the pieces (a header, a frame, a second of
   sound) the chunks join into ([formats/si.md](formats/si.md)).
+- **World:** a part of the game with its own models (`ACT1`, the
+  island in Act 1; `HOSP`, the hospital), as `WORLD.WDB` lists them.
+- **Model, part, ROI, LOD:** a thing in a world; a piece models share
+  (a steering wheel, a hat); an ROI ("real-time object instance"), one
+  thing drawn; and its levels of detail ([formats/wdb.md](formats/wdb.md)).

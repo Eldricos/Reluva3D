@@ -8,6 +8,7 @@ reluva_add_engine(legoisland
     SOURCES
         detection.cpp
         formats/si.cpp
+        formats/wdb.cpp
         legoisland.cpp)
 
 # Its data viewer, in reluva-viewer only (docs/DEVELOPMENT.md, The data
@@ -16,13 +17,15 @@ reluva_add_engine_viewers(legoisland
     ACCESSOR legoislandMetaViewer
     SOURCES
         pages/viewer.cpp
-        pages/si_viewer.cpp)
+        pages/si_viewer.cpp
+        pages/wdb_viewer.cpp)
 
 # Its reluva-tool commands (reluva-tool help legoisland lists them).
 reluva_add_engine_tools(legoisland
     SOURCES
         tools/files.cpp
-        tools/si.cpp)
+        tools/si.cpp
+        tools/wdb.cpp)
 
 # Its tests (tests/engines/legoisland/), in reluva-tests: the unit tests by
 # topic, and the engine test, without game files (its record in
@@ -33,9 +36,10 @@ reluva_add_engine_tests(legoisland
         ${tests}/unit/detection.cpp
         ${tests}/unit/import.cpp
         ${tests}/unit/si.cpp
+        ${tests}/unit/wdb.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.import unit.si engine)
+        unit.detection unit.import unit.si unit.wdb engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

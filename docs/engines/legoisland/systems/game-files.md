@@ -22,7 +22,7 @@ Everything else the game reads stays on the CD.
 | `LEGO1.DLL` | install; CD `DATA\DISK\` | The engine and the game ("LegoOmni Library"); draws through DirectDraw and Direct3D Retained Mode, plays through DirectSound, reads DirectInput |
 | `CONFIG.EXE` (also as `LEGOISLE.EXE`) | install; CD `DATA\DISK\` | The settings dialog the Start menu opens; writes the registry's settings, then starts `ISLE.EXE` *(inferred)* |
 | `MFC42.DLL`, `MSVCRT.DLL` | install; CD `DATA\DISK\` | Microsoft's libraries for `CONFIG.EXE` |
-| `lego\data\WORLD.WDB` | install; CD `DATA\DISK\LEGO\DATA\` | The world database: models, textures and parts (9.9 MB) |
+| `lego\data\WORLD.WDB` | install; CD `DATA\DISK\LEGO\DATA\` | The world database: models, textures and parts (9.9 MB; [formats/wdb.md](../formats/wdb.md)) |
 | `lego\data\*INF.DTA` | install; CD `DATA\DISK\LEGO\DATA\` | 19 files, one per world (`ACT1INF.DTA`, `HOSPINF.DTA`...) |
 | `lego\Scripts\NOCD.SI` | install; CD | The SI shown when the CD isn't found *(inferred)* |
 | `LEGO\SCRIPTS\**\*.SI` | CD only | 27 SI archives (570 MB): the worlds' scripts and the media they play (WAV, FLC, Smacker 2, BMP) |
