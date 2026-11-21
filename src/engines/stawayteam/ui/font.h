@@ -51,6 +51,11 @@ public:
      */
     void drawWrapped(Surface &screen, int x, int y, int maxWidth, std::string_view text, Align align = Align::kCenter,
                      int spacing = 0) const;
+    /**
+     * `text` broken into lines as drawWrapped breaks it, and at its line
+     * breaks; the first `narrowLines` of them `indent` narrower.
+     */
+    std::vector<std::string> wrap(std::string_view text, int maxWidth, int indent = 0, int narrowLines = 0) const;
 
 private:
     // The picture drawn for character `c`, or nullptr for none.

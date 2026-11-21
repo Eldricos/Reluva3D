@@ -31,14 +31,18 @@ None yet.
 ## Not yet as the original
 
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
-- **The main menu:** Start New Game's difficulty window doesn't start a
-  game; Load Save Game and Play Network Game play their sound and
-  nothing else; in Settings, the sound's voiceovers, stereo and mixing
+- **The main menu:** Start New Game goes as far as the first mission's
+  briefing and team selection, not the mission; Load Save Game and Play Network Game play their sound and
+  nothing else; in Settings, the sound's stereo and mixing
   choices, and the keyboard's bindings, are kept but don't change
   anything yet
   ([systems/menus.md](systems/menus.md)).
+- **The briefing:** the items found in earlier missions aren't
+  described after the lines, the text has no scroll bar (the mouse wheel
+  scrolls it), the random numbers aren't there, and EXIT doesn't fade out
+  ([systems/briefing.md](systems/briefing.md#in-reluva)).
 - **The team selection:** START MISSION and EXIT come back to the main
-  menu; BRIEFING, the inventory panel's contents, a red item's click,
+  menu; the inventory panel's contents, a red item's click,
   the transporter's random numbers and the officers' body figures aren't
   there yet
   ([systems/team-selection.md](systems/team-selection.md#in-reluva)).

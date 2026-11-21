@@ -91,7 +91,7 @@ void ConfirmDialog::draw(Surface &screen) const {
 
 MainMenu::MainMenu(System &sys, Surface &screen, const Archive &data, const std::filesystem::path &install,
                    const TextObject &rules, GameOptions &options, audio::Mixer *mixer, int firstMission)
-    : _sys(sys), _screen(screen), _data(data), _rules(rules), _options(options), _mixer(mixer),
+    : _sys(sys), _screen(screen), _data(data), _install(install), _rules(rules), _options(options), _mixer(mixer),
       _firstMission(firstMission) {
     const TextObject *menu = menuDefinition(rules, "Main Menu");
     const TextObject *nernies = menu ? menu->object("Nernie") : nullptr;
@@ -190,10 +190,28 @@ bool MainMenu::run() {
                     _dialog.reset();
                 continue;
             }
+            if (_briefing) {
+                const BriefingScreen::Choice choice = _briefing->handleEvent(ev, _sys.getMillis());
+                if (choice == BriefingScreen::Choice::kExit) {
+                    _briefing.reset();
+                    _teamSelection.reset();
+                } else if (choice == BriefingScreen::Choice::kEndBriefing) {
+                    _briefing.reset();
+                    // On to the team selection; without one, the mission,
+                    // which isn't there yet.
+                    if (!_teamSelection && _mission.showTeamSelection)
+                        showTeamSelection();
+                }
+                continue;
+            }
             if (_teamSelection) {
                 // Starting the mission comes back here: the mission isn't
                 // there yet.
-                if (_teamSelection->handleEvent(ev, _mixer, _sys.getMillis()) != TeamSelectionScreen::Choice::kNone)
+                const TeamSelectionScreen::Choice choice = _teamSelection->handleEvent(ev, _mixer, _sys.getMillis());
+                if (choice == TeamSelectionScreen::Choice::kBriefing)
+                    _briefing = std::make_unique<BriefingScreen>(_data, _install, _rules, _mission, _options, _mixer,
+                                                                 _sys.getMillis());
+                else if (choice != TeamSelectionScreen::Choice::kNone)
                     _teamSelection.reset();
                 continue;
             }
@@ -250,6 +268,15 @@ bool MainMenu::run() {
             else if (chosen == int(kCreditsButton))
                 _credits = std::make_unique<CreditsWindow>(_data, _rules, _screen.w, _screen.h, _sys.getMillis());
         }
+        // The menu's song stops for the game's screens, which have their
+        // own music, and comes back with the menu (inferred).
+        const bool inGame = _briefing || _teamSelection;
+        if (inGame && song != audio::kNoSound) {
+            stopSong();
+            song = audio::kNoSound;
+        } else if (!inGame && song == audio::kNoSound && _mixer && _song) {
+            song = _mixer->play(_song, audio::SoundType::kMusic, audio::kMaxVolume, 0, true);
+        }
         draw();
         brighten();
         _sys.updateScreen(_screen);
@@ -258,26 +285,33 @@ bool MainMenu::run() {
 }
 
 void MainMenu::startGame() {
-    Mission mission;
-    if (Error err = loadMission(_data, _firstMission, mission)) {
+    if (Error err = loadMission(_data, _firstMission, _mission)) {
         log::warning("Mission %d: %s", _firstMission, err.message.c_str());
         return;
     }
-    // Mission 1 has no team selection: it would go straight in, and the
-    // missions aren't there yet.
-    if (!mission.showTeamSelection)
-        return;
+    if (_mission.showBriefing)
+        _briefing =
+            std::make_unique<BriefingScreen>(_data, _install, _rules, _mission, _options, _mixer, _sys.getMillis());
+    else if (_mission.showTeamSelection)
+        showTeamSelection();
+}
+
+void MainMenu::showTeamSelection() {
     std::vector<TeamMember> roster;
     if (Error err = loadRoster(_data, roster)) {
         log::warning("The roster: %s", err.message.c_str());
         return;
     }
-    _teamSelection = std::make_unique<TeamSelectionScreen>(_data, _rules, mission, std::move(roster));
+    _teamSelection = std::make_unique<TeamSelectionScreen>(_data, _rules, _mission, std::move(roster));
 }
 
 void MainMenu::draw() {
     const uint64_t now = _sys.getMillis();
     clearScreen(_screen);
+    if (_briefing) {
+        _briefing->draw(_screen, now);
+        return;
+    }
     if (_teamSelection) {
         _teamSelection->draw(_screen, now);
         return;

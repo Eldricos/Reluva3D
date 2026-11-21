@@ -7,6 +7,7 @@
 #include "common/archive.h"
 #include "common/system.h"
 #include "engines/stawayteam/formats/text_object.h"
+#include "engines/stawayteam/ui/briefing.h"
 #include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/credits.h"
 #include "engines/stawayteam/ui/difficulty.h"
@@ -87,12 +88,15 @@ private:
     void draw();
     // The options' brightness over the screen as it's drawn.
     void brighten();
-    // A new game: the first mission's team selection, if it has one.
+    // A new game: the first mission's briefing and team selection, those
+    // it has.
     void startGame();
+    void showTeamSelection();
 
     System &_sys;
     Surface &_screen;
     const Archive &_data;
+    std::filesystem::path _install;
     const TextObject &_rules;
     GameOptions &_options;
     audio::Mixer *_mixer;
@@ -108,6 +112,8 @@ private:
     std::unique_ptr<SoundOptionsWindow> _soundOptions;
     std::unique_ptr<KeyConfigScreen> _keyConfig;
     std::unique_ptr<TeamSelectionScreen> _teamSelection;
+    std::unique_ptr<BriefingScreen> _briefing; // over the team selection, when it's from there
+    Mission _mission;
     Difficulty _difficulty = Difficulty::kNormal;
     int _firstMission;
 };

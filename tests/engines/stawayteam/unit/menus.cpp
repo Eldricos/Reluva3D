@@ -5,6 +5,7 @@
 // buttons, their labels, shortcuts and clicks, the credits' lines, and the
 // team selection's roster, mission and rules.
 
+#include "engines/stawayteam/ui/briefing.h"
 #include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/credits.h"
 #include "engines/stawayteam/ui/font.h"
@@ -61,6 +62,10 @@ void testFont() {
                      "B") == 7);  // control characters left out
     CHECK(font.width("Z?") == 6); // characters it hasn't got drawn as its first
     CHECK(font.baseline() == 11);
+    // Lines broken at spaces, at line breaks, and narrower beside a picture.
+    CHECK((font.wrap("AB AB AB", 17) == std::vector<std::string>{"AB AB", "AB"}));
+    CHECK((font.wrap("AB AB AB", 17, 5, 1) == std::vector<std::string>{"AB", "AB AB"}));
+    CHECK((font.wrap("AB\n\nB", 0) == std::vector<std::string>{"AB", "", "B"}));
 }
 
 void testButtons() {
@@ -345,6 +350,54 @@ void testTeamSelection() {
     surface.create(640, 480, PixelFormat::kRGBA32);
     ready.draw(surface, 0);
 }
+void testBriefing() {
+    MemoryArchive data;
+    data.files["Levels/Mission 01/Mission 01.MDS"] = bytesOf(
+        "CMissionDescription\n{\n\tMission Name=The Test\n\tShow Briefing=1\n\tBriefing Movie=Generic/None.bik\n"
+        "\tLoop movie=1\n\tBriefing Music=Briefing.ogg\n\tScript=CBriefingScript\n\t{\n\t\tScript=Array\n\t\t{\n"
+        "\t\t\tArray Count=2\n"
+        "\t\t\tArray Item=CBriefingScriptLine\n\t\t\t{\n\t\t\t\tScript=Mission 01/Mission 01\n"
+        "\t\t\t\tText=01 One\n\t\t\t\tWho is speaking=Marcus Refelian\n\t\t\t\tFrame to start=-1\n\t\t\t}\n"
+        "\t\t\tArray Item=CBriefingScriptLine\n\t\t\t{\n\t\t\t\tScript=Mission 01/Mission 01\n"
+        "\t\t\t\tText=01 Two\n\t\t\t\tWho is speaking=Data\n\t\t\t\tFrame to start=707\n\t\t\t}\n"
+        "\t\t}\n\t}\n}\n");
+    data.files["Levels/Mission 01/Mission 01.RDS"] =
+        bytesOf(":01 One\nThe first line of the briefing.\n:01 Two\nThe second.\n");
+    Mission mission;
+    CHECK(!loadMission(data, 1, mission) && mission.showBriefing && mission.loopMovie);
+    CHECK(mission.briefingMovie == "Generic/None.bik" && mission.briefingMusic == "Briefing.ogg");
+    CHECK(mission.briefing.size() == 2 && mission.briefing[0].script == "Mission 01/Mission 01");
+    CHECK(mission.briefing[1].text == "01 Two" && mission.briefing[1].speaker == "Data");
+    CHECK(mission.briefing[0].frameToStart == -1 && mission.briefing[1].frameToStart == 707);
+
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tMenu=Array\n\t\t{\n\t\t\tItem Count=1\n"
+                          "\t\t\tMenu=CAnimatedMenuInfo\n\t\t\t{\n\t\t\t\tMenu Name=Briefing Screen\n"
+                          "\t\t\t\tMenu Definition=CStarTrekBriefingMenu\n\t\t\t\t{\n"
+                          "\t\t\t\t\tContinueButton Text=&CONTINUE\n\t\t\t\t\tEndBriefingButton Text=&END BRIEFING\n"
+                          "\t\t\t\t\tTextDisplay Text Speed=10\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    BriefingScreen screen(data, "", rules, mission, options, nullptr, 0);
+    Surface surface;
+    surface.create(640, 480, PixelFormat::kRGBA32);
+    // Typed out at Rules.txt's speed: 10 characters a second.
+    screen.draw(surface, 1000);
+    CHECK(screen.line() == 0 && !screen.typed());
+    // Space shows the line whole; with no voice or movie to wait for, the
+    // next comes by itself.
+    Event space;
+    space.type = EventType::kKeyDown;
+    space.key = ' ';
+    CHECK(screen.handleEvent(space, 1000) == BriefingScreen::Choice::kNone);
+    screen.draw(surface, 1010);
+    CHECK(screen.line() == 0 && screen.typed());
+    screen.draw(surface, 1020);
+    CHECK(screen.line() == 1 && !screen.typed());
+    Event end = space;
+    end.key = 'e';
+    CHECK(screen.handleEvent(end, 1030) == BriefingScreen::Choice::kEndBriefing);
+}
 } // namespace
 
 static const reluva::test::Suite
@@ -357,4 +410,5 @@ static const reluva::test::Suite
                                         {"options", [](const std::filesystem::path &tmp) { testOptions(tmp); }},
                                         {"controls", [](const std::filesystem::path &) { testControls(); }},
                                         {"team selection", [](const std::filesystem::path &) { testTeamSelection(); }},
+                                        {"briefing", [](const std::filesystem::path &) { testBriefing(); }},
                                     });

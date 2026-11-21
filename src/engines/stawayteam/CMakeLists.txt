@@ -16,6 +16,7 @@ reluva_add_engine(stawayteam
         ui/settings.cpp
         ui/sound_options.cpp
         ui/static_text.cpp
+        ui/briefing.cpp
         ui/team_selection.cpp
         game/controls.cpp
         game/options.cpp

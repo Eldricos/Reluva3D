@@ -417,8 +417,9 @@ as "%d,%d,%d,%d".
   Reluva's mixer the master volume and the music's or the effects'
   multiply, as gains (a hundredth of a decibel each), into its music and
   effects volumes; speech, the movies' and voiceovers', go with the
-  effects. Voiceovers, stereo and mixing are kept, but don't change
-  what's heard yet. CONFIGURE KEYBOARD opens the keyboard screen
+  effects. Voiceovers turn the briefing's voice-overs and movie sound
+  on and off ([briefing.md](briefing.md)); stereo and mixing are kept,
+  but don't change what's heard yet. CONFIGURE KEYBOARD opens the keyboard screen
   (`KeyConfigScreen`, `ui/key_config.cpp`; the actions and bindings in
   `Controls`, `game/controls.cpp`, kept with the options): a click on an
   action, then a key, binds it, a key held with Shift, Ctrl or Alt with

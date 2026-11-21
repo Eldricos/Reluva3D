@@ -51,7 +51,7 @@ struct Animation {
 class TeamSelectionScreen {
 public:
     /** What the player chose that leaves the screen. */
-    enum class Choice { kNone, kStartMission, kExit };
+    enum class Choice { kNone, kStartMission, kBriefing, kExit };
 
     /**
      * The screen for `mission`, the officers of `roster`; `data` and

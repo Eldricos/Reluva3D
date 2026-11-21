@@ -294,6 +294,8 @@ TeamSelectionScreen::Choice TeamSelectionScreen::handleEvent(const Event &ev, au
     }
     const int chosen = _buttons.handleEvent(ev, mixer);
     switch (chosen) {
+    case kBriefing:
+        return Choice::kBriefing;
     case kExit:
         _confirm = std::make_unique<ConfirmDialog>(_data, _rules, kExitQuestion, _background.w, _background.h);
         break;

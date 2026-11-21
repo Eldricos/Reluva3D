@@ -81,25 +81,43 @@ void Font::draw(Surface &screen, int x, int y, std::string_view text, int opacit
 
 void Font::drawWrapped(Surface &screen, int x, int y, int maxWidth, std::string_view text, Align align,
                        int spacing) const {
-    while (!text.empty()) {
-        // As many words as fit; a word wider than the line has it to itself.
-        size_t end = text.size();
-        if (maxWidth > 0 && width(text) > maxWidth) {
-            end = 0;
-            for (size_t space = text.find(' '); space != std::string_view::npos; space = text.find(' ', space + 1)) {
-                if (end && width(text.substr(0, space)) > maxWidth)
-                    break;
-                end = space;
-            }
-            if (!end)
-                end = text.size();
-        }
-        const std::string_view line = text.substr(0, end);
+    for (const std::string &line : wrap(text, maxWidth)) {
         const int w = width(line);
         draw(screen, align == Align::kLeft ? x : align == Align::kCenter ? x - w / 2 : x - w, y, line);
         y += _height + spacing;
-        text.remove_prefix(std::min(text.size(), end + 1));
     }
+}
+
+std::vector<std::string> Font::wrap(std::string_view text, int maxWidth, int indent, int narrowLines) const {
+    std::vector<std::string> out;
+    // A line break starts a line, an empty one for a blank line (inferred:
+    // the game's drawing of them isn't traced).
+    for (std::string_view rest = text;;) {
+        const size_t newline = rest.find('\n');
+        std::string_view paragraph = rest.substr(0, newline);
+        do {
+            const int room = maxWidth > 0 && int(out.size()) < narrowLines ? maxWidth - indent : maxWidth;
+            // As many words as fit; a word wider than the line has it to itself.
+            size_t end = paragraph.size();
+            if (room > 0 && width(paragraph) > room) {
+                end = 0;
+                for (size_t space = paragraph.find(' '); space != std::string_view::npos;
+                     space = paragraph.find(' ', space + 1)) {
+                    if (end && width(paragraph.substr(0, space)) > room)
+                        break;
+                    end = space;
+                }
+                if (!end)
+                    end = paragraph.size();
+            }
+            out.emplace_back(paragraph.substr(0, end));
+            paragraph.remove_prefix(std::min(paragraph.size(), end + 1));
+        } while (!paragraph.empty());
+        if (newline == std::string_view::npos)
+            break;
+        rest.remove_prefix(newline + 1);
+    }
+    return out;
 }
 
 } // namespace reluva::stawayteam

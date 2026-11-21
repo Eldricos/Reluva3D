@@ -112,19 +112,19 @@ From the screen's handler (`0x5eb930`):
   main menu?"*.
 - **INVENTORY** and **OFFICERS** show the inventory's panel (`Inventory
   Background` at `Inventory Pos`) or the officer's.
-- **BRIEFING** goes back to the briefing.
+- **BRIEFING** goes back to the briefing ([briefing.md](briefing.md)).
 
 ## In Reluva
 
 `TeamSelectionScreen` (`ui/team_selection.cpp`), its files read by
 `loadRoster`, `loadFields` and `loadMission` (`game/team.cpp`), the
 static texts by `readStaticTexts` (`ui/static_text.cpp`). START GAME in
-the difficulty window starts a new game at mission 1; with no team
-selection for it, nothing more happens yet. In a build with developer
+the difficulty window starts a new game at mission 1: its briefing, and
+with no team selection for it, nothing more yet. In a build with developer
 keys, the engine's "Developer: first mission" setting starts it at
 another, so the screen can be reached. START MISSION and EXIT come back
 to the main menu; there are no missions to play yet. Not there yet: the
-inventory panel's contents, clicking a red item, BRIEFING, the
+inventory panel's contents, clicking a red item, the
 transporter's random numbers, and the second figure the program draws
 from each officer's body model.
 

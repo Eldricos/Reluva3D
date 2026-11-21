@@ -123,6 +123,16 @@ Error loadMission(const Archive &data, int number, Mission &out) {
     if (const TextObject *items = mds.object("Items"))
         for (const TextField *item : items->items())
             out.items.push_back(item->value);
+    out.briefingMovie = text(mds, "Briefing Movie");
+    out.loopMovie = mds.integer("Loop movie").value_or(0) != 0;
+    out.briefingMusic = text(mds, "Briefing Music");
+    const TextObject *script = mds.object("Script");
+    if (const TextObject *lines = script ? script->object("Script") : nullptr)
+        for (const TextField *item : lines->items())
+            if (item->object)
+                out.briefing.push_back({text(*item->object, "Script"), text(*item->object, "Text"),
+                                        text(*item->object, "Who is speaking"),
+                                        int(item->object->integer("Frame to start").value_or(-1))});
     return Error::success();
 }
 
