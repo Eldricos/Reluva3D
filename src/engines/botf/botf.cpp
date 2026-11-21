@@ -370,9 +370,7 @@ public:
                     // game's own menus aren't there yet.
                     if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
                         showing = Showing::kMenu;
-                    // A click on the map selects its sector.
-                    if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft)
-                        (void)galaxy.click(ev.mouseX, ev.mouseY);
+                    (void)galaxy.handle(ev);
                 } else if (showing == Showing::kSetup) {
                     const SetupScreen::Result r = setup.handle(ev);
                     if (r == SetupScreen::Result::kCancelled)

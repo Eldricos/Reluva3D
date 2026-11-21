@@ -790,19 +790,25 @@ void testGalaxyScreen() {
     Bytes f;
     put32(f, 2);
     putWidget(f, 1, 1000, 0, 0, 800, 600, "none");
-    putWindowCounts(f, {{2, 1}, {13, 3}, {14, 1}});
-    putWidget(f, 2, 1004, 558, 432, 87, 24, "none");
-    put32(f, 0xffffffff);
-    f.push_back(0);
-    put32(f, 0);
-    put32(f, 0);
-    putName(f, "none");
-    putName(f, "none");
+    putWindowCounts(f, {{2, 2}, {13, 4}, {14, 1}});
+    auto button = [](Bytes &l, uint32_t id, uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
+        putWidget(l, 2, id, x, y, w, h, "none");
+        put32(l, 0xffffffff);
+        l.push_back(0);
+        put32(l, 0);
+        put32(l, 0);
+        putName(l, "none");
+        putName(l, "none");
+    };
+    button(f, 1004, 558, 432, 87, 24);
+    button(f, 1002, 650, 432, 88, 24);
     putWidget(f, 13, 1017, 249, 36, 526, 391, "none");
     put32(f, 0xffffffff);
     putWidget(f, 13, 1020, 28, 110, 196, 380, "none");
     put32(f, 0xffffffff);
     putWidget(f, 13, 1014, 7, 459, 786, 134, "none");
+    put32(f, 0xffffffff);
+    putWidget(f, 13, 1025, 564, 353, 175, 76, "none");
     put32(f, 0xffffffff);
     putWidget(f, 14, 1021, 63, 76, 100, 30, "none");
     for (const uint32_t v : {0U, 0U, 100U, 30U})
@@ -862,8 +868,14 @@ void testGalaxyScreen() {
     textBox(stellarStrip, 1100, 239, 0, 126, 17);
     textBox(stellarStrip, 1101, 604, 0, 126, 17);
     textBox(stellarStrip, 1103, 525, 18, 220, 100);
+    // The zoom's two buttons.
+    Bytes zoom = layout(175, 76, {{2, 2}});
+    button(zoom, 1022, 20, 0, 88, 18);
+    button(zoom, 1023, 20, 22, 88, 18);
     MemoryArchive archive;
     archive.files["hmaingal.wdf"] = f;
+    archive.files["h_zoom.wdf"] = zoom;
+    archive.files["s-y-map.tga"] = image::encodeTga(star);
     archive.files["h_sysmap.wdf"] = systemStrip;
     archive.files["h_starmp.wdf"] = stellarStrip;
     // A white star 100 pixels square; a planet 20 square, white then
@@ -1027,6 +1039,40 @@ void testGalaxyScreen() {
     s.create(800, 600, PixelFormat::kRGBA32);
     screen.draw(s);
     CHECK(!lit(7, 459, 793, 476) && !shown(376, 527));
+
+    // Zoomed in on Sol: sectors 61 pixels square, Sol's corner at the
+    // middle of the zoomed-out grid's square (258 to 765, 36 to 426), but
+    // the grid kept over all of it: so from (-28, -184).
+    screen.select(10, 8);
+    screen.setZoomedIn(true);
+    s.create(800, 600, PixelFormat::kRGBA32);
+    screen.draw(s);
+    const int zx = -28 + 10 * 61;
+    const int zy = -184 + 8 * 61;
+    CHECK(colour(zx + 1, zy + 30, 247, 125, 0) && colour(zx + 60, zy + 30, 247, 125, 0) &&
+          !colour(zx + 2, zy + 30, 247, 125, 0));
+    // Sol's star, 12 pixels a step of its small-map place, less 8; the task
+    // force's larger emblem, a pixel right of and below its sector's corner.
+    CHECK(white(zx + 16, zy + 28) && white(zx + 25, zy + 37) && !white(zx + 15, zy + 28));
+    CHECK(white(-28 + 5 * 61 + 1, -184 + 5 * 61 + 1) && !white(-28 + 5 * 61, -184 + 5 * 61 + 1));
+    // Nothing of the map left of the square.
+    CHECK(!lit(249, 36, 258, 427));
+    // A click selects the zoomed sector under it.
+    CHECK(screen.click(-28 + 9 * 61 + 5, -184 + 7 * 61 + 5) && (screen.selected() == std::pair{9, 7}));
+    // The Map button opens the zoom's buttons (at 564, 353); Large Map
+    // zooms out and closes them; closed, their place is the map's; Small
+    // Map zooms in.
+    auto press = [&](int x, int y) {
+        Event e;
+        e.type = EventType::kMouseDown;
+        e.button = MouseButton::kLeft;
+        e.mouseX = x;
+        e.mouseY = y;
+        return screen.handle(e);
+    };
+    CHECK(press(700, 440) && press(600, 380) && !screen.zoomedIn());
+    CHECK(press(600, 360) && !screen.zoomedIn() && (screen.selected() == std::pair{8, 8}));
+    CHECK(press(700, 440) && press(600, 360) && screen.zoomedIn());
 }
 
 void testEmpireScreen() {

@@ -183,38 +183,51 @@ void LayoutScreen::trackPointer(const Event &event) {
         _pointed = buttonAt(event.mouseX, event.mouseY);
 }
 
+void LayoutScreen::drawLayout(Surface &screen, const WindowLayout &layout, bool menu, int dx, int dy, int w, int h,
+                              const std::set<int32_t> &selected) const {
+    const Box clip{dx, dy, w, h};
+    for (const WindowLayout::Placed &lp : layout.placed()) {
+        const Widget &wd = *lp.widget;
+        const int x = dx + lp.x;
+        const int y = dy + lp.y;
+        if (!menu && _hidden.count(wd.id))
+            continue;
+        if (const image::Image *img = wd.background.empty() ? nullptr : _assets.picture(wd.background))
+            blitWithin(screen, *img, x, y, wd.w, wd.h, clip);
+        if (wd.type != WidgetType::kButton)
+            continue;
+        if (menu) {
+            drawButton(_assets, screen, wd, x, y, false, kBehindPanelBrightness, clip);
+            continue;
+        }
+        const bool disabled = _disabled.count(wd.id) > 0;
+        const bool held = wd.id == _pressed && (_litWhileHeld.empty() || _litWhileHeld.count(wd.id));
+        const bool lit = !disabled && (held || selected.count(wd.id));
+        drawButton(_assets, screen, wd, x, y, lit, disabled ? kDisabledBrightness : 100, clip);
+        if (!lit && !disabled && wd.id == _pulsing)
+            drawPulse(_assets, screen, wd, x, y, pulseAmount(_now - _pulseStart), clip);
+    }
+}
+
 void LayoutScreen::drawLayouts(Surface &screen, const std::set<int32_t> &selected) const {
+    drawLayout(screen, _menu, true, 0, 0, screen.w, screen.h, selected);
+    drawLayout(screen, _layout, false, 0, 0, screen.w, screen.h, selected);
     // A panel is cut to its place: mpconn.wdf is 3 pixels taller than
     // Multiplayer Setup's place for it, and the game leaves them out.
-    auto draw = [&](const WindowLayout &layout, int dx, int dy, bool menu, const Box &clip) {
-        for (const WindowLayout::Placed &lp : layout.placed()) {
-            const Widget &w = *lp.widget;
-            const int x = dx + lp.x;
-            const int y = dy + lp.y;
-            if (!menu && _hidden.count(w.id))
-                continue;
-            if (const image::Image *img = w.background.empty() ? nullptr : _assets.picture(w.background))
-                blitWithin(screen, *img, x, y, w.w, w.h, clip);
-            if (w.type != WidgetType::kButton)
-                continue;
-            if (menu) {
-                drawButton(_assets, screen, w, x, y, false, kBehindPanelBrightness, clip);
-                continue;
-            }
-            const bool disabled = _disabled.count(w.id) > 0;
-            const bool held = w.id == _pressed && (_litWhileHeld.empty() || _litWhileHeld.count(w.id));
-            const bool lit = !disabled && (held || selected.count(w.id));
-            drawButton(_assets, screen, w, x, y, lit, disabled ? kDisabledBrightness : 100, clip);
-            if (!lit && !disabled && w.id == _pulsing)
-                drawPulse(_assets, screen, w, x, y, pulseAmount(_now - _pulseStart), clip);
-        }
-    };
-    const Box all{0, 0, screen.w, screen.h};
-    draw(_menu, 0, 0, true, all);
-    draw(_layout, 0, 0, false, all);
     for (const auto &panel : _panels)
-        if (panel->shown)
-            draw(panel->layout, panel->x, panel->y, false, {panel->x, panel->y, panel->w, panel->h});
+        if (panel->shown && !panel->over)
+            drawLayout(screen, panel->layout, false, panel->x, panel->y, panel->w, panel->h, selected);
+}
+
+void LayoutScreen::drawPanelOver(int panel) {
+    if (panel >= 0 && panel < int(_panels.size()))
+        _panels[size_t(panel)]->over = true;
+}
+
+void LayoutScreen::drawPanelsOver(Surface &screen, const std::set<int32_t> &selected) const {
+    for (const auto &panel : _panels)
+        if (panel->shown && panel->over)
+            drawLayout(screen, panel->layout, false, panel->x, panel->y, panel->w, panel->h, selected);
 }
 
 void LayoutScreen::typeInto(std::string &text, int32_t textBox, const char *utf8, size_t maxCharacters) const {

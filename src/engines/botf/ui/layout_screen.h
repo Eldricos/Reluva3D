@@ -90,6 +90,13 @@ protected:
     void showPanel(int panel, bool shown);
     bool panelShown(int panel) const;
     ///@}
+    /**
+     * Has a panel drawn by drawPanelsOver() rather than drawLayouts(), over
+     * what the screen draws itself (the galaxy screen's zoom, over its map).
+     */
+    void drawPanelOver(int panel);
+    /** The panels drawPanelOver() names, if shown, as drawLayouts() draws the others. */
+    void drawPanelsOver(Surface &screen, const std::set<int32_t> &selected = {}) const;
     /** The widget with this id, the layout's or a panel's, or nullptr. */
     const Placed *find(int32_t id) const;
     /** The button under the mouse, among those not hidden or disabled; or 0. */
@@ -165,7 +172,11 @@ protected:
         int w = 0;
         int h = 0;
         bool shown = false;
+        bool over = false; // drawn by drawPanelsOver(), not drawLayouts()
     };
+    /** A layout with its corner at (dx, dy), cut to w by h from there. */
+    void drawLayout(Surface &screen, const WindowLayout &layout, bool menu, int dx, int dy, int w, int h,
+                    const std::set<int32_t> &selected) const;
     std::vector<std::unique_ptr<Panel>> _panels; // owned apart, as _widgets points into them
     std::set<int32_t> _hidden;                   // widgets the game doesn't show on this screen
     std::set<int32_t> _disabled;                 // buttons that can't be used just now

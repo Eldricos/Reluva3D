@@ -45,6 +45,12 @@ None: nothing of the game's code has been read.
   place ([systems/galaxy-screen.md](systems/galaxy-screen.md#the-strip)).
   Settled by: screenshots of those objects selected, and of a system with
   more planets than Sol.
+- **The galaxy screen's zoom buttons:** closed on a choice or a click
+  elsewhere, the Map button and the current zoom's lit; and other owners'
+  systems' names in the colour of those nobody holds
+  ([systems/galaxy-screen.md](systems/galaxy-screen.md#zooming)). Settled
+  by: a recording of the buttons used, and a screenshot with another
+  empire's system named.
 
 ## Settled
 

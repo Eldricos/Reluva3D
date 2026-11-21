@@ -37,7 +37,7 @@ with recordings of the original filling what the data can't show.
    and Save Game's lists, the Hall of Fame, Multiplayer Setup). The galaxy
    screen's frame, map, empire's panel and selected sector's strip are
    drawn from a save ([systems/galaxy-screen.md](systems/galaxy-screen.md));
-   next its zooming and buttons, then the system, empire and diplomacy
+   it zooms; next its other buttons and later turns' maps, then the system, empire and diplomacy
    screens, from their layouts and recordings of the original.
 10. **Rules:** turn processing (production, research, growth, morale, the
     AI) and ship combat, from the data tables, documentation and

@@ -28,7 +28,7 @@ to come.
 | 1017 | 249, 36, 526x391 | the map |
 | 1020 | 28, 110, 196x380 | the empire's panel and its task forces (`h_eicon.wdf`, `h_tfinfo.wdf`) |
 | 1014 | 7, 459, 786x134 | the selected system (`h_starmp.wdf`, `h_sysmap.wdf`) |
-| 1026, 1025 | 273, 198 and 564, 353 | the overlay's choices (`h_ovrlay.wdf`) and zooming (`h_zoom.wdf`) |
+| 1026, 1025 | 273, 198 and 564, 353 | the overlay's choices (`h_ovrlay.wdf`) and the zoom's (`h_zoom.wdf`, [below](#zooming)) |
 | 1038, 1039, 1040 | 9 to 33, 154 to 499 | the task forces list's scroll bar: not shown with the first turn's two |
 
 The turn is in (24, 101, 189), the options screen's blue, measured; the
@@ -67,10 +67,17 @@ Measured on the screenshot, a small galaxy of 13 by 10 sectors:
   its place on the galaxy's small map (`systInfo`, 5 steps a sector), 7
   pixels a step less 3: Sol (2, 3 into its sector) at 11, 18, its
   neighbours Thelka (2, 2) at 11, 11 and Ramatis (3, 2) at 18, 11, each
-  matching the screenshot's stars pixel for pixel.
+  matching the screenshot's stars pixel for pixel. The systems of the
+  sectors the empire has explored are drawn too, in range or not (the
+  eleventh turn's screenshots); the game also shows stars in sectors
+  neither in range nor explored, by what it remembers of them, which isn't
+  read from the save yet.
 - **Names:** a system the empire has explored has its name under its
-  star, centred, in `human9.fnt`, in (0, 251, 255): Sol's, but not
-  Thelka's or Ramatis', which are only in range.
+  star, centred, in `human9.fnt`: Sol's, but not Thelka's or Ramatis',
+  which are only in range; at the eleventh turn, the nine systems explored,
+  and only those. The empire's own systems' are in (0, 251, 255), those
+  nobody holds in (255, 186, 57); Reluva draws the other empires' and the
+  minor races' in the second, as none is seen *(guessed)*.
 
 - **Ranges:** green, yellow and red lines, a pixel wide, along the sector
   edges round what's within a short, medium and long range of the
@@ -80,13 +87,42 @@ Measured on the screenshot, a small galaxy of 13 by 10 sectors:
   add up to no more than 1 (green), 2 (yellow) or 5 (red): that gives
   every border edge on the screenshot, the red's staircase included
   *(inferred: why those ranges, presumably the empire's ships' reach,
-  isn't known)*. In (0, 255, 0), (255, 255, 0), (255, 0, 0).
+  isn't known)*. In (0, 255, 0), (255, 255, 0), (255, 0, 0). Along the
+  galaxy's top edge the border is a pixel lower, inside the grid's line,
+  and over the selected system's square (Sol's, at the eleventh turn).
 - **The selected system:** a square in (247, 125, 0), a pixel inside its
-  sector's lines; Sol is selected at the start.
+  sector's lines; Sol is selected at the start. A click on a sector
+  selects it.
 - **Task forces:** the empire's small emblem, `i_hi18.tga` (17x21), a pixel
   right of the sector's corner and a pixel above it, once for the sector,
-  drawn over the square. (Other screenshots of the map are zoomed in,
-  with larger sectors, stars and emblems: zooming is still to do.)
+  drawn over the square.
+
+### Zooming
+
+The Map button (1002) opens the zoom's two buttons, `h_zoom.wdf` in its
+place (1025, at 564, 353) over the map's corner: "SMALL MAP" (1022,
+`h_zin.tga`) zooms in, "LARGE MAP" (1023, `h_zot.tga`) out, as the
+user's screenshots of the eleventh turn are named. Zoomed out is the map
+above, the whole of a small galaxy. Measured on the zoomed-in screenshot:
+
+- **The view** stays the zoomed-out grid's square, lines included (258
+  to 765 across, 36 to 426 down): what falls outside it isn't drawn
+  (Neutron Star D2's name is cut at 258), and the backdrop stays where it
+  was, unscaled (a patch of it matches at the same place).
+- **Sectors** are 61 pixels square. The grid is placed with the selected
+  sector's corner at the view's middle (511, 231), and moved no further
+  than keeps it over the whole view: Sol's, in the galaxy's top row, puts
+  the grid's corner at 84, 36. The borders and the selected square land
+  on the screenshot's pixels so.
+- **Stars** are their larger pictures (`s-y-map.tga`, 19x19), 12 pixels a
+  step of their small-map place less 8: all 22 stars in view agree. Names
+  are as zoomed out, under them.
+- **Task forces:** the empire's larger emblem, `i_h26.tga` (26x30), a pixel
+  right of and below the sector's corner (two task forces agree).
+
+When the buttons close, and which are lit, isn't seen: Reluva closes them
+on a choice or a click elsewhere, lights the Map button while they're
+open and the current zoom's button *(guessed)*.
 
 ### The empire's panel
 
@@ -194,15 +230,22 @@ player's empire's layout, and draws its frame, the map's backdrop, grid,
 the scanners' sectors, stars and names, the turn, and the empire's
 panel, and the selected sector's strip, turning. The engine opens it
 with the chosen slot's save from Load Game, or with `Auto.sav` from
-Continue; a click on the map selects a sector; Escape goes back to the
-main menu. The unit tests (`botf.unit.screens`: "galaxy") cover the
-scanners' range, where stars and names are drawn, the panel's parts, and
-the strip: the star's and planets' places, their frames in time, the
-letters, a click's selection, the neutron star's strip and an empty
-sector's.
+Continue; a click on the map selects a sector, and the Map button's two
+buttons zoom; Escape goes back to the main menu. The map is drawn on a
+surface the view's size, which cuts it there. The unit tests
+(`botf.unit.screens`: "galaxy") cover the scanners' range, where stars and
+names are drawn, the panel's parts, the strip (the star's and planets'
+places, their frames in time, the letters, a click's selection, the
+neutron star's strip and an empty sector's), and zooming: the grid's
+place round the selected sector, the stars and emblems, the cut, a
+click, and the buttons.
 
-Drawn so, the map matches the screenshot but for the grid lines' and the
-scanned sectors' shading; the strip but for what isn't drawn yet, and the
+Drawn so, the map matches the first turn's screenshot but for the grid
+lines' and the scanned sectors' shading. At the eleventh turn, zoomed in
+and out, every pixel of the game's borders and selected square is
+Reluva's too, and the stars and names drawn land on the game's; what the
+map shows of later turns isn't all drawn yet (see the open questions);
+the strip matches but for what isn't drawn yet, and the
 outermost pixels of the larger planets' rings, which the game seems to
 blend with what's under them.
 
@@ -230,11 +273,15 @@ blend with what's under them.
   when a sector counts as explored.
 - What the ranges are and what sets them, and the grid lines' and
   scanned sectors' shading.
-- Zooming: the other screenshots' sectors, stars and emblems.
+- What the map shows at later turns: the stars of sectors seen before,
+  the darker sectors (not those Reluva counts as in range), the dotted
+  green, blue and red sectors, stellar objects' pictures and the other
+  empires' ships.
+- When the zoom's buttons close, and which of them is lit.
 - The grid lines' exact shade, which varies a little with the backdrop
   in the screenshot.
-- Larger galaxies: whether the map scrolls, and how zooming changes the
-  sectors' size.
+- Larger galaxies: whether the map scrolls zoomed out, and whether the
+  zoomed-in map scrolls (none is seen).
 - The strip's growth rate, orbitals and icons, the empire's emblem on it,
   a nebula's strip, and the people's word for the other races.
 - The panel's events, and its dilithium with a ship queued; the words for
