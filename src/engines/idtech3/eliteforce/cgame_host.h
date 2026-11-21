@@ -169,6 +169,9 @@ public:
     const std::pair<std::string, std::string> &music() const { return _music; }
     // The loaded collision map, if CM_LoadMap found it.
     std::shared_ptr<const Bsp> map() const { return _map; }
+    // The contents of that map's world (model 0) at a point, as the
+    // renderer asks (CM_PointContents); 0 without a map.
+    int32_t worldContents(const Vec3f &point);
 
     // Where its sounds go (S_StartSound...); none if not set.
     SoundSystem *soundSystem = nullptr;

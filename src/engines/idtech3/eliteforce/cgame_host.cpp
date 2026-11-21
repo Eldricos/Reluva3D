@@ -224,6 +224,14 @@ CgameHost::CgameHost(const SearchSet &files, CvarStore &cvars, GameCode game, Je
     _vm.setSystemCall([this](Qvm &vm, int number, const int32_t *args) { return systemCall(vm, number, args); });
 }
 
+int32_t CgameHost::worldContents(const Vec3f &point) {
+    if (!_map)
+        return 0;
+    if (!_world)
+        _world = std::make_unique<CollisionWorld>(*_map);
+    return _world->pointContents(point, 0);
+}
+
 Error CgameHost::load() {
     std::vector<uint8_t> data;
     if (Error err = _files.read("vm/cgame.qvm", data))

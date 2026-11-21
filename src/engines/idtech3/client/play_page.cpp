@@ -51,6 +51,10 @@ constexpr float kPi = 3.14159265358979f;
 } // namespace
 
 PlayPage::PlayPage(PageContext &ctx) : Page(ctx) {
+    _weather.contents = [this](const std::array<float, 3> &p) { return _cgame ? _cgame->worldContents(p) : 0; };
+    _weather.loadPicture = [this](const std::string &name, WeatherPicture &out) {
+        return loadWeatherPicture(_ctx.files, name, out);
+    };
     // Elite Force's game module, or Jedi Outcast's multiplayer one.
     const char *gameModule = ctx.game.code == GameCode::kJediOutcast ? "vm/jk2mpgame.qvm" : "vm/qagame.qvm";
     if ((ctx.game.code != GameCode::kEliteForce && ctx.game.code != GameCode::kJediOutcast) ||
@@ -92,6 +96,7 @@ bool PlayPage::setUpGraphics() {
     }
     _overlay.create(_frameW, _frameH, PixelFormat::kRGBA32);
     _shaders = std::make_unique<ShaderCache>(*_renderer, _ctx.files, _ctx.shaders);
+    _weatherDrawing.reset();
     _consoleShadersLoaded = false;
     _world = std::make_unique<WorldRenderer>(*_renderer, *_shaders);
     _models = std::make_unique<ModelCache>(*_renderer, *_shaders, _ctx.files);
@@ -219,6 +224,7 @@ void PlayPage::reset() {
     _models->clear();
     _world->clear();
     _shaders->clear();
+    _weatherDrawing.reset();
     _input.yaw = _input.pitch = 0;
 }
 
@@ -368,6 +374,7 @@ bool PlayPage::changeLevel(const std::string &map) {
     _models->clear();
     _world->clear();
     _shaders->clear();
+    _weatherDrawing.reset();
     std::shared_ptr<Bsp> bsp;
     if (!loadLevel(path, bsp))
         return false;
@@ -484,6 +491,7 @@ bool PlayPage::finishDownload(const std::string &name, const std::vector<uint8_t
         return false;
     }
     _shaders->clear(); // the shader scripts were read again
+    _weatherDrawing.reset();
     addPrint("Downloaded " + name + "\n", true);
     if (!_downloads.empty())
         _client->download(_downloads.front().first);
@@ -697,6 +705,7 @@ void PlayPage::runRemote(uint64_t nowMs, int32_t dt) {
         _models->clear();
         _world->clear();
         _shaders->clear();
+        _weatherDrawing.reset();
         if (!_client->playingDemo())
             setTitle(map + " on " + _serverAddress);
         std::shared_ptr<Bsp> bsp;
@@ -822,6 +831,18 @@ void PlayPage::consoleCommand(const std::string &text) {
     if (w.empty() || !_cgame)
         return;
     const std::string verb = fs::toLower(w[0]);
+    if (verb == "r_we" && _ctx.game.code == GameCode::kJediOutcast) {
+        // The renderer's weather command (0x49c880): the rest of the line.
+        std::string rest;
+        for (size_t i = 1; i < w.size(); ++i)
+            rest += (i > 1 ? " " : "") + w[i];
+        WorldEffects::Outcome o = _weather.command(rest);
+        if (!o.error.empty() && _weatherError.empty())
+            _weatherError = o.error;
+        if (!o.execute.empty())
+            consoleCommand(o.execute);
+        return;
+    }
     if (verb == "centerview") {
         _input.pitch = 0;
         return;
@@ -1335,10 +1356,19 @@ eliteforce::GameHost::UserCommand PlayPage::buildCommand() {
 }
 
 SurfaceSpriteWeather PlayPage::surfaceSpriteWeather() {
-    // Jedi Outcast's renderer settings; none for other games.
+    // Jedi Outcast's renderer settings and weather; none for other games.
     if (_ctx.game.code != GameCode::kJediOutcast)
         return {};
-    return surfaceSpriteSettings(_cvars);
+    return weatherSprites(_weather, _cvars);
+}
+
+void PlayPage::prepareWeather(const std::vector<uint8_t> &refdef) {
+    // As jk2mp.exe's world effects pass (0x49c4d0): moved on by the time
+    // since the last view (refdef_t's time at 72, in ms), drawn round the eye.
+    const int32_t now = readInt(refdef, 72);
+    const float seconds = _weatherTime < 0 ? 0 : float(std::max(now - _weatherTime, 0)) / 1000.0f;
+    _weatherTime = now;
+    _weatherDrawing.frame(_weather, refdef, seconds, _frameH, *_shaders, _ctx.files, *_scene);
 }
 
 void PlayPage::applyViewLimits(int32_t serverTime) {
@@ -1476,6 +1506,14 @@ void PlayPage::update(uint64_t nowMs) {
     if (!_shownMs)
         _shownMs = nowMs;
     runGame(nowMs);
+    // An r_we command that couldn't be done ends the match, as the
+    // original's error does (0x4994cc).
+    if (!_weatherError.empty()) {
+        stop(std::exchange(_weatherError, std::string()));
+        return;
+    }
+    if (!_renderer)
+        return;
     _renderer->setGamma(brightness(_ctx));
     const float time = float(_clientTime) / 1000.0f;
 
@@ -1502,9 +1540,14 @@ void PlayPage::update(uint64_t nowMs) {
         _scene->showModels = !_cvars.find("r_drawentities") || _cvars.integer("r_drawentities") != 0;
         _scene->showEffects =
             _scene->showModels && (!_cvars.find("r_drawEffects") || _cvars.integer("r_drawEffects") != 0);
+        bool weather = _weather.raining() || _weather.snowing();
         for (const auto &v : scene.views) {
             _scene->drawPictures(pictures, drawn, v.picturesBefore, 640, 480, time);
             drawn = std::max(drawn, v.picturesBefore);
+            if (weather && !(readInt(v.refdef, 76) & kNoWorldModel)) {
+                prepareWeather(v.refdef);
+                weather = false;
+            }
             _scene->drawView(scene, v, 640, 480, time, first, _world.get(), &_grid, dynamicLights);
             first = false;
             if (!haveView && !(readInt(v.refdef, 76) & kNoWorldModel)) {

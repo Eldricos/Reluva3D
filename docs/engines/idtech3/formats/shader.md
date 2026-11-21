@@ -167,11 +167,9 @@ original's:
   drift along it over their lives. Weather sprites show as much as
   `r_surfaceWeather` says (their density divided by it), none at 0.
   jk2mp.exe registers all of these with no wind and no weather
-  (`r_windDampFactor` 0.1), as Reluva does. In single player the rain
-  sets them while it falls
-  ([../games/jk2/systems/sp-weather.md](../games/jk2/systems/sp-weather.md));
-  multiplayer's rain and snow (`r_we`) would too, and Reluva hasn't
-  that weather system.
+  (`r_windDampFactor` 0.1), as Reluva does. Rain and snow set them
+  while they fall, in both programs
+  ([../games/jk2/systems/weather.md](../games/jk2/systems/weather.md)).
 - With a field of view narrower than the first ordinary one drawn
   (between 50 and 135 degrees), sprites reach farther: their fade
   distances times the tangent of half the first's over the tangent of

@@ -623,9 +623,16 @@ void SpPlayPage::start(int index, int32_t loadMode, raven::SaveReader *save) {
     // A level loading shuts the console (0x40aa6a).
     if (_consoleOpen)
         closeConsole();
-    _rainMaterial = -1;
+    _weatherDrawing.reset();
     _weather.clear();
+    _weather.contents = [this](const std::array<float, 3> &p) {
+        return _game ? _game->worldContents({p[0], p[1], p[2]}) : 0;
+    };
+    _weather.loadPicture = [this](const std::string &name, WeatherPicture &out) {
+        return loadWeatherPicture(_ctx.files, name, out);
+    };
     _weatherTime = -1;
+    _weatherError.clear();
     _input.yaw = _input.pitch = 0;
     _clientTime = 0;
     _lastMs = 0;
@@ -670,7 +677,10 @@ void SpPlayPage::start(int index, int32_t loadMode, raven::SaveReader *save) {
     _game = std::make_unique<eliteforce::SpGameHost>(_ctx.files, _cvars);
     _game->print = [this](const std::string &text) { consolePrint(text); };
     _game->worldEffectCommand = [this](const std::string &line) {
-        if (!_weather.command(line))
+        WorldEffects::Outcome o = _weather.command(line);
+        if (!o.error.empty() && _weatherError.empty())
+            _weatherError = o.error;
+        else if (!o.understood)
             consolePrint("World effect command not done: " + line + "\n");
     };
     _game->modInstall = _ctx.installPath;
@@ -1604,6 +1614,10 @@ void SpPlayPage::update(uint64_t nowMs) {
             runMenuCommands();
     }
 
+    // A weather command that couldn't be done ends the level, as the
+    // original's error does (0x4994cc).
+    if (!_weatherError.empty())
+        return stop(std::exchange(_weatherError, std::string()));
     _renderer->setGamma(brightness(_ctx));
     const float time = float(_clientTime) / 1000.0f;
     const auto drawStart = std::chrono::steady_clock::now();
@@ -1617,13 +1631,13 @@ void SpPlayPage::update(uint64_t nowMs) {
         const bool dynamicLights = !_cvars.find("r_dynamiclight") || _cvars.integer("r_dynamiclight") != 0;
         if (_game->jedi()) {
             _world->setLightStyles(_game->lightStyles());
-            _world->setSurfaceSpriteWeather(surfaceSpriteSettings(_cvars));
+            _world->setSurfaceSpriteWeather(weatherSprites(_weather, _cvars));
             _grid.setStyles(_game->lightStyles());
         }
         size_t drawn = 0;
         size_t shots = 0;
         bool first = true;
-        bool weather = _weather.raining();
+        bool weather = _weather.raining() || _weather.snowing();
         for (const auto &v : scene.views) {
             drawGamePictures(drawn, shots, v.picturesBefore, time);
             // The weather with the first view of the level (refdef_t's
@@ -1731,60 +1745,10 @@ void SpPlayPage::drawGamePictures(size_t &drawn, size_t &shotsDrawn, size_t to, 
 
 void SpPlayPage::prepareWeather(const View &view) {
     // As jk2sp.exe's world effects pass (0x48eca0): moved on by the frame's
-    // time (none while the game waits), faded by the contents at the eye,
-    // drawn round it.
+    // time (none while the game waits), drawn round the eye.
     const float seconds = _weatherTime < 0 ? 0 : float(std::max(_clientTime - _weatherTime, 0)) / 1000.0f;
     _weatherTime = _clientTime;
-    auto vec = [&](size_t at) {
-        std::array<float, 3> v{};
-        std::memcpy(v.data(), view.refdef.data() + at, sizeof v);
-        return v;
-    };
-    const std::array<float, 3> eye = vec(24);
-    _weather.update(seconds, _game ? _game->worldContents({eye[0], eye[1], eye[2]}) : 0);
-    if (_rainMaterial < 0) {
-        // The rain's picture, its red made its alpha, not mipmapped and
-        // drawn nearest (0x48e346 on); blended over the scene by its
-        // vertices' colour and alpha, both sides, depth unwritten.
-        std::vector<uint8_t> data;
-        image::Image picture;
-        const std::string name = std::string(WorldEffects::kRainImage) + ".tga";
-        if (!_ctx.files.read(name, data) && !image::decode(data, picture)) {
-            for (size_t i = 0; i + 3 < picture.rgba.size(); i += 4)
-                picture.rgba[i + 3] = picture.rgba[i];
-            _shaders->addImage("$weather/rain", picture, true, true);
-        }
-        _rainShader = ShaderDef{};
-        _rainShader.name = "$weather/rain";
-        _rainShader.cull = ShaderDef::Cull::kNone;
-        _rainShader.noMipmaps = true;
-        _rainShader.noPicmip = true;
-        ShaderStage stage;
-        stage.maps = {"$weather/rain"};
-        stage.clamp = true;
-        stage.blendSrc = "gl_src_alpha";
-        stage.blendDst = "gl_one_minus_src_alpha";
-        stage.rgbGen = ShaderStage::RgbGen::kExactVertex;
-        stage.alphaGen = ShaderStage::AlphaGen::kVertex;
-        _rainShader.stages.push_back(stage);
-        _rainMaterial = _shaders->material(_rainShader, Lighting::kEffect);
-    }
-    // The surface sprites' wind and weather follow the rain's (0x4882ef
-    // on): weather sprites in full while it falls on the eye; the wind as
-    // strong as the rain leans (its angle x 75 x 0.3), gusting every 300
-    // over that seconds (none under 1), towards the rain's wind's yaw.
-    SurfaceSpriteWeather sprites = surfaceSpriteSettings(_cvars);
-    if (_weather.fallingHere())
-        sprites.surfaceWeather = 1;
-    const float lean = _weather.windAngle() * 75 * 0.3f;
-    sprites.windSpeed = lean;
-    sprites.windGust = lean >= 1 ? 300 / lean : 0;
-    const std::array<float, 3> &wind = _weather.wind();
-    sprites.windAngle = std::atan2(-wind[1], -wind[0]) * 57.2957795f;
-    _world->setSurfaceSpriteWeather(sprites);
-    std::vector<gfx::Vertex> triangles;
-    _weather.triangles(eye, vec(48), triangles);
-    _scene->setWorldEffects(_rainMaterial, std::move(triangles));
+    _weatherDrawing.frame(_weather, view.refdef, seconds, _frameH, *_shaders, _ctx.files, *_scene);
 }
 
 void SpPlayPage::consolePrint(const std::string &text) {

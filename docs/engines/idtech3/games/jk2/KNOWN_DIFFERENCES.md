@@ -20,7 +20,10 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
 
 ## Bugs fixed
 
-None yet.
+- **A wind from `r_we snow wind`** blows on the snow here. The original
+  never makes its list of counts and would read one that isn't there
+  once the eye came within 300 of it *(inferred)*
+  ([systems/weather.md](systems/weather.md)).
 
 ## Not yet as the original
 
@@ -28,11 +31,11 @@ In the maps:
 
 - **Surface sprites** (grass, ferns, vines) on far curves stay where
   they stand up close, where the original's move as it drops the curve's
-  detail; the wind's gusts come at Reluva's own random times; and
-  multiplayer's rain and snow system (`r_we`), which would also set the
-  wind and the weather sprites, isn't there ([shader.md](../../formats/shader.md),
-  In Reluva). Single player's rain is there, its drops and gusts
-  Reluva's own random draws ([systems/sp-weather.md](systems/sp-weather.md)).
+  detail; and the wind's gusts come at Reluva's own random times
+  ([shader.md](../../formats/shader.md), In Reluva).
+- **The weather**'s drops, flakes and gusts are Reluva's own random
+  draws, and its snowflakes squares as large as the original's points
+  ([systems/weather.md](systems/weather.md)).
 
 In the multiplayer game:
 

@@ -43,6 +43,7 @@ reluva_add_engine(idtech3
         client/session.cpp
         client/sp_play_page.cpp
         client/start_page.cpp
+        client/weather_drawing.cpp
         eliteforce/cgame_host.cpp
         eliteforce/game_bots.cpp
         eliteforce/game_host.cpp

@@ -33,6 +33,12 @@ What Reluva does that hasn't been checked against the running original.
   haven't been compared pixel by pixel with the original's screens
   ([systems/sp-menus.md](systems/sp-menus.md)).
 
+- The weather (rain, snow, winds, misty fog) is drawn as `jk2sp.exe`'s
+  and `jk2mp.exe`'s code says, but hasn't been compared with either
+  running: no shipped multiplayer level has the "outside" brushes `r_we`
+  needs, and no release has the fog's picture
+  ([systems/weather.md](systems/weather.md)).
+
 ## Seen running, not traced in the code
 
 - Side by side with the retail game's screenshots (November 2026, 800 x

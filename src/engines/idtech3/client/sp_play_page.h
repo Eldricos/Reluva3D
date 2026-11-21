@@ -15,6 +15,7 @@
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/eliteforce/sp_ui_host.h"
 #include "engines/idtech3/render/light_grid.h"
+#include "engines/idtech3/client/weather_drawing.h"
 #include "engines/idtech3/render/world_effects.h"
 #include "engines/idtech3/raven/savegame.h"
 #include "engines/idtech3/audio/sound_system.h"
@@ -125,13 +126,13 @@ private:
     void closeConsole();
     void drawConsole(uint64_t nowMs, float time);
     ConsoleState _console;
-    // The weather (Jedi Outcast's rain), moved on by the game's clock and
-    // handed to the scene drawer for the view with the level.
+    // The weather (Jedi Outcast's rain and snow), moved on by the game's
+    // clock and handed to the scene drawer for the view with the level.
     void prepareWeather(const View &view);
-    WorldEffects _weather;
+    WorldEffects _weather{WorldEffects::Engine::kSinglePlayer};
+    WeatherDrawing _weatherDrawing{WorldEffects::Engine::kSinglePlayer};
     int32_t _weatherTime = -1; // the game's clock it was last moved at
-    ShaderDef _rainShader;     // its material's (which must outlive it)
-    int _rainMaterial = -1;
+    std::string _weatherError; // a command's, which ends the level once the frame is over
     bool _consoleOpen = false;
     ConsoleShaders _consoleShaders;
     bool _consoleShadersLoaded = false;

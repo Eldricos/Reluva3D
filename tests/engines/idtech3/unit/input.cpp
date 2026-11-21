@@ -338,29 +338,47 @@ static void testConsoleState() {
 }
 
 static void testWorldEffects() {
+    using Batches = std::vector<WorldEffects::Batch>;
+    auto vertices = [](const Batches &batches, WorldEffects::Look look) {
+        std::vector<gfx::Vertex> out;
+        for (const WorldEffects::Batch &b : batches)
+            if (b.look == look)
+                out.insert(out.end(), b.vertices.begin(), b.vertices.end());
+        return out;
+    };
     // The rain: started by its command, set by others, faded in only in
     // the open and out of water, its drops falling and starting again.
     WorldEffects w;
-    CHECK(!w.command("rain alpha 0.3")); // no rain yet
-    CHECK(!w.command("snow init 100"));
-    CHECK(w.command("rain init 50") && w.raining());
-    CHECK(w.command("rain alpha 0.3") && w.command("rain fall -100 -90") && !w.command("rain sideways"));
-    std::vector<gfx::Vertex> tris;
-    w.update(0.1f, 0);
-    w.triangles({0, 0, 0}, {0, 1, 0}, tris);
-    CHECK(tris.empty() && w.fade() == 0); // indoors: none
-    w.update(1, WorldEffects::kContentsOutside | WorldEffects::kContentsWater);
-    CHECK(w.fade() == 0);
-    w.update(1, WorldEffects::kContentsOutside);
-    CHECK(w.fade() == 0.5f);
-    w.triangles({100, 200, 300}, {0, 1, 0}, tris);
+    int32_t here = 0;
+    w.contents = [&](const std::array<float, 3> &) { return here; };
+    auto frame = [&](WorldEffects &e, float seconds, const std::array<float, 3> &eye, Batches &out) {
+        WorldEffects::ViewParms view;
+        view.eye = eye;
+        out.clear();
+        e.update(seconds, view);
+        e.draw(view, out);
+    };
+    CHECK(!w.command("rain alpha 0.3").understood); // no rain yet
+    CHECK(w.command("rain init 50").understood && w.raining() && !w.snowing());
+    CHECK(w.command("rain alpha 0.3").understood && w.command("rain fall ( -100 -90 )").understood &&
+          !w.command("rain sideways").understood);
+    Batches batches;
+    frame(w, 0.1f, {0, 0, 0}, batches);
+    CHECK(vertices(batches, WorldEffects::Look::kRain).empty() && w.rainFade() == 0); // indoors: none
+    here = WorldEffects::kContentsOutside | WorldEffects::kContentsWater;
+    frame(w, 1, {0, 0, 0}, batches);
+    CHECK(w.rainFade() == 0 && !w.fallingHere());
+    here = WorldEffects::kContentsOutside;
+    frame(w, 1, {100, 200, 300}, batches);
+    CHECK(w.rainFade() == 0.5f && w.fallingHere());
+    std::vector<gfx::Vertex> tris = vertices(batches, WorldEffects::Look::kRain);
     CHECK(tris.size() == 150);
     // Each a drop, across by a fifth of the left axis, then 5 down; round
     // the eye (within 20 across, 20 under to 40 over); no more opaque than
     // the alpha times the fade.
     bool near = true;
     bool faint = true;
-    for (size_t i = 0; i < tris.size(); i += 3) {
+    for (size_t i = 0; i + 2 < tris.size(); i += 3) {
         const gfx::Vertex &a = tris[i];
         const gfx::Vertex &b = tris[i + 1];
         const gfx::Vertex &c = tris[i + 2];
@@ -371,12 +389,52 @@ static void testWorldEffects() {
     CHECK(near && faint);
     // Falling for a while, they stay round the eye; "rain remove" stops it.
     for (int i = 0; i < 100; ++i)
-        w.update(0.05f, WorldEffects::kContentsOutside);
-    tris.clear();
-    w.triangles({0, 0, 0}, {0, 1, 0}, tris);
-    CHECK(tris.size() == 150 && w.fade() == 1);
+        frame(w, 0.05f, {0, 0, 0}, batches);
+    tris = vertices(batches, WorldEffects::Look::kRain);
+    CHECK(tris.size() == 150 && w.rainFade() == 1);
     CHECK(std::all_of(tris.begin(), tris.end(), [](const gfx::Vertex &v) { return v.pos[2] > -26 && v.pos[2] < 41; }));
-    CHECK(w.command("rain remove") && !w.raining());
+    float speed = 0;
+    CHECK(w.windSpeed(speed) && speed == 75);
+    CHECK(w.command("rain remove").understood && !w.raining());
+
+    // Snow: flakes in a box round the eye, drawn only in its open cells
+    // (here, below 100: the cells from -168.75 up, 56.25 high, open up to
+    // 112.5); "exec" is multiplayer's alone.
+    WorldEffects s(WorldEffects::Engine::kMultiplayer);
+    s.contents = [](const std::array<float, 3> &p) { return p[2] < 100 ? WorldEffects::kContentsOutside : 0; };
+    CHECK(s.command("snow init 200").understood && s.snowing());
+    for (int i = 0; i < 5; ++i)
+        frame(s, 0.05f, {0, 0, 0}, batches);
+    std::vector<gfx::Vertex> flakes = vertices(batches, WorldEffects::Look::kPlain);
+    CHECK(!flakes.empty() && flakes.size() % 6 == 0 && s.fallingHere());
+    CHECK(std::all_of(flakes.begin(), flakes.end(), [](const gfx::Vertex &v) {
+        return v.pos[2] > -201 && v.pos[2] < 113 && std::abs(v.pos[0]) < 601 && v.color[0] == 204;
+    }));
+    std::array<float, 3> wind{};
+    CHECK(s.windVector(wind) && std::abs(wind[0] * wind[0] + wind[1] * wind[1] - 1) < 1e-4f && !s.windSpeed(speed));
+    // A wind's box, and the gust's round the eye, shown by "debug wind".
+    CHECK(s.command("snow wind ( 0 0 0 ) ( 10 0 0 ) ( 100 100 100 )").understood);
+    CHECK(s.command("debug wind").understood);
+    frame(s, 0.05f, {0, 0, 0}, batches);
+    flakes = vertices(batches, WorldEffects::Look::kPlain);
+    CHECK(std::count_if(flakes.begin(), flakes.end(), [](const gfx::Vertex &v) { return v.color[3] == 128; }) == 36);
+    // The misty fog: its picture missing (as in every release), the
+    // command ends the level; with one, a grid over the view.
+    WorldEffects::Outcome o = s.command("snow fog");
+    CHECK(o.error == "Could not load gfx/world/fog2");
+    s.loadPicture = [](const std::string &name, WeatherPicture &out) {
+        out.width = out.height = 4;
+        out.rgba.assign(64, 255);
+        return name == "gfx/world/fog2";
+    };
+    o = s.command("snow fog");
+    CHECK(o.understood && o.error.empty() && s.command("snow fog density 0.5").understood);
+    frame(s, 1, {0, 0, 0}, batches);
+    const std::vector<gfx::Vertex> fog = vertices(batches, WorldEffects::Look::kFog);
+    CHECK(fog.size() == 29 * 29 * 6 &&
+          std::any_of(fog.begin(), fog.end(), [](const gfx::Vertex &v) { return v.color[3] > 0 && v.pos[2] == -10; }));
+    CHECK(s.command("exec say hi").execute == " say hi" && w.command("exec say hi").execute.empty());
+    CHECK(s.command("snow remove").understood && !s.snowing());
 }
 
 static const reluva::test::Suite

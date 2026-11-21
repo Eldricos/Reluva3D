@@ -89,9 +89,16 @@ public:
     void drawView(const Scene &scene, const View &view, int screenW, int screenH, float time, bool firstView,
                   WorldRenderer *world, const LightGrid *grid, bool dynamicLights);
 
-    // Triangles (three vertices each) in the world, drawn with `material`
-    // over everything else by the next view with the level: the weather.
-    void setWorldEffects(int material, std::vector<gfx::Vertex> vertices);
+    // Triangles (three vertices each) drawn with `material` over everything
+    // else by the next view with the level: the weather. In the world, or
+    // with `ownView` in a projection of their own (`viewProj`, from the eye).
+    struct WorldEffectBatch {
+        int material = -1;
+        std::vector<gfx::Vertex> vertices;
+        bool ownView = false;
+        gfx::Mat4 viewProj{};
+    };
+    void setWorldEffects(std::vector<WorldEffectBatch> batches);
 
     // What the last view drew, for the info line.
     const gfx::Vec3 &eye() const { return _eye; }
@@ -201,8 +208,8 @@ private:
         float sort = 0;    // its material's
     };
     std::vector<Effect> _effects;
-    int _worldEffectMaterial = -1;
-    std::vector<gfx::Vertex> _worldEffects;
+    std::vector<WorldEffectBatch> _worldEffects;
+    gfx::Mat4 _viewProj{};       // the view's, set again after a batch drawn in its own
     gfx::MeshId _effectMesh = 0; // _effects' vertices, while a view is drawn
     std::vector<gfx::Vertex> _effectVertices;
     std::vector<uint32_t> _effectIndices;

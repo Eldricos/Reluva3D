@@ -287,6 +287,7 @@ void SceneDrawer::drawView(const Scene &scene, const View &view, int screenW, in
                                              gfx::lookAlong(_eye, forward, up));
     if (!firstView)
         _r.clearDepth();
+    _viewProj = viewProj;
     _r.setView(viewProj, _eye);
     _r.setViewport(vx, vy, vw, vh);
     // The view's dynamic lights (shots, explosions): on the level's solid
@@ -398,25 +399,32 @@ void SceneDrawer::drawLayers(float time, WorldRenderer *world, bool throughPorta
         _effectMesh = 0;
     }
     _r.setDepthRange(1);
-    if (world && !throughPortal && _worldEffectMaterial >= 0 && !_worldEffects.empty()) {
-        std::vector<uint32_t> indices(_worldEffects.size());
-        for (size_t i = 0; i < indices.size(); ++i)
-            indices[i] = uint32_t(i);
-        gfx::MeshId mesh = 0;
-        if (!_r.createMesh(_worldEffects, indices, mesh) && mesh) {
+    if (world && !throughPortal) {
+        for (const WorldEffectBatch &b : _worldEffects) {
+            if (b.material < 0 || b.vertices.empty())
+                continue;
+            std::vector<uint32_t> indices(b.vertices.size());
+            for (size_t i = 0; i < indices.size(); ++i)
+                indices[i] = uint32_t(i);
+            gfx::MeshId mesh = 0;
+            if (_r.createMesh(b.vertices, indices, mesh) || !mesh)
+                continue;
+            if (b.ownView)
+                _r.setView(b.viewProj, {0, 0, 0});
             gfx::DrawCall call;
             call.mesh = mesh;
             call.indexCount = uint32_t(indices.size());
-            _shaders.draw(_worldEffectMaterial, call, 0, time);
+            _shaders.draw(b.material, call, 0, time);
             _r.destroyMesh(mesh);
+            if (b.ownView)
+                _r.setView(_viewProj, _eye);
         }
         _worldEffects.clear();
     }
 }
 
-void SceneDrawer::setWorldEffects(int material, std::vector<gfx::Vertex> vertices) {
-    _worldEffectMaterial = material;
-    _worldEffects = std::move(vertices);
+void SceneDrawer::setWorldEffects(std::vector<WorldEffectBatch> batches) {
+    _worldEffects = std::move(batches);
 }
 
 namespace {

@@ -11,6 +11,7 @@
 #include "engines/idtech3/client/console_drawer.h"
 #include "engines/idtech3/client/console_state.h"
 #include "engines/idtech3/client/scene_drawer.h"
+#include "engines/idtech3/client/weather_drawing.h"
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/net_client.h"
@@ -81,8 +82,17 @@ private:
     // Jedi Outcast's client game's limits on the view's yaw, applied to
     // the command for `serverTime`.
     void applyViewLimits(int32_t serverTime);
-    // The surface sprites' wind and weather, from the renderer's settings.
+    // The surface sprites' wind and weather, from the renderer's settings
+    // and the weather.
     SurfaceSpriteWeather surfaceSpriteWeather();
+    // Jedi Outcast's weather (r_we), kept from level to level as the
+    // original keeps it, moved on by the view's clock and drawn with the
+    // first view of the level.
+    void prepareWeather(const std::vector<uint8_t> &refdef);
+    WorldEffects _weather{WorldEffects::Engine::kMultiplayer};
+    WeatherDrawing _weatherDrawing{WorldEffects::Engine::kMultiplayer};
+    int32_t _weatherTime = -1; // the view's time it was last moved at
+    std::string _weatherError; // an r_we command's, which ends the match before the next frame
     float _lastViewYaw = 0;
     void drawLoadingScreen();
     bool _loadingFailed = false; // the client game couldn't draw its loading screen

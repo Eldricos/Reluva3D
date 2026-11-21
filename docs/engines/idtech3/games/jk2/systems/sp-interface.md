@@ -138,7 +138,7 @@ source's `refexport_t` order). The GPL source's `cgameImport_t` has 118:
 | 82–85 | Ghoul2: list bones, list surfaces, `HaveWeGhoul2Models`, `SetModels` | — |
 | 86, 87 | light styles get and set | — |
 | 88 | `R_GetBModelVerts(model, points out, normal)` (0x48ae20): of the brush model's two largest faces (each's area its first four points' two triangles, a quarter of each cross product, squared lengths summed, cut to whole numbers), the second if it faces the last scene's view more (its normal against the view's forward axis, smaller) and faces it at all (below 0), else the largest; its first four points written; the normal isn't | — |
-| 89 | `R_WorldEffectCommand(text)`: the weather ([sp-weather.md](sp-weather.md)) | — |
+| 89 | `R_WorldEffectCommand(text)`: the weather ([weather.md](weather.md)) | — |
 | 90–94 | cinematics: play, stop, run, draw, set extents; never made by 1.02a's client game ([sp-cinematics.md](sp-cinematics.md)) | — |
 | 95, 96 | `Z_Malloc(size, tag)` (0x414960, zeroed), `Z_Free` | — |
 | 97–107 | the menus' parser: reset, new menu, parse int, string and float, start and end a session, `PC_ParseExt`, paint all, string init, menu info | — |
@@ -209,7 +209,7 @@ scene entity sizes per game (`SpGameHost::CgameLayout`). The
 cinematics' calls (90–94) aren't answered: 1.02a's client game never
 makes them, so one would stop the game with its number
 ([sp-cinematics.md](sp-cinematics.md)). The weather's `R_WorldEffectCommand` (89) goes to the page's weather
-([sp-weather.md](sp-weather.md)). The Ghoul2 trace type and level of detail `trace` is given
+([weather.md](weather.md)). The Ghoul2 trace type and level of detail `trace` is given
 decide whether a trace meets a Ghoul2 body's triangles or only its box
 ([sp-ghoul2.md](sp-ghoul2.md), Collision): with the box alone, a
 rocket stopped at an AT-ST's box and stayed there, neither bursting nor
