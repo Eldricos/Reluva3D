@@ -15,4 +15,5 @@ where they aren't read straight off the files.
 | File | Contents |
 |---|---|
 | [file-survey.md](file-survey.md) | What the install and the CD hold: the program's imports, `DATA.dat`'s layout and contents, and a first look at each kind of file in it |
-| [binary-objects.md](binary-objects.md) | How the game saves objects in binary (`.seq16`, `.mdl16`, `.way`): its writer and reader, and what's still to find |
+| [binary-objects.md](binary-objects.md) | How the game saves objects in binary (`.seq16`, `.mdl16`, `.way`): its classes and their properties, the writer and reader, each kind of property, the classes with data of their own |
+| [classes.txt](classes.txt) | Data: every class and its properties, written by `tools/stawayteam-re/stat_classes.py` and read by `tools/stawayteam-re/stat_objects.py`; its format is in its own first lines and in `stat_classes.py` |

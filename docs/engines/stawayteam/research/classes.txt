@@ -1,0 +1,2641 @@
+# Star Trek: Away Team: classes and their properties, read from Star Trek.exe by
+# tools/stawayteam-re/stat_classes.py: 553 classes, 2084 properties (710 copies of
+# registrations left out, 2 not placed). Inherited properties come first and
+# are not repeated. See docs/engines/stawayteam/research/binary-objects.md.
+class CAction version=1.0 parent=- own-data=- size=8 global=0x65158c
+class CActionAI version=616635.0 parent=CLayerPartAI own-data=- size=32 global=0x7714f8
+  "Action" object
+  "Executed Action" bool
+class CActionQueue version=50.0 parent=- own-data=- size=24 global=0x6515a8
+  "Items" array element=object
+class CActionQueueItem version=285.0 parent=- own-data=- size=48 global=0x6515a4
+  "Time To Execute" float
+  "Action" object
+  "Instigator" ref
+  "TriggerPart" ref
+  "TriggerAI" ref
+  "TargetPart" ref
+class CActivateAction version=195.0 parent=CAction own-data=- size=20 global=0x71ee3c
+  "Target Name" name
+  "Play Activate Sound" bool
+  "Delay Between Activations" float
+class CActorLine version=48.0 parent=- own-data=- size=20 global=0x65235c
+  "Line" objects class=CActorLineHolder
+class CActorLineHolder version=189.0 parent=- own-data=- size=20 global=0x652358
+  "Actor" choice
+  "Must Be On Team" bool
+  "Script" choice
+  "Line" choice
+class CAddAIAction version=194.0 parent=CAction own-data=- size=20 global=0x71ee58
+  "Target Name" name
+  "AI" object
+  "Delay Between Adds" float
+class CAddAttributeNoiseAction version=7494.0 parent=CAddNoiseAction own-data=- size=20 global=0x72e85c
+  "Attribute" choice
+class CAddBanterAction version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0x652368
+  "Screen Play" object
+class CAddCameraScriptAction version=2700.0 parent=CStarTrekAction own-data=- size=44 global=0xb8a42c
+  "Script" inline size=36
+class CAddEffectAction version=194.0 parent=CAction own-data=- size=20 global=0x71ee84
+  "Who To Warp" name
+  "Warp Sound" choice
+  "Warp Behavior" object
+class CAddEffectToTeam version=2747.0 parent=CStarTrekAction own-data=- size=16 global=0xb8a3d8
+  "Warp Sound" choice
+  "Warp Behavior" object
+class CAddFootstepAndSoundBySurfaceTypeAction version=511935.0 parent=CPlaySoundBySurfaceTypeAction own-data=- size=64 global=0x72e864
+  "Footstep Noise" inline size=24
+class CAddFootstepNoiseAction version=382195.0 parent=CAddAttributeNoiseAction own-data=- size=24 global=0x72e860
+class CAddMissionObjectiveAction version=99.0 parent=CAction own-data=- size=12 global=0x72e3dc
+  "Objective" object
+class CAddNoiseAction version=146.0 parent=CAction own-data=- size=16 global=0x72e858
+  "Radius" float
+  "Age" float
+class CAddProcessAIAction version=137748.0 parent=CStarTrekTargetedAction own-data=- size=16 global=0xb8a434
+  "Process AI" object
+class CAddTemporaryProcessAIAction version=2795.0 parent=CStarTrekAction own-data=- size=20 global=0xb8a390
+  "Process" choice
+  "Who To Add From" name
+  "Delay Between Adds" float
+class CAddToTeamAction version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0xb8a3e8
+  "Who To Add" name
+class CAIBase version=237.0 parent=- own-data=- size=24 global=0x72116c
+  "SubAI" object
+  "Marked For Deletion" bool
+  "Debug/Broadcaster" object
+  "AI Instigator" ref
+  "AI Trigger" ref
+class CAimWeaponAtTargetBehavior version=154.0 parent=CEntityBehavior own-data=- size=8 global=0x7715f4
+class CAmbientSound version=471.0 parent=- own-data=- size=48 global=0x72079c
+  "Ambient Sound Index" int
+  "Who Started" ref
+  "Outer Ambient Radius" float
+  "Max Distance" float
+  "Inner Ambient Radius" float
+  "Inner Ambient Radius Sqrd" float
+  "Dest Occlusion Value" float
+  "Cur Occlusion Value" float
+  "Muted" bool
+  "ShouldBePlaying" bool
+class CAmbientSoundAI version=616775.0 parent=CLayerPartAI own-data=- size=48 global=0x65230c
+  "Sound" choice
+  "Ambient Inner Radius" float
+  "Ambient Outer Radius" float
+  "Max Distance" float
+  "Layer Sound Handle" int
+class CAmmunitionInventoryDetailRenderer version=52.0 parent=CInventoryDetailRenderer own-data=- size=4 global=0xb8b928
+class CAmmunitionInventoryItem version=379238.0 parent=CCountInventoryItem own-data=- size=28 global=0xb8b910
+class CAndAction version=5247.0 parent=CMultipleActionsAction own-data=- size=20 global=0x71edc0
+  "Early Exit" bool
+  "?" unknown
+class CAnimatedMenuInfo version=142.0 parent=- own-data=- size=20 global=0xb8a520
+  "Menu Name" choice
+  "Menu Font" choice
+  "Menu Definition" object
+class CAnimationOverlayInventoryDetailRenderer version=146.0 parent=CInventoryDetailRenderer own-data=- size=12 global=0x651fe0
+  "Detail Image" choice
+  "Next Renderer" object
+class CAnimationTrigger version=143.0 parent=- own-data=- size=12 global=0x771320
+  "Action" object
+  "Trigger Forward" flag
+  "Trigger Reverse" flag
+class CAnyTouchingOvalTriggerAI version=31465208.0 parent=CAnyTouchingTriggerAI own-data=- size=72 global=0x65231c
+  "X Radius" float
+  "YX Ratio" float
+class CAnyTouchingPolygonTriggerAI version=31465114.0 parent=CAnyTouchingTriggerAI own-data=- size=64 global=0x652318
+class CAnyTouchingTriggerAI version=616963.0 parent=CLayerPartAI own-data=- size=60 global=0x652314
+  "Enter Action" object
+  "Enter Action Delay" float
+  "Exit Action" object
+  "Exit Action Delay" float
+  "What can Trigger/Triggered by" text
+  "Debug/Anything touching" bool
+  "Debug/Action to Execute" ref
+  "Debug/Countdown time" float
+  "Debug/Instigator" ref
+class CAssignOverrideTemporaryTaskAction version=146.0 parent=CAction own-data=- size=16 global=0x72e8ac
+  "Target" name
+  "Temporary Task AI" object
+class CAssignTemporaryTaskAction version=146.0 parent=CAction own-data=- size=16 global=0xb8b264
+  "Target" name
+  "Temporary Task AI" object
+class CAttackAI version=616540.0 parent=CLayerPartAI own-data=- size=24 global=0x652328
+class CAttributeDefinition version=52.0 parent=CListDefinitionItem own-data=- size=4 global=0x71dacc
+class CAudioDecoyInfoRenderer version=141930.0 parent=CGenericInfoRenderer own-data=- size=116 global=0x652348
+  "Sound Background Pos" point
+class CBanterManager version=99.0 parent=CGameScriptManager own-data=- size=20 global=0x652364
+  "Screen Play" array element=object
+class CBatteryInventoryItem version=374444.0 parent=CEnergyItem own-data=- size=20 global=0xb8b920
+class CBehaviorActivity version=616587.0 parent=CLayerPartAI own-data=- size=56 global=0x6523b0
+  "Behavior Queue" inline size=32
+class CBehaviorAI version=616587.0 parent=CLayerPartAI own-data=- size=28 global=0x76f3f0
+  "Behavior" object
+class CBorgAI version=31445564.0 parent=CSkeletonBaseAI own-data=- size=248 global=0x6521d0
+  "States/Any" object
+  "States/Recharge" object
+  "States/EndRecharge" object
+  "States/Patrol" object
+  "States/Alert" object
+  "States/Attack" object
+  "States/Pursue" object
+  "States/DoSomething" object
+  "States/Inactive" object
+  "States/Stun" object
+  "States/Dead" object
+  "States/Retreat" object
+  "States/Investigate" object
+  "States/InvestigateDeadBody" object
+  "States/GotATarget" object
+  "States/LostATarget" object
+  "States/TargetAcquired" object
+  "States/TargetLost" object
+  "States/Paused" object
+  "States/RunAway" object
+  "Target/Target If Hit" bool
+  "Target/Investigate Sounds" bool
+  "Target/Damage Action" object
+  "Target/Stun State" choice
+  "Target/Run Away If Too Close" bool
+  "Target/Targeting" inline size=28
+  "State/Current State" choice
+  "State/Retreat At Percent" int
+  "State/Had Target" bool
+  "State/Weapon Dist" float
+  "State/Weapon Dist Sqrd" float
+  "State/Transitions" object
+  "State/Debug" bool
+  "Dead Bodies" array element=inline size=12
+  "Debug/State To Change To" choice
+  "Debug/Need To Change State" bool
+  "Debug/AI Paused" bool
+  "Debug/Start Position" point
+  "Debug/Original Weapon Setting" int
+  "Debug/Blind Time" float
+  "Debug/Retreat Time" float
+  "Debug/Stand Ground Time" float
+  "Debug/Check New Target Delay Countdown" float
+class CBorgSetClosestTarget version=20044.0 parent=CEntityBehaviorStateSetClosestTarget own-data=- size=28 global=0x65216c
+class CBorgSetTargetTypeAction version=7447.0 parent=CSetTargetTypeAction own-data=- size=16 global=0x6520bc
+class CBorgState version=144.0 parent=- own-data=- size=44 global=0x652178
+  "Last State" choice
+  "Move Mode" choice
+  "Old AI" array element=object
+class CBorgStateAlert version=7580.0 parent=CBorgState own-data=- size=56 global=0x652194
+  "Alert AI" object
+  "Alert Time" float
+  "Start Action" object
+  "End Action" object
+  "Next State" choice
+class CBorgStateAny version=7345.0 parent=CBorgState own-data=- size=44 global=0x65217c
+class CBorgStateAttack version=7486.0 parent=CBorgState own-data=- size=44 global=0x652198
+  "Attack AI" object
+  "Start Action" object
+  "End Action" object
+class CBorgStateDead version=7345.0 parent=CBorgState own-data=- size=44 global=0x6521a8
+class CBorgStateDoSomething version=7486.0 parent=CBorgState own-data=- size=44 global=0x6521c4
+  "DoSomething AI" object
+  "Start Action" object
+  "End Action" object
+class CBorgStateEndRecharge version=7392.0 parent=CBorgState own-data=- size=52 global=0x65218c
+  "End Recharge AI" object
+class CBorgStateGotATarget version=7533.0 parent=CBorgState own-data=- size=60 global=0x6521b0
+  "Acquired a Target" choice
+  "Had a Target" choice
+  "Dead Body" choice
+  "Default" choice
+class CBorgStateInactive version=7580.0 parent=CBorgState own-data=- size=84 global=0x6521a0
+  "Inactive AI" object
+  "Start Action" object
+  "End Action" object
+  "PlaySequenceBehavior" inline size=36
+  "Current State" choice
+class CBorgStateInvestigate version=7581.0 parent=CBorgState own-data=- size=52 global=0x6521b4
+  "Investigate AI" object
+  "Start Action" object
+  "End Action" object
+  "Time to track target" float
+  "Num Failed" int
+class CBorgStateInvestigateDeadBody version=7487.0 parent=CBorgState own-data=- size=44 global=0x6521b8
+  "Investigate Dead Body AI" object
+  "Start Action" object
+  "End Action" object
+class CBorgStateLostATarget version=7439.0 parent=CBorgState own-data=- size=52 global=0x6521ac
+  "Had a Target" choice
+  "Default" choice
+class CBorgStatePatrol version=7722.0 parent=CBorgState own-data=- size=192 global=0x652190
+  "Patrol AI" object
+  "Time to Patrol" float
+  "Debug/How long have Patrolled" float
+  "Start Action" object
+  "End Action" object
+  "Current State" int
+  "Move Behavior" inline size=120
+  "Turn Behavior" inline size=16
+class CBorgStatePaused version=7439.0 parent=CBorgState own-data=- size=84 global=0x6521c8
+  "Idle Behavior" inline size=36
+  "Idle Started" bool
+class CBorgStatePursue version=7486.0 parent=CBorgState own-data=- size=44 global=0x65219c
+  "Pursue AI" object
+  "Start Action" object
+  "End Action" object
+class CBorgStateRecharge version=7580.0 parent=CBorgState own-data=- size=52 global=0x652188
+  "Recharge AI" object
+  "Time To Recharge" float
+  "Debug/Current Recharge Time" float
+  "Start Action" object
+  "End Action" object
+class CBorgStateRetreat version=7486.0 parent=CBorgState own-data=- size=44 global=0x6521bc
+  "Retreat AI" object
+  "Start Action" object
+  "End Action" object
+class CBorgStateRunAway version=7392.0 parent=CBorgState own-data=- size=44 global=0x6521c0
+  "RunAway AI" object
+class CBorgStateStun version=7580.0 parent=CBorgState own-data=- size=52 global=0x6521a4
+  "Stun AI" object
+  "Start Action" object
+  "End Action" object
+  "Next State" choice
+  "Debug/Old Flags" text
+class CBorgStateTargetAcquired version=7345.0 parent=CBorgState own-data=- size=44 global=0x652180
+class CBorgStateTargetLost version=7345.0 parent=CBorgState own-data=- size=44 global=0x652184
+class CBorgTransition version=236.0 parent=- own-data=- size=24 global=0x652170
+  "Trigger" choice
+  "From State" choice
+  "To State" choice
+  "Action" object
+  "IsDone" bool
+class CBorgTransitionHolder version=48.0 parent=- own-data=- size=20 global=0x652174
+  "Transition" objects class=CBorgTransition
+class CBounceAI version=31443640.0 parent=CFlyweightLayerPartAI own-data=- size=28 global=0x71d268
+  "Bounce Dampen" float
+class CBriefingScript version=48.0 parent=- own-data=- size=24 global=0x71d284
+  "Script" objects class=CBriefingScriptLine
+class CBriefingScriptLine version=189.0 parent=- own-data=- size=20 global=0x71d280
+  "Script" choice
+  "Text" choice
+  "Who is speaking" choice
+  "Frame to start" int
+class CBroadcaster version=48.0 parent=- own-data=- size=24 global=0x71d28c
+  "Listener" array element=ref
+class CCallForReinforcementsAction version=147.0 parent=CAction own-data=- size=16 global=0x6522a0
+  "Requester Name" name
+  "Max Distance" float
+class CCameraScript version=565.0 parent=- own-data=- size=64 global=0x71d360
+  "Map Name -- Blank for current" string
+  "Where To Pan" name
+  "Time To Pan" float
+  "Time To Wait" float
+  "Pan To Position" bool
+  "Destination Action" object
+  "Start Point" point
+  "Dir Vector" point
+  "Cur Pan Time" float
+  "Cur Wait Time" float
+  "Dist" float
+  "Call Begin" bool
+class CCameraScriptManager version=381.0 parent=CGameScriptManager own-data=- size=36 global=0x71d364
+  "Pause Game" bool
+  "Pause Actors" bool
+  "We Paused" bool
+  "We Paused Actors" bool
+  "Camera Script Array" objects class=CCameraScript
+  "Debug/Trigger" ref
+  "Debug/Instigator" ref
+class CCategoryDefinition version=48.0 parent=- own-data=- size=20 global=0x71d49c
+  "MiniMap Color" colour
+class CChangeSoundEnvironmentTypeAction version=99.0 parent=CAction own-data=- size=12 global=0x71ee64
+  "Environment Type" choice
+class CChangeStateAction version=2653.0 parent=CStarTrekAction own-data=- size=8 global=0xb8a450
+class CCharacterDialogAction version=9993.0 parent=CInfoDialogAction own-data=- size=24 global=0x71f6b0
+  "Target" name
+class CChargeAttackAI version=31443540.0 parent=CAttackAI own-data=- size=24 global=0x6521dc
+class CChargedItemInfoRenderer version=3111.0 parent=CStarTrekInventoryInfoRenderer own-data=- size=88 global=0x71dae0
+  "Foreground Indicator Sequence" choice
+  "Background Indicator Sequence" choice
+  "Clip Foreground As Charge Indicator" bool
+  "Show Activate Button" bool
+  "Button On Frame" choice
+  "Button Off Frame" choice
+  "Indicator Position" point
+  "Buttons/Button Pos" point
+  "Buttons/Button Text Pos" point
+  "Buttons/Button On Text" string
+  "Buttons/Button Off Text" string
+  "Buttons/Button Font" choice
+  "Percent Pos" point
+class CChargerInventoryDetailRenderer version=52.0 parent=CInventoryDetailRenderer own-data=- size=4 global=0xb8b930
+class CChargerInventoryItem version=7294.0 parent=CInventoryItem own-data=- size=16 global=0xb8b914
+class CChaseInvestigateAI version=31444012.0 parent=CInvestigateAI own-data=- size=200 global=0x71db08
+  "AFloat" inline size=120
+  "Turn Behavior" inline size=16
+  "Play Ratio" float
+  "Next Try To Move" float
+  "Time To Investigate" float
+  "Count To Investigate" float
+  "Radius to Investigate Point" float
+  "Run To Investigate" bool
+  "Debug/State" choice
+  "Investigate AI" object
+class CChasePursueAI version=31443684.0 parent=CPursueAI own-data=- size=152 global=0x71db10
+  "AFloat" inline size=120
+  "Play Ratio" float
+  "Next Try To Move" float
+class CCheckCategoryAction version=2747.0 parent=CStarTrekAction own-data=- size=16 global=0xb8a418
+  "Who to Check" name
+  "Category to Check" text
+class CCheckCurSequenceAction version=146.0 parent=CAction own-data=- size=16 global=0x71ee08
+  "Target Name" name
+  "Animation" name
+class CCheckExistenceAction version=146.0 parent=CAction own-data=- size=20 global=0x71ee68
+  "Name To Check For" name
+  "Desired Minimum Count" int
+class CCheckForClassAction version=2747.0 parent=CStarTrekAction own-data=- size=16 global=0xb8a400
+  "Who To Check" name
+  "Class" choice
+class CCheckForInventoryItemAction version=242.0 parent=CAction own-data=- size=24 global=0x6517fc
+  "Inventory Item Definition" choice
+  "Count" int
+  "Legacy Succeed Action Do NOT use" object
+  "Legacy Fail Action Do NOT use" object
+class CCheckForItemAction version=2747.0 parent=CStarTrekAction own-data=- size=16 global=0xb8a3fc
+  "Who To Check" name
+  "Inventory Definition" choice
+class CCheckTeamTouchingAction version=137701.0 parent=CStarTrekTargetedAction own-data=- size=12 global=0xb8a448
+class CCheckTouchingAction version=137748.0 parent=CStarTrekTargetedAction own-data=- size=16 global=0xb8a444
+  "Target Polygon" name
+class CChildList version=48.0 parent=- own-data=- size=20 global=0x721154
+  "Child List" array element=unknown
+class CClearCategoryAction version=2747.0 parent=CStarTrekAction own-data=- size=16 global=0xb8a414
+  "Who to Clear" name
+  "Category to Clear" text
+class CClientTeamInfo version=424.0 parent=- own-data=- size=240 global=0x71db58
+  "Is Selected" bool
+  "Class Icon" choice
+  "Display Damage" bool
+  "Damage Time" float
+  "Is Hovering" bool
+  "Cur Hovering" float
+  "Static Frame" int
+  "Blink Time" float
+  "Percent HPS" float
+class CCloneAction version=12431.0 parent=CCreateLayerPartAction own-data=- size=40 global=0x71edd8
+  "Source Name" name
+  "New Name" name
+  "Set Facing Angle" bool
+  "New Facing Angle" float
+class CCloseDoorAction version=7498.0 parent=CXDoorAction own-data=- size=16 global=0x71edf8
+class CConditionalAction version=193.0 parent=CAction own-data=- size=20 global=0x651598
+  "Try Action" object
+  "Succeed Action" object
+  "Fail Action" object
+class CConeAngleEnvelope version=16831.0 parent=CEnvelope own-data=- size=32 global=0x71e31c
+class CCountInventoryDetailRenderer version=146.0 parent=CInventoryDetailRenderer own-data=- size=12 global=0xb8b924
+  "Format" name
+  "Font" choice
+class CCountInventoryItem version=7436.0 parent=CInventoryItem own-data=- size=28 global=0x652054
+  "Rounds" int
+  "Max Rounds" int
+  "Pickup If Full" bool
+class CCountMissionObjective version=863321.0 parent=CStandardMissionObjective own-data=- size=56 global=0x72e44c
+  "Count Before Success" int
+  "Current Count" int
+class CCreateCustomEntityAction version=12288.0 parent=CCreateLayerPartAction own-data=- size=28 global=0x71ede4
+  "Entity" object
+class CCreateDefaultEntityAction version=12335.0 parent=CCreateLayerPartAction own-data=- size=32 global=0x71ede0
+  "Model to Create" choice
+  "New Name" name
+class CCreateExplosionAction version=336.0 parent=CAction own-data=- size=32 global=0x71ee48
+  "Explosion Model" choice
+  "Location Entity" name
+  "X Offset" float
+  "Y Offset" float
+  "Height Offset" int
+  "Play Default Sound" bool
+class CCreateLayerPartAction version=240.0 parent=CAction own-data=- size=24 global=0x71eddc
+  "New Location" name
+  "Copy Height" bool
+  "Random Location Delta" float
+  "Warp Behavior" object
+class CCurrentMoveList version=48.0 parent=- own-data=- size=20 global=0xb8a574
+  "Currently Move" objects class=CMoveInfo
+class CCurrentSelectList version=95.0 parent=- own-data=- size=24 global=0xb8a570
+  "Currently Selected" objects class=CSelectInfo
+  "Player ID" int
+class CCustomRules version=1.0 parent=- own-data=- size=4 global=0x771338
+class CCustomRulesList version=48.0 parent=- own-data=- size=20 global=0x771334
+  "Custom Rules List" array element=unknown
+class CCylinderParticleStartPositionType version=12288.0 parent=CDiskParticleStartPositionType own-data=- size=108 global=0x72ec20
+  "Height of Cylinder" inline size=32
+class CDamageTypeDefinition version=48.0 parent=- own-data=- size=8 global=0x71df0c
+  "Unavoidable damage" bool
+class CDeactivateAction version=99.0 parent=CAction own-data=- size=12 global=0x71ee40
+  "Target Name" name
+class CDeadBodyInfo version=95.0 parent=- own-data=- size=12 global=0x6521cc
+  "Dead Body" ref
+  "Timeout" float
+class CDeathBehaviorListDefinition version=48.0 parent=- own-data=- size=20 global=0x71e040
+  "Behaviors" array element=object
+class CDelayAction version=193.0 parent=CAction own-data=- size=20 global=0x71ed94
+  "Next Action" object
+  "Delay" float
+  "Forget Trigger" bool
+class CDeleteAction version=99.0 parent=CAction own-data=- size=12 global=0x71ee44
+  "Target Name" name
+class CDestroyAction version=100.0 parent=CAction own-data=- size=12 global=0x71ee50
+  "Target" name
+class CDetonateInfoRenderer version=2923.0 parent=CStarTrekInventoryInfoRenderer own-data=- size=88 global=0x71e094
+  "Detonate Button Pos" point
+  "Detonate Button Text Pos" point
+  "Detonate Button Text" string
+  "Detonate Button Font" choice
+  "Count Text Pos" point
+  "Count Text" string
+  "Count Font" choice
+  "Title Pos" point
+  "Title Font" choice
+class CDialogActionBase version=149.0 parent=CAction own-data=- size=120 global=0x6515ec
+  "Script" choice
+  "Line" choice
+class CDialogLine version=95.0 parent=- own-data=- size=16 global=0x6515f4
+  "Name" string
+  "Text" string
+class CDIBFrame version=2653.0 parent=CFrame own-data=- size=56 global=0x71e588
+class CDischargeWeaponThisFrameAction version=10039.0 parent=CPositionedAction own-data=- size=32 global=0x71ee60
+  "Use Primary" bool
+  "Position/Fire Up Angle" float
+  "Use This Pos To Aim" bool
+class CDiscoverInventoryNextBriefingAction version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0xb8a438
+  "Item to Discover" choice
+class CDiskParticleStartPositionType version=240.0 parent=CParticleStartPositionType own-data=- size=76 global=0x72ec18
+  "Inside Radius" inline size=32
+  "Outside Radius" inline size=32
+  "YX Ratio" float
+  "Use Cone Angle For Start Pos" bool
+class CDisplayMissionCompletedScreenAction version=7447.0 parent=CMissionOverActionBase own-data=- size=16 global=0x72e3d8
+class CDisplayMissionFailedScreenAction version=7447.0 parent=CMissionOverActionBase own-data=- size=16 global=0x72e3d4
+class CDoNothingAI version=616541.0 parent=CLayerPartAI own-data=- size=24 global=0x6521e4
+class CDoOnAllInsideAction version=2982.0 parent=CStarTrekAction own-data=- size=36 global=0xb8a3a4
+  "Target Entity" name
+  "Start Action" object
+  "Touching Action" object
+  "Done Action" object
+  "Who To Ignore" name
+  "Who To Affect/Name Filter" name
+  "Who To Affect/Who To Affect" text
+class CDoOnAllTouchingPolygonAction version=152083.0 parent=CDoOnAllInsideAction own-data=- size=36 global=0xb8a3a8
+class CDoOnAllWithinRadiusAction version=152177.0 parent=CDoOnAllInsideAction own-data=- size=44 global=0xb8a3ac
+  "Radius" float
+  "Y To X Ratio" float
+class CDoorAI version=617246.0 parent=CLayerPartAI own-data=- size=80 global=0x71e0d4
+  "Is Locked" bool
+  "Allow Open or Close?" object
+  "Before Open" object
+  "After Opened" object
+  "Before Closed" object
+  "After Closed" object
+  "After Locked" object
+  "After Unlocked" object
+  "Auto-Close Timeout" float
+  "Debug/State" choice
+  "Debug/Timeout Time Left" float
+  "Debug/Frame Andvance" float
+  "Debug/Next Pain" float
+  "Triggered By/Triggered By Players" bool
+  "Triggered By/Triggered By Enemies" bool
+class CDoRandomBanter version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0xb8a454
+  "Percent Chance" float
+class CDrawTimeoutOvalAI version=616681.0 parent=CLayerPartAI own-data=- size=36 global=0x71eeb4
+  "Radius" float
+  "Aspect Ratio" float
+  "Seconds Left" float
+class CDropItemAction version=334.0 parent=CAction own-data=- size=32 global=0x71e0f8
+  "Model to Create" choice
+  "Inventory Definition to Consume" choice
+  "New Name" name
+  "Deploy Sequence" choice
+  "Offset In Front Of" float
+  "Try to find a good spot" bool
+class CDropItemAI version=81878941696.0 parent=CGotoPointAndDoActionAI own-data=- size=228 global=0x71e100
+class CDropItemAtTargetAction version=17035.0 parent=CDropItemAction own-data=- size=32 global=0x71e0fc
+class CEndGameNow version=2653.0 parent=CStarTrekAction own-data=- size=8 global=0xb8a3dc
+class CEndRechargeStateAI version=616540.0 parent=CLayerPartAI own-data=- size=24 global=0x6521ec
+class CEnergyItem version=7342.0 parent=CInventoryItem own-data=- size=20 global=0xb8b918
+  "Current Charge" float
+class CEnergyStorageItem version=374491.0 parent=CEnergyItem own-data=- size=24 global=0xb8b91c
+  "Pickup If Full" bool
+class CEnhanceInventoryAction version=137748.0 parent=CStarTrekTargetedAction own-data=- size=16 global=0xb8a428
+  "Time To Enhance" float
+class CEntityAnimated version=122392888.0 parent=CEntityDestructable own-data=- size=240 global=0x71e180
+  "Play Ratio" float
+  "Position/Facing Angle" float
+  "Position/Start FacingAngle" float
+  "Updates Since Relocate" int
+  "Debug/Current Frame" float
+  "" int
+  "Debug/Created By" ref
+  "Debug/BehaviorStack" inline size=28
+  "Debug/Has Seperate Upper Body" bool
+  "Render Effect List" array element=ref
+class CEntityAnimatedClient version=6242037248.0 parent=CEntityAnimated own-data=- size=248 global=0x71e190
+  "Remote Player Model" choice
+class CEntityAnimatedLine version=2400172.0 parent=CEntityBase own-data=- size=236 global=0x71e19c
+  "BoundLeft" int
+  "BoundTop" int
+  "BoundRight" int
+  "BoundBottom" int
+  "Outside Color" colour
+  "Middle Color" colour
+  "Start" point
+  "End" point
+  "Normal" point
+  "PerpenNormal" point
+  "Width" float
+class CEntityAnimatedViewArea version=6242037760.0 parent=CEntityAnimated own-data=0x40d780 size=360 global=0x71e1d0
+  "Cone/View Distance" float
+  "Cone/View Angle" float
+  "Cone/Angle Per Segment" float
+  "Debug/Watching" ref
+  "Debug/Player Index" int
+class CEntityBase version=47052.0 parent=CLayerPart own-data=- size=136 global=0x71e150
+  "Model" choice
+  "Position/Position X" float
+  "Position/Position Y" float
+  "Position/Rendering Height" int
+  "Position/Rendering Height Float" float
+  "" int
+  "" int
+  "Cur Sequence" choice
+class CEntityBehavior version=3.0 parent=- own-data=- size=8 global=0x71e1d8
+class CEntityBehaviorClearFlags version=389.0 parent=CEntityBehavior own-data=- size=12 global=0x71e23c
+  "Visible" flag
+  "Collideable" flag
+  "Tries To Collide" flag
+  "Stationary" flag
+  "Active" flag
+class CEntityBehaviorExecuteAction version=202.0 parent=CEntityBehavior own-data=- size=12 global=0x71e254
+  "Action" object
+class CEntityBehaviorFade version=647498.0 parent=CEntityBehaviorTransition own-data=- size=20 global=0x71e248
+class CEntityBehaviorFirePrimary version=10253.0 parent=CEntityBehaviorFireWeapon own-data=- size=12 global=0x71e22c
+class CEntityBehaviorFireSecondary version=10252.0 parent=CEntityBehaviorFireWeapon own-data=- size=12 global=0x71e230
+class CEntityBehaviorFireWeapon version=201.0 parent=CEntityBehavior own-data=- size=12 global=0x71e228
+  "Angle To Fire" float
+class CEntityBehaviorIdle version=12837.0 parent=CEntityBehaviorWait own-data=- size=36 global=0x71e24c
+  "Override Fidget Options" object
+  "Debug/Time Until Next Fidget" float
+  "Debug/FPS Play Ratio" float
+  "Debug/Fidgeting" bool
+class CEntityBehaviorMarkForDeletion version=154.0 parent=CEntityBehavior own-data=- size=8 global=0x71e238
+class CEntityBehaviorMoveToPos version=528621.0 parent=CEntityBehaviorTurnToAngle own-data=- size=120 global=0x6523bc
+  "Play Ratio" float
+  "Smooth Turning" flag
+  "Do Path Finding" flag
+  "Finished" flag
+  "Failed Last Path" flag
+  "Move To Rate" int
+  "CurTargetNormalX" float
+  "CurTargetNormalY" float
+  "Path Finding Params" inline size=48
+  "Pos Moving From" point
+  "Final Dest" point
+  "Cur Dest Move To" point
+  "Last Neg Dist" float
+  "NumTimesLostGound" int
+  "Path Collide Checker" object
+class CEntityBehaviorPlaySequenceLooped version=389.0 parent=CEntityBehavior own-data=- size=16 global=0x71e25c
+  "Sequence" name
+  "Playing Backwards" flag
+  "Ping Pong" flag
+  "Debug/Playing" flag
+  "Debug/Stoping" flag
+class CEntityBehaviorPlaySequenceOnce version=10539.0 parent=CEntityBehaviorSetRotationSequence own-data=- size=36 global=0x71e224
+  "Speed To Play" float
+  "Done Sequence" name
+  "Done Frame" float
+  "Was Stationary" bool
+  "Old Play Ratio" float
+class CEntityBehaviorQueue version=294.0 parent=CEntityBehavior own-data=- size=32 global=0xb8b080
+  "Behavior" array element=object
+  "Current Behavior" int
+  "Changed Behavior" bool
+class CEntityBehaviorRestartMap version=154.0 parent=CEntityBehavior own-data=- size=8 global=0x71e258
+class CEntityBehaviorSetCurFrame version=154.0 parent=CEntityBehavior own-data=- size=12 global=0x71e250
+class CEntityBehaviorSetPlayRatio version=201.0 parent=CEntityBehavior own-data=- size=12 global=0x71e234
+  "New Play Ratio" float
+class CEntityBehaviorSetRotationSequence version=202.0 parent=CEntityBehavior own-data=- size=12 global=0x71e220
+  "Sequence" name
+class CEntityBehaviorStack version=142.0 parent=- own-data=- size=28 global=0x71e27c
+  "Debug/InProcess" bool
+  "Misc./Blocking Priority" choice
+  "Debug/BehaviorList" array element=object
+class CEntityBehaviorStateSetClosestTarget version=393.0 parent=CEntityBehavior own-data=- size=28 global=0xb8b078
+  "Max Distance" int
+  "Vision Cone" float
+  "Target/Must Be Collideable" flag
+  "Target/Must Have HPs" flag
+  "Target/Valid Targets" text
+class CEntityBehaviorTransition version=12696.0 parent=CEntityBehaviorWait own-data=- size=20 global=0x71e244
+  "Transition In Or Out" choice
+class CEntityBehaviorTurnToAngle version=10351.0 parent=CEntityBehaviorTurnToAngleBase own-data=- size=16 global=0x71e218
+  "Angle To Turn To" float
+class CEntityBehaviorTurnToAngleBase version=202.0 parent=CEntityBehavior own-data=- size=12 global=0x71e214
+  "Old Stationary Flag" int
+class CEntityBehaviorTurnToTarget version=10492.0 parent=CEntityBehaviorTurnToAngleBase own-data=- size=28 global=0x71e21c
+  "Point Weapon At Target" bool
+  "Turn to Target" ref
+  "Max Dist To Target" float
+  "Target Must Be Visible" int
+class CEntityBehaviorWait version=248.0 parent=CEntityBehavior own-data=- size=16 global=0x71e240
+  "Num Seconds" float
+  "Seconds Have Transitioned" float
+class CEntityCharacter version=318343938048.0 parent=CEntityMovable own-data=- size=392 global=0x71e2a0
+  "Inventory/Inventory" inline size=72
+  "Home Pos X" float
+  "Home Pos Y" float
+  "Inventory/Weapons Use Amo" flag
+  "LastDischargePosX" float
+  "LastDischargePosY" float
+  "LastDischargeDefIndex" int
+  "LastDischargeSequenceName" string
+class CEntityDestructable version=2399851.0 parent=CEntityBase own-data=- size=152 global=0x71e158
+  "Cur Damage" float
+  "Destroyed Action" object
+  "Default Death Type" choice
+  "Show Health If Player" bool
+class CEntityFlying version=16235540512768.0 parent=CEntityCharacter own-data=- size=396 global=0x71e2ac
+  "Max Acceleration" float
+class CEntityGrenade version=16235540512768.0 parent=CEntityProjectile own-data=- size=312 global=0x71e2d4
+  "Debug/Should Stun" bool
+class CEntityMovable version=6242037760.0 parent=CEntityAnimated own-data=- size=288 global=0x71e184
+  "" float
+  "" float
+  "From/Came From Map" string
+  "From/Came From Position X" float
+  "From/Came From Position Y" float
+  "Friction" float
+  "Velocity X" float
+  "Velocity Y" float
+  "Acceleration X" float
+  "Acceleration Y" float
+class CEntityOverlayWalking version=828012585025536.0 parent=CEntityWalking own-data=- size=420 global=0x71e2e0
+  "Overlay Model" choice
+class CEntityProjectile version=318343938048.0 parent=CEntityMovable own-data=- size=300 global=0x71e188
+  "Shot Duration" float
+  "Debug/Shot Age" float
+  "Max Acceleration" float
+class CEntityStarTrekTeamMember version=4.222864244028211e+16 parent=CEntityOverlayWalking own-data=- size=444 global=0x71e2ec
+  "Team Member Info" choice
+  "Team Member Move State" int
+  "Replacement Model" choice
+  "Old Model" choice
+  "Debug/Group Name" name
+class CEntityStationaryCharacter version=16235540512768.0 parent=CEntityCharacter own-data=- size=392 global=0x71e2a4
+class CEntityWalking version=16235540512768.0 parent=CEntityCharacter own-data=- size=408 global=0x71e2a8
+  "Debug/Waiting For Discharge" bool
+  "Debug/Still Shooting" bool
+  "Debug/Movement Speed" choice
+class CEnvelope version=330.0 parent=- own-data=- size=32 global=0x71e314
+  "Start Value" float
+  "End Value" float
+  "Speed" float
+  "Ending Behavior" choice
+  "Current Value" float
+  "Using Start" bool
+  "Direction" float
+class CEveryTouchingOvalTriggerAI version=616869.0 parent=CLayerPartAI own-data=- size=68 global=0x652320
+  "Enter Action" object
+  "Exit Action" object
+  "What can Trigger/Triggered by" text
+  "Debug/Touching" array element=ref
+  "X Radius" float
+  "YX Ratio" float
+  "Check Time" float
+class CExecuteActionOnSelectedAction version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0xb8a440
+  "Action" object
+class CExecuteActionOnTarget version=2747.0 parent=CStarTrekAction own-data=- size=16 global=0xb8a3d4
+  "Target" name
+  "Action" object
+class CExecuteActionOnTeamAction version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0xb8a3f0
+  "Action" object
+class CExecuteActionWeaponAction version=509589.0 parent=CStarTrekPositionedAction own-data=- size=32 global=0xb8b720
+  "Action" object
+class CExplodeOnImpact version=1603623168.0 parent=CShotAI own-data=- size=24 global=0x77160c
+class CFacingAngleEnvelope version=16831.0 parent=CEnvelope own-data=- size=32 global=0x71e328
+class CFailAction version=99.0 parent=CAction own-data=- size=12 global=0x71edd0
+  "Action" object
+class CFakeRenderHeightAction version=146.0 parent=CAction own-data=- size=16 global=0x71ee74
+  "Target" name
+  "New Render Height" int
+class CFidgetSettings version=95.0 parent=- own-data=- size=12 global=0x71e334
+  "Avg Time Between Fidgets" float
+  "Fidget Variance" float
+class CFieldDefinition version=5197.0 parent=CStartingInventoryDefinition own-data=- size=28 global=0x71dac8
+  "Race/Usable Race" text
+  "Available To Player" bool
+class CFlipSwitchAction version=99.0 parent=CAction own-data=- size=12 global=0x71ee54
+  "Switch Name" name
+class CFloatParticleAI version=31457976.0 parent=CParticleAI own-data=- size=44 global=0x72e8bc
+class CFlyweightLayerPartAI version=616541.0 parent=CLayerPartAI own-data=- size=24 global=0x721174
+class CFollowPathAI version=1603644672.0 parent=CPatrolPathAI own-data=- size=184 global=0x72f294
+class CFont version=30079.0 parent=CSequence own-data=0x55b640 size=124 global=0x71e580
+  "" int
+  "First ASCII" int
+  "Last ASCII" int
+  "Fixed Width" flag
+class CForceStateChangeAction version=137748.0 parent=CStarTrekTargetedAction own-data=- size=16 global=0xb8a44c
+  "State" choice
+class CForceUpdatingAI version=616587.0 parent=CLayerPartAI own-data=- size=28 global=0x71eecc
+  "AI To Force" object
+class CFrame version=52.0 parent=CFrameInterface own-data=- size=48 global=0x71eb40
+class CFrameInterface version=1.0 parent=- own-data=- size=4 global=0x71ebac
+class CFreeRangePoly version=46715.0 parent=CLayerPart own-data=- size=124 global=0x71ebb4
+  "Polygon" polygon
+class CGameScriptManager version=1.0 parent=- own-data=- size=4 global=0x71f144
+class CGenderDefinition version=99.0 parent=CListDefinitionItem own-data=- size=8 global=0x71dad8
+  "Race" text
+class CGenericInfoRenderer version=2782.0 parent=CStarTrekInventoryInfoRenderer own-data=- size=92 global=0x71f14c
+  "Meter Sequence" choice
+  "Starting Sequence" choice
+  "Indicator Position" point
+  "Text" string
+  "Text Pos" point
+  "Text Size" point
+class CGenericParticleSystemAI version=31444784.0 parent=CParticleSystemAI own-data=- size=304 global=0x72ec30
+  "Outer Cone Angle" inline size=32
+  "Inner Cone Angle" inline size=32
+  "Face Angle" inline size=32
+  "Cone Trajectory" inline size=32
+  "Burst Frequency" float
+  "Burst Frequency Variance" float
+  "Num Bursts To Stop After" int
+  "Start Point Type" object
+  "Orient To Parent's Rotation" bool
+  "Position/X Offset" int
+  "Position/Y Offset" int
+  "Position/Height" int
+  "Particles Params/Speed" inline size=32
+  "Particles Params/Speed Variance" float
+  "Particles Params/Age" inline size=32
+  "Particles Params/Age Variance" float
+  "Particles/Use Particle As Shot" bool
+  "Particles/Particles" array element=object named
+  "NumBursts" float
+  "CurFrequency" float
+  "Enabled" bool
+  "Sounds/Choose Sound Based On Burst" bool
+  "Sounds/Sounds" array element=choice named
+class CGiveHealthAction version=146.0 parent=CAction own-data=- size=16 global=0x71f154
+  "Target" name
+  "Health" float
+class CGiveHealthWeaponAction version=509589.0 parent=CStarTrekPositionedAction own-data=- size=44 global=0xb8b718
+  "Health action" inline size=16
+class CGiveInventoryItemAction version=146.0 parent=CAction own-data=- size=16 global=0x651804
+  "Inventory Item" object
+  "Who to give it to" name
+class CGiveInventoryItemDefinitionAction version=2747.0 parent=CStarTrekAction own-data=- size=16 global=0xb8a3b8
+  "Inventory Item Definition" choice
+  "Count" int
+class CGiveOneInventoryItemAction version=2794.0 parent=CStarTrekAction own-data=- size=20 global=0xb8a3b4
+  "Inventory Item Definition" choice
+  "Succeed Action" object
+  "Fail Action" object
+class CGoForwardAI version=616684.0 parent=CLayerPartAI own-data=- size=156 global=0x6521f4
+  "Dist to Move" float
+  "Move/Move Behavior" inline size=120
+  "Done action" object
+class CGoHomeAI version=31443682.0 parent=CPatrolBaseAI own-data=- size=164 global=0x71f178
+  "Turn/Turn Behavior" inline size=16
+  "Move/Move Behavior" inline size=120
+  "State" choice
+class CGoToAI version=617248.0 parent=CLayerPartAI own-data=- size=208 global=0x71f180
+  "Destination" name
+  "Offset" point
+  "Starting Action" object
+  "Debug/Finished" bool
+  "Debug/Move Finished" bool
+  "Debug/Failed Path" bool
+  "Move/Move Behavior" inline size=120
+  "Done action" object
+  "Make New Home" bool
+  "Play Ratio" float
+  "Time To Try To Move" float
+  "Facing Angle/Set Facing Angle" bool
+  "Facing Angle/Turn Sequence Name" string
+  "Facing Angle/Facing Angle" inline size=16
+  "Need to Call Start" bool
+class CGotoPointAndDoActionAI version=1605469440.0 parent=CGotoRadiusAI own-data=- size=228 global=0x71f188
+  "Destination Action" object
+  "Target Set" bool
+class CGotoRadiusAI version=31479790.0 parent=CGoToAI own-data=- size=220 global=0x71f1e8
+  "Radius" float
+  "Y to X Ratio" float
+  "Check LOS" bool
+class CGotoRadiusAndGiveItemAI version=1605469568.0 parent=CGotoRadiusAI own-data=- size=268 global=0x71f1ec
+  "Item/Item to Give" inline size=16
+  "Item/Must Have Item" bool
+  "Item/Sound to Play" inline size=16
+  "Test Pickup Action" object
+  "Succeed Pickup Action" object
+  "Fail Pickup Action" object
+class CGotoTargetsAI version=616916.0 parent=CLayerPartAI own-data=- size=88 global=0x6521fc
+  "Move/Movement" object
+  "Move/Done Action" object
+  "Turn/Set Facing Angle Of Target" bool
+  "Turn/Turn Sequence Name" string
+  "Turn/Turning" inline size=16
+  "Target/Target" name
+  "Debug/State" int
+  "Movment Group Name" name
+class CGravityAI version=616635.0 parent=CLayerPartAI own-data=- size=32 global=0x71eeb0
+  "BounceAction" object
+  "Ground Height" float
+class CGravityParticleAI version=31458212.0 parent=CParticleAI own-data=- size=60 global=0x72e8b8
+  "Gravity" float
+  "Bounce Sound" choice
+  "Use Velocity to Advance Frames" bool
+  "Bounced Last Frame" bool
+  "Gravity Constant" float
+class CGrenadeInfoRenderer version=2735.0 parent=CStarTrekInventoryInfoRenderer own-data=- size=60 global=0x71f1f4
+  "Info Bar/Grenade Button Pos" point
+  "Info Bar/Grenade Range Pos" point
+  "Info Bar/Grenade Damage Pos" point
+  "Info Bar/Grenade Font" choice
+  "Buttons/Text Pos" point
+class CGroundTextureFrame version=2794.0 parent=CFrame own-data=- size=60 global=0x71f608
+  "Damage" float
+  "Damage Type" choice
+  "Surface Type" choice
+class CGroupSelectionList version=48.0 parent=- own-data=- size=20 global=0xb8a578
+  "Group" array element=int
+class CGuardPosAI version=31443916.0 parent=CPatrolBaseAI own-data=- size=200 global=0xb8a330
+  "Avg Time Between Turns" float
+  "Turn Invariance" float
+  "Idle Behavior" inline size=36
+  "Move To Behavior" inline size=120
+  "Debug/Going Home" bool
+  "Debug/Next Try To Move" float
+  "Debug/Time Since Last Turn" float
+  "Debug/Turning" bool
+class CHealthInventoryDetailRenderer version=52.0 parent=CInventoryDetailRenderer own-data=- size=4 global=0xb8b934
+class CHealthItem version=7439.0 parent=CInventoryItem own-data=- size=24 global=0xb8b908
+  "Num Health" float
+  "Pickup If Full" bool
+  "Storable Item" bool
+class CHideAction version=99.0 parent=CAction own-data=- size=12 global=0x71ee34
+  "Target Name" name
+class CHueChangeEffect version=52.0 parent=CRenderEffect own-data=- size=4 global=0x71f638
+class CIdleAI version=616587.0 parent=CLayerPartAI own-data=- size=60 global=0x71eec8
+  "Debug/Idle Behavior" inline size=36
+class CIfAction version=193.0 parent=CAction own-data=- size=20 global=0x65159c
+  "If" object
+  "Then" object
+  "Else" object
+class CIgnoreCollisionAI version=616634.0 parent=CLayerPartAI own-data=- size=44 global=0x652204
+  "Classes/Class Info Index" array element=ai
+  "Categories/Category" text
+class CIgnoreParentAI version=616540.0 parent=CLayerPartAI own-data=- size=24 global=0xb8b70c
+class CImageNernie version=2496.0 parent=CNernie own-data=- size=16 global=0x71f640
+  "Image" choice
+class CImpersonateAction version=193.0 parent=CAction own-data=- size=20 global=0x71eda0
+  "Action" object
+  "Trigger" name
+  "Instigator" name
+class CInactiveAI version=616540.0 parent=CLayerPartAI own-data=- size=24 global=0x65220c
+class CInfoDialogAction version=195.0 parent=CAction own-data=- size=20 global=0x71f6ac
+  "Script" choice
+  "Line" choice
+  "Who is speaking" choice
+class CInterfaceFrame version=2701.0 parent=CFrame own-data=- size=52 global=0x71f804
+  "Compressed" bool
+class CInventory version=193.0 parent=- own-data=- size=72 global=0x6517c0
+  "Inventory List" array element=object
+  "Discovered/Discovered Items" array element=choice
+  "Disposed Items" array element=object
+  "Cur Focus Index" int
+class CInventoryDetailRenderer version=1.0 parent=- own-data=- size=4 global=0x651fd8
+class CInventoryHUDRenderer version=1.0 parent=- own-data=- size=4 global=0x651fd4
+class CInventoryItem version=143.0 parent=- own-data=- size=16 global=0x652050
+  "Definition Index" choice
+  "Debug/Current Delay" float
+  "Debug/Broadcaster" object
+class CInventoryItemDefinition version=2029.0 parent=- own-data=- size=168 global=0x651fec
+  "Info Text" name
+  "Printable Item Name" name
+  "Buttons/Place Button" flag
+  "Buttons/Drop Button" flag
+  "Buttons/Disable Button" flag
+  "Buttons/Use Button" flag
+  "Buttons/Deep Storage Button" flag
+  "Buttons/Undefined" flag
+  "Generate/PowerUp Model" choice
+  "Generate/Can Only Have One" flag
+  "Generate/Ingredient 1 Quantity" int
+  "Generate/Ingredient 1 Type" choice
+  "Generate/Ingredient 2 Quantity" int
+  "Generate/Ingredient 2 Type" choice
+  "Generate/Ingredient 3 Quantity" int
+  "Generate/Ingredient 3 Type" choice
+  "Generate/Required Item" choice
+  "Generate/Must be discovered fist" bool
+  "Display/Icon Image" choice
+  "Display/Generator Icon Image" choice
+  "Display/Detail Image" choice
+  "Display/HUD Image" choice
+  "Inventory Type" choice
+  "Default Inventory Item" object
+  "Display/HUD Renderer" object
+  "Display/Detail Renderer" object
+  "Weapon/Shot Flash" choice
+  "Weapon/Ammunition" choice
+  "Weapon/Max Shoot Angle" float
+  "Weapon/Strike Damage" float
+  "Weapon/Strike Damage Type" choice
+  "Weapon/Strike Damage Radius" float
+  "Weapon/Discharge Sequence" name
+  "Weapon/Recover From Discharge" bool
+  "Energy" float
+  "Rounds Needed" int
+  "Weapon/New Shot Action" object
+  "Weapon/Shot Sound" choice
+  "Projectiles/Projectile" choice
+  "Projectiles/Num Projectile" objects class=CProjectileInfo
+  "Reuse Delay" float
+  "Switch Inventory Sound" choice
+  "Display In Inventory" bool
+class CInventoryItemHolder version=48.0 parent=- own-data=- size=8 global=0x6517bc
+  "The Item" object
+class CInventoryTypeDefinition version=474.0 parent=- own-data=- size=36 global=0x651ff0
+  "X HUD Position" int
+  "X HUD Screen Justify" choice
+  "Y HUD Position" int
+  "Y HUD Screen Justify" choice
+  "Render In HUD" flag
+  "Render In Editor" flag
+  "Lock to Inventory Bar" flag
+  "Sort Priority" int
+  "Default HUD Renderer" object
+  "Default Inventory Select Sound" choice
+class CInvestigateAI version=616540.0 parent=CLayerPartAI own-data=- size=24 global=0x71f80c
+class CInvestigateAreaAI version=616540.0 parent=CLayerPartAI own-data=- size=24 global=0x71f814
+class CIsAliveAction version=146.0 parent=CAction own-data=- size=20 global=0x71ee6c
+  "Name To Check For" name
+  "Desired Minimum Count" int
+class CIsDiscoveredAction version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0xb8a458
+  "Item to check" choice
+class CIsDoorClosedAction version=99.0 parent=CAction own-data=- size=12 global=0x71ee10
+  "Door Name" name
+class CIsDoorLockedAction version=99.0 parent=CAction own-data=- size=12 global=0x71ee14
+  "Door Name" name
+class CIsDoorOpenAction version=99.0 parent=CAction own-data=- size=12 global=0x71ee0c
+  "Door Name" name
+class CLandscapeAI version=616965.0 parent=CLayerPartAI own-data=- size=60 global=0x720640
+  "Target Elevation" int
+  "Width" int
+  "Height" int
+  "Change Rate" float
+  "Leftover Error" float
+  "Shape" choice
+  "Stop When" choice
+  "Do Not Modify If GreaterThan" int
+  "Do Not Modify If Less Than" int
+class CLayer version=135351.0 parent=COffsetClippedProxyFrame own-data=- size=296 global=0x720790
+  "Save Data" inline size=244
+class CLayerCustomSaveData version=1.0 parent=- own-data=- size=4 global=0x72077c
+class CLayerHolder version=1.0 parent=- own-data=0x4f4630 size=20 global=0x721104
+class CLayerPart version=915.0 parent=- own-data=- size=84 global=0x721158
+  "Name" name
+  "Child List" object
+  "Visible" flag
+  "Collideable" flag
+  "Half Height" flag
+  "Full Height" flag
+  "Tries To Collide" flag
+  "Debug/Has Hit Points" flag
+  "Debug/Stationary" flag
+  "Active" flag
+  "Debug/Is Temporarily Excluded" flag
+  "Debug/Is Marked For Deletion" flag
+  "Occludes Sound" flag
+  "AI" object
+  "Activity/Activity" array element=object
+  "Categories/Category" text
+  "Debug/Current Target" ref
+  "Targeting Point" point
+  "Debug/Broadcaster" object
+class CLayerPartAI version=12089.0 parent=CAIBase own-data=- size=24 global=0x721170
+class CLayerSaveData version=1086.0 parent=- own-data=0x4ed960 size=244 global=0x720780
+  "Custom Map Properties" object
+  "Width" int
+  "Height" int
+  "Action Queue" inline size=24
+  "Has Begin Been Called" bool
+  "Map Description" name
+  "First Fire Action" object
+  "First Load Action" object
+  "Listener Settings/Environment Type" choice
+  "Listener Settings/Rolloff" float
+  "Listener Settings/Environment Size" float
+  "View Position" point
+  "Int View Position" point
+  "Partial File Name" name
+  "Team/Team Info" array element=object named
+  "Ambient Sounds" array element=object named
+  "Shake Time" float
+  "Max Shake Time" float
+  "Pixels To Shake" inline size=32
+  "Last Shake Delta" point
+  "Active Paths" object
+  "Path Data" object
+  "Monitor" inline size=20
+class CLengthEnvelope version=16831.0 parent=CEnvelope own-data=- size=32 global=0x71e32c
+class CLightningLayerPart version=2385043.0 parent=CSimpleLayerPart own-data=- size=156 global=0x721198
+  "Position/Z" float
+  "Position/X Length" float
+  "Position/Y Length" float
+  "Position/Height" float
+  "Width" float
+  "Min Segment Length" float
+class CLimitedTimeAI version=616728.0 parent=CLayerPartAI own-data=- size=40 global=0x71eed0
+  "What To Do" object
+  "Max Time" float
+  "Time Left" float
+  "Done Action" object
+class CLineParticleStartPositionType version=99.0 parent=CParticleStartPositionType own-data=- size=36 global=0x72ec1c
+  "Center Length" inline size=32
+class CListDefinitionItem version=1.0 parent=- own-data=- size=4 global=0x7211a0
+class CLockDoorAction version=99.0 parent=CAction own-data=- size=12 global=0x71ede8
+  "Door Name" name
+class CMakeSelectableAction version=137748.0 parent=CStarTrekTargetedAction own-data=- size=16 global=0xb8a430
+  "Is Selectable" bool
+class CMakeVisibleAction version=2748.0 parent=CStarTrekAction own-data=- size=16 global=0xb8a3bc
+  "Who to modify" name
+  "Make Visible" bool
+class CMineralInventoryDetailRenderer version=52.0 parent=CInventoryDetailRenderer own-data=- size=4 global=0xb8b92c
+class CMineralInventoryItem version=379238.0 parent=CCountInventoryItem own-data=- size=28 global=0xb8b90c
+class CMiniMapPointOfInterestAI version=616587.0 parent=CLayerPartAI own-data=- size=36 global=0x721348
+  "Layer Index" int
+class CMissionDescription version=1270.0 parent=- own-data=- size=244 global=0x72e3b4
+  "Mission Name" string
+  "Starting Stardate" float
+  "Cutscene Movie" choice
+  "Show Briefing" bool
+  "Show Team Selection" bool
+  "Show Debriefing" bool
+  "Transporter Background" choice
+  "End Game After Mission" bool
+  "Map Name" string
+  "Briefing/Briefing Movie" choice
+  "Briefing/Loop movie" bool
+  "Briefing/Script" inline size=24
+  "Debrief/Debrief Script" inline size=24
+  "Start Team/Max Members To Start" int
+  "Start Team/Override selected team" bool
+  "Start Team/Who Should Start" array element=choice named
+  "Need/Items" array element=choice named
+  "Temporary/Temp Items" array element=choice named
+  "Recommend/Recommended Items" array element=choice named
+  "Objectives/Objective" inline size=28
+  "Available in Net Game" bool
+  "Net Lobby Script" choice
+  "Net Lobby Text" choice
+  "Music/Briefing Music" choice
+  "Music/Debriefing Music" choice
+  "Music/Primary Song" choice
+  "Music/Random Song" array element=choice named
+class CMissionObjective version=330.0 parent=- own-data=- size=36 global=0x72e444
+  "Objective Name" string
+  "Mission Status" choice
+  "Display Status" choice
+  "Required To End Mission" bool
+  "Points" int
+  "Actions/Fail Action" object
+  "Actions/Success Action" object
+class CMissionObjectiveManager version=142.0 parent=- own-data=- size=28 global=0x72e45c
+  "Base Score for Mission" int
+  "Win Action" object
+  "Objectives" array element=object
+class CMissionOverActionBase version=146.0 parent=CAction own-data=- size=16 global=0x72e3c0
+  "Script" choice
+  "Mission Over Text" choice
+class CModel version=1603.0 parent=- own-data=0x50f6e0 size=204 global=0x72e478
+  "Legacy Name" name
+  "Printable Name" string
+  "Description Script" choice
+  "Description Line" choice
+  "Model AI" object
+  "Activity/Activity" array element=object
+  "Default Entity" object
+  "Damage/Hit Points" float
+  "Damage/Collide Damage" float
+  "Damage/Collide Damage Type" choice
+  "Damage/Closing Damage" float
+  "Damage/Explosion Radial Damage" float
+  "Damage/Require LOS For Damage" bool
+  "Sorting Y" int
+  "Seq./Default Sequence" name
+  "Sound/Activate Sound" choice
+  "Sound/Close Sound" choice
+  "Explosion" choice
+  "Sound/Death Sound" choice
+  "Sound/Pain Sound" choice
+  "Sound/Surface Type" choice
+  "Move/Max Velocity" float
+  "Move/Turn Speed" float
+  "Move/Bounce Factor" float
+  "Move/Min Bounce" float
+  "Move/Bounce Friction" float
+  "Move/Min Bounce Friction" float
+  "Bounds Poly" polygon
+  "Also Render" choice
+  "Fidget Settings" object
+class CModelRenderEffect version=287.0 parent=CRenderEffect own-data=- size=24 global=0x72e5b4
+  "Model" choice
+  "Sequence" choice
+  "Cur Frame" float
+  "Cur Frame Int" int
+  "Angle" float
+class CMoveInfo version=142.0 parent=- own-data=- size=16 global=0xb8a56c
+  "Who Is Moving" ref
+  "Handle" int
+  "Timeout" float
+class CMovieNernie version=2496.0 parent=CNernie own-data=- size=20 global=0x72e5e8
+  "Movie to Play" choice
+class CMultipleActionsAction version=101.0 parent=CAction own-data=- size=16 global=0x71edac
+  "Action" array element=object
+class CMultipleDelayedActionsAction version=5246.0 parent=CMultipleActionsAction own-data=- size=20 global=0x71edb0
+  "Delay Between Actions" float
+  "?" unknown
+class CNamedValue version=1.0 parent=- own-data=- size=4 global=0x72e5f8
+class CNeedItemMissionObjective version=863274.0 parent=CStandardMissionObjective own-data=- size=48 global=0x72e454
+  "Item Needed" choice
+class CNernie version=48.0 parent=- own-data=- size=12 global=0x72e600
+  "Position" point
+class CNoise version=330.0 parent=- own-data=- size=44 global=0x72e868
+  "Sound Part" ref
+  "Sound Pos X" float
+  "Sound Pos Y" float
+  "Radius" float
+  "Time" float
+  "Max Time" float
+  "Last Height" float
+class CNoiseManager version=1.0 parent=- own-data=0x5195f0 size=8 global=0x72e86c
+class CNormalAttackAI version=31443730.0 parent=CAttackAI own-data=- size=52 global=0x652214
+  "Shoot/Shoot Behavior" inline size=12
+  "Turn/Turn Behavior" inline size=8
+  "Move/MoveBehavior" object
+  "Move/Min Attack Distance" float
+class CNotAction version=99.0 parent=CAction own-data=- size=12 global=0x71edd4
+  "Action" object
+class CObjectCollection version=48.0 parent=- own-data=- size=12 global=0x72e878
+  "Num Objects" objects class=CObjectHolder
+class CObjectHolder version=48.0 parent=- own-data=- size=8 global=0x72e874
+  "Object" object
+class COffsetClippedProxyFrame version=2653.0 parent=CProxyFrame own-data=- size=48 global=0x72e888
+class COffsetYSortAction version=146.0 parent=CAction own-data=- size=16 global=0x71ee78
+  "Target" name
+  "Y Sort Offset" int
+class COldBadPatrolAI version=616589.0 parent=CLayerPartAI own-data=- size=60 global=0x72f208
+  "Return Home Dist" float
+class CollideTriggerAI version=31465656.0 parent=CTriggerAI own-data=- size=64 global=0x6515e0
+  "Action" object
+  "Disallow Retrigger" float
+  "Last Trigger Time" float
+  "Retrigger Disallow Time For" choice
+  "Action for Failed Retrigger" object
+class COnlyOnceAction version=100.0 parent=CAction own-data=- size=12 global=0x71ed98
+  "Action" object
+class COnlyOnceEveryXSecondsAction version=241.0 parent=CAction own-data=- size=24 global=0x71ed9c
+  "Action" object
+  "Min Time" float
+  "Next Alowable Time" float
+  "Fail Action" object
+class COpenDoorAction version=7498.0 parent=CXDoorAction own-data=- size=16 global=0x71edf4
+class COrAction version=5246.0 parent=CMultipleActionsAction own-data=- size=20 global=0x71edc8
+  "Early Exit" bool
+  "?" unknown
+class COtherMapAction version=2747.0 parent=CStarTrekAction own-data=- size=16 global=0xb8a3e0
+  "Action" object
+  "Other Map Name" name
+class COverridePickupAI version=616869.0 parent=CLayerPartAI own-data=- size=56 global=0x652254
+  "Item" object
+  "Respawn Mode" choice
+  "Respawn Delay" float
+  "Min Respawn Delay" float
+  "Debug/TimeUntilNextRespawn" float
+  "Debug/Time Offset" float
+  "Debug/Last Simulation Time" double
+class COverrideTemporaryTaskAI version=616681.0 parent=CLayerPartAI own-data=- size=48 global=0x72e8a8
+  "OverrideTemporary AI" object
+  "Debug/Original AI List" array element=object
+  "Debug/Door Was Locked" bool
+class CPainAction version=242.0 parent=CAction own-data=- size=24 global=0x71ee4c
+  "Hit Points" float
+  "Damage Type" choice
+  "Sound" choice
+  "Target" name
+class CParticleAI version=616823.0 parent=CLayerPartAI own-data=- size=44 global=0x72e8b4
+  "X Center Pos" float
+  "Y Center Pos" float
+  "Z Center Pos" float
+  "Animated" bool
+  "Obey Sequence FPS" bool
+  "Y To X Ratio" float
+class CParticleInfo version=379.0 parent=- own-data=- size=32 global=0x72ec0c
+  "Model" choice
+  "AI" object
+  "Animated" bool
+  "Obey Sequence FPS" bool
+  "Tries To Collide" bool
+  "Collidable" bool
+  "Num Particles" int
+  "Num Particles Variance" int
+class CParticleStartPositionType version=1.0 parent=- own-data=- size=4 global=0x72ec10
+class CParticleSystemAI version=616543.0 parent=CLayerPartAI own-data=- size=284 global=0x72ec28
+class CPassThroughTriggerAI version=31465468.0 parent=CTriggerAI own-data=- size=44 global=0x6515e4
+  "Action" object
+class CPathCollideChecker version=1.0 parent=- own-data=- size=4 global=0x65221c
+class CPathLineSegment version=283.0 parent=- own-data=- size=28 global=0x72ed9c
+  "Flags" int
+  "MaxPassWidth" float
+  "Length" float
+  "AngleAToB" float
+  "AIndex" int
+  "BIndex" int
+class CPathPointListListCache version=54.0 parent=- own-data=- size=20 global=0x72ed5c
+  "Point List" array element=object
+class CPathWayPoint version=142.0 parent=- own-data=0x5305e0 size=32 global=0x72edb4
+  "Flags" int
+  "Position X" int
+  "Position Y" int
+class CPatrolAnAreaAI version=1603630336.0 parent=CPatrolAreaAI own-data=- size=164 global=0x72f254
+  "HomePos" point
+class CPatrolAreaAI version=31443730.0 parent=CPatrolBaseAI own-data=- size=156 global=0x72f22c
+  "Radius" float
+  "TimeOfLastChangeDirectionDueToCollide" float
+  "Moving/Moving" inline size=120
+  "Debug/Retry New Point" float
+class CPatrolBaseAI version=616540.0 parent=CLayerPartAI own-data=- size=24 global=0x72f234
+class CPatrolFormationAI version=31443776.0 parent=CPatrolBaseAI own-data=- size=168 global=0x652224
+  "Formation/Who To Follow" name
+  "Formation/Offset From Target" point
+  "Move/Move" inline size=120
+  "Part to follow" ref
+  "Formation/Need To Restart" bool
+class CPatrolInvestigateAI version=31443588.0 parent=CInvestigateAreaAI own-data=- size=188 global=0x72f258
+  "AI" inline size=164
+class CPatrolPathAI version=31444012.0 parent=CPatrolBaseAI own-data=- size=184 global=0x72f290
+  "Path Poly" name
+  "" ref
+  "Order" choice
+  "Ignore last point" bool
+  "End of path action" object
+  "TimeBeforCanReviseData" float
+  "Revise Point" point
+  "Revising Data" bool
+  "Target Point" int
+  "Moving/Moving" inline size=120
+class CPauseActorAction version=137701.0 parent=CStarTrekTargetedAction own-data=- size=12 global=0x72f29c
+class CPauseGameAction version=2653.0 parent=CStarTrekAction own-data=- size=8 global=0xb8a45c
+class CPhaserInfoRenderer version=3393.0 parent=CStarTrekInventoryInfoRenderer own-data=- size=220 global=0x72f2bc
+  "Phaser Power Indicator Sequence" choice
+  "Phaser Can't Fire Sequence" choice
+  "Phaser Indicator Pos" point
+  "Phaser Range Pos" point
+  "Phaser Damage Pos" point
+  "Phaser Font" choice
+  "Overload Offset" point
+  "Buttons/Stun Pos" point
+  "Buttons/Stun Text Pos" point
+  "Buttons/Stun On Text" string
+  "Buttons/Stun On Font" choice
+  "Buttons/Stun Off Text" string
+  "Buttons/Stun Off Font" choice
+  "Buttons/Overload Pos" point
+  "Buttons/Overload Text Pos" point
+  "Buttons/Overload On Text" string
+  "Buttons/Overload On Font" choice
+  "Buttons/Overload Off Text" string
+  "Buttons/Overload Off Font" choice
+class CPhaserShot version=122409384.0 parent=CEntityAnimatedLine own-data=- size=296 global=0x72f2c4
+  "Duration" float
+  "End Is Moving" bool
+  "Start Is Moving" bool
+  "Collided" bool
+  "Dir Vector" point
+  "Start Pos" point
+  "End Pos" point
+  "Cur Length" float
+  "Max Length" float
+  "Weapon" ref
+  "Start Flash" ref
+  "End Flash" ref
+  "Created By" ref
+class CPickupAI version=31443788.0 parent=CFlyweightLayerPartAI own-data=- size=44 global=0x652250
+  "Normal Item" choice
+  "Special Item" object
+  "Pickup Effect" choice
+  "Pickup/Who Can Pick Up" text
+class CPlasmaTileMap version=50.0 parent=- own-data=0x5b6ab0 size=11540 global=0x76f3d8
+  "Blending" float
+class CPlayAnimationAction version=335.0 parent=CAction own-data=- size=32 global=0x71ee00
+  "Animation" name
+  "Target Name" name
+  "When Done" choice
+  "End Sequence Name" name
+  "Delay Between Targets" float
+  "Play In Reverse" bool
+class CPlayClassFailSoundAction version=2747.0 parent=CStarTrekAction own-data=- size=16 global=0xb8a404
+  "Who to Play" name
+  "Class" choice
+class CPlayerAI version=616776.0 parent=CLayerPartAI own-data=- size=68 global=0x76f3ec
+  "AIs" array element=object
+  "Debug/Current AI" int
+  "Idle AI" object
+  "Call Begin" bool
+  "Enabled" bool
+class CPlayerControlAI version=616591.0 parent=CLayerPartAI own-data=- size=40 global=0x76f3f8
+  "Player Num" int
+class CPlayerListHolder version=48.0 parent=- own-data=- size=20 global=0x721100
+  "Player" array element=ref
+class CPlayerMoveToPos version=392.0 parent=CEntityBehavior own-data=- size=152 global=0x76f400
+  "Move/Move Behavior" inline size=120
+  "Time to check move" float
+  "Move/Idle Behavior" object
+  "MoveToPos" point
+  "Final Pos" point
+class CPlayGenericFailSoundAction version=2700.0 parent=CStarTrekAction own-data=- size=16 global=0xb8a408
+  "Who to Play" name
+class CPlayItemInfoSoundAction version=2747.0 parent=CStarTrekAction own-data=- size=16 global=0xb8a40c
+  "Who to Play" name
+  "Item" choice
+class CPlaySequenceLoopedAI version=31443690.0 parent=CFlyweightLayerPartAI own-data=- size=44 global=0x71eeb8
+  "Behavior" inline size=16
+  "Stop Action" object
+class CPlaySoundAction version=147.0 parent=CAction own-data=- size=16 global=0x71ee18
+  "Sound" choice
+  "Position" name
+class CPlaySoundBySurfaceTypeAction version=10037.0 parent=CPositionedAction own-data=- size=36 global=0x71ee20
+  "Sound/Default Sound" choice
+  "Sound/Specializations" objects class=SyfaceTypeSoundItem
+  "Position/Position Relative To" name
+class CPlayVOAction version=147.0 parent=CAction own-data=- size=16 global=0x71ee24
+  "VO" choice
+  "Play Positional" bool
+class CPointList version=95.0 parent=- own-data=- size=24 global=0x72ed54
+  "Is Available" bool
+  "Point" array element=point
+class CPointParticleStartPositionType version=52.0 parent=CParticleStartPositionType own-data=- size=4 global=0x72ec14
+class CPointWeaponAtTargetEntityBehavior version=155.0 parent=CEntityBehavior own-data=- size=8 global=0x6522d0
+class CPositionedAction version=194.0 parent=CAction own-data=- size=20 global=0x71e2b0
+  "Position/Forward Position" float
+  "Position/Lateral Position" float
+  "Position/Height" float
+class CPrintAction version=146.0 parent=CAction own-data=- size=16 global=0x71ee28
+  "Text" name
+  "Display Method" choice
+class CProcess version=614.0 parent=- own-data=- size=56 global=0x770610
+  "Process Type" choice
+  "Process Cursor" choice
+  "Can't Use Cursor" choice
+  "Required Selected Item" choice
+  "Required Item In Inventory" choice
+  "Hint Item In Inventory" choice
+  "Default Use Sound" choice
+  "Allow Multiple Members" bool
+  "Execute if Hovering" bool
+  "Always Use Target Under Cursor" bool
+  "Use On Others If Empty" bool
+  "Process Activity" array element=object
+  "Debug/Debug Process" bool
+class CProcessListAI version=31443686.0 parent=CFlyweightLayerPartAI own-data=- size=44 global=0x7704d8
+  "Hot Spot" name
+  "Process" array element=object
+class CProcessTypeListHolder version=1.0 parent=- own-data=- size=4 global=0x770614
+class CProjectileInfo version=142.0 parent=- own-data=- size=16 global=0x651fe8
+  "X offset" float
+  "Y offset" float
+  "Shot Angle" float
+class CProtectMissionObjective version=863274.0 parent=CStandardMissionObjective own-data=- size=48 global=0x72e450
+  "WhoToProtect" string
+class CProxyFrame version=52.0 parent=CFrameInterface own-data=- size=8 global=0x77064c
+class CPsycheControlAI version=31455764.0 parent=CPlayerAI own-data=- size=84 global=0x65225c
+  "Debug/Old Control AI" object
+  "Debug/Attached To" ref
+  "Debug/Who Controlling" ref
+  "Debug/Old Flags" text
+class CPsycheControllerInfoRenderer version=2829.0 parent=CStarTrekInventoryInfoRenderer own-data=- size=68 global=0x770654
+  "Meter Sequence" choice
+  "Indicator Position" point
+  "Percent Pos" point
+  "Buttons/Activate Button Pos" point
+  "Buttons/Activate Button Text" string
+  "Buttons/Activate Button Text Pos" point
+  "Buttons/Activate Button Font" choice
+class CPsycheDisplacementInfoRenderer version=144609.0 parent=CPsycheControllerInfoRenderer own-data=- size=140 global=0x77065c
+  "Buttons/Center Button Pos" point
+  "Buttons/Center Button Text" string
+  "Buttons/Center Button Text Pos" point
+  "Buttons/Center Button Font" choice
+  "Text" string
+  "Text Pos" point
+  "Text Width" int
+class CPursueAI version=616540.0 parent=CLayerPartAI own-data=- size=24 global=0x770664
+class CQueryGenderAction version=137748.0 parent=CStarTrekTargetedAction own-data=- size=16 global=0xb8a424
+  "Gender to Check" choice
+class CRaceAttributeModifier version=95.0 parent=- own-data=- size=12 global=0x71dad0
+  "Attribute" choice
+  "Value" float
+class CRaceDefinition version=5149.0 parent=CStartingInventoryDefinition own-data=- size=28 global=0x71dad4
+  "Modifiers" objects class=CRaceAttributeModifier
+class CRandomAction version=5152.0 parent=CMultipleActionsAction own-data=- size=16 global=0x71edbc
+class CRandomNumberNernie version=2872.0 parent=CNernie own-data=- size=76 global=0x7712a4
+  "Font" choice
+  "Width of Numbers" int
+  "Column Width" int
+  "Column Height" int
+  "Space Between Columns" int
+  "Space Between Rows" int
+  "Idle Time" float
+  "Time Between Changes" float
+  "Number of Changes" int
+class CRandomOverlayInventoryDetailRenderer version=146.0 parent=CInventoryDetailRenderer own-data=- size=20 global=0x651fe4
+  "Detail Image" choice
+  "Next Renderer" object
+class CRandomSequenceNernie version=2731.0 parent=CNernie own-data=- size=60 global=0x7712ac
+  "Sequence" choice
+  "Idle Time" float
+  "Plus or Minus Time" float
+  "Time Between Changes" float
+  "Number of Changes" int
+  "Plus or Minus Changes" int
+class CRandomWaitAI version=616775.0 parent=CLayerPartAI own-data=- size=44 global=0x652268
+  "Time to Wait" float
+  "Plus or Minus" float
+  "Time Left" float
+  "Done Action" object
+  "Behavior to run" object
+class CRankDefinition version=99.0 parent=CListDefinitionItem own-data=- size=8 global=0x71dac4
+  "Sort Order" int
+class CRechargeHealthAI version=31443588.0 parent=CRechargeStateAI own-data=- size=28 global=0x652270
+  "Hit Points" float
+class CRechargeStateAI version=616540.0 parent=CLayerPartAI own-data=- size=24 global=0x652278
+class CRelayAI version=616681.0 parent=CLayerPartAI own-data=- size=32 global=0x651728
+  "Action" object
+  "Trigger Only Once" bool
+  "Was Triggered" bool
+class CRemoveAIAction version=193.0 parent=CAction own-data=- size=20 global=0x71ee5c
+  "Target Name" name
+  "AI" ai
+  "Delay Between Removes" float
+class CRemoveFromTeamAction version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0xb8a3ec
+  "Who To Remove" name
+class CRemoveInventoryAction version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0xb8a3f8
+  "Target" name
+class CRemoveInventoryItemAction version=2747.0 parent=CStarTrekAction own-data=- size=16 global=0xb8a3f4
+  "Target" name
+  "Inventory Definition" choice
+class CRenderablePolygon version=2382799.0 parent=CFreeRangePoly own-data=0x54f020 size=164 global=0x7712e8
+  "Render/On Ground" flag
+  "Render/Render Type" choice
+  "Render/YSort" int
+  "Render/Cur Frame" float
+  "Render/Animated Texture" choice
+  "Render/Static Texture" choice
+  "Render/Warp Effect" choice
+class CRenderEffect version=1.0 parent=- own-data=- size=4 global=0x771304
+class CRenderEffectBehavior version=154.0 parent=CEntityBehavior own-data=- size=8 global=0x77130c
+class CRepeatAction version=193.0 parent=CAction own-data=- size=20 global=0x71eda8
+  "Number of Repetitions" int
+  "Action To Repeat" object
+  "Delay Between" float
+class CRepeatTimerTriggerAI version=616729.0 parent=CLayerPartAI own-data=- size=40 global=0x651734
+  "Action" object
+  "Delay Between Actions" float
+  "Plus or Minus" float
+  "Seconds Till Next Execute" float
+class CReplaceBorgStateAIAction version=137795.0 parent=CStarTrekTargetedAction own-data=- size=20 global=0x6521d4
+  "State" choice
+  "New State AI" object
+class CReplaceModelAction version=137748.0 parent=CStarTrekTargetedAction own-data=- size=16 global=0xb8a420
+  "Replacement Model" choice
+class CReplaceTeamAction version=2794.0 parent=CStarTrekAction own-data=- size=32 global=0xb8a3e4
+  "Team List" array element=choice
+  "New Spawn Point Name" string
+  "Delete Old Team" bool
+class CRequiredActor version=48.0 parent=- own-data=- size=20 global=0x652354
+  "Actor" array element=choice
+class CRescueMissionObjective version=863274.0 parent=CStandardMissionObjective own-data=- size=56 global=0x72e458
+  "WhoToRescue" string
+class CRetreatAI version=616540.0 parent=CLayerPartAI own-data=- size=24 global=0x652280
+class CRotationSequence version=30575.0 parent=CSequence own-data=0x550ff0 size=104 global=0x771328
+  "Num Rotations" int
+  "Editor Display Offset" int
+  "" int
+  "Render/Render On Ground" flag
+  "Render/Is Shadow" flag
+  "Auto-Animate" flag
+  "Editor Only" flag
+  "Load/Always Visible" flag
+  "" int
+  "Rotational Offset" float
+  "Rotational Range" float
+  "Sort/Sorting Y Offset" int
+  "Sort/Cutting Lines" objects class=CVerticalCut
+  "Trigger" objects class=CAnimationTrigger
+class CRules version=426.0 parent=- own-data=- size=60 global=0x77133c
+  "First Map Name" name
+  "First Map Spawn Point" name
+  "Players Initial Inventory" object
+  "Default Player Model" choice
+  "Camera Bound Width" float
+  "Camera Bound Height" float
+  "Startup Song" choice
+  "Window Font" choice
+  "Custom Rules" object
+class CRunAwayRetreatAI version=31443728.0 parent=CRetreatAI own-data=- size=156 global=0x771344
+  "TimeOfLastChangeDirectionDueToCollide" float
+  "Moving/Moving" inline size=120
+  "Debug/Retry New Point" float
+  "Debug/Radius" float
+class CSameAsParentAI version=616540.0 parent=CLayerPartAI own-data=- size=24 global=0x77134c
+class CSaveGameDescription version=377.0 parent=- own-data=- size=36 global=0x771354
+  "Version" int
+  "Mission Time" float
+  "Total Time" float
+  "Mission" choice
+  "Mission Name" string
+  "Mission Desc" string
+  "Is In Game" bool
+  "Is Quick Save" bool
+class CScanAreaAI version=31444388.0 parent=CPatrolBaseAI own-data=- size=84 global=0x771360
+  "Starting Angle" float
+  "Ending Angle" float
+  "Turning Speed" float
+  "Time Between Turning" float
+  "Start Out Waiting" bool
+  "Start Counterclockwise" bool
+  "Turn Sequence Name" string
+  "End Turn Action" object
+  "Execute Each Turn" bool
+  "Reset Each Begin" bool
+  "Current Time To Wait" float
+  "Current Start Angle" float
+  "Current End Angle" float
+  "Waiting" bool
+  "Turning Flag" bool
+  "Starting Facing Angle" float
+  "Complete Turn Time" float
+  "Current Turn Time" float
+class CScanInvestigateAI version=31443588.0 parent=CInvestigateAreaAI own-data=- size=108 global=0x771368
+  "AI" inline size=84
+class CSchematicRenderer version=48.0 parent=- own-data=- size=24 global=0x771370
+  "Nernies/Nernie" array element=object
+class CScreenFrame version=2653.0 parent=CFrame own-data=- size=216 global=0x77143c
+class CScreenPlay version=381.0 parent=CGameScriptManager own-data=- size=56 global=0x652360
+  "Pause Game When Run" bool
+  "Finished Action" object
+  "Required Actors/Required Actor" array element=object
+  "Lines/Actor Lines" array element=object
+  "Paused" bool
+  "Current Screen Play Line" int
+  "Current Screen Play Line Time" float
+class CSecurityCameraAI version=31444388.0 parent=CSkeletonBaseAI own-data=- size=168 global=0x7714a0
+  "Target/Max Distance" int
+  "Target/Vision Arc" float
+  "Target/Must Be Collideable" flag
+  "Target/Must Have HPs" flag
+  "Target/Valid Targets" text
+  "Turning/Turning Speed" float
+  "Turning/Time Between Turning" float
+  "Turning/Start Out Waiting" bool
+  "Turning/Start Counterclockwise" bool
+  "Turning/End Turn Action" object
+  "Turning/Execute Each Turn" bool
+  "Saw Someone Action" object
+  "Time Before Alert" float
+  "Alert Action" object
+  "All Clear Action" object
+  "Cur Alert Time" float
+  "Debug/Cur State" choice
+  "Scanning AI" inline size=84
+class CSelectInfo version=142.0 parent=- own-data=- size=16 global=0xb8a568
+  "Who Is Selected" ref
+  "Handle" int
+  "Inventory Handle" int
+class CSendActivateAIMessage version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0xb8a3c8
+  "Target" name
+class CSendAIDoneMessage version=99.0 parent=CAction own-data=- size=12 global=0x7714fc
+  "Target" name
+class CSendDeactivateAIMessage version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0xb8a3cc
+  "Target" name
+class CSendGotoHereMessageAction version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0xb8a3c4
+  "Target" name
+class CSendInvestigateHereMessageAction version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0xb8a3c0
+  "Target" name
+class CSendInvestigateTargetMessageAction version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0xb8a3d0
+  "Target" name
+class CSendMessageAction version=146.0 parent=CAction own-data=- size=16 global=0x71ee70
+  "Message" name
+  "Target" name
+class CSendWeaponDischargedMessage version=52.0 parent=CAction own-data=- size=8 global=0x71ee7c
+class CSequence version=586.0 parent=- own-data=0x55b640 size=52 global=0x7714c0
+  "" int
+  "Frames Per Second" float
+  "Load/Center Hot Spot" flag
+  "Render/Blit Type" choice
+  "Load/Blended With Black" flag
+  "Load/Crop Clor 0" flag
+  "Load/Use 8 Bit Alpha" flag
+  "Load/Dither" flag
+  "Render/X Offset" int
+  "Render/Y Offset" int
+class CSequenceNernie version=2543.0 parent=CNernie own-data=- size=32 global=0x7714c8
+  "Sequence" choice
+  "Time Between Loops" float
+class CSeriesAction version=5294.0 parent=CMultipleActionsAction own-data=- size=28 global=0x71edb4
+  "When Done" choice
+  "Require Success To Advance" bool
+  "Debug/Next Action Index" int
+class CSeriesAI version=616728.0 parent=CLayerPartAI own-data=- size=52 global=0x7714f4
+  "AIs" array element=object
+  "Debug/Current AI" int
+  "When Done" choice
+  "Restart Series Next Begin" bool
+class CSetAttackAIAction version=146.0 parent=CAction own-data=- size=16 global=0x65229c
+  "Attack AI" object
+  "Target" name
+class CSetCategoryAction version=2747.0 parent=CStarTrekAction own-data=- size=16 global=0xb8a410
+  "Who to Set" name
+  "Category to Set" text
+class CSetCollidableAction version=146.0 parent=CAction own-data=- size=16 global=0x71ee38
+  "Target Name" name
+  "Collidable" bool
+class CSetCurSequenceAction version=146.0 parent=CAction own-data=- size=16 global=0x71ee04
+  "Sequence" name
+  "Target Name" name
+class CSetHomeAction version=99.0 parent=CAction own-data=- size=12 global=0x71ee80
+  "Target" name
+class CSetMissionObjectiveAction version=99.0 parent=CAction own-data=- size=12 global=0x72e3c4
+  "Objective Name" string
+class CSetMissionObjectiveCountAction version=5097.0 parent=CSetMissionObjectiveAction own-data=- size=16 global=0x72e3d0
+  "Count" int
+class CSetMissionObjectiveDisplayStatusAction version=5097.0 parent=CSetMissionObjectiveAction own-data=- size=16 global=0x72e3cc
+  "Display Status" choice
+class CSetMissionObjectiveStatusAction version=5097.0 parent=CSetMissionObjectiveAction own-data=- size=16 global=0x72e3c8
+  "Status" choice
+class CSetNextMissionAction version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0xb8a41c
+  "Next Mission" choice
+class CSetPatrolAIAction version=146.0 parent=CAction own-data=- size=16 global=0x652294
+  "Patrol AI" object
+  "Target" name
+class CSetPursueAIAction version=146.0 parent=CAction own-data=- size=16 global=0x652298
+  "Pursue AI" object
+  "Target" name
+class CSetTargetAction version=146.0 parent=CAction own-data=- size=16 global=0x6522a8
+  "Target to attack" name
+  "Attacker" name
+class CSetTargetTypeAction version=146.0 parent=CAction own-data=- size=16 global=0x6522a4
+  "Entity Name" name
+  "Valid Targets" text
+class CShakeScreenAction version=147.0 parent=CAction own-data=- size=44 global=0x71ee88
+  "Time to Shake" float
+  "Pixels To Shake" inline size=32
+class CShieldAI version=616775.0 parent=CLayerPartAI own-data=- size=56 global=0x652288
+  "Render Effect" object
+  "Who To Adapt/Who To Adapt" text
+  "Debug/Last Damage Type" choice
+  "Who Attached" ref
+  "Debug/Adaptation Level List" array element=float
+class CShootEnergyWeaponAction version=509639.0 parent=CStarTrekPositionedAction own-data=- size=60 global=0xb8b6fc
+  "Outside Color" colour
+  "Middle Color" colour
+class CShootEntityBehavior version=201.0 parent=CEntityBehavior own-data=- size=12 global=0x6522cc
+  "Play Sequence" object
+class CShootOverAI version=31443592.0 parent=CFlyweightLayerPartAI own-data=- size=24 global=0x771604
+class CShootProjectileWeaponAction version=509546.0 parent=CStarTrekPositionedAction own-data=- size=28 global=0xb8b700
+class CShootWeaponAI version=617247.0 parent=CLayerPartAI own-data=- size=140 global=0x7715b4
+  "Debug/State" int
+  "Done action" object
+  "Play Ratio" float
+  "Fire Delay" float
+  "Turning/Turn Sequence Name" string
+  "Facing Angle/Facing Angle" inline size=16
+  "Idle Behavior" inline size=36
+  "Debug/Play Sequence" object
+  "Debug/Wait Behavior" object
+  "Weapon Index" int
+  "Should Recover" bool
+  "Shoot Sequence Name" string
+  "Target" ref
+  "Weapon" ref
+  "Fire Until Dead" bool
+class CShootWeaponBehavior version=438.0 parent=CEntityBehavior own-data=- size=68 global=0x7715f0
+  "Play Sequence" object
+  "Turn/Turn Behavior" inline size=8
+  "Idle/Idle Behavior" inline size=36
+  "Debug/State" choice
+  "Debug/Weapon Definition" choice
+  "Debug/Wait Behavior" object
+class CShootWeaponOnceBehavior version=22339.0 parent=CShootWeaponBehavior own-data=- size=68 global=0x7715f8
+class CShotAI version=31443592.0 parent=CFlyweightLayerPartAI own-data=- size=24 global=0x771600
+class CShowAction version=99.0 parent=CAction own-data=- size=12 global=0x71ee30
+  "Target Name" name
+class CShuffledSeriesAction version=269996.0 parent=CSeriesAction own-data=- size=28 global=0x71edb8
+class CSimpleCollideTriggerAI version=31443828.0 parent=CFlyweightLayerPartAI own-data=- size=32 global=0x771614
+  "Action" object
+  "Triggered By/Triggered By Anything" bool
+  "Triggered By/Triggered By Players" bool
+  "Triggered By/Triggered By Enemies" bool
+  "Triggered By/Triggered By Projectiles" bool
+class CSimpleLayerPart version=46760.0 parent=CLayerPart own-data=- size=92 global=0x77161c
+  "Position/X" float
+  "Position/Y" float
+class CSimpleOverlayEffect version=193.0 parent=CRenderEffect own-data=- size=96 global=0x771628
+  "Overlay Effect" choice
+  "Current Frame" int
+  "Overlay YOffset" int
+class CSimpleWarpEffect version=2700.0 parent=CWarpEffect own-data=- size=48 global=0x771640
+  "Warp Effect" choice
+class CSimultaneousAIsAI version=616587.0 parent=CLayerPartAI own-data=- size=32 global=0x71eebc
+  "AIs" array element=object
+class CSkeletonAI version=31444672.0 parent=CSkeletonBaseAI own-data=- size=176 global=0x7716ec
+  "Patrol/Patrol AI" object
+  "Patrol/Patrol Start Action" object
+  "Patrol/Patrol End Action" object
+  "Patrol/Respond to calls for reinforcements" bool
+  "Target/Target shooter if hit" bool
+  "Target/Target Type" inline size=28
+  "Debug/Has Seen Target" bool
+  "Pursue/Max dist from home" float
+  "Pursue/Pursue AI" object
+  "Pursue/Pursue Start Action" object
+  "Pursue/Pursue End Action" object
+  "Investigate/Max distance from home" float
+  "Investigate/Investigate End Action" object
+  "Investigate/Investigate Start Action" object
+  "Investigate/Investigate AI" object
+  "Attack/Max Dist" float
+  "Attack/Attack AI" object
+  "Attack/Attack Start Action" object
+  "Attack/Attack End Action" object
+  "Retreat/Retreat when" float
+  "Retreat/Retreat Start Action" object
+  "Debug/Has Started Retreat" bool
+  "Debug/State" choice
+  "Transition/Transition" objects class=CSkeletonTransition
+class CSkeletonBaseAI version=616540.0 parent=CLayerPartAI own-data=- size=24 global=0x7716f4
+class CSkeletonTransition version=236.0 parent=- own-data=- size=24 global=0x7716e8
+  "Trigger" choice
+  "From State" choice
+  "To State" choice
+  "Action" object
+  "IsDone" bool
+class CSlowText version=236.0 parent=- own-data=- size=24 global=0x7716fc
+  "Text Speed" float
+  "Text Len" int
+  "Text" string
+  "Cur Pos" float
+  "Last Pos" float
+class CSortList2D version=1.0099999904632568 parent=- own-data=0x569600 size=32 global=0x771718
+class CSpanBufferFrame version=2653.0 parent=CFrame own-data=- size=112 global=0xb8a2d8
+class CSpawnPointAI version=616681.0 parent=CLayerPartAI own-data=- size=36 global=0x65173c
+  "Spawn Action" object
+  "Set Facing Angle" bool
+  "Facing Angle" float
+class CSpeedEnvelope version=16831.0 parent=CEnvelope own-data=- size=32 global=0x71e320
+class CSphereParticleStartPositionType version=12241.0 parent=CDiskParticleStartPositionType own-data=- size=76 global=0x72ec24
+class CStandardMissionObjective version=16926.0 parent=CMissionObjective own-data=- size=44 global=0x72e448
+  "Objective Script" choice
+  "Objective Line" choice
+class CStandStillAttackAI version=31443638.0 parent=CAttackAI own-data=- size=44 global=0xb8a328
+  "Shoot/Shoot Behavior" inline size=12
+  "Turn/Turn Behavior" inline size=8
+class CStartingInventoryDefinition version=100.0 parent=CListDefinitionItem own-data=- size=20 global=0x71dac0
+  "Starting Inventory/Starting Inventory" array element=object
+class CStarTrekAction version=52.0 parent=CAction own-data=- size=8 global=0xb8a388
+class CStarTrekAlertAI version=616540.0 parent=CLayerPartAI own-data=- size=24 global=0x6522d8
+class CStarTrekAttackAI version=31443540.0 parent=CAttackAI own-data=- size=24 global=0xb8af10
+class CStarTrekBriefingMenu version=4564.0 parent=CStarTrekMenuDefinition own-data=- size=284 global=0xb8a558
+  "Buttons/ExitButton Pos" point
+  "Buttons/ExitButton Text Pos" point
+  "Buttons/ExitButton Text" string
+  "Buttons/ExitButton Font" choice
+  "Buttons/ExitButton Press Sound" choice
+  "Buttons/ExitButton Hover Sound" choice
+  "Buttons/HelpButton Pos" point
+  "Buttons/HelpButton Text Pos" point
+  "Buttons/HelpButton Text" string
+  "Buttons/HelpButton Font" choice
+  "Buttons/HelpButton Press Sound" choice
+  "Buttons/HelpButton Hover Sound" choice
+  "Buttons/ReplayButton Pos" point
+  "Buttons/ReplayButton Text Pos" point
+  "Buttons/ReplayButton Text" string
+  "Buttons/ReplayButton Font" choice
+  "Buttons/ReplayButton Press Sound" choice
+  "Buttons/ReplayButton Hover Sound" choice
+  "Buttons/ContinueButton Pos" point
+  "Buttons/ContinueButton Text Pos" point
+  "Buttons/ContinueButton Text" string
+  "Buttons/ContinueButton Font" choice
+  "Buttons/ContinueButton Press Sound" choice
+  "Buttons/ContinueButton Hover Sound" choice
+  "Buttons/EndBriefingButton Pos" point
+  "Buttons/EndBriefingButton Text Pos" point
+  "Buttons/EndBriefingButton Text" string
+  "Buttons/EndBriefingButton Font" choice
+  "Buttons/EndBriefingButton Press Sound" choice
+  "Buttons/EndBriefingButton Hover Sound" choice
+  "Mission Name Pos" point
+  "TextDisplay Window Pos" point
+  "TextDisplay Window Size" point
+  "TextDisplay Text Spacing" int
+  "TextDisplay Pos" point
+  "TextDisplay Size" point
+  "TextDisplay Text Speed" float
+  "Briefing Text Font" choice
+  "MovieDisplay Pos" point
+  "MovieDisplay Delay" float
+  "Scroll Pos" point
+  "Waiting Pos" point
+  "HelpText Pos" point
+  "NetPlayerList Pos" point
+  "NetPlayerList Size" point
+class CStarTrekChargeInventoryItem version=374537.0 parent=CStarTrekInventoryItem own-data=- size=28 global=0xb8b01c
+  "Debug/Current Energy" float
+  "Debug/Is Active" bool
+class CStarTrekChooseNetGameMenu version=4376.0 parent=CStarTrekMenuDefinition own-data=- size=252 global=0xb8a54c
+  "List Pos" point
+  "List Size" point
+  "Name Pos" point
+  "Name Size" point
+  "EnterNameText Pos" point
+  "Buttons/RefreshButton Pos" point
+  "Buttons/RefreshButton Text Pos" point
+  "Buttons/RefreshButton Text" string
+  "Buttons/RefreshButton Font" choice
+  "Buttons/RefreshButton Press Sound" choice
+  "Buttons/RefreshButton Hover Sound" choice
+  "Buttons/CancelButton Pos" point
+  "Buttons/CancelButton Text Pos" point
+  "Buttons/CancelButton Text" string
+  "Buttons/CancelButton Font" choice
+  "Buttons/CancelButton Press Sound" choice
+  "Buttons/CancelButton Hover Sound" choice
+  "Buttons/CreateGameButton Pos" point
+  "Buttons/CreateGameButton Text Pos" point
+  "Buttons/CreateGameButton Text" string
+  "Buttons/CreateGameButton Font" choice
+  "Buttons/CreateGameButton Press Sound" choice
+  "Buttons/CreateGameButton Hover Sound" choice
+  "Buttons/JoinGameButton Pos" point
+  "Buttons/JoinGameButton Text Pos" point
+  "Buttons/JoinGameButton Text" string
+  "Buttons/JoinGameButton Font" choice
+  "Buttons/JoinGameButton Press Sound" choice
+  "Buttons/JoinGameButton Hover Sound" choice
+  "Buttons/IPXButton Pos" point
+  "Buttons/IPXButton Text Pos" point
+  "Buttons/IPXButton Text" string
+  "Buttons/IPXButton Font" choice
+  "Buttons/IPXButton Press Sound" choice
+  "Buttons/IPXButton Hover Sound" choice
+  "Buttons/TCPButton Pos" point
+  "Buttons/TCPButton Text Pos" point
+  "Buttons/TCPButton Text" string
+  "Buttons/TCPButton Font" choice
+  "Buttons/TCPButton Press Sound" choice
+  "Buttons/TCPButton Hover Sound" choice
+class CStarTrekConfigControlMenu version=4235.0 parent=CStarTrekMenuDefinition own-data=- size=264 global=0xb8a53c
+  "Buttons/ExitButton Pos" point
+  "Buttons/ExitButton Text Pos" point
+  "Buttons/ExitButton Text" string
+  "Buttons/ExitButton Font" choice
+  "Buttons/ExitButton Press Sound" choice
+  "Buttons/ExitButton Hover Sound" choice
+  "Buttons/ResetButton Pos" point
+  "Buttons/ResetButton Text Pos" point
+  "Buttons/ResetButton Text" string
+  "Buttons/ResetButton Font" choice
+  "Buttons/ResetButton Press Sound" choice
+  "Buttons/ResetButton Hover Sound" choice
+  "ButtonStart Pos" point
+  "ConfigStart Pos" point
+  "ConfigStart Size" point
+  "Button Spacing" int
+  "Action Text" string
+  "Move Text" string
+  "Inventory Text" string
+  "Action Help Text" string
+  "Move Help Text" string
+  "Inventory Help Text" string
+  "Button1 Pos" point
+  "Button1 Size" point
+  "Button2 Pos" point
+  "Button2 Size" point
+  "Button3 Pos" point
+  "Button3 Size" point
+  "HelpText Pos" point
+  "HelpText Size" point
+  "MouseTitle Pos" point
+  "MouseConfig Pos" point
+  "Mouse Pos" point
+  "Mouse Size" point
+  "KeyChangeList Pos" point
+  "KeyChangeList Size" point
+  "MouseImage Pos" point
+  "ReverseMouse Pos" point
+class CStarTrekConfirmDialogMenu version=3342.0 parent=CStarTrekMenuDefinition own-data=- size=124 global=0xb8a52c
+  "TextCenter Pos" point
+  "Buttons/YesButton Pos" point
+  "Buttons/YesButton Text Pos" point
+  "Buttons/YesButton Text" string
+  "Buttons/YesButton Font" choice
+  "Buttons/YesButton Press Sound" choice
+  "Buttons/YesButton Hover Sound" choice
+  "Buttons/NoButton Pos" point
+  "Buttons/NoButton Text Pos" point
+  "Buttons/NoButton Text" string
+  "Buttons/NoButton Font" choice
+  "Buttons/NoButton Press Sound" choice
+  "Buttons/NoButton Hover Sound" choice
+  "Buttons/OkButton Pos" point
+  "Buttons/OkButton Text Pos" point
+  "Buttons/OkButton Text" string
+  "Buttons/OkButton Font" choice
+  "Buttons/OkButton Press Sound" choice
+  "Buttons/OkButton Hover Sound" choice
+class CStarTrekCountInventoryItem version=379331.0 parent=CCountInventoryItem own-data=- size=36 global=0xb8affc
+  "Consume When Empty" bool
+  "Enhance Time" float
+class CStarTrekCreditsMenu version=2543.0 parent=CStarTrekMenuDefinition own-data=- size=36 global=0xb8a530
+  "Credit Pos" point
+  "Credit Size" point
+class CStarTrekCustomRules version=3202.0 parent=CCustomRules own-data=- size=508 global=0xb8a55c
+  "Screen Pos" point
+  "Screen Size" point
+  "Pause Pos" point
+  "TimeWindow Pos" point
+  "TimeOffset Pos" point
+  "Crouch Noise Modifier" float
+  "Walk Noise Modifier" float
+  "Run Noise Modifier" float
+  "Menu/Menu" array element=object named
+  "Chat/Chat Input Pos" point
+  "Chat/Chat Field Input Offset" point
+  "Chat/Chat Output Pos" point
+  "Info Bar/Info Pos" point
+  "Info Bar/Info Renderer Pos" point
+  "Info Bar/Info Window Font" choice
+  "Info Bar/Info Bar Visible" int
+  "Info Bar/Info Bar Popup Time" float
+  "Info Bar/Info Open Pos" point
+  "Info Bar/Info MiniMap Button Pos" point
+  "Info Bar/Info Objective Button Pos" point
+  "Info Bar/Info Character Button Pos" point
+  "Info Bar/Info Info Button Pos" point
+  "Info Bar/Info Info Window Pos" point
+  "Info Bar/Info Info Text Pos" point
+  "Info Bar/Info Info Text Size" point
+  "Info Bar/Info MiniMap Pos" point
+  "Info Bar/Info MiniMap Map Center Pos" point
+  "Info Bar/Info Objective Pos" point
+  "Info Bar/Info Objective Display Pos" point
+  "Info Bar/Info Character Pos" point
+  "Info Bar/Tricorder Pos" point
+  "Info Bar/Tricorder Size" point
+  "Team Bar/Team Pos" point
+  "Team Bar/Team Icon Pos" point
+  "Team Bar/Team Icon Offset" point
+  "Team Bar/Team Hover Pos" point
+  "Team Bar/Team Buff Pos" point
+  "Team Bar/Team Icon Spacing" int
+  "Team Bar/Team Field Offset" point
+  "Team Bar/Team Health Offset" point
+  "Team Bar/Team Class Offset" point
+  "Buttons/Button Box Pos" point
+  "Buttons/Move State Button" point
+  "Buttons/Vision State Button" point
+  "Buttons/Sound State Button" point
+  "Buttons/Select All Button" point
+  "Buttons/Objectives Button" point
+  "Buttons/Options Button" point
+  "Buttons/CancelOrdersButton Pos" point
+  "Buttons/CancelOrdersButton Text Pos" point
+  "Buttons/CancelOrdersButton Text" string
+  "Buttons/CancelOrdersButton Font" choice
+  "Buttons/CancelOrdersButton Press Sound" choice
+  "Buttons/CancelOrdersButton Hover Sound" choice
+  "Inventory/Inventory Pos" point
+  "Inventory/Inventory Icon Size" point
+  "Inventory/Inventory Bar Offset" point
+  "Inventory/Inventory Title Pos" point
+  "Inventory/Inventory Previous Button Pos" point
+  "Inventory/Inventory Next Button Pos" point
+  "Inventory/Inventory Icon Spacing" int
+  "Inventory/Select Phaser Button" point
+  "Dialog/Dialog Pos" point
+  "Dialog/Dialog Text Pos" point
+  "Dialog/Dialog Text Width" int
+  "Dialog/Dialog Icon Pos" point
+  "Dialog/Dialog Font" choice
+class CStarTrekDebriefingMenu version=3624.0 parent=CStarTrekMenuDefinition own-data=- size=176 global=0xb8a554
+  "Buttons/ContinueButton Pos" point
+  "Buttons/ContinueButton Text Pos" point
+  "Buttons/ContinueButton Text" string
+  "Buttons/ContinueButton Font" choice
+  "Buttons/ContinueButton Press Sound" choice
+  "Buttons/ContinueButton Hover Sound" choice
+  "Buttons/ReplayButton Pos" point
+  "Buttons/ReplayButton Text Pos" point
+  "Buttons/ReplayButton Text" string
+  "Buttons/ReplayButton Font" choice
+  "Buttons/ReplayButton Press Sound" choice
+  "Buttons/ReplayButton Hover Sound" choice
+  "TextDisplay Window Pos" point
+  "TextDisplay Text Pos" point
+  "TextDisplay Text Spacing" int
+  "TextDisplay Text Speed" float
+  "Debriefing Text Font" choice
+  "Objective Pos" point
+  "ObjectiveText Pos" point
+  "ObjectiveText Size" point
+  "Objective Text Spacing" int
+  "Success Pos" point
+  "Mission Success Text" int
+  "Objective Complete Text" int
+  "Time Text" int
+class CStarTrekEndGameDisplay version=3765.0 parent=CStarTrekMenuDefinition own-data=- size=172 global=0xb8a550
+  "EndGameDisplay Pos" point
+  "EndGameDisplay Size" point
+  "End Game Display Font" choice
+  "Objective Display Spacing" int
+  "Buttons/ContinueButton Pos" point
+  "Buttons/ContinueButton Text Pos" point
+  "Buttons/ContinueButton Text" string
+  "Buttons/ContinueButton Font" choice
+  "Buttons/ContinueButton Press Sound" choice
+  "Buttons/ContinueButton Hover Sound" choice
+  "Buttons/LoadSaveGameButton Pos" point
+  "Buttons/LoadSaveGameButton Text Pos" point
+  "Buttons/LoadSaveGameButton Text" string
+  "Buttons/LoadSaveGameButton Font" choice
+  "Buttons/LoadSaveGameButton Press Sound" choice
+  "Buttons/LoadSaveGameButton Hover Sound" choice
+  "Buttons/RestartMissionButton Pos" point
+  "Buttons/RestartMissionButton Text Pos" point
+  "Buttons/RestartMissionButton Text" string
+  "Buttons/RestartMissionButton Font" choice
+  "Buttons/RestartMissionButton Press Sound" choice
+  "Buttons/RestartMissionButton Hover Sound" choice
+  "Buttons/EndGameButton Pos" point
+  "Buttons/EndGameButton Text Pos" point
+  "Buttons/EndGameButton Text" string
+  "Buttons/EndGameButton Font" choice
+  "Buttons/EndGameButton Press Sound" choice
+  "Buttons/EndGameButton Hover Sound" choice
+class CStarTrekEnergyWeaponInventoryItem version=19106276.0 parent=CStarTrekWeaponInventoryItem own-data=- size=48 global=0xb8b008
+  "Weapon Setting" choice
+  "Debug/Current Energy" float
+class CStarTrekFrame version=2936.0 parent=CFrame own-data=- size=72 global=0xb8af18
+  "Usable For New Characters" bool
+  "Gender" choice
+  "Race" choice
+  "Head Icon" choice
+  "Head Model" choice
+  "Body Model" choice
+class CStarTrekHandWeaponInventoryItem version=19106228.0 parent=CStarTrekWeaponInventoryItem own-data=- size=44 global=0xb8b004
+  "Weapon Kills" bool
+class CStarTrekInventoryInfoRenderer version=49.0 parent=- own-data=- size=12 global=0xb8b030
+  "Background Sequence" choice
+class CStarTrekInventoryItem version=7342.0 parent=CInventoryItem own-data=- size=20 global=0xb8aff8
+  "Enhance Time" float
+class CStarTrekInventoryItemDefinition version=105501.0 parent=CInventoryItemDefinition own-data=- size=376 global=0xb8b034
+  "Description/Briefing Script" choice
+  "Description/Briefing Text" choice
+  "Use Sound" choice
+  "Item Range" float
+  "Process/Can Use On Self" bool
+  "Process/Only Execute If Hovering" bool
+  "Process/Process" inline size=56
+  "Entity Hovering Cursor" choice
+  "Show Obscured Cursor" bool
+  "Need LOS" bool
+  "Need Path To Use" bool
+  "Obscured Cursor" choice
+  "Info Renderer" object
+  "Weapon/Hit Flash" choice
+  "Weapon/Weapon Damage" int
+  "Weapon/Shot Duration" float
+  "Weapon/Stun Duration" float
+  "Weapon/Show Stun Effect" bool
+  "Weapon/Damage Type" choice
+  "Weapon/Energy Use" float
+  "Weapon/Energy Recharge" float
+  "Weapon/Discharge Action" object
+  "Weapon/Can Target Players" bool
+  "Overload/Overload Discharge Action" object
+  "Overload/Overload Discharge Sequence" name
+  "Overload/Recover from Overload Sequence" bool
+  "Overload/Overload Shot Flash" choice
+  "Overload/Overload Shot Sound" choice
+  "Display/Selected Icon Image" choice
+  "Display/Count Format String" name
+  "Display/Empty String" name
+  "Display/Cursor Model" choice
+  "Display/Active HUD Sequence" choice
+  "Display/Has Multiple Settings" bool
+  "Display/Is Overloadable" bool
+  "Projectiles/Overload Projectile" choice
+  "Discovery/Starts Discovered" bool
+  "Discovery/Who Discovers" choice
+  "Discovery/Script" choice
+  "Discovery/Discovery Text" choice
+  "Discovery/Points to Discover" int
+  "Discovery/Points to Discover in Netgame" int
+  "Discovery/Overridden By" choice
+class CStarTrekInventoryItemHolder version=95.0 parent=- own-data=- size=12 global=0xb8b228
+  "Inventory Definition" choice
+  "Count" int
+class CStarTrekInvisBandInventoryItem version=19101532.0 parent=CStarTrekChargeInventoryItem own-data=- size=36 global=0xb8b020
+  "Debug/Target Opacity" float
+  "Debug/Cur Opacity" float
+  "?" unknown
+class CStarTrekLayerSaveData version=193.0 parent=CLayerCustomSaveData own-data=- size=48 global=0xb8b03c
+  "Minimap Image" choice
+  "Map Song" choice
+  "Camera Script Manager" inline size=36
+class CStarTrekLoadGameMenu version=3718.0 parent=CStarTrekMenuDefinition own-data=- size=184 global=0xb8a538
+  "Buttons/LoadButton Pos" point
+  "Buttons/LoadButton Text Pos" point
+  "Buttons/LoadButton Text" string
+  "Buttons/LoadButton Font" choice
+  "Buttons/LoadButton Press Sound" choice
+  "Buttons/LoadButton Hover Sound" choice
+  "Buttons/ExitButton Pos" point
+  "Buttons/ExitButton Text Pos" point
+  "Buttons/ExitButton Text" string
+  "Buttons/ExitButton Font" choice
+  "Buttons/ExitButton Press Sound" choice
+  "Buttons/ExitButton Hover Sound" choice
+  "Buttons/DeleteButton Pos" point
+  "Buttons/DeleteButton Text Pos" point
+  "Buttons/DeleteButton Text" string
+  "Buttons/DeleteButton Font" choice
+  "Buttons/DeleteButton Press Sound" choice
+  "Buttons/DeleteButton Hover Sound" choice
+  "Static Pos" point
+  "Static Size" point
+  "Image Pos" point
+  "Image Width" int
+  "List Pos" point
+  "List Size" point
+  "Time Pos" point
+  "Time Size" point
+  "GameInfo Pos" point
+class CStarTrekMainMenu version=2590.0 parent=CStarTrekMenuDefinition own-data=- size=40 global=0xb8a528
+  "Menu Pos" point
+  "ButtonText Pos" point
+  "Button Spacing" int
+class CStarTrekMenuDefinition version=48.0 parent=- own-data=- size=20 global=0xb8a524
+  "Nernies/Nernie" array element=object
+class CStarTrekNetLobbyMenu version=3765.0 parent=CStarTrekMenuDefinition own-data=- size=196 global=0xb8a548
+  "Chat Pos" point
+  "ChatMargin Size" point
+  "PlayerList Pos" point
+  "PlayerName Pos" point
+  "MissionList Pos" point
+  "MissionDesc Pos" point
+  "MissionDescText Pos" point
+  "ChatInput Pos" point
+  "ChatFieldInput Pos" point
+  "Countdown Pos" point
+  "Buttons/StartButton Pos" point
+  "Buttons/StartButton Text Pos" point
+  "Buttons/StartButton Text" string
+  "Buttons/StartButton Font" choice
+  "Buttons/StartButton Press Sound" choice
+  "Buttons/StartButton Hover Sound" choice
+  "Buttons/ExitButton Pos" point
+  "Buttons/ExitButton Text Pos" point
+  "Buttons/ExitButton Text" string
+  "Buttons/ExitButton Font" choice
+  "Buttons/ExitButton Press Sound" choice
+  "Buttons/ExitButton Hover Sound" choice
+  "Buttons/SendChatButton Pos" point
+  "Buttons/SendChatButton Text Pos" point
+  "Buttons/SendChatButton Text" string
+  "Buttons/SendChatButton Font" choice
+  "Buttons/SendChatButton Press Sound" choice
+  "Buttons/SendChatButton Hover Sound" choice
+class CStarTrekNetSaveData version=236.0 parent=- own-data=- size=60 global=0xb8a57c
+  "Selected List" inline size=24
+  "Selection Group" array element=object
+  "Cur Alert" ref
+  "Vision State" int
+  "Vision Cone" ref
+class CStarTrekObjectivesDisplay version=2590.0 parent=CStarTrekMenuDefinition own-data=- size=40 global=0xb8a544
+  "ObjectiveDisplay Pos" point
+  "ObjectiveDisplay Size" point
+  "Objective Display Spacing" int
+class CStarTrekPositionedAction version=9991.0 parent=CPositionedAction own-data=- size=28 global=0xb8b6f8
+  "Noise Radius" float
+  "Time" float
+class CStarTrekProjectileWeaponInventoryItem version=19106324.0 parent=CStarTrekWeaponInventoryItem own-data=- size=52 global=0xb8b00c
+  "Rounds" int
+  "Use Up When Empty" bool
+  "Weapon Setting" choice
+class CStarTrekPsycheControllerInventoryItem version=19101528.0 parent=CStarTrekChargeInventoryItem own-data=- size=40 global=0xb8b024
+  "Debug/Item" ref
+  "Debug/IsActive" bool
+  "Debug/Current Charge" float
+class CStarTrekPsycheDisplacementInventoryItem version=19101670.0 parent=CStarTrekChargeInventoryItem own-data=- size=56 global=0xb8b028
+  "Controller Item" choice
+  "Fail Sound" choice
+  "Break Meld Sound" choice
+  "Debug/Who We Are Controlling" ref
+  "Debug/Us" ref
+  "Debug/Control AI" ref
+class CStarTrekRelocateAction version=504740.0 parent=CStarTrekSwitchMapActionBase own-data=- size=32 global=0xb8a398
+  "Relative Position" bool
+  "Make this map active" bool
+class CStarTrekRelocateGroupAction version=504740.0 parent=CStarTrekSwitchMapActionBase own-data=- size=36 global=0xb8a3a0
+  "Group Name" name
+  "Make this map active" bool
+class CStarTrekRelocateTeamAction version=504834.0 parent=CStarTrekSwitchMapActionBase own-data=- size=36 global=0xb8a39c
+  "Touching Poly" name
+  "Make this map active" bool
+  "Only on this map" bool
+  "Only Relocated Selected Members" bool
+class CStarTrekRemoteMineInventoryItem version=974422528.0 parent=CStarTrekProjectileWeaponInventoryItem own-data=- size=52 global=0xb8b014
+class CStarTrekRemoteWeaponInventoryItem version=974422528.0 parent=CStarTrekProjectileWeaponInventoryItem own-data=- size=52 global=0xb8b010
+class CStarTrekRules version=21868.0 parent=CRules own-data=- size=88 global=0xb8b04c
+  "First Map" choice
+  "Banter/Banter" inline size=20
+  "First Hit Action" object
+class CStarTrekSaveData version=1083.0 parent=- own-data=- size=292 global=0xb8a580
+  "Current Team" array element=ref
+  "Roster" array element=object
+  "Info String" inline size=24
+  "Info Icon" int
+  "Info Time" float
+  "Tricorder String" string
+  "Noise Manager" inline size=8
+  "Listening State" bool
+  "Mission Time" float
+  "Current Mission" choice
+  "Next Mission" choice
+  "Current Objectives" object
+  "Discovered Items/Discovered Items" array element=bool named
+  "Next Mission Items/Next Mission Items" array element=int named
+  "Initial Team/Initial Team" array element=int named
+  "Current Team/Current Team Member" array element=int named
+  "Net Player Info" objects class=CStarTrekNetSaveData
+  "Move List" inline size=20
+  "Temporary Entity Manager" inline size=20
+  "Debug/Game Script" object
+  "Banter Used" array element=bool named
+  "Simulation Time" double
+  "Score" int
+class CStarTrekSaveGameMenu version=3671.0 parent=CStarTrekMenuDefinition own-data=- size=176 global=0xb8a534
+  "Buttons/SaveButton Pos" point
+  "Buttons/SaveButton Text Pos" point
+  "Buttons/SaveButton Text" string
+  "Buttons/SaveButton Font" choice
+  "Buttons/SaveButton Press Sound" choice
+  "Buttons/SaveButton Hover Sound" choice
+  "Buttons/ExitButton Pos" point
+  "Buttons/ExitButton Text Pos" point
+  "Buttons/ExitButton Text" string
+  "Buttons/ExitButton Font" choice
+  "Buttons/ExitButton Press Sound" choice
+  "Buttons/ExitButton Hover Sound" choice
+  "Buttons/DeleteButton Pos" point
+  "Buttons/DeleteButton Text Pos" point
+  "Buttons/DeleteButton Text" string
+  "Buttons/DeleteButton Font" choice
+  "Buttons/DeleteButton Press Sound" choice
+  "Buttons/DeleteButton Hover Sound" choice
+  "Edit Pos" point
+  "Edit Size" point
+  "Image Pos" point
+  "Image Width" int
+  "List Pos" point
+  "List Size" point
+  "Time Pos" point
+  "Time Size" point
+class CStarTrekSkeletonAI version=1603678336.0 parent=CSkeletonAI own-data=- size=184 global=0xb8a478
+  "Patrol/Patrol Collide Action" object
+  "Patrol/Listen for target" bool
+class CStarTrekStandGroundAttackAI version=1603620608.0 parent=CStarTrekAttackAI own-data=- size=92 global=0xb8b054
+  "Behavior" inline size=68
+class CStarTrekSurfaceType version=99.0 parent=CSurfaceType own-data=- size=8 global=0xb8b05c
+  "Max Distance" float
+class CStarTrekSwitchMapActionBase version=9895.0 parent=CSwitchMapActionBase own-data=- size=28 global=0xb8a394
+class CStarTrekTargetedAction version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0xb8a38c
+  "Target" name
+class CStarTrekTeamSelectionMenu version=6726.0 parent=CStarTrekMenuDefinition own-data=- size=584 global=0xb8a540
+  "TeamDisplay Pos" point
+  "TeamDisplay Size" point
+  "Team Selection Title Pos" point
+  "TeamSelectionMemberOffset Pos" point
+  "TeamSelectionMemberSelectOffset Pos" point
+  "TeamTransporter Pos" point
+  "RosterDisplay Pos" point
+  "RosterDisplay Size" point
+  "RosterIcon Pos" point
+  "RosterIconOffset Pos" point
+  "RosterTitle Pos" point
+  "Roster Icon Y Spacing" int
+  "Roster Icon Width" int
+  "CharacterDisplay Pos" point
+  "PortraitDisplay Pos" point
+  "InfoDisplay Pos" point
+  "AttributeDisplay Pos" point
+  "AttributeDisplay Width" int
+  "AttributeDisplay Spacing" int
+  "CharacterDescription Pos" point
+  "CharacterDescription Size" point
+  "MissionName Pos" point
+  "MissionName Size" point
+  "Buttons/ExitButton Pos" point
+  "Buttons/ExitButton Text Pos" point
+  "Buttons/ExitButton Text" string
+  "Buttons/ExitButton Font" choice
+  "Buttons/ExitButton Press Sound" choice
+  "Buttons/ExitButton Hover Sound" choice
+  "Buttons/BriefingButton Pos" point
+  "Buttons/BriefingButton Text Pos" point
+  "Buttons/BriefingButton Text" string
+  "Buttons/BriefingButton Font" choice
+  "Buttons/BriefingButton Press Sound" choice
+  "Buttons/BriefingButton Hover Sound" choice
+  "Buttons/AddMemberButton Pos" point
+  "Buttons/AddMemberButton Text Pos" point
+  "Buttons/AddMemberButton Text" string
+  "Buttons/AddMemberButton Font" choice
+  "Buttons/AddMemberButton Press Sound" choice
+  "Buttons/AddMemberButton Hover Sound" choice
+  "Buttons/RemoveMemberButton Pos" point
+  "Buttons/RemoveMemberButton Text Pos" point
+  "Buttons/RemoveMemberButton Text" string
+  "Buttons/RemoveMemberButton Font" choice
+  "Buttons/RemoveMemberButton Press Sound" choice
+  "Buttons/RemoveMemberButton Hover Sound" choice
+  "Buttons/ContinueButton Pos" point
+  "Buttons/ContinueButton Text Pos" point
+  "Buttons/ContinueButton Text" string
+  "Buttons/ContinueButton Font" choice
+  "Buttons/ContinueButton Press Sound" choice
+  "Buttons/ContinueButton Hover Sound" choice
+  "Buttons/InventoryButton Pos" point
+  "Buttons/InventoryButton Text Pos" point
+  "Buttons/InventoryButton Text" string
+  "Buttons/InventoryButton Font" choice
+  "Buttons/InventoryButton Press Sound" choice
+  "Buttons/InventoryButton Hover Sound" choice
+  "Buttons/CharacterInfoButton Pos" point
+  "Buttons/CharacterInfoButton Text Pos" point
+  "Buttons/CharacterInfoButton Text" string
+  "Buttons/CharacterInfoButton Font" choice
+  "Buttons/CharacterInfoButton Press Sound" choice
+  "Buttons/CharacterInfoButton Hover Sound" choice
+  "Buttons/InventoryDescriptionExitButton Pos" point
+  "Buttons/InventoryDescriptionExitButton Text Pos" point
+  "Buttons/InventoryDescriptionExitButton Text" string
+  "Buttons/InventoryDescriptionExitButton Font" choice
+  "Buttons/InventoryDescriptionExitButton Press Sound" choice
+  "Buttons/InventoryDescriptionExitButton Hover Sound" choice
+  "Skill Pos" point
+  "Skill Size" point
+  "Buttons/ClassButton Pos" point
+  "Buttons/Class Button Spacing" int
+  "Buttons/Class Button Vertical" bool
+  "Inventory/Inventory Pos" point
+  "Inventory/Inventory Strip Pos" point
+  "Inventory/Inventory Icon Size" point
+  "Inventory/Inventory Title Pos" point
+  "Inventory/Inventory Previous Button Pos" point
+  "Inventory/Inventory Next Button Pos" point
+  "Inventory/Inventory Icon Spacing" int
+  "Inventory/Inventory Display Title Y Pos" int
+  "Inventory/Inventory Display Info" point
+  "Inventory/Inventory Display Info Wrap" int
+  "Description/Description Title Pos" point
+  "Description/Description Pos" point
+  "Description/Description Margin" point
+  "Message Pos" point
+  "Message Size" point
+class CStarTrekTransporterEffectBehavior version=417479.0 parent=CStarTrekWarpEffectBehavior own-data=- size=36 global=0xb8a484
+  "Warp Overlay Effect" object
+  "Num Rotations" int
+class CStarTrekWarpEffectBehavior version=8184.0 parent=CRenderEffectBehavior own-data=- size=28 global=0xb8a480
+  "Warp In" bool
+  "Fade In" bool
+  "Warp Time" float
+  "Warp Effect" object
+  "Cur Warp Time" float
+  "Delete When Finished" bool
+  "Who we are connected to" ref
+class CStarTrekWeaponInventoryItem version=374631.0 parent=CStarTrekInventoryItem own-data=- size=40 global=0xb8b000
+  "Debug/Currently Using" bool
+  "Debug/Is On Overload" bool
+  "Debug/Overload Time" float
+  "Debug/Max Overload Time" float
+class CStaticTextNernie version=2637.0 parent=CNernie own-data=- size=28 global=0xb8b0a4
+  "Text" string
+  "Font" choice
+  "Justification" choice
+  "Wrap Width" int
+class CStatsInventoryItem version=236.0 parent=- own-data=- size=24 global=0x65204c
+  "Item Catagory" choice
+  "Label Text" string
+  "Label Color" choice
+  "Quantity Text" string
+  "Quantity Color" choice
+class CStrafeAttackAI version=31443540.0 parent=CAttackAI own-data=- size=24 global=0xb8b0ac
+class CStrikeTargetAction version=509544.0 parent=CStarTrekPositionedAction own-data=- size=28 global=0xb8b708
+class CStrikeTargetAI version=1605469440.0 parent=CGotoRadiusAI own-data=- size=244 global=0xb8b0b4
+  "Strike Behavior" object
+  "Item Def" int
+  "Inventory Item" ref
+class CStunAI version=31448910.0 parent=CStunBaseAI own-data=- size=76 global=0xb8b0d8
+  "Debug/Current State" choice
+  "Die Sequence" name
+  "Dead Sequence" name
+  "Stand Up Sequence" name
+  "OldFlag" int
+  "Warp Effect" object
+  "Current Sequence" object
+  "Count Down" float
+  "Attached to" ref
+  "Ignore Begin" bool
+class CStunBaseAI version=616636.0 parent=CLayerPartAI own-data=- size=32 global=0x6522e0
+  "Time To Stun" float
+  "Show Effect" bool
+class CSucceedAction version=99.0 parent=CAction own-data=- size=12 global=0x71edcc
+  "Action" object
+class CSurfaceType version=1.0 parent=- own-data=- size=4 global=0xb8b210
+class CSwirlParticleAI version=31458162.0 parent=CParticleAI own-data=- size=60 global=0x72e8c0
+  "Angular Velocity" float
+  "Angular Velocity Variance" float
+  "Rotate Velocity" bool
+  "Current Angular Velocity" float
+class CSwitchAI version=616587.0 parent=CLayerPartAI own-data=- size=28 global=0xb8b218
+  "Action" object
+class CSwitchMapActionBase version=194.0 parent=CAction own-data=- size=28 global=0x71ee2c
+  "New Map Name" name
+  "New Location" name
+  "Who To Switch" name
+class CTeamInfo version=98.0 parent=- own-data=- size=12 global=0x720770
+  "Spawn Point Name" name
+  "Model Type" choice
+class CTeamMemberAttribute version=146.0 parent=CNamedValue own-data=- size=12 global=0xb8b22c
+  "Name" choice
+  "Value" float
+class CTeamMemberInfo version=471.0 parent=- own-data=- size=68 global=0xb8b230
+  "First Name" string
+  "Last Name" string
+  "Rank" choice
+  "Field" choice
+  "Portrait" choice
+  "Is Available" bool
+  "Description/Character Script" choice
+  "Description/Character Text" choice
+  "Attributes/Attribute" array element=object
+  "Inventory/Inventory" array element=object
+class CTeamTouchingPolygonTriggerAI version=616681.0 parent=CLayerPartAI own-data=- size=32 global=0xb8b24c
+  "Action" object
+  "Trigger Only Once" bool
+  "Debug/Can Still Be Triggered" bool
+class CTemporaryEntity version=189.0 parent=- own-data=- size=20 global=0xb8b254
+  "Temporary Part" ref
+  "Ref Count" int
+  "Active Count" int
+  "Sequence" string
+class CTemporaryEntityManager version=48.0 parent=- own-data=- size=20 global=0xb8b258
+  "Temporary Entities" array element=object
+class CTemporaryTaskAI version=616634.0 parent=CLayerPartAI own-data=- size=32 global=0xb8b260
+  "Temporary AI" object
+  "Debug/Original AI" object
+class CThrowGravityAI version=1604368896.0 parent=CGravityParticleAI own-data=- size=68 global=0xb8b710
+  "Hit Water Action" object
+  "Hit Pit Action" object
+class CThrowProjectileWeaponAction version=25986942.0 parent=CShootProjectileWeaponAction own-data=- size=100 global=0xb8b714
+  "Gravity AI" inline size=68
+  "Velocity Factor" float
+class CTimeEnvelope version=16831.0 parent=CEnvelope own-data=- size=32 global=0x71e318
+class CToggleDoorAction version=7498.0 parent=CXDoorAction own-data=- size=16 global=0x71edfc
+class CTouchingOvalTriggerAI version=1604750976.0 parent=CTouchingTriggerAI own-data=- size=76 global=0x651774
+  "X Radius" float
+  "YX Ratio" float
+  "" float
+class CTouchingPolygonTriggerAI version=1604750848.0 parent=CTouchingTriggerAI own-data=- size=64 global=0x6517a4
+class CTouchingTriggerAI version=31465702.0 parent=CTriggerAI own-data=- size=64 global=0x6517ac
+  "Enter Action" object
+  "Exit Action" object
+  "Repeat Action" object
+  "Repeat Every" float
+  "Debug/Touching LayerPart" ref
+  "Debug/Next Repeat Time" float
+class CTrajectoryEnvelope version=16831.0 parent=CEnvelope own-data=- size=32 global=0x71e324
+class CTransporterBackground version=287.0 parent=CListDefinitionItem own-data=- size=48 global=0xb8b3bc
+  "Background Sequence" choice
+  "Position" array element=point
+  "Show Transporter Effect" bool
+  "Start Mission Sound" choice
+  "Nernies/Nernie" array element=object
+class CTricorderDialogAction version=7600.0 parent=CDialogActionBase own-data=- size=120 global=0xb8b3d8
+class CTricorderInfoRenderer version=2547.0 parent=CStarTrekInventoryInfoRenderer own-data=- size=36 global=0xb8b3e4
+  "Text Manager" inline size=24
+class CTricorderModelDescriptionAction version=52.0 parent=CAction own-data=- size=8 global=0xb8b3dc
+class CTriggerAI version=616969.0 parent=CLayerPartAI own-data=- size=40 global=0x6517b4
+  "Trigger Only Once" bool
+  "Debug/Was Triggered" bool
+  "Auto-Flip Switch" bool
+  "Triggered By/Trigge Must Have HP" bool
+  "Triggered By/Triggered By Anything" bool
+  "Triggered By/Triggered By Players" bool
+  "Triggered By/Triggered By Enemies" bool
+  "Triggered By/Triggered By Projectiles" bool
+  "Triggered By/Triggered By Name" name
+class CTriggerRelayAction version=99.0 parent=CAction own-data=- size=12 global=0x65172c
+  "Relay Name" name
+class CTurnToBounceDirAI version=1603623168.0 parent=CShotAI own-data=- size=24 global=0x771608
+class CTurnToTargetAlertAI version=31443636.0 parent=CStarTrekAlertAI own-data=- size=76 global=0x6522e8
+  "Turn/Turn behavior" inline size=16
+  "Idle/Idle behavior" inline size=36
+class CUndiscoverInventoryNextBriefingAction version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0xb8a43c
+  "This is obsolete, do not use" choice
+class CUnlockDoorAction version=99.0 parent=CAction own-data=- size=12 global=0x71edec
+  "Door Name" name
+class CUnpauseActorAction version=137701.0 parent=CStarTrekTargetedAction own-data=- size=12 global=0x72f2a0
+class CUnselectInventoryItemAction version=2700.0 parent=CStarTrekAction own-data=- size=12 global=0xb8a3b0
+  "Item to Deselect" choice
+class CUpdateMonitorInfo version=142.0 parent=- own-data=- size=16 global=0x720774
+  "Update Part" ref
+  "Half Width" int
+  "Half Height" int
+class CUpdateMonitorList version=49.0 parent=- own-data=- size=20 global=0x720778
+  "Monitor List" array element=object
+class CUseInventoryItemAction version=12343.0 parent=CCheckForInventoryItemAction own-data=- size=24 global=0x651800
+class CUseItemOnTargetAction version=100.0 parent=CAction own-data=- size=16 global=0xb8b71c
+  "Inventory Item Definition" choice
+class CUserDefinedClassRef version=49.0 parent=- own-data=- size=8 global=0xb8b530
+  "Class Definition" choice
+class CUseWeaponAction version=509543.0 parent=CStarTrekPositionedAction own-data=- size=28 global=0xb8b704
+class CVerticalCut version=95.0 parent=- own-data=- size=12 global=0x771324
+  "Cut Offset" int
+  "Strip Sorting Y Offset" int
+class CWaitAI version=616728.0 parent=CLayerPartAI own-data=- size=40 global=0x71eec4
+  "Time To Wait" float
+  "Time Left" float
+  "Done Action" object
+  "Behavior to run" object
+class CWarpEffect version=52.0 parent=CRenderEffect own-data=- size=12 global=0xb8b548
+class CWaterWarpEffect version=236.0 parent=- own-data=- size=2136 global=0xb8b6a4
+  "V1 Wave" inline size=532
+  "V2 Wave" inline size=532
+  "H1 Wave" inline size=532
+  "H2 Wave" inline size=532
+  "Show Grid" bool
+class CWaterWarpEffectFrame version=12178.0 parent=CWaterWarpEffect own-data=- size=2156 global=0xb8b6a8
+  "Render Type" choice
+  "Static Texture" choice
+  "Animated Texture" choice
+class CWaterWaveFormData version=142.0 parent=- own-data=- size=532 global=0xb8b6a0
+  "Num Waves" int
+  "Amplitude" float
+  "Pixels Per Second" float
+class CWayPointMap version=101.0 parent=- own-data=0x52dad0 size=48 global=0x72ed60
+  "MinDistBetweenWayPoints" int
+  "MaxDistToConnect" int
+class CWayPointPath version=426.0 parent=- own-data=- size=48 global=0x72ed58
+  "Start Point" point
+  "End Point" point
+  "Length" float
+  "Max Dist To Travel" float
+  "Num Failed Paths" int
+  "Max Failed Paths" int
+  "Pos To Move Index" int
+  "Dist So Far" float
+  "Path" ref
+class CWayPointsPolygon version=2382514.0 parent=CFreeRangePoly own-data=- size=128 global=0xb8b6cc
+  "Insertion Priority" choice
+class CWeaponInventoryDetailRenderer version=99.0 parent=CInventoryDetailRenderer own-data=- size=8 global=0x651fdc
+  "Warn Getting Low Threshold" int
+class CWhileAction version=146.0 parent=CAction own-data=- size=16 global=0x71eda4
+  "Condition" object
+  "Action To Repeat" object
+class CWhileAI version=616681.0 parent=CLayerPartAI own-data=- size=36 global=0x71eec0
+  "Condition to test" object
+  "What to do while waiting" object
+  "Done Action" object
+class CXDoorAction version=147.0 parent=CAction own-data=- size=16 global=0x71edf0
+  "Door Name" name
+  "Delay Between Doors" float
+class CXOrAction version=5247.0 parent=CMultipleActionsAction own-data=- size=20 global=0x71edc4
+  "Early Exit" bool
+  "?" unknown
+class SyfaceTypeSoundItem version=96.0 parent=- own-data=- size=12 global=0x71ee1c
+  "Surface Type" choice
+  "Sound" choice

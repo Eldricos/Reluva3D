@@ -49,7 +49,12 @@ extended. The facts themselves are on their pages, each with its source.
   kept), then Reluva's checked against it pixel for pixel and by looking
   at pictures it wrote out.
 - **Objects in binary:** found through the constant 26.0 every such file
-  starts with ([research/binary-objects.md](research/binary-objects.md)).
+  starts with. The classes' registrations then read out of the whole
+  disassembly by a script, each pattern of the compiler's code looked at
+  by hand and the script taught it, until every class's version, worked
+  out as the game works it out, matched the files' and every binary file
+  decoded to its last byte ([research/binary-objects.md](research/binary-objects.md)).
+  The research scripts are in `tools/stawayteam-re/`.
 
 ## The tools
 
@@ -66,9 +71,19 @@ extended. The facts themselves are on their pages, each with its source.
 | `reluva-tool stawayteam frame-check` | Decodes every `.frm16` picture in `DATA.dat` |
 | `reluva-tool stawayteam frame-png` | Writes `.frm16` pictures out as PNG files |
 
+Research scripts, not part of Reluva, in `tools/stawayteam-re/`
+(its README says how to run them):
+
+| Script | What it does |
+|---|---|
+| `stat_classes.py` | Reads every class and its properties out of `Star Trek.exe`'s disassembly: [research/classes.txt](research/classes.txt) |
+| `stat_objects.py` | Decodes every sequence, model and waypoint map in `DATA.dat` with that schema, to check it |
+
 ## Working files not included
 
 - **`DATA.dat`'s files, written out:** `reluva-tool stawayteam
   data-extract <DATA.dat> <folder>` from your own copy.
 - **Its pictures as PNG files:** `reluva-tool stawayteam frame-png
   <DATA.dat> <folder>`.
+- **The disassembly of `Star Trek.exe`** the class scripts read:
+  `objdump -d -M intel --no-show-raw-insn "Star Trek.exe"`.

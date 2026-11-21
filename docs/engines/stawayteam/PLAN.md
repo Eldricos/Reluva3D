@@ -38,14 +38,17 @@ Each phase ends with something that runs and is committed.
      671 decoded ([formats/frm16.md](formats/frm16.md)); the palette and
      colour tables described, not read, as nothing 8-bit is drawn
      ([formats/pal.md](formats/pal.md)); the data viewer's Pictures page.
-   - **Objects saved in binary** (next): `.seq16` (animated textures),
-     `.mdl16` (models: named animations, directions, frames, sounds;
-     3,738 of them, 130 MB) and the maps' `.way` are the same objects as
-     the text files, saved by `0x40dbd0` with no names: each class's
-     properties have to be found in the executable first
-     ([research/binary-objects.md](research/binary-objects.md)). Then
-     viewer pages for sequences, models by animation and direction, fonts
-     (`Cache/Fonts`), sounds and the object trees.
+   - **Objects saved in binary** (in progress): `.seq16` (animated
+     textures and fonts), `.mdl16` (models: their entities, animations,
+     directions, frames; 3,738 of them, 130 MB) and the maps' `.way` are
+     the same objects as the text files, saved by `0x40dbd0` with no
+     names. Every class's properties are read out of the executable
+     ([research/classes.txt](research/classes.txt)), and with them every
+     such file decodes to its last byte
+     ([research/binary-objects.md](research/binary-objects.md)). Next:
+     Reluva's reader of them, then viewer pages for sequences, models by
+     animation and direction, fonts (`Cache/Fonts`), sounds and the
+     object trees.
 5. **Sound and movies**: Ogg Vorbis for 1,484 files (music, effects,
    711 character barks, 403 voice-overs); see
    [Decisions](#decisions) for the decoder. Bink movies (all revision
@@ -86,3 +89,4 @@ Each phase ends with something that runs and is committed.
 | November 2026 | A native rebuild, not running `Star Trek.exe` under `src/emulation/x86/`, from the start | The game is data-driven (rules, maps, missions as readable object trees), 2D (DirectDraw only, no Direct3D), and its executable has no copy protection, so it can be read statically. Hosting it first would reach a first run sooner, but little of that work would carry over to the rebuild, and its DirectPlay and DirectSound needs would go into stand-ins for a route then left. To compare with the original, it's run on Windows (a virtual machine) instead |
 | November 2026 | Ogg Vorbis through Xiph's libvorbis, downloaded and built by CMake ([Ogg Vorbis](../../common/audio/vorbis.md)) | The game's sounds use floor 0, from before Vorbis 1.0, which stb_vorbis refuses ([research/file-survey.md](research/file-survey.md#sound)). The reference decoder takes them, is BSD-licensed, and was far less work than a decoder of Reluva's own |
 | November 2026 | The CD check isn't kept | Reluva never needs the CD in the drive; goes in `KNOWN_DIFFERENCES.md` |
+| November 2026 | The classes' properties read out of the executable by a script, kept as a data file in `research/` | The binary files can't be read without them, and there are 553 classes; a script makes them again from any copy, and the files' versions check them |
