@@ -122,6 +122,12 @@ GameHud::Result GameHud::handleEvent(const Event &ev, uint64_t now) {
         const image::Image &move = picture("Button Box/Walk Button");
         r.cycleMove = ev.mouseX >= bx + mx && ev.mouseY >= by + my && ev.mouseX < bx + mx + move.w &&
                       ev.mouseY < by + my + move.h;
+        int sx = 0;
+        int sy = 0;
+        readPoint(_custom, "Select All Button", sx, sy);
+        const image::Image &all = picture("Button Box/Select All Default");
+        r.selectAll =
+            ev.mouseX >= bx + sx && ev.mouseY >= by + sy && ev.mouseX < bx + sx + all.w && ev.mouseY < by + sy + all.h;
     }
     if (overTeam) {
         // An officer's slot chooses them (inferred).
@@ -227,7 +233,7 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
         const int x = tx + iconX;
         const int y = ty + iconY + int(i) * spacing;
         image::blit(screen, picture("Team Bar/Member Background"), x - iconX, y - iconY);
-        if (int(i) == selected) {
+        if (int(i) == selected || (i < _chosen.size() && _chosen[i])) {
             // The chosen officer's slot lit (inferred).
             const image::Image &lit = picture("Team Bar/Hover Background");
             image::blit(screen, lit, x + hoverX - lit.w / 2, y + hoverY - lit.h / 2);

@@ -258,6 +258,102 @@ void testTriggers() {
     CHECK(screen.partState(2).active);
 }
 
+void testEnemies() {
+    // A guard at (500, 500) facing left walks its route's two corners, then
+    // looks about; an officer coming into its sight alerts it, which sounds
+    // the siren, and a second later it attacks.
+    const std::string zax =
+        "CLayerSaveData\n{\n\tWidth=1000\n\tHeight=1000\n\tView Position=900.000000,900.000000\n"
+        "\tTree List=CSortList2D\n\t{\n"
+        "\t\tLevel Part=CEntityWalking\n\t\t{\n\t\t\tName=Guard\n\t\t\tVisible=1\n\t\t\tActive=1\n"
+        "\t\t\tActivity=Array\n\t\t\t{\n\t\t\t\tItem Count=1\n\t\t\t\tActivity=CBorgAI\n\t\t\t\t{\n"
+        "\t\t\t\t\tPatrol=CBorgStatePatrol\n\t\t\t\t\t{\n\t\t\t\t\t\tPatrol AI=CSeriesAI\n\t\t\t\t\t\t{\n"
+        "\t\t\t\t\t\t\tAIs=Array\n\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\tItem Count=2\n"
+        "\t\t\t\t\t\t\t\tAI=CFollowPathAI\n\t\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\tPath Poly=Route\n"
+        "\t\t\t\t\t\t\t\t\tOrder=Go To End\n\t\t\t\t\t\t\t\t}\n"
+        "\t\t\t\t\t\t\t\tAI=CScanAreaAI\n\t\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\tStarting Angle=0\n"
+        "\t\t\t\t\t\t\t\t\tEnding Angle=-30\n\t\t\t\t\t\t\t\t\tTurning Speed=10\n"
+        "\t\t\t\t\t\t\t\t\tStarting Facing Angle=-999\n\t\t\t\t\t\t\t\t}\n"
+        "\t\t\t\t\t\t\t}\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n"
+        "\t\t\t\t\tAlert=CBorgStateAlert\n\t\t\t\t\t{\n\t\t\t\t\t\tAlert Time=1\n"
+        "\t\t\t\t\t\tStart Action=CActivateAction\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\tTarget Name=Siren\n\t\t\t\t\t\t}\n"
+        "\t\t\t\t\t}\n"
+        "\t\t\t\t\tMax Distance=100\n\t\t\t\t\tVision Cone=90\n\t\t\t\t\tCurrent State=Patrol\n"
+        "\t\t\t\t}\n\t\t\t}\n"
+        "\t\t\tModel=Characters/Guard\n\t\t\tPosition X=500\n\t\t\tPosition Y=500\n\t\t\tFacing Angle=0\n\t\t}\n"
+        "\t\tLevel Part=CFreeRangePoly\n\t\t{\n\t\t\tName=Route\n\t\t\tVisible=1\n"
+        "\t\t\tPolygon=500, 500, 400, 500\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Siren\n\t\t\tVisible=0\n\t\t\tActive=0\n\t\t}\n"
+        "\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember officer;
+    officer.firstName = "Ann";
+    MapScreen screen(data, rules, map, options, 0, {officer});
+    CHECK(screen.enemies().size() == 1 && screen.enemies()[0].state == "Patrol");
+    // At the route's first corner, where it stands; then along it at the
+    // retail walk's pace: a second, 36 pixels.
+    screen.update(1000);
+    screen.update(2000);
+    CHECK(std::abs(screen.enemies()[0].x - 463.6f) < 0.5f && screen.enemies()[0].walking);
+    // At the route's end, then looking about: 3 seconds turn it 30 degrees.
+    screen.update(4000);
+    CHECK(screen.enemies()[0].x == 400.0f);
+    screen.update(4001);
+    screen.update(4002);
+    screen.update(7100);
+    CHECK(std::abs(screen.enemies()[0].angle + 0.5236f) < 0.01f);
+    // An officer just to its left, in its sight: alerted, the siren on.
+    screen.order(350.0f, 500.0f);
+    screen.update(60000);
+    CHECK(screen.enemies()[0].state == "Alert" && screen.partState(2).active);
+    screen.update(61500);
+    CHECK(screen.enemies()[0].state == "Attack" && screen.enemies()[0].target == 0);
+}
+
+void testChoosing() {
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(kMap, kMap + std::string(kMap).size());
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=64,64\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember a;
+    a.firstName = "Ann";
+    TeamMember b;
+    b.firstName = "Bob";
+    MapScreen screen(data, rules, map, options, 0, {a, b});
+    // The first chosen to start with; both at the one spawn point there is
+    // being only for the first, the second where the view starts.
+    CHECK(screen.selected() == 0 && screen.officers()[0].chosen && !screen.officers()[1].chosen);
+    screen.chooseAll();
+    CHECK(screen.officers()[0].chosen && screen.officers()[1].chosen);
+    // Shift-click takes one away; a box about the other chooses them alone.
+    screen.choose(0, true);
+    CHECK(!screen.officers()[0].chosen && screen.selected() == 1);
+    screen.chooseIn(10, 30, 30, 50);
+    CHECK(screen.officers()[0].chosen && !screen.officers()[1].chosen && screen.selected() == 0);
+    // Sent together: side by side, the first on the place.
+    screen.chooseAll();
+    screen.order(60.0f, 60.0f);
+    screen.update(10000);
+    CHECK(screen.officers()[0].x == 60.0f && screen.officers()[0].y == 60.0f);
+    CHECK(std::abs(screen.officers()[1].x - 60.0f) > 1.0f || std::abs(screen.officers()[1].y - 60.0f) > 1.0f);
+    // How they move, all at once.
+    screen.setMove(1);
+    CHECK(screen.officers()[0].move == 1 && screen.officers()[1].move == 1);
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("stawayteam.unit.maps",
@@ -268,4 +364,6 @@ static const reluva::test::Suite kSuite("stawayteam.unit.maps",
                                             {"team", [](const std::filesystem::path &) { testTeam(); }},
                                             {"scripts", [](const std::filesystem::path &) { testScripts(); }},
                                             {"triggers", [](const std::filesystem::path &) { testTriggers(); }},
+                                            {"enemies", [](const std::filesystem::path &) { testEnemies(); }},
+                                            {"choosing", [](const std::filesystem::path &) { testChoosing(); }},
                                         });

@@ -31,6 +31,7 @@ public:
         int select = -1;   // an officer chosen on the team bar
         bool moveCamera = false;
         bool cycleMove = false; // the move button pressed: walk, run, crouch
+        bool selectAll = false; // the select-all button pressed
         float cameraX = 0.0f;   // where, for moveCamera: the view's middle on the map
         float cameraY = 0.0f;
     };
@@ -51,6 +52,8 @@ public:
 
     /** How the chosen officer moves, as the move button shows it: 0 walk, 1 run, 2 crouch. */
     void setMove(int move) { _move = move; }
+    /** Which officers are chosen, their slots lit. */
+    void setChosen(std::vector<bool> chosen) { _chosen = std::move(chosen); }
 
 private:
     // The info bar's top on the screen at `now`: rising as it opens.
@@ -75,6 +78,7 @@ private:
     bool _opening = false;
     uint64_t _last = 0;
     int _move = 0;
+    std::vector<bool> _chosen;
     int _mouseX = -1;
     int _mouseY = -1;
 };

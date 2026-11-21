@@ -194,6 +194,33 @@ scripts to find. Mission 01 has 103 `CRelayAI`, 31
 The program's trigger code isn't traced yet: how these fields act is
 read from the maps.
 
+### The enemies
+
+A character with a `CBorgAI` (the enemies' AI, whatever their race) is a
+state machine: `Patrol`, `Alert`, `Attack`, `Pursue`, `Investigate`,
+`Stun`, `Dead`, `Retreat` and others, each a state object
+(`CBorgStatePatrol`...) holding a tree of small AIs, its `Start Action`
+and `End Action`, and `Current State` the one it starts in (`Patrol`).
+
+- **Sight** (the AI's `Targeting`, a `CBorgSetClosestTarget`, whose
+  fields are written into the AI itself in the maps): `Max Distance`
+  (375 in the Romulan's model, 430 in Mission 01), `Vision Cone` (125
+  degrees) and `Valid Targets` (`Player,Team Member`).
+- **The patrol's AIs:** `CSeriesAI` (its `AIs` one after another),
+  `CLimitedTimeAI` (`What To Do` for `Max Time`), `CIdleAI` (its `Idle
+  Behavior`'s `Num Seconds`), `CFollowPathAI` (along the polygon of the
+  part named `Path Poly`; `Order` `Go To End`, `Loop`, `Back and forth`
+  or `Forth and back`; its `Moving`'s `Play Ratio`), `CScanAreaAI`
+  (turning from `Starting Angle` to `Ending Angle`, degrees, at `Turning
+  Speed`), `CGoForwardAI`, `CGoHomeAI`, `CRandomWaitAI` and others.
+- **Alert:** `CTurnToTargetAlertAI` for `Alert Time` (2 s), its `Start
+  Action` relaying to the mission's voices (`Attack Voice Relay`).
+- **Attack:** `CStarTrekStandGroundAttackAI`, shooting with
+  `CShootWeaponBehavior`, aiming at the target.
+
+The program's AI code isn't traced yet: how these act is read from the
+maps.
+
 The info dialog (`0x435db6`) is `Dialog Window/Background` at Rules.txt's
 `Dialog Pos`, the speaker's icon at `Dialog Icon Pos`, the line from its
 script in `Dialog Font` at `Dialog Text Pos`, wrapped to `Dialog Text
@@ -262,22 +289,38 @@ says start, at the spawn points, the first at point 1 *(inferred)*.
 Each is drawn from their body, its shadow and their head,
 standing (`Idle`, by the time) or walking, in front of and behind the
 map's models as they stand; the one chosen has the selection's marker
-(`Interface/Selection`) under them. A click on an officer, or their slot
-on the team bar, chooses them, a double click on the slot shows them; a
-click elsewhere on the map sends the one chosen walking there *(inferred:
-the game's mouse isn't traced)*, by the waypoints (`loadWayPoints`, the
+(`Interface/Selection`) under them, their slots lit. A click on an
+officer, or their slot on the team bar, chooses them alone, with Shift
+adds them or takes them away, a double click on the slot shows them; a
+box dragged on the map chooses those in it (with Shift, as well); Select
+Entire Team's key (A) and the select-all button choose everyone; a click
+elsewhere on the map sends those chosen walking there, the first onto
+the place and the rest about it a figure's width apart *(inferred: the
+game's mouse and grouping aren't traced)*, each by the waypoints (`loadWayPoints`, the
 shortest way along their lines by A*, then straight to the place
 *(inferred)*), facing the way they go, at their walk's own pace, its
 frames by how far into its cycle they are *(inferred)*. The keys bound to
 Walk, Run, Crouch and Cycle Movement, and the move button, set how the
-one chosen moves, the button going walk, run, crouch *(inferred for its
+ones chosen move, the button going walk, run, crouch *(inferred for its
 order)*, and the button shows it.
 
 A new game reaches it after the briefing (mission 1) or the team
-selection's START MISSION. Not there yet: the interface's other buttons,
-the map's song, the triggers set off by enemies, passing through or
-colliding, the AIs' messages and tasks, objectives, walkers going round
-each other, and the map's characters moving.
+selection's START MISSION.
+
+The enemies (`ui/map_enemies.cpp`), while their parts are active: on
+patrol, their patrol's AIs as above, a path straight from corner to
+corner, a scan's turning in degrees a second, the rest done at once
+*(inferred)*; seeing an officer (in Max Distance and half the Vision
+Cone either side of their facing, walls not yet hiding anyone), alerted:
+the Alert's Start Action, turning to them, and after Alert Time
+attacking: the Attack's Start Action, facing them; out of sight five
+seconds, back to the patrol *(inferred)*.
+
+Not there yet: the interface's other buttons, the map's song, the
+triggers set off by enemies, passing through or colliding, the AIs'
+messages and tasks, objectives, walkers going round each other, sight
+blocked by walls, and the enemies shooting, pursuing, investigating and
+the rest of their states.
 
 ## Sources and checks
 
@@ -299,7 +342,9 @@ each other, and the map's characters moving.
   values, a polygon on it, the camera kept on the map, a way found along
   the waypoints' lines, an officer at their spawn point walking where
   sent, a camera's script panning, eased, showing a line and beaming
-  the team in, and an officer walking into a trigger that relays to an
+  the team in, the team chosen by key, Shift and box and sent together,
+  a guard walking its route, looking about, seeing an officer, alerted
+  and attacking, and an officer walking into a trigger that relays to an
   arrow, on and a second later off, once only. Mission 01 run on: the
   opening's delayed relays bringing Data's lines that teach selecting and
   moving the team.
@@ -316,6 +361,9 @@ each other, and the map's characters moving.
 - **Shadows**, and how the `Trans` colours are drawn.
 - **The triggers:** the program's own rules for all of the above, which
   are read from the maps' fields, not from its code.
+- **The enemies:** likewise, the AIs' rules; and how walls block sight.
+- **Choosing:** the game's mouse for a box and Shift, and where officers
+  sent together stand.
 - **The team:** which spawn point each officer takes, `Facing Angle`'s
   degrees as the directions' (90 the viewer's way), the game's path
   finding, its mouse (which button chooses and which sends), the info

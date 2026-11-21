@@ -41,6 +41,10 @@ constexpr float kDialogWithoutVoice = 4.0f;
 // A walk's speed for a model without one: the retail bodies' sideways,
 // 26 pixels in 10 frames at 14 a second.
 constexpr float kDefaultWalk = 36.4f;
+// How far apart officers sent together stand (inferred).
+constexpr float kSpacing = 24.0f;
+// How far the mouse goes, held, before it's dragging a box (inferred).
+constexpr int kDrag = 4;
 // Too near a waypoint to walk any further to it.
 constexpr float kArrived = 1.0f;
 const char *const kExitQuestion = "Are you sure you want to quit the game and exit to the main menu?"; // 0x63a9e0
@@ -166,9 +170,10 @@ MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, 
         _officers.push_back(o);
     }
     if (!_officers.empty())
-        _selected = 0;
+        choose(0);
     _hud = std::make_unique<GameHud>(data, rules, _team, _map.minimap, _map.width, _map.height);
     setupTriggers();
+    setupEnemies();
 
     // The map's camera scripts play as it starts. The team's spawn points
     // hide them (their CSpawnPointAI's CMakeVisibleAction): one of the
@@ -330,19 +335,70 @@ int MapScreen::officerAt(float x, float y) {
     return -1;
 }
 
-void MapScreen::order(float x, float y) {
-    if (_selected < 0)
+void MapScreen::choose(int officer, bool add) {
+    if (officer < 0 || size_t(officer) >= _officers.size())
         return;
-    Officer &o = _officers[size_t(_selected)];
-    o.path = _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{x, y}} : _wayPoints.path(o.x, o.y, x, y);
+    if (!add)
+        for (Officer &o : _officers)
+            o.chosen = false;
+    Officer &o = _officers[size_t(officer)];
+    o.chosen = add ? !o.chosen : true;
+    _selected = -1;
+    if (o.chosen)
+        _selected = officer;
+    else
+        for (size_t i = 0; i < _officers.size() && _selected < 0; ++i)
+            if (_officers[i].chosen)
+                _selected = int(i);
+}
+
+void MapScreen::chooseIn(float x0, float y0, float x1, float y1, bool add) {
+    if (x1 < x0)
+        std::swap(x0, x1);
+    if (y1 < y0)
+        std::swap(y0, y1);
+    if (!add)
+        for (Officer &o : _officers)
+            o.chosen = false;
+    for (Officer &o : _officers)
+        if (o.x >= x0 && o.x <= x1 && o.y >= y0 && o.y <= y1)
+            o.chosen = true;
+    _selected = -1;
+    for (size_t i = 0; i < _officers.size() && _selected < 0; ++i)
+        if (_officers[i].chosen)
+            _selected = int(i);
+}
+
+void MapScreen::chooseAll() {
+    for (Officer &o : _officers)
+        o.chosen = true;
+    if (_selected < 0 && !_officers.empty())
+        _selected = 0;
+}
+
+void MapScreen::order(float x, float y) {
+    // Side by side about the place, the first chosen on it, the rest round
+    // them a figure's width apart (inferred: the game's grouping isn't
+    // traced).
+    int k = 0;
+    for (Officer &o : _officers) {
+        if (!o.chosen)
+            continue;
+        const float angle = float(k - 1) * 1.5707963f;
+        const float tx = k == 0 ? x : x + kSpacing * std::cos(angle);
+        const float ty = k == 0 ? y : y + kSpacing * 0.7f * std::sin(angle);
+        o.path = _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{tx, ty}}
+                                           : _wayPoints.path(o.x, o.y, tx, ty);
+        ++k;
+    }
 }
 
 void MapScreen::setMove(int move) {
-    if (_selected < 0)
-        return;
-    Officer &o = _officers[size_t(_selected)];
-    o.move = std::clamp(move, 0, 2);
-    o.travelled = 0.0f;
+    for (Officer &o : _officers)
+        if (o.chosen) {
+            o.move = std::clamp(move, 0, 2);
+            o.travelled = 0.0f;
+        }
 }
 
 void MapScreen::walk(Officer &o, float seconds) {
@@ -478,6 +534,7 @@ void MapScreen::update(uint64_t now) {
     for (Officer &o : _officers)
         walk(o, seconds);
     // The triggers see where everyone has got to.
+    updateEnemies(seconds);
     updateTriggers(seconds);
 }
 
@@ -528,8 +585,9 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
     }
     const GameHud::Result hud = _hud->handleEvent(ev, now);
     if (hud.select >= 0) {
-        // A double click on an officer's slot shows them too (inferred).
-        _selected = hud.select;
+        // A click on an officer's slot chooses them, with Shift adds them
+        // or takes them away; a double click shows them too (inferred).
+        choose(hud.select, (ev.mods & keymod::kShift) != 0);
         if (ev.clicks >= 2)
             moveCamera(_officers[size_t(_selected)].x, _officers[size_t(_selected)].y);
     }
@@ -538,17 +596,37 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
     // The move button goes round walking, running and crouching (inferred).
     if (hud.cycleMove && _selected >= 0)
         setMove((_officers[size_t(_selected)].move + 1) % 3);
-    // A click on the map: on an officer chooses them, elsewhere sends the
-    // one chosen walking there (inferred: the mouse's scheme isn't traced).
-    if (!hud.used && _scripts.empty() && _teamShown && ev.type == EventType::kMouseDown &&
-        ev.button == MouseButton::kLeft && ev.mouseX >= _viewX && ev.mouseY >= _viewY && ev.mouseX < _viewX + _viewW &&
-        ev.mouseY < _viewY + _viewH) {
-        const float x = _cameraX - float(_viewW) / 2.0f + float(ev.mouseX - _viewX);
-        const float y = _cameraY - float(_viewH) / 2.0f + float(ev.mouseY - _viewY);
-        if (const int officer = officerAt(x, y); officer >= 0)
-            _selected = officer;
-        else
-            order(x, y);
+    if (hud.selectAll)
+        chooseAll();
+    // On the map, the left button: a click on an officer chooses them
+    // (Shift: adds or takes them away), a box dragged chooses those in it,
+    // a click elsewhere sends those chosen there (inferred: the mouse's
+    // scheme isn't traced).
+    const auto toMapX = [&](int sx) { return _cameraX - float(_viewW) / 2.0f + float(sx - _viewX); };
+    const auto toMapY = [&](int sy) { return _cameraY - float(_viewH) / 2.0f + float(sy - _viewY); };
+    const bool inView =
+        ev.mouseX >= _viewX && ev.mouseY >= _viewY && ev.mouseX < _viewX + _viewW && ev.mouseY < _viewY + _viewH;
+    const bool playing = _scripts.empty() && _teamShown;
+    if (!hud.used && playing && inView && ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
+        _pressed = true;
+        _dragging = false;
+        _pressX = ev.mouseX;
+        _pressY = ev.mouseY;
+    }
+    if (_pressed && ev.type == EventType::kMouseMove &&
+        (std::abs(ev.mouseX - _pressX) > kDrag || std::abs(ev.mouseY - _pressY) > kDrag))
+        _dragging = true;
+    if (_pressed && ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
+        _pressed = false;
+        const bool add = (ev.mods & keymod::kShift) != 0;
+        if (_dragging) {
+            chooseIn(toMapX(_pressX), toMapY(_pressY), toMapX(ev.mouseX), toMapY(ev.mouseY), add);
+        } else if (const int officer = officerAt(toMapX(_pressX), toMapY(_pressY)); officer >= 0) {
+            choose(officer, add);
+        } else {
+            order(toMapX(_pressX), toMapY(_pressY));
+        }
+        _dragging = false;
     }
     if (ev.type == EventType::kKeyDown || ev.type == EventType::kKeyUp) {
         const bool down = ev.type == EventType::kKeyDown;
@@ -576,6 +654,8 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
             setMove(1);
         if (down && bound("Crouch"))
             setMove(2);
+        if (down && bound("Select Entire Team") && playing)
+            chooseAll();
         if (down && bound("Cycle Movement") && _selected >= 0)
             setMove((_officers[size_t(_selected)].move + 1) % 3);
     }
@@ -644,12 +724,12 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
                 }
         }
     }
-    // The selection's marker on the ground under the officer chosen.
-    if (_selected >= 0 && _teamShown) {
-        const Officer &o = _officers[size_t(_selected)];
-        blitBy(view, animation("Interface/Selection", "Idle").at(now), int(std::lround(o.x)) - left,
-               int(std::lround(o.y)) + kMarkerY - top);
-    }
+    // The selection's marker on the ground under each officer chosen.
+    if (_teamShown)
+        for (const Officer &o : _officers)
+            if (o.chosen)
+                blitBy(view, animation("Interface/Selection", "Idle").at(now), int(std::lround(o.x)) - left,
+                       int(std::lround(o.y)) + kMarkerY - top);
     // The models and the officers among them, back to front by where they
     // stand.
     struct Standing {
@@ -665,7 +745,9 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         if (p.x < float(left - 600) || p.x > float(left + _viewW + 600) || p.y < float(top - 600) ||
             p.y > float(top + _viewH + 600))
             continue;
-        order.push_back({p.y + float(p.renderingHeight), int(i), 0});
+        const auto enemy = _enemyOfPart.find(i);
+        const float y = enemy != _enemyOfPart.end() ? _enemies[enemy->second].y : p.y;
+        order.push_back({y + float(p.renderingHeight), int(i), 0});
     }
     for (size_t i = 0; i < _officers.size(); ++i)
         order.push_back({_officers[i].y, -1, i});
@@ -678,12 +760,22 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         const MapPart &p = _map.parts[size_t(s.part)];
         // Facing its way, its shadow under it and its head over it, frame
         // for frame (inferred: as the officers').
-        const std::string sequence = p.sequence.empty() ? "Idle" : p.sequence;
+        // An enemy where its AI has taken it, walking or standing.
+        const auto enemy = _enemyOfPart.find(size_t(s.part));
+        const Enemy *e = enemy != _enemyOfPart.end() ? &_enemies[enemy->second] : nullptr;
+        std::string sequence = p.sequence.empty() ? "Idle" : p.sequence;
+        if (e && (sequence == "Idle" || sequence == "Walk"))
+            sequence = e->walking ? "Walk" : "Idle";
         const Animation &body = animation(p.model, sequence);
-        const int direction = body.direction(p.angle);
-        const int frame = int(double(now) * double(body.fps) / 1000.0) % 100000;
-        const int x = int(std::lround(p.x)) - left;
-        const int y = int(std::lround(p.y)) - top;
+        const int direction = body.direction(e ? e->angle : p.angle);
+        int frame = int(double(now) * double(body.fps) / 1000.0) % 100000;
+        if (e && e->walking) {
+            const float cycle = body.cycleDistance(direction);
+            if (cycle > 0.0f)
+                frame = int(e->travelled / cycle * float(body.perDirection()));
+        }
+        const int x = int(std::lround(e ? e->x : p.x)) - left;
+        const int y = int(std::lround(e ? e->y : p.y)) - top;
         if (body.rotations > 1)
             blitBy(view, animation(p.model, sequence + " Shadow").frame(frame, direction), x, y);
         blitBy(view, body.frame(frame, direction), x, y);
@@ -693,7 +785,34 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
     for (int y = 0; y < _viewH && _viewY + y < screen.h; ++y)
         std::memcpy(screen.row(_viewY + y) + _viewX * 4, view.row(y), size_t(std::min(_viewW, screen.w - _viewX)) * 4);
     _hud->setMove(_selected >= 0 ? _officers[size_t(_selected)].move : 0);
+    std::vector<bool> chosen;
+    for (const Officer &o : _officers)
+        chosen.push_back(o.chosen);
+    _hud->setChosen(chosen);
     _hud->draw(screen, now, _selected, _cameraX, _cameraY, _viewW, _viewH);
+    // The box being dragged, outlined (inferred).
+    if (_dragging) {
+        const int x0 = std::min(_pressX, _mouseX);
+        const int x1 = std::max(_pressX, _mouseX);
+        const int y0 = std::max(_viewY, std::min(_pressY, _mouseY));
+        const int y1 = std::min(_viewY + _viewH - 1, std::max(_pressY, _mouseY));
+        const auto dot = [&](int x, int y) {
+            if (x >= _viewX && x < _viewX + _viewW && y >= 0 && y < screen.h) {
+                uint8_t *p = screen.row(y) + x * 4;
+                p[0] = 0;
+                p[1] = 255;
+                p[2] = 0;
+            }
+        };
+        for (int x = x0; x <= x1; ++x) {
+            dot(x, y0);
+            dot(x, y1);
+        }
+        for (int y = y0; y <= y1; ++y) {
+            dot(x0, y);
+            dot(x1, y);
+        }
+    }
     drawDialog(screen);
     if (_confirm)
         _confirm->draw(screen);

@@ -41,7 +41,8 @@ None yet.
   the info bar rising under the mouse, a walk's pace from its frames,
   characters' facing in radians, the move button's order, the view held
   by the camera's scripts, a line's time and the beaming in's look; the
-  triggers' rules, read from the maps' fields
+  triggers' and the enemies' rules, read from the maps' fields; choosing
+  by box and Shift, and where officers sent together stand
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **The briefing:** the voice-overs found by name under `Levels/Voice
   Overs`, the briefing music played over and over and the menu's song

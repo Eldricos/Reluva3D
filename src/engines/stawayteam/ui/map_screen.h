@@ -68,12 +68,20 @@ public:
         std::vector<std::pair<float, float>> path; // where they're walking to, the next first
         float travelled = 0.0f;                    // into their walk's cycle, in pixels
         int move = 0;                              // walking, running (1) or crouching (2)
+        bool chosen = false;                       // among those the player has chosen
     };
     const std::vector<Officer> &officers() const { return _officers; }
+    /** The officer chosen first: whose items the inventory shows; -1 for none. */
     int selected() const { return _selected; }
-    /** Sends the officer chosen walking to (x, y) on the map, by the waypoints. */
+    /** Chooses officer `officer` alone, or, with `add`, adds or takes them away. */
+    void choose(int officer, bool add = false);
+    /** Chooses those standing in the box between two points on the map, or adds them with `add`. */
+    void chooseIn(float x0, float y0, float x1, float y1, bool add = false);
+    /** Chooses the whole team (Select Entire Team). */
+    void chooseAll();
+    /** Sends the officers chosen walking to (x, y) on the map, by the waypoints, side by side. */
     void order(float x, float y);
-    /** How the officer chosen moves: 0 walking, 1 running, 2 crouching. */
+    /** How the officers chosen move: 0 walking, 1 running, 2 crouching. */
     void setMove(int move);
     /** Moves everyone on to `now` (the camera, the officers walking). */
     void update(uint64_t now);
@@ -92,6 +100,33 @@ public:
         bool deleted = false;
     };
     const PartState &partState(size_t part) const { return _partStates[part]; }
+
+    /** One of the map's characters with an enemy's AI (`CBorgAI`). */
+    struct Enemy {
+        size_t part = 0; // its part in the map
+        const TextObject *ai = nullptr;
+        float x = 0.0f; // where it stands
+        float y = 0.0f;
+        float angle = 0.0f;     // which way it faces, as Facing Angle
+        std::string state;      // "Patrol", "Alert", "Attack"...
+        int target = -1;        // the officer it's after
+        float stateTime = 0.0f; // seconds in its state
+        float unseen = 0.0f;    // seconds its target's been out of its sight
+        bool walking = false;
+        float travelled = 0.0f; // into its walk's cycle
+        // Each of its AIs' progress, by the AI.
+        struct Progress {
+            float time = 0.0f;
+            size_t index = 0;
+            std::vector<std::pair<float, float>> points;
+            int step = 1;
+            float from = 0.0f;
+            float to = 0.0f;
+            bool begun = false;
+        };
+        std::map<const TextObject *, Progress> progress;
+    };
+    const std::vector<Enemy> &enemies() const { return _enemies; }
     /** Runs `action` (one of the map's), as a trigger would, `instigator` the officer who set it off (or -1). */
     void runAction(const TextObject *action, int instigator = -1);
 
@@ -107,6 +142,17 @@ private:
     void scroll(float seconds);
     // The camera's scripts and their actions (0x4776a0).
     void playScripts(float seconds);
+    // The enemies (map_enemies.cpp).
+    void setupEnemies();
+    void updateEnemies(float seconds);
+    // Runs `ai` a step for `e`; true once it's done.
+    bool runAI(Enemy &e, const TextObject *ai, float seconds);
+    void forget(Enemy &e, const TextObject *ai);
+    // Walks `e` towards (x, y) at its walk's pace times `ratio`; true there.
+    bool walkTo(Enemy &e, float x, float y, float ratio, float seconds);
+    // Turns `e` towards `angle` at `degreesPerSecond`; true there.
+    bool turnTo(Enemy &e, float angle, float degreesPerSecond, float seconds);
+    bool sees(const Enemy &e, const Officer &o) const;
     // The map's triggers (map_triggers.cpp).
     void setupTriggers();
     void updateTriggers(float seconds);
@@ -155,6 +201,12 @@ private:
     WayPoints _wayPoints;
     std::vector<Officer> _officers;
     int _selected = -1;
+    // A box being dragged to choose officers: where it started, on the
+    // screen, and whether it's moved far enough to be one.
+    bool _pressed = false;
+    bool _dragging = false;
+    int _pressX = 0;
+    int _pressY = 0;
     std::unique_ptr<GameHud> _hud;
     audio::Mixer *_mixer;
     // The camera's scripts: the one playing first, panning or waiting.
@@ -183,6 +235,8 @@ private:
         float timer = 0.0f;            // a repeat timer's seconds till it next acts
     };
     std::vector<PartState> _partStates;
+    std::vector<Enemy> _enemies;
+    std::map<size_t, size_t> _enemyOfPart;
     std::vector<Trigger> _triggers;
     std::map<const TextObject *, size_t> _series; // a series' next action
     std::map<std::string, std::vector<size_t>> _byName;
