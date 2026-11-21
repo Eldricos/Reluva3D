@@ -96,7 +96,7 @@ Version=1.0.2
 | `VOICEVOLUME`, `VIDEOVOLUME`, `MUSICVOLUME`, `FXVOLUME` | the options screen's volumes, 0 to 127: 100, 127, 100, 100 in both files seen, as a fresh install's options screen shows them |
 | `TOOLTIPS`, `AUTOSAVE`, `RANDOMEVENTS` | the options' settings, `ON` or `OFF` |
 | `TACTICAL` | tactical combat: `ABSTRACT` automatic, `DETAILED` manual |
-| `TIMELIMIT`, `TACTIMELIMIT` | the strategic timer in minutes, the tactical in seconds, 0 none: `TIMELIMIT=3` and `TACTIMELIMIT=90` in a copy the user's game wrote, 90 being no tactical choice's number in the list, but 01:30's seconds. That the strategic one is minutes, not its choice's number (3 too), is *(inferred)* |
+| `TIMELIMIT`, `TACTIMELIMIT` | the strategic timer in minutes, the tactical in seconds, 0 none: copies the user's game wrote have `TIMELIMIT=3` and then `TIMELIMIT=30` (the strategic list has 25 entries, so the value isn't a place in it), and `TACTIMELIMIT=90` (01:30's seconds; the tactical list has 30 entries) |
 | `SHAPE`, `SIZE`, `RACENUM`, `DIFFICULTY`, `CIVLEVEL1`-`CIVLEVEL5` | the last game's setup, each as a saved game's `gameInfo` holds it ([formats/sav.md](../formats/sav.md)): difficulty 1 is simple |
 | `VICTORY` | the victory condition: `KILLALL` presumably domination *(guessed)* |
 | `3D`, `BORG`, `TURNSTATUS`, `SCREENVOLATILE`, the three `FILTER`s | not known yet: 3D drawing in software, the Borg, the turn status, and the galaxy map's filters (the manual's Military, Events and Economic buttons) *(guessed)* |

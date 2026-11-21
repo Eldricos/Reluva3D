@@ -35,13 +35,9 @@ None: nothing of the game's code has been read.
 - **The menu's sounds:** which of the same sound's entries the game
   plays, and the voice volume's lines ([systems/sound.md](systems/sound.md)).
   Settled by: the game's code, or many more slider moves.
-- **On Save Game:** typing whichever field was clicked, and the number
-  in a new save's description being the turn
-  ([systems/screens.md](systems/screens.md)). Settled by: saving a game
-  after its first turn.
-- **`Stbof.ini`'s strategic timer in minutes** (`TIMELIMIT=3` for 03:00)
-  ([systems/game-files.md](systems/game-files.md)). Settled by: the file
-  with the timer at 20:00 or more.
+- **On Save Game:** typing whichever field was clicked
+  ([systems/screens.md](systems/screens.md)). Settled by: the running
+  game.
 - **The timers' arrows** stopping at either end
   ([systems/screens.md](systems/screens.md)). Settled by: the running
   game.

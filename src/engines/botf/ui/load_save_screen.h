@@ -25,7 +25,8 @@ namespace reluva::botf {
 
 /**
  * A game's description as Save Game puts it in an empty slot: the player's
- * empire (0 Cardassians to 4 Romulans), the turn, the galaxy's size (0
+ * empire (0 Cardassians to 4 Romulans), the turns passed (0 on the first,
+ * as gameInfo counts the turn), the galaxy's size (0
  * small to 2 large) and shape (0 irregular to 3 spiral), "Ferengi 0 Medium
  * Ring Galaxy".
  */

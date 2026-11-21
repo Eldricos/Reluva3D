@@ -163,8 +163,9 @@ winning score are listed."
   at 52, 10), the description (9963, at 296, 10) and the score (9964, at
   598, 10), all `human15.fnt`, left-aligned, in (24, 101, 189), measured.
 - **The descriptions** read as the empire, a number and the galaxy:
-  "Klingons 381 Large Ring Galaxy". The number is presumably the turn the
-  game was won *(guessed)*.
+  "Klingons 381 Large Ring Galaxy". The number is presumably the turns
+  passed when the game was won, as in Save Game's descriptions
+  *(guessed)*.
 - **After a fresh install** the list holds ten games ("Yobo the Tyrant",
   Klingons, 12865 ... "Tony the Romulan", Romulans, 3253). They aren't in
   any file of the install or the CD (open questions); Reluva's list starts
@@ -242,11 +243,12 @@ game."
   its file's name and description turn pink, (239, 182, 198), measured
   from a screenshot. A slot with a saved game keeps its description when
   chosen ("Tutorial #1" stays, seen in the game), to be typed over. An
-  empty slot is filled with the game's: its empire, the turn, the galaxy's
-  size and shape, and "Galaxy", as "Ferengi 0 Medium Ring Galaxy" (the
-  user, in the game; saves so named in the screenshot above), each word
-  `lexicon.dic`'s (the empires' plural names). That the number is the turn
-  is *(inferred)*: every one seen is 0. Typing changes it, and Backspace
+  empty slot is filled with the game's: its empire, the turns passed, the
+  galaxy's size and shape, and "Galaxy", as "Ferengi 0 Medium Ring
+  Galaxy" (the user, in the game; saves so named in the screenshot above),
+  each word `lexicon.dic`'s (the empires' plural names). The number is 0
+  on the first turn and 5 on the sixth (the user, in the game): the turn
+  as `gameInfo` counts it, 0 the first. Typing changes it, and Backspace
   takes the last character away; only characters the
   field's font has (all in Windows-1252, as `gameInfo` keeps them), up to
   50 and the field's 370 pixels. Reluva takes what's typed whichever field
@@ -473,8 +475,6 @@ recording:
 - Why the game setup screen's timers are a pixel right of where their
   text boxes centre them.
 - Where the game keeps the options between runs.
-- Save Game: whether the number in a new save's description is the turn.
-  Settled by saving a game after its first turn.
 - Load Game: whether a slot whose file is `Game4.sav` on disk shows that
   or `game4.sav`. Settled by a save in such a slot. (After a fresh install
   that file is 0 bytes, and its slot shows empty: Reluva's reader refuses
