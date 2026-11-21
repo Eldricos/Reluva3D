@@ -13,12 +13,14 @@
 #include "engines/registry.h"
 #include "engines/viewer_registry.h"
 
+#include "tests/common/data/tone440_ogg.h"
 #include "tests/engines/stawayteam/support.h"
 #include "tests/support/record.h"
 #include "tests/support/test.h"
 #include "tests/support/zip_writer.h"
 
 #include <filesystem>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -96,7 +98,8 @@ void engineTest(const std::filesystem::path &tmp) {
     std::filesystem::create_directories(empty);
     rec.add("detect.empty", static_cast<int64_t>(engine->detect(empty).size()));
 
-    // An install of its own: the program, and an archive with the rules.
+    // An install of its own: the program, and an archive with the rules and
+    // a file of each kind the viewer shows.
     const std::filesystem::path dir = tmp / "install";
     std::filesystem::create_directories(dir);
     test::writeFile(dir / "Star Trek.exe", test::toBytes("not the game's"));
@@ -105,10 +108,18 @@ void engineTest(const std::filesystem::path &tmp) {
         stawayteam::frameFile(2, 2, 0, 0, 0x20, {{{0x00, 0xf8, 0xe0, 0x07}, {0x1f, 0x00, 0xff, 0xff}}}, true);
     const auto sprite =
         stawayteam::frameFile(3, 1, 1, 1, 0x2024, {{{0x81, 0x02, 0xe0, 0x07}}, {{0x80}}, {{0x01, 0x1f, 0x00, 0x82}}});
+    using stawayteam::solidFrame;
     const std::vector<test::ZipFile> files = {
         {"Rules.txt", test::toBytes("CStarTrekRules\r\n{\r\n\tFirst Map Name=Test Map\r\n}\r\n"), {}},
         {"Cache/Textures/Test.frm16", texture, {}},
-        {"Cache/Models/Icon.frm16", sprite, {}}};
+        {"Cache/Models/Icon.frm16", sprite, {}},
+        {"Cache/Sequences/Blink.seq16",
+         stawayteam::sequenceFile({solidFrame(6, 6, 0xf800), solidFrame(8, 8, 0x001f)}, 4.0f),
+         {}},
+        {"Cache/Models/Test.mdl16", stawayteam::modelFile("Test", 2, 3), {}},
+        {"Cache/Fonts/Test.seq16", stawayteam::fontFile({solidFrame(3, 5, 0xffff), solidFrame(4, 5, 0xffe0)}, 65), {}},
+        {"Music/Tone.ogg", std::vector<uint8_t>(std::begin(kTone440Ogg), std::end(kTone440Ogg)), {}},
+        {"Levels/Test.RDS", test::toBytes(":Hello\r\nHello, Away Team.\r\n"), {}}};
     writeData(dir / "DATA.dat", files);
     const auto found = engine->detect(dir);
     rec.add("detect.games", static_cast<int64_t>(found.size()));
@@ -121,9 +132,13 @@ void engineTest(const std::filesystem::path &tmp) {
 
     // The data viewer: the sprite on each background (they show through
     // its transparent and blended pixels), then the texture, zoomed, the
-    // next folder's, and without the status line; a checksum of each screen.
+    // next folder's, and without the status line; then each page in turn:
+    // the sequence stepped, the model turned and its next frame, the font,
+    // the sound played (no output here), and the objects, the next file's.
+    // A checksum of each screen.
     if (const MetaViewer *viewer = findViewer("stawayteam")) {
-        ScriptedSystem sys({'b', 'b', key::kRight, 'z', 'f', 'i'});
+        ScriptedSystem sys({'b', 'b', key::kRight, 'z', 'f', 'i', key::kTab, '.', key::kTab, '.', ']', key::kTab,
+                            key::kTab, ' ', key::kTab, key::kRight, key::kRight, key::kRight});
         const Error err = viewer->create(sys, targetFor(dir))->run();
         rec.add("viewer.result", err ? err.message : "ok");
         for (size_t i = 0; i < sys.screens.size(); ++i)

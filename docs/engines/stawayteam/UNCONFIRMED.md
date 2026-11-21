@@ -11,10 +11,16 @@ None yet.
 
 ## Seen running, not traced in the code
 
-None yet.
+- **A rotation sequence's frames go a direction at a time,** each
+  direction's together. Seen in the data viewer, where the models turn
+  smoothly so; the game's drawing of them isn't traced
+  ([formats/binary-object.md](formats/binary-object.md#behaviour)).
 
 ## Inferred
 
+- **A frame drawn by its origin:** its top left at the point less its
+  origin, as the sequences' bounds have them
+  ([formats/binary-object.md](formats/binary-object.md#behaviour)).
 - **Which fields are objects.** The game knows it from each class's
   properties; Reluva takes a field for an object when a `{` line follows
   it. The same on all of the game's files, but a file edited by hand

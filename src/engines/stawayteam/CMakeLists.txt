@@ -19,7 +19,15 @@ reluva_add_engine_viewers(stawayteam
     ACCESSOR stawayteamMetaViewer
     SOURCES
         pages/viewer.cpp
-        pages/picture_viewer.cpp)
+        pages/animation.cpp
+        pages/draw.cpp
+        pages/file_list.cpp
+        pages/font_viewer.cpp
+        pages/model_viewer.cpp
+        pages/object_viewer.cpp
+        pages/picture_viewer.cpp
+        pages/sequence_viewer.cpp
+        pages/sound_viewer.cpp)
 
 # Its reluva-tool commands (reluva-tool help stawayteam lists them).
 reluva_add_engine_tools(stawayteam

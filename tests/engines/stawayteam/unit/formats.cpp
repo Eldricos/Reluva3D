@@ -218,6 +218,25 @@ void testBinaryObjectProperty() {
     CHECK(bool(readBinaryObject(odd.out.data(), odd.out.size(), "CActionQueueItem", o)));
 }
 
+// A model as modelFile builds it: what the viewer's tests rely on.
+void testBinaryModel() {
+    const auto bytes = modelFile("Test", 2, 3);
+    BinaryObject model;
+    CHECK(!readBinaryObject(bytes.data(), bytes.size(), "CModel", model));
+    CHECK(model.object.className == "CModel" && *model.object.value("Legacy Name") == "Test");
+    CHECK(model.sequences.size() == 1 && model.sequences[0].name == "Idle" && model.sequences[0].sequence);
+    if (model.sequences.size() == 1 && model.sequences[0].sequence) {
+        const BinaryObject &seq = *model.sequences[0].sequence;
+        CHECK(seq.object.integer("Num Rotations") == 2 && seq.sequence && seq.sequence->frames.size() == 6);
+        CHECK(seq.sequence && seq.sequence->frameExtra.size() == 6);
+    }
+    // A font: a kind of sequence, told by its version.
+    const auto font = fontFile({solidFrame(3, 5, 0xffff)}, 65);
+    BinaryObject f;
+    CHECK(!readBinaryObject(font.data(), font.size(), "", f) && f.object.className == "CFont" &&
+          f.object.integer("First ASCII") == 65);
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -226,6 +245,7 @@ static const reluva::test::Suite
                {"frame", [](const std::filesystem::path &) { testFrame(); }},
                {"binary sequence", [](const std::filesystem::path &) { testBinarySequence(); }},
                {"binary waypoints", [](const std::filesystem::path &) { testBinaryWayPoints(); }},
+               {"binary model", [](const std::filesystem::path &) { testBinaryModel(); }},
                {"binary object property", [](const std::filesystem::path &) { testBinaryObjectProperty(); }},
                {"object", [](const std::filesystem::path &) { testObject(); }},
                {"object lines", [](const std::filesystem::path &) { testObjectLines(); }},

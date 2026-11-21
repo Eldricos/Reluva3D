@@ -96,4 +96,77 @@ struct BinaryWriter {
     BinaryWriter &object(float classVersion) { return f32(26.0f).f32(classVersion); }
 };
 
+/** CSequence's ten properties (version 586), with `frames` frames. */
+inline void sequenceProperties(BinaryWriter &w, int frames, float fps) {
+    w.i32(frames).f32(fps).u8(1).str("Transparent Mask").u8(0).u8(0).u8(0).u8(0).i32(0).i32(0);
+}
+
+/** A sequence's own data: its bounds, then each frame there, with its byte. */
+inline void sequenceFrames(BinaryWriter &w, const std::vector<std::vector<uint8_t>> &frames) {
+    w.i32(-4).i32(-4).i32(4).i32(4);
+    for (const auto &f : frames)
+        w.u8(1).bytes(f);
+}
+
+/** A raw frame of `w` x `h` pixels of one colour, its origin at its middle. */
+inline std::vector<uint8_t> solidFrame(int w, int h, uint16_t colour) {
+    std::vector<std::vector<uint8_t>> rows(static_cast<size_t>(h));
+    for (auto &row : rows)
+        for (int x = 0; x < w; ++x) {
+            row.push_back(uint8_t(colour));
+            row.push_back(uint8_t(colour >> 8));
+        }
+    return frameFile(w, h, w / 2, h / 2, 0x20, {rows}, true);
+}
+
+/** A .seq16: a CSequence of these frames. */
+inline std::vector<uint8_t> sequenceFile(const std::vector<std::vector<uint8_t>> &frames, float fps) {
+    BinaryWriter w;
+    w.object(586.0f);
+    sequenceProperties(w, int(frames.size()), fps);
+    sequenceFrames(w, frames);
+    return w.out;
+}
+
+/** A font's .seq16: a CFont (version 30079) of characters from `first`. */
+inline std::vector<uint8_t> fontFile(const std::vector<std::vector<uint8_t>> &glyphs, int first) {
+    BinaryWriter w;
+    w.object(30079.0f);
+    sequenceProperties(w, int(glyphs.size()), 30.0f);
+    w.i32(11).i32(first).i32(first + int(glyphs.size()) - 1).u8(0);
+    sequenceFrames(w, glyphs);
+    return w.out;
+}
+
+/**
+ * A .mdl16: a CModel (version 1603) of its thirty properties, with one
+ * rotation sequence, "Idle", of `rotations` directions of `frames` frames
+ * each (CRotationSequence, version 30575: CSequence's properties, then its
+ * own fourteen).
+ */
+inline std::vector<uint8_t> modelFile(const std::string &name, int rotations, int frames) {
+    BinaryWriter w;
+    w.object(1603.0f);
+    w.str(name).str("").str("Model Descriptions").str("A test model").str("").i32(0).str("");
+    w.f32(100.0f).f32(0.0f).str("").f32(0.0f).f32(0.0f).u8(0).i32(0).str("Idle");
+    for (int i = 0; i < 6; ++i)
+        w.str("");
+    for (int i = 0; i < 6; ++i)
+        w.f32(0.0f);
+    w.bytes({'P', 'O', 'L', 'Y', '2', 'D', 0, 7, 0, 0, 0, 0}).str("").str("");
+    w.i32(1).str("").u8(1).str("Idle").u8(0);
+    const int count = rotations * frames;
+    w.object(30575.0f);
+    sequenceProperties(w, count, 10.0f);
+    w.i32(rotations).i32(0).i32(0).u8(0).u8(0).u8(0).u8(0).u8(0).i32(0).f32(0.0f).f32(6.2831855f).i32(0);
+    w.i32(0).i32(0);
+    std::vector<std::vector<uint8_t>> each;
+    for (int i = 0; i < count; ++i)
+        each.push_back(solidFrame(4 + i, 4, uint16_t(0x07e0 + i)));
+    sequenceFrames(w, each);
+    for (int i = 0; i < count; ++i)
+        w.i32(0).i32(0);
+    return w.out;
+}
+
 } // namespace reluva::stawayteam

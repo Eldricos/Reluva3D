@@ -13,5 +13,17 @@ viewer.screen 3: 4ebc76a312e4e909
 viewer.screen 4: c4a242b4aa45a9b9
 viewer.screen 5: 44de01648155a335
 viewer.screen 6: 219047ef203000ed
+viewer.screen 7: 11feffc93174639a
+viewer.screen 8: 79f6fb1ac8578846
+viewer.screen 9: d37222b72cfdc44e
+viewer.screen 10: 8e93d87c4c75cffa
+viewer.screen 11: 914865c26a65c20b
+viewer.screen 12: 6f379fbdbb79a15d
+viewer.screen 13: d8bea53b6e71d3c5
+viewer.screen 14: d8bea53b6e71d3c5
+viewer.screen 15: 45998a88b4f5990b
+viewer.screen 16: 619640ab67458fe1
+viewer.screen 17: cb957c39a7109e19
+viewer.screen 18: 7df26989fe9e8a35
 play.bad rules: DATA.dat: Rules.txt: the text ends inside CStarTrekRules
 play.no rules: DATA.dat has no Rules.txt

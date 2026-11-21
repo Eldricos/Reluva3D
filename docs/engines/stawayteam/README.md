@@ -24,7 +24,9 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
   waypoint maps, its objects saved in binary
   ([formats/binary-object.md](formats/binary-object.md)), every one of
   them read.
-- **The data viewer** (`reluva-viewer`) shows the pictures.
+- **The data viewer** (`reluva-viewer`) shows the pictures, sequences,
+  models (each animation, turned every way), fonts, sounds, and every
+  object and script as Reluva reads it.
 - **Everything else** is still to come. The plan is in [PLAN.md](PLAN.md),
   and a first survey of the game's files is in
   [research/file-survey.md](research/file-survey.md).
@@ -40,11 +42,22 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
   can be imported the same way.
 - **The game** opens `DATA.dat` and reads its rules, then shows an empty
   screen for now; Esc goes back to the launcher.
-- **The data viewer:** `reluva-viewer` with the game. Its page of
-  pictures: Left/Right step through them, PageUp/PageDown by 10,
-  Home/End to the first and last, F to the next folder's; B changes what's
-  behind the picture (dark, a checkerboard, magenta), Z the zoom (as large
-  as fits, or 1-4 times), I hides the status line. Esc leaves.
+- **The data viewer:** `reluva-viewer` with the game. Tab moves between
+  its pages, Esc leaves. On every page, Left/Right step through its files,
+  PageUp/PageDown by 10, Home/End to the first and last, F to the next
+  folder's.
+  - **Pictures:** B changes what's behind the picture (dark, a
+    checkerboard, magenta), Z the zoom (as large as fits, or 1-4 times), I
+    hides the status line.
+  - **Sequences** (played at their own speed): Space pauses, , and . step
+    a frame, B and Z as for pictures.
+  - **Models:** Up/Down choose the animation, , and . turn it, Space
+    pauses, [ and ] step a frame, B and Z as for pictures.
+  - **Fonts:** every character, and a line of text; Up/Down scroll, B the
+    background.
+  - **Sounds:** Space plays or stops one, A plays each as it's chosen.
+  - **Objects:** any object in text or binary, or script, a field a line;
+    Up/Down scroll a line, , and . a page.
 
 ## This folder
 
@@ -66,7 +79,7 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
 |---|---|
 | `stawayteam.cpp` | The `MetaEngine` (name, detection table, making an `Engine`) and the `Engine` |
 | `formats/` | Reading the game's files: `text_object.cpp` (objects in text), `binary_object.cpp` (objects in binary), `object_schema.cpp` and the generated `class_table.cpp` (the game's classes), `rds_script.cpp` (`.RDS` scripts), `frame.cpp` (pictures) |
-| `pages/` | The data viewer, in `reluva-viewer` only: `picture_viewer.cpp` |
+| `pages/` | The data viewer, in `reluva-viewer` only: `viewer.cpp` (its pages, Tab between them), a page each in `picture_viewer.cpp`, `sequence_viewer.cpp`, `model_viewer.cpp`, `font_viewer.cpp`, `sound_viewer.cpp`, `object_viewer.cpp`; what they share in `page.h`, `file_list.cpp`, `animation.cpp`, `draw.cpp` |
 | `tools/` | `reluva-tool stawayteam` commands (`reluva-tool help stawayteam` lists them): `archive.cpp` for `DATA.dat`, `text.cpp` for its text, `objects.cpp` for its objects in binary, `images.cpp` for its pictures, `files.cpp` for the game's folder |
 
 ## Tests

@@ -46,8 +46,8 @@ Each phase ends with something that runs and is committed.
      names. Every class's properties are read out of the executable
      ([research/classes.txt](research/classes.txt)), and with them Reluva
      reads every such file to its last byte.
-   - **The viewer's other pages** (next): sequences, models by animation
-     and direction, fonts, sounds and the object trees.
+   - **The viewer's other pages** (done): sequences, models by animation
+     and direction, fonts, sounds and the objects.
 5. **Sound and movies**: Ogg Vorbis for 1,484 files (music, effects,
    711 character barks, 403 voice-overs); see
    [Decisions](#decisions) for the decoder. Bink movies (all revision

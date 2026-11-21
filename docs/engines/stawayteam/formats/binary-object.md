@@ -93,6 +93,20 @@ have one in these files:
 
 ## Behaviour
 
+- **A rotation sequence's frames** go a direction at a time: its `Num
+  Rotations` directions, each with the same number of frames, the frames
+  of one direction together *(seen, not traced: the Klingon's `Idle`, 72
+  frames in 12 directions, turns a step with each 6)*. The game refuses a
+  sequence whose frames don't divide evenly (`"There are not an equal
+  number of frames per rotation in %s."`, used at `0x5517a1`).
+- **A frame is drawn with its origin** at the sequence's point: its
+  top left at the point less the origin *(inferred: the sequences' bounds
+  are their frames' so placed)*.
+- **A font** (`CFont`) has a frame for each character from its `First
+  ASCII` to its `Last ASCII`; `Med Gold` has all 256, those under 32 and
+  over 127 drawn as their numbers. Its first property of its own, which
+  has no name (11 in `Med Gold`), isn't known.
+
 What a model's entity holds shows what the game makes of it: the
 Klingon's `Default Entity` is a `CEntityWalking` with the Borg's kind of
 AI (`CBorgAI` and its states), a Klingon Disruptor in its `CInventory`,
