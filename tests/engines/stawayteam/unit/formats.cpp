@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Star Trek: Away Team's unit tests: its formats: frames, objects in text,
-// and scripts.
+// Star Trek: Away Team's unit tests: its formats: frames, objects in text
+// and in binary, and scripts.
 
+#include "engines/stawayteam/formats/binary_object.h"
 #include "engines/stawayteam/formats/frame.h"
+#include "engines/stawayteam/formats/object_schema.h"
 #include "engines/stawayteam/formats/rds_script.h"
 #include "engines/stawayteam/formats/text_object.h"
 
 #include "tests/engines/stawayteam/support.h"
 #include "tests/support/test.h"
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -154,12 +157,77 @@ void testFrame() {
     CHECK(bool(readFrame(other.data(), other.size(), f)));
 }
 
+// A CSequence (version 586): its ten properties, the first its frame count,
+// then its box and its frames, the second missing.
+void testBinarySequence() {
+    BinaryWriter w;
+    w.object(586.0f).i32(2).f32(30.0f).u8(1).str("Transparent Mask").u8(1).u8(0).u8(0).u8(0).i32(3).i32(-4);
+    w.i32(-1).i32(-1).i32(2).i32(2);
+    w.u8(1).bytes(frameFile(2, 2, 1, 1, 0x20, {{{0, 0, 0, 0}, {0, 0, 0, 0}}}, true)).u8(0);
+    BinaryObject seq;
+    CHECK(!readBinaryObject(w.out.data(), w.out.size(), "", seq));
+    CHECK(seq.object.className == "CSequence" && seq.object.fields.size() == 10);
+    CHECK(seq.object.number("Frames Per Second") == 30.0 && *seq.object.value("Blit Type") == "Transparent Mask");
+    // Grouped keys ("Render/X Offset") keep their last part, as in text.
+    CHECK(seq.object.integer("X Offset") == 3 && seq.object.integer("Y Offset") == -4);
+    const std::array<int32_t, 4> box = {-1, -1, 2, 2};
+    CHECK(seq.sequence && seq.sequence->box == box);
+    CHECK(seq.sequence && seq.sequence->frames.size() == 2 && seq.sequence->frames[0] &&
+          seq.sequence->frames[0]->width == 2 && !seq.sequence->frames[1]);
+    // Of another version than its class's (586 made 2,344), it isn't read.
+    w.out[7] = 0x45;
+    CHECK(bool(readBinaryObject(w.out.data(), w.out.size(), "", seq)));
+}
+
+// A CWayPointMap: two waypoints on one line.
+void testBinaryWayPoints() {
+    BinaryWriter w;
+    w.object(101.0f).i32(30).i32(59).i32(2);
+    w.object(142.0f).i32(0).i32(10).i32(20).i32(1).i32(0);
+    w.object(142.0f).i32(4).i32(110).i32(20).i32(1).i32(0);
+    w.i32(1).object(283.0f).i32(0).f32(24.0f).f32(100.0f).f32(0.0f).i32(0).i32(1);
+    BinaryObject map;
+    CHECK(!readBinaryObject(w.out.data(), w.out.size(), "CWayPointMap", map));
+    CHECK(map.object.integer("MinDistBetweenWayPoints") == 30);
+    CHECK(map.wayPoints.size() == 2 && map.wayPoints[1].x == 110 && map.wayPoints[1].flags == 4 &&
+          map.wayPoints[1].lines == std::vector<int32_t>({0}));
+    CHECK(map.lines.size() == 1 && map.lines[0].length == 100.0f && map.lines[0].b == 1);
+    // Something after the object: not the game's.
+    w.u8(0);
+    CHECK(bool(readBinaryObject(w.out.data(), w.out.size(), "CWayPointMap", map)));
+}
+
+// An object property: its class's name, then the object; empty for none.
+void testBinaryObjectProperty() {
+    const ClassSchema *item = findClass("CActionQueueItem");
+    CHECK(item && findClass("CAction") && !findClass("CNoSuchClass"));
+    if (!item)
+        return;
+    BinaryWriter w;
+    w.object(item->version).f32(1.5f).str("CAction").object(1.0f).i32(-1).i32(0).i32(0).i32(0);
+    BinaryObject o;
+    CHECK(!readBinaryObject(w.out.data(), w.out.size(), "CActionQueueItem", o));
+    const TextObject *action = o.object.object("Action");
+    CHECK(action && action->className == "CAction" && o.object.integer("Instigator") == -1);
+    BinaryWriter none;
+    none.object(item->version).f32(0.0f).str("").i32(0).i32(0).i32(0).i32(0);
+    CHECK(!readBinaryObject(none.out.data(), none.out.size(), "CActionQueueItem", o) && !o.object.object("Action"));
+    // A class the game doesn't have.
+    BinaryWriter odd;
+    odd.object(item->version).f32(0.0f).str("CNoSuchClass").object(1.0f);
+    CHECK(bool(readBinaryObject(odd.out.data(), odd.out.size(), "CActionQueueItem", o)));
+}
+
 } // namespace
 
-static const reluva::test::Suite kSuite("stawayteam.unit.formats",
-                                        {
-                                            {"frame", [](const std::filesystem::path &) { testFrame(); }},
-                                            {"object", [](const std::filesystem::path &) { testObject(); }},
-                                            {"object lines", [](const std::filesystem::path &) { testObjectLines(); }},
-                                            {"script", [](const std::filesystem::path &) { testScript(); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("stawayteam.unit.formats",
+           {
+               {"frame", [](const std::filesystem::path &) { testFrame(); }},
+               {"binary sequence", [](const std::filesystem::path &) { testBinarySequence(); }},
+               {"binary waypoints", [](const std::filesystem::path &) { testBinaryWayPoints(); }},
+               {"binary object property", [](const std::filesystem::path &) { testBinaryObjectProperty(); }},
+               {"object", [](const std::filesystem::path &) { testObject(); }},
+               {"object lines", [](const std::filesystem::path &) { testObjectLines(); }},
+               {"script", [](const std::filesystem::path &) { testScript(); }},
+           });

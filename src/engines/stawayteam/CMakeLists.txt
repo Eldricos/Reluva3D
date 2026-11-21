@@ -7,7 +7,10 @@ reluva_add_engine(stawayteam
     ACCESSOR stawayteamMetaEngine
     SOURCES
         stawayteam.cpp
+        formats/binary_object.cpp
+        formats/class_table.cpp
         formats/frame.cpp
+        formats/object_schema.cpp
         formats/rds_script.cpp
         formats/text_object.cpp)
 
@@ -24,6 +27,7 @@ reluva_add_engine_tools(stawayteam
         tools/archive.cpp
         tools/files.cpp
         tools/images.cpp
+        tools/objects.cpp
         tools/text.cpp)
 
 # Its tests (tests/engines/stawayteam/), in reluva-tests: the unit tests by

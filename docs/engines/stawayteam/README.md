@@ -20,8 +20,10 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
   in text that hold its rules, maps and missions
   ([formats/text-object.md](formats/text-object.md)); the scripts of its
   words ([formats/rds.md](formats/rds.md)); its pictures
-  ([formats/frm16.md](formats/frm16.md)). The sequences, models and maps'
-  other files, saved as objects in binary, are still to be read.
+  ([formats/frm16.md](formats/frm16.md)); its models, sequences, fonts and
+  waypoint maps, its objects saved in binary
+  ([formats/binary-object.md](formats/binary-object.md)), every one of
+  them read.
 - **The data viewer** (`reluva-viewer`) shows the pictures.
 - **Everything else** is still to come. The plan is in [PLAN.md](PLAN.md),
   and a first survey of the game's files is in
@@ -50,9 +52,9 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
 |---|---|
 | This page | The game, where the engine stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
-| [formats/](formats/) | A page per file format: [data-dat.md](formats/data-dat.md), [text-object.md](formats/text-object.md), [rds.md](formats/rds.md), [frm16.md](formats/frm16.md), [pal.md](formats/pal.md) |
+| [formats/](formats/) | A page per file format: [data-dat.md](formats/data-dat.md), [text-object.md](formats/text-object.md), [binary-object.md](formats/binary-object.md), [rds.md](formats/rds.md), [frm16.md](formats/frm16.md), [pal.md](formats/pal.md) |
 | `systems/` | A page per part of how the game behaves, as it's worked out |
-| [research/](research/README.md) | Working notes: [file-survey.md](research/file-survey.md), what the install holds; [binary-objects.md](research/binary-objects.md), the objects saved in binary |
+| [research/](research/README.md) | Working notes: [file-survey.md](research/file-survey.md), what the install holds; [binary-objects.md](research/binary-objects.md), the objects saved in binary, and [classes.txt](research/classes.txt), the game's classes |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
 | [TESTING.md](TESTING.md) | The tests, and what to check by hand |
@@ -63,9 +65,9 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
 | Path | What |
 |---|---|
 | `stawayteam.cpp` | The `MetaEngine` (name, detection table, making an `Engine`) and the `Engine` |
-| `formats/` | Reading the game's files: `text_object.cpp` (objects in text), `rds_script.cpp` (`.RDS` scripts), `frame.cpp` (pictures) |
+| `formats/` | Reading the game's files: `text_object.cpp` (objects in text), `binary_object.cpp` (objects in binary), `object_schema.cpp` and the generated `class_table.cpp` (the game's classes), `rds_script.cpp` (`.RDS` scripts), `frame.cpp` (pictures) |
 | `pages/` | The data viewer, in `reluva-viewer` only: `picture_viewer.cpp` |
-| `tools/` | `reluva-tool stawayteam` commands (`reluva-tool help stawayteam` lists them): `archive.cpp` for `DATA.dat`, `text.cpp` for its text, `images.cpp` for its pictures, `files.cpp` for the game's folder |
+| `tools/` | `reluva-tool stawayteam` commands (`reluva-tool help stawayteam` lists them): `archive.cpp` for `DATA.dat`, `text.cpp` for its text, `objects.cpp` for its objects in binary, `images.cpp` for its pictures, `files.cpp` for the game's folder |
 
 ## Tests
 
@@ -87,6 +89,13 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
   ([formats/text-object.md](formats/text-object.md)).
 - **Script:** an `.RDS` file of the game's words, its entries found by
   label ([formats/rds.md](formats/rds.md)).
+- **Class, property:** the game's objects are of C++ classes, each with a
+  list of properties it saves, in text and in binary
+  ([research/classes.txt](research/classes.txt)).
+- **Model:** a thing that can be on a map, with its animations
+  (`.mdl16`, a `CModel`); **sequence:** an animation of frames (`.seq16`);
+  **rotation sequence:** a model's animation, its frames for each direction
+  ([formats/binary-object.md](formats/binary-object.md)).
 - **Frame:** a picture in the game's 16-bit format, a `.frm16` file or
   one inside a sequence or model ([formats/frm16.md](formats/frm16.md)).
 - **Blended pixels:** a frame's pixels drawn part see-through, with an

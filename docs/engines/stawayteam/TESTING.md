@@ -12,7 +12,7 @@ files):
 |---|---|
 | `stawayteam.unit.detection` | Recognising the game: an empty folder and the program alone aren't the game; its two files, whatever they hold, are an unknown release. Importing it: from a CD's `Setup` folder, the files Reluva uses and the movies in their folders, and not the rest; from an install without movies, with a note |
 
-| `stawayteam.unit.formats` | Frames (raw, each kind of run-length code, blended pixels with their alpha, damaged ones), objects in text (arrays with and without counts, keys more than once, spaces at values' ends, LF and CRLF, written back as they were, text that isn't an object) and `.RDS` scripts (comments, labels with spaces, paragraphs) |
+| `stawayteam.unit.formats` | Frames (raw, each kind of run-length code, blended pixels with their alpha, damaged ones), objects in binary (a sequence and its frames, a waypoint map, objects in properties, another version, bytes left over, a class the game doesn't have), objects in text (arrays with and without counts, keys more than once, spaces at values' ends, LF and CRLF, written back as they were, text that isn't an object) and `.RDS` scripts (comments, labels with spaces, paragraphs) |
 
 Reading `DATA.dat` is the common ZIP reader's, tested in
 `common.unit.archives`, with an end record signed as the game signs it.
@@ -41,7 +41,9 @@ files, which the tests never hold. That the real `DATA.dat` is read
 whole: `reluva-tool stawayteam data-extract` on it; and its objects and
 scripts: `reluva-tool stawayteam data-check`, which should find 753
 objects, all written back the same, 48 scripts with 1,378 entries, the
-11 other text files, and no problems; and its pictures:
+11 other text files, and no problems; its objects in binary:
+`reluva-tool stawayteam object-check`, 3,738 models, 179 sequences, 19
+fonts and 33 waypoint maps, none failed; and its pictures:
 `reluva-tool stawayteam frame-check`, 671 frames read and one file not
 a frame. How the pictures look: the data viewer, or `reluva-tool
 stawayteam frame-png`.
@@ -59,4 +61,4 @@ stawayteam frame-png`.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
-| November 2026 | US English retail | Linux | Detection of the install (`reluva-tool detect`); the import's plan (`reluva-tool import`) from the install, and from a CD's layout made of its files; all 6,949 files of `DATA.dat` read, their CRC-32s matching; `data-check`: all 753 objects and 48 scripts read; `frame-check`: all 671 frames read; the viewer's Pictures page on the real data, by its screens |
+| November 2026 | US English retail | Linux | Detection of the install (`reluva-tool detect`); the import's plan (`reluva-tool import`) from the install, and from a CD's layout made of its files; all 6,949 files of `DATA.dat` read, their CRC-32s matching; `data-check`: all 753 objects and 48 scripts read; `frame-check`: all 671 frames read; `object-check`: all 3,969 objects in binary read; the viewer's Pictures page on the real data, by its screens |

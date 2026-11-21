@@ -24,6 +24,10 @@ None yet.
   pixel's alpha, 255 opaque, and its pixels as RGB 5:6:5: the pictures
   look right so, but the game drawing them hasn't been compared
   ([formats/frm16.md](formats/frm16.md#blended-pixels)).
+- **Objects held in place: their classes.** Taken from the text files,
+  which name them for 55 such properties; the other 24 are told by their
+  version and size, and none of those is in the game's binary files
+  ([formats/binary-object.md](formats/binary-object.md#properties)).
 - **The `.RDS` scripts' rules** where the files don't show them (text
   before a label, a label twice): the game's reader isn't traced
   ([formats/rds.md](formats/rds.md#open-questions)).
@@ -36,7 +40,9 @@ None yet.
 
 ## Guessed
 
-None yet.
+- **Points' 8 bytes as two whole numbers,** not two floats, in what
+  Reluva shows of an object
+  ([formats/binary-object.md](formats/binary-object.md#properties)).
 
 ## Settled
 

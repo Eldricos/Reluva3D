@@ -6,6 +6,8 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
+#include <string>
 #include <vector>
 
 namespace reluva::stawayteam {
@@ -62,5 +64,36 @@ inline std::vector<uint8_t> frameFile(int w, int h, int originX, int originY, ui
     }
     return out;
 }
+
+/** Bytes as the game's binary writer writes them (formats/binary_object.h). */
+struct BinaryWriter {
+    std::vector<uint8_t> out;
+
+    BinaryWriter &i32(int32_t v) {
+        put32(out, uint32_t(v));
+        return *this;
+    }
+    BinaryWriter &f32(float v) {
+        uint32_t bits = 0;
+        std::memcpy(&bits, &v, 4);
+        put32(out, bits);
+        return *this;
+    }
+    BinaryWriter &u8(uint8_t v) {
+        out.push_back(v);
+        return *this;
+    }
+    BinaryWriter &str(const std::string &s) {
+        i32(int32_t(s.size()));
+        out.insert(out.end(), s.begin(), s.end());
+        return *this;
+    }
+    BinaryWriter &bytes(const std::vector<uint8_t> &v) {
+        out.insert(out.end(), v.begin(), v.end());
+        return *this;
+    }
+    /** An object's start: the format's version, then its class's. */
+    BinaryWriter &object(float classVersion) { return f32(26.0f).f32(classVersion); }
+};
 
 } // namespace reluva::stawayteam

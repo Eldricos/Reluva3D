@@ -16,6 +16,7 @@ src/backends/graphics/sdl3/shaders/compiled.h
 src/emulation/x86/runtime/msvcp60_dll.h
 src/video/indeo5_tables.cpp
 src/engines/stgenerations/formats/opcodes.cpp
+src/engines/stawayteam/formats/class_table.cpp
 tests/common/data/*.h
 tests/engines/idtech3/data/qvm/*_qvm.h
 

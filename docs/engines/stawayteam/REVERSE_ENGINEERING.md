@@ -70,6 +70,8 @@ extended. The facts themselves are on their pages, each with its source.
 | `reluva-tool stawayteam text-show` | Shows one object's fields or one script's entries as Reluva reads them |
 | `reluva-tool stawayteam frame-check` | Decodes every `.frm16` picture in `DATA.dat` |
 | `reluva-tool stawayteam frame-png` | Writes `.frm16` pictures out as PNG files |
+| `reluva-tool stawayteam object-check` | Reads every model, sequence and waypoint map in `DATA.dat` |
+| `reluva-tool stawayteam object-show` | Prints a model's, sequence's or waypoint map's object as Reluva reads it |
 
 Research scripts, not part of Reluva, in `tools/stawayteam-re/`
 (its README says how to run them):
@@ -78,6 +80,7 @@ Research scripts, not part of Reluva, in `tools/stawayteam-re/`
 |---|---|
 | `stat_classes.py` | Reads every class and its properties out of `Star Trek.exe`'s disassembly: [research/classes.txt](research/classes.txt) |
 | `stat_objects.py` | Decodes every sequence, model and waypoint map in `DATA.dat` with that schema, to check it |
+| `stat_table.py` | Writes Reluva's table of the classes, `src/engines/stawayteam/formats/class_table.cpp`, from the schema |
 
 ## Working files not included
 
