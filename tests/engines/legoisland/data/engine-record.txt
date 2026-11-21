@@ -1,0 +1,3 @@
+# The record of legoisland.engine (tests/engines/legoisland/engine.cpp).
+# Written by `reluva-tests legoisland.engine --update`; review its diff before committing.
+detect.games: 0
