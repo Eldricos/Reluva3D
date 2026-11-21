@@ -518,6 +518,7 @@ void SpGameHost::syncGhoul2Pose(int32_t handle, uint32_t vector) {
                 a.flags = flags & kAnimFlags;
                 a.speed = asFloat(_cpu->read32(r + kBoneSpeed));
                 a.startTime = int32_t(_cpu->read32(r + kBoneStartTime));
+                a.pauseTime = int32_t(_cpu->read32(r + kBonePauseTime));
                 a.blendStart = int32_t(_cpu->read32(r + kBoneBlendStart));
                 a.blendTime = int32_t(_cpu->read32(r + kBoneBlendTime));
                 a.blendFrame = asFloat(_cpu->read32(r + kBoneBlendFrame));

@@ -84,11 +84,10 @@ What Reluva does that hasn't been checked against the running original.
   original plays a level's music from its start. Reluva starts it at
   that first call ([systems/sp-music.md](systems/sp-music.md)).
 
+
 ## Guessed
 
-- A paused Ghoul2 animation in single player is posed as if it went on;
-  the original's poses it where it was paused
-  ([systems/sp-ghoul2.md](systems/sp-ghoul2.md)).
+Nothing at present.
 
 ## Settled
 

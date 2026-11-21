@@ -992,6 +992,23 @@ static void testGhoul2Instances() {
     CHECK(g2.drawn(50, 0, drawn) && drawn.size() == 1);
     if (drawn.size() == 1)
         CHECK(!drawn[0].surfaceOn[0] && !drawn[0].noCollide && near(drawn[0].placement[7], 0));
+    // Single player's paused animation (on the root, the skeleton's bone
+    // 1): posed where it was paused (at 25 ms, 2.5 up), whatever the time;
+    // going on, by the time.
+    Ghoul2Instances::ModelState posed;
+    posed.file = "test/model.glm";
+    posed.bolts = {{0, -1}}; // the child's bone
+    Ghoul2Instances::Animation looping;
+    looping.endFrame = 2;
+    looping.flags = Ghoul2Instances::kAnimLoop;
+    looping.pauseTime = 25;
+    g2.setInstance(60, {posed}, {{{1, looping}}});
+    g2.boltMatrix(60, 0, 0, 50, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, m);
+    CHECK(near(m[11], 2.5f));
+    looping.pauseTime = 0;
+    g2.setInstance(60, {posed}, {{{1, looping}}});
+    g2.boltMatrix(60, 0, 0, 50, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, m);
+    CHECK(near(m[11], 5));
 }
 
 static void testBsp() {

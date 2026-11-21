@@ -536,8 +536,10 @@ void Ghoul2Instances::poseModel(const Model &m, int32_t time, std::vector<Bone34
         if (const auto a = m.animations.find(int(i)); a != m.animations.end()) {
             const Animation &an = a->second;
             timing[i] = {};
-            animationFrames(an.startFrame, an.endFrame, an.flags, an.speed, an.startTime, time, sk->frameCount,
-                            timing[i].current, timing[i].next, timing[i].towards);
+            // A paused one where it was paused (jk2sp.exe's 0x464e99).
+            animationFrames(an.startFrame, an.endFrame, an.flags, an.speed, an.startTime,
+                            an.pauseTime ? an.pauseTime : time, sk->frameCount, timing[i].current, timing[i].next,
+                            timing[i].towards);
             const float since = float(time - an.blendStart);
             if ((an.flags & kAnimBlend) && since >= 0 && since < float(an.blendTime)) {
                 timing[i].blend = true;

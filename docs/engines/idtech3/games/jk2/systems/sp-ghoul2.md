@@ -189,7 +189,9 @@ are handed to multiplayer's posing code (`Ghoul2Instances::setInstance`:
 each model's file, skin, bolt link, bolts, surface flags, angle
 overrides with their matrices, and animations), again only when the
 records' bytes have changed, so a frame's many bolt questions pose each
-model once. A paused animation is posed as if it went on *(guessed)*.
+model once. A paused animation is posed where it was paused: the
+renderer times a bone's animation from its pause time (68 in the
+record) when it has one, else from the frame's (0x464e99).
 The client game's `G2_SetModels` (its call 85) gives each model in use
 its skin: the skin list's entry at its custom skin (0x453180, into the
 model at 0xa8). The custom skin is the game's number for the skin, not

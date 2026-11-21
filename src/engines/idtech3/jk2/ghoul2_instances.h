@@ -143,6 +143,8 @@ public:
         int32_t flags = 0;
         float speed = 1;
         int32_t startTime = 0;
+        // Single player's: when it was paused, which it's posed at; 0 if it isn't.
+        int32_t pauseTime = 0;
         // What it blends from (kAnimBlend): the last animation's frame when
         // this one was set, and the frame mixed with it.
         int32_t blendStart = 0;
