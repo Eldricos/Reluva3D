@@ -16,8 +16,10 @@ Engine id `legoisland`, in `src/engines/legoisland/`.
 
 It recognises the English 1.0 release, and other releases by their
 files' names, and imports the game from its CD into one folder
-([systems/game-files.md](systems/game-files.md)). Run, it shows an empty
-screen. The plan is in [PLAN.md](PLAN.md).
+([systems/game-files.md](systems/game-files.md)). It reads the SI
+archives, and gives back their pictures, sounds and animations as the
+files they were made from ([formats/si.md](formats/si.md)). Run, it shows
+an empty screen. The plan is in [PLAN.md](PLAN.md).
 
 ## Using it
 
@@ -33,7 +35,7 @@ without the CD's scripts the game won't be able to run from it.
 |---|---|
 | This page | The games, where the engine stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
-| `formats/` | A page per file format, as it's worked out |
+| [formats/](formats/) | A page per file format: [si.md](formats/si.md) (the SI archives) |
 | [systems/](systems/) | How the game behaves: [game-files.md](systems/game-files.md) (its files, and telling releases apart) |
 | `research/` | Working notes: address maps, raw findings, notes on recordings |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
@@ -47,6 +49,7 @@ without the CD's scripts the game won't be able to run from it.
 |---|---|
 | `legoisland.cpp` | The `MetaEngine` (name, making an `Engine`, importing) and the `Engine` |
 | `detection.cpp` | The releases it recognises, and finding and copying the game's parts for an import |
+| `formats/si.cpp` | The SI archives: their objects, their chunks, and their media as standard files |
 | `tools/` | `reluva-tool legoisland` commands (`reluva-tool help legoisland` lists them) |
 
 ## Tests
@@ -65,3 +68,6 @@ without the CD's scripts the game won't be able to run from it.
   and the media they play, laid out to be streamed from the CD.
 - **Presenter:** the class an SI object names to play it (a sound, an
   animation, a model).
+- **Object, chunk, piece:** an SI file's `MxOb` records, the `MxCh`
+  chunks of their data, and the pieces (a header, a frame, a second of
+  sound) the chunks join into ([formats/si.md](formats/si.md)).

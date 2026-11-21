@@ -7,12 +7,14 @@ reluva_add_engine(legoisland
     ACCESSOR legoislandMetaEngine
     SOURCES
         detection.cpp
+        formats/si.cpp
         legoisland.cpp)
 
 # Its reluva-tool commands (reluva-tool help legoisland lists them).
 reluva_add_engine_tools(legoisland
     SOURCES
-        tools/files.cpp)
+        tools/files.cpp
+        tools/si.cpp)
 
 # Its tests (tests/engines/legoisland/), in reluva-tests: the unit tests by
 # topic, and the engine test, without game files (its record in
@@ -22,9 +24,10 @@ reluva_add_engine_tests(legoisland
     SOURCES
         ${tests}/unit/detection.cpp
         ${tests}/unit/import.cpp
+        ${tests}/unit/si.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.import engine)
+        unit.detection unit.import unit.si engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

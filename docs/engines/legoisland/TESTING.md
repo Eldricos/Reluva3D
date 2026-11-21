@@ -11,6 +11,7 @@ files):
 | Suite | What it checks |
 |---|---|
 | `legoisland.unit.detection` | Recognising the game's releases: an unknown release by its files' names, in any case; `LEGO1.DLL` without the world database isn't the game |
+| `legoisland.unit.si` | SI files, from one built in the test: the objects, a select, pieces split across buffers with a pad chunk and filler, and rebuilding a `.bmp`, `.wav` and `.flc` |
 | `legoisland.unit.import` | Importing: from the CD, from an install with the CD added after, what each note says is missing, and a folder with neither |
 
 ### The basic engine test

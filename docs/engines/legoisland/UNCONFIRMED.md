@@ -15,6 +15,11 @@ None yet.
 
 ## Inferred
 
+- In an SI object, flag `0x08` is a still's transparency and the
+  medium's 1 or 0 whether the game manages its palette: the jukebox's
+  script sets both together, so they may be the other way round
+  ([formats/si.md](formats/si.md#mxob-an-object)). Settled by the
+  game's code, or by which stills draw a transparent colour.
 - An imported game runs with `diskpath` and `cdpath` both its folder:
   the import puts the CD's scripts there. To be settled when the game
   first runs ([systems/game-files.md](systems/game-files.md#importing-it)).

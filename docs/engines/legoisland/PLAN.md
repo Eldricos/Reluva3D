@@ -16,12 +16,12 @@ Each phase ends with something that runs, is tested and is committed.
    release, keyed on `LEGO1.DLL` and `WORLD.WDB`, and *Import Game...*
    from the CD or an install into one folder
    ([systems/game-files.md](systems/game-files.md)).
-3. **Readers and the data viewer** (next): the `.SI` archives (their objects,
-   actions and interleaved media), FLC animations (a new shared FLIC
-   decoder in `src/video/`), the Smacker 2 movies (the shared decoder),
-   WAV sounds and BMP pictures inside them, `WORLD.WDB`'s models and
-   textures, and the `*INF.DTA` files; a `reluva-tool legoisland` command
-   and a viewer page for each.
+3. **Readers and the data viewer** (in progress): the `.SI` archives
+   (done: [formats/si.md](formats/si.md)); FLC animations (a new shared
+   FLIC decoder in `src/video/`), the Smacker 2 movies (the shared
+   decoder), WAV sounds and BMP pictures inside them, `WORLD.WDB`'s models
+   and textures, and the `*INF.DTA` files; a `reluva-tool legoisland`
+   command and a viewer page for each.
 4. **A hosted spike:** `ISLE.EXE` and `LEGO1.DLL` loaded in the x86
    interpreter with stand-ins that log what they're asked. The gate: does
    it reach the intro's first frame, and how fast does it run?
