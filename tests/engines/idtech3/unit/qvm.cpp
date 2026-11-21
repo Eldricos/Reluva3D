@@ -350,6 +350,17 @@ static void testCvars() {
     cvars.create("made_up", "y", 0);
     CHECK(cvars.find("made_up")->flags == 0 && cvars.find("made_up")->defaultValue == "y" &&
           cvars.string("made_up") == "x");
+    // Jedi Outcast's console with a variable's name: shown with its
+    // default, toggled with !, refused when read only, latched said so.
+    CHECK(describeJediCvar(cvars, *cvars.find("made_up")) == "\"made_up\" is:\"x^7\" default:\"y^7\"\n");
+    CHECK(jediCvarArgument(*cvars.find("made_up"), "!") == "1" && jediCvarArgument(*cvars.find("made_up"), "5") == "5");
+    CvarStore fixed;
+    fixed.create("ro", "1", CvarStore::kReadOnly);
+    CHECK(setFromJediConsole(fixed, "ro", "2") == "ro is read only.\n" && fixed.string("ro") == "1");
+    CHECK(setFromJediConsole(cvars, "made_up", "z").empty() && cvars.string("made_up") == "z");
+    latch.set("g_pModAssimilation", "1");
+    CHECK(describeJediCvar(latch, *latch.find("g_pModAssimilation")) ==
+          "\"g_pModAssimilation\" is:\"0^7\" default:\"0^7\"\nlatched: \"1\"\n");
     CHECK(cvars.byHandle(2)->name == "version" && !cvars.byHandle(0) && !cvars.byHandle(4));
 }
 

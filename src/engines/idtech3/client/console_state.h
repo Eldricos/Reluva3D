@@ -59,6 +59,7 @@ public:
      * started it, `width` how many characters the field shows.
      */
     void beginTyping(uint32_t swallow, int width = 78);
+    int fieldWidth() const { return _fieldWidth; }
     void clearField();
     const std::string &field() const { return _field; }
     size_t cursor() const { return _cursor; }

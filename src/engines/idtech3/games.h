@@ -80,6 +80,10 @@ struct GameInfo {
     // Release::singlePlayerPatch for single player's), where they differ.
     std::map<std::string, std::string> patchConsoleVersions;
     std::map<std::string, std::string> spPatchConsoleVersions;
+    // The single-player engine's version cvar (read only), and later
+    // releases' by Release::singlePlayerPatch; empty: none.
+    std::string spVersionCvar;
+    std::map<std::string, std::string> spPatchVersionCvars;
     // The level's light brightened only in fullscreen with r_overBrightBits
     // on, by the screen's gamma ramp (Jedi Outcast); otherwise always.
     bool overbrightFullscreenOnly = false;

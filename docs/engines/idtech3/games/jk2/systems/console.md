@@ -53,7 +53,10 @@ Open to a fraction *f*:
   above it, 16 apart; scrolled back, a row of red `^` every four
   characters takes the newest line's place;
 - while it has the keys, `]` and the line being typed 32 pixels above
-  the foot, 78 characters of it shown from its scroll, and the cursor
+  the foot, as many characters of it shown from its scroll as the
+  screen's width over 8, less 2 (98 at 800 x 600; set as the renderer
+  starts, jk2sp.exe 0x4093f0, jk2mp.exe 0x40c366; 78 only before),
+  *(confirmed)*, and the cursor
   (character 10, or 11 while typing over; blinking every 256 ms).
 
 **Scrolling back** (0x4067f0 on, from `Console_Key`, 0x408d6c on) is by
@@ -116,6 +119,20 @@ config binds `` ` `` and `~` to `toggleconsole` (0x405200), which flips
 the console's key catcher, clears the line typed and the notify lines;
 the game isn't paused under it. Every line typed is a command, a
 leading `/` or `\` left out.
+
+### A setting's name typed
+
+In both engines (`Cvar_Command`, jk2sp.exe 0x4167c0, jk2mp.exe's print
+at 0x42aef0), after the engine's own commands and before the menus' and
+the game's, a line starting with a setting's name shows it alone:
+`"name" is:"value^7" default:"default^7"`, then `latched: "value"` when
+one waits for the next level. With an argument it's set to the first
+argument (the rest left out), or with `!` first toggled: 1 if it was 0,
+else 0. Setting refuses a read-only setting ("is read only.") and an
+Init one ("is write protected."), and says a latched one "will be
+changed upon restarting." *(confirmed)*. Single player's `version` is
+`JK2: v1.02a win-x86 Mar  4 2002` (read only, server info, 0x415826;
+1.03's program `JK2: v1.03 win-x86 May  3 2002`).
 
 ## In Reluva
 

@@ -13,7 +13,6 @@ namespace {
 constexpr int kSmallW = 8; // pixels, whatever the screen's size
 constexpr int kSmallH = 16;
 constexpr float kBig = 16; // in the 640 x 480 screen
-constexpr int kInputWidth = 78;
 using Colour = std::array<float, 4>;
 constexpr Colour kWhite{1, 1, 1, 1};
 // The line under the console and its version (0x406477).
@@ -230,7 +229,7 @@ std::vector<Picture> consolePictures(const ConsoleFrame &f, const ConsoleShaders
     if (f.typing) {
         const int inputY = lines - kSmallH * 2;
         paint.small(xBase + kSmallW, inputY, ']', kWhite);
-        const FieldView field = fieldView(f.input, f.cursor, kInputWidth, f.fieldScroll);
+        const FieldView field = fieldView(f.input, f.cursor, f.fieldWidth, f.fieldScroll);
         const int fieldX = xBase + 2 * kSmallW;
         paint.smallString(fieldX, inputY, field.shown);
         // The cursor: character 10, or 11 while typing over (0x4085d5).

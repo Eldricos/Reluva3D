@@ -92,4 +92,24 @@ private:
     uint64_t _changes = 0;
 };
 
+/**
+ * Jedi Outcast's console with a variable's name first (Cvar_Command,
+ * jk2sp.exe 0x4167c0, jk2mp.exe's print at 0x42aef0). Alone, what it prints:
+ * `"name" is:"value^7" default:"default^7"`, then `latched: "value"` if a
+ * new value waits for the next level.
+ */
+std::string describeJediCvar(const CvarStore &cvars, const CvarStore::Cvar &cv);
+/**
+ * With an argument, the value it sets: the argument, or with `!` first,
+ * 1 if the value is 0 and 0 otherwise (Raven's toggle).
+ */
+std::string jediCvarArgument(const CvarStore::Cvar &cv, const std::string &argument);
+/**
+ * Sets a variable from the console as Jedi Outcast's Cvar_Set2 does, and
+ * what it says: a ReadOnly one "is read only.", an Init one "is write
+ * protected." (neither changed), a Latch one "will be changed upon
+ * restarting.".
+ */
+std::string setFromJediConsole(CvarStore &cvars, const std::string &name, const std::string &value);
+
 } // namespace reluva::idtech3

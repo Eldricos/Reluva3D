@@ -33,6 +33,7 @@ struct ConsoleFrame {
     std::string input;
     size_t cursor = 0;
     int fieldScroll = 0;     // the first character shown of what's typed (or the chat's)
+    int fieldWidth = 78;     // characters of it shown
     bool overstrike = false; // typing over: the cursor is character 11
     bool cursorOn = true;    // the cursor's blink
     // Shut: the lines still shown over the game, oldest first.

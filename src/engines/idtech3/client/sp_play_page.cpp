@@ -159,6 +159,8 @@ void SpPlayPage::activate() {
     _cvars.create("legsModel", _ctx.game.malePlayer.legs, CvarStore::kUserInfo);
     _cvars.create("sex", "male", CvarStore::kArchive | CvarStore::kUserInfo);
     _cvars.create("handicap", "100", CvarStore::kArchive | CvarStore::kUserInfo);
+    if (!_ctx.game.spVersionCvar.empty())
+        _cvars.create("version", _ctx.game.spVersionCvar, CvarStore::kReadOnly | CvarStore::kServerInfo);
     if (hasMenus())
         startMenus();
     if (!_ui) {
@@ -567,6 +569,14 @@ void SpPlayPage::runCommand(const std::string &line, bool fromGame) {
     } else if (cmd == "cvar_restart" || cmd == "snd_restart" || cmd == "in_restart" || cmd == "s_enable_a3d" ||
                cmd == "s_disable_a3d") {
         // Nothing to restart here.
+    } else if (const CvarStore::Cvar *cv = jedi() ? _cvars.find(cmd) : nullptr) {
+        // A variable's name: shown, or set (after the engine's own
+        // commands, before the menus' and the game's, 0x4167c0).
+        if (w.size() == 1) {
+            consolePrint(describeJediCvar(_cvars, *cv));
+        } else {
+            consolePrint(setFromJediConsole(_cvars, cv->name, jediCvarArgument(*cv, w[1])));
+        }
     } else {
         // The menus' own commands (ui_turbolift...), then the game's.
         bool handled = false;
@@ -1811,7 +1821,7 @@ void SpPlayPage::openConsole(uint32_t key) {
     // The keys held let go; the notify lines cleared, as the original's
     // toggle does (0x405200).
     _input.releaseAll();
-    _console.beginTyping(key);
+    _console.beginTyping(key, consoleFieldWidth());
     _console.clearNotify();
     _consoleOpen = true;
 }
@@ -1845,6 +1855,7 @@ void SpPlayPage::drawConsole(uint64_t nowMs, float time) {
     f.input = _console.field();
     f.cursor = _console.cursor();
     f.fieldScroll = _console.fieldScroll();
+    f.fieldWidth = consoleFieldWidth();
     f.overstrike = _console.overstrike();
     f.cursorOn = ((nowMs >> 8) & 1) == 0;
     _console.setWrapWidth(_frameW / 8 - 2);

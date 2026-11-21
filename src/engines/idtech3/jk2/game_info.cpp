@@ -28,6 +28,9 @@ GameInfo gameInfo() {
     // The patches' programs' own.
     g.patchConsoleVersions = {{"1.03", "JK2MP: v1.03"}, {"1.04", "JK2MP: v1.04"}};
     g.spPatchConsoleVersions = {{"1.03", "JK2: v1.03"}};
+    // Its version, its date and the processor's name (jk2sp.exe 0x415826).
+    g.spVersionCvar = "JK2: v1.02a win-x86 Mar  4 2002";
+    g.spPatchVersionCvars = {{"1.03", "JK2: v1.03 win-x86 May  3 2002"}};
     g.overbrightFullscreenOnly = true; // 0x47ccd0: none in a window
     // Kyle Katarn, as its menus start a new player.
     g.playerModel = "kyle/default";

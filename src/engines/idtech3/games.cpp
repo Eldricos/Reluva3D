@@ -218,6 +218,8 @@ GameInfo forRelease(const GameInfo &game, const std::filesystem::path &dir) {
         g.consoleVersion = it->second;
     if (const auto it = g.spPatchConsoleVersions.find(release.singlePlayerPatch); it != g.spPatchConsoleVersions.end())
         g.spConsoleVersion = it->second;
+    if (const auto it = g.spPatchVersionCvars.find(release.singlePlayerPatch); it != g.spPatchVersionCvars.end())
+        g.spVersionCvar = it->second;
     if (g.code == GameCode::kJediOutcast)
         g.jediRelease = release.patch == "1.04"   ? JediRelease::k104
                         : release.patch == "1.03" ? JediRelease::k103

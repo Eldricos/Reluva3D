@@ -64,6 +64,10 @@ private:
     // The map a saved game is of; empty if it can't be read.
     std::string savedMap(const std::string &name) const;
     bool jedi() const { return _ctx.game.code == GameCode::kJediOutcast; }
+    // The console's typing field: Jedi Outcast's as the screen's characters
+    // less 2, as its renderer's start sets it (jk2sp.exe 0x4093f0: 98 at
+    // 800 x 600); Elite Force's 78.
+    int consoleFieldWidth() const { return jedi() ? _frameW / 8 - 2 : 78; }
     // Whether the game has menus: Elite Force's DLL beside its game, or
     // Jedi Outcast's, which its engine runs.
     bool hasMenus() const { return !_uiDll.empty() || jedi(); }

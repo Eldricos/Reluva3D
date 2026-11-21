@@ -141,4 +141,28 @@ void CvarStore::updateVmCvar(Qvm &vm, int32_t address) const {
         writeVmCvar(vm, address, cv->handle);
 }
 
+std::string describeJediCvar(const CvarStore &cvars, const CvarStore::Cvar &cv) {
+    std::string out = "\"" + cv.name + "\" is:\"" + cv.value + "^7\" default:\"" + cv.defaultValue + "^7\"\n";
+    if (cvars.hasLatched(cv.name))
+        out += "latched: \"" + cvars.pending(cv.name) + "\"\n";
+    return out;
+}
+
+std::string jediCvarArgument(const CvarStore::Cvar &cv, const std::string &argument) {
+    if (argument.empty() || argument[0] != '!')
+        return argument;
+    return std::strtof(cv.value.c_str(), nullptr) == 0 ? "1" : "0";
+}
+
+std::string setFromJediConsole(CvarStore &cvars, const std::string &name, const std::string &value) {
+    if (const CvarStore::Cvar *cv = cvars.find(name)) {
+        if (cv->flags & CvarStore::kReadOnly)
+            return name + " is read only.\n";
+        if (cv->flags & CvarStore::kInit)
+            return name + " is write protected.\n";
+    }
+    cvars.set(name, value);
+    return cvars.hasLatched(name) ? name + " will be changed upon restarting.\n" : std::string();
+}
+
 } // namespace reluva::idtech3

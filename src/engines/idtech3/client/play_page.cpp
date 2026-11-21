@@ -1012,8 +1012,11 @@ void PlayPage::consoleCommand(const std::string &text) {
         return;
     }
     if (const CvarStore::Cvar *cv = _cvars.find(w[0])) {
+        const bool jedi = _ctx.game.code == GameCode::kJediOutcast;
         if (w.size() == 1)
-            addPrint("\"" + cv->name + "\" is \"" + cv->value + "\"\n", false);
+            addPrint(jedi ? describeJediCvar(_cvars, *cv) : "\"" + cv->name + "\" is \"" + cv->value + "\"\n", false);
+        else if (jedi)
+            addPrint(setFromJediConsole(_cvars, cv->name, jediCvarArgument(*cv, w[1])), false);
         else
             setFromConsole(w[0], w[1]);
         return;
@@ -1147,9 +1150,11 @@ void PlayPage::openTyping(Typing t, int32_t client, uint32_t key) {
     _input.releaseAll();
     _typing = t;
     _tellClient = client;
-    // The field as wide as the original's: the console's 78 characters,
-    // a chat line's 30, a team chat's 25.
-    _console.beginTyping(key, t == Typing::kConsole ? 78 : t == Typing::kSayTeam ? 25 : 30);
+    // The field as wide as the original's: Jedi Outcast's console as the
+    // screen's characters less 2 (jk2mp.exe 0x40c366: 98 at 800 x 600),
+    // Elite Force's 78; a chat line's 30, a team chat's 25.
+    const int console = _ctx.game.code == GameCode::kJediOutcast ? _frameW / 8 - 2 : 78;
+    _console.beginTyping(key, t == Typing::kConsole ? console : t == Typing::kSayTeam ? 25 : 30);
     _ctx.sys.setTextInput(true);
 }
 
@@ -1710,6 +1715,7 @@ void PlayPage::drawConsole(uint64_t nowMs, float time) {
     f.input = _console.field();
     f.cursor = _console.cursor();
     f.fieldScroll = _console.fieldScroll();
+    f.fieldWidth = _console.fieldWidth();
     f.overstrike = _console.overstrike();
     f.cursorOn = ((nowMs >> 8) & 1) == 0;
     _console.setWrapWidth(_frameW / 8 - 2);
