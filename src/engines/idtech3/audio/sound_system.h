@@ -78,6 +78,13 @@ public:
     void setAllowDynamicMusic(bool allow) { _allowDynamic = allow; }
     // s_debugdynamic: what the dynamic music prints (DynamicMusic::debug).
     void setDebugDynamic(int level) { _dynamic.debug = level; }
+    // s_khz (11, 22 or 44): the original's output rate, by which its music
+    // is decoded ahead (DynamicMusic::decodeLead).
+    void setOutputKhz(int khz);
+    // developer: the music's developer prints too.
+    void setDeveloper(bool on) { _developer = on; }
+    // s_info's text (S_SoundInfo_f, 0x422fe0), what Reluva has of it.
+    std::string info() const;
     // The s_dynamic command (0x426c80): its words after the command's.
     void dynamicCommand(const std::vector<std::string> &args);
     // Its S_StartBackgroundTrack (0x427350): a file, if `intro` names one
@@ -163,6 +170,7 @@ private:
     std::string _dms;
     std::string _mapName;
     bool _allowDynamic = true;
+    bool _developer = false;
     std::string _musicName;
     std::string _musicLoopName;
     bool _silenced = false; // configstring 907 "silence": a plain track muted

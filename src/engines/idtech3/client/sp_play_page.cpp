@@ -519,6 +519,9 @@ void SpPlayPage::runCommand(const std::string &line, bool fromGame) {
     } else if (cmd == "s_dynamic" && jedi()) {
         if (_soundSystem)
             _soundSystem->dynamicCommand({w.begin() + 1, w.end()});
+    } else if (cmd == "s_info" && jedi()) {
+        if (_soundSystem)
+            consolePrint(_soundSystem->info());
     } else if (cmd == "bind" || cmd == "unbind" || cmd == "unbindall" || cmd == "set" || cmd == "seta" ||
                cmd == "sets" || cmd == "setu" || cmd == "exec") {
         _ctx.bindings.execute(line, _cvars, nullptr, [this](const std::string &name, std::string &text) {
@@ -1465,6 +1468,8 @@ void SpPlayPage::runGame(uint64_t nowMs) {
         _soundSystem->setTime(nowMs);
         // (Before the client game, which starts the music as it begins.)
         _soundSystem->setDebugDynamic(int(setting("s_debugdynamic", 0)));
+        _soundSystem->setOutputKhz(int(setting("s_khz", 22)));
+        _soundSystem->setDeveloper(setting("developer", 0) != 0);
     }
     if (Error err = _game->drawClientFrame(_clientTime))
         return stop("The client game stopped: " + err.message);

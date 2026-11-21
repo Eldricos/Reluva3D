@@ -101,6 +101,16 @@ again from its start, crossfading; death plays once. A plain track is
 silent while the state is silence. `s_musicvolume` (0.25) sets the
 music's volume.
 
+### s_info and developer prints
+
+`s_info` (0x422fe0) prints `----- Sound Info -----`, the sound card's
+format and rate, then the dynamic music's state and set name, or the
+plain track's file (`Background file:`, `No background file.`), with
+`s_allowDynamicMusic` 0 said, and the memory used. With `developer`,
+the start prints which it found: `S_StartBackgroundTrack: Found dynamic
+music tracks` or `Found/using non-dynamic music track '<file>'`
+(`Com_DPrintf`, 0x414200).
+
 ### Messages and debugging
 
 - **Always printed** by the music's start (0x427350): a set whose
@@ -146,14 +156,19 @@ messages above go to its console (`SoundSystem::dynamicCommand`,
 but `yavin_temple` (its file) and `valley` (its cutscene's music) has a
 set, all their files there (`reluva-tool idtech3 music-sets`).
 
-Differences: the original decodes ahead of what's heard (up to 16384
-samples) and measures where a piece has got to from that *(inferred)*;
-Reluva measures it from what's heard, so its exits come a little later.
-The client game's "starting" call only loads in the original, the music
-starting from the first snapshot; here it starts at once. The random
-markers are Reluva's own draws. The start's developer prints
-(`S_StartBackgroundTrack: Found dynamic music tracks`...) and `s_info`
-aren't there.
+Where a piece has got to is measured as the original's stream is
+decoded: what's heard plus 16384 samples at `s_khz`'s rate (0.74 s at
+its 22), the stream being kept that far ahead (0x428009); the original
+fills it a frame at a time, so its lead is a little under that between
+fills *(inferred)*. `s_info` prints the state and set as above, with
+Reluva's mixer's rate and format for the sound card's lines (the dma
+buffer's and the memory's left out); with `developer` set, the start's
+two prints (`S_StartBackgroundTrack: Found dynamic music tracks`, and
+`Found/using non-dynamic music track`).
+
+Differences: the random markers are Reluva's own draws. The client
+game's "starting" call (its third argument set, as it begins,
+0x2003398e) starts the music here; see UNCONFIRMED.md.
 
 ## Sources and checks
 

@@ -389,9 +389,10 @@ double DynamicMusic::seconds(int id) const {
     if (!loaded(id) || _playing.handle == audio::kNoSound)
         return 0;
     const auto &sound = _sounds[size_t(id)];
+    const double length = double(sound->frames()) / sound->rate;
     if (!_mixer.isPlaying(_playing.handle))
-        return double(sound->frames()) / sound->rate;
-    return _mixer.position(_playing.handle) / sound->rate;
+        return length;
+    return std::min(_mixer.position(_playing.handle) / sound->rate + decodeLead, length);
 }
 
 double DynamicMusic::remaining(int id) const {

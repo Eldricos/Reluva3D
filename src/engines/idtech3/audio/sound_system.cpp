@@ -275,6 +275,8 @@ void SoundSystem::startMusic(const std::string &intro, const std::string &loopNa
     if (!_allowDynamic && isSet)
         file = set.path(DynamicMusic::kExplore);
     if (file.find('/') != std::string::npos && _sounds.find(file)) {
+        if (_developer)
+            say("S_StartBackgroundTrack: Found/using non-dynamic music track '" + file + "'\n");
         startBackgroundTrack(file, _musicLoopName);
         return;
     }
@@ -283,8 +285,11 @@ void SoundSystem::startMusic(const std::string &intro, const std::string &loopNa
         for (int id = 0; id < DynamicMusic::kTracks; ++id)
             if (const std::string p = set.path(id); !p.empty())
                 sounds[size_t(id)] = _sounds.get(p);
-        if (_dynamic.start(set, sounds, _nowMs))
+        if (_dynamic.start(set, sounds, _nowMs)) {
+            if (_developer)
+                say("S_StartBackgroundTrack: Found dynamic music tracks\n");
             return;
+        }
     }
     // Neither a file nor a set (0x42757a, 0x427595): a set without both
     // pieces said so; anything else, but a name starting '.', not found.
@@ -292,6 +297,33 @@ void SoundSystem::startMusic(const std::string &intro, const std::string &loopNa
         say("^1Dynamic music did not have both 'action' and 'explore' versions, inhibiting...\n");
     else if (!_dms.empty() && (name.empty() || name[0] != '.'))
         say("^1Unable to find music \"" + name + "\" as explicit track or dynamic music entry!\n");
+}
+
+void SoundSystem::setOutputKhz(int khz) {
+    // As the original's dma speed from s_khz (11025, 22050, else 44100).
+    const int rate = khz == 11 ? 11025 : khz == 22 ? 22050 : 44100;
+    _dynamic.decodeLead = 16384.0 / rate;
+}
+
+std::string SoundSystem::info() const {
+    // Its sound card's lines are the mixer's (16-bit stereo at its rate);
+    // the dma buffer's and the memory's aren't Reluva's to give.
+    std::string out = "----- Sound Info -----\n";
+    out += text::format("%5d stereo\n", 1);
+    out += text::format("%5d samplebits\n", 16);
+    out += text::format("%5d speed\n", _mixer.outputRate());
+    if (_dynamic.on()) {
+        out += _dynamic.status();
+        out += "( Dynamic music set name: \"" + _dynamic.set().name + "\" )\n";
+    } else {
+        if (!_allowDynamic)
+            out += "( Dynamic music inhibited (s_allowDynamicMusic == 0) )\n";
+        if (_music != audio::kNoSound)
+            out += "Background file: " + _musicName + "\n";
+        else
+            out += "No background file.\n";
+    }
+    return out + "----------------------\n";
 }
 
 void SoundSystem::say(const std::string &text) const {

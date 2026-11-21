@@ -74,6 +74,16 @@ What Reluva does that hasn't been checked against the running original.
   in-game cinematic's flag and the client's state
   ([systems/sp-saves.md](systems/sp-saves.md)).
 
+- Single player's music at a level's start: the client game's first
+  `S_StartBackgroundTrack` has its third argument set (0x2003398e), and
+  with it the engine loads the music, then lets go of every track's file
+  (0x4275a7 → 0x427bd0), which its update needs to play (0x427c4d). No
+  other call to start it again was found at a level's start (the
+  client game's next is when configstring 2 changes; `snd_restart` and
+  `vid_restart` restart it), and Reluva's runs make none; yet the
+  original plays a level's music from its start. Reluva starts it at
+  that first call ([systems/sp-music.md](systems/sp-music.md)).
+
 ## Guessed
 
 - A paused Ghoul2 animation in single player is posed as if it went on;

@@ -131,6 +131,12 @@ public:
     /** A track's name ("explore", "action_tr2", "silence"...; "<unknown>" for none). */
     static std::string trackName(int id);
 
+    /**
+     * Seconds the original's stream is decoded ahead of what's heard, from
+     * which it measures where a piece has got to: its 16384 samples at the
+     * output's rate (0x428009). 0: measured from what's heard.
+     */
+    double decodeLead = 0;
     /** s_debugdynamic: 1 prints each request and switch, 2 the state each frame too. */
     int debug = 0;
     /** Where those prints go. */

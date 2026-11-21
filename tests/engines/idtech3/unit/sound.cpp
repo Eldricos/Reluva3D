@@ -433,6 +433,20 @@ levelmusic
     CHECK(music.current() == DynamicMusic::kDeath);
     music.stop();
     CHECK(!music.on() && !mixer.isTypePlaying(audio::SoundType::kMusic));
+
+    // Measured from the decoding, ahead of what's heard: 4 s ahead, a
+    // tenth of a second into explore (5 s) is under 2 s from its end, so
+    // it starts again at once.
+    DynamicMusic ahead(mixer);
+    std::string switches;
+    ahead.debug = 1;
+    ahead.print = [&](const std::string &text) { switches += text; };
+    ahead.decodeLead = 4;
+    CHECK(ahead.start(set, sounds, now));
+    mixer.mix(out.data(), 100);
+    now += 100;
+    ahead.update(now);
+    CHECK(switches == "^6S_SwitchDynamicTracks( \"explore\" )\n");
 }
 
 static const reluva::test::Suite
