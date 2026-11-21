@@ -35,12 +35,35 @@ std::string withoutShortcut(const std::string &label, char &shortcut) {
     return out;
 }
 
-void plot(Surface &screen, int x, int y) {
+// The toolkit's greys (0x408430): its frames' light and dark sides.
+constexpr uint8_t kFrameDark = 0x50;
+constexpr uint8_t kFrameLight = 0xc8;
+
+void plot(Surface &screen, int x, int y, uint8_t grey = kCross) {
     if (x < 0 || y < 0 || x >= screen.w || y >= screen.h)
         return;
     uint8_t *p = screen.row(y) + x * 4;
-    p[0] = p[1] = p[2] = kCross;
+    p[0] = p[1] = p[2] = grey;
     p[3] = 255;
+}
+
+void fillGrey(Surface &screen, int left, int top, int right, int bottom, uint8_t grey) {
+    for (int y = top; y < bottom; ++y)
+        for (int x = left; x < right; ++x)
+            plot(screen, x, y, grey);
+}
+
+// A cross corner to corner of the square at (x, y), a pixel in (0x4e6270).
+void cross(Surface &screen, int x, int y, int size) {
+    for (int i = 1; i <= size - 2; ++i) {
+        plot(screen, x + i, y + i);
+        plot(screen, x + i, y + size - 1 - i);
+    }
+}
+
+// The toolkit's spacings count in fifths of a font's baseline.
+int fifth(const Font *font) {
+    return font && font->loaded() ? font->baseline() / 5 : 0;
 }
 
 } // namespace
@@ -146,15 +169,174 @@ void Toggle::draw(Surface &screen, int originX, int originY) const {
     // Held down on, or checked: its Press picture (0x4e63c1, 0x4e63db).
     image::blit(screen, (_pressed && _hover) || _checked ? _press : _normal, x, y);
     const int box = std::max(_normal.w, _press.w);
-    if (_checked && !(_pressed && _hover)) {
-        // A cross corner to corner, a pixel in, the box taken as square.
-        for (int i = 1; i <= box - 2; ++i) {
-            plot(screen, x + i, y + i);
-            plot(screen, x + i, y + box - 1 - i);
-        }
-    }
+    // The box taken as square.
+    if (_checked && !(_pressed && _hover))
+        cross(screen, x, y, box);
     if (_font && _font->loaded())
         _font->draw(screen, x + box, y + 1, _label);
+}
+
+void drawBevel(Surface &screen, int x, int y, int w, int h, int thickness, bool raised) {
+    const uint8_t topLeft = raised ? kFrameLight : kFrameDark;
+    const uint8_t bottomRight = raised ? kFrameDark : kFrameLight;
+    int left = x;
+    int top = y;
+    int right = x + w;
+    int bottom = y + h;
+    for (int i = 0; i < thickness; ++i) {
+        fillGrey(screen, left, top, right, top + 1, topLeft);
+        fillGrey(screen, left, top + 1, left + 1, bottom, topLeft);
+        fillGrey(screen, right - 1, top + 1, right, bottom - 1, bottomRight);
+        fillGrey(screen, left + 1, bottom - 1, right, bottom, bottomRight);
+        ++left;
+        ++top;
+        --right;
+        --bottom;
+    }
+}
+
+Slider::Slider(const Font *font, int maximum, image::Image thumbFill)
+    : _font(font), _maximum(maximum), _thumbFill(std::move(thumbFill)) {
+}
+
+int Slider::height() const {
+    // As high as the font's baseline, 4 fifths of it and 2 (0x4e4b82).
+    return (_font && _font->loaded() ? _font->baseline() : 0) + 4 * fifth(_font) + 2;
+}
+
+void Slider::setValue(int value) {
+    _value = std::clamp(value, 0, std::max(0, _maximum - 1));
+}
+
+int Slider::valueAt(int mx) const {
+    const int fb = _font && _font->loaded() ? _font->baseline() : 0;
+    const int span = _w - fb - 1;
+    if (span <= 0)
+        return 0;
+    // The thumb's middle under the mouse, rounded to the nearest value.
+    return ((mx - (fb + 1) / 2) * (_maximum - 1) + span / 2) / span;
+}
+
+bool Slider::handleEvent(const Event &ev, int originX, int originY) {
+    const int mx = ev.mouseX - originX - _x;
+    const int my = ev.mouseY - originY - _y;
+    const int before = _value;
+    switch (ev.type) {
+    case EventType::kMouseDown:
+        if (ev.button == MouseButton::kLeft && mx >= 0 && my >= 0 && mx < _w && my < height()) {
+            _dragging = true;
+            setValue(valueAt(mx));
+        }
+        break;
+    case EventType::kMouseMove:
+        if (_dragging)
+            setValue(valueAt(mx));
+        break;
+    case EventType::kMouseUp:
+        if (ev.button == MouseButton::kLeft)
+            _dragging = false;
+        break;
+    default:
+        break;
+    }
+    return _value != before;
+}
+
+void Slider::draw(Surface &screen, int originX, int originY) const {
+    const int x = originX + _x;
+    const int y = originY + _y;
+    const int u = fifth(_font);
+    const int fb = _font && _font->loaded() ? _font->baseline() : 0;
+    // The track, sunken, and a groove along its middle (0x4e4bd0).
+    drawBevel(screen, x, y + 2 * u + 1, _w, height() - 4 * u - 2, u, false);
+    fillGrey(screen, x + u, y + height() / 2, x + _w - u + 1, y + height() / 2 + 1, kFrameDark);
+    fillGrey(screen, x + u, y + height() / 2 + 1, x + _w - u + 1, y + height() / 2 + 2, kFrameLight);
+    // The thumb, raised, at its place for the value (0x4e4d24).
+    int pos = 0;
+    if (_maximum > 1)
+        pos = ((_w - fb - 1) * _value + (_maximum - 1) / 2) / (_maximum - 1);
+    const int thumbW = fb + 1;
+    if (_thumbFill.w > 0 && _thumbFill.h > 0)
+        for (int ty = 0; ty < height(); ++ty) {
+            const int sy = y + ty;
+            if (sy < 0 || sy >= screen.h)
+                continue;
+            for (int tx = 0; tx < thumbW; ++tx) {
+                const int sx = x + pos + tx;
+                if (sx < 0 || sx >= screen.w)
+                    continue;
+                // The texture tiled from the screen's corner (inferred).
+                const uint8_t *src = _thumbFill.pixel(sx % _thumbFill.w, sy % _thumbFill.h);
+                uint8_t *dst = screen.row(sy) + sx * 4;
+                dst[0] = src[0];
+                dst[1] = src[1];
+                dst[2] = src[2];
+                dst[3] = 255;
+            }
+        }
+    drawBevel(screen, x + pos, y, thumbW, height(), u, true);
+}
+
+CheckBox::CheckBox(const std::string &label, const Font *font) : _font(font) {
+    _label = withoutShortcut(label, _shortcut);
+}
+
+int CheckBox::box() const {
+    // The font's baseline and 2 (0x4e6053).
+    return (_font && _font->loaded() ? _font->baseline() : 0) + 2;
+}
+
+int CheckBox::width() const {
+    return box() + (_font && _font->loaded() ? _font->width(_label) : 0) + 1;
+}
+
+int CheckBox::height() const {
+    return box();
+}
+
+bool CheckBox::handleEvent(const Event &ev, int originX, int originY) {
+    const int mx = ev.mouseX - originX;
+    const int my = ev.mouseY - originY;
+    bool clicked = false;
+    switch (ev.type) {
+    case EventType::kMouseMove:
+        _hover = contains(mx, my);
+        break;
+    case EventType::kMouseDown:
+        if (ev.button == MouseButton::kLeft)
+            _pressed = _hover = contains(mx, my);
+        break;
+    case EventType::kMouseUp:
+        if (ev.button == MouseButton::kLeft) {
+            _hover = contains(mx, my);
+            clicked = _pressed && _hover;
+            _pressed = false;
+        }
+        break;
+    case EventType::kKeyDown:
+        clicked = !(ev.mods & (keymod::kCtrl | keymod::kAlt)) && _shortcut &&
+                  ev.key == uint32_t(static_cast<unsigned char>(_shortcut));
+        break;
+    default:
+        break;
+    }
+    if (clicked)
+        _checked = !_checked;
+    return clicked;
+}
+
+void CheckBox::draw(Surface &screen, int originX, int originY) const {
+    const int x = originX + _x;
+    const int y = originY + _y;
+    const int size = box();
+    // Its label first, after the box, a pixel down (0x4e62e0).
+    if (_font && _font->loaded())
+        _font->draw(screen, x + size, y + 1, _label);
+    // Held down on or checked, sunken; otherwise raised (0x4e6150, 0x4e61f0).
+    const bool down = (_pressed && _hover) || _checked;
+    drawBevel(screen, x, y, size, size, fifth(_font), !down);
+    if (_checked && !(_pressed && _hover))
+        cross(screen, x, y, size);
 }
 
 } // namespace reluva::stawayteam

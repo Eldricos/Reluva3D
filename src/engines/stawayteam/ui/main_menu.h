@@ -10,6 +10,8 @@
 #include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/credits.h"
 #include "engines/stawayteam/ui/difficulty.h"
+#include "engines/stawayteam/ui/settings.h"
+#include "engines/stawayteam/game/options.h"
 #include "engines/stawayteam/ui/font.h"
 
 #include <array>
@@ -51,18 +53,19 @@ private:
  * The main menu: what Rules.txt's `Main Menu` puts on its screen (its
  * "nernies": movies, looping, and pictures, each at its position), the
  * startup song, and its six buttons. Start New Game asks the difficulty,
- * Credits shows the credits, Quit asks to be sure; the others don't lead
- * anywhere yet.
+ * Settings shows the settings, Credits the credits, Quit asks to be sure;
+ * loading and network games aren't there yet.
  */
 class MainMenu {
 public:
     /**
      * The menu as `rules` describes it, its files from `data` and the
-     * install's movies; `sys`, `screen`, `data` and `mixer` (nullptr: no
-     * sound) must outlive it.
+     * install's movies, the settings window changing `options`; `sys`,
+     * `screen`, `data`, `options` and `mixer` (nullptr: no sound) must
+     * outlive it.
      */
     MainMenu(System &sys, Surface &screen, const Archive &data, const std::filesystem::path &install,
-             const TextObject &rules, audio::Mixer *mixer);
+             const TextObject &rules, GameOptions &options, audio::Mixer *mixer);
     ~MainMenu();
 
     /** Shown until the player quits (then true), or the window is closed (then false). */
@@ -77,13 +80,16 @@ public:
 private:
     struct Part;
 
-    // Draws the screen, its dialog over it if there's one.
+    // Draws the screen, its windows over it if there are any.
     void draw();
+    // The options' brightness over the screen as it's drawn.
+    void brighten();
 
     System &_sys;
     Surface &_screen;
     const Archive &_data;
     const TextObject &_rules;
+    GameOptions &_options;
     audio::Mixer *_mixer;
     std::vector<std::unique_ptr<Part>> _parts;
     std::vector<std::string> _contents;
@@ -93,6 +99,7 @@ private:
     std::unique_ptr<ConfirmDialog> _dialog;
     std::unique_ptr<CreditsWindow> _credits;
     std::unique_ptr<DifficultyWindow> _difficultyWindow;
+    std::unique_ptr<SettingsWindow> _settings;
     Difficulty _difficulty = Difficulty::kNormal;
 };
 

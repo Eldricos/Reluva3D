@@ -31,8 +31,10 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
   a click, then the main menu's screen, its movies and logo, with the
   startup song ([systems/startup.md](systems/startup.md)).
 - **The menus:** the main menu's buttons, the difficulty window, the
-  credits, and the dialog asking before quitting; the game itself, saved
-  games, network games and the settings aren't there yet
+  settings (brightness, scrolling, pausing when hit), the credits, and
+  the dialog asking before quitting; the game itself, saved games,
+  network games and the keyboard's and sound's settings aren't there
+  yet
   ([systems/menus.md](systems/menus.md)).
 - **Everything else** is still to come. The plan is in [PLAN.md](PLAN.md),
   and a first survey of the game's files is in
@@ -50,9 +52,12 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
 - **The game** plays its opening movies (a key or a click skips each),
   then shows the main menu. Its buttons work by the mouse or their
   underlined letter's key. Start New Game asks the difficulty (START GAME
-  only closes it, for now); Credits rolls the credits (RESUME or Esc
-  closes them); Quit asks, Yes (or Y) going back to the launcher. Esc
-  asks the same. Load, network games and Settings don't do anything yet. The movies are the install's `DATA/Movies/` files.
+  only closes it, for now); Settings shows the game's settings, kept
+  between runs in `options.ini` in the game's folder for Reluva's files;
+  Credits rolls the credits (RESUME or Esc closes them); Quit asks, Yes
+  (or Y) going back to the launcher. Esc asks the same. Load and network
+  games don't do anything yet. The movies are the install's
+  `DATA/Movies/` files.
 - **Settings** (with the game, or under Settings... for every game):
   **Opening movies** leaves out the logos and the introduction, which
   take over two minutes.
@@ -92,7 +97,8 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
 | Path | What |
 |---|---|
 | `stawayteam.cpp` | The `MetaEngine` (name, detection table, making an `Engine`) and the `Engine` |
-| `ui/` | The game's screens: `movies.cpp` (playing a movie), `main_menu.cpp` (the main menu and the confirm dialog), `credits.cpp` (the credits), `difficulty.cpp` (the difficulty window), `widgets.cpp` (the window toolkit's buttons and toggles), `button.cpp` (the menus' buttons), `layout.cpp` (reading menus' places from `Rules.txt`), `font.cpp` (text in the game's fonts) |
+| `game/` | The game's state: `options.cpp` (its options, kept between runs) |
+| `ui/` | The game's screens: `movies.cpp` (playing a movie), `main_menu.cpp` (the main menu and the confirm dialog), `credits.cpp` (the credits), `difficulty.cpp` (the difficulty window), `settings.cpp` (the settings window), `widgets.cpp` (the window toolkit's buttons and toggles), `button.cpp` (the menus' buttons), `layout.cpp` (reading menus' places from `Rules.txt`), `font.cpp` (text in the game's fonts) |
 | `formats/` | Reading the game's files: `text_object.cpp` (objects in text), `binary_object.cpp` (objects in binary), `object_schema.cpp` and the generated `class_table.cpp` (the game's classes), `rds_script.cpp` (`.RDS` scripts), `frame.cpp` (pictures) |
 | `pages/` | The data viewer, in `reluva-viewer` only: `viewer.cpp` (its pages, Tab between them), a page each in `picture_viewer.cpp`, `sequence_viewer.cpp`, `model_viewer.cpp`, `font_viewer.cpp`, `sound_viewer.cpp`, `object_viewer.cpp`; what they share in `page.h`, `file_list.cpp`, `animation.cpp`, `draw.cpp` |
 | `tools/` | `reluva-tool stawayteam` commands (`reluva-tool help stawayteam` lists them): `archive.cpp` for `DATA.dat`, `text.cpp` for its text, `objects.cpp` for its objects in binary, `images.cpp` for its pictures, `files.cpp` for the game's folder |

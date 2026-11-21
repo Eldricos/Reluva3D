@@ -13,6 +13,8 @@ reluva_add_engine(stawayteam
         formats/object_schema.cpp
         ui/movies.cpp
         ui/main_menu.cpp
+        ui/settings.cpp
+        game/options.cpp
         ui/button.cpp
         ui/credits.cpp
         ui/difficulty.cpp

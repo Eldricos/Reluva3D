@@ -106,4 +106,94 @@ private:
     bool _checked = false;
 };
 
+/**
+ * Draws the toolkit's frame round the rectangle (x, y, w, h): `thickness`
+ * pixels in, light on the top and left and dark on the bottom and right
+ * if `raised`, the other way round if not (0x408000).
+ */
+void drawBevel(Surface &screen, int x, int y, int w, int h, int thickness, bool raised);
+
+/**
+ * A slider of the toolkit (0x4e4b10): a sunken track with a groove, and a
+ * raised thumb filled with the toolkit's window texture; its value from 0
+ * to one less than its maximum.
+ */
+class Slider {
+public:
+    /**
+     * The slider, sized for `font` (which must outlive it) and from 0 to
+     * `maximum` - 1; `thumbFill` is the toolkit's window texture.
+     */
+    Slider(const Font *font, int maximum, image::Image thumbFill);
+
+    void setPosition(int x, int y) {
+        _x = x;
+        _y = y;
+    }
+    void setWidth(int w) { _w = w; }
+    int x() const { return _x; }
+    int y() const { return _y; }
+    int width() const { return _w; }
+    int height() const;
+    int value() const { return _value; }
+    void setValue(int value);
+
+    /** What `ev` does to it, its window's top left at (originX, originY): true when its value changes. */
+    bool handleEvent(const Event &ev, int originX, int originY);
+    void draw(Surface &screen, int originX, int originY) const;
+
+private:
+    // The value for the mouse at `mx` across the slider (0x4e4ed0).
+    int valueAt(int mx) const;
+
+    const Font *_font;
+    int _maximum;
+    image::Image _thumbFill;
+    int _x = 0;
+    int _y = 0;
+    int _w = 0;
+    int _value = 0;
+    bool _dragging = false;
+};
+
+/**
+ * A check box of the toolkit (0x4e6020): a framed box, the font's
+ * baseline and 2 wide, raised, or sunken while held down or checked,
+ * crossed when checked; its label after it.
+ */
+class CheckBox {
+public:
+    /** The check box with its label (with its `&`) in `font`, which must outlive it. */
+    CheckBox(const std::string &label, const Font *font);
+
+    void setPosition(int x, int y) {
+        _x = x;
+        _y = y;
+    }
+    int x() const { return _x; }
+    int y() const { return _y; }
+    int width() const;
+    int height() const;
+    const std::string &label() const { return _label; }
+    bool checked() const { return _checked; }
+    void setChecked(bool checked) { _checked = checked; }
+
+    /** What `ev` does to it, its window's top left at (originX, originY): true when it's clicked (and changed). */
+    bool handleEvent(const Event &ev, int originX, int originY);
+    void draw(Surface &screen, int originX, int originY) const;
+
+private:
+    int box() const;
+    bool contains(int x, int y) const { return x >= _x && y >= _y && x < _x + width() && y < _y + height(); }
+
+    std::string _label;
+    char _shortcut = 0;
+    const Font *_font;
+    int _x = 0;
+    int _y = 0;
+    bool _pressed = false;
+    bool _hover = false;
+    bool _checked = false;
+};
+
 } // namespace reluva::stawayteam

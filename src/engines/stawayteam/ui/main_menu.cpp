@@ -9,6 +9,7 @@
 #include "video/movie_player.h"
 
 #include <array>
+#include <cmath>
 #include <fstream>
 #include <iterator>
 
@@ -30,6 +31,7 @@ namespace {
 constexpr std::array<const char *, 6> kMainButtons = {"&START NEW GAME", "&LOAD SAVE GAME", "PLAY &NETWORK GAME",
                                                       "S&ETTINGS",       "&CREDITS",        "&QUIT"};
 constexpr size_t kStartButton = 0;
+constexpr size_t kSettingsButton = 3;
 constexpr size_t kCreditsButton = 4;
 constexpr size_t kQuitButton = 5;
 // The program's, not Rules.txt's Menu Font (0x50359a).
@@ -86,8 +88,8 @@ void ConfirmDialog::draw(Surface &screen) const {
 }
 
 MainMenu::MainMenu(System &sys, Surface &screen, const Archive &data, const std::filesystem::path &install,
-                   const TextObject &rules, audio::Mixer *mixer)
-    : _sys(sys), _screen(screen), _data(data), _rules(rules), _mixer(mixer) {
+                   const TextObject &rules, GameOptions &options, audio::Mixer *mixer)
+    : _sys(sys), _screen(screen), _data(data), _rules(rules), _options(options), _mixer(mixer) {
     const TextObject *menu = menuDefinition(rules, "Main Menu");
     const TextObject *nernies = menu ? menu->object("Nernie") : nullptr;
     for (const TextField *item : nernies ? nernies->items() : std::vector<const TextField *>{}) {
@@ -194,6 +196,15 @@ bool MainMenu::run() {
                 }
                 continue;
             }
+            if (_settings) {
+                const SettingsWindow::Choice choice = _settings->handleEvent(ev, _mixer);
+                if (choice == SettingsWindow::Choice::kContinue)
+                    _settings.reset();
+                else if (choice == SettingsWindow::Choice::kDifficulty)
+                    _difficultyWindow =
+                        std::make_unique<DifficultyWindow>(_data, _screen.w, _screen.h, _difficulty, true);
+                continue;
+            }
             if (_credits) {
                 if (_credits->handleEvent(ev, _mixer))
                     _credits.reset();
@@ -206,10 +217,13 @@ bool MainMenu::run() {
                 _dialog = std::make_unique<ConfirmDialog>(_data, _rules, kQuitQuestion, _screen.w, _screen.h);
             else if (chosen == int(kStartButton))
                 _difficultyWindow = std::make_unique<DifficultyWindow>(_data, _screen.w, _screen.h, _difficulty);
+            else if (chosen == int(kSettingsButton))
+                _settings = std::make_unique<SettingsWindow>(_data, _options, _screen.w, _screen.h);
             else if (chosen == int(kCreditsButton))
                 _credits = std::make_unique<CreditsWindow>(_data, _rules, _screen.w, _screen.h, _sys.getMillis());
         }
         draw();
+        brighten();
         _sys.updateScreen(_screen);
         _sys.delayMillis(10);
     }
@@ -238,10 +252,31 @@ void MainMenu::draw() {
     _buttons.draw(_screen);
     if (_credits)
         _credits->draw(_screen, now);
+    if (_settings)
+        _settings->draw(_screen, now);
     if (_difficultyWindow)
         _difficultyWindow->draw(_screen, now);
     if (_dialog)
         _dialog->draw(_screen);
+}
+
+void MainMenu::brighten() {
+    const float gamma = _options.brightness;
+    if (gamma <= GameOptions::kBrightnessMin)
+        return;
+    // The display's gamma, as the game sets it (0x558fc0), taken as
+    // brightening the darker colours (inferred).
+    std::array<uint8_t, 256> table{};
+    for (size_t i = 0; i < table.size(); ++i)
+        table[i] = uint8_t(std::lround(255.0 * std::pow(double(i) / 255.0, 1.0 / double(gamma))));
+    for (int y = 0; y < _screen.h; ++y) {
+        uint8_t *p = _screen.row(y);
+        for (int x = 0; x < _screen.w; ++x, p += 4) {
+            p[0] = table[p[0]];
+            p[1] = table[p[1]];
+            p[2] = table[p[2]];
+        }
+    }
 }
 
 } // namespace reluva::stawayteam

@@ -28,8 +28,9 @@ None yet.
 
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
 - **The main menu:** Start New Game's difficulty window doesn't start a
-  game; Load Save Game, Play Network Game and Settings play their sound
-  and nothing else
+  game; Load Save Game and Play Network Game play their sound and
+  nothing else; in Settings, CONFIGURE KEYBOARD and CONFIGURE SOUND
+  don't lead anywhere, and the sliders don't answer their keys
   ([systems/menus.md](systems/menus.md)).
 - **Buttons** don't draw the line under their shortcut's letter, nor
   brighten their label under the mouse; the toolkit's toggles make no
@@ -40,6 +41,9 @@ None yet.
 ## Additions outside the game
 
 <!-- What Reluva adds around the game: viewers, tools, settings. -->
+- **The game's options** are kept in `options.ini` where Reluva keeps
+  the game's files, not where the game keeps them
+  ([systems/menus.md](systems/menus.md#the-settings-window)).
 - **The data viewer** (`reluva-viewer`): the game's pictures, sequences,
   models, fonts, sounds and objects, a page each
   ([README.md](README.md#using-it)).

@@ -7,6 +7,7 @@
 #include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/credits.h"
 #include "engines/stawayteam/ui/font.h"
+#include "engines/stawayteam/game/options.h"
 #include "engines/stawayteam/ui/widgets.h"
 
 #include "tests/engines/stawayteam/support.h"
@@ -146,6 +147,70 @@ void testWidgets() {
     CHECK(toggle.handleEvent(mouse, 0, 0));
 }
 
+void testToolkit() {
+    MemoryArchive data;
+    // A font whose baseline is 11: 2 fifths.
+    data.files["Cache/Fonts/Test.seq16"] = fontFile({solidFrame(3, 5, 0xffff), solidFrame(4, 5, 0xffe0)}, 65);
+    Font font;
+    CHECK(!font.load(data, "Test"));
+
+    // A raised frame 2 thick: light on top and left, dark on the right
+    // and bottom; inside it, as it was.
+    Surface s;
+    s.create(10, 10, PixelFormat::kRGBA32);
+    drawBevel(s, 0, 0, 10, 10, 2, true);
+    CHECK(s.row(0)[0] == 0xc8 && s.row(1)[1 * 4] == 0xc8 && s.row(5)[9 * 4] == 0x50 && s.row(9)[5 * 4] == 0x50);
+    CHECK(s.row(5)[5 * 4] == 0);
+
+    // A slider: as high as the baseline, 4 fifths and 2; dragged, its value
+    // follows the mouse, kept to 0-99.
+    Slider slider(&font, 100, {});
+    slider.setWidth(112);
+    slider.setPosition(0, 0);
+    CHECK(slider.height() == 11 + 8 + 2);
+    Event mouse;
+    mouse.button = MouseButton::kLeft;
+    mouse.type = EventType::kMouseDown;
+    mouse.mouseX = 6 + 50;
+    mouse.mouseY = 5;
+    CHECK(slider.handleEvent(mouse, 0, 0) && slider.value() == 50);
+    mouse.type = EventType::kMouseMove;
+    mouse.mouseX = 500;
+    CHECK(slider.handleEvent(mouse, 0, 0) && slider.value() == 99);
+    mouse.type = EventType::kMouseUp;
+    CHECK(!slider.handleEvent(mouse, 0, 0));
+    mouse.type = EventType::kMouseMove;
+    mouse.mouseX = 0;
+    CHECK(!slider.handleEvent(mouse, 0, 0) && slider.value() == 99);
+
+    // A check box: its box the baseline and 2, then the label; a click or
+    // its key turns it over.
+    CheckBox box("&Pause", &font);
+    CHECK(box.label() == "Pause" && box.height() == 13);
+    Event key;
+    key.type = EventType::kKeyDown;
+    key.key = 'p';
+    CHECK(box.handleEvent(key, 0, 0) && box.checked());
+    CHECK(box.handleEvent(key, 0, 0) && !box.checked());
+}
+
+void testOptions(const std::filesystem::path &tmp) {
+    // Without a file, the program's defaults; set, written and read back.
+    const std::filesystem::path file = tmp / "saves" / "options.ini";
+    GameOptions options;
+    options.load(file);
+    CHECK(options.scrollSpeed == 450.0f && options.scrollAccel == 15.0f && options.pauseWhenHit &&
+          options.brightness == 1.0f);
+    options.scrollSpeed = 900.0f;
+    options.pauseWhenHit = false;
+    options.brightness = 1.25f;
+    options.save();
+    GameOptions again;
+    again.load(file);
+    CHECK(again.scrollSpeed == 900.0f && !again.pauseWhenHit && again.brightness == 1.25f &&
+          again.scrollAccel == 15.0f);
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("stawayteam.unit.menus",
@@ -154,4 +219,6 @@ static const reluva::test::Suite kSuite("stawayteam.unit.menus",
                                             {"buttons", [](const std::filesystem::path &) { testButtons(); }},
                                             {"credits", [](const std::filesystem::path &) { testCredits(); }},
                                             {"widgets", [](const std::filesystem::path &) { testWidgets(); }},
+                                            {"toolkit", [](const std::filesystem::path &) { testToolkit(); }},
+                                            {"options", [](const std::filesystem::path &tmp) { testOptions(tmp); }},
                                         });

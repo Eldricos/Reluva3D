@@ -205,22 +205,73 @@ Start New Game opens it (`0x48be40`), over the main menu:
   Normal 2, or leaves it if none is (`0x48c2b5`), and starts the game;
   CANCEL closes the window (`0x48c31a`).
 
-### The settings window (not yet in Reluva)
+### The settings window
 
-Settings opens `0x4863b0`, with `&CONTINUE`, worked out so far:
-`Configure Menu/Background` (428x277), the window's spacing set to 4
-(`0x486406`); CONFIGURE &KEYBOARD and CONFIGURE &SOUND, picture buttons
-in Placar Condensed, the first placed by layout 1 a fifth of the
-baseline (5 pixels) each way, then moved to 69 across and 36 further
-down, to 41 (`0x4864a4`), the second under it 5 apart (layout 8);
-Brightness:, Scroll Speed: and Scroll Accel:, labels in Trek Small,
-each under the one before, with a slider each (0 to 100, `0x4e4b10`) at
-its right, the sliders made as wide as the widest and lined up; &Pause
-Game When Hit Off-screen, a check box under them (`0x4e6020`); then
-CONTINUE 29 above the window's bottom, RESET &DEFAULTS 4 above it, and
-DI&FFICULTY SETTING above that while no game is in progress
-(`0x486a01`). How sliders and check boxes are drawn (`0x4e4bd0`, the
-toolkit's frames at `0x408000`) isn't worked out yet.
+Settings opens it (`0x4863b0`), over the main menu. The program lays it
+out with the toolkit, then moves most of it (the numbers below are where
+everything ends up, on the window):
+
+- **Its picture:** `Configure Menu/Background` (428x277); its spacing
+  set to 4 (`0x486406`) and its widgets' border to 0 (`0x40a080`).
+- **CONFIGURE &KEYBOARD** and **CONFIGURE &SOUND**, picture buttons on
+  `Configure Menu/Button Background` in Placar Condensed: the first
+  placed by layout 1 a fifth of the baseline (5 pixels) each way, then
+  moved to 69 across and 36 further down, to 41 (`0x4864a4`); the second
+  under it, 5 apart (layout 8, 1 fifth). They open the keyboard's
+  settings (`0x4ea060`) and the sound's (`0x56e8f0`).
+- **Brightness:, Scroll Speed:, Scroll Accel:** labels in Trek Small
+  (`0x486505`), right-justified (`0x4865f8`), each 4 under the one before
+  (layout 8), the first 4 more (`0x486568`): at 69 across and 98, 112 and
+  126 down. A label is its text's width and the font's baseline and 2
+  high, its text a pixel left of its corner and one down (`0x4e669e`).
+- **A slider for each** (`0x4e4b10`, 0 to 99) at its label's right (layout
+  13, 4 apart), as wide as the window less the label and 200; then all
+  made as wide as the widest, their right edges lined up and moved 8
+  right (`0x486773`): from 12 after the shortest label to 119 in from the
+  window's right edge.
+- **&Pause Game When Hit Off-screen,** a check box (`0x4e6020`) under the
+  last label (layout 7), 4 apart and 4 more (`0x4868a2`): at 69 across,
+  144 down.
+- **At the bottom:** CONTINUE 29 above the window's bottom (`0x48697e`),
+  RESET &DEFAULTS 4 above it, and, while no game is in progress
+  (`0x486a01`), DI&FFICULTY SETTING 4 above that.
+
+What they change (`0x486c50`), each kept at once in the game's options
+(`0x5bd020`, `0x5bd080`...), under "Options":
+
+| Widget | Option | Default | Slider's 0-99 |
+|---|---|---|---|
+| Brightness | `Screen Brightness`, the display's gamma (`0x558fc0`) | 1 | gamma 1 + slider x 0.005, to 1.5 |
+| Scroll Speed | `Scroll Speed` | 450 | 112.5 to 1800 |
+| Scroll Accel | `Scroll Acceleration` | 15 | 7.5 to 75 |
+| Pause Game When Hit Off-screen | `Pause Game When Hit` | on | |
+
+A slider's value for an option between its least and most is the
+fraction across times 100, cut to a whole number (`0x486b9e`); back, the
+least and the range times the value / 100 (`0x486f04`). RESET DEFAULTS
+puts back both scrolls' defaults (`0x5bcfa0`, `0x5bcfb0`), gamma 1 and
+pausing when hit (`0x486d32`). DIFFICULTY SETTING opens the difficulty
+window with CONTINUE in place of START GAME (`0x486dff`). CONTINUE
+closes the window.
+
+### The toolkit's sliders and check boxes
+
+- **Frames** (`0x408000`): as many pixels thick as a fifth of the font's
+  baseline, each ring a pixel in from the last; raised, light grey
+  (200,200,200) on the top and left and dark (80,80,80) on the bottom and
+  right, sunken the other way round (`0x408430` makes the greys).
+- **A slider** (`0x4e4bd0`): as high as its font's baseline, 4 fifths of
+  it and 2; a sunken track, 2 fifths and a pixel in from the top and
+  bottom; a groove across its middle, a dark line over a light one; a
+  thumb the baseline and 1 wide, its whole height, filled with
+  `Interface/Window Texture` (`0x40b670`, the picture the toolkit loads at
+  `0x408330`) and framed raised. The thumb's left is the width less the
+  thumb's, times the value / 99, rounded. Held down with the mouse, the
+  value follows it, the thumb's middle under it (`0x4e4ed0`); its keys
+  (with the keyboard's focus) step it by 5 (`0x4e4fa0`).
+- **A check box** (`0x4e6310`): its label first, at the box's right and 1
+  down; the box, the font's baseline and 2 square, framed raised, or
+  sunken while held down on or checked; checked, the grey cross over it.
 
 ## In Reluva
 
@@ -240,10 +291,18 @@ toolkit's frames at `0x408000`) isn't worked out yet.
   window (`DifficultyWindow`, `ui/difficulty.cpp`), in the middle of the
   screen, Normal checked to start with: START GAME (S) keeps the level
   checked and closes it, as the game isn't there to start yet; CANCEL
-  (N, Esc) closes it. The other buttons play their sound and lead
-  nowhere yet.
-- **The toolkit's widgets:** `PictureButton` and `Toggle`
-  (`ui/widgets.cpp`), as above, placed where the program's layout puts
+  (N, Esc) closes it. Settings opens the settings window
+  (`SettingsWindow`, `ui/settings.cpp`), in the middle of the screen:
+  its sliders and check box change the game's options as they're set,
+  kept in `options.ini` (`GameOptions`, `game/options.cpp`) where Reluva
+  keeps the game's files, with the program's names; RESET DEFAULTS puts
+  the defaults back; DIFFICULTY SETTING opens the difficulty window over
+  it; CONTINUE (or Esc) closes it. The brightness is the screen's gamma,
+  applied to all Reluva draws. The keyboard's and sound's settings aren't
+  there yet. Load Save Game and Play Network Game play their sound and
+  lead nowhere yet.
+- **The toolkit's widgets:** `PictureButton`, `Toggle`, `Slider`,
+  `CheckBox` and the frames' `drawBevel` (`ui/widgets.cpp`), as above, placed where the program's layout puts
   them, worked out by hand for each window. A picture button's click plays
   `Button Action`; a toggle's plays nothing yet.
 
@@ -258,18 +317,25 @@ toolkit's frames at `0x408000`) isn't worked out yet.
   one line inside its frame, Yes lit under the mouse; the credits rolling
   and fading inside their window, the headings and roles underlined, the
   main menu showing through; the difficulty window's heading, toggles and
-  buttons, a level checked by a click, START GAME lit under the mouse.
-  Not yet against the original running. Unit tests
-  (`stawayteam.unit.menus`) on a font, buttons, the toolkit's widgets and
-  the credits' lines made in the test; the engine test opens and closes
-  the difficulty window, the credits and the dialog, and quits through
-  it.
+  buttons, a level checked by a click, START GAME lit under the mouse;
+  the settings window's buttons, labels, sliders and check box at their
+  places, a slider dragged and the screen brightening. Not yet against
+  the original running. Unit tests (`stawayteam.unit.menus`) on a font,
+  buttons, the toolkit's widgets, frames, slider and check box, the
+  credits' lines and the options' file, made in the test; the engine test
+  opens and closes the difficulty window, the settings (a check box
+  unchecked, the difficulty window over them), the credits and the
+  dialog, and quits through it.
 
 ## Open questions
 
 - **Where the dialog and the other windows go on the screen.** Reluva
   puts them in the middle.
 - **The game's level before one is chosen.** Reluva starts at Normal.
+- **The gamma:** how the game's display applies it. Reluva raises each
+  colour to 1 / gamma, brightening the dark ones.
+- **A slider's thumb texture:** where its tiling starts. Reluva tiles it
+  from the screen's corner.
 - **Brightness:** whether the toolkit's dims a picture's colours toward
   black. Reluva scales them.
 - **The credits' fading:** whether to black or to see-through, and

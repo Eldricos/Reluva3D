@@ -27,9 +27,11 @@ constexpr int kTogglesAboveMiddle = 0x10;
 
 } // namespace
 
-DifficultyWindow::DifficultyWindow(const Archive &data, int screenW, int screenH, Difficulty current)
+DifficultyWindow::DifficultyWindow(const Archive &data, int screenW, int screenH, Difficulty current, bool fromSettings)
     : _background(screenPicture(data, "Difficulty Menu/Background")),
-      _start(screenPicture(data, "Difficulty Menu/Button Background"), "&START GAME", &_buttonFont),
+      // 0x48bf0b
+      _start(screenPicture(data, "Difficulty Menu/Button Background"), fromSettings ? "&CONTINUE" : "&START GAME",
+             &_buttonFont),
       _cancel(screenPicture(data, "Difficulty Menu/Button Background"), "CA&NCEL", &_buttonFont), _current(current),
       _x((screenW - _background.w) / 2), _y((screenH - _background.h) / 2) {
     // The program names both fonts (0x48be90, 0x48bf88).

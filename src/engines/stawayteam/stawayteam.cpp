@@ -13,6 +13,7 @@
 #include "common/settings.h"
 #include "common/zip.h"
 #include "engines/stawayteam/formats/text_object.h"
+#include "engines/stawayteam/game/options.h"
 #include "engines/stawayteam/ui/movies.h"
 #include "engines/stawayteam/ui/main_menu.h"
 
@@ -117,7 +118,11 @@ public:
                     return Error::success();
             }
         }
-        MainMenu menu(_sys, screen, _data, _target.path, _rules, sound);
+        // The game's options, kept where Reluva keeps its files.
+        GameOptions options;
+        if (!_target.savePath.empty())
+            options.load(_target.savePath / "options.ini");
+        MainMenu menu(_sys, screen, _data, _target.path, _rules, options, sound);
         menu.run();
         return Error::success();
     }

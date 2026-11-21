@@ -23,7 +23,9 @@ None yet.
   ([systems/startup.md](systems/startup.md#the-opening-movies)).
 - **The menus:** the confirm dialog and the other windows in the
   middle of the screen, the credits fading to see-through, the toolkit's
-  brightness scaling colours, Normal as the level to start with,
+  brightness scaling colours, Normal as the level to start with, the
+  gamma brightening dark colours, the slider's texture tiled from the
+  screen's corner,
   `Button Action` played on a picture button's click, Esc on
   the main menu asking to quit, a button's sound on the click, the shortcut's
   line shown once Alt is pressed, a fixed-width font's cell, and the

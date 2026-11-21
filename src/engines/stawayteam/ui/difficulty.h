@@ -28,9 +28,9 @@ class DifficultyWindow {
 public:
     /**
      * The window on a screen of that size, `current` checked; `data` must
-     * outlive it.
+     * outlive it. From the settings window its START GAME is CONTINUE.
      */
-    DifficultyWindow(const Archive &data, int screenW, int screenH, Difficulty current);
+    DifficultyWindow(const Archive &data, int screenW, int screenH, Difficulty current, bool fromSettings = false);
 
     /**
      * What `ev` does to it: once it's closed, the level chosen (START
