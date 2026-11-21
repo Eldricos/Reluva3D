@@ -29,5 +29,6 @@ None yet.
 - **Importing** from the CD into one folder, so the game runs without
   it ([systems/game-files.md](systems/game-files.md#importing-it)).
 - **The data viewer** and `reluva-tool legoisland` commands, for the SI
-  files ([formats/si.md](formats/si.md#in-reluva)) and the world
-  database ([formats/wdb.md](formats/wdb.md#in-reluva)).
+  files ([formats/si.md](formats/si.md#in-reluva)), the world
+  database ([formats/wdb.md](formats/wdb.md#in-reluva)) and the worlds'
+  animation lists ([formats/dta.md](formats/dta.md#in-reluva)).

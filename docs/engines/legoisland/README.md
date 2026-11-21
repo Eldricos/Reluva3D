@@ -20,7 +20,8 @@ files' names, and imports the game from its CD into one folder
 archives, and gives back their pictures, sounds and animations as the
 files they were made from ([formats/si.md](formats/si.md)), which the
 data viewer shows and plays, and the world database's models, parts and
-textures ([formats/wdb.md](formats/wdb.md)), which it draws in 3D. Run,
+textures ([formats/wdb.md](formats/wdb.md)), which it draws in 3D, and the
+worlds' lists of animations ([formats/dta.md](formats/dta.md)). Run,
 it shows an empty screen. The plan is in [PLAN.md](PLAN.md).
 
 ## Using it
@@ -52,7 +53,7 @@ page.
 |---|---|
 | This page | The games, where the engine stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
-| [formats/](formats/) | A page per file format: [si.md](formats/si.md) (the SI archives), [wdb.md](formats/wdb.md) (the world database) |
+| [formats/](formats/) | A page per file format: [si.md](formats/si.md) (the SI archives), [wdb.md](formats/wdb.md) (the world database), [dta.md](formats/dta.md) (the worlds' animation lists) |
 | [systems/](systems/) | How the game behaves: [game-files.md](systems/game-files.md) (its files, and telling releases apart) |
 | `research/` | Working notes: address maps, raw findings, notes on recordings |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
@@ -66,6 +67,7 @@ page.
 |---|---|
 | `legoisland.cpp` | The `MetaEngine` (name, making an `Engine`, importing) and the `Engine` |
 | `detection.cpp` | The releases it recognises, and finding and copying the game's parts for an import |
+| `formats/dta.cpp` | The worlds' `*INF.DTA` files: their animations and the models each uses |
 | `formats/si.cpp` | The SI archives: their objects, their chunks, and their media as standard files |
 | `formats/wdb.cpp` | The world database: its worlds, parts, models and textures |
 | `pages/` | The data viewer (`reluva-viewer` only): `si_viewer.cpp`, the SI files' page; `wdb_viewer.cpp`, the world database's textures and models |

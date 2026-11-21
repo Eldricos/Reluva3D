@@ -58,6 +58,8 @@ extended. The facts themselves are on their pages, each with its source.
 | `reluva-tool legoisland si-list <file.si>` | Its objects, as a tree |
 | `reluva-tool legoisland si-chunks <file.si> <object id>` | One object's chunks |
 | `reluva-tool legoisland si-extract <file.si> <out folder> [object id]` | Its media as the files they were made from |
+| `reluva-tool legoisland dta-list <file.dta>` | A world's animation list: its animations and their models |
+| `reluva-tool legoisland dta-check <game folder>` | Every `*INF.DTA` read, and each one's animations found in the SI files |
 | `reluva-tool legoisland wdb-info <WORLD.WDB>` | The world database's worlds, and every part and model read, with counts |
 | `reluva-tool legoisland wdb-list <WORLD.WDB>` | Each world's parts and models, and where it puts the models |
 | `reluva-tool legoisland wdb-show <WORLD.WDB> <part or model\|shared>` | A part's or model's ROIs, LODs, meshes, animation and textures |
