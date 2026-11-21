@@ -325,6 +325,19 @@ Measured on screenshots of Sol, Babel, Manark and a neutron star:
 - **Who lives there:** "HUMANS" for the Federation's people, a minor
   race's `race.rst` name in capitals ("BANDI" at Deneb); the other
   empires' people are taken to be their names in capitals *(guessed)*.
+- **A planet's details:** with the pointer over a planet's frame, the
+  four lines show the planet instead of the system, as the labels and
+  figures do, not in capitals: its name and its type's word
+  (`lexicon.dic`'s "Volcanic" 1414, "Terran" 1258 and the others), "Max
+  Pop" and its maximum population (`planspac.bin`,
+  [formats/planspac.md](../formats/planspac.md)), "Growth Rate" and its
+  rate (not worked out yet), and "Terraform" with the terraforming done
+  and needed ("0 / 440"), or once it's terraformed, who lives there:
+  "Humans" for the Federation's people, a minor race's `race.rst` name
+  ("Bandi", "Bolians"). Ten planets of Sol and Xerxes on the user's
+  screenshots match pixel for pixel but for the growth rate. An
+  uninhabited terraformed planet's last line is left empty *(guessed:
+  none is seen)*.
 
 Not drawn yet: the growth rate and the orbitals' figures ("3.1%" and
 "0/0" for Sol, "0.7%" for Babel, "0.3%" for Deneb), which no field of the

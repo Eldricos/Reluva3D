@@ -11,6 +11,7 @@ reluva_add_engine(botf
         menu_audio.cpp
         formats/alt_res.cpp
         formats/animation.cpp
+        formats/planet_populations.cpp
         formats/data_table.cpp
         formats/font.cpp
         formats/lexicon.cpp

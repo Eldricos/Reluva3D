@@ -117,6 +117,7 @@ constexpr int kOrbitals = 891;
 constexpr int kPopulation = 919;
 constexpr int kRadioPulsar = 968;
 constexpr int kSystem = 1214;
+constexpr int kTerraform = 1256;
 constexpr int kUninhabited = 1388;
 constexpr int kWormHole = 1447;
 constexpr int kXRayPulsar = 1450;

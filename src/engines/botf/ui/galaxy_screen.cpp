@@ -3,6 +3,8 @@
 
 #include "engines/botf/ui/galaxy_screen.h"
 
+#include "engines/botf/formats/planet_populations.h"
+
 #include <algorithm>
 #include <cstdlib>
 #include <iterator>
@@ -209,6 +211,21 @@ constexpr int kStripLinePitch = 17;
 // green for a planet that's terraformed, red for one that isn't.
 constexpr char kPlanetClasses[] = {'P', 'J', 'G', 'B', 'L', 'O', 'M', 'Y'};
 constexpr int kGasGiant = 3;
+// The planet types' words, by type (lexicon.dic's, found by their text).
+struct TypeWord {
+    int entry;
+    const char *english;
+};
+constexpr TypeWord kPlanetTypeWords[] = {{37, "Arctic"},  {55, "Barren"},   {229, "Desert"},  {410, "Gas Giant"},
+                                         {558, "Jungle"}, {878, "Oceanic"}, {1258, "Terran"}, {1414, "Volcanic"}};
+
+// "HUMANS" as "Humans": capitals but the first letter's.
+std::string titleCase(std::string s) {
+    for (size_t i = 1; i < s.size(); ++i)
+        if (s[i] >= 'A' && s[i] <= 'Z')
+            s[i] = char(s[i] - 'A' + 'a');
+    return s;
+}
 // A planet's bonus, on its frame's top from its left edge: an energy bonus on a desert or volcanic
 // planet (bie.tga), a food bonus on an oceanic or terran one (bif1.tga),
 // as on every planet of Sol, Babel and Manark; and the system's dilithium
@@ -343,6 +360,9 @@ Error GalaxyScreen::load(int empire) {
         if (std::string(t.file) == "race.rst" && !_assets.archive().read("race.rst", data))
             (void)_races.load(t, data);
     }
+    // The planets' maximum populations; without the file, 0.
+    if (!_assets.archive().read("planspac.bin", data))
+        (void)_planetPopulations.load(data);
     return Error::success();
 }
 
@@ -386,6 +406,7 @@ void GalaxyScreen::select(int x, int y) {
     const SavedGalaxy &g = _game.galaxy;
     const bool on = x >= 0 && y >= 0 && x < g.width && y < g.height;
     _selected = on ? std::pair{x, y} : std::pair{-1, -1};
+    _pointedPlanet = -1;
     _planets.clear();
     _sun = {};
     if (!on)
@@ -509,8 +530,10 @@ bool GalaxyScreen::handle(const Event &e) {
     bool changed = false;
     if (e.type == EventType::kMouseMove || e.type == EventType::kMouseDown) {
         const std::pair<int, int> under = sectorAt(e.mouseX, e.mouseY);
-        changed = under != _pointed;
+        const int planet = planetAt(e.mouseX, e.mouseY);
+        changed = under != _pointed || planet != _pointedPlanet;
         _pointed = under;
+        _pointedPlanet = planet;
     }
     if (e.type != EventType::kMouseDown || e.button != MouseButton::kLeft)
         return changed;
@@ -931,22 +954,13 @@ void GalaxyScreen::drawStrip(Surface &screen) const {
         drawStellarStrip(screen, _game.galaxy.stellarObjects[size_t(sector.stellarObject)]);
 }
 
-void GalaxyScreen::drawSystemStrip(Surface &screen, const SavedSystem &system) const {
-    const std::vector<WindowLayout::Placed> &strip = _systemStrip;
-    if (const image::Image *back = _assets.picture(_systemLayout.root().background))
-        image::blit(screen, *back, strip.front().x, strip.front().y);
-    const WindowLayout::Placed &area = *stripWidget(strip, kStripArea);
-    const int cy = area.y + area.widget->h / 2;
-    // The star, then the planets leftward from it.
+std::vector<int> GalaxyScreen::planetCentres(int &sunCx, int &cy) const {
+    // The star at the planets' place's right end, then the planets leftward
+    // from it.
+    const WindowLayout::Placed &area = *stripWidget(_systemStrip, kStripArea);
+    cy = area.y + area.widget->h / 2;
     const int sunW = _sun.frameWidth;
-    int sunCx = area.x + area.widget->w - sunW + sunW / 2;
-    if (system.controllingRace >= 0 && system.controllingRace < int(std::size(kLetters)))
-        if (const image::Image *emblem =
-                _assets.dimmed(std::string("i_") + kLetters[system.controllingRace] + "46.tga", kEmblemBrightness))
-            image::blit(screen, *emblem, area.x, area.y);
-    drawFrame(screen, _sun, kStarFrameMillis, sunCx, cy);
-    if (const image::Image *icon = system.dilithium > 0 ? _assets.picture(kDilithiumIcon) : nullptr)
-        drawKeyed(screen, *icon, sunCx - sunW / 2, area.y);
+    sunCx = area.x + area.widget->w - sunW + sunW / 2;
     auto centres = [&](int gap) {
         std::vector<int> out;
         int cx = sunCx;
@@ -962,6 +976,40 @@ void GalaxyScreen::drawSystemStrip(Surface &screen, const SavedSystem &system) c
     std::vector<int> xs = centres(gap);
     while (gap > 0 && !xs.empty() && xs.back() - _planets.back().frameWidth / 2 < area.x + kPlanetsLeftMargin)
         xs = centres(--gap);
+    return xs;
+}
+
+int GalaxyScreen::planetAt(int x, int y) const {
+    if (_selected.first < 0 || _game.galaxy.at(_selected.first, _selected.second).system < 0)
+        return -1;
+    int sunCx = 0;
+    int cy = 0;
+    const std::vector<int> xs = planetCentres(sunCx, cy);
+    for (size_t i = 0; i < xs.size(); ++i) {
+        const Animation &a = _planets[i];
+        if (x >= xs[i] - a.frameWidth / 2 && x < xs[i] - a.frameWidth / 2 + a.frameWidth &&
+            y >= cy - a.frameHeight / 2 && y < cy - a.frameHeight / 2 + a.frameHeight)
+            return int(i);
+    }
+    return -1;
+}
+
+void GalaxyScreen::drawSystemStrip(Surface &screen, const SavedSystem &system) const {
+    const std::vector<WindowLayout::Placed> &strip = _systemStrip;
+    if (const image::Image *back = _assets.picture(_systemLayout.root().background))
+        image::blit(screen, *back, strip.front().x, strip.front().y);
+    const WindowLayout::Placed &area = *stripWidget(strip, kStripArea);
+    int cy = 0;
+    int sunCx = 0;
+    const std::vector<int> xs = planetCentres(sunCx, cy);
+    const int sunW = _sun.frameWidth;
+    if (system.controllingRace >= 0 && system.controllingRace < int(std::size(kLetters)))
+        if (const image::Image *emblem =
+                _assets.dimmed(std::string("i_") + kLetters[system.controllingRace] + "46.tga", kEmblemBrightness))
+            image::blit(screen, *emblem, area.x, area.y);
+    drawFrame(screen, _sun, kStarFrameMillis, sunCx, cy);
+    if (const image::Image *icon = system.dilithium > 0 ? _assets.picture(kDilithiumIcon) : nullptr)
+        drawKeyed(screen, *icon, sunCx - sunW / 2, area.y);
     const Font *small = _assets.font("human9.fnt");
     for (size_t i = 0; i < _planets.size(); ++i) {
         const Animation &a = _planets[i];
@@ -1000,21 +1048,56 @@ void GalaxyScreen::drawSystemStrip(Surface &screen, const SavedSystem &system) c
     const WindowLayout::Placed &heading = *stripWidget(strip, kStripHeading);
     drawTextAt(screen, *heading.widget, heading.x, heading.y, people, kLabelColor);
     // The labels and the figures known; the growth rate and the orbitals
-    // aren't read from the save yet.
+    // aren't worked out yet. With the pointer over a planet, its details
+    // instead.
     const WindowLayout::Placed &labels = *stripWidget(strip, kStripLabels);
     const WindowLayout::Placed &values = *stripWidget(strip, kStripValues);
     const Font *font = _assets.font(labels.widget->fonts.empty() ? "" : labels.widget->fonts[0].file);
     if (!font)
         return;
+    auto line = [&](int i, const std::string &label, const std::string &figure) {
+        font->drawInColor(screen, labels.x, labels.y + 1 + i * kStripLinePitch, label, kLabelColor);
+        font->drawInColor(screen, values.x + values.widget->w - font->measure(figure),
+                          values.y + 1 + i * kStripLinePitch, figure, kFigureColor);
+    };
+    if (_pointedPlanet >= 0 && size_t(_pointedPlanet) < system.planets.size()) {
+        drawPlanetDetails(system, system.planets[size_t(_pointedPlanet)], line);
+        return;
+    }
     const std::string label[] = {word(lex::kPopulation, "Population"), word(lex::kMaxPop, "Max Pop"),
                                  word(lex::kGrowthRate, "Growth Rate"), word(lex::kOrbitals, "Orbitals")};
     const std::string figure[] = {std::to_string(system.population), std::to_string(system.maxPopulation), "", ""};
-    for (int i = 0; i < 4; ++i) {
-        const int y = labels.y + 1 + i * kStripLinePitch;
-        font->drawInColor(screen, labels.x, y, upperAscii(label[i]), kLabelColor);
-        font->drawInColor(screen, values.x + values.widget->w - font->measure(figure[i]),
-                          values.y + 1 + i * kStripLinePitch, figure[i], kFigureColor);
+    for (int i = 0; i < 4; ++i)
+        line(i, upperAscii(label[i]), figure[i]);
+}
+
+void GalaxyScreen::drawPlanetDetails(
+    const SavedSystem &system, const SavedPlanet &p,
+    const std::function<void(int, const std::string &, const std::string &)> &line) const {
+    // Its name and its type's word ("Volcanic"), its maximum population
+    // (planspac.bin's, by its type, size and bonuses: every planet of Sol
+    // and Xerxes on the screenshots), its growth rate (not worked out yet),
+    // then its terraforming done and needed, or once terraformed who lives
+    // there: "Humans" for the Federation's people, a minor race's name.
+    const std::string type = p.type >= 0 && p.type < int(std::size(kPlanetTypeWords))
+                                 ? word(kPlanetTypeWords[p.type].entry, kPlanetTypeWords[p.type].english)
+                                 : "";
+    line(0, p.name, type);
+    const int maxPop =
+        _planetPopulations.maxPopulation(p.type, p.size, bonusLevel(p.growthBonus), bonusLevel(p.energyBonus));
+    line(1, word(lex::kMaxPop, "Max Pop"), std::to_string(maxPop));
+    line(2, word(lex::kGrowthRate, "Growth Rate"), "");
+    if (p.terraformDone < p.terraformNeeded) {
+        line(3, word(lex::kTerraform, "Terraform"),
+             std::to_string(p.terraformDone) + " / " + std::to_string(p.terraformNeeded));
+        return;
     }
+    std::string people;
+    if (system.residentRace == 1)
+        people = titleCase(word(lex::kHumans, "HUMANS"));
+    else if (system.residentRace >= 0 && size_t(system.residentRace) < _races.count())
+        people = _races.name(size_t(system.residentRace));
+    line(3, "", people);
 }
 
 void GalaxyScreen::drawStellarStrip(Surface &screen, const SavedStellarObject &object) const {

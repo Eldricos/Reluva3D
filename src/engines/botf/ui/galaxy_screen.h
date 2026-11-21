@@ -7,11 +7,14 @@
 #include "common/types.h"
 #include "engines/botf/formats/animation.h"
 #include "engines/botf/formats/data_table.h"
+#include "engines/botf/formats/planet_populations.h"
 #include "engines/botf/formats/save_game.h"
 #include "engines/botf/formats/window_layout.h"
 #include "engines/botf/ui/layout_screen.h"
 
+#include <functional>
 #include <set>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -66,6 +69,10 @@ public:
     int eventCount() const;
     /** The sector under the pointer, named over the map, or -1, -1. */
     std::pair<int, int> pointed() const { return _pointed; }
+    /** The selected system's planet at a point on the screen, by its number in the system, or -1. */
+    int planetAt(int x, int y) const;
+    /** The planet under the pointer, whose details the strip shows, or -1. */
+    int pointedPlanet() const { return _pointedPlanet; }
     /** The selected sector's column and row, or -1, -1. */
     std::pair<int, int> selected() const { return _selected; }
 
@@ -95,6 +102,13 @@ private:
     void drawStrip(Surface &screen) const;
     void drawSystemStrip(Surface &screen, const SavedSystem &system) const;
     void drawStellarStrip(Surface &screen, const SavedStellarObject &object) const;
+    // The planets' middles across the strip, innermost first, and the
+    // star's and their middle down.
+    std::vector<int> planetCentres(int &sunCx, int &cy) const;
+    // A planet's details in the strip's labels and figures, by `line`
+    // (a line's number, its label and its figure).
+    void drawPlanetDetails(const SavedSystem &system, const SavedPlanet &planet,
+                           const std::function<void(int, const std::string &, const std::string &)> &line) const;
     // A frame of an animation at the strip's time, its middle at (cx, cy).
     void drawFrame(Surface &screen, const Animation &a, uint64_t frameMillis, int cx, int cy) const;
     // A widget of a strip's layout, with its corner on the screen.
@@ -104,8 +118,9 @@ private:
 
     SavedGame _game;
     int _empire = 1;
-    DataTable _shipClasses; // shiplist.sst, for the task forces' ships' names
-    DataTable _races;       // race.rst, for the people living in a system
+    DataTable _shipClasses;               // shiplist.sst, for the task forces' ships' names
+    DataTable _races;                     // race.rst, for the people living in a system
+    PlanetPopulations _planetPopulations; // planspac.bin
     int _infoPanel = -1;
     int _emblemsPanel = -1;
     int _taskForcesPanel = -1;
@@ -118,6 +133,7 @@ private:
     std::pair<int, int> _selected{-1, -1};          // the selected sector, or -1, -1
     int _zoom = 0;                                  // 0 out, 1 in
     std::pair<int, int> _pointed{-1, -1};           // the sector under the pointer
+    int _pointedPlanet = -1;                        // the selected system's planet under the pointer
     std::pair<int, int> _zoomCentre{-1, -1};        // the sector selected when zooming in
     // The strip's layouts, their widgets placed on the screen: a system's
     // (h_sysmap.wdf) and a stellar object's (h_starmp.wdf).

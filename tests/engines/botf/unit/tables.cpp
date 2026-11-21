@@ -6,6 +6,7 @@
 
 #include "engines/botf/formats/data_table.h"
 #include "engines/botf/formats/lexicon.h"
+#include "engines/botf/formats/planet_populations.h"
 #include "engines/botf/formats/text_table.h"
 
 #include "tests/engines/botf/unit/helpers.h"
@@ -16,6 +17,7 @@
 #include <cstring>
 #include <filesystem>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace reluva;
@@ -189,11 +191,41 @@ void testLexicon() {
     CHECK(lex.load(Bytes(2, 0)));
 }
 
+// planspac.bin: a row of 40 bytes for each planet type and size, the key
+// big-endian, then nine values by growth level * 3 + energy level.
+Bytes makePlanspac(const std::vector<std::pair<std::pair<uint8_t, uint8_t>, std::array<uint32_t, 9>>> &rows) {
+    Bytes b;
+    for (const auto &[key, values] : rows) {
+        for (const uint8_t v : {key.first, key.second, uint8_t(0), uint8_t(0)})
+            b.push_back(v);
+        for (const uint32_t v : values)
+            put32(b, v);
+    }
+    return b;
+}
+
+void testPlanetPopulations() {
+    PlanetPopulations p;
+    CHECK(!p.load(makePlanspac(
+        {{{6, 2}, {120, 125, 130, 130, 130, 130, 135, 135, 140}}, {{7, 0}, {15, 15, 20, 20, 20, 25, 25, 25, 30}}})));
+    // Earth: terran, large, much growth and energy; Mercury: volcanic,
+    // small, much growth and some energy.
+    CHECK(p.maxPopulation(6, 2, 2, 2) == 140 && p.maxPopulation(7, 0, 2, 1) == 25 &&
+          p.maxPopulation(6, 2, 0, 0) == 120);
+    // No row for gas giants.
+    CHECK(p.maxPopulation(3, 2, 0, 0) == 0);
+    CHECK(bonusLevel(0) == 0 && bonusLevel(310) == 1 && bonusLevel(620) == 2);
+    // A size that isn't rows of 40 bytes.
+    CHECK(p.load(Bytes(41, 0)));
+}
+
 } // namespace
 
-static const reluva::test::Suite kSuite("botf.unit.tables",
-                                        {
-                                            {"text tables", [](const std::filesystem::path &) { testTextTable(); }},
-                                            {"data tables", [](const std::filesystem::path &) { testDataTable(); }},
-                                            {"lexicon", [](const std::filesystem::path &) { testLexicon(); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("botf.unit.tables",
+           {
+               {"text tables", [](const std::filesystem::path &) { testTextTable(); }},
+               {"data tables", [](const std::filesystem::path &) { testDataTable(); }},
+               {"lexicon", [](const std::filesystem::path &) { testLexicon(); }},
+               {"planet populations", [](const std::filesystem::path &) { testPlanetPopulations(); }},
+           });

@@ -30,7 +30,7 @@ rest deflated (method 8).
 | `.tdb` | 22 | 339 KB | `cdiplomt.tdb`, `minor1.tdb`, `teachtip.tdb`, `treaty.tdb` | text: diplomacy per race, minor races, tutorial tips, intelligence reports ([tdb.md](tdb.md)) | confirmed |
 | `.fnt` | 21 | 962 KB | `human15.fnt`, `klingn28.fnt`, `generic9.fnt` | fonts per race in 9, 15, 20 and 28 point ([fnt.md](fnt.md)) | confirmed |
 | `.scr` | 20 | 3 KB | `ceogalli.scr` | end-of-game scripts, matching the CD's `*EOG*.wav` | guessed |
-| `.bin` | 18 | 159 KB | `morale.bin`, `planboni.bin`, `shipname.bin`, `starname.bin`, `combat.bin`, `converse.bin` | rule and name tables ([tables.md](tables.md)) | confirmed |
+| `.bin` | 18 | 159 KB | `morale.bin`, `planboni.bin`, `shipname.bin`, `starname.bin`, `combat.bin`, `converse.bin` | rule and name tables ([tables.md](tables.md); [planspac.md](planspac.md)) | confirmed |
 | `.wtf` | 7 | 7 KB | `aiempire.wtf`, `aiminor.wtf`, `ccolval.wtf` | AI weights; colonisation values per race ([tables.md](tables.md)) | confirmed |
 | `.tec` | 4 | 59 KB | `techtree.tec`, `techdesc.tec`, `tecfield.tec`, `racetech.tec` | technology tree and text ([tables.md](tables.md)) | confirmed |
 | `.sst` | 4 | 70 KB | `shiplist.sst`, `shiptech.sst`, `shiprace.sst`, `shipdesc.sst` | ship classes ([tables.md](tables.md)) | confirmed |

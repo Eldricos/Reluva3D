@@ -912,6 +912,11 @@ void testGalaxyScreen() {
     archive.files["bid.tga"] = image::encodeTga(red);
     archive.files["i_h46.tga"] = image::encodeTga(star);
     archive.files["human20.fnt"] = makeFont(21);
+    // Large terran planets' maximum populations, 140 with much growth and energy.
+    Bytes planspac = {6, 2, 0, 0};
+    for (const uint32_t v : {120U, 125U, 130U, 130U, 130U, 130U, 135U, 135U, 140U})
+        put32(planspac, v);
+    archive.files["planspac.bin"] = planspac;
     archive.files["hinfobox.wdf"] = info;
     archive.files["h_eicon.wdf"] = emblems;
     archive.files["hinf_tf.wdf"] = bar;
@@ -950,7 +955,11 @@ void testGalaxyScreen() {
     SavedPlanet earth;
     earth.animation = "eart.ani";
     earth.type = 6;
+    earth.size = 2;
+    earth.name = "Earth";
     earth.foodBonus = 620;
+    earth.growthBonus = 620;
+    earth.energyBonus = 620;
     g.systems[0].planets = {earth};
     g.systems[0].population = 310;
     g.systems[0].dilithium = 5;
@@ -1135,6 +1144,22 @@ void testGalaxyScreen() {
     CHECK(white(620, 507) && white(628, 516) && !white(620, 506));
     CHECK(colour(656, 477, 255, 0, 0) && colour(664, 486, 255, 0, 0));
     CHECK(colour(208, 478, 163, 163, 163) && colour(216, 486, 163, 163, 163));
+    // The pointer over the planet: its details instead of the system's,
+    // its name, its type's word and its maximum population (here, 140).
+    {
+        Event e;
+        e.type = EventType::kMouseMove;
+        e.mouseX = 629;
+        e.mouseY = 527;
+        CHECK(screen.handle(e) && screen.pointedPlanet() == 0 && screen.planetAt(700, 527) == -1);
+        s.create(800, 600, PixelFormat::kRGBA32);
+        screen.draw(s);
+        CHECK(lit(63, 511, 100, 528) && lit(150, 528, 193, 545));
+        e.mouseX = 10;
+        CHECK(screen.handle(e) && screen.pointedPlanet() == -1);
+        s.create(800, 600, PixelFormat::kRGBA32);
+        screen.draw(s);
+    }
     // The planet turns: its second frame, black, at its frame's time.
     screen.setTime(198);
     s.create(800, 600, PixelFormat::kRGBA32);
