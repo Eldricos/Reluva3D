@@ -13,10 +13,10 @@ namespace reluva::botf {
 
 namespace {
 
-// A held timer arrow steps again after this pause, then at this rate
-// (guessed: the user saw them count while held, not how fast).
-constexpr uint64_t kRepeatDelayMillis = 500;
-constexpr uint64_t kRepeatMillis = 100;
+// A held timer arrow steps again after this pause, then at this rate:
+// every 7.5 frames of a recording at 30 a second, the first step too.
+constexpr uint64_t kRepeatDelayMillis = 250;
+constexpr uint64_t kRepeatMillis = 250;
 
 Error loadLayout(Assets &assets, const char *name, WindowLayout &layout) {
     std::vector<uint8_t> data;

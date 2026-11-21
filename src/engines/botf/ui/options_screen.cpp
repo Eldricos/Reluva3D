@@ -141,9 +141,10 @@ std::map<std::string, std::string> optionsIniValues(const GameOptions &o) {
 }
 
 Error OptionsScreen::load() {
-    // Only Accept and Cancel light while held; the settings just act (the
-    // user, in the game).
-    _litWhileHeld = {kAccept, kCancel};
+    // Only Accept, Cancel and the timers' arrows light while held; the
+    // settings just act (the user, in the game; a recording for the
+    // arrows).
+    _litWhileHeld = {kAccept, kCancel, kStrategicLess, kStrategicMore, kTacticalLess, kTacticalMore};
     return loadLayouts("options.wdf", {kAccept, kCancel, kTitle, kVolumes[0], kVolumes[1], kVolumes[2], kVolumes[3],
                                        kToolTips, kCombat, kRandomEvents, kAutosave, kStrategicLess, kStrategicMore,
                                        kTacticalLess, kTacticalMore});

@@ -194,7 +194,8 @@ of twelve slots, the manual's "12 slots available for saved games".
   `human15.fnt`, left-aligned: on the left (9506, 9508 ... 9528, 158 wide,
   under "NAME:") the slot's file, `game`*n*`.sav`; on the right (9530,
   9532 ... 9552, 370 wide, under "DESCRIPTION:") its description. Slot *n*
-  is `game`*n*`.sav`, top down.
+  is `game`*n*`.sav`, top down; the name shown is as the file is named, in
+  lower case (the user, in the game, with saves in the slots).
 - **After a fresh install** the first four slots hold the tutorials,
   `game0.sav` to `game3.sav`, described "Tutorial #1" to "Tutorial #4":
   the games to load while following the tutorial guide in the install's
@@ -463,9 +464,12 @@ recording:
 - **Held buttons** (the user, in the game): the main menu's buttons and
   the screens' Accept and Cancel show their "selected" picture while
   held; the setup and options screens' settings don't, and just act when
-  clicked. A timer's arrow held counts on: Reluva steps it when pressed,
-  again after half a second, then ten times a second *(guessed: how fast
-  the game's count isn't known)*.
+  clicked. A timer's arrow held counts on and shows its "selected"
+  picture: a recording by the user, holding the options screen's arrows
+  from None to the end and back, has a step every 7.5 frames at 30 a
+  second, a quarter of a second, the first one with them. Reluva steps
+  when it's pressed and every quarter of a second after. The setup
+  screen's arrows are taken to be the same *(guessed)*.
 - **The empire screen:** Accept lights when clicked before an empire is
   chosen, but does nothing; clicking an emblem chooses its empire, as its
   name does (the user, in the game).
@@ -498,14 +502,9 @@ recording:
 
 ## Open questions
 
-- How fast a held timer arrow counts. Settled by a recording of one held.
 - Why the game setup screen's timers are a pixel right of where their
   text boxes centre them.
 - Where the game keeps the options between runs.
-- Load Game: whether a slot whose file is `Game4.sav` on disk shows that
-  or `game4.sav`. Settled by a save in such a slot. (After a fresh install
-  that file is 0 bytes, and its slot shows empty: Reluva's reader refuses
-  it, so it shows empty too.)
 - The Hall of Fame's ten first entries ("Yobo the Tyrant ... 12865" in a
   fresh install's screenshot) aren't in any file of the install or the CD:
   not in `stbof.res` (each of its 6,013 files searched), the saves,

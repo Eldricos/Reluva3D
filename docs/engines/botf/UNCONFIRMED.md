@@ -35,10 +35,6 @@ None: nothing of the game's code has been read.
 - **The menu's sounds:** which of the same sound's entries the game
   plays, and the voice volume's lines ([systems/sound.md](systems/sound.md)).
   Settled by: the game's code, or many more slider moves.
-- **A held timer arrow's pace:** half a second, then ten steps a second
-  ([systems/screens.md](systems/screens.md)). Settled by: a recording of
-  one held.
-
 - **The colour key is magenta** (31, 0, 31 in 15-bit colour): the
   executable sets it, and magenta is what the pictures leave undrawn
   ([formats/wdf.md](formats/wdf.md)). Settled by: no picture showing pink

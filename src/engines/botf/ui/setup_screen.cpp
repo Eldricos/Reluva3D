@@ -60,9 +60,10 @@ bool isTimerArrow(int32_t id) {
 } // namespace
 
 Error SetupScreen::load() {
-    // Only Accept and Cancel light while held; the settings just act (the
-    // user, in the game).
-    _litWhileHeld = {kAccept, kCancel};
+    // Only Accept, Cancel and the timers' arrows light while held; the
+    // settings just act (the user, in the game; the arrows as on the
+    // options screen, guessed).
+    _litWhileHeld = {kAccept, kCancel, kStrategicLess, kStrategicMore, kTacticalLess, kTacticalMore};
     return loadLayouts("gmesetup.wdf",
                        {kAccept, kCancel, kMinorRaces, kDifficulty, kStrategicLess, kStrategicMore, kTacticalLess,
                         kTacticalMore, kRandomEvents, kCombat, kVictory, kShape, kSize, kCivButtons[0], kCivButtons[1],

@@ -128,8 +128,8 @@ void testSetupScreen() {
     for (int i = 0; i < 40; ++i)
         click(9215);
     CHECK(s.tacticalTimer == int(tacticalTimerChoices().size()) - 1);
-    // Held, an arrow steps at once, again after half a second, then every
-    // tenth of a second, until let go.
+    // Held, an arrow steps at once, then every quarter of a second until
+    // let go.
     auto mouseAt = [&](EventType t, int32_t id) {
         const size_t i = size_t(std::find(ids.begin(), ids.end(), id) - ids.begin());
         Event e;
@@ -142,8 +142,8 @@ void testSetupScreen() {
     CHECK(!screen.tick(1000));
     mouseAt(EventType::kMouseDown, 9214);
     CHECK(s.tacticalTimer == int(tacticalTimerChoices().size()) - 2 && screen.repeating());
-    CHECK(!screen.tick(1499) && screen.tick(1500) && s.tacticalTimer == int(tacticalTimerChoices().size()) - 3);
-    CHECK(screen.tick(1800) && s.tacticalTimer == int(tacticalTimerChoices().size()) - 6);
+    CHECK(!screen.tick(1249) && screen.tick(1250) && s.tacticalTimer == int(tacticalTimerChoices().size()) - 3);
+    CHECK(screen.tick(2000) && s.tacticalTimer == int(tacticalTimerChoices().size()) - 6);
     mouseAt(EventType::kMouseUp, 9214);
     CHECK(!screen.repeating() && !screen.tick(3000) && s.tacticalTimer == int(tacticalTimerChoices().size()) - 6);
     // Letting go off the button does nothing; Accept and Cancel end it.
