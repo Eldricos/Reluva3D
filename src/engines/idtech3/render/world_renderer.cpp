@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <map>
 #include <optional>
 #include <tuple>
@@ -55,26 +56,23 @@ gfx::Vertex toGfx(const BspVertex &v, const BspSurface &s, bool raven, bool over
     return g;
 }
 
-// A curve's triangles as the original's renderer lists them at full
-// detail, for its surface sprites (whose places hang on each triangle's
-// corners and their order): the grid turned on its side if taller than
-// wide, each row then reversed (R_SubdividePatchToGrid's flip for longer
-// strips), and each square's triangles top left, below it, right of it;
-// then right of it, below it, diagonally (RB_SurfaceGrid).
-std::vector<uint32_t> originalGridTriangles(const PatchGrid &grid, uint32_t base) {
+// A curve's triangles as the original's renderer lists them, for its
+// surface sprites (whose places hang on each triangle's corners and their
+// order): each square's top left, below it, right of it; then right of
+// it, below it, diagonally (RB_SurfaceGrid).
+std::vector<uint32_t> originalGridTriangles(const PatchGrid &grid, uint32_t base,
+                                            float lodError = std::numeric_limits<float>::infinity()) {
+    const GridDetail g = gridDetail(grid, lodError);
     std::vector<uint32_t> out;
     const int w = grid.width;
     const int h = grid.height;
-    const bool flipped = h > w;
-    const int rows = flipped ? w : h;
-    const int cols = flipped ? h : w;
-    auto at = [&](int r, int c) { return base + uint32_t(flipped ? (h - 1 - c) * w + r : r * w + c); };
-    for (int i = 0; i + 1 < rows; ++i)
-        for (int j = 0; j + 1 < cols; ++j) {
-            const uint32_t v1 = at(i, j + 1);
-            const uint32_t v2 = at(i, j);
-            const uint32_t v3 = at(i + 1, j);
-            const uint32_t v4 = at(i + 1, j + 1);
+    auto at = [&](int r, int c) { return base + uint32_t(g.flipped ? (h - 1 - c) * w + r : r * w + c); };
+    for (size_t i = 0; i + 1 < g.rows.size(); ++i)
+        for (size_t j = 0; j + 1 < g.cols.size(); ++j) {
+            const uint32_t v1 = at(g.rows[i], g.cols[j + 1]);
+            const uint32_t v2 = at(g.rows[i], g.cols[j]);
+            const uint32_t v3 = at(g.rows[i + 1], g.cols[j]);
+            const uint32_t v4 = at(g.rows[i + 1], g.cols[j + 1]);
             out.insert(out.end(), {v2, v3, v1, v1, v3, v4});
         }
     return out;
@@ -101,6 +99,7 @@ void WorldRenderer::clear() {
     _sprites.clear();
     _surfaceSprites.clear();
     _spriteShaders.clear();
+    _spriteCurves.clear();
     for (gfx::MeshId m : {_mesh, _skyMesh})
         if (m)
             _r.destroyMesh(m);
@@ -358,7 +357,6 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
             const auto offset = uint32_t(out.size());
             const uint32_t base = uint32_t(vertices.size());
             const BspVertex *v = &bsp.vertices[size_t(s.firstVertex)];
-            std::vector<uint32_t> spriteTriangles; // a curve's, as the original's renderer lists them
             if (s.type == SurfaceType::kPatch) {
                 patchVerts.clear();
                 patchIndices.clear();
@@ -370,7 +368,6 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
                 }
                 for (uint32_t i : patchIndices)
                     out.push_back(base + i);
-                spriteTriangles = originalGridTriangles(grid, base);
             } else {
                 for (int i = 0; i < s.numVertices; ++i) {
                     noteStyledVertex(v[i], s, uint32_t(vertices.size()));
@@ -381,10 +378,22 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
                         out.push_back(base + uint32_t(bsp.indices[size_t(s.firstIndex + i + k)]));
             }
             if (mi == 0 && !sky && out.size() > offset)
-                if (const ShaderDef *def = library.find(bsp.shaders[size_t(s.shader)].name))
-                    addSurfaceSprites(si, *def, s.fog, mat.sort, vertices,
-                                      spriteTriangles.empty() ? &out[offset] : spriteTriangles.data(),
-                                      spriteTriangles.empty() ? out.size() - offset : spriteTriangles.size());
+                if (const ShaderDef *def = library.find(bsp.shaders[size_t(s.shader)].name)) {
+                    std::vector<SpriteStage> stages = spriteStages(*def, mat.sort);
+                    if (!stages.empty() && s.type == SurfaceType::kPatch) {
+                        SpriteCurve curve;
+                        curve.surface = si;
+                        curve.fog = s.fog;
+                        curve.sort = mat.sort;
+                        curve.stages = std::move(stages);
+                        curve.vertices.assign(vertices.begin() + base, vertices.end());
+                        curve.grid = grids[size_t(si)];
+                        curve.grid.points.clear();
+                        _spriteCurves.push_back(std::move(curve));
+                    } else if (!stages.empty()) {
+                        addSurfaceSprites(si, stages, s.fog, mat.sort, vertices, &out[offset], out.size() - offset);
+                    }
+                }
             // Solid, unmoving surfaces take dynamic lights (the world's:
             // brush entities move).
             const bool deformed = mat.deforms[0].type != gfx::Deform::Type::kNone;
@@ -982,9 +991,8 @@ void WorldRenderer::drawSprites(float time, float sortMin, float sortMax) const 
 // A sprite stage's material: the stage alone, its colour and alpha the
 // sprites' own, both sides drawn. Only a shader's second stage on can be
 // one, as the original draws them.
-void WorldRenderer::addSurfaceSprites(int surface, const ShaderDef &def, int fog, float sort,
-                                      const std::vector<gfx::Vertex> &vertices, const uint32_t *indices,
-                                      size_t indexCount) {
+std::vector<WorldRenderer::SpriteStage> WorldRenderer::spriteStages(const ShaderDef &def, float sort) {
+    std::vector<SpriteStage> out;
     for (size_t i = 1; i < def.stages.size(); ++i) {
         const ShaderStage &stage = def.stages[i];
         if (stage.sprites.type == SurfaceSprites::Type::kNone)
@@ -1004,8 +1012,17 @@ void WorldRenderer::addSurfaceSprites(int surface, const ShaderDef &def, int fog
         drawn.tcMods.clear();
         const int material = _shaders.material(own, Lighting::kEffect);
         const bool additive = stage.blendSrc == "gl_one" && stage.blendDst == "gl_one";
-        _surfaceSprites.add(surface, material, fog, sort, additive, stage.sprites, vertices, indices, indexCount);
+        out.push_back({material, additive, stage.sprites});
     }
+    return out;
+}
+
+void WorldRenderer::addSurfaceSprites(int surface, const std::vector<SpriteStage> &stages, int fog, float sort,
+                                      const std::vector<gfx::Vertex> &vertices, const uint32_t *indices,
+                                      size_t indexCount, int variant) const {
+    for (const SpriteStage &st : stages)
+        _surfaceSprites.add(surface, st.material, fog, sort, st.additive, st.parms, vertices, indices, indexCount,
+                            variant);
 }
 
 void WorldRenderer::drawSurfaceSprites(float time, float sortMin, float sortMax) const {
@@ -1017,6 +1034,24 @@ void WorldRenderer::drawSurfaceSprites(float time, float sortMin, float sortMax)
         return !view ||
                (size_t(surface) < view->visibleMark.size() && view->visibleMark[size_t(surface)] == view->visibleStamp);
     };
+    // Each curve's sprites at the detail this view draws it with (its
+    // group's distance in front of the eye), placed when first needed.
+    for (SpriteCurve &curve : _spriteCurves) {
+        if (!visible(curve.surface))
+            continue;
+        const float lodError = curveLodError(curve.grid, slot.eye, _camera[2], _spriteWeather.lodCurveError);
+        const GridDetail kept = gridDetail(curve.grid, lodError);
+        const std::pair<int, int> key{int(kept.cols.size()), int(kept.rows.size())};
+        auto it = curve.variants.find(key);
+        if (it == curve.variants.end()) {
+            const std::vector<uint32_t> triangles = originalGridTriangles(curve.grid, 0, lodError);
+            const int variant = int(curve.variants.size());
+            addSurfaceSprites(curve.surface, curve.stages, curve.fog, curve.sort, curve.vertices, triangles.data(),
+                              triangles.size(), variant);
+            it = curve.variants.emplace(key, variant).first;
+        }
+        _surfaceSprites.showVariant(curve.surface, it->second);
+    }
     std::array<float, 3> left = _camera[0];
     if (_cameraMirrored)
         for (float &c : left)

@@ -29,9 +29,7 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
 
 In the maps:
 
-- **Surface sprites** (grass, ferns, vines) on far curves stay where
-  they stand up close, where the original's move as it drops the curve's
-  detail; and the wind's gusts come at Reluva's own random times
+- **Surface sprites**' wind gusts come at Reluva's own random times
   ([shader.md](../../formats/shader.md), In Reluva).
 - **The weather**'s drops, flakes and gusts are Reluva's own random
   draws, and its snowflakes squares as large as the original's points

@@ -150,13 +150,26 @@ original's:
   original's do, save where the original's sums, in the x87's longer
   floats, round otherwise (a point right on a triangle's edge), and on
   curves, which Reluva cuts into triangles its own way.
-- On curves, sprites are placed on the original's triangles at full
-  detail: the grid turned on its side when taller than wide, each row
-  reversed (`R_SubdividePatchToGrid`'s flip), each square's two triangles
-  with their corners in the original's order (`RB_SurfaceGrid`); Reluva
-  draws the curve with triangles of its own. Far off, the original drops
-  rows and columns of a curve (its level of detail), and with them the
-  sprites move; Reluva doesn't.
+- On curves, sprites are placed on the original's triangles: the grid
+  turned on its side when taller than wide, each row reversed
+  (`R_SubdividePatchToGrid`'s flip), each square's two triangles with
+  their corners in the original's order (`RB_SurfaceGrid`); Reluva draws
+  the curve itself with triangles of its own, at full detail. Far off,
+  the original leaves out rows and columns of a curve, and the sprites
+  stand on what's left, so they move as the eye does; Reluva's do the
+  same. Each row and column keeps the error the original's subdivision
+  gives it (jk2mp.exe 0x472a60: 1 over how far the curve strayed from
+  straight where it was cut, set where the run's middle is, or where a
+  cut's middle goes, and never moved along as columns are added, so a
+  middle cut again is left at 0 and always drawn); stitching gives an
+  added one the error of the other patch's row or column through its
+  point. Each view keeps those whose error is no more than
+  `r_lodCurveError` (250, kept between runs) over how far the curve's
+  group is in front of the eye past its radius, at least 1
+  (`LodErrorForVolume`, 0x4942e0; RB_SurfaceGrid, 0x493f50), and the
+  sprites for that set are placed the first time a view needs them. No
+  shipped level has sprites on a curve (they're all on flat surfaces of
+  four Yavin levels), so this matters only for mods' levels.
 - The wind is Jedi Outcast's renderer settings', as its
   `R_SurfaceSpriteFrameUpdate` works it out once for each frame's time:
   `r_windSpeed` blowing towards `r_windAngle`, damped towards each change
@@ -166,8 +179,8 @@ original's:
   `r_windPointY` away and down. Grass leans with it and bobs; effects
   drift along it over their lives. Weather sprites show as much as
   `r_surfaceWeather` says (their density divided by it), none at 0.
-  jk2mp.exe registers all of these with no wind and no weather
-  (`r_windDampFactor` 0.1), as Reluva does. Rain and snow set them
+  jk2sp.exe and jk2mp.exe register all of these with no wind and no
+  weather (`r_windDampFactor` 0.1), as Reluva does. Rain and snow set them
   while they fall, in both programs
   ([../games/jk2/systems/weather.md](../games/jk2/systems/weather.md)).
 - With a field of view narrower than the first ordinary one drawn

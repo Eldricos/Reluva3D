@@ -28,6 +28,9 @@ struct SurfaceSpriteWeather {
     float windPointX = 0;
     float windPointY = 0;
     float surfaceWeather = 0; // how much weather sprites show (0: none)
+    // r_lodCurveError: how much detail far curves keep, so where their
+    // sprites stand (0x4942e0); under 0, the least.
+    float lodCurveError = 250;
 };
 
 // Jedi Outcast's renderer settings for them (r_windSpeed, r_windAngle...,
@@ -47,8 +50,12 @@ public:
     // Scatters `parms`' sprites over a surface's triangles: `vertices` as
     // drawn (colours brightened), `indices` into them, three a triangle.
     // `material` draws them, `additive`: its blend is GL_ONE GL_ONE.
+    // `variant`: one of the surface's alternatives (a curve's at a level
+    // of detail), drawn only while shown (showVariant); -1 always drawn.
     void add(int surface, int material, int fog, float sort, bool additive, const SurfaceSprites &parms,
-             const std::vector<gfx::Vertex> &vertices, const uint32_t *indices, size_t indexCount);
+             const std::vector<gfx::Vertex> &vertices, const uint32_t *indices, size_t indexCount, int variant = -1);
+    // Which of `surface`'s variants build() draws (-1: none).
+    void showVariant(int surface, int variant);
     bool empty() const { return _groups.empty(); }
     size_t spriteCount() const { return _sprites.size(); }
     // Every sort they're drawn at.
@@ -110,8 +117,10 @@ private:
         uint32_t triangleCount = 0;
         std::array<float, 3> mins{};
         std::array<float, 3> maxs{};
+        int variant = -1;
     };
     std::vector<Group> _groups;
+    std::vector<int> _shownVariant; // by surface
     std::vector<Triangle> _triangles;
     std::vector<Sprite> _sprites;
 

@@ -72,6 +72,7 @@
 
 #include <array>
 #include <cmath>
+#include <limits>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -1542,6 +1543,7 @@ static void testPatchGrids() {
     PatchGrid flat = subdividePatch(control, 3, 3, 4);
     CHECK(flat.width == 2 && flat.height == 2 && flat.points.size() == 4);
     CHECK(flat.points[3].pos[0] == 128 && flat.points[3].pos[1] == 128);
+    CHECK((flat.columnErrors == std::vector<float>{0, 0}) && (flat.rowErrors == std::vector<float>{0, 0}));
 
     // Bulging up in the middle. Across first: the middle row strays 32
     // units, halved twice (8, then 2 off); that flattens the control
@@ -1561,6 +1563,41 @@ static void testPatchGrids() {
     std::vector<uint32_t> idx;
     triangulateGrid(bulge, verts, idx);
     CHECK(verts.size() == 45 && idx.size() == 8 * 4 * 6);
+    // Each column's error, as the original's table keeps it: 1 over the
+    // stray where it was cut, the halves' middles' (about 1/7) and the
+    // quarter points' (about 1/2), alike either side; the middle's 1/32
+    // overwritten as its first half was cut again, leaving it 0. Down, the
+    // middle 1/16 and about 1/4 either side.
+    const std::vector<float> columns{0, 0.625f, 0.13975f, 0.51539f, 0, 0.51539f, 0.13975f, 0.625f, 0};
+    bool same = bulge.columnErrors.size() == columns.size() && bulge.rowErrors.size() == 5;
+    for (size_t i = 0; same && i < columns.size(); ++i)
+        same = std::fabs(bulge.columnErrors[i] - columns[i]) < 1e-4f;
+    CHECK(same && bulge.rowErrors[0] == 0 && bulge.rowErrors[4] == 0);
+    CHECK(std::fabs(bulge.rowErrors[2] - 1.0f / 16) < 1e-4f && std::fabs(bulge.rowErrors[1] - 0.25769f) < 1e-4f);
+    // At a level of detail, the rows and columns whose error is no more,
+    // the first and last always.
+    const float kAll = std::numeric_limits<float>::infinity();
+    CHECK(gridDetail(bulge, kAll).cols.size() == 9 && gridDetail(bulge, kAll).rows.size() == 5);
+    CHECK((gridDetail(bulge, 0.3f).cols == std::vector<int>{0, 2, 4, 6, 8}) &&
+          gridDetail(bulge, 0.3f).rows.size() == 5);
+    CHECK((gridDetail(bulge, 0.1f).cols == std::vector<int>{0, 4, 8}) &&
+          (gridDetail(bulge, 0.1f).rows == std::vector<int>{0, 2, 4}));
+    // Taller than wide, it's turned on its side, its columns the rows
+    // reversed.
+    PatchGrid tall;
+    tall.width = 2;
+    tall.height = 4;
+    tall.columnErrors = {0, 0};
+    tall.rowErrors = {0, 0.5f, 0.2f, 0};
+    const GridDetail turned = gridDetail(tall, 0.3f);
+    CHECK(turned.flipped && turned.rows.size() == 2 && (turned.cols == std::vector<int>{0, 1, 3}));
+    // The level of detail: r_lodCurveError over the group's distance in
+    // front of the eye past its radius, at least 1; none for under 0.
+    bulge.groupOrigin = {0, 0, 0};
+    bulge.groupRadius = 10;
+    CHECK(std::fabs(curveLodError(bulge, {-1010, 500, 0}, {1, 0, 0}, 250) - 0.25f) < 1e-6f);
+    CHECK(curveLodError(bulge, {-5, 0, 0}, {1, 0, 0}, 250) == 250 &&
+          curveLodError(bulge, {0, 0, 0}, {1, 0, 0}, -1) == 0);
     // Finer for a smaller error.
     CHECK(subdividePatch(control, 3, 3, 0.5f).width > 9);
 
@@ -1580,6 +1617,8 @@ static void testPatchGrids() {
     CHECK(grids[0].height > 2 && grids[1].height == 2);
     CHECK(stitchPatches(grids) > 0);
     CHECK(grids[1].height == grids[0].height);
+    // The rows added take the errors of the rows they came from.
+    CHECK(grids[1].rowErrors == grids[0].rowErrors);
     bool matched = true;
     for (int y = 0; y < grids[0].height; ++y) {
         const auto &a = grids[0].points[size_t(y * grids[0].width + grids[0].width - 1)].pos;

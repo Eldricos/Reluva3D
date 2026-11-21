@@ -228,8 +228,13 @@ Mesh transposed(const Mesh &m) {
 // Halves the columns of control points across the mesh as needed (see
 // subdividePatch); `straight` gets, for each column, whether it's a middle
 // one straight on every row.
-void subdivideColumns(Mesh &m, float error, std::vector<bool> &straight) {
+void subdivideColumns(Mesh &m, float error, std::vector<bool> &straight, std::vector<float> &errors) {
     straight.assign(size_t(m.w), false);
+    // The errors by place, as jk2mp.exe's table (0x472a60): set where each
+    // run's middle is, or where a cut's middle goes, and never moved along
+    // as columns are added, so a middle cut again leaves its first place
+    // to the new one and its own at 0.
+    errors.assign(size_t(kMaxGridPoints), 0);
     for (int x = 0; x + 2 < m.w;) {
         float worst = 0;
         for (int y = 0; y < m.h; ++y) {
@@ -243,13 +248,16 @@ void subdivideColumns(Mesh &m, float error, std::vector<bool> &straight) {
         }
         if (worst < 0.1f) {
             straight[size_t(x + 1)] = true;
+            errors[size_t(x + 1)] = 999;
             x += 2;
             continue;
         }
         if (m.w + 2 > kMaxGridPoints || worst <= error) {
+            errors[size_t(x + 1)] = 1 / worst;
             x += 2;
             continue;
         }
+        errors[size_t(x + 2)] = 1 / worst;
         // Split this run in two at the curve's middle (a, b, c become a,
         // ab, middle, bc, c), then look at its first half again.
         Mesh out;
@@ -386,8 +394,10 @@ BspVertex blend(const BspVertex &a, const BspVertex &b) {
 }
 
 // A new column at `x` (between the old x - 1 and x), halfway across every
-// row, but at `at` on row `y`.
-void insertColumn(PatchGrid &g, int x, int y, const std::array<float, 3> &at) {
+// row, but at `at` on row `y`; `error` is its error.
+void insertColumn(PatchGrid &g, int x, int y, const std::array<float, 3> &at, float error) {
+    if (g.columnErrors.size() == size_t(g.width))
+        g.columnErrors.insert(g.columnErrors.begin() + x, error);
     std::vector<BspVertex> out;
     out.reserve(size_t((g.width + 1) * g.height));
     for (int r = 0; r < g.height; ++r)
@@ -406,7 +416,9 @@ void insertColumn(PatchGrid &g, int x, int y, const std::array<float, 3> &at) {
     ++g.width;
 }
 
-void insertRow(PatchGrid &g, int y, int x, const std::array<float, 3> &at) {
+void insertRow(PatchGrid &g, int y, int x, const std::array<float, 3> &at, float error) {
+    if (g.rowErrors.size() == size_t(g.height))
+        g.rowErrors.insert(g.rowErrors.begin() + y, error);
     std::vector<BspVertex> row;
     for (int c = 0; c < g.width; ++c) {
         row.push_back(blend(g.points[size_t((y - 1) * g.width + c)], g.points[size_t(y * g.width + c)]));
@@ -442,10 +454,14 @@ bool stitchOne(const PatchGrid &from, PatchGrid &to) {
                             if (!near(from.points[size_t(theirs[size_t(k)])].pos, q, 0.1f))
                                 continue;
                             const std::array<float, 3> missing = from.points[size_t(theirs[size_t(i + step)])].pos;
+                            // It takes the error of `from`'s column or row
+                            // through the point (R_StitchPatches').
+                            const std::vector<float> &errors = eFrom.row ? from.columnErrors : from.rowErrors;
+                            const float error = size_t(i + step) < errors.size() ? errors[size_t(i + step)] : 0;
                             if (eTo.row)
-                                insertColumn(to, int(t) + 1, eTo.fixed, missing);
+                                insertColumn(to, int(t) + 1, eTo.fixed, missing, error);
                             else
-                                insertRow(to, int(t) + 1, eTo.fixed, missing);
+                                insertRow(to, int(t) + 1, eTo.fixed, missing, error);
                             return true;
                         }
                     }
@@ -470,9 +486,11 @@ PatchGrid subdividePatch(const BspVertex *control, int width, int height, float 
     error = std::max(error, 0.01f);
     std::vector<bool> straightX;
     std::vector<bool> straightY;
-    subdivideColumns(m, error, straightX);
+    std::vector<float> errorsX;
+    std::vector<float> errorsY;
+    subdivideColumns(m, error, straightX, errorsX);
     m = transposed(m);
-    subdivideColumns(m, error, straightY);
+    subdivideColumns(m, error, straightY, errorsY);
     m = transposed(m);
 
     // The control points between those on the curve, moved onto it: each
@@ -495,11 +513,46 @@ PatchGrid subdividePatch(const BspVertex *control, int width, int height, float 
             keepY.push_back(y);
     g.width = int(keepX.size());
     g.height = int(keepY.size());
+    for (int x : keepX)
+        g.columnErrors.push_back(errorsX[size_t(x)]);
+    for (int y : keepY)
+        g.rowErrors.push_back(errorsY[size_t(y)]);
     for (int y : keepY)
         for (int x : keepX)
             g.points.push_back(toVertex(m.at(x, y)));
     meshNormals(g);
     return g;
+}
+
+GridDetail gridDetail(const PatchGrid &grid, float lodError) {
+    GridDetail g;
+    const int w = grid.width;
+    const int h = grid.height;
+    g.flipped = h > w;
+    const int rows = g.flipped ? w : h;
+    const int cols = g.flipped ? h : w;
+    auto error = [](const std::vector<float> &errors, int i) {
+        return size_t(i) < errors.size() ? errors[size_t(i)] : 0.0f;
+    };
+    for (int r = 0; r < rows; ++r)
+        if (r == 0 || r == rows - 1 || (g.flipped ? error(grid.columnErrors, r) : error(grid.rowErrors, r)) <= lodError)
+            g.rows.push_back(r);
+    for (int c = 0; c < cols; ++c)
+        if (c == 0 || c == cols - 1 ||
+            (g.flipped ? error(grid.rowErrors, h - 1 - c) : error(grid.columnErrors, c)) <= lodError)
+            g.cols.push_back(c);
+    return g;
+}
+
+float curveLodError(const PatchGrid &grid, const std::array<float, 3> &eye, const std::array<float, 3> &forward,
+                    float setting) {
+    if (setting < 0)
+        return 0;
+    float d = 0;
+    for (size_t k = 0; k < 3; ++k)
+        d += (grid.groupOrigin[k] - eye[k]) * forward[k];
+    d = std::max(std::fabs(d) - grid.groupRadius, 1.0f);
+    return setting / d;
 }
 
 int stitchPatches(std::vector<PatchGrid> &grids) {

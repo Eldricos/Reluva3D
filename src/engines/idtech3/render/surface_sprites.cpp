@@ -117,14 +117,25 @@ void SurfaceSpriteSet::clear() {
     _groups.clear();
     _triangles.clear();
     _sprites.clear();
+    _shownVariant.clear();
+}
+
+void SurfaceSpriteSet::showVariant(int surface, int variant) {
+    if (surface < 0)
+        return;
+    if (size_t(surface) >= _shownVariant.size())
+        _shownVariant.resize(size_t(surface) + 1, -1);
+    _shownVariant[size_t(surface)] = variant;
 }
 
 void SurfaceSpriteSet::add(int surface, int material, int fog, float sort, bool additive, const SurfaceSprites &parms,
-                           const std::vector<gfx::Vertex> &vertices, const uint32_t *indices, size_t indexCount) {
+                           const std::vector<gfx::Vertex> &vertices, const uint32_t *indices, size_t indexCount,
+                           int variant) {
     if (parms.type == Type::kNone)
         return;
     Group g;
     g.surface = surface;
+    g.variant = variant;
     g.material = material;
     g.fog = fog;
     g.sort = sort;
@@ -241,6 +252,9 @@ SurfaceSpriteWeather surfaceSpriteSettings(CvarStore &cvars) {
     w.windPointX = setting("r_windPointX", "0");
     w.windPointY = setting("r_windPointY", "0");
     w.surfaceWeather = setting("r_surfaceWeather", "0");
+    // Kept between runs, as both programs register it (0x46e7ef, 0x47f062).
+    cvars.create("r_lodCurveError", "250", CvarStore::kArchive);
+    w.lodCurveError = cvars.value("r_lodCurveError");
     return w;
 }
 
@@ -322,6 +336,9 @@ void SurfaceSpriteSet::build(const Vec3 &eye, const Vec3 &left, const Vec3 &up, 
         // Weather shows only as much as the settings (or rain) say.
         const bool weather = p.type == Type::kWeather;
         if (g.sort < sortMin || g.sort > sortMax || (weather && _weatherAmount < 0.01f) || !visible(g.surface))
+            continue;
+        if (g.variant >= 0 &&
+            (size_t(g.surface) >= _shownVariant.size() || _shownVariant[size_t(g.surface)] != g.variant))
             continue;
         // Nothing past fadeMax shows (farther with a narrower view): a
         // group wholly beyond it is skipped.

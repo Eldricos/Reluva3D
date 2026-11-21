@@ -118,7 +118,10 @@ As the original's renderer, and Reluva's (`patch.cpp`, `subdividePatch`):
 The original also drops columns and rows by distance as it draws (the
 farther the patch, the more; `r_lodCurveError`), keeping the groups'
 shared points alike. Reluva always draws every point, which is the
-original at close range.
+original at close range; it keeps each column's and row's error as the
+original does, and Jedi Outcast's surface sprites on a curve stand on
+the rows and columns the original would draw
+([shader.md](shader.md), In Reluva).
 
 ## In Reluva
 

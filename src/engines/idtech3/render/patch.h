@@ -53,8 +53,32 @@ struct PatchGrid {
     // centre and size of its bounds, as the map stores them.
     std::array<float, 3> groupOrigin{};
     float groupRadius = 0;
+    // Each column's and row's error, by which the original leaves it out
+    // when far off (R_SubdividePatchToGrid's tables): 1 over how far the
+    // curve strayed from straight where it was cut, or 0, never left out.
+    std::vector<float> columnErrors;
+    std::vector<float> rowErrors;
 };
 PatchGrid subdividePatch(const BspVertex *control, int width, int height, float error);
+
+// A curve's rows and columns as the original draws them at a level of
+// detail (`lodError`, from curveLodError): the grid as it keeps it, turned
+// on its side if taller than wide and each row then reversed
+// (R_SubdividePatchToGrid's flip for longer strips, its error tables
+// swapped and the new columns' reversed, jk2mp.exe 0x4737d0); of that, the
+// first and last row and column always, and the rest whose error is no
+// more (RB_SurfaceGrid, 0x493f50).
+struct GridDetail {
+    bool flipped = false;
+    std::vector<int> rows; // kept, in the original's rows
+    std::vector<int> cols;
+};
+GridDetail gridDetail(const PatchGrid &grid, float lodError);
+// The level of detail a view draws a curve with (LodErrorForVolume,
+// 0x4942e0): `setting` (r_lodCurveError) over how far the curve's group is
+// in front of the eye past its radius, at least 1; 0 for a setting under 0.
+float curveLodError(const PatchGrid &grid, const std::array<float, 3> &eye, const std::array<float, 3> &forward,
+                    float setting);
 
 // Closes the cracks between patches of a group: where a patch's edge has
 // a point another's matching edge lacks (both ends of that edge's piece

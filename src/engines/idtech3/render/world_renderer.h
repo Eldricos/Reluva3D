@@ -5,6 +5,7 @@
 
 #include "engines/idtech3/formats/bsp.h"
 #include "engines/idtech3/render/light_grid.h"
+#include "engines/idtech3/render/patch.h"
 #include "engines/idtech3/render/shader_cache.h"
 #include "engines/idtech3/render/surface_sprites.h"
 
@@ -12,6 +13,7 @@
 
 #include <array>
 #include <deque>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -250,12 +252,34 @@ private:
     bool _cameraSet = false;
     void drawSprites(float time, float sortMin, float sortMax) const;
     // Raven's surface sprites on the level's surfaces, and the shaders
-    // their materials are made from (each a sprite stage alone).
-    SurfaceSpriteSet _surfaceSprites;
+    // their materials are made from (each a sprite stage alone). A
+    // curve's are added as views first need them (drawSurfaceSprites).
+    mutable SurfaceSpriteSet _surfaceSprites;
     SurfaceSpriteWeather _spriteWeather;
     std::deque<ShaderDef> _spriteShaders;
-    void addSurfaceSprites(int surface, const ShaderDef &def, int fog, float sort,
-                           const std::vector<gfx::Vertex> &vertices, const uint32_t *indices, size_t indexCount);
+    // A shader's sprite stages, each with its own material.
+    struct SpriteStage {
+        int material = 0;
+        bool additive = false; // blended GL_ONE GL_ONE
+        SurfaceSprites parms;
+    };
+    std::vector<SpriteStage> spriteStages(const ShaderDef &def, float sort);
+    void addSurfaceSprites(int surface, const std::vector<SpriteStage> &stages, int fog, float sort,
+                           const std::vector<gfx::Vertex> &vertices, const uint32_t *indices, size_t indexCount,
+                           int variant = -1) const;
+    // A curve with sprites: they stand on its triangles at the detail each
+    // view draws it with (RB_SurfaceGrid's, jk2mp.exe 0x493f50), each
+    // level's placed the first time a view needs it.
+    struct SpriteCurve {
+        int surface = -1;
+        int fog = -1;
+        float sort = 3;
+        std::vector<SpriteStage> stages;
+        std::vector<gfx::Vertex> vertices;           // the grid's, as drawn
+        PatchGrid grid;                              // its shape and errors (no points)
+        std::map<std::pair<int, int>, int> variants; // by columns and rows kept
+    };
+    mutable std::vector<SpriteCurve> _spriteCurves;
     void drawSurfaceSprites(float time, float sortMin, float sortMax) const;
     size_t _triangles = 0;
 
