@@ -10,18 +10,22 @@ Engine id `legoisland`, in `src/engines/legoisland/`.
 
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
-| LEGO Island | `legoisland` | Mindscape / LEGO Media, 1997 | Windows | English 1.0 (`LEGO1.DLL`, `WORLD.WDB`); any other by its files' names, as an unknown release | Recognised; nothing runs yet |
+| LEGO Island | `legoisland` | Mindscape / LEGO Media, 1997 | Windows | English 1.0 (`LEGO1.DLL`, `WORLD.WDB`); any other by its files' names, as an unknown release | Recognised and imported; nothing runs yet |
 
 ## Where it stands
 
 It recognises the English 1.0 release, and other releases by their
-files' names ([systems/game-files.md](systems/game-files.md)), and shows
-an empty screen. The plan is in [PLAN.md](PLAN.md).
+files' names, and imports the game from its CD into one folder
+([systems/game-files.md](systems/game-files.md)). Run, it shows an empty
+screen. The plan is in [PLAN.md](PLAN.md).
 
 ## Using it
 
-Nothing to play yet. The launcher's *Add Game...* recognises the game's
-install folder, or the CD's `DATA\DISK` folder.
+Nothing to play yet. *Import Game...* in the launcher, with the CD (or a
+copy of it), copies everything the game needs, 520 MB, into a folder of
+its own; started from an install folder, *Add CD or installed game...*
+adds the CD. *Add Game...* recognises an install folder as it is, but
+without the CD's scripts the game won't be able to run from it.
 
 ## This folder
 
@@ -41,7 +45,8 @@ install folder, or the CD's `DATA\DISK` folder.
 
 | Path | What |
 |---|---|
-| `legoisland.cpp` | The `MetaEngine` (name, detection table, making an `Engine`) and the `Engine` |
+| `legoisland.cpp` | The `MetaEngine` (name, making an `Engine`, importing) and the `Engine` |
+| `detection.cpp` | The releases it recognises, and finding and copying the game's parts for an import |
 | `tools/` | `reluva-tool legoisland` commands (`reluva-tool help legoisland` lists them) |
 
 ## Tests

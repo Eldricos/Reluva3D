@@ -6,31 +6,11 @@
 // screen (docs/engines/legoisland/PLAN.md).
 
 #include "engines/engine.h"
+#include "engines/legoisland/detection.h"
 
 namespace reluva::legoisland {
 
 namespace {
-
-// The releases it recognises, by the game's code and its world database
-// as the installer copies them (docs/engines/legoisland/systems/game-files.md).
-const std::vector<GameVariant> kVariants = {
-    {"legoisland",
-     "LEGO Island (English 1.0)",
-     "en",
-     "windows",
-     {{"LEGO1.DLL", "b7ca2f80366a427797cc3f820c48a0f1", 1134080},
-      {"lego/data/WORLD.WDB", "a2de77ebfa5164ec949f19cd5c7bb58c", 9944860}}},
-};
-
-// The same game by its files' names alone, for releases not in kVariants
-// (1.1, other languages): used only when nothing there matches.
-const std::vector<GameVariant> kFallback = {
-    {"legoisland",
-     "LEGO Island (unknown release)",
-     "",
-     "windows",
-     {{"LEGO1.DLL", "", -1}, {"lego/data/WORLD.WDB", "", -1}}},
-};
 
 /**
  * The game running: for now an empty screen until the player quits.
@@ -73,9 +53,43 @@ public:
     const char *id() const override { return "legoisland"; }
     const char *name() const override { return "LEGO Island"; }
 
-    std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override {
-        std::vector<DetectedGame> found = detectFromTable(id(), kVariants, dir);
-        return found.empty() ? detectFromTable(id(), kFallback, dir) : found;
+    std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override { return detectGame(id(), dir); }
+
+    std::vector<ImportPlan> planImport(const std::filesystem::path &source) const override {
+        const std::vector<GamePart> parts = findGameParts(source);
+        if (parts.empty())
+            return {};
+        ImportPlan plan;
+        plan.game = DetectedGame{id(), kGameId, "LEGO Island", "en", "windows"};
+        for (const GamePart &part : parts) {
+            addPartToImport(plan, part);
+            // Which release, from the game's own files where they are.
+            if (part.kind == GamePart::kInstall)
+                if (const std::vector<DetectedGame> found = detectGame(id(), part.dir); !found.empty())
+                    plan.game = found[0];
+        }
+        noteImport(plan);
+        plan.addPatchLabel.clear(); // the game had no patches
+        plan.addFolderLabel = "Add CD or installed game...";
+        plan.addFolderTooltip = "Copy the game's CD too (or a copy of it), or the game as its installer left it";
+        return {plan};
+    }
+
+    bool addToImport(ImportPlan &plan, const std::filesystem::path &file, std::string &message) const override {
+        const std::vector<GamePart> parts = findGameParts(file);
+        if (parts.empty()) {
+            message = "not LEGO Island's CD, nor the game as its installer left it";
+            return false;
+        }
+        const size_t before = plan.files.size();
+        for (const GamePart &part : parts)
+            addPartToImport(plan, part);
+        if (plan.files.size() == before) {
+            message = "its files are being copied already";
+            return false;
+        }
+        noteImport(plan);
+        return true;
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {

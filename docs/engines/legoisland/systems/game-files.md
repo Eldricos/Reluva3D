@@ -1,6 +1,6 @@
 # LEGO Island: the game's files
 
-> **Status:** partial · **Code:** `src/engines/legoisland/legoisland.cpp` · **Checked against:** directory listings of the English 1.0 CD and an install made from it, and the installer's log · **Confidence:** confirmed unless marked
+> **Status:** partial · **Code:** `src/engines/legoisland/detection.cpp`, `src/engines/legoisland/legoisland.cpp` · **Checked against:** directory listings of the English 1.0 CD and an install made from it, and the installer's log · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -49,11 +49,31 @@ Two retail builds are known, 1.0 (August 1997) and 1.1 (September 1997)
 
 ## In Reluva
 
+### Recognising it
+
 The English 1.0 release is recognised by `LEGO1.DLL` and
 `lego/data/WORLD.WDB` (their sizes, and the MD5 of their first 5,000
-bytes), in `kVariants` in `src/engines/legoisland/legoisland.cpp`; any
-other release by those two files' names, as an unknown release. The SI
-archives aren't looked for yet, nor is a CD's folder imported.
+bytes), in `kVariants` in `src/engines/legoisland/detection.cpp`; any
+other release by those two files' names, as an unknown release.
+
+### Importing it
+
+*Import Game...* (and `reluva-tool import`) makes one folder holding both
+the installer's files and the CD's, so the game needs no CD to run:
+
+| Taken from | Copied to |
+|---|---|
+| An install, or the CD's `DATA\DISK\` | Where the installer puts each file; the folders under `lego` spelt as the installer spells them (`lego/data/`, `lego/Scripts/`), whatever the copy's case |
+| The CD's `LEGO\SCRIPTS\` | `lego/Scripts/`, beside the installer's `NOCD.SI`, its folders (`ISLE/`, `RACE/`...) as they are |
+
+A source may be the CD (or a copy of it), an install, or a folder with an
+install and a copy of the CD side by side; *Add CD or installed game...*
+adds the other part. The import's notes say what's still missing: the
+game's own files, the CD's scripts, or any of the 1.0 CD's 26 archives
+(`cdScripts()`). A file both parts hold (`NOCD.SI`) is copied once.
+
+Running from that folder, the game is to be told it as both `diskpath`
+and `cdpath` when it's run *(inferred)*: nothing runs yet.
 
 ## Sources and checks
 
@@ -67,9 +87,13 @@ archives aren't looked for yet, nor is a CD's folder imported.
   [README](https://raw.githubusercontent.com/isledecomp/isle/master/README.md)
   (its published hashes only).
 - **How it was checked:** `legoisland.unit.detection` checks the table's
-  fallback; the release's own entry was checked on the copy above.
+  fallback, and `legoisland.unit.import` the import from a CD, from an
+  install with the CD added, and what's missing; the release's own entry,
+  and an import of the CD whose files all came out byte for byte the
+  same, on the copy above.
 
 ## Open questions
 
+- Whether the game runs with `diskpath` and `cdpath` the same folder.
 - Which values `CONFIG.EXE` writes, and which `ISLE.EXE` reads.
 - 1.1's and other languages' files, to add them to `kVariants`.

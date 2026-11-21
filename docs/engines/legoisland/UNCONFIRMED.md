@@ -15,7 +15,9 @@ None yet.
 
 ## Inferred
 
-None yet.
+- An imported game runs with `diskpath` and `cdpath` both its folder:
+  the import puts the CD's scripts there. To be settled when the game
+  first runs ([systems/game-files.md](systems/game-files.md#importing-it)).
 
 ## Guessed
 
