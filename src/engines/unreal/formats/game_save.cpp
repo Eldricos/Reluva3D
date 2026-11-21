@@ -5,6 +5,7 @@
 
 #include "engines/unreal/formats/properties.h"
 
+#include <array>
 #include <cstring>
 #include <fstream>
 
@@ -116,25 +117,33 @@ Error readLevelExtras(const Package &package, LevelExtras &out) {
         }
         out.lines.push_back(std::move(line));
     }
+    // The lines being said (Engine.dll 0x1040af60): the line, the RETURNLINE
+    // pending, when it's done, who says it, its thread; then those waiting
+    // for their speaker (0x1040b050): the line, who, the thread.
     for (int32_t n = r.index(); n > 0 && r.ok(); --n) {
-        r.u16();
-        r.u16();
-        r.i32();
-        r.index();
+        LevelExtras::Talk t;
+        t.line = r.u16();
+        t.back = r.u16();
+        t.end = r.f32();
+        t.speaker = r.index();
         if (v > 71)
-            r.i32();
+            t.thread = r.i32();
+        out.talks.push_back(t);
     }
     for (int32_t n = r.index(); n > 0 && r.ok(); --n) {
-        r.u16();
-        r.index();
+        LevelExtras::Talk t;
+        t.queued = true;
+        t.line = r.u16();
+        t.speaker = r.index();
         if (v > 71)
-            r.i32();
+            t.thread = r.i32();
+        out.talks.push_back(t);
     }
     if (v > 70) {
         nameTable(); // faces
-        for (int32_t n = r.index(); n > 0 && r.ok(); --n)
-            r.skip(13 * 4); // cameras
-        r.i32();
+        for (int32_t n = r.index(); n > 0 && r.ok(); --n, ++out.cameras)
+            r.skip(13 * 4);
+        out.nextThread = r.i32();
     }
     if (!r.ok())
         return fail("dialogue");
@@ -154,11 +163,43 @@ Error readLevelExtras(const Package &package, LevelExtras &out) {
     return r.ok() ? Error::success() : fail("sounds");
 }
 
-// A C3DMESHSTATE: no properties; a magic number (0xFFFFDE80), its format
-// (2) and the C3D library's version (22); the mesh's name; an i32; the IK
-// targets; an i32; then the groups, the bones' adjustments and what's
-// attached, and the owner's name. Its strings are a 16-bit length and the
-// letters (no NUL); its arrays a count, the count again and a growth step.
+namespace {
+
+// The engine's probe events, by their bit in a state frame's mask (Core's
+// names from 300 on, The Fallen's in the place of some of the probes).
+const char *const kProbes[64] = {"Spawned",      "Destroyed",       "GainedChild",     "LostChild",
+                                 "Probe4",       "Probe5",          "Trigger",         "UnTrigger",
+                                 "Timer",        "HitWall",         "Falling",         "Landed",
+                                 "ZoneChange",   "Touch",           "UnTouch",         "Bump",
+                                 "BeginState",   "EndState",        "BaseChange",      "Attach",
+                                 "Detach",       "ActorEntered",    "ActorLeaving",    "KillCredit",
+                                 "AnimEnd",      "EndedRotation",   "InterpolateEnd",  "EncroachingOn",
+                                 "EncroachedBy", "FootZoneChange",  "HeadZoneChange",  "PainTimer",
+                                 "SpeechTimer",  "MayFall",         "Probe34",         "C3DAnimEnd",
+                                 "C3DPreRender", "ChangePhysics",   "ChestZoneChange", "C3DSpeechEvent",
+                                 "Tick",         "PlayerTick",      "Expired",         "Probe39",
+                                 "SeePlayer",    "EnemyNotVisible", "HearNoise",       "UpdateEyeHeight",
+                                 "SeeMonster",   "SeeFriend",       "SpecialHandling", "BotDesireability",
+                                 "Probe48",      "Probe49",         "Probe50",         "Probe51",
+                                 "Probe52",      "Probe53",         "Probe54",         "Probe55",
+                                 "Probe56",      "Probe57",         "Probe58",         "Probe59"};
+
+// A C3D matrix: 3x3 axes and a place (12 floats), then an i32 of flags.
+constexpr size_t kMatrixBytes = 13 * 4;
+
+} // namespace
+
+const char *probeEvent(int bit) {
+    return bit >= 0 && bit < 64 ? kProbes[bit] : "";
+}
+
+// A C3DMESHSTATE (Engine.dll 0x10327230, the C3D part 0x10496820): no
+// properties; a magic number (0xFFFFDE80), its format (2) and the C3D
+// library's version (22); the mesh's name; an i32; the scripts' IK
+// requests (0x38 each); an i32; then the groups, each IK chain's target
+// (0x5c each), the actors attached, and the owner's name. Its strings are a
+// 16-bit length and the letters (no NUL); its arrays a count, the count
+// again and a growth step. A matrix is 12 floats and an i32 of flags.
 Error readMeshState(const Package &package, int exportIndex, MeshState &out) {
     out = {};
     std::vector<uint8_t> data;
@@ -220,10 +261,26 @@ Error readMeshState(const Package &package, int exportIndex, MeshState &out) {
             c = r.i32();
         out.groups.push_back(std::move(g));
     }
+    for (int32_t n = array(); n > 0 && r.ok(); --n) { // the IK chains' targets
+        str16();
+        r.skip(12 + kMatrixBytes + 4);
+    }
+    for (int32_t n = array(); n > 0 && r.ok(); --n) {
+        MeshStateAttachment a;
+        a.child = str16();
+        a.childPoint = str16();
+        a.parentPoint = str16();
+        r.skip(kMatrixBytes);
+        out.attachments.push_back(std::move(a));
+    }
     return r.ok() ? Error::success() : Error::fail("a C3D mesh state cut short");
 }
 
-bool meshStateGroupSpan(const std::vector<uint8_t> &data, size_t &begin, size_t &end) {
+namespace {
+
+// Where a mesh state's groups and attachments are, by skipping as
+// readMeshState reads.
+bool meshStateSpans(const std::vector<uint8_t> &data, std::array<size_t, 4> &spans) {
     Reader r(data);
     r.index(); // no properties
     auto str16 = [&] { r.skip(r.u16()); };
@@ -247,7 +304,7 @@ bool meshStateGroupSpan(const std::vector<uint8_t> &data, size_t &begin, size_t 
         r.skip(24);
     }
     r.i32();
-    begin = r.pos();
+    spans[0] = r.pos();
     for (int32_t n = array(); n > 0 && r.ok(); --n) {
         str16();
         str16();
@@ -257,8 +314,40 @@ bool meshStateGroupSpan(const std::vector<uint8_t> &data, size_t &begin, size_t 
         str16();
         r.skip(12);
     }
-    end = r.pos();
+    spans[1] = r.pos();
+    for (int32_t n = array(); n > 0 && r.ok(); --n) {
+        str16();
+        r.skip(12 + kMatrixBytes + 4);
+    }
+    spans[2] = r.pos();
+    for (int32_t n = array(); n > 0 && r.ok(); --n) {
+        str16();
+        str16();
+        str16();
+        r.skip(kMatrixBytes);
+    }
+    spans[3] = r.pos();
     return r.ok();
+}
+
+} // namespace
+
+bool meshStateGroupSpan(const std::vector<uint8_t> &data, size_t &begin, size_t &end) {
+    std::array<size_t, 4> spans{};
+    if (!meshStateSpans(data, spans))
+        return false;
+    begin = spans[0];
+    end = spans[1];
+    return true;
+}
+
+bool meshStateAttachmentSpan(const std::vector<uint8_t> &data, size_t &begin, size_t &end) {
+    std::array<size_t, 4> spans{};
+    if (!meshStateSpans(data, spans))
+        return false;
+    begin = spans[2];
+    end = spans[3];
+    return true;
 }
 
 bool levelModelSpan(const std::vector<uint8_t> &data, int version, size_t &begin, size_t &end) {

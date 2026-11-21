@@ -23,9 +23,16 @@ packages). With `bBegunPlay` set, nothing begins again; instead
   (`LatentFloat`); one waiting in any other latent function makes the
   call again (a move, a `FinishAnim`: its properties have what it needs);
 - each actor's body layers and face channels come from its C3D mesh
-  state; what it was touching from its `Touching`, so it isn't touched
-  again;
-- the dialogue's counts come from the saved table, by key;
+  state, and so do the actors it holds (attached once, as a phaser put
+  away at the belt, so the save is all there is of them); what it was
+  touching from its `Touching`, so it isn't touched again;
+- the events each actor had disabled (`Disable('Tick')`) are those its
+  state and class listen for that its saved probe mask leaves out;
+- the dialogue's counts come from the saved table, by key, and its lines
+  under way go on where they were, each on its clock, those waiting for
+  their speaker still waiting, as the engine's `InitDialog` keeps them
+  (0x10337890; their voices aren't started again by it). It numbers new
+  threads from 1 again, as Reluva does;
 - the sounds that were playing start again where they'd got to; the
   music becomes the player's `CurrentMusic` again, from where it was;
 - the game's unpaused, and the player logs in with `?load`: the game
@@ -38,10 +45,11 @@ his EVA suit on the Ke'el Tul with 91 health and his phaser drawn. The
 speech trigger he'd just stepped on was waiting in its state code, so the
 scene goes on (Worf: "Sir, Chief O'Brien was injured during the initial
 assault..."), and then he walks on. No script accesses None in 20 seconds.
-Not restored: the IK targets, bones' adjustments and attachments in the
-mesh states (the scripts set them again each tick), the probe masks (what
-events each state ignores, which the states themselves give), and the
-dialogue's lines under way (none in the example).
+Its security officer's phaser goes back to her belt clip. Not restored:
+the IK requests and targets in the mesh states (`CTV_Player` sets them
+again every tick). Saved 1.5 s into Worf's line after loading it, a game
+of Reluva's keeps the line under way (WRF148, done at 105.02 s), and
+loaded, it goes on to its end there.
 
 **Saving** writes the original's format ([save.md](../formats/save.md),
 `game_save_write.cpp`): QuickSave.dsa, else the level's title and the
@@ -52,8 +60,32 @@ seconds in and loaded back comes back the same: the player where it
 was, in its state, with its weapon.
 
 Reluva's own format (its older saves; `reluvaFormat` writes it) still
-loads (version 3 keeps a layer's whole state, its clears and what it's
-fading in over; version 2 reads). A file of it holds:
+loads (version 4 keeps, for a line under way, the line whose
+RETURNLINE it carries, which a save of the original's names; version 3
+keeps a layer's whole state, its clears and what it's fading in over;
+2 and 3 read, a line under way in them carrying none). A file of it is
+the magic `RLVSAVE4` (or `RLVSAVE3`, `RLVSAVE2`), then, little-endian,
+with strings as a length and their bytes:
+- the map's name, the save's description and the time saved (Unix
+  seconds, 64 bits);
+- the objects: each either one of the map's actors by its export, or
+  made anew by its class and name. Then, for each, its properties (each
+  a type byte and its value; an object as one of the saved objects, a
+  package's export, a class, one of the map's exports, or the player's
+  viewport, console or canvas), its state, the state its code runs in
+  and the statement it's at, what it's waiting on, the events its state
+  ignores and its timer;
+- the level's lists by the saved objects' numbers: the actors, the
+  ghosts, the player and the game type, the level's time and ticks;
+- what the level keeps for each actor: what it's touching, its moves
+  under way, falling, waiting on an animation, its body layers and face
+  channels, an attachment, and its bones' bends and IK;
+- the dialogue: whether its table was loaded, each line's plays and the
+  lines under way;
+- the surfaces' textures the scripts changed, the class name counts (so
+  new actors' names go on from them), and the textures' own properties
+  the scripts set (the HUD's places, the FLC textures' playing).
+
 The game's side is all script:
 - F6 (`QuickSave`) and the main menu's Save Game send `SaveGame`.
 - The Load Game list asks `DrawLoadGameList`, which hands the HUD each

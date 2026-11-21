@@ -1,0 +1,2 @@
+saved: 975e1210c673f074 | where: weapon DS9_FederationPhaserRifle0 (150), at 623.7 22.3 89.1, yaw 178, velocity 0.0 0.0 0.0, state PlayerWalking, physics 1, anim IdleReady1 0.77
+settings: 6e17bf25074d4f02 | prop DS9_SiskoEVA0.MouseSensitivity: 5.00

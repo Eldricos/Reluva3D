@@ -185,15 +185,19 @@ private:
         gfx::TextureId texture = 0;
         gfx::TextureId lightmap = 0; // 0: none (unlit, blended, or the level has no lighting)
         uint32_t polyFlags = 0;
-        ObjectRef textureRef{};        // the level's: the texture it's drawn with, for the scripts' swaps
-        uint64_t zones = ~uint64_t(0); // the zones it's seen from (zones.h): drawn when one of them is seen
-        int tint = -1;                 // a translucent lit batch's: its entry in _tints
-        gfx::Vec3 mirrorNormal{};      // a mirror's plane: normal . x = mirrorD (the renderer's axes)
+        ObjectRef textureRef{};               // the level's: the texture it's drawn with, for the scripts' swaps
+        uint64_t zones = ~uint64_t(0);        // the zones it's seen from (zones.h): drawn when one of them is seen
+        std::array<int, 2> textureSize{1, 1}; // texels, for panning its texture
+        int tint = -1;                        // a translucent lit batch's: its entry in _tints
+        gfx::Vec3 mirrorNormal{};             // a mirror's plane: normal . x = mirrorD (the renderer's axes)
         float mirrorD = 0;
     };
     void drawMirrors(const gfx::Mat4 &proj, const gfx::Mat4 &view, const gfx::Mat4 &viewProj, const gfx::Vec3 &eye,
                      const gfx::Vec3 &forward, const gfx::Vec3 &right, int level, const Batch *through);
     void drawWorld(const gfx::Vec3 &forward, const gfx::Vec3 &right, const gfx::Vec3 &eye);
+    std::array<float, 2> surfacePan(const Batch &b) const;
+    /** Whether a batch shows: one of its zones is seen, or it's drawn whatever is seen. */
+    bool seen(const Batch &b) const;
     int _mirrorLevel = 0;                  // how many reflections deep the view drawn is
     const Batch *_mirrorThrough = nullptr; // the mirror it's seen through
     // A translucent surface the level's lights light (The Fallen's logos,
@@ -349,6 +353,8 @@ private:
     MeshFog _fog; // this frame's distance fog (none: distance 0)
     std::vector<LevelPlay::Corona> _coronaScratch;
     float _coronaDt = 0;
+    void drawParticles(VmObject *actor, const LevelPlay::Look &look, const Mesh &mesh, const MeshPose &pose,
+                       std::vector<SpriteDraw> &sprites);
     void drawCopies(VmObject *actor, const LevelPlay::Look &look, const std::vector<LevelPlay::Copy> &copies,
                     std::vector<SpriteDraw> &sprites);
     void addDecals(std::vector<SpriteDraw> &sprites);
@@ -409,6 +415,17 @@ private:
     // index into _meshes / _gpuMeshes, -1 if it doesn't read.
     int liveMesh(const ObjectRef &mesh, const std::string &anim);
     std::unique_ptr<LevelPlay> _play;
+    // A travel's level, started as it loads (its start's changes drawn
+    // from it, rather than from a second start), for startPlay to take.
+    struct StartOnLoad {
+        bool wanted = false;
+        std::string portal;
+        std::filesystem::path saved;
+    };
+    StartOnLoad _startOnLoad;
+    std::unique_ptr<LevelPlay> _started;
+    std::string _startedError;
+    std::unique_ptr<LevelPlay> startForPlay(const Package &map, LevelStart &changes, std::string &error);
     std::unique_ptr<LevelAudio> _audio; // its sounds, when there's a mixer
     std::string _playError;
     std::string _portal;                  // the start playing began at, for the game's ?RESTART
@@ -463,6 +480,7 @@ private:
     // Lights whose brightness changes, and the lightmaps they reach,
     // redrawn as they do.
     void updateLightmaps(float dt);
+    bool strobeSeen() const;
     std::vector<gfx::TextureId> _lightmapPages;
     std::vector<LightSource> _changingLights;
     std::vector<float> _lightLevels;            // each one's brightness now, as a whole (meshes are lit by it)
@@ -472,11 +490,14 @@ private:
     std::map<int, MeshTopology> _posedTopology; // by _meshes index: those posed each frame
     std::vector<AnimatedLightmap> _animatedLightmaps;
     float _lightTime = 0;
+    LightClock _lightClock; // the changing lights' (lighting.h)
+    float _strobeTime = 0;  // the level's time when the strobes were last worked out
     // Fire, water, wet, ice and FLC textures, playing.
     void updateAnimatedTextures(float dt);
     std::vector<std::pair<gfx::TextureId, std::unique_ptr<AnimatedTexture>>> _animatedTextures;
-    std::vector<float> _animatedSince;             // each one's time since it was last ticked
-    std::unique_ptr<TextureUseRecorder> _recorder; // _renderer while shown: what's drawn
+    std::vector<float> _animatedSince;                     // each one's time since it was last ticked
+    std::vector<std::pair<ObjectRef, bool>> _animatedRefs; // each one's texture, and whether colour 0 is see-through
+    std::unique_ptr<TextureUseRecorder> _recorder;         // _renderer while shown: what's drawn
     // The overlay's rows drawn last frame, cleared before the next: [0,
     // top) and [bottom, the frame's height).
     // the first frame clears it all

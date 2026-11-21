@@ -227,15 +227,22 @@ void ScriptLevel::chainSparkUpdate(VmObject *spark) {
 }
 
 // A beam's sections (CTVE_BeamFX: copies of its mesh, made and cut by its
-// scripts) laid along it from BeamOrigin, where the weapon's tip is now,
-// each SectionLength on along BeamAxesX and turned as the beam. Each is
-// SectionAxisScale thick, its thickness varying at random by up to
-// SectionAxisYZRandomFactor each tick; the last as long as the head has
-// flown into it (the scripts cut it after, where the beam meets
-// something). With a WaveAmplitude the beam
-// ripples: WaveLength waves a unit along it, travelling WaveTravelVelocity
-// a second.
+// scripts) laid end to end from BeamOrigin, where the weapon's tip is now,
+// by BeamSectionAxesX (SectionLength along the beam), turned as the beam
+// and spun about it at 25600 a second, in its BeamSectionColorFilter
+// (0x103790f0). Each is SectionAxisScale, thickened at random by up to
+// SectionAxisYZRandomFactor (the same both ways) and by a pulse of up to
+// WaveAmplitude times that, WaveLength of a turn's 804 a section apart,
+// travelling WaveTravelVelocity a second (WaveStartOffset kept on the
+// beam). The scripts cut the last after, where the beam meets something.
 void ScriptLevel::updateBeamSections(VmObject *beam, float seconds) {
+    // Only a sustained beam's (Physics BeamSustain, 39) with its copies
+    // (0x10379196): once its firing stops and its scripts set it to none,
+    // its sections stay as they were.
+    const Value *physics = prop(beam, "Physics");
+    const Value *copies = prop(beam, "MultiMesh");
+    if (!physics || physics->asInt() != 39 || !copies || !copies->asObject())
+        return;
     const VmProperty *list = beam->cls->findProperty(_vm.name("BeamSectionList"));
     if (!list)
         return;
@@ -253,48 +260,47 @@ void ScriptLevel::updateBeamSections(VmObject *beam, float seconds) {
     };
     const int first = std::max(0, i("BeamSectionIndexFirst"));
     const int last = std::min(i("BeamSectionIndexLast"), list->arrayDim);
+    if (first >= last)
+        return;
+    float offset = f("WaveStartOffset") - f("WaveTravelVelocity") * seconds;
+    if (Value *w = prop(beam, "WaveStartOffset"))
+        *w = Value::floatValue(offset);
+    auto sectionAt = [&](int k) {
+        VmObject *section = beam->values[size_t(list->slot + k)].asObject();
+        return section && !section->deleted ? section : nullptr;
+    };
+    // The spin goes on from the first section's roll.
+    int32_t roll = 0;
+    if (VmObject *head = sectionAt(first))
+        if (const Value *r = prop(head, "Rotation"))
+            roll = Vm::rotatorOf(*r)[2];
+    roll += int32_t(seconds * 25600);
     const Vec origin = vec("BeamOrigin");
     const Vec step = vec("BeamSectionAxesX");
-    const Vec axis = normal(vec("BeamAxesX"));
-    const Value *rotation = prop(beam, "BeamRotation");
+    const auto turn =
+        prop(beam, "BeamRotation") ? Vm::rotatorOf(*prop(beam, "BeamRotation")) : std::array<int32_t, 3>{};
+    const Value *color = prop(beam, "BeamSectionColorFilter");
     const Vec scale = vec("SectionAxisScale");
     const float jitter = f("SectionAxisYZRandomFactor");
     const float amplitude = f("WaveAmplitude");
     const float waveLength = f("WaveLength");
-    const float travel = f("WaveTravelVelocity") * f("AliveTime");
-    const float sectionLength = f("SectionLength");
-    Vec side = cross(axis, Vec{0, 0, 1});
-    side = length(side) < 1e-3f ? Vec{0, 1, 0} : normal(side);
     for (int k = first; k < last; ++k) {
-        VmObject *section = beam->values[size_t(list->slot + k)].asObject();
-        if (!section || section->deleted)
+        VmObject *section = sectionAt(k);
+        if (!section)
             continue;
-        Vec at = add(origin, mul(step, float(k)));
-        if (amplitude != 0 && waveLength != 0) {
-            const float phase = (float(k) * sectionLength - travel) * waveLength * 6.2831853f;
-            at = add(at, mul(side, amplitude * std::sin(phase)));
-        }
+        const Vec at = add(origin, mul(step, float(k)));
         if (Value *l = prop(section, "Location"))
             _vm.setVector(*l, at[0], at[1], at[2]);
-        if (Value *r = prop(section, "Rotation"); r && rotation)
-            *r = *rotation;
+        if (Value *r = prop(section, "Rotation"))
+            *r = _vm.rotatorValue(turn[0], turn[1], roll);
+        if (Value *c = prop(section, "ColorFilter"); c && color)
+            *c = *color;
         if (Value *s = prop(section, "AxisScale")) {
-            const Vec now = Vm::vectorOf(*s);
-            auto thick = [&](float base) { return std::max(0.1f, base * (1 + jitter * (frand() - 0.5f))); };
-            // The last grows as the head flies out (HeadTime x HeadVelocity
-            // along); the scripts cut it after, where the beam hits.
-            float x = scale[0];
-            if (k == last - 1 && sectionLength > 0) {
-                const float reach = f("HeadTime") * f("HeadVelocity") / sectionLength - float(k);
-                x = std::clamp(reach, 0.0f, 1.0f) * scale[0];
-            }
-            (void)now;
-            _vm.setVector(*s, x, thick(scale[1]), thick(scale[2]));
+            const float r = frand();
+            const float pulse = 1 + 0.5f * amplitude * (1 + std::sin(float(k) * waveLength * 803.84f + offset));
+            _vm.setVector(*s, scale[0], (scale[1] + r * jitter) * pulse, (scale[2] + r * jitter) * pulse);
         }
     }
-    if (Value *count = prop(beam, "FrameCount"))
-        ++count->i;
-    (void)seconds;
 }
 
 namespace {
@@ -381,17 +387,15 @@ void ScriptLevel::sparkTick(VmObject *sparks, float seconds) {
         }
 }
 
-// Rain and snow (CTVE_Weather): drops (copies of it: its mesh, or its
-// sprite) falling about SeedLocation (where its scripts keep it, ahead of
-// the player), up to SpawnRange around and from DropHeight above, as many
-// as its Intensity asks (which comes up to what it was set to, or down to
-// nothing when it's turned off, at DeltaIntensityRate a second). They fall
-// at FallRate (give or take FallRateVariance), blown by DropVelocity's
-// wind, which drifts with WindActivity to up to MaxLateralMove each way;
-// each lasts until it meets the world (traced as it starts) or one of the
-// weather blockers its scripts gathered (Block: a cylinder or a box,
-// sheltering what's under it; with bInvertWeatherBlockers, the only places
-// it falls). `fill`: started over (InitialSetUp), drops at every height.
+// Rain and snow (CTVE_Weather): each tick (WeatherTick, 0x10349230) the
+// intensity comes up toward MaxIntensity at DeltaIntensityRate a second,
+// or down when not bActive, stopping it (bShutDown) at 0. Now and then
+// (WindActivity a tick) the wind turns toward a new random way,
+// MaxLateralMove across, and DropVelocity goes toward it at WindActivity
+// x 2500 a second. Every 0.4 s the blockers near the seed are found
+// (CheckBlocks). Then dt x Intensity x 2000 new drops (whole ones; none
+// at 0.01 or under), each from Generate. The fill (InitialSetUp,
+// 0x103496e0) makes Intensity x 2000 at once, spread along their falls.
 void ScriptLevel::weatherTick(VmObject *weather, float seconds, bool fill) {
     auto f = [&](const char *name) {
         const Value *v = prop(weather, name);
@@ -405,139 +409,285 @@ void ScriptLevel::weatherTick(VmObject *weather, float seconds, bool fill) {
         const Value *v = prop(weather, name);
         return v ? Vm::vectorOf(*v) : Vec{};
     };
-    auto set = [&](VmObject *o, const char *name, const Value &v) {
+    auto setOn = [&](VmObject *o, const char *name, const Value &v) {
         if (Value *p = prop(o, name))
             *p = v;
     };
-    // How hard, coming up or down to what's asked.
     Value *intensity = prop(weather, "Intensity");
     if (!intensity)
         return;
-    const float goal = b("bActive") ? f("MaxIntensity") : 0;
-    const float rate = std::max(0.01f, f("DeltaIntensityRate")) * seconds;
-    intensity->f = intensity->asFloat() < goal ? std::min(goal, intensity->asFloat() + rate)
-                                               : std::max(goal, intensity->asFloat() - rate);
-    // The wind: now and then a new one to blow toward, sideways.
-    Value *wind = prop(weather, "DropVelocity");
-    Value *destWind = prop(weather, "DestWind");
-    const float lateral = f("MaxLateralMove");
-    const float fall = f("FallRate");
-    if (wind && destWind) {
-        if (frand() < f("WindActivity") * seconds * 10) {
-            const float angle = frand() * 6.2831853f;
-            const float strength = frand() * lateral;
-            _vm.setVector(*destWind, std::cos(angle) * strength, std::sin(angle) * strength, fall);
-        }
-        Vec w = Vm::vectorOf(*wind);
-        const Vec d = Vm::vectorOf(*destWind);
-        const float k = std::min(1.0f, seconds * 0.5f);
-        w = {w[0] + (d[0] - w[0]) * k, w[1] + (d[1] - w[1]) * k, fall};
-        _vm.setVector(*wind, w[0], w[1], w[2]);
-    }
-    const Vec windNow = wind ? Vm::vectorOf(*wind) : Vec{0, 0, fall};
+    const bool inverted = b("bInvertWeatherBlockers");
+    const bool debug = b("bDebugMode");
 
-    // The blockers: inside one (its footprint, under its top).
+    // The blockers (Block, NumBlocks): each a box (bBox; XSize by YSize,
+    // ZSize high about Pos) or an upright cylinder (Radius, Height over Pos).
     struct Block {
+        Value *value;
         Vec at;
         float radius;
         float height;
         bool box;
-        float x;
-        float y;
-        float z;
+        Vec size;
+        float range;
     };
     std::vector<Block> blocks;
-    const Value *numBlocks = prop(weather, "NumBlocks");
-    if (const VmProperty *list = weather->cls->findProperty(_vm.name("Block")); list && numBlocks) {
-        const int n = std::clamp(numBlocks->asInt(), 0, list->arrayDim);
+    auto field = [&](Value &v, const char *name) -> Value * {
+        if (!v.st)
+            return nullptr;
+        const VmProperty *p = v.st->findProperty(_vm.name(name));
+        return p && size_t(p->slot) < v.fields.size() ? &v.fields[size_t(p->slot)] : nullptr;
+    };
+    if (const VmProperty *list = weather->cls->findProperty(_vm.name("Block")); list && prop(weather, "NumBlocks")) {
+        const int n = std::clamp(prop(weather, "NumBlocks")->asInt(), 0, list->arrayDim);
         for (int k = 0; k < n; ++k) {
-            const Value &v = weather->values[size_t(list->slot + k)];
-            if (!v.st)
-                continue;
-            auto field = [&](const char *name) -> const Value * {
-                const VmProperty *p = v.st->findProperty(_vm.name(name));
-                return p && size_t(p->slot) < v.fields.size() ? &v.fields[size_t(p->slot)] : nullptr;
-            };
+            Value &v = weather->values[size_t(list->slot + k)];
             auto ff = [&](const char *name) {
-                const Value *x = field(name);
+                const Value *x = field(v, name);
                 return x ? x->asFloat() : 0.0f;
             };
-            const Value *pos = field("Pos");
-            const Value *box = field("bBox");
-            blocks.push_back({pos ? Vm::vectorOf(*pos) : Vec{}, ff("Radius"), ff("Height"), box && box->asInt() != 0,
-                              ff("XSize") / 2, ff("YSize") / 2, ff("ZSize") / 2});
+            const Value *pos = field(v, "Pos");
+            const Value *box = field(v, "bBox");
+            blocks.push_back({&v,
+                              pos ? Vm::vectorOf(*pos) : Vec{},
+                              ff("Radius"),
+                              ff("Height"),
+                              box && box->asInt() != 0,
+                              {ff("XSize"), ff("YSize"), ff("ZSize")},
+                              ff("SpawnRange")});
         }
     }
-    auto inBlock = [&](const Vec &p) {
-        for (const Block &k : blocks) {
-            const float dx = p[0] - k.at[0];
-            const float dy = p[1] - k.at[1];
-            if (k.box ? std::fabs(dx) <= k.x && std::fabs(dy) <= k.y && p[2] <= k.at[2] + k.z
-                      : dx * dx + dy * dy <= k.radius * k.radius && p[2] <= k.at[2] + k.height)
-                return true;
+    const VmProperty *checkList = weather->cls->findProperty(_vm.name("CheckBlock"));
+    auto checked = [&]() {
+        std::vector<const Block *> out;
+        const Value *n = prop(weather, "NumCheckBlocks");
+        if (!checkList || !n)
+            return out;
+        for (int k = 0; k < std::min(n->asInt(), checkList->arrayDim); ++k) {
+            const int at = weather->values[size_t(checkList->slot + k)].asInt();
+            if (at >= 0 && size_t(at) < blocks.size())
+                out.push_back(&blocks[size_t(at)]);
         }
-        return false;
+        return out;
     };
-    const bool inverted = b("bInvertWeatherBlockers");
-    const Vec seed = vec("SeedLocation");
-    const float range = std::max(1.0f, f("SpawnRange"));
-    const float top = std::max(1.0f, f("DropHeight"));
+    // CheckBlocks (0x10349e50): the blockers whose footprint, widened by
+    // half the larger spawn range and CheckBlockRange, holds the seed.
+    auto checkBlocks = [&]() {
+        setOn(weather, "SpawnRange", Value::floatValue(1300));
+        setOn(weather, "WaitCheckBlocks", Value::floatValue(0.4f));
+        setOn(weather, "bCheckBlocks", Value::boolValue(false));
+        setOn(weather, "bShutDown", Value::boolValue(false));
+        setOn(weather, "bPlayerSheltered", Value::boolValue(false));
+        int count = 0;
+        const Vec seed = vec("SeedLocation");
+        const Vec feet = vec("Location");
+        for (size_t k = 0; k < blocks.size(); ++k) {
+            const Block &bl = blocks[k];
+            const float wide = std::max(1300.0f, bl.range) / 2 + f("CheckBlockRange");
+            const float dx = seed[0] - bl.at[0];
+            const float dy = seed[1] - bl.at[1];
+            const bool near = bl.box ? std::fabs(dx) <= bl.size[0] / 2 + wide && std::fabs(dy) <= bl.size[1] / 2 + wide
+                                     : std::hypot(dx, dy) <= bl.radius + wide;
+            if (Value *c = field(*bl.value, "bCheck"))
+                *c = Value::intValue(near ? 1 : 0);
+            if (!near)
+                continue;
+            if (checkList && count < checkList->arrayDim)
+                weather->values[size_t(checkList->slot + count++)] = Value::intValue(int32_t(k));
+            setOn(weather, "bCheckBlocks", Value::boolValue(true));
+            // The player under it (70 over its feet).
+            const float fx = feet[0] - bl.at[0];
+            const float fy = feet[1] - bl.at[1];
+            const bool over = bl.box ? std::fabs(fx) <= bl.size[0] / 2 && std::fabs(fy) <= bl.size[1] / 2 &&
+                                           feet[2] + 70 <= bl.at[2] + bl.size[2] / 2
+                                     : std::hypot(fx, fy) <= bl.radius && feet[2] + 70 <= bl.at[2] + bl.height;
+            if (over)
+                setOn(weather, "bPlayerSheltered", Value::boolValue(true));
+        }
+        setOn(weather, "NumCheckBlocks", Value::intValue(count));
+    };
 
-    // Those blown too far from where it's falling now go (it follows the
-    // player); all of them, starting over.
-    std::vector<VmObject *> drops = multiMeshes(weather);
-    size_t alive = 0;
-    for (VmObject *mm : drops) {
-        const Value *l = prop(mm, "Location");
-        const Vec p = l ? Vm::vectorOf(*l) : Vec{};
-        const float dx = p[0] - seed[0];
-        const float dy = p[1] - seed[1];
-        if (fill || dx * dx + dy * dy > range * range * 1.44f)
-            _vm.callEvent(mm, "Delete");
-        else
-            ++alive;
-    }
-    // As many as the intensity asks, new ones from the top.
-    constexpr float kMostDrops = 4000; // at an intensity of 1
-    const size_t wanted = size_t(std::clamp(intensity->asFloat(), 0.0f, 1.0f) * kMostDrops);
+    // Generate (0x10349910): a drop over a square SpawnRange across about the
+    // seed, DropHeight up and up to DropHeightRange more, at DropVelocity
+    // (slower by up to FallRateVariance), Size and up to SizeVariance more,
+    // starting at StartScaleGlow (0, so it fades in) and rolled at random.
+    // It lasts until it's down to the weather's own height (the player's
+    // feet): the world doesn't stop it, only the blockers do.
+    Vec seed = vec("SeedLocation");
+    float range = f("SpawnRange");
+    Vec wind = vec("DropVelocity");
     const Value *rotation = prop(weather, "CurrentRotation");
+    const Value *texture = prop(weather, "Texture");
     const Value *style = prop(weather, "Style");
-    int tries = 0;
-    for (size_t k = alive; k < wanted && tries < int(wanted) * 2; ++tries) {
-        // Nearer the middle more often: it's seen there.
-        const float angle = frand() * 6.2831853f;
-        const float r = range * frand();
-        Vec at{seed[0] + std::cos(angle) * r, seed[1] + std::sin(angle) * r,
-               seed[2] + (fill ? top * (frand() * 2 - 1) : top - frand() * 20)};
-        if (inBlock(at) != inverted)
-            continue;
-        const float speed = std::min(-10.0f, fall + (frand() * 2 - 1) * f("FallRateVariance"));
-        const Vec v{windNow[0] * (0.8f + 0.4f * frand()), windNow[1] * (0.8f + 0.4f * frand()), speed};
-        // It lasts until it meets the world below (none: as far below as
-        // it starts above).
-        Vec hit{};
-        Vec n{};
-        const Vec to = add(at, mul(v, 2 * top / -speed));
-        float drop = 2 * top;
-        if (trace(weather, at, to, {}, false, hit, n))
-            drop = at[2] - hit[2];
-        if (drop <= 1)
-            continue;
+    auto generate = [&]() -> VmObject * {
         VmObject *mm = newCopy(_vm, weather);
         if (!mm)
-            break;
-        ++k;
-        set(mm, "Location", _vm.vectorValue(at[0], at[1], at[2]));
-        set(mm, "Velocity", _vm.vectorValue(v[0], v[1], v[2]));
-        set(mm, "Acceleration", _vm.vectorValue(0, 0, 0));
-        if (rotation)
-            set(mm, "Rotation", *rotation);
-        set(mm, "LifeSpan", Value::floatValue(drop / -speed));
-        set(mm, "DrawScale", Value::floatValue(std::max(0.01f, f("Size") + (frand() * 2 - 1) * f("SizeVariance"))));
-        set(mm, "ScaleGlow", Value::floatValue(f("MaxScaleGlow")));
+            return nullptr;
+        Vec at{seed[0] + (frand() - 0.5f) * range, seed[1] + (frand() - 0.5f) * range,
+               seed[2] + f("DropHeight") + frand() * f("DropHeightRange")};
+        Vec v = wind;
+        v[2] += frand() * f("FallRateVariance");
+        const float fall = v[2] < 0 ? -v[2] : 1e-4f;
+        float life = (at[2] - vec("Location")[2]) / fall;
+        if (life < 0)
+            life = 0.0001f;
+        Vec accel{};
+        const std::vector<const Block *> near = checked();
+        if (inverted) {
+            // Inside one of the blockers near, straight down.
+            if (!near.empty()) {
+                const Block &bl = *near[size_t(frand() * float(near.size())) % near.size()];
+                if (bl.box) {
+                    at = {bl.at[0] + (frand() * 2 - 1) * bl.size[0], bl.at[1] + (frand() * 2 - 1) * bl.size[1],
+                          bl.at[2] + bl.size[2] / 2};
+                    life = bl.size[2] / fall;
+                } else {
+                    const float angle = frand() * 6.2831853f;
+                    const float r = frand() * bl.radius;
+                    at = {bl.at[0] + std::cos(angle) * r, bl.at[1] + std::sin(angle) * r, bl.at[2] + bl.height};
+                    life = 2 * bl.height / fall;
+                }
+                v[0] = 0;
+                v[1] = 0;
+            }
+        } else if (b("bCheckBlocks")) {
+            // Born inside or under a blocker, it's gone at once; one it falls
+            // onto (its top or side) it stops at.
+            for (const Block *bl : near) {
+                const float top = bl->at[2] + (bl->box ? bl->size[2] / 2 : bl->height);
+                auto inside = [&](const Vec &p) {
+                    const float dx = p[0] - bl->at[0];
+                    const float dy = p[1] - bl->at[1];
+                    return p[2] <= top &&
+                           (bl->box ? std::fabs(dx) <= bl->size[0] / 2 && std::fabs(dy) <= bl->size[1] / 2
+                                    : dx * dx + dy * dy <= bl->radius * bl->radius);
+                };
+                if (inside(at)) {
+                    life = 0.0001f;
+                    break;
+                }
+                // When along its fall it first gets in.
+                float lo = 0;
+                float hi = life;
+                if (!inside(add(at, mul(v, hi))))
+                    continue;
+                for (int k = 0; k < 20; ++k) {
+                    const float mid = (lo + hi) / 2;
+                    (inside(add(at, mul(v, mid))) ? hi : lo) = mid;
+                }
+                life = hi;
+            }
+        } else {
+            // In the open, a sideways sway: FallRate x Chaos, any way.
+            Vec d{frand() * 2 - 1, frand() * 2 - 1, frand() * 2 - 1};
+            d = length(d) > 1e-4f ? normal(d) : Vec{1, 0, 0};
+            const float sway = std::fabs(f("FallRate")) * f("Chaos");
+            accel = {d[0] * sway, d[1] * sway, 0};
+        }
+        setOn(mm, "Location", _vm.vectorValue(at[0], at[1], at[2]));
+        setOn(mm, "Velocity", _vm.vectorValue(v[0], v[1], v[2]));
+        setOn(mm, "Acceleration", _vm.vectorValue(accel[0], accel[1], accel[2]));
+        const auto turn = rotation ? Vm::rotatorOf(*rotation) : std::array<int32_t, 3>{};
+        setOn(mm, "Rotation", _vm.rotatorValue(turn[0], turn[1], int32_t(frand() * 65536) & 0xffff));
+        setOn(mm, "LifeSpan", Value::floatValue(life));
+        setOn(mm, "DrawScale", Value::floatValue(f("Size") + frand() * f("SizeVariance")));
+        setOn(mm, "ScaleGlow", Value::floatValue(f("StartScaleGlow")));
+        if (texture)
+            setOn(mm, "Texture", *texture);
         if (style)
-            set(mm, "Style", Value::intValue(style->asInt()));
+            setOn(mm, "Style", *style);
+        return mm;
+    };
+
+    if (fill) {
+        const Vec at = vec("Location");
+        if (Value *sl = prop(weather, "SeedLocation"))
+            _vm.setVector(*sl, at[0], at[1], at[2]);
+        int count = int(intensity->asFloat() * 2000);
+        if (debug) {
+            setOn(weather, "MaxIntensity", Value::floatValue(0));
+            count = 4000;
+        }
+        if (Value *dv = prop(weather, "DropVelocity"))
+            _vm.setVector(*dv, 0, 0, Vm::vectorOf(*dv)[2]);
+        if (inverted && !b("bCheckBlocks"))
+            return;
+        // The fill's own seed and still air.
+        seed = at;
+        wind = {0, 0, wind[2]};
+        for (int k = 0; k < count; ++k) {
+            VmObject *mm = generate();
+            if (!mm)
+                break;
+            Value *life = prop(mm, "LifeSpan");
+            Value *loc = prop(mm, "Location");
+            const Value *vel = prop(mm, "Velocity");
+            const Vec v = vel ? Vm::vectorOf(*vel) : Vec{};
+            if (life && loc) {
+                const float r = frand() * life->asFloat() - 0.001f;
+                if (r > 0) {
+                    *life = Value::floatValue(life->asFloat() - r);
+                    const Vec p = add(Vm::vectorOf(*loc), mul(v, r));
+                    _vm.setVector(*loc, p[0], p[1], p[2]);
+                }
+            }
+            if (debug) {
+                setOn(mm, "Velocity", _vm.vectorValue(0, 0, 0));
+                setOn(mm, "Acceleration", _vm.vectorValue(0, 0, 0));
+                setOn(mm, "LifeSpan", Value::floatValue(500));
+            }
+        }
+        return;
     }
+
+    // How hard: up while active, down when not, at most 1; stopped at 0.
+    float now = intensity->asFloat();
+    const float rate = f("DeltaIntensityRate") * seconds;
+    if (b("bActive") && now < f("MaxIntensity"))
+        now += rate;
+    else if (!b("bActive"))
+        now -= rate;
+    now = std::min(now, 1.0f);
+    if (now <= 0) {
+        *intensity = Value::floatValue(0);
+        setOn(weather, "bShutDown", Value::boolValue(true));
+        return;
+    }
+    *intensity = Value::floatValue(now);
+    // The wind: a new way to turn to now and then; DropVelocity goes
+    // straight toward it.
+    Value *dropVelocity = prop(weather, "DropVelocity");
+    Value *destWind = prop(weather, "DestWind");
+    if (dropVelocity && destWind) {
+        if (frand() < f("WindActivity")) {
+            Vec d;
+            do
+                d = {frand() * 2 - 1, frand() * 2 - 1, frand() * 2 - 1};
+            while (d[0] * d[0] + d[1] * d[1] + d[2] * d[2] > 1 || length(d) < 1e-3f);
+            d = mul(normal(d), f("MaxLateralMove"));
+            _vm.setVector(*destWind, d[0], d[1], f("FallRate"));
+        }
+        const Vec w = Vm::vectorOf(*dropVelocity);
+        const Vec to = Vm::vectorOf(*destWind);
+        const Vec gap = sub(to, w);
+        const float step = f("WindActivity") * seconds * 2500;
+        const Vec next = length(gap) <= step ? to : add(w, mul(normal(gap), step));
+        _vm.setVector(*dropVelocity, next[0], next[1], next[2]);
+        wind = next;
+    }
+    if (Value *wait = prop(weather, "WaitCheckBlocks")) {
+        *wait = Value::floatValue(wait->asFloat() - seconds);
+        if (wait->asFloat() <= 0)
+            checkBlocks();
+    }
+    range = f("SpawnRange");
+    if (inverted && !b("bCheckBlocks"))
+        return;
+    if (now <= 0.01f)
+        return;
+    const int count = int(seconds * now * 2000);
+    for (int k = 0; k < count; ++k)
+        if (!generate())
+            break;
 }
 
 std::array<float, 3> ScriptLevel::waterLine(const std::array<float, 3> &start, const std::array<float, 3> &end) {

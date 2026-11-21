@@ -35,34 +35,52 @@ buffers) aren't in it. `reluva-tool unreal save <file>` reads one.
     number, one unknown, its next and return line or 0xFFFF; its voice,
     key, text; an f32 pause; its NEXTLINE and RETURNLINE patterns; its tag
     (a name); its event and condition; a name, a u16 camera and four
-    names); two lists of what's under way (records of u16, u16, i32,
-    reference, i32; and u16, reference, i32); its faces (as the name
-    tables); its cameras (13 i32 each); an i32;
+    names); the lines being said (Engine.dll 0x1040af60), each its
+    line's place, the place of the line whose RETURNLINE its thread goes
+    back to (0xFFFF none), when it's done (f32, level seconds: the clock
+    that runs while paused for a HUD line, the level's for the rest), its
+    speaker (a reference) and its thread (i32); the lines waiting for a
+    speaker who's busy (0x1040b050), each its line's place, the speaker
+    and the thread; its faces (as the name tables); its cameras (13 i32
+    each); the number its next thread will get (i32);
   - **the sounds playing**: for each, the actor, the audio driver's id
     (actor x 16 + slot x 2 + no-override; below 0 slot none), the sound's
     path, its volume, radius and pitch (f32), and when it began (level
     seconds);
   - an i32 (0).
 - **The C3D mesh states** (`C3DMESHSTATE`, one an actor with a C3D mesh,
-  its `C3DOurMeshState`): no properties; 0xFFFFDE80, 2, 22 (the C3D
-  library's version); the mesh's name; an i32; the IK targets; an i32;
-  then the animation groups (FullBody, LowerTorso, UpperTorso, then the
-  face's channels sk3...): each its name and sequence (`NONACTIVE` for
-  none), an i32 source, the frame (f32), the type (a body group's `Boned`:
-  1 true, 2 false; 4 a face channel), the state (a body group's mode, as
-  Engine.dll keeps it: 0 held still, 1 playing once, 2 fading in to play
-  once, 3 looping, 4 fading in to loop, 5 tweening, 6 fading out; a face
-  channel's 5 while tweening), rate, weight, the tween's from-frame and
-  from-weight, the fade's time gone, an f32 (its time gone a tick
-  before), its length, an f32, a pending tween (a sequence, frame, weight
-  and time), its InheritBone (the bone its clears turn) and three i32:
-  by where they fall in the engine's group state, ClearYaw, ClearPitch
-  and ClearRoll (fairly sure: no save of the original's to hand has one
-  set). Reluva writes and reads a layer by these: a punch saved as it
-  fades in (UpperTorso's `MelRunPnchL`, a third in, all three clears)
-  comes back the same. Then the bones' adjustments,
-  what's attached, the owner's name. Its strings are a 16-bit length and
-  the letters; its arrays a count, the count again and a growth step.
+  its `C3DOurMeshState`; written by Engine.dll at 0x10327230, the C3D
+  library's part at 0x10496820): no properties; 0xFFFFDE80, 2, 22 (the C3D
+  library's version); the mesh's name; an i32; the scripts' IK requests
+  (`C3DIKUNREAL`, each an i32, the chain's name, an i32, a target actor's
+  name, a vector and a rotator; its growth step 5); an i32 (-1); then:
+  - the animation groups (FullBody, LowerTorso, UpperTorso, then the
+    face's channels sk3...): each its name and sequence (`NONACTIVE` for
+    none), an i32 source, the frame (f32), the type (a body group's
+    `Boned`: 1 true, 2 false; 4 a face channel), the state (a body
+    group's mode, as Engine.dll keeps it: 0 held still, 1 playing once,
+    2 fading in to play once, 3 looping, 4 fading in to loop, 5
+    tweening, 6 fading out; a face channel's 5 while tweening), rate,
+    weight, the tween's from-frame and from-weight, the fade's time gone,
+    an f32 (its time gone a tick before), its length, an f32, a pending
+    tween (a sequence, frame, weight and time), its InheritBone (the bone
+    its clears turn) and three i32: by where they fall in the engine's
+    group state, ClearYaw, ClearPitch and ClearRoll (fairly sure: no save
+    of the original's to hand has one set). Reluva writes and reads a
+    layer by these: a punch saved as it fades in (UpperTorso's
+    `MelRunPnchL`, a third in, all three clears) comes back the same;
+  - each IK chain's target (`C3DIKTARGET`, eight for a Male skeleton):
+    the chain's name, three i32, a matrix and the weight (f32);
+  - the actors attached (`C3DATTACHSTATE`): each the held actor's name,
+    its own point, the holder's point (C3DAttach's ThisPt and ObjPt) and
+    a matrix (identity, flags 7, in every save to hand);
+  - the owner's name.
+
+  Its strings are a 16-bit length and the letters; its arrays a count,
+  the count again and a growth step (10 but for the IK requests); a matrix 12 floats (three axes
+  and a place) and an i32 of flags. All 118 of the example's read to
+  their ends so, and its one attachment is a security officer's phaser
+  at her belt (`BAJ_Phaser_Actor0`, `RightHand` to `BeltClip`).
 - **CTVE_MultiMesh** objects: the effects' particle pools (2,285 in the
   example), each in its effect actor.
 
@@ -128,8 +146,10 @@ is the map's data as it is; the rest comes from the running level.
     waiting in anything else, the offset is the call's own statement, to
     be made again.
 - **The map's mesh states** get their groups from the actor's animation,
-  layers and face channels (the rest, IK targets and all, as the map has
-  it); a spawned actor with a C3D mesh gets a new one.
+  layers and face channels, and their attachments from what it holds
+  (the rest, IK requests and targets, as the map has them); a spawned
+  actor with a C3D mesh gets a new one, with no IK requests or targets
+  (the scripts set those again every tick).
 - **The Level object:** the actor list (the LevelInfo, none, the rest);
   the URL (`DS9`, the map, `Name=Player`, the player's class); the
   model and reach list as the map's; the time; the ghosts; the dialogue
@@ -152,10 +172,37 @@ is the map's data as it is; the rest comes from the running level.
     nothing fits is dropped (an explicit one is kept);
   - the cameras: each line's CAMERA in the tables' order, one with no
     place keeping the one before's, the same ones once.
-- **Not written:** the dialogue's lines under way (the engine's two lists
-  are left empty), the IK targets and bone adjustments of new mesh
-  states, and the Level's model and reach list renumbered (the map's own
-  numbering is kept, so references are a byte longer here and there).
+- **The URL's map** is the map's own name, or for a level loaded from
+  the original's save, the map that save was made on.
+- **The map's exports kept**, numbered again in their order before the
+  new ones: those saved, the Level object, what its model and reach list
+  and the models and their polygons lead to, and the packages they're
+  in. Not an actor deleted, by the level or in the map itself
+  (`bDeleteMe`: M01_SiskoL1A's Light82 and five more lights, still in
+  its model's list of lights), as the original's saves have none; what
+  pointed at one, the model's list of lights too, is none (the
+  original's save of M01_SiskoL1A has its 771 lights, as Reluva's
+  now). The editor's
+  own (UnrealEd's building brushes, their models and the polygon lists
+  only those models lead to, its cameras, its text) are left out, as the
+  game never loads them (Core.dll 0x1012d02b) and the original's saves
+  have none; what pointed at them (a surface's or polygon's brush) is
+  none. The map's data kept as it is has its references renumbered: each
+  surface's texture and brush, each zone's actor, the Polys, the lights,
+  each polygon's brush, texture and name, the reach list's model and
+  ends, a mesh state's name, and the tagged properties of the rest (each
+  property's size worked out again; a state frame before any of them
+  too). Should one not read so, all are kept, the editor's empty.
+- **The names and imports** are only those the save uses, numbered
+  again in their order: it's written twice, the first time to find
+  them (those its writing asks for, the export table's, those in the
+  map's data kept, and what each import is in and named).
+- A save of M01_SiskoL1A comes to 6.11 MB: 5692 names, 866 imports,
+  3681 exports (the map has 9011, 493 and 7682); the original's 6.19 MB,
+  6425, 592 and 4436. Both keep its 71 models, 71 polygon lists, 771
+  lights and one LevelInfo; what's left between them is what the level
+  had at the time (the original's has 2285 effect copies to 1529 here,
+  decals and a crosshair).
 
 ## Sources and checks
 

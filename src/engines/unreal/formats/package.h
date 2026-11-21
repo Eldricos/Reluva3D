@@ -26,8 +26,10 @@ namespace reluva::unreal {
 /** The first four bytes of every package, read little-endian. */
 constexpr uint32_t kPackageTag = 0x9E2A83C1;
 
-/** Object flags that change how an export's data starts. */
+/** Object flags that change how an export's data starts, and where it's loaded. */
 namespace objflag {
+constexpr uint32_t kLoadForClient = 0x00010000;
+constexpr uint32_t kLoadForServer = 0x00020000;
 constexpr uint32_t kHasStack = 0x02000000; // a state frame comes before the properties
 } // namespace objflag
 

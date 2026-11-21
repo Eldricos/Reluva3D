@@ -84,16 +84,11 @@ struct Mesh {
      */
     size_t importBlock = 0;
     /**
-     * Its float copy of the vertices shows they're turned from how the
-     * packed ones lie: that turn (rows: output axes), applied after Scale
-     * and Origin and before RotOrigin. None for the standard layout.
+     * An imported model's turn from C3D's axes (rows: output axes), applied
+     * after Scale and Origin and before RotOrigin; the same for every one.
+     * None for the standard layout.
      */
     std::optional<std::array<Vec3f, 3>> importAxes;
-    /**
-     * Without a float copy to fit (most keep per-vertex weights where
-     * KiraCellLight keeps its copy), the turn most of them show is taken.
-     */
-    bool importAxesGuessed = false;
     /**
      * The Fallen's keyframed meshes: how many frames of vertices were
      * found, fewer than animFrames; the first is used for every frame

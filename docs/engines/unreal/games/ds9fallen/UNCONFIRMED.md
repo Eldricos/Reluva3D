@@ -38,38 +38,39 @@ full playthrough's recording has been
 - **Overall brightness:** the recording runs brighter than Reluva by 1.2
   to 2.3 times in mean level, varying by scene (a brightness setting, its
   renderer, or both) ([research/playthrough.md](research/playthrough.md)).
-- **What lights the credits station** (CM_SpaceStation): neither "no
-  lights means unlit" nor "an empty list means unlit" matches the
-  recording ([lighting.md](systems/lighting.md)).
+- **What lights the credits station** (CM_SpaceStation): by Render.dll an
+  empty list of lights leaves a surface to its zone's ambient (black
+  here) and dynamic lights, and there are none near it; yet the
+  recording shows its rings' outward faces lit. Its lights look moved
+  since its last lighting build ([lighting.md](systems/lighting.md)).
 
 ## Inferred
 
-- **The Fallen's own physics modes** other than the player's climbing,
-  hanging and clambering, and the effects: Reluva's reading of what the
-  scripts set and leave undone ([movement.md](systems/movement.md),
-  [effects.md](systems/effects.md)).
-- **Noises the AI hears:** UE1's own rule isn't in the scripts; this is
-  Reluva's ([ai.md](systems/ai.md)).
-- **UnrealEd's cameras** (`Camera` actors) are left out of a level: the
-  original must drop them too, or every login would become an editor
-  camera ([level.md](systems/level.md)).
-- **The animated textures' settings:** Reluva's own reading of their
-  names and of the values in The Fallen's textures, checked where noted
-  against Fire.dll and Engine.dll ([texture.md](formats/texture.md)).
+None yet.
 
 ## Guessed
 
-- **The bone axis order and the IK natives** are Reluva's own readings
-  until compared with the original running ([bones.md](systems/bones.md),
-  [animation.md](systems/animation.md)).
-- **Meshes with no float copy** are given the usual import turn
-  (KiraCellLight's) ([mesh.md](formats/mesh.md)).
-- **Which MP3 the game plays when:** the music cues in
-  `Sounds/Music.uax` and the maps' scripts, presumably
-  ([sound.md](formats/sound.md), [sound.md](systems/sound.md)).
+None yet.
 
 ## Settled
 
+- **The animated textures' settings** (November 2026): their pacing,
+  priming, flipbooks and surfaces' panning, from Engine.dll and
+  Render.dll ([texture.md](formats/texture.md)).
+- **The effects' physics modes** (November 2026): each read from its
+  function in Engine.dll ([effects.md](systems/effects.md)).
+- **Meshes drawn from packed vertices** (November 2026): Engine.dll's one
+  fixed swap of axes is Reluva's turn ([mesh.md](formats/mesh.md)).
+- **Which pawns move in which modes** (November 2026): each pawn class's
+  physics switch in Engine.dll ([movement.md](systems/movement.md)).
+- **Noises the AI hears** (November 2026): Engine.dll's `PlaySound` and
+  `PlayDummySound` rules; `MakeNoise` makes none ([ai.md](systems/ai.md)).
+- **UnrealEd's cameras** (November 2026): flagged editor-only in the
+  maps, so the game never creates them ([level.md](systems/level.md)).
+- **The bones' axes and the IK** (November 2026): the axis swap,
+  `C3DApplyRotation`'s and `C3DApplyWorldRotation`'s order, and
+  `C3DApplyIK`'s chains, joint limits and solve are as Engine.dll has
+  them ([bones.md](systems/bones.md)).
 - **Character normals** (November 2026): Render.dll makes each vertex's
   normal from the triangles' winding alone; Reluva had guessed which way
   was out from each mesh's middle, which turned the EVA suit's inward.

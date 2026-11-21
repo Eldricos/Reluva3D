@@ -80,9 +80,9 @@ properties it borrows:
 
 The HUD's animated textures are FliTextures ([texture.md](../formats/texture.md)),
 played by script (`DS9_Hud.SetFlick`): `Mode` 0 stops, 1 plays once, 2
-loops. Once a FliTexture is drawn the level plays it each tick: its
-`FrameTime` grows by the tick times `Rate`, and `FrameNum` moves on a
-frame each 1/30 s of that. Played once, it stops back on frame 1 with
+loops. Each time a FliTexture is drawn it plays on by the real time
+since it was last drawn (so on while paused): its `FrameTime` grows by
+that times `Rate`, and `FrameNum` moves on a frame each 1/30 s of that. Played once, it stops back on frame 1 with
 `Mode` 0, which `FlickPlaying` waits for. A tile draws the frame
 `FrameNum` says (the communicator's bar sliding open, the meters).
 

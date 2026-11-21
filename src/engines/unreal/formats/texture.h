@@ -33,7 +33,12 @@ constexpr uint32_t kSemisolid = 0x00000020;
 constexpr uint32_t kModulated = 0x00000040;
 constexpr uint32_t kFakeBackdrop = 0x00000080;
 constexpr uint32_t kTwoSided = 0x00000100;
+constexpr uint32_t kAutoUPan = 0x00000200;
+constexpr uint32_t kAutoVPan = 0x00000400;
 constexpr uint32_t kNoSmooth = 0x00000800;
+// Drawn whatever zones are seen (UModel::BuildForceRenderSurfaces, 0x10417830).
+constexpr uint32_t kForceRender = 0x00001000;
+constexpr uint32_t kWavy = 0x00002000;
 constexpr uint32_t kUnlit = 0x00400000;
 constexpr uint32_t kPortal = 0x04000000;
 constexpr uint32_t kMirrored = 0x08000000;

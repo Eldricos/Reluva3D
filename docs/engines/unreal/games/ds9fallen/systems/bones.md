@@ -18,7 +18,16 @@ Each is worked out in the mesh's animation now:
   further forward than standing, while her feet don't move.
 - **Placing it:** placed as the Maps page draws the mesh, so they agree
   (`placeMeshVertex`, then the actor's Location, PrePivot, Rotation and
-  DrawScale).
+  its scale), through the inverse of Engine.dll's `C3DGetWldToC3DTM`
+  (0x1032d600; 0x1032d3d0 for joints and attachment points). That
+  matrix takes off Location + PrePivot (both, the same sign as the
+  frame builder: no actor is moved twice by its PrePivot), undoes
+  Rotation then PreRotate, and scales each of the actor's axes by
+  AxisScale / DrawScale: DrawScale 1 for a `bParticles` actor, each at
+  least 0.001. That undoes how the mesh is drawn (DrawScale times
+  AxisScale) only where AxisScale is 1; Reluva keeps the original's
+  quirk, which only a squashed Arachnid corpse shows. The IK targets
+  are taken into the skeleton's space by the same matrix.
 
 The natives:
 - `C3DGetJointWorldPos(Bone, out Location, out Rotation)`: a bone's place
@@ -133,6 +142,11 @@ last until the scripts' next tick replaces them:
   (in the world), and `C3DSetIkTargetPosition` / `C3DSetIkTargetOrientation`
   (from another actor's place and turn). Each takes a chain's name and a
   weight that blends it in. `C3DClearIkTarget` lets go.
+  - Engine.dll keeps the other actor and reads its Location (without
+    PrePivot) and Rotation again each time it applies the chains
+    (`C3DApplyIK`, 0x1032ac30); Reluva reads them once, when the
+    script calls. They differ only for a script that doesn't set it
+    again every tick.
   - The chains aren't in the meshes, so the engine must know them by
     name. `LeftArm`/`RightArm` move a hand to a place and
     `LeftHand`/`RightHand` turn it; `LeftLeg`/`RightLeg` and
@@ -173,15 +187,15 @@ M04_KiraL1, once 2 is pressed, Kira holds the phaser rifle at her hip
 facing where she faces, both hands on its grips, its muzzle 27 units
 ahead of the right hand's.
 
-Not done:
-- (Checked against Engine.dll, November 2026: a bone's place's axes
-  (`C3DGetJointWorldPos`: the actor's X is the bone's −Z, Y its −X, Z
-  its +Y, through a fixed swap), `C3DApplyRotation` turning about the
-  bone's own X (pitch), Y (yaw) and Z (roll) before its local place,
-  and `C3DApplyWorldRotation` turning the bone within the skeleton by
-  the rotator carried through that swap, the actor's own turn left out
-  (Reluva takes the swap from the mesh's placement, the same for The
-  Fallen's meshes): all as Reluva has them.)
+Checked against Engine.dll (November 2026):
+- **The bones' axes.** A bone's place's axes (`C3DGetJointWorldPos`:
+  the actor's X is the bone's −Z, Y its −X, Z its +Y, through a fixed
+  swap), `C3DApplyRotation` turning about the bone's own X (pitch), Y
+  (yaw) and Z (roll) before its local place, and `C3DApplyWorldRotation`
+  turning the bone within the skeleton by the rotator carried through
+  that swap, the actor's own turn left out (Reluva takes the swap from
+  the mesh's placement, the same for The Fallen's meshes): all as
+  Reluva has them.
 - **The IK, as Engine.dll's** (`C3DApplyIK` and its solver, read November
   2026):
   - **The chains are data.** Shared.u's `Male` keeps eight (the player

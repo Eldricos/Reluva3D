@@ -35,10 +35,13 @@ public:
      * Starts the level and logs a player in (as the .ini's [URL] says), at
      * the start tagged `portal` if one is given; or, given a saved game of
      * this map, carries on from it. `saveFolder`: where its games are
-     * saved and listed.
+     * saved and listed; `configFolder`: where its settings are written.
+     * Given `changes`, what the start changed in the placed actors goes
+     * there, as runLevelStart tells it (with no ticks run).
      */
     Error start(const std::string &portal = {}, const std::filesystem::path &saved = {},
-                const std::filesystem::path &saveFolder = {});
+                const std::filesystem::path &saveFolder = {}, const std::filesystem::path &configFolder = {},
+                LevelStart *changes = nullptr);
 
     /**
      * Moves the level on by `seconds` of real time, in whole ticks: at
@@ -178,7 +181,16 @@ public:
         Vec3f location{};
         Vec3f prePivot{};
         Rotator rotation;
+        Rotator preRotate; // a mesh's turn within Rotation
         float drawScale = 1;
+        Vec3f axisScale{1, 1, 1}; // AxisScale: a mesh stretched along its own axes
+        /**
+         * bParticles: a mesh drawn as its Texture at each of its vertices,
+         * placed as if DrawScale were 1 (DrawScale sizes the sprites);
+         * with bRandomFrame, each vertex's texture is one of MultiSkins.
+         */
+        bool particles = false;
+        bool randomFrame = false;
         int drawType = 0; // 1 sprite, 2 mesh, 3 brush...
         bool hidden = false;
         ObjectRef mesh;
@@ -391,6 +403,10 @@ private:
         kAmbientGlow,
         kSpecularField,
         kMultiTextureOn,
+        kPreRotate,
+        kAxisScale,
+        kParticles,
+        kRandomFrame,
         kFieldCount
     };
     const std::array<int, kFieldCount> &slotsOf(const VmClass *cls);
@@ -402,6 +418,7 @@ private:
     };
     std::unordered_map<const VmClass *, AmbientKind> _ambientKinds;
     std::array<NameId, kFieldCount> _names{};
+    NameId _actorName = 0;
 
     const PackageSet &_packages;
     const Package &_map;

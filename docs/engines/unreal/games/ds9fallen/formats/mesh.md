@@ -54,39 +54,73 @@ of the standard tail is found from the end back as the place it reads
 from to exactly the end, agreeing with itself (frame counts above 0, a
 sane Scale and Origin, for a LodMesh FrameVerts = model + special
 vertices and some faces); the vertices are the block's `(N, N, 1)` array
-of N = FrameVerts x AnimFrames packed vertices, or one such array per
-frame (which animated meshes are expected to use, still to be seen on
-the data). On KiraCellLight this gives its 12 vertices, its 14 triangles
+of N = FrameVerts x AnimFrames packed vertices, or else the first of
+the `(FrameVerts, FrameVerts, 1)` arrays, which are the clips' vertex
+keys (see "Keyframed meshes" below). On KiraCellLight this gives its 12 vertices, its 14 triangles
 (8 with texture 0, 6 with texture 1, as the block's header counts) and
 Scale (0.0307, 0.0307, 0.0614), with no bytes over.
 
-**Which way up.** The block's float copy of the vertices is turned from
-the packed ones: in KiraCellLight packed (313, 1016, 26) is float
-(9.62, 1.62, -31.19), i.e. after Scale x stays, y takes z and z takes
--y (a quarter turn about X). Each mesh's turn is found from its own
-float copy: of the 24 axis-aligned turns, the one taking its first frame
-(by Scale and Origin) closest onto the `(FrameVerts, FrameVerts, 128)`
-float array, if within 5% of its size on average. On KiraCellLight it
-finds exactly the turn above.
+**Which way up.** Engine.dll's C3D frame builder takes every mesh's
+points from C3D space to Unreal's by one fixed swap of axes, (x, y, z)
+to (-z, -x, y) (0x1032b980; the way back at 0x1032d61e), reading no
+RotOrigin. A clip with vertex keys is drawn from the packed vertices,
+unpacked as they are (0x104ae44e, picked at 0x103290b6 by whether the
+clip has a vertex track); one without is skinned from the bones, whose
+root's parent is that same swap (0x1032bb3c). Reluva turns every
+imported mesh so: after Scale x stays, y takes z and z takes -y,
+drawn reversed, with three quarter turns of yaw.
 
-Comparing in CM05_Kira (the viewers' **M** key steps through them): as
-stored, the chairs lie on their backs; turned onto the float copy, they
-and the people are upside down or flat; turned the **opposite** way (the
-transpose), all stand as in the game. So that's what's drawn. Both are
-compared about their middles, since the float copy can also be moved.
-
-`unreal check` on The Fallen (October 2026) tallied the turns found: 159
-meshes the KiraCellLight one, 8 none, a few each of five others, and 174
-where none fitted, even about the middles. Those have no float copy: their
-`(FrameVerts, FrameVerts, 128)` array holds one float per vertex, all 1.0
-(weights, say), not three. Drawn as stored they lie on their backs as the
-chairs did, so they're given the usual turn (KiraCellLight's) and the
-same opposite-way drawing.
+The block's float copy of the vertices (a `(FrameVerts, FrameVerts,
+128)` float array, where a mesh keeps one) isn't used for this. In
+KiraCellLight it is the root bone's own-space copy: float vertex 0
+(9.62, 1.62, -31.19) through the root's placement is packed (313,
+1016, 26) by Scale, so both ways give the same points. Reluva once took
+each mesh's turn from its float copy; 21 meshes' copies fit other
+turns (HASGunNestBaseMesh, ARD_Small_Fan, BajoranHypoSpray,
+Cardassian_InfoPad, CardassianWallTurretFX, two GRiGibbed parts), and
+those were drawn turned wrongly. ARD_Small_Fan's root placement is the
+identity and its float copy half a turn from its packed vertices.
+Drawn as stored, the chairs in CM05_Kira lie on their backs; turned,
+they and the people stand as in the game.
 
 Turned so, they stand up but face their right (in CM05_Kira and the
 rest): imported meshes are also given three quarter turns of yaw (a
 quarter turn back), to face ahead along X. The viewers' **Y** key steps
 through the four.
+
+Placed in the world, the C3D frame builder takes the actor's own
+placement and nothing else of the mesh's (0x1032b619 to 0x1032b75b):
+Location + PrePivot, turned by Rotation and within it by the actor's
+`PreRotate` (which scripts set: an attached item's `ItemRotationAdjust`,
+the phaser mine spinning), scaled by DrawScale times `AxisScale` along
+the turned axes. It never reads the mesh's Origin, RotOrigin or Scale
+(the C3D model's own scale does that job, the same as Scale in every
+mesh read). Reluva draws them so, each actor with its PreRotate:
+`DS9_CardassianWallTurretFX`, the one imported mesh with a RotOrigin
+(0, 49152, 0), takes no turn from it. No mesh has a non-zero Origin, imported or not, so its being
+left out changes nothing. A classic mesh does turn by RotOrigin and
+take off Origin (0x104119ea), and is scaled by its Scale times
+`AxisScale` times DrawScale (`ULodMesh::GetFrame`, 0x103c8d37). Reluva
+draws every mesh actor with its AxisScale, as both do: a squashed Arachnid corpse, the photon grenade's particle,
+`DS9_LaserCoreBeam`.
+
+**bParticles.** Every frame builder (0x1032b619, 0x10411951,
+0x103c8d1d, `AMD3DGetFrame` 0x10410f9a) takes DrawScale as 1 for an
+actor with `bParticles` (Actor's display flags, bit 4), and
+Render.dll's `DrawMesh` (0x10b0ef40) and `DrawLodMesh` (0x10b116f3)
+then draw no triangles: the actor's `Texture` facing the camera at
+each posed vertex, DrawScale times the texture's size across, in the
+actor's style and tinted by ScaleGlow; none if it has no Texture. With
+`bRandomFrame` a vertex's texture is `MultiSkins[round(index / 3) & 7]`
+(none where that one's empty). Its bounds take a scale of 1.5
+(0x104106ea). Only `CARD_TransporterTube` sets it: a spinning cloud
+of sparks drawn in towards its axis as its AxisScale shrinks.
+`DS9_Fan` and `CTV_Wind` have a `bParticles` of their own, for their
+scripts, that hides Actor's; Reluva reads Actor's. Reluva draws them
+so (`drawParticles`), checked by drawing a turret so: a sprite at each
+vertex, in its shape. Not done: an animated texture's frame following
+the actor's LifeSpan with bRandomFrame (no actor has both), a lit
+actor's light on the sprites (the tube is unlit), and the 1.5 bounds.
 
 **Keyframed meshes.** Many animated meshes keep fewer `(FrameVerts,
 FrameVerts, 1)` vertex arrays than they have frames: ARD_AmmoCrate 2 for
@@ -310,15 +344,14 @@ What the type means:
   along its Z, the muzzle at -17, the stock at +16: its `RightHand` grip
   is 3 units below at +10 (the pistol grip at the back) and its
   `LeftHand` beside it at -2.8, forward of the middle. Read in the float
-  copy's space instead (the rifle has none: it's the usual turn guessed),
-  the right hand is 10 units below, outside the rifle. Over all 67
+  copy's space instead (the rifle has none), the right hand is 10 units
+  below, outside the rifle. Over all 67
   type 2 points, 29 are nearer their mesh's surface read so, 8 read the
   float copy's way. Engine.dll settles it: a type 2 point is the stored
   matrix as it is, in the same space as the skeleton's posed vertices
   (`C3DGetWldToC3DTM` maps the world into that space; the mesh's Scale,
-  Origin and RotOrigin aren't read there). Reluva places it as it
-  places those vertices, so a point and its mesh turn together whatever
-  turn is guessed for the mesh.
+  Origin and RotOrigin aren't read there; see [bones.md](../systems/bones.md)). Reluva places it as it
+  places those vertices, so a point and its mesh turn together.
 
 Then come `(s, s, 5)`, the shared animation sets the mesh's animations
 come from (`shared.MaleTwo`, `shared.Male`), and `(m, m, 4)` places

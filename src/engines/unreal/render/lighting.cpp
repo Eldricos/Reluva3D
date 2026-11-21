@@ -33,8 +33,8 @@ constexpr uint8_t kEffectShell = 14;
 constexpr uint8_t kEffectInterference = 16;
 constexpr uint8_t kEffectCylinder = 17;
 constexpr uint8_t kEffectRotor = 18;
-// The original's random numbers are drawn afresh every frame; Reluva's
-// step 35 times a second (the engine's tick).
+// The viewer's frames for the random lights, 35 a second (the engine's
+// tick); playing, they're the frames drawn.
 constexpr float kFrameRate = 35;
 
 Vec3f add(const Vec3f &a, const Vec3f &b) {
@@ -81,7 +81,12 @@ bool readLight(const PackageSet &packages, const Package &package, int32_t ref, 
     // brightness 64 and radius 64. Lights the level lists are lights, so
     // a missing LightType counts as steady.
     l.type = changed && changed->lightType >= 0 ? uint8_t(changed->lightType) : props.byte("LightType", kLightSteady);
-    const uint8_t placed = props.byte("LightBrightness", 64);
+    // Its brightness as placed; in a saved game, one its scripts had put
+    // out keeps it as InitialBrightness (a TriggerLight's or
+    // CTV_TriggerLight's, set as it began).
+    uint8_t placed = props.byte("LightBrightness", 64);
+    if (placed == 0)
+        placed = uint8_t(std::clamp(props.number("InitialBrightness", 0), 0.0f, 255.0f));
     uint8_t brightness = changed && changed->lightBrightness >= 0 ? uint8_t(changed->lightBrightness) : placed;
     // Scripts may turn it on later (a TriggerLight waiting for its
     // trigger, one a trigger names by its Tag): kept at the brightness it
@@ -212,8 +217,16 @@ Vec3f zoneAmbientColor(uint8_t hue, uint8_t saturation, uint8_t brightness) {
     return c;
 }
 
+LightClock lightClock(float time) {
+    LightClock c;
+    c.time = time;
+    c.frame = uint32_t(std::max(0.0f, time) * kFrameRate);
+    c.strobeOn = c.frame % 2 == 0;
+    return c;
+}
+
 float lightLevel(const LightSource &l, float time) {
-    return lightLevel(l, l.type, time);
+    return lightLevel(l, l.type, lightClock(time));
 }
 
 // 1 - 3 f^2 + 2 f^3 of the way out to its radius, as Render.dll's table
@@ -300,10 +313,11 @@ PatternPoint patternPoint(const Vec3f &o) {
     return p;
 }
 
-PatternNow patternNow(const LightSource &l, float time) {
+PatternNow patternNow(const LightSource &l, const LightClock &clock) {
     PatternNow n;
+    const float time = clock.time;
     n.time = time;
-    n.frame = uint32_t(std::max(0.0f, time) * kFrameRate);
+    n.frame = clock.frame;
     // The searchlight's: 35 / LightPeriod radians a second, from LightPhase
     // (in 64ths of a turn).
     const float period = l.period * 35; // LightPeriod
@@ -377,25 +391,31 @@ float lightPattern(const LightSource &l, const PatternNow &now, const PatternPoi
     }
 }
 
-float lightLevel(const LightSource &l, uint8_t type, float time, bool whole) {
+float lightLevel(const LightSource &l, uint8_t type, const LightClock &clock, bool whole) {
+    const float time = clock.time;
     return (whole || !hasLightPattern(l) ? effectLevel(l, time) : 1.0f) * [&] {
         // How far through its cycle it is, 0-1.
         const float cycles = time / std::max(l.period, 1e-3f) + l.phase;
         const float at = cycles - std::floor(cycles);
-        // As Render.dll's GlobalLighting: a frame's step for the random ones.
-        const uint32_t frame = uint32_t(std::max(0.0f, time) * kFrameRate);
+        const uint32_t frame = clock.frame;
         const uint32_t seed = lightSeed(l);
         switch (type) {
         case kLightPulse:
             return 0.6f + 0.39f * std::sin(2 * kPi * at);
         case kLightSubtlePulse:
             return 0.9f + 0.09f * std::sin(2 * kPi * at);
-        // On or out at random each frame (the parity of its phase in 65536ths).
-        case kLightBlink:
-            return noise(seed, frame) < 0.5f ? 1.0f : 0.0f;
-        // All of them together, on one frame and out the next.
+        // Out when its phase in 65536ths of a LightPeriod + 1 ticks' turn,
+        // whole, is odd (0x10b06e60): a new state almost every frame, but
+        // held while the game is paused.
+        case kLightBlink: {
+            const float period = std::round(l.period * 35) + 1;
+            const double x = double(time) * 35 * 65536 / period + std::round(l.phase * 256) * 256;
+            return (int64_t(x) & 1) ? 0.0f : 1.0f;
+        }
+        // All of them together, on one frame the time moved and out the
+        // next (0x10b06ef0).
         case kLightStrobe:
-            return frame % 2 == 0 ? 1.0f : 0.0f;
+            return clock.strobeOn ? 1.0f : 0.0f;
         // A random number each frame: out under a half, else that bright.
         case kLightFlicker: {
             const float r = noise(seed ^ 0x51ed270bu, frame);
@@ -419,18 +439,21 @@ LevelLights gatherLights(const PackageSet &packages, const Package &package, con
         Vec3f actorAmbient{};
         uint8_t ambientBrightness = 0;
         bool fog = false;
+        std::array<float, 2> pan{1, 1};
         const ObjectRef zone = z.actor ? packages.resolve(package, z.actor) : ObjectRef{};
         if (zone && !defaults.actorProperties(*zone.package, zone.exportIndex, props)) {
             ambientBrightness = props.byte("AmbientBrightness");
             ambient =
                 zoneAmbientColor(props.byte("AmbientHue"), props.byte("AmbientSaturation", 255), ambientBrightness);
             fog = props.boolean("bFogZone");
+            pan = {props.number("TexUPanSpeed", 1), props.number("TexVPanSpeed", 1)};
             actorAmbient = engineHsv(props.byte("AmbientHue"), props.byte("AmbientSaturation", 255), ambientBrightness);
         }
         out.zoneAmbient.push_back(ambient);
         out.zoneAmbientBrightness.push_back(ambientBrightness);
         out.zoneActorAmbient.push_back(actorAmbient);
         out.zoneFog.push_back(fog);
+        out.zonePan.push_back(pan);
     }
     // The level's Brightness (LevelInfo) scales every light.
     float levelBrightness = 1;
@@ -541,12 +564,10 @@ LightmapAtlas buildLightmaps(const Model &model, const LevelLights &lights, int 
 
     for (size_t s = 0; s < model.surfs.size(); ++s) {
         const BspSurf &surf = model.surfs[s];
-        if (points[s].empty() || (surf.polyFlags & (polyflag::kUnlit | polyflag::kInvisible)))
+        // With no lightmap the original draws a surface full bright, as an
+        // unlit one (its texture alone, Render.dll 0x10b22d82).
+        if (points[s].empty() || (surf.polyFlags & (polyflag::kUnlit | polyflag::kInvisible)) || surf.lightMap < 0)
             continue;
-        if (surf.lightMap < 0) {
-            useAmbient(s);
-            continue;
-        }
         const LightMapIndex &m = model.lightMaps[size_t(surf.lightMap)];
         ++atlas.stats.lightmaps;
         if (m.uClamp + 2 > pageSize || m.vClamp + 2 > pageSize || m.uClamp <= 0 || m.vClamp <= 0) {
@@ -638,10 +659,10 @@ LightmapAtlas buildLightmaps(const Model &model, const LevelLights &lights, int 
     // reach redrawn with them as they do (drawn at time 0 here).
     std::vector<float> startLevels;
     for (const LightSource &l : lights.animated)
-        startLevels.push_back(l.startsOff ? 0.0f : lightLevel(l, l.type, 0, false));
+        startLevels.push_back(l.startsOff ? 0.0f : lightLevel(l, l.type, lightClock(0), false));
     std::vector<PatternNow> startNow;
     for (const LightSource &l : lights.animated)
-        startNow.push_back(patternNow(l, 0));
+        startNow.push_back(patternNow(l, lightClock(0)));
     std::vector<uint8_t> rgba;
     for (size_t gi = 0; gi < grids.size(); ++gi) {
         const Grid &g = grids[gi];

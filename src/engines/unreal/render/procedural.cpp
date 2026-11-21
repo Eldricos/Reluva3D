@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <utility>
 #include <cstring>
 
 namespace reluva::unreal {
@@ -101,13 +102,17 @@ void toRgba(const std::vector<uint8_t> &indices, const Palette &palette, bool ma
 // most once a frame and no faster than MaxFrameRate, a frame's time added
 // up until 1 / MaxFrameRate has gone by, then a step; the sum starts again
 // unless it's past 1 / MinFrameRate (the rates kept to 0.01-100), when only
-// that much is taken off, so a slow display catches up.
+// that much is taken off, so a slow display catches up, but by no more than
+// that again (0x1045a0ae: one long away isn't stepped every frame after).
+// First of all it's stepped PrimeCount times at once, warmed up as it
+// loads (0x10459f2d).
 struct Pace {
     // the shortest and longest time between steps; fastest 0: every frame
     float fastest = 0;
     float slowest = 0;
     float sum = 0;
-    explicit Pace(const PropertyList &props) {
+    int prime = 0;
+    explicit Pace(const PropertyList &props) : prime(std::max(0, int(props.integer("PrimeCount")))) {
         const float most = props.number("MaxFrameRate");
         if (most != 0) {
             fastest = 1 / std::clamp(most, 0.01f, 100.0f);
@@ -115,16 +120,17 @@ struct Pace {
         }
     }
     int due(float seconds) {
+        const int warm = std::exchange(prime, 0);
         if (fastest == 0)
-            return 1;
+            return warm + 1;
         sum += std::max(0.0f, seconds);
         if (sum < fastest)
-            return 0;
+            return warm;
         if (sum < slowest)
             sum = 0;
         else
-            sum -= slowest;
-        return 1;
+            sum = std::min(sum - slowest, slowest);
+        return warm + 1;
     }
 };
 
@@ -1073,6 +1079,7 @@ public:
 
     Ice(const PropertyList &props, image::Image source, std::vector<uint8_t> glass)
         : _source(std::move(source)), _glass(std::move(glass)), _pace(props) {
+        _pace.prime = 0; // (its own Tick, 0x1050a200, primes nothing)
         _panning = props.byte("PanningStyle");
         _realTime = props.byte("TimeMethod") != 0;
         _hSpeed = float(int(props.byte("HorizPanSpeed", 128)) - 128);
@@ -1447,6 +1454,61 @@ std::unique_ptr<AnimatedTexture> openFlc(const TextureData &t, Palette palette, 
 
 } // namespace
 
+namespace {
+
+// A plain texture's flipbook (UTexture::ConstantTimeTick, 0x1045a160): each
+// step shows the next texture of its AnimNext chain, back to the first
+// after the last, paced by the first's frame rates.
+class Flipbook : public AnimatedTexture {
+public:
+    Flipbook(const PropertyList &props, std::vector<image::Image> frames) : _frames(std::move(frames)), _pace(props) {
+        _pace.prime = 0; // (each step's a frame: priming only skips on)
+        _image = _frames.front();
+    }
+    const char *kind() const override { return "flipbook"; }
+    bool advance(float seconds) override {
+        const int n = _pace.due(seconds);
+        if (n == 0)
+            return false;
+        _at = (_at + size_t(n)) % _frames.size();
+        _image = _frames[_at];
+        return true;
+    }
+
+private:
+    std::vector<image::Image> _frames;
+    Pace _pace;
+    size_t _at = 0;
+};
+
+// The textures of a plain texture's AnimNext chain, from it (at most 64,
+// stopping where it comes round again).
+std::vector<ObjectRef> animChain(const PackageSet &packages, const Package &package, int exportIndex) {
+    std::vector<ObjectRef> chain{{&package, exportIndex}};
+    for (ObjectRef at = chain.front(); chain.size() < 64;) {
+        TextureData t;
+        if (readTextureData(*at.package, at.exportIndex, t))
+            break;
+        const ObjectRef next = packages.resolve(*at.package, t.props.object("AnimNext"));
+        if (!next || std::any_of(chain.begin(), chain.end(), [&](const ObjectRef &r) {
+                return r.package == next.package && r.exportIndex == next.exportIndex;
+            }))
+            break;
+        chain.push_back(next);
+        at = next;
+    }
+    return chain;
+}
+
+} // namespace
+
+bool isAnimatedTexture(const PackageSet &packages, const Package &package, int exportIndex) {
+    const std::string cls = fs::toLower(package.className(exportIndex + 1));
+    if (isAnimatedTextureClass(cls))
+        return true;
+    return cls == "texture" && animChain(packages, package, exportIndex).size() > 1;
+}
+
 bool isAnimatedTextureClass(std::string_view className) {
     const std::string c = fs::toLower(className);
     return c == "firetexture" || c == "watertexture" || c == "wavetexture" || c == "wettexture" || c == "flitexture" ||
@@ -1463,6 +1525,24 @@ std::unique_ptr<AnimatedTexture> openAnimatedTexture(const PackageSet &packages,
     };
     const std::string cls = fs::toLower(package.className(exportIndex + 1));
     const std::string what = package.path(exportIndex + 1);
+    if (cls == "texture") {
+        const std::vector<ObjectRef> chain = animChain(packages, package, exportIndex);
+        if (chain.size() < 2)
+            return fail(what + ": a texture with no AnimNext, not animated");
+        std::vector<image::Image> frames;
+        for (const ObjectRef &r : chain) {
+            image::Image img;
+            if (decodeTexture(packages, *r.package, r.exportIndex, img))
+                continue;
+            if (!frames.empty() && (img.w != frames.front().w || img.h != frames.front().h))
+                continue;
+            frames.push_back(std::move(img));
+        }
+        TextureData head;
+        if (frames.size() < 2 || readTextureData(package, exportIndex, head))
+            return fail(what + ": its AnimNext textures don't read");
+        return std::make_unique<Flipbook>(head.props, std::move(frames));
+    }
     if (!isAnimatedTextureClass(cls))
         return fail(what + ": a " + cls + ", not animated");
     TextureData t;

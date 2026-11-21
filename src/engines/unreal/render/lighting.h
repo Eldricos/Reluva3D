@@ -112,6 +112,18 @@ struct LightSource {
 };
 
 /**
+ * What changing lights go by: Render.dll's timed ones by the level's
+ * TimeSeconds (which stops while the game is paused), its random ones
+ * afresh every frame drawn, paused or not.
+ */
+struct LightClock {
+    float time = 0;       // the level's time, seconds
+    uint32_t frame = 0;   // frames drawn
+    bool strobeOn = true; // every strobe light's, flipped when one is worked out and the time moved
+};
+/** A clock `time` seconds in, its frames 35 a second (the viewer's). */
+LightClock lightClock(float time);
+/**
  * The share of its brightness (0-1) a light gives `time` seconds in: its
  * LightType's curve times its LightEffect's.
  */
@@ -121,7 +133,7 @@ float lightLevel(const LightSource &light, float time);
  * effect's share where that's a pattern across the surfaces (lightPattern
  * gives it texel by texel).
  */
-float lightLevel(const LightSource &light, uint8_t type, float time, bool whole = true);
+float lightLevel(const LightSource &light, uint8_t type, const LightClock &clock, bool whole = true);
 /** Whether a light's effect is a pattern across what it lights. */
 bool hasLightPattern(const LightSource &light);
 /**
@@ -140,10 +152,10 @@ PatternPoint patternPoint(const Vec3f &offset);
 struct PatternNow {
     float turn = 0; // the searchlight's, radians
     float time = 0;
-    uint32_t frame = 0; // the random ones' step
+    uint32_t frame = 0; // the random ones' step: frames drawn
 };
-/** A light's PatternNow, `time` seconds in. */
-PatternNow patternNow(const LightSource &light, float time);
+/** A light's PatternNow at the clock's time and frame. */
+PatternNow patternNow(const LightSource &light, const LightClock &clock);
 /** That pattern's share (0-1) at a point. */
 float lightPattern(const LightSource &light, const PatternNow &now, const PatternPoint &at);
 /**
@@ -191,6 +203,7 @@ struct LevelLights {
     std::vector<uint8_t> zoneAmbientBrightness; // its AmbientBrightness, one per zone
     std::vector<Vec3f> zoneActorAmbient;        // engineHsv of its ambient: what actors in it get
     std::vector<bool> zoneFog;                  // one per zone: bFogZone, where volume lights glow
+    std::vector<std::array<float, 2>> zonePan;  // one per zone: TexUPanSpeed, TexVPanSpeed (1, 1 for none)
     std::vector<LightSource> unique;            // each light once (sources repeats them)
     std::vector<LightSource> animated;          // those of them whose brightness changes
     int unreadable = 0;                         // light actors whose properties didn't read

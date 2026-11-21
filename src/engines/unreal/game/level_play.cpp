@@ -5,6 +5,7 @@
 
 #include "common/fs.h"
 
+#include <optional>
 #include <algorithm>
 #include <cstring>
 #include <chrono>
@@ -43,30 +44,44 @@ LevelPlay::LevelPlay(const PackageSet &packages, const Package &map)
                                       "bCorona",
                                       "AmbientGlow",
                                       "Specular",
-                                      "bMultiTextureOn"};
+                                      "bMultiTextureOn",
+                                      "PreRotate",
+                                      "AxisScale",
+                                      "bParticles",
+                                      "bRandomFrame"};
     for (size_t k = 0; k < kFieldCount; ++k)
         _names[k] = _vm->name(names[k]);
+    _actorName = _vm->name("Actor");
 }
 
 Error LevelPlay::start(const std::string &portal, const std::filesystem::path &saved,
-                       const std::filesystem::path &saveFolder) {
+                       const std::filesystem::path &saveFolder, const std::filesystem::path &configFolder,
+                       LevelStart *changes) {
+    _vm->setConfigFolder(configFolder);
     if (Error err = _level->load())
         return err;
     _level->setSaveFolder(saveFolder);
+    std::optional<LevelStartWatch> watch;
+    if (changes) {
+        *changes = {};
+        watch.emplace(*_level, _map);
+    }
     if (!saved.empty()) {
         if (Error err = _level->restore(saved))
             return err;
         _player = _level->player();
-        return Error::success();
-    }
-    // A saved game of the original's: the map is its package.
-    if (_level->savedByGame()) {
+    } else if (_level->savedByGame()) { // a saved game of the original's: the map is its package
         _player = _level->resumeSavedGame(iniSetting(_packages, "URL", "Name"), _loginError);
-        return Error::success();
+    } else {
+        _level->beginPlay(defaultGameType(_packages));
+        _player = _level->login(iniSetting(_packages, "URL", "Class"), iniSetting(_packages, "URL", "Name"),
+                                _loginError, portal);
     }
-    _level->beginPlay(defaultGameType(_packages));
-    _player =
-        _level->login(iniSetting(_packages, "URL", "Class"), iniSetting(_packages, "URL", "Name"), _loginError, portal);
+    if (watch) {
+        watch->finish(*changes);
+        changes->player = _player ? _player->cls->name : std::string();
+        changes->loginError = _loginError;
+    }
     return Error::success();
 }
 
@@ -461,8 +476,14 @@ const std::array<int, LevelPlay::kFieldCount> &LevelPlay::slotsOf(const VmClass 
     auto it = _slots.find(cls);
     if (it == _slots.end()) {
         std::array<int, kFieldCount> slots{};
+        // Actor's own display flags: DS9_Fan and CTV_Wind have a
+        // bParticles of their own, for their scripts, that hides it.
+        const VmClass *actor = cls;
+        while (actor && actor->nameId != _actorName)
+            actor = actor->parent();
         for (size_t k = 0; k < kFieldCount; ++k) {
-            const VmProperty *p = cls->findProperty(_names[k]);
+            const VmClass *owner = (k == kParticles || k == kRandomFrame) && actor ? actor : cls;
+            const VmProperty *p = owner->findProperty(_names[k]);
             slots[k] = p ? p->slot : -1;
             if (k == kRegion && p && p->structType && _regionZoneField < 0)
                 if (const VmProperty *z = p->structType->findProperty(_vm->name("ZoneNumber")))
@@ -600,8 +621,18 @@ bool LevelPlay::look(VmObject *a, Look &out) {
         const auto r = Vm::rotatorOf(*v);
         out.rotation = {r[0], r[1], r[2]};
     }
+    if (const Value *v = at(kPreRotate)) {
+        const auto r = Vm::rotatorOf(*v);
+        out.preRotate = {r[0], r[1], r[2]};
+    }
     if (const Value *v = at(kDrawScale))
         out.drawScale = v->asFloat();
+    out.axisScale = {1, 1, 1};
+    vec(kAxisScale, out.axisScale);
+    const Value *particles = at(kParticles);
+    out.particles = particles && particles->asBool();
+    const Value *randomFrame = at(kRandomFrame);
+    out.randomFrame = randomFrame && randomFrame->asBool();
     if (const Value *v = at(kDrawType))
         out.drawType = v->asInt();
     if (const Value *v = at(kHidden))
@@ -730,7 +761,7 @@ int LevelPlay::health() {
 
 std::string LevelPlay::title() {
     const Value *v = _level->levelInfo() ? _level->levelInfo()->find(*_vm, "Title") : nullptr;
-    return v ? v->s : std::string();
+    return v ? v->s.str() : std::string();
 }
 
 std::vector<std::string> LevelPlay::activeObjectives() {

@@ -75,7 +75,7 @@ ScriptLevel::Sweep ScriptLevel::sweep(VmObject *a, const Vec &from, const Vec &t
     Sweep s;
     Vec at;
     Vec n;
-    s.actor = trace(a, from, to, extent, false, at, n);
+    s.actor = trace(a, from, to, extent, false, at, n, &s.node);
     if (!s.actor) {
         s.at = to;
         return s;
@@ -108,36 +108,191 @@ float ScriptLevel::defaultRadius(VmObject *a) {
     return climbFloat(a, "CollisionRadius", 17);
 }
 
-// TestStepUp: up `stepHeight` + 1 from `start` (a box `extent`), on by
-// `forward`, then down onto a floor (0.65 or flatter). On one, the ledge
-// is told: LedgeHeight (the feet on it), LedgeNormal (its floor's normal),
-// LedgeItem, and with `height` the room over it as a half-height
-// (HeadRoom). How far on it got (0-1), 0 if nowhere.
-float ScriptLevel::testStepUp(VmObject *a, float stepHeight, float height, const Vec &start, const Vec &forward,
+// TestStepUp (0x10369b50), for a move by `delta` from `start` (a box
+// `extent`) blocked by `hit`: up, on by the move, then down onto a floor.
+// Against a wall of the level it climbs only to the top of the wall's own
+// polygon when that's within reach, so a step under a low lintel is found;
+// else up to `stepHeight` + 1 (all of it, or the climb fails). On meeting
+// another wall it climbs again, while the move is still under a tenth
+// done. Found, the ledge is told: LedgeHeight (the feet on it), LedgeNormal
+// (its floor's), LedgeItem (its node), and with `height` the room over it
+// (HeadRoom, a half-height). `hit` becomes the wall a move barely begun
+// met instead. How far on it got (0-1), 0 if nowhere.
+float ScriptLevel::testStepUp(VmObject *a, Sweep &hit, float stepHeight, float height, const Vec &start, Vec delta,
                               const Vec &extent) {
     auto set = [&](const char *name, const Value &v) {
         if (Value *p = prop(a, name))
             *p = v;
     };
-    set("LedgeHeight", Value::floatValue(start[2] - extent[2]));
-    const Sweep up = sweep(a, start, add(start, {0, 0, stepHeight + 1}), extent);
-    const float climbed = (stepHeight + 1) * up.time;
-    const Vec top = add(start, {0, 0, climbed});
-    const Sweep on = sweep(a, top, add(top, forward), extent);
-    const float fwd = std::sqrt(forward[0] * forward[0] + forward[1] * forward[1]);
-    if (!(on.time * fwd >= 3 || on.time >= 0.99f))
-        return 0;
-    const Sweep down = sweep(a, on.at, add(on.at, {0, 0, -(climbed + 1)}), extent);
-    if (!down.hit() || down.normal[2] <= 0.65f)
-        return 0;
-    set("LedgeItem", Value::intValue(down.actor == _levelInfo ? 0 : -1));
-    set("LedgeHeight", Value::floatValue(down.at[2] - extent[2]));
-    set("LedgeNormal", _vm.vectorValue(down.normal[0], down.normal[1], down.normal[2]));
-    if (height != 0) {
-        const Sweep room = sweep(a, down.at, add(down.at, {0, 0, 2 * (height - extent[2])}), extent);
-        set("HeadRoom", Value::floatValue(extent[2] + (height - extent[2]) * room.time));
+    if (const Value *loc = prop(a, "Location"))
+        set("LedgeHeight", Value::floatValue(Vm::vectorOf(*loc)[2] - climbFloat(a, "CollisionHeight", 0)));
+    // What was hit (GetSurfaceInfo): its node and surface on the level's
+    // BSP, a ladder's surface told apart; SurfaceHitType keeps it.
+    auto surfaceOf = [&](const Sweep &h, int32_t &node, int32_t &surf) {
+        node = -1;
+        surf = -1;
+        int type = 0;
+        if (h.actor == _levelInfo && h.node >= 0 && size_t(h.node) < _model.nodes.size()) {
+            node = h.node;
+            surf = _model.nodes[size_t(node)].surf;
+            type = 3;
+            if (surf >= 0 && size_t(surf) < _model.surfs.size())
+                if (VmObject *t = surfaceTextureOf(surf))
+                    if (const Value *tag = prop(t, "TexTag"); tag && tag->asInt() == kLadderTag)
+                        type = 4;
+        } else if (h.actor) {
+            type = _vm.isA(h.actor, "Mover") ? 2 : 1;
+        }
+        return type;
+    };
+    int32_t node = -1;
+    int32_t surf = -1;
+    int type = surfaceOf(hit, node, surf);
+    if (Value *p = prop(a, "SurfaceHitType"))
+        *p = Value::byteValue(type);
+    const float len2d = std::hypot(delta[0], delta[1]);
+    Vec p = start;
+    Vec v{};
+    float done = 0;
+    bool byNode = false;
+    bool last = false;
+    while (p[2] - start[2] < stepHeight && !last) {
+        const int32_t wasNode = node;
+        const int32_t wasSurf = surf;
+        const float left = stepHeight - (p[2] - start[2]);
+        float up = left;
+        if (node >= 0) {
+            const float top = nodeTop(node) - (p[2] - extent[2]);
+            if (top >= 0 && top <= left && hit.normal[2] <= 0.65f) {
+                up = top;
+                byNode = true;
+            }
+        }
+        v = {0, 0, up + 1};
+        const Sweep rise = sweep(a, p, add(p, v), extent);
+        if (rise.hit()) {
+            if (type != 2)
+                break;
+            last = true;
+        }
+        p = add(p, mul(v, rise.time));
+        Sweep on = sweep(a, p, add(p, delta), extent);
+        p = add(p, mul(delta, on.time));
+        done += (1 - done) * on.time;
+        if (!on.hit() || on.node < 0)
+            break;
+        on.node = touchingNode(on.node, on.normal, p, extent[0], extent[2]);
+        type = surfaceOf(on, node, surf);
+        if (surf == wasSurf && node == wasNode) {
+            done = 0;
+            break;
+        }
+        if (surf != wasSurf) {
+            // Another wall: climbed again only if the move had barely begun
+            // and its last climb was clear; a different one met at once
+            // is what blocked the move.
+            if (done >= 0.1f || std::fabs((p[2] - start[2]) - v[2]) > 1e-3f)
+                break;
+            if (std::fabs(on.normal[0] - hit.normal[0]) > 1e-4f || std::fabs(on.normal[1] - hit.normal[1]) > 1e-4f ||
+                std::fabs(on.normal[2] - hit.normal[2]) > 1e-4f) {
+                if (done < 0.01f) {
+                    hit = on;
+                    done = 0;
+                }
+                break;
+            }
+        }
+        node = on.node;
+        delta = mul(delta, 1 - on.time);
     }
-    return on.time;
+    if (len2d * done < 3 && done < 0.99f)
+        return 0;
+    const Sweep down = sweep(a, p, add(p, {0, 0, -((p[2] - start[2]) + 1)}), extent);
+    if (!down.hit())
+        return 0;
+    if (down.normal[2] <= 0.65f) {
+        const bool same = std::fabs(down.normal[0] - hit.normal[0]) < 1e-4f &&
+                          std::fabs(down.normal[1] - hit.normal[1]) < 1e-4f &&
+                          std::fabs(down.normal[2] - hit.normal[2]) < 1e-4f;
+        if (!byNode || !((done > 0.1f && down.time < 0.1f) || same))
+            return 0;
+    }
+    set("LedgeHeight", Value::floatValue(down.at[2] - extent[2]));
+    set("LedgeItem", Value::intValue(down.node));
+    set("LedgeNormal", _vm.vectorValue(down.normal[0], down.normal[1], down.normal[2]));
+    if (height == 0)
+        return done;
+    // The room over it: swept twice the box's reach, counted once (as the
+    // engine does).
+    const float d = height - extent[2];
+    if (d == 0) {
+        set("HeadRoom", Value::floatValue(height));
+        return done;
+    }
+    const Sweep room = sweep(a, down.at, add(down.at, {0, 0, 2 * d}), extent);
+    set("HeadRoom", Value::floatValue(d * room.time + extent[2]));
+    return done;
+}
+
+// GetNodeHighPoint: the top of a BSP node's own polygon.
+float ScriptLevel::nodeTop(int32_t node) {
+    float top = -1e8f;
+    if (node < 0 || size_t(node) >= _model.nodes.size())
+        return top;
+    const BspNode &n = _model.nodes[size_t(node)];
+    for (int k = 0; k < n.vertexCount; ++k) {
+        const size_t v = size_t(n.vertPool + k);
+        if (v >= _model.verts.size())
+            break;
+        const int32_t pi = _model.verts[v].point;
+        if (pi >= 0 && size_t(pi) < _model.points.size())
+            top = std::max(top, _model.points[size_t(pi)][2]);
+    }
+    return top;
+}
+
+// TestHitIntegrity's choice (0x10369610): of the nodes sharing the plane
+// hit, the first whose polygon reaches the box at `at`, its reach along a
+// slanted wall widened toward its corners' (and 0.1 more); else `node`.
+int32_t ScriptLevel::touchingNode(int32_t node, const Vec &normal, const Vec &at, float radius, float height) {
+    if (node < 0 || std::fabs(normal[2]) > 0.99f)
+        return node;
+    const Vec in = flat(mul(normal, -1));
+    if (length(in) < 1e-4f)
+        return node;
+    const Vec x = unit(in);
+    const Vec y{-x[1], x[0], 0};
+    const float hx = std::fabs(x[0]);
+    const float hy = std::fabs(x[1]);
+    const float wide = std::max(hx, hy) > 0 ? std::min(hx, hy) / std::max(hx, hy) : 0;
+    const float r = radius + wide * (std::sqrt(2.0f) * radius - radius) + 0.1f;
+    const float h = height + 0.1f;
+    for (int32_t at2 = node, guard = 0; at2 >= 0 && size_t(at2) < _model.nodes.size() && guard < 1000; ++guard) {
+        const BspNode &n = _model.nodes[size_t(at2)];
+        bool beyond[5] = {true, true, true, true, true};
+        for (int k = 0; k < n.vertexCount; ++k) {
+            const size_t v = size_t(n.vertPool + k);
+            if (v >= _model.verts.size())
+                break;
+            const int32_t pi = _model.verts[v].point;
+            if (pi < 0 || size_t(pi) >= _model.points.size())
+                continue;
+            const Vec3f &q = _model.points[size_t(pi)];
+            const Vec d{q[0] - at[0], q[1] - at[1], q[2] - at[2]};
+            const float along = dot(d, y);
+            beyond[0] = beyond[0] && along > r;
+            beyond[1] = beyond[1] && along < -r;
+            beyond[2] = beyond[2] && d[2] > h;
+            beyond[3] = beyond[3] && d[2] < -h;
+            beyond[4] = beyond[4] && dot(d, x) < -r;
+        }
+        if (n.vertexCount > 0 && !(beyond[0] || beyond[1] || beyond[2] || beyond[3] || beyond[4]))
+            return at2;
+        if (n.planeNode <= 0 || n.planeNode == at2)
+            break;
+        at2 = n.planeNode;
+    }
+    return node;
 }
 
 // TestForStrongLedgeFooting: floor (0.9 or flatter) 2 units under the
@@ -202,23 +357,25 @@ bool ScriptLevel::hangLedge(VmObject *a, const Vec &normal, Vec &at) {
     return true;
 }
 
-// TestForLedge, for a walk blocked by `hit` with `dir` of it left: a
-// ledge the player can pull up onto. Only head on to an upright wall
-// (the move and the view both within -0.85 of it), not crouching, and not
-// in a level without action unless climbing: then up to twice
-// ArmCollisionHeight + StandCollisionHeight, a box of the ducked height
-// from the feet if standing. A ledge above a step: deep enough (1.6 of
-// the class's radius over 45 high, else 0.5), flat (0.9), with footing
-// and a hand hold. Smaller steps are left to the walk's own step up.
-bool ScriptLevel::testForLedge(VmObject *a, const Vec &hitNormal, const Vec &dir) {
-    if (length(dir) < 1e-4f)
+// TestForLedge, for a move blocked by `hit` with `delta`
+// of it left. True for a ledge to pull up onto: head on to an upright
+// wall (the move and the view both within -0.85 of it), not crouching,
+// and not in a level without action unless climbing; probed up to twice
+// ArmCollisionHeight + StandCollisionHeight. Over MaxStepHeight + 1 up,
+// it's deep enough (1.6 of the class's radius over 45 high, else 0.5),
+// flat (0.9), with footing and a hand hold. With `out`, a lower step: the
+// share of the move it took (0x1036badd), the player ducked or moved up
+// onto it.
+bool ScriptLevel::testForLedge(VmObject *a, Sweep &hit, const Vec &delta, float *out) {
+    if (out)
+        *out = 0;
+    const Vec f = flat(delta);
+    if (length(f) < 1e-4f)
         return false;
     const Value *loc = prop(a, "Location");
     if (!loc)
         return false;
     const Vec at = Vm::vectorOf(*loc);
-    const Vec f = flat(dir);
-    const Vec x = viewX(a);
     const float dR = defaultRadius(a);
     const float s = 2 * dR;
     const float radius = climbFloat(a, "CollisionRadius", 17);
@@ -233,27 +390,86 @@ bool ScriptLevel::testForLedge(VmObject *a, const Vec &hitNormal, const Vec &dir
     if (VmObject *li = _levelInfo)
         if (const Value *v = prop(li, "bNoActionLevel"))
             noAction = v->asBool();
-    if (!(std::fabs(hitNormal[2]) < 0.1f && dot(f, hitNormal) < -0.85f && dot(x, hitNormal) < -0.85f && !crouching &&
-          (!noAction || physics == kPhysClimbing)))
+    // Which of the polygons in the plane hit the box is on (TestHitIntegrity).
+    if (hit.actor == _levelInfo)
+        hit.node = touchingNode(hit.node, hit.normal, at, radius, height);
+    const bool headOn = std::fabs(hit.normal[2]) < 0.1f && dot(f, hit.normal) < -0.85f &&
+                        dot(viewX(a), hit.normal) < -0.85f && !crouching && (!noAction || physics == kPhysClimbing);
+    if (!headOn && !out)
         return false;
+    // Standing and walking, it looks from the feet with its ducked box: if
+    // that could go on, pushing on over 0.3 s ducks it under (auto-duck).
     Vec start = at;
     Vec e{radius, radius, height};
+    bool autoDuck = false;
     const Value *duckStage = prop(a, "DuckStage");
     if (height > duck + 1 && (!duckStage || duckStage->asInt() == 0) && physics == kPhysWalking) {
         start[2] = at[2] - height + duck + 1;
         e[2] = duck + 1;
+        Vec hit;
+        Vec normal;
+        autoDuck = !trace(a, start, add(start, mul(f, s)), e, true, hit, normal) &&
+                   climbFloat(a, "PushToAutoDuckTimer", 0) > 0.3f;
     }
-    const float r = testStepUp(a, 2 * (arm + stand), stand, start, mul(f, s), e);
+    const float r = headOn ? testStepUp(a, hit, 2 * (arm + stand), stand, start, mul(f, s), e)
+                           : testStepUp(a, hit, step, height, start, mul(f, s), e);
     const float depth = r * s;
     if (Value *p = prop(a, "LedgeDepth"))
         *p = Value::floatValue(depth);
     const float rise = climbFloat(a, "LedgeHeight", 0) - (at[2] - height);
-    if (rise <= step + 1 || r <= 0)
+    if (rise > step + 1) {
+        const Value *ln = prop(a, "LedgeNormal");
+        const Value *item = prop(a, "LedgeItem");
+        return headOn && r > 0 && depth > dR * (rise > 45 ? 1.6f : 0.5f) && ln && Vm::vectorOf(*ln)[2] > 0.9f &&
+               (!item || item->asInt() >= 0) && strongFooting(a, hit.normal, at) && handHold(a, hit.normal, at);
+    }
+    if (!out)
         return false;
+    if (r <= 0 || rise <= 0.01f) {
+        if (autoDuck) {
+            forceDuck(a);
+            *out = 1;
+        }
+        return false;
+    }
+    // A step: at least 0.4 of the class's radius deep (a third of a unit's
+    // depth or more, as the engine's share comes to), with room over it,
+    // else (walking, not crouching) the player ducks to go on.
+    const float share = std::clamp(depth / 3, 0.0f, 1.0f);
+    if (depth < 0.4f * dR || share <= 0.99f)
+        return false;
+    if (!crouching && climbFloat(a, "HeadRoom", height) < height) {
+        if (physics == kPhysWalking) {
+            forceDuck(a);
+            *out = share;
+        }
+        return false;
+    }
+    *out = stepUpOnto(a, rise, delta);
+    return false;
+}
+
+// TestForLedge's step: the player moved up onto it (at least 1) and on by
+// the move (at least 3 across); stopped at once there on a slope, up
+// MaxStepHeight + 1 and on again. How far on it got (0 when it didn't, the
+// player put back down).
+float ScriptLevel::stepUpOnto(VmObject *a, float rise, const Vec &delta) {
+    const float step = climbFloat(a, "MaxStepHeight", 25);
+    const Vec forward = std::hypot(delta[0], delta[1]) < 3 ? mul(flat(delta), 3) : Vec{delta[0], delta[1], 0};
+    float up = std::max(rise, 1.0f);
+    moveActor(a, {0, 0, up});
+    MoveHit on = moveActor(a, forward);
     const Value *ln = prop(a, "LedgeNormal");
-    const Value *item = prop(a, "LedgeItem");
-    return depth > dR * (rise > 45 ? 1.6f : 0.5f) && ln && Vm::vectorOf(*ln)[2] > 0.9f &&
-           (!item || item->asInt() >= 0) && strongFooting(a, hitNormal, at) && handHold(a, hitNormal, at);
+    if (on.time < 0.01f && ln && Vm::vectorOf(*ln)[2] < 0.999f && up < step + 1) {
+        up = step + 1;
+        moveActor(a, {0, 0, up});
+        on = moveActor(a, forward);
+    }
+    if (on.time < 0.01f) {
+        moveActor(a, {0, 0, -up});
+        return 0;
+    }
+    return on.time;
 }
 
 // ForceDuck: the player made to crouch where it is (its scripts' walking
@@ -270,50 +486,6 @@ void ScriptLevel::forceDuck(VmObject *a) {
     }
     if (Value *c = prop(a, "bIsCrouching"))
         *c = Value::boolValue(true);
-}
-
-// TestForLedge's ducking, for a walk blocked where no ledge is to be
-// climbed: standing, not ducking yet, and walking, with the ducked box
-// from the feet able to go on where the standing one can't. Pushed on for
-// over 0.3 s with no step there, it ducks under (auto-duck). A step it
-// would go up with too little room over it for its height (and not
-// crouching), it ducks to. True if it ducked (the move ends).
-bool ScriptLevel::duckUnder(VmObject *a, const Vec &dir) {
-    const Value *loc = prop(a, "Location");
-    const Vec f = flat(dir);
-    if (!loc || length(f) < 0.5f)
-        return false;
-    const Vec at = Vm::vectorOf(*loc);
-    const float radius = climbFloat(a, "CollisionRadius", 17);
-    const float height = climbFloat(a, "CollisionHeight", 49.5f);
-    const float duck = climbFloat(a, "DuckCollisionHeight", 32.5f);
-    const float step = climbFloat(a, "MaxStepHeight", 25);
-    const Value *duckStage = prop(a, "DuckStage");
-    const int physics = prop(a, "Physics") ? prop(a, "Physics")->asInt() : 0;
-    const bool crouching = prop(a, "bIsCrouching") && prop(a, "bIsCrouching")->asBool();
-    if (!(height > duck + 1 && (!duckStage || duckStage->asInt() == 0) && physics == kPhysWalking))
-        return false;
-    const float s = 2 * defaultRadius(a);
-    const Vec start{at[0], at[1], at[2] - height + duck + 1};
-    const Vec e{radius, radius, duck + 1};
-    Vec hit;
-    Vec normal;
-    const bool clearDucked = !trace(a, start, add(start, mul(f, s)), e, true, hit, normal);
-    const bool autoDuck = clearDucked && climbFloat(a, "PushToAutoDuckTimer", 0) > 0.3f;
-    const float r = testStepUp(a, step, height, start, mul(f, s), e);
-    const float rise = climbFloat(a, "LedgeHeight", 0) - (at[2] - height);
-    if (r <= 0 || rise <= 0.01f) {
-        if (!autoDuck)
-            return false;
-        forceDuck(a);
-        return true;
-    }
-    if (rise <= step + 1 && r * s > defaultRadius(a) * 0.4f && std::clamp(r * s / 3, 0.0f, 1.0f) > 0.99f &&
-        !crouching && climbFloat(a, "HeadRoom", height) < height) {
-        forceDuck(a);
-        return true;
-    }
-    return false;
 }
 
 // CheckClimbing: a ladder (its texture's TexTag TT_Ladder) 1.6 radii
@@ -383,21 +555,6 @@ bool ScriptLevel::askClimb(VmObject *a, const Vec &wallNormal, int physics) {
     return yes;
 }
 
-// A walking move of the player blocked by a wall (`hit`, with `left` of
-// the move to go): a ledge to pull up onto (Clambering), else a ladder
-// (Climbing). True if its scripts took it.
-bool ScriptLevel::climbBlocked(VmObject *a, VmObject *by, const Vec &hitNormal, const Vec &left) {
-    if (by != _levelInfo || !_vm.isA(a, "CTVE_PlayerPawn"))
-        return false;
-    if (testForLedge(a, hitNormal, left))
-        return askClimb(a, hitNormal, kPhysClambering) || true;
-    if (duckUnder(a, left))
-        return true;
-    if (checkClimbing(a, hitNormal, left, true, false, true, true))
-        return askClimb(a, hitNormal, kPhysClimbing);
-    return false;
-}
-
 // physFalling's catch, after a falling move of the player in its
 // reaching jump (CollisionHeight = StandCollisionHeight +
 // ArmCollisionHeight) moving toward what's 6 units ahead: a ladder there
@@ -434,7 +591,8 @@ void ScriptLevel::climbCheck(VmObject *a, bool falling, float dt) {
         return;
     Vec p = add(add(s, mul(f6, wall.time)), n);
     p[2] -= arm;
-    const float got = testStepUp(a, 2 * (arm + hand), stand, p, mul(x, radius), {radius, radius, hand});
+    Sweep met = wall;
+    const float got = testStepUp(a, met, 2 * (arm + hand), stand, p, mul(x, radius), {radius, radius, hand});
     const float depth = got * radius;
     if (Value *d = prop(a, "LedgeDepth"))
         *d = Value::floatValue(depth);
@@ -509,7 +667,8 @@ void ScriptLevel::climbPhysics(VmObject *a, int physics, float dt) {
             }
         } else if (d[2] > 0) {
             const MoveHit h = moveActor(a, mul(x, 4));
-            if (!a->deleted && h.hit() && testForLedge(a, h.normal, mul(x, 4)) &&
+            Sweep hit = sweepOf(h);
+            if (!a->deleted && h.hit() && testForLedge(a, hit, mul(x, 4)) &&
                 _vm.callEvent(a, "ChangePhysics", {Value::byteValue(kPhysClambering)}).asBool())
                 return;
         } else if (_vm.callEvent(a, "ChangePhysics", {Value::byteValue(kPhysFalling)}).asBool()) {

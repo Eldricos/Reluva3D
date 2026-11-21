@@ -85,18 +85,27 @@ search over the paths the editor stored with the map.
 
 ### Noise
 
-The AI hears (`ScriptLevel::makeNoise`). A noise is `MakeNoise(Loudness)`
-or a sound played without `bNoHearNoise` (as loud as its volume). Only a
-pawn's noise is heard: its own, its weapon's or shot's, or what it set
-off (its `Instigator`), as UE1's `MakeNoise` asks; the level's ambient
-emitters aren't (they kept knocking guards out of their states). Each
-other pawn hears it if Loudness x 800 over the distance (halved with the
-world between) reaches its `HearingThreshold` (1 by default: a noise of
-loudness 1 carries 800 units in the open). Then its `HearNoise(Loudness,
-the maker)`: The Fallen's AI searches toward it, or attacks if it can
-see the maker. One noise a pawn every fifth of a second. A guard with no
-enemy, hearing the player, says its FHE line ("Did you hear that?").
-UE1's own rule isn't in the scripts; this is Reluva's.
+The AI hears sounds, as Engine.dll has it (`ScriptLevel::soundNoise`):
+- **What makes a noise:** a sound played (`PlaySound`, 0x1044c810) unless
+  it's asked not to (`bNoHearNoise`) or played from a simulated function,
+  when the sound's actor or its owner is a player, a weapon or a
+  projectile; and The Fallen's `PlayDummySound` (0x10373380), only a
+  noise, from anything. Either needs the actor to have an owner.
+  `MakeNoise` makes none: its native is empty (0x10420460), as is the
+  engine's hearing check.
+- **Who hears it:** each pawn listening for `HearNoise` but the sound's
+  actor and its owner; a played sound not the players
+  (`bIsPlayer`), a dummy one them too.
+- **How loud:** by the sound's radius alone (its `TransientSoundRadius`
+  if not given, 1600 if 0), never its volume: the share of the radius
+  squared it's away, plus 0.65 with the world between, has to be under
+  1 and under the pawn's `HearingThreshold`; it hears it at 1 less that.
+- **Then** its `HearNoise(loudness, the actor)`: The Fallen's AI
+  searches toward it, or attacks if it can see the maker. A `CTVE_Pawn`
+  whose enemy isn't the actor first has its `DLG_Command` set to FHE, so
+  a guard says its "Did you hear that?" line.
+
+No rate limit: every sound is a noise.
 
 ## In Reluva
 

@@ -45,12 +45,36 @@ struct LevelExtras {
         float start = 0; // in the level's seconds
     };
     std::vector<Sound> sounds;
+    /**
+     * The dialogue's lines under way: being said, or waiting for their
+     * speaker to be free (`queued`). `line` and `back` are places in the
+     * saved lines (`back`, the RETURNLINE its thread goes back to, 0xFFFF
+     * none); `end` when it's done, in level seconds (a HUD line's on the
+     * clock that runs while paused); `speaker` an object reference.
+     */
+    struct Talk {
+        int32_t thread = 0;
+        int line = 0;
+        int back = 0xFFFF;
+        float end = 0;
+        int32_t speaker = 0;
+        bool queued = false;
+    };
+    std::vector<Talk> talks;
+    int32_t nextThread = 0; // the dialogue engine's next thread number
+    int cameras = 0;
 };
 /**
  * Reads the package's first Level object's extras; a package older than
  * version 69 or 70 stops short of the ghosts, or of the dialogue and sounds.
  */
 Error readLevelExtras(const Package &package, LevelExtras &out);
+
+/**
+ * The engine's probe event at a bit of a state frame's mask (Core's names
+ * from 300 on, The Fallen's in the place of some of the probes), "" past 63.
+ */
+const char *probeEvent(int bit);
 
 /**
  * A C3DMESHSTATE: an actor's animation groups (its mesh's own, FullBody,
@@ -82,10 +106,20 @@ struct MeshStateGroup {
     std::string bone;               // its InheritBone: what its clears turn
     std::array<int32_t, 3> clear{}; // ClearYaw, ClearPitch, ClearRoll (fairly sure)
 };
+/**
+ * An actor held by the mesh state's own (C3DAttach): its name, its point
+ * and the holder's point.
+ */
+struct MeshStateAttachment {
+    std::string child;
+    std::string childPoint;
+    std::string parentPoint;
+};
 /** A C3DMESHSTATE object: its mesh's name and its animation groups. */
 struct MeshState {
     std::string mesh;
     std::vector<MeshStateGroup> groups;
+    std::vector<MeshStateAttachment> attachments;
 };
 /** Reads a C3DMESHSTATE; fails on one of the older format (without its magic number). */
 Error readMeshState(const Package &package, int exportIndex, MeshState &out);
@@ -96,6 +130,11 @@ Error readMeshState(const Package &package, int exportIndex, MeshState &out);
  * doesn't read.
  */
 bool meshStateGroupSpan(const std::vector<uint8_t> &data, size_t &begin, size_t &end);
+/**
+ * Where a C3D mesh state's attachments are in its export's data (from the
+ * start of their count to the end of the last).
+ */
+bool meshStateAttachmentSpan(const std::vector<uint8_t> &data, size_t &begin, size_t &end);
 /**
  * Where, in a Level object's data, the model reference starts and the
  * reach list ends (copied as they are into a saved game's); false if it

@@ -95,14 +95,24 @@ void ScriptLevel::renderHud(const HudView &view) {
     }
 }
 
-void ScriptLevel::trackFli(VmObject *tex) {
-    if (!tex || _flis.count(tex) || !tex->package)
+void ScriptLevel::fliDrawn(VmObject *tex) {
+    if (!tex || !tex->package)
         return;
+    if (auto it = _flis.find(tex); it != _flis.end()) {
+        // Ticked at most once a frame, by the time since it was last drawn
+        // (UTexture::Update, 0x104599c0, called as Render.dll draws).
+        if (_realTime != it->second.drawn) {
+            tickFli(tex, it->second, float(_realTime - it->second.drawn));
+            it->second.drawn = _realTime;
+        }
+        return;
+    }
     Fli f;
     if (auto anim = openAnimatedTexture(_vm.packages(), *tex->package, tex->exportIndex)) {
         f.frames = anim->frames();
         f.frameSeconds = anim->frameSeconds() > 0 ? anim->frameSeconds() : f.frameSeconds;
     }
+    f.drawn = _realTime;
     _flis[tex] = f;
 }
 
@@ -112,42 +122,41 @@ void ScriptLevel::trackFli(VmObject *tex) {
 // than Length moves it not at all. Past Length, looping goes round
 // (FrameTime modulo Length); once stops (Mode 0) back at the start, or
 // with bFinishAtEnd on its last frame. FrameNum is 1 + 30 x FrameTime,
-// whole frames: a frame shows 1/30 s at Rate 1.
-void ScriptLevel::tickFlis(float seconds) {
-    for (auto &[tex, f] : _flis) {
-        Value *mode = prop(tex, "Mode");
-        if (!mode || f.frames <= 0)
-            continue;
-        const int m = mode->asInt();
-        if (m != 1 && m != 2)
-            continue;
-        Value *time = prop(tex, "FrameTime");
-        Value *frame = prop(tex, "FrameNum");
-        const Value *rate = prop(tex, "Rate");
-        const Value *lengthValue = prop(tex, "Length");
-        const Value *finish = prop(tex, "bFinishAtEnd");
-        if (!time || !frame)
-            continue;
-        const float length =
-            lengthValue && lengthValue->asFloat() > 0 ? lengthValue->asFloat() : float(f.frames) * f.frameSeconds;
-        if (seconds >= length)
-            seconds = 0;
-        float t = time->asFloat() + seconds * (rate ? rate->asFloat() : 1);
-        bool hold = false;
-        if (t >= length) {
-            if (m == 1) {
-                t = 0;
-                *mode = Value::byteValue(0);
-                hold = finish && finish->asInt() != 0;
-            } else {
-                t = std::fmod(t, length);
-            }
+// whole frames: a frame shows 1/30 s at Rate 1. The real clock drives it,
+// so it plays on while the game is paused.
+void ScriptLevel::tickFli(VmObject *tex, const Fli &f, float seconds) {
+    Value *mode = prop(tex, "Mode");
+    if (!mode || f.frames <= 0)
+        return;
+    const int m = mode->asInt();
+    if (m != 1 && m != 2)
+        return;
+    Value *time = prop(tex, "FrameTime");
+    Value *frame = prop(tex, "FrameNum");
+    const Value *rate = prop(tex, "Rate");
+    const Value *lengthValue = prop(tex, "Length");
+    const Value *finish = prop(tex, "bFinishAtEnd");
+    if (!time || !frame)
+        return;
+    const float length =
+        lengthValue && lengthValue->asFloat() > 0 ? lengthValue->asFloat() : float(f.frames) * f.frameSeconds;
+    if (seconds >= length)
+        seconds = 0;
+    float t = time->asFloat() + seconds * (rate ? rate->asFloat() : 1);
+    bool hold = false;
+    if (t >= length) {
+        if (m == 1) {
+            t = 0;
+            *mode = Value::byteValue(0);
+            hold = finish && finish->asInt() != 0;
+        } else {
+            t = std::fmod(t, length);
         }
-        *time = Value::floatValue(t);
-        // Shown: its last frame when held at the end (Engine.dll steps one
-        // frame short of the ring frame and leaves FrameNum 0).
-        *frame = Value::intValue(hold ? f.frames : std::clamp(1 + int(std::floor(t * 30)), 1, f.frames));
     }
+    *time = Value::floatValue(t);
+    // Shown: its last frame when held at the end (Engine.dll steps one
+    // frame short of the ring frame and leaves FrameNum 0).
+    *frame = Value::intValue(hold ? f.frames : std::clamp(1 + int(std::floor(t * 30)), 1, f.frames));
 }
 
 namespace {
@@ -266,7 +275,7 @@ void registerCanvasNatives(Vm &vm) {
         t.style = p.style;
         t.seeThrough = text || p.style == kStyleMasked;
         if (c.vm.isA(tex, "FliTexture")) {
-            c.vm.level->trackFli(tex);
+            c.vm.level->fliDrawn(tex);
             const Value *n = tex->find(c.vm, "FrameNum");
             t.frame = std::max(1, n ? n->asInt() : 1);
         }

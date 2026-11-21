@@ -5,8 +5,9 @@
 
 // Writes an Unreal package (version 73, as The Fallen's), starting from
 // another's tables: its names, imports and exports keep their numbers, so
-// an export's data copied as it is still refers to the right objects. More
-// names, imports and exports are added after them. See
+// an export's data copied as it is still refers to the right objects (unless
+// only some exports are kept: then they're numbered again). More names,
+// imports and exports are added after them. See
 // docs/engines/unreal/games/ds9fallen/formats/package.md.
 
 #include "common/types.h"
@@ -73,6 +74,37 @@ public:
     void setData(int32_t ref, std::vector<uint8_t> data);
     /** Left out: written with no data (an object the level no longer has). */
     void drop(int32_t ref);
+    /**
+     * Only the base's exports `keep` marks (by index), numbered again in
+     * their order, the export table's references to them changed to match
+     * (those to one left out become none). Done before anything is added.
+     * @return each base reference's new one (by reference; 0 left out).
+     */
+    std::vector<int32_t> keepOnly(const std::vector<bool> &keep);
+    /**
+     * Only the base's names and imports `names` and `imports` mark, numbered
+     * again in their order, the tables' references to them changed to
+     * match. Done first, before anything else.
+     */
+    void keepTables(const std::vector<bool> &names, const std::vector<bool> &imports);
+    /** A base name's index now. */
+    int32_t baseName(int32_t index) const;
+    /** A base object reference now (its imports numbered again). */
+    int32_t baseRef(int32_t ref) const;
+    /** The names and imports asked for so far (by index), the base's among them. */
+    ///@{
+    const std::vector<bool> &namesUsed() const { return _nameUsed; }
+    const std::vector<bool> &importsUsed() const { return _importUsed; }
+    ///@}
+    /** Whether an export's data is the base's own export `source`, as it is. */
+    int baseData(int32_t ref) const {
+        const Out &o = _exports[size_t(ref - 1)];
+        return o.replaced ? -1 : o.source;
+    }
+    /** An export's table entry, by reference. */
+    const Export &exportAt(int32_t ref) const { return _exports[size_t(ref - 1)].e; }
+    /** The import table as it is now. */
+    const std::vector<Import> &imports() const { return _imports; }
     /** How many exports it has, the base's and the added. */
     size_t exportCount() const { return _exports.size(); }
 
@@ -89,9 +121,16 @@ private:
         Export e;
         bool replaced = false;
         bool dropped = false;
+        int source = -1; // the base's export its data is, unless replaced
         std::vector<uint8_t> data;
     };
     std::vector<Out> _exports;
+    std::vector<bool> _nameUsed;
+    std::vector<bool> _importUsed;
+    std::vector<int32_t> _nameFrom;   // a base name's index now, or -1
+    std::vector<int32_t> _importFrom; // a base import's reference now, or 0
+    void used(int32_t ref);
+    std::string importPathOf(int32_t ref) const;
 };
 
 } // namespace reluva::unreal

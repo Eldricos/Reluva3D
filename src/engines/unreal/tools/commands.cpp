@@ -116,6 +116,11 @@ int cmdUeSave(int argc, char **argv) {
     for (const auto &l : x.lines)
         if (l.said > 0)
             std::printf("  said %dx: %s\n", l.said, l.key.c_str());
+    std::printf("dialogue under way: %zu lines; next thread %d, %d cameras\n", x.talks.size(), int(x.nextThread),
+                x.cameras);
+    for (const auto &t : x.talks)
+        std::printf("  thread %d: line %d%s, back %d, done at %.2f, speaker %d\n", int(t.thread), t.line,
+                    t.queued ? " (waiting)" : "", t.back, double(t.end), int(t.speaker));
     for (const auto &s : x.sounds)
         std::printf("  sound %s on %s, id %d, volume %.2f, radius %.0f, pitch %.2f, from %.2f s\n", s.path.c_str(),
                     pkg.path(s.actor).c_str(), s.id, s.volume, s.radius, s.pitch, s.start);
@@ -331,11 +336,11 @@ int cmdUeRun(int argc, char **argv) {
         std::printf("%-20s player %s; ", name.c_str(), who.c_str());
         std::printf(
             "%5zu actors (%zu after %.0f s), game %s; %d drawn as nothing, %d lights at brightness 0; "
-            "start %.0f ms, %.0f s run %.0f ms; %llu calls, %d None accessed, %zu errors, %zu natives missing\n",
+            "started in %.3f s, %.0f s run in %.3f s; %llu calls, %d None accessed, %zu errors, %zu natives missing\n",
             before, level.actors().size(), double(seconds), level.game() ? level.game()->cls->name.c_str() : "none",
-            hidden, dark, std::chrono::duration<double, std::milli>(t1 - t0).count(), double(seconds),
-            std::chrono::duration<double, std::milli>(t2 - t1).count(), (unsigned long long)vm.stats.calls,
-            vm.stats.accessedNone, vm.stats.errors.size(), vm.stats.missingNatives.size());
+            hidden, dark, std::chrono::duration<double>(t1 - t0).count(), double(seconds),
+            std::chrono::duration<double>(t2 - t1).count(), (unsigned long long)vm.stats.calls, vm.stats.accessedNone,
+            vm.stats.errors.size(), vm.stats.missingNatives.size());
         // Movement against the level: how actors moved, and where the player is.
         const auto &m = level.movement;
         std::string where;
@@ -482,16 +487,17 @@ private:
 // by steps, its frames drawn in software. Steps: play (Enter), wait <s>,
 // travel <url> (to "Map/Portal" and playing, as the game's ClientTravel;
 // "?load=Save1.dss" a saved game), saves <dir> (where games are saved),
-// savegame <name> (the level saved now: QuickSave, else named as the game
-// names its saves), wav <file.wav> (the sound heard since the last, mixed
-// offline), sounds (what's playing), hold <key> <s> (w a s d left right up
-// down space enter escape f), down <key> and up <key> (held across other
-// steps), press <key>, watch <actor> (the camera let loose in front of
-// it), teleport <actor> <dx> <dy> <dz> <yaw> (the player put by it, facing
-// yaw degrees), where (the player's place, state, physics and animation),
+// config <dir> (where settings are written), savegame <name> (the level
+// saved now: QuickSave, else named as the game names its saves), wav
+// <file.wav> (the sound heard since the last, mixed offline), sounds
+// (what's playing), hold <key> <s> (w a s d left right up down space
+// enter escape f), down <key> and up <key> (held across other steps),
+// press <key>, watch <actor> (the camera let loose in front of it),
+// teleport <actor> <dx> <dy> <dz> <yaw> (the player put by it, facing yaw
+// degrees), where (the player's place, state, physics and animation),
 // camera <x> <y> <z> <yaw> <pitch> (the fly camera put there, not
-// playing), places <class part> (the live actors of such classes and where
-// they are), prop <actor> <property> and call <actor> <function>
+// playing), places <class part> (the live actors of such classes and
+// where they are), prop <actor> <property> and call <actor> <function>
 // ("player": the player's pawn), drag <dx> <dy>, click <x> <y> (the left
 // button, there), shot <file.ppm> (the next frame, saved).
 int cmdUePlay(int argc, char **argv) {
@@ -499,7 +505,7 @@ int cmdUePlay(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool unreal play <game folder> <map> [play | wait <s> | hold <key> <s> | "
-            "teleport <actor> <dx> <dy> <dz> <yaw> | camera <x> <y> <z> <yaw> <pitch> | places <class> | where | view | lines | actor <name> | prop <actor> <property> | call <actor> <function> | console <command> | down <key> | up <key> | press <key> | travel <url> [items] | saves <dir> | watch <actor> | "
+            "teleport <actor> <dx> <dy> <dz> <yaw> | camera <x> <y> <z> <yaw> <pitch> | places <class> | where | view | lines | actor <name> | prop <actor> <property> | call <actor> <function> | console <command> | down <key> | up <key> | press <key> | travel <url> [items] | saves <dir> | config <dir> | watch <actor> | "
             "drag <dx> <dy> | click <x> <y> | shot <file.ppm>]...\n");
         return 2;
     }
@@ -616,6 +622,8 @@ int cmdUePlay(int argc, char **argv) {
             std::printf("savegame: %s\n", err ? err.message.c_str() : "saved");
         } else if (step == "saves" && i + 1 < argc) {
             ctx.saveFolder = argv[++i];
+        } else if (step == "config" && i + 1 < argc) {
+            ctx.configFolder = argv[++i];
         } else if (step == "travel" && i + 1 < argc) {
             const std::string url = argv[++i];
             // "items" after it: with the player's things (bItems).
@@ -723,16 +731,17 @@ int cmdUePlay(int argc, char **argv) {
                 for (int x = 0; x < f.w; ++x)
                     std::fwrite(f.row(y) + x * 4, 1, 3, out);
             std::fclose(out);
-            std::printf("shot %s at %.3f s: %d draws, %d triangles, drawn in %.0f ms\n", file.c_str(),
+            std::printf("shot %s at %.3f s: %d draws, %d triangles, drawn in %.3f s\n", file.c_str(),
                         double(page.playTime()), renderer.lastDraws(), renderer.lastTriangles(),
-                        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+                        std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());
             continue;
         } else {
             std::fprintf(stderr, "unknown step %s\n", step.c_str());
             return 2;
         }
-        std::printf("%s: %.0f ms\n", step.c_str(),
-                    std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+        // (Timings as " in <n> s", which the game-files test takes out.)
+        std::printf("%s done in %.3f s\n", step.c_str(),
+                    std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());
     }
     page.deactivate();
     return 0;
@@ -896,9 +905,7 @@ int cmdUeProbe(int argc, char **argv) {
             std::printf("  %d vertices x %d frames, %zu triangles, %zu animations (%d left out); import block %zu "
                         "bytes, %s\n",
                         m.frameVerts, m.animFrames, m.tris.size(), m.anims.size(), m.droppedAnims, m.importBlock,
-                        !m.importAxes         ? "no turn"
-                        : m.importAxesGuessed ? "no float copy (usual turn taken)"
-                                              : "turned as its float copy");
+                        m.importAxes ? "turned from C3D's axes" : "no turn");
         if (!err && m.keyFrames)
             std::printf("  %d of its %d frames of vertices found (the first is shown for all)\n", m.keyFrames,
                         m.animFrames);
@@ -1431,9 +1438,9 @@ int cmdUeExtract(int argc, char **argv) {
             std::fprintf(stderr, "%s\n", err.message.c_str());
             return 1;
         }
-        // One that plays (fire, water...): as it is a second in, or after
-        // the frames asked for.
-        if (isAnimatedTextureClass(cls))
+        // One that plays (fire, water, a flipbook...): as it is a second
+        // in, or after the frames asked for.
+        if (isAnimatedTexture(set, *pkg, index))
             if (auto anim = openAnimatedTexture(set, *pkg, index)) {
                 if (argc == 6)
                     for (int i = std::atoi(argv[5]); i > 0; --i)
@@ -1516,10 +1523,9 @@ int cmdUeCheck(int argc, char **argv) {
         std::vector<std::string> examples;
     };
     std::map<std::string, Tally> tallies;
-    std::map<std::string, std::pair<int, std::string>> meshTurns; // turn: how many, an example
-    std::map<std::string, bool> meshReads;                        // placed actors' meshes: whether they read
-    std::map<std::string, int> meshBones;                         // and how many bones they're posed from
-    std::map<std::string, int> animPlayed;                        // "mesh anim": 0 not found, 1 its own, 2 borrowed
+    std::map<std::string, bool> meshReads; // placed actors' meshes: whether they read
+    std::map<std::string, int> meshBones;  // and how many bones they're posed from
+    std::map<std::string, int> animPlayed; // "mesh anim": 0 not found, 1 its own, 2 borrowed
     std::optional<std::vector<AnimationSet>> animationSets;
     std::map<std::string, int> unreadPlaced; // those that don't: how many actors use them
     auto record = [&](const std::string &what, const reluva::Error &err) {
@@ -1648,23 +1654,7 @@ int cmdUeCheck(int argc, char **argv) {
                     record(cls == "lodmesh" ? "meshes (LodMesh)" : "meshes (Mesh)", err);
                 if (!err && m.vertexBytes != 4)
                     ++tallies["meshes with 8-byte vertices"].ok;
-                // Which way imported-model meshes' float copies are turned
-                // from their packed vertices (rows), and an example of each.
                 if (!err && m.importBlock) {
-                    std::string turn =
-                        !m.importAxes ? "none (standard vertices, no turn)" : "none to fit (usual turn taken)";
-                    if (m.importAxes && !m.importAxesGuessed) {
-                        turn.clear();
-                        for (const auto &row : *m.importAxes) {
-                            char buf[64];
-                            std::snprintf(buf, sizeof buf, "%s(%g %g %g)", turn.empty() ? "" : " ", double(row[0]),
-                                          double(row[1]), double(row[2]));
-                            turn += buf;
-                        }
-                    }
-                    auto &[n, example] = meshTurns[turn];
-                    if (n++ == 0)
-                        example = pkg->path(int32_t(i) + 1);
                     if (m.keyFrames)
                         ++tallies["meshes keyframed (first frame shown)"].ok;
                     if (m.bones)
@@ -1824,9 +1814,6 @@ int cmdUeCheck(int argc, char **argv) {
             std::printf("%s %s (%d)", k ? "," : "", byUse[k].second.c_str(), byUse[k].first);
         std::printf("%s\n", byUse.size() > 15 ? (", and " + std::to_string(byUse.size() - 15) + " more").c_str() : "");
     }
-    for (const auto &[turn, t] : meshTurns)
-        std::printf("meshes with an imported-model block, float copy %s: %d (e.g. %s)\n", turn.c_str(), t.first,
-                    t.second.c_str());
     printPointsCheck(checkAttachPoints(set, false));
     for (const auto &[what, t] : tallies) {
         std::printf("%-9s %6d decoded, %6d failed\n", what.c_str(), t.ok, t.failed);

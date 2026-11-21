@@ -74,7 +74,10 @@ per-frame `Update`), as read from them; the code is Reluva's own.
     a speed of sound of about 62,100 a second (0.355 / (0.355 ± speed ×
     5.715e-6), lower moving away), unclamped; away or toward judged
     from where it's handed the sound (ahead, without `UseSurround`).
-  - **Reverb** (`UseReverb`): the room where the camera is: in a water
+  - **Reverb** (`UseReverb`): the room where the camera is (the player's
+    `CameraRegion`, which its `PlayerCalcView` keeps at the camera; for a
+    viewer that isn't The Fallen's player Miles.dll would take its
+    `HeadRegion`, 0x10608790): in a water
     zone room 22 (Underwater) at 0.5, else the zone's `ZoneRoomType` at
     its `ZoneRoomFactor` (which the zone's script caps at 0.2; room 0
     none). Every positional sound goes through Miles' reverb filter
@@ -89,7 +92,12 @@ per-frame `Update`), as read from them; the code is Reluva's own.
     fed a quarter of the first on the left, 0.15 on the right. The
     rooms are EAX 1's 26 (Room: 0.417 wet, 0.4 s; Hangar: 0.5, 10 s;
     Underwater: 1, 1.5 s, all damped). The zones' `bReverbZone`,
-    `MasterGain`, `CutoffHz`, `Delay` and `Gain` aren't read. A flat
+    `bRaytraceReverb`, `SpeedOfSound`, `MasterGain`, `CutoffHz`,
+    `Delay` and `Gain` aren't read, by Reluva or the original: Miles.dll's
+    `RenderAudioGeometry` (0x10608790) reads only the listener's zone's
+    `bWaterZone`, `ZoneRoomType` and `ZoneRoomFactor`, calling
+    `AIL_set_3D_room_type` when the room changes, and Engine.dll only
+    sends `bReverbZone` to network clients. A flat
     sound and the music have none. Once a sound's data has run out its
     reverb goes on through silence: the provider streams it in 32 KB
     buffers and pads with silence until the sixth refill, about five

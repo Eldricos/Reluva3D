@@ -19,6 +19,7 @@
 #include <array>
 #include <cstdint>
 #include <deque>
+#include <filesystem>
 #include <functional>
 #include <map>
 #include <optional>
@@ -27,6 +28,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <initializer_list>
 #include <vector>
 
 namespace reluva::unreal {
@@ -47,15 +49,136 @@ using NameId = int32_t;
 /** What a Value holds. */
 enum class VType : uint8_t { kNone, kByte, kInt, kBool, kFloat, kName, kString, kObject, kStruct };
 
+/**
+ * A string value's text: as a std::string, but nothing at all until it has
+ * some, so the many values that aren't strings carry only a pointer.
+ */
+class Text {
+public:
+    /** As std::string's own: made, copied, moved, read and compared. */
+    ///@{
+    Text() = default;
+    Text(const Text &other) : _s(other.empty() ? nullptr : new std::string(*other._s)) {}
+    Text(Text &&other) noexcept : _s(other._s) { other._s = nullptr; }
+    Text(const std::string &text)
+        : _s(text.empty() ? nullptr : new std::string(text)) {
+    } // NOLINT(google-explicit-constructor): stands in for a std::string
+    Text &operator=(const Text &other) {
+        if (this != &other)
+            *this = other.str();
+        return *this;
+    }
+    Text &operator=(Text &&other) noexcept {
+        std::swap(_s, other._s);
+        return *this;
+    }
+    Text &operator=(const std::string &text) {
+        if (text.empty())
+            clear();
+        else if (_s)
+            *_s = text;
+        else
+            _s = new std::string(text);
+        return *this;
+    }
+    Text &operator=(std::string &&text) {
+        if (text.empty())
+            clear();
+        else if (_s)
+            *_s = std::move(text);
+        else
+            _s = new std::string(std::move(text));
+        return *this;
+    }
+    Text &operator=(const char *text) { return *this = std::string(text); }
+    ~Text() { delete _s; }
+
+    const std::string &str() const { return _s ? *_s : emptyText(); }
+    operator const std::string &() const {
+        return str();
+    } // NOLINT(google-explicit-constructor): reads as a std::string
+    operator std::string_view() const { return str(); } // NOLINT(google-explicit-constructor): reads as a std::string
+    bool empty() const { return !_s || _s->empty(); }
+    size_t size() const { return _s ? _s->size() : 0; }
+    const char *c_str() const { return str().c_str(); } // NOLINT(readability-identifier-naming): std::string's name
+    void clear() {
+        if (_s)
+            _s->clear();
+    }
+    Text &operator+=(const std::string &more) {
+        if (!_s)
+            _s = new std::string();
+        *_s += more;
+        return *this;
+    }
+    bool operator==(const std::string &other) const { return str() == other; }
+    bool operator==(const Text &other) const { return str() == other.str(); }
+    ///@}
+
+private:
+    static const std::string &emptyText() {
+        static const std::string kEmpty;
+        return kEmpty;
+    }
+    std::string *_s = nullptr;
+};
+
+struct Value;
+
+/**
+ * A struct value's fields: as a vector of them, but nothing at all until
+ * it has some, so the many values that are numbers or objects are made,
+ * copied and dropped without one.
+ */
+class Fields {
+public:
+    /** As std::vector's own: made, copied, moved, read and resized. */
+    ///@{
+    Fields() = default;
+    Fields(const Fields &other);
+    Fields(Fields &&other) noexcept : _v(other._v) { other._v = nullptr; }
+    Fields(std::initializer_list<Value> list);
+    Fields &operator=(const Fields &other);
+    Fields &operator=(Fields &&other) noexcept {
+        std::swap(_v, other._v);
+        return *this;
+    }
+    Fields &operator=(const std::vector<Value> &values);
+    Fields &operator=(std::initializer_list<Value> list);
+    ~Fields() {
+        if (_v) [[unlikely]]
+            release();
+    }
+
+    size_t size() const;
+    bool empty() const { return size() == 0; }
+    Value &operator[](size_t k);
+    const Value &operator[](size_t k) const;
+    Value *begin();
+    Value *end();
+    const Value *begin() const;
+    const Value *end() const;
+    void resize(size_t n);
+    void clear();
+    ///@}
+
+private:
+    // A list from those let go before (emptied, their room kept), else a
+    // new one; and back to them.
+    static std::vector<Value> *take();
+    void release();
+    std::vector<Value> *_v = nullptr;
+};
+
 /** A value as scripts handle it: of a property, a variable, an expression. */
 struct Value {
     VType type = VType::kNone;
     int32_t i = 0;                // Byte, Int, Bool (0 or 1), Name
     float f = 0;                  // Float
     VmObject *o = nullptr;        // Object; a class object for class values
-    std::string s;                // String
+    Text s;                       // String
     const VmStruct *st = nullptr; // Struct: which
-    std::vector<Value> fields;    // Struct: one per field slot
+    Fields fields;                // Struct: one per field slot
 
     Value() = default;
     /**
@@ -83,11 +206,27 @@ struct Value {
             fields = v.fields;
         return *this;
     }
-    /** Moved as they are. */
+    /** Moved, the string only if either has one (most don't). */
     ///@{
-    Value(Value &&) noexcept = default;
-    Value &operator=(Value &&) noexcept = default;
+    Value(Value &&v) noexcept : type(v.type), i(v.i), f(v.f), o(v.o), st(v.st), fields(std::move(v.fields)) {
+        if (!v.s.empty())
+            s = std::move(v.s);
+    }
+    Value &operator=(Value &&v) noexcept {
+        type = v.type, i = v.i, f = v.f, o = v.o, st = v.st;
+        if (!v.s.empty() || !s.empty())
+            s = std::move(v.s);
+        fields = std::move(v.fields);
+        return *this;
+    }
     ///@}
+    /** Made a float, in place (no other value made and dropped). */
+    void setFloat(float v) {
+        if (type != VType::kFloat || !s.empty() || !fields.empty())
+            *this = floatValue(v);
+        else
+            f = v;
+    }
 
     /** A value of that type (a byte kept to its low 8 bits). */
     ///@{
@@ -125,6 +264,82 @@ struct Value {
     bool asBoolSlow() const;
     ///@}
 };
+
+inline Fields::Fields(const Fields &other) {
+    if (!other.empty()) {
+        _v = take();
+        *_v = *other._v;
+    }
+}
+inline Fields::Fields(std::initializer_list<Value> list) {
+    if (list.size()) {
+        _v = take();
+        _v->assign(list);
+    }
+}
+inline Fields &Fields::operator=(const Fields &other) {
+    if (this == &other)
+        return *this;
+    if (other.empty())
+        clear();
+    else {
+        if (!_v)
+            _v = take();
+        *_v = *other._v;
+    }
+    return *this;
+}
+inline Fields &Fields::operator=(const std::vector<Value> &values) {
+    if (values.empty())
+        clear();
+    else {
+        if (!_v)
+            _v = take();
+        *_v = values;
+    }
+    return *this;
+}
+inline Fields &Fields::operator=(std::initializer_list<Value> list) {
+    if (list.size() == 0) {
+        clear();
+    } else {
+        if (!_v)
+            _v = take();
+        _v->assign(list);
+    }
+    return *this;
+}
+inline size_t Fields::size() const {
+    return _v ? _v->size() : 0;
+}
+inline Value &Fields::operator[](size_t k) {
+    return (*_v)[k];
+}
+inline const Value &Fields::operator[](size_t k) const {
+    return (*_v)[k];
+}
+inline Value *Fields::begin() {
+    return _v ? _v->data() : nullptr;
+}
+inline Value *Fields::end() {
+    return _v ? _v->data() + _v->size() : nullptr;
+}
+inline const Value *Fields::begin() const {
+    return _v ? _v->data() : nullptr;
+}
+inline const Value *Fields::end() const {
+    return _v ? _v->data() + _v->size() : nullptr;
+}
+inline void Fields::resize(size_t n) {
+    if (!_v && n)
+        _v = take();
+    if (_v)
+        _v->resize(n);
+}
+inline void Fields::clear() {
+    if (_v)
+        _v->clear();
+}
 
 /** A property of a class or struct, or a function's parameter or local. */
 struct VmProperty {
@@ -165,6 +380,18 @@ struct VmStruct {
      * class...), filled in as the code runs.
      */
     mutable std::vector<const void *> resolved;
+    /**
+     * Each call by name's function name, and the function it found for the
+     * class and state it was last called on (they don't change while the
+     * game runs; a call on another looks again).
+     */
+    struct CallCache {
+        NameId name = -1;
+        const VmClass *cls = nullptr;
+        const VmStruct *state = nullptr;
+        VmFunction *fn = nullptr;
+    };
+    mutable std::vector<CallCache> calls;
 
     virtual ~VmStruct() = default;
     /** Its property of that name, inherited or its own (the most derived); nullptr if none. */
@@ -218,6 +445,7 @@ struct VmClass : VmState {
     VmClass *parent() const { return static_cast<VmClass *>(super); }
     std::map<NameId, VmState *> states; // its own
     uint32_t classFlags = 0;
+    std::string configName;     // its config file: "System", "User" (its parent's if it names none)
     VmObject *object = nullptr; // the class as an object (class values point here)
     /** Whether it's `other` or a subclass of it. */
     bool isA(const VmClass *other) const;
@@ -406,8 +634,16 @@ public:
     Value rotatorValue(int32_t pitch, int32_t yaw, int32_t roll);
     /** A Vector's or Rotator's fields; zeros for a value with fewer than three. */
     ///@{
-    static std::array<float, 3> vectorOf(const Value &v);
-    static std::array<int32_t, 3> rotatorOf(const Value &v);
+    static std::array<float, 3> vectorOf(const Value &v) {
+        if (v.fields.size() < 3)
+            return {0, 0, 0};
+        return {v.fields[0].asFloat(), v.fields[1].asFloat(), v.fields[2].asFloat()};
+    }
+    static std::array<int32_t, 3> rotatorOf(const Value &v) {
+        if (v.fields.size() < 3)
+            return {0, 0, 0};
+        return {v.fields[0].asInt(), v.fields[1].asInt(), v.fields[2].asInt()};
+    }
     ///@}
     /**
      * Finds an object by its path ("Package.Group.Name"), for
@@ -437,6 +673,20 @@ public:
      * "set"); the files aren't written.
      */
     void setConfig(const std::string &section, const std::string &key, const std::string &value);
+    /**
+     * Where settings are written (Reluva's folder for the game, not the
+     * game's own); empty: they last only as long as this VM.
+     */
+    void setConfigFolder(std::filesystem::path folder) { _configFolder = std::move(folder); }
+    /**
+     * SaveConfig: `cls`'s config properties, from `values` (an object's or
+     * the class's defaults), written to its config file in the config
+     * folder, as Core.dll's SaveConfig (0x10150f90).
+     */
+    void saveConfig(const VmClass &cls, const std::vector<Value> &values);
+    /** One setting written to the config file `configName` names ("User", "System"). */
+    void saveSetting(const std::string &configName, const std::string &section, const std::string &key,
+                     const std::string &value);
     /**
      * A property's value from its text as the .ini files and console
      * commands write it ("True", "0.5", an enum's name, an object's path);
@@ -547,7 +797,11 @@ private:
     using IniFile = std::map<std::string, std::map<std::string, std::string>>; // section, key (lower case): value
     std::map<std::string, IniFile> _iniFiles;
     IniFile _configSet; // settings changed while running (setConfig)
+    std::filesystem::path _configFolder;
     const IniFile &iniFileAt(const std::filesystem::path &file);
+    std::filesystem::path configFile(const std::string &configName) const;
+    std::string configText(const VmProperty &prop, const Value &v) const;
+    void writeSettings(const std::filesystem::path &file, const std::vector<std::array<std::string, 3>> &settings);
     std::map<std::pair<const Package *, int>, VmProperty *> _properties;
     std::deque<VmProperty> _propertyStore;
     std::deque<std::vector<NameId>> _enumStore;
@@ -559,6 +813,22 @@ private:
     const VmStruct *_vectorStruct = nullptr;
     const VmStruct *_rotatorStruct = nullptr;
     int _depth = 0;
+    // Each call's arguments and flags, and each function's locals, kept
+    // by how deep the call is and used again by the next one there: their
+    // storage (and struct values' fields) isn't made afresh for every call.
+    struct CallSpace {
+        std::vector<Value> args;
+        std::vector<bool> given;
+    };
+    std::vector<CallSpace> _callSpace;
+    struct IsACache {
+        std::string text;
+        NameId name = 0;
+    };
+    std::array<IsACache, 256> _isACache;
+    size_t _callNest = 0;
+    std::vector<std::vector<Value>> _localSpace;
+    size_t _localNest = 0;
 };
 
 /** The natives of Core's Object (operators, maths, strings, states). */

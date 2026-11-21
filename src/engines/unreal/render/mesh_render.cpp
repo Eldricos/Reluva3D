@@ -66,8 +66,8 @@ const char *meshTurnName(MeshTurn turn) {
 namespace {
 
 // A vector already by Scale (Origin taken off, for a point) on through the
-// mesh's turn (imported meshes: as `turn` says, then the quarter turns of
-// yaw) and RotOrigin.
+// mesh's turn: an imported mesh's as `turn` says, then the quarter turns of
+// yaw; another's RotOrigin.
 Vec3f turnScaled(const Mesh &mesh, Vec3f s, MeshTurn turn, int yawQuarters) {
     if (mesh.importAxes && turn != MeshTurn::kNone) {
         // The opposite turn is the transpose (the turn's rows as columns).
@@ -80,6 +80,9 @@ Vec3f turnScaled(const Mesh &mesh, Vec3f s, MeshTurn turn, int yawQuarters) {
         for (int q = 0; q < (yawQuarters % 4 + 4) % 4; ++q)
             s = {-s[1], s[0], s[2]};
     }
+    // (Engine.dll's C3D frame builder reads no RotOrigin, 0x1032b5a0.)
+    if (mesh.importAxes)
+        return s;
     const std::array<Vec3f, 3> axes = rotationAxes(mesh.rotOrigin);
     Vec3f p{};
     for (size_t k = 0; k < 3; ++k)
@@ -203,18 +206,21 @@ Error uploadMesh(gfx::Renderer3D &renderer, const Mesh &mesh, const MeshTopology
     return renderer.createMesh(vertices, indices, out.mesh);
 }
 
-gfx::Mat4 meshPlacement(const Vec3f &location, const Rotator &rot, float drawScale, const Vec3f &prePivot) {
+gfx::Mat4 meshPlacement(const Vec3f &location, const Rotator &rot, float drawScale, const Vec3f &prePivot,
+                        const Rotator &preRotate) {
     const gfx::Mat4 flip = scaling({1, -1, 1});
     gfx::Mat4 m = gfx::multiply(
         flip, translation({location[0] + prePivot[0], location[1] + prePivot[1], location[2] + prePivot[2]}));
     m = gfx::multiply(m, rotation(rot));
+    m = gfx::multiply(m, rotation(preRotate));
     return gfx::multiply(m, scaling({drawScale, drawScale, drawScale}));
 }
 
 // RotOrigin's turn R (its rows where each axis goes), then
-// R diag(scale) R^T: scaled along the axes before it, turned back.
+// R diag(scale) R^T: scaled along the axes before it, turned back. An
+// imported mesh has no RotOrigin: along the axes as they are.
 gfx::Mat4 meshAxisScaling(const Mesh &mesh, const Vec3f &scale) {
-    const std::array<Vec3f, 3> axes = rotationAxes(mesh.rotOrigin);
+    const std::array<Vec3f, 3> axes = rotationAxes(mesh.importAxes ? Rotator{} : mesh.rotOrigin);
     gfx::Mat4 m = scaling({1, 1, 1});
     for (size_t col = 0; col < 3; ++col)
         for (size_t row = 0; row < 3; ++row) {

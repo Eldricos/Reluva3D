@@ -488,7 +488,18 @@ void registerCoreNatives(Vm &vm) {
                 c.vm.assign(*v, Value::stringValue(c.s(1)));
         }
     });
-    for (const char *none : {"SaveConfig", "StaticSaveConfig", "ResetConfig", "SetFlags", "ClearFlags"})
+    // SaveConfig(): the object's config properties written; StaticSaveConfig():
+    // its class's defaults' (Core.dll's execSaveConfig, execStaticSaveConfig).
+    reg("SaveConfig", [](NativeCall &c) {
+        if (c.self && c.self->cls)
+            c.vm.saveConfig(*c.self->cls, c.self->values);
+    });
+    reg("StaticSaveConfig", [](NativeCall &c) {
+        VmClass *cls = c.self ? (c.self->asClass ? c.self->asClass : c.self->cls) : nullptr;
+        if (cls)
+            c.vm.saveConfig(*cls, cls->defaults);
+    });
+    for (const char *none : {"ResetConfig", "SetFlags", "ClearFlags"})
         reg(none, [](NativeCall &) {});
 }
 

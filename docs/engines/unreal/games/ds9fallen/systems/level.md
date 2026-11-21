@@ -108,11 +108,13 @@ rate counted.
   to the other tests.
 
 UnrealEd keeps its viewports' cameras in the level as `Camera` actors
-(292 of them over The Fallen's maps). `Camera` is a `PlayerPawn`, and in
-single player `GameInfo.Login` takes over any `PlayerPawn` in the level
-that has no player (meant for players travelling between levels), so
-they're left out; the original must drop them too, or every login would
-become an editor camera.
+(296 of them over The Fallen's maps), and they're left out: their
+exports are flagged for the editor only (0x02340000: load for the
+editor, not for a client or a server), and the game's linker creates
+nothing for such an export (Core.dll 0x1012d02b), so in the level's actor
+list they're none. If they weren't, `GameInfo.Login`, which takes over
+any `PlayerPawn` with no player, would make every login an editor
+camera.
 
 ### Where actors are
 

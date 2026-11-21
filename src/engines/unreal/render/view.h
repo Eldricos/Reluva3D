@@ -58,6 +58,12 @@ struct ViewContext {
      * empty: none can be saved.
      */
     std::filesystem::path saveFolder{};
+    /**
+     * Where the game's settings are written (GameTarget::savePath's
+     * "Config"), the options windows' and console's; empty: they last
+     * only while a level plays.
+     */
+    std::filesystem::path configFolder{};
     /** The game's own folder (its movies are found from it). */
     std::filesystem::path gameFolder{};
     /** The Fallen's shared animation sets, read the first time a page needs them. */

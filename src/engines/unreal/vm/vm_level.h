@@ -86,8 +86,8 @@ public:
      * actors are spawned or move).
      */
     void updateRegion(VmObject *actor);
-    /** How many of UnrealEd's cameras (Camera actors) load() left out. */
-    int editorCameras() const { return _editorCameras; }
+    /** How many of the editor's actors (cameras, brushes) load() left out. */
+    int editorOnly() const { return _editorOnly; }
     /**
      * The renderer drew these zones (bit n, zone n) this frame, the view
      * in `cameraZone` (-1 not known): the zones' render times, which The
@@ -139,6 +139,7 @@ public:
         float time = 1; // 0-1 of the move made
         std::array<float, 3> normal{};
         VmObject *actor = nullptr; // what stopped it: an actor, or the LevelInfo for the world
+        int32_t node = -1;         // the level's BSP node it stopped at, -1 for anything else
         /** Whether it was stopped short. */
         bool hit() const { return time < 1; }
     };
@@ -167,7 +168,7 @@ public:
      */
     VmObject *trace(VmObject *self, const std::array<float, 3> &start, const std::array<float, 3> &end,
                     const std::array<float, 3> &extent, bool actors, std::array<float, 3> &hitLocation,
-                    std::array<float, 3> &hitNormal);
+                    std::array<float, 3> &hitNormal, int32_t *node = nullptr);
     /**
      * Whether a box at a point is clear of the world and the movers that
      * block (but `self`).
@@ -411,13 +412,13 @@ public:
     bool &hudFrameClear() { return _hudFrameClear; }
     ///@}
     /**
-     * The FliTextures the HUD draws, played on each tick as their own
-     * properties say (Mode, Rate, FrameNum, FrameTime).
+     * An FliTexture drawn now (on the HUD or in the level): played on by
+     * the real time since it was last drawn, as its own properties say
+     * (Mode, Rate, FrameNum, FrameTime).
      */
-    ///@{
-    void trackFli(VmObject *texture);
-    void tickFlis(float seconds);
-    ///@}
+    void fliDrawn(VmObject *texture);
+    /** The real clock (seconds; it runs while paused) textures play by. */
+    void setRealTime(double now) { _realTime = now; }
     /** What the last renderHud drew, and the view it was given. */
     ///@{
     Hud &hud() { return _hud; }
@@ -727,6 +728,18 @@ public:
     ///@}
     /** Writes the level as the original saves it (a package: game_save_write.cpp). */
     Error writeGameSave(const std::string &path);
+    /** The names and imports a save keeps, by the map's numbering. */
+    struct SaveTables {
+        bool trim = false;
+        std::vector<bool> names;
+        std::vector<bool> imports;
+    };
+    /**
+     * One go of writeGameSave: with `collect`, the names and imports the
+     * save uses found into `tables` (no file written); without, the save
+     * written with only those (if `tables.trim`).
+     */
+    Error writeSave(const std::string &path, SaveTables &tables, bool collect);
     bool reluvaFormat = false; // save in Reluva's own format instead
     /** Sounds stopped (an actor's slot: a line cut off), for the page. */
     std::vector<std::pair<VmObject *, int>> &soundStops() { return _soundStops; }
@@ -849,6 +862,8 @@ public:
      * first; null if it meets none (GetSurfaceTexture: what's underfoot).
      */
     VmObject *surfaceTexture(const std::array<float, 3> &start, const std::array<float, 3> &end);
+    /** A surface's texture now (scripts may have swapped it); null if it has none. */
+    VmObject *surfaceTextureOf(int surf);
     /**
      * The BSP node whose polygon a line from start to end hits (of the
      * coplanar nodes where it stopped, the one holding the hit point), and
@@ -965,9 +980,19 @@ public:
         std::array<float, 3> at{};
         std::array<float, 3> normal{};
         VmObject *actor = nullptr;
+        int32_t node = -1; // the level's BSP node hit, -1 for anything else
         /** Whether it hit anything. */
         bool hit() const { return actor != nullptr; }
     };
+    /** A move's hit as a sweep's. */
+    static Sweep sweepOf(const MoveHit &h) {
+        Sweep s;
+        s.time = h.time;
+        s.normal = h.normal;
+        s.actor = h.hit() ? h.actor : nullptr;
+        s.node = h.node;
+        return s;
+    }
     /** A line or box (`extent` its half sizes) swept from `from` to `to`. */
     Sweep sweep(VmObject *a, const std::array<float, 3> &from, const std::array<float, 3> &to,
                 const std::array<float, 3> &extent);
@@ -981,25 +1006,25 @@ public:
      * The engine's tests for what's ahead of the player, each as its
      * function in vm_climbing.cpp says: TestStepUp, TestForStrongLedgeFooting,
      * TestForHandHold, TestForHangLedge, TestForLedge, CheckClimbing; the
-     * player asked to change to climbing physics; ForceDuck, and ducking
-     * under what's ahead.
+     * player asked to change to climbing physics; ForceDuck. And the BSP
+     * node touching one, and a node's top.
      */
     ///@{
-    float testStepUp(VmObject *a, float stepHeight, float height, const std::array<float, 3> &start,
-                     const std::array<float, 3> &forward, const std::array<float, 3> &extent);
+    float testStepUp(VmObject *a, Sweep &hit, float stepHeight, float height, const std::array<float, 3> &start,
+                     std::array<float, 3> delta, const std::array<float, 3> &extent);
+    int32_t touchingNode(int32_t node, const std::array<float, 3> &normal, const std::array<float, 3> &at, float radius,
+                         float height);
+    float nodeTop(int32_t node);
     bool strongFooting(VmObject *a, const std::array<float, 3> &normal, const std::array<float, 3> &at);
     bool handHold(VmObject *a, const std::array<float, 3> &normal, const std::array<float, 3> &at);
     bool hangLedge(VmObject *a, const std::array<float, 3> &normal, std::array<float, 3> &at);
-    bool testForLedge(VmObject *a, const std::array<float, 3> &hitNormal, const std::array<float, 3> &dir);
+    bool testForLedge(VmObject *a, Sweep &hit, const std::array<float, 3> &delta, float *out = nullptr);
+    float stepUpOnto(VmObject *a, float rise, const std::array<float, 3> &delta);
     bool checkClimbing(VmObject *a, const std::array<float, 3> &wallNormal, const std::array<float, 3> &dir, bool snap,
                        bool feet, bool chest, bool head);
     bool askClimb(VmObject *a, const std::array<float, 3> &wallNormal, int physics);
     void forceDuck(VmObject *a);
-    bool duckUnder(VmObject *a, const std::array<float, 3> &dir);
     ///@}
-    /** A player's walk blocked by a wall: a ledge or ladder there taken. */
-    bool climbBlocked(VmObject *a, VmObject *by, const std::array<float, 3> &hitNormal,
-                      const std::array<float, 3> &left);
     /** physFalling's catch: a ladder, or a ledge to hang from, met by the player's reaching jump. */
     void climbCheck(VmObject *a, bool falling, float dt);
     /** The hanging, climbing and clambering physics. */
@@ -1042,9 +1067,8 @@ public:
     /** The LitActors now. */
     void litActors(std::vector<LitActor> &out);
     /** A noise the AI may hear (MakeNoise; weapons' and projectiles' sounds). */
-    void makeNoise(VmObject *maker, float loudness);
     /** A sound played as a noise the AI hears (PlaySound, PlayDummySound). */
-    void soundNoise(VmObject *maker, float radius);
+    void soundNoise(VmObject *maker, float radius, bool dummy = false);
     /**
      * Whether the player hears a sound played by `source` as far as
      * `radius` (CheckHearSound), its volume lowered through walls.
@@ -1073,7 +1097,14 @@ public:
 private:
     void init(VmObject *actor); // the engine's own properties of a new actor
     void attachViewport();      // the player's viewport and console
-    Value *prop(VmObject *a, const char *name);
+    Value *prop(VmObject *a, const char *name) {
+        if (!a || !a->cls)
+            return nullptr;
+        const SlotCached &c = _slotCache[slotHash(a->cls, name)];
+        const int slot = c.cls == a->cls && c.name == name ? c.slot : propSlot(a->cls, name);
+        return slot >= 0 && size_t(slot) < a->values.size() ? &a->values[size_t(slot)] : nullptr;
+    }
+    int propSlot(const VmClass *cls, const char *name);
     void updateTouching(VmObject *a);
     void steer(VmObject *pawn, float seconds);
     void rotate(VmObject *a, float seconds);
@@ -1127,16 +1158,25 @@ private:
     void startBase(VmObject *a);
     void startAsSpawned(VmObject *a);
     std::string _options; // the URL's options, for InitGame and Login
-    void walkPlayer(VmObject *a, float dt);
-    void walkPawn(VmObject *a, float dt, int maxIterations);
+    void walkPlayer(VmObject *a, float dt, int iterations = 0);
+    void walkPawn(VmObject *a, float dt, int maxIterations, int iterations = 0);
+    void startSwimming(VmObject *a, const Vec &from, const Vec &oldVelocity, float tick, float remaining);
+    void playerStartSwimming(VmObject *a, const Vec &from);
     void simpleWalk(VmObject *a, float dt);
     void move(VmObject *a, int physics, float dt);
     void pawnRotation(VmObject *a, float dt, const std::array<float, 3> &velocityBefore);
     std::array<float, 3> findWaterLine(const std::array<float, 3> &in, const std::array<float, 3> &out);
     void swimPawn(VmObject *a, float dt, bool fish);
-    void landed(VmObject *a, const std::array<float, 3> &n, VmObject *on, float remaining);
+    void swimPlayer(VmObject *a, float dt);
+    bool adjustToWaterSurface(VmObject *a, const std::array<float, 3> &from, const std::array<float, 3> &to);
+    void measureWaterSurface(VmObject *a);
+    float chestOffset(VmObject *a);
+    // The water's surface over each swimming player, as last measured
+    // (kNoSurface: none above it).
+    std::map<VmObject *, float> _waterSurface;
+    void landed(VmObject *a, const std::array<float, 3> &n, VmObject *on, float remaining, int iterations = 0);
     void fallPlayer(VmObject *a, float dt);
-    void fall(VmObject *a, float dt);
+    void fall(VmObject *a, float dt, int iterations = 0);
     void swimOrFly(VmObject *a, float dt, bool swim);
     void updateBodyRegions(VmObject *a, bool events);
     bool moverNear(VmObject *mover, const std::array<float, 3> &start, const std::array<float, 3> &delta,
@@ -1168,6 +1208,17 @@ private:
         }
     };
     std::unordered_map<SlotKey, int, SlotHash> _slots;
+    // In front of it, the most recent by a cheap hash of the two addresses
+    // (prop is read millions of times a second).
+    struct SlotCached {
+        const VmClass *cls = nullptr;
+        const char *name = nullptr;
+        int slot = -1;
+    };
+    std::array<SlotCached, 4096> _slotCache{};
+    static size_t slotHash(const VmClass *cls, const char *name) {
+        return ((reinterpret_cast<uintptr_t>(cls) >> 4) * 0x9e3779b1u ^ reinterpret_cast<uintptr_t>(name)) & 4095;
+    }
 
 public:
     /** The slots of the properties collision reads, found once per class (`mover`: a Mover's). */
@@ -1219,6 +1270,7 @@ private:
     bool attachFrame(VmObject *actor, ActorMesh &mesh, const MeshAttachPoint &point, Vec &at, std::array<Vec, 3> &axes,
                      std::array<Vec, 3> *raw = nullptr);
     void toWorld(VmObject *actor, Vec &at, std::array<Vec, 3> *axes);
+    Vec c3dScale(VmObject *actor);
     void placeAttached();
     std::map<const VmObject *, std::shared_ptr<ActorMesh>> _actorMeshes; // by mesh object
     std::shared_ptr<const std::vector<AnimationSet>> _animationSets;
@@ -1281,7 +1333,13 @@ private:
     struct Fli {
         int frames = 0;
         float frameSeconds = 1.0f / 30;
+        double drawn = 0; // the real time it was last drawn
     };
+    void tickFli(VmObject *texture, const Fli &fli, float seconds);
+    double _realTime = 0;
+    // The node a walk last stepped up against, as Engine.dll keeps it for
+    // every walker (0x1054aa40): -2 after any other wall, -1 none.
+    int32_t _lastLedgeNode = -2;
     std::map<VmObject *, Fli> _flis;
     VmObject *_canvas = nullptr;
     std::map<std::pair<const Package *, int>, std::shared_ptr<Font>> _fonts;
@@ -1304,6 +1362,7 @@ private:
         bool hudClock = false; // a HUD line: timed while paused too
         int back = -1;         // the RETURNLINE pending in its thread
         std::string backPattern;
+        int backFrom = -1;  // the line whose RETURNLINE that is (as the engine keeps it)
         size_t phoneme = 0; // lip-sync: the next mouth shape
     };
     // Each line's engine side: its key (TYPE SPK LST ID MISSION, no
@@ -1406,7 +1465,6 @@ private:
     const ReachSpec *specAt(VmObject *node, const char *list, int k);
     bool moverAllows(VmObject *pawn, const ReachSpec &s);
     bool canMoveTo(VmObject *pawn, VmObject *from, VmObject *to);
-    std::map<VmObject *, float> _noiseQuiet; // pawns: no noise heard before this time
     std::mt19937 _barkRandom{13579};
     std::vector<std::pair<VmObject *, int>> _soundStops;
     struct TrackedSound {
@@ -1416,10 +1474,12 @@ private:
     };
     std::vector<TrackedSound> _trackedSounds;
     void writeMeshGroups(ByteWriter &b, VmObject *actor);
+    void writeMeshAttachments(ByteWriter &b, const VmObject *parent,
+                              const std::map<const VmObject *, std::string> &names);
     bool usesC3DMesh(VmObject *actor);
     int _meshStates = 1000;    // new C3D mesh states' numbers (their names)
     VmObject _meshStateMarker; // stands for an actor's new mesh state while it's written
-    void writeDialogEngine(ByteWriter &b, PackageWriter &w);
+    void writeDialogEngine(ByteWriter &b, PackageWriter &w, const std::function<int32_t(VmObject *)> &refOf);
     VmObject *_musicActor = nullptr;
     float _musicStart = 0;
     void loadDialog();
@@ -1460,7 +1520,7 @@ private:
     int _placedGhosts = 0;
     int _localizedSet = 0;
     std::vector<VmObject *> _movers; // the level's, which traces of the world meet
-    int _editorCameras = 0;
+    int _editorOnly = 0;
     std::vector<VmObject *> _actors;
     std::vector<VmObject *> _ghosts;
     LevelExtras _saved;                            // a saved game's Level extras (a map's are empty)
@@ -1536,6 +1596,31 @@ struct LevelStart {
 };
 Error runLevelStart(const PackageSet &packages, const Package &map, const std::string &defaultGame, float seconds,
                     LevelStart &out);
+
+/**
+ * A level's placed actors as they were saved, taken before its start, to
+ * tell afterwards what the start changed (as runLevelStart does): for
+ * a level started to be played, which needn't be started again to draw.
+ */
+class LevelStartWatch {
+public:
+    /** Takes `map`'s placed actors as saved, before `level` starts. */
+    LevelStartWatch(ScriptLevel &level, const Package &map);
+    /** What changed since, into `out` (its changes and their counts). */
+    void finish(LevelStart &out) const;
+
+private:
+    struct Was {
+        int exportIndex;
+        VmObject *actor;
+        int drawType;
+        int hidden;
+        int lightType;
+        int lightBrightness;
+    };
+    Vm &_vm;
+    std::vector<Was> _before;
+};
 
 /**
  * The natives of Engine's Actor and its subclasses that a level needs
