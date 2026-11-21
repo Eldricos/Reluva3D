@@ -364,6 +364,8 @@ void SpPlayPage::startMenus() {
     ui.print = [this](const std::string &text) { consolePrint(text); };
     ui.shaderExists = [this](const std::string &name) { return shaderFound(_ctx.shaders, _ctx.files, name); };
     ui.bindings = &_ctx.bindings;
+    ui.getOverstrike = [this] { return _console.overstrike(); };
+    ui.setOverstrike = [this](bool on) { _console.setOverstrike(on); };
     ui.startLocalSound = [this](const std::string &sound, int channel) {
         if (_soundSystem)
             _soundSystem->startLocalSound(sound, channel);
@@ -1327,6 +1329,10 @@ void SpPlayPage::handleEvent(const Event &ev) {
                 // (Not Reluva's own numbers, which they don't know.)
                 if (k < q3key::kFirstOwn)
                     menuKey(k);
+                // Backspace's character too, as Windows sends it (no text
+                // comes for it here).
+                if (ev.key == key::kBackspace && _ui)
+                    menuKey(8 | q3key::kCharFlag);
                 return;
             }
             if (!ev.repeat)

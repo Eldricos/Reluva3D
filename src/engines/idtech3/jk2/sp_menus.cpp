@@ -313,6 +313,8 @@ SpMenus::Item SpMenus::readItem(const MenuItemDef &def) {
             item.disableCvar = words(e.block);
         } else if (key == "maxchars") {
             item.maxChars = int32_t(number(e.args, 0));
+        } else if (key == "maxpaintchars") {
+            item.maxPaintChars = int32_t(number(e.args, 0));
         } else if (key == "ownerdraw") {
             item.ownerDraw = int32_t(number(e.args, 0));
         } else if (key == "elementheight") {
@@ -891,7 +893,7 @@ void SpMenus::mouseMove(Menu &menu) {
     }
 }
 
-void SpMenus::moveFocus(Menu &menu, int step) {
+SpMenus::Item *SpMenus::moveFocus(Menu &menu, int step) {
     // The next item (or the one before) that can take the focus, round the
     // menu's ends.
     const int n = int(menu.items.size());
@@ -903,9 +905,10 @@ void SpMenus::moveFocus(Menu &menu, int step) {
         const int i = ((from + step * k) % n + n) % n;
         if (canFocus(menu.items[size_t(i)])) {
             setFocus(menu, menu.items[size_t(i)]);
-            return;
+            return &menu.items[size_t(i)];
         }
     }
+    return nullptr;
 }
 
 void SpMenus::itemKey(Menu &menu, Item &item, int32_t key) {
@@ -962,8 +965,14 @@ void SpMenus::itemKey(Menu &menu, Item &item, int32_t key) {
             _bindItem = &item;
         break;
     case kEditField:
-        if (click || enter)
+    case kNumericField:
+        // Typing starts at the field's start, over what's there
+        // (0x4a5741, 0x4a579f).
+        if (click || enter) {
+            item.cursor = 0;
             _editItem = &item;
+            setTypingOver(true);
+        }
         break;
     default:
         if (click || enter)
@@ -973,17 +982,27 @@ void SpMenus::itemKey(Menu &menu, Item &item, int32_t key) {
 }
 
 Error SpMenus::keyEvent(int32_t key) {
-    // A binding waiting for its key, or an edit field, takes every key.
+    // A binding waiting for its key takes every key.
     if (_bindItem) {
         if (!(key & q3key::kCharFlag))
             bindKey(key);
         return {};
     }
-    if (_editItem) {
-        editKey(key);
-        return {};
-    }
     Menu *menu = focusedMenu();
+    if (_editItem && menu) {
+        // As 0x4a539f: the field takes the key first; one it gives back
+        // ends the typing, as does a click (which then goes on as a
+        // click); Tab and the arrows up and down go no further; any other
+        // key goes on as it would.
+        if (!editKey(*menu, key)) {
+            _editItem = nullptr;
+            return {};
+        }
+        if (key == q3key::kMouse1 || key == q3key::kMouse2 || key == q3key::kMouse3)
+            _editItem = nullptr;
+        else if (key == q3key::kTab || key == q3key::kUp || key == q3key::kDown)
+            return {};
+    }
     if (!menu || (key & q3key::kCharFlag))
         return {};
     if (key == q3key::kEscape) {
@@ -1039,25 +1058,117 @@ void SpMenus::bindKey(int32_t key) {
     bindings->set(key, item.cvar);
 }
 
-void SpMenus::editKey(int32_t key) {
-    // Letters typed onto the field's setting, Backspace taking the last
-    // off; Enter, Esc, Tab, the arrows or a click end it. As Team Arena's,
-    // without its cursor moving within the text.
+bool SpMenus::typingOver() const {
+    return getOverstrike ? getOverstrike() : _overstrike;
+}
+
+void SpMenus::setTypingOver(bool on) {
+    if (setOverstrike)
+        setOverstrike(on);
+    else
+        _overstrike = on;
+}
+
+bool SpMenus::editKey(Menu &menu, int32_t key) {
+    // As jk2sp.exe's (0x4a3e50): typed letters go in at the cursor, or
+    // over the letter there; the cursor keys move it, the first letter
+    // shown following it out of a field shown narrower than its text.
+    // False ends the typing.
     Item &item = *_editItem;
     std::string value = _cvars.string(item.cvar);
+    if (item.maxChars > 0 && int32_t(value.size()) > item.maxChars)
+        value.resize(size_t(item.maxChars));
+    const auto len = int32_t(value.size());
+    auto set = [&] { _cvars.set(item.cvar, value); };
     if (key & q3key::kCharFlag) {
-        const auto c = char(key & 0xff);
-        if (item.maxChars <= 0 || int32_t(value.size()) < item.maxChars)
-            _cvars.set(item.cvar, value + c);
-    } else if (key == q3key::kBackspace) {
-        if (!value.empty()) {
-            value.pop_back();
-            _cvars.set(item.cvar, value);
+        key &= ~q3key::kCharFlag;
+        if (key == 8) {
+            // Backspace's character: the letter before the cursor.
+            if (item.cursor > 0 && item.cursor <= len) {
+                value.erase(size_t(item.cursor - 1), 1);
+                if (--item.cursor < item.paintOffset)
+                    --item.paintOffset;
+            }
+            set();
+            return true;
         }
-    } else if (key == q3key::kEnter || key == q3key::kKpEnter || key == q3key::kEscape || key == q3key::kTab ||
-               key == q3key::kUp || key == q3key::kDown || key == q3key::kMouse1) {
-        _editItem = nullptr;
+        if (key < 32)
+            return true;
+        if (item.type == kNumericField && (key < '0' || key > '9'))
+            return false;
+        if (!typingOver()) {
+            if (len == 255 || (item.maxChars > 0 && len >= item.maxChars))
+                return true;
+            value.insert(std::min(size_t(item.cursor), value.size()), 1, char(key));
+        } else {
+            if (item.maxChars > 0 && item.cursor >= item.maxChars)
+                return true;
+            // (Past the text's end, as the original's, it isn't seen.)
+            if (item.cursor < len)
+                value[size_t(item.cursor)] = char(key);
+            else if (item.cursor == len)
+                value += char(key);
+        }
+        set();
+        if (item.cursor < len + 1) {
+            ++item.cursor;
+            if (item.maxPaintChars > 0 && item.cursor > item.maxPaintChars)
+                ++item.paintOffset;
+        }
+    } else {
+        switch (key) {
+        case q3key::kDelete:
+        case 171: // KP_DEL
+            if (item.cursor < len) {
+                value.erase(size_t(item.cursor), 1);
+                set();
+            }
+            return true;
+        case q3key::kRight:
+        case 165: // KP_RIGHTARROW
+            if (item.maxPaintChars > 0 && item.cursor >= item.maxPaintChars && item.cursor < len) {
+                ++item.cursor;
+                ++item.paintOffset;
+            } else if (item.cursor < len) {
+                ++item.cursor;
+            }
+            return true;
+        case q3key::kLeft:
+        case 163: // KP_LEFTARROW
+            if (item.cursor > 0)
+                --item.cursor;
+            if (item.cursor < item.paintOffset)
+                --item.paintOffset;
+            return true;
+        case q3key::kHome:
+        case 160: // KP_HOME
+            item.cursor = item.paintOffset = 0;
+            return true;
+        case q3key::kEnd:
+        case 166: // KP_END
+            // (Without a limit shown, everything scrolls out of sight.)
+            item.cursor = len;
+            if (len > item.maxPaintChars)
+                item.paintOffset = len - item.maxPaintChars;
+            return true;
+        case q3key::kInsert:
+        case 170: // KP_INS
+            setTypingOver(!typingOver());
+            return true;
+        default:
+            break;
+        }
     }
+    // A character's number too: Tab and down to the next field, up to
+    // the one before, if it's one to type in; Enter and Esc end it.
+    if (key == q3key::kTab || key == q3key::kDown || key == 167) {
+        if (Item *next = moveFocus(menu, 1); next && (next->type == kEditField || next->type == kNumericField))
+            _editItem = next;
+    } else if (key == q3key::kUp || key == 161) {
+        if (Item *prev = moveFocus(menu, -1); prev && (prev->type == kEditField || prev->type == kNumericField))
+            _editItem = prev;
+    }
+    return key != q3key::kEnter && key != q3key::kKpEnter && key != q3key::kEscape;
 }
 
 int32_t SpMenus::listCount(const Item &item) {
@@ -1364,6 +1475,7 @@ std::string SpMenus::itemValue(const Item &item) const {
                 return label;
         return item.choices.empty() ? std::string() : item.choices[0].first;
     case kEditField:
+    case kNumericField:
         return _cvars.string(item.cvar);
     case kBind: {
         // The keys bound to the command, as "A or B"; "???" for none.
@@ -1502,10 +1614,22 @@ void SpMenus::drawItem(const Menu &menu, Item &item) {
         return;
     }
     std::string value = itemValue(item);
-    // A cursor after what's typed while it's being typed; a binding
-    // waiting for its key shows none (as Team Arena's).
-    if (&item == _editItem && (_time / 250) % 2 == 0)
-        value += '_';
+    if (item.type == kEditField || item.type == kNumericField) {
+        // As 0x4a08c3: from the first letter shown, as many as it shows;
+        // while typed in, the cursor (_ typing over, | inserting, not
+        // blinking) at its letter (0x499a60).
+        value.erase(0, std::min(value.size(), size_t(std::max(item.paintOffset, 0))));
+        if (item.maxPaintChars > 0 && int32_t(value.size()) > item.maxPaintChars)
+            value.resize(size_t(item.maxPaintChars));
+        drawText(valueX, y, item.textScale, c, value, item.textStyle, item.font);
+        if (&item == _editItem) {
+            const auto at = size_t(std::clamp(item.cursor - item.paintOffset, 0, int32_t(value.size())));
+            const float cx = valueX + textWidth(value.substr(0, at), item.textScale, item.font);
+            drawText(cx, y, item.textScale, c, typingOver() ? "_" : "|", item.textStyle | 1, item.font);
+        }
+        return;
+    }
+    // A binding waiting for its key shows ??? (as Team Arena's).
     if (&item == _bindItem)
         value = "???";
     if (!value.empty())

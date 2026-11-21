@@ -214,6 +214,39 @@ of them); each file is `{ assetGlobalDef { ... } menuDef { ... } ... }`.
   focus back to the top of it (0x49d710).
 - At start-up the engine plays `cinematic openinglogos` (0x4d8f8c).
 
+### Edit fields (0x4a3e50)
+
+A click on an edit or numeric field, or Enter on it, starts typing in
+it: its cursor at its start and the engine's typing over on (the one
+mode the console shares, Insert flipping it), 0x4a5741. Each key then
+goes to the field first (0x4a539f):
+
+- **A typed character** goes in at the cursor, the rest moved along,
+  unless the text has `maxChars` letters already (or 255); typing over,
+  it replaces the letter there, unless the cursor is at `maxChars`. The
+  cursor moves on, and the first letter shown with it once it passes
+  `maxPaintChars`. Backspace's character (8) takes the letter before
+  the cursor off; other characters under 32 are ignored; a numeric
+  field ends the typing at anything but a digit.
+- **Delete** takes the letter at the cursor off; **Left** and **Right**
+  move the cursor, the first letter shown following it out of the field;
+  **Home** goes to the start; **End** to the end, the first letter shown
+  `maxPaintChars` before it, so a field without that limit (all of
+  single player's) shows none of its text until Home or Left brings it
+  back; **Insert** flips typing over. The keypad's keys alike.
+- **Tab** and **Down** move the focus on, **Up** back, the typing going
+  with it if the item is a field. **Enter** and **Esc** end the typing
+  and go no further. A click ends it and goes on as a click; any other
+  key goes on to the menu as it would.
+
+These compare the key's number, so a typed character with the same
+number does the same (`©`, 169, is the keypad's Enter).
+
+Drawn (0x4a08c3): the text from its first letter shown, as many as
+`maxPaintChars` allows; while typed in, `_` (typing over) or `|`
+(inserting) after the letters up to the cursor (0x499a60), in the
+item's style with its lowest bit set, so it doesn't blink.
+
 ## In Reluva
 
 `jk2::MenuDefs` reads `menuDef`s and their `itemDef`s from a parse
@@ -253,10 +286,9 @@ above: the saved games are those in the game's `saves/` and the Play
 page's own folder, read with Reluva's reader of the engine's chunks
 (sp-saves.md), their pictures decoded from the JPEG kept. The datapad's
 pages are the client game's (`SpGameHost::drawDataPad`), its pictures
-then numbered among the menus' shaders. Edit fields take what's typed
-onto their setting's value, Backspace taking the last letter off, as
-Team Arena's (its cursor moving within the text isn't done); a cursor
-blinks after the text meanwhile. A list box's rows are chosen by a
+then numbered among the menus' shaders. Edit fields are as above
+(`SpMenus::editKey`), the overstrike mode the console's; the page sends
+Backspace's character with its key, which Windows would. A list box's rows are chosen by a
 click or the arrows, a second click within 300 ms on the same row a
 double click, the wheel and the bar's arrows scroll (Team Arena's way,
 unconfirmed); Enter runs its action (the save menu's: save).

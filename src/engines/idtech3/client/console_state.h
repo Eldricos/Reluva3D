@@ -69,6 +69,8 @@ public:
     int fieldScroll();
     /** Whether typing replaces characters (Insert flips it). */
     bool overstrike() const { return _overstrike; }
+    /** Typing over or inserting, as the menus set it too (one mode for both, the engine's). */
+    void setOverstrike(bool on) { _overstrike = on; }
     /** What a key or text event did to the line being typed. */
     enum class Action { kNone, kSubmit, kClose };
     /**

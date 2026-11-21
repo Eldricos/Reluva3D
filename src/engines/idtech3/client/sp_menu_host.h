@@ -103,6 +103,10 @@ public:
     // The running game's GameAllowedToSaveHere with that flag; unset while
     // there's no game (the flag comes back).
     std::function<uint32_t(uint32_t flag)> askGame;
+    // The engine's typing over (rather than inserting), which the console
+    // shares; unset: their own.
+    std::function<bool()> getOverstrike;
+    std::function<void(bool)> setOverstrike;
     // What keys do (the Controls menu); none: no bindings.
     KeyBindings *bindings = nullptr;
     // Whether a shader or picture can be found; unset: all can.

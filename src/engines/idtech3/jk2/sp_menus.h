@@ -166,8 +166,12 @@ private:
         Tokens hideCvar;
         Tokens enableCvar;
         Tokens disableCvar;
-        // An edit field's: the most letters it takes.
+        // An edit field's: the most letters it takes, and shows (0: no
+        // limit); where its cursor is, and the first letter shown.
         int32_t maxChars = 0;
+        int32_t maxPaintChars = 0;
+        int32_t cursor = 0;
+        int32_t paintOffset = 0;
         // An owner draw's number (200 on); 0 for none.
         int32_t ownerDraw = 0;
         // A list box's: its rows' height, its feeder (0: the saved
@@ -240,10 +244,12 @@ private:
     bool enabled(const Item &item) const;
     bool canFocus(const Item &item) const;
     void mouseMove(Menu &menu);
-    void moveFocus(Menu &menu, int step);
+    Item *moveFocus(Menu &menu, int step);
     void itemKey(Menu &menu, Item &item, int32_t key);
     void bindKey(int32_t key);
-    void editKey(int32_t key);
+    bool editKey(Menu &menu, int32_t key);
+    bool typingOver() const;
+    void setTypingOver(bool on);
     void listKey(Menu &menu, Item &item, int32_t key);
     int32_t listCount(const Item &item);
     int32_t listRows(const Item &item) const;
@@ -293,6 +299,7 @@ private:
     std::vector<uint8_t> _capture;
     Item *_bindItem = nullptr; // the binding waiting for its key
     Item *_editItem = nullptr; // the edit field being typed in
+    bool _overstrike = false;  // without the engine's
     // A script put off by "defer" until "rundeferred", and its menu.
     Menu *_deferredMenu = nullptr;
     Tokens _deferred;

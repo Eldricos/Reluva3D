@@ -825,17 +825,33 @@ static void testJediMenuItems(const std::filesystem::path &tmp) {
     CHECK(!menus.keyEvent(q3key::kBackspace));
     CHECK(bindings.get(q3key::kSpace).empty());
 
-    // The edit field: typed onto what it holds (the chosen game's
-    // description), at most 6 letters.
+    // The edit field (at most 6 letters): typing starts at its start,
+    // over what's there; End, Left, Backspace's character, Insert,
+    // Home and Delete as jk2sp.exe's.
+    auto type = [&](const std::string &text) {
+        for (const char c : text)
+            CHECK(!menus.keyEvent(int32_t(uint8_t(c)) | q3key::kCharFlag));
+    };
     cvars.set("ui_gameDesc", "B");
     CHECK(!menus.mouseEvent(0, 50));
     CHECK(menus.focusedItem() == "desc");
     CHECK(!menus.keyEvent(q3key::kEnter) && menus.editing());
-    for (const char c : std::string("espin!!"))
-        CHECK(!menus.keyEvent(int32_t(uint8_t(c)) | q3key::kCharFlag));
-    CHECK(!menus.keyEvent(q3key::kBackspace));
+    type("espin!!");
+    CHECK(cvars.string("ui_gameDesc") == "espin!");
+    cvars.set("ui_gameDesc", "Bespin");
+    CHECK(!menus.keyEvent(q3key::kEnd) && !menus.keyEvent(q3key::kInsert));
+    CHECK(!menus.keyEvent(q3key::kLeft) && !menus.keyEvent(q3key::kLeft));
+    CHECK(!menus.keyEvent(8 | q3key::kCharFlag) && cvars.string("ui_gameDesc") == "Besin");
+    type("x");
+    CHECK(cvars.string("ui_gameDesc") == "Besxin");
+    CHECK(!menus.keyEvent(q3key::kHome) && !menus.keyEvent(q3key::kDelete));
+    type("QZ");
+    CHECK(cvars.string("ui_gameDesc") == "Qesxin"); // full: Z refused
+    CHECK(!menus.keyEvent(q3key::kInsert));
+    type("b");
     CHECK(!menus.keyEvent(q3key::kEnter) && !menus.editing());
-    CHECK(cvars.string("ui_gameDesc") == "Bespi");
+    CHECK(cvars.string("ui_gameDesc") == "Qbsxin");
+    cvars.set("ui_gameDesc", "Bespi");
 
     // Save: put off while the video settings were changed, the warning's
     // OK running the rest; into the first free slot, with the description.
