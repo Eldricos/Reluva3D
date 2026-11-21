@@ -95,6 +95,10 @@ struct Scene {
     // player's light amplification goggles, jk2sp.exe 0x45fa60; its
     // ClearScene, 0x477910, turns them off: the host's to reset).
     bool laGoggles = false;
+    // Their fog's green, drawn at each call, and the seconds of the last
+    // scene rendered before it, which its thickness swings by.
+    float laGogglesGreen = 0.42f;
+    float laGogglesTime = 0;
 
     // The calls, with the program's memory and arguments.
     void clear();

@@ -708,6 +708,7 @@ void SpPlayPage::start(int index, int32_t loadMode, raven::SaveReader *save) {
     // then the client half.
     _game = std::make_unique<eliteforce::SpGameHost>(_ctx.files, _cvars);
     _game->print = [this](const std::string &text) { consolePrint(text); };
+    _game->engineRandom = [this] { return _crtRandom.next(); };
     if (_ctx.mixer) {
         // The client game's own videos' sound, as the page's cinematics'.
         CinematicSlots &videos = _game->cinematics();
@@ -1818,11 +1819,12 @@ void SpPlayPage::consolePrint(const std::string &text) {
 }
 
 void SpPlayPage::setGoggles() {
-    // The light amplification goggles' fog as R_LAGoggles makes it each
-    // frame (jk2sp.exe 0x45fa60): orange, its green a little random; as
-    // thick as a fog of 625 x (1 + 0.1 cos t) units, t the scene's time in
-    // seconds (its density 2 / ((1 + 0.1 cos t) x 10000), where a fog's is
-    // 1 / (8 x its distance)); no surface, so it thickens from the eye.
+    // The light amplification goggles' fog as R_LAGoggles made it this
+    // frame (jk2sp.exe 0x45fa60): orange, its green as the call drew it; as
+    // thick as a fog of 625 x (1 + 0.1 cos t) units, t the last scene's
+    // time in seconds when called (its density 2 / ((1 + 0.1 cos t) x
+    // 10000), where a fog's is 1 / (8 x its distance)); no surface, so it
+    // thickens from the eye.
     if (!_game || !_game->clientGameRunning() || !_world || !_scene)
         return;
     const Scene &scene = _game->scene();
@@ -1834,9 +1836,8 @@ void SpPlayPage::setGoggles() {
         return;
     }
     ShaderCache::Fog fog;
-    fog.color = {0.75f, 0.42f + float(_crtRandom.next()) * (1.0f / 32767) * 0.025f, 0.07f};
-    const float t = float(_clientTime) / 1000.0f;
-    fog.distance = 625 * (1 + 0.1f * std::cos(t));
+    fog.color = {0.75f, scene.laGogglesGreen, 0.07f};
+    fog.distance = 625 * (1 + 0.1f * std::cos(scene.laGogglesTime));
     fog.plane = {0, 0, 0, 1};
     _scene->setGogglesFog(&fog);
     // The frame clears to it only if they're still on as it ends (0x45d06c).

@@ -272,6 +272,9 @@ public:
     // Jedi Outcast's weather commands from the client game (its call 89,
     // R_WorldEffectCommand: "rain init 500"...), for the renderer.
     std::function<void(const std::string &)> worldEffectCommand;
+    // The engine's rand() (raven::CrtRandom), which the light amplification
+    // goggles' call draws from (Jedi Outcast's call 64).
+    std::function<int32_t()> engineRandom;
     // The level's contents at a point (the brushes', not the entities'), as
     // the renderer asks for the eye's; 0 without a level.
     int32_t worldContents(const Vec3f &point) const;

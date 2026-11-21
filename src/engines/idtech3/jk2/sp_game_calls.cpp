@@ -259,9 +259,18 @@ uint32_t SpGameHost::jediCgameCall(x86::Cpu &c) {
             {x - w / 2 + tx, y - h / 2 + ty, w, h, f(4), f(5), f(6), f(7), int32_t(a(9)), _color, angle});
         return 0;
     }
-    case 64: // R_LAGoggles(): the light amplification goggles' look, until ClearScene
+    case 64: { // R_LAGoggles(): the light amplification goggles' look, until ClearScene
+        // Each call draws its fog's green (jk2sp.exe 0x45fa90) and takes
+        // the last scene's time (refdef_t's, at 72) for its thickness.
         _scene.laGoggles = true;
+        const int32_t r = engineRandom ? engineRandom() : 0;
+        _scene.laGogglesGreen = 0.42f + float(r) * (1.0f / 32767) * 0.025f;
+        int32_t ms = 0;
+        if (_scene.view.size() >= 76)
+            std::memcpy(&ms, _scene.view.data() + 72, 4);
+        _scene.laGogglesTime = float(ms) * 0.001f;
         return 0;
+    }
     case 65: // R_Scissor(x, y, w, h)
         return 0;
     case 74: // SetUserCmdAngles(pitch, yaw, roll): added to the player's view, as a ride's
