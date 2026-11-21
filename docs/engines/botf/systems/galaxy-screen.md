@@ -394,7 +394,18 @@ blend with what's under them.
   at 32 and 0.9% at 220 a turn later, its planets unchanged, as the
   Bandi joined the Federation; there the screen shows 220 for the
   maximum, the save keeping 105. A planet's own rate is shown with the
-  pointer over it: Deneb II 0.1% (60), Bolarus III 0.3% (50).
+  pointer over it: Deneb II 0.1% (60), Bolarus III 0.3% (50). A colony
+  the Federation founded at Xerxes kept 0.2% as its population grew from
+  10 by 1 a turn to 14, and showed 0.2% before it was founded: the rate
+  doesn't follow the population. A system's maximum population is the sum
+  of its terraformed planets' (Xerxes' 50 its small terran planet's alone,
+  Deneb's 105 Deneb II's 60 and its desert planet's 45), which
+  `planspac.bin` holds by type, size and bonuses *(published)*; the rate
+  is presumably its planets' too, through `habit.bin` (by planet type and
+  atmosphere, six figures each, presumably one for each empire and one for
+  the minor races) and `ppgrowth.bin` (ten population ranges, from 10-50
+  to 2000-10000, each with a figure falling from 1,000,000 to 1,250), but
+  no rule tried fits every system yet.
 - Why Sol's name, zoomed in, is a pixel left of where the rule puts it.
 - Whether a click elsewhere closes the zoom's buttons.
 - Larger galaxies: whether the map scrolls zoomed out, and whether the
