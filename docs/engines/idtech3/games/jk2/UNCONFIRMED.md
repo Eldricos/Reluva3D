@@ -4,13 +4,8 @@ What Reluva does that hasn't been checked against the running original.
 
 ## Read from the code, not seen running
 
-- `videoMap` textures play their video as the GPL source describes;
-  none has been seen drawn in a level yet (kejim_post's screens are deep
-  in it) ([shader.md](../../formats/shader.md)).
 - The replacing Ghoul2 angle override (0x4) follows the GPL renderer;
   no 1.02a multiplayer screen shows it ([ghoul2.md](../../formats/ghoul2.md)).
-- The console's typing line's scroll follows the GPL source, not traced
-  in `jk2mp.exe` ([systems/console.md](systems/console.md)).
 - Surface sprites, light styles and the one-shot animMaps are drawn as
   the GPL Jedi Outcast renderer describes them, which isn't 1.02a's own
   code; Yavin's levels look as expected in `reluva-viewer`, but haven't
@@ -26,12 +21,6 @@ What Reluva does that hasn't been checked against the running original.
 - The network protocol's level changes, downloads and long matches, and
   a Reluva server's heartbeats to a real master, haven't been tried
   against the retail game ([systems/network.md](systems/network.md)).
-- Single player's menus place text, draw
-  multi values and sliders, scroll and double-click list boxes as Team
-  Arena's menu code does, not traced in `jk2sp.exe`; the logo's model hasn't been seen drawn (no display here); drawn from the game's own menus they look right, but
-  haven't been compared pixel by pixel with the original's screens
-  ([systems/sp-menus.md](systems/sp-menus.md)).
-
 - The weather (rain, snow, winds, misty fog) is drawn as `jk2sp.exe`'s
   and `jk2mp.exe`'s code says, but hasn't been compared with either
   running: no shipped multiplayer level has the "outside" brushes `r_we`
@@ -40,6 +29,13 @@ What Reluva does that hasn't been checked against the running original.
 
 ## Seen running, not traced in the code
 
+- Single player's menus place text, draw multi values and sliders, scroll
+  and double-click list boxes as Team Arena's menu code does, not traced
+  in `jk2sp.exe`; side by side with the original's screenshots (below)
+  they match ([systems/sp-menus.md](systems/sp-menus.md)).
+- The console's typing line scrolls as the GPL source's does, not traced
+  in `jk2mp.exe` (its width is, 0x40c366); single player's matched the
+  original's screenshot ([systems/console.md](systems/console.md)).
 - Side by side with the retail game's screenshots (November 2026, 800 x
   600, windowed): the main menu, Setup's Player and Video pages, Join
   Server, Create Server and Controls; the HUD, the scoreboard (a long
@@ -81,11 +77,6 @@ What Reluva does that hasn't been checked against the running original.
 
 ## Inferred
 
-- The level's fog (`yavin_canyon`, `yavin_swamp`: a fog with no brush,
-  named by the worldspawn's `fog` key) covers everything, fogged by
-  distance from the eye, as a fog volume the eye is inside
-  ([rbsp.md](../../formats/rbsp.md)). To compare with the original's
-  pictures of those levels.
 - A save is refused while a cinematic outside the game plays, as the
   client isn't in the level then; the original's check reads only the
   in-game cinematic's flag and the client's state
@@ -102,6 +93,13 @@ Nothing at present.
 
 ## Settled
 
+- `videoMap` textures play their video: kejim_post's Mon Mothma
+  hologram (`textures/video/mon_mothma`) matched the original's
+  screenshots ([shader.md](../../formats/shader.md)).
+- The level's fog (`yavin_canyon`, `yavin_swamp`) covers everything,
+  fogged by distance from the eye: six places compared with the
+  original's screenshots matched once frames cleared to its colour
+  ([rbsp.md](../../formats/rbsp.md)).
 - Single player plays a level's music from its start. A recording of
   the retail game (November 2026: a new game, kejim_post) matched
   against the level's tracks: `impbaseb_explore` plays in step with it
