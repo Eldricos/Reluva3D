@@ -9,11 +9,13 @@
 #include "common/system.h"
 #include "engines/stawayteam/formats/text_object.h"
 #include "engines/stawayteam/game/map.h"
+#include "engines/stawayteam/game/objectives.h"
 #include "engines/stawayteam/game/options.h"
 #include "engines/stawayteam/game/team.h"
 #include "engines/stawayteam/ui/animation.h"
 #include "engines/stawayteam/ui/font.h"
 #include "engines/stawayteam/ui/game_hud.h"
+#include "engines/stawayteam/ui/objectives_window.h"
 
 #include <array>
 #include <cstdint>
@@ -34,8 +36,11 @@ class ConfirmDialog;
  */
 class MapScreen {
 public:
-    /** What the player chose that leaves the screen. */
-    enum class Choice { kNone, kExit };
+    /**
+     * What the player chose that leaves the screen: the main menu, or, as
+     * the mission's over, the next mission or this one again.
+     */
+    enum class Choice { kNone, kExit, kContinue, kRestart };
 
     /**
      * `map` shown with `rules`' view, `team` on it at its spawn points,
@@ -177,6 +182,24 @@ public:
     void makeNoise(float x, float y, float radius, float age);
     /** The noise a footstep of officer `officer` makes, as Rules.txt and their Stealth make it. */
     float footstepNoise(const Officer &o, const Animation::Noise &step) const;
+    /**
+     * The mission's objectives, those it starts with first, and its Win
+     * Action (docs/engines/stawayteam/systems/objectives.md).
+     */
+    void setObjectives(MissionObjectives objectives);
+    const std::vector<Objective> &objectives() const { return _objectives; }
+    /** An objective's words, as the lists show them: its line, with its count. */
+    std::string objectiveText(const Objective &o) const;
+    /** The mission the triggers have said comes next ("Mission 02/Mission 02"); empty if none. */
+    const std::string &nextMission() const { return _nextMission; }
+    /** Whether the mission's over, and how: the end game window's showing. */
+    bool missionOver() const { return _endGame != nullptr; }
+    bool missionCompleted() const { return _completed; }
+    /** The words the mission ended with. */
+    const std::string &missionOverText() const { return _missionOverText; }
+    /** Whether the objectives window is open. */
+    bool objectivesShown() const { return _objectivesWindow != nullptr; }
+
     /** Whether the team's noises are shown (the sound button). */
     bool listening() const { return _listening; }
     void setListening(bool on) { _listening = on; }
@@ -234,6 +257,14 @@ private:
     bool shown(size_t part) const;
     void showDialog(const std::string &script, const std::string &line, const std::string &speaker);
     void drawDialog(Surface &screen);
+    // The mission's objectives and its end (map_mission.cpp).
+    bool runMissionAction(const TextObject *action, int instigator);
+    void setObjectiveStatus(size_t objective, ObjectiveStatus status);
+    void addObjective(Objective o, int instigator);
+    void officerFell(size_t officer);
+    void runSpawnActions();
+    void endMission(bool completed, const std::string &script, const std::string &line);
+    std::vector<ObjectiveLine> objectiveLines() const;
     // The team's noises: ageing, and their rings shown (map_noise.cpp).
     void updateNoises(float seconds);
     void drawNoises(Surface &view, int left, int top) const;
@@ -350,6 +381,14 @@ private:
         float time = 0.0f; // seconds shown
     };
     std::vector<Flash> _flashes;
+    std::vector<Objective> _objectives;
+    MissionObjectives _mission; // keeps its actions alive
+    bool _won = false;
+    bool _completed = false;
+    std::string _nextMission;
+    std::string _missionOverText;
+    std::unique_ptr<EndGameWindow> _endGame;
+    std::unique_ptr<ObjectivesWindow> _objectivesWindow;
     std::vector<Noise> _noises; // the newest first
     bool _listening = false;
 };

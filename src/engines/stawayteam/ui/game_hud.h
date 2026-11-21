@@ -33,6 +33,7 @@ public:
         bool cycleMove = false;   // the move button pressed: walk, run, crouch
         bool selectAll = false;   // the select-all button pressed
         bool toggleSound = false; // the sound button pressed: the team's noises shown or not
+        bool objectives = false;  // the objectives button pressed
         float cameraX = 0.0f;     // where, for moveCamera: the view's middle on the map
         float cameraY = 0.0f;
     };

@@ -157,6 +157,7 @@ Error loadMap(const Archive &data, const std::string &path, GameMap &out) {
             if (part.overlay == "!Unknown Model")
                 part.overlay.clear();
             part.renderType = text(o, "Render Type");
+            part.destroyedAction = o.object("Destroyed Action");
             part.texture = text(o, "Static Texture");
             part.onGround = o.integer("On Ground").value_or(0) != 0;
             out.parts.push_back(std::move(part));

@@ -134,6 +134,12 @@ GameHud::Result GameHud::handleEvent(const Event &ev, uint64_t now) {
         const image::Image &sound = picture("Button Box/Sound Default");
         r.toggleSound = ev.mouseX >= bx + ox && ev.mouseY >= by + oy && ev.mouseX < bx + ox + sound.w &&
                         ev.mouseY < by + oy + sound.h;
+        int jx = 0;
+        int jy = 0;
+        readPoint(_custom, "Objectives Button", jx, jy);
+        const image::Image &objectives = picture("Button Box/Objectives Button Default");
+        r.objectives = ev.mouseX >= bx + jx && ev.mouseY >= by + jy && ev.mouseX < bx + jx + objectives.w &&
+                       ev.mouseY < by + jy + objectives.h;
     }
     if (overTeam) {
         // An officer's slot chooses them (inferred).

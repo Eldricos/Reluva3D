@@ -175,6 +175,7 @@ MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, 
     setupTriggers();
     setupEnemies();
     setupCombat();
+    runSpawnActions();
 
     // The map's camera scripts play as it starts. The team's spawn points
     // hide them (their CSpawnPointAI's CMakeVisibleAction): one of the
@@ -532,6 +533,9 @@ void MapScreen::playScripts(float seconds) {
 void MapScreen::update(uint64_t now) {
     const float seconds = float(now - std::min(now, _last)) / 1000.0f;
     _last = now;
+    // The windows over the map hold the game still (inferred).
+    if (_endGame || _objectivesWindow)
+        return;
     playScripts(seconds);
     _warpLeft = std::max(0.0f, _warpLeft - seconds);
     if (!_dialogText.empty()) {
@@ -589,6 +593,23 @@ void MapScreen::drawOfficer(Surface &view, const Officer &o, int left, int top, 
 }
 
 MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, uint64_t now) {
+    if (_endGame) {
+        switch (_endGame->handleEvent(ev, mixer)) {
+        case EndGameWindow::Choice::kContinue:
+            return Choice::kContinue;
+        case EndGameWindow::Choice::kRestart:
+            return Choice::kRestart;
+        case EndGameWindow::Choice::kEndGame:
+            return Choice::kExit;
+        default:
+            return Choice::kNone;
+        }
+    }
+    if (_objectivesWindow) {
+        if (_objectivesWindow->handleEvent(ev, mixer))
+            _objectivesWindow.reset();
+        return Choice::kNone;
+    }
     if (_confirm) {
         const std::optional<bool> answer = _confirm->handleEvent(ev, mixer);
         if (answer && *answer)
@@ -618,6 +639,8 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
         chooseAll();
     if (hud.toggleSound)
         _listening = !_listening;
+    if (hud.objectives)
+        _objectivesWindow = std::make_unique<ObjectivesWindow>(_data, _rules, 640, 480);
     // On the map, the left button: a click on an officer chooses them
     // (Shift: adds or takes them away), a box dragged chooses those in it,
     // a click on an enemy sends them to shoot it, a click elsewhere sends
@@ -678,6 +701,11 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
             setMove(2);
         if (down && bound("Select Entire Team") && playing)
             chooseAll();
+        // Display Objectives presses the objectives button (0x476c90).
+        if (down && bound("Display Objectives") && playing) {
+            _objectivesWindow = std::make_unique<ObjectivesWindow>(_data, _rules, 640, 480);
+            return Choice::kNone;
+        }
         // Toggle Sound Cones presses the sound button (0x476c3f).
         if (down && bound("Toggle Sound Cones"))
             _listening = !_listening;
@@ -854,6 +882,10 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         }
     }
     drawDialog(screen);
+    if (_objectivesWindow)
+        _objectivesWindow->draw(screen, objectiveLines());
+    if (_endGame)
+        _endGame->draw(screen, objectiveLines());
     if (_confirm)
         _confirm->draw(screen);
 }

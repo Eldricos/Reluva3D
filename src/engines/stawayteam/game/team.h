@@ -5,8 +5,10 @@
 
 #include "common/archive.h"
 #include "common/types.h"
+#include "engines/stawayteam/formats/text_object.h"
 
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -86,6 +88,7 @@ struct Mission {
     bool loopMovie = false;
     std::string briefingMusic; // of Music/
     std::vector<BriefingLine> briefing;
+    std::shared_ptr<const TextObject> objectives; // its CMissionObjectiveManager, if it has one
 };
 
 /**

@@ -92,9 +92,12 @@ private:
     // A new game: the first mission's briefing and team selection, those
     // it has.
     void startGame();
+    // Mission `number`, from its briefing, its team selection or its map,
+    // the first of those it has.
+    void beginMission(int number);
     void showTeamSelection();
-    // The mission's map (its first, for now: the rest of the mission isn't
-    // there yet).
+    // The mission's map (its first, for now: its other maps aren't there
+    // yet).
     void startMission(std::vector<TeamMember> team);
     std::vector<TeamMember> startingTeam() const;
 
@@ -120,6 +123,7 @@ private:
     std::unique_ptr<BriefingScreen> _briefing; // over the team selection, when it's from there
     std::unique_ptr<MapScreen> _mapScreen;
     Mission _mission;
+    std::vector<TeamMember> _missionTeam; // the team it started with, for a restart
     Difficulty _difficulty = Difficulty::kNormal;
     int _firstMission;
 };

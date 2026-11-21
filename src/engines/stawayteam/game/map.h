@@ -44,6 +44,7 @@ struct MapPart {
     bool collideable = true;
     bool fullHeight = true;                       // tall enough to hide what's behind it (inferred)
     std::vector<std::string> inventory;           // its items' definitions (Inventory's Definition Index)
+    const TextObject *destroyedAction = nullptr;  // run as it's killed
     std::vector<std::pair<float, float>> polygon; // its corners, the last the first again
     std::string renderType;                       // a polygon's: "Textured", "Black", "Shadow", "Warped"...
     std::string texture;                          // a textured polygon's, of Cache/Textures

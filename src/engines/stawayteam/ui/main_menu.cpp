@@ -192,8 +192,21 @@ bool MainMenu::run() {
                 continue;
             }
             if (_mapScreen) {
-                if (_mapScreen->handleEvent(ev, _mixer, _sys.getMillis()) != MapScreen::Choice::kNone)
+                const MapScreen::Choice choice = _mapScreen->handleEvent(ev, _mixer, _sys.getMillis());
+                if (choice == MapScreen::Choice::kRestart) {
+                    startMission(_missionTeam);
+                } else if (choice == MapScreen::Choice::kContinue) {
+                    // The mission the triggers named next ("Mission 02/Mission
+                    // 02"), from its briefing; without one, the main menu
+                    // (inferred). The debriefing isn't there yet.
+                    int next = 0;
+                    const std::string name = _mapScreen->nextMission();
                     _mapScreen.reset();
+                    if (std::sscanf(name.c_str(), "Mission %d", &next) == 1)
+                        beginMission(next);
+                } else if (choice != MapScreen::Choice::kNone) {
+                    _mapScreen.reset();
+                }
                 continue;
             }
             if (_briefing) {
@@ -295,8 +308,12 @@ bool MainMenu::run() {
 }
 
 void MainMenu::startGame() {
-    if (Error err = loadMission(_data, _firstMission, _mission)) {
-        log::warning("Mission %d: %s", _firstMission, err.message.c_str());
+    beginMission(_firstMission);
+}
+
+void MainMenu::beginMission(int number) {
+    if (Error err = loadMission(_data, number, _mission)) {
+        log::warning("Mission %d: %s", number, err.message.c_str());
         return;
     }
     if (_mission.showBriefing)
@@ -304,6 +321,8 @@ void MainMenu::startGame() {
             std::make_unique<BriefingScreen>(_data, _install, _rules, _mission, _options, _mixer, _sys.getMillis());
     else if (_mission.showTeamSelection)
         showTeamSelection();
+    else
+        startMission(startingTeam());
 }
 
 std::vector<TeamMember> MainMenu::startingTeam() const {
@@ -320,6 +339,7 @@ std::vector<TeamMember> MainMenu::startingTeam() const {
 }
 
 void MainMenu::startMission(std::vector<TeamMember> team) {
+    _missionTeam = team;
     char folder[32];
     std::snprintf(folder, sizeof folder, "Mission %02d", _mission.number);
     const std::string base = std::string("Levels/") + folder + "/" + _mission.mapName;
@@ -335,6 +355,7 @@ void MainMenu::startMission(std::vector<TeamMember> team) {
         log::warning("Mission %d's waypoints: %s", _mission.number, err.message.c_str());
     _mapScreen = std::make_unique<MapScreen>(_data, _rules, std::move(map), _options, _sys.getMillis(), std::move(team),
                                              std::move(wayPoints), _mixer);
+    _mapScreen->setObjectives(readMissionObjectives(_mission.objectives));
 }
 
 void MainMenu::showTeamSelection() {

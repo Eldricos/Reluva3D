@@ -48,6 +48,11 @@ None yet.
   click on an enemy to attack it; noise: going to look, walls not
   stopping it, and the rings' look
   ([systems/maps.md](systems/maps.md#open-questions)).
+- **Objectives:** when the Win Action runs, counts adding up to complete,
+  the spawn points' actions run as the map starts, protect objectives
+  failing as their officer falls, the windows' places and the game held
+  still under them, and CONTINUE going to the next mission's briefing
+  ([systems/objectives.md](systems/objectives.md#open-questions)).
 - **The briefing:** the voice-overs found by name under `Levels/Voice
   Overs`, the briefing music played over and over and the menu's song
   stopped meanwhile, and text broken at its line breaks

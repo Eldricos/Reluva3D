@@ -190,6 +190,9 @@ Error loadMission(const Archive &data, int number, Mission &out) {
                 out.briefing.push_back({text(*item->object, "Script"), text(*item->object, "Text"),
                                         text(*item->object, "Who is speaking"),
                                         int(item->object->integer("Frame to start").value_or(-1))});
+    for (TextField &f : mds.fields)
+        if (f.key == "Objective" && f.object)
+            out.objectives = std::shared_ptr<const TextObject>(std::move(f.object));
     return Error::success();
 }
 

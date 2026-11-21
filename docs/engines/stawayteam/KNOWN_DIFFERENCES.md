@@ -44,9 +44,13 @@ None yet.
   and shoot, and go to look at the team's noise, but don't yet pursue
   round walls or retreat; footsteps make no sound; shots show their
   flashes but no beam, always hit, and grenades and mines can't be used;
-  the interface's buttons but the move, select-all and sound buttons do
-  nothing yet
+  the interface's buttons but the move, select-all, sound and objectives
+  buttons do nothing yet
   ([systems/maps.md](systems/maps.md#in-reluva)).
+- **Objectives:** there's no debriefing between missions, no score, and
+  LOAD GAME is greyed out; rescue and need-item objectives are only done
+  as the triggers say; only a mission's first map is played
+  ([systems/objectives.md](systems/objectives.md#in-reluva)).
 - **The briefing:** the items found in earlier missions aren't
   described after the lines, the text has no scroll bar (the mouse wheel
   scrolls it), the random numbers aren't there, and EXIT doesn't fade out

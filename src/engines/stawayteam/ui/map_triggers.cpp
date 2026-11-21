@@ -187,7 +187,7 @@ void MapScreen::updateTriggers(float seconds) {
 }
 
 void MapScreen::runAction(const TextObject *action, int instigator) {
-    if (!action)
+    if (!action || runMissionAction(action, instigator))
         return;
     const std::string &kind = action->className;
     const auto targets = [&](const char *key) {

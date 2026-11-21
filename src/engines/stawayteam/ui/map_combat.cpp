@@ -193,6 +193,7 @@ void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attack
         e.dead = 0.0f;
         e.state = "Dead";
         e.target = -1;
+        runAction(_map.parts[e.part].destroyedAction, attacker);
         return;
     }
     // One that's Target If Hit turns on whoever hit it, and attacks.
@@ -213,7 +214,8 @@ void MapScreen::hurtOfficer(size_t officer, const ItemDefinition &weapon) {
     o.health = std::max(0.0f, o.health - weapon.weaponDamage);
     if (o.health > 0.0f)
         return;
-    // Fallen: out of the player's hands.
+    // Fallen: out of the player's hands, and failing whatever objective
+    // protects them.
     o.dead = 0.0f;
     o.path.clear();
     o.attacking = -1;
@@ -224,6 +226,7 @@ void MapScreen::hurtOfficer(size_t officer, const ItemDefinition &weapon) {
             if (_officers[i].chosen)
                 _selected = int(i);
     }
+    officerFell(officer);
 }
 
 void MapScreen::updateCombat(float seconds) {

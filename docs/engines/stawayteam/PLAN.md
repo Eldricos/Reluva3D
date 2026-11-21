@@ -67,8 +67,9 @@ Each phase ends with something that runs and is committed.
    `Screen Size=565,423` in `Rules.txt`).
 7. **Maps** (under way, [systems/maps.md](systems/maps.md): a map's
    ground, polygons and models drawn and scrolled, the interface around
-   it, the team walking by the waypoints, the triggers, the enemies, and
-   fighting): a `.zax` level drawn (layers, placed models, textures,
+   it, the team walking by the waypoints, the triggers, the enemies,
+   fighting, noise; the objectives and a mission's end,
+   [systems/objectives.md](systems/objectives.md)): a `.zax` level drawn (layers, placed models, textures,
    water warp effects, minimap), scrolled with the camera bounds, with
    its `.way` file (binary, 33 of them, likely the walk grid and
    waypoints) worked out for movement. First target: Mission 01, Klingon

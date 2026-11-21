@@ -333,11 +333,22 @@ void testCombat() {
         "\t\t\tInventory=CInventory\n\t\t\t{\n\t\t\t\tInventory List=Array\n\t\t\t\t{\n"
         "\t\t\t\t\tItem Count=1\n\t\t\t\t\tItem=CStarTrekEnergyWeaponInventoryItem\n\t\t\t\t\t{\n"
         "\t\t\t\t\t\tDefinition Index=Enemy Weapons/Disruptor\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n"
-        "\t\t\tModel=Characters/Guard\n\t\t\tPosition X=500\n\t\t\tPosition Y=500\n\t\t\tFacing Angle=0\n\t\t}\n"
+        "\t\t\tModel=Characters/Guard\n\t\t\tPosition X=500\n\t\t\tPosition Y=500\n\t\t\tFacing Angle=0\n"
+        "\t\t\tDestroyed Action=CActivateAction\n\t\t\t{\n\t\t\t\tTarget Name=Trophy\n\t\t\t}\n\t\t}\n"
         "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Wall\n\t\t\tVisible=1\n\t\t\tActive=1\n"
         "\t\t\tModel=Walls/Wall\n\t\t\tPosition X=400\n\t\t\tPosition Y=500\n\t\t}\n"
         "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 1\n\t\t\tVisible=1\n"
+        "\t\t\tActivity=Array\n\t\t\t{\n\t\t\t\tItem Count=1\n\t\t\t\tActivity=CSpawnPointAI\n\t\t\t\t{\n"
+        "\t\t\t\t\tSpawn Action=CAddMissionObjectiveAction\n\t\t\t\t\t{\n"
+        "\t\t\t\t\t\tObjective=CProtectMissionObjective\n\t\t\t\t\t\t{\n"
+        "\t\t\t\t\t\t\tObjective Name=Protect\n\t\t\t\t\t\t\tMission Status=Incomplete\n"
+        "\t\t\t\t\t\t\tDisplay Status=Hidden\n\t\t\t\t\t\t\tWhoToProtect=$instigator\n"
+        "\t\t\t\t\t\t\tFail Action=CActivateAction\n\t\t\t\t\t\t\t{\n"
+        "\t\t\t\t\t\t\t\tTarget Name=Flag\n\t\t\t\t\t\t\t}\n"
+        "\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n"
         "\t\t\tPosition X=300\n\t\t\tPosition Y=500\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Flag\n\t\t\tVisible=0\n\t\t\tActive=0\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Trophy\n\t\t\tVisible=0\n\t\t\tActive=0\n\t\t}\n"
         "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 2\n\t\t\tVisible=1\n"
         "\t\t\tPosition X=300\n\t\t\tPosition Y=480\n\t\t}\n"
         "\t}\n}\n";
@@ -393,6 +404,10 @@ void testCombat() {
     CHECK(!screen.officers()[0].alive() && screen.officers()[0].health == 0.0f && !screen.officers()[0].chosen);
     screen.choose(0);
     CHECK(screen.selected() == -1);
+    // Her spawn point's Spawn Action made an objective to protect her: it
+    // has failed, and run its Fail Action.
+    CHECK(screen.objectives().size() == 1 && screen.objectives()[0].officer == 0);
+    CHECK(screen.objectives()[0].status == ObjectiveStatus::kFailed && screen.partState(3).active);
     // With her down it goes back to its patrol; Bo, sent to shoot it,
     // walks towards it till he sees it, and two of his phaser's shots kill
     // it.
@@ -400,7 +415,7 @@ void testCombat() {
     screen.choose(1);
     screen.attack(0);
     run(20000);
-    CHECK(!guard.alive() && guard.state == "Dead" && guard.health == 0.0f);
+    CHECK(!guard.alive() && guard.state == "Dead" && guard.health == 0.0f && screen.partState(4).active);
     CHECK(screen.enemyAt(500.0f, 500.0f) == -1 && screen.officers()[1].attacking == -1);
 }
 
@@ -478,6 +493,73 @@ void testNoise() {
     CHECK(screen.listening());
 }
 
+void testObjectives() {
+    // A mission's objectives: two scientists to rescue, required; a band to
+    // find, hidden and not. Its Win Action ends it.
+    const std::string mds =
+        "CMissionDescription\n{\n\tObjective=CMissionObjectiveManager\n\t{\n\t\tBase Score for Mission=100\n"
+        "\t\tWin Action=CDisplayMissionCompletedScreenAction\n\t\t{\n\t\t\tScript=Mission Ending Messages\n"
+        "\t\t\tMission Over Text=Both Scientists \n\t\t}\n"
+        "\t\tObjectives=Array\n\t\t{\n\t\t\tItem Count=2\n"
+        "\t\t\tObjective=CCountMissionObjective\n\t\t\t{\n\t\t\t\tObjective Name=Rescue Scientists\n"
+        "\t\t\t\tMission Status=Incomplete\n\t\t\t\tDisplay Status=Visible\n"
+        "\t\t\t\tRequired To End Mission=1\n\t\t\t\tObjective Script=Mission Objectives\n"
+        "\t\t\t\tObjective Line=Rescue the two\n\t\t\t\tCount Before Success=2\n"
+        "\t\t\t\tCurrent Count=0\n\t\t\t}\n"
+        "\t\t\tObjective=CStandardMissionObjective\n\t\t\t{\n\t\t\t\tObjective Name=Band\n"
+        "\t\t\t\tMission Status=Incomplete\n\t\t\t\tDisplay Status=Hidden\n"
+        "\t\t\t\tRequired To End Mission=0\n\t\t\t}\n\t\t}\n\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(kMap, kMap + std::string(kMap).size());
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    data.files["Levels/Mission 01/Mission 01.MDS"] = bytesOf(mds);
+    data.files["Levels/Mission Objectives.RDS"] =
+        bytesOf(":Rescue the two\r\nRescue the two scientists. (%d of 2)\r\n");
+    data.files["Levels/Mission Ending Messages.RDS"] =
+        bytesOf(":Both Scientists \r\nBoth scientists have been beamed aboard.\r\n");
+    Mission mission;
+    CHECK(!loadMission(data, 1, mission) && mission.objectives);
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=64,64\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    MapScreen screen(data, rules, map, options, 0, {ann});
+    screen.setObjectives(readMissionObjectives(mission.objectives));
+    const auto &objectives = screen.objectives();
+    CHECK(objectives.size() == 2 && objectives[0].required && objectives[0].needed == 2);
+    CHECK(!objectives[1].visible && !objectives[1].required);
+    CHECK(screen.objectiveText(objectives[0]) == "Rescue the two scientists. (0 of 2)");
+    // Each count adds one; at two it's complete, and with the only
+    // required one complete, the Win Action ends the mission.
+    TextObject count;
+    CHECK(!readTextObject("CSetMissionObjectiveCountAction\n{\n\tObjective Name=Rescue Scientists\n"
+                          "\tCount=1\n}\n",
+                          count));
+    screen.runAction(&count);
+    CHECK(objectives[0].count == 1 && objectives[0].status == ObjectiveStatus::kIncomplete && !screen.missionOver());
+    CHECK(screen.objectiveText(objectives[0]) == "Rescue the two scientists. (1 of 2)");
+    TextObject next;
+    CHECK(!readTextObject("CSetNextMissionAction\n{\n\tNext Mission=Mission 02/Mission 02\n}\n", next));
+    screen.runAction(&next);
+    screen.runAction(&count);
+    CHECK(objectives[0].status == ObjectiveStatus::kComplete && screen.missionOver() && screen.missionCompleted());
+    CHECK(screen.missionOverText() == "Both scientists have been beamed aboard.");
+    CHECK(screen.nextMission() == "Mission 02/Mission 02");
+    // The game's held still meanwhile; Esc doesn't leave it.
+    Surface surface;
+    surface.create(640, 480, PixelFormat::kRGBA32);
+    screen.draw(surface, 100);
+    Event esc;
+    esc.type = EventType::kKeyDown;
+    esc.key = key::kEscape;
+    CHECK(screen.handleEvent(esc, nullptr, 200) == MapScreen::Choice::kNone && screen.missionOver());
+}
+
 void testChoosing() {
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(kMap, kMap + std::string(kMap).size());
@@ -528,4 +610,5 @@ static const reluva::test::Suite kSuite("stawayteam.unit.maps",
                                             {"choosing", [](const std::filesystem::path &) { testChoosing(); }},
                                             {"combat", [](const std::filesystem::path &) { testCombat(); }},
                                             {"noise", [](const std::filesystem::path &) { testNoise(); }},
+                                            {"objectives", [](const std::filesystem::path &) { testObjectives(); }},
                                         });
