@@ -43,6 +43,11 @@ public:
     void stop();
     /** Pauses (the sound stopped) or goes on from the frame shown. */
     void pause(bool paused, uint64_t nowMs);
+    /**
+     * Goes on from frame `frame` at `nowMs`, those before it decoded at
+     * once and the sound from its time; nothing if it's there already.
+     */
+    void skipTo(size_t frame, uint64_t nowMs);
     /** Whether it's paused. */
     bool paused() const { return _paused; }
 

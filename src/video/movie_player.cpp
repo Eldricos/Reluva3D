@@ -72,6 +72,26 @@ void MoviePlayer::pause(bool paused, uint64_t nowMs) {
     }
 }
 
+void MoviePlayer::skipTo(size_t frame, uint64_t nowMs) {
+    if (!_movie || frame <= _next)
+        return;
+    frame = std::min(frame, size_t(_movie->frameCount()));
+    while (_next < frame) {
+        bool more = false;
+        if (Error e = _movie->nextFrame(more))
+            _error = "frame " + std::to_string(_next) + ": " + e.message;
+        _next++;
+    }
+    _movie->toRgba(_frame.rgba, bink::Movie::Rgb::kBinkw32);
+    _frame.w = _movie->width();
+    _frame.h = _movie->height();
+    _startMs = nowMs - std::min(nowMs, uint64_t(seconds() * 1000.0));
+    if (!_paused) {
+        stop();
+        playSound(seconds());
+    }
+}
+
 double MoviePlayer::seconds() const {
     return fps() > 0 ? double(_next) / fps() : 0;
 }
