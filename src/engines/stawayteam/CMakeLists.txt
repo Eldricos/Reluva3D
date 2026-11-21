@@ -6,13 +6,16 @@
 reluva_add_engine(stawayteam
     ACCESSOR stawayteamMetaEngine
     SOURCES
-        stawayteam.cpp)
+        stawayteam.cpp
+        formats/rds_script.cpp
+        formats/text_object.cpp)
 
 # Its reluva-tool commands (reluva-tool help stawayteam lists them).
 reluva_add_engine_tools(stawayteam
     SOURCES
         tools/archive.cpp
-        tools/files.cpp)
+        tools/files.cpp
+        tools/text.cpp)
 
 # Its tests (tests/engines/stawayteam/), in reluva-tests: the unit tests by
 # topic, and the engine test, without game files (its record in
@@ -21,9 +24,10 @@ set(tests ${PROJECT_SOURCE_DIR}/tests/engines/stawayteam)
 reluva_add_engine_tests(stawayteam
     SOURCES
         ${tests}/unit/detection.cpp
+        ${tests}/unit/formats.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection engine)
+        unit.detection unit.formats engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

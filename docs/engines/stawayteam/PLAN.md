@@ -25,13 +25,15 @@ Each phase ends with something that runs and is committed.
    end-of-central-directory record is signed `RE\5\6`, not `PK\5\6`.
    `src/common/zip.cpp` takes that signature, as the game's own reader
    does; `reluva-tool stawayteam data-list` and `data-extract` read it.
-3. **The object text format** (next): most data (`Rules.txt`, `.zax` maps,
+3. **The object text format** (done,
+   [formats/text-object.md](formats/text-object.md),
+   [formats/rds.md](formats/rds.md)): most data (`Rules.txt`, `.zax` maps,
    `.MDS` missions, `.STY`, roster, items, damage and death types) is a
    tree of `ClassName { Key=Value ... }` blocks with `Array`s. One reader
    for all of them, a page `formats/object-text.md`, and a check that it
    reads every such file in the archive. `.RDS` (`:Label` then text, with
    `$trigger` and `{Inventory ...}` substitutions) gets its own reader.
-4. **Pictures and the data viewer**: `.pal` (768 bytes, 8-bit), and the
+4. **Pictures and the data viewer** (next): `.pal` (768 bytes, 8-bit), and the
    16-bit sprite formats `.frm16` (single frames, run-length coded),
    `.seq16` (animated textures) and `.mdl16` (models: named animations,
    directions, frames, sounds; 3,738 of them, 130 MB). Their layouts from

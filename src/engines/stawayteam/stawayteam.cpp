@@ -3,12 +3,13 @@
 
 // Star Trek: Away Team: the engine's MetaEngine (its name, the releases it
 // recognises, making an Engine to run one) and its Engine, which so far
-// opens the game's archive and shows an empty screen.
+// reads the game's rules and shows an empty screen.
 
 #include "engines/engine.h"
 
 #include "common/fs.h"
 #include "common/zip.h"
+#include "engines/stawayteam/formats/text_object.h"
 
 #include <system_error>
 
@@ -58,8 +59,8 @@ std::optional<std::filesystem::path> findGameFolder(const std::filesystem::path 
 }
 
 /**
- * The game running: for now its archive opened, then an empty screen until
- * the player quits.
+ * The game running: for now its archive opened and its rules read, then an
+ * empty screen until the player quits.
  */
 class StawayteamEngine : public Engine {
 public:
@@ -71,6 +72,13 @@ public:
             return Error::fail("No DATA.dat in " + _target.path.string());
         if (Error err = _data.open(*data))
             return err;
+        if (!_data.has("Rules.txt"))
+            return Error::fail("DATA.dat has no Rules.txt");
+        std::vector<uint8_t> rules;
+        if (Error err = _data.read("Rules.txt", rules))
+            return Error::fail("DATA.dat: Rules.txt: " + err.message);
+        if (Error err = readTextObject(std::string(rules.begin(), rules.end()), _rules))
+            return Error::fail("DATA.dat: Rules.txt: " + err.message);
         if (Error err = _sys.initGraphics(kWidth, kHeight, PixelFormat::kCLUT8))
             return err;
         _sys.setWindowTitle(("Reluva - " + _target.description).c_str());
@@ -93,7 +101,8 @@ private:
     static constexpr int kHeight = 480;
     System &_sys;
     GameTarget _target;
-    ZipArchive _data; // DATA.dat: nearly all the game's files
+    ZipArchive _data;  // DATA.dat: nearly all the game's files
+    TextObject _rules; // Rules.txt: the first map, the menus, the screen's layout
 };
 
 /**

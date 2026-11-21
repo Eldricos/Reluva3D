@@ -36,6 +36,12 @@ extended. The facts themselves are on their pages, each with its source.
   end of central directory record isn't signed as ZIP's is; then the
   executable searched for both signatures as 32-bit constants, which led
   to its reader's check; then every file read with Reluva's reader.
+- **Objects in text and scripts:** every text file in `DATA.dat`
+  surveyed with scripts (the kinds of line, arrays and their counts,
+  keys more than once, spaces at lines' ends), then the executable's
+  reader found through its `{`, `}` and `=` strings and disassembled;
+  Reluva's readers checked by writing every object back and comparing it
+  with its file.
 
 ## The tools
 
@@ -47,6 +53,8 @@ extended. The facts themselves are on their pages, each with its source.
 | `reluva-tool stawayteam files` | Lists the game's folder |
 | `reluva-tool stawayteam data-list` | Lists `DATA.dat`'s files and their sizes |
 | `reluva-tool stawayteam data-extract` | Writes out `DATA.dat`'s files, checking their CRC-32s |
+| `reluva-tool stawayteam data-check` | Reads every object and script in `DATA.dat`, writing each object back to compare |
+| `reluva-tool stawayteam text-show` | Shows one object's fields or one script's entries as Reluva reads them |
 
 ## Working files not included
 

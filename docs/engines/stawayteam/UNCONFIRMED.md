@@ -15,6 +15,14 @@ None yet.
 
 ## Inferred
 
+- **Which fields are objects.** The game knows it from each class's
+  properties; Reluva takes a field for an object when a `{` line follows
+  it. The same on all of the game's files, but a file edited by hand
+  could tell them apart
+  ([formats/text-object.md](formats/text-object.md#behaviour)).
+- **The `.RDS` scripts' rules** where the files don't show them (text
+  before a label, a label twice): the game's reader isn't traced
+  ([formats/rds.md](formats/rds.md#open-questions)).
 - **The length of a few sounds.** For 5 of 27 sampled sounds, libvorbis
   1.3.7 gives 128 samples (6 ms) more at the end than FFmpeg does
   ([research/file-survey.md](research/file-survey.md#sound)). Reluva

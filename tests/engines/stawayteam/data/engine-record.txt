@@ -1,3 +1,9 @@
 # The record of stawayteam.engine (tests/engines/stawayteam/engine.cpp).
 # Written by `reluva-tests stawayteam.engine --update`; review its diff before committing.
-detect.games: 0
+detect.empty: 0
+detect.games: 1
+detect.description: Star Trek: Away Team (unknown release)
+play.result: ok
+play.frames: 2
+play.bad rules: DATA.dat: Rules.txt: the text ends inside CStarTrekRules
+play.no rules: DATA.dat has no Rules.txt

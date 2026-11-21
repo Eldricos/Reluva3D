@@ -12,14 +12,19 @@ files):
 |---|---|
 | `stawayteam.unit.detection` | Recognising the game: an empty folder and the program alone aren't the game; its two files, whatever they hold, are an unknown release. Importing it: from a CD's `Setup` folder, the files Reluva uses and the movies in their folders, and not the rest; from an install without movies, with a note |
 
+| `stawayteam.unit.formats` | Objects in text (arrays with and without counts, keys more than once, spaces at values' ends, LF and CRLF, written back as they were, text that isn't an object) and `.RDS` scripts (comments, labels with spaces, paragraphs) |
+
 Reading `DATA.dat` is the common ZIP reader's, tested in
 `common.unit.archives`, with an end record signed as the game signs it.
 
 ### The basic engine test
 
 `stawayteam.engine` (`tests/engines/stawayteam/engine.cpp`), without the
-game's files: a small install of its own, taken through what playing
-does, against its record (`data/engine-record.txt`).
+game's files: a small install of its own (the program, and a `DATA.dat`
+signed as the game's with a `Rules.txt`), found as an unknown release,
+started and closed; then with rules that aren't an object, and with
+none, each saying what's wrong. Against its record
+(`data/engine-record.txt`).
 
 ### The game-files test
 
@@ -31,7 +36,10 @@ Not yet.
 
 That the real release is recognised: its signatures need the real
 files, which the tests never hold. That the real `DATA.dat` is read
-whole: `reluva-tool stawayteam data-extract` on it.
+whole: `reluva-tool stawayteam data-extract` on it; and its objects and
+scripts: `reluva-tool stawayteam data-check`, which should find 753
+objects, all written back the same, 48 scripts with 1,378 entries, the
+11 other text files, and no problems.
 
 ## A playthrough by hand
 
@@ -44,4 +52,4 @@ whole: `reluva-tool stawayteam data-extract` on it.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
-| November 2026 | US English retail | Linux | Detection of the install (`reluva-tool detect`); the import's plan (`reluva-tool import`) from the install, and from a CD's layout made of its files; all 6,949 files of `DATA.dat` read, their CRC-32s matching |
+| November 2026 | US English retail | Linux | Detection of the install (`reluva-tool detect`); the import's plan (`reluva-tool import`) from the install, and from a CD's layout made of its files; all 6,949 files of `DATA.dat` read, their CRC-32s matching; `data-check`: all 753 objects and 48 scripts read |
