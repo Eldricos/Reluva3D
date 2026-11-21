@@ -811,7 +811,45 @@ static void testRetainedMode() {
     cpu.fpu.top = 0;
     call(cpu.read32(out), 14, {}); // GetPower
     CHECK(near(float(cpu.fpuPop()), 8));
-    CHECK(rm.objectsMade() == 6);
+
+    // A texture on the surface, and a mesh: a group of two triangles, its
+    // vertices, its box, the group read back; a clone, apart from it.
+    CHECK(call(rm2, 18, {surface, out}) == 0); // CreateTextureFromSurface
+    const uint32_t texture = cpu.read32(out);
+    CHECK(call(texture, 6, {77}) == 0 && call(texture, 7, {}) == 77); // SetAppData, GetAppData
+    CHECK(call(rm2, 5, {out}) == 0);                                  // CreateMesh
+    const uint32_t mesh = cpu.read32(out);
+    const uint32_t faces = mem(4 * 8);
+    const uint32_t faceData[8] = {3, 0, 1, 2, 3, 1, 3, 2}; // each face's count, then its vertices
+    for (uint32_t i = 0; i < 8; ++i)
+        cpu.write32(faces + 4 * i, faceData[i]);
+    CHECK(call(mesh, 14, {4, 2, 0, faces, out}) == 0 && cpu.read32(out) == 0); // AddGroup
+    const uint32_t vertices = mem(36 * 4);
+    std::memset(cpu.memory().data() + vertices, 0, 36 * 4);
+    for (uint32_t i = 0; i < 4; ++i) {
+        cpu.write32(vertices + 36 * i, bits(float(i)));       // x
+        cpu.write32(vertices + 36 * i + 8, bits(-float(i)));  // z
+        cpu.write32(vertices + 36 * i + 32, 0xff000000u | i); // colour
+    }
+    CHECK(call(mesh, 15, {0, 0, 4, vertices}) == 0);                                    // SetVertices
+    CHECK(call(mesh, 15, {0, 3, 2, vertices}) != 0);                                    // past its end
+    CHECK(call(mesh, 21, {0, texture}) == 0);                                           // SetGroupTexture
+    CHECK(call(mesh, 16, {0, 0xff00ff00u}) == 0 && call(mesh, 25, {0}) == 0xff00ff00u); // its colour
+    const uint32_t box = mem(24);
+    CHECK(call(mesh, 13, {box}) == 0 && near(value(box + 8), -3) && near(value(box + 12), 3)); // GetBox
+    const uint32_t counts = mem(16);
+    const uint32_t data = mem(32);
+    CHECK(call(mesh, 23, {0, counts, counts + 4, counts + 8, counts + 12, data}) == 0); // GetGroup
+    CHECK(cpu.read32(counts) == 4 && cpu.read32(counts + 4) == 2 && cpu.read32(counts + 12) == 8 &&
+          cpu.read32(data + 16) == 3 && cpu.read32(data + 28) == 2);
+    CHECK(call(mesh, 3, {0, guid("{a3a80d01-6e12-11cf-ac4a-0000c03825a1}"), out}) == 0); // Clone
+    const uint32_t copy = cpu.read32(out);
+    CHECK(copy != mesh && call(copy, 22, {}) == 1); // GetGroupCount
+    CHECK(call(copy, 13, {box}) == 0 && near(value(box + 12), 3));
+    CHECK(call(mesh, 11, {bits(2), bits(1), bits(1)}) == 0); // Scale: the mesh, not its copy
+    CHECK(call(copy, 13, {box}) == 0 && near(value(box + 12), 3));
+    CHECK(call(child, 18, {mesh}) == 0); // AddVisual
+    CHECK(rm.objectsMade() == 9);
 }
 
 static void testDirectX() {

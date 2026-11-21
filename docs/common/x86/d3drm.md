@@ -14,14 +14,17 @@ it draws to.
 
 ## What Reluva supports
 
-So far what LEGO Island calls on its way to its main loop:
+So far what LEGO Island calls as it loads its world and plays its intro:
 
 - **`IDirect3DRM`, `IDirect3DRM2`:** making frames, devices from a
   Direct3D device (`CreateDeviceFromD3D`), viewports, lights (`CreateLight`,
-  `CreateLightRGB`) and materials; the default texture colours and shades;
+  `CreateLightRGB`), materials, meshes (`CreateMesh`) and textures on
+  DirectDraw surfaces (`CreateTextureFromSurface`); the default texture colours and shades;
   the search path; `Tick`, which moves nothing yet.
 - **Every object (`IDirect3DRMObject`):** its name, the program's data,
-  destroy callbacks (kept, not yet called), its class's name.
+  destroy callbacks (kept, not yet called), its class's name, and `Clone`
+  for meshes, lights, materials and textures (a mesh's copy has its own
+  groups, sharing their materials and textures).
 - **`IDirect3DRMFrame`, `IDirect3DRMFrame2`:** the hierarchy (children,
   visuals and lights attached), its transform and its parts (translation,
   scale, rotation, a matrix, each combined as asked), its position and
@@ -35,8 +38,16 @@ So far what LEGO Island calls on its way to its main loop:
   field, projection and scaling, its view's edges (`GetPlane`), and
   `Clear`, to the camera's scene's background and the far depth.
 - **`IDirect3DRMLight`, `IDirect3DRMMaterial`:** their settings.
-- **Not yet:** drawing (`Render` draws nothing: no meshes, textures or
-  mesh builders are stood in for yet), animations, move callbacks and
+- **`IDirect3DRMTexture`, `IDirect3DRMTexture2`:** a surface's texture,
+  its colours, shades and decal settings, and `Changed` (its surface's
+  pixels or palette changed).
+- **`IDirect3DRMMesh`:** groups of faces (`AddGroup`: a fixed number of
+  vertices a face, or each face's count before it), their vertices
+  (`D3DRMVERTEX`: position, normal, texture coordinates, colour), each
+  group's colour, mapping, quality, material and texture, read back
+  (`GetGroup`, `GetVertices`), scaled, moved, and its box.
+- **Not yet:** drawing (`Render` draws nothing yet), mesh builders,
+  animations, move callbacks and
   velocities, picking, loading files, and the other kinds of object.
   Calling a method nothing stands in for ends the run naming it.
 
@@ -78,7 +89,8 @@ it in `EAX`.
   each other and the world, points taken to the world and back, names,
   a device, a viewport's field and view edges and its clear to the
   scene's background, a light and a material, their floats on the x87
-  stack. LEGO Island builds its scene with it and goes on to its main loop
+  stack, a texture on a surface, a mesh's group, vertices, box and face
+  data read back, and a clone apart from its original. LEGO Island builds its scene with it and goes on to its main loop
   ([running.md](../../engines/legoisland/systems/running.md)).
 - **Confidence:** published unless marked.
 

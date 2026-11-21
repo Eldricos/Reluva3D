@@ -32,6 +32,9 @@ const char *const kIidDevice2 = "{4516ec78-8f20-11d0-9b6d-0000c0781bc3}";
 const char *const kIidViewport = "{eb16cb02-d271-11ce-ac48-0000c03825a1}";
 const char *const kIidLight = "{eb16cb08-d271-11ce-ac48-0000c03825a1}";
 const char *const kIidMaterial = "{eb16cb0b-d271-11ce-ac48-0000c03825a1}";
+const char *const kIidTexture = "{eb16cb09-d271-11ce-ac48-0000c03825a1}";
+const char *const kIidTexture2 = "{120f30c0-1629-11d0-941c-0080c80cfa7b}";
+const char *const kIidMesh = "{a3a80d01-6e12-11cf-ac4a-0000c03825a1}";
 
 constexpr uint32_t kRmOk = 0;
 constexpr uint32_t kRmErrBadValue = 0x88760313u; // D3DRMERR_BADVALUE
@@ -264,6 +267,57 @@ std::vector<ComInterface::Method> materialMethods() {
                        {"GetEmissive", 3}});
 }
 
+// IDirect3DRMTexture and IDirect3DRMTexture2, which adds to its end.
+std::vector<ComInterface::Method> textureMethods(bool two) {
+    std::vector<ComInterface::Method> m = {{"InitFromFile", 1},
+                                           {"InitFromSurface", 1},
+                                           {"InitFromResource", 1},
+                                           {"Changed", 2},
+                                           {"SetColors", 1},
+                                           {"SetShades", 1},
+                                           {"SetDecalSize", 2},
+                                           {"SetDecalOrigin", 2},
+                                           {"SetDecalScale", 1},
+                                           {"SetDecalTransparency", 1},
+                                           {"SetDecalTransparentColor", 1},
+                                           {"GetDecalSize", 2},
+                                           {"GetDecalOrigin", 2},
+                                           {"GetImage", 0},
+                                           {"GetShades", 0},
+                                           {"GetColors", 0},
+                                           {"GetDecalScale", 0},
+                                           {"GetDecalTransparency", 0},
+                                           {"GetDecalTransparentColor", 0}};
+    if (two) {
+        const std::vector<ComInterface::Method> more = {
+            {"InitFromImage", 1}, {"InitFromResource2", 3}, {"GenerateMIPMap", 1}};
+        m.insert(m.end(), more.begin(), more.end());
+    }
+    return withObject(std::move(m));
+}
+
+std::vector<ComInterface::Method> meshMethods() {
+    return withObject({{"Scale", 3},
+                       {"Translate", 3},
+                       {"GetBox", 1},
+                       {"AddGroup", 5},
+                       {"SetVertices", 4},
+                       {"SetGroupColor", 2},
+                       {"SetGroupColorRGB", 4},
+                       {"SetGroupMapping", 2},
+                       {"SetGroupQuality", 2},
+                       {"SetGroupMaterial", 2},
+                       {"SetGroupTexture", 2},
+                       {"GetGroupCount", 0},
+                       {"GetGroup", 6},
+                       {"GetVertices", 4},
+                       {"GetGroupColor", 1},
+                       {"GetGroupMapping", 1},
+                       {"GetGroupQuality", 1},
+                       {"GetGroupMaterial", 2},
+                       {"GetGroupTexture", 2}});
+}
+
 float asFloat(uint32_t v) {
     float f;
     std::memcpy(&f, &v, 4);
@@ -410,6 +464,14 @@ struct Direct3DRM::State {
     ComInterface viewport{"IDirect3DRMViewport", kIidViewport, viewportMethods(), 0};
     ComInterface light{"IDirect3DRMLight", kIidLight, lightMethods(), 0};
     ComInterface material{"IDirect3DRMMaterial", kIidMaterial, materialMethods(), 0};
+    ComInterface texture{"IDirect3DRMTexture", kIidTexture, textureMethods(false), 0};
+    ComInterface texture2{"IDirect3DRMTexture2", kIidTexture2, textureMethods(true), 0};
+    ComInterface mesh{"IDirect3DRMMesh", kIidMesh, meshMethods(), 0};
+    /** Every interface above, each given its vtable as the object's made. */
+    std::vector<ComInterface *> interfaces() {
+        return {&rm,       &rm2,   &frame,    &frame2,  &device,   &device2,
+                &viewport, &light, &material, &texture, &texture2, &mesh};
+    }
     size_t made = 0;
     uint32_t defaultTextureColors = 32;
     uint32_t defaultTextureShades = 16;
@@ -430,11 +492,27 @@ public:
 
     /** Its class's name, as GetClassName gives it. */
     virtual const char *className() const = 0;
+    /** A copy of it, for Clone; null for a kind that isn't copied. */
+    virtual std::shared_ptr<RmObject> copy() const { return nullptr; }
 
     // The object's own methods, by name; nothing if it hasn't the method.
     std::optional<uint32_t> objectMethod(std::string_view m, Cpu &c) {
         if (m == "SetAppData") {
             appData = c.arg(1);
+            return kRmOk;
+        }
+        if (m == "Clone") { // (outer, iid, out): a copy, as the interface asked for
+            std::shared_ptr<RmObject> o = copy();
+            if (!o)
+                return kENotImpl;
+            const ComInterface *f = o->query(ComHost::guid(c, c.arg(2)));
+            if (!f || !c.valid(c.arg(3), 4))
+                return kENoInterface;
+            o->s = s;
+            o->refs = 1;
+            o->destroyCallbacks.clear();
+            s->made++;
+            c.write32(c.arg(3), s->com.pointer(o, *f));
             return kRmOk;
         }
         if (m == "GetAppData")
@@ -495,6 +573,7 @@ public:
     uint32_t enableFrame = 0;
 
     const char *className() const override { return "Light"; }
+    std::shared_ptr<RmObject> copy() const override { return std::make_shared<Light>(*this); }
     const ComInterface *query(const std::string &iid) override {
         return iid == s->light.iid || iid == kIidObject ? &s->light : nullptr;
     }
@@ -546,6 +625,7 @@ public:
     Vector emissive{0, 0, 0};
 
     const char *className() const override { return "Material"; }
+    std::shared_ptr<RmObject> copy() const override { return std::make_shared<Material>(*this); }
     const ComInterface *query(const std::string &iid) override {
         return iid == s->material.iid || iid == kIidObject ? &s->material : nullptr;
     }
@@ -570,6 +650,250 @@ public:
             for (int i = 0; i < 3; ++i)
                 if (c.valid(c.arg(1 + i), 4))
                     c.write32(c.arg(1 + i), bits(v[size_t(i)]));
+            return kRmOk;
+        }
+        return std::nullopt;
+    }
+};
+
+// A texture: a DirectDraw surface's pixels, drawn on what it's put on.
+class Texture : public RmObject {
+public:
+    std::shared_ptr<dx::Surface> surface;
+    uint32_t colors = 0;
+    uint32_t shades = 0;
+    int decalWidth = 1;
+    int decalHeight = 1;
+    int decalOriginX = 0;
+    int decalOriginY = 0;
+    uint32_t decalScale = 1;
+    uint32_t decalTransparency = 0;
+    uint32_t decalTransparentColor = 0;
+    uint64_t changes = 0; // how often the program has called Changed: new pixels or palette
+
+    const char *className() const override { return "Texture"; }
+    std::shared_ptr<RmObject> copy() const override { return std::make_shared<Texture>(*this); }
+    const ComInterface *query(const std::string &iid) override {
+        if (iid == s->texture2.iid)
+            return &s->texture2;
+        if (iid == s->texture.iid || iid == kIidVisual || iid == kIidObject)
+            return &s->texture;
+        return nullptr;
+    }
+
+    std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override {
+        const std::string_view m = iface.methods[size_t(index)].name;
+        if (auto r = objectMethod(m, c))
+            return r;
+        if (m == "InitFromSurface") {
+            surface = s->dx.com.shared<dx::Surface>(c.arg(1));
+            return surface ? kRmOk : kRmErrBadValue;
+        }
+        if (m == "Changed") { // (pixels changed, palette changed)
+            changes++;
+            if (surface)
+                surface->touched();
+            return kRmOk;
+        }
+        if (m == "SetColors" || m == "SetShades" || m == "SetDecalScale" || m == "SetDecalTransparency" ||
+            m == "SetDecalTransparentColor") {
+            (m == "SetColors"              ? colors
+             : m == "SetShades"            ? shades
+             : m == "SetDecalScale"        ? decalScale
+             : m == "SetDecalTransparency" ? decalTransparency
+                                           : decalTransparentColor) = c.arg(1);
+            return kRmOk;
+        }
+        if (m == "GetColors" || m == "GetShades" || m == "GetDecalScale" || m == "GetDecalTransparency" ||
+            m == "GetDecalTransparentColor")
+            return m == "GetColors"              ? colors
+                   : m == "GetShades"            ? shades
+                   : m == "GetDecalScale"        ? decalScale
+                   : m == "GetDecalTransparency" ? decalTransparency
+                                                 : decalTransparentColor;
+        if (m == "SetDecalSize" || m == "SetDecalOrigin") { // (width or x, height or y), D3DVALUEs or longs
+            if (m == "SetDecalSize") {
+                decalWidth = int(asFloat(c.arg(1)));
+                decalHeight = int(asFloat(c.arg(2)));
+            } else {
+                decalOriginX = int32_t(c.arg(1));
+                decalOriginY = int32_t(c.arg(2));
+            }
+            return kRmOk;
+        }
+        if (m == "GetImage") // a texture made from a surface has no D3DRMIMAGE
+            return 0u;
+        return std::nullopt;
+    }
+};
+
+// A mesh: groups of faces, each group its own vertices, colour, quality,
+// material and texture.
+class Mesh : public RmObject {
+public:
+    /** A D3DRMVERTEX: 36 bytes. */
+    struct Vertex {
+        Vector position{};
+        Vector normal{};
+        float u = 0;
+        float v = 0;
+        uint32_t color = 0;
+    };
+    struct Group {
+        std::vector<Vertex> vertices;
+        std::vector<std::vector<uint32_t>> faces; // each face's vertex indices
+        uint32_t vertsPerFace = 0;                // 0: each face's count is given before it
+        uint32_t color = 0xffffffff;
+        uint32_t mapping = 0;
+        uint32_t quality = 0x1 | 0x40 | 0x80; // D3DRMRENDER_GOURAUD
+        std::shared_ptr<Material> material;
+        std::shared_ptr<Texture> texture;
+    };
+    std::vector<Group> groups;
+
+    const char *className() const override { return "Mesh"; }
+    std::shared_ptr<RmObject> copy() const override { return std::make_shared<Mesh>(*this); }
+    const ComInterface *query(const std::string &iid) override {
+        return iid == s->mesh.iid || iid == kIidVisual || iid == kIidObject ? &s->mesh : nullptr;
+    }
+
+    static Vertex readVertex(Cpu &c, uint32_t p) {
+        return {readVector(c, p), readVector(c, p + 12), asFloat(c.read32(p + 24)), asFloat(c.read32(p + 28)),
+                c.read32(p + 32)};
+    }
+    static void writeVertex(Cpu &c, uint32_t p, const Vertex &v) {
+        writeVector(c, p, v.position);
+        writeVector(c, p + 12, v.normal);
+        c.write32(p + 24, bits(v.u));
+        c.write32(p + 28, bits(v.v));
+        c.write32(p + 32, v.color);
+    }
+    Group *group(uint32_t id) { return id < groups.size() ? &groups[id] : nullptr; }
+
+    std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override {
+        const std::string_view m = iface.methods[size_t(index)].name;
+        if (auto r = objectMethod(m, c))
+            return r;
+        if (m == "AddGroup") { // (vertices, faces, vertices a face, face data, id out)
+            const uint32_t vertexCount = c.arg(1);
+            const uint32_t faceCount = c.arg(2);
+            const uint32_t perFace = c.arg(3);
+            uint32_t at = c.arg(4);
+            Group g;
+            g.vertices.resize(vertexCount);
+            g.vertsPerFace = perFace;
+            for (uint32_t f = 0; f < faceCount; ++f) {
+                uint32_t n = perFace;
+                if (!n) {
+                    if (!c.valid(at, 4))
+                        return kRmErrBadValue;
+                    n = c.read32(at);
+                    at += 4;
+                }
+                if (n > 1024 || !c.valid(at, 4 * n))
+                    return kRmErrBadValue;
+                std::vector<uint32_t> face(n);
+                for (uint32_t i = 0; i < n; ++i, at += 4) {
+                    face[i] = c.read32(at);
+                    if (face[i] >= vertexCount)
+                        return kRmErrBadValue;
+                }
+                g.faces.push_back(std::move(face));
+            }
+            groups.push_back(std::move(g));
+            if (c.valid(c.arg(5), 4))
+                c.write32(c.arg(5), uint32_t(groups.size() - 1));
+            return kRmOk;
+        }
+        if (m == "SetVertices" || m == "GetVertices") { // (group, first, count, D3DRMVERTEX*)
+            Group *g = group(c.arg(1));
+            const uint32_t first = c.arg(2);
+            const uint32_t count = c.arg(3);
+            if (!g || first > g->vertices.size() || count > g->vertices.size() - first ||
+                !c.valid(c.arg(4), 36 * count))
+                return kRmErrBadValue;
+            for (uint32_t i = 0; i < count; ++i) {
+                if (m == "SetVertices")
+                    g->vertices[first + i] = readVertex(c, c.arg(4) + 36 * i);
+                else
+                    writeVertex(c, c.arg(4) + 36 * i, g->vertices[first + i]);
+            }
+            return kRmOk;
+        }
+        if (m == "GetGroupCount")
+            return uint32_t(groups.size());
+        if (m == "Scale" || m == "Translate") { // every vertex, of every group
+            const Vector v{asFloat(c.arg(1)), asFloat(c.arg(2)), asFloat(c.arg(3))};
+            for (Group &g : groups)
+                for (Vertex &x : g.vertices)
+                    for (size_t k = 0; k < 3; ++k)
+                        x.position[k] = m == "Scale" ? x.position[k] * v[k] : x.position[k] + v[k];
+            return kRmOk;
+        }
+        if (m == "GetBox") { // D3DRMBOX: the smallest and largest corners
+            Vector lo{1e30f, 1e30f, 1e30f};
+            Vector hi{-1e30f, -1e30f, -1e30f};
+            for (const Group &g : groups)
+                for (const Vertex &x : g.vertices)
+                    for (size_t k = 0; k < 3; ++k) {
+                        lo[k] = std::min(lo[k], x.position[k]);
+                        hi[k] = std::max(hi[k], x.position[k]);
+                    }
+            writeVector(c, c.arg(1), lo);
+            writeVector(c, c.arg(1) + 12, hi);
+            return kRmOk;
+        }
+        Group *g = group(c.arg(1));
+        if (m.rfind("SetGroup", 0) == 0 || m.rfind("GetGroup", 0) == 0) {
+            if (!g)
+                return kRmErrBadValue;
+            if (m == "SetGroupColor") {
+                g->color = c.arg(2);
+            } else if (m == "SetGroupColorRGB") {
+                g->color = colorRgb(asFloat(c.arg(2)), asFloat(c.arg(3)), asFloat(c.arg(4)));
+            } else if (m == "SetGroupMapping") {
+                g->mapping = c.arg(2);
+            } else if (m == "SetGroupQuality") {
+                g->quality = c.arg(2);
+            } else if (m == "SetGroupMaterial") {
+                g->material = s->com.shared<Material>(c.arg(2));
+            } else if (m == "SetGroupTexture") {
+                g->texture = s->com.shared<Texture>(c.arg(2));
+            } else if (m == "GetGroupColor") {
+                return g->color;
+            } else if (m == "GetGroupMapping") {
+                return g->mapping;
+            } else if (m == "GetGroupQuality") {
+                return g->quality;
+            } else if (m == "GetGroupMaterial" || m == "GetGroupTexture") { // (group, out), AddRef'd
+                if (!c.valid(c.arg(2), 4))
+                    return kRmErrBadValue;
+                std::shared_ptr<ComObject> o = m == "GetGroupMaterial" ? std::shared_ptr<ComObject>(g->material)
+                                                                       : std::shared_ptr<ComObject>(g->texture);
+                c.write32(c.arg(2), o ? s->com.pointer(o, m == "GetGroupMaterial" ? s->material : s->texture) : 0);
+                if (o)
+                    o->refs++;
+            } else if (m == "GetGroup") { // (group, vertices*, faces*, vertices a face*, data size*, data*)
+                uint32_t size = 0;
+                for (const auto &f : g->faces)
+                    size += uint32_t(f.size()) + (g->vertsPerFace ? 0 : 1);
+                const uint32_t values[4] = {uint32_t(g->vertices.size()), uint32_t(g->faces.size()), g->vertsPerFace,
+                                            size};
+                for (int i = 0; i < 4; ++i)
+                    if (c.arg(2 + i) && c.valid(c.arg(2 + i), 4))
+                        c.write32(c.arg(2 + i), values[i]);
+                if (c.arg(6) && c.valid(c.arg(6), 4 * size)) {
+                    uint32_t at = c.arg(6);
+                    for (const auto &f : g->faces) {
+                        if (!g->vertsPerFace)
+                            c.write32(at, uint32_t(f.size())), at += 4;
+                        for (uint32_t i : f)
+                            c.write32(at, i), at += 4;
+                    }
+                }
+            } else {
+                return std::nullopt;
+            }
             return kRmOk;
         }
         return std::nullopt;
@@ -1089,6 +1413,23 @@ public:
             c.write32(c.arg(2), s->com.pointer(mat, s->material));
             return kRmOk;
         }
+        if (m == "CreateTextureFromSurface") { // (surface, out): IDirect3DRMTexture2 from IDirect3DRM2
+            auto surface = s->dx.com.shared<dx::Surface>(c.arg(1));
+            if (!surface || !c.valid(c.arg(2), 4))
+                return kRmErrBadValue;
+            auto t = make<Texture>();
+            t->surface = surface;
+            t->colors = s->defaultTextureColors;
+            t->shades = s->defaultTextureShades;
+            c.write32(c.arg(2), s->com.pointer(t, two ? s->texture2 : s->texture));
+            return kRmOk;
+        }
+        if (m == "CreateMesh") { // (out)
+            if (!c.valid(c.arg(1), 4))
+                return kRmErrBadValue;
+            c.write32(c.arg(1), s->com.pointer(make<Mesh>(), s->mesh));
+            return kRmOk;
+        }
         if (m == "SetDefaultTextureColors" || m == "SetDefaultTextureShades") {
             (m == "SetDefaultTextureColors" ? s->defaultTextureColors : s->defaultTextureShades) = c.arg(1);
             return kRmOk;
@@ -1144,8 +1485,7 @@ Direct3DRM::~Direct3DRM() = default;
 
 Direct3DRM::Direct3DRM(Win32Process &process, DirectX &directX) : _s(std::make_unique<State>(process, directX)) {
     State *s = _s.get();
-    for (ComInterface *f :
-         {&s->rm, &s->rm2, &s->frame, &s->frame2, &s->device, &s->device2, &s->viewport, &s->light, &s->material})
+    for (ComInterface *f : s->interfaces())
         s->com.define(*f);
     // Direct3DRMCreate(out): an IDirect3DRM.
     process.provideStdcall("d3drm.dll", "Direct3DRMCreate", 1, [s](Cpu &c) -> uint32_t {
