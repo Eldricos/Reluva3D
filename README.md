@@ -46,8 +46,8 @@ Each engine is a module that can run a family of games.
 
 - CMake 3.24 or later, Git, and a C++20 compiler: GCC, Clang, Visual Studio
   2022, or Apple's command line tools.
-- SDL3 and Dear ImGui are downloaded and built by CMake. The first configure
-  needs internet access and takes a few minutes.
+- SDL3, Dear ImGui, libogg and libvorbis are downloaded and built by CMake.
+  The first configure needs internet access and takes a few minutes.
 - On Linux, the system headers SDL builds against (below).
 
 ## Building
@@ -311,8 +311,8 @@ src/
                      settings, case-insensitive file lookup, byte streams, detection, archives
                      (folders, .zip/.pk3) and search sets, PKWARE DCL, Wise installers, PE files,
                      text, hashes, logging
-  audio/             sound decoders, streams and the mixer: WAV (PCM, IMA ADPCM), MP3, raw PCM,
-                     EA-XA and MicroTalk; a Dolby Pro Logic decoder model
+  audio/             sound decoders, streams and the mixer: WAV (PCM, IMA ADPCM), MP3,
+                     Ogg Vorbis, raw PCM, EA-XA and MicroTalk; a Dolby Pro Logic decoder model
   video/             video decoders: Bink, Smacker, Cinepak and Indeo 5 in AVI
   graphics/          surfaces and 8-bit drawing, palettes, fonts (built-in and TrueType),
                      cursors, the 3D rendering interface (gfx3d.h) and software 3D (soft3d/),

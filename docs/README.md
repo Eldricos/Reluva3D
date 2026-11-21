@@ -30,7 +30,8 @@ Laid out as `src/common/` is, a page per component:
   renderer.
 - **[audio/](common/audio/):** [DirectMusic](common/audio/directmusic.md)
   music, played on [DLS](common/audio/dls.md) instruments by a
-  synthesizer of Reluva's own; [the tracker music player](common/audio/tracker.md)
+  synthesizer of Reluva's own; [Ogg Vorbis](common/audio/vorbis.md)
+  sounds; [the tracker music player](common/audio/tracker.md)
   (MOD, S3M, XM, IT); and [the mixer](common/audio/mixer.md)'s filters,
   reverb and muffling.
 - **[video/](common/video/):** [Bink](common/video/bink.md),

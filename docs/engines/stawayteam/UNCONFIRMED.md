@@ -15,7 +15,12 @@ None yet.
 
 ## Inferred
 
-None yet.
+- **The length of a few sounds.** For 5 of 27 sampled sounds, libvorbis
+  1.3.7 gives 128 samples (6 ms) more at the end than FFmpeg does
+  ([research/file-survey.md](research/file-survey.md#sound)). Reluva
+  keeps libvorbis's, taking the reference decoder to cut the last block
+  as the game's own `vorbisfile.dll` (February 2001) did. A recording of
+  one of them played by the original would settle it.
 
 ## Guessed
 

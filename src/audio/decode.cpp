@@ -4,6 +4,7 @@
 #include "audio/decode.h"
 
 #include "audio/mp3.h"
+#include "audio/vorbis.h"
 #include "audio/wav.h"
 
 #include <cstring>
@@ -13,6 +14,8 @@ namespace reluva::audio {
 Error decodeSound(const std::vector<uint8_t> &data, Sound &out) {
     if (data.size() >= 12 && std::memcmp(data.data(), "RIFF", 4) == 0 && std::memcmp(data.data() + 8, "WAVE", 4) == 0)
         return decodeWav(data, out);
+    if (data.size() >= 4 && std::memcmp(data.data(), "OggS", 4) == 0)
+        return decodeVorbis(data, out);
     return decodeMp3(data, out);
 }
 
@@ -24,6 +27,8 @@ const char *formatName(int format) {
         return "IMA ADPCM";
     case kFormatMp3:
         return "MP3";
+    case kFormatVorbis:
+        return "Vorbis";
     case kFormatEaXa:
         return "EA-XA";
     case kFormatMicroTalk:

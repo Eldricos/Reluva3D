@@ -96,6 +96,52 @@ else()
     FetchContent_MakeAvailable(SDL3)
 endif()
 
+# --- libogg and libvorbis (BSD; built here) ---------------------------------
+# Xiph's reference decoder, for Ogg Vorbis sounds (src/audio/vorbis.cpp).
+# Their own CMake files are skipped (SOURCE_SUBDIR names no folder):
+# libvorbis's looks for an installed libogg, not one built beside it.
+FetchContent_Declare(ogg
+    GIT_REPOSITORY https://github.com/xiph/ogg.git
+    GIT_TAG v1.3.6
+    GIT_SHALLOW TRUE
+    SOURCE_SUBDIR none)
+FetchContent_Declare(vorbis
+    GIT_REPOSITORY https://github.com/xiph/vorbis.git
+    GIT_TAG v1.3.7
+    GIT_SHALLOW TRUE
+    SOURCE_SUBDIR none)
+FetchContent_MakeAvailable(ogg vorbis)
+
+# What libogg's configure step would write: the sizes from <stdint.h>.
+set(INCLUDE_INTTYPES_H 0)
+set(INCLUDE_STDINT_H 1)
+set(INCLUDE_SYS_TYPES_H 0)
+foreach(bits 16 32 64)
+    set(SIZE${bits} int${bits}_t)
+    set(USIZE${bits} uint${bits}_t)
+endforeach()
+configure_file(${ogg_SOURCE_DIR}/include/ogg/config_types.h.in
+               ${CMAKE_BINARY_DIR}/generated/ogg/ogg/config_types.h @ONLY)
+
+add_library(ogg STATIC
+    ${ogg_SOURCE_DIR}/src/bitwise.c
+    ${ogg_SOURCE_DIR}/src/framing.c)
+target_include_directories(ogg SYSTEM PUBLIC ${ogg_SOURCE_DIR}/include ${CMAKE_BINARY_DIR}/generated/ogg)
+
+set(vorbis_sources mdct smallft block envelope window lsp lpc analysis synthesis psy info floor1 floor0 res0
+                   mapping0 registry codebook sharedbook lookup bitrate vorbisfile)
+list(TRANSFORM vorbis_sources PREPEND ${vorbis_SOURCE_DIR}/lib/)
+list(TRANSFORM vorbis_sources APPEND .c)
+add_library(vorbis STATIC ${vorbis_sources})
+target_include_directories(vorbis SYSTEM PUBLIC ${vorbis_SOURCE_DIR}/include)
+target_include_directories(vorbis PRIVATE ${vorbis_SOURCE_DIR}/lib)
+target_link_libraries(vorbis PUBLIC ogg)
+if(MSVC)
+    target_compile_definitions(vorbis PRIVATE _CRT_SECURE_NO_WARNINGS)
+elseif(NOT WIN32)
+    target_link_libraries(vorbis PUBLIC m)
+endif()
+
 # --- Dear ImGui (no CMake support upstream, so build it here) -----------------
 FetchContent_Declare(imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git

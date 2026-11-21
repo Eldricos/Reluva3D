@@ -13,7 +13,7 @@ namespace reluva::audio {
 
 /**
  * Decodes a sound file of any format audio reads, chosen by its
- * contents: RIFF WAVE (wav.h), else MP3 (mp3.h).
+ * contents: RIFF WAVE (wav.h), Ogg Vorbis (vorbis.h), else MP3 (mp3.h).
  */
 Error decodeSound(const std::vector<uint8_t> &data, Sound &out);
 

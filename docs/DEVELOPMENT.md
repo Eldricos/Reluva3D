@@ -17,8 +17,9 @@ Notes for developers. Building and running are covered in the
   launcher's *Developer:* settings (`src/common/developer.h`). They're on
   by default, for working on the engines and for the tests. The data
   viewer is never in `reluva` either way ([below](#the-data-viewer)).
-- **SDL and Dear ImGui** are fetched and built by CMake. The first configure
-  needs internet access and takes a few minutes; later ones reuse them.
+- **SDL, Dear ImGui, libogg and libvorbis** are fetched and built by
+  CMake. The first configure needs internet access and takes a few
+  minutes; later ones reuse them.
   `-DRELUVA_USE_SYSTEM_SDL=ON` uses an installed SDL3 instead, found through
   its CMake package (e.g. via `CMAKE_PREFIX_PATH`).
 
@@ -149,9 +150,9 @@ both, the same everywhere: clang-format's output changes between versions,
 and the one Visual Studio comes with may be older.
 
 - **Not formatted:** `third_party/` (it has its own `.clang-format`), the
-  build folder, where CMake downloads SDL3 and Dear ImGui (CMake writes a
-  `.clang-format` and a `.clang-format-ignore` there), and generated
-  files.
+  build folder, where CMake downloads SDL3, Dear ImGui, libogg and
+  libvorbis (CMake writes a `.clang-format` and a `.clang-format-ignore`
+  there), and generated files.
 - **clang-tidy** looks at Reluva's own files only, by a pattern at the top
   of `.clang-tidy`: the compile database lists SDL's and ImGui's too.
 - **Checks set to the guide:** a `const` local isn't taken for a named
@@ -551,8 +552,8 @@ on. Keep it off.
 
 ## Troubleshooting
 
-- **The first configure fails while downloading.** CMake fetches SDL and
-  ImGui from GitHub, so it needs internet access the first time.
+- **The first configure fails while downloading.** CMake fetches SDL,
+  ImGui, libogg and libvorbis from GitHub, so it needs internet access the first time.
 - **"Does not match the generator used previously".** The build folder was
   configured with another generator. Delete it, or use a new folder name.
 - **Linux: "Couldn't find dependency package for ...".** One of SDL's `-dev`

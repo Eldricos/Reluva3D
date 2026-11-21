@@ -6,10 +6,12 @@
 #include "audio/decode.h"
 #include "audio/mixer.h"
 #include "audio/mp3.h"
+#include "audio/vorbis.h"
 #include "audio/stream.h"
 #include "audio/wav.h"
 #include "tests/common/data/smacker_videos.h"
 #include "tests/common/data/tone440_mp3.h"
+#include "tests/common/data/tone440_ogg.h"
 #include "tests/common/data/x86_testdll.h"
 #include "common/archive.h"
 #include "image/bmp.h"
@@ -282,6 +284,29 @@ static void testMp3() {
     Sound t;
     CHECK(!decodeSound(tagged, t) && t.samples == s.samples);
     CHECK(bool(decodeMp3(std::vector<uint8_t>(100, 0), t))); // no frames
+}
+
+static void testVorbis() {
+    using namespace reluva::audio;
+    const std::vector<uint8_t> tone(std::begin(kTone440Ogg), std::end(kTone440Ogg));
+    Sound s;
+    CHECK(!decodeVorbis(tone, s));
+    CHECK(s.format == kFormatVorbis && s.rate == 22050 && s.channels == 1);
+    // Ogg keeps the exact length, so no padding as MP3 has.
+    CHECK(s.frames() == 4410);
+    // 440 Hz: about 2 x 440 x 0.1 = 88 zero crossings in the middle 0.1 s.
+    int crossings = 0;
+    for (size_t i = 1102; i < 3307; ++i)
+        crossings += (s.samples[i - 1] < 0) != (s.samples[i] < 0);
+    CHECK(crossings >= 84 && crossings <= 92);
+    Sound t;
+    CHECK(!decodeSound(tone, t) && t.samples == s.samples);
+    CHECK(std::string(formatName(t.format)) == "Vorbis");
+    // A page header with nothing Vorbis after it.
+    std::vector<uint8_t> bad = {'O', 'g', 'g', 'S'};
+    bad.resize(100, 0);
+    CHECK(bool(decodeVorbis(bad, t)));
+    CHECK(bool(decodeSound(bad, t)));
 }
 
 static void testMixer() {
@@ -1346,6 +1371,7 @@ static const reluva::test::Suite
                     {"wav", [](const std::filesystem::path &) { testWav(); }},
                     {"ima without a header", [](const std::filesystem::path &) { testImaWithoutHeader(); }},
                     {"mp3", [](const std::filesystem::path &) { testMp3(); }},
+                    {"vorbis", [](const std::filesystem::path &) { testVorbis(); }},
                     {"mixer", [](const std::filesystem::path &) { testMixer(); }},
                     {"streams", [](const std::filesystem::path &) { testAudioStreams(); }},
                     {"mixer streams", [](const std::filesystem::path &) { testMixerStreams(); }},
