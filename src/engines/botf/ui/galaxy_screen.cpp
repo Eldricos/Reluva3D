@@ -21,10 +21,20 @@ constexpr int32_t kMilitary = 1004; // the map's mode, lit at the start
 // over the map's corner): Small Map zooms in, Large Map out.
 constexpr int32_t kMapButton = 1002;
 // Over the map, the sector under the pointer: its name in the turn's blue
+// (with the claiming empire's adjective where one claims it)
 // at the box's left, and the empire's scan strength there ending 6 pixels
 // short of its right, yellow where it's above 0 and red where it isn't
 // (two screenshots: "Unexplored Sector I6", -3; "Unclaimed Sector I1", 5).
 constexpr int32_t kSectorText = 1081;
+struct Adjective {
+    int entry;
+    const char *english;
+};
+constexpr Adjective kAdjectives[] = {{lex::kCardassian, "Cardassian"},
+                                     {lex::kFederationAdjective, "Federation"},
+                                     {lex::kFerengiAdjective, "Ferengi"},
+                                     {lex::kKlingon, "Klingon"},
+                                     {lex::kRomulan, "Romulan"}};
 constexpr int kScanRightMargin = 6;
 constexpr Color kScanColor{255, 255, 0};
 constexpr Color kHiddenScanColor{255, 0, 0};
@@ -57,7 +67,9 @@ constexpr Color kTaskForceColor{99, 77, 181};
 constexpr int kLinePitch = 17;
 constexpr int kFigureMargin = 6;
 constexpr int kDilithiumGap = 6;
-constexpr int kMilitaryResult = 0x300;
+// result.lst's contents for a task force and a ship.
+constexpr int kTaskForceResult = 4;
+constexpr int kShipResult = 5;
 // The task forces' bar: drawn here, as the game shows the background
 // through its backing picture's black (hm_bktfi.tga, which has no magenta),
 // and with hm_tab22.tga for its tab, not the layout's hm_tab20.tga (the
@@ -96,23 +108,33 @@ constexpr Color kNameColor{0, 251, 255};        // the empire's own systems'
 // (guessed: no screenshot shows one).
 constexpr Color kOtherNameColor{255, 186, 57};
 constexpr Color kSelectedColor{247, 125, 0};
-// The empires' claims on the sectors they've seen, measured on the
-// eleventh turn's screenshots: a dot on every other row from a sector's
-// second, where (x + (y - 1) / 2 * shift) % period is phase, from the
-// sector's corner. The Ferengi's and Cardassians' aren't seen, and aren't
-// drawn.
+// The empires' claims on the sectors the player has seen, measured on the
+// eleventh and thirty-third turns' screenshots: a dot on every other row
+// from a sector's second, where (x + (y - 1) / 2 * shift) % period is
+// phase, from the sector's corner, in the empire's colour.
 struct Claim {
-    int empire;
     int period;
     int shift;
     int phase;
     Color color;
 };
 constexpr Claim kClaims[] = {
-    {1, 3, 1, 0, {16, 8, 115}}, // Federation
-    {3, 3, 1, 0, {107, 8, 8}},  // Klingons
-    {4, 4, 2, 3, {8, 89, 8}},   // Romulans
+    {4, 2, 3, {115, 8, 90}}, // Cardassians
+    {3, 1, 0, {16, 8, 115}}, // Federation
+    {4, 2, 3, {156, 89, 0}}, // Ferengi
+    {3, 1, 0, {107, 8, 8}},  // Klingons
+    {4, 2, 3, {8, 89, 8}},   // Romulans
 };
+// A sector two empires claim is striped instead, on every row, along
+// x + y: every 10 pixels, five stripes in five colours, whoever claims it
+// (the one seen, the Cardassians' and Romulans').
+constexpr int kContestedPeriod = 10;
+struct Stripe {
+    int at;
+    Color color;
+};
+constexpr Stripe kContestedStripes[] = {
+    {1, {16, 8, 115}}, {3, {107, 8, 8}}, {5, {115, 113, 8}}, {7, {115, 8, 90}}, {9, {8, 89, 8}}};
 
 // The stellar objects' pictures on the map, by type, before the zoom's
 // ending (the neutron star's is seen; the others go by their files' names).
@@ -308,11 +330,15 @@ Error GalaxyScreen::load(int empire) {
     drawPanelOver(_zoomPanel);
     showPanel(_infoPanel, true);
     showPanel(_emblemsPanel, true);
-    // The ships' class names; without the table, the rows have none.
+    // The ships' class names and the races' names; without the tables, the
+    // task forces' rows and the strip have none.
     std::vector<uint8_t> data;
-    for (const TableLayout &t : tableLayouts())
+    for (const TableLayout &t : tableLayouts()) {
         if (std::string(t.file) == "shiplist.sst" && !_assets.archive().read("shiplist.sst", data))
             (void)_shipClasses.load(t, data);
+        if (std::string(t.file) == "race.rst" && !_assets.archive().read("race.rst", data))
+            (void)_races.load(t, data);
+    }
     return Error::success();
 }
 
@@ -327,6 +353,11 @@ void GalaxyScreen::open(SavedGame game) {
             if (const int sys = _game.galaxy.at(x, y).system;
                 sys >= 0 && _game.galaxy.systems[size_t(sys)].controllingRace == _empire)
                 _rangeCentres.push_back({x, y});
+    // And round its outposts (the thirty-fourth turn's green ranges are round
+    // Sol and two of the Federation's outposts).
+    for (const SavedOutpost &o : _game.galaxy.outposts)
+        if (o.owner == _empire && _game.galaxy.width > 0)
+            _rangeCentres.push_back({o.sector % _game.galaxy.width, o.sector / _game.galaxy.width});
     if (_rangeCentres.empty())
         select(-1, -1);
     else
@@ -476,13 +507,13 @@ bool GalaxyScreen::handle(const Event &e) {
 }
 
 int GalaxyScreen::eventCount() const {
-    // The empire's results, but for a new game's own fleets (military, with
-    // an event value of 0): 2 on the first turn's loaded saves, 5 on the
-    // eleventh's, none where there are none, as their screenshots show.
-    // The other kinds than economic and military aren't seen (guessed).
+    // The empire's results, but for a new game's own fleets (a task force's
+    // or a ship's, with an event value of 0): 2 on the first turn's loaded
+    // saves, 5 on the eleventh's, 1 on the thirty-first's (a race met, its
+    // value 0 too), none where there are none, as their screenshots show.
     int count = 0;
     for (const SavedResult &r : _game.results)
-        if (r.race == _empire && !(r.kind == kMilitaryResult && r.eventValue == 0))
+        if (r.race == _empire && !(r.eventValue == 0 && (r.content == kTaskForceResult || r.content == kShipResult)))
             ++count;
     return count;
 }
@@ -506,7 +537,11 @@ void GalaxyScreen::drawSectorLine(Surface &screen) const {
     else if (claims > 1)
         text = word(lex::kContestedSector, "Contested Sector %s");
     else
-        text = word(lex::kSector, "Sector %s");
+        // The claiming empire's adjective: "Romulan Sector d1", "Cardassian
+        // Sector c6".
+        for (int e = 0; e < int(std::size(kAdjectives)); ++e)
+            if (here.claims >> e & 1)
+                text = word(kAdjectives[e].entry, kAdjectives[e].english) + " " + word(lex::kSector, "Sector %s");
     if (const size_t at = text.find("%s"); at != std::string::npos)
         text.replace(at, 2, name);
     drawText(screen, kSectorText, text, kTurnColor);
@@ -695,6 +730,26 @@ void GalaxyScreen::drawMap(Surface &screen) const {
         std::copy_n(view.row(y), size_t(view.w) * 4, screen.row(y0 + y) + size_t(x0) * 4);
 }
 
+void GalaxyScreen::drawClaims(Surface &screen, uint16_t claims, int left, int top, int sector) const {
+    std::vector<int> claimants;
+    for (int e = 0; e < int(std::size(kClaims)); ++e)
+        if (claims >> e & 1)
+            claimants.push_back(e);
+    if (claimants.size() == 1) {
+        const Claim &c = kClaims[claimants.front()];
+        for (int y = 1; y < sector; y += 2)
+            for (int x = 1; x < sector; ++x)
+                if ((x + (y - 1) / 2 * c.shift) % c.period == c.phase)
+                    put(screen, left + x, top + y, c.color);
+    } else if (claimants.size() > 1) {
+        for (int y = 1; y < sector; ++y)
+            for (int x = 1; x < sector; ++x)
+                for (const Stripe &stripe : kContestedStripes)
+                    if ((x + y) % kContestedPeriod == stripe.at)
+                        put(screen, left + x, top + y, stripe.color);
+    }
+}
+
 void GalaxyScreen::drawGrid(Surface &screen, int gx, int gy) const {
     const Zoom &z = kZooms[_zoom];
     const int sector = z.sector;
@@ -720,13 +775,7 @@ void GalaxyScreen::drawGrid(Surface &screen, int gx, int gy) const {
                     }
                 continue;
             }
-            // The empires' claims there: dots in each one's colour and pattern.
-            for (const Claim &c : kClaims)
-                if (g.at(sx, sy).claims >> c.empire & 1)
-                    for (int y = 1; y < sector; y += 2)
-                        for (int x = 1; x < sector; ++x)
-                            if ((x + (y - 1) / 2 * c.shift) % c.period == c.phase)
-                                put(screen, left + x, top + y, c.color);
+            drawClaims(screen, g.at(sx, sy).claims, left, top, sector);
         }
     // The lines next to a sector the scanners reach now are dotted: every
     // other pixel from each sector's corner.
@@ -795,6 +844,14 @@ void GalaxyScreen::drawGrid(Surface &screen, int gx, int gy) const {
             put(screen, x0 + sector - 1, y0 + k, kSelectedColor);
         }
     drawRanges(screen, gx, gy);
+    // The empire's outposts: its outpost emblem (i_ho11.tga) a pixel right
+    // of the sector's bottom-left corner, at its foot (the Federation's two
+    // at the thirty-fourth turn); the other empires' aren't shown.
+    if (const image::Image *icon = _assets.picture(std::string("i_") + _letter + "o11.tga"))
+        for (const SavedOutpost &o : g.outposts)
+            if (o.owner == _empire && g.width > 0)
+                image::blit(screen, *icon, gx + o.sector % g.width * sector + 1,
+                            gy + o.sector / g.width * sector + sector - icon->h);
     // Where the empire's task forces are ordered to: a marker in the middle
     // of the sector.
     if (const image::Image *mark = _assets.picture("movs.tga"))
@@ -889,21 +946,27 @@ void GalaxyScreen::drawSystemStrip(Surface &screen, const SavedSystem &system) c
         const Color c = p.type == kGasGiant                    ? kClassColors[0]
                         : p.terraformDone >= p.terraformNeeded ? kClassColors[1]
                                                                : kClassColors[2];
-        // In the middle of the planet's frame, from its left edge.
+        // Centred under the frame as the map's names are (14 letters of
+        // Sol's, Deneb's and Babel's agree).
         const int left = xs[i] - a.frameWidth / 2;
-        small->drawInColor(screen, left + (a.frameWidth - small->measure(letter)) / 2, cy + a.frameHeight / 2, letter,
-                           c);
+        const int spare = a.frameWidth - 1 - small->measure(letter);
+        small->drawInColor(screen, left + (spare - (spare < 0 && spare % 2 != 0 ? 1 : 0)) / 2, cy + a.frameHeight / 2,
+                           letter, c);
     }
     // The title: "SYSTEM" and its name, and who lives there.
     const WindowLayout::Placed &title = *stripWidget(strip, kStripTitle);
     drawTextAt(screen, *title.widget, title.x, title.y, upperAscii(word(lex::kSystem, "system")), kLabelColor);
     drawTextAt(screen, *title.widget, title.x + kTitleNameX, title.y, system.name, kFigureColor);
-    // Only the Federation's people's word is known in capitals.
+    // Who lives there: "HUMANS" for the Federation's people, a minor
+    // race's name in capitals ("BANDI" at Deneb); the other empires' are
+    // taken to be their names' too (guessed).
     std::string people;
     if (system.residentRace < 0)
         people = upperAscii(word(lex::kUninhabited, "uninhabited"));
     else if (system.residentRace == 1)
         people = word(lex::kHumans, "HUMANS");
+    else if (size_t(system.residentRace) < _races.count())
+        people = upperAscii(_races.name(size_t(system.residentRace)));
     const WindowLayout::Placed &heading = *stripWidget(strip, kStripHeading);
     drawTextAt(screen, *heading.widget, heading.x, heading.y, people, kLabelColor);
     // The labels and the figures known; the growth rate and the orbitals

@@ -322,6 +322,25 @@ void testSavedResults(const std::filesystem::path &tmp) {
     CHECK(readSavedResults(path, r));
 }
 
+void testSavedOutposts(const std::filesystem::path &tmp) {
+    // starBaseInfo: 92 bytes each, the name, then the owner and the sector.
+    Bytes bases(184, 0);
+    for (size_t i = 0; i < 2; ++i) {
+        const std::string name = "Outpost";
+        std::copy(name.begin(), name.end(), bases.begin() + std::ptrdiff_t(i * 92));
+        bases[i * 92 + 0x28] = uint8_t(i == 0 ? 1 : 4);
+        bases[i * 92 + 0x2A] = uint8_t(i == 0 ? 20 : 83);
+    }
+    const auto path = tmp / "outposts.sav";
+    writeFile(path, makeLzssArchive("outposts", {{"starBaseInfo", bases}}));
+    std::vector<SavedOutpost> o;
+    CHECK(!readSavedOutposts(path, o) && o.size() == 2);
+    CHECK(o[0].name == "Outpost" && o[0].owner == 1 && o[0].sector == 20 && o[1].owner == 4 && o[1].sector == 83);
+    // None without the file.
+    writeFile(path, makeSave("none", "x", 1));
+    CHECK(!readSavedOutposts(path, o) && o.empty());
+}
+
 void testSavedOrders(const std::filesystem::path &tmp) {
     // An order: a 32-byte head (id, turn, race, type at 0x10, the rest's
     // size at 0x1C), then the rest.
@@ -470,11 +489,8 @@ void testAnimations() {
     CHECK(a.frames[0].pixel(29, 9)[0] == 248 && a.frames[0].pixel(29, 9)[3] == 255);
     CHECK(a.frames[1].pixel(0, 0)[3] == 0);
     CHECK(a.frames[2].pixel(5, 5)[0] == 248 && a.frames[2].pixel(5, 5)[1] == 0);
-    // With one, a pixel's top bit says it's drawn...
+    // An alpha bit declared or not, and set or not, black isn't drawn.
     CHECK(!readAnimation(makeAnimation(4, 4, {0x8000, 0x7FFF}, true), a));
-    CHECK(a.frames[0].pixel(0, 0)[3] == 255 && a.frames[1].pixel(0, 0)[3] == 0);
-    // ...unless no pixel has it set: then black isn't drawn, as without.
-    CHECK(!readAnimation(makeAnimation(4, 4, {0, 0x7FFF}, true), a));
     CHECK(a.frames[0].pixel(0, 0)[3] == 0 && a.frames[1].pixel(0, 0)[3] == 255);
     // A header that doesn't fit its picture.
     Bytes bad = makeAnimation(4, 4, {0, 0});
@@ -655,6 +671,7 @@ static const reluva::test::Suite kSuite(
         {"saved galaxy", [](const std::filesystem::path &tmp) { testSavedGalaxy(tmp); }},
         {"saved ships", [](const std::filesystem::path &tmp) { testSavedShips(tmp); }},
         {"animations", [](const std::filesystem::path &) { testAnimations(); }},
+        {"saved outposts", [](const std::filesystem::path &tmp) { testSavedOutposts(tmp); }},
         {"saved results", [](const std::filesystem::path &tmp) { testSavedResults(tmp); }},
         {"saved orders", [](const std::filesystem::path &tmp) { testSavedOrders(tmp); }},
         {"saved empires, fleets and research", [](const std::filesystem::path &tmp) { testSavedTaskForces(tmp); }},

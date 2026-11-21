@@ -20,6 +20,7 @@ namespace {
 // result.lst's chunks' headers, and its results' headers.
 constexpr size_t kChunkHeaderSize = 12;
 constexpr size_t kResultHeaderSize = 40;
+constexpr size_t kOutpostSize = 92;
 
 // gameInfo's fields used here, as the Ultimate Editor's GameInfo.java
 // gives them.
@@ -473,11 +474,34 @@ Error readSavedResults(const std::filesystem::path &path, std::vector<SavedResul
     return Error::success();
 }
 
+Error readSavedOutposts(const std::filesystem::path &path, std::vector<SavedOutpost> &outposts) {
+    outposts.clear();
+    AltResArchive save;
+    if (Error err = save.open(path))
+        return err;
+    if (!save.has("starBaseInfo"))
+        return Error::success();
+    std::vector<uint8_t> d;
+    if (Error err = readFile(save, "starBaseInfo", d))
+        return Error::fail(path.string() + ": " + err.message);
+    // Each: its name, then its owner and its sector's number.
+    for (size_t at = 0; at + kOutpostSize <= d.size(); at += kOutpostSize) {
+        SavedOutpost o;
+        o.name = field(d, at, 40);
+        o.owner = s16(d, at + 0x28);
+        o.sector = s16(d, at + 0x2A);
+        outposts.push_back(std::move(o));
+    }
+    return Error::success();
+}
+
 Error readSavedGame(const std::filesystem::path &path, SavedGame &game) {
     game = SavedGame{};
     if (Error err = readSaveSummary(path, game.summary))
         return err;
     if (Error err = readSavedGalaxy(path, game.galaxy))
+        return err;
+    if (Error err = readSavedOutposts(path, game.galaxy.outposts))
         return err;
     if (Error err = readSavedEmpires(path, game.empires))
         return err;

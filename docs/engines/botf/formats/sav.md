@@ -288,6 +288,21 @@ a turn later. The rest of the entry (accuracy and defense bonuses,
 cloaking, agility, what it can do) is the editor's and not read yet, as
 is `shipname.dat`.
 
+### Outposts
+
+`starBaseInfo`, the outposts and starbases (empty at a new game's first
+turn), 92 bytes each:
+
+| Offset | Type | Field |
+|---|---|---|
+| 0x00 | `char[40]` | its name: "Outpost" |
+| 0x28 | `i16` | the empire it's the outpost of, by `race.rst`'s number |
+| 0x2A | `i16` | its sector's number, row by the width and column: matches `sector.lst`'s outpost index there |
+
+The rest isn't read yet. The galaxy screen draws the player's outposts
+and counts them in its ranges
+([systems/galaxy-screen.md](../systems/galaxy-screen.md#the-map)).
+
 ### Results
 
 `result.lst`, the last turn's results, is stored as chunks, not one LZSS

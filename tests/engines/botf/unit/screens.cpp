@@ -902,6 +902,7 @@ void testGalaxyScreen() {
     archive.files["nsmaps.tga"] = image::encodeTga(keyed);
     archive.files["i_k13.tga"] = image::encodeTga(star);
     archive.files["movs.tga"] = image::encodeTga(star);
+    archive.files["i_ho11.tga"] = image::encodeTga(star);
     // The strip's icons (a food bonus, dilithium: red) and the
     // Federation's emblem; and the sector line's font.
     image::Image red = keyed;
@@ -971,8 +972,13 @@ void testGalaxyScreen() {
                 g.sectors[size_t(y * 13 + x)].revealed = 1 << 1;
             }
     g.sectors[7 * 13 + 11].scanStrength[1] = -27;
-    // The Federation claims Sol's sector.
+    // The Federation claims Sol's sector; the Cardassians and Romulans
+    // both claim the top right corner's, which the Federation has seen.
     g.sectors[8 * 13 + 10].claims = 1 << 1;
+    g.sectors[12].claims = 1 << 0 | 1 << 4;
+    g.sectors[12].revealed = 1 << 1;
+    // A Federation outpost in Sol's sector.
+    g.outposts = {{"Outpost", 1, 8 * 13 + 10}};
     // A task force of the Federation's away from Sol scans round it too.
     SavedTaskForce t;
     t.owner = 1;
@@ -994,9 +1000,10 @@ void testGalaxyScreen() {
     hidden.y = 0;
     game.taskForces = {t, klingon, hidden};
     game.empires[1].credits = 2000;
-    // The last turn's results: the Federation's two events (one economic,
-    // one military), its new game's fleet (not an event), and a Klingon one.
-    game.results = {{1, 0x100, 17, 3}, {1, 0x300, 4, -1}, {1, 0x300, 5, 0}, {3, 0x100, 17, 3}};
+    // The last turn's results: the Federation's three events (economic, a
+    // task force's, a race met), its new game's ship (not an event), and a
+    // Klingon one.
+    game.results = {{1, 0x100, 17, 3}, {1, 0x300, 4, -1}, {1, 0x300, 10, 0}, {1, 0x300, 5, 0}, {3, 0x100, 17, 3}};
     screen.open(game);
     // The scanners reach where the save says, not where something hides.
     CHECK(screen.scanned(9, 7) && screen.scanned(11, 9) && !screen.scanned(8, 8) && !screen.scanned(11, 7));
@@ -1037,8 +1044,8 @@ void testGalaxyScreen() {
         return false;
     };
     CHECK(lit(45, 140, 120, 157) && lit(150, 140, 200, 157) && lit(45, 174, 120, 191));
-    // "2 Events" in the figures' green; no dilithium, "0" in the words' orange.
-    CHECK(screen.eventCount() == 2);
+    // "3 Events" in the figures' green; no dilithium, "0" in the words' orange.
+    CHECK(screen.eventCount() == 3);
     auto greenish = [&](int x0, int y0, int x1, int y1) {
         for (int y = y0; y < y1; ++y)
             for (int x = x0; x < x1; ++x)
@@ -1084,6 +1091,13 @@ void testGalaxyScreen() {
           colour(gx + 10 * 39 + 4, gy + 8 * 39 + 5, 16, 8, 115) &&
           !colour(gx + 10 * 39 + 5, gy + 8 * 39 + 5, 16, 8, 115) &&
           !colour(gx + 10 * 39 + 5, gy + 8 * 39 + 4, 16, 8, 115));
+    // The contested sector: five stripes along x + y, every 10 pixels.
+    CHECK(colour(gx + 12 * 39 + 1, gy + 2, 107, 8, 8) && colour(gx + 12 * 39 + 2, gy + 5, 115, 8, 90) &&
+          colour(gx + 12 * 39 + 4, gy + 5, 8, 89, 8) && colour(gx + 12 * 39 + 5, gy + 6, 16, 8, 115) &&
+          colour(gx + 12 * 39 + 1, gy + 4, 115, 113, 8));
+    // The outpost's emblem at its sector's foot, a pixel in.
+    CHECK(white(gx + 10 * 39 + 2, gy + 9 * 39 - 1) && white(gx + 10 * 39 + 2, gy + 8 * 39 + 29) &&
+          !white(gx + 10 * 39 + 2, gy + 8 * 39 + 28));
     // The lines round the scanners' sectors dotted from each sector's corner.
     CHECK(colour(gx + 4 * 39, gy + 4 * 39 + 2, 24, 73, 173) && !colour(gx + 4 * 39, gy + 4 * 39 + 1, 24, 73, 173));
     // The neutron star seen in the sector under Sol's, centred where a star

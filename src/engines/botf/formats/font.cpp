@@ -182,22 +182,26 @@ std::vector<std::string> Font::wrap(std::string_view utf8, int width) const {
             end = utf8.size();
         const std::string_view paragraph = utf8.substr(start, end - start);
         line.clear();
+        bool started = false; // the line has a word, if only the empty one between two spaces
         size_t w = 0;
         while (w < paragraph.size()) {
             size_t space = paragraph.find(' ', w);
             if (space == std::string_view::npos)
                 space = paragraph.size();
             const std::string_view word = paragraph.substr(w, space - w);
-            const std::string candidate = line.empty() ? std::string(word) : line + " " + std::string(word);
-            // A word fits when the space after it does too; the last word
-            // of a paragraph has none (the empire screen's descriptions).
+            const std::string candidate = started ? line + " " + std::string(word) : std::string(word);
+            // A word fits when the space after it does too, short of the
+            // width; the last word of a paragraph has none (the empire
+            // screen's descriptions). A line broken at a sentence's two
+            // spaces starts with the second (the galaxy screen's).
             const int after = space < paragraph.size() ? _spaceAdvance : 0;
-            if (!line.empty() && measure(candidate) + after > width) {
+            if (started && !line.empty() && measure(candidate) + after >= width) {
                 lines.push_back(line);
                 line = std::string(word);
             } else {
                 line = candidate;
             }
+            started = true;
             w = space + 1;
         }
         lines.push_back(line);

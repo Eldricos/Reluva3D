@@ -90,6 +90,8 @@ private:
     void drawSectorLine(Surface &screen) const;
     // The map on a surface the view's size, the grid's corner at (gx, gy).
     void drawGrid(Surface &view, int gx, int gy) const;
+    // The empires' claims on a seen sector, its corner at (left, top).
+    void drawClaims(Surface &screen, uint16_t claims, int left, int top, int sector) const;
     void drawStrip(Surface &screen) const;
     void drawSystemStrip(Surface &screen, const SavedSystem &system) const;
     void drawStellarStrip(Surface &screen, const SavedStellarObject &object) const;
@@ -103,6 +105,7 @@ private:
     SavedGame _game;
     int _empire = 1;
     DataTable _shipClasses; // shiplist.sst, for the task forces' ships' names
+    DataTable _races;       // race.rst, for the people living in a system
     int _infoPanel = -1;
     int _emblemsPanel = -1;
     int _taskForcesPanel = -1;

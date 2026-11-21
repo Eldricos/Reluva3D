@@ -38,12 +38,11 @@ to right, then down, in the order they're shown.
 
 ### What isn't drawn
 
-- When the TGA's descriptor declares an alpha bit (its low bits, 1), a
-  pixel's top bit says it's drawn (`s-w-.ani`, `blkh.ani`).
-- Without, black isn't drawn (the planets').
-- `ns.ani` declares an alpha bit but sets it on no pixel; the game draws
-  it as it does a file without, black not drawn (its screenshot matches
-  pixel for pixel so).
+Black, and only black. Most of the files' TGAs declare an alpha bit (the
+descriptor's low bits, 1), but the game doesn't follow it: `ns.ani` sets
+it on no pixel, `rpls.ani` and `xp-.ani` on an eighth of theirs, and
+their screenshots show every pixel that isn't black; the stars', taken so,
+match theirs too.
 
 ## In Reluva
 
@@ -51,7 +50,7 @@ to right, then down, in the order they're shown.
 `.ani` into its frames, each an RGBA picture, transparent where nothing is
 drawn. The galaxy screen draws them. The unit tests
 (`botf.unit.archives`: "animations") cover the header's order, the frames'
-places on the sheet and the three ways of transparency.
+places on the sheet, and black not drawn whatever the alpha bit says.
 
 ## Sources and checks
 
@@ -59,8 +58,9 @@ places on the sheet and the three ways of transparency.
   the English `stbof.res`, and their sheets decoded and compared with
   screenshots of the game, November 2026.
 - **How it was checked:** drawn by Reluva, the frames of the planets of
-  Sol, Babel and Manark, their stars and the neutron star land on the
-  screenshots' pixels exactly, each at one of its frames.
+  Sol, Babel, Manark and Deneb, their stars, the neutron star, a wormhole
+  and both pulsars land on the screenshots' pixels exactly, each at one of
+  its frames.
 
 ## Open questions
 

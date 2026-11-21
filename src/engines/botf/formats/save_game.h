@@ -91,6 +91,13 @@ struct SavedStellarObject {
     ///@}
 };
 
+/** An outpost or starbase (starBaseInfo). */
+struct SavedOutpost {
+    std::string name; // "Outpost"
+    int owner = 0;    // race.rst's number of the empire it's the outpost of
+    int sector = 0;   // its sector's number: row by the galaxy's width, and column
+};
+
 /** One square of the galaxy's grid. */
 struct SavedSector {
     int system = -1;        // an index into SavedGalaxy::systems, or -1
@@ -117,6 +124,7 @@ struct SavedGalaxy {
     std::vector<SavedSector> sectors; // row by row from the top left
     std::vector<SavedSystem> systems;
     std::vector<SavedStellarObject> stellarObjects;
+    std::vector<SavedOutpost> outposts; // starBaseInfo's, by readSavedOutposts()
 
     /** The sector at column `x` and row `y`, which must be in the grid. */
     const SavedSector &at(int x, int y) const { return sectors[size_t(y * width + x)]; }
@@ -248,6 +256,12 @@ struct SavedGame {
     std::vector<SavedTaskForce> taskForces;
     std::vector<SavedResult> results;
 };
+
+/**
+ * Reads the outposts and starbases from the saved game at `path`
+ * (starBaseInfo, 92 bytes each); none if it has no starBaseInfo.
+ */
+Error readSavedOutposts(const std::filesystem::path &path, std::vector<SavedOutpost> &outposts);
 
 /** Reads `game` from the saved game at `path`: each of its parts, as the functions above. */
 Error readSavedGame(const std::filesystem::path &path, SavedGame &game);

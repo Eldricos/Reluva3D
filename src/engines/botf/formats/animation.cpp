@@ -36,13 +36,6 @@ Error readAnimation(const std::vector<uint8_t> &data, Animation &out) {
     if (tga[2] != 2 || tga[16] != 16 || tgaW != sheetW || tgaH != sheetH || frameW <= 0 || frameH <= 0 || count <= 0 ||
         sheetW / frameW * (sheetH / frameH) < count || data.size() < pixels + size_t(sheetW) * size_t(sheetH) * 2)
         return Error::fail("the animation's header doesn't fit its picture");
-    // With an alpha bit declared, a pixel's top bit says it's drawn; without,
-    // black is what isn't. ns.ani declares one but sets it nowhere: black
-    // isn't drawn there either, as on the neutron star's screenshot.
-    bool alpha = false;
-    if ((descriptor & 0x0F) != 0)
-        for (size_t i = 0; i < size_t(sheetW) * size_t(sheetH) && !alpha; ++i)
-            alpha = (data[pixels + i * 2 + 1] & 0x80) != 0;
     const bool topDown = (descriptor & 0x20) != 0;
     out.frameWidth = frameW;
     out.frameHeight = frameH;
@@ -63,7 +56,10 @@ Error readAnimation(const std::vector<uint8_t> &data, Animation &out) {
                 p[0] = uint8_t((v >> 10 & 31) << 3);
                 p[1] = uint8_t((v >> 5 & 31) << 3);
                 p[2] = uint8_t((v & 31) << 3);
-                p[3] = (alpha ? (v & 0x8000) != 0 : (v & 0x7FFF) != 0) ? 255 : 0;
+                // Black isn't drawn, whatever the TGA's alpha bit says: the
+                // pulsars' set it on an eighth of their pixels, and their
+                // screenshots show every one that isn't black.
+                p[3] = (v & 0x7FFF) != 0 ? 255 : 0;
             }
         }
         out.frames.push_back(std::move(img));

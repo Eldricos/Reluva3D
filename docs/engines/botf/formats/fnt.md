@@ -64,6 +64,12 @@ game's pixels so, ten of them, and a pixel apart further each glyph with
 the cells' width + 1
 ([systems/galaxy-screen.md](../systems/galaxy-screen.md#the-map)).
 
+Wrapped to a width, a line takes a word only while it and the space
+after it (none after a paragraph's last word) stay narrower than the
+width: the galaxy screen's pulsars' descriptions break where the line
+and its space would fill the box exactly. A line broken at two spaces
+starts with the second.
+
 The glyphs, in order (the header's advances are in the same order):
 
 | Row | Glyphs |

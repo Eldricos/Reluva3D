@@ -63,9 +63,18 @@ first turn of one game and the eleventh of another, with their saves
 - **Claims:** a seen sector an empire claims (0x0E) is dotted in its
   colour, on every other row from the sector's second: the Federation
   (16, 8, 115) and the Klingons (107, 8, 8) a dot every 3 pixels, one
-  pixel further left each time; the Romulans (8, 89, 8) a dot every 4,
-  two pixels further each time. The Ferengi's and Cardassians' aren't
-  seen on the screenshots, and aren't drawn.
+  pixel further left each time; the Romulans (8, 89, 8), the Cardassians
+  (115, 8, 90) and the Ferengi (156, 89, 0) a dot every 4, two pixels
+  further each time (the thirty-fourth turn's screenshot has all five). A
+  sector two empires claim (one seen: the Cardassians' and the Romulans')
+  is striped on every row instead: along x + y, every 10 pixels, five
+  stripes, (16, 8, 115) at 1, (107, 8, 8) at 3, (115, 113, 8) at 5,
+  (115, 8, 90) at 7 and (8, 89, 8) at 9: not the claimants' colours
+  alone, so Reluva stripes any contested sector so *(inferred)*.
+- **Outposts:** the empire's own, a pixel right of the sector's
+  bottom-left corner, at its foot: `i_ho11.tga` (11x16), the Federation's
+  two at the thirty-fourth turn. The other empires' outposts in seen
+  sectors aren't shown (`starBaseInfo`, [formats/sav.md](../formats/sav.md)).
 - **Stars:** each system in a seen sector is drawn with its star's small
   picture (`s-y-maps.tga` for a yellow star, 10x10), not the 19x19
   `s-y-map.tga`. In its sector it's placed by its place on the galaxy's
@@ -95,7 +104,9 @@ first turn of one game and the eleventh of another, with their saves
 
 - **Ranges:** green, yellow and red lines, a pixel wide, along the sector
   edges round what's within a short, medium and long range of the
-  empire's systems, the shorter drawn over the longer, closed by the
+  empire's systems and outposts (the thirty-fourth turn's green borders
+  are round Sol and two outposts), the shorter drawn over the longer,
+  closed by the
   grid's edges. A sector counts as within a range when the larger of its
   column and row distances from Sol, and half the smaller rounded down,
   add up to no more than 1 (green), 2 (yellow) or 5 (red): that gives
@@ -132,16 +143,17 @@ two screenshots ("Unexplored Sector i6" with "Scan Strength -3", and
 - **Its name:** the column's letter, small, and the row from 1, in
   `lexicon.dic`'s "Unexplored Sector %s" (1385) where the empire hasn't
   explored it, "Unclaimed Sector %s" (1382) where no empire claims it,
-  "Contested Sector %s" (187) where two or more do; one empire's claim is
-  taken to be "Sector %s" (1107) *(guessed)*. In the turn's blue
+  "Contested Sector %s" (187) where two or more do, and the empire's
+  adjective before "Sector %s" (1107) where one does: "Romulan Sector d1",
+  "Cardassian Sector c6" (122, 319, 323, 560 and 1058 for the five). In
+  the turn's blue
   (24, 101, 189), in the box as its other text.
 - **The empire's scan strength there** ("Scan Strength %d", 1096), ending
-  6 pixels short of the box's right edge: yellow (255, 255, 0) for 5, red
-  (255, 0, 0) for -3. Reluva takes it to be yellow above 0 and red
-  otherwise *(guessed)*.
+  6 pixels short of the box's right edge: yellow (255, 255, 0) above 0
+  (1 and 5), red (255, 0, 0) otherwise (0, -3, -11, -43).
 
-Drawn so with the pointer where the zoomed-in screenshot has it, the line
-matches it pixel for pixel.
+Drawn so with the pointer where the screenshots have it, the line
+matches them pixel for pixel.
 
 ### Zooming
 
@@ -191,12 +203,13 @@ for each task force from 147 down, 40 apart.
   "DILITHIUM" 6 pixels after it (so after "+1", and after "0" in another
   screenshot), and the last turn's events: "2 Events" (entry 310) in the
   figures' green, ending where "No Events" (833) does, or "No Events" in
-  orange. The count is the empire's results in `result.lst`, but for a
-  new game's own fleets ([formats/sav.md](../formats/sav.md#results)):
-  "2 Events" in the three screenshots of games loaded from the first
-  turn's saves, "5 Events" at the eleventh turn, "No Events" from the
-  saves without the Federation's. A single event is taken to be "1 Event"
-  (297) *(guessed)*. The words are in
+  orange, or "1 Event" (297). The count is the empire's results in
+  `result.lst`, but for a new game's own task forces and ships (their
+  value 0, [formats/sav.md](../formats/sav.md#results)): "2 Events" in
+  the three screenshots of games loaded from the first turn's saves, "5
+  Events" at the eleventh turn, "1 Event" at the thirty-first and
+  thirty-fourth (a race met, its value 0 too, counts), "No Events" from
+  the saves without the Federation's. The words are in
   orange (247, 121, 33), the figures in green (173, 227, 115), the
   figures ending 6 pixels short of the box's right edge; the words are
   `lexicon.dic`'s (entries 1361, 194, 239, 833). The figures are the
@@ -268,12 +281,15 @@ Measured on screenshots of Sol, Babel, Manark and a neutron star:
   in orange in the title box and "Description" (228) in box 1101; and its
   description, `lexicon.dic`'s entry after its name's (811 for "Neutron
   Star", 810), wrapped to box 1103 (532, 477, 220 wide), a line every 17
-  pixels, in (165, 121, 33). The sixth line runs past the box's foot.
-  The neutron star's strip matches its screenshot pixel for pixel. The
-  black hole's, the X-ray and radio pulsars' and the wormhole's are drawn
-  the same way with `blkh.ani`, `xp-.ani`, `rpls.ani` and `worm.ani` and
-  their entries, by the files' and entries' names *(guessed)*.
-  A nebula has no animation, and no strip is drawn for it yet.
+  pixels, in (165, 121, 33). A line takes a word only while it and the
+  space after it stay narrower than the box ([formats/fnt.md](../formats/fnt.md));
+  broken at a sentence's two spaces, the next line starts with the
+  second. The sixth line runs past the box's foot. The neutron star's,
+  the wormhole's (`worm.ani`, 1448), the radio pulsar's (`rpls.ani`, 969)
+  and the X-ray pulsar's (`xp-.ani`, 1451) strips match their screenshots
+  pixel for pixel, each at one of its frames. The black hole's is drawn
+  the same way with `blkh.ani` and its entry *(guessed)*. A nebula has no
+  animation, and no strip is drawn for it yet.
 
 - **Bonuses:** an icon on a planet's frame's top, from its left edge: a
   red flare (`bie.tga`) on a desert or volcanic planet (types 2 and 7)
@@ -291,12 +307,16 @@ Measured on screenshots of Sol, Babel, Manark and a neutron star:
   and 6 of green, is the picture's times 0.64, rounded down. The other
   empires' are taken by their letters *(guessed)*.
 
+- **Who lives there:** "HUMANS" for the Federation's people, a minor
+  race's `race.rst` name in capitals ("BANDI" at Deneb); the other
+  empires' people are taken to be their names in capitals *(guessed)*.
+
 Not drawn yet: the growth rate and the orbitals' figures ("3.1%" and
-"0/0" for Sol at the first turn, "0.7%" for Babel), which no field of the
-save seen holds; and the people's word for a race other than the
-Federation's (only "HUMANS" is in capitals in `lexicon.dic`). With
-those, the three systems' strips match their screenshots, each planet at
-one of its frames, but for the larger planets' and the stars' outermost
+"0/0" for Sol, "0.7%" for Babel, "0.3%" for Deneb), which no field of the
+save seen holds: for Humans the rate fits `race.rst`'s growth rate (10)
+times the maximum population over 1,080, but Deneb's Bandi (0.7, 105)
+don't. With those, the five systems' strips match their screenshots, each
+planet at one of its frames, but for the larger planets' outermost
 pixels.
 
 ## In Reluva
@@ -346,8 +366,15 @@ blend with what's under them.
 - What the ranges are and what sets them.
 - The Ferengi's and Cardassians' claims' dots, and whether a sector
   claimed by two empires shows both.
-- The sector line's wording for a sector one empire claims, and the scan
-  strength's colour when it's high.
+- The ranges at later turns: round the empire's systems and outposts, as
+  at the first turn, but the thirty-fourth turn's borders cut round the
+  Romulans' and Cardassians' sectors in a way no rule found fits (the
+  eleventh turn's don't).
+- Which explored systems are named at later turns: at the thirty-third,
+  nine explored sectors have no name (the Romulans' and Cardassians'
+  systems among them, and both pulsars), and no field read tells them
+  from the named ones.
+- How the growth rate is worked out.
 - Why Sol's name, zoomed in, is a pixel left of where the rule puts it.
 - When the zoom's buttons close, and which of them is lit.
 - Larger galaxies: whether the map scrolls zoomed out, and whether the

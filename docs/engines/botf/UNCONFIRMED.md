@@ -40,21 +40,20 @@ None: nothing of the game's code has been read.
   executable sets it, and magenta is what the pictures leave undrawn
   ([formats/wdf.md](formats/wdf.md)). Settled by: no picture showing pink
   where the game shows none.
-- **The galaxy screen's strip for the black hole, the pulsars and the
-  wormhole:** their animations and descriptions taken by their names, and
+- **The galaxy screen's strip for the black hole:** its animation and
+  description taken by their names; and
   the planets' gap closing until the outermost is 21 pixels inside its
   place ([systems/galaxy-screen.md](systems/galaxy-screen.md#the-strip)).
-  Settled by: screenshots of those objects selected, and of a system with
+  Settled by: a screenshot of a black hole selected, and of a system with
   more planets than Sol.
 - **The galaxy screen's cases not seen:** the zoom buttons closed on a
-  choice or a click elsewhere, the Map button and the current zoom's lit; the zoomed map
-  staying where it was zoomed in as other sectors are selected; other
-  owners' systems' names in the colour of those nobody holds; the other
-  stellar objects' map pictures, and other empires' and minor races' task
-  forces' emblems; the strip's jungle planets' food icon and the other
-  empires' emblems; the sector line's wording for one empire's claim and
-  its scan strength's colours; and the events counted of the results'
-  other kinds, and "1 Event"
+  choice or a click elsewhere, the Map button and the current zoom's
+  lit; the zoomed map staying where it was zoomed in as other sectors
+  are selected; other owners' systems' names in the colour of those
+  nobody holds; the other stellar objects' map pictures, and other
+  empires' and minor races' task forces' emblems; the strip's jungle
+  planets' food icon, the other empires' emblems and people's words; and
+  every contested sector striped as the Cardassians' and Romulans' is
   ([systems/galaxy-screen.md](systems/galaxy-screen.md)). Settled by: a
   recording of the zoom's buttons used, and screenshots of each case.
 

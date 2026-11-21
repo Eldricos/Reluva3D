@@ -97,6 +97,12 @@ constexpr int kTurn = 1370;
 // The selected sector's strip under the map; a stellar object's description
 // is the entry after its name's.
 constexpr int kBlackHole = 94;
+// The empires' adjectives, for a sector one claims: "Romulan Sector d1".
+constexpr int kCardassian = 122;
+constexpr int kFederationAdjective = 319;
+constexpr int kFerengiAdjective = 323;
+constexpr int kKlingon = 560;
+constexpr int kRomulan = 1058;
 constexpr int kContestedSector = 187; // "Contested Sector %s"
 constexpr int kScanStrength = 1096;   // "Scan Strength %d"
 constexpr int kSector = 1107;         // "Sector %s"
