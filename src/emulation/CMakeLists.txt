@@ -15,6 +15,7 @@ add_library(reluva_emulation STATIC
     x86/format.cpp
     x86/fpu.cpp
     x86/jit.cpp
+    x86/mci.cpp
     x86/mmx.cpp
     x86/msvcp60.cpp
     x86/msvcrt.cpp
@@ -40,4 +41,4 @@ add_library(reluva_emulation STATIC
     x86/glide/glide3_x86.cpp
     x86/glide/glide_x86.cpp)
 # graphics: the Glide stand-in's pipeline (src/graphics/glide/), which x86/glide/ serves to programs.
-target_link_libraries(reluva_emulation PUBLIC reluva_common reluva_audio reluva_graphics PRIVATE reluva_warnings)
+target_link_libraries(reluva_emulation PUBLIC reluva_common reluva_audio reluva_graphics reluva_video PRIVATE reluva_warnings)
