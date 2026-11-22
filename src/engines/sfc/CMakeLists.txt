@@ -6,12 +6,17 @@
 reluva_add_engine(sfc
     ACCESSOR sfcMetaEngine
     SOURCES
-        sfc.cpp)
+        sfc.cpp
+        formats/bft_font.cpp
+        formats/model.cpp
+        formats/sprite_archive.cpp
+        formats/text_tables.cpp)
 
 # Its reluva-tool commands (reluva-tool help sfc lists them).
 reluva_add_engine_tools(sfc
     SOURCES
-        tools/files.cpp)
+        tools/files.cpp
+        tools/formats.cpp)
 
 # Its tests (tests/engines/sfc/), in reluva-tests: the unit tests by
 # topic, and the engine test, without game files (its record in
@@ -20,9 +25,10 @@ set(tests ${PROJECT_SOURCE_DIR}/tests/engines/sfc)
 reluva_add_engine_tests(sfc
     SOURCES
         ${tests}/unit/detection.cpp
+        ${tests}/unit/formats.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection engine)
+        unit.detection unit.formats engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):
