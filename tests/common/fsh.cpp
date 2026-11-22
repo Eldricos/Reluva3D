@@ -2,7 +2,8 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // EA's picture banks (image/fsh.h): banks written by hand, with every kind
-// of picture, palettes and text, compressed whole, and damaged.
+// of picture, palettes and text, compressed whole, a picture compressed on
+// its own with its whole name, and damaged.
 //
 //   reluva-tests common.unit.fsh
 
@@ -126,9 +127,57 @@ void testShapes() {
     CHECK(parseShapeBank(Bytes{'S', 'H', 'P', 'X'}, bank));
 }
 
+// RefPack of only literals: runs of 4, then the rest with the end code.
+Bytes refPack(const Bytes &data) {
+    Bytes out = {0x10, 0xfb, uint8_t(data.size() >> 16), uint8_t(data.size() >> 8), uint8_t(data.size())};
+    size_t at = 0;
+    for (; data.size() - at >= 4; at += 4) {
+        out.push_back(0xe0);
+        out.insert(out.end(), data.begin() + long(at), data.begin() + long(at) + 4);
+    }
+    out.push_back(uint8_t(0xfc + (data.size() - at)));
+    out.insert(out.end(), data.begin() + long(at), data.end());
+    return out;
+}
+
+// As SimCoaster's: an 8-bit picture whose pixels are RefPack on their own
+// (type 0xFB), here unpacking to zeros past its 2x2, then a 24-bit
+// palette, then its whole name.
+void testCompressedShape() {
+    const Bytes pixels = {0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    const Bytes packed = refPack(pixels);
+    Bytes shape;
+    putShapeHeader(shape, 0xfb, uint32_t(16 + packed.size()), 2, 2, 0, 0, 0, 0);
+    shape.insert(shape.end(), packed.begin(), packed.end());
+    putShapeHeader(shape, 0x24, 16 + 6, 2, 1, 0, 0, 0, 0);
+    shape.insert(shape.end(), {0, 0, 255, 0, 255, 0}); // red, green (B, G, R)
+    shape.insert(shape.end(), {0x70, 0, 0, 0});
+    putText(shape, "wood_long\0\0\0", 12);
+    ShapeBank bank;
+    CHECK(!parseShapeBank(makeShapeBank({{"wood", shape}}, "G231"), bank));
+    CHECK(bank.id == "G231" && bank.shapes.size() == 1);
+    if (bank.shapes.size() != 1)
+        return;
+    const Shape &s = bank.shapes[0];
+    CHECK(s.compressed && s.type == kShape8Bit && s.pixels == (Bytes{0, 1, 1, 0}));
+    CHECK(s.name == "wood" && s.longName == "wood_long" && s.unknown.empty());
+    image::Image img;
+    CHECK(!decodeShape(s, img));
+    const uint8_t first[] = {255, 0, 0, 255, 0, 255, 0, 255};
+    CHECK(img.rgba.size() == 16 && std::memcmp(img.rgba.data(), first, 8) == 0);
+
+    // Too few pixels unpacked fails.
+    const Bytes few = refPack({0, 1});
+    Bytes cut;
+    putShapeHeader(cut, 0xfb, 0, 2, 2, 0, 0, 0, 0);
+    cut.insert(cut.end(), few.begin(), few.end());
+    CHECK(parseShapeBank(makeShapeBank({{"few", cut}}), bank));
+}
+
 } // namespace
 
-static const reluva::test::Suite kSuite("common.unit.fsh",
-                                        {
-                                            {"shapes", [](const std::filesystem::path &) { testShapes(); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("common.unit.fsh", {
+                                  {"shapes", [](const std::filesystem::path &) { testShapes(); }},
+                                  {"compressed shape", [](const std::filesystem::path &) { testCompressedShape(); }},
+                              });

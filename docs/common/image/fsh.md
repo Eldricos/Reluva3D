@@ -15,8 +15,10 @@ with RefPack ([refpack.md](../refpack.md)), as Need for Speed III's
 - Pictures of 8 bits (palette indices), 16 bits (5:6:5 and 1:5:5:5), 24
   bits and 32 bits, decoded to RGBA.
 - Palettes of 16 (1:5:5:5), 24 and 32 bits attached to a picture.
-- Text blocks, kept as text; other attached blocks kept as they are, for
-  a game's own code to read.
+- Pictures whose pixels are compressed with RefPack on their own (the
+  type's top bit set).
+- Text blocks, kept as text, and name blocks; other attached blocks kept
+  as they are, for a game's own code to read.
 - A whole bank compressed with RefPack or EA Huffman.
 - An 8-bit picture without a palette is read, but not decoded.
 
@@ -31,7 +33,7 @@ All values are little-endian.
 | 0 | 4 | `SHPI` |
 | 4 | u32 | The file's size |
 | 8 | u32 | How many shapes |
-| 12 | 4 | The directory's id: `GIMX` in Need for Speed III's |
+| 12 | 4 | The directory's id: `GIMX` in Need for Speed III's, `G231` in SimCoaster's |
 | 16 | 8 × n | Per shape: a 4-character name, then a u32 offset |
 
 ### Blocks
@@ -71,6 +73,11 @@ end.
 | `0x7D` | 32-bit, bytes B, G, R, A |
 | `0x7F` | 24-bit, bytes B, G, R |
 
+A type with its top bit set (`0xFB` for 8-bit) has its pixels compressed:
+a RefPack stream from offset 16 to the block's end, which unpacks to the
+pixels. Some unpack to more, zeros (12 bytes more, for SimCoaster's 135
+pictures of 22 to 250 pixels square), which are left *(inferred)*.
+
 Attached blocks after the picture:
 
 | Type | Meaning |
@@ -79,6 +86,7 @@ Attached blocks after the picture:
 | `0x24` | Palette, 24-bit B, G, R |
 | `0x2A` | Palette, 32-bit B, G, R, A |
 | `0x6F` | Text: a u32 length at offset 4, the text at 8 |
+| `0x70` | The picture's whole name, at offset 4, ending in a 0 and padded with zeros (to 12 or 28 bytes); the directory's is its first 4 characters |
 
 The alpha bit of a 16-bit palette's colours varies from colour to
 colour, so it carries transparency, as in 16-bit pictures. Other block
@@ -90,12 +98,18 @@ one.
 - **Where the facts come from:** the Need for Speed modding community's
   FSH notes, for the overall layout; the record types, block sizes,
   palettes and attached blocks counted on Need for Speed III's files with
-  survey scripts (October 2026).
+  survey scripts (October 2026). The compressed pictures and the name
+  block from SimCoaster's files (November 2026): every block of type
+  `0xFB` starts `10 FB`, and unpacks to its picture's width × height or
+  more; every `0x70` block holds a name starting with the directory's.
 - **How it was checked:** every picture bank of Need for Speed III's
   install and CD (694 banks, 15,990 pictures) read to its end; the
-  colours checked by eye on decoded pictures. The unit tests
+  colours checked by eye on decoded pictures. All 7,283 of SimCoaster's
+  banks read and decoded (6,736 compressed pictures), and some looked
+  at. The unit tests
   (`common.unit.fsh`, `tests/common/fsh.cpp`) read banks built in the
-  test: every picture type, palettes, text, a compressed bank and damage.
+  test: every picture type, palettes, text, a compressed bank, a
+  compressed picture with its name, and damage.
 - **Confidence:** confirmed unless marked.
 
 ## Used by

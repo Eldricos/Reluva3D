@@ -152,20 +152,33 @@ Error parseShapeBank(std::vector<uint8_t> data, ShapeBank &out) {
             const int h = le16(&data[pos + 6]);
 
             if (first) {
-                const int bpp = bytesPerPixel(type);
-                if (bpp == 0 || type == kPalette16Bit1555 || type == kPalette24Bit || type == kPalette32Bit)
+                const uint8_t picture = type & uint8_t(~kShapeCompressed);
+                const int bpp = bytesPerPixel(picture);
+                if (bpp == 0 || picture == kPalette16Bit1555 || picture == kPalette24Bit || picture == kPalette32Bit)
                     return bad("shape " + shape.name + " has unknown type " + std::to_string(type));
                 const size_t bytes = static_cast<size_t>(w) * h * bpp;
-                if (pos + 16 + bytes > end)
-                    return bad("shape " + shape.name + "'s pixels run past its block");
-                shape.type = type;
+                shape.compressed = type & kShapeCompressed;
+                if (shape.compressed) {
+                    // The pixels as a RefPack stream to the block's end;
+                    // some unpack to more, zeros, which are left.
+                    const std::vector<uint8_t> packed(data.begin() + long(pos) + 16, data.begin() + long(end));
+                    if (Error err = decompressRefPack(packed, shape.pixels))
+                        return bad("shape " + shape.name + "'s pixels: " + err.message);
+                    if (shape.pixels.size() < bytes)
+                        return bad("shape " + shape.name + "'s pixels unpack to too few");
+                    shape.pixels.resize(bytes);
+                } else {
+                    if (pos + 16 + bytes > end)
+                        return bad("shape " + shape.name + "'s pixels run past its block");
+                    shape.pixels.assign(data.begin() + pos + 16, data.begin() + pos + 16 + bytes);
+                }
+                shape.type = picture;
                 shape.width = w;
                 shape.height = h;
                 shape.centerX = static_cast<int16_t>(le16(&data[pos + 8]));
                 shape.centerY = static_cast<int16_t>(le16(&data[pos + 10]));
                 shape.x = static_cast<int16_t>(le16(&data[pos + 12]));
                 shape.y = static_cast<int16_t>(le16(&data[pos + 14]));
-                shape.pixels.assign(data.begin() + pos + 16, data.begin() + pos + 16 + bytes);
                 first = false;
             } else if (type == kPalette16Bit1555 || type == kPalette24Bit || type == kPalette32Bit) {
                 // Width is the number of colours.
@@ -184,6 +197,9 @@ Error parseShapeBank(std::vector<uint8_t> data, ShapeBank &out) {
                 while (!s.empty() && (s.back() == '\r' || s.back() == '\n' || s.back() == ' '))
                     s.pop_back();
                 shape.texts.push_back(std::move(s));
+            } else if (type == kShapeName) {
+                shape.longName.assign(reinterpret_cast<const char *>(&data[pos + 4]),
+                                      fieldLength(&data[pos + 4], end - pos - 4));
             } else {
                 shape.unknown.push_back({type, std::vector<uint8_t>(data.begin() + pos + 4, data.begin() + end)});
             }

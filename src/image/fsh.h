@@ -26,12 +26,18 @@ enum ShapeType : uint8_t {
     kPalette16Bit1555 = 0x2d,
     kPalette32Bit = 0x2a,
     kShapeText = 0x6f,
+    kShapeName = 0x70, // the picture's whole name
 };
+
+/** Set in a picture's type when its pixels are compressed with RefPack. */
+constexpr uint8_t kShapeCompressed = 0x80;
 
 /** One picture of an .fsh bank, with the blocks attached to it. */
 struct Shape {
-    std::string name; // 4 characters in the bank's directory
-    uint8_t type = 0;
+    std::string name;     // 4 characters in the bank's directory
+    std::string longName; // its whole name, from a name block; empty without one
+    uint8_t type = 0;     // kShapeCompressed taken off
+    bool compressed = false;
     int width = 0;
     int height = 0;
     // the picture's centre or hot spot (may be negative)
