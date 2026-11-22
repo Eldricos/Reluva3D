@@ -7,6 +7,10 @@
 Banks of pictures ("shapes"), each a chain of blocks: the picture,
 then what's attached to it, such as a palette. They're on their own,
 inside `.viv` archives, or compressed as `.qfs` ([refpack.md](refpack.md)).
+NFS III and NFS II SE share the layout; NFS II SE adds a bank-wide
+palette, 4-bit pictures and a 16-bit 5:6:5 palette
+([NFS II SE](#nfs-ii-se)). Counts are NFS III's unless they say
+otherwise.
 
 ## Layout
 
@@ -19,7 +23,7 @@ All values are little-endian.
 | 0 | 4 | `SHPI` |
 | 4 | u32 | file size (equal to the file's in all 694) |
 | 8 | u32 | number of shapes |
-| 12 | 4 | directory id: `GIMX` in every NFS III file |
+| 12 | 4 | directory id: `GIMX` in every NFS III and NFS II SE file |
 | 16 | 8 × n | per shape: 4-character name, u32 offset |
 
 ### Blocks
@@ -188,6 +192,45 @@ Attached blocks after the picture:
 Of the install's 16-bit 1:5:5:5 pictures, 2,897 are fully opaque, 636 mix opaque and
 clear pixels, and 24 are entirely clear.
 
+### NFS II SE
+
+Counted on NFS II SE's CD, which holds every bank (311, with 15,336
+pictures).
+
+| Type | What | Count |
+|---|---|---|
+| `0x7B` | 8-bit palette indices | 9,251 |
+| `0x78` | 16-bit 5:6:5 | 5,706 |
+| `0x7D` | 32-bit | 223 |
+| `0x7F` | 24-bit | 17 |
+| `0x7E` | 16-bit 1:5:5:5 | 1 |
+| `0x7A` | 4-bit palette indices | 8 |
+| `0x2A` as an entry | the bank's palette, 32-bit | 96 |
+| `0x24` as an entry | the bank's palette, 24-bit | 17 |
+
+- **The bank's palette.** A directory entry may be a palette alone,
+  named `!pal` or `0000`: the palette's header, its width the number of
+  colours, then the colours. 113 banks have one, none more. An 8-bit
+  picture without a palette of its own uses it, the bank's only one, with
+  which the pictures look right *(inferred)*; one with its own attached
+  palette uses that, as in NFS III. 7,864 of the CD's
+  pictures use the bank's.
+- **4-bit pictures** (`0x7A`): two pixels a byte, the low half first,
+  as the pictures look right only so *(inferred)*; each row starts on a
+  byte, so a row is (width + 1) ÷ 2 bytes. The eight are the 6×6 `dot `
+  of the front end's track records (`FeData/pc/art/track/*rec.qfs`),
+  each with a 16-colour `0x24` palette.
+- **`0x24`**, attached: a 24-bit palette, B, G, R (600 on the CD).
+- **`0x29`**, attached: a 16-bit palette, 5:6:5 *(inferred)*. Read so,
+  `tr050.qfs`'s 16×16 `0033` is an even brown ground; read as 1:5:5:5 it
+  is yellow with green flecks, and with the bank's palette blue noise. Of
+  the ten on the CD, the eight on 16-bit pictures (`hisfer.qfs`,
+  `bar.fsh`) are all zeros, unused; the two others are on that picture,
+  in `tr050.qfs` and `tr050m.qfs`.
+- **Empty banks.** `huddata.viv` holds `hud.fsh`, `hud*.fsh` and
+  `mapdots.fsh` as empty entries; the game's are the loose files beside
+  it.
+
 ## Behaviour
 
 ### Track texture sets
@@ -209,15 +252,35 @@ A track's polygons name their pictures by place in the sheet, not by
 name, and the names skip or repeat on most sheets ([frd.md](../games/nfs3/formats/frd.md),
 Textures).
 
+### NFS II SE's pause screens
+
+NFS II SE has two sets of its pause screens in `GameData/Pause`: the
+software program's (`pause??.qfs`, one per language) as 8-bit pictures
+with no palette at all, 156 pictures; and the 3dfx program's
+(`paus3??.qfs`) as the same pictures in 16-bit 5:6:5. Over the pictures
+of the same size in both, every pixel of an index has the same colour in
+the 3dfx set (22 indices). The HUD's palette, `!pal` of
+`GameData/DashHud/pc/hud.fsh` (the dashboards' `!pal` are the same),
+gives those colours within 4 of 255, the rounding to 5:6:5; it is the
+nearest of the CD's 1,030 palettes. So the software game draws its pause
+screens in the race's palette, though this isn't traced in `nfs2sen.exe`
+*(inferred)*.
+
 ## In Reluva
 
 Read by `parseShapeBank` and `decodeShape`
 (`src/engines/nfs/formats/fsh.cpp`). It reads all 694
-banks (15,990 pictures) in the NFS III install and on its CD, including
-those inside `.viv` archives and compressed as `.qfs`
-([refpack.md](refpack.md)).
+banks (15,990 pictures) in the NFS III install and on its CD, and all 311
+banks on NFS II SE's CD (15,180 pictures and palette entries, and the 156
+pause pictures without a palette), including those inside `.viv`
+archives and compressed as `.qfs` ([refpack.md](refpack.md)). A bank's
+palette entry is given to its 4- and 8-bit pictures without one
+(`Shape::bankPalette`).
 
-The data viewer's Textures and Cockpits pages show them.
+The data viewer's Textures and Cockpits pages show them. For NFS II SE,
+the Textures page shows the pause screens with `hud.fsh`'s palette
+(`nfs2se::racePalette`, `src/engines/nfs/nfs2se/files.cpp`), and says
+so; `reluva-tool nfs survey` counts them as "lent a palette".
 
 - `reluva-tool nfs fsh-info <file> [name in .viv]` lists the shapes.
 - `reluva-tool nfs fsh-dump ... <dir>` writes them as TGA files.
@@ -233,4 +296,9 @@ Where the layout came from:
 - the record types, block sizes, palettes and attached blocks, counted on
   the retail files with survey scripts (October 2026);
 - the colours, checked by eye on decoded pictures: the title screen, car
-  art, cockpits and track textures.
+  art, cockpits and track textures;
+- NFS II SE's palette entries, 4-bit pictures and `0x29` palettes, from
+  its CD's banks with survey scripts (November 2026): the types counted,
+  the blocks measured, the 4-bit order and the `0x29` layout chosen by
+  which decoding looks right; the pause screens' palette by comparing
+  each index's colour in the 3dfx set with every palette on the CD.

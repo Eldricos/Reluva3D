@@ -249,6 +249,21 @@ void testNfs2seListings(const stdfs::path &tmp) {
 
     CHECK(filesWithExtension(cd, "GameData/Audio/pc", ".mus").size() == 1);
     CHECK(filesWithExtension(cd, "FeData/pc/movies", ".dct").size() == 1);
+
+    // The race's palette: the loose hud.fsh's entry, not the HUD
+    // archive's empty one.
+    Bytes palette;
+    putShapeHeader(palette, 0x2a, 0, 1, 1, 0, 0, 0, 0);
+    palette.insert(palette.end(), {0x30, 0x20, 0x10, 0xff});
+    const Bytes hud = makeShapeBank({{"!pal", palette}});
+    const Bytes archive = makeViv({{"hud.fsh", ""}});
+    touch(install / "GameData/DashHud/pc/HUDDATA.VIV", std::string(archive.begin(), archive.end()));
+    touch(install / "GameData/DashHud/pc/HUD.FSH", std::string(hud.begin(), hud.end()));
+    GameFiles files;
+    files.scan(folders);
+    CHECK(nfs2se::racePalette(files) == (std::vector<uint8_t>{0x10, 0x20, 0x30, 0xff}));
+    files.scan(noCars);
+    CHECK(nfs2se::racePalette(files).empty());
 }
 
 } // namespace

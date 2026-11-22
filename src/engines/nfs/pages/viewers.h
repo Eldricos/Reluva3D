@@ -94,8 +94,13 @@ private:
  */
 class TexturePage : public Page {
 public:
-    /** Shows the .fsh and .qfs files of `files`, which must outlive the page. */
-    explicit TexturePage(const GameFiles &files);
+    /**
+     * Shows the .fsh and .qfs files of `files`, which must outlive the page.
+     * A 4- or 8-bit picture with no palette of its own or its bank's, whose
+     * palette the game lends it, is shown with `lent` (RGBA), named
+     * `lentFrom`, if it isn't empty.
+     */
+    explicit TexturePage(const GameFiles &files, std::vector<uint8_t> lent = {}, std::string lentFrom = {});
     const char *name() const override { return "Textures"; }
     bool empty() const override { return _banks.empty(); }
     void handleKey(uint32_t key, uint16_t mods) override;
@@ -113,7 +118,10 @@ private:
     std::string _error;
     image::Image _image;
     std::string _imageError;
-    int _background = 0; // checkerboard, black, white
+    std::vector<uint8_t> _lent;
+    std::string _lentFrom;
+    bool _shownLent = false; // the picture is shown with _lent
+    int _background = 0;     // checkerboard, black, white
     bool _alpha = true;
 };
 

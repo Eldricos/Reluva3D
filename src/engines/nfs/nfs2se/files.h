@@ -5,6 +5,7 @@
 
 #include "common/types.h"
 #include "engines/nfs/folders.h"
+#include "engines/nfs/game_files.h"
 
 #include <filesystem>
 #include <string>
@@ -34,6 +35,15 @@ struct Programs {
 
 /** The programs in the install, or else on the CD. */
 Programs programs(const GameFolders &folders);
+
+/**
+ * The race's palette (RGBA), the palette entry of the HUD's pictures
+ * (GameData/DashHud/pc/hud.fsh), which the dashboards share; empty if it
+ * can't be read. The software game draws its pause screens, whose
+ * pictures have no palette, in it: their 3dfx copies, in colour, agree with
+ * it (docs/engines/nfs/formats/fsh.md).
+ */
+std::vector<uint8_t> racePalette(const GameFiles &files);
 
 /** Why `folders` can't be NFS II SE's (no tracks in them), or success. */
 Error checkFolders(const GameFolders &folders);

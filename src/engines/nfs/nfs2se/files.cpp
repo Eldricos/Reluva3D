@@ -4,6 +4,7 @@
 #include "engines/nfs/nfs2se/files.h"
 
 #include "common/fs.h"
+#include "engines/nfs/formats/fsh.h"
 #include "engines/nfs/formats/viv.h"
 
 #include <algorithm>
@@ -69,6 +70,22 @@ Programs programs(const GameFolders &folders) {
                 out.glide = *file;
     }
     return out;
+}
+
+std::vector<uint8_t> racePalette(const GameFiles &files) {
+    for (const FileRef &ref : files.withExtensions({".fsh"})) {
+        // The loose file: the HUD's archive (huddata.viv) holds an empty one.
+        if (!ref.inner.empty() || fs::toLower(ref.name).find("dashhud/pc/hud.fsh") == std::string::npos)
+            continue;
+        std::vector<uint8_t> data;
+        ShapeBank bank;
+        if (files.read(ref, data) || parseShapeBank(std::move(data), bank))
+            continue;
+        for (const Shape &s : bank.shapes)
+            if (isPaletteType(s.type))
+                return s.palette;
+    }
+    return {};
 }
 
 Error checkFolders(const GameFolders &folders) {

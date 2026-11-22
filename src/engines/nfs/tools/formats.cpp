@@ -282,6 +282,9 @@ int cmdNfsSurvey(int argc, char **argv) {
     Count movies;
     Count frames;
     Count movieAudio;
+    // Kinds only NFS II SE has, reported when there are any.
+    Count lentPalette;                    // 4- and 8-bit pictures with no palette, which the game lends one
+    int empty = 0;                        // empty picture banks (NFS II SE's huddata.viv has three)
     std::vector<std::string> unsupported; // in EA's other compression schemes
     auto lower = [](std::string s) {
         for (char &c : s)
@@ -302,6 +305,12 @@ int cmdNfsSurvey(int argc, char **argv) {
     auto check = [&](const std::string &name, std::vector<uint8_t> data, const std::string &what) {
         const std::string ext = lower(stdfs::path(name).extension().string());
         const std::string stem = lower(stdfs::path(name).stem().string());
+        if (data.empty() && (ext == ".fsh" || ext == ".qfs")) {
+            ++empty;
+            if (verbose)
+                std::printf("empty %s\n", what.c_str());
+            return;
+        }
         if (ext == ".fsh" || ext == ".qfs") {
             if (reluva::nfs::isOtherEaCompression(data)) {
                 unsupported.push_back(what);
@@ -311,6 +320,12 @@ int cmdNfsSurvey(int argc, char **argv) {
             const Error err = reluva::nfs::parseShapeBank(std::move(data), bank);
             report(banks, what, err);
             for (const auto &shape : bank.shapes) {
+                if ((shape.type == reluva::nfs::kShape8Bit || shape.type == reluva::nfs::kShape4Bit) &&
+                    shape.palette.empty()) {
+                    report(lentPalette, what + ":" + shape.name, Error::success());
+                    lentPalette.add(shape.pixels);
+                    continue;
+                }
                 reluva::image::Image img;
                 const Error e = reluva::nfs::decodeShape(shape, img);
                 report(pictures, what + ":" + shape.name, e);
@@ -470,6 +485,21 @@ int cmdNfsSurvey(int argc, char **argv) {
             std::printf("%-16s %6d read, %d failed\n", names[i], all[i]->ok, all[i]->failed);
         failed += all[i]->failed;
     }
+    // NFS II SE's kinds, only when there are any, so that NFS III's report
+    // stays as its game-files test records it.
+    const std::pair<const Count *, const char *> extra[] = {{&lentPalette, "lent a palette"}};
+    for (const auto &[count, name] : extra) {
+        if (count->ok + count->failed == 0)
+            continue;
+        if (hashes)
+            std::printf("%-16s %6d read, %d failed, checksum %016llx\n", name, count->ok, count->failed,
+                        (unsigned long long)count->hash);
+        else
+            std::printf("%-16s %6d read, %d failed\n", name, count->ok, count->failed);
+        failed += count->failed;
+    }
+    if (empty)
+        std::printf("%d empty picture banks, left out\n", empty);
     // Known and documented (docs/engines/nfs/formats/refpack.md), so not failures.
     if (!unsupported.empty()) {
         std::printf("%zu files in a compression scheme not read yet:\n", unsupported.size());
