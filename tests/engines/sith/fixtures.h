@@ -6,10 +6,12 @@
 // Small stand-ins for Jedi Knight's install and CDs, for Sith's tests: the
 // files' names and places as the game has them, none of its data.
 
+#include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace reluva::sith::testing {
@@ -26,6 +28,29 @@ inline void writeBytes(const stdfs::path &path, const std::vector<uint8_t> &byte
 /** An empty file at `path`. */
 inline void touch(const stdfs::path &path) {
     writeBytes(path, {});
+}
+
+/** A .gob archive holding `files` (name, contents), in that order. */
+inline std::vector<uint8_t> makeGob(const std::vector<std::pair<std::string, std::vector<uint8_t>>> &files) {
+    constexpr size_t kHeader = 12;
+    constexpr size_t kEntry = 136;
+    auto put32 = [](std::vector<uint8_t> &out, size_t at, uint32_t v) {
+        for (int i = 0; i < 4; ++i)
+            out[at + i] = uint8_t(v >> (8 * i));
+    };
+    std::vector<uint8_t> out(kHeader + 4 + files.size() * kEntry);
+    std::copy_n("GOB ", 4, out.begin());
+    put32(out, 4, 0x14);
+    put32(out, 8, kHeader);
+    put32(out, kHeader, uint32_t(files.size()));
+    for (size_t i = 0; i < files.size(); ++i) {
+        const size_t entry = kHeader + 4 + i * kEntry;
+        put32(out, entry, uint32_t(out.size()));
+        put32(out, entry + 4, uint32_t(files[i].second.size()));
+        std::copy(files[i].first.begin(), files[i].first.end(), out.begin() + std::ptrdiff_t(entry + 8));
+        out.insert(out.end(), files[i].second.begin(), files[i].second.end());
+    }
+    return out;
 }
 
 /** An install's files, the names in the case the installer gives them. */

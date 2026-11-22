@@ -40,6 +40,7 @@ extended. The facts themselves are on their pages, each with its source.
 | Command | What it does |
 |---|---|
 | `reluva-tool sith files <game folder>` | Every file in a folder, with its size |
+| `reluva-tool sith gob <archive.gob>` | A `.gob` archive's index |
 | `reluva-tool sith folders <install>` | The game recognised in an install, and where each CD was found |
 
 ## Working files not included

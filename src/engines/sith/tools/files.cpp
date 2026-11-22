@@ -7,8 +7,10 @@
 
 #include "devtools/tool.h"
 #include "engines/sith/folders.h"
+#include "engines/sith/formats/gob.h"
 #include "engines/sith/games.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <map>
@@ -61,11 +63,32 @@ int cmdFolders(int argc, char **argv) {
     return 0;
 }
 
+// A .gob archive's index: each file's offset, size and name.
+int cmdGob(int argc, char **argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool sith gob <archive.gob>\n");
+        return 2;
+    }
+    reluva::sith::GobArchive gob;
+    if (reluva::Error err = gob.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    uint64_t total = 0;
+    for (const auto &e : gob.entries()) {
+        std::printf("%10u %10u  %s\n", e.offset, e.size, e.name.c_str());
+        total += e.size;
+    }
+    std::printf("%zu files, %llu bytes\n", gob.entries().size(), static_cast<unsigned long long>(total));
+    return 0;
+}
+
 const Commands kCommands("sith",
                          {
                              {"files", "<game folder>", "list every file in a game's folder, with its size", cmdFiles},
                              {"folders", "<install> [cd1path] [cd2path]",
                               "the game recognised in an install, and where its CDs were found", cmdFolders},
+                             {"gob", "<archive.gob>", "a .gob archive's index: offsets, sizes and names", cmdGob},
                          });
 
 } // namespace
