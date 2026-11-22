@@ -36,6 +36,14 @@ stand-in, which says it can't start it; and the game without the CD's copy, whic
 RELUVA_NFS2SE=<the install> ctest --test-dir build -L gamedata -R nfs2se
 ```
 
+On Windows, in PowerShell, with Visual Studio's x64 Release preset
+(docs/DEVELOPMENT.md, The game-files test):
+
+```powershell
+$env:RELUVA_NFS2SE = "<the install>"
+ctest --test-dir out\build\x64-release -L gamedata -R nfs2se
+```
+
 | Step | What it records |
 |---|---|
 | `release` | The release detection finds, and whether the CD's copy is beside the install |
