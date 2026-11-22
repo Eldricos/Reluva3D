@@ -2,7 +2,8 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // The layout here was worked out from And Then There Were None's two CDs
-// (data1.hdr, three volumes): see docs/common/installshield.md.
+// (data1.hdr, three volumes), and found the same in SimCoaster's
+// InstallShield 6 cabinet: see docs/common/installshield.md.
 
 #include "common/installshield.h"
 
@@ -127,9 +128,11 @@ Error readInstallShieldCabinet(const std::filesystem::path &header, InstallShiel
     const std::string name = header.filename().string();
     if (b.u32(0) != kSignature)
         return Error::fail(name + " isn't an InstallShield cabinet");
-    // The version is 0x01007000 for InstallShield 7's, its 7 in bits 12-15.
+    // The version is 0x01007000 for InstallShield 7's, 0x0100600c for 6's
+    // (laid out the same), the 7 or 6 in bits 12-15.
     const uint32_t version = b.u32(4);
-    if (version >> 24 != 1 || (version >> 12 & 0xf) != 7)
+    const uint32_t major = version >> 12 & 0xf;
+    if (version >> 24 != 1 || (major != 6 && major != 7))
         return Error::fail(name + " is an InstallShield cabinet of a version Reluva doesn't read");
     const size_t cd = b.u32(12); // the cab descriptor
     const size_t table = cd + b.u32(cd + 0x0c);

@@ -463,6 +463,15 @@ static void testInstallShield(const std::filesystem::path &tmp) {
 
     test::writeFile(tmp / "bad" / "data1.hdr", toBytes("not a cabinet"));
     CHECK(readInstallShieldCabinet(tmp / "bad" / "data1.hdr", cab));
+
+    // InstallShield 6's version word (SimCoaster's) is read alike; a
+    // version not seen yet isn't.
+    InstallShieldCabinet six;
+    test::writeCabinet({tmp / "six"}, {files[0], files[1]}, {{"Game", 0, 1}}, 0x0100600c);
+    CHECK(!readInstallShieldCabinet(tmp / "six" / "data1.hdr", six) && six.files.size() == 2);
+    CHECK(!extractInstallShieldFile(six, 1, out) && out == toBytes("the first file's bytes"));
+    test::writeCabinet({tmp / "five"}, {files[0]}, {{"Game", 0, 0}}, 0x0100500c);
+    CHECK(readInstallShieldCabinet(tmp / "five" / "data1.hdr", six));
 }
 
 static void testZip(const std::filesystem::path &tmp) {

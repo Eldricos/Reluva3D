@@ -41,9 +41,11 @@ struct CabinetGroup {
 /**
  * Writes data1.hdr in volumeDirs[0], and volume n (`data<n>.cab`) in
  * volumeDirs[n - 1]. Files are in the order of their data in the volumes.
+ * @param version The header's and volumes' version word: InstallShield 7's
+ *     by default, 0x0100600c for 6's.
  */
 inline void writeCabinet(const std::vector<std::filesystem::path> &volumeDirs, const std::vector<CabinetFile> &files,
-                         const std::vector<CabinetGroup> &groups) {
+                         const std::vector<CabinetGroup> &groups, uint32_t version = 0x01007000) {
     auto put = [](std::vector<uint8_t> &v, size_t at, uint64_t x, int bytes) {
         if (v.size() < at + size_t(bytes))
             v.resize(at + size_t(bytes));
@@ -116,7 +118,7 @@ inline void writeCabinet(const std::vector<std::filesystem::path> &volumeDirs, c
     std::vector<uint8_t> h(0x200 + 0x400, 0);
     const size_t cd = 0x200;
     put(h, 0, 0x28635349, 4);
-    put(h, 4, 0x01007000, 4);
+    put(h, 4, version, 4);
     put(h, 12, cd, 4);
     for (size_t g = 0; g < groups.size(); ++g) {
         const size_t name = text(h, groups[g].name);
@@ -172,7 +174,7 @@ inline void writeCabinet(const std::vector<std::filesystem::path> &volumeDirs, c
     for (size_t n = 1; n < volumes.size(); ++n) {
         Volume &v = volumes[n];
         put(v.bytes, 0, 0x28635349, 4);
-        put(v.bytes, 4, 0x01007000, 4);
+        put(v.bytes, 4, version, 4);
         put(v.bytes, 0x14, 0x200, 4);
         put(v.bytes, 0x1c, v.first == 0xffffffff ? 0 : v.first, 4);
         put(v.bytes, 0x20, v.last, 4);

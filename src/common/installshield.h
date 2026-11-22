@@ -48,7 +48,7 @@ struct InstallShieldVolume {
  * An InstallShield cabinet, as games' CDs held their files (And Then There
  * Were None's): a header (data1.hdr) listing the files and their groups,
  * and their data in volumes (data1.cab, data2.cab...), one CD's or two.
- * Only the layout of version 7's header is read.
+ * Versions 6 and 7 are read, which are laid out the same.
  */
 struct InstallShieldCabinet {
     std::filesystem::path header;

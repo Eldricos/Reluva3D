@@ -14,8 +14,9 @@ from its CDs on any system, without running setup.
 `common/installshield.cpp` (`readInstallShieldCabinet`,
 `findInstallShieldVolumes`, `extractInstallShieldFile`) reads the
 header, finds the volumes beside it or in another folder (the other CD),
-and takes a file out, its MD5 checked. Only version 7's header is read
-(InstallShield 7's; the only one seen yet). An engine's import says which
+and takes a file out, its MD5 checked. Versions 6 and 7 are read
+(InstallShield 6's and 7's, the two seen yet, laid out the same); others
+aren't. An engine's import says which
 groups are the game's, and takes them as setup would install them:
 Murder on the Orient Express's and And Then There Were None's (`awe`).
 `reluva-tool import <first CD> <dest> -patch <other CD>` shows and does it.
@@ -30,7 +31,7 @@ every volume:
 | Offset | Size | What |
 |---|---|---|
 | 0x00 | 4 | `ISc(` (0x28635349) |
-| 0x04 | 4 | the version: 0x01007000, InstallShield 7 in bits 12–15 |
+| 0x04 | 4 | the version: 0x01007000 for InstallShield 7, 0x0100600c for 6, the 7 or 6 in bits 12–15 |
 | 0x08 | 4 | not read |
 | 0x0c | 4 | the header's: where the cab descriptor is (0x200) |
 | 0x10 | 4 | the header's: its size |
@@ -122,8 +123,15 @@ file sharing the data); flag 2 (never set here).
   `unshield` writes with `_` for the `Ä` (0xc4 in Windows-1252) the
   header has, as the install has it
   (`Text/Dialogue/Events/gen_solutionexit_0_Ä3b.txt`).
-- **Confidence:** confirmed (worked out on these CDs, version 7's
-  header) unless marked.
+- **Version 6's header, checked on** SimCoaster's US CD (`data1.hdr`,
+  132,616 bytes, version 0x0100600c; `data1.cab`, 869,993 bytes, and
+  `data2.cab`, 321,244,347, both on the one CD): every field above is
+  where it is in version 7's. Its 1,254 entries and 22 groups read, and
+  the 1,187 files the game's import takes out of it came out whole, each
+  matching the header's MD5; with the CD's loose files, the import's
+  1,276 files are byte for byte those the game's own setup installed.
+- **Confidence:** confirmed (worked out on these CDs, versions 6 and 7)
+  unless marked.
 
 ## Used by
 
