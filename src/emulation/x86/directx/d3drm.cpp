@@ -1550,6 +1550,7 @@ enum : uint32_t {
     kRsLighting = 137,
     kRsAmbient = 139,
     kRsColorVertex = 141,
+    kRsNormalizeNormals = 143,
 };
 enum : uint32_t {
     kTssColorOp = 1,
@@ -1635,6 +1636,7 @@ void Viewport::render(Frame &root) {
     d.renderStates[kRsZFunc] = 4;    // D3DCMP_LESSEQUAL
     d.renderStates[kRsCullMode] = 3; // a face's front is clockwise, as Direct3D's
     d.renderStates[kRsColorVertex] = 0;
+    d.renderStates[kRsNormalizeNormals] = 1; // a scaled frame's normals, lit as unit ones
     d.renderStates[kRsColorKeyEnable] = 0;
 
     std::vector<uint8_t> vertices;

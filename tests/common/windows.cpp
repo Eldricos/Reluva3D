@@ -907,6 +907,51 @@ static void testRetainedMode() {
     CHECK(call(holder, 6, {55}) == 0);                                         // SetAppData
     CHECK(call(path, 4, {1, out}) == 0 && call(cpu.read32(out), 7, {}) == 55); // GetElement, its app data
     CHECK(call(view, 28, {0, 0, out}) == 0 && call(cpu.read32(out), 3, {}) == 0);
+
+    // Lit by two white lights shining straight at it, and textured mid-grey:
+    // the lit colour saturates at white, and the texture stays grey.
+    for (uint32_t i = 0; i < 4; ++i) {
+        cpu.write32(corners + 36 * i + 20, bits(-1));           // normal: towards the camera
+        cpu.write32(corners + 36 * i + 24, bits(xy[i][0] > 0)); // u
+        cpu.write32(corners + 36 * i + 28, bits(xy[i][1] > 0)); // v
+    }
+    CHECK(call(square, 15, {0, 0, 4, corners}) == 0); // SetVertices
+    std::memset(cpu.memory().data() + desc, 0, 108);
+    cpu.write32(desc, 108);
+    cpu.write32(desc + 4, 0x1 | 0x2 | 0x4 | 0x1000);
+    cpu.write32(desc + 8, 2);
+    cpu.write32(desc + 12, 2);
+    cpu.write32(desc + 72, 32);
+    cpu.write32(desc + 76, 0x40); // RGB
+    cpu.write32(desc + 84, 16);
+    cpu.write32(desc + 88, 0xf800);
+    cpu.write32(desc + 92, 0x07e0);
+    cpu.write32(desc + 96, 0x001f);
+    cpu.write32(desc + 104, 0x1000); // TEXTURE
+    CHECK(call(dd, 6, {desc, out, 0}) == 0);
+    const uint32_t greySurface = cpu.read32(out);
+    std::memset(cpu.memory().data() + lock, 0, 108);
+    cpu.write32(lock, 108);
+    CHECK(call(greySurface, 25, {0, lock, 1, 0}) == 0); // Lock
+    for (uint32_t y = 0; y < 2; ++y)
+        for (uint32_t x = 0; x < 2; ++x)
+            cpu.write16(cpu.read32(lock + 36) + y * cpu.read32(lock + 16) + 2 * x, 0x8410);
+    CHECK(call(greySurface, 32, {0}) == 0);             // Unlock
+    CHECK(call(rm2, 18, {greySurface, out}) == 0);      // CreateTextureFromSurface
+    CHECK(call(square, 21, {0, cpu.read32(out)}) == 0); // SetGroupTexture
+    CHECK(call(square, 16, {0, 0xffffffffu}) == 0);     // SetGroupColor: white
+    CHECK(call(square, 19, {0, 0x80 | 0x8}) == 0);      // flat, lit, solid
+    for (int i = 0; i < 2; ++i) {
+        CHECK(call(rm2, 12, {3, bits(1), bits(1), bits(1), out}) == 0); // CreateLightRGB, directional
+        CHECK(call(camera, 12, {cpu.read32(out)}) == 0);                // AddLight
+    }
+    CHECK(call(view, 12, {}) == 0 && call(view, 13, {scene2}) == 0); // Clear, Render
+    std::memset(cpu.memory().data() + lock, 0, 108);
+    cpu.write32(lock, 108);
+    CHECK(call(surface, 25, {0, lock, 1, 0}) == 0); // Lock
+    const uint16_t lit = cpu.read16(cpu.read32(lock + 36) + 24 * cpu.read32(lock + 16) + 32 * 2);
+    CHECK(call(surface, 32, {0}) == 0);            // Unlock
+    CHECK((lit >> 11) >= 14 && (lit >> 11) <= 18); // grey, not white
 }
 
 static void testDirectX() {

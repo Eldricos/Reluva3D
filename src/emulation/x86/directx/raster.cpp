@@ -384,8 +384,12 @@ void Device::transformAndLight(const VertexLayout &layout, const uint8_t *mem, u
                         sp = add(sp, scale(mul(l.specular, mSpecular), atten * spot * s));
                     }
                 }
-                o.diffuse = {d.r, d.g, d.b, mDiffuse.a};
-                o.specular = {sp.r, sp.g, sp.b, 1};
+                // A lit colour is clamped to 0..1 at the vertex, as Direct3D
+                // does: two bright lights on a surface saturate it, they
+                // don't brighten its texture past white.
+                auto clamp01 = [](float v) { return std::clamp(v, 0.0f, 1.0f); };
+                o.diffuse = {clamp01(d.r), clamp01(d.g), clamp01(d.b), mDiffuse.a};
+                o.specular = {clamp01(sp.r), clamp01(sp.g), clamp01(sp.b), 1};
             } else {
                 o.diffuse = vDiffuse;
                 o.specular = vSpecular;

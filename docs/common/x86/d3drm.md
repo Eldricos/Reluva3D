@@ -96,8 +96,8 @@ facing the camera, with the Z buffer if the device has one. A render
 quality (`D3DRMRENDERQUALITY`) is a shade in bits 0 to 2 (flat 0,
 Gouraud 1), lighting in 3 to 5 (on 8) and fill in 6 and 7 (solid
 0x80); the group's quality and the device's together say whether it's
-lit and how it's shaded. Lit, its colour is its material's diffuse and
-ambient colour, with the material's specular power and colour and
+lit and how it's shaded. Lit (its normals made unit length, as a frame
+may be scaled), its colour is its material's diffuse and ambient colour, with the material's specular power and colour and
 emissive colour; unlit, its colour as it is. A colour less than opaque
 is blended. A group's texture is its surface's pixels times its colour,
 wrapping, filtered as the device's texture quality says.

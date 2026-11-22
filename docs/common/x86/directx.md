@@ -30,8 +30,9 @@ headers' (`directx/interfaces.cpp`).
   blocks. The drawing is a software rasterizer (`directx/raster.cpp`),
   which Retained Mode's stand-in draws through too, its vertices the
   host's ([d3drm.md](d3drm.md#drawing)):
-  - the fixed-function pipeline: transforms, lighting, materials and their
-    vertex-colour sources, and texture coordinate generation and
+  - the fixed-function pipeline: transforms, lighting (a lit colour
+    clamped to 0 to 1 at the vertex), materials and their vertex-colour
+    sources, and texture coordinate generation and
     transforms;
   - clipping to the view volume, and culling by winding;
   - pixel centres at whole coordinates, with a top-left fill rule;
