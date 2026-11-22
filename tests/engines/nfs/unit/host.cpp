@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Need for Speed III's unit tests: what the game's program is given in the x86
-// emulator: force feedback, DirectSound 3D's model, and THRASH's fog,
-// Direct3D look and blending.
+// What the games' programs are given in the x86 emulator: force feedback,
+// DirectSound 3D's model, THRASH's fog, Direct3D look and blending (NFS
+// III's), and the keyboard hook, drawing into a flipping pair's front and
+// the joystick count NFS II SE's program needs.
 //
 //   reluva-tests nfs.unit.host
 
+#include "engines/nfs/host/game_host.h"
 #include "tests/engines/nfs/fixtures.h"
 
 using namespace reluva::nfs::testing;
@@ -456,6 +458,92 @@ void testSound3d() {
     CHECK(near(spatialize(listener, s).doppler, 1));
 }
 
+// NFS II SE's program on the host's Windows: its keys go to a keyboard
+// hook first, it draws its movies and races into the front surface of a
+// flipping pair, and it asks how many joysticks the old interface has.
+void testHostWindows(const stdfs::path &tmp) {
+    using reluva::x86::Cpu;
+    reluva::nfs::GameFolders folders;
+    folders.install = tmp;
+    reluva::nfs::GameHost::Options options;
+    options.program = "nfs2sen.exe";
+    options.saveFolder = tmp / "saves";
+    reluva::nfs::GameHost host(folders, options);
+    Cpu &cpu = host.cpu();
+    auto &process = host.process();
+    auto code = [&](const std::vector<uint8_t> &bytes) {
+        const uint32_t at = process.memory().alloc(uint32_t(bytes.size()));
+        std::copy(bytes.begin(), bytes.end(), cpu.memory().begin() + at);
+        return at;
+    };
+    auto le = [](std::vector<uint8_t> &out, uint32_t v) {
+        for (int i = 0; i < 4; ++i)
+            out.push_back(uint8_t(v >> (8 * i)));
+    };
+    auto call = [&](const char *dll, const char *name, const std::vector<uint32_t> &args) {
+        uint32_t result = 0;
+        CHECK(!cpu.call(process.provided(dll, name), args, result));
+        return result;
+    };
+    auto text = [&](const std::string &s) {
+        const uint32_t at = process.memory().alloc(uint32_t(s.size() + 1));
+        cpu.writeString(at, s, uint32_t(s.size() + 1));
+        return at;
+    };
+
+    CHECK(call("WINMM.dll", "joyGetNumDevs", {}) == 0);
+
+    // A window whose procedure answers 1 to everything.
+    const uint32_t wndProc = code({0xb8, 1, 0, 0, 0, 0xc2, 0x10, 0}); // mov eax, 1; ret 16
+    const uint32_t wc = process.memory().alloc(40);
+    cpu.write32(wc + 4, wndProc);
+    cpu.write32(wc + 36, text("NFS2"));
+    call("USER32.dll", "RegisterClassA", {wc});
+    const uint32_t window =
+        call("USER32.dll", "CreateWindowExA", {0, text("NFS2"), text("NFS2"), 0, 0, 0, 640, 480, 0, 0, 0, 0});
+    CHECK(window != 0);
+
+    // The hook counts the keys it's given, and keeps them (1) or passes them on (0).
+    const uint32_t counter = process.memory().alloc(4);
+    const uint32_t keep = process.memory().alloc(4);
+    std::vector<uint8_t> hook = {0xff, 0x05}; // inc dword [counter]
+    le(hook, counter);
+    hook.push_back(0xa1); // mov eax, [keep]
+    le(hook, keep);
+    hook.insert(hook.end(), {0xc2, 0x0c, 0}); // ret 12
+    call("USER32.dll", "SetWindowsHookExA", {2, code(hook), 0, 0});
+    const uint32_t msg = process.memory().alloc(28);
+    CHECK(host.queueKey("down", true));
+    CHECK(call("USER32.dll", "PeekMessageA", {msg, 0, 0, 0, 1}) == 1);
+    CHECK(cpu.read32(counter) == 1 && cpu.read32(msg + 4) == 0x100 && cpu.read32(msg + 8) == 0x28);
+    cpu.write32(keep, 1);
+    CHECK(host.queueKey("down", false));
+    CHECK(call("USER32.dll", "PeekMessageA", {msg, 0, 0, 0, 1}) == 0); // kept by the hook
+    CHECK(cpu.read32(counter) == 2);
+
+    // A flipping pair: drawing into the front shows at its Unlock.
+    int frames = 0;
+    host.onFrame = [&](const reluva::Surface &) { ++frames; };
+    const uint32_t out = process.memory().alloc(4);
+    call("DDRAW.dll", "DirectDrawCreate", {0, out, 0});
+    const uint32_t ddraw = cpu.read32(out);
+    auto method = [&](uint32_t object, int index, std::vector<uint32_t> args) {
+        args.insert(args.begin(), object);
+        uint32_t result = 0;
+        CHECK(!cpu.call(cpu.read32(cpu.read32(object) + 4 * uint32_t(index)), args, result));
+        return result;
+    };
+    const uint32_t desc = process.memory().alloc(108);
+    cpu.write32(desc, 108);
+    cpu.write32(desc + 4, 0x21);                  // DDSD_CAPS, DDSD_BACKBUFFERCOUNT
+    cpu.write32(desc + 20, 1);                    // one back buffer
+    cpu.write32(desc + 104, 0x200 | 0x10 | 0x8);  // primary, flip, complex
+    CHECK(method(ddraw, 6, {desc, out, 0}) == 0); // CreateSurface
+    const uint32_t front = cpu.read32(out);
+    CHECK(method(front, 25, {0, desc, 1, 0}) == 0 && frames == 0); // Lock
+    CHECK(method(front, 32, {0}) == 0 && frames == 1);             // Unlock
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("nfs.unit.host",
@@ -465,4 +553,5 @@ static const reluva::test::Suite kSuite("nfs.unit.host",
                                             {"thrash fog", [](const stdfs::path &) { testThrashFog(); }},
                                             {"thrash direct3d", [](const stdfs::path &) { testThrashDirect3D(); }},
                                             {"thrash blend", [](const stdfs::path &) { testThrashBlend(); }},
+                                            {"windows", [](const stdfs::path &tmp) { testHostWindows(tmp); }},
                                         });

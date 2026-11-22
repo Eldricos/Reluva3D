@@ -151,7 +151,7 @@ with what it found written on the game's pages in `formats/` and
    page. All 15 movies' 9,340 frames decode, matching FFmpeg's pictures
    to within rounding. `demo.0`-`demo.2` turned out not to be movies:
    three copies of one file, left for Phase 6, when the game runs.
-5. **The hosted spike, and its gate** (next):
+5. **The hosted spike, and its gate** (done):
    - make `GameHost` game-neutral: what's NFS III's own (its patched
      addresses, THRASH, its native routines: `host/thrash.cpp`,
      `host/thrash_native.cpp`, `render/thrash_gpu.cpp`) moves to
@@ -162,7 +162,26 @@ with what it found written on the game's pages in `formats/` and
      stops in the generic `x86-run` at `VirtualQuery`);
    - measure the speed of a race in the software renderer;
    - gate: hosted if it plays at full speed, else what it would take.
-6. **Hosted play:** the front end, every race type, the iSND sound
+
+   Built: `GameHost` runs a program it's given (`Options::program`;
+   `reluva-tool nfs host` picks `nfs2sen.exe` in an install without
+   `nfs3.exe`). NFS III's own parts already stood aside for another
+   program: each patch checks the code it patches first, and THRASH is
+   only a DLL exporting `THRASH_` functions. What NFS II SE needed was
+   Windows' own behaviour: the keyboard hook called with each key,
+   drawing into a flipping pair's front surface shown, and
+   `joyGetNumDevs`. NFS III's THRASH classes moved to `nfs3/host/` and
+   `nfs3/render/`; `GameHost`'s own THRASH and mixer methods stay in
+   `host/` until NFS II SE has parts of its own there.
+
+   `nfs2sen.exe` plays its EA logo and title movie, shows the front end,
+   and starts a race at Proving Grounds, its car driven with the keys
+   ([research/hosted-spike.md](research/hosted-spike.md)). The race
+   draws about 39 frames a second in the software renderer, 7.7 million
+   instructions a frame, the emulator running faster than real time.
+
+   **Gate: passed.** The game is hosted, as NFS III is.
+6. **Hosted play** (next): the front end, every race type, the iSND sound
    through its own `eacsnd.dll`, the CD music and movies, the attract
    mode (what `demo.0`-`demo.2` are), input and
    force feedback, saves in Reluva's save folder; the game-files test
@@ -180,4 +199,5 @@ with what it found written on the game's pages in `formats/` and
 | November 2026 | Each game's own code in a folder of its own (`nfs3/`, `nfs2se/`) and namespace (`reluva::nfs::nfs3`...), the shared code at the engine's top, before NFS II SE's work begins | docs/ADDING_AN_ENGINE.md (Code layout) and the coding guide's namespaces, as `awe` and `netimmerse` do; the host waits for Phase 5, as `GameHost`'s NFS III parts are in its own methods, not files apart |
 | November 2026 | The data layer and viewer first, then a hosted spike with a gate | As NFS III; hosting keeps the game's own behaviour, and most of it already exists ([Two ways to play it](#two-ways-to-play-it)) |
 | November 2026 | Open-source readers (OpenNFS, FFmpeg's EA demuxer and decoders) and community write-ups of NFS II's formats read as references only, no code taken | CONTRIBUTING.md, as for NFS III |
+| November 2026 | NFS II SE hosted, through the plan's gate | Its software program races at about 39 frames a second on the host with nothing of its own natively ([research/hosted-spike.md](research/hosted-spike.md)) |
 | November 2026 | Denis Auroux's NFS II track notes not used; the `.trk` and `.col` pages rest on the files alone | They forbid using their information commercially, which doesn't sit with the GPL; every fact they gave was worked out again from the files, and the meanings only they gave dropped |

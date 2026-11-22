@@ -55,8 +55,8 @@ using reluva::nfs::VivArchive;
 using namespace reluva::nfs::tools;
 namespace stdfs = std::filesystem;
 
-// Runs the retail nfs3.exe in the x86 interpreter (Phase 4's spike) and
-// reports how far it gets: the system calls it makes, the files it opens,
+// Runs the retail nfs3.exe, or NFS II SE's nfs2sen.exe in an install
+// without it, in the x86 interpreter and reports how far it gets: the system calls it makes, the files it opens,
 // what it asks of THRASH, and where it stops.
 int cmdNfsHost(int argc, char **argv) {
     // GPU work, if asked for (-glidegpu): a device of its own, without a window.
@@ -296,7 +296,13 @@ int cmdNfsHost(int argc, char **argv) {
         else if (arg == "-framesfrom" && a + 1 < argc)
             framesFrom = std::strtoull(argv[++a], nullptr, 10);
     }
-    const auto folders = reluva::nfs::findFolders(argv[2], {}, "nfs3.exe");
+    // NFS II SE's software program, in an install without NFS III's.
+    if (!stdfs::exists(stdfs::path(argv[2]) / "nfs3.exe") && stdfs::exists(stdfs::path(argv[2]) / "nfs2sen.exe")) {
+        if (options.commandLine == options.program)
+            options.commandLine = "nfs2sen.exe";
+        options.program = "nfs2sen.exe";
+    }
+    const auto folders = reluva::nfs::findFolders(argv[2], {}, options.program.c_str());
     std::printf("install %s, CD %s, writes to %s\n", folders.install.string().c_str(),
                 folders.cd.empty() ? "(none)" : folders.cd.string().c_str(), options.saveFolder.string().c_str());
     reluva::nfs::GameHost host(folders, options);
@@ -337,6 +343,11 @@ int cmdNfsHost(int argc, char **argv) {
         char name[32];
         std::snprintf(name, sizeof name, "frame%05d.tga", shown - 1);
         writeFile(stdfs::path(framesDir) / name, reluva::image::encodeTga(img));
+        // Each picture's moment, to time -keys by.
+        if (std::FILE *index = std::fopen((stdfs::path(framesDir) / "frames.txt").string().c_str(), "a")) {
+            std::fprintf(index, "%s %llu ms\n", name, (unsigned long long)host.process().now());
+            std::fclose(index);
+        }
     };
     // -glidegpucompare: per buffer swap, the GPU frame against the software
     // reference's.
@@ -693,6 +704,12 @@ int cmdNfsHost(int argc, char **argv) {
             h = (h ^ r) * 0x100000001b3ull;
         std::printf("state: %016llx after %llu instructions, eip %08x\n", (unsigned long long)h,
                     (unsigned long long)host.cpu().executed(), host.cpu().eip);
+        // The clock's milliseconds less those the instructions make: the
+        // time every thread waited, which the game had to spare.
+        const uint64_t ms = host.process().now();
+        const uint64_t busy = host.cpu().executed() / options.instructionsPerMs;
+        std::printf("game clock: %llu ms, %llu of them every thread waiting\n", (unsigned long long)ms,
+                    (unsigned long long)(ms > busy ? ms - busy : 0));
     }
     if (options.forceFeedback) {
         std::printf("forces: %d changes, the strongest push %.2f, the strongest vibration %.2f\n", forceChanges,
@@ -1538,7 +1555,7 @@ const reluva::tool::Commands kCommands(
     {
         {"host",
          "<game folder> [-args \"nfs3.exe\"] [-renderer softtria.dll] [-limit N] [-log N] [-save dir] [-frames dir] [-every N] [-framesfrom N] [-watch address]... [-watchlimit 50] [-watchmem address size] [-watchread address | reg+offset]... (dwords printed at each -watch stop) [-slice instructions] [-dump memory.bin] [-keys ms:key,...] [-poke WHEN:ADDR:VALUE[:SIZE]]... [-pokeevery ...]... [-dumpmem WHEN:ADDR:SIZE:file]... (WHEN ms=N or at=ADDR[#N]; VALUE a number, size 1/2/4, or bytes=0a0b...) (keys: enter, up, a..., kp0-kp9, click, moveDX/DY) [-framelog frames.csv] [-timescale 0.1] [-thrashlog fromframe toframe] [-native] [-wav sound.wav] [-voices voices.csv] [-joystick name] (keys also joy:A=V...: axes 0-5 = V, button bB; +key/-key held) [-wheel] [-ff] (the joystick a wheel; with force feedback) [-forcelog forces.csv] [-net] (the network) [-netaddr a.b.c.d] [-broadcast a.b.c.d,...] [-netlog messages.txt] (each message sent and received, in hex) [-netdrop N[:fromMs[-toMs]]] (every Nth packet sent lost, over those game ms) [-serial listen:port | host:port] (COM ports: a link over TCP, with -net) [-modem listen:port | host:port] (a TAPI modem whose calls are such links) [-deterministic instructionsPerMs] (a clock of instructions; the end state hashed) [-mhz N] (the processor's clock the time stamp counter shows; 300 by default) [-mmx] (CPUID reports MMX: the game mixes its sound with its MMX routines) [-count ADDR] (how many times the instruction at ADDR ran; repeatable) [-drive CAR:TARGET:FROMMS[:TOMS[:GAP]]] (CAR, a human's, steered at TARGET from the controls; full gas, or GAP metres behind at its speed) [-drivesign -1] (TARGET road: along the virtual road, GAP metres right of it, slowed for bends) [-hotspots from to] (instructions counted by where they run, 16-byte blocks) [-gpulog] (THRASH recorded as for the GPU; each frame's list summed up) [-gpudump list dir] (that list in full: list.csv and its textures) [-present voodoo2a.dll] (the renderer the game is told of, -renderer's loaded in its place; the default; none: as -renderer) [-positional] (network races with positional updates, every player alike) [-pointfilter] (native drawing: textures point-sampled, not bilinear) [-direct3d] (the game told of d3da.dll, the Direct3D renderer: its Direct3D look, drawn natively as d3da's device draws; -present d3da.dll -native) [-glide] (the game's own voodoo2a.dll, unchanged, on Reluva's Glide stand-in) [-glidecompare out.csv] (-glide, with each flip also drawn natively and compared) [-glidefilter point | bilinear] (with -glide: the texture filter held, to compare) [-glidegpu] (with -glide: Glide's pixels drawn on the GPU, if there is one) [-glidegpucompare out.csv] (-glide on the GPU, each call also drawn in software and each frame compared: its mean difference, of 255, per flip) [-glidedll file] (-glide with this THRASH DLL in voodoo2a.dll's place, from outside the install, e.g. the CD's Patch/Voodoo3/voodoo2a.dll: Glide 3 on a Voodoo3) [-glideboard voodoo1 | rush | voodoo2 | banshee | voodoo3] (-glide on this board, e.g. -glidedll <install>/voodooa.dll -glideboard voodoo1; the Rush's desktop is 1024x768 at 16 bits unless given: -glideboard rush,desktop=1280x1024x16)",
-         "run the retail nfs3.exe in the x86 emulator, without a window, and report how it goes: its system calls, files, THRASH's work, frames, sound, the network",
+         "run the retail nfs3.exe (or NFS II SE's nfs2sen.exe) in the x86 emulator, without a window, and report how it goes: its system calls, files, THRASH's work, frames (each one's moment in frames.txt), sound, the network",
          cmdNfsHost},
         {"huff-check", "<game folder> [out dir]",
          "every Huffman-compressed file decompressed by the game's own routine and by Reluva's, which must agree",

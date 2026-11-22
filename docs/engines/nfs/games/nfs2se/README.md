@@ -29,6 +29,9 @@ the cars' data is in both. The CD's 3dfx program, `NFS2SEA.EXE`, is in
 - **Not playable yet.** The game shows what was found of it: its
   folders, its two programs, the music and movies, the tracks and the
   car models (`src/engines/nfs/nfs2se/status_page.cpp`).
+- **Its program runs on the host**, in `reluva-tool nfs host` for now:
+  `nfs2sen.exe` plays its movies, shows its front end and races, at
+  about 39 frames a second ([research/hosted-spike.md](research/hosted-spike.md)).
 - **Its files that NFS III's formats cover all read**: every archive,
   picture bank (311 on the CD), text table, font, sound bank, music
   stream and map, and the compressed `.qda` data, with NFS II SE's

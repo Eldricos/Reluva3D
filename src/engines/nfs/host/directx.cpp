@@ -424,10 +424,12 @@ void GameHost::addDirectX() {
                 s->palette = c.arg(1);
             return kOk;
         });
-        // Unlock: drawing straight onto the primary surface shows at once.
+        // Unlock: drawing straight onto the primary surface shows at once,
+        // with a back buffer too: NFS II SE draws its movies into the front
+        // surface of its flipping pair.
         add("Unlock", 2, [this, surface](Cpu &c) {
             if (DdSurface *s = surface(c, c.arg(0)))
-                if (s->primary && !s->back)
+                if (s->primary)
                     present(*s);
             return kOk;
         });

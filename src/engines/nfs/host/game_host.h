@@ -42,6 +42,10 @@ class GameHost {
 public:
     /** How the game is run: what it's told, what draws, what it can reach. */
     struct Options {
+        // The program, in the install folder: NFS III's, or NFS II SE's
+        // "nfs2sen.exe". What's NFS III's own is put in only where its code
+        // is found as expected.
+        std::string program = "nfs3.exe";
         std::string commandLine = "nfs3.exe";
         std::string renderer = "softtria.dll"; // the THRASH DLL, as the registry names it
         // The THRASH DLL the game is told it has, if not renderer: say a 3D
@@ -172,12 +176,12 @@ public:
     GameHost(GameFolders folders, Options options);
     ~GameHost();
 
-    /** Loads nfs3.exe and binds its imports. */
+    /** Loads the program and binds its imports. */
     Error load();
     /** Runs it until it ends the process or fails. */
     Error run(uint32_t &exitCode);
 
-    /** The interpreter, the Windows process it runs, and nfs3.exe's module in it (null until load()). */
+    /** The interpreter, the Windows process it runs, and the program's module in it (null until load()). */
     ///@{
     x86::Cpu &cpu() { return *_cpu; }
     x86::Win32Process &process() { return *_process; }
@@ -425,8 +429,9 @@ private:
     std::map<uint32_t, std::deque<Message>> _queues; // by thread id
     uint32_t _nextWindow = 0x10020;
     int _cursorCount = 0;
-    uint8_t _keys[256] = {};   // DirectInput's state, by scan code (0x80 down)
-    uint8_t _vkDown[256] = {}; // by virtual-key code
+    uint32_t _keyboardHook = 0; // SetWindowsHookExA's WH_KEYBOARD procedure, if any
+    uint8_t _keys[256] = {};    // DirectInput's state, by scan code (0x80 down)
+    uint8_t _vkDown[256] = {};  // by virtual-key code
     struct KeyEvent {
         uint8_t vk = 0;
         uint8_t scan = 0;

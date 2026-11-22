@@ -702,6 +702,8 @@ void Win32Process::addThreadStandIns() {
         c.write32(c.arg(0) + 4, 1000000); // wPeriodMax
         return 0u;
     });
+    // No joystick driver: games then leave the old joystick calls alone.
+    stdcall(w, "joyGetNumDevs", 0, [](Cpu &) { return 0u; });
     (void)kCurrentProcess;
 }
 

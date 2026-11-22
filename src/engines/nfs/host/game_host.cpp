@@ -62,7 +62,7 @@ GameHost::GameHost(GameFolders folders, Options options) : _folders(std::move(fo
     _cpu->exactX87 = true; // its memcpy copies 8 bytes at a time through FILD and FISTP
     // An EXE is loaded (0x400000 kept clear for it); its threads wait on
     // each other, so they run on host threads of their own.
-    _process = std::make_unique<x86::Win32Process>(*_cpu, "nfs3.exe", true);
+    _process = std::make_unique<x86::Win32Process>(*_cpu, _options.program, true);
     _process->useHostThreads();
     _process->output = [this](const std::string &s) { say("[program] " + s); };
     if (_options.instructionsPerMs) {
@@ -107,7 +107,7 @@ GameHost::GameHost(GameFolders folders, Options options) : _folders(std::move(fo
         d.serial = 0x1998;
         _process->addDrive(d);
     }
-    _process->setProgram("nfs3.exe", "C:\\");
+    _process->setProgram(_options.program, "C:\\");
     _process->setCommandLine(_options.commandLine);
     // Before each native function: input that's due, and the log. Kept
     // cheap: the game makes millions of these calls.
@@ -389,14 +389,14 @@ void GameHost::addExport(uint32_t module, const std::string &name, int argBytes,
 }
 
 Error GameHost::load() {
-    const std::filesystem::path path = _folders.install / "nfs3.exe";
+    const std::filesystem::path path = _folders.install / _options.program;
     std::ifstream in(path, std::ios::binary);
     if (!in)
         return Error::fail("Can't read " + path.string());
     const std::vector<uint8_t> file((std::istreambuf_iterator<char>(in)), {});
-    if (Error e = _process->load("nfs3.exe", file, _exe))
+    if (Error e = _process->load(_options.program, file, _exe))
         return e;
-    say("nfs3.exe loaded at " + hex(_exe->base));
+    say(_options.program + " loaded at " + hex(_exe->base));
     for (const std::string &m : _process->missingImports())
         say("  not stood in for: " + m);
     if (_options.nativeRoutines) {
@@ -494,7 +494,7 @@ void GameHost::addNativeRoutines() {
 
 Error GameHost::run(uint32_t &exitCode) {
     if (!_exe)
-        return Error::fail("nfs3.exe isn't loaded");
+        return Error::fail(_options.program + " isn't loaded");
     return _process->run(*_exe, exitCode);
 }
 
@@ -554,7 +554,11 @@ void GameHost::addSystem() {
                     return 0u;
                 }
                 _gameDlls[name] = m;
-                if (name.find("eacsnd") == std::string::npos) {
+                // A renderer exports THRASH's functions; the sound DLL and
+                // NFS II SE's dsetup.dll (DirectX's set-up) don't.
+                const bool thrash = std::any_of(m->image.exports.begin(), m->image.exports.end(),
+                                                [](const PeImage::Export &e) { return e.name.starts_with("THRASH_"); });
+                if (thrash) {
                     _thrash.dll = name;
                     _thrashBase = m->base;
                     // The retail softtria.dll (June 1998), whose globals thrash.md describes.
@@ -699,8 +703,8 @@ void GameHost::addSystem() {
         }
         return wide;
     });
-    provide(k, "GetModuleFileNameW", 3, [](Cpu &c) {
-        const std::string s = "C:\\nfs3.exe";
+    provide(k, "GetModuleFileNameW", 3, [this](Cpu &c) {
+        const std::string s = "C:\\" + _options.program;
         const uint32_t n = std::min<uint32_t>(uint32_t(s.size()), c.arg(2) ? c.arg(2) - 1 : 0);
         for (uint32_t i = 0; i < n; ++i)
             c.write16(c.arg(1) + 2 * i, uint8_t(s[i]));
@@ -1057,34 +1061,54 @@ void GameHost::addUser() {
         for (uint32_t i = 0; i < 7; ++i)
             c.write32(p + 4 * i, v[i]);
     };
-    provide(u, "GetMessageA", 4, [this, self, writeMsg](Cpu &c) {
+    // A key message about to be taken from the queue goes to the keyboard
+    // hook first (WH_KEYBOARD): HC_ACTION (0), the virtual key, the
+    // message's lParam. Nonzero from it: the message is dropped. NFS II SE
+    // reads its keys there, its window passing them on unread.
+    auto hooked = [this](Cpu &c, const Message &m) {
+        if (!_keyboardHook || (m.message & ~0x5u) != 0x100) // WM_(SYS)KEYDOWN, WM_(SYS)KEYUP
+            return false;
+        uint32_t result = 0;
+        if (Error e = c.call(_keyboardHook, {0, m.wParam, m.lParam}, result))
+            c.abort("the keyboard hook: " + e.message);
+        return result != 0;
+    };
+    provide(u, "GetMessageA", 4, [this, self, writeMsg, hooked](Cpu &c) {
         auto &q = _queues[self()];
         if (_tapiDeliver)
             _tapiDeliver(c);
         // While a call is under way, TAPI's window gets status messages:
         // the game's loop waiting on it comes round at least every 100 ms.
         const bool tapi = _tapiNews && _tapiThread == self();
-        _process->wait([&] { return !q.empty() || (tapi && _tapiNews()); }, tapi && _tapiBusy() ? 100u : 0xffffffffu);
-        if (_process->ending()) {
-            c.abort("the process is ending");
-            return 0u;
+        for (;;) {
+            _process->wait([&] { return !q.empty() || (tapi && _tapiNews()); },
+                           tapi && _tapiBusy() ? 100u : 0xffffffffu);
+            if (_process->ending()) {
+                c.abort("the process is ending");
+                return 0u;
+            }
+            if (q.empty() && tapi) {
+                // TAPI's news: its callbacks run, and WM_NULL comes back, as
+                // the message to TAPI's own window would.
+                _tapiDeliver(c);
+                writeMsg(c, c.arg(0), {0, 0, 0, 0, uint32_t(_process->now())});
+                return 1u;
+            }
+            const Message m = q.front();
+            q.pop_front();
+            if (hooked(c, m))
+                continue;
+            writeMsg(c, c.arg(0), m);
+            return m.message == 0x12 ? 0u : 1u; // WM_QUIT
         }
-        if (q.empty() && tapi) {
-            // TAPI's news: its callbacks run, and WM_NULL comes back, as
-            // the message to TAPI's own window would.
-            _tapiDeliver(c);
-            writeMsg(c, c.arg(0), {0, 0, 0, 0, uint32_t(_process->now())});
-            return 1u;
-        }
-        const Message m = q.front();
-        q.pop_front();
-        writeMsg(c, c.arg(0), m);
-        return m.message == 0x12 ? 0u : 1u; // WM_QUIT
     });
-    provide(u, "PeekMessageA", 5, [this, self, writeMsg](Cpu &c) {
+    provide(u, "PeekMessageA", 5, [this, self, writeMsg, hooked](Cpu &c) {
         auto &q = _queues[self()];
         if (_tapiDeliver)
             _tapiDeliver(c);
+        // The hook sees a key as it's removed; one it drops isn't seen.
+        while (!q.empty() && (c.arg(4) & 1) && hooked(c, q.front()))
+            q.pop_front();
         if (q.empty()) {
             _process->yield();
             return 0u;
@@ -1141,8 +1165,17 @@ void GameHost::addUser() {
         return c.arg(0) == 0 ? 640 : c.arg(0) == 1 ? 480 : c.arg(0) == 63 ? (_options.sockets ? 1 : 0) : 0;
     });
     provide(u, "SystemParametersInfoA", 4, [](Cpu &) { return 1u; });
-    provide(u, "SetWindowsHookExA", 4, [](Cpu &) { return 0x40001u; });
-    provide(u, "UnhookWindowsHookEx", 1, [](Cpu &) { return 1u; });
+    // SetWindowsHookExA(type, proc, module, thread): a keyboard hook
+    // (WH_KEYBOARD, 2) is kept, for any thread; others are accepted unused.
+    provide(u, "SetWindowsHookExA", 4, [this](Cpu &c) {
+        if (c.arg(0) == 2)
+            _keyboardHook = c.arg(1);
+        return 0x40001u;
+    });
+    provide(u, "UnhookWindowsHookEx", 1, [this](Cpu &) {
+        _keyboardHook = 0;
+        return 1u;
+    });
     provide(u, "CallNextHookEx", 4, [](Cpu &) { return 0u; });
     provide(u, "MessageBoxA", 4, [this](Cpu &c) {
         say("  message box \"" + c.string(c.arg(2)) + "\": " + c.string(c.arg(1)));
