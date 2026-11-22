@@ -59,12 +59,64 @@ What a value draws is in a table of 256 (`0x538d20`):
   palette's 20/80 and 40/60 blends in steps of 0.2 (`0x538dbb`).
 
 Each cell is drawn once into a picture of its own, kept, and put on the
-screen as the view passes over it (`0x538060`, `0x4dd4e0`). A cell whose
-four corners all draw one texture is that texture; otherwise its values
-are spread over its pixels from its corners, roughened by a fractal
-seeded by the map's seeds (`0x538310`, `0x4abec0`), and each pixel drawn
-from the table. The flat polygons over the cell are drawn into it too
-(`0x4ef460`). The textures repeat across the map.
+screen as the view passes over it (`0x538060`, `0x4dd4e0`). Its values
+are spread over its pixels from its corners by a fractal seeded by the
+map's seeds (below), and each pixel drawn from the table (`0x5387a0`). In
+8-bit colour only, a cell whose four corners draw one texture, unblended,
+is that texture (`0x537d1d`). The flat polygons over the cell are drawn
+into it too (`0x4ef460`). The textures repeat across the map from its
+corner: a pixel's place masked to the texture's size, a power of 2
+(`0x54006e`).
+
+### The fractal
+
+A cell's values are a picture of 65 x 65, its corners the four corners'
+values (`0x538310`), filled by midpoint displacement with random numbers
+from R250:
+
+- **The random numbers:** each the XOR of those 250 and 147 back
+  (`0x4abf1f`). As the map starts, 256 generators are made, the nth
+  seeded with 946415 (n + 1) (`0x536991`): its 250 numbers by a linear
+  congruential generator (x 1103515245 + 12345, bits 16 to 47 of the
+  product), filled last first, then the 4th and every 7th after given a
+  bit each, the top one first (`0x54c040`). A corner's seed picks a
+  generator, a fresh copy each time (`0x54c0e0`).
+- **The edges:** the top edge by its left corner's seed plus 0x55, the
+  bottom by its left corner's plus 0x55, the left by its top corner's,
+  the right by its top corner's; so the cells beside one another make
+  their shared edge alike. Halved down to every pixel, each middle the
+  average of its ends moved by a random amount from -m to m - 1, m
+  starting at an eighth of the edge (8) and halving each time, until 0
+  (`0x4abec0` along a row, `0x4ac310` down a column).
+- **The inside:** by the cell's seed less 0x56. Square by square, each
+  middle the average of its four corners, rounded; then each side's
+  middle not made yet (0) the average of its ends, moved likewise, in
+  the order right, left, top, bottom (`0x4abfd0`).
+- **Moved values** past 255 are 255, and under 0 are 1, 0 meaning not
+  made yet (`0x4ac290`).
+
+### Water
+
+A polygon of `Render Type` `Warped` (29 in the maps, in Missions 03, 04,
+08, 10 and 14) is drawn as a textured one is (`0x54eb66`), its texture
+its `Warp Effect`, a `Water Warp Effects/<name>.txt` (a
+`CWaterWarpEffectFrame`): a `Static Texture` warped afresh each time the
+game's time moves on (`0x5f5450`), into a picture of 128 x 128:
+
+- **Its waves:** `V1 Wave`, `V2 Wave`, `H1 Wave` and `H2 Wave`, each a
+  `CWaterWaveFormData` of `Num Waves`, `Amplitude` and `Pixels Per
+  Second`. Each is a table of 128 whole pixels, the cosine of `Num Waves`
+  turns across it times the amplitude, rounded (`0x5f3cf0`); at a time it
+  has moved the time by its speed, rounded, round the 128 (`0x5f46ae`).
+- **Its `Render Type`:** `Horizontal` moves each row along by its place
+  in H1 and H2 together (`0x5f46a0`); `Vertical` each column down by its
+  place in V1 and V2 (`0x5f4790`); `Horizontal Then Vertical`, the
+  maps', a row along, then the column it took the pixel from down
+  (`0x5f4890`); `Vertical Then Horizontal` the other way (`0x5f4ae0`);
+  `Horizontal Then Vertical Animated` as `Horizontal Then Vertical`, on
+  the frame of its `Animated Texture`.
+- **The files:** `Generic Water` (`StarFleet Earth/waterFractal`),
+  `Planet 01 Water` (`Planet1/Water 5`) and `!None`.
 
 ### Its parts
 
@@ -532,13 +584,17 @@ its ground, and its parts' models, places and polygons. `MapScreen`
 (`ui/map_screen.cpp`) draws it in `Rules.txt`'s view:
 
 - **The ground** by the program's table, a cell at a time into a kept
-  picture, its values spread straight across from the corners (not the
-  program's fractal, which isn't decoded yet).
+  picture, its values spread by the program's fractal
+  (`game/ground_fractal.cpp`); the 8-bit colour's shortcut isn't there,
+  as the game draws in 16-bit.
 - **Polygons on the ground:** `Textured` with their texture repeated,
-  `Black` black, `Shadow` halving what's under it *(inferred)*; the
-  `Trans` colours half see-through over the ground while they're active
-  *(inferred)*; `Warped`, the waypoints' and free-range ones aren't
-  drawn.
+  `Black` black, `Shadow` halving what's under it (`0x542378`); the
+  `Trans` colours, while they're active, adding 10 steps of 16-bit
+  colour to their channel, red and blue of 31 and green of 63, at most
+  full (`0x5429e4`, `0x53fe85`, `0x53f985`); `Warped`, water, over the
+  ground each frame, warped by `game/water_warp.cpp` to the game's time
+  (which stops while it's paused *(inferred)*); the waypoints' and
+  free-range ones aren't drawn.
 - **Models:** each part's model's sequence, its first direction's frames
   in time, back to front by where they stand (with `Rendering Height`)
   *(inferred)*.
@@ -855,6 +911,12 @@ footsteps read: none has a sound. A unit test checks a beam's ends and
 colours and its going after its Shot Duration. Every relocation in the maps checked: its map
   found and its places on it. Mission 08 run on: the team charging the Klingons,
   one hurt retreating to its alarm, and the mission lost to it.
+- **The fractal and the water:** traced in the program, then Reluva run
+  on the retail files: Mission 01's and Mission 03's ground with ragged
+  blending and no seams between cells, cells side by side checked to
+  share their edges; Mission 03's pond rippling from frame to frame.
+- **The polygons' colours:** the span fillers each `Render Type` calls
+  (`0x53ec66`) read for what they do to a 16-bit pixel.
 
 ## Open questions
 
@@ -863,14 +925,13 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   are; the zoom's steps.
 - **Processes:** how the program chooses one, walks to it, and when the
   officer must be in range.
-- **The fractal** the program spreads a cell's values with, and its
-  seeds.
 - **The camera:** whether `View Position` is the view's middle, the
   bounds Rules.txt's `Camera Bound Width` and `Height` (142, 106) set,
   and the scrolling's speed and acceleration.
 - **Drawing order:** how the program sorts the models, and what
   `YSort` and `Rendering Height` do.
-- **Shadows**, and how the `Trans` colours are drawn.
+- **Water's time:** whether the program's clock the water moves by
+  stops while the game is paused.
 - **The triggers:** the program's own rules for all of the above, which
   are read from the maps' fields, not from its code.
 - **The enemies:** likewise, the AIs' rules: when they pursue and give

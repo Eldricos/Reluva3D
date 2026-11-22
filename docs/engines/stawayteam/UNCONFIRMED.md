@@ -34,9 +34,8 @@ None yet.
   sounds named `.wav` being the `.ogg` files of their names
   ([systems/menus.md](systems/menus.md#open-questions)).
 - **Maps:** the camera's start as the view's middle and its bounds,
-  the scrolling's speed, the models' drawing order and origin, shadows
-  halving what's under them, the textures repeating from the map's
-  corner, the `Trans` polygons not shown; the team at the spawn points
+  the scrolling's speed, the models' drawing order and origin, the
+  water's clock stopping while paused; the team at the spawn points
   in order, their facing, the path finding by A*, the mouse's buttons,
   the info bar rising under the mouse, a walk's pace from its frames,
   characters' facing in radians, the move button's order, the view held

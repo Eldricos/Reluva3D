@@ -142,7 +142,6 @@ void MapScreen::updateTriggers(float seconds) {
         const PartState &state = _partStates[t.part];
         if (t.done || !state.active || state.deleted)
             continue;
-        const MapPart &p = _map.parts[t.part];
         const TextObject *ai = t.ai;
         if (ai->className == "CRepeatTimerTriggerAI") {
             // Every Delay Between Actions, give or take Plus or Minus.
@@ -168,9 +167,6 @@ void MapScreen::updateTriggers(float seconds) {
         const std::string byList = readText(ai, "Triggered by");
         const bool byPlayers = flag(ai, "Triggered By Players") || flag(ai, "Triggered By Anything") ||
                                inCategory(byList, "Player,Team Member");
-        const bool oval = ai->className.find("Oval") != std::string::npos;
-        const float rx = number(ai, "X Radius");
-        const float ry = rx * number(ai, "YX Ratio", 1.0f);
         for (size_t o = 0; o < _officers.size() && !t.done; ++o) {
             const Officer &who = _officers[o];
             const bool answers =

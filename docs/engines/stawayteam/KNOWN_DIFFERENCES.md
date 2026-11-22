@@ -37,10 +37,8 @@ None yet.
   choices, and the keyboard's bindings, are kept but don't change
   anything yet
   ([systems/menus.md](systems/menus.md)).
-- **Maps:** the ground's values spread straight across a cell, not by
-  the program's fractal; water's warping isn't there; projectiles don't
-  set off triggers, and the animations' and particles' messages aren't
-  there; enemies don't target one another, and their DoSomething and
+- **Maps:** projectiles don't set off triggers, and the animations' and
+  particles' messages aren't there; enemies don't target one another, and their DoSomething and
   Inactive states aren't there; the camera scripts don't pause the
   characters, and one taken off the team stays on its bar; walkers keep
   apart by Reluva's own rule; the transporter's pictures aren't drawn

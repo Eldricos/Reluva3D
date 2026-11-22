@@ -5,7 +5,9 @@
 // the polygons laid on it, and the camera kept on the map.
 
 #include "engines/stawayteam/formats/text_object.h"
+#include "engines/stawayteam/game/ground_fractal.h"
 #include "engines/stawayteam/game/map.h"
+#include "engines/stawayteam/game/water_warp.h"
 #include "engines/stawayteam/ui/map_screen.h"
 
 #include "tests/engines/stawayteam/support.h"
@@ -1583,6 +1585,71 @@ void testChoosing() {
     CHECK(screen.officers()[0].move == 1 && screen.officers()[1].move == 1);
 }
 
+void testWater() {
+    TextObject o;
+    CHECK(!readTextObject("CWaterWarpEffectFrame\n{\n\tH1 Wave=CWaterWaveFormData\n\t{\n\t\tNum Waves=1\n"
+                          "\t\tAmplitude=2\n\t\tPixels Per Second=10\n\t}\n\tRender Type=Horizontal\n"
+                          "\tStatic Texture=Planet1/Water 5\n}\n",
+                          o));
+    const WaterWarp warp = readWaterWarp(o);
+    CHECK(warp.order == WaterWarp::Order::kHorizontal && warp.texture == "Planet1/Water 5");
+    // A cosine once over the 128: 2 at the start, -2 halfway, 0 a quarter.
+    CHECK(warp.h1.shift[0] == 2 && warp.h1.shift[64] == -2 && warp.h1.shift[32] == 0);
+    CHECK(warp.v1.shift[0] == 0);
+
+    // Each pixel's red its column: row 0 is shifted 2 along at the start,
+    // and by a second at 10 pixels a second, row 0 is as row 10 was.
+    image::Image tex;
+    tex.w = 128;
+    tex.h = 128;
+    tex.rgba.assign(size_t(128) * 128 * 4, 255);
+    for (int y = 0; y < 128; ++y)
+        for (int x = 0; x < 128; ++x)
+            tex.pixel(x, y)[0] = uint8_t(x);
+    image::Image out;
+    warpWater(warp, tex, 0.0, out);
+    CHECK(out.w == 128 && out.pixel(0, 0)[0] == 2 && out.pixel(127, 0)[0] == 1);
+    CHECK(out.pixel(5, 64)[0] == 3);
+    warpWater(warp, tex, 1.0, out);
+    CHECK(out.pixel(0, 0)[0] == uint8_t(warp.h1.shift[10]));
+}
+
+void testFractal() {
+    // Copies of a generator give the same numbers; another seed others.
+    R250 a = groundGenerator(7);
+    R250 b = groundGenerator(7);
+    R250 c = groundGenerator(8);
+    bool same = true;
+    bool differs = false;
+    for (int i = 0; i < 1000; ++i) {
+        const uint32_t x = a.next();
+        same = same && x == b.next();
+        differs = differs || x != c.next();
+    }
+    CHECK(same && differs);
+
+    // Two cells side by side share their edge, made by the same seeds;
+    // their corners are the map's.
+    GroundMap g;
+    g.width = 3;
+    g.height = 2;
+    g.values = {10, 200, 90, 250, 40, 128};
+    g.seeds = {0, 5, 9, 3, 0, 7};
+    const std::vector<uint8_t> left = groundFractal(g, 0, 0);
+    const std::vector<uint8_t> right = groundFractal(g, 1, 0);
+    const size_t side = kGroundCell + 1;
+    CHECK(left.size() == side * side && left[0] == 10 && left[kGroundCell] == 200);
+    CHECK(left[side * kGroundCell] == 250 && left[side * kGroundCell + kGroundCell] == 40);
+    bool shared = true;
+    bool filled = true;
+    for (size_t y = 0; y < side; ++y)
+        shared = shared && left[y * side + kGroundCell] == right[y * side];
+    for (size_t i = 0; i < left.size(); ++i)
+        filled = filled && left[i] != 0;
+    CHECK(shared && filled);
+    CHECK(groundFractal(g, 0, 0) == left);
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("stawayteam.unit.maps",
@@ -1609,4 +1676,6 @@ static const reluva::test::Suite kSuite("stawayteam.unit.maps",
                                             {"doors", [](const std::filesystem::path &) { testDoors(); }},
                                             {"company", [](const std::filesystem::path &) { testCompany(); }},
                                             {"beams", [](const std::filesystem::path &) { testBeams(); }},
+                                            {"water", [](const std::filesystem::path &) { testWater(); }},
+                                            {"fractal", [](const std::filesystem::path &) { testFractal(); }},
                                         });

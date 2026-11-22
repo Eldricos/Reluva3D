@@ -51,6 +51,7 @@ struct MapPart {
     std::vector<std::pair<float, float>> polygon; // its corners, the last the first again
     std::string renderType;                       // a polygon's: "Textured", "Black", "Shadow", "Warped"...
     std::string texture;                          // a textured polygon's, of Cache/Textures
+    std::string warpEffect;                       // a Warped polygon's, of Water Warp Effects
     bool onGround = false;
     float facing = 0.0f; // a spawn point's facing, in degrees
     float angle = 0.0f;  // which way it faces, in radians: its model's directions turning through 2 pi

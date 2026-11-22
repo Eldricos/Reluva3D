@@ -5,6 +5,7 @@
 
 #include "engines/stawayteam/formats/rds_script.h"
 #include "engines/stawayteam/game/controls.h"
+#include "engines/stawayteam/game/ground_fractal.h"
 #include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/layout.h"
 #include "engines/stawayteam/ui/main_menu.h"
@@ -19,7 +20,7 @@ namespace reluva::stawayteam {
 namespace {
 
 // The ground's cells, square (0x4ef471).
-constexpr int kCell = 64;
+constexpr int kCell = kGroundCell;
 // The mouse this near the view's edge scrolls it (inferred).
 constexpr int kEdge = 4;
 // An officer's model's directions, 0 facing left and turning anticlockwise
@@ -108,7 +109,8 @@ int actionIndex(const char *name) {
 }
 
 const uint8_t *texel(const image::Image &img, int x, int y) {
-    // Textures repeat across the map, from its corner (inferred).
+    // Textures repeat across the map from its corner: a pixel's place on
+    // it masked to the texture's size, a power of 2 (0x54006e).
     const int tx = ((x % img.w) + img.w) % img.w;
     const int ty = ((y % img.h) + img.h) % img.h;
     return img.pixel(tx, ty);
@@ -166,6 +168,8 @@ MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, 
                 (p.renderType != "Textured" && p.renderType != "Black" && p.renderType != "Shadow")) {
                 if (p.renderType.rfind("Trans ", 0) == 0)
                     _overlays.push_back(i);
+                else if (p.renderType == "Warped" && !p.warpEffect.empty())
+                    _warped.push_back(i);
                 continue;
             }
             float x0 = p.polygon[0].first;
@@ -285,9 +289,62 @@ void MapScreen::drawPolygon(image::Image &cell, int cellX, int cellY, const MapP
                 } else if (part.renderType == "Black") {
                     p[0] = p[1] = p[2] = 0;
                 } else {
-                    // A shadow halves what's under it (inferred).
+                    // A shadow halves what's under it (0x542378).
                     for (int c = 0; c < 3; ++c)
                         p[c] = uint8_t(p[c] / 2);
+                }
+            }
+        }
+    }
+}
+
+const image::Image *MapScreen::water(const std::string &name) {
+    Water &w = _waters[name];
+    if (!w.loaded) {
+        w.loaded = true;
+        std::vector<uint8_t> bytes;
+        TextObject object;
+        if (!_data.read("Water Warp Effects/" + name + ".txt", bytes) &&
+            !readTextObject(std::string(bytes.begin(), bytes.end()), object))
+            w.warp = readWaterWarp(object);
+    }
+    const image::Image &tex = texture(w.warp.texture);
+    if (!tex.w)
+        return nullptr;
+    // Warped again only as the game's time moves on (0x5f5461).
+    if (w.at != _waterTime) {
+        warpWater(w.warp, tex, _waterTime, w.picture);
+        w.at = _waterTime;
+    }
+    return &w.picture;
+}
+
+void MapScreen::drawWater(Surface &view, int left, int top) {
+    // Each drawn as a textured polygon is, its texture the water warped
+    // (0x54eb66; inferred for where the texture's laid, as the others').
+    for (size_t i : _warped) {
+        if (!shown(i))
+            continue;
+        const MapPart &p = _map.parts[i];
+        const image::Image *tex = water(p.warpEffect);
+        if (!tex)
+            continue;
+        for (int y = 0; y < view.h; ++y) {
+            const float wy = float(top + y) + 0.5f;
+            std::vector<float> xs;
+            for (size_t k = 0; k + 1 < p.polygon.size(); ++k) {
+                const auto [ax, ay] = p.polygon[k];
+                const auto [bx, by] = p.polygon[k + 1];
+                if ((ay <= wy && by > wy) || (by <= wy && ay > wy))
+                    xs.push_back(ax + (wy - ay) * (bx - ax) / (by - ay));
+            }
+            std::sort(xs.begin(), xs.end());
+            for (size_t k = 0; k + 1 < xs.size(); k += 2) {
+                const int from = std::max(0, int(std::ceil(xs[k] - 0.5f)) - left);
+                const int to = std::min(view.w, int(std::ceil(xs[k + 1] - 0.5f)) - left);
+                for (int x = from; x < to; ++x) {
+                    const uint8_t *t = texel(*tex, left + x, top + y);
+                    std::memcpy(view.row(y) + x * 4, t, 3);
                 }
             }
         }
@@ -308,20 +365,13 @@ const image::Image &MapScreen::groundCell(int cx, int cy) {
     for (size_t i = 3; i < cell.rgba.size(); i += 4)
         cell.rgba[i] = 255;
     if (cx >= 0 && cy >= 0 && cx < cellsX && cy + 1 < g.height) {
-        // Each pixel's value between its cell's four corners', taken
-        // straight across (the program's own adds a fractal's roughness,
-        // seeded by the map: not yet).
-        const auto corner = [&](int x, int y) { return float(g.values[size_t(y) * size_t(g.width) + size_t(x)]); };
-        const float v00 = corner(cx, cy);
-        const float v10 = corner(cx + 1, cy);
-        const float v01 = corner(cx, cy + 1);
-        const float v11 = corner(cx + 1, cy + 1);
+        // Each pixel draws its value of the cell's fractal (0x5387a0). In
+        // 8-bit colour a cell whose corners draw one texture unblended is
+        // that texture (0x537d1d); the game's 16-bit has no such shortcut.
+        const std::vector<uint8_t> values = groundFractal(g, cx, cy);
         for (int y = 0; y < kCell; ++y) {
-            const float fy = float(y) / float(kCell);
             for (int x = 0; x < kCell; ++x) {
-                const float fx = float(x) / float(kCell);
-                const float v = (v00 * (1 - fx) + v10 * fx) * (1 - fy) + (v01 * (1 - fx) + v11 * fx) * fy;
-                const Blend &b = _blends[size_t(std::clamp(int(std::lround(v)), 0, 255))];
+                const Blend &b = _blends[values[size_t(y) * (kCell + 1) + size_t(x)]];
                 if (b.texture < 0 || size_t(b.texture) >= _groundTextures.size() || !_groundTextures[b.texture].w)
                     continue;
                 const int wx = cx * kCell + x;
@@ -664,6 +714,7 @@ void MapScreen::update(uint64_t now) {
     }
     if (_active)
         _progress->time += seconds;
+    _waterTime += seconds;
     playScripts(seconds);
     _warpLeft = std::max(0.0f, _warpLeft - seconds);
     if (!_dialogText.empty()) {
@@ -972,16 +1023,18 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
     for (int cy = std::max(0, top / kCell); cy <= (top + viewH) / kCell; ++cy)
         for (int cx = std::max(0, left / kCell); cx <= (left + viewW) / kCell; ++cx)
             image::blit(view, groundCell(cx, cy), cx * kCell - left, cy * kCell - top);
+    drawWater(view, left, top);
     // The guides laid on the ground while they're active: the Trans
-    // polygons, half see-through in their colour (inferred for how).
+    // polygons, each adding 10 steps of 16-bit colour to its channel,
+    // red and blue of 31, green of 63, at most full (0x53f985, 0x53fe85,
+    // 0x5429e4).
     for (size_t i : _overlays) {
         if (!shown(i))
             continue;
         const MapPart &p = _map.parts[i];
         const std::string &type = p.renderType;
-        const uint8_t r = type == "Trans Red" ? 255 : 0;
-        const uint8_t g = type == "Trans Green" ? 255 : 0;
-        const uint8_t b = type == "Trans Blue" ? 255 : 0;
+        const int channel = type == "Trans Red" ? 0 : type == "Trans Green" ? 1 : 2;
+        const int add = channel == 1 ? 10 * 255 / 63 : 10 * 255 / 31;
         for (int y = 0; y < viewH; ++y) {
             const float wy = float(top + y) + 0.5f;
             std::vector<float> xs;
@@ -994,10 +1047,8 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
             std::sort(xs.begin(), xs.end());
             for (size_t k = 0; k + 1 < xs.size(); k += 2)
                 for (int x = std::max(0, int(xs[k]) - left); x < std::min(viewW, int(xs[k + 1]) - left); ++x) {
-                    uint8_t *px = view.row(y) + x * 4;
-                    px[0] = uint8_t((px[0] + r) / 2);
-                    px[1] = uint8_t((px[1] + g) / 2);
-                    px[2] = uint8_t((px[2] + b) / 2);
+                    uint8_t &c = view.row(y)[x * 4 + channel];
+                    c = uint8_t(std::min(255, c + add));
                 }
         }
     }

@@ -164,6 +164,8 @@ MapPart readPart(const std::string &className, const TextObject &o) {
     part.category = text(o, "Category");
     part.deathType = text(o, "Default Death Type");
     part.texture = text(o, "Static Texture");
+    if (part.renderType == "Warped")
+        part.warpEffect = text(o, "Warp Effect");
     part.onGround = o.integer("On Ground").value_or(0) != 0;
 
     return part;

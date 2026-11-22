@@ -13,6 +13,7 @@
 #include "engines/stawayteam/game/objectives.h"
 #include "engines/stawayteam/game/options.h"
 #include "engines/stawayteam/game/team.h"
+#include "engines/stawayteam/game/water_warp.h"
 #include "engines/stawayteam/ui/animation.h"
 #include "engines/stawayteam/ui/font.h"
 #include "engines/stawayteam/ui/game_hud.h"
@@ -601,6 +602,9 @@ private:
     // The enemy whose sight is shown: what it can see, tinted (map_vision.cpp).
     void drawVision(Surface &view, int left, int top) const;
     void drawPause(Surface &screen, uint64_t now);
+    // The Warped polygons in sight, their water warped to now (map_screen.cpp).
+    void drawWater(Surface &view, int left, int top);
+    const image::Image *water(const std::string &name);
     void walk(Officer &o, float seconds);
     // A line a pixel wide, `opacity` (0-1) of the colour over what's there.
     static void drawLine(Surface &view, float x0, float y0, float x1, float y1, const std::array<uint8_t, 3> &rgb,
@@ -636,6 +640,16 @@ private:
     std::map<std::string, Animation> _models;       // by model and sequence
     std::vector<size_t> _standing;                  // the models, back to front
     std::vector<size_t> _overlays;                  // the Trans polygons
+    std::vector<size_t> _warped;                    // the Warped polygons: water
+    // A Water Warp Effects file's warp, its texture and what it warped to.
+    struct Water {
+        bool loaded = false;
+        WaterWarp warp;
+        image::Image picture;
+        double at = -1.0; // the game's time `picture` is for
+    };
+    std::map<std::string, Water> _waters;
+    double _waterTime = 0.0; // seconds of the game's time, the water's clock
     // The scroll keys held, and the mouse.
     bool _left = false;
     bool _right = false;

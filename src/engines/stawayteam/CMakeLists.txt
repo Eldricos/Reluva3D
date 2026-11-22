@@ -35,11 +35,13 @@ reluva_add_engine(stawayteam
         ui/escape_menu.cpp
         ui/team_selection.cpp
         game/campaign.cpp
+        game/ground_fractal.cpp
         game/controls.cpp
         game/options.cpp
         game/map.cpp
         game/objectives.cpp
         game/team.cpp
+        game/water_warp.cpp
         ui/button.cpp
         ui/credits.cpp
         ui/difficulty.cpp
