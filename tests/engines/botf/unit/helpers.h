@@ -84,6 +84,21 @@ Bytes lzssLiterals(const Bytes &raw);
  */
 std::vector<std::pair<std::string, Bytes>> galaxyFiles(int16_t systems, bool withQueue);
 
+/** The Federation's galaxy screen's files (hmaingal.wdf, its panels, strips and pictures). */
+std::map<std::string, Bytes> galaxyAssets();
+
+/** result.lst of one chunk, counting no results. */
+Bytes resultList();
+
+/**
+ * A whole saved game, as readSavedGame() needs: gameInfo (the player's
+ * `empire`, turn 3, "Tutorial #1", a medium ring galaxy), galaxyFiles(1, true), the empires (the
+ * Romulans' 1,200 credits, 1,300 as the turn began), a ship and its task
+ * force, the Romulans' task force list, Romulus's buildings, the counters
+ * and resultList().
+ */
+Bytes makeFullSave(uint8_t empire = 4);
+
 /** A saved game holding only a gameInfo with `description`, `turn` and the player's `empire`. */
 Bytes makeSave(const std::string &name, const std::string &description, uint32_t turn, uint8_t empire = 1);
 

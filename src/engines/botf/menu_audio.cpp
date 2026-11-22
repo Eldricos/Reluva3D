@@ -32,6 +32,7 @@ constexpr size_t kSetupSpeech = 1362;
 constexpr size_t kEmpiresSpeech = 1361;
 constexpr size_t kGameChosenSpeech = 323;
 constexpr size_t kSlotChosenSpeech = 722;
+constexpr size_t kSavedSpeech = 723; // Save Game's Accept, back to the game
 constexpr size_t kFirstEmpireSpeech = 318;
 constexpr std::array<size_t, 3> kVoiceSamples = {351, 621, 725};
 
@@ -196,6 +197,10 @@ void MenuAudio::play(Move move) {
         break; // silent, in the recording
     case Move::kToMenu:
         effect(kBackEffect);
+        break;
+    case Move::kSaved:
+        effect(kBackEffect);
+        speech(kSavedSpeech);
         break;
     }
 }

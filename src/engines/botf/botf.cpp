@@ -111,6 +111,22 @@ Error openSavedGame(const std::filesystem::path &path, GalaxyScreen &galaxy) {
     return Error::success();
 }
 
+// Saves the galaxy's game in Save Game's slot `slot`, with `description`
+// (UTF-8): into the slot's file, whatever its case, or a new gameN.sav.
+Error saveGame(const std::filesystem::path &dir, int slot, const std::string &description, GalaxyScreen &galaxy) {
+    const std::string name = "game" + std::to_string(slot) + ".sav";
+    const std::filesystem::path path = saveFile(dir, name).value_or(dir / name);
+    GameState &game = galaxy.state();
+    const std::string was = game.data().summary.description;
+    game.data().summary.description = description;
+    if (Error err = game.save(path)) {
+        game.data().summary.description = was;
+        return err;
+    }
+    game.data().summary.name = name;
+    return Error::success();
+}
+
 // The saved games in the install's slots, game0.sav to game11.sav (any
 // case). Only the install's own: the CD has the tutorials' saves too, but a
 // slot emptied in the install should stay empty. A save that can't be read
@@ -266,6 +282,9 @@ public:
         Showing shown = showing; // before the event
         bool redraw = true;
         bool cursorShown = true;
+        // A game is in progress once one is opened on the galaxy screen: the
+        // main menu's Continue goes back to it, and Save Game saves it.
+        bool inGame = false;
         uint64_t galaxyFrame = 0; // the galaxy's strip's frame last drawn
         while (true) {
             Event ev;
@@ -273,18 +292,29 @@ public:
                 if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                     return Error::success();
                 if (showing == Showing::kMenu) {
-                    // Esc on the main menu leaves, as its Quit Game does: a
-                    // convenience the game hasn't got.
-                    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
-                        return Error::success();
+                    // Esc on the main menu goes back to the game in progress,
+                    // or leaves, as its Quit Game does: conveniences the game
+                    // hasn't got.
+                    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
+                        if (!inGame)
+                            return Error::success();
+                        showing = shown = Showing::kGalaxy;
+                        redraw = true;
+                        continue;
+                    }
                     const MainMenu::Choice c = menu.handle(ev);
-                    // Continue opens the autosave's galaxy.
-                    if (c == MainMenu::Choice::kContinue) {
+                    // Continue goes back to the game in progress, or opens
+                    // the autosave's galaxy.
+                    if (c == MainMenu::Choice::kContinue && inGame) {
+                        showing = Showing::kGalaxy;
+                    } else if (c == MainMenu::Choice::kContinue) {
                         if (const auto path = saveFile(_target.path, "auto.sav")) {
-                            if (Error err = openSavedGame(*path, galaxy))
+                            if (Error err = openSavedGame(*path, galaxy)) {
                                 log::warning("%s", err.message.c_str());
-                            else
+                            } else {
                                 showing = Showing::kGalaxy;
+                                inGame = true;
+                            }
                         }
                     }
                     if (c == MainMenu::Choice::kQuit)
@@ -300,14 +330,15 @@ public:
                         showing = Showing::kLoad;
                         audio.play(MenuAudio::Move::kToLoad);
                     }
-                    // Only with a game in progress, which there can't be yet:
-                    // its description would be the last empire chosen's, at
-                    // its first turn, in the last setup's galaxy.
-                    if (c == MainMenu::Choice::kSaveGame) {
+                    // Only with a game in progress: an empty slot is given its
+                    // description, as the game's.
+                    if (c == MainMenu::Choice::kSaveGame && inGame) {
+                        const SaveSummary &game = galaxy.state().data().summary;
+                        const int size = game.galaxySize >= 0 ? game.galaxySize : galaxy.state().galaxy().size;
                         loading.open(findSaves(_target.path), LoadSaveScreen::Mode::kSave,
-                                     saveDescription(_lexicon, std::max(empires.chosen(), 0), 0, lastSetup.galaxySize,
-                                                     lastSetup.galaxyShape),
-                                     std::max(empires.chosen(), 0));
+                                     saveDescription(_lexicon, galaxy.state().player(), game.turn, size,
+                                                     std::max(game.galaxyShape, 0)),
+                                     galaxy.state().player());
                         _sys.setTextInput(true);
                         showing = Showing::kLoad;
                         audio.play(MenuAudio::Move::kToSave);
@@ -349,27 +380,41 @@ public:
                     if (fame.handle(ev))
                         showing = Showing::kMenu;
                 } else if (showing == Showing::kLoad) {
-                    // Loading opens the chosen game's galaxy; nothing is
-                    // saved yet, as there's no game to save.
+                    // Loading opens the chosen game's galaxy; saving writes
+                    // the game in progress and goes back to it, as the
+                    // manual says ("to save the game and to resume play").
                     const LoadSaveScreen::Result r = loading.handle(ev);
                     if (r != LoadSaveScreen::Result::kOpen) {
                         _sys.setTextInput(false);
                         showing = Showing::kMenu;
                     }
+                    if (r == LoadSaveScreen::Result::kAccepted && loading.mode() == LoadSaveScreen::Mode::kSave) {
+                        if (Error err = saveGame(_target.path, loading.chosen(), loading.description(), galaxy)) {
+                            log::warning("%s", err.message.c_str());
+                        } else {
+                            showing = Showing::kGalaxy;
+                            audio.play(MenuAudio::Move::kSaved);
+                        }
+                    }
                     if (r == LoadSaveScreen::Result::kAccepted && loading.mode() == LoadSaveScreen::Mode::kLoad) {
                         const std::string name = "game" + std::to_string(loading.chosen()) + ".sav";
                         if (const auto path = saveFile(_target.path, name)) {
-                            if (Error err = openSavedGame(*path, galaxy))
+                            if (Error err = openSavedGame(*path, galaxy)) {
                                 log::warning("%s", err.message.c_str());
-                            else
+                            } else {
                                 showing = Showing::kGalaxy;
+                                inGame = true;
+                            }
                         }
                     }
                 } else if (showing == Showing::kGalaxy) {
-                    // Escape goes back to the main menu: Reluva's, as the
-                    // game's own menus aren't there yet.
-                    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
+                    // Escape goes back to the main menu, the game still in
+                    // progress: Reluva's way there, as the game's own
+                    // menus aren't there yet.
+                    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
+                        menu.setGameInProgress(true);
                         showing = Showing::kMenu;
+                    }
                     (void)galaxy.handle(ev);
                 } else if (showing == Showing::kSetup) {
                     const SetupScreen::Result r = setup.handle(ev);

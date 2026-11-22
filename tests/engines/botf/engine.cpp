@@ -11,10 +11,13 @@
 //
 // The install is a stbof.res holding a main menu, the game setup and
 // empire selection layouts (each widget a picture of its own colour) and
-// a lexicon.dic; the run goes from the main menu through setup and empire
-// selection and back, as starting a new game does, then quits.
+// a lexicon.dic, the Federation's galaxy screen and a saved game to play;
+// the run goes from the main menu through setup and empire selection and
+// back, as starting a new game does, through the other screens, then
+// loads the game, saves it in another slot, goes back to it and quits.
 
 #include "common/headless_system.h"
+#include "engines/botf/formats/save_game.h"
 #include "engines/registry.h"
 #include "image/image.h"
 
@@ -23,6 +26,7 @@
 #include "tests/support/test.h"
 #include "tests/support/zip_writer.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
@@ -256,6 +260,10 @@ void makeInstall(const std::filesystem::path &dir) {
     add("human15.fnt", makeFont(16));
     add("human20.fnt", makeFont(21));
     add("lexicon.dic", makeLexicon({"word"}));
+    // The Federation's galaxy screen, but for the fonts already here.
+    for (auto &[name, data] : galaxyAssets())
+        if (std::none_of(files.begin(), files.end(), [&](const auto &f) { return f.name == name; }))
+            add(name, std::move(data));
     writeFile(dir / "stbof.res", test::buildZip(files));
     writeFile(dir / "sfx.snd", Bytes(4, 0));
     // Stbof.ini with only the version, which the main menu shows.
@@ -265,6 +273,8 @@ void makeInstall(const std::filesystem::path &dir) {
     // as some installs have them.
     writeFile(dir / "game0.sav", makeSave("Tutorial #1", "Irregular", 0));
     writeFile(dir / "Game3.sav", makeSave("Mine", "Spiral", 120));
+    // A Federation game with its galaxy, to play and save, in the sixth.
+    writeFile(dir / "game5.sav", makeFullSave(1));
 }
 
 Event pointAt(int x, int y) {
@@ -279,6 +289,13 @@ Event typeText(const char *text) {
     Event e;
     e.type = EventType::kTextInput;
     std::strncpy(e.text, text, sizeof e.text - 1);
+    return e;
+}
+
+Event keyDown(int key) {
+    Event e;
+    e.type = EventType::kKeyDown;
+    e.key = key;
     return e;
 }
 
@@ -418,7 +435,25 @@ void engineTest(const std::filesystem::path &tmp) {
             {"", typeText("Reluva")},
             {"multiplayer.name typed", click(60, 300, true)}, // Cancel
             {"", click(60, 300, false)},
-            {"menu.after multiplayer", menuButton(8, true)}, // Quit Game: the end
+            {"menu.after multiplayer", menuButton(3, true)}, // Load Game
+            {"", menuButton(3, false)},
+            {"", click(300, 175 + 5 * 26 + 10, true)}, // the sixth slot's game
+            {"", click(300, 175 + 5 * 26 + 10, false)},
+            {"", click(460, 510, true)}, // Accept: its galaxy
+            {"", click(460, 510, false)},
+            {"galaxy.loaded", keyDown(key::kEscape)},       // back to the menu, the game in progress
+            {"menu.game in progress", menuButton(4, true)}, // Save Game
+            {"", menuButton(4, false)},
+            {"save.shown", click(300, 175 + 6 * 26 + 10, true)}, // the seventh slot, empty
+            {"", click(300, 175 + 6 * 26 + 10, false)},
+            {"", typeText(" by Reluva")},
+            {"save.typed", click(460, 510, true)}, // Accept: saved, back to the game
+            {"", click(460, 510, false)},
+            {"galaxy.saved", keyDown(key::kEscape)},
+            {"menu.after saving", menuButton(0, true)}, // Continue: the game again
+            {"", menuButton(0, false)},
+            {"galaxy.continued", keyDown(key::kEscape)},
+            {"", menuButton(8, true)}, // Quit Game: the end
             {"", menuButton(8, false)},
         };
         ScriptedSystem sys(rec, script);
@@ -437,6 +472,11 @@ void engineTest(const std::filesystem::path &tmp) {
         for (size_t at; (at = text.find("\r\n")) != std::string::npos;)
             text.replace(at, 2, "|");
         rec.add("stbof.ini", text);
+        // The game saved in the seventh slot.
+        botf::SaveSummary saved;
+        const Error read = botf::readSaveSummary(dir / "game6.sav", saved);
+        rec.add("saved", read ? "FAILED " + read.message
+                              : saved.name + " | " + saved.description + " | turn " + std::to_string(saved.turn));
     }
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/botf/data/engine-record.txt", "botf.engine",
               "tests/engines/botf/engine.cpp");

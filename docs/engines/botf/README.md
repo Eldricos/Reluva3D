@@ -48,8 +48,11 @@ The plan is in [PLAN.md](PLAN.md).
   a click chooses it. Options for the options screen: a click on a volume
   bar sets it (or drag along it), a click on a setting changes it, and
   Accept keeps the changes. Load Game lists the install's saved games; a
-  click chooses one. Cancel goes back a screen; Quit Game, or Esc on
-  the main menu, goes back to the launcher.
+  click chooses one, and Accept opens it on the galaxy screen. There,
+  Escape goes back to the main menu, where Save Game saves the game in a
+  slot (type to change its description) and Continue, or Esc, goes back
+  to it. Cancel goes back a screen; Quit Game, or Esc on the main menu
+  with no game in progress, goes back to the launcher.
 - **The data viewer:** `reluva-viewer` with the game. Tab moves between
   its pages:
   - **Images:** Left/Right step through `stbof.res`'s and `alt.res`'s

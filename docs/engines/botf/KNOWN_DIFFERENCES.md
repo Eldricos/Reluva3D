@@ -10,7 +10,11 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
   and from the CD's files wherever they are
   ([systems/game-files.md](systems/game-files.md)).
 
-- **Esc on the main menu leaves the game,** as Quit Game does.
+- **Esc on the main menu leaves the game,** as Quit Game does, or,
+  with a game in progress, goes back to it as Continue does.
+- **Escape on the galaxy screen goes back to the main menu,** the game
+  still in progress, where Continue goes back to it and Save Game saves
+  it: Reluva's way to them while the game's own menus aren't there.
 
 ## Bugs fixed
 
@@ -18,15 +22,15 @@ None yet.
 
 ## Not yet as the original
 
-- **On the main menu,** Save Game and Retire can't be used (as in the
-  game with nothing in progress).
+- **On the main menu,** Retire can't be used, and Save Game only once a
+  game has been loaded: a game can't be started yet.
 - **A loaded game is only shown:** Load Game's Accept and Continue open
   the galaxy screen with the save's map, zoomed out or in, the empire's
   panel and the selected sector's strip (a click on the map selects
   another), but its other buttons and playing the turn are still to
   come; the Ferengi's and Cardassians' claims aren't drawn on the map. A
   new game's first turn shows "2 Events" where the game, before it's
-  saved, shows "No Events". Escape goes back to the main menu. The strip
+  saved, shows "No Events". The strip
   leaves out a system's growth rate and orbitals, and the people's word
   for races other than the Federation's
   ([systems/galaxy-screen.md](systems/galaxy-screen.md#the-strip)).

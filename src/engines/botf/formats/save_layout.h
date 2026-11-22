@@ -36,6 +36,8 @@ constexpr size_t kTurnAt = 0x40;
 constexpr size_t kMultiplayerAt = 0x4C;
 constexpr size_t kUsed = kMultiplayerAt + 4;
 constexpr size_t kEmpireAt = 0x252;
+constexpr size_t kGalaxyShapeAt = 0x260;
+constexpr size_t kGalaxySizeInfoAt = 0x264;
 
 // The saved game's text files are compressed with the window full of
 // spaces; gameInfo is one of them.

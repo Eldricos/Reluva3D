@@ -170,6 +170,10 @@ Error readSaveSummary(const std::filesystem::path &path, SaveSummary &summary) {
         summary.multiplayer = info[kMultiplayerAt] != 0;
         if (info.size() > kEmpireAt && info[kEmpireAt] < 5)
             summary.empire = info[kEmpireAt];
+        if (info.size() >= kGalaxySizeInfoAt + 4) {
+            summary.galaxyShape = s32(info, kGalaxyShapeAt);
+            summary.galaxySize = s32(info, kGalaxySizeInfoAt);
+        }
         return Error::success();
     }
     return Error::fail(path.string() + " has no gameInfo");

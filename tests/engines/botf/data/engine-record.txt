@@ -27,9 +27,9 @@ options.list open: cc1d8719ac32d2b7
 menu.options accepted: 3650ee45940809d6
 setup.with the options: dc7d236f73952b21
 menu.last: 3650ee45940809d6
-load.shown: ccb64e6af37a6459
-load.empty slot clicked: ccb64e6af37a6459
-load.save chosen: c374b3b46075ce51
+load.shown: 7f83ed6354df0888
+load.empty slot clicked: 7f83ed6354df0888
+load.save chosen: be3064eae1ec1080
 menu.after loading: 3650ee45940809d6
 fame.shown: b9c59ecb83c3a745
 menu.after the hall of fame: 3650ee45940809d6
@@ -38,6 +38,14 @@ multiplayer.host: db701d89c3e17a3d
 multiplayer.network: 81b383611c6ef7bd
 multiplayer.name typed: e8bd9f706260aad6
 menu.after multiplayer: 3650ee45940809d6
+galaxy.loaded: b41a98ce2875b42c
+menu.game in progress: e89c5674271e5086
+save.shown: 7f83ed6354df0888
+save.typed: b20557489b419b71
+galaxy.saved: b41a98ce2875b42c
+menu.after saving: e89c5674271e5086
+galaxy.continued: b41a98ce2875b42c
 run: ok
 run.screen: 800x600
 stbof.ini: TACTICAL=ABSTRACT|AUTOSAVE=ON|TOOLTIPS=ON|RANDOMEVENTS=ON|TIMELIMIT=0|TACTIMELIMIT=0|SHAPE=0|SIZE=1|RACENUM=3|DIFFICULTY=4|CIVLEVEL1=1|CIVLEVEL2=1|CIVLEVEL3=1|CIVLEVEL4=1|CIVLEVEL5=1|MUSICVOLUME=100|FXVOLUME=100|VIDEOVOLUME=127|VOICEVOLUME=100|Version=1.0.2|
+saved: game6.sav | Federation 3 Medium Ring Galaxy by Reluva | turn 3

@@ -458,9 +458,15 @@ recording:
 - `botf.cpp` runs them as the game does, from the main menu, and keeps
   the options and the last setup, starting from `Stbof.ini`'s and writing
   them back into it ([game-files.md](game-files.md)). Load Game lists the
-  install's own saves, not the CD's. There's no game to start or load yet,
-  so the empire screen's Accept and Load Game's come back to the main menu,
-  and the menu's other buttons do nothing yet
+  install's own saves, not the CD's; its Accept opens the save on the
+  galaxy screen ([galaxy-screen.md](galaxy-screen.md)). With that game in
+  progress, Continue and Save Game can be used: Save Game gives an empty
+  slot the game's description, and its Accept writes the game into the
+  slot's file (`gameN.sav`, or the file there in any case, its header
+  named in lower case as every save seen is) and goes back to the game,
+  as the manual says ([formats/sav.md](../formats/sav.md#writing-a-save)).
+  There's no game to start yet, so the empire screen's Accept comes back
+  to the main menu, and Retire does nothing yet
   ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
 - **Held buttons** (the user, in the game): the main menu's buttons and
   the screens' Accept and Cancel show their "selected" picture while

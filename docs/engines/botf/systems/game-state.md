@@ -39,9 +39,11 @@ after its file ([formats/sav.md](../formats/sav.md#writing-a-save)).
 `GameState` (`src/engines/botf/game/game_state.cpp`) is built from a
 saved game, read whole by `GameState::load`, and written by
 `GameState::save`. The engine opens a save into one and hands it to the
-galaxy screen. The unit tests (`botf.unit.archives`: "game state", and
+galaxy screen, and the main menu's Save Game saves it from there. The
+unit tests (`botf.unit.archives`: "game state", and
 the save's parts; `botf.unit.saving`: "saved game written") cover the
-lookups, the readers and saving.
+lookups, the readers and saving; the engine test (`botf.engine`) loads
+a game, saves it in another slot and goes back to it.
 
 ## Sources and checks
 

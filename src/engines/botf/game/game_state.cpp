@@ -3,6 +3,8 @@
 
 #include "engines/botf/game/game_state.h"
 
+#include "common/text.h"
+
 #include <algorithm>
 #include <utility>
 
@@ -35,9 +37,10 @@ Error GameState::load(const std::filesystem::path &path, GameState &out) {
 Error GameState::save(const std::filesystem::path &path) const {
     if (!_fromSave)
         return Error::fail("the game wasn't read from a saved game, so there's nothing to write it into");
-    // The game names each save after its file.
+    // The game names each save after its file, in lower case (in every
+    // save seen, though a fresh install's empty slots are Game4.sav ...).
     SavedGame game = _game;
-    game.summary.name = path.filename().string();
+    game.summary.name = text::toLower(path.filename().string());
     SaveFiles files = _files;
     if (Error err = writeSavedGame(game, files))
         return Error::fail(path.string() + ": " + err.message);

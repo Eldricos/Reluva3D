@@ -59,9 +59,8 @@ every time; the times here are the picture's.
   choice may be wider)*.
 - **Opening the game setup screen's click** is in one recording and not
   the other; Reluva plays it.
-- **Not played yet:** Save Game's Accept (nothing is saved yet), and
-  Retire's screen (a click on Retire, then `sfx.snd` 53, 80 and 112 on
-  it), which needs a game.
+- **Not played yet:** Retire's screen (a click on Retire, then `sfx.snd`
+  53, 80 and 112 on it), which needs a game.
 - **Two recordings:** the first, of the main menu's screens; the second,
   of a new game set up, each empire chosen in turn, the game started,
   saved, and retired. Starting the game from the empire selection screen

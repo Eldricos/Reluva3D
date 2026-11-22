@@ -76,6 +76,12 @@ Error writeSummary(const SaveSummary &summary, SaveFiles &save) {
     putFlag32(*info, kMultiplayerAt, summary.multiplayer);
     if (summary.empire >= 0 && summary.empire < 5)
         (*info)[kEmpireAt] = uint8_t(summary.empire);
+    if (info->size() >= kGalaxySizeInfoAt + 4) {
+        if (summary.galaxyShape >= 0)
+            put32(*info, kGalaxyShapeAt, summary.galaxyShape);
+        if (summary.galaxySize >= 0)
+            put32(*info, kGalaxySizeInfoAt, summary.galaxySize);
+    }
     return Error::success();
 }
 

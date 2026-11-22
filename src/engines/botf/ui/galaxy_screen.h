@@ -41,6 +41,11 @@ public:
     Error load(int empire);
     /** Shows a game as its player sees it (the player's empire, which load() was given). */
     void open(GameState state);
+    /** The game shown, which saving writes. */
+    ///@{
+    GameState &state() { return _state; }
+    const GameState &state() const { return _state; }
+    ///@}
     /**
      * Acts on a mouse click: the Map button opens or closes the zoom's
      * buttons, Small Map zooms in and Large Map out, and a click on the map

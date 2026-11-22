@@ -24,6 +24,11 @@ struct SaveSummary {
     int turn = 0;            // 0 is the first
     int empire = -1;         // the player's, 0 Cardassians to 4 Romulans; -1 not known
     bool multiplayer = false;
+    /** The galaxy's shape, 0 irregular to 3 spiral, and size, 0 small to 2 large; -1 not known. */
+    ///@{
+    int galaxyShape = -1;
+    int galaxySize = -1;
+    ///@}
 };
 
 /** Reads `summary` from the saved game at `path`. */

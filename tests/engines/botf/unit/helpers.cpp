@@ -3,6 +3,8 @@
 
 #include "tests/engines/botf/unit/helpers.h"
 
+#include "image/image.h"
+
 #include <algorithm>
 #include <fstream>
 
@@ -307,6 +309,213 @@ std::vector<std::pair<std::string, Bytes>> galaxyFiles(int16_t systems, bool wit
     set32(stellar, 68, 7);
     set32(stellar, 72, 7);
     return {{"galInfo", info}, {"sector.lst", sectors}, {"systInfo", system}, {"stellInfo", stellar}};
+}
+
+// The Federation's galaxy screen, its parts and pictures, as the game's
+// files lay them out.
+std::map<std::string, Bytes> galaxyAssets() {
+    // The Federation's layout: the military mode's button, the map's place
+    // and the turn's text box, as hmaingal.wdf places them.
+    Bytes f;
+    put32(f, 2);
+    putWidget(f, 1, 1000, 0, 0, 800, 600, "none");
+    putWindowCounts(f, {{2, 2}, {13, 4}, {14, 2}});
+    auto button = [](Bytes &l, uint32_t id, uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
+        putWidget(l, 2, id, x, y, w, h, "none");
+        put32(l, 0xffffffff);
+        l.push_back(0);
+        put32(l, 0);
+        put32(l, 0);
+        putName(l, "none");
+        putName(l, "none");
+    };
+    button(f, 1004, 558, 432, 87, 24);
+    button(f, 1002, 650, 432, 88, 24);
+    putWidget(f, 13, 1017, 249, 36, 526, 391, "none");
+    put32(f, 0xffffffff);
+    putWidget(f, 13, 1020, 28, 110, 196, 380, "none");
+    put32(f, 0xffffffff);
+    putWidget(f, 13, 1014, 7, 459, 786, 134, "none");
+    put32(f, 0xffffffff);
+    putWidget(f, 13, 1025, 564, 353, 175, 76, "none");
+    put32(f, 0xffffffff);
+    putWidget(f, 14, 1021, 63, 76, 100, 30, "none");
+    for (const uint32_t v : {0U, 0U, 100U, 30U})
+        put32(f, v);
+    putFont(f, 1, 0, 0, "human28.fnt");
+    // The line naming the sector under the pointer.
+    putWidget(f, 14, 1081, 262, 8, 500, 22, "none");
+    for (const uint32_t v : {0U, 0U, 500U, 22U})
+        put32(f, v);
+    putFont(f, 1, 0, 0, "human20.fnt");
+    // A white star, 10 pixels square.
+    image::Image star;
+    star.w = star.h = 10;
+    star.rgba.assign(400, 255);
+    // The map's pictures leave out their top-left pixel's colour: black.
+    image::Image keyed = star;
+    keyed.rgba[0] = keyed.rgba[1] = keyed.rgba[2] = 0;
+    // The empire's panel's parts: its information's text box, the
+    // emblems' places (the Klingons' at 109, 2), the task forces' bar and a
+    // task force's row.
+    auto layout = [](uint32_t w, uint32_t h, const std::vector<std::pair<uint32_t, uint32_t>> &counts) {
+        Bytes l;
+        put32(l, 2);
+        putWidget(l, 1, 0, 0, 0, w, h, "none");
+        putWindowCounts(l, counts);
+        return l;
+    };
+    auto textBox = [](Bytes &l, uint32_t id, uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
+        putWidget(l, 14, id, x, y, w, h, "none");
+        for (const uint32_t v : {0U, 0U, w, h})
+            put32(l, v);
+        putFont(l, 1, 0, 0, "human15.fnt");
+    };
+    Bytes info = layout(200, 90, {{14, 1}});
+    textBox(info, 1018, 17, 30, 159, 51);
+    Bytes emblems = layout(200, 40, {{13, 1}});
+    putWidget(emblems, 13, 1053, 109, 2, 27, 25, "none");
+    put32(emblems, 0xffffffff);
+    Bytes bar = layout(194, 17, {{2, 1}, {13, 1}});
+    putWidget(bar, 2, 1028, 16, 0, 157, 17, "none");
+    put32(bar, 0xffffffff);
+    bar.push_back(0);
+    put32(bar, 0);
+    put32(bar, 0);
+    putName(bar, "none");
+    putName(bar, "none");
+    putWidget(bar, 13, 1029, 179, 0, 15, 17, "none");
+    put32(bar, 0xffffffff);
+    Bytes row = layout(195, 40, {{13, 1}, {14, 1}});
+    putWidget(row, 13, 1036, 15, 5, 30, 30, "none");
+    put32(row, 0xffffffff);
+    textBox(row, 1037, 66, 3, 125, 34);
+    // The strips under the map: a system's, its planets' place 548 wide
+    // and its text boxes, and a stellar object's, 300 wide.
+    Bytes systemStrip = layout(786, 134, {{13, 1}, {14, 4}});
+    putWidget(systemStrip, 13, 1020, 200, 18, 548, 100, "none");
+    put32(systemStrip, 0xffffffff);
+    textBox(systemStrip, 1100, 239, 0, 126, 17);
+    textBox(systemStrip, 1101, 604, 0, 126, 17);
+    textBox(systemStrip, 1102, 56, 52, 100, 68);
+    textBox(systemStrip, 1103, 111, 52, 75, 68);
+    Bytes stellarStrip = layout(786, 134, {{13, 1}, {14, 3}});
+    putWidget(stellarStrip, 13, 1020, 219, 18, 300, 100, "none");
+    put32(stellarStrip, 0xffffffff);
+    textBox(stellarStrip, 1100, 239, 0, 126, 17);
+    textBox(stellarStrip, 1101, 604, 0, 126, 17);
+    textBox(stellarStrip, 1103, 525, 18, 220, 100);
+    // The zoom's two buttons.
+    Bytes zoom = layout(175, 76, {{2, 2}});
+    button(zoom, 1022, 20, 0, 88, 18);
+    button(zoom, 1023, 20, 22, 88, 18);
+    std::map<std::string, Bytes> files;
+    files["hmaingal.wdf"] = f;
+    files["h_zoom.wdf"] = zoom;
+    files["s-y-map.tga"] = image::encodeTga(keyed);
+    files["h_sysmap.wdf"] = systemStrip;
+    files["h_starmp.wdf"] = stellarStrip;
+    // A white star 100 pixels square; a planet 20 square, white then
+    // black; a neutron star 300 wide and 100 high, white.
+    files["s-y-.ani"] = makeAnimation(100, 100, {0x7FFF});
+    files["eart.ani"] = makeAnimation(20, 20, {0x7FFF, 0});
+    files["ns.ani"] = makeAnimation(300, 100, {0x7FFF});
+    // The map's backdrop, grey, shown only in sectors the empire hasn't
+    // seen; a neutron star's picture, another empire's task force's
+    // emblem, and the marker for where a task force is ordered to.
+    image::Image grey;
+    grey.w = 526;
+    grey.h = 391;
+    grey.rgba.assign(size_t(grey.w) * size_t(grey.h) * 4, 128);
+    files["hm_glmap.tga"] = image::encodeTga(grey);
+    files["nsmaps.tga"] = image::encodeTga(keyed);
+    files["i_k13.tga"] = image::encodeTga(star);
+    files["movs.tga"] = image::encodeTga(star);
+    files["i_ho11.tga"] = image::encodeTga(star);
+    // The strip's icons (a food bonus, dilithium: red) and the
+    // Federation's emblem; and the sector line's font.
+    image::Image red = keyed;
+    for (size_t i = 4; i < red.rgba.size(); i += 4)
+        red.rgba[i + 1] = red.rgba[i + 2] = 0;
+    files["bif1.tga"] = image::encodeTga(keyed);
+    files["bid.tga"] = image::encodeTga(red);
+    files["i_h46.tga"] = image::encodeTga(star);
+    files["human20.fnt"] = makeFont(21);
+    // Large terran planets' maximum populations, 140 with much growth and energy.
+    Bytes planspac = {6, 2, 0, 0};
+    for (const uint32_t v : {120U, 125U, 130U, 130U, 130U, 130U, 135U, 135U, 140U})
+        put32(planspac, v);
+    files["planspac.bin"] = planspac;
+    files["hinfobox.wdf"] = info;
+    files["h_eicon.wdf"] = emblems;
+    files["hinf_tf.wdf"] = bar;
+    files["h_tfinfo.wdf"] = row;
+    files["human15.fnt"] = makeFont(16);
+    files["i_k26.tga"] = image::encodeTga(star);
+    files["i_h26.tga"] = image::encodeTga(star);
+    files["i_hi18.tga"] = image::encodeTga(star);
+    files["s-y-maps.tga"] = image::encodeTga(keyed);
+    files["human9.fnt"] = makeFont(10);
+    files["human28.fnt"] = makeFont(29);
+    return files;
+}
+
+// One chunk: the count, 0.
+Bytes resultList() {
+    const Bytes count = lzssLiterals(Bytes(4, 0));
+    Bytes lst;
+    put32(lst, 12);
+    put32(lst, 4);
+    put32(lst, uint32_t(count.size()));
+    lst.insert(lst.end(), count.begin(), count.end());
+    return lst;
+}
+
+Bytes makeFullSave(uint8_t empire) {
+    std::vector<std::pair<std::string, Bytes>> files = galaxyFiles(1, true);
+    Bytes info(0x2C0, 0);
+    const std::string description = "Tutorial #1";
+    std::copy(description.begin(), description.end(), info.begin() + 0x0D);
+    set32(info, 0x40, 3);
+    info[0x252] = empire;
+    set32(info, 0x260, 2); // a ring galaxy
+    set32(info, 0x264, 1); // of medium size
+    Bytes emps(5 * 444, 0);
+    // 1,200 credits now, 1,300 as the turn began: 100 spent.
+    set32(emps, 4 * 444 + 0x54, 1200);
+    set32(emps, 4 * 444 + 0x98, 1300);
+    Bytes shipHead(40, 0);
+    set32(shipHead, 0x10, 116);
+    set32(shipHead, 0x18, 1);
+    Bytes ships(116, 0);
+    const std::string name = "IRW Haakona";
+    std::copy(name.begin(), name.end(), ships.begin());
+    Bytes forceHead(40, 0);
+    set32(forceHead, 0x10, 108);
+    set32(forceHead, 0x18, 1);
+    Bytes forces(108, 0);
+    set32(forces, 0x04, 1);
+    set32(forces, 0x30, 0xFFFFFFFF);
+    // Romulus: one kind of building, 3 of them.
+    Bytes buildings;
+    put16(buildings, 0);
+    put16(buildings, 1);
+    for (const uint32_t v : {3U, 22U, 0U, 0U})
+        put16(buildings, v);
+    files.insert(files.begin(), {"gameInfo", info});
+    files.push_back({"empsInfo", emps});
+    files.push_back({"GShipHead", shipHead});
+    files.push_back({"GShipList", ships});
+    files.push_back({"GWTForceHd", forceHead});
+    files.push_back({"GWTForce", forces});
+    files.push_back({"GTForceHd", forceHead});
+    files.push_back({"GTForceList", forces});
+    files.push_back({"strcInfo", buildings});
+    files.push_back({"alienTFInfo4", Bytes{1, 0, 0, 0, 0, 0}});
+    files.push_back({"ShipCntr", Bytes{1, 0, 0, 0}});
+    files.push_back({"TForceCntr", Bytes{1, 0, 0, 0}});
+    files.push_back({"result.lst", resultList()});
+    return makeLzssArchive("game0.sav", files, {"result.lst"});
 }
 
 } // namespace reluva::botf::test

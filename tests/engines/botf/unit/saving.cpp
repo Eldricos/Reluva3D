@@ -83,64 +83,6 @@ void testWriteAltRes(const std::filesystem::path &tmp) {
     CHECK(bool(writeAltRes(tmp / "x.res", "x", {{"a file name of 16", {}, 0}})));
 }
 
-// A whole saved game, as readSavedGame() needs: gameInfo, the galaxy, the
-// empires, a ship and its task force, Romulus's buildings, and a
-// result.lst of one chunk counting no results.
-Bytes resultList() {
-    const Bytes count = lzssLiterals(Bytes(4, 0));
-    Bytes lst;
-    put32(lst, 12);
-    put32(lst, 4);
-    put32(lst, uint32_t(count.size()));
-    lst.insert(lst.end(), count.begin(), count.end());
-    return lst;
-}
-
-Bytes makeFullSave() {
-    std::vector<std::pair<std::string, Bytes>> files = galaxyFiles(1, true);
-    Bytes info(0x2C0, 0);
-    const std::string description = "Tutorial #1";
-    std::copy(description.begin(), description.end(), info.begin() + 0x0D);
-    set32(info, 0x40, 3);
-    info[0x252] = 4;
-    Bytes emps(5 * 444, 0);
-    // 1,200 credits now, 1,300 as the turn began: 100 spent.
-    set32(emps, 4 * 444 + 0x54, 1200);
-    set32(emps, 4 * 444 + 0x98, 1300);
-    Bytes shipHead(40, 0);
-    set32(shipHead, 0x10, 116);
-    set32(shipHead, 0x18, 1);
-    Bytes ships(116, 0);
-    const std::string name = "IRW Haakona";
-    std::copy(name.begin(), name.end(), ships.begin());
-    Bytes forceHead(40, 0);
-    set32(forceHead, 0x10, 108);
-    set32(forceHead, 0x18, 1);
-    Bytes forces(108, 0);
-    set32(forces, 0x04, 1);
-    set32(forces, 0x30, 0xFFFFFFFF);
-    // Romulus: one kind of building, 3 of them.
-    Bytes buildings;
-    put16(buildings, 0);
-    put16(buildings, 1);
-    for (const uint32_t v : {3U, 22U, 0U, 0U})
-        put16(buildings, v);
-    files.insert(files.begin(), {"gameInfo", info});
-    files.push_back({"empsInfo", emps});
-    files.push_back({"GShipHead", shipHead});
-    files.push_back({"GShipList", ships});
-    files.push_back({"GWTForceHd", forceHead});
-    files.push_back({"GWTForce", forces});
-    files.push_back({"GTForceHd", forceHead});
-    files.push_back({"GTForceList", forces});
-    files.push_back({"strcInfo", buildings});
-    files.push_back({"alienTFInfo4", Bytes{1, 0, 0, 0, 0, 0}});
-    files.push_back({"ShipCntr", Bytes{1, 0, 0, 0}});
-    files.push_back({"TForceCntr", Bytes{1, 0, 0, 0}});
-    files.push_back({"result.lst", resultList()});
-    return makeLzssArchive("game0.sav", files, {"result.lst"});
-}
-
 void testSaveFiles(const std::filesystem::path &tmp) {
     writeFile(tmp / "game0.sav", makeFullSave());
     SaveFiles files;
@@ -201,6 +143,7 @@ void testWriteSavedGame(const std::filesystem::path &tmp) {
     SavedGame b;
     CHECK(!readSavedGame(tmp / "game5.sav", b));
     CHECK(b.summary.name == "game5.sav" && b.summary.description == "Caf\xc3\xa9" && b.summary.turn == 4);
+    CHECK(b.summary.galaxyShape == 2 && b.summary.galaxySize == 1);
     CHECK(b.summary.empire == 4 && b.galaxy.sectors[2].claims == 0x10 && b.galaxy.sectors[2].revealed == 0x12);
     const SavedSystem &r = b.galaxy.systems[0];
     CHECK(r.name == "Romulus" && r.population == 360 && r.maxPopulation == 340 && r.controllingRace == -1);
