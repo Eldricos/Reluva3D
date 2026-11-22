@@ -34,12 +34,20 @@ Allowed under CONTRIBUTING.md, as for NFS III
 - **Open-source readers, as references only:** OpenNFS (MIT), which reads
   NFS II, and FFmpeg's EA demuxer and decoders (LGPL 2.1+), read to check
   an understanding of a format. No code is copied from them.
+- **Denis Auroux, "NFSII Unofficial Track File Formats"** (1997), the
+  public write-up of `.trk` and `.col`, as for NFS III's formats. Where it
+  and the files differ (the polygon counts), the pages say so.
 
 ## Methods
 
 - **The files:** each kind identified by its header and the names the
   executables use for it, then read with NFS III's readers
   (`reluva-tool nfs survey`) to see which already hold.
+- **NFS II's own formats** ([formats/](formats/)): each read off the
+  files, then checked against the public write-ups below, each fact of
+  theirs that Reluva relies on checked on every retail file by survey
+  scripts, and the geometry looked at (`trk-obj`, `geo-obj`): Proving
+  Grounds a closed circuit, the models cars and a T. rex.
 - **Recognising the release:** the files compared between the install
   and the CD (`cmp`) for ones both have the same, and hashed as
   detection hashes them (MD5 of the first 5000 bytes).
@@ -60,6 +68,8 @@ Allowed under CONTRIBUTING.md, as for NFS III
 | `reluva-tool x86-run <file>` | Loads a Windows program in the x86 emulator and runs its start-up |
 | `reluva-tool detect <folder>` | Which game, and which release, the launcher finds in a folder |
 | `reluva-tool nfs page <folder> <out.tga> <page>` | Draws one of the engine's pages for the game in the folder, without a window (the Status page, say) |
+| `reluva-tool nfs trk-obj <file.trk> <out.obj> [level]` | A track as a Wavefront OBJ, to look at elsewhere: its ground at a level of detail and its placed objects |
+| `reluva-tool nfs geo-obj <file.geo or file.viv name> <out.obj> [-level n]` | A car model as a Wavefront OBJ, all its parts or one level's |
 
 ## Working files not included
 

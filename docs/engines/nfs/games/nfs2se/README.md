@@ -32,8 +32,9 @@ the cars' data is in both. The CD's 3dfx program, `NFS2SEA.EXE`, is in
 - **Its files that NFS III's formats cover all read**: every archive,
   picture bank (311 on the CD), text table, font, sound bank, music
   stream and map, and the compressed `.qda` data, with NFS II SE's
-  differences ([../../formats/](../../formats/)). Its own track, sky,
-  car and movie files are to come.
+  differences ([../../formats/](../../formats/)); and its own tracks,
+  `.col` files, skies, lights and car models ([formats/](formats/)). Its
+  movies are still to come.
 - **The data viewer** has, beside the Status page, its pictures (the
   pause screens in the race's palette, as the software game draws them),
   strings, fonts, sounds and music. Its retail files were surveyed in
@@ -62,6 +63,7 @@ launcher>` shows its files.
 | Page | What's in it |
 |---|---|
 | This page | Where it stands, how to use it |
+| [formats/](formats/) | The game's own files: [trk.md](formats/trk.md) (tracks), [col.md](formats/col.md) (textures, objects, the virtual road), [hrz.md](formats/hrz.md) (skies and lights), [geo.md](formats/geo.md) (car models) |
 | [research/](research/README.md) | Working notes: the first survey of the retail files and executables |
 | [PLAN.md](PLAN.md) | The plan, its phases and decisions |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |

@@ -129,6 +129,12 @@ with what it found written on the game's pages in `formats/` and
    - `.geo` car models (in `cardata.viv`) with their `.qfs` skins;
    - the Tracks and Cars viewer pages, and `reluva-tool nfs` commands
      to check every track and model (as `frd-check`, `fce-info`).
+
+   The readers are done: [trk.md](formats/trk.md), [col.md](formats/col.md),
+   [hrz.md](formats/hrz.md), [geo.md](formats/geo.md), every file of
+   theirs read (`reluva-tool nfs survey`), and `reluva-tool nfs trk-obj`
+   and `geo-obj` to look at tracks and models elsewhere. The camera paths
+   (`.can`) aren't read yet; the viewer pages are next.
 4. **Movies:** the `mTCD` video in the `SCHl` streams (`.dct`, EA's
    intra-frame DCT codec), likely shared code in `src/video/` with a
    page in `docs/common/video/`, as other EA titles of the time used it;

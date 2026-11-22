@@ -13,6 +13,10 @@
 #include "emulation/x86/pokes.h"
 #include "engines/nfs/formats/bnk.h"
 #include "engines/nfs/formats/col.h"
+#include "engines/nfs/nfs2se/formats/col.h"
+#include "engines/nfs/nfs2se/formats/geo.h"
+#include "engines/nfs/nfs2se/formats/hrz.h"
+#include "engines/nfs/nfs2se/formats/trk.h"
 #include "engines/nfs/nfs3/formats/fce.h"
 #include "engines/nfs/formats/ffn.h"
 #include "engines/nfs/nfs3/formats/frd.h"
@@ -285,6 +289,11 @@ int cmdNfsSurvey(int argc, char **argv) {
     // Kinds only NFS II SE has, reported when there are any.
     Count compressed;                     // .qda: EA Huffman, unpacked
     Count raceText;                       // textsim.*: the race's messages
+    Count nfs2Tracks;                     // .trk
+    Count nfs2Collisions;                 // NFS II's .col (10-byte textures)
+    Count nfs2Skies;                      // NFS II's .hrz
+    Count nfs2Lights;                     // .lgt
+    Count nfs2Models;                     // .geo
     Count lentPalette;                    // 4- and 8-bit pictures with no palette, which the game lends one
     int empty = 0;                        // empty picture banks (NFS II SE's huddata.viv has three)
     int placeholders = 0;                 // the installer's stand-ins for files the game writes (NFS II SE's temp.mus)
@@ -316,11 +325,35 @@ int cmdNfsSurvey(int argc, char **argv) {
         }
         // "THIS IS A DUMMY FILE. ... USED FOR FILES CREATED BY THE GAME AT RUN TIME."
         static constexpr char kPlaceholder[] = "THIS IS A DUMMY FILE.";
-        if (data.size() >= sizeof kPlaceholder - 1 &&
-            std::memcmp(data.data(), kPlaceholder, sizeof kPlaceholder - 1) == 0) {
+        // NFS II SE's TmpTrk holds the installer's stand-ins for the track
+        // and music the game copies there to play.
+        if ((data.size() >= sizeof kPlaceholder - 1 &&
+             std::memcmp(data.data(), kPlaceholder, sizeof kPlaceholder - 1) == 0) ||
+            lower(what).find("tmptrk/") != std::string::npos) {
             ++placeholders;
             if (verbose)
                 std::printf("placeholder %s\n", what.c_str());
+            return;
+        }
+        if (ext == ".trk") {
+            reluva::nfs::nfs2se::Track track;
+            const Error e = reluva::nfs::nfs2se::parseTrack(data, track);
+            report(nfs2Tracks, what, e);
+            if (!e)
+                for (const auto &b : track.blocks) {
+                    nfs2Tracks.add(&b.vertices[0], b.vertices.size() * sizeof b.vertices[0]);
+                    nfs2Tracks.add(int32_t(b.levels[2].first.size()));
+                }
+            return;
+        }
+        if (ext == ".geo") {
+            reluva::nfs::nfs2se::CarModel model;
+            const Error e = reluva::nfs::nfs2se::parseCarModel(data, model);
+            report(nfs2Models, what, e);
+            if (!e)
+                for (const auto &part : model.parts)
+                    for (const auto &v : part.vertices)
+                        nfs2Models.add(&v, sizeof v);
             return;
         }
         if (ext == ".qda") {
@@ -374,6 +407,13 @@ int cmdNfsSurvey(int argc, char **argv) {
                     tracks.add(b.colours);
                     tracks.add(int32_t(b.polygons.size()));
                 }
+        } else if (ext == ".col" && reluva::nfs::nfs2se::isNfs2Collision(data)) {
+            reluva::nfs::nfs2se::Collision collision;
+            const Error e = reluva::nfs::nfs2se::parseCollision(data, collision);
+            report(nfs2Collisions, what, e);
+            if (!e)
+                for (const auto &r : collision.road)
+                    nfs2Collisions.add(&r.position, sizeof r.position);
         } else if (ext == ".col") {
             reluva::nfs::TrackCollision collision;
             const Error e = reluva::nfs::parseCollision(data, collision);
@@ -442,8 +482,22 @@ int cmdNfsSurvey(int argc, char **argv) {
                     movieAudio.add(sound.samples);
             }
         } else if (ext == ".hrz") {
+            // NFS III's, else NFS II SE's, which have other values.
+            const std::string text(data.begin(), data.end());
             reluva::nfs::nfs3::Horizon horizon;
-            report(horizons, what, reluva::nfs::nfs3::parseHorizon(std::string(data.begin(), data.end()), horizon));
+            reluva::nfs::nfs2se::Sky sky;
+            if (reluva::nfs::nfs3::parseHorizon(text, horizon) && !reluva::nfs::nfs2se::parseSky(text, sky)) {
+                report(nfs2Skies, what, Error::success());
+                nfs2Skies.add(int32_t(sky.kind)), nfs2Skies.add(int32_t(sky.radius));
+            } else {
+                report(horizons, what, reluva::nfs::nfs3::parseHorizon(text, horizon));
+            }
+        } else if (ext == ".lgt") {
+            reluva::nfs::nfs2se::Lights lights;
+            const Error e = reluva::nfs::nfs2se::parseLights(std::string(data.begin(), data.end()), lights);
+            report(nfs2Lights, what, e);
+            if (!e)
+                nfs2Lights.add(lights.palette.data(), sizeof lights.palette);
         } else if (stem == "text" || stem == "textsim") {
             Count &count = stem == "text" ? tables : raceText;
             reluva::nfs::TextTable table;
@@ -483,7 +537,8 @@ int cmdNfsSurvey(int argc, char **argv) {
                     }
             } else if (ext == ".fsh" || ext == ".qfs" || ext == ".ffn" || ext == ".fce" || ext == ".frd" ||
                        ext == ".col" || ext == ".hrz" || ext == ".bnk" || ext == ".mus" || ext == ".map" ||
-                       ext == ".lin" || ext == ".mad" || ext == ".qda" || lower(path.stem().string()) == "text" ||
+                       ext == ".lin" || ext == ".mad" || ext == ".qda" || ext == ".trk" || ext == ".lgt" ||
+                       ext == ".geo" || lower(path.stem().string()) == "text" ||
                        lower(path.stem().string()) == "textsim") {
                 std::vector<uint8_t> data;
                 if (!readFile(path, data)) {
@@ -513,7 +568,9 @@ int cmdNfsSurvey(int argc, char **argv) {
     // NFS II SE's kinds, only when there are any, so that NFS III's report
     // stays as its game-files test records it.
     const std::pair<const Count *, const char *> extra[] = {
-        {&compressed, ".qda files"}, {&lentPalette, "lent a palette"}, {&raceText, "textsim tables"}};
+        {&compressed, ".qda files"},  {&lentPalette, "lent a palette"}, {&raceText, "textsim tables"},
+        {&nfs2Tracks, ".trk tracks"}, {&nfs2Collisions, "NFS II .col"}, {&nfs2Skies, "NFS II .hrz"},
+        {&nfs2Lights, ".lgt lights"}, {&nfs2Models, ".geo models"}};
     for (const auto &[count, name] : extra) {
         if (count->ok + count->failed == 0)
             continue;
@@ -619,6 +676,105 @@ int cmdFceObj(int argc, char **argv) {
                 out << ' ' << tri.vertices[k] + 1 << '/' << uv + k;
             out << "\n";
         }
+    }
+    if (!out) {
+        std::fprintf(stderr, "can't write %s\n", argv[inViv ? 4 : 3]);
+        return 1;
+    }
+    return 0;
+}
+
+// NFS II SE's track as a Wavefront OBJ: every block's ground at a level,
+// then the blocks' placed meshes, points as the file has them (x, height, y).
+int cmdTrkObj(int argc, char **argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool nfs trk-obj <file.trk> <out.obj> [level 0-2]\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    if (Error err = load(argv[2], nullptr, data))
+        return fail(err);
+    reluva::nfs::nfs2se::Track track;
+    if (Error err = reluva::nfs::nfs2se::parseTrack(data, track))
+        return fail(err);
+    const int level = argc > 4 ? std::clamp(std::atoi(argv[4]), 0, 2) : 2;
+    std::ofstream out(argv[3]);
+    out << "# " << argv[2] << ", level " << level << "\n";
+    size_t base = 1;
+    auto quad = [&](const reluva::nfs::nfs2se::Quad &q) {
+        out << "f";
+        for (int k = 0; k < 4; ++k)
+            out << ' ' << base + q.vertices[size_t(k)];
+        out << "\n";
+    };
+    for (size_t b = 0; b < track.blocks.size(); ++b) {
+        const auto &block = track.blocks[b];
+        out << "g block" << b << "\n";
+        for (const auto &v : block.vertices)
+            out << "v " << v[0] << ' ' << v[1] << ' ' << v[2] << "\n";
+        for (const auto &q : block.levels[size_t(level)].first)
+            quad(q);
+        for (const auto &q : block.levels[size_t(level)].second)
+            quad(q);
+        base += block.vertices.size();
+        for (const auto &placed : block.placements) {
+            if (placed.type == 3)
+                continue; // animated: placed by its keys
+            const auto &mesh = block.meshes[placed.mesh];
+            out << "g block" << b << "_object\n";
+            for (const auto &v : mesh.vertices)
+                out << "v " << v[0] + placed.position[0] << ' ' << v[1] + placed.position[1] << ' '
+                    << v[2] + placed.position[2] << "\n";
+            for (const auto &q : mesh.quads)
+                quad(q);
+            base += mesh.vertices.size();
+        }
+    }
+    if (!out) {
+        std::fprintf(stderr, "can't write %s\n", argv[3]);
+        return 1;
+    }
+    return 0;
+}
+
+// NFS II SE's car model as a Wavefront OBJ, a group per part that has any:
+// every part, or a level's (high 0-19, medium 20-22, low 23-25).
+int cmdGeoObj(int argc, char **argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool nfs geo-obj <file.geo | file.viv name> <out.obj> [-level 0-2]\n");
+        return 2;
+    }
+    int level = -1; // all
+    if (argc > 5 && std::strcmp(argv[argc - 2], "-level") == 0) {
+        level = std::clamp(std::atoi(argv[argc - 1]), 0, 2);
+        argc -= 2;
+    }
+    const bool inViv = argc > 4;
+    std::vector<uint8_t> data;
+    if (Error err = load(argv[2], inViv ? argv[3] : nullptr, data))
+        return fail(err);
+    reluva::nfs::nfs2se::CarModel model;
+    if (Error err = reluva::nfs::nfs2se::parseCarModel(data, model))
+        return fail(err);
+    std::ofstream out(argv[inViv ? 4 : 3]);
+    out << "# " << argv[2] << (inViv ? std::string(" ") + argv[3] : "") << "\n";
+    size_t base = 1;
+    for (size_t i = 0; i < model.parts.size(); ++i) {
+        const auto &part = model.parts[i];
+        constexpr size_t kLevelStart[] = {0, 20, 23, 26};
+        if (part.vertices.empty() || (level >= 0 && (i < kLevelStart[2 - level] || i >= kLevelStart[3 - level])))
+            continue;
+        out << "g part" << i << "\n";
+        for (const auto &v : part.vertices)
+            out << "v " << v[0] + part.position[0] << ' ' << v[1] + part.position[1] << ' ' << v[2] + part.position[2]
+                << "\n";
+        for (const auto &p : part.polygons) {
+            out << "f";
+            for (uint8_t v : p.vertices)
+                out << ' ' << base + v;
+            out << "\n";
+        }
+        base += part.vertices.size();
     }
     if (!out) {
         std::fprintf(stderr, "can't write %s\n", argv[inViv ? 4 : 3]);
@@ -1069,6 +1225,10 @@ const reluva::tool::Commands kCommands(
         {"fce-obj", "<file.fce | file.viv name> <out.obj>", "a car model as a Wavefront OBJ", cmdFceObj},
         {"frd-check", "<file.frd>...", "read tracks' .frd files and report what they hold", cmdFrdCheck},
         {"frd-obj", "<file.frd> <out.obj> [detail 0-2]", "a track as a Wavefront OBJ, at a level of detail", cmdFrdObj},
+        {"trk-obj", "<file.trk> <out.obj> [level 0-2]", "an NFS II SE track as a Wavefront OBJ, at a level of detail",
+         cmdTrkObj},
+        {"geo-obj", "<file.geo | file.viv name> <out.obj> [-level 0-2]",
+         "an NFS II SE car model as a Wavefront OBJ, or one level of detail (2 the highest)", cmdGeoObj},
         {"bnk-info", "<file.bnk | file.viv name>", "a sound bank's sounds: format, rate, length, loop", cmdBnkInfo},
         {"bnk-wav", "<file.bnk | file.viv name> <output dir>", "a sound bank's sounds as WAV files", cmdBnkWav},
         {"mus-info", "<file.mus> [file.map | file.lin]", "a music stream's sections, with its map or linear order",

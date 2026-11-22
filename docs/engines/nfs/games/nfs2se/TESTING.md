@@ -10,6 +10,7 @@ tests build (`makeNfs2seInstall`, `makeNfs2seCd` in
 
 | Suite | What it checks |
 |---|---|
+| `nfs.unit.nfs2se` | NFS II's own formats on files built in the tests: a two-block track (vertices made absolute, the next block's included; levels and their second groups; meshes and placements; a polygon past its level, and a cut file, refused), a `.col` (textures, meshes, placements, the road, told from NFS III's), both kinds of sky and the lights, a car model (the 6 bytes after an odd vertex count; a vertex past its part, bytes left over, a cut file refused) |
 | `nfs.unit.formats` (`shapes nfs2se`, and in `text table` and `music`) | A bank's palette entry given to its pictures without one, a picture's own 5:6:5 palette winning over it, 4-bit pictures' order; the front end's text records with their places; zero padding between music streams, and other bytes there refused |
 | `nfs.unit.detection` (its `nfs2se` cases) | The install and the CD recognised by the fallback table, the CD once though both its programs match, an install with only the 3dfx program, and not without the cars' data; the CD's copy found beside the install, by `cdpath`, and missing; the tracks (once each, from the install and the CD), the car models in `cardata.viv`, which folder each program is in, the string tables found, and the race's palette from the loose `hud.fsh` |
 
@@ -47,6 +48,7 @@ That the real release is recognised by its hashes: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US CD and an install from it | Linux | `reluva-tool nfs survey` over the CD and the install with NFS II's own readers: all 8 tracks, 8 `.col` files, 34 skies, 8 light files and 53 car models read, nothing failing; Proving Grounds and the F355 and T. rex exported (`trk-obj`, `geo-obj`) and drawn elsewhere |
 | November 2026 | US CD and an install from it | Linux | `reluva-tool nfs survey` over the CD and the install: every archive, picture bank, picture, text table, font, sound bank and sound, music stream, segment and map, and `.qda` file read, none failing but NFS II's own `.col` and `.hrz`; the Textures page's pause screen (`PAUSEEN.QFS`'s `head`) in the HUD's palette beside its 3dfx copy, and the Strings and Music pages, drawn (`reluva-tool nfs page`) |
 | November 2026 | US CD and an install from it | Linux | The install and the CD recognised as the release (`reluva-tool detect`), and an install with only `NFS2SEA.EXE` as an unknown release; the Status page drawn from the install with the CD's copy beside it (`reluva-tool nfs page`), with the counts in [A playthrough by hand](#a-playthrough-by-hand) |
 | November 2026 | US CD and an install from it | Linux | NFS III's readers over every file (`reluva-tool nfs survey`), and `nfs2sen.exe` loaded in the x86 emulator ([research/first-survey.md](research/first-survey.md)) |

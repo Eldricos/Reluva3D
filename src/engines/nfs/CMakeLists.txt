@@ -39,6 +39,10 @@ reluva_add_engine(nfs
         host/thrash.cpp
         host/thrash_native.cpp
         nfs2se/files.cpp
+        nfs2se/formats/col.cpp
+        nfs2se/formats/geo.cpp
+        nfs2se/formats/hrz.cpp
+        nfs2se/formats/trk.cpp
         nfs2se/status_page.cpp)
 
 # Its data viewer, in reluva-viewer and never in the game: the files'
@@ -72,9 +76,10 @@ reluva_add_engine_tests(nfs
         ${tests}/unit/track.cpp
         ${tests}/unit/computer.cpp
         ${tests}/unit/host.cpp
+        ${tests}/unit/nfs2se.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.formats unit.track unit.computer unit.host engine)
+        unit.detection unit.formats unit.track unit.computer unit.host unit.nfs2se engine)
 
 # Its engine test with the game's own files (tests/engines/nfs/gamedata.cmake):
 # RELUVA_NFS3=<the game's install> ctest -L gamedata. See docs/DEVELOPMENT.md
