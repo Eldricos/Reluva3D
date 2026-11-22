@@ -11,7 +11,7 @@ files):
 | Suite | What it checks |
 |---|---|
 | `sith.unit.detection` | Recognising the game's releases: the fallback table, names in any case, a partial install or a CD not taken for one |
-| `sith.unit.formats` | Reading colormaps, 8- and 16-bit pictures, materials, fonts and string tables, and refusing broken ones |
+| `sith.unit.formats` | Reading colormaps, 8- and 16-bit pictures, materials, fonts, string tables, episodes and sound classes, and refusing broken ones |
 | `sith.unit.gob` | Reading `.gob` archives (names with either separator and in any case), refusing broken ones, and the install's set of them |
 | `sith.unit.import` | Importing from CD 1 and adding CD 2, what's copied and where, what isn't imported from, and that the result is recognised and finds its CDs |
 | `sith.unit.folders` | Telling the CDs apart by `JK_.CD`, and finding them in and beside an install and by the settings |
@@ -53,6 +53,7 @@ That the US release's signatures match a real install: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | `reluva-tool sith formats`: all 644 sounds, 102 sound classes and 3 episodes read. `reluva-tool sith episode`: every cut scene a step names found on its CD. `reluva-tool sith movies -all`: every frame and the sound of the 25 cut scenes decoded |
 | November 2026 | US retail | Linux | The data viewer's pages drawn with `reluva-tool sith page` on the install, and looked over: pictures, materials, colormaps, fonts and strings |
 | November 2026 | US retail | Linux | `reluva-tool sith formats` on the install: all 146 pictures, 21 colormaps, 1,983 materials, 27 fonts and 7 string tables read |
 | November 2026 | US retail | Linux | `reluva-tool sith folders` on the install, with copies of both CDs beside it: recognised as the US release, both CDs found. `reluva-tool import` from the copy of CD 1 with CD 2 added: recognised as the US release, both CDs found in it |

@@ -41,10 +41,10 @@ game is found to share it (docs/DOCUMENTATION_STANDARD.md).
 |---|---|
 | `sith.cpp` | The `MetaEngine` (detection, making an `Engine`) and the `Engine`: an empty screen for now |
 | `games.cpp` | The games and their releases |
-| `folders.cpp` | Telling the CDs apart, and finding them for an install |
+| `folders.cpp` | Telling the CDs apart, finding them for an install, and their cut scenes |
 | `import.cpp` | Making an install from the CDs (*Import Game...*) |
 | `game_files.cpp` | The install's archives, as one set |
-| `formats/` | The games' files: `.gob`, `.cmp`, `.bm`, `.mat`, `.sft`, `.uni` |
+| `formats/` | The games' files: `.gob`, `.cmp`, `.bm`, `.mat`, `.sft`, `.uni`, `.snd`, `episode.jk` |
 | `pages/` | The data viewer, in `reluva-viewer` only: pictures, materials, colormaps, fonts, string tables |
 | `tools/` | `reluva-tool sith` commands (`reluva-tool help sith` lists them) |
 

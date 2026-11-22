@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <map>
 #include <string>
+#include <vector>
 
 namespace reluva::sith {
 
@@ -40,5 +41,20 @@ struct GameFolders {
  * - a folder beside the install.
  */
 GameFolders findFolders(const std::filesystem::path &install, const std::map<std::string, std::string> &settings);
+
+/** A cut scene on one of the CDs. */
+struct CutScene {
+    /** Its file's name, as on the CD ("23A.SMK"). */
+    std::string name;
+    /** Which CD it's on: 1 or 2. */
+    int cd = 0;
+    std::filesystem::path path;
+};
+
+/**
+ * Every cut scene (.smk) in the CDs' GAMEDATA/RESOURCE/VIDEO folders, CD 1's
+ * then CD 2's, each sorted by name.
+ */
+std::vector<CutScene> findCutScenes(const GameFolders &folders);
 
 } // namespace reluva::sith

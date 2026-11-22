@@ -13,9 +13,11 @@ reluva_add_engine(sith
         import.cpp
         formats/bitmap.cpp
         formats/colormap.cpp
+        formats/episode.cpp
         formats/font.cpp
         formats/gob.cpp
         formats/material.cpp
+        formats/sound_class.cpp
         formats/strings.cpp)
 
 # Its data viewer, for reluva-viewer only: reluva, which players get,
@@ -32,6 +34,7 @@ reluva_add_engine_tools(sith
     SOURCES
         tools/files.cpp
         tools/formats.cpp
+        tools/movies.cpp
         tools/pages.cpp)
 
 # Its tests (tests/engines/sith/), in reluva-tests: the unit tests by

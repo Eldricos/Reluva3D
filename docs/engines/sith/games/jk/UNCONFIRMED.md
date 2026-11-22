@@ -23,6 +23,8 @@ None yet.
   picture uses.
 - **A font's space** is a gap its glyph's width, its glyph a marker not
   drawn ([formats/sft.md](formats/sft.md#ranges)).
+- **A sound class's flag `0x1`** is taken for a looping sound
+  ([formats/snd.md](formats/snd.md#layout)).
 - **`\n` in strings** is taken for a new line
   ([formats/uni.md](formats/uni.md#layout)).
 

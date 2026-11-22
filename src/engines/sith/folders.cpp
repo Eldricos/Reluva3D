@@ -106,4 +106,24 @@ GameFolders findFolders(const stdfs::path &install, const std::map<std::string, 
     return out;
 }
 
+std::vector<CutScene> findCutScenes(const GameFolders &folders) {
+    std::vector<CutScene> out;
+    for (int i = 0; i < kCdCount; ++i) {
+        if (folders.cds[i].empty())
+            continue;
+        const auto video = fs::findDirectory(folders.cds[i], "GAMEDATA/RESOURCE/VIDEO");
+        if (!video)
+            continue;
+        std::vector<CutScene> found;
+        std::error_code ec;
+        for (const auto &e : stdfs::directory_iterator(*video, ec))
+            if (e.is_regular_file(ec) && fs::toLower(e.path().extension().string()) == ".smk")
+                found.push_back({e.path().filename().string(), i + 1, e.path()});
+        std::sort(found.begin(), found.end(),
+                  [](const CutScene &a, const CutScene &b) { return fs::windowsNameLess(a.name, b.name); });
+        out.insert(out.end(), found.begin(), found.end());
+    }
+    return out;
+}
+
 } // namespace reluva::sith

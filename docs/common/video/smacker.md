@@ -39,3 +39,5 @@ Reluva decodes SMK2 and SMK4 in `src/video/smacker.cpp`
 
 - **`stharbinger`**: Harbinger's intro, cut scenes and action sequences
   ([videos.md](../../engines/stharbinger/formats/videos.md)).
+- **`sith`**: Jedi Knight's cut scenes
+  ([smk.md](../../engines/sith/games/jk/formats/smk.md)).

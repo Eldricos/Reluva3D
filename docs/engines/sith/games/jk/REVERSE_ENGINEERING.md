@@ -50,8 +50,10 @@ extended. The facts themselves are on their pages, each with its source.
 |---|---|
 | `reluva-tool sith files <game folder>` | Every file in a folder, with its size |
 | `reluva-tool sith gob <archive.gob>` | A `.gob` archive's index |
-| `reluva-tool sith formats <install> [-q]` | Every colormap, picture, material, font and string table in the install's archives read, a line each, and a count of each kind |
+| `reluva-tool sith formats <install> [-q]` | Every colormap, picture, material, font, string table, sound, sound class and episode in the install's archives read, a line each, and a count of each kind |
 | `reluva-tool sith strings <install> <file.uni>` | A string table's keys and strings |
+| `reluva-tool sith episode <install>` | Each episode's steps, and the CD each cut scene was found on |
+| `reluva-tool sith movies <install> [-all]` | The cut scenes on the CDs found; with `-all` every frame and its sound decoded |
 | `reluva-tool sith page <install> <page> [keys...] <out.png>` | One of the data viewer's pages drawn after the keys given, as a PNG |
 | `reluva-tool sith folders <install>` | The game recognised in an install, and where each CD was found |
 

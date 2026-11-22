@@ -3,12 +3,15 @@
 
 // reluva-tool's Sith commands for the files in a game's archives.
 
+#include "audio/wav.h"
 #include "common/fs.h"
 #include "devtools/tool.h"
 #include "engines/sith/formats/bitmap.h"
 #include "engines/sith/formats/colormap.h"
+#include "engines/sith/formats/episode.h"
 #include "engines/sith/formats/font.h"
 #include "engines/sith/formats/material.h"
+#include "engines/sith/formats/sound_class.h"
 #include "engines/sith/formats/strings.h"
 #include "engines/sith/game_files.h"
 
@@ -76,13 +79,41 @@ Error describeStrings(const std::vector<uint8_t> &data, std::string &line) {
     return Error::success();
 }
 
+Error describeSoundClass(const std::vector<uint8_t> &data, std::string &line) {
+    sith::SoundClass snd;
+    if (Error err = sith::parseSoundClass(data, snd))
+        return err;
+    line = std::to_string(snd.entries.size()) + " sounds";
+    return Error::success();
+}
+
+Error describeWav(const std::vector<uint8_t> &data, std::string &line) {
+    reluva::audio::Sound sound;
+    if (Error err = reluva::audio::decodeWav(data, sound))
+        return err;
+    char buf[96];
+    std::snprintf(buf, sizeof(buf), "%d Hz, %d channel%s, %.2f s%s", sound.rate, sound.channels,
+                  sound.channels == 1 ? "" : "s", double(sound.frames()) / sound.rate, sound.loopEnd ? ", loops" : "");
+    line = buf;
+    return Error::success();
+}
+
+Error describeEpisode(const std::vector<uint8_t> &data, std::string &line) {
+    sith::Episode episode;
+    if (Error err = sith::parseEpisode(data, episode))
+        return err;
+    line = "\"" + episode.title + "\", type " + std::to_string(episode.type) + ", " +
+           std::to_string(episode.steps.size()) + " steps (SEQ " + std::to_string(episode.declaredSteps) + ")";
+    return Error::success();
+}
+
 const std::map<std::string, Describe> kKinds = {
-    {".cmp", describeColormap}, {".bm", describeBitmap},   {".mat", describeMaterial},
-    {".sft", describeFont},     {".uni", describeStrings},
+    {".cmp", describeColormap}, {".bm", describeBitmap},      {".mat", describeMaterial}, {".sft", describeFont},
+    {".uni", describeStrings},  {".snd", describeSoundClass}, {".wav", describeWav},      {".jk", describeEpisode},
 };
 
-// Every colormap, picture, material, font and string table in the
-// install's archives read, a line each (-q: only the failures), and a
+// Every colormap, picture, material, font, string table, sound, sound
+// class and episode in the install's archives read, a line each (-q: only the failures), and a
 // count of each kind.
 int cmdFormats(int argc, char **argv) {
     if (argc < 3) {
@@ -146,11 +177,13 @@ int cmdStrings(int argc, char **argv) {
     return 0;
 }
 
-const Commands
-    kCommands("sith", {
-                          {"formats", "<install> [-q]",
-                           "read every colormap, picture, material, font and string table in the archives", cmdFormats},
-                          {"strings", "<install> <file.uni>", "a string table's keys and strings", cmdStrings},
-                      });
+const Commands kCommands("sith",
+                         {
+                             {"formats", "<install> [-q]",
+                              "read every colormap, picture, material, font, string table, sound, sound class and "
+                              "episode in the archives",
+                              cmdFormats},
+                             {"strings", "<install> <file.uni>", "a string table's keys and strings", cmdStrings},
+                         });
 
 } // namespace
