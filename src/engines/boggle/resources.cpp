@@ -59,6 +59,9 @@ Error Resources::dictionary(std::string_view name, Dictionary& out) const {
     if (auto err = archive_.read(name, bytes)) return err;
     return out.read(bytes);
 }
+Error Resources::definitions(Definitions& out) const {
+    out={};std::vector<uint8_t> bytes;if(auto e=archive_.read("Dicts/R016E613.DAT",bytes))return e;return out.read(bytes);
+}
 Error Resources::language(std::string_view name, Language& out) const {
     out = {};
     std::vector<uint8_t> bytes;

@@ -104,7 +104,7 @@ Game ID: `boggle1997`. Add the installed folder containing `Boggle.exe`, or
 its equivalent expanded `Boggle/` directory on the supplied CD. The CD root
 and compressed-only installers are not recognized as runnable directories.
 **Import Game** accepts the install, the expanded CD folder, or the CD root
-containing it, and copies the English Classic set (62 files with Classic/menu artwork, clips, handwriting font and computer vocabulary) into your external
+containing it, and copies the English Classic set (63 files with Classic/menu artwork, clips, fonts, computer vocabulary and definitions) into your external
 library. See [import scope and validation](import.md).
 
 Detection requires measured prefix-MD5/size signatures for `Boggle.exe`,
@@ -248,5 +248,6 @@ original lighting, seeded shuffle and whole-screen parity remain comparison work
 The [Classic completion tracker](../../plans/boggle-1997/classic-completion.md)
 distinguishes implemented features from remaining original-reference work.
 [Frame comparisons](presentation-comparison.md) now have a metadata-only tool;
-nine supplied clips match FFmpeg decoding exactly. Word definitions still need
-an independent archive decoder; see [definition research](definitions.md).
+nine supplied clips match FFmpeg decoding exactly. Post-round **D** opens the installed [word definitions](definitions.md) in a
+scrollable native viewer. Exact ASCII headword lookup and plain text are
+supported; original morphology and rich pronunciation formatting remain open.

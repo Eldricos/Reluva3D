@@ -18,6 +18,7 @@
 #include "engines/boggle/classic/round.h"
 #include "engines/boggle/classic/seed.h"
 #include "engines/boggle/classic/options.h"
+#include "engines/boggle/classic/definition_view.h"
 #include "engines/boggle/classic/presentation.h"
 #include "engines/boggle/classic/user_dictionary.h"
 #include "engines/boggle/resources.h"
@@ -32,6 +33,7 @@ namespace {
 constexpr int width = 800, height = 600, boardX = 24, boardY = 100, boardSize = 368;
 struct Ink { uint8_t r, g, b; };
 constexpr HistoryButton scoresArtwork{216,448,158,29}, scoresPrototype{618,76,158,24};
+constexpr HistoryButton definitionsArtwork{386,448,180,29},definitionsPrototype{618,106,158,24};
 constexpr HistoryButton resumeButton{300,340,200,44}, noticeOkay{320,350,160,40};
 constexpr Ink white{246, 249, 255}, muted{164, 184, 205}, dark{18, 32, 48};
 void rect(Surface& screen, int x, int y, int w, int h, Ink color) {
@@ -295,6 +297,8 @@ Error ClassicGame::run() {
     ClassicAudio sound(sys_);
     ClassicTransition transition;
     UserDictionary user;
+    Definitions definitions;DefinitionView definitionView;bool definitionsLoaded=false,definitionOpen=false;
+    const bool hasDefinitions=bool(fs::findFile(target_.path,"Dicts/R016E613.DAT"));
     if (auto err = user.load(target_.savePath, target_.path)) return err;
     HighScores highScores;
     auto scoreError=highScores.load(target_.savePath,target_.path);
@@ -577,12 +581,12 @@ Error ClassicGame::run() {
         while (sys_.pollEvent(event)) {
             if (auto err = advance()) return err;
             if (event.type == EventType::Quit || event.type == EventType::ReturnToLauncher ||
-                (event.type == EventType::KeyDown && event.key == key::Escape && !event.repeat && !fromMenu_ && !minimumNotice && !scoreOpen && !matchOpen && !scoreDismissed)) {
+                (event.type == EventType::KeyDown && event.key == key::Escape && !event.repeat && !fromMenu_ && !minimumNotice && !scoreOpen && !matchOpen && !definitionOpen && !scoreDismissed)) {
                 running = false; break;
             }
             // Escape is inactive in the original game. Provide an explicit
             // native menu action without changing that observed key behavior.
-            if (!scoreOpen && !matchOpen && !scoreDismissed && fromMenu_ && ((event.type == EventType::KeyDown && !event.repeat && event.key == key::F1+2) ||
+            if (!scoreOpen && !matchOpen && !definitionOpen && !scoreDismissed && fromMenu_ && ((event.type == EventType::KeyDown && !event.repeat && event.key == key::F1+2) ||
                 (transition.type() == Transition::None && event.type == EventType::MouseDown && event.button == MouseButton::Left &&
                  hit(event.mouseX,event.mouseY,artwork.active()?432:610,557,artwork.active()?172:166,29)))) {
                 returnToMenu_ = true; running = false; break;
@@ -604,6 +608,10 @@ Error ClassicGame::run() {
                 dragging=false;scoreDismissed=true;continue;
             }
             if(scoreDismissed)continue;
+            if(definitionOpen){
+                if(gameplayClock.focused() && definitionView.event(event)){definitionOpen=false;scoreDismissed=true;}
+                continue;
+            }
             if(minimumNotice) {
                 const bool okay=(event.type==EventType::KeyDown && !event.repeat &&
                     (event.key==key::Return || event.key==key::KpEnter || event.key==key::Escape || event.key==key::Space)) ||
@@ -685,6 +693,17 @@ Error ClassicGame::run() {
             if(resultsVisible && competition.ready() && event.type==EventType::KeyDown && !event.repeat) {
                 if(event.key=='v'){matchOpen=true;continue;}
                 if(event.key>='1' && event.key<'1'+names.size()){if(auto error=chooseReview(size_t(event.key-'1')))return error;continue;}
+            }
+            if(resultsVisible && results.ready() && ((event.type==EventType::KeyDown && !event.repeat && event.key=='d') ||
+               (hasDefinitions && event.type==EventType::MouseDown && event.button==MouseButton::Left &&
+                (artwork.active()?definitionsArtwork:definitionsPrototype).contains(event.mouseX,event.mouseY)))) {
+                if(results.words().empty()){message="Select a counted or discovered word before looking up a definition.";continue;}
+                const size_t index=reviewSelection.value_or(0);const auto word=results.words()[index].entry.word;
+                std::string error;
+                if(!definitionsLoaded){const auto e=resources.definitions(definitions);error=e.message;definitionsLoaded=!e;}
+                std::vector<DefinitionEntry> entries;
+                if(error.empty())if(auto e=definitions.lookup(word,entries))error=e.message;
+                definitionView.open(word,std::move(entries),error);definitionOpen=true;dragging=false;continue;
             }
             if(resultsVisible && results.ready() && ((event.type==EventType::KeyDown && !event.repeat && event.key=='h') ||
                (event.type==EventType::MouseDown && event.button==MouseButton::Left &&
@@ -806,6 +825,11 @@ Error ClassicGame::run() {
         if(background)liveScores(screen,names,rounds,competition);
         if(matchOpen)matchTable(screen,names,competition,chess,background,matchDialog);
         if(scoreOpen)scoreTable(screen,highScores,scoreError.message,scoresDialog);
+        if(resultsVisible && results.ready() && hasDefinitions && !scoreOpen && !matchOpen){
+            const auto b=artwork.active()?definitionsArtwork:definitionsPrototype;
+            rect(screen,b.x,b.y,b.w,b.h,{48,88,120});label(screen,b.x+8,b.y+8,"DEFINITION (D)");
+        }
+        if(definitionOpen)definitionView.draw(screen);
         if(!gameplayClock.manual() && !handoff && !matchOpen && !scoreOpen && transition.type()==Transition::None && round().phase()==RoundPhase::Playing) {
             rect(screen,pauseButton.x,pauseButton.y,pauseButton.w,pauseButton.h,{48,88,120});
             label(screen,pauseButton.x+12,pauseButton.y+9,"PAUSE");

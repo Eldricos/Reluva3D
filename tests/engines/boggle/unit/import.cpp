@@ -6,6 +6,7 @@
 #include "engines/registry.h"
 #include "common/fs.h"
 #include "tests/engines/boggle/fixtures.h"
+#include "tests/engines/boggle/definition_fixture.h"
 #include "tests/support/test.h"
 #include <set>
 #include <algorithm>
@@ -64,6 +65,12 @@ void selection(const std::filesystem::path& tmp) {
     CHECK(std::count_if(backdrop.files.begin(),backdrop.files.end(),[](const auto& f){return f.to=="Bitmaps/GS1CS.bmp";})==1);
     CHECK(!runImport(backdrop,tmp/"with-backdrop",{}));
     CHECK(fs::md5File(root/"Bitmaps/gs1cs.BMP",0)==fs::md5File(tmp/"with-backdrop/Bitmaps/GS1CS.bmp",0));
+    fixtures::write(root/"Dicts/r016e613.dat",fixtures::definitionArchive());
+    ImportPlan definitions;CHECK(!classicImportPlan(root,synthetic,{{"Identity.bin","",-1}},definitions));
+    CHECK(definitions.files.size()==backdrop.files.size()+1);
+    CHECK(!runImport(definitions,tmp/"with-definitions",{}));
+    Resources copied;CHECK(!copied.open(tmp/"with-definitions"));Definitions entries;CHECK(!copied.definitions(entries) && entries.entries()==3);
+    CHECK(fs::md5File(root/"Dicts/r016e613.dat",0)==fs::md5File(tmp/"with-definitions/Dicts/R016E613.DAT",0));
     for(const auto* path:{"Scripts/Rounded.x","Scripts/Die.x"})CHECK(std::count_if(meshes.files.begin(),meshes.files.end(),[&](const auto& f){return f.to==path;})==1);
     CHECK(!runImport(meshes,tmp/"with-meshes",{}));
     for(const auto* path:{"Scripts/Rounded.x","Scripts/Die.x"})CHECK(fs::md5File(root/path,0)==fs::md5File(tmp/"with-meshes"/path,0));

@@ -6,7 +6,7 @@ in your external game library. The launcher previews the copy plan before
 copying. **Add Game** can still use the original installed folder directly.
 Neither operation runs the Windows installer or original executable.
 
-The plan now copies 62 files (16,831,246 bytes for the supplied release): the current
+The plan now copies 63 files (30,094,606 bytes for the supplied release): the current
 U.S. English Classic Original/Master dependencies plus the existing detection
 markers, the optional selection/dialog backgrounds and Nelson title font, publisher intro, five mode-button clips and six optional Classic artwork files plus the handwriting font, optional computer vocabulary and two optional cube scripts. This supports all native Classic options, including both lid clips,
 eight effects and fifteen music tracks. Source paths are matched without regard
@@ -16,6 +16,7 @@ stable and does not recursively copy unknown files.
 | Purpose | Selection |
 | --- | --- |
 | English rules and music labels | `Dicts/English.dic`, `Language/English.dll` |
+| Word definitions (when present) | `Dicts/R016E613.DAT`; see [definitions](definitions.md) |
 | Computer vocabulary (when present) | `Dicts/AI.dic`; see [computer setup and limits](computers.md) |
 | Original/Master dice and palettes | `Dicts/EngOrg.dst`, `Dicts/EngMas.dst`, `Palettes/ClsO1Pal.pal`, `Palettes/ClsM1Pal.pal` |
 | Cube geometry preparation (when present) | `Scripts/Rounded.x`, `Scripts/Die.x`; see [cube geometry](cube-geometry.md) |
@@ -170,7 +171,13 @@ play, audio and other metadata entries remain unchanged.
 The Classic presentation completion pass optionally adds `ClsO1PN.bmp`,
 `ClsM1PN.bmp`, `ClsO1NP.bmp`, `ClsM1NP.bmp`, `High1.bmp` and `Fonts/NELSON.TTF`.
 These are runtime data for the roster, handoff and ranking views. The supplied
-plan now contains 62 files / 16,831,246 bytes. Copies lacking the optional files
-retain native backgrounds/titles. The INSO definition archive and its DLLs are
-not imported or executed by this engine. Only the import-plan checksum changed;
+plan at that stage contained 62 files / 16,831,246 bytes. Copies lacking the optional files
+retain native backgrounds/titles. The reference DLLs are not imported or
+executed by this engine. Only the import-plan checksum changed;
 existing copied-game metadata remains identical.
+
+The definition-viewer pass adds optional `Dicts/R016E613.DAT`, bringing this
+release to 63 files / 30,094,606 bytes, import checksum
+`11f554a2831c82279e384eb3ea554d43`. Older imports remain playable; see
+[definitions](definitions.md) for adding the archive. Fresh-copy validation now
+also decodes every article. Earlier copied-game checksums remain unchanged.

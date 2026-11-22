@@ -50,7 +50,7 @@ The original validator at `0x414d50` and unknown-word branch at `0x414f31`
 provide static evidence for deferred, immediate, unconditional-add and rejection
 routes. These native controls implement those four concepts with explicit save
 failure and clock contracts; they do not claim exact original UI policies.
-Word definitions are a separate archive-decoding task; see [research](definitions.md).
+Word definitions have a separate archive reader and post-round viewer; see [definitions](definitions.md).
 
 ## Validation
 

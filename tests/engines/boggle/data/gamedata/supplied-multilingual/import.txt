@@ -1,4 +1,4 @@
-plan: 0a79c813983cb67c | decoded import: 5940ce4b4c1278cda8ceccb7bb4c9f5c
+plan: 3d2a1aee87735125 | decoded import: 11f554a2831c82279e384eb3ea554d43
 original: 9e89d2ea5f1676de | decoded Classic: a91ea21b964e624c58011d9af99f0259
 master: 502e08b1b2820bbf | decoded Classic: 00300e30cd27a974e8768335fa9502c4
 presentation: 566ff4744da63f86 | decoded presentation: 631bbf21384eacdaa178b71ef2c7c056
@@ -14,3 +14,4 @@ allwords: 58f65b9a3d851c1a | decoded all words: 8422ca959f8ecd50164ea97972c4c274
 competition: b317e177a336ac35 | decoded competitions: be5fae83b0735277bba82da2d5d62d3f
 computer: a6b0906eb22cfdd1 | decoded computers: e612fb5fc755e4bfc7665e01d913b71a
 background: 4de58038d9487df9 | decoded background: 22fb0627d72325f34498be863c45f2ac
+definitions: 5cf0daa0de8c86a9 | decoded definitions: 96f6f36e9bd7da36d4174793c19127c3

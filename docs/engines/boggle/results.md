@@ -51,7 +51,7 @@ scene and offers an inline final summary with direct replay/new-board controls.
 It does not replay a raise-lid animation after closing. This is a native review
 layout, not a recreation of the original modal Game Over/word dialogs. Cube
 badges, keyboard selection and right-click summary are native controls.
-INSO definitions, multiple player columns and exact original dialog
+Full original definition formatting/query behavior, multiple player columns and exact original dialog
 behavior remain outside this pass. A separate native [high-score table](highscores.md)
 is now available after finalization. Missed words are now available through the
 separate [All Words view](all-words.md).
@@ -79,3 +79,6 @@ detailed review comparison remain pending. No re-import, new assets or new setti
 All Words / A now switches the display vocabulary independently of the counted
 snapshot. The final summary uses the counted total in either view. Paths for
 counted submissions remain unchanged; potential points are labelled separately.
+
+Post-round **D** or **Definition** opens the selected result in the native
+[definition viewer](definitions.md). Closing it preserves the result and score.

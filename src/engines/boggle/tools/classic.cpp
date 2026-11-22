@@ -21,6 +21,8 @@ const char* status(Submission result) {
     case Submission::NotOnBoard: return "not-on-board";
     case Submission::Duplicate: return "duplicate";
     case Submission::SelectPath: return "select-path";
+    case Submission::RejectedWord: return "rejected-word";
+    case Submission::SaveFailed: return "save-failed";
     }
     return "invalid";
 }
