@@ -283,9 +283,11 @@ int cmdNfsSurvey(int argc, char **argv) {
     Count frames;
     Count movieAudio;
     // Kinds only NFS II SE has, reported when there are any.
+    Count compressed;                     // .qda: EA Huffman, unpacked
     Count raceText;                       // textsim.*: the race's messages
     Count lentPalette;                    // 4- and 8-bit pictures with no palette, which the game lends one
     int empty = 0;                        // empty picture banks (NFS II SE's huddata.viv has three)
+    int placeholders = 0;                 // the installer's stand-ins for files the game writes (NFS II SE's temp.mus)
     std::vector<std::string> unsupported; // in EA's other compression schemes
     auto lower = [](std::string s) {
         for (char &c : s)
@@ -310,6 +312,22 @@ int cmdNfsSurvey(int argc, char **argv) {
             ++empty;
             if (verbose)
                 std::printf("empty %s\n", what.c_str());
+            return;
+        }
+        // "THIS IS A DUMMY FILE. ... USED FOR FILES CREATED BY THE GAME AT RUN TIME."
+        static constexpr char kPlaceholder[] = "THIS IS A DUMMY FILE.";
+        if (data.size() >= sizeof kPlaceholder - 1 &&
+            std::memcmp(data.data(), kPlaceholder, sizeof kPlaceholder - 1) == 0) {
+            ++placeholders;
+            if (verbose)
+                std::printf("placeholder %s\n", what.c_str());
+            return;
+        }
+        if (ext == ".qda") {
+            const Error err = reluva::nfs::unpackIfRefPack(data);
+            report(compressed, what, err);
+            if (!err)
+                compressed.add(data);
             return;
         }
         if (ext == ".fsh" || ext == ".qfs") {
@@ -465,7 +483,7 @@ int cmdNfsSurvey(int argc, char **argv) {
                     }
             } else if (ext == ".fsh" || ext == ".qfs" || ext == ".ffn" || ext == ".fce" || ext == ".frd" ||
                        ext == ".col" || ext == ".hrz" || ext == ".bnk" || ext == ".mus" || ext == ".map" ||
-                       ext == ".lin" || ext == ".mad" || lower(path.stem().string()) == "text" ||
+                       ext == ".lin" || ext == ".mad" || ext == ".qda" || lower(path.stem().string()) == "text" ||
                        lower(path.stem().string()) == "textsim") {
                 std::vector<uint8_t> data;
                 if (!readFile(path, data)) {
@@ -494,8 +512,8 @@ int cmdNfsSurvey(int argc, char **argv) {
     }
     // NFS II SE's kinds, only when there are any, so that NFS III's report
     // stays as its game-files test records it.
-    const std::pair<const Count *, const char *> extra[] = {{&lentPalette, "lent a palette"},
-                                                            {&raceText, "textsim tables"}};
+    const std::pair<const Count *, const char *> extra[] = {
+        {&compressed, ".qda files"}, {&lentPalette, "lent a palette"}, {&raceText, "textsim tables"}};
     for (const auto &[count, name] : extra) {
         if (count->ok + count->failed == 0)
             continue;
@@ -508,6 +526,8 @@ int cmdNfsSurvey(int argc, char **argv) {
     }
     if (empty)
         std::printf("%d empty picture banks, left out\n", empty);
+    if (placeholders)
+        std::printf("%d placeholders for files the game writes, left out\n", placeholders);
     // Known and documented (docs/engines/nfs/formats/refpack.md), so not failures.
     if (!unsupported.empty()) {
         std::printf("%zu files in a compression scheme not read yet:\n", unsupported.size());

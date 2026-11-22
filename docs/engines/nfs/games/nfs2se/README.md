@@ -29,10 +29,15 @@ the cars' data is in both. The CD's 3dfx program, `NFS2SEA.EXE`, is in
 - **Not playable yet.** The game shows what was found of it: its
   folders, its two programs, the music and movies, the tracks and the
   car models (`src/engines/nfs/nfs2se/status_page.cpp`).
-- **The data viewer** has, beside that page, the pictures, fonts, sounds
-  and music, through the readers it shares with NFS III; their NFS II
-  differences are the plan's next phase. Its retail files were surveyed
-  in [research/first-survey.md](research/first-survey.md).
+- **Its files that NFS III's formats cover all read**: every archive,
+  picture bank (311 on the CD), text table, font, sound bank, music
+  stream and map, and the compressed `.qda` data, with NFS II SE's
+  differences ([../../formats/](../../formats/)). Its own track, sky,
+  car and movie files are to come.
+- **The data viewer** has, beside the Status page, its pictures (the
+  pause screens in the race's palette, as the software game draws them),
+  strings, fonts, sounds and music. Its retail files were surveyed in
+  [research/first-survey.md](research/first-survey.md).
 - Plans, phases and decisions: [PLAN.md](PLAN.md).
 
 ## Using it

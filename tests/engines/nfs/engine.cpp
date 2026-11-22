@@ -362,6 +362,27 @@ void nfs2seTest(const stdfs::path &tmp) {
     makeNfs2seInstall(install);
     makeNfs2seCd(tmp / "NFS2SE-CD");
     write(install / "GameData/Audio/SFX/sound.bnk", soundBank());
+    // The front end's strings, with their places (text.md).
+    Bytes text;
+    for (const auto &[x, offset] : {std::pair{168, 24}, std::pair{620, 29}}) {
+        text.insert(text.end(), {18, 2, 2, 1});
+        put16(text, unsigned(x));
+        put16(text, 126);
+        put32(text, uint32_t(offset));
+    }
+    putText(text, "game", 5);
+    putText(text, "RACE", 5);
+    write(install / "FeData/pc/text/TEXT.ENG", text);
+    // The HUD's palette, and a pause screen's picture without one, which
+    // the Textures page shows in it (fsh.md).
+    Bytes palette;
+    putShapeHeader(palette, 0x2a, 0, 2, 1, 0, 0, 0, 0);
+    palette.insert(palette.end(), {0, 0, 0, 255, 0, 200, 255, 255});
+    write(install / "GameData/DashHud/pc/HUD.FSH", makeShapeBank({{"!pal", palette}}));
+    Bytes pause;
+    putShapeHeader(pause, 0x7b, 0, 4, 2, 0, 0, 0, 0);
+    pause.insert(pause.end(), {0, 1, 1, 0, 1, 0, 0, 1});
+    write(install / "GameData/Pause/PAUSEEN.QFS", makeShapeBank({{"head", pause}}));
 
     auto found = engine->detect(install);
     rec.add("detect.install", found.empty() ? "(none)" : found[0].gameId + " " + found[0].description);
@@ -382,8 +403,10 @@ void nfs2seTest(const stdfs::path &tmp) {
     // The viewer: each page in turn, then back to the launcher.
     PlayingSystem sys;
     uint64_t at = 200;
-    for (int page = 0; page < 4; ++page)
+    for (int page = 0; page < 6; ++page) {
+        sys.inputs.push_back({at += 50, keyDown(key::kDown)});
         sys.inputs.push_back({at += 200, keyDown(key::kTab)});
+    }
     sys.inputs.push_back({at + 200, Event{EventType::kReturnToLauncher}});
     const Error err = viewer->create(sys, target)->run();
     rec.add("viewer.result", err ? "error: " + err.message : std::string("ok"));

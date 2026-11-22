@@ -974,6 +974,20 @@ void testMusic() {
     Bytes cut(mus.begin(), mus.end() - 3);
     CHECK(stream.open(cut));
 
+    // NFS II SE's: a segment ending 2 bytes past 4 is padded to it with
+    // zeros before the next. Other bytes there aren't padding.
+    Bytes padded;
+    chunk(padded, "SCHl", ptHeader({{0x82, 2}, {0x85, 0}}));
+    chunk(padded, "SCEl", Bytes((2 + 8 - (padded.size() + 8) % 4) % 4, 0)); // ending 2 past 4
+    CHECK(padded.size() % 4 == 2);
+    padded.insert(padded.end(), {0, 0});
+    const uint32_t third = uint32_t(padded.size());
+    padded.insert(padded.end(), mus.begin() + second, mus.end());
+    CHECK(!stream.open(padded));
+    CHECK(stream.segments().size() == 2 && stream.segmentAt(third) == 1);
+    padded[third - 1] = 1;
+    CHECK(stream.open(padded));
+
     // A map of three sections: 0 goes to 1 (values 0-49) or 2 (50-100),
     // 1 to 0, 2 nowhere; one event; then the offsets, big-endian.
     Bytes map = {'P', 'F', 'D', 'x', 0, 0, 3, 16, 0, 0, 0, 2};

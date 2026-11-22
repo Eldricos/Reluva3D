@@ -93,12 +93,13 @@ with what it found written on the game's pages in `formats/` and
    (`files.cpp`) and the Status page the game shows
    (`status_page.cpp`), also the viewer's first page. Checked on the
    retail install and CD ([TESTING.md](TESTING.md#last-checked)).
-2. **The shared formats, with NFS II's differences** (next):
+2. **The shared formats, with NFS II's differences** (done):
    - pictures: SHPI types `0x2A` (a palette entry shared by the bank's
      pictures), `0x24`, `0x7A`, `0x7D` and `0x7B` drawn with the bank's
      palette; the pause screens' pictures with no palette of their own
      (5,266 pictures failed only for this);
-   - RefPack's `30 FB` header (`.qda` files);
+   - the `.qda` files (`30 FB`, which is EA's Huffman scheme, already
+     read: [refpack.md](../../formats/refpack.md));
    - the text tables (`text.*`, `textsim.eng`, `gf8text.eng`), whose
      first offset NFS III's reader rejects;
    - `.mus` files holding several streams with padding between them;
@@ -109,7 +110,19 @@ with what it found written on the game's pages in `formats/` and
    - the viewer's Textures, Strings, Fonts, Sounds and Music pages
      working for an `nfs2se` target;
    - `reluva-tool nfs survey` reading every file with no failures.
-3. **Tracks and cars in 3D:**
+
+   Built: the pages moved; the picture reader reads a bank's palette
+   entry and gives it to the pictures without one, 4-bit pictures and
+   `0x29` palettes; the Textures page shows the pause screens, which have
+   no palette, in the race's (`hud.fsh`'s), as their 3dfx copies show the
+   game does; the text reader reads NFS II SE's front end's records with
+   each string's place, and the race messages (`textsim.*`); the music
+   reader skips the zero padding between streams. `reluva-tool nfs
+   survey` reads every file of these kinds on the CD and in the install
+   with no failures, counting apart the pause pictures, three empty banks
+   in `huddata.viv` and the installer's placeholder `temp.mus`. What's
+   left failing is NFS II's own `.col` and `.hrz`, for the next phase.
+3. **Tracks and cars in 3D** (next):
    - `TRAC` tracks (`gamedata/tracks/se/trNN.trk`) and their texture
      banks, NFS II's `.col`, sky (`.hrz`, 26-27 numbers to NFS III's
      more), lights (`.lgt`, commented text) and camera paths (`.can`);

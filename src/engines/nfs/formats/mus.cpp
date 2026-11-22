@@ -52,6 +52,12 @@ Error MusicStream::open(std::vector<uint8_t> data) {
             current->blocks.push_back({static_cast<uint32_t>(at + 8), size - 8});
         } else if (std::memcmp(tag, "SCEl", 4) == 0) {
             current = nullptr;
+            // NFS II SE's streams start on 4 bytes, the one before padded
+            // to it with zeros (mus.md).
+            at += size;
+            while (at % 4 != 0 && at < _data.size() && _data[at] == 0)
+                ++at;
+            continue;
         }
         // SCCl (the block count) and anything else: nothing to keep.
         at += size;

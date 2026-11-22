@@ -40,6 +40,14 @@ Data blocks:
 
 The PCM streams are six of the eight showcase tracks (`show1`, `3`, `4`, `5`, `7`, `8`) and `srv2.mus`; `show2` and `show6` are EA-XA.
 
+In NFS II SE's streams each segment's `SCHl` starts on 4 bytes: when a
+segment ends 2 bytes past it, two zero bytes pad it before the next
+(747 times in its 19 streams; NFS III's segments end on 4 bytes, so they
+have none). Its `.asf` files are single `SCHl` streams with an `SCLl`
+chunk, and its movies (`.dct`) `SCHl` streams with video chunks; neither
+is read yet. `GameData/TmpTrk/temp.mus` isn't music but the installer's
+placeholder text for a file the game writes.
+
 ### Pathfinder maps (`.map`, `.lin`)
 
 A map says which segment follows which. The executable's strings call it
@@ -395,10 +403,12 @@ of it. Neither car is reset there. The races of other lengths aren't in the foot
 Read as `MusicStream` and `MusicMap` (`src/engines/nfs/formats/mus.cpp`; the stereo EA-XA
 block decoder in `src/audio/ea_audio.cpp`):
 
-- all 19 music streams on the CD (`gamedata/audio/pc`) read, and their
-  1,729 segments decode;
+- all 19 music streams on NFS III's CD (`gamedata/audio/pc`) read, and
+  their 1,729 segments decode;
 - all 29 Pathfinder maps read, and their offsets match their stream's
-  segments (`reluva-tool nfs survey`).
+  segments (`reluva-tool nfs survey`);
+- NFS II SE's 19 streams read, their padding skipped, and their 1,768
+  segments decode; its 19 maps match them.
 
 On the data viewer's Music page, the segments play as one stream (`audio::SoundQueue`, `common/audio`):
 the page keeps the next section decoded and queued behind the one
@@ -417,7 +427,9 @@ page shows the part, where its events lead, and the event pending.
 
 ## Sources and checks
 
-October 2026, from hex dumps and survey scripts:
+October 2026, from hex dumps and survey scripts; NFS II SE's padding in
+November 2026, measured in all its streams (every gap 2 zero bytes,
+every `SCHl` on 4 bytes):
 
 - **The streams.** Chunks read off the data:
   - every segment's block count equals its `SCCl`;

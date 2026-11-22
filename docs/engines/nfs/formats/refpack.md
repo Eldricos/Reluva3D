@@ -88,7 +88,15 @@ Implemented in `src/engines/nfs/formats/refpack.cpp`
 (`decompressRefPack`, `decompressEaHuffman`). It was checked
 on all 588 compressed files in the NFS III install and on its CD. Each
 decompresses to exactly the size its header gives, uses up all its input,
-and gives an `.fsh` whose own size field matches.
+and gives an `.fsh` whose own size field matches. On NFS II SE's CD it
+reads every compressed picture bank (287 `10 FB`, 6 `30 FB`, 1 `32 FB`)
+and every `.qda` (30 `30 FB`, 6 `10 FB`), its cars' and simulation's
+data (`reluva-tool nfs survey` unpacks them).
+
+NFS II SE's AI speed tables in `GameData/Tracks/Speeds` (`.qpl`, `.qps`,
+`.qas`, `.qal`) are compressed the same ways, and one `.spl` file starts
+`09 FB`, a header Reluva doesn't read; they're for the plan's tracks
+phase.
 
 ## Sources and checks
 
