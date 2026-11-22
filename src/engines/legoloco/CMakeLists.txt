@@ -7,11 +7,23 @@ reluva_add_engine(legoloco
     ACCESSOR legolocoMetaEngine
     SOURCES
         legoloco.cpp
+        game_files.cpp
         formats/area_layout.cpp
         formats/board.cpp
         formats/easter_eggs.cpp
         formats/object_definition.cpp
         formats/resource_file.cpp)
+
+# Its data viewer, in reluva-viewer (never in the game).
+reluva_add_engine_viewers(legoloco
+    ACCESSOR legolocoMetaViewer
+    SOURCES
+        pages/viewer.cpp
+        pages/board_viewer.cpp
+        pages/definition_viewer.cpp
+        pages/draw.cpp
+        pages/picture_viewer.cpp
+        pages/sound_viewer.cpp)
 
 # Its reluva-tool commands (reluva-tool help legoloco lists them).
 reluva_add_engine_tools(legoloco
@@ -20,7 +32,8 @@ reluva_add_engine_tools(legoloco
         tools/definitions.cpp
         tools/easter_eggs.cpp
         tools/files.cpp
-        tools/resources.cpp)
+        tools/resources.cpp
+        tools/viewer.cpp)
 
 # Its tests (tests/engines/legoloco/), in reluva-tests: the unit tests by
 # topic, and the engine test, without game files (its record in
@@ -32,10 +45,11 @@ reluva_add_engine_tests(legoloco
         ${tests}/unit/definitions.cpp
         ${tests}/unit/detection.cpp
         ${tests}/unit/easter_eggs.cpp
+        ${tests}/unit/game_files.cpp
         ${tests}/unit/resources.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.boards unit.definitions unit.detection unit.easter_eggs unit.resources engine)
+        unit.boards unit.definitions unit.detection unit.easter_eggs unit.game_files unit.resources engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

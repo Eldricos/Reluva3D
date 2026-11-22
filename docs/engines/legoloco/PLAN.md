@@ -22,11 +22,13 @@ is in [the first survey](research/first-survey.md).
    [`EE.INI`](formats/ee-ini.md) and [area arrangements](formats/lay.md),
    each with `reluva-tool legoloco` commands. The `.but` files are BMPs
    and the `.wav` files standard. Left for the phases that need them:
-   the postcards (`.crd`, phase 6; [a first look](research/postcards.md)),
-   the animated cursors (`.ani`, a published format, phase 3), and how a
-   picture is cut into its frames (phase 3).
-3. **Data viewer:** the pictures and their frames, the sounds, the object
-   definitions, and a save drawn as its board.
+   the postcards (`.crd`, phase 6; [a first look](research/postcards.md))
+   and the animated cursors (`.ani`, phase 4).
+3. **Data viewer** (done; [systems/data-viewer.md](systems/data-viewer.md)):
+   the boards drawn with their pieces, the pictures cut into frames with
+   their frame sets played, the definitions and the sounds; on the way,
+   how the game draws ([systems/drawing.md](systems/drawing.md)) and
+   names its resources ([formats/resource-numbers.md](formats/resource-numbers.md)).
 4. **Running `loco.exe`:** load it in the emulator and follow it with
    `reluva-tool x86-run` to see what it asks for, then stand in for what
    isn't there yet. Shared stand-ins go in `src/emulation/x86/`, since no
@@ -41,7 +43,8 @@ is in [the first survey](research/first-survey.md).
    - GDI's text and shapes (`CreateFontA`, `DrawTextA`, `Ellipse`, `LineTo`);
    - the Open and Save dialogs (`comdlg32.dll`), as Reluva's own;
    - `PlaySoundA`, animated cursors (`LoadCursorFromFileA` with
-     `busy.ani`), and INI files (`GetPrivateProfileStringA`).
+     `busy.ani`, read by a shared reader of the published `.ani`
+     format), and INI files (`GetPrivateProfileStringA`).
 5. **Playable:** the intro movie, the main screen, building and running
    trains, saving and loading; the basic engine test taken through them.
 6. **Postcards and network play:** DirectPlay stood in for over Reluva's

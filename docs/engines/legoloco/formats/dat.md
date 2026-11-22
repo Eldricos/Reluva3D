@@ -4,6 +4,9 @@
 
 ## Overview
 
+How the game cuts a picture into the frames counted here, and draws them,
+is on [drawing.md](../systems/drawing.md).
+
 Every piece, person, vehicle, button and window part that the game draws
 has a definition: a text file in the [resource file](resource.md) beside
 the picture of the same name (`building\igloo.dat` with
@@ -163,9 +166,6 @@ angry       28 31  3 0    1 5     0 0 0    0
 
 ## Open questions
 
-- How a picture is cut into its frames: most pictures are a row of
-  frames of one width, but some aren't (`people\police1\police1.bmp` is
-  592 pixels wide for 35 frames).
 - What the unnamed ninth number of a frame set does, and what most
   placement keywords mean in play.
 - What the game does with a frame set out of range.

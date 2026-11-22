@@ -40,9 +40,20 @@ between them.
 
 ### The squares
 
-Columns × rows bytes, row by row. The CD's boards hold 0, 2, 3, 5, 6 and
-7; drawn as text, the values trace the layouts' track, roads and
-buildings, but which value is which isn't known.
+Columns × rows bytes, row by row: what kind of piece stands on each
+square *(seen, not traced)*. Counting the squares under each piece's
+`physical_occupancy` on the CD's layouts and screen saver boards:
+
+| Value | Under |
+|---|---|
+| 0 | nothing |
+| 2 | scenery (79% of scenery's squares) |
+| 3 | buildings (68%) |
+| 5 | track (93%) |
+| 6 | roads (all) |
+| 7 | paths (95%) |
+
+The rest are where pieces overlap, or where a piece's grid has a 0.
 
 ### Pieces
 
@@ -104,7 +115,9 @@ trains.
 
 ## Sources and checks
 
-- **Where the facts come from:** the sizes and order of the parts from
+- **Where the facts come from:** the pieces' and minifigures' numbers
+  are resources' ([resource-numbers.md](resource-numbers.md)). The sizes
+  and order of the parts from
   `loco.exe`'s reader (`0x447ba0` reads the header and the squares,
   `0x447db0` a piece, `0x447df0` a train) and from the code that places
   them (`0x41d65d`), which reads the counts, the backdrop, and the
@@ -119,6 +132,7 @@ trains.
 
 ## Open questions
 
-- What the squares' values mean, and the pieces' values at 8 and 12.
+- The pieces' values at 8 and 12, and how the game uses the squares'
+  values.
 - The trains' first 32 bytes.
 - How the player's own saves differ, if they do: none was studied yet.

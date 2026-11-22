@@ -156,10 +156,14 @@ Error parseObjectDefinition(std::string_view text, ObjectDefinition &out) {
             Occupancy grid;
             if (Error err = readOccupancy(r, layered, grid))
                 return err;
+            line.values = {std::to_string(grid.columns), std::to_string(grid.rows)};
+            if (layered)
+                line.values.push_back(std::to_string(grid.layers));
             (layered ? out.physical : out.bitmap) = std::move(grid);
         } else if (sameWord(keyword.text, "total_number_of_frames")) {
             if (Error err = r.number("the number of frames", out.totalFrames))
                 return err;
+            line.values = {std::to_string(out.totalFrames)};
             // As the game does (0x425143).
             if (out.totalFrames == 0)
                 out.totalFrames = 1;
@@ -168,12 +172,14 @@ Error parseObjectDefinition(std::string_view text, ObjectDefinition &out) {
             if (Error err = r.number("the number of frame sets", count))
                 return err;
             frameSetCount = count;
+            line.values = {std::to_string(count)};
         } else if (sameWord(keyword.text, "cursor_frame_set") || sameWord(keyword.text, "cursor/default_frame_set")) {
             // The table of frame sets follows these two values directly.
             if (Error err = r.number("the cursor's frame set", out.cursorFrameSets[0]))
                 return err;
             if (Error err = r.number("the cursor's second frame set", out.cursorFrameSets[1]))
                 return err;
+            line.values = {std::to_string(out.cursorFrameSets[0]), std::to_string(out.cursorFrameSets[1])};
             out.frameSets.resize(frameSetCount);
             for (size_t i = 0; i < out.frameSets.size(); ++i) {
                 FrameSet &set = out.frameSets[i];

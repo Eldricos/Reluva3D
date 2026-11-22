@@ -13,7 +13,11 @@
 
 namespace reluva::legoloco {
 
-/** A keyword line of an object definition, with the words after it. */
+/**
+ * A keyword line of an object definition, with the words after it; for the
+ * keywords read into their own fields (the grids, the frames' counts), the
+ * numbers read, without the grids' cells or the frame-set table.
+ */
 struct DefinitionLine {
     std::string keyword;
     std::vector<std::string> values;
@@ -71,6 +75,15 @@ struct ObjectDefinition {
     /** The first line of a keyword in any part, matched ignoring case, or nullptr. */
     const DefinitionLine *find(std::string_view keyword) const;
 };
+
+/**
+ * How wide each frame of a picture is: its width over the frames, rounded
+ * down; a frame is the picture's whole height, and pixels left over at the
+ * right aren't used (0x42574e).
+ */
+inline int frameWidth(int pictureWidth, int totalFrames) {
+    return totalFrames > 0 ? pictureWidth / totalFrames : pictureWidth;
+}
 
 /** Reads an object definition's text. */
 Error parseObjectDefinition(std::string_view text, ObjectDefinition &out);

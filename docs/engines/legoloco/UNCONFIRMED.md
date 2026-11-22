@@ -15,11 +15,19 @@ None yet.
 
 ## Inferred
 
-None yet.
+- **A square is 16 pixels, and a piece's picture stands on the bottom of
+  its squares:** the viewer draws boards so; it rests on the pieces'
+  grids and pictures and on the boards coming out whole. A screenshot
+  of the original's board would settle it
+  ([systems/drawing.md](systems/drawing.md)).
 
 ## Guessed
 
-None yet.
+- **A frame set's delay counts the game's 28 ms timer ticks:** the
+  viewer plays frame sets at that speed. Timing an animation in the
+  original would settle it ([systems/drawing.md](systems/drawing.md)).
+- **A board naming no backdrop has `backdrop.bmp`:** the viewer draws it
+  so ([systems/data-viewer.md](systems/data-viewer.md)).
 
 ## Settled
 

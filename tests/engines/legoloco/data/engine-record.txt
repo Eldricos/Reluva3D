@@ -1,3 +1,7 @@
 # The record of legoloco.engine (tests/engines/legoloco/engine.cpp).
 # Written by `reluva-tests legoloco.engine --update`; review its diff before committing.
 detect.games: 0
+viewer.result: ok
+viewer.left: by Esc
+viewer.screens: 550 f5cfaf7e7ed89d3d
+viewer.titles: Reluva - LEGO Loco - Boards / Reluva - LEGO Loco - Pictures / Reluva - LEGO Loco - Definitions / Reluva - LEGO Loco - Sounds / Reluva - LEGO Loco - Boards

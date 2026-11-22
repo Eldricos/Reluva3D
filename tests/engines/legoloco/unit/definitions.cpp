@@ -67,6 +67,9 @@ void testOccupancy() {
           def.physical->at(1, 0, 1) == 1 && def.physical->at(1, 1, 2) == 0);
     CHECK(def.bitmap && def.bitmap->columns == 2 && def.bitmap->rows == 3 && def.bitmap->layers == 1);
     CHECK(def.bitmap && def.bitmap->at(0, 1, 1) == 2);
+    // The lines keep the numbers read into the fields, without the cells.
+    const DefinitionLine *physical = def.find("physical_occupancy");
+    CHECK(physical && physical->values == std::vector<std::string>({"3", "2", "2"}));
 }
 
 void testFrameSets() {

@@ -25,5 +25,7 @@ None yet.
 
 ## Additions outside the game
 
-<!-- What Reluva adds around the game: viewers, tools, settings. -->
-None yet.
+- The data viewer, in `reluva-viewer` only
+  ([systems/data-viewer.md](systems/data-viewer.md)).
+- `reluva-tool legoloco` commands for studying the game's files
+  ([REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md#the-tools)).
