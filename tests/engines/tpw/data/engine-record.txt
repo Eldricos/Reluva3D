@@ -1,0 +1,3 @@
+# The record of tpw.engine (tests/engines/tpw/engine.cpp).
+# Written by `reluva-tests tpw.engine --update`; review its diff before committing.
+detect.games: 0
