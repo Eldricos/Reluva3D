@@ -3,7 +3,7 @@
 
 #include "engines/nfs/formats/fsh.h"
 
-#include "engines/nfs/formats/refpack.h"
+#include "common/refpack.h"
 
 #include <algorithm>
 #include <cmath>

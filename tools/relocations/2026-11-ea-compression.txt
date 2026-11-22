@@ -1,0 +1,7 @@
+# EA's compression (RefPack, EA Huffman), first read for Need for Speed
+# III, moves to the shared code: SimCoaster's archives (the tpw engine)
+# use RefPack too, and an engine can't use another's code. Apply with:
+#     python3 tools/relocate.py tools/relocations/2026-11-ea-compression.txt
+src/engines/nfs/formats/refpack.h              src/common/refpack.h
+src/engines/nfs/formats/refpack.cpp            src/common/refpack.cpp
+docs/engines/nfs/games/nfs3/formats/refpack.md docs/common/refpack.md

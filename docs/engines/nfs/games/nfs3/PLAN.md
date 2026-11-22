@@ -113,7 +113,7 @@ What was built, with each format written up in [formats/](formats/) and [systems
 
 - **Readers** for each format, checked against every retail file:
   - [viv.md](formats/viv.md): archives, as an `Archive`;
-  - [refpack.md](formats/refpack.md): `.qfs` compression;
+  - [refpack.md](../../../../common/refpack.md): `.qfs` compression;
   - [fsh.md](formats/fsh.md): pictures;
   - [text.md](formats/text.md): the front end's string tables;
   - [ffn.md](formats/ffn.md): fonts, drawn into RGBA surfaces.
@@ -134,7 +134,7 @@ banks (15,990 pictures), 16 text tables and 16 fonts, with no failures.
 The Summit's two 8-bit texture sets (`trk007/tr07?_8.qfs`), compressed
 with another EA scheme (`32 FB`, Huffman), were the exception until
 October 2026; they're read now, checked against the game's own routine
-(see [refpack.md](formats/refpack.md)).
+(see [refpack.md](../../../../common/refpack.md)).
 
 What was planned:
 

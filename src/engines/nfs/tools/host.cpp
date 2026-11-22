@@ -23,7 +23,7 @@
 #include "engines/nfs/formats/hrz.h"
 #include "engines/nfs/formats/mad.h"
 #include "engines/nfs/formats/mus.h"
-#include "engines/nfs/formats/refpack.h"
+#include "common/refpack.h"
 #include "engines/nfs/formats/text_table.h"
 #include "engines/nfs/formats/viv.h"
 #include "backends/graphics/sdl3/sdl_compute.h"
@@ -826,7 +826,7 @@ int cmdNfsHuffCheck(int argc, char **argv) {
     int mismatches = 0;
     for (const reluva::nfs::FileRef &f : files.files()) {
         std::vector<uint8_t> data;
-        if (files.read(f, data) || !reluva::nfs::isEaHuffman(data))
+        if (files.read(f, data) || !reluva::isEaHuffman(data))
             continue;
         const uint32_t size = uint32_t(data[2]) << 16 | uint32_t(data[3]) << 8 | data[4];
         const uint32_t in = host.process().memory().alloc(uint32_t(data.size()) + 16);
@@ -848,7 +848,7 @@ int cmdNfsHuffCheck(int argc, char **argv) {
         for (uint32_t i = 0; i < result; ++i)
             game[i] = c.read8(out + i);
         std::vector<uint8_t> ours;
-        const reluva::Error err = reluva::nfs::decompressEaHuffman(data, ours);
+        const reluva::Error err = reluva::decompressEaHuffman(data, ours);
         size_t differ = 0;
         for (size_t i = 0; i < std::min(ours.size(), game.size()); ++i)
             differ += ours[i] != game[i];

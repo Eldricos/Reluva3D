@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "engines/nfs/formats/refpack.h"
+#include "common/refpack.h"
 
 #include <algorithm>
 #include <cstdio>
 #include <string>
 
-namespace reluva::nfs {
+namespace reluva {
 
 bool isRefPack(const std::vector<uint8_t> &data) {
     return data.size() >= 5 && (data[0] & 0x7e) == 0x10 && data[1] == 0xfb;
@@ -261,4 +261,4 @@ Error unpackIfRefPack(std::vector<uint8_t> &data) {
     return Error::success();
 }
 
-} // namespace reluva::nfs
+} // namespace reluva

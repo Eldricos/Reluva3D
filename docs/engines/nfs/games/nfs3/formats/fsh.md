@@ -6,7 +6,7 @@
 
 Banks of pictures ("shapes"), each a chain of blocks: the picture,
 then what's attached to it, such as a palette. They're on their own,
-inside `.viv` archives, or compressed as `.qfs` ([refpack.md](refpack.md)).
+inside `.viv` archives, or compressed as `.qfs` ([refpack.md](../../../../../common/refpack.md)).
 
 ## Layout
 
@@ -202,7 +202,7 @@ Each track has two sets of each texture file:
 The 8-bit sets are the software renderer's: with `softtria.dll` the game
 loads `trNNN_8.qfs` (the renderer's number decides, `0x7a3a58`; see
 [hrz.md](hrz.md)). The Summit's two 8-bit sets are compressed with EA's
-Huffman scheme ([refpack.md](refpack.md)). The Tracks page shows them
+Huffman scheme ([refpack.md](../../../../../common/refpack.md)). The Tracks page shows them
 with `X`, after the two 16-bit sets.
 
 A track's polygons name their pictures by place in the sheet, not by
@@ -215,7 +215,7 @@ Read by `parseShapeBank` and `decodeShape`
 (`src/engines/nfs/formats/fsh.cpp`). It reads all 694
 banks (15,990 pictures) in the NFS III install and on its CD, including
 those inside `.viv` archives and compressed as `.qfs`
-([refpack.md](refpack.md)).
+([refpack.md](../../../../../common/refpack.md)).
 
 The data viewer's Textures and Cockpits pages show them.
 

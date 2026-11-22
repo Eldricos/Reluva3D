@@ -23,7 +23,7 @@
 #include "engines/nfs/formats/mad.h"
 #include "engines/nfs/formats/mus.h"
 #include "engines/nfs/ui/play_page.h"
-#include "engines/nfs/formats/refpack.h"
+#include "common/refpack.h"
 #include "engines/nfs/formats/text_table.h"
 #include "engines/nfs/pages/viewers.h"
 #include "engines/nfs/formats/viv.h"

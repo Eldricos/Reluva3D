@@ -23,7 +23,7 @@
 #include "engines/nfs/formats/hrz.h"
 #include "engines/nfs/formats/mad.h"
 #include "engines/nfs/formats/mus.h"
-#include "engines/nfs/formats/refpack.h"
+#include "common/refpack.h"
 #include "engines/nfs/formats/text_table.h"
 #include "engines/nfs/formats/viv.h"
 #include "devtools/tool.h"
@@ -303,7 +303,7 @@ int cmdNfsSurvey(int argc, char **argv) {
         const std::string ext = lower(stdfs::path(name).extension().string());
         const std::string stem = lower(stdfs::path(name).stem().string());
         if (ext == ".fsh" || ext == ".qfs") {
-            if (reluva::nfs::isOtherEaCompression(data)) {
+            if (reluva::isOtherEaCompression(data)) {
                 unsupported.push_back(what);
                 return;
             }
@@ -470,7 +470,7 @@ int cmdNfsSurvey(int argc, char **argv) {
             std::printf("%-16s %6d read, %d failed\n", names[i], all[i]->ok, all[i]->failed);
         failed += all[i]->failed;
     }
-    // Known and documented (docs/engines/nfs/games/nfs3/formats/refpack.md), so not failures.
+    // Known and documented (docs/common/refpack.md), so not failures.
     if (!unsupported.empty()) {
         std::printf("%zu files in a compression scheme not read yet:\n", unsupported.size());
         for (const auto &u : unsupported)

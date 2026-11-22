@@ -24,7 +24,6 @@
 #include "engines/nfs/formats/mus.h"
 #include "engines/nfs/render/particles.h"
 #include "engines/nfs/games.h"
-#include "engines/nfs/formats/refpack.h"
 #include "engines/nfs/formats/text_table.h"
 #include "engines/nfs/formats/viv.h"
 #include <algorithm>

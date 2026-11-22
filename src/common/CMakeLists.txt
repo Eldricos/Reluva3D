@@ -21,6 +21,7 @@ add_library(reluva_common STATIC
     md5.cpp
     net.cpp
     pe.cpp
+    refpack.cpp
     portmap.cpp
     riff.cpp
     settings.cpp

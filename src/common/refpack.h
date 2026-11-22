@@ -8,19 +8,17 @@
 #include <cstdint>
 #include <vector>
 
-namespace reluva::nfs {
+namespace reluva {
 
 /**
- * Whether data starts with a RefPack header (EA's LZ77 compression, used
- * by .qfs files), as docs/engines/nfs/games/nfs3/formats/refpack.md
- * describes.
+ * Whether data starts with a RefPack header: EA's LZ77 compression, as
+ * docs/common/refpack.md describes it.
  */
 bool isRefPack(const std::vector<uint8_t> &data);
 
 /**
  * Whether data starts with the header of EA's Huffman compression (30 FB,
- * 32 FB, 34 FB, or 31, 33, 35 FB with an extra field; refpack.md), as two
- * of NFS III's 8-bit track texture sets.
+ * 32 FB, 34 FB, or 31, 33, 35 FB with an extra field; refpack.md).
  */
 bool isEaHuffman(const std::vector<uint8_t> &data);
 
@@ -48,4 +46,4 @@ Error decompressRefPack(const std::vector<uint8_t> &data, std::vector<uint8_t> &
  */
 Error unpackIfRefPack(std::vector<uint8_t> &data);
 
-} // namespace reluva::nfs
+} // namespace reluva

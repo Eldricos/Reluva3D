@@ -11,7 +11,7 @@ the builders are in `tests/engines/nfs/fixtures.h`):
 | Suite | What it checks |
 |---|---|
 | `nfs.unit.detection` | Recognising the game, finding the CD's files, the listings, the game's files in archives |
-| `nfs.unit.formats` | RefPack, `.viv`, `.fsh` and the cockpit's, text, fonts, `.fce`, the sky, collision, sound banks, music, movies |
+| `nfs.unit.formats` | `.viv`, `.fsh` and the cockpit's, text, fonts, `.fce`, the sky, collision, sound banks, music, movies |
 | `nfs.unit.track` | The Tracks page's models: lighting, weather, animation, reflections, placed sounds, headlights, the road frame, particles, the cars' effects and paint |
 | `nfs.unit.computer` | The computer cars' gears, air, driving, catching up, pursuits, hits and the cops' calls |
 | `nfs.unit.host` | The hosted game's force effects, 3D sound and THRASH's fog, Direct3D look and blends |
