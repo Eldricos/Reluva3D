@@ -193,6 +193,7 @@ bool MainMenu::run() {
             }
             if (_mapScreen) {
                 const MapScreen::Choice choice = _mapScreen->handleEvent(ev, _mixer, _sys.getMillis());
+                moveOfficers();
                 if (choice == MapScreen::Choice::kRestart) {
                     startMission(_missionTeam);
                 } else if (choice == MapScreen::Choice::kContinue) {
@@ -207,11 +208,11 @@ bool MainMenu::run() {
                         _debriefing = std::make_unique<DebriefingScreen>(_data, _rules, _mission, _options, _mixer,
                                                                          _mapScreen->objectiveLines(),
                                                                          _mapScreen->missionTime(), _sys.getMillis());
-                    _mapScreen.reset();
+                    endMaps();
                     if (!_debriefing && _nextMission > 0)
                         beginMission(_nextMission);
                 } else if (choice != MapScreen::Choice::kNone) {
-                    _mapScreen.reset();
+                    endMaps();
                 }
                 continue;
             }
@@ -353,23 +354,122 @@ std::vector<TeamMember> MainMenu::startingTeam() const {
 }
 
 void MainMenu::startMission(std::vector<TeamMember> team) {
-    _missionTeam = team;
+    _missionTeam = std::move(team);
+    endMaps();
     char folder[32];
     std::snprintf(folder, sizeof folder, "Mission %02d", _mission.number);
-    const std::string base = std::string("Levels/") + folder + "/" + _mission.mapName;
+    _mapScreen = openMap(std::string(folder) + "/" + _mission.mapName, false);
+    if (_mapScreen)
+        _mapScreen->setObjectives(readMissionObjectives(_mission.objectives));
+}
+
+void MainMenu::endMaps() {
+    _mapScreen = nullptr;
+    _maps.clear();
+}
+
+MapScreen *MainMenu::openMap(const std::string &name, bool arriving) {
+    // A mission's maps by their names, as its actions give them ("Mission
+    // 02/02 Security deck.zax"), whatever their case.
+    // One named without its .zax (Mission 09's) is that (inferred).
+    const std::string file = name.ends_with(".zax") || name.ends_with(".ZAX") ? name : name + ".zax";
+    const std::string key = normalizeArchiveName(file);
+    if (const auto it = _maps.find(key); it != _maps.end())
+        return it->second.get();
+    const std::string base = "Levels/" + file;
     GameMap map;
     if (Error err = loadMap(_data, base, map)) {
-        log::warning("Mission %d's map: %s", _mission.number, err.message.c_str());
-        return;
+        log::warning("Mission %d's map %s: %s", _mission.number, file.c_str(), err.message.c_str());
+        return nullptr;
     }
     // Its waypoints, the map's name with .way (formats/binary-object.md).
     WayPoints wayPoints;
     const size_t dot = base.rfind('.');
     if (Error err = loadWayPoints(_data, base.substr(0, dot) + ".way", wayPoints))
         log::warning("Mission %d's waypoints: %s", _mission.number, err.message.c_str());
-    _mapScreen = std::make_unique<MapScreen>(_data, _rules, std::move(map), _options, _sys.getMillis(), std::move(team),
-                                             std::move(wayPoints), _mixer);
-    _mapScreen->setObjectives(readMissionObjectives(_mission.objectives));
+    auto screen = std::make_unique<MapScreen>(_data, _rules, std::move(map), _options, _sys.getMillis(), _missionTeam,
+                                              std::move(wayPoints), _mixer, arriving);
+    // The mission's progress is the same on all its maps.
+    if (!_maps.empty())
+        screen->shareProgress(_maps.begin()->second->progress());
+    MapScreen *opened = screen.get();
+    _maps.emplace(key, std::move(screen));
+    return opened;
+}
+
+void MainMenu::showMap(MapScreen *map) {
+    if (!map)
+        return;
+    _mapScreen = map;
+    for (auto &[name, each] : _maps)
+        each->setActive(each.get() == map);
+}
+
+void MainMenu::moveOfficers() {
+    // Officers sent to another map leave theirs and arrive there, each at
+    // its place: the next of a list ("space1,space2"), or numbered as they
+    // go ("to lower bay 1" to "4", as the maps have them), or side by side
+    // about the place itself (inferred); without a map named, on the same
+    // one. The map's shown if the action says.
+    std::vector<std::pair<MapScreen *, Relocation>> moves;
+    for (auto &[name, map] : _maps)
+        for (Relocation &r : map->takeRelocations())
+            moves.emplace_back(map.get(), std::move(r));
+    for (auto &[from, r] : moves) {
+        MapScreen *to = r.map.empty() ? from : openMap(r.map, true);
+        if (!to)
+            continue;
+        std::vector<std::string> places;
+        for (size_t at = 0; at <= r.location.size();) {
+            const size_t comma = std::min(r.location.find(',', at), r.location.size());
+            places.push_back(r.location.substr(at, comma - at));
+            at = comma + 1;
+        }
+        float x = to->cameraX();
+        float y = to->cameraY();
+        if (!to->partPosition(places[0], x, y))
+            (void)to->partPosition(places[0] + " 1", x, y);
+        constexpr float kSpacing = 24.0f;
+        float firstX = x;
+        float firstY = y;
+        for (size_t k = 0; k < r.officers.size(); ++k) {
+            float ox = x + kSpacing * float(k);
+            float oy = y;
+            if (places.size() > 1)
+                (void)to->partPosition(places[std::min(k, places.size() - 1)], ox, oy);
+            else
+                (void)to->partPosition(places[0] + " " + std::to_string(k + 1), ox, oy);
+            if (k == 0) {
+                firstX = ox;
+                firstY = oy;
+            }
+            const size_t officer = size_t(r.officers[k]);
+            const MapScreen::Officer state = from->officers()[officer];
+            if (from != to)
+                from->depart(officer);
+            to->arrive(officer, state, ox, oy);
+        }
+        if (r.show) {
+            showMap(to);
+            for (size_t k = 0; k < r.officers.size(); ++k)
+                to->choose(r.officers[k], k > 0);
+            to->moveCamera(firstX, firstY);
+        }
+    }
+    // An officer on another map chosen on the team bar: that map shown.
+    for (auto &[name, map] : _maps) {
+        const int officer = map->takeSwitch();
+        if (officer < 0)
+            continue;
+        for (auto &[other, each] : _maps)
+            if (each->officers()[size_t(officer)].present) {
+                showMap(each.get());
+                each->choose(officer);
+                each->moveCamera(each->officers()[size_t(officer)].x, each->officers()[size_t(officer)].y);
+                break;
+            }
+        break;
+    }
 }
 
 void MainMenu::showTeamSelection() {
@@ -385,7 +485,12 @@ void MainMenu::draw() {
     const uint64_t now = _sys.getMillis();
     clearScreen(_screen);
     if (_mapScreen) {
+        // The mission's other maps go on meanwhile (inferred).
+        for (auto &[name, map] : _maps)
+            if (map.get() != _mapScreen)
+                map->update(now);
         _mapScreen->draw(_screen, now);
+        moveOfficers();
         return;
     }
     if (_debriefing) {

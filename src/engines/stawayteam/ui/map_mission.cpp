@@ -26,7 +26,62 @@ std::string lower(std::string s) {
     return s;
 }
 
+bool inside(const std::vector<std::pair<float, float>> &polygon, float x, float y) {
+    bool in = false;
+    for (size_t i = 0, j = polygon.size() - 1; i < polygon.size(); j = i++) {
+        const auto [xi, yi] = polygon[i];
+        const auto [xj, yj] = polygon[j];
+        if ((yi > y) != (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi)
+            in = !in;
+    }
+    return in;
+}
+
 } // namespace
+
+void MapScreen::arrive(size_t officer, const Officer &state, float x, float y) {
+    // As they left, but here, with nothing under way; their weapon this
+    // map's own copy of it.
+    Officer &o = _officers[officer];
+    const ItemDefinition *weapon = state.weapon;
+    o = state;
+    o.present = true;
+    o.x = x;
+    o.y = y;
+    o.path.clear();
+    o.attacking = -1;
+    o.task = Officer::Task::kNone;
+    o.shooting = 0.0f;
+    o.chosen = false;
+    o.weapon = nullptr;
+    if (weapon) {
+        const auto it = _items.find(weapon->name);
+        o.weapon = it != _items.end() ? &it->second : nullptr;
+    }
+}
+
+void MapScreen::depart(size_t officer) {
+    Officer &o = _officers[officer];
+    o.present = false;
+    o.chosen = false;
+    o.path.clear();
+    o.attacking = -1;
+    o.task = Officer::Task::kNone;
+    if (_selected == int(officer)) {
+        _selected = -1;
+        for (size_t i = 0; i < _officers.size() && _selected < 0; ++i)
+            if (_officers[i].chosen)
+                _selected = int(i);
+    }
+}
+
+bool MapScreen::partPosition(const std::string &name, float &x, float &y) const {
+    const std::vector<size_t> parts = partsNamed(name);
+    if (parts.empty())
+        return false;
+    placeOf(parts.front(), x, y);
+    return true;
+}
 
 std::string MapScreen::objectiveText(const Objective &o) const {
     // Its line of its script, a count's "%d" its count so far ("(%d of 2)").
@@ -46,13 +101,14 @@ std::string MapScreen::objectiveText(const Objective &o) const {
 void MapScreen::setObjectives(MissionObjectives objectives) {
     // The mission's own first, then those the map has added already (its
     // spawn points').
-    _mission = std::move(objectives);
-    _objectives.insert(_objectives.begin(), _mission.objectives.begin(), _mission.objectives.end());
+    _progress->mission = std::move(objectives);
+    _progress->objectives.insert(_progress->objectives.begin(), _progress->mission.objectives.begin(),
+                                 _progress->mission.objectives.end());
 }
 
 std::vector<ObjectiveLine> MapScreen::objectiveLines() const {
     std::vector<ObjectiveLine> out;
-    for (const Objective &o : _objectives)
+    for (const Objective &o : _progress->objectives)
         if (o.visible && o.line != "!None")
             out.push_back({o.status, objectiveText(o), o.required});
     return out;
@@ -67,11 +123,11 @@ void MapScreen::addObjective(Objective o, int instigator) {
         for (const Officer &officer : _officers)
             if (_team[officer.member].name() == o.who || _team[officer.member].id == o.who)
                 o.officer = int(&officer - _officers.data());
-    _objectives.push_back(std::move(o));
+    _progress->objectives.push_back(std::move(o));
 }
 
 void MapScreen::setObjectiveStatus(size_t objective, ObjectiveStatus status) {
-    Objective &o = _objectives[objective];
+    Objective &o = _progress->objectives[objective];
     if (o.status == status)
         return;
     o.status = status;
@@ -81,26 +137,27 @@ void MapScreen::setObjectiveStatus(size_t objective, ObjectiveStatus status) {
     runAction(then, -1);
     // With every objective required to end the mission complete, its Win
     // Action, once (inferred: the manager's check isn't traced).
-    if (_won || !_mission.winAction)
+    if (_progress->won || !_progress->mission.winAction)
         return;
     bool required = false;
-    for (const Objective &each : _objectives)
+    for (const Objective &each : _progress->objectives)
         if (each.required && each.status != ObjectiveStatus::kDisabled) {
             if (each.status != ObjectiveStatus::kComplete)
                 return;
             required = true;
         }
     if (required) {
-        _won = true;
-        runAction(_mission.winAction, -1);
+        _progress->won = true;
+        runAction(_progress->mission.winAction, -1);
     }
 }
 
 void MapScreen::officerFell(size_t officer) {
     // Who's protected has failed to be (inferred).
-    for (size_t i = 0; i < _objectives.size(); ++i)
-        if (_objectives[i].officer == int(officer) && _objectives[i].className == "CProtectMissionObjective" &&
-            _objectives[i].status == ObjectiveStatus::kIncomplete)
+    for (size_t i = 0; i < _progress->objectives.size(); ++i)
+        if (_progress->objectives[i].officer == int(officer) &&
+            _progress->objectives[i].className == "CProtectMissionObjective" &&
+            _progress->objectives[i].status == ObjectiveStatus::kIncomplete)
             setObjectiveStatus(i, ObjectiveStatus::kFailed);
 }
 
@@ -119,26 +176,27 @@ void MapScreen::runSpawnActions() {
 }
 
 void MapScreen::endMission(bool completed, const std::string &script, const std::string &line) {
-    if (_endGame)
+    if (_endGame || _progress->over)
         return;
-    _completed = completed;
-    _missionOverText.clear();
+    _progress->over = true;
+    _progress->completed = completed;
+    _progress->overText.clear();
     std::vector<uint8_t> bytes;
     if (!_data.read("Levels/" + script + ".RDS", bytes)) {
         const RdsScript rds = readRdsScript(std::string(bytes.begin(), bytes.end()));
         if (const std::string *text = rds.find(line))
-            _missionOverText = *text;
+            _progress->overText = *text;
     }
     _objectivesWindow.reset();
-    _endGame = std::make_unique<EndGameWindow>(_data, _rules, completed, _missionOverText, kScreenW, kScreenH);
+    _endGame = std::make_unique<EndGameWindow>(_data, _rules, completed, _progress->overText, kScreenW, kScreenH);
 }
 
 bool MapScreen::runMissionAction(const TextObject *action, int instigator) {
     const std::string &kind = action->className;
     const auto named = [&](const std::function<void(size_t)> &each) {
         const std::string name = readText(action, "Objective Name");
-        for (size_t i = 0; i < _objectives.size(); ++i)
-            if (_objectives[i].name == name)
+        for (size_t i = 0; i < _progress->objectives.size(); ++i)
+            if (_progress->objectives[i].name == name)
                 each(i);
     };
     if (kind == "CAddMissionObjectiveAction") {
@@ -152,16 +210,49 @@ bool MapScreen::runMissionAction(const TextObject *action, int instigator) {
         // Before Success (inferred).
         const int count = int(action->integer("Count").value_or(1));
         named([&](size_t i) {
-            Objective &o = _objectives[i];
+            Objective &o = _progress->objectives[i];
             o.count += count;
             if (o.needed > 0 && o.count >= o.needed && o.status == ObjectiveStatus::kIncomplete)
                 setObjectiveStatus(i, ObjectiveStatus::kComplete);
         });
     } else if (kind == "CSetMissionObjectiveDisplayStatusAction") {
         const bool visible = readText(action, "Display Status") != "Hidden";
-        named([&](size_t i) { _objectives[i].visible = visible; });
+        named([&](size_t i) { _progress->objectives[i].visible = visible; });
+    } else if (kind == "CStarTrekRelocateTeamAction" || kind == "CStarTrekRelocateAction") {
+        // The officers in its Touching Poly, or else Who To Switch (the
+        // instigator, or an officer by name), only those chosen with Only
+        // Relocated Selected Members, go to New Location on New Map Name,
+        // which is then shown with Make this map active (inferred: the
+        // program's switching isn't traced).
+        Relocation r;
+        r.map = readText(action, "New Map Name");
+        r.location = readText(action, "New Location");
+        r.show = action->integer("Make this map active").value_or(1) != 0;
+        const bool chosenOnly = action->integer("Only Relocated Selected Members").value_or(0) != 0;
+        const std::string poly = readText(action, "Touching Poly");
+        const std::string who = lower(readText(action, "Who To Switch"));
+        std::vector<std::pair<float, float>> area;
+        for (size_t part : partsNamed(poly))
+            if (_map.parts[part].polygon.size() >= 3)
+                area = _map.parts[part].polygon;
+        for (size_t i = 0; i < _officers.size(); ++i) {
+            const Officer &o = _officers[i];
+            if (!o.present || !o.alive() || (chosenOnly && !o.chosen))
+                continue;
+            bool in = false;
+            if (!area.empty())
+                in = inside(area, o.x, o.y);
+            else if (who == "$instigator")
+                in = int(i) == instigator;
+            else
+                in = lower(_team[o.member].name()) == who || lower(_team[o.member].id) == who;
+            if (in)
+                r.officers.push_back(int(i));
+        }
+        if (!r.officers.empty())
+            _relocations.push_back(std::move(r));
     } else if (kind == "CSetNextMissionAction") {
-        _nextMission = readText(action, "Next Mission");
+        _progress->nextMission = readText(action, "Next Mission");
     } else if (kind == "CDisplayMissionCompletedScreenAction" || kind == "CDisplayMissionFailedScreenAction") {
         endMission(kind == "CDisplayMissionCompletedScreenAction", readText(action, "Script"),
                    readText(action, "Mission Over Text"));

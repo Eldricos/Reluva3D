@@ -22,6 +22,7 @@
 
 #include <array>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -97,9 +98,15 @@ private:
     // the first of those it has.
     void beginMission(int number);
     void showTeamSelection();
-    // The mission's map (its first, for now: its other maps aren't there
-    // yet).
+    // The mission's first map, `team` on it.
     void startMission(std::vector<TeamMember> team);
+    // One of the mission's maps (of Levels/), loaded the first time; the
+    // team's on it unless they're `arriving` later.
+    MapScreen *openMap(const std::string &name, bool arriving);
+    void showMap(MapScreen *map);
+    void endMaps();
+    // Officers sent between the maps, and the map shown for one chosen.
+    void moveOfficers();
     std::vector<TeamMember> startingTeam() const;
 
     System &_sys;
@@ -122,7 +129,9 @@ private:
     std::unique_ptr<KeyConfigScreen> _keyConfig;
     std::unique_ptr<TeamSelectionScreen> _teamSelection;
     std::unique_ptr<BriefingScreen> _briefing; // over the team selection, when it's from there
-    std::unique_ptr<MapScreen> _mapScreen;
+    // The mission's maps, by their names, and the one shown.
+    std::map<std::string, std::unique_ptr<MapScreen>> _maps;
+    MapScreen *_mapScreen = nullptr;
     std::unique_ptr<DebriefingScreen> _debriefing;
     int _nextMission = 0; // the mission after the debriefing; 0 for the main menu
     Mission _mission;

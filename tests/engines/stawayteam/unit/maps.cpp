@@ -764,6 +764,74 @@ void testItems() {
     CHECK(b.health == 100.0f && a.items[2].count == 4 && std::hypot(a.x - b.x, a.y - b.y) <= 30.0f);
 }
 
+void testMaps() {
+    // A mission's two maps: on the first, Ann and Bo, and a door's polygon
+    // round Ann; on the second, a landing.
+    const auto zaxOf = [](const std::string &parts) {
+        const std::string s = "CLayerSaveData\n{\n\tWidth=1000\n\tHeight=1000\n\tView Position=500.000000,500.000000\n"
+                              "\tTree List=CSortList2D\n\t{\n" +
+                              parts + "\t}\n}\n";
+        return std::vector<uint8_t>(s.begin(), s.end());
+    };
+    MemoryArchive data;
+    data.files["Levels/Test A.zax"] = zaxOf(
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 1\n\t\t\tPosition X=100\n"
+        "\t\t\tPosition Y=100\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 2\n\t\t\tPosition X=300\n"
+        "\t\t\tPosition Y=300\n\t\t}\n"
+        "\t\tLevel Part=CFreeRangePoly\n\t\t{\n\t\t\tName=Door\n\t\t\tPolygon=50, 50, 150, 50, 150, 150, 50, 150, 50, 50\n"
+        "\t\t}\n");
+    data.files["Levels/Test B.zax"] =
+        zaxOf("\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Landing\n\t\t\tPosition X=700\n\t\t\tPosition Y=600\n"
+              "\t\t}\n");
+    GameMap a;
+    GameMap b;
+    CHECK(!loadMap(data, "Levels/Test A.zax", a) && !loadMap(data, "Levels/Test B.zax", b));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    TeamMember bo;
+    bo.firstName = "Bo";
+    MapScreen first(data, rules, a, options, 0, {ann, bo});
+    MapScreen second(data, rules, b, options, 0, {ann, bo}, {}, nullptr, true);
+    second.shareProgress(first.progress());
+    // The later map has no one on it till they're sent there.
+    CHECK(first.officers()[0].present && !second.officers()[0].present && !second.officers()[1].present);
+    // A relocation through the door sends Ann, inside it, not Bo.
+    TextObject move;
+    CHECK(!readTextObject("CStarTrekRelocateTeamAction\n{\n\tNew Map Name=Test B.zax\n\tNew Location=Landing\n"
+                          "\tWho To Switch=$Instigator\n\tTouching Poly=Door\n\tMake this map active=1\n"
+                          "\tOnly Relocated Selected Members=0\n}\n",
+                          move));
+    first.runAction(&move, 0);
+    const std::vector<Relocation> moves = first.takeRelocations();
+    CHECK(moves.size() == 1 && moves[0].map == "Test B.zax" && moves[0].show);
+    CHECK((moves[0].officers == std::vector<int>{0}) && first.takeRelocations().empty());
+    // She leaves the first and arrives at the landing, as she was.
+    float x = 0.0f;
+    float y = 0.0f;
+    CHECK(second.partPosition(moves[0].location, x, y) && x == 700.0f && y == 600.0f);
+    second.arrive(0, first.officers()[0], x, y);
+    first.depart(0);
+    CHECK(!first.officers()[0].present && second.officers()[0].present && second.officers()[0].x == 700.0f);
+    // Chosen on the first map's team bar, she's on the other map.
+    first.choose(0);
+    CHECK(!first.officers()[0].chosen);
+    // The mission's progress is the same on both: ended on one, it's over
+    // on the other.
+    TextObject end;
+    CHECK(!readTextObject("CDisplayMissionFailedScreenAction\n{\n\tScript=None\n\tMission Over Text=None\n}\n", end));
+    second.runAction(&end);
+    Surface surface;
+    surface.create(640, 480, PixelFormat::kRGBA32);
+    first.draw(surface, 100);
+    CHECK(first.missionOver() && !first.missionCompleted());
+}
+
 void testChoosing() {
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(kMap, kMap + std::string(kMap).size());
@@ -817,4 +885,5 @@ static const reluva::test::Suite kSuite("stawayteam.unit.maps",
                                             {"objectives", [](const std::filesystem::path &) { testObjectives(); }},
                                             {"enemy AI", [](const std::filesystem::path &) { testEnemyAI(); }},
                                             {"items", [](const std::filesystem::path &) { testItems(); }},
+                                            {"maps", [](const std::filesystem::path &) { testMaps(); }},
                                         });

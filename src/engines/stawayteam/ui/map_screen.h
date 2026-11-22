@@ -23,11 +23,40 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace reluva::stawayteam {
 
 class ConfirmDialog;
+
+/**
+ * How a mission's going, the same on each of its maps: its objectives, its
+ * Win Action, whether it's over, what's next, and its time
+ * (docs/engines/stawayteam/systems/objectives.md).
+ */
+struct MissionProgress {
+    MissionObjectives mission; // keeps its actions alive
+    std::vector<Objective> objectives;
+    bool won = false;
+    bool over = false;
+    bool completed = false;
+    std::string nextMission;
+    std::string overText;
+    float time = 0.0f; // seconds played
+};
+
+/**
+ * Officers sent to another of the mission's maps (`CStarTrekRelocateTeamAction`):
+ * the map ("Mission 02/02 Security deck.zax"), the part they arrive at, and
+ * whether it's then the map shown.
+ */
+struct Relocation {
+    std::string map;
+    std::string location;
+    std::vector<int> officers;
+    bool show = true;
+};
 
 /**
  * A map seen through the game's view: its ground, the polygons laid on it
@@ -45,9 +74,12 @@ public:
     /**
      * `map` shown with `rules`' view, `team` on it at its spawn points,
      * walking by `wayPoints`; `data`, `rules` and `options` must outlive it.
+     * One of the mission's later maps, `arriving`, has no one on it till
+     * they're sent there.
      */
     MapScreen(const Archive &data, const TextObject &rules, GameMap map, const GameOptions &options, uint64_t now,
-              std::vector<TeamMember> team = {}, WayPoints wayPoints = {}, audio::Mixer *mixer = nullptr);
+              std::vector<TeamMember> team = {}, WayPoints wayPoints = {}, audio::Mixer *mixer = nullptr,
+              bool arriving = false);
     ~MapScreen();
 
     /** What `ev` does to it at `now` (milliseconds). */
@@ -100,9 +132,11 @@ public:
         float taskY = 0.0f;
         int taskOfficer = -1;
 
+        bool present = true; // on this map, not on another of the mission's
+
         bool alive() const { return dead < 0.0f; }
-        /** Fallen or stunned: they can't move, shoot, or be seen as a target. */
-        bool down() const { return dead >= 0.0f || stunned > 0.0f; }
+        /** Fallen, stunned or elsewhere: they can't move, shoot, or be seen as a target. */
+        bool down() const { return dead >= 0.0f || stunned > 0.0f || !present; }
     };
     const std::vector<Officer> &officers() const { return _officers; }
     /** The officer chosen first: whose items the inventory shows; -1 for none. */
@@ -236,20 +270,35 @@ public:
      * Action (docs/engines/stawayteam/systems/objectives.md).
      */
     void setObjectives(MissionObjectives objectives);
-    const std::vector<Objective> &objectives() const { return _objectives; }
+    const std::vector<Objective> &objectives() const { return _progress->objectives; }
     /** An objective's words, as the lists show them: its line, with its count. */
     std::string objectiveText(const Objective &o) const;
     /** The mission the triggers have said comes next ("Mission 02/Mission 02"); empty if none. */
-    const std::string &nextMission() const { return _nextMission; }
+    const std::string &nextMission() const { return _progress->nextMission; }
     /** Whether the mission's over, and how: the end game window's showing. */
     bool missionOver() const { return _endGame != nullptr; }
-    bool missionCompleted() const { return _completed; }
+    bool missionCompleted() const { return _progress->completed; }
     /** The words the mission ended with. */
-    const std::string &missionOverText() const { return _missionOverText; }
+    const std::string &missionOverText() const { return _progress->overText; }
     /** The objectives as the lists show them: those shown, primary or not, with their words. */
     std::vector<ObjectiveLine> objectiveLines() const;
     /** How long the mission's been played, in seconds (the game's Mission Time). */
-    float missionTime() const { return _missionTime; }
+    float missionTime() const { return _progress->time; }
+    /** Shares `progress` with the mission's other maps. */
+    void shareProgress(std::shared_ptr<MissionProgress> progress) { _progress = std::move(progress); }
+    const std::shared_ptr<MissionProgress> &progress() const { return _progress; }
+    /** Whether it's the map shown: only that one counts the mission's time. */
+    void setActive(bool active) { _active = active; }
+    /** The officers its actions have sent to other maps since asked last. */
+    std::vector<Relocation> takeRelocations() { return std::exchange(_relocations, {}); }
+    /** The officer the player chose on the team bar who's on another map, once; -1 for none. */
+    int takeSwitch() { return std::exchange(_switchTo, -1); }
+    /** Officer `officer` arrives here, as `state` left them, at (x, y). */
+    void arrive(size_t officer, const Officer &state, float x, float y);
+    /** Officer `officer` leaves this map. */
+    void depart(size_t officer);
+    /** Where the part named `name` stands; false if there's none. */
+    bool partPosition(const std::string &name, float &x, float &y) const;
     /** Whether the objectives window is open. */
     bool objectivesShown() const { return _objectivesWindow != nullptr; }
 
@@ -460,13 +509,10 @@ private:
     };
     std::vector<Flash> _flashes;
     std::vector<Thrown> _thrown;
-    std::vector<Objective> _objectives;
-    MissionObjectives _mission; // keeps its actions alive
-    bool _won = false;
-    float _missionTime = 0.0f;
-    bool _completed = false;
-    std::string _nextMission;
-    std::string _missionOverText;
+    std::shared_ptr<MissionProgress> _progress;
+    bool _active = true;
+    std::vector<Relocation> _relocations;
+    int _switchTo = -1;
     std::unique_ptr<EndGameWindow> _endGame;
     std::unique_ptr<ObjectivesWindow> _objectivesWindow;
     std::vector<Noise> _noises; // the newest first

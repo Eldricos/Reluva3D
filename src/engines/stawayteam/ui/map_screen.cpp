@@ -111,9 +111,10 @@ const uint8_t *texel(const image::Image &img, int x, int y) {
 } // namespace
 
 MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, const GameOptions &options,
-                     uint64_t now, std::vector<TeamMember> team, WayPoints wayPoints, audio::Mixer *mixer)
+                     uint64_t now, std::vector<TeamMember> team, WayPoints wayPoints, audio::Mixer *mixer,
+                     bool arriving)
     : _data(data), _rules(rules), _map(std::move(map)), _options(options), _last(now), _team(std::move(team)),
-      _wayPoints(std::move(wayPoints)), _mixer(mixer) {
+      _wayPoints(std::move(wayPoints)), _mixer(mixer), _progress(std::make_shared<MissionProgress>()) {
     // The view: Rules.txt's Screen Pos and Screen Size.
     const TextObject *custom = rules.object("Custom Rules");
     readPoint(custom, "Screen Pos", _viewX, _viewY);
@@ -199,16 +200,18 @@ MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, 
                 o.y = p.y;
                 o.direction = int(std::lround(p.facing / 30.0f)) % kDirections;
             }
+        o.present = !arriving;
         _officers.push_back(o);
     }
-    if (!_officers.empty())
+    if (!_officers.empty() && !arriving)
         choose(0);
     _hud = std::make_unique<GameHud>(data, rules, _team, _map.minimap, _map.width, _map.height);
     setupTriggers();
     setupEnemies();
     setupCombat();
     setupItems();
-    runSpawnActions();
+    if (!arriving)
+        runSpawnActions();
 
     // The map's camera scripts play as it starts. The team's spawn points
     // hide them (their CSpawnPointAI's CMakeVisibleAction): one of the
@@ -218,7 +221,7 @@ MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, 
     bool beams = false;
     for (const CameraScript &s : _scripts)
         beams = beams || contains(s.action, "CAddEffectToTeam");
-    _teamShown = !beams;
+    _teamShown = !beams || arriving;
     if (_scripts.empty() && !_officers.empty())
         moveCamera(_officers[0].x, _officers[0].y);
     _dialogBackground = screenPicture(data, "Dialog Window/Background");
@@ -365,8 +368,8 @@ int MapScreen::officerAt(float x, float y) {
     // About their figure: the frames reach from 19 above where they stand
     // to 23 under it (inferred from the walk's bounds).
     for (size_t i = 0; i < _officers.size(); ++i)
-        if (_officers[i].alive() && std::abs(_officers[i].x - x) <= 12.0f && y >= _officers[i].y - 20.0f &&
-            y <= _officers[i].y + 24.0f)
+        if (_officers[i].alive() && _officers[i].present && std::abs(_officers[i].x - x) <= 12.0f &&
+            y >= _officers[i].y - 20.0f && y <= _officers[i].y + 24.0f)
             return int(i);
     return -1;
 }
@@ -378,7 +381,7 @@ void MapScreen::choose(int officer, bool add) {
         for (Officer &o : _officers)
             o.chosen = false;
     Officer &o = _officers[size_t(officer)];
-    o.chosen = o.alive() && (add ? !o.chosen : true);
+    o.chosen = o.alive() && o.present && (add ? !o.chosen : true);
     _selected = -1;
     if (o.chosen)
         _selected = officer;
@@ -397,7 +400,7 @@ void MapScreen::chooseIn(float x0, float y0, float x1, float y1, bool add) {
         for (Officer &o : _officers)
             o.chosen = false;
     for (Officer &o : _officers)
-        if (o.alive() && o.x >= x0 && o.x <= x1 && o.y >= y0 && o.y <= y1)
+        if (o.alive() && o.present && o.x >= x0 && o.x <= x1 && o.y >= y0 && o.y <= y1)
             o.chosen = true;
     _selected = -1;
     for (size_t i = 0; i < _officers.size() && _selected < 0; ++i)
@@ -407,7 +410,7 @@ void MapScreen::chooseIn(float x0, float y0, float x1, float y1, bool add) {
 
 void MapScreen::chooseAll() {
     for (size_t i = 0; i < _officers.size(); ++i) {
-        _officers[i].chosen = _officers[i].alive();
+        _officers[i].chosen = _officers[i].alive() && _officers[i].present;
         if (_selected < 0 && _officers[i].chosen)
             _selected = int(i);
     }
@@ -567,9 +570,10 @@ void MapScreen::update(uint64_t now) {
     const float seconds = float(now - std::min(now, _last)) / 1000.0f;
     _last = now;
     // The windows over the map hold the game still (inferred).
-    if (_endGame || _objectivesWindow)
+    if (_endGame || _objectivesWindow || _progress->over)
         return;
-    _missionTime += seconds;
+    if (_active)
+        _progress->time += seconds;
     playScripts(seconds);
     _warpLeft = std::max(0.0f, _warpLeft - seconds);
     if (!_dialogText.empty()) {
@@ -594,7 +598,7 @@ void MapScreen::update(uint64_t now) {
 }
 
 void MapScreen::drawOfficer(Surface &view, const Officer &o, int left, int top, uint64_t now) {
-    if (!_teamShown)
+    if (!_teamShown || !o.present)
         return;
     const TeamMember &m = _team[o.member];
     int fought = 0;
@@ -658,7 +662,10 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
         _mouseY = ev.mouseY;
     }
     const GameHud::Result hud = _hud->handleEvent(ev, now);
-    if (hud.select >= 0) {
+    if (hud.select >= 0 && !_officers[size_t(hud.select)].present) {
+        // One on another of the mission's maps: that map's shown (inferred).
+        _switchTo = hud.select;
+    } else if (hud.select >= 0) {
         // A click on an officer's slot chooses them, with Shift adds them
         // or takes them away; a double click shows them too (inferred).
         choose(hud.select, (ev.mods & keymod::kShift) != 0);
@@ -953,6 +960,11 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         }
     }
     drawDialog(screen);
+    // The mission ended on another of its maps: its end shown here too.
+    if (_progress->over && !_endGame) {
+        _objectivesWindow.reset();
+        _endGame = std::make_unique<EndGameWindow>(_data, _rules, _progress->completed, _progress->overText, 640, 480);
+    }
     if (_objectivesWindow)
         _objectivesWindow->draw(screen, objectiveLines());
     if (_endGame)

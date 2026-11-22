@@ -162,6 +162,22 @@ another as the map starts:
 - **The team is hidden** till then: each spawn point's `CSpawnPointAI`
   makes who spawns there invisible (`CMakeVisibleAction`).
 
+### A mission's maps
+
+Six missions have more than one map (02, 04, 05, 06, 09 and 15; Mission
+04 five). The team goes from one to another by a
+`CStarTrekRelocateTeamAction` (43 in the maps; a `CSwitchMapActionBase`):
+`New Map Name` ("Mission 02/02 Security deck.zax", its case not the
+file's; Mission 09's without `.zax`), `New Location`, `Who To Switch`
+(`$Instigator`), `Touching Poly` (the officers in it go), `Make this map
+active` (1 for 51 of 54), `Only on this map`, and `Only Relocated
+Selected Members` (13). The places they arrive at are parts numbered for
+each officer ("to lower bay 1" to "to lower bay 4" on the Security
+Deck), or a list (Mission 15's "space1,space2,space3,space4").
+`CStarTrekRelocateAction` (7) moves `Who To Switch` alone, `Relative
+Position` or not; one of Mission 16's names no map, moving them on the
+same one. `CStarTrekRelocateGroupAction` (4) moves a `Group Name`.
+
 ### The map's triggers
 
 Parts with AIs (`Activity`) make the map's events happen: hidden
@@ -466,6 +482,19 @@ Walls don't stop noise *(inferred)*. The sound button, or S, shows the
 noises as yellow rings, squashed up and down as they're heard, the button
 held down meanwhile *(inferred)*.
 
+A mission's maps (`ui/main_menu.cpp`): each is loaded as the team's
+first sent there, its parts as they start, and kept while the mission
+lasts, those the team isn't on going on meanwhile *(inferred)*. A
+relocation's officers are those in its polygon, or else Who To Switch,
+only the chosen ones if it says; each leaves their map and arrives at
+their place, the place's number as they go, or the list's next, or
+beside the place itself, as they were but with nothing under way
+*(inferred)*; the map's shown, them chosen, if it says. An officer on
+another map is out of this one's: not drawn, chosen or seen. Their slot
+chosen on the team bar shows their map *(inferred)*. The mission's
+objectives, end and time are the same on all its maps, the time counted
+while one's shown.
+
 Not there yet: the interface's other buttons, the map's song, the
 triggers set off by enemies, passing through or colliding, the AIs'
 other messages and tasks (going to a place, effects added), walkers
@@ -512,7 +541,8 @@ other states (running away, recharging, investigating a body).
   hit and his health bar down, the shots' flashes on them and on it, and
   it falling; the team running towards a Klingon that listens, the
   rings of their footsteps shown, it coming to look, and back on patrol
-  seven seconds later. Mission 08 run on: the team charging the Klingons,
+  seven seconds later. Every relocation in the maps checked: its map
+  found and its places on it. Mission 08 run on: the team charging the Klingons,
   one hurt retreating to its alarm, and the mission lost to it.
 
 ## Open questions
@@ -544,5 +574,8 @@ other states (running away, recharging, investigating a body).
   degrees as the directions' (90 the viewer's way), the game's path
   finding, its mouse (which button chooses and which sends), the info
   bar's rising, and the frames' movement as a walk's pace.
+- **A mission's maps:** whether those the team's left go on, which place
+  each officer arrives at, what Only on this map does, and the other
+  relocations.
 - **The scripts:** whether the player can move the view while they play,
   how long a line stays, and how the beaming in looks.

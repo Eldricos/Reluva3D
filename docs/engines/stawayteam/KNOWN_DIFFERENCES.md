@@ -50,7 +50,8 @@ None yet.
   ([systems/maps.md](systems/maps.md#in-reluva)).
 - **Objectives:** there's no score, and
   LOAD GAME is greyed out; rescue and need-item objectives are only done
-  as the triggers say; only a mission's first map is played
+  as the triggers say; parts other than the team aren't moved between a
+  mission's maps
   ([systems/objectives.md](systems/objectives.md#in-reluva)).
 - **Items:** only weapons, grenades and the hypospray can be used;
   grenades fly straight, without an arc or bounces; there are no item

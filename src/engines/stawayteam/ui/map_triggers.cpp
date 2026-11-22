@@ -147,7 +147,8 @@ void MapScreen::updateTriggers(float seconds) {
         const float ry = rx * number(ai, "YX Ratio", 1.0f);
         for (size_t o = 0; o < _officers.size() && !t.done; ++o) {
             const Officer &who = _officers[o];
-            const bool answers = byPlayers || (!byName.empty() && lower(_team[who.member].name()) == byName);
+            const bool answers =
+                who.present && (byPlayers || (!byName.empty() && lower(_team[who.member].name()) == byName));
             bool in = false;
             if (answers) {
                 if (ai->className == "CTouchingOvalTriggerAI") {

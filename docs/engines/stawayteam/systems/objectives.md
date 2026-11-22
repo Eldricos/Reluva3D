@@ -155,8 +155,8 @@ over *(inferred)*. The mission's time is counted while its map's played,
 not while a window holds it.
 
 Not there yet: the score and points, rescue and
-need-item objectives' own rules, the objectives shown on the minimap and
-in the info bar, and the mission's other maps.
+need-item objectives' own rules, and the objectives shown on the minimap
+and in the info bar.
 
 ## Sources and checks
 
