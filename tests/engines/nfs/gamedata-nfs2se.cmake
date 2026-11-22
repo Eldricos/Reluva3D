@@ -14,9 +14,10 @@
 #
 # Each step runs reluva-tool on the game:
 #   release  what the game is (detect)
-#   survey   every file of the install and the CD by name, size and MD5,
-#            as one checksum; and every file the engine reads, read and
-#            counted (nfs survey)
+#   survey   the game's files in the install and on the CD by name, size
+#            and MD5, as one checksum (not the CD's REDIST and UTILITY, nor
+#            the folders the game writes); and every file the engine
+#            reads, read and counted (nfs survey)
 #   formats  every archive, picture, string table, font, track, model,
 #            sound, music section and movie frame decoded, each kind as a
 #            checksum (nfs survey -hash)
@@ -68,7 +69,12 @@ if(STEP STREQUAL "release")
         set(record "${record}cd: beside the install\n")
     endif()
 elseif(STEP STREQUAL "survey")
-    # Every file by its path, size and MD5, as one checksum.
+    # The game's files by their path, size and MD5, as one checksum: not
+    # the CD's set-up extras (REDIST, DirectX's installers; UTILITY), which
+    # a copy of the CD may leave out, nor the folders the game writes as
+    # it's played (its settings, records, saves and the track it copies to
+    # race). The listing is left in the step's output folder (files.txt),
+    # to compare with another copy's.
     set(listing "")
     set(count 0)
     foreach(root IN ITEMS "${game_dir}" "${cd_dir}")
@@ -79,12 +85,20 @@ elseif(STEP STREQUAL "survey")
         list(SORT files)
         foreach(f IN LISTS files)
             file(RELATIVE_PATH rel "${root}" "${f}")
+            string(TOLOWER "${rel}" lower)
+            if(lower MATCHES "^(redist|utility)/"
+               OR lower MATCHES "(^|/)fedata/pc/(config|stats|save)/"
+               OR lower MATCHES "(^|/)gamedata/(prefs|tmptrk)/")
+                continue()
+            endif()
             file(SIZE "${f}" size)
             file(MD5 "${f}" md5)
-            string(APPEND listing "${rel} ${size} ${md5}\n")
+            string(APPEND listing "${lower} ${size} ${md5}\n")
             math(EXPR count "${count} + 1")
         endforeach()
     endforeach()
+    file(MAKE_DIRECTORY "${OUTPUT}/${STEP}")
+    file(WRITE "${OUTPUT}/${STEP}/files.txt" "${listing}")
     string(SHA256 sum "${listing}")
     string(SUBSTRING "${sum}" 0 16 sum)
     set(record "${record}files: ${sum} | ${count} files\n")

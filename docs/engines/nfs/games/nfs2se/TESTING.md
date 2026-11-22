@@ -47,7 +47,7 @@ ctest --test-dir out\build\x64-release -L gamedata -R nfs2se
 | Step | What it records |
 |---|---|
 | `release` | The release detection finds, and whether the CD's copy is beside the install |
-| `survey` | Every file of the install and the CD by name, size and MD5, as one checksum; and every file the engine reads, read and counted (`reluva-tool nfs survey`) |
+| `survey` | The game's files in the install and on the CD by name, size and MD5, as one checksum: not the CD's `REDIST` and `UTILITY` (DirectX's installers and tools, which a copy may leave out), nor the folders the game writes as it's played (`FeData/pc/config`, `stats`, `save`, `GameData/Prefs`, `TmpTrk`); the listing is left in the step's output folder as `files.txt`. And every file the engine reads, read and counted (`reluva-tool nfs survey`) |
 | `formats` | Every archive, picture, string table, font, track, model, sound, music section and movie frame decoded, each kind as a checksum (`nfs survey -hash`) |
 | `host` | `nfs2sen.exe` on a clock of instructions (`nfs host -deterministic 300000`): the title movie skipped with Enter, the menu taken to RACE with four Downs, a race at Proving Grounds with Up held; its end state, its system calls and its last frame, as checksums |
 
