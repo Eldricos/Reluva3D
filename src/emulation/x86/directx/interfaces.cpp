@@ -2,7 +2,9 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // The DirectX 7 interfaces' methods in vtable order and their argument
-// counts, and their IIDs, as the SDK's ddraw.h and d3d.h declare them.
+// counts, and their IIDs, as the SDK's ddraw.h and d3d.h declare them; and
+// Direct3D 6's (IDirect3D3 and the objects it makes), as the DirectX 6
+// SDK's d3d.h declares them.
 
 #include "emulation/x86/directx/internal.h"
 
@@ -29,6 +31,13 @@ const char *const kIidRgbDevice = "{a4665c60-2673-11cf-a31a-00aa00b93356}";
 const char *const kIidMmxDevice = "{881949a1-d6f3-11d0-89ab-00a0c9054129}";
 const char *const kIidRefDevice = "{50936643-13e9-11d1-89aa-00a0c9054129}";
 const char *const kIidTexture2 = "{93281502-8cf8-11d0-89ab-00a0c9054129}";
+const char *const kIidRampDevice = "{f2086b20-259f-11cf-a31a-00aa00b93356}";
+const char *const kIidDirect3D3 = "{bb223240-e72b-11d0-a9b4-00aa00c0993e}";
+const char *const kIidDevice3 = "{b0ab3b60-33d7-11d1-a981-00c04fd7b174}";
+const char *const kIidViewport3 = "{b0ab3b61-33d7-11d1-a981-00c04fd7b174}";
+const char *const kIidMaterial3 = "{ca9c46f4-d3c5-11d1-b75a-00600852b312}";
+const char *const kIidLight = "{4417c142-33ad-11cf-816f-0000c020156e}";
+const char *const kIidVertexBuffer = "{7a503555-4a83-11d1-a5db-00a0c90367f8}";
 
 namespace {
 
@@ -199,6 +208,82 @@ Interfaces::Interfaces() {
                      {"SetClipPlane", 2},
                      {"GetClipPlane", 2},
                      {"GetInfo", 3}})};
+    direct3d3 = {"IDirect3D3", kIidDirect3D3,
+                 with({{"EnumDevices", 2},
+                       {"CreateLight", 2},
+                       {"CreateMaterial", 2},
+                       {"CreateViewport", 2},
+                       {"FindDevice", 2},
+                       {"CreateDevice", 4},
+                       {"CreateVertexBuffer", 4},
+                       {"EnumZBufferFormats", 3},
+                       {"EvictManagedTextures", 0}})};
+    device3 = {"IDirect3DDevice3", kIidDevice3,
+               with({{"GetCaps", 2},
+                     {"GetStats", 1},
+                     {"AddViewport", 1},
+                     {"DeleteViewport", 1},
+                     {"NextViewport", 3},
+                     {"EnumTextureFormats", 2},
+                     {"BeginScene", 0},
+                     {"EndScene", 0},
+                     {"GetDirect3D", 1},
+                     {"SetCurrentViewport", 1},
+                     {"GetCurrentViewport", 1},
+                     {"SetRenderTarget", 2},
+                     {"GetRenderTarget", 1},
+                     {"Begin", 3},
+                     {"BeginIndexed", 5},
+                     {"Vertex", 1},
+                     {"Index", 1},
+                     {"End", 1},
+                     {"GetRenderState", 2},
+                     {"SetRenderState", 2},
+                     {"GetLightState", 2},
+                     {"SetLightState", 2},
+                     {"SetTransform", 2},
+                     {"GetTransform", 2},
+                     {"MultiplyTransform", 2},
+                     {"DrawPrimitive", 5},
+                     {"DrawIndexedPrimitive", 7},
+                     {"SetClipStatus", 1},
+                     {"GetClipStatus", 1},
+                     {"DrawPrimitiveStrided", 5},
+                     {"DrawIndexedPrimitiveStrided", 7},
+                     {"DrawPrimitiveVB", 5},
+                     {"DrawIndexedPrimitiveVB", 5},
+                     {"ComputeSphereVisibility", 5},
+                     {"GetTexture", 2},
+                     {"SetTexture", 2},
+                     {"GetTextureStageState", 3},
+                     {"SetTextureStageState", 3},
+                     {"ValidateDevice", 1}})};
+    // IDirect3DViewport's, then IDirect3DViewport2's and 3's additions.
+    viewport3 = {"IDirect3DViewport3", kIidViewport3,
+                 with({{"Initialize", 1},
+                       {"GetViewport", 1},
+                       {"SetViewport", 1},
+                       {"TransformVertices", 4},
+                       {"LightElements", 2},
+                       {"SetBackground", 1},
+                       {"GetBackground", 2},
+                       {"SetBackgroundDepth", 1},
+                       {"GetBackgroundDepth", 2},
+                       {"Clear", 3},
+                       {"AddLight", 1},
+                       {"DeleteLight", 1},
+                       {"NextLight", 3},
+                       {"GetViewport2", 1},
+                       {"SetViewport2", 1},
+                       {"SetBackgroundDepth2", 1},
+                       {"GetBackgroundDepth2", 2},
+                       {"Clear2", 6}})};
+    texture2 = {"IDirect3DTexture2", kIidTexture2, with({{"GetHandle", 2}, {"PaletteChanged", 2}, {"Load", 1}})};
+    material3 = {"IDirect3DMaterial3", kIidMaterial3, with({{"SetMaterial", 1}, {"GetMaterial", 1}, {"GetHandle", 2}})};
+    light = {"IDirect3DLight", kIidLight, with({{"Initialize", 1}, {"SetLight", 1}, {"GetLight", 1}})};
+    vertexBuffer = {
+        "IDirect3DVertexBuffer", kIidVertexBuffer,
+        with({{"Lock", 3}, {"Unlock", 0}, {"ProcessVertices", 7}, {"GetVertexBufferDesc", 1}, {"Optimize", 2}})};
     vertexBuffer7 = {"IDirect3DVertexBuffer7", kIidVertexBuffer7,
                      with({{"Lock", 3},
                            {"Unlock", 0},

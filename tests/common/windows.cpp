@@ -96,6 +96,174 @@ static void testThreads() {
     CHECK(!cpu.call(main, {}, r) && cpu.read32(counter) == 3 && !process.inThread());
 }
 
+// Direct3D 6 (IDirect3D3 from IDirectDraw4), called as a program would:
+// the devices it offers, a viewport cleared to its background material,
+// draws through its clip volume, lighting by the draw's flags and the
+// MATERIAL light state, and a texture's handle.
+static void testDirect3D6() {
+    x86::Cpu cpu(32u << 20);
+    x86::Win32Process process(cpu);
+    x86::DirectX dx(process);
+    dx.modes.push_back({64, 48, 16});
+    dx.drawThreads = x86::DirectX::DrawThreads::kOne;
+    uint32_t r = 0;
+    auto mem = [&](uint32_t size) { return process.memory().alloc(size); };
+    auto guid = [&](const char *g) {
+        const uint32_t a = mem(16);
+        x86::ComHost::writeGuid(cpu, a, g);
+        return a;
+    };
+    auto call = [&](uint32_t self, int index, std::vector<uint32_t> args) {
+        args.insert(args.begin(), self);
+        CHECK(!cpu.call(cpu.read32(cpu.read32(self) + 4 * uint32_t(index)), args, r));
+        return r;
+    };
+    auto bits = [](float f) {
+        uint32_t v;
+        std::memcpy(&v, &f, 4);
+        return v;
+    };
+    const uint32_t out = mem(4);
+    CHECK(!cpu.call(process.provided("DDRAW.dll", "DirectDrawCreate"), {0, out, 0}, r) && r == 0);
+    const uint32_t dd1 = cpu.read32(out);
+    CHECK(call(dd1, 0, {guid("{9c59509a-39bd-11d1-8c4a-00c04fd930c5}"), out}) == 0); // IDirectDraw4
+    const uint32_t dd = cpu.read32(out);
+    CHECK(call(dd, 20, {0, 0x11}) == 0);          // SetCooperativeLevel
+    CHECK(call(dd, 21, {64, 48, 16, 0, 0}) == 0); // SetDisplayMode
+    const uint32_t desc = mem(124);
+    auto clearDesc = [&] {
+        std::memset(cpu.memory().data() + desc, 0, 124);
+        cpu.write32(desc, 124);
+    };
+    clearDesc();
+    cpu.write32(desc + 4, 0x1 | 0x20);
+    cpu.write32(desc + 20, 1);
+    cpu.write32(desc + 104, 0x200 | 0x10 | 0x8 | 0x2000); // PRIMARY, FLIP, COMPLEX, 3DDEVICE
+    CHECK(call(dd, 6, {desc, out, 0}) == 0);
+    const uint32_t primary = cpu.read32(out);
+    const uint32_t caps = mem(16);
+    cpu.write32(caps, 0x4);
+    CHECK(call(primary, 12, {caps, out}) == 0); // GetAttachedSurface: the back buffer
+    const uint32_t back = cpu.read32(out);
+
+    CHECK(call(dd, 0, {guid("{bb223240-e72b-11d0-a9b4-00aa00c0993e}"), out}) == 0); // IDirect3D3
+    const uint32_t d3d = cpu.read32(out);
+    // EnumDevices: software emulation, then the hardware device, whose
+    // hardware description alone says what it can do.
+    std::vector<std::pair<uint32_t, uint32_t>> devices; // hardware's dwFlags, software's
+    const uint32_t enumerate = cpu.addNative("test!EnumDevices6", [&](x86::Cpu &c) {
+        devices.push_back({c.read32(c.arg(3) + 4), c.read32(c.arg(4) + 4)});
+        CHECK(c.read32(c.arg(3)) == 252 && (c.read32(c.arg(4) + 156) & 0x400)); // 16-bit targets
+        c.reg[x86::Cpu::EAX] = 1;
+        return 24u;
+    });
+    CHECK(call(d3d, 3, {enumerate, 0}) == 0);
+    CHECK(devices.size() == 2 && devices[0].first == 0 && devices[0].second != 0 && devices[1].first != 0);
+    CHECK(call(d3d, 8, {guid("{84e63de0-46aa-11cf-816f-0000c020156e}"), back, out, 0}) == 0); // CreateDevice
+    const uint32_t device = cpu.read32(out);
+    CHECK(call(device, 0, {guid("{b0ab3b60-33d7-11d1-a981-00c04fd7b174}"), out}) == 0); // it is a Device3
+
+    // A viewport on the whole target, cleared to its background: a blue material.
+    CHECK(call(d3d, 6, {out, 0}) == 0); // CreateViewport
+    const uint32_t viewport = cpu.read32(out);
+    CHECK(call(device, 5, {viewport}) == 0); // AddViewport
+    const uint32_t vp2 = mem(44);
+    auto setViewport = [&](float clipX, float clipY, float clipW, float clipH) {
+        const uint32_t v[11] = {44, 0, 0, 64, 48, bits(clipX), bits(clipY), bits(clipW), bits(clipH), bits(0), bits(1)};
+        for (uint32_t i = 0; i < 11; ++i)
+            cpu.write32(vp2 + 4 * i, v[i]);
+        CHECK(call(viewport, 17, {vp2}) == 0); // SetViewport2
+    };
+    setViewport(-1, 1, 2, 2);
+    CHECK(call(device, 12, {viewport}) == 0); // SetCurrentViewport
+    CHECK(call(d3d, 5, {out, 0}) == 0);       // CreateMaterial
+    const uint32_t material = cpu.read32(out);
+    const uint32_t mat = mem(80);
+    auto setMaterial = [&](float r, float g, float b) {
+        std::memset(cpu.memory().data() + mat, 0, 80);
+        cpu.write32(mat, 80);
+        for (uint32_t at : {4u, 20u}) { // diffuse and ambient
+            cpu.write32(mat + at, bits(r));
+            cpu.write32(mat + at + 4, bits(g));
+            cpu.write32(mat + at + 8, bits(b));
+            cpu.write32(mat + at + 12, bits(1));
+        }
+        CHECK(call(material, 3, {mat}) == 0); // SetMaterial
+    };
+    setMaterial(0, 0, 1);
+    CHECK(call(material, 5, {device, out}) == 0); // GetHandle
+    const uint32_t blue = cpu.read32(out);
+    CHECK(blue != 0);
+    CHECK(call(viewport, 8, {blue}) == 0);     // SetBackground
+    CHECK(call(viewport, 12, {0, 0, 1}) == 0); // Clear: the target
+    CHECK(call(device, 22, {22, 1}) == 0);     // CULLMODE: none
+
+    // Unlit (D3DDP_DONOTLIGHT), untransformed: XYZ and DIFFUSE.
+    const uint32_t verts = mem(3 * 32);
+    auto vertex = [&](uint32_t i, float x, float y, uint32_t color) {
+        const uint32_t p = verts + i * 16;
+        cpu.write32(p, bits(x));
+        cpu.write32(p + 4, bits(y));
+        cpu.write32(p + 8, bits(0.5f));
+        cpu.write32(p + 12, color);
+    };
+    vertex(0, -1, 1, 0xffff0000u);
+    vertex(1, 1, 1, 0xffff0000u);
+    vertex(2, -1, -1, 0xffff0000u);
+    CHECK(call(device, 9, {}) == 0);                               // BeginScene
+    CHECK(call(device, 28, {4, 0x2 | 0x40, verts, 3, 0x10}) == 0); // DrawPrimitive
+    CHECK(call(device, 10, {}) == 0);                              // EndScene
+    CHECK(call(primary, 11, {0, 1}) == 0);                         // Flip
+    const x86::DirectX::Frame &f = dx.frame();
+    auto at = [&](int x, int y) { return f.pixels[size_t(y * f.width + x)] & 0xffffff; };
+    CHECK(at(4, 4) == 0xff0000 && at(60, 44) == 0x0000ff);
+
+    // A clip volume twice the size: the same triangle covers the middle
+    // quarter's top left, a quarter of the target each way.
+    CHECK(call(viewport, 12, {0, 0, 1}) == 0);
+    setViewport(-2, 2, 4, 4);
+    CHECK(call(device, 28, {4, 0x2 | 0x40, verts, 3, 0x10}) == 0);
+    CHECK(call(primary, 11, {0, 1}) == 0);
+    CHECK(at(20, 14) == 0xff0000 && at(4, 4) == 0x0000ff && at(40, 30) == 0x0000ff);
+    setViewport(-1, 1, 2, 2);
+
+    // Lit (normals, no DONOTLIGHT): no lights, so the material's ambient
+    // colour under the AMBIENT light state; the MATERIAL light state names it.
+    setMaterial(0, 1, 0);
+    CHECK(call(viewport, 12, {0, 0, 1}) == 0);
+    CHECK(call(device, 24, {1, blue}) == 0);        // SetLightState: MATERIAL (the same handle, now green)
+    CHECK(call(device, 24, {2, 0xffffffffu}) == 0); // AMBIENT: white
+    CHECK(call(device, 23, {2, out}) == 0 && cpu.read32(out) == 0xffffffffu);
+    const uint32_t lit = mem(3 * 32);
+    for (uint32_t i = 0; i < 3; ++i) { // D3DFVF_VERTEX: position, normal, texture coordinates
+        const float xy[3][2] = {{-1, 1}, {1, 1}, {-1, -1}};
+        const uint32_t p = lit + i * 32;
+        const uint32_t v[8] = {bits(xy[i][0]), bits(xy[i][1]), bits(0.5f), 0, 0, bits(-1), 0, 0};
+        for (uint32_t k = 0; k < 8; ++k)
+            cpu.write32(p + 4 * k, v[k]);
+    }
+    CHECK(call(device, 40, {0, 1, 2}) == 0); // stage 0 COLOROP: SELECTARG1
+    CHECK(call(device, 40, {0, 2, 0}) == 0); // COLORARG1: diffuse
+    CHECK(call(device, 28, {4, 0x112, lit, 3, 0}) == 0);
+    CHECK(call(primary, 11, {0, 1}) == 0);
+    CHECK(at(4, 4) == 0x00ff00 && at(60, 44) == 0x00ff00); // the background is the same material
+
+    // A texture's IDirect3DTexture2: a handle, and SetTexture with it.
+    clearDesc();
+    cpu.write32(desc + 4, 0x1 | 0x2 | 0x4);
+    cpu.write32(desc + 8, 2);
+    cpu.write32(desc + 12, 2);
+    cpu.write32(desc + 104, 0x1000); // TEXTURE
+    CHECK(call(dd, 6, {desc, out, 0}) == 0);
+    const uint32_t surface = cpu.read32(out);
+    CHECK(call(surface, 0, {guid("{93281502-8cf8-11d0-89ab-00a0c9054129}"), out}) == 0);
+    const uint32_t texture = cpu.read32(out);
+    CHECK(call(texture, 3, {device, out}) == 0 && cpu.read32(out) != 0 && cpu.read32(out) != blue);
+    CHECK(call(device, 38, {0, texture}) == 0);                                          // SetTexture
+    CHECK(call(device, 37, {0, out}) == 0 && cpu.read32(out) == texture);                // GetTexture
+    CHECK(call(primary, 0, {guid("{93281502-8cf8-11d0-89ab-00a0c9054129}"), out}) != 0); // not a texture
+}
+
 // MSVCRT's stand-ins and KERNEL32's files, called as the program would.
 static void testMsvcrtAndFiles(const std::filesystem::path &tmp) {
     std::filesystem::create_directories(tmp / "Game");
@@ -1013,6 +1181,7 @@ static const test::Suite
                {"msvcp60", [](const std::filesystem::path &tmp) { testMsvcp60(tmp / "msvcp60"); }},
                {"windows and registry", [](const std::filesystem::path &) { testWindowsAndRegistry(); }},
                {"directx", [](const std::filesystem::path &) { testDirectX(); }},
+               {"direct3d 6", [](const std::filesystem::path &) { testDirect3D6(); }},
                {"input", [](const std::filesystem::path &) { testInput(); }},
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},

@@ -222,6 +222,8 @@ public:
     std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override;
     const ComInterface *query(const std::string &iid) override;
     ~Surface() override;
+    /** IDirect3DTexture2's methods, on a texture surface (d3d6.cpp). */
+    std::optional<uint32_t> invokeTexture(const ComInterface &iface, int index, Cpu &c);
 
     /**
      * A pixel's value as stored, and one stored; unchecked against the
@@ -288,6 +290,8 @@ public:
     const ComInterface *query(const std::string &iid) override;
     /** IDirect3D7's methods (d3d7.cpp), as ComObject::invoke runs them. */
     std::optional<uint32_t> invoke3d(const ComInterface &iface, int index, Cpu &c);
+    /** IDirect3D3's methods (d3d6.cpp). */
+    std::optional<uint32_t> invoke3d3(const ComInterface &iface, int index, Cpu &c);
 
 private:
     uint32_t createSurface(Cpu &c, const ComInterface &iface);
@@ -312,6 +316,13 @@ struct Interfaces {
     ComInterface direct3d7;
     ComInterface device7;
     ComInterface vertexBuffer7;
+    ComInterface direct3d3;
+    ComInterface device3;
+    ComInterface viewport3;
+    ComInterface texture2;
+    ComInterface material3;
+    ComInterface light;
+    ComInterface vertexBuffer;
     Interfaces();
 };
 
@@ -338,6 +349,13 @@ extern const char *const kIidRgbDevice;
 extern const char *const kIidMmxDevice;
 extern const char *const kIidRefDevice;
 extern const char *const kIidTexture2;
+extern const char *const kIidRampDevice;
+extern const char *const kIidDirect3D3;
+extern const char *const kIidDevice3;
+extern const char *const kIidViewport3;
+extern const char *const kIidMaterial3;
+extern const char *const kIidLight;
+extern const char *const kIidVertexBuffer;
 ///@}
 
 } // namespace reluva::x86::dx
@@ -359,6 +377,12 @@ struct DirectX::State {
     // com too: a device going takes itself out.)
     bool latePending = false;
     std::map<dx::Device *, uint64_t> lateDraws;
+    // Direct3D 6's handles: textures' (IDirect3DTexture2::GetHandle) and
+    // materials' (IDirect3DMaterial3::GetHandle), each counting from 1.
+    // (Before com too: a material going takes its handle out.)
+    std::map<uint32_t, std::weak_ptr<dx::Surface>> textureHandles;
+    std::map<uint32_t, std::weak_ptr<ComObject>> materialHandles;
+    uint32_t nextHandle = 1;
     ComHost com;
     dx::Interfaces interfaces;
     DirectX::Frame frame;

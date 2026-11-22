@@ -13,10 +13,10 @@
 namespace reluva::x86 {
 
 /**
- * DirectDraw and Direct3D 7 for the programs of 1997 to 2001 that use
- * them (DDRAW.dll's DirectDrawCreate, DirectDrawCreateEx and
+ * DirectDraw, and Direct3D 6 and 7, for the programs of 1997 to 2001 that
+ * use them (DDRAW.dll's DirectDrawCreate, DirectDrawCreateEx and
  * DirectDrawEnumerate, and the objects they lead to), written from
- * Microsoft's DirectX 7 documentation. Surfaces live in the process's
+ * Microsoft's DirectX 6 and 7 documentation. Surfaces live in the process's
  * memory, as the programs lock them and write to them; Direct3D's drawing
  * is done into them by a software rasterizer. What reaches the screen
  * (flips to, and blits onto, the primary surface) is handed to the engine

@@ -273,7 +273,7 @@ void Device::transformAndLight(const VertexLayout &layout, uint32_t vertices, ui
     const Matrix view = transforms[2];
     const Matrix proj = transforms[3];
     const Matrix worldView = multiply(world, view);
-    const Matrix all = multiply(worldView, proj);
+    const Matrix all = multiply(multiply(worldView, proj), clipAdjust);
     const bool lighting = renderStates[kLighting] && !layout.rhw;
     const bool colorVertex = renderStates[kColorVertex] != 0;
     const bool specularOn = renderStates[kSpecularEnable] != 0;

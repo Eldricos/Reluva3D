@@ -284,6 +284,8 @@ const ComInterface *Surface::query(const std::string &iid) {
     for (ComInterface *f : {&i.surface7, &i.surface4, &i.surface3, &i.surface2, &i.surface, &i.gammaControl})
         if (iid == f->iid)
             return f;
+    if (iid == i.texture2.iid && (d.caps[0] & kCapsTexture))
+        return &i.texture2;
     return nullptr;
 }
 
@@ -322,6 +324,8 @@ void writeDesc(Cpu &c, uint32_t p, const Surface &s, uint32_t surfaceAddress) {
 } // namespace
 
 std::optional<uint32_t> Surface::invoke(const ComInterface &iface, int index, Cpu &c) {
+    if (&iface == &s->interfaces.texture2)
+        return invokeTexture(iface, index, c);
     const std::string_view m = iface.methods[size_t(index)].name;
     // What reads or writes pixels (or what they're made of) waits for the
     // draws still drawing.

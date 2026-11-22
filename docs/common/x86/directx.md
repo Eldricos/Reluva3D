@@ -1,11 +1,12 @@
-# DirectDraw, Direct3D 7 and DirectInput
+# DirectDraw, Direct3D 6 and 7, and DirectInput
 
 ## What it is
 
 `src/emulation/x86/com.{h,cpp}` makes COM objects programs can call. Each
 interface is a vtable of native functions in the program's memory,
 dispatching to a C++ object. `directx/` has the objects, written from the
-DirectX 7 documentation. Interfaces, method orders and IIDs are the SDK
+DirectX 7 documentation, and Direct3D 6's (`directx/d3d6.cpp`) from the
+DirectX 6 documentation. Interfaces, method orders and IIDs are the SDK
 headers' (`directx/interfaces.cpp`).
 
 ## What Reluva supports
@@ -38,6 +39,37 @@ headers' (`directx/interfaces.cpp`).
     BLENDCURRENTALPHA, mip levels and bilinear filtering;
   - colour keys, the alpha test, vertex and table fog, all the blend
     factors, and the depth test into any Z format.
+- **Direct3D 6:** `IDirect3D3` (from `IDirectDraw4`, as Direct3D 7 is
+  from `IDirectDraw7`) and its device, `IDirect3DDevice3`, which is
+  Direct3D 7's device under a second interface: the same states,
+  transforms, texture stages and drawing. What Direct3D 6 does its own
+  way:
+  - the devices' descriptions (`D3DDEVICEDESC`, 252 bytes), a hardware
+    one and a software one for each device: the software device's
+    hardware description empty, so a program tells them apart;
+    `FindDevice`;
+  - viewports (`IDirect3DViewport3`): a rectangle and a clip volume
+    (`D3DVIEWPORT2`, or `D3DVIEWPORT`'s ±`dvMaxX` by ±`dvMaxY`), mapped
+    after the projection onto Direct3D 7's; a background material, whose
+    diffuse colour `Clear` fills with; `Clear2`; their lights;
+  - materials (`IDirect3DMaterial3`) by handle, which the `MATERIAL`
+    light state names; lights (`IDirect3DLight`, `D3DLIGHT` and
+    `D3DLIGHT2`), their one colour diffuse and specular, on while
+    `D3DLIGHT_ACTIVE`; the other light states as Direct3D 7's render
+    states (`AMBIENT`, the fog's, `COLORVERTEX`);
+  - lighting by draw: vertices with normals are lit unless the draw's
+    flags say `D3DDP_DONOTLIGHT`;
+  - `IDirect3DTexture2` on texture surfaces, with handles, which the
+    `TEXTUREHANDLE` render state also takes; `Load`;
+  - `IDirect3DVertexBuffer`, Direct3D 7's under its older interface;
+    `DrawIndexedPrimitiveVB` with Direct3D 6's arguments.
+
+  Not stood in for: `Begin`, `Vertex` and `End`;
+  `IDirect3DViewport3::TransformVertices` and `LightElements`; the other
+  legacy texture render states (`TEXTUREMAPBLEND` and the like).
+  `ComputeSphereVisibility` says every sphere is wholly inside. Lights'
+  attenuation is taken as Direct3D 7's *(guessed: Direct3D 6's is
+  described the same way)*.
 - **`directx/dinput.cpp`: DINPUT.dll**, DirectInput up to DirectX 7.
   - The system mouse (3 axes, 4 buttons) and keyboard (256 keys by scan
     code), read through the program's data format (the `c_dfDIMouse` and
@@ -86,18 +118,27 @@ checked without a GPU.
 
 ## Sources and checks
 
-- **Where the facts come from:** the DirectX 7 documentation, and the SDK
-  headers for interfaces, method orders and IIDs.
+- **Where the facts come from:** the DirectX 7 documentation, the
+  DirectX 6 documentation for Direct3D 6, and the SDK headers for
+  interfaces, method orders and IIDs.
 
 - `testDirectX` in `tests/common/windows.cpp` (`common.unit.windows`) checks these, called through
   the vtables: a clear, a Gouraud triangle, the depth test, a textured
   quad with point sampling, and a flip.
+
+- `testDirect3D6` checks Direct3D 6 the same way: the devices'
+  descriptions, a viewport cleared to its background material, unlit
+  draws through two clip volumes, a lit draw coloured by the material
+  the `MATERIAL` light state names, and a texture's handle.
 
 - `testInput` checks DirectInput's mouse (its state, its movement since
   the last read, its buffer) and keyboard.
 - **Confidence:** published unless marked.
 
 ## Used by
+
+- **`sfc`**: Starfleet Command II draws through DirectDraw 4 and
+  Direct3D 6 ([hosting.md](../../engines/sfc/games/sfc2/systems/hosting.md)).
 
 - **`netimmerse`**: LEGO Alpha Team draws through DirectDraw and Direct3D 7
   ([running.md](../../engines/netimmerse/games/legoalphateam/systems/running.md)).

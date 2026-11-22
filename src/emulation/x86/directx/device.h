@@ -4,7 +4,8 @@
 // Direct3D 7's device and vertex buffers: the fixed-function pipeline
 // (transform, lighting, clipping, texture stages, fog, alpha and depth
 // tests, blending), drawn in software into DirectDraw surfaces. Constants
-// are the DirectX 7 SDK's (d3dtypes.h).
+// are the DirectX 7 SDK's (d3dtypes.h). Direct3D 6's device is the same
+// object, with its viewports, materials and lights (d3d6.cpp).
 
 #pragma once
 
@@ -302,6 +303,15 @@ public:
 
     std::unordered_map<const Surface *, DecodedTexture> decoded;
 
+    // Direct3D 6: the viewports added to the device and the current one,
+    // the material its MATERIAL light state names (a handle, 0 for none),
+    // and the matrix after the projection that maps the current
+    // viewport's clip volume to Direct3D 7's (identity for Direct3D 7).
+    std::vector<std::shared_ptr<ComObject>> viewports;
+    std::shared_ptr<ComObject> currentViewport;
+    uint32_t materialHandle = 0;
+    Matrix clipAdjust = identity();
+
     /**
      * A device drawing into `renderTarget`, with the Z buffer attached to
      * it if there is one, and Direct3D 7's default states.
@@ -320,6 +330,11 @@ public:
     ///@}
     std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override;
     const ComInterface *query(const std::string &iid) override;
+    /**
+     * IDirect3DDevice3's methods that aren't IDirect3DDevice7's (d3d6.cpp);
+     * nothing for those that are, which invoke then runs.
+     */
+    std::optional<uint32_t> invoke6(const ComInterface &iface, int index, Cpu &c);
 
     /**
      * Draws vertices in the program's memory (FVF layout, `stride` apart);
@@ -361,6 +376,61 @@ private:
     PixelConfig _cfg;
     void configure();
 };
+
+/**
+ * An IDirect3DViewport3: a rectangle of a device's target and the clip
+ * volume mapped onto it (D3DVIEWPORT2), its background, and its lights.
+ */
+class ViewportObject : public ComObject {
+public:
+    DirectX::State *s = nullptr;
+    Viewport area;    // x, y, width, height (minZ and maxZ 0 and 1)
+    float clipX = -1; // the clip volume: its left
+    float clipY = 1;  // top
+    float clipWidth = 2;
+    float clipHeight = 2;
+    float minZ = 0;               // its nearest z
+    float maxZ = 1;               // farthest
+    uint32_t background = 0;      // a material's handle, whose diffuse colour Clear fills with
+    std::weak_ptr<Device> device; // the one it was added to
+    std::vector<std::shared_ptr<ComObject>> lights;
+    std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override;
+    const ComInterface *query(const std::string &iid) override;
+    /** The matrix after the projection that maps its clip volume to Direct3D 7's. */
+    Matrix clipMatrix() const;
+};
+
+/** An IDirect3DMaterial3: a D3DMATERIAL, and its handle once asked for. */
+class MaterialObject : public ComObject {
+public:
+    DirectX::State *s = nullptr;
+    Material material;
+    uint32_t handle = 0;
+    std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override;
+    const ComInterface *query(const std::string &iid) override;
+    ~MaterialObject() override;
+};
+
+/** An IDirect3DLight: a D3DLIGHT or D3DLIGHT2, as a Direct3D 7 light. */
+class LightObject : public ComObject {
+public:
+    DirectX::State *s = nullptr;
+    Light light;        // `enabled` is D3DLIGHT2's D3DLIGHT_ACTIVE (always, for a D3DLIGHT)
+    uint32_t flags = 0; // D3DLIGHT2's
+    uint32_t size = 0;  // the structure's, as it was set
+    std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override;
+    const ComInterface *query(const std::string &iid) override;
+};
+
+/** Writes a D3DPRIMCAPS (56 bytes) at `p`: what the device draws, for lines and for triangles alike. */
+void writePrimCaps(Cpu &c, uint32_t p);
+
+/**
+ * Writes the D3DDEVICEDESC (Direct3D 6's, 252 bytes, or less if `size`
+ * says so) at `p`: the device's capabilities, or, with `filled` false,
+ * only its size, as for the hardware description of a software device.
+ */
+void writeDeviceDesc6(Cpu &c, uint32_t p, uint32_t size, bool filled);
 
 /** Where a vertex's parts are, by its D3DFVF code; offsets in bytes, -1 for none. */
 struct VertexLayout {
