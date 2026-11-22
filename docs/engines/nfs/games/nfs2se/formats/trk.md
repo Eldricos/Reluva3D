@@ -44,27 +44,28 @@ block's offset from the superblock's start.
 | 12 | u32 | the block's number |
 | 16 | 4 × 12 | four 16.16 points: a flat rectangle around the block (47 across on `TR00`'s first) |
 | 64 | u32 | where the extrablock table is, from this field |
-| 68 | 4 × u16 | vertex counts: stick-to-next, then the low, medium and high levels' |
+| 68 | 4 × u16 | vertex counts: those from the next block, then the low, medium and high levels' |
 | 76 | 3 × (u16, u16) | each level's two polygon counts, low to high |
 | 88 | 6 each | the vertices |
 | | 8 each | the polygons, then 0 or 2 bytes to 4 |
 | | 4 × extrablocks | each extrablock's offset from the block's start |
 
-- **Vertices** are three s16, in 256ths of the unit. The first
-  stick-to-next ones are from the **next** block's reference point (the
-  first block's, after the last), and lie on that block's own vertices
-  (23,667 of 23,878 within 2 of one); the others are from this block's.
-  A level uses the stick-to-next vertices and its own count of them; the
-  levels share them, the high one using all.
+- **Vertices** are three s16, in 256ths of the unit. The first ones,
+  as many as the first count, are from the **next** block's reference
+  point (the first block's, after the last), and lie on that block's own
+  vertices (23,667 of 23,878 within 2 of one): they join the blocks. The
+  others are from this block's. A level uses those from the next block
+  and its own count of them; the levels share them, the high one using
+  all.
 - **Polygons**, 8 bytes, always quads: u16 texture, a u16 not worked out
   (`0xFFFF` on many), four vertex indices. Each level has its first
   count's polygons, then its second count's; the second counts are 0, or
   small (2, 4, 8 most often) in 539 of the 1,780 blocks. What sets the second group
   apart isn't known.
 
-Auroux's write-up reads the counts at 76 as three u32; in 539 blocks
-their high halves aren't 0, and only reading them as pairs of u16 puts
-the extrablock table after the polygons, as every block has it.
+The counts at 76 are pairs of u16, not u32: in 539 blocks the second of
+a pair isn't 0, and only adding both puts the extrablock table after the
+polygons, as every block has it.
 
 ### Extrablocks
 
@@ -72,13 +73,13 @@ Each: a u32 size, a u16 id, a u16 record count, the records. Seen:
 
 | Id | Blocks with one | Records |
 |---|---|---|
-| 4 | all | u16: nearby blocks *(published)* |
-| 5 | all | 2 bytes per high-level polygon *(published)* |
-| 6 | all | 8 bytes: polygons along the track's middle *(published)* |
+| 4 | all | u16 block numbers, the first the block's own in every block |
+| 5 | all | 2 bytes for each of the high level's first-count polygons (as many in every block) |
+| 6 | all | 8 bytes, not worked out |
 | 7, 18, 19 | 1,047, 591, 26 | placements of meshes (below) |
 | 8 | 1,275 | meshes (below) |
-| 9 | 862 | 4 bytes: lanes *(published)* |
-| 13 | all | 12 bytes: per polygon, the road's normal and forward *(published)* |
+| 9 | 862 | 4 bytes, not worked out |
+| 13 | all | 12 bytes: two s16 vectors about 32,767 long (5,322 of the 5,338 checked) |
 | 10, 11, 17 | 13, 383, 17 | not worked out |
 
 - **Meshes** (8): a u32 size, u16 vertex count, u16 polygon count, the
@@ -108,14 +109,11 @@ colour toward the sun, and there's no fog or lighting.
 
 ## Sources and checks
 
-- **Where the facts come from:** the tracks themselves; Denis Auroux's
-  "NFSII Unofficial Track File Formats" (1997) and OpenNFS (MIT,
-  `LibOpenNFS`'s NFS2 reader, read only) for the layout, each fact of
-  theirs checked on the files as this page says; the extrablocks marked
-  published are theirs, not checked further.
+- **Where the facts come from:** the tracks themselves, read with survey
+  scripts; no published description of NFS II's tracks is used.
 - **How it was checked:** survey scripts over the 8 tracks (November
   2026): every size, offset and count consistent, every polygon's
-  vertices inside its level, the stick-to-next vertices against the next
+  vertices inside its level, the first vertices against the next
   block's; then the reader on all 8; the unit tests (`nfs.unit.nfs2se`).
 
 ## Open questions

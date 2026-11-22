@@ -34,9 +34,11 @@ Allowed under CONTRIBUTING.md, as for NFS III
 - **Open-source readers, as references only:** OpenNFS (MIT), which reads
   NFS II, and FFmpeg's EA demuxer and decoders (LGPL 2.1+), read to check
   an understanding of a format. No code is copied from them.
-- **Denis Auroux, "NFSII Unofficial Track File Formats"** (1997), the
-  public write-up of `.trk` and `.col`, as for NFS III's formats. Where it
-  and the files differ (the polygon counts), the pages say so.
+- **Not used:** Denis Auroux's "NFSII Unofficial Track File Formats"
+  (1997), the public write-up of `.trk` and `.col`: it forbids using its
+  information commercially, which doesn't sit with the GPL. The `.trk`
+  and `.col` pages rest on the files alone (decided November 2026,
+  [PLAN.md](PLAN.md#decisions)).
 
 ## Methods
 
@@ -44,10 +46,10 @@ Allowed under CONTRIBUTING.md, as for NFS III
   executables use for it, then read with NFS III's readers
   (`reluva-tool nfs survey`) to see which already hold.
 - **NFS II's own formats** ([formats/](formats/)): each read off the
-  files, then checked against the public write-ups below, each fact of
-  theirs that Reluva relies on checked on every retail file by survey
-  scripts, and the geometry looked at (`trk-obj`, `geo-obj`): Proving
-  Grounds a closed circuit, the models cars and a T. rex.
+  files and checked on every retail file by survey scripts, the car
+  models' layout against OpenNFS's reader too, and the geometry looked at
+  (`trk-obj`, `geo-obj`): Proving Grounds a closed circuit, the models
+  cars and a T. rex.
 - **Recognising the release:** the files compared between the install
   and the CD (`cmp`) for ones both have the same, and hashed as
   detection hashes them (MD5 of the first 5000 bytes).

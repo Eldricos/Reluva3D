@@ -21,26 +21,24 @@ namespace reluva::nfs::nfs2se {
 struct Collision {
     /** What a polygon's texture number stands for (extrablock 2). */
     struct Texture {
-        uint16_t picture = 0;   // its place in the track's .qfs
-        uint16_t alignment = 0; // not worked out
-        std::array<uint8_t, 3> colour{};
-        std::array<uint8_t, 3> colour2{};
+        uint16_t picture = 0; // its place in the track's .qfs
+        // Not worked out: a word and two groups of three bytes.
+        uint16_t unknown = 0;
+        std::array<uint8_t, 3> unknown4{};
+        std::array<uint8_t, 3> unknown7{};
     };
     /** A point of the virtual road (extrablock 15), about 8 to a block. */
     struct RoadPoint {
         Point position{};
-        // Each a vector of length about 127: up, forward, right.
+        // Vectors of length about 127: up (mostly), toward the next point,
+        // and across the road (at right angles to both; which side isn't known).
         std::array<int8_t, 3> up{};
         std::array<int8_t, 3> forward{};
-        std::array<int8_t, 3> right{};
+        std::array<int8_t, 3> across{};
         uint16_t block = 0;
-        uint16_t unknown = 0;
-        // How far the road (or its walls) reaches either side of the point,
-        // along `right`; the scale isn't checked against the game.
-        uint16_t leftEdge = 0;
-        uint16_t rightEdge = 0;
-        uint16_t respawn = 0; // not worked out
-        uint32_t unknown2 = 0;
+        // Not worked out: the words at 24, 26, 28 and 30, and the u32 at 32.
+        std::array<uint16_t, 4> unknown{};
+        uint32_t unknown32 = 0;
     };
 
     std::vector<Texture> textures;

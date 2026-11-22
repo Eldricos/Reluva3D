@@ -82,9 +82,9 @@ Error parseCollision(const std::vector<uint8_t> &data, Collision &out) {
                 const uint8_t *p = b.begin + kTextureSize * i;
                 Collision::Texture t;
                 t.picture = le16(p);
-                t.alignment = le16(p + 2);
-                std::memcpy(t.colour.data(), p + 4, 3);
-                std::memcpy(t.colour2.data(), p + 7, 3);
+                t.unknown = le16(p + 2);
+                std::memcpy(t.unknown4.data(), p + 4, 3);
+                std::memcpy(t.unknown7.data(), p + 7, 3);
                 out.textures.push_back(t);
             }
         } else if (b.id == kMeshes) {
@@ -100,13 +100,11 @@ Error parseCollision(const std::vector<uint8_t> &data, Collision &out) {
                     r.position[size_t(c)] = static_cast<float>(static_cast<int32_t>(le32(p + 4 * c))) / 65536.0f;
                 std::memcpy(r.up.data(), p + 12, 3);
                 std::memcpy(r.forward.data(), p + 15, 3);
-                std::memcpy(r.right.data(), p + 18, 3);
+                std::memcpy(r.across.data(), p + 18, 3);
                 r.block = le16(p + 22);
-                r.unknown = le16(p + 24);
-                r.leftEdge = le16(p + 26);
-                r.rightEdge = le16(p + 28);
-                r.respawn = le16(p + 30);
-                r.unknown2 = le32(p + 32);
+                for (int w = 0; w < 4; ++w)
+                    r.unknown[size_t(w)] = le16(p + 24 + 2 * w);
+                r.unknown32 = le32(p + 32);
                 out.road.push_back(r);
             }
         }

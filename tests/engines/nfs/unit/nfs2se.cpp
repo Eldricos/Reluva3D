@@ -58,7 +58,7 @@ Bytes extrablock(uint16_t id, uint16_t count, const Bytes &records) {
     return b;
 }
 
-// A block: one stick-to-next vertex, levels of 1, 2 and 3 own vertices;
+// A block: one vertex from the next block, levels of 1, 2 and 3 own vertices;
 // each level one quad, the high level a second-group quad too; a mesh and
 // two placements. `badIndex` gives the low level a vertex it hasn't.
 Bytes block(uint32_t serial, bool badIndex = false) {
@@ -132,7 +132,7 @@ void testTrack() {
     if (t.blocks.size() != 2)
         return;
     const nfs2se::TrackBlock &b = t.blocks[0];
-    CHECK(b.serial == 0 && b.stickToNext == 1);
+    CHECK(b.serial == 0 && b.fromNext == 1);
     CHECK(b.corners[1][0] == 1.0f && b.reference[2] == 0.0f);
     // Vertex 0 is the next block's, from its point (0, 1, 32); the others
     // from this block's, (0, 0, 0), in 256ths of the unit: (512, 0, 1024).
@@ -175,10 +175,10 @@ void testCollision() {
     textures.insert(textures.end(), {1, 2, 3, 0, 0, 0});
     Bytes road(36, 0);
     putU32(road, 0, 65536 * 2);
-    road[18] = 127; // right
+    road[18] = 127; // across
     road[22] = 3;   // block
-    road[26] = 10;  // left edge
-    road[28] = 20;  // right edge
+    road[26] = 10;
+    road[28] = 20;
     const Bytes blocks[] = {extrablock(2, 1, textures), extrablock(8, 1, mesh()), extrablock(7, 2, placements(1, 2)),
                             extrablock(15, 1, road)};
     for (int i = 0; i < 4; ++i) {
@@ -188,12 +188,12 @@ void testCollision() {
     CHECK(nfs2se::isNfs2Collision(col));
     nfs2se::Collision c;
     CHECK(!nfs2se::parseCollision(col, c));
-    CHECK(c.textures.size() == 1 && c.textures[0].picture == 7 && c.textures[0].colour[2] == 3);
+    CHECK(c.textures.size() == 1 && c.textures[0].picture == 7 && c.textures[0].unknown4[2] == 3);
     CHECK(c.meshes.size() == 1 && c.placements.size() == 2);
     CHECK(c.road.size() == 1);
     if (!c.road.empty()) {
-        CHECK(c.road[0].position[0] == 2.0f && c.road[0].right[0] == 127 && c.road[0].block == 3);
-        CHECK(c.road[0].leftEdge == 10 && c.road[0].rightEdge == 20);
+        CHECK(c.road[0].position[0] == 2.0f && c.road[0].across[0] == 127 && c.road[0].block == 3);
+        CHECK(c.road[0].unknown[1] == 10 && c.road[0].unknown[2] == 20);
     }
     // NFS III's, with 8-byte texture records, isn't.
     Bytes nfs3 = col;

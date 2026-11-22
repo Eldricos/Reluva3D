@@ -25,9 +25,9 @@ record count, the records.
 | Offset | Size | Field |
 |---|---|---|
 | 0 | u16 | the picture's place in the track's `.qfs` |
-| 2 | u16 | not worked out; Auroux and OpenNFS: alignment *(published)* |
-| 4 | 3 | a colour |
-| 7 | 3 | a colour, black on most |
+| 2 | u16 | not worked out |
+| 4 | 3 | not worked out |
+| 7 | 3 | not worked out |
 
 A polygon's texture number is a place in this table. The pictures are
 counted by place, not name: on `TR06` and `TR08` the 3dfx set's names
@@ -47,12 +47,10 @@ objects that aren't any one block's. Their placements are of types 1 and
 | Offset | Size | Field |
 |---|---|---|
 | 0 | 3 × 4 | the point, 16.16 |
-| 12, 15, 18 | 3 × 3 | up, forward and right: s8 vectors, 125 to 127 long |
+| 12, 15, 18 | 3 × 3 | s8 vectors, 125 to 127 long: up (mostly: 13,843 of 14,214), toward the next point (14,208), and across, at right angles to both (14,080) |
 | 21 | 1 | 0 |
 | 22 | u16 | the block, rising to the track's last |
-| 24 | u16 | not worked out |
-| 26, 28 | u16, u16 | the road's reach to the left and right *(published)*; the scale isn't checked |
-| 30 | u16 | not worked out; Auroux and OpenNFS: where a car is put back after a crash *(published)* |
+| 24 to 30 | 4 × u16 | not worked out; 26 and 28 are non-zero in every point |
 | 32 | u32 | not worked out |
 
 Successive points are 2 to 5 apart.
@@ -66,9 +64,8 @@ drawn yet.
 
 ## Sources and checks
 
-- **Where the facts come from:** the files; Denis Auroux's "NFSII
-  Unofficial Track File Formats" (1997) and OpenNFS (MIT, read only) for
-  the layout, checked on the files.
+- **Where the facts come from:** the files, read with survey scripts; no
+  published description of NFS II's `.col` is used.
 - **How it was checked:** survey scripts over the 8 files (November
   2026): the blocks, the records' sizes, the meshes' indices, the road's
   zero byte, vectors, blocks and spacing, the texture places against the
@@ -76,5 +73,5 @@ drawn yet.
 
 ## Open questions
 
-- The road points' words at 24, 30 and 32, and the scale of 26 and 28.
-- The texture records' word at 2 and their two colours.
+- The road points' words at 24 to 32.
+- The texture records' bytes after the picture.

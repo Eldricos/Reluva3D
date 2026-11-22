@@ -172,12 +172,12 @@ Error parseTrack(const std::vector<uint8_t> &data, Track &out) {
             block.corners[size_t(c)] = fixedPoint(p + 16 + 12 * c);
         block.reference = {static_cast<float>(references[b][0]) / kUnit, static_cast<float>(references[b][1]) / kUnit,
                            static_cast<float>(references[b][2]) / kUnit};
-        block.stickToNext = le16(p + 68);
+        block.fromNext = le16(p + 68);
         // Counts by level, low to high detail.
         block.vertexCounts = {le16(p + 70), le16(p + 72), le16(p + 74)};
         const uint16_t firsts[3] = {le16(p + 76), le16(p + 80), le16(p + 84)};
         const uint16_t seconds[3] = {le16(p + 78), le16(p + 82), le16(p + 86)};
-        const uint32_t vertices = block.stickToNext + block.vertexCounts[TrackBlock::kHigh];
+        const uint32_t vertices = block.fromNext + block.vertexCounts[TrackBlock::kHigh];
         uint64_t polygons = 0;
         for (int l = 0; l < 3; ++l)
             polygons += firsts[l] + seconds[l];
@@ -192,10 +192,10 @@ Error parseTrack(const std::vector<uint8_t> &data, Track &out) {
 
         const auto &next = references[(b + 1) % blocks];
         for (uint32_t v = 0; v < vertices; ++v)
-            block.vertices.push_back(vertexFrom(p + 88 + 6 * v, v < block.stickToNext ? next : references[b]));
+            block.vertices.push_back(vertexFrom(p + 88 + 6 * v, v < block.fromNext ? next : references[b]));
         const uint8_t *q = p + polygonsAt;
         for (int l = 0; l < 3; ++l) {
-            const uint32_t limit = block.stickToNext + block.vertexCounts[size_t(l)];
+            const uint32_t limit = block.fromNext + block.vertexCounts[size_t(l)];
             for (int group = 0; group < 2; ++group)
                 for (uint16_t k = 0; k < (group ? seconds[l] : firsts[l]); ++k, q += 8) {
                     const Quad poly = quad(q);

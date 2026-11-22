@@ -70,10 +70,10 @@ struct TrackBlock {
     uint16_t unknown = 0;           // the header's word at 10: 8 times the block's number in every block
     std::array<Point, 4> corners{}; // a flat rectangle around the block
     Point reference{};              // its point in the file's table of them
-    // Vertices: the first stickToNext are the next block's (relative to its
+    // Vertices: the first fromNext are the next block's (relative to its
     // reference point), then the block's own. A level uses the first
-    // stickToNext + its count of them.
-    uint16_t stickToNext = 0;
+    // fromNext + its count of them.
+    uint16_t fromNext = 0;
     std::array<uint16_t, 3> vertexCounts{}; // by LevelIndex
     std::vector<Point> vertices;            // absolute
     std::array<Level, 3> levels;
