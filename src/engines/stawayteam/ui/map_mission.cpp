@@ -84,7 +84,8 @@ bool MapScreen::partPosition(const std::string &name, float &x, float &y) const 
 }
 
 std::string MapScreen::objectiveText(const Objective &o) const {
-    // Its line of its script, a count's "%d" its count so far ("(%d of 2)").
+    // Its line of its script, a count's "%d" its count so far ("(%d of 2)"),
+    // a rescue's "%s" whom it's of (inferred).
     std::vector<uint8_t> bytes;
     std::string text;
     if (!_data.read("Levels/" + o.script + ".RDS", bytes)) {
@@ -95,6 +96,12 @@ std::string MapScreen::objectiveText(const Objective &o) const {
     const size_t at = text.find("%d");
     if (at != std::string::npos)
         text.replace(at, 2, std::to_string(o.count));
+    const size_t named = text.find("%s");
+    if (named != std::string::npos)
+        text.replace(named, 2,
+                     o.officer >= 0 && size_t(o.officer) < _officers.size()
+                         ? _team[_officers[size_t(o.officer)].member].name()
+                         : o.who);
     return text;
 }
 
@@ -102,6 +109,13 @@ void MapScreen::setObjectives(MissionObjectives objectives) {
     // The mission's own first, then those the map has added already (its
     // spawn points').
     _progress->mission = std::move(objectives);
+    // Whom they protect or rescue, an officer by name; one not on the team
+    // yet is a part of the map (Mission 08's Worf).
+    for (Objective &o : _progress->mission.objectives)
+        for (size_t i = 0; i < _officers.size(); ++i)
+            if (!o.who.empty() && (lower(_team[_officers[i].member].name()) == lower(o.who) ||
+                                   lower(_team[_officers[i].member].id) == lower(o.who)))
+                o.officer = int(i);
     _progress->objectives.insert(_progress->objectives.begin(), _progress->mission.objectives.begin(),
                                  _progress->mission.objectives.end());
 }
@@ -153,12 +167,127 @@ void MapScreen::setObjectiveStatus(size_t objective, ObjectiveStatus status) {
 }
 
 void MapScreen::officerFell(size_t officer) {
-    // Who's protected has failed to be (inferred).
-    for (size_t i = 0; i < _progress->objectives.size(); ++i)
-        if (_progress->objectives[i].officer == int(officer) &&
-            _progress->objectives[i].className == "CProtectMissionObjective" &&
-            _progress->objectives[i].status == ObjectiveStatus::kIncomplete)
+    // Who's protected or to be rescued has failed to be (inferred).
+    for (size_t i = 0; i < _progress->objectives.size(); ++i) {
+        const Objective &o = _progress->objectives[i];
+        if (o.officer == int(officer) &&
+            (o.className == "CProtectMissionObjective" || o.className == "CRescueMissionObjective") &&
+            o.status == ObjectiveStatus::kIncomplete)
             setObjectiveStatus(i, ObjectiveStatus::kFailed);
+    }
+}
+
+void MapScreen::partFell(size_t part) {
+    // A character killed who was to be rescued or protected, by name: that
+    // objective fails (Mission 08's Worf: the mission's lost; inferred).
+    const std::string name = lower(_map.parts[part].name);
+    if (name.empty())
+        return;
+    for (size_t i = 0; i < _progress->objectives.size(); ++i) {
+        const Objective &o = _progress->objectives[i];
+        if (o.officer < 0 && lower(o.who) == name &&
+            (o.className == "CProtectMissionObjective" || o.className == "CRescueMissionObjective") &&
+            o.status == ObjectiveStatus::kIncomplete)
+            setObjectiveStatus(i, ObjectiveStatus::kFailed);
+    }
+}
+
+size_t MapScreen::addMember(const TeamMember &member, bool present, float x, float y) {
+    // As the team's set up: their model's Hit Points, their items as the
+    // roster gives them, the weapon they shoot with chosen.
+    _team.push_back(member);
+    Officer o;
+    o.member = _team.size() - 1;
+    o.x = x;
+    o.y = y;
+    o.present = present;
+    const ModelInfo &info = modelInfo(member.bodyModel);
+    o.maxHealth = info.hitPoints > 0 ? float(info.hitPoints) : kDefaultHealth;
+    o.health = o.maxHealth;
+    std::vector<std::string> names;
+    for (const TeamMember::Item &held : member.inventory) {
+        names.push_back(held.name);
+        const auto def = _items.find(held.name);
+        const int rounds = def != _items.end() ? def->second.rounds : 0;
+        o.items.push_back({held.name,
+                           held.count > 0 ? held.count
+                           : rounds > 0   ? rounds
+                                          : -1,
+                           def != _items.end() && def->second.stuns});
+    }
+    o.weapon = weaponOf(names);
+    for (size_t k = 0; k < o.items.size(); ++k)
+        if (o.weapon && o.items[k].name == o.weapon->name && o.item < 0)
+            o.item = int(k);
+    _officers.push_back(o);
+    for (Trigger &t : _triggers) {
+        t.touching.resize(_officers.size(), false);
+        t.nextRepeat.resize(_officers.size(), 0.0f);
+    }
+    _hud->addMember(member);
+    return _officers.size() - 1;
+}
+
+bool MapScreen::runTeamAction(const TextObject *action, int instigator, int trigger) {
+    const std::string &kind = action->className;
+    if (kind == "CAddToTeamAction") {
+        // A character joins the team where they stand (Data, Worf, a
+        // rescued warrior): the roster's officer of their name, else one
+        // made of their part, its model their body; the part's gone from
+        // the map, its AI with it (inferred).
+        const std::string name = readText(action, "Who To Add");
+        std::vector<size_t> parts;
+        const int who = whoNamed(name, instigator, trigger);
+        if (who >= 0)
+            return true;
+        if (who <= kEnemyInstigator && size_t(kEnemyInstigator - who) < _enemies.size())
+            parts.push_back(_enemies[size_t(kEnemyInstigator - who)].part);
+        else
+            parts = partsNamed(name, trigger);
+        if (_roster.empty())
+            (void)loadRoster(_data, _roster);
+        for (size_t part : parts) {
+            const MapPart &p = _map.parts[part];
+            if (_partStates[part].deleted)
+                continue;
+            TeamMember member;
+            member.firstName = p.name;
+            member.bodyModel = p.model;
+            for (const TeamMember &m : _roster) {
+                const std::string full = lower(m.name());
+                const std::string mine = lower(p.name);
+                if (full == mine || lower(m.id) == mine || (!m.firstName.empty() && mine.ends_with(lower(m.firstName))))
+                    member = m;
+            }
+            float x = 0.0f;
+            float y = 0.0f;
+            placeOf(part, x, y);
+            _partStates[part].deleted = true;
+            const size_t officer = addMember(member, true, x, y);
+            // Whose rescue or protection names them is theirs now.
+            for (Objective &o : _progress->objectives)
+                if (o.officer < 0 && lower(o.who) == lower(p.name))
+                    o.officer = int(officer);
+        }
+    } else if (kind == "CRemoveFromTeamAction") {
+        // They leave the team: gone from this map (inferred).
+        const int who = whoNamed(readText(action, "Who To Remove"), instigator, trigger);
+        if (who >= 0 && size_t(who) < _officers.size())
+            depart(size_t(who));
+    } else if (kind == "CPauseActorAction" || kind == "CUnpauseActorAction") {
+        // An actor held still, and let go (a scientist till they're
+        // reached; inferred).
+        const int who = whoNamed(readText(action, "Target"), instigator, trigger);
+        if (kind == "CPauseActorAction")
+            hold(who, kHeldForever);
+        else if (who >= 0 && size_t(who) < _officers.size())
+            _officers[size_t(who)].held = 0.0f;
+        else if (who <= kEnemyInstigator && size_t(kEnemyInstigator - who) < _enemies.size())
+            _enemies[size_t(kEnemyInstigator - who)].held = 0.0f;
+    } else {
+        return false;
+    }
+    return true;
 }
 
 void MapScreen::runSpawnActions() {

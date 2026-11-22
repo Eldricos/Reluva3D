@@ -191,6 +191,23 @@ the main menu?" (`0x5bb190`).
 - **The waypoints** (`<map>.way`, a `CWayPointMap`): points
   `MinDistBetweenWayPoints` (15) apart over where walkers can go, lines
   joining those within `MaxDistToConnect` (29).
+- **Going round one another:** a walker's moving behaviour has a `Path
+  Collide Checker` (`CPathCollideChecker`), and a wanderer's AI a
+  `TimeOfLastChangeDirectionDueToCollide`; how they keep apart isn't
+  traced.
+- **Joining the team:** `CAddToTeamAction` (`Who To Add`: Data, Ambassador
+  Worf, Brexen Ijoula, Ivan Verov, and `$Trigger` 19 times) makes a
+  character of the map one of the team, given a `CPlayerAI` as well;
+  `CRemoveFromTeamAction` (17) takes one off it. Data and Worf are in the
+  roster (`Character/Starting Roster`).
+- **Rescues:** a prisoner is a character with an enemy's AI whose `Valid
+  Targets` are none (Mission 01's scientists). The map's actions rescue
+  them: in Mission 01, Computer Systems on a panel lowers the force field
+  (a door), gives the scientist a touching trigger, and an officer
+  reaching them sets off a dialog, a camera script (`Pause Actors`) with
+  `CPauseActorAction` and `CUnpauseActorAction`, the scientist beamed out,
+  and the objective's count. Who speaks is chosen by `CCheckForClassAction`
+  (116), the officer's field (`Class` Security, Science, Medical).
 
 ### The camera's scripts
 
@@ -661,6 +678,21 @@ naming it, Delete When Finished), it's held still and fades over the
 warp's time, then is gone *(inferred: the transporter's pictures aren't
 drawn)*.
 
+Walkers go round one another (`ui/map_screen.cpp`): a step that would
+bring them within 14 pixels of an officer or enemy ahead turns 30, 60 or
+90 degrees either way to pass; with no way past, they wait, and after a
+second go on; near where they're going, whoever's on it is stopped short
+of, not gone round *(inferred)*.
+
+A character added to the team (`ui/map_mission.cpp`) becomes an officer
+where they stand: the roster's of their name, or one made of their part,
+its model their body *(inferred)*; their part's gone, its AI with it,
+and they're on the team bar, and on the mission's other maps as away
+from them *(inferred)*. Taken off the team, they leave the map
+*(inferred)*. A paused actor's held still till unpaused. A touching
+trigger on a character goes where they go. A class check is of the
+officer's field.
+
 The triggers (`ui/map_triggers.cpp`): the anything-touching, team,
 collide and pass-through ones as above *(inferred)*; the touching ones
 Triggered By Enemies, or Anything, answer to the enemies too, each as an
@@ -732,8 +764,9 @@ other messages and tasks (CSendMessageAction's to animations and
 particles), walkers going round each other, enemies targeting each other
 (Valid Targets Enemy), the DoSomething and Inactive states, the
 enemies' own noises and footsteps' sounds by the ground, the shots' beams
-and projectiles, missing, thrown and laid weapons, and the doors opening
-by themselves (CDoorAI's own Triggered By flags).
+and projectiles, missing, thrown and laid weapons, the doors opening
+by themselves (CDoorAI's own Triggered By flags), the camera scripts'
+Pause Actors, and those off the team still on its bar.
 
 ## Sources and checks
 
@@ -789,7 +822,13 @@ guard investigating a body once, a recharge's time and its End Recharge
 going forward, an enemy beamed out and gone after its warp time; a door
 opening for an officer near and its After Opened, closing after she's
 gone, a crate bumped into, a wire set off by an enemy sent to it, and
-the team in a square. Every relocation in the maps checked: its map
+the team in a square; an officer walking round another and stopping
+short of one on her spot, a prisoner joining the team, an actor paused
+and let go, and a class check. Mission 01: Ivan Verov using Computer
+Systems on the panel (the pointer its Generic Use), the force field
+lowered, walking to the first scientist, and the scientist beamed out
+after the dialog and camera script; a trapped Klingon joining the team
+and walking where sent. Every relocation in the maps checked: its map
   found and its places on it. Mission 08 run on: the team charging the Klingons,
   one hurt retreating to its alarm, and the mission lost to it.
 
@@ -817,6 +856,8 @@ the team in a square. Every relocation in the maps checked: its map
 - **The states:** when the program changes them and in what order it
   runs their actions and transitions; what makes a low-health enemy run
   away (`0x42b0e2`), and when it looks for bodies.
+- **Walking:** how the program's walkers keep apart, and how a joined
+  character's made an officer.
 - **Doors:** when one stops blocking, and what their own Triggered By
   flags do.
 - **Noise:** which sides hear which noises, what `0x497d40` checks

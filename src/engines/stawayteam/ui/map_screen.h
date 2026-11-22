@@ -68,6 +68,8 @@ class MapScreen {
 public:
     /** An instigator that's enemy `e`: kEnemyInstigator - e (officers are 0 up). */
     static constexpr int kEnemyInstigator = -1000;
+    /** Hit points for a character whose model gives none (inferred). */
+    static constexpr float kDefaultHealth = 100.0f;
     /** Held to a task till told it's done. */
     static constexpr float kHeldForever = 1e9f;
     /**
@@ -111,6 +113,7 @@ public:
         int direction = 0;                         // of their model's 12, 0 facing left
         std::vector<std::pair<float, float>> path; // where they're walking to, the next first
         float travelled = 0.0f;                    // into their walk's cycle, in pixels
+        float waited = 0.0f;                       // seconds they've waited for someone in their way
         int move = 0;                              // walking, running (1) or crouching (2)
         bool chosen = false;                       // among those the player has chosen
         float health = 0.0f;
@@ -158,6 +161,13 @@ public:
         bool down() const { return dead >= 0.0f || stunned > 0.0f || !present; }
     };
     const std::vector<Officer> &officers() const { return _officers; }
+    /** The team: each officer's member, by their `member`. */
+    const std::vector<TeamMember> &team() const { return _team; }
+    /**
+     * Another officer: `member`, here at (x, y) if `present`, else on
+     * another of the mission's maps; their place among the officers.
+     */
+    size_t addMember(const TeamMember &member, bool present, float x, float y);
     /** The officer chosen first: whose items the inventory shows; -1 for none. */
     int selected() const { return _selected; }
     /** Chooses officer `officer` alone, or, with `add`, adds or takes them away. */
@@ -203,6 +213,7 @@ public:
         bool walking = false;
         bool running = false;   // walking at its Run's pace and frames
         float travelled = 0.0f; // into its walk's cycle
+        float waited = 0.0f;    // seconds it's waited for someone in its way
         // Investigating a noise: where it was heard, the way there, and how
         // long it's looked about since getting there.
         float heardX = 0.0f;
@@ -445,6 +456,13 @@ private:
     // The enemies' messages and actions on them (map_enemies.cpp); true if
     // `action` was one.
     bool runEnemyAction(const TextObject *action, int instigator, int trigger);
+    // The team's (map_mission.cpp): characters joining and leaving it, and
+    // actors paused.
+    bool runTeamAction(const TextObject *action, int instigator, int trigger);
+    // A part killed: whose rescue or protection fails.
+    void partFell(size_t part);
+    // The roster, for characters joining by name.
+    std::vector<TeamMember> _roster;
     // An enemy's state changed, its actions and transitions run.
     void setState(Enemy &e, const std::string &to);
     // A state's name as CBorgAI's field for it: "Run Away" is RunAway.
@@ -568,6 +586,11 @@ private:
     void drawVision(Surface &view, int left, int top) const;
     void drawPause(Surface &screen, uint64_t now);
     void walk(Officer &o, float seconds);
+    // A step of `step` pixels from (x, y) along (ux, uy), turned aside if
+    // someone's in the way (the officer or enemy given isn't), unless it's
+    // `toGo` from where it's going; false if there's no way past, the way
+    // left as it was.
+    bool stepAside(float x, float y, float &ux, float &uy, float step, float toGo, int officer, int enemy) const;
     void drawOfficer(Surface &view, const Officer &o, int left, int top, uint64_t now);
     const Animation &animation(const std::string &model, const std::string &sequence);
     // The officer at (x, y) on the map, or -1.

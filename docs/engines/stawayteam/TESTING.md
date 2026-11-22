@@ -143,7 +143,11 @@ stawayteam frame-png`.
    the team going to look where it saw them; a Klingon's body found by
    another, raising the alarm; an enemy beamed out by its alarm; the
    doors of Mission 02's ship opening for the team and the crew and
-   closing after them;
+   closing after them; the team walking round one another and the
+   enemies; Mission 01's first scientist rescued (Computer Systems on the
+   panel, the force field down, the scientist reached and beamed out, the
+   count); Data joining the team in Mission 05; Worf's death failing
+   Mission 08;
    enemies called by one
    that's seen the team, running after it out of sight, and retreating to
    their alarms when hurt (Mission 08); a grenade chosen on the bar or

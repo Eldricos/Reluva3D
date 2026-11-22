@@ -38,7 +38,10 @@ has:
 - **Its kind:** a `CCountMissionObjective` (13 in the missions) has
   `Count Before Success` and `Current Count`; a `CProtectMissionObjective`
   `WhoToProtect`, a `CRescueMissionObjective` (4) `WhoToRescue`, a
-  `CNeedItemMissionObjective` `Item Needed`.
+  `CNeedItemMissionObjective` `Item Needed`. Rescues: Data (Mission 05),
+  Worf (Mission 08, its Fail Action the mission failed: "You have allowed
+  Ambassador..."), and Mission 13's added ones, `$instigator`, their line
+  "Rescue %s.". The map's actions complete them.
 
 Mission 01 has three: rescue the two scientists (a count of 2, required),
 free the pinned-down warriors (a count of 3, not required), and retrieve
@@ -133,8 +136,10 @@ with every objective that's required and not disabled complete, the Win
 Action runs, once *(inferred)*. Each
 spawn point's Spawn Action runs as the map starts, its officer the
 instigator *(inferred)*; a protect objective's `$instigator` is that
-officer, and it fails as they fall *(inferred)*. A part's Destroyed
-Action runs as an enemy is killed.
+officer, and it fails as they fall *(inferred)*. A rescue fails likewise
+as its officer falls, or as the character of its name is killed, till
+they've joined the team; its "%s" is their name *(inferred)*. A part's
+Destroyed Action runs as an enemy is killed.
 
 The objectives window (`ui/objectives_window.cpp`) opens from the
 objectives button and O, listing the objectives shown; RESUME or Esc
@@ -157,8 +162,8 @@ not while a window holds it.
 Where to go is shown on the minimap by its points of interest
 ([maps.md](maps.md#the-interface)).
 
-Not there yet: the score and points, and rescue and need-item
-objectives' own rules.
+Not there yet: the score and points, and need-item objectives' own
+rules.
 
 ## Sources and checks
 
@@ -185,7 +190,8 @@ objectives' own rules.
 - **The manager:** when it runs the Win Action, whether a failed
   required objective ends the mission by itself, and how the score's
   reckoned.
-- **Rescue and need-item objectives:** how they're completed.
+- **Rescue and need-item objectives:** whether the program completes or
+  fails them itself, or only the maps' actions do.
 - **The windows:** where they're placed, whether the game's held still
   under them, and what the Objectives Menu's `Placar Condensed` font is
   for.

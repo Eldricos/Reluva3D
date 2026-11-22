@@ -486,6 +486,15 @@ void MainMenu::moveOfficers() {
     // go ("to lower bay 1" to "4", as the maps have them), or side by side
     // about the place itself (inferred); without a map named, on the same
     // one. The map's shown if the action says.
+    // One who's joined the team on one map is on the others' team bars
+    // too, there elsewhere.
+    const MapScreen *largest = nullptr;
+    for (auto &[name, map] : _maps)
+        if (!largest || map->officers().size() > largest->officers().size())
+            largest = map.get();
+    for (auto &[name, map] : _maps)
+        while (largest && map->officers().size() < largest->officers().size())
+            map->addMember(largest->team()[largest->officers()[map->officers().size()].member], false, 0.0f, 0.0f);
     std::vector<std::pair<MapScreen *, Relocation>> moves;
     for (auto &[name, map] : _maps)
         for (Relocation &r : map->takeRelocations())
@@ -537,7 +546,7 @@ void MainMenu::moveOfficers() {
         if (officer < 0)
             continue;
         for (auto &[other, each] : _maps)
-            if (each->officers()[size_t(officer)].present) {
+            if (size_t(officer) < each->officers().size() && each->officers()[size_t(officer)].present) {
                 showMap(each.get());
                 each->choose(officer);
                 each->moveCamera(each->officers()[size_t(officer)].x, each->officers()[size_t(officer)].y);

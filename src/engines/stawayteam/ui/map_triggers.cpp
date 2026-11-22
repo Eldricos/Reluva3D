@@ -177,15 +177,7 @@ void MapScreen::updateTriggers(float seconds) {
                 who.present && (byPlayers || (!byName.empty() && lower(_team[who.member].name()) == byName));
             bool in = false;
             if (answers) {
-                if (oval) {
-                    if (rx > 0.0f && ry > 0.0f) {
-                        const float dx = (who.x - p.x) / rx;
-                        const float dy = (who.y - p.y) / ry;
-                        in = dx * dx + dy * dy <= 1.0f;
-                    }
-                } else if (p.polygon.size() >= 3) {
-                    in = inside(p.polygon, who.x, who.y);
-                }
+                in = touches(t, who.x, who.y);
             }
             const int instigator = int(o);
             if (in && !t.touching[o]) {
@@ -255,14 +247,19 @@ void MapScreen::updateTriggers(float seconds) {
 bool MapScreen::touches(const Trigger &t, float x, float y) const {
     // In its oval (X Radius across, YX Ratio of that up and down) or its
     // part's polygon.
+    // About where its part is now: a character's, as it walks (a
+    // scientist's to be reached).
     const MapPart &p = _map.parts[t.part];
     if (t.ai->className.find("Oval") != std::string::npos) {
         const float rx = number(t.ai, "X Radius");
         const float ry = rx * number(t.ai, "YX Ratio", 1.0f);
         if (rx <= 0.0f || ry <= 0.0f)
             return false;
-        const float dx = (x - p.x) / rx;
-        const float dy = (y - p.y) / ry;
+        float px = 0.0f;
+        float py = 0.0f;
+        placeOf(t.part, px, py);
+        const float dx = (x - px) / rx;
+        const float dy = (y - py) / ry;
         return dx * dx + dy * dy <= 1.0f;
     }
     return p.polygon.size() >= 3 && inside(p.polygon, x, y);
@@ -381,7 +378,7 @@ bool MapScreen::updateOtherTrigger(Trigger &t, float seconds) {
 
 void MapScreen::runAction(const TextObject *action, int instigator, int trigger) {
     if (!action || runMissionAction(action, instigator) || runEnemyAction(action, instigator, trigger) ||
-        runGadgetAction(action, instigator, trigger))
+        runGadgetAction(action, instigator, trigger) || runTeamAction(action, instigator, trigger))
         return;
     const std::string &kind = action->className;
     const auto targets = [&](const char *key) {

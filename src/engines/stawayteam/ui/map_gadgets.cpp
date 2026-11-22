@@ -271,6 +271,13 @@ bool MapScreen::checkAction(const TextObject *attempt, int instigator, int trigg
                 return true;
         return false;
     }
+    if (kind == "CCheckForClassAction") {
+        // An officer of a field: Security, Science, Medical... (116 in the
+        // maps, choosing who speaks).
+        const int who = whoNamed(readText(attempt, "Who To Check"), instigator, trigger);
+        return who >= 0 && size_t(who) < _officers.size() &&
+               lower(_team[_officers[size_t(who)].member].field) == lower(readText(attempt, "Class"));
+    }
     if (kind == "CCheckCategoryAction") {
         const std::string wanted = readText(attempt, "Category to Check");
         for (size_t part : partsNamed(readText(attempt, "Who to Check"), trigger))

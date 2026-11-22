@@ -57,6 +57,13 @@ GameHud::GameHud(const Archive &data, const TextObject &rules, std::vector<TeamM
     (void)_font.load(data, "Trek Small");
 }
 
+void GameHud::addMember(const TeamMember &member) {
+    _team.push_back(member);
+    _heads.push_back(cachePicture(_data, "Character/Character Icons/" + member.headIcon));
+    if (!_fieldFonts.count(member.field))
+        (void)_fieldFonts[member.field].load(_data, fieldFont(member.field));
+}
+
 const image::Image &GameHud::picture(const std::string &name) {
     auto it = _pictures.find(name);
     if (it == _pictures.end())

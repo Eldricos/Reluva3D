@@ -1417,6 +1417,92 @@ void testDoors() {
     CHECK(screen.partState(part("Gathered")).active);
 }
 
+void testCompany() {
+    // Ann and Bo; a prisoner to rescue, another to join the team, a third
+    // held still; a lamp lit for a scientist.
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    const auto character = [](const std::string &name, int x, int y) {
+        return "Level Part=CEntityWalking\n{\nName=" + name +
+               "\nActivity=Array\n{\nItem Count=1\nActivity=CBorgAI\n{\nCurrent State=Patrol\n"
+               "Targeting=CBorgSetClosestTarget\n{\nValid Targets=\n}\n}\n}\nModel=Characters/Guard\nPosition X=" +
+               std::to_string(x) + "\nPosition Y=" + std::to_string(y) + "\n}\n";
+    };
+    const std::string zax =
+        "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=500.000000,300.000000\nTree List=CSortList2D\n{\n" +
+        character("Prisoner", 1500, 1500) + character("Helper", 1200, 300) + character("Sleeper", 1500, 300) +
+        "Level Part=CEntityBase\n{\nName=Lamp\nActive=0\n}\n"
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=300\n}\n"
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 2\nPosition X=400\nPosition Y=300\n}\n}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = bytesOf(zax);
+    data.files["Levels/Test.RDS"] = bytesOf(":Rescue\r\nRescue %s.\r\n");
+    data.files["Cache/Models/Characters/Guard.mdl16"] = modelFile("Guard", 1, 1);
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    ann.field = "Science";
+    TeamMember bo;
+    bo.firstName = "Bo";
+    MapScreen screen(data, rules, map, options, 0, {ann, bo});
+    const auto &officers = screen.officers();
+    const auto &enemies = screen.enemies();
+    uint64_t now = 0;
+    const auto run = [&](uint64_t until) {
+        while (now < until)
+            screen.update(now += 50);
+    };
+    const auto act = [&](const std::string &text) {
+        TextObject action;
+        CHECK(!readTextObject(text, action));
+        screen.runAction(&action);
+    };
+    // Ann walks to the far side of Bo, round him, not through.
+    screen.choose(0);
+    screen.order(500.0f, 300.0f);
+    float nearest = 1e9f;
+    for (int k = 0; k < 200; ++k) {
+        run(now + 50);
+        nearest = std::min(nearest, std::hypot(officers[0].x - officers[1].x, officers[0].y - officers[1].y));
+    }
+    CHECK(std::hypot(officers[0].x - 500.0f, officers[0].y - 300.0f) < 2.0f && nearest >= 12.0f);
+    // Sent onto Bo's spot, she stops short of him.
+    screen.order(officers[1].x, officers[1].y);
+    run(now + 6000);
+    CHECK(officers[0].path.empty() &&
+          std::hypot(officers[0].x - officers[1].x, officers[0].y - officers[1].y) >= 12.0f);
+    // The prisoner's rescue, its words naming them; killed, it fails.
+    act("CAddMissionObjectiveAction\n{\nObjective=CRescueMissionObjective\n{\nObjective Name=Rescue\n"
+        "Mission Status=Incomplete\nDisplay Status=Visible\nObjective Script=Test\nObjective Line=Rescue\n"
+        "WhoToRescue=Prisoner\n}\n}\n");
+    CHECK(screen.objectiveLines().size() == 1 && screen.objectiveLines()[0].text == "Rescue Prisoner.");
+    ItemDefinition blast;
+    blast.weaponDamage = 1000.0f;
+    screen.hurtEnemy(0, blast, -1, false);
+    CHECK(screen.objectives()[0].status == ObjectiveStatus::kFailed);
+    // The helper joins the team where it stands, its part gone.
+    act("CAddToTeamAction\n{\nWho To Add=Helper\n}\n");
+    CHECK(officers.size() == 3 && screen.team()[officers[2].member].name() == "Helper" && officers[2].x == 1200.0f &&
+          screen.partState(enemies[1].part).deleted);
+    // The sleeper paused and let go.
+    act("CPauseActorAction\n{\nTarget=Sleeper\n}\n");
+    CHECK(enemies[2].held == MapScreen::kHeldForever);
+    act("CUnpauseActorAction\n{\nTarget=Sleeper\n}\n");
+    CHECK(enemies[2].held == 0.0f);
+    // Ann, of Science, lights the lamp; Bo doesn't.
+    act("CConditionalAction\n{\nTry Action=CCheckForClassAction\n{\nWho To Check=Bo\nClass=Science\n}\n"
+        "Succeed Action=CActivateAction\n{\nTarget Name=Lamp\n}\n}\n");
+    CHECK(!screen.partState(3).active);
+    act("CConditionalAction\n{\nTry Action=CCheckForClassAction\n{\nWho To Check=Ann\nClass=Science\n}\n"
+        "Succeed Action=CActivateAction\n{\nTarget Name=Lamp\n}\n}\n");
+    CHECK(screen.partState(3).active);
+}
+
 void testChoosing() {
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(kMap, kMap + std::string(kMap).size());
@@ -1477,4 +1563,5 @@ static const reluva::test::Suite kSuite("stawayteam.unit.maps",
                                             {"kit", [](const std::filesystem::path &) { testKit(); }},
                                             {"states", [](const std::filesystem::path &) { testStates(); }},
                                             {"doors", [](const std::filesystem::path &) { testDoors(); }},
+                                            {"company", [](const std::filesystem::path &) { testCompany(); }},
                                         });

@@ -18,8 +18,6 @@ namespace reluva::stawayteam {
 namespace {
 
 constexpr float kPi = 3.14159265f;
-// Hit points for a character whose model gives none (inferred).
-constexpr float kDefaultHealth = 100.0f;
 // An officer's model's 12 directions, 0 facing left, turning anticlockwise.
 constexpr int kDirections = 12;
 // A strike reaches about a figure's width at least (inferred).
@@ -202,6 +200,7 @@ void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attack
         e.target = -1;
         runAction(_map.parts[e.part].destroyedAction, attacker, int(e.part));
         runDeathBehaviors(e.part, attacker);
+        partFell(e.part);
         return;
     }
     // One that's Target If Hit turns on whoever hit it, and attacks; one

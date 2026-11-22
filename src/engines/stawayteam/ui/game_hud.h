@@ -56,6 +56,8 @@ public:
             int mapW, int mapH);
 
     Result handleEvent(const Event &ev, uint64_t now);
+    /** Another officer on the team bar, after the rest: one who's joined. */
+    void addMember(const TeamMember &member);
     /**
      * Draws it, officer `selected` lit, the view's place on the minimap from
      * the camera (the view's middle) and the view's size.

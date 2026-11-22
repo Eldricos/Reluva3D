@@ -25,6 +25,9 @@ constexpr float kForgetAfter = 5.0f;
 // Its target this near, as a part of its weapon's range, one that runs
 // away does, this long (0x42b0ad, 0x42b0d1).
 constexpr float kTooClose = 0.05f;
+// As the officers keep from others (map_screen.cpp).
+constexpr float kPersonalSpace = 14.0f;
+constexpr float kMostWait = 1.0f;
 constexpr float kRunAwayTime = 3.0f;
 // How fast an enemy turns when its AI doesn't say, in degrees a second
 // (inferred).
@@ -146,8 +149,20 @@ bool MapScreen::walkTo(Enemy &e, float x, float y, float ratio, float seconds, b
     float speed = cycle > 0.0f && per > 0 && walking.fps > 0.0f ? cycle * walking.fps / float(per) : kDefaultWalk;
     speed *= ratio > 0.0f ? ratio : 1.0f;
     const float step = std::min(distance, speed * seconds);
-    e.x += dx / distance * step;
-    e.y += dy / distance * step;
+    float ux = dx / distance;
+    float uy = dy / distance;
+    // Round anyone in its way, as the officers go (inferred).
+    if (!stepAside(e.x, e.y, ux, uy, step, distance, -1, int(&e - _enemies.data()))) {
+        if (distance < kPersonalSpace * 2.0f)
+            return true;
+        e.waited += seconds;
+        if (e.waited < kMostWait)
+            return false;
+    } else {
+        e.waited = 0.0f;
+    }
+    e.x += ux * step;
+    e.y += uy * step;
     e.walking = true;
     e.running = running;
     e.travelled = cycle > 0.0f ? std::fmod(e.travelled + step / (ratio > 0.0f ? ratio : 1.0f), cycle) : 0.0f;

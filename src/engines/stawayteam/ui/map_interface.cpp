@@ -157,6 +157,12 @@ std::string MapScreen::cursorName() {
                     return named(readText(process, "Process Cursor"));
             return named(part >= 0 || enemy >= 0 ? def->hoveringCursor : def->cantUseCursor);
         }
+        // A skill (Computer Systems) on a part with a process for it: the
+        // process's cursor, as a click would start it.
+        const TextObject *activity = def->process ? def->process->object("Process Activity") : nullptr;
+        if (part >= 0 && (!activity || activity->items().empty()))
+            if (const TextObject *process = processFor(size_t(part), o))
+                return named(readText(process, "Process Cursor"));
         if (def->process && def != o.weapon && !def->charged && def->health <= 0.0f)
             return named(def->processCursor);
         if (def->health > 0.0f)
