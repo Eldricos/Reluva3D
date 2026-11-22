@@ -5,6 +5,7 @@
 
 #include "common/detection.h"
 
+#include <filesystem>
 #include <string_view>
 #include <vector>
 
@@ -32,5 +33,11 @@ const std::vector<GameVariant> &detectionTable();
  * yet; consulted only when nothing there matches.
  */
 const std::vector<GameVariant> &fallbackTable();
+
+/**
+ * The game on a CD (or a copy of one) in `source`, laid out as its setup
+ * program installs it, for MetaEngine::planImport: none if it isn't one.
+ */
+std::vector<ImportPlan> planImport(const std::filesystem::path &source);
 
 } // namespace reluva::tpw

@@ -9,7 +9,7 @@ Park World (Sim Theme Park in the US). Engine id `tpw`, in
 
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
-| [SimCoaster](games/simcoaster/README.md) | `simcoaster` | Electronic Arts, 2001 | Windows | US (by `Data/ui.wad` and the American string tables); others by file names, as "unknown release" | Recognised; shows an empty screen |
+| [SimCoaster](games/simcoaster/README.md) | `simcoaster` | Electronic Arts, 2001 | Windows | US (by `Data/ui.wad` and the American string tables); others by file names, as "unknown release" | Recognised, and imported from its CD; shows an empty screen |
 | Theme Park World | | Electronic Arts, 1999 | Windows | | Not yet recognised: after SimCoaster runs |
 
 SimCoaster is Theme Park World's engine and file formats with new parks,
@@ -44,7 +44,7 @@ everything was read from SimCoaster.
 | Path | What |
 |---|---|
 | `tpw.cpp` | The `MetaEngine` and the `Engine`: an empty screen for now |
-| `games.cpp` | The games and the detection tables |
+| `games.cpp` | The games, the detection tables, and importing from the CD |
 | `tools/` | `reluva-tool tpw` commands (`reluva-tool help tpw` lists them) |
 
 ## Tests

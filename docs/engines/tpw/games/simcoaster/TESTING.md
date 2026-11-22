@@ -10,6 +10,7 @@ files):
 
 | Suite | What it checks |
 |---|---|
+| `tpw.unit.import` | Importing from a small CD laid out as the US one: the cabinet's `Data` group in `Data/`, the movie and `Game.exe` at the top, the language's folders over the cabinet's files, the DLLs left out, then found by detection; a cabinet without `Game.exe` isn't the game's; a folder missing is said |
 | `tpw.unit.detection` | Recognising the game: a release not in the table found by its files' names, in any case, as an unknown release; not without `Data/Challenges.sam` |
 
 ### The basic engine test
@@ -26,13 +27,15 @@ Not yet: it comes with the first readers of the game's files.
 
 ### What the automated checks don't cover
 
-The US release's detection by its files' hashes: the tests can't hold
-the game's files. Checked by hand on the install.
+The US release's detection by its files' hashes, and importing the real
+CD: the tests can't hold the game's files. Checked by hand.
 
 ## A playthrough by hand
 
-1. Add the installed folder in the launcher: it's listed as
-   "SimCoaster (US)".
+1. Import the CD in the launcher (*Import Game...*): it's listed as
+   "SimCoaster (US)", and the folder made holds the game's files as setup
+   installs them ([cd.md](formats/cd.md)). Adding an installed folder
+   (*Add Game...*) finds it the same.
 2. Start it: an empty screen, which Esc leaves.
 
 ## Last checked
@@ -40,3 +43,4 @@ the game's files. Checked by hand on the install.
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
 | November 2026 | US | Linux | `reluva-tool detect` on the install: "SimCoaster (US)"; on the CD: nothing found, as expected |
+| November 2026 | US | Linux | `reluva-tool import` from the CD: 1,276 files, byte for byte the install's; found as "SimCoaster (US)" |

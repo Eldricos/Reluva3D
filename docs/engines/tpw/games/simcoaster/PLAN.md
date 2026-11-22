@@ -19,13 +19,11 @@ format or system worked out.
 
 1. **Detection** (done): the US release by its data files; any other as
    "unknown release" ([README.md](README.md#releases)).
-2. **Importing from the CD** (next): the CD's InstallShield 6 cabinet
-   (`data1.hdr`, `data1.cab`, `data2.cab`), read by the shared
-   InstallShield code, which reads version 7's headers only so far
-   ([installshield.md](../../../../common/installshield.md)), and the
-   CD's loose folders (`Speech`, `CoasterData`, `PostCardData`) laid out
-   as the installer lays them.
-3. **The archives and text:** the `DWFB` archives (`.wad`), the settings
+2. **Importing from the CD** (done): the CD's InstallShield 6 cabinet,
+   read by the shared InstallShield code
+   ([installshield.md](../../../../common/installshield.md)), and its
+   language's folders, laid out as setup lays them ([cd.md](formats/cd.md)).
+3. **The archives and text** (next): the `DWFB` archives (`.wad`), the settings
    files (`.sam`), the string tables (`BFST`, `.str`) and the fonts
    (`F4FB`, `.bf4`); every archive mounted, loose files over them.
    `reluva-tool tpw` commands to list and extract them.
@@ -64,3 +62,4 @@ format or system worked out.
 | November 2026 | Detection keys on the data files (`Data/ui.wad` and the American string tables), not on `Game.exe` | A replaced executable shouldn't stop a copy being recognised; the string tables' folder tells the US release from the European ones |
 | November 2026 | The OpenTPW project's format notes are read for file layouts only, every field checked against the data | They're public documentation of Theme Park World's formats; no code is copied |
 | November 2026 | The online services (`wea*.dll`: chat, mail, uploads, voting) are left out | Their servers have been shut down |
+| November 2026 | Importing from the CD takes the game's data, movie and `Game.exe`, not its DLLs, SafeDisc's files or EA's registration program | Reluva doesn't run the game's program, so nothing it loads is needed; `Game.exe` is kept for detection and for anyone who wants to run the original from the folder |

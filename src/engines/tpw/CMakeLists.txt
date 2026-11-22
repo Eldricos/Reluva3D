@@ -21,9 +21,10 @@ set(tests ${PROJECT_SOURCE_DIR}/tests/engines/tpw)
 reluva_add_engine_tests(tpw
     SOURCES
         ${tests}/unit/detection.cpp
+        ${tests}/unit/import.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection engine)
+        unit.detection unit.import engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

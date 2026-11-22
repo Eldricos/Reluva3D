@@ -138,3 +138,5 @@ file sharing the data); flag 2 (never set here).
 - **`awe`**: Murder on the Orient Express's and And Then There Were
   None's CDs ([README](../engines/awe/games/motoe/README.md),
   [README](../engines/awe/games/attwn/README.md)).
+- **`tpw`**: SimCoaster's CD, InstallShield 6's
+  ([cd.md](../engines/tpw/games/simcoaster/formats/cd.md)).

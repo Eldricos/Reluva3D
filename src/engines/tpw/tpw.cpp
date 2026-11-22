@@ -58,6 +58,10 @@ public:
         return found.empty() ? detectFromTable(id(), fallbackTable(), dir) : found;
     }
 
+    std::vector<ImportPlan> planImport(const std::filesystem::path &source) const override {
+        return tpw::planImport(source);
+    }
+
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
         return std::make_unique<TpwEngine>(system, target);
     }

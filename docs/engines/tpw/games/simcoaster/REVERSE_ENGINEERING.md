@@ -47,7 +47,7 @@ everything was read with a few lines of throwaway Python.
 The CD holds `Game.exe` (the same file), InstallShield 6's cabinet
 (`data1.hdr`, `data1.cab`, `data2.cab`) and the folders setup copies as
 they are: `Speech/American`, `CoasterData/American`,
-`PostCardData/American`.
+`PostCardData/American` ([cd.md](formats/cd.md)).
 
 ## Methods
 
@@ -56,6 +56,11 @@ they are: `Speech/American`, `CoasterData/American`,
   World", its CD's `AUTORUN.INF` "Theme Park Inc"; only `Setup.ini` says
   `SimCoaster`), so the US release is told by its `American` string
   tables.
+- **Where setup puts the CD's files:** each installed file's MD5 matched
+  to the cabinet entry or the CD file with the same MD5, which gave each
+  group's and folder's place in the install; then the CD imported with
+  `reluva-tool import` and compared with the install byte for byte
+  ([cd.md](formats/cd.md#sources-and-checks)).
 
 ## The tools
 

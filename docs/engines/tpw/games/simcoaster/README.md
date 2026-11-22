@@ -16,24 +16,25 @@ Park Inc. Game id `simcoaster`, on the
 | Any other (Theme Park Inc, other languages) | `Data/ui.wad`, `Data/Challenges.sam` and `Game.exe` by name | Shown as "unknown release"; not checked |
 
 An installed folder is what's recognised: it holds every file the game
-reads, speech included. The CD's own files are in an InstallShield 6
-cabinet, which Reluva doesn't read yet, so the CD can't be imported
-([PLAN.md](PLAN.md#phases)).
+reads, speech included. The CD can be imported instead, laid out as its
+setup installs it ([cd.md](formats/cd.md)).
 
 ## Where it stands
 
 | Part | State |
 |---|---|
 | Detection | The US release by its data files' hashes; other releases by file names, as "unknown release" |
+| Importing | From the CD: its InstallShield 6 cabinet and its language's folders, as setup installs them; checked byte for byte against an install ([cd.md](formats/cd.md)) |
 | The executable | Surveyed: SafeDisc 2, its code encrypted, so the game is to be rebuilt from its data, not run ([executable.md](formats/executable.md)) |
 | Everything else | Not started: see [PLAN.md](PLAN.md) |
 
 ## Using it
 
-Install the game from its CD with its own setup program (on Windows, or
-in a virtual machine), and add the folder it was installed to in the
-launcher (*Add Game...*). Reluva shows an empty screen for now; Esc
-leaves it.
+In the launcher, *Import Game...* and choose the CD (or a copy of its
+files): Reluva copies what the game needs into a folder of its own, as
+its setup would install it. A folder the game's own setup installed can
+be added instead (*Add Game...*). Reluva shows an empty screen for now;
+Esc leaves it.
 
 ## This folder
 
@@ -41,7 +42,7 @@ leaves it.
 |---|---|
 | This page | Where it stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
-| `formats/` | The game's own files, a page each: [the executable](formats/executable.md) |
+| `formats/` | The game's own files, a page each: [the executable](formats/executable.md), [the CD](formats/cd.md) |
 | `systems/` | How the game behaves, a page per part |
 | `research/` | Working notes |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |

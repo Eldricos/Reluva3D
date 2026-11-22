@@ -19,6 +19,11 @@ None yet.
 
 ## Guessed
 
+- **The speech and postcards in the cabinet's `Data` group are another
+  language's**, perhaps Theme Park Inc's British English: the CD's
+  American ones replace them, as setup does
+  ([cd.md](formats/cd.md#behaviour)). Theme Park Inc's CD would settle
+  it.
 - **`Data/Challenges.sam` is SimCoaster's own**, not in Theme Park
   World: the "unknown release" detection needs it, so that Theme Park
   World isn't taken for SimCoaster (`src/engines/tpw/games.cpp`). A
