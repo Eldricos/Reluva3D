@@ -713,6 +713,15 @@ static void testImage() {
     image::Image pngBack;
     CHECK(!image::decode(image::encodePng(png), pngBack) && pngBack.w == 200 && pngBack.h == 90 &&
           pngBack.rgba == png.rgba);
+
+    // A PNG ending after its last IDAT, without IEND (as SimCoaster's
+    // Init/800 welcome screens), reads the same; one cut inside a chunk
+    // doesn't.
+    std::vector<uint8_t> noEnd = image::encodePng(png);
+    noEnd.resize(noEnd.size() - 12);
+    CHECK(!image::decode(noEnd, pngBack) && pngBack.rgba == png.rgba);
+    noEnd.resize(noEnd.size() - 20);
+    CHECK(image::decode(noEnd, pngBack));
 }
 
 static void testGfxMath() {

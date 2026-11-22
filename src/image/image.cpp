@@ -18,14 +18,43 @@
 
 namespace reluva::image {
 
+namespace {
+
+// A PNG whose chunks run whole to its end without the IEND chunk, as
+// SimCoaster's Data/Init/800/Welcome_*.png do, with that chunk added:
+// stb_image reads on past the end for it. Empty for any other data.
+std::vector<uint8_t> withPngEnd(const std::vector<uint8_t> &data) {
+    static const uint8_t kSignature[] = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'};
+    static const uint8_t kEnd[] = {0, 0, 0, 0, 'I', 'E', 'N', 'D', 0xae, 0x42, 0x60, 0x82};
+    if (data.size() < 8 || !std::equal(kSignature, kSignature + 8, data.begin()))
+        return {};
+    size_t at = 8;
+    while (at + 8 <= data.size()) {
+        const size_t length =
+            size_t(data[at]) << 24 | size_t(data[at + 1]) << 16 | size_t(data[at + 2]) << 8 | data[at + 3];
+        if (std::equal(kEnd + 4, kEnd + 8, data.begin() + long(at) + 4))
+            return {};
+        at += 12 + length;
+    }
+    if (at != data.size())
+        return {};
+    std::vector<uint8_t> out = data;
+    out.insert(out.end(), kEnd, kEnd + sizeof(kEnd));
+    return out;
+}
+
+} // namespace
+
 Error decode(const std::vector<uint8_t> &data, Image &out) {
     out = Image{};
-    if (data.empty() || data.size() > static_cast<size_t>(INT_MAX))
+    if (data.empty() || data.size() > static_cast<size_t>(INT_MAX) - 12)
         return Error::fail("Not an image");
+    const std::vector<uint8_t> ended = withPngEnd(data);
+    const std::vector<uint8_t> &whole = ended.empty() ? data : ended;
     int w = 0;
     int h = 0;
     int channels = 0;
-    stbi_uc *pixels = stbi_load_from_memory(data.data(), static_cast<int>(data.size()), &w, &h, &channels, 4);
+    stbi_uc *pixels = stbi_load_from_memory(whole.data(), static_cast<int>(whole.size()), &w, &h, &channels, 4);
     if (!pixels)
         return Error::fail(std::string("Cannot decode image: ") + stbi_failure_reason());
     out.w = w;
