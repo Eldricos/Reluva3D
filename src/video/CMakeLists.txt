@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
-# reluva_video: movie decoders (Bink, Smacker, Cinepak, Indeo 5, AVI) and
+# reluva_video: movie decoders (Bink, Smacker, Cinepak, Indeo 5, AVI, MPEG-1's
+# intra coding tables) and
 # the movie player engines show them with.
 add_library(reluva_video STATIC
     avi.cpp
@@ -11,5 +12,6 @@ add_library(reluva_video STATIC
     indeo5.cpp
     indeo5_tables.cpp
     movie.cpp
+    mpeg1.cpp
     smacker.cpp)
 target_link_libraries(reluva_video PUBLIC reluva_common reluva_audio reluva_graphics PRIVATE reluva_warnings)

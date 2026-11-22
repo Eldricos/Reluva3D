@@ -4,6 +4,7 @@
 #include "engines/nfs/nfs3/formats/mad.h"
 
 #include "audio/ea_audio.h"
+#include "video/mpeg1.h"
 
 #include <algorithm>
 #include <array>
@@ -25,185 +26,6 @@ uint32_t le32(const uint8_t *p) {
 }
 
 constexpr size_t kFrameHeader = 24; // tag, size, then 16 bytes (mad.md)
-
-// The AC coefficients' codes: MPEG-1's table B.14 (ISO/IEC 11172-2), each
-// a run of zeros, a level and the code's bits, a sign bit following. The
-// first-coefficient form of run 0 level 1 ("1s") isn't used: it is "11s"
-// throughout.
-struct AcCode {
-    uint8_t run;
-    uint8_t level;
-    const char *bits;
-};
-constexpr AcCode kAcCodes[] = {
-    {0, 1, "11"},
-    {0, 2, "0100"},
-    {0, 3, "00101"},
-    {0, 4, "0000110"},
-    {0, 5, "00100110"},
-    {0, 6, "00100001"},
-    {0, 7, "0000001010"},
-    {0, 8, "000000011101"},
-    {0, 9, "000000011000"},
-    {0, 10, "000000010011"},
-    {0, 11, "000000010000"},
-    {0, 12, "0000000011010"},
-    {0, 13, "0000000011001"},
-    {0, 14, "0000000011000"},
-    {0, 15, "0000000010111"},
-    {0, 16, "00000000011111"},
-    {0, 17, "00000000011110"},
-    {0, 18, "00000000011101"},
-    {0, 19, "00000000011100"},
-    {0, 20, "00000000011011"},
-    {0, 21, "00000000011010"},
-    {0, 22, "00000000011001"},
-    {0, 23, "00000000011000"},
-    {0, 24, "00000000010111"},
-    {0, 25, "00000000010110"},
-    {0, 26, "00000000010101"},
-    {0, 27, "00000000010100"},
-    {0, 28, "00000000010011"},
-    {0, 29, "00000000010010"},
-    {0, 30, "00000000010001"},
-    {0, 31, "00000000010000"},
-    {0, 32, "000000000011000"},
-    {0, 33, "000000000010111"},
-    {0, 34, "000000000010110"},
-    {0, 35, "000000000010101"},
-    {0, 36, "000000000010100"},
-    {0, 37, "000000000010011"},
-    {0, 38, "000000000010010"},
-    {0, 39, "000000000010001"},
-    {0, 40, "000000000010000"},
-    {1, 1, "011"},
-    {1, 2, "000110"},
-    {1, 3, "00100101"},
-    {1, 4, "0000001100"},
-    {1, 5, "000000011011"},
-    {1, 6, "0000000010110"},
-    {1, 7, "0000000010101"},
-    {1, 8, "000000000011111"},
-    {1, 9, "000000000011110"},
-    {1, 10, "000000000011101"},
-    {1, 11, "000000000011100"},
-    {1, 12, "000000000011011"},
-    {1, 13, "000000000011010"},
-    {1, 14, "000000000011001"},
-    {1, 15, "0000000000010011"},
-    {1, 16, "0000000000010010"},
-    {1, 17, "0000000000010001"},
-    {1, 18, "0000000000010000"},
-    {2, 1, "0101"},
-    {2, 2, "0000100"},
-    {2, 3, "0000001011"},
-    {2, 4, "000000010100"},
-    {2, 5, "0000000010100"},
-    {3, 1, "00111"},
-    {3, 2, "00100100"},
-    {3, 3, "000000011100"},
-    {3, 4, "0000000010011"},
-    {4, 1, "00110"},
-    {4, 2, "0000001111"},
-    {4, 3, "000000010010"},
-    {5, 1, "000111"},
-    {5, 2, "0000001001"},
-    {5, 3, "0000000010010"},
-    {6, 1, "000101"},
-    {6, 2, "000000011110"},
-    {6, 3, "0000000000010100"},
-    {7, 1, "000100"},
-    {7, 2, "000000010101"},
-    {8, 1, "0000111"},
-    {8, 2, "000000010001"},
-    {9, 1, "0000101"},
-    {9, 2, "0000000010001"},
-    {10, 1, "00100111"},
-    {10, 2, "0000000010000"},
-    {11, 1, "00100011"},
-    {11, 2, "0000000000011010"},
-    {12, 1, "00100010"},
-    {12, 2, "0000000000011001"},
-    {13, 1, "00100000"},
-    {13, 2, "0000000000011000"},
-    {14, 1, "0000001110"},
-    {14, 2, "0000000000010111"},
-    {15, 1, "0000001101"},
-    {15, 2, "0000000000010110"},
-    {16, 1, "0000001000"},
-    {16, 2, "0000000000010101"},
-    {17, 1, "000000011111"},
-    {18, 1, "000000011010"},
-    {19, 1, "000000011001"},
-    {20, 1, "000000010111"},
-    {21, 1, "000000010110"},
-    {22, 1, "0000000011111"},
-    {23, 1, "0000000011110"},
-    {24, 1, "0000000011101"},
-    {25, 1, "0000000011100"},
-    {26, 1, "0000000011011"},
-    {27, 1, "0000000000011111"},
-    {28, 1, "0000000000011110"},
-    {29, 1, "0000000000011101"},
-    {30, 1, "0000000000011100"},
-    {31, 1, "0000000000011011"},
-};
-constexpr const char *kEscape = "000001"; // then a 10-bit signed level and a 6-bit run
-constexpr const char *kEndOfBlock = "10";
-
-// A lookup by the next 16 bits: the code's length (0: no code), then the
-// run and level; level 0 is the escape, run 0xff the end of the block.
-struct AcEntry {
-    uint8_t length = 0;
-    uint8_t run = 0;
-    int8_t level = 0;
-};
-const std::vector<AcEntry> &acTable() {
-    static const std::vector<AcEntry> kTable = [] {
-        std::vector<AcEntry> t(1 << 16);
-        auto add = [&](const char *bits, uint8_t run, int8_t level) {
-            const size_t n = std::strlen(bits);
-            const uint32_t code = static_cast<uint32_t>(std::strtoul(bits, nullptr, 2));
-            const uint32_t first = code << (16 - n);
-            const uint32_t count = 1u << (16 - n);
-            for (uint32_t i = 0; i < count; ++i)
-                t[first + i] = {static_cast<uint8_t>(n), run, level};
-        };
-        for (const AcCode &c : kAcCodes)
-            add(c.bits, c.run, static_cast<int8_t>(c.level));
-        add(kEscape, 0, 0);
-        add(kEndOfBlock, 0xff, 0);
-        return t;
-    }();
-    return kTable;
-}
-
-// The default intra quantiser matrix of MPEG-1 (ISO/IEC 11172-2), in
-// raster order.
-constexpr uint8_t kIntraMatrix[64] = {
-    8,  16, 19, 22, 26, 27, 29, 34, 16, 16, 22, 24, 27, 29, 34, 37, 19, 22, 26, 27, 29, 34,
-    34, 38, 22, 22, 26, 27, 29, 34, 37, 40, 22, 26, 27, 29, 32, 35, 40, 48, 26, 27, 29, 32,
-    35, 40, 48, 58, 26, 27, 29, 34, 38, 46, 56, 69, 27, 29, 35, 38, 46, 56, 69, 83,
-};
-
-// The zigzag scan: position in the scan to raster index.
-const std::array<uint8_t, 64> &zigzag() {
-    static const std::array<uint8_t, 64> kOrder = [] {
-        std::array<uint8_t, 64> z{};
-        int n = 0;
-        for (int s = 0; s < 15; ++s) {
-            // Odd diagonals run down-left, even ones up-right.
-            for (int k = 0; k < 8; ++k) {
-                const int row = (s & 1) ? k : s - k;
-                const int col = s - row;
-                if (row >= 0 && row < 8 && col >= 0 && col < 8)
-                    z[n++] = static_cast<uint8_t>(row * 8 + col);
-            }
-        }
-        return z;
-    }();
-    return kOrder;
-}
 
 // The inverse of the AAN transform's scale factors, times 4096: the
 // quantiser folds them in, as the transform below leaves them out.
@@ -366,12 +188,12 @@ int MadDecoder::readMotion() {
 }
 
 bool MadDecoder::decodeIntraBlock(int16_t block[64]) {
-    const auto &table = acTable();
-    const auto &scan = zigzag();
+    const auto &table = mpeg1::acTable();
+    const auto &scan = mpeg1::zigzag();
     block[0] = static_cast<int16_t>((128 + readSigned(8)) * _quant[0]);
     int i = 0;
     while (true) {
-        const AcEntry e = table[peek(16)];
+        const mpeg1::AcEntry e = table[peek(16)];
         if (e.length == 0)
             return false;
         _bitPos += e.length;
@@ -407,12 +229,12 @@ bool MadDecoder::decodeIntraBlock(int16_t block[64]) {
 // neither scaled down nor made odd. In natural order (the game keeps the
 // block transposed, which its transform's order undoes).
 bool MadDecoder::gameIntraBlock(int32_t block[64]) {
-    const auto &table = acTable();
-    const auto &scan = zigzag();
+    const auto &table = mpeg1::acTable();
+    const auto &scan = mpeg1::zigzag();
     block[0] = static_cast<int32_t>(static_cast<uint32_t>(readSigned(8)) * static_cast<uint32_t>(_gameQuant[0]));
     int i = 0;
     while (true) {
-        const AcEntry e = table[peek(16)];
+        const mpeg1::AcEntry e = table[peek(16)];
         if (e.length == 0)
             return false;
         _bitPos += e.length;
@@ -592,17 +414,18 @@ Error MadDecoder::decode(const uint8_t *chunk, size_t size) {
 
     const int qscale = chunk[21];
     const auto &scales = inverseAanScales();
-    _quant[0] = (scales[0] * kIntraMatrix[0]) >> 11;
+    _quant[0] = (scales[0] * mpeg1::kIntraMatrix[0]) >> 11;
     for (int i = 1; i < 64; ++i)
-        _quant[i] = (scales[i] * kIntraMatrix[i] * qscale + 32) >> 10;
+        _quant[i] = (scales[i] * mpeg1::kIntraMatrix[i] * qscale + 32) >> 10;
     // The game's, in 16.16 with 7 more fraction bits and kept whole (0x4f3560).
     // Its scan (0x5688cc) is the zigzag transposed, and it looks Q up by the
     // transposed place too, so a coefficient at row u, column v takes the
     // matrix's W[v][u]: the matrix applied transposed.
     const auto &game = gameScales();
-    _gameQuant[0] = gameProduct(static_cast<int64_t>(kIntraMatrix[0]) << 15, game[0]);
+    _gameQuant[0] = gameProduct(static_cast<int64_t>(mpeg1::kIntraMatrix[0]) << 15, game[0]);
     for (int i = 1; i < 64; ++i)
-        _gameQuant[i] = gameProduct(static_cast<int64_t>(kIntraMatrix[(i & 7) * 8 + (i >> 3)] * qscale) << 12, game[i]);
+        _gameQuant[i] =
+            gameProduct(static_cast<int64_t>(mpeg1::kIntraMatrix[(i & 7) * 8 + (i >> 3)] * qscale) << 12, game[i]);
 
     _bits = chunk + kFrameHeader;
     _bitCount = (size - kFrameHeader) * 8;
