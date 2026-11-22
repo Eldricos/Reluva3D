@@ -392,6 +392,25 @@ static void testWindowsAndRegistry() {
     CHECK((seen == std::vector<uint32_t>{0x81, 0x1}));
     CHECK(!cpu.call(fn("USER32.dll", "FindWindowA"), {text("TESTCLASS"), 0}, r) && r == hwnd);
     CHECK(!cpu.call(fn("USER32.dll", "FindWindowA"), {text("Other"), 0}, r) && r == 0);
+    // Subclassed: messages go to the new procedure, which can pass them to
+    // the old one; other longs are kept.
+    std::vector<uint32_t> subclassSeen;
+    const uint32_t subclass = cpu.addNative("test!SubclassProc", [&](x86::Cpu &c) {
+        subclassSeen.push_back(c.arg(1));
+        c.reg[x86::Cpu::EAX] = 7;
+        return 16u;
+    });
+    CHECK(!cpu.call(fn("USER32.dll", "SetWindowLongA"), {hwnd, uint32_t(-4), subclass}, r) && r == proc);
+    CHECK(!cpu.call(fn("USER32.dll", "GetWindowLongA"), {hwnd, uint32_t(-4)}, r) && r == subclass);
+    CHECK(!cpu.call(fn("USER32.dll", "SendMessageA"), {hwnd, 0x400, 0, 0}, r) && r == 7 &&
+          subclassSeen == std::vector<uint32_t>{0x400});
+    seen.clear();
+    CHECK(!cpu.call(fn("USER32.dll", "CallWindowProcA"), {proc, hwnd, 0x401, 0, 0}, r) &&
+          seen == std::vector<uint32_t>{0x401});
+    CHECK(!cpu.call(fn("USER32.dll", "SetWindowLongA"), {hwnd, uint32_t(-4), proc}, r) && r == subclass);
+    CHECK(!cpu.call(fn("USER32.dll", "SetWindowLongA"), {hwnd, uint32_t(-21), 0x1234}, r) && r == 0);
+    CHECK(!cpu.call(fn("USER32.dll", "GetWindowLongA"), {hwnd, uint32_t(-21)}, r) && r == 0x1234);
+    CHECK(!cpu.call(fn("USER32.dll", "GetWindowLongA"), {hwnd, uint32_t(-16)}, r) && r == 0x00cf0000);
     seen.clear();
     CHECK(!cpu.call(fn("USER32.dll", "ShowWindow"), {hwnd, 1}, r) && r == 0);
     CHECK((seen == std::vector<uint32_t>{0x18, 0x1c, 0x6, 0x7}));

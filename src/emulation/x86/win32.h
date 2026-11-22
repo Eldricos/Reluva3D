@@ -530,7 +530,8 @@ public:
         int width = 0;
         int height = 0;
         bool visible = false;
-        uint32_t classStyle = 0; // its class's (CS_DBLCLKS: it gets double clicks)
+        uint32_t classStyle = 0;           // its class's (CS_DBLCLKS: it gets double clicks)
+        std::map<int32_t, uint32_t> longs; // SetWindowLongA's other values, by index (GWL_USERDATA...)
     };
     /** The window with that handle, or null. */
     const Window *window(uint32_t handle) const;

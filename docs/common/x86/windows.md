@@ -69,6 +69,10 @@ C++ library have pages of their own ([directx.md](directx.md),
   - one message queue, which the engine posts its input to and
     `PeekMessageA` reads, calling `idle` when it's empty;
   - `DispatchMessageA` and `TranslateMessage`;
+  - a window's longs (`GetWindowLongA`, `SetWindowLongA`): its procedure,
+    which a program subclasses by setting it, then calling the one it
+    replaced with `CallWindowProcA`; its styles; any other index kept as
+    it's set;
   - `DefWindowProcA` destroys a window it's asked to close;
   - frames and captions are Windows 98's sizes;
   - the mouse pointer, and the desktop's size and colour depth, which the

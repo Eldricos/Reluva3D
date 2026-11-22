@@ -317,6 +317,34 @@ void Win32Process::addUserStandIns() {
     });
     // CreateWindowExA: WM_NCCREATE then WM_CREATE go to the procedure, with
     // a CREATESTRUCTA; either saying no destroys the window again.
+    // A window's longs: GWL_WNDPROC (-4) is its procedure, which messages
+    // then go to (subclassing it), GWL_STYLE (-16) and GWL_EXSTYLE (-20)
+    // its styles; any other index (GWL_USERDATA, a class's extra bytes) is
+    // kept as it's set.
+    auto windowLong = [this](uint32_t handle, int32_t index, std::optional<uint32_t> value) -> uint32_t {
+        auto it = _windows.find(handle);
+        if (it == _windows.end()) {
+            setLastError(1400); // ERROR_INVALID_WINDOW_HANDLE
+            return 0u;
+        }
+        Window &w = it->second;
+        uint32_t *slot = index == -4 ? &w.proc : index == -16 ? &w.style : index == -20 ? &w.exStyle : &w.longs[index];
+        const uint32_t old = *slot;
+        if (value)
+            *slot = *value;
+        return old;
+    };
+    stdcall(u, "GetWindowLongA", 2,
+            [windowLong](Cpu &c) { return windowLong(c.arg(0), int32_t(c.arg(1)), std::nullopt); });
+    stdcall(u, "SetWindowLongA", 3, [windowLong](Cpu &c) { return windowLong(c.arg(0), int32_t(c.arg(1)), c.arg(2)); });
+    // CallWindowProcA(procedure, window, message, wParam, lParam): what a
+    // subclassing procedure calls the one it replaced with.
+    stdcall(u, "CallWindowProcA", 5, [](Cpu &c) {
+        uint32_t result = 0;
+        if (Error e = c.call(c.arg(0), {c.arg(1), c.arg(2), c.arg(3), c.arg(4)}, result))
+            c.abort(e.message);
+        return result;
+    });
     stdcall(u, "CreateWindowExA", 12, [this](Cpu &c) {
         const uint32_t exStyle = c.arg(0);
         const uint32_t className = c.arg(1);
