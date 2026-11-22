@@ -46,6 +46,7 @@ extended. The facts themselves are on their pages, each with its source.
 |---|---|
 | `reluva-tool legoloco files <game folder>` | Lists every file in a game's folder, with its size |
 | `reluva-tool legoloco rf-list <folder>` | Lists the resource file's entries, unpacking each to check it |
+| `reluva-tool legoloco dat <folder> [name.dat]` | Prints an object definition, or reads every one and lists any that fail |
 | `reluva-tool legoloco rf-extract <folder> <output folder> [name...]` | Writes the resource file's entries out, unpacked |
 
 `loco.exe` itself was disassembled with GNU `objdump` (`objdump -d -M

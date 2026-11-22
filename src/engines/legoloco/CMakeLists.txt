@@ -7,11 +7,13 @@ reluva_add_engine(legoloco
     ACCESSOR legolocoMetaEngine
     SOURCES
         legoloco.cpp
+        formats/object_definition.cpp
         formats/resource_file.cpp)
 
 # Its reluva-tool commands (reluva-tool help legoloco lists them).
 reluva_add_engine_tools(legoloco
     SOURCES
+        tools/definitions.cpp
         tools/files.cpp
         tools/resources.cpp)
 
@@ -21,11 +23,12 @@ reluva_add_engine_tools(legoloco
 set(tests ${PROJECT_SOURCE_DIR}/tests/engines/legoloco)
 reluva_add_engine_tests(legoloco
     SOURCES
+        ${tests}/unit/definitions.cpp
         ${tests}/unit/detection.cpp
         ${tests}/unit/resources.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.resources engine)
+        unit.definitions unit.detection unit.resources engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):
