@@ -32,8 +32,8 @@ None yet.
 
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
 - **The main menu:** Start New Game goes as far as the first mission's
-  briefing and team selection, not the mission; Load Save Game and Play Network Game play their sound and
-  nothing else; in Settings, the sound's stereo and mixing
+  briefing and team selection, not the mission; Play Network Game plays
+  its sound and nothing else; in Settings, the sound's stereo and mixing
   choices, and the keyboard's bindings, are kept but don't change
   anything yet
   ([systems/menus.md](systems/menus.md)).
@@ -45,11 +45,13 @@ None yet.
   characters, and one taken off the team stays on its bar; walkers keep
   apart by Reluva's own rule; the transporter's pictures aren't drawn
   as enemies beam out; shots always hit; the 5 polygons' processes and the Out Of
-  Range cursor aren't there; saving and loading from the escape menu
-  aren't there
+  Range cursor aren't there
   ([systems/maps.md](systems/maps.md#in-reluva)).
-- **Objectives:** there's no score, and
-  LOAD GAME is greyed out; rescue and need-item objectives are only done
+- **Saved games** are Reluva's own, not the game's: a save keeps the
+  mission as it began, and loading one starts that mission again from
+  its briefing; the save screens' picture and random numbers aren't
+  shown ([systems/menus.md](systems/menus.md#saved-games)).
+- **Objectives:** rescue and need-item objectives are only done
   as the triggers say; parts other than the team aren't moved between a
   mission's maps
   ([systems/objectives.md](systems/objectives.md#in-reluva)).

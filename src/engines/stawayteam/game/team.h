@@ -166,6 +166,14 @@ struct ItemDefinition {
     std::shared_ptr<const TextObject> discharge;
     float energyUse = 0.0f;
     float energyRecharge = 0.0f;
+    // How it's found (its Discovery): had from the start, or once the
+    // score's its Points to Discover; then described in the next briefing
+    // by its Who Discovers, its Discovery Text a line of its Script.
+    bool startsDiscovered = true;
+    int pointsToDiscover = 0;
+    std::string whoDiscovers;
+    std::string discoveryScript;
+    std::string discoveryText;
     std::string processCursor;
     std::string cantUseCursor;
     std::string hoveringCursor;

@@ -22,6 +22,7 @@ reluva_add_engine(stawayteam
         ui/map_mission.cpp
         ui/map_noise.cpp
         ui/map_screen.cpp
+        ui/save_menu.cpp
         ui/map_triggers.cpp
         ui/map_vision.cpp
         ui/objectives_window.cpp
@@ -33,6 +34,7 @@ reluva_add_engine(stawayteam
         ui/debriefing.cpp
         ui/escape_menu.cpp
         ui/team_selection.cpp
+        game/campaign.cpp
         game/controls.cpp
         game/options.cpp
         game/map.cpp

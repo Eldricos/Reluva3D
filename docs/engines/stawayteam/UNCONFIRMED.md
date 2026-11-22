@@ -92,6 +92,10 @@ None yet.
 - **The beams:** where they start and end on the shooter and the one
   shot, and how long they're shown
   ([systems/maps.md](systems/maps.md#open-questions)).
+- **The score's items:** an item found once the score reaches its
+  Points to Discover, and the save screens' rows, time and game info
+  ([systems/objectives.md](systems/objectives.md#open-questions),
+  [systems/menus.md](systems/menus.md#open-questions)).
 - **Parts' processes:** the one chosen for an officer, and their walking
   into range first
   ([systems/maps.md](systems/maps.md#open-questions)).

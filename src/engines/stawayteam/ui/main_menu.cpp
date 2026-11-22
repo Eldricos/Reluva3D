@@ -37,6 +37,7 @@ const char *const kPointer = "Cache/Interface/Cursors/Pointer.seq16";
 constexpr std::array<const char *, 6> kMainButtons = {"&START NEW GAME", "&LOAD SAVE GAME", "PLAY &NETWORK GAME",
                                                       "S&ETTINGS",       "&CREDITS",        "&QUIT"};
 constexpr size_t kStartButton = 0;
+constexpr size_t kLoadButton = 1;
 constexpr size_t kSettingsButton = 3;
 constexpr size_t kCreditsButton = 4;
 constexpr size_t kQuitButton = 5;
@@ -95,9 +96,10 @@ void ConfirmDialog::draw(Surface &screen) const {
 }
 
 MainMenu::MainMenu(System &sys, Surface &screen, const Archive &data, const std::filesystem::path &install,
-                   const TextObject &rules, GameOptions &options, audio::Mixer *mixer, int firstMission)
+                   const TextObject &rules, GameOptions &options, audio::Mixer *mixer, int firstMission,
+                   std::filesystem::path saves)
     : _sys(sys), _screen(screen), _data(data), _install(install), _rules(rules), _options(options), _mixer(mixer),
-      _firstMission(firstMission) {
+      _firstMission(firstMission), _saves(std::move(saves)) {
     (void)_pointer.loadFile(data, kPointer);
     const TextObject *menu = menuDefinition(rules, "Main Menu");
     const TextObject *nernies = menu ? menu->object("Nernie") : nullptr;
@@ -196,6 +198,19 @@ bool MainMenu::run() {
                     _dialog.reset();
                 continue;
             }
+            if (_saveScreen) {
+                const SaveGameScreen::Choice choice = _saveScreen->handleEvent(ev, _mixer);
+                if (choice == SaveGameScreen::Choice::kLoad) {
+                    const SaveGame save = _saveScreen->chosen();
+                    _saveScreen.reset();
+                    _sys.setTextInput(false);
+                    loadGame(save);
+                } else if (choice != SaveGameScreen::Choice::kNone) {
+                    _saveScreen.reset();
+                    _sys.setTextInput(false);
+                }
+                continue;
+            }
             if (_difficultyWindow) {
                 if (const auto closed = _difficultyWindow->handleEvent(ev, _mixer)) {
                     _difficultyWindow.reset();
@@ -237,6 +252,10 @@ bool MainMenu::run() {
                 moveOfficers();
                 if (choice == MapScreen::Choice::kRestart) {
                     startMission(_missionTeam);
+                } else if (choice == MapScreen::Choice::kSaveGame) {
+                    openSaveScreen(SaveGameScreen::Mode::kSave);
+                } else if (choice == MapScreen::Choice::kLoadGame) {
+                    openSaveScreen(SaveGameScreen::Mode::kLoad);
                 } else if (choice == MapScreen::Choice::kConfigure) {
                     // The escape menu's CONFIGURE: the settings over the map.
                     _settings = std::make_unique<SettingsWindow>(_data, _options, _screen.w, _screen.h);
@@ -244,6 +263,15 @@ bool MainMenu::run() {
                     // Its debriefing, if it has one, then the mission the
                     // triggers named next ("Mission 02/Mission 02") from its
                     // briefing; without one, the main menu (inferred).
+                    // Its score (0x50ca70) and time; the items the maps found,
+                    // and those the score's now reached, for the next briefing.
+                    const MissionProgress &progress = *_mapScreen->progress();
+                    _campaign.score += missionScore(progress.mission, progress.objectives);
+                    _campaign.time += progress.time;
+                    for (const std::string &item : progress.discover)
+                        _campaign.toDescribe.push_back(item);
+                    for (const std::string &item : foundByScore(loadItems(_data), _campaign))
+                        _campaign.toDescribe.push_back(item);
                     _nextMission = 0;
                     const std::string name = _mapScreen->nextMission();
                     if (std::sscanf(name.c_str(), "Mission %d", &_nextMission) != 1)
@@ -307,6 +335,8 @@ bool MainMenu::run() {
             const int chosen = escape ? int(kQuitButton) : _buttons.handleEvent(ev, _mixer);
             if (chosen == int(kQuitButton))
                 _dialog = std::make_unique<ConfirmDialog>(_data, _rules, kQuitQuestion, _screen.w, _screen.h);
+            else if (chosen == int(kLoadButton) && !_saves.empty())
+                openSaveScreen(SaveGameScreen::Mode::kLoad);
             else if (chosen == int(kStartButton))
                 _difficultyWindow = std::make_unique<DifficultyWindow>(_data, _screen.w, _screen.h, _difficulty);
             else if (chosen == int(kSettingsButton))
@@ -397,7 +427,36 @@ void MainMenu::playMissionMusic() {
     _missionSong = _mixer->play(_missionMusic, audio::SoundType::kMusic, audio::kMaxVolume, 0, false);
 }
 
+void MainMenu::openSaveScreen(SaveGameScreen::Mode mode) {
+    // What's saved is the mission as it began: loaded, it starts again
+    // from its briefing (Reluva's own saves; the game's are of the map as
+    // it stands).
+    SaveGame save;
+    char name[160];
+    std::snprintf(name, sizeof name, "Mission %02d: %s", _mission.number, _mission.name.c_str());
+    save.name = name;
+    save.missionName = name;
+    save.campaign = _missionStart;
+    _saveScreen = std::make_unique<SaveGameScreen>(_data, _rules, mode, _saves, std::move(save));
+    _sys.setTextInput(mode == SaveGameScreen::Mode::kSave);
+}
+
+void MainMenu::loadGame(const SaveGame &save) {
+    endMaps();
+    _briefing.reset();
+    _teamSelection.reset();
+    _debriefing.reset();
+    _campaign = save.campaign;
+    _difficulty = save.campaign.difficulty == int(Difficulty::kEasy) ? Difficulty::kEasy : Difficulty::kNormal;
+    beginMission(_campaign.mission);
+}
+
 void MainMenu::startGame() {
+    // A new game: no score, nothing found but what starts so; begun at a
+    // later mission, the score's 100 for each before it (0x5c3070).
+    _campaign = Campaign{};
+    _campaign.score = 100 * (_firstMission - 1);
+    _campaign.difficulty = int(_difficulty);
     beginMission(_firstMission);
 }
 
@@ -406,6 +465,22 @@ void MainMenu::beginMission(int number) {
         log::warning("Mission %d: %s", number, err.message.c_str());
         return;
     }
+    _campaign.mission = number;
+    _missionStart = _campaign;
+    // After its lines, the briefing describes the items found since the
+    // last, each by who found it (0x474639), and they're then had
+    // (0x474b2d; inferred: here as the mission begins).
+    const std::map<std::string, ItemDefinition> items = loadItems(_data);
+    for (const std::string &name : _campaign.toDescribe) {
+        const auto it = items.find(name);
+        if (it == items.end() || it->second.discoveryText.empty() || it->second.discoveryText == "!None")
+            continue;
+        _mission.briefing.push_back({"Discovery Items", it->second.discoveryText, it->second.whoDiscovers, -1});
+    }
+    for (const std::string &name : _campaign.toDescribe)
+        if (std::find(_campaign.discovered.begin(), _campaign.discovered.end(), name) == _campaign.discovered.end())
+            _campaign.discovered.push_back(name);
+    _campaign.toDescribe.clear();
     if (_mission.showBriefing)
         _briefing =
             std::make_unique<BriefingScreen>(_data, _install, _rules, _mission, _options, _mixer, _sys.getMillis());
@@ -434,8 +509,10 @@ void MainMenu::startMission(std::vector<TeamMember> team) {
     char folder[32];
     std::snprintf(folder, sizeof folder, "Mission %02d", _mission.number);
     _mapScreen = openMap(std::string(folder) + "/" + _mission.mapName, false);
-    if (_mapScreen)
+    if (_mapScreen) {
         _mapScreen->setObjectives(readMissionObjectives(_mission.objectives));
+        _mapScreen->setDiscovered(_campaign.discovered);
+    }
 }
 
 void MainMenu::endMaps() {
@@ -566,6 +643,8 @@ void MainMenu::showTeamSelection() {
 }
 
 void MainMenu::drawWindows(uint64_t now) {
+    if (_saveScreen)
+        _saveScreen->draw(_screen, now);
     if (_settings)
         _settings->draw(_screen, now);
     if (_soundOptions)

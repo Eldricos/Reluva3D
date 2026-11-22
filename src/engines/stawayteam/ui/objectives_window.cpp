@@ -143,9 +143,6 @@ EndGameWindow::EndGameWindow(const Archive &data, const TextObject &rules, bool 
         Button button(data, "End Game Menu", "Button", x, y);
         button.setLabel(readText(def, key + " Text"), &_buttonFonts[readText(def, key + " Font")], textX, textY);
         button.setSound(gameSound(data, readText(def, key + " Press Sound")));
-        // Saved games can't be loaded yet.
-        if (k.choice == Choice::kLoadGame)
-            button.setEnabled(false);
         _buttons.add(std::move(button));
         _choices.push_back(k.choice);
     }

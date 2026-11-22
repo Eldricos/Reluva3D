@@ -149,7 +149,11 @@ stawayteam frame-png`.
    count); Data joining the team in Mission 05; Worf's death failing
    Mission 08; the phasers' orange and yellow beams and the disruptors'
    green ones as they shoot, from the gun to the one shot, and the
-   footsteps silent as in the original;
+   footsteps silent as in the original; SAVE GAME in the escape menu, a
+   name typed and saved, and LOAD GAME (escape menu, main menu, End Game
+   Menu) beginning that mission again from its briefing; DELETE GAME
+   asking first; a mission completed and the next briefing describing an
+   item the score's found (Remote Mines, at 250);
    enemies called by one
    that's seen the team, running after it out of sight, and retreating to
    their alarms when hurt (Mission 08); a grenade chosen on the bar or

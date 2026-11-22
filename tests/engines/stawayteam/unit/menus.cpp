@@ -8,6 +8,9 @@
 #include "engines/stawayteam/ui/briefing.h"
 #include "engines/stawayteam/ui/debriefing.h"
 #include "engines/stawayteam/ui/escape_menu.h"
+#include "engines/stawayteam/ui/layout.h"
+#include "engines/stawayteam/ui/save_menu.h"
+#include "engines/stawayteam/game/campaign.h"
 #include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/credits.h"
 #include "engines/stawayteam/ui/font.h"
@@ -20,6 +23,7 @@
 #include "tests/engines/stawayteam/support.h"
 #include "tests/support/test.h"
 
+#include <cstdio>
 #include <map>
 #include <string>
 #include <vector>
@@ -443,6 +447,81 @@ void testDebriefing() {
     CHECK(screen.typed());
     CHECK(screen.handleEvent(space, 3500) == DebriefingScreen::Choice::kContinue);
 }
+void testCampaign(const std::filesystem::path &tmp) {
+    // A mission's score: its base, and the points of each objective done
+    // that isn't required (0x50ca70).
+    MissionObjectives mission;
+    mission.baseScore = 100;
+    std::vector<Objective> objectives(3);
+    objectives[0] = {.status = ObjectiveStatus::kComplete, .required = true, .points = 50};
+    objectives[1] = {.status = ObjectiveStatus::kComplete, .required = false, .points = 25};
+    objectives[2] = {.status = ObjectiveStatus::kFailed, .required = false, .points = 30};
+    CHECK(missionScore(mission, objectives) == 125);
+    // Items found as the score reaches their points, once.
+    std::map<std::string, ItemDefinition> items;
+    items["Phaser"].startsDiscovered = true;
+    items["Remote Mine"].startsDiscovered = false;
+    items["Remote Mine"].pointsToDiscover = 250;
+    items["Super Rifle"].startsDiscovered = false;
+    items["Super Rifle"].pointsToDiscover = 900;
+    Campaign campaign;
+    campaign.score = 300;
+    CHECK(foundByScore(items, campaign) == std::vector<std::string>{"Remote Mine"});
+    campaign.discovered.push_back("Remote Mine");
+    CHECK(foundByScore(items, campaign).empty());
+    // Written and read back; listed newest first.
+    SaveGame save;
+    save.name = "Before the outpost";
+    save.savedAt = 1000;
+    save.missionName = "Mission 01: Klingon Outpost";
+    save.campaign = campaign;
+    save.campaign.mission = 2;
+    save.campaign.toDescribe = {"Super Rifle"};
+    const std::filesystem::path folder = tmp / "Save Games";
+    CHECK(!writeSaveGame(folder / "a.sav", save));
+    SaveGame back;
+    CHECK(!readSaveGame(folder / "a.sav", back));
+    CHECK(back.name == save.name && back.savedAt == 1000 && back.campaign.mission == 2 && back.campaign.score == 300 &&
+          back.campaign.discovered == save.campaign.discovered && back.campaign.toDescribe == save.campaign.toDescribe);
+    save.name = "Later";
+    save.savedAt = 2000;
+    CHECK(!writeSaveGame(folder / "b.sav", save));
+    const auto saves = listSaveGames(folder);
+    CHECK(saves.size() == 2 && saves[0].second.name == "Later");
+}
+
+void testSaveScreen(const std::filesystem::path &tmp) {
+    MemoryArchive data;
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n{\n\tMenu=Array\n\t{\n\t\tItem Count=2\n"
+                          "\t\tMenu=CAnimatedMenuInfo\n\t\t{\n\t\t\tMenu Name=Save Game Screen\n"
+                          "\t\t\tMenu Definition=CStarTrekSaveGameMenu\n\t\t\t{\n\t\t\t\tList Pos=57,96\n"
+                          "\t\t\t\tList Size=362,352\n\t\t\t}\n\t\t}\n"
+                          "\t\tMenu=CAnimatedMenuInfo\n\t\t{\n\t\t\tMenu Name=Load Game Screen\n"
+                          "\t\t\tMenu Definition=CStarTrekLoadGameMenu\n\t\t\t{\n\t\t\t\tList Pos=57,96\n"
+                          "\t\t\t\tList Size=362,352\n\t\t\t}\n\t\t}\n\t}\n}\n}\n",
+                          rules));
+    CHECK(menuDefinition(rules, "Load Game Screen") != nullptr);
+    const std::filesystem::path folder = tmp / "Save Games";
+    SaveGame toSave;
+    toSave.name = "Mission 03: The";
+    toSave.campaign.mission = 3;
+    // Saving: the name offered, typed on, saved by Enter.
+    SaveGameScreen save(data, rules, SaveGameScreen::Mode::kSave, folder, toSave);
+    Event typed;
+    typed.type = EventType::kTextInput;
+    std::snprintf(typed.text, sizeof typed.text, " Tower");
+    CHECK(save.handleEvent(typed, nullptr) == SaveGameScreen::Choice::kNone);
+    Event enter;
+    enter.type = EventType::kKeyDown;
+    enter.key = key::kReturn;
+    CHECK(save.handleEvent(enter, nullptr) == SaveGameScreen::Choice::kSaved);
+    // Loading: it's listed and chosen.
+    SaveGameScreen load(data, rules, SaveGameScreen::Mode::kLoad, folder);
+    CHECK(load.saves().size() == 1 && load.saves()[0].second.name == "Mission 03: The Tower");
+    CHECK(load.handleEvent(enter, nullptr) == SaveGameScreen::Choice::kLoad && load.chosen().campaign.mission == 3);
+}
+
 void testEscapeMenu() {
     MemoryArchive data;
     TextObject rules;
@@ -453,10 +532,10 @@ void testEscapeMenu() {
                           "\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}\n",
                           rules));
     EscapeWindow window(data, rules, 640, 480);
-    // Its six buttons, saving and loading greyed out.
+    // Its six buttons, all of them to use.
     const auto &buttons = window.buttons();
     CHECK(buttons.size() == 6 && buttons[0].label() == "CONFIGURE" && buttons[5].label() == "RESUME");
-    CHECK(buttons[0].enabled() && !buttons[1].enabled() && !buttons[2].enabled() && buttons[3].enabled());
+    CHECK(buttons[0].enabled() && buttons[1].enabled() && buttons[2].enabled() && buttons[3].enabled());
     // RESTART MISSION asks first: no keeps the window, yes restarts.
     Event key;
     key.type = EventType::kKeyDown;
@@ -486,4 +565,6 @@ static const reluva::test::Suite
                                         {"briefing", [](const std::filesystem::path &) { testBriefing(); }},
                                         {"debriefing", [](const std::filesystem::path &) { testDebriefing(); }},
                                         {"escape menu", [](const std::filesystem::path &) { testEscapeMenu(); }},
+                                        {"campaign", [](const std::filesystem::path &tmp) { testCampaign(tmp); }},
+                                        {"save screen", [](const std::filesystem::path &tmp) { testSaveScreen(tmp); }},
                                     });

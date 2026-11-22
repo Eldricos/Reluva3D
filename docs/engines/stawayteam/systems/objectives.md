@@ -98,6 +98,30 @@ and centred across the top of `EndGameDisplay Pos` and `Size` (60, 26;
 buttons, of `End Game Menu/Button`: completed, CONTINUE alone; failed,
 LOAD GAME, RESTART and END GAME (`0x50d08d`).
 
+### The score
+
+The game keeps a score (`CStarTrekSaveData`'s `Score`, at its `0xdc`),
+saved with the game:
+
+- **A mission's:** as it's completed (`0x5097fe`), its `Base Score for
+  Mission` (100 in all 18) and each objective's `Points` that isn't
+  required and is complete (`0x50ca70`): Mission 01's warriors' 30.
+- **A new game begun at a later mission** (a developer's start) begins
+  with 100 for each mission before (`0x5c3070`); restarting a mission
+  keeps the score it had (`0x5c140a`, `0x5c1529`).
+- **What it's for:** an item's `Points to Discover` (up to 2,400: the
+  Phaser Damage Increase's 400, the Remote Mine's 250); 38 are 0 and 6
+  -1. Found, an item's described in the next briefing
+  ([briefing.md](briefing.md)) by its `Who Discovers` (Asunder for 41),
+  its `Discovery Text` a line of its `Script` (`Discovery Items`). The
+  maps find some themselves (`CDiscoverInventoryNextBriefingAction`, 5),
+  and ask whether one's been found (`CIsDiscoveredAction`). The program
+  shows no score.
+
+The manager's win check (`0x50c9df`): with every required objective
+complete, the others still incomplete are set Failed (`0x50ca2c`), and
+the Win Action runs, once (`0x50ca56`).
+
 ### The debriefing
 
 After a mission completed, one with `Show Debriefing` (`Debrief Script`
@@ -132,8 +156,9 @@ Rules.txt's `Debriefing Screen` (`CStarTrekDebriefingMenu`, made at
 then those added, and runs the actions above. A count's Count is added,
 and at its Count Before Success the objective is complete *(inferred)*.
 An objective completed runs its Success Action, failed its Fail Action;
-with every objective that's required and not disabled complete, the Win
-Action runs, once *(inferred)*. Each
+with every objective that's required and not disabled complete, the
+others still to do fail, without their Fail Actions *(inferred)*, and the
+Win Action runs, once. Each
 spawn point's Spawn Action runs as the map starts, its officer the
 instigator *(inferred)*; a protect objective's `$instigator` is that
 officer, and it fails as they fall *(inferred)*. A rescue fails likewise
@@ -148,7 +173,8 @@ middle of the screen *(inferred)*, and hold the game still while they're
 open *(inferred)*. CONTINUE goes to the mission the triggers named next,
 from its briefing, or to the main menu without one *(inferred)*; RESTART
 starts the mission's map again with the same team; END GAME goes to the
-main menu. LOAD GAME is greyed out, as saved games can't be loaded yet.
+main menu. LOAD GAME opens the Load Game screen
+([menus.md](menus.md#saved-games)).
 
 The debriefing (`ui/debriefing.cpp`) comes between a mission completed
 and the next, as above; its lines are typed once their panel's in, and,
@@ -162,8 +188,17 @@ not while a window holds it.
 Where to go is shown on the minimap by its points of interest
 ([maps.md](maps.md#the-interface)).
 
-Not there yet: the score and points, and need-item objectives' own
-rules.
+The score (`game/campaign.cpp`) is kept from mission to mission, and
+saved: a mission completed adds its base and the Points of its
+objectives done that aren't required. A new game begun at a later
+mission starts with 100 for each before. Restarting a mission keeps the
+score it had. Each item whose Points to Discover the score's reached is
+found, described in the next briefing ([briefing.md](briefing.md)) with
+those the maps found *(inferred)*; which the team can take isn't
+changed by it yet.
+
+Not there yet: need-item objectives' own rules, and the found items
+being what the team selection offers.
 
 ## Sources and checks
 
@@ -187,9 +222,11 @@ rules.
 
 ## Open questions
 
-- **The manager:** when it runs the Win Action, whether a failed
-  required objective ends the mission by itself, and how the score's
-  reckoned.
+- **The manager:** whether a failed required objective ends the mission
+  by itself, and whether the objectives failed on winning run their Fail
+  Actions.
+- **The score:** how the program compares it with the items' Points to
+  Discover, and whether it changes what the team selection offers.
 - **Rescue and need-item objectives:** whether the program completes or
   fails them itself, or only the maps' actions do.
 - **The windows:** where they're placed, whether the game's held still

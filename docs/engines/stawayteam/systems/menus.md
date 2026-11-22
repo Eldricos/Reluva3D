@@ -386,6 +386,30 @@ as "%d,%d,%d,%d".
   down; the box, the font's baseline and 2 square, framed raised, or
   sunken while held down on or checked; checked, the grey cross over it.
 
+### Saved games
+
+The escape menu's SAVE GAME and LOAD GAME, the main menu's Load Save
+Game and the End Game Menu's LOAD GAME open Rules.txt's `Save Game
+Screen` (`CStarTrekSaveGameMenu`) and `Load Game Screen`
+(`CStarTrekLoadGameMenu`), on `Save Game/Background` and `Load
+Game/Background`:
+
+- **Their places:** the SAVE GAME or LOAD GAME, DELETE GAME and CANCEL
+  buttons (`SaveButton Pos` 472, 257...) in `Placar Blue`, each of the
+  screen's `Save`, `Delete` and `Exit` pictures; the list at `List Pos`
+  (57, 96), `List Size`; saving, the name typed at `Edit Pos`, `Edit
+  Size`; loading, the chosen one's at `Static Pos`; its time at `Time
+  Pos`, `Time Size` ("Total Game Time"); a picture at `Image Pos`,
+  `Image Width` (129); loading, `GameInfo Pos`.
+- **Their words:** "NO SAVE GAMES" with none (`0x5017a1`), and "Are you
+  sure you want to delete this game?" (`0x5017b5`).
+- **The files:** `Save Games` (`0x501a4a`), each a `.sav`
+  (`0x555570`): a `CSaveGameDescription` (`Version`, `Mission Time`,
+  `Total Time`, `Mission`, `Mission Name`, `Mission Desc`, `Is Quick
+  Save`) and the game's `CStarTrekSaveData` (the team, the roster, the
+  objectives, the noises, the mission's time, the found items, `Score`)
+  with the maps as they stand.
+
 ## In Reluva
 
 - **Fonts:** `Font` (`ui/font.cpp`) reads one from `DATA.dat` and draws
@@ -432,6 +456,19 @@ as "%d,%d,%d,%d".
   `CheckBox` and the frames' `drawBevel` (`ui/widgets.cpp`), as above, placed where the program's layout puts
   them, worked out by hand for each window. A picture button's click plays
   `Button Action`; a toggle's plays nothing yet.
+
+- **Saved games:** `SaveGameScreen` (`ui/save_menu.cpp`), the screens as
+  above, the list's rows a line of the menu's font each, the chosen one
+  over `Load Game/Select Overlay` *(inferred)*. Saving offers the
+  mission's name, typed on or replaced by one chosen, and saves with
+  SAVE GAME or Enter; loading, LOAD GAME or Enter; DELETE GAME asks
+  first. Its time is the missions' total, hours and minutes saving,
+  with seconds loading; loading, the chosen one's mission and score at
+  GameInfo Pos *(inferred)*. Saves are Reluva's own
+  (`game/campaign.cpp`), `.sav` files of text in `Save Games` where
+  Reluva keeps the game's files: the mission, as it began, its score,
+  time and difficulty, and the items found. Loading one begins its
+  mission again from its briefing.
 
 ## Sources and checks
 
@@ -485,3 +522,6 @@ as "%d,%d,%d,%d".
   on. Reluva plays it on the click.
 - **The shortcut's line and the label lit:** when the game shows them,
   and how they look.
+- **Saved games:** how the save screens' rows, time, picture and game
+  info are drawn, and the original's save files, for Reluva to read
+  them.

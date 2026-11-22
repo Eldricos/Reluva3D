@@ -95,8 +95,10 @@ and yes fades out over half a second to the main menu (`0x474a6d`).
 `loadMission` (`game/team.cpp`). A new game shows the mission's briefing,
 then its team selection, if it has one; the team selection's BRIEFING
 shows it again. Lines are broken at line breaks as well as spaces
-(`Font::wrap`, `ui/font.cpp`). Not there yet: the items found, the
-scroll bar (the mouse wheel scrolls instead), the random numbers, the
+(`Font::wrap`, `ui/font.cpp`). The items found since the last
+briefing ([objectives.md](objectives.md#the-score)) are lines after its
+own, each said by who found it, and are had from then; while they play
+the movie goes on *(inferred)*. Not there yet: the scroll bar (the mouse wheel scrolls instead), the random numbers, the
 fade, and a movie's delay. The main menu's song stops while the game's
 screens show, and the briefing music plays over and over.
 

@@ -733,6 +733,8 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
             return Choice::kRestart;
         case EndGameWindow::Choice::kEndGame:
             return Choice::kExit;
+        case EndGameWindow::Choice::kLoadGame:
+            return Choice::kLoadGame;
         default:
             return Choice::kNone;
         }
@@ -749,6 +751,10 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
             return Choice::kNone;
         case EscapeWindow::Choice::kConfigure:
             return Choice::kConfigure;
+        case EscapeWindow::Choice::kSaveGame:
+            return Choice::kSaveGame;
+        case EscapeWindow::Choice::kLoadGame:
+            return Choice::kLoadGame;
         case EscapeWindow::Choice::kRestart:
             return Choice::kRestart;
         case EscapeWindow::Choice::kEndGame:

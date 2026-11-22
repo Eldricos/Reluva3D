@@ -44,7 +44,9 @@ struct MissionProgress {
     bool completed = false;
     std::string nextMission;
     std::string overText;
-    float time = 0.0f; // seconds played
+    float time = 0.0f;                   // seconds played
+    std::vector<std::string> discover;   // items found, for the next briefing (CDiscoverInventoryNextBriefingAction)
+    std::vector<std::string> discovered; // the items found before it, for CIsDiscoveredAction
 };
 
 /**
@@ -76,7 +78,7 @@ public:
      * What the player chose that leaves the screen: the main menu, or, as
      * the mission's over, the next mission or this one again.
      */
-    enum class Choice { kNone, kExit, kContinue, kRestart, kConfigure };
+    enum class Choice { kNone, kExit, kContinue, kRestart, kConfigure, kSaveGame, kLoadGame };
 
     /**
      * `map` shown with `rules`' view, `team` on it at its spawn points,
@@ -356,6 +358,8 @@ public:
      */
     void setObjectives(MissionObjectives objectives);
     const std::vector<Objective> &objectives() const { return _progress->objectives; }
+    /** The items found in missions before, for the maps to ask about. */
+    void setDiscovered(std::vector<std::string> items) { _progress->discovered = std::move(items); }
     /** An objective's words, as the lists show them: its line, with its count. */
     std::string objectiveText(const Objective &o) const;
     /** The mission the triggers have said comes next ("Mission 02/Mission 02"); empty if none. */

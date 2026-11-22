@@ -136,7 +136,10 @@ public:
         if (kDeveloperKeys)
             if (const auto it = _target.settings.find(kFirstMission); it != _target.settings.end())
                 firstMission = std::clamp(std::atoi(it->second.c_str()), 1, kMissions);
-        MainMenu menu(_sys, screen, _data, _target.path, _rules, options, sound, firstMission);
+        // Saved games in Save Games where Reluva keeps the game's files, as
+        // the game keeps them by its own (0x501a4a).
+        MainMenu menu(_sys, screen, _data, _target.path, _rules, options, sound, firstMission,
+                      _target.savePath.empty() ? std::filesystem::path() : _target.savePath / "Save Games");
         menu.run();
         return Error::success();
     }

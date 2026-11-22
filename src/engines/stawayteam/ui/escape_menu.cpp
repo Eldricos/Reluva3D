@@ -44,8 +44,6 @@ EscapeWindow::EscapeWindow(const Archive &data, const TextObject &rules, int scr
             y += button.height() + kGap;
         }
         button.setSound(gameSound(data, "UI/Button Action.wav"));
-        // Saved games can't be made or loaded yet.
-        button.setEnabled(i != kSave && i != kLoad);
         _buttons.push_back(std::move(button));
     }
 }
@@ -68,6 +66,10 @@ EscapeWindow::Choice EscapeWindow::handleEvent(const Event &ev, audio::Mixer *mi
         switch (i) {
         case kConfigure:
             return Choice::kConfigure;
+        case kSave:
+            return Choice::kSaveGame;
+        case kLoad:
+            return Choice::kLoadGame;
         case kRestart:
             _asking = Choice::kRestart;
             _confirm = std::make_unique<ConfirmDialog>(_data, _rules, kRestartQuestion, 640, 480);

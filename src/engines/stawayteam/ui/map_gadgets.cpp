@@ -271,6 +271,12 @@ bool MapScreen::checkAction(const TextObject *attempt, int instigator, int trigg
                 return true;
         return false;
     }
+    if (kind == "CIsDiscoveredAction") {
+        // Its item found in a mission before.
+        const std::string item = readText(attempt, "Item to check");
+        return std::find(_progress->discovered.begin(), _progress->discovered.end(), item) !=
+               _progress->discovered.end();
+    }
     if (kind == "CCheckForClassAction") {
         // An officer of a field: Security, Science, Medical... (116 in the
         // maps, choosing who speaks).

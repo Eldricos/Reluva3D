@@ -208,6 +208,11 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
         if (const TextObject *held = def.object("Default Inventory Item"))
             item.stuns = text(*held, "Weapon Setting") == "Stun";
         item.strikeRadius = float(def.number("Strike Damage Radius").value_or(0.0));
+        item.startsDiscovered = def.integer("Starts Discovered").value_or(1) != 0;
+        item.pointsToDiscover = int(def.integer("Points to Discover").value_or(0));
+        item.whoDiscovers = text(def, "Who Discovers");
+        item.discoveryScript = text(def, "Script");
+        item.discoveryText = text(def, "Discovery Text");
         for (TextField &f : def.fields)
             if ((f.key == "Process" || f.key == "Discharge Action") && f.object)
                 (f.key == "Process" ? item.process : item.discharge) =

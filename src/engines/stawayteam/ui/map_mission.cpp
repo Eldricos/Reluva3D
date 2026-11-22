@@ -8,6 +8,7 @@
 #include "engines/stawayteam/ui/layout.h"
 #include "engines/stawayteam/ui/map_screen.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <functional>
 
@@ -150,7 +151,7 @@ void MapScreen::setObjectiveStatus(size_t objective, ObjectiveStatus status) {
                                                                   : nullptr;
     runAction(then, -1);
     // With every objective required to end the mission complete, its Win
-    // Action, once (inferred: the manager's check isn't traced).
+    // Action, once (0x50c9df).
     if (_progress->won || !_progress->mission.winAction)
         return;
     bool required = false;
@@ -161,7 +162,13 @@ void MapScreen::setObjectiveStatus(size_t objective, ObjectiveStatus status) {
             required = true;
         }
     if (required) {
+        // The rest still to do have failed, without their Fail Actions
+        // (0x50ca2c, inferred for the actions), then the Win Action once
+        // (0x50ca56).
         _progress->won = true;
+        for (Objective &each : _progress->objectives)
+            if (each.status == ObjectiveStatus::kIncomplete)
+                each.status = ObjectiveStatus::kFailed;
         runAction(_progress->mission.winAction, -1);
     }
 }
@@ -380,6 +387,11 @@ bool MapScreen::runMissionAction(const TextObject *action, int instigator) {
         }
         if (!r.officers.empty())
             _relocations.push_back(std::move(r));
+    } else if (kind == "CDiscoverInventoryNextBriefingAction") {
+        // Found: described in the next briefing (5 in the maps).
+        const std::string item = readText(action, "Item to Discover");
+        if (std::find(_progress->discover.begin(), _progress->discover.end(), item) == _progress->discover.end())
+            _progress->discover.push_back(item);
     } else if (kind == "CSetNextMissionAction") {
         _progress->nextMission = readText(action, "Next Mission");
     } else if (kind == "CDisplayMissionCompletedScreenAction" || kind == "CDisplayMissionFailedScreenAction") {

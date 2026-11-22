@@ -28,7 +28,7 @@ class ConfirmDialog;
 class EscapeWindow {
 public:
     /** What the player chose. */
-    enum class Choice { kNone, kConfigure, kRestart, kEndGame, kResume };
+    enum class Choice { kNone, kConfigure, kSaveGame, kLoadGame, kRestart, kEndGame, kResume };
 
     /** On a screen `screenW` x `screenH`; `data` and `rules` must outlive it. */
     EscapeWindow(const Archive &data, const TextObject &rules, int screenW, int screenH);

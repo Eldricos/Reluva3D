@@ -7,6 +7,7 @@
 #include "common/archive.h"
 #include "common/system.h"
 #include "engines/stawayteam/formats/text_object.h"
+#include "engines/stawayteam/game/campaign.h"
 #include "engines/stawayteam/ui/briefing.h"
 #include "engines/stawayteam/ui/debriefing.h"
 #include "engines/stawayteam/ui/button.h"
@@ -15,6 +16,7 @@
 #include "engines/stawayteam/ui/settings.h"
 #include "engines/stawayteam/ui/key_config.h"
 #include "engines/stawayteam/ui/map_screen.h"
+#include "engines/stawayteam/ui/save_menu.h"
 #include "engines/stawayteam/ui/sound_options.h"
 #include "engines/stawayteam/ui/team_selection.h"
 #include "engines/stawayteam/game/options.h"
@@ -70,9 +72,11 @@ public:
      * install's movies, the settings window changing `options`; `sys`,
      * `screen`, `data`, `options` and `mixer` (nullptr: no sound) must
      * outlive it. A new game starts at mission `firstMission` (1 to 18).
+     * Games are saved in `saves` (none without it).
      */
     MainMenu(System &sys, Surface &screen, const Archive &data, const std::filesystem::path &install,
-             const TextObject &rules, GameOptions &options, audio::Mixer *mixer, int firstMission = 1);
+             const TextObject &rules, GameOptions &options, audio::Mixer *mixer, int firstMission = 1,
+             std::filesystem::path saves = {});
     ~MainMenu();
 
     /** Shown until the player quits (then true), or the window is closed (then false). */
@@ -150,6 +154,16 @@ private:
     std::vector<TeamMember> _missionTeam; // the team it started with, for a restart
     Difficulty _difficulty = Difficulty::kNormal;
     int _firstMission;
+    // The game's score and items found, and as they were as the mission
+    // began: what a save keeps.
+    Campaign _campaign;
+    Campaign _missionStart;
+    std::filesystem::path _saves;
+    std::unique_ptr<SaveGameScreen> _saveScreen;
+    // The save or load screen opened, saving the mission's start.
+    void openSaveScreen(SaveGameScreen::Mode mode);
+    // A saved game begun: its mission, from its briefing.
+    void loadGame(const SaveGame &save);
 };
 
 } // namespace reluva::stawayteam
