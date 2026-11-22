@@ -43,15 +43,12 @@ Each phase ends with something that runs, is tested and is committed.
    its sound on the mixer through DirectSound: the intro (a click skips
    it) and the Information Center
    ([systems/running.md](systems/running.md#in-reluva)).
-6. **Direct3D Retained Mode** (in progress): a stand-in for the part of
-   it `LEGO1.DLL` uses (found by logging its calls), drawn by the
-   existing software rasterizer: the island in 3D, driving, building a
-   vehicle. Its scenes are drawn and picked: the Information Center's
-   Infomaniac, its bricks, the score cube, the island through the
-   elevator's window, and out on the island, walked with the arrow keys.
-   The island looks as a screenshot of the original does; the skateboard
-   is ridden (in the engine), and the jet-ski's build screen takes its
-   pieces. Next: a vehicle built through, and driven.
+6. **Direct3D Retained Mode** (done): a stand-in for the part of it
+   `LEGO1.DLL` uses (found by logging its calls), drawn by the existing
+   software rasterizer ([d3drm.md](../../common/x86/d3drm.md)): its
+   scenes drawn and picked, the island in 3D as a screenshot of the
+   original shows it, walked, the skateboard ridden, and the jet-ski
+   built and ridden ([systems/running.md](systems/running.md#how-far-it-gets)).
 7. **Input, saves and settings:** DirectInput and the joystick, the save
    folder, and `CONFIG.EXE`'s choices as the engine's settings; turning
    at the speed it was made for, as on today's machines it's too fast

@@ -33,7 +33,8 @@ intro (a click skips it) with its sound, and opens the Information
 Center, its 3D drawn: the Infomaniac walks and talks, and its rooms
 answer clicks, on their 2D controls and on 3D objects. A player
 registered and a character dragged to a place on the map, it goes out
-to the island, drawn in 3D, and the arrow keys walk around it. The plan is in
+to the island, drawn in 3D: the arrow keys walk around it, the
+skateboard is ridden, and the jet-ski is built and ridden. The plan is in
 [PLAN.md](PLAN.md).
 
 ## Using it

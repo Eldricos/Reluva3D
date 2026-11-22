@@ -148,7 +148,9 @@ that far.
   yellow baseplate opens the jet-ski's build screen (`JETSKI.SI`, world
   `BLDJ`), its builder explaining. Its pieces, clicked and dragged, are
   taken to and from the screen (`IDirect3DRMViewport::Transform`), and
-  a piece picked offers its colours and decals. The right-hand
+  a piece picked offers its colours and decals. Played in the engine
+  (by a tester), the jet-ski is built through and ridden, and Pepper's
+  skateboard ridden. The right-hand
   door is the way out of the game: the Infomaniac asks
   (`iic043in_RunAnim`, the sound `IIC044IN.wav`) and puts a green brick
   and a red one before him, in 3D; picking the green one ends the game,
