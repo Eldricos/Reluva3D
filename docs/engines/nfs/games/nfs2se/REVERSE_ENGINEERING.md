@@ -76,7 +76,7 @@ Allowed under CONTRIBUTING.md, as for NFS III
 | `reluva-tool nfs page <folder> <out.tga> <page>` | Draws one of the engine's pages for the game in the folder, without a window (the Status page, say) |
 | `reluva-tool nfs trk-obj <file.trk> <out.obj> [level]` | A track as a Wavefront OBJ, to look at elsewhere: its ground at a level of detail and its placed objects |
 | `reluva-tool nfs geo-obj <file.geo or file.viv name> <out.obj> [-level n]` | A car model as a Wavefront OBJ, all its parts or one level's |
-| `reluva-tool nfs host <install> [-deterministic N] [-frames dir] [-keys ms:key,...] [-log N]` | Runs the game's program on the host without a window: its calls, files and frames (each frame's moment in `frames.txt`), keys and mouse given at moments of its clock |
+| `reluva-tool nfs host <install> [-program file] [-deterministic N] [-frames dir] [-keys ms:key,...] [-log N]` | Runs the game's program on the host without a window: its calls, files and frames (each frame's moment in `frames.txt`), keys and mouse given at moments of its clock; `-program` runs another (the CD's `NFS2SEA.EXE`, on Glide as a Voodoo Graphics) |
 | `reluva-tool nfs dct-frames <file.dct> <output dir> [first] [count] [every]` | A movie's frames as pictures |
 
 ## Working files not included

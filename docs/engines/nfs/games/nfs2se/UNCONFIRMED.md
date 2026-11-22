@@ -29,9 +29,17 @@ None yet.
 - **The pause screens' palette** is the race's, `hud.fsh`'s: the 3dfx
   copies' colours agree with it ([fsh.md](../../formats/fsh.md), NFS II
   SE's pause screens). The software game, paused, would settle it.
-- **The 3dfx program's chroma key** is `0x07C0`, the green only its track
-  pictures have ([fsh.md](../../formats/fsh.md), NFS II SE): the value
-  `nfs2sea.exe` gives `grChromakeyValue` would settle it.
+- **The 3dfx program's chroma key**: `nfs2sea.exe` sets `0x00FF00`
+  (`grChromakeyValue`, seen on the host), and its track pictures' see-through
+  green is `0x07C0` ([fsh.md](../../formats/fsh.md), NFS II SE). How the
+  two meet isn't worked out; the viewer's pages key out `0x07C0`.
+- **The 3dfx program's board**: a Voodoo Graphics, by its date (1997,
+  before the Voodoo2). It passes its vertices snapped (`x + 3 << 18`,
+  never taken off again) and so relies on the board reading only their
+  low bits, which Reluva's Glide does for the Voodoo Graphics and Rush
+  (`src/graphics/glide/glide2.cpp`, `Glide2::convert`); on a Voodoo2
+  every triangle would be off the screen. The program on a real board
+  would settle it.
 - **The front end's text records** ([text.md](../../formats/text.md),
   NFS II SE's front end): their first byte is the font's size, and two
   of their words the string's place on the screen. The front end drawn

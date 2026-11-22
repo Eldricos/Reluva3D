@@ -30,10 +30,11 @@ the cars' data is in both. The CD's 3dfx program, `NFS2SEA.EXE`, is in
   `nfs2sen.exe`, the software program, runs in the x86 emulator as NFS
   III's does: its movies, its front end with the keys and mouse, and
   races, about 39 frames a second on the machine measured
-  ([research/hosted-spike.md](research/hosted-spike.md)). The 3dfx
-  program (`nfs2sea.exe`) is Phase 7's; an install with only it shows
-  what was found of the game instead (its folders, programs, music,
-  movies, tracks and car models:
+  ([research/hosted-spike.md](research/hosted-spike.md)). With
+  `renderer=glide` the 3dfx program (`nfs2sea.exe`, the install's or
+  the CD's) plays instead, on Reluva's Glide stand-in as a Voodoo
+  Graphics. Without either program the game shows what was found of it
+  (its folders, programs, music, movies, tracks and car models:
   `src/engines/nfs/nfs2se/status_page.cpp`).
 - **Its files that NFS III's formats cover all read**: every archive,
   picture bank (311 on the CD), text table, font, sound bank, music
@@ -62,7 +63,10 @@ is found:
   music (`GameData/Audio/pc`).
 
 Without it, the game says where to put it. The keys and mouse go to the
-game, Esc included; Ctrl+F5 goes back to the launcher. `reluva-viewer
+game, Esc included; Ctrl+F5 goes back to the launcher. The game's
+*Renderer* setting picks its program: *Voodoo on Glide*
+(`renderer=glide` in `reluva.ini`) its 3dfx one, drawn on the GPU (or in
+software with `glide=software`), the others its software one. `reluva-viewer
 <its name in the launcher>` shows its files.
 
 ## This folder

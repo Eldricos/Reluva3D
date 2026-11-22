@@ -49,6 +49,7 @@ ctest --test-dir out\build\x64-release -L gamedata -R nfs2se
 | `release` | The release detection finds, and whether the CD's copy is beside the install |
 | `survey` | The game's files in the install and on the CD by name, size and MD5, as one checksum: not the CD's `REDIST` and `UTILITY` (DirectX's installers and tools, which a copy may leave out), nor the folders the game writes as it's played (`FeData/pc/config`, `stats`, `save`, `GameData/Prefs`, `TmpTrk`); the listing is left in the step's output folder as `files.txt`. And every file the engine reads, read and counted (`reluva-tool nfs survey`) |
 | `formats` | Every archive, picture, string table, font, track, model, sound, music section and movie frame decoded, each kind as a checksum (`nfs survey -hash`) |
+| `host_glide` | The same run with the 3dfx program (`nfs2sea.exe`, the install's or else the CD's) on Reluva's Glide stand-in as a Voodoo Graphics, drawn by its software rasterizer: about five minutes |
 | `host` | `nfs2sen.exe` on a clock of instructions (`nfs host -deterministic 300000`): the title movie skipped with Enter, the menu taken to RACE with four Downs, a race at Proving Grounds with Up held; its end state, its system calls and its last frame, as checksums |
 
 The records, `tests/engines/nfs/data/gamedata/nfs2se-en-windows/`, are
@@ -71,7 +72,8 @@ That the real release is recognised by its hashes: checked by hand
 2. Start it: the EA logo and the title movie (Enter skips it), then the
    main menu. Up and Down move along it, every press; the mouse moves its
    cursor. RACE starts a race at Proving Grounds: Up accelerates.
-   Ctrl+F5 goes back.
+   Ctrl+F5 goes back. With `renderer=glide` the same, on the 3dfx
+   program.
 3. In `reluva-viewer`, the Status page lists the install, the CD's copy
    (beside the install), 19 music streams, 15 movies, `nfs2sen.exe` in
    the install and `NFS2SEA.EXE` on the CD, 8 tracks (`TR00`, `TR02` to
@@ -88,6 +90,7 @@ That the real release is recognised by its hashes: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US CD and an install from it | Linux, Xvfb | The 3dfx program (`renderer=glide`) from `reluva-viewer`'s Play page: the title movie, the menu by the keys, a race at Proving Grounds with Up held (about 20 frames a second, Glide's GPU backend on Mesa's software Vulkan); on the host (`-program`), its movies, front end and race on the software rasterizer, `grChromakeyValue(0x00FF00)` in the race; the `host_glide` step twice, the same record |
 | November 2026 | US CD and an install from it | Linux | The game-files test (`RELUVA_NFS2SE`), its four steps twice with the same records; on the host: tournament and knockout races started, the attract mode's movies, the sound recorded (`-wav`) through the movie, menus and a race, the save folder's files, a wheel with force feedback offered (`-joystick -wheel -ff`) and taken |
 | November 2026 | US CD and an install from it | Linux, Xvfb | The game from `reluva-viewer`'s Play page: the title movie, Enter to the menu, Down four times to RACE (each press taken), the race at Proving Grounds, Up held to 132 mph |
 | November 2026 | US CD and an install from it | Linux | `nfs2sen.exe` on the host (`reluva-tool nfs host -deterministic 300000`): the EA logo and title movie, the front end, a race at Proving Grounds driven with the keys, at about 39 frames a second ([research/hosted-spike.md](research/hosted-spike.md)) |

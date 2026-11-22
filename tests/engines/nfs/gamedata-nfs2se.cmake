@@ -26,6 +26,9 @@
 #            taken to RACE with the keys, a race at Proving Grounds with
 #            the accelerator held; its end state, its system calls and the
 #            last frame written, as checksums
+#   host_glide  the same with the 3dfx program, nfs2sea.exe (the
+#            install's, or the CD's), on Reluva's Glide stand-in as a
+#            Voodoo Graphics, drawn by its software rasterizer
 # A command that fails fails the step. The records, in
 # tests/engines/nfs/data/gamedata/nfs2se-<release>/<step>.txt, hold only
 # counts and checksums. The step passes when its record is the same as the
@@ -60,6 +63,56 @@ set(release "${CMAKE_MATCH_1}")
 string(TOLOWER "${release}" slug)
 string(REGEX REPLACE "[^a-z0-9]+" "-" slug "${slug}")
 set(slug "nfs2se-${slug}")
+
+# The hosted game from its title movie into a race at Proving Grounds, on
+# a clock of instructions: Enter skips the movie, four Downs and Enter
+# start the race, Up held from 40 s
+# (docs/engines/nfs/games/nfs2se/research/hosted-spike.md). ARGN: the
+# program, the limit and which frames are written. Its end state, its
+# system calls and the last frame written go into the record as
+# checksums.
+function(record_host name)
+    set(out "${OUTPUT}/${STEP}")
+    file(REMOVE_RECURSE "${out}/save" "${out}/frames")
+    file(MAKE_DIRECTORY "${out}/save" "${out}/frames")
+    # The run ends at the instruction limit, which the tool reports as a
+    # failure (1); anything else fails the step.
+    execute_process(COMMAND "${TOOL}" nfs host "${game_dir}" -save "${out}/save" -deterministic 300000
+                    -frames "${out}/frames" ${ARGN}
+                    -keys "6000:enter,14000:down,14500:down,15000:down,15500:down,17000:enter,40000:+up"
+                    OUTPUT_VARIABLE log ERROR_VARIABLE log RESULT_VARIABLE rc TIMEOUT 3000)
+    string(REPLACE "${game_dir}" "<game>" log "${log}")
+    if(NOT cd_dir STREQUAL "")
+        string(REPLACE "${cd_dir}" "<cd>" log "${log}")
+    endif()
+    string(REPLACE "${OUTPUT}" "<output>" log "${log}")
+    if(NOT (rc EQUAL 0 OR (rc EQUAL 1 AND log MATCHES "stopped: instruction limit reached")))
+        message(FATAL_ERROR "reluva-tool nfs host failed (${rc}):\n${log}")
+    endif()
+    file(WRITE "${out}/${name}.txt" "${log}")
+    # What doesn't change from run to run: not the time it took, nor the
+    # idle time, which is the host's own.
+    string(REPLACE ";" "," flat "${log}")
+    string(REGEX MATCHALL "(state|stopped|system calls)[^\n]*" kept "${flat}")
+    list(JOIN kept "\n" kept)
+    string(SHA256 sum "${kept}")
+    string(SUBSTRING "${sum}" 0 16 sum)
+    string(REGEX MATCH "state: [0-9a-f]+ after [0-9]+ instructions" state "${log}")
+    set(record "${record}${name}: ${sum} | ${state}\n")
+    # The last frame written (in the race), then the frames go.
+    file(GLOB written "${out}/frames/*.tga")
+    list(SORT written)
+    if(NOT written)
+        message(FATAL_ERROR "nfs host wrote no frames into ${out}/frames")
+    endif()
+    list(GET written -1 last)
+    get_filename_component(leaf "${last}" NAME_WE)
+    file(SHA256 "${last}" frame)
+    string(SUBSTRING "${frame}" 0 16 frame)
+    set(record "${record}${name}.frame: ${frame} | ${leaf}\n")
+    file(REMOVE_RECURSE "${out}/frames" "${out}/save")
+    set(record "${record}" PARENT_SCOPE)
+endfunction()
 
 if(STEP STREQUAL "release")
     set(record "${record}release: ${release}\n")
@@ -106,44 +159,20 @@ elseif(STEP STREQUAL "survey")
 elseif(STEP STREQUAL "formats")
     record_run(formats ".dct frames" nfs survey "${game_dir}" ${cd_dir} -hash)
 elseif(STEP STREQUAL "host")
-    set(out "${OUTPUT}/${STEP}")
-    file(REMOVE_RECURSE "${out}/save" "${out}/frames")
-    file(MAKE_DIRECTORY "${out}/save" "${out}/frames")
-    # Enter skips the title movie; four Downs and Enter start the race
-    # (docs/engines/nfs/games/nfs2se/research/hosted-spike.md). The run
-    # ends at the instruction limit, which the tool reports as a failure
-    # (1); anything else fails the step.
-    execute_process(COMMAND "${TOOL}" nfs host "${game_dir}" -save "${out}/save" -deterministic 300000
-                    -limit 24000000000 -frames "${out}/frames" -framesfrom 20000 -every 500
-                    -keys "6000:enter,14000:down,14500:down,15000:down,15500:down,17000:enter,40000:+up"
-                    OUTPUT_VARIABLE log ERROR_VARIABLE log RESULT_VARIABLE rc TIMEOUT 1800)
-    string(REPLACE "${game_dir}" "<game>" log "${log}")
-    string(REPLACE "${OUTPUT}" "<output>" log "${log}")
-    if(NOT (rc EQUAL 0 OR (rc EQUAL 1 AND log MATCHES "stopped: instruction limit reached")))
-        message(FATAL_ERROR "reluva-tool nfs host failed (${rc}):\n${log}")
+    record_host(host -limit 24000000000 -framesfrom 20000 -every 500)
+elseif(STEP STREQUAL "host_glide")
+    # The 3dfx program, the install's or else the CD's.
+    set(program "")
+    foreach(candidate IN ITEMS "${game_dir}/nfs2sea.exe" "${game_dir}/NFS2SEA.EXE" "${cd_dir}/NFS2SEA.EXE"
+                               "${cd_dir}/nfs2sea.exe")
+        if(NOT program AND EXISTS "${candidate}")
+            set(program "${candidate}")
+        endif()
+    endforeach()
+    if(NOT program)
+        message(FATAL_ERROR "No nfs2sea.exe in the install or on the CD")
     endif()
-    file(WRITE "${out}/host.txt" "${log}")
-    # What doesn't change from run to run: not the time it took, nor the
-    # idle time, which is the host's own.
-    string(REPLACE ";" "," flat "${log}")
-    string(REGEX MATCHALL "(state|stopped|system calls)[^\n]*" kept "${flat}")
-    list(JOIN kept "\n" kept)
-    string(SHA256 sum "${kept}")
-    string(SUBSTRING "${sum}" 0 16 sum)
-    string(REGEX MATCH "state: [0-9a-f]+ after [0-9]+ instructions" state "${log}")
-    set(record "${record}host: ${sum} | ${state}\n")
-    # The last frame written (in the race), then the frames go.
-    file(GLOB written "${out}/frames/*.tga")
-    list(SORT written)
-    if(NOT written)
-        message(FATAL_ERROR "nfs host wrote no frames into ${out}/frames")
-    endif()
-    list(GET written -1 last)
-    get_filename_component(leaf "${last}" NAME_WE)
-    file(SHA256 "${last}" frame)
-    string(SUBSTRING "${frame}" 0 16 frame)
-    set(record "${record}host.frame: ${frame} | ${leaf}\n")
-    file(REMOVE_RECURSE "${out}/frames" "${out}/save")
+    record_host(host_glide -program "${program}" -limit 16000000000 -every 50)
 else()
     message(FATAL_ERROR "Unknown step ${STEP}")
 endif()

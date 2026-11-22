@@ -213,10 +213,27 @@ with what it found written on the game's pages in `formats/` and
    - each strip of a race's picture presented whole (9 a frame): once a
      frame would do;
    - network play (Phase 8) and the 3dfx program (Phase 7).
-7. **3dfx** (next): `nfs2sea.exe` on the Glide stand-in, in software and on the
+7. **3dfx** (done): `nfs2sea.exe` on the Glide stand-in, in software and on the
    GPU, as a `renderer` setting.
-8. **Network play:** UDP (winsock), modem (TAPI) and serial, on NFS III's
-   stand-ins.
+
+   Built: `renderer=glide` plays the 3dfx program, the install's or else
+   the CD's (`nfs2se::playProgram`; the host runs a program from outside
+   the install, `Options::programFile`), always on Glide, as a Voodoo
+   Graphics unless `glideboard` names another. That board matters: the
+   program passes its vertices snapped and never unsnapped (x + 786,432),
+   which Reluva's Glide reads as the first boards did; on the Voodoo2,
+   the stand-in's default, nothing showed. Its movies, front end and
+   races draw; it needed nothing else of the host. The game-files test
+   has a `host_glide` step: the same run as `host`, with this program, on
+   the software rasterizer.
+
+   Measured: by the game's clock the race draws about 64 frames a
+   second. Drawing in software is what costs: the run took 367 s for 80 s
+   of the game, and in the app, with Glide's GPU backend on Mesa's
+   software Vulkan (no GPU here), it ran about 20 frames a second. On a
+   real GPU it's to be measured.
+8. **Network play** (next): UDP (winsock), modem (TAPI) and serial, on
+   NFS III's stand-ins.
 
 ## Decisions
 

@@ -230,10 +230,14 @@ pictures).
 - **The 3dfx program's see-through texels.** Its track pictures
   (`Tracks/se/trNN0.qfs`) are 16-bit 5:6:5, with no alpha; their
   see-through texels are `0x07C0`, a green found in no other picture
-  (1,677,495 texels of 1,360 pictures). `nfs2sea.exe` imports Glide's
-  chroma key (`grChromakeyMode`, `grChromakeyValue`), which leaves a
-  colour out; that this is the colour it sets isn't traced
-  *(inferred)*.
+  (1,677,495 texels of 1,360 pictures). `nfs2sea.exe`, run on Reluva's
+  Glide stand-in, turns Glide's chroma key on and off as it draws a race
+  (`grChromakeyMode`), setting it each time to `0x00FF00`, pure green
+  (`grChromakeyValue`; `0` in the front end, where it stays off). As
+  5:6:5 that green would be `0x07E0`, not these texels' `0x07C0`: how
+  they meet (in the textures as the program uploads them, or the board's
+  comparison) isn't worked out. The race drawn on the stand-in shows the
+  trees and fences see-through.
 - **Empty banks.** `huddata.viv` holds `hud.fsh`, `hud*.fsh` and
   `mapdots.fsh` as empty entries; the game's are the loose files beside
   it.
