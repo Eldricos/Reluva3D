@@ -1006,6 +1006,13 @@ void Win32Process::addFileStandIns() {
             std::fseek(file(h)->file, 0, SEEK_SET);
         return h ? h : kInvalidHandle;
     });
+    // A file opened here is a disk file; a statically linked C runtime's
+    // open() closes any handle whose type is unknown.
+    stdcall(k, "GetFileType", 1, [this](Cpu &c) {
+        if (c.arg(0) >= kStdHandles && c.arg(0) <= kStdHandles + 2)
+            return 2u;                   // FILE_TYPE_CHAR
+        return file(c.arg(0)) ? 1u : 0u; // FILE_TYPE_DISK
+    });
     // ReadFile(handle, buffer, size, read, overlapped)
     stdcall(k, "ReadFile", 5, [this](Cpu &c) {
         OpenFile *f = file(c.arg(0));

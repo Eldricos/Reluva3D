@@ -35,6 +35,11 @@ struct MutexObject : KernelObject {
     int count = 0;
 };
 
+struct SemaphoreObject : KernelObject {
+    int32_t count = 0; // signalled while above 0; a wait takes one
+    int32_t maximum = 0;
+};
+
 } // namespace
 
 uint64_t Win32Process::now() const {
@@ -519,6 +524,32 @@ void Win32Process::addThreadStandIns() {
         _lastError = 0; // a new one (no other copy of the program runs)
         return addHandle(m);
     });
+    stdcall(k, "CreateSemaphoreA", 4, [this](Cpu &c) {
+        const auto initial = int32_t(c.arg(1));
+        const auto maximum = int32_t(c.arg(2));
+        if (maximum <= 0 || initial < 0 || initial > maximum) {
+            _lastError = 87; // ERROR_INVALID_PARAMETER
+            return 0u;
+        }
+        auto s = std::make_shared<SemaphoreObject>();
+        s->count = initial;
+        s->maximum = maximum;
+        _lastError = 0;
+        return addHandle(s);
+    });
+    stdcall(k, "ReleaseSemaphore", 3, [this](Cpu &c) {
+        auto s = object<SemaphoreObject>(c.arg(0));
+        const auto by = int32_t(c.arg(1));
+        if (!s || by <= 0 || by > s->maximum - s->count) {
+            _lastError = s ? 298u : 6u; // ERROR_TOO_MANY_POSTS, or ERROR_INVALID_HANDLE
+            return 0u;
+        }
+        if (c.arg(2))
+            c.write32(c.arg(2), uint32_t(s->count));
+        s->count += by;
+        preempt();
+        return 1u;
+    });
     stdcall(k, "ReleaseMutex", 1, [this, selfId](Cpu &c) {
         auto m = object<MutexObject>(c.arg(0));
         if (!m || m->owner != selfId())
@@ -542,6 +573,8 @@ void Win32Process::addThreadStandIns() {
         }
         if (auto m = object<MutexObject>(h))
             return m->owner == 0 || m->owner == selfId();
+        if (auto s = object<SemaphoreObject>(h))
+            return s->count > 0;
         return true; // a file or the like: signalled
     };
     auto take = [this, selfId](uint32_t h) {
@@ -551,6 +584,8 @@ void Win32Process::addThreadStandIns() {
         } else if (auto m = object<MutexObject>(h)) {
             m->owner = selfId();
             ++m->count;
+        } else if (auto s = object<SemaphoreObject>(h)) {
+            --s->count;
         }
     };
     stdcall(k, "WaitForSingleObject", 2, [this, isSignaled, take, endIfEnding](Cpu &c) {

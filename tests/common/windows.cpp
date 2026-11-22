@@ -194,6 +194,7 @@ static void testMsvcrtAndFiles(const std::filesystem::path &tmp) {
     CHECK(!cpu.call(fn("KERNEL32.dll", "CreateFileA"), {text("C:\\Game\\DATA.TXT"), 0x80000000u, 1, 0, 3, 0, 0}, r) &&
           r != 0xffffffffu);
     const uint32_t handle = r;
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetFileType"), {handle}, r) && r == 1); // FILE_TYPE_DISK
     CHECK(!cpu.call(fn("KERNEL32.dll", "CreateFileMappingA"), {handle, 0, 2, 0, 0, 0}, r) && r != 0);
     CHECK(!cpu.call(fn("KERNEL32.dll", "MapViewOfFile"), {r, 4, 0, 6, 0}, r) && cpu.string(r, 5) == "world");
     const uint32_t find = process.memory().alloc(320);

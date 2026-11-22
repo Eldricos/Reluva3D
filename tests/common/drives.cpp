@@ -130,10 +130,34 @@ void testWin32SerialPort() {
     CHECK(call("CloseHandle", {h}) == 1);
 }
 
+// Semaphores, with host threads: signalled while their count is above 0,
+// each wait taking one, released up to their maximum.
+void testWin32Semaphores() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    process.useHostThreads();
+    auto call = [&](const char *name, const std::vector<uint32_t> &args) {
+        uint32_t r = 0;
+        CHECK(!cpu.call(process.standIn("KERNEL32.dll", name), args, r));
+        return r;
+    };
+    CHECK(call("CreateSemaphoreA", {0, 3, 2, 0}) == 0 && process.lastError() == 87);
+    const uint32_t s = call("CreateSemaphoreA", {0, 1, 2, 0});
+    CHECK(s != 0);
+    CHECK(call("WaitForSingleObject", {s, 0}) == 0);
+    CHECK(call("WaitForSingleObject", {s, 0}) == 0x102); // WAIT_TIMEOUT
+    const uint32_t previous = process.memory().alloc(4);
+    CHECK(call("ReleaseSemaphore", {s, 2, previous}) == 1 && cpu.read32(previous) == 0);
+    CHECK(call("ReleaseSemaphore", {s, 1, 0}) == 0 && process.lastError() == 298);
+    CHECK(call("WaitForSingleObject", {s, 0}) == 0 && call("WaitForSingleObject", {s, 0}) == 0);
+    CHECK(call("WaitForSingleObject", {s, 0}) == 0x102);
+}
+
 } // namespace
 
 static const reluva::test::Suite
     kSuite("common.unit.drives", {
                                      {"files", [](const std::filesystem::path &) { testWin32Files(); }},
                                      {"serial port", [](const std::filesystem::path &) { testWin32SerialPort(); }},
+                                     {"semaphores", [](const std::filesystem::path &) { testWin32Semaphores(); }},
                                  });

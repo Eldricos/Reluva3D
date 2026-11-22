@@ -32,7 +32,8 @@ C++ library have pages of their own ([directx.md](directx.md),
   this machine through `mapPath`, which the engine provides. These are
   stood in for:
   - handles: `CreateFileA`, `ReadFile`, `WriteFile`, `SetFilePointer`,
-    `GetFileSize`, `GetFileTime`, and the 16-bit era's `OpenFile`/`_lread`;
+    `GetFileSize`, `GetFileTime`, `GetFileType` (a file is a disk file,
+    which a statically linked C runtime's `open` checks), and the 16-bit era's `OpenFile`/`_lread`;
   - searches (`FindFirstFileA` with wildcards);
   - memory-mapped views: copies, as these programs only read them;
   - the current folder;
@@ -149,7 +150,7 @@ block; only the one holding the turn runs, and the processor's context
   others run.
 
 `useHostThreads` puts their stand-ins in place: threads, events, mutexes,
-critical sections, the waits, thread-local storage (the TLS array at the
+semaphores, critical sections, the waits, thread-local storage (the TLS array at the
 block's 0xE10, as Windows 95's), `Sleep`, `ExitProcess`, and the
 multimedia timer (`timeSetEvent`), whose callbacks run on one timer
 thread of time-critical priority, as WINMM's do. `run` runs an
