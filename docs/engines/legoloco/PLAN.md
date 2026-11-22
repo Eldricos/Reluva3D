@@ -17,8 +17,8 @@ is in [the first survey](research/first-survey.md).
 
 1. **Start** (done): the engine from the template, detection of
    the CD and of an install, and this plan.
-2. **Formats** (in progress; the resource file is done,
-   [formats/resource.md](formats/resource.md)): readers for the resource file (`resource.RFH`, its index,
+2. **Formats** (in progress; done: [the resource file](formats/resource.md),
+   [object definitions](formats/dat.md), [boards](formats/sav.md)): readers for the resource file (`resource.RFH`, its index,
    and `resource.RFD`, its data, many entries compressed), then the
    object definitions (`.dat`, text), `.but`, `.lay`, the saves (`.sav`),
    the postcards (`.crd`) and `EE.INI`, a page each in `formats/`.

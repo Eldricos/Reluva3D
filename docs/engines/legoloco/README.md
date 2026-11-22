@@ -21,7 +21,8 @@ being worked on first.
 - **Recognising the game:** the CD and an install of it.
 - **Reading its files:** the resource file, and its compressed entries
   ([formats/resource.md](formats/resource.md)); the object definitions
-  ([formats/dat.md](formats/dat.md)).
+  ([formats/dat.md](formats/dat.md)); the boards: layouts, screen saver
+  boards and saves ([formats/sav.md](formats/sav.md)).
 - **Not yet:** everything else. The plan is to run the game's own
   `loco.exe` in Reluva's x86 emulator, with stand-ins for the parts of
   Windows and DirectX it calls, after readers and a data viewer for its
@@ -39,7 +40,7 @@ then shows an empty screen; Escape goes back.
 |---|---|
 | This page | The game, where the engine stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan: the ways weighed, the phases, the decisions |
-| `formats/` | A page per file format: [the resource file](formats/resource.md), [object definitions](formats/dat.md) |
+| `formats/` | A page per file format: [the resource file](formats/resource.md), [object definitions](formats/dat.md), [boards](formats/sav.md) |
 | `systems/` | A page per part of how the game behaves, as it's worked out |
 | [research/](research/README.md) | Working notes: [the first survey](research/first-survey.md) of the CD and `loco.exe` |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
@@ -52,7 +53,7 @@ then shows an empty screen; Escape goes back.
 | Path | What |
 |---|---|
 | `legoloco.cpp` | The `MetaEngine` (name, detection table, making an `Engine`) and the `Engine` |
-| `formats/` | Reading the game's files: `resource_file.cpp`, the resource file; `object_definition.cpp`, the `.dat` object definitions |
+| `formats/` | Reading the game's files: `resource_file.cpp`, the resource file; `object_definition.cpp`, the `.dat` object definitions; `board.cpp`, the boards |
 | `tools/` | `reluva-tool legoloco` commands (`reluva-tool help legoloco` lists them) |
 
 ## Tests
@@ -72,5 +73,7 @@ then shows an empty screen; Escape goes back.
 - **Object definition:** a `.dat` file, the text describing a piece,
   person or button and its picture's frames
   ([formats/dat.md](formats/dat.md)).
+- **Board:** the play area, with its squares, pieces, minifigures and
+  trains; a `.sav` file holds one ([formats/sav.md](formats/sav.md)).
 - **Frame set:** a named run of a picture's frames, an animation
   ([formats/dat.md](formats/dat.md#the-frame-set-table)).
