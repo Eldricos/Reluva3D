@@ -231,3 +231,5 @@ executable's entry point on the main thread until it ends the process.
   run by its tools to check Reluva's own decoders against them.
 - **`nfs`**: Need for Speed III's whole program, on drives, with host
   threads ([the game's threads](../../engines/nfs/games/nfs3/systems/threads.md)).
+- **`legoloco`**: LEGO Loco's whole program, on a drive, with host
+  threads ([running.md](../../engines/legoloco/systems/running.md)).

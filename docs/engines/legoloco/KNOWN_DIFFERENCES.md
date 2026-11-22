@@ -9,9 +9,11 @@ the original's way. -->
 
 ## By choice
 
-<!-- Deliberate: conveniences, and what the original can't do on today's
-systems (a CD check, a mode the hardware no longer has). -->
-None yet.
+- **The game's folders:** the program sees the copy as drive C:, itself
+  as `C:\Exe\Loco.exe`, and reads a copy of `LEGO.INI` from the save
+  folder whose folders are C:'s, where the original's name the folder it
+  was installed in. The player's own settings in it are kept
+  ([systems/running.md](systems/running.md)).
 
 ## Bugs fixed
 

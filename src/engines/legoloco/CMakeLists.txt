@@ -8,6 +8,7 @@ reluva_add_engine(legoloco
     SOURCES
         legoloco.cpp
         game_files.cpp
+        host/game_process.cpp
         formats/area_layout.cpp
         formats/board.cpp
         formats/easter_eggs.cpp
@@ -33,6 +34,7 @@ reluva_add_engine_tools(legoloco
         tools/easter_eggs.cpp
         tools/files.cpp
         tools/resources.cpp
+        tools/run.cpp
         tools/viewer.cpp)
 
 # Its tests (tests/engines/legoloco/), in reluva-tests: the unit tests by

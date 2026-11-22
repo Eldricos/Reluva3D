@@ -29,6 +29,9 @@ being worked on first.
   pieces, every picture cut into its frames with its animations played,
   the object definitions and the sounds
   ([systems/data-viewer.md](systems/data-viewer.md)).
+- **Running the game's own program:** `loco.exe` loads and runs its C
+  runtime's start-up in the x86 emulator, as far as its first GDI call
+  ([systems/running.md](systems/running.md)).
 - **Not yet:** the game itself. The plan is to run the game's own
   `loco.exe` in Reluva's x86 emulator, with stand-ins for the parts of
   Windows and DirectX it calls, after readers and a data viewer for its
@@ -48,7 +51,7 @@ data viewer ([systems/data-viewer.md](systems/data-viewer.md)).
 | This page | The game, where the engine stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan: the ways weighed, the phases, the decisions |
 | `formats/` | A page per file format: [the resource file](formats/resource.md), [object definitions](formats/dat.md), [boards](formats/sav.md), [`EE.INI`](formats/ee-ini.md), [area arrangements](formats/lay.md), [resource numbers](formats/resource-numbers.md) |
-| `systems/` | A page per part of how the game behaves: [how pictures are drawn](systems/drawing.md), [the data viewer](systems/data-viewer.md) |
+| `systems/` | A page per part of how the game behaves: [how pictures are drawn](systems/drawing.md), [the data viewer](systems/data-viewer.md), [running the program](systems/running.md) |
 | [research/](research/README.md) | Working notes: [the first survey](research/first-survey.md) of the CD and `loco.exe`, [postcards](research/postcards.md) |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
@@ -62,6 +65,7 @@ data viewer ([systems/data-viewer.md](systems/data-viewer.md)).
 | `legoloco.cpp` | The `MetaEngine` (name, detection table, making an `Engine`) and the `Engine` |
 | `formats/` | Reading the game's files: `resource_file.cpp`, the resource file; `object_definition.cpp`, the `.dat` object definitions; `board.cpp`, the boards; `easter_eggs.cpp`, `EE.INI`; `area_layout.cpp`, the `.lay` files |
 | `game_files.cpp` | A copy's files: its resource file and the resources' names |
+| `host/` | Running `loco.exe` in the x86 emulator: `game_process.cpp` |
 | `pages/` | The data viewer, in `reluva-viewer` only |
 | `tools/` | `reluva-tool legoloco` commands (`reluva-tool help legoloco` lists them) |
 

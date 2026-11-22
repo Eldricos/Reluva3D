@@ -29,7 +29,8 @@ is in [the first survey](research/first-survey.md).
    their frame sets played, the definitions and the sounds; on the way,
    how the game draws ([systems/drawing.md](systems/drawing.md)) and
    names its resources ([formats/resource-numbers.md](formats/resource-numbers.md)).
-4. **Running `loco.exe`:** load it in the emulator and follow it with
+4. **Running `loco.exe`** (in progress; [systems/running.md](systems/running.md)):
+   load it in the emulator and follow it with
    `reluva-tool x86-run` to see what it asks for, then stand in for what
    isn't there yet. Shared stand-ins go in `src/emulation/x86/`, since no
    engine may rely on another's code. The likely list:

@@ -40,6 +40,8 @@ Reading the real game's files: until there's a game-files test,
 entry of a copy's resource file, and should end with none failed;
 `reluva-tool legoloco dat <game folder>` reads every object definition,
 `reluva-tool legoloco sav <game folder>` every board,
+`reluva-tool legoloco run <game folder> -save <folder>` how far the
+program gets,
 `reluva-tool legoloco ee <game folder>` `EE.INI` and
 `reluva-tool legoloco lay <game folder>` the area arrangements,
 likewise.
