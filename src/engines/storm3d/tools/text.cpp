@@ -6,14 +6,20 @@
 //
 //   reluva-tool storm3d odf <game folder> <name.odf>
 //   reluva-tool storm3d odf-check <game folder>
+//   reluva-tool storm3d config <game folder> <file>
+//   reluva-tool storm3d config-check <game folder>
 
 #include "common/archive.h"
+#include "common/fs.h"
 #include "common/text.h"
+#include "engines/storm3d/formats/config_file.h"
 #include "engines/storm3d/formats/odf.h"
 #include "engines/storm3d/formats/zfs_archive.h"
 #include "devtools/tool.h"
 
 #include <cstdio>
+#include <fstream>
+#include <iterator>
 #include <memory>
 #include <string>
 #include <vector>
@@ -22,6 +28,7 @@ namespace {
 
 using reluva::Error;
 using reluva::SearchSet;
+using reluva::storm3d::ConfigFile;
 using reluva::storm3d::Odf;
 using reluva::storm3d::ZfsArchive;
 
@@ -117,6 +124,112 @@ int cmdOdfCheck(int argc, char **argv) {
     return failed ? 1 : 0;
 }
 
+// The game's settings files in the C-like language, from the install's
+// folder (docs/engines/storm3d/games/armada/formats/config.md).
+const char *const kConfigFiles[] = {"RTS_CFG.h", "game_cfg.h",    "shell_cfg.h", "Dynamic_Localized_Strings.h",
+                                    "CCA.cfg",   "Collision.cfg", "woncfg.cfg",  "AI/strategic_AI_config.txt"};
+
+// A file is looked for beside the one including it, then in the install's
+// folder, ignoring case as Windows does.
+ConfigFile::Loader configLoader(const std::filesystem::path &root, const std::filesystem::path &first) {
+    return [root, dir = first.parent_path()](std::string_view name, std::string &text) {
+        std::optional<std::filesystem::path> path = reluva::fs::findFile(root / dir, name);
+        if (!path)
+            path = reluva::fs::findFile(root, name);
+        if (!path)
+            return Error::fail(std::string(name) + " isn't in " + (root / dir).string() + " or " + root.string());
+        std::ifstream in(*path, std::ios::binary);
+        text.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+        return Error::success();
+    };
+}
+
+std::string describe(const ConfigFile::Value &v) {
+    switch (v.kind) {
+    case ConfigFile::Value::Kind::kNumber:
+        return reluva::text::format("%g", v.number);
+    case ConfigFile::Value::Kind::kString: {
+        std::string text = reluva::text::windows1252ToUtf8(v.text);
+        for (char &c : text)
+            if (c == '\n')
+                c = '|';
+        return "\"" + text + "\"";
+    }
+    case ConfigFile::Value::Kind::kList: {
+        std::string out = "{";
+        for (size_t i = 0; i < v.items.size(); ++i)
+            out += (i ? ", " : "") + describe(v.items[i]);
+        return out + "}";
+    }
+    }
+    return "";
+}
+
+int cmdConfig(int argc, char **argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool storm3d config <game folder> <file>\n");
+        return 2;
+    }
+    ConfigFile config;
+    if (Error err = config.load(std::filesystem::path(argv[3]).filename().string(), configLoader(argv[2], argv[3]))) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    for (const auto &[name, s] : config.structs()) {
+        std::string fields;
+        for (const std::string &field : s.fields)
+            fields += (fields.empty() ? "" : ", ") + field;
+        std::printf("struct %s: %s\n", name.c_str(), fields.c_str());
+    }
+    for (const auto &[name, text] : config.defines()) {
+        const ConfigFile::Value *v = config.find(name);
+        std::printf("#define %-40s %s\n", name.c_str(), v ? describe(*v).c_str() : ("(text) " + text).c_str());
+    }
+    for (const auto &[name, v] : config.variables())
+        std::printf("%-48s %s\n", name.c_str(), describe(v).c_str());
+    for (const std::string &p : config.problems())
+        std::printf("skipped: %s\n", p.c_str());
+    return 0;
+}
+
+int cmdConfigCheck(int argc, char **argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool storm3d config-check <game folder>\n");
+        return 2;
+    }
+    const std::filesystem::path root = argv[2];
+    std::vector<std::filesystem::path> files;
+    for (const char *name : kConfigFiles)
+        files.emplace_back(name);
+    // The computer player's personalities, beside their definitions.
+    std::error_code ec;
+    for (const char *dir : {"AI/AIPs", "misc"})
+        if (const auto found = reluva::fs::findDirectory(root, dir))
+            for (const auto &entry : std::filesystem::directory_iterator(*found, ec))
+                if (reluva::text::hasSuffixIgnoreCase(entry.path().filename().string(), ".aip"))
+                    files.push_back(std::filesystem::path(dir) / entry.path().filename());
+    int read = 0;
+    int failed = 0;
+    size_t variables = 0;
+    size_t defines = 0;
+    for (const std::filesystem::path &file : files) {
+        ConfigFile config;
+        if (Error err = config.load(file.filename().string(), configLoader(root, file))) {
+            std::printf("%s: %s\n", file.generic_string().c_str(), err.message.c_str());
+            ++failed;
+            continue;
+        }
+        ++read;
+        variables += config.variables().size();
+        defines += config.defines().size();
+        for (const std::string &p : config.problems())
+            std::printf("%s: skipped: %s\n", file.generic_string().c_str(), p.c_str());
+    }
+    std::printf("%d files read, %d failed; %zu variables, %zu defines, includes counted in each\n", read, failed,
+                variables, defines);
+    return failed ? 1 : 0;
+}
+
 const reluva::tool::Commands kCommands(
     "storm3d",
     {
@@ -124,6 +237,11 @@ const reluva::tool::Commands kCommands(
          "an object definition with the files it includes: file, section, key and value of each entry", cmdOdf},
         {"odf-check", "<game folder>",
          "read every object definition, in the install's folder and assets.zfs, and report what fails", cmdOdfCheck},
+        {"config", "<game folder> <file>",
+         "a settings file in the game's C-like language: its structures, defines and variables", cmdConfig},
+        {"config-check", "<game folder>",
+         "read every settings file in the C-like language, the AI's personalities too, and report what fails",
+         cmdConfigCheck},
     });
 
 } // namespace
