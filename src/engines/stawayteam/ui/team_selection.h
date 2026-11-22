@@ -67,7 +67,8 @@ private:
         bool loaded = false;
         image::Image portrait;
         image::Image icon;
-        Animation figure;
+        Animation figure; // Characters/<name>: the head, over the body
+        Animation body;   // Characters/<Body Model>
     };
 
     Pictures &pictures(size_t member);
@@ -113,7 +114,7 @@ private:
     void drawInventory(Surface &screen);
     void drawRoster(Surface &screen);
     void drawTransporter(Surface &screen, uint64_t now);
-    void drawMission(Surface &screen);
+    void drawMission(Surface &screen, uint64_t now);
     void drawDescription(Surface &screen, uint64_t now);
 
     const Archive &_data;

@@ -37,7 +37,7 @@ int missionScore(const MissionObjectives &mission, const std::vector<Objective> 
 
 /**
  * The items not found yet whose Points to Discover the score's reached
- * (0 and -1 are found otherwise), in the definitions' order.
+ * (0x5b90c0; -1 is found otherwise), in the definitions' order.
  */
 std::vector<std::string> foundByScore(const std::map<std::string, ItemDefinition> &items, const Campaign &campaign);
 

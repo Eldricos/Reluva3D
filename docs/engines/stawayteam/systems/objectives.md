@@ -111,12 +111,20 @@ saved with the game:
   keeps the score it had (`0x5c140a`, `0x5c1529`).
 - **What it's for:** an item's `Points to Discover` (up to 2,400: the
   Phaser Damage Increase's 400, the Remote Mine's 250); 38 are 0 and 6
-  -1. Found, an item's described in the next briefing
+  -1. An item's found as a mission's won once the score's at least its
+  Points to Discover, -1 never (`0x5b90c0`; a network game's own
+  points otherwise): so the cloaking band, at 1, after the first
+  mission. Found, an item's described in the next briefing
   ([briefing.md](briefing.md)) by its `Who Discovers` (Asunder for 41),
   its `Discovery Text` a line of its `Script` (`Discovery Items`). The
   maps find some themselves (`CDiscoverInventoryNextBriefingAction`, 5),
   and ask whether one's been found (`CIsDiscoveredAction`). The program
   shows no score.
+- **What an officer has** (`0x5b7c90`, asked by the team selection,
+  the team bar and the map): an item of their inventory not found yet
+  isn't had at all; one found is had as its `Overridden By` if that's
+  found, and so on: the Phaser as the Phaser Damage Increase once
+  that's found. Of the 59 items, 19 start not found, 12 can be overridden.
 
 The manager's win check (`0x50c9df`): with every required objective
 complete, the others still incomplete are set Failed (`0x50ca2c`), and
@@ -194,8 +202,11 @@ objectives done that aren't required. A new game begun at a later
 mission starts with 100 for each before. Restarting a mission keeps the
 score it had. Each item whose Points to Discover the score's reached is
 found, described in the next briefing ([briefing.md](briefing.md)) with
-those the maps found *(inferred)*; which the team can take isn't
-changed by it yet.
+those the maps found. The officers' inventories, in the team selection
+and taken into the mission, are as the program has them: those not
+found left out, those overridden by an item found as that
+(`resolveInventories`, `game/team.cpp`), and the items a mission needs
+likewise.
 
 Not there yet: need-item objectives' own rules, and the found items
 being what the team selection offers.
@@ -225,8 +236,6 @@ being what the team selection offers.
 - **The manager:** whether a failed required objective ends the mission
   by itself, and whether the objectives failed on winning run their Fail
   Actions.
-- **The score:** how the program compares it with the items' Points to
-  Discover, and whether it changes what the team selection offers.
 - **Rescue and need-item objectives:** whether the program completes or
   fails them itself, or only the maps' actions do.
 - **The windows:** where they're placed, whether the game's held still

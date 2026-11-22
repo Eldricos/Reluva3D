@@ -91,9 +91,14 @@ said:
   Pos`, its texts; the selection marker (`Cache/Models/Interface/Selection.mdl16`,
   `Idle`) at each place the mission allows, plus `TeamSelectionMemberOffset
   Pos` and `TeamSelectionMemberSelectOffset Pos`, at half brightness but
-  the chosen place's; each officer's figure
-  (`Cache/Sequences/Characters/<name>.seq16`) at their place plus
-  `TeamSelectionMemberOffset Pos`, the team drawn from the last; the
+  the chosen place's; each officer's figure at their place plus
+  `TeamSelectionMemberOffset Pos`, the team drawn from the last: their
+  body model's sequence (`Cache/Sequences/Characters/Generic Male
+  Body.seq16`), and over it their own, the head
+  (`Cache/Sequences/Characters/<name>.seq16`), a frame of each together,
+  at the head's rate plus 2k / n less 0.1 frames a second for the kth of
+  n, so they don't move as one (`0x5e7870`), drawn through a render
+  effect not yet worked out; the
   name of the officer under the mouse, or chosen, centred at `Team
   Selection Title Pos`.
 - **The inventory** (`0x5ea5b7`, drawn at `0x5eb2c0`) in place of the
@@ -103,7 +108,12 @@ said:
   apart from `Inventory Strip Pos`; in a column its items from the strip
   upward, each in the middle of `Roster Window/Item Frame` (`Selected Icon
   Background` under the mouse *(inferred)*), an empty column a dark square
-  (`0x423040`). Only items with `Display In Inventory` (`0x5ec1e0`). The
+  (`0x423040`), as many as there are, without scrolling (Rules.txt's
+  `Inventory Previous` and `Next Button Pos` are 0,0 and read by
+  nothing). Only items with `Display In Inventory`, and only those the
+  officer has as the game's found items have it: not found left out,
+  overridden by one found shown as that
+  ([objectives.md](objectives.md#the-score), `0x5ec1e0`). The
   item under the mouse is named, and *" (Double-Click for description)"*,
   centred under the strip (`0x5eaed0`, `0x5eb345`).
 - **An item's description** (`0x5e8d60`), on a double click: `Inventory
@@ -121,7 +131,9 @@ said:
   for Mission"*, its items, or *"NONE"*; under it *"Recommended Items"*,
   left out when there are none. An item no one on the team has is in
   Trek Small Red, a required one with *"NEEDED"* at the line's right. A
-  band, pulsing, is behind those the officer shown has. Clicking an
+  band of dark red, its red 64 + 16 sin(pi t) of 255, pulsing every 2
+  seconds, is behind those the officer shown has (`0x5e9781`), the items
+  compared as had (`0x5ebf7b`). Clicking an
   item's line goes on to the next available officer, after the one shown,
   who has it, choosing them on the transporter or in the roster, with
   `Interface/Generic Beep.wav` (`0x5e9ad9`, `0x5ebf10`).
@@ -151,16 +163,17 @@ From the screen's handler (`0x5eb930`):
 
 `TeamSelectionScreen` (`ui/team_selection.cpp`), its files read by
 `loadRoster`, `loadFields` and `loadMission` (`game/team.cpp`), the
-static texts by `readStaticTexts` (`ui/static_text.cpp`). START GAME in
-the difficulty window starts a new game at mission 1: its briefing, and
-with no team selection for it, nothing more yet. In a build with developer
-keys, the engine's "Developer: first mission" setting starts it at
-another, so the screen can be reached. START MISSION and EXIT come back
-to the main menu; there are no missions to play yet. The items are read
-by `loadItems` and `loadItemTypes` (`game/team.cpp`). Not there yet: the
-transporter's random numbers, the second figure the program draws from
-each officer's body model, the items' panel scrolling (what doesn't fit
-is left out), and the band's pulsing.
+static texts by `readStaticTexts` (`ui/static_text.cpp`). It shows
+before each mission that has one, after the briefing; START MISSION
+starts the mission with the team chosen, and EXIT, asked first, goes
+back to the main menu. In a build with developer keys, the engine's
+"Developer: first mission" setting starts a new game at a later
+mission. The items are read by `loadItems` and `loadItemTypes`
+(`game/team.cpp`), the officers' inventories and the mission's items as
+had by `resolveInventories` and `heldAs`. The figures' time is the
+game's from its start, where the program's is the screen's *(inferred)*. Not
+there yet: the transporter's random numbers, and the render effect the
+figures are drawn through.
 
 ## Sources and checks
 
@@ -175,10 +188,13 @@ is left out), and the band's pulsing.
   refusing Slovaak with its message; the inventory tab with Slovaak's
   items, one named under the mouse and described on a double click; the
   required and recommended items, a click on one moving on to the next
-  officer who has it. Not yet against
+  officer who has it; at a new game's start the 19 items not found left
+  out of the roster's inventories, and Slovaak and Marcus Refelian drawn
+  whole, body and head, where only their heads were. Not yet against
   the original running. Unit tests (`stawayteam.unit.menus`) read a
   roster, fields, items and a mission made in the test, and check the
-  team to start with and START MISSION's rules.
+  team to start with and START MISSION's rules, and an officer's items
+  as had, found and overridden.
 
 ## Open questions
 
@@ -186,10 +202,10 @@ is left out), and the band's pulsing.
   "Incursion Shuttle Ready" text where `Rules.txt` places it.
 - **The attributes' greatest value**, the bar's whole length. Reluva
   takes 100.
-- **The items' lists and inventory:** the band's colour, the empty
-  column's look, an item lit under the mouse, and Esc closing a
-  description. Reluva's choices are noted in the code.
+- **The items' lists and inventory:** the empty column's look, an item
+  lit under the mouse, and Esc closing a description. Reluva's choices
+  are noted in the code.
 - **A message's time:** Reluva takes the 50 as seconds.
-- **The figures' frames:** Reluva starts each officer's two frames on
-  from the one before.
+- **The figures' effect:** what the render effect the program draws
+  them through does.
 - **Where a place answers a click:** Reluva takes about the figure.

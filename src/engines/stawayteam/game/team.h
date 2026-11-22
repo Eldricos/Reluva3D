@@ -171,6 +171,7 @@ struct ItemDefinition {
     // by its Who Discovers, its Discovery Text a line of its Script.
     bool startsDiscovered = true;
     int pointsToDiscover = 0;
+    std::string overriddenBy; // the item had in its place once that's discovered (Discovery/Overridden By)
     std::string whoDiscovers;
     std::string discoveryScript;
     std::string discoveryText;
@@ -186,6 +187,22 @@ struct ItemDefinition {
  * left out.
  */
 std::map<std::string, ItemDefinition> loadItems(const Archive &data);
+
+/**
+ * The item an officer has as `name` (0x5b7c90): none (empty) if it isn't
+ * discovered, else the item it's overridden by if that's discovered, and
+ * so on. An item that starts discovered, or is in `discovered`, is; one
+ * without a definition is kept as it is.
+ */
+std::string heldAs(const std::map<std::string, ItemDefinition> &items, const std::string &name,
+                   const std::vector<std::string> &discovered);
+
+/**
+ * The officers' inventories as they have them: each item as heldAs()
+ * gives it, those not discovered taken out.
+ */
+void resolveInventories(std::vector<TeamMember> &officers, const std::map<std::string, ItemDefinition> &items,
+                        const std::vector<std::string> &discovered);
 
 /** The inventory's item types (`Inventory/Item Types`), in their files' order, `!None` left out. */
 std::vector<std::string> loadItemTypes(const Archive &data);

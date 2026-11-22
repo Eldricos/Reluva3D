@@ -28,7 +28,8 @@ int missionScore(const MissionObjectives &mission, const std::vector<Objective> 
 std::vector<std::string> foundByScore(const std::map<std::string, ItemDefinition> &items, const Campaign &campaign) {
     std::vector<std::string> found;
     for (const auto &[name, item] : items) {
-        if (item.startsDiscovered || item.pointsToDiscover <= 0 || campaign.score < item.pointsToDiscover)
+        // -1: found otherwise (0x5b90c0).
+        if (item.startsDiscovered || item.pointsToDiscover < 0 || campaign.score < item.pointsToDiscover)
             continue;
         const auto known = [&](const std::vector<std::string> &list) {
             return std::find(list.begin(), list.end(), name) != list.end();

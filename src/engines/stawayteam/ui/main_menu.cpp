@@ -496,6 +496,7 @@ std::vector<TeamMember> MainMenu::startingTeam() const {
     std::vector<TeamMember> team;
     if (loadRoster(_data, roster))
         return team;
+    resolveInventories(roster, loadItems(_data), _campaign.discovered);
     for (const std::string &id : _mission.whoShouldStart)
         for (const TeamMember &m : roster)
             if (m.id == id && int(team.size()) < _mission.maxMembers)
@@ -639,7 +640,17 @@ void MainMenu::showTeamSelection() {
         log::warning("The roster: %s", err.message.c_str());
         return;
     }
-    _teamSelection = std::make_unique<TeamSelectionScreen>(_data, _rules, _mission, std::move(roster));
+    // The officers' items, and those the mission needs, as they're had:
+    // those not found yet left out, and those found since in place of the
+    // ones they override (0x5ec26d, 0x5ebf7b).
+    const std::map<std::string, ItemDefinition> items = loadItems(_data);
+    resolveInventories(roster, items, _campaign.discovered);
+    Mission mission = _mission;
+    for (std::vector<std::string> *list : {&mission.items, &mission.recommendedItems})
+        for (std::string &item : *list)
+            if (std::string held = heldAs(items, item, _campaign.discovered); !held.empty())
+                item = held;
+    _teamSelection = std::make_unique<TeamSelectionScreen>(_data, _rules, mission, std::move(roster));
 }
 
 void MainMenu::drawWindows(uint64_t now) {

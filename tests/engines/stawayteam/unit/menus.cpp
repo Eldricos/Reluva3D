@@ -462,6 +462,22 @@ void testCampaign(const std::filesystem::path &tmp) {
     set(1, ObjectiveStatus::kComplete, false, 25);
     set(2, ObjectiveStatus::kFailed, false, 30);
     CHECK(missionScore(mission, objectives) == 125);
+    // An officer's items as had: one not found yet left out; one overridden
+    // by an item found since, that one, and on along those found.
+    std::map<std::string, ItemDefinition> defs;
+    defs["Phaser"].overriddenBy = "Phaser Damage Increase";
+    defs["Phaser Damage Increase"].startsDiscovered = false;
+    defs["Phaser Damage Increase"].overriddenBy = "Phaser Overload";
+    defs["Phaser Overload"].startsDiscovered = false;
+    defs["Mines"].startsDiscovered = false;
+    CHECK(heldAs(defs, "Phaser", {}) == "Phaser" && heldAs(defs, "Mines", {}).empty());
+    CHECK(heldAs(defs, "Phaser", {"Phaser Damage Increase"}) == "Phaser Damage Increase");
+    CHECK(heldAs(defs, "Phaser", {"Phaser Damage Increase", "Phaser Overload"}) == "Phaser Overload");
+    std::vector<TeamMember> officers(1);
+    officers[0].inventory = {{"Phaser", -1}, {"Mines", 2}, {"Tricorder", -1}};
+    resolveInventories(officers, defs, {"Phaser Damage Increase"});
+    CHECK(officers[0].inventory.size() == 2 && officers[0].inventory[0].name == "Phaser Damage Increase" &&
+          officers[0].inventory[1].name == "Tricorder");
     // Items found as the score reaches their points, once.
     std::map<std::string, ItemDefinition> items;
     items["Phaser"].startsDiscovered = true;
@@ -469,6 +485,8 @@ void testCampaign(const std::filesystem::path &tmp) {
     items["Remote Mine"].pointsToDiscover = 250;
     items["Super Rifle"].startsDiscovered = false;
     items["Super Rifle"].pointsToDiscover = 900;
+    items["Holographic Projection"].startsDiscovered = false;
+    items["Holographic Projection"].pointsToDiscover = -1;
     Campaign campaign;
     campaign.score = 300;
     CHECK(foundByScore(items, campaign) == std::vector<std::string>{"Remote Mine"});

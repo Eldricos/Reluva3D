@@ -31,9 +31,7 @@ None yet.
 ## Not yet as the original
 
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
-- **The main menu:** Start New Game goes as far as the first mission's
-  briefing and team selection, not the mission; Play Network Game plays
-  its sound and nothing else; in Settings, the sound's stereo and mixing
+- **The main menu:** Play Network Game plays its sound and nothing else; in Settings, the sound's stereo and mixing
   choices, and the keyboard's bindings, are kept but don't change
   anything yet
   ([systems/menus.md](systems/menus.md)).
@@ -58,13 +56,11 @@ None yet.
   gadgets' sparks and the transporter's pictures aren't drawn, nor the
   band on the team bar; there's no full inventory, and the phaser's
   overload isn't there ([systems/items.md](systems/items.md#in-reluva)).
-- **The briefing:** the items found in earlier missions aren't
-  described after the lines, the text has no scroll bar (the mouse wheel
+- **The briefing:** the text has no scroll bar (the mouse wheel
   scrolls it), the random numbers aren't there, and EXIT doesn't fade out
   ([systems/briefing.md](systems/briefing.md#in-reluva)).
-- **The team selection:** START MISSION and EXIT come back to the main
-  menu; the transporter's random numbers, the officers' body figures,
-  the item lists' scrolling and their band's pulsing aren't there yet
+- **The team selection:** the transporter's random numbers and the
+  effect the figures are drawn through aren't there yet
   ([systems/team-selection.md](systems/team-selection.md#in-reluva)).
 - **Buttons** don't draw the line under their shortcut's letter, nor
   brighten their label under the mouse; the toolkit's toggles make no

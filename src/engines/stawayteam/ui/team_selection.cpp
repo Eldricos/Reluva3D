@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdio>
 
 namespace reluva::stawayteam {
@@ -174,6 +175,7 @@ TeamSelectionScreen::Pictures &TeamSelectionScreen::pictures(size_t member) {
         p.portrait = cachePicture(_data, "Character/Character Portraits/" + m.portrait);
         p.icon = cachePicture(_data, "Character/Character Icons/" + m.headIcon);
         (void)p.figure.load(_data, "Characters/" + m.name());
+        (void)p.body.load(_data, m.bodyModel, "");
     }
     return p;
 }
@@ -732,16 +734,25 @@ void TeamSelectionScreen::drawTransporter(Surface &screen, uint64_t now) {
         const int py = ty + _places[size_t(k)].second + my;
         if (k == _placeChosen)
             blitBy(screen, _marker.at(now), px + sx, py + sy);
-        // Each a frame on from the one before, so they don't move as one
-        // (inferred, 0x5e797d).
-        blitBy(screen, pictures(_team[size_t(k)]).figure.at(now, 2 * k), px, py);
+        // The body, the head over it, a frame of each together: at the
+        // head's rate plus 2k / n less 0.1 a second for the kth of n, so
+        // they don't move as one (0x5e7870).
+        const Pictures &p = pictures(_team[size_t(k)]);
+        const Animation &rate = p.figure.perDirection() > 0 ? p.figure : p.body;
+        const int count = rate.perDirection();
+        if (count <= 0)
+            continue;
+        const double speed = double(rate.fps) + 2.0 * k / double(_team.size()) - 0.1;
+        const int frame = int(std::lrint(speed * double(now) / 1000.0) % count);
+        blitBy(screen, p.body.frame(frame, 0), px, py);
+        blitBy(screen, p.figure.frame(frame, 0), px, py);
     }
     if (_placeChosen >= 0 && _placeChosen >= int(_team.size()) && _placeChosen < limit)
         blitBy(screen, _marker.at(now), tx + _places[size_t(_placeChosen)].first + mx + sx,
                ty + _places[size_t(_placeChosen)].second + my + sy);
 }
 
-void TeamSelectionScreen::drawMission(Surface &screen) {
+void TeamSelectionScreen::drawMission(Surface &screen, uint64_t now) {
     if (!_font.loaded())
         return;
     // "Mission NN" and its name, centred one over the other (0x5ea1d0).
@@ -770,7 +781,8 @@ void TeamSelectionScreen::drawMission(Surface &screen) {
     const int shown = shownMember();
     for (const ItemRow &row : itemRows()) {
         const int y = sy + row.y;
-        // Only what fits in the panel: its scrolling isn't there yet.
+        // Only what fits in the panel, as the program's (0x5e9620) draws
+        // no more (inferred: the lists have no scrolling).
         if (y + _font.height() > sy + sh)
             break;
         if (row.kind == ItemRow::Kind::kTitle) {
@@ -784,12 +796,19 @@ void TeamSelectionScreen::drawMission(Surface &screen) {
         }
         const auto def = _items.find(*row.item);
         const std::string name = def == _items.end() ? *row.item : def->second.printableName;
-        if (shown >= 0 && _roster[size_t(shown)].hasItem(*row.item))
-            for (int by = y; by < y + _font.height() + 1 && by < screen.h; ++by)
-                for (int bx = sx; bx < sx + sw && bx < screen.w; ++bx) {
+        // Behind an item the officer shown has, a band of dark red pulsing
+        // every 2 seconds, its red 64 and up to 16 either way (0x5e9781).
+        if (shown >= 0 && _roster[size_t(shown)].hasItem(*row.item)) {
+            const double pulse = std::sin(3.14159265358979 * double(now) / 1000.0);
+            const uint8_t red = uint8_t(64 - std::lround(-16.0 * pulse));
+            for (int by = std::max(0, y); by < y + _font.height() + 1 && by < screen.h; ++by)
+                for (int bx = std::max(0, sx); bx < sx + sw && bx < screen.w; ++bx) {
                     uint8_t *p = screen.row(by) + bx * 4;
-                    p[2] = uint8_t(std::min(255, p[2] + 64));
+                    p[0] = red;
+                    p[1] = 0;
+                    p[2] = 0;
                 }
+        }
         const bool had = teamHas(*row.item);
         const Font &f = had ? _font : redFont;
         f.draw(screen, sx, y, name);
@@ -815,7 +834,7 @@ void TeamSelectionScreen::draw(Surface &screen, uint64_t now) {
     }
     drawRoster(screen);
     drawTransporter(screen, now);
-    drawMission(screen);
+    drawMission(screen, now);
     if (!_message.empty() && now < _messageUntil && _font.loaded()) {
         int mx = 0;
         int my = 0;

@@ -213,6 +213,9 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
         item.whoDiscovers = text(def, "Who Discovers");
         item.discoveryScript = text(def, "Script");
         item.discoveryText = text(def, "Discovery Text");
+        item.overriddenBy = text(def, "Overridden By");
+        if (item.overriddenBy == "!None")
+            item.overriddenBy.clear();
         for (TextField &f : def.fields)
             if ((f.key == "Process" || f.key == "Discharge Action") && f.object)
                 (f.key == "Process" ? item.process : item.discharge) =
@@ -221,6 +224,40 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
         out[key] = std::move(item);
     }
     return out;
+}
+
+std::string heldAs(const std::map<std::string, ItemDefinition> &items, const std::string &name,
+                   const std::vector<std::string> &discovered) {
+    const auto isDiscovered = [&](const std::string &item) {
+        const auto it = items.find(item);
+        return it == items.end() || it->second.startsDiscovered ||
+               std::find(discovered.begin(), discovered.end(), item) != discovered.end();
+    };
+    if (!isDiscovered(name))
+        return {};
+    // Along the items overriding it while they're discovered; a loop in
+    // the definitions stops where it began.
+    std::string held = name;
+    for (size_t step = 0; step < items.size(); ++step) {
+        const auto it = items.find(held);
+        if (it == items.end() || it->second.overriddenBy.empty() || !isDiscovered(it->second.overriddenBy))
+            break;
+        held = it->second.overriddenBy;
+    }
+    return held;
+}
+
+void resolveInventories(std::vector<TeamMember> &officers, const std::map<std::string, ItemDefinition> &items,
+                        const std::vector<std::string> &discovered) {
+    for (TeamMember &m : officers) {
+        std::vector<TeamMember::Item> held;
+        for (TeamMember::Item item : m.inventory) {
+            item.name = heldAs(items, item.name, discovered);
+            if (!item.name.empty())
+                held.push_back(std::move(item));
+        }
+        m.inventory = std::move(held);
+    }
 }
 
 std::vector<std::string> loadItemTypes(const Archive &data) {
