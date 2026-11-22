@@ -17,13 +17,14 @@ is in [the first survey](research/first-survey.md).
 
 1. **Start** (done): the engine from the template, detection of
    the CD and of an install, and this plan.
-2. **Formats** (in progress; done: [the resource file](formats/resource.md),
-   [object definitions](formats/dat.md), [boards](formats/sav.md)): readers for the resource file (`resource.RFH`, its index,
-   and `resource.RFD`, its data, many entries compressed), then the
-   object definitions (`.dat`, text), `.but`, `.lay`, the saves (`.sav`),
-   the postcards (`.crd`) and `EE.INI`, a page each in `formats/`.
-   `reluva-tool legoloco` commands to list and extract the resource
-   file's entries.
+2. **Formats** (done): [the resource file](formats/resource.md),
+   [object definitions](formats/dat.md), [boards](formats/sav.md),
+   [`EE.INI`](formats/ee-ini.md) and [area arrangements](formats/lay.md),
+   each with `reluva-tool legoloco` commands. The `.but` files are BMPs
+   and the `.wav` files standard. Left for the phases that need them:
+   the postcards (`.crd`, phase 6; [a first look](research/postcards.md)),
+   the animated cursors (`.ani`, a published format, phase 3), and how a
+   picture is cut into its frames (phase 3).
 3. **Data viewer:** the pictures and their frames, the sounds, the object
    definitions, and a save drawn as its board.
 4. **Running `loco.exe`:** load it in the emulator and follow it with
