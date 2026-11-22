@@ -42,6 +42,18 @@ extended. The facts themselves are on their pages, each with its source.
 `reluva-tool help legoloco` lists the engine's commands
 (`src/engines/legoloco/tools/`).
 
+| Command | What it does |
+|---|---|
+| `reluva-tool legoloco files <game folder>` | Lists every file in a game's folder, with its size |
+| `reluva-tool legoloco rf-list <folder>` | Lists the resource file's entries, unpacking each to check it |
+| `reluva-tool legoloco rf-extract <folder> <output folder> [name...]` | Writes the resource file's entries out, unpacked |
+
+`loco.exe` itself was disassembled with GNU `objdump` (`objdump -d -M
+intel`), which reads 32-bit Windows programs.
+
 ## Working files not included
 
-None yet.
+- **The disassembly of `loco.exe`:** made again from your own copy with
+  `objdump -d -M intel Exe/Loco.exe`.
+- **The resource file's entries, unpacked:** made again with
+  `reluva-tool legoloco rf-extract <game folder> <output folder>`.

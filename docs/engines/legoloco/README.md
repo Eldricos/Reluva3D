@@ -19,6 +19,8 @@ being worked on first.
 ## Where it stands
 
 - **Recognising the game:** the CD and an install of it.
+- **Reading its files:** the resource file, and its compressed entries
+  ([formats/resource.md](formats/resource.md)).
 - **Not yet:** everything else. The plan is to run the game's own
   `loco.exe` in Reluva's x86 emulator, with stand-ins for the parts of
   Windows and DirectX it calls, after readers and a data viewer for its
@@ -36,7 +38,7 @@ then shows an empty screen; Escape goes back.
 |---|---|
 | This page | The game, where the engine stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan: the ways weighed, the phases, the decisions |
-| `formats/` | A page per file format, as it's worked out |
+| `formats/` | A page per file format: [the resource file](formats/resource.md) |
 | `systems/` | A page per part of how the game behaves, as it's worked out |
 | [research/](research/README.md) | Working notes: [the first survey](research/first-survey.md) of the CD and `loco.exe` |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
@@ -49,6 +51,7 @@ then shows an empty screen; Escape goes back.
 | Path | What |
 |---|---|
 | `legoloco.cpp` | The `MetaEngine` (name, detection table, making an `Engine`) and the `Engine` |
+| `formats/` | Reading the game's files: `resource_file.cpp`, the resource file |
 | `tools/` | `reluva-tool legoloco` commands (`reluva-tool help legoloco` lists them) |
 
 ## Tests
@@ -64,4 +67,4 @@ then shows an empty screen; Escape goes back.
 - **`art-res`:** the game's data folder, on the CD and in an install.
 - **Resource file:** `resource.RFH` (its index) and `resource.RFD` (its
   data), the archive holding most of the game's pictures, sounds and
-  object definitions.
+  object definitions ([formats/resource.md](formats/resource.md)).

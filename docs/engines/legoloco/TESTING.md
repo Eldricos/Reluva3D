@@ -11,6 +11,7 @@ files):
 | Suite | What it checks |
 |---|---|
 | `legoloco.unit.detection` | Recognising the game: an empty folder, and the right names with other contents, aren't it |
+| `legoloco.unit.resources` | The resource file: reading its index and entries by name, unpacking a compressed entry, and refusing damaged ones |
 
 ### The basic engine test
 
@@ -26,7 +27,9 @@ Not yet.
 
 ### What the automated checks don't cover
 
-<!-- What only a person playing can check. -->
+Reading the real game's files: until there's a game-files test,
+`reluva-tool legoloco rf-list <game folder>` reads and unpacks every
+entry of a copy's resource file, and should end with none failed.
 
 ## A playthrough by hand
 
