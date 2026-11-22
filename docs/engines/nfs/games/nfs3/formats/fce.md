@@ -1,6 +1,6 @@
 # Need for Speed III: `.fce` models
 
-> **Status:** decoded · **Code:** `src/engines/nfs/formats/fce.cpp` · **Checked on:** every model · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/nfs/nfs3/formats/fce.cpp` · **Checked on:** every model · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -469,7 +469,7 @@ for both sides). The game draws the skins point-sampled with no mipmaps
 
 ## In Reluva
 
-Read as `Model` (`src/engines/nfs/formats/fce.cpp`), and checked on all
+Read as `Model` (`src/engines/nfs/nfs3/formats/fce.cpp`), and checked on all
 56 retail models. The data viewer's Cars page draws them.
 
 - `reluva-tool nfs fce-info <file.fce | file.viv car.fce>` lists the parts,

@@ -1,6 +1,6 @@
 # Need for Speed III: movies (`.mad`)
 
-> **Status:** decoded · **Code:** `src/engines/nfs/formats/mad.cpp` · **Checked on:** every movie · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/nfs/nfs3/formats/mad.cpp` · **Checked on:** every movie · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -310,7 +310,7 @@ interpolation.
 ## In Reluva
 
 Read as `MadMovie`, decoded by `MadDecoder`
-(`src/engines/nfs/formats/mad.cpp`):
+(`src/engines/nfs/nfs3/formats/mad.cpp`):
 
 - the four movies on the CD (`fedata/movies`: `titleav`, `demoav1`-`3`)
   read;

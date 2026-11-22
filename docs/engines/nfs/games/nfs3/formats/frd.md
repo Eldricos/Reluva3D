@@ -1,6 +1,6 @@
 # Need for Speed III: `.frd` track geometry
 
-> **Status:** decoded · **Code:** `src/engines/nfs/formats/frd.cpp` · **Checked on:** all 9 tracks · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/nfs/nfs3/formats/frd.cpp` · **Checked on:** all 9 tracks · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -3222,7 +3222,7 @@ each frame from their corners as placed.
 
 ## In Reluva
 
-Read as `Track` (`src/engines/nfs/formats/frd.cpp`). All 9 retail tracks
+Read as `Track` (`src/engines/nfs/nfs3/formats/frd.cpp`). All 9 retail tracks
 read completely, with every byte accounted for (`reluva-tool nfs frd-check`),
 and draw correctly on the Tracks page.
 

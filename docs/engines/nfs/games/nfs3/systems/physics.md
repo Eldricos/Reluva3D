@@ -1,6 +1,6 @@
 # Need for Speed III: car handling (`carp.txt` and the car tasks)
 
-> **Status:** partial · **Code:** `src/engines/nfs/pages/track_viewer.cpp` (the Tracks page's cars; the hosted game runs its own) · **Confidence:** from the code unless marked
+> **Status:** partial · **Code:** `src/engines/nfs/nfs3/pages/track_viewer.cpp` (the Tracks page's cars; the hosted game runs its own) · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -4086,8 +4086,8 @@ Found November 2026 from the code and run in `g3-cv0`, `g3-cv1`, `h3-cm5`, `h3-l
 
 Not implemented in Reluva as a model of its own: the hosted game runs
 its own code. The Tracks page's cars
-(`src/engines/nfs/pages/track_viewer.cpp`) are driven by a model of the
-computer's cars in `src/engines/nfs/formats/frd.cpp` (`AiCar`,
+(`src/engines/nfs/nfs3/pages/track_viewer.cpp`) are driven by a model of the
+computer's cars in `src/engines/nfs/nfs3/formats/frd.cpp` (`AiCar`,
 `AiDriver`), made from this page; it still parts from the game's after
 about a minute ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
 

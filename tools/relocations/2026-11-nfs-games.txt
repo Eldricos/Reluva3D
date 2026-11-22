@@ -1,0 +1,22 @@
+# The Need for Speed engine takes a second game, NFS II SE, so NFS III's own
+# code gets a folder of its own (nfs3/), the rest staying shared
+# (docs/ADDING_AN_ENGINE.md, "Code layout"). NFS III's own: the formats NFS
+# II SE doesn't have (FCE models, FRD tracks, its sky files, MAD movies), its
+# tracks' particles, and the viewer's Cars and Tracks pages. For branches
+# made before:
+#     python3 tools/relocate.py tools/relocations/2026-11-nfs-games.txt
+# Its code then moved to namespace reluva::nfs::nfs3, which relocate.py
+# doesn't rewrite.
+
+src/engines/nfs/formats/fce.cpp          src/engines/nfs/nfs3/formats/fce.cpp
+src/engines/nfs/formats/fce.h            src/engines/nfs/nfs3/formats/fce.h
+src/engines/nfs/formats/frd.cpp          src/engines/nfs/nfs3/formats/frd.cpp
+src/engines/nfs/formats/frd.h            src/engines/nfs/nfs3/formats/frd.h
+src/engines/nfs/formats/hrz.cpp          src/engines/nfs/nfs3/formats/hrz.cpp
+src/engines/nfs/formats/hrz.h            src/engines/nfs/nfs3/formats/hrz.h
+src/engines/nfs/formats/mad.cpp          src/engines/nfs/nfs3/formats/mad.cpp
+src/engines/nfs/formats/mad.h            src/engines/nfs/nfs3/formats/mad.h
+src/engines/nfs/render/particles.cpp     src/engines/nfs/nfs3/render/particles.cpp
+src/engines/nfs/render/particles.h       src/engines/nfs/nfs3/render/particles.h
+src/engines/nfs/pages/car_viewer.cpp     src/engines/nfs/nfs3/pages/car_viewer.cpp
+src/engines/nfs/pages/track_viewer.cpp   src/engines/nfs/nfs3/pages/track_viewer.cpp

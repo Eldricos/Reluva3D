@@ -18,12 +18,12 @@ reluva_add_engine(nfs
         formats/ffn.cpp
         formats/bnk.cpp
         formats/mus.cpp
-        formats/mad.cpp
-        formats/fce.cpp
-        formats/frd.cpp
+        nfs3/formats/mad.cpp
+        nfs3/formats/fce.cpp
+        nfs3/formats/frd.cpp
         formats/col.cpp
-        formats/hrz.cpp
-        render/particles.cpp
+        nfs3/formats/hrz.cpp
+        nfs3/render/particles.cpp
         render/thrash_gpu.cpp
         ui/page.cpp
         ui/play_page.cpp
@@ -44,8 +44,8 @@ reluva_add_engine_viewers(nfs
     SOURCES
         pages/viewer.cpp
         pages/viewers.cpp
-        pages/car_viewer.cpp
-        pages/track_viewer.cpp
+        nfs3/pages/car_viewer.cpp
+        nfs3/pages/track_viewer.cpp
         pages/media_viewer.cpp)
 
 # Its reluva-tool commands (reluva-tool help nfs lists them). WITH_SDL: the

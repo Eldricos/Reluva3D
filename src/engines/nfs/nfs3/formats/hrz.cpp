@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "engines/nfs/formats/hrz.h"
+#include "engines/nfs/nfs3/formats/hrz.h"
 
 #include <algorithm>
 #include <cctype>

@@ -1,6 +1,6 @@
 # Need for Speed III: track numbers
 
-> **Status:** decoded · **Code:** `src/engines/nfs/formats/frd.cpp` · **Checked on:** the 9 tracks · **Confidence:** from the code unless marked
+> **Status:** decoded · **Code:** `src/engines/nfs/nfs3/formats/frd.cpp` · **Checked on:** the 9 tracks · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -438,9 +438,9 @@ written only if the car had moved onto slice 260 by itself.
 
 `trackFolders` (`src/engines/nfs/folders.cpp`) finds the `trkNNN`
 folders, and the Tracks page names each by its number, read as hex
-(`kTrackNames`, `src/engines/nfs/pages/track_viewer.cpp`). The Tracks
+(`kTrackNames`, `src/engines/nfs/nfs3/pages/track_viewer.cpp`). The Tracks
 page's computer cars take the speed limits from `trackSectionSpeed`
-(`src/engines/nfs/formats/frd.cpp`).
+(`src/engines/nfs/nfs3/formats/frd.cpp`).
 
 ## Sources and checks
 

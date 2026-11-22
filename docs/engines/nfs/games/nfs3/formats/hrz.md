@@ -1,6 +1,6 @@
 # Need for Speed III: `.hrz` sky files
 
-> **Status:** decoded · **Code:** `src/engines/nfs/formats/hrz.cpp` · **Checked on:** every sky file · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/nfs/nfs3/formats/hrz.cpp` · **Checked on:** every sky file · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -664,7 +664,7 @@ page's sky may be what differs); and the Summit's greyer scenery.
 
 ## In Reluva
 
-Read as `Horizon` (`src/engines/nfs/formats/hrz.cpp`), and checked on all
+Read as `Horizon` (`src/engines/nfs/nfs3/formats/hrz.cpp`), and checked on all
 36 retail files: four per track, `3trNN.hrz` (day), `n` (night), `w`
 (weather) and `nw` (night with weather). The data
 viewer's Tracks page draws the sky.

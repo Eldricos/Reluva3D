@@ -5,7 +5,7 @@
 
 #include "common/types.h"
 #include "engines/nfs/formats/col.h"
-#include "engines/nfs/render/particles.h"
+#include "engines/nfs/nfs3/render/particles.h"
 
 #include <array>
 #include <cstdint>

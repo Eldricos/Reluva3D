@@ -373,7 +373,7 @@ right, blue where the side's code is 3 and white where it is 5.
 
 The wall hits' sparks, dust and smoke, read from nfs3.exe in October
 2026, from making to drawing. Reluva has them in
-`src/engines/nfs/render/particles.cpp` and shows them on the Track page (key P
+`src/engines/nfs/nfs3/render/particles.cpp` and shows them on the Track page (key P
 at the wall nearest the line of sight; Shift+P a fast hit). The ticks
 below are the game's, 64 a second (`0x7d3684`); a particle's life is
 counted every other one.
@@ -1055,7 +1055,7 @@ the wall's line and up from the road, the centre a unit further in).
 
 The weather's falling rain or snow and its splashes on the screen,
 read from nfs3.exe in November 2026 (`gdecomp`, `asm`, the static data
-read from the exe). Reluva has it in `src/engines/nfs/render/particles.cpp`
+read from the exe). Reluva has it in `src/engines/nfs/nfs3/render/particles.cpp`
 (`Weather`) and draws it on the Track page. It isn't a particle kind:
 it has its own pools, its own pass and its own pictures.
 
@@ -1256,7 +1256,7 @@ numbers are Reluva's.
 Read as `TrackCollision` (`src/engines/nfs/formats/col.cpp`), and checked
 on all 9 retail tracks. The Tracks page draws the walls from the virtual
 road (key G). The wall hits' particles and the weather are in
-`src/engines/nfs/render/particles.cpp` (Particles, Rain and snow, above).
+`src/engines/nfs/nfs3/render/particles.cpp` (Particles, Rain and snow, above).
 
 ## Sources and checks
 

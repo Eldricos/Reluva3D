@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "engines/nfs/formats/mad.h"
+#include "engines/nfs/nfs3/formats/mad.h"
 
 #include "audio/ea_audio.h"
 
