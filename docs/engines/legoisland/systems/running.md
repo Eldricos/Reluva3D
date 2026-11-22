@@ -130,8 +130,11 @@ that far.
   rooms `ElevOpen`, `Observe`, `SeaView` and `ElevDown`. The lobby's
   left arrow leads to the room of doors (`INFODOOR.SI`), its revolving
   door the way out to the island; clicked, it plays an offscreen line of
-  the Infomaniac's (`iic037in`, object 500) and doesn't open, the same
-  after a name is registered and a portrait's film seen. The right-hand
+  the Infomaniac's (`iic037in`, object 500) and doesn't open: he says a
+  character has to be chosen first, by dragging its picture to where
+  it's to go on the map. Dragged, a portrait lights up, its character's
+  3D figure follows the pointer, and the place under it on the map
+  lights up. The right-hand
   door is the way out of the game: the Infomaniac asks
   (`iic043in_RunAnim`, the sound `IIC044IN.wav`) and puts a green brick
   and a red one before him, in 3D; picking the green one ends the game,
@@ -173,7 +176,9 @@ registers, the stack's first words and any text they point to (or that a
 pointer they point to points to) each time the program gets to an
 address, `-watch <address>,<bytes>` each store into memory there and
 where it was made, `-click <frame>@<x>,<y>` a left click at a point
-of the game's picture at a frame, and `-key <frame>@<key>,<frames>` a key
+of the game's picture at a frame, `-drag <frame>@<x>,<y>:<x>,<y>,<frames>`
+the left button pressed at one point and let go at the other so many
+frames later, the pointer moved between, and `-key <frame>@<key>,<frames>` a key
 (`up`, `down`, `left`, `right`, `space`, `return`, `escape` or a
 character) held from a frame for so many. With `-log`, the file calls' handles, positions and
 sizes are printed too. `reluva-tool pe-disasm` shows `LEGO1.DLL`'s
@@ -194,8 +199,7 @@ instructions at an address ([disasm.md](../../../common/x86/disasm.md)).
 
 - What `CONFIG.EXE` writes for each setting, and its defaults: Reluva
   sets only `savepath` (and the installer's `cdpath`, `diskpath`).
-- What the revolving door waits for before it lets the player out, and
-  what the Infomaniac's `iic037in` says.
+- Why a character dropped on a place on the map doesn't go there yet.
 - Which of the missing functions the program calls, once it gets past
   DirectSound.
 - What else the registry holds once `CONFIG.EXE` has run, and which of

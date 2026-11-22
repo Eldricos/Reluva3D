@@ -49,9 +49,11 @@ int cmdRun(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool legoisland run <game folder> [-log] [-files] [-limit instructions] "
-            "[-trace count] [-calls count] [-memory MB] [-save folder] [-shots folder] [-every frames] [-at address]... [-watch address,bytes] [-click frame@x,y]... [-key frame@key,frames]...\n");
+            "[-trace count] [-calls count] [-memory MB] [-save folder] [-shots folder] [-every frames] [-at address]... [-watch address,bytes] [-click frame@x,y]... [-drag frame@x,y:x,y,frames]... [-key frame@key,frames]...\n");
         return 2;
     }
+    // A line at a time: a long run is often stopped, and what it said so far is wanted.
+    std::setvbuf(stdout, nullptr, _IOLBF, 1 << 16);
     bool log = false;
     bool files = false;
     uint64_t limit = 4000000000ull;
@@ -69,6 +71,17 @@ int cmdRun(int argc, char **argv) {
         int y;
     };
     std::vector<Click> clicks;
+    // -drag: the left button pressed at a point at a frame, the pointer
+    // moved to another over so many frames, and let go there.
+    struct Drag {
+        uint64_t frame;
+        int x0;
+        int y0;
+        int x1;
+        int y1;
+        uint64_t frames;
+    };
+    std::vector<Drag> drags;
     // -key: at a frame, a key pressed, and let go so many frames later.
     struct KeyPress {
         uint64_t frame;
@@ -110,6 +123,15 @@ int cmdRun(int argc, char **argv) {
             Click k{};
             if (std::sscanf(argv[++a], "%llu@%d,%d", reinterpret_cast<unsigned long long *>(&k.frame), &k.x, &k.y) == 3)
                 clicks.push_back(k);
+        } else if (arg == "-drag" && a + 1 < argc) {
+            unsigned long long frame = 0;
+            unsigned long long count = 10;
+            Drag d{};
+            if (std::sscanf(argv[++a], "%llu@%d,%d:%d,%d,%llu", &frame, &d.x0, &d.y0, &d.x1, &d.y1, &count) >= 5) {
+                d.frame = frame;
+                d.frames = std::max<unsigned long long>(1, count);
+                drags.push_back(d);
+            }
         } else if (arg == "-key" && a + 1 < argc) {
             unsigned long long frame = 0;
             unsigned long long count = 1;
@@ -157,6 +179,23 @@ int cmdRun(int argc, char **argv) {
         frames++;
         // A click: pressed at its frame, let go at the next, where the
         // picture is in its window's client area.
+        for (const Drag &d : drags) {
+            if (frames < d.frame || frames > d.frame + d.frames)
+                continue;
+            int left = 0;
+            int top = 0;
+            if (const auto area = process.clientArea(process.mainWindow())) {
+                left = (*area)[0];
+                top = (*area)[1];
+            }
+            const double t = double(frames - d.frame) / double(d.frames);
+            process.mouseMoveTo(left + d.x0 + int(t * (d.x1 - d.x0)), top + d.y0 + int(t * (d.y1 - d.y0)));
+            if (frames == d.frame || frames == d.frame + d.frames) {
+                process.mouseButton(0, frames == d.frame);
+                std::printf("[drag] %s, frame %llu\n", frames == d.frame ? "down" : "up",
+                            static_cast<unsigned long long>(frames));
+            }
+        }
         for (const KeyPress &k : keys)
             if (frames == k.frame || frames == k.frame + k.frames) {
                 process.key(k.vk, k.scan, frames == k.frame);
