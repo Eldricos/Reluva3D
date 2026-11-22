@@ -35,6 +35,13 @@ const std::vector<GameVariant> &detectionTable();
  */
 const std::vector<GameVariant> &fallbackTable();
 
+/**
+ * The releases on a CD 1 (or a copy of it), as the detection table and the
+ * fallback table have them for an install; for importing, never for
+ * running from.
+ */
+std::vector<DetectedGame> detectCd(const std::filesystem::path &dir);
+
 /** The releases in `dir`: the detection table's, or else the fallback's. */
 std::vector<DetectedGame> detectGames(const std::filesystem::path &dir);
 

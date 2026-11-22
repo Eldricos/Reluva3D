@@ -53,6 +53,22 @@ const std::vector<GameVariant> &fallbackTable() {
     return kTable;
 }
 
+std::vector<DetectedGame> detectCd(const std::filesystem::path &dir) {
+    // The installer copies these three unchanged from CD 1's GAMEDATA, the
+    // archives from folders of the same names; names match in any case.
+    auto onCd = [](const std::vector<GameVariant> &table) {
+        std::vector<GameVariant> out = table;
+        for (GameVariant &v : out)
+            for (FileSignature &f : v.files)
+                f.name = f.name == "JK.EXE" ? "GAMEDATA/EXE/JK.EXE" : "GAMEDATA/" + f.name;
+        return out;
+    };
+    static const std::vector<GameVariant> kTable = onCd(detectionTable());
+    static const std::vector<GameVariant> kFallback = onCd(fallbackTable());
+    std::vector<DetectedGame> found = detectFromTable(kEngineId, kTable, dir);
+    return found.empty() ? detectFromTable(kEngineId, kFallback, dir) : found;
+}
+
 std::vector<DetectedGame> detectGames(const std::filesystem::path &dir) {
     std::vector<DetectedGame> found = detectFromTable(kEngineId, detectionTable(), dir);
     return found.empty() ? detectFromTable(kEngineId, fallbackTable(), dir) : found;

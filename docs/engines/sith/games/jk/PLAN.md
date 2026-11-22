@@ -42,11 +42,11 @@ the reference to check native against.
 
 ## Phases
 
-1. **Skeleton and detection** (in progress): the engine from the
-   template, the family layout, the US release recognised, the CDs found
-   ([formats/jk-cd.md](formats/jk-cd.md)). Next in it: *Import Game...*
-   from the CDs.
-2. **Archives and pictures:** GOB as an `Archive`, `.cmp` colormaps,
+1. **Skeleton and detection** (done): the engine from the template, the
+   family layout, the US release recognised, the CDs found
+   ([formats/jk-cd.md](formats/jk-cd.md)), and *Import Game...* from them
+   ([README.md](README.md#using-it)).
+2. **Archives and pictures** (next): GOB as an `Archive`, `.cmp` colormaps,
    `.bm` and `.mat` pictures, `.sft` fonts, `.uni` strings, each on a
    viewer page.
 3. **Sound and movies:** the `.wav` files, `.snd` sound classes, the
@@ -65,6 +65,7 @@ the reference to check native against.
 | November 2026 | Engine id `sith`, game id `jk`, the layout for a family of games | It's the Sith engine, and Mysteries of the Sith runs on it too |
 | November 2026 | Detection keys on `JK.EXE` and two archives in the install; a CD isn't taken for an install | The executable tells releases apart; the archives are the same in the install and on the CDs, and the game runs from an install |
 | November 2026 | The CDs are told apart by `JK_.CD`, not by their folders' names | Copies of CDs get any name; the marker is what differs between them |
+| November 2026 | An import copies the CDs' cut scenes into the install, under `cd1/` and `cd2/` with the CDs' own paths | The game reads them from the CDs; kept with the CDs' paths and markers, the same code finds them there as beside the install |
 | November 2026 | The data layer and viewer before choosing native or hosted | Needed either way |
 | November 2026 | Published write-ups of the formats by the editing community are used for facts only, each checked on the game's files | Allowed by CONTRIBUTING.md, as for Birth of the Federation's editor |
 | November 2026 | Decompilation-based rebuilds of the game (OpenJKDF2 and the like) aren't read, for facts or code | Their code is a function-for-function rebuild of `JK.EXE`'s; reading it would make copying hard to rule out. `JK.EXE` is studied directly instead |

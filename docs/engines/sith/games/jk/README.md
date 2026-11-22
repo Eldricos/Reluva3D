@@ -7,7 +7,7 @@ Game id `jk`, on the [Sith engine](../../README.md); its code is in
 
 | Release | Recognised by | State |
 |---|---|---|
-| US retail, two CDs (English, Windows), unpatched; `JK.EXE` linked 11 September 1997 | `JK.EXE`, `Resource/Res2.gob` and `Episode/JK1.GOB` (`detectionTable`, `src/engines/sith/games.cpp`) | Recognised, its CDs found |
+| US retail, two CDs (English, Windows), unpatched; `JK.EXE` linked 11 September 1997 | `JK.EXE`, `Resource/Res2.gob` and `Episode/JK1.GOB` (`detectionTable`, `src/engines/sith/games.cpp`) | Recognised and imported from its CDs, its CDs found |
 | Other releases (other languages, patched) | The same three files present (`fallbackTable`): "unknown release" | Not checked |
 
 Detection signatures (MD5 of the first 5000 bytes, size):
@@ -41,16 +41,20 @@ installer and the readme.
 
 - **Detection:** the US release is recognised from its install; other
   releases by their files' names.
-- **The CDs:** found for an install, and told apart; nothing reads them
-  yet.
+- **The CDs:** found for an install, and told apart; *Import Game...*
+  makes an install from them. Nothing reads them yet.
 - **Not yet:** everything else: reading the GOB archives and the files in
   them, the data viewer, and the game. Plans, phases and decisions:
   [PLAN.md](PLAN.md).
 
 ## Using it
 
-Add the game's install in the launcher (*Add Game...*). Reluva looks for
-each CD's files (for the cut scenes), the first of:
+Add the game's install in the launcher (*Add Game...*), or make one from
+the CDs with *Import Game...* on CD 1 (or a copy of it): it copies what
+the game's installer does, and CD 1's cut scenes into `cd1`; *Add other
+disc...* adds CD 2's into `cd2`. `reluva-tool import <CD 1> <folder>
+-patch <CD 2>` does the same. Reluva looks for each CD's files (for the
+cut scenes), the first of:
 
 - the folder the `cd1path` or `cd2path` setting in the game's section of
   `reluva.ini` names (relative to the install, or absolute);

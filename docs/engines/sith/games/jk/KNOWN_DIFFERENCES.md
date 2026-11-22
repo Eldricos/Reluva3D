@@ -22,3 +22,6 @@ None yet.
   the drive; Reluva finds copies of both CDs' files in or beside the
   install, or where the `cd1path` and `cd2path` settings say
   ([README.md](README.md#using-it)).
+- **Importing:** Reluva's *Import Game...* copies what the game's
+  installer does, without running it, and the CDs' cut scenes too, so the
+  game needs no CD.

@@ -11,6 +11,7 @@ files):
 | Suite | What it checks |
 |---|---|
 | `sith.unit.detection` | Recognising the game's releases: the fallback table, names in any case, a partial install or a CD not taken for one |
+| `sith.unit.import` | Importing from CD 1 and adding CD 2, what's copied and where, what isn't imported from, and that the result is recognised and finds its CDs |
 | `sith.unit.folders` | Telling the CDs apart by `JK_.CD`, and finding them in and beside an install and by the settings |
 
 ### The basic engine test
@@ -38,9 +39,11 @@ That the US release's signatures match a real install: checked by hand
 - *Add Game...* on the install finds "Jedi Knight: Dark Forces II (US,
   1.0)".
 - `reluva-tool sith folders <install>` finds both CDs where they are.
+- *Import Game...* on CD 1, with CD 2 added, makes an install that's
+  recognised, with both CDs' cut scenes in it.
 
 ## Last checked
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
-| November 2026 | US retail | Linux | `reluva-tool sith folders` on the install, with copies of both CDs beside it: recognised as the US release, both CDs found |
+| November 2026 | US retail | Linux | `reluva-tool sith folders` on the install, with copies of both CDs beside it: recognised as the US release, both CDs found. `reluva-tool import` from the copy of CD 1 with CD 2 added: recognised as the US release, both CDs found in it |

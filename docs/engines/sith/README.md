@@ -9,17 +9,18 @@ Dark Forces II; its expansion, Mysteries of the Sith, would be the next.
 
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
-| [Jedi Knight: Dark Forces II](games/jk/README.md) | `jk` | LucasArts, 1997 | Windows | US retail, two CDs, unpatched | Recognised, its CDs found; nothing of the game runs yet |
+| [Jedi Knight: Dark Forces II](games/jk/README.md) | `jk` | LucasArts, 1997 | Windows | US retail, two CDs, unpatched | Recognised and imported from its CDs; nothing of the game runs yet |
 
 ## Where it stands
 
-Jedi Knight's install is recognised and its CDs are found; the engine
-shows an empty screen. See the game's [README](games/jk/README.md) and
+Jedi Knight's install is recognised, or made from its CDs, and its CDs
+are found; the engine shows an empty screen. See the game's [README](games/jk/README.md) and
 [PLAN.md](games/jk/PLAN.md).
 
 ## Using it
 
-Add Jedi Knight's install in the launcher (*Add Game...*). The game's
+Add Jedi Knight's install in the launcher (*Add Game...*), or import it
+from its CDs (*Import Game...*). The game's
 [README](games/jk/README.md#using-it) says where it looks for the CDs.
 
 ## This folder
@@ -39,6 +40,7 @@ game is found to share it (docs/DOCUMENTATION_STANDARD.md).
 | `sith.cpp` | The `MetaEngine` (detection, making an `Engine`) and the `Engine`: an empty screen for now |
 | `games.cpp` | The games and their releases |
 | `folders.cpp` | Telling the CDs apart, and finding them for an install |
+| `import.cpp` | Making an install from the CDs (*Import Game...*) |
 | `tools/` | `reluva-tool sith` commands (`reluva-tool help sith` lists them) |
 
 ## Tests

@@ -7,6 +7,7 @@
 
 #include "engines/engine.h"
 #include "engines/sith/games.h"
+#include "engines/sith/import.h"
 
 namespace reluva::sith {
 
@@ -46,7 +47,8 @@ private:
 
 /**
  * The engine as the launcher sees it: its name, the releases it
- * recognises, and making a SithEngine to run one.
+ * recognises, importing it from its CDs, and making a SithEngine to
+ * run one.
  */
 class SithMetaEngine : public MetaEngine {
 public:
@@ -54,6 +56,14 @@ public:
     const char *name() const override { return "Sith"; }
 
     std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override { return detectGames(dir); }
+
+    std::vector<ImportPlan> planImport(const std::filesystem::path &source) const override {
+        return sith::planImport(source);
+    }
+
+    bool addToImport(ImportPlan &plan, const std::filesystem::path &folder, std::string &message) const override {
+        return sith::addToImport(plan, folder, message);
+    }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
         return std::make_unique<SithEngine>(system, target);
