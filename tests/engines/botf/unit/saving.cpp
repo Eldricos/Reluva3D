@@ -1,0 +1,236 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+// Birth of the Federation's unit tests: writing alt.res archives and saved
+// games, and the LZSS and checks that takes.
+
+#include "engines/botf/formats/alt_res.h"
+#include "engines/botf/formats/save_game.h"
+#include "engines/botf/formats/save_writer.h"
+#include "engines/botf/game/game_state.h"
+
+#include "tests/engines/botf/unit/helpers.h"
+#include "tests/support/test.h"
+
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <string>
+#include <vector>
+
+using namespace reluva;
+using namespace reluva::botf;
+using namespace reluva::botf::test;
+
+namespace {
+
+Bytes slurp(const std::filesystem::path &p) {
+    std::ifstream in(p, std::ios::binary);
+    return {std::istreambuf_iterator<char>(in), {}};
+}
+
+void testCompression() {
+    // Repeats, a run, text and every byte value: each reads back the same,
+    // whatever the window starts filled with.
+    Bytes mixed;
+    for (int i = 0; i < 3000; ++i)
+        mixed.push_back(uint8_t(i % 7 == 0 ? i * 37 : 'a' + i % 5));
+    const std::string words = "Sol Sol Sol Earth Mars Venus Sol Earth";
+    for (const Bytes &raw : {mixed, Bytes(5000, 0x20), Bytes(words.begin(), words.end()), Bytes{8}, Bytes{}}) {
+        const Bytes packed = compressLzss(raw.data(), raw.size());
+        Bytes zeros;
+        Bytes spaces;
+        CHECK(!decompressLzss(packed.data(), packed.size(), raw.size(), zeros) && zeros == raw);
+        CHECK(!decompressLzss(packed.data(), packed.size(), raw.size(), spaces, nullptr, 0x20) && spaces == raw);
+    }
+    // 5,000 spaces: 17 bytes to a reference, two bytes and a bit each.
+    CHECK(compressLzss(Bytes(5000, 0x20).data(), 5000).size() < 700);
+}
+
+void testChecks() {
+    // As the game's own saves store and check these: version's 8, four
+    // zeros, a count of 2, a province's system number.
+    const Bytes version = {0x01, 0x08};
+    const Bytes zeros = {0x01, 0x00, 0x10, 0x01};
+    const Bytes two = {0x03, 0x02, 0x00, 0x00, 0x02};
+    const Bytes system = {0x03, 0x2A, 0x00};
+    CHECK(altResCheck(version.data(), version.size()) == 0x0108);
+    CHECK(altResCheck(zeros.data(), zeros.size()) == 0x2330);
+    CHECK(altResCheck(two.data(), two.size()) == 0x3F30);
+    CHECK(altResCheck(system.data(), system.size()) == 0x1A63);
+    CHECK(altResCheck(nullptr, 0) == 0);
+}
+
+void testWriteAltRes(const std::filesystem::path &tmp) {
+    const std::string text = "Romulus";
+    const Bytes raw(text.begin(), text.end());
+    AltResFile first{"first", compressLzss(raw.data(), raw.size()), uint32_t(raw.size())};
+    first.check = altResCheck(first.stored.data(), first.stored.size());
+    const std::vector<AltResFile> files = {first, {"empty", {}, 0, 1, 0, true}, {"placed", {}, 0, 1, 0, false}};
+    CHECK(!writeAltRes(tmp / "out.res", "game3.sav", files));
+    // Padded to the header and a whole 16 KB block.
+    CHECK(std::filesystem::file_size(tmp / "out.res") == 24 + 16384);
+    AltResArchive a;
+    CHECK(!a.open(tmp / "out.res") && a.name() == "game3.sav" && a.entries().size() == 3);
+    Bytes back;
+    CHECK(!a.read("first", back) && back == raw);
+    CHECK(a.entries()[0].offset == 24 && a.entries()[0].check == first.check && a.entries()[2].index == 2);
+    // An empty file at 0, or where it would be.
+    CHECK(a.entries()[1].offset == 0 && a.entries()[2].offset == 24 + first.stored.size());
+    // Names too long for the header or the directory aren't written.
+    CHECK(bool(writeAltRes(tmp / "x.res", "a name of sixteen", files)));
+    CHECK(bool(writeAltRes(tmp / "x.res", "x", {{"a file name of 16", {}, 0}})));
+}
+
+// A whole saved game, as readSavedGame() needs: gameInfo, the galaxy, the
+// empires, a ship and its task force, Romulus's buildings, and a
+// result.lst of one chunk counting no results.
+Bytes resultList() {
+    const Bytes count = lzssLiterals(Bytes(4, 0));
+    Bytes lst;
+    put32(lst, 12);
+    put32(lst, 4);
+    put32(lst, uint32_t(count.size()));
+    lst.insert(lst.end(), count.begin(), count.end());
+    return lst;
+}
+
+Bytes makeFullSave() {
+    std::vector<std::pair<std::string, Bytes>> files = galaxyFiles(1, true);
+    Bytes info(0x2C0, 0);
+    const std::string description = "Tutorial #1";
+    std::copy(description.begin(), description.end(), info.begin() + 0x0D);
+    set32(info, 0x40, 3);
+    info[0x252] = 4;
+    Bytes emps(5 * 444, 0);
+    set32(emps, 4 * 444 + 0x54, 1200);
+    Bytes shipHead(40, 0);
+    set32(shipHead, 0x10, 116);
+    set32(shipHead, 0x18, 1);
+    Bytes ships(116, 0);
+    const std::string name = "IRW Haakona";
+    std::copy(name.begin(), name.end(), ships.begin());
+    Bytes forceHead(40, 0);
+    set32(forceHead, 0x10, 108);
+    set32(forceHead, 0x18, 1);
+    Bytes forces(108, 0);
+    set32(forces, 0x04, 1);
+    set32(forces, 0x30, 0xFFFFFFFF);
+    // Romulus: one kind of building, 3 of them.
+    Bytes buildings;
+    put16(buildings, 0);
+    put16(buildings, 1);
+    for (const uint32_t v : {3U, 22U, 0U, 0U})
+        put16(buildings, v);
+    files.insert(files.begin(), {"gameInfo", info});
+    files.push_back({"empsInfo", emps});
+    files.push_back({"GShipHead", shipHead});
+    files.push_back({"GShipList", ships});
+    files.push_back({"GWTForceHd", forceHead});
+    files.push_back({"GWTForce", forces});
+    files.push_back({"strcInfo", buildings});
+    files.push_back({"result.lst", resultList()});
+    return makeLzssArchive("game0.sav", files, {"result.lst"});
+}
+
+void testSaveFiles(const std::filesystem::path &tmp) {
+    writeFile(tmp / "game0.sav", makeFullSave());
+    SaveFiles files;
+    CHECK(!files.open(tmp / "game0.sav") && files.name() == "game0.sav" && files.has("systinfo"));
+    // result.lst stays in its chunks, not decoded.
+    CHECK(files.has("result.lst") && !files.file("result.lst") && files.file("empsInfo"));
+    // Written unchanged, then read and written again: the same bytes.
+    CHECK(!files.write(tmp / "once.sav"));
+    SaveFiles again;
+    CHECK(!again.open(tmp / "once.sav") && !again.write(tmp / "twice.sav"));
+    CHECK(slurp(tmp / "once.sav") == slurp(tmp / "twice.sav"));
+    AltResArchive a;
+    Bytes stored;
+    CHECK(!a.open(tmp / "once.sav") && !a.readStored(a.entries().back(), stored) && stored == resultList());
+    // A file changed is compressed again, with its check.
+    (*files.file("empsInfo"))[0] = 'C';
+    files.add("provInfo4") = {1, 0, 0, 0, 0, 0};
+    CHECK(!files.write(tmp / "changed.sav"));
+    std::array<SavedEmpire, 5> empires;
+    CHECK(!readSavedEmpires(tmp / "changed.sav", empires) && empires[0].name == "C");
+    CHECK(empires[4].systems == std::vector<int>{0});
+    CHECK(!a.open(tmp / "changed.sav"));
+    for (const AltResArchive::Entry &e : a.entries())
+        if (e.name == "empsInfo") {
+            CHECK(!a.readStored(e, stored) && e.check == altResCheck(stored.data(), stored.size()));
+        }
+}
+
+void testWriteSavedGame(const std::filesystem::path &tmp) {
+    writeFile(tmp / "game0.sav", makeFullSave());
+    GameState state;
+    CHECK(!GameState::load(tmp / "game0.sav", state));
+    SavedGame &g = state.data();
+    g.summary.description = "Caf\xc3\xa9";
+    g.summary.turn = 4;
+    g.galaxy.sectors[2].claims = 0x10;
+    g.galaxy.sectors[2].revealed = 0x12;
+    SavedSystem &romulus = g.galaxy.systems[0];
+    romulus.population = 360;
+    romulus.maxPopulation = 340;
+    romulus.controllingRace = -1;
+    romulus.buying = false;
+    romulus.planets[0].name = "Remus";
+    romulus.planets[0].terraformDone = 120;
+    romulus.buildings[0].count = 4;
+    romulus.buildings.push_back({30, 1, 1});
+    g.galaxy.stellarObjects[0].name = "Nebula C2";
+    g.empires[4].credits = 900;
+    g.empires[4].territoryAccess[1] = true;
+    g.empires[4].systems = {0};
+    g.ships[0].name = "IRW Valdore";
+    g.ships[0].experience = 50;
+    g.taskForces[0].destinationX = 2;
+    g.taskForces[0].destinationY = 1;
+    CHECK(!state.save(tmp / "game5.sav"));
+    // Padded as the game's.
+    CHECK((std::filesystem::file_size(tmp / "game5.sav") - 24) % 16384 == 0);
+    SavedGame b;
+    CHECK(!readSavedGame(tmp / "game5.sav", b));
+    CHECK(b.summary.name == "game5.sav" && b.summary.description == "Caf\xc3\xa9" && b.summary.turn == 4);
+    CHECK(b.summary.empire == 4 && b.galaxy.sectors[2].claims == 0x10 && b.galaxy.sectors[2].revealed == 0x12);
+    const SavedSystem &r = b.galaxy.systems[0];
+    CHECK(r.name == "Romulus" && r.population == 360 && r.maxPopulation == 340 && r.controllingRace == -1);
+    CHECK(!r.buying && r.planets[0].name == "Remus" && r.planets[0].terraformDone == 120);
+    CHECK(r.buildings.size() == 2 && r.buildings[0].count == 4 && r.buildings[1].building == 30);
+    CHECK(b.galaxy.stellarObjects[0].name == "Nebula C2");
+    CHECK(b.empires[4].credits == 900 && b.empires[4].territoryAccess[1] &&
+          b.empires[4].systems == g.empires[4].systems);
+    CHECK(b.ships[0].name == "IRW Valdore" && b.ships[0].experience == 50);
+    CHECK(b.taskForces[0].destinationX == 2 && b.taskForces[0].destinationY == 1);
+    // Saved again unchanged: the same file.
+    GameState reread;
+    CHECK(!GameState::load(tmp / "game5.sav", reread) && !reread.save(tmp / "game5.sav"));
+    SavedGame c;
+    CHECK(!readSavedGame(tmp / "game5.sav", c) && c.empires[4].credits == 900);
+
+    // What the files have no room for isn't written: a ship more than the
+    // list holds, a system no longer the player's (its record would lose
+    // its production queue).
+    GameState more = state;
+    more.data().ships.push_back(more.data().ships[0]);
+    CHECK(bool(more.save(tmp / "game6.sav")));
+    GameState lost = state;
+    lost.data().galaxy.systems[0].control = 1;
+    CHECK(bool(lost.save(tmp / "game6.sav")));
+    CHECK(!std::filesystem::exists(tmp / "game6.sav"));
+    // Nor a game that wasn't read from a save.
+    CHECK(bool(GameState(g).save(tmp / "game6.sav")));
+}
+
+} // namespace
+
+static const reluva::test::Suite
+    kSuite("botf.unit.saving",
+           {
+               {"lzss compression", [](const std::filesystem::path &) { testCompression(); }},
+               {"checks", [](const std::filesystem::path &) { testChecks(); }},
+               {"alt.res written", [](const std::filesystem::path &tmp) { testWriteAltRes(tmp); }},
+               {"save files", [](const std::filesystem::path &tmp) { testSaveFiles(tmp); }},
+               {"saved game written", [](const std::filesystem::path &tmp) { testWriteSavedGame(tmp); }},
+           });

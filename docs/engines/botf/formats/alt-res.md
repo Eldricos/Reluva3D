@@ -1,6 +1,6 @@
 # Star Trek: Birth of the Federation: full-screen pictures (`alt.res`)
 
-> **Status:** decoded · **Code:** `src/engines/botf/formats/alt_res.cpp` · **Checked on:** the English retail `alt.res`: all 31 files decoded and shown (October 2026) · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/botf/formats/alt_res.cpp` · **Checked on:** the English retail `alt.res`: all 31 files decoded and shown (October 2026); its checks and padding, with 18 of the user's saved games' (November 2026) · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -22,7 +22,7 @@ All values little-endian.
 | 20 | `u32` | number of files (31) |
 | 24 | | the files' compressed data, one after the other |
 | | | directory: 40 bytes per file |
-| | | zero padding to the end of the file (8,774 bytes) |
+| | | zeros, to make the file the header and a whole number of 16 KB blocks (8,774 bytes) |
 
 A directory entry:
 
@@ -34,12 +34,7 @@ A directory entry:
 | 24 | `u32` | decoded size: 960,018 or 960,044 |
 | 28 | `u32` | compressed size |
 | 32 | `u32` | flag: 1 in every entry (compressed?) *(guessed)* |
-| 36 | `u32` | check: under 65,536; how it's computed is still open |
-
-The check isn't the sum of the bytes, the sum or XOR of 16-bit words,
-either half of a CRC-32 (each of the compressed and of the decoded bytes),
-nor six common CRC-16s (tried on the first three files). A reader doesn't
-need it.
+| 36 | `u32` | check: a CRC-16 of the compressed data ([below](#the-check)) |
 
 The data isn't stored in directory order: the last entry, `rw.tga`, comes
 first at offset 24, then entries 0 to 29 in order. Each file's compressed
@@ -63,6 +58,24 @@ bytes in a different order:
   flag bits left in the last flag byte are unused, and the next file's
   data starts at the next byte.
 
+### The check
+
+A CRC with the polynomial 0x1021 (CRC-CCITT's), starting from 0, of the
+file's bytes as stored, compressed: each byte is shifted into the
+register's low end, and the byte shifted out of its top is looked up in
+the CRC's table and XORed in:
+
+```text
+check = 0
+for each byte b: check = ((check << 8) | b) ^ table[check >> 8]   (16 bits)
+```
+
+That's the CRC without the two zero bytes a CRC normally runs on after
+the data, which is why the common CRC-16s didn't match it. Each of the 31
+files' checks is so, and so is every file's in 18 of the user's saved
+games (7,734 files), but for a save's `result.lst`, stored in chunks,
+whose check is its chunks' added up ([sav.md](sav.md#results)).
+
 ### Contents
 
 Every file is an uncompressed TGA: type 2, no colour map, 800x600, 16-bit
@@ -85,11 +98,20 @@ Entry 0 is `c_sbg01.tga`.
 ## In Reluva
 
 `AltResArchive` (`src/engines/botf/formats/alt_res.cpp`) reads the
-directory and decompresses each file (`decompressLzss`). reluva-viewer's
+directory and decompresses each file (`decompressLzss`). Writing,
+`compressLzss` compresses a file, `altResCheck` works out its check and
+`writeAltRes` writes the archive, padded as the game's. The compression
+is Reluva's own: it never refers to the window where nothing has been
+written yet, so its files read the same whatever the window starts
+filled with (zeros here, spaces in most of a save's), and they come to 2%
+more than the game's own for the same data (the 7,734 files of the
+saves). reluva-viewer's
 Birth of the Federation Images page shows the 31 pictures at their own
 size, and `reluva-tool botf alt-list <alt.res> [output folder]` lists the
 archive and extracts its files. The unit tests (`botf.unit.archives`:
-"lzss", with bytes from the retail file's start, and "alt.res") cover it.
+"lzss", with bytes from the retail file's start, and "alt.res") cover
+reading, and `botf.unit.saving` writing ("lzss compression", "checks", with
+stored files and checks from the user's saves, and "alt.res written").
 
 ## Sources and checks
 
@@ -125,6 +147,13 @@ archive and extracts its files. The unit tests (`botf.unit.archives`:
     and the flag bits across a file boundary, which led to decoding file
     by file: the second file's header then decodes cleanly, and the
     compressed data ends where the directory says the next file starts.
+- **How the check was worked out:** on the user's saved games' smallest
+  files, November 2026. A file stored as `01 08` (one literal, 8) has
+  the check 0x0108, its stored bytes as they are; three stored as
+  `03 xx 00` have `xx` XOR 0x30, then 0x63: the bytes shifted into the
+  register, and the first, 3, shifted out and replaced by 0x3063, the
+  0x1021 CRC's table entry for 3. Worked out over every file of the 18
+  saves and `alt.res` so, it gives every check.
 - **How it was checked:** the last probe run decoded all 31 files by their
   directory entries: each gives exactly its decoded size, from exactly its
   compressed size, and starts with a valid TGA header. The first three runs
@@ -136,6 +165,6 @@ archive and extracts its files. The unit tests (`botf.unit.archives`:
 
 ## Open questions
 
-- How the directory's 16-bit check value is computed.
+- Whether the game checks the checks when it reads an archive.
 - What the flag (1 in every entry) means.
 - Which screens use the pictures.

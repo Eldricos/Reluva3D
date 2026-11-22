@@ -76,6 +76,14 @@ Bytes makeLzssArchive(const std::string &name, const std::vector<std::pair<std::
 /** `raw` as LZSS that holds only literals, so it reads the same whatever the window holds. */
 Bytes lzssLiterals(const Bytes &raw);
 
+/**
+ * A saved game's galaxy files: a 3x2 grid, a system in the middle of the
+ * top row (the player's, with one planet and so a production queue) and a
+ * nebula below it. galInfo counts `systems`; without `withQueue` the
+ * system is cut short.
+ */
+std::vector<std::pair<std::string, Bytes>> galaxyFiles(int16_t systems, bool withQueue);
+
 /** A saved game holding only a gameInfo with `description`, `turn` and the player's `empire`. */
 Bytes makeSave(const std::string &name, const std::string &description, uint32_t turn, uint8_t empire = 1);
 

@@ -37,8 +37,16 @@ directory of 40-byte entries. Two differences:
 
 `auto.sav`, an autosave at turn 1, holds 539 files; there too only
 `result.lst` decodes differently with the two fills. `game0.sav` is 81,944 bytes: 249 files, the directory at 55,924, every
-file decoding to its stated size. Some files are empty (`starBaseInfo`,
-`GTFStasis`: offset 0 or the next file's, both sizes 0).
+file decoding to its stated size, and its last 16,060 bytes zeros. Some
+files are empty (`starBaseInfo`, `GTFStasis`: offset 0 or the next
+file's, both sizes 0).
+
+As `alt.res`'s, each directory entry's check is a CRC of the file's
+stored bytes ([alt-res.md](alt-res.md#the-check)), and the file ends in
+zeros up to the header and a whole number of 16 KB blocks: all 18 of the
+user's saves are 49,176 to 114,712 bytes so, each a block or less past
+its directory. Unlike `alt.res`'s, the files' data is in the directory's
+order, each starting where the last ended.
 
 The Ultimate Editor's decoder writes its window from 4,079 and reads a
 reference's position plus 4,078, which comes to `alt.res`'s: writing from
@@ -237,8 +245,9 @@ Federation's Sol, and later Xerxes too, its colony.
 
 ### Buildings
 
-`strcInfo` lists the systems' buildings *(published)*: for each system
-that has some, its number in `systInfo` and how many kinds (`i16` each),
+`strcInfo` lists the systems' buildings *(published)*: for every
+system, in `systInfo`'s order, those without buildings with 0 kinds (so
+in all 17 saves read), its number in `systInfo` and how many kinds (`i16` each),
 then for each kind its count, the building's `edifice.bst` number (that
 file's "number" field, not its place), how many are powered and 0 (`i16`
 each). At the first turn Sol has 15 Type 2 Mass Replicators, 10 Type 2
@@ -366,7 +375,10 @@ own LZSS data:
 | 0x04 | `u32` | its size decoded |
 | 0x08 | `u32` | its size stored |
 
-The first chunk holds the number of results (28 at the first turn, 21 at
+The directory entry's check is each chunk's LZSS data's check
+([alt-res.md](alt-res.md#the-check)), not its header's, added up: so in
+all 18 saves, 0x0C4CEC for the 25 chunks of the Colony game's second
+save. The first chunk holds the number of results (28 at the first turn, 21 at
 the eleventh). Then each result is a 40-byte header chunk, then its
 content's chunk *(published)*. The header, as far as Reluva reads it:
 
@@ -475,6 +487,31 @@ five empires' home systems where the tutorials put them. The unit tests
 (`botf.unit.archives`: "saved galaxy") cover it on a galaxy built to this
 layout.
 
+`SaveFiles` (`src/engines/botf/formats/save_writer.cpp`) holds a save's
+every file, decoded, and writes them out again; `writeSavedGame` writes
+a `SavedGame` into them ([below](#writing-a-save)), and `GameState::save`
+does both, naming the save after its file. On the 18 saves, each written
+unchanged comes out the same; one written with the description, the
+Federation's credits and provinces, Sol's population, a planet's name, a
+building's count, a task force's destination and a sector's sight
+changed reads back with those, and only those, changed. The unit tests
+(`botf.unit.saving`: "save files", "saved game written") cover it on a
+save built to this layout.
+
+### Writing a save
+
+Reluva writes a save back into the files it was read from: each value it
+read that has changed, at the same place, and the rest of the files as
+they were. A file nothing changed in is written as it was stored, so a
+save read and written unchanged is the same file, byte for byte (so for
+all 18 of the user's saves); a file changed is compressed again, with
+its check. The systems' buildings and the empires' provinces are written
+whole, in the game's layout. The lists must keep their length: a ship,
+task force, treaty or outpost more or fewer, a system's planets, or a
+system becoming the player's (whose record has a production queue more)
+isn't written yet, for want of the rest of their records. Whether the
+game loads a save so written hasn't been tried.
+
 ## Sources and checks
 
 - **Where the facts come from:** the Ultimate Editor's source
@@ -501,6 +538,8 @@ layout.
 
 ## Open questions
 
+- Whether the game loads a save Reluva wrote, and whether it checks the
+  directory's checks.
 - Whether the Load Game screen's name field shows the file's name or the
   header's: they're the same in `game0.sav`.
 - Which fill each file's window starts with: settled by a save with a

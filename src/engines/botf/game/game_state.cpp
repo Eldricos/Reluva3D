@@ -17,16 +17,31 @@ constexpr int kShipResult = 5;
 } // namespace
 
 GameState::GameState(SavedGame game) : _game(std::move(game)) {
-    for (size_t i = 0; i < _game.ships.size(); ++i)
-        _shipById.emplace(_game.ships[i].id, i);
 }
 
 Error GameState::load(const std::filesystem::path &path, GameState &out) {
     SavedGame game;
     if (Error err = readSavedGame(path, game))
         return err;
+    SaveFiles files;
+    if (Error err = files.open(path))
+        return err;
     out = GameState(std::move(game));
+    out._files = std::move(files);
+    out._fromSave = true;
     return Error::success();
+}
+
+Error GameState::save(const std::filesystem::path &path) const {
+    if (!_fromSave)
+        return Error::fail("the game wasn't read from a saved game, so there's nothing to write it into");
+    // The game names each save after its file.
+    SavedGame game = _game;
+    game.summary.name = path.filename().string();
+    SaveFiles files = _files;
+    if (Error err = writeSavedGame(game, files))
+        return Error::fail(path.string() + ": " + err.message);
+    return files.write(path);
 }
 
 int GameState::player() const {
@@ -71,8 +86,9 @@ std::vector<const SavedOutpost *> GameState::outpostsAt(int x, int y) const {
 }
 
 const SavedShip *GameState::ship(int id) const {
-    const auto it = _shipById.find(id);
-    return it == _shipById.end() ? nullptr : &_game.ships[it->second];
+    const auto it =
+        std::find_if(_game.ships.begin(), _game.ships.end(), [&](const SavedShip &s) { return s.id == id; });
+    return it == _game.ships.end() ? nullptr : &*it;
 }
 
 bool GameState::mayEnter(int empire, int x, int y) const {

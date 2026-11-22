@@ -17,6 +17,7 @@ reluva_add_engine(botf
         formats/lexicon.cpp
         formats/menu_file.cpp
         formats/save_game.cpp
+        formats/save_writer.cpp
         formats/snd_archive.cpp
         formats/text_table.cpp
         formats/window_layout.cpp
@@ -61,13 +62,14 @@ reluva_add_engine_tests(botf
         ${tests}/unit/helpers.cpp
         ${tests}/unit/detection.cpp
         ${tests}/unit/archives.cpp
+        ${tests}/unit/saving.cpp
         ${tests}/unit/fonts.cpp
         ${tests}/unit/tables.cpp
         ${tests}/unit/layouts.cpp
         ${tests}/unit/screens.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.archives unit.fonts unit.tables unit.layouts unit.screens engine)
+        unit.detection unit.archives unit.saving unit.fonts unit.tables unit.layouts unit.screens engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

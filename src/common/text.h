@@ -20,6 +20,9 @@ std::string utf16leToUtf8(const uint16_t *units, size_t count);
  */
 std::string windows1252ToUtf8(std::string_view s);
 
+/** UTF-8 text as Windows-1252; a character it hasn't becomes '?'. */
+std::string utf8ToWindows1252(std::string_view s);
+
 /**
  * The code point at s[i] of UTF-8 text, advancing i past it (U+FFFD for a
  * bad sequence). i must be less than s.size().

@@ -34,8 +34,10 @@ with recordings of the original filling what the data can't show.
    star systems, planets, buildings, other objects and outposts), the
    empires, the races, the treaties, the ships and task forces and the
    last turn's results are read ([formats/sav.md](formats/sav.md)), into
-   one game state ([systems/game-state.md](systems/game-state.md)). Next:
-   writing it back.
+   one game state ([systems/game-state.md](systems/game-state.md)), and
+   written back into the save it came from, unchanged saves byte for
+   byte. Next: whether the game loads a save so written, and records
+   added or removed.
 9. **Screens:** the main menu's own screens are done (the options, Load
    and Save Game's lists, the Hall of Fame, Multiplayer Setup). The galaxy
    screen's frame, map, empire's panel and selected sector's strip are

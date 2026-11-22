@@ -169,6 +169,9 @@ static void testWindows1252() {
     // A bullet, as Clue's text files use, an e acute and the euro sign.
     CHECK(text::windows1252ToUtf8("\x95 caf\xe9 \x80") == "\xe2\x80\xa2 caf\xc3\xa9 \xe2\x82\xac");
     CHECK(text::windows1252ToUtf8("\x81") == "\xef\xbf\xbd");
+    // Back again; a rocket isn't in the code page.
+    CHECK(text::utf8ToWindows1252("\xe2\x80\xa2 caf\xc3\xa9 \xe2\x82\xac") == "\x95 caf\xe9 \x80");
+    CHECK(text::utf8ToWindows1252("\xf0\x9f\x9a\x80!") == "?!");
     CHECK(text::toLatin1(0x2022) == 0xb7);
 }
 

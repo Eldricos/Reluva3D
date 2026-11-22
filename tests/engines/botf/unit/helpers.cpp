@@ -242,4 +242,71 @@ Bytes makeSave(const std::string &name, const std::string &description, uint32_t
     return makeLzssArchive(name, {{"gameInfo", info}});
 }
 
+// Laid out as docs/engines/botf/formats/sav.md says.
+std::vector<std::pair<std::string, Bytes>> galaxyFiles(int16_t systems, bool withQueue) {
+    auto put16At = [](Bytes &b, size_t at, uint16_t v) {
+        b[at] = uint8_t(v);
+        b[at + 1] = uint8_t(v >> 8);
+    };
+    Bytes info(48, 0);
+    set32(info, 0x08, 1);
+    put16At(info, 0x0C, uint16_t(systems));
+    put16At(info, 0x0E, 1);
+    put16At(info, 0x14, 6);
+    Bytes sectors;
+    for (uint32_t i = 0; i < 6; ++i) {
+        Bytes e(104, 0);
+        set32(e, 0, i / 3);
+        set32(e, 4, i % 3);
+        put16At(e, 8, 0xFFFF);
+        put16At(e, 10, i == 4 ? 0 : 0xFFFF);
+        put16At(e, 12, i == 1 ? 0 : 0xFFFF);
+        put16At(e, 14, i == 1 ? 0x10 : 0);
+        set32(e, 40, i < 3 ? 0x10 : 0);
+        sectors.insert(sectors.end(), e.begin(), e.end());
+    }
+    Bytes system(0x328, 0);
+    set32(system, 4, 2);
+    const std::string name = "Romulus";
+    const std::string star = "s-r-";
+    std::copy(name.begin(), name.end(), system.begin() + 0x08);
+    system[0x31] = 4;
+    std::copy(star.begin(), star.end(), system.begin() + 0x32);
+    set32(system, 0x40, 355);
+    put16At(system, 0x44, 4);
+    set32(system, 0x4C, 4);
+    put16At(system, 0x6A, 1);
+    put16At(system, 0x6E, 3);
+    for (uint32_t i = 0; i < 5; ++i)
+        set32(system, 0x54 + 4 * i, 10 * (i + 1));
+    set32(system, 0x80, 1);
+    put16At(system, 0x88, 154);
+    put16At(system, 0x90, 30);
+    set32(system, 0xBC, 3350);
+    set32(system, 0x78, 7);
+    set32(system, 0x7C, 2);
+    system[0x308] = 1; // one trade route coming in
+    Bytes planet(76, 0);
+    const std::string pname = "Romulus II\n";
+    const std::string pani = "atol.ani";
+    std::copy(pname.begin(), pname.end(), planet.begin());
+    std::copy(pani.begin(), pani.end(), planet.begin() + 0x28);
+    put16At(planet, 0x38, 2);
+    planet[0x48] = 4;
+    planet[0x49] = 10;
+    system.insert(system.end(), planet.begin(), planet.end());
+    system.insert(system.end(), 4 + 4, 0); // the planet's word, the trade route's
+    if (withQueue) {
+        system.insert(system.end(), 108, 0);
+        system.back() = 1; // the first item bought
+    }
+    Bytes stellar(88, 0);
+    set32(stellar, 0, 2);
+    const std::string sname = "Nebula B2";
+    std::copy(sname.begin(), sname.end(), stellar.begin() + 4);
+    set32(stellar, 68, 7);
+    set32(stellar, 72, 7);
+    return {{"galInfo", info}, {"sector.lst", sectors}, {"systInfo", system}, {"stellInfo", stellar}};
+}
+
 } // namespace reluva::botf::test

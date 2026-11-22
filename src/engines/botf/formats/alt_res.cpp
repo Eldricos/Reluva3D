@@ -3,7 +3,10 @@
 
 #include "engines/botf/formats/alt_res.h"
 
+#include "common/bytes.h"
+
 #include <algorithm>
+#include <array>
 #include <fstream>
 #include <iterator>
 
@@ -18,6 +21,11 @@ constexpr size_t kWindowSize = 4096;
 // only this one gives the copies even (2-byte pixel) distances and the
 // pictures clean colours (docs/engines/botf/formats/alt-res.md).
 constexpr size_t kWindowStart = 1;
+// A reference copies 2 to 17 bytes: its length less 2 in 4 bits.
+constexpr size_t kMinMatch = 2;
+constexpr size_t kMaxMatch = 17;
+// The saved games' files are padded to whole blocks after the header.
+constexpr size_t kBlockSize = 16384;
 
 uint32_t u32(const uint8_t *p) {
     return uint32_t(p[0] | p[1] << 8 | p[2] << 16) | uint32_t(p[3]) << 24;
@@ -80,6 +88,124 @@ Error decompressLzss(const uint8_t *data, size_t dataSize, size_t size, std::vec
     if (out.size() < size)
         return Error::fail("compressed data ends after " + std::to_string(out.size()) + " of " + std::to_string(size) +
                            " bytes");
+    return Error::success();
+}
+
+std::vector<uint8_t> compressLzss(const uint8_t *data, size_t size) {
+    std::vector<uint8_t> out;
+    out.reserve(size + size / 8 + 1);
+    // The last place each pair of bytes was seen, and before it, as a chain.
+    constexpr size_t kNone = SIZE_MAX;
+    constexpr size_t kChainLimit = 256;
+    std::vector<size_t> head(65536, kNone);
+    std::vector<size_t> previous(size, kNone);
+    auto key = [&](size_t i) { return size_t(data[i]) << 8 | data[i + 1]; };
+    auto remember = [&](size_t i) {
+        if (i + 1 < size) {
+            previous[i] = head[key(i)];
+            head[key(i)] = i;
+        }
+    };
+    size_t flagAt = 0;
+    int items = 8;
+    for (size_t i = 0; i < size;) {
+        if (items == 8) {
+            flagAt = out.size();
+            out.push_back(0);
+            items = 0;
+        }
+        size_t best = 0;
+        size_t from = 0;
+        if (i + kMinMatch <= size) {
+            const size_t longest = std::min(kMaxMatch, size - i);
+            size_t tries = 0;
+            // A source as far back as the window holds: written no more
+            // than 4,095 bytes ago, so not yet overwritten.
+            for (size_t j = head[key(i)]; j != kNone && i - j < kWindowSize && tries < kChainLimit;
+                 j = previous[j], ++tries) {
+                size_t n = 0;
+                // The copy may run into what it has just written, as the
+                // decoder's does.
+                while (n < longest && data[j + n] == data[i + n])
+                    ++n;
+                if (n > best) {
+                    best = n;
+                    from = (j + kWindowStart) % kWindowSize;
+                    if (n == longest)
+                        break;
+                }
+            }
+        }
+        if (best >= kMinMatch) {
+            out.push_back(uint8_t((best - kMinMatch) << 4 | from >> 8));
+            out.push_back(uint8_t(from & 0xFF));
+        } else {
+            best = 1;
+            out[flagAt] |= uint8_t(1 << items);
+            out.push_back(data[i]);
+        }
+        ++items;
+        for (size_t k = 0; k < best; ++k)
+            remember(i + k);
+        i += best;
+    }
+    return out;
+}
+
+uint16_t altResCheck(const uint8_t *data, size_t size) {
+    static const std::array<uint16_t, 256> kTable = [] {
+        std::array<uint16_t, 256> t{};
+        for (unsigned i = 0; i < 256; ++i) {
+            unsigned c = i << 8;
+            for (int k = 0; k < 8; ++k)
+                c = (c & 0x8000 ? c << 1 ^ 0x1021 : c << 1) & 0xFFFF;
+            t[i] = uint16_t(c);
+        }
+        return t;
+    }();
+    unsigned r = 0;
+    for (size_t i = 0; i < size; ++i)
+        r = ((r << 8 | data[i]) ^ kTable[r >> 8]) & 0xFFFF;
+    return uint16_t(r);
+}
+
+Error writeAltRes(const std::filesystem::path &path, std::string_view name, const std::vector<AltResFile> &files) {
+    constexpr size_t kNameSize = 16;
+    if (name.size() >= kNameSize)
+        return Error::fail("the archive's name \"" + std::string(name) + "\" is too long");
+    std::vector<uint8_t> out(kHeaderSize, 0);
+    std::copy(name.begin(), name.end(), out.begin());
+    std::vector<uint8_t> dir(files.size() * kEntrySize, 0);
+    for (size_t i = 0; i < files.size(); ++i) {
+        const AltResFile &f = files[i];
+        if (f.name.size() >= kNameSize)
+            return Error::fail("the file name \"" + f.name + "\" is too long");
+        uint8_t *e = &dir[i * kEntrySize];
+        std::copy(f.name.begin(), f.name.end(), e);
+        writeLE32(e + 16, f.stored.empty() && f.emptyAtZero ? 0 : uint32_t(out.size()));
+        writeLE32(e + 20, uint32_t(i));
+        writeLE32(e + 24, f.size);
+        writeLE32(e + 28, uint32_t(f.stored.size()));
+        writeLE32(e + 32, f.flag);
+        writeLE32(e + 36, f.check);
+        out.insert(out.end(), f.stored.begin(), f.stored.end());
+    }
+    writeLE32(&out[16], uint32_t(out.size()));
+    writeLE32(&out[20], uint32_t(files.size()));
+    out.insert(out.end(), dir.begin(), dir.end());
+    const size_t blocks = (out.size() - kHeaderSize + kBlockSize - 1) / kBlockSize;
+    out.resize(kHeaderSize + blocks * kBlockSize, 0);
+    std::filesystem::path temporary = path;
+    temporary += ".tmp";
+    {
+        std::ofstream file(temporary, std::ios::binary | std::ios::trunc);
+        if (!file || !file.write(reinterpret_cast<const char *>(out.data()), std::streamsize(out.size())))
+            return Error::fail("can't write " + temporary.string());
+    }
+    std::error_code ec;
+    std::filesystem::rename(temporary, path, ec);
+    if (ec)
+        return Error::fail("can't replace " + path.string() + ": " + ec.message());
     return Error::success();
 }
 

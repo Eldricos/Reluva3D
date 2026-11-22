@@ -30,13 +30,18 @@ On top of them, the lookups:
 - **An empire's events:** how many of the last turn's results count, as
   the galaxy screen's panel shows them.
 
+A game state read from a save keeps that save's files, and can be saved
+again: its values are written back into them, and the save written named
+after its file ([formats/sav.md](../formats/sav.md#writing-a-save)).
+
 ## In Reluva
 
 `GameState` (`src/engines/botf/game/game_state.cpp`) is built from a
-saved game, read whole by `GameState::load`. The engine opens a save into
-one and hands it to the galaxy screen. The unit tests
-(`botf.unit.archives`: "game state", and the save's parts) cover the
-lookups and the readers.
+saved game, read whole by `GameState::load`, and written by
+`GameState::save`. The engine opens a save into one and hands it to the
+galaxy screen. The unit tests (`botf.unit.archives`: "game state", and
+the save's parts; `botf.unit.saving`: "saved game written") cover the
+lookups, the readers and saving.
 
 ## Sources and checks
 
@@ -52,4 +57,5 @@ lookups and the readers.
 
 - What turn processing will need beyond this: production, research,
   movement and combat each read more of the save.
-- Writing a game state back to a saved game.
+- Saving a game that has gained or lost ships, task forces, treaties or
+  outposts: that needs the rest of their records.

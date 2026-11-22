@@ -5,9 +5,9 @@
 
 #include "common/types.h"
 #include "engines/botf/formats/save_game.h"
+#include "engines/botf/formats/save_writer.h"
 
 #include <filesystem>
-#include <unordered_map>
 #include <vector>
 
 // A game in progress, gathered in one place for the screens and, later,
@@ -23,11 +23,20 @@ public:
     GameState() = default;
     /** The game a saved game holds, already read. */
     explicit GameState(SavedGame game);
-    /** Reads a saved game's every part (readSavedGame()). */
+    /** Reads a saved game's every part (readSavedGame()), keeping its files to write it back into. */
     static Error load(const std::filesystem::path &path, GameState &out);
+    /**
+     * Writes the game as a saved game at `path`, named after its file: the
+     * files it was loaded from, with its values written back into them
+     * (writeSavedGame()). Only for a game load() read.
+     */
+    Error save(const std::filesystem::path &path) const;
 
-    /** Everything read, as the save holds it. */
+    /** Everything read, as the save holds it; changed, it's what save() writes. */
+    ///@{
     const SavedGame &data() const { return _game; }
+    SavedGame &data() { return _game; }
+    ///@}
     /** The player's empire, 0 Cardassians to 4 Romulans. */
     int player() const;
     /** The turn as the game shows it, from 1. */
@@ -57,7 +66,8 @@ public:
 
 private:
     SavedGame _game;
-    std::unordered_map<int, size_t> _shipById; // into _game.ships
+    SaveFiles _files;       // the save load() read, to write the game back into
+    bool _fromSave = false; // whether _files holds one
 };
 
 } // namespace reluva::botf

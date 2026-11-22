@@ -28,6 +28,39 @@ Error decompressLzss(const uint8_t *data, size_t dataSize, size_t size, std::vec
                      size_t *used = nullptr, uint8_t windowFill = 0);
 
 /**
+ * Compresses `size` bytes so decompressLzss() reads them back. No reference
+ * reaches into the window before it has been written, so they read the
+ * same whatever it starts filled with.
+ */
+std::vector<uint8_t> compressLzss(const uint8_t *data, size_t size);
+
+/**
+ * The 16-bit check a directory entry holds of its file's stored (compressed)
+ * bytes: a CRC with the polynomial 0x1021, from 0, each byte shifted into
+ * the register's low end (docs/engines/botf/formats/alt-res.md).
+ */
+uint16_t altResCheck(const uint8_t *data, size_t size);
+
+/** A file to write into an alt.res archive, as it's stored. */
+struct AltResFile {
+    std::string name;            // up to 15 characters
+    std::vector<uint8_t> stored; // compressed
+    uint32_t size = 0;           // decoded
+    uint32_t flag = 1;           // 1, or a saved game's result.lst's number of chunks
+    uint32_t check = 0;          // altResCheck() of `stored`, or result.lst's sum of its chunks'
+    bool emptyAtZero = true;     // an empty file's directory entry gives offset 0, not where it would be
+};
+
+/**
+ * Writes an archive as alt.res and the saved games are: the 24-byte header
+ * named `name` (up to 15 characters), the files' data in order, and the
+ * directory, padded with zeros to the header and whole 16 KB blocks as the
+ * game's files are. Written to a file beside `path` and then moved over it,
+ * so a failure leaves what was there.
+ */
+Error writeAltRes(const std::filesystem::path &path, std::string_view name, const std::vector<AltResFile> &files);
+
+/**
  * alt.res: a header (name, directory offset, file count), each file's LZSS
  * data, and a directory of 40-byte entries (docs/engines/botf/formats/alt-res.md).
  * Saved games are the same archive (docs/engines/botf/formats/sav.md).
