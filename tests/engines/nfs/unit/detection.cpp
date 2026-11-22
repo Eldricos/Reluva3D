@@ -250,6 +250,8 @@ void testNfs2seListings(const stdfs::path &tmp) {
     CHECK(filesWithExtension(cd, "GameData/Audio/pc", ".mus").size() == 1);
     CHECK(filesWithExtension(cd, "FeData/pc/movies", ".dct").size() == 1);
 
+    // The string tables: the front end's and the race messages'.
+    touch(install / "GameData/DashHud/pc/TEXTSIM.ENG");
     // The race's palette: the loose hud.fsh's entry, not the HUD
     // archive's empty one.
     Bytes palette;
@@ -261,6 +263,10 @@ void testNfs2seListings(const stdfs::path &tmp) {
     touch(install / "GameData/DashHud/pc/HUD.FSH", std::string(hud.begin(), hud.end()));
     GameFiles files;
     files.scan(folders);
+    std::vector<std::string> tables;
+    for (const FileRef &f : files.textTables())
+        tables.push_back(f.name);
+    CHECK(tables == (std::vector<std::string>{"FeData/pc/text/TEXT.ENG", "GameData/DashHud/pc/TEXTSIM.ENG"}));
     CHECK(nfs2se::racePalette(files) == (std::vector<uint8_t>{0x10, 0x20, 0x30, 0xff}));
     files.scan(noCars);
     CHECK(nfs2se::racePalette(files).empty());

@@ -363,6 +363,33 @@ void testTextTable() {
     odd[0] = 13;
     CHECK(parseTextTable(odd, table));
     CHECK(parseTextTable(Bytes{1, 0}, table));
+    CHECK(table.places.empty());
+
+    // NFS II SE's front end's layout: 12-byte records (the font's size,
+    // three bytes, x, y, the offset), then the strings.
+    Bytes placed;
+    auto record = [&](uint8_t size, uint16_t x, uint16_t y, uint32_t offset) {
+        placed.insert(placed.end(), {size, 2, 4, 5});
+        put16(placed, x);
+        put16(placed, y);
+        put32(placed, offset);
+    };
+    record(18, 168, 126, 24);
+    record(36, 620, 447, 29);
+    putText(placed, "game", 5);
+    putText(placed, "RACE", 5);
+    CHECK(!parseTextTable(placed, table));
+    CHECK(table.strings == (std::vector<std::string>{"game", "RACE"}));
+    CHECK(table.places.size() == 2);
+    if (table.places.size() == 2) {
+        CHECK(table.places[0].fontSize == 18 && table.places[0].x == 168 && table.places[0].y == 126);
+        CHECK(table.places[1].fontSize == 36 && table.places[1].x == 620 && table.places[1].y == 447);
+        CHECK(table.places[0].unknown == (std::array<uint8_t, 3>{2, 4, 5}));
+    }
+    // An offset outside the file fails it, as in NFS III's layout.
+    Bytes placedOutside = placed;
+    placedOutside[20] = 200;
+    CHECK(parseTextTable(placedOutside, table));
 }
 
 void testFont() {

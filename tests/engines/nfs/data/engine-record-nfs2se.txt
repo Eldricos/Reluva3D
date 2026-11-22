@@ -4,10 +4,11 @@ detect.install: nfs2se Need for Speed II SE (unknown release)
 detect.cd: nfs2se Need for Speed II SE (unknown release)
 folders.cd: NFS2SE-CD
 viewer.result: ok
-viewer.titles: Reluva - Need for Speed II SE - Status / Reluva - Need for Speed II SE - Sounds / Reluva - Need for Speed II SE - Music
+viewer.titles: Reluva - Need for Speed II SE - Status / Reluva - Need for Speed II SE - Strings / Reluva - Need for Speed II SE - Sounds / Reluva - Need for Speed II SE - Music
 viewer.screens Reluva - Need for Speed II SE - Music: 18 17636d309b4fb9c5
-viewer.screens Reluva - Need for Speed II SE - Sounds: 37 4fa25490c7c68ce8
-viewer.screens Reluva - Need for Speed II SE - Status: 55 a309d0b2b73290d3
+viewer.screens Reluva - Need for Speed II SE - Sounds: 18 a84247babfebabcd
+viewer.screens Reluva - Need for Speed II SE - Status: 56 8a79e586e10ad9e5
+viewer.screens Reluva - Need for Speed II SE - Strings: 18 9182b55b53baf3f5
 game.result: ok
 game.screens Reluva - Need for Speed II SE: 37 234e65d46948c5e3
 game.without cd: error: Need for Speed II SE reads its tracks from its CD, and no copy of the CD's files was found: put one beside the install, or set cdpath=<folder> in this game's section of reluva.ini

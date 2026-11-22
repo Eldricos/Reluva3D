@@ -434,13 +434,18 @@ void CockpitPage::draw(Surface &s) {
 
 StringPage::StringPage(const GameFiles &files) : _files(files) {
     _tables = files.textTables();
-    for (const FileRef &f : files.withExtensions({"arial10b.ffn"})) {
-        std::vector<uint8_t> data;
-        Font font;
-        if (!files.read(f, data) && !parseFont(data, font)) {
-            _font = std::move(font);
-            break;
+    // NFS III's small font, or else NFS II SE's.
+    for (const char *name : {"arial10b.ffn", "swiss13.ffn"}) {
+        for (const FileRef &f : files.withExtensions({name})) {
+            std::vector<uint8_t> data;
+            Font font;
+            if (!files.read(f, data) && !parseFont(data, font)) {
+                _font = std::move(font);
+                break;
+            }
         }
+        if (_font)
+            break;
     }
     // English first, if there is one.
     int start = 0;
@@ -532,7 +537,14 @@ void StringPage::draw(Surface &s) {
             }
             _font->draw(s, kTextX, y, shown, kTextColor);
         } else {
-            text(s, kTextX, y, cp1252ToUtf8(str), kTextColor);
+            // NFS II SE's front end's strings with their place and size.
+            const std::string where = i < static_cast<int>(_loaded.places.size())
+                                          ? std::to_string(_loaded.places[i].x) + "," +
+                                                std::to_string(_loaded.places[i].y) + " " +
+                                                std::to_string(_loaded.places[i].fontSize) + "  "
+                                          : std::string();
+            text(s, kTextX, y, where, kLabelColor);
+            text(s, kTextX + static_cast<int>(font::length(where)) * font::kAdvance, y, cp1252ToUtf8(str), kTextColor);
         }
     }
 }

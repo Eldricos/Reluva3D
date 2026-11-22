@@ -283,6 +283,7 @@ int cmdNfsSurvey(int argc, char **argv) {
     Count frames;
     Count movieAudio;
     // Kinds only NFS II SE has, reported when there are any.
+    Count raceText;                       // textsim.*: the race's messages
     Count lentPalette;                    // 4- and 8-bit pictures with no palette, which the game lends one
     int empty = 0;                        // empty picture banks (NFS II SE's huddata.viv has three)
     std::vector<std::string> unsupported; // in EA's other compression schemes
@@ -425,13 +426,18 @@ int cmdNfsSurvey(int argc, char **argv) {
         } else if (ext == ".hrz") {
             reluva::nfs::nfs3::Horizon horizon;
             report(horizons, what, reluva::nfs::nfs3::parseHorizon(std::string(data.begin(), data.end()), horizon));
-        } else if (stem == "text") {
+        } else if (stem == "text" || stem == "textsim") {
+            Count &count = stem == "text" ? tables : raceText;
             reluva::nfs::TextTable table;
             const Error e = reluva::nfs::parseTextTable(data, table);
-            report(tables, what, e);
+            report(count, what, e);
             if (!e)
                 for (const auto &t : table.strings)
-                    tables.add(t.c_str(), t.size() + 1);
+                    count.add(t.c_str(), t.size() + 1);
+            for (const auto &p : table.places) {
+                count.add(int32_t(p.fontSize)), count.add(int32_t(p.x)), count.add(int32_t(p.y));
+                count.add(p.unknown.data(), p.unknown.size());
+            }
         }
     };
 
@@ -459,7 +465,8 @@ int cmdNfsSurvey(int argc, char **argv) {
                     }
             } else if (ext == ".fsh" || ext == ".qfs" || ext == ".ffn" || ext == ".fce" || ext == ".frd" ||
                        ext == ".col" || ext == ".hrz" || ext == ".bnk" || ext == ".mus" || ext == ".map" ||
-                       ext == ".lin" || ext == ".mad" || lower(path.stem().string()) == "text") {
+                       ext == ".lin" || ext == ".mad" || lower(path.stem().string()) == "text" ||
+                       lower(path.stem().string()) == "textsim") {
                 std::vector<uint8_t> data;
                 if (!readFile(path, data)) {
                     report(banks, path.string(), Error::fail("can't read it"));
@@ -487,7 +494,8 @@ int cmdNfsSurvey(int argc, char **argv) {
     }
     // NFS II SE's kinds, only when there are any, so that NFS III's report
     // stays as its game-files test records it.
-    const std::pair<const Count *, const char *> extra[] = {{&lentPalette, "lent a palette"}};
+    const std::pair<const Count *, const char *> extra[] = {{&lentPalette, "lent a palette"},
+                                                            {&raceText, "textsim tables"}};
     for (const auto &[count, name] : extra) {
         if (count->ok + count->failed == 0)
             continue;

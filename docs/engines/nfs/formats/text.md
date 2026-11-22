@@ -1,11 +1,14 @@
-# Need for Speed: front-end text (`FeData/text/text.*`)
+# Need for Speed: text tables (`text.*`, `textsim.*`)
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/text_table.cpp` · **Checked on:** every language's table · **Confidence:** confirmed unless marked
 
 ## Overview
 
-The front end's strings: one table per language in `FeData/text/`
-(the files below), each a table of offsets and then the strings.
+Strings, one table per language. NFS III's front end has them in
+`FeData/text/`, each a table of offsets and then the strings; NFS II SE's
+in `FeData/pc/text/` add each string's place on the screen
+([NFS II SE's front end](#nfs-ii-ses-front-end)), and its race messages
+(`GameData/DashHud/pc/textsim.*`) are as NFS III's.
 
 ## Layout
 
@@ -39,10 +42,38 @@ are the accented letters of each language. The game's fonts
 Cars carry their own front-end text in `car.viv` (`fedata.eng`...), not
 studied yet.
 
+### NFS II SE's front end
+
+`FeData/pc/text/text.*`: English, French, German, Italian, Spanish,
+Swedish and `text.met`. Records of 12 bytes, one per string, then the
+strings, each ended by a 0:
+
+| Offset | Size | Meaning |
+|---|---|---|
+| 0 | 1 | the font's size: 16, 18, 24 or 36, the sizes of its `swiss*.ffn` fonts *(inferred)* |
+| 1 | 3 | each 0 to 5; not worked out |
+| 4 | u16 | x, 0 to 620 |
+| 6 | u16 | y, 0 to 447: on the 640×480 screen *(inferred)* |
+| 8 | u32 | the string's offset |
+
+The first string starts where the records end, so the count is the first
+offset ÷ 12. Every table has **1,498** strings, their offsets in order
+and inside the file; 45 of English's are empty. The text is
+Windows-1252, as NFS III's.
+
+### NFS II SE's race messages
+
+`GameData/DashHud/pc/textsim.*`, the six languages: NFS III's layout,
+15 strings ("INSERT CONTROLLER TO CONTINUE", "QUIT CURRENT RACE? (Y/N)"
+...). The programs also name `gf8text.eng`, which isn't on the CD.
+
 ## In Reluva
 
 Read as `TextTable` (`src/engines/nfs/formats/text_table.cpp`), and checked
-on all 9 retail tables. The data viewer's Strings page shows them.
+on all 9 of NFS III's tables and all 13 of NFS II SE's. A table that
+isn't NFS III's layout is read as NFS II SE's front end's, its places in
+`TextTable::places`. The data viewer's Strings page shows them, NFS II
+SE's with their places and sizes in the built-in font (key F).
 
 `reluva-tool nfs text-dump <text.xxx>` prints each string with its number,
 as UTF-8.
@@ -54,4 +85,6 @@ as UTF-8.
 
 Worked out from hex dumps of the retail tables, October 2026, and
 checked with a survey script: every table's offsets are in order and
-inside the file, and every string but the last ends with a 0.
+inside the file, and every string but the last ends with a 0. NFS II
+SE's front-end records from its hex dumps and a survey script over its
+seven tables (November 2026), the sizes matched to its fonts' names.

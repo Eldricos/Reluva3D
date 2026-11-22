@@ -6,6 +6,8 @@
 #include "common/types.h"
 
 #include <cstdint>
+#include <array>
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -19,10 +21,23 @@ namespace reluva::nfs {
  * fonts are drawn in.
  */
 struct TextTable {
+    /** Where NFS II SE's front end puts a string: its record in the table (text.md). */
+    struct Place {
+        int fontSize = 0;                 // 16, 18, 24 or 36: its swiss*.ffn fonts' sizes
+        int x = 0;                        // on the 640x480 screen
+        int y = 0;                        //
+        std::array<uint8_t, 3> unknown{}; // bytes 1-3, each 0-5: not worked out
+    };
+
     std::vector<std::string> strings;
+    std::vector<Place> places; // NFS II SE's front-end tables, one per string; empty for the others
 };
 
-/** Reads a table; fails if an offset points outside the file. */
+/**
+ * Reads a table, either layout (text.md): NFS III's and NFS II SE's
+ * textsim.*, offsets alone; NFS II SE's front end's, records with each
+ * string's place. Fails if an offset points outside the file.
+ */
 Error parseTextTable(const std::vector<uint8_t> &data, TextTable &out);
 
 /** Windows-1252 text as UTF-8 (the five unassigned bytes become U+FFFD). */
