@@ -191,11 +191,50 @@ bool MainMenu::run() {
                     _dialog.reset();
                 continue;
             }
+            if (_difficultyWindow) {
+                if (const auto closed = _difficultyWindow->handleEvent(ev, _mixer)) {
+                    _difficultyWindow.reset();
+                    if (*closed) {
+                        _difficulty = **closed;
+                        // The settings' window keeps the level; the main
+                        // menu's starts the game with it.
+                        if (!_settings)
+                            startGame();
+                    }
+                }
+                continue;
+            }
+            if (_keyConfig) {
+                if (_keyConfig->handleEvent(ev, _mixer, _sys.getMillis()))
+                    _keyConfig.reset();
+                continue;
+            }
+            if (_soundOptions) {
+                if (_soundOptions->handleEvent(ev, _mixer))
+                    _soundOptions.reset();
+                continue;
+            }
+            if (_settings) {
+                const SettingsWindow::Choice choice = _settings->handleEvent(ev, _mixer);
+                if (choice == SettingsWindow::Choice::kContinue)
+                    _settings.reset();
+                else if (choice == SettingsWindow::Choice::kKeyboard)
+                    _keyConfig = std::make_unique<KeyConfigScreen>(_data, _rules, _options);
+                else if (choice == SettingsWindow::Choice::kSound)
+                    _soundOptions = std::make_unique<SoundOptionsWindow>(_data, _options, _screen.w, _screen.h);
+                else if (choice == SettingsWindow::Choice::kDifficulty)
+                    _difficultyWindow =
+                        std::make_unique<DifficultyWindow>(_data, _screen.w, _screen.h, _difficulty, true);
+                continue;
+            }
             if (_mapScreen) {
                 const MapScreen::Choice choice = _mapScreen->handleEvent(ev, _mixer, _sys.getMillis());
                 moveOfficers();
                 if (choice == MapScreen::Choice::kRestart) {
                     startMission(_missionTeam);
+                } else if (choice == MapScreen::Choice::kConfigure) {
+                    // The escape menu's CONFIGURE: the settings over the map.
+                    _settings = std::make_unique<SettingsWindow>(_data, _options, _screen.w, _screen.h);
                 } else if (choice == MapScreen::Choice::kContinue) {
                     // Its debriefing, if it has one, then the mission the
                     // triggers named next ("Mission 02/Mission 02") from its
@@ -251,42 +290,6 @@ bool MainMenu::run() {
                 } else if (choice != TeamSelectionScreen::Choice::kNone) {
                     _teamSelection.reset();
                 }
-                continue;
-            }
-            if (_difficultyWindow) {
-                if (const auto closed = _difficultyWindow->handleEvent(ev, _mixer)) {
-                    _difficultyWindow.reset();
-                    if (*closed) {
-                        _difficulty = **closed;
-                        // The settings' window keeps the level; the main
-                        // menu's starts the game with it.
-                        if (!_settings)
-                            startGame();
-                    }
-                }
-                continue;
-            }
-            if (_keyConfig) {
-                if (_keyConfig->handleEvent(ev, _mixer, _sys.getMillis()))
-                    _keyConfig.reset();
-                continue;
-            }
-            if (_soundOptions) {
-                if (_soundOptions->handleEvent(ev, _mixer))
-                    _soundOptions.reset();
-                continue;
-            }
-            if (_settings) {
-                const SettingsWindow::Choice choice = _settings->handleEvent(ev, _mixer);
-                if (choice == SettingsWindow::Choice::kContinue)
-                    _settings.reset();
-                else if (choice == SettingsWindow::Choice::kKeyboard)
-                    _keyConfig = std::make_unique<KeyConfigScreen>(_data, _rules, _options);
-                else if (choice == SettingsWindow::Choice::kSound)
-                    _soundOptions = std::make_unique<SoundOptionsWindow>(_data, _options, _screen.w, _screen.h);
-                else if (choice == SettingsWindow::Choice::kDifficulty)
-                    _difficultyWindow =
-                        std::make_unique<DifficultyWindow>(_data, _screen.w, _screen.h, _difficulty, true);
                 continue;
             }
             if (_credits) {
@@ -519,6 +522,17 @@ void MainMenu::showTeamSelection() {
     _teamSelection = std::make_unique<TeamSelectionScreen>(_data, _rules, _mission, std::move(roster));
 }
 
+void MainMenu::drawWindows(uint64_t now) {
+    if (_settings)
+        _settings->draw(_screen, now);
+    if (_soundOptions)
+        _soundOptions->draw(_screen, now);
+    if (_keyConfig)
+        _keyConfig->draw(_screen, now);
+    if (_difficultyWindow)
+        _difficultyWindow->draw(_screen, now);
+}
+
 void MainMenu::draw() {
     const uint64_t now = _sys.getMillis();
     clearScreen(_screen);
@@ -529,6 +543,7 @@ void MainMenu::draw() {
                 map->update(now);
         _mapScreen->draw(_screen, now);
         moveOfficers();
+        drawWindows(now);
         return;
     }
     if (_debriefing) {
@@ -563,14 +578,7 @@ void MainMenu::draw() {
     _buttons.draw(_screen);
     if (_credits)
         _credits->draw(_screen, now);
-    if (_settings)
-        _settings->draw(_screen, now);
-    if (_soundOptions)
-        _soundOptions->draw(_screen, now);
-    if (_keyConfig)
-        _keyConfig->draw(_screen, now);
-    if (_difficultyWindow)
-        _difficultyWindow->draw(_screen, now);
+    drawWindows(now);
     if (_dialog)
         _dialog->draw(_screen);
 }

@@ -38,14 +38,13 @@ None yet.
   anything yet
   ([systems/menus.md](systems/menus.md)).
 - **Maps:** the ground's values spread straight across a cell, not by
-  the program's fractal; water's warping isn't there; triggers set off by enemies, passing through or colliding, and
-  the AIs' messages and objectives, aren't there; enemies patrol, see
-  shoot, go to look at the team's noise and where they're called to,
-  pursue, retreat and stun, but don't run away, recharge or look at the
-  fallen yet; footsteps make no sound; shots show their
-  flashes but no beam, always hit, and grenades and mines can't be used;
-  the interface's buttons but the move, select-all, sound and objectives
-  buttons do nothing yet
+  the program's fractal; water's warping isn't there; triggers set off
+  by enemies, passing through or colliding aren't there, nor some of the
+  AIs' messages; enemies patrol, see, shoot, go to look at the team's
+  noise and where they're called to, pursue, retreat and stun, but don't
+  run away, recharge or look at the fallen yet; footsteps make no sound;
+  shots show their flashes but no beam and always hit; there are no
+  cursors; saving and loading from the escape menu aren't there
   ([systems/maps.md](systems/maps.md#in-reluva)).
 - **Objectives:** there's no score, and
   LOAD GAME is greyed out; rescue and need-item objectives are only done

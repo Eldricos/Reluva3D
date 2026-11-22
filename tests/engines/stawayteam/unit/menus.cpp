@@ -7,6 +7,7 @@
 
 #include "engines/stawayteam/ui/briefing.h"
 #include "engines/stawayteam/ui/debriefing.h"
+#include "engines/stawayteam/ui/escape_menu.h"
 #include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/credits.h"
 #include "engines/stawayteam/ui/font.h"
@@ -442,6 +443,34 @@ void testDebriefing() {
     CHECK(screen.typed());
     CHECK(screen.handleEvent(space, 3500) == DebriefingScreen::Choice::kContinue);
 }
+void testEscapeMenu() {
+    MemoryArchive data;
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tMenu=Array\n\t\t{\n\t\t\tItem Count=1\n"
+                          "\t\t\tMenu=CAnimatedMenuInfo\n\t\t\t{\n\t\t\t\tMenu Name=Confirm Dialog\n"
+                          "\t\t\t\tMenu Definition=CStarTrekConfirmDialogMenu\n\t\t\t\t{\n"
+                          "\t\t\t\t\tYesButton Text=&Yes\n\t\t\t\t\tNoButton Text=&No\n"
+                          "\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}\n",
+                          rules));
+    EscapeWindow window(data, rules, 640, 480);
+    // Its six buttons, saving and loading greyed out.
+    const auto &buttons = window.buttons();
+    CHECK(buttons.size() == 6 && buttons[0].label() == "CONFIGURE" && buttons[5].label() == "RESUME");
+    CHECK(buttons[0].enabled() && !buttons[1].enabled() && !buttons[2].enabled() && buttons[3].enabled());
+    // RESTART MISSION asks first: no keeps the window, yes restarts.
+    Event key;
+    key.type = EventType::kKeyDown;
+    key.key = 'm';
+    CHECK(window.handleEvent(key, nullptr) == EscapeWindow::Choice::kNone);
+    key.key = 'n';
+    CHECK(window.handleEvent(key, nullptr) == EscapeWindow::Choice::kNone);
+    key.key = 'm';
+    CHECK(window.handleEvent(key, nullptr) == EscapeWindow::Choice::kNone);
+    key.key = 'y';
+    CHECK(window.handleEvent(key, nullptr) == EscapeWindow::Choice::kRestart);
+    key.key = 'c';
+    CHECK(window.handleEvent(key, nullptr) == EscapeWindow::Choice::kConfigure);
+}
 } // namespace
 
 static const reluva::test::Suite
@@ -456,4 +485,5 @@ static const reluva::test::Suite
                                         {"team selection", [](const std::filesystem::path &) { testTeamSelection(); }},
                                         {"briefing", [](const std::filesystem::path &) { testBriefing(); }},
                                         {"debriefing", [](const std::filesystem::path &) { testDebriefing(); }},
+                                        {"escape menu", [](const std::filesystem::path &) { testEscapeMenu(); }},
                                     });

@@ -83,6 +83,8 @@ PictureButton::PictureButton(image::Image picture, const std::string &label, con
 }
 
 bool PictureButton::handleEvent(const Event &ev, int originX, int originY, audio::Mixer *mixer) {
+    if (!_enabled)
+        return false;
     bool chosen = false;
     const int mx = ev.mouseX - originX;
     const int my = ev.mouseY - originY;
@@ -122,8 +124,9 @@ void PictureButton::draw(Surface &screen, int originX, int originY, uint64_t now
     const int y = originY + _y;
     image::blit(screen, dimmed(_picture, _brightness), x, y);
     const int in = _pressed && _hover ? 1 : 0;
+    // A disabled one's label at the picture's dimness (inferred).
     if (_font && _font->loaded())
-        _font->draw(screen, x + kLabelX + in, y + kLabelY + in, _label);
+        _font->draw(screen, x + kLabelX + in, y + kLabelY + in, _label, 255, _enabled ? 1.0f : kDim);
 }
 
 Toggle::Toggle(image::Image normal, image::Image press, std::string label, const Font *font)

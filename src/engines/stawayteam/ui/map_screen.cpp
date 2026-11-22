@@ -47,7 +47,8 @@ constexpr float kSpacing = 24.0f;
 constexpr int kDrag = 4;
 // Too near a waypoint to walk any further to it.
 constexpr float kArrived = 1.0f;
-const char *const kExitQuestion = "Are you sure you want to quit the game and exit to the main menu?"; // 0x63a9e0
+// Time stopped: its words' font (0x5be102).
+const char *const kPauseFont = "Trek Title Red";
 
 // Whether an action, or one in it, is of class `className`.
 bool contains(const TextObject *action, const char *className) {
@@ -225,6 +226,8 @@ MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, 
     if (_scripts.empty() && !_officers.empty())
         moveCamera(_officers[0].x, _officers[0].y);
     _dialogBackground = screenPicture(data, "Dialog Window/Background");
+    (void)_pauseIndicator.load(data, "Pause Indicator");
+    (void)_pauseFont.load(data, kPauseFont);
     (void)_dialogFont.load(data, readText(custom, "Dialog Font"));
 }
 
@@ -570,8 +573,14 @@ void MapScreen::update(uint64_t now) {
     const float seconds = float(now - std::min(now, _last)) / 1000.0f;
     _last = now;
     // The windows over the map hold the game still (inferred).
-    if (_endGame || _objectivesWindow || _progress->over)
+    if (_endGame || _objectivesWindow || _escape || _progress->over)
         return;
+    // Time stopped, the view can still be moved (inferred).
+    if (_paused) {
+        if (_scripts.empty())
+            scroll(seconds);
+        return;
+    }
     if (_active)
         _progress->time += seconds;
     playScripts(seconds);
@@ -649,13 +658,20 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
             _objectivesWindow.reset();
         return Choice::kNone;
     }
-    if (_confirm) {
-        const std::optional<bool> answer = _confirm->handleEvent(ev, mixer);
-        if (answer && *answer)
+    if (_escape) {
+        switch (_escape->handleEvent(ev, mixer)) {
+        case EscapeWindow::Choice::kResume:
+            _escape.reset();
+            return Choice::kNone;
+        case EscapeWindow::Choice::kConfigure:
+            return Choice::kConfigure;
+        case EscapeWindow::Choice::kRestart:
+            return Choice::kRestart;
+        case EscapeWindow::Choice::kEndGame:
             return Choice::kExit;
-        if (answer)
-            _confirm.reset();
-        return Choice::kNone;
+        default:
+            return Choice::kNone;
+        }
     }
     if (ev.type == EventType::kMouseMove) {
         _mouseX = ev.mouseX;
@@ -683,6 +699,16 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
         chooseItem(_selected, hud.item);
     if (hud.toggleSound)
         _listening = !_listening;
+    if (hud.pause)
+        _paused = !_paused;
+    if (hud.cancelOrders)
+        cancelOrders();
+    if (hud.vision)
+        pressVision();
+    if (hud.options) {
+        _escape = std::make_unique<EscapeWindow>(_data, _rules, 640, 480);
+        return Choice::kNone;
+    }
     if (hud.objectives)
         _objectivesWindow = std::make_unique<ObjectivesWindow>(_data, _rules, 640, 480);
     // On the map, the left button: a click on an officer chooses them
@@ -708,6 +734,10 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
         const bool add = (ev.mods & keymod::kShift) != 0;
         if (_dragging) {
             chooseIn(toMapX(_pressX), toMapY(_pressY), toMapX(ev.mouseX), toMapY(ev.mouseY), add);
+        } else if (const int seen = enemyAt(toMapX(_pressX), toMapY(_pressY)); _vision == 1 && seen >= 0) {
+            // Choosing whose sight to show: the enemy clicked (inferred).
+            _visionEnemy = seen;
+            _vision = 2;
         } else if (useItem(toMapX(_pressX), toMapY(_pressY))) {
             // The chosen officer's item used there.
         } else if (const int officer = officerAt(toMapX(_pressX), toMapY(_pressY)); officer >= 0) {
@@ -721,8 +751,9 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
     }
     if (ev.type == EventType::kKeyDown || ev.type == EventType::kKeyUp) {
         const bool down = ev.type == EventType::kKeyDown;
+        // Esc as the escape button (inferred).
         if (down && ev.key == key::kEscape) {
-            _confirm = std::make_unique<ConfirmDialog>(_data, _rules, kExitQuestion, 640, 480);
+            _escape = std::make_unique<EscapeWindow>(_data, _rules, 640, 480);
             return Choice::kNone;
         }
         // The keys bound to scrolling the map (the keyboard's settings).
@@ -747,6 +778,21 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
             setMove(2);
         if (down && bound("Select Entire Team") && playing)
             chooseAll();
+        // Pause stops time or starts it again; Cancel Orders presses its
+        // button (0x476c75); Toggle Vision Cones presses the vision
+        // button, from choosing to off (0x476c01); Cycle Vision Cones goes
+        // on to the next enemy.
+        if (down && bound("Pause"))
+            _paused = !_paused;
+        if (down && bound("Cancel Orders"))
+            cancelOrders();
+        if (down && bound("Toggle Vision Cones")) {
+            if (_vision == 1)
+                _vision = 2;
+            pressVision();
+        }
+        if (down && bound("Cycle Vision Cones"))
+            cycleVision();
         // Display Objectives presses the objectives button (0x476c90).
         if (down && bound("Display Objectives") && playing) {
             _objectivesWindow = std::make_unique<ObjectivesWindow>(_data, _rules, 640, 480);
@@ -904,6 +950,7 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         if (!p.overlay.empty())
             blitBy(view, animation(p.overlay, sequence).frame(frame, direction), x, y);
     }
+    drawVision(view, left, top);
     drawNoises(view, left, top);
     // The grenades thrown, flying or lying.
     for (const Thrown &t : _thrown) {
@@ -917,6 +964,9 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
     }
     for (int y = 0; y < _viewH && _viewY + y < screen.h; ++y)
         std::memcpy(screen.row(_viewY + y) + _viewX * 4, view.row(y), size_t(std::min(_viewW, screen.w - _viewX)) * 4);
+    // Time stopped, shown on the view, under the interface (inferred).
+    if (_paused)
+        drawPause(screen, now);
     _hud->setMove(_selected >= 0 ? _officers[size_t(_selected)].move : 0);
     std::vector<bool> chosen;
     for (const Officer &o : _officers)
@@ -927,6 +977,8 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         health.push_back(o.maxHealth > 0.0f ? o.health / o.maxHealth : 1.0f);
     _hud->setHealth(health);
     _hud->setListening(_listening);
+    _hud->setPaused(_paused);
+    _hud->setVision(_vision);
     if (_selected >= 0) {
         std::vector<GameHud::Held> held;
         for (const Officer::Held &h : _officers[size_t(_selected)].items)
@@ -967,10 +1019,10 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
     }
     if (_objectivesWindow)
         _objectivesWindow->draw(screen, objectiveLines());
+    if (_escape)
+        _escape->draw(screen, now);
     if (_endGame)
         _endGame->draw(screen, objectiveLines());
-    if (_confirm)
-        _confirm->draw(screen);
 }
 
 } // namespace reluva::stawayteam

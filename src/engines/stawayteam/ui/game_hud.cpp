@@ -112,7 +112,14 @@ GameHud::Result GameHud::handleEvent(const Event &ev, uint64_t now) {
     readPoint(_custom, "Inventory Pos", vx, vy);
     const image::Image &inv = picture("Inventory/Background");
     const bool overInventory = ev.mouseX >= vx && ev.mouseX < vx + inv.w && ev.mouseY >= vy && ev.mouseY < vy + inv.h;
-    r.used = overInfo || overTeam || overBox || overInventory;
+    int pauseX = 0;
+    int pauseY = 0;
+    readPoint(_custom, "Pause Pos", pauseX, pauseY);
+    const image::Image &pause = picture("Pause Time Button/Pause Time Default");
+    const bool overPause =
+        ev.mouseX >= pauseX && ev.mouseY >= pauseY && ev.mouseX < pauseX + pause.w && ev.mouseY < pauseY + pause.h;
+    r.used = overInfo || overTeam || overBox || overInventory || overPause;
+    r.pause = overPause && ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft;
     if (ev.type != EventType::kMouseDown || ev.button != MouseButton::kLeft)
         return r;
     if (overBox) {
@@ -134,12 +141,17 @@ GameHud::Result GameHud::handleEvent(const Event &ev, uint64_t now) {
         const image::Image &sound = picture("Button Box/Sound Default");
         r.toggleSound = ev.mouseX >= bx + ox && ev.mouseY >= by + oy && ev.mouseX < bx + ox + sound.w &&
                         ev.mouseY < by + oy + sound.h;
-        int jx = 0;
-        int jy = 0;
-        readPoint(_custom, "Objectives Button", jx, jy);
-        const image::Image &objectives = picture("Button Box/Objectives Button Default");
-        r.objectives = ev.mouseX >= bx + jx && ev.mouseY >= by + jy && ev.mouseX < bx + jx + objectives.w &&
-                       ev.mouseY < by + jy + objectives.h;
+        const auto on = [&](const char *key, const char *name) {
+            int x = 0;
+            int y = 0;
+            readPoint(_custom, key, x, y);
+            const image::Image &p = picture(std::string("Button Box/") + name);
+            return ev.mouseX >= bx + x && ev.mouseY >= by + y && ev.mouseX < bx + x + p.w && ev.mouseY < by + y + p.h;
+        };
+        r.objectives = on("Objectives Button", "Objectives Button Default");
+        r.cancelOrders = on("CancelOrdersButton Pos", "Cancel Orders Default");
+        r.vision = on("Vision State Button", "Vision Default");
+        r.options = on("Options Button", "Escape Button Default");
     }
     if (overInventory) {
         // An item's icon chooses it (inferred).
@@ -303,9 +315,12 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
         // The move button shows how the chosen officer moves.
         if (&b == &kBoxButtons[0])
             name = _move == 1 ? "Run Button" : _move == 2 ? "Crouch Button" : "Walk Button";
-        // The sound button held down while the noises show (inferred).
+        // The sound button held down while the noises show (inferred); the
+        // vision button by its state (0x4765c0).
         if (&b == &kBoxButtons[2] && _listening)
             name = "Sound Press";
+        if (&b == &kBoxButtons[1])
+            name = _vision == 1 ? "Vision Select" : _vision == 2 ? "Vision Press" : "Vision Default";
         image::blit(screen, picture("Button Box/" + name), bx + x, by + y);
     }
     int cancelX = 0;
@@ -380,7 +395,15 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
     int pauseX = 0;
     int pauseY = 0;
     readPoint(_custom, "Pause Pos", pauseX, pauseY);
-    image::blit(screen, picture("Pause Time Button/Pause Time Default"), pauseX, pauseY);
+    // Held down while time's stopped, lit under the mouse (0x5c3cb7).
+    const image::Image &pauseDefault = picture("Pause Time Button/Pause Time Default");
+    const bool overPause = _mouseX >= pauseX && _mouseY >= pauseY && _mouseX < pauseX + pauseDefault.w &&
+                           _mouseY < pauseY + pauseDefault.h;
+    image::blit(screen,
+                picture(_paused     ? "Pause Time Button/Pause Time Press"
+                        : overPause ? "Pause Time Button/Pause Time Hover"
+                                    : "Pause Time Button/Pause Time Default"),
+                pauseX, pauseY);
 }
 
 } // namespace reluva::stawayteam

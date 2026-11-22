@@ -15,6 +15,7 @@
 #include "engines/stawayteam/ui/animation.h"
 #include "engines/stawayteam/ui/font.h"
 #include "engines/stawayteam/ui/game_hud.h"
+#include "engines/stawayteam/ui/escape_menu.h"
 #include "engines/stawayteam/ui/objectives_window.h"
 
 #include <array>
@@ -27,8 +28,6 @@
 #include <vector>
 
 namespace reluva::stawayteam {
-
-class ConfirmDialog;
 
 /**
  * How a mission's going, the same on each of its maps: its objectives, its
@@ -69,7 +68,7 @@ public:
      * What the player chose that leaves the screen: the main menu, or, as
      * the mission's over, the next mission or this one again.
      */
-    enum class Choice { kNone, kExit, kContinue, kRestart };
+    enum class Choice { kNone, kExit, kContinue, kRestart, kConfigure };
 
     /**
      * `map` shown with `rules`' view, `team` on it at its spawn points,
@@ -304,6 +303,21 @@ public:
     /** Whether the objectives window is open. */
     bool objectivesShown() const { return _objectivesWindow != nullptr; }
 
+    /** Whether time's stopped (the pause button): orders can still be given. */
+    bool paused() const { return _paused; }
+    void setPaused(bool paused) { _paused = paused; }
+    /** Drops the chosen officers' orders: walking, attacking, using an item. */
+    void cancelOrders();
+    /** The vision button's state: 0 off, 1 choosing an enemy, 2 showing its sight. */
+    int visionState() const { return _vision; }
+    /** The enemy whose sight is shown; -1 for none. */
+    int visionEnemy() const { return _visionEnemy; }
+    /** The vision button pressed: off, choosing, showing, and round. */
+    void pressVision();
+    /** The next enemy in the view whose sight is shown (Cycle Vision Cones). */
+    void cycleVision();
+    /** Whether the escape menu's open. */
+    bool escapeShown() const { return _escape != nullptr; }
     /** Whether the team's noises are shown (the sound button). */
     bool listening() const { return _listening; }
     void setListening(bool on) { _listening = on; }
@@ -396,6 +410,9 @@ private:
     // The team's noises: ageing, and their rings shown (map_noise.cpp).
     void updateNoises(float seconds);
     void drawNoises(Surface &view, int left, int top) const;
+    // The enemy whose sight is shown: what it can see, tinted (map_vision.cpp).
+    void drawVision(Surface &view, int left, int top) const;
+    void drawPause(Surface &screen, uint64_t now);
     void walk(Officer &o, float seconds);
     void drawOfficer(Surface &view, const Officer &o, int left, int top, uint64_t now);
     const Animation &animation(const std::string &model, const std::string &sequence);
@@ -487,7 +504,6 @@ private:
     float _dialogLeft = 0.0f;
     image::Image _dialogBackground;
     Font _dialogFont;
-    std::unique_ptr<ConfirmDialog> _confirm;
     // Fighting: the weapons, what the models say, what blocks sight (the
     // footprints of the parts standing full height, on the map) and the
     // shots' flashes showing.
@@ -519,6 +535,12 @@ private:
     std::unique_ptr<ObjectivesWindow> _objectivesWindow;
     std::vector<Noise> _noises; // the newest first
     bool _listening = false;
+    bool _paused = false;
+    int _vision = 0;
+    int _visionEnemy = -1;
+    std::unique_ptr<EscapeWindow> _escape;
+    Animation _pauseIndicator;
+    Font _pauseFont;
 };
 
 } // namespace reluva::stawayteam

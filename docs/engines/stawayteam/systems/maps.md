@@ -111,7 +111,28 @@ Around the view, each at its place in Rules.txt's Custom Rules (a
 - **The inventory** at `Inventory Pos`: the chosen officer's items along
   its bar, `Inventory Icon Size` and `Inventory Icon Spacing` apart from
   `Inventory Bar Offset`, between its previous and next buttons.
-- **The pause button** at `Pause Pos`.
+- **The pause button** at `Pause Pos` (`0x5c3cb7`): `Pause Time
+  Button/Pause Time Default`, `Hover` and `Press`. With time stopped, the
+  `Pause Indicator` sequence is drawn at the view's top left and "Pause
+  Time Activated" in `Trek Title Red` 20 under its top, its brightness
+  going up and down (`0x5be085`).
+
+The keys press the box's buttons (`0x476b90`): Cancel Orders
+(Backspace) CANCEL ORDERS, Toggle Vision Cones (V) the vision button,
+Select Entire Team (A) the select-all button, Display Objectives (O) the
+objectives button. The vision button has three states, `Vision
+Default`, `Vision Select` and `Vision Press`, a press going on to the
+next and round (`0x51a600`); V from the second goes back to the first
+(`0x476c1c`). Choosing, the cursor is the `Vision Cursor` (`0x5c5e4e`).
+
+The options button opens the "Esc Menu" (`0x5ba9bf`), on `Escape
+Menu/Escape Menu Background`, its buttons of `Button Background` in
+`Placar Condensed`, a column 69 in, the first 26 down and each 8 under
+the last: CONFIGURE, SAVE GAME, LOAD GAME, RESTART MISSION, END GAME
+(saving and loading left out in a network game), and RESUME 27 above
+its bottom. RESTART MISSION asks "Are you sure you want to restart this
+game?", END GAME "Are you sure you want to quit the game and exit to
+the main menu?" (`0x5bb190`).
 
 ### The team on the map
 
@@ -390,6 +411,21 @@ info bar rising while the mouse is over it *(inferred)*, its minimap with
 the view outlined, a click on it moving the view there *(inferred)*; the
 chosen officer's items in the inventory; and the pause button.
 
+The buttons (`ui/map_vision.cpp`, `ui/escape_menu.cpp`): the pause
+button or Pause (Enter) stops time, the view still moved and orders
+still given, till it's pressed again *(inferred)*. CANCEL ORDERS or
+Backspace drops the chosen officers' walking, attacking and items'
+tasks *(inferred)*. The vision button goes off, choosing, showing: a
+click on an enemy while choosing shows its sight, or pressed on to
+showing, the enemy nearest the view's middle *(inferred)*; Cycle Vision
+Cones (Tab) the next enemy in the view *(inferred)*. Its sight, in its
+Max Distance and Vision Cone and in sight past what stands in the way,
+is tinted over the ground in squares *(inferred)*.
+The options button, or Esc, opens the escape menu, holding the game
+still *(inferred)*: CONFIGURE the settings over the map, RESTART MISSION
+and END GAME as asked, RESUME or Esc back; SAVE GAME and LOAD GAME are
+greyed out, as saved games aren't there yet.
+
 The map's other characters face their `Facing Angle`, their shadow under
 them and their head over them, as the officers are *(inferred)*.
 
@@ -510,10 +546,10 @@ then one of its Random Songs by chance after another; without them, the
 map shown's Map Song, over and over; stopping as the maps are left
 *(inferred)*.
 
-Not there yet: the interface's other buttons, the
+Not there yet: the vision cursor and the other cursors, the
 triggers set off by enemies, passing through or colliding, the AIs'
 other messages and tasks (going to a place, effects added), walkers
-going round each other, the vision button, the enemies' own noises and
+going round each other, the enemies' own noises and
 footsteps' sounds by the ground, the shots' beams and projectiles,
 missing, thrown and laid weapons, the phaser's setting, and the enemies'
 other states (running away, recharging, investigating a body).
@@ -591,6 +627,9 @@ other states (running away, recharging, investigating a body).
   bar's rising, and the frames' movement as a walk's pace.
 - **The music:** which song the program plays when, and whether the Map
   Song plays with a mission's own.
+- **The buttons:** whether orders can be given with time stopped, what
+  CANCEL ORDERS drops, how an enemy's sight is chosen and drawn, and
+  whether the escape menu holds the game.
 - **A mission's maps:** whether those the team's left go on, which place
   each officer arrives at, what Only on this map does, and the other
   relocations.

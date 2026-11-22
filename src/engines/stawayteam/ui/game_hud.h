@@ -34,8 +34,12 @@ public:
         bool selectAll = false;   // the select-all button pressed
         bool toggleSound = false; // the sound button pressed: the team's noises shown or not
         bool objectives = false;  // the objectives button pressed
-        int item = -1;            // an item chosen on the inventory: its place in what setInventory gave
-        float cameraX = 0.0f;     // where, for moveCamera: the view's middle on the map
+        bool pause = false;       // the pause button pressed: time stopped or going again
+        bool cancelOrders = false;
+        bool vision = false;  // the vision button pressed: its state on
+        bool options = false; // the escape button pressed
+        int item = -1;        // an item chosen on the inventory: its place in what setInventory gave
+        float cameraX = 0.0f; // where, for moveCamera: the view's middle on the map
         float cameraY = 0.0f;
     };
 
@@ -69,6 +73,10 @@ public:
     }
     /** Whether the sound button shows the team's noises. */
     void setListening(bool on) { _listening = on; }
+    /** Whether time's stopped, the pause button held down. */
+    void setPaused(bool paused) { _paused = paused; }
+    /** The vision button's state: 0 off, 1 choosing an enemy, 2 showing its sight. */
+    void setVision(int state) { _vision = state; }
     /** Each officer's health, as a part of their whole (0-1). */
     void setHealth(std::vector<float> health) { _health = std::move(health); }
 
@@ -98,6 +106,8 @@ private:
     std::vector<bool> _chosen;
     std::vector<float> _health;
     bool _listening = false;
+    bool _paused = false;
+    int _vision = 0;
     std::vector<Held> _held;
     int _heldChosen = -1;
     // Where each item shown is on the screen, and its place in _held.

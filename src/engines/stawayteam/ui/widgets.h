@@ -39,6 +39,9 @@ public:
     const std::string &label() const { return _label; }
     /** The sound played when it's clicked (the toolkit's `Button Action`). */
     void setSound(std::shared_ptr<audio::Sound> sound) { _sound = std::move(sound); }
+    /** A disabled one stays dim, its label too, and can't be chosen. */
+    void setEnabled(bool enabled) { _enabled = enabled; }
+    bool enabled() const { return _enabled; }
 
     /**
      * What `ev` does to it, its window's top left at (originX, originY):
@@ -61,6 +64,7 @@ private:
     int _y = 0;
     bool _hover = false;
     bool _pressed = false;
+    bool _enabled = true;
     float _brightness;
     uint64_t _lastDraw = 0;
 };

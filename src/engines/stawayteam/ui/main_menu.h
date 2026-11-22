@@ -107,6 +107,8 @@ private:
     void endMaps();
     // Officers sent between the maps, and the map shown for one chosen.
     void moveOfficers();
+    // The settings' windows, over the main menu or a map.
+    void drawWindows(uint64_t now);
     // The mission's music on its maps.
     void playMissionMusic();
     std::vector<TeamMember> startingTeam() const;

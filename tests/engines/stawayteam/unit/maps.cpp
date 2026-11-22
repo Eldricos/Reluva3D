@@ -832,6 +832,79 @@ void testMaps() {
     CHECK(first.missionOver() && !first.missionCompleted());
 }
 
+void testInterface() {
+    // Ann at (100, 100); a guard at (300, 300) facing left, seeing 100
+    // ahead, 90 degrees across.
+    const std::string zax =
+        "CLayerSaveData\n{\n\tWidth=1000\n\tHeight=1000\n\tView Position=300.000000,300.000000\n"
+        "\tTree List=CSortList2D\n\t{\n"
+        "\t\tLevel Part=CEntityWalking\n\t\t{\n\t\t\tName=Guard\n\t\t\tVisible=1\n\t\t\tActive=1\n"
+        "\t\t\tActivity=Array\n\t\t\t{\n\t\t\t\tItem Count=1\n\t\t\t\tActivity=CBorgAI\n\t\t\t\t{\n"
+        "\t\t\t\t\tCurrent State=Patrol\n\t\t\t\t\tMax Distance=100\n\t\t\t\t\tVision Cone=90\n"
+        "\t\t\t\t}\n\t\t\t}\n\t\t\tModel=Characters/Guard\n\t\t\tPosition X=300\n\t\t\tPosition Y=300\n"
+        "\t\t\tFacing Angle=0\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 1\n\t\t\tPosition X=100\n"
+        "\t\t\tPosition Y=100\n\t\t}\n\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=400,400\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    MapScreen screen(data, rules, map, options, 0, {ann});
+    const MapScreen::Officer &a = screen.officers()[0];
+    // Time stopped: an order's given, but she doesn't move till it goes on.
+    screen.setPaused(true);
+    screen.order(100.0f, 200.0f);
+    screen.update(1000);
+    CHECK(a.y == 100.0f && !a.path.empty());
+    screen.setPaused(false);
+    screen.update(2000);
+    CHECK(a.y > 100.0f);
+    // Cancel Orders: she stops where she is.
+    screen.cancelOrders();
+    const float y = a.y;
+    screen.update(3000);
+    CHECK(a.path.empty() && a.y == y);
+    // The vision button: choosing, then showing the guard's sight, the one
+    // nearest the view's middle; then off.
+    CHECK(screen.visionState() == 0);
+    screen.pressVision();
+    CHECK(screen.visionState() == 1 && screen.visionEnemy() == -1);
+    screen.pressVision();
+    CHECK(screen.visionState() == 2 && screen.visionEnemy() == 0);
+    // In its sight, 50 to its left, the ground's tinted; behind it it isn't.
+    Surface shown;
+    shown.create(640, 480, PixelFormat::kRGBA32);
+    screen.moveCamera(300.0f, 300.0f);
+    screen.draw(shown, 3000);
+    screen.pressVision();
+    CHECK(screen.visionState() == 0);
+    Surface hidden;
+    hidden.create(640, 480, PixelFormat::kRGBA32);
+    screen.draw(hidden, 3000);
+    const auto px = [](const Surface &s, int x, int y) { return s.row(y)[x * 4]; };
+    CHECK(px(shown, 150, 200) != px(hidden, 150, 200));
+    CHECK(px(shown, 260, 200) == px(hidden, 260, 200));
+    // Esc opens the escape menu, saving and loading not there yet; Esc
+    // again goes back.
+    Event esc;
+    esc.type = EventType::kKeyDown;
+    esc.key = key::kEscape;
+    CHECK(screen.handleEvent(esc, nullptr, 3000) == MapScreen::Choice::kNone && screen.escapeShown());
+    CHECK(screen.escapeShown());
+    Surface s;
+    s.create(640, 480, PixelFormat::kRGBA32);
+    screen.draw(s, 3100);
+    screen.handleEvent(esc, nullptr, 3200);
+    CHECK(!screen.escapeShown());
+}
+
 void testChoosing() {
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(kMap, kMap + std::string(kMap).size());
@@ -886,4 +959,5 @@ static const reluva::test::Suite kSuite("stawayteam.unit.maps",
                                             {"enemy AI", [](const std::filesystem::path &) { testEnemyAI(); }},
                                             {"items", [](const std::filesystem::path &) { testItems(); }},
                                             {"maps", [](const std::filesystem::path &) { testMaps(); }},
+                                            {"interface", [](const std::filesystem::path &) { testInterface(); }},
                                         });
