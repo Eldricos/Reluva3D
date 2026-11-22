@@ -8,6 +8,8 @@
 
 #include "tests/support/test.h"
 
+#include <fstream>
+
 using namespace reluva;
 
 namespace {
@@ -23,6 +25,17 @@ void testEmptyFolder(const std::filesystem::path &tmp) {
     CHECK(engine && engine->detect(tmp).empty());
 }
 
+// The release's files by name but with other contents (a later patch, say)
+// aren't taken for it.
+void testOtherContents(const std::filesystem::path &tmp) {
+    std::filesystem::create_directories(tmp / "Exe");
+    std::filesystem::create_directories(tmp / "art-res");
+    for (const char *name : {"Exe/Loco.exe", "art-res/resource.RFH"})
+        std::ofstream(tmp / name) << "x";
+    const MetaEngine *engine = findEngine("legoloco");
+    CHECK(engine && engine->detect(tmp).empty());
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -30,4 +43,5 @@ static const reluva::test::Suite
            {
                {"registered", [](const std::filesystem::path &) { testRegistered(); }},
                {"empty folder", [](const std::filesystem::path &tmp) { testEmptyFolder(tmp); }},
+               {"other contents", [](const std::filesystem::path &tmp) { testOtherContents(tmp); }},
            });

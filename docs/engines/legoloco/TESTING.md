@@ -10,7 +10,7 @@ files):
 
 | Suite | What it checks |
 |---|---|
-| `legoloco.unit.detection` | Recognising the game's releases |
+| `legoloco.unit.detection` | Recognising the game: an empty folder, and the right names with other contents, aren't it |
 
 ### The basic engine test
 

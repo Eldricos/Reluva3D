@@ -2,8 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // LEGO Loco: the engine's MetaEngine (its name, the releases it recognises,
-// making an Engine to run one) and its Engine. Started from the template
-// (cmake/NewEngine.cmake): so far it recognises nothing and shows an empty
+// making an Engine to run one) and its Engine, which so far shows an empty
 // screen.
 
 #include "engines/engine.h"
@@ -12,12 +11,17 @@ namespace reluva::legoloco {
 
 namespace {
 
-// The releases it recognises: files that must be there, with the MD5 of
-// their start and their size, as `reluva --hash <files...>` prints them.
-// A folder matching every file of a variant is that release.
+// The releases it recognises, as `reluva --hash <files...>` prints them.
+// The CD and an install have the same layout, and the installer copies the
+// same files whichever of the CD's nine languages is chosen (it writes the
+// choice into Exe/LEGO.INI), so the one entry stands for all of them.
 const std::vector<GameVariant> kVariants = {
-    // {"<game id>", "<Game name> (<release>)", "en", "windows",
-    //  {{"<file>", "<md5>", <size>}, {"<other file>", "", -1}}},
+    {"legoloco",
+     "LEGO Loco (1.0.18.2)",
+     "en",
+     "windows",
+     {{"Exe/Loco.exe", "695dd274531337b1b600fd55f8f51482", 1117696},
+      {"art-res/resource.RFH", "e7f73852368fbd30ca42b6d527b25242", 85647}}},
 };
 
 /**
