@@ -3,6 +3,8 @@
 
 #include "emulation/x86/win32.h"
 
+#include "emulation/x86/gdi.h"
+
 #include <algorithm>
 #include <cctype>
 #include <chrono>
@@ -544,6 +546,8 @@ Error Win32Process::load(const std::string &name, const std::vector<uint8_t> &fi
     return Error::success();
 }
 
+Win32Process::~Win32Process() = default;
+
 Error Win32Process::start(const Module &exe, uint32_t &exitCode) {
     exitCode = 0;
     if (!exe.entry)
@@ -811,6 +815,10 @@ void Win32Process::addStandIns() {
     addRegistryStandIns();
     addLocaleStandIns();
     addIniStandIns();
+    addWindowStandIns();
+    addDialogStandIns();
+    // GDI's stand-ins take the place of USER32's GetDC and GDI32's stock objects.
+    _gdi = std::make_unique<Gdi>(*this);
 
     // Text: code page 1252, mapped to Unicode's first 256 characters (the
     // C runtime's locale tables are built from these; the "C" locale only

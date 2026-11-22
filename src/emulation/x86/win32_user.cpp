@@ -10,6 +10,8 @@
 
 #include "emulation/x86/win32.h"
 
+#include "emulation/x86/format.h"
+
 #include "common/events.h"
 
 #include <algorithm>
@@ -177,6 +179,7 @@ bool windowsKey(uint32_t k, uint32_t &vk, uint32_t &scan) {
 }
 
 namespace {
+constexpr uint32_t kWmTimer = 0x113;
 constexpr uint32_t kWmMouseMove = 0x200;
 constexpr uint32_t kWmLButtonDown = 0x201;
 constexpr uint32_t kWmLButtonDblClk = 0x203;
@@ -351,6 +354,8 @@ void Win32Process::addUserStandIns() {
         win.style = style & ~kWsVisible;
         win.exStyle = exStyle;
         win.x = x, win.y = y, win.width = w, win.height = h;
+        win.parent = parent;
+        win.id = (style & kWsChild) ? menu : 0;
 
         const uint32_t create = memory().alloc(48); // CREATESTRUCTA
         const uint32_t fields[12] = {param,       instance,    menu,  parent, uint32_t(h), uint32_t(w),
@@ -485,6 +490,13 @@ void Win32Process::addUserStandIns() {
         case 32:
         case 33:
             return uint32_t(kSizeFrame); // SM_CXFRAME, SM_CYFRAME
+        case 11:
+        case 12:
+        case 13:
+        case 14:
+            return 32u; // SM_CXICON, SM_CYICON, SM_CXCURSOR, SM_CYCURSOR
+        case 19:
+            return 1u; // SM_MOUSEPRESENT
         case 43:
             return 3u; // SM_CMOUSEBUTTONS
         default:
@@ -520,6 +532,18 @@ void Win32Process::addUserStandIns() {
             idle();
             it = std::find_if(_messages.begin(), _messages.end(), matches);
         }
+        // With nothing else queued, a timer that's due (SetTimer's) gives
+        // WM_TIMER; peeked without removing, it stays due.
+        if (it == _messages.end() && (first == 0 || (first <= kWmTimer && last >= kWmTimer)) && timerDue()) {
+            if (const auto t = takeDueTimer(hwnd)) {
+                _messages.push_back(*t);
+                it = std::prev(_messages.end());
+                if (!(remove & 1))
+                    for (WindowTimer &timer : _windowTimers)
+                        if (timer.window == t->window && timer.id == t->wParam)
+                            timer.dueMs = milliseconds();
+            }
+        }
         if (it == _messages.end() || !c.valid(out, 28))
             return 0u;
         const uint32_t fields[7] = {it->window,     it->message,       it->wParam,       it->lParam,
@@ -534,6 +558,14 @@ void Win32Process::addUserStandIns() {
         const uint32_t m = c.arg(0);
         if (!c.valid(m, 16))
             return 0u;
+        // WM_TIMER with a procedure (lParam) calls it, not the window's.
+        if (c.read32(m + 4) == kWmTimer && c.read32(m + 12)) {
+            uint32_t result = 0;
+            if (Error e = _cpu.call(c.read32(m + 12), {c.read32(m), kWmTimer, c.read32(m + 8), milliseconds()}, result);
+                e && output)
+                output("A timer procedure failed: " + e.message + "\n");
+            return 0u;
+        }
         return sendMessage(c.read32(m), c.read32(m + 4), c.read32(m + 8), c.read32(m + 12));
     });
     // TranslateMessage: a key that types a character (letters, digits,
@@ -679,6 +711,97 @@ void Win32Process::addUserStandIns() {
         return n;
     });
     stdcall(g, "GetStockObject", 1, [](Cpu &c) { return kStockObjects + c.arg(0); });
+
+    // Rectangles (left, top, right, bottom; the right and bottom outside).
+    // An empty one has no width or no height; what's left empty is set to 0s.
+    struct R {
+        int32_t l;
+        int32_t t;
+        int32_t r;
+        int32_t b;
+    };
+    auto readR = [](Cpu &c, uint32_t p) {
+        return R{int32_t(c.read32(p)), int32_t(c.read32(p + 4)), int32_t(c.read32(p + 8)), int32_t(c.read32(p + 12))};
+    };
+    auto writeR = [rect](Cpu &c, uint32_t p, R x) { rect(c, p, x.l, x.t, x.r, x.b); };
+    auto empty = [](R x) { return x.r <= x.l || x.b <= x.t; };
+    stdcall(u, "SetRect", 5, [rect](Cpu &c) {
+        rect(c, c.arg(0), int32_t(c.arg(1)), int32_t(c.arg(2)), int32_t(c.arg(3)), int32_t(c.arg(4)));
+        return 1u;
+    });
+    stdcall(u, "SetRectEmpty", 1, [rect](Cpu &c) {
+        rect(c, c.arg(0), 0, 0, 0, 0);
+        return 1u;
+    });
+    stdcall(u, "CopyRect", 2, [readR, writeR](Cpu &c) {
+        writeR(c, c.arg(0), readR(c, c.arg(1)));
+        return 1u;
+    });
+    stdcall(u, "IsRectEmpty", 1, [readR, empty](Cpu &c) { return empty(readR(c, c.arg(0))) ? 1u : 0u; });
+    stdcall(u, "OffsetRect", 3, [readR, writeR](Cpu &c) {
+        R x = readR(c, c.arg(0));
+        const int32_t dx = int32_t(c.arg(1));
+        const int32_t dy = int32_t(c.arg(2));
+        writeR(c, c.arg(0), {x.l + dx, x.t + dy, x.r + dx, x.b + dy});
+        return 1u;
+    });
+    stdcall(u, "InflateRect", 3, [readR, writeR](Cpu &c) {
+        R x = readR(c, c.arg(0));
+        const int32_t dx = int32_t(c.arg(1));
+        const int32_t dy = int32_t(c.arg(2));
+        writeR(c, c.arg(0), {x.l - dx, x.t - dy, x.r + dx, x.b + dy});
+        return 1u;
+    });
+    stdcall(u, "IntersectRect", 3, [readR, writeR, empty](Cpu &c) {
+        const R a = readR(c, c.arg(1));
+        const R b = readR(c, c.arg(2));
+        const R x{std::max(a.l, b.l), std::max(a.t, b.t), std::min(a.r, b.r), std::min(a.b, b.b)};
+        if (empty(a) || empty(b) || empty(x)) {
+            writeR(c, c.arg(0), {0, 0, 0, 0});
+            return 0u;
+        }
+        writeR(c, c.arg(0), x);
+        return 1u;
+    });
+    stdcall(u, "UnionRect", 3, [readR, writeR, empty](Cpu &c) {
+        const R a = readR(c, c.arg(1));
+        const R b = readR(c, c.arg(2));
+        if (empty(a) && empty(b)) {
+            writeR(c, c.arg(0), {0, 0, 0, 0});
+            return 0u;
+        }
+        writeR(c, c.arg(0),
+               empty(a)   ? b
+               : empty(b) ? a
+                          : R{std::min(a.l, b.l), std::min(a.t, b.t), std::max(a.r, b.r), std::max(a.b, b.b)});
+        return 1u;
+    });
+    // PtInRect(rect, point) takes the POINT by value: x and y as two arguments.
+    stdcall(u, "PtInRect", 3, [readR](Cpu &c) {
+        const R x = readR(c, c.arg(0));
+        const int32_t px = int32_t(c.arg(1));
+        const int32_t py = int32_t(c.arg(2));
+        return px >= x.l && px < x.r && py >= x.t && py < x.b ? 1u : 0u;
+    });
+
+    // Text: wsprintfA(buffer, format, ...) is cdecl, its output at most 1,024 characters.
+    provideCdecl(u, "wsprintfA", [](Cpu &c) {
+        const uint32_t sp = c.reg[Cpu::ESP];
+        std::string text = formatPrintf(c, c.read32(sp + 8), sp + 12);
+        if (text.size() > 1024)
+            text.resize(1024);
+        c.writeString(c.read32(sp + 4), text, uint32_t(text.size() + 1));
+        return uint32_t(text.size());
+    });
+    stdcall(u, "IsCharAlphaNumericA", 1, [](Cpu &c) {
+        const uint8_t ch = uint8_t(c.arg(0));
+        // Code page 1252's letters above ASCII: 0xc0 to 0xff but for the
+        // multiplication and division signs, and Š, Œ, Ž, š, œ, ž, Ÿ.
+        const bool latin = (ch >= 0xc0 && ch != 0xd7 && ch != 0xf7) || ch == 0x8a || ch == 0x8c || ch == 0x8e ||
+                           ch == 0x9a || ch == 0x9c || ch == 0x9e || ch == 0x9f;
+        return std::isalnum(ch) || latin ? 1u : 0u;
+    });
+    stdcall(u, "MessageBeep", 1, [](Cpu &) { return 1u; });
 }
 
 } // namespace reluva::x86

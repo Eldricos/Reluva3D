@@ -22,7 +22,8 @@ Laid out as `src/common/` is, a page per component:
   Windows game code: [the processor](common/x86/cpu.md),
   [native code for it](common/x86/jit.md), the stand-ins for
   [Windows](common/x86/windows.md),
-  [DirectX](common/x86/directx.md) and [Aureal A3D](common/x86/a3d.md),
+  [GDI](common/x86/gdi.md), [DirectX](common/x86/directx.md) and
+  [Aureal A3D](common/x86/a3d.md),
   [MSVCP60](common/x86/msvcp60.md), and
   [a disassembler](common/x86/disasm.md).
 - **[graphics/](common/graphics/):** [the Glide stand-in](common/graphics/glide.md),

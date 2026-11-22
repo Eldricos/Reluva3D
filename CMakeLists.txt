@@ -180,6 +180,8 @@ reluva_add_tests(common
         ${PROJECT_SOURCE_DIR}/tests/common/tracker.cpp
         ${PROJECT_SOURCE_DIR}/tests/common/windows_resources.cpp
         ${PROJECT_SOURCE_DIR}/tests/common/windows_kernel.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/gdi.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/windows_dialogs.cpp
         ${PROJECT_SOURCE_DIR}/tests/common/directmusic.cpp
         ${PROJECT_SOURCE_DIR}/tests/common/portmap.cpp
         ${PROJECT_SOURCE_DIR}/tests/common/crypto.cpp
@@ -188,7 +190,7 @@ reluva_add_tests(common
     TOPICS unit.hashes unit.files unit.archives unit.text unit.audio unit.image unit.video unit.net unit.x86
         unit.jit unit.windows unit.indeo unit.x86_more unit.mmx unit.drives unit.mixer unit.ea_audio unit.prologic
         unit.glide unit.glide_more unit.glide_boards unit.glide_gpu unit.sockets unit.sdl_controller
-        unit.tracker unit.windows_resources unit.windows_kernel unit.directmusic unit.portmap unit.truetype unit.crypto unit.meeting)
+        unit.tracker unit.windows_resources unit.windows_kernel unit.gdi unit.windows_dialogs unit.directmusic unit.portmap unit.truetype unit.crypto unit.meeting)
 # reluva-viewer's Tests window's planning (src/devtools/test_runs.h).
 reluva_add_tests(devtools
     SOURCES ${PROJECT_SOURCE_DIR}/tests/devtools/test_runs.cpp

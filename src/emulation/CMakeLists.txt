@@ -18,7 +18,9 @@ add_library(reluva_emulation STATIC
     x86/msvcp60.cpp
     x86/msvcrt.cpp
     x86/pokes.cpp
+    x86/gdi.cpp
     x86/win32.cpp
+    x86/win32_dialogs.cpp
     x86/win32_files.cpp
     x86/win32_ini.cpp
     x86/win32_locale.cpp
@@ -26,6 +28,7 @@ add_library(reluva_emulation STATIC
     x86/win32_system.cpp
     x86/win32_threads.cpp
     x86/win32_user.cpp
+    x86/win32_windows.cpp
     x86/directx/d3d7.cpp
     x86/directx/ddraw.cpp
     x86/directx/dinput.cpp

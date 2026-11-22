@@ -17,7 +17,11 @@ headers' (`directx/interfaces.cpp`).
     them;
   - blits (stretching, colour keys, colour and depth fills) and flipping
     chains;
-  - palettes and clippers;
+  - palettes and clippers (`GetClipper` among their methods);
+  - `GetDC` and `ReleaseDC`: a [GDI](gdi.md) device context drawing into
+    the surface's pixels, one at a time; an 8-bit surface without a
+    palette takes the primary's colours. A window's GDI drawing lands on
+    the primary surface;
   - the display's gamma ramp (`IDirectDrawGammaControl`, from any
     surface).
 

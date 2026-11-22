@@ -338,7 +338,9 @@ std::optional<uint32_t> DirectDraw::invoke(const ComInterface &iface, int index,
 
 namespace reluva::x86 {
 
-DirectX::~DirectX() = default;
+DirectX::~DirectX() {
+    _s->process.gdi().screen = nullptr;
+}
 
 const DirectX::Frame &DirectX::frame() const {
     return _s->frame;
@@ -346,6 +348,13 @@ const DirectX::Frame &DirectX::frame() const {
 
 DirectX::DirectX(Win32Process &process) : _s(std::make_unique<State>(*this, process)) {
     State *s = _s.get();
+    // A window's GDI drawing lands on the primary surface, as on a screen.
+    process.gdi().screen = [s]() -> std::optional<Gdi::Target> {
+        const auto primary = s->primary.lock();
+        if (!primary)
+            return std::nullopt;
+        return primary->gdiTarget();
+    };
     dx::Interfaces &i = s->interfaces;
     for (ComInterface *f : {&i.directDraw, &i.directDraw2, &i.directDraw4, &i.directDraw7, &i.surface, &i.surface2,
                             &i.surface3, &i.surface4, &i.surface7, &i.palette, &i.clipper, &i.gammaControl,

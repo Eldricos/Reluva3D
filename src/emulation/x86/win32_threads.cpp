@@ -599,6 +599,46 @@ void Win32Process::addThreadStandIns() {
             [waitMany](Cpu &c) { return waitMany(c, c.arg(0), c.arg(1), c.arg(2) != 0, c.arg(3)); });
     stdcall(k, "WaitForMultipleObjectsEx", 5,
             [waitMany](Cpu &c) { return waitMany(c, c.arg(0), c.arg(1), c.arg(2) != 0, c.arg(3)); });
+    // MsgWaitForMultipleObjects(count, handles, wait all, timeout, wake
+    // mask): as WaitForMultipleObjects, but a message in the queue (or a
+    // timer due) ends the wait too, as WAIT_OBJECT_0 + count.
+    stdcall("USER32.dll", "MsgWaitForMultipleObjects", 5, [this, isSignaled, take, endIfEnding](Cpu &c) {
+        const uint32_t count = std::min(c.arg(0), 64u);
+        std::vector<uint32_t> hs;
+        for (uint32_t i = 0; i < count; ++i)
+            hs.push_back(c.read32(c.arg(1) + 4 * i));
+        const bool all = c.arg(2) != 0;
+        int which = -1;
+        auto ready = [&] {
+            which = -1;
+            if (!_messages.empty() || timerDue()) {
+                which = int(count);
+                return true;
+            }
+            if (all)
+                return !hs.empty() && std::all_of(hs.begin(), hs.end(), isSignaled);
+            for (size_t i = 0; i < hs.size(); ++i)
+                if (isSignaled(hs[i])) {
+                    which = int(i);
+                    return true;
+                }
+            return false;
+        };
+        const bool ok = wait(ready, c.arg(3));
+        endIfEnding(c);
+        if (!ok)
+            return kWaitTimeout;
+        ready();
+        if (which == int(count))
+            return count;
+        if (all) {
+            for (uint32_t h : hs)
+                take(h);
+            return 0u;
+        }
+        take(hs[size_t(which)]);
+        return uint32_t(which);
+    });
 
     // Critical sections, in the program's own structure: lock count (+4),
     // recursion count (+8), owning thread (+12).

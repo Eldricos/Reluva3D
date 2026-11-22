@@ -7,6 +7,7 @@
 #pragma once
 
 #include "emulation/x86/com.h"
+#include "emulation/x86/gdi.h"
 #include "emulation/x86/directx/directx.h"
 
 #include <array>
@@ -233,6 +234,11 @@ public:
     ///@}
     /** A pixel as 0xAARRGGBB. */
     uint32_t argb(int x, int y) const;
+    /**
+     * Its pixels as GDI draws into them: an 8-bit surface without a palette
+     * of its own takes the primary's colours.
+     */
+    Gdi::Target gdiTarget() const;
     /** The palette's 256 colours as 0xAARRGGBB, or nullptr. */
     const uint32_t *paletteArgb() const;
     /** Notes that the pixels may have changed (d.version). */

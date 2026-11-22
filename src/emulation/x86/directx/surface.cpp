@@ -271,6 +271,26 @@ void Surface::setPixel(int x, int y, uint32_t v) {
     }
 }
 
+Gdi::Target Surface::gdiTarget() const {
+    Gdi::Target t;
+    t.memory = d.memory;
+    t.width = d.width;
+    t.height = d.height;
+    t.pitch = d.pitch;
+    t.bits = int(d.format.bits);
+    t.redMask = d.format.r;
+    t.greenMask = d.format.g;
+    t.blueMask = d.format.b;
+    const uint32_t *colors = paletteArgb();
+    if (!colors)
+        if (const auto primary = s->primary.lock())
+            colors = primary->paletteArgb();
+    if (colors)
+        for (size_t i = 0; i < 256; ++i)
+            t.palette[i] = colors[i] & 0xffffff;
+    return t;
+}
+
 const uint32_t *Surface::paletteArgb() const {
     return palette ? palette->argb.data() : nullptr;
 }
@@ -352,6 +372,29 @@ std::optional<uint32_t> Surface::invoke(const ComInterface &iface, int index, Cp
         if (!c.valid(c.arg(1), 108))
             return kDDErrInvalidParams;
         writeDesc(c, c.arg(1), *this, 0);
+        return kDDOk;
+    }
+    // GetDC(HDC*): a GDI device context drawing into the surface's pixels,
+    // one at a time; an 8-bit surface without a palette of its own takes
+    // the primary's colours, as GDI matches them.
+    if (m == "GetDC") {
+        constexpr uint32_t kDDErrDcAlreadyCreated = 0x8876026cu;
+        if (dc)
+            return kDDErrDcAlreadyCreated;
+        if (!c.valid(c.arg(1), 4) || d.format.bits == 0 || d.format.fourCC)
+            return kDDErrCantCreateDc;
+        dc = s->process.gdi().createDc(gdiTarget());
+        c.write32(c.arg(1), dc);
+        ++d.version;
+        return kDDOk;
+    }
+    if (m == "ReleaseDC") {
+        constexpr uint32_t kDDErrNoDc = 0x8876024fu;
+        if (!dc || c.arg(1) != dc)
+            return kDDErrNoDc;
+        s->process.gdi().releaseDc(dc);
+        dc = 0;
+        ++d.version;
         return kDDOk;
     }
     if (m == "GetPixelFormat") {
@@ -472,6 +515,17 @@ std::optional<uint32_t> Surface::invoke(const ComInterface &iface, int index, Cp
     }
     if (m == "SetClipper") {
         clipper = com.shared<Clipper>(c.arg(1));
+        return kDDOk;
+    }
+    // GetClipper(IDirectDrawClipper**): the one set, with a reference added.
+    if (m == "GetClipper") {
+        constexpr uint32_t kDDErrNoClipperAttached = 0x88760238u;
+        if (!clipper)
+            return kDDErrNoClipperAttached;
+        if (!c.valid(c.arg(1), 4))
+            return kDDErrInvalidParams;
+        ++clipper->refs;
+        c.write32(c.arg(1), com.pointer(clipper, s->interfaces.clipper));
         return kDDOk;
     }
     if (m == "Flip")

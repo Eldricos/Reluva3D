@@ -24,6 +24,8 @@
 
 namespace reluva::x86 {
 
+class Gdi;
+
 /**
  * Memory handed out from a range of the processor's: first fit, blocks
  * aligned, freed blocks joined with their neighbours. New blocks are zeroed.
@@ -128,6 +130,9 @@ public:
      *        recorded with).
      */
     explicit Win32Process(Cpu &cpu, std::string exeName = "host.exe", bool loadsExe = false, bool stackAtTop = false);
+    ~Win32Process();
+    /** GDI32's objects and device contexts (gdi.h). */
+    Gdi &gdi() { return *_gdi; }
     /** The processor, and the memory the process hands out. */
     ///@{
     Cpu &cpu() { return _cpu; }
@@ -531,6 +536,10 @@ public:
         int height = 0;
         bool visible = false;
         uint32_t classStyle = 0; // its class's (CS_DBLCLKS: it gets double clicks)
+        uint32_t parent = 0;
+        uint32_t id = 0; // a child's (CreateWindowExA's menu argument), a dialog item's
+        bool enabled = true;
+        std::map<int32_t, uint32_t> longs; // SetWindowLongA's, by index
     };
     /** The window with that handle, or null. */
     const Window *window(uint32_t handle) const;
@@ -640,6 +649,23 @@ private:
     void addRegistryStandIns();
     void addLocaleStandIns();
     void addIniStandIns();
+    void addWindowStandIns();
+    void addDialogStandIns();
+    // The state of the standard controls dialogs are made of (win32_dialogs.cpp).
+    struct Control {
+        std::vector<std::string> items; // a list box's
+        std::vector<uint32_t> itemData;
+        int32_t selection = -1;
+        uint32_t check = 0; // a button's
+    };
+    std::map<uint32_t, Control> _controls;
+    // A dialog's result once EndDialog is called, by its window.
+    std::map<uint32_t, uint32_t> _dialogResults;
+    /**
+     * Makes a dialog from its template in a module's resources (an id, or a
+     * name's address), its items as child windows; WM_INITDIALOG is sent.
+     */
+    uint32_t createDialog(Cpu &c, uint32_t instance, uint32_t name, uint32_t parent, uint32_t proc, uint32_t param);
     struct WindowClass {
         uint32_t proc = 0;
         uint32_t style = 0;
@@ -665,6 +691,23 @@ private:
         uint32_t lParam;
     };
     std::vector<Message> _messages;
+    // SetTimer's: WM_TIMER is made when one is due and nothing else is queued.
+    struct WindowTimer {
+        uint32_t window = 0;
+        uint32_t id = 0;
+        uint32_t intervalMs = 0;
+        uint64_t dueMs = 0;
+        uint32_t proc = 0;
+    };
+    std::vector<WindowTimer> _windowTimers;
+    uint32_t _nextTimerId = 1;
+    uint32_t _capture = 0;
+    uint32_t _focus = 0;
+    // Whether a timer is due; the one due soonest (of a window's, or any if
+    // 0) as its WM_TIMER, its next due time set, or nothing.
+    bool timerDue() const;
+    std::optional<Message> takeDueTimer(uint32_t window);
+    std::unique_ptr<Gdi> _gdi;
     int _cursorShown = 0;
     struct RegistryKey {
         std::string path; // as first given

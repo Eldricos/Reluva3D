@@ -77,7 +77,7 @@ C++ library have pages of their own ([directx.md](directx.md),
   kept as it was), through `mapPath` or the drives, so a drive's writes
   go to its writable folder. A file named without a folder is in
   `C:\WINDOWS`.
-- **`win32_user.cpp`: USER32 and GDI32.** Window classes and windows, kept
+- **`win32_user.cpp`: USER32 and GDI32's start.** Window classes and windows, kept
   as records (procedure, place, size, visibility) that the engine can show
   as it likes. Making one sends `WM_NCCREATE` and `WM_CREATE`. Showing it
   first activates it (`WM_ACTIVATEAPP`, `WM_ACTIVATE`, `WM_SETFOCUS`).
@@ -89,7 +89,37 @@ C++ library have pages of their own ([directx.md](directx.md),
   - frames and captions are Windows 98's sizes;
   - the mouse pointer, and the desktop's size and colour depth, which the
     engine sets;
-  - `MessageBoxA` is reported and answered so the program goes on.
+  - `MessageBoxA` is reported and answered so the program goes on;
+  - `GetSystemMetrics` answers for the screen, frames, icons and cursors,
+    and that there's a mouse with three buttons.
+  GDI32's own objects and drawing are [gdi.md](gdi.md)'s.
+- **`win32_windows.cpp`: windows past their making.** Their parents,
+  IDs, text and longs (`GetWindowLongA`, `SetWindowLongA`, the window
+  procedure and styles among them), enabling, focus and capture,
+  `ScreenToClient` and `WindowFromPoint`, `MoveWindow`,
+  `CallWindowProcA`; painting (`InvalidateRect` queues one `WM_PAINT`;
+  `GetUpdateRect` is the client area until it's handled); timers
+  (`SetTimer`, `KillTimer`: `WM_TIMER` comes when one is due and nothing
+  else is queued, from `PeekMessageA` and `GetMessageA`, and
+  `DispatchMessageA` calls a timer's own procedure); `GetMessageA`, which
+  waits (with host threads, letting the others run);
+  `SystemParametersInfoA` (the work area, the screen saver off);
+  `LoadStringA` from the program's string table; and scroll bars, kept
+  but not drawn. With host threads, `MsgWaitForMultipleObjects` is a
+  wait that a message or a due timer also ends. Rectangles (`SetRect`,
+  `IntersectRect`, `UnionRect`, `PtInRect`...), `wsprintfA` and
+  `IsCharAlphaNumericA` are in `win32_user.cpp`. Drawing is
+  [GDI's](gdi.md).
+- **`win32_dialogs.cpp`: dialogs.** A dialog made from its template in a
+  module's resources (`DLGTEMPLATE` or `DLGTEMPLATEEX`), sized in dialog
+  units of MS Sans Serif 8 (6 by 13 pixels), its items child windows of
+  the standard classes; `WM_INITDIALOG` to its procedure, which
+  `DefDlgProcA` calls for every message; `CreateDialogParamA`,
+  `DialogBoxParamA` (its own message loop until `EndDialog`, the parent
+  disabled), `GetDlgItem` and `SendDlgItemMessageA`. The controls keep
+  their state and answer their messages: text, buttons' checks (auto
+  radio buttons unchecking their group, `BM_CLICK` telling the dialog),
+  list boxes' items, selection and data. Nothing is drawn yet.
 - **`win32_registry.cpp`: the registry and COM.** An in-memory registry,
   seeded with the installed locales. The engine can add an installer's
   values and hear of the program's writes. `CoCreateInstance` asks the
@@ -213,10 +243,15 @@ executable's entry point on the main thread until it ends the process.
   its movement since the last read, its buffer) and keyboard.
 - **Confidence:** published unless marked.
 
+- `tests/common/windows_dialogs.cpp` (`common.unit.windows_dialogs`)
+  makes a dialog from a template in a DLL built in the test, clicks its
+  radio buttons and fills its list box; it checks a window's longs and
+  text, a timer's `WM_TIMER`, rectangles and `wsprintfA`.
 - `tests/common/windows_kernel.cpp` (`common.unit.windows_kernel`)
   reads and writes an INI file on a drive (the writes kept apart), and
   checks the locale's answers, string comparison, global memory, a
-  FILETIME's date and `FormatMessageA`.
+  FILETIME's date and `FormatMessageA`, and that a search finds a folder
+  of the drive's own though the writable folder has one beside it.
 - `tests/common/drives.cpp` (`common.unit.drives`) checks the drives'
   paths, a new file's folder, and a serial port read plainly and
   overlapped.
