@@ -1,57 +1,44 @@
 # The Sith engine
 
-<!-- One or two sentences: what the engine runs, and whether it's meant for
-one game or a family of games (then see docs/DOCUMENTATION_STANDARD.md,
-for its games/ folders). -->
-Engine id `sith`, in `src/engines/sith/`.
+Engine id `sith`, in `src/engines/sith/`. It's meant for the family of
+LucasArts games on the Sith engine, which share Jedi Knight's files (GOB
+archives, text levels and models, COG scripts), starting with Jedi Knight:
+Dark Forces II; its expansion, Mysteries of the Sith, would be the next.
 
 ## Games
 
-<!-- A row per game. Releases are recognised by the files in `kVariants`
-(src/engines/sith/sith.cpp), made with `reluva --hash <files...>`. -->
-
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
-| | | | | | Not yet recognised |
+| [Jedi Knight: Dark Forces II](games/jk/README.md) | `jk` | LucasArts, 1997 | Windows | US retail, two CDs, unpatched | Recognised, its CDs found; nothing of the game runs yet |
 
 ## Where it stands
 
-<!-- What works now, in a few lines, kept up to date. Plans, phases and
-dated progress go in PLAN.md (docs/templates/plan.md), not here. -->
-Started from the template: it recognises nothing yet, and shows an empty
-screen.
+Jedi Knight's install is recognised and its CDs are found; the engine
+shows an empty screen. See the game's [README](games/jk/README.md) and
+[PLAN.md](games/jk/PLAN.md).
 
 ## Using it
 
-<!-- What a player needs: which folder to add (or import from a CD), any
-settings, the keys. On an engine for a family of games, where each game's
-README says this, a line pointing to them. -->
+Add Jedi Knight's install in the launcher (*Add Game...*). The game's
+[README](games/jk/README.md#using-it) says where it looks for the CDs.
 
 ## This folder
 
 | Page | What's in it |
 |---|---|
-| This page | The games, where the engine stands, how to use it |
-| `formats/` | A page per file format, as it's worked out |
-| `systems/` | A page per part of how the game behaves (scripts, dialogue, saves, AI...) |
-| `research/` | Working notes: address maps, raw findings, notes on recordings |
-| [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
-| [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
-| [TESTING.md](TESTING.md) | The tests, and what to check by hand |
-| [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was worked out, and the tools |
+| This page | The engine, its games |
+| [games/jk/](games/jk/README.md) | Jedi Knight: its formats, plan, tests and how it was worked out |
 
-<!-- Link each folder once it has pages, and list its pages. The layout is
-described in docs/DOCUMENTATION_STANDARD.md; page templates are in
-docs/templates/. -->
+What every game would share stays with Jedi Knight's pages until a second
+game is found to share it (docs/DOCUMENTATION_STANDARD.md).
 
 ## Code
 
-<!-- Where things are in src/engines/sith/. Keep files by topic in
-subfolders as it grows (the game's formats, its pages, its game logic). -->
-
 | Path | What |
 |---|---|
-| `sith.cpp` | The `MetaEngine` (name, detection table, making an `Engine`) and the `Engine` |
+| `sith.cpp` | The `MetaEngine` (detection, making an `Engine`) and the `Engine`: an empty screen for now |
+| `games.cpp` | The games and their releases |
+| `folders.cpp` | Telling the CDs apart, and finding them for an install |
 | `tools/` | `reluva-tool sith` commands (`reluva-tool help sith` lists them) |
 
 ## Tests
@@ -60,13 +47,11 @@ subfolders as it grows (the game's formats, its pages, its game logic). -->
   (`tests/engines/sith/`).
 - A game-files test, when it has one: see
   [docs/DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests).
-- What they cover, and what to check by hand: [TESTING.md](TESTING.md).
+- What they cover, and what to check by hand: the game's
+  [TESTING.md](games/jk/TESTING.md).
 
 ## Terms
 
-<!-- Words of the engine's own (its formats, its parts, the original's
-names for them) that its pages use without explaining: a line each, in a
-few words, with a link to the page that says more. Delete this section if
-there are none. -->
-
-- **<term>:** <what it is, in a few words>.
+- **Sith:** LucasArts' engine for Jedi Knight, as the source file names
+  in `JK.EXE`'s error messages call it (`sithWorld.c`, `sithThing.c`).
+- **GOB:** the games' archives (`.gob`), holding their data files.

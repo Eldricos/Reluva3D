@@ -6,7 +6,9 @@
 reluva_add_engine(sith
     ACCESSOR sithMetaEngine
     SOURCES
-        sith.cpp)
+        sith.cpp
+        folders.cpp
+        games.cpp)
 
 # Its reluva-tool commands (reluva-tool help sith lists them).
 reluva_add_engine_tools(sith
@@ -20,9 +22,10 @@ set(tests ${PROJECT_SOURCE_DIR}/tests/engines/sith)
 reluva_add_engine_tests(sith
     SOURCES
         ${tests}/unit/detection.cpp
+        ${tests}/unit/folders.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection engine)
+        unit.detection unit.folders engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):
