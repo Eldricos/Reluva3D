@@ -30,7 +30,8 @@
 # tests/engines/nfs/data/gamedata/nfs2se-<release>/<step>.txt, hold only
 # counts and checksums. The step passes when its record is the same as the
 # committed one. Records so far: nfs2se-en-windows (the US CD's English
-# install, made on Linux).
+# install, made on Linux; the survey's file listing on Windows, from the
+# whole copy, its install with the set-up's patch.exe).
 #
 # Environment: RELUVA_NFS2SE, the install; and those of the shared helpers
 # (cmake/ReluvaGamedata.cmake): RELUVA_GAMEDATA_UPDATE=1,
