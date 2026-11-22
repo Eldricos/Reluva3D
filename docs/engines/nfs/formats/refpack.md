@@ -1,4 +1,4 @@
-# Need for Speed III: RefPack compression (`.qfs`)
+# Need for Speed: RefPack compression (`.qfs`)
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/refpack.cpp` · **Checked on:** every compressed file · **Confidence:** confirmed unless marked
 

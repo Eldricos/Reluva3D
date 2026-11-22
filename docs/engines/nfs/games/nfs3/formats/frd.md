@@ -351,7 +351,7 @@ slices, then puts `+0x10` back (`0x41f018`).
 The byte
 at 3 is the music zone, 4-9: the game
 sends it to the Pathfinder map as an event when the car nears a slice
-where it changes ([mus.md](mus.md), The events the game sends).
+where it changes ([mus.md](../../../formats/mus.md), The events the game sends).
 
 The Tracks page shows each light as the game's two quads facing the
 camera (`lightQuads`), in its type's colour and size and blinking as the

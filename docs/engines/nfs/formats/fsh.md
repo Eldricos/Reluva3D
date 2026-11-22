@@ -1,4 +1,4 @@
-# Need for Speed III: `.fsh` pictures ("SHPI")
+# Need for Speed: `.fsh` pictures ("SHPI")
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/fsh.cpp` · **Checked on:** every picture bank · **Confidence:** confirmed unless marked
 
@@ -77,7 +77,7 @@ Attached blocks after the picture:
   marks textures drawn additively. Strings such as `A200 B45 R25 ROTATE`
   or `A0 B45 R30 INFRONT NOADD` sit on the sun pictures of each track's
   `sky.fsh` (`SUND`, `SUNN`, `SUNW`: day, night, weather) and on similar
-  sprites. On the sun, from the game's code ([hrz.md](hrz.md), What the
+  sprites. On the sun, from the game's code ([hrz.md](../games/nfs3/formats/hrz.md), What the
   game does with it):
   - `A` and `B`, in degrees, place it at (cos A, cos B, sin A) × 3000;
   - `R` × 10 is how far its corners are from its centre;
@@ -183,7 +183,7 @@ Attached blocks after the picture:
 - **`sky.fsh`'s other pictures.** `CLDD`, `CLDN`, `CLWD` and `CLWN` are
   the cloud tiles. `CHRD`, `CHRN`, `CHRW` and `CHNW` are sphere maps, a
   ball's worth of sky, ground and horizon: the cars' reflections. The
-  horizon picture is in the track's texture sheet ([hrz.md](hrz.md)).
+  horizon picture is in the track's texture sheet ([hrz.md](../games/nfs3/formats/hrz.md)).
 
 Of the install's 16-bit 1:5:5:5 pictures, 2,897 are fully opaque, 636 mix opaque and
 clear pixels, and 24 are entirely clear.
@@ -201,12 +201,12 @@ Each track has two sets of each texture file:
 
 The 8-bit sets are the software renderer's: with `softtria.dll` the game
 loads `trNNN_8.qfs` (the renderer's number decides, `0x7a3a58`; see
-[hrz.md](hrz.md)). The Summit's two 8-bit sets are compressed with EA's
+[hrz.md](../games/nfs3/formats/hrz.md)). The Summit's two 8-bit sets are compressed with EA's
 Huffman scheme ([refpack.md](refpack.md)). The Tracks page shows them
 with `X`, after the two 16-bit sets.
 
 A track's polygons name their pictures by place in the sheet, not by
-name, and the names skip or repeat on most sheets ([frd.md](frd.md),
+name, and the names skip or repeat on most sheets ([frd.md](../games/nfs3/formats/frd.md),
 Textures).
 
 ## In Reluva

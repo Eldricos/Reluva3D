@@ -64,8 +64,9 @@ launcher>` shows its files.
 | [TESTING.md](TESTING.md) | The tests, and what to check by hand |
 | [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was worked out, and the tools |
 
-The formats it shares with NFS III are on NFS III's pages until each is
-checked on both games' files ([PLAN.md](PLAN.md), Phase 2).
+The formats it shares with NFS III are the engine's
+([../../formats/](../../formats/)): archives, pictures, text, fonts,
+sound banks and music.
 
 ## Terms
 

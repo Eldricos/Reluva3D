@@ -6,7 +6,7 @@
 
 The game's movies, on the CD in `fedata/movies`: EA's "Madcow" video
 frames between audio blocks, in the same chunks as the music streams
-([mus.md](mus.md)).
+([mus.md](../../../formats/mus.md)).
 
 ## Layout
 
@@ -20,7 +20,7 @@ included):
 | `MADk` | a key frame: every block coded on its own |
 | `MADm` | an inter frame: blocks may be copied from the frame before |
 | `MADe` | an inter frame that later frames don't refer to (none on this CD) |
-| `SCHl`, `SCCl`, `SCDl`, `SCEl` | one audio stream, as a music segment ([mus.md](mus.md)): stereo EA-XA, 22,050 Hz |
+| `SCHl`, `SCCl`, `SCDl`, `SCEl` | one audio stream, as a music segment ([mus.md](../../../formats/mus.md)): stereo EA-XA, 22,050 Hz |
 
 Each audio block follows the frame it belongs with. The four movies are
 320×240 at 15 frames a second. A key frame comes every fifth frame.
@@ -328,7 +328,7 @@ October 2026.
 
 - **The file.**
   - The chunk layout was read off hex dumps: the same chunks as the music
-    streams ([mus.md](mus.md)), with video frames between the audio
+    streams ([mus.md](../../../formats/mus.md)), with video frames between the audio
     blocks.
   - The fields of the frame header were found by comparing the four
     movies.

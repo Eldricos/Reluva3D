@@ -132,7 +132,7 @@ pixels. In the first frames after the poke the sky is still drawn
     (210, 205, 157) at the first two edges, as computed.
 - **The sun**, unfogged, added (unless `NOADD`). With `INFRONT` it comes
   after the clouds instead (`0x47a190`), still before the earth and
-  horizon. Its picture's text (`A200 B45 R25 ROTATE`, [fsh.md](fsh.md))
+  horizon. Its picture's text (`A200 B45 R25 ROTATE`, [fsh.md](../../../formats/fsh.md))
   places it (`0x47ab40`):
   - **Where.** At (cos A, cos B, sin A) × 3000 in the track's
     coordinates, A and B in degrees. So A is a heading of

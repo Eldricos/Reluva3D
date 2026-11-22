@@ -146,7 +146,7 @@ In `nfs3.exe`: rows at `0x552864`.
 Two tables of 10 pairs of ints, for forward (`0x552864`) and backward
 (`0x5528b4`, when `0x6fd4c0`), read at a race's sound set-up
 (`0x4129c0`) into `0x571240` (first) and `0x571238` (second). They are
-**music zones** ([mus.md](mus.md)): the zone the lap starts in and the
+**music zones** ([mus.md](../../../formats/mus.md)): the zone the lap starts in and the
 one it ends in.
 
 | Track | Forward | Backward |
@@ -165,7 +165,7 @@ gives the music's own lap number (`0x552860`, 0 to laps − 1), which
 sets the music's control value by the lap (`0x4133ad`). A left-over
 debug print says it: `acutal lap=%d false lap=%d actual counter=%d`
 (`0x5369e8`, to an empty function `0x42d510`). Hometown's zones 4, 5,
-6, 7 ([mus.md](mus.md)) fit its pair 4, 7.
+6, 7 ([mus.md](../../../formats/mus.md)) fit its pair 4, 7.
 
 **What the pairs are for** (October 2026). The music's lap is also set
 from the car's own lap count (+0x204) when that changes, in the lap
@@ -214,7 +214,7 @@ line.
 race on each of tracks 0-8, the player's car driven by the computer).
 The car was put 54-80 slices before its lap's last zone change (the
 position, a still velocity, +0x1C and +0x4 poked every 100 ms of steps
-700-760, as the moving objects' runs in [bnk.md](bnk.md)), so it drove
+700-760, as the moving objects' runs in [bnk.md](../../../formats/bnk.md)), so it drove
 through the change on its own after the first 600 steps. Watched at
 `0x4135c6` (a zone change: dl the new zone, dh the old), `0x413645`
 (a lap counted, eax +1 or −1) and `0x4132f4` (the car's own lap), with
@@ -249,7 +249,7 @@ line does. Backward the change came at the slice just below zone 5's
 first (189, 171, 197, 170 for its 190, 172, 198, 171), on Country Woods
 and Hometown with +0x1C at 186 for 191. The zone
 changed with +0x1C on the new zone's first slice each time, with no
-look-ahead ([mus.md](mus.md)). Two runs show the wrong-way branch
+look-ahead ([mus.md](../../../formats/mus.md)). Two runs show the wrong-way branch
 too, as a side effect of the poke: on Summit and on every backward run
 the jump onto the far slice came with the wrong-way flag (+0x998) set
 (the car still facing the grid's way), and the jump's zone change (4 to

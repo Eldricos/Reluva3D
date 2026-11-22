@@ -1,4 +1,4 @@
-# Need for Speed III: `.viv` archives
+# Need for Speed: `.viv` archives
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/viv.cpp` · **Checked on:** every archive · **Confidence:** confirmed unless marked
 

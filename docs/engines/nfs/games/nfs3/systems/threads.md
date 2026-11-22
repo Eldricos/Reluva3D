@@ -177,8 +177,8 @@ and at each 32nd step the target was the step or at most 3 ahead
    1 for the leader, to +0x2BC);
 6. on odd counts, before the add (so 32 Hz), updates the sound
    (`0x411410`: the engines `0x417390`, the music's zones and laps
-   `0x4133ad`-`0x4136c6`; see [bnk.md](../formats/bnk.md) and
-   [mus.md](../formats/mus.md)).
+   `0x4133ad`-`0x4136c6`; see [bnk.md](../../../formats/bnk.md) and
+   [mus.md](../../../formats/mus.md)).
 
 **Seen in footage** (YouTube clips of 18 races, e.g. `Hometown_Day`,
 clip times). A loading screen with the car, then a camera flies along

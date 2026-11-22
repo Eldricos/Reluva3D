@@ -1,4 +1,4 @@
-# Need for Speed III: `.bnk` sound banks and EA's audio codecs
+# Need for Speed: `.bnk` sound banks and EA's audio codecs
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/bnk.cpp`, `src/audio/ea_audio.cpp` · **Checked on:** every bank read and decoded · **Confidence:** confirmed unless marked
 
@@ -308,7 +308,7 @@ and `Gen.bnk` 29, 32 and 41 (a scratch script, not in the repo):
   apart. In the other order the two agree (RMS 211, the gain). So only
   then does the order of the voices matter, and only with MMX.
 
-The interpreter decodes MMX ([x86.md](../../../../../common/x86/README.md)), and
+The interpreter decodes MMX ([x86.md](../../../common/x86/README.md)), and
 `reluva-tool nfs host -mmx` has CPUID report it. Every MMX instruction in
 `nfs3.exe` was found by a scan of the code database (`tools/nfs-re`,
 358 instructions in 19 routines; a linear sweep of `.text` with
@@ -487,7 +487,7 @@ multiplies it and the cap is applied after, at `0x41749e`. The 1000 is
 the gearbox: the car's set-up record (car +0x220; player 1's is
 `0x6fd52c`) has +0x1C 1 for the automatic (`0x6fd548`), and with the
 manual it is 2000. 500 comes off while the car's +0x164 is above 5:
-that is the time in the air ([physics.md](../systems/physics.md)), not the gear.
+that is the time in the air ([physics.md](../games/nfs3/systems/physics.md)), not the gear.
 The Doppler factor (`0x4124d0`, 16.16) is 1 for the player's own car:
 the idle figures below match with it so.
 So a Corvette (root key 74, fine tune 28, range 15, redline 6000) idling
@@ -598,7 +598,7 @@ loads the banks into a table of 12-byte entries at `0x571124`
 | 8 | `copspch` | `0x4141d0` |
 | 9-14 | `tutor` (9), `vocasst` (10), the `off%02xA`-`C` (11-13) and `disp%02x` (14) speech, numbered by the track modulo 4 (Seen in footage, below) | `0x4144f3`-`0x4147e1` |
 | 22 | another traffic bank (`s...`) | `0x413e0a` |
-| 15 on | in a Hot Pursuit, one per racer (`0x56ee28`[car]): `IP<colour>spch.bnk` from the car's `IPspch<language>.viv` (colours bk, bl, br, dk, gr, lt, or, pu, rd, sv, wt, yl), or `IPncspch.bnk` (no colour) about one time in six; the car named on the radio, slot 0x00 for the dispatcher and 0x10, 0x20, 0x30 for the officers' voices ([physics.md](../systems/physics.md), The radio) | `0x40a010`, `0x413750` |
+| 15 on | in a Hot Pursuit, one per racer (`0x56ee28`[car]): `IP<colour>spch.bnk` from the car's `IPspch<language>.viv` (colours bk, bl, br, dk, gr, lt, or, pu, rd, sv, wt, yl), or `IPncspch.bnk` (no colour) about one time in six; the car named on the radio, slot 0x00 for the dispatcher and 0x10, 0x20, 0x30 for the officers' voices ([physics.md](../games/nfs3/systems/physics.md), The radio) | `0x40a010`, `0x413750` |
 
 `0x4138e0` loads the cars' banks (`scar.bnk`, `car.bnk`, `ocar.bnk`) at
 an index it is passed (+0 the bank, +8 its memory, as `0x410b50`).
@@ -625,7 +625,7 @@ stride): slots 0-3 0, 1, 0, 1; 4-15 2; 16 0; 17 22; 18-21 3; 22-25 2;
 26 3; 27-30 1; 31 2; 32-35 3; 36 0; 37 22. So the other cars' skids (slots 22-25) and the
 player's (8-11) are `Gen.bnk` slots 41-47 (`0x414d70`), and the moving
 objects' sounds (slots 20, 21) are slots of the track's bank. The voice
-slots are listed in [nfs.md](../PLAN.md) (Dolby, which voices
+slots are listed in [nfs.md](../games/nfs3/PLAN.md) (Dolby, which voices
 are behind).
 
 ### The moving objects' sounds
@@ -798,7 +798,7 @@ esi being the kept object's record):
   at 105.9 s, 127 from 106.6 s), and the mixer's sum goes from
   silence to sound at 105.6 s. The only other voice then is slot 18,
   the track's loop, which asks for sound 12 of the 12-slot bank (0-11;
-  [frd.md](frd.md)) at volume 1-3 from 98.0 to 100.0 s: nothing plays.
+  [frd.md](../games/nfs3/formats/frd.md)) at volume 1-3 from 98.0 to 100.0 s: nothing plays.
   Slot 21 (object 2) starts at 109.76 s.
 
 **When they come naturally** (November 2026). The cycle runs from the
@@ -933,7 +933,7 @@ menus, and the few in races don't hold over the sound's whole length.
 The one a frame bears out is `Country_Woods_Day` 2:39.4, the car
 sliding into a snow bank: slot 30 at −280 cents (correlation 0.46 over
 0.4 s), where a code-5 bank should give slot 29
-([col.md](col.md)). One match isn't enough to say which.
+([col.md](../games/nfs3/formats/col.md)). One match isn't enough to say which.
 
 **The moving objects.** None heard, though they play (runs above, The
 moving objects' sounds). Sounds 6, 7 and 8 (`Redrock_Ridge`,
@@ -944,7 +944,7 @@ loop played at volume 5 of 127 or less as it came into reach. The
 night clips have no sound 31 or 0 to find (above).
 
 **Sirens and speech** (the Hot Pursuit clips):
-- `Summit_Night` (a racer's pursuit, [physics.md](../systems/physics.md)) has a
+- `Summit_Night` (a racer's pursuit, [physics.md](../games/nfs3/systems/physics.md)) has a
   wail at 7:20-7:27.5, the shape of `siren.bnk` slot 0 (up to about
   1.2 kHz and down), then a yelp, slot 1 (7:27.7, correlation 0.48).
   Slot 1 also plays in `Aquatica_Day` (4:29.8, 4:37.8) and
@@ -966,7 +966,7 @@ night clips have no sound 31 or 0 to find (above).
   `off00C` slot 17 and `disp00` slot 16 are heard where the log puts
   them. At the player's ticket (`c3-spch`) `copspch` slot 18 plays,
   with the radio muted. Which slot is said when is in
-  [physics.md](../systems/physics.md) (The radio), and what each says in What
+  [physics.md](../games/nfs3/systems/physics.md) (The radio), and what each says in What
   the radio lines say, below.
 
 ### What the radio lines say
@@ -976,7 +976,7 @@ Worked out in November 2026 (`c5-speech`): the English `off00A`-`C`,
 were decoded with `bnk-wav` and run through a local speech-to-text
 model (faster-whisper `small.en`, on the CPU), then matched to the
 slots the code asks for (`0x40ab20` and the call routines,
-[physics.md](../systems/physics.md), The radio). The words aren't kept here, only
+[physics.md](../games/nfs3/systems/physics.md), The radio). The words aren't kept here, only
 what each line is for. Slot numbers are hex. A range means the code
 picks one at random.
 
@@ -1040,7 +1040,7 @@ differ only in the unit numbers, the dispatch name and the places.
 | 0x60-0x7F | the same places with "near" or "from" | `0x40aeb0` (place + 0x20) |
 | 0x7E, 0x7F | "a quarter mile", "a half mile", said before a "from" place | `0x40aeb0`: 0x7F when the nearest place is over 100 slices off, 0x7E over 50 |
 
-Heard in runs ([physics.md](../systems/physics.md), Radio runs; the cars' roofs
+Heard in runs ([physics.md](../games/nfs3/systems/physics.md), Radio runs; the cars' roofs
 poked: no car turned over in the runs without it; physics.md, What a disabled cop
 or a crash needs): a disabled cop said 0x1F then the wrecker 0x1D and a place, a
 crash 0x1B and a place, and the places along Hometown came from its

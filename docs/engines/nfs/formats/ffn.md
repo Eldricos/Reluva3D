@@ -1,4 +1,4 @@
-# Need for Speed III: fonts (`.ffn`, "FNTF")
+# Need for Speed: fonts (`.ffn`, "FNTF")
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/ffn.cpp` · **Checked on:** every font · **Confidence:** confirmed unless marked
 

@@ -1,4 +1,4 @@
-# Need for Speed III: music (`.mus`, `.map`, `.lin`)
+# Need for Speed: music (`.mus`, `.map`, `.lin`)
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/mus.cpp` · **Checked on:** every stream and map · **Confidence:** confirmed unless marked
 
@@ -95,14 +95,14 @@ game's calls to it (`0x4131xx`-`0x4136c6`, `0x418990`):
 - **The events the game sends:**
   - **4-9, the track's zones.** Every track has a music zone at each
     slice: byte 3 of the FRD block's 8-byte position records
-    ([frd.md](frd.md)). The game reads it at the car's own slice
+    ([frd.md](../games/nfs3/formats/frd.md)). The game reads it at the car's own slice
     (car +0x1C) and sends it when it changes. `0x4211c0` works out a
     look-ahead from the car's velocity ((|x| + |z|) × 65536, +0xA4 and +0xAC) and then
     replaces it with 0 (`0x421227`); the ±16 slices left after it
     (`0x42122b`, `0x421232`, the sign by the wrong-way flag +0x998)
     are reached by no jump (November 2026, read again), so it isn't 16
     ahead. In the runs of
-    [tracks.md](tracks.md) (Music laps) each zone change came with
+    [tracks.md](../games/nfs3/formats/tracks.md) (Music laps) each zone change came with
     +0x1C on the zone's first slice (driven backward, on the slice
     just below it: the lookup and the slice numbers are the same both
     ways; the 186 seen for 191 on Hometown and Country Woods backward
@@ -135,7 +135,7 @@ game's calls to it (`0x4131xx`-`0x4136c6`, `0x418990`):
     the last lap (or past lap 5 of an 8-lap race); 0 on lap 0 of a race
     of other than two laps, and on lap 1 of an 8-lap race; else 50;
   - then the number of computer racers, `0x6fd520` (`0x413403`;
-    [physics.md](../systems/physics.md)), changes it:
+    [physics.md](../games/nfs3/systems/physics.md)), changes it:
     - 0: no change;
     - 1: tables by lap (0-7, `0x412d14` and `0x412d34`), one for the car
       in the lead and one for the rest:
@@ -209,7 +209,7 @@ queued as the one before it starts, so it plays a section later.
   needed), in 6th to 8th place. On laps 1 and 2 it was 50, falling to 0
   each time the speed went under 25 m/s and back at 25. The music's lap
   went up 33 s before the line, at Summit's zones 9 to 4 (291.0 s; the
-  car's lap at 324.4 s), as [tracks.md](tracks.md) says.
+  car's lap at 324.4 s), as [tracks.md](../games/nfs3/formats/tracks.md) says.
 - **The 2-lap rule** (`sn-h1`, a 2-lap race): 50 on lap 0, in 8th
   place.
 - **Leading** (`sn-h2`, 4 laps, the car's lap poked to 1 and then 3):
@@ -340,7 +340,7 @@ during the loading and the grid fly-by (0:12.4, 0:11.4), as header byte
 `Summit_Night` and `Rocky_Pass_Night` play `alpitech`'s 190.
 
 **The zones.** Each lap's events come in the order of the FRD's zones
-([tracks.md](tracks.md), Music laps): Hometown, Redrock Ridge and
+([tracks.md](../games/nfs3/formats/tracks.md), Music laps): Hometown, Redrock Ridge and
 Rocky Pass 4, 5, 6, 7; Country Woods 4, 5, 8, 9, 7; Lost Canyons 4, 5,
 8, 9, 6; Summit 4, 5, 8, 9; Atlantica 4, 5, 6; Empire City 4, 5, 6, 7.
 Empire City's one-slice zone 7 (slice 367) leaves no trace: the next
@@ -372,7 +372,7 @@ goes by the place, from 50 on the first lap and 100 on the last:
   follow two slow corners where the needle drops to about 55 mph
   (2:40-2:42, low from 2:42.5; 6:56-6:57, low at 6:57.7): 25 m/s is 56
   mph, so this fits a speed of 25 in m/s. (The dial is mph on the
-  results screen, [physics.md](../systems/physics.md).)
+  results screen, [physics.md](../games/nfs3/systems/physics.md).)
 - **After the finish** the music drops to the low routes within a
   section: `Hometown_Day` 3:34.0 (finish 3:31.2), `Atlantica_Day`
   5:11.9 (5:08.5), `Lost_Canyons_Day` 7:49.0, `Summit_Day` 9:04.4.

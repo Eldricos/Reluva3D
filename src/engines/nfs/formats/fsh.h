@@ -14,7 +14,7 @@ namespace reluva::nfs {
 
 /**
  * Shape record types: the first byte of each block
- * (docs/engines/nfs/games/nfs3/formats/fsh.md).
+ * (docs/engines/nfs/formats/fsh.md).
  */
 enum ShapeType : uint8_t {
     kShape8Bit = 0x7b,      // palette indices

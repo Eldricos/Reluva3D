@@ -1,4 +1,4 @@
-# Need for Speed III: front-end text (`FeData/text/text.*`)
+# Need for Speed: front-end text (`FeData/text/text.*`)
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/text_table.cpp` · **Checked on:** every language's table · **Confidence:** confirmed unless marked
 

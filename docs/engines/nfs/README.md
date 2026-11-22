@@ -45,9 +45,11 @@ has what it needs.
 | This page | The engine, its games |
 | [games/nfs3/](games/nfs3/README.md) | Need for Speed III: its formats, systems, plan, tests and how it was worked out |
 | [games/nfs2se/](games/nfs2se/README.md) | Need for Speed II SE: its plan, tests, and the first survey of its files |
+| [formats/](formats/) | The formats both games read, a page each: [viv.md](formats/viv.md), [refpack.md](formats/refpack.md), [fsh.md](formats/fsh.md), [text.md](formats/text.md), [ffn.md](formats/ffn.md), [bnk.md](formats/bnk.md), [mus.md](formats/mus.md) |
 
-What every game would share stays with NFS III's pages until a second
-game is found to share it (docs/DOCUMENTATION_STANDARD.md).
+A page worked out from one game stays in its folder until the other is
+found to share its format, then comes here
+(docs/DOCUMENTATION_STANDARD.md).
 
 ## Code
 
@@ -76,5 +78,6 @@ game is found to share it (docs/DOCUMENTATION_STANDARD.md).
 
 - **EA's formats:** RefPack (compression), SHPI (`.fsh` picture banks),
   BIGF (`.viv` archives), PT headers (`.bnk`), SCHl streams (`.mus`), MAD
-  movies; NFS III's pages describe each
-  ([games/nfs3/formats/](games/nfs3/README.md#this-folder)).
+  movies; this folder's [formats/](formats/) describes those both games
+  read, NFS III's pages the MAD movies
+  ([games/nfs3/formats/mad.md](games/nfs3/formats/mad.md)).

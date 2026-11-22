@@ -63,7 +63,7 @@ These are the same keyframe paths as the `.frd` file's moving objects
 (Hometown's 141-key loop is in both). The game's object sounds use block 7 only, its
 n-th type-3 object taking row n of a per-track table (`0x410e30`,
 `0x5dd840` set by the loader `0x41dcc0`; id 18 is not read there):
-see [bnk.md](bnk.md), The moving objects' sounds. Block 7 holds 1
+see [bnk.md](../../../formats/bnk.md), The moving objects' sounds. Block 7 holds 1
 object on Hometown (the loop), 4 on Redrock Ridge, 1 on Atlantica (with
 2 more in block 18), 3 on Lost Canyons, 2 on Aquatica, 2 on Summit and
 5 on Empire City. Type 1, a still object with a
@@ -223,7 +223,7 @@ to the points, used in place):
       words: the audio's size and −1; the game's parser, `0x50265b`,
       `0x502686`). So the game needs no allowance. Read as a version-2
       bank its sounds seem two slots up, which is what was seen; see
-      [bnk.md](bnk.md).
+      [bnk.md](../../../formats/bnk.md).
 
     Then, for any wall hit (`0x42b11a`), by car `+0xb8` (its speed by
     the look of it):
@@ -670,7 +670,7 @@ with a second sound at 0:35.08, 0:47-0:52, 1:00.15, 1:09-1:11, 1:20.2,
   car, and the sparks keep half the car's velocity (`+0x34`), so they
   stream back past it.
 - The burst needs `+0xB8` at 22 or more (`0x5537b8`, m/s). The HUD
-  reads `+0x4F4`, the speed along the road ([fsh.md](fsh.md)), so 47
+  reads `+0x4F4`, the speed along the road ([fsh.md](../../../formats/fsh.md)), so 47
   mph is 21.0 m/s along the road; `+0xB8` is max(|vx|, |vz|) + ¼ min,
   which counts the sideways slip of a car scraping a wall too, so 47
   mph on the HUD passing 22 isn't a contradiction.

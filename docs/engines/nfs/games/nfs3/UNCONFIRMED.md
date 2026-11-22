@@ -10,7 +10,7 @@ Open questions has the details of each.
 - How the wall hits' particles look in play, and wall code 3's material
   ([formats/col.md](formats/col.md)).
 - The MMX sound mixer's 8-bit routines: no retail sound is 8-bit, so they
-  run only in `reluva-tool nfs mmx-check` ([formats/bnk.md](formats/bnk.md)).
+  run only in `reluva-tool nfs mmx-check` ([formats/bnk.md](../../formats/bnk.md)).
 
 ## Seen running, not traced in the code
 
