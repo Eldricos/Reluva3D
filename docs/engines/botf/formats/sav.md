@@ -491,7 +491,8 @@ layout.
 every file, decoded, and writes them out again; `writeSavedGame` writes
 a `SavedGame` into them ([below](#writing-a-save)), and `GameState::save`
 does both, naming the save after its file. On the 18 saves, each written
-unchanged comes out the same; one written with the description, the
+unchanged comes out the same; one written (as a test, not as a game
+would be) with the description, the
 Federation's credits and provinces, Sol's population, a planet's name, a
 building's count, a task force's destination and a sector's sight
 changed reads back with those, and only those, changed. The unit tests
@@ -509,8 +510,25 @@ its check. The systems' buildings and the empires' provinces are written
 whole, in the game's layout. The lists must keep their length: a ship,
 task force, treaty or outpost more or fewer, a system's planets, or a
 system becoming the player's (whose record has a production queue more)
-isn't written yet, for want of the rest of their records. Whether the
-game loads a save so written hasn't been tried.
+isn't written yet, for want of the rest of their records.
+
+The game loads saves Reluva wrote (the user, November 2026): one with
+every file compressed again by Reluva and nothing changed, and ones with
+the description, the Federation's credits or a planet's name changed,
+from the Colony game's fifth save. A first try, with many things changed
+at once, crashed the game; among them the Federation was given a
+province it doesn't hold and a task force a destination with no order
+for it, which the game presumably doesn't expect *(guessed)*. What
+Reluva writes must keep the save's files agreeing with each other.
+
+Two of the values didn't show changed in the game. The credits: Reluva
+had changed only the credits now (0x54), and the game seems to start
+from those as the turn began (0x98) and take off what's been bought,
+for at a computer empire's turn the first lags a turn behind the second
+*(inferred)*; Reluva now changes both by the same amount. The planet's
+name was a test's mistake: it renamed Mercury, Sol's first planet, not
+Earth. Sol's planets' names, unlike the generated ones ("Acamar I\n"),
+don't end in a line break; a name Reluva writes ends as the old one did.
 
 ## Sources and checks
 
@@ -538,8 +556,9 @@ game loads a save so written hasn't been tried.
 
 ## Open questions
 
-- Whether the game loads a save Reluva wrote, and whether it checks the
-  directory's checks.
+- Whether the game checks the directory's checks.
+- Which credits figure the game starts from on loading, and whether the
+  credits and a planet's new name then show in the game.
 - Whether the Load Game screen's name field shows the file's name or the
   header's: they're the same in `game0.sav`.
 - Which fill each file's window starts with: settled by a save with a

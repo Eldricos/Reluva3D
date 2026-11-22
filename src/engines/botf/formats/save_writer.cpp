@@ -87,12 +87,15 @@ void writeSector(const SavedSector &s, std::vector<uint8_t> &d, size_t at) {
 }
 
 void writePlanet(const SavedPlanet &planet, std::vector<uint8_t> &d, size_t p) {
-    // The game ends each name with a line break, which the reader drops.
+    // The names the galaxy's making gives ("Acamar I") end in a line break,
+    // which the reader drops; Sol's ("Earth") don't. A new name ends as the
+    // old one did.
     std::string name = field(d, p, 40);
-    if (!name.empty() && name.back() == '\n')
+    const bool lineBreak = !name.empty() && name.back() == '\n';
+    if (lineBreak)
         name.pop_back();
     if (name != planet.name)
-        putText(d, p, 40, planet.name + "\n");
+        putText(d, p, 40, lineBreak ? planet.name + "\n" : planet.name);
     putText(d, p + 0x28, 14, planet.animation);
     put16(d, p + 0x38, planet.size);
     put16(d, p + 0x3A, planet.terraformNeeded);
@@ -252,7 +255,13 @@ Error writeBuildings(const std::vector<SavedSystem> &systems, SaveFiles &save) {
 void writeEmpire(const SavedEmpire &m, std::vector<uint8_t> &d, size_t at) {
     putText(d, at, 40, m.name);
     putText(d, at + 40, 40, m.leader);
-    put32(d, at + 0x54, m.credits);
+    // The credits as the turn began (0x98), which loading the game seems to
+    // start from, change with the credits now; what's been bought since,
+    // the difference between them, stays.
+    if (const int was = s32(d, at + 0x54); was != m.credits) {
+        put32(d, at + 0x54, m.credits);
+        put32(d, at + 0x98, s32(d, at + 0x98) + m.credits - was);
+    }
     put32(d, at + 0x58, m.creditsPerTurn);
     put32(d, at + 0x5C, m.supportCost);
     put32(d, at + 0x60, m.dilithiumPerTurn);

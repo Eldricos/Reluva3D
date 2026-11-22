@@ -4,6 +4,7 @@
 // Birth of the Federation's unit tests: writing alt.res archives and saved
 // games, and the LZSS and checks that takes.
 
+#include "common/bytes.h"
 #include "engines/botf/formats/alt_res.h"
 #include "engines/botf/formats/save_game.h"
 #include "engines/botf/formats/save_writer.h"
@@ -103,7 +104,9 @@ Bytes makeFullSave() {
     set32(info, 0x40, 3);
     info[0x252] = 4;
     Bytes emps(5 * 444, 0);
+    // 1,200 credits now, 1,300 as the turn began: 100 spent.
     set32(emps, 4 * 444 + 0x54, 1200);
+    set32(emps, 4 * 444 + 0x98, 1300);
     Bytes shipHead(40, 0);
     set32(shipHead, 0x10, 116);
     set32(shipHead, 0x18, 1);
@@ -203,6 +206,14 @@ void testWriteSavedGame(const std::filesystem::path &tmp) {
           b.empires[4].systems == g.empires[4].systems);
     CHECK(b.ships[0].name == "IRW Valdore" && b.ships[0].experience == 50);
     CHECK(b.taskForces[0].destinationX == 2 && b.taskForces[0].destinationY == 1);
+    // The credits as the turn began move with them; the planet's new name
+    // ends in a line break, as its old one did.
+    SaveFiles written;
+    CHECK(!written.open(tmp / "game5.sav"));
+    const std::vector<uint8_t> &emps = *written.file("empsInfo");
+    CHECK(readLE32(&emps[4 * 444 + 0x98]) == 1000);
+    const std::vector<uint8_t> &systems = *written.file("systInfo");
+    CHECK(std::string(systems.begin() + 0x328, systems.begin() + 0x328 + 7) == std::string("Remus\n\0", 7));
     // Saved again unchanged: the same file.
     GameState reread;
     CHECK(!GameState::load(tmp / "game5.sav", reread) && !reread.save(tmp / "game5.sav"));
