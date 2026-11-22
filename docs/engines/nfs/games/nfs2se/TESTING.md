@@ -27,8 +27,26 @@ stand-in, which says it can't start it; and the game without the CD's copy, whic
 
 ### The game-files test
 
-Not yet. It's to be registered as `nfs.nfs2se`, run with
-`RELUVA_NFS2SE=<the install>` (docs/DEVELOPMENT.md, Engine tests).
+`tests/engines/nfs/gamedata-nfs2se.cmake`, registered as
+`nfs.nfs2se.gamedata.<step>`, run on the install named by
+`RELUVA_NFS2SE`, with a copy of the CD's files in a folder beside it
+(docs/DEVELOPMENT.md, Engine tests):
+
+```bash
+RELUVA_NFS2SE=<the install> ctest --test-dir build -L gamedata -R nfs2se
+```
+
+| Step | What it records |
+|---|---|
+| `release` | The release detection finds, and whether the CD's copy is beside the install |
+| `survey` | Every file of the install and the CD by name, size and MD5, as one checksum; and every file the engine reads, read and counted (`reluva-tool nfs survey`) |
+| `formats` | Every archive, picture, string table, font, track, model, sound, music section and movie frame decoded, each kind as a checksum (`nfs survey -hash`) |
+| `host` | `nfs2sen.exe` on a clock of instructions (`nfs host -deterministic 300000`): the title movie skipped with Enter, the menu taken to RACE with four Downs, a race at Proving Grounds with Up held; its end state, its system calls and its last frame, as checksums |
+
+The records, `tests/engines/nfs/data/gamedata/nfs2se-en-windows/`, are
+the US CD's English install's, made on Linux. On the instruction clock
+the date is fixed (1 November 1997, every file dated so), so the run is
+the same each time.
 
 ### What the automated checks don't cover
 
@@ -59,6 +77,7 @@ That the real release is recognised by its hashes: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US CD and an install from it | Linux | The game-files test (`RELUVA_NFS2SE`), its four steps twice with the same records; on the host: tournament and knockout races started, the attract mode's movies, the sound recorded (`-wav`) through the movie, menus and a race, the save folder's files, a wheel with force feedback offered (`-joystick -wheel -ff`) and taken |
 | November 2026 | US CD and an install from it | Linux, Xvfb | The game from `reluva-viewer`'s Play page: the title movie, Enter to the menu, Down four times to RACE (each press taken), the race at Proving Grounds, Up held to 132 mph |
 | November 2026 | US CD and an install from it | Linux | `nfs2sen.exe` on the host (`reluva-tool nfs host -deterministic 300000`): the EA logo and title movie, the front end, a race at Proving Grounds driven with the keys, at about 39 frames a second ([research/hosted-spike.md](research/hosted-spike.md)) |
 | November 2026 | US CD and an install from it | Linux | `reluva-tool nfs survey` over the CD: 15 movies, 9,340 frames and 15 soundtracks read, none failing; frame 100 of every movie and every 50th of `F355AV.DCT` (`dct-frames`) against FFmpeg's decoding: within 8 in 255 per colour; the Movies page drawn (`reluva-tool nfs page`) |

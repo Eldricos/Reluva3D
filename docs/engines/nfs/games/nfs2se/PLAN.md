@@ -181,12 +181,39 @@ with what it found written on the game's pages in `formats/` and
    instructions a frame, the emulator running faster than real time.
 
    **Gate: passed.** The game is hosted, as NFS III is.
-6. **Hosted play** (next): the front end, every race type, the iSND sound
+6. **Hosted play** (done, but for what's left open below): the front end, every race type, the iSND sound
    through its own `eacsnd.dll`, the CD music and movies, the attract
    mode (what `demo.0`-`demo.2` are), input and
    force feedback, saves in Reluva's save folder; the game-files test
    (its steps in `tests/engines/nfs/gamedata.cmake`, as `nfs.nfs2se`).
-7. **3dfx:** `nfs2sea.exe` on the Glide stand-in, in software and on the
+
+   Built: the launcher's Play page runs `nfs2sen.exe` when the install
+   has it, the viewer's too (`PlayPage::setProgram`); an install with
+   only the 3dfx program still shows the Status page. The menus take
+   every key: the host delivers input by the clock, its window thread
+   running at once, as Windows does (the game reads its key buffer twice,
+   `0x405900`, and lost the keys that came between). The game-files test
+   is `tests/engines/nfs/gamedata-nfs2se.cmake`, its own script, its host
+   step from the title movie to a race; on the instruction clock the
+   date is fixed, so the run is the same each time.
+
+   Checked: the movies, front end and attract mode (the `demoav*.dct`
+   movies with the menu music); single race, tournament and knockout
+   started; the sound recorded through the movie, menus and a race, none
+   of it played stale; the game's writes (`config.dat`, `TmpTrk/`) in
+   the save folder, the install untouched; a joystick offered taken,
+   read, and given three force-feedback effects
+   ([TESTING.md](TESTING.md#last-checked)).
+
+   Left open:
+   - forces not yet seen playing, nor a whole tournament or knockout
+     run to its end;
+   - `demo.0`-`demo.2`: `nfs2sen.exe` never opens them (the 3dfx
+     program's, perhaps);
+   - each strip of a race's picture presented whole (9 a frame): once a
+     frame would do;
+   - network play (Phase 8) and the 3dfx program (Phase 7).
+7. **3dfx** (next): `nfs2sea.exe` on the Glide stand-in, in software and on the
    GPU, as a `renderer` setting.
 8. **Network play:** UDP (winsock), modem (TAPI) and serial, on NFS III's
    stand-ins.

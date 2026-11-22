@@ -300,6 +300,8 @@ int cmdNfsHost(int argc, char **argv) {
     if (!stdfs::exists(stdfs::path(argv[2]) / "nfs3.exe") && stdfs::exists(stdfs::path(argv[2]) / "nfs2sen.exe")) {
         if (options.commandLine == options.program)
             options.commandLine = "nfs2sen.exe";
+        if (options.saveFolder == stdfs::temp_directory_path() / "reluva_nfs3_save")
+            options.saveFolder = stdfs::temp_directory_path() / "reluva_nfs2se_save";
         options.program = "nfs2sen.exe";
     }
     const auto folders = reluva::nfs::findFolders(argv[2], {}, options.program.c_str());

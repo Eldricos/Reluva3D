@@ -69,8 +69,10 @@ found to share its format, then comes here
 
 - `reluva-tests nfs` runs its unit tests and its engine test
   (`tests/engines/nfs/`).
-- The game-files test: `RELUVA_NFS3=<the install> ctest -L gamedata`; see
-  the game's [TESTING.md](games/nfs3/TESTING.md) and
+- The game-files tests: `RELUVA_NFS3=<the install> ctest -L gamedata`,
+  and `RELUVA_NFS2SE=<the install>` for NFS II SE's; see each game's
+  TESTING.md ([NFS III](games/nfs3/TESTING.md),
+  [NFS II SE](games/nfs2se/TESTING.md)) and
   [docs/DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests).
 
 ## Terms

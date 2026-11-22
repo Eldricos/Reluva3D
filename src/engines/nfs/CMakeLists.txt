@@ -93,3 +93,11 @@ reluva_add_gamedata_test(nfs
     ENV RELUVA_NFS3
     SCRIPT ${tests}/gamedata.cmake
     STEPS release survey formats host host_glide)
+# NFS II SE's (tests/engines/nfs/gamedata-nfs2se.cmake):
+# RELUVA_NFS2SE=<the game's install> ctest -L gamedata.
+reluva_add_gamedata_test(nfs
+    NAME nfs.nfs2se
+    GAME nfs2se
+    ENV RELUVA_NFS2SE
+    SCRIPT ${tests}/gamedata-nfs2se.cmake
+    STEPS release survey formats host)

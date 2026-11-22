@@ -1,0 +1,2 @@
+release: en, windows
+cd: beside the install
