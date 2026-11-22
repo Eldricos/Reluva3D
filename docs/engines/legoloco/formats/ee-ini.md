@@ -8,11 +8,11 @@
 at certain times: Easter in April, Halloween at the end of October,
 Christmas in December. It's a Windows INI file with two sections,
 `[TimeEvents]` and `[LoadEvents]`, whose keys are numbered `001`,
-`002`... The game reads it from the disk through Windows'
-`GetPrivateProfileString` (`0x41f680`), so the copy in the
-[resource file](resource.md), `ee.ini`, isn't the one read *(inferred)*;
-the two hold the same events, the resource file's with a comment naming
-the fields at its top.
+`002`... The game reads it from the disk, `art-res\EE.INI`, through
+Windows' `GetPrivateProfileStringA` (`0x41f680`, and seen running), so
+the copy in the [resource file](resource.md), `ee.ini`, isn't the one
+read; the two hold the same events, the resource file's with a comment
+naming the fields at its top.
 
 ## Layout
 

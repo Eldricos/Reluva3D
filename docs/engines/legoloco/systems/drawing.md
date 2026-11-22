@@ -49,8 +49,8 @@ track meets track, and buildings sit on their plots.
 A frame set runs from its start frame to its end, backwards if the end
 is lower ([dat.md](../formats/dat.md#the-frame-set-table)), each frame
 shown for its delay. The game's clock is a multimedia timer every 28 ms
-(`timeSetEvent` at `0x406e54`, at 14 ms resolution); that a delay counts
-these ticks is *(guessed)*.
+(`timeSetEvent` at `0x406e54`, at 14 ms resolution, as seen running);
+that a delay counts these ticks is *(guessed)*.
 
 ## In Reluva
 

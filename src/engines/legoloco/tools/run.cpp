@@ -7,6 +7,7 @@
 #include "devtools/tool.h"
 #include "engines/legoloco/host/game_process.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -62,9 +63,23 @@ int cmdRun(int argc, char **argv) {
     game.process().output = [](const std::string &s) { std::printf("[program] %s\n", s.c_str()); };
     cpu.nativeTrace = [&](x86::Cpu &c, const std::string &name) {
         std::lock_guard<std::mutex> lock(mutex);
-        char line[256];
-        std::snprintf(line, sizeof line, "%s(%x, %x, %x, %x) from %x", name.c_str(), c.arg(0), c.arg(1), c.arg(2),
-                      c.arg(3), c.read32(c.reg[x86::Cpu::ESP]));
+        // Each argument as a number, and as text where it points at some.
+        std::string line = name + "(";
+        for (int i = 0; i < 6; ++i) {
+            char n[16];
+            std::snprintf(n, sizeof n, "%s%x", i ? ", " : "", c.arg(i));
+            line += n;
+            const uint32_t v = c.arg(i);
+            if (v >= 0x10000 && c.valid(v, 2)) {
+                const std::string text = c.string(v, 60);
+                if (text.size() >= 2 && std::all_of(text.begin(), text.end(),
+                                                    [](char ch) { return uint8_t(ch) >= 32 && uint8_t(ch) < 127; }))
+                    line += " \"" + text + "\"";
+            }
+        }
+        char from[32];
+        std::snprintf(from, sizeof from, ") from %x", c.read32(c.reg[x86::Cpu::ESP]));
+        line += from;
         calls[callsAt++ % calls.size()] = line;
         if (!log)
             return;
@@ -74,7 +89,7 @@ int cmdRun(int argc, char **argv) {
         }
         if (repeats > 1)
             std::printf("  (%d times)\n", repeats);
-        std::printf("%s\n", line);
+        std::printf("%s\n", line.c_str());
         last = name;
         repeats = 1;
     };
