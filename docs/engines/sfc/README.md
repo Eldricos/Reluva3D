@@ -1,53 +1,38 @@
 # The Starfleet Command engine
 
-<!-- One or two sentences: what the engine runs, and whether it's meant for
-one game or a family of games (then see docs/DOCUMENTATION_STANDARD.md,
-for its games/ folders). -->
-Engine id `sfc`, in `src/engines/sfc/`.
+Engine id `sfc`, in `src/engines/sfc/`. It's meant for Taldren's
+Starfleet Command games, which share one engine and its files (ship
+tables, `.mod` models, the `sprites.q3` interface archive, mission DLLs),
+starting with Starfleet Command Volume II: Empires at War. Starfleet
+Command (1999) and Orion Pirates (2001) could follow.
 
 ## Games
 
-<!-- A row per game. Releases are recognised by the files in `kVariants`
-(src/engines/sfc/sfc.cpp), made with `reluva --hash <files...>`. -->
-
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
-| | | | | | Not yet recognised |
+| [Star Trek: Starfleet Command Volume II: Empires at War](games/sfc2/README.md) | `sfc2` | Taldren / Interplay, 2000 | Windows | None yet | Planned: the install surveyed |
 
 ## Where it stands
 
-<!-- What works now, in a few lines, kept up to date. Plans, phases and
-dated progress go in PLAN.md (docs/templates/plan.md), not here. -->
 Started from the template: it recognises nothing yet, and shows an empty
-screen.
+screen. The plan is in [games/sfc2/PLAN.md](games/sfc2/PLAN.md).
 
 ## Using it
 
-<!-- What a player needs: which folder to add (or import from a CD), any
-settings, the keys. On an engine for a family of games, where each game's
-README says this, a line pointing to them. -->
+Each game's README says what it needs: [Starfleet Command
+II](games/sfc2/README.md#using-it).
 
 ## This folder
 
 | Page | What's in it |
 |---|---|
-| This page | The games, where the engine stands, how to use it |
-| `formats/` | A page per file format, as it's worked out |
-| `systems/` | A page per part of how the game behaves (scripts, dialogue, saves, AI...) |
-| `research/` | Working notes: address maps, raw findings, notes on recordings |
-| [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
-| [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
-| [TESTING.md](TESTING.md) | The tests, and what to check by hand |
-| [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was worked out, and the tools |
+| This page | The engine, its games |
+| [games/sfc2/](games/sfc2/README.md) | Starfleet Command II: its plan, formats, systems, tests and how it was worked out |
 
-<!-- Link each folder once it has pages, and list its pages. The layout is
-described in docs/DOCUMENTATION_STANDARD.md; page templates are in
-docs/templates/. -->
+What every game would share stays with Starfleet Command II's pages until
+a second game is found to share it (docs/DOCUMENTATION_STANDARD.md).
 
 ## Code
-
-<!-- Where things are in src/engines/sfc/. Keep files by topic in
-subfolders as it grows (the game's formats, its pages, its game logic). -->
 
 | Path | What |
 |---|---|
@@ -60,13 +45,5 @@ subfolders as it grows (the game's formats, its pages, its game logic). -->
   (`tests/engines/sfc/`).
 - A game-files test, when it has one: see
   [docs/DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests).
-- What they cover, and what to check by hand: [TESTING.md](TESTING.md).
-
-## Terms
-
-<!-- Words of the engine's own (its formats, its parts, the original's
-names for them) that its pages use without explaining: a line each, in a
-few words, with a link to the page that says more. Delete this section if
-there are none. -->
-
-- **<term>:** <what it is, in a few words>.
+- What they cover, and what to check by hand: each game's `TESTING.md`
+  ([Starfleet Command II's](games/sfc2/TESTING.md)).

@@ -1,4 +1,4 @@
-# Starfleet Command: testing
+# Star Trek: Starfleet Command II: testing
 
 ## Automated checks
 

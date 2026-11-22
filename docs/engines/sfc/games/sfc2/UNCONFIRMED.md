@@ -1,4 +1,4 @@
-# Starfleet Command: unconfirmed items
+# Star Trek: Starfleet Command II: unconfirmed items
 
 What Reluva does that hasn't been checked against the running original.
 
