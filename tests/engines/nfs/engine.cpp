@@ -350,8 +350,6 @@ void engineTest(const stdfs::path &tmp) {
     }
 }
 
-// NFS II SE, which can't be played yet: found as the launcher finds it,
-// its folders and files, the viewer's pages, and the game's Status page.
 // NFS II SE's movie (dct.md): two 16x16 frames with no sound, each one
 // macroblock of DC terms alone: Cr 40, Cb -40, the luma blocks 64, 0, -64
 // and 0 (a reddish picture in four shades).
@@ -369,6 +367,10 @@ Bytes nfs2seMovie() {
     return dct;
 }
 
+// NFS II SE: found as the launcher finds it, its folders and files, and
+// the viewer's pages. Its program is a stand-in, not a program, so the
+// game says it can't start it; without the CD's copy, it says where to
+// put one.
 void nfs2seTest(const stdfs::path &tmp) {
     test::Record rec;
     const MetaEngine *engine = findEngine("nfs");
@@ -436,7 +438,7 @@ void nfs2seTest(const stdfs::path &tmp) {
     for (const auto &[title, hash] : sys.screens)
         rec.add("viewer.screens " + title, std::to_string(sys.shown[title]) + " " + hash.hex());
 
-    // The game: its Status page alone, until Esc.
+    // The game: its Play page, which can't start the stand-in.
     PlayingSystem player;
     player.inputs.push_back({200, keyDown(key::kTab)});
     player.inputs.push_back({400, keyDown(key::kEscape)});

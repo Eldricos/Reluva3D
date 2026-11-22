@@ -9,13 +9,16 @@
 // reverse engineering of a legally owned copy. Never from leaked source
 // code. See CONTRIBUTING.md.
 //
-// NFS III is the retail nfs3.exe run in the x86 interpreter (host/), shown
-// in the window by the Play page (ui/play_page.h). NFS II SE can't be
-// played yet: it shows what was found of it (nfs2se/status_page.h). The
-// data viewer is reluva-viewer's (pages/viewer.cpp).
+// Each game is its retail program run in the x86 interpreter (host/):
+// NFS III's nfs3.exe, NFS II SE's nfs2sen.exe, shown in the window by the
+// Play page (ui/play_page.h). An NFS II SE install without nfs2sen.exe
+// (one made for a 3dfx card) shows what was found of it instead
+// (nfs2se/status_page.h). The data viewer is reluva-viewer's
+// (pages/viewer.cpp).
 
 #include "engines/engine.h"
 #include "engines/nfs/games.h"
+#include "engines/nfs/nfs2se/files.h"
 #include "engines/nfs/nfs2se/status_page.h"
 #include "engines/nfs/ui/page.h"
 #include "engines/nfs/ui/play_page.h"
@@ -37,10 +40,14 @@ public:
     Error run() override {
         auto makePages = [this](const nfs::GameFolders &folders, audio::Mixer *mixer) {
             std::vector<std::unique_ptr<nfs::Page>> pages;
-            if (_game.game == nfs::Game::kNfs2Se)
-                pages.push_back(std::make_unique<nfs::nfs2se::StatusPage>(folders));
-            else
+            if (_game.game == nfs::Game::kNfs3)
                 pages.push_back(nfs::makePlayPage(folders, _target.savePath, mixer, _target.settings));
+            else if (const auto program = nfs::nfs2se::programs(folders).software;
+                     !program.empty() && program.parent_path() == folders.install)
+                pages.push_back(
+                    nfs::makePlayPage(folders, _target.savePath, mixer, _target.settings, program.filename().string()));
+            else
+                pages.push_back(std::make_unique<nfs::nfs2se::StatusPage>(folders));
             return pages;
         };
         return nfs::runPages(_sys, _target, _game, makePages, false);

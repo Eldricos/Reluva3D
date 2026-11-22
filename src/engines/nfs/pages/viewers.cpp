@@ -3,6 +3,7 @@
 
 #include "engines/nfs/pages/viewers.h"
 
+#include "engines/nfs/nfs2se/files.h"
 #include "engines/nfs/nfs2se/pages/car_page.h"
 #include "engines/nfs/nfs2se/pages/movie_page.h"
 #include "engines/nfs/nfs2se/pages/track_page.h"
@@ -664,6 +665,13 @@ std::vector<std::unique_ptr<Page>> makePages(const GameInfo &game, const GameFol
     }
     case Game::kNfs2Se:
         pages.push_back(std::make_unique<nfs2se::StatusPage>(folders));
+        // The game, when its software program is in the install.
+        if (const auto program = nfs2se::programs(folders).software;
+            !program.empty() && program.parent_path() == folders.install) {
+            auto play = makePlayPage(folders, saveFolder, mixer, settings, program.filename().string());
+            play->setKeysLine("Keys and mouse go to the game   Tab: next page   Ctrl+F5: back");
+            pages.push_back(std::move(play));
+        }
         pages.push_back(std::make_unique<nfs2se::TrackPage>(files));
         pages.push_back(std::make_unique<nfs2se::CarPage>(files));
         break;

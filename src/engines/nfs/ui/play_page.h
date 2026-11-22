@@ -21,9 +21,10 @@ namespace reluva::nfs {
 class GameHost;
 
 /**
- * The game itself: the retail nfs3.exe in the x86 interpreter
- * (host/game_host.h), started when the page is first shown and running
- * on a thread of its own from then on. Its frames are shown here, its
+ * The game itself: its retail program (NFS III's nfs3.exe, NFS II SE's
+ * nfs2sen.exe) in the x86 interpreter (host/game_host.h), started when
+ * the page is first shown and running on a thread of its own from then
+ * on. Its frames are shown here, its
  * sound goes to the mixer, and the keyboard and mouse go to it. Esc goes
  * to the game too: Ctrl+F5 goes back to the launcher. With a GPU, what the
  * game draws through THRASH is drawn with it (thrash_gpu.h); without, in
@@ -68,6 +69,13 @@ public:
      */
     void setPositionalUpdates(bool on) { _positionalUpdates = on; }
     /**
+     * The program to run, in the install folder: "nfs3.exe" unless set.
+     * Only NFS III's draws through THRASH, so only it takes the GPU, the
+     * renderer settings and Glide; another draws through DirectDraw. Set
+     * before the page is first shown.
+     */
+    void setProgram(std::string program) { _program = std::move(program); }
+    /**
      * The keys named at the foot of the screen shown until the game's
      * first frame.
      */
@@ -98,7 +106,11 @@ private:
     // The title, how the run is going and the log's last lines (_mutex held).
     void drawStatus(Surface &screen);
 
+    // Whether the program draws through THRASH (NFS III's).
+    bool drawsThrash() const { return _program == "nfs3.exe"; }
+
     GameFolders _folders;
+    std::string _program = "nfs3.exe";
     std::filesystem::path _saveFolder;
     audio::Mixer *_mixer;
     std::unique_ptr<GameHost> _host;
@@ -190,8 +202,10 @@ private:
  * @param saveFolder Where the game writes (its "game" folder);
  *        the install's reluva-save if empty.
  * @param mixer Plays the game's sound; null without audio output.
+ * @param program The game's program in the install (PlayPage::setProgram).
  */
 std::unique_ptr<PlayPage> makePlayPage(const GameFolders &folders, const std::filesystem::path &saveFolder,
-                                       audio::Mixer *mixer, const std::map<std::string, std::string> &settings);
+                                       audio::Mixer *mixer, const std::map<std::string, std::string> &settings,
+                                       const std::string &program = "nfs3.exe");
 
 } // namespace reluva::nfs

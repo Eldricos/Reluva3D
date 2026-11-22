@@ -22,8 +22,8 @@ tests build (`makeNfs2seInstall`, `makeNfs2seCd` in
 its record `tests/engines/nfs/data/engine-record-nfs2se.txt`: a small
 install and a CD's copy beside it, recognised and found; the viewer
 through its pages (Status, Textures with a pause picture in the HUD's
-palette, Strings with their places, Sounds, Music, Movies with a one-macroblock movie); the game's Status page until
-Esc; and the game without the CD's copy, which says where to put it.
+palette, Strings with their places, Sounds, Music, Movies with a one-macroblock movie); the game, whose program is a
+stand-in, which says it can't start it; and the game without the CD's copy, which says where to put it.
 
 ### The game-files test
 
@@ -39,13 +39,17 @@ That the real release is recognised by its hashes: checked by hand
 
 1. Add the install in the launcher, with a copy of the CD beside it: it's
    found as "Need for Speed II SE".
-2. Start it: the Status page lists the install, the CD's copy (beside the
-   install), 19 music streams, 15 movies, `nfs2sen.exe` in the install
-   and `NFS2SEA.EXE` on the CD, 8 tracks (`TR00`, `TR02` to `TR08`) and
-   53 car models. Esc goes back.
-3. Move the CD's copy away and start it again: it says the CD's files
+2. Start it: the EA logo and the title movie (Enter skips it), then the
+   main menu. Up and Down move along it, every press; the mouse moves its
+   cursor. RACE starts a race at Proving Grounds: Up accelerates.
+   Ctrl+F5 goes back.
+3. In `reluva-viewer`, the Status page lists the install, the CD's copy
+   (beside the install), 19 music streams, 15 movies, `nfs2sen.exe` in
+   the install and `NFS2SEA.EXE` on the CD, 8 tracks (`TR00`, `TR02` to
+   `TR08`) and 53 car models.
+4. Move the CD's copy away and start it again: it says the CD's files
    weren't found.
-4. In `reluva-viewer`, the Tracks page: each track (PageUp/PageDown)
+5. In `reluva-viewer`, the Tracks page: each track (PageUp/PageDown)
    drawn whole, its trees and fences see-through; Up/Down along the
    road. The Cars page: each model, L through its levels. The Movies
    page: each movie (Up/Down) with its sound in step, Left/Right 5
@@ -55,6 +59,7 @@ That the real release is recognised by its hashes: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US CD and an install from it | Linux, Xvfb | The game from `reluva-viewer`'s Play page: the title movie, Enter to the menu, Down four times to RACE (each press taken), the race at Proving Grounds, Up held to 132 mph |
 | November 2026 | US CD and an install from it | Linux | `nfs2sen.exe` on the host (`reluva-tool nfs host -deterministic 300000`): the EA logo and title movie, the front end, a race at Proving Grounds driven with the keys, at about 39 frames a second ([research/hosted-spike.md](research/hosted-spike.md)) |
 | November 2026 | US CD and an install from it | Linux | `reluva-tool nfs survey` over the CD: 15 movies, 9,340 frames and 15 soundtracks read, none failing; frame 100 of every movie and every 50th of `F355AV.DCT` (`dct-frames`) against FFmpeg's decoding: within 8 in 255 per colour; the Movies page drawn (`reluva-tool nfs page`) |
 | November 2026 | US CD and an install from it | Linux, Xvfb, Mesa's software Vulkan (llvmpipe) | The Tracks page on Proving Grounds and Monolithic Studios (`RELUVA_NFS2SE_TRACK_VIEW`): the road, barriers, floodlights, the stranded ship, trees see-through once `0x07C0` is keyed out, the studio's streets, sci-fi set and neon section; the Cars page on `futr` and the F355 (`RELUVA_NFS2SE_CARS_VIEW`): its tail lights, grille and plates |

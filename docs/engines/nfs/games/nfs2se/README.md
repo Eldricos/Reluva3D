@@ -26,19 +26,22 @@ the cars' data is in both. The CD's 3dfx program, `NFS2SEA.EXE`, is in
 
 - **Recognised** in its install and on its CD, and its CD's files found
   for an install.
-- **Not playable yet.** The game shows what was found of it: its
-  folders, its two programs, the music and movies, the tracks and the
-  car models (`src/engines/nfs/nfs2se/status_page.cpp`).
-- **Its program runs on the host**, in `reluva-tool nfs host` for now:
-  `nfs2sen.exe` plays its movies, shows its front end and races, at
-  about 39 frames a second ([research/hosted-spike.md](research/hosted-spike.md)).
+- **Plays, being finished** (Phase 6 of [PLAN.md](PLAN.md)): the retail
+  `nfs2sen.exe`, the software program, runs in the x86 emulator as NFS
+  III's does: its movies, its front end with the keys and mouse, and
+  races, about 39 frames a second on the machine measured
+  ([research/hosted-spike.md](research/hosted-spike.md)). The 3dfx
+  program (`nfs2sea.exe`) is Phase 7's; an install with only it shows
+  what was found of the game instead (its folders, programs, music,
+  movies, tracks and car models:
+  `src/engines/nfs/nfs2se/status_page.cpp`).
 - **Its files that NFS III's formats cover all read**: every archive,
   picture bank (311 on the CD), text table, font, sound bank, music
   stream and map, and the compressed `.qda` data, with NFS II SE's
   differences ([../../formats/](../../formats/)); and its own tracks,
   `.col` files, skies, lights, car models and movies
   ([formats/](formats/)).
-- **The data viewer** has, beside the Status page, every track and car
+- **The data viewer** has, beside the Status and Play pages, every track and car
   model in 3D (the Tracks and Cars pages), its pictures (the pause
   screens in the race's palette, as the software game draws them),
   strings, fonts, sounds, music, and movies with their sound. Its retail files were surveyed in
@@ -58,9 +61,9 @@ is found:
 - in a folder beside the install with the CD's `NFS2SEN.EXE` and its
   music (`GameData/Audio/pc`).
 
-Without it, the game says where to put it. The game itself, for now,
-shows what was found (Esc goes back); `reluva-viewer <its name in the
-launcher>` shows its files.
+Without it, the game says where to put it. The keys and mouse go to the
+game, Esc included; Ctrl+F5 goes back to the launcher. `reluva-viewer
+<its name in the launcher>` shows its files.
 
 ## This folder
 
