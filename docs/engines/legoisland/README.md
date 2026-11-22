@@ -31,8 +31,9 @@ animations it plays in 3D, and their events
 ([systems/running.md](systems/running.md)): it loads its world, plays its
 intro (a click skips it) with its sound, and opens the Information
 Center, its 3D drawn: the Infomaniac walks and talks, and its rooms
-answer clicks, on their 2D controls and on 3D objects. The way out to
-the island, by the elevator, hasn't been tried yet. The plan is in
+answer clicks, on their 2D controls and on 3D objects. The revolving
+door out to the island doesn't open yet: the Infomaniac answers it with
+a line, and what it waits for isn't known. The plan is in
 [PLAN.md](PLAN.md).
 
 ## Using it

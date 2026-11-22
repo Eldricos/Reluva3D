@@ -123,9 +123,15 @@ that far.
   control is, a pick in the 3D scene (`IDirect3DRMViewport::Pick`).
 - What the Information Center's clicks do: the portraits play each
   character's film; the book opens the register, where a name is
-  spelled from letters; the left arrow leads to the elevator, whose
-  window shows the island in 3D, and its floor buttons; the right arrow
-  to the room of high scores, its 3D score cube turning. The right-hand
+  spelled from letters; the left arrow leads to the elevator's lobby,
+  and the right arrow to the room of high scores, its 3D score cube
+  turning. In the elevator, whose window shows the island in 3D, the
+  third floor's button rides up to the observation deck: `ISLE.SI`'s 2D
+  rooms `ElevOpen`, `Observe`, `SeaView` and `ElevDown`. The lobby's
+  left arrow leads to the room of doors (`INFODOOR.SI`), its revolving
+  door the way out to the island; clicked, it plays an offscreen line of
+  the Infomaniac's (`iic037in`, object 500) and doesn't open, the same
+  after a name is registered and a portrait's film seen. The right-hand
   door is the way out of the game: the Infomaniac asks
   (`iic043in_RunAnim`, the sound `IIC044IN.wav`) and puts a green brick
   and a red one before him, in 3D; picking the green one ends the game,
@@ -188,7 +194,8 @@ instructions at an address ([disasm.md](../../../common/x86/disasm.md)).
 
 - What `CONFIG.EXE` writes for each setting, and its defaults: Reluva
   sets only `savepath` (and the installer's `cdpath`, `diskpath`).
-- Which of the elevator's floors leads out to the island.
+- What the revolving door waits for before it lets the player out, and
+  what the Infomaniac's `iic037in` says.
 - Which of the missing functions the program calls, once it gets past
   DirectSound.
 - What else the registry holds once `CONFIG.EXE` has run, and which of

@@ -48,7 +48,8 @@ Each phase ends with something that runs, is tested and is committed.
    existing software rasterizer: the island in 3D, driving, building a
    vehicle. Its scenes are drawn and picked: the Information Center's
    Infomaniac, its bricks, the score cube, the island through the
-   elevator's window. Next: out to the island.
+   elevator's window. Next: out to the island, through the revolving
+   door, which doesn't open yet.
 7. **Input, saves and settings:** DirectInput and the joystick, the save
    folder, and `CONFIG.EXE`'s choices as the engine's settings.
 8. **A full playthrough**, checked against recordings of the original;
