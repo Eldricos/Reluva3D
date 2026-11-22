@@ -56,7 +56,17 @@ Seen running in Reluva (`reluva-tool legoloco run`):
    give it isn't there. The serial ports, `COM1` then `COM0`, for its
    modem and serial connections.
 9. Its threads, a timer of 120 ms (`SetTimer`), the mouse captured, its
-   windows shown, and the movie window (`MCIWndRegisterClass`).
+   windows shown.
+10. Three movies, each in a movie window of its own, a child of its main
+    window (`0x454380`): `art-res\video\legoSpin.avi`, then `IgSpin.avi`,
+    then `[Video]`'s `LocoIntr.avi`. Each is opened (`MCIWNDM_OPENA`),
+    placed (`MCIWNDM_PUT_DEST`) and played through `mciSendCommandA`
+    with `MCI_NOTIFY`, the callback the main window's handle, its low
+    word only (`0x454391`). `MM_MCINOTIFY` at its main window
+    (`0x420f66`) closes the movie's window and starts the next.
+11. Its sound: `[Sound]`'s `SelectBestDevice`, then DirectSound's
+    ordinal 2 with a callback and its context, so its devices' list
+    (`DirectSoundEnumerateA`, *inferred* from those arguments).
 
 ### Where it finds its files
 
@@ -92,24 +102,27 @@ Seen running in Reluva (`reluva-tool legoloco run`):
 
 ### How far it gets
 
-The program runs through its start ([above](#its-start-as-it-runs)), about
-500 million instructions, and stops at the movie window,
-`MCIWndRegisterClass`, which nothing stands in for yet. DirectPlay is
-stood in for without a network ([dplay.md](../../../common/x86/dplay.md)),
-so it finds no network connection. Of its 115 imports that had nothing at
-first, 9 are left:
+The program runs through its start ([above](#its-start-as-it-runs)) and
+plays its three movies (by the clock: about two minutes;
+[mci.md](../../../common/x86/mci.md)), then stops at DirectSound's
+ordinal 2, which nothing stands in for yet. DirectPlay is stood in for
+without a network ([dplay.md](../../../common/x86/dplay.md)), so it finds
+no network connection. Of its 115 imports that had nothing at first, 7
+are left:
 
 | DLL | Functions | What |
 |---|---|---|
 | DSOUND | 2 | DirectSound, by ordinal |
-| WINMM, MSVFW32 | 2, 1 | `PlaySoundA`, the MCI movie window |
+| WINMM | 1 | `PlaySoundA` |
 | comdlg32, SHELL32 | 2, 1 | the Open and Save dialogs, `ShellExecuteA` |
 | USER32 | 1 | `LoadCursorFromFileA` (its animated cursors) |
 
 The rest are stood in for in the shared code: KERNEL32's, ADVAPI32's,
 VERSION.dll's and USER32's ([windows.md](../../../common/x86/windows.md)),
-and GDI32's ([gdi.md](../../../common/x86/gdi.md)). Nothing is shown yet:
-the engine doesn't show the program's frames.
+GDI32's ([gdi.md](../../../common/x86/gdi.md)), and the movie window's
+and MCI's ([mci.md](../../../common/x86/mci.md)). Nothing is shown yet:
+the movies are drawn into the screen's pixels, but the engine doesn't
+show the program's frames.
 
 ## Sources and checks
 
@@ -121,5 +134,5 @@ the engine doesn't show the program's frames.
 ## Open questions
 
 - Whether the program runs on without a network past its start: it
-  finds none of its four connections, and goes on as far as the movie
-  window.
+  finds none of its four connections, and goes on through its movies to
+  DirectSound.
