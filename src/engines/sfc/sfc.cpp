@@ -2,8 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Starfleet Command: the engine's MetaEngine (its name, the releases it recognises,
-// making an Engine to run one) and its Engine. Started from the template
-// (cmake/NewEngine.cmake): so far it recognises nothing and shows an empty
+// making an Engine to run one) and its Engine, which so far shows an empty
 // screen.
 
 #include "engines/engine.h"
@@ -15,9 +14,25 @@ namespace {
 // The releases it recognises: files that must be there, with the MD5 of
 // their start and their size, as `reluva --hash <files...>` prints them.
 // A folder matching every file of a variant is that release.
+// The 2.0.3.6 patch rewrites both files, so a patched install is an unknown
+// release until its own are hashed.
 const std::vector<GameVariant> kVariants = {
-    // {"<game id>", "<Game name> (<release>)", "en", "windows",
-    //  {{"<file>", "<md5>", <size>}, {"<other file>", "", -1}}},
+    {"sfc2",
+     "Star Trek: Starfleet Command II (1.0)",
+     "en",
+     "windows",
+     {{"StarFleet2.exe", "e78f2d2c9c9c51f2077bb5c10cbaf617", 4149248},
+      {"Assets/Sprites/sprites.q3", "7eaeae9272f5d82ac6523a3d6191a45a", 78253026}}},
+};
+
+// The same game by its files' names alone, for releases not in kVariants:
+// used only when nothing there matches.
+const std::vector<GameVariant> kFallback = {
+    {"sfc2",
+     "Star Trek: Starfleet Command II (unknown release)",
+     "",
+     "windows",
+     {{"StarFleet2.exe", "", -1}, {"Assets/Sprites/sprites.q3", "", -1}}},
 };
 
 /**
@@ -62,7 +77,10 @@ public:
     const char *name() const override { return "Starfleet Command"; }
 
     std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override {
-        return detectFromTable(id(), kVariants, dir);
+        auto found = detectFromTable(id(), kVariants, dir);
+        if (found.empty())
+            found = detectFromTable(id(), kFallback, dir);
+        return found;
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {

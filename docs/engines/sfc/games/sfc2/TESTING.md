@@ -10,7 +10,7 @@ files):
 
 | Suite | What it checks |
 |---|---|
-| `sfc.unit.detection` | Recognising the game's releases |
+| `sfc.unit.detection` | The engine is registered; an empty folder isn't a game; the game's files with other contents are an unknown release, whatever their names' case |
 
 ### The basic engine test
 
@@ -36,4 +36,4 @@ Not yet.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
-| | | | |
+| 22 November 2026 | English retail 1.0 | Linux | `reluva --detect` on the install's `StarFleet2.exe` and `sprites.q3`: recognised as 1.0 |

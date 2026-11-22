@@ -43,11 +43,10 @@ on their pages in `formats/` and `systems/`.
 
 1. **The engine's start** (done): the template, with the docs laid out
    for a family of games.
-2. **Detection** (next): `StarFleet2.exe`, `sprites.q3` and
-   `shiplist.txt` hashed with `reluva --hash`, for 1.0 and for 2.0.3.6;
-   `kVariants` with both, and other releases found by their files as
-   "(unknown release)".
-3. **Readers and a data viewer:** `sprites.q3`, `.bft`, `.mod` with its
+2. **Detection** (done for 1.0): `StarFleet2.exe` and `sprites.q3`
+   hashed; other releases found by their names as "(unknown release)".
+   2.0.3.6's to be hashed from a patched install.
+3. **Readers and a data viewer** (next): `sprites.q3`, `.bft`, `.mod` with its
    textures, `shiplist.txt` and `ftrlist.txt`, the `.gf`, `.mct` and `.mvm`
    text, the sound zips with `sounds.txt`, the Bink intro (shared
    `src/video/bink.cpp`, which reads revision `i`). Each format worked out
