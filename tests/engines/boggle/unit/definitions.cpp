@@ -33,7 +33,7 @@ void view(){
     CHECK(!view.event(fixtures::keyEvent(key::Right)));view.draw(s);const auto second=s.pixels;CHECK(second!=first);
     CHECK(!view.event(fixtures::keyEvent(key::Left)));view.draw(s);CHECK(s.pixels==first);
     view.open("TAZ",{a});view.draw(s);const auto headword=s.pixels;
-    for(auto match:{DefinitionMatch::Variant,DefinitionMatch::Subentry,DefinitionMatch::Inflection,DefinitionMatch::RootDerivative}){
+    for(auto match:{DefinitionMatch::Variant,DefinitionMatch::Subentry,DefinitionMatch::Inflection,DefinitionMatch::RootDerivative,DefinitionMatch::RelatedForm}){
         a.match=match;view.open("TAZ",{a});view.draw(s);CHECK(s.pixels!=headword);
     }
     a.match=DefinitionMatch::Headword;view.open("TAZ",{a,b});
@@ -97,8 +97,44 @@ void queryCase(){
     CHECK(!d.lookup("LOWERROOT",rows) && rows.size()==1);if(rows.size()==1)CHECK(rows[0].id==3 && rows[0].headword=="CaseRoot-" && rows[0].match==DefinitionMatch::RootDerivative);
     CHECK(!d.lookup("UPPERROOT",rows) && rows.empty());CHECK(bool(d.read({})) && d.headwords()==0);CHECK(!d.lookup("LOWERROOT",rows) && rows.empty());
 }
+void authoredIndex(){
+    const auto bytes=fixtures::definitionIndexedArchive();Definitions d;
+    CHECK(!d.read(bytes) && d.entries()==3 && d.indexedWords()==5 && d.indexedLinks()==7 && d.wordRecords()==11);
+    std::vector<DefinitionEntry> rows;
+    CHECK(!d.lookup("TAZZED",rows) && rows.size()==2);
+    if(rows.size()==2)CHECK(rows[0].id==2 && rows[0].match==DefinitionMatch::Headword && rows[1].id==1 && rows[1].match==DefinitionMatch::RelatedForm);
+    CHECK(!d.lookup("TaZ",rows) && rows.size()==2);if(rows.size()==2)CHECK(rows[0].id==1 && rows[1].id==2 && rows[1].match==DefinitionMatch::Inflection);
+    CHECK(!d.lookup("TAZZES",rows) && rows.size()==1);if(rows.size()==1)CHECK(rows[0].id==1 && rows[0].match==DefinitionMatch::RelatedForm);
+    CHECK(!d.lookup("CAPITAL",rows) && rows.size()==1);if(rows.size()==1)CHECK(rows[0].id==3 && rows[0].match==DefinitionMatch::RootDerivative);
+    CHECK(!d.lookup("ZOT",rows) && rows.size()==1);if(rows.size()==1)CHECK(rows[0].match==DefinitionMatch::Variant);
+    for(const auto* word:{"UPPER","NOTINDEXED","TWOWORDS","ELAN","TAZZESS"})CHECK(!d.lookup(word,rows) && rows.empty());
+    const auto sum=d.indexChecksum();CHECK(!d.read(bytes) && d.indexChecksum()==sum);
+    auto invalid=[&](std::vector<uint8_t> b){CHECK(bool(d.read(b)) && !d.indexedWords() && !d.entries());CHECK(!d.lookup("TAZZES",rows) && rows.empty());};
+    auto rd32=[&](size_t p){return uint32_t(bytes[p])<<24|uint32_t(bytes[p+1])<<16|uint32_t(bytes[p+2])<<8|bytes[p+3];};
+    const size_t component=rd32(0x33a),stream=rd32(0x33e),offsets=component+rd32(component+0xbc),lengths=component+rd32(component+0xcc);
+    auto b=bytes;b[0x317]=4;invalid(b);b=bytes;b[0x31b]=0xff;invalid(b);b=bytes;b[component+3]=3;invalid(b);
+    b=bytes;b[component+0x95]=13;invalid(b);b=bytes;b[component+0x8d]=3;invalid(b);b=bytes;b[component+0x93]=0;invalid(b);
+    b=bytes;test::fixtures::put16(b,offsets+2,65535);invalid(b);b=bytes;b[lengths+1]=0;invalid(b);
+    b=bytes;b[component+0xbb]=200;invalid(b); // repeated section tag
+    b=bytes;b[0x33e]=0xff;invalid(b);b=bytes;b.pop_back();invalid(b);
+    auto code=[&](unsigned symbol,unsigned value){auto copy=bytes;for(unsigned k=0;k<10;++k){const auto bit=symbol*10+k;const auto mask=uint8_t(1u<<(7-bit%8));copy[stream+bit/8]=uint8_t((copy[stream+bit/8]&~mask)|(((value>>(9-k))&1)?mask:0));}invalid(copy);};
+    code(0,64); // impossible backtrack in a block's first word
+    code(6,33); // unsupported record metadata
+    code(9,1); // zero article ID
+    invalid(fixtures::definitionIndexedArchive(false,true));invalid(fixtures::definitionIndexedArchive(false,false,true));
+    CHECK(!d.read(bytes) && d.indexedWords()==5);
+}
+void inflectionAlternatives(){
+    Definitions d;CHECK(!d.read(fixtures::definitionArchive(false,
+        "<INFL><INF>tazzes<EQ type=SP><WD>tazzen</INFL>","<INFL><WD>ignored")));
+    CHECK(d.variants()==0 && d.inflections()==2);std::vector<DefinitionEntry> rows;
+    for(const auto* word:{"TAZZES","TAZZEN"}){CHECK(!d.lookup(word,rows) && rows.size()==1);if(rows.size()==1)CHECK(rows[0].match==DefinitionMatch::Inflection);}
+    CHECK(!d.lookup("IGNORED",rows) && rows.empty());
+}
 }
 static const test::Suite suite("boggle.unit.definitions",{
+    {"alternate spellings inside inflection groups retain inflection rank and require complete groups",[](const auto&){inflectionAlternatives();}},
+    {"authored word index, implicit forms, root spelling, priority, boundaries, sentinel and malformed data",[](const auto&){authoredIndex();}},
     {"Boggle query folding, per-field case eligibility, capitalized parents, direct IDs and reset",[](const auto&){queryCase();}},
     {"alternate headwords, stressed subentries, root derivatives, match priority and excluded fields",[](const auto&){lexicalFields();}},
     {"stored inflections, exact priority, duplicate suppression, scope, normalization and reset",[](const auto&){inflections();}},

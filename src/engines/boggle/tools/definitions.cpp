@@ -15,6 +15,7 @@ int check(int argc,char**argv){
     if(argc==4){std::vector<reluva::boggle::DefinitionEntry> matches;if(auto e=definitions.lookup(argv[3],matches)){std::fprintf(stderr,"%s\n",e.message.c_str());return 1;}for(const auto& e:matches)add(e);}
     else for(uint32_t i=1;i<=definitions.entries();++i){reluva::boggle::DefinitionEntry e;if(auto error=definitions.entry(i,e)){std::fprintf(stderr,"%s\n",error.message.c_str());return 1;}add(e);}
     const auto index=definitions.indexChecksum();digest.update(index.data(),index.size());
+    std::printf("Authored word keys %zu, links %zu, word-index records %zu\n",definitions.indexedWords(),definitions.indexedLinks(),definitions.wordRecords());
     std::printf("Definition articles %zu, ASCII headword keys %zu, variant keys %zu, subentry keys %zu, stored-form keys %zu, derivative keys %zu, checked %zu, text bytes %zu\n",definitions.entries(),definitions.headwords(),definitions.variants(),definitions.subentries(),definitions.inflections(),definitions.derivatives(),count,bytes);
     std::printf("decoded definitions: %s\n",digest.hexDigest().c_str());return 0;
 }

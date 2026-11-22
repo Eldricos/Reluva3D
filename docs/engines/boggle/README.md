@@ -250,6 +250,6 @@ distinguishes implemented features from remaining original-reference work.
 [Frame comparisons](presentation-comparison.md) now have a metadata-only tool;
 nine supplied clips match FFmpeg decoding exactly. Post-round **D** opens the installed [word definitions](definitions.md) in a
 scrollable native viewer. ASCII headwords, alternate forms, subentries, stored inflections and root
-derivatives are supported, with the game’s lowercase query filtering. Implicit
-inflections, original root-index exceptions and rich pronunciation formatting
-remain open.
+derivatives are supported. The authored word index also resolves implicit
+inflections and original root links. Pronunciation typography, rich layout and
+broader query-ranking comparisons remain open.

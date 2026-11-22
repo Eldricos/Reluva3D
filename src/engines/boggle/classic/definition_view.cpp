@@ -13,6 +13,7 @@ std::string matchLabel(const DefinitionEntry& entry){
     case DefinitionMatch::Subentry:return "Subentry in "+entry.headword;
     case DefinitionMatch::Inflection:return "Stored form of "+entry.headword;
     case DefinitionMatch::RootDerivative:return "Derivative of root "+entry.headword;
+    case DefinitionMatch::RelatedForm:return "Word form of "+entry.headword;
     }
     return "Article match";
 }

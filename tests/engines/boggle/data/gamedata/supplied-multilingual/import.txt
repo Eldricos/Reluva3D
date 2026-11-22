@@ -14,4 +14,4 @@ allwords: 58f65b9a3d851c1a | decoded all words: 8422ca959f8ecd50164ea97972c4c274
 competition: b317e177a336ac35 | decoded competitions: be5fae83b0735277bba82da2d5d62d3f
 computer: a6b0906eb22cfdd1 | decoded computers: e612fb5fc755e4bfc7665e01d913b71a
 background: 4de58038d9487df9 | decoded background: 22fb0627d72325f34498be863c45f2ac
-definitions: 7cdb82e81d1bfe7c | decoded definitions: e1a8fb1e82cb1c7640f59fb17a0378e2
+definitions: 18f2e8264a3e881a | decoded definitions: 85a2fefbbe30a2e5b4b1976a926a6973

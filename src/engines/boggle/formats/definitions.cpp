@@ -51,6 +51,17 @@ std::vector<std::string> fields(std::string_view text,std::string_view marker,bo
     }
     unique(keys);return keys;
 }
+std::vector<std::string> alternateFields(std::string_view text){
+    std::string outside;size_t at=0;
+    while(true){
+        const auto group=text.find("<INFL>",at);
+        if(group==text.npos){outside+=text.substr(at);break;}
+        outside+=text.substr(at,group-at);outside+="<>";
+        const auto end=text.find("</INFL>",group+6);if(end==text.npos)break;
+        at=end+7;
+    }
+    return fields(outside,"<WD>",false,true);
+}
 // Only the literal INF fields within a complete INFL group describe stored
 // inflections. Do not treat prose, cross-references or arbitrary tags as keys.
 std::vector<std::string> storedForms(std::string_view text){
@@ -58,7 +69,9 @@ std::vector<std::string> storedForms(std::string_view text){
     size_t at=0;
     while((at=text.find("<INFL>",at))!=text.npos){
         at+=6;const auto end=text.find("</INFL>",at);if(end==text.npos)break;
-        const auto group=fields(text.substr(at,end-at),"<INF>");forms.insert(forms.end(),group.begin(),group.end());
+        for(const auto marker:{"<INF>","<WD>"}){
+            const auto group=fields(text.substr(at,end-at),marker);forms.insert(forms.end(),group.begin(),group.end());
+        }
         at=end+7;
     }
     unique(forms);return forms;
@@ -149,8 +162,9 @@ Error Definitions::read(const std::vector<uint8_t>& b){
         next.starts_.push_back(symbol);if(auto e=next.markup(symbol,text))return e;
         expanded+=text.size();if(expanded>256*1024*1024)return bad();
         if(id==0 && !text.empty())return bad();
+        next.roots_.push_back(text.starts_with("<IWD>"));
         const std::array<std::vector<std::string>,5> keys={
-            std::vector<std::string>{fieldKey(headword(text),false)},fields(text,"<WD>",false,true),
+            std::vector<std::string>{fieldKey(headword(text),false)},alternateFields(text),
             fields(text,"<RUN>",true),storedForms(text),text.starts_with("<IWD>")?fields(text,"<DRV>"):std::vector<std::string>{}};
         for(size_t i=0;i<keys.size();++i)for(const auto& word:keys[i])if(!word.empty()){
             auto& matches=next.indexes_[i][word];
@@ -167,6 +181,7 @@ Error Definitions::read(const std::vector<uint8_t>& b){
             if(combined.size()>64)return bad();
         }
     }
+    if(auto error=next.authored_.read(b,count,stream))return error;
     *this=std::move(next);return Error::success();
 }
 Error Definitions::entry(uint32_t id,DefinitionEntry& out) const {
@@ -177,6 +192,21 @@ Error Definitions::entry(uint32_t id,DefinitionEntry& out) const {
 Error Definitions::lookup(std::string_view word,std::vector<DefinitionEntry>& out) const {
     out.clear();const auto normalized=key(word);if(normalized.empty())return Error::fail("Definition lookup needs an ASCII English word");
     std::vector<DefinitionEntry> result;
+    if(authored_.present()){
+        const auto* ids=authored_.find(normalized);if(!ids)return Error::success();
+        for(auto id:*ids){
+            DefinitionEntry e;if(auto error=entry(id,e))return error;
+            e.match=roots_[id]?DefinitionMatch::RootDerivative:DefinitionMatch::RelatedForm;
+            for(size_t i=0;i<indexes_.size();++i){
+                const auto found=indexes_[i].find(normalized);
+                if(found!=indexes_[i].end() && std::find(found->second.begin(),found->second.end(),id)!=found->second.end()){e.match=DefinitionMatch(i);break;}
+            }
+            result.push_back(std::move(e));
+        }
+        auto rank=[](DefinitionMatch match){return match==DefinitionMatch::RelatedForm?3:int(match);};
+        std::stable_sort(result.begin(),result.end(),[&](const auto& a,const auto& b){return rank(a.match)<rank(b.match);});
+        out=std::move(result);return Error::success();
+    }
     for(size_t i=0;i<indexes_.size();++i){
         const auto found=indexes_[i].find(normalized);if(found==indexes_[i].end())continue;
         for(auto id:found->second){
@@ -197,6 +227,7 @@ std::string Definitions::indexChecksum() const {
             const std::array<uint8_t,4> end{};hash.update(end.data(),end.size());
         }
     }
+    if(authored_.present()){const auto sum=authored_.checksum();hash.update(sum.data(),sum.size());}
     return hash.hexDigest();
 }
 }
