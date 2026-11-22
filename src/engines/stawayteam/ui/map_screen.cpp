@@ -12,6 +12,7 @@
 #include "engines/stawayteam/ui/movies.h"
 
 #include <algorithm>
+#include <climits>
 #include <cmath>
 #include <cstring>
 
@@ -21,6 +22,9 @@ namespace {
 
 // The ground's cells, square (0x4ef471).
 constexpr int kCell = kGroundCell;
+// How far a shadow's cast left for each pixel of height; down, half
+// (0x491451).
+constexpr float kShadowSlantX = 0.7014925f;
 // The scrolling's frames a second (inferred: see scroll()).
 constexpr float kScrollFrames = 30.0f;
 // The mouse this near the view's edge scrolls it (inferred).
@@ -191,10 +195,8 @@ MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, 
             _standing.push_back(i);
         }
     }
-    std::stable_sort(_standing.begin(), _standing.end(), [&](size_t a, size_t b) {
-        return _map.parts[a].y + float(_map.parts[a].renderingHeight) <
-               _map.parts[b].y + float(_map.parts[b].renderingHeight);
-    });
+    std::stable_sort(_standing.begin(), _standing.end(),
+                     [&](size_t a, size_t b) { return _map.parts[a].y < _map.parts[b].y; });
     moveCamera(_map.viewX, _map.viewY);
 
     // The team at the map's spawn points, the first at Away Team Spawn
@@ -1099,71 +1101,133 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         const Animation &a = animation(m.model, info.defaultSequence.empty() ? "Idle" : info.defaultSequence);
         blitBy(view, a.at(now), int(std::lround(m.x)) - left, int(std::lround(m.y)) - top);
     }
-    // The models and the officers among them, back to front by where they
-    // stand.
-    struct Standing {
-        float y;
+    // The models and the officers among them, back to front: each picture,
+    // or each strip of it its sequence's cuts make, by where it stands, its
+    // model's Sorting Y and the strip's offset, eight times over, and the
+    // layer drawn (0x4915d2); ties as they come.
+    struct Look {
+        const Animation *body = nullptr;
+        std::string sequence;
+        int frame = 0;
+        int direction = 0;
+        int x = 0; // on the view, where it stands
+        int y = 0;
+        int lift = 0; // its Rendering Height
+        int shown = 255;
+    };
+    struct Piece {
+        float key;
         int part; // or -1 for an officer
         size_t officer;
+        int clipLeft;
+        int clipRight;
+        Look look;
     };
-    std::vector<Standing> order;
+    std::vector<Piece> order;
     for (size_t i : _standing) {
         const MapPart &p = _map.parts[i];
         if (!shown(i))
             continue;
         if (p.x < float(left - 600) || p.x > float(left + viewW + 600) || p.y < float(top - 600) ||
-            p.y > float(top + viewH + 600))
+            p.y > float(top + viewH + 600 + p.renderingHeight))
             continue;
+        // Facing its way; an enemy where its AI has taken it, walking or
+        // standing.
         const auto enemy = _enemyOfPart.find(i);
-        const float y = enemy != _enemyOfPart.end() ? _enemies[enemy->second].y : p.y;
-        order.push_back({y + float(p.renderingHeight), int(i), 0});
-    }
-    for (size_t i = 0; i < _officers.size(); ++i)
-        order.push_back({_officers[i].y, -1, i});
-    std::stable_sort(order.begin(), order.end(), [](const Standing &a, const Standing &b) { return a.y < b.y; });
-    for (const Standing &s : order) {
-        if (s.part < 0) {
-            drawOfficer(view, _officers[s.officer], left, top, now);
-            continue;
-        }
-        const MapPart &p = _map.parts[size_t(s.part)];
-        // Facing its way, its shadow under it and its head over it, frame
-        // for frame (inferred: as the officers').
-        // An enemy where its AI has taken it, walking or standing.
-        const auto enemy = _enemyOfPart.find(size_t(s.part));
         const Enemy *e = enemy != _enemyOfPart.end() ? &_enemies[enemy->second] : nullptr;
-        std::string sequence = p.sequence.empty() ? "Idle" : p.sequence;
-        if (e && (sequence == "Idle" || sequence == "Walk"))
-            sequence = e->walking ? (e->running ? "Run" : "Walk") : "Idle";
+        Look look;
+        look.sequence = p.sequence.empty() ? "Idle" : p.sequence;
+        if (e && (look.sequence == "Idle" || look.sequence == "Walk"))
+            look.sequence = e->walking ? (e->running ? "Run" : "Walk") : "Idle";
         int fought = 0;
         const std::string fighting = e ? combatSequence(e->shooting, e->dead, e->stunned, fought, p.model) : "";
         if (!fighting.empty())
-            sequence = fighting;
-        const Animation &body = animation(p.model, sequence);
-        const int direction = body.direction(e ? e->angle : p.angle);
-        int frame = !fighting.empty() ? fought : int(double(now) * double(body.fps) / 1000.0) % 100000;
+            look.sequence = fighting;
+        const Animation &body = animation(p.model, look.sequence);
+        look.body = &body;
+        look.direction = body.direction(e ? e->angle : p.angle);
+        look.frame = !fighting.empty() ? fought : int(double(now) * double(body.fps) / 1000.0) % 100000;
         // Something put down plays its sequence from its first frame, once
         // through if it's to stop.
         for (const Deployed &d : _deployed)
-            if (d.part == size_t(s.part)) {
-                frame = int(d.time * body.fps);
+            if (d.part == i) {
+                look.frame = int(d.time * body.fps);
                 if (d.once)
-                    frame = std::min(frame, std::max(0, body.perDirection() - 1));
+                    look.frame = std::min(look.frame, std::max(0, body.perDirection() - 1));
             }
         if (e && e->walking && fighting.empty()) {
-            const float cycle = body.cycleDistance(direction);
+            const float cycle = body.cycleDistance(look.direction);
             if (cycle > 0.0f)
-                frame = int(e->travelled / cycle * float(body.perDirection()));
+                look.frame = int(e->travelled / cycle * float(body.perDirection()));
         }
-        const int x = int(std::lround(e ? e->x : p.x)) - left;
-        const int y = int(std::lround(e ? e->y : p.y)) - top;
+        const float standY = e ? e->y : p.y;
+        look.x = int(std::lround(e ? e->x : p.x)) - left;
+        look.y = int(std::lround(standY)) - top;
+        look.lift = p.renderingHeight;
         // Beamed away, it fades as it goes (inferred).
-        const int shown = int(std::lround(255.0f * warpShown(size_t(s.part))));
-        if (body.rotations > 1)
-            blitBy(view, animation(p.model, sequence + " Shadow").frame(frame, direction), x, y, 1.0f, shown);
-        blitBy(view, body.frame(frame, direction), x, y, 1.0f, shown);
-        if (!p.overlay.empty())
-            blitBy(view, animation(p.overlay, sequence).frame(frame, direction), x, y, 1.0f, shown);
+        look.shown = int(std::lround(255.0f * warpShown(i)));
+        const float sortY = standY + float(modelInfo(p.model).sortingY);
+        const Animation::Picture *picture = body.frame(look.frame, look.direction);
+        if (!picture || body.cuts.empty()) {
+            order.push_back({(sortY + float(body.sortingY)) * 8.0f, int(i), 0, INT_MIN, INT_MAX, look});
+            continue;
+        }
+        // Its strips: from the frame's left to the first cut, between the
+        // cuts, and from the last to its right (0x5518d0).
+        const int frameLeft = -picture->originX;
+        const int frameRight = picture->image.w - picture->originX;
+        for (size_t k = 0; k <= body.cuts.size(); ++k) {
+            const int from = k > 0 ? std::max(frameLeft, body.cuts[k - 1].x) : frameLeft;
+            const int to = k < body.cuts.size() ? std::min(frameRight, body.cuts[k].x) : frameRight;
+            if (from >= to)
+                continue;
+            const int offset = k > 0 ? body.cuts[k - 1].sortingY : body.sortingY;
+            order.push_back({(sortY + float(offset)) * 8.0f, int(i), 0, look.x + from, look.x + to, look});
+        }
+    }
+    for (size_t i = 0; i < _officers.size(); ++i) {
+        const float sortY = _officers[i].y + float(modelInfo(_team[_officers[i].member].bodyModel).sortingY);
+        order.push_back({sortY * 8.0f, -1, i, INT_MIN, INT_MAX, Look{}});
+    }
+    std::stable_sort(order.begin(), order.end(), [](const Piece &a, const Piece &b) { return a.key < b.key; });
+    for (const Piece &piece : order) {
+        if (piece.part < 0) {
+            drawOfficer(view, _officers[piece.officer], left, top, now);
+            continue;
+        }
+        const MapPart &p = _map.parts[size_t(piece.part)];
+        const Look &look = piece.look;
+        // Its shadow under it and its head over it, frame for frame
+        // (inferred: as the officers'); each lifted by its Rendering
+        // Height, but for a sequence on the ground, and a shadow's cast
+        // down and left (0x491444).
+        const auto place = [&](const Animation &a, int &x, int &y) {
+            x = look.x;
+            y = look.y;
+            if (a.shadow) {
+                x -= int(std::lround(float(look.lift) * kShadowSlantX));
+                y -= int(std::lround(float(look.lift) * 0.5f));
+            } else if (!a.onGround) {
+                y -= look.lift;
+            }
+        };
+        int x = 0;
+        int y = 0;
+        if (look.body->rotations > 1) {
+            const Animation &shadow = animation(p.model, look.sequence + " Shadow");
+            place(shadow, x, y);
+            blitBy(view, shadow.frame(look.frame, look.direction), x, y, 1.0f, look.shown, piece.clipLeft,
+                   piece.clipRight);
+        }
+        place(*look.body, x, y);
+        blitBy(view, look.body->frame(look.frame, look.direction), x, y, 1.0f, look.shown, piece.clipLeft,
+               piece.clipRight);
+        if (!p.overlay.empty()) {
+            const Animation &head = animation(p.overlay, look.sequence);
+            place(head, x, y);
+            blitBy(view, head.frame(look.frame, look.direction), x, y, 1.0f, look.shown, piece.clipLeft,
+                   piece.clipRight);
+        }
     }
     drawVision(view, left, top);
     drawNoises(view, left, top);

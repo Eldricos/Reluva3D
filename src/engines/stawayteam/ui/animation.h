@@ -9,6 +9,7 @@
 #include "image/image.h"
 
 #include <array>
+#include <climits>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -24,6 +25,20 @@ struct Animation {
     };
     std::vector<Picture> frames; // a direction's after another's
     float fps = 0.0f;
+    // Drawn on the ground, its part's Rendering Height not lifting it, or
+    // as a shadow, the height casting it down and left (0x491444).
+    bool onGround = false;
+    bool shadow = false;
+    // Its frames cut into strips, each sorted to draw by its own place:
+    // the first strip's offset added to where it stands, and each cut's x
+    // from there and the offset of the strip right of it (0x5518d0,
+    // 0x5512c0).
+    struct Cut {
+        int x = 0;
+        int sortingY = 0;
+    };
+    int sortingY = 0;
+    std::vector<Cut> cuts;
     int rotations = 1; // directions, the first facing 0 and the rest turning round evenly
     // A rotation sequence's frames' movement: a direction's first frame its
     // whole cycle's, each other how far into it that frame is (inferred).
@@ -72,6 +87,7 @@ image::Image cachePicture(const Archive &data, const std::string &name);
  * Draws `p` by its origin at (x, y), its colours scaled by `brightness`
  * (0-1), showing `opacity` (0-255) of it; nothing for nullptr.
  */
-void blitBy(Surface &screen, const Animation::Picture *p, int x, int y, float brightness = 1.0f, int opacity = 255);
+void blitBy(Surface &screen, const Animation::Picture *p, int x, int y, float brightness = 1.0f, int opacity = 255,
+            int clipLeft = INT_MIN, int clipRight = INT_MAX);
 
 } // namespace reluva::stawayteam

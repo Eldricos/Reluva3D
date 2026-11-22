@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 namespace reluva::stawayteam {
 
@@ -41,6 +42,15 @@ Error Animation::loadFrom(const Archive &data, const std::string &path, const st
     if (!seq->sequence)
         return Error::fail(path + ": not a sequence");
     fps = float(seq->object.number("Frames Per Second").value_or(15.0));
+    onGround = seq->object.integer("Render On Ground").value_or(0) != 0;
+    shadow = seq->object.integer("Is Shadow").value_or(0) != 0;
+    sortingY = int(seq->object.integer("Sorting Y Offset").value_or(0));
+    cuts.clear();
+    if (const TextObject *lines = seq->object.object("Cutting Lines"))
+        for (const TextField *c : lines->items())
+            if (c->object)
+                cuts.push_back({int(c->object->integer("Cut Offset").value_or(0)),
+                                int(c->object->integer("Strip Sorting Y Offset").value_or(0))});
     // A rotation sequence keeps each direction's frames together, the
     // first direction's first (formats/binary-object.md).
     frames.clear();
@@ -117,13 +127,30 @@ image::Image cachePicture(const Archive &data, const std::string &name) {
     return frameImage(frame);
 }
 
-void blitBy(Surface &screen, const Animation::Picture *p, int x, int y, float brightness, int opacity) {
+void blitBy(Surface &screen, const Animation::Picture *p, int x, int y, float brightness, int opacity, int clipLeft,
+            int clipRight) {
     if (!p)
         return;
+    image::Image dim;
     if (brightness < 1.0f)
-        image::blit(screen, dimmed(p->image, brightness), x - p->originX, y - p->originY, opacity);
-    else
-        image::blit(screen, p->image, x - p->originX, y - p->originY, opacity);
+        dim = dimmed(p->image, brightness);
+    const image::Image &whole = brightness < 1.0f ? dim : p->image;
+    const int left = x - p->originX;
+    const int from = int(std::clamp(int64_t(clipLeft) - left, int64_t(0), int64_t(whole.w)));
+    const int to = int(std::clamp(int64_t(clipRight) - left, int64_t(0), int64_t(whole.w)));
+    if (from == 0 && to == whole.w) {
+        image::blit(screen, whole, left, y - p->originY, opacity);
+        return;
+    }
+    if (from >= to)
+        return;
+    image::Image part;
+    part.w = to - from;
+    part.h = whole.h;
+    part.rgba.resize(size_t(part.w) * size_t(part.h) * 4);
+    for (int row = 0; row < whole.h; ++row)
+        std::memcpy(part.pixel(0, row), whole.pixel(from, row), size_t(part.w) * 4);
+    image::blit(screen, part, left + from, y - p->originY, opacity);
 }
 
 } // namespace reluva::stawayteam

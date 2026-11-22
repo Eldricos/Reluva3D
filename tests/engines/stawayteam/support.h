@@ -142,6 +142,20 @@ inline std::vector<uint8_t> fontFile(const std::vector<std::vector<uint8_t>> &gl
 }
 
 /**
+ * How a test model looks: its frames' colour and size (each frame a pixel
+ * wider than the one before, its origin at its middle), its Sorting Y, and
+ * its sequence's Sorting Y Offset and cuts (Cut Offset, Strip Sorting Y
+ * Offset).
+ */
+struct ModelLook {
+    uint16_t colour = 0x07e0;
+    int size = 4;
+    int sortingY = 0;
+    int sequenceSortingY = 0;
+    std::vector<std::pair<int, int>> cuts;
+};
+
+/**
  * A .mdl16: a CModel (version 1603) of its thirty properties, with one
  * rotation sequence, "Idle", of `rotations` directions of `frames` frames
  * each (CRotationSequence, version 30575: CSequence's properties, then its
@@ -151,11 +165,13 @@ inline std::vector<uint8_t> fontFile(const std::vector<std::vector<uint8_t>> &gl
  */
 inline std::vector<uint8_t> modelFile(const std::string &name, int rotations, int frames, float hitPoints = 100.0f,
                                       const std::vector<std::pair<float, float>> &footprint = {},
-                                      float explosionRadius = 0.0f, bool needsSight = false, float maxVelocity = 0.0f) {
+                                      float explosionRadius = 0.0f, bool needsSight = false, float maxVelocity = 0.0f,
+                                      const ModelLook &look = {}) {
     BinaryWriter w;
     w.object(1603.0f);
     w.str(name).str("").str("Model Descriptions").str("A test model").str("").i32(0).str("");
-    w.f32(hitPoints).f32(0.0f).str("").f32(0.0f).f32(explosionRadius).u8(needsSight ? 1 : 0).i32(0).str("Idle");
+    w.f32(hitPoints).f32(0.0f).str("").f32(0.0f).f32(explosionRadius).u8(needsSight ? 1 : 0).i32(look.sortingY);
+    w.str("Idle");
     for (int i = 0; i < 6; ++i)
         w.str("");
     w.f32(maxVelocity);
@@ -169,11 +185,14 @@ inline std::vector<uint8_t> modelFile(const std::string &name, int rotations, in
     const int count = rotations * frames;
     w.object(30575.0f);
     sequenceProperties(w, count, 10.0f);
-    w.i32(rotations).i32(0).i32(0).u8(0).u8(0).u8(0).u8(0).u8(0).i32(0).f32(0.0f).f32(6.2831855f).i32(0);
-    w.i32(0).i32(0);
+    w.i32(rotations).i32(0).i32(0).u8(0).u8(0).u8(0).u8(0).u8(0).i32(0).f32(0.0f).f32(6.2831855f);
+    w.i32(look.sequenceSortingY).i32(int32_t(look.cuts.size()));
+    for (const auto &[x, sortingY] : look.cuts)
+        w.object(95.0f).i32(x).i32(sortingY);
+    w.i32(0);
     std::vector<std::vector<uint8_t>> each;
     for (int i = 0; i < count; ++i)
-        each.push_back(solidFrame(4 + i, 4, uint16_t(0x07e0 + i)));
+        each.push_back(solidFrame(look.size + i, look.size, uint16_t(look.colour + i)));
     sequenceFrames(w, each);
     for (int i = 0; i < count; ++i)
         w.i32(0).i32(0);

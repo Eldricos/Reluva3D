@@ -320,6 +320,47 @@ void testEnemies() {
     CHECK(screen.enemies()[0].state == "Attack" && screen.enemies()[0].target == 0);
 }
 
+void testDrawingOrder() {
+    // A red wall at (100, 100) cut at its middle, its right strip sorted
+    // 100 further down; a blue crate standing at (100, 150) lifted 50 by its
+    // Rendering Height, so drawn over the wall: the wall's left strip under
+    // it, its right over it.
+    const std::string zax = "CLayerSaveData\n{\n\tWidth=1000\n\tHeight=1000\n\tView Position=100.000000,100.000000\n"
+                            "\tTree List=CSortList2D\n\t{\n"
+                            "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tVisible=1\n\t\t\tModel=Things/Wall\n"
+                            "\t\t\tPosition X=100\n\t\t\tPosition Y=100\n\t\t\tRendering Height=0\n\t\t}\n"
+                            "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tVisible=1\n\t\t\tModel=Things/Crate\n"
+                            "\t\t\tPosition X=100\n\t\t\tPosition Y=150\n\t\t\tRendering Height=50\n\t\t}\n"
+                            "\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    ModelLook wall;
+    wall.colour = 0xf800;
+    wall.size = 20;
+    wall.cuts = {{0, 100}};
+    data.files["Cache/Models/Things/Wall.mdl16"] = modelFile("Wall", 1, 1, 0.0f, {}, 0.0f, false, 0.0f, wall);
+    ModelLook crate;
+    crate.colour = 0x001f;
+    crate.size = 40;
+    data.files["Cache/Models/Things/Crate.mdl16"] = modelFile("Crate", 1, 1, 0.0f, {}, 0.0f, false, 0.0f, crate);
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    MapScreen screen(data, rules, map, options, 0);
+    CHECK(screen.cameraX() == 100.0f && screen.cameraY() == 100.0f);
+    Surface surface;
+    surface.create(200, 200, PixelFormat::kRGBA32);
+    screen.draw(surface, 0);
+    const auto pixel = [&](int x, int y) { return surface.row(y) + x * 4; };
+    CHECK(pixel(95, 100)[2] > 200 && pixel(95, 100)[0] < 50);
+    CHECK(pixel(105, 100)[0] > 200 && pixel(105, 100)[2] < 50);
+    CHECK(pixel(85, 100)[2] > 200 && pixel(100, 150)[2] < 50);
+}
+
 void testClosest() {
     // A guard seeing all round, Ann 80 away and Bea 40: it goes for Bea,
     // the nearer, though Ann's first.
@@ -1713,31 +1754,32 @@ void testFractal() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("stawayteam.unit.maps",
-                                        {
-                                            {"read", [](const std::filesystem::path &) { testRead(); }},
-                                            {"ground", [](const std::filesystem::path &) { testGround(); }},
-                                            {"paths", [](const std::filesystem::path &) { testPaths(); }},
-                                            {"team", [](const std::filesystem::path &) { testTeam(); }},
-                                            {"scripts", [](const std::filesystem::path &) { testScripts(); }},
-                                            {"triggers", [](const std::filesystem::path &) { testTriggers(); }},
-                                            {"enemies", [](const std::filesystem::path &) { testEnemies(); }},
-                                            {"closest", [](const std::filesystem::path &) { testClosest(); }},
-                                            {"choosing", [](const std::filesystem::path &) { testChoosing(); }},
-                                            {"combat", [](const std::filesystem::path &) { testCombat(); }},
-                                            {"noise", [](const std::filesystem::path &) { testNoise(); }},
-                                            {"objectives", [](const std::filesystem::path &) { testObjectives(); }},
-                                            {"enemy AI", [](const std::filesystem::path &) { testEnemyAI(); }},
-                                            {"items", [](const std::filesystem::path &) { testItems(); }},
-                                            {"maps", [](const std::filesystem::path &) { testMaps(); }},
-                                            {"interface", [](const std::filesystem::path &) { testInterface(); }},
-                                            {"gadgets", [](const std::filesystem::path &) { testGadgets(); }},
-                                            {"processes", [](const std::filesystem::path &) { testProcesses(); }},
-                                            {"kit", [](const std::filesystem::path &) { testKit(); }},
-                                            {"states", [](const std::filesystem::path &) { testStates(); }},
-                                            {"doors", [](const std::filesystem::path &) { testDoors(); }},
-                                            {"company", [](const std::filesystem::path &) { testCompany(); }},
-                                            {"beams", [](const std::filesystem::path &) { testBeams(); }},
-                                            {"water", [](const std::filesystem::path &) { testWater(); }},
-                                            {"fractal", [](const std::filesystem::path &) { testFractal(); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("stawayteam.unit.maps", {
+                                       {"read", [](const std::filesystem::path &) { testRead(); }},
+                                       {"ground", [](const std::filesystem::path &) { testGround(); }},
+                                       {"paths", [](const std::filesystem::path &) { testPaths(); }},
+                                       {"team", [](const std::filesystem::path &) { testTeam(); }},
+                                       {"scripts", [](const std::filesystem::path &) { testScripts(); }},
+                                       {"triggers", [](const std::filesystem::path &) { testTriggers(); }},
+                                       {"enemies", [](const std::filesystem::path &) { testEnemies(); }},
+                                       {"closest", [](const std::filesystem::path &) { testClosest(); }},
+                                       {"drawing order", [](const std::filesystem::path &) { testDrawingOrder(); }},
+                                       {"choosing", [](const std::filesystem::path &) { testChoosing(); }},
+                                       {"combat", [](const std::filesystem::path &) { testCombat(); }},
+                                       {"noise", [](const std::filesystem::path &) { testNoise(); }},
+                                       {"objectives", [](const std::filesystem::path &) { testObjectives(); }},
+                                       {"enemy AI", [](const std::filesystem::path &) { testEnemyAI(); }},
+                                       {"items", [](const std::filesystem::path &) { testItems(); }},
+                                       {"maps", [](const std::filesystem::path &) { testMaps(); }},
+                                       {"interface", [](const std::filesystem::path &) { testInterface(); }},
+                                       {"gadgets", [](const std::filesystem::path &) { testGadgets(); }},
+                                       {"processes", [](const std::filesystem::path &) { testProcesses(); }},
+                                       {"kit", [](const std::filesystem::path &) { testKit(); }},
+                                       {"states", [](const std::filesystem::path &) { testStates(); }},
+                                       {"doors", [](const std::filesystem::path &) { testDoors(); }},
+                                       {"company", [](const std::filesystem::path &) { testCompany(); }},
+                                       {"beams", [](const std::filesystem::path &) { testBeams(); }},
+                                       {"water", [](const std::filesystem::path &) { testWater(); }},
+                                       {"fractal", [](const std::filesystem::path &) { testFractal(); }},
+                                   });

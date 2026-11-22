@@ -127,16 +127,41 @@ others. They share `Visible`, `Collideable` and the rest; then:
 
 - **A model:** `Model` (`Cache/Models/<name>.mdl16`), `Position X`,
   `Position Y`, `Rendering Height`, and `Cur Sequence` (`Idle`), drawn by
-  its frames' origin at its place, as a sequence's *(inferred)*. A
+  its frames' origin at its place, lifted by its `Rendering Height`
+  (below). A
   character's `Facing Angle` is in radians, 0 to 2 pi, its rotation
   sequence's `Rotational Range` turning through its directions (4.69 is
   about direction 9 of 12) *(inferred)*; some have an `Overlay Model`, a
   head drawn over them (`Characters/Head Fed Generic 01`, 157 in all).
+- **Its place in the drawing:** below.
 - **A polygon:** `Polygon` (its corners, the first again at the end),
   `On Ground`, `Render Type` (`Textured` 872 in all the maps, `Black`
   1,285, `Shadow` 172, `Trans Blue`, `Trans Green`, `Trans Red`,
   `Warped` 29), `YSort`, and a textured one's `Static Texture`, an
   `Animated Texture` and a `Warp Effect` (water).
+
+### The drawing order
+
+The models are drawn back to front by a key for each picture, or each
+strip of one (`0x4913c0`):
+
+- **Where it's drawn:** at its `Position X` and `Position Y` less its
+  `Rendering Height` (the window, trim and roof pieces on the StarFleet
+  maps' walls: 200, 83, 76...), but for a sequence with `Render On
+  Ground`, at its place; a sequence that `Is Shadow` is cast 0.7 of the
+  height left and half of it down (`0x491444`).
+- **Its strips:** a sequence's `Cutting Lines` (1,493 of the 7,480
+  sequences in the models) are `CVerticalCut`s, each a `Cut Offset`, an x
+  from the part's place, and a `Strip Sorting Y Offset`. A frame is cut at
+  each into strips, the first from its left to the first cut, the last
+  from the last cut to its right (`0x5518d0`).
+- **The key:** where it stands (its y, not lifted), plus its model's
+  `Sorting Y` (a model's, `0x4930f0`; for a model drawn over another, as
+  a head, the two added, `0x51065e`), plus the strip's offset: the
+  sequence's `Sorting Y Offset` for the first strip, the cut's `Strip
+  Sorting Y Offset` left of it for the others (`0x5512c0`); that times 8,
+  plus the layer drawn, the first 0 (`0x4915d2`). A wall cut so lets
+  someone stand in front of one end and behind the other.
 
 ### The interface
 
@@ -619,8 +644,10 @@ its ground, and its parts' models, places and polygons. `MapScreen`
   (which stops while it's paused *(inferred)*); the waypoints' and
   free-range ones aren't drawn.
 - **Models:** each part's model's sequence, its first direction's frames
-  in time, back to front by where they stand (with `Rendering Height`)
-  *(inferred)*.
+  in time, lifted, cut into strips and drawn back to front as above; a
+  part's shadow, body and head together, in its strips; the officers by
+  where they stand and their body's `Sorting Y`, uncut. Ties drawn as
+  they come *(inferred)*.
 - **The camera:** starting at `View Position`, kept on the map as the
   program keeps it, scrolled by the keys bound to Scroll Map Left,
   Right, Up and Down (the arrows) and by the mouse at the view's edges,
@@ -941,6 +968,10 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   share their edges; Mission 03's pond rippling from frame to frame.
 - **The polygons' colours:** the span fillers each `Render Type` calls
   (`0x53ec66`) read for what they do to a 16-bit pixel.
+- **The drawing order:** traced in the program; a unit test of a cut
+  wall and a lifted crate; Mission 05's StarFleet HQ on the retail files,
+  its roofs' trim, windows and canopies up on the buildings where they'd
+  lain on the pavement, and Mission 01 as before.
 - **The camera, the zoom and enemies' targets:** traced in the program;
   unit tests of the scrolling's speed and slowing, the zoom's steps and
   easing, and the nearer of two officers chosen; Mission 01's fight run
@@ -955,10 +986,8 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   officer must be in range.
 - **Frames:** how many a second the program's camera and zoom took
   their steps at.
-- **Drawing order:** how the program's sort list (`CSortList2D`, with
-  its cutting lines) orders the models; a model's `Sorting Y` is added
-  to its key (`0x51065e`), and `Rendering Height` is kept as a float
-  (`0x493a20`).
+- **Drawing order:** how the program breaks ties between equal keys,
+  and where the polygons' `YSort` puts those drawn standing.
 - **Enemies' sight:** whether anything stops an enemy seeing past what
   stands between (the program's finding of a target doesn't).
 - **Water's time:** whether the program's clock the water moves by

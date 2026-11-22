@@ -230,6 +230,7 @@ Error loadModelInfo(const Archive &data, const std::string &model, ModelInfo &ou
         return Error::fail(path + ": " + err.message);
     out.footprint = readPolygon(text(object.object, "Bounds Poly"));
     out.hitPoints = int(object.object.number("Hit Points").value_or(0.0));
+    out.sortingY = int(object.object.integer("Sorting Y").value_or(0));
     out.explosion = text(object.object, "Explosion");
     if (out.explosion == "!Unknown Model")
         out.explosion.clear();

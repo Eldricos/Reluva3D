@@ -453,9 +453,14 @@ void testCampaign(const std::filesystem::path &tmp) {
     MissionObjectives mission;
     mission.baseScore = 100;
     std::vector<Objective> objectives(3);
-    objectives[0] = {.status = ObjectiveStatus::kComplete, .required = true, .points = 50};
-    objectives[1] = {.status = ObjectiveStatus::kComplete, .required = false, .points = 25};
-    objectives[2] = {.status = ObjectiveStatus::kFailed, .required = false, .points = 30};
+    const auto set = [&](size_t i, ObjectiveStatus status, bool required, int points) {
+        objectives[i].status = status;
+        objectives[i].required = required;
+        objectives[i].points = points;
+    };
+    set(0, ObjectiveStatus::kComplete, true, 50);
+    set(1, ObjectiveStatus::kComplete, false, 25);
+    set(2, ObjectiveStatus::kFailed, false, 30);
     CHECK(missionScore(mission, objectives) == 125);
     // Items found as the score reaches their points, once.
     std::map<std::string, ItemDefinition> items;

@@ -34,7 +34,7 @@ None yet.
   sounds named `.wav` being the `.ogg` files of their names
   ([systems/menus.md](systems/menus.md#open-questions)).
 - **Maps:** the camera's and zoom's frames taken as 30 a second, the
-  models' drawing order and origin, the water's clock stopping while
+  drawing order's ties, the water's clock stopping while
   paused, enemies not seeing past what stands between; the team at the spawn points
   in order, their facing, the path finding by A*, the mouse's buttons,
   the info bar rising under the mouse, a walk's pace from its frames,
