@@ -1624,6 +1624,19 @@ stand-in's default shows what the game asked for, drawn on an idealised
 device, and the profiles are guesses at particular cards, not
 references.
 
+### Later: the formats' sources reviewed (to do)
+
+The project uses no source whose terms don't sit with the GPL (decided
+for NFS II SE in November 2026: [its plan](../nfs2se/PLAN.md#decisions)).
+Denis Auroux's NFS II notes forbid commercial use of their information;
+his NFS III notes, in T3ED's help file, are cited for `.frd`, `.col` and
+`.fce` ([REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md#sources),
+[frd.md](formats/frd.md), [fce.md](formats/fce.md)) and their terms
+aren't known. To do: find their terms; if they don't sit with the GPL,
+work out again from the files each fact taken from them, drop the
+meanings only they give, and rename what's named after them, as was done
+for NFS II SE.
+
 ### Merged into main (November 2026, done)
 
 The branch was merged into main after main's reorganisation, following

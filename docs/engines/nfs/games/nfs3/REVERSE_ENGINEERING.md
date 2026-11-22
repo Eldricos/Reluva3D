@@ -54,7 +54,8 @@ Allowed under CONTRIBUTING.md:
   interfaces.
 - **Public format write-ups.** The NFS modding community's documents on
   FRD/COL/FCE (Denis Auroux's NFS3 track and car format notes, as used
-  by T3ED and FCEFinish), the MultimediaWiki pages on EA formats
+  by T3ED and FCEFinish; their terms are to be reviewed,
+  [PLAN.md](PLAN.md#later-the-formats-sources-reviewed-to-do)), the MultimediaWiki pages on EA formats
   (RefPack, SHPI, SCHl/ASF, MAD), and fan wikis.
 - **Open-source readers, as references only.** OpenNFS (MIT) and
   FFmpeg's EA demuxers and decoders (LGPL 2.1+) may be read to check our
