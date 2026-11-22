@@ -197,8 +197,11 @@ stand-in. Closing the window asks first. The engine shows at most so
 many frames a second, its *Frame rate* setting (20 unless set: 15, 30,
 60, or as many as it draws), as the game turns the player by the frame
 (above). Its settings give the setup's choices that matter here: the
-island's model and texture quality, music, 3D sound and the game's own
-cursor, each set in the registry when chosen. The registry's `Island
+island's model and texture quality, music, 3D sound, the game's own
+cursor and a joystick, each set in the registry when chosen. With *Use a
+joystick*, the first one connected is the game's joystick 0
+(`UseJoystick` "YES", `JoystickIndex` 0), through WINMM's
+`joyGetPosEx`. The registry's `Island
 Quality` is "2", the island's detailed model. The registry's `savepath` is
 the install folder, whose writes go to the game's save folder, so its
 saved games are kept with it *(inferred: what `CONFIG.EXE` writes there

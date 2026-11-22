@@ -41,6 +41,8 @@ public:
 
     /** One of the program's registry settings (GameProcess::setSetting); before start. */
     void setSetting(const std::string &name, const std::string &value) { _settings.emplace_back(name, value); }
+    /** Whether the game is told of a joystick, which the input's joystick events move; before start. */
+    void setJoystick(bool present) { _joystick = present; }
     /** At most so many frames a second (0: as many as it draws); before start. */
     void setFrameRate(int framesPerSecond) { _frameRate = framesPerSecond; }
     /** Starts the game's thread, which loads and runs the program; call once. */
@@ -75,6 +77,7 @@ private:
     std::filesystem::path _saveDir;
     audio::Mixer *_mixer;
     int _frameRate = 0;
+    bool _joystick = false;
     std::vector<std::pair<std::string, std::string>> _settings;
     std::chrono::steady_clock::time_point _nextFrame; // the game thread's
     GameProcess *_game = nullptr;                     // the game thread's, while it runs

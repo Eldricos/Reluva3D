@@ -72,6 +72,12 @@ private:
              {std::pair{"music", "Music"}, {"sound3d", "3DSound"}, {"drawcursor", "Draw Cursor"}})
             if (const std::string *v = set(key))
                 player.setSetting(name, *v != "0" ? "YES" : "NO");
+        // A joystick, if asked for: the first one connected, as joystick 0.
+        if (const std::string *v = set("usejoystick"); v && *v != "0") {
+            player.setSetting("UseJoystick", "YES");
+            player.setSetting("JoystickIndex", "0");
+            player.setJoystick(true);
+        }
         player.start();
         int width = 640;
         int height = 480;
@@ -194,7 +200,9 @@ public:
                 flag("music", "Music", "The game's music.", true),
                 flag("sound3d", "3D sound", "Sounds placed around the player, as the setup's 3D Sound.", true),
                 flag("drawcursor", "The game's own cursor",
-                     "The game draws its own pointer, as the setup's Draw Cursor.", false)};
+                     "The game draws its own pointer, as the setup's Draw Cursor.", false),
+                flag("usejoystick", "Use a joystick",
+                     "The first joystick or game controller connected steers, as the setup's Use Joystick.", false)};
     }
 
     std::vector<ImportPlan> planImport(const std::filesystem::path &source) const override {

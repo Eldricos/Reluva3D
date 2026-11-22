@@ -68,6 +68,7 @@ void Player::work() {
     if (!_saveDir.empty())
         game.setSaveFolder(_saveDir);
     game.directSound().mixer = _mixer;
+    game.process().joystick.present = _joystick;
     for (const auto &[name, value] : _settings)
         game.setSetting(name, value);
     x86::Win32Process &process = game.process();
@@ -156,6 +157,21 @@ void Player::drain() {
                 p.mouseButton(button, ev.type == EventType::kMouseDown);
             break;
         }
+        case EventType::kJoyAxis:
+            p.joystickAxis(ev.joyAxis, ev.joyValue);
+            break;
+        case EventType::kJoyButtonDown:
+        case EventType::kJoyButtonUp:
+            p.joystickButton(ev.joyButton, ev.type == EventType::kJoyButtonDown);
+            break;
+        case EventType::kJoyHat:
+            p.joystickHat(ev.joyHat);
+            break;
+        case EventType::kJoyRemoved: // let go: centred, nothing held
+            p.joystick.axes[0] = p.joystick.axes[1] = 32768;
+            p.joystick.buttons = 0;
+            p.joystick.pov = 0xffff;
+            break;
         case EventType::kMouseWheel:
             p.mouseWheel(ev.wheelY * 120); // Windows' WHEEL_DELTA a notch
             break;
