@@ -57,7 +57,9 @@ None yet.
 - **Items:** the counts for -1, the keys matched to items by name,
   walking into range before using one, a grenade's straight flight and
   whom its explosion reaches, healing up to the whole, and where the bar
-  shows counts ([systems/items.md](systems/items.md#open-questions)).
+  shows counts; the items' panels' layout and the phaser's switch on
+  it, mines put down and set off, and tricorders' scans
+  ([systems/items.md](systems/items.md#open-questions)).
 - **The interface's buttons:** orders given with time stopped, what
   Cancel Orders drops, how an enemy's sight is chosen and drawn, and the
   escape menu holding the game

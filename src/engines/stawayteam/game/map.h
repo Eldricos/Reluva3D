@@ -127,6 +127,20 @@ struct ModelInfo {
     float fuse = 0.0f;
     float noiseRadius = 0.0f;
     float noiseAge = 0.0f;
+    // What a tricorder says of it: a line of a script of Levels/.
+    std::string descriptionScript;
+    std::string descriptionLine;
+    std::string defaultSequence;
+    std::string activateSound;
+    // A proximity mine's (its Default Entity's CActionAI): armed this long
+    // after it's put down, then set off by an enemy in an oval this wide
+    // and this much as high, going off this long after, with this noise.
+    float armTime = 0.0f;
+    float triggerRadius = 0.0f;
+    float triggerRatio = 1.0f;
+    float fuseAfterTrigger = 0.0f;
+    float triggerNoise = 0.0f;
+    float triggerNoiseAge = 0.0f;
 };
 
 /** Reads `Cache/Models/<model>.mdl16`'s ModelInfo. */

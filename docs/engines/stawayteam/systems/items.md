@@ -61,6 +61,50 @@ damage (`Weapon Damage` 0) and stuns for its `Stun Duration` (30). The
 Hand Grenade's projectile is a puff of particles, and the EM Pulse
 Grenade's Explosion Radial Damage is 0.
 
+### Mines
+
+A mine's Process Activity is a `CDropItemAI`: the officer walks to the
+place, and its `CDropItemAtTargetAction` puts down `Model to Create`
+("Items/Weapons/Deployed States/Proximity Mine"), with its `Deploy
+Sequence`. The proximity mine's model's Default Entity has a
+`CActionAI`: a `CDelayAction` of 2 seconds, then a `CAddAIAction` giving
+it a `CTouchingOvalTriggerAI` (`X Radius` 100, `YX Ratio` 0.71,
+`Triggered By Enemies`) whose Enter Action plays its `Activate`, its
+pulse sound and a noise of 350 for 2, and destroys it 0.65 seconds on;
+destroyed, it explodes, `Explosion Radial Damage` 150, `Require LOS For
+Damage` 1, the mine's `Weapon Damage` 60. A remote mine
+(`CStarTrekRemoteMineInventoryItem`, `Rounds` 5) is put down the same
+way and has no trigger; its panel (`CDetonateInfoRenderer`, on
+`Interface/Remote Mine Background`) has its `Detonate Button` (`Info
+Bar/Remote Mine/Detonate Default` and `Press`, "Detonate" in Small Red)
+and "Number of Mines".
+
+### Tricorders
+
+The Tricorder (`Process Type` `Scan`) and Medical Tricorder (`Medical
+Scan`) are used on what's under the cursor (`Always Use Target Under
+Cursor`) within their `Item Range` (450), their `Default Use Sound` the
+tricorder's pulse; their `CTricorderModelDescriptionAction` shows the
+model's `Description Script` and `Description Line` ("Model
+Descriptions": "Romulan warrior of the Romulan Star Empire.") on their
+panel (`CTricorderInfoRenderer`, on `Interface/Tricorder`), typed at
+its `Text Speed` (30), in Rules.txt's `Tricorder Pos` and `Size` (192
+by 36).
+
+### An item's panel
+
+The chosen item's `Info Renderer` is drawn on the info bar at Rules.txt's
+`Info Renderer Pos` (127, 34): its `Background Sequence`, and what its
+kind shows. A `CGenericInfoRenderer` its `Text` in `Text Size` at `Text
+Pos`. The phaser's `CPhaserInfoRenderer`: its `Phaser Power Indicator
+Sequence` at `Phaser Indicator Pos`, its damage and range at `Phaser
+Damage Pos` and `Phaser Range Pos` in `Phaser Font`, and two buttons
+(`Buttons/Stun Pos` 155, 39; `Overload Pos` 95, 39), each's words at its
+`Text Pos`: STUN in Trek Small with it set to stun, else KILL in Trek
+Small Red; OVERLOAD likewise. The phaser comes set to `Kill` (its
+`Default Inventory Item`'s `Weapon Setting`); a map can set an enemy's
+to `Stun` (34 Borg guns).
+
 ### The inventory bar
 
 At Rules.txt's `Inventory Pos` (355, 419): its `Background`, the items
@@ -89,9 +133,31 @@ Health, up to their whole *(inferred)*. Each use takes one of its count;
 none left, it can't be used. The bar shows each item's uses left in its
 corner *(inferred)*.
 
-Not there yet: mines, the scanners, the cloaking band, the other gadgets
-and skills, the phaser's kill and stun settings, the cursors, the bar's
-scrolling and the full inventory.
+A mine chosen is put down where's clicked, the officer walking there
+first *(inferred)*; drawn on the ground, its model's Default Sequence
+over and over *(inferred)*. A proximity mine arms after its model's
+delay, then goes when an enemy's in its oval: its Activate Sound and
+noise, and its explosion its fuse later, as a grenade's, hurting by the
+mine's Weapon Damage (read from its model's AI; *inferred* for running
+it here). A remote mine waits for DETONATE on its panel, which sets off
+every one put down *(inferred)*. A tricorder chosen, a click on a part
+with a model (an enemy where it's got to) sends the officer within its
+Item Range and sight, then shows the model's description on its panel,
+typed out *(inferred)*.
+
+The chosen item's panel is drawn on the info bar: its Background
+Sequence centred at Info Renderer Pos (its frames' origin), its parts
+at their places from there, over the minimap *(inferred)*: a generic
+one's text; the phaser's power, full, "Damage: %g" (`0x41bc47`), and its
+STUN or KILL on the toolkit's toggle (`Inventory/Toggle Default` and
+`Press`), a click on it switching the chosen officer's phaser
+*(inferred)*, with OVERLOAD, off; the remote mine's DETONATE and its
+count; the tricorder's words. Each officer's phaser is set as it comes,
+and set to stun it stuns what it hits for its Stun Duration.
+
+Not there yet: the mines' Deploy and Activate sequences, the cloaking
+band, the other gadgets and skills, the phaser's overload and range, the
+cursors, the bar's scrolling and the full inventory.
 
 ## Sources and checks
 
@@ -107,7 +173,15 @@ scrolling and the full inventory.
   (`stawayteam.unit.maps`) check the counts, a concussion grenade
   stunning a guard in its reach and not one outside it, a grenade hurting
   an officer, none left after the last, and a hypospray walked to an
-  officer and healing them.
+  officer and healing them; a phaser switched to stun stunning a guard
+  unhurt, a remote mine put down and set off, a tricorder on a guard
+  reading its description. Mission 01 run on: the panels read for the
+  phaser (CPhaserInfoRenderer), the mines and tricorders; Marcus
+  Refelian's phaser switched to stun stunning the first Romulan for 15
+  seconds; T'Andorla putting a proximity mine down by it, armed two
+  seconds on and going off, taking it from 100 to 40; Ivan Verov's
+  tricorder on it: "Romulan warrior of the Romulan Star Empire."; the
+  phaser's panel with KILL and OVERLOAD as the info bar rises.
 
 ## Open questions
 
@@ -118,5 +192,9 @@ scrolling and the full inventory.
   the team, and what the EM Pulse Grenade does.
 - **The bar:** where a count is shown, the More Indicator, and the full
   inventory.
-- **The phaser's settings:** where the switch is (`Toggle` and the
-  `CPhaserInfoRenderer`'s STUN and KILL) and how it's used.
+- **The panels:** where each part of an item's panel is drawn, whether
+  it's over the minimap, and how the phaser's switch is used.
+- **Mines:** where one's put down, who a remote mine's DETONATE sets off,
+  and the mines' sequences.
+- **Tricorders:** what can be scanned, and what the Medical Tricorder
+  shows that the Tricorder doesn't.

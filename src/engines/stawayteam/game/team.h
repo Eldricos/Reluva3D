@@ -128,6 +128,12 @@ struct ItemDefinition {
     float health = 0.0f;       // a healer's (its Discharge Action's Health action's Health)
     bool canUseOnSelf = false;
     std::string useSound;
+    bool multipleSettings = false; // Has Multiple Settings: the phaser's kill and stun
+    std::string deployModel;       // what a mine leaves where it's put (its CDropItemAtTargetAction's)
+    bool remote = false;           // a mine set off from its panel, not by who comes near
+    // Its panel on the info bar (its Info Renderer: a CPhaserInfoRenderer,
+    // CGenericInfoRenderer...), kept as written.
+    std::shared_ptr<const TextObject> infoRenderer;
     float shotNoise = 0.0f;     // its Discharge Action's Noise Radius, pixels
     float shotNoiseTime = 0.0f; // seconds it's heard for
 };

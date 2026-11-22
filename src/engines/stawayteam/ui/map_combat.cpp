@@ -285,7 +285,7 @@ void MapScreen::updateCombat(float seconds) {
                 shoot(*o.weapon, _team[o.member].bodyModel, o.x, o.y, e.x, e.y);
                 makeNoise(o.x, o.y, o.weapon->shotNoise, o.weapon->shotNoiseTime);
                 o.shooting = 1e-6f;
-                hurtEnemy(i, *o.weapon, int(&o - _officers.data()), o.weapon->stuns);
+                hurtEnemy(i, *o.weapon, int(&o - _officers.data()), stuns(o));
             }
         } else if (o.path.empty()) {
             o.path = _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{e.x, e.y}}

@@ -8,6 +8,7 @@
 #include "common/system.h"
 #include "engines/stawayteam/formats/text_object.h"
 #include "engines/stawayteam/game/team.h"
+#include "engines/stawayteam/ui/animation.h"
 #include "engines/stawayteam/ui/font.h"
 
 #include <cstdint>
@@ -36,10 +37,12 @@ public:
         bool objectives = false;  // the objectives button pressed
         bool pause = false;       // the pause button pressed: time stopped or going again
         bool cancelOrders = false;
-        bool vision = false;  // the vision button pressed: its state on
-        bool options = false; // the escape button pressed
-        int item = -1;        // an item chosen on the inventory: its place in what setInventory gave
-        float cameraX = 0.0f; // where, for moveCamera: the view's middle on the map
+        bool vision = false;     // the vision button pressed: its state on
+        bool options = false;    // the escape button pressed
+        bool toggleStun = false; // the chosen item's panel's STUN or KILL pressed
+        bool detonate = false;   // the remote mine's panel's DETONATE pressed
+        int item = -1;           // an item chosen on the inventory: its place in what setInventory gave
+        float cameraX = 0.0f;    // where, for moveCamera: the view's middle on the map
         float cameraY = 0.0f;
     };
 
@@ -73,6 +76,15 @@ public:
     }
     /** Whether the sound button shows the team's noises. */
     void setListening(bool on) { _listening = on; }
+    /**
+     * The chosen item's panel on the info bar: whether it's set to stun,
+     * and what a tricorder's said, `typed` characters of it shown.
+     */
+    void setItemPanel(bool stun, std::string scan, size_t typed) {
+        _stun = stun;
+        _scan = std::move(scan);
+        _scanTyped = typed;
+    }
     /** Whether time's stopped, the pause button held down. */
     void setPaused(bool paused) { _paused = paused; }
     /** The vision button's state: 0 off, 1 choosing an enemy, 2 showing its sight. */
@@ -85,6 +97,11 @@ private:
     int infoTop(uint64_t now);
     bool overInfoBar(int x, int y, uint64_t now);
     const image::Image &picture(const std::string &name);
+    // The chosen officer's chosen item, and its panel drawn at (x, y).
+    const ItemDefinition *chosenItem() const;
+    void drawItemPanel(Surface &screen, int x, int y, uint64_t now);
+    const Animation &sequence(const std::string &name);
+    const Font &panelFont(const std::string &name);
 
     const Archive &_data;
     const TextObject *_custom;
@@ -108,6 +125,15 @@ private:
     bool _listening = false;
     bool _paused = false;
     int _vision = 0;
+    bool _stun = false;
+    std::string _scan;
+    size_t _scanTyped = 0;
+    std::map<std::string, Animation> _sequences; // the panels', by name
+    std::map<std::string, Font> _panelFonts;
+    // Where the chosen item's panel is on the screen, and its STUN and
+    // DETONATE buttons' places in it.
+    int _panelX = 0;
+    int _panelY = 0;
     std::vector<Held> _held;
     int _heldChosen = -1;
     // Where each item shown is on the screen, and its place in _held.

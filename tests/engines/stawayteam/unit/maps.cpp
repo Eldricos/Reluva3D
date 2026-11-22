@@ -905,6 +905,87 @@ void testInterface() {
     CHECK(!screen.escapeShown());
 }
 
+void testGadgets() {
+    // Ann with a phaser that can stun, remote mines and a tricorder; a
+    // guard 200 off, looking away.
+    const std::string zax =
+        "CLayerSaveData\n{\n\tWidth=2000\n\tHeight=2000\n\tView Position=500.000000,300.000000\n"
+        "\tTree List=CSortList2D\n\t{\n"
+        "\t\tLevel Part=CEntityWalking\n\t\t{\n\t\t\tName=Guard\n\t\t\tVisible=1\n\t\t\tActive=1\n"
+        "\t\t\tActivity=Array\n\t\t\t{\n\t\t\t\tItem Count=1\n\t\t\t\tActivity=CBorgAI\n\t\t\t\t{\n"
+        "\t\t\t\t\tCurrent State=Patrol\n\t\t\t\t\tMax Distance=50\n\t\t\t\t}\n\t\t\t}\n"
+        "\t\t\tModel=Characters/Guard\n\t\t\tPosition X=500\n\t\t\tPosition Y=300\n\t\t\tFacing Angle=3.14159\n"
+        "\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 1\n\t\t\tPosition X=300\n"
+        "\t\t\tPosition Y=300\n\t\t}\n\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    data.files["Cache/Models/Characters/Guard.mdl16"] = modelFile("Guard", 1, 1);
+    data.files["Cache/Models/Shots/Remote.mdl16"] = modelFile("Remote", 1, 1, 1.0f, {}, 100.0f, false, 0.0f);
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    data.files["Levels/Model Descriptions.RDS"] = bytesOf(":A test model\r\nA guard, armed.\r\n");
+    data.files["Inventory/Item Definitions/Phaser.txt"] =
+        bytesOf("CStarTrekInventoryItemDefinition\n{\n\tDisplay In Inventory=1\n\tWeapon Damage=25\n"
+                "\tReuse Delay=0.5\n\tItem Range=375\n\tStun Duration=15\n\tHas Multiple Settings=1\n"
+                "\tDischarge Action=CShootEnergyWeaponAction\n\t{\n\t}\n"
+                "\tDefault Inventory Item=CStarTrekEnergyWeaponInventoryItem\n\t{\n\t\tWeapon Setting=Kill\n\t}\n"
+                "\tInfo Renderer=CPhaserInfoRenderer\n\t{\n\t\tStun Pos=155,39\n\t}\n}\n");
+    data.files["Inventory/Item Definitions/Remote Mine.txt"] =
+        bytesOf("CStarTrekInventoryItemDefinition\n{\n\tDisplay In Inventory=1\n\tWeapon Damage=60\n"
+                "\tDefault Inventory Item=CStarTrekRemoteMineInventoryItem\n\t{\n\t\tRounds=2\n\t}\n"
+                "\tProcess=CProcess\n\t{\n\t\tProcess Type=Shoot\n\t\tProcess Activity=CDropItemAI\n\t\t{\n"
+                "\t\t\tDestination Action=CDropItemAtTargetAction\n\t\t\t{\n"
+                "\t\t\t\tModel to Create=Shots/Remote\n\t\t\t}\n\t\t}\n\t}\n"
+                "\tInfo Renderer=CDetonateInfoRenderer\n\t{\n\t\tDetonate Button Pos=140,14\n\t}\n}\n");
+    data.files["Inventory/Item Definitions/Tricorder.txt"] =
+        bytesOf("CStarTrekInventoryItemDefinition\n{\n\tDisplay In Inventory=1\n\tItem Range=450\n"
+                "\tProcess=CProcess\n\t{\n\t\tProcess Type=Scan\n\t}\n}\n");
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    ann.inventory = {{"Phaser", -1}, {"Remote Mine", -1}, {"Tricorder", -1}};
+    MapScreen screen(data, rules, map, options, 0, {ann});
+    const MapScreen::Officer &a = screen.officers()[0];
+    const MapScreen::Enemy &guard = screen.enemies()[0];
+    uint64_t now = 0;
+    const auto run = [&](uint64_t until) {
+        while (now < until)
+            screen.update(now += 50);
+    };
+    // The phaser, set to kill as it comes, switched to stun: the guard's
+    // stunned, not hurt.
+    screen.choose(0);
+    screen.chooseItem(0, 0);
+    CHECK(!a.items[0].stun);
+    screen.toggleStun();
+    CHECK(a.items[0].stun);
+    screen.attack(0);
+    run(500);
+    CHECK(guard.state == "Stun" && guard.health == 100.0f);
+    // A remote mine put down by the guard; she walks off, and it goes
+    // when it's set off.
+    screen.chooseItem(0, 1);
+    CHECK(a.items[1].count == 2 && screen.useItem(480.0f, 300.0f));
+    run(8000);
+    CHECK(screen.mines().size() == 1 && a.items[1].count == 1);
+    screen.order(250.0f, 300.0f);
+    run(16000);
+    screen.detonate();
+    run(16100);
+    CHECK(screen.mines().empty() && guard.health == 40.0f && a.health == 100.0f);
+    // The tricorder on the guard: the description of its model.
+    screen.chooseItem(0, 2);
+    CHECK(screen.useItem(500.0f, 300.0f));
+    run(17000);
+    CHECK(screen.scanText() == "A guard, armed.");
+}
+
 void testChoosing() {
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(kMap, kMap + std::string(kMap).size());
@@ -960,4 +1041,5 @@ static const reluva::test::Suite kSuite("stawayteam.unit.maps",
                                             {"items", [](const std::filesystem::path &) { testItems(); }},
                                             {"maps", [](const std::filesystem::path &) { testMaps(); }},
                                             {"interface", [](const std::filesystem::path &) { testInterface(); }},
+                                            {"gadgets", [](const std::filesystem::path &) { testGadgets(); }},
                                         });

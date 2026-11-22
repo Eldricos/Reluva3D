@@ -51,10 +51,11 @@ None yet.
   as the triggers say; parts other than the team aren't moved between a
   mission's maps
   ([systems/objectives.md](systems/objectives.md#in-reluva)).
-- **Items:** only weapons, grenades and the hypospray can be used;
-  grenades fly straight, without an arc or bounces; there are no item
-  cursors, no scrolling of the bar or full inventory, and the phaser
-  can't be set to stun ([systems/items.md](systems/items.md#in-reluva)).
+- **Items:** weapons, grenades, mines, the hypospray and the tricorders
+  can be used, the other gadgets and skills not yet; grenades fly
+  straight, without an arc or bounces; there are no item cursors, no
+  scrolling of the bar or full inventory, and the phaser's overload
+  isn't there ([systems/items.md](systems/items.md#in-reluva)).
 - **The briefing:** the items found in earlier missions aren't
   described after the lines, the text has no scroll bar (the mouse wheel
   scrolls it), the random numbers aren't there, and EXIT doesn't fade out

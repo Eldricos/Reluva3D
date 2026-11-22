@@ -701,6 +701,10 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
         _listening = !_listening;
     if (hud.pause)
         _paused = !_paused;
+    if (hud.toggleStun)
+        toggleStun();
+    if (hud.detonate)
+        detonate();
     if (hud.cancelOrders)
         cancelOrders();
     if (hud.vision)
@@ -894,6 +898,13 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
             if (o.chosen)
                 blitBy(view, animation("Interface/Selection", "Idle").at(now), int(std::lround(o.x)) - left,
                        int(std::lround(o.y)) + kMarkerY - top);
+    // The mines put down, on the ground under everyone, their model's
+    // Default Sequence over and over (inferred).
+    for (const Mine &m : _mines) {
+        const ModelInfo &info = modelInfo(m.model);
+        const Animation &a = animation(m.model, info.defaultSequence.empty() ? "Idle" : info.defaultSequence);
+        blitBy(view, a.at(now), int(std::lround(m.x)) - left, int(std::lround(m.y)) - top);
+    }
     // The models and the officers among them, back to front by where they
     // stand.
     struct Standing {
@@ -978,6 +989,11 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
     _hud->setHealth(health);
     _hud->setListening(_listening);
     _hud->setPaused(_paused);
+    if (_selected >= 0) {
+        const Officer &chosen = _officers[size_t(_selected)];
+        const bool stun = chosen.item >= 0 && chosen.items[size_t(chosen.item)].stun;
+        _hud->setItemPanel(stun, _scanText, size_t(std::max(0.0f, _scanTyped)));
+    }
     _hud->setVision(_vision);
     if (_selected >= 0) {
         std::vector<GameHud::Held> held;

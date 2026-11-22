@@ -45,6 +45,17 @@ std::vector<std::string> filesIn(const Archive &data, const std::string &folder,
     return out;
 }
 
+// The first object of class `className` in `o`, however deep.
+const TextObject *findObject(const TextObject &o, const std::string &className) {
+    if (o.className == className)
+        return &o;
+    for (const TextField &f : o.fields)
+        if (f.object)
+            if (const TextObject *found = findObject(*f.object, className))
+                return found;
+    return nullptr;
+}
+
 std::string stem(const std::string &path) {
     const size_t slash = path.find_last_of('/');
     std::string name = path.substr(slash == std::string::npos ? 0 : slash + 1);
@@ -146,6 +157,15 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
             item.projectile.clear();
         item.canUseOnSelf = def.integer("Can Use On Self").value_or(0) != 0;
         item.useSound = text(def, "Use Sound");
+        item.multipleSettings = def.integer("Has Multiple Settings").value_or(0) != 0;
+        if (const TextObject *process = def.object("Process"))
+            if (const TextObject *drop = findObject(*process, "CDropItemAtTargetAction"))
+                item.deployModel = text(*drop, "Model to Create");
+        if (const TextObject *held = def.object("Default Inventory Item"))
+            item.remote = held->className == "CStarTrekRemoteMineInventoryItem";
+        for (TextField &f : def.fields)
+            if (f.key == "Info Renderer" && f.object)
+                item.infoRenderer = std::shared_ptr<const TextObject>(std::move(f.object));
         item.dischargeSequence = text(def, "Discharge Sequence");
         item.shotSound = text(def, "Shot Sound");
         item.shotFlash = text(def, "Shot Flash");

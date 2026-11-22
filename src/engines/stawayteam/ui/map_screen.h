@@ -122,16 +122,18 @@ public:
         struct Held {
             std::string name;
             int count = -1;
+            bool stun = false; // set to stun, one with the phaser's settings
         };
         std::vector<Held> items;
         int item = -1;
         // What they've been sent to do with it, walking there first: throw
         // it at a place, or use it on an officer.
-        enum class Task { kNone, kThrow, kUseOn };
+        enum class Task { kNone, kThrow, kUseOn, kPlace, kScan };
         Task task = Task::kNone;
         float taskX = 0.0f;
         float taskY = 0.0f;
         int taskOfficer = -1;
+        int taskPart = -1; // what a scan's of
 
         bool present = true; // on this map, not on another of the mission's
 
@@ -248,6 +250,24 @@ public:
         int thrower = -1;
     };
     const std::vector<Thrown> &thrown() const { return _thrown; }
+    /** A mine put down: arming, armed, or set off and about to go. */
+    struct Mine {
+        const ItemDefinition *item = nullptr;
+        std::string model;
+        float x = 0.0f;
+        float y = 0.0f;
+        float placed = 0.0f; // seconds since it was put down
+        bool setOff = false;
+        float fuse = 0.0f; // seconds till it goes, once set off
+        int placedBy = -1;
+    };
+    const std::vector<Mine> &mines() const { return _mines; }
+    /** Sets off every remote mine put down (the remote mine's DETONATE). */
+    void detonate();
+    /** Switches the chosen officer's chosen item between kill and stun, one that has both. */
+    void toggleStun();
+    /** What the chosen officer's tricorder last said, and how much of it's typed out. */
+    const std::string &scanText() const { return _scanText; }
     /** The enemy standing at (x, y) on the map, alive, or -1. */
     int enemyAt(float x, float y) const;
     /** Whether nothing that stands full height is between two points on the map. */
@@ -383,6 +403,13 @@ private:
     // An officer's task done once they're near enough: true when it's done.
     bool doTask(size_t officer);
     void explode(const Thrown &t);
+    void updateMines(float seconds);
+    // The part with a model nearest (x, y), close enough to be what's
+    // clicked; -1 for none.
+    int partAt(float x, float y) const;
+    bool stuns(const Officer &o) const;
+    // A line of a script of Levels/; empty if there's none.
+    std::string describe(const std::string &script, const std::string &line) const;
     const ItemDefinition *itemOf(const Officer &o) const;
     // A shot at officer `officer`: hurting them, or, from a weapon set to
     // `stun`, stunning them.
@@ -527,6 +554,9 @@ private:
     };
     std::vector<Flash> _flashes;
     std::vector<Thrown> _thrown;
+    std::vector<Mine> _mines;
+    std::string _scanText;
+    float _scanTyped = 0.0f;
     std::shared_ptr<MissionProgress> _progress;
     bool _active = true;
     std::vector<Relocation> _relocations;

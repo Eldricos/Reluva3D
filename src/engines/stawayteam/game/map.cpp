@@ -167,6 +167,21 @@ Error loadMap(const Archive &data, const std::string &path, GameMap &out) {
     return Error::success();
 }
 
+namespace {
+
+// The first object of class `className` in `o`, however deep.
+const TextObject *find(const TextObject &o, const std::string &className) {
+    if (o.className == className)
+        return &o;
+    for (const TextField &f : o.fields)
+        if (f.object)
+            if (const TextObject *found = find(*f.object, className))
+                return found;
+    return nullptr;
+}
+
+} // namespace
+
 Error loadModelInfo(const Archive &data, const std::string &model, ModelInfo &out) {
     out = ModelInfo{};
     std::vector<uint8_t> bytes;
@@ -185,6 +200,27 @@ Error loadModelInfo(const Archive &data, const std::string &model, ModelInfo &ou
     out.explosionRadius = float(object.object.number("Explosion Radial Damage").value_or(0.0));
     out.explosionNeedsSight = object.object.integer("Require LOS For Damage").value_or(0) != 0;
     out.maxVelocity = float(object.object.number("Max Velocity").value_or(0.0));
+    out.descriptionScript = text(object.object, "Description Script");
+    out.descriptionLine = text(object.object, "Description Line");
+    out.defaultSequence = text(object.object, "Default Sequence");
+    out.activateSound = text(object.object, "Activate Sound");
+    if (const TextObject *entity = object.object.object("Default Entity"))
+        if (const TextObject *ai = find(*entity, "CActionAI"))
+            if (const TextObject *arm = ai->object("Action"); arm && arm->className == "CDelayAction") {
+                out.armTime = float(arm->number("Delay").value_or(0.0));
+                if (const TextObject *trigger = find(*arm, "CTouchingOvalTriggerAI")) {
+                    out.triggerRadius = float(trigger->number("X Radius").value_or(0.0));
+                    out.triggerRatio = float(trigger->number("YX Ratio").value_or(1.0));
+                    if (const TextObject *enter = trigger->object("Enter Action")) {
+                        if (const TextObject *destroy = find(*enter, "CDelayAction"))
+                            out.fuseAfterTrigger = float(destroy->number("Delay").value_or(0.0));
+                        if (const TextObject *noise = find(*enter, "CAddNoiseAction")) {
+                            out.triggerNoise = float(noise->number("Radius").value_or(0.0));
+                            out.triggerNoiseAge = float(noise->number("Age").value_or(0.0));
+                        }
+                    }
+                }
+            }
     if (const TextObject *entity = object.object.object("Default Entity")) {
         out.fuse = float(entity->number("Shot Duration").value_or(0.0));
         if (const TextObject *noise = entity->object("Destroyed Action"))

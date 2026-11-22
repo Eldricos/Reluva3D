@@ -8,6 +8,7 @@
 #include "engines/stawayteam/ui/layout.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <cmath>
 
 namespace reluva::stawayteam {
@@ -153,6 +154,21 @@ GameHud::Result GameHud::handleEvent(const Event &ev, uint64_t now) {
         r.vision = on("Vision State Button", "Vision Default");
         r.options = on("Options Button", "Escape Button Default");
     }
+    // The chosen item's panel's buttons (inferred: as drawn).
+    if (const ItemDefinition *item = chosenItem(); item && item->infoRenderer) {
+        const TextObject *panel = item->infoRenderer.get();
+        const auto onButton = [&](const char *key, const image::Image &p) {
+            int x = 0;
+            int y = 0;
+            readPoint(panel, key, x, y);
+            return ev.mouseX >= _panelX + x && ev.mouseY >= _panelY + y && ev.mouseX < _panelX + x + p.w &&
+                   ev.mouseY < _panelY + y + p.h;
+        };
+        if (panel->className == "CPhaserInfoRenderer" && item->multipleSettings)
+            r.toggleStun = onButton("Stun Pos", picture("Inventory/Toggle Default"));
+        if (panel->className == "CDetonateInfoRenderer")
+            r.detonate = onButton("Detonate Button Pos", picture("Info Bar/Remote Mine/Detonate Default"));
+    }
     if (overInventory) {
         // An item's icon chooses it (inferred).
         int iw = 0;
@@ -238,6 +254,14 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
             dot(x1, y);
         }
     }
+    // The chosen item's panel at Info Renderer Pos on it, over the minimap
+    // (inferred).
+    int rx = 0;
+    int ry = 0;
+    readPoint(_custom, "Info Renderer Pos", rx, ry);
+    _panelX = ix + rx;
+    _panelY = infoY + ry;
+    drawItemPanel(screen, _panelX, _panelY, now);
 
     // The team bar: each officer's slot, name in their field's colour, head
     // in the middle of it and health bar, filled from the bottom
@@ -404,6 +428,121 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
                         : overPause ? "Pause Time Button/Pause Time Hover"
                                     : "Pause Time Button/Pause Time Default"),
                 pauseX, pauseY);
+}
+
+const ItemDefinition *GameHud::chosenItem() const {
+    if (_heldChosen < 0 || size_t(_heldChosen) >= _held.size())
+        return nullptr;
+    const auto it = _items.find(_held[size_t(_heldChosen)].name);
+    return it != _items.end() ? &it->second : nullptr;
+}
+
+const Animation &GameHud::sequence(const std::string &name) {
+    auto it = _sequences.find(name);
+    if (it == _sequences.end()) {
+        Animation a;
+        (void)a.load(_data, name);
+        it = _sequences.emplace(name, std::move(a)).first;
+    }
+    return it->second;
+}
+
+const Font &GameHud::panelFont(const std::string &name) {
+    auto it = _panelFonts.find(name);
+    if (it == _panelFonts.end()) {
+        it = _panelFonts.emplace(name, Font()).first;
+        (void)it->second.load(_data, name);
+    }
+    return it->second;
+}
+
+void GameHud::drawItemPanel(Surface &screen, int x, int y, uint64_t now) {
+    // The chosen item's Info Renderer: its Background Sequence, and what
+    // its kind shows on it (inferred for where each is drawn within it,
+    // from its fields).
+    const ItemDefinition *item = chosenItem();
+    if (!item || !item->infoRenderer)
+        return;
+    const TextObject *panel = item->infoRenderer.get();
+    blitBy(screen, sequence(readText(panel, "Background Sequence")).at(now), x, y);
+    const auto at = [&](const char *key, int &px, int &py) {
+        px = 0;
+        py = 0;
+        readPoint(panel, key, px, py);
+        px += x;
+        py += y;
+    };
+    int px = 0;
+    int py = 0;
+    const std::string &kind = panel->className;
+    const Font &window = panelFont(readText(_custom, "Info Window Font"));
+    if (kind == "CGenericInfoRenderer") {
+        // Its Text, wrapped in its Text Size.
+        int w = 0;
+        int h = 0;
+        readPoint(panel, "Text Size", w, h);
+        at("Text Pos", px, py);
+        if (window.loaded())
+            window.drawWrapped(screen, px, py, w, readText(panel, "Text"), Font::Align::kLeft);
+    } else if (kind == "CPhaserInfoRenderer") {
+        // Its power, full; its damage ("Damage: %g", 0x41bc47); and its
+        // STUN or KILL as it's set, in their fonts, on the toolkit's toggle,
+        // with OVERLOAD, which isn't there yet, off.
+        at("Phaser Indicator Pos", px, py);
+        blitBy(screen, sequence(readText(panel, "Phaser Power Indicator Sequence")).frame(0, 0), px, py);
+        const Font &font = panelFont(readText(panel, "Phaser Font"));
+        at("Phaser Damage Pos", px, py);
+        char damage[32];
+        std::snprintf(damage, sizeof damage, "Damage: %g", double(item->weaponDamage));
+        if (font.loaded())
+            font.draw(screen, px, py, damage);
+        const auto toggle = [&](const char *pos, const char *textPos, bool on, const char *onText, const char *onFont,
+                                const char *offText, const char *offFont) {
+            at(pos, px, py);
+            image::blit(screen, picture(on ? "Inventory/Toggle Press" : "Inventory/Toggle Default"), px, py);
+            int tx = 0;
+            int ty = 0;
+            readPoint(panel, textPos, tx, ty);
+            const Font &f = panelFont(readText(panel, on ? onFont : offFont));
+            if (f.loaded())
+                f.draw(screen, px + tx, py + ty, readText(panel, on ? onText : offText));
+        };
+        if (item->multipleSettings)
+            toggle("Stun Pos", "Stun Text Pos", _stun, "Stun On Text", "Stun On Font", "Stun Off Text",
+                   "Stun Off Font");
+        toggle("Overload Pos", "Overload Text Pos", false, "Overload On Text", "Overload On Font", "Overload Off Text",
+               "Overload Off Font");
+    } else if (kind == "CDetonateInfoRenderer") {
+        // Its button, its words on it; and how many mines are left, beside
+        // its Count Text (inferred for the count's place after it).
+        at("Detonate Button Pos", px, py);
+        image::blit(screen, picture("Info Bar/Remote Mine/Detonate Default"), px, py);
+        int tx = 0;
+        int ty = 0;
+        readPoint(panel, "Detonate Button Text Pos", tx, ty);
+        const Font &button = panelFont(readText(panel, "Detonate Button Font"));
+        if (button.loaded())
+            button.draw(screen, px + tx, py + ty, readText(panel, "Detonate Button Text"));
+        const Font &count = panelFont(readText(panel, "Count Font"));
+        at("Count Text Pos", px, py);
+        if (count.loaded() && _heldChosen >= 0) {
+            const std::string text =
+                readText(panel, "Count Text") + ": " + std::to_string(std::max(0, _held[size_t(_heldChosen)].count));
+            count.draw(screen, px, py, text);
+        }
+    } else if (kind == "CTricorderInfoRenderer") {
+        // What it's said, typed out, at Rules.txt's Tricorder Pos in its
+        // Tricorder Size.
+        int tx = 0;
+        int ty = 0;
+        int tw = 0;
+        int th = 0;
+        readPoint(_custom, "Tricorder Pos", tx, ty);
+        readPoint(_custom, "Tricorder Size", tw, th);
+        if (window.loaded())
+            window.drawWrapped(screen, x + tx, y + ty, tw, _scan.substr(0, std::min(_scanTyped, _scan.size())),
+                               Font::Align::kLeft);
+    }
 }
 
 } // namespace reluva::stawayteam
