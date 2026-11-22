@@ -2,8 +2,9 @@
 
 Engine id `nfs`, in `src/engines/nfs/`. It's meant for the family of
 Electronic Arts' Need for Speed games that share NFS III's files (VIV
-archives, FSH pictures, FCE models, FRD tracks, EA's audio), starting with
-Need for Speed III: Hot Pursuit; High Stakes would be the next. It runs
+archives, FSH pictures, EA's audio), starting with Need for Speed III: Hot
+Pursuit, with Need for Speed II SE being added. Each game's own code is in
+a folder of its own (`nfs3/`, `nfs2se/`), the rest shared. It runs
 the retail game's own executable in Reluva's x86 emulator, with
 stand-ins for Windows, DirectX and the game's renderer and sound
 interfaces; `reluva-viewer` has a data viewer of the games' files.
@@ -13,6 +14,7 @@ interfaces; `reluva-viewer` has a data viewer of the games' files.
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
 | [Need for Speed III: Hot Pursuit](games/nfs3/README.md) | `nfs3` | Electronic Arts, 1998 | Windows | US "Classics" CD (English) | Plays: the retail game hosted, every race type, single player and network; a data viewer of its files |
+| [Need for Speed II SE](games/nfs2se/README.md) | `nfs2se` | Electronic Arts, 1997 | Windows | None yet | Not yet recognised: its files surveyed, and a plan |
 
 ## Where it stands
 
@@ -20,6 +22,8 @@ NFS III plays from its menus through every race type, single player and
 over a network, its own executable run in the emulator; the data viewer
 (`reluva-viewer`) shows every file kind it has. See the game's
 [README](games/nfs3/README.md) and [PLAN.md](games/nfs3/PLAN.md).
+NFS II SE isn't recognised yet: its files have been surveyed, and its
+plan is in its [PLAN.md](games/nfs2se/PLAN.md).
 
 ## Using it
 
@@ -37,6 +41,7 @@ and the settings.
 |---|---|
 | This page | The engine, its games |
 | [games/nfs3/](games/nfs3/README.md) | Need for Speed III: its formats, systems, plan, tests and how it was worked out |
+| [games/nfs2se/](games/nfs2se/README.md) | Need for Speed II SE: its plan, and the first survey of its files |
 
 What every game would share stays with NFS III's pages until a second
 game is found to share it (docs/DOCUMENTATION_STANDARD.md).
