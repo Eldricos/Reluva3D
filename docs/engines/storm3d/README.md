@@ -1,72 +1,65 @@
 # The Storm3D engine
 
-<!-- One or two sentences: what the engine runs, and whether it's meant for
-one game or a family of games (then see docs/DOCUMENTATION_STANDARD.md,
-for its games/ folders). -->
-Engine id `storm3d`, in `src/engines/storm3d/`.
+Engine id `storm3d`, in `src/engines/storm3d/`, for the games Activision
+built on its Storm3D renderer and the Interstate '76 and Battlezone code
+under it. Meant for a family of games: Star Trek: Armada first, Star
+Trek: Armada II later, as both share their files' kinds (`.sod` models,
+`.odf` object definitions, `.bzn` maps).
 
 ## Games
 
-<!-- A row per game. Releases are recognised by the files in `kVariants`
-(src/engines/storm3d/storm3d.cpp), made with `reluva --hash <files...>`. -->
-
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
-| | | | | | Not yet recognised |
+| [Star Trek: Armada](games/armada/README.md) | `armada` | Activision, 2000 | Windows | English retail 1.0 | Recognised; nothing runs yet |
+
+A page goes in a game's folder when it was worked out from that game, and
+moves up to this folder once another game is found to share it. So far
+everything was read from Star Trek: Armada.
 
 ## Where it stands
 
-<!-- What works now, in a few lines, kept up to date. Plans, phases and
-dated progress go in PLAN.md (docs/templates/plan.md), not here. -->
-Started from the template: it recognises nothing yet, and shows an empty
-screen.
+Star Trek: Armada is recognised, and shows an empty screen: see
+[games/armada/](games/armada/README.md#where-it-stands).
 
 ## Using it
 
-<!-- What a player needs: which folder to add (or import from a CD), any
-settings, the keys. On an engine for a family of games, where each game's
-README says this, a line pointing to them. -->
+The game's page says how to add it: [Star Trek: Armada](games/armada/README.md#using-it).
 
 ## This folder
 
 | Page | What's in it |
 |---|---|
-| This page | The games, where the engine stands, how to use it |
-| `formats/` | A page per file format, as it's worked out |
-| `systems/` | A page per part of how the game behaves (scripts, dialogue, saves, AI...) |
-| `research/` | Working notes: address maps, raw findings, notes on recordings |
-| [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
-| [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
-| [TESTING.md](TESTING.md) | The tests, and what to check by hand |
-| [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was worked out, and the tools |
-
-<!-- Link each folder once it has pages, and list its pages. The layout is
-described in docs/DOCUMENTATION_STANDARD.md; page templates are in
-docs/templates/. -->
+| This page | The engine, its games, where its code goes, and its tests |
+| [games/armada/](games/armada/README.md) | Star Trek: Armada: its releases, plan, formats, known differences, unconfirmed items, testing and how it was worked out |
 
 ## Code
 
-<!-- Where things are in src/engines/storm3d/. Keep files by topic in
-subfolders as it grows (the game's formats, its pages, its game logic). -->
-
 | Path | What |
 |---|---|
-| `storm3d.cpp` | The `MetaEngine` (name, detection table, making an `Engine`) and the `Engine` |
+| `storm3d.cpp` | The `MetaEngine` (name, detection tables, making an `Engine`) and the `Engine`: an empty screen so far |
 | `tools/` | `reluva-tool storm3d` commands (`reluva-tool help storm3d` lists them) |
+
+What every game shares (the archives, models, object definitions, maps,
+the renderer) goes in the engine's folders as ADDING_AN_ENGINE.md lays
+them out; what is one game's own goes in a folder named after it
+(`armada/`).
 
 ## Tests
 
 - `reluva-tests storm3d` runs its unit tests and its engine test
   (`tests/engines/storm3d/`).
-- A game-files test, when it has one: see
+- A game-files test, once it has one: see
   [docs/DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests).
-- What they cover, and what to check by hand: [TESTING.md](TESTING.md).
+- What they cover, and what to check by hand: each game's TESTING.md
+  ([Star Trek: Armada](games/armada/TESTING.md)).
 
 ## Terms
 
-<!-- Words of the engine's own (its formats, its parts, the original's
-names for them) that its pages use without explaining: a line each, in a
-few words, with a link to the page that says more. Delete this section if
-there are none. -->
-
-- **<term>:** <what it is, in a few words>.
+- **Storm3D:** Activision's 3D renderer, named so by `Armada.exe` itself,
+  with Direct3D 7 and software drivers.
+- **ZFS:** Activision's archive format (`ZFSF` at its start), from
+  Interstate '76.
+- **ODF:** an object definition file: a unit's, a weapon's or the game's
+  settings, as text.
+- **SOD:** a Storm3D model (`Storm3D_SW` at its start).
+- **BZN:** a map or a saved game, from Battlezone.

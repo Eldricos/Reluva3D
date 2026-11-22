@@ -9,11 +9,13 @@
 //
 //   reluva-tests storm3d.engine [--update]
 //
-// So far it only checks the install isn't taken for a game: add steps as
-// the engine learns to read and run its games (see
+// So far it only checks its install is found as Star Trek: Armada: add
+// steps as the engine learns to read and run its games (see
 // tests/engines/idtech3/engine.cpp), then --update and review the record.
 
 #include "engines/registry.h"
+
+#include <fstream>
 
 #include "tests/support/record.h"
 #include "tests/support/test.h"
@@ -25,11 +27,17 @@ namespace {
 void engineTest(const std::filesystem::path &tmp) {
     const std::filesystem::path dir = tmp / "install";
     std::filesystem::create_directories(dir);
+    // Armada's files by name only, so an unknown release.
+    for (const char *name : {"Armada.exe", "assets.zfs", "objtxt.zfs"})
+        std::ofstream(dir / name) << "x";
     test::Record rec;
     const MetaEngine *engine = findEngine("storm3d");
     if (!engine)
         return test::fail("storm3d isn't registered");
-    rec.add("detect.games", static_cast<int64_t>(engine->detect(dir).size()));
+    const std::vector<DetectedGame> found = engine->detect(dir);
+    rec.add("detect.games", static_cast<int64_t>(found.size()));
+    for (const DetectedGame &game : found)
+        rec.add("detect.game", game.gameId + ": " + game.description);
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/storm3d/data/engine-record.txt", "storm3d.engine",
               "tests/engines/storm3d/engine.cpp");
 }

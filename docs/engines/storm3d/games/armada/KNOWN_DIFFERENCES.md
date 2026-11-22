@@ -1,4 +1,4 @@
-# Storm3D: known differences from the original
+# Star Trek: Armada: known differences from the original
 
 Where Reluva knowingly differs from the original game. What may differ but
 hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).

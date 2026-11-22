@@ -6,6 +6,8 @@
 
 #include "engines/registry.h"
 
+#include <fstream>
+
 #include "tests/support/test.h"
 
 using namespace reluva;
@@ -23,6 +25,25 @@ void testEmptyFolder(const std::filesystem::path &tmp) {
     CHECK(engine && engine->detect(tmp).empty());
 }
 
+// A release not in the table is found by its files' names alone, as an
+// unknown release.
+void testUnknownRelease(const std::filesystem::path &tmp) {
+    for (const char *name : {"Armada.exe", "assets.zfs", "objtxt.zfs"})
+        std::ofstream(tmp / name) << "x";
+    const MetaEngine *engine = findEngine("storm3d");
+    const auto found = engine ? engine->detect(tmp) : std::vector<DetectedGame>{};
+    CHECK(found.size() == 1);
+    CHECK(!found.empty() && found[0].gameId == "armada" &&
+          found[0].description == "Star Trek: Armada (unknown release)");
+}
+
+// The executable alone isn't enough: the archives are needed too.
+void testExecutableAlone(const std::filesystem::path &tmp) {
+    std::ofstream(tmp / "Armada.exe") << "x";
+    const MetaEngine *engine = findEngine("storm3d");
+    CHECK(engine && engine->detect(tmp).empty());
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -30,4 +51,6 @@ static const reluva::test::Suite
            {
                {"registered", [](const std::filesystem::path &) { testRegistered(); }},
                {"empty folder", [](const std::filesystem::path &tmp) { testEmptyFolder(tmp); }},
+               {"unknown release", [](const std::filesystem::path &tmp) { testUnknownRelease(tmp); }},
+               {"executable alone", [](const std::filesystem::path &tmp) { testExecutableAlone(tmp); }},
            });

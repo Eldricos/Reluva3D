@@ -1,4 +1,4 @@
-# Storm3D: testing
+# Star Trek: Armada: testing
 
 ## Automated checks
 
@@ -10,13 +10,14 @@ files):
 
 | Suite | What it checks |
 |---|---|
-| `storm3d.unit.detection` | Recognising the game's releases |
+| `storm3d.unit.detection` | An empty folder, and the executable alone, aren't the game; Armada's three files by name are found as an unknown release |
 
 ### The basic engine test
 
 `storm3d.engine` (`tests/engines/storm3d/engine.cpp`), without the
 game's files: a small install of its own, taken through what playing
-does, against its record (`data/engine-record.txt`).
+does, against its record (`data/engine-record.txt`). So far its install
+is Armada's three files by name, found as an unknown release.
 
 ### The game-files test
 
@@ -26,14 +27,16 @@ Not yet.
 
 ### What the automated checks don't cover
 
-<!-- What only a person playing can check. -->
+Recognising the English release by its hashes: that needs the game's own
+files, so it's checked by hand ([Last checked](#last-checked)).
 
 ## A playthrough by hand
 
-<!-- A checklist of what to try, in the order a player meets it. -->
+1. Add the install in the launcher: it's found as "Star Trek: Armada".
+2. Start it: an empty screen; Esc goes back to the launcher.
 
 ## Last checked
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
-| | | | |
+| November 2026 | English retail 1.0 | Linux | `reluva-tool detect` on the install finds it as the English release |

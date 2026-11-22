@@ -2,9 +2,8 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Storm3D: the engine's MetaEngine (its name, the releases it recognises,
-// making an Engine to run one) and its Engine. Started from the template
-// (cmake/NewEngine.cmake): so far it recognises nothing and shows an empty
-// screen.
+// making an Engine to run one) and its Engine, which shows an empty screen
+// so far. Star Trek: Armada is its first game.
 
 #include "engines/engine.h"
 
@@ -12,12 +11,28 @@ namespace reluva::storm3d {
 
 namespace {
 
-// The releases it recognises: files that must be there, with the MD5 of
-// their start and their size, as `reluva --hash <files...>` prints them.
-// A folder matching every file of a variant is that release.
+// The releases it recognises, as `reluva --hash <files...>` prints them.
+// Which files a patch changes isn't known yet, so a release is told by all
+// three. See docs/engines/storm3d/games/armada/formats/install.md.
 const std::vector<GameVariant> kVariants = {
-    // {"<game id>", "<Game name> (<release>)", "en", "windows",
-    //  {{"<file>", "<md5>", <size>}, {"<other file>", "", -1}}},
+    // English retail CD, Armada.exe of 10 March 2000 (November 2026).
+    {"armada",
+     "Star Trek: Armada",
+     "en",
+     "windows",
+     {{"Armada.exe", "ecce0bedbc8159b7fa550319fc866432", 2383917},
+      {"assets.zfs", "586ad0c23181ab5ca55dde64b807d8c3", 832202},
+      {"objtxt.zfs", "9cf8666631c341618b1db662e0105a7a", 19216}}},
+};
+
+// The same game by its files' names alone, for releases not in kVariants
+// (patches, other languages). Used only when nothing there matches.
+const std::vector<GameVariant> kFallback = {
+    {"armada",
+     "Star Trek: Armada (unknown release)",
+     "",
+     "windows",
+     {{"Armada.exe", "", -1}, {"assets.zfs", "", -1}, {"objtxt.zfs", "", -1}}},
 };
 
 /**
@@ -62,7 +77,8 @@ public:
     const char *name() const override { return "Storm3D"; }
 
     std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override {
-        return detectFromTable(id(), kVariants, dir);
+        std::vector<DetectedGame> found = detectFromTable(id(), kVariants, dir);
+        return found.empty() ? detectFromTable(id(), kFallback, dir) : found;
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {

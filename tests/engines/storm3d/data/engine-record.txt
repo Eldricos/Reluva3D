@@ -1,3 +1,4 @@
 # The record of storm3d.engine (tests/engines/storm3d/engine.cpp).
 # Written by `reluva-tests storm3d.engine --update`; review its diff before committing.
-detect.games: 0
+detect.games: 1
+detect.game: armada: Star Trek: Armada (unknown release)
