@@ -108,46 +108,41 @@ void GameProcess::stdcall(const char *dll, const char *name, int args, std::func
     });
 }
 
+std::string GameProcess::describeException(x86::Cpu &c, uint32_t record) {
+    char buf[96];
+    std::snprintf(buf, sizeof buf, "exception 0x%08x at 0x%08x", c.read32(record), c.read32(record + 12));
+    std::string what = buf;
+    // Visual C++'s throw raises 0xe06d7363 with 0x19930520, the object and
+    // its ThrowInfo; ThrowInfo's fourth word is its catchable types, whose
+    // first names the thrown type (at its type descriptor's +8).
+    if (c.read32(record) != 0xe06d7363 || c.read32(record + 16) < 3)
+        return what;
+    const uint32_t object = c.read32(record + 24);
+    const uint32_t throwInfo = c.read32(record + 28);
+    const uint32_t types = throwInfo ? c.read32(throwInfo + 12) : 0;
+    const uint32_t count = types ? c.read32(types) : 0;
+    for (uint32_t i = 0; i < count && i < 8; ++i) {
+        const uint32_t type = c.read32(c.read32(types + 4 + 4 * i) + 4);
+        what += (i ? ", " : ": a C++ throw of ") + c.string(type + 8, 200);
+    }
+    // The game's tErrInfo holds its message as text, in fields of their
+    // own: every run of text in the object's first 1 KB.
+    std::string text;
+    for (uint32_t i = 0; i < 1024 && c.valid(object + i, 1); ++i) {
+        const uint8_t ch = c.read8(object + i);
+        if (ch >= 0x20 && ch < 0x7f)
+            text += char(ch);
+        else if (!text.empty() && text.back() != '|')
+            text += '|';
+    }
+    if (text.size() > 8)
+        what += " text: " + text;
+    return what;
+}
+
 void GameProcess::addSystem() {
     const char *k = "KERNEL32.dll";
     // Threads take turns, so these needn't be atomic on the host.
-    // Exceptions aren't dispatched yet: the run ends, naming what a C++
-    // throw threw. Visual C++'s throw passes 0x19930520, the object and its
-    // ThrowInfo; ThrowInfo's fourth word is its catchable types, whose
-    // first names the thrown type (at its type descriptor's +8).
-    stdcall(k, "RaiseException", 4, [](Cpu &c) {
-        char buf[96];
-        std::snprintf(buf, sizeof buf, "the program raised exception 0x%08x, called from 0x%08x", c.arg(0),
-                      c.read32(c.reg[Cpu::ESP]));
-        std::string what = buf;
-        if (c.arg(0) == 0xe06d7363 && c.arg(2) >= 3 && c.arg(3)) {
-            const uint32_t params = c.arg(3);
-            const uint32_t object = c.read32(params + 4);
-            const uint32_t throwInfo = c.read32(params + 8);
-            const uint32_t types = throwInfo ? c.read32(throwInfo + 12) : 0;
-            const uint32_t count = types ? c.read32(types) : 0;
-            for (uint32_t i = 0; i < count && i < 8; ++i) {
-                const uint32_t type = c.read32(c.read32(types + 4 + 4 * i) + 4);
-                what += (i ? ", " : ": a C++ throw of ") + c.string(type + 8, 200);
-            }
-            std::snprintf(buf, sizeof buf, "; the object at 0x%08x starts %08x %08x %08x", object, c.read32(object),
-                          c.read32(object + 4), c.read32(object + 8));
-            what += buf;
-            // The game's tErrInfo holds its message as text, in fields of
-            // their own: every run of text in its first 1 KB.
-            std::string text;
-            for (uint32_t i = 0; i < 1024 && c.valid(object + i, 1); ++i) {
-                const uint8_t ch = c.read8(object + i);
-                if (ch >= 0x20 && ch < 0x7f)
-                    text += char(ch);
-                else if (!text.empty() && text.back() != '|')
-                    text += '|';
-            }
-            what += " text: " + text;
-        }
-        c.abort(what);
-        return 0u;
-    });
     stdcall(k, "InterlockedIncrement", 1, [](Cpu &c) {
         const uint32_t v = c.read32(c.arg(0)) + 1;
         c.write32(c.arg(0), v);

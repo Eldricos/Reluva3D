@@ -11,7 +11,11 @@ the original's way. -->
 
 <!-- Deliberate: conveniences, and what the original can't do on today's
 systems (a CD check, a mode the hardware no longer has). -->
-None yet.
+- **What the game writes goes to a folder of Reluva's.** The original
+  writes its logs (and, later, its settings and saves) in its own
+  folder; hosted, those go to a save folder, read before the install,
+  and the install is left as it is
+  ([systems/hosting.md](systems/hosting.md#what-it-writes)).
 
 ## Bugs fixed
 

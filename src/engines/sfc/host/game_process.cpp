@@ -20,20 +20,39 @@ GameProcess::GameProcess(std::filesystem::path install, uint32_t memoryMb) : _di
     // Its threads wait on each other (events, mutexes, the multimedia
     // timer): each runs on a host thread of its own.
     _process->useHostThreads();
-    // The install is the program's folder; it may read anything in it and
-    // write nothing yet.
+    // The install is the program's folder. What the program writes there
+    // (its logs, its settings, saved games) goes to the save folder, which
+    // is read first; the install isn't written to.
     _process->mapPath = [this](const std::string &windowsPath,
                                bool forWriting) -> std::optional<std::filesystem::path> {
+        // The folder, named with or without its last backslash, and what's in it.
         const std::string folder = fs::toLower(kInstallFolder);
-        if (forWriting || fs::toLower(windowsPath).rfind(folder, 0) != 0)
+        const std::string path = fs::toLower(windowsPath);
+        if (path.rfind(folder, 0) != 0 && path != folder.substr(0, folder.size() - 1))
             return std::nullopt;
-        std::string rest = windowsPath.substr(folder.size());
+        std::string rest = windowsPath.size() > folder.size() ? windowsPath.substr(folder.size()) : std::string();
         std::replace(rest.begin(), rest.end(), '\\', '/');
         while (!rest.empty() && rest.back() == '/')
             rest.pop_back();
+        if (forWriting) {
+            if (_saveDir.empty() || rest.empty())
+                return std::nullopt;
+            if (auto file = fs::findFile(_saveDir, rest))
+                return file;
+            std::error_code ec;
+            const std::filesystem::path to = _saveDir / rest;
+            std::filesystem::create_directories(to.parent_path(), ec);
+            if (ec)
+                return std::nullopt;
+            return to;
+        }
         if (rest.empty())
             return _dir;
-        auto found = fs::findFile(_dir, rest);
+        std::optional<std::filesystem::path> found;
+        if (!_saveDir.empty())
+            found = fs::findFile(_saveDir, rest);
+        if (!found)
+            found = fs::findFile(_dir, rest);
         if (!found)
             found = fs::findDirectory(_dir, rest);
         if (fileOpened)

@@ -33,6 +33,12 @@ public:
     /** `install` is the game's folder; nothing in it is written to. */
     GameProcess(std::filesystem::path install, uint32_t memoryMb);
 
+    /**
+     * Where what the program writes in its folder goes, and is read back
+     * from first; without one, it can't write.
+     */
+    void setSaveFolder(std::filesystem::path folder) { _saveDir = std::move(folder); }
+
     /** Reads and loads StarFleet2.exe, its imports bound. */
     Error load();
     /** Runs it until it ends, faults, or calls what nothing stands in for. */
@@ -47,6 +53,13 @@ public:
 
     /** Told of each file or folder the program looks for in its folder, and whether it was there. */
     std::function<void(const std::string &windowsPath, bool found)> fileOpened;
+    /**
+     * An exception the program raised, from its EXCEPTION_RECORD: its code
+     * and where, and for a C++ throw the types thrown and the text in the
+     * object (the game's tErrInfo holds its message).
+     */
+    static std::string describeException(x86::Cpu &c, uint32_t record);
+
     /** Told of each INI setting the program reads: the file, [section] and key. */
     std::function<void(const std::string &what)> iniReads;
 
@@ -57,6 +70,7 @@ private:
     void stdcall(const char *dll, const char *name, int args, std::function<uint32_t(x86::Cpu &)> fn);
 
     std::filesystem::path _dir;
+    std::filesystem::path _saveDir;
     std::unique_ptr<x86::Cpu> _cpu;
     std::unique_ptr<x86::Win32Process> _process;
     std::unique_ptr<x86::DirectX> _directX;

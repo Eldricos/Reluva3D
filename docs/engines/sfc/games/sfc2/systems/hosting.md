@@ -11,9 +11,11 @@ program gets, what it asks for, and how fast it runs.
 
 It gets through its start-up, reads its first files, passes its 3D test
 on Reluva's Direct3D 6, sets an 800x600 mode and shows its first frame,
-"Loading...", after about 45 million instructions. It then stops where
-it expects to catch a C++ exception, which Reluva's emulator doesn't
-dispatch yet.
+"Loading...", after about 45 million instructions. Loading, it throws
+and catches C++ exceptions, which Reluva dispatches, reads
+`sprites.q3`, and between 0.6 and 1 billion instructions shows its title
+screen with its CD key dialog ("Authentication Protocol"), where it
+waits for a key to be typed.
 
 ## How it works
 
@@ -89,11 +91,37 @@ Without Direct3D 3 its 3D test fails, and it throws its error type
 ### Errors as C++ exceptions
 
 The program reports failures by throwing C++ exceptions: the two types
-above, and plain values. It also throws in normal running, expecting to
-catch it: just after its first frame its file loader (0x62f580) is asked
-for `assets/uibitmaps.zip`, which neither CD installs, and throws a byte
-when it can't open it. The hosted run stops there, after about 48.12
-million instructions.
+above, and plain values. It also throws in normal running, and catches
+what it throws: just after its first frame its file loader (0x62f580) is
+asked for `assets/uibitmaps.zip`, which neither CD installs, and throws
+a byte when it can't open it; its handler unwinds (`RtlUnwind`) and it
+goes on. Four exceptions are raised before its title screen, all caught.
+
+### Its paths
+
+It finds its own folder from the drive's root: `GetVolumeInformationW`
+for `C:\`, then `FindFirstFileW` for each folder of the path
+(`C:\SFC2`), then looks there for `Assets` and `Q3`. Without its folder
+found, it builds every path from `C:\`. Its files are opened by an
+opener (0x6366d0) that tries `CreateFileW`, and `CreateFileA` when that
+fails with `ERROR_CALL_NOT_IMPLEMENTED`, as Windows 95 and 98 do; it uses
+the UTF-16 functions whatever version of Windows it's told it runs on.
+It looks for `uq3.txt` in its folder and in `Assets` (no install has
+one) before `sprites.q3`, which it names `./Assets/Sprites/sprites.q3`.
+
+### What it writes
+
+As it loads, it writes `tBitmapFontEx.log` in its folder
+(`CreateFileA` with `CREATE_ALWAYS`), and closes it without checking it
+was opened: where it can't write, it fails, reading through a null
+`FILE` at 0x6ca498.
+
+### Its title screen
+
+The Starfleet Command logo over stars, Taldren's and Paramount's, the
+copyright lines and "v2.0.0.2" at the bottom right; over them the CD
+key dialog, its ENTER and EXIT buttons, and the game's own mouse pointer
+drawn at the top left with its magenta background.
 
 ## In Reluva
 
@@ -104,15 +132,20 @@ million instructions.
   `src/engines/sfc/host/system.cpp`: interlocked operations, global
   memory, locale and clock queries, INI files (`GetPrivateProfileString`,
   reading `sfc.ini`'s comments after a value as comments), disk space,
-  the window's menus, rectangles, GDI's text calls as no-ops, and a
-  `RaiseException` that names the C++ type thrown and the text in a
-  `tErrInfo`.
+  the window's menus, rectangles, and GDI's text calls as no-ops. What
+  the program writes in its folder goes to a save folder
+  (`setSaveFolder`), which is read first; the install isn't written to.
+  `describeException` names an exception raised: for a C++ throw, the
+  types thrown and the text in the object (a `tErrInfo`'s message).
 - **What it needed of the shared layer** (`src/emulation/x86/`):
   semaphores (`CreateSemaphoreA`, `ReleaseSemaphore`, and waiting on
   them), a `GetFileType` for files opened through the path mapping, a
   window's longs and subclassing (`GetWindowLongA`, `SetWindowLongA`,
-  `CallWindowProcA`), and Direct3D 6
-  ([directx.md](../../../../../common/x86/directx.md)).
+  `CallWindowProcA`), Direct3D 6
+  ([directx.md](../../../../../common/x86/directx.md)), structured
+  exceptions dispatched, KERNEL32's UTF-16 file functions, a search for
+  an exact name, `.` resolved in full paths, and volumes by their roots
+  alone ([windows.md](../../../../../common/x86/windows.md)).
 - **Commands:** `reluva-tool sfc host <game folder>` runs the program
   headless and reports what it looks for, the imports nothing stands in
   for, where it stopped, and how many instructions it ran; `-calls
@@ -120,10 +153,12 @@ million instructions.
   the interface each `QueryInterface` asks for and each call's first
   arguments; `-watch <address>` shows the registers, the stack and what
   its first arguments point to each time the program gets there;
-  `-frame <out.png>` saves the last frame. `reluva-tool sfc disasm <game folder> <start> <end>`
+  `-frame <out.png>` saves the last frame; `-save <folder>` is where its
+  writes go (by default `reluva-sfc-host` in the system's temporary
+  folder). Each exception raised is listed as it is. `reluva-tool sfc disasm <game folder> <start> <end>`
   disassembles the program.
-- **Not yet:** the game doesn't run in the launcher; nothing past its
-  first frame.
+- **Not yet:** the game doesn't run in the launcher, and the headless
+  run can't type its CD key.
 
 ## Sources and checks
 
@@ -145,16 +180,23 @@ million instructions.
 | Instructions to the 3D test, without Direct3D 6 | 44.06 million |
 | Instructions to the first frame | 45.08 million |
 | Instructions to the first exception caught in normal running | 48.12 million |
-| Speed | 60 to 62 million instructions a second (the shared JIT on, 4 cores, one busy) |
+| Instructions to the title screen and its CD key dialog | between 600 million and 1 billion (11 to 18 seconds) |
+| Speed | 52 to 62 million instructions a second (the shared JIT on, 4 cores), drawing included |
 | Imports | 111 of the program's not stood in for at the 3D test: 37 KERNEL32 (wide-character files, consoles, processes, file mappings), 10 USER32 (dialogs, clipboard, `GetMessageA`), 3 GDI32 (DIB sections), 25 WSOCK32 and 1 DSOUND (by ordinal), 25 Miles (`mss32.dll`), 5 COMDLG32, 4 ADVAPI32, `DirectDrawCreateClipper` |
 
 How fast the game needs to run once it's in a mission isn't measured
-yet: nothing past start-up has run.
+yet: nothing past its title screen has run. Hosted, loading takes 11
+to 18 seconds; how long the original takes on the hardware of its time
+isn't measured.
 
 ## Open questions
 
 - Whether the game also asks for other files no install has, as it does
-  `uibitmaps.zip`.
+  `uibitmaps.zip` and `uq3.txt`.
+- Why the title screen says "v2.0.0.2" when the program's version
+  resource says 1.0.0.2.
+- Where the CD key is kept once entered (the program names `SOFTWARE\WON\CDKeys`).
+- Why the mouse pointer's magenta isn't transparent.
 - What the folders `dmp3dDLL_Release`, `DLL` and `DRIVERS` are looked for,
   and what it loads from them.
 - How many instructions a second a mission needs.

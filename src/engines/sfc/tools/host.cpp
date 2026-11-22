@@ -16,6 +16,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -29,13 +30,14 @@ using namespace reluva::tool;
 int cmdHost(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool sfc host <game folder> [-limit instructions] [-trace count] "
-                             "[-frame out.png] [-quiet] [-calls address] [-watch address]...\n");
+                             "[-frame out.png] [-quiet] [-save folder] [-calls address] [-watch address]...\n");
         return 2;
     }
     uint64_t limit = 2000000000ull;
     int traceCount = 24;
     std::string framePath;
     bool quiet = false;
+    std::filesystem::path saveFolder; // where what the program writes goes
     uint32_t callsFrom = 0;
     std::vector<uint32_t> watch; // addresses at which to show the registers and the stack
     for (int a = 3; a < argc; ++a) {
@@ -48,12 +50,21 @@ int cmdHost(int argc, char **argv) {
             framePath = argv[++a];
         else if (arg == "-quiet")
             quiet = true;
+        else if (arg == "-save" && a + 1 < argc)
+            saveFolder = argv[++a];
         else if (arg == "-calls" && a + 1 < argc)
             callsFrom = uint32_t(std::strtoul(argv[++a], nullptr, 0));
         else if (arg == "-watch" && a + 1 < argc)
             watch.push_back(uint32_t(std::strtoul(argv[++a], nullptr, 0)));
     }
     sfc::GameProcess game(argv[2], 256);
+    // Without -save, a folder of its own in the system's temporary folder.
+    if (saveFolder.empty()) {
+        std::error_code ec;
+        saveFolder = std::filesystem::temp_directory_path(ec) / "reluva-sfc-host";
+    }
+    game.setSaveFolder(saveFolder);
+    std::printf("writes go to %s\n", saveFolder.string().c_str());
     x86::Cpu &cpu = game.cpu();
     x86::Win32Process &process = game.process();
     process.output = [](const std::string &text) { std::printf("program: %s", text.c_str()); };
@@ -64,6 +75,12 @@ int cmdHost(int argc, char **argv) {
     game.iniReads = [quiet](const std::string &what) {
         if (!quiet)
             std::printf("ini %s\n", what.c_str());
+    };
+    uint64_t raised = 0;
+    process.exceptionRaised = [&](x86::Cpu &c, uint32_t record) {
+        ++raised;
+        if (!quiet)
+            std::printf("raised %s\n", sfc::GameProcess::describeException(c, record).c_str());
     };
     uint64_t frames = 0;
     game.directX().presented = [&](const x86::DirectX::Frame &f) {
@@ -97,8 +114,10 @@ int cmdHost(int argc, char **argv) {
             for (uint32_t i = 0; i < 8; ++i)
                 std::printf(" %x", c.read32(c.reg[x86::Cpu::ESP] + 4 * i));
             std::printf("\n");
-            // What the first arguments point to, where they're pointers.
-            for (uint32_t i = 1; i <= 3; ++i) {
+            // What the stack's first words point to, where they're pointers
+            // (a call's arguments, at a call; after the return address, at
+            // a function's start).
+            for (uint32_t i = 0; i <= 3; ++i) {
                 const uint32_t p = c.read32(c.reg[x86::Cpu::ESP] + 4 * i);
                 if (p < 0x10000 || !c.valid(p, 64))
                     continue;
@@ -131,6 +150,7 @@ int cmdHost(int argc, char **argv) {
     const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     const uint64_t executed = cpu.executed();
     std::printf("%s\n", err ? ("stopped: " + err.message).c_str() : ("ended with " + std::to_string(exitCode)).c_str());
+    std::printf("%llu exceptions raised\n", static_cast<unsigned long long>(raised));
     std::printf("%llu instructions in %.2f s (%.1f million a second); %llu frames shown\n",
                 static_cast<unsigned long long>(executed), seconds,
                 seconds > 0 ? double(executed) / seconds / 1e6 : 0.0, static_cast<unsigned long long>(frames));
@@ -192,7 +212,8 @@ int cmdDisasm(int argc, char **argv) {
 const Commands kCommands(
     "sfc",
     {
-        {"host", "<game folder> [-limit n] [-trace n] [-frame out.png] [-quiet] [-calls address] [-watch address]...",
+        {"host",
+         "<game folder> [-limit n] [-trace n] [-frame out.png] [-quiet] [-save folder] [-calls address] [-watch address]...",
          "run StarFleet2.exe in the x86 emulator, headless, and say how far it gets", cmdHost},
         {"disasm", "<game folder> <start> <end>", "disassemble StarFleet2.exe from one address to another", cmdDisasm},
     });

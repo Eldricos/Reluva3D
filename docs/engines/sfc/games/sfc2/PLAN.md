@@ -70,8 +70,12 @@ on their pages in `formats/` and `systems/`.
      lights and textures on the Direct3D 7 device; with it the game
      passes its 3D test and shows its first frame
      ([systems/hosting.md](systems/hosting.md));
-   - C++ exceptions dispatched (next): the game throws one it expects to
-     catch just after its first frame;
+   - C++ exceptions dispatched (done), with what loading asked for next:
+     KERNEL32's UTF-16 file functions, exact-name searches, `.` in full
+     paths, volumes by their roots; the game loads to its title screen
+     and its CD key dialog;
+   - input reaching the game (next): the launcher's window, the mouse and
+     the keyboard, so its CD key can be typed and its menus used;
    - the Windows functions the spike stood in for in the engine
      (`src/engines/sfc/host/system.cpp`), moved to the shared layer as
      they're settled;
