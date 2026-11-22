@@ -94,7 +94,17 @@ Each: a u32 size, a u16 id, a u16 record count, the records. Seen:
 Read as `Track` (`src/engines/nfs/nfs2se/formats/trk.cpp`): the blocks,
 their vertices made absolute, the levels' polygons, the meshes and
 placements, and every extrablock as it is. `reluva-tool nfs survey`
-reads all 8 tracks. Not drawn yet.
+reads all 8 tracks; `reluva-tool nfs trk-obj` writes one as an OBJ.
+
+The data viewer's Tracks page (`src/engines/nfs/nfs2se/pages/track_page.cpp`)
+draws a track at a level, its objects placed (an animated one where its
+animation starts), with the 3dfx program's pictures, from points of the
+virtual road ([col.md](col.md)). Each quad has its picture laid across
+it whole, its corners taking the picture's top left, top right, bottom
+right and bottom left in turn, as the files give no texture
+coordinates; which way round the game lays them isn't checked
+*(guessed)*. Both faces are drawn, the background is the 3dfx sky's
+colour toward the sun, and there's no fog or lighting.
 
 ## Sources and checks
 

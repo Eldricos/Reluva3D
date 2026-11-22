@@ -29,6 +29,9 @@ None yet.
 - **The pause screens' palette** is the race's, `hud.fsh`'s: the 3dfx
   copies' colours agree with it ([fsh.md](../../formats/fsh.md), NFS II
   SE's pause screens). The software game, paused, would settle it.
+- **The 3dfx program's chroma key** is `0x07C0`, the green only its track
+  pictures have ([fsh.md](../../formats/fsh.md), NFS II SE): the value
+  `nfs2sea.exe` gives `grChromakeyValue` would settle it.
 - **The front end's text records** ([text.md](../../formats/text.md),
   NFS II SE's front end): their first byte is the font's size, and two
   of their words the string's place on the screen. The front end drawn
@@ -36,7 +39,17 @@ None yet.
 
 ## Guessed
 
-None yet.
+- **How a quad's picture is laid on it**: its corners taking the
+  picture's top left, top right, bottom right and bottom left in turn
+  ([trk.md](formats/trk.md), In Reluva). Roads and signs look right so,
+  but the `.col`'s texture word at 2 may turn or flip some; the game
+  drawing a track would settle it.
+- **Whether the pages show the world the right way round**, or mirrored:
+  no readable text was big enough in the shots taken. A sign seen in the
+  game, against the Tracks page, would settle it.
+- **The racing cars' green bodies** are where the game puts the chosen
+  paint ([geo.md](formats/geo.md)): the game's car selection would show
+  it.
 
 ## Settled
 

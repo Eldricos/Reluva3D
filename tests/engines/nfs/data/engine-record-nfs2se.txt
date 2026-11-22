@@ -4,12 +4,14 @@ detect.install: nfs2se Need for Speed II SE (unknown release)
 detect.cd: nfs2se Need for Speed II SE (unknown release)
 folders.cd: NFS2SE-CD
 viewer.result: ok
-viewer.titles: Reluva - Need for Speed II SE - Status / Reluva - Need for Speed II SE - Textures / Reluva - Need for Speed II SE - Strings / Reluva - Need for Speed II SE - Sounds / Reluva - Need for Speed II SE - Music
-viewer.screens Reluva - Need for Speed II SE - Music: 22 5fa1bfadc7ec0e85
+viewer.titles: Reluva - Need for Speed II SE - Status / Reluva - Need for Speed II SE - Tracks / Reluva - Need for Speed II SE - Cars / Reluva - Need for Speed II SE - Textures / Reluva - Need for Speed II SE - Strings / Reluva - Need for Speed II SE - Sounds / Reluva - Need for Speed II SE - Music
+viewer.screens Reluva - Need for Speed II SE - Cars: 23 0162abcd729052fa
+viewer.screens Reluva - Need for Speed II SE - Music: 23 e6f17ba7751ef423
 viewer.screens Reluva - Need for Speed II SE - Sounds: 23 3ed62dcec0840aa0
-viewer.screens Reluva - Need for Speed II SE - Status: 64 ee2f9f1dd274ad25
-viewer.screens Reluva - Need for Speed II SE - Strings: 23 714ae8b6d089d225
-viewer.screens Reluva - Need for Speed II SE - Textures: 41 2dd706bde6daeb6b
+viewer.screens Reluva - Need for Speed II SE - Status: 63 43ff7f885dab2c13
+viewer.screens Reluva - Need for Speed II SE - Strings: 22 79b370f51e4da925
+viewer.screens Reluva - Need for Speed II SE - Textures: 23 c5e7a3af23163586
+viewer.screens Reluva - Need for Speed II SE - Tracks: 42 ee249f83c662a07d
 game.result: ok
 game.screens Reluva - Need for Speed II SE: 37 234e65d46948c5e3
 game.without cd: error: Need for Speed II SE reads its tracks from its CD, and no copy of the CD's files was found: put one beside the install, or set cdpath=<folder> in this game's section of reluva.ini

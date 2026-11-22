@@ -35,8 +35,9 @@ the cars' data is in both. The CD's 3dfx program, `NFS2SEA.EXE`, is in
   differences ([../../formats/](../../formats/)); and its own tracks,
   `.col` files, skies, lights and car models ([formats/](formats/)). Its
   movies are still to come.
-- **The data viewer** has, beside the Status page, its pictures (the
-  pause screens in the race's palette, as the software game draws them),
+- **The data viewer** has, beside the Status page, every track and car
+  model in 3D (the Tracks and Cars pages), its pictures (the pause
+  screens in the race's palette, as the software game draws them),
   strings, fonts, sounds and music. Its retail files were surveyed in
   [research/first-survey.md](research/first-survey.md).
 - Plans, phases and decisions: [PLAN.md](PLAN.md).

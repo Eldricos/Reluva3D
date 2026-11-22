@@ -3,6 +3,8 @@
 
 #include "engines/nfs/pages/viewers.h"
 
+#include "engines/nfs/nfs2se/pages/car_page.h"
+#include "engines/nfs/nfs2se/pages/track_page.h"
 #include "engines/nfs/nfs2se/status_page.h"
 #include "engines/nfs/nfs3/pages/car_viewer.h"
 #include "engines/nfs/nfs3/pages/track_viewer.h"
@@ -661,6 +663,8 @@ std::vector<std::unique_ptr<Page>> makePages(const GameInfo &game, const GameFol
     }
     case Game::kNfs2Se:
         pages.push_back(std::make_unique<nfs2se::StatusPage>(folders));
+        pages.push_back(std::make_unique<nfs2se::TrackPage>(files));
+        pages.push_back(std::make_unique<nfs2se::CarPage>(files));
         break;
     }
     // NFS II SE's pause screens have no palette: the game draws them in the

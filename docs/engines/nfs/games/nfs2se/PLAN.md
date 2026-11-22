@@ -122,7 +122,7 @@ with what it found written on the game's pages in `formats/` and
    with no failures, counting apart the pause pictures, three empty banks
    in `huddata.viv` and the installer's placeholder `temp.mus`. What's
    left failing is NFS II's own `.col` and `.hrz`, for the next phase.
-3. **Tracks and cars in 3D** (next):
+3. **Tracks and cars in 3D** (done):
    - `TRAC` tracks (`gamedata/tracks/se/trNN.trk`) and their texture
      banks, NFS II's `.col`, sky (`.hrz`, 26-27 numbers to NFS III's
      more), lights (`.lgt`, commented text) and camera paths (`.can`);
@@ -134,8 +134,11 @@ with what it found written on the game's pages in `formats/` and
    [hrz.md](formats/hrz.md), [geo.md](formats/geo.md), every file of
    theirs read (`reluva-tool nfs survey`), and `reluva-tool nfs trk-obj`
    and `geo-obj` to look at tracks and models elsewhere. The camera paths
-   (`.can`) aren't read yet; the viewer pages are next.
-4. **Movies:** the `mTCD` video in the `SCHl` streams (`.dct`, EA's
+   (`.can`) aren't read yet.
+
+   The Tracks and Cars pages draw them, checked under Xvfb on Mesa's
+   software Vulkan ([TESTING.md](TESTING.md#last-checked)).
+4. **Movies** (next): the `mTCD` video in the `SCHl` streams (`.dct`, EA's
    intra-frame DCT codec), likely shared code in `src/video/` with a
    page in `docs/common/video/`, as other EA titles of the time used it;
    the Movies page; the attract-mode demos (`demo.0`-`demo.2`).

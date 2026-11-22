@@ -403,7 +403,7 @@ void nfs2seTest(const stdfs::path &tmp) {
     // The viewer: each page in turn, then back to the launcher.
     PlayingSystem sys;
     uint64_t at = 200;
-    for (int page = 0; page < 6; ++page) {
+    for (int page = 0; page < 8; ++page) {
         sys.inputs.push_back({at += 50, keyDown(key::kDown)});
         sys.inputs.push_back({at += 200, keyDown(key::kTab)});
     }

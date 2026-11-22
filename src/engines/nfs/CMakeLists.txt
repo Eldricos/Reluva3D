@@ -54,6 +54,8 @@ reluva_add_engine_viewers(nfs
         pages/viewers.cpp
         nfs3/pages/car_viewer.cpp
         nfs3/pages/track_viewer.cpp
+        nfs2se/pages/car_page.cpp
+        nfs2se/pages/track_page.cpp
         pages/media_viewer.cpp)
 
 # Its reluva-tool commands (reluva-tool help nfs lists them). WITH_SDL: the

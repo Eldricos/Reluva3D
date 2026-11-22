@@ -227,6 +227,13 @@ pictures).
   the ten on the CD, the eight on 16-bit pictures (`hisfer.qfs`,
   `bar.fsh`) are all zeros, unused; the two others are on that picture,
   in `tr050.qfs` and `tr050m.qfs`.
+- **The 3dfx program's see-through texels.** Its track pictures
+  (`Tracks/se/trNN0.qfs`) are 16-bit 5:6:5, with no alpha; their
+  see-through texels are `0x07C0`, a green found in no other picture
+  (1,677,495 texels of 1,360 pictures). `nfs2sea.exe` imports Glide's
+  chroma key (`grChromakeyMode`, `grChromakeyValue`), which leaves a
+  colour out; that this is the colour it sets isn't traced
+  *(inferred)*.
 - **Empty banks.** `huddata.viv` holds `hud.fsh`, `hud*.fsh` and
   `mapdots.fsh` as empty entries; the game's are the loose files beside
   it.

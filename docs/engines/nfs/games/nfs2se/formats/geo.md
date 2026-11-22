@@ -55,7 +55,15 @@ picture's 4-character name in the car's `.qfs`.
 ## In Reluva
 
 Read as `CarModel` (`src/engines/nfs/nfs2se/formats/geo.cpp`);
-`reluva-tool nfs survey` reads all 53 in `cardata.viv`. Not drawn yet.
+`reluva-tool nfs survey` reads all 53 in `cardata.viv`, and
+`reluva-tool nfs geo-obj` writes one as an OBJ.
+
+The data viewer's Cars page (`src/engines/nfs/nfs2se/pages/car_page.cpp`)
+draws each model a level at a time, its pictures from the car's `.qfs`
+by name, laid on the quads as the Tracks page lays them
+([trk.md](trk.md), In Reluva), both faces, lit from one side. The racing
+cars' bodies come out the palette's bright green: likely where the game
+puts the chosen paint, not worked out *(guessed)*.
 
 ## Sources and checks
 

@@ -43,11 +43,15 @@ That the real release is recognised by its hashes: checked by hand
    53 car models. Esc goes back.
 3. Move the CD's copy away and start it again: it says the CD's files
    weren't found.
+4. In `reluva-viewer`, the Tracks page: each track (PageUp/PageDown)
+   drawn whole, its trees and fences see-through; Up/Down along the
+   road. The Cars page: each model, L through its levels.
 
 ## Last checked
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US CD and an install from it | Linux, Xvfb, Mesa's software Vulkan (llvmpipe) | The Tracks page on Proving Grounds and Monolithic Studios (`RELUVA_NFS2SE_TRACK_VIEW`): the road, barriers, floodlights, the stranded ship, trees see-through once `0x07C0` is keyed out, the studio's streets, sci-fi set and neon section; the Cars page on `futr` and the F355 (`RELUVA_NFS2SE_CARS_VIEW`): its tail lights, grille and plates |
 | November 2026 | US CD and an install from it | Linux | `reluva-tool nfs survey` over the CD and the install with NFS II's own readers: all 8 tracks, 8 `.col` files, 34 skies, 8 light files and 53 car models read, nothing failing; Proving Grounds and the F355 and T. rex exported (`trk-obj`, `geo-obj`) and drawn elsewhere |
 | November 2026 | US CD and an install from it | Linux | `reluva-tool nfs survey` over the CD and the install: every archive, picture bank, picture, text table, font, sound bank and sound, music stream, segment and map, and `.qda` file read, none failing but NFS II's own `.col` and `.hrz`; the Textures page's pause screen (`PAUSEEN.QFS`'s `head`) in the HUD's palette beside its 3dfx copy, and the Strings and Music pages, drawn (`reluva-tool nfs page`) |
 | November 2026 | US CD and an install from it | Linux | The install and the CD recognised as the release (`reluva-tool detect`), and an install with only `NFS2SEA.EXE` as an unknown release; the Status page drawn from the install with the CD's copy beside it (`reluva-tool nfs page`), with the counts in [A playthrough by hand](#a-playthrough-by-hand) |
