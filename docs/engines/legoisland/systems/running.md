@@ -134,7 +134,15 @@ that far.
   character has to be chosen first, by dragging its picture to where
   it's to go on the map. Dragged, a portrait lights up, its character's
   3D figure follows the pointer, and the place under it on the map
-  lights up. The right-hand
+  lights up. Before that a player has to be registered (`iic007in`
+  says so): a name spelled in the book and its tick, at the top of the
+  right-hand page, clicked; the program then writes `Players.gsi` to
+  `savepath`, the save folder.
+- **Out on the island:** registered, Pepper dragged to the pizzeria
+  goes there; she waves, and the island is drawn in 3D around her, its
+  other people walking by. The arrow keys walk her (read through
+  DirectInput's keyboard): up the road to the pizzeria, where the
+  Brickolinis are, and on. Run to 33,000 frames, it doesn't stop. The right-hand
   door is the way out of the game: the Infomaniac asks
   (`iic043in_RunAnim`, the sound `IIC044IN.wav`) and puts a green brick
   and a red one before him, in 3D; picking the green one ends the game,
@@ -199,7 +207,8 @@ instructions at an address ([disasm.md](../../../common/x86/disasm.md)).
 
 - What `CONFIG.EXE` writes for each setting, and its defaults: Reluva
   sets only `savepath` (and the installer's `cdpath`, `diskpath`).
-- Why a character dropped on a place on the map doesn't go there yet.
+- Whether the island's ground, drawn plain grey, has textures it isn't
+  given yet.
 - Which of the missing functions the program calls, once it gets past
   DirectSound.
 - What else the registry holds once `CONFIG.EXE` has run, and which of
