@@ -38,7 +38,7 @@ extended. The facts themselves are on their pages, each with its source.
 - **The executables:** `reluva-tool pe-info` and `objdump -p` for their
   headers, imports and exports. Later, Reluva's disassembler
   (`src/emulation/x86/disasm.h`) for the code, and the original run in
-  Reluva's x86 emulator to trace what it does.
+  Reluva's x86 emulator to trace what it does ([PLAN.md](PLAN.md)).
 
 ## The tools
 
