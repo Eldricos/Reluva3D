@@ -403,6 +403,38 @@ Matrix inverse(const Matrix &m) {
     return r;
 }
 
+// The inverse of any invertible matrix (Gauss-Jordan, with partial
+// pivoting): a projection's, which isn't affine.
+Matrix inverseGeneral(const Matrix &m) {
+    double a[4][8];
+    for (int i = 0; i < 4; ++i)
+        for (int j = 0; j < 8; ++j)
+            a[i][j] = j < 4 ? m[size_t(i * 4 + j)] : (j - 4 == i ? 1 : 0);
+    for (int col = 0; col < 4; ++col) {
+        int pivot = col;
+        for (int r = col + 1; r < 4; ++r)
+            if (std::fabs(a[r][col]) > std::fabs(a[pivot][col]))
+                pivot = r;
+        if (std::fabs(a[pivot][col]) < 1e-12)
+            return identity();
+        std::swap(a[col], a[pivot]);
+        const double k = a[col][col];
+        for (double &v : a[col])
+            v /= k;
+        for (int r = 0; r < 4; ++r)
+            if (r != col) {
+                const double f = a[r][col];
+                for (int j = 0; j < 8; ++j)
+                    a[r][j] -= f * a[col][j];
+            }
+    }
+    Matrix r{};
+    for (int i = 0; i < 4; ++i)
+        for (int j = 0; j < 4; ++j)
+            r[size_t(i * 4 + j)] = float(a[i][j + 4]);
+    return r;
+}
+
 Vector transformPoint(const Vector &p, const Matrix &m) {
     return {p[0] * m[0] + p[1] * m[4] + p[2] * m[8] + m[12], p[0] * m[1] + p[1] * m[5] + p[2] * m[9] + m[13],
             p[0] * m[2] + p[1] * m[6] + p[2] * m[10] + m[14]};
@@ -1459,6 +1491,42 @@ public:
             picked->s = s;
             picked->hits = pick(int32_t(c.arg(1)), int32_t(c.arg(2)));
             c.write32(c.arg(3), s->com.pointer(picked, s->pickedArray));
+            return kRmOk;
+        }
+        if (m == "Transform") { // (D3DRMVECTOR4D* screen out, D3DVECTOR* world)
+            if (!camera || !c.valid(c.arg(1), 16) || !c.valid(c.arg(2), 12))
+                return kRmErrBadValue;
+            // Homogeneous, the point on the screen (its pixel, and its depth
+            // 0 to 1) times w, the clip space's w (inferred: the
+            // documentation says only "a four-element homogeneous vector").
+            const Vector p = readVector(c, c.arg(2));
+            const Matrix all = multiply(inverse(camera->world()), projectionMatrix());
+            const float cx = p[0] * all[0] + p[1] * all[4] + p[2] * all[8] + all[12];
+            const float cy = p[0] * all[1] + p[1] * all[5] + p[2] * all[9] + all[13];
+            const float cz = p[0] * all[2] + p[1] * all[6] + p[2] * all[10] + all[14];
+            const float cw = p[0] * all[3] + p[1] * all[7] + p[2] * all[11] + all[15];
+            const float out[4] = {(float(x) + float(width) / 2) * cw + cx * float(width) / 2,
+                                  (float(y) + float(height) / 2) * cw - cy * float(height) / 2, cz, cw};
+            for (uint32_t i = 0; i < 4; ++i)
+                c.write32(c.arg(1) + 4 * i, bits(out[i]));
+            return kRmOk;
+        }
+        if (m == "InverseTransform") { // (D3DVECTOR* world out, D3DRMVECTOR4D* screen): Transform undone
+            if (!camera || width <= 0 || height <= 0 || !c.valid(c.arg(1), 12) || !c.valid(c.arg(2), 16))
+                return kRmErrBadValue;
+            float h[4];
+            for (uint32_t i = 0; i < 4; ++i)
+                h[i] = asFloat(c.read32(c.arg(2) + 4 * i));
+            const float cw = h[3];
+            const float clip[4] = {(h[0] - (float(x) + float(width) / 2) * cw) / (float(width) / 2),
+                                   ((float(y) + float(height) / 2) * cw - h[1]) / (float(height) / 2), h[2], cw};
+            const Matrix back = inverseGeneral(multiply(inverse(camera->world()), projectionMatrix()));
+            float r[4];
+            for (int j = 0; j < 4; ++j)
+                r[j] = clip[0] * back[size_t(j)] + clip[1] * back[size_t(4 + j)] + clip[2] * back[size_t(8 + j)] +
+                       clip[3] * back[size_t(12 + j)];
+            writeVector(c, c.arg(1),
+                        r[3] != 0 ? Vector{r[0] / r[3], r[1] / r[3], r[2] / r[3]} : Vector{r[0], r[1], r[2]});
             return kRmOk;
         }
         if (m == "ForceUpdate")

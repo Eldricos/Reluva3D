@@ -712,6 +712,11 @@ static void testRetainedMode() {
         return f;
     };
     auto near = [](float a, float b) { return std::fabs(a - b) < 1e-4f; };
+    auto writeVec = [&](uint32_t p, float x, float y, float z) {
+        cpu.write32(p, bits(x));
+        cpu.write32(p + 4, bits(y));
+        cpu.write32(p + 8, bits(z));
+    };
     const uint32_t out = mem(4);
     const uint32_t vec = mem(12);
     const uint32_t vec2 = mem(12);
@@ -907,6 +912,20 @@ static void testRetainedMode() {
     CHECK(call(holder, 6, {55}) == 0);                                         // SetAppData
     CHECK(call(path, 4, {1, out}) == 0 && call(cpu.read32(out), 7, {}) == 55); // GetElement, its app data
     CHECK(call(view, 28, {0, 0, out}) == 0 && call(cpu.read32(out), 3, {}) == 0);
+    // Points to the screen and back: the square's middle is the viewport's,
+    // its right edge to the right (homogeneous: x and y over w).
+    const uint32_t h4 = mem(16);
+    const uint32_t world = mem(12);
+    writeVec(world, 0, 0, 5);
+    CHECK(call(view, 20, {h4, world}) == 0); // Transform
+    CHECK(near(value(h4) / value(h4 + 12), 32) && near(value(h4 + 4) / value(h4 + 12), 24));
+    const float depth = value(h4 + 8) / value(h4 + 12);
+    CHECK(depth > 0 && depth < 1);
+    writeVec(world, 0, 0, 0);
+    CHECK(call(view, 21, {world, h4}) == 0); // InverseTransform
+    CHECK(std::fabs(value(world)) < 1e-3f && std::fabs(value(world + 8) - 5) < 1e-3f);
+    writeVec(world, 1, 0, 5);
+    CHECK(call(view, 20, {h4, world}) == 0 && value(h4) / value(h4 + 12) > 40);
 
     // Lit by two white lights shining straight at it, and textured mid-grey:
     // the lit colour saturates at white, and the texture stays grey.

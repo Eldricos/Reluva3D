@@ -38,7 +38,11 @@ So far what LEGO Island calls as it loads its world and plays its intro:
 - **`IDirect3DRMViewport`:** its rectangle, camera, front and back planes,
   field, projection and scaling, its view's edges (`GetPlane`),
   `Clear`, to the camera's scene's background and the far depth,
-  `Render`, drawing a frame and what's in it ([Drawing](#drawing)), and
+  `Render`, drawing a frame and what's in it ([Drawing](#drawing)),
+  `Transform` and `InverseTransform`, a point from the world to the
+  screen and back, as a homogeneous `D3DRMVECTOR4D`: the pixel's x and
+  y and the depth (0 to 1) times w, the clip space's w *(inferred: the
+  documentation says only "a four-element homogeneous vector")*, and
   `Pick`, what's under a point ([Picking](#picking)), as an
   `IDirect3DRMPickedArray` and, for each pick, its frames as an
   `IDirect3DRMFrameArray`.
@@ -137,7 +141,8 @@ it in `EAX`.
   data read back, and a clone apart from its original; and a green square
   in front of a camera, drawn in the viewport's middle and not its
   corner, and picked there (its mesh, group and frames) but not at the
-  corner. LEGO Island draws its scenes with it, and picks in them
+  corner; its middle taken to the viewport's middle pixel and back; and
+  lit by two white lights, textured mid-grey, drawn grey. LEGO Island draws its scenes with it, and picks in them
   ([running.md](../../engines/legoisland/systems/running.md)).
 - **Confidence:** published unless marked.
 
