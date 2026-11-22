@@ -22,7 +22,7 @@ All numbers little-endian.
 | 0 | 4 | `SFNT` |
 | 4 | 4 | Version: 10 in every file |
 | 8 | 4 | 0 to 3: not yet understood |
-| 12 | 4 | 0 to 8: not yet understood, perhaps the space between glyphs *(guessed)* |
+| 12 | 4 | 0 to 8: not yet understood. Not the space between glyphs: text drawn with it as one is far too widely spaced, and without it looks right |
 | 16 | 4 | 0, 32 or 63 (a space or `?`): perhaps the character drawn for one the font lacks *(guessed)* |
 | 20 | 4 | How many ranges of characters |
 | 24 | 16 | 0 in every file |
@@ -35,6 +35,9 @@ each). The text fonts have 14 ranges: 32 (or 33) to 126 or 122, then
 accented letters from 161 to 252, in Windows' Western European code page
 *(inferred)*. The digit fonts have one, `0` to `:`.
 
+In the text fonts the space's glyph is a small block, a marker, not
+blank: a space is drawn as a gap its width *(inferred)*.
+
 ### The strip
 
 A `.bm` picture to the end of the file, with one cel: the glyphs side by
@@ -44,12 +47,15 @@ in every font.
 ## In Reluva
 
 `parseFont` (`src/engines/sith/formats/font.h`) reads one into a `Font`.
-`reluva-tool sith formats <install>` reads them all.
+The data viewer's Fonts page shows the strip, and sample text drawn with
+the font glyph against glyph, with no gap between them; a space moves on
+by its glyph's width without drawing it. `reluva-tool sith formats <install>` reads them all.
 
 ## Sources and checks
 
 - **Where the facts come from:** the 27 fonts compared: their ranges and
-  glyphs read to where the picture starts.
+  glyphs read to where the picture starts; sample text drawn with each in
+  the data viewer.
 - **How it was checked:** every font read by `reluva-tool sith formats`,
   each glyph inside its strip; `sith.unit.formats` on a font made by the
   test.

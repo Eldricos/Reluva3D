@@ -22,8 +22,10 @@ files):
 game's files: a small install of its own, taken through what playing
 does, against its record (`tests/engines/sith/data/engine-record.txt`).
 So far: an empty folder isn't the game, the install is recognised (as an
-unknown release, its files being empty), and a CD is found beside it and
-another in it.
+unknown release, its files being empty), a CD is found beside it and
+another in it, and each of the data viewer's pages is drawn from archives
+the test makes, before and after a key (the Colormaps page has one
+colormap, so its key changes nothing).
 
 ### The game-files test
 
@@ -43,10 +45,14 @@ That the US release's signatures match a real install: checked by hand
 - `reluva-tool sith folders <install>` finds both CDs where they are.
 - *Import Game...* on CD 1, with CD 2 added, makes an install that's
   recognised, with both CDs' cut scenes in it.
+- In `reluva-viewer`: the menus' backgrounds look as in the game; the
+  Force powers' icons look right with `bkforce.bm`'s palette; textures
+  look right through `dflt.cmp`; the fonts' sample text is evenly spaced.
 
 ## Last checked
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | The data viewer's pages drawn with `reluva-tool sith page` on the install, and looked over: pictures, materials, colormaps, fonts and strings |
 | November 2026 | US retail | Linux | `reluva-tool sith formats` on the install: all 146 pictures, 21 colormaps, 1,983 materials, 27 fonts and 7 string tables read |
 | November 2026 | US retail | Linux | `reluva-tool sith folders` on the install, with copies of both CDs beside it: recognised as the US release, both CDs found. `reluva-tool import` from the copy of CD 1 with CD 2 added: recognised as the US release, both CDs found in it |

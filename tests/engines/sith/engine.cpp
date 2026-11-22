@@ -9,12 +9,14 @@
 //
 //   reluva-tests sith.engine [--update]
 //
-// So far it recognises a Jedi Knight install and finds its CDs: add steps
-// as the engine learns to read and run its games (see
+// So far it recognises a Jedi Knight install, finds its CDs, and draws
+// each of the data viewer's pages from archives of its own: add steps as
+// the engine learns to read and run its games (see
 // tests/engines/idtech3/engine.cpp), then --update and review the record.
 
 #include "engines/registry.h"
 #include "engines/sith/folders.h"
+#include "engines/sith/pages/pages.h"
 
 #include "tests/engines/sith/fixtures.h"
 #include "tests/support/record.h"
@@ -46,6 +48,40 @@ void engineTest(const std::filesystem::path &tmp) {
                 folders.cds[i].empty()
                     ? std::string("none")
                     : folders.cds[i].lexically_relative(tmp).generic_string() + " (" + folders.cdSources[i] + ")");
+
+    // Archives of the install's own, one file of each kind the viewer shows.
+    using namespace sith::testing;
+    writeBytes(dir / "Resource/Res2.gob",
+               makeGob({{"misc\\cmp\\uicolormap.cmp", makeColormapFile()}, {"mat\\test.mat", makeMaterialFile()}}));
+    writeBytes(dir / "Resource/Res1hi.gob", makeGob({{"ui\\bm\\test.bm", makePictureFile()},
+                                                     {"ui\\sft\\test.sft", makeFontFile()},
+                                                     {"ui\\jkstrings.uni", makeStringsFile()}}));
+    writeBytes(dir / "Episode/JK1.GOB", makeGob({{"misc\\cogstrings.uni", makeStringsFile()}}));
+    sith::ViewerData data;
+    if (Error err = data.open(dir))
+        rec.fail("viewer.open", err.message);
+    rec.add("viewer.archives", int64_t(data.files.archives().size()));
+    rec.add("viewer.colormaps", int64_t(data.colormaps.size()));
+    rec.add("viewer.palettes", int64_t(data.palettes.size()));
+    Surface screen;
+    screen.create(sith::kViewerW, sith::kViewerH, PixelFormat::kRGBA32);
+    for (auto &page : sith::makePages(data)) {
+        const std::string step = std::string("page.") + page->name();
+        rec.add(step + ".items", int64_t(page->count()));
+        if (page->count() == 0)
+            continue;
+        page->draw(screen);
+        rec.add(step + ".drawn", test::Hash().bytes(screen.pixels).hex());
+        // A key that changes each page: transparency, light level, size, a line.
+        const std::string name = page->name();
+        page->handleKey(name == "Pictures"    ? uint32_t('k')
+                        : name == "Materials" ? uint32_t('[')
+                        : name == "Fonts"     ? uint32_t('+')
+                                              : uint32_t(key::kDown));
+        page->draw(screen);
+        rec.add(step + ".after_keys", test::Hash().bytes(screen.pixels).hex());
+    }
+
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/sith/data/engine-record.txt", "sith.engine",
               "tests/engines/sith/engine.cpp");
 }

@@ -27,6 +27,10 @@ Line by line:
   own. The number is 0 in every entry.
 - **`END`** ends the table; anything after it is left out.
 
+A key is everything between its quotes: 7 keys in `jkstrings.uni` go
+on after the name with their arguments' kinds (`"ERR_CANNOT_FIND_FILE %s
+%s"`), and 4 in `credits.uni` have a space in them (`"CREDITS_ small_7"`).
+
 A string runs to the next quote: there's no escape for a quote, and
 `"\"` is a backslash. `\n` in a string is a new line *(inferred: the
 error messages use it between paragraphs)*. One credits line,
@@ -36,7 +40,7 @@ error messages use it between paragraphs)*. One credits line,
 
 `parseStrings` (`src/engines/sith/formats/strings.h`) reads one into a
 `StringTable`: the string after the number, or the rest of the line when
-it isn't quoted. `reluva-tool
+it isn't quoted. The data viewer's Strings page lists them. `reluva-tool
 sith strings <install> <file.uni>` prints one table, and `reluva-tool
 sith formats <install>` reads them all.
 
@@ -50,4 +54,5 @@ sith formats <install>` reads them all.
 
 ## Open questions
 
-- How the game reads the unquoted credits line.
+- How the game reads the unquoted credits line, and whether it looks up
+  the keys with arguments by their whole text.

@@ -31,7 +31,7 @@ All numbers little-endian.
 | 0 | 4 | `BM  ` |
 | 4 | 4 | Version: 70 (`0x46`) in every file |
 | 8 | 4 | 0 in every file |
-| 12 | 4 | Palette mode: 2 when a palette ends the file; else 0 or 1 *(what tells them apart is guessed: see [Behaviour](#behaviour))* |
+| 12 | 4 | Palette mode: 2 when a palette ends the file; else 0 or 1, which don't say whose palette the picture takes ([Behaviour](#behaviour)) |
 | 16 | 4 | How many cels |
 | 20 | 8 | Where the picture goes, x and y: set on 41, all within the 640x480 screen for the menus' pieces (`flok.bm`: 568, 344) and small for the HUD's (`sthealth.bm`: 21, 21) *(inferred)*; 0, 0 on the rest |
 | 28 | 4 | The transparent colour: 0 in the 8-bit pictures, `0xf81f` (magenta) in the 16-bit ones |
@@ -54,15 +54,28 @@ blue, at the end of the file.
 
 ## Behaviour
 
-The 8-bit pictures without a palette are drawn with another's. Palette
-mode 1 is on the menus' pieces, which would take the menus' palette;
-mode 0 on the HUD's, which would take the level's *(guessed)*.
+An 8-bit picture without a palette takes the palette of the screen it's
+drawn on *(inferred)*:
+
+- **The interface's palette:** `uicolormap.cmp`'s, which two of the
+  menus' backgrounds (`bkbuildload.bm`, `bkbuildmulti.bm`) have as their
+  own. The buttons, arrows and lists, and the sabers of the multiplayer
+  character screens (palette mode 0), look right with it.
+- **A background's own:** the Force powers' icons (palette mode 0) look
+  right only with `bkforce.bm`'s, and at their x and y each sits in one of
+  that screen's sockets. With the interface's palette, or a level's, their
+  colours are wrong.
+- Every background shares colours 0 and 224 to 255 with the interface's
+  palette, so a picture keeping to those looks the same on any of them;
+  16 of the 72 in palette mode 1 do.
 
 ## In Reluva
 
 `parseBitmap` (`src/engines/sith/formats/bitmap.h`) reads one into a
 `Bitmap`; `bitmapToImage` makes a cel RGBA, through its own palette or
-one it's given, its transparent colour clear or not. `reluva-tool sith formats <install>` reads them
+one it's given, its transparent colour clear or not. The data viewer's
+Pictures page shows every cel, with the interface's palette or any
+colormap's or background's. `reluva-tool sith formats <install>` reads them
 all.
 
 ## Sources and checks
@@ -70,7 +83,8 @@ all.
 - **Where the facts come from:** the 146 pictures and the 27 fonts'
   compared: every file's size is the header, its cels and its palette to
   the byte; the editing community's published write-ups of the format,
-  which agree.
+  which agree; the pictures drawn in the data viewer with each palette,
+  and the Force powers' icons placed on their screen.
 - **How it was checked:** every picture read by `reluva-tool sith
   formats`; `sith.unit.formats` on 8-bit and 16-bit pictures made by the
   test.
@@ -79,4 +93,5 @@ all.
 
 - What palette modes 0 and 1 mean to the game, and what the HUD's x and
   y are measured from.
+- Which screen each picture is drawn on, and so its palette.
 - Whether the field at 32 says the transparent colour is used.

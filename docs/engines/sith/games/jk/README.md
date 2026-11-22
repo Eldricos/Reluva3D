@@ -47,8 +47,9 @@ installer and the readme.
   ([formats/gob.md](formats/gob.md)), and in them every colormap,
   picture, material, font and string table
   ([formats/](#this-folder)).
-- **Not yet:** the sounds, models, levels and scripts, the data viewer,
-  and the game. Plans, phases and decisions:
+- **The data viewer** (`reluva-viewer`) shows the pictures, materials,
+  colormaps, fonts and string tables.
+- **Not yet:** the sounds, models, levels and scripts, and the game. Plans, phases and decisions:
   [PLAN.md](PLAN.md).
 
 ## Using it
@@ -69,6 +70,25 @@ A folder is taken for a CD by its `GAMEDATA/RESOURCE/JK_.CD`, so a copy
 of the whole CD, or of just its `GAMEDATA/RESOURCE` folder, will do.
 `reluva-tool sith folders <install>` shows what's found. The game itself
 shows an empty screen for now; Esc goes back to the launcher.
+
+The data viewer is `reluva-viewer` (`reluva-viewer <its name in the
+launcher>`, or `reluva-viewer <the install>`). Tab moves between its
+pages, Esc leaves it, and on each page Left/Right step through the files
+(PageUp/PageDown by ten, Home/End to the ends):
+
+- **Pictures:** every `.bm` and its cels. C steps through the palettes a
+  picture without its own may take (the interface's, each colormap's,
+  each menu background's), K shows the transparent colour or not.
+- **Materials:** every `.mat` and its cels. C steps through the
+  colormaps, `[` and `]` the light levels, M the mip levels, K the
+  transparency.
+- **Colormaps:** the palette, the light levels from dark (top) to bright,
+  and the blend table.
+- **Fonts:** the glyph strip and sample text; `+` and `-` its size.
+- **Strings:** every string table; Up/Down and PageUp/PageDown scroll.
+
+`reluva-tool sith page <install> <page> [keys...] <out.png>` draws a page
+after the keys given, without a window.
 
 ## This folder
 

@@ -18,11 +18,21 @@ reluva_add_engine(sith
         formats/material.cpp
         formats/strings.cpp)
 
+# Its data viewer, for reluva-viewer only: reluva, which players get,
+# doesn't link it. See docs/DEVELOPMENT.md (The data viewer).
+reluva_add_engine_viewers(sith
+    ACCESSOR sithMetaViewer
+    SOURCES
+        pages/viewer.cpp
+        pages/picture_pages.cpp
+        pages/text_pages.cpp)
+
 # Its reluva-tool commands (reluva-tool help sith lists them).
 reluva_add_engine_tools(sith
     SOURCES
         tools/files.cpp
-        tools/formats.cpp)
+        tools/formats.cpp
+        tools/pages.cpp)
 
 # Its tests (tests/engines/sith/), in reluva-tests: the unit tests by
 # topic, and the engine test, without game files (its record in

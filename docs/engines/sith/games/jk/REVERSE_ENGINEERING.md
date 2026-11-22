@@ -37,6 +37,9 @@ extended. The facts themselves are on their pages, each with its source.
   no pattern, noted as such. A field's meaning is then taken from what
   it does across the files (colour 0 in transparent textures, the
   pictures' x and y on the screen), and marked as inferred.
+- **Drawing it:** pictures drawn with each palette they might take, and
+  placed where their x and y say on a menu's background, to see which
+  fits; fonts drawn with and without a field as their spacing.
 
 ## The tools
 
@@ -49,6 +52,7 @@ extended. The facts themselves are on their pages, each with its source.
 | `reluva-tool sith gob <archive.gob>` | A `.gob` archive's index |
 | `reluva-tool sith formats <install> [-q]` | Every colormap, picture, material, font and string table in the install's archives read, a line each, and a count of each kind |
 | `reluva-tool sith strings <install> <file.uni>` | A string table's keys and strings |
+| `reluva-tool sith page <install> <page> [keys...] <out.png>` | One of the data viewer's pages drawn after the keys given, as a PNG |
 | `reluva-tool sith folders <install>` | The game recognised in an install, and where each CD was found |
 
 ## Working files not included

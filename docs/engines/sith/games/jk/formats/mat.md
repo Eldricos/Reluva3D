@@ -68,14 +68,15 @@ Colour 0 is in 145 of the 157 transparent textures but only 22 of the
 
 `parseMaterial` (`src/engines/sith/formats/material.h`) reads one into a
 `Material`; `materialToImage` makes a texture's mip level RGBA through a
-colormap's palette. `reluva-tool sith formats <install>` reads them all.
+colormap's palette. The data viewer's Materials page shows every cel,
+through a chosen colormap and light level. `reluva-tool sith formats <install>` reads them all.
 
 ## Sources and checks
 
 - **Where the facts come from:** the 1,983 materials compared: every
   file's size is its header, cels, textures and mip levels to the byte;
   the editing community's published write-ups of the format, which
-  agree.
+  agree; the textures drawn in the data viewer.
 - **How it was checked:** every material read by `reluva-tool sith
   formats`; `sith.unit.formats` on a material made by the test.
 

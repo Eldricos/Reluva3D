@@ -46,10 +46,11 @@ the reference to check native against.
    family layout, the US release recognised, the CDs found
    ([formats/jk-cd.md](formats/jk-cd.md)), and *Import Game...* from them
    ([README.md](README.md#using-it)).
-2. **Archives and pictures** (next): GOB as an `Archive`, `.cmp` colormaps,
-   `.bm` and `.mat` pictures, `.sft` fonts, `.uni` strings, each on a
-   viewer page.
-3. **Sound and movies:** the `.wav` files, `.snd` sound classes, the
+2. **Archives and pictures** (done): the `.gob` archives, `.cmp`
+   colormaps, `.bm` pictures, `.mat` materials, `.sft` fonts and `.uni`
+   string tables ([formats/](README.md#this-folder)), each read on every
+   retail file and shown on a page of the data viewer.
+3. **Sound and movies** (next): the `.wav` files, `.snd` sound classes, the
    Smacker cut scenes from both CDs.
 4. **Models and levels:** `.3do` models, `.key` animations, `.pup`
    puppets, `.spr` sprites, `.par` particles; `.jkl` levels drawn in 3D.

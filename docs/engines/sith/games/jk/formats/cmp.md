@@ -45,7 +45,9 @@ known.
 ## In Reluva
 
 `parseColormap` (`src/engines/sith/formats/colormap.h`) reads one into a
-`Colormap`. `reluva-tool sith formats <install>` reads them all.
+`Colormap`. The data viewer's Colormaps page shows the palette, the light
+levels and the blend table; its Materials page draws the materials
+through a chosen colormap, at a chosen light level. `reluva-tool sith formats <install>` reads them all.
 
 ## Sources and checks
 

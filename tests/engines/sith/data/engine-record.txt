@@ -5,3 +5,21 @@ detect.games: 1
 detect.release: jk: Jedi Knight: Dark Forces II (unknown release)
 folders.cd1: Disc 1 (folder beside the install)
 folders.cd2: install/cd2 (folder in the install)
+viewer.archives: 3
+viewer.colormaps: 1
+viewer.palettes: 1
+page.Pictures.items: 1
+page.Pictures.drawn: f2146468d749bdb5
+page.Pictures.after_keys: f1b044855c1b7eb5
+page.Materials.items: 1
+page.Materials.drawn: feaeae0b2808375d
+page.Materials.after_keys: 3050240c6ce43c9b
+page.Colormaps.items: 1
+page.Colormaps.drawn: 1ed2a3af80c3f273
+page.Colormaps.after_keys: 1ed2a3af80c3f273
+page.Fonts.items: 1
+page.Fonts.drawn: 32e44654cfd901cb
+page.Fonts.after_keys: 14826f4437271ff0
+page.Strings.items: 2
+page.Strings.drawn: cc68e743df00425f
+page.Strings.after_keys: 57d456c45b7b1952
