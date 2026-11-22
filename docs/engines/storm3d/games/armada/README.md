@@ -36,7 +36,7 @@ shows an empty screen; Esc goes back to the launcher.
 |---|---|
 | This page | Where it stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
-| [formats/](formats/) | The game's own files, a page each: [install.md](formats/install.md) (what the install and the CD hold), [zfs.md](formats/zfs.md) (the archives), [odf.md](formats/odf.md) (object definitions), [config.md](formats/config.md) (settings in C) |
+| [formats/](formats/) | The game's own files, a page each: [install.md](formats/install.md) (what the install and the CD hold), [zfs.md](formats/zfs.md) (the archives), [odf.md](formats/odf.md) (object definitions), [config.md](formats/config.md) (settings in C), [ldl.md](formats/ldl.md) (the installer's scripts) |
 | `systems/` | How the game behaves, a page per part |
 | `research/` | Working notes |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |

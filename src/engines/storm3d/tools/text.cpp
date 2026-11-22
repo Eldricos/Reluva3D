@@ -8,11 +8,13 @@
 //   reluva-tool storm3d odf-check <game folder>
 //   reluva-tool storm3d config <game folder> <file>
 //   reluva-tool storm3d config-check <game folder>
+//   reluva-tool storm3d ldl <game folder> <file.ldl> [output file]
 
 #include "common/archive.h"
 #include "common/fs.h"
 #include "common/text.h"
 #include "engines/storm3d/formats/config_file.h"
+#include "engines/storm3d/formats/ldl.h"
 #include "engines/storm3d/formats/odf.h"
 #include "engines/storm3d/formats/zfs_archive.h"
 #include "devtools/tool.h"
@@ -230,6 +232,41 @@ int cmdConfigCheck(int argc, char **argv) {
     return failed ? 1 : 0;
 }
 
+int cmdLdl(int argc, char **argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool storm3d ldl <game folder> <file.ldl> [output file]\n");
+        return 2;
+    }
+    const auto exe = reluva::fs::findFile(argv[2], "Armada.exe");
+    if (!exe) {
+        std::fprintf(stderr, "Armada.exe isn't in %s\n", argv[2]);
+        return 1;
+    }
+    std::vector<uint8_t> key;
+    if (Error err = reluva::storm3d::readLdlKey(*exe, key)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    std::ifstream in(argv[3], std::ios::binary);
+    if (!in) {
+        std::fprintf(stderr, "Cannot open %s\n", argv[3]);
+        return 1;
+    }
+    std::vector<uint8_t> data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    reluva::storm3d::decodeLdl(data, key);
+    if (argc > 4) {
+        std::ofstream out(argv[4], std::ios::binary);
+        if (!out.write(reinterpret_cast<const char *>(data.data()), std::streamsize(data.size()))) {
+            std::fprintf(stderr, "Cannot write %s\n", argv[4]);
+            return 1;
+        }
+        return 0;
+    }
+    const std::string text(data.begin(), data.end());
+    std::fputs(reluva::text::windows1252ToUtf8(text).c_str(), stdout);
+    return 0;
+}
+
 const reluva::tool::Commands kCommands(
     "storm3d",
     {
@@ -242,6 +279,8 @@ const reluva::tool::Commands kCommands(
         {"config-check", "<game folder>",
          "read every settings file in the C-like language, the AI's personalities too, and report what fails",
          cmdConfigCheck},
+        {"ldl", "<game folder> <file.ldl> [output file]",
+         "an .ldl file decoded with the key from the install's Armada.exe, printed or written", cmdLdl},
     });
 
 } // namespace

@@ -20,7 +20,7 @@ In the install's folder.
 | `assets.zfs` | 832,202 | A ZFS archive of 515 files: object definitions and tech trees ([zfs.md](zfs.md)) |
 | `objtxt.zfs` | 19,216 | A ZFS archive of 81 files: the missions' objectives ([zfs.md](zfs.md)) |
 | `startrek.zix` | 31,341 | Text, starting `001992` and a line naming the "Battlezone CD" |
-| `string.ldl`, `string_e.ldl`, `string_fi.ldl`, `string_gi.ldl`, `default.ldl`, `language.ldl` | | Not text. All six start with the same 11 bytes, then differ: encoded rather than compressed, perhaps by a fixed key *(guessed)* |
+| `string.ldl`, `string_e.ldl`, `string_fi.ldl`, `string_gi.ldl`, `default.ldl`, `language.ldl` | | The installer's scripts, encoded ([ldl.md](ldl.md)) |
 | `Armada.pal` | 768 | A palette: 256 colours of 3 bytes *(inferred)* |
 | `BZONE.FNT`, `BZONEJ.FNT` | 11,944 and 271,512 | Fonts |
 | `RTS_CFG.h`, `ART_CFG.h`, `game_cfg.h`, `shell_cfg.h`, `Dynamic_Localized_Strings.h` | | The game's settings, as C declarations (`float OVERVIEW_MAX_ZOOM = 4.0;`) ([config.md](config.md)) |
@@ -106,6 +106,6 @@ files with their sizes; the archives' commands are on
 
 ## Open questions
 
-- What `startrek.zix` and the `.ldl` files hold.
+- What `startrek.zix` holds.
 - Whether the patches (1.1, 1.2) replace the archives or only the
   program.
