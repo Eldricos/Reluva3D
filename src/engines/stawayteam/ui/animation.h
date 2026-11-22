@@ -34,6 +34,9 @@ struct Animation {
         float radius = 0.0f;
         float age = 0.0f;      // seconds it's heard for
         std::string attribute; // the maker's that quietens it ("Stealth"), if any
+        // Its sound (a CAddFootstepAndSoundBySurfaceTypeAction's Default
+        // Sound): none in the game's models.
+        std::string sound;
     };
     std::vector<Noise> noises;
 

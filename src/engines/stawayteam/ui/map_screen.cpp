@@ -497,11 +497,33 @@ void MapScreen::walk(Officer &o, float seconds) {
             const int to = int((o.travelled + step) / cycle * float(per));
             for (int f = from + 1; f <= to; ++f)
                 for (const Animation::Noise &n : walking.noises)
-                    if (n.frame == f % per)
+                    if (n.frame == f % per) {
                         makeNoise(o.x, o.y, footstepNoise(o, n), n.age);
+                        // Its sound, where it has one (inferred: by the
+                        // ground under it, CGroundTextureFrame's Surface
+                        // Type, isn't there; no model has either).
+                        if (_mixer && !n.sound.empty())
+                            if (auto sound = gameSound(_data, n.sound))
+                                _mixer->play(sound, audio::SoundType::kEffects);
+                    }
         }
         o.travelled = cycle > 0.0f ? std::fmod(o.travelled + step, cycle) : 0.0f;
         left -= step / speed;
+    }
+}
+
+void MapScreen::drawLine(Surface &view, float x0, float y0, float x1, float y1, const std::array<uint8_t, 3> &rgb,
+                         float opacity) {
+    const int steps = int(std::ceil(std::max(std::abs(x1 - x0), std::abs(y1 - y0))));
+    for (int k = 0; k <= steps; ++k) {
+        const float t = steps > 0 ? float(k) / float(steps) : 0.0f;
+        const int x = int(std::lround(x0 + (x1 - x0) * t));
+        const int y = int(std::lround(y0 + (y1 - y0) * t));
+        if (x < 0 || y < 0 || x >= view.w || y >= view.h)
+            continue;
+        uint8_t *p = view.row(y) + x * 4;
+        for (int c = 0; c < 3; ++c)
+            p[c] = uint8_t(float(p[c]) + (float(rgb[size_t(c)]) - float(p[c])) * opacity);
     }
 }
 
@@ -1058,6 +1080,18 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
     for (const Thrown &t : _thrown) {
         const Animation &a = animation(t.model, "Idle");
         blitBy(view, a.at(now), int(std::lround(t.x)) - left, int(std::lround(t.y - t.z)) - top);
+    }
+    // The beams: their middle line, and one either side in their edges'
+    // colour (CEntityAnimatedLine, 0x499470), fading out.
+    for (const Beam &b : _beams) {
+        const float fade = std::clamp(b.left / b.shown, 0.0f, 1.0f);
+        const float len = std::hypot(b.x1 - b.x0, b.y1 - b.y0);
+        const float px = len > 0.0f ? -(b.y1 - b.y0) / len : 0.0f;
+        const float py = len > 0.0f ? (b.x1 - b.x0) / len : 0.0f;
+        for (const int side : {-1, 1})
+            drawLine(view, b.x0 + px * float(side) - float(left), b.y0 + py * float(side) - float(top),
+                     b.x1 + px * float(side) - float(left), b.y1 + py * float(side) - float(top), b.outside, fade);
+        drawLine(view, b.x0 - float(left), b.y0 - float(top), b.x1 - float(left), b.y1 - float(top), b.middle, fade);
     }
     // The shots' flashes, over everyone.
     for (const Flash &f : _flashes) {

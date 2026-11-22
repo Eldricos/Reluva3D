@@ -295,6 +295,18 @@ public:
         bool resting = false;
     };
     const std::vector<Thrown> &thrown() const { return _thrown; }
+    /** A beam shot, from muzzle to target, up off the ground as drawn. */
+    struct Beam {
+        float x0;
+        float y0;
+        float x1;
+        float y1;
+        std::array<uint8_t, 3> outside;
+        std::array<uint8_t, 3> middle;
+        float left;  // seconds
+        float shown; // seconds in all
+    };
+    const std::vector<Beam> &beams() const { return _beams; }
     /** A mine put down: arming, armed, or set off and about to go. */
     struct Mine {
         const ItemDefinition *item = nullptr;
@@ -586,6 +598,9 @@ private:
     void drawVision(Surface &view, int left, int top) const;
     void drawPause(Surface &screen, uint64_t now);
     void walk(Officer &o, float seconds);
+    // A line a pixel wide, `opacity` (0-1) of the colour over what's there.
+    static void drawLine(Surface &view, float x0, float y0, float x1, float y1, const std::array<uint8_t, 3> &rgb,
+                         float opacity);
     // A step of `step` pixels from (x, y) along (ux, uy), turned aside if
     // someone's in the way (the officer or enemy given isn't), unless it's
     // `toGo` from where it's going; false if there's no way past, the way
@@ -717,6 +732,7 @@ private:
         float time = 0.0f; // seconds shown
     };
     std::vector<Flash> _flashes;
+    std::vector<Beam> _beams;
     std::vector<Thrown> _thrown;
     std::vector<Mine> _mines;
     // A model put down, as a part: its sequence and how far into it, the

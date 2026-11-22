@@ -20,6 +20,8 @@ namespace {
 constexpr float kPi = 3.14159265f;
 // An officer's model's 12 directions, 0 facing left, turning anticlockwise.
 constexpr int kDirections = 12;
+// How long a beam's shown whose weapon gives no Shot Duration (inferred).
+constexpr float kBeamTime = 0.25f;
 // A strike reaches about a figure's width at least (inferred).
 constexpr float kStrikeReach = 30.0f;
 
@@ -169,6 +171,20 @@ float MapScreen::shoot(const ItemDefinition &weapon, const std::string &model, f
         _flashes.push_back({weapon.shotFlash, x, y});
     if (!weapon.hitFlash.empty())
         _flashes.push_back({weapon.hitFlash, tx, ty});
+    // A beam weapon's line from its muzzle (Forward Position along the way
+    // they face, Lateral Position across it, Height up) to the target, as
+    // high on them (inferred), shown its Shot Duration, fading (inferred).
+    const float dx = tx - x;
+    const float dy = ty - y;
+    const float distance = std::hypot(dx, dy);
+    if (weapon.beam && distance > 0.0f) {
+        const float ux = dx / distance;
+        const float uy = dy / distance;
+        const float mx = x + ux * weapon.forward - uy * weapon.lateral;
+        const float my = y + uy * weapon.forward + ux * weapon.lateral - weapon.height;
+        const float time = weapon.shotDuration > 0.0f ? weapon.shotDuration : kBeamTime;
+        _beams.push_back({mx, my, tx, ty - weapon.height, weapon.beamOutside, weapon.beamMiddle, time, time});
+    }
     const Animation &a = animation(model, weapon.dischargeSequence.empty() ? "Shoot1" : weapon.dischargeSequence);
     const int per = a.perDirection();
     return per > 0 && a.fps > 0.0f ? float(per) / a.fps : weapon.shotDuration;
@@ -242,6 +258,9 @@ void MapScreen::hurtOfficer(size_t officer, const ItemDefinition &weapon, bool s
 }
 
 void MapScreen::updateCombat(float seconds) {
+    for (Beam &b : _beams)
+        b.left -= seconds;
+    std::erase_if(_beams, [](const Beam &b) { return b.left <= 0.0f; });
     for (Flash &f : _flashes)
         f.time += seconds;
     std::erase_if(_flashes, [&](const Flash &f) {

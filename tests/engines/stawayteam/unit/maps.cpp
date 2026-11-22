@@ -1503,6 +1503,50 @@ void testCompany() {
     CHECK(screen.partState(3).active);
 }
 
+void testBeams() {
+    // Ann's phaser, a beam weapon, at a guard.
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    const std::string zax =
+        "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=500.000000,300.000000\nTree List=CSortList2D\n{\n"
+        "Level Part=CEntityWalking\n{\nName=Guard\nActivity=Array\n{\nItem Count=1\nActivity=CBorgAI\n{\n"
+        "Current State=Patrol\nMax Distance=10\n}\n}\nModel=Characters/Guard\nPosition X=500\nPosition Y=300\n}\n"
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=300\n}\n}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = bytesOf(zax);
+    data.files["Cache/Models/Characters/Guard.mdl16"] = modelFile("Guard", 1, 1, 1000.0f);
+    data.files["Inventory/Item Definitions/Phaser.txt"] = bytesOf(
+        "CStarTrekInventoryItemDefinition\n{\nWeapon Damage=1\nReuse Delay=5\nItem Range=375\nShot Duration=0.5\n"
+        "Discharge Action=CShootEnergyWeaponAction\n{\nForward Position=20\nLateral Position=-5\nHeight=30\n"
+        "Outside Color=255,83,0\nMiddle Color=255,255,0\n}\n}\n");
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    ann.inventory = {{"Phaser", -1}};
+    MapScreen screen(data, rules, map, options, 0, {ann});
+    uint64_t now = 0;
+    screen.choose(0);
+    screen.attack(0);
+    for (int k = 0; k < 10 && screen.beams().empty(); ++k)
+        screen.update(now += 50);
+    // From her muzzle, 20 on towards the guard and 5 across, 30 up, to the
+    // guard as high; in its colours.
+    CHECK(screen.beams().size() == 1);
+    const MapScreen::Beam &b = screen.beams()[0];
+    CHECK(b.x0 == 320.0f && b.y0 == 300.0f - 5.0f - 30.0f && b.x1 == 500.0f && b.y1 == 270.0f);
+    CHECK((b.outside == std::array<uint8_t, 3>{255, 83, 0}) && (b.middle == std::array<uint8_t, 3>{255, 255, 0}));
+    // Gone after its Shot Duration.
+    const uint64_t shot = now;
+    while (now < shot + 600)
+        screen.update(now += 50);
+    CHECK(screen.beams().empty());
+}
+
 void testChoosing() {
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(kMap, kMap + std::string(kMap).size());
@@ -1564,4 +1608,5 @@ static const reluva::test::Suite kSuite("stawayteam.unit.maps",
                                             {"states", [](const std::filesystem::path &) { testStates(); }},
                                             {"doors", [](const std::filesystem::path &) { testDoors(); }},
                                             {"company", [](const std::filesystem::path &) { testCompany(); }},
+                                            {"beams", [](const std::filesystem::path &) { testBeams(); }},
                                         });

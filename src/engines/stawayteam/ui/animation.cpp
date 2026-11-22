@@ -55,8 +55,12 @@ Error Animation::loadFrom(const Archive &data, const std::string &path, const st
         int frame = 0;
         for (const TextField *t : triggers->items()) {
             const TextObject *action = t->object ? t->object->object("Action") : nullptr;
-            if (action && action->object("Footstep Noise"))
+            std::string sound;
+            if (action && action->object("Footstep Noise")) {
+                if (const TextField *s = action->field("Default Sound"); s && s->value != "!None.ogg")
+                    sound = s->value;
                 action = action->object("Footstep Noise");
+            }
             if (action && action->number("Radius")) {
                 Noise n;
                 n.frame = frame;
@@ -64,6 +68,7 @@ Error Animation::loadFrom(const Archive &data, const std::string &path, const st
                 n.age = float(action->number("Age").value_or(1.0));
                 if (const TextField *a = action->field("Attribute"))
                     n.attribute = a->value;
+                n.sound = sound;
                 noises.push_back(n);
             }
             ++frame;

@@ -44,8 +44,7 @@ None yet.
   Inactive states aren't there; the camera scripts don't pause the
   characters, and one taken off the team stays on its bar; walkers keep
   apart by Reluva's own rule; the transporter's pictures aren't drawn
-  as enemies beam out; footsteps make no sound; shots show their flashes
-  but no beam and always hit; the 5 polygons' processes and the Out Of
+  as enemies beam out; shots always hit; the 5 polygons' processes and the Out Of
   Range cursor aren't there; saving and loading from the escape menu
   aren't there
   ([systems/maps.md](systems/maps.md#in-reluva)).

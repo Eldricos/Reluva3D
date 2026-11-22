@@ -7,6 +7,7 @@
 #include "common/types.h"
 #include "engines/stawayteam/formats/text_object.h"
 
+#include <array>
 #include <map>
 #include <memory>
 #include <string>
@@ -125,9 +126,18 @@ struct ItemDefinition {
     int rounds = 0;            // its Default Inventory Item's Rounds: uses of one, 0 for unlimited
     std::string processType;   // what using it does: "Shoot", "Hypospray Use", "Scan"...
     std::string projectile;    // a thrown one's model, of Cache/Models
-    // A thrown one's: its Discharge Action's Height it leaves the hand at,
-    // and its Gravity AI's Gravity and Bounce Sound.
-    float throwHeight = 0.0f;
+    // Where its Discharge Action leaves the user: Forward Position along
+    // their facing, Lateral Position across it, Height up from the ground
+    // (a throw's hand, a shot's muzzle).
+    float forward = 0.0f;
+    float lateral = 0.0f;
+    float height = 0.0f;
+    // A beam weapon's (CShootEnergyWeaponAction's) colours, red, green,
+    // blue: its edges' and its middle's; none for a weapon without one.
+    bool beam = false;
+    std::array<uint8_t, 3> beamOutside{};
+    std::array<uint8_t, 3> beamMiddle{};
+    // A thrown one's Gravity AI's Gravity and Bounce Sound.
     float gravity = 0.0f;
     std::string bounceSound;
     float health = 0.0f; // a healer's (its Discharge Action's Health action's Health)

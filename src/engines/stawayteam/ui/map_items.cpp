@@ -230,7 +230,7 @@ bool MapScreen::doTask(size_t officer) {
         const float distance = std::hypot(o.taskX - o.x, o.taskY - o.y);
         const float flight = std::max(0.1f, distance / speed);
         const float g = gravityOf(*def);
-        t.z = def->throwHeight;
+        t.z = def->height;
         t.vx = distance > 0.0f ? (o.taskX - o.x) / flight : 0.0f;
         t.vy = distance > 0.0f ? (o.taskY - o.y) / flight : 0.0f;
         t.vz = g * flight / 2.0f - t.z / flight;

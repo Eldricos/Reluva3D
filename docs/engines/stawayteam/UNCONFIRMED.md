@@ -89,6 +89,9 @@ None yet.
   character joining the team is made an officer, and rescues failing as
   their character's killed
   ([systems/maps.md](systems/maps.md#open-questions)).
+- **The beams:** where they start and end on the shooter and the one
+  shot, and how long they're shown
+  ([systems/maps.md](systems/maps.md#open-questions)).
 - **Parts' processes:** the one chosen for an officer, and their walking
   into range first
   ([systems/maps.md](systems/maps.md#open-questions)).

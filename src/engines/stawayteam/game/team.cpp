@@ -147,7 +147,25 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
             item.shotNoiseTime = float(action->number("Time").value_or(0.0));
             if (const TextObject *heal = action->object("Health action"))
                 item.health = float(heal->number("Health").value_or(0.0));
-            item.throwHeight = float(action->number("Height").value_or(0.0));
+            item.forward = float(action->number("Forward Position").value_or(0.0));
+            item.lateral = float(action->number("Lateral Position").value_or(0.0));
+            item.height = float(action->number("Height").value_or(0.0));
+            if (action->className == "CShootEnergyWeaponAction") {
+                item.beam = true;
+                // The line's own default edges (205, 20, 25) where none's
+                // given (0x499b66).
+                item.beamOutside = {205, 20, 25};
+                item.beamMiddle = {205, 20, 25};
+                const auto colour = [&](const char *key, std::array<uint8_t, 3> &out) {
+                    int r = 0;
+                    int g = 0;
+                    int b = 0;
+                    if (std::sscanf(text(*action, key).c_str(), "%d,%d,%d", &r, &g, &b) == 3)
+                        out = {uint8_t(r), uint8_t(g), uint8_t(b)};
+                };
+                colour("Outside Color", item.beamOutside);
+                colour("Middle Color", item.beamMiddle);
+            }
             if (const TextObject *gravity = action->object("Gravity AI")) {
                 item.gravity = float(gravity->number("Gravity").value_or(0.0));
                 item.bounceSound = text(*gravity, "Bounce Sound");

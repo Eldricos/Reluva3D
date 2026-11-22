@@ -474,7 +474,16 @@ list (`CNoiseManager`, at the game's `0x334`; added at `0x5194e0`, each a
   direction's frames, has a `CAddFootstepAndSoundBySurfaceTypeAction` on
   two of them (frames 3 and 8 of the walk's 10) whose `Footstep Noise` is
   a `CAddFootstepNoiseAction`: `Radius` 100, `Age` 1, `Attribute`
-  `Stealth`.
+  `Stealth`. The action plays its sound by the ground under the foot
+  (`0x4c9a50`), then makes the noise (`0x518748`): its `Default Sound`,
+  or one of its `Specializations` (`SyfaceTypeSoundItem`s, a `Surface
+  Type` and a `Sound`), the surface being a ground texture frame's
+  (`CGroundTextureFrame`'s `Surface Type`; `Surface Types/*.STY`:
+  Carpet, Dirt, Generic, Grass, Hollow Metal, Metal, Stone, each with a
+  `Max Distance`, 45 to 100, which the noise doesn't use). In all the
+  game's 3,738 models it's `!None.ogg` with no specializations: the
+  footsteps are silent, and `Sounds/PLAYER/FootstepLeft.ogg` and the
+  others there are used by nothing.
 - **How loud:** the Radius (`0x518100`) times the maker's attribute's
   quietening, 0.5 + 0.5 x (1 - value / 100) (`0x5e54b0`, its half from
   `0x5180be`, the 100 an attribute's whole at `0x5e5830`; 1 without the
@@ -486,6 +495,13 @@ list (`CNoiseManager`, at the game's `0x334`; added at `0x5194e0`, each a
   and `Time` (the Phaser's 250 for 1 s; 14 weapons have 250), with the
   shot's `Forward Position`, `Lateral Position` and `Height`, and its
   beam's `Outside Color` and `Middle Color`.
+- **Beams:** a `CShootEnergyWeaponAction` makes a `CEntityAnimatedLine`
+  (`0x499b3e`) with its `Outside Color` and `Middle Color` (the line's
+  own (205, 20, 25) without them, `0x499b66`): drawn as three lines
+  (`0x499470`), the middle from `Start` to `End` in the Middle Color, and
+  one each side of it, by its `PerpenNormal`, in the Outside Color. The
+  Phaser's (255, 83, 0) and (255, 255, 0), the Romulan Disruptor's
+  greens, the Borg gun's blues.
 - **Hearing** (`0x519440`): a listener hears the newest noise it's inside,
   its distance up and down counted 1.403 times (the view's
   foreshortening), on the same map, if it's of a side that hears that
@@ -719,7 +735,12 @@ it: by the waypoints till it's in range and sight, then each Reuse Delay
 *(inferred)*; walking elsewhere, or the
 enemy fallen, they stop. A shot always hits *(inferred)*: its Shot Sound,
 its Shot Flash on the shooter and its Hit Flash on the one hit, the
-shooter's `Shoot1` played through, the Weapon Damage taken off. An enemy
+shooter's `Shoot1` played through, the Weapon Damage taken off. A beam
+weapon's beam is drawn from its muzzle (Forward Position along the way
+to the target, Lateral Position across, Height up) to the target as high
+up *(inferred)*, as above, for its Shot Duration, fading *(inferred)*.
+A footstep plays its Default Sound where it has one (none do); the
+surfaces' sounds aren't looked up, none being given. An enemy
 hit runs its Damage Action, and with Target If Hit attacks whoever hit it;
 a weapon set to stun puts it down for the Stun Duration, then back on
 patrol, unless its Stun State is Attack, when it attacks *(inferred)*.
@@ -763,7 +784,7 @@ cursor, the full inventory, triggers set off by projectiles, the AIs'
 other messages and tasks (CSendMessageAction's to animations and
 particles), walkers going round each other, enemies targeting each other
 (Valid Targets Enemy), the DoSomething and Inactive states, the
-enemies' own noises and footsteps' sounds by the ground, the shots' beams
+enemies' own noises, the shots'
 and projectiles, missing, thrown and laid weapons, the doors opening
 by themselves (CDoorAI's own Triggered By flags), the camera scripts'
 Pause Actors, and those off the team still on its bar.
@@ -828,7 +849,10 @@ and let go, and a class check. Mission 01: Ivan Verov using Computer
 Systems on the panel (the pointer its Generic Use), the force field
 lowered, walking to the first scientist, and the scientist beamed out
 after the dialog and camera script; a trapped Klingon joining the team
-and walking where sent. Every relocation in the maps checked: its map
+and walking where sent. The team firing on the first Romulan, the
+phasers' beams drawn from an officer's muzzle to it. Every model's
+footsteps read: none has a sound. A unit test checks a beam's ends and
+colours and its going after its Shot Duration. Every relocation in the maps checked: its map
   found and its places on it. Mission 08 run on: the team charging the Klingons,
   one hurt retreating to its alarm, and the mission lost to it.
 
@@ -865,7 +889,8 @@ and walking where sent. Every relocation in the maps checked: its map
   and the investigating AI's rules.
 - **Fighting:** the program's rules for sight (whether the footprints
   are what blocks it, `Half Height`), for aiming and missing, which
-  weapon a character uses, the shots' beams, where on a character the
+  weapon a character uses, how long a beam's shown and how high it ends,
+  where on a character the
   flashes go, stunning, death, and the mouse for attacking.
 - **Choosing:** the game's mouse for a box and Shift, and where officers
   sent together stand.

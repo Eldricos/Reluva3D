@@ -147,7 +147,9 @@ stawayteam frame-png`.
    enemies; Mission 01's first scientist rescued (Computer Systems on the
    panel, the force field down, the scientist reached and beamed out, the
    count); Data joining the team in Mission 05; Worf's death failing
-   Mission 08;
+   Mission 08; the phasers' orange and yellow beams and the disruptors'
+   green ones as they shoot, from the gun to the one shot, and the
+   footsteps silent as in the original;
    enemies called by one
    that's seen the team, running after it out of sight, and retreating to
    their alarms when hurt (Mission 08); a grenade chosen on the bar or
