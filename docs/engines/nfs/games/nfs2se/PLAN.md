@@ -74,7 +74,7 @@ with what it found written on the game's pages in `formats/` and
    own header. What both games read stays shared. The moves are listed
    in `tools/relocations/2026-11-nfs-games.txt`. This folder, with its
    five pages.
-1. **Skeleton and detection** (next):
+1. **Skeleton and detection** (done):
    - `nfs2se` in `games.cpp`'s game list, its detection entries from the
      table in [first-survey.md](research/first-survey.md) (the
      software and 3dfx executables, the install and the CD), and a
@@ -84,7 +84,16 @@ with what it found written on the game's pages in `formats/` and
    - the engine's Play page saying what it found for an `nfs2se` target;
    - unit tests of detection and folder finding on folders the tests
      build.
-2. **The shared formats, with NFS II's differences:**
+
+   Built: the game in `games.cpp` (`Game::kNfs2Se`), recognised by
+   `nfs2sen.exe` and `cardata.viv`, which the install and the CD both
+   have, as the tracks are on the CD alone; `checkFolders`, which wants
+   NFS III's track folders or NFS II SE's `.trk` files (on the CD); in
+   `src/engines/nfs/nfs2se/`, its tracks, car models and programs found
+   (`files.cpp`) and the Status page the game shows
+   (`status_page.cpp`), also the viewer's first page. Checked on the
+   retail install and CD ([TESTING.md](TESTING.md#last-checked)).
+2. **The shared formats, with NFS II's differences** (next):
    - pictures: SHPI types `0x2A` (a palette entry shared by the bank's
      pictures), `0x24`, `0x7A`, `0x7D` and `0x7B` drawn with the bank's
      palette; the pause screens' pictures with no palette of their own

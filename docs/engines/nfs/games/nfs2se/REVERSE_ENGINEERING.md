@@ -40,6 +40,9 @@ Allowed under CONTRIBUTING.md, as for NFS III
 - **The files:** each kind identified by its header and the names the
   executables use for it, then read with NFS III's readers
   (`reluva-tool nfs survey`) to see which already hold.
+- **Recognising the release:** the files compared between the install
+  and the CD (`cmp`) for ones both have the same, and hashed as
+  detection hashes them (MD5 of the first 5000 bytes).
 - **The executables:** their PE headers, imports, exports and strings.
 - **The game running:** `nfs2sen.exe` loaded in Reluva's x86 emulator
   (`reluva-tool x86-run`).
@@ -55,6 +58,8 @@ Allowed under CONTRIBUTING.md, as for NFS III
 | `reluva-tool nfs viv-list <file.viv>` | Lists a VIV archive |
 | `reluva-tool nfs fsh-info <file>` | Lists a picture bank's pictures |
 | `reluva-tool x86-run <file>` | Loads a Windows program in the x86 emulator and runs its start-up |
+| `reluva-tool detect <folder>` | Which game, and which release, the launcher finds in a folder |
+| `reluva-tool nfs page <folder> <out.tga> <page>` | Draws one of the engine's pages for the game in the folder, without a window (the Status page, say) |
 
 ## Working files not included
 

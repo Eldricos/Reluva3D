@@ -18,6 +18,7 @@
 #include "engines/nfs/folders.h"
 #include "engines/nfs/formats/fsh.h"
 #include "engines/nfs/game_files.h"
+#include "engines/nfs/games.h"
 #include "engines/nfs/host/game_host.h"
 #include "engines/nfs/nfs3/formats/hrz.h"
 #include "engines/nfs/nfs3/formats/mad.h"
@@ -66,10 +67,18 @@ int cmdNfsPage(int argc, char **argv) {
                              "  (the Play page writes to nfs page-save)\n");
         return 2;
     }
-    const auto folders = reluva::nfs::findFolders(argv[2], {}, "nfs3.exe");
+    // The game the folder holds, as the launcher finds it; NFS III if none.
+    const reluva::nfs::GameInfo *game = &reluva::nfs::games().front();
+    auto found = reluva::detectFromTable("nfs", reluva::nfs::detectionTable(), argv[2]);
+    if (found.empty())
+        found = reluva::detectFromTable("nfs", reluva::nfs::fallbackTable(), argv[2]);
+    if (!found.empty())
+        if (const reluva::nfs::GameInfo *known = reluva::nfs::findGame(found[0].gameId))
+            game = known;
+    const auto folders = reluva::nfs::findFolders(argv[2], {}, game->executable);
     reluva::nfs::GameFiles files;
     files.scan(folders);
-    auto pages = reluva::nfs::makePages("Need for Speed III: Hot Pursuit", folders, files, nullptr, "nfs page-save");
+    auto pages = reluva::nfs::makePages(*game, folders, files, nullptr, "nfs page-save");
     reluva::nfs::Page *page = nullptr;
     for (auto &p : pages)
         if (lowerAscii(p->name()) == lowerAscii(argv[4]))

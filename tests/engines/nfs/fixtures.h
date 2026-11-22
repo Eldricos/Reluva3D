@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// What the Need for Speed engine's unit tests build their data with: an
-// install and a CD laid out as the game's (empty files), and the game's
+// What the Need for Speed engine's unit tests build their data with: each
+// game's install and CD laid out as the game's (empty files), and the game's
 // formats written by hand (archives, shapes, models, tracks, sound banks,
 // movies). No game data.
 
@@ -20,6 +20,7 @@
 #include "engines/nfs/host/force_effects.h"
 #include "engines/nfs/host/sound3d.h"
 #include "engines/nfs/host/thrash_native.h"
+#include "engines/nfs/nfs2se/files.h"
 #include "engines/nfs/nfs3/formats/mad.h"
 #include "engines/nfs/formats/mus.h"
 #include "engines/nfs/nfs3/render/particles.h"
@@ -124,6 +125,39 @@ inline Bytes makeViv(const std::vector<std::pair<std::string, std::string>> &fil
     for (int i = 0; i < 4; ++i)
         b[4 + i] = uint8_t(total >> (24 - 8 * i));
     return b;
+}
+
+/**
+ * NFS II SE's cars' data (cardata.viv): two models (.geo), in the archive's
+ * mixed case, among the cars' other files.
+ */
+inline std::string nfs2seCarData() {
+    const Bytes viv = makeViv({{"f355.geo", "g"}, {"f355.dat", "d"}, {"BMW5.GEO", "g"}, {"carhsvt.sjh", "s"}});
+    return std::string(viv.begin(), viv.end());
+}
+
+/**
+ * NFS II SE's install as its installer lays it out (mixed case): its
+ * software program and the cars' data, its tracks, music and movies left
+ * on the CD.
+ */
+inline void makeNfs2seInstall(const stdfs::path &dir) {
+    touch(dir / "nfs2sen.exe");
+    touch(dir / "GameData/Sim/CarData/CARDATA.VIV", nfs2seCarData());
+    touch(dir / "FeData/pc/text/TEXT.ENG");
+}
+
+/** NFS II SE's CD, in its upper-case spelling: both programs, the tracks, music and movies. */
+inline void makeNfs2seCd(const stdfs::path &dir) {
+    touch(dir / "NFS2SEN.EXE");
+    touch(dir / "NFS2SEA.EXE");
+    touch(dir / "GAMEDATA/SIM/CARDATA/CARDATA.VIV", nfs2seCarData());
+    touch(dir / "GAMEDATA/TRACKS/SE/TR00.TRK");
+    touch(dir / "GAMEDATA/TRACKS/SE/TR02.TRK");
+    touch(dir / "GAMEDATA/TRACKS/SE/TR00.COL");
+    touch(dir / "GAMEDATA/AUDIO/PC/HIMROCK.MUS");
+    touch(dir / "GAMEDATA/AUDIO/PC/HIMROCK.MAP");
+    touch(dir / "FEDATA/PC/MOVIES/CALAAV.DCT");
 }
 
 /**

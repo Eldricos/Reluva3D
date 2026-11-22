@@ -3,7 +3,8 @@
 
 # Need for Speed III: Hot Pursuit (docs/engines/nfs/): its files read, and
 # the retail game run in the x86 emulator (host/), shown by the Play page
-# (ui/). See the main README (Adding an engine) and docs/ADDING_AN_ENGINE.md.
+# (ui/). Need for Speed II SE, being added: its files found (nfs2se/). See
+# the main README (Adding an engine) and docs/ADDING_AN_ENGINE.md.
 reluva_add_engine(nfs
     ACCESSOR nfsMetaEngine
     SOURCES
@@ -35,7 +36,9 @@ reluva_add_engine(nfs
         host/winsock.cpp
         host/serial.cpp
         host/thrash.cpp
-        host/thrash_native.cpp)
+        host/thrash_native.cpp
+        nfs2se/files.cpp
+        nfs2se/status_page.cpp)
 
 # Its data viewer, in reluva-viewer and never in the game: the files'
 # pictures, models, tracks, sounds and text, beside the game's Play page.

@@ -88,8 +88,8 @@ using MakePages = std::function<std::vector<std::unique_ptr<Page>>(const GameFol
  * pages, each named in the window's title, and a page that fails says so
  * on itself. Without (the game), the first page has the window to itself,
  * and its failure ends the run.
- * @return An error if the game's tracks aren't found, the window can't be
- *         opened, or (without `browse`) the page fails.
+ * @return An error if the game's tracks aren't found (checkFolders), the
+ *         window can't be opened, or (without `browse`) the page fails.
  */
 Error runPages(System &sys, const GameTarget &target, const GameInfo &game, const MakePages &makePages, bool browse);
 

@@ -1,26 +1,56 @@
 # Need for Speed II SE
 
 Game id `nfs2se`, on the [Need for Speed engine](../../README.md); its own
-code is to be in `nfs2se/` in the engine's folder, and what it shares with
-NFS III is in `src/engines/nfs/`.
+code is in `src/engines/nfs/nfs2se/`, and what it shares with NFS III in
+`src/engines/nfs/`.
 
 ## Releases
 
 | Release | Recognised by | State |
 |---|---|---|
-| US CD (English and Spanish set-up, Windows), and an install from it; both executables built 23 September 1997 | Not yet: the files to recognise it by are in [research/first-survey.md](research/first-survey.md) | Not yet recognised |
+| US CD (English and Spanish set-up, Windows), and an install from it; both executables built 23 September 1997 | `nfs2sen.exe` and the cars' data, `GameData/Sim/CarData/cardata.viv` (`detectionTable`, `src/engines/nfs/games.cpp`), the same in the install and on the CD | Recognised, not playable: it shows what was found of it |
+| Other releases | `nfs2sen.exe` or `nfs2sea.exe`, with `cardata.viv` (`fallbackTable`): "unknown release" | Not checked |
+
+Detection signatures (MD5 of the first 5000 bytes, size):
+
+| File | MD5 (first 5000 bytes) | Size |
+|---|---|---|
+| `nfs2sen.exe` | `0b44f8449fa8889ecd5c4d17b90a3a40` | 900096 |
+| `GameData/Sim/CarData/cardata.viv` | `f7cf339beaa69552581e6e1a91a82ab0` | 242816 |
+
+The install leaves the tracks on the CD, so they can't tell it apart;
+the cars' data is in both. The CD's 3dfx program, `NFS2SEA.EXE`, is in
+[research/first-survey.md](research/first-survey.md).
 
 ## Where it stands
 
-Not playable yet. Its retail files have been surveyed, and NFS III's
-readers tried on them: the archives, sound banks, music maps and fonts
-read as they are, most pictures too
-([research/first-survey.md](research/first-survey.md)). The plan, its
-phases and its decisions are in [PLAN.md](PLAN.md).
+- **Recognised** in its install and on its CD, and its CD's files found
+  for an install.
+- **Not playable yet.** The game shows what was found of it: its
+  folders, its two programs, the music and movies, the tracks and the
+  car models (`src/engines/nfs/nfs2se/status_page.cpp`).
+- **The data viewer** has, beside that page, the pictures, fonts, sounds
+  and music, through the readers it shares with NFS III; their NFS II
+  differences are the plan's next phase. Its retail files were surveyed
+  in [research/first-survey.md](research/first-survey.md).
+- Plans, phases and decisions: [PLAN.md](PLAN.md).
 
 ## Using it
 
-Not yet recognised by the launcher.
+Add the install in the launcher (*Add Game...*), with a copy of its CD's
+files: the game reads its tracks, music and movies from the CD. The copy
+is found:
+
+- where `cdpath=<folder>` in the game's section of `reluva.ini` says
+  (relative to the install, or absolute);
+- in the install itself, when the CD's files were copied into it, or
+  the game was added from the CD;
+- in a folder beside the install with the CD's `NFS2SEN.EXE` and its
+  music (`GameData/Audio/pc`).
+
+Without it, the game says where to put it. The game itself, for now,
+shows what was found (Esc goes back); `reluva-viewer <its name in the
+launcher>` shows its files.
 
 ## This folder
 

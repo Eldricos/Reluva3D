@@ -28,7 +28,7 @@ public:
     Error run() override {
         auto makePages = [this](const nfs::GameFolders &folders, audio::Mixer *mixer) {
             _files.scan(folders);
-            return nfs::makePages(_game.name, folders, _files, mixer, _target.savePath, _target.settings);
+            return nfs::makePages(_game, folders, _files, mixer, _target.savePath, _target.settings);
         };
         return nfs::runPages(_sys, _target, _game, makePages, true);
     }

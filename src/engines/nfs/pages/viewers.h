@@ -17,6 +17,7 @@
 #include "engines/nfs/folders.h"
 #include "engines/nfs/formats/fsh.h"
 #include "engines/nfs/game_files.h"
+#include "engines/nfs/games.h"
 #include "engines/nfs/formats/text_table.h"
 #include "engines/nfs/ui/page.h"
 #include "engines/nfs/ui/page_draw.h"
@@ -364,13 +365,15 @@ private:
 };
 
 /**
- * Every page, in Tab order, those with nothing to show left out. The
- * mixer plays the pages' sounds; null without audio output. The game
+ * Every page for `game`, in Tab order, those with nothing to show left
+ * out: the game's own (NFS III's Info, Play, Tracks and Cars pages; NFS
+ * II SE's Status page), then those for files every game has. The mixer
+ * plays the pages' sounds; null without audio output. The game
  * writes under `saveFolder`. `settings` are the game's section of
  * reluva.ini, for the Play page (makePlayPage) and texturefilter (point:
  * the viewer's textures point-sampled too).
  */
-std::vector<std::unique_ptr<Page>> makePages(const char *gameName, const GameFolders &folders, const GameFiles &files,
+std::vector<std::unique_ptr<Page>> makePages(const GameInfo &game, const GameFolders &folders, const GameFiles &files,
                                              audio::Mixer *mixer = nullptr,
                                              const std::filesystem::path &saveFolder = {},
                                              const std::map<std::string, std::string> &settings = {});

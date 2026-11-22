@@ -1,0 +1,13 @@
+# The record of nfs.engine (tests/engines/nfs/engine.cpp).
+# Written by `reluva-tests nfs.engine --update`; review its diff before committing.
+detect.install: nfs2se Need for Speed II SE (unknown release)
+detect.cd: nfs2se Need for Speed II SE (unknown release)
+folders.cd: NFS2SE-CD
+viewer.result: ok
+viewer.titles: Reluva - Need for Speed II SE - Status / Reluva - Need for Speed II SE - Sounds / Reluva - Need for Speed II SE - Music
+viewer.screens Reluva - Need for Speed II SE - Music: 18 17636d309b4fb9c5
+viewer.screens Reluva - Need for Speed II SE - Sounds: 37 4fa25490c7c68ce8
+viewer.screens Reluva - Need for Speed II SE - Status: 55 a309d0b2b73290d3
+game.result: ok
+game.screens Reluva - Need for Speed II SE: 37 234e65d46948c5e3
+game.without cd: error: Need for Speed II SE reads its tracks from its CD, and no copy of the CD's files was found: put one beside the install, or set cdpath=<folder> in this game's section of reluva.ini

@@ -1,20 +1,22 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Need for Speed engine, starting with Need for Speed III: Hot Pursuit
-// (docs/engines/nfs/games/nfs3/PLAN.md).
+// Need for Speed engine: Need for Speed III: Hot Pursuit, and Need for
+// Speed II SE being added (docs/engines/nfs/README.md).
 //
 // Everything in this engine must come from the game's data files, observed
 // behaviour of the original, public format documentation, or documented
 // reverse engineering of a legally owned copy. Never from leaked source
 // code. See CONTRIBUTING.md.
 //
-// The game is the retail nfs3.exe run in the x86 interpreter (host/),
-// shown in the window by the Play page (ui/play_page.h). Its data viewer
-// is reluva-viewer's (pages/viewer.cpp).
+// NFS III is the retail nfs3.exe run in the x86 interpreter (host/), shown
+// in the window by the Play page (ui/play_page.h). NFS II SE can't be
+// played yet: it shows what was found of it (nfs2se/status_page.h). The
+// data viewer is reluva-viewer's (pages/viewer.cpp).
 
 #include "engines/engine.h"
 #include "engines/nfs/games.h"
+#include "engines/nfs/nfs2se/status_page.h"
 #include "engines/nfs/ui/page.h"
 #include "engines/nfs/ui/play_page.h"
 
@@ -35,7 +37,10 @@ public:
     Error run() override {
         auto makePages = [this](const nfs::GameFolders &folders, audio::Mixer *mixer) {
             std::vector<std::unique_ptr<nfs::Page>> pages;
-            pages.push_back(nfs::makePlayPage(folders, _target.savePath, mixer, _target.settings));
+            if (_game.game == nfs::Game::kNfs2Se)
+                pages.push_back(std::make_unique<nfs::nfs2se::StatusPage>(folders));
+            else
+                pages.push_back(nfs::makePlayPage(folders, _target.savePath, mixer, _target.settings));
             return pages;
         };
         return nfs::runPages(_sys, _target, _game, makePages, false);
@@ -54,7 +59,14 @@ public:
 
     std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override {
         auto found = detectFromTable(id(), nfs::detectionTable(), dir);
-        return found.empty() ? detectFromTable(id(), nfs::fallbackTable(), dir) : found;
+        if (found.empty())
+            found = detectFromTable(id(), nfs::fallbackTable(), dir);
+        // NFS II SE's CD has both its programs, which the fallback table
+        // knows it by: one game found, not two.
+        for (size_t i = 1; i < found.size(); ++i)
+            if (found[i].gameId == found[i - 1].gameId)
+                found.erase(found.begin() + static_cast<std::ptrdiff_t>(i--));
+        return found;
     }
 
     // The settings the game reads (ui/play_page.cpp, makePlayPage), for

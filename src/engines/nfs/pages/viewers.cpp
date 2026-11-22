@@ -3,6 +3,7 @@
 
 #include "engines/nfs/pages/viewers.h"
 
+#include "engines/nfs/nfs2se/status_page.h"
 #include "engines/nfs/nfs3/pages/car_viewer.h"
 #include "engines/nfs/nfs3/pages/track_viewer.h"
 
@@ -617,18 +618,26 @@ void FontPage::draw(Surface &s) {
     }
 }
 
-std::vector<std::unique_ptr<Page>> makePages(const char *gameName, const GameFolders &folders, const GameFiles &files,
+std::vector<std::unique_ptr<Page>> makePages(const GameInfo &game, const GameFolders &folders, const GameFiles &files,
                                              audio::Mixer *mixer, const std::filesystem::path &saveFolder,
                                              const std::map<std::string, std::string> &settings) {
     std::vector<std::unique_ptr<Page>> pages;
-    pages.push_back(std::make_unique<InfoPage>(gameName, folders));
     const auto filter = settings.find("texturefilter");
     g_pagesPointSampled = filter != settings.end() && filter->second == "point";
-    auto play = makePlayPage(folders, saveFolder, mixer, settings);
-    play->setKeysLine("Keys and mouse go to the game   Tab: next page   Ctrl+F5: back");
-    pages.push_back(std::move(play));
-    pages.push_back(std::make_unique<nfs3::TrackPage>(files, folders, mixer));
-    pages.push_back(std::make_unique<nfs3::CarPage>(files));
+    switch (game.game) {
+    case Game::kNfs3: {
+        pages.push_back(std::make_unique<InfoPage>(game.name, folders));
+        auto play = makePlayPage(folders, saveFolder, mixer, settings);
+        play->setKeysLine("Keys and mouse go to the game   Tab: next page   Ctrl+F5: back");
+        pages.push_back(std::move(play));
+        pages.push_back(std::make_unique<nfs3::TrackPage>(files, folders, mixer));
+        pages.push_back(std::make_unique<nfs3::CarPage>(files));
+        break;
+    }
+    case Game::kNfs2Se:
+        pages.push_back(std::make_unique<nfs2se::StatusPage>(folders));
+        break;
+    }
     pages.push_back(std::make_unique<TexturePage>(files));
     pages.push_back(std::make_unique<CockpitPage>(files));
     pages.push_back(std::make_unique<StringPage>(files));

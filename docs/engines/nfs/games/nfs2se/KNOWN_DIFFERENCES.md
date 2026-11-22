@@ -13,7 +13,9 @@ None yet.
 
 ## Not yet as the original
 
-None yet.
+- **The game can't be played yet.** Started, it shows what Reluva found
+  of it (`src/engines/nfs/nfs2se/status_page.cpp`) rather than the
+  game; [PLAN.md](PLAN.md) has what's to come.
 
 ## Additions outside the game
 

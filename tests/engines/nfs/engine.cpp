@@ -350,9 +350,75 @@ void engineTest(const stdfs::path &tmp) {
     }
 }
 
+// NFS II SE, which can't be played yet: found as the launcher finds it,
+// its folders and files, the viewer's pages, and the game's Status page.
+void nfs2seTest(const stdfs::path &tmp) {
+    test::Record rec;
+    const MetaEngine *engine = findEngine("nfs");
+    const MetaViewer *viewer = findViewer("nfs");
+    if (!engine || !viewer)
+        return test::fail("nfs or its viewer isn't registered");
+    const stdfs::path install = tmp / "Need For Speed II SE";
+    makeNfs2seInstall(install);
+    makeNfs2seCd(tmp / "NFS2SE-CD");
+    write(install / "GameData/Audio/SFX/sound.bnk", soundBank());
+
+    auto found = engine->detect(install);
+    rec.add("detect.install", found.empty() ? "(none)" : found[0].gameId + " " + found[0].description);
+    found = engine->detect(tmp / "NFS2SE-CD");
+    rec.add("detect.cd", found.empty() ? "(none)" : found[0].gameId + " " + found[0].description);
+    const GameFolders folders = findFolders(install, {}, "nfs2sen.exe");
+    rec.add("folders.cd", folders.cd.empty() ? "(none)" : folders.cd.lexically_relative(tmp).generic_string());
+
+    // Played from the test's folder, the install named relative to it, so
+    // the Status page, which shows the folders, draws the same everywhere.
+    struct InFolder {
+        stdfs::path was = stdfs::current_path();
+        explicit InFolder(const stdfs::path &dir) { stdfs::current_path(dir); }
+        ~InFolder() { stdfs::current_path(was); }
+    } inTmp(tmp);
+    GameTarget target{"nfs2se", "nfs", "nfs2se", "Need for Speed II SE", "Need For Speed II SE", tmp / "saves", {}};
+
+    // The viewer: each page in turn, then back to the launcher.
+    PlayingSystem sys;
+    uint64_t at = 200;
+    for (int page = 0; page < 4; ++page)
+        sys.inputs.push_back({at += 200, keyDown(key::kTab)});
+    sys.inputs.push_back({at + 200, Event{EventType::kReturnToLauncher}});
+    const Error err = viewer->create(sys, target)->run();
+    rec.add("viewer.result", err ? "error: " + err.message : std::string("ok"));
+    std::string titles;
+    for (const std::string &t : sys.titles)
+        if (titles.find(t) == std::string::npos)
+            titles += (titles.empty() ? "" : " / ") + t;
+    rec.add("viewer.titles", titles);
+    for (const auto &[title, hash] : sys.screens)
+        rec.add("viewer.screens " + title, std::to_string(sys.shown[title]) + " " + hash.hex());
+
+    // The game: its Status page alone, until Esc.
+    PlayingSystem player;
+    player.inputs.push_back({200, keyDown(key::kTab)});
+    player.inputs.push_back({400, keyDown(key::kEscape)});
+    const Error gameErr = engine->create(player, target)->run();
+    rec.add("game.result", gameErr ? "error: " + gameErr.message : std::string("ok"));
+    for (const auto &[title, hash] : player.screens)
+        rec.add("game.screens " + title, std::to_string(player.shown[title]) + " " + hash.hex());
+
+    // Without the CD's copy, the game says where its tracks are.
+    stdfs::create_directories(tmp / "put away");
+    stdfs::rename(tmp / "NFS2SE-CD", tmp / "put away/NFS2SE-CD");
+    PlayingSystem noCd;
+    const Error noCdErr = engine->create(noCd, target)->run();
+    rec.add("game.without cd", noCdErr ? "error: " + noCdErr.message : std::string("ok"));
+
+    rec.check(RELUVA_SOURCE_DIR "/tests/engines/nfs/data/engine-record-nfs2se.txt", "nfs.engine",
+              "tests/engines/nfs/engine.cpp");
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("nfs.engine",
                                         {
                                             {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                                            {"nfs2se", [](const std::filesystem::path &tmp) { nfs2seTest(tmp); }},
                                         });
