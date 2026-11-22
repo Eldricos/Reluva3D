@@ -2,10 +2,17 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Starfleet Command: the engine's MetaEngine (its name, the releases it recognises,
-// making an Engine to run one) and its Engine, which so far shows an empty
-// screen.
+// making an Engine to run one) and its Engine, which runs the game's own
+// program.
 
+#include "common/fs.h"
 #include "engines/engine.h"
+#include "engines/sfc/host/game_process.h"
+#include "engines/sfc/host/player.h"
+
+#include <cstdio>
+#include <string>
+#include <vector>
 
 namespace reluva::sfc {
 
@@ -36,35 +43,80 @@ const std::vector<GameVariant> kFallback = {
 };
 
 /**
- * The game running: for now an empty screen until the player quits.
+ * The game running: its own StarFleet2.exe in the x86 emulator (Player),
+ * its frames in the window, the mouse and keys passed to it.
  */
 class SfcEngine : public Engine {
 public:
     SfcEngine(System &system, const GameTarget &target) : _sys(system), _target(target) {}
 
     Error run() override {
-        if (Error err = _sys.initGraphics(kWidth, kHeight, PixelFormat::kCLUT8))
-            return err;
-        _sys.setWindowTitle(("Reluva - " + _target.description).c_str());
-        Surface screen;
-        screen.create(kWidth, kHeight, PixelFormat::kCLUT8);
-        for (bool running = true; running;) {
+        if (!fs::findFile(_target.path, GameProcess::kProgram))
+            return Error::fail(std::string("Starfleet Command II's program, ") + GameProcess::kProgram + ", isn't in " +
+                               _target.path.string());
+        Player player(_target.path, _target.savePath);
+        player.start();
+        int width = 800; // the game's own resolution, until its first frame says
+        int height = 600;
+        // The game draws its own pointer, where the mouse is on its screen.
+        auto screen = [&] {
+            _sys.initGraphics(width, height, PixelFormat::kRGBA32);
+            _screen.create(width, height, PixelFormat::kRGBA32);
+            _sys.setMouseCursorVisible(false);
+        };
+        screen();
+        _sys.setWindowTitle("Reluva - " + _target.description);
+        _sys.updateScreen(_screen); // black while it loads
+        std::vector<uint32_t> pixels;
+        while (true) {
             Event ev;
-            while (_sys.pollEvent(ev))
-                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher ||
-                    (ev.type == EventType::kKeyDown && ev.key == key::kEscape))
-                    running = false;
-            _sys.updateScreen(screen);
-            _sys.delayMillis(1);
+            while (_sys.pollEvent(ev)) {
+                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher) {
+                    if (confirmQuit(ev.type == EventType::kReturnToLauncher))
+                        return Error::success();
+                    continue;
+                }
+                player.input(ev);
+            }
+            int w = 0;
+            int h = 0;
+            if (player.frame(pixels, w, h)) {
+                if (w != width || h != height) {
+                    width = w, height = h;
+                    screen();
+                }
+                // 0xAARRGGBB to R, G, B, A in memory.
+                for (int y = 0; y < height; ++y) {
+                    uint8_t *row = _screen.row(y);
+                    for (int x = 0; x < width; ++x, row += 4) {
+                        const uint32_t v = pixels[size_t(y) * size_t(width) + size_t(x)];
+                        row[0] = uint8_t(v >> 16), row[1] = uint8_t(v >> 8), row[2] = uint8_t(v), row[3] = 255;
+                    }
+                }
+                _sys.updateScreen(_screen);
+            }
+            if (const std::string out = player.takeOutput(); !out.empty())
+                std::fputs(out.c_str(), stderr);
+            bool ended = false;
+            std::string error;
+            if (player.finished(ended, error))
+                return error.empty() ? Error::success() : Error::fail(_target.description + " stopped: " + error);
+            _sys.delayMillis(5);
         }
-        return Error::success();
     }
 
 private:
-    static constexpr int kWidth = 640;
-    static constexpr int kHeight = 480;
+    // Whether to leave after the window was closed (or, `toLauncher`,
+    // Ctrl+F5 was pressed), as what the game hasn't saved is lost.
+    bool confirmQuit(bool toLauncher) {
+        return _sys.confirmQuit(_target.description + " is still running. Anything it hasn't saved will be lost.\n\n" +
+                                    (toLauncher ? "Return to the launcher anyway?" : "Quit anyway?"),
+                                toLauncher);
+    }
+
     System &_sys;
     GameTarget _target;
+    Surface _screen;
 };
 
 /**

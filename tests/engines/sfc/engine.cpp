@@ -9,10 +9,12 @@
 //
 //   reluva-tests sfc.engine [--update]
 //
-// So far it only checks the install isn't taken for a game: add steps as
-// the engine learns to read and run its games (see
-// tests/engines/idtech3/engine.cpp), then --update and review the record.
+// It checks the install isn't taken for a game, and that the game can't be
+// started without its program: add steps as the engine learns to read and
+// run its games (see tests/engines/idtech3/engine.cpp), then --update and
+// review the record.
 
+#include "common/headless_system.h"
 #include "engines/registry.h"
 
 #include "tests/support/record.h"
@@ -30,6 +32,13 @@ void engineTest(const std::filesystem::path &tmp) {
     if (!engine)
         return test::fail("sfc isn't registered");
     rec.add("detect.games", static_cast<int64_t>(engine->detect(dir).size()));
+    // Without StarFleet2.exe: an error naming it, and nothing shown.
+    GameTarget target{"sfc2", "sfc", "sfc2", "Star Trek: Starfleet Command II", dir, tmp / "saves", {}};
+    HeadlessSystem sys;
+    const Error err = engine->create(sys, target)->run();
+    CHECK(err);
+    CHECK(err.message.find("StarFleet2.exe") != std::string::npos);
+    rec.add("run.no_program", err ? "error" : "ran");
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/sfc/data/engine-record.txt", "sfc.engine",
               "tests/engines/sfc/engine.cpp");
 }

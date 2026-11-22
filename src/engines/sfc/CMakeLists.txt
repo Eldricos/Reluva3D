@@ -12,6 +12,7 @@ reluva_add_engine(sfc
         formats/sprite_archive.cpp
         formats/text_tables.cpp
         host/game_process.cpp
+        host/player.cpp
         host/system.cpp)
 
 # Its data viewer, for reluva-viewer only: reluva, which players get,

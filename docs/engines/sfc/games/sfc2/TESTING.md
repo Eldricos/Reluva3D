@@ -17,7 +17,8 @@ files):
 
 `sfc.engine` (`tests/engines/sfc/engine.cpp`), without the
 game's files: a small install of its own, taken through what playing
-does, against its record (`data/engine-record.txt`).
+does, against its record (`data/engine-record.txt`): it isn't taken for
+the game, and starting the game without `StarFleet2.exe` says so.
 
 ### The game-files test
 
@@ -42,12 +43,19 @@ does: by putting it beside the running game.
 
 ## A playthrough by hand
 
-Nothing of the game runs yet.
+So far, to its CD key dialog: start the game from the launcher; after
+its "Loading..." the title screen and the dialog show, the pointer
+following the mouse with no box around it. Click the text box, type
+(capitals with Shift, and `-`), click ENTER: a wrong key gets the
+game's "ERROR! ... incorrect" message. Ctrl+F5, and Return to launcher,
+stop it. Headless, the same with `reluva-tool sfc host <game folder>
+-click 600 395 370 -type 620 <key> -click 700 395 405 -shot 900 out.png`.
 
 ## Last checked
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 22 November 2026 | English retail 1.0 | Linux | In the launcher's window (a virtual X display, the mouse and keys sent by `xdotool`): the title screen and CD key dialog, text typed with capitals and `-`, ENTER answered "incorrect" for a made-up key, the pointer drawn without its background, Ctrl+F5 stopping it. The same headless with `-click`, `-type` and `-shot` |
 | 22 November 2026 | English retail 1.0 | Linux | `reluva --detect` on the install's `StarFleet2.exe` and `sprites.q3`: recognised as 1.0 |
 | 22 November 2026 | English retail 1.0 | Linux | `reluva-tool sfc host` with exceptions dispatched: four raised and caught, the title screen and its CD key dialog between 0.6 and 1 billion instructions; 2 billion run without failing (1,086 frames) |
 | 22 November 2026 | English retail 1.0 | Linux | `reluva-tool sfc host` with Direct3D 6: the 3D test passed, an 800x600 mode, the first frame ("Loading...") after 45.08 million instructions; stops at a C++ exception it expects to catch, after 48.12 million |

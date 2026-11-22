@@ -4,6 +4,7 @@
 // reluva-tool's Starfleet Command command for running the game's own
 // StarFleet2.exe in the x86 emulator, without a window: how far it gets.
 
+#include "common/events.h"
 #include "common/fs.h"
 #include "common/pe.h"
 #include "devtools/tool.h"
@@ -25,12 +26,64 @@ namespace {
 using namespace reluva;
 using namespace reluva::tool;
 
+// Input given to the headless game, each at a frame it shows: one step a
+// frame, so that a program polling the keys' state sees each press.
+struct Step {
+    uint64_t frame = 0;
+    enum class Kind { kKey, kMove, kButton, kShot } kind = Kind::kKey;
+    uint32_t key = 0; // kKey: Reluva's key code
+    bool down = false;
+    int x = 0; // kMove: where on the screen
+    int y = 0;
+    std::string path; // kShot: the PNG written
+};
+
+// Text typed from a frame on: each character's press then release, a
+// frame apart, with Shift held around capitals.
+void addTyping(std::vector<Step> &steps, uint64_t frame, const std::string &text) {
+    auto press = [&](uint32_t k, bool down) {
+        Step s;
+        s.frame = frame++;
+        s.key = k, s.down = down;
+        steps.push_back(s);
+    };
+    for (const char ch : text) {
+        if (ch == '\n') {
+            press(key::kReturn, true), press(key::kReturn, false);
+            continue;
+        }
+        const bool upper = ch >= 'A' && ch <= 'Z';
+        const uint32_t k = upper ? uint32_t(ch - 'A' + 'a') : uint32_t(uint8_t(ch));
+        if (upper)
+            press(key::kLShift, true);
+        press(k, true), press(k, false);
+        if (upper)
+            press(key::kLShift, false);
+    }
+}
+
+void writeFrame(const x86::DirectX::Frame &f, const std::string &path) {
+    image::Image img;
+    img.w = f.width;
+    img.h = f.height;
+    img.rgba.resize(size_t(f.width) * size_t(f.height) * 4);
+    for (size_t i = 0; i < f.pixels.size(); ++i) {
+        const uint32_t p = f.pixels[i];
+        img.rgba[4 * i] = uint8_t(p >> 16);
+        img.rgba[4 * i + 1] = uint8_t(p >> 8);
+        img.rgba[4 * i + 2] = uint8_t(p);
+        img.rgba[4 * i + 3] = 255;
+    }
+    writeFile(path, image::encodePng(img));
+}
+
 // The game run headless until it stops or the limit: what it opened, the
 // frames it showed, the imports nothing stands in for, and where it ended.
 int cmdHost(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool sfc host <game folder> [-limit instructions] [-trace count] "
-                             "[-frame out.png] [-quiet] [-save folder] [-calls address] [-watch address]...\n");
+                             "[-frame out.png] [-quiet] [-save folder] [-calls address] [-watch address]... "
+                             "[-type frame text] [-click frame x y] [-shot frame out.png]...\n");
         return 2;
     }
     uint64_t limit = 2000000000ull;
@@ -40,6 +93,7 @@ int cmdHost(int argc, char **argv) {
     std::filesystem::path saveFolder; // where what the program writes goes
     uint32_t callsFrom = 0;
     std::vector<uint32_t> watch; // addresses at which to show the registers and the stack
+    std::vector<Step> steps;
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
         if (arg == "-limit" && a + 1 < argc)
@@ -56,6 +110,32 @@ int cmdHost(int argc, char **argv) {
             callsFrom = uint32_t(std::strtoul(argv[++a], nullptr, 0));
         else if (arg == "-watch" && a + 1 < argc)
             watch.push_back(uint32_t(std::strtoul(argv[++a], nullptr, 0)));
+        else if (arg == "-type" && a + 2 < argc) {
+            const uint64_t at = std::strtoull(argv[a + 1], nullptr, 0);
+            addTyping(steps, at, argv[a + 2]);
+            a += 2;
+        } else if (arg == "-click" && a + 3 < argc) {
+            Step s;
+            s.frame = std::strtoull(argv[a + 1], nullptr, 0);
+            s.kind = Step::Kind::kMove;
+            s.x = std::atoi(argv[a + 2]), s.y = std::atoi(argv[a + 3]);
+            steps.push_back(s);
+            s.kind = Step::Kind::kButton;
+            s.down = true;
+            ++s.frame;
+            steps.push_back(s);
+            s.down = false;
+            ++s.frame;
+            steps.push_back(s);
+            a += 3;
+        } else if (arg == "-shot" && a + 2 < argc) {
+            Step s;
+            s.frame = std::strtoull(argv[a + 1], nullptr, 0);
+            s.kind = Step::Kind::kShot;
+            s.path = argv[a + 2];
+            steps.push_back(s);
+            a += 2;
+        }
     }
     sfc::GameProcess game(argv[2], 256);
     // Without -save, a folder of its own in the system's temporary folder.
@@ -83,10 +163,35 @@ int cmdHost(int argc, char **argv) {
             std::printf("raised %s\n", sfc::GameProcess::describeException(c, record).c_str());
     };
     uint64_t frames = 0;
+    std::stable_sort(steps.begin(), steps.end(), [](const Step &a, const Step &b) { return a.frame < b.frame; });
+    size_t nextStep = 0;
     game.directX().presented = [&](const x86::DirectX::Frame &f) {
-        if (frames++ == 0)
+        if (frames == 0)
             std::printf("first frame: %dx%d after %llu instructions\n", f.width, f.height,
                         static_cast<unsigned long long>(cpu.executed()));
+        for (; nextStep < steps.size() && steps[nextStep].frame <= frames; ++nextStep) {
+            const Step &s = steps[nextStep];
+            switch (s.kind) {
+            case Step::Kind::kKey: {
+                uint32_t vk = 0;
+                uint32_t scan = 0;
+                if (x86::windowsKey(s.key, vk, scan))
+                    process.key(vk, scan, s.down);
+                break;
+            }
+            case Step::Kind::kMove:
+                process.mouseMoveTo(s.x, s.y);
+                break;
+            case Step::Kind::kButton:
+                process.mouseButton(0, s.down);
+                break;
+            case Step::Kind::kShot:
+                writeFrame(f, s.path);
+                std::printf("frame %llu written to %s\n", static_cast<unsigned long long>(frames), s.path.c_str());
+                break;
+            }
+        }
+        ++frames;
     };
     if (Error err = game.load()) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
@@ -158,21 +263,8 @@ int cmdHost(int argc, char **argv) {
     for (size_t i = recentAt > recent.size() ? recentAt - recent.size() : 0; i < recentAt; ++i)
         std::printf(" %08x", recent[i % recent.size()]);
     std::printf("\n");
-    if (!framePath.empty() && frames) {
-        const auto &f = game.directX().frame();
-        image::Image img;
-        img.w = f.width;
-        img.h = f.height;
-        img.rgba.resize(size_t(f.width) * size_t(f.height) * 4);
-        for (size_t i = 0; i < f.pixels.size(); ++i) {
-            const uint32_t p = f.pixels[i];
-            img.rgba[4 * i] = uint8_t(p >> 16);
-            img.rgba[4 * i + 1] = uint8_t(p >> 8);
-            img.rgba[4 * i + 2] = uint8_t(p);
-            img.rgba[4 * i + 3] = 255;
-        }
-        writeFile(framePath, image::encodePng(img));
-    }
+    if (!framePath.empty() && frames)
+        writeFrame(game.directX().frame(), framePath);
     return err ? 1 : 0;
 }
 
@@ -213,8 +305,11 @@ const Commands kCommands(
     "sfc",
     {
         {"host",
-         "<game folder> [-limit n] [-trace n] [-frame out.png] [-quiet] [-save folder] [-calls address] [-watch address]...",
-         "run StarFleet2.exe in the x86 emulator, headless, and say how far it gets", cmdHost},
+         "<game folder> [-limit n] [-trace n] [-frame out.png] [-quiet] [-save folder] [-calls address] "
+         "[-watch address]... [-type frame text] [-click frame x y] [-shot frame out.png]...",
+         "run StarFleet2.exe in the x86 emulator, headless, and say how far it gets; keys and clicks "
+         "given at frames it shows",
+         cmdHost},
         {"disasm", "<game folder> <start> <end>", "disassemble StarFleet2.exe from one address to another", cmdDisasm},
     });
 

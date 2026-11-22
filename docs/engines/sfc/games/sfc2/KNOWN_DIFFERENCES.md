@@ -25,7 +25,9 @@ None yet.
 ## Not yet as the original
 
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
-The game doesn't run yet: starting it shows an empty screen.
+The game runs only as far as its title screen and its CD key dialog;
+it has no sound and no network yet
+([systems/hosting.md](systems/hosting.md)).
 
 ## Additions outside the game
 

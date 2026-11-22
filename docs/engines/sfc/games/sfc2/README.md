@@ -30,21 +30,29 @@ Detection signatures (MD5 of each file's start, and its size, as
   music tables, the string tables, and the sounds; every retail file of
   each kind is read ([formats/](#this-folder)).
 - **The data viewer** (`reluva-viewer`) shows all of them.
-- **Running the game's own program:** `reluva-tool sfc host` runs
-  `StarFleet2.exe` in the x86 emulator, headless, through its start-up,
-  its 3D test on Reluva's Direct3D 6 and its loading to its title screen
-  and its CD key dialog, which needs a key typed
-  ([systems/hosting.md](systems/hosting.md)).
-- **Not yet:** the game itself (starting it shows an empty screen); the
-  `.gf`, `.mct` and `.mvm` settings, campaign and map files; the opening
-  movie; the objects in `sprites.q3`.
+- **Running the game's own program:** starting the game runs
+  `StarFleet2.exe` in the x86 emulator, in Reluva's window, through its
+  start-up, its 3D test on Reluva's Direct3D 6 and its loading to its
+  title screen and its CD key dialog, with the mouse and keys passed to
+  it: a key can be typed, and the game checks it. `reluva-tool sfc host`
+  runs it headless ([systems/hosting.md](systems/hosting.md)).
+- **Not yet:** anything past the CD key dialog (no key has been tried
+  that the game takes); sound, the network; the `.gf`, `.mct` and `.mvm`
+  settings, campaign and map files; the opening movie; the objects in
+  `sprites.q3`.
 
 The plan is in [PLAN.md](PLAN.md).
 
 ## Using it
 
 Not playable yet. *Add Game...* in the launcher, with the install's
-folder, finds it. `reluva-viewer` with the game opens its data viewer;
+folder, finds it. Starting it runs the game's own program, which takes
+11 to 18 seconds to load to its title screen; its CD key dialog takes
+the copy's CD key, typed as it's printed (Shift for capitals).
+What it writes goes to Reluva's folder for the game, not the install.
+Closing the window or Ctrl+F5 asks before stopping it.
+
+`reluva-viewer` with the game opens its data viewer;
 Tab moves between its pages, Esc leaves:
 
 - **Images:** sprites.q3's images, then every BMP under `Assets`.

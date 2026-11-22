@@ -1,6 +1,6 @@
 # Star Trek: Starfleet Command II: running the game's own program
 
-> **Status:** partial · **Code:** `src/engines/sfc/host/game_process.cpp` · **Checked against:** the English 1.0 program run in Reluva's x86 emulator · **Confidence:** from the code unless marked
+> **Status:** partial · **Code:** `src/engines/sfc/host/game_process.cpp`, `src/engines/sfc/host/player.cpp` · **Checked against:** the English 1.0 program run in Reluva's x86 emulator · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -15,7 +15,9 @@ on Reluva's Direct3D 6, sets an 800x600 mode and shows its first frame,
 and catches C++ exceptions, which Reluva dispatches, reads
 `sprites.q3`, and between 0.6 and 1 billion instructions shows its title
 screen with its CD key dialog ("Authentication Protocol"), where it
-waits for a key to be typed.
+waits for a key to be typed. Run from the launcher it's in Reluva's
+window, and the mouse and keys reach it: a key typed into the dialog is
+checked by the game, which says when it's wrong.
 
 ## How it works
 
@@ -120,11 +122,44 @@ was opened: where it can't write, it fails, reading through a null
 
 The Starfleet Command logo over stars, Taldren's and Paramount's, the
 copyright lines and "v2.0.0.2" at the bottom right; over them the CD
-key dialog, its ENTER and EXIT buttons, and the game's own mouse pointer
-drawn at the top left with its magenta background.
+key dialog, its ENTER and EXIT buttons, and the game's own mouse
+pointer.
+
+### Its mouse and keys
+
+The game asks where the pointer is with `GetCursorPos` (and
+`ScreenToClient`) twice each frame, and takes the buttons and keys from
+the window's messages (`PeekMessageA`): keys through `TranslateMessage`,
+whose `WM_CHAR` types into the CD key dialog. Up to its title screen it
+doesn't create DirectInput, which it imports. Capitals need Shift and `-` its
+own key, as on a US keyboard. A wrong key gets "ERROR! We're sorry, but
+the CD Key you entered was incorrect. Please try again."; the key the
+owner's copy came with hasn't been tried yet.
+
+It draws its own pointer, from `Assets/mouse/cursors.txt` and the `.cur`
+files it names, over its frame each time it shows one: it keeps what's
+under the pointer, then copies the pointer on with a blit keyed by the
+source's colour key (`DDBLT_KEYSRC`, flags 0x1008000 at 0x6aa537). It
+never sets a colour key on any surface. Where the blit fails it calls
+0x6a5520 with the same arguments (at 0x6aa5ef), which draws the pointer
+with its background left out *(inferred)*: with `sfc.ini`'s `[Mouse]
+hwblit=0` it always does, and the pointer is drawn right. With
+`hwblit=1`, as the install has it, a blit that copied the pointer
+unkeyed showed its magenta background; the blit now fails as
+DirectDraw's documentation says it does for a source without a colour
+key, with `DDERR_NOCOLORKEY` *(published)*, and the game draws it
+itself. What the original's display drivers did with such a blit isn't
+known.
 
 ## In Reluva
 
+- **The engine** (`src/engines/sfc/sfc.cpp`): starting the game in the
+  launcher runs the program on a thread of its own (`Player`,
+  `src/engines/sfc/host/player.h`), shows each frame it shows in the
+  window, scaled to fit, and passes on the mouse, where it is on the
+  game's 800x600 screen, its buttons and wheel, and the keys. The
+  window's own pointer is hidden, as the game draws its own. Closing the
+  window or Ctrl+F5 asks first, then stops the program.
 - **`GameProcess`** (`src/engines/sfc/host/game_process.h`): a
   `Win32Process` with the install as `C:\SFC2\`, read-only; host threads
   (`useHostThreads`); the shared DirectDraw, Direct3D 7 and DirectInput
@@ -141,7 +176,9 @@ drawn at the top left with its magenta background.
   semaphores (`CreateSemaphoreA`, `ReleaseSemaphore`, and waiting on
   them), a `GetFileType` for files opened through the path mapping, a
   window's longs and subclassing (`GetWindowLongA`, `SetWindowLongA`,
-  `CallWindowProcA`), Direct3D 6
+  `CallWindowProcA`), `TranslateMessage` typing capitals and
+  punctuation with Shift as a US keyboard does, a keyed blit failing
+  from a source with no colour key, Direct3D 6
   ([directx.md](../../../../../common/x86/directx.md)), structured
   exceptions dispatched, KERNEL32's UTF-16 file functions, a search for
   an exact name, `.` resolved in full paths, and volumes by their roots
@@ -155,10 +192,14 @@ drawn at the top left with its magenta background.
   its first arguments point to each time the program gets there;
   `-frame <out.png>` saves the last frame; `-save <folder>` is where its
   writes go (by default `reluva-sfc-host` in the system's temporary
-  folder). Each exception raised is listed as it is. `reluva-tool sfc disasm <game folder> <start> <end>`
+  folder). Each exception raised is listed as it is. Input is given at
+  the frames the program shows, a step a frame: `-type <frame> <text>`
+  types (Shift held for capitals, `\n` for Enter), `-click <frame> <x>
+  <y>` clicks with the left button, `-shot <frame> <out.png>` saves that
+  frame. `reluva-tool sfc disasm <game folder> <start> <end>`
   disassembles the program.
-- **Not yet:** the game doesn't run in the launcher, and the headless
-  run can't type its CD key.
+- **Not yet:** sound, the network, the opening movie; nothing past the
+  CD key dialog has run.
 
 ## Sources and checks
 
@@ -171,7 +212,13 @@ drawn at the top left with its magenta background.
 - **How it was checked:** each run repeated after each change, the
   instruction count steady (44,063,247 three times running to the 3D
   test; a few hundred more when threads change over differently); the
-  first frame saved and looked at.
+  first frame saved and looked at. Input checked headless (`-click` on
+  the dialog's text box, `-type`, `-click` on ENTER, the frames saved)
+  and in the launcher's window under a virtual X display, with the
+  mouse and keys sent by `xdotool`: the text typed appears in the box,
+  capitals and `-` included, ENTER gets the game's answer, the pointer
+  follows the mouse without its background, and Ctrl+F5 and its
+  question stop the program.
 
 ### The numbers
 
@@ -196,7 +243,9 @@ isn't measured.
 - Why the title screen says "v2.0.0.2" when the program's version
   resource says 1.0.0.2.
 - Where the CD key is kept once entered (the program names `SOFTWARE\WON\CDKeys`).
-- Why the mouse pointer's magenta isn't transparent.
+- What the original's display drivers did with a blit keyed by a source
+  with no colour key, as the game's pointer is drawn with `hwblit=1`.
+- What the game uses DirectInput for, past its title screen.
 - What the folders `dmp3dDLL_Release`, `DLL` and `DRIVERS` are looked for,
   and what it loads from them.
 - How many instructions a second a mission needs.

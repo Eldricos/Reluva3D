@@ -16,7 +16,7 @@ the patch ([REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md#sources)).
 
 | Files | What | Format |
 |---|---|---|
-| `StarFleet2.exe` (4,149,248 bytes in 1.0) | The game. Visual C++ 6 with its C runtime linked in; no copy protection (only multiplayer asks for the CD key) | PE; imports DirectDraw (`IDirectDraw2` and `4`, `IDirectDrawSurface3` and `4`), Direct3D 6 (`IDirect3D3`, `IDirect3DTexture2`), DirectInput, DirectSound 3D, DirectPlay 4 and its lobby, Winsock, WinMM, Miles (`mss32.dll`, 25 `AIL_*` functions) and WON's library |
+| `StarFleet2.exe` (4,149,248 bytes in 1.0) | The game. Visual C++ 6 with its C runtime linked in; no CD check, but it asks for its CD key at its title screen | PE; imports DirectDraw (`IDirectDraw2` and `4`, `IDirectDrawSurface3` and `4`), Direct3D 6 (`IDirect3D3`, `IDirect3DTexture2`), DirectInput, DirectSound 3D, DirectPlay 4 and its lobby, Winsock, WinMM, Miles (`mss32.dll`, 25 `AIL_*` functions) and WON's library |
 | `SFC2.exe`, `SFC2Setup.exe` | A launcher, and the resolution and driver setup (MFC) | PE |
 | `Assets/Scripts/*.scr` (49 in 1.0) | The missions: Win32 DLLs exporting `ScriptEntry` and `MissionSpecEntry`, loaded by the game | PE |
 | `Assets/Scripts/Campaigns/*.mct` | A campaign: its three maps, its missions | INI-like text |
@@ -74,8 +74,12 @@ on their pages in `formats/` and `systems/`.
      KERNEL32's UTF-16 file functions, exact-name searches, `.` in full
      paths, volumes by their roots; the game loads to its title screen
      and its CD key dialog;
-   - input reaching the game (next): the launcher's window, the mouse and
-     the keyboard, so its CD key can be typed and its menus used;
+   - input reaching the game (done): the game in the launcher's window,
+     the mouse and the keys passed to it; with them, `TranslateMessage`
+     typing as a US keyboard does, and a keyed blit failing from a
+     source with no colour key, so the game draws its pointer itself.
+     Its CD key dialog takes typed keys and checks them
+     ([systems/hosting.md](systems/hosting.md#its-mouse-and-keys));
    - the Windows functions the spike stood in for in the engine
      (`src/engines/sfc/host/system.cpp`), moved to the shared layer as
      they're settled;
