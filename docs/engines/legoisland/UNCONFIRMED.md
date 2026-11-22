@@ -15,8 +15,7 @@ None yet.
 
 ## Inferred
 
-- The settings' yes-or-no values are the text "YES" for yes, and
-  `savepath`, the folder the game writes its players to (`Players.gsi`,
+- `savepath`, the folder the game writes its players to (`Players.gsi`,
   seen), is the install folder as `CONFIG.EXE` writes it: Reluva sets it
   so ([systems/running.md](systems/running.md#in-reluva)). Settled by
   what `CONFIG.EXE` writes, seen in a registry it ran on.

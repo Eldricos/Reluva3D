@@ -88,6 +88,10 @@ std::optional<std::filesystem::path> GameProcess::mapPath(const std::string &pat
     return fs::findDirectory(_dir, *rest);
 }
 
+void GameProcess::setSetting(const std::string &name, const std::string &value) {
+    _process->setRegistryString(kRegistryKey, name, value);
+}
+
 Error GameProcess::load() {
     // The DLL first: the program imports from it.
     for (const char *name : {kLibrary, kProgram}) {

@@ -12,6 +12,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace reluva::audio {
@@ -38,6 +39,8 @@ public:
     /** Stops the game and waits for its thread. */
     ~Player();
 
+    /** One of the program's registry settings (GameProcess::setSetting); before start. */
+    void setSetting(const std::string &name, const std::string &value) { _settings.emplace_back(name, value); }
     /** At most so many frames a second (0: as many as it draws); before start. */
     void setFrameRate(int framesPerSecond) { _frameRate = framesPerSecond; }
     /** Starts the game's thread, which loads and runs the program; call once. */
@@ -72,6 +75,7 @@ private:
     std::filesystem::path _saveDir;
     audio::Mixer *_mixer;
     int _frameRate = 0;
+    std::vector<std::pair<std::string, std::string>> _settings;
     std::chrono::steady_clock::time_point _nextFrame; // the game thread's
     GameProcess *_game = nullptr;                     // the game thread's, while it runs
     std::thread _thread;

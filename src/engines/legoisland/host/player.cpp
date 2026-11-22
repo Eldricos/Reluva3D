@@ -68,6 +68,8 @@ void Player::work() {
     if (!_saveDir.empty())
         game.setSaveFolder(_saveDir);
     game.directSound().mixer = _mixer;
+    for (const auto &[name, value] : _settings)
+        game.setSetting(name, value);
     x86::Win32Process &process = game.process();
     process.output = [this](const std::string &text) {
         std::lock_guard<std::mutex> lock(_mutex);

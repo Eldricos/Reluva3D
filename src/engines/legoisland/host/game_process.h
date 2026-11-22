@@ -50,6 +50,12 @@ public:
      * read back from first. Without one, writing isn't allowed.
      */
     void setSaveFolder(std::filesystem::path dir) { _saveDir = std::move(dir); }
+    /**
+     * One of the settings the program reads from the registry, as
+     * `CONFIG.EXE` writes them (systems/running.md): "YES" or "NO" for a
+     * yes or no, a number as text. Before load().
+     */
+    void setSetting(const std::string &name, const std::string &value);
 
     /** Reads and loads LEGO1.DLL, then ISLE.EXE, from the game folder. */
     Error load();

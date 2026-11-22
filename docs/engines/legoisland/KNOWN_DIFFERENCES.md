@@ -32,9 +32,11 @@ None yet.
   draw decals or frames' textures
   ([d3drm.md](../../common/x86/d3drm.md#drawing)). How near it looks to
   the original's hasn't been compared.
-- **The setup dialog's settings** (`CONFIG.EXE`) aren't offered: the game
-  uses its own defaults, but for where it saves and the island's model,
-  the detailed one.
+- **The setup dialog's** (`CONFIG.EXE`) joystick choice isn't offered
+  yet; its video memory, palette and device choices are the stand-ins'
+  to decide, so aren't either. Its others are the engine's settings,
+  the island's model at High unless set (the game's own default is
+  Medium).
 
 ## Additions outside the game
 

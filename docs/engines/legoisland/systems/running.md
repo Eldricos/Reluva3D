@@ -172,10 +172,16 @@ that far.
   the island's detailed model, `isle_hi`, its roads textured (`ROADSTR8.GIF`
   and the others), marked and edged in green, as the original is seen
   played; "1", the plain `isle`, its roads plain grey. `Island Texture`
-  at 0 draws the rocks coarser. The
-  yes-or-no ones are text, "YES" for yes *(inferred: the one literal
-  beside their names in both programs)*. Without them it uses its own
-  defaults.
+  at 0 draws the rocks coarser. The yes-or-no ones are the text "YES"
+  or "NO" (`ISLE.EXE` compares with each, 0x4027d3); anything else, or
+  none, leaves its default: `Full Screen`, `3DSound`, `Music` and `Wide
+  View Angle` yes, `Flip Surfaces`, `Draw Cursor` and `UseJoystick` no,
+  `JoystickIndex` 0 (set as its settings are made, 0x401029).
+  `CONFIG.EXE`'s dialog offers: Island Model Quality and Island Texture
+  Quality (each "Fast" to "High"), the colour palette (256 colours or
+  16-bit), the Direct3D device, 3D Sound, Music, Draw Cursor, Use
+  Joystick, and, advanced, Flip Video Memory Pages and Draw 3D to Video
+  Memory.
 
 ## In Reluva
 
@@ -190,7 +196,9 @@ The program's sound goes to the engine's mixer through the DirectSound
 stand-in. Closing the window asks first. The engine shows at most so
 many frames a second, its *Frame rate* setting (20 unless set: 15, 30,
 60, or as many as it draws), as the game turns the player by the frame
-(above). The registry's `Island
+(above). Its settings give the setup's choices that matter here: the
+island's model and texture quality, music, 3D sound and the game's own
+cursor, each set in the registry when chosen. The registry's `Island
 Quality` is "2", the island's detailed model. The registry's `savepath` is
 the install folder, whose writes go to the game's save folder, so its
 saved games are kept with it *(inferred: what `CONFIG.EXE` writes there
@@ -230,11 +238,8 @@ instructions at an address ([disasm.md](../../../common/x86/disasm.md)).
 
 ## Open questions
 
-- What `CONFIG.EXE` writes for each setting, and its defaults: Reluva
-  sets only `savepath` (and the installer's `cdpath`, `diskpath`).
-- Which `Island Quality` and `Island Texture` `CONFIG.EXE` offers, and
-  their defaults there.
-- Which of the missing functions the program calls, once it gets past
-  DirectSound.
+- What `CONFIG.EXE` writes for each choice, and its defaults: its
+  sliders' values for the island's quality are taken as 0 to 2 and 0 to
+  1, as the program reads them.
 - What else the registry holds once `CONFIG.EXE` has run, and which of
   it the program needs.

@@ -58,6 +58,20 @@ private:
         Player player(_target.path, _target.savePath, _audioOut ? _mixer.get() : nullptr);
         const auto rate = _target.settings.find("framerate");
         player.setFrameRate(rate == _target.settings.end() ? kDefaultFrameRate : std::atoi(rate->second.c_str()));
+        // The setup's choices, each where it's set; unset, the program's
+        // own default (but for the island's model, GameProcess's).
+        auto set = [&](const char *key) -> const std::string * {
+            const auto it = _target.settings.find(key);
+            return it == _target.settings.end() ? nullptr : &it->second;
+        };
+        if (const std::string *v = set("islandquality"))
+            player.setSetting("Island Quality", *v);
+        if (const std::string *v = set("islandtexture"))
+            player.setSetting("Island Texture", *v);
+        for (const auto &[key, name] :
+             {std::pair{"music", "Music"}, {"sound3d", "3DSound"}, {"drawcursor", "Draw Cursor"}})
+            if (const std::string *v = set(key))
+                player.setSetting(name, *v != "0" ? "YES" : "NO");
         player.start();
         int width = 640;
         int height = 480;
@@ -152,7 +166,35 @@ public:
                      {"30", "30 a second"},
                      {"60", "60 a second"},
                      {"0", "As many as it draws"}};
-        return {o};
+        // The setup's (CONFIG.EXE's) choices that matter here; its video
+        // memory, palette and device ones are the stand-ins' to decide.
+        auto choice = [](const char *key, const char *label, const char *tooltip,
+                         std::vector<std::pair<std::string, std::string>> choices) {
+            GameOption c;
+            c.key = key;
+            c.label = label;
+            c.tooltip = tooltip;
+            c.choices = std::move(choices);
+            return c;
+        };
+        auto flag = [](const char *key, const char *label, const char *tooltip, bool on) {
+            GameOption c;
+            c.key = key;
+            c.label = label;
+            c.tooltip = tooltip;
+            c.defaultOn = on;
+            return c;
+        };
+        return {o,
+                choice("islandquality", "Island model quality",
+                       "The setup's Island Model Quality: High draws the island's detailed model, its roads marked.",
+                       {{"2", "High"}, {"1", "Medium"}, {"0", "Fast"}}),
+                choice("islandtexture", "Island texture quality", "The setup's Island Texture Quality.",
+                       {{"1", "High"}, {"0", "Fast"}}),
+                flag("music", "Music", "The game's music.", true),
+                flag("sound3d", "3D sound", "Sounds placed around the player, as the setup's 3D Sound.", true),
+                flag("drawcursor", "The game's own cursor",
+                     "The game draws its own pointer, as the setup's Draw Cursor.", false)};
     }
 
     std::vector<ImportPlan> planImport(const std::filesystem::path &source) const override {
