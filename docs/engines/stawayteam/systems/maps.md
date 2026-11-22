@@ -462,8 +462,9 @@ and `End Action`, and `Current State` the one it starts in (`Patrol`).
 - **Attack:** `CStarTrekStandGroundAttackAI`, shooting with
   `CShootWeaponBehavior`, aiming at the target.
 
-The program's AI code isn't traced yet: how these act is read from the
-maps. In Mission 01's 32 enemies, `Attack` is a
+The program's AI code is traced only in part: how its state changes
+are made (below), its choice of a target ([The enemies](#the-enemies)'
+Sight), and the Run Away rule; the rest is read from the maps. In Mission 01's 32 enemies, `Attack` is a
 `CStarTrekStandGroundAttackAI` in all, `Pursue` a `CChasePursueAI` in
 29; their `Target If Hit` is 1 in 30 of them; a `Damage Action` and a
 `Stun State` (`Stun`) are given too.
@@ -496,6 +497,14 @@ In all the maps' 776 enemies:
   have some): each a `Trigger` (`Every Time`, `First Time`, `Once Per New
   Target`), `From State` and `To State` (`Any` for either), and an
   `Action`, mostly relays: `Once Per New Target`, Any to Attack, on 154.
+- **A change of state** (`0x4347d0`): asked for, it's made as the AI
+  next runs: the state left's exit (its `End Action`), then each
+  transition from it to the new one not done (`0x426550`), then the new
+  state's entry (its `Start Action`), the new one keeping the old as its
+  `Last State`. A transition `Every Time` fires each time; one `First
+  Time` or `Once Per New Target` is done once fired, the second made
+  ready again whenever the enemy's target changes (`0x4352d9`). Every
+  matching transition fires, in their order.
 - **Valid Targets:** `Player,Team Member` for 350, `Player` for 263,
   none for 84 (prisoners and scientists), `Enemy` for some Klingons.
   `CBorgSetTargetTypeAction` (504) changes them.
@@ -769,7 +778,9 @@ corner, a scan's turning in degrees a second, the rest done at once
 *(inferred)*; seeing an officer (the nearest in Max Distance and half
 the Vision Cone either side of their facing, as the program finds it,
 and nothing standing full height between *(inferred)*), alerted: the Alert's Start Action, turning to them, and after
-Alert Time attacking: the Attack's Start Action, facing them; their
+Alert Time its Next State, through GotATarget's Acquired a Target for
+Got a Target *(inferred)*: mostly attacking, the Attack's Start Action,
+facing them; their
 target fallen or stunned, or out of sight five seconds with nowhere left
 to go after them, back to the patrol *(inferred)*. Attacking, one whose
 Pursue AI chases goes after a target out of sight by the waypoints to
@@ -783,7 +794,7 @@ the officer it's after as their instigator *(inferred)*.
 Each change of an enemy's state runs the state left's End Action, the
 transitions that match it (Every Time; First Time once; Once Per New
 Target when its target's another), and the new state's Start Action,
-in that order *(inferred)*. One whose Valid Targets don't name Player or
+in that order, as the program does. One whose Valid Targets don't name Player or
 Team Member doesn't see the officers. Losing its target, it goes by its
 LostATarget's Had a Target: Investigate, looking about where it saw them
 last *(inferred)*. Up from a stun, its Stun's Next State: Investigate,
@@ -998,8 +1009,9 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   up, what holding a retreat's place is, what `$Trigger` and the
   instigator are in their states' actions, and how a radius's action
   chooses whom it reaches.
-- **The states:** when the program changes them and in what order it
-  runs their actions and transitions; what makes a low-health enemy run
+- **The states:** when the program changes them, and how Got a Target
+  and Lost a Target choose between their choices; what makes a
+  low-health enemy run
   away (`0x42b0e2`), and when it looks for bodies.
 - **Walking:** how the program's walkers keep apart, and how a joined
   character's made an officer.

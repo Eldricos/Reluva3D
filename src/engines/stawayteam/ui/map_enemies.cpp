@@ -375,10 +375,11 @@ std::string MapScreen::stateKey(const std::string &name) {
 }
 
 void MapScreen::setState(Enemy &e, const std::string &to) {
-    // The state left's End Action, the transitions from it to the new one
-    // (each Every Time, its First Time only, or Once Per New Target), then
-    // the new one's Start Action, its target the instigator (inferred: the
-    // order isn't traced).
+    // The state left's End Action, the transitions from it to the new one,
+    // then the new one's Start Action, its target the instigator
+    // (0x4348d9). A transition fires Every Time, or once: First Time for
+    // good, Once Per New Target till the target changes (0x426550,
+    // 0x4352d9).
     const std::string from = e.state;
     const std::string next = stateKey(to);
     if (from == next)
@@ -724,9 +725,27 @@ void MapScreen::updateEnemies(float seconds) {
                 setState(e, stateKey(next) == "Attack" || next.empty() ? "Patrol" : next);
             continue;
         }
+        // Alert Time over, its Next State (0x42a189): mostly Got a Target,
+        // which with a target goes to its Acquired a Target, mostly
+        // Attack (inferred: how GotATarget chooses isn't traced).
         const TextObject *alert = states->object("Alert");
         if (e.state == "Alert" && e.stateTime >= number(alert, "Alert Time", 2.0f)) {
-            attackOfficer(e, e.target);
+            std::string next = stateKey(alert ? readText(alert, "Next State") : std::string());
+            if (next.empty() || next == "GotATarget") {
+                const TextObject *got = states->object("GotATarget");
+                next = stateKey(got ? readText(got, "Acquired a Target") : std::string());
+            }
+            if (next.empty() || next == "Attack") {
+                attackOfficer(e, e.target);
+            } else if (next == "Investigate") {
+                e.target = -1;
+                investigate(e, e.seenX, e.seenY);
+                continue;
+            } else if (next != "Alert") {
+                e.target = -1;
+                setState(e, next);
+                continue;
+            }
         }
         // Attacking, it shoots what it sees in its weapon's range, aimed
         // within its Max Shoot Angle, each Reuse Delay; one it sees further
