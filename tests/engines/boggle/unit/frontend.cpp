@@ -546,7 +546,7 @@ void optionsDragging(const std::filesystem::path& tmp){
 
 void definitionNavigation(const std::filesystem::path& tmp){
     auto t=target(tmp);t.settings["classic_menu"]="0";
-    const auto bytes=fixtures::definitionArchive(true,"<UNEQ type=SP><WD>AAAA<DEF>","<RUNSEG><RUN>aa\\bprime/aa<DEF>","<IWD>own-<DLIST><DRV>AAAA<DEFN><ITX>Own root text.");fixtures::write(t.path/"Dicts/R016E613.DAT",bytes);
+    const auto bytes=fixtures::definitionArchive(true,"<UNEQ type=SP><WD>aaaa<DEF>","<RUNSEG><RUN>aa\\bprime/aa<DEF>","<IWD>own-<DLIST><DRV>aaaa<DEFN><ITX>Own root text.");fixtures::write(t.path/"Dicts/R016E613.DAT",bytes);
     fixtures::ScriptedSystem sys;sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
         if(f==0 || f==10)return {keyEvent(key::Return)};
         if(f==1)return {textEvent("AAAA"),keyEvent(key::Return)};

@@ -21,14 +21,20 @@ each category. Duplicate articles appear once. The status line identifies the
 match type and parent article; etymological roots have their own heading.
 Multiple articles can be browsed with Previous/Next.
 
-No suffix rules or inferred stemming are applied. Query case filtering and
-complete original ranking/cross-reference behavior remain open: the native
-case-folded search can also return a capitalized abbreviation or proper-name
-article that the original lowercase query omits. This is not full compatibility
-with the original reference DLL's search. Definitions remain plain text with
-paragraph breaks; phonetic/font escapes are shown in brackets and unsupported
-legacy characters as question marks. Original typography, pronunciation glyphs
-and rich layout remain open. Membership and personal dictionaries are separate.
+The original game lowercases a requested word before calling its case-sensitive
+reference API. Native lookup accepts either input case, then matches only
+stored fields with that lowercase spelling. Capitalized-only abbreviations
+and names no longer join ordinary lowercase results. Eligibility belongs to
+each field: a lowercase alternative or subentry can still lead to a capitalized
+parent article. Direct article-ID access continues to cover the entire archive.
+
+No suffix rules or inferred stemming are applied. Original implicit inflections,
+complete ranking/cross-reference behavior, and root links whose authored index
+case differs from the displayed derivative remain open. Definitions remain
+plain text with paragraph breaks; phonetic/font escapes are shown in brackets
+and unsupported legacy characters as question marks. Original typography,
+pronunciation glyphs and rich layout remain open. Membership and personal
+dictionaries are separate; this change does not affect word acceptance or scores.
 
 ## Independent format implementation
 
@@ -69,35 +75,42 @@ the owner's archive using read-only callbacks. REDLL entry decoding at
 instructions, modules, raw traces and decoded articles stay outside Git and
 are never runtime dependencies.
 
-The native reader validates all 94,693 articles and indexes 61,362 ASCII
-headword keys. Fifteen positive reference queries yielded identical expanded
+The native reader validates all 94,693 articles. Its supported game-query index
+filters fields by the game’s lowercase query spelling. Fifteen positive
+reference queries yielded identical expanded
 entry markup for the IDs returned by the original; one negative query matched
 as absent. This corroborates stream decoding, not complete query or formatted
-text parity. The earlier all-article plain-text fingerprint is
-`96f6f36e9bd7da36d4174793c19127c3`. The current validation fingerprint also
-covers the lookup indexes (normalized keys and ordered article IDs).
+text parity. The current validation fingerprint covers every article plus the
+lookup indexes (normalized keys and ordered article IDs).
 
 The current indexes add alternate forms, subentries and etymological roots:
 
 | Field category | Distinct ASCII keys | Key-to-article links |
 | --- | ---: | ---: |
-| Main headwords | 61,362 | 66,514 |
-| Alternate headwords | 8,065 | 8,217 |
-| Subentries | 22,583 | 22,626 |
-| Stored inflections | 32,547 | 33,824 |
-| Root derivatives | 3,805 | 3,906 |
+| Main headwords | 49,430 | 51,308 |
+| Alternate headwords | 6,115 | 6,188 |
+| Subentries | 21,699 | 21,740 |
+| Stored inflections | 32,021 | 33,291 |
+| Root derivatives | 3,756 | 3,855 |
 
-Independent parsing of all 94,693 article streams checks all 135,087 index
-links. There are 116,891 distinct keys across the five categories. An external
-round-trip check validates all 131,609 returned articles and their match labels.
-The index checksum `b4b10ca6eeb8dee21dafb12123c00f33` also matches an
-independent standard MD5 calculation. The combined article/index fingerprint
-is `a38393af143f77a0b9dbb2e8bcb7eca6`.
-The external reference sample now contains 35 queries: 33 match the original's
-complete ordered article-ID lists, including the formerly incomplete
-six-article variant/root result. Two retain the documented case-filtering
-difference: the native result also includes a capitalized article. This
-corroborates the supported fields, not exhaustive original search compatibility.
+Independent parsing of all 94,693 article streams verifies all 116,382 filtered
+index links. There are 103,669 distinct lookup keys. The external round-trip
+check validates all 114,303 returned articles and match labels. The index
+checksum `eae44f27fe96ac4431a1d1385410bb00` matches an independent standard
+MD5 calculation. The combined article/index fingerprint is
+`e1a8fb1e82cb1c7640f59fb17a0378e2`.
+The external game-query sample now contains 58 lowercase queries: 56 match the
+original's complete ordered article-ID lists. The previously extra abbreviation
+and proper-name results are removed. The two remaining differences are an
+implicit plural and a root link whose displayed capitalization differs from
+its original query-index spelling. No retail word exceptions are hard-coded.
+This corroborates the supported field rules, not complete reference-library
+search compatibility.
+
+The executable's query loop at 0x4333b8–0x4333ec calls the import at 0x495270;
+PE import inspection identifies it as `MSVCRT.dll!tolower`. Separate direct-API
+case probes establish that differently capitalized queries can yield different
+article lists. Root probes also expose the printed-field/index discrepancy.
 Original query records are 23 bytes each, corroborated by the game's selection
 address calculation at 0x4334e4–0x4334f1. Original modules and query records
 remain external research inputs, never runtime code or repository fixtures.
@@ -114,17 +127,21 @@ focus/close event guards, unchanged scores and missing/corrupt archive recovery.
 Lexical-field tests cover category priority, duplicate suppression, multiple
 parents, stress/syllable markers, padding, root headings, incomplete groups,
 excluded prose/reference fields, invalid keys, no inferred suffixes, checksums
-and reset after failure. Scripted frontend checks browse variant, subentry and
+and reset after failure. Case tests cover uppercase-only fields, lowercase
+alternatives in capitalized articles, case folding of caller input, root fields
+and continued direct access to capitalized articles. Scripted frontend checks
+browse variant, subentry and
 root results, then close/reopen and replay while preserving the final score.
 
 The 44 applicable English Boggle checks pass, including a fresh imported copy.
 The all-language dictionary and complete resource survey checks were excluded
 because this validation workspace holds the restored Classic dependencies only.
-Six external SDL software-rendered runs with the installed resources cover
-variant, subentry and root results in both Original and Master: opening,
-scrolling, focus loss/return, closing/reopening, replay and unchanged scores. Reader, viewer, frontend and import
-suites also pass ASan/UBSan (LeakSanitizer disabled for the execution tracer).
+Two external SDL software-rendered runs with the installed resources verify
+the corrected case results in Original and Master, including opening, scrolling,
+focus loss/return, closing/reopening, replay and unchanged scores. Earlier native
+runs covered variant, subentry and root results in both modes.
+Reader, viewer, frontend and import suites also pass ASan/UBSan (LeakSanitizer disabled for the execution tracer).
 All 66 restored original files retain their manifest sizes and SHA-256 hashes.
-The owner confirmed the definition viewer and stored-form extension work on
-Windows. The alternate-headword, subentry and root extension still needs its
-Windows test.
+The owner confirmed the initial definition viewer works. Later lookup
+extensions have native checks; their detailed Windows coverage has not been
+separately reported. The current case-filtering extension needs a Windows test.

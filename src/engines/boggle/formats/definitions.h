@@ -10,6 +10,8 @@ enum class DefinitionMatch { Headword, Variant, Subentry, Inflection, RootDeriva
 struct DefinitionEntry {uint32_t id=0;std::string headword,text;DefinitionMatch match=DefinitionMatch::Headword;};
 // Independent reader for the supplied INSO entry-file component. ASCII
 // lexical fields only; no inferred stemming, suffix rules or original DLLs.
+// lookup folds ASCII input as Boggle's wrapper does; stored fields must match
+// that lowercase spelling. entry still exposes all validated article IDs.
 class Definitions {
 public:
     Error read(const std::vector<uint8_t>& bytes);

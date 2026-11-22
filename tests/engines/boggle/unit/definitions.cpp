@@ -10,8 +10,8 @@ using namespace reluva;using namespace reluva::boggle;
 namespace {
 void reader(){
     const auto bytes=fixtures::definitionArchive();Definitions d;CHECK(!d.read(bytes) && d.entries()==3 && d.headwords()==2);
-    std::vector<DefinitionEntry> rows;CHECK(!d.lookup("taz",rows) && rows.size()==2);if(rows.size()==2)CHECK(rows[0].text=="taz\nOwn text." && rows[1].text=="TAZ\nOther text.");
-    CHECK(!d.lookup("QUIZ",rows) && rows.size()==1);if(!rows.empty())CHECK(rows[0].headword=="QU-IZ" && rows[0].id==3 && rows[0].text=="QU-IZ\nFixture definition.\nOwn history.");
+    std::vector<DefinitionEntry> rows;CHECK(!d.lookup("taz",rows) && rows.size()==2);if(rows.size()==2)CHECK(rows[0].text=="taz\nOwn text." && rows[1].text=="taz\nOther text.");
+    CHECK(!d.lookup("QUIZ",rows) && rows.size()==1);if(!rows.empty())CHECK(rows[0].headword=="qu-iz" && rows[0].id==3 && rows[0].text=="qu-iz\nFixture definition.\nOwn history.");
     CHECK(!d.lookup("MISSING",rows) && rows.empty());CHECK(bool(d.lookup("A B",rows)) && rows.empty());
     DefinitionEntry entry;CHECK(!d.entry(1,entry) && entry.id==1);CHECK(bool(d.entry(0,entry)) && entry.text.empty());CHECK(bool(d.entry(4,entry)));
     auto invalid=[&](std::vector<uint8_t> b){CHECK(bool(d.read(b)) && d.entries()==0 && d.headwords()==0);};
@@ -45,8 +45,8 @@ void view(){
 void inflections(){
     Definitions d;CHECK(!d.read(fixtures::definitionArchive()));const auto exactChecksum=d.indexChecksum();
     const auto bytes=fixtures::definitionArchive(false,
-        "<INFL><INF>taz\xb7zed<INF>TAZZED<INF>quiz<INF>taz<INF>two words<INF>hy-phen<INF>bad!<INF>\xff</INFL><DEF>Outside<INF>NOTAKEY",
-        "<INFL><INF>TAZZED<INF>tazzing\xff</INFL><INFL><INF>UNFINISHED");
+        "<INFL><INF>taz\xb7zed<INF>tazzed<INF>quiz<INF>taz<INF>two words<INF>hy-phen<INF>bad!<INF>\xff</INFL><DEF>Outside<INF>NOTAKEY",
+        "<INFL><INF>tazzed<INF>tazzing\xff</INFL><INFL><INF>UNFINISHED");
     CHECK(!d.read(bytes) && d.inflections()==4 && d.indexChecksum()!=exactChecksum);
     const auto checksum=d.indexChecksum();std::vector<DefinitionEntry> rows;
     CHECK(!d.lookup("tazzed",rows) && rows.size()==2);if(rows.size()==2)CHECK(rows[0].id==1 && rows[1].id==2 && rows[0].match==DefinitionMatch::Inflection && rows[1].match==DefinitionMatch::Inflection);
@@ -59,9 +59,9 @@ void inflections(){
 }
 void lexicalFields(){
     Definitions d;const auto bytes=fixtures::definitionArchive(false,
-        "<UNEQ type=SP><WD>QUIZ<WD>VARONLY<RUNSEG><RUN> wu\\bprime/g\xb7let\\lprime/ <RUN>QUIZ<RUN>bad\\unknown/let<INFL><INF>QUIZ</INFL><KW>NOTAKEY<DRV>NOTAROOT",
-        "<INFL><INF>QUIZ<INF>wuglet</INFL>",
-        "<IWD>wug-<DLIST><DRV>QUIZ<DRV>QUIZ<DRV>ROOTONLY<DRV>taz<DEFN><ITX>Own root description.");
+        "<UNEQ type=SP><WD>quiz<WD>varonly<RUNSEG><RUN> wu\\bprime/g\xb7let\\lprime/ <RUN>quiz<RUN>bad\\unknown/let<INFL><INF>quiz</INFL><KW>NOTAKEY<DRV>NOTAROOT",
+        "<INFL><INF>quiz<INF>wuglet</INFL>",
+        "<IWD>wug-<DLIST><DRV>quiz<DRV>quiz<DRV>rootonly<DRV>taz<DEFN><ITX>Own root description.");
     CHECK(!d.read(bytes) && d.variants()==2 && d.subentries()==2 && d.inflections()==2 && d.derivatives()==3);
     std::vector<DefinitionEntry> rows;
     CHECK(!d.lookup("QUIZ",rows) && rows.size()==3);
@@ -76,8 +76,30 @@ void lexicalFields(){
     const auto checksum=d.indexChecksum();CHECK(!d.read(bytes) && d.indexChecksum()==checksum);
     CHECK(bool(d.read({})) && d.variants()==0 && d.subentries()==0 && d.derivatives()==0);CHECK(!d.lookup("QUIZ",rows) && rows.empty());
 }
+void queryCase(){
+    Definitions d;const auto bytes=fixtures::definitionArchive(false,
+        "<UNEQ type=SP><WD>ProperOnly<WD>loweralias<RUNSEG><RUN>lower\\bprime/run<RUN>Upper\\bprime/run<INFL><INF>lowered<INF>Lowered</INFL>",
+        "<UNEQ type=SP><WD>taz<WD>ProperAlias<RUNSEG><RUN>hidden\\bprime/run<INFL><INF>shifted<INF>Shifted</INFL>",
+        "<WD>Quiz<DEF>Own capitalized article.","TAZ");
+    CHECK(!d.read(bytes) && d.entries()==3 && d.headwords()==1 && d.variants()==2 && d.subentries()==2 && d.inflections()==2);
+    std::vector<DefinitionEntry> rows;
+    for(const auto* input:{"taz","TAZ","TaZ"}){
+        CHECK(!d.lookup(input,rows) && rows.size()==2);
+        if(rows.size()==2)CHECK(rows[0].id==1 && rows[0].match==DefinitionMatch::Headword && rows[1].id==2 && rows[1].match==DefinitionMatch::Variant);
+    }
+    for(const auto* input:{"lowered","LOWERED","LoWeReD"}){CHECK(!d.lookup(input,rows) && rows.size()==1);if(rows.size()==1)CHECK(rows[0].id==1 && rows[0].match==DefinitionMatch::Inflection);}
+    CHECK(!d.lookup("HIDDENRUN",rows) && rows.size()==1);if(rows.size()==1)CHECK(rows[0].id==2 && rows[0].headword=="TAZ" && rows[0].match==DefinitionMatch::Subentry);
+    CHECK(!d.lookup("SHIFTED",rows) && rows.size()==1);if(rows.size()==1)CHECK(rows[0].id==2);
+    for(const auto* input:{"ProperOnly","PROPERALIAS","UPPERRUN","quiz","QUIZ"})CHECK(!d.lookup(input,rows) && rows.empty());
+    DefinitionEntry article;CHECK(!d.entry(2,article) && article.headword=="TAZ");CHECK(!d.entry(3,article) && article.headword=="Quiz");
+    const auto checksum=d.indexChecksum();CHECK(!d.read(bytes) && d.indexChecksum()==checksum);
+    CHECK(!d.read(fixtures::definitionArchive(false,{},{},"<IWD>CaseRoot-<DLIST><DRV>lowerroot<DRV>UpperRoot<DEFN><ITX>Own root text.")));
+    CHECK(!d.lookup("LOWERROOT",rows) && rows.size()==1);if(rows.size()==1)CHECK(rows[0].id==3 && rows[0].headword=="CaseRoot-" && rows[0].match==DefinitionMatch::RootDerivative);
+    CHECK(!d.lookup("UPPERROOT",rows) && rows.empty());CHECK(bool(d.read({})) && d.headwords()==0);CHECK(!d.lookup("LOWERROOT",rows) && rows.empty());
+}
 }
 static const test::Suite suite("boggle.unit.definitions",{
+    {"Boggle query folding, per-field case eligibility, capitalized parents, direct IDs and reset",[](const auto&){queryCase();}},
     {"alternate headwords, stressed subentries, root derivatives, match priority and excluded fields",[](const auto&){lexicalFields();}},
     {"stored inflections, exact priority, duplicate suppression, scope, normalization and reset",[](const auto&){inflections();}},
     {"independent entry archive, paired symbols, paging, variants, truncation and malformed data",[](const auto&){reader();}},

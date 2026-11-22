@@ -28,6 +28,9 @@ std::string key(std::string_view word){
 std::string fieldKey(std::string_view value,bool stress){
     while(!value.empty() && (value.front()==' ' || uint8_t(value.front())==255))value.remove_prefix(1);
     while(!value.empty() && (value.back()==' ' || uint8_t(value.back())==255))value.remove_suffix(1);
+    // Boggle lowercases the query before the reference library's case-sensitive
+    // lookup. Match each stored field's spelling, not its parent article's case.
+    if(std::any_of(value.begin(),value.end(),[](unsigned char c){return c>='A' && c<='Z';}))return {};
     if(!stress)return key(value);
     std::string letters;
     for(size_t p=0;p<value.size();){
@@ -147,7 +150,7 @@ Error Definitions::read(const std::vector<uint8_t>& b){
         expanded+=text.size();if(expanded>256*1024*1024)return bad();
         if(id==0 && !text.empty())return bad();
         const std::array<std::vector<std::string>,5> keys={
-            std::vector<std::string>{key(headword(text))},fields(text,"<WD>",false,true),
+            std::vector<std::string>{fieldKey(headword(text),false)},fields(text,"<WD>",false,true),
             fields(text,"<RUN>",true),storedForms(text),text.starts_with("<IWD>")?fields(text,"<DRV>"):std::vector<std::string>{}};
         for(size_t i=0;i<keys.size();++i)for(const auto& word:keys[i])if(!word.empty()){
             auto& matches=next.indexes_[i][word];
