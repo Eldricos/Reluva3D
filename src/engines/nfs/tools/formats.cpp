@@ -324,15 +324,15 @@ int cmdNfsSurvey(int argc, char **argv) {
             report(fonts, what, reluva::nfs::parseFont(data, font));
             fonts.add(data);
         } else if (ext == ".fce") {
-            reluva::nfs::Model model;
-            const Error e = reluva::nfs::parseModel(data, model);
+            reluva::nfs::nfs3::Model model;
+            const Error e = reluva::nfs::nfs3::parseModel(data, model);
             report(models, what, e);
             if (!e)
                 for (const auto &v : model.vertices)
                     models.add(&v, sizeof v);
         } else if (ext == ".frd") {
-            reluva::nfs::Track track;
-            const Error e = reluva::nfs::parseTrack(data, track);
+            reluva::nfs::nfs3::Track track;
+            const Error e = reluva::nfs::nfs3::parseTrack(data, track);
             report(tracks, what, e);
             if (!e)
                 for (const auto &b : track.blocks) {
@@ -387,10 +387,10 @@ int cmdNfsSurvey(int argc, char **argv) {
             report(maps, what, err);
         } else if (ext == ".mad") {
             // Every frame decoded, and the audio.
-            reluva::nfs::MadMovie movie;
+            reluva::nfs::nfs3::MadMovie movie;
             const Error err = movie.open(std::move(data));
             report(movies, what, err);
-            reluva::nfs::MadDecoder decoder;
+            reluva::nfs::nfs3::MadDecoder decoder;
             for (size_t i = 0; !err && i < movie.frames().size(); ++i) {
                 const Error e = movie.decodeFrame(decoder, i);
                 report(frames, what + ":" + std::to_string(i), e);
@@ -408,8 +408,8 @@ int cmdNfsSurvey(int argc, char **argv) {
                     movieAudio.add(sound.samples);
             }
         } else if (ext == ".hrz") {
-            reluva::nfs::Horizon horizon;
-            report(horizons, what, reluva::nfs::parseHorizon(std::string(data.begin(), data.end()), horizon));
+            reluva::nfs::nfs3::Horizon horizon;
+            report(horizons, what, reluva::nfs::nfs3::parseHorizon(std::string(data.begin(), data.end()), horizon));
         } else if (stem == "text") {
             reluva::nfs::TextTable table;
             const Error e = reluva::nfs::parseTextTable(data, table);
@@ -487,8 +487,8 @@ int cmdFceInfo(int argc, char **argv) {
     std::vector<uint8_t> data;
     if (Error err = load(argv[2], argc > 3 ? argv[3] : nullptr, data))
         return fail(err);
-    reluva::nfs::Model model;
-    if (Error err = reluva::nfs::parseModel(data, model))
+    reluva::nfs::nfs3::Model model;
+    if (Error err = reluva::nfs::nfs3::parseModel(data, model))
         return fail(err);
     std::printf("%zu vertices, %zu triangles, half size %.3f %.3f %.3f\n", model.vertices.size(),
                 model.triangles.size(), model.halfSize[0], model.halfSize[1], model.halfSize[2]);
@@ -536,8 +536,8 @@ int cmdFceObj(int argc, char **argv) {
     std::vector<uint8_t> data;
     if (Error err = load(argv[2], inViv ? argv[3] : nullptr, data))
         return fail(err);
-    reluva::nfs::Model model;
-    if (Error err = reluva::nfs::parseModel(data, model))
+    reluva::nfs::nfs3::Model model;
+    if (Error err = reluva::nfs::nfs3::parseModel(data, model))
         return fail(err);
     std::ofstream out(argv[inViv ? 4 : 3]);
     out << "# " << argv[2] << (inViv ? std::string(" ") + argv[3] : "") << "\n";
@@ -577,8 +577,8 @@ int cmdFrdCheck(int argc, char **argv) {
     int failed = 0;
     for (int i = 2; i < argc; ++i) {
         std::vector<uint8_t> data;
-        reluva::nfs::Track track;
-        Error err = readFile(argv[i], data) ? reluva::nfs::parseTrack(data, track) : Error::fail("can't read it");
+        reluva::nfs::nfs3::Track track;
+        Error err = readFile(argv[i], data) ? reluva::nfs::nfs3::parseTrack(data, track) : Error::fail("can't read it");
         if (err) {
             std::printf("%s: FAILED: %s\n", argv[i], err.message.c_str());
             ++failed;
@@ -627,8 +627,8 @@ int cmdFrdObj(int argc, char **argv) {
         std::fprintf(stderr, "Can't read %s\n", argv[2]);
         return 1;
     }
-    reluva::nfs::Track track;
-    if (Error err = reluva::nfs::parseTrack(data, track))
+    reluva::nfs::nfs3::Track track;
+    if (Error err = reluva::nfs::nfs3::parseTrack(data, track))
         return fail(err);
     const int detail = argc > 4 ? std::clamp(std::atoi(argv[4]), 0, 2) : 2;
     std::ofstream out(argv[3]);
@@ -639,8 +639,9 @@ int cmdFrdObj(int argc, char **argv) {
     // k with the texture's u, v k; written last to first, since with z
     // mirrored the game's front faces turn the other way (as the Tracks
     // page winds them), so OBJ's counter-clockwise front is the game's.
-    auto emit = [&](const std::vector<reluva::nfs::Track::Vec3> &verts, const reluva::nfs::Track::Vec3 &offset,
-                    const std::vector<reluva::nfs::Track::Polygon> &polys, const char *group, bool placed) {
+    auto emit = [&](const std::vector<reluva::nfs::nfs3::Track::Vec3> &verts,
+                    const reluva::nfs::nfs3::Track::Vec3 &offset,
+                    const std::vector<reluva::nfs::nfs3::Track::Polygon> &polys, const char *group, bool placed) {
         out << "g " << group << "\n";
         for (const auto &v : verts)
             out << "v " << v[0] + offset[0] << ' ' << v[1] + offset[1] << ' ' << -(v[2] + offset[2]) << "\n";
@@ -650,7 +651,7 @@ int cmdFrdObj(int argc, char **argv) {
                 out << "vt " << t.corners[2 * k] << ' ' << 1 - t.corners[2 * k + 1] << "\n";
             out << "f";
             for (int k = 3; k >= 0; --k)
-                out << ' ' << base + p.vertices[size_t(reluva::nfs::polygonSlot(k, placed))] << '/' << uv + k;
+                out << ' ' << base + p.vertices[size_t(reluva::nfs::nfs3::polygonSlot(k, placed))] << '/' << uv + k;
             out << "\n";
             uv += 4;
         }
@@ -658,7 +659,7 @@ int cmdFrdObj(int argc, char **argv) {
     };
     for (size_t i = 0; i < track.blocks.size(); ++i) {
         const auto &b = track.blocks[i];
-        std::vector<reluva::nfs::Track::Polygon> polys = b.polygons[2 * detail];
+        std::vector<reluva::nfs::nfs3::Track::Polygon> polys = b.polygons[2 * detail];
         for (const auto &layer : b.objectLayers)
             for (const auto &o : layer)
                 polys.insert(polys.end(), o.polygons.begin(), o.polygons.end());
@@ -877,7 +878,7 @@ int cmdMadInfo(int argc, char **argv) {
         std::fprintf(stderr, "Can't read %s\n", argv[2]);
         return 1;
     }
-    reluva::nfs::MadMovie movie;
+    reluva::nfs::nfs3::MadMovie movie;
     if (Error err = movie.open(std::move(data)))
         return fail(err);
     std::map<char, int> kinds;
@@ -893,7 +894,7 @@ int cmdMadInfo(int argc, char **argv) {
                     h.rate, h.samples, double(h.samples) / h.rate);
     }
     // Every frame decodes?
-    reluva::nfs::MadDecoder decoder;
+    reluva::nfs::nfs3::MadDecoder decoder;
     for (size_t i = 0; i < movie.frames().size(); ++i)
         if (Error err = movie.decodeFrame(decoder, i)) {
             std::fprintf(stderr, "frame %zu: %s\n", i, err.message.c_str());
@@ -931,15 +932,15 @@ int cmdMadFrames(int argc, char **argv) {
         std::fprintf(stderr, "Can't read %s\n", argv[2]);
         return 1;
     }
-    reluva::nfs::MadMovie movie;
+    reluva::nfs::nfs3::MadMovie movie;
     if (Error err = movie.open(std::move(data)))
         return fail(err);
     const size_t first = argc > 4 ? size_t(std::atoi(argv[4])) : 0;
     const size_t count = argc > 5 ? size_t(std::atoi(argv[5])) : movie.frames().size();
     // Frames refer to those before, so decoding starts at the beginning.
-    reluva::nfs::MadDecoder decoder;
+    reluva::nfs::nfs3::MadDecoder decoder;
     if (game)
-        decoder.setArithmetic(reluva::nfs::MadDecoder::Arithmetic::kGame);
+        decoder.setArithmetic(reluva::nfs::nfs3::MadDecoder::Arithmetic::kGame);
     int written = 0;
     for (size_t i = 0; i < movie.frames().size() && i < first + count; ++i) {
         if (Error err = movie.decodeFrame(decoder, i))
@@ -948,7 +949,7 @@ int cmdMadFrames(int argc, char **argv) {
             continue;
         reluva::Surface s;
         if (display)
-            decoder.toGameSurface(s, static_cast<reluva::nfs::MadDecoder::Display>(display));
+            decoder.toGameSurface(s, static_cast<reluva::nfs::nfs3::MadDecoder::Display>(display));
         else
             decoder.toSurface(s);
         reluva::image::Image img;
@@ -977,7 +978,7 @@ int cmdMadWav(int argc, char **argv) {
         std::fprintf(stderr, "Can't read %s\n", argv[2]);
         return 1;
     }
-    reluva::nfs::MadMovie movie;
+    reluva::nfs::nfs3::MadMovie movie;
     if (Error err = movie.open(std::move(data)))
         return fail(err);
     reluva::audio::Sound sound;

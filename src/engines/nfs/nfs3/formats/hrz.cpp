@@ -8,7 +8,7 @@
 #include <cmath>
 #include <string>
 
-namespace reluva::nfs {
+namespace reluva::nfs::nfs3 {
 
 namespace {
 
@@ -419,4 +419,4 @@ int boltFlash(const LightningBolt &bolt) {
     return std::clamp(bolt.life * 510 / 24, 0, 255);
 }
 
-} // namespace reluva::nfs
+} // namespace reluva::nfs::nfs3

@@ -10,7 +10,7 @@
 #include <string_view>
 #include <vector>
 
-namespace reluva::nfs {
+namespace reluva::nfs::nfs3 {
 
 /**
  * A track's sky, fog and weather settings (3trNN[n][w].hrz: day, night,
@@ -248,4 +248,4 @@ void tickBolt(LightningBolt &bolt, SkyRandom &random);
 /** How bright a bolt's flash is (0-255): full for half its life, then fading. */
 int boltFlash(const LightningBolt &bolt);
 
-} // namespace reluva::nfs
+} // namespace reluva::nfs::nfs3

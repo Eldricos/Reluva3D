@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "engines/nfs/pages/viewers.h"
+#include "engines/nfs/nfs3/pages/car_viewer.h"
 
 #include "graphics/font.h"
 #include "common/fs.h"
@@ -12,7 +12,7 @@
 #include <cstdlib>
 #include <tuple>
 
-namespace reluva::nfs {
+namespace reluva::nfs::nfs3 {
 
 namespace {
 
@@ -464,4 +464,4 @@ void CarPage::update(uint64_t nowMs) {
     _renderer->endFrame(&_overlay);
 }
 
-} // namespace reluva::nfs
+} // namespace reluva::nfs::nfs3

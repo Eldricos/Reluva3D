@@ -1,8 +1,9 @@
 # Need for Speed III: Hot Pursuit
 
-Game id `nfs3`, on the [Need for Speed engine](../../README.md); its code
-is in `src/engines/nfs/` (the game's own executable run in the x86
-emulator in `host/`).
+Game id `nfs3`, on the [Need for Speed engine](../../README.md); its own
+code is in `src/engines/nfs/nfs3/`, and what it shares with the engine's
+other games in `src/engines/nfs/` (the game's own executable run in the
+x86 emulator in `host/`).
 
 ## Releases
 

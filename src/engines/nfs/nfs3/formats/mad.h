@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace reluva::nfs {
+namespace reluva::nfs::nfs3 {
 
 /**
  * Electronic Arts' Madcow video (.mad), as
@@ -134,4 +134,4 @@ private:
     uint32_t _duration = 0;
 };
 
-} // namespace reluva::nfs
+} // namespace reluva::nfs::nfs3

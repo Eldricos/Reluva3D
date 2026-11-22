@@ -5,8 +5,8 @@
 // the engine found (the folders, the CD's files, tracks and cars), the
 // game itself (the Play page), then the tracks and cars in 3D, the game's
 // pictures, strings and fonts, its sounds, music and movies (see
-// viewers.h for the keys). Tab switches between them; Esc goes back to
-// reluva-viewer's list.
+// viewers.h for the keys, and nfs3/pages/ for NFS III's tracks and cars).
+// Tab switches between them; Esc goes back to reluva-viewer's list.
 
 #include "engines/nfs/game_files.h"
 #include "engines/nfs/games.h"

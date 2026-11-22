@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace reluva::nfs {
+namespace reluva::nfs::nfs3 {
 
 // The race's particles (sparks, dust, smoke...) as nfs3.exe makes, moves
 // and draws them; docs/engines/nfs/games/nfs3/formats/col.md, "Particles".
@@ -633,4 +633,4 @@ private:
     int _sounds = 0;
 };
 
-} // namespace reluva::nfs
+} // namespace reluva::nfs::nfs3

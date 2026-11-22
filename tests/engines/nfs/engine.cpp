@@ -44,6 +44,7 @@
 
 using namespace reluva;
 using namespace reluva::nfs;
+using namespace reluva::nfs::nfs3;
 using namespace reluva::nfs::testing;
 using test::Hash;
 

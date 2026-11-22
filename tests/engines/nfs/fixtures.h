@@ -40,6 +40,7 @@
 
 using namespace reluva;
 using namespace reluva::nfs;
+using namespace reluva::nfs::nfs3;
 namespace stdfs = std::filesystem;
 
 namespace reluva::nfs::testing {

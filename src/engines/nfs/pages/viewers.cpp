@@ -3,6 +3,9 @@
 
 #include "engines/nfs/pages/viewers.h"
 
+#include "engines/nfs/nfs3/pages/car_viewer.h"
+#include "engines/nfs/nfs3/pages/track_viewer.h"
+
 #include "engines/nfs/ui/play_page.h"
 
 #include <cstdlib>
@@ -624,8 +627,8 @@ std::vector<std::unique_ptr<Page>> makePages(const char *gameName, const GameFol
     auto play = makePlayPage(folders, saveFolder, mixer, settings);
     play->setKeysLine("Keys and mouse go to the game   Tab: next page   Ctrl+F5: back");
     pages.push_back(std::move(play));
-    pages.push_back(std::make_unique<TrackPage>(files, folders, mixer));
-    pages.push_back(std::make_unique<CarPage>(files));
+    pages.push_back(std::make_unique<nfs3::TrackPage>(files, folders, mixer));
+    pages.push_back(std::make_unique<nfs3::CarPage>(files));
     pages.push_back(std::make_unique<TexturePage>(files));
     pages.push_back(std::make_unique<CockpitPage>(files));
     pages.push_back(std::make_unique<StringPage>(files));

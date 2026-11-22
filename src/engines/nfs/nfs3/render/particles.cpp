@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace reluva::nfs {
+namespace reluva::nfs::nfs3 {
 
 namespace {
 
@@ -494,11 +494,11 @@ std::array<ParticleVec, 4> pictureCorners(const Particle &p, const ParticleVec &
             offset(p.position, right, up, -s * aspect, -c / aspect), offset(p.position, right, up, -c, s)};
 }
 
-} // namespace reluva::nfs
+} // namespace reluva::nfs::nfs3
 
 // Rain and snow (col.md, "Rain and snow").
 
-namespace reluva::nfs {
+namespace reluva::nfs::nfs3 {
 
 namespace {
 
@@ -980,4 +980,4 @@ int SplatScreen::live() const {
     return static_cast<int>(std::count_if(_slots.begin(), _slots.end(), [](const Splat &s) { return s.life != 0; }));
 }
 
-} // namespace reluva::nfs
+} // namespace reluva::nfs::nfs3

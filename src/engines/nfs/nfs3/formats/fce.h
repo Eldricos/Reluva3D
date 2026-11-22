@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-namespace reluva::nfs {
+namespace reluva::nfs::nfs3 {
 
 /**
  * An .fce model (cars, traffic, police, the front end's track models), as
@@ -360,4 +360,4 @@ void tyreSmoke(ParticleSystem &system, int wheel, const ParticleVec &at, const P
  */
 Error parseArt(const std::vector<uint8_t> &data, std::vector<image::Image> &pages);
 
-} // namespace reluva::nfs
+} // namespace reluva::nfs::nfs3

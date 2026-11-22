@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-namespace reluva::nfs {
+namespace reluva::nfs::nfs3 {
 
 /**
  * A track's geometry (.frd), as docs/engines/nfs/games/nfs3/formats/frd.md
@@ -1657,4 +1657,4 @@ std::vector<DumpedCar> parseCarDump(const std::vector<uint8_t> &bytes);
  */
 std::vector<Particle> parseParticleDump(const std::vector<uint8_t> &bytes);
 
-} // namespace reluva::nfs
+} // namespace reluva::nfs::nfs3

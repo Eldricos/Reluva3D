@@ -7,7 +7,7 @@
 #include <cmath>
 #include <cstring>
 
-namespace reluva::nfs {
+namespace reluva::nfs::nfs3 {
 
 namespace {
 
@@ -645,4 +645,4 @@ void tyreSmoke(ParticleSystem &system, int wheel, const ParticleVec &at, const P
             p->spin *= side;
 }
 
-} // namespace reluva::nfs
+} // namespace reluva::nfs::nfs3

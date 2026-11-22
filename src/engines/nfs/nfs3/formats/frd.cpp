@@ -8,7 +8,7 @@
 #include <cstring>
 #include <string>
 
-namespace reluva::nfs {
+namespace reluva::nfs::nfs3 {
 
 namespace {
 
@@ -5381,4 +5381,4 @@ std::vector<Particle> parseParticleDump(const std::vector<uint8_t> &bytes) {
     return out;
 }
 
-} // namespace reluva::nfs
+} // namespace reluva::nfs::nfs3

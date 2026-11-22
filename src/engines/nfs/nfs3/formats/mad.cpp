@@ -12,7 +12,7 @@
 #include <cstring>
 #include <string>
 
-namespace reluva::nfs {
+namespace reluva::nfs::nfs3 {
 
 namespace {
 
@@ -833,4 +833,4 @@ Error MadMovie::decodeFrame(MadDecoder &decoder, size_t index) const {
     return decoder.decode(_data.data() + _frames[index].offset, _frames[index].size);
 }
 
-} // namespace reluva::nfs
+} // namespace reluva::nfs::nfs3

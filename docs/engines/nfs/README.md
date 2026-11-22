@@ -47,11 +47,12 @@ game is found to share it (docs/DOCUMENTATION_STANDARD.md).
 |---|---|
 | `nfs.cpp` | The `MetaEngine` (detection, making an `Engine`) and the `Engine`: the Play page alone |
 | `games.cpp`, `folders.cpp`, `game_files.cpp` | The games and their releases, finding the install's and the CD's files, a file in an archive |
-| `formats/` | The games' files: `.viv`, RefPack, `.fsh`, text, `.ffn`, `.fce`, `.frd`, `.col`, `.hrz`, `.bnk`, `.mus`, `.mad` |
-| `render/` | Particles, and drawing THRASH's frames on the GPU |
+| `formats/` | The files the games share: `.viv`, RefPack, `.fsh`, text, `.ffn`, `.col`, `.bnk`, `.mus` |
+| `render/` | Drawing THRASH's frames on the GPU |
 | `ui/` | The window's pages and running them (`runPages`), and the Play page, which shows the game and passes it the input |
-| `pages/` | The data viewer, in `reluva-viewer` only: the folders found, the 3D tracks and cars, pictures, text, sounds, movies, with the Play page among them |
+| `pages/` | The data viewer, in `reluva-viewer` only: the folders found, pictures, text, sounds, movies, with the Play page and each game's own pages among them |
 | `host/` | The retail game hosted: `GameHost` (Windows, DirectX, sound, input, the network, serial links), THRASH natively and on the GPU |
+| `nfs3/` | NFS III's own, in `reluva::nfs::nfs3`: its formats (`formats/`: `.fce`, `.frd`, `.hrz`, `.mad`), its tracks' particles (`render/`), and the viewer's Tracks and Cars pages (`pages/`) |
 | `tools/` | `reluva-tool nfs` commands (`reluva-tool help nfs` lists them) |
 
 ## Tests
