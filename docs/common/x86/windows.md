@@ -105,7 +105,11 @@ C++ library have pages of their own ([directx.md](directx.md),
   - A method an object doesn't stand in for ends the run, naming it.
 - **Input** (`win32_user.cpp`): the engine passes the mouse and keyboard
   to the process with `mouseMoveTo`, `mouseButton`, `mouseWheel` and
-  `key`.
+  `key`; a joystick, with `joystickAxis`, `joystickButton` and
+  `joystickHat`, into `joystick` (`win32_joystick.cpp`), which WINMM's
+  `joyGetDevCapsA` and `joyGetPosEx` report as joystick 0 once the
+  engine says it's `present`: six axes from 0 to 65535, 32 buttons and
+  a hat at any angle (`JOYCAPSA`, `JOYINFOEX`).
   - They become window messages to the main window (`WM_MOUSEMOVE`,
     button presses, double clicks for classes with `CS_DBLCLKS`,
     `WM_KEYDOWN`/`WM_KEYUP` with the scan code in lParam).
@@ -219,7 +223,10 @@ executable's entry point on the main thread until it ends the process.
   block and beyond memory.
 - `testInput` checks the messages input becomes, double clicks, key
   states and `ClipCursor`. It also checks DirectInput's mouse (its state,
-  its movement since the last read, its buffer) and keyboard.
+  its movement since the last read, its buffer) and keyboard, an
+  extended key as DirectInput numbers it, and WINMM's joystick: unplugged
+  until present, then its capabilities and an axis, a button and the hat
+  at a diagonal read back.
 - **Confidence:** published unless marked.
 
 - `tests/common/drives.cpp` (`common.unit.drives`) checks the drives'

@@ -1309,6 +1309,22 @@ static void testInput() {
     CHECK(call(keyboard, 9, {256, state}) == 0 && cpu.read8(state + 0x1e) == 0x80 && cpu.read8(state + 0x1f) == 0);
     process.key(0x41, 0x1e, false);
     CHECK(call(keyboard, 9, {256, state}) == 0 && cpu.read8(state + 0x1e) == 0);
+    // WINMM's joystick: none until there is one; then its capabilities,
+    // and an axis, a button and a diagonal on its hat read back.
+    const uint32_t caps = process.memory().alloc(404);
+    const uint32_t pos = process.memory().alloc(52);
+    CHECK(!cpu.call(fn("WINMM.dll", "joyGetDevCapsA"), {0, caps, 404}, r) && r == 167); // JOYERR_UNPLUGGED
+    process.joystick.present = true;
+    CHECK(!cpu.call(fn("WINMM.dll", "joyGetDevCapsA"), {0, caps, 404}, r) && r == 0);
+    CHECK(cpu.read32(caps + 40) == 65535 && cpu.read32(caps + 60) == 32 && (cpu.read32(caps + 96) & 0x10));
+    CHECK(!cpu.call(fn("WINMM.dll", "joyGetDevCapsA"), {1, caps, 404}, r) && r == 165); // JOYERR_PARMS
+    process.joystickAxis(0, 32767);
+    process.joystickButton(2, true);
+    process.joystickHat(1 | 2); // up and right
+    cpu.write32(pos, 52);
+    CHECK(!cpu.call(fn("WINMM.dll", "joyGetPosEx"), {0, pos}, r) && r == 0);
+    CHECK(cpu.read32(pos + 8) == 65535 && cpu.read32(pos + 12) == 32768); // x right, y centred
+    CHECK(cpu.read32(pos + 32) == 4 && cpu.read32(pos + 36) == 1 && cpu.read32(pos + 40) == 4500);
     // An extended key: the up arrow, scan code 0x48 extended, is DIK_UP (0xc8).
     process.key(0x26, 0x148, true);
     CHECK(call(keyboard, 9, {256, state}) == 0 && cpu.read8(state + 0xc8) == 0x80 && cpu.read8(state + 0x48) == 0);

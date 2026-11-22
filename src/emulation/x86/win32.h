@@ -578,6 +578,24 @@ public:
     };
     std::vector<std::function<void(const RawInput &)>> rawInput;
 
+    /**
+     * The joystick WINMM reports (joyGetDevCapsA, joyGetPosEx), as joystick
+     * 0: whether one is there, and where it is.
+     */
+    struct Joystick {
+        bool present = false;
+        uint32_t axes[6]{32768, 32768, 32768, 32768, 32768, 32768}; // x, y, z, r, u, v: 0..65535
+        uint32_t buttons = 0;                                       // a bit each, from button 1
+        uint32_t pov = 0xffff; // hundredths of a degree clockwise from forward; 0xffff centred
+    };
+    Joystick joystick;
+    /** A joystick axis (x, y, z, r, u, v by number) moved: -32768 to 32767. */
+    void joystickAxis(int axis, int value);
+    /** A joystick button, from 0, pressed or let go. */
+    void joystickButton(int button, bool down);
+    /** The joystick's hat held to directions: bits of up 1, right 2, down 4, left 8. */
+    void joystickHat(uint8_t directions);
+
     // What MessageBoxA shows: by default, passed to `output`.
     std::function<void(const std::string &caption, const std::string &text)> messageBox;
 
@@ -639,6 +657,7 @@ private:
     void addSystemStandIns();
     void addUserStandIns();
     void addRegistryStandIns();
+    void addJoystickStandIns();
     struct WindowClass {
         uint32_t proc = 0;
         uint32_t style = 0;
