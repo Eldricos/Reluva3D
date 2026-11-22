@@ -10,7 +10,8 @@ tests build (`makeNfs2seInstall`, `makeNfs2seCd` in
 
 | Suite | What it checks |
 |---|---|
-| `nfs.unit.nfs2se` | NFS II's own formats on files built in the tests: a two-block track (vertices made absolute, the next block's included; levels and their second groups; meshes and placements; a polygon past its level, and a cut file, refused), a `.col` (textures, meshes, placements, the road, told from NFS III's), both kinds of sky and the lights, a car model (the 6 bytes after an odd vertex count; a vertex past its part, bytes left over, a cut file refused) |
+| `nfs.unit.nfs2se` | NFS II's own formats on files built in the tests: a two-block track (vertices made absolute, the next block's included; levels and their second groups; meshes and placements; a polygon past its level, and a cut file, refused), a `.col` (textures, meshes, placements, the road, told from NFS III's), both kinds of sky and the lights, a car model (the 6 bytes after an odd vertex count; a vertex past its part, bytes left over, a cut file refused), a movie (two frames around its sound; one without sound; frames of two sizes, a cut file and no frames refused) |
+| `common.unit.mdec` (`tests/common/mdec.cpp`) | MDEC frames built in the test: the macroblocks' order down the columns, the DC's scale and the colours, an escaped AC term, and bad frames refused |
 | `nfs.unit.formats` (`shapes nfs2se`, and in `text table` and `music`) | A bank's palette entry given to its pictures without one, a picture's own 5:6:5 palette winning over it, 4-bit pictures' order; the front end's text records with their places; zero padding between music streams, and other bytes there refused |
 | `nfs.unit.detection` (its `nfs2se` cases) | The install and the CD recognised by the fallback table, the CD once though both its programs match, an install with only the 3dfx program, and not without the cars' data; the CD's copy found beside the install, by `cdpath`, and missing; the tracks (once each, from the install and the CD), the car models in `cardata.viv`, which folder each program is in, the string tables found, and the race's palette from the loose `hud.fsh` |
 
@@ -20,7 +21,7 @@ tests build (`makeNfs2seInstall`, `makeNfs2seCd` in
 its record `tests/engines/nfs/data/engine-record-nfs2se.txt`: a small
 install and a CD's copy beside it, recognised and found; the viewer
 through its pages (Status, Textures with a pause picture in the HUD's
-palette, Strings with their places, Sounds, Music); the game's Status page until
+palette, Strings with their places, Sounds, Music, Movies with a one-macroblock movie); the game's Status page until
 Esc; and the game without the CD's copy, which says where to put it.
 
 ### The game-files test
@@ -45,12 +46,15 @@ That the real release is recognised by its hashes: checked by hand
    weren't found.
 4. In `reluva-viewer`, the Tracks page: each track (PageUp/PageDown)
    drawn whole, its trees and fences see-through; Up/Down along the
-   road. The Cars page: each model, L through its levels.
+   road. The Cars page: each model, L through its levels. The Movies
+   page: each movie (Up/Down) with its sound in step, Left/Right 5
+   seconds.
 
 ## Last checked
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US CD and an install from it | Linux | `reluva-tool nfs survey` over the CD: 15 movies, 9,340 frames and 15 soundtracks read, none failing; frame 100 of every movie and every 50th of `F355AV.DCT` (`dct-frames`) against FFmpeg's decoding: within 8 in 255 per colour; the Movies page drawn (`reluva-tool nfs page`) |
 | November 2026 | US CD and an install from it | Linux, Xvfb, Mesa's software Vulkan (llvmpipe) | The Tracks page on Proving Grounds and Monolithic Studios (`RELUVA_NFS2SE_TRACK_VIEW`): the road, barriers, floodlights, the stranded ship, trees see-through once `0x07C0` is keyed out, the studio's streets, sci-fi set and neon section; the Cars page on `futr` and the F355 (`RELUVA_NFS2SE_CARS_VIEW`): its tail lights, grille and plates |
 | November 2026 | US CD and an install from it | Linux | `reluva-tool nfs survey` over the CD and the install with NFS II's own readers: all 8 tracks, 8 `.col` files, 34 skies, 8 light files and 53 car models read, nothing failing; Proving Grounds and the F355 and T. rex exported (`trk-obj`, `geo-obj`) and drawn elsewhere |
 | November 2026 | US CD and an install from it | Linux | `reluva-tool nfs survey` over the CD and the install: every archive, picture bank, picture, text table, font, sound bank and sound, music stream, segment and map, and `.qda` file read, none failing but NFS II's own `.col` and `.hrz`; the Textures page's pause screen (`PAUSEEN.QFS`'s `head`) in the HUD's palette beside its 3dfx copy, and the Strings and Music pages, drawn (`reluva-tool nfs page`) |

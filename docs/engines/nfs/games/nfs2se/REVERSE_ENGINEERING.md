@@ -49,7 +49,9 @@ Allowed under CONTRIBUTING.md, as for NFS III
   files and checked on every retail file by survey scripts, the car
   models' layout against OpenNFS's reader too, and the geometry looked at
   (`trk-obj`, `geo-obj`): Proving Grounds a closed circuit, the models
-  cars and a T. rex.
+  cars and a T. rex. The movies' frames decoded by a prototype in Python
+  until their pictures came out whole, then compared with FFmpeg's
+  decoding of the same frames (its output only).
 - **Recognising the release:** the files compared between the install
   and the CD (`cmp`) for ones both have the same, and hashed as
   detection hashes them (MD5 of the first 5000 bytes).
@@ -72,6 +74,7 @@ Allowed under CONTRIBUTING.md, as for NFS III
 | `reluva-tool nfs page <folder> <out.tga> <page>` | Draws one of the engine's pages for the game in the folder, without a window (the Status page, say) |
 | `reluva-tool nfs trk-obj <file.trk> <out.obj> [level]` | A track as a Wavefront OBJ, to look at elsewhere: its ground at a level of detail and its placed objects |
 | `reluva-tool nfs geo-obj <file.geo or file.viv name> <out.obj> [-level n]` | A car model as a Wavefront OBJ, all its parts or one level's |
+| `reluva-tool nfs dct-frames <file.dct> <output dir> [first] [count] [every]` | A movie's frames as pictures |
 
 ## Working files not included
 

@@ -33,12 +33,12 @@ the cars' data is in both. The CD's 3dfx program, `NFS2SEA.EXE`, is in
   picture bank (311 on the CD), text table, font, sound bank, music
   stream and map, and the compressed `.qda` data, with NFS II SE's
   differences ([../../formats/](../../formats/)); and its own tracks,
-  `.col` files, skies, lights and car models ([formats/](formats/)). Its
-  movies are still to come.
+  `.col` files, skies, lights, car models and movies
+  ([formats/](formats/)).
 - **The data viewer** has, beside the Status page, every track and car
   model in 3D (the Tracks and Cars pages), its pictures (the pause
   screens in the race's palette, as the software game draws them),
-  strings, fonts, sounds and music. Its retail files were surveyed in
+  strings, fonts, sounds, music, and movies with their sound. Its retail files were surveyed in
   [research/first-survey.md](research/first-survey.md).
 - Plans, phases and decisions: [PLAN.md](PLAN.md).
 
@@ -64,7 +64,7 @@ launcher>` shows its files.
 | Page | What's in it |
 |---|---|
 | This page | Where it stands, how to use it |
-| [formats/](formats/) | The game's own files: [trk.md](formats/trk.md) (tracks), [col.md](formats/col.md) (textures, objects, the virtual road), [hrz.md](formats/hrz.md) (skies and lights), [geo.md](formats/geo.md) (car models) |
+| [formats/](formats/) | The game's own files: [trk.md](formats/trk.md) (tracks), [col.md](formats/col.md) (textures, objects, the virtual road), [hrz.md](formats/hrz.md) (skies and lights), [geo.md](formats/geo.md) (car models), [dct.md](formats/dct.md) (movies) |
 | [research/](research/README.md) | Working notes: the first survey of the retail files and executables |
 | [PLAN.md](PLAN.md) | The plan, its phases and decisions |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |

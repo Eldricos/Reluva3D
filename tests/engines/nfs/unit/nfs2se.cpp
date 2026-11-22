@@ -2,11 +2,13 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Need for Speed II SE's own formats, on files built here: its tracks
-// (.trk) and their .col files, skies and lights, and car models (.geo).
+// (.trk) and their .col files, skies and lights, car models (.geo) and
+// movies (.dct).
 //
 //   reluva-tests nfs.unit.nfs2se
 
 #include "engines/nfs/nfs2se/formats/col.h"
+#include "engines/nfs/nfs2se/formats/dct.h"
 #include "engines/nfs/nfs2se/formats/geo.h"
 #include "engines/nfs/nfs2se/formats/hrz.h"
 #include "engines/nfs/nfs2se/formats/trk.h"
@@ -290,6 +292,67 @@ void testCarModel() {
     CHECK(nfs2se::parseCarModel(cut, model));
 }
 
+void testMovie() {
+    auto chunk = [](Bytes &out, const char *tag, const Bytes &body) {
+        out.insert(out.end(), tag, tag + 4);
+        put32(out, uint32_t(8 + body.size()));
+        out.insert(out.end(), body.begin(), body.end());
+    };
+    // A video chunk: 0, the size, then a 16x16 MDEC frame of flat grey
+    // (six blocks of DC 0 and their ends).
+    auto video = [](int width, int height) {
+        Bytes v;
+        put32(v, 0);
+        put16(v, unsigned(width));
+        put16(v, unsigned(height));
+        for (unsigned w : {5u, 0x3800u, 1u, 2u, 0x20u, 0x200u, 0x2002u, 0x20u, 0x200u})
+            put16(v, w);
+        return v;
+    };
+    // The sound: one block of 28 stereo EA-XA samples, a frame either side.
+    Bytes dct;
+    chunk(dct, "mTCD", video(16, 16));
+    chunk(dct, "SCHl", ptHeader({{0x82, 2}, {0x83, 7}, {0x85, 28}}));
+    Bytes count;
+    put32(count, 1);
+    chunk(dct, "SCCl", count);
+    chunk(dct, "mTCD", video(16, 16));
+    Bytes xa;
+    put32(xa, 28);
+    xa.insert(xa.end(), 8, 0);
+    Bytes group(30, 0);
+    group[1] = 0xcc;
+    xa.insert(xa.end(), group.begin(), group.end());
+    chunk(dct, "SCDl", xa);
+    chunk(dct, "SCEl", {});
+
+    nfs2se::DctMovie movie;
+    CHECK(!movie.open(dct));
+    CHECK(movie.frames().size() == 2 && movie.width() == 16 && movie.height() == 16);
+    CHECK(movie.frames()[0].offset == 16 && movie.frames()[0].size == 18);
+    CHECK(movie.hasAudio() && movie.framesPerSecond() == 2.0 * 22050 / 28);
+    reluva::mdec::Decoder decoder;
+    CHECK(!movie.decodeFrame(decoder, 1) && decoder.plane(0)[255] == 128);
+    CHECK(movie.decodeFrame(decoder, 2));
+    reluva::audio::Sound sound;
+    CHECK(!movie.decodeAudio(sound) && sound.channels == 2 && sound.samples.size() == 56);
+
+    Bytes silent;
+    chunk(silent, "mTCD", video(16, 16));
+    CHECK(!movie.open(silent) && !movie.hasAudio() && movie.framesPerSecond() == 15);
+    CHECK(movie.decodeAudio(sound));
+
+    Bytes sizes = silent;
+    chunk(sizes, "mTCD", video(32, 16));
+    CHECK(movie.open(sizes));
+    Bytes cut = dct;
+    cut.resize(cut.size() - 4);
+    CHECK(movie.open(cut));
+    Bytes noVideo;
+    chunk(noVideo, "SCEl", {});
+    CHECK(movie.open(noVideo));
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("nfs.unit.nfs2se",
@@ -298,4 +361,5 @@ static const reluva::test::Suite kSuite("nfs.unit.nfs2se",
                                             {"collision", [](const stdfs::path &) { testCollision(); }},
                                             {"sky", [](const stdfs::path &) { testSky(); }},
                                             {"car model", [](const stdfs::path &) { testCarModel(); }},
+                                            {"movie", [](const stdfs::path &) { testMovie(); }},
                                         });

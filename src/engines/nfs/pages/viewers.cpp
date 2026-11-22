@@ -4,6 +4,7 @@
 #include "engines/nfs/pages/viewers.h"
 
 #include "engines/nfs/nfs2se/pages/car_page.h"
+#include "engines/nfs/nfs2se/pages/movie_page.h"
 #include "engines/nfs/nfs2se/pages/track_page.h"
 #include "engines/nfs/nfs2se/status_page.h"
 #include "engines/nfs/nfs3/pages/car_viewer.h"
@@ -679,6 +680,8 @@ std::vector<std::unique_ptr<Page>> makePages(const GameInfo &game, const GameFol
     pages.push_back(std::make_unique<SoundPage>(files, mixer));
     pages.push_back(std::make_unique<MusicPage>(files, mixer));
     pages.push_back(std::make_unique<MoviePage>(files, mixer));
+    if (game.game == Game::kNfs2Se)
+        pages.push_back(std::make_unique<nfs2se::MoviePage>(files, mixer));
     std::erase_if(pages, [](const std::unique_ptr<Page> &p) { return p->empty(); });
     return pages;
 }

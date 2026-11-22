@@ -62,4 +62,5 @@ A frame is an 8-byte header, then its bits:
 
 ## Used by
 
-- **`nfs`**: Need for Speed II SE's movies.
+- **`nfs`**: Need for Speed II SE's movies
+  ([dct.md](../../engines/nfs/games/nfs2se/formats/dct.md)).

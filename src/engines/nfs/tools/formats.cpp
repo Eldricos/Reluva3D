@@ -14,6 +14,7 @@
 #include "engines/nfs/formats/bnk.h"
 #include "engines/nfs/formats/col.h"
 #include "engines/nfs/nfs2se/formats/col.h"
+#include "engines/nfs/nfs2se/formats/dct.h"
 #include "engines/nfs/nfs2se/formats/geo.h"
 #include "engines/nfs/nfs2se/formats/hrz.h"
 #include "engines/nfs/nfs2se/formats/trk.h"
@@ -294,6 +295,9 @@ int cmdNfsSurvey(int argc, char **argv) {
     Count nfs2Skies;                      // NFS II's .hrz
     Count nfs2Lights;                     // .lgt
     Count nfs2Models;                     // .geo
+    Count nfs2Movies;                     // .dct
+    Count nfs2Frames;                     // their frames (MDEC)
+    Count nfs2MovieAudio;                 // their sound
     Count lentPalette;                    // 4- and 8-bit pictures with no palette, which the game lends one
     int empty = 0;                        // empty picture banks (NFS II SE's huddata.viv has three)
     int placeholders = 0;                 // the installer's stand-ins for files the game writes (NFS II SE's temp.mus)
@@ -344,6 +348,27 @@ int cmdNfsSurvey(int argc, char **argv) {
                     nfs2Tracks.add(&b.vertices[0], b.vertices.size() * sizeof b.vertices[0]);
                     nfs2Tracks.add(int32_t(b.levels[2].first.size()));
                 }
+            return;
+        }
+        if (ext == ".dct") {
+            reluva::nfs::nfs2se::DctMovie movie;
+            const Error err = movie.open(std::move(data));
+            report(nfs2Movies, what, err);
+            reluva::mdec::Decoder decoder;
+            for (size_t i = 0; !err && i < movie.frames().size(); ++i) {
+                const Error e = movie.decodeFrame(decoder, i);
+                report(nfs2Frames, what + ":" + std::to_string(i), e);
+                if (!e && hashes)
+                    for (int plane = 0; plane < 3; ++plane)
+                        nfs2Frames.add(decoder.plane(plane));
+            }
+            if (!err && movie.hasAudio()) {
+                reluva::audio::Sound sound;
+                const Error e = movie.decodeAudio(sound);
+                report(nfs2MovieAudio, what, e);
+                if (!e)
+                    nfs2MovieAudio.add(sound.samples);
+            }
             return;
         }
         if (ext == ".geo") {
@@ -538,7 +563,7 @@ int cmdNfsSurvey(int argc, char **argv) {
             } else if (ext == ".fsh" || ext == ".qfs" || ext == ".ffn" || ext == ".fce" || ext == ".frd" ||
                        ext == ".col" || ext == ".hrz" || ext == ".bnk" || ext == ".mus" || ext == ".map" ||
                        ext == ".lin" || ext == ".mad" || ext == ".qda" || ext == ".trk" || ext == ".lgt" ||
-                       ext == ".geo" || lower(path.stem().string()) == "text" ||
+                       ext == ".geo" || ext == ".dct" || lower(path.stem().string()) == "text" ||
                        lower(path.stem().string()) == "textsim") {
                 std::vector<uint8_t> data;
                 if (!readFile(path, data)) {
@@ -570,7 +595,8 @@ int cmdNfsSurvey(int argc, char **argv) {
     const std::pair<const Count *, const char *> extra[] = {
         {&compressed, ".qda files"},  {&lentPalette, "lent a palette"}, {&raceText, "textsim tables"},
         {&nfs2Tracks, ".trk tracks"}, {&nfs2Collisions, "NFS II .col"}, {&nfs2Skies, "NFS II .hrz"},
-        {&nfs2Lights, ".lgt lights"}, {&nfs2Models, ".geo models"}};
+        {&nfs2Lights, ".lgt lights"}, {&nfs2Models, ".geo models"},     {&nfs2Movies, ".dct movies"},
+        {&nfs2Frames, ".dct frames"}, {&nfs2MovieAudio, ".dct audio"}};
     for (const auto &[count, name] : extra) {
         if (count->ok + count->failed == 0)
             continue;
@@ -1182,6 +1208,48 @@ int cmdMadFrames(int argc, char **argv) {
     return 0;
 }
 
+// NFS II SE's movie frames as TGA files: a range, and every nth of it.
+int cmdDctFrames(int argc, char **argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool nfs dct-frames <file.dct> <output dir> [first] [count] [every]\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    if (!readFile(argv[2], data)) {
+        std::fprintf(stderr, "Can't read %s\n", argv[2]);
+        return 1;
+    }
+    reluva::nfs::nfs2se::DctMovie movie;
+    if (Error err = movie.open(std::move(data)))
+        return fail(err);
+    const size_t first = argc > 4 ? size_t(std::atoi(argv[4])) : 0;
+    const size_t count = argc > 5 ? size_t(std::atoi(argv[5])) : movie.frames().size();
+    const size_t every = argc > 6 ? std::max<size_t>(1, size_t(std::atoi(argv[6]))) : 1;
+    reluva::mdec::Decoder decoder;
+    int written = 0;
+    // Every frame stands alone: only those asked for are decoded.
+    for (size_t i = first; i < movie.frames().size() && i < first + count; i += every) {
+        if (Error err = movie.decodeFrame(decoder, i))
+            return fail(err);
+        reluva::Surface s;
+        decoder.toSurface(s);
+        reluva::image::Image img;
+        img.w = s.w;
+        img.h = s.h;
+        img.rgba = std::move(s.pixels);
+        char name[32];
+        std::snprintf(name, sizeof name, "%05zu.tga", i);
+        if (!writeFile(stdfs::path(argv[3]) / name, reluva::image::encodeTga(img))) {
+            std::fprintf(stderr, "can't write into %s\n", argv[3]);
+            return 1;
+        }
+        ++written;
+    }
+    std::printf("%d frames (%dx%d, %.2f a second) written to %s\n", written, movie.width(), movie.height(),
+                movie.framesPerSecond(), argv[3]);
+    return 0;
+}
+
 int cmdMadWav(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool nfs mad-wav <file.mad> <out.wav>\n");
@@ -1237,6 +1305,8 @@ const reluva::tool::Commands kCommands(
         {"mad-info", "<file.mad>", "a movie's frames and sound", cmdMadInfo},
         {"mad-frames", "<file.mad> <output dir> [first frame] [count] [-game] [-display 1-3]",
          "a movie's frames as TGA files", cmdMadFrames},
+        {"dct-frames", "<file.dct> <output dir> [first] [count] [every]", "an NFS II SE movie's frames as TGA files",
+         cmdDctFrames},
         {"mad-wav", "<file.mad> <out.wav>", "a movie's sound as a WAV file", cmdMadWav},
     });
 

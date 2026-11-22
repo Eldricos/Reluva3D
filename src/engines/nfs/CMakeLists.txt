@@ -40,6 +40,7 @@ reluva_add_engine(nfs
         host/thrash_native.cpp
         nfs2se/files.cpp
         nfs2se/formats/col.cpp
+        nfs2se/formats/dct.cpp
         nfs2se/formats/geo.cpp
         nfs2se/formats/hrz.cpp
         nfs2se/formats/trk.cpp
@@ -55,6 +56,7 @@ reluva_add_engine_viewers(nfs
         nfs3/pages/car_viewer.cpp
         nfs3/pages/track_viewer.cpp
         nfs2se/pages/car_page.cpp
+        nfs2se/pages/movie_page.cpp
         nfs2se/pages/track_page.cpp
         pages/media_viewer.cpp)
 

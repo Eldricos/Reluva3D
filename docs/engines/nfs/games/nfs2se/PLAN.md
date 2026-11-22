@@ -138,11 +138,20 @@ with what it found written on the game's pages in `formats/` and
 
    The Tracks and Cars pages draw them, checked under Xvfb on Mesa's
    software Vulkan ([TESTING.md](TESTING.md#last-checked)).
-4. **Movies** (next): the `mTCD` video in the `SCHl` streams (`.dct`, EA's
+4. **Movies** (done): the `mTCD` video in the `SCHl` streams (`.dct`, EA's
    intra-frame DCT codec), likely shared code in `src/video/` with a
    page in `docs/common/video/`, as other EA titles of the time used it;
    the Movies page; the attract-mode demos (`demo.0`-`demo.2`).
-5. **The hosted spike, and its gate:**
+
+   Built: the frames are the PlayStation's MDEC frames, decoded by
+   shared code (`src/video/mdec.cpp`, [mdec.md](../../../../common/video/mdec.md)),
+   with MPEG-1's tables moved out of NFS III's MAD decoder to
+   `src/video/mpeg1.h` for both; the movies read by `DctMovie`
+   ([dct.md](formats/dct.md)) and played with their sound on the Movies
+   page. All 15 movies' 9,340 frames decode, matching FFmpeg's pictures
+   to within rounding. `demo.0`-`demo.2` turned out not to be movies:
+   three copies of one file, left for Phase 6, when the game runs.
+5. **The hosted spike, and its gate** (next):
    - make `GameHost` game-neutral: what's NFS III's own (its patched
      addresses, THRASH, its native routines: `host/thrash.cpp`,
      `host/thrash_native.cpp`, `render/thrash_gpu.cpp`) moves to
@@ -154,7 +163,8 @@ with what it found written on the game's pages in `formats/` and
    - measure the speed of a race in the software renderer;
    - gate: hosted if it plays at full speed, else what it would take.
 6. **Hosted play:** the front end, every race type, the iSND sound
-   through its own `eacsnd.dll`, the CD music and movies, input and
+   through its own `eacsnd.dll`, the CD music and movies, the attract
+   mode (what `demo.0`-`demo.2` are), input and
    force feedback, saves in Reluva's save folder; the game-files test
    (its steps in `tests/engines/nfs/gamedata.cmake`, as `nfs.nfs2se`).
 7. **3dfx:** `nfs2sea.exe` on the Glide stand-in, in software and on the

@@ -352,6 +352,23 @@ void engineTest(const stdfs::path &tmp) {
 
 // NFS II SE, which can't be played yet: found as the launcher finds it,
 // its folders and files, the viewer's pages, and the game's Status page.
+// NFS II SE's movie (dct.md): two 16x16 frames with no sound, each one
+// macroblock of DC terms alone: Cr 40, Cb -40, the luma blocks 64, 0, -64
+// and 0 (a reddish picture in four shades).
+Bytes nfs2seMovie() {
+    Bytes dct;
+    for (int i = 0; i < 2; ++i) {
+        dct.insert(dct.end(), {'m', 'T', 'C', 'D'});
+        put32(dct, 16 + 18);
+        put32(dct, 0);
+        put16(dct, 16);
+        put16(dct, 16);
+        for (unsigned w : {5u, 0x3800u, 1u, 2u, 0xa2fu, 0x6210u, 0x2002u, 0xf020u, 0x200u})
+            put16(dct, w);
+    }
+    return dct;
+}
+
 void nfs2seTest(const stdfs::path &tmp) {
     test::Record rec;
     const MetaEngine *engine = findEngine("nfs");
@@ -362,6 +379,7 @@ void nfs2seTest(const stdfs::path &tmp) {
     makeNfs2seInstall(install);
     makeNfs2seCd(tmp / "NFS2SE-CD");
     write(install / "GameData/Audio/SFX/sound.bnk", soundBank());
+    write(tmp / "NFS2SE-CD/FEDATA/PC/MOVIES/CALAAV.DCT", nfs2seMovie());
     // The front end's strings, with their places (text.md).
     Bytes text;
     for (const auto &[x, offset] : {std::pair{168, 24}, std::pair{620, 29}}) {
