@@ -59,6 +59,8 @@ public:
             {"frontend_movies", "Intro and menu animations", "Play the installed publisher/game intros with their soundtracks and animate available mode buttons. Escape skips the intro.", true, {}},
             {"classic_menu", "Game selection menu", "Choose Classic and its board before play; disable to open the existing round screen directly.", true, {}},
             {"classic_music", "Classic music", "Loop an installed WAV track independently of sound effects. Random chooses once per launch.", true, std::move(music)},
+            {"classic_word_policy", "Unknown words", "Choose how to handle traceable words missing from the dictionary.", true,
+             {{"deferred","Review at round end"},{"ask","Ask immediately"},{"add","Add to personal dictionary"},{"reject","Reject"}}},
             {"classic_sound", "Classic sound effects", "Play the installed game's WAV sound effects.", true, {}},
             {"classic_animations", "Classic round animations", "Play the installed Classic lid/roll clips before and after each round.", true, {}},
             {"classic_variant", "Classic variant", "Original: 4 x 4, minimum 3 letters. Master: 5 x 5, minimum 4 letters.", true,

@@ -577,3 +577,33 @@ enter rounds and return through Players/selection. All 56 restored original
 files match their committed manifest hashes; raw originals, captures and probe
 output stay outside Git. The owner confirmed version placement works; Windows
 testing of the new background is pending.
+
+## Further Classic panel artwork and dictionary controls
+
+The roster now loads `ClsO1PN.bmp` or `ClsM1PN.bmp` (550x200), according to the
+currently selected variant. Classic turn handoff loads its 400x300 `NP.bmp`;
+rankings load `Bitmaps/High1.bmp` (640x480). Each optional image maps to that
+view's validated template bounds with nearest-neighbor samples. Optional
+`Fonts/NELSON.TTF` supplies independently rasterized 20-pixel titles. Missing
+assets preserve native drawing; present malformed/wrong-size assets fail when
+selected. `PanelArt` validates destination format, storage, pitch and bounds,
+and clears loaded state on errors. Artwork opt-out bypasses these resources.
+Native labels, controls, spacing and font sizing remain explicit choices.
+
+Read-only EXE evidence constructs the player-name `PN.bmp` path at `0x44b6d0`,
+next-player `NP.bmp` paths at `0x431006` / `0x449c56`, and `High1.bmp` at
+`0x43e5f3`. The supplied font parses all printable ASCII through the existing
+bounded TrueType reader; Windows hint programs are never executed. Exact
+original font role/metrics, button skins and pixel matching remain comparison
+work. `Words / W` and `Dictionary / D` are native footer controls on Players;
+see [dictionary editing](dictionary-editor.md). Existing Players/menu snapshots
+change for these controls; gameplay snapshots are unchanged.
+
+New imports optionally add the six panel/font files (62 files for the supplied
+set). Synthetic tests cover sampling, clipping, invalid surfaces, failed loads,
+malformed fonts, editor save/cancel/failure and dictionary-policy behavior.
+External SDL software runs inspect the roster, editor and high-score screens,
+enter Original/Master rounds and restore text input on exit. The owner confirmed
+the preceding version background; Windows checks of this batch remain pending.
+The original mode hover/sound triggers are still being verified and are not
+changed by this batch.

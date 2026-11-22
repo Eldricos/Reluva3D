@@ -8,6 +8,8 @@ reluva_add_engine(boggle
     SOURCES
         boggle.cpp
         frontend/name_edit.cpp
+        frontend/panel_art.cpp
+        frontend/dictionary_editor.cpp
         frontend/options_dialog.cpp
         frontend/roster_dialog.cpp
         frontend/name_dialog.cpp
@@ -17,6 +19,7 @@ reluva_add_engine(boggle
         import.cpp
         resources.cpp
         formats/bitmap.cpp
+        formats/frame_comparison.cpp
         formats/dialog.cpp
         formats/text_resources.cpp
         formats/cursor_image.cpp
@@ -52,6 +55,7 @@ reluva_add_engine(boggle
 reluva_add_engine_tools(boggle
     SOURCES
         tools/dialog.cpp
+        tools/frame_comparison.cpp
         tools/background.cpp
         tools/computer.cpp
         tools/competition.cpp

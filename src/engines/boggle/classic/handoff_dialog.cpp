@@ -32,7 +32,8 @@ void ClassicHandoffDialog::draw(Surface& screen,std::string_view next,bool chess
     const Color white{240,240,255},muted{180,195,210};
     // Passing the controls must not expose the current board or word list.
     box({0,0,800,600},{18,32,48});box(bounds_,{50,78,108});box({bounds_.x+3,bounds_.y+3,bounds_.w-6,bounds_.h-6},{22,40,60});
-    font::drawText(screen,bounds_.x+16,bounds_.y+16,chess && !finished.empty()?"PLAYER FINISHED":"NEXT PLAYER",white,2);
+    art_.draw(screen,bounds_.x,bounds_.y,bounds_.w,bounds_.h);
+    art_.title(screen,bounds_.x+16,bounds_.y+16,chess && !finished.empty()?"PLAYER FINISHED":"NEXT PLAYER",white,bounds_.w-32);
     int y=message_.y;
     if(chess)for(size_t i=0;i<std::min(finished.size(),size_t(3));++i){
         font::drawText(screen,message_.x,y,finished[i].substr(0,18)+"'s game is over.",muted);y+=14;

@@ -75,6 +75,17 @@ Error UserDictionary::add(const std::vector<std::string>& additions) {
         if (!englishWord(word, normalized) || normalized.size() < 3) return Error::fail("User words need at least three English letters");
         next.insert(std::move(normalized));
     }
+    return commit(std::move(next));
+}
+Error UserDictionary::replace(const std::vector<std::string>& words) {
+    std::set<std::string> next;
+    for(const auto& word:words){
+        std::string normalized;if(!englishWord(word,normalized) || normalized.size()<3)return Error::fail("User words need 3 to 64 English letters");
+        next.insert(std::move(normalized));if(next.size()>maxWords)return Error::fail("User dictionary word limit exceeded");
+    }
+    return commit(std::move(next));
+}
+Error UserDictionary::commit(std::set<std::string> next) {
     if (next == words_) return Error::success();
     if (next.size() > maxWords) return Error::fail("User dictionary word limit exceeded");
     if (file_.empty()) return Error::fail("No save directory is available for user words. Choose No to continue.");

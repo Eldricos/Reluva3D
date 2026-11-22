@@ -49,8 +49,9 @@ void ClassicScoresDialog::draw(Surface& screen,const HighScores& scores,std::str
     auto box=[&](HistoryButton b,Color color){for(int y=std::max(0,b.y);y<std::min(screen.h,b.y+b.h);++y)for(int x=std::max(0,b.x);x<std::min(screen.w,b.x+b.w);++x){auto* p=screen.row(y)+x*4;p[0]=color.r;p[1]=color.g;p[2]=color.b;p[3]=255;}};
     const Color white{240,240,255},muted{180,195,210};
     box(bounds_,{50,78,108});box({bounds_.x+3,bounds_.y+3,bounds_.w-6,bounds_.h-6},{22,40,60});
+    art_.draw(screen,bounds_.x,bounds_.y,bounds_.w,bounds_.h);
     const int x=bounds_.x+16,y=bounds_.y;
-    font::drawText(screen,x,y+16,"HIGH SCORES",white,2);
+    art_.title(screen,x,y+16,"HIGH SCORES",white,bounds_.w-32);
     font::drawText(screen,x,y+48,"CLASSIC / ALL VERSIONS AND ROUND LENGTHS",muted);
     font::drawText(screen,x,y+68,"Top ten Classic scores; player names may repeat.",muted);
     font::drawText(screen,x,y+88,error.empty()?(scores.persistent()?"Saved in your launcher profile.":"Session only; no save directory configured."):"Scores unavailable until a successful retry.",muted);

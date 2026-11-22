@@ -6,9 +6,9 @@ in your external game library. The launcher previews the copy plan before
 copying. **Add Game** can still use the original installed folder directly.
 Neither operation runs the Windows installer or original executable.
 
-The plan now copies 56 files (16,002,596 bytes for the supplied release): the current
+The plan now copies 62 files (16,831,246 bytes for the supplied release): the current
 U.S. English Classic Original/Master dependencies plus the existing detection
-markers, the optional game-selection and version-selection backgrounds, publisher intro, five mode-button clips and six optional Classic artwork files plus the handwriting font, optional computer vocabulary and two optional cube scripts. This supports all native Classic options, including both lid clips,
+markers, the optional selection/dialog backgrounds and Nelson title font, publisher intro, five mode-button clips and six optional Classic artwork files plus the handwriting font, optional computer vocabulary and two optional cube scripts. This supports all native Classic options, including both lid clips,
 eight effects and fifteen music tracks. Source paths are matched without regard
 to case and destination names are consistent across platforms. The plan is
 stable and does not recursively copy unknown files.
@@ -166,3 +166,11 @@ is included when present. Older imports without `GS1CS.bmp` keep the plain
 version panel; profiles and saved dictionaries need no migration. The supplied
 copy-plan and frontend checksum entries changed for this addition; copied-game
 play, audio and other metadata entries remain unchanged.
+
+The Classic presentation completion pass optionally adds `ClsO1PN.bmp`,
+`ClsM1PN.bmp`, `ClsO1NP.bmp`, `ClsM1NP.bmp`, `High1.bmp` and `Fonts/NELSON.TTF`.
+These are runtime data for the roster, handoff and ranking views. The supplied
+plan now contains 62 files / 16,831,246 bytes. Copies lacking the optional files
+retain native backgrounds/titles. The INSO definition archive and its DLLs are
+not imported or executed by this engine. Only the import-plan checksum changed;
+existing copied-game metadata remains identical.

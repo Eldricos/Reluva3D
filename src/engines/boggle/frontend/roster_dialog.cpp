@@ -58,7 +58,8 @@ void FrontendRosterDialog::draw(Surface& screen,const std::array<std::string,4>&
     auto box=[&](SelectionRect b,Color color){for(int y=b.y;y<b.y+b.h;++y)for(int x=b.x;x<b.x+b.w;++x){auto* p=screen.row(y)+x*4;p[0]=color.r;p[1]=color.g;p[2]=color.b;p[3]=255;}};
     const Color white{245,245,255},muted{170,181,205},dark{17,15,35},gold{224,189,99};
     box({0,0,640,480},dark);box(bounds_,gold);box({bounds_.x+2,bounds_.y+2,bounds_.w-4,bounds_.h-4},dark);
-    font::drawText(screen,message_.x,message_.y,"LOCAL PLAYERS",white,2);
+    art_.draw(screen,bounds_.x,bounds_.y,bounds_.w,bounds_.h);
+    art_.title(screen,message_.x,message_.y,"LOCAL PLAYERS",white,message_.w);
     font::drawText(screen,message_.x,message_.y+22,"1-4 / click: choose a human or computer",muted);
     for(size_t i=0;i<4;++i){
         const auto f=fields_[i];

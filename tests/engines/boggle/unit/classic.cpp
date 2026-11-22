@@ -23,6 +23,25 @@ Dictionary dictionary() {
 Board board() {
     Board b; CHECK(!b.set(4, {"C","A","T","S", "X","Qu","I","T", "B","D","E","F", "G","H","J","K"})); return b;
 }
+void policies(const std::filesystem::path& tmp){
+    auto d=dictionary();UserDictionary user;CHECK(!user.load(tmp/"save"));
+    ClassicRound reject(d,&user,WordPolicy::Reject);CHECK(!reject.board(board()) && !reject.start(0));
+    CHECK(reject.submit("TAX",1)==Submission::RejectedWord && reject.score()==0 && reject.words().empty());
+    CHECK(reject.submit("CAT",2)==Submission::Accepted);
+    ClassicRound ask(d,&user,WordPolicy::AskNow);CHECK(!ask.board(board()) && !ask.start(0));
+    CHECK(ask.submit("TAX",1)==Submission::UnknownWord && ask.candidate() && ask.score()==1);
+    CHECK(!ask.decide(DictionaryChoice::NoAll) && ask.score()==0 && !ask.candidate());
+    CHECK(ask.submit("CAX",2)==Submission::RejectedWord);
+    CHECK(bool(ask.board(board()))); // an active round cannot be replaced
+    ask.finish();CHECK(!ask.start(4));CHECK(ask.submit("TAX",5)==Submission::UnknownWord);
+    CHECK(!ask.decide(DictionaryChoice::YesAll) && user.contains("TAX"));
+    CHECK(ask.submit("CAX",6)==Submission::Accepted && user.contains("CAX"));
+    ClassicRound add(d,&user,WordPolicy::Add);CHECK(!add.board(board()) && !add.start(0));
+    CHECK(add.submit("TAC",1)==Submission::Accepted); // main vocabulary does not require a write
+    UserDictionary missing;CHECK(!missing.load({}));ClassicRound failure(d,&missing,WordPolicy::Add);CHECK(!failure.board(board()) && !failure.start(0));
+    CHECK(failure.submit("TAX",1)==Submission::SaveFailed && failure.score()==0 && failure.words().empty() && !failure.saveError().empty());
+    CHECK(failure.submit("TAC",2)==Submission::Accepted);
+}
 void keyboard() {
     std::string input;bool following=false;
     CHECK(appendEnglishCubes("q",input,following) && input=="QU" && following);
@@ -216,6 +235,7 @@ void scoringAndGeneration() {
 }
 }
 static const test::Suite suite("boggle.unit.classic", {
+    {"unknown-word policies, immediate decisions, round-scoped All and save failure",policies},
     {"incremental keyboard paths, ambiguity, rejected cubes, bounds and Qu", [](const auto&) { boardKeyboard(); }},
     {"keyboard Qu, explicit U, whole-cube erasure and atomic bounds", [](const auto&) { keyboard(); }},
     {"shared approvals resolve later reviews without restoring declined words", [](const auto& tmp) { sharedReview(tmp); }},

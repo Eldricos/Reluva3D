@@ -11,6 +11,12 @@ int chooseClassicMusic(int choice, uint32_t seed) {
 }
 Error readClassicOptions(const std::map<std::string,std::string>& settings, ClassicOptions& out) {
     out = {}; ClassicOptions parsed;
+    if(auto it=settings.find("classic_word_policy");it!=settings.end()){
+        if(it->second=="ask")parsed.wordPolicy=WordPolicy::AskNow;
+        else if(it->second=="add")parsed.wordPolicy=WordPolicy::Add;
+        else if(it->second=="reject")parsed.wordPolicy=WordPolicy::Reject;
+        else if(it->second!="deferred")return Error::fail("Unsupported Classic unknown-word rule");
+    }
     if (auto it = settings.find("classic_variant"); it != settings.end()) {
         if (it->second == "master") parsed.variant = ClassicVariant::Master;
         else if (it->second != "original") return Error::fail("Unsupported Classic variant; choose Original or Master in game options");

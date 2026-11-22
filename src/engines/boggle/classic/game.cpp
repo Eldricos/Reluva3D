@@ -128,6 +128,8 @@ std::string feedback(Submission result, size_t minimum) {
     case Submission::NotOnBoard: return "No matching path on this board.";
     case Submission::Duplicate: return "";
     case Submission::SelectPath: return "Please select this word on the board.";
+    case Submission::RejectedWord: return "Not in the dictionary; this round rejects unknown words.";
+    case Submission::SaveFailed: return "Cannot save the word; retry or change the word rule.";
     }
     return "";
 }
@@ -286,6 +288,8 @@ Error ClassicGame::run() {
             if(auto error=scoresDialog.read(language.resources))return error;
             if(auto error=matchDialog.read(language.resources))return error;
             if(auto error=handoffDialog.read(language.resources))return error;
+            if(auto error=scoresDialog.artwork(resources,target_.path))return error;
+            if(auto error=handoffDialog.artwork(resources,target_.path,options.variant==ClassicVariant::Master))return error;
         }
     }
     ClassicAudio sound(sys_);
@@ -294,7 +298,7 @@ Error ClassicGame::run() {
     if (auto err = user.load(target_.savePath, target_.path)) return err;
     HighScores highScores;
     auto scoreError=highScores.load(target_.savePath,target_.path);
-    bool scoreAttempted=false,scoreOpen=false,scoresFromMatch=false,matchOpen=false,handoff=false,handoffVisible=false;
+    bool scoreAttempted=false,scoreOpen=false,scoresFromMatch=false,matchOpen=false,handoff=false,handoffVisible=false,dictionaryNotice=false;
     std::vector<std::string> finishedNotices;
     RoundResults results;Board board;uint32_t seed=options.seed?*options.seed:freshClassicSeed();
     std::vector<std::unique_ptr<ClassicRound>> rounds;size_t turn=0,reviewPlayer=0,nextTurn=0;ClassicCompetition competition;PlayerClocks clocks,backgroundClock;
@@ -320,7 +324,7 @@ Error ClassicGame::run() {
         for(size_t i=0;i<names.size();++i) {
             if(kinds[i]!=ComputerLevel::Human)
                 if(auto error=plans[i].build(cubes,computerDictionary,dictionary,kinds[i],seed,i,500000,&computerGeometry))return error;
-            auto current=std::make_unique<ClassicRound>(dictionary,&user);
+            auto current=std::make_unique<ClassicRound>(dictionary,&user,options.wordPolicy);
             if(auto error=current->board(cubes,options.duration))return error;
             if(!foreground(i))if(auto error=current->start(0,options.duration))return error;
             next.push_back(std::move(current));
@@ -504,8 +508,12 @@ Error ClassicGame::run() {
     auto submitInput=[&]()->Error {
         const auto result=round().submit(input,gameTime(),selected);
         message=feedback(result,round().minimum());
+        if(result==Submission::SaveFailed)message="Word not counted. Save failed; retry or change Unknown words in game options.";
         if(result==Submission::Accepted || result==Submission::UnknownWord)sound.recorded(round().words().back().entry.word.size());
-        if(result!=Submission::SelectPath)clear();
+        if(result!=Submission::SelectPath && result!=Submission::SaveFailed)clear();
+        if(result==Submission::UnknownWord && options.wordPolicy==WordPolicy::AskNow){
+            dictionaryNotice=true;promptVisible=false;gameplayClock.notice(true,sys_.getMillis());return Error::success();
+        }
         if(result==Submission::TooShort) {
             minimumNotice=true;noticeVisible=false;gameplayClock.notice(true,sys_.getMillis());
         }
@@ -614,8 +622,8 @@ Error ClassicGame::run() {
                 }
                 continue;
             }
-            if(gameplayClock.paused())continue;
-            if(!handoff && !matchOpen && !scoreOpen && transition.type()==Transition::None &&
+            if(gameplayClock.paused() && !(dictionaryNotice && gameplayClock.focused()))continue;
+            if(!dictionaryNotice && !handoff && !matchOpen && !scoreOpen && transition.type()==Transition::None &&
                round().phase()==RoundPhase::Playing && event.type==EventType::MouseDown &&
                event.button==MouseButton::Left && pauseButton.contains(event.mouseX,event.mouseY)) {
                 gameplayClock.manual(true,sys_.getMillis());pauseLid.pause(presentationClock.now(sys_.getMillis()),options.animations);
@@ -663,7 +671,10 @@ Error ClassicGame::run() {
                 if (choice >= 0) {
                     const DictionaryChoice choices[] = {DictionaryChoice::Yes, DictionaryChoice::No, DictionaryChoice::YesAll, DictionaryChoice::NoAll};
                     if (auto err = round().decide(choices[choice])) message = err.message;
-                    else { message.clear(); promptVisible = false; resultsVisible = false; }
+                    else {
+                        message.clear();promptVisible=false;resultsVisible=false;
+                        if(dictionaryNotice){dictionaryNotice=false;gameplayClock.notice(false,sys_.getMillis());scoreDismissed=true;if(auto e=passWord())return e;}
+                    }
                 }
                 continue;
             }
@@ -832,7 +843,7 @@ Error ClassicGame::run() {
         noticeVisible=minimumNotice && gameplayClock.focused();
         pauseVisible=gameplayClock.manual() && gameplayClock.focused() && pauseLid.state()==ClassicPauseLid::State::Closed;
         if (transition.type() == Transition::None && round().phase() == RoundPhase::Results) resultsVisible = true;
-        promptVisible = !handoff && !gameplayClock.paused() && transition.type() == Transition::None && round().candidate() != nullptr;
+        promptVisible = !handoff && (dictionaryNotice || !gameplayClock.paused()) && gameplayClock.focused() && !gameplayClock.manual() && transition.type() == Transition::None && round().candidate() != nullptr;
         sys_.delayMillis(16);
     }
     return Error::success();

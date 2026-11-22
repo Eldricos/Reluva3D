@@ -166,3 +166,13 @@ computer turns. Background play suppresses it; all-computer visible rosters can
 use it. The session setting `classic_cursor` accepts only `0` and `1`, defaulting
 to `0`; no launcher checkbox or import dependency is added. See
 [cursor controls and native presentation policy](cursor.md).
+
+## Unknown-word handling
+
+The launcher exposes `classic_word_policy`: `deferred` (default), `ask`, `add`
+or `reject`. Players' Words / W control cycles these for the current session.
+Only legal board words meeting the mode minimum reach this policy. Known words
+remain ordinary submissions. See [dictionary controls](dictionary-editor.md)
+for provisional scoring, persistence failures and immediate prompt clock holds.
+These are native labels; detailed original labels/defaults are still under VM
+comparison. Other menu settings and original registry files remain unchanged.

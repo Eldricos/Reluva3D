@@ -4,6 +4,10 @@
 #include "engines/boggle/classic/options.h"
 #include "engines/boggle/frontend/layout.h"
 #include "engines/boggle/frontend/name_dialog.h"
+#include "engines/boggle/frontend/dictionary_editor.h"
+#include "engines/boggle/frontend/panel_art.h"
+#include "engines/boggle/formats/frame_comparison.h"
+#include <cmath>
 #include "engines/boggle/frontend/roster_dialog.h"
 #include "engines/boggle/frontend/options_dialog.h"
 #include "engines/boggle/classic/highscores.h"
@@ -539,6 +543,66 @@ void optionsDragging(const std::filesystem::path& tmp){
     }
 }
 
+void presentationTools(const std::filesystem::path& tmp){
+    image::Image a;a.w=a.h=2;a.rgba.resize(16);auto b=a;b.rgba[0]=30;b.rgba[1]=40;FrameComparison result;
+    CHECK(!compareFrames(a,b,0,0,2,2,result) && result.pixels==4 && result.changed==1 && result.maxDelta==40);
+    CHECK(std::abs(result.meanAbsolute-70.0/12)<1e-9 && std::abs(result.rmse-std::sqrt(2500.0/12))<1e-9);
+    CHECK(!compareFrames(a,b,1,0,1,2,result) && result.changed==0);b=a;b.rgba[3]=255;CHECK(!compareFrames(a,b,0,0,2,2,result) && result.changed==0);
+    CHECK(bool(compareFrames(a,b,0,0,3,2,result)) && result.pixels==0);b.rgba.clear();CHECK(bool(compareFrames(a,b,0,0,2,2,result)));
+    auto t=target(tmp);Resources resources;CHECK(!resources.open(t.path));PanelArt art;CHECK(!art.open(resources,t.path,"Bitmaps/Panel.bmp",300,200));
+    Surface screen;screen.create(640,480,PixelFormat::RGBA32);CHECK(!art.draw(screen,0,0,100,100));
+    auto bmp=fixtures::bitmap();bmp.resize(54+300*200*3);test::fixtures::put32(bmp,2,uint32_t(bmp.size()));test::fixtures::put32(bmp,18,300);test::fixtures::put32(bmp,22,200);
+    for(unsigned row=0;row<200;++row)for(unsigned col=0;col<300;++col){const auto i=54+(row*300+col)*3;bmp[i]=uint8_t(col);bmp[i+1]=uint8_t(row);bmp[i+2]=73;}
+    fixtures::write(t.path/"Bitmaps/Panel.bmp",bmp);CHECK(!resources.open(t.path) && !art.open(resources,t.path,"Bitmaps/Panel.bmp",300,200));
+    CHECK(art.draw(screen,10,10,150,100));const auto* first=screen.row(10)+40;const auto* last=screen.row(109)+159*4;
+    CHECK(first[0]==73 && first[1]==199 && first[2]==0 && last[1]==1 && last[2]==42 && screen.row(110)[40]==0);
+    CHECK(!art.draw(screen,std::numeric_limits<int>::max(),0,10,10));auto bad=screen;bad.pixels.clear();CHECK(!art.draw(bad,0,0,10,10));
+    CHECK(bool(art.open(resources,t.path,"Bitmaps/Panel.bmp",301,200)) && !art.draw(screen,0,0,10,10));
+    fixtures::write(t.path/"Fonts/NELSON.TTF",std::vector<uint8_t>{1,2,3});CHECK(!resources.open(t.path));CHECK(bool(art.open(resources,t.path,"Bitmaps/Panel.bmp",300,200)));
+}
+void immediateReview(const std::filesystem::path& tmp){
+    for(bool chess:{false,true}){
+        auto t=target(tmp/(chess?"chess":"traditional"));t.settings["classic_menu"]="0";t.settings["classic_word_policy"]="ask";t.settings["classic_seconds"]="60";t.settings["classic_turns"]=chess?"chess":"traditional";
+        fixtures::ScriptedSystem sys;sys.clock=[](size_t f){const uint64_t times[]={0,100,200,90000,90001,90500,90600,90700};return times[std::min(f,size_t(7))];};
+        sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
+            if(f==0)return {keyEvent(key::Return)};
+            if(f==1)return {textEvent("AAAAA"),keyEvent(key::Return)};
+            if(f==2){Event e;e.type=EventType::FocusLost;return {e};}
+            if(f==3){Event e;e.type=EventType::FocusGained;return {e,keyEvent('1')};}
+            if(f==4)return {keyEvent('1'),keyEvent(key::F1)}; // acknowledgment batch cannot end round
+            if(f==5)return {textEvent("AAAA"),keyEvent(key::Return)};
+            if(f==6)return {keyEvent(key::F1)};
+            if(f==7){Event e;e.type=EventType::ReturnToLauncher;return {e};}return {};
+        };
+        auto game=findEngine("boggle")->create(sys,t);CHECK(!game->run() && sys.frame==7 && sys.textStopped);
+        UserDictionary user;CHECK(!user.load(t.savePath,t.path) && user.contains("AAAAA"));
+        HighScores scores;CHECK(!scores.load(t.savePath,t.path));const auto rows=scores.table();CHECK(rows.size()==1);if(rows.size()==1)CHECK(rows[0].score==3 && rows[0].duration==60000);
+    }
+}
+void dictionaryEditing(const std::filesystem::path& tmp){
+    auto t=target(tmp);UserDictionary words;CHECK(!words.load(t.savePath,t.path) && !words.add({"AAA","AAB"}));
+    DictionaryEditor editor;CHECK(!editor.open(t.savePath,t.path));
+    using namespace fixtures;
+    CHECK(!editor.event(keyEvent(key::Delete)));CHECK(!editor.event(textEvent("AAC")));CHECK(!editor.event(keyEvent(key::Return)));
+    CHECK(editor.event(keyEvent(key::F1+1)));CHECK(!words.load(t.savePath,t.path) && words.words()==std::set<std::string>({"AAB","AAC"}));
+    CHECK(!editor.open(t.savePath,t.path));CHECK(!editor.event(keyEvent(key::Delete)));
+    std::filesystem::create_directory(t.savePath/"EnglishUser.dic.tmp");CHECK(!editor.event(keyEvent(key::F1+1)));CHECK(editor.event(keyEvent(key::Escape)));
+    CHECK(!words.load(t.savePath,t.path) && words.words().size()==2);std::filesystem::remove(t.savePath/"EnglishUser.dic.tmp");
+    fixtures::ScriptedSystem sys;sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
+        if(f==0 || f==1)return {keyEvent(key::Return)};
+            if(f==2 || f==5)return {keyEvent('d')};
+        if(f==3)return {textEvent("AAAAA"),keyEvent(key::Return)};
+        if(f==4)return {keyEvent(key::F1+1),keyEvent(key::Return)};
+        if(f==6)return {keyEvent(key::Delete)};
+        if(f==7)return {keyEvent(key::Escape),keyEvent(key::Return)};
+        if(f==8)return {keyEvent(key::Escape)};
+            if(f==9)return {keyEvent('l')};
+            return {};
+    };
+    auto game=findEngine("boggle")->create(sys,t);CHECK(!game->run() && sys.frame==9 && !sys.textEnabled);
+    CHECK(!words.load(t.savePath,t.path) && words.contains("AAAAA") && words.words().size()==3);
+    if(sys.hashes.size()==9)CHECK(sys.hashes[4]==sys.hashes[7]);
+}
 void versionBackground(const std::filesystem::path& tmp){
     auto t=target(tmp);const auto f=fixtures::versionDialog(true);const auto dll=fixtures::dialogLanguage(f.bytes,10002);fixtures::write(t.path/"Language/English.dll",dll);
     std::vector<PeResource> own;CHECK(!readPeResources(dll,own));FrontendVersionLayout layout;CHECK(!layout.read(own));
@@ -701,6 +765,9 @@ void timerAndErrors(const std::filesystem::path& tmp) {
 }
 }
 static const test::Suite suite("boggle.unit.frontend",{
+    {"panel sampling/bounds/failures and independent RGB frame comparison metrics",presentationTools},
+    {"immediate dictionary review freezes Traditional/Chess clocks and guards focus/ack batches",immediateReview},
+    {"personal dictionary draft add/remove, retry, Done/Cancel and input-batch guards",dictionaryEditing},
     {"version backdrop loading, sampling, missing/malformed data, navigation and opt-out",versionBackground},
     {"version template encodings, control IDs, geometry, fallback and malformed layouts",[](const auto&){versionLayouts();}},
     {"installed version picking, duration/no timer, Players gate, reentry and opt-out",versionNavigation},

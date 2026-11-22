@@ -12,9 +12,11 @@ class UserDictionary {
 public:
     Error load(const std::filesystem::path& savePath, const std::filesystem::path& gamePath = {});
     Error add(const std::vector<std::string>& words); // persists before changing memory
+    Error replace(const std::vector<std::string>& words); // editor snapshot, including removals
     bool contains(std::string_view word) const { return words_.contains(std::string(word)); }
     const std::set<std::string>& words() const { return words_; }
 private:
+    Error commit(std::set<std::string> next);
     std::filesystem::path file_;
     std::set<std::string> words_;
 };

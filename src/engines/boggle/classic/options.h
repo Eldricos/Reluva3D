@@ -5,6 +5,7 @@
 #include <map>
 #include <array>
 #include <optional>
+#include "engines/boggle/classic/round.h"
 
 namespace reluva::boggle {
 // Resource filenames only; display titles are read from the installed DLL.
@@ -25,6 +26,7 @@ struct ClassicOptions {
     bool background = false; // hidden computers alongside human turns
     bool sound = true, animations = true, menu = true, movies = true, artwork = true, autoOrient = true, handwriting = true;
     int music = musicNone;
+    WordPolicy wordPolicy=WordPolicy::Deferred;
     std::optional<uint32_t> seed; // developer replay override; absent in normal play
     size_t side() const { return variant == ClassicVariant::Master ? 5 : 4; }
     const char* dice() const { return variant == ClassicVariant::Master ? "Dicts/EngMas.dst" : "Dicts/EngOrg.dst"; }

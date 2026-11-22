@@ -5,6 +5,7 @@
 #include "engines/boggle/frontend/name_dialog.h"
 #include "engines/boggle/frontend/roster_dialog.h"
 #include "engines/boggle/frontend/options_dialog.h"
+#include "engines/boggle/frontend/dictionary_editor.h"
 #include "engines/boggle/classic/game.h"
 #include "engines/boggle/classic/options.h"
 #include "engines/boggle/classic/player.h"
@@ -26,6 +27,8 @@ constexpr Box playerChoice{48,162,544,40},nameList{48,204,544,228};
 constexpr Box changeName{48,310,252,40},nameField{88,188,464,42},saveName{88,296,210,40},cancelName{318,296,210,40};
 enum class Page { Selection, Version, Players };
 constexpr Color white{245,245,255}, muted{170,181,205}, dark{17,15,35}, gold{224,189,99};
+constexpr const char* wordPolicyKeys[]={"deferred","ask","add","reject"};
+constexpr const char* wordPolicyLabels[]={"REVIEW AT END","ASK NOW","AUTO-ADD","REJECT"};
 void fill(Surface& s,Box b,Color c) {
     for(int y=std::max(0,b.y);y<std::min(s.h,b.y+b.h);++y)
         for(int x=std::max(0,b.x);x<std::min(s.w,b.x+b.w);++x) {
@@ -107,6 +110,8 @@ void players(Surface& s,const ClassicOptions& options,const PlayerProfile& profi
     const auto count=std::count_if(roster.begin(),roster.end(),[](const auto& name){return !name.empty();});
     button(s,turnMode,std::string(options.turns==ClassicTurnMode::Chess?"CHESS TIMER":"TRADITIONAL")+" / "+std::to_string(count)+(count==1?" PLAYER":" PLAYERS")+" (C: CHANGE)");
     button(s,back,"MAIN MENU (ESC)");button(s,play,"PLAY (ENTER)",true);
+    button(s,{48,444,252,28},"DICTIONARY (D)");
+    button(s,{316,444,276,28},std::string("WORDS: ")+wordPolicyLabels[int(options.wordPolicy)]+" (W)");
 }
 
 void rosterScreen(Surface& s,const std::array<std::string,4>& roster,const std::array<ComputerLevel,4>& kinds,const FrontendRosterDialog& dialog,const std::string& error) {
@@ -194,6 +199,7 @@ Error FrontendGame::run() {
     std::vector<ComputerLevel> choiceKinds;std::optional<size_t> emptyChoice;
     size_t nameSelection=0,nameScroll=0;
     NameEdit nameEdit;std::string nameError;bool nameDragging=false;
+    DictionaryEditor dictionaryEditor;bool dictionaryOpen=false;
     auto backgroundAvailable=[&]() {
         bool human=false,computer=false;
         for(size_t i=0;i<roster.size();++i)if(!roster[i].empty()) {
@@ -218,7 +224,7 @@ Error FrontendGame::run() {
             // coalesced with the initial press in the same polling batch.
             if(event.type==EventType::FocusLost || event.type==EventType::FocusGained) {
                 menuFocused=event.type==EventType::FocusGained;optionsDragging=false;nameDragging=false;
-                if(optionsOpen || editingName)changed=true;
+                if(optionsOpen || editingName || dictionaryOpen)changed=true;
                 continue;
             }
             if(optionsOpen && event.type==EventType::MouseLeave){optionsDragging=false;continue;}
@@ -238,6 +244,10 @@ Error FrontendGame::run() {
                 continue;
             }
             if(changed || launch) continue; // one visible navigation step per batch
+            if(dictionaryOpen){
+                if(menuFocused && dictionaryEditor.event(event)){dictionaryOpen=false;system_.setTextInput(false);changed=true;}
+                continue;
+            }
             const bool isKey=event.type==EventType::KeyDown && !event.repeat;
             const bool click=event.type==EventType::MouseDown && event.button==MouseButton::Left;
             auto pressed=[&](Box box){return click && box.contains(event.mouseX,event.mouseY);};
@@ -368,11 +378,19 @@ Error FrontendGame::run() {
                     page=Page::Players;changed=true;
                 }
             } else {
-                if(optionsDialog.installed() && ((isKey && event.key=='o') || pressed(optionsButton))) {savedOptions=options;savedTimedDuration=timedDuration;optionsOpen=true;optionsDragging=false;changed=true;}
+                if((isKey && event.key=='d') || pressed({48,444,252,28})) {
+                    if(auto error=dictionaryEditor.open(target_.savePath,target_.path))return error;
+                    dictionaryOpen=true;system_.setTextInput(true);changed=true;
+                }
+                else if((isKey && event.key=='w') || pressed({316,444,276,28})){options.wordPolicy=WordPolicy((int(options.wordPolicy)+1)%4);changed=true;}
+                else if(optionsDialog.installed() && ((isKey && event.key=='o') || pressed(optionsButton))) {savedOptions=options;savedTimedDuration=timedDuration;optionsOpen=true;optionsDragging=false;changed=true;}
                 else if((isKey && event.key=='c') || pressed(turnMode)) {options.turns=options.turns==ClassicTurnMode::Chess?ClassicTurnMode::Traditional:ClassicTurnMode::Chess;changed=true;}
                 else if(((isKey && event.key=='b') || pressed(backgroundPlay)) && backgroundAvailable()) {options.background=!options.background;changed=true;}
                 else if(((isKey && event.key=='v') || pressed(computerCursor)) && cursorAvailable()) {options.cursor=!options.cursor;changed=true;}
-                else if((isKey && event.key=='m') || pressed(localPlayers)) {savedRoster=roster;savedKinds=kinds;rosterOpen=true;nameError.clear();changed=true;}
+                else if((isKey && event.key=='m') || pressed(localPlayers)) {
+                    if(auto error=rosterDialog.artwork(resources,target_.path,options.variant==ClassicVariant::Master))return error;
+                    savedRoster=roster;savedKinds=kinds;rosterOpen=true;nameError.clear();changed=true;
+                }
                 else if((isKey && event.key=='p') || pressed(playerChoice)) {
                     fromRoster=false;choices=profile.history();choiceKinds.assign(choices.size(),ComputerLevel::Human);emptyChoice.reset();selectingName=true;nameSelection=0;nameScroll=0;nameError.clear();changed=true;
                 } else if((isKey && event.key=='n') || pressed(changeName)) {
@@ -386,6 +404,7 @@ Error FrontendGame::run() {
         if(launch) {
             system_.setTextInput(false);
             GameTarget selected=target_;
+            selected.settings["classic_word_policy"]=wordPolicyKeys[int(options.wordPolicy)];
             selected.settings["classic_auto_orient"]=options.autoOrient?"1":"0";
             selected.settings["classic_cursor"]=options.cursor?"1":"0";
             selected.settings["classic_background"]=options.background?"1":"0";
@@ -413,6 +432,7 @@ Error FrontendGame::run() {
             if(rosterOpen)rosterScreen(screen,roster,kinds,rosterDialog,nameError);
             if(selectingName)nameDropdown(screen,choices,nameSelection,nameScroll,nameError,fromRoster);
             if(editingName)nameEditor(screen,nameEdit,nameError,nameDialog);
+            if(dictionaryOpen)dictionaryEditor.draw(screen);
         }
         else {const auto now=system_.getMillis();selection(screen,background,media,now>=menuStarted ? now-menuStarted : 0,selectionLayout); }
         system_.updateScreen(screen);system_.delayMillis(16);

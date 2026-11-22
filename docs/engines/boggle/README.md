@@ -20,6 +20,9 @@ With installed artwork enabled, Original/Master buttons follow the supplied
 controls remain below them. When present, `Bitmaps/GS1CS.bmp` supplies the
 [version panel background](frontend.md#installed-version-selection-background).
 Change Name / N on Players edits the human name, remembered for this game.
+Dictionary / D on Players opens the [personal dictionary editor](dictionary-editor.md).
+Words / W cycles end-of-round review, immediate review, automatic addition and
+rejection for unknown words; the launcher also exposes this setting.
 Click the player-name dropdown or press P to recall a previous human name.
 Local Players / M assigns up to four humans or computer opponents;
 press C on Players to choose Traditional or Chess Timer. With a human and
@@ -101,7 +104,7 @@ Game ID: `boggle1997`. Add the installed folder containing `Boggle.exe`, or
 its equivalent expanded `Boggle/` directory on the supplied CD. The CD root
 and compressed-only installers are not recognized as runnable directories.
 **Import Game** accepts the install, the expanded CD folder, or the CD root
-containing it, and copies the English Classic set (56 files with Classic/menu artwork, clips, handwriting font and computer vocabulary) into your external
+containing it, and copies the English Classic set (62 files with Classic/menu artwork, clips, handwriting font and computer vocabulary) into your external
 library. See [import scope and validation](import.md).
 
 Detection requires measured prefix-MD5/size signatures for `Boggle.exe`,
@@ -241,3 +244,9 @@ imports and `cube-check` for the next rendering stage. The subsequent [complete 
 lettering together with native Gouraud shading. Generated dice retain their [six faces and settled poses](die-orientation.md),
 with the measured [rounded-face texture corrections](cube-textures.md). Exact
 original lighting, seeded shuffle and whole-screen parity remain comparison work.
+
+The [Classic completion tracker](../../plans/boggle-1997/classic-completion.md)
+distinguishes implemented features from remaining original-reference work.
+[Frame comparisons](presentation-comparison.md) now have a metadata-only tool;
+nine supplied clips match FFmpeg decoding exactly. Word definitions still need
+an independent archive decoder; see [definition research](definitions.md).

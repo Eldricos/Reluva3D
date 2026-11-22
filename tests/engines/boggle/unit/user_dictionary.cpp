@@ -32,6 +32,15 @@ void persistence(const std::filesystem::path& tmp) {
     CHECK(bool(recovered.load(game / "saves", game))); CHECK(recovered.words().empty());
     CHECK(bool(recovered.add({"CAT"}))); // failed load must disable writes
 }
+void editing(const std::filesystem::path& tmp){
+    UserDictionary words;CHECK(!words.load(tmp/"save"));CHECK(!words.add({"CAT","DOG"}));
+    CHECK(!words.replace({"tac","CAT","CAT"}) && words.words().size()==2 && !words.contains("DOG"));
+    UserDictionary restart;CHECK(!restart.load(tmp/"save") && restart.contains("TAC"));
+    const auto before=words.words();CHECK(bool(words.replace({"NO SPACE","CAT"})) && words.words()==before);
+    std::filesystem::create_directory(tmp/"save/EnglishUser.dic.tmp");CHECK(bool(words.replace({})) && words.words()==before);
+    std::filesystem::remove(tmp/"save/EnglishUser.dic.tmp");CHECK(!words.replace({}) && words.words().empty());
+    CHECK(!restart.load(tmp/"save") && restart.words().empty());
+}
 void failureAndInput(const std::filesystem::path& tmp) {
     const auto save = tmp / "save", file = save / "EnglishUser.dic";
     UserDictionary words; CHECK(!words.load(save)); CHECK(!words.add({"CAT"}));
@@ -55,6 +64,7 @@ void failureAndInput(const std::filesystem::path& tmp) {
 }
 }
 static const test::Suite suite("boggle.unit.user_dictionary", {
+    {"editor replacement/removal, normalization, clear, restart and failed-save preservation",editing},
     {"isolated snapshots, restart, recovery and original data protection", [](const auto& tmp) { persistence(tmp); }},
     {"failed writes, malformed text, normalization and unavailable saves", [](const auto& tmp) { failureAndInput(tmp); }},
 });

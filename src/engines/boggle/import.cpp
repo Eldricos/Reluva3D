@@ -51,6 +51,8 @@ Error classicImportPlan(const std::filesystem::path& root, const DetectedGame& g
     if (fs::findFile(root,"Fonts/KPSI.TTF")) add("Fonts/KPSI.TTF");
     if (fs::findFile(root,"Bitmaps/Select1.bmp")) add("Bitmaps/Select1.bmp");
     if (fs::findFile(root,"Bitmaps/GS1CS.bmp")) add("Bitmaps/GS1CS.bmp");
+    for(const auto* path:{"Bitmaps/ClsO1PN.bmp","Bitmaps/ClsM1PN.bmp","Bitmaps/ClsO1NP.bmp","Bitmaps/ClsM1NP.bmp","Bitmaps/High1.bmp","Fonts/NELSON.TTF"})
+        if(fs::findFile(root,path))add(path);
     if (fs::findFile(root,"Anims/Hasbro.avi")) add("Anims/Hasbro.avi");
     for (const auto* name : menuMovieNames) {
         const auto path=std::string("Anims/")+name+".avi";

@@ -2,8 +2,9 @@
 
 Scope: U.S. English, single-player Classic Original or Master, with the native round's
 existing independent board/path model. Game data remains read-only. This adds
-word review and per-target persistence, not original menus, multiplayer word
-cancellation, a dictionary editor or multilingual user-word normalization.
+word review and per-target persistence. Later passes add multiplayer word
+cancellation and a [personal editor](dictionary-editor.md); multilingual user-word
+normalization and exact original menus remain outside this English workflow.
 
 ## Evidence
 
@@ -121,3 +122,9 @@ The subsequent [installed-dialog pass](dialogs.md) derives review buttons and
 message placement from the English dialog resource. Drawing and mouse targets
 share those bounds; keyboard choices, scoring and persistence remain unchanged.
 Missing templates and disabled artwork retain the earlier native panel.
+
+The completion pass now exposes all four handling choices as native policies:
+`deferred`, `ask`, `add`, `reject`. Their implementation, immediate-prompt clock
+holds and per-round All behavior are described in [dictionary controls](dictionary-editor.md).
+Original labels/defaults and detailed immediate-review edge cases still need VM
+comparison; the existing deferred default is unchanged.

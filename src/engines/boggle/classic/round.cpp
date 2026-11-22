@@ -150,7 +150,7 @@ Error ClassicRound::start(uint64_t now, uint64_t duration) {
     if (candidate()) return Error::fail("Resolve pending words before replaying");
     if (board_.faces().empty() || dictionary_.words().empty() || duration > 3600000)
         return Error::fail("A board, dictionary and valid duration are required");
-    started_ = now; duration_ = duration; phase_ = RoundPhase::Playing; score_ = 0; accepted_.clear(); words_.clear();
+    started_ = now; duration_ = duration; phase_ = RoundPhase::Playing; score_ = 0; accepted_.clear(); words_.clear();approveAll_=rejectAll_=false;saveError_.clear();
     return Error::success();
 }
 uint64_t ClassicRound::remaining(uint64_t now) const {
@@ -180,14 +180,22 @@ Submission ClassicRound::submit(std::string_view input, uint64_t now, const std:
     }
     const int points = classicPoints(word.size(), minimum());
     const bool known = dictionary_.contains(word) || (user_ && user_->contains(word));
+    saveError_.clear();
+    if(!known && (policy_==WordPolicy::Reject || rejectAll_))return Submission::RejectedWord;
+    const bool add=!known && (policy_==WordPolicy::Add || approveAll_);
+    if(add){
+        if(!user_)saveError_="No personal dictionary is available.";
+        else if(auto e=user_->add({word}))saveError_=e.message;
+        if(!saveError_.empty())return Submission::SaveFailed;
+    }
     AcceptedWord entry{std::move(word), points, std::move(path)};
     score_ += points;
-    if (known) accepted_.push_back(entry);
-    words_.push_back({std::move(entry), known ? WordState::Accepted : WordState::Pending});
-    return known ? Submission::Accepted : Submission::UnknownWord;
+    if (known || add) accepted_.push_back(entry);
+    words_.push_back({std::move(entry), known ? WordState::Accepted : add?WordState::Added:WordState::Pending});
+    return known || add ? Submission::Accepted : Submission::UnknownWord;
 }
 const RoundWord* ClassicRound::candidate() const {
-    if (phase_ != RoundPhase::Results) return nullptr;
+    if (phase_ != RoundPhase::Results && !(phase_==RoundPhase::Playing && policy_==WordPolicy::AskNow)) return nullptr;
     for (const auto& word : words_) if (word.state == WordState::Pending) return &word;
     return nullptr;
 }
@@ -217,6 +225,7 @@ Error ClassicRound::decide(DictionaryChoice choice) {
         if (yes) accepted_.push_back(word.entry);
         else score_ -= word.entry.points;
     }
+    if(phase_==RoundPhase::Playing && all){approveAll_=yes;rejectAll_=!yes;}
     return Error::success();
 }
 } // namespace reluva::boggle

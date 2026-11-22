@@ -38,7 +38,8 @@ enum class KeyboardResult { Entered, InvalidLetters, NotOnBoard, Limit };
 KeyboardResult enterBoardText(const Board& board,std::string_view text,std::string& input,
     std::vector<size_t>& path,bool& followingU,size_t limit=500000);
 enum class RoundPhase { Ready, Playing, Results };
-enum class Submission { Accepted, NotPlaying, InvalidLetters, TooShort, UnknownWord, NotOnBoard, Duplicate, SelectPath };
+enum class WordPolicy { Deferred, AskNow, Add, Reject };
+enum class Submission { Accepted, NotPlaying, InvalidLetters, TooShort, UnknownWord, NotOnBoard, Duplicate, SelectPath, RejectedWord, SaveFailed };
 class UserDictionary;
 enum class WordState { Accepted, Pending, Added, Declined };
 enum class DictionaryChoice { Yes, No, YesAll, NoAll };
@@ -46,7 +47,7 @@ struct AcceptedWord { std::string word; int points = 0; std::vector<size_t> path
 struct RoundWord { AcceptedWord entry; WordState state = WordState::Accepted; };
 class ClassicRound {
 public:
-    explicit ClassicRound(const Dictionary& dictionary, UserDictionary* user = nullptr) : dictionary_(dictionary), user_(user) {}
+    explicit ClassicRound(const Dictionary& dictionary, UserDictionary* user = nullptr,WordPolicy policy=WordPolicy::Deferred) : dictionary_(dictionary), user_(user),policy_(policy) {}
     Error board(Board board, uint64_t duration = 180000); // only between rounds; clears previous result
     Error start(uint64_t now, uint64_t duration = 180000);
     void tick(uint64_t now);
@@ -63,9 +64,13 @@ public:
     size_t minimum() const { return board_.side() == 5 ? 4 : 3; }
     bool timed() const { return duration_ != 0; }
     int score() const { return score_; }
+    const std::string& saveError() const {return saveError_;}
 private:
     const Dictionary& dictionary_;
     UserDictionary* user_ = nullptr;
+    WordPolicy policy_=WordPolicy::Deferred;
+    bool approveAll_=false,rejectAll_=false;
+    std::string saveError_;
     std::vector<RoundWord> words_;
     Board board_;
     RoundPhase phase_ = RoundPhase::Ready;
