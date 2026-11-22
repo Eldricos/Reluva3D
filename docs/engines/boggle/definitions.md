@@ -14,15 +14,19 @@ No original reference DLL is imported or executed by the engine.
 
 ## Supported behavior and limits
 
-Lookup matches case-folded ASCII headwords, ignoring internal dictionary
-syllable dots. Multiple matching homographs can be browsed. This is exact
-headword lookup: the original DLL's morphology, stemming and query ranking are
-not reproduced. Some inflections have their own cross-reference articles, while
-others may have no match. Definitions are plain text with paragraph breaks;
-phonetic/font escapes are shown in brackets and unsupported legacy characters
-as question marks. Original typography, pronunciation glyphs and rich layout
-remain open comparison work. The membership dictionary and personal word editor
-are independent of this archive.
+Lookup matches case-folded ASCII headwords and inflected forms explicitly
+stored in the articles, ignoring internal dictionary syllable dots. Exact
+headword articles come first, followed by stored-form parent articles; the
+same article appears only once. The status line labels stored-form matches
+and names the parent headword. Multiple matches can be browsed.
+
+No suffix rules or inferred stemming are applied. Complete original variant,
+subentry and cross-reference indexing and query ranking remain open: this is
+not full compatibility with the original reference DLL's search. Definitions
+remain plain text with paragraph breaks; phonetic/font escapes are shown in
+brackets and unsupported legacy characters as question marks. Original
+typography, pronunciation glyphs and rich layout also remain open. The
+membership dictionary and personal word editor are independent of this archive.
 
 ## Independent format implementation
 
@@ -39,7 +43,9 @@ validated before publishing the index.
 
 The reader checks section bounds/overlaps, table dimensions, cyclic symbol
 graphs, expansion depth, token cache and article/aggregate sizes. Unsupported
-headers fail closed and clear previous state. Synthetic fixtures independently
+headers fail closed and clear previous state. Stored forms come only from literal `<INF>` fields inside complete
+`<INFL>...</INFL>` groups. Non-ASCII, multiword and punctuated keys are excluded.
+Per-key article counts and total index links are bounded. Synthetic fixtures independently
 construct tiny archives with invented articles and malformed variants; no
 retail definitions, codebooks or decoded entries are committed.
 
@@ -56,14 +62,35 @@ The native reader validates all 94,693 articles and indexes 61,362 ASCII
 headword keys. Fifteen positive reference queries yielded identical expanded
 entry markup for the IDs returned by the original; one negative query matched
 as absent. This corroborates stream decoding, not complete query or formatted
-text parity. The native all-article plain-text fingerprint is
-`96f6f36e9bd7da36d4174793c19127c3`.
+text parity. The earlier all-article plain-text fingerprint is
+`96f6f36e9bd7da36d4174793c19127c3`. The current validation fingerprint also
+covers both lookup indexes (normalized keys and ordered article IDs).
+
+The stored-form extension indexes 32,547 distinct ASCII keys and 33,824
+key-to-article links. Independent parsing of all article markup reproduces
+every link. An external round-trip check validates all 36,199 returned articles
+for those queries, including exact-match ordering and match labels. Ten positive
+queries (regular forms, irregular forms and exact-plus-parent results) and one
+negative query match the original's complete ordered article-ID lists. A
+separate variant query returns four of the original's six articles; alternate
+headwords/subentries remain a documented gap rather than inferred matches.
+Original query records are 23 bytes each, corroborated by the game's selection
+address calculation at 0x4334e4–0x4334f1.
+
+The lookup-index checksum is `3f81ebcaaa1220ff875b75dac993a741`.
+The combined article/index validation fingerprint is
+`4978f10ac5f6006717175b393775041b`. Only definition metadata changes in the
+fresh-import record; import selection and existing game/audio/artwork records
+are unchanged. No new original files or save migration are required.
 
 `reluva-tool boggle definition-check <folder> [ASCII headword]` checks the full
 archive or a selected lookup, printing only counts and checksums. Optional
 `boggle.gamedata.definitions` and fresh-import checks preserve metadata only.
 Synthetic tests cover decoding, rejection/reset, scrolling, match navigation,
 focus/close event guards, unchanged scores and missing/corrupt archive recovery.
+Stored-form tests cover duplicate suppression, exact-match priority, multiple
+parent articles, syllable separators, incomplete groups, excluded prose and
+invalid keys, no inferred suffixes, index checksums and reset after failure.
 
 
 The 44 applicable English Boggle checks pass, including a fresh imported copy.
@@ -74,4 +101,5 @@ and Master definition opening, scrolling, focus loss/return, closing/reopening,
 replay and unchanged finalized scores. Reader, viewer, frontend and import
 suites also pass ASan/UBSan (LeakSanitizer disabled for the execution tracer).
 All 66 restored original files retain their manifest sizes and SHA-256 hashes.
-Windows testing of this new viewer remains pending.
+The owner confirmed the first definition viewer works on Windows. The stored-form
+extension has native validation; its Windows test is pending.

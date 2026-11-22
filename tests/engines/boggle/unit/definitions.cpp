@@ -32,13 +32,30 @@ void view(){
     CHECK(!view.event(fixtures::keyEvent(key::PageDown)));view.draw(s);CHECK(first!=s.pixels);
     CHECK(!view.event(fixtures::keyEvent(key::Right)));view.draw(s);const auto second=s.pixels;CHECK(second!=first);
     CHECK(!view.event(fixtures::keyEvent(key::Left)));view.draw(s);CHECK(s.pixels==first);
+    a.inflected=true;view.open("TAZZED",{a});view.draw(s);CHECK(s.pixels!=first);a.inflected=false;view.open("TAZ",{a,b});
     Event wheel;wheel.type=EventType::MouseWheel;wheel.wheelY=std::numeric_limits<int>::min();CHECK(!view.event(wheel));CHECK(!view.event(fixtures::keyEvent(key::Home)));view.draw(s);CHECK(s.pixels==first);
     auto repeat=fixtures::keyEvent(key::Return);repeat.repeat=true;CHECK(!view.event(repeat));CHECK(view.event(fixtures::keyEvent(key::Escape)));
     view.open("TAZ",{},"Missing archive");view.draw(s);CHECK(view.event(fixtures::mouseEvent(EventType::MouseDown,620,544)));
     s.pixels.clear();view.draw(s);
 }
+void inflections(){
+    Definitions d;CHECK(!d.read(fixtures::definitionArchive()));const auto exactChecksum=d.indexChecksum();
+    const auto bytes=fixtures::definitionArchive(false,
+        "<INFL><INF>taz\xb7zed<INF>TAZZED<INF>quiz<INF>taz<INF>two words<INF>hy-phen<INF>bad!<INF>\xff</INFL><DEF>Outside<INF>NOTAKEY",
+        "<INFL><INF>TAZZED<INF>tazzing\xff</INFL><INFL><INF>UNFINISHED");
+    CHECK(!d.read(bytes) && d.inflections()==4 && d.indexChecksum()!=exactChecksum);
+    const auto checksum=d.indexChecksum();std::vector<DefinitionEntry> rows;
+    CHECK(!d.lookup("tazzed",rows) && rows.size()==2);if(rows.size()==2)CHECK(rows[0].id==1 && rows[1].id==2 && rows[0].inflected && rows[1].inflected);
+    CHECK(!d.lookup("QUIZ",rows) && rows.size()==2);if(rows.size()==2)CHECK(rows[0].id==3 && !rows[0].inflected && rows[1].id==1 && rows[1].inflected);
+    CHECK(!d.lookup("TAZ",rows) && rows.size()==2);for(const auto& row:rows)CHECK(!row.inflected); // exact first, no duplicate articles
+    CHECK(!d.lookup("TAZZING",rows) && rows.size()==1);if(rows.size()==1)CHECK(rows[0].id==2 && rows[0].inflected);
+    for(const auto* word:{"NOTAKEY","UNFINISHED","TAZZES","TWOWORDS","HYPHEN","BAD"})CHECK(!d.lookup(word,rows) && rows.empty());
+    CHECK(!d.read(bytes) && d.indexChecksum()==checksum);CHECK(bool(d.read({})) && d.inflections()==0);
+    CHECK(!d.lookup("TAZZED",rows) && rows.empty());
+}
 }
 static const test::Suite suite("boggle.unit.definitions",{
+    {"stored inflections, exact priority, duplicate suppression, scope, normalization and reset",[](const auto&){inflections();}},
     {"independent entry archive, paired symbols, paging, variants, truncation and malformed data",[](const auto&){reader();}},
     {"plain definition paging, match switching, close guards and invalid surfaces",[](const auto&){view();}},
 });
