@@ -154,9 +154,11 @@ short of the buttons *(inferred)*, and the music and rumble play over and
 over *(inferred)*. The mission's time is counted while its map's played,
 not while a window holds it.
 
-Not there yet: the score and points, rescue and
-need-item objectives' own rules, and the objectives shown on the minimap
-and in the info bar.
+Where to go is shown on the minimap by its points of interest
+([maps.md](maps.md#the-interface)).
+
+Not there yet: the score and points, and rescue and need-item
+objectives' own rules.
 
 ## Sources and checks
 

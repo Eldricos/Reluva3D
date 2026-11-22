@@ -59,21 +59,24 @@ void MapScreen::setupTriggers() {
         _partStates[i] = {p.active, p.visible, false, p.collideable};
         if (!p.name.empty())
             _byName[lower(p.name)].push_back(i);
-        for (const TextObject *ai : p.activities) {
-            const std::string &kind = ai->className;
-            if (kind != "CTouchingOvalTriggerAI" && kind != "CTouchingPolygonTriggerAI" &&
-                kind != "CRepeatTimerTriggerAI" && kind != "CRelayAI")
-                continue;
-            Trigger t;
-            t.part = i;
-            t.ai = ai;
-            t.done = flag(ai, "Was Triggered");
-            t.touching.assign(_officers.size(), false);
-            t.nextRepeat.assign(_officers.size(), 0.0f);
-            t.timer = number(ai, "Seconds Till Next Execute", number(ai, "Delay Between Actions"));
-            _triggers.push_back(std::move(t));
-        }
+        for (const TextObject *ai : p.activities)
+            addTrigger(i, ai);
     }
+}
+
+void MapScreen::addTrigger(size_t part, const TextObject *ai) {
+    const std::string &kind = ai->className;
+    if (kind != "CTouchingOvalTriggerAI" && kind != "CTouchingPolygonTriggerAI" && kind != "CRepeatTimerTriggerAI" &&
+        kind != "CRelayAI")
+        return;
+    Trigger t;
+    t.part = part;
+    t.ai = ai;
+    t.done = flag(ai, "Was Triggered");
+    t.touching.assign(_officers.size(), false);
+    t.nextRepeat.assign(_officers.size(), 0.0f);
+    t.timer = number(ai, "Seconds Till Next Execute", number(ai, "Delay Between Actions"));
+    _triggers.push_back(std::move(t));
 }
 
 bool MapScreen::shown(size_t part) const {
@@ -231,9 +234,10 @@ void MapScreen::runAction(const TextObject *action, int instigator, int trigger)
     } else if (kind == "CInfoDialogAction") {
         showDialog(readText(action, "Script"), readText(action, "Line"), readText(action, "Who is speaking"));
     } else if (kind == "CTricorderDialogAction") {
-        // In the info dialog, for now: the tricorder's own window isn't
-        // there yet.
-        showDialog(readText(action, "Script"), readText(action, "Line"), "");
+        // On the tricorder's panel, typed out, as a scan's description
+        // (inferred: as CTricorderModelDescriptionAction's).
+        _scanText = describe(readText(action, "Script"), readText(action, "Line"));
+        _scanTyped = 0.0f;
     } else if (kind == "CTriggerRelayAction") {
         relay(readText(action, "Relay Name"), instigator);
     } else if (kind == "CActivateAction") {
@@ -251,6 +255,24 @@ void MapScreen::runAction(const TextObject *action, int instigator, int trigger)
         } else {
             for (size_t part : targets("Who to modify"))
                 _partStates[part].visible = visible;
+        }
+    } else if (kind == "CAddAIAction") {
+        // Its AI given to its Target Name: a process to go through, a
+        // trigger, a point of interest on the minimap.
+        if (const TextObject *ai = action->object("AI"))
+            for (size_t part : targets("Target Name")) {
+                _map.parts[part].activities.push_back(ai);
+                addTrigger(part, ai);
+            }
+    } else if (kind == "CRemoveAIAction") {
+        // Its AI, a class's name, taken from its Target Name: a trigger
+        // stops (inferred: all of that class).
+        const std::string ai = readText(action, "AI");
+        for (size_t part : targets("Target Name")) {
+            std::erase_if(_map.parts[part].activities, [&](const TextObject *a) { return a->className == ai; });
+            for (Trigger &tr : _triggers)
+                if (tr.part == part && tr.ai->className == ai)
+                    tr.done = true;
         }
     } else if (kind == "CSetCollidableAction") {
         for (size_t part : targets("Target Name"))

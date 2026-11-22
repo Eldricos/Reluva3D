@@ -1,6 +1,6 @@
 # Star Trek: Away Team: maps
 
-> **Status:** partial · **Code:** `src/engines/stawayteam/game/map.cpp`, `src/engines/stawayteam/ui/map_screen.cpp`, `src/engines/stawayteam/ui/game_hud.cpp`, `src/engines/stawayteam/ui/animation.cpp` · **Checked against:** the code only; Reluva's run on the US English retail install's files · **Confidence:** from the code unless marked
+> **Status:** partial · **Code:** `src/engines/stawayteam/game/map.cpp`, `src/engines/stawayteam/ui/map_screen.cpp`, `src/engines/stawayteam/ui/game_hud.cpp`, `src/engines/stawayteam/ui/map_interface.cpp`, `src/engines/stawayteam/ui/animation.cpp` · **Checked against:** the code only; Reluva's run on the US English retail install's files · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -105,12 +105,28 @@ Around the view, each at its place in Rules.txt's Custom Rules (a
 - **The info bar** (`0x4de730`) at `Info Pos`, under the screen's bottom,
   `Info Bar Visible` (60) rows of it showing, sliding up over `Info Bar
   Popup Time` (0.25 s) to show the rest (`0x4de991`): its open button,
-  and the minimap (`0x4dddc0`) on `MiniMap Background` at `Info MiniMap
-  Pos`, the map's minimap picture centred on `Info MiniMap Map Center
-  Pos`.
-- **The inventory** at `Inventory Pos`: the chosen officer's items along
-  its bar, `Inventory Icon Size` and `Inventory Icon Spacing` apart from
-  `Inventory Bar Offset`, between its previous and next buttons.
+  which Toggle Minimap (M) presses (`0x4dee47`), and the minimap
+  (`0x4dddc0`) on `MiniMap Background` at `Info MiniMap Pos`, the map's
+  minimap picture centred on `Info MiniMap Map Center Pos`. On the
+  minimap (`0x4ddf50`), dots of a pixel, (128, 128, 255) or red (255, 0,
+  0), and the points of interest, the parts with a
+  `CMiniMapPointOfInterestAI` (187 in the maps, some given by a
+  `CAddAIAction`), as squares of (64, 64, 255) whose half-width is 4 less
+  a phase going up 1.5 a second and round at 4 (`0x4de220`). The info
+  bar's other pictures (its objective, character and info windows) aren't
+  named by the program.
+- **The inventory** (`0x41ad70`, a strip of icons) at `Inventory Pos`:
+  a place for each item type, `Inventory Icon Size` and `Inventory Icon
+  Spacing` apart from `Inventory Bar Offset`, between its previous and
+  next buttons. A place with none is darkened, (10, 10, 40) half
+  see-through (`0x423fe2`); else one of its items in its `Item Frame`,
+  on the `Selected Icon Background` chosen, with the `More Indicator`
+  (`0x41ae65`). Inventory Next (`]`, the wheel down) goes along the
+  chosen item's place, and past its last back to its first and on to the
+  next place with any, its first (`0x423da0`); Inventory Prev back the
+  same way, to the place before's last (`0x423e90`). Either shows the
+  item's name for 1.5 seconds (`0x423e52`), in the strip's Trek Small at
+  `Inventory Title Pos`.
 - **The pause button** at `Pause Pos` (`0x5c3cb7`): `Pause Time
   Button/Pause Time Default`, `Hover` and `Press`. With time stopped, the
   `Pause Indicator` sequence is drawn at the view's top left and "Pause
@@ -124,6 +140,22 @@ objectives button. The vision button has three states, `Vision
 Default`, `Vision Select` and `Vision Press`, a press going on to the
 next and round (`0x51a600`); V from the second goes back to the first
 (`0x476c1c`). Choosing, the cursor is the `Vision Cursor` (`0x5c5e4e`).
+
+The mouse's pointers are Rules.txt's `Mouse Cursors`, the sequences of
+`Interface/Game Cursors` (`0x5c5d2f`), each's origin its hotspot; the
+usual one `Interface/Cursors/Pointer` (`0x4f566a`). At the view's edges
+the `Move Up`, `Move Up Left`... cursors, with which way each scrolls
+(`0x5c25ee`). An item's cursors are named by its definition: its
+Process's `Process Cursor` and `Can't Use Cursor` (`0x546d9e`), its
+`Entity Hovering Cursor` (`0x5d8e10`), and its `Obscured Cursor` with
+`Show Obscured Cursor` (`0x5d8fed`): the phaser's are `Phaser`, `Phaser
+Active`, `Phaser Inactive` and `Phaser Obscured`. A part's processes have
+their own (`Generic Use` and `Generic Can't Use` for 253), and there's an
+`Out Of Range Cursor` (`0x5dacf6`).
+
+Zoom In (keypad +), Zoom Out (keypad -) and Zoom Reset (keypad *) are
+sent to the view as 1, 2 and 4 (`0x5bf25c`), which scales it, the scale
+held so the view stays on the map (`0x4f97a0`).
 
 The options button opens the "Esc Menu" (`0x5ba9bf`), on `Escape
 Menu/Escape Menu Background`, its buttons of `Button Background` in
@@ -237,6 +269,20 @@ scripts to find. Mission 01 has 103 `CRelayAI`, 31
   `CDelayAction`, `CActivateAction`, the AIs' messages, `CTricorderDialogAction`,
   `CPlaySoundAction`, `CInfoDialogAction`; `$Instigator` names whoever
   set the trigger off.
+
+A part's **processes** (`CProcessListAI`, on 337 parts in the maps, all
+but 5 of them with a model) are what an officer does with it: its
+`Process` array of `CProcess`, each with a `Process Type` (`Scan` with
+the Tricorder 80, `Use` with nothing chosen 69, `Item use` with Computer
+Systems 54, `Medical Scan`...), `Required Selected Item`, `Required Item
+In Inventory`, its cursors, `Default Use Sound`, and its `Process
+Activity`, the officer's AIs one after another: `CGoToAI` to its
+`Destination` (`$trigger` the part), `CGotoRadiusAI` within its `Radius`,
+`CGotoTargetsAI` to its `Target` ("leave #1-4#"), and `CActionAI` with
+its `Action`, most often a `CTricorderDialogAction` (89), whose line
+shows on the tricorder's panel. `CAddAIAction` gives a part an AI (59
+processes, 28 points of interest, 8 triggers), and `CRemoveAIAction`
+takes one away by its class's name.
 
 The program's trigger code isn't traced yet: how these fields act is
 read from the maps.
@@ -407,9 +453,38 @@ Rules.txt's places: the team bar with each officer's slot, name, head and
 health (the bar's foreground cut to what's left of it, from the
 bottom *(inferred)*), the chosen one's slot lit
 *(inferred)*; the button box's buttons as they start *(inferred)*; the
-info bar rising while the mouse is over it *(inferred)*, its minimap with
-the view outlined, a click on it moving the view there *(inferred)*; the
-chosen officer's items in the inventory; and the pause button.
+info bar rising while the mouse is over it *(inferred)*, or held up by
+its open button or M, its minimap with the view outlined, a click on it
+moving the view there *(inferred)*, and on it the officers on the map
+and the enemies standing *(inferred)* as dots and the points of interest
+pulsing; the chosen officer's items in the inventory's places, the
+places in the team selection's order, the last type's first
+*(inferred)*, Inventory Next and Prev, and the previous and next
+buttons *(inferred)*, going along them as above, the More Indicator on
+a place with more than one, over its frame *(inferred)*, and the item's
+name centred on Inventory Title Pos *(inferred)*; and the pause button.
+
+The mouse pointer (`ui/map_interface.cpp`) is the game's own, as the
+mouse is: the Pointer over the interface and in the menus, the edges'
+arrows, the Vision Cursor choosing; over the map, as a click there would
+go *(inferred)*: with an item chosen, its Entity Hovering Cursor over
+what it's used on, its Obscured Cursor where it's out of sight, its
+Process Cursor elsewhere and its Can't Use Cursor where it can't be;
+over a part with a process for the officer, the process's cursor; over
+an enemy, their weapon's. Zoom In and Out scale the view by 1.25 each,
+up to twice its size and down to half, or till the map fills it; Zoom
+Reset back to its size *(inferred)*.
+
+A click on a part with a process for the chosen officer, one for their
+chosen item first, else one to Use with nothing (carrying its Required
+Item In Inventory), sends them through its Process Activity: walking to
+each place, `#1-4#` the first, then running its actions, they the
+instigator and the part `$trigger` *(inferred)*; one for their item from
+within its Item Range and in sight *(inferred)*. A
+`CTricorderDialogAction`'s line is typed on the tricorder's panel.
+`CAddAIAction` gives its parts the AI, a trigger watched from then on;
+`CRemoveAIAction` takes away theirs of that class, stopping its triggers
+*(inferred)*.
 
 The buttons (`ui/map_vision.cpp`, `ui/escape_menu.cpp`): the pause
 button or Pause (Enter) stops time, the view still moved and orders
@@ -546,8 +621,8 @@ then one of its Random Songs by chance after another; without them, the
 map shown's Map Song, over and over; stopping as the maps are left
 *(inferred)*.
 
-Not there yet: the vision cursor and the other cursors, the
-triggers set off by enemies, passing through or colliding, the AIs'
+Not there yet: the processes of the 5 polygons, the Out Of Range
+cursor, the full inventory, the triggers set off by enemies, passing through or colliding, the AIs'
 other messages and tasks (going to a place, effects added), walkers
 going round each other, the enemies' own noises and
 footsteps' sounds by the ground, the shots' beams and projectiles,
@@ -592,12 +667,25 @@ other states (running away, recharging, investigating a body).
   hit and his health bar down, the shots' flashes on them and on it, and
   it falling; the team running towards a Klingon that listens, the
   rings of their footsteps shown, it coming to look, and back on patrol
-  seven seconds later. Every relocation in the maps checked: its map
+  seven seconds later; the inventory's six places, Inventory Next going
+along them and the item's name shown, the pointer at the edges and over
+a Romulan out of sight (`Phaser Obscured`), Ivan Verov's tricorder on
+the first Romulan walking into range and showing its own line ("Romulan
+centurion with trace signatures of a bio-chemical imbalance."), the
+minimap held up with the team, the Romulans and the crates' squares,
+and the view zoomed out and in. Unit tests also check the bar's places
+and going along them, the pointer, a process walked to and run, a point
+of interest added, and the zoom. Every relocation in the maps checked: its map
   found and its places on it. Mission 08 run on: the team charging the Klingons,
   one hurt retreating to its alarm, and the mission lost to it.
 
 ## Open questions
 
+- **The interface:** what the program marks on the minimap, and what
+  the inventory's places, its full inventory and the cursors' choosing
+  are; the zoom's steps.
+- **Processes:** how the program chooses one, walks to it, and when the
+  officer must be in range.
 - **The fractal** the program spreads a cell's values with, and its
   seeds.
 - **The camera:** whether `View Position` is the view's middle, the

@@ -107,12 +107,27 @@ to `Stun` (34 Borg guns).
 
 ### The inventory bar
 
-At Rules.txt's `Inventory Pos` (355, 419): its `Background`, the items
-from `Inventory Bar Offset` (37, 12), `Inventory Icon Size` (34) and
-`Inventory Icon Spacing` (2) apart, each in an `Item Frame`, the one
-chosen on the `Selected Icon Background` (`0x41ae4b`), and a `More
-Indicator` when there are more than fit. Its hint says "Right-click for
-full inventory" (`0x41b158`).
+At Rules.txt's `Inventory Pos` (355, 419): its `Background`, and a
+place for each of `Inventory/Item Types` (Gadget, Offensive Gadget,
+Primary, Secondary, Skill, Special) from `Inventory Bar Offset` (37, 12),
+`Inventory Icon Size` (34) and `Inventory Icon Spacing` (2) apart, each
+showing one of the officer's items of its type in an `Item Frame`, the
+one chosen on the `Selected Icon Background` (`0x41ae4b`), with the
+`More Indicator` (`0x41ae65`); one with none darkened (`0x423fe2`).
+Inventory Next and Prev go along a place's items and on to the next
+place's (`0x423da0`, `0x423e90`; [maps.md](maps.md#the-interface)). Its
+hint says "Right-click for full inventory" (`0x41b158`). The inventory
+screens' `Skill Tab`, `Item Tab` and `Toggle` pictures aren't named by
+the program.
+
+### Its cursors
+
+Each item names its cursors, of `Interface/Game Cursors`: its Process's
+`Process Cursor` and `Can't Use Cursor`, its `Entity Hovering Cursor`,
+and its `Obscured Cursor` if `Show Obscured Cursor`. The Tricorder's are
+`Tricorder Active` and `Tricorder Inactive`, the Concussion Grenade's
+`Concussion Grenade Active`, `Inactive` and `Obscured`, the Hypospray's
+`Hypospray` over an officer and else `Hypospray Inactive`.
 
 ## In Reluva
 
@@ -143,7 +158,18 @@ it here). A remote mine waits for DETONATE on its panel, which sets off
 every one put down *(inferred)*. A tricorder chosen, a click on a part
 with a model (an enemy where it's got to) sends the officer within its
 Item Range and sight, then shows the model's description on its panel,
-typed out *(inferred)*.
+typed out *(inferred)*. A part with its own process for the tricorder
+(80 `Scan` processes in the maps, 48 `Medical Scan`) goes through that
+instead, from within the tricorder's range, its line typed on the panel
+([maps.md](maps.md#the-maps-triggers)).
+
+The bar shows a place for each type, the last type's first as the team
+selection has them *(inferred)*, each the item of its own the officer
+last came to; Inventory Next and Prev, and the bar's buttons, go along
+them, the item's name shown a second and a half; the More Indicator on
+a place with more than one, where it's drawn *(inferred)*. The pointer
+is the chosen item's cursors as it's over what it's used on, out of
+sight, or elsewhere *(inferred)*.
 
 The chosen item's panel is drawn on the info bar: its Background
 Sequence centred at Info Renderer Pos (its frames' origin), its parts
@@ -157,7 +183,7 @@ and set to stun it stuns what it hits for its Stun Duration.
 
 Not there yet: the mines' Deploy and Activate sequences, the cloaking
 band, the other gadgets and skills, the phaser's overload and range, the
-cursors, the bar's scrolling and the full inventory.
+Out Of Range cursor, and the full inventory.
 
 ## Sources and checks
 
@@ -181,7 +207,10 @@ cursors, the bar's scrolling and the full inventory.
   seconds; T'Andorla putting a proximity mine down by it, armed two
   seconds on and going off, taking it from 100 to 40; Ivan Verov's
   tricorder on it: "Romulan warrior of the Romulan Star Empire."; the
-  phaser's panel with KILL and OVERLOAD as the info bar rises.
+  phaser's panel with KILL and OVERLOAD as the info bar rises; Marcus
+  Refelian's six places (grenade, phaser, tricorder with the More
+  Indicator), Inventory Next from the tricorder to the Holographic
+  Projection, the grenade and the phaser, its name under the bar.
 
 ## Open questions
 
@@ -190,8 +219,9 @@ cursors, the bar's scrolling and the full inventory.
   thrown item flies and bounces.
 - **Grenades:** whom an explosion reaches and how far, whether it hurts
   the team, and what the EM Pulse Grenade does.
-- **The bar:** where a count is shown, the More Indicator, and the full
-  inventory.
+- **The bar:** where a count is shown, where the More Indicator is
+  drawn, the order of its places, and the full inventory.
+- **Cursors:** when the program shows each of an item's cursors.
 - **The panels:** where each part of an item's panel is drawn, whether
   it's over the minimap, and how the phaser's switch is used.
 - **Mines:** where one's put down, who a remote mine's DETONATE sets off,

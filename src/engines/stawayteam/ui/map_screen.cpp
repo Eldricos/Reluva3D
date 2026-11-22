@@ -211,6 +211,7 @@ MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, 
     setupEnemies();
     setupCombat();
     setupItems();
+    _itemTypes = loadItemTypes(data);
     if (!arriving)
         runSpawnActions();
 
@@ -235,10 +236,10 @@ MapScreen::~MapScreen() = default;
 
 void MapScreen::moveCamera(float x, float y) {
     // Kept so the view stays on the map (inferred).
-    const float halfW = float(_viewW) / 2.0f;
-    const float halfH = float(_viewH) / 2.0f;
-    _cameraX = _map.width > _viewW ? std::clamp(x, halfW, float(_map.width) - halfW) : float(_map.width) / 2.0f;
-    _cameraY = _map.height > _viewH ? std::clamp(y, halfH, float(_map.height) - halfH) : float(_map.height) / 2.0f;
+    const float halfW = float(shownW()) / 2.0f;
+    const float halfH = float(shownH()) / 2.0f;
+    _cameraX = _map.width > shownW() ? std::clamp(x, halfW, float(_map.width) - halfW) : float(_map.width) / 2.0f;
+    _cameraY = _map.height > shownH() ? std::clamp(y, halfH, float(_map.height) - halfH) : float(_map.height) / 2.0f;
 }
 
 const image::Image &MapScreen::texture(const std::string &name) {
@@ -367,7 +368,7 @@ const Animation &MapScreen::animation(const std::string &modelName, const std::s
     return it->second;
 }
 
-int MapScreen::officerAt(float x, float y) {
+int MapScreen::officerAt(float x, float y) const {
     // About their figure: the frames reach from 19 above where they stand
     // to 23 under it (inferred from the walk's bounds).
     for (size_t i = 0; i < _officers.size(); ++i)
@@ -572,6 +573,7 @@ void MapScreen::playScripts(float seconds) {
 void MapScreen::update(uint64_t now) {
     const float seconds = float(now - std::min(now, _last)) / 1000.0f;
     _last = now;
+    _itemTitle = std::max(0.0f, _itemTitle - seconds);
     // The windows over the map hold the game still (inferred).
     if (_endGame || _objectivesWindow || _escape || _progress->over)
         return;
@@ -678,6 +680,8 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
         _mouseY = ev.mouseY;
     }
     const GameHud::Result hud = _hud->handleEvent(ev, now);
+    if (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseDown || ev.type == EventType::kMouseUp)
+        _overInterface = hud.used;
     if (hud.select >= 0 && !_officers[size_t(hud.select)].present) {
         // One on another of the mission's maps: that map's shown (inferred).
         _switchTo = hud.select;
@@ -695,8 +699,12 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
         setMove((_officers[size_t(_selected)].move + 1) % 3);
     if (hud.selectAll)
         chooseAll();
-    if (hud.item >= 0)
+    if (hud.item >= 0) {
         chooseItem(_selected, hud.item);
+        _itemTitle = kItemTitleTime;
+    }
+    if (hud.step != 0)
+        stepItem(_selected, hud.step);
     if (hud.toggleSound)
         _listening = !_listening;
     if (hud.pause)
@@ -719,8 +727,8 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
     // (Shift: adds or takes them away), a box dragged chooses those in it,
     // a click on an enemy sends them to shoot it, a click elsewhere sends
     // them there (inferred: the mouse's scheme isn't traced).
-    const auto toMapX = [&](int sx) { return _cameraX - float(_viewW) / 2.0f + float(sx - _viewX); };
-    const auto toMapY = [&](int sy) { return _cameraY - float(_viewH) / 2.0f + float(sy - _viewY); };
+    const auto toMapX = [&](int sx) { return mapX(sx); };
+    const auto toMapY = [&](int sy) { return mapY(sy); };
     const bool inView =
         ev.mouseX >= _viewX && ev.mouseY >= _viewY && ev.mouseX < _viewX + _viewW && ev.mouseY < _viewY + _viewH;
     const bool playing = _scripts.empty() && _teamShown;
@@ -746,6 +754,8 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
             // The chosen officer's item used there.
         } else if (const int officer = officerAt(toMapX(_pressX), toMapY(_pressY)); officer >= 0) {
             choose(officer, add);
+        } else if (startProcess(toMapX(_pressX), toMapY(_pressY))) {
+            // The part's process, with the chosen item or none.
         } else if (const int enemy = enemyAt(toMapX(_pressX), toMapY(_pressY)); enemy >= 0) {
             attack(enemy);
         } else {
@@ -808,12 +818,18 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
         // Inventory Next and Prev go along the chosen officer's items; an
         // item's own key chooses it for the officers chosen who have it
         // (inferred: by the keys' names).
-        if (down && _selected >= 0 && (bound("Inventory Next") || bound("Inventory Prev"))) {
-            const Officer &o = _officers[size_t(_selected)];
-            const int n = int(o.items.size());
-            if (n > 0)
-                chooseItem(_selected, ((o.item < 0 ? 0 : o.item) + (bound("Inventory Next") ? 1 : n - 1)) % n);
-        }
+        if (down && _selected >= 0 && (bound("Inventory Next") || bound("Inventory Prev")))
+            stepItem(_selected, bound("Inventory Next") ? 1 : -1);
+        // Toggle Minimap presses the info bar's open button (0x4dee47).
+        if (down && bound("Toggle Minimap"))
+            _hud->toggleInfoBar();
+        // Zoom In, Out and Reset (0x5bf25c).
+        if (down && bound("Zoom In"))
+            setZoom(1);
+        if (down && bound("Zoom Out"))
+            setZoom(-1);
+        if (down && bound("Zoom Reset"))
+            setZoom(0);
         if (down)
             for (const auto &[action, item] : itemKeys())
                 if (bound(action))
@@ -855,13 +871,16 @@ void MapScreen::drawDialog(Surface &screen) {
 void MapScreen::draw(Surface &screen, uint64_t now) {
     update(now);
     clearScreen(screen);
-    const int left = int(std::lround(_cameraX)) - _viewW / 2;
-    const int top = int(std::lround(_cameraY)) - _viewH / 2;
-    // Drawn into the view alone: a picture of it, put on the screen.
+    // Drawn into a picture of what the view shows, put on the screen at
+    // the zoom's scale.
+    const int viewW = shownW();
+    const int viewH = shownH();
+    const int left = int(std::lround(_cameraX)) - viewW / 2;
+    const int top = int(std::lround(_cameraY)) - viewH / 2;
     Surface view;
-    view.create(_viewW, _viewH, PixelFormat::kRGBA32);
-    for (int cy = std::max(0, top / kCell); cy <= (top + _viewH) / kCell; ++cy)
-        for (int cx = std::max(0, left / kCell); cx <= (left + _viewW) / kCell; ++cx)
+    view.create(viewW, viewH, PixelFormat::kRGBA32);
+    for (int cy = std::max(0, top / kCell); cy <= (top + viewH) / kCell; ++cy)
+        for (int cx = std::max(0, left / kCell); cx <= (left + viewW) / kCell; ++cx)
             image::blit(view, groundCell(cx, cy), cx * kCell - left, cy * kCell - top);
     // The guides laid on the ground while they're active: the Trans
     // polygons, half see-through in their colour (inferred for how).
@@ -873,7 +892,7 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         const uint8_t r = type == "Trans Red" ? 255 : 0;
         const uint8_t g = type == "Trans Green" ? 255 : 0;
         const uint8_t b = type == "Trans Blue" ? 255 : 0;
-        for (int y = 0; y < _viewH; ++y) {
+        for (int y = 0; y < viewH; ++y) {
             const float wy = float(top + y) + 0.5f;
             std::vector<float> xs;
             for (size_t k = 0; k + 1 < p.polygon.size(); ++k) {
@@ -884,7 +903,7 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
             }
             std::sort(xs.begin(), xs.end());
             for (size_t k = 0; k + 1 < xs.size(); k += 2)
-                for (int x = std::max(0, int(xs[k]) - left); x < std::min(_viewW, int(xs[k + 1]) - left); ++x) {
+                for (int x = std::max(0, int(xs[k]) - left); x < std::min(viewW, int(xs[k + 1]) - left); ++x) {
                     uint8_t *px = view.row(y) + x * 4;
                     px[0] = uint8_t((px[0] + r) / 2);
                     px[1] = uint8_t((px[1] + g) / 2);
@@ -917,8 +936,8 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         const MapPart &p = _map.parts[i];
         if (!shown(i))
             continue;
-        if (p.x < float(left - 600) || p.x > float(left + _viewW + 600) || p.y < float(top - 600) ||
-            p.y > float(top + _viewH + 600))
+        if (p.x < float(left - 600) || p.x > float(left + viewW + 600) || p.y < float(top - 600) ||
+            p.y > float(top + viewH + 600))
             continue;
         const auto enemy = _enemyOfPart.find(i);
         const float y = enemy != _enemyOfPart.end() ? _enemies[enemy->second].y : p.y;
@@ -973,8 +992,18 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         const Animation &a = animation(f.model, "Idle");
         blitBy(view, a.frame(int(f.time * a.fps), 0), int(std::lround(f.x)) - left, int(std::lround(f.y)) - top);
     }
-    for (int y = 0; y < _viewH && _viewY + y < screen.h; ++y)
-        std::memcpy(screen.row(_viewY + y) + _viewX * 4, view.row(y), size_t(std::min(_viewW, screen.w - _viewX)) * 4);
+    if (viewW == _viewW && viewH == _viewH) {
+        for (int y = 0; y < _viewH && _viewY + y < screen.h; ++y)
+            std::memcpy(screen.row(_viewY + y) + _viewX * 4, view.row(y),
+                        size_t(std::min(_viewW, screen.w - _viewX)) * 4);
+    } else {
+        for (int y = 0; y < _viewH && _viewY + y < screen.h; ++y) {
+            const uint8_t *from = view.row(std::min(viewH - 1, int(float(y) / _zoom)));
+            uint8_t *to = screen.row(_viewY + y) + _viewX * 4;
+            for (int x = 0; x < std::min(_viewW, screen.w - _viewX); ++x)
+                std::memcpy(to + x * 4, from + std::min(viewW - 1, int(float(x) / _zoom)) * 4, 4);
+        }
+    }
     // Time stopped, shown on the view, under the interface (inferred).
     if (_paused)
         drawPause(screen, now);
@@ -996,14 +1025,25 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
     }
     _hud->setVision(_vision);
     if (_selected >= 0) {
+        const Officer &o = _officers[size_t(_selected)];
         std::vector<GameHud::Held> held;
-        for (const Officer::Held &h : _officers[size_t(_selected)].items)
+        for (const Officer::Held &h : o.items)
             held.push_back({h.name, h.count});
-        _hud->setInventory(std::move(held), _officers[size_t(_selected)].item);
+        // Each place shows the item of its own it's come to.
+        std::vector<GameHud::Place> places;
+        const std::vector<std::vector<int>> slots = itemPlaces(o);
+        for (size_t p = 0; p < slots.size(); ++p) {
+            const int at = p < o.shown.size() ? o.shown[p] : 0;
+            places.push_back({slots[p].empty() ? -1 : slots[p][size_t(std::clamp(at, 0, int(slots[p].size()) - 1))],
+                              int(slots[p].size())});
+        }
+        _hud->setInventory(std::move(held), std::move(places), o.item);
     } else {
-        _hud->setInventory({}, -1);
+        _hud->setInventory({}, {}, -1);
     }
-    _hud->draw(screen, now, _selected, _cameraX, _cameraY, _viewW, _viewH);
+    _hud->setMarks(minimapMarks());
+    _hud->setItemTitle(_itemTitle > 0.0f);
+    _hud->draw(screen, now, _selected, _cameraX, _cameraY, viewW, viewH);
     // The box being dragged, outlined (inferred).
     if (_dragging) {
         const int x0 = std::min(_pressX, _mouseX);

@@ -986,6 +986,147 @@ void testGadgets() {
     CHECK(screen.scanText() == "A guard, armed.");
 }
 
+void testProcesses() {
+    // A console whose process, used with nothing chosen, walks the officer
+    // to it and puts a line on the tricorder's panel and the crate on the
+    // minimap; a guard with a scan of its own for the tricorder.
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    const std::string process = [] {
+        return std::string("\t\t\tActivity=Array\n\t\t\t{\n\t\t\t\tItem Count=1\n\t\t\t\tActivity=CProcessListAI\n"
+                           "\t\t\t\t{\n\t\t\t\t\tProcess=Array\n\t\t\t\t\t{\n\t\t\t\t\t\tItem Count=2\n");
+    }();
+    const auto use = [](const std::string &type, const std::string &item, const std::string &line,
+                        const std::string &more) {
+        return "\t\t\t\t\t\tProcess=CProcess\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\tProcess Type=" + type +
+               "\n\t\t\t\t\t\t\tProcess Cursor=Generic Use\n\t\t\t\t\t\t\tRequired Selected Item=" + item +
+               "\n\t\t\t\t\t\t\tRequired Item In Inventory=!None\n\t\t\t\t\t\t\tProcess Activity=Array\n"
+               "\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\tItem Count=2\n\t\t\t\t\t\t\t\tProcess Activity=CGoToAI\n"
+               "\t\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\tDestination=$trigger\n\t\t\t\t\t\t\t\t}\n"
+               "\t\t\t\t\t\t\t\tProcess Activity=CActionAI\n\t\t\t\t\t\t\t\t{\n"
+               "\t\t\t\t\t\t\t\t\tAction=CMultipleActionsAction\n\t\t\t\t\t\t\t\t\t{\n"
+               "\t\t\t\t\t\t\t\t\t\tAction=Array\n\t\t\t\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\t\t\tItem Count=2\n"
+               "\t\t\t\t\t\t\t\t\t\t\tAction=CTricorderDialogAction\n\t\t\t\t\t\t\t\t\t\t\t{\n"
+               "\t\t\t\t\t\t\t\t\t\t\t\tScript=Test\n\t\t\t\t\t\t\t\t\t\t\t\tLine=" +
+               line + "\n\t\t\t\t\t\t\t\t\t\t\t}\n" + more +
+               "\t\t\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t}\n";
+    };
+    const std::string poi = "\t\t\t\t\t\t\t\t\t\t\tAction=CAddAIAction\n\t\t\t\t\t\t\t\t\t\t\t{\n"
+                            "\t\t\t\t\t\t\t\t\t\t\t\tTarget Name=Crate\n"
+                            "\t\t\t\t\t\t\t\t\t\t\t\tAI=CMiniMapPointOfInterestAI\n\t\t\t\t\t\t\t\t\t\t\t\t{\n"
+                            "\t\t\t\t\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t\t\t\t\t}\n";
+    const std::string none = "\t\t\t\t\t\t\t\t\t\t\tAction=CDelayAction\n\t\t\t\t\t\t\t\t\t\t\t{\n"
+                             "\t\t\t\t\t\t\t\t\t\t\t}\n";
+    const std::string zax =
+        "CLayerSaveData\n{\n\tWidth=2000\n\tHeight=2000\n\tView Position=500.000000,300.000000\n"
+        "\tTree List=CSortList2D\n\t{\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Console\n\t\t\tVisible=1\n\t\t\tActive=1\n" +
+        process + use("Use", "!None", "Console", poi) + use("Scan", "Tricorder", "Scanned", none) +
+        "\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t\tModel=Props/Console\n\t\t\tPosition X=600\n\t\t\tPosition Y=300\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Crate\n\t\t\tVisible=1\n\t\t\tActive=1\n"
+        "\t\t\tPosition X=900\n\t\t\tPosition Y=900\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 1\n\t\t\tPosition X=300\n"
+        "\t\t\tPosition Y=300\n\t\t}\n\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = bytesOf(zax);
+    data.files["Cache/Models/Props/Console.mdl16"] = modelFile("Console", 1, 1);
+    data.files["Levels/Test.RDS"] = bytesOf(":Console\r\nAccess granted.\r\n:Scanned\r\nA console.\r\n");
+    data.files["Inventory/Item Types/!None.txt"] = bytesOf("CInventoryTypeDefinition\n{\n}\n");
+    data.files["Inventory/Item Types/Gadget.txt"] = bytesOf("CInventoryTypeDefinition\n{\n}\n");
+    data.files["Inventory/Item Types/Primary.txt"] = bytesOf("CInventoryTypeDefinition\n{\n}\n");
+    const auto item = [&](const std::string &name, const std::string &type, const std::string &more) {
+        data.files["Inventory/Item Definitions/" + name + ".txt"] =
+            bytesOf("CStarTrekInventoryItemDefinition\n{\n\tDisplay In Inventory=1\n\tInventory Type=" + type + "\n" +
+                    more + "}\n");
+    };
+    item("Phaser", "Primary",
+         "\tWeapon Damage=25\n\tDischarge Action=CShootEnergyWeaponAction\n\t{\n\t}\n"
+         "\tProcess=CProcess\n\t{\n\t\tProcess Type=Shoot\n\t\tProcess Cursor=Phaser\n\t}\n"
+         "\tEntity Hovering Cursor=Phaser Active\n");
+    item("Tricorder", "Gadget",
+         "\tItem Range=450\n\tProcess=CProcess\n\t{\n\t\tProcess Type=Scan\n"
+         "\t\tProcess Cursor=Tricorder Active\n\t\tCan't Use Cursor=Tricorder Inactive\n\t}\n"
+         "\tEntity Hovering Cursor=Tricorder Active\n");
+    item("Hypospray", "Gadget", "");
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    ann.inventory = {{"Tricorder", -1}, {"Phaser", -1}, {"Hypospray", 3}};
+    MapScreen screen(data, rules, map, options, 0, {ann});
+    const MapScreen::Officer &a = screen.officers()[0];
+    uint64_t now = 0;
+    const auto run = [&](uint64_t until) {
+        while (now < until)
+            screen.update(now += 50);
+    };
+    screen.choose(0);
+    // The bar: a place for each type, the last type's first, the
+    // Tricorder and Hypospray sharing the gadgets'.
+    const std::vector<std::vector<int>> places = screen.itemPlaces(a);
+    CHECK(places.size() == 2 && places[0] == std::vector<int>{1} && (places[1] == std::vector<int>{0, 2}));
+    // Inventory Next: along the gadgets, then on to the phaser; Prev back.
+    screen.chooseItem(0, 0);
+    screen.stepItem(0, 1);
+    CHECK(a.item == 2);
+    screen.stepItem(0, 1);
+    CHECK(a.item == 1);
+    screen.stepItem(0, -1);
+    CHECK(a.item == 2);
+    // The pointer: the edge's arrow, the phaser's over the map, the
+    // console's process cursor.
+    Event mv;
+    mv.type = EventType::kMouseMove;
+    mv.mouseX = 100;
+    mv.mouseY = 1;
+    screen.handleEvent(mv, nullptr, now);
+    CHECK(screen.cursorName() == "Move Up");
+    screen.chooseItem(0, 1);
+    mv.mouseX = 180;
+    mv.mouseY = 100;
+    screen.handleEvent(mv, nullptr, now);
+    CHECK(screen.cursorName() == "Phaser");
+    screen.moveCamera(600.0f, 300.0f);
+    mv.mouseX = int(600.0f - screen.mapX(0));
+    mv.mouseY = int(300.0f - screen.mapY(0));
+    screen.handleEvent(mv, nullptr, now);
+    CHECK(screen.cursorName() == "Generic Use");
+    // Clicked, she walks to the console; its line's on the tricorder's
+    // panel, and the crate's on the minimap.
+    Event click;
+    click.type = EventType::kMouseDown;
+    click.button = MouseButton::kLeft;
+    click.mouseX = mv.mouseX;
+    click.mouseY = mv.mouseY;
+    screen.handleEvent(click, nullptr, now);
+    click.type = EventType::kMouseUp;
+    screen.handleEvent(click, nullptr, now);
+    CHECK(a.task == MapScreen::Officer::Task::kProcess);
+    run(10000);
+    CHECK(a.task == MapScreen::Officer::Task::kNone && std::hypot(a.x - 600.0f, a.y - 300.0f) <= 30.0f);
+    CHECK(screen.scanText() == "Access granted.");
+    const std::vector<GameHud::Mark> marks = screen.minimapMarks();
+    CHECK(marks.size() == 2 && marks[1].kind == GameHud::Mark::kInterest && marks[1].x == 900.0f);
+    // The tricorder chosen: the console's scan for it.
+    screen.chooseItem(0, 0);
+    CHECK(screen.cursorName() == "Generic Use");
+    CHECK(screen.useItem(600.0f, 300.0f));
+    run(12000);
+    CHECK(screen.scanText() == "A console.");
+    // Zoomed out the view shows more of the map, never past it; reset.
+    screen.setZoom(-1);
+    CHECK(screen.zoom() == 0.8f);
+    for (int k = 0; k < 10; ++k)
+        screen.setZoom(-1);
+    CHECK(screen.zoom() == 0.5f);
+    screen.setZoom(0);
+    CHECK(screen.zoom() == 1.0f && screen.mapX(0) == screen.cameraX() - 100.0f);
+}
+
 void testChoosing() {
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(kMap, kMap + std::string(kMap).size());
@@ -1042,4 +1183,5 @@ static const reluva::test::Suite kSuite("stawayteam.unit.maps",
                                             {"maps", [](const std::filesystem::path &) { testMaps(); }},
                                             {"interface", [](const std::filesystem::path &) { testInterface(); }},
                                             {"gadgets", [](const std::filesystem::path &) { testGadgets(); }},
+                                            {"processes", [](const std::filesystem::path &) { testProcesses(); }},
                                         });

@@ -64,6 +64,13 @@ None yet.
   Cancel Orders drops, how an enemy's sight is chosen and drawn, and the
   escape menu holding the game
   ([systems/maps.md](systems/maps.md#open-questions)).
+- **The interface's pointer, bar and minimap:** which cursor shows
+  where, the inventory's places in the team selection's order and where
+  its More Indicator goes, what's marked on the minimap, and the zoom's
+  steps ([systems/maps.md](systems/maps.md#open-questions)).
+- **Parts' processes:** the one chosen for an officer, and their walking
+  into range first
+  ([systems/maps.md](systems/maps.md#open-questions)).
 - **The maps' music:** the mission's Primary Song first, then its Random
   Songs by chance, or the map's Map Song without them
   ([systems/maps.md](systems/maps.md#open-questions)).

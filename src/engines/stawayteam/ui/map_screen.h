@@ -19,6 +19,7 @@
 #include "engines/stawayteam/ui/objectives_window.h"
 
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -128,12 +129,17 @@ public:
         int item = -1;
         // What they've been sent to do with it, walking there first: throw
         // it at a place, or use it on an officer.
-        enum class Task { kNone, kThrow, kUseOn, kPlace, kScan };
+        enum class Task { kNone, kThrow, kUseOn, kPlace, kScan, kProcess };
         Task task = Task::kNone;
         float taskX = 0.0f;
         float taskY = 0.0f;
         int taskOfficer = -1;
-        int taskPart = -1; // what a scan's of
+        int taskPart = -1;                       // what a scan or process is of
+        const TextObject *taskProcess = nullptr; // the part's process they're going through
+        size_t taskStep = 0;                     // its Process Activity they're on
+        // The inventory bar's places, an item type's each: which of the
+        // place's items it shows (its first, 0, as they come).
+        std::vector<int> shown;
 
         bool present = true; // on this map, not on another of the mission's
 
@@ -342,6 +348,37 @@ public:
     bool listening() const { return _listening; }
     void setListening(bool on) { _listening = on; }
 
+    /**
+     * The inventory bar's places for `o`, an item type's each, the last
+     * type's first: the items of theirs of that type shown on the bar.
+     */
+    std::vector<std::vector<int>> itemPlaces(const Officer &o) const;
+    /**
+     * Inventory Next (`step` 1) or Prev (-1) for officer `officer`: along
+     * the items of the chosen one's place, then on to the next place with
+     * any (0x423da0, 0x423e90).
+     */
+    void stepItem(int officer, int step);
+
+    /** Where the officers, enemies and points of interest are, for the minimap. */
+    std::vector<GameHud::Mark> minimapMarks() const;
+
+    /** How many times its size the map's drawn (Zoom In, Out and Reset). */
+    float zoom() const { return _zoom; }
+    /** Zoom In (1), Out (-1) or Reset (0). */
+    void setZoom(int how);
+    /** The map pixel under screen pixel (sx, sy). */
+    float mapX(int sx) const { return _cameraX - float(shownW()) / 2.0f + float(sx - _viewX) / _zoom; }
+    float mapY(int sy) const { return _cameraY - float(shownH()) / 2.0f + float(sy - _viewY) / _zoom; }
+
+    /**
+     * The mouse pointer for where it is: its name, of Interface/Game
+     * Cursors, or "Pointer" for Interface/Cursors' (inferred).
+     */
+    std::string cursorName();
+    /** The mouse pointer's picture at `now`; nullptr for none. */
+    const Animation::Picture *cursor(uint64_t now);
+
 private:
     // What a ground value draws: a texture, and how much of the next one
     // over it (0-255) (0x538d20, the 16-bit table).
@@ -352,6 +389,9 @@ private:
     };
 
     void scroll(float seconds);
+    // How much of the map the view shows, in its pixels.
+    int shownW() const { return int(std::lround(float(_viewW) / _zoom)); }
+    int shownH() const { return int(std::lround(float(_viewH) / _zoom)); }
     // The camera's scripts and their actions (0x4776a0).
     void playScripts(float seconds);
     // The enemies (map_enemies.cpp).
@@ -407,6 +447,14 @@ private:
     // The part with a model nearest (x, y), close enough to be what's
     // clicked; -1 for none.
     int partAt(float x, float y) const;
+    // The process of part `part` (its CProcessListAI's) the chosen officer
+    // can go through with their chosen item, or with none; nullptr if none.
+    const TextObject *processFor(size_t part, const Officer &o) const;
+    // Sends the chosen officer through the process of the part at (x, y);
+    // false if there's none for them.
+    bool startProcess(float x, float y);
+    // An officer's process a step; true once it's through.
+    bool runProcess(size_t officer, float seconds);
     bool stuns(const Officer &o) const;
     // A line of a script of Levels/; empty if there's none.
     std::string describe(const std::string &script, const std::string &line) const;
@@ -420,6 +468,8 @@ private:
                                const std::string &discharge = "Shoot1");
     // The map's triggers (map_triggers.cpp).
     void setupTriggers();
+    // A part's AI that's a trigger watched from now on.
+    void addTrigger(size_t part, const TextObject *ai);
     void updateTriggers(float seconds);
     // The parts named by `names`, a comma's list; "$Trigger" is `trigger`.
     std::vector<size_t> partsNamed(const std::string &names, int trigger = -1) const;
@@ -444,7 +494,7 @@ private:
     void drawOfficer(Surface &view, const Officer &o, int left, int top, uint64_t now);
     const Animation &animation(const std::string &model, const std::string &sequence);
     // The officer at (x, y) on the map, or -1.
-    int officerAt(float x, float y);
+    int officerAt(float x, float y) const;
     void drawPolygon(image::Image &cell, int cellX, int cellY, const MapPart &part);
     const image::Image &texture(const std::string &name);
 
@@ -458,6 +508,7 @@ private:
     int _viewH = 0;
     float _cameraX = 0.0f;
     float _cameraY = 0.0f;
+    float _zoom = 1.0f;
     std::array<Blend, 256> _blends{};
     std::vector<image::Image> _groundTextures;
     std::map<std::string, image::Image> _textures; // the polygons', by name
@@ -557,6 +608,13 @@ private:
     std::vector<Mine> _mines;
     std::string _scanText;
     float _scanTyped = 0.0f;
+    std::vector<std::string> _itemTypes; // Inventory/Item Types, the bar's places last first
+    // Seconds the chosen item's name's still shown over the bar, from when
+    // it's chosen (0x423e52).
+    static constexpr float kItemTitleTime = 1.5f;
+    float _itemTitle = 0.0f;
+    std::map<std::string, Animation> _cursors; // by name
+    bool _overInterface = false;               // the mouse over the interface, not the map
     std::shared_ptr<MissionProgress> _progress;
     bool _active = true;
     std::vector<Relocation> _relocations;

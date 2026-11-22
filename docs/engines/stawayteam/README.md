@@ -46,14 +46,16 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
   none ([systems/team-selection.md](systems/team-selection.md)).
 - **Maps:** the mission's first map, its ground, polygons and models,
   scrolled by the keys and the mouse, the interface around it with the
-  team bar, inventory and minimap; the team at their spawn points, an
-  officer chosen and walking where clicked, by the map's waypoints
-  ([systems/maps.md](systems/maps.md)).
+  team bar, inventory and minimap with what's on it, the game's pointers
+  and the zoom; the team at their spawn points, an officer chosen and
+  walking where clicked, by the map's waypoints, and going through a
+  part's process ([systems/maps.md](systems/maps.md)).
 - **Objectives:** the mission's objectives, changed by the triggers and
   listed by the objectives button; the mission won or lost, and on to
   the next or again ([systems/objectives.md](systems/objectives.md)).
-- **Items:** the officers' items chosen on the inventory bar or by key,
-  concussion grenades thrown and the hypospray healing
+- **Items:** the officers' items chosen on the inventory bar's places or
+  by key, weapons, grenades, mines, the hypospray and the tricorders
+  used
   ([systems/items.md](systems/items.md)).
 - **Everything else** is still to come. The plan is in [PLAN.md](PLAN.md),
   and a first survey of the game's files is in

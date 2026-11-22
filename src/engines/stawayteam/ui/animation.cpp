@@ -13,8 +13,16 @@
 namespace reluva::stawayteam {
 
 Error Animation::load(const Archive &data, const std::string &name, const std::string &sequence) {
-    const std::string path = "Cache/" + std::string(sequence.empty() ? "Sequences/" : "Models/") + name +
-                             (sequence.empty() ? ".seq16" : ".mdl16");
+    if (sequence.empty())
+        return loadFile(data, "Cache/Sequences/" + name + ".seq16");
+    return loadFrom(data, "Cache/Models/" + name + ".mdl16", sequence);
+}
+
+Error Animation::loadFile(const Archive &data, const std::string &path) {
+    return loadFrom(data, path, "");
+}
+
+Error Animation::loadFrom(const Archive &data, const std::string &path, const std::string &sequence) {
     std::vector<uint8_t> bytes;
     if (Error err = data.read(path, bytes))
         return err;

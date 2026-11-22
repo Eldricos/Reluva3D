@@ -43,8 +43,8 @@ None yet.
   AIs' messages; enemies patrol, see, shoot, go to look at the team's
   noise and where they're called to, pursue, retreat and stun, but don't
   run away, recharge or look at the fallen yet; footsteps make no sound;
-  shots show their flashes but no beam and always hit; there are no
-  cursors; saving and loading from the escape menu aren't there
+  shots show their flashes but no beam and always hit; the 5 polygons'
+  processes and the Out Of Range cursor aren't there; saving and loading from the escape menu aren't there
   ([systems/maps.md](systems/maps.md#in-reluva)).
 - **Objectives:** there's no score, and
   LOAD GAME is greyed out; rescue and need-item objectives are only done
@@ -53,9 +53,8 @@ None yet.
   ([systems/objectives.md](systems/objectives.md#in-reluva)).
 - **Items:** weapons, grenades, mines, the hypospray and the tricorders
   can be used, the other gadgets and skills not yet; grenades fly
-  straight, without an arc or bounces; there are no item cursors, no
-  scrolling of the bar or full inventory, and the phaser's overload
-  isn't there ([systems/items.md](systems/items.md#in-reluva)).
+  straight, without an arc or bounces; there's no full inventory, and
+  the phaser's overload isn't there ([systems/items.md](systems/items.md#in-reluva)).
 - **The briefing:** the items found in earlier missions aren't
   described after the lines, the text has no scroll bar (the mouse wheel
   scrolls it), the random numbers aren't there, and EXIT doesn't fade out
@@ -68,7 +67,8 @@ None yet.
   brighten their label under the mouse; the toolkit's toggles make no
   sound
   ([systems/menus.md](systems/menus.md#buttons)).
-- **The pointer** is the system's, not the game's.
+- **The pointer** is the system's during the opening movies; from the
+  main menu on it's the game's.
 - **Keys' names** are Reluva's table of the US keyboard's, not what
   Windows gives for the player's own keyboard; joysticks aren't there.
 

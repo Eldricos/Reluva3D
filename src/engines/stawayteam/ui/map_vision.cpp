@@ -58,8 +58,8 @@ void MapScreen::pressVision() {
 void MapScreen::cycleVision() {
     // The next enemy alive in the view, from the one shown (inferred).
     const auto inView = [&](const Enemy &e) {
-        return e.alive() && shown(e.part) && std::abs(e.x - _cameraX) <= float(_viewW) / 2.0f &&
-               std::abs(e.y - _cameraY) <= float(_viewH) / 2.0f;
+        return e.alive() && shown(e.part) && std::abs(e.x - _cameraX) <= float(shownW()) / 2.0f &&
+               std::abs(e.y - _cameraY) <= float(shownH()) / 2.0f;
     };
     const int n = int(_enemies.size());
     for (int k = 1; k <= n; ++k) {

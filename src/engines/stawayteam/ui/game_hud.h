@@ -42,6 +42,7 @@ public:
         bool toggleStun = false; // the chosen item's panel's STUN or KILL pressed
         bool detonate = false;   // the remote mine's panel's DETONATE pressed
         int item = -1;           // an item chosen on the inventory: its place in what setInventory gave
+        int step = 0;            // the inventory's Next (1) or Previous (-1) button pressed
         float cameraX = 0.0f;    // where, for moveCamera: the view's middle on the map
         float cameraY = 0.0f;
     };
@@ -69,11 +70,35 @@ public:
         std::string name;
         int count = -1;
     };
-    /** The chosen officer's items, and the one of them they've chosen (-1 none). */
-    void setInventory(std::vector<Held> items, int chosen) {
+    /**
+     * One of the inventory bar's places, an item type's: the item it shows,
+     * its place in the items (-1 none), and how many of the officer's are
+     * of that type.
+     */
+    struct Place {
+        int item = -1;
+        int count = 0;
+    };
+    /** The chosen officer's items, the bar's places, and the item they've chosen (-1 none). */
+    void setInventory(std::vector<Held> items, std::vector<Place> places, int chosen) {
         _held = std::move(items);
+        _places = std::move(places);
         _heldChosen = chosen;
     }
+    /** Whether the chosen item's name shows over the bar, as it's just been chosen. */
+    void setItemTitle(bool shown) { _itemTitle = shown; }
+    /** Something marked on the minimap, where it is on the map. */
+    struct Mark {
+        enum Kind { kOfficer, kEnemy, kInterest };
+        float x = 0.0f;
+        float y = 0.0f;
+        Kind kind = kOfficer;
+    };
+    void setMarks(std::vector<Mark> marks) { _marks = std::move(marks); }
+    /** The info bar's open button pressed: held up, or let down again. */
+    void toggleInfoBar() { _pinned = !_pinned; }
+    /** Whether the mouse was over the interface, as the last event left it. */
+    bool mouseOver() const { return _mouseOver; }
     /** Whether the sound button shows the team's noises. */
     void setListening(bool on) { _listening = on; }
     /**
@@ -100,6 +125,8 @@ private:
     // The chosen officer's chosen item, and its panel drawn at (x, y).
     const ItemDefinition *chosenItem() const;
     void drawItemPanel(Surface &screen, int x, int y, uint64_t now);
+    // The minimap's marks, its top left corner at (left, top).
+    void drawMarks(Surface &screen, int left, int top, uint64_t now);
     const Animation &sequence(const std::string &name);
     const Font &panelFont(const std::string &name);
 
@@ -135,7 +162,15 @@ private:
     int _panelX = 0;
     int _panelY = 0;
     std::vector<Held> _held;
+    std::vector<Place> _places;
     int _heldChosen = -1;
+    bool _itemTitle = false;
+    std::vector<Mark> _marks;
+    // The points of interest's squares pulse: their size's phase, 0 to 4.
+    float _pulse = 0.0f;
+    uint64_t _pulseLast = 0;
+    bool _pinned = false; // the info bar held up by its open button
+    bool _mouseOver = false;
     // Where each item shown is on the screen, and its place in _held.
     struct Slot {
         int x;

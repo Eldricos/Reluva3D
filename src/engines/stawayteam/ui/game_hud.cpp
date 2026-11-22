@@ -71,7 +71,7 @@ int GameHud::infoTop(uint64_t now) {
     const double popup = _custom ? _custom->number("Info Bar Popup Time").value_or(0.25) : 0.25;
     const float step = popup > 0.0 ? float(double(now - std::min(now, _last)) / 1000.0 / popup) : 1.0f;
     _last = now;
-    _open = std::clamp(_open + (_opening ? step : -step), 0.0f, 1.0f);
+    _open = std::clamp(_open + (_opening || _pinned ? step : -step), 0.0f, 1.0f);
     int x = 0;
     int y = 0;
     readPoint(_custom, "Info Pos", x, y);
@@ -120,6 +120,7 @@ GameHud::Result GameHud::handleEvent(const Event &ev, uint64_t now) {
     const bool overPause =
         ev.mouseX >= pauseX && ev.mouseY >= pauseY && ev.mouseX < pauseX + pause.w && ev.mouseY < pauseY + pause.h;
     r.used = overInfo || overTeam || overBox || overInventory || overPause;
+    _mouseOver = r.used;
     r.pause = overPause && ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft;
     if (ev.type != EventType::kMouseDown || ev.button != MouseButton::kLeft)
         return r;
@@ -170,13 +171,40 @@ GameHud::Result GameHud::handleEvent(const Event &ev, uint64_t now) {
             r.detonate = onButton("Detonate Button Pos", picture("Info Bar/Remote Mine/Detonate Default"));
     }
     if (overInventory) {
-        // An item's icon chooses it (inferred).
+        // An item's icon chooses it, the Previous and Next buttons go along
+        // them as Inventory Prev and Next (inferred).
         int iw = 0;
         int ih = 0;
         readPoint(_custom, "Inventory Icon Size", iw, ih);
         for (const Slot &s : _slots)
             if (ev.mouseX >= s.x && ev.mouseY >= s.y && ev.mouseX < s.x + iw && ev.mouseY < s.y + ih)
                 r.item = s.item;
+        const auto on = [&](const char *key, const char *name) {
+            int x = 0;
+            int y = 0;
+            readPoint(_custom, key, x, y);
+            const image::Image &p = picture(std::string("Inventory/") + name);
+            return ev.mouseX >= vx + x && ev.mouseY >= vy + y && ev.mouseX < vx + x + p.w && ev.mouseY < vy + y + p.h;
+        };
+        if (on("Inventory Previous Button Pos", "Previous Inventory Item Default"))
+            r.step = -1;
+        if (on("Inventory Next Button Pos", "Next Inventory Item Default"))
+            r.step = 1;
+    }
+    if (overInfo) {
+        // Its open button holds it up, or lets it down (inferred: as
+        // Toggle Minimap presses it).
+        int ix = 0;
+        int iy = 0;
+        int ox = 0;
+        int oy = 0;
+        readPoint(_custom, "Info Pos", ix, iy);
+        readPoint(_custom, "Info Open Pos", ox, oy);
+        const image::Image &open = picture("Info Bar/Open Button Default");
+        const int x = ix + ox;
+        const int y = infoTop(now) + oy;
+        if (ev.mouseX >= x && ev.mouseY >= y && ev.mouseX < x + open.w && ev.mouseY < y + open.h)
+            _pinned = !_pinned;
     }
     if (overTeam) {
         // An officer's slot chooses them (inferred).
@@ -220,7 +248,8 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
     int ox = 0;
     int oy = 0;
     readPoint(_custom, "Info Open Pos", ox, oy);
-    image::blit(screen, picture("Info Bar/Open Button Default"), ix + ox, infoY + oy);
+    image::blit(screen, picture(_pinned ? "Info Bar/Open Button Press" : "Info Bar/Open Button Default"), ix + ox,
+                infoY + oy);
     int mx = 0;
     int my = 0;
     int cx = 0;
@@ -253,6 +282,7 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
             dot(x0, y);
             dot(x1, y);
         }
+        drawMarks(screen, left, top, now);
     }
     // The chosen item's panel at Info Renderer Pos on it, over the minimap
     // (inferred).
@@ -381,37 +411,66 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
     image::blit(screen, inv, vx, vy);
     image::blit(screen, picture("Inventory/Previous Inventory Item Default"), vx + px, vy + py);
     image::blit(screen, picture("Inventory/Next Inventory Item Default"), vx + nx, vy + ny);
+    // A place for each item type (0x423f70): an empty one darkened (10,
+    // 10, 40, half see-through), else its item in its frame, the chosen
+    // one on its Selected Icon Background (0x41ae4b), its uses left in its
+    // corner and the More Indicator on a place with more than one
+    // (inferred for where).
     _slots.clear();
     if (selected >= 0 && size_t(selected) < _team.size() && iw > 0) {
         int x = vx + barX;
-        for (size_t k = 0; k < _held.size(); ++k) {
-            const Held &held = _held[k];
-            const auto def = _items.find(held.name);
-            if (def == _items.end() || !def->second.displayInInventory)
-                continue;
+        for (const Place &place : _places) {
             if (x + iw > vx + nx)
                 break;
-            // The chosen one on its Selected Icon Background (0x41ae4b,
-            // inferred for its place: as the frame).
-            image::blit(screen,
-                        picture(int(k) == _heldChosen ? "Inventory/Selected Icon Background" : "Inventory/Item Frame"),
-                        x, vy + barY);
-            _slots.push_back({x, vy + barY, int(k)});
-            auto found = _icons.find(def->second.iconImage);
-            if (found == _icons.end())
-                found = _icons
-                            .emplace(def->second.iconImage,
-                                     cachePicture(_data, "Inventory/Icon Frames/" + def->second.iconImage))
-                            .first;
-            const image::Image &icon = found->second;
-            image::blit(screen, icon, x + (iw - icon.w) / 2, vy + barY + (ih - icon.h) / 2);
+            const int y = vy + barY;
+            if (place.item < 0 || size_t(place.item) >= _held.size()) {
+                for (int row = std::max(0, y); row < std::min(screen.h, y + ih); ++row)
+                    for (int col = std::max(0, x); col < std::min(screen.w, x + iw); ++col) {
+                        uint8_t *p = screen.row(row) + col * 4;
+                        p[0] = uint8_t((p[0] + 10) / 2);
+                        p[1] = uint8_t((p[1] + 10) / 2);
+                        p[2] = uint8_t((p[2] + 40) / 2);
+                    }
+                x += iw + gap;
+                continue;
+            }
+            const Held &held = _held[size_t(place.item)];
+            const auto def = _items.find(held.name);
+            image::blit(
+                screen,
+                picture(place.item == _heldChosen ? "Inventory/Selected Icon Background" : "Inventory/Item Frame"), x,
+                y);
+            _slots.push_back({x, y, place.item});
+            if (def != _items.end()) {
+                auto found = _icons.find(def->second.iconImage);
+                if (found == _icons.end())
+                    found = _icons
+                                .emplace(def->second.iconImage,
+                                         cachePicture(_data, "Inventory/Icon Frames/" + def->second.iconImage))
+                                .first;
+                const image::Image &icon = found->second;
+                image::blit(screen, icon, x + (iw - icon.w) / 2, y + (ih - icon.h) / 2);
+            }
+            if (place.count > 1)
+                image::blit(screen, picture("Inventory/More Indicator"), x, y);
             // Its uses left in its bottom right corner (its Count Format
             // String, "%d"; inferred for where).
             if (held.count >= 0 && _font.loaded()) {
                 const std::string count = std::to_string(held.count);
-                _font.draw(screen, x + iw - _font.width(count) - 1, vy + barY + ih - _font.height(), count);
+                _font.draw(screen, x + iw - _font.width(count) - 1, y + ih - _font.height(), count);
             }
             x += iw + gap;
+        }
+        // The chosen item's name over the bar a while after it's chosen, in
+        // the bar's Trek Small (0x41ad95), centred at Inventory Title Pos
+        // (inferred).
+        if (_itemTitle && _heldChosen >= 0 && size_t(_heldChosen) < _held.size() && _font.loaded()) {
+            std::string name = _held[size_t(_heldChosen)].name;
+            name = name.substr(name.rfind('/') + 1);
+            int tx = 0;
+            int ty = 0;
+            readPoint(_custom, "Inventory Title Pos", tx, ty);
+            _font.draw(screen, vx + tx - _font.width(name) / 2, vy + ty, name);
         }
     }
 
@@ -428,6 +487,40 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
                         : overPause ? "Pause Time Button/Pause Time Hover"
                                     : "Pause Time Button/Pause Time Default"),
                 pauseX, pauseY);
+}
+
+void GameHud::drawMarks(Surface &screen, int left, int top, uint64_t now) {
+    // On the minimap (0x4ddf50): a dot of (128, 128, 255) for an officer,
+    // red for an enemy; a square of (64, 64, 255) for a point of interest,
+    // shrinking from 4 pixels each side of it, round again every 4/1.5
+    // seconds (0x4de220).
+    const float seconds = float(now - std::min(now, _pulseLast)) / 1000.0f;
+    _pulseLast = now;
+    _pulse = std::fmod(_pulse + seconds * 1.5f, 4.0f);
+    const auto dot = [&](int x, int y, uint8_t r, uint8_t g, uint8_t b) {
+        if (x < 0 || y < 0 || x >= screen.w || y >= screen.h)
+            return;
+        uint8_t *p = screen.row(y) + x * 4;
+        p[0] = r;
+        p[1] = g;
+        p[2] = b;
+    };
+    const int half = int(4.0f - _pulse);
+    for (const Mark &m : _marks) {
+        const int x = left + int(m.x * float(_minimap.w) / float(_mapW));
+        const int y = top + int(m.y * float(_minimap.h) / float(_mapH));
+        if (m.kind == Mark::kOfficer)
+            dot(x, y, 128, 128, 255);
+        else if (m.kind == Mark::kEnemy)
+            dot(x, y, 255, 0, 0);
+        else if (half > 0)
+            for (int k = -half; k <= half; ++k) {
+                dot(x + k, y - half, 64, 64, 255);
+                dot(x + k, y + half, 64, 64, 255);
+                dot(x - half, y + k, 64, 64, 255);
+                dot(x + half, y + k, 64, 64, 255);
+            }
+    }
 }
 
 const ItemDefinition *GameHud::chosenItem() const {

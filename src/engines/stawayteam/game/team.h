@@ -136,6 +136,14 @@ struct ItemDefinition {
     std::shared_ptr<const TextObject> infoRenderer;
     float shotNoise = 0.0f;     // its Discharge Action's Noise Radius, pixels
     float shotNoiseTime = 0.0f; // seconds it's heard for
+    // Its cursors, of Interface/Game Cursors ("!None" for none): where it
+    // can be used (its Process's Process Cursor) and can't, over what it's
+    // used on (Entity Hovering Cursor), and over that out of sight
+    // (Obscured Cursor, with Show Obscured Cursor).
+    std::string processCursor;
+    std::string cantUseCursor;
+    std::string hoveringCursor;
+    std::string obscuredCursor;
 };
 
 /**

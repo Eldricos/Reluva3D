@@ -8,6 +8,7 @@
 
 #include "engines/stawayteam/formats/rds_script.h"
 #include "engines/stawayteam/ui/button.h"
+#include "engines/stawayteam/ui/layout.h"
 #include "engines/stawayteam/ui/map_screen.h"
 
 #include <algorithm>
@@ -81,6 +82,13 @@ void MapScreen::chooseItem(int officer, int item) {
     if (item < 0 || size_t(item) >= o.items.size())
         return;
     o.item = item;
+    // Its place on the bar shows it.
+    const std::vector<std::vector<int>> places = itemPlaces(o);
+    o.shown.resize(places.size(), 0);
+    for (size_t p = 0; p < places.size(); ++p)
+        for (size_t k = 0; k < places[p].size(); ++k)
+            if (places[p][k] == item)
+                o.shown[p] = int(k);
     // A weapon chosen is what they shoot with.
     if (const ItemDefinition *def = itemOf(o); def && shoots(*def))
         o.weapon = def;
@@ -111,8 +119,11 @@ bool MapScreen::useItem(float x, float y) {
         return true;
     }
     if (def->processType == "Scan" || def->processType == "Medical Scan") {
-        // Scanned: what's there, a part with a model; within its Item
-        // Range, walked to if not (inferred).
+        // A part with its own process for the tricorder goes through that
+        // (its CProcessListAI's); else what's there, a part with a model,
+        // is scanned, within its Item Range, walked to if not (inferred).
+        if (startProcess(x, y))
+            return true;
         const int part = partAt(x, y);
         if (part < 0)
             return false;
@@ -230,6 +241,11 @@ void MapScreen::updateItems(float seconds) {
         Officer &o = _officers[i];
         if (o.task == Officer::Task::kNone)
             continue;
+        if (o.task == Officer::Task::kProcess) {
+            if (o.down() || runProcess(i, seconds))
+                o.task = Officer::Task::kNone;
+            continue;
+        }
         const ItemDefinition *def = itemOf(o);
         if (!def || o.down()) {
             o.task = Officer::Task::kNone;
@@ -293,6 +309,135 @@ void MapScreen::updateItems(float seconds) {
         _thrown.erase(_thrown.begin() + ptrdiff_t(i));
         explode(t);
     }
+}
+
+const TextObject *MapScreen::processFor(size_t part, const Officer &o) const {
+    // One for their chosen item (its Required Selected Item), first; else
+    // one to Use with none (inferred: the program's choosing isn't traced).
+    // One that needs an item in the inventory needs them to carry it.
+    const ItemDefinition *item = itemOf(o);
+    const auto carries = [&](const std::string &name) {
+        if (name.empty() || name == "!None")
+            return true;
+        for (const Officer::Held &h : o.items)
+            if (h.name == name && h.count != 0)
+                return true;
+        return false;
+    };
+    for (const bool withItem : {true, false})
+        for (const TextObject *ai : _map.parts[part].activities) {
+            if (ai->className != "CProcessListAI")
+                continue;
+            const TextObject *list = ai->object("Process");
+            if (!list)
+                continue;
+            for (const TextField *f : list->items()) {
+                const TextObject *process = f->object.get();
+                if (!process || !carries(readText(process, "Required Item In Inventory")))
+                    continue;
+                const std::string needs = readText(process, "Required Selected Item");
+                if (withItem && item && needs == item->name)
+                    return process;
+                if (!withItem && (needs.empty() || needs == "!None") && readText(process, "Process Type") == "Use")
+                    return process;
+            }
+        }
+    return nullptr;
+}
+
+bool MapScreen::startProcess(float x, float y) {
+    if (_selected < 0)
+        return false;
+    Officer &o = _officers[size_t(_selected)];
+    const int part = partAt(x, y);
+    if (o.down() || part < 0)
+        return false;
+    const TextObject *process = processFor(size_t(part), o);
+    if (!process)
+        return false;
+    o.task = Officer::Task::kProcess;
+    o.taskPart = part;
+    o.taskProcess = process;
+    o.taskStep = 0;
+    o.attacking = -1;
+    o.path.clear();
+    return true;
+}
+
+bool MapScreen::runProcess(size_t officer, float seconds) {
+    // Its Process Activity one after another: going to a place (a
+    // CGoToAI's Destination, a CGotoRadiusAI's within its Radius, a
+    // CGotoTargetsAI's Target, "#1-4#" the first), and actions run, the
+    // officer their instigator and the part $Trigger (inferred).
+    (void)seconds;
+    Officer &o = _officers[officer];
+    // One for their item, a tricorder's scan, from within its Item Range
+    // and in sight, walked to first (inferred: as the item's own scan).
+    const ItemDefinition *def = itemOf(o);
+    if (o.taskStep == 0 && def && def->range > 0.0f && readText(o.taskProcess, "Required Selected Item") == def->name) {
+        float x = 0.0f;
+        float y = 0.0f;
+        placeOf(size_t(o.taskPart), x, y);
+        if (std::hypot(x - o.x, y - o.y) > def->range || !clearSight(o.x, o.y, x, y)) {
+            if (o.path.empty())
+                o.path = _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{x, y}}
+                                                   : _wayPoints.path(o.x, o.y, x, y);
+            return false;
+        }
+        o.path.clear();
+    }
+    const TextObject *list = o.taskProcess->object("Process Activity");
+    const auto steps = list ? list->items() : std::vector<const TextField *>{};
+    while (o.taskStep < steps.size()) {
+        const TextObject *step = steps[o.taskStep]->object.get();
+        if (!step) {
+            ++o.taskStep;
+            continue;
+        }
+        const std::string &kind = step->className;
+        if (kind == "CGoToAI" || kind == "CGotoRadiusAI" || kind == "CGotoTargetsAI") {
+            std::string name = readText(step, kind == "CGotoTargetsAI" ? "Target" : "Destination");
+            if (const size_t hash = name.find('#'); hash != std::string::npos)
+                name = name.substr(0, hash) + "1";
+            const std::vector<size_t> places = partsNamed(name, o.taskPart);
+            if (places.empty()) {
+                ++o.taskStep;
+                continue;
+            }
+            float x = 0.0f;
+            float y = 0.0f;
+            placeOf(places.front(), x, y);
+            int dx = 0;
+            int dy = 0;
+            readPoint(step, "Offset", dx, dy);
+            x += float(dx);
+            y += float(dy);
+            const float radius =
+                kind == "CGotoRadiusAI" ? std::max(kUseReach, float(step->number("Radius").value_or(0.0))) : kUseReach;
+            const float ratio = kind == "CGotoRadiusAI" ? float(step->number("Y to X Ratio").value_or(1.0)) : 1.0f;
+            const float ex = (o.x - x) / radius;
+            const float ey = (o.y - y) / (radius * (ratio > 0.0f ? ratio : 1.0f));
+            if (ex * ex + ey * ey <= 1.0f) {
+                o.path.clear();
+                ++o.taskStep;
+                continue;
+            }
+            if (o.path.empty())
+                o.path = _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{x, y}}
+                                                   : _wayPoints.path(o.x, o.y, x, y);
+            return false;
+        }
+        if (kind == "CActionAI") {
+            if (_mixer)
+                if (auto sound = gameSound(_data, readText(o.taskProcess, "Default Use Sound")))
+                    _mixer->play(sound, audio::SoundType::kEffects);
+            ++o.taskStep;
+            runAction(step->object("Action"), int(officer), o.taskPart);
+            return o.task != Officer::Task::kProcess || o.taskStep >= steps.size();
+        }
+        ++o.taskStep;
+    }
+    return true;
 }
 
 std::string MapScreen::describe(const std::string &script, const std::string &line) const {

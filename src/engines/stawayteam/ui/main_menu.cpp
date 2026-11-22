@@ -7,11 +7,13 @@
 #include "common/log.h"
 #include "engines/stawayteam/ui/layout.h"
 #include "engines/stawayteam/ui/movies.h"
+#include "graphics/cursor.h"
 #include "video/movie_player.h"
 
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <iterator>
 
@@ -27,6 +29,8 @@ struct MainMenu::Part {
 };
 
 namespace {
+
+const char *const kPointer = "Cache/Interface/Cursors/Pointer.seq16";
 
 // The main menu's buttons, top to bottom, as the program names them
 // (0x503657): Rules.txt only places them.
@@ -94,6 +98,7 @@ MainMenu::MainMenu(System &sys, Surface &screen, const Archive &data, const std:
                    const TextObject &rules, GameOptions &options, audio::Mixer *mixer, int firstMission)
     : _sys(sys), _screen(screen), _data(data), _install(install), _rules(rules), _options(options), _mixer(mixer),
       _firstMission(firstMission) {
+    (void)_pointer.loadFile(data, kPointer);
     const TextObject *menu = menuDefinition(rules, "Main Menu");
     const TextObject *nernies = menu ? menu->object("Nernie") : nullptr;
     for (const TextField *item : nernies ? nernies->items() : std::vector<const TextField *>{}) {
@@ -321,9 +326,38 @@ bool MainMenu::run() {
         playMissionMusic();
         draw();
         brighten();
+        // The map's own pointer over it, else Interface/Cursors' Pointer
+        // (0x4f566a).
+        const bool windows = _settings || _soundOptions || _keyConfig || _difficultyWindow;
+        showCursor(_mapScreen && !windows ? _mapScreen->cursor(_sys.getMillis()) : _pointer.at(_sys.getMillis()));
         _sys.updateScreen(_screen);
         _sys.delayMillis(10);
     }
+}
+
+void MainMenu::showCursor(const Animation::Picture *p) {
+    if (p == _cursorShown)
+        return;
+    _cursorShown = p;
+    if (!p || !p->image.w) {
+        _sys.setMouseCursor(nullptr);
+        return;
+    }
+    // Its origin's the mouse's place; the picture's widened to take it in
+    // when it's outside (the edges' arrows are drawn off it).
+    const int x0 = std::min(0, p->originX);
+    const int y0 = std::min(0, p->originY);
+    const int x1 = std::max(p->image.w, p->originX + 1);
+    const int y1 = std::max(p->image.h, p->originY + 1);
+    Cursor c;
+    c.w = x1 - x0;
+    c.h = y1 - y0;
+    c.hotX = p->originX - x0;
+    c.hotY = p->originY - y0;
+    c.rgba.assign(size_t(c.w) * size_t(c.h) * 4, 0);
+    for (int y = 0; y < p->image.h; ++y)
+        std::memcpy(c.pixel(-x0, y - y0), p->image.pixel(0, y), size_t(p->image.w) * 4);
+    _sys.setMouseCursor(&c);
 }
 
 void MainMenu::playMissionMusic() {

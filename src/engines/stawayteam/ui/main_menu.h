@@ -89,6 +89,8 @@ private:
 
     // Draws the screen, its windows over it if there are any.
     void draw();
+    // `p` as the mouse pointer, if it isn't already.
+    void showCursor(const Animation::Picture *p);
     // The options' brightness over the screen as it's drawn.
     void brighten();
     // A new game: the first mission's briefing and team selection, those
@@ -136,6 +138,8 @@ private:
     // The mission's maps, by their names, and the one shown.
     std::map<std::string, std::unique_ptr<MapScreen>> _maps;
     MapScreen *_mapScreen = nullptr;
+    Animation _pointer;                               // Interface/Cursors' Pointer
+    const Animation::Picture *_cursorShown = nullptr; // the pointer as it was last set
     std::unique_ptr<DebriefingScreen> _debriefing;
     std::shared_ptr<audio::Sound> _missionMusic;
     audio::SoundHandle _missionSong = audio::kNoSound;

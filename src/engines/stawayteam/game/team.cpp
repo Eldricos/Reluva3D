@@ -150,8 +150,14 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
         }
         if (const TextObject *held = def.object("Default Inventory Item"))
             item.rounds = int(held->integer("Rounds").value_or(0));
-        if (const TextObject *process = def.object("Process"))
+        if (const TextObject *process = def.object("Process")) {
             item.processType = text(*process, "Process Type");
+            item.processCursor = text(*process, "Process Cursor");
+            item.cantUseCursor = text(*process, "Can't Use Cursor");
+        }
+        item.hoveringCursor = text(def, "Entity Hovering Cursor");
+        if (def.integer("Show Obscured Cursor").value_or(0) != 0)
+            item.obscuredCursor = text(def, "Obscured Cursor");
         item.projectile = text(def, "Projectile");
         if (item.projectile == "!Unknown Model")
             item.projectile.clear();

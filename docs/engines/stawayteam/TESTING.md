@@ -131,7 +131,11 @@ stawayteam frame-png`.
    phaser's panel as the info bar rises, KILL clicked to STUN and the
    phaser stunning; a proximity mine put down and going off as an enemy
    comes near; a remote mine's DETONATE; the tricorder on an enemy and
-   a crate; enemies called by one
+   a crate, and on a Romulan with a scan of its own; the pointer at the
+   edges and over the map with each item; the inventory's places, `]`
+   and `[` and its buttons, the item's name under it; M holding the info
+   bar up, the minimap's dots and squares; the keypad's +, - and * zooming;
+   enemies called by one
    that's seen the team, running after it out of sight, and retreating to
    their alarms when hurt (Mission 08); a grenade chosen on the bar or
    by G and thrown, the blast stunning those near, a hypospray chosen by

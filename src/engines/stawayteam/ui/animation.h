@@ -42,6 +42,8 @@ struct Animation {
      * from `Cache/Models/<name>.mdl16`.
      */
     Error load(const Archive &data, const std::string &name, const std::string &sequence = "");
+    /** Reads the .seq16 at `path` (a cursor's, `Cache/Interface/...`). */
+    Error loadFile(const Archive &data, const std::string &path);
     /**
      * The frame shown `ms` milliseconds in, the first `offset` frames passed
      * over, in direction `direction`; nullptr if it has none.
@@ -55,6 +57,9 @@ struct Animation {
     int direction(float radians) const;
     /** How far a cycle of direction `direction` goes, in pixels; 0 if it doesn't move. */
     float cycleDistance(int direction) const;
+
+private:
+    Error loadFrom(const Archive &data, const std::string &path, const std::string &sequence);
 };
 
 /** `Cache/<name>.frm16` as a picture; empty if it won't read. */
