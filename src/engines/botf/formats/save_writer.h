@@ -46,6 +46,8 @@ public:
     std::vector<uint8_t> *file(std::string_view name);
     const std::vector<uint8_t> *file(std::string_view name) const;
     ///@}
+    /** Every file's name, in the archive's order. */
+    std::vector<std::string> names() const;
     /** The file named so, added empty after the others if there's none. */
     std::vector<uint8_t> &add(std::string_view name);
 

@@ -9,6 +9,8 @@
 #include "engines/botf/formats/save_layout.h"
 
 #include <algorithm>
+#include <cstdlib>
+#include <map>
 #include <cstring>
 #include <unordered_map>
 #include <utility>
@@ -394,10 +396,40 @@ void writeShip(const SavedShip &s, std::vector<uint8_t> &d, size_t at) {
     put32(d, at + 0x70, s.groundCombat);
 }
 
+// The computer players' lists of ships (AgtSh#, each agent's, and TskSh#,
+// each task's: 16-bit ship numbers), which aren't written yet: a ship
+// one of them lists can't be taken out.
+Error checkPlansKeep(const std::vector<int> &ids, const SaveFiles &save) {
+    const std::vector<uint8_t> *list = save.file("GShipList");
+    const std::vector<uint8_t> *head = save.file("GShipHead");
+    if (!list || !head || head->size() < 0x1C)
+        return Error::success();
+    std::vector<int> kept = ids;
+    std::sort(kept.begin(), kept.end());
+    for (int i = 0; i < s32(*head, 0x18) && size_t(i + 1) * kShipSize <= list->size(); ++i) {
+        const int id = shipIdOf(*list, size_t(i) * kShipSize);
+        if (std::binary_search(kept.begin(), kept.end(), id))
+            continue;
+        for (const std::string &name : save.names()) {
+            const bool plan = name.rfind("AgtSh", 0) == 0 || name.rfind("TskSh", 0) == 0;
+            if (!plan || name.find('.') != std::string::npos)
+                continue;
+            const std::vector<uint8_t> &d = *save.file(name);
+            for (size_t at = 0; at + 2 <= d.size(); at += 2)
+                if (s16(d, at) == id)
+                    return Error::fail("ship " + std::to_string(id) + " can't be taken out: the computer's " + name +
+                                       " still lists it");
+        }
+    }
+    return Error::success();
+}
+
 Error writeShips(const std::vector<SavedShip> &ships, SaveFiles &save) {
     std::vector<int> ids;
     for (const SavedShip &s : ships)
         ids.push_back(s.id);
+    if (Error err = checkPlansKeep(ids, save))
+        return err;
     if (Error err = writeList({"GShipHead", "GShipList", kShipSize, shipIdOf}, ids, save))
         return err;
     std::vector<uint8_t> &list = *save.file("GShipList");
@@ -442,6 +474,37 @@ void writeTaskForce(const SavedTaskForce &t, int width, std::vector<uint8_t> &d,
     putFlag32(d, at + 0x68, t.cloaked);
 }
 
+// alienTFInfo#, each race's task forces, the major empires' too: a count,
+// then their numbers (16 bits each), in their order. The game has one for
+// each race in the game, a minor race's even with none, and none for the
+// monsters'; only those there are written, where a race's differ.
+Error writeRacesTaskForces(const std::vector<SavedTaskForce> &taskForces, SaveFiles &save) {
+    std::map<int, std::vector<int>> byRace;
+    for (const std::string &name : save.names())
+        if (name.rfind("alienTFInfo", 0) == 0)
+            byRace.try_emplace(std::atoi(name.c_str() + 11));
+    for (const SavedTaskForce &t : taskForces)
+        if (const auto it = byRace.find(t.owner); it != byRace.end())
+            it->second.push_back(t.id);
+    for (auto &[race, ids] : byRace) {
+        std::sort(ids.begin(), ids.end());
+        const std::string name = "alienTFInfo" + std::to_string(race);
+        const std::vector<uint8_t> *d = save.file(name);
+        std::vector<int> was;
+        const int count = d && d->size() >= 4 ? s32(*d, 0) : 0;
+        for (int i = 0; i < count && 4 + size_t(i) * 2 + 2 <= d->size(); ++i)
+            was.push_back(s16(*d, 4 + size_t(i) * 2));
+        if (was == ids)
+            continue;
+        std::vector<uint8_t> out(4 + ids.size() * 2);
+        put32(out, 0, int(ids.size()));
+        for (size_t i = 0; i < ids.size(); ++i)
+            put16(out, 4 + i * 2, ids[i]);
+        save.add(name) = std::move(out);
+    }
+    return Error::success();
+}
+
 // GWTForce, the task forces as they are now, in their order; and
 // GTForceList, as they were when the turn began, in their numbers' order:
 // those it had keep its entries, new ones are as GWTForce has them.
@@ -470,7 +533,9 @@ Error writeTaskForces(const std::vector<SavedTaskForce> &taskForces, int width, 
         sorted.push_back(taskForces[byNumber[i]].id);
         std::copy_n(&list[byNumber[i] * kTaskForceSize], kTaskForceSize, &fresh[i * kTaskForceSize]);
     }
-    return writeList({"GTForceHd", "GTForceList", kTaskForceSize, taskForceIdOf}, sorted, save, &fresh);
+    if (Error err = writeList({"GTForceHd", "GTForceList", kTaskForceSize, taskForceIdOf}, sorted, save, &fresh))
+        return err;
+    return writeRacesTaskForces(taskForces, save);
 }
 
 Error writeCounters(const SavedGame &game, SaveFiles &save) {
@@ -579,6 +644,13 @@ std::vector<uint8_t> *SaveFiles::file(std::string_view name) {
 const std::vector<uint8_t> *SaveFiles::file(std::string_view name) const {
     const size_t i = find(name);
     return i < _files.size() && !_files[i].chunked ? &_files[i].data : nullptr;
+}
+
+std::vector<std::string> SaveFiles::names() const {
+    std::vector<std::string> out;
+    for (const File &f : _files)
+        out.push_back(f.stored.name);
+    return out;
 }
 
 std::vector<uint8_t> &SaveFiles::add(std::string_view name) {

@@ -134,6 +134,7 @@ Bytes makeFullSave() {
     files.push_back({"GTForceHd", forceHead});
     files.push_back({"GTForceList", forces});
     files.push_back({"strcInfo", buildings});
+    files.push_back({"alienTFInfo4", Bytes{1, 0, 0, 0, 0, 0}});
     files.push_back({"ShipCntr", Bytes{1, 0, 0, 0}});
     files.push_back({"TForceCntr", Bytes{1, 0, 0, 0}});
     files.push_back({"result.lst", resultList()});
@@ -277,6 +278,22 @@ void testShipsAddedAndRemoved(const std::filesystem::path &tmp) {
     const std::vector<uint8_t> &list = *files.file("GTForceList");
     CHECK(readLE16(&list[0]) == 1 && readLE16(&list[39 * 108]) == 40);
     CHECK(readLE32(&list[0x0C]) == 0xFFFFFFFF);
+    // The Romulans' task forces, listed in their numbers' order.
+    const std::vector<uint8_t> &romulans = *files.file("alienTFInfo4");
+    CHECK(romulans.size() == 4 + 40 * 2 && readLE32(&romulans[0]) == 40);
+    CHECK(readLE16(&romulans[4]) == 1 && readLE16(&romulans[4 + 39 * 2]) == 40);
+
+    // A ship a computer player's plans list (an agent's AgtSh#) can't be
+    // taken out.
+    SaveFiles planned;
+    CHECK(!planned.open(tmp / "game0.sav"));
+    planned.add("AgtSh4") = {0, 0};
+    CHECK(!planned.write(tmp / "planned.sav"));
+    GameState plans;
+    CHECK(!GameState::load(tmp / "planned.sav", plans));
+    plans.data().ships.clear();
+    plans.data().taskForces.clear();
+    CHECK(bool(plans.save(tmp / "game2.sav")));
 }
 
 } // namespace
