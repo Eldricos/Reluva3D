@@ -11,7 +11,7 @@ files):
 | Suite | What it checks |
 |---|---|
 | `tpw.unit.import` | Importing from a small CD laid out as the US one: the cabinet's `Data` group in `Data/`, the movie and `Game.exe` at the top, the language's folders over the cabinet's files, the DLLs left out, then found by detection; a cabinet without `Game.exe` isn't the game's; a folder missing is said |
-| `tpw.unit.formats` | The game's files: archives with folders, stored and RefPack files, damage; the `Data` folder mounted, each archive as its folder, loose files over them; settings files, every kind of line, broken ones turned away |
+| `tpw.unit.formats` | The game's files: archives with folders, stored and RefPack files, damage; the `Data` folder mounted, each archive as its folder, loose files over them; settings files, every kind of line, broken ones turned away; a character set and a string table with text and parameters, damaged ones turned away |
 | `tpw.unit.detection` | Recognising the game: a release not in the table found by its files' names, in any case, as an unknown release; not without `Data/Challenges.sam` |
 
 ### The basic engine test
@@ -35,6 +35,7 @@ With your own copy, installed or imported from the CD:
 | `release` | What the game is (`reluva-tool detect`) |
 | `data` | Every file of the `Data` folder read, every archive's unpacked (`reluva-tool tpw data-check`) |
 | `settings` | Every settings file read (`reluva-tool tpw sam-check`) |
+| `text` | Every string table read in the language's character set, with a checksum of every string (`reluva-tool tpw str-check`) |
 
 The installed folder and one imported from the CD pass against the same
 records. A baseline of your own is made as

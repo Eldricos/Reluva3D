@@ -52,10 +52,10 @@ they are: `Speech/American`, `CoasterData/American`,
 ## Methods
 
 - **Telling the releases apart:** each file's `reluva --hash` signature.
-  No file names the game "SimCoaster" (its settings say "Theme Park
-  World", its CD's `AUTORUN.INF` "Theme Park Inc"; only `Setup.ini` says
-  `SimCoaster`), so the US release is told by its `American` string
-  tables.
+  The settings files say "Theme Park World" and the CD's `AUTORUN.INF`
+  "Theme Park Inc"; "SimCoaster" is in `Setup.ini` and in the string
+  tables, in the game's own character set ([str.md](formats/str.md)). The
+  US release is told by its `American` string tables.
 - **Where setup puts the CD's files:** each installed file's MD5 matched
   to the cabinet entry or the CD file with the same MD5, which gave each
   group's and folder's place in the install; then the CD imported with
@@ -73,6 +73,7 @@ they are: `Speech/American`, `CoasterData/American`,
 | `reluva-tool tpw wad-list` | Lists an archive's files: sizes, how each is stored, the record's first word |
 | `reluva-tool tpw wad-extract` | Writes an archive's files, or one of them, under a folder |
 | `reluva-tool tpw sam-check` | Reads every settings file of a game, or lists one's settings |
+| `reluva-tool tpw str-check` | Reads every string table in the language's character set, or lists one's strings |
 | `reluva-tool tpw data-check` | Reads every file of a game's `Data` folder, archives and loose files, with a checksum of them all |
 
 ## Working files not included

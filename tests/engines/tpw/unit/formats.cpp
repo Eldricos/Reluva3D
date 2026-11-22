@@ -3,11 +3,12 @@
 
 // The Theme Park World engine's files, built here as SimCoaster's are laid
 // out (docs/engines/tpw/games/simcoaster/formats/): archives and mounting
-// them, settings files.
+// them, settings files, string tables and their character set.
 //
 //   reluva-tests tpw.unit.formats
 
 #include "engines/tpw/formats/sam.h"
+#include "engines/tpw/formats/str.h"
 #include "engines/tpw/formats/wad.h"
 #include "engines/tpw/game_files.h"
 
@@ -127,6 +128,60 @@ void testSam() {
     CHECK(sam.parse(toBytes("NoDot 1\r\n")));
 }
 
+// A character set of five codes: 1 'H', 2 'i', 3 ' ', 4 '£', 5 '™'.
+Bytes makeCharacterSet() {
+    Bytes b = {'B', 'F', 'M', 'U', 0, 0, 5, 0};
+    for (uint16_t c : {u'H', u'i', u' ', u'\u00a3', u'\u2122'}) {
+        b.push_back(uint8_t(c));
+        b.push_back(uint8_t(c >> 8));
+    }
+    return b;
+}
+
+// A table numbered 1042: "Hi", then "£{1} Hi™" (a parameter between two
+// texts), then an empty string.
+Bytes makeStringTable() {
+    Bytes b = {'B', 'F', 'S', 'T'};
+    put32(b, 4, 1042);
+    put32(b, 8, 3);
+    b.resize(24);
+    const std::vector<Bytes> strings = {
+        {1, 2, 0, 0, 1, 2, 0, 0, 0, 0, 0, 0},
+        {1, 1, 0, 0, 4, 0, 0, 0, 2, 1, 0, 0, 1, 4, 0, 0, 3, 1, 2, 5, 0, 0, 0, 0},
+        {0, 0, 0, 0},
+    };
+    for (size_t i = 0; i < strings.size(); ++i) {
+        put32(b, 12 + 4 * i, uint32_t(b.size() - 12));
+        b.insert(b.end(), strings[i].begin(), strings[i].end());
+    }
+    return b;
+}
+
+void testStr() {
+    CharacterSet characters;
+    CHECK(!characters.parse(makeCharacterSet()));
+    CHECK(characters.size() == 5 && characters.unicode(4) == U'\u00a3' && characters.unicode(0) == 0 &&
+          characters.unicode(6) == 0);
+    const uint8_t unknown[] = {1, 9};
+    CHECK(characters.toUtf8(unknown, 2) == "H\xef\xbf\xbd");
+
+    StringTable table;
+    CHECK(!table.parse(makeStringTable(), characters));
+    CHECK(table.id() == 1042 && table.size() == 3);
+    CHECK(table.text(0) == "Hi" && table.text(1) == "\xc2\xa3{1} Hi\xe2\x84\xa2" && table.text(2).empty());
+    CHECK(table.parts(1).size() == 3 && table.parts(1)[1].parameter && table.parts(1)[1].number == 1);
+    CHECK(table.parts(7).empty() && table.text(7).empty());
+
+    // Cut short, a part of a kind not known, not a table at all.
+    Bytes cut = makeStringTable();
+    cut.resize(cut.size() - 6);
+    CHECK(table.parse(cut, characters));
+    Bytes odd = makeStringTable();
+    odd[24] = 7;
+    CHECK(table.parse(odd, characters));
+    CHECK(table.parse(toBytes("BFMU"), characters) && characters.parse(toBytes("BFST")));
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("tpw.unit.formats",
@@ -134,4 +189,5 @@ static const reluva::test::Suite kSuite("tpw.unit.formats",
                                             {"wad", [](const std::filesystem::path &tmp) { testWad(tmp); }},
                                             {"mount", [](const std::filesystem::path &tmp) { testMount(tmp); }},
                                             {"sam", [](const std::filesystem::path &) { testSam(); }},
+                                            {"str", [](const std::filesystem::path &) { testStr(); }},
                                         });

@@ -1,0 +1,1 @@
+text: c771ce5750f9a3b3 | Language/American/MBToUni.dat: 250 codes, 37 string tables read, 0 failed: 3775 strings, 379 parameters, md5 3618e872de90f7683f44a600a36bc458

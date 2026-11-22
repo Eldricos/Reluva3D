@@ -16,6 +16,8 @@
 #   data     every file of its Data folder read, every archive's
 #            unpacked, with a checksum of them all (tpw data-check)
 #   settings every settings file (.sam) read (tpw sam-check)
+#   text     every string table (.str) read in the language's character
+#            set, with a checksum of every string (tpw str-check)
 # A command that fails fails the step. What each prints is checksummed,
 # with a summary line, into a record:
 # tests/engines/tpw/data/gamedata/<release>/<step>.txt. The step passes when
@@ -48,6 +50,8 @@ elseif(STEP STREQUAL "data")
     record_run(data "files read" tpw data-check "${game_dir}")
 elseif(STEP STREQUAL "settings")
     record_run(settings "settings files read" tpw sam-check "${game_dir}")
+elseif(STEP STREQUAL "text")
+    record_run(text "string tables read" tpw str-check "${game_dir}")
 else()
     message(FATAL_ERROR "No step ${STEP}")
 endif()
