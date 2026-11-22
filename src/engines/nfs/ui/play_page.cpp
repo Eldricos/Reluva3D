@@ -197,12 +197,21 @@ void PlayPage::passForces() {
 void PlayPage::start() {
     if (_host)
         return;
-    if (!drawsThrash())
-        _glide = false; // only NFS III's THRASH DLLs run on Glide
+    // NFS III's Voodoo 2 renderer on Glide if asked; NFS II SE's 3dfx
+    // program always, on the Voodoo Graphics it was made for unless
+    // another board is named; its software program never.
+    if (drawsGlide()) {
+        _glide = true;
+        if (_glideBoard.empty())
+            _glideBoard = "voodoo1";
+    } else if (!drawsThrash()) {
+        _glide = false;
+    }
     GameHost::Options options;
     // The game plays its movies itself (its player runs in the
     // interpreter like the rest).
     options.program = _program;
+    options.programFile = _programFile;
     options.commandLine = _program;
     options.saveFolder = _saveFolder.empty() ? _folders.install / "reluva-save" : _saveFolder / "game";
     options.nativeThrash = true;
@@ -576,7 +585,7 @@ void PlayPage::update(uint64_t nowMs) {
 
 std::unique_ptr<PlayPage> makePlayPage(const GameFolders &folders, const std::filesystem::path &saveFolder,
                                        audio::Mixer *mixer, const std::map<std::string, std::string> &settings,
-                                       const std::string &program) {
+                                       const std::filesystem::path &program) {
     auto setting = [&](const char *key) {
         auto it = settings.find(key);
         return it == settings.end() ? std::string() : it->second;
@@ -589,7 +598,14 @@ std::unique_ptr<PlayPage> makePlayPage(const GameFolders &folders, const std::fi
         setting("renderer") == "glide", setting("renderer") == "direct3d", setting("glide") == "software",
         setting("glidedll"), setting("glideboard"));
     play->setPositionalUpdates(setting("positionalupdates") == "on");
-    play->setProgram(program);
+    if (!program.empty()) {
+        // By its name in lower case (the CD's is NFS2SEA.EXE); from where
+        // it is unless that's the install.
+        std::string name = program.filename().string();
+        for (char &ch : name)
+            ch = char(std::tolower(static_cast<unsigned char>(ch)));
+        play->setProgram(name, program.parent_path() == folders.install ? std::filesystem::path() : program);
+    }
     return play;
 }
 

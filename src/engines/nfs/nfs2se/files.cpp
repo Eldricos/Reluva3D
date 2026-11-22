@@ -72,6 +72,12 @@ Programs programs(const GameFolders &folders) {
     return out;
 }
 
+std::filesystem::path playProgram(const GameFolders &folders, bool glide) {
+    const Programs found = programs(folders);
+    const std::filesystem::path &wanted = glide ? found.glide : found.software;
+    return wanted.empty() ? (glide ? found.software : found.glide) : wanted;
+}
+
 std::vector<uint8_t> racePalette(const GameFiles &files) {
     for (const FileRef &ref : files.withExtensions({".fsh"})) {
         // The loose file: the HUD's archive (huddata.viv) holds an empty one.

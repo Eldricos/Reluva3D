@@ -46,6 +46,10 @@ public:
         // "nfs2sen.exe". What's NFS III's own is put in only where its code
         // is found as expected.
         std::string program = "nfs3.exe";
+        // The program's file, if not the install's: NFS II SE's CD has the
+        // 3dfx program (NFS2SEA.EXE), which an install made without a 3dfx
+        // card leaves there. It still runs as C:\<program>.
+        std::filesystem::path programFile;
         std::string commandLine = "nfs3.exe";
         std::string renderer = "softtria.dll"; // the THRASH DLL, as the registry names it
         // The THRASH DLL the game is told it has, if not renderer: say a 3D

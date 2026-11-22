@@ -69,12 +69,17 @@ public:
      */
     void setPositionalUpdates(bool on) { _positionalUpdates = on; }
     /**
-     * The program to run, in the install folder: "nfs3.exe" unless set.
-     * Only NFS III's draws through THRASH, so only it takes the GPU, the
-     * renderer settings and Glide; another draws through DirectDraw. Set
-     * before the page is first shown.
+     * The program to run: "nfs3.exe" unless set, from `file` if given (NFS
+     * II SE's CD's), else from the install folder. Only NFS III's draws
+     * through THRASH, so only it takes the GPU and the renderer settings.
+     * NFS II SE's nfs2sea.exe draws through Glide, on a Voodoo Graphics
+     * unless the glideboard setting names another; nfs2sen.exe through
+     * DirectDraw. Set before the page is first shown.
      */
-    void setProgram(std::string program) { _program = std::move(program); }
+    void setProgram(std::string program, std::filesystem::path file = {}) {
+        _program = std::move(program);
+        _programFile = std::move(file);
+    }
     /**
      * The keys named at the foot of the screen shown until the game's
      * first frame.
@@ -106,11 +111,14 @@ private:
     // The title, how the run is going and the log's last lines (_mutex held).
     void drawStatus(Surface &screen);
 
-    // Whether the program draws through THRASH (NFS III's).
+    // Whether the program draws through THRASH (NFS III's), or Glide
+    // itself (NFS II SE's 3dfx program).
     bool drawsThrash() const { return _program == "nfs3.exe"; }
+    bool drawsGlide() const { return _program == "nfs2sea.exe"; }
 
     GameFolders _folders;
     std::string _program = "nfs3.exe";
+    std::filesystem::path _programFile; // where it is, if not in the install
     std::filesystem::path _saveFolder;
     audio::Mixer *_mixer;
     std::unique_ptr<GameHost> _host;
@@ -202,10 +210,11 @@ private:
  * @param saveFolder Where the game writes (its "game" folder);
  *        the install's reluva-save if empty.
  * @param mixer Plays the game's sound; null without audio output.
- * @param program The game's program in the install (PlayPage::setProgram).
+ * @param program The game's program (PlayPage::setProgram): its file, or
+ *        empty for NFS III's nfs3.exe in the install.
  */
 std::unique_ptr<PlayPage> makePlayPage(const GameFolders &folders, const std::filesystem::path &saveFolder,
                                        audio::Mixer *mixer, const std::map<std::string, std::string> &settings,
-                                       const std::string &program = "nfs3.exe");
+                                       const std::filesystem::path &program = {});
 
 } // namespace reluva::nfs

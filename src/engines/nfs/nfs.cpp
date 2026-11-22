@@ -10,10 +10,10 @@
 // code. See CONTRIBUTING.md.
 //
 // Each game is its retail program run in the x86 interpreter (host/):
-// NFS III's nfs3.exe, NFS II SE's nfs2sen.exe, shown in the window by the
-// Play page (ui/play_page.h). An NFS II SE install without nfs2sen.exe
-// (one made for a 3dfx card) shows what was found of it instead
-// (nfs2se/status_page.h). The data viewer is reluva-viewer's
+// NFS III's nfs3.exe, NFS II SE's nfs2sen.exe or (renderer=glide) its 3dfx
+// nfs2sea.exe, from the install or the CD, shown in the window by the Play
+// page (ui/play_page.h). Without either NFS II SE shows what was found of
+// it instead (nfs2se/status_page.h). The data viewer is reluva-viewer's
 // (pages/viewer.cpp).
 
 #include "engines/engine.h"
@@ -42,10 +42,8 @@ public:
             std::vector<std::unique_ptr<nfs::Page>> pages;
             if (_game.game == nfs::Game::kNfs3)
                 pages.push_back(nfs::makePlayPage(folders, _target.savePath, mixer, _target.settings));
-            else if (const auto program = nfs::nfs2se::programs(folders).software;
-                     !program.empty() && program.parent_path() == folders.install)
-                pages.push_back(
-                    nfs::makePlayPage(folders, _target.savePath, mixer, _target.settings, program.filename().string()));
+            else if (const auto program = nfs::nfs2se::playProgram(folders, glideChosen()); !program.empty())
+                pages.push_back(nfs::makePlayPage(folders, _target.savePath, mixer, _target.settings, program));
             else
                 pages.push_back(std::make_unique<nfs::nfs2se::StatusPage>(folders));
             return pages;
@@ -54,6 +52,12 @@ public:
     }
 
 private:
+    // reluva.ini's renderer=glide: for NFS II SE, its 3dfx program.
+    bool glideChosen() const {
+        const auto it = _target.settings.find("renderer");
+        return it != _target.settings.end() && it->second == "glide";
+    }
+
     System &_sys;
     GameTarget _target;
     const GameInfo &_game;
@@ -94,8 +98,9 @@ public:
         return {
             choice("renderer", "Renderer the game is told of",
                    "The game draws as for a Voodoo 2 (with fog) through Reluva's own THRASH; or as for its "
-                   "Direct3D renderer; or its own Voodoo 2 renderer runs on the Glide stand-in.",
-                   {{"voodoo2", "Voodoo 2"}, {"direct3d", "Direct3D"}, {"glide", "Voodoo 2 on Glide"}}),
+                   "Direct3D renderer; or its own Voodoo renderer runs on the Glide stand-in. Need for Speed "
+                   "II SE: its 3dfx program on Glide, else its software program.",
+                   {{"voodoo2", "Voodoo 2"}, {"direct3d", "Direct3D"}, {"glide", "Voodoo on Glide"}}),
             choice("renderscale", "Picture size", "The game's 640x480 drawn at this many times its size on the GPU.",
                    {{"2", "2x"}, {"1", "1x"}, {"3", "3x"}, {"4", "4x"}}),
             choice("texturefilter", "Textures", "Filtered as the game's renderers ask, or point-sampled.",

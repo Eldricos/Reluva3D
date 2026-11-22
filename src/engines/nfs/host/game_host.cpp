@@ -411,7 +411,8 @@ void GameHost::addExport(uint32_t module, const std::string &name, int argBytes,
 }
 
 Error GameHost::load() {
-    const std::filesystem::path path = _folders.install / _options.program;
+    const std::filesystem::path path =
+        _options.programFile.empty() ? _folders.install / _options.program : _options.programFile;
     std::ifstream in(path, std::ios::binary);
     if (!in)
         return Error::fail("Can't read " + path.string());

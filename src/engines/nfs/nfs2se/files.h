@@ -37,6 +37,13 @@ struct Programs {
 Programs programs(const GameFolders &folders);
 
 /**
+ * The program to play: the 3dfx one with `glide` (reluva.ini's
+ * renderer=glide), else the software one; the other if that one isn't
+ * there. An empty path if neither is.
+ */
+std::filesystem::path playProgram(const GameFolders &folders, bool glide);
+
+/**
  * The race's palette (RGBA), the palette entry of the HUD's pictures
  * (GameData/DashHud/pc/hud.fsh), which the dashboards share; empty if it
  * can't be read. The software game draws its pause screens, whose

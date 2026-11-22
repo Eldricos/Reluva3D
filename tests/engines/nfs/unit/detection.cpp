@@ -246,6 +246,14 @@ void testNfs2seListings(const stdfs::path &tmp) {
     CHECK(programs.software == install / "nfs2sen.exe");
     CHECK(programs.glide == cd / "NFS2SEA.EXE");
     CHECK(nfs2se::programs(noCars).software.empty());
+    // What plays: the software program, or with renderer=glide the 3dfx one;
+    // the other when only it is there, nothing when neither is.
+    CHECK(nfs2se::playProgram(folders, false) == install / "nfs2sen.exe");
+    CHECK(nfs2se::playProgram(folders, true) == cd / "NFS2SEA.EXE");
+    GameFolders installOnly = folders;
+    installOnly.cd.clear();
+    CHECK(nfs2se::playProgram(installOnly, true) == install / "nfs2sen.exe");
+    CHECK(nfs2se::playProgram(noCars, false).empty());
 
     CHECK(filesWithExtension(cd, "GameData/Audio/pc", ".mus").size() == 1);
     CHECK(filesWithExtension(cd, "FeData/pc/movies", ".dct").size() == 1);
