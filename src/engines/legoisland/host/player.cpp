@@ -5,6 +5,8 @@
 
 #include "engines/legoisland/host/game_process.h"
 
+#include <algorithm>
+
 namespace reluva::legoisland {
 
 Player::Player(std::filesystem::path gameDir, std::filesystem::path saveDir, audio::Mixer *mixer)
@@ -76,6 +78,16 @@ void Player::work() {
     // taken; it's also taken whenever the program looks for a message and
     // finds none.
     game.directX().presented = [this](const x86::DirectX::Frame &f) {
+        // No more frames than the frame rate: a frame that came late
+        // doesn't make the next ones hurry.
+        if (_frameRate > 0) {
+            using namespace std::chrono;
+            const auto frame = duration_cast<steady_clock::duration>(duration<double>(1.0 / _frameRate));
+            const auto now = steady_clock::now();
+            if (_nextFrame > now)
+                std::this_thread::sleep_until(_nextFrame);
+            _nextFrame = std::max(_nextFrame, now) + frame;
+        }
         {
             std::lock_guard<std::mutex> lock(_mutex);
             _frame = f.pixels;

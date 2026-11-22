@@ -11,7 +11,13 @@ the original's way. -->
 
 <!-- Deliberate: conveniences, and what the original can't do on today's
 systems (a CD check, a mode the hardware no longer has). -->
-None yet.
+- **Turning:** the original turns the player a set amount each frame,
+  so on today's machines, drawing many more frames a second, far too
+  fast (known among its players). Reluva shows at most 20 frames a
+  second unless the *Frame rate* setting says otherwise, which slows the
+  turning to about 180 degrees a second; "As many as it draws" gives
+  back the original's way
+  ([systems/running.md](systems/running.md#in-reluva)).
 
 ## Bugs fixed
 
@@ -26,10 +32,6 @@ None yet.
   draw decals or frames' textures
   ([d3drm.md](../../common/x86/d3drm.md#drawing)). How near it looks to
   the original's hasn't been compared.
-- **Turning is too fast** on the island with the arrow keys, as the
-  original's is on today's machines, it's known among its players: a
-  fix, to turn at the speed it was made for, is still to do
-  ([PLAN.md](PLAN.md)).
 - **The setup dialog's settings** (`CONFIG.EXE`) aren't offered: the game
   uses its own defaults, but for where it saves and the island's model,
   the detailed one.

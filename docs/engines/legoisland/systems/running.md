@@ -143,6 +143,12 @@ that far.
   other people walking by. The arrow keys walk her (read through
   DirectInput's keyboard): up the road to the pizzeria, where the
   Brickolinis are, and on. Run to 33,000 frames, it doesn't stop.
+- **Turning is by the frame:** held, an arrow turns the player about 9
+  degrees each frame shown, a full turn in 40 frames, whether the frames
+  come 17 ms apart (0.84 s a turn) or 75 ms apart (3 s): the game doesn't
+  scale it by the time a frame took. At today's frame rates it turns
+  far faster than on the machines it was made for (seen by a tester, and
+  known among its players).
 - **Building:** dropped on the map's boat, Pepper goes to the lifeguard
   hut on the beach, its jet-ski shown built as she comes; clicked, its
   yellow baseplate opens the jet-ski's build screen (`JETSKI.SI`, world
@@ -181,7 +187,10 @@ primary surface), and passes the player's input on: the pointer where it
 is in the game's picture, which fills the window's client area, its
 buttons and wheel, and keys, as window messages and DirectInput's state.
 The program's sound goes to the engine's mixer through the DirectSound
-stand-in. Closing the window asks first. The registry's `Island
+stand-in. Closing the window asks first. The engine shows at most so
+many frames a second, its *Frame rate* setting (20 unless set: 15, 30,
+60, or as many as it draws), as the game turns the player by the frame
+(above). The registry's `Island
 Quality` is "2", the island's detailed model. The registry's `savepath` is
 the install folder, whose writes go to the game's save folder, so its
 saved games are kept with it *(inferred: what `CONFIG.EXE` writes there

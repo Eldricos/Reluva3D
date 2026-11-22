@@ -5,6 +5,7 @@
 
 #include "common/events.h"
 
+#include <chrono>
 #include <cstdint>
 #include <deque>
 #include <filesystem>
@@ -37,6 +38,8 @@ public:
     /** Stops the game and waits for its thread. */
     ~Player();
 
+    /** At most so many frames a second (0: as many as it draws); before start. */
+    void setFrameRate(int framesPerSecond) { _frameRate = framesPerSecond; }
     /** Starts the game's thread, which loads and runs the program; call once. */
     void start();
     /**
@@ -68,7 +71,9 @@ private:
     std::filesystem::path _dir;
     std::filesystem::path _saveDir;
     audio::Mixer *_mixer;
-    GameProcess *_game = nullptr; // the game thread's, while it runs
+    int _frameRate = 0;
+    std::chrono::steady_clock::time_point _nextFrame; // the game thread's
+    GameProcess *_game = nullptr;                     // the game thread's, while it runs
     std::thread _thread;
     std::mutex _mutex;
     std::deque<Event> _events;

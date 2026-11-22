@@ -13,6 +13,7 @@
 #include "engines/legoisland/host/player.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <memory>
 #include <string>
 #include <vector>
@@ -20,6 +21,11 @@
 namespace reluva::legoisland {
 
 namespace {
+
+// Frames a second, unless the settings say otherwise: about 180 degrees a
+// second turning, as the game turns 9 a frame (inferred: what it was
+// made for isn't known).
+constexpr int kDefaultFrameRate = 20;
 
 /**
  * The game running: its program played (Player), its frames shown, the
@@ -50,6 +56,8 @@ public:
 private:
     Error play() {
         Player player(_target.path, _target.savePath, _audioOut ? _mixer.get() : nullptr);
+        const auto rate = _target.settings.find("framerate");
+        player.setFrameRate(rate == _target.settings.end() ? kDefaultFrameRate : std::atoi(rate->second.c_str()));
         player.start();
         int width = 640;
         int height = 480;
@@ -129,6 +137,23 @@ public:
     const char *name() const override { return "LEGO Island"; }
 
     std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override { return detectGame(id(), dir); }
+
+    // The game turns the player a set amount each frame it shows, however
+    // long the frame took (systems/running.md): its frame rate is how fast
+    // it turns. The first choice is the default.
+    std::vector<GameOption> engineOptions() const override {
+        GameOption o;
+        o.key = "framerate";
+        o.label = "Frame rate";
+        o.tooltip = "At most this many frames a second. The game turns the player a set amount each frame, so "
+                    "the more frames, the faster it turns, too fast on today's machines.";
+        o.choices = {{std::to_string(kDefaultFrameRate), "20 a second"},
+                     {"15", "15 a second"},
+                     {"30", "30 a second"},
+                     {"60", "60 a second"},
+                     {"0", "As many as it draws"}};
+        return {o};
+    }
 
     std::vector<ImportPlan> planImport(const std::filesystem::path &source) const override {
         const std::vector<GamePart> parts = findGameParts(source);
