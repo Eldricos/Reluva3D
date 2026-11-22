@@ -18,6 +18,7 @@ reluva_add_engine(tpw
 reluva_add_engine_tools(tpw
     SOURCES
         tools/files.cpp
+        tools/pictures.cpp
         tools/text.cpp
         tools/wad.cpp)
 
@@ -40,4 +41,4 @@ reluva_add_gamedata_test(tpw
     GAME simcoaster
     ENV RELUVA_SIMCOASTER
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release data settings text fonts)
+    STEPS release data settings text fonts pictures)

@@ -116,3 +116,5 @@ one.
 
 - **`nfs`**: Need for Speed III's textures, front-end art and cockpits
   ([fsh.md](../../engines/nfs/games/nfs3/formats/fsh.md)).
+- **`tpw`**: SimCoaster's textures and front end
+  ([fsh.md](../../engines/tpw/games/simcoaster/formats/fsh.md)).

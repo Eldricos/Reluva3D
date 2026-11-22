@@ -30,7 +30,8 @@ format or system worked out.
    files (`.sam`), the string tables (`BFST`, `.str`) and the fonts
    (`F4FB`, `.bf4`); every archive mounted, loose files over them.
    `reluva-tool tpw` commands to list and extract them.
-4. **Shared EA formats** (next): the pictures (`SHPI`, `.fsh`) and the
+4. **Shared EA formats** (in progress; RefPack and the pictures done,
+   [fsh.md](formats/fsh.md)): the pictures (`SHPI`, `.fsh`) and the
    `SCHl` streams are read by the `nfs` engine's own code; an engine can't
    use another's, so they move to `src/image/` and `src/audio/` for both,
    as RefPack has ([refpack.md](../../../../common/refpack.md)).

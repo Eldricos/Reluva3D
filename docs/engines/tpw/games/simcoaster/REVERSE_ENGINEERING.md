@@ -76,6 +76,8 @@ they are: `Speech/American`, `CoasterData/American`,
 | `reluva-tool tpw str-check` | Reads every string table in the language's character set, or lists one's strings |
 | `reluva-tool tpw bf4-check` | Reads every font |
 | `reluva-tool tpw bf4-show` | Draws text in a font, a character a pixel |
+| `reluva-tool tpw picture-check` | Decodes every picture: `.fsh`, `.tga`, `.png`, `.jpg` |
+| `reluva-tool tpw picture-dump` | Writes one picture out as a TGA |
 | `reluva-tool tpw data-check` | Reads every file of a game's `Data` folder, archives and loose files, with a checksum of them all |
 
 ## Working files not included

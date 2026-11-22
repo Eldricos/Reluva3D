@@ -37,6 +37,7 @@ With your own copy, installed or imported from the CD:
 | `settings` | Every settings file read (`reluva-tool tpw sam-check`) |
 | `text` | Every string table read in the language's character set, with a checksum of every string (`reluva-tool tpw str-check`) |
 | `fonts` | Every font read, with a checksum of every glyph (`reluva-tool tpw bf4-check`) |
+| `pictures` | Every picture decoded: `.fsh`, `.tga`, `.png`, `.jpg` (`reluva-tool tpw picture-check`) |
 
 The installed folder and one imported from the CD pass against the same
 records. A baseline of your own is made as
@@ -63,3 +64,4 @@ CD: the tests can't hold the game's files. Checked by hand.
 | November 2026 | US | Linux | `reluva-tool detect` on the install: "SimCoaster (US)"; on the CD: nothing found, as expected |
 | November 2026 | US | Linux | `reluva-tool import` from the CD: 1,276 files, byte for byte the install's; found as "SimCoaster (US)" |
 | November 2026 | US | Linux | The game-files test on the install and on the CD imported: 303 archives, 16,225 files read |
+| November 2026 | US | Linux | The game-files test's six steps on the install and on the CD imported: 10,344 pictures decoded |

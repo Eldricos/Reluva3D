@@ -25,6 +25,9 @@ None yet.
 
 ## Guessed
 
+- **`stexture` folders hold a lower detail setting's textures**, smaller
+  copies of their `textures` folders' ([fsh.md](formats/fsh.md#overview)).
+  The game's detail options, seen running, would settle which it uses.
 - **The last of a setting's name in one file counts**, where a name
   comes twice ([sam.md](formats/sam.md#a-setting)). A ride whose two
   values differ, seen in the running game, would settle it.

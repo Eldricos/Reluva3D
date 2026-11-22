@@ -20,6 +20,8 @@
 #            set, with a checksum of every string (tpw str-check)
 #   fonts    every font (.bf4) read, with a checksum of every glyph
 #            (tpw bf4-check)
+#   pictures every picture decoded, .fsh banks, .tga, .png and .jpg, with
+#            a checksum of them all (tpw picture-check)
 # A command that fails fails the step. What each prints is checksummed,
 # with a summary line, into a record:
 # tests/engines/tpw/data/gamedata/<release>/<step>.txt. The step passes when
@@ -56,6 +58,8 @@ elseif(STEP STREQUAL "text")
     record_run(text "string tables read" tpw str-check "${game_dir}")
 elseif(STEP STREQUAL "fonts")
     record_run(fonts "fonts read" tpw bf4-check "${game_dir}")
+elseif(STEP STREQUAL "pictures")
+    record_run(pictures "pictures decoded" tpw picture-check "${game_dir}")
 else()
     message(FATAL_ERROR "No step ${STEP}")
 endif()

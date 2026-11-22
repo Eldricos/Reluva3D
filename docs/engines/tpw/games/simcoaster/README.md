@@ -29,6 +29,7 @@ setup installs it ([cd.md](formats/cd.md)).
 | Settings | done: `.sam` ([sam.md](formats/sam.md)); all 369 files' 15,825 settings read; `reluva-tool tpw sam-check` |
 | Text | done: string tables (`.str`) and the character set ([str.md](formats/str.md)); all 37 tables' 3,775 strings read; `reluva-tool tpw str-check` |
 | Fonts | `.bf4` ([bf4.md](formats/bf4.md)): all 35 fonts' 8,750 glyphs read, but for the postcard font's 160 of a storage not worked out; `reluva-tool tpw bf4-check` and `bf4-show` |
+| Pictures | done: `.fsh` banks (compressed pictures among them), `.tga`, `.png` and `.jpg` ([fsh.md](formats/fsh.md)); all 10,344 decoded; `reluva-tool tpw picture-check` and `picture-dump` |
 | The executable | Surveyed: SafeDisc 2, its code encrypted, so the game is to be rebuilt from its data, not run ([executable.md](formats/executable.md)) |
 | Everything else | Not started: see [PLAN.md](PLAN.md) |
 
@@ -46,7 +47,7 @@ Esc leaves it.
 |---|---|
 | This page | Where it stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
-| `formats/` | The game's own files, a page each: [the executable](formats/executable.md), [the CD](formats/cd.md), [archives](formats/wad.md), [settings](formats/sam.md), [text](formats/str.md), [fonts](formats/bf4.md) |
+| `formats/` | The game's own files, a page each: [the executable](formats/executable.md), [the CD](formats/cd.md), [archives](formats/wad.md), [settings](formats/sam.md), [text](formats/str.md), [fonts](formats/bf4.md), [pictures](formats/fsh.md) |
 | `systems/` | How the game behaves, a page per part |
 | `research/` | Working notes |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
