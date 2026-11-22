@@ -49,7 +49,14 @@ Seen running in Reluva (`reluva-tool legoloco run`):
    event, "GameLoop", and the multimedia timer at 28 ms (`timeSetEvent`
    at `0x406e54`).
 8. DirectPlay: `DPLAYX.dll`'s ordinal 4, `DirectPlayLobbyCreateA`, whose
-   lobby it uses without looking at what the call returned.
+   lobby it uses without looking at what the call returned
+   (`IDirectPlayLobby3A`, `0x45e576`). Then `DirectPlayCreate` for each
+   service provider, asking each `IDirectPlay4A` for the local machine's
+   address (`GetPlayerAddress` for player 0, `0x45ef7c`): one that can't
+   give it isn't there. The serial ports, `COM1` then `COM0`, for its
+   modem and serial connections.
+9. Its threads, a timer of 120 ms (`SetTimer`), the mouse captured, its
+   windows shown, and the movie window (`MCIWndRegisterClass`).
 
 ### Where it finds its files
 
@@ -86,13 +93,15 @@ Seen running in Reluva (`reluva-tool legoloco run`):
 ### How far it gets
 
 The program runs through its start ([above](#its-start-as-it-runs)), about
-500 million instructions, and stops at DirectPlay's lobby, which nothing
-stands in for yet. Of its 115 imports that had nothing at first, 11 are
-left:
+500 million instructions, and stops at the movie window,
+`MCIWndRegisterClass`, which nothing stands in for yet. DirectPlay is
+stood in for without a network ([dplay.md](../../../common/x86/dplay.md)),
+so it finds no network connection. Of its 115 imports that had nothing at
+first, 9 are left:
 
 | DLL | Functions | What |
 |---|---|---|
-| DSOUND, DPLAYX | 2, 2 | DirectSound and DirectPlay, by ordinal |
+| DSOUND | 2 | DirectSound, by ordinal |
 | WINMM, MSVFW32 | 2, 1 | `PlaySoundA`, the MCI movie window |
 | comdlg32, SHELL32 | 2, 1 | the Open and Save dialogs, `ShellExecuteA` |
 | USER32 | 1 | `LoadCursorFromFileA` (its animated cursors) |
@@ -111,6 +120,6 @@ the engine doesn't show the program's frames.
 
 ## Open questions
 
-- What the program does with DirectPlay's lobby when no lobby started it,
-  and whether it starts without any network: to be seen once DirectPlay
-  is stood in for.
+- Whether the program runs on without a network past its start: it
+  finds none of its four connections, and goes on as far as the movie
+  window.

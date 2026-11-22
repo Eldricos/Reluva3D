@@ -45,6 +45,7 @@ GameProcess::GameProcess(std::filesystem::path gameDir, std::filesystem::path sa
     // As the installer leaves it.
     _process->setRegistryString("HKEY_LOCAL_MACHINE\\SOFTWARE\\Intelligent Games\\LEGO LOCO", "Path", kExeFolder);
     _directX = std::make_unique<x86::DirectX>(*_process);
+    _directPlay = std::make_unique<x86::DirectPlay>(*_process);
 }
 
 // The game finds its files by LEGO.INI's [DIRECTORIES] and [Video], which

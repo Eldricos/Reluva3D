@@ -6,6 +6,7 @@
 #include "common/types.h"
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/directx/directx.h"
+#include "emulation/x86/dplay.h"
 #include "emulation/x86/win32.h"
 
 #include <cstdint>
@@ -57,6 +58,7 @@ private:
     std::unique_ptr<x86::Cpu> _cpu;
     std::unique_ptr<x86::Win32Process> _process;
     std::unique_ptr<x86::DirectX> _directX;
+    std::unique_ptr<x86::DirectPlay> _directPlay;
     const x86::Win32Process::Module *_exe = nullptr;
 };
 
