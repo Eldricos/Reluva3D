@@ -17,6 +17,7 @@ const char *const kSection = "Options";
 const char *const kScrollSpeed = "Scroll Speed";
 const char *const kScrollAccel = "Scroll Acceleration";
 const char *const kPauseWhenHit = "Pause Game When Hit";
+const char *const kPauseHelp = "Show Pause When Hit Help";
 const char *const kBrightness = "Screen Brightness";
 // The sound's keys, as the program spells them (0x6456c4...).
 const char *const kMasterVolume = "Master Voume";
@@ -64,6 +65,7 @@ void GameOptions::load(const std::filesystem::path &file) {
     scrollSpeed = number(_file, kScrollSpeed, kScrollSpeedDefault);
     scrollAccel = number(_file, kScrollAccel, kScrollAccelDefault);
     pauseWhenHit = _file.get(kSection, kPauseWhenHit, "1") != "0";
+    showPauseHelp = _file.get(kSection, kPauseHelp, "1") != "0";
     brightness = number(_file, kBrightness, kBrightnessMin);
     masterVolume = whole(_file, kMasterVolume, 0);
     masterMute = flag(_file, kMasterMute, false);
@@ -84,6 +86,7 @@ void GameOptions::save() const {
     file.set(kSection, kScrollSpeed, std::to_string(scrollSpeed));
     file.set(kSection, kScrollAccel, std::to_string(scrollAccel));
     file.set(kSection, kPauseWhenHit, pauseWhenHit ? "1" : "0");
+    file.set(kSection, kPauseHelp, showPauseHelp ? "1" : "0");
     file.set(kSection, kBrightness, std::to_string(brightness));
     file.set(kSection, kMasterVolume, std::to_string(masterVolume));
     file.set(kSection, kMasterMute, masterMute ? "1" : "0");

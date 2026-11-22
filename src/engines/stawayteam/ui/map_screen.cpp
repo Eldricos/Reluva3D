@@ -3,6 +3,7 @@
 
 #include "engines/stawayteam/ui/map_screen.h"
 
+#include "common/text.h"
 #include "engines/stawayteam/formats/rds_script.h"
 #include "engines/stawayteam/game/controls.h"
 #include "engines/stawayteam/game/ground_fractal.h"
@@ -124,9 +125,8 @@ const uint8_t *texel(const image::Image &img, int x, int y) {
 
 } // namespace
 
-MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, const GameOptions &options,
-                     uint64_t now, std::vector<TeamMember> team, WayPoints wayPoints, audio::Mixer *mixer,
-                     bool arriving)
+MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, GameOptions &options, uint64_t now,
+                     std::vector<TeamMember> team, WayPoints wayPoints, audio::Mixer *mixer, bool arriving)
     : _data(data), _rules(rules), _map(std::move(map)), _options(options), _last(now), _team(std::move(team)),
       _wayPoints(std::move(wayPoints)), _mixer(mixer), _progress(std::make_shared<MissionProgress>()) {
     // The view: Rules.txt's Screen Pos and Screen Size.
@@ -199,21 +199,34 @@ MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, 
                      [&](size_t a, size_t b) { return _map.parts[a].y < _map.parts[b].y; });
     moveCamera(_map.viewX, _map.viewY);
 
-    // The team at the map's spawn points, the first at Away Team Spawn
-    // Point 1, facing as each says (inferred: the program's spawning isn't
-    // traced).
+    // The team at the map's spawn points (0x5bc2b0): each at the part named
+    // "<their name> Spawn Point" if there's one (Sheila Thatcher's in
+    // Mission 13), else the first of Away Team Spawn Point 1 to 6 no one's
+    // taken (0x5bc160); facing as it says. The program tries a numbered
+    // point named after something of the officer's between the two, not
+    // worked out.
+    std::vector<bool> taken(_map.parts.size(), false);
+    const auto spawnNamed = [&](const std::string &name) {
+        for (size_t k = 0; k < _map.parts.size(); ++k)
+            if (!taken[k] && text::equalsIgnoreCase(_map.parts[k].name, name))
+                return int(k);
+        return -1;
+    };
     for (size_t i = 0; i < _team.size(); ++i) {
         Officer o;
         o.member = i;
         o.x = _map.viewX;
         o.y = _map.viewY;
-        const std::string spawn = "Away Team Spawn Point " + std::to_string(i + 1);
-        for (const MapPart &p : _map.parts)
-            if (p.name == spawn) {
-                o.x = p.x;
-                o.y = p.y;
-                o.direction = int(std::lround(p.facing / 30.0f)) % kDirections;
-            }
+        o.spawn = spawnNamed(_team[i].name() + " Spawn Point");
+        for (int n = 1; n <= 6 && o.spawn < 0; ++n)
+            o.spawn = spawnNamed("Away Team Spawn Point " + std::to_string(n));
+        if (o.spawn >= 0) {
+            const MapPart &p = _map.parts[size_t(o.spawn)];
+            taken[size_t(o.spawn)] = true;
+            o.x = p.x;
+            o.y = p.y;
+            o.direction = int(std::lround(p.facing / 30.0f)) % kDirections;
+        }
         o.present = !arriving;
         _officers.push_back(o);
     }

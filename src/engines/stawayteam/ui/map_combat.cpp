@@ -227,10 +227,33 @@ void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attack
     maybeRetreat(e);
 }
 
+void MapScreen::officerHit(size_t officer) {
+    // With Pause Game When Hit, time stops for a hit to an officer out of
+    // the view, or on a map not shown; the first time, the rules' First
+    // Hit Action runs too (Data's word on pausing), the help turned off
+    // for good, and time stops (0x5ca290).
+    if (!_options.pauseWhenHit)
+        return;
+    const Officer &o = _officers[officer];
+    const float left = _cameraX - float(shownW()) / 2.0f;
+    const float top = _cameraY - float(shownH()) / 2.0f;
+    const bool inView =
+        _active && o.x >= left && o.y >= top && o.x <= left + float(shownW()) && o.y <= top + float(shownH());
+    if (!inView)
+        _paused = true;
+    if (!_options.showPauseHelp)
+        return;
+    _options.showPauseHelp = false;
+    (void)_options.save();
+    runAction(_rules.object("First Hit Action"), int(officer), -1);
+    _paused = true;
+}
+
 void MapScreen::hurtOfficer(size_t officer, const ItemDefinition &weapon, bool stun) {
     Officer &o = _officers[officer];
     if (!o.alive())
         return;
+    officerHit(officer);
     if (stun) {
         // Down for the weapon's Stun Duration, their orders dropped
         // (inferred).

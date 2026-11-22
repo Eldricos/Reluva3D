@@ -298,16 +298,15 @@ bool MapScreen::runTeamAction(const TextObject *action, int instigator, int trig
 }
 
 void MapScreen::runSpawnActions() {
-    // Each spawn point's Spawn Action, its officer the instigator: Mission
-    // 01's add an objective to protect them (inferred: run as the team's
-    // put there).
+    // Each officer's spawn point's Spawn Action, the officer the
+    // instigator: Mission 01's add an objective to protect them (inferred:
+    // run as the team's put there).
     for (size_t i = 0; i < _officers.size(); ++i) {
-        const std::string spawn = "away team spawn point " + std::to_string(i + 1);
-        for (const MapPart &p : _map.parts)
-            if (lower(p.name) == spawn)
-                for (const TextObject *ai : p.activities)
-                    if (ai->className == "CSpawnPointAI")
-                        runAction(ai->object("Spawn Action"), int(i));
+        if (_officers[i].spawn < 0)
+            continue;
+        for (const TextObject *ai : _map.parts[size_t(_officers[i].spawn)].activities)
+            if (ai->className == "CSpawnPointAI")
+                runAction(ai->object("Spawn Action"), int(i));
     }
 }
 

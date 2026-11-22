@@ -87,7 +87,7 @@ public:
      * One of the mission's later maps, `arriving`, has no one on it till
      * they're sent there.
      */
-    MapScreen(const Archive &data, const TextObject &rules, GameMap map, const GameOptions &options, uint64_t now,
+    MapScreen(const Archive &data, const TextObject &rules, GameMap map, GameOptions &options, uint64_t now,
               std::vector<TeamMember> team = {}, WayPoints wayPoints = {}, audio::Mixer *mixer = nullptr,
               bool arriving = false);
     ~MapScreen();
@@ -111,6 +111,7 @@ public:
     /** An officer on the map. */
     struct Officer {
         size_t member = 0; // in the team
+        int spawn = -1;    // the part they spawned at, or -1
         float x = 0.0f;    // where they stand
         float y = 0.0f;
         int direction = 0;                         // of their model's 12, 0 facing left
@@ -395,6 +396,12 @@ public:
     /** Whether time's stopped (the pause button): orders can still be given. */
     bool paused() const { return _paused; }
     void setPaused(bool paused) { _paused = paused; }
+    /**
+     * An officer hit: with the options' Pause Game When Hit, time stops if
+     * they're out of the view, and the first time the rules' First Hit
+     * Action runs (map_combat.cpp).
+     */
+    void officerHit(size_t officer);
     /** Drops the chosen officers' orders: walking, attacking, using an item. */
     void cancelOrders();
     /** The vision button's state: 0 off, 1 choosing an enemy, 2 showing its sight. */
@@ -631,8 +638,8 @@ private:
     const Archive &_data;
     const TextObject &_rules;
     GameMap _map;
-    const GameOptions &_options;
-    int _viewX = 0; // the view's place on the screen and its size (Screen Pos, Screen Size)
+    GameOptions &_options; // its Show Pause When Hit Help turned off once shown
+    int _viewX = 0;        // the view's place on the screen and its size (Screen Pos, Screen Size)
     int _viewY = 0;
     int _viewW = 0;
     int _viewH = 0;

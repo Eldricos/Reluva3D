@@ -73,6 +73,7 @@ void testGround() {
                           "\t\tScreen Size=64,64\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     MapScreen screen(data, rules, map, options, 0);
     // The polygon blacks out the corner; value 0 is all the first texture.
     const image::Image &cell = screen.groundCell(0, 0);
@@ -117,6 +118,7 @@ void testTeam() {
                           "\t\tScreen Size=64,64\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember officer;
     officer.firstName = "Ann";
     std::vector<TeamMember> team = {officer};
@@ -175,6 +177,7 @@ void testScripts() {
                           "\t\tScreen Size=200,200\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember officer;
     officer.firstName = "Ann";
     MapScreen screen(data, rules, map, options, 0, {officer});
@@ -230,6 +233,7 @@ void testTriggers() {
                           "\t\tScreen Size=200,200\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember officer;
     officer.firstName = "Ann";
     MapScreen screen(data, rules, map, options, 0, {officer});
@@ -296,6 +300,7 @@ void testEnemies() {
                           "\t\tScreen Size=200,200\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember officer;
     officer.firstName = "Ann";
     MapScreen screen(data, rules, map, options, 0, {officer});
@@ -350,6 +355,7 @@ void testDrawingOrder() {
                           "\t\tScreen Size=200,200\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     MapScreen screen(data, rules, map, options, 0);
     CHECK(screen.cameraX() == 100.0f && screen.cameraY() == 100.0f);
     Surface surface;
@@ -359,6 +365,51 @@ void testDrawingOrder() {
     CHECK(pixel(95, 100)[2] > 200 && pixel(95, 100)[0] < 50);
     CHECK(pixel(105, 100)[0] > 200 && pixel(105, 100)[2] < 50);
     CHECK(pixel(85, 100)[2] > 200 && pixel(100, 150)[2] < 50);
+}
+
+void testPauseWhenHit() {
+    // Two officers, Ann at Away Team Spawn Point 1 in the view's middle,
+    // Bea at her own spawn point far off it, not at point 2. The first
+    // hit stops time and runs the First Hit Action, once; after it, a hit
+    // in the view doesn't, and one out of it does.
+    const std::string zax =
+        "CLayerSaveData\n{\n\tWidth=2000\n\tHeight=2000\n\tView Position=500.000000,500.000000\n"
+        "\tTree List=CSortList2D\n\t{\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 1\n\t\t\tVisible=0\n"
+        "\t\t\tPosition X=500\n\t\t\tPosition Y=500\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=bea Spawn Point\n\t\t\tVisible=0\n"
+        "\t\t\tPosition X=1800\n\t\t\tPosition Y=1800\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 2\n\t\t\tVisible=0\n"
+        "\t\t\tPosition X=520\n\t\t\tPosition Y=520\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Helped\n\t\t\tVisible=1\n\t\t\tActive=0\n\t\t}\n"
+        "\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n\tFirst Hit Action=CActivateAction\n\t{\n"
+                          "\t\tTarget Name=Helped\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    TeamMember bea;
+    bea.firstName = "Bea";
+    MapScreen screen(data, rules, map, options, 0, {ann, bea});
+    CHECK(screen.officers()[1].x == 1800.0f);
+    screen.officerHit(0);
+    CHECK(screen.paused() && !options.showPauseHelp && screen.partState(3).active);
+    screen.setPaused(false);
+    screen.officerHit(0);
+    CHECK(!screen.paused());
+    screen.officerHit(1);
+    CHECK(screen.paused());
+    options.pauseWhenHit = false;
+    screen.setPaused(false);
+    screen.officerHit(1);
+    CHECK(!screen.paused());
 }
 
 void testClosest() {
@@ -386,6 +437,7 @@ void testClosest() {
                           "\t\tScreen Size=200,200\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember ann;
     ann.firstName = "Ann";
     TeamMember bea;
@@ -450,6 +502,7 @@ void testCombat() {
                           "\t\tScreen Size=200,200\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember ann;
     ann.firstName = "Ann";
     TeamMember bo;
@@ -532,6 +585,7 @@ void testNoise() {
                           "\t\tRun Noise Modifier=6\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember ann;
     ann.firstName = "Ann";
     ann.attributes = {{"Stealth", 30}};
@@ -604,6 +658,7 @@ void testObjectives() {
                           "\t\tScreen Size=64,64\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember ann;
     ann.firstName = "Ann";
     MapScreen screen(data, rules, map, options, 0, {ann});
@@ -711,6 +766,7 @@ void testEnemyAI() {
                           "\t\tScreen Size=200,200\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember ann;
     ann.firstName = "Ann";
     TeamMember bo;
@@ -800,6 +856,7 @@ void testItems() {
                           "\t\tScreen Size=200,200\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember ann;
     ann.firstName = "Ann";
     ann.inventory = {{"Concussion Grenade", 2}, {"Frag Grenade", 1}, {"Hypospray", -1}};
@@ -870,6 +927,7 @@ void testMaps() {
                           "\t\tScreen Size=200,200\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember ann;
     ann.firstName = "Ann";
     TeamMember bo;
@@ -932,6 +990,7 @@ void testInterface() {
                           "\t\tScreen Size=400,400\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember ann;
     ann.firstName = "Ann";
     MapScreen screen(data, rules, map, options, 0, {ann});
@@ -1025,6 +1084,7 @@ void testGadgets() {
                           "\t\tScreen Size=200,200\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember ann;
     ann.firstName = "Ann";
     ann.inventory = {{"Phaser", -1}, {"Remote Mine", -1}, {"Tricorder", -1}};
@@ -1132,6 +1192,7 @@ void testProcesses() {
                           "\t\tScreen Size=200,200\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember ann;
     ann.firstName = "Ann";
     ann.inventory = {{"Tricorder", -1}, {"Phaser", -1}, {"Hypospray", 3}};
@@ -1287,6 +1348,7 @@ void testKit() {
                           "\t\tScreen Size=200,200\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember ann;
     ann.firstName = "Ann";
     ann.inventory = {{"Band", -1}, {"Decoy", 2}, {"Phaser", -1}, {"Grenade", 1}};
@@ -1400,6 +1462,7 @@ void testStates() {
                           "\t\tScreen Size=200,200\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember ann;
     ann.firstName = "Ann";
     MapScreen screen(data, rules, map, options, 0, {ann});
@@ -1484,6 +1547,7 @@ void testDoors() {
                           "\t\tScreen Size=200,200\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember ann;
     ann.firstName = "Ann";
     MapScreen screen(data, rules, map, options, 0, {ann});
@@ -1548,6 +1612,7 @@ void testCompany() {
                           "\t\tScreen Size=200,200\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember ann;
     ann.firstName = "Ann";
     ann.field = "Science";
@@ -1629,6 +1694,7 @@ void testBeams() {
                           "\t\tScreen Size=200,200\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember ann;
     ann.firstName = "Ann";
     ann.inventory = {{"Phaser", -1}};
@@ -1661,6 +1727,7 @@ void testChoosing() {
                           "\t\tScreen Size=64,64\n\t}\n}\n",
                           rules));
     GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember a;
     a.firstName = "Ann";
     TeamMember b;

@@ -250,7 +250,16 @@ A slider's value for an option between its least and most is the
 fraction across times 100, cut to a whole number (`0x486b9e`); back, the
 least and the range times the value / 100 (`0x486f04`). RESET DEFAULTS
 puts back both scrolls' defaults (`0x5bcfa0`, `0x5bcfb0`), gamma 1 and
-pausing when hit (`0x486d32`). DIFFICULTY SETTING opens the difficulty
+pausing when hit (`0x486d32`).
+
+With Pause Game When Hit on, an officer hit in a single-player game
+stops time if they're out of the view or on a map not shown
+(`0x5ca290`). The first time, while the options' `Show Pause When Hit
+Help` (on to start) is, it's turned off for good, Rules.txt's `First
+Hit Action` runs (a camera script: Data's word, after 14 seconds, on
+pausing), and time stops. Reluva does both (`MapScreen::officerHit`).
+
+DIFFICULTY SETTING opens the difficulty
 window with CONTINUE in place of START GAME (`0x486dff`). CONTINUE
 closes the window.
 

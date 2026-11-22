@@ -265,7 +265,13 @@ the main menu?" (`0x5bb190`).
 
 - **Where they start:** the map's spawn points, `Model=Editor/Spawn
   Point` parts named `Away Team Spawn Point 1` to `6`, hidden, each with
-  a `CSpawnPointAI` facing them (`Facing Angle=225`).
+  a `CSpawnPointAI` facing them (`Facing Angle=225`). Each officer, in
+  the team's order, takes a spawn point given for them, else the one
+  named `<their name> Spawn Point` (`Sheila Thatcher Spawn Point` in
+  Mission 13, where the others' points take them hostage), else the
+  first numbered one no one's taken (`0x5bc2b0`, `0x5bc160`). The
+  program tries a numbered point named after something of the officer's
+  between the last two, not worked out.
 - **What they look like:** the officer's portrait's definition names a
   `Body Model` and a `Head Model` (`Characters/Generic Male Body`,
   `Characters/Head Cpt Marcus Refelian`). Each has the same sequences
@@ -750,7 +756,8 @@ seconds without one *(inferred)*. Without scripts, the view starts on the
 team.
 
 The team, the team selection's or, without one, the officers the mission
-says start, at the spawn points, the first at point 1 *(inferred)*.
+says start, at the spawn points as the program chooses them, each
+running its point's Spawn Action.
 Each is drawn from their body, its shadow and their head,
 standing (`Idle`, by the time) or walking, in front of and behind the
 map's models as they stand; the one chosen has the selection's marker
@@ -979,6 +986,13 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   share their edges; Mission 03's pond rippling from frame to frame.
 - **The polygons' colours:** the span fillers each `Render Type` calls
   (`0x53ec66`) read for what they do to a 16-bit pixel.
+- **Every mission's maps:** all 41 maps of the 18 missions loaded on
+  the retail files and played three minutes with the team standing
+  still: none failed to load or stopped; Mission 12's and 18's officers
+  shot where they beam in, a patrol seeing them across open ground, as
+  the program's would; Mission 13's team, all taken hostage at their
+  spawn points, till Sheila Thatcher's own point was found to come
+  first.
 - **The drawing order:** traced in the program; a unit test of a cut
   wall and a lifted crate; Mission 05's StarFleet HQ on the retail files,
   its roofs' trim, windows and canopies up on the buildings where they'd
@@ -1027,7 +1041,8 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   flashes go, stunning, death, and the mouse for attacking.
 - **Choosing:** the game's mouse for a box and Shift, and where officers
   sent together stand.
-- **The team:** which spawn point each officer takes, `Facing Angle`'s
+- **The team:** the numbered spawn point named after something of the
+  officer's, `Facing Angle`'s
   degrees as the directions' (90 the viewer's way), the game's path
   finding, its mouse (which button chooses and which sends), the info
   bar's rising, and the frames' movement as a walk's pace.

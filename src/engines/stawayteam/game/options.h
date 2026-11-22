@@ -45,6 +45,7 @@ public:
     float scrollSpeed = kScrollSpeedDefault;
     float scrollAccel = kScrollAccelDefault;
     bool pauseWhenHit = true;
+    bool showPauseHelp = true;         // the First Hit Action not yet run (0x5ca39b)
     float brightness = kBrightnessMin; // the screen's gamma
 
     int masterVolume = 0;

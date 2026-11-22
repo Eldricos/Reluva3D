@@ -38,7 +38,9 @@ None yet.
 - **Maps:** projectiles don't set off triggers, and the animations' and
   particles' messages aren't there; enemies don't target one another, and their DoSomething and
   Inactive states aren't there; the camera scripts don't pause the
-  characters, and one taken off the team stays on its bar; walkers keep
+  characters, and one taken off the team stays on its bar; one taken
+  off the team is gone from the map, where the program keeps them there
+  for what's done to them, so Mission 13's hostages can't be revived; walkers keep
   apart by Reluva's own rule; the transporter's pictures aren't drawn
   as enemies beam out; shots always hit; the 5 polygons' processes and the Out Of
   Range cursor aren't there
