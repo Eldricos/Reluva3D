@@ -151,7 +151,11 @@ that far.
   which `CONFIG.EXE` writes: `3D Device ID`, `3DSound`, `Back Buffers in
   Video RAM`, `Display Bit Depth`, `Draw Cursor`, `Flip Surfaces`, `Full
   Screen`, `Island Quality`, `Island Texture`, `JoystickIndex`, `Music`,
-  `UseJoystick`, `Wide View Angle`, `cdpath`, `diskpath`, `savepath`. The
+  `UseJoystick`, `Wide View Angle`, `cdpath`, `diskpath`, `savepath`.
+  `Island Quality` and `Island Texture` are read as text and made
+  numbers; missing, each is "1" (`ISLE.EXE`, its default text at
+  0x410228, read at 0x402ac4 and 0x402b16). Set to 0 or 2, the island's
+  rocks are drawn coarser or the same; its roads don't change. The
   yes-or-no ones are text, "YES" for yes *(inferred: the one literal
   beside their names in both programs)*. Without them it uses its own
   defaults.
@@ -207,8 +211,11 @@ instructions at an address ([disasm.md](../../../common/x86/disasm.md)).
 
 - What `CONFIG.EXE` writes for each setting, and its defaults: Reluva
   sets only `savepath` (and the installer's `cdpath`, `diskpath`).
-- Whether the island's ground, drawn plain grey, has textures it isn't
-  given yet.
+- How bright the island is in the original: its roads are plain grey
+  in the world database (`isle`'s "ROAD GREY FLAT", #636363, untextured)
+  and its grass dark green (#114216), but drawn lit by a white
+  directional light, a white point light and an ambient one at 0.3,
+  Direct3D's way, they come out light grey and bright green.
 - Which of the missing functions the program calls, once it gets past
   DirectSound.
 - What else the registry holds once `CONFIG.EXE` has run, and which of
