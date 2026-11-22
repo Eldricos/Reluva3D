@@ -330,10 +330,13 @@ int cmdNfsSurvey(int argc, char **argv) {
         // "THIS IS A DUMMY FILE. ... USED FOR FILES CREATED BY THE GAME AT RUN TIME."
         static constexpr char kPlaceholder[] = "THIS IS A DUMMY FILE.";
         // NFS II SE's TmpTrk holds the installer's stand-ins for the track
-        // and music the game copies there to play.
+        // and music the game copies there to play. Its folder by either
+        // separator: Windows' paths have backslashes.
+        std::string path = lower(what);
+        std::replace(path.begin(), path.end(), '\\', '/');
         if ((data.size() >= sizeof kPlaceholder - 1 &&
              std::memcmp(data.data(), kPlaceholder, sizeof kPlaceholder - 1) == 0) ||
-            lower(what).find("tmptrk/") != std::string::npos) {
+            path.find("tmptrk/") != std::string::npos) {
             ++placeholders;
             if (verbose)
                 std::printf("placeholder %s\n", what.c_str());
