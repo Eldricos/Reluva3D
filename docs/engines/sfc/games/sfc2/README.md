@@ -32,7 +32,8 @@ Detection signatures (MD5 of each file's start, and its size, as
 - **The data viewer** (`reluva-viewer`) shows all of them.
 - **Running the game's own program:** `reluva-tool sfc host` runs
   `StarFleet2.exe` in the x86 emulator, headless, through its start-up
-  to its 3D test, where it stops for want of Direct3D 6
+  and its 3D test on Reluva's Direct3D 6 to its first frame, where it
+  stops for want of C++ exceptions dispatched
   ([systems/hosting.md](systems/hosting.md)).
 - **Not yet:** the game itself (starting it shows an empty screen); the
   `.gf`, `.mct` and `.mvm` settings, campaign and map files; the opening

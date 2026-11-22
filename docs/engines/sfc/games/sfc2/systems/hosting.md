@@ -6,13 +6,14 @@
 
 Reluva means to run the game's own `StarFleet2.exe` in its x86 emulator,
 supplying the parts of Windows and DirectX it calls
-([PLAN.md](../PLAN.md#decisions)). This page is the hosting spike's
-record, the plan's gate: how far the program gets, what it asks for,
-and how fast it runs.
+([PLAN.md](../PLAN.md#decisions)). This page records how far the
+program gets, what it asks for, and how fast it runs.
 
-It gets through its start-up and reads its first files, then stops in
-its 3D start-up test, asking DirectDraw for Direct3D 3, which Reluva
-doesn't have yet. No frame is drawn.
+It gets through its start-up, reads its first files, passes its 3D test
+on Reluva's Direct3D 6, sets an 800x600 mode and shows its first frame,
+"Loading...", after about 45 million instructions. It then stops where
+it expects to catch a C++ exception, which Reluva's emulator doesn't
+dispatch yet.
 
 ## How it works
 
@@ -47,29 +48,52 @@ runtime's `open`, which closes a handle whose type `GetFileType` doesn't
 say is a disk file. The loader at 0x62f580 opens a file whole through a
 reader object, and throws a byte (0) when the reader can't open it.
 
-### Its window and DirectDraw
+### Its resolution
 
-It makes its window (with a menu, which it later takes off), then:
+`SFC.INI`'s `[3D]` `lowres` picks the resolution (0x40a9ae): 0 is 800x600,
+2 is 960x720, 3 is 1024x768, 4 is 1152x864, 5 is 1280x1024, 6 is
+1600x1200, any other 640x480. `SFC2Setup.exe` writes `lowres` and
+`driver` there, as its strings name only those *(inferred)*. The mode is set at 16 bits a pixel and 60 Hz, its size
+passed through a rectangle made with `SetRect` (0x6ab01c).
+
+### Its window, DirectDraw and its 3D test
+
+It makes its window (with a menu, which it later takes off) and
+subclasses it (`SetWindowLongA`, `GWL_WNDPROC`), then:
 
 1. `DirectDrawCreate`, and from it `IDirectDraw2`; it sets the
    co-operative level and makes a surface, asking it for
    `IDirectDrawSurface3` and `IDirectDrawSurface4`.
 2. Through `DirectDrawEnumerateExA`, each device's DirectDraw, asking
-   it for `IDirectDraw4` and its display mode.
-3. `IDirectDraw4::QueryInterface` for `IID_IDirect3D3`
-   ({bb223240-e72b-11d0-...}), twice.
+   it for `IDirectDraw4`, then `IDirect3D3`
+   ({bb223240-e72b-11d0-...}): its devices (`EnumDevices`, whose
+   callback at 0x6baa70 skips Direct3D's null device and takes a
+   device's hardware description if it has flags, its software one if
+   not) and display modes (`EnumDisplayModes`, whose callback at
+   0x6bacc0 keeps a mode whose depth is among the device's render target
+   depths).
+3. `IDirect3D3::FindDevice` and `EnumZBufferFormats`, the display mode,
+   then the device (`CreateDevice`), a viewport (`SetViewport2`,
+   `SetCurrentViewport`, `Clear2`), the texture formats and the
+   texture stages' states, checking them with `ValidateDevice`.
 
-When that fails, its 3D test fails, and it throws its error type
+Without Direct3D 3 its 3D test fails, and it throws its error type
 `tErrInfo` holding "Line: 149, Module: ...\shellApp.cpp" and
-"fTest3D.mInit() failed". That's where the hosted run stops, after about
-44.06 million instructions.
+"fTest3D.mInit() failed".
+
+### Its first frame
+
+"Loading..." in white in the middle of a black 800x600 frame, after about
+45.08 million instructions.
 
 ### Errors as C++ exceptions
 
 The program reports failures by throwing C++ exceptions: the two types
-above, and plain values. All three seen so far are on its way to
-failing, and none was caught; whether it also throws and catches in
-normal running isn't known yet.
+above, and plain values. It also throws in normal running, expecting to
+catch it: just after its first frame its file loader (0x62f580) is asked
+for `assets/uibitmaps.zip`, which neither CD installs, and throws a byte
+when it can't open it. The hosted run stops there, after about 48.12
+million instructions.
 
 ## In Reluva
 
@@ -80,21 +104,26 @@ normal running isn't known yet.
   `src/engines/sfc/host/system.cpp`: interlocked operations, global
   memory, locale and clock queries, INI files (`GetPrivateProfileString`,
   reading `sfc.ini`'s comments after a value as comments), disk space,
-  the window's menus and longs, GDI's text calls as no-ops, and a
+  the window's menus, rectangles, GDI's text calls as no-ops, and a
   `RaiseException` that names the C++ type thrown and the text in a
   `tErrInfo`.
-- **Shared fixes the spike made** (`src/emulation/x86/`): semaphores
-  (`CreateSemaphoreA`, `ReleaseSemaphore`, and waiting on them), and a
-  `GetFileType` for files opened through the path mapping.
+- **What it needed of the shared layer** (`src/emulation/x86/`):
+  semaphores (`CreateSemaphoreA`, `ReleaseSemaphore`, and waiting on
+  them), a `GetFileType` for files opened through the path mapping, a
+  window's longs and subclassing (`GetWindowLongA`, `SetWindowLongA`,
+  `CallWindowProcA`), and Direct3D 6
+  ([directx.md](../../../../../common/x86/directx.md)).
 - **Commands:** `reluva-tool sfc host <game folder>` runs the program
   headless and reports what it looks for, the imports nothing stands in
   for, where it stopped, and how many instructions it ran; `-calls
   <address>` lists every call into a stand-in from that address on, with
-  the interface each `QueryInterface` asks for; `-frame <out.png>` saves
-  the last frame. `reluva-tool sfc disasm <game folder> <start> <end>`
+  the interface each `QueryInterface` asks for and each call's first
+  arguments; `-watch <address>` shows the registers, the stack and what
+  its first arguments point to each time the program gets there;
+  `-frame <out.png>` saves the last frame. `reluva-tool sfc disasm <game folder> <start> <end>`
   disassembles the program.
-- **Not yet:** the game doesn't run in the launcher; nothing past the
-  3D test.
+- **Not yet:** the game doesn't run in the launcher; nothing past its
+  first frame.
 
 ## Sources and checks
 
@@ -105,25 +134,27 @@ normal running isn't known yet.
   layout of Visual C++ (a type's name at its type descriptor's +8), as
   published write-ups on reversing Visual C++ programs describe it.
 - **How it was checked:** each run repeated after each change, the
-  instruction count steady (44,063,247 three times running; a few hundred
-  more when threads change over differently).
+  instruction count steady (44,063,247 three times running to the 3D
+  test; a few hundred more when threads change over differently); the
+  first frame saved and looked at.
 
-### The spike's numbers
+### The numbers
 
 | What | Measured |
 |---|---|
-| Instructions to the 3D test | 44.06 million |
+| Instructions to the 3D test, without Direct3D 6 | 44.06 million |
+| Instructions to the first frame | 45.08 million |
+| Instructions to the first exception caught in normal running | 48.12 million |
 | Speed | 60 to 62 million instructions a second (the shared JIT on, 4 cores, one busy) |
-| Imports | 111 of the program's not stood in for at the stop: 37 KERNEL32 (wide-character files, consoles, processes, file mappings), 10 USER32 (dialogs, clipboard, `GetMessageA`), 3 GDI32 (DIB sections), 25 WSOCK32 and 1 DSOUND (by ordinal), 25 Miles (`mss32.dll`), 5 COMDLG32, 4 ADVAPI32, `DirectDrawCreateClipper` |
+| Imports | 111 of the program's not stood in for at the 3D test: 37 KERNEL32 (wide-character files, consoles, processes, file mappings), 10 USER32 (dialogs, clipboard, `GetMessageA`), 3 GDI32 (DIB sections), 25 WSOCK32 and 1 DSOUND (by ordinal), 25 Miles (`mss32.dll`), 5 COMDLG32, 4 ADVAPI32, `DirectDrawCreateClipper` |
 
 How fast the game needs to run once it's in a mission isn't measured
 yet: nothing past start-up has run.
 
 ## Open questions
 
-- Whether the program throws and catches C++ exceptions in normal
-  running: if so, Reluva's emulator has to dispatch them, which it
-  doesn't yet.
+- Whether the game also asks for other files no install has, as it does
+  `uibitmaps.zip`.
 - What the folders `dmp3dDLL_Release`, `DLL` and `DRIVERS` are looked for,
   and what it loads from them.
 - How many instructions a second a mission needs.

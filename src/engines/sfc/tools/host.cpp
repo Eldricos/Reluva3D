@@ -29,7 +29,7 @@ using namespace reluva::tool;
 int cmdHost(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool sfc host <game folder> [-limit instructions] [-trace count] "
-                             "[-frame out.png] [-quiet] [-calls address]\n");
+                             "[-frame out.png] [-quiet] [-calls address] [-watch address]...\n");
         return 2;
     }
     uint64_t limit = 2000000000ull;
@@ -37,6 +37,7 @@ int cmdHost(int argc, char **argv) {
     std::string framePath;
     bool quiet = false;
     uint32_t callsFrom = 0;
+    std::vector<uint32_t> watch; // addresses at which to show the registers and the stack
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
         if (arg == "-limit" && a + 1 < argc)
@@ -49,6 +50,8 @@ int cmdHost(int argc, char **argv) {
             quiet = true;
         else if (arg == "-calls" && a + 1 < argc)
             callsFrom = uint32_t(std::strtoul(argv[++a], nullptr, 0));
+        else if (arg == "-watch" && a + 1 < argc)
+            watch.push_back(uint32_t(std::strtoul(argv[++a], nullptr, 0)));
     }
     sfc::GameProcess game(argv[2], 256);
     x86::Cpu &cpu = game.cpu();
@@ -87,12 +90,35 @@ int cmdHost(int argc, char **argv) {
         recent[recentAt++ % recent.size()] = c.eip;
         if (callsFrom && c.eip == callsFrom)
             logging = true;
+        if (std::find(watch.begin(), watch.end(), c.eip) != watch.end()) {
+            std::printf("at %08x: eax %x ebx %x ecx %x edx %x esi %x edi %x ebp %x esp %x; stack", c.eip,
+                        c.reg[x86::Cpu::EAX], c.reg[x86::Cpu::EBX], c.reg[x86::Cpu::ECX], c.reg[x86::Cpu::EDX],
+                        c.reg[x86::Cpu::ESI], c.reg[x86::Cpu::EDI], c.reg[x86::Cpu::EBP], c.reg[x86::Cpu::ESP]);
+            for (uint32_t i = 0; i < 8; ++i)
+                std::printf(" %x", c.read32(c.reg[x86::Cpu::ESP] + 4 * i));
+            std::printf("\n");
+            // What the first arguments point to, where they're pointers.
+            for (uint32_t i = 1; i <= 3; ++i) {
+                const uint32_t p = c.read32(c.reg[x86::Cpu::ESP] + 4 * i);
+                if (p < 0x10000 || !c.valid(p, 64))
+                    continue;
+                std::printf("  [%x]:", p);
+                for (uint32_t k = 0; k < 16; ++k)
+                    std::printf(" %x", c.read32(p + 4 * k));
+                std::printf("\n");
+            }
+        }
         if (!logging)
             return;
         const std::string *name = c.nativeName(c.eip);
         if (!name)
             return;
-        std::printf("call %s", name->c_str());
+        std::printf("call %s (%x, %x, %x, %x, %x, %x) from %x", name->c_str(), c.arg(0), c.arg(1), c.arg(2), c.arg(3),
+                    c.arg(4), c.arg(5), c.read32(c.reg[x86::Cpu::ESP]));
+        if (name->find("RegOpenKeyEx") != std::string::npos || name->find("RegQueryValueEx") != std::string::npos ||
+            name->find("RegCreateKeyEx") != std::string::npos || name->find("RegSetValueEx") != std::string::npos)
+            if (c.valid(c.arg(1), 1))
+                std::printf("  \"%s\"", c.string(c.arg(1), 200).c_str());
         if (name->find("::QueryInterface") != std::string::npos) {
             const uint32_t iid = c.read32(c.reg[x86::Cpu::ESP] + 8);
             std::printf("  {%08x-%04x-%04x-...}", c.read32(iid), c.read16(iid + 4), c.read16(iid + 6));
@@ -163,12 +189,12 @@ int cmdDisasm(int argc, char **argv) {
     return 1;
 }
 
-const Commands kCommands("sfc",
-                         {
-                             {"host", "<game folder> [-limit n] [-trace n] [-frame out.png] [-quiet] [-calls address]",
-                              "run StarFleet2.exe in the x86 emulator, headless, and say how far it gets", cmdHost},
-                             {"disasm", "<game folder> <start> <end>",
-                              "disassemble StarFleet2.exe from one address to another", cmdDisasm},
-                         });
+const Commands kCommands(
+    "sfc",
+    {
+        {"host", "<game folder> [-limit n] [-trace n] [-frame out.png] [-quiet] [-calls address] [-watch address]...",
+         "run StarFleet2.exe in the x86 emulator, headless, and say how far it gets", cmdHost},
+        {"disasm", "<game folder> <start> <end>", "disassemble StarFleet2.exe from one address to another", cmdDisasm},
+    });
 
 } // namespace

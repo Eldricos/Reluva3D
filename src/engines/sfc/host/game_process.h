@@ -62,8 +62,7 @@ private:
     std::unique_ptr<x86::DirectX> _directX;
     std::unique_ptr<x86::DirectInput> _directInput;
     const x86::Win32Process::Module *_exe = nullptr;
-    uint32_t _focus = 0;                                            // the window with the focus
-    std::map<std::pair<uint32_t, uint32_t>, uint32_t> _windowLongs; // by window and index
+    uint32_t _focus = 0; // the window with the focus
 };
 
 } // namespace reluva::sfc

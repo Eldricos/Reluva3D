@@ -335,10 +335,18 @@ void GameProcess::addSystem() {
                                                                               {"RedrawWindow", 4},
                                                                               {"EndPaint", 2},
                                                                               {"MessageBeep", 1},
-                                                                              {"OffsetRect", 3},
-                                                                              {"SetRect", 5},
                                                                               {"FillRect", 3}})
         stdcall(u, name, args, [](Cpu &) { return 1u; });
+    stdcall(u, "SetRect", 5, [](Cpu &c) {
+        for (uint32_t i = 0; i < 4; ++i)
+            c.write32(c.arg(0) + 4 * i, c.arg(1 + int(i)));
+        return 1u;
+    });
+    stdcall(u, "OffsetRect", 3, [](Cpu &c) {
+        for (uint32_t i = 0; i < 4; ++i)
+            c.write32(c.arg(0) + 4 * i, c.read32(c.arg(0) + 4 * i) + c.arg(1 + int(i % 2)));
+        return 1u;
+    });
     stdcall(u, "CheckMenuItem", 3, [](Cpu &) { return 0u; });
     stdcall(u, "IsIconic", 1, [](Cpu &) { return 0u; });
     stdcall(u, "SetFocus", 1, [this](Cpu &c) {
@@ -359,28 +367,6 @@ void GameProcess::addSystem() {
             c.write32(c.arg(1) + i, 0);
         c.write32(c.arg(1), 0x5100); // its device context
         return 0x5100u;
-    });
-    // A window's longs, kept; the window procedure's only reported, as
-    // whether the game subclasses its window is for the spike to find.
-    stdcall(u, "GetWindowLongA", 2, [this](Cpu &c) {
-        if (int32_t(c.arg(1)) == -4)
-            if (const auto *w = _process->window(c.arg(0)))
-                return w->proc;
-        return _windowLongs[{c.arg(0), c.arg(1)}];
-    });
-    stdcall(u, "SetWindowLongA", 3, [this](Cpu &c) {
-        uint32_t &slot = _windowLongs[{c.arg(0), c.arg(1)}];
-        const uint32_t old = slot;
-        slot = c.arg(2);
-        if (int32_t(c.arg(1)) == -4)
-            c.abort("SetWindowLongA(GWL_WNDPROC): the game subclasses a window");
-        return old;
-    });
-    stdcall(u, "CallWindowProcA", 5, [](Cpu &c) {
-        uint32_t result = 0;
-        if (Error e = c.call(c.arg(0), {c.arg(1), c.arg(2), c.arg(3), c.arg(4)}, result))
-            c.abort(e.message);
-        return result;
     });
     stdcall(u, "MapVirtualKeyA", 2, [](Cpu &c) { return c.arg(0); });
     stdcall(u, "VkKeyScanA", 1, [](Cpu &c) {

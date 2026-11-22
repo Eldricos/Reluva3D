@@ -63,18 +63,18 @@ on their pages in `formats/` and `systems/`.
    Direct3D 3, after 44 million instructions at about 61 million a
    second ([systems/hosting.md](systems/hosting.md)). Hosting goes on
    ([Decisions](#decisions)).
-5. **Shared stand-ins it needs** (next), in `src/emulation/x86/`, each
-   on its page in `docs/common/x86/`, in the order the game asks for
-   them:
-   - Direct3D 6's interfaces (`IDirect3D3`, `IDirect3DDevice3`,
-     `IDirect3DViewport3`, `IDirect3DTexture2`, and its materials and
-     lights) on the Direct3D 7 objects already there; `IDirectDraw4` and
-     `IDirectDrawSurface3` and `4` are there;
+5. **Shared stand-ins it needs** (in progress), in `src/emulation/x86/`,
+   each on its page in `docs/common/x86/`, in the order the game asks
+   for them:
+   - Direct3D 6 (done): `IDirect3D3`, its device, viewports, materials,
+     lights and textures on the Direct3D 7 device; with it the game
+     passes its 3D test and shows its first frame
+     ([systems/hosting.md](systems/hosting.md));
+   - C++ exceptions dispatched (next): the game throws one it expects to
+     catch just after its first frame;
    - the Windows functions the spike stood in for in the engine
      (`src/engines/sfc/host/system.cpp`), moved to the shared layer as
      they're settled;
-   - C++ exceptions dispatched, if the game turns out to throw and catch
-     them in normal running;
    - Winsock (`nfs` has one in its host) and DirectPlay 4, for the
      network;
    - Miles' 25 `AIL_*` sample functions, on the shared mixer;
