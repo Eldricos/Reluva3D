@@ -246,6 +246,10 @@ public:
     bool missionCompleted() const { return _completed; }
     /** The words the mission ended with. */
     const std::string &missionOverText() const { return _missionOverText; }
+    /** The objectives as the lists show them: those shown, primary or not, with their words. */
+    std::vector<ObjectiveLine> objectiveLines() const;
+    /** How long the mission's been played, in seconds (the game's Mission Time). */
+    float missionTime() const { return _missionTime; }
     /** Whether the objectives window is open. */
     bool objectivesShown() const { return _objectivesWindow != nullptr; }
 
@@ -338,7 +342,6 @@ private:
     void officerFell(size_t officer);
     void runSpawnActions();
     void endMission(bool completed, const std::string &script, const std::string &line);
-    std::vector<ObjectiveLine> objectiveLines() const;
     // The team's noises: ageing, and their rings shown (map_noise.cpp).
     void updateNoises(float seconds);
     void drawNoises(Surface &view, int left, int top) const;
@@ -460,6 +463,7 @@ private:
     std::vector<Objective> _objectives;
     MissionObjectives _mission; // keeps its actions alive
     bool _won = false;
+    float _missionTime = 0.0f;
     bool _completed = false;
     std::string _nextMission;
     std::string _missionOverText;

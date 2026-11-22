@@ -48,7 +48,7 @@ None yet.
   the interface's buttons but the move, select-all, sound and objectives
   buttons do nothing yet
   ([systems/maps.md](systems/maps.md#in-reluva)).
-- **Objectives:** there's no debriefing between missions, no score, and
+- **Objectives:** there's no score, and
   LOAD GAME is greyed out; rescue and need-item objectives are only done
   as the triggers say; only a mission's first map is played
   ([systems/objectives.md](systems/objectives.md#in-reluva)).

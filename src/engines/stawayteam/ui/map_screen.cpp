@@ -569,6 +569,7 @@ void MapScreen::update(uint64_t now) {
     // The windows over the map hold the game still (inferred).
     if (_endGame || _objectivesWindow)
         return;
+    _missionTime += seconds;
     playScripts(seconds);
     _warpLeft = std::max(0.0f, _warpLeft - seconds);
     if (!_dialogText.empty()) {

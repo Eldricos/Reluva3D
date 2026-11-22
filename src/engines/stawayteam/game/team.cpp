@@ -194,13 +194,19 @@ Error loadMission(const Archive &data, int number, Mission &out) {
     out.briefingMovie = text(mds, "Briefing Movie");
     out.loopMovie = mds.integer("Loop movie").value_or(0) != 0;
     out.briefingMusic = text(mds, "Briefing Music");
-    const TextObject *script = mds.object("Script");
-    if (const TextObject *lines = script ? script->object("Script") : nullptr)
-        for (const TextField *item : lines->items())
-            if (item->object)
-                out.briefing.push_back({text(*item->object, "Script"), text(*item->object, "Text"),
-                                        text(*item->object, "Who is speaking"),
-                                        int(item->object->integer("Frame to start").value_or(-1))});
+    const auto readScript = [&](const char *key, std::vector<BriefingLine> &lines) {
+        const TextObject *script = mds.object(key);
+        if (const TextObject *list = script ? script->object("Script") : nullptr)
+            for (const TextField *item : list->items())
+                if (item->object)
+                    lines.push_back({text(*item->object, "Script"), text(*item->object, "Text"),
+                                     text(*item->object, "Who is speaking"),
+                                     int(item->object->integer("Frame to start").value_or(-1))});
+    };
+    readScript("Script", out.briefing);
+    readScript("Debrief Script", out.debriefing);
+    out.showDebriefing = mds.integer("Show Debriefing").value_or(0) != 0;
+    out.debriefingMusic = text(mds, "Debriefing Music");
     for (TextField &f : mds.fields)
         if (f.key == "Objective" && f.object)
             out.objectives = std::shared_ptr<const TextObject>(std::move(f.object));

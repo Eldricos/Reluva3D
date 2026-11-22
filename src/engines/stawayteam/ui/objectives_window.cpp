@@ -47,15 +47,15 @@ ObjectiveList::ObjectiveList(const Archive &data) {
         _icons[i] = screenPicture(data, std::string("Objectives Menu/") + kStatusPictures[i]);
 }
 
-void ObjectiveList::draw(Surface &screen, int x, int y, int width, int spacing,
-                         const std::vector<ObjectiveLine> &lines) const {
+void ObjectiveList::draw(Surface &screen, int x, int y, int width, int spacing, const std::vector<ObjectiveLine> &lines,
+                         int opacity) const {
     for (const bool primary : {true, false}) {
         bool headed = false;
         for (const ObjectiveLine &line : lines) {
             if (line.primary != primary)
                 continue;
             if (!headed && _heading.loaded()) {
-                _heading.draw(screen, x, y, primary ? "Primary Objectives" : "Secondary Objectives");
+                _heading.draw(screen, x, y, primary ? "Primary Objectives" : "Secondary Objectives", opacity);
                 y += _heading.height() + kIconGap;
             }
             headed = true;
@@ -66,10 +66,10 @@ void ObjectiveList::draw(Surface &screen, int x, int y, int width, int spacing,
             const auto wrapped = _text.loaded() ? _text.wrap(line.text, textW) : std::vector<std::string>{};
             const int textH = int(wrapped.size()) * _text.height();
             const float brightness = line.status == ObjectiveStatus::kDisabled ? kDisabledBrightness : 1.0f;
-            image::blit(screen, icon, x, y + (textH - icon.h) / 2);
+            image::blit(screen, icon, x, y + (textH - icon.h) / 2, opacity);
             int ly = y;
             for (const std::string &l : wrapped) {
-                _text.draw(screen, x + icon.w + kIconGap, ly, l, 255, brightness);
+                _text.draw(screen, x + icon.w + kIconGap, ly, l, opacity, brightness);
                 ly += _text.height();
             }
             y += std::max(textH, icon.h) + spacing;

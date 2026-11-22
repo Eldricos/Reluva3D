@@ -196,16 +196,30 @@ bool MainMenu::run() {
                 if (choice == MapScreen::Choice::kRestart) {
                     startMission(_missionTeam);
                 } else if (choice == MapScreen::Choice::kContinue) {
-                    // The mission the triggers named next ("Mission 02/Mission
-                    // 02"), from its briefing; without one, the main menu
-                    // (inferred). The debriefing isn't there yet.
-                    int next = 0;
+                    // Its debriefing, if it has one, then the mission the
+                    // triggers named next ("Mission 02/Mission 02") from its
+                    // briefing; without one, the main menu (inferred).
+                    _nextMission = 0;
                     const std::string name = _mapScreen->nextMission();
+                    if (std::sscanf(name.c_str(), "Mission %d", &_nextMission) != 1)
+                        _nextMission = 0;
+                    if (_mission.showDebriefing)
+                        _debriefing = std::make_unique<DebriefingScreen>(_data, _rules, _mission, _options, _mixer,
+                                                                         _mapScreen->objectiveLines(),
+                                                                         _mapScreen->missionTime(), _sys.getMillis());
                     _mapScreen.reset();
-                    if (std::sscanf(name.c_str(), "Mission %d", &next) == 1)
-                        beginMission(next);
+                    if (!_debriefing && _nextMission > 0)
+                        beginMission(_nextMission);
                 } else if (choice != MapScreen::Choice::kNone) {
                     _mapScreen.reset();
+                }
+                continue;
+            }
+            if (_debriefing) {
+                if (_debriefing->handleEvent(ev, _sys.getMillis()) == DebriefingScreen::Choice::kContinue) {
+                    _debriefing.reset();
+                    if (_nextMission > 0)
+                        beginMission(_nextMission);
                 }
                 continue;
             }
@@ -293,7 +307,7 @@ bool MainMenu::run() {
         }
         // The menu's song stops for the game's screens, which have their
         // own music, and comes back with the menu (inferred).
-        const bool inGame = _briefing || _teamSelection || _mapScreen;
+        const bool inGame = _briefing || _teamSelection || _mapScreen || _debriefing;
         if (inGame && song != audio::kNoSound) {
             stopSong();
             song = audio::kNoSound;
@@ -372,6 +386,10 @@ void MainMenu::draw() {
     clearScreen(_screen);
     if (_mapScreen) {
         _mapScreen->draw(_screen, now);
+        return;
+    }
+    if (_debriefing) {
+        _debriefing->draw(_screen, now);
         return;
     }
     if (_briefing) {

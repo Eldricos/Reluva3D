@@ -36,8 +36,9 @@ public:
     /** `data` must outlive it. */
     explicit ObjectiveList(const Archive &data);
 
-    /** Draws `lines` from (x, y), `width` across, `spacing` between them. */
-    void draw(Surface &screen, int x, int y, int width, int spacing, const std::vector<ObjectiveLine> &lines) const;
+    /** Draws `lines` from (x, y), `width` across, `spacing` between them, showing `opacity` (0-255) of them. */
+    void draw(Surface &screen, int x, int y, int width, int spacing, const std::vector<ObjectiveLine> &lines,
+              int opacity = 255) const;
 
 private:
     Font _heading;

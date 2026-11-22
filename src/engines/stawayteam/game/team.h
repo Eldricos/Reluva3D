@@ -88,6 +88,9 @@ struct Mission {
     bool loopMovie = false;
     std::string briefingMusic; // of Music/
     std::vector<BriefingLine> briefing;
+    bool showDebriefing = false;
+    std::vector<BriefingLine> debriefing; // its Debrief Script
+    std::string debriefingMusic;
     std::shared_ptr<const TextObject> objectives; // its CMissionObjectiveManager, if it has one
 };
 

@@ -6,6 +6,7 @@
 // team selection's roster, mission and rules.
 
 #include "engines/stawayteam/ui/briefing.h"
+#include "engines/stawayteam/ui/debriefing.h"
 #include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/credits.h"
 #include "engines/stawayteam/ui/font.h"
@@ -391,6 +392,52 @@ void testBriefing() {
     end.key = 'e';
     CHECK(screen.handleEvent(end, 1030) == BriefingScreen::Choice::kEndBriefing);
 }
+void testDebriefing() {
+    MemoryArchive data;
+    data.files["Levels/Mission 01/Mission 01.MDS"] =
+        bytesOf("CMissionDescription\n{\n\tMission Name=The Test\n\tShow Debriefing=1\n"
+                "\tDebriefing Music=Debriefing.ogg\n\tDebrief Script=CBriefingScript\n\t{\n\t\tScript=Array\n\t\t{\n"
+                "\t\t\tArray Count=2\n"
+                "\t\t\tArray Item=CBriefingScriptLine\n\t\t\t{\n\t\t\t\tScript=Mission 01/Mission 01\n"
+                "\t\t\t\tText=01 Debrief\n\t\t\t\tWho is speaking=Marcus Refelian\n\t\t\t}\n"
+                "\t\t\tArray Item=CBriefingScriptLine\n\t\t\t{\n\t\t\t\tScript=Mission 01/Mission 01\n"
+                "\t\t\t\tText=01 Debrief2\n\t\t\t\tWho is speaking=Data\n\t\t\t}\n"
+                "\t\t}\n\t}\n}\n");
+    data.files["Levels/Mission 01/Mission 01.RDS"] = bytesOf(":01 Debrief\nWell done.\n:01 Debrief2\nAgreed.\n");
+    Mission mission;
+    CHECK(!loadMission(data, 1, mission) && mission.showDebriefing && mission.debriefingMusic == "Debriefing.ogg");
+    CHECK(mission.debriefing.size() == 2 && mission.debriefing[1].speaker == "Data" && mission.briefing.empty());
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tMenu=Array\n\t\t{\n\t\t\tItem Count=1\n"
+                          "\t\t\tMenu=CAnimatedMenuInfo\n\t\t\t{\n\t\t\t\tMenu Name=Debriefing Screen\n"
+                          "\t\t\t\tMenu Definition=CStarTrekDebriefingMenu\n\t\t\t\t{\n"
+                          "\t\t\t\t\tContinueButton Text=&CONTINUE\n\t\t\t\t\tTextDisplay Text Speed=10\n"
+                          "\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    DebriefingScreen screen(data, rules, mission, options, nullptr, {{ObjectiveStatus::kComplete, "Done", true}},
+                            125.0f, 0);
+    Surface surface;
+    surface.create(640, 480, PixelFormat::kRGBA32);
+    // The panels fade in one after another: the mission's from 0.75
+    // seconds, the objectives' from 1.25, the text's from 1.75, each over
+    // 0.75; the lines are typed once theirs is in.
+    screen.draw(surface, 1000);
+    CHECK(screen.shown(0) > 0.3f && screen.shown(0) < 0.4f && screen.shown(1) == 0.0f && screen.shown(2) == 0.0f);
+    screen.draw(surface, 2500);
+    CHECK(screen.shown(2) == 1.0f && screen.line() == 0 && !screen.typed());
+    // Space shows a line whole; without a voice-over the next then comes
+    // by itself; CONTINUE after the last goes on.
+    Event space;
+    space.type = EventType::kKeyDown;
+    space.key = ' ';
+    CHECK(screen.handleEvent(space, 2500) == DebriefingScreen::Choice::kNone && screen.typed());
+    screen.draw(surface, 2510);
+    CHECK(screen.line() == 1);
+    screen.draw(surface, 3500);
+    CHECK(screen.typed());
+    CHECK(screen.handleEvent(space, 3500) == DebriefingScreen::Choice::kContinue);
+}
 } // namespace
 
 static const reluva::test::Suite
@@ -404,4 +451,5 @@ static const reluva::test::Suite
                                         {"controls", [](const std::filesystem::path &) { testControls(); }},
                                         {"team selection", [](const std::filesystem::path &) { testTeamSelection(); }},
                                         {"briefing", [](const std::filesystem::path &) { testBriefing(); }},
+                                        {"debriefing", [](const std::filesystem::path &) { testDebriefing(); }},
                                     });

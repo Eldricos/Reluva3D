@@ -8,6 +8,7 @@
 #include "common/system.h"
 #include "engines/stawayteam/formats/text_object.h"
 #include "engines/stawayteam/ui/briefing.h"
+#include "engines/stawayteam/ui/debriefing.h"
 #include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/credits.h"
 #include "engines/stawayteam/ui/difficulty.h"
@@ -122,6 +123,8 @@ private:
     std::unique_ptr<TeamSelectionScreen> _teamSelection;
     std::unique_ptr<BriefingScreen> _briefing; // over the team selection, when it's from there
     std::unique_ptr<MapScreen> _mapScreen;
+    std::unique_ptr<DebriefingScreen> _debriefing;
+    int _nextMission = 0; // the mission after the debriefing; 0 for the main menu
     Mission _mission;
     std::vector<TeamMember> _missionTeam; // the team it started with, for a restart
     Difficulty _difficulty = Difficulty::kNormal;

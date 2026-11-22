@@ -95,6 +95,32 @@ and centred across the top of `EndGameDisplay Pos` and `Size` (60, 26;
 buttons, of `End Game Menu/Button`: completed, CONTINUE alone; failed,
 LOAD GAME, RESTART and END GAME (`0x50d08d`).
 
+### The debriefing
+
+After a mission completed, one with `Show Debriefing` (`Debrief Script`
+its lines, as the briefing's `Script`; `Debriefing Music`) shows
+Rules.txt's `Debriefing Screen` (`CStarTrekDebriefingMenu`, made at
+`0x48a780`), on its `Debriefing/Background`, with the bridge's rumble
+(`Ambient/Bridge Rumble BG.wav`):
+
+- **Three panels** fading in over 0.75 seconds each, from 0.75, 1.25 and
+  1.75 seconds (`0x48a898`), `Interface/Mission Debrief Fade.ogg` as each
+  starts (`0x4895ae`), and out again on leaving.
+- **The mission's**, `Mission Background` at `Success Pos` (22, 50)
+  (`0x48a600`): "MISSION SUCCESSFUL" in `Placar Condensed`, "PRIMARY
+  OBJECTIVES COMPLETE" and "TIME TAKEN: " in `Placar Blue`, each centred
+  2 pixels left of the panel's middle at its row (`Mission Success Text`
+  39, `Objective Complete Text` 100, `Time Text` 119), the time ending
+  there and the mission's time, hours, minutes and seconds of two figures
+  each (`0x5c4700`), 2 pixels right of it.
+- **The objectives'**, `Objective Background` at `Objective Pos` (322,
+  50), the list at `ObjectiveText Pos` and `Size` (`0x489630`).
+- **The text's**, `Debriefing Text Background` at `TextDisplay Window
+  Pos` (51, 237) (`0x4897b0`): the lines typed out as the briefing's,
+  at `TextDisplay Text Speed` (60) in `Debriefing Text Font`, beside the
+  speaker's portrait on its `Portrait Background`, with their
+  voice-overs; CONTINUE and REPLAY on the panel, at their places on it.
+
 ## In Reluva
 
 `loadMission` keeps the mission's objective manager, and
@@ -119,7 +145,16 @@ from its briefing, or to the main menu without one *(inferred)*; RESTART
 starts the mission's map again with the same team; END GAME goes to the
 main menu. LOAD GAME is greyed out, as saved games can't be loaded yet.
 
-Not there yet: the debriefing, the score and points, rescue and
+The debriefing (`ui/debriefing.cpp`) comes between a mission completed
+and the next, as above; its lines are typed once their panel's in, and,
+as the briefing's, go on by themselves a second after their voice-over
+*(inferred)*; CONTINUE or Space shows a line whole, then the next, and
+after the last goes on; REPLAY starts the lines again. The text stops
+short of the buttons *(inferred)*, and the music and rumble play over and
+over *(inferred)*. The mission's time is counted while its map's played,
+not while a window holds it.
+
+Not there yet: the score and points, rescue and
 need-item objectives' own rules, the objectives shown on the minimap and
 in the info bar, and the mission's other maps.
 
@@ -134,11 +169,14 @@ in the info bar, and the mission's other maps.
   counted and the band found, the Win Action beaming the team out and
   the mission completed with "Both scientists have been beamed aboard
   successfully.", Mission 02 next; an officer killed by the Romulans and
-  the mission failed with "One of your team members has died.". Not yet
+  the mission failed with "One of your team members has died."; the
+  debriefing with its three panels, the time taken and Marcus Refelian's
+  log. Not yet
   against the original running. Unit tests (`stawayteam.unit.maps`)
   read a mission's objectives, count one to complete, end the mission by
   its Win Action with its message, and fail a protect objective as its
-  officer falls.
+  officer falls; `stawayteam.unit.menus` the debriefing's panels fading
+  in one after another and its lines.
 
 ## Open questions
 
@@ -149,5 +187,5 @@ in the info bar, and the mission's other maps.
 - **The windows:** where they're placed, whether the game's held still
   under them, and what the Objectives Menu's `Placar Condensed` font is
   for.
-- **Going on:** the debriefing between missions, and what's done
-  without a next mission.
+- **Going on:** what's done without a next mission, and the
+  debriefing's lines going on by themselves.
