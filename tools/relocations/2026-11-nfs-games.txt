@@ -20,3 +20,7 @@ src/engines/nfs/render/particles.cpp     src/engines/nfs/nfs3/render/particles.c
 src/engines/nfs/render/particles.h       src/engines/nfs/nfs3/render/particles.h
 src/engines/nfs/pages/car_viewer.cpp     src/engines/nfs/nfs3/pages/car_viewer.cpp
 src/engines/nfs/pages/track_viewer.cpp   src/engines/nfs/nfs3/pages/track_viewer.cpp
+src/engines/nfs/host/thrash_native.cpp   src/engines/nfs/nfs3/host/thrash_native.cpp
+src/engines/nfs/host/thrash_native.h     src/engines/nfs/nfs3/host/thrash_native.h
+src/engines/nfs/render/thrash_gpu.cpp    src/engines/nfs/nfs3/render/thrash_gpu.cpp
+src/engines/nfs/render/thrash_gpu.h      src/engines/nfs/nfs3/render/thrash_gpu.h

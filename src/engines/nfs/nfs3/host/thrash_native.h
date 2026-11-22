@@ -11,7 +11,7 @@
 #include <set>
 #include <vector>
 
-namespace reluva::nfs {
+namespace reluva::nfs::nfs3 {
 
 /**
  * A frame of THRASH's drawing as a list, for drawing on the GPU: screen
@@ -224,4 +224,4 @@ private:
     std::map<int, int> _unknownFormats;
 };
 
-} // namespace reluva::nfs
+} // namespace reluva::nfs::nfs3

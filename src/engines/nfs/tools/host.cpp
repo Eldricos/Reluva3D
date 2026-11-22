@@ -395,10 +395,10 @@ int cmdNfsHost(int argc, char **argv) {
     size_t recentAt = 0;
     int watched = 0;
     // Every texture as it now is, for -gpudump.
-    std::map<uint32_t, reluva::nfs::ThrashFrame::Texture> dumpTextures;
+    std::map<uint32_t, reluva::nfs::nfs3::ThrashFrame::Texture> dumpTextures;
     uint64_t lists = 0;
     if (gpuLog || gpuDumpList)
-        host.onThrashFrame = [&](reluva::nfs::ThrashFrame &&f) {
+        host.onThrashFrame = [&](reluva::nfs::nfs3::ThrashFrame &&f) {
             if (f.resetTextures)
                 dumpTextures.clear();
             for (auto &t : f.textures)

@@ -4,7 +4,7 @@
 #pragma once
 
 #include "engines/nfs/folders.h"
-#include "engines/nfs/render/thrash_gpu.h"
+#include "engines/nfs/nfs3/render/thrash_gpu.h"
 #include "engines/nfs/ui/page.h"
 
 #include <atomic>
@@ -138,11 +138,11 @@ private:
     std::string _glideDll;       // ... with this THRASH DLL file instead of the install's
     std::string _glideBoard;     // ... on this board
     bool _direct3d = false;      // the game told of d3da.dll (its Direct3D look)
-    ThrashGpu _gpuDraw;          // on the engine's thread
+    nfs3::ThrashGpu _gpuDraw;    // on the engine's thread
     // THRASH's frames not drawn yet, in order: each is drawn (some add to
     // what the one before left), with the textures it brought, then kept.
     struct Pending {
-        ThrashFrame frame;
+        nfs3::ThrashFrame frame;
         std::shared_ptr<const Surface> software; // comparing: the software rasterizer's of the same flip
     };
     std::deque<Pending> _pending;

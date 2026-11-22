@@ -281,7 +281,7 @@ void PlayPage::start() {
             _primaryShown = true;
         }
     };
-    _host->onThrashFrame = [this](ThrashFrame &&frame) {
+    _host->onThrashFrame = [this](nfs3::ThrashFrame &&frame) {
         std::lock_guard<std::mutex> lock(_mutex);
         // A flip copies its rectangle to the screen, leaving the rest: what
         // DirectDraw drew stays outside it until a flip covers everything.
@@ -507,7 +507,7 @@ void PlayPage::update(uint64_t nowMs) {
     if (frames.empty() || !thrash) {
         for (const Pending &p : frames)
             _gpuDraw.updateTextures(p.frame);
-        _gpuDraw.draw(ThrashFrame{}, over);
+        _gpuDraw.draw(nfs3::ThrashFrame{}, over);
         return;
     }
     // A frame of many vertices draws the whole screen (a menu's, a race's):
@@ -524,7 +524,7 @@ void PlayPage::update(uint64_t nowMs) {
     _statSkipped += from;
     _statDrawn += frames.size();
     ++_statShown;
-    std::vector<const ThrashFrame *> list;
+    std::vector<const nfs3::ThrashFrame *> list;
     bool compare = false;
     for (const Pending &p : frames) {
         list.push_back(&p.frame);

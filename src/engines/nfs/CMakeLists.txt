@@ -26,7 +26,7 @@ reluva_add_engine(nfs
         formats/col.cpp
         nfs3/formats/hrz.cpp
         nfs3/render/particles.cpp
-        render/thrash_gpu.cpp
+        nfs3/render/thrash_gpu.cpp
         ui/page.cpp
         ui/play_page.cpp
         host/game_host.cpp
@@ -37,7 +37,7 @@ reluva_add_engine(nfs
         host/winsock.cpp
         host/serial.cpp
         host/thrash.cpp
-        host/thrash_native.cpp
+        nfs3/host/thrash_native.cpp
         nfs2se/files.cpp
         nfs2se/formats/col.cpp
         nfs2se/formats/dct.cpp

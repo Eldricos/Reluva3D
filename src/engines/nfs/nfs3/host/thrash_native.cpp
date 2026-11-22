@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "engines/nfs/host/thrash_native.h"
+#include "engines/nfs/nfs3/host/thrash_native.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 
-namespace reluva::nfs {
+namespace reluva::nfs::nfs3 {
 
 namespace {
 
@@ -636,4 +636,4 @@ void NativeThrash::point(uint32_t a) {
         plot(x, y, v.diffuse | 0xff000000u);
 }
 
-} // namespace reluva::nfs
+} // namespace reluva::nfs::nfs3

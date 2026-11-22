@@ -142,7 +142,7 @@ GameHost::GameHost(GameFolders folders, Options options) : _folders(std::move(fo
     if (_options.glide)
         addGlide();
     if (_options.nativeThrash) {
-        _native = std::make_unique<NativeThrash>(*_cpu);
+        _native = std::make_unique<nfs3::NativeThrash>(*_cpu);
         _native->setRecording(_options.gpuThrash);
         _native->setAlsoRasterize(_options.gpuThrash && _options.gpuAndSoftware);
         _native->setPointSampled(_options.pointSampled);

@@ -10,6 +10,8 @@
 #include "tests/engines/nfs/fixtures.h"
 
 using namespace reluva::nfs::testing;
+using reluva::nfs::nfs3::NativeThrash;
+using reluva::nfs::nfs3::ThrashFrame;
 
 namespace {
 

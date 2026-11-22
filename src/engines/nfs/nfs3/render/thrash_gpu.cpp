@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "engines/nfs/render/thrash_gpu.h"
+#include "engines/nfs/nfs3/render/thrash_gpu.h"
 
 #include <numeric>
 
-namespace reluva::nfs {
+namespace reluva::nfs::nfs3 {
 
 namespace {
 
@@ -215,4 +215,4 @@ void ThrashGpu::draw(const std::vector<const ThrashFrame *> &frames, const Surfa
     _retired.clear();
 }
 
-} // namespace reluva::nfs
+} // namespace reluva::nfs::nfs3

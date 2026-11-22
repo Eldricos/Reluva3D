@@ -14,7 +14,7 @@
 #include "engines/nfs/folders.h"
 #include "engines/nfs/host/force_effects.h"
 #include "engines/nfs/host/sound3d.h"
-#include "engines/nfs/host/thrash_native.h"
+#include "engines/nfs/nfs3/host/thrash_native.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -260,7 +260,7 @@ public:
      * With gpuThrash, called after each page flip with what THRASH drew
      * (DirectDraw's frames, the movies', still go to onFrame).
      */
-    std::function<void(ThrashFrame &&frame)> onThrashFrame;
+    std::function<void(nfs3::ThrashFrame &&frame)> onThrashFrame;
     /** With Options::glideCompare: the native drawing of each page flip. */
     std::function<void(const Surface &frame)> onCompareFrame;
 
@@ -512,7 +512,7 @@ private:
     std::map<std::string, const x86::Win32Process::Module *> _gameDlls;
     uint32_t _thrashBase = 0;
     uint32_t wrapThrash(const std::string &name, uint32_t address);
-    std::unique_ptr<NativeThrash> _native;
+    std::unique_ptr<nfs3::NativeThrash> _native;
     uint32_t _thrashWindow = 2; // THRASH_window's choice: 1 the front buffer, 2 the back
     // Each window's buffer, as THRASH_lockwindow reports it: address, pitch,
     // width, height (the renderer draws there; a page flip shows it).

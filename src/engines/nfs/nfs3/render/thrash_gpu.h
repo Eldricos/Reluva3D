@@ -4,13 +4,13 @@
 #pragma once
 
 #include "graphics/gfx3d.h"
-#include "engines/nfs/host/thrash_native.h"
+#include "engines/nfs/nfs3/host/thrash_native.h"
 
 #include <map>
 #include <tuple>
 #include <utility>
 
-namespace reluva::nfs {
+namespace reluva::nfs::nfs3 {
 
 /**
  * Draws THRASH's frames (host/thrash_native.h, ThrashFrame) with the GPU
@@ -65,4 +65,4 @@ private:
     std::vector<gfx::TextureId> _retired;
 };
 
-} // namespace reluva::nfs
+} // namespace reluva::nfs::nfs3
