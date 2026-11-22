@@ -65,6 +65,12 @@ text files, and the installers' headers.
   images written as PNGs, and the data viewer run under Xvfb with
   Mesa's software Vulkan and screenshotted. Each format's page says what
   settled each field.
+- **The program, hosted:** `StarFleet2.exe` run in Reluva's x86
+  emulator (`reluva-tool sfc host`), each stop read from the stand-in it
+  called, the C++ type it threw and the text in it, and the program's
+  code disassembled around it (`reluva-tool sfc disasm`); the calls
+  into the stand-ins listed from a chosen address (`-calls`), with the
+  interfaces asked for ([systems/hosting.md](systems/hosting.md)).
 - **Installers:** the patch's Microsoft cabinet listed and taken apart
   with a short script; its InstallShield 5 cabinet listed with `unshield`
   (a free tool, MIT licence).
@@ -83,6 +89,8 @@ text files, and the installers' headers.
 | `reluva-tool sfc models` | Reads every .mod model, and lists textures it names that aren't there |
 | `reluva-tool sfc sounds` | Decodes every WAV in the sound zips |
 | `reluva-tool sfc table` | Shows a tab-separated or string table |
+| `reluva-tool sfc host` | Runs StarFleet2.exe in the x86 emulator, headless, and says how far it gets |
+| `reluva-tool sfc disasm` | Disassembles StarFleet2.exe between two addresses |
 
 ## Working files not included
 

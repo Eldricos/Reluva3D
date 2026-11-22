@@ -40,6 +40,7 @@ a second game is found to share it (docs/DOCUMENTATION_STANDARD.md).
 | `sfc.cpp` | The `MetaEngine` (name, detection table, making an `Engine`) and the `Engine` |
 | `formats/` | The game's files: `sprites.q3`, `.bft` fonts, `.mod` models, the tab and string tables |
 | `pages/` | The data viewer, in `reluva-viewer` only: images, fonts, models, tables, sounds |
+| `host/` | The game's own `StarFleet2.exe` in the x86 emulator: `GameProcess`, and the Windows functions it needs that the shared layer doesn't have |
 | `tools/` | `reluva-tool sfc` commands (`reluva-tool help sfc` lists them) |
 
 ## Tests

@@ -30,6 +30,10 @@ Detection signatures (MD5 of each file's start, and its size, as
   music tables, the string tables, and the sounds; every retail file of
   each kind is read ([formats/](#this-folder)).
 - **The data viewer** (`reluva-viewer`) shows all of them.
+- **Running the game's own program:** `reluva-tool sfc host` runs
+  `StarFleet2.exe` in the x86 emulator, headless, through its start-up
+  to its 3D test, where it stops for want of Direct3D 6
+  ([systems/hosting.md](systems/hosting.md)).
 - **Not yet:** the game itself (starting it shows an empty screen); the
   `.gf`, `.mct` and `.mvm` settings, campaign and map files; the opening
   movie; the objects in `sprites.q3`.
@@ -63,6 +67,7 @@ Tab moves between its pages, Esc leaves:
 |---|---|
 | This page | Where it stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases, what the install holds, and the decisions taken |
+| [systems/](systems/) | How the game behaves: [hosting.md](systems/hosting.md) (running its own program) |
 | [formats/](formats/) | A page per file format: [sprites-q3.md](formats/sprites-q3.md), [bft.md](formats/bft.md), [mod.md](formats/mod.md), [text-tables.md](formats/text-tables.md), [sound-zips.md](formats/sound-zips.md) |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |

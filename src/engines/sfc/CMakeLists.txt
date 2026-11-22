@@ -10,7 +10,9 @@ reluva_add_engine(sfc
         formats/bft_font.cpp
         formats/model.cpp
         formats/sprite_archive.cpp
-        formats/text_tables.cpp)
+        formats/text_tables.cpp
+        host/game_process.cpp
+        host/system.cpp)
 
 # Its data viewer, for reluva-viewer only: reluva, which players get,
 # doesn't link it. See docs/DEVELOPMENT.md (The data viewer).
@@ -28,7 +30,8 @@ reluva_add_engine_viewers(sfc
 reluva_add_engine_tools(sfc
     SOURCES
         tools/files.cpp
-        tools/formats.cpp)
+        tools/formats.cpp
+        tools/host.cpp)
 
 # Its tests (tests/engines/sfc/), in reluva-tests: the unit tests by
 # topic, and the engine test, without game files (its record in

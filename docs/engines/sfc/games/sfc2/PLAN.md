@@ -57,15 +57,26 @@ on their pages in `formats/` and `systems/`.
    game needs them: the `.gf`, `.mct` and `.mvm` files, the objects in
    `sprites.q3`, and the opening movie (shared `src/video/bink.cpp` reads
    its revision `i`; it's inside `SFC2Intro.exe`).
-4. **Hosting spike (a gate)** (next): `StarFleet2.exe` loaded in the x86
-   emulator (`src/emulation/x86/`) as `nfs` runs NFS III: how far it gets
-   towards its first frame, what it calls that nothing stands in for, how
-   fast it runs.
-5. **Shared stand-ins it needs**, in `src/emulation/x86/`, each on its
-   page in `docs/common/x86/`:
+4. **Hosting spike (a gate)** (done): `StarFleet2.exe` loaded in the x86
+   emulator: it runs its start-up, reads its first files and settings,
+   makes its window and DirectDraw, and stops in its 3D test asking for
+   Direct3D 3, after 44 million instructions at about 61 million a
+   second ([systems/hosting.md](systems/hosting.md)). Hosting goes on
+   ([Decisions](#decisions)).
+5. **Shared stand-ins it needs** (next), in `src/emulation/x86/`, each
+   on its page in `docs/common/x86/`, in the order the game asks for
+   them:
    - Direct3D 6's interfaces (`IDirect3D3`, `IDirect3DDevice3`,
-     `IDirect3DTexture2`, `IDirectDraw4`, `IDirectDrawSurface4`) on the
-     Direct3D 7 objects already there;
+     `IDirect3DViewport3`, `IDirect3DTexture2`, and its materials and
+     lights) on the Direct3D 7 objects already there; `IDirectDraw4` and
+     `IDirectDrawSurface3` and `4` are there;
+   - the Windows functions the spike stood in for in the engine
+     (`src/engines/sfc/host/system.cpp`), moved to the shared layer as
+     they're settled;
+   - C++ exceptions dispatched, if the game turns out to throw and catch
+     them in normal running;
+   - Winsock (`nfs` has one in its host) and DirectPlay 4, for the
+     network;
    - Miles' 25 `AIL_*` sample functions, on the shared mixer;
    - DirectSound 3D buffers, if Miles doesn't take all the sound.
 6. **The game hosted:** the front end, a skirmish, the tutorials, then a
@@ -94,5 +105,6 @@ on their pages in `formats/` and `systems/`.
 | November 2026 | Hosted can become native later, a part at a time | The readers and viewer are native from the start; then a hooked function at a time, as `nfs` replaced THRASH and its mixers, until the executable runs only what's left. The missions are the last part: native, they'd need the interface between the game and its DLLs, worked out from the executable and the DLLs themselves; until then they run in the emulator |
 | November 2026 | Taldren's mission-script kit (the install's and the second CD's `API/`) isn't used | The owner's choice. It's the developer's own code, under no licence that would let it into Reluva, and the hosted game doesn't need it. The survey listed its files and read its readme's installation steps; no header, source or library of it was opened ([REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md#sources)) |
 | November 2026 | Patch 2.0.3.6 is supported as a release of its own | It's the last release, and the one players run. It was made by the KhoroMag patch team in 2002; it's run as the game, and its executable is studied as the retail one is |
+| November 2026 | Hosting goes on, after the spike | The program loads, runs its start-up, reads its files and makes its window in Reluva's emulator, using the shared stand-ins with few additions; it runs at about 61 million instructions a second. What stops it, Direct3D 6, is a known piece of work on the shared Direct3D 7 that other games of 1998 to 2000 need too. Nothing was found that hosting can't do; how fast a mission needs to run is to be measured once one runs ([systems/hosting.md](systems/hosting.md)) |
 | November 2026 | Star Fleet Battles' rules (the Cadet PDFs in the install, the published rulebooks) are a source for how combat works | Published by the board game's publisher; the game is built on its rules |
 | November 2026 | The community's write-ups on the files are read for layouts only, each field checked against the files | As `botf` reads its community's editor: public documentation, no code copied |

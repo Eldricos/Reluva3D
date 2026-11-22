@@ -51,6 +51,8 @@ are in `tests/common/` (`common.unit.x86`, `common.unit.jit`,
   ([disasm.md](disasm.md)).
 - **`awe`**: Murder on the Orient Express's `granny2.dll` and `binkw32.dll`,
   run by its tools to check Reluva's own decoders against them.
+- **`sfc`**: Starfleet Command II's whole program, through its start-up
+  so far ([hosting.md](../../engines/sfc/games/sfc2/systems/hosting.md)).
 - **`nfs`**: Need for Speed III's whole program, with its threads, drives,
   DirectX of its own and its Voodoo renderers on the Glide stand-in
   ([its README](../../engines/nfs/games/nfs3/README.md)).

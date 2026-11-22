@@ -49,4 +49,5 @@ Nothing of the game runs yet.
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
 | 22 November 2026 | English retail 1.0 | Linux | `reluva --detect` on the install's `StarFleet2.exe` and `sprites.q3`: recognised as 1.0 |
+| 22 November 2026 | English retail 1.0 | Linux | `reluva-tool sfc host`: start-up to the 3D test, 44,063,247 instructions, stopping for want of Direct3D 3 |
 | 22 November 2026 | English retail 1.0 | Linux | Every image, font, model, table and sound read by the commands above, none failing; the data viewer's pages seen in screenshots (Xvfb, Mesa's software Vulkan), a model with its textures |
