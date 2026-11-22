@@ -1,0 +1,8 @@
+# EA's picture banks (.fsh, "SHPI"), first read for Need for Speed III,
+# move to the shared code: SimCoaster's (the tpw engine) are the same
+# format, and an engine can't use another's code. What's NFS III's own
+# (its cockpits' gauges, its pictures as sent to a Glide card) then moves
+# back into src/engines/nfs/formats/cockpit.cpp by hand. Apply with:
+#     python3 tools/relocate.py tools/relocations/2026-11-ea-pictures.txt
+src/engines/nfs/formats/fsh.h        src/image/fsh.h
+src/engines/nfs/formats/fsh.cpp      src/image/fsh.cpp

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Need for Speed III's unit tests: its files: .viv archives, shapes, the
-// cockpit's gauges, text tables, fonts, car models, the horizon and sky,
+// Need for Speed III's unit tests: its files: .viv archives, its pictures
+// as a Glide card gets them, the cockpit's gauges, text tables, fonts, car models, the horizon and sky,
 // track collision, sound banks, music maps and movies.
 //
 //   reluva-tests nfs.unit.formats
@@ -54,100 +54,36 @@ void testViv() {
     CHECK(viv.open(file));
 }
 
-void testShapes() {
-    // 8-bit, 2x1, with a 16-bit palette of 2 colours and a text block.
-    Bytes indexed;
-    putShapeHeader(indexed, 0x7b, 16 + 4, 2, 1, -256, 3, 10, -20); // pixels padded to 4
-    indexed.insert(indexed.end(), {1, 0, 0, 0});
-    putShapeHeader(indexed, 0x2d, 16 + 4, 2, 1, 0, 0, 0, 0);
-    put16(indexed, 0x7c00);          // red, alpha bit clear
-    put16(indexed, 0x8000 | 0x03e0); // green, opaque
-    indexed.push_back(0x6f);
-    indexed.insert(indexed.end(), {0, 0, 0});
-    put32(indexed, 12);
-    putText(indexed, "<additive>\r\n", 12);
-
-    // 16-bit 5:6:5, 1x1, with an unknown block.
-    Bytes rgb565;
-    putShapeHeader(rgb565, 0x78, 18, 1, 1, 0, 0, 0, 0);
-    put16(rgb565, 0x001f); // blue
-    rgb565.insert(rgb565.end(), {0x7c, 0, 0, 0, 2, 0, 0, 0});
-
-    // 32-bit (B, G, R, A) and 24-bit (B, G, R), 1x1.
+// NFS III's 32-bit pictures as nfs3.exe gives them to a Glide card
+// (0x4d37a0): an alpha other than 0 and 255 makes them 4:4:4:4, each
+// channel's top nibble x 17 (0x4d27e0); without one they stay, unless
+// asked for 4:4:4:4.
+void testGlide() {
     Bytes argb;
     putShapeHeader(argb, 0x7d, 0, 1, 1, 0, 0, 0, 0);
     argb.insert(argb.end(), {0x10, 0x20, 0x30, 0x40});
+    Bytes opaque;
+    putShapeHeader(opaque, 0x7d, 0, 1, 1, 0, 0, 0, 0);
+    opaque.insert(opaque.end(), {0x10, 0x20, 0x30, 0xff});
     Bytes rgb;
     putShapeHeader(rgb, 0x7f, 0, 1, 1, 0, 0, 0, 0);
     rgb.insert(rgb.end(), {0x10, 0x20, 0x30});
-
-    const Bytes file = makeShapeBank({{"pal8", indexed}, {"r565", rgb565}, {"argb", argb}, {"rgb", rgb}});
     ShapeBank bank;
-    CHECK(!parseShapeBank(file, bank));
-    CHECK(bank.id == "GIMX");
-    CHECK(bank.shapes.size() == 4);
-    if (bank.shapes.size() != 4)
-        return;
-
-    const Shape &s = bank.shapes[0];
-    CHECK(s.name == "pal8" && s.type == kShape8Bit && s.width == 2 && s.height == 1);
-    CHECK(s.centerX == -256 && s.centerY == 3 && s.x == 10 && s.y == -20);
-    CHECK(s.pixels.size() == 2);
-    CHECK(s.palette.size() == 8);
-    CHECK(s.texts.size() == 1 && s.texts[0] == "<additive>");
+    CHECK(!parseShapeBank(makeShapeBank({{"argb", argb}, {"opaq", opaque}, {"rgb", rgb}}), bank));
+    if (bank.shapes.size() != 3)
+        return test::fail("the bank's shapes aren't read");
     image::Image img;
-    CHECK(!decodeShape(s, img));
-    CHECK(img.w == 2 && img.h == 1);
-    const uint8_t pal8[] = {0, 255, 0, 255, 255, 0, 0, 0};
-    CHECK(img.rgba.size() == 8 && std::memcmp(img.rgba.data(), pal8, 8) == 0);
-
-    CHECK(bank.shapes[1].unknown.size() == 1 && bank.shapes[1].unknown[0].type == 0x7c);
-    CHECK(!decodeShape(bank.shapes[1], img));
-    const uint8_t blue[] = {0, 0, 255, 255};
-    CHECK(std::memcmp(img.rgba.data(), blue, 4) == 0);
-    CHECK(!decodeShape(bank.shapes[2], img));
-    const uint8_t fromArgb[] = {0x30, 0x20, 0x10, 0x40};
-    CHECK(std::memcmp(img.rgba.data(), fromArgb, 4) == 0);
-    // As nfs3.exe gives it to the card (0x4d37a0): an alpha of 0x40 makes it
-    // 4:4:4:4, each channel's top nibble x 17 (0x4d27e0); the 24-bit one
-    // (no alpha) stays; asked for 4:4:4:4, a 32-bit one goes so anyway.
-    CHECK(!decodeForGlide(bank.shapes[2], img));
+    CHECK(!decodeForGlide(bank.shapes[0], img));
     const uint8_t argb4444[] = {0x33, 0x22, 0x11, 0x44};
     CHECK(std::memcmp(img.rgba.data(), argb4444, 4) == 0);
-    CHECK(!decodeForGlide(bank.shapes[3], img, true));
-    const uint8_t rgbKept[] = {0x30, 0x20, 0x10, 0xff};
-    CHECK(std::memcmp(img.rgba.data(), rgbKept, 4) == 0);
-    CHECK(!decodeShape(bank.shapes[3], img));
-    const uint8_t fromRgb[] = {0x30, 0x20, 0x10, 0xff};
-    CHECK(std::memcmp(img.rgba.data(), fromRgb, 4) == 0);
-
-    // Compressed: a RefPack stream of only literals holding the file.
-    Bytes packed = {0x10, 0xfb, uint8_t(file.size() >> 16), uint8_t(file.size() >> 8), uint8_t(file.size())};
-    size_t done = 0;
-    while (file.size() - done >= 4) {
-        const size_t n = std::min<size_t>((file.size() - done) & ~size_t(3), 112);
-        packed.push_back(uint8_t(0xe0 | ((n - 4) >> 2)));
-        packed.insert(packed.end(), file.begin() + done, file.begin() + done + n);
-        done += n;
-    }
-    packed.push_back(uint8_t(0xfc | (file.size() - done)));
-    packed.insert(packed.end(), file.begin() + done, file.end());
-    ShapeBank fromQfs;
-    CHECK(!parseShapeBank(packed, fromQfs));
-    CHECK(fromQfs.shapes.size() == 4);
-
-    // A picture larger than its block fails; an 8-bit one without a
-    // palette reads but doesn't decode.
-    Bytes tooBig;
-    putShapeHeader(tooBig, 0x7d, 0, 2, 2, 0, 0, 0, 0);
-    tooBig.insert(tooBig.end(), 4, 0);
-    CHECK(parseShapeBank(makeShapeBank({{"big", tooBig}}), bank));
-    Bytes noPalette;
-    putShapeHeader(noPalette, 0x7b, 0, 1, 1, 0, 0, 0, 0);
-    noPalette.push_back(0);
-    CHECK(!parseShapeBank(makeShapeBank({{"nopl", noPalette}}), bank));
-    CHECK(decodeShape(bank.shapes[0], img));
-    CHECK(parseShapeBank(Bytes{'S', 'H', 'P', 'X'}, bank));
+    CHECK(!decodeForGlide(bank.shapes[1], img));
+    const uint8_t opaqueKept[] = {0x30, 0x20, 0x10, 0xff};
+    CHECK(std::memcmp(img.rgba.data(), opaqueKept, 4) == 0);
+    CHECK(!decodeForGlide(bank.shapes[1], img, true));
+    const uint8_t opaque4444[] = {0x33, 0x22, 0x11, 0xff};
+    CHECK(std::memcmp(img.rgba.data(), opaque4444, 4) == 0);
+    CHECK(!decodeForGlide(bank.shapes[2], img, true));
+    CHECK(std::memcmp(img.rgba.data(), opaqueKept, 4) == 0);
 }
 
 // A cockpit's gauges block (fsh.md, Gauges) and its needles.
@@ -1077,7 +1013,7 @@ void testMovie() {
 static const reluva::test::Suite kSuite("nfs.unit.formats",
                                         {
                                             {"viv", [](const stdfs::path &) { testViv(); }},
-                                            {"shapes", [](const stdfs::path &) { testShapes(); }},
+                                            {"glide", [](const stdfs::path &) { testGlide(); }},
                                             {"cockpit", [](const stdfs::path &) { testCockpit(); }},
                                             {"text table", [](const stdfs::path &) { testTextTable(); }},
                                             {"font", [](const stdfs::path &) { testFont(); }},

@@ -12,7 +12,7 @@ reluva_add_engine(nfs
         folders.cpp
         game_files.cpp
         formats/viv.cpp
-        formats/fsh.cpp
+        formats/cockpit.cpp
         formats/text_table.cpp
         formats/ffn.cpp
         formats/bnk.cpp

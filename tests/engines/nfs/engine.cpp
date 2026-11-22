@@ -24,7 +24,7 @@
 #include "common/headless_system.h"
 #include "engines/nfs/formats/bnk.h"
 #include "engines/nfs/formats/frd.h"
-#include "engines/nfs/formats/fsh.h"
+#include "engines/nfs/formats/cockpit.h"
 #include "engines/nfs/formats/mad.h"
 #include "engines/nfs/formats/text_table.h"
 #include "engines/nfs/formats/viv.h"

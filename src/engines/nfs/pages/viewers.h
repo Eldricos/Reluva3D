@@ -19,7 +19,7 @@
 #include "engines/nfs/render/particles.h"
 #include "engines/nfs/formats/ffn.h"
 #include "engines/nfs/folders.h"
-#include "engines/nfs/formats/fsh.h"
+#include "engines/nfs/formats/cockpit.h"
 #include "engines/nfs/game_files.h"
 #include "engines/nfs/formats/text_table.h"
 #include "engines/nfs/ui/page.h"

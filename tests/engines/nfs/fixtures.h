@@ -14,7 +14,7 @@
 #include "engines/nfs/formats/ffn.h"
 #include "engines/nfs/formats/frd.h"
 #include "engines/nfs/folders.h"
-#include "engines/nfs/formats/fsh.h"
+#include "engines/nfs/formats/cockpit.h"
 #include "engines/nfs/game_files.h"
 #include "engines/nfs/formats/hrz.h"
 #include "engines/nfs/host/force_effects.h"
@@ -26,6 +26,7 @@
 #include "engines/nfs/games.h"
 #include "engines/nfs/formats/text_table.h"
 #include "engines/nfs/formats/viv.h"
+#include "tests/support/fsh_writer.h"
 #include <algorithm>
 #include <cmath>
 #include <map>
@@ -72,6 +73,8 @@ inline void makeCd(const stdfs::path &dir) {
 }
 
 using Bytes = std::vector<uint8_t>;
+using test::makeShapeBank;
+using test::putShapeHeader;
 
 /** Appends a value, little-endian, or big-endian for put32be. */
 ///@{
@@ -121,43 +124,6 @@ inline Bytes makeViv(const std::vector<std::pair<std::string, std::string>> &fil
     const uint32_t total = uint32_t(b.size());
     for (int i = 0; i < 4; ++i)
         b[4 + i] = uint8_t(total >> (24 - 8 * i));
-    return b;
-}
-
-/**
- * Appends a shape block's header: the type, the 24-bit offset to the next
- * block (0: the last), then width, height, centre and position.
- */
-inline void putShapeHeader(Bytes &b, uint8_t type, uint32_t next, int w, int h, int cx, int cy, int x, int y) {
-    b.push_back(type);
-    b.push_back(uint8_t(next));
-    b.push_back(uint8_t(next >> 8));
-    b.push_back(uint8_t(next >> 16));
-    put16(b, unsigned(w));
-    put16(b, unsigned(h));
-    put16(b, unsigned(cx) & 0xffff);
-    put16(b, unsigned(cy) & 0xffff);
-    put16(b, unsigned(x) & 0xffff);
-    put16(b, unsigned(y) & 0xffff);
-}
-
-/** An SHPI shape bank (GIMX) of the shapes, each a 4-character name and its blocks. */
-inline Bytes makeShapeBank(const std::vector<std::pair<std::string, Bytes>> &shapes) {
-    Bytes b = {'S', 'H', 'P', 'I'};
-    put32(b, 0);
-    put32(b, uint32_t(shapes.size()));
-    putText(b, "GIMX", 4);
-    uint32_t offset = 16 + 8 * uint32_t(shapes.size());
-    for (const auto &s : shapes) {
-        putText(b, s.first.c_str(), 4);
-        put32(b, offset);
-        offset += uint32_t(s.second.size());
-    }
-    for (const auto &s : shapes)
-        b.insert(b.end(), s.second.begin(), s.second.end());
-    const uint32_t total = uint32_t(b.size());
-    for (int i = 0; i < 4; ++i)
-        b[4 + i] = uint8_t(total >> (8 * i));
     return b;
 }
 
