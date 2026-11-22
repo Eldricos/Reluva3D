@@ -96,7 +96,9 @@ C++ library have pages of their own ([directx.md](directx.md),
   Other pieces:
   - one message queue, which the engine posts its input to and
     `PeekMessageA` reads, calling `idle` when it's empty;
-  - `DispatchMessageA` and `TranslateMessage`;
+  - `DispatchMessageA`, and `TranslateMessage`, which types what a US
+    keyboard does, Shift giving capitals and the symbols over the digits
+    and punctuation;
   - a window's longs (`GetWindowLongA`, `SetWindowLongA`): its procedure,
     which a program subclasses by setting it, then calling the one it
     replaced with `CallWindowProcA`; its styles; any other index kept as

@@ -590,7 +590,9 @@ void Surface::copy(const Surface &src, Rect from, Rect to, bool keyed, uint32_t 
 
 // Blt(destRect, src, srcRect, flags, DDBLTFX*): a colour (or depth) fill,
 // or a copy, stretched to fit and keyed by the source's colour key if
-// asked.
+// asked. Keyed by a source that has no key, it fails with DDERR_NOCOLORKEY,
+// as DirectDraw's documentation says of it; Starfleet Command II then
+// draws its pointer itself.
 uint32_t Surface::blt(Cpu &c) {
     const uint32_t destRect = c.arg(1);
     const uint32_t srcPtr = c.arg(2);
@@ -613,7 +615,9 @@ uint32_t Surface::blt(Cpu &c) {
         if (flags & kBltKeySrcOverride) {
             keyed = true;
             lo = c.read32(fx + 92), hi = c.read32(fx + 96);
-        } else if ((flags & kBltKeySrc) && src->hasSrcKey) {
+        } else if (flags & kBltKeySrc) {
+            if (!src->hasSrcKey)
+                return kDDErrNoColorKey;
             keyed = true;
             lo = src->srcKeyLow, hi = src->srcKeyHigh;
         }

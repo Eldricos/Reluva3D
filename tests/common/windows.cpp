@@ -720,6 +720,22 @@ static void testWindowsAndRegistry() {
     CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 1 && cpu.read32(msg + 4) == 0x102 &&
           cpu.read32(msg + 8) == 'q');
     CHECK((seen == std::vector<uint32_t>{0x100}));
+    // With Shift held, capitals and the symbols over the keys; without, the key's own.
+    auto typed = [&](uint32_t vk) {
+        while (!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 1)
+            ; // what's queued before, Shift's own WM_KEYDOWN among it
+        process.postMessage(hwnd, 0x100, vk, 0);
+        cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r);
+        cpu.call(fn("USER32.dll", "TranslateMessage"), {msg}, r);
+        return !cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 1 &&
+                       cpu.read32(msg + 4) == 0x102
+                   ? cpu.read32(msg + 8)
+                   : 0u;
+    };
+    process.key(0x10, 0x2a, true);
+    CHECK(typed('Q') == 'Q' && typed('2') == '@' && typed(0xbd) == '_');
+    process.key(0x10, 0x2a, false);
+    CHECK(typed(0xbd) == '-' && typed(0x63) == '3' && typed(0x70) == 0);
     CHECK(!cpu.call(fn("USER32.dll", "PostQuitMessage"), {3}, r));
     CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, hwnd, 0, 0, 1}, r) && r == 1 &&
           cpu.read32(msg + 4) == 0x12 && cpu.read32(msg + 8) == 3);
@@ -895,11 +911,17 @@ static void testDirectX() {
     CHECK(call(texture, 25, {0, desc, 1, 0}) == 0); // Lock
     const uint32_t texels = cpu.read32(desc + 36);
     const uint32_t pitch = cpu.read32(desc + 16);
-    cpu.write16(texels, 0xffff);                // white
-    cpu.write16(texels + 2, 0xf800);            // red
-    cpu.write16(texels + pitch, 0x07e0);        // green
-    cpu.write16(texels + pitch + 2, 0x0000);    // black
-    CHECK(call(texture, 32, {0}) == 0);         // Unlock
+    cpu.write16(texels, 0xffff);             // white
+    cpu.write16(texels + 2, 0xf800);         // red
+    cpu.write16(texels + pitch, 0x07e0);     // green
+    cpu.write16(texels + pitch + 2, 0x0000); // black
+    CHECK(call(texture, 32, {0}) == 0);      // Unlock
+    // A copy keyed by the source's colour key fails while it has none.
+    CHECK(call(texture, 5, {0, texture, 0, 0x8000, 0}) == 0x887600d7u); // Blt, KEYSRC: DDERR_NOCOLORKEY
+    const uint32_t key = mem(8);
+    cpu.write32(key, 0), cpu.write32(key + 4, 0);
+    CHECK(call(texture, 29, {0x8, key}) == 0); // SetColorKey: SRCBLT, black
+    CHECK(call(texture, 5, {0, texture, 0, 0x8000, 0}) == 0);
     CHECK(call(device, 35, {0, texture}) == 0); // SetTexture
     CHECK(call(device, 37, {0, 1, 4}) == 0);    // COLOROP: MODULATE
     CHECK(call(device, 37, {0, 2, 2}) == 0);    // COLORARG1: texture

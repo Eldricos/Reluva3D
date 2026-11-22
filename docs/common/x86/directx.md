@@ -17,7 +17,9 @@ headers' (`directx/interfaces.cpp`).
   - surfaces in the program's memory, as programs lock them and write to
     them;
   - blits (stretching, colour keys, colour and depth fills) and flipping
-    chains;
+    chains; a blit keyed by its source's colour key, from a source with
+    none, fails with `DDERR_NOCOLORKEY`, as DirectDraw's documentation
+    gives it (Starfleet Command II then draws its pointer itself);
   - palettes and clippers;
   - the display's gamma ramp (`IDirectDrawGammaControl`, from any
     surface).
