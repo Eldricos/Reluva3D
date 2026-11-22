@@ -35,7 +35,7 @@ None yet.
   choices, and the keyboard's bindings, are kept but don't change
   anything yet
   ([systems/menus.md](systems/menus.md)).
-- **Maps:** projectiles don't set off triggers, and the animations' and
+- **Maps:** projectiles don't set off touching triggers, and the animations' and
   particles' messages aren't there; enemies don't target one another, and their DoSomething and
   Inactive states aren't there; the camera scripts don't pause the
   characters, and one taken off the team stays on its bar; one taken
@@ -54,7 +54,7 @@ None yet.
   mission's maps
   ([systems/objectives.md](systems/objectives.md#in-reluva)).
 - **Items:** the Psychic Rack, the enhancements and the Psyche
-  Displacement Controller aren't there; grenades fly through walls; the
+  Displacement Controller aren't there; the
   gadgets' sparks and the transporter's pictures aren't drawn, nor the
   band on the team bar; there's no full inventory, and the phaser's
   overload isn't there ([systems/items.md](systems/items.md#in-reluva)).

@@ -95,6 +95,9 @@ void MapScreen::setupCombat() {
         }
         _walls.push_back(std::move(w));
     }
+    for (size_t i = 0; i < _map.parts.size(); ++i)
+        if (_map.parts[i].polygon.size() >= 3 && _map.parts[i].collideable && _map.parts[i].fullHeight)
+            _bouncers.push_back(i);
     // The characters' health is their model's Hit Points; an enemy's
     // weapon is in the inventory the map gives it, or else its model's.
     for (Enemy &e : _enemies) {
@@ -134,6 +137,45 @@ bool MapScreen::clearSight(float x0, float y0, float x1, float y1) const {
             if (crosses(x0, y0, x1, y1, ax, ay, bx, by))
                 return false;
         }
+    }
+    return true;
+}
+
+bool MapScreen::throwPasses(float x0, float y0, float x1, float y1, float &vx, float &vy) const {
+    // Off the first side crossed, mirrored about it (inferred: the
+    // program's bounce isn't traced). A polygon only while it's active:
+    // Mission 01's Fake Grenade Bouncer poly, made so for half a second as
+    // a grenade passes its trigger.
+    const auto off = [&](float ax, float ay, float bx, float by) {
+        if (!crosses(x0, y0, x1, y1, ax, ay, bx, by))
+            return false;
+        const float length = std::hypot(bx - ax, by - ay);
+        if (length <= 0.0f)
+            return false;
+        const float nx = -(by - ay) / length;
+        const float ny = (bx - ax) / length;
+        const float dot = vx * nx + vy * ny;
+        vx -= 2.0f * dot * nx;
+        vy -= 2.0f * dot * ny;
+        return true;
+    };
+    for (const Wall &w : _walls) {
+        if (!shown(w.part) || !_partStates[w.part].collideable)
+            continue;
+        for (size_t k = 0; k < w.points.size(); ++k) {
+            const auto [ax, ay] = w.points[k];
+            const auto [bx, by] = w.points[(k + 1) % w.points.size()];
+            if (off(ax, ay, bx, by))
+                return false;
+        }
+    }
+    for (size_t i : _bouncers) {
+        if (!shown(i) || !_partStates[i].collideable)
+            continue;
+        const auto &pts = _map.parts[i].polygon;
+        for (size_t k = 0; k + 1 < pts.size(); ++k)
+            if (off(pts[k].first, pts[k].second, pts[k + 1].first, pts[k + 1].second))
+                return false;
     }
     return true;
 }

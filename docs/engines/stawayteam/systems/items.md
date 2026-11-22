@@ -210,8 +210,12 @@ in sight, then throw it from its Height, along the ground at its Max
 Velocity and up so its Gravity, taken as pixels a second each 30th of a
 second, brings it down there; it bounces by its Bounce Factor and
 Friction, with its Bounce Sound, till a bounce is slower than 40 pixels a
-second, and goes off its Shot Duration after it's thrown *(inferred: the
-program's flight isn't traced, nor walls in its way)*; its Explosion and Death Sound, its noise, and everyone in
+second, and goes off its Shot Duration after it's thrown *(inferred)*.
+A wall, or a collideable polygon standing full height while it's
+active, turns it, mirrored off its side, with its Bounce Sound
+*(inferred)*: Mission 01's and 08's `Fake Grenade Bouncer poly`, made
+active for half a second by a pass-through trigger a grenade crosses
+([maps.md](maps.md#the-maps-triggers)), is for that. Then its Explosion and Death Sound, its noise, and everyone in
 its Explosion Radial Damage, in sight of it if it needs that, stunned for
 its Stun Duration by one that does no damage, else hurt by its Weapon
 Damage, the team too *(inferred)*. A grenade's own Destroyed Action,
@@ -336,7 +340,8 @@ Sequence`), and walls in a grenade's way.
 
 - **Using items:** the program's rules for each Process: when the
   officer walks and when they use it, what the cursors show, and how a
-  thrown item flies and bounces (Gravity's units, walls).
+  thrown item flies and bounces (Gravity's units, how it turns off a
+  wall).
 - **The band:** whether the enemies' sight is what it beats, and how
   (its opacity, `0x496880`).
 - **Gadgets:** how the enemies treat a decoy, whether the neck pinch and

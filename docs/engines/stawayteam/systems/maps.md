@@ -426,7 +426,11 @@ The other triggers:
   answers to runs into the part (`Triggered By Players`, `Enemies`,
   `Anything`, `Projectiles`), not again within `Disallow Retrigger`
   seconds.
-- **Passing through** (`CPassThroughTriggerAI`, 6): its `Action`.
+- **Passing through** (`CPassThroughTriggerAI`, 6): its `Action`. With
+  `Triggered By Projectiles` (4), a thrown thing crossing it too, the
+  instigator; Mission 01's and 08's check it's of `Grenades` (the
+  grenade model's `Default Entity` `Category`) and make a bouncer
+  polygon active for half a second.
 - **Triggered By Enemies** on 66 touching triggers.
 
 **Doors** (`CDoorAI`, 237 parts): `Is Locked` (12), and actions run
@@ -905,12 +909,13 @@ map shown's Map Song, over and over; stopping as the maps are left
 *(inferred)*.
 
 Not there yet: the processes of the 5 polygons, the Out Of Range
-cursor, the full inventory, triggers set off by projectiles, the AIs'
+cursor, the full inventory, touching triggers set off by projectiles
+(Mission 15's beamer), the AIs'
 other messages and tasks (CSendMessageAction's to animations and
 particles), walkers going round each other, enemies targeting each other
 (Valid Targets Enemy), the DoSomething and Inactive states, the
 enemies' own noises, the shots'
-and projectiles, missing, thrown and laid weapons, the doors opening
+missing, thrown and laid weapons, the doors opening
 by themselves (CDoorAI's own Triggered By flags), the camera scripts'
 Pause Actors, and those off the team still on its bar.
 

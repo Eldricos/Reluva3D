@@ -1410,6 +1410,52 @@ void testKit() {
     CHECK(highest > 30.0f);
 }
 
+void testProjectiles() {
+    // A grenade thrown east at a wall: it passes a trigger answering to
+    // projectiles, which turns a lamp on, and is turned back off the wall.
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    const std::string zax =
+        "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=300.000000,300.000000\nTree List=CSortList2D\n{\n"
+        "Level Part=CFreeRangePoly\n{\nName=Wall\nVisible=1\nActive=1\nCollideable=1\nFull Height=1\n"
+        "Polygon=400, 100, 420, 100, 420, 500, 400, 500, 400, 100\n}\n"
+        "Level Part=CFreeRangePoly\n{\nVisible=1\nActive=1\nCollideable=0\nActivity=Array\n{\nItem Count=1\n"
+        "Activity=CPassThroughTriggerAI\n{\nTriggered By Anything=1\nTriggered By Projectiles=1\n"
+        "Action=CActivateAction\n{\nTarget Name=Lamp\n}\n}\n}\n"
+        "Polygon=340, 100, 380, 100, 380, 500, 340, 500, 340, 100\n}\n"
+        "Level Part=CEntityBase\n{\nName=Lamp\nVisible=1\nActive=0\n}\n"
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=300\n}\n}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = bytesOf(zax);
+    data.files["Cache/Models/Shots/Grenade.mdl16"] = modelFile("Grenade", 1, 1, 1.0f, {}, 0.0f, false, 400.0f);
+    data.files["Inventory/Item Definitions/Grenade.txt"] =
+        bytesOf("CStarTrekInventoryItemDefinition\n{\nDisplay In Inventory=1\nItem Range=500\n"
+                "Projectile=Shots/Grenade\nDischarge Action=CThrowProjectileWeaponAction\n{\nHeight=30\n"
+                "Gravity AI=CThrowGravityAI\n{\nGravity=17\n}\n}\n"
+                "Default Inventory Item=CStarTrekProjectileWeaponInventoryItem\n{\nRounds=1\n}\n}\n");
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    ann.inventory = {{"Grenade", 1}};
+    MapScreen screen(data, rules, map, options, 0, {ann});
+    uint64_t now = 0;
+    screen.choose(0);
+    screen.chooseItem(0, 0);
+    CHECK(screen.useItem(600.0f, 300.0f));
+    float furthest = 0.0f;
+    for (int k = 0; k < 60; ++k) {
+        screen.update(now += 50);
+        if (!screen.thrown().empty())
+            furthest = std::max(furthest, screen.thrown()[0].x);
+    }
+    CHECK(furthest > 340.0f && furthest < 400.0f && screen.partState(2).active);
+}
+
 void testStates() {
     // Guards whose states' actions and transitions turn relays' arrows
     // on: one stunned (its Stun's transition), one with no Valid Targets,

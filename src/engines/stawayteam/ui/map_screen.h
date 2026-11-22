@@ -297,8 +297,11 @@ public:
         float vy = 0.0f;
         float vz = 0.0f;
         bool resting = false;
+        int id = 0; // its instigator is kThrownInstigator less this
     };
     const std::vector<Thrown> &thrown() const { return _thrown; }
+    /** A thrown thing as an action's instigator: kThrownInstigator less its id. */
+    static constexpr int kThrownInstigator = -1000000;
     /** A beam shot, from muzzle to target, up off the ground as drawn. */
     struct Beam {
         float x0;
@@ -340,6 +343,10 @@ public:
     int enemyAt(float x, float y) const;
     /** Whether nothing that stands full height is between two points on the map. */
     bool clearSight(float x0, float y0, float x1, float y1) const;
+    // A thrown thing going from (x0, y0) to (x1, y1) on the ground: false if
+    // a wall or a collideable polygon's in the way, its velocity turned off
+    // it (map_combat.cpp).
+    bool throwPasses(float x0, float y0, float x1, float y1, float &vx, float &vy) const;
 
     /** A noise the team has made, heard by the enemies about it (0x5194e0). */
     struct Noise {
@@ -723,6 +730,7 @@ private:
         float countdown = 0.0f;
         int instigator = -1;
         std::vector<float> nextRepeat; // each officer's next Repeat Action
+        std::vector<int> thrownIn;     // the thrown things in a collide or pass-through trigger, by id
         float timer = 0.0f;            // a repeat timer's seconds till it next acts
     };
     std::vector<PartState> _partStates;
@@ -764,6 +772,8 @@ private:
         float y1;
     };
     std::vector<Wall> _walls;
+    std::vector<size_t> _bouncers; // the collideable polygons standing full height
+    int _thrownIds = 0;
     struct Flash {
         std::string model;
         float x;

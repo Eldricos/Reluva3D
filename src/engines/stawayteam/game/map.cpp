@@ -231,6 +231,9 @@ Error loadModelInfo(const Archive &data, const std::string &model, ModelInfo &ou
     out.footprint = readPolygon(text(object.object, "Bounds Poly"));
     out.hitPoints = int(object.object.number("Hit Points").value_or(0.0));
     out.sortingY = int(object.object.integer("Sorting Y").value_or(0));
+    if (const TextObject *entity = object.object.object("Default Entity"))
+        if (const std::string *category = entity->value("Category"))
+            out.category = *category;
     out.explosion = text(object.object, "Explosion");
     if (out.explosion == "!Unknown Model")
         out.explosion.clear();

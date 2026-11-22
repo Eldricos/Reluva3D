@@ -123,6 +123,7 @@ struct ModelInfo {
     std::vector<std::pair<float, float>> footprint; // Bounds Poly: its outline on the ground, about where it stands
     int hitPoints = 0;                              // 0: none given
     int sortingY = 0;                               // added to where it stands, sorting it to draw (0x4930f0)
+    std::string category;                           // its Default Entity's Category: a grenade's "Grenades"
     std::vector<std::string> inventory;             // its Default Entity's items' definitions
     // A thrown thing's: its explosion's model and sound, how far its
     // explosion reaches (Explosion Radial Damage), whether it needs a clear

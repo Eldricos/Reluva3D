@@ -286,6 +286,12 @@ bool MapScreen::checkAction(const TextObject *attempt, int instigator, int trigg
     }
     if (kind == "CCheckCategoryAction") {
         const std::string wanted = readText(attempt, "Category to Check");
+        // A thrown thing by its model's (a grenade's Grenades).
+        const int who = whoNamed(readText(attempt, "Who to Check"), instigator, trigger);
+        if (who <= kThrownInstigator)
+            for (const Thrown &t : _thrown)
+                if (kThrownInstigator - t.id == who)
+                    return inCategory(modelInfo(t.model).category, wanted);
         for (size_t part : partsNamed(readText(attempt, "Who to Check"), trigger))
             if (inCategory(_map.parts[part].category, wanted))
                 return true;

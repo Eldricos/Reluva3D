@@ -234,6 +234,7 @@ bool MapScreen::doTask(size_t officer) {
         t.vx = distance > 0.0f ? (o.taskX - o.x) / flight : 0.0f;
         t.vy = distance > 0.0f ? (o.taskY - o.y) / flight : 0.0f;
         t.vz = g * flight / 2.0f - t.z / flight;
+        t.id = ++_thrownIds;
         _thrown.push_back(t);
         if (_mixer)
             if (auto sound = gameSound(_data, def->shotSound))
@@ -359,8 +360,15 @@ void MapScreen::updateItems(float seconds) {
         if (t.resting)
             continue;
         const ModelInfo &info = modelInfo(t.model);
-        t.x += t.vx * seconds;
-        t.y += t.vy * seconds;
+        // A wall or collideable polygon in the way turns it, with its
+        // bounce's sound (inferred).
+        if (throwPasses(t.x, t.y, t.x + t.vx * seconds, t.y + t.vy * seconds, t.vx, t.vy)) {
+            t.x += t.vx * seconds;
+            t.y += t.vy * seconds;
+        } else if (_mixer) {
+            if (auto sound = gameSound(_data, t.item->bounceSound))
+                _mixer->play(sound, audio::SoundType::kEffects);
+        }
         t.vz -= gravityOf(*t.item) * seconds;
         t.z += t.vz * seconds;
         if (t.z > 0.0f)

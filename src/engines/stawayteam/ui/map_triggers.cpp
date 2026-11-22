@@ -334,8 +334,9 @@ bool MapScreen::updateOtherTrigger(Trigger &t, float seconds) {
     if (kind == "CollideTriggerAI" || kind == "CPassThroughTriggerAI") {
         // One it answers to walking into the part (its footprint, or its
         // polygon), or, passing through, crossing it: its Action, once per
-        // coming in, not again within Disallow Retrigger seconds (inferred:
-        // projectiles don't set them off).
+        // coming in, not again within Disallow Retrigger seconds (inferred).
+        // With Triggered By Projectiles, a thrown thing too, the instigator
+        // (Mission 01's and 08's grenade bouncers).
         t.countdown = std::max(0.0f, t.countdown - seconds);
         const bool players = flag(ai, "Triggered By Players") || flag(ai, "Triggered By Anything");
         const bool enemies = flag(ai, "Triggered By Enemies") || flag(ai, "Triggered By Anything");
@@ -366,6 +367,25 @@ bool MapScreen::updateOtherTrigger(Trigger &t, float seconds) {
             if (flag(ai, "Trigger Only Once"))
                 t.done = true;
             runAction(ai->object("Action"), w.instigator, int(t.part));
+        }
+        if (flag(ai, "Triggered By Projectiles") && p.polygon.size() >= 3) {
+            std::vector<int> in;
+            std::vector<int> entering;
+            for (const Thrown &th : _thrown)
+                if (inside(p.polygon, th.x, th.y)) {
+                    in.push_back(th.id);
+                    if (std::find(t.thrownIn.begin(), t.thrownIn.end(), th.id) == t.thrownIn.end())
+                        entering.push_back(th.id);
+                }
+            t.thrownIn = std::move(in);
+            for (const int id : entering) {
+                if (t.done || t.countdown > 0.0f)
+                    break;
+                t.countdown = number(ai, "Disallow Retrigger");
+                if (flag(ai, "Trigger Only Once"))
+                    t.done = true;
+                runAction(ai->object("Action"), kThrownInstigator - id, int(t.part));
+            }
         }
         return true;
     }
