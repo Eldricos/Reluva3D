@@ -1156,6 +1156,8 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         const std::string fighting = e ? combatSequence(e->shooting, e->dead, e->stunned, fought, p.model) : "";
         if (!fighting.empty())
             look.sequence = fighting;
+        if (e && !e->onceSequence.empty())
+            look.sequence = e->onceSequence;
         const Animation &body = animation(p.model, look.sequence);
         look.body = &body;
         look.direction = body.direction(e ? e->angle : p.angle);
@@ -1168,6 +1170,8 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
                 if (d.once)
                     look.frame = std::min(look.frame, std::max(0, body.perDirection() - 1));
             }
+        if (e && !e->onceSequence.empty())
+            look.frame = std::min(int(e->onceTime * body.fps), std::max(0, body.perDirection() - 1));
         if (e && e->walking && fighting.empty()) {
             const float cycle = body.cycleDistance(look.direction);
             if (cycle > 0.0f)

@@ -212,6 +212,7 @@ public:
         float angle = 0.0f;     // which way it faces, as Facing Angle
         std::string state;      // "Patrol", "Alert", "Attack"...
         int target = -1;        // the officer it's after
+        int foe = -1;           // or the enemy it's after: one whose category its Valid Targets name
         float stateTime = 0.0f; // seconds in its state
         float unseen = 0.0f;    // seconds its target's been out of its sight
         bool walking = false;
@@ -227,6 +228,10 @@ public:
         std::string validTargets;
         std::vector<size_t> bodiesSeen;       // the dead bodies it's looked at, not to again
         float runAway = 0.0f;                 // seconds of running away left
+        std::string onceSequence;             // played once and then held (Inactive's shutting down)
+        float onceTime = 0.0f;                // seconds into it
+        std::string beforeInactive;           // the state it goes back to, activated
+        float doTimer = -1.0f;                // DoSomething's repeat timer: seconds till it next acts
         float recharge = 0.0f;                // seconds in Recharge, for its Time To Recharge
         const TextObject *patrolAI = nullptr; // a CSetPatrolAIAction's, in place of its own
         // Where it last saw its target, to go after them.
@@ -514,6 +519,9 @@ private:
     // An enemy after a decoy: it goes to it and shoots it (false if it has
     // none).
     bool fightDecoy(Enemy &e, float seconds);
+    // Another enemy of its Valid Targets seen, it's alerted and fights
+    // them; true while it does (map_enemies.cpp).
+    bool fightFoe(size_t self, float seconds);
     // A part's Death Behaviors, as it's killed: its body's process, its
     // categories (Death Behaviors/<its Default Death Type>).
     void runDeathBehaviors(size_t part, int instigator);

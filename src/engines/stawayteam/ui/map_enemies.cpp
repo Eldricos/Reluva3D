@@ -432,6 +432,48 @@ bool MapScreen::runEnemyAction(const TextObject *action, int instigator, int tri
         }
         return out;
     };
+    if (kind == "CSendDeactivateAIMessage" || kind == "CSendActivateAIMessage") {
+        // Deactivated, one with an Inactive state shuts down: its
+        // PlaySequenceBehavior's Sequence once, then still; activated, it
+        // plays it again and goes back to the state it was in (0x42c4b0,
+        // 0x42c447: its Last State).
+        for (Enemy *e : enemiesNamed("Target")) {
+            const TextObject *inactive = e->ai->object("Inactive");
+            if (!inactive)
+                continue;
+            const TextObject *play = inactive->object("PlaySequenceBehavior");
+            const std::string sequence = play ? readText(play, "Sequence") : std::string();
+            e->onceSequence = sequence.empty() || sequence == "Idle" ? std::string() : sequence;
+            e->onceTime = 0.0f;
+            if (kind == "CSendDeactivateAIMessage" && e->state != "Inactive") {
+                e->beforeInactive = e->state;
+                e->target = -1;
+                e->foe = -1;
+                e->route.clear();
+                e->walking = false;
+                setState(*e, "Inactive");
+            } else if (kind == "CSendActivateAIMessage" && e->state == "Inactive") {
+                e->onceSequence.clear();
+                setState(*e, e->beforeInactive.empty() ? "Patrol" : e->beforeInactive);
+            }
+        }
+        return true;
+    }
+    if (kind == "CForceStateChangeAction") {
+        // Its Target put in its State: Investigate looking about where it
+        // is (inferred).
+        const std::string state = stateKey(readText(action, "State"));
+        for (Enemy *e : enemiesNamed("Target")) {
+            e->target = -1;
+            e->foe = -1;
+            e->route.clear();
+            if (state == "Investigate")
+                investigate(*e, e->x, e->y);
+            else if (!state.empty())
+                setState(*e, state);
+        }
+        return true;
+    }
     if (kind == "CSendInvestigateHereMessageAction") {
         // Its Target goes to look where the instigator is (0x578060): the
         // officer who set it off, or else the part whose action it is; one
@@ -575,7 +617,8 @@ void MapScreen::updateEnemies(float seconds) {
         // state's Start Action, turning to them for Alert Time; then it
         // attacks (inferred: CBorgStateGotATarget's transitions aren't
         // traced).
-        const bool calm = e.state == "Patrol" || e.state == "Investigate" || e.state == "Recharge";
+        const bool calm =
+            e.state == "Patrol" || e.state == "Investigate" || e.state == "Recharge" || e.state == "DoSomething";
         if (calm && _teamShown) {
             const int seen = closestSeen(e);
             if (seen >= 0) {
@@ -593,6 +636,8 @@ void MapScreen::updateEnemies(float seconds) {
         if ((e.state == "Patrol" || e.state == "Investigate") && hears(e, heardX, heardY) &&
             (e.state == "Patrol" || heardX != e.heardX || heardY != e.heardY))
             investigate(e, heardX, heardY);
+        if (e.target < 0 && e.decoy < 0 && fightFoe(size_t(&e - _enemies.data()), seconds))
+            continue;
         if ((e.decoy >= 0 || e.target < 0) && fightDecoy(e, seconds))
             continue;
         // A dead body seen (a part of Dead Bodies: a Klingon's body, by its
@@ -662,6 +707,33 @@ void MapScreen::updateEnemies(float seconds) {
         if (e.state == "Investigate") {
             if (runInvestigate(e, seconds))
                 setState(e, "Patrol");
+            continue;
+        }
+        // Shut down (deactivated), it plays its sequence once and is
+        // still, seeing nothing, till it's activated (0x42c410).
+        if (e.state == "Inactive") {
+            e.onceTime += seconds;
+            continue;
+        }
+        // Doing something, its DoSomething AI: a repeat timer's Action
+        // every Delay Between Actions, give or take Plus or Minus; it
+        // still sees and hears as on patrol (inferred).
+        if (e.state == "DoSomething") {
+            const TextObject *doing = states->object("DoSomething");
+            const TextObject *ai = doing ? doing->object("DoSomething AI") : nullptr;
+            if (ai && ai->className == "CRepeatTimerTriggerAI") {
+                if (e.doTimer < 0.0f)
+                    e.doTimer = number(ai, "Delay Between Actions");
+                e.doTimer -= seconds;
+                if (e.doTimer <= 0.0f) {
+                    _random = _random * 1103515245u + 12345u;
+                    const float r = float((_random >> 16) & 0x7fff) / 32767.0f * 2.0f - 1.0f;
+                    e.doTimer = std::max(0.05f, number(ai, "Delay Between Actions") + number(ai, "Plus or Minus") * r);
+                    runAction(ai->object("Action"), -1, self);
+                }
+            } else {
+                runAI(e, ai, seconds);
+            }
             continue;
         }
         if (e.state == "Patrol") {
@@ -781,6 +853,78 @@ void MapScreen::updateEnemies(float seconds) {
             hurtOfficer(size_t(e.target), *e.weapon, e.stuns);
         }
     }
+}
+
+bool MapScreen::fightFoe(size_t self, float seconds) {
+    // As one after an officer, by the same rules: the nearest other enemy
+    // whose category its Valid Targets name seen from patrol (Mission 01's
+    // freed Klingons, Electronic Equipment themselves, after the
+    // Romulans), alerted for its Alert Time, then shot at in its weapon's
+    // range, gone after out of it, and given up out of sight a while; one
+    // shot back whose Valid Targets name the shooter (inferred: the
+    // program's target finder looks among all of a Valid Targets', 0x4fe710).
+    Enemy &e = _enemies[self];
+    if (e.foe < 0) {
+        const bool calm =
+            e.state == "Patrol" || e.state == "Investigate" || e.state == "Recharge" || e.state == "DoSomething";
+        if (!calm || !_teamShown)
+            return false;
+        int best = -1;
+        float bestDistance = 0.0f;
+        for (size_t j = 0; j < _enemies.size(); ++j) {
+            const Enemy &f = _enemies[j];
+            if (j == self || !f.alive() || !shown(f.part) || !inCategory(_map.parts[f.part].category, e.validTargets))
+                continue;
+            const float distance = std::hypot(f.x - e.x, f.y - e.y);
+            if (seesPoint(e, f.x, f.y) && (best < 0 || distance < bestDistance)) {
+                best = int(j);
+                bestDistance = distance;
+            }
+        }
+        if (best < 0)
+            return false;
+        e.foe = best;
+        e.unseen = 0.0f;
+        e.route.clear();
+        setState(e, "Alert");
+        return true;
+    }
+    Enemy &f = _enemies[size_t(e.foe)];
+    const bool seen = f.alive() && shown(f.part) && seesPoint(e, f.x, f.y);
+    e.unseen = seen ? 0.0f : e.unseen + seconds;
+    if (!f.alive() || !shown(f.part) || e.unseen > kForgetAfter) {
+        e.foe = -1;
+        setState(e, "Patrol");
+        return true;
+    }
+    const float toward = angleOf(f.x - e.x, f.y - e.y);
+    turnTo(e, toward, kTurnSpeed, seconds);
+    const TextObject *alert = e.ai->object("Alert");
+    if (e.state == "Alert" && e.stateTime >= number(alert, "Alert Time", 2.0f))
+        setState(e, "Attack");
+    if (e.state != "Attack" || !e.weapon || !seen)
+        return true;
+    const float distance = std::hypot(f.x - e.x, f.y - e.y);
+    if (distance > e.weapon->range) {
+        walkTo(e, f.x, f.y, 1.0f, seconds, runs(e, "Pursue"));
+        return true;
+    }
+    e.walking = false;
+    const float off = std::abs(wrap(toward - e.angle)) * 180.0f / kPi;
+    if (off > e.weapon->maxShootAngle || e.reload > 0.0f)
+        return true;
+    e.reload = e.weapon->reuseDelay;
+    shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, f.x, f.y);
+    e.shooting = 1e-6f;
+    const size_t victim = size_t(e.foe);
+    hurtEnemy(victim, *e.weapon, -1, e.stuns);
+    Enemy &v = _enemies[victim];
+    if (v.alive() && v.foe < 0 && v.target < 0 && inCategory(_map.parts[e.part].category, v.validTargets)) {
+        v.foe = int(self);
+        v.unseen = 0.0f;
+        setState(v, "Attack");
+    }
+    return true;
 }
 
 } // namespace reluva::stawayteam

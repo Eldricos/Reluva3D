@@ -412,6 +412,76 @@ void testPauseWhenHit() {
     CHECK(!screen.paused());
 }
 
+void testFoes() {
+    // A freed prisoner (Electronic Equipment, after Enemy) with a disruptor
+    // sees a guard (Enemy, after the team) 200 away: alerted, then it shoots
+    // the guard, which doesn't shoot back, its Valid Targets not naming
+    // the prisoner.
+    const auto guard = [](const std::string &name, int x, const std::string &category, const std::string &targets,
+                          const std::string &weapon) {
+        return "\t\tLevel Part=CEntityWalking\n\t\t{\n\t\t\tName=" + name +
+               "\n\t\t\tVisible=1\n\t\t\tActive=1\n\t\t\tCategory=" + category +
+               "\n\t\t\tActivity=Array\n\t\t\t{\n\t\t\t\tItem Count=1\n\t\t\t\tActivity=CBorgAI\n\t\t\t\t{\n"
+               "\t\t\t\t\tAlert=CBorgStateAlert\n\t\t\t\t\t{\n\t\t\t\t\t\tAlert Time=0.5\n\t\t\t\t\t}\n"
+               "\t\t\t\t\tInactive=CBorgStateInactive\n\t\t\t\t\t{\n\t\t\t\t\t\tPlaySequenceBehavior=\n"
+               "\t\t\t\t\t\t{\n\t\t\t\t\t\t\tSequence=shutdown\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n"
+               "\t\t\t\t\tVision Cone=360\n\t\t\t\t\tValid Targets=" +
+               targets + "\n\t\t\t\t\tCurrent State=Patrol\n\t\t\t\t}\n\t\t\t}\n" +
+               (weapon.empty() ? std::string()
+                               : "\t\t\tInventory=CInventory\n\t\t\t{\n\t\t\t\tInventory List=Array\n\t\t\t\t{\n"
+                                 "\t\t\t\t\tItem Count=1\n\t\t\t\t\tItem=CStarTrekEnergyWeaponInventoryItem\n"
+                                 "\t\t\t\t\t{\n\t\t\t\t\t\tDefinition Index=" +
+                                     weapon + "\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n") +
+               "\t\t\tModel=Characters/Guard\n\t\t\tPosition X=" + std::to_string(x) +
+               "\n\t\t\tPosition Y=500\n\t\t}\n";
+    };
+    const std::string zax = "CLayerSaveData\n{\n\tWidth=2000\n\tHeight=2000\n\tView Position=500.000000,500.000000\n"
+                            "\tTree List=CSortList2D\n\t{\n" +
+                            guard("Prisoner", 400, "Electronic Equipment", "Enemy", "Disruptor") +
+                            guard("Guard", 600, "Enemy", "Player,Team Member", "Disruptor") + "\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    data.files["Cache/Models/Characters/Guard.mdl16"] = modelFile("Guard", 1, 1, 100.0f);
+    const std::string disruptor =
+        "CStarTrekInventoryItemDefinition\n{\n\tWeapon Damage=30\n\tReuse Delay=1\n"
+        "\tItem Range=375\n\tMax Shoot Angle=10\n\tDischarge Action=CShootEnergyWeaponAction\n}\n";
+    data.files["Inventory/Item Definitions/Disruptor.txt"] = std::vector<uint8_t>(disruptor.begin(), disruptor.end());
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    MapScreen screen(data, rules, map, options, 0);
+    const auto &enemies = screen.enemies();
+    uint64_t now = 0;
+    screen.update(now += 50);
+    CHECK(enemies[0].state == "Alert" && enemies[0].foe == 1 && enemies[1].state == "Patrol");
+    while (now < 3000)
+        screen.update(now += 50);
+    CHECK(enemies[0].state == "Attack" && enemies[1].health < 100.0f && enemies[1].foe == -1);
+    // Deactivated, the prisoner shuts down and stops; activated, it's back
+    // in the state it was in.
+    TextObject off;
+    CHECK(!readTextObject("CSendDeactivateAIMessage\n{\nTarget=Prisoner\n}\n", off));
+    screen.runAction(&off);
+    CHECK(enemies[0].state == "Inactive" && enemies[0].foe == -1);
+    const float health = enemies[1].health;
+    while (now < 6000)
+        screen.update(now += 50);
+    CHECK(enemies[0].state == "Inactive" && enemies[1].health == health);
+    TextObject on;
+    CHECK(!readTextObject("CSendActivateAIMessage\n{\nTarget=Prisoner\n}\n", on));
+    screen.runAction(&on);
+    CHECK(enemies[0].state == "Attack");
+    // Made to investigate, the guard looks about where it is.
+    TextObject force;
+    CHECK(!readTextObject("CForceStateChangeAction\n{\nTarget=Guard\nState=Investigate\n}\n", force));
+    screen.runAction(&force);
+    CHECK(enemies[1].state == "Investigate");
+}
+
 void testClosest() {
     // A guard seeing all round, Ann 80 away and Bea 40: it goes for Bea,
     // the nearer, though Ann's first.

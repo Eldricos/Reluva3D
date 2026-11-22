@@ -525,6 +525,21 @@ In all the maps' 776 enemies:
   `CGotoRadiusAI`, a `CRechargeHealthAI` giving back `Hit Points`) and
   `Time To Recharge` (-1 for 521, 2.5 for 130); `End Recharge`'s AI, a
   `CGoForwardAI` (624) or `CActionAI`.
+- **Inactive:** a `CBorgStateInactive` on every enemy; its own `Current
+  State` the phase it starts in (`Shutting Down`), its
+  `PlaySequenceBehavior` a sequence (`shutdown` for 85, `Idle` for 583).
+  An AI deactivated (`CSendDeactivateAIMessage`, 15 in Missions 07 and
+  16, `$Trigger`: Borg shut down) goes to it and plays it; activated
+  (`CActivateAIMessage`), it plays it again and goes back to its `Last
+  State` (`0x42c410`, `0x42c4b0`). One enemy starts in it.
+- **DoSomething:** 17 start in it, its `DoSomething AI` a
+  `CRepeatTimerTriggerAI` running its `Action` every while.
+- **Others of its Valid Targets:** a few enemies' `Valid Targets` name
+  `Enemy`: Mission 01's trapped Klingons (themselves `Electronic
+  Equipment`, freed to fight the Romulans) and two Borg in Mission 06.
+- **Shots:** the program's weapons draw no random numbers
+  (`CShootEnergyWeaponAction`'s code, about `0x5f66d6`, never calls its
+  `0x54c120`): a shot doesn't miss by chance.
 - **Investigate Dead Body:** a `CChaseInvestigateAI` (737), to the body.
   A body is a part of category `Dead Bodies`: a Klingon's death
   behaviours make it one.
@@ -818,7 +833,16 @@ from them three seconds, then back at them; where to, its weapon's
 range away, *inferred*. On patrol, looking about or recharging, a dead
 body it sees and hasn't before: its GotATarget's Dead Body, Investigate
 Dead Body, going to look at it, then back on patrol *(inferred)*. A
-CSetPatrolAIAction's AI is its patrol from then. Beamed out (an effect
+CSetPatrolAIAction's AI is its patrol from then. With no officer to
+go after, one whose Valid Targets name another enemy's category fights
+the nearest it sees as it would an officer: alerted, then shooting in
+range and going after them out of it, giving up out of sight; the one
+shot fights back if its own Valid Targets name the shooter *(inferred)*.
+Deactivated, it shuts down (Inactive), its sequence played once and
+held, seeing nothing, till activated, back in the state it was in.
+Doing something, its repeat timer's Action every while, give or take,
+watching as on patrol *(inferred)*. A CForceStateChangeAction puts it in
+its State, Investigate looking about where it is. Beamed out (an effect
 naming it, Delete When Finished), it's held still and fades over the
 warp's time, then is gone *(inferred: the transporter's pictures aren't
 drawn)*.
@@ -912,10 +936,8 @@ Not there yet: the processes of the 5 polygons, the Out Of Range
 cursor, the full inventory, touching triggers set off by projectiles
 (Mission 15's beamer), the AIs'
 other messages and tasks (CSendMessageAction's to animations and
-particles), walkers going round each other, enemies targeting each other
-(Valid Targets Enemy), the DoSomething and Inactive states, the
-enemies' own noises, the shots'
-missing, thrown and laid weapons, the doors opening
+particles), walkers going round each other, the enemies' own noises,
+thrown and laid weapons, the doors opening
 by themselves (CDoorAI's own Triggered By flags), the camera scripts'
 Pause Actors, and those off the team still on its bar.
 
