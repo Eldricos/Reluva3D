@@ -656,20 +656,22 @@ void Win32Process::addDriveStandIns() {
         if (e.name.size() <= 12)
             c.writeString(p + 304, e.name, 14);
     };
-    stdcall(k, "FindFirstFileA", 2, [this, fillFind](Cpu &c) {
+    stdcall(k, "FindFirstFileA", 2, [this, fillFind, driveOf](Cpu &c) {
         const std::string full = drivePath(c.string(c.arg(0)));
         const size_t slash = full.rfind('\\');
         const std::string folder = full.substr(0, slash);
         const std::string pattern = full.substr(slash + 1);
         auto find = std::make_shared<FindObject>();
-        // The writable copies first, then the drive's, each name once.
+        // The writable copies first, then the drive's, each name once. The
+        // drive's own folder is its own, though a writable copy of it is
+        // there (hostPath would give the copy for reading).
         std::vector<stdfs::path> dirs;
         const stdfs::path copy = hostPath(folder + "\\", true);
-        const stdfs::path own = hostPath(folder + "\\", false);
+        const Drive *drive = driveOf(full);
+        const stdfs::path own = drive ? resolve(drive->root, parts(folder + "\\")) : stdfs::path();
         for (const stdfs::path &d : {copy, own})
             if (std::find(dirs.begin(), dirs.end(), d) == dirs.end() && !d.empty())
                 dirs.push_back(d);
-        // A folder without a writable copy: hostPath(.., true) gave the drive's own.
         std::vector<std::string> seen;
         for (const stdfs::path &d : dirs) {
             std::error_code ec;

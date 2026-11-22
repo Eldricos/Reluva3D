@@ -109,6 +109,16 @@ void testIniWrite(const stdfs::path &tmp) {
         "[DIRECTORIES]\r\nRes=C:\\art-res\r\n  Name  =  \"quoted\"  \r\nExe=a.exe\r\n\r\n[Locale]\r\nLanguage=FRENCH\r\n\r\n");
 }
 
+// A folder found by its own name, as the C runtime's _stat looks for one.
+void testFindFolder(const stdfs::path &tmp) {
+    Fixture f(tmp);
+    stdfs::create_directories(f.root / "game" / "art-res");
+    stdfs::create_directories(f.root / "save" / "Exe");
+    const uint32_t h = f.call("KERNEL32.dll", "FindFirstFileA", {f.str(0, "C:\\art-res"), f.mem + 1024});
+    CHECK(h != 0xffffffffu);
+    CHECK(f.cpu.read32(f.mem + 1024) == 0x10 && f.cpu.string(f.mem + 1024 + 44) == "art-res");
+}
+
 void testLocaleAndStrings(const stdfs::path &tmp) {
     Fixture f(tmp);
     const char *k = "KERNEL32.dll";
@@ -152,5 +162,6 @@ static const reluva::test::Suite
            {
                {"ini read", [](const stdfs::path &tmp) { testIniRead(tmp); }},
                {"ini write", [](const stdfs::path &tmp) { testIniWrite(tmp); }},
+               {"find a folder", [](const stdfs::path &tmp) { testFindFolder(tmp); }},
                {"locale and strings", [](const stdfs::path &tmp) { testLocaleAndStrings(tmp); }},
            });
