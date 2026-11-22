@@ -142,7 +142,13 @@ that far.
   goes there; she waves, and the island is drawn in 3D around her, its
   other people walking by. The arrow keys walk her (read through
   DirectInput's keyboard): up the road to the pizzeria, where the
-  Brickolinis are, and on. Run to 33,000 frames, it doesn't stop. The right-hand
+  Brickolinis are, and on. Run to 33,000 frames, it doesn't stop.
+- **Building:** dropped on the map's boat, Pepper goes to the lifeguard
+  hut on the beach, its jet-ski shown built as she comes; clicked, its
+  yellow baseplate opens the jet-ski's build screen (`JETSKI.SI`, world
+  `BLDJ`), its builder explaining. Its pieces, clicked and dragged, are
+  taken to and from the screen (`IDirect3DRMViewport::Transform`), and
+  a piece picked offers its colours and decals. The right-hand
   door is the way out of the game: the Infomaniac asks
   (`iic043in_RunAnim`, the sound `IIC044IN.wav`) and puts a green brick
   and a red one before him, in 3D; picking the green one ends the game,

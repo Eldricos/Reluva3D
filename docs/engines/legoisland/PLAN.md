@@ -49,8 +49,9 @@ Each phase ends with something that runs, is tested and is committed.
    vehicle. Its scenes are drawn and picked: the Information Center's
    Infomaniac, its bricks, the score cube, the island through the
    elevator's window, and out on the island, walked with the arrow keys.
-   Next: the island's look checked against the original's, driving, and
-   building a vehicle.
+   The island looks as a screenshot of the original does; the skateboard
+   is ridden (in the engine), and the jet-ski's build screen takes its
+   pieces. Next: a vehicle built through, and driven.
 7. **Input, saves and settings:** DirectInput and the joystick, the save
    folder, and `CONFIG.EXE`'s choices as the engine's settings; turning
    at the speed it was made for, as on today's machines it's too fast
