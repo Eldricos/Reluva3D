@@ -68,6 +68,14 @@ None yet.
   where, the inventory's places in the team selection's order and where
   its More Indicator goes, what's marked on the minimap, and the zoom's
   steps ([systems/maps.md](systems/maps.md#open-questions)).
+- **The gadgets:** the band hiding its wearer from the enemies' sight,
+  a grenade's flight (Gravity's units, the bounces' end), the enemies
+  going after decoys, the strikes doing their 50,000 damage rather than
+  stunning, and what's put down running its model's AIs as a map's part
+  ([systems/items.md](systems/items.md#open-questions)).
+- **The item panels' layout:** sequences placed from the panel's middle,
+  pictures and words from the info bar's corner
+  ([systems/items.md](systems/items.md#an-items-panel)).
 - **Parts' processes:** the one chosen for an officer, and their walking
   into range first
   ([systems/maps.md](systems/maps.md#open-questions)).

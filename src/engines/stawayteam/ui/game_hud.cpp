@@ -162,11 +162,13 @@ GameHud::Result GameHud::handleEvent(const Event &ev, uint64_t now) {
             int x = 0;
             int y = 0;
             readPoint(panel, key, x, y);
-            return ev.mouseX >= _panelX + x && ev.mouseY >= _panelY + y && ev.mouseX < _panelX + x + p.w &&
-                   ev.mouseY < _panelY + y + p.h;
+            return ev.mouseX >= _barX + x && ev.mouseY >= _barY + y && ev.mouseX < _barX + x + p.w &&
+                   ev.mouseY < _barY + y + p.h;
         };
         if (panel->className == "CPhaserInfoRenderer" && item->multipleSettings)
             r.toggleStun = onButton("Stun Pos", picture("Inventory/Toggle Default"));
+        if (panel->className == "CChargedItemInfoRenderer" && panel->integer("Show Activate Button").value_or(0))
+            r.toggleCharge = onButton("Button Pos", picture(readText(panel, "Button Off Frame")));
         if (panel->className == "CDetonateInfoRenderer")
             r.detonate = onButton("Detonate Button Pos", picture("Info Bar/Remote Mine/Detonate Default"));
     }
@@ -289,9 +291,9 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
     int rx = 0;
     int ry = 0;
     readPoint(_custom, "Info Renderer Pos", rx, ry);
-    _panelX = ix + rx;
-    _panelY = infoY + ry;
-    drawItemPanel(screen, _panelX, _panelY, now);
+    _barX = ix;
+    _barY = infoY;
+    drawItemPanel(screen, ix + rx, infoY + ry, now);
 
     // The team bar: each officer's slot, name in their field's colour, head
     // in the middle of it and health bar, filled from the bottom
@@ -558,7 +560,18 @@ void GameHud::drawItemPanel(Surface &screen, int x, int y, uint64_t now) {
         return;
     const TextObject *panel = item->infoRenderer.get();
     blitBy(screen, sequence(readText(panel, "Background Sequence")).at(now), x, y);
+    // Its sequences are placed from its middle (its Phaser Indicator Pos,
+    // 0,-8); its pictures and words from the info bar's corner, as Info
+    // Renderer Pos is (inferred: so they fall on it, the phaser's Stun Pos
+    // 155,39 and Range Pos 45,46 among them).
     const auto at = [&](const char *key, int &px, int &py) {
+        px = 0;
+        py = 0;
+        readPoint(panel, key, px, py);
+        px += _barX;
+        py += _barY;
+    };
+    const auto fromMiddle = [&](const char *key, int &px, int &py) {
         px = 0;
         py = 0;
         readPoint(panel, key, px, py);
@@ -581,7 +594,7 @@ void GameHud::drawItemPanel(Surface &screen, int x, int y, uint64_t now) {
         // Its power, full; its damage ("Damage: %g", 0x41bc47); and its
         // STUN or KILL as it's set, in their fonts, on the toolkit's toggle,
         // with OVERLOAD, which isn't there yet, off.
-        at("Phaser Indicator Pos", px, py);
+        fromMiddle("Phaser Indicator Pos", px, py);
         blitBy(screen, sequence(readText(panel, "Phaser Power Indicator Sequence")).frame(0, 0), px, py);
         const Font &font = panelFont(readText(panel, "Phaser Font"));
         at("Phaser Damage Pos", px, py);
@@ -622,6 +635,42 @@ void GameHud::drawItemPanel(Surface &screen, int x, int y, uint64_t now) {
             const std::string text =
                 readText(panel, "Count Text") + ": " + std::to_string(std::max(0, _held[size_t(_heldChosen)].count));
             count.draw(screen, px, py, text);
+        }
+    } else if (kind == "CChargedItemInfoRenderer") {
+        // Its charge: the foreground indicator over the background one,
+        // cut to as much as is left (Clip Foreground As Charge Indicator),
+        // and as a percentage; its button, on or off, with its words
+        // (inferred for where each is drawn, and the percentage's form).
+        fromMiddle("Indicator Position", px, py);
+        blitBy(screen, sequence(readText(panel, "Background Indicator Sequence")).frame(0, 0), px, py);
+        if (const Animation::Picture *fore = sequence(readText(panel, "Foreground Indicator Sequence")).frame(0, 0)) {
+            Animation::Picture cut = *fore;
+            if (panel->integer("Clip Foreground As Charge Indicator").value_or(0)) {
+                const int w = int(float(cut.image.w) * std::clamp(_energy, 0.0f, 100.0f) / 100.0f);
+                image::Image part;
+                part.w = w;
+                part.h = cut.image.h;
+                for (int row = 0; row < cut.image.h; ++row) {
+                    const auto from = cut.image.rgba.begin() + ptrdiff_t(size_t(row) * size_t(cut.image.w) * 4);
+                    part.rgba.insert(part.rgba.end(), from, from + ptrdiff_t(size_t(w) * 4));
+                }
+                cut.image = std::move(part);
+            }
+            if (cut.image.w > 0)
+                blitBy(screen, &cut, px, py);
+        }
+        const Font &font = panelFont(readText(panel, "Button Font"));
+        at("Percent Pos", px, py);
+        if (font.loaded())
+            font.draw(screen, px, py, std::to_string(int(std::lround(std::clamp(_energy, 0.0f, 100.0f)))) + "%");
+        if (panel->integer("Show Activate Button").value_or(0)) {
+            at("Button Pos", px, py);
+            image::blit(screen, picture(readText(panel, _chargeOn ? "Button On Frame" : "Button Off Frame")), px, py);
+            int tx = 0;
+            int ty = 0;
+            readPoint(panel, "Button Text Pos", tx, ty);
+            if (font.loaded())
+                font.draw(screen, px + tx, py + ty, readText(panel, _chargeOn ? "Button On Text" : "Button Off Text"));
         }
     } else if (kind == "CTricorderInfoRenderer") {
         // What it's said, typed out, at Rules.txt's Tricorder Pos in its

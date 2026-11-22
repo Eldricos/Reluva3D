@@ -66,8 +66,10 @@ void MapScreen::setupTriggers() {
 
 void MapScreen::addTrigger(size_t part, const TextObject *ai) {
     const std::string &kind = ai->className;
+    // A stasis field's CEveryTouchingOvalTriggerAI too (inferred: as a
+    // touching trigger for each who comes in).
     if (kind != "CTouchingOvalTriggerAI" && kind != "CTouchingPolygonTriggerAI" && kind != "CRepeatTimerTriggerAI" &&
-        kind != "CRelayAI")
+        kind != "CRelayAI" && kind != "CEveryTouchingOvalTriggerAI")
         return;
     Trigger t;
     t.part = part;
@@ -145,7 +147,12 @@ void MapScreen::updateTriggers(float seconds) {
         // A touching trigger: who's in its oval or polygon, of those it
         // answers to.
         const std::string byName = lower(readText(ai, "Triggered By Name"));
-        const bool byPlayers = flag(ai, "Triggered By Players") || flag(ai, "Triggered By Anything");
+        // A Triggered by list (a stasis field's "Enemy,Player,Team Member")
+        // names its kinds.
+        const std::string byList = readText(ai, "Triggered by");
+        const bool byPlayers = flag(ai, "Triggered By Players") || flag(ai, "Triggered By Anything") ||
+                               inCategory(byList, "Player,Team Member");
+        const bool oval = ai->className.find("Oval") != std::string::npos;
         const float rx = number(ai, "X Radius");
         const float ry = rx * number(ai, "YX Ratio", 1.0f);
         for (size_t o = 0; o < _officers.size() && !t.done; ++o) {
@@ -154,7 +161,7 @@ void MapScreen::updateTriggers(float seconds) {
                 who.present && (byPlayers || (!byName.empty() && lower(_team[who.member].name()) == byName));
             bool in = false;
             if (answers) {
-                if (ai->className == "CTouchingOvalTriggerAI") {
+                if (oval) {
                     if (rx > 0.0f && ry > 0.0f) {
                         const float dx = (who.x - p.x) / rx;
                         const float dy = (who.y - p.y) / ry;
@@ -188,6 +195,22 @@ void MapScreen::updateTriggers(float seconds) {
                     t.done = true;
             }
         }
+        // The enemies too, for a trigger whose list names them (inferred:
+        // the maps' other triggers set off by enemies aren't there yet).
+        if (inCategory(byList, "Enemy") && oval && rx > 0.0f && ry > 0.0f) {
+            t.touchingEnemies.resize(_enemies.size(), false);
+            for (size_t i = 0; i < _enemies.size() && !t.done; ++i) {
+                const Enemy &e = _enemies[i];
+                const float dx = (e.x - p.x) / rx;
+                const float dy = (e.y - p.y) / ry;
+                const bool in = e.alive() && shown(e.part) && dx * dx + dy * dy <= 1.0f;
+                if (in && !t.touchingEnemies[i])
+                    runAction(ai->object("Enter Action"), kEnemyInstigator - int(i), int(t.part));
+                if (!in && t.touchingEnemies[i])
+                    runAction(ai->object("Exit Action"), kEnemyInstigator - int(i), int(t.part));
+                t.touchingEnemies[i] = in;
+            }
+        }
         // Once done, a trigger that flips its switch turns its part off
         // (Auto-Flip Switch).
         if (t.done && flag(ai, "Auto-Flip Switch"))
@@ -196,7 +219,8 @@ void MapScreen::updateTriggers(float seconds) {
 }
 
 void MapScreen::runAction(const TextObject *action, int instigator, int trigger) {
-    if (!action || runMissionAction(action, instigator) || runEnemyAction(action, instigator, trigger))
+    if (!action || runMissionAction(action, instigator) || runEnemyAction(action, instigator, trigger) ||
+        runGadgetAction(action, instigator, trigger))
         return;
     const std::string &kind = action->className;
     const auto targets = [&](const char *key) {
@@ -288,13 +312,7 @@ void MapScreen::runAction(const TextObject *action, int instigator, int trigger)
             if (auto sound = gameSound(_data, readText(action, "Sound")))
                 _mixer->play(sound, audio::SoundType::kEffects);
     } else if (kind == "CConditionalAction") {
-        // Only a check whether a part's there can be tried yet: the rest
-        // count as failing (inferred).
-        const TextObject *attempt = action->object("Try Action");
-        bool succeeded = false;
-        if (attempt && attempt->className == "CCheckExistenceAction")
-            for (size_t part : partsNamed(readText(attempt, "Name To Check For"), trigger))
-                succeeded = succeeded || !_partStates[part].deleted;
+        const bool succeeded = checkAction(action->object("Try Action"), instigator, trigger);
         runAction(action->object(succeeded ? "Succeed Action" : "Fail Action"), instigator, trigger);
     } else if (kind == "CAddEffectToTeam") {
         // The team beams in: the warp's sound, and them fading in under the

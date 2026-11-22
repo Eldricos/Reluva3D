@@ -1,6 +1,6 @@
 # Star Trek: Away Team: items
 
-> **Status:** partial · **Code:** `src/engines/stawayteam/ui/map_items.cpp`, `src/engines/stawayteam/ui/game_hud.cpp`, `src/engines/stawayteam/game/team.cpp` · **Checked against:** the code only; Reluva's run on the US English retail install's files · **Confidence:** from the code unless marked
+> **Status:** partial · **Code:** `src/engines/stawayteam/ui/map_items.cpp`, `src/engines/stawayteam/ui/map_gadgets.cpp`, `src/engines/stawayteam/ui/game_hud.cpp`, `src/engines/stawayteam/game/team.cpp` · **Checked against:** the code only; Reluva's run on the US English retail install's files · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -58,8 +58,74 @@ Sound`, `Explosion Radial Damage` (150; the Super's 200) and `Require
 LOS For Damage` (1), and its Default Entity's `Destroyed Action`, a
 `CAddNoiseAction` of 350 for 2 seconds. A concussion grenade does no
 damage (`Weapon Damage` 0) and stuns for its `Stun Duration` (30). The
-Hand Grenade's projectile is a puff of particles, and the EM Pulse
-Grenade's Explosion Radial Damage is 0.
+Hand Grenade's projectile is a puff of particles.
+
+A grenade's `Discharge Action` throws it from its `Height` (31) with a
+`CThrowGravityAI` (`Gravity` 17, `Bounce Sound` `WEAPONS/Grenade
+Bounce.ogg`); its model bounces by its `Bounce Factor` (0.6), `Bounce
+Friction` (0.4) and `Min Bounce` (0.05).
+
+The EM Pulse Grenade's Explosion Radial Damage is 0: its model's
+Destroyed Action is a `CDoOnAllWithinRadiusAction` about it, 150 across
+(`Y To X Ratio` 0.71), on `Who To Affect` `Electronic Equipment`: a noise
+of 250 for 2 seconds as it starts, and each it reaches given a
+`CAssignOverrideTemporaryTaskAction` of a `CWaitAI` of 15 seconds, with
+sparks over it as long. In Mission 01 the Klingon prisoners are the
+Electronic Equipment.
+
+### The cloaking band
+
+The Personal Visual Dampening Band ("Cloaking Band") is a
+`CStarTrekInvisBandInventoryItem`, a charged item: its charge, out of
+100, is spent at its `Energy Use` (4.5) a second while it's on, and comes
+back at its `Energy Recharge` (0 for the band) while it's off; empty, it
+goes off (`0x5d2c50`); it goes on only with an Energy Use's worth in it
+(`0x5d2d30`). On, its wearer fades to a quarter seen, at a whole a
+second, and back as it goes off (`0x5d3740`), with its `Use Sound`
+(`Devices/Invis.ogg`). Its panel, a `CChargedItemInfoRenderer`, has its
+indicator (`Foreground Indicator Sequence` over `Background Indicator
+Sequence`, cut to the charge, `Clip Foreground As Charge Indicator`),
+the charge at `Percent Pos`, and its button, `Button On Frame` or `Button
+Off Frame` with DEACTIVATE or ACTIVATE. Its description says the wearer
+can't be seen.
+
+### Gadgets
+
+The others' Process Activities say what they do, and what they put down
+does the rest by its model's own AIs:
+
+- **The audio decoy:** a `CDropItemAI`, within its `Item Range` (400):
+  `Items/Decoys/Audio Decoy` put down with its sound; the decoy's
+  `CActionAI`s make a noise of 200 for 2, send the enemies within 200 to
+  look there, and delete it a second later.
+- **The holographic projection:** a `CDropItemAI` (400): its model, of
+  Category `Decoy,Player,Team Member`, with 35 `Hit Points`, its `Pain
+  Sound` as it's hit, gone after 15 seconds; its Discharge Action's noise
+  of 250.
+- **The psionic projection:** a `CDropItemAI` (350): a figure that goes
+  after 15 seconds, or is picked up (its process gives the item back).
+- **The stasis field** (`Portable Containmnet Field`): a
+  `CGotoPointAndDoActionAI`, walking to the place, then a `CDropItemAction`
+  15 in front of the officer. Its `Deploy` sequence's last frame gives it a
+  `CEveryTouchingOvalTriggerAI` (`X Radius` 30, `Triggered by` `Enemy,
+  Player,Team Member`) holding whoever comes in without the field in their
+  inventory to a `CDoNothingAI`, with `WEAPONS/Stasis Field.ogg`, and sets
+  it to `activate`. Its own process, for one with the field, picks it up:
+  it's given back, and those within 31 let go.
+- **The teleportation brig:** a `CDropItemAI` putting down the brig and
+  giving a `Telportation Brig Controller`. A body's death behaviour
+  (`Death Behaviors/Klingon`, its `Default Death Type`) gives it a process
+  for the controller: the officer walks to it and it's beamed away
+  (`CAddEffectAction`, `Delete When Finished`, 1.75 seconds), and makes it
+  `Dead Bodies` rather than `Enemy`.
+- **Strikes:** the Vulcan Neck Pinch, Phase Neural Disrupter and Botanical
+  Paralysis are `CStrikeTargetAI`s and `CStrikeTargetAction`s (`Strike
+  Damage Radius` 40, 20), all with a `Weapon Damage` of 50,000; Botanical
+  Healing heals as the hypospray, by 20.
+- **Skills:** Computer Systems, Security Doors & Systems, Terminal Repair,
+  Antimatter Charges, the Extractor and the Borg serum have no Process
+  Activity of their own: the maps' parts have processes for them
+  ([maps.md](maps.md#the-maps-triggers)).
 
 ### Mines
 
@@ -95,8 +161,11 @@ by 36).
 
 The chosen item's `Info Renderer` is drawn on the info bar at Rules.txt's
 `Info Renderer Pos` (127, 34): its `Background Sequence`, and what its
-kind shows. A `CGenericInfoRenderer` its `Text` in `Text Size` at `Text
-Pos`. The phaser's `CPhaserInfoRenderer`: its `Phaser Power Indicator
+kind shows. Its sequences' places are from its middle (`Phaser Indicator
+Pos` 0, -8; `Indicator Position` -55, 0), its pictures' and words' from
+the info bar's corner, which puts them on it (the phaser's `Stun Pos`
+155, 39; the band's `Button Pos` 116, 13). A `CGenericInfoRenderer` its
+`Text` in `Text Size` at `Text Pos`. The phaser's `CPhaserInfoRenderer`: its `Phaser Power Indicator
 Sequence` at `Phaser Indicator Pos`, its damage and range at `Phaser
 Damage Pos` and `Phaser Range Pos` in `Phaser Font`, and two buttons
 (`Buttons/Stun Pos` 155, 39; `Overload Pos` 95, 39), each's words at its
@@ -137,12 +206,18 @@ definition's Rounds if it has any; the weapon they shoot with chosen
 keys' names, *inferred*), chooses it; a weapon chosen is the one they
 shoot with. With a grenade chosen, a click on the map sends the officer
 to throw it there: they walk until the place is in its Item Range and
-in sight, then throw it, and it flies straight there at its Max Velocity
-and goes off its Shot Duration after *(inferred: the arc and bounces
-aren't there)*; its Explosion and Death Sound, its noise, and everyone in
+in sight, then throw it from its Height, along the ground at its Max
+Velocity and up so its Gravity, taken as pixels a second each 30th of a
+second, brings it down there; it bounces by its Bounce Factor and
+Friction, with its Bounce Sound, till a bounce is slower than 40 pixels a
+second, and goes off its Shot Duration after it's thrown *(inferred: the
+program's flight isn't traced, nor walls in its way)*; its Explosion and Death Sound, its noise, and everyone in
 its Explosion Radial Damage, in sight of it if it needs that, stunned for
 its Stun Duration by one that does no damage, else hurt by its Weapon
-Damage, the team too *(inferred)*. With a hypospray chosen, a click on an
+Damage, the team too *(inferred)*. A grenade's own Destroyed Action,
+more than a noise, runs where it went off: the EM pulse's holds the
+Electronic Equipment within it 15 seconds, doing nothing *(inferred)*.
+With a hypospray chosen, a click on an
 officer (themselves too, if it can) sends them there to heal them by its
 Health, up to their whole *(inferred)*. Each use takes one of its count;
 none left, it can't be used. The bar shows each item's uses left in its
@@ -173,17 +248,48 @@ sight, or elsewhere *(inferred)*.
 
 The chosen item's panel is drawn on the info bar: its Background
 Sequence centred at Info Renderer Pos (its frames' origin), its parts
-at their places from there, over the minimap *(inferred)*: a generic
+placed as above *(inferred)*, over the minimap: a generic
 one's text; the phaser's power, full, "Damage: %g" (`0x41bc47`), and its
 STUN or KILL on the toolkit's toggle (`Inventory/Toggle Default` and
 `Press`), a click on it switching the chosen officer's phaser
 *(inferred)*, with OVERLOAD, off; the remote mine's DETONATE and its
-count; the tricorder's words. Each officer's phaser is set as it comes,
+count; the tricorder's words; the band's charge, as a percentage
+*(inferred)*, and its button. Each officer's phaser is set as it comes,
 and set to stun it stuns what it hits for its Stun Duration.
 
-Not there yet: the mines' Deploy and Activate sequences, the cloaking
-band, the other gadgets and skills, the phaser's overload and range, the
-Out Of Range cursor, and the full inventory.
+The cloaking band (`ui/map_gadgets.cpp`) charges and goes on and off as
+above, from its panel's button, and its wearer fades; on, the enemies
+don't see them *(inferred: from its description; the program's sight
+isn't traced)*.
+
+An item whose Process Activity puts something down, sets it up or runs an
+action goes through it as a part's process does: a `CDropItemAI` walking
+till the place is in its Item Range and sight, a
+`CGotoPointAndDoActionAI` to the place, then their actions where it's
+used, the officer the instigator *(inferred)*. What's put down becomes a
+part of the map from its model's Default Entity: named, its sequence
+played from its start once, then Idle, each frame's Trigger actions run
+as it's reached, its triggers watched, its processes there to use, its
+`CActionAI`s run at once *(inferred)*. The actions they need are there:
+putting down (at the place, or in front of the officer), using up and
+giving items, holding someone to a `CWaitAI` or `CDoNothingAI` and
+letting them go (`CSendAIDoneMessage`), warping away, setting a part's
+sequence and categories, checking for an item or a category, and noise.
+An enemy that sees a Decoy goes after it and shoots it, its hit points
+down by the weapon's damage and its Pain Sound, gone at none
+*(inferred)*. A `CEveryTouchingOvalTriggerAI` answers to the enemies
+its Triggered by names too *(inferred)*. Held, an officer or enemy does
+nothing. A killed enemy's Death Behaviors' actions run, its categories
+and Default Death Type its model's where the map leaves them out
+*(inferred)*. A strike (`CStrikeTargetAction`) is made from within its
+Strike Damage Radius, 30 at least, the officer walking up *(inferred)*,
+and does its Weapon Damage.
+
+Not there yet: the mines' Deploy and Activate sequences, the phaser's
+overload and range, the Out Of Range cursor, the full inventory, the
+Psychic Rack, the enhancements, the Psyche Displacement Controller, the
+sparks and transporter pictures, the band on the team bar (`Active HUD
+Sequence`), and walls in a grenade's way.
 
 ## Sources and checks
 
@@ -210,13 +316,32 @@ Out Of Range cursor, and the full inventory.
   phaser's panel with KILL and OVERLOAD as the info bar rises; Marcus
   Refelian's six places (grenade, phaser, tricorder with the More
   Indicator), Inventory Next from the tricorder to the Holographic
-  Projection, the grenade and the phaser, its name under the bar.
+  Projection, the grenade and the phaser, its name under the bar; Ivan
+  Verov's band on, from 100 to 0 in 22 seconds and off, the wearer faded
+  to a quarter, its panel with 93% and DEACTIVATE; cloaked, Ivan Verov walking past the
+  first Romulan unseen and putting the holographic projection down in
+  front of it, the Romulan going after it and shooting it away;
+  T'Andorla setting up a stasis field under a Romulan, which holds it
+  once the field's deployed, then picking it up, the field hers again and
+  the Romulan let go; a concussion grenade's arc from 31 up to 35 and
+  down 200 on, two bounces and lying still; an EM pulse grenade thrown and
+  its noise; the phaser's panel with its parts on it. Unit tests
+  (`stawayteam.unit.maps`, kit) check the band's charge and fade and a
+  guard not seeing her, a stasis field's oval holding a guard and the
+  done message letting it go, a radius's action holding only the
+  Electronic Equipment 15 seconds, a decoy put down in range and one used
+  up, the guard seeing her with the band off, and a grenade's arc.
 
 ## Open questions
 
 - **Using items:** the program's rules for each Process: when the
   officer walks and when they use it, what the cursors show, and how a
-  thrown item flies and bounces.
+  thrown item flies and bounces (Gravity's units, walls).
+- **The band:** whether the enemies' sight is what it beats, and how
+  (its opacity, `0x496880`).
+- **Gadgets:** how the enemies treat a decoy, whether the neck pinch and
+  the paralysis stun rather than kill (their Weapon Damage is 50,000), and
+  what the Psychic Rack and the enhancements do.
 - **Grenades:** whom an explosion reaches and how far, whether it hurts
   the team, and what the EM Pulse Grenade does.
 - **The bar:** where a count is shown, where the More Indicator is

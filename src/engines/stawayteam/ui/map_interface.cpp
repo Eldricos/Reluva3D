@@ -157,6 +157,8 @@ std::string MapScreen::cursorName() {
                     return named(readText(process, "Process Cursor"));
             return named(part >= 0 || enemy >= 0 ? def->hoveringCursor : def->cantUseCursor);
         }
+        if (def->process && def != o.weapon && !def->charged && def->health <= 0.0f)
+            return named(def->processCursor);
         if (def->health > 0.0f)
             return named(officer >= 0 && (officer != _selected || def->canUseOnSelf) ? def->hoveringCursor
                                                                                      : def->cantUseCursor);

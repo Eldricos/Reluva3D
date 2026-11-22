@@ -22,6 +22,8 @@ constexpr float kPi = 3.14159265f;
 constexpr float kDefaultHealth = 100.0f;
 // An officer's model's 12 directions, 0 facing left, turning anticlockwise.
 constexpr int kDirections = 12;
+// A strike reaches about a figure's width at least (inferred).
+constexpr float kStrikeReach = 30.0f;
 
 // Which side of the line a-b point c is on.
 float side(float ax, float ay, float bx, float by, float cx, float cy) {
@@ -200,6 +202,7 @@ void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attack
         e.state = "Dead";
         e.target = -1;
         runAction(_map.parts[e.part].destroyedAction, attacker, int(e.part));
+        runDeathBehaviors(e.part, attacker);
         return;
     }
     // One that's Target If Hit turns on whoever hit it, and attacks; one
@@ -257,6 +260,8 @@ void MapScreen::updateCombat(float seconds) {
             o.stunned = std::max(0.0f, o.stunned - seconds);
             continue;
         }
+        if (o.held > 0.0f)
+            continue;
         if (o.shooting > 0.0f) {
             o.shooting += seconds;
             const Animation &a = animation(_team[o.member].bodyModel, o.discharge);
@@ -275,8 +280,13 @@ void MapScreen::updateCombat(float seconds) {
         }
         // In its range and sight they stop and shoot, each Reuse Delay;
         // else they go to it by the waypoints (inferred).
+        // A strike (the neck pinch's, CStrikeTargetAction) reaches only its
+        // Strike Damage Radius: they walk up to it (its CStrikeTargetAI).
         const float distance = std::hypot(e.x - o.x, e.y - o.y);
-        if (distance <= o.weapon->range && clearSight(o.x, o.y, e.x, e.y)) {
+        const float reach = o.weapon->dischargeAction == "CStrikeTargetAction"
+                                ? std::max(o.weapon->strikeRadius, kStrikeReach)
+                                : o.weapon->range;
+        if (distance <= reach && clearSight(o.x, o.y, e.x, e.y)) {
             o.path.clear();
             o.direction = directionOf(e.x - o.x, e.y - o.y);
             if (o.reload <= 0.0f) {

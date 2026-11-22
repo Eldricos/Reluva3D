@@ -37,13 +37,14 @@ public:
         bool objectives = false;  // the objectives button pressed
         bool pause = false;       // the pause button pressed: time stopped or going again
         bool cancelOrders = false;
-        bool vision = false;     // the vision button pressed: its state on
-        bool options = false;    // the escape button pressed
-        bool toggleStun = false; // the chosen item's panel's STUN or KILL pressed
-        bool detonate = false;   // the remote mine's panel's DETONATE pressed
-        int item = -1;           // an item chosen on the inventory: its place in what setInventory gave
-        int step = 0;            // the inventory's Next (1) or Previous (-1) button pressed
-        float cameraX = 0.0f;    // where, for moveCamera: the view's middle on the map
+        bool vision = false;       // the vision button pressed: its state on
+        bool options = false;      // the escape button pressed
+        bool toggleStun = false;   // the chosen item's panel's STUN or KILL pressed
+        bool detonate = false;     // the remote mine's panel's DETONATE pressed
+        bool toggleCharge = false; // the cloaking band's panel's ACTIVATE or DEACTIVATE pressed
+        int item = -1;             // an item chosen on the inventory: its place in what setInventory gave
+        int step = 0;              // the inventory's Next (1) or Previous (-1) button pressed
+        float cameraX = 0.0f;      // where, for moveCamera: the view's middle on the map
         float cameraY = 0.0f;
     };
 
@@ -110,6 +111,11 @@ public:
         _scan = std::move(scan);
         _scanTyped = typed;
     }
+    /** A charged item's charge (0-100), and whether it's on. */
+    void setCharge(float energy, bool on) {
+        _energy = energy;
+        _chargeOn = on;
+    }
     /** Whether time's stopped, the pause button held down. */
     void setPaused(bool paused) { _paused = paused; }
     /** The vision button's state: 0 off, 1 choosing an enemy, 2 showing its sight. */
@@ -153,14 +159,16 @@ private:
     bool _paused = false;
     int _vision = 0;
     bool _stun = false;
+    float _energy = 100.0f;
+    bool _chargeOn = false;
     std::string _scan;
     size_t _scanTyped = 0;
     std::map<std::string, Animation> _sequences; // the panels', by name
     std::map<std::string, Font> _panelFonts;
-    // Where the chosen item's panel is on the screen, and its STUN and
-    // DETONATE buttons' places in it.
-    int _panelX = 0;
-    int _panelY = 0;
+    // The info bar's corner on the screen, the chosen item's panel's
+    // buttons placed from it.
+    int _barX = 0;
+    int _barY = 0;
     std::vector<Held> _held;
     std::vector<Place> _places;
     int _heldChosen = -1;

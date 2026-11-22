@@ -22,6 +22,11 @@ constexpr float kPi = 3.14159265f;
 // A grenade's flight and fuse when its model doesn't give them (inferred).
 constexpr float kDefaultThrowSpeed = 400.0f;
 constexpr float kDefaultFuse = 3.0f;
+// A thrown thing's Gravity, taken as pixels a second each 30th of a second
+// (inferred), and a bounce too slow to be one, pixels a second (inferred).
+constexpr float kGravityScale = 30.0f;
+constexpr float kDefaultGravity = 17.0f;
+constexpr float kRestingBounce = 40.0f;
 // Near enough an officer to use an item on them: about the items' Strike
 // Damage Radius (20) and a figure's width (inferred).
 constexpr float kUseReach = 30.0f;
@@ -44,6 +49,23 @@ bool shoots(const ItemDefinition &d) {
     return d.weaponDamage > 0.0f &&
            (d.dischargeAction == "CShootEnergyWeaponAction" || d.dischargeAction == "CShootProjectileWeaponAction" ||
             d.dischargeAction == "CStrikeTargetAction");
+}
+
+// Whether its own Process Activity is one Reluva runs: something put
+// down, set up where it's going, or an action.
+bool ownProcess(const ItemDefinition &d) {
+    const TextObject *list = d.process ? d.process->object("Process Activity") : nullptr;
+    if (!list)
+        return false;
+    for (const TextField *f : list->items())
+        if (f->object && (f->object->className == "CDropItemAI" || f->object->className == "CGotoPointAndDoActionAI" ||
+                          f->object->className == "CActionAI"))
+            return true;
+    return false;
+}
+
+float gravityOf(const ItemDefinition &d) {
+    return (d.gravity > 0.0f ? d.gravity : kDefaultGravity) * kGravityScale;
 }
 
 bool throws(const ItemDefinition &d) {
@@ -109,7 +131,22 @@ bool MapScreen::useItem(float x, float y) {
         o.path.clear();
         return true;
     }
-    if (!def->deployModel.empty()) {
+    // A mine is put down as one (it has a trigger, or is set off by its
+    // panel); other things put down, set up or used by the item's own
+    // Process Activity go through that.
+    const bool mine = !def->deployModel.empty() && (def->remote || modelInfo(def->deployModel).triggerRadius > 0.0f);
+    const bool scans = def->processType == "Scan" || def->processType == "Medical Scan";
+    if (!mine && !scans && ownProcess(*def)) {
+        o.task = Officer::Task::kItemProcess;
+        o.taskX = x;
+        o.taskY = y;
+        o.taskPart = partAt(x, y);
+        o.taskStep = 0;
+        o.attacking = -1;
+        o.path.clear();
+        return true;
+    }
+    if (mine) {
         // Put down where's clicked (CDropItemAI, inferred: walked to first).
         o.task = Officer::Task::kPlace;
         o.taskX = x;
@@ -181,13 +218,23 @@ bool MapScreen::doTask(size_t officer) {
         return true;
     }
     if (o.task == Officer::Task::kThrow) {
-        // Thrown from where they stand at the place: it flies there at its
-        // model's Max Velocity, and goes off its Shot Duration after it's
-        // thrown (inferred: the throw's arc and bounces aren't there).
+        // Thrown from their hand's Height at the place: along the ground at
+        // its model's Max Velocity, up so its Gravity brings it down there;
+        // it goes off its Shot Duration after it's thrown (inferred: the
+        // throw's speed and Gravity's units aren't traced).
         o.direction = directionOf(o.taskX - o.x, o.taskY - o.y);
         const ModelInfo &info = modelInfo(def->projectile);
-        _thrown.push_back({def, def->projectile, o.x, o.y, o.taskX, o.taskY,
-                           info.fuse > 0.0f ? info.fuse : kDefaultFuse, int(officer)});
+        Thrown t{def,         def->projectile, o.x, o.y, o.taskX, o.taskY, info.fuse > 0.0f ? info.fuse : kDefaultFuse,
+                 int(officer)};
+        const float speed = info.maxVelocity > 0.0f ? info.maxVelocity : kDefaultThrowSpeed;
+        const float distance = std::hypot(o.taskX - o.x, o.taskY - o.y);
+        const float flight = std::max(0.1f, distance / speed);
+        const float g = gravityOf(*def);
+        t.z = def->throwHeight;
+        t.vx = distance > 0.0f ? (o.taskX - o.x) / flight : 0.0f;
+        t.vy = distance > 0.0f ? (o.taskY - o.y) / flight : 0.0f;
+        t.vz = g * flight / 2.0f - t.z / flight;
+        _thrown.push_back(t);
         if (_mixer)
             if (auto sound = gameSound(_data, def->shotSound))
                 _mixer->play(sound, audio::SoundType::kEffects);
@@ -219,6 +266,19 @@ void MapScreen::explode(const Thrown &t) {
         if (auto sound = gameSound(_data, info.deathSound))
             _mixer->play(sound, audio::SoundType::kEffects);
     makeNoise(t.x, t.y, info.noiseRadius, info.noiseAge);
+    // Its model's Destroyed Action, where it went off, when it's more than
+    // a noise: the EM pulse's holds the Electronic Equipment near (inferred:
+    // run with no part as its $Trigger).
+    if (const BinaryObject *model = modelObject(t.model))
+        if (const TextObject *entity = model->object.object("Default Entity"))
+            if (const TextObject *destroyed = entity->object("Destroyed Action");
+                destroyed && destroyed->className != "CAddNoiseAction") {
+                _hasHere = true;
+                _hereX = t.x;
+                _hereY = t.y;
+                runAction(destroyed, -1, -1);
+                _hasHere = false;
+            }
     const float radius = info.explosionRadius;
     if (radius <= 0.0f)
         return;
@@ -243,6 +303,11 @@ void MapScreen::updateItems(float seconds) {
             continue;
         if (o.task == Officer::Task::kProcess) {
             if (o.down() || runProcess(i, seconds))
+                o.task = Officer::Task::kNone;
+            continue;
+        }
+        if (o.task == Officer::Task::kItemProcess) {
+            if (o.down() || o.held > 0.0f || runItemProcess(i, seconds))
                 o.task = Officer::Task::kNone;
             continue;
         }
@@ -285,20 +350,33 @@ void MapScreen::updateItems(float seconds) {
     }
     _scanTyped += seconds * kScanSpeed;
     updateMines(seconds);
+    // In flight it falls by its Gravity; landing, it bounces up by its
+    // model's Bounce Factor of its fall, with its Bounce Sound, losing its
+    // Bounce Friction of its speed along the ground; too slow a bounce and
+    // it lies there (inferred).
     for (Thrown &t : _thrown) {
-        const float speed = [&] {
-            const float v = modelInfo(t.model).maxVelocity;
-            return v > 0.0f ? v : kDefaultThrowSpeed;
-        }();
-        const float dx = t.toX - t.x;
-        const float dy = t.toY - t.y;
-        const float distance = std::hypot(dx, dy);
-        const float step = std::min(distance, speed * seconds);
-        if (distance > 0.0f) {
-            t.x += dx / distance * step;
-            t.y += dy / distance * step;
-        }
         t.left -= seconds;
+        if (t.resting)
+            continue;
+        const ModelInfo &info = modelInfo(t.model);
+        t.x += t.vx * seconds;
+        t.y += t.vy * seconds;
+        t.vz -= gravityOf(*t.item) * seconds;
+        t.z += t.vz * seconds;
+        if (t.z > 0.0f)
+            continue;
+        t.z = 0.0f;
+        t.vz = -t.vz * info.bounceFactor;
+        t.vx *= 1.0f - info.bounceFriction;
+        t.vy *= 1.0f - info.bounceFriction;
+        if (t.vz < kRestingBounce) {
+            t.resting = true;
+            t.vx = t.vy = t.vz = 0.0f;
+            continue;
+        }
+        if (_mixer)
+            if (auto sound = gameSound(_data, t.item->bounceSound))
+                _mixer->play(sound, audio::SoundType::kEffects);
     }
     for (size_t i = 0; i < _thrown.size();) {
         if (_thrown[i].left > 0.0f) {
@@ -314,13 +392,14 @@ void MapScreen::updateItems(float seconds) {
 const TextObject *MapScreen::processFor(size_t part, const Officer &o) const {
     // One for their chosen item (its Required Selected Item), first; else
     // one to Use with none (inferred: the program's choosing isn't traced).
-    // One that needs an item in the inventory needs them to carry it.
+    // One that needs an item in the inventory needs them to have it, its
+    // uses spent or not (a stasis field's to pick it up).
     const ItemDefinition *item = itemOf(o);
     const auto carries = [&](const std::string &name) {
         if (name.empty() || name == "!None")
             return true;
         for (const Officer::Held &h : o.items)
-            if (h.name == name && h.count != 0)
+            if (h.name == name)
                 return true;
         return false;
     };
@@ -418,8 +497,16 @@ bool MapScreen::runProcess(size_t officer, float seconds) {
             const float ex = (o.x - x) / radius;
             const float ey = (o.y - y) / (radius * (ratio > 0.0f ? ratio : 1.0f));
             if (ex * ex + ey * ey <= 1.0f) {
+                // There: its Done action (a stasis field's picks it up).
                 o.path.clear();
                 ++o.taskStep;
+                const TextObject *done =
+                    step->object("Done action") ? step->object("Done action") : step->object("Done Action");
+                if (done) {
+                    runAction(done, int(officer), o.taskPart);
+                    if (o.task != Officer::Task::kProcess)
+                        return true;
+                }
                 continue;
             }
             if (o.path.empty())

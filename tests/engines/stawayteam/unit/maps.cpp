@@ -1127,6 +1127,123 @@ void testProcesses() {
     CHECK(screen.zoom() == 1.0f && screen.mapX(0) == screen.cameraX() - 100.0f);
 }
 
+void testKit() {
+    // Ann with the cloaking band, a decoy to put down, a phaser and a
+    // grenade; a guard looking her way, one in a stasis field's oval, one of
+    // Electronic Equipment, and one to shoot whose body's then of Dead Bodies.
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    const auto guard = [](const std::string &name, int x, int y, float angle, const std::string &more) {
+        return "Level Part=CEntityWalking\n{\nName=" + name +
+               "\nActivity=Array\n{\nItem Count=1\nActivity=CBorgAI\n{\nCurrent State=Patrol\nMax Distance=400\n"
+               "Vision Cone=90\n}\n}\nModel=Characters/Guard\nPosition X=" +
+               std::to_string(x) + "\nPosition Y=" + std::to_string(y) + "\nFacing Angle=" + std::to_string(angle) +
+               "\n" + more + "}\n";
+    };
+    const std::string zax =
+        "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=500.000000,300.000000\nTree List=CSortList2D\n{\n" +
+        guard("Watcher", 500, 300, 0.0f, "") + guard("Trapped", 900, 900, 0.0f, "") +
+        guard("Camera", 900, 300, 0.0f, "Category=Electronic Equipment,Enemy\n") +
+        guard("Target", 300, 600, 1.5708f, "Default Death Type=Test\n") +
+        "Level Part=CEntityBase\n{\nName=Field\nActivity=Array\n{\nItem Count=1\n"
+        "Activity=CEveryTouchingOvalTriggerAI\n{\nTriggered by=Enemy,Player,Team Member\nX Radius=40\nYX Ratio=1\n"
+        "Enter Action=CConditionalAction\n{\nTry Action=CCheckForItemAction\n{\nWho To Check=$Instigator\n"
+        "Inventory Definition=Field\n}\nFail Action=CAssignTemporaryTaskAction\n{\nTarget=$Instigator\n"
+        "Temporary Task AI=CDoNothingAI\n{\n}\n}\n}\n}\n}\nPosition X=900\nPosition Y=900\n}\n"
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=300\n}\n}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = bytesOf(zax);
+    data.files["Cache/Models/Characters/Guard.mdl16"] = modelFile("Guard", 1, 1);
+    data.files["Cache/Models/Props/Box.mdl16"] = modelFile("Box", 1, 1);
+    data.files["Cache/Models/Shots/Grenade.mdl16"] = modelFile("Grenade", 1, 1, 1.0f, {}, 0.0f, false, 400.0f);
+    data.files["Death Behaviors/Test.txt"] =
+        bytesOf("CDeathBehaviorDefinition\n{\nDeath Behaviors=CEntityBehaviorExecuteAction\n{\n"
+                "Action=CSetCategoryAction\n{\nWho to Set=$trigger\nCategory to Set=Dead Bodies\n}\n}\n}\n");
+    const auto item = [&](const std::string &name, const std::string &body) {
+        data.files["Inventory/Item Definitions/" + name + ".txt"] =
+            bytesOf("CStarTrekInventoryItemDefinition\n{\nDisplay In Inventory=1\n" + body + "}\n");
+    };
+    item("Band", "Default Inventory Item=CStarTrekInvisBandInventoryItem\n{\n}\nEnergy Use=4.5\nEnergy Recharge=0\n"
+                 "Process=CProcess\n{\nProcess Type=!None\n}\n");
+    item("Decoy",
+         "Item Range=400\nProcess=CProcess\n{\nProcess Type=Item use\nProcess Activity=Array\n{\n"
+         "Item Count=1\nProcess Activity=CDropItemAI\n{\nDestination Action=CMultipleActionsAction\n{\n"
+         "Action=Array\n{\nItem Count=2\nAction=CDropItemAtTargetAction\n{\nModel to Create=Props/Box\n"
+         "New Name=Decoy 1\nDeploy Sequence=Idle\n}\nAction=CUseItemOnTargetAction\n{\n"
+         "Inventory Item Definition=Decoy\n}\n}\n}\n}\n}\n}\nDefault Inventory Item=CStarTrekCountInventoryItem\n"
+         "{\nRounds=2\n}\n");
+    item("Phaser",
+         "Weapon Damage=200\nReuse Delay=0.5\nItem Range=375\nDischarge Action=CShootEnergyWeaponAction\n{\n}\n");
+    item("Grenade", "Item Range=500\nProjectile=Shots/Grenade\nDischarge Action=CThrowProjectileWeaponAction\n{\n"
+                    "Height=30\nGravity AI=CThrowGravityAI\n{\nGravity=17\n}\n}\n"
+                    "Default Inventory Item=CStarTrekProjectileWeaponInventoryItem\n{\nRounds=1\n}\n");
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    ann.inventory = {{"Band", -1}, {"Decoy", 2}, {"Phaser", -1}, {"Grenade", 1}};
+    MapScreen screen(data, rules, map, options, 0, {ann});
+    const MapScreen::Officer &a = screen.officers()[0];
+    const auto &enemies = screen.enemies();
+    uint64_t now = 0;
+    const auto run = [&](uint64_t until) {
+        while (now < until)
+            screen.update(now += 50);
+    };
+    // Cloaked, the watcher doesn't see her; the band drains at its Energy
+    // Use a second, and she fades to a quarter.
+    screen.choose(0);
+    screen.chooseItem(0, 0);
+    screen.toggleCharge();
+    run(2000);
+    CHECK(a.items[0].on && std::abs(a.items[0].energy - 91.0f) < 0.5f && a.opacity == 0.25f);
+    CHECK(enemies[0].state == "Patrol");
+    // The stasis field's oval holds the guard in it till it's told it's
+    // done; Ann's own doesn't hold her.
+    CHECK(enemies[1].held == MapScreen::kHeldForever);
+    TextObject done;
+    CHECK(!readTextObject("CSendAIDoneMessage\n{\nTarget=Trapped\n}\n", done));
+    screen.runAction(&done);
+    CHECK(enemies[1].held == 0.0f);
+    // A radius's action on Electronic Equipment, as an EM pulse's: the
+    // camera's held 15 seconds, the others not.
+    TextObject pulse;
+    CHECK(!readTextObject("CDoOnAllWithinRadiusAction\n{\nTarget Entity=Camera\nWho To Affect=Electronic Equipment\n"
+                          "Radius=2000\nY To X Ratio=1\nTouching Action=CAssignOverrideTemporaryTaskAction\n{\n"
+                          "Target=$instigator\nTemporary Task AI=CWaitAI\n{\nTime To Wait=15\n}\n}\n}\n",
+                          pulse));
+    screen.runAction(&pulse);
+    CHECK(enemies[2].held == 15.0f && enemies[0].held == 0.0f && enemies[3].held == 0.0f);
+    run(3000);
+    CHECK(std::abs(enemies[2].held - 14.0f) < 0.01f);
+    // The decoy put down where it's used, within its range, one used up.
+    screen.chooseItem(0, 1);
+    CHECK(screen.useItem(500.0f, 400.0f));
+    run(6000);
+    float x = 0.0f;
+    float y = 0.0f;
+    CHECK(screen.partPosition("Decoy 1", x, y) && x == 500.0f && y == 400.0f && a.items[1].count == 1);
+    // Off, she's seen.
+    screen.chooseItem(0, 0);
+    screen.toggleCharge();
+    run(8000);
+    CHECK(!a.items[0].on && a.opacity == 1.0f && enemies[0].state != "Patrol");
+    // A grenade flies up and comes down where it's thrown.
+    screen.chooseItem(0, 3);
+    CHECK(screen.useItem(300.0f, 500.0f));
+    float highest = 0.0f;
+    for (int k = 0; k < 40; ++k) {
+        run(now + 50);
+        if (!screen.thrown().empty())
+            highest = std::max(highest, screen.thrown()[0].z);
+    }
+    CHECK(highest > 30.0f);
+}
+
 void testChoosing() {
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(kMap, kMap + std::string(kMap).size());
@@ -1184,4 +1301,5 @@ static const reluva::test::Suite kSuite("stawayteam.unit.maps",
                                             {"interface", [](const std::filesystem::path &) { testInterface(); }},
                                             {"gadgets", [](const std::filesystem::path &) { testGadgets(); }},
                                             {"processes", [](const std::filesystem::path &) { testProcesses(); }},
+                                            {"kit", [](const std::filesystem::path &) { testKit(); }},
                                         });

@@ -55,6 +55,21 @@ void MapScreen::setupEnemies() {
             continue;
         for (const TextObject *ai : p.activities)
             if (ai->className == "CBorgAI") {
+                // Its categories, its model's Default Entity's where the
+                // map leaves them out, Enemy without either (inferred).
+                if (p.category.empty()) {
+                    const BinaryObject *model = modelObject(p.model);
+                    const TextObject *entity = model ? model->object.object("Default Entity") : nullptr;
+                    _map.parts[i].category = entity ? readText(entity, "Category") : std::string();
+                    if (_map.parts[i].category.empty())
+                        _map.parts[i].category = "Enemy";
+                }
+                if (p.deathType.empty() || p.deathType == "!None") {
+                    const BinaryObject *model = modelObject(p.model);
+                    const TextObject *entity = model ? model->object.object("Default Entity") : nullptr;
+                    if (entity)
+                        _map.parts[i].deathType = readText(entity, "Default Death Type");
+                }
                 Enemy e;
                 e.part = i;
                 e.ai = ai;
@@ -73,7 +88,8 @@ bool MapScreen::sees(const Enemy &e, const Officer &o) const {
     // Within its Max Distance and half its Vision Cone either side of its
     // facing, nothing standing full height between (CBorgSetClosestTarget,
     // inferred).
-    if (o.down())
+    // Nor one cloaked (inferred: the band's description has them unseen).
+    if (o.down() || o.cloaked)
         return false;
     const float dx = o.x - e.x;
     const float dy = o.y - e.y;
@@ -285,6 +301,13 @@ bool MapScreen::runEnemyAction(const TextObject *action, int instigator, int tri
     const std::string &kind = action->className;
     const auto enemiesNamed = [&](const char *key) {
         std::vector<Enemy *> out;
+        const int who = whoNamed(readText(action, key), instigator, trigger);
+        if (who <= kEnemyInstigator && size_t(kEnemyInstigator - who) < _enemies.size()) {
+            Enemy &e = _enemies[size_t(kEnemyInstigator - who)];
+            if (e.alive())
+                out.push_back(&e);
+            return out;
+        }
         for (size_t part : partsNamed(readText(action, key), trigger)) {
             const auto it = _enemyOfPart.find(part);
             if (it != _enemyOfPart.end() && _enemies[it->second].alive())
@@ -301,6 +324,10 @@ bool MapScreen::runEnemyAction(const TextObject *action, int instigator, int tri
         if (instigator >= 0) {
             x = _officers[size_t(instigator)].x;
             y = _officers[size_t(instigator)].y;
+        } else if (_hasHere) {
+            // Where a radius's action is about (a decoy's).
+            x = _hereX;
+            y = _hereY;
         } else if (trigger >= 0) {
             placeOf(size_t(trigger), x, y);
         } else {
@@ -330,11 +357,8 @@ bool MapScreen::runEnemyAction(const TextObject *action, int instigator, int tri
         if (lowered == "$instigator" && instigator >= 0) {
             cx = _officers[size_t(instigator)].x;
             cy = _officers[size_t(instigator)].y;
-        } else {
-            const std::vector<size_t> at = partsNamed(lowered == "$instigator" ? "$trigger" : centre, trigger);
-            if (at.empty())
-                return true;
-            placeOf(at.front(), cx, cy);
+        } else if (!placeNamed(lowered == "$instigator" ? "$trigger" : centre, -1, trigger, cx, cy)) {
+            return true;
         }
         const float rx = number(action, "Radius");
         const float ry = rx * number(action, "Y To X Ratio", 1.0f);
@@ -342,9 +366,39 @@ bool MapScreen::runEnemyAction(const TextObject *action, int instigator, int tri
         for (char &c : filter)
             c = char(std::tolower(static_cast<unsigned char>(c)));
         const std::vector<size_t> ignored = partsNamed(readText(action, "Who To Ignore"), trigger);
+        // Who To Affect, if it says, by their categories (an EM pulse's
+        // Electronic Equipment); its $instigator the one it's on, and the
+        // place it's about where it's done (inferred).
+        const std::string affects = readText(action, "Who To Affect");
+        const bool hadHere = _hasHere;
+        const float hereX = _hereX;
+        const float hereY = _hereY;
         runAction(action->object("Start Action"), instigator, trigger);
-        for (const Enemy &e : _enemies) {
+        const auto touch = [&](int who, int part) {
+            _hasTouched = true;
+            _touched = who;
+            _hasHere = true;
+            _hereX = cx;
+            _hereY = cy;
+            runAction(action->object("Touching Action"), instigator, part);
+            _hasTouched = false;
+            _hasHere = hadHere;
+            _hereX = hereX;
+            _hereY = hereY;
+        };
+        if (inCategory(affects, "Player,Team Member"))
+            for (size_t i = 0; i < _officers.size(); ++i) {
+                const Officer &o = _officers[i];
+                const float dx = (o.x - cx) / rx;
+                const float dy = (o.y - cy) / ry;
+                if (o.present && o.alive() && rx > 0.0f && ry > 0.0f && dx * dx + dy * dy <= 1.0f)
+                    touch(int(i), trigger);
+            }
+        for (size_t k = 0; k < _enemies.size(); ++k) {
+            const Enemy &e = _enemies[k];
             if (!e.alive() || !_partStates[e.part].active || _partStates[e.part].deleted || rx <= 0.0f || ry <= 0.0f)
+                continue;
+            if (!affects.empty() && !inCategory(_map.parts[e.part].category, affects))
                 continue;
             std::string name = _map.parts[e.part].name;
             for (char &c : name)
@@ -355,7 +409,7 @@ bool MapScreen::runEnemyAction(const TextObject *action, int instigator, int tri
             const float dx = (e.x - cx) / rx;
             const float dy = (e.y - cy) / ry;
             if (dx * dx + dy * dy <= 1.0f)
-                runAction(action->object("Touching Action"), instigator, int(e.part));
+                touch(kEnemyInstigator - int(k), int(e.part));
         }
         runAction(action->object("Done Action"), instigator, trigger);
     } else {
@@ -371,6 +425,13 @@ void MapScreen::updateEnemies(float seconds) {
         const PartState &state = _partStates[e.part];
         if (!state.active || state.deleted || e.down())
             continue;
+        // Held to a task (a stasis field's, an EM pulse's wait), it does
+        // nothing else.
+        if (e.held > 0.0f) {
+            if (e.held < kHeldForever)
+                e.held = std::max(0.0f, e.held - seconds);
+            continue;
+        }
         e.stateTime += seconds;
         const TextObject *states = e.ai;
         const int self = int(e.part);
@@ -399,6 +460,8 @@ void MapScreen::updateEnemies(float seconds) {
         if ((e.state == "Patrol" || e.state == "Investigate") && hears(e, heardX, heardY) &&
             (e.state == "Patrol" || heardX != e.heardX || heardY != e.heardY))
             investigate(e, heardX, heardY);
+        if ((e.decoy >= 0 || e.target < 0) && fightDecoy(e, seconds))
+            continue;
         if (e.state == "Investigate") {
             if (runInvestigate(e, seconds)) {
                 if (const TextObject *s = states->object("Investigate"))

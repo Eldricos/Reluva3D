@@ -54,8 +54,8 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
   listed by the objectives button; the mission won or lost, and on to
   the next or again ([systems/objectives.md](systems/objectives.md)).
 - **Items:** the officers' items chosen on the inventory bar's places or
-  by key, weapons, grenades, mines, the hypospray and the tricorders
-  used
+  by key, weapons, grenades (thrown in an arc), mines, the hypospray, the
+  tricorders, the cloaking band and the gadgets used
   ([systems/items.md](systems/items.md)).
 - **Everything else** is still to come. The plan is in [PLAN.md](PLAN.md),
   and a first survey of the game's files is in

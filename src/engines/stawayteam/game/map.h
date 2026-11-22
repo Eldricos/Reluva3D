@@ -46,6 +46,8 @@ struct MapPart {
     std::vector<std::string> inventory;           // its items' definitions (Inventory's Definition Index)
     bool stuns = false;                           // an item of its set to stun (its Weapon Setting)
     const TextObject *destroyedAction = nullptr;  // run as it's killed
+    std::string category;                         // its Category: "Enemy", "Decoy,Player"...
+    std::string deathType;                        // its Default Death Type: Death Behaviors/<it>
     std::vector<std::pair<float, float>> polygon; // its corners, the last the first again
     std::string renderType;                       // a polygon's: "Textured", "Black", "Shadow", "Warped"...
     std::string texture;                          // a textured polygon's, of Cache/Textures
@@ -69,6 +71,12 @@ struct CameraScript {
 
 /** Reads a camera script manager's (`CCameraScriptManager`) steps; their actions stay in `manager`. */
 std::vector<CameraScript> readCameraScripts(const TextObject &manager);
+
+/** Whether a list of categories ("Enemy,Player") has any of `wanted`'s, also a list. */
+bool inCategory(const std::string &categories, const std::string &wanted);
+
+/** A part of a map from its object, of class `className` (a Level Part's, or a model's Default Entity's). */
+MapPart readPart(const std::string &className, const TextObject &o);
 
 /** A map (`Levels/Mission NN/<name>.zax`, a `CLayerSaveData`), as far as drawing it goes. */
 struct GameMap {
@@ -124,6 +132,10 @@ struct ModelInfo {
     float explosionRadius = 0.0f;
     bool explosionNeedsSight = false;
     float maxVelocity = 0.0f;
+    // How it bounces: the part of its fall's speed it keeps going up (Bounce
+    // Factor), and of its speed along the ground it loses (Bounce Friction).
+    float bounceFactor = 0.0f;
+    float bounceFriction = 0.0f;
     float fuse = 0.0f;
     float noiseRadius = 0.0f;
     float noiseAge = 0.0f;

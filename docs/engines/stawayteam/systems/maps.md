@@ -282,7 +282,18 @@ Activity`, the officer's AIs one after another: `CGoToAI` to its
 its `Action`, most often a `CTricorderDialogAction` (89), whose line
 shows on the tricorder's panel. `CAddAIAction` gives a part an AI (59
 processes, 28 points of interest, 8 triggers), and `CRemoveAIAction`
-takes one away by its class's name.
+takes one away by its class's name. A touching trigger's `Triggered by`
+lists whom it answers to (`Enemy,Player` on 111 `CAnyTouchingOvalTriggerAI`;
+the stasis field's `CEveryTouchingOvalTriggerAI`).
+
+A part's `Default Death Type` names its death behaviours, `Death
+Behaviors/<type>.txt` (`Klingon` for 540 parts, `Borg` 206): the
+sequences played and actions run as it's killed. A Klingon's give its
+body a process for the Teleportation Brig Controller, and set its
+categories (`CSetCategoryAction` `Dead Bodies`, `CClearCategoryAction`
+`Enemy`). Its `Category` is a list (`Electronic Equipment,Enemy`); a
+`CDoOnAllWithinRadiusAction`'s `Who To Affect` picks by it, and each
+category's `MiniMap Color` (`Categories/`) colours it.
 
 The program's trigger code isn't traced yet: how these fields act is
 read from the maps.
@@ -484,6 +495,13 @@ within its Item Range and in sight *(inferred)*. A
 `CTricorderDialogAction`'s line is typed on the tricorder's panel.
 `CAddAIAction` gives its parts the AI, a trigger watched from then on;
 `CRemoveAIAction` takes away theirs of that class, stopping its triggers
+*(inferred)*. The actions run as the gadgets need them
+([items.md](items.md#in-reluva)): a radius's action picks by Who To
+Affect, the officers too when it names Player or Team Member, its
+$instigator in its Touching Action the one it's on and the place it's
+about where they're sent to look *(inferred)*. A killed enemy's death
+behaviours' actions run; an enemy's categories and Default Death Type
+are its model's where the map leaves them out, Enemy without either
 *(inferred)*.
 
 The buttons (`ui/map_vision.cpp`, `ui/escape_menu.cpp`): the pause

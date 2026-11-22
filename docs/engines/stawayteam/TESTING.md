@@ -135,6 +135,11 @@ stawayteam frame-png`.
    edges and over the map with each item; the inventory's places, `]`
    and `[` and its buttons, the item's name under it; M holding the info
    bar up, the minimap's dots and squares; the keypad's +, - and * zooming;
+   Ivan Verov's band switched on from its panel, fading and draining, the
+   enemies not seeing it; the holographic projection drawing an enemy's
+   fire; Brexen Ijoula's stasis field holding an enemy and
+   picked up again; a grenade's arc and bounces; an EM pulse grenade near
+   electronics;
    enemies called by one
    that's seen the team, running after it out of sight, and retreating to
    their alarms when hurt (Mission 08); a grenade chosen on the bar or

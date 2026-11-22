@@ -147,6 +147,11 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
             item.shotNoiseTime = float(action->number("Time").value_or(0.0));
             if (const TextObject *heal = action->object("Health action"))
                 item.health = float(heal->number("Health").value_or(0.0));
+            item.throwHeight = float(action->number("Height").value_or(0.0));
+            if (const TextObject *gravity = action->object("Gravity AI")) {
+                item.gravity = float(gravity->number("Gravity").value_or(0.0));
+                item.bounceSound = text(*gravity, "Bounce Sound");
+            }
         }
         if (const TextObject *held = def.object("Default Inventory Item"))
             item.rounds = int(held->integer("Rounds").value_or(0));
@@ -167,8 +172,12 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
         if (const TextObject *process = def.object("Process"))
             if (const TextObject *drop = findObject(*process, "CDropItemAtTargetAction"))
                 item.deployModel = text(*drop, "Model to Create");
-        if (const TextObject *held = def.object("Default Inventory Item"))
+        if (const TextObject *held = def.object("Default Inventory Item")) {
             item.remote = held->className == "CStarTrekRemoteMineInventoryItem";
+            item.charged = held->className == "CStarTrekInvisBandInventoryItem";
+        }
+        item.energyUse = float(def.number("Energy Use").value_or(20.0));
+        item.energyRecharge = float(def.number("Energy Recharge").value_or(2.5));
         for (TextField &f : def.fields)
             if (f.key == "Info Renderer" && f.object)
                 item.infoRenderer = std::shared_ptr<const TextObject>(std::move(f.object));
@@ -180,6 +189,11 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
         item.stunDuration = float(def.number("Stun Duration").value_or(0.0));
         if (const TextObject *held = def.object("Default Inventory Item"))
             item.stuns = text(*held, "Weapon Setting") == "Stun";
+        item.strikeRadius = float(def.number("Strike Damage Radius").value_or(0.0));
+        for (TextField &f : def.fields)
+            if ((f.key == "Process" || f.key == "Discharge Action") && f.object)
+                (f.key == "Process" ? item.process : item.discharge) =
+                    std::shared_ptr<const TextObject>(std::move(f.object));
         const std::string key = path.substr(folder.size() + 1, path.size() - folder.size() - 5);
         out[key] = std::move(item);
     }

@@ -599,12 +599,15 @@ void MapScreen::update(uint64_t now) {
     if (_scripts.empty())
         scroll(seconds);
     for (Officer &o : _officers)
-        walk(o, seconds);
+        if (o.held <= 0.0f)
+            walk(o, seconds);
     // The triggers see where everyone has got to.
     updateNoises(seconds);
     updateEnemies(seconds);
     updateCombat(seconds);
     updateItems(seconds);
+    updateCharges(seconds);
+    updateDeployed(seconds);
     updateTriggers(seconds);
 }
 
@@ -632,7 +635,7 @@ void MapScreen::drawOfficer(Surface &view, const Officer &o, int left, int top, 
     // Beaming in: fading in, the transporter's sparkle over them through
     // the warp (inferred).
     const float warped = _warpTime > 0.0f ? 1.0f - _warpLeft / _warpTime : 1.0f;
-    const int opacity = int(std::lround(255.0f * std::clamp(warped, 0.0f, 1.0f)));
+    const int opacity = int(std::lround(255.0f * std::clamp(warped, 0.0f, 1.0f) * o.opacity));
     blitBy(view, shadow.frame(frame, o.direction), x, y, 1.0f, opacity);
     blitBy(view, body.frame(frame, o.direction), x, y, 1.0f, opacity);
     blitBy(view, head.frame(frame, o.direction), x, y, 1.0f, opacity);
@@ -711,6 +714,8 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
         _paused = !_paused;
     if (hud.toggleStun)
         toggleStun();
+    if (hud.toggleCharge)
+        toggleCharge();
     if (hud.detonate)
         detonate();
     if (hud.cancelOrders)
@@ -967,6 +972,14 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         const Animation &body = animation(p.model, sequence);
         const int direction = body.direction(e ? e->angle : p.angle);
         int frame = !fighting.empty() ? fought : int(double(now) * double(body.fps) / 1000.0) % 100000;
+        // Something put down plays its sequence from its first frame, once
+        // through if it's to stop.
+        for (const Deployed &d : _deployed)
+            if (d.part == size_t(s.part)) {
+                frame = int(d.time * body.fps);
+                if (d.once)
+                    frame = std::min(frame, std::max(0, body.perDirection() - 1));
+            }
         if (e && e->walking && fighting.empty()) {
             const float cycle = body.cycleDistance(direction);
             if (cycle > 0.0f)
@@ -985,7 +998,7 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
     // The grenades thrown, flying or lying.
     for (const Thrown &t : _thrown) {
         const Animation &a = animation(t.model, "Idle");
-        blitBy(view, a.at(now), int(std::lround(t.x)) - left, int(std::lround(t.y)) - top);
+        blitBy(view, a.at(now), int(std::lround(t.x)) - left, int(std::lround(t.y - t.z)) - top);
     }
     // The shots' flashes, over everyone.
     for (const Flash &f : _flashes) {
@@ -1022,6 +1035,8 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         const Officer &chosen = _officers[size_t(_selected)];
         const bool stun = chosen.item >= 0 && chosen.items[size_t(chosen.item)].stun;
         _hud->setItemPanel(stun, _scanText, size_t(std::max(0.0f, _scanTyped)));
+        if (chosen.item >= 0)
+            _hud->setCharge(chosen.items[size_t(chosen.item)].energy, chosen.items[size_t(chosen.item)].on);
     }
     _hud->setVision(_vision);
     if (_selected >= 0) {

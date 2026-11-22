@@ -125,7 +125,12 @@ struct ItemDefinition {
     int rounds = 0;            // its Default Inventory Item's Rounds: uses of one, 0 for unlimited
     std::string processType;   // what using it does: "Shoot", "Hypospray Use", "Scan"...
     std::string projectile;    // a thrown one's model, of Cache/Models
-    float health = 0.0f;       // a healer's (its Discharge Action's Health action's Health)
+    // A thrown one's: its Discharge Action's Height it leaves the hand at,
+    // and its Gravity AI's Gravity and Bounce Sound.
+    float throwHeight = 0.0f;
+    float gravity = 0.0f;
+    std::string bounceSound;
+    float health = 0.0f; // a healer's (its Discharge Action's Health action's Health)
     bool canUseOnSelf = false;
     std::string useSound;
     bool multipleSettings = false; // Has Multiple Settings: the phaser's kill and stun
@@ -140,6 +145,17 @@ struct ItemDefinition {
     // can be used (its Process's Process Cursor) and can't, over what it's
     // used on (Entity Hovering Cursor), and over that out of sight
     // (Obscured Cursor, with Show Obscured Cursor).
+    // A charged one's (the cloaking band's): its charge, out of 100,
+    // spent Energy Use a second while it's on and back Energy Recharge a
+    // second while it's off (0x5d2c50).
+    bool charged = false;
+    float strikeRadius = 0.0f; // Strike Damage Radius: how near a strike reaches
+    // Its Process (what using it does, with its Process Activity) and its
+    // Discharge Action, kept as written.
+    std::shared_ptr<const TextObject> process;
+    std::shared_ptr<const TextObject> discharge;
+    float energyUse = 0.0f;
+    float energyRecharge = 0.0f;
     std::string processCursor;
     std::string cantUseCursor;
     std::string hoveringCursor;

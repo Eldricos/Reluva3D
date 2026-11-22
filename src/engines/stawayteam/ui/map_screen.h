@@ -7,6 +7,7 @@
 #include "common/archive.h"
 #include "common/events.h"
 #include "common/system.h"
+#include "engines/stawayteam/formats/binary_object.h"
 #include "engines/stawayteam/formats/text_object.h"
 #include "engines/stawayteam/game/map.h"
 #include "engines/stawayteam/game/objectives.h"
@@ -65,6 +66,10 @@ struct Relocation {
  */
 class MapScreen {
 public:
+    /** An instigator that's enemy `e`: kEnemyInstigator - e (officers are 0 up). */
+    static constexpr int kEnemyInstigator = -1000;
+    /** Held to a task till told it's done. */
+    static constexpr float kHeldForever = 1e9f;
     /**
      * What the player chose that leaves the screen: the main menu, or, as
      * the mission's over, the next mission or this one again.
@@ -123,13 +128,15 @@ public:
         struct Held {
             std::string name;
             int count = -1;
-            bool stun = false; // set to stun, one with the phaser's settings
+            bool stun = false;     // set to stun, one with the phaser's settings
+            float energy = 100.0f; // a charged one's charge, out of 100
+            bool on = false;       // a charged one switched on
         };
         std::vector<Held> items;
         int item = -1;
         // What they've been sent to do with it, walking there first: throw
         // it at a place, or use it on an officer.
-        enum class Task { kNone, kThrow, kUseOn, kPlace, kScan, kProcess };
+        enum class Task { kNone, kThrow, kUseOn, kPlace, kScan, kProcess, kItemProcess };
         Task task = Task::kNone;
         float taskX = 0.0f;
         float taskY = 0.0f;
@@ -141,7 +148,10 @@ public:
         // place's items it shows (its first, 0, as they come).
         std::vector<int> shown;
 
-        bool present = true; // on this map, not on another of the mission's
+        bool present = true;  // on this map, not on another of the mission's
+        float opacity = 1.0f; // how much of them shows: a quarter cloaked
+        bool cloaked = false; // their cloaking band's on: the enemies don't see them
+        float held = 0.0f;    // seconds they're held still (a stasis field's), kHeldForever
 
         bool alive() const { return dead < 0.0f; }
         /** Fallen, stunned or elsewhere: they can't move, shoot, or be seen as a target. */
@@ -211,6 +221,8 @@ public:
         float shooting = 0.0f;
         float dead = -1.0f;   // seconds since it fell; below 0 alive
         float stunned = 0.0f; // seconds of its stun left
+        float held = 0.0f;    // seconds it's held to a task (a stasis field's, an EM pulse's), kHeldForever
+        int decoy = -1;       // the decoy's part it's after, or -1
 
         bool alive() const { return dead < 0.0f; }
         bool down() const { return dead >= 0.0f || stunned > 0.0f; }
@@ -254,6 +266,13 @@ public:
         float toY = 0.0f;
         float left = 0.0f; // seconds till it goes off
         int thrower = -1;
+        // Its flight: how high it is, and how fast it's going, pixels a
+        // second, along the ground and up.
+        float z = 0.0f;
+        float vx = 0.0f;
+        float vy = 0.0f;
+        float vz = 0.0f;
+        bool resting = false;
     };
     const std::vector<Thrown> &thrown() const { return _thrown; }
     /** A mine put down: arming, armed, or set off and about to go. */
@@ -272,6 +291,8 @@ public:
     void detonate();
     /** Switches the chosen officer's chosen item between kill and stun, one that has both. */
     void toggleStun();
+    /** Switches the chosen officer's chosen charged item (the cloaking band) on or off. */
+    void toggleCharge();
     /** What the chosen officer's tricorder last said, and how much of it's typed out. */
     const std::string &scanText() const { return _scanText; }
     /** The enemy standing at (x, y) on the map, alive, or -1. */
@@ -410,6 +431,39 @@ private:
     // The enemies' messages and actions on them (map_enemies.cpp); true if
     // `action` was one.
     bool runEnemyAction(const TextObject *action, int instigator, int trigger);
+    // The gadgets' (map_gadgets.cpp): what's put down, given, used up and
+    // held still.
+    bool runGadgetAction(const TextObject *action, int instigator, int trigger);
+    // A model put down at (x, y) as a part of the map, its Default
+    // Entity's AIs running, its sequence from the first frame.
+    size_t spawnPart(const std::string &model, const std::string &name, float x, float y, const std::string &sequence);
+    // A model's whole object (Cache/Models/<model>.mdl16), kept; nullptr
+    // if it won't read.
+    const BinaryObject *modelObject(const std::string &model);
+    void updateDeployed(float seconds);
+    // An enemy after a decoy: it goes to it and shoots it (false if it has
+    // none).
+    bool fightDecoy(Enemy &e, float seconds);
+    // A part's Death Behaviors, as it's killed: its body's process, its
+    // categories (Death Behaviors/<its Default Death Type>).
+    void runDeathBehaviors(size_t part, int instigator);
+    // Where an action names: a part ($trigger), an officer or enemy
+    // ($instigator), or the place it's done at.
+    bool placeNamed(const std::string &name, int instigator, int trigger, float &x, float &y) const;
+    // An officer (0 up) or enemy (kEnemyInstigator down) by what an action
+    // calls them, kNobody for neither.
+    static constexpr int kNobody = -1;
+    int whoNamed(const std::string &name, int instigator, int trigger) const;
+    // An item given to an officer, `count` of its uses; one used up.
+    void giveItem(int officer, const std::string &item, int count);
+    void useUpItem(int officer, const std::string &item);
+    // An officer or enemy held to a task for `seconds`.
+    void hold(int who, float seconds);
+    // What a CConditionalAction tries.
+    bool checkAction(const TextObject *attempt, int instigator, int trigger);
+    // An officer's item's own Process Activity, as a part's (an audio
+    // decoy put down, a stasis field set up).
+    bool runItemProcess(size_t officer, float seconds);
     // Where part `part` stands: an enemy where it's got to.
     void placeOf(size_t part, float &x, float &y) const;
     // `e` goes after officer `officer`: attacking, its Attack's Start Action run.
@@ -440,6 +494,8 @@ private:
     // The items (map_items.cpp).
     void setupItems();
     void updateItems(float seconds);
+    // The charged items and what they do (map_gadgets.cpp).
+    void updateCharges(float seconds);
     // An officer's task done once they're near enough: true when it's done.
     bool doTask(size_t officer);
     void explode(const Thrown &t);
@@ -558,8 +614,9 @@ private:
     struct Trigger {
         size_t part;
         const TextObject *ai;
-        bool done = false;             // triggered, and only once
-        std::vector<bool> touching;    // each officer's, for a touching trigger
+        bool done = false;          // triggered, and only once
+        std::vector<bool> touching; // each officer's, for a touching trigger
+        std::vector<bool> touchingEnemies;
         std::vector<float> nextRepeat; // each officer's next Repeat Action
         float timer = 0.0f;            // a repeat timer's seconds till it next acts
     };
@@ -606,6 +663,30 @@ private:
     std::vector<Flash> _flashes;
     std::vector<Thrown> _thrown;
     std::vector<Mine> _mines;
+    // A model put down, as a part: its sequence and how far into it, the
+    // frames whose actions have run, and its hit points if it has them.
+    struct Deployed {
+        size_t part = 0;
+        std::string sequence;
+        float time = 0.0f;
+        int frames = 0;   // of its sequence passed
+        bool once = true; // its sequence plays once, then Idle
+        float health = 0.0f;
+        std::string painSound;
+    };
+    std::vector<Deployed> _deployed;
+    std::map<std::string, std::unique_ptr<BinaryObject>> _modelObjects;
+    std::map<std::string, std::unique_ptr<TextObject>> _deathBehaviors;
+    // Parts beamed away: deleted once their warp's done.
+    std::vector<std::pair<size_t, float>> _warping;
+    // The place an action's done at when it's no part's: where an item's
+    // used, where a grenade goes off.
+    // The one a radius's action is on: $instigator in its Touching Action.
+    bool _hasTouched = false;
+    int _touched = kNobody;
+    bool _hasHere = false;
+    float _hereX = 0.0f;
+    float _hereY = 0.0f;
     std::string _scanText;
     float _scanTyped = 0.0f;
     std::vector<std::string> _itemTypes; // Inventory/Item Types, the bar's places last first

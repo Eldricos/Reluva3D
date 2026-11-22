@@ -6,6 +6,7 @@
 #include "engines/stawayteam/formats/binary_object.h"
 #include "engines/stawayteam/formats/text_object.h"
 
+#include <cctype>
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -96,6 +97,78 @@ std::vector<CameraScript> readCameraScripts(const TextObject &manager) {
     return out;
 }
 
+namespace {
+
+std::string lowered(std::string s) {
+    for (char &c : s)
+        c = char(std::tolower(static_cast<unsigned char>(c)));
+    return s;
+}
+
+} // namespace
+
+bool inCategory(const std::string &categories, const std::string &wanted) {
+    size_t at = 0;
+    const std::string have = "," + lowered(categories) + ",";
+    const std::string want = lowered(wanted);
+    while (at <= want.size()) {
+        const size_t comma = std::min(want.find(',', at), want.size());
+        std::string one = want.substr(at, comma - at);
+        while (!one.empty() && one.front() == ' ')
+            one.erase(one.begin());
+        while (!one.empty() && one.back() == ' ')
+            one.pop_back();
+        if (!one.empty() && have.find("," + one + ",") != std::string::npos)
+            return true;
+        at = comma + 1;
+    }
+    return false;
+}
+
+MapPart readPart(const std::string &className, const TextObject &o) {
+    MapPart part;
+    part.className = className;
+    part.name = text(o, "Name");
+    // A spawn point's facing, in its AI (CSpawnPointAI).
+    if (const TextObject *activity = o.object("Activity"))
+        for (const TextField *ai : activity->items()) {
+            if (!ai->object)
+                continue;
+            part.activities.push_back(ai->object.get());
+            if (ai->value == "CSpawnPointAI" && ai->object->number("Facing Angle"))
+                part.facing = float(*ai->object->number("Facing Angle"));
+        }
+    part.model = text(o, "Model");
+    part.sequence = text(o, "Cur Sequence");
+    part.x = float(o.number("Position X").value_or(0.0));
+    part.y = float(o.number("Position Y").value_or(0.0));
+    part.renderingHeight = int(o.integer("Rendering Height").value_or(0));
+    part.visible = o.integer("Visible").value_or(1) != 0;
+    part.active = o.integer("Active").value_or(1) != 0;
+    part.collideable = o.integer("Collideable").value_or(1) != 0;
+    part.fullHeight = o.integer("Full Height").value_or(1) != 0;
+    if (const TextObject *inventory = o.object("Inventory"))
+        if (const TextObject *list = inventory->object("Inventory List"))
+            for (const TextField *item : list->items())
+                if (item->object) {
+                    part.inventory.push_back(text(*item->object, "Definition Index"));
+                    part.stuns = part.stuns || text(*item->object, "Weapon Setting") == "Stun";
+                }
+    part.polygon = readPolygon(text(o, "Polygon"));
+    part.angle = float(o.number("Facing Angle").value_or(0.0));
+    part.overlay = text(o, "Overlay Model");
+    if (part.overlay == "!Unknown Model")
+        part.overlay.clear();
+    part.renderType = text(o, "Render Type");
+    part.destroyedAction = o.object("Destroyed Action");
+    part.category = text(o, "Category");
+    part.deathType = text(o, "Default Death Type");
+    part.texture = text(o, "Static Texture");
+    part.onGround = o.integer("On Ground").value_or(0) != 0;
+
+    return part;
+}
+
 Error loadMap(const Archive &data, const std::string &path, GameMap &out) {
     std::vector<uint8_t> bytes;
     if (Error err = data.read(path, bytes))
@@ -124,45 +197,7 @@ Error loadMap(const Archive &data, const std::string &path, GameMap &out) {
         for (const TextField &field : tree->fields) {
             if (field.key != "Level Part" || !field.object)
                 continue;
-            const TextObject &o = *field.object;
-            MapPart part;
-            part.className = field.value;
-            part.name = text(o, "Name");
-            // A spawn point's facing, in its AI (CSpawnPointAI).
-            if (const TextObject *activity = o.object("Activity"))
-                for (const TextField *ai : activity->items()) {
-                    if (!ai->object)
-                        continue;
-                    part.activities.push_back(ai->object.get());
-                    if (ai->value == "CSpawnPointAI" && ai->object->number("Facing Angle"))
-                        part.facing = float(*ai->object->number("Facing Angle"));
-                }
-            part.model = text(o, "Model");
-            part.sequence = text(o, "Cur Sequence");
-            part.x = float(o.number("Position X").value_or(0.0));
-            part.y = float(o.number("Position Y").value_or(0.0));
-            part.renderingHeight = int(o.integer("Rendering Height").value_or(0));
-            part.visible = o.integer("Visible").value_or(1) != 0;
-            part.active = o.integer("Active").value_or(1) != 0;
-            part.collideable = o.integer("Collideable").value_or(1) != 0;
-            part.fullHeight = o.integer("Full Height").value_or(1) != 0;
-            if (const TextObject *inventory = o.object("Inventory"))
-                if (const TextObject *list = inventory->object("Inventory List"))
-                    for (const TextField *item : list->items())
-                        if (item->object) {
-                            part.inventory.push_back(text(*item->object, "Definition Index"));
-                            part.stuns = part.stuns || text(*item->object, "Weapon Setting") == "Stun";
-                        }
-            part.polygon = readPolygon(text(o, "Polygon"));
-            part.angle = float(o.number("Facing Angle").value_or(0.0));
-            part.overlay = text(o, "Overlay Model");
-            if (part.overlay == "!Unknown Model")
-                part.overlay.clear();
-            part.renderType = text(o, "Render Type");
-            part.destroyedAction = o.object("Destroyed Action");
-            part.texture = text(o, "Static Texture");
-            part.onGround = o.integer("On Ground").value_or(0) != 0;
-            out.parts.push_back(std::move(part));
+            out.parts.push_back(readPart(field.value, *field.object));
         }
     return Error::success();
 }
@@ -200,6 +235,8 @@ Error loadModelInfo(const Archive &data, const std::string &model, ModelInfo &ou
     out.explosionRadius = float(object.object.number("Explosion Radial Damage").value_or(0.0));
     out.explosionNeedsSight = object.object.integer("Require LOS For Damage").value_or(0) != 0;
     out.maxVelocity = float(object.object.number("Max Velocity").value_or(0.0));
+    out.bounceFactor = float(object.object.number("Bounce Factor").value_or(0.0));
+    out.bounceFriction = float(object.object.number("Bounce Friction").value_or(0.0));
     out.descriptionScript = text(object.object, "Description Script");
     out.descriptionLine = text(object.object, "Description Line");
     out.defaultSequence = text(object.object, "Default Sequence");
