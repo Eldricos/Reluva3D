@@ -613,7 +613,8 @@ void Win32Process::addDriveStandIns() {
         if (!f)
             return 0u;
         std::error_code ec;
-        const uint64_t t = fileTime(stdfs::last_write_time(hostPath(f->path, false), ec));
+        const uint64_t t =
+            fixedFileTime ? fixedFileTime : fileTime(stdfs::last_write_time(hostPath(f->path, false), ec));
         for (int i = 1; i <= 3; ++i)
             if (c.arg(i)) {
                 c.write32(c.arg(i), uint32_t(t));
@@ -639,14 +640,14 @@ void Win32Process::addDriveStandIns() {
     });
 
     // Searches: FindFirstFileA(pattern, WIN32_FIND_DATAA*).
-    auto fillFind = [](Cpu &c, uint32_t p, const FindObject::Entry &e) {
+    auto fillFind = [this](Cpu &c, uint32_t p, const FindObject::Entry &e) {
         if (!c.valid(p, 320))
             return;
         std::memset(c.memory().data() + p, 0, 320);
         std::error_code ec;
         const bool dir = stdfs::is_directory(e.host, ec);
         c.write32(p, dir ? kDirectory : kArchive);
-        const uint64_t t = fileTime(stdfs::last_write_time(e.host, ec));
+        const uint64_t t = fixedFileTime ? fixedFileTime : fileTime(stdfs::last_write_time(e.host, ec));
         for (uint32_t at : {4u, 12u, 20u}) {
             c.write32(p + at, uint32_t(t));
             c.write32(p + at + 4, uint32_t(t >> 32));

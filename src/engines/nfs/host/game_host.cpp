@@ -46,6 +46,10 @@ std::string describe(const Cpu &c, uint32_t v) {
     return printable ? out + " \"" + text + "\"" : out;
 }
 
+// What a run on an instruction clock takes for today: 1 November 1997,
+// midnight UTC (Unix time).
+constexpr std::time_t kDeterministicDate = 878342400;
+
 } // namespace
 
 GameHost::GameHost(GameFolders folders, Options options) : _folders(std::move(folders)), _options(std::move(options)) {
@@ -69,6 +73,9 @@ GameHost::GameHost(GameFolders folders, Options options) : _folders(std::move(fo
         const uint64_t perMs = _options.instructionsPerMs;
         _process->milliseconds = [this, perMs] { return uint32_t(_cpu->executed() / perMs + _idleMs); };
         _process->idleTick = [this] { ++_idleMs; };
+        // The date too: files dated, and the clock starting, at
+        // kDeterministicDate (FILETIME's units: 100 ns since 1601).
+        _process->fixedFileTime = (uint64_t(kDeterministicDate) + 11644473600ull) * 10000000ull;
     } else if (_options.timeScale != 1.0) {
         const auto start = std::chrono::steady_clock::now();
         const double scale = _options.timeScale;
@@ -675,14 +682,25 @@ void GameHost::addSystem() {
             c.write32(p + 4 * i, v[i]);
         return 0u;
     });
-    provide(k, "GetLocalTime", 1, [](Cpu &c) {
-        const std::time_t t = std::time(nullptr);
+    // The time now; on an instruction clock, kDeterministicDate (UTC) as it
+    // started, moved on by the clock.
+    provide(k, "GetLocalTime", 1, [this](Cpu &c) {
         std::tm tm{};
+        if (_options.instructionsPerMs) {
+            const std::time_t t = kDeterministicDate + std::time_t(_process->now() / 1000);
 #ifdef _WIN32
-        localtime_s(&tm, &t);
+            gmtime_s(&tm, &t);
 #else
-        localtime_r(&t, &tm);
+            gmtime_r(&t, &tm);
 #endif
+        } else {
+            const std::time_t t = std::time(nullptr);
+#ifdef _WIN32
+            localtime_s(&tm, &t);
+#else
+            localtime_r(&t, &tm);
+#endif
+        }
         const uint16_t v[] = {
             uint16_t(tm.tm_year + 1900), uint16_t(tm.tm_mon + 1), uint16_t(tm.tm_wday), uint16_t(tm.tm_mday),
             uint16_t(tm.tm_hour),        uint16_t(tm.tm_min),     uint16_t(tm.tm_sec),  0};

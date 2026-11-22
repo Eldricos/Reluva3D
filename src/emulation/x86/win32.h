@@ -456,6 +456,9 @@ public:
     void signalEventWhen(uint32_t handle, std::function<bool()> condition);
     // Instructions between thread changes.
     uint32_t slice = 20000;
+    // Nonzero: the time every file gives (a FILETIME), rather than the
+    // host's, for runs that must be the same each time.
+    uint64_t fixedFileTime = 0;
     // Called at each thread change, on the thread that ran (for checks by
     // the clock, such as memory written at a moment).
     std::function<void(Cpu &cpu)> onSlice;
