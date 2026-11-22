@@ -1,0 +1,3 @@
+# The record of sfc.engine (tests/engines/sfc/engine.cpp).
+# Written by `reluva-tests sfc.engine --update`; review its diff before committing.
+detect.games: 0
