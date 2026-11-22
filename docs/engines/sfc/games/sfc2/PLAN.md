@@ -46,13 +46,18 @@ on their pages in `formats/` and `systems/`.
 2. **Detection** (done for 1.0): `StarFleet2.exe` and `sprites.q3`
    hashed; other releases found by their names as "(unknown release)".
    2.0.3.6's to be hashed from a patched install.
-3. **Readers and a data viewer** (next): `sprites.q3`, `.bft`, `.mod` with its
-   textures, `shiplist.txt` and `ftrlist.txt`, the `.gf`, `.mct` and `.mvm`
-   text, the sound zips with `sounds.txt`, the Bink intro (shared
-   `src/video/bink.cpp`, which reads revision `i`). Each format worked out
-   from the files themselves and checked on every retail file. Needed
-   whichever way the game runs.
-4. **Hosting spike (a gate):** `StarFleet2.exe` loaded in the x86
+3. **Readers and a data viewer** (done but for some files): `sprites.q3`'s
+   images ([formats/sprites-q3.md](formats/sprites-q3.md)), the `.bft`
+   fonts ([formats/bft.md](formats/bft.md)), the `.mod` models with their
+   textures ([formats/mod.md](formats/mod.md)), the tab and string
+   tables ([formats/text-tables.md](formats/text-tables.md)) and the
+   sound zips ([formats/sound-zips.md](formats/sound-zips.md)), each
+   worked out from the files themselves and checked on every retail
+   file, and a page of the data viewer for each. Left for later, when the
+   game needs them: the `.gf`, `.mct` and `.mvm` files, the objects in
+   `sprites.q3`, and the opening movie (shared `src/video/bink.cpp` reads
+   its revision `i`; it's inside `SFC2Intro.exe`).
+4. **Hosting spike (a gate)** (next): `StarFleet2.exe` loaded in the x86
    emulator (`src/emulation/x86/`) as `nfs` runs NFS III: how far it gets
    towards its first frame, what it calls that nothing stands in for, how
    fast it runs.

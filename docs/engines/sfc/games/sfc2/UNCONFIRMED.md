@@ -15,11 +15,24 @@ None yet.
 
 ## Inferred
 
-None yet.
+- **Models' levels of detail are finest first.** The data viewer shows
+  the first MOD0 as the finest; each model's later levels have fewer
+  triangles, and its first two are sometimes alike
+  ([formats/mod.md](formats/mod.md)). The game itself drawing them so
+  would settle it.
+- **The high half of a broken model's vertex indices is its piece**
+  ([formats/mod.md](formats/mod.md)); the viewer ignores it. Seeing a
+  ship break up in the game would settle it.
 
 ## Guessed
 
-None yet.
+- **Models aren't mirrored in the game.** The data viewer turns their z
+  round, taking their coordinates as Direct3D's, left-handed
+  ([formats/mod.md](formats/mod.md)). A screenshot of a ship in the
+  game, against the viewer's, would settle it.
+- **A string-table line with a single `|` is a key with no text**
+  ([formats/text-tables.md](formats/text-tables.md)): one line of
+  `aaStrings.txt`. What the game does with it is unknown.
 
 ## Settled
 

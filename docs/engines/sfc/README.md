@@ -10,12 +10,13 @@ Command (1999) and Orion Pirates (2001) could follow.
 
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
-| [Star Trek: Starfleet Command Volume II: Empires at War](games/sfc2/README.md) | `sfc2` | Taldren / Interplay, 2000 | Windows | English retail 1.0; others, the 2.0.3.6 patch among them, as an unknown release | Recognised; nothing runs yet |
+| [Star Trek: Starfleet Command Volume II: Empires at War](games/sfc2/README.md) | `sfc2` | Taldren / Interplay, 2000 | Windows | English retail 1.0; others, the 2.0.3.6 patch among them, as an unknown release | Recognised; a data viewer of its files; nothing of the game runs yet |
 
 ## Where it stands
 
-It recognises Starfleet Command II's installs, and shows an empty
-screen. The plan is in [games/sfc2/PLAN.md](games/sfc2/PLAN.md).
+It recognises Starfleet Command II's installs and reads its pictures,
+fonts, models, tables and sounds, which its data viewer shows; the game
+itself shows an empty screen. The plan is in [games/sfc2/PLAN.md](games/sfc2/PLAN.md).
 
 ## Using it
 
@@ -37,6 +38,8 @@ a second game is found to share it (docs/DOCUMENTATION_STANDARD.md).
 | Path | What |
 |---|---|
 | `sfc.cpp` | The `MetaEngine` (name, detection table, making an `Engine`) and the `Engine` |
+| `formats/` | The game's files: `sprites.q3`, `.bft` fonts, `.mod` models, the tab and string tables |
+| `pages/` | The data viewer, in `reluva-viewer` only: images, fonts, models, tables, sounds |
 | `tools/` | `reluva-tool sfc` commands (`reluva-tool help sfc` lists them) |
 
 ## Tests

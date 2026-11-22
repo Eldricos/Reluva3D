@@ -21,9 +21,12 @@ None yet.
 ## Not yet as the original
 
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
-None yet.
+The game doesn't run yet: starting it shows an empty screen.
 
 ## Additions outside the game
 
 <!-- What Reluva adds around the game: viewers, tools, settings. -->
-None yet.
+- **The data viewer** (`reluva-viewer`): pages of the game's pictures,
+  fonts, models, tables and sounds, which the game has no way to show.
+- **`reluva-tool sfc` commands** that read every file of a kind
+  ([REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md#the-tools)).

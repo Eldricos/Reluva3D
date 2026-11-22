@@ -56,8 +56,15 @@ text files, and the installers' headers.
   version resources read with a short script, and the DirectX interfaces
   they ask for found by searching them for those interfaces' IIDs (from
   the DirectX SDK's documentation).
-- **Data files:** each kind identified by its first bytes and its text;
-  layouts are still to be worked out.
+- **Data files:** each kind identified by its first bytes and its text,
+  then its layout worked out from the files alone: chunk and record
+  lengths that add up to each file's end, counts checked against what
+  they count, values compared across every file of a kind (all 50 fonts,
+  102 models, 19,353 images) with short Python scripts, then a reader in
+  Reluva run over every file. Pictures and models were then looked at:
+  images written as PNGs, and the data viewer run under Xvfb with
+  Mesa's software Vulkan and screenshotted. Each format's page says what
+  settled each field.
 - **Installers:** the patch's Microsoft cabinet listed and taken apart
   with a short script; its InstallShield 5 cabinet listed with `unshield`
   (a free tool, MIT licence).
@@ -70,6 +77,12 @@ text files, and the installers' headers.
 | Command | What it does |
 |---|---|
 | `reluva-tool sfc files` | Lists a game folder's files (the template's first command) |
+| `reluva-tool sfc sprites` | Lists sprites.q3's images and decodes each |
+| `reluva-tool sfc sprite-png` | Writes one of sprites.q3's images as a PNG |
+| `reluva-tool sfc fonts` | Reads every .bft font |
+| `reluva-tool sfc models` | Reads every .mod model, and lists textures it names that aren't there |
+| `reluva-tool sfc sounds` | Decodes every WAV in the sound zips |
+| `reluva-tool sfc table` | Shows a tab-separated or string table |
 
 ## Working files not included
 

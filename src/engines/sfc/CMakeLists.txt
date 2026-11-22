@@ -12,6 +12,18 @@ reluva_add_engine(sfc
         formats/sprite_archive.cpp
         formats/text_tables.cpp)
 
+# Its data viewer, for reluva-viewer only: reluva, which players get,
+# doesn't link it. See docs/DEVELOPMENT.md (The data viewer).
+reluva_add_engine_viewers(sfc
+    ACCESSOR sfcMetaViewer
+    SOURCES
+        pages/viewer.cpp
+        pages/font_page.cpp
+        pages/image_page.cpp
+        pages/model_page.cpp
+        pages/sound_page.cpp
+        pages/table_page.cpp)
+
 # Its reluva-tool commands (reluva-tool help sfc lists them).
 reluva_add_engine_tools(sfc
     SOURCES

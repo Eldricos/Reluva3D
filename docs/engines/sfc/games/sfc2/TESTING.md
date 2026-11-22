@@ -11,6 +11,7 @@ files):
 | Suite | What it checks |
 |---|---|
 | `sfc.unit.detection` | The engine is registered; an empty folder isn't a game; the game's files with other contents are an unknown release, whatever their names' case |
+| `sfc.unit.formats` | sprites.q3's images (16- and 8-bit, each kind of run, a name from the objects) and a run past a row's end; a .bft font, measured and drawn; a .mod model, and a triangle with a material that isn't there; a tab table with quotes and comments; a string table with continuation lines and a heading |
 
 ### The basic engine test
 
@@ -24,16 +25,28 @@ does, against its record (`data/engine-record.txt`).
 what its records hold. See docs/DEVELOPMENT.md, "Engine tests". -->
 Not yet.
 
+### Reading every retail file
+
+With your own copy, these read every file of a kind and say what fails:
+
+- `reluva-tool sfc sprites <game folder> -q`
+- `reluva-tool sfc fonts <game folder>`
+- `reluva-tool sfc models <game folder>`
+- `reluva-tool sfc sounds <game folder>`
+- `reluva-tool sfc table <file>`, for each table
+
 ### What the automated checks don't cover
 
-<!-- What only a person playing can check. -->
+Whether the data viewer shows the pictures, fonts and models as the game
+does: by putting it beside the running game.
 
 ## A playthrough by hand
 
-<!-- A checklist of what to try, in the order a player meets it. -->
+Nothing of the game runs yet.
 
 ## Last checked
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
 | 22 November 2026 | English retail 1.0 | Linux | `reluva --detect` on the install's `StarFleet2.exe` and `sprites.q3`: recognised as 1.0 |
+| 22 November 2026 | English retail 1.0 | Linux | Every image, font, model, table and sound read by the commands above, none failing; the data viewer's pages seen in screenshots (Xvfb, Mesa's software Vulkan), a model with its textures |
