@@ -322,7 +322,8 @@ count (`i32`), then their numbers (`i16` each), in order. So in all 495
 of the 24 saves' files. Every race in the game has one, a minor race's
 with none a count of 0; the monsters' races (42, 43) have none. A save
 whose list still names a task force taken out loads, but crashes the
-game at the end of the turn (the user's test, November 2026).
+game at the end of the turn; with the list right, it plays on (the
+user's tests, November 2026).
 
 ### Lists
 
@@ -593,7 +594,8 @@ a new task force goes into `GTForceList` too, and into its race's
 each task's `TskSh#`, its ships' numbers) can't be taken out yet, for
 want of the rest of those files. The game loads a save with a destroyer
 Reluva added to the first turn, and plays on with it, moving it and
-ending turns (the user, November 2026). A treaty or outpost more or
+ending turns; and one with the destroyer Reluva took out, its race's list
+without it, plays on for several turns (the user, November 2026). A treaty or outpost more or
 fewer, a system's planets, or a system becoming the player's (whose
 record has a production queue more) isn't written yet, for want of the
 rest of their records.
@@ -645,8 +647,6 @@ November 2026).
 ## Open questions
 
 - Whether the game checks the directory's checks.
-- Whether the game plays on with a ship Reluva took out, now its race's
-  task forces are listed without it.
 - What `shipname.dat` holds, and the agility of strike cruisers and
   command ships.
 - Whether the Load Game screen's name field shows the file's name or the
