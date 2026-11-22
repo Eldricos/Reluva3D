@@ -428,8 +428,8 @@ public:
 
     /** How many times its size the map's drawn (Zoom In, Out and Reset). */
     float zoom() const { return _zoom; }
-    /** Zoom In (1), Out (-1) or Reset (0). */
-    void setZoom(int how);
+    /** Zoom In (1) or Out (-1) held or let go; Reset (0) pressed. */
+    void holdZoom(int how, bool held);
     /** The map pixel under screen pixel (sx, sy). */
     float mapX(int sx) const { return _cameraX - float(shownW()) / 2.0f + float(sx - _viewX) / _zoom; }
     float mapY(int sy) const { return _cameraY - float(shownH()) / 2.0f + float(sy - _viewY) / _zoom; }
@@ -452,6 +452,9 @@ private:
     };
 
     void scroll(float seconds);
+    // A frame of the zoom keys held (map_interface.cpp).
+    void stepZoom(float frame);
+    void setScale(float scale);
     // How much of the map the view shows, in its pixels.
     int shownW() const { return int(std::lround(float(_viewW) / _zoom)); }
     int shownH() const { return int(std::lround(float(_viewH) / _zoom)); }
@@ -536,6 +539,10 @@ private:
     // Turns `e` towards `angle` at `degreesPerSecond`; true there.
     bool turnTo(Enemy &e, float angle, float degreesPerSecond, float seconds);
     bool sees(const Enemy &e, const Officer &o) const;
+    // The nearest officer it sees, or -1.
+    int closestSeen(const Enemy &e) const;
+    // An enemy's Max Distance where its AI gives none (0x5dd316).
+    static constexpr float kSightDefault = 300.0f;
     // Whether a point's in its sight: its Max Distance and Vision Cone, and
     // a clear line.
     bool seesPoint(const Enemy &e, float x, float y) const;
@@ -631,6 +638,11 @@ private:
     int _viewH = 0;
     float _cameraX = 0.0f;
     float _cameraY = 0.0f;
+    // The scrolling's velocity, map pixels a second, and the time not yet
+    // taken in its steps.
+    float _scrollVX = 0.0f;
+    float _scrollVY = 0.0f;
+    float _scrollTime = 0.0f;
     float _zoom = 1.0f;
     std::array<Blend, 256> _blends{};
     std::vector<image::Image> _groundTextures;
@@ -655,6 +667,8 @@ private:
     bool _right = false;
     bool _up = false;
     bool _down = false;
+    bool _zoomingIn = false;
+    bool _zoomingOut = false;
     int _mouseX = -1;
     int _mouseY = -1;
     uint64_t _last = 0;

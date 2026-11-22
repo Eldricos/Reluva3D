@@ -21,6 +21,8 @@ namespace {
 
 // The ground's cells, square (0x4ef471).
 constexpr int kCell = kGroundCell;
+// The scrolling's frames a second (inferred: see scroll()).
+constexpr float kScrollFrames = 30.0f;
 // The mouse this near the view's edge scrolls it (inferred).
 constexpr int kEdge = 4;
 // An officer's model's directions, 0 facing left and turning anticlockwise
@@ -244,11 +246,15 @@ MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, 
 MapScreen::~MapScreen() = default;
 
 void MapScreen::moveCamera(float x, float y) {
-    // Kept so the view stays on the map (inferred).
+    // The view's corner kept from 0 to the map's size less one, rounded
+    // down to 128, less the view's (0x4f1f2c).
+    const int mapW = (_map.width - 1) & ~127;
+    const int mapH = (_map.height - 1) & ~127;
     const float halfW = float(shownW()) / 2.0f;
     const float halfH = float(shownH()) / 2.0f;
-    _cameraX = _map.width > shownW() ? std::clamp(x, halfW, float(_map.width) - halfW) : float(_map.width) / 2.0f;
-    _cameraY = _map.height > shownH() ? std::clamp(y, halfH, float(_map.height) - halfH) : float(_map.height) / 2.0f;
+    // On a map smaller than the view, the second holds.
+    _cameraX = std::min(std::max(x - halfW, 0.0f), float(mapW - shownW())) + halfW;
+    _cameraY = std::min(std::max(y - halfH, 0.0f), float(mapH - shownH())) + halfH;
 }
 
 const image::Image &MapScreen::texture(const std::string &name) {
@@ -394,8 +400,6 @@ const image::Image &MapScreen::groundCell(int cx, int cy) {
 }
 
 void MapScreen::scroll(float seconds) {
-    // The options' Scroll Speed in pixels a second (inferred; its
-    // acceleration isn't there yet).
     float dx = 0.0f;
     float dy = 0.0f;
     const bool inView = _mouseX >= _viewX && _mouseY >= _viewY && _mouseX < _viewX + _viewW + kEdge &&
@@ -408,8 +412,38 @@ void MapScreen::scroll(float seconds) {
         dy -= 1.0f;
     if (_down || (inView && _mouseY >= _viewY + _viewH - kEdge))
         dy += 1.0f;
-    if (dx != 0.0f || dy != 0.0f)
-        moveCamera(_cameraX + dx * _options.scrollSpeed * seconds, _cameraY + dy * _options.scrollSpeed * seconds);
+    // Each frame, a way held adds the Scroll Acceleration to the velocity,
+    // held to the Scroll Speed; none held, it slows by a factor from 0.95
+    // at the least acceleration to 0.5 at the most, stopping under 0.05
+    // (0x5c0de0, 0x5bc6a6). The program's frames aren't fixed: Reluva
+    // takes 30 a second (inferred).
+    const float speed = _options.scrollSpeed;
+    const float accel = _options.scrollAccel;
+    const float slowing = 0.5f + 0.45f * (1.0f - (accel - GameOptions::kScrollAccelMin) / 67.5f);
+    const float frame = 1.0f / kScrollFrames;
+    _scrollTime = std::min(_scrollTime + seconds, 0.5f);
+    while (_scrollTime >= frame) {
+        _scrollTime -= frame;
+        if (dx != 0.0f || dy != 0.0f) {
+            _scrollVX += dx * accel;
+            _scrollVY += dy * accel;
+            const float v = std::hypot(_scrollVX, _scrollVY);
+            if (v > speed) {
+                _scrollVX *= speed / v;
+                _scrollVY *= speed / v;
+            }
+        } else {
+            _scrollVX *= slowing;
+            _scrollVY *= slowing;
+            if (std::abs(_scrollVX) <= 0.05f)
+                _scrollVX = 0.0f;
+            if (std::abs(_scrollVY) <= 0.05f)
+                _scrollVY = 0.0f;
+        }
+        if (_scrollVX != 0.0f || _scrollVY != 0.0f)
+            moveCamera(_cameraX + _scrollVX * frame, _cameraY + _scrollVY * frame);
+        stepZoom(frame);
+    }
 }
 
 const Animation &MapScreen::animation(const std::string &modelName, const std::string &sequence) {
@@ -964,13 +998,13 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
         // Toggle Minimap presses the info bar's open button (0x4dee47).
         if (down && bound("Toggle Minimap"))
             _hud->toggleInfoBar();
-        // Zoom In, Out and Reset (0x5bf25c).
-        if (down && bound("Zoom In"))
-            setZoom(1);
-        if (down && bound("Zoom Out"))
-            setZoom(-1);
+        // Zoom In and Out while held, Reset as pressed (0x5bf25c).
+        if (bound("Zoom In"))
+            holdZoom(1, down);
+        if (bound("Zoom Out"))
+            holdZoom(-1, down);
         if (down && bound("Zoom Reset"))
-            setZoom(0);
+            holdZoom(0, true);
         if (down)
             for (const auto &[action, item] : itemKeys())
                 if (bound(action))

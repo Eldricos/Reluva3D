@@ -21,9 +21,9 @@ using namespace reluva::stawayteam;
 
 namespace {
 
-// A 128 x 128 map: a 3 x 3 grid of values, so 2 x 2 cells; a model, and a
-// black polygon over the first cell's top left.
-const char *const kMap = "CLayerSaveData\n{\n\tWidth=128\n\tHeight=128\n\tView Position=100.000000,20.000000\n"
+// A 200 x 200 map, its view kept to 128 x 128: a 3 x 3 grid of values, so
+// 2 x 2 cells; a model, and a black polygon over the first cell's top left.
+const char *const kMap = "CLayerSaveData\n{\n\tWidth=200\n\tHeight=200\n\tView Position=100.000000,20.000000\n"
                          "\tCustom Map Properties=CStarTrekLayerSaveData\n\t{\n\t\tMinimap Image=Test map\n"
                          "\t\tMap Song=Song.ogg\n\t}\n"
                          "\tTree List=CSortList2D\n\t{\n"
@@ -50,7 +50,7 @@ void testRead() {
     GameMap map;
     CHECK(loadMap(data, "Levels/Missing.zax", map));
     CHECK(!loadMap(data, "Levels/Test.zax", map));
-    CHECK(map.width == 128 && map.height == 128 && map.viewX == 100.0f && map.viewY == 20.0f);
+    CHECK(map.width == 200 && map.height == 200 && map.viewX == 100.0f && map.viewY == 20.0f);
     CHECK(map.minimap == "Test map" && map.song == "Song.ogg");
     CHECK(map.ground.blending == 1.0f && map.ground.textures.size() == 2 && map.ground.textures[1] == "Blue");
     CHECK(map.ground.width == 3 && map.ground.height == 3);
@@ -318,6 +318,41 @@ void testEnemies() {
     CHECK(screen.enemies()[0].state == "Alert" && screen.partState(2).active);
     screen.update(61500);
     CHECK(screen.enemies()[0].state == "Attack" && screen.enemies()[0].target == 0);
+}
+
+void testClosest() {
+    // A guard seeing all round, Ann 80 away and Bea 40: it goes for Bea,
+    // the nearer, though Ann's first.
+    const std::string zax = "CLayerSaveData\n{\n\tWidth=1000\n\tHeight=1000\n\tView Position=500.000000,500.000000\n"
+                            "\tTree List=CSortList2D\n\t{\n"
+                            "\t\tLevel Part=CEntityWalking\n\t\t{\n\t\t\tName=Guard\n\t\t\tVisible=1\n\t\t\tActive=1\n"
+                            "\t\t\tActivity=Array\n\t\t\t{\n\t\t\t\tItem Count=1\n\t\t\t\tActivity=CBorgAI\n\t\t\t\t{\n"
+                            "\t\t\t\t\tAlert=CBorgStateAlert\n\t\t\t\t\t{\n\t\t\t\t\t\tAlert Time=1\n\t\t\t\t\t}\n"
+                            "\t\t\t\t\tVision Cone=360\n\t\t\t\t\tCurrent State=Patrol\n"
+                            "\t\t\t\t}\n\t\t\t}\n"
+                            "\t\t\tModel=Characters/Guard\n\t\t\tPosition X=500\n\t\t\tPosition Y=500\n\t\t}\n"
+                            "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 1\n\t\t\tVisible=0\n"
+                            "\t\t\tPosition X=580\n\t\t\tPosition Y=500\n\t\t}\n"
+                            "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 2\n\t\t\tVisible=0\n"
+                            "\t\t\tPosition X=500\n\t\t\tPosition Y=460\n\t\t}\n"
+                            "\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    TeamMember bea;
+    bea.firstName = "Bea";
+    MapScreen screen(data, rules, map, options, 0, {ann, bea});
+    CHECK(screen.officers()[1].y == 460.0f);
+    screen.update(100);
+    CHECK(screen.enemies()[0].state == "Alert" && screen.enemies()[0].target == 1);
 }
 
 void testCombat() {
@@ -1119,14 +1154,40 @@ void testProcesses() {
     CHECK(screen.useItem(600.0f, 300.0f));
     run(12000);
     CHECK(screen.scanText() == "A console.");
-    // Zoomed out the view shows more of the map, never past it; reset.
-    screen.setZoom(-1);
-    CHECK(screen.zoom() == 0.8f);
-    for (int k = 0; k < 10; ++k)
-        screen.setZoom(-1);
-    CHECK(screen.zoom() == 0.5f);
-    screen.setZoom(0);
+    // Zoom Out held a second shows 30 steps more of the map, then no more
+    // than 1.5 times; Reset; Zoom In held a little, let go, eases back.
+    screen.holdZoom(-1, true);
+    run(now + 1000);
+    CHECK(std::abs(1.0f / screen.zoom() - 1.3f) < 0.02f);
+    run(now + 5000);
+    CHECK(std::abs(1.0f / screen.zoom() - 1.5f) < 0.001f);
+    screen.holdZoom(-1, false);
+    screen.holdZoom(0, true);
     CHECK(screen.zoom() == 1.0f && screen.mapX(0) == screen.cameraX() - 100.0f);
+    screen.holdZoom(1, true);
+    run(now + 200);
+    screen.holdZoom(1, false);
+    CHECK(1.0f / screen.zoom() < 0.97f);
+    run(now + 2000);
+    CHECK(screen.zoom() == 1.0f);
+    // The mouse at the view's right edge a second: the scrolling gaining
+    // 15 a frame to 450 a second, about 232 pixels; moved off, it slows by
+    // 0.9 a frame, 135 pixels more, and stops.
+    const float startX = screen.cameraX();
+    Event move;
+    move.type = EventType::kMouseMove;
+    move.mouseX = 199;
+    move.mouseY = 50;
+    screen.handleEvent(move, nullptr, now);
+    run(now + 1000);
+    const float moved = screen.cameraX() - startX;
+    CHECK(moved > 215.0f && moved < 250.0f);
+    move.mouseX = 100;
+    screen.handleEvent(move, nullptr, now);
+    run(now + 4000);
+    const float stopped = screen.cameraX();
+    run(now + 1000);
+    CHECK(screen.cameraX() == stopped && std::abs(stopped - startX - moved - 135.0f) < 5.0f);
 }
 
 void testKit() {
@@ -1661,6 +1722,7 @@ static const reluva::test::Suite kSuite("stawayteam.unit.maps",
                                             {"scripts", [](const std::filesystem::path &) { testScripts(); }},
                                             {"triggers", [](const std::filesystem::path &) { testTriggers(); }},
                                             {"enemies", [](const std::filesystem::path &) { testEnemies(); }},
+                                            {"closest", [](const std::filesystem::path &) { testClosest(); }},
                                             {"choosing", [](const std::filesystem::path &) { testChoosing(); }},
                                             {"combat", [](const std::filesystem::path &) { testCombat(); }},
                                             {"noise", [](const std::filesystem::path &) { testNoise(); }},

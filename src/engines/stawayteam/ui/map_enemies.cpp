@@ -94,34 +94,45 @@ void MapScreen::setupEnemies() {
 }
 
 bool MapScreen::seesPoint(const Enemy &e, float x, float y) const {
+    // Nearer than its Max Distance (300 unless it says, 0x5dd316) and
+    // within half its Vision Cone either side of its facing, a cone of 0
+    // or 360 degrees or more seeing all round (0x4fe873); nothing standing
+    // full height between (inferred: the program's finding has no such
+    // test of its own).
     const float dx = x - e.x;
     const float dy = y - e.y;
-    if (std::hypot(dx, dy) > number(e.ai, "Max Distance", 375.0f))
+    const float reach = number(e.ai, "Max Distance", kSightDefault);
+    if (dx * dx + dy * dy >= reach * reach)
         return false;
-    const float off = std::abs(wrap(angleOf(dx, dy) - e.angle));
-    if (off * 180.0f / kPi > number(e.ai, "Vision Cone", 125.0f) / 2.0f)
+    const float half = number(e.ai, "Vision Cone", 125.0f) / 2.0f * kPi / 180.0f;
+    if (half > 0.0f && half < kPi && std::abs(wrap(angleOf(dx, dy) - e.angle)) > half)
         return false;
     return clearSight(e.x, e.y, x, y);
 }
 
 bool MapScreen::sees(const Enemy &e, const Officer &o) const {
-    // Within its Max Distance and half its Vision Cone either side of its
-    // facing, nothing standing full height between (CBorgSetClosestTarget,
-    // inferred).
     // Nor one cloaked (inferred: the band's description has them unseen),
     // nor the team at all by one whose Valid Targets don't name them: the
     // officers are Player and Team Member (inferred).
     if (o.down() || o.cloaked || !inCategory("Player,Team Member", e.validTargets))
         return false;
-    const float dx = o.x - e.x;
-    const float dy = o.y - e.y;
-    const float distance = std::hypot(dx, dy);
-    if (distance > number(e.ai, "Max Distance", 375.0f))
-        return false;
-    const float off = std::abs(wrap(angleOf(dx, dy) - e.angle));
-    if (off * 180.0f / kPi > number(e.ai, "Vision Cone", 125.0f) / 2.0f)
-        return false;
-    return clearSight(e.x, e.y, o.x, o.y);
+    return seesPoint(e, o.x, o.y);
+}
+
+int MapScreen::closestSeen(const Enemy &e) const {
+    // Of those it sees, the nearest (CEntityBehaviorStateSetClosestTarget,
+    // 0x4fe710).
+    int best = -1;
+    float bestDistance = 0.0f;
+    for (size_t i = 0; i < _officers.size(); ++i) {
+        const Officer &o = _officers[i];
+        const float distance = std::hypot(o.x - e.x, o.y - e.y);
+        if (sees(e, o) && (best < 0 || distance < bestDistance)) {
+            best = int(i);
+            bestDistance = distance;
+        }
+    }
+    return best;
 }
 
 bool MapScreen::turnTo(Enemy &e, float angle, float degreesPerSecond, float seconds) {
@@ -565,14 +576,13 @@ void MapScreen::updateEnemies(float seconds) {
         // traced).
         const bool calm = e.state == "Patrol" || e.state == "Investigate" || e.state == "Recharge";
         if (calm && _teamShown) {
-            for (size_t i = 0; i < _officers.size(); ++i)
-                if (sees(e, _officers[i])) {
-                    e.target = int(i);
-                    e.unseen = 0.0f;
-                    e.route.clear();
-                    setState(e, "Alert");
-                    break;
-                }
+            const int seen = closestSeen(e);
+            if (seen >= 0) {
+                e.target = seen;
+                e.unseen = 0.0f;
+                e.route.clear();
+                setState(e, "Alert");
+            }
         }
         // Hearing the team, one on patrol goes to look, or looks again
         // where it hears them next; after looking about, it's back on

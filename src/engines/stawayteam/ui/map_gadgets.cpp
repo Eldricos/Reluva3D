@@ -511,12 +511,7 @@ bool MapScreen::fightDecoy(Enemy &e, float seconds) {
             const MapPart &p = _map.parts[d.part];
             if (!shown(d.part) || !inCategory(p.category, "Decoy") || !inCategory(p.category, e.validTargets))
                 continue;
-            const float dx = p.x - e.x;
-            const float dy = p.y - e.y;
-            const float off = std::abs(std::remainder(std::atan2(dy, -dx) - e.angle, 2.0f * 3.14159265f));
-            if (std::hypot(dx, dy) <= number(e.ai, "Max Distance", 375.0f) &&
-                off * 180.0f / 3.14159265f <= number(e.ai, "Vision Cone", 125.0f) / 2.0f &&
-                clearSight(e.x, e.y, p.x, p.y)) {
+            if (seesPoint(e, p.x, p.y)) {
                 e.decoy = int(d.part);
                 e.target = -1;
                 e.route.clear();

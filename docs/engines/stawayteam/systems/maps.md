@@ -21,8 +21,8 @@ At the top level of the `CLayerSaveData`:
 
 - **`Width`, `Height`:** its size in pixels (Mission 01's Klingon
   Outpost: 3500 x 2700).
-- **`View Position`:** where the camera is *(inferred: the view's
-  middle)*.
+- **`View Position`:** where the camera is: the view's middle, its
+  corner half the view up and left (`0x4f9433`).
 - **`Custom Map Properties`** (`CStarTrekLayerSaveData`): `Minimap Image`
   (`Cache/Levels/<name>.frm16`), `Map Song`, and the camera's scripts
   played as the mission starts.
@@ -206,8 +206,26 @@ their own (`Generic Use` and `Generic Can't Use` for 253), and there's an
 `Out Of Range Cursor` (`0x5dacf6`).
 
 Zoom In (keypad +), Zoom Out (keypad -) and Zoom Reset (keypad *) are
-sent to the view as 1, 2 and 4 (`0x5bf25c`), which scales it, the scale
-held so the view stays on the map (`0x4f97a0`).
+sent to the view as 1, 2 and 4 (`0x5bf25c`), which scales it: its scale,
+the map's pixels to the screen's, 0.01 less each frame Zoom In is held,
+down to 0.5, and 0.01 more for Zoom Out, up to 1.5; Zoom Reset 1; held
+neither, a scale within 0.125 of 1 eases back to it at 0.1 a second
+(`0x4f6f00`). The scale's held so the view shows no more than the map,
+its size less one rounded down to 128 (`0x4f97a0`). Which of 1 and 2 is
+which key is by their order *(inferred)*.
+
+### The camera
+
+The view's corner is kept from 0 to the map's size less one, rounded
+down to 128, less the view's, the second winning on a map smaller than
+the view (`0x4f1f10`). It scrolls with a velocity (`0x5c0de0`): each
+frame a way's held, by the keys or the mouse at the view's edges, the
+options' Scroll Acceleration is added to it that way, and it's held to
+the Scroll Speed; held none, it's slowed by a factor from 0.95 at the
+least acceleration (7.5) to 0.5 at the most (75), 0.5 + 0.45 (1 - (a -
+7.5) / 67.5) (`0x5bc6a6`), each part under 0.05 stopping; the view moves
+by it times the frame's time. Rules.txt's `Camera Bound Width` and
+`Height` are for following a character (`0x4f93fe`).
 
 The options button opens the "Esc Menu" (`0x5ba9bf`), on `Escape
 Menu/Escape Menu Background`, its buttons of `Button Background` in
@@ -400,8 +418,13 @@ and `End Action`, and `Current State` the one it starts in (`Patrol`).
 
 - **Sight** (the AI's `Targeting`, a `CBorgSetClosestTarget`, whose
   fields are written into the AI itself in the maps): `Max Distance`
-  (375 in the Romulan's model, 430 in Mission 01), `Vision Cone` (125
-  degrees) and `Valid Targets` (`Player,Team Member`).
+  (300 unless it says, `0x5dd316`; 375 in the Romulan's model, 430 in
+  Mission 01), `Vision Cone` (125 degrees) and `Valid Targets`
+  (`Player,Team Member`). Its target is the nearest of its Valid Targets
+  nearer than Max Distance and within half the cone either side of its
+  facing, a cone of 0 or of 360 degrees or more seeing all round
+  (`0x5dd690`, `0x4fe710`); the finding has no test of sight past what
+  stands between.
 - **The patrol's AIs:** `CSeriesAI` (its `AIs` one after another),
   `CLimitedTimeAI` (`What To Do` for `Max Time`), `CIdleAI` (its `Idle
   Behavior`'s `Num Seconds`), `CFollowPathAI` (along the polygon of the
@@ -598,10 +621,11 @@ its ground, and its parts' models, places and polygons. `MapScreen`
 - **Models:** each part's model's sequence, its first direction's frames
   in time, back to front by where they stand (with `Rendering Height`)
   *(inferred)*.
-- **The camera:** starting at `View Position`, kept so the view stays
-  on the map *(inferred)*, scrolled by the keys bound to Scroll Map
-  Left, Right, Up and Down (the arrows) and by the mouse at the view's
-  edges, at the options' Scroll Speed in pixels a second *(inferred)*.
+- **The camera:** starting at `View Position`, kept on the map as the
+  program keeps it, scrolled by the keys bound to Scroll Map Left,
+  Right, Up and Down (the arrows) and by the mouse at the view's edges,
+  speeding up and slowing as the program's does; the program's frames
+  aren't fixed, and Reluva takes 30 a second for them *(inferred)*.
   Esc asks before going back to the main menu.
 
 The interface (`GameHud`, `ui/game_hud.cpp`) around it, its parts at
@@ -627,9 +651,9 @@ go *(inferred)*: with an item chosen, its Entity Hovering Cursor over
 what it's used on, its Obscured Cursor where it's out of sight, its
 Process Cursor elsewhere and its Can't Use Cursor where it can't be;
 over a part with a process for the officer, the process's cursor; over
-an enemy, their weapon's. Zoom In and Out scale the view by 1.25 each,
-up to twice its size and down to half, or till the map fills it; Zoom
-Reset back to its size *(inferred)*.
+an enemy, their weapon's. Zoom In and Out, held, scale the view as the
+program does, a step each of its frames, taken as 30 a second
+*(inferred)*; Zoom Reset back to its size.
 
 A click on a part with a process for the chosen officer, one for their
 chosen item first, else one to Use with nothing (carrying its Required
@@ -715,9 +739,9 @@ selection's START MISSION.
 The enemies (`ui/map_enemies.cpp`), while their parts are active: on
 patrol, their patrol's AIs as above, a path straight from corner to
 corner, a scan's turning in degrees a second, the rest done at once
-*(inferred)*; seeing an officer (in Max Distance and half the Vision
-Cone either side of their facing, nothing standing full height
-between), alerted: the Alert's Start Action, turning to them, and after
+*(inferred)*; seeing an officer (the nearest in Max Distance and half
+the Vision Cone either side of their facing, as the program finds it,
+and nothing standing full height between *(inferred)*), alerted: the Alert's Start Action, turning to them, and after
 Alert Time attacking: the Attack's Start Action, facing them; their
 target fallen or stunned, or out of sight five seconds with nowhere left
 to go after them, back to the patrol *(inferred)*. Attacking, one whose
@@ -917,19 +941,26 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   share their edges; Mission 03's pond rippling from frame to frame.
 - **The polygons' colours:** the span fillers each `Render Type` calls
   (`0x53ec66`) read for what they do to a 16-bit pixel.
+- **The camera, the zoom and enemies' targets:** traced in the program;
+  unit tests of the scrolling's speed and slowing, the zoom's steps and
+  easing, and the nearer of two officers chosen; Mission 01's fight run
+  again on the retail files.
 
 ## Open questions
 
 - **The interface:** what the program marks on the minimap, and what
   the inventory's places, its full inventory and the cursors' choosing
-  are; the zoom's steps.
+  are.
 - **Processes:** how the program chooses one, walks to it, and when the
   officer must be in range.
-- **The camera:** whether `View Position` is the view's middle, the
-  bounds Rules.txt's `Camera Bound Width` and `Height` (142, 106) set,
-  and the scrolling's speed and acceleration.
-- **Drawing order:** how the program sorts the models, and what
-  `YSort` and `Rendering Height` do.
+- **Frames:** how many a second the program's camera and zoom took
+  their steps at.
+- **Drawing order:** how the program's sort list (`CSortList2D`, with
+  its cutting lines) orders the models; a model's `Sorting Y` is added
+  to its key (`0x51065e`), and `Rendering Height` is kept as a float
+  (`0x493a20`).
+- **Enemies' sight:** whether anything stops an enemy seeing past what
+  stands between (the program's finding of a target doesn't).
 - **Water's time:** whether the program's clock the water moves by
   stops while the game is paused.
 - **The triggers:** the program's own rules for all of the above, which

@@ -33,9 +33,9 @@ None yet.
   line shown once Alt is pressed, a fixed-width font's cell, and the
   sounds named `.wav` being the `.ogg` files of their names
   ([systems/menus.md](systems/menus.md#open-questions)).
-- **Maps:** the camera's start as the view's middle and its bounds,
-  the scrolling's speed, the models' drawing order and origin, the
-  water's clock stopping while paused; the team at the spawn points
+- **Maps:** the camera's and zoom's frames taken as 30 a second, the
+  models' drawing order and origin, the water's clock stopping while
+  paused, enemies not seeing past what stands between; the team at the spawn points
   in order, their facing, the path finding by A*, the mouse's buttons,
   the info bar rising under the mouse, a walk's pace from its frames,
   characters' facing in radians, the move button's order, the view held

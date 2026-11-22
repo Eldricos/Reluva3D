@@ -82,7 +82,7 @@ void MapScreen::drawVision(Surface &view, int left, int top) const {
     const Enemy &e = _enemies[size_t(_visionEnemy)];
     if (!e.alive() || !shown(e.part))
         return;
-    const float reach = e.ai ? float(e.ai->number("Max Distance").value_or(375.0)) : 375.0f;
+    const float reach = e.ai ? float(e.ai->number("Max Distance").value_or(kSightDefault)) : kSightDefault;
     const float half = (e.ai ? float(e.ai->number("Vision Cone").value_or(125.0)) : 125.0f) / 2.0f * kPi / 180.0f;
     const int x0 = std::max(0, int(e.x - reach) - left);
     const int x1 = std::min(view.w, int(e.x + reach) - left + 1);

@@ -17,11 +17,14 @@ namespace {
 
 // The mouse this near the view's edge scrolls it, as in scroll().
 constexpr int kEdge = 4;
-// Each Zoom In or Out, and how far (inferred: the program's steps
-// aren't traced).
-constexpr float kZoomStep = 1.25f;
-constexpr float kZoomMost = 2.0f;
-constexpr float kZoomLeast = 0.5f;
+// The zoom's scale, map pixels to the screen's: each frame Zoom In or Out
+// is held, a step, from 0.5 to 1.5; let go within 0.125 of 1, it eases
+// back at 0.1 a second (0x4f6f00).
+constexpr float kScaleStep = 0.01f;
+constexpr float kScaleLeast = 0.5f;
+constexpr float kScaleMost = 1.5f;
+constexpr float kScaleNear = 0.125f;
+constexpr float kScaleEase = 0.1f;
 
 std::string named(const std::string &cursor) {
     return cursor.empty() || cursor == "!None" ? "Pointer" : cursor;
@@ -88,16 +91,38 @@ void MapScreen::stepItem(int officer, int step) {
     }
 }
 
-void MapScreen::setZoom(int how) {
-    // In and out by steps, the view kept on the map going out (the zoom's
-    // scale is held to the map, 0x4f97a0; inferred for the steps).
-    if (how == 0)
-        _zoom = 1.0f;
-    else
-        _zoom = std::clamp(how > 0 ? _zoom * kZoomStep : _zoom / kZoomStep, kZoomLeast, kZoomMost);
-    if (_map.width > 0 && _map.height > 0)
-        _zoom = std::max(
-            _zoom, std::min(1.0f, std::max(float(_viewW) / float(_map.width), float(_viewH) / float(_map.height))));
+void MapScreen::holdZoom(int how, bool held) {
+    if (how > 0)
+        _zoomingIn = held;
+    else if (how < 0)
+        _zoomingOut = held;
+    else if (held)
+        setScale(1.0f);
+}
+
+void MapScreen::stepZoom(float frame) {
+    float scale = 1.0f / _zoom;
+    if (_zoomingIn && scale > kScaleLeast)
+        scale = std::max(kScaleLeast, scale - kScaleStep);
+    if (_zoomingOut && scale < kScaleMost)
+        scale = std::min(kScaleMost, scale + kScaleStep);
+    if (!_zoomingIn && !_zoomingOut && scale != 1.0f && std::abs(scale - 1.0f) < kScaleNear)
+        scale = scale > 1.0f ? std::max(1.0f, scale - frame * kScaleEase) : std::min(1.0f, scale + frame * kScaleEase);
+    if (scale != 1.0f / _zoom)
+        setScale(scale);
+}
+
+void MapScreen::setScale(float scale) {
+    // Never showing past the map: its size less one rounded down to 128
+    // (0x4f97a0).
+    const int mapW = (_map.width - 1) & ~127;
+    const int mapH = (_map.height - 1) & ~127;
+    if (_viewW > 0 && float(_viewW) * scale > float(_map.width - 1))
+        scale = float(mapW) / float(_viewW);
+    if (_viewH > 0 && float(_viewH) * scale > float(_map.height - 1))
+        scale = float(mapH) / float(_viewH);
+    if (scale > 0.0f)
+        _zoom = 1.0f / scale;
     moveCamera(_cameraX, _cameraY);
 }
 
