@@ -1,0 +1,1 @@
+settings: f0790e4af950dbba | 369 settings files read, 0 failed: 15825 settings, 432 of them grids

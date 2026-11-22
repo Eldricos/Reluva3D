@@ -23,8 +23,8 @@ format or system worked out.
    read by the shared InstallShield code
    ([installshield.md](../../../../common/installshield.md)), and its
    language's folders, laid out as setup lays them ([cd.md](formats/cd.md)).
-3. **The archives and text** (in progress; the archives done,
-   [wad.md](formats/wad.md)): the `DWFB` archives (`.wad`), the settings
+3. **The archives and text** (in progress; the archives and settings
+   done, [wad.md](formats/wad.md), [sam.md](formats/sam.md)): the `DWFB` archives (`.wad`), the settings
    files (`.sam`), the string tables (`BFST`, `.str`) and the fonts
    (`F4FB`, `.bf4`); every archive mounted, loose files over them.
    `reluva-tool tpw` commands to list and extract them.

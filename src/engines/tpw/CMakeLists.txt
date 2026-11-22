@@ -9,12 +9,14 @@ reluva_add_engine(tpw
         tpw.cpp
         games.cpp
         game_files.cpp
+        formats/sam.cpp
         formats/wad.cpp)
 
 # Its reluva-tool commands (reluva-tool help tpw lists them).
 reluva_add_engine_tools(tpw
     SOURCES
         tools/files.cpp
+        tools/text.cpp
         tools/wad.cpp)
 
 # Its tests (tests/engines/tpw/), in reluva-tests: the unit tests by
@@ -36,4 +38,4 @@ reluva_add_gamedata_test(tpw
     GAME simcoaster
     ENV RELUVA_SIMCOASTER
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release data)
+    STEPS release data settings)

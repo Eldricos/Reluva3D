@@ -15,6 +15,7 @@
 #   release  what the game is (detect)
 #   data     every file of its Data folder read, every archive's
 #            unpacked, with a checksum of them all (tpw data-check)
+#   settings every settings file (.sam) read (tpw sam-check)
 # A command that fails fails the step. What each prints is checksummed,
 # with a summary line, into a record:
 # tests/engines/tpw/data/gamedata/<release>/<step>.txt. The step passes when
@@ -45,6 +46,8 @@ if(STEP STREQUAL "release")
     set(record "release: ${release}\n")
 elseif(STEP STREQUAL "data")
     record_run(data "files read" tpw data-check "${game_dir}")
+elseif(STEP STREQUAL "settings")
+    record_run(settings "settings files read" tpw sam-check "${game_dir}")
 else()
     message(FATAL_ERROR "No step ${STEP}")
 endif()

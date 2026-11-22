@@ -3,10 +3,11 @@
 
 // The Theme Park World engine's files, built here as SimCoaster's are laid
 // out (docs/engines/tpw/games/simcoaster/formats/): archives and mounting
-// them.
+// them, settings files.
 //
 //   reluva-tests tpw.unit.formats
 
+#include "engines/tpw/formats/sam.h"
 #include "engines/tpw/formats/wad.h"
 #include "engines/tpw/game_files.h"
 
@@ -85,10 +86,52 @@ void testMount(const std::filesystem::path &tmp) {
     CHECK(mountGame(files, tmp / "nothing", warnings));
 }
 
+// Settings: names with their values (as many as fields after the group),
+// comments, grids.
+void testSam() {
+    const std::string text = "#\tTheme Park 2 Ride Description File\r\n"
+                             "Info.Id\t\t\t1304\r\n"
+                             "Info.Name\t\t\"Jacob's Drop\" \r\n"
+                             "Info.Shape\r\n"
+                             "---\r\n"
+                             "***\r\n"
+                             "*2*\r\n"
+                             "---\r\n"
+                             "\r\n"
+                             "Research.Group\t\t0\t\t0 = Available initially\r\n"
+                             "Upgrades[1].CostOfResearch\t-0.5 # 100\r\n"
+                             "PeepTypes[0].Cash.Boredom.Generation\t300\t40\t0\r\n"
+                             "Info.WhichUIType 4 Dont display in UI\r\n"
+                             "info.whichuitype 5\n";
+    SamFile sam;
+    CHECK(!sam.parse(toBytes(text)));
+    CHECK(sam.entries().size() == 8);
+    CHECK(sam.number("Info.Id") == 1304 && sam.text("info.name") == "Jacob's Drop");
+    const SamFile::Entry *shape = sam.find("Info.Shape");
+    CHECK(shape && shape->values.empty() && (shape->grid == std::vector<std::string>{"***", "*2*"}));
+    const SamFile::Entry *group = sam.find("Research.Group");
+    CHECK(group && group->values.size() == 1 && group->line == 10);
+    CHECK(sam.number("Upgrades[1].CostOfResearch") == -0.5);
+    const SamFile::Entry *peep = sam.find("PeepTypes[0].Cash.Boredom.Generation");
+    CHECK(peep && peep->values.size() == 3 && peep->values[1].number == 40);
+    CHECK(sam.number("Info.WhichUIType") == 5); // the last of one name
+    CHECK(sam.number("Info.Name", 7) == 7 && sam.text("Info.Id", "none") == "none" &&
+          sam.number("Info.Nothing", 2) == 2);
+
+    // A name without its value, or without all its values; a grid without
+    // its end; a line that isn't a setting.
+    CHECK(sam.parse(toBytes("Info.Id\r\nInfo.Name \"x\"\r\n")));
+    CHECK(sam.parse(toBytes("A[0].B.C 1 comment\r\n")));
+    CHECK(sam.parse(toBytes("Info.Shape\r\n---\r\n***\r\n")));
+    CHECK(sam.parse(toBytes("just words\r\n")));
+    CHECK(sam.parse(toBytes("NoDot 1\r\n")));
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("tpw.unit.formats",
                                         {
                                             {"wad", [](const std::filesystem::path &tmp) { testWad(tmp); }},
                                             {"mount", [](const std::filesystem::path &tmp) { testMount(tmp); }},
+                                            {"sam", [](const std::filesystem::path &) { testSam(); }},
                                         });

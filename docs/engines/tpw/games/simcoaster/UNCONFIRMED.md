@@ -20,9 +20,14 @@ None yet.
   a loose namesake, and `ui.wad` sits beside a loose `ui/` folder
   ([wad.md](formats/wad.md#overview)). The names the game asks for would
   settle it.
+- **Settings' names are matched ignoring case**, as two field names are
+  spelt two ways ([sam.md](formats/sam.md#a-setting)).
 
 ## Guessed
 
+- **The last of a setting's name in one file counts**, where a name
+  comes twice ([sam.md](formats/sam.md#a-setting)). A ride whose two
+  values differ, seen in the running game, would settle it.
 - **The speech and postcards in the cabinet's `Data` group are another
   language's**, perhaps Theme Park Inc's British English: the CD's
   American ones replace them, as setup does
