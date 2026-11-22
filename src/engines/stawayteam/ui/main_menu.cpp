@@ -315,11 +315,49 @@ bool MainMenu::run() {
         } else if (!inGame && song == audio::kNoSound && _mixer && _song) {
             song = _mixer->play(_song, audio::SoundType::kMusic, audio::kMaxVolume, 0, true);
         }
+        playMissionMusic();
         draw();
         brighten();
         _sys.updateScreen(_screen);
         _sys.delayMillis(10);
     }
+}
+
+void MainMenu::playMissionMusic() {
+    // On a mission's maps, its Primary Song, then its Random Songs, one
+    // after another by chance; without them, the map's own Map Song, over
+    // and over (inferred: the program's choosing isn't traced). It stops
+    // as the maps are left.
+    if (!_mixer)
+        return;
+    if (!_mapScreen) {
+        if (_missionSong != audio::kNoSound)
+            _mixer->stop(_missionSong);
+        _missionSong = audio::kNoSound;
+        _songsPlayed = 0;
+        return;
+    }
+    if (_missionSong != audio::kNoSound && _mixer->isPlaying(_missionSong))
+        return;
+    std::string name;
+    if (!_mission.primarySong.empty() && _songsPlayed == 0) {
+        name = _mission.primarySong;
+    } else if (!_mission.randomSongs.empty()) {
+        _songRandom = _songRandom * 1103515245u + 12345u;
+        name = _mission.randomSongs[(_songRandom >> 16) % _mission.randomSongs.size()];
+    } else if (_mission.primarySong.empty()) {
+        name = _mapScreen->song();
+    } else {
+        name = _mission.primarySong;
+    }
+    _missionSong = audio::kNoSound;
+    ++_songsPlayed;
+    std::vector<uint8_t> bytes;
+    auto sound = std::make_shared<audio::Sound>();
+    if (name.empty() || name == "!None.ogg" || _data.read("Music/" + name, bytes) || audio::decodeSound(bytes, *sound))
+        return;
+    _missionMusic = std::move(sound);
+    _missionSong = _mixer->play(_missionMusic, audio::SoundType::kMusic, audio::kMaxVolume, 0, false);
 }
 
 void MainMenu::startGame() {

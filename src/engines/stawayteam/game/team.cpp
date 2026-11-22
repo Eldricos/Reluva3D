@@ -207,6 +207,10 @@ Error loadMission(const Archive &data, int number, Mission &out) {
     readScript("Debrief Script", out.debriefing);
     out.showDebriefing = mds.integer("Show Debriefing").value_or(0) != 0;
     out.debriefingMusic = text(mds, "Debriefing Music");
+    out.primarySong = text(mds, "Primary Song");
+    if (const TextObject *songs = mds.object("Random Song"))
+        for (const TextField *item : songs->items())
+            out.randomSongs.push_back(item->value);
     for (TextField &f : mds.fields)
         if (f.key == "Objective" && f.object)
             out.objectives = std::shared_ptr<const TextObject>(std::move(f.object));

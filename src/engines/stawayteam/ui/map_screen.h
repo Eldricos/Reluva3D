@@ -87,6 +87,8 @@ public:
     /** Moves the camera on to `now`, then draws the view. */
     void draw(Surface &screen, uint64_t now);
 
+    /** The map's own song (its Map Song, of Music/); "!None.ogg" or empty for none. */
+    const std::string &song() const { return _map.song; }
     /** The map pixel at the view's middle. */
     float cameraX() const { return _cameraX; }
     float cameraY() const { return _cameraY; }

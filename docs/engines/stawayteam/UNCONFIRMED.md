@@ -58,6 +58,9 @@ None yet.
   walking into range before using one, a grenade's straight flight and
   whom its explosion reaches, healing up to the whole, and where the bar
   shows counts ([systems/items.md](systems/items.md#open-questions)).
+- **The maps' music:** the mission's Primary Song first, then its Random
+  Songs by chance, or the map's Map Song without them
+  ([systems/maps.md](systems/maps.md#open-questions)).
 - **The briefing:** the voice-overs found by name under `Levels/Voice
   Overs`, the briefing music played over and over and the menu's song
   stopped meanwhile, and text broken at its line breaks

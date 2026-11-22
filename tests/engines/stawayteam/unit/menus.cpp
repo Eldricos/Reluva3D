@@ -396,7 +396,9 @@ void testDebriefing() {
     MemoryArchive data;
     data.files["Levels/Mission 01/Mission 01.MDS"] =
         bytesOf("CMissionDescription\n{\n\tMission Name=The Test\n\tShow Debriefing=1\n"
-                "\tDebriefing Music=Debriefing.ogg\n\tDebrief Script=CBriefingScript\n\t{\n\t\tScript=Array\n\t\t{\n"
+                "\tDebriefing Music=Debriefing.ogg\n\tPrimary Song=Full.ogg\n\tRandom Song=Array\n\t{\n"
+                "\t\tItem Count=2\n\t\tRandom Song=Sub 1.ogg\n\t\tRandom Song=Sub 2.ogg\n\t}\n"
+                "\tDebrief Script=CBriefingScript\n\t{\n\t\tScript=Array\n\t\t{\n"
                 "\t\t\tArray Count=2\n"
                 "\t\t\tArray Item=CBriefingScriptLine\n\t\t\t{\n\t\t\t\tScript=Mission 01/Mission 01\n"
                 "\t\t\t\tText=01 Debrief\n\t\t\t\tWho is speaking=Marcus Refelian\n\t\t\t}\n"
@@ -407,6 +409,8 @@ void testDebriefing() {
     Mission mission;
     CHECK(!loadMission(data, 1, mission) && mission.showDebriefing && mission.debriefingMusic == "Debriefing.ogg");
     CHECK(mission.debriefing.size() == 2 && mission.debriefing[1].speaker == "Data" && mission.briefing.empty());
+    CHECK(mission.primarySong == "Full.ogg" &&
+          (mission.randomSongs == std::vector<std::string>{"Sub 1.ogg", "Sub 2.ogg"}));
     TextObject rules;
     CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tMenu=Array\n\t\t{\n\t\t\tItem Count=1\n"
                           "\t\t\tMenu=CAnimatedMenuInfo\n\t\t\t{\n\t\t\t\tMenu Name=Debriefing Screen\n"

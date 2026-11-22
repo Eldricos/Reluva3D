@@ -91,6 +91,8 @@ struct Mission {
     bool showDebriefing = false;
     std::vector<BriefingLine> debriefing; // its Debrief Script
     std::string debriefingMusic;
+    std::string primarySong;                      // of Music/, played on its maps
+    std::vector<std::string> randomSongs;         // played on them after it
     std::shared_ptr<const TextObject> objectives; // its CMissionObjectiveManager, if it has one
 };
 

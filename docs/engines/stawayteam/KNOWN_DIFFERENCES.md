@@ -38,8 +38,7 @@ None yet.
   anything yet
   ([systems/menus.md](systems/menus.md)).
 - **Maps:** the ground's values spread straight across a cell, not by
-  the program's fractal; water's warping and the map's song aren't
-  there; triggers set off by enemies, passing through or colliding, and
+  the program's fractal; water's warping isn't there; triggers set off by enemies, passing through or colliding, and
   the AIs' messages and objectives, aren't there; enemies patrol, see
   shoot, go to look at the team's noise and where they're called to,
   pursue, retreat and stun, but don't run away, recharge or look at the

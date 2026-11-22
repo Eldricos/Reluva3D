@@ -122,7 +122,9 @@ stawayteam frame-png`.
    debriefing's panels fading in, the time taken, Marcus Refelian's log,
    CONTINUE going on to Mission 02; Mission 02's team walking through the
    door to the Security Deck, shown there, and back; an officer's slot
-   chosen showing the map they're on; enemies called by one
+   chosen showing the map they're on; the mission's song playing on its
+   maps, the next starting as one ends, and the map's own for missions
+   without; enemies called by one
    that's seen the team, running after it out of sight, and retreating to
    their alarms when hurt (Mission 08); a grenade chosen on the bar or
    by G and thrown, the blast stunning those near, a hypospray chosen by

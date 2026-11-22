@@ -107,6 +107,8 @@ private:
     void endMaps();
     // Officers sent between the maps, and the map shown for one chosen.
     void moveOfficers();
+    // The mission's music on its maps.
+    void playMissionMusic();
     std::vector<TeamMember> startingTeam() const;
 
     System &_sys;
@@ -133,6 +135,10 @@ private:
     std::map<std::string, std::unique_ptr<MapScreen>> _maps;
     MapScreen *_mapScreen = nullptr;
     std::unique_ptr<DebriefingScreen> _debriefing;
+    std::shared_ptr<audio::Sound> _missionMusic;
+    audio::SoundHandle _missionSong = audio::kNoSound;
+    int _songsPlayed = 0;
+    unsigned _songRandom = 1;
     int _nextMission = 0; // the mission after the debriefing; 0 for the main menu
     Mission _mission;
     std::vector<TeamMember> _missionTeam; // the team it started with, for a restart

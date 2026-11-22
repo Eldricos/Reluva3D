@@ -178,6 +178,16 @@ Deck), or a list (Mission 15's "space1,space2,space3,space4").
 Position` or not; one of Mission 16's names no map, moving them on the
 same one. `CStarTrekRelocateGroupAction` (4) moves a `Group Name`.
 
+### The music
+
+A mission's `.MDS` has its `Primary Song` and `Random Song`, an array
+(of `Music/`), under its `Music` group (`0x507014`): "Mission 01 Full
+Mix.ogg" and its two "Sub Mix"es, for Missions 01, 02, 03, 04, 05, 07
+and 17. Each map has its own `Map Song`: "Scavenger Briefing.ogg",
+"Stasis Briefing.ogg" or "Munro's Briefing.ogg" for the rest, and
+`!None.ogg` for Missions 16 and 18. The program's choosing between them
+isn't traced.
+
 ### The map's triggers
 
 Parts with AIs (`Activity`) make the map's events happen: hidden
@@ -495,7 +505,12 @@ chosen on the team bar shows their map *(inferred)*. The mission's
 objectives, end and time are the same on all its maps, the time counted
 while one's shown.
 
-Not there yet: the interface's other buttons, the map's song, the
+The music (`ui/main_menu.cpp`): on a mission's maps, its Primary Song,
+then one of its Random Songs by chance after another; without them, the
+map shown's Map Song, over and over; stopping as the maps are left
+*(inferred)*.
+
+Not there yet: the interface's other buttons, the
 triggers set off by enemies, passing through or colliding, the AIs'
 other messages and tasks (going to a place, effects added), walkers
 going round each other, the vision button, the enemies' own noises and
@@ -574,6 +589,8 @@ other states (running away, recharging, investigating a body).
   degrees as the directions' (90 the viewer's way), the game's path
   finding, its mouse (which button chooses and which sends), the info
   bar's rising, and the frames' movement as a walk's pace.
+- **The music:** which song the program plays when, and whether the Map
+  Song plays with a mission's own.
 - **A mission's maps:** whether those the team's left go on, which place
   each officer arrives at, what Only on this map does, and the other
   relocations.
