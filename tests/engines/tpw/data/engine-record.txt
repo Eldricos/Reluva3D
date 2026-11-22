@@ -2,3 +2,11 @@
 # Written by `reluva-tests tpw.engine --update`; review its diff before committing.
 detect.games: 1
 detect.game: simcoaster: SimCoaster (unknown release)
+files.warnings: 0
+files.file: Challenges.sam 19
+files.file: ui.wad 295
+files.file: ui/!frame.MD2 7
+files.file: ui/cursors/pick.ani 8
+files.file: ui/stexture/button.tga 8
+files.file: ui/stexture/qickload.txt 12
+files.all: d101e4121a0819d4

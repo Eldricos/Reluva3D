@@ -25,6 +25,7 @@ setup installs it ([cd.md](formats/cd.md)).
 |---|---|
 | Detection | The US release by its data files' hashes; other releases by file names, as "unknown release" |
 | Importing | From the CD: its InstallShield 6 cabinet and its language's folders, as setup installs them; checked byte for byte against an install ([cd.md](formats/cd.md)) |
+| Archives | done: `.wad` ([wad.md](formats/wad.md)); all 303 archives' 15,007 files read; the `Data` folder mounted, archives and loose files together; `reluva-tool tpw wad-list`, `wad-extract` and `data-check` |
 | The executable | Surveyed: SafeDisc 2, its code encrypted, so the game is to be rebuilt from its data, not run ([executable.md](formats/executable.md)) |
 | Everything else | Not started: see [PLAN.md](PLAN.md) |
 
@@ -42,7 +43,7 @@ Esc leaves it.
 |---|---|
 | This page | Where it stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
-| `formats/` | The game's own files, a page each: [the executable](formats/executable.md), [the CD](formats/cd.md) |
+| `formats/` | The game's own files, a page each: [the executable](formats/executable.md), [the CD](formats/cd.md), [archives](formats/wad.md) |
 | `systems/` | How the game behaves, a page per part |
 | `research/` | Working notes |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |

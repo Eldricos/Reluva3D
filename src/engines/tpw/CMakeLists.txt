@@ -7,12 +7,15 @@ reluva_add_engine(tpw
     ACCESSOR tpwMetaEngine
     SOURCES
         tpw.cpp
-        games.cpp)
+        games.cpp
+        game_files.cpp
+        formats/wad.cpp)
 
 # Its reluva-tool commands (reluva-tool help tpw lists them).
 reluva_add_engine_tools(tpw
     SOURCES
-        tools/files.cpp)
+        tools/files.cpp
+        tools/wad.cpp)
 
 # Its tests (tests/engines/tpw/), in reluva-tests: the unit tests by
 # topic, and the engine test, without game files (its record in
@@ -22,14 +25,15 @@ reluva_add_engine_tests(tpw
     SOURCES
         ${tests}/unit/detection.cpp
         ${tests}/unit/import.cpp
+        ${tests}/unit/formats.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.import engine)
+        unit.detection unit.import unit.formats engine)
 
-# Its engine test with the game's own files, when it has one (see
-# docs/DEVELOPMENT.md, Engine tests):
-# reluva_add_gamedata_test(tpw
-#     GAME <game id>
-#     ENV RELUVA_<GAME>
-#     SCRIPT ${tests}/gamedata.cmake
-#     STEPS release ...)
+# Its engine test with SimCoaster's own files (see docs/DEVELOPMENT.md,
+# Engine tests): RELUVA_SIMCOASTER=<the game's folder>.
+reluva_add_gamedata_test(tpw
+    GAME simcoaster
+    ENV RELUVA_SIMCOASTER
+    SCRIPT ${tests}/gamedata.cmake
+    STEPS release data)

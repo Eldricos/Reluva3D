@@ -9,13 +9,15 @@
 //
 //   reluva-tests tpw.engine [--update]
 //
-// So far it checks that the install is found as an unknown release of
-// SimCoaster: add steps as the engine learns to read and run its games
-// (see tests/engines/idtech3/engine.cpp), then --update and review the
-// record.
+// So far: the install found as an unknown release of SimCoaster, and its
+// Data folder mounted, archives and loose files. Add steps as the engine
+// learns to read and run its games (see tests/engines/idtech3/engine.cpp),
+// then --update and review the record.
 
 #include "engines/registry.h"
+#include "engines/tpw/game_files.h"
 
+#include "tests/engines/tpw/fixtures.h"
 #include "tests/support/record.h"
 #include "tests/support/test.h"
 
@@ -27,9 +29,14 @@ namespace {
 
 void engineTest(const std::filesystem::path &tmp) {
     const std::filesystem::path dir = tmp / "install";
+    using namespace tpw::testing;
     std::filesystem::create_directories(dir / "Data");
-    for (const char *name : {"Game.exe", "Data/ui.wad", "Data/Challenges.sam"})
+    for (const char *name : {"Game.exe", "Data/Challenges.sam"})
         std::ofstream(dir / name) << name;
+    test::writeFile(dir / "Data" / "ui.wad", makeWad({{"!frame.MD2", toBytes("a frame"), true},
+                                                      {"stexture\\button.tga", toBytes("a button")},
+                                                      {"qickload.txt", toBytes("button.tga\r\n"), true}}));
+    test::writeFile(dir / "Data" / "ui" / "cursors" / "pick.ani", toBytes("a cursor"));
     test::Record rec;
     const MetaEngine *engine = findEngine("tpw");
     if (!engine)
@@ -38,6 +45,21 @@ void engineTest(const std::filesystem::path &tmp) {
     rec.add("detect.games", static_cast<int64_t>(found.size()));
     for (const DetectedGame &g : found)
         rec.add("detect.game", g.gameId + ": " + g.description);
+
+    SearchSet files;
+    std::vector<std::string> warnings;
+    if (Error err = tpw::mountGame(files, dir, warnings))
+        return test::fail(err.message);
+    rec.add("files.warnings", int64_t(warnings.size()));
+    test::Hash all;
+    for (const std::string &name : files.list()) {
+        std::vector<uint8_t> data;
+        if (Error err = files.read(name, data))
+            return test::fail(err.message);
+        all.text(name).bytes(data);
+        rec.add("files.file", name + " " + std::to_string(data.size()));
+    }
+    rec.add("files.all", all.hex());
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/tpw/data/engine-record.txt", "tpw.engine",
               "tests/engines/tpw/engine.cpp");
 }

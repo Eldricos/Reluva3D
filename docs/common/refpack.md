@@ -112,5 +112,7 @@ schemes, which Reluva doesn't read.
 
 ## Used by
 
+- **`tpw`**: SimCoaster's archives
+  ([wad.md](../engines/tpw/games/simcoaster/formats/wad.md)).
 - **`nfs`**: Need for Speed III's `.qfs` pictures and its two EA Huffman
   texture sets ([fsh.md](../engines/nfs/games/nfs3/formats/fsh.md)).

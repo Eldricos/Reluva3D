@@ -15,7 +15,11 @@ None yet.
 
 ## Inferred
 
-None yet.
+- **Each archive stands for the folder of its name**, which is how
+  Reluva mounts them (`ui.wad`'s files as `ui/...`): no archived file has
+  a loose namesake, and `ui.wad` sits beside a loose `ui/` folder
+  ([wad.md](formats/wad.md#overview)). The names the game asks for would
+  settle it.
 
 ## Guessed
 

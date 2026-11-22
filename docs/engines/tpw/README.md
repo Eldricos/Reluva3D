@@ -45,6 +45,8 @@ everything was read from SimCoaster.
 |---|---|
 | `tpw.cpp` | The `MetaEngine` and the `Engine`: an empty screen for now |
 | `games.cpp` | The games, the detection tables, and importing from the CD |
+| `game_files.cpp` | The `Data` folder mounted: the archives, loose files over them |
+| `formats/` | The games' files: `.wad` |
 | `tools/` | `reluva-tool tpw` commands (`reluva-tool help tpw` lists them) |
 
 ## Tests

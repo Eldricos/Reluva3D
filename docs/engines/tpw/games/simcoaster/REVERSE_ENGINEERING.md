@@ -70,6 +70,9 @@ they are: `Speech/American`, `CoasterData/American`,
 | Command | What it does |
 |---|---|
 | `reluva-tool tpw files` | Lists every file in a game's folder, with its size |
+| `reluva-tool tpw wad-list` | Lists an archive's files: sizes, how each is stored, the record's first word |
+| `reluva-tool tpw wad-extract` | Writes an archive's files, or one of them, under a folder |
+| `reluva-tool tpw data-check` | Reads every file of a game's `Data` folder, archives and loose files, with a checksum of them all |
 
 ## Working files not included
 
