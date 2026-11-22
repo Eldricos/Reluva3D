@@ -42,23 +42,15 @@ taken as empty.
 
 ### PT headers
 
-`PT\0\0`, then tags:
-
-- a tag byte, a length byte, then the value in that many bytes,
-  **big-endian**;
-- `0xFC`, `0xFD` and `0xFE` open sections and have no value;
-- `0xFF` ends the header.
+EA's PT headers, as the shared page describes them
+([ea-streams.md](../../../../../common/audio/ea-streams.md)). In NFS III's
+banks:
 
 | Tag | Meaning | Default |
 |---|---|---|
-| `0x82` | channels | 1 |
-| `0x83` | compression: 7 EA-XA, 9 MicroTalk; absent, 16-bit PCM | PCM |
-| `0x84` | sample rate (11025, 16000, 44100 in the retail banks) | 22050 |
-| `0x85` | number of samples | |
-| `0x81` | bits per sample (8 or 16; none of the retail banks has it) | 16 |
-| `0x86`, `0x87` | the loop: its first sample and its end, the last sample (in 48 sounds the count instead, one past the last) | |
-| `0x88` | the data's offset from the bank's start | |
-| `0x8A` | 0 in all | |
+| `0x84` | Sample rate: 11025, 16000, 44100 in the retail banks | 22050 |
+| `0x81` | Bits per sample: none of the retail banks has it | 16 |
+| `0x86`, `0x87` | The loop: its first sample and its end, the last sample (in 48 sounds the count instead, one past the last) | |
 | `0x92` | the 3D method: 1 software (iSND mixes it), 2 DirectSound 3D | 1 |
 | `0x93` | room for the DirectSound 3D buffer's pointer, 0 in the files | |
 | `0x00`-`0x25` | the patch's parameters, below | |
@@ -537,20 +529,9 @@ Reluva uses as much as is there.
 
 ### EA-XA ADPCM
 
-- Mono in banks: 28 samples in each 15-byte frame.
-- The frame's first byte holds the filter (high nibble, 0-3) and the
-  shift (low nibble, 0-12).
-- 14 bytes of 4-bit residuals follow, high nibble first.
-
-Decoding a residual:
-
-    sample = residual × 2^(12 − shift) + (c1 × previous + c2 × before_previous + 128) >> 8
-
-clamped to 16 bits. The filters (c1, c2) are CD-XA's, in 1/256ths:
-(0, 0), (240, 0), (460, −208), (392, −220).
-
-Filter numbers above 3 appear only in final, partly used frames (fewer
-than 0.1% of frames); Reluva uses no prediction for them.
+As the shared page describes it
+([ea-streams.md](../../../../../common/audio/ea-streams.md#ea-xa-adpcm)):
+mono, 28 samples in each 15-byte frame.
 
 ### MicroTalk
 
@@ -1178,8 +1159,8 @@ mph (0x3C); then the dispatcher: all units be advised (0x10), unit 46
 
 Implemented:
 
-- banks and PT headers: `src/engines/nfs/formats/bnk.cpp`
-  (`parseSoundBank`);
+- banks: `src/engines/nfs/formats/bnk.cpp` (`parseSoundBank`);
+- PT headers: `src/audio/ea_stream.cpp` (`parseSoundHeader`);
 - the codecs: `src/audio/ea_audio.cpp`.
 
 On the install and the CD, all 976 banks read and all 11,775 sounds

@@ -5,6 +5,7 @@
 
 #include "audio/sound.h"
 #include "common/types.h"
+#include "audio/ea_stream.h"
 #include "engines/nfs/formats/bnk.h"
 
 #include <array>
@@ -13,34 +14,8 @@
 
 namespace reluva::nfs {
 
-/**
- * A music file (.mus): segments one after another, each an SCHl header
- * (a PT header), an SCCl block count, SCDl data blocks and SCEl, as
- * docs/engines/nfs/games/nfs3/formats/mus.md describes. The data is kept;
- * segments are decoded when asked.
- */
-class MusicStream {
-public:
-    /** One segment: its header and where its data blocks are. */
-    struct Segment {
-        uint32_t offset = 0; // of its SCHl, in the file
-        SoundHeader header;
-        std::vector<std::pair<uint32_t, uint32_t>> blocks; // each SCDl's payload: offset, size
-    };
-
-    /** Takes the file and finds its segments; fails if a chunk runs past the end. */
-    Error open(std::vector<uint8_t> data);
-    /** The segments, in the file's order. */
-    const std::vector<Segment> &segments() const { return _segments; }
-    /** The segment starting at a file offset (as a map gives them), or -1. */
-    int segmentAt(uint32_t offset) const;
-    /** Decodes a segment; only stereo EA-XA and 16-bit PCM are known. */
-    Error decode(size_t segment, audio::Sound &out) const;
-
-private:
-    std::vector<uint8_t> _data;
-    std::vector<Segment> _segments;
-};
+/** NFS III's music files (.mus) are EA sound streams. */
+using MusicStream = audio::EaSoundStream;
 
 /**
  * A Pathfinder map (.map, and .lin for a linear order): for each segment,

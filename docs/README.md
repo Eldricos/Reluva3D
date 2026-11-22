@@ -28,7 +28,8 @@ Laid out as `src/common/` is, a page per component:
 - **[graphics/](common/graphics/):** [the Glide stand-in](common/graphics/glide.md),
   3dfx's Glide 2 and 3 in software and on the GPU, for a game's own Voodoo
   renderer.
-- **[audio/](common/audio/):** [DirectMusic](common/audio/directmusic.md)
+- **[audio/](common/audio/):** [EA's sound headers and streams](common/audio/ea-streams.md),
+  [DirectMusic](common/audio/directmusic.md)
   music, played on [DLS](common/audio/dls.md) instruments by a
   synthesizer of Reluva's own; [the tracker music player](common/audio/tracker.md)
   (MOD, S3M, XM, IT); and [the mixer](common/audio/mixer.md)'s filters,

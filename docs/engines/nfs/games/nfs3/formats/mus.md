@@ -12,31 +12,10 @@ which.
 
 ### Streams (`.mus`)
 
-A stream is segments one after another. Each segment is four kinds of
-chunk, each a 4-character tag and a u32 size (little-endian, the 8 bytes
-included):
-
-| Chunk | Contents |
-|---|---|
-| `SCHl` | a PT header ([bnk.md](bnk.md)): channels 2, compression 7 (EA-XA) or none (16-bit PCM), the number of samples |
-| `SCCl` | u32: the number of data blocks |
-| `SCDl` | a data block (below) |
-| `SCEl` | the segment's end |
-
-Data blocks:
-
-- **EA-XA:**
-  - u32 samples in the block;
-  - for each channel, s16 previous and s16 before-previous sample;
-  - per 28 samples, 30 bytes:
-    - a filter byte (left in the high nibble);
-    - a shift byte (likewise);
-    - 28 bytes, each holding the left channel's residual in the high
-      nibble and the right's in the low.
-
-  Decoding is as for mono EA-XA ([bnk.md](bnk.md)), each channel with its
-  own history.
-- **PCM:** u32 samples, then interleaved 16-bit stereo.
+EA's sound streams, as the shared page describes them
+([ea-streams.md](../../../../../common/audio/ea-streams.md#streams)):
+segments of `SCHl` (channels 2, compression 7, EA-XA, or none, 16-bit
+PCM), `SCCl`, `SCDl` blocks and `SCEl`.
 
 The PCM streams are six of the eight showcase tracks (`show1`, `3`, `4`, `5`, `7`, `8`) and `srv2.mus`; `show2` and `show6` are EA-XA.
 
@@ -392,8 +371,9 @@ of it. Neither car is reset there. The races of other lengths aren't in the foot
 
 ## In Reluva
 
-Read as `MusicStream` and `MusicMap` (`src/engines/nfs/formats/mus.cpp`; the stereo EA-XA
-block decoder in `src/audio/ea_audio.cpp`):
+Read as `MusicMap` (`src/engines/nfs/formats/mus.cpp`) and the shared
+stream reader, `EaSoundStream` (`src/audio/ea_stream.cpp`; the stereo
+EA-XA block decoder in `src/audio/ea_audio.cpp`):
 
 - all 19 music streams on the CD (`gamedata/audio/pc`) read, and their
   1,729 segments decode;

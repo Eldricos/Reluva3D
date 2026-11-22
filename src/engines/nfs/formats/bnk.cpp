@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <cstring>
 #include <string>
-#include <type_traits>
 
 namespace reluva::nfs {
 
@@ -22,63 +21,7 @@ uint32_t le32(const uint8_t *p) {
            static_cast<uint32_t>(p[3]) << 24;
 }
 
-// The tags known (bnk.md).
-constexpr int kChannels = 0x82;
-constexpr int kCompression = 0x83;
-constexpr int kRate = 0x84;
-constexpr int kSamples = 0x85;
-constexpr int kLoopStart = 0x86;
-constexpr int kLoopEnd = 0x87;
-constexpr int kDataOffset = 0x88;
-// Bytes that open a section of tags rather than being one.
-bool isSection(uint8_t b) {
-    return b == 0xfc || b == 0xfd || b == 0xfe;
-}
-
 } // namespace
-
-Error parseSoundHeader(const uint8_t *data, size_t size, size_t at, SoundHeader &out, size_t *end) {
-    out = {};
-    if (at + 4 > size || std::memcmp(data + at, "PT\0\0", 4) != 0)
-        return Error::fail("no PT header");
-    // Tags: a byte, a length byte, the value big-endian; 0xFF ends them.
-    size_t p = at + 4;
-    while (true) {
-        if (p >= size)
-            return Error::fail("a PT header runs past the end");
-        const uint8_t tag = data[p++];
-        if (tag == 0xff)
-            break;
-        if (isSection(tag))
-            continue;
-        if (p >= size || p + 1 + data[p] > size)
-            return Error::fail("a PT header runs past the end");
-        const uint8_t length = data[p++];
-        uint32_t value = 0;
-        for (uint8_t i = 0; i < length; ++i)
-            value = value << 8 | data[p + i];
-        p += length;
-        out.tags[tag] = value;
-    }
-    if (end)
-        *end = p;
-    auto get = [&](int tag, auto &field) {
-        if (auto it = out.tags.find(tag); it != out.tags.end())
-            field = static_cast<std::remove_reference_t<decltype(field)>>(it->second);
-    };
-    get(kChannels, out.channels);
-    get(kCompression, out.compression);
-    get(kRate, out.rate);
-    get(kSamples, out.samples);
-    get(kLoopStart, out.loopStart);
-    get(kLoopEnd, out.loopEnd);
-    get(kDataOffset, out.dataOffset);
-    if (out.channels < 1 || out.channels > 2)
-        return Error::fail("a sound with " + std::to_string(out.channels) + " channels");
-    if (out.rate <= 0)
-        return Error::fail("a sound with no sample rate");
-    return Error::success();
-}
 
 Error parseSoundBank(const std::vector<uint8_t> &data, SoundBank &out) {
     out = {};

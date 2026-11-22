@@ -689,57 +689,8 @@ void testSoundBank() {
 }
 
 void testMusic() {
-    // A stream of two segments: EA-XA stereo (one block of 30 samples:
-    // two groups) and PCM stereo (2 samples).
-    auto chunk = [](Bytes &out, const char *tag, const Bytes &body) {
-        out.insert(out.end(), tag, tag + 4);
-        put32(out, uint32_t(8 + body.size()));
-        out.insert(out.end(), body.begin(), body.end());
-    };
-    Bytes mus;
-    chunk(mus, "SCHl", ptHeader({{0x82, 2}, {0x83, 7}, {0x85, 30}}));
-    Bytes count;
-    put32(count, 1);
-    chunk(mus, "SCCl", count);
-    Bytes xa;
-    put32(xa, 30);
-    for (int v : {100, 0, -100, 0}) // left previous, before; right previous, before
-        put16(xa, unsigned(v));
-    xa.push_back(0x10); // filters: left 1, right 0
-    xa.push_back(0xcc); // shifts 12, 12: residuals as they are
-    xa.push_back(0x1f); // left +1, right -1
-    xa.insert(xa.end(), 27, 0);
-    Bytes group2(30, 0);
-    group2[1] = 0xcc;
-    xa.insert(xa.end(), group2.begin(), group2.end());
-    chunk(mus, "SCDl", xa);
-    chunk(mus, "SCEl", {});
-    const uint32_t second = uint32_t(mus.size());
-    chunk(mus, "SCHl", ptHeader({{0x82, 2}, {0x85, 2}}));
-    chunk(mus, "SCCl", count);
-    Bytes pcm;
-    put32(pcm, 2);
-    for (int v : {1, -1, 2, -2})
-        put16(pcm, unsigned(v));
-    chunk(mus, "SCDl", pcm);
-    chunk(mus, "SCEl", {});
-
-    MusicStream stream;
-    CHECK(!stream.open(mus));
-    CHECK(stream.segments().size() == 2 && stream.segmentAt(second) == 1 && stream.segmentAt(4) == -1);
-    audio::Sound s;
-    CHECK(!stream.decode(0, s));
-    CHECK(s.channels == 2 && s.samples.size() == 60);
-    if (s.samples.size() == 60) {
-        // Left: 1 + 240/256 x 100 = 1 + 94; right: -1 + 0.
-        CHECK(s.samples[0] == 1 + ((240 * 100 + 128) >> 8) && s.samples[1] == -1);
-        CHECK(s.samples[56] == 0 && s.samples[57] == 0); // the second group, filter 0
-    }
-    CHECK(!stream.decode(1, s));
-    CHECK(s.samples == (std::vector<int16_t>{1, -1, 2, -2}));
-    Bytes cut(mus.begin(), mus.end() - 3);
-    CHECK(stream.open(cut));
-
+    // The streams themselves are the shared code's (common.unit.ea_audio).
+    const uint32_t second = 0x88;
     // A map of three sections: 0 goes to 1 (values 0-49) or 2 (50-100),
     // 1 to 0, 2 nowhere; one event; then the offsets, big-endian.
     Bytes map = {'P', 'F', 'D', 'x', 0, 0, 3, 16, 0, 0, 0, 2};

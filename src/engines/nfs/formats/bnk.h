@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "audio/ea_stream.h"
 #include "audio/sound.h"
 #include "common/types.h"
 
@@ -13,32 +14,9 @@
 
 namespace reluva::nfs {
 
-/**
- * A sound's "PT" header: tagged values describing its audio, as
- * docs/engines/nfs/games/nfs3/formats/bnk.md describes. Values not given
- * take the defaults.
- */
-struct SoundHeader {
-    /** The compression tag's values (kPcm16 when there is none). */
-    enum Compression { kPcm16 = -1, kEaXa = 7, kMicroTalk = 9 };
-    int compression = kPcm16;
-    int channels = 1;
-    int rate = 22050;
-    uint32_t samples = 0;
-    uint32_t dataOffset = 0; // in a bank: from the bank's start
-    // The loop, in samples: its first and its end (the last sample, or in
-    // some banks the count); both 0 if it doesn't loop.
-    uint32_t loopStart = 0;
-    uint32_t loopEnd = 0;
-    std::map<int, uint32_t> tags; // every tag as read, the known ones too
-};
-
-/**
- * Reads a PT header from `data` at `at` (at "PT\0\0"). Fails if it runs
- * past `size`, or gives other than 1 or 2 channels or no rate.
- * @param end If not null, gets the offset after the header.
- */
-Error parseSoundHeader(const uint8_t *data, size_t size, size_t at, SoundHeader &out, size_t *end = nullptr);
+// NFS III's code names the shared sound header's type and reader as its own.
+using audio::parseSoundHeader;
+using audio::SoundHeader;
 
 /** A .bnk bank ("BNKl"): slots of sounds, some empty. */
 struct SoundBank {

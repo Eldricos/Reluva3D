@@ -9,6 +9,7 @@ add_library(reluva_audio STATIC
     directmusic.cpp
     dls.cpp
     ea_audio.cpp
+    ea_stream.cpp
     mixer.cpp
     mp3.cpp
     prologic.cpp
