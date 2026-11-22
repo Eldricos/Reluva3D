@@ -1245,6 +1245,10 @@ static void testInput() {
     CHECK(call(keyboard, 9, {256, state}) == 0 && cpu.read8(state + 0x1e) == 0x80 && cpu.read8(state + 0x1f) == 0);
     process.key(0x41, 0x1e, false);
     CHECK(call(keyboard, 9, {256, state}) == 0 && cpu.read8(state + 0x1e) == 0);
+    // An extended key: the up arrow, scan code 0x48 extended, is DIK_UP (0xc8).
+    process.key(0x26, 0x148, true);
+    CHECK(call(keyboard, 9, {256, state}) == 0 && cpu.read8(state + 0xc8) == 0x80 && cpu.read8(state + 0x48) == 0);
+    process.key(0x26, 0x148, false);
 }
 
 // A3D created as a program creates it, a source made, filled through Lock,

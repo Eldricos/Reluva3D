@@ -26,7 +26,8 @@ So far what LEGO Island calls as it loads its world and plays its intro:
   for meshes, lights, materials and textures (a mesh's copy has its own
   groups, sharing their materials and textures).
 - **`IDirect3DRMFrame`, `IDirect3DRMFrame2`:** the hierarchy (children,
-  visuals and lights attached), its transform and its parts (translation,
+  visuals and lights attached, and read back as arrays:
+  `IDirect3DRMFrameArray`, `LightArray`, `VisualArray`), its transform and its parts (translation,
   scale, rotation, a matrix, each combined as asked), its position and
   orientation set and read relative to another frame, points taken to the
   world and back, its colour, material mode, sort and Z buffer modes, and

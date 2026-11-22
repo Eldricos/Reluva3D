@@ -323,8 +323,9 @@ std::vector<ComInterface::Method> pickedArrayMethods() {
     return with({{"GetSize", 0}, {"GetPick", 4}});
 }
 
-// IDirect3DRMFrameArray: no IDirect3DRMObject methods either.
-std::vector<ComInterface::Method> frameArrayMethods() {
+// IDirect3DRMFrameArray, LightArray and VisualArray: no IDirect3DRMObject
+// methods either.
+std::vector<ComInterface::Method> arrayMethods() {
     return with({{"GetSize", 0}, {"GetElement", 2}});
 }
 
@@ -479,11 +480,13 @@ struct Direct3DRM::State {
     ComInterface mesh{"IDirect3DRMMesh", kIidMesh, meshMethods(), 0};
     // Handed out by Pick only, never asked for by its IID.
     ComInterface pickedArray{"IDirect3DRMPickedArray", "", pickedArrayMethods(), 0};
-    ComInterface frameArray{"IDirect3DRMFrameArray", "", frameArrayMethods(), 0};
+    ComInterface frameArray{"IDirect3DRMFrameArray", "", arrayMethods(), 0};
+    ComInterface lightArray{"IDirect3DRMLightArray", "", arrayMethods(), 0};
+    ComInterface visualArray{"IDirect3DRMVisualArray", "", arrayMethods(), 0};
     /** Every interface above, each given its vtable as the object's made. */
     std::vector<ComInterface *> interfaces() {
-        return {&rm,    &rm2,      &frame,   &frame2,   &device, &device2,     &viewport,
-                &light, &material, &texture, &texture2, &mesh,   &pickedArray, &frameArray};
+        return {&rm,       &rm2,     &frame,    &frame2, &device,      &device2,    &viewport,   &light,
+                &material, &texture, &texture2, &mesh,   &pickedArray, &frameArray, &lightArray, &visualArray};
     }
     size_t made = 0;
     uint32_t defaultTextureColors = 32;
@@ -563,6 +566,33 @@ private:
         }
         c.write32(size, need);
         return kRmOk;
+    }
+};
+
+// An array of objects (IDirect3DRMFrameArray, LightArray, VisualArray):
+// a frame's children, lights or visuals, or a pick's frames. Each element
+// is handed out as `element`, or, with none, as a visual.
+class RmArray : public ComObject {
+public:
+    Direct3DRM::State *s = nullptr;
+    const ComInterface *element = nullptr;
+    std::vector<std::shared_ptr<ComObject>> items;
+    const ComInterface *query(const std::string &) override { return nullptr; }
+    std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override {
+        const std::string_view m = iface.methods[size_t(index)].name;
+        if (m == "GetSize")
+            return uint32_t(items.size());
+        if (m == "GetElement") { // (index, out), AddRef'd
+            if (c.arg(1) >= items.size() || !c.valid(c.arg(2), 4))
+                return kRmErrBadValue;
+            const std::shared_ptr<ComObject> &o = items[c.arg(1)];
+            const ComInterface *f = element ? element : o->query(kIidVisual);
+            c.write32(c.arg(2), f ? s->com.pointer(o, *f) : 0);
+            if (f)
+                o->refs++;
+            return kRmOk;
+        }
+        return std::nullopt;
     }
 };
 
@@ -996,6 +1026,26 @@ public:
         auto vectorAt = [&](int first) {
             return Vector{asFloat(c.arg(first)), asFloat(c.arg(first + 1)), asFloat(c.arg(first + 2))};
         };
+        if (m == "GetChildren" || m == "GetLights" || m == "GetVisuals") { // (array out)
+            if (!c.valid(c.arg(1), 4))
+                return kRmErrBadValue;
+            auto array = std::make_shared<RmArray>();
+            array->s = s;
+            const ComInterface *kind = &s->visualArray;
+            if (m == "GetChildren") {
+                array->element = &s->frame;
+                array->items.assign(children.begin(), children.end());
+                kind = &s->frameArray;
+            } else if (m == "GetLights") {
+                array->element = &s->light;
+                array->items = lights;
+                kind = &s->lightArray;
+            } else {
+                array->items = visuals;
+            }
+            c.write32(c.arg(1), s->com.pointer(array, *kind));
+            return kRmOk;
+        }
         if (m == "AddChild") {
             auto child = s->com.shared<Frame>(c.arg(1));
             if (!child)
@@ -1252,28 +1302,6 @@ struct PickHit {
     float position[3]{};
 };
 
-// Frames: a pick's path.
-class FrameArray : public ComObject {
-public:
-    Direct3DRM::State *s = nullptr;
-    std::vector<std::shared_ptr<Frame>> frames;
-    const ComInterface *query(const std::string &) override { return nullptr; }
-    std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override {
-        const std::string_view m = iface.methods[size_t(index)].name;
-        if (m == "GetSize")
-            return uint32_t(frames.size());
-        if (m == "GetElement") { // (index, out), AddRef'd
-            if (c.arg(1) >= frames.size() || !c.valid(c.arg(2), 4))
-                return kRmErrBadValue;
-            const std::shared_ptr<Frame> &f = frames[c.arg(1)];
-            c.write32(c.arg(2), s->com.pointer(f, s->frame));
-            f->refs++;
-            return kRmOk;
-        }
-        return std::nullopt;
-    }
-};
-
 // What a pick found, nearest first.
 class PickedArray : public ComObject {
 public:
@@ -1295,9 +1323,10 @@ public:
                     h.visual->refs++;
             }
             if (c.valid(c.arg(3), 4)) {
-                auto frames = std::make_shared<FrameArray>();
+                auto frames = std::make_shared<RmArray>();
                 frames->s = s;
-                frames->frames = h.path;
+                frames->element = &s->frame;
+                frames->items.assign(h.path.begin(), h.path.end());
                 c.write32(c.arg(3), s->com.pointer(frames, s->frameArray));
             }
             if (c.valid(c.arg(4), 20)) {

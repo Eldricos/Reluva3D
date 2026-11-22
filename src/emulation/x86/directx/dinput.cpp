@@ -164,9 +164,12 @@ public:
                 buttons[r.a] = r.b != 0;
                 record(Object::Kind::kButton, r.a, r.b ? 0x80 : 0);
             }
-        } else if (r.kind == Kind::kKey && r.a >= 0 && r.a < 256) {
-            keys[r.a] = r.b != 0;
-            record(Object::Kind::kKey, r.a, r.b ? 0x80 : 0);
+        } else if (r.kind == Kind::kKey && r.a >= 0 && r.a < 0x200) {
+            // An extended key (0x100: the arrows, Home, the right Ctrl...)
+            // is its scan code with the top bit set, as DIK_UP is 0xc8.
+            const int code = r.a & 0x100 ? (r.a & 0x7f) | 0x80 : r.a & 0xff;
+            keys[code] = r.b != 0;
+            record(Object::Kind::kKey, code, r.b ? 0x80 : 0);
         }
     }
     void change(Object::Kind kind, int axis, int by) {

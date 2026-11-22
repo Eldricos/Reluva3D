@@ -53,8 +53,9 @@ headers' (`directx/interfaces.cpp`).
   execute buffers, and drawing through `IDirect3DDevice2`.
 - **`directx/dinput.cpp`: DINPUT.dll**, DirectInput up to DirectX 7.
   - The system mouse (3 axes, 4 buttons) and keyboard (256 keys by scan
-    code), read through the program's data format (the `c_dfDIMouse` and
-    `c_dfDIKeyboard` kinds, or its own).
+    code, an extended key's with the top bit set: the up arrow, 0x48
+    extended, is `DIK_UP`, 0xc8), read through the program's data format
+    (the `c_dfDIMouse` and `c_dfDIKeyboard` kinds, or its own).
   - Read either as an immediate state (relative or absolute axes) or as a
     buffer of changes (`DIPROP_BUFFERSIZE`, `GetDeviceData`).
 
