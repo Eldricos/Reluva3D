@@ -17,6 +17,7 @@ documentation. It's all in `src/emulation/x86/`.
 | [windows.md](windows.md) | A Windows process: loading, KERNEL32, files, MSVCRT, USER32 and GDI32, the registry, COM, input, threads |
 | [gdi.md](gdi.md) | GDI32's objects, device contexts and drawing, into pixels in the program's memory |
 | [directx.md](directx.md) | DirectDraw, Direct3D 7 (in software) and DirectInput |
+| [dplay.md](dplay.md) | DirectPlay and its lobby, without a network |
 | [a3d.md](a3d.md) | Aureal A3D, on Reluva's mixer |
 | [msvcp60.md](msvcp60.md) | Visual C++ 6's C++ library, rebuilt with its layouts |
 | [disasm.md](disasm.md) | A disassembler, for studying a game's executable |

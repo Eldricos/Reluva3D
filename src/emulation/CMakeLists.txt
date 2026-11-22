@@ -11,6 +11,7 @@ add_library(reluva_emulation STATIC
     x86/cpu.cpp
     x86/cpu_cache.cpp
     x86/disasm.cpp
+    x86/dplay.cpp
     x86/format.cpp
     x86/fpu.cpp
     x86/jit.cpp
