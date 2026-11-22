@@ -37,7 +37,8 @@ with recordings of the original filling what the data can't show.
    one game state ([systems/game-state.md](systems/game-state.md)), and
    written back into the save it came from, unchanged saves byte for
    byte; the game loads saves so written, with the credits and names
-   changed. Next: ships, task forces and treaties added or removed.
+   changed, and ships and task forces added or taken out. Next: treaties
+   and outposts.
 9. **Screens:** the main menu's own screens are done (the options, Load
    and Save Game's lists, the Hall of Fame, Multiplayer Setup). The galaxy
    screen's frame, map, empire's panel and selected sector's strip are

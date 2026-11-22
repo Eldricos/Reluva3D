@@ -329,6 +329,17 @@ Error readSavedShips(const std::filesystem::path &path, std::vector<SavedShip> &
         s.experience = s32(list, at + 0x40);
         s.taskForce = s16(list, at + 0x50);
         s.shipClass = s32(list, at + 0x52);
+        // The rest as the Ultimate Editor lays it out (published).
+        s.beamAccuracyBonus = s32(list, at + 0x2C);
+        s.torpedoAccuracyBonus = s32(list, at + 0x30);
+        s.defenseBonus = s32(list, at + 0x34);
+        s.experienceLevel = s32(list, at + 0x44);
+        s.cloak = s32(list, at + 0x58);
+        s.agility = s32(list, at + 0x5C);
+        s.interception = s32(list, at + 0x60);
+        s.bombing = s32(list, at + 0x64);
+        s.construction = s32(list, at + 0x6C);
+        s.groundCombat = s32(list, at + 0x70);
         ships.push_back(std::move(s));
     }
     return Error::success();
@@ -362,6 +373,17 @@ Error readSavedTaskForces(const std::filesystem::path &path, int width, std::vec
         t.owner = s32(list, at + 0x34);
         t.y = s32(list, at + 0x38);
         t.x = s32(list, at + 0x3C);
+        // The rest as the Ultimate Editor lays it out (published).
+        t.abilities = uint16_t(s16(list, at + 0x40));
+        t.firstColonyShip = s32(list, at + 0x44);
+        t.unknown48 = s32(list, at + 0x48);
+        t.control = s32(list, at + 0x4C);
+        t.production = s16(list, at + 0x50);
+        t.scanRange = s16(list, at + 0x52);
+        t.orderId = s32(list, at + 0x54);
+        t.range = readDouble(list, at + 0x58);
+        t.speed = readDouble(list, at + 0x60);
+        t.cloaked = s32(list, at + 0x68) != 0;
         taskForces.push_back(t);
     }
     return Error::success();
@@ -538,6 +560,18 @@ Error readSavedTreaties(const std::filesystem::path &path, std::vector<SavedTrea
     return Error::success();
 }
 
+Error readSavedCounters(const std::filesystem::path &path, SavedGame &game) {
+    std::vector<uint8_t> ships;
+    std::vector<uint8_t> forces;
+    if (Error err = readFiles(path, {"ShipCntr", "TForceCntr"}, {&ships, &forces}))
+        return err;
+    if (ships.size() < 4 || forces.size() < 4)
+        return Error::fail(path.string() + ": ShipCntr or TForceCntr is too small");
+    game.nextShipId = s32(ships, 0);
+    game.nextTaskForceId = s32(forces, 0);
+    return Error::success();
+}
+
 Error readSavedGame(const std::filesystem::path &path, SavedGame &game) {
     game = SavedGame{};
     if (Error err = readSaveSummary(path, game.summary))
@@ -551,6 +585,8 @@ Error readSavedGame(const std::filesystem::path &path, SavedGame &game) {
     if (Error err = readSavedShips(path, game.ships))
         return err;
     if (Error err = readSavedTaskForces(path, game.galaxy.width, game.taskForces))
+        return err;
+    if (Error err = readSavedCounters(path, game))
         return err;
     if (Error err = readSavedTreaties(path, game.treaties))
         return err;

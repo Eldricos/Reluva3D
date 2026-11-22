@@ -298,11 +298,36 @@ the editor gives it (`TaskForce.java`), checked as noted:
 | 0x30 | `i32` | the sector it's ordered to, row by row, or -1: 113 for column 9 of row 8 on a small galaxy's 13 columns, ordered a sector west of Sol |
 | 0x34 | `i32` | the race it belongs to |
 | 0x38, 0x3C | `i32` | its sector's row and column: Sol's 8, 10, then 8, 9 the turn after the order |
+| 0x40 | `u16` | what its ships can do, a bit each *(published)*: 0x0C12 for a Federation science vessel's or destroyer's |
+| 0x44 | `i32` | its first colony ship's number, or -1 *(published)* |
+| 0x48 | `i32` | ?: -1 in every task force seen |
+| 0x4C | `i32` | its control *(published)*: 1 for every major empire's task force (771 in the saves), 2 or 3 for the minor races' and monsters' |
+| 0x50, 0x52 | `u16` | its ships' production and scan range *(published)* |
+| 0x54 | `i32` | the order its mission came from, or 0 |
+| 0x58, 0x60 | `f64` | its range and speed *(published)*: 1.0 and 1.0 for the destroyer, as its class's |
+| 0x68 | `i32` | 1 if it's cloaked *(published)* |
 
 Ordered to move, a task force's entry in `GWTForce` changes (the
 destination, and the order's number at 0x54); a turn later it's in the
-new sector and `GTForceList`, which is otherwise the same list, has it
-too.
+new sector, and `GTForceList` has it too. `GTForceList` (with its head
+`GTForceHd`) holds the same task forces as they were when the turn
+began, in their numbers' order; `GWTForce` holds them as they are now,
+and when one is taken out the last takes its place (in the user's
+ShipBuild game, task force 13 in 11's place once 11 was scrapped). A
+task force's ship numbers after its count are left as they were when a
+ship leaves it, and are -1 in a new one.
+
+### Lists
+
+`GShipList`, `GWTForce`, `GTForceList` and `GTFStasis` are lists with a
+40-byte head: the entry's size at 0x10, the room at 0x14 and how many are
+in use at 0x18; the list's file has the room's entries, those not in use
+zeros or left over. The room grows by half: 32, 48, 72 and 108 in the
+saves seen (Tutorial #4's 81 ships in 108). The head's first four words
+and those at 0x1C to 0x24 change from save to save without the list
+changing, and look like the game's addresses in memory *(guessed)*.
+`ShipCntr` and `TForceCntr` hold the next ship's and task force's
+numbers.
 
 ### Ships
 
@@ -323,11 +348,58 @@ Vessel", "Colony Ship"), and the Edo Guardian:
 | 0x40 | `i32` | its crew's experience: 350 for every Klingon ship at the start, 0 for the others' |
 | 0x50 | `i16` | the task force it's in, whose entry lists it: so in all 15 saves |
 | 0x52 | `i32` | its class, by `shiplist.sst`'s number: 35, the Oberth class Science Vessel |
+| 0x2C, 0x30, 0x34 | `i32` | bonuses to its beams' and torpedoes' accuracy and to its defense *(published)*: 0 in every ship seen |
+| 0x44 | `i32` | its crew's experience level *(published)* |
+| 0x58 | `i32` | its cloak, for battles *(published)*: 0, 1 or 4 |
+| 0x5C, 0x60, 0x64 | `i32` | its agility, interception and bombing *(published)*: its class's ([below](#a-ships-class-figures)) |
+| 0x6C, 0x70 | `i32` | a troop transport's construction (50) and ground combat strength (40 or 110) *(published)*; 0 for other ships |
 
-The Edo Guardian's shields are 0 at the very start and its class's 6,350
-a turn later. The rest of the entry (accuracy and defense bonuses,
-cloaking, agility, what it can do) is the editor's and not read yet, as
-is `shipname.dat`.
+The rest (8 bytes at 0x48, 2 at 0x56, 4 at 0x68) is 0 in every ship
+seen. The Edo Guardian's shields are 0 at the very start and its
+class's 6,350 a turn later. `shipname.dat` changes as ships are named;
+it isn't read.
+
+#### A ship's class figures
+
+A ship's agility, interception and bombing are the same for every ship
+of its class, across all 24 saves' 31 classes; worked out from those, by
+the class's role (`shiplist.sst`), technology levels (`shiptech.sst`) and
+speed *(inferred)*:
+
+- **Agility:** 10 for a destroyer, 8 for a scout, 6 for a cruiser, 1
+  for a troop transport and 0 for a colony ship, plus the computer and
+  propulsion levels: the Miranda's 10 + 1 + 2 = 13, the Ambassador's
+  6 + 2 + 2 = 10, the Oberth's 8 + 1 + 1 = 10, a colony ship's 2.
+- **Interception:** the agility and the speed, for the warships (scouts
+  to command ships); 0 for the rest: the Miranda's 13 + 1 = 14, the
+  Yridian scout's 14 + 2.
+- **Bombing:** the computer and weapons levels, for the warships: the
+  Miranda's 1 + 1 = 2, the Ambassador's 2 + 3 = 5.
+- **Monsters** have none of the three.
+
+No strike cruiser or command ship is in the saves, so their roles'
+agility isn't known.
+
+### Building and scrapping a ship
+
+Six saves of a new game (the user's ShipBuild game, November 2026): at
+the start; a Miranda class Destroyer queued at Sol; bought; the turn after,
+built; ordered to be scrapped; the turn after, gone, with screenshots of
+the destroyer queued and the galaxy screen with it built:
+
+- **Buying** took the class's build cost, 1,410, from the credits (2,000
+  to 590): the cost of all of it, the work on it not having begun.
+- **Built,** it's ship 11 ("USS Rockford A", the class's first name),
+  alone in task force 11, numbered by `ShipCntr` and `TForceCntr` (the
+  computer's two built ships took 12 and 13); its mission 6, engage, as
+  the galaxy screen shows; its task force in both lists alike. The
+  Federation's scan strength at Sol rises by 1 (26 to 27). Sol builds
+  trade goods again.
+- **Scrapping** is a mission, 12, on the task force in `GWTForce` only;
+  no order is added to `ordInfo`. The turn after, the ship and task
+  force are gone (the ship list closing up, `GWTForce`'s last in its
+  place), the scan strength back to 26, and the credits up by the build
+  cost and the turn's income: 894 + 1,410 + 88 = 2,392 *(inferred)*.
 
 ### Outposts
 
@@ -507,10 +579,12 @@ they were. A file nothing changed in is written as it was stored, so a
 save read and written unchanged is the same file, byte for byte (so for
 all 18 of the user's saves); a file changed is compressed again, with
 its check. The systems' buildings and the empires' provinces are written
-whole, in the game's layout. The lists must keep their length: a ship,
-task force, treaty or outpost more or fewer, a system's planets, or a
-system becoming the player's (whose record has a production queue more)
-isn't written yet, for want of the rest of their records.
+whole, in the game's layout. Ships and task forces may be added and
+taken out, written whole as their lists lay them out ([above](#lists)):
+a new task force goes into `GTForceList` too. A treaty or outpost more or
+fewer, a system's planets, or a system becoming the player's (whose
+record has a production queue more) isn't written yet, for want of the
+rest of their records.
 
 The game loads saves Reluva wrote (the user, November 2026): one with
 every file compressed again by Reluva and nothing changed, and ones with
@@ -559,6 +633,9 @@ November 2026).
 ## Open questions
 
 - Whether the game checks the directory's checks.
+- Whether the game loads a save with ships Reluva added or took out.
+- What `shipname.dat` holds, and the agility of strike cruisers and
+  command ships.
 - Whether the Load Game screen's name field shows the file's name or the
   header's: they're the same in `game0.sav`.
 - Which fill each file's window starts with: settled by a save with a

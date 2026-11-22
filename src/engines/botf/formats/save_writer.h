@@ -64,11 +64,11 @@ private:
 
 /**
  * Writes `game` into a saved game's files: each value of it that differs
- * from what the files hold, where readSavedGame() read it. A list's length
- * must be the files' (ships, task forces, systems' planets, treaties ...),
- * but the systems' buildings and the empires' provinces, which are written
- * whole. The last turn's results aren't written. Text too long for its
- * field is cut short.
+ * from what the files hold, where readSavedGame() read it. Ships and task
+ * forces may be added or taken out, and the systems' buildings and the
+ * empires' provinces are written whole; other lists' lengths must be the
+ * files' (systems' planets, treaties, outposts ...). The last turn's
+ * results aren't written. Text too long for its field is cut short.
  */
 Error writeSavedGame(const SavedGame &game, SaveFiles &save);
 

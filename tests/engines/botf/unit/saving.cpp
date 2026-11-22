@@ -131,7 +131,11 @@ Bytes makeFullSave() {
     files.push_back({"GShipList", ships});
     files.push_back({"GWTForceHd", forceHead});
     files.push_back({"GWTForce", forces});
+    files.push_back({"GTForceHd", forceHead});
+    files.push_back({"GTForceList", forces});
     files.push_back({"strcInfo", buildings});
+    files.push_back({"ShipCntr", Bytes{1, 0, 0, 0}});
+    files.push_back({"TForceCntr", Bytes{1, 0, 0, 0}});
     files.push_back({"result.lst", resultList()});
     return makeLzssArchive("game0.sav", files, {"result.lst"});
 }
@@ -220,18 +224,59 @@ void testWriteSavedGame(const std::filesystem::path &tmp) {
     SavedGame c;
     CHECK(!readSavedGame(tmp / "game5.sav", c) && c.empires[4].credits == 900);
 
-    // What the files have no room for isn't written: a ship more than the
-    // list holds, a system no longer the player's (its record would lose
-    // its production queue).
-    GameState more = state;
-    more.data().ships.push_back(more.data().ships[0]);
-    CHECK(bool(more.save(tmp / "game6.sav")));
+    // What the files have no room for isn't written: a system no longer
+    // the player's (its record would lose its production queue).
     GameState lost = state;
     lost.data().galaxy.systems[0].control = 1;
     CHECK(bool(lost.save(tmp / "game6.sav")));
     CHECK(!std::filesystem::exists(tmp / "game6.sav"));
     // Nor a game that wasn't read from a save.
     CHECK(bool(GameState(g).save(tmp / "game6.sav")));
+}
+
+void testShipsAddedAndRemoved(const std::filesystem::path &tmp) {
+    writeFile(tmp / "game0.sav", makeFullSave());
+    GameState state;
+    CHECK(!GameState::load(tmp / "game0.sav", state));
+    SavedGame &g = state.data();
+    // 40 ships, more than the list has room for, in task forces of one;
+    // then the first task force taken out, as the game takes one out:
+    // the last in its place.
+    for (int i = 1; i <= 40; ++i) {
+        SavedShip ship = g.ships[0];
+        ship.id = g.nextShipId++;
+        ship.name = "IRW Ship " + std::to_string(i);
+        ship.taskForce = ship.id;
+        ship.agility = 13;
+        SavedTaskForce force;
+        force.id = ship.id;
+        force.owner = 4;
+        force.ships = 1;
+        force.shipIds = {ship.id};
+        force.speed = 2;
+        force.abilities = 0x0C12;
+        g.ships.push_back(ship);
+        g.taskForces.push_back(force);
+        ++g.nextTaskForceId;
+    }
+    g.ships.erase(g.ships.begin());
+    g.taskForces[0] = g.taskForces.back();
+    g.taskForces.pop_back();
+    CHECK(!state.save(tmp / "game1.sav"));
+    SavedGame b;
+    CHECK(!readSavedGame(tmp / "game1.sav", b));
+    CHECK(b.ships.size() == 40 && b.ships[0].name == "IRW Ship 1" && b.ships[39].agility == 13);
+    CHECK(b.taskForces.size() == 40 && b.taskForces[0].id == 40 && b.taskForces[0].shipIds == std::vector<int>{40});
+    CHECK(b.taskForces[0].speed == 2 && b.taskForces[0].abilities == 0x0C12 && b.taskForces[0].firstColonyShip == -1);
+    CHECK(b.nextShipId == 41 && b.nextTaskForceId == 41);
+    SaveFiles files;
+    CHECK(!files.open(tmp / "game1.sav"));
+    // The room grown by half each time from 32 to 48; GTForceList in the
+    // task forces' order; a new task force's unused ship numbers -1.
+    CHECK(readLE32(&(*files.file("GShipHead"))[0x14]) == 48 && files.file("GShipList")->size() == 48 * 116);
+    const std::vector<uint8_t> &list = *files.file("GTForceList");
+    CHECK(readLE16(&list[0]) == 1 && readLE16(&list[39 * 108]) == 40);
+    CHECK(readLE32(&list[0x0C]) == 0xFFFFFFFF);
 }
 
 } // namespace
@@ -244,4 +289,5 @@ static const reluva::test::Suite
                {"alt.res written", [](const std::filesystem::path &tmp) { testWriteAltRes(tmp); }},
                {"save files", [](const std::filesystem::path &tmp) { testSaveFiles(tmp); }},
                {"saved game written", [](const std::filesystem::path &tmp) { testWriteSavedGame(tmp); }},
+               {"ships added and removed", [](const std::filesystem::path &tmp) { testShipsAddedAndRemoved(tmp); }},
            });

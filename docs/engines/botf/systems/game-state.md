@@ -57,5 +57,5 @@ lookups, the readers and saving.
 
 - What turn processing will need beyond this: production, research,
   movement and combat each read more of the save.
-- Saving a game that has gained or lost ships, task forces, treaties or
-  outposts: that needs the rest of their records.
+- Saving a game that has gained or lost treaties or outposts: that
+  needs the rest of their records.

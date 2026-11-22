@@ -9,6 +9,8 @@
 #include "engines/botf/formats/save_layout.h"
 
 #include <algorithm>
+#include <cstring>
+#include <unordered_map>
 #include <utility>
 
 namespace reluva::botf {
@@ -306,61 +308,178 @@ Error writeEmpires(const std::array<SavedEmpire, 5> &empires, SaveFiles &save) {
     return Error::success();
 }
 
-// A list's head, as GShipHead and GWTForceHd are: the entry's size at
-// 0x10, how many are in use at 0x18.
-Error listInUse(const std::vector<uint8_t> *head, const std::vector<uint8_t> *list, size_t entrySize, size_t count,
-                const char *name) {
+void putDouble(std::vector<uint8_t> &d, size_t at, double value) {
+    uint64_t bits = 0;
+    std::memcpy(&bits, &value, sizeof bits);
+    put64(d, at, bits);
+}
+
+// A list as GShipList and GWTForce are: a head giving the entry's size
+// (0x10), the room the list's file has (0x14, in entries) and how many are
+// in use (0x18), and the list, its entries first. `ids` are the entries to
+// write, in order, by their numbers, which `idOf` reads from an entry. An
+// entry that was in the list keeps its bytes, so what isn't known of it
+// stays; a new one starts from zeros, or from `fresh` where given. Room
+// grows by half when it runs out, as the game's lists do (32, 48, 72,
+// 108); room an entry no longer uses is cleared.
+struct ListFiles {
+    const char *head;
+    const char *list;
+    size_t entrySize;
+    int (*idOf)(const std::vector<uint8_t> &, size_t);
+};
+
+Error writeList(const ListFiles &files, const std::vector<int> &ids, SaveFiles &save,
+                const std::vector<uint8_t> *fresh = nullptr) {
+    std::vector<uint8_t> *head = save.file(files.head);
+    std::vector<uint8_t> *list = save.file(files.list);
     if (!head || !list)
-        return missing(name);
-    if (head->size() < 0x1C || s32(*head, 0x10) != int(entrySize) || s32(*head, 0x18) != int(count) ||
-        list->size() < count * entrySize)
-        return Error::fail(std::string(name) + "'s entries aren't the game's");
+        return missing(files.list);
+    const size_t size = files.entrySize;
+    if (head->size() < 0x1C || s32(*head, 0x10) != int(size) || s32(*head, 0x18) < 0 ||
+        size_t(s32(*head, 0x18)) * size > list->size())
+        return Error::fail(std::string(files.head) + " doesn't fit " + files.list);
+    const std::vector<uint8_t> old = *list;
+    const size_t oldCount = size_t(s32(*head, 0x18));
+    std::unordered_map<int, size_t> was;
+    for (size_t i = 0; i < oldCount; ++i)
+        was.emplace(files.idOf(old, i * size), i);
+    size_t room = std::max<size_t>(size_t(std::max(s32(*head, 0x14), 0)), old.size() / size);
+    while (room < ids.size())
+        room = room < 2 ? 32 : room + room / 2;
+    list->resize(room * size, 0);
+    for (size_t i = 0; i < ids.size(); ++i) {
+        uint8_t *to = &(*list)[i * size];
+        if (const auto it = was.find(ids[i]); it != was.end())
+            std::copy_n(&old[it->second * size], size, to);
+        else if (fresh && fresh->size() >= (i + 1) * size)
+            std::copy_n(&(*fresh)[i * size], size, to);
+        else
+            std::fill_n(to, size, 0);
+    }
+    for (size_t i = ids.size(); i < oldCount; ++i)
+        std::fill_n(&(*list)[i * size], size, 0);
+    if (s32(*head, 0x14) != int(room))
+        put32(*head, 0x14, int(room));
+    put32(*head, 0x18, int(ids.size()));
     return Error::success();
+}
+
+int shipIdOf(const std::vector<uint8_t> &d, size_t at) {
+    return s16(d, at + 0x2A);
+}
+
+int taskForceIdOf(const std::vector<uint8_t> &d, size_t at) {
+    return s16(d, at);
+}
+
+void writeShip(const SavedShip &s, std::vector<uint8_t> &d, size_t at) {
+    putText(d, at, 40, s.name);
+    put16(d, at + 0x28, s.race);
+    put16(d, at + 0x2A, s.id);
+    put32(d, at + 0x2C, s.beamAccuracyBonus);
+    put32(d, at + 0x30, s.torpedoAccuracyBonus);
+    put32(d, at + 0x34, s.defenseBonus);
+    put32(d, at + 0x38, s.shields);
+    put32(d, at + 0x3C, s.hull);
+    put32(d, at + 0x40, s.experience);
+    put32(d, at + 0x44, s.experienceLevel);
+    put16(d, at + 0x50, s.taskForce);
+    put32(d, at + 0x52, s.shipClass);
+    put32(d, at + 0x58, s.cloak);
+    put32(d, at + 0x5C, s.agility);
+    put32(d, at + 0x60, s.interception);
+    put32(d, at + 0x64, s.bombing);
+    put32(d, at + 0x6C, s.construction);
+    put32(d, at + 0x70, s.groundCombat);
 }
 
 Error writeShips(const std::vector<SavedShip> &ships, SaveFiles &save) {
-    std::vector<uint8_t> *list = save.file("GShipList");
-    if (Error err = listInUse(save.file("GShipHead"), list, kShipSize, ships.size(), "GShipList"))
+    std::vector<int> ids;
+    for (const SavedShip &s : ships)
+        ids.push_back(s.id);
+    if (Error err = writeList({"GShipHead", "GShipList", kShipSize, shipIdOf}, ids, save))
         return err;
-    for (size_t i = 0; i < ships.size(); ++i) {
-        const SavedShip &s = ships[i];
-        const size_t at = i * kShipSize;
-        putText(*list, at, 40, s.name);
-        put16(*list, at + 0x28, s.race);
-        put16(*list, at + 0x2A, s.id);
-        put32(*list, at + 0x38, s.shields);
-        put32(*list, at + 0x3C, s.hull);
-        put32(*list, at + 0x40, s.experience);
-        put16(*list, at + 0x50, s.taskForce);
-        put32(*list, at + 0x52, s.shipClass);
-    }
+    std::vector<uint8_t> &list = *save.file("GShipList");
+    for (size_t i = 0; i < ships.size(); ++i)
+        writeShip(ships[i], list, i * kShipSize);
     return Error::success();
 }
 
+// Room for nine ships' numbers, those not used -1.
+constexpr size_t kMaxShips = 9;
+
+void writeTaskForce(const SavedTaskForce &t, int width, std::vector<uint8_t> &d, size_t at) {
+    // The game leaves the numbers of ships gone from a task force after its
+    // count; they're cleared only where the count changes, or in a new one.
+    const bool recount = s32(d, at + 0x04) != t.ships;
+    put16(d, at, t.id);
+    put32(d, at + 0x04, t.ships);
+    for (size_t k = 0; k < kMaxShips; ++k) {
+        const size_t slot = at + 0x08 + 4 * k;
+        if (k < t.shipIds.size())
+            put32(d, slot, t.shipIds[k]);
+        else if (recount || s32(d, slot) == 0)
+            put32(d, slot, -1);
+    }
+    put32(d, at + 0x2C, t.mission);
+    // A sector's number, row by row; any number below 0 is none.
+    const int target = t.destinationX < 0 || t.destinationY < 0 ? -1 : t.destinationY * width + t.destinationX;
+    if (std::max(s32(d, at + 0x30), -1) != target)
+        put32(d, at + 0x30, target);
+    put32(d, at + 0x34, t.owner);
+    put32(d, at + 0x38, t.y);
+    put32(d, at + 0x3C, t.x);
+    put16(d, at + 0x40, t.abilities);
+    put32(d, at + 0x44, t.firstColonyShip);
+    put32(d, at + 0x48, t.unknown48);
+    put32(d, at + 0x4C, t.control);
+    put16(d, at + 0x50, t.production);
+    put16(d, at + 0x52, t.scanRange);
+    put32(d, at + 0x54, t.orderId);
+    putDouble(d, at + 0x58, t.range);
+    putDouble(d, at + 0x60, t.speed);
+    putFlag32(d, at + 0x68, t.cloaked);
+}
+
+// GWTForce, the task forces as they are now, in their order; and
+// GTForceList, as they were when the turn began, in their numbers' order:
+// those it had keep its entries, new ones are as GWTForce has them.
 Error writeTaskForces(const std::vector<SavedTaskForce> &taskForces, int width, SaveFiles &save) {
-    std::vector<uint8_t> *list = save.file("GWTForce");
-    if (Error err = listInUse(save.file("GWTForceHd"), list, kTaskForceSize, taskForces.size(), "GWTForce"))
-        return err;
-    // Room for nine ships' numbers.
-    constexpr size_t kMaxShips = 9;
-    for (size_t i = 0; i < taskForces.size(); ++i) {
-        const SavedTaskForce &t = taskForces[i];
-        const size_t at = i * kTaskForceSize;
+    std::vector<int> ids;
+    for (const SavedTaskForce &t : taskForces) {
         if (t.shipIds.size() > kMaxShips)
             return Error::fail("a task force has more ships than GWTForce has room for");
-        put16(*list, at, t.id);
-        put32(*list, at + 0x04, t.ships);
-        for (size_t k = 0; k < t.shipIds.size(); ++k)
-            put32(*list, at + 0x08 + 4 * k, t.shipIds[k]);
-        put32(*list, at + 0x2C, t.mission);
-        // A sector's number, row by row; any number below 0 is none.
-        const int target = t.destinationX < 0 || t.destinationY < 0 ? -1 : t.destinationY * width + t.destinationX;
-        if (std::max(s32(*list, at + 0x30), -1) != target)
-            put32(*list, at + 0x30, target);
-        put32(*list, at + 0x34, t.owner);
-        put32(*list, at + 0x38, t.y);
-        put32(*list, at + 0x3C, t.x);
+        ids.push_back(t.id);
     }
+    if (Error err = writeList({"GWTForceHd", "GWTForce", kTaskForceSize, taskForceIdOf}, ids, save))
+        return err;
+    std::vector<uint8_t> &list = *save.file("GWTForce");
+    for (size_t i = 0; i < taskForces.size(); ++i)
+        writeTaskForce(taskForces[i], width, list, i * kTaskForceSize);
+    if (!save.has("GTForceList"))
+        return Error::success();
+    std::vector<size_t> byNumber(taskForces.size());
+    for (size_t i = 0; i < byNumber.size(); ++i)
+        byNumber[i] = i;
+    std::stable_sort(byNumber.begin(), byNumber.end(),
+                     [&](size_t a, size_t b) { return taskForces[a].id < taskForces[b].id; });
+    std::vector<int> sorted;
+    std::vector<uint8_t> fresh(taskForces.size() * kTaskForceSize);
+    for (size_t i = 0; i < byNumber.size(); ++i) {
+        sorted.push_back(taskForces[byNumber[i]].id);
+        std::copy_n(&list[byNumber[i] * kTaskForceSize], kTaskForceSize, &fresh[i * kTaskForceSize]);
+    }
+    return writeList({"GTForceHd", "GTForceList", kTaskForceSize, taskForceIdOf}, sorted, save, &fresh);
+}
+
+Error writeCounters(const SavedGame &game, SaveFiles &save) {
+    std::vector<uint8_t> *ships = save.file("ShipCntr");
+    std::vector<uint8_t> *forces = save.file("TForceCntr");
+    if (!ships || !forces || ships->size() < 4 || forces->size() < 4)
+        return missing("ShipCntr or TForceCntr");
+    put32(*ships, 0, game.nextShipId);
+    put32(*forces, 0, game.nextTaskForceId);
     return Error::success();
 }
 
@@ -485,6 +604,8 @@ Error writeSavedGame(const SavedGame &game, SaveFiles &save) {
         err = writeShips(game.ships, save);
     if (!err)
         err = writeTaskForces(game.taskForces, game.galaxy.width, save);
+    if (!err)
+        err = writeCounters(game, save);
     if (!err)
         err = writeTreaties(game.treaties, save);
     if (!err)

@@ -192,6 +192,23 @@ struct SavedTaskForce {
     int destinationY = -1;
     ///@}
     int mission = 0; // its orders' number (docs/engines/botf/formats/sav.md)
+    /**
+     * What its ships add up to, kept with it: what they can do (a bit each),
+     * the first colony ship's number or -1, the production and scan range
+     * of the best of them, and their range and speed, the slowest's.
+     */
+    ///@{
+    int abilities = 0;
+    int firstColonyShip = -1;
+    int production = 0;
+    int scanRange = 0;
+    double range = 0;
+    double speed = 0;
+    ///@}
+    int control = 0; // 1 for the major empires', 2 or 3 for minor races' and monsters'
+    int orderId = 0; // the order its mission came from, or 0
+    bool cloaked = false;
+    int unknown48 = -1; // a word not known, -1 in every task force seen
 };
 
 /** A ship. */
@@ -204,6 +221,26 @@ struct SavedShip {
     int shields = 0;    // its class's shields when whole
     int hull = 0;       // its hit points, its class's when whole
     int experience = 0; // its crew's: 350 for the Klingons' at the start, 0 for the others'
+    int experienceLevel = 0;
+    /** Bonuses to its beams' and torpedoes' accuracy and to its defense. */
+    ///@{
+    int beamAccuracyBonus = 0;
+    int torpedoAccuracyBonus = 0;
+    int defenseBonus = 0;
+    ///@}
+    int cloak = 0; // 0, 1 or 4 in the saves seen; for battles
+    /**
+     * Figures its class sets (docs/engines/botf/formats/sav.md): agility,
+     * interception and bombing, a troop transport's construction and
+     * ground combat strength.
+     */
+    ///@{
+    int agility = 0;
+    int interception = 0;
+    int bombing = 0;
+    int construction = 0;
+    int groundCombat = 0;
+    ///@}
 };
 
 /** Reads the ships of the saved game at `path` (its GShipList file). */
@@ -314,6 +351,11 @@ struct SavedGame {
     std::array<SavedEmpire, 5> empires;
     std::vector<SavedShip> ships;
     std::vector<SavedTaskForce> taskForces;
+    /** The numbers the next ship and task force will have (ShipCntr, TForceCntr). */
+    ///@{
+    int nextShipId = 0;
+    int nextTaskForceId = 0;
+    ///@}
     std::vector<SavedResult> results;
     std::vector<SavedTreaty> treaties;
     std::vector<SavedRace> races;
@@ -324,6 +366,9 @@ struct SavedGame {
  * (starBaseInfo, 92 bytes each); none if it has no starBaseInfo.
  */
 Error readSavedOutposts(const std::filesystem::path &path, std::vector<SavedOutpost> &outposts);
+
+/** Reads the next ship's and task force's numbers (ShipCntr and TForceCntr) into `game`. */
+Error readSavedCounters(const std::filesystem::path &path, SavedGame &game);
 
 /** Reads `game` from the saved game at `path`: each of its parts, as the functions above. */
 Error readSavedGame(const std::filesystem::path &path, SavedGame &game);

@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -53,6 +54,13 @@ inline int16_t s16(const std::vector<uint8_t> &d, size_t at) {
 
 inline int32_t s32(const std::vector<uint8_t> &d, size_t at) {
     return int32_t(readLE32(&d[at]));
+}
+
+inline double readDouble(const std::vector<uint8_t> &d, size_t at) {
+    const uint64_t bits = readLE32(&d[at]) | uint64_t(readLE32(&d[at + 4])) << 32;
+    double v = 0;
+    std::memcpy(&v, &bits, sizeof v);
+    return v;
 }
 
 // galInfo: the galaxy's size (0x08), and how many systems (0x0C), stellar
