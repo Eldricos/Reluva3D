@@ -8,7 +8,7 @@ Two archives hold the game's object definitions and mission texts:
 
 | Archive | Files | What's in them |
 |---|---|---|
-| `assets.zfs` | 515 | 488 object definitions (`.odf`) and 27 tech trees (`.tt`) |
+| `assets.zfs` | 515 | 488 object definitions ([odf.md](odf.md)) and 27 tech trees (`.tt`) |
 | `objtxt.zfs` | 81 | The missions' objectives, as text (`b1ob1.txt`...) |
 
 Every file in them is text once decoded. The format has the magic

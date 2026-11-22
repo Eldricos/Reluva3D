@@ -26,7 +26,7 @@ In the install's folder.
 | `RTS_CFG.h`, `ART_CFG.h`, `game_cfg.h`, `shell_cfg.h`, `Dynamic_Localized_Strings.h` | | The game's settings, as C declarations (`float OVERVIEW_MAX_ZOOM = 4.0;`) |
 | `Input.map`, `Gamekey.map`, `label.map` | | The keys and the mouse, as text |
 | `Collision.cfg`, `CCA.cfg`, `Logfile.cfg` | | Collision avoidance and logging settings, as text |
-| `events.odf` | 52,762 | An object definition file, as text |
+| `events.odf` | 52,762 | The announcements' sounds and messages, as text; not an object definition despite its name ([odf.md](odf.md#open-questions)) |
 | `shell.set`, `mshell.set`, `mshelldemo.set` | | The front end's settings |
 | `Credits.txt`, `Credits2.txt` | 10,962 each | The credits |
 
