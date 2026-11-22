@@ -60,6 +60,23 @@ C++ library have pages of their own ([directx.md](directx.md),
   English (United States) pictures. There's one thread, so critical
   sections do nothing, `Sleep` returns at once and a wait on an event finds
   it signalled.
+- **`win32_locale.cpp`: the locale, time and memory.** English (United
+  States) and code page 1252: `GetLocaleInfoA` and `W` for the types the
+  C runtimes ask, `CompareStringA` and `W` (with `NORM_IGNORECASE`),
+  `lstrlenA`, the interlocked counters, `FormatMessageA` ("Error n."),
+  `GlobalAlloc` and its kin (a handle is its block), `GetLocalTime`,
+  `GetSystemTime`, `GetTimeZoneInformation` (the bias only),
+  `FileTimeToSystemTime` and `FileTimeToLocalFileTime`; ADVAPI32's
+  `GetUserNameA` ("Player"); and VERSION.dll's reading of a file's
+  version information (`GetFileVersionInfoA`, `VerQueryValueA`, its
+  texts given as ANSI in the block's second half).
+- **`win32_ini.cpp`: INI files.** `GetPrivateProfileStringA` (a value, a
+  section's keys, the sections, or the default; quotes taken off, cut to
+  fit), `GetPrivateProfileIntA` and `WritePrivateProfileStringA` (a key
+  set, added or removed, a section added or removed, the rest of the file
+  kept as it was), through `mapPath` or the drives, so a drive's writes
+  go to its writable folder. A file named without a folder is in
+  `C:\WINDOWS`.
 - **`win32_user.cpp`: USER32 and GDI32.** Window classes and windows, kept
   as records (procedure, place, size, visibility) that the engine can show
   as it likes. Making one sends `WM_NCCREATE` and `WM_CREATE`. Showing it
@@ -125,7 +142,8 @@ a host folder:
   changed is copied there first, and a search lists both;
 - a CD drive is read-only, with its label and serial;
 - the stand-ins cover files (`CreateFileA` with each disposition's errors,
-  a new file only in a folder that's there, `NUL`), searches, folders,
+  a new file only in a folder that's there, `NUL`), copies (`CopyFileA`,
+  into the writable folder), searches, folders,
   drives, volume labels, free space and read-only file mappings;
 - handles are kernel objects (`addHandle`, `object<T>`), from 0x10000000;
 - `COM1` to `COM9` are devices the engine provides (`openSerialPort`, a
@@ -195,6 +213,10 @@ executable's entry point on the main thread until it ends the process.
   its movement since the last read, its buffer) and keyboard.
 - **Confidence:** published unless marked.
 
+- `tests/common/windows_kernel.cpp` (`common.unit.windows_kernel`)
+  reads and writes an INI file on a drive (the writes kept apart), and
+  checks the locale's answers, string comparison, global memory, a
+  FILETIME's date and `FormatMessageA`.
 - `tests/common/drives.cpp` (`common.unit.drives`) checks the drives'
   paths, a new file's folder, and a serial port read plainly and
   overlapped.

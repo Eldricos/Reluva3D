@@ -638,6 +638,8 @@ private:
     void addSystemStandIns();
     void addUserStandIns();
     void addRegistryStandIns();
+    void addLocaleStandIns();
+    void addIniStandIns();
     struct WindowClass {
         uint32_t proc = 0;
         uint32_t style = 0;

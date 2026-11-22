@@ -761,6 +761,29 @@ void Win32Process::addDriveStandIns() {
         stdfs::rename(source, target, ec);
         return ec ? 0u : 1u;
     });
+    // CopyFileA(from, to, failIfExists): the copy goes to the writable folder.
+    stdcall(k, "CopyFileA", 3, [this, writable](Cpu &c) {
+        const std::string from = drivePath(c.string(c.arg(0)));
+        const std::string to = drivePath(c.string(c.arg(1)));
+        std::error_code ec;
+        const stdfs::path source = hostPath(from, false);
+        if (source.empty() || !stdfs::is_regular_file(source, ec)) {
+            _lastError = kFileNotFound;
+            return 0u;
+        }
+        if (!writable(to)) {
+            _lastError = kAccessDenied;
+            return 0u;
+        }
+        if (c.arg(2) && stdfs::exists(hostPath(to, false), ec)) {
+            _lastError = kFileExists;
+            return 0u;
+        }
+        const stdfs::path target = hostPath(to, true);
+        stdfs::create_directories(target.parent_path(), ec);
+        stdfs::copy_file(source, target, stdfs::copy_options::overwrite_existing, ec);
+        return ec ? 0u : 1u;
+    });
 
     // Folders and drives.
     stdcall(k, "GetCurrentDirectoryA", 2, [this](Cpu &c) {

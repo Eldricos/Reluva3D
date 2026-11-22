@@ -20,6 +20,8 @@ add_library(reluva_emulation STATIC
     x86/pokes.cpp
     x86/win32.cpp
     x86/win32_files.cpp
+    x86/win32_ini.cpp
+    x86/win32_locale.cpp
     x86/win32_registry.cpp
     x86/win32_system.cpp
     x86/win32_threads.cpp
