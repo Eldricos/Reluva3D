@@ -584,7 +584,11 @@ int cmdNfsHost(int argc, char **argv) {
     if (!pokes.empty()) {
         pokes.log = [](const std::string &line) { std::printf("%s\n", line.c_str()); };
         pokes.save = [](const std::string &file, const std::vector<uint8_t> &bytes) { writeFile(file, bytes); };
-        host.process().onSlice = [&](reluva::x86::Cpu &c) { pokes.time(c, host.process().now()); };
+        host.process().onSlice = [&, hosts = host.process().onSlice](reluva::x86::Cpu &c) {
+            if (hosts)
+                hosts(c);
+            pokes.time(c, host.process().now());
+        };
     }
     if (slice)
         host.process().slice = slice;

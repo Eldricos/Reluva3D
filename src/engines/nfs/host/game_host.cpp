@@ -109,11 +109,26 @@ GameHost::GameHost(GameFolders folders, Options options) : _folders(std::move(fo
     }
     _process->setProgram(_options.program, "C:\\");
     _process->setCommandLine(_options.commandLine);
+    // Input that's due reaches the game as Windows' would, by the clock,
+    // its window's thread (of higher priority, as games make it) running
+    // at once to take it: at a change of threads, wherever the running one
+    // is; and before a native function, for when none runs long enough to
+    // change over. Not before the critical sections and TLS, which take no
+    // time on Windows: NFS II SE's menus read their keys twice with only a
+    // critical section between (0x405900), and a key that comes in
+    // between is lost.
+    _process->onSlice = [this](Cpu &) {
+        if (_inputQueued.load(std::memory_order_relaxed))
+            applyInput();
+    };
     // Before each native function: input that's due, and the log. Kept
     // cheap: the game makes millions of these calls.
     _cpu->nativeTrace = [this](Cpu &cpu, const std::string &name) {
-        if (_inputQueued.load(std::memory_order_relaxed))
+        if (_inputQueued.load(std::memory_order_relaxed) && name.find("CriticalSection") == std::string::npos &&
+            name.find("Tls") == std::string::npos) {
             applyInput();
+            _process->preempt();
+        }
         if (_soundRecord) {
             const uint64_t now = _process->now();
             if (now >= _soundRecordNextMs)
