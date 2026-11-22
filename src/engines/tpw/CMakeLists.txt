@@ -6,7 +6,8 @@
 reluva_add_engine(tpw
     ACCESSOR tpwMetaEngine
     SOURCES
-        tpw.cpp)
+        tpw.cpp
+        games.cpp)
 
 # Its reluva-tool commands (reluva-tool help tpw lists them).
 reluva_add_engine_tools(tpw

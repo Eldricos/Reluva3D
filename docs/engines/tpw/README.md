@@ -1,72 +1,63 @@
 # The Theme Park World engine
 
-<!-- One or two sentences: what the engine runs, and whether it's meant for
-one game or a family of games (then see docs/DOCUMENTATION_STANDARD.md,
-for its games/ folders). -->
-Engine id `tpw`, in `src/engines/tpw/`.
+Bullfrog's engine for its 3D theme park games, meant for the family that
+shares its files: SimCoaster first (Theme Park Inc in Europe), then Theme
+Park World (Sim Theme Park in the US). Engine id `tpw`, in
+`src/engines/tpw/`.
 
 ## Games
 
-<!-- A row per game. Releases are recognised by the files in `kVariants`
-(src/engines/tpw/tpw.cpp), made with `reluva --hash <files...>`. -->
-
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
-| | | | | | Not yet recognised |
+| [SimCoaster](games/simcoaster/README.md) | `simcoaster` | Electronic Arts, 2001 | Windows | US (by `Data/ui.wad` and the American string tables); others by file names, as "unknown release" | Recognised; shows an empty screen |
+| Theme Park World | | Electronic Arts, 1999 | Windows | | Not yet recognised: after SimCoaster runs |
+
+SimCoaster is Theme Park World's engine and file formats with new parks,
+rides and a coaster designer: its own settings files still call it
+"Theme Park World" ([games/simcoaster/README.md](games/simcoaster/README.md)).
+What the two games share is to be written once, with what differs keyed
+off a `GameInfo` entry (`src/engines/tpw/games.cpp`).
 
 ## Where it stands
 
-<!-- What works now, in a few lines, kept up to date. Plans, phases and
-dated progress go in PLAN.md (docs/templates/plan.md), not here. -->
-Started from the template: it recognises nothing yet, and shows an empty
-screen.
+Only SimCoaster is recognised so far: see
+[games/simcoaster/](games/simcoaster/README.md#where-it-stands).
 
 ## Using it
 
-<!-- What a player needs: which folder to add (or import from a CD), any
-settings, the keys. On an engine for a family of games, where each game's
-README says this, a line pointing to them. -->
+Each game's page says how to add it and play it:
+[SimCoaster](games/simcoaster/README.md#using-it).
 
 ## This folder
 
 | Page | What's in it |
 |---|---|
-| This page | The games, where the engine stands, how to use it |
-| `formats/` | A page per file format, as it's worked out |
-| `systems/` | A page per part of how the game behaves (scripts, dialogue, saves, AI...) |
-| `research/` | Working notes: address maps, raw findings, notes on recordings |
-| [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
-| [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
-| [TESTING.md](TESTING.md) | The tests, and what to check by hand |
-| [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was worked out, and the tools |
+| This page | The engine and its family of games |
+| [games/](games/) | A folder per game: [SimCoaster](games/simcoaster/README.md) |
 
-<!-- Link each folder once it has pages, and list its pages. The layout is
-described in docs/DOCUMENTATION_STANDARD.md; page templates are in
-docs/templates/. -->
+A page goes in a game's folder when it was worked out from that game, and
+moves up to this folder once another game is found to share it. So far
+everything was read from SimCoaster.
 
 ## Code
 
-<!-- Where things are in src/engines/tpw/. Keep files by topic in
-subfolders as it grows (the game's formats, its pages, its game logic). -->
-
 | Path | What |
 |---|---|
-| `tpw.cpp` | The `MetaEngine` (name, detection table, making an `Engine`) and the `Engine` |
+| `tpw.cpp` | The `MetaEngine` and the `Engine`: an empty screen for now |
+| `games.cpp` | The games and the detection tables |
 | `tools/` | `reluva-tool tpw` commands (`reluva-tool help tpw` lists them) |
 
 ## Tests
 
 - `reluva-tests tpw` runs its unit tests and its engine test
   (`tests/engines/tpw/`).
-- A game-files test, when it has one: see
-  [docs/DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests).
-- What they cover, and what to check by hand: [TESTING.md](TESTING.md).
+- What they cover, and what to check by hand:
+  [games/simcoaster/TESTING.md](games/simcoaster/TESTING.md).
 
 ## Terms
 
-<!-- Words of the engine's own (its formats, its parts, the original's
-names for them) that its pages use without explaining: a line each, in a
-few words, with a link to the page that says more. Delete this section if
-there are none. -->
-
-- **<term>:** <what it is, in a few words>.
+- **Bullfrog:** the studio that made the engine and both games, by then
+  part of Electronic Arts.
+- **SafeDisc:** the copy protection on the games' executables, which
+  keeps them from being read or run
+  ([executable.md](games/simcoaster/formats/executable.md)).

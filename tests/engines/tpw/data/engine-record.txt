@@ -1,3 +1,4 @@
 # The record of tpw.engine (tests/engines/tpw/engine.cpp).
 # Written by `reluva-tests tpw.engine --update`; review its diff before committing.
-detect.games: 0
+detect.games: 1
+detect.game: simcoaster: SimCoaster (unknown release)

@@ -2,23 +2,15 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Theme Park World: the engine's MetaEngine (its name, the releases it recognises,
-// making an Engine to run one) and its Engine. Started from the template
-// (cmake/NewEngine.cmake): so far it recognises nothing and shows an empty
-// screen.
+// making an Engine to run one) and its Engine. So far it recognises
+// SimCoaster and shows an empty screen.
 
 #include "engines/engine.h"
+#include "engines/tpw/games.h"
 
 namespace reluva::tpw {
 
 namespace {
-
-// The releases it recognises: files that must be there, with the MD5 of
-// their start and their size, as `reluva --hash <files...>` prints them.
-// A folder matching every file of a variant is that release.
-const std::vector<GameVariant> kVariants = {
-    // {"<game id>", "<Game name> (<release>)", "en", "windows",
-    //  {{"<file>", "<md5>", <size>}, {"<other file>", "", -1}}},
-};
 
 /**
  * The game running: for now an empty screen until the player quits.
@@ -62,7 +54,8 @@ public:
     const char *name() const override { return "Theme Park World"; }
 
     std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override {
-        return detectFromTable(id(), kVariants, dir);
+        auto found = detectFromTable(id(), detectionTable(), dir);
+        return found.empty() ? detectFromTable(id(), fallbackTable(), dir) : found;
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
