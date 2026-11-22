@@ -49,6 +49,9 @@ GameProcess::GameProcess(std::filesystem::path gameDir, uint32_t memoryMb) : _di
     // it, C:\, which isn't mapped. The install folder's writes go to the
     // save folder.
     _process->setRegistryString(kRegistryKey, "savepath", "C:\\PROGRA~1\\LEGOIS~1");
+    // The island's detailed model (isle_hi: its roads textured, marked and
+    // edged); without it, "1", the plain one.
+    _process->setRegistryString(kRegistryKey, "Island Quality", "2");
     _directX = std::make_unique<x86::DirectX>(*_process);
     _directSound = std::make_unique<x86::DirectSound>(*_process);
     _retainedMode = std::make_unique<x86::Direct3DRM>(*_process, *_directX);

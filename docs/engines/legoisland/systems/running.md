@@ -154,8 +154,11 @@ that far.
   `UseJoystick`, `Wide View Angle`, `cdpath`, `diskpath`, `savepath`.
   `Island Quality` and `Island Texture` are read as text and made
   numbers; missing, each is "1" (`ISLE.EXE`, its default text at
-  0x410228, read at 0x402ac4 and 0x402b16). Set to 0 or 2, the island's
-  rocks are drawn coarser or the same; its roads don't change. The
+  0x410228, read at 0x402ac4 and 0x402b16). `Island Quality` "2" draws
+  the island's detailed model, `isle_hi`, its roads textured (`ROADSTR8.GIF`
+  and the others), marked and edged in green, as the original is seen
+  played; "1", the plain `isle`, its roads plain grey. `Island Texture`
+  at 0 draws the rocks coarser. The
   yes-or-no ones are text, "YES" for yes *(inferred: the one literal
   beside their names in both programs)*. Without them it uses its own
   defaults.
@@ -170,7 +173,8 @@ primary surface), and passes the player's input on: the pointer where it
 is in the game's picture, which fills the window's client area, its
 buttons and wheel, and keys, as window messages and DirectInput's state.
 The program's sound goes to the engine's mixer through the DirectSound
-stand-in. Closing the window asks first. The registry's `savepath` is
+stand-in. Closing the window asks first. The registry's `Island
+Quality` is "2", the island's detailed model. The registry's `savepath` is
 the install folder, whose writes go to the game's save folder, so its
 saved games are kept with it *(inferred: what `CONFIG.EXE` writes there
 isn't known)*.
@@ -211,11 +215,8 @@ instructions at an address ([disasm.md](../../../common/x86/disasm.md)).
 
 - What `CONFIG.EXE` writes for each setting, and its defaults: Reluva
   sets only `savepath` (and the installer's `cdpath`, `diskpath`).
-- How bright the island is in the original: its roads are plain grey
-  in the world database (`isle`'s "ROAD GREY FLAT", #636363, untextured)
-  and its grass dark green (#114216), but drawn lit by a white
-  directional light, a white point light and an ambient one at 0.3,
-  Direct3D's way, they come out light grey and bright green.
+- Which `Island Quality` and `Island Texture` `CONFIG.EXE` offers, and
+  their defaults there.
 - Which of the missing functions the program calls, once it gets past
   DirectSound.
 - What else the registry holds once `CONFIG.EXE` has run, and which of

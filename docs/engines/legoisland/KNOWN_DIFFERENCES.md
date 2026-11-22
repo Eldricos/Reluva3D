@@ -31,7 +31,8 @@ None yet.
   fix, to turn at the speed it was made for, is still to do
   ([PLAN.md](PLAN.md)).
 - **The setup dialog's settings** (`CONFIG.EXE`) aren't offered: the game
-  uses its own defaults, but for where it saves.
+  uses its own defaults, but for where it saves and the island's model,
+  the detailed one.
 
 ## Additions outside the game
 
