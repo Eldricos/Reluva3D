@@ -88,19 +88,16 @@ void MapScreen::investigate(Enemy &e, float x, float y) {
         forget(e, state->object("Investigate AI"));
     if (already)
         return;
-    e.state = "Investigate";
-    e.stateTime = 0.0f;
-    if (state)
-        runAction(state->object("Start Action"), -1);
+    setState(e, "Investigate");
 }
 
-bool MapScreen::runInvestigate(Enemy &e, float seconds) {
+bool MapScreen::runInvestigate(Enemy &e, float seconds, const char *stateName, const char *aiKey) {
     // A CChaseInvestigateAI goes there by the waypoints (Do Path Finding),
     // running with Run To Investigate, then runs its own Investigate AI
     // (looking about) for Time To Investigate (inferred: the AI's code
     // isn't traced). Others turn to the noise and wait.
-    const TextObject *state = e.ai->object("Investigate");
-    const TextObject *ai = state ? state->object("Investigate AI") : nullptr;
+    const TextObject *state = e.ai->object(stateName);
+    const TextObject *ai = state ? state->object(aiKey) : nullptr;
     const bool chases = ai && ai->className == "CChaseInvestigateAI";
     const float time = chases ? number(ai, "Time To Investigate", kLookAbout) : kLookAbout;
     if (e.looked < 0.0f) {

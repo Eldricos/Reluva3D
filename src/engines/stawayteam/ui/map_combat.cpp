@@ -188,10 +188,9 @@ void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attack
     const bool stunnable = readText(e.ai, "Stun State") != "Attack";
     if (stun && stunnable) {
         e.stunned = weapon.stunDuration;
-        e.state = "Stun";
-        e.target = -1;
-        e.stateTime = 0.0f;
         e.route.clear();
+        setState(e, "Stun");
+        e.target = -1;
         return;
     }
     if (!stun)
@@ -199,7 +198,7 @@ void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attack
     if (e.health <= 0.0f) {
         e.health = 0.0f;
         e.dead = 0.0f;
-        e.state = "Dead";
+        setState(e, "Dead");
         e.target = -1;
         runAction(_map.parts[e.part].destroyedAction, attacker, int(e.part));
         runDeathBehaviors(e.part, attacker);
@@ -317,8 +316,14 @@ void MapScreen::updateCombat(float seconds) {
         if (e.stunned > 0.0f) {
             e.stunned = std::max(0.0f, e.stunned - seconds);
             if (e.stunned <= 0.0f) {
-                e.state = "Patrol";
-                e.stateTime = 0.0f;
+                // Up: its Stun state's Next State, Investigate (looking
+                // about where it is) or Recharge, else its patrol (inferred).
+                const TextObject *stun = e.ai->object("Stun");
+                const std::string next = stun ? readText(stun, "Next State") : std::string();
+                if (stateKey(next) == "Investigate")
+                    investigate(e, e.x, e.y);
+                else
+                    setState(e, next.empty() || next == "Any" ? "Patrol" : next);
             }
         }
     }

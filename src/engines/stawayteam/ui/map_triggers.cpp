@@ -18,6 +18,9 @@ namespace reluva::stawayteam {
 
 namespace {
 
+// Near enough a part with no footprint to collide with it (inferred).
+constexpr float kCollideReach = 20.0f;
+
 std::string lower(std::string s) {
     for (char &c : s)
         c = char(std::tolower(static_cast<unsigned char>(c)));
@@ -62,14 +65,25 @@ void MapScreen::setupTriggers() {
         for (const TextObject *ai : p.activities)
             addTrigger(i, ai);
     }
+    setupDoors();
 }
 
 void MapScreen::addTrigger(size_t part, const TextObject *ai) {
     const std::string &kind = ai->className;
     // A stasis field's CEveryTouchingOvalTriggerAI too (inferred: as a
-    // touching trigger for each who comes in).
-    if (kind != "CTouchingOvalTriggerAI" && kind != "CTouchingPolygonTriggerAI" && kind != "CRepeatTimerTriggerAI" &&
-        kind != "CRelayAI" && kind != "CEveryTouchingOvalTriggerAI")
+    // touching trigger for each who comes in); the doors' anything-touching
+    // ones, the team's, and those set off by colliding or passing through.
+    static const char *const kKinds[] = {"CTouchingOvalTriggerAI",
+                                         "CTouchingPolygonTriggerAI",
+                                         "CRepeatTimerTriggerAI",
+                                         "CRelayAI",
+                                         "CEveryTouchingOvalTriggerAI",
+                                         "CAnyTouchingOvalTriggerAI",
+                                         "CAnyTouchingPolygonTriggerAI",
+                                         "CTeamTouchingPolygonTriggerAI",
+                                         "CollideTriggerAI",
+                                         "CPassThroughTriggerAI"};
+    if (std::none_of(std::begin(kKinds), std::end(kKinds), [&](const char *k) { return kind == k; }))
         return;
     Trigger t;
     t.part = part;
@@ -144,6 +158,8 @@ void MapScreen::updateTriggers(float seconds) {
         }
         if (ai->className == "CRelayAI" || !_teamShown)
             continue;
+        if (updateOtherTrigger(t, seconds))
+            continue;
         // A touching trigger: who's in its oval or polygon, of those it
         // answers to.
         const std::string byName = lower(readText(ai, "Triggered By Name"));
@@ -195,20 +211,38 @@ void MapScreen::updateTriggers(float seconds) {
                     t.done = true;
             }
         }
-        // The enemies too, for a trigger whose list names them (inferred:
-        // the maps' other triggers set off by enemies aren't there yet).
-        if (inCategory(byList, "Enemy") && oval && rx > 0.0f && ry > 0.0f) {
+        // The enemies too, for one Triggered By Enemies (66 in the maps),
+        // By Anything, or whose list names them; each as an officer, their
+        // instigator (inferred).
+        const bool byEnemies =
+            flag(ai, "Triggered By Enemies") || flag(ai, "Triggered By Anything") || inCategory(byList, "Enemy");
+        if (byEnemies) {
             t.touchingEnemies.resize(_enemies.size(), false);
+            t.enemyRepeat.resize(_enemies.size(), 0.0f);
             for (size_t i = 0; i < _enemies.size() && !t.done; ++i) {
                 const Enemy &e = _enemies[i];
-                const float dx = (e.x - p.x) / rx;
-                const float dy = (e.y - p.y) / ry;
-                const bool in = e.alive() && shown(e.part) && dx * dx + dy * dy <= 1.0f;
-                if (in && !t.touchingEnemies[i])
-                    runAction(ai->object("Enter Action"), kEnemyInstigator - int(i), int(t.part));
-                if (!in && t.touchingEnemies[i])
-                    runAction(ai->object("Exit Action"), kEnemyInstigator - int(i), int(t.part));
-                t.touchingEnemies[i] = in;
+                const bool in = e.alive() && shown(e.part) && touches(t, e.x, e.y);
+                const int instigator = kEnemyInstigator - int(i);
+                if (in && !t.touchingEnemies[i]) {
+                    t.touchingEnemies[i] = true;
+                    t.enemyRepeat[i] = 0.0f;
+                    runAction(ai->object("Enter Action"), instigator, int(t.part));
+                    if (flag(ai, "Trigger Only Once") && ai->object("Enter Action"))
+                        t.done = true;
+                }
+                if (in && !t.done && ai->object("Repeat Action")) {
+                    t.enemyRepeat[i] -= seconds;
+                    if (t.enemyRepeat[i] <= 0.0f) {
+                        t.enemyRepeat[i] = number(ai, "Repeat Every");
+                        runAction(ai->object("Repeat Action"), instigator, int(t.part));
+                    }
+                }
+                if (!in && t.touchingEnemies[i]) {
+                    t.touchingEnemies[i] = false;
+                    runAction(ai->object("Exit Action"), instigator, int(t.part));
+                    if (flag(ai, "Trigger Only Once") && ai->object("Exit Action"))
+                        t.done = true;
+                }
             }
         }
         // Once done, a trigger that flips its switch turns its part off
@@ -216,6 +250,133 @@ void MapScreen::updateTriggers(float seconds) {
         if (t.done && flag(ai, "Auto-Flip Switch"))
             _partStates[t.part].active = false;
     }
+}
+
+bool MapScreen::touches(const Trigger &t, float x, float y) const {
+    // In its oval (X Radius across, YX Ratio of that up and down) or its
+    // part's polygon.
+    const MapPart &p = _map.parts[t.part];
+    if (t.ai->className.find("Oval") != std::string::npos) {
+        const float rx = number(t.ai, "X Radius");
+        const float ry = rx * number(t.ai, "YX Ratio", 1.0f);
+        if (rx <= 0.0f || ry <= 0.0f)
+            return false;
+        const float dx = (x - p.x) / rx;
+        const float dy = (y - p.y) / ry;
+        return dx * dx + dy * dy <= 1.0f;
+    }
+    return p.polygon.size() >= 3 && inside(p.polygon, x, y);
+}
+
+bool MapScreen::updateOtherTrigger(Trigger &t, float seconds) {
+    const TextObject *ai = t.ai;
+    const std::string &kind = ai->className;
+    const MapPart &p = _map.parts[t.part];
+    // Who's about, as instigators: the officers here, then the enemies
+    // standing.
+    struct Who {
+        int instigator;
+        float x;
+        float y;
+        bool enemy;
+    };
+    std::vector<Who> about;
+    for (size_t o = 0; o < _officers.size(); ++o)
+        if (_officers[o].present && _officers[o].alive())
+            about.push_back({int(o), _officers[o].x, _officers[o].y, false});
+    for (size_t i = 0; i < _enemies.size(); ++i)
+        if (_enemies[i].alive() && shown(_enemies[i].part))
+            about.push_back({kEnemyInstigator - int(i), _enemies[i].x, _enemies[i].y, true});
+    if (kind == "CAnyTouchingOvalTriggerAI" || kind == "CAnyTouchingPolygonTriggerAI") {
+        // Anything of its Triggered by list in it: its Enter Action as the
+        // first comes in, after its Enter Action Delay; its Exit Action as
+        // the last leaves, after its Exit Action Delay, unless someone's
+        // back by then (the doors': open, close; inferred).
+        const std::string by = readText(ai, "Triggered by");
+        int first = kNobody;
+        bool any = false;
+        for (const Who &w : about)
+            if (inCategory(by, w.enemy ? "Enemy" : "Player,Team Member") && touches(t, w.x, w.y)) {
+                if (!any)
+                    first = w.instigator;
+                any = true;
+            }
+        if (any && !t.anything) {
+            t.anything = true;
+            t.pending = ai->object("Enter Action");
+            t.countdown = number(ai, "Enter Action Delay");
+            t.instigator = first;
+        } else if (!any && t.anything) {
+            t.anything = false;
+            t.pending = ai->object("Exit Action");
+            t.countdown = number(ai, "Exit Action Delay");
+        }
+        if (t.pending) {
+            t.countdown -= seconds;
+            if (t.countdown <= 0.0f) {
+                const TextObject *action = t.pending;
+                t.pending = nullptr;
+                runAction(action, t.instigator, int(t.part));
+            }
+        }
+        return true;
+    }
+    if (kind == "CTeamTouchingPolygonTriggerAI") {
+        // The whole team here in its polygon: its Action (inferred).
+        bool all = false;
+        for (const Officer &o : _officers) {
+            if (!o.present || !o.alive())
+                continue;
+            all = true;
+            if (!touches(t, o.x, o.y))
+                return true;
+        }
+        if (all) {
+            if (flag(ai, "Trigger Only Once"))
+                t.done = true;
+            runAction(ai->object("Action"), -1, int(t.part));
+        }
+        return true;
+    }
+    if (kind == "CollideTriggerAI" || kind == "CPassThroughTriggerAI") {
+        // One it answers to walking into the part (its footprint, or its
+        // polygon), or, passing through, crossing it: its Action, once per
+        // coming in, not again within Disallow Retrigger seconds (inferred:
+        // projectiles don't set them off).
+        t.countdown = std::max(0.0f, t.countdown - seconds);
+        const bool players = flag(ai, "Triggered By Players") || flag(ai, "Triggered By Anything");
+        const bool enemies = flag(ai, "Triggered By Enemies") || flag(ai, "Triggered By Anything");
+        const std::vector<std::pair<float, float>> &foot = modelInfo(p.model).footprint;
+        t.touchingEnemies.resize(about.size(), false);
+        for (size_t k = 0; k < about.size() && !t.done; ++k) {
+            const Who &w = about[k];
+            if (w.enemy ? !enemies : !players)
+                continue;
+            bool in = false;
+            if (p.polygon.size() >= 3) {
+                in = inside(p.polygon, w.x, w.y);
+            } else if (foot.size() >= 3) {
+                std::vector<std::pair<float, float>> placed = foot;
+                for (auto &[fx, fy] : placed) {
+                    fx += p.x;
+                    fy += p.y;
+                }
+                in = inside(placed, w.x, w.y);
+            } else {
+                in = std::hypot(w.x - p.x, w.y - p.y) <= kCollideReach;
+            }
+            const bool was = t.touchingEnemies[k];
+            t.touchingEnemies[k] = in;
+            if (!in || was || t.countdown > 0.0f)
+                continue;
+            t.countdown = number(ai, "Disallow Retrigger");
+            if (flag(ai, "Trigger Only Once"))
+                t.done = true;
+            runAction(ai->object("Action"), w.instigator, int(t.part));
+        }
+        return true;
+    }
+    return false;
 }
 
 void MapScreen::runAction(const TextObject *action, int instigator, int trigger) {

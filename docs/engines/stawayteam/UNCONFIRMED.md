@@ -76,6 +76,15 @@ None yet.
 - **The item panels' layout:** sequences placed from the panel's middle,
   pictures and words from the info bar's corner
   ([systems/items.md](systems/items.md#an-items-panel)).
+- **The enemies' states:** the order a state change runs its actions
+  and transitions, an enemy losing its target going to look where it saw
+  them, one up from a stun looking about where it is, where one running
+  away runs to, when one looks for bodies, and a recharge's health
+  ([systems/maps.md](systems/maps.md#open-questions)).
+- **The triggers and doors:** an enemy setting off a touching trigger as
+  an officer does, what counts as colliding with a part, and a door out
+  of the way as soon as it starts opening
+  ([systems/maps.md](systems/maps.md#open-questions)).
 - **Parts' processes:** the one chosen for an officer, and their walking
   into range first
   ([systems/maps.md](systems/maps.md#open-questions)).

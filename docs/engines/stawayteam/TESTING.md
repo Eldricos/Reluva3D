@@ -139,7 +139,11 @@ stawayteam frame-png`.
    enemies not seeing it; the holographic projection drawing an enemy's
    fire; Brexen Ijoula's stasis field holding an enemy and
    picked up again; a grenade's arc and bounces; an EM pulse grenade near
-   electronics;
+   electronics; Mission 01's prisoners not shooting; an enemy that's lost
+   the team going to look where it saw them; a Klingon's body found by
+   another, raising the alarm; an enemy beamed out by its alarm; the
+   doors of Mission 02's ship opening for the team and the crew and
+   closing after them;
    enemies called by one
    that's seen the team, running after it out of sight, and retreating to
    their alarms when hurt (Mission 08); a grenade chosen on the bar or

@@ -328,16 +328,34 @@ bool MapScreen::runGadgetAction(const TextObject *action, int instigator, int tr
         if (who <= kEnemyInstigator && size_t(kEnemyInstigator - who) < _enemies.size())
             _enemies[size_t(kEnemyInstigator - who)].held = 0.0f;
     } else if (kind == "CAddEffectAction") {
-        // Its Warp Sound; one that's Delete When Finished beams its part
-        // away over its Warp Time (inferred: the effect's pictures aren't
-        // drawn).
+        // Its Warp Sound; one that's Delete When Finished beams away over
+        // its Warp Time, fading, and is gone: a part, or an enemy (the
+        // alarms' $Instigator, 330 in the maps), held still meanwhile
+        // (inferred: the effect's pictures aren't drawn, nor officers beamed).
         if (_mixer)
             if (auto sound = gameSound(_data, readText(action, "Warp Sound")))
                 _mixer->play(sound, audio::SoundType::kEffects);
         const TextObject *behavior = action->object("Warp Behavior");
-        if (flag(behavior, "Delete When Finished"))
-            for (size_t part : partsNamed(readText(action, "Who To Warp"), trigger))
-                _warping.emplace_back(part, number(behavior, "Warp Time", 1.75f));
+        if (flag(behavior, "Delete When Finished")) {
+            const float time = std::max(0.01f, number(behavior, "Warp Time", 1.75f));
+            const std::string name = readText(action, "Who To Warp");
+            std::vector<size_t> parts;
+            const int who = whoNamed(name, instigator, trigger);
+            if (who <= kEnemyInstigator && size_t(kEnemyInstigator - who) < _enemies.size())
+                parts.push_back(_enemies[size_t(kEnemyInstigator - who)].part);
+            else if (lower(name) != "$instigator")
+                parts = partsNamed(name, trigger);
+            for (size_t part : parts)
+                if (std::none_of(_warping.begin(), _warping.end(), [&](const Warp &w) { return w.part == part; }))
+                    _warping.push_back({part, time, time});
+        }
+    } else if (kind == "COpenDoorAction" || kind == "CCloseDoorAction") {
+        for (size_t part : partsNamed(readText(action, "Door Name"), trigger))
+            moveDoor(part, kind == "COpenDoorAction", instigator);
+    } else if (kind == "CLockDoorAction" || kind == "CUnlockDoorAction") {
+        for (size_t part : partsNamed(readText(action, "Door Name"), trigger))
+            if (const auto door = _doors.find(part); door != _doors.end())
+                door->second.locked = kind == "CLockDoorAction";
     } else if (kind == "CSetCurSequenceAction") {
         const std::string sequence = readText(action, "Sequence");
         for (size_t part : partsNamed(readText(action, "Target Name"), trigger)) {
@@ -407,6 +425,13 @@ void MapScreen::runDeathBehaviors(size_t part, int instigator) {
             runAction(f.object->object("Action"), instigator, int(part));
 }
 
+float MapScreen::warpShown(size_t part) const {
+    for (const Warp &w : _warping)
+        if (w.part == part)
+            return std::clamp(w.left / w.time, 0.0f, 1.0f);
+    return 1.0f;
+}
+
 bool MapScreen::runItemProcess(size_t officer, float seconds) {
     // Its item's Process Activity: a CDropItemAI walks till the place is in
     // the item's Item Range and sight (or there, without one), a
@@ -471,19 +496,18 @@ bool MapScreen::fightDecoy(Enemy &e, float seconds) {
             return false;
         for (const Deployed &d : _deployed) {
             const MapPart &p = _map.parts[d.part];
-            if (!shown(d.part) || !inCategory(p.category, "Decoy"))
+            if (!shown(d.part) || !inCategory(p.category, "Decoy") || !inCategory(p.category, e.validTargets))
                 continue;
             const float dx = p.x - e.x;
             const float dy = p.y - e.y;
-            const float off = std::abs(std::remainder(std::atan2(dy, dx) - e.angle, 2.0f * 3.14159265f));
+            const float off = std::abs(std::remainder(std::atan2(dy, -dx) - e.angle, 2.0f * 3.14159265f));
             if (std::hypot(dx, dy) <= number(e.ai, "Max Distance", 375.0f) &&
                 off * 180.0f / 3.14159265f <= number(e.ai, "Vision Cone", 125.0f) / 2.0f &&
                 clearSight(e.x, e.y, p.x, p.y)) {
                 e.decoy = int(d.part);
-                e.state = "Attack";
                 e.target = -1;
-                e.stateTime = 0.0f;
                 e.route.clear();
+                setState(e, "Attack");
                 break;
             }
         }
@@ -493,8 +517,7 @@ bool MapScreen::fightDecoy(Enemy &e, float seconds) {
     const size_t part = size_t(e.decoy);
     if (!shown(part)) {
         e.decoy = -1;
-        e.state = "Patrol";
-        e.stateTime = 0.0f;
+        setState(e, "Patrol");
         return true;
     }
     const MapPart &p = _map.parts[part];
@@ -503,7 +526,7 @@ bool MapScreen::fightDecoy(Enemy &e, float seconds) {
         walkTo(e, p.x, p.y, 1.0f, seconds, runs(e, "Pursue"));
         return true;
     }
-    e.angle = std::atan2(p.y - e.y, p.x - e.x);
+    e.angle = std::atan2(p.y - e.y, e.x - p.x);
     if (e.reload > 0.0f)
         return true;
     e.reload = e.weapon->reuseDelay;
@@ -535,12 +558,13 @@ void MapScreen::updateDeployed(float seconds) {
             for (const NamedSequence &s : object->sequences)
                 if (lower(s.name) == lower(playing) && s.sequence)
                     sequence = s.sequence.get();
-        if (!sequence || !sequence->sequence)
+        // One its model hasn't is played through at once.
+        const int count = sequence && sequence->sequence ? int(sequence->sequence->frames.size()) : 0;
+        if (count == 0 && !d.once)
             continue;
-        const int count = int(sequence->sequence->frames.size());
-        const float fps = float(sequence->object.number("Frames Per Second").value_or(15.0));
+        const float fps = sequence ? float(sequence->object.number("Frames Per Second").value_or(15.0)) : 15.0f;
         const int reached = std::min(count, int(d.time * fps) + 1);
-        const TextObject *triggers = sequence->object.object("Trigger");
+        const TextObject *triggers = sequence ? sequence->object.object("Trigger") : nullptr;
         const auto items = triggers ? triggers->items() : std::vector<const TextField *>{};
         const size_t part = d.part;
         for (int f = d.frames; f < reached && _deployed[k].once; ++f) {
@@ -550,22 +574,89 @@ void MapScreen::updateDeployed(float seconds) {
         }
         Deployed &now = _deployed[k];
         if (now.once && now.time * fps >= float(count) && now.sequence == playing) {
+            const TextObject *done = now.done;
+            const int by = now.doneBy;
             now.once = false;
-            now.sequence = "Idle";
+            now.sequence = now.then;
             now.time = 0.0f;
             now.frames = 0;
-            _map.parts[part].sequence = "Idle";
+            now.done = nullptr;
+            _map.parts[part].sequence = now.sequence;
+            runAction(done, by, int(part));
         }
     }
-    for (auto &[part, left] : _warping) {
-        left -= seconds;
-        if (left <= 0.0f)
-            _partStates[part].deleted = true;
+    for (Warp &w : _warping) {
+        w.left -= seconds;
+        if (w.left <= 0.0f)
+            _partStates[w.part].deleted = true;
     }
-    std::erase_if(_warping, [](const auto &w) { return w.second <= 0.0f; });
+    std::erase_if(_warping, [](const Warp &w) { return w.left <= 0.0f; });
     for (Officer &o : _officers)
         if (o.held > 0.0f && o.held < kHeldForever)
             o.held = std::max(0.0f, o.held - seconds);
+}
+
+void MapScreen::playSequence(size_t part, const std::string &sequence, const std::string &then, const TextObject *done,
+                             int doneBy) {
+    auto it = std::find_if(_deployed.begin(), _deployed.end(), [&](const Deployed &d) { return d.part == part; });
+    if (it == _deployed.end()) {
+        _deployed.push_back({});
+        it = _deployed.end() - 1;
+        it->part = part;
+    }
+    it->sequence = sequence;
+    it->time = 0.0f;
+    it->frames = 0;
+    it->once = true;
+    it->then = then;
+    it->done = done;
+    it->doneBy = doneBy;
+    _map.parts[part].sequence = sequence;
+}
+
+bool MapScreen::hasSequence(size_t part, const std::string &sequence) {
+    const BinaryObject *object = modelObject(_map.parts[part].model);
+    if (!object)
+        return false;
+    return std::any_of(object->sequences.begin(), object->sequences.end(),
+                       [&](const NamedSequence &s) { return lower(s.name) == lower(sequence) && s.sequence; });
+}
+
+void MapScreen::setupDoors() {
+    // Each part with a CDoorAI, locked by its Is Locked, open if it shows
+    // its Open sequence.
+    for (size_t i = 0; i < _map.parts.size(); ++i)
+        for (const TextObject *ai : _map.parts[i].activities)
+            if (ai->className == "CDoorAI")
+                _doors[i] = {flag(ai, "Is Locked"), lower(_map.parts[i].sequence) == "open"};
+}
+
+bool MapScreen::moveDoor(size_t part, bool open, int instigator) {
+    // Its Before Open (or Closed) action, its model's Activate (or Close)
+    // Sound, Opening (or Closing, else Closed) played once and then Open
+    // (or Closed), and its After Opened (or Closed) action; open, it's
+    // out of the way at once, closed, back (inferred: when it stops
+    // blocking isn't traced). A locked one doesn't.
+    const auto it = _doors.find(part);
+    if (it == _doors.end())
+        return false;
+    Door &door = it->second;
+    if (door.locked || door.open == open)
+        return true;
+    door.open = open;
+    const TextObject *ai = nullptr;
+    for (const TextObject *a : _map.parts[part].activities)
+        if (a->className == "CDoorAI")
+            ai = a;
+    runAction(ai ? ai->object(open ? "Before Open" : "Before Closed") : nullptr, instigator, int(part));
+    if (const BinaryObject *object = modelObject(_map.parts[part].model); object && _mixer)
+        if (auto sound = gameSound(_data, readText(&object->object, open ? "Activate Sound" : "Close Sound")))
+            _mixer->play(sound, audio::SoundType::kEffects);
+    _partStates[part].collideable = !open && _map.parts[part].collideable;
+    const std::string moving = open ? "Opening" : hasSequence(part, "Closing") ? "Closing" : "Closed";
+    playSequence(part, moving, open ? "Open" : "Closed",
+                 ai ? ai->object(open ? "After Opened" : "After Closed") : nullptr, instigator);
+    return true;
 }
 
 } // namespace reluva::stawayteam

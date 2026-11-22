@@ -1244,6 +1244,179 @@ void testKit() {
     CHECK(highest > 30.0f);
 }
 
+void testStates() {
+    // Guards whose states' actions and transitions turn relays' arrows
+    // on: one stunned (its Stun's transition), one with no Valid Targets,
+    // one that sees a body, one recharging, and one beamed out by its own
+    // alarm.
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    const auto guard = [](const std::string &name, int x, int y, float angle, const std::string &ai,
+                          const std::string &more) {
+        return "Level Part=CEntityWalking\n{\nName=" + name +
+               "\nActivity=Array\n{\nItem Count=1\nActivity=CBorgAI\n{\nMax Distance=400\nVision Cone=360\n" + ai +
+               "}\n}\nModel=Characters/Guard\nPosition X=" + std::to_string(x) + "\nPosition Y=" + std::to_string(y) +
+               "\nFacing Angle=" + std::to_string(angle) + "\n" + more + "}\n";
+    };
+    const auto lamp = [](const std::string &name) {
+        return "Level Part=CEntityBase\n{\nName=" + name + "\nActive=0\nPosition X=0\nPosition Y=0\n}\n";
+    };
+    const auto activate = [](const std::string &name) { return "CActivateAction\n{\nTarget Name=" + name + "\n}\n"; };
+    const std::string zax =
+        "CLayerSaveData\n{\nWidth=3000\nHeight=3000\nView Position=500.000000,300.000000\nTree List=CSortList2D\n{\n" +
+        guard("Stunned", 1500, 1500, 0.0f,
+              "Current State=Patrol\nStun=CBorgStateStun\n{\nNext State=Investigate\nStart Action=" +
+                  activate("Stun Start") +
+                  "}\nTransitions=CBorgTransitionHolder\n{\nTransition=Array\n{\n"
+                  "Item Count=1\nTransition=CBorgTransition\n{\nTrigger=Every Time\nFrom State=Stun\nTo State=Any\n"
+                  "Action=" +
+                  activate("Stun Over") + "}\n}\n}\n",
+              "") +
+        guard("Prisoner", 400, 300, 0.0f,
+              "Current State=Patrol\nTargeting=CBorgSetClosestTarget\n{\nValid Targets=\n}\n", "") +
+        guard("Looker", 2500, 2500, 0.0f,
+              "Current State=Patrol\nGotATarget=CBorgStateGotATarget\n{\nDead Body=Investigate Dead Body\n}\n"
+              "InvestigateDeadBody=CBorgStateInvestigateDeadBody\n{\nStart Action=" +
+                  activate("Body Found") +
+                  "Investigate Dead Body AI=CChaseInvestigateAI\n{\nTime To Investigate=1\n}\n}\n",
+              "") +
+        guard("Body", 2600, 2500, 0.0f, "Current State=Patrol\n", "Category=Dead Bodies\n") +
+        guard("Sleeper", 2500, 500, 0.0f,
+              "Current State=Recharge\nRecharge=CBorgStateRecharge\n{\nTime To Recharge=2\n}\n"
+              "EndRecharge=CBorgStateEndRecharge\n{\nEnd Recharge AI=CGoForwardAI\n{\nDist to Move=50\n}\n}\n",
+              "") +
+        lamp("Stun Start") + lamp("Stun Over") + lamp("Body Found") +
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=300\n}\n}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = bytesOf(zax);
+    data.files["Cache/Models/Characters/Guard.mdl16"] = modelFile("Guard", 1, 1);
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    MapScreen screen(data, rules, map, options, 0, {ann});
+    const auto &enemies = screen.enemies();
+    uint64_t now = 0;
+    const auto run = [&](uint64_t until) {
+        while (now < until)
+            screen.update(now += 50);
+    };
+    const auto lit = [&](const char *name) {
+        for (size_t i = 0; i < map.parts.size(); ++i)
+            if (map.parts[i].name == name)
+                return screen.partState(i).active;
+        return false;
+    };
+    // The prisoner, Ann beside it, doesn't take her for a target.
+    run(1000);
+    CHECK(enemies[1].state == "Patrol" && enemies[1].target < 0);
+    // Stunned: its Stun's Start Action; up again, the transition from Stun
+    // and its Next State, Investigate.
+    ItemDefinition stunner;
+    stunner.stunDuration = 1.0f;
+    screen.hurtEnemy(0, stunner, -1, true);
+    CHECK(enemies[0].state == "Stun" && lit("Stun Start") && !lit("Stun Over"));
+    run(2500);
+    CHECK(lit("Stun Over") && enemies[0].state == "Investigate");
+    // The looker sees the body: Investigate Dead Body, its Start Action,
+    // then back on patrol, not looking at it again.
+    CHECK(lit("Body Found"));
+    run(8000);
+    CHECK(enemies[2].state == "Patrol" && enemies[2].bodiesSeen.size() == 1);
+    // The sleeper recharges its two seconds, goes 50 forward and patrols.
+    CHECK(enemies[4].state == "Patrol" && std::abs(enemies[4].x - 2450.0f) < 1.0f);
+    // Beamed out by an action naming it its instigator: gone once its warp
+    // time's done.
+    TextObject beam;
+    CHECK(!readTextObject(
+        "CAddEffectAction\n{\nWho To Warp=$Instigator\nWarp Behavior=CStarTrekTransporterEffectBehavior\n"
+        "{\nWarp Time=1\nDelete When Finished=1\n}\n}\n",
+        beam));
+    screen.runAction(&beam, MapScreen::kEnemyInstigator - 4);
+    run(8500);
+    CHECK(!screen.partState(enemies[4].part).deleted);
+    run(9500);
+    CHECK(screen.partState(enemies[4].part).deleted);
+}
+
+void testDoors() {
+    // A door that opens for anyone near (its anything-touching trigger,
+    // Enemy and Player) and closes half a second after they've gone; a
+    // trigger set off by enemies; a crate to bump into; the team's square.
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    const std::string zax =
+        "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=500.000000,300.000000\nTree List=CSortList2D\n{\n"
+        "Level Part=CEntityAnimated\n{\nName=Door\nCollideable=1\nActivity=Array\n{\nItem Count=2\n"
+        "Activity=CDoorAI\n{\nAfter Opened=CActivateAction\n{\nTarget Name=Opened\n}\n}\n"
+        "Activity=CAnyTouchingOvalTriggerAI\n{\nTriggered by=Enemy,Player\nX Radius=120\nYX Ratio=1\n"
+        "Enter Action=COpenDoorAction\n{\nDoor Name=$trigger\n}\nExit Action=CCloseDoorAction\n{\nDoor Name=$trigger\n}\n"
+        "Exit Action Delay=0.5\n}\n}\nModel=Props/Door\nCur Sequence=Closed\nPosition X=400\nPosition Y=300\n}\n"
+        "Level Part=CEntityBase\n{\nName=Tripwire\nActivity=Array\n{\nItem Count=1\nActivity=CTouchingOvalTriggerAI\n{\n"
+        "Triggered By Enemies=1\nX Radius=40\nYX Ratio=1\nEnter Action=CActivateAction\n{\nTarget Name=Tripped\n}\n}\n}\n"
+        "Position X=1500\nPosition Y=1500\n}\n"
+        "Level Part=CEntityBase\n{\nName=Crate\nActivity=Array\n{\nItem Count=1\nActivity=CollideTriggerAI\n{\n"
+        "Triggered By Players=1\nAction=CActivateAction\n{\nTarget Name=Bumped\n}\n}\n}\n"
+        "Position X=300\nPosition Y=600\n}\n"
+        "Level Part=CRenderablePolygon\n{\nName=Square\nPolygon=250, 850, 350, 850, 350, 950, 250, 950, 250, 850\n"
+        "Activity=Array\n{\nItem Count=1\nActivity=CTeamTouchingPolygonTriggerAI\n{\nTrigger Only Once=1\n"
+        "Action=CActivateAction\n{\nTarget Name=Gathered\n}\n}\n}\n}\n"
+        "Level Part=CEntityWalking\n{\nName=Walker\nActivity=Array\n{\nItem Count=1\nActivity=CBorgAI\n{\n"
+        "Current State=Patrol\nMax Distance=10\nInvestigate=CBorgStateInvestigate\n{\nInvestigate AI=CChaseInvestigateAI\n{\n"
+        "Time To Investigate=1\n}\n}\n}\n}\nModel=Props/Door\nPosition X=1400\nPosition Y=1500\n}\n"
+        "Level Part=CEntityBase\n{\nName=Opened\nActive=0\n}\nLevel Part=CEntityBase\n{\nName=Tripped\nActive=0\n}\n"
+        "Level Part=CEntityBase\n{\nName=Bumped\nActive=0\n}\nLevel Part=CEntityBase\n{\nName=Gathered\nActive=0\n}\n"
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=300\n}\n}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = bytesOf(zax);
+    data.files["Cache/Models/Props/Door.mdl16"] = modelFile("Door", 1, 1);
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    MapScreen screen(data, rules, map, options, 0, {ann});
+    uint64_t now = 0;
+    const auto run = [&](uint64_t until) {
+        while (now < until)
+            screen.update(now += 50);
+    };
+    const auto part = [&](const char *name) {
+        for (size_t i = 0; i < map.parts.size(); ++i)
+            if (map.parts[i].name == name)
+                return i;
+        return size_t(0);
+    };
+    // Ann's 100 off the door: it opens, out of the way, After Opened run.
+    CHECK(screen.partState(part("Door")).collideable);
+    run(500);
+    CHECK(!screen.partState(part("Door")).collideable && screen.partState(part("Opened")).active);
+    // She walks off: half a second on, it's closed.
+    screen.choose(0);
+    screen.order(300.0f, 600.0f);
+    run(10000);
+    CHECK(screen.partState(part("Door")).collideable);
+    // She bumped into the crate on the way; the walker's not on its wire.
+    CHECK(screen.partState(part("Bumped")).active && !screen.partState(part("Tripped")).active);
+    // The walker sent onto the wire sets it off.
+    TextObject send;
+    CHECK(!readTextObject("CSendInvestigateHereMessageAction\n{\nTarget=Walker\n}\n", send));
+    screen.runAction(&send, -1, int(part("Tripwire")));
+    run(14000);
+    CHECK(screen.partState(part("Tripped")).active);
+    // The team in its square.
+    screen.order(300.0f, 900.0f);
+    run(24000);
+    CHECK(screen.partState(part("Gathered")).active);
+}
+
 void testChoosing() {
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(kMap, kMap + std::string(kMap).size());
@@ -1302,4 +1475,6 @@ static const reluva::test::Suite kSuite("stawayteam.unit.maps",
                                             {"gadgets", [](const std::filesystem::path &) { testGadgets(); }},
                                             {"processes", [](const std::filesystem::path &) { testProcesses(); }},
                                             {"kit", [](const std::filesystem::path &) { testKit(); }},
+                                            {"states", [](const std::filesystem::path &) { testStates(); }},
+                                            {"doors", [](const std::filesystem::path &) { testDoors(); }},
                                         });

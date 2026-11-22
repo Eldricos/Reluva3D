@@ -207,6 +207,13 @@ public:
         // long it's looked about since getting there.
         float heardX = 0.0f;
         float heardY = 0.0f;
+        // Whom it'll target, by their categories (its Targeting's Valid
+        // Targets: Player, Team Member; none for a prisoner).
+        std::string validTargets;
+        std::vector<size_t> bodiesSeen;       // the dead bodies it's looked at, not to again
+        float runAway = 0.0f;                 // seconds of running away left
+        float recharge = 0.0f;                // seconds in Recharge, for its Time To Recharge
+        const TextObject *patrolAI = nullptr; // a CSetPatrolAIAction's, in place of its own
         // Where it last saw its target, to go after them.
         float seenX = 0.0f;
         float seenY = 0.0f;
@@ -237,6 +244,8 @@ public:
             bool begun = false;
         };
         std::map<const TextObject *, Progress> progress;
+        // Each transition that's run: once, and for whom.
+        std::map<const TextObject *, std::pair<bool, int>> transitions;
     };
     const std::vector<Enemy> &enemies() const { return _enemies; }
     /**
@@ -295,6 +304,11 @@ public:
     void toggleCharge();
     /** What the chosen officer's tricorder last said, and how much of it's typed out. */
     const std::string &scanText() const { return _scanText; }
+    /**
+     * A hit on enemy `enemy` by `attacker` (an officer, or -1) with
+     * `weapon`: stunning it with `stun`, else hurting it.
+     */
+    void hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attacker, bool stun);
     /** The enemy standing at (x, y) on the map, alive, or -1. */
     int enemyAt(float x, float y) const;
     /** Whether nothing that stands full height is between two points on the map. */
@@ -431,6 +445,10 @@ private:
     // The enemies' messages and actions on them (map_enemies.cpp); true if
     // `action` was one.
     bool runEnemyAction(const TextObject *action, int instigator, int trigger);
+    // An enemy's state changed, its actions and transitions run.
+    void setState(Enemy &e, const std::string &to);
+    // A state's name as CBorgAI's field for it: "Run Away" is RunAway.
+    static std::string stateKey(const std::string &name);
     // The gadgets' (map_gadgets.cpp): what's put down, given, used up and
     // held still.
     bool runGadgetAction(const TextObject *action, int instigator, int trigger);
@@ -476,10 +494,16 @@ private:
     // Retreat At Percent).
     void maybeRetreat(Enemy &e);
     // Its Investigate state a step; true once it's done.
-    bool runInvestigate(Enemy &e, float seconds);
+    // Going to look, by its state's investigating AI (Investigate's, or
+    // InvestigateDeadBody's).
+    bool runInvestigate(Enemy &e, float seconds, const char *state = "Investigate",
+                        const char *aiKey = "Investigate AI");
     // Turns `e` towards `angle` at `degreesPerSecond`; true there.
     bool turnTo(Enemy &e, float angle, float degreesPerSecond, float seconds);
     bool sees(const Enemy &e, const Officer &o) const;
+    // Whether a point's in its sight: its Max Distance and Vision Cone, and
+    // a clear line.
+    bool seesPoint(const Enemy &e, float x, float y) const;
     // Fighting (map_combat.cpp).
     void setupCombat();
     void updateCombat(float seconds);
@@ -488,9 +512,6 @@ private:
     // A shot from (x, y) with `weapon` at (tx, ty): its sound, its flashes;
     // how long the shooter's `model` takes over shooting it.
     float shoot(const ItemDefinition &weapon, const std::string &model, float x, float y, float tx, float ty);
-    // A hit on enemy `enemy` by `attacker` (an officer, or -1): stunning it
-    // with `stun`, else hurting it.
-    void hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attacker, bool stun);
     // The items (map_items.cpp).
     void setupItems();
     void updateItems(float seconds);
@@ -614,9 +635,16 @@ private:
     struct Trigger {
         size_t part;
         const TextObject *ai;
-        bool done = false;          // triggered, and only once
-        std::vector<bool> touching; // each officer's, for a touching trigger
-        std::vector<bool> touchingEnemies;
+        bool done = false;                 // triggered, and only once
+        std::vector<bool> touching;        // each officer's, for a touching trigger
+        std::vector<bool> touchingEnemies; // each enemy's (a collide trigger's: each who's about)
+        std::vector<float> enemyRepeat;
+        // An anything-touching trigger's: something in it, and its action
+        // waiting out its delay, for whom.
+        bool anything = false;
+        const TextObject *pending = nullptr;
+        float countdown = 0.0f;
+        int instigator = -1;
         std::vector<float> nextRepeat; // each officer's next Repeat Action
         float timer = 0.0f;            // a repeat timer's seconds till it next acts
     };
@@ -624,6 +652,11 @@ private:
     std::vector<Enemy> _enemies;
     std::map<size_t, size_t> _enemyOfPart;
     std::vector<Trigger> _triggers;
+    // Whether a point's in a touching trigger's oval or polygon.
+    bool touches(const Trigger &t, float x, float y) const;
+    // The anything-touching, team-touching, collide and pass-through
+    // triggers (false for another kind).
+    bool updateOtherTrigger(Trigger &t, float seconds);
     std::map<const TextObject *, size_t> _series; // a series' next action
     std::map<std::string, std::vector<size_t>> _byName;
     unsigned _random = 1;
@@ -670,15 +703,40 @@ private:
         std::string sequence;
         float time = 0.0f;
         int frames = 0;   // of its sequence passed
-        bool once = true; // its sequence plays once, then Idle
+        bool once = true; // its sequence plays once, then `then`
         float health = 0.0f;
         std::string painSound;
+        std::string then = "Idle";
+        const TextObject *done = nullptr; // run as it's played once through
+        int doneBy = -1;                  // its instigator
     };
     std::vector<Deployed> _deployed;
+    // A part's sequence played once through from its start, then `then`,
+    // then `done` run (a door opening, then Open, then After Opened).
+    void playSequence(size_t part, const std::string &sequence, const std::string &then, const TextObject *done,
+                      int doneBy);
+    // Whether a part's model has a sequence of that name.
+    bool hasSequence(size_t part, const std::string &sequence);
+    // The doors (CDoorAI), each's locked and open.
+    struct Door {
+        bool locked = false;
+        bool open = false;
+    };
+    std::map<size_t, Door> _doors;
+    void setupDoors();
+    // Opens or closes a door, for `instigator`; true if it's a door.
+    bool moveDoor(size_t part, bool open, int instigator);
     std::map<std::string, std::unique_ptr<BinaryObject>> _modelObjects;
     std::map<std::string, std::unique_ptr<TextObject>> _deathBehaviors;
     // Parts beamed away: deleted once their warp's done.
-    std::vector<std::pair<size_t, float>> _warping;
+    struct Warp {
+        size_t part;
+        float left; // seconds
+        float time;
+    };
+    std::vector<Warp> _warping;
+    // How much of a part's still there as it's beamed away (0-1).
+    float warpShown(size_t part) const;
     // The place an action's done at when it's no part's: where an item's
     // used, where a grenade goes off.
     // The one a radius's action is on: $instigator in its Touching Action.

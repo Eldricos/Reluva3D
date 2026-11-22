@@ -295,6 +295,29 @@ categories (`CSetCategoryAction` `Dead Bodies`, `CClearCategoryAction`
 `CDoOnAllWithinRadiusAction`'s `Who To Affect` picks by it, and each
 category's `MiniMap Color` (`Categories/`) colours it.
 
+The other triggers:
+
+- **Anything touching** (`CAnyTouchingOvalTriggerAI`, 116;
+  `CAnyTouchingPolygonTriggerAI`, 21): its `Enter Action` once anything
+  of its `Triggered by` is in it, after `Enter Action Delay`, its `Exit
+  Action` once nothing is, after `Exit Action Delay` (0.5): the doors'
+  `COpenDoorAction` and `CCloseDoorAction` (`Door Name` `$trigger`).
+- **The team touching** (`CTeamTouchingPolygonTriggerAI`, 3): its
+  `Action`, setting objectives.
+- **Colliding** (`CollideTriggerAI`, 47): its `Action` as one of those it
+  answers to runs into the part (`Triggered By Players`, `Enemies`,
+  `Anything`, `Projectiles`), not again within `Disallow Retrigger`
+  seconds.
+- **Passing through** (`CPassThroughTriggerAI`, 6): its `Action`.
+- **Triggered By Enemies** on 66 touching triggers.
+
+**Doors** (`CDoorAI`, 237 parts): `Is Locked` (12), and actions run
+before and after they open and close (`Before Open`, `After Opened`,
+`Before Closed`, `After Closed`: some relocate the team). A door's model
+has `Closed`, `Opening`, `Open` and `Closing` sequences, and its
+`Activate Sound` and `Close Sound`. `CLockDoorAction` and
+`CUnlockDoorAction` lock and unlock them.
+
 The program's trigger code isn't traced yet: how these fields act is
 read from the maps.
 
@@ -338,7 +361,38 @@ In all the maps' 776 enemies:
   08, a Klingon reaching one sets off the alarm, and the mission's lost.
 - **Stun State:** `Stun` for 628, `Attack` for 145 (the Borg's). A map
   can set an enemy's weapon to stun, its inventory item's `Weapon
-  Setting` (`Stun` for 34 Borg guns).
+  Setting` (`Stun` for 34 Borg guns). The `Stun` state's `Next State`:
+  `Investigate` for 358, `Recharge` for 130.
+- **The states' numbers** (`0x6379c8`): Any 0, Recharge 1, End Recharge
+  2, Patrol 3, Got a Target 4, Lost a Target 5, Alert 6, Attack 7, Pursue
+  8, DoSomething 9, Investigate 10, Investigate Dead Body 11, Retreat 12,
+  Run Away 13, Stun 14. `Got a Target` and `Lost a Target` choose the
+  next: `GotATarget`'s `Acquired a Target` (Attack), `Had a Target`
+  (Investigate for 755) and `Dead Body` (Investigate Dead Body for 728,
+  Patrol for 42); `LostATarget`'s `Had a Target` (Investigate for 756) and
+  `Default` (Patrol for 687). The `Alert`'s `Next State` is `Got a
+  Target` for 746.
+- **Their actions:** Start and End Actions on every state: the Alert's
+  relay to a voice (307), the Stun's (184 and 265), the Investigate Dead
+  Body's relay, mostly to an alarm (254), the Attack's (300 or so).
+- **Transitions** (`Transitions`, a `CBorgTransitionHolder`; 215 enemies
+  have some): each a `Trigger` (`Every Time`, `First Time`, `Once Per New
+  Target`), `From State` and `To State` (`Any` for either), and an
+  `Action`, mostly relays: `Once Per New Target`, Any to Attack, on 154.
+- **Valid Targets:** `Player,Team Member` for 350, `Player` for 263,
+  none for 84 (prisoners and scientists), `Enemy` for some Klingons.
+  `CBorgSetTargetTypeAction` (504) changes them.
+- **Run Away If Too Close** (757): with its target within a twentieth of
+  its weapon's range, it runs away (state 13) for three seconds
+  (`0x42b084`), by a `CRunAwayRetreatAI`.
+- **Recharge:** 80 start in it; its `Recharge AI` (a `CSeriesAI`, a
+  `CGotoRadiusAI`, a `CRechargeHealthAI` giving back `Hit Points`) and
+  `Time To Recharge` (-1 for 521, 2.5 for 130); `End Recharge`'s AI, a
+  `CGoForwardAI` (624) or `CActionAI`.
+- **Investigate Dead Body:** a `CChaseInvestigateAI` (737), to the body.
+  A body is a part of category `Dead Bodies`: a Klingon's death
+  behaviours make it one.
+- **`CSetPatrolAIAction`** gives an enemy a new `Patrol AI`.
 
 They tell one another, by actions:
 
@@ -355,7 +409,9 @@ They tell one another, by actions:
   attack states' Start Actions and the Damage Actions, it calls the
   others near to look (`Touching Action` a
   `CSendInvestigateHereMessageAction` to `$Trigger`) or adds an effect
-  to them (`CAddEffectAction`, 330).
+  to them (`CAddEffectAction`, 330): a transporter's (`CStarTrekTransporterEffectBehavior`,
+  `Warp Time` 1.75, `Delete When Finished`), beaming them out, with the
+  race's `Warp Sound`.
 
 ### Fighting
 
@@ -582,7 +638,38 @@ straight at one it sees out of its weapon's range *(inferred)*. Hurt to
 its Retreat At Percent, one whose Retreat AI goes somewhere runs there by
 the waypoints, runs its Done action, and holds the place, fighting
 *(inferred)*. A state's actions have the enemy as their `$Trigger`, and
-the officer it's after as their instigator *(inferred)*. The messages
+the officer it's after as their instigator *(inferred)*.
+
+Each change of an enemy's state runs the state left's End Action, the
+transitions that match it (Every Time; First Time once; Once Per New
+Target when its target's another), and the new state's Start Action,
+in that order *(inferred)*. One whose Valid Targets don't name Player or
+Team Member doesn't see the officers. Losing its target, it goes by its
+LostATarget's Had a Target: Investigate, looking about where it saw them
+last *(inferred)*. Up from a stun, its Stun's Next State: Investigate,
+looking about where it is *(inferred)*, or Recharge. Recharging, it runs
+its Recharge AI (a CRechargeHealthAI its Hit Points back a second,
+*inferred*), for its Time To Recharge if it has one, then End Recharge's
+AI and its patrol; it sees the team as on patrol. A target within a
+twentieth of its weapon's range, one that Runs Away If Too Close runs off
+from them three seconds, then back at them; where to, its weapon's
+range away, *inferred*. On patrol, looking about or recharging, a dead
+body it sees and hasn't before: its GotATarget's Dead Body, Investigate
+Dead Body, going to look at it, then back on patrol *(inferred)*. A
+CSetPatrolAIAction's AI is its patrol from then. Beamed out (an effect
+naming it, Delete When Finished), it's held still and fades over the
+warp's time, then is gone *(inferred: the transporter's pictures aren't
+drawn)*.
+
+The triggers (`ui/map_triggers.cpp`): the anything-touching, team,
+collide and pass-through ones as above *(inferred)*; the touching ones
+Triggered By Enemies, or Anything, answer to the enemies too, each as an
+officer, its instigator *(inferred)*. A collide trigger's part is its
+footprint, or its polygon, or 20 pixels about it *(inferred)*. A door
+(`ui/map_gadgets.cpp`) opens unless locked: its Before Open, its Activate
+Sound, Opening played and then Open, out of the way at once, and its
+After Opened as it's open; closing likewise, back in the way *(inferred:
+when it stops blocking isn't traced)*. The messages
 above are acted on: told to look, one on patrol or looking goes there;
 given a target, it attacks them; a radius's action reaches the enemies in
 its oval, whose name has the filter in it *(inferred)*.
@@ -640,12 +727,13 @@ map shown's Map Song, over and over; stopping as the maps are left
 *(inferred)*.
 
 Not there yet: the processes of the 5 polygons, the Out Of Range
-cursor, the full inventory, the triggers set off by enemies, passing through or colliding, the AIs'
-other messages and tasks (going to a place, effects added), walkers
-going round each other, the enemies' own noises and
-footsteps' sounds by the ground, the shots' beams and projectiles,
-missing, thrown and laid weapons, the phaser's setting, and the enemies'
-other states (running away, recharging, investigating a body).
+cursor, the full inventory, triggers set off by projectiles, the AIs'
+other messages and tasks (CSendMessageAction's to animations and
+particles), walkers going round each other, enemies targeting each other
+(Valid Targets Enemy), the DoSomething and Inactive states, the
+enemies' own noises and footsteps' sounds by the ground, the shots' beams
+and projectiles, missing, thrown and laid weapons, and the doors opening
+by themselves (CDoorAI's own Triggered By flags).
 
 ## Sources and checks
 
@@ -685,7 +773,9 @@ other states (running away, recharging, investigating a body).
   hit and his health bar down, the shots' flashes on them and on it, and
   it falling; the team running towards a Klingon that listens, the
   rings of their footsteps shown, it coming to look, and back on patrol
-  seven seconds later; the inventory's six places, Inventory Next going
+  seven seconds later; Mission 01's enemies' Valid Targets read (one, a
+scientist, none; three Klingons Enemy), a Romulan attacking the team,
+losing them and going to look where it saw them last; the inventory's six places, Inventory Next going
 along them and the item's name shown, the pointer at the edges and over
 a Romulan out of sight (`Phaser Obscured`), Ivan Verov's tricorder on
 the first Romulan walking into range and showing its own line ("Romulan
@@ -693,7 +783,13 @@ centurion with trace signatures of a bio-chemical imbalance."), the
 minimap held up with the team, the Romulans and the crates' squares,
 and the view zoomed out and in. Unit tests also check the bar's places
 and going along them, the pointer, a process walked to and run, a point
-of interest added, and the zoom. Every relocation in the maps checked: its map
+of interest added, and the zoom; a prisoner without Valid Targets not
+attacking, a stun's Start Action, its transition and Next State, a
+guard investigating a body once, a recharge's time and its End Recharge
+going forward, an enemy beamed out and gone after its warp time; a door
+opening for an officer near and its After Opened, closing after she's
+gone, a crate bumped into, a wire set off by an enemy sent to it, and
+the team in a square. Every relocation in the maps checked: its map
   found and its places on it. Mission 08 run on: the team charging the Klingons,
   one hurt retreating to its alarm, and the mission lost to it.
 
@@ -718,6 +814,11 @@ of interest added, and the zoom. Every relocation in the maps checked: its map
   up, what holding a retreat's place is, what `$Trigger` and the
   instigator are in their states' actions, and how a radius's action
   chooses whom it reaches.
+- **The states:** when the program changes them and in what order it
+  runs their actions and transitions; what makes a low-health enemy run
+  away (`0x42b0e2`), and when it looks for bodies.
+- **Doors:** when one stops blocking, and what their own Triggered By
+  flags do.
 - **Noise:** which sides hear which noises, what `0x497d40` checks
   before a noise is heard (perhaps a way there), how the rings are drawn,
   and the investigating AI's rules.

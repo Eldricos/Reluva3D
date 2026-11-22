@@ -38,13 +38,14 @@ None yet.
   anything yet
   ([systems/menus.md](systems/menus.md)).
 - **Maps:** the ground's values spread straight across a cell, not by
-  the program's fractal; water's warping isn't there; triggers set off
-  by enemies, passing through or colliding aren't there, nor some of the
-  AIs' messages; enemies patrol, see, shoot, go to look at the team's
-  noise and where they're called to, pursue, retreat and stun, but don't
-  run away, recharge or look at the fallen yet; footsteps make no sound;
-  shots show their flashes but no beam and always hit; the 5 polygons'
-  processes and the Out Of Range cursor aren't there; saving and loading from the escape menu aren't there
+  the program's fractal; water's warping isn't there; projectiles don't
+  set off triggers, and the animations' and particles' messages aren't
+  there; enemies don't target one another, and their DoSomething and
+  Inactive states aren't there; the transporter's pictures aren't drawn
+  as enemies beam out; footsteps make no sound; shots show their flashes
+  but no beam and always hit; the 5 polygons' processes and the Out Of
+  Range cursor aren't there; saving and loading from the escape menu
+  aren't there
   ([systems/maps.md](systems/maps.md#in-reluva)).
 - **Objectives:** there's no score, and
   LOAD GAME is greyed out; rescue and need-item objectives are only done

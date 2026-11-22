@@ -987,11 +987,13 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         }
         const int x = int(std::lround(e ? e->x : p.x)) - left;
         const int y = int(std::lround(e ? e->y : p.y)) - top;
+        // Beamed away, it fades as it goes (inferred).
+        const int shown = int(std::lround(255.0f * warpShown(size_t(s.part))));
         if (body.rotations > 1)
-            blitBy(view, animation(p.model, sequence + " Shadow").frame(frame, direction), x, y);
-        blitBy(view, body.frame(frame, direction), x, y);
+            blitBy(view, animation(p.model, sequence + " Shadow").frame(frame, direction), x, y, 1.0f, shown);
+        blitBy(view, body.frame(frame, direction), x, y, 1.0f, shown);
         if (!p.overlay.empty())
-            blitBy(view, animation(p.overlay, sequence).frame(frame, direction), x, y);
+            blitBy(view, animation(p.overlay, sequence).frame(frame, direction), x, y, 1.0f, shown);
     }
     drawVision(view, left, top);
     drawNoises(view, left, top);
