@@ -34,11 +34,23 @@ C++ library have pages of their own ([directx.md](directx.md),
   - handles: `CreateFileA`, `ReadFile`, `WriteFile`, `SetFilePointer`,
     `GetFileSize`, `GetFileTime`, `GetFileType` (a file is a disk file,
     which a statically linked C runtime's `open` checks), and the 16-bit era's `OpenFile`/`_lread`;
-  - searches (`FindFirstFileA` with wildcards);
+  - searches (`FindFirstFileA` with wildcards; a name without them finds
+    that one file or folder through `mapPath`, so a program's folder is
+    found though its parent isn't mapped);
+  - full paths (`fullPath`) with `.` and `..` resolved, from the drive's
+    root or the current folder, as Windows resolves them; a name starting
+    `\\` (a device's, a network path) as it is;
   - memory-mapped views: copies, as these programs only read them;
   - the current folder;
   - the drives: C: and a CD-ROM drive, whose volume label the engine sets
-    so a game's CD check passes.
+    so a game's CD check passes; `GetVolumeInformationA` and `W` answer
+    for a volume's root alone (`C:\\`), as Windows does, and fail with
+    `ERROR_DIR_NOT_ROOT` for a folder.
+- **`win32_wide.cpp`: KERNEL32's UTF-16 file functions** (`CreateFileW`,
+  `FindFirstFileW`, `GetFileAttributesW`, `GetCurrentDirectoryW` and the
+  like), done by their ANSI twins: the strings converted (characters past
+  code page 1252's first 256 become `?`), the ANSI stand-in called, its
+  results converted back, so the two behave the same.
 - **`win32_exceptions.cpp`: structured exceptions.** `RaiseException`
   builds the `EXCEPTION_RECORD` and the x86 `CONTEXT` below the stack and
   calls the handlers registered at `fs:[0]` in turn: one that goes on with
@@ -205,7 +217,9 @@ executable's entry point on the main thread until it ends the process.
   - `_ftol` and `_CIpow` on the x87 stack;
   - `_EH_prolog`'s frame;
   - `fopen` relative to the program's folder;
-  - a mapped view, a search, and the CD's label;
+  - a mapped view, a search, an exact name found, and the CD's label;
+  - the UTF-16 twins (a file opened through a `.` in its path, a search,
+    the current folder) and volumes by their roots alone;
   - `MulDiv`'s rounding, date and time text, the performance counter.
 - It makes a window with a native window procedure and checks the
   messages it gets, the queue, frame sizes, closing, and subclassing. It also checks

@@ -462,6 +462,31 @@ static void testMsvcrtAndFiles(const std::filesystem::path &tmp) {
     CHECK(!cpu.call(fn("KERNEL32.dll", "FindFirstFileA"), {text("C:\\Game\\*.txt"), find}, r) && r != 0xffffffffu &&
           cpu.string(find + 44) == "Data.txt" && cpu.read32(find + 32) == 11);
     CHECK(!cpu.call(fn("KERNEL32.dll", "FindNextFileA"), {r, find}, r) && r == 0);
+    // A name without wildcards finds that one file, as named.
+    CHECK(!cpu.call(fn("KERNEL32.dll", "FindFirstFileA"), {text("C:\\Game\\DATA.TXT"), find}, r) && r != 0xffffffffu &&
+          cpu.string(find + 44) == "DATA.TXT" && cpu.read32(find + 32) == 11);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "FindNextFileA"), {r, find}, r) && r == 0);
+    // The UTF-16 twins, by the ANSI stand-ins; "." in a full path resolved.
+    auto wide = [&](const std::string &s) {
+        const uint32_t a = process.memory().alloc(uint32_t(2 * s.size() + 2));
+        for (size_t i = 0; i <= s.size(); ++i)
+            cpu.write16(a + 2 * uint32_t(i), i < s.size() ? uint8_t(s[i]) : 0);
+        return a;
+    };
+    CHECK(
+        !cpu.call(fn("KERNEL32.dll", "CreateFileW"), {wide("C:\\Game\\.\\Data.txt"), 0x80000000u, 1, 0, 3, 0, 0}, r) &&
+        r != 0xffffffffu);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "CloseHandle"), {r}, r));
+    const uint32_t findW = process.memory().alloc(592);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "FindFirstFileW"), {wide("C:\\Game\\*.txt"), findW}, r) && r != 0xffffffffu &&
+          cpu.read16(findW + 44) == 'D' && cpu.read16(findW + 44 + 2 * 8) == 0 && cpu.read32(findW + 32) == 11);
+    const uint32_t folderW = process.memory().alloc(64);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetCurrentDirectoryW"), {32, folderW}, r) && r == 7 &&
+          cpu.read16(folderW + 6) == 'G' && cpu.read16(folderW + 14) == 0); // "C:\\Game", as Windows gives it
+    // Volumes by their roots only, the backslash required.
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetVolumeInformationA"), {text("C:\\Game"), 0, 0, 0, 0, 0, 0, 0}, r) &&
+          r == 0 && process.lastError() == 144);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetVolumeInformationW"), {wide("C:\\"), 0, 0, 0, 0, 0, 0, 0}, r) && r == 1);
     const uint32_t label = process.memory().alloc(32);
     CHECK(!cpu.call(fn("KERNEL32.dll", "GetVolumeInformationA"), {text("D:\\"), label, 32, 0, 0, 0, 0, 0}, r) &&
           r == 1 && cpu.string(label) == "LEGOATEN");

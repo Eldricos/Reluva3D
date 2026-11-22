@@ -647,6 +647,7 @@ private:
     void addUserStandIns();
     void addRegistryStandIns();
     void addExceptionStandIns();
+    void addWideStandIns();
     struct WindowClass {
         uint32_t proc = 0;
         uint32_t style = 0;

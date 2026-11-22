@@ -912,11 +912,19 @@ void Win32Process::addDriveStandIns() {
 std::string Win32Process::fullPath(const std::string &path) const {
     std::string p = path;
     std::replace(p.begin(), p.end(), '/', '\\');
-    if (p.size() >= 2 && p[1] == ':')
+    if (p.rfind("\\\\", 0) == 0) // a device's ("\\.\COM1") or a network path, as it is
         return p;
-    if (!p.empty() && p[0] == '\\')
-        return _currentFolder.substr(0, 2) + p;
+    // From the drive's root for a name with a drive or a leading backslash,
+    // else from the current folder.
     std::string full = _currentFolder;
+    if (p.size() >= 2 && p[1] == ':') {
+        full = p.substr(0, 2) + '\\';
+        p.erase(0, 2);
+    } else if (!p.empty() && p[0] == '\\') {
+        full = _currentFolder.substr(0, 2) + '\\';
+    }
+    while (!p.empty() && p[0] == '\\')
+        p.erase(0, 1);
     if (!full.empty() && full.back() != '\\')
         full += '\\';
     // ".\" and "..\" as Windows resolves them.
@@ -1147,7 +1155,7 @@ void Win32Process::addFileStandIns() {
     // Searches: FindFirstFileA(pattern, WIN32_FIND_DATAA*), FindNextFileA,
     // FindClose. WIN32_FIND_DATAA: attributes, three FILETIMEs, size (high,
     // low), two reserved words, the name (260), the short name (14).
-    auto fill = [](Cpu &c, uint32_t data, const std::filesystem::directory_entry &e) {
+    auto fill = [](Cpu &c, uint32_t data, const std::filesystem::directory_entry &e, const std::string &name = {}) {
         if (!c.valid(data, 320))
             return;
         std::memset(c.memory().data() + data, 0, 320);
@@ -1160,13 +1168,31 @@ void Win32Process::addFileStandIns() {
             c.write32(data + 8 + 8 * i, uint32_t(t >> 32));
         }
         c.write32(data + 32, dir ? 0 : uint32_t(e.file_size(ec)));
-        c.writeString(data + 44, e.path().filename().string(), 260);
+        c.writeString(data + 44, name.empty() ? e.path().filename().string() : name, 260);
     };
     stdcall(k, "FindFirstFileA", 2, [this, fill](Cpu &c) {
         const std::string full = fullPath(c.string(c.arg(0)));
         const size_t slash = full.rfind('\\');
         const std::string folder = full.substr(0, slash + 1);
         const std::string pattern = full.substr(slash + 1);
+        // A name without wildcards finds that file or folder, through the
+        // path mapping as it is (a folder's own name is found even when its
+        // parent isn't mapped: the program's folder in C:\, say).
+        if (!pattern.empty() && pattern.find_first_of("*?") == std::string::npos) {
+            const auto one = mapPath ? mapPath(full, false) : std::nullopt;
+            std::error_code ec;
+            if (!one || !std::filesystem::exists(*one, ec)) {
+                _lastError = kErrorFileNotFound;
+                return kInvalidHandle;
+            }
+            fill(c, c.arg(1), std::filesystem::directory_entry(*one, ec), pattern);
+            Search s;
+            s.next = 1;
+            const uint32_t handle = _nextFile;
+            _nextFile += 4;
+            _searches[handle] = std::move(s);
+            return handle;
+        }
         const auto host = mapPath ? mapPath(folder, false) : std::nullopt;
         Search s;
         std::error_code ec;
@@ -1275,9 +1301,36 @@ void Win32Process::addFileStandIns() {
         return 1u;     // DRIVE_NO_ROOT_DIR
     });
     // GetVolumeInformationA(root, name, nameSize, serial*, maxLength*,
-    // flags*, fileSystem, fileSystemSize)
-    stdcall(k, "GetVolumeInformationA", 8, [this](Cpu &c) {
-        const std::string root = upper(c.string(c.arg(0)));
+    // flags*, fileSystem, fileSystemSize), and its UTF-16 twin, its
+    // strings' sizes in characters.
+    auto volumeInformation = [this](Cpu &c, bool wide) -> uint32_t {
+        auto readString = [&](uint32_t at) {
+            if (!wide)
+                return c.string(at);
+            std::string out;
+            for (uint32_t i = 0; i < 260 && c.valid(at + 2 * i, 2); ++i) {
+                const uint16_t ch = c.read16(at + 2 * i);
+                if (!ch)
+                    break;
+                out += char(ch < 0x100 ? ch : '?');
+            }
+            return out;
+        };
+        auto writeString = [&](uint32_t at, const std::string &text, uint32_t size) {
+            if (!wide) {
+                c.writeString(at, text, size);
+                return;
+            }
+            for (uint32_t i = 0; i < size; ++i)
+                c.write16(at + 2 * i, i < text.size() && i + 1 < size ? uint8_t(text[i]) : 0);
+        };
+        // The root of a volume, its backslash required ("C:\\"); none is
+        // the current folder's.
+        const std::string root = c.arg(0) ? upper(readString(c.arg(0))) : upper(_currentFolder.substr(0, 3));
+        if (root.size() != 3 || root[1] != ':' || root[2] != '\\') {
+            _lastError = 144; // ERROR_DIR_NOT_ROOT
+            return 0u;
+        }
         const bool cd = root.rfind(upper(cdDrive) + ":", 0) == 0;
         if (cd && cdLabel.empty()) {
             _lastError = 21; // ERROR_NOT_READY: no disc
@@ -1288,7 +1341,7 @@ void Win32Process::addFileStandIns() {
             return 0u;
         }
         if (c.arg(1))
-            c.writeString(c.arg(1), cd ? cdLabel : "", c.arg(2));
+            writeString(c.arg(1), cd ? cdLabel : "", c.arg(2));
         if (c.arg(3))
             c.write32(c.arg(3), cd ? 0x79cd426au : 0x1e1a7a00u); // the retail CD's serial; any for C:
         if (c.arg(4))
@@ -1296,9 +1349,11 @@ void Win32Process::addFileStandIns() {
         if (c.arg(5))
             c.write32(c.arg(5), cd ? 0x80004u : 0x700ffu);
         if (c.arg(6))
-            c.writeString(c.arg(6), cd ? "CDFS" : "NTFS", c.arg(7));
+            writeString(c.arg(6), cd ? "CDFS" : "NTFS", c.arg(7));
         return 1u;
-    });
+    };
+    stdcall(k, "GetVolumeInformationA", 8, [volumeInformation](Cpu &c) { return volumeInformation(c, false); });
+    stdcall(k, "GetVolumeInformationW", 8, [volumeInformation](Cpu &c) { return volumeInformation(c, true); });
 }
 
 } // namespace reluva::x86
