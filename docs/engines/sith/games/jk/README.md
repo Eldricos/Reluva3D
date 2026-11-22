@@ -50,7 +50,8 @@ installer and the readme.
 - **The cut scenes:** every one on the CDs decodes, picture and sound
   ([formats/smk.md](formats/smk.md)).
 - **The data viewer** (`reluva-viewer`) shows the pictures, materials,
-  colormaps, fonts and string tables.
+  colormaps, fonts and string tables, plays the sounds, the sound
+  classes' sounds and the cut scenes, and lists the episodes' steps.
 - **Not yet:** the models, levels and scripts, and the game. Plans, phases and decisions:
   [PLAN.md](PLAN.md).
 
@@ -88,6 +89,14 @@ pages, Esc leaves it, and on each page Left/Right step through the files
   and the blend table.
 - **Fonts:** the glyph strip and sample text; `+` and `-` its size.
 - **Strings:** every string table; Up/Down and PageUp/PageDown scroll.
+- **Sounds:** every `.wav` and its waveform. Space plays or stops it, A
+  plays each as it's picked.
+- **Sound classes:** every `.snd`, its events, sounds and numbers.
+  Up/Down pick an event, Space plays its sound.
+- **Episodes:** each episode's steps; Up/Down scroll.
+- **Cut scenes:** the cut scenes on the CDs found, each with the episode
+  steps that play it. Space plays or pauses one with its sound, `.` steps
+  a frame while paused.
 
 `reluva-tool sith page <install> <page> [keys...] <out.png>` draws a page
 after the keys given, without a window.

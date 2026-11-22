@@ -23,3 +23,16 @@ page.Fonts.after_keys: 14826f4437271ff0
 page.Strings.items: 2
 page.Strings.drawn: cc68e743df00425f
 page.Strings.after_keys: 57d456c45b7b1952
+page.Sounds.items: 1
+page.Sounds.drawn: 990995832ec14beb
+page.Sounds.after_keys: 990995832ec14beb
+page.Sound classes.items: 1
+page.Sound classes.drawn: 900cad98b2de51ed
+page.Sound classes.after_keys: 2776fb0a765dff33
+page.Episodes.items: 1
+page.Episodes.drawn: fe042c74c78f9f4b
+page.Episodes.after_keys: 254fb22e96741f0b
+page.Cut scenes.items: 2
+page.Cut scenes.drawn: 7cd25824be99cd2d
+page.Cut scenes.after_keys: de5e5f65aba27049
+page.Cut scenes.played: moved 255a42037130fc41

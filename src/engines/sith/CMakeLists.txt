@@ -26,7 +26,9 @@ reluva_add_engine_viewers(sith
     ACCESSOR sithMetaViewer
     SOURCES
         pages/viewer.cpp
+        pages/movie_pages.cpp
         pages/picture_pages.cpp
+        pages/sound_pages.cpp
         pages/text_pages.cpp)
 
 # Its reluva-tool commands (reluva-tool help sith lists them).

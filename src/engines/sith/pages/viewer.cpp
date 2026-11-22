@@ -5,6 +5,7 @@
 // pages, Esc leaves.
 
 #include "common/events.h"
+#include "common/settings.h"
 #include "common/fs.h"
 #include "engines/sith/formats/bitmap.h"
 #include "engines/sith/pages/pages.h"
@@ -18,9 +19,10 @@ namespace reluva {
 
 namespace sith {
 
-Error ViewerData::open(const std::filesystem::path &install) {
+Error ViewerData::open(const std::filesystem::path &install, const std::map<std::string, std::string> &settings) {
     if (Error err = files.open(install))
         return err;
+    folders = findFolders(install, settings);
     colormaps.clear();
     for (const auto &gob : files.archives())
         for (const auto &entry : gob->entries()) {
@@ -96,6 +98,10 @@ std::vector<std::unique_ptr<Page>> makePages(const ViewerData &data) {
     pages.push_back(makeColormapPage(data));
     pages.push_back(makeFontPage(data));
     pages.push_back(makeStringPage(data));
+    pages.push_back(makeSoundPage(data));
+    pages.push_back(makeSoundClassPage(data));
+    pages.push_back(makeEpisodePage(data));
+    pages.push_back(makeCutScenePage(data));
     return pages;
 }
 
@@ -128,8 +134,24 @@ public:
     SithViewer(System &system, GameTarget target) : _sys(system), _target(std::move(target)) {}
 
     Error run() override {
-        if (Error err = _data.open(_target.path))
+        if (Error err = _data.open(_target.path, _target.settings))
             return err;
+        // One mixer for as long as the viewer runs; without an audio device
+        // the sounds and cut scenes are shown and not heard.
+        audio::Mixer mixer(_sys.audioRate());
+        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
+        const bool audioOut = !audio::startMixerOutput(_sys, mixer);
+        struct AudioStop {
+            System &sys;
+            bool on;
+            ~AudioStop() {
+                if (on)
+                    sys.stopAudio();
+            }
+        } audioStop{_sys, audioOut};
+        if (audioOut)
+            _data.mixer = &mixer;
+
         std::vector<std::unique_ptr<sith::Page>> pages = sith::makePages(_data);
         std::erase_if(pages, [](const auto &p) { return p->count() == 0; });
         if (pages.empty())
@@ -153,14 +175,19 @@ public:
                     return Error::success();
                 if (ev.type != EventType::kKeyDown)
                     continue;
-                if (ev.key == key::kEscape)
+                if (ev.key == key::kEscape) {
+                    pages[page]->leave();
                     return Error::success();
+                }
                 if (ev.key == key::kTab) {
+                    pages[page]->leave();
                     page = (page + 1) % pages.size();
                     show();
                 } else if (pages[page]->handleKey(ev.key))
                     show();
             }
+            if (pages[page]->update(_sys.getMillis()))
+                show();
             _sys.updateScreen(screen);
             _sys.delayMillis(10);
         }

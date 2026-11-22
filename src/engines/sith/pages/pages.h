@@ -3,13 +3,16 @@
 
 #pragma once
 
+#include "audio/mixer.h"
 #include "common/types.h"
+#include "engines/sith/folders.h"
 #include "engines/sith/formats/colormap.h"
 #include "engines/sith/game_files.h"
 
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -40,9 +43,16 @@ struct ViewerData {
      * menus' backgrounds).
      */
     std::vector<std::pair<std::string, Palette>> palettes;
+    /** The CDs found for the install, for their cut scenes. */
+    GameFolders folders;
+    /** Where sounds play; nullptr without sound, when pages play nothing. */
+    audio::Mixer *mixer = nullptr;
 
-    /** Opens the archives and reads the colormaps and palettes. */
-    Error open(const std::filesystem::path &install);
+    /**
+     * Opens the archives, reads the colormaps and palettes, and finds the
+     * CDs (by `settings`' cd1path and cd2path, as the game does).
+     */
+    Error open(const std::filesystem::path &install, const std::map<std::string, std::string> &settings = {});
     /** The colormap whose name ends with `name` ("dflt.cmp"), or -1. */
     int findColormap(std::string_view name) const;
 };
@@ -61,6 +71,13 @@ public:
     virtual bool handleKey(uint32_t pressed) = 0;
     /** Its keys, for the window's title. */
     virtual const char *keys() const = 0;
+    /**
+     * Moves on what plays (a sound, a cut scene) to `millis`, the viewer's
+     * clock. @return Whether it changed what's drawn.
+     */
+    virtual bool update(uint64_t /*millis*/) { return false; }
+    /** The page is left: what it plays stops. */
+    virtual void leave() {}
 };
 
 /** The pages, in the order Tab steps through them; `data` must outlive them. */
@@ -73,6 +90,10 @@ std::unique_ptr<Page> makeMaterialPage(const ViewerData &data);
 std::unique_ptr<Page> makeColormapPage(const ViewerData &data);
 std::unique_ptr<Page> makeFontPage(const ViewerData &data);
 std::unique_ptr<Page> makeStringPage(const ViewerData &data);
+std::unique_ptr<Page> makeSoundPage(const ViewerData &data);
+std::unique_ptr<Page> makeSoundClassPage(const ViewerData &data);
+std::unique_ptr<Page> makeEpisodePage(const ViewerData &data);
+std::unique_ptr<Page> makeCutScenePage(const ViewerData &data);
 ///@}
 
 /** A file in one of the archives. */

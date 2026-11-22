@@ -53,7 +53,9 @@ cut scene, `01-02a.smk`, isn't a step: `JK.EXE` names it itself.
 ## In Reluva
 
 `parseEpisode` (`src/engines/sith/formats/episode.h`) reads one into an
-`Episode`. `reluva-tool sith episode <install>` prints each episode's
+`Episode`. The data viewer's Episodes page lists the steps, and its Cut
+scenes page the steps that play each cut scene. `reluva-tool sith
+episode <install>` prints each episode's
 steps, and the CD each cut scene was found on; `reluva-tool sith formats
 <install>` reads them all.
 

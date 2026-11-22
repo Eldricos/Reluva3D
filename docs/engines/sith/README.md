@@ -14,8 +14,9 @@ Dark Forces II; its expansion, Mysteries of the Sith, would be the next.
 ## Where it stands
 
 Jedi Knight's install is recognised, or made from its CDs, and its CDs
-are found; its archives and their pictures, materials, colormaps, fonts
-and string tables are read, and shown by the data viewer
+are found; its archives and their pictures, materials, colormaps, fonts,
+string tables, sounds, sound classes and episodes are read, and the cut
+scenes decoded, all shown or played by the data viewer
 (`reluva-viewer`). The engine itself shows an empty screen. See the game's [README](games/jk/README.md) and
 [PLAN.md](games/jk/PLAN.md).
 
@@ -45,7 +46,7 @@ game is found to share it (docs/DOCUMENTATION_STANDARD.md).
 | `import.cpp` | Making an install from the CDs (*Import Game...*) |
 | `game_files.cpp` | The install's archives, as one set |
 | `formats/` | The games' files: `.gob`, `.cmp`, `.bm`, `.mat`, `.sft`, `.uni`, `.snd`, `episode.jk` |
-| `pages/` | The data viewer, in `reluva-viewer` only: pictures, materials, colormaps, fonts, string tables |
+| `pages/` | The data viewer, in `reluva-viewer` only: pictures, materials, colormaps, fonts, string tables, sounds, sound classes, episodes, cut scenes |
 | `tools/` | `reluva-tool sith` commands (`reluva-tool help sith` lists them) |
 
 ## Tests

@@ -25,7 +25,8 @@ whoever plays it ([snd.md](snd.md)).
 
 ## In Reluva
 
-Read by the shared decoder (`audio::decodeWav`, `src/audio/wav.h`).
+Read by the shared decoder (`audio::decodeWav`, `src/audio/wav.h`). The
+data viewer's Sounds page shows each one's waveform and plays it.
 `reluva-tool sith formats <install>` reads them all.
 
 ## Sources and checks

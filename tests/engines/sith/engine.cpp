@@ -18,6 +18,8 @@
 #include "engines/sith/folders.h"
 #include "engines/sith/pages/pages.h"
 
+#include "audio/wav.h"
+#include "tests/common/data/smacker_videos.h"
 #include "tests/engines/sith/fixtures.h"
 #include "tests/support/record.h"
 #include "tests/support/test.h"
@@ -51,12 +53,27 @@ void engineTest(const std::filesystem::path &tmp) {
 
     // Archives of the install's own, one file of each kind the viewer shows.
     using namespace sith::testing;
-    writeBytes(dir / "Resource/Res2.gob",
-               makeGob({{"misc\\cmp\\uicolormap.cmp", makeColormapFile()}, {"mat\\test.mat", makeMaterialFile()}}));
+    audio::Sound tone;
+    tone.rate = 22050;
+    tone.channels = 1;
+    for (int i = 0; i < 2205; ++i)
+        tone.samples.push_back(int16_t((i % 50 - 25) * 800));
+    const std::string snd = "moving\ttone.wav\t0x0001\t0.5\t4.0\r\nstopmove\tmissing.wav\r\n";
     writeBytes(dir / "Resource/Res1hi.gob", makeGob({{"ui\\bm\\test.bm", makePictureFile()},
                                                      {"ui\\sft\\test.sft", makeFontFile()},
-                                                     {"ui\\jkstrings.uni", makeStringsFile()}}));
-    writeBytes(dir / "Episode/JK1.GOB", makeGob({{"misc\\cogstrings.uni", makeStringsFile()}}));
+                                                     {"ui\\jkstrings.uni", makeStringsFile()},
+                                                     {"sound\\tone.wav", audio::encodePcmWav(tone)}}));
+    writeBytes(dir / "Resource/Res2.gob", makeGob({{"misc\\cmp\\uicolormap.cmp", makeColormapFile()},
+                                                   {"mat\\test.mat", makeMaterialFile()},
+                                                   {"misc\\snd\\door.snd", {snd.begin(), snd.end()}}}));
+    const std::string episode = "\"Test\"\r\nTYPE 1\r\nSEQ 2\r\n10: 1 1 CUT 01-02a.smk 0 0 11 -1\r\n"
+                                "11: 1 1 LEVEL 01test.jkl 0 0 -1 -1\r\nend\r\n";
+    writeBytes(dir / "Episode/JK1.GOB", makeGob({{"misc\\cogstrings.uni", makeStringsFile()},
+                                                 {"episode.jk", {episode.begin(), episode.end()}}}));
+    // The CDs' cut scenes: RAD's format as the game's are, 16-bit stereo sound.
+    const std::vector<uint8_t> video(std::begin(kSmackerTest4), std::end(kSmackerTest4));
+    writeBytes(tmp / "Disc 1/GAMEDATA/RESOURCE/VIDEO/01-02A.SMK", video);
+    writeBytes(dir / "cd2/GAMEDATA/RESOURCE/VIDEO/23A.SMK", video);
     sith::ViewerData data;
     if (Error err = data.open(dir))
         rec.fail("viewer.open", err.message);
@@ -72,14 +89,25 @@ void engineTest(const std::filesystem::path &tmp) {
             continue;
         page->draw(screen);
         rec.add(step + ".drawn", test::Hash().bytes(screen.pixels).hex());
-        // A key that changes each page: transparency, light level, size, a line.
+        // A key that changes each page: transparency, light level, size, a
+        // line, the next frame.
         const std::string name = page->name();
-        page->handleKey(name == "Pictures"    ? uint32_t('k')
-                        : name == "Materials" ? uint32_t('[')
-                        : name == "Fonts"     ? uint32_t('+')
-                                              : uint32_t(key::kDown));
+        page->handleKey(name == "Pictures"     ? uint32_t('k')
+                        : name == "Materials"  ? uint32_t('[')
+                        : name == "Fonts"      ? uint32_t('+')
+                        : name == "Cut scenes" ? uint32_t('.')
+                                               : uint32_t(key::kDown));
         page->draw(screen);
         rec.add(step + ".after_keys", test::Hash().bytes(screen.pixels).hex());
+        if (name == "Cut scenes") {
+            // Played without sound, by the clock: a second on, to its end.
+            page->handleKey(' ');
+            page->update(1000);
+            const bool moved = page->update(2000);
+            page->draw(screen);
+            rec.add(step + ".played",
+                    std::string(moved ? "moved " : "still ") + test::Hash().bytes(screen.pixels).hex());
+        }
     }
 
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/sith/data/engine-record.txt", "sith.engine",

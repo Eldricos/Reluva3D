@@ -34,7 +34,8 @@ archives (`I00PI02Z.WAV`, `df_machine2.wav`).
 ## In Reluva
 
 `parseSoundClass` (`src/engines/sith/formats/sound_class.h`) reads one
-into a `SoundClass`, leaving out the fields a line hasn't.
+into a `SoundClass`, leaving out the fields a line hasn't. The data
+viewer's Sound classes page lists each event and plays its sound.
 `reluva-tool sith formats <install>` reads them all.
 
 ## Sources and checks

@@ -50,9 +50,11 @@ the reference to check native against.
    colormaps, `.bm` pictures, `.mat` materials, `.sft` fonts and `.uni`
    string tables ([formats/](README.md#this-folder)), each read on every
    retail file and shown on a page of the data viewer.
-3. **Sound and movies** (next): the `.wav` files, `.snd` sound classes, the
-   Smacker cut scenes from both CDs.
-4. **Models and levels:** `.3do` models, `.key` animations, `.pup`
+3. **Sound and movies** (done): the `.wav` sounds, `.snd` sound classes,
+   `episode.jk` episodes, and the Smacker cut scenes from both CDs, each
+   read or decoded on every retail file and shown or played by the data
+   viewer.
+4. **Models and levels** (next): `.3do` models, `.key` animations, `.pup`
    puppets, `.spr` sprites, `.par` particles; `.jkl` levels drawn in 3D.
 5. **Hosting spike:** how far `JK.EXE` gets in the emulator, and what it
    needs; the gate between A and B.

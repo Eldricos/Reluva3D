@@ -24,8 +24,10 @@ does, against its record (`tests/engines/sith/data/engine-record.txt`).
 So far: an empty folder isn't the game, the install is recognised (as an
 unknown release, its files being empty), a CD is found beside it and
 another in it, and each of the data viewer's pages is drawn from archives
-the test makes, before and after a key (the Colormaps page has one
-colormap, so its key changes nothing).
+the test makes and a Smacker video on its CD copies, before and after a
+key (the Colormaps page has one colormap, and the Sounds page one sound,
+so their keys change nothing), the cut scene also played on by the
+clock.
 
 ### The game-files test
 
@@ -47,12 +49,15 @@ That the US release's signatures match a real install: checked by hand
   recognised, with both CDs' cut scenes in it.
 - In `reluva-viewer`: the menus' backgrounds look as in the game; the
   Force powers' icons look right with `bkforce.bm`'s palette; textures
-  look right through `dflt.cmp`; the fonts' sample text is evenly spaced.
+  look right through `dflt.cmp`; the fonts' sample text is evenly spaced;
+  sounds and cut scenes play with their sound, the cut scenes' picture
+  keeping pace with it.
 
 ## Last checked
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | The Sounds, Sound classes, Episodes and Cut scenes pages drawn with `reluva-tool sith page`, and a cut scene stepped through 450 frames; without a sound device, so not listened to |
 | November 2026 | US retail | Linux | `reluva-tool sith formats`: all 644 sounds, 102 sound classes and 3 episodes read. `reluva-tool sith episode`: every cut scene a step names found on its CD. `reluva-tool sith movies -all`: every frame and the sound of the 25 cut scenes decoded |
 | November 2026 | US retail | Linux | The data viewer's pages drawn with `reluva-tool sith page` on the install, and looked over: pictures, materials, colormaps, fonts and strings |
 | November 2026 | US retail | Linux | `reluva-tool sith formats` on the install: all 146 pictures, 21 colormaps, 1,983 materials, 27 fonts and 7 string tables read |

@@ -27,7 +27,9 @@ All 25 alike:
 
 Read by the shared decoder (`smacker::Decoder`, `src/video/smacker.h`).
 `findCutScenes` (`src/engines/sith/folders.h`) lists the cut scenes on
-the CDs found for an install. `reluva-tool sith movies <install> -all`
+the CDs found for an install. The data viewer's Cut scenes page plays
+them with their sound, the picture following the clock.
+`reluva-tool sith movies <install> -all`
 decodes every frame and its sound.
 
 ## Sources and checks
