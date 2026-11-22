@@ -12,15 +12,19 @@ None yet.
 
 ## Inferred
 
-None yet.
+- **An install with only `nfs2sea.exe`**, the program for 3dfx cards,
+  is recognised as the game (`fallbackTable`, `src/engines/nfs/games.cpp`).
+  The CD's set-up copies the programs on a condition, which by its
+  script's strings is the display card: it looks through the PCI display
+  devices and copies 3dfx's `glide2x.dll` for a Voodoo Rush or another
+  Voodoo, and the install studied, made without one, has every icon but
+  only `nfs2sen.exe` ([research/first-survey.md](research/first-survey.md),
+  The set-up). Whether a 3dfx install also has `nfs2sen.exe` isn't known:
+  an install made on a machine with a Voodoo card would settle it.
 
 ## Guessed
 
-- **An install with only `nfs2sea.exe`**, the program for 3dfx cards,
-  is recognised as the game (`fallbackTable`, `src/engines/nfs/games.cpp`),
-  on the guess that the installer copies only the program chosen. The
-  install studied has `nfs2sen.exe` alone, chosen at its set-up or not.
-  An install made choosing 3dfx would settle it.
+None yet.
 
 ## Settled
 

@@ -88,6 +88,35 @@ Detection signatures (MD5 of the first 5000 bytes, size):
 Seven tracks' names are in `text.eng`: Proving Grounds, North Country,
 Pacific Spirit, Mediterraneo, Outback, Mystic Peaks, Monolithic Studios.
 
+## The set-up
+
+Added later in November 2026, from the CD's `SETUP` folder: InstallShield
+3's compiled script (`SETUP.INS`) read by its strings only, not traced.
+
+- **One script for every language.** `SETUP/ENGLISH` and `SETUP/SPANISH`
+  hold the same `SETUP.INS` and `SETUP.PKG`, byte for byte; their
+  `_SETUP.DLL`, `_SETUP.LIB`, readme and licence differ (the set-up's own
+  text). The script names six languages (English, French, German,
+  Italian, Spanish, Swedish: an uninstaller and a help file each) and
+  sets the chosen one in the registry ("Language set to English.").
+- **The language in the install:** `install.win`, copied from the CD's
+  `INSTALL.NFS`, starts with it (`english` in the install studied, the
+  CD's own copy too). The CD's speech is in a folder per language
+  (`FEDATA/PC/AUDIO/ENGLISH`, `SPANISH`), so it presumably picks those;
+  the text tables are all installed (`text.eng` ... `text.swe`).
+- **The programs by the display card.** The script looks through the
+  PCI display devices ("Config Manager\Enum", "PCI\", "Display") and
+  copies `glide2x.dll` and `fxmemmap.vxd` from `setup\glideRsh\` (Voodoo
+  Rush) or `setup\glideNR\` (other Voodoo boards); it names
+  `nfs2sea.exe` as the program's path in the registry, and copies
+  `nfs2sea.exe`, `nfs2sen.exe` and `*.ico` in one group, each program on a
+  condition: the install studied has all three icons but `nfs2sen.exe`
+  alone. A 3dfx machine's install presumably has `nfs2sea.exe` and
+  `glide2x.dll`; whether `nfs2sen.exe` too isn't known.
+- **Also copied:** `patchw32.dll` and `patch.exe` (from
+  `utility\patch.bin`), `dct.ini` (`[render] software=1`), the readme
+  and licence, and DirectX 5 from `redist\directx` if older.
+
 ## Sources to check against
 
 Community write-ups of NFS II's `.trk` and `.geo` formats, as used by
