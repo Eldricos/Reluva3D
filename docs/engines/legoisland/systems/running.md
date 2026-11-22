@@ -166,8 +166,10 @@ for), `-files` each file the program asks for, and
 registers, the stack's first words and any text they point to (or that a
 pointer they point to points to) each time the program gets to an
 address, `-watch <address>,<bytes>` each store into memory there and
-where it was made, and `-click <frame>@<x>,<y>` a left click at a point
-of the game's picture at a frame. With `-log`, the file calls' handles, positions and
+where it was made, `-click <frame>@<x>,<y>` a left click at a point
+of the game's picture at a frame, and `-key <frame>@<key>,<frames>` a key
+(`up`, `down`, `left`, `right`, `space`, `return`, `escape` or a
+character) held from a frame for so many. With `-log`, the file calls' handles, positions and
 sizes are printed too. `reluva-tool pe-disasm` shows `LEGO1.DLL`'s
 instructions at an address ([disasm.md](../../../common/x86/disasm.md)).
 

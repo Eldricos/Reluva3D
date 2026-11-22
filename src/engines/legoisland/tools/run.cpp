@@ -4,6 +4,7 @@
 // reluva-tool's LEGO Island command for running the game's own code in the
 // x86 interpreter (docs/engines/legoisland/systems/running.md).
 
+#include "common/events.h"
 #include "common/stream.h"
 #include "devtools/tool.h"
 #include "emulation/x86/com.h"
@@ -48,7 +49,7 @@ int cmdRun(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool legoisland run <game folder> [-log] [-files] [-limit instructions] "
-            "[-trace count] [-calls count] [-memory MB] [-save folder] [-shots folder] [-every frames] [-at address]... [-watch address,bytes] [-click frame@x,y]...\n");
+            "[-trace count] [-calls count] [-memory MB] [-save folder] [-shots folder] [-every frames] [-at address]... [-watch address,bytes] [-click frame@x,y]... [-key frame@key,frames]...\n");
         return 2;
     }
     bool log = false;
@@ -68,6 +69,24 @@ int cmdRun(int argc, char **argv) {
         int y;
     };
     std::vector<Click> clicks;
+    // -key: at a frame, a key pressed, and let go so many frames later.
+    struct KeyPress {
+        uint64_t frame;
+        uint64_t frames;
+        uint32_t vk;
+        uint32_t scan;
+        std::string name;
+    };
+    std::vector<KeyPress> keys;
+    // A key by its name (up, down, left, right, space, return, escape) or its character.
+    auto keyNamed = [](const std::string &n) -> uint32_t {
+        static const std::map<std::string, uint32_t> kNames = {
+            {"up", key::kUp},       {"down", key::kDown},     {"left", key::kLeft},    {"right", key::kRight},
+            {"space", key::kSpace}, {"return", key::kReturn}, {"escape", key::kEscape}};
+        if (const auto it = kNames.find(n); it != kNames.end())
+            return it->second;
+        return n.size() == 1 ? uint32_t(uint8_t(n[0])) : 0;
+    };
     uint32_t watchBytes = 0;
     uint64_t every = 25;
     for (int a = 3; a < argc; ++a) {
@@ -91,6 +110,17 @@ int cmdRun(int argc, char **argv) {
             Click k{};
             if (std::sscanf(argv[++a], "%llu@%d,%d", reinterpret_cast<unsigned long long *>(&k.frame), &k.x, &k.y) == 3)
                 clicks.push_back(k);
+        } else if (arg == "-key" && a + 1 < argc) {
+            unsigned long long frame = 0;
+            unsigned long long count = 1;
+            char name[16] = {};
+            if (std::sscanf(argv[++a], "%llu@%15[^,],%llu", &frame, name, &count) >= 2) {
+                KeyPress k{frame, std::max<uint64_t>(1, count), 0, 0, name};
+                if (x86::windowsKey(keyNamed(name), k.vk, k.scan))
+                    keys.push_back(k);
+                else
+                    std::fprintf(stderr, "-key: no key %s\n", name);
+            }
         } else if (arg == "-watch" && a + 1 < argc) {
             char *rest = nullptr;
             watchFrom = uint32_t(std::strtoul(argv[++a], &rest, 0));
@@ -127,6 +157,12 @@ int cmdRun(int argc, char **argv) {
         frames++;
         // A click: pressed at its frame, let go at the next, where the
         // picture is in its window's client area.
+        for (const KeyPress &k : keys)
+            if (frames == k.frame || frames == k.frame + k.frames) {
+                process.key(k.vk, k.scan, frames == k.frame);
+                std::printf("[key] %s %s, frame %llu\n", k.name.c_str(), frames == k.frame ? "down" : "up",
+                            static_cast<unsigned long long>(frames));
+            }
         for (const Click &k : clicks) {
             if (frames != k.frame && frames != k.frame + 1)
                 continue;
