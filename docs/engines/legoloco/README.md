@@ -1,53 +1,50 @@
 # The LEGO Loco engine
 
-<!-- One or two sentences: what the engine runs, and whether it's meant for
-one game or a family of games (then see docs/DOCUMENTATION_STANDARD.md,
-for its games/ folders). -->
-Engine id `legoloco`, in `src/engines/legoloco/`.
+LEGO Loco (Intelligent Games for LEGO Media, 1998), a toy train set on
+the Windows desktop: the player lays track, roads and buildings on a
+board, and trains, cars and minifigures go about it. An engine for this
+one game. Engine id `legoloco`, in `src/engines/legoloco/`.
 
 ## Games
 
-<!-- A row per game. Releases are recognised by the files in `kVariants`
-(src/engines/legoloco/legoloco.cpp), made with `reluva --hash <files...>`. -->
-
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
-| | | | | | Not yet recognised |
+| LEGO Loco | `legoloco` | LEGO Media, 1998 | Windows | The CD, version 1.0.18.2 (`Exe/Loco.exe`, `art-res/resource.RFH`), installed or as on the CD | Recognised; shows an empty screen |
+
+The CD holds one release for nine languages: the installer asks which,
+and writes it into the install's `Exe/LEGO.INI`. The files are the same
+for each, so the one entry recognises them all; English is the language
+being worked on first.
 
 ## Where it stands
 
-<!-- What works now, in a few lines, kept up to date. Plans, phases and
-dated progress go in PLAN.md (docs/templates/plan.md), not here. -->
-Started from the template: it recognises nothing yet, and shows an empty
-screen.
+- **Recognising the game:** the CD and an install of it.
+- **Not yet:** everything else. The plan is to run the game's own
+  `loco.exe` in Reluva's x86 emulator, with stand-ins for the parts of
+  Windows and DirectX it calls, after readers and a data viewer for its
+  files; see [PLAN.md](PLAN.md).
 
 ## Using it
 
-<!-- What a player needs: which folder to add (or import from a CD), any
-settings, the keys. On an engine for a family of games, where each game's
-README says this, a line pointing to them. -->
+Add the game's folder in the launcher: the install (the folder holding
+`Exe` and `art-res`), or the CD itself, which has the same layout. It
+then shows an empty screen; Escape goes back.
 
 ## This folder
 
 | Page | What's in it |
 |---|---|
-| This page | The games, where the engine stands, how to use it |
+| This page | The game, where the engine stands, how to use it |
+| [PLAN.md](PLAN.md) | The plan: the ways weighed, the phases, the decisions |
 | `formats/` | A page per file format, as it's worked out |
-| `systems/` | A page per part of how the game behaves (scripts, dialogue, saves, AI...) |
-| `research/` | Working notes: address maps, raw findings, notes on recordings |
+| `systems/` | A page per part of how the game behaves, as it's worked out |
+| [research/](research/README.md) | Working notes: [the first survey](research/first-survey.md) of the CD and `loco.exe` |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
 | [TESTING.md](TESTING.md) | The tests, and what to check by hand |
 | [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was worked out, and the tools |
 
-<!-- Link each folder once it has pages, and list its pages. The layout is
-described in docs/DOCUMENTATION_STANDARD.md; page templates are in
-docs/templates/. -->
-
 ## Code
-
-<!-- Where things are in src/engines/legoloco/. Keep files by topic in
-subfolders as it grows (the game's formats, its pages, its game logic). -->
 
 | Path | What |
 |---|---|
@@ -64,9 +61,7 @@ subfolders as it grows (the game's formats, its pages, its game logic). -->
 
 ## Terms
 
-<!-- Words of the engine's own (its formats, its parts, the original's
-names for them) that its pages use without explaining: a line each, in a
-few words, with a link to the page that says more. Delete this section if
-there are none. -->
-
-- **<term>:** <what it is, in a few words>.
+- **`art-res`:** the game's data folder, on the CD and in an install.
+- **Resource file:** `resource.RFH` (its index) and `resource.RFD` (its
+  data), the archive holding most of the game's pictures, sounds and
+  object definitions.

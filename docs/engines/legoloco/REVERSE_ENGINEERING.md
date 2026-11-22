@@ -13,23 +13,35 @@ extended. The facts themselves are on their pages, each with its source.
 
 ## Sources
 
-<!-- Which were used, and for what: the game's files (which release), the
-executables (which, and with what tools), the original running
-(recordings, a virtual machine), published write-ups. -->
+- **The game's files:** the CD (version 1.0.18.2) and an English install
+  made from it, November 2026; what they hold is in
+  [the first survey](research/first-survey.md), with the hashes of the
+  files detection uses.
+- **The executable:** `loco.exe`'s headers, sections, imports and
+  resources, read with a PE parser. Its code is to be read with Reluva's
+  disassembler and followed running in the x86 emulator
+  (`reluva-tool x86-run`).
+- **Published notes:** a Python unpacker of the resource file
+  (neofelis2X's GitHub gist) and the Rock Raiders United forum's threads
+  on the resource file and its compression, read for the layout only. No
+  code is taken from them, and each fact from them is checked against the
+  CD's files.
+- **Public documentation:** Microsoft's Windows API and DirectX 5
+  documentation, for what the executable calls.
 
 ## Methods
 
-<!-- How each source was read, and how the results were checked. -->
+- **The data files:** their layouts found by comparing entries of the
+  same kind, and checked by reading every entry of the CD's resource file.
+- **The executable:** read where the data alone can't say (a field's
+  meaning, the compression), each fact given with its address in
+  `loco.exe`.
 
 ## The tools
 
 `reluva-tool help legoloco` lists the engine's commands
 (`src/engines/legoloco/tools/`).
 
-<!-- A table: command, what it does. Research scripts that aren't part of
-Reluva go in tools/legoloco-re/, with a README. -->
-
 ## Working files not included
 
-<!-- What the notes mention but the repository leaves out (disassembly
-dumps, extracted assets), and how to make each again from your own copy. -->
+None yet.
