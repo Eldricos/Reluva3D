@@ -52,10 +52,10 @@ ctest --test-dir out\build\x64-release -L gamedata -R nfs2se
 | `host` | `nfs2sen.exe` on a clock of instructions (`nfs host -deterministic 300000`): the title movie skipped with Enter, the menu taken to RACE with four Downs, a race at Proving Grounds with Up held; its end state, its system calls and its last frame, as checksums |
 
 The records, `tests/engines/nfs/data/gamedata/nfs2se-en-windows/`, are
-the US CD's English install's, made on Linux; the survey's file listing
-is the whole copy's, made on Windows (1,809 files: the install has the
-set-up's `patch.exe`, RTPatch's updater, from the CD's
-`UTILITY/PATCH.BIN`, which the copy studied on Linux lacked). On the instruction clock
+the US CD's English install's, made on Linux and the same on Windows.
+Its file listing has 1,809 files, among them the set-up's `patch.exe`
+(RTPatch's updater, copied from the CD's `UTILITY/PATCH.BIN`), which
+virus scanners may flag: a copy without it fails the `survey` step. On the instruction clock
 the date is fixed (1 November 1997, every file dated so), so the run is
 the same each time.
 
