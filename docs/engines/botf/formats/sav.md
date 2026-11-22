@@ -230,7 +230,7 @@ the galaxy screen's empire panel in five of the saves:
 | 0x60 | `i32` | its dilithium a turn: 1. The panel shows 0 with the destroyer queued, while the file still has 1 |
 | 0x68 | `i32` | its research points a turn: 34, as Sol's research; 0 in the save at the very start, before a turn has worked them out |
 | 0x6C | `i32` | its population, all its systems': 310, 320, 335 |
-| 0x98 to 0xB0 | `i32[7]` | the same seven figures as they were when the turn began: buying lowers the credits at 0x54 and not those at 0x98 |
+| 0x98 to 0xB0 | `i32[7]` | the same seven figures as they were when the turn began: buying lowers the credits at 0x54 and not those at 0x98. A save's credits are 0x98's: written there, the game shows them ([below](#writing-a-save)) |
 | 0x5C | `i32` | its upkeep a turn *(published)*: 0 in every save seen |
 | 0x64 | `i32` | how many ships it's building *(published)* |
 | 0x74 | `i16` | its morale level *(published)* |
@@ -521,14 +521,16 @@ province it doesn't hold and a task force a destination with no order
 for it, which the game presumably doesn't expect *(guessed)*. What
 Reluva writes must keep the save's files agreeing with each other.
 
-Two of the values didn't show changed in the game. The credits: Reluva
-had changed only the credits now (0x54), and the game seems to start
-from those as the turn began (0x98) and take off what's been bought,
-for at a computer empire's turn the first lags a turn behind the second
-*(inferred)*; Reluva now changes both by the same amount. The planet's
-name was a test's mistake: it renamed Mercury, Sol's first planet, not
-Earth. Sol's planets' names, unlike the generated ones ("Acamar I\n"),
-don't end in a line break; a name Reluva writes ends as the old one did.
+Two of the values didn't show changed at first. The credits: Reluva had
+changed only the credits now (0x54); the game, loading a save, starts
+from those as the turn began (0x98), for at a computer empire's turn the
+first lags a turn behind the second. Reluva now changes both by the same
+amount, and the game shows the Federation's 12,345 credits so written.
+The planet's name was a test's mistake: it renamed Mercury, Sol's first
+planet, not Earth. Sol's planets' names, unlike the generated ones
+("Acamar I\n"), don't end in a line break; a name Reluva writes ends as
+the old one did, and the game shows Earth renamed Terra so (the user,
+November 2026).
 
 ## Sources and checks
 
@@ -557,8 +559,6 @@ don't end in a line break; a name Reluva writes ends as the old one did.
 ## Open questions
 
 - Whether the game checks the directory's checks.
-- Which credits figure the game starts from on loading, and whether the
-  credits and a planet's new name then show in the game.
 - Whether the Load Game screen's name field shows the file's name or the
   header's: they're the same in `game0.sav`.
 - Which fill each file's window starts with: settled by a save with a
