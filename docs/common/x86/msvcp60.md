@@ -30,7 +30,8 @@ importing only MSVCRT; `loadMsvcp60` loads it into a process.
 - Only the "C" locale, with `ctype<char>` its one facet.
 - `_Lockit` does nothing while the process runs one thread.
 - What would throw (`_Xlen`, `_Xran`, a stream's exception mask) prints why
-  and aborts, as exceptions aren't dispatched yet.
+  and aborts, as MSVCRT's stand-ins don't raise exceptions for dispatching
+  yet ([windows.md](windows.md)).
 
 ## How it works
 

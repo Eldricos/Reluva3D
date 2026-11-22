@@ -762,16 +762,6 @@ void Win32Process::addStandIns() {
         c.abort("the program ended the process (exit code " + std::to_string(c.arg(1)) + ")");
         return 0u;
     });
-    stdcall(k, "RaiseException", 4, [](Cpu &c) {
-        char buf[16];
-        std::snprintf(buf, sizeof buf, "0x%08x", c.arg(0));
-        c.abort(std::string("the program raised exception ") + buf);
-        return 0u;
-    });
-    stdcall(k, "RtlUnwind", 4, [](Cpu &c) {
-        c.abort("exception unwinding (RtlUnwind) isn't stood in for");
-        return 0u;
-    });
     stdcall(k, "OutputDebugStringA", 1, [say](Cpu &c) {
         say(c.string(c.arg(0)));
         return 0u;
@@ -809,6 +799,7 @@ void Win32Process::addStandIns() {
     addSystemStandIns();
     addUserStandIns();
     addRegistryStandIns();
+    addExceptionStandIns();
 
     // Text: code page 1252, mapped to Unicode's first 256 characters (the
     // C runtime's locale tables are built from these; the "C" locale only

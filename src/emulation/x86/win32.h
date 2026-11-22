@@ -206,6 +206,13 @@ public:
      */
     const std::vector<std::string> &missingImports() const { return _missing; }
 
+    // Told of each exception the program raises (RaiseException), before
+    // its handlers are: the EXCEPTION_RECORD's address. An exception
+    // nothing handles ends the run (describeException says which).
+    std::function<void(Cpu &cpu, uint32_t record)> exceptionRaised;
+    /** An exception's code and where it was raised, from its EXCEPTION_RECORD, for messages. */
+    std::string describeException(Cpu &c, uint32_t record) const;
+
     // What the program writes for a debugger, or to its standard output
     // and error (its C runtime's messages).
     std::function<void(const std::string &text)> output;
@@ -639,6 +646,7 @@ private:
     void addSystemStandIns();
     void addUserStandIns();
     void addRegistryStandIns();
+    void addExceptionStandIns();
     struct WindowClass {
         uint32_t proc = 0;
         uint32_t style = 0;

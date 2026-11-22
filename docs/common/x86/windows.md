@@ -39,6 +39,21 @@ C++ library have pages of their own ([directx.md](directx.md),
   - the current folder;
   - the drives: C: and a CD-ROM drive, whose volume label the engine sets
     so a game's CD check passes.
+- **`win32_exceptions.cpp`: structured exceptions.** `RaiseException`
+  builds the `EXCEPTION_RECORD` and the x86 `CONTEXT` below the stack and
+  calls the handlers registered at `fs:[0]` in turn: one that goes on with
+  the program (`ExceptionContinueExecution`) has the context's registers
+  put back, one that searches on passes to the next, and with none left
+  the run ends, naming the exception (`describeException`).
+  `RtlUnwind` calls each handler up to its target frame with
+  `EXCEPTION_UNWINDING`, takes each off the chain, and returns to its
+  caller. A handler is called by pointing the program's stack and `eip`
+  at it, with a native function as its return address, not by a nested
+  `Cpu::call`: a handler that catches jumps to its catch's continuation
+  itself, so nothing is left behind on the host's side, however many
+  exceptions are thrown. `exceptionRaised` tells the engine of each one
+  raised. Visual C++'s `throw`, `catch`, `__try` and `__except`, in a
+  program's own C runtime, are built on these.
 - **`msvcrt.h`, `msvcrt.cpp`: MSVCRT.dll**, for programs that link
   Visual C++'s C runtime dynamically, written from Microsoft's
   documentation of each function:
@@ -53,8 +68,9 @@ C++ library have pages of their own ([directx.md](directx.md),
   - the start-up helpers (`__getmainargs`, `_initterm`, its variables);
   - `_EH_prolog`'s exception frame, and the `exception` class.
 
-  Throwing a C++ exception, or reaching an exception handler, ends the run
-  naming the type thrown, since dispatching isn't done yet.
+  Throwing a C++ exception through these stand-ins (`_CxxThrowException`),
+  or reaching their exception handler, ends the run naming the type
+  thrown: they don't raise it for `win32_exceptions.cpp` to dispatch yet.
 - **`win32_system.cpp`: the system.** System information (one Pentium
   II-class processor, 256 MB), the performance counter (microseconds),
   `MulDiv`, the computer's name, and `GetDateFormatA`/`GetTimeFormatA` with
@@ -192,17 +208,21 @@ executable's entry point on the main thread until it ends the process.
   - a mapped view, a search, and the CD's label;
   - `MulDiv`'s rounding, date and time text, the performance counter.
 - It makes a window with a native window procedure and checks the
-  messages it gets, the queue, frame sizes, and closing. It also checks
+  messages it gets, the queue, frame sizes, closing, and subclassing. It also checks
   the registry's keys, values, sizes and enumeration, and
   `CoCreateInstance`.
+- `testExceptions` raises exceptions under handlers assembled in the test:
+  one that goes on with the program, its context changed; one that
+  searches on and one that catches, unwinding the first and jumping to its
+  continuation; and one nothing handles, which ends the run.
 - `testInput` checks the messages input becomes, double clicks, key
   states and `ClipCursor`. It also checks DirectInput's mouse (its state,
   its movement since the last read, its buffer) and keyboard.
 - **Confidence:** published unless marked.
 
 - `tests/common/drives.cpp` (`common.unit.drives`) checks the drives'
-  paths, a new file's folder, and a serial port read plainly and
-  overlapped.
+  paths, a new file's folder, a serial port read plainly and overlapped,
+  and semaphores.
 
 ## Used by
 

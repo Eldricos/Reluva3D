@@ -264,6 +264,99 @@ static void testDirect3D6() {
     CHECK(call(primary, 0, {guid("{93281502-8cf8-11d0-89ab-00a0c9054129}"), out}) != 0); // not a texture
 }
 
+// Structured exceptions, with handlers assembled here and registered at
+// fs:[0] as a program's are: one that goes on with the program, its
+// context changed; one that searches on and one that catches (unwinding
+// the first, then jumping to its continuation); and one nothing handles.
+static void testExceptions() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    auto code = [&](std::vector<uint8_t> bytes) {
+        const uint32_t at = process.memory().alloc(uint32_t(bytes.size()));
+        std::copy(bytes.begin(), bytes.end(), cpu.memory().begin() + at);
+        return at;
+    };
+    auto put32 = [](std::vector<uint8_t> &b, uint32_t v) {
+        for (int i = 0; i < 4; ++i)
+            b.push_back(uint8_t(v >> (8 * i)));
+    };
+    const uint32_t raise = process.provided("KERNEL32.dll", "RaiseException");
+    const uint32_t unwind = process.provided("KERNEL32.dll", "RtlUnwind");
+    // push handler; push fs:[0]; mov fs:[0], esp
+    auto registerHandler = [&](std::vector<uint8_t> &b, uint32_t handler) {
+        b.push_back(0x68);
+        put32(b, handler);
+        b.insert(b.end(), {0x64, 0xff, 0x35, 0, 0, 0, 0, 0x64, 0x89, 0x25, 0, 0, 0, 0});
+    };
+    // RaiseException(code, 0, 0, 0) through eax
+    auto raiseException = [&](std::vector<uint8_t> &b, uint32_t exceptionCode) {
+        b.insert(b.end(), {0x6a, 0, 0x6a, 0, 0x6a, 0});
+        b.push_back(0x68);
+        put32(b, exceptionCode);
+        b.push_back(0xb8);
+        put32(b, raise);
+        b.insert(b.end(), {0xff, 0xd0});
+    };
+    // mov ecx, [esp]; mov fs:[0], ecx; add esp, 8
+    const std::vector<uint8_t> unregister = {0x8b, 0x0c, 0x24, 0x64, 0x89, 0x0d, 0, 0, 0, 0, 0x83, 0xc4, 0x08};
+    const uint32_t chainStart = cpu.read32(cpu.fsBase);
+    uint32_t r = 0;
+
+    // ExceptionContinueExecution: the handler sets the context's eax to 42.
+    const uint32_t goOn = code({0x8b, 0x44, 0x24, 0x0c,                 // mov eax, [esp+12]: the context
+                                0xc7, 0x80, 0xb0, 0, 0, 0, 42, 0, 0, 0, // mov dword [eax+0xb0], 42
+                                0x31, 0xc0, 0xc3});                     // xor eax, eax; ret
+    std::vector<uint8_t> first;
+    registerHandler(first, goOn);
+    raiseException(first, 0x1234);
+    first.insert(first.end(), unregister.begin(), unregister.end());
+    first.push_back(0xc3);
+    CHECK(!cpu.call(code(first), {}, r) && r == 42 && cpu.read32(cpu.fsBase) == chainStart);
+
+    // Searched on by the inner handler, caught by the outer, which unwinds
+    // to its own frame and goes on at its continuation with eax 7.
+    const uint32_t searched = process.memory().alloc(4);
+    const uint32_t unwound = process.memory().alloc(4);
+    std::vector<uint8_t> inner = {0xff, 0x05};
+    put32(inner, searched);                                  // inc dword [searched]
+    inner.insert(inner.end(), {0x8b, 0x44, 0x24, 0x04,       // mov eax, [esp+4]: the record
+                               0xf7, 0x40, 0x04, 2, 0, 0, 0, // test dword [eax+4], EXCEPTION_UNWINDING
+                               0x74, 0x06, 0xff, 0x05});     // jz +6; inc dword [unwound]
+    put32(inner, unwound);
+    inner.insert(inner.end(), {0xb8, 1, 0, 0, 0, 0xc3}); // mov eax, ExceptionContinueSearch; ret
+    std::vector<uint8_t> continuation(unregister);
+    continuation.push_back(0xc3);
+    const uint32_t landing = code(continuation);
+    std::vector<uint8_t> outer = {0x8b, 0x44, 0x24, 0x08,          // mov eax, [esp+8]: its frame
+                                  0x8b, 0x4c, 0x24, 0x04,          // mov ecx, [esp+4]: the record
+                                  0x6a, 0,    0x51, 0x6a, 0, 0x50, // RtlUnwind(frame, 0, record, 0)
+                                  0xb8};
+    put32(outer, unwind);
+    outer.insert(outer.end(), {0xff, 0xd0,             // call eax
+                               0x8b, 0x44, 0x24, 0x08, // mov eax, [esp+8]
+                               0x89, 0xc4,             // mov esp, eax: its frame
+                               0xb8, 7, 0, 0, 0,       // mov eax, 7
+                               0x68});                 // push continuation; ret
+    put32(outer, landing);
+    outer.push_back(0xc3);
+    std::vector<uint8_t> second;
+    registerHandler(second, code(outer));
+    registerHandler(second, code(inner));
+    raiseException(second, 0x5678);
+    second.insert(second.end(), {0xb8, 99, 0, 0, 0, 0xc3}); // not reached
+    CHECK(!cpu.call(code(second), {}, r) && r == 7);
+    CHECK(cpu.read32(searched) == 2 && cpu.read32(unwound) == 1 && cpu.read32(cpu.fsBase) == chainStart);
+
+    // Nothing handles it: the run ends, saying so; told first.
+    uint32_t told = 0;
+    process.exceptionRaised = [&](x86::Cpu &c, uint32_t record) { told = c.read32(record); };
+    std::vector<uint8_t> third;
+    raiseException(third, 0xe0000001u);
+    third.push_back(0xc3);
+    const Error err = cpu.call(code(third), {}, r);
+    CHECK(err && err.message.find("nothing handled") != std::string::npos && told == 0xe0000001u);
+}
+
 // MSVCRT's stand-ins and KERNEL32's files, called as the program would.
 static void testMsvcrtAndFiles(const std::filesystem::path &tmp) {
     std::filesystem::create_directories(tmp / "Game");
@@ -1177,6 +1270,7 @@ static const test::Suite
            {
                {"sound streams", [](const std::filesystem::path &) { testMixerStream(); }},
                {"threads", [](const std::filesystem::path &) { testThreads(); }},
+               {"exceptions", [](const std::filesystem::path &) { testExceptions(); }},
                {"msvcrt and files", [](const std::filesystem::path &tmp) { testMsvcrtAndFiles(tmp / "msvcrt"); }},
                {"msvcp60", [](const std::filesystem::path &tmp) { testMsvcp60(tmp / "msvcp60"); }},
                {"windows and registry", [](const std::filesystem::path &) { testWindowsAndRegistry(); }},

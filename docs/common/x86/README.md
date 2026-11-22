@@ -22,8 +22,9 @@ documentation. It's all in `src/emulation/x86/`.
 
 ## What Reluva supports
 
-- Structured exception handling isn't dispatched: `RaiseException` and
-  `RtlUnwind` end the run.
+- Structured exceptions are dispatched (`RaiseException`, `RtlUnwind`:
+  [windows.md](windows.md)); a fault (bad memory, a division by zero)
+  ends the run rather than reaching the program's handlers.
 - MMX, but no SSE or 3DNow! (the games of the time rarely need them).
 - The interpreter checks each memory access. Instructions are decoded
   once and kept: see [cpu.md](cpu.md#the-decoded-instruction-cache).
