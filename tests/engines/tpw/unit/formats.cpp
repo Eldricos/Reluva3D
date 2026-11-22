@@ -3,10 +3,11 @@
 
 // The Theme Park World engine's files, built here as SimCoaster's are laid
 // out (docs/engines/tpw/games/simcoaster/formats/): archives and mounting
-// them, settings files, string tables and their character set.
+// them, settings files, string tables and their character set, fonts.
 //
 //   reluva-tests tpw.unit.formats
 
+#include "engines/tpw/formats/bf4.h"
 #include "engines/tpw/formats/sam.h"
 #include "engines/tpw/formats/str.h"
 #include "engines/tpw/formats/wad.h"
@@ -182,6 +183,54 @@ void testStr() {
     CHECK(table.parse(toBytes("BFMU"), characters) && characters.parse(toBytes("BFST")));
 }
 
+// A glyph's record: its character, its pixels' stored size, their size at 4
+// bits, the storage, then its box, then the pixels.
+void putGlyph(Bytes &b, char32_t c, uint32_t storage, int w, int h, int left, int top, int advance, const Bytes &px) {
+    const size_t at = b.size();
+    put32(b, at, uint32_t(c));
+    put32(b, at + 4, uint32_t(px.size()));
+    put32(b, at + 8, uint32_t((w * h + 1) / 2));
+    put32(b, at + 12, storage);
+    b.insert(b.end(), {uint8_t(w), 0, uint8_t(h), 0, uint8_t(left), uint8_t(top), uint8_t(advance), 0});
+    b.insert(b.end(), px.begin(), px.end());
+}
+
+// Three glyphs: an 'L' at 1 bit a pixel (3x3), a dot at 4 bits (2x2),
+// and one of the storage not read.
+Bytes makeFont() {
+    Bytes b = {'F', '4', 'F', 'B', 1, 13, 3, 0};
+    b.resize(8 + 12);
+    put32(b, 8, uint32_t(b.size()));
+    // 100 100 111, then padding: 1001 0011 1000 0000.
+    putGlyph(b, U'L', 2, 3, 3, 1, 6, 5, {0x93, 0x80, 0, 0, 0, 0, 0, 0});
+    put32(b, 12, uint32_t(b.size()));
+    putGlyph(b, U'.', 0, 2, 2, 0, 7, 3, {0x0f, 0x84, 0, 0, 0, 0, 0, 0});
+    put32(b, 16, uint32_t(b.size()));
+    putGlyph(b, U'?', 1, 2, 2, 0, 0, 3, {0x05, 0x01, 0x63, 0x0d, 0, 0, 0, 0});
+    return b;
+}
+
+void testBf4() {
+    Font font;
+    CHECK(!font.parse(makeFont()));
+    CHECK(font.glyphs().size() == 3 && font.kind() == 1 && font.size() == 13);
+    const Font::Glyph *l = font.glyph(1);
+    CHECK(l && l->character == U'L' && l->width == 3 && l->height == 3 && l->left == 1 && l->top == 6 &&
+          l->advance == 5);
+    CHECK(l && (l->coverage == Bytes{15, 0, 0, 15, 0, 0, 15, 15, 15}));
+    const Font::Glyph *dot = font.glyph(2);
+    CHECK(dot && dot->readable && (dot->coverage == Bytes{0, 15, 8, 4}));
+    const Font::Glyph *odd = font.glyph(3);
+    CHECK(odd && !odd->readable && odd->coverage.empty() && odd->width == 2);
+    CHECK(!font.glyph(0) && !font.glyph(4));
+
+    // Cut short; not a font.
+    Bytes cut = makeFont();
+    cut.resize(cut.size() - 40);
+    CHECK(font.parse(cut));
+    CHECK(font.parse(toBytes("BFST")));
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("tpw.unit.formats",
@@ -190,4 +239,5 @@ static const reluva::test::Suite kSuite("tpw.unit.formats",
                                             {"mount", [](const std::filesystem::path &tmp) { testMount(tmp); }},
                                             {"sam", [](const std::filesystem::path &) { testSam(); }},
                                             {"str", [](const std::filesystem::path &) { testStr(); }},
+                                            {"bf4", [](const std::filesystem::path &) { testBf4(); }},
                                         });

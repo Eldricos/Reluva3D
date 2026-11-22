@@ -23,15 +23,17 @@ format or system worked out.
    read by the shared InstallShield code
    ([installshield.md](../../../../common/installshield.md)), and its
    language's folders, laid out as setup lays them ([cd.md](formats/cd.md)).
-3. **The archives and text** (in progress; the archives, settings and
-   strings done, [wad.md](formats/wad.md), [sam.md](formats/sam.md),
-   [str.md](formats/str.md)): the `DWFB` archives (`.wad`), the settings
+3. **The archives and text** (done: [wad.md](formats/wad.md),
+   [sam.md](formats/sam.md), [str.md](formats/str.md),
+   [bf4.md](formats/bf4.md); the postcard font's packed glyphs wait for
+   the postcards, phase 11): the `DWFB` archives (`.wad`), the settings
    files (`.sam`), the string tables (`BFST`, `.str`) and the fonts
    (`F4FB`, `.bf4`); every archive mounted, loose files over them.
    `reluva-tool tpw` commands to list and extract them.
-4. **Shared EA formats:** the pictures (`SHPI`, `.fsh`), RefPack and the
+4. **Shared EA formats** (next): the pictures (`SHPI`, `.fsh`) and the
    `SCHl` streams are read by the `nfs` engine's own code; an engine can't
-   use another's, so they move to `src/image/` and `src/audio/` for both.
+   use another's, so they move to `src/image/` and `src/audio/` for both,
+   as RefPack has ([refpack.md](../../../../common/refpack.md)).
 5. **The data viewer:** pictures (`.tga`, `.fsh`, `.png`), fonts, text,
    sounds (`.sdt` banks and their `.map`s) and the movies: the intro's
    AVI is Cinepak, which Reluva plays; the logos' `.tgq` (EA's TGQ video
@@ -40,7 +42,7 @@ format or system worked out.
    `.hmp`), the worlds' terrain, objects (`scape.omp`) and skies: an
    empty park drawn in 3D in the viewer.
 7. **The ride scripts:** the rides' and shops' behaviour is in compiled
-   scripts (`RSSE`, `.rse`, about 90): a disassembler command, then an
+   scripts (`RSSE`, `.rse`, 288 of them): a disassembler command, then an
    interpreter, so rides run in the viewer.
 8. **The front end:** the start-up screens (`Data/Init/`), the main menu,
    options, saving and loading, from `ui.wad` and recordings.

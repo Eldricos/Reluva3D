@@ -18,6 +18,9 @@ None yet.
 
 ## Not yet as the original
 
+- **The postcard font's packed glyphs aren't read** (`POSTCARD.bf4`, 160
+  of its 250): their boxes are, not their pixels
+  ([bf4.md](formats/bf4.md#the-pixels)).
 - **Nothing of the game runs yet:** Reluva recognises the install and
   shows an empty screen ([PLAN.md](PLAN.md#phases)).
 

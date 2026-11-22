@@ -74,6 +74,8 @@ they are: `Speech/American`, `CoasterData/American`,
 | `reluva-tool tpw wad-extract` | Writes an archive's files, or one of them, under a folder |
 | `reluva-tool tpw sam-check` | Reads every settings file of a game, or lists one's settings |
 | `reluva-tool tpw str-check` | Reads every string table in the language's character set, or lists one's strings |
+| `reluva-tool tpw bf4-check` | Reads every font |
+| `reluva-tool tpw bf4-show` | Draws text in a font, a character a pixel |
 | `reluva-tool tpw data-check` | Reads every file of a game's `Data` folder, archives and loose files, with a checksum of them all |
 
 ## Working files not included
