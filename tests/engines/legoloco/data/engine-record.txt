@@ -1,0 +1,3 @@
+# The record of legoloco.engine (tests/engines/legoloco/engine.cpp).
+# Written by `reluva-tests legoloco.engine --update`; review its diff before committing.
+detect.games: 0
