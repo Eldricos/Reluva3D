@@ -4,7 +4,19 @@
 #include "common/font.h"
 #include <algorithm>
 namespace reluva::boggle {
-namespace {constexpr size_t visible=32,columns=112;}
+namespace {
+constexpr size_t visible=32,columns=112;
+std::string matchLabel(const DefinitionEntry& entry){
+    switch(entry.match){
+    case DefinitionMatch::Headword:return "Headword match";
+    case DefinitionMatch::Variant:return "Variant in "+entry.headword;
+    case DefinitionMatch::Subentry:return "Subentry in "+entry.headword;
+    case DefinitionMatch::Inflection:return "Stored form of "+entry.headword;
+    case DefinitionMatch::RootDerivative:return "Derivative of root "+entry.headword;
+    }
+    return "Article match";
+}
+}
 void DefinitionView::open(std::string word,std::vector<DefinitionEntry> entries,std::string error){
     word_=word.substr(0,64);entries_=std::move(entries);error_=std::move(error);selected_=scroll_=0;
     if(entries_.size()>64 || std::any_of(entries_.begin(),entries_.end(),[](const auto& e){return e.text.size()>1024*1024;})){entries_.clear();error_="Definition exceeds display limits.";}
@@ -43,11 +55,11 @@ void DefinitionView::draw(Surface& s) const {
     auto box=[&](int x,int y,int w,int h,Color c){for(int row=y;row<y+h;++row)for(int col=x;col<x+w;++col){auto*p=s.row(row)+col*4;p[0]=c.r;p[1]=c.g;p[2]=c.b;p[3]=255;}};
     box(24,24,752,552,{17,25,40});const Color white{245,245,255},muted{170,181,205};
     font::drawText(s,44,42,"DEFINITION: "+word_,white,word_.size()>44?1:2);
-    const auto match=entries_.empty()?std::string{}:entries_[selected_].inflected?"Stored form of "+entries_[selected_].headword:"Headword match";
-    const auto status=!error_.empty()?error_:entries_.empty()?"No English headword or stored form found.":std::to_string(selected_+1)+" / "+std::to_string(entries_.size())+" articles / "+match+" / Up-Down, PgUp-PgDn, wheel: scroll";
+    const auto match=entries_.empty()?std::string{}:matchLabel(entries_[selected_]);
+    const auto status=!error_.empty()?error_:entries_.empty()?"No indexed English article found.":std::to_string(selected_+1)+" / "+std::to_string(entries_.size())+" articles / "+match+" / Up-Down, PgUp-PgDn, wheel: scroll";
     font::drawText(s,44,74,status.substr(0,116),muted);
     for(size_t i=0;i<visible&&scroll_+i<lines_.size();++i)font::drawText(s,44,100+int(i)*12,lines_[scroll_+i],white);
-    font::drawText(s,44,500,"Headwords and stored inflections. Pronunciation/style escapes are shown in brackets.",muted);
+    font::drawText(s,44,500,"Headwords, variants, subentries, stored forms and roots. Pronunciation escapes appear in brackets.",muted);
     auto button=[&](int x,const char* text){box(x,530,156,38,{48,64,88});font::drawText(s,x+10,544,text,white);};
     button(44,"PREVIOUS (LEFT)");button(216,"NEXT (RIGHT)");button(600,"CLOSE (ENTER)");
 }

@@ -32,7 +32,11 @@ void view(){
     CHECK(!view.event(fixtures::keyEvent(key::PageDown)));view.draw(s);CHECK(first!=s.pixels);
     CHECK(!view.event(fixtures::keyEvent(key::Right)));view.draw(s);const auto second=s.pixels;CHECK(second!=first);
     CHECK(!view.event(fixtures::keyEvent(key::Left)));view.draw(s);CHECK(s.pixels==first);
-    a.inflected=true;view.open("TAZZED",{a});view.draw(s);CHECK(s.pixels!=first);a.inflected=false;view.open("TAZ",{a,b});
+    view.open("TAZ",{a});view.draw(s);const auto headword=s.pixels;
+    for(auto match:{DefinitionMatch::Variant,DefinitionMatch::Subentry,DefinitionMatch::Inflection,DefinitionMatch::RootDerivative}){
+        a.match=match;view.open("TAZ",{a});view.draw(s);CHECK(s.pixels!=headword);
+    }
+    a.match=DefinitionMatch::Headword;view.open("TAZ",{a,b});
     Event wheel;wheel.type=EventType::MouseWheel;wheel.wheelY=std::numeric_limits<int>::min();CHECK(!view.event(wheel));CHECK(!view.event(fixtures::keyEvent(key::Home)));view.draw(s);CHECK(s.pixels==first);
     auto repeat=fixtures::keyEvent(key::Return);repeat.repeat=true;CHECK(!view.event(repeat));CHECK(view.event(fixtures::keyEvent(key::Escape)));
     view.open("TAZ",{},"Missing archive");view.draw(s);CHECK(view.event(fixtures::mouseEvent(EventType::MouseDown,620,544)));
@@ -45,16 +49,36 @@ void inflections(){
         "<INFL><INF>TAZZED<INF>tazzing\xff</INFL><INFL><INF>UNFINISHED");
     CHECK(!d.read(bytes) && d.inflections()==4 && d.indexChecksum()!=exactChecksum);
     const auto checksum=d.indexChecksum();std::vector<DefinitionEntry> rows;
-    CHECK(!d.lookup("tazzed",rows) && rows.size()==2);if(rows.size()==2)CHECK(rows[0].id==1 && rows[1].id==2 && rows[0].inflected && rows[1].inflected);
-    CHECK(!d.lookup("QUIZ",rows) && rows.size()==2);if(rows.size()==2)CHECK(rows[0].id==3 && !rows[0].inflected && rows[1].id==1 && rows[1].inflected);
-    CHECK(!d.lookup("TAZ",rows) && rows.size()==2);for(const auto& row:rows)CHECK(!row.inflected); // exact first, no duplicate articles
-    CHECK(!d.lookup("TAZZING",rows) && rows.size()==1);if(rows.size()==1)CHECK(rows[0].id==2 && rows[0].inflected);
+    CHECK(!d.lookup("tazzed",rows) && rows.size()==2);if(rows.size()==2)CHECK(rows[0].id==1 && rows[1].id==2 && rows[0].match==DefinitionMatch::Inflection && rows[1].match==DefinitionMatch::Inflection);
+    CHECK(!d.lookup("QUIZ",rows) && rows.size()==2);if(rows.size()==2)CHECK(rows[0].id==3 && rows[0].match==DefinitionMatch::Headword && rows[1].id==1 && rows[1].match==DefinitionMatch::Inflection);
+    CHECK(!d.lookup("TAZ",rows) && rows.size()==2);for(const auto& row:rows)CHECK(row.match==DefinitionMatch::Headword); // exact first, no duplicate articles
+    CHECK(!d.lookup("TAZZING",rows) && rows.size()==1);if(rows.size()==1)CHECK(rows[0].id==2 && rows[0].match==DefinitionMatch::Inflection);
     for(const auto* word:{"NOTAKEY","UNFINISHED","TAZZES","TWOWORDS","HYPHEN","BAD"})CHECK(!d.lookup(word,rows) && rows.empty());
     CHECK(!d.read(bytes) && d.indexChecksum()==checksum);CHECK(bool(d.read({})) && d.inflections()==0);
     CHECK(!d.lookup("TAZZED",rows) && rows.empty());
 }
+void lexicalFields(){
+    Definitions d;const auto bytes=fixtures::definitionArchive(false,
+        "<UNEQ type=SP><WD>QUIZ<WD>VARONLY<RUNSEG><RUN> wu\\bprime/g\xb7let\\lprime/ <RUN>QUIZ<RUN>bad\\unknown/let<INFL><INF>QUIZ</INFL><KW>NOTAKEY<DRV>NOTAROOT",
+        "<INFL><INF>QUIZ<INF>wuglet</INFL>",
+        "<IWD>wug-<DLIST><DRV>QUIZ<DRV>QUIZ<DRV>ROOTONLY<DRV>taz<DEFN><ITX>Own root description.");
+    CHECK(!d.read(bytes) && d.variants()==2 && d.subentries()==2 && d.inflections()==2 && d.derivatives()==3);
+    std::vector<DefinitionEntry> rows;
+    CHECK(!d.lookup("QUIZ",rows) && rows.size()==3);
+    if(rows.size()==3)CHECK(rows[0].id==1 && rows[0].match==DefinitionMatch::Variant && rows[1].id==2 && rows[1].match==DefinitionMatch::Inflection && rows[2].id==3 && rows[2].match==DefinitionMatch::RootDerivative && rows[2].headword=="wug-");
+    CHECK(!d.lookup("WUGLET",rows) && rows.size()==2);
+    if(rows.size()==2)CHECK(rows[0].id==1 && rows[0].match==DefinitionMatch::Subentry && rows[1].id==2 && rows[1].match==DefinitionMatch::Inflection);
+    CHECK(!d.lookup("TAZ",rows) && rows.size()==3);
+    if(rows.size()==3)CHECK(rows[0].match==DefinitionMatch::Headword && rows[1].match==DefinitionMatch::Headword && rows[2].match==DefinitionMatch::RootDerivative);
+    CHECK(!d.lookup("ROOTONLY",rows) && rows.size()==1);if(rows.size()==1)CHECK(rows[0].id==3 && !rows[0].text.empty());
+    CHECK(!d.lookup("VARONLY",rows) && rows.size()==1);if(rows.size()==1)CHECK(rows[0].match==DefinitionMatch::Variant);
+    for(const auto* word:{"NOTAKEY","NOTAROOT","BADLET","WUGLETS"})CHECK(!d.lookup(word,rows) && rows.empty());
+    const auto checksum=d.indexChecksum();CHECK(!d.read(bytes) && d.indexChecksum()==checksum);
+    CHECK(bool(d.read({})) && d.variants()==0 && d.subentries()==0 && d.derivatives()==0);CHECK(!d.lookup("QUIZ",rows) && rows.empty());
+}
 }
 static const test::Suite suite("boggle.unit.definitions",{
+    {"alternate headwords, stressed subentries, root derivatives, match priority and excluded fields",[](const auto&){lexicalFields();}},
     {"stored inflections, exact priority, duplicate suppression, scope, normalization and reset",[](const auto&){inflections();}},
     {"independent entry archive, paired symbols, paging, variants, truncation and malformed data",[](const auto&){reader();}},
     {"plain definition paging, match switching, close guards and invalid surfaces",[](const auto&){view();}},

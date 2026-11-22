@@ -13,9 +13,9 @@ uint16_t be16(const std::vector<uint8_t>& b,size_t p){return uint16_t(b[p])<<8|b
 uint32_t be32(const std::vector<uint8_t>& b,size_t p){return uint32_t(be16(b,p))<<16|be16(b,p+2);}
 uint16_t le16(const std::vector<uint8_t>& b,size_t p){return uint16_t(b[p])|uint16_t(b[p+1])<<8;}
 uint32_t le32(const std::vector<uint8_t>& b,size_t p){return uint32_t(le16(b,p))|uint32_t(le16(b,p+2))<<16;}
-std::string headword(std::string_view text){
-    const auto start=text.find("<WD>");if(start==text.npos)return {};
-    text.remove_prefix(start+4);text=text.substr(0,text.find('<'));
+std::string headword(std::string_view text,std::string_view marker="<WD>"){
+    const auto start=text.find(marker);if(start==text.npos)return {};
+    text.remove_prefix(start+marker.size());text=text.substr(0,text.find('<'));
     while(!text.empty() && (text.back()==' ' || uint8_t(text.back())==255))text.remove_suffix(1);
     return std::string(text);
 }
@@ -25,6 +25,29 @@ std::string key(std::string_view word){
     for(unsigned char c:word){if(c==0xb7)continue;if(c>='a'&&c<='z')c-=32;if(c<'A'||c>'Z')return {};result+=char(c);}
     return result.size()<=64?result:std::string{};
 }
+std::string fieldKey(std::string_view value,bool stress){
+    while(!value.empty() && (value.front()==' ' || uint8_t(value.front())==255))value.remove_prefix(1);
+    while(!value.empty() && (value.back()==' ' || uint8_t(value.back())==255))value.remove_suffix(1);
+    if(!stress)return key(value);
+    std::string letters;
+    for(size_t p=0;p<value.size();){
+        if(value.substr(p).starts_with("\\bprime/") || value.substr(p).starts_with("\\lprime/"))p+=8;
+        else {letters+=value[p++];if(letters.size()>128)return {};}
+    }
+    return key(letters);
+}
+void unique(std::vector<std::string>& keys){
+    std::sort(keys.begin(),keys.end());keys.erase(std::unique(keys.begin(),keys.end()),keys.end());
+}
+std::vector<std::string> fields(std::string_view text,std::string_view marker,bool stress=false,bool skipFirst=false){
+    std::vector<std::string> keys;size_t p=0;
+    while((p=text.find(marker,p))!=text.npos){
+        p+=marker.size();if(skipFirst){skipFirst=false;continue;}
+        auto value=text.substr(p);value=value.substr(0,value.find('<'));
+        const auto normalized=fieldKey(value,stress);if(!normalized.empty())keys.push_back(normalized);
+    }
+    unique(keys);return keys;
+}
 // Only the literal INF fields within a complete INFL group describe stored
 // inflections. Do not treat prose, cross-references or arbitrary tags as keys.
 std::vector<std::string> storedForms(std::string_view text){
@@ -32,16 +55,10 @@ std::vector<std::string> storedForms(std::string_view text){
     size_t at=0;
     while((at=text.find("<INFL>",at))!=text.npos){
         at+=6;const auto end=text.find("</INFL>",at);if(end==text.npos)break;
-        const auto group=text.substr(at,end-at);size_t p=0;
-        while((p=group.find("<INF>",p))!=group.npos){
-            p+=5;auto value=group.substr(p);value=value.substr(0,value.find('<'));
-            while(!value.empty() && (value.back()==' ' || uint8_t(value.back())==255))value.remove_suffix(1);
-            const auto normalized=key(value);
-            if(!normalized.empty())forms.push_back(normalized);
-        }
+        const auto group=fields(text.substr(at,end-at),"<INF>");forms.insert(forms.end(),group.begin(),group.end());
         at=end+7;
     }
-    std::sort(forms.begin(),forms.end());forms.erase(std::unique(forms.begin(),forms.end()),forms.end());return forms;
+    unique(forms);return forms;
 }
 std::string plain(std::string_view markup){
     std::string result;bool spacing=false;
@@ -122,53 +139,56 @@ Error Definitions::read(const std::vector<uint8_t>& b){
     };
     for(unsigned i=0;i<n;++i)if(!expand(i,0))return bad();
     if(ends!=1)return bad();
-    next.bytes_=b;uint64_t symbol=0;size_t expanded=0,formLinks=0;std::string text;
+    next.bytes_=b;uint64_t symbol=0;size_t expanded=0,indexLinks=0;std::string text;
     for(uint32_t id=0;id<=count;++id){
         if(id==0 && le32(b,directory.offset)!=symbol)return bad();
         if(id && id%pageSize==0 && le32(b,directory.offset+(id/pageSize)*4)!=symbol-1)return bad();
         next.starts_.push_back(symbol);if(auto e=next.markup(symbol,text))return e;
         expanded+=text.size();if(expanded>256*1024*1024)return bad();
         if(id==0 && !text.empty())return bad();
-        const auto normalized=key(headword(text));if(!normalized.empty()){
-            auto& matches=next.index_[normalized];if(matches.size()>=64)return bad();matches.push_back(id);
-        }
-        for(const auto& form:storedForms(text)){
-            auto& matches=next.inflections_[form];
-            if(matches.size()>=64 || ++formLinks>400000)return bad();
+        const std::array<std::vector<std::string>,5> keys={
+            std::vector<std::string>{key(headword(text))},fields(text,"<WD>",false,true),
+            fields(text,"<RUN>",true),storedForms(text),text.starts_with("<IWD>")?fields(text,"<DRV>"):std::vector<std::string>{}};
+        for(size_t i=0;i<keys.size();++i)for(const auto& word:keys[i])if(!word.empty()){
+            auto& matches=next.indexes_[i][word];
+            if(matches.size()>=64 || ++indexLinks>400000)return bad();
             matches.push_back(id);
         }
     }
     // Bound the combined view as well as each individual index. Exact matches
-    // precede stored forms, and the same article is never displayed twice.
-    for(const auto& [word,ids]:next.inflections_){
-        const auto exact=next.index_.find(word);size_t count=ids.size();
-        if(exact!=next.index_.end())for(auto id:exact->second)if(std::find(ids.begin(),ids.end(),id)==ids.end())++count;
-        if(count>64)return bad();
+    // precede variants/subentries, inflections and roots. Deduplicate articles.
+    for(const auto& index:next.indexes_)for(const auto& [word,ids]:index){
+        std::vector<uint32_t> combined;
+        for(const auto& other:next.indexes_)if(const auto match=other.find(word);match!=other.end())for(auto id:match->second){
+            if(std::find(combined.begin(),combined.end(),id)==combined.end())combined.push_back(id);
+            if(combined.size()>64)return bad();
+        }
     }
     *this=std::move(next);return Error::success();
 }
 Error Definitions::entry(uint32_t id,DefinitionEntry& out) const {
     out={};if(id==0 || id>=starts_.size())return Error::fail("Definition entry is out of range");
     uint64_t at=starts_[id];std::string text;if(auto e=markup(at,text))return e;
-    out.id=id;out.headword=plain(headword(text));out.text=plain(text);return Error::success();
+    out.id=id;out.headword=plain(headword(text,text.starts_with("<IWD>")?"<IWD>":"<WD>"));out.text=plain(text);return Error::success();
 }
 Error Definitions::lookup(std::string_view word,std::vector<DefinitionEntry>& out) const {
     out.clear();const auto normalized=key(word);if(normalized.empty())return Error::fail("Definition lookup needs an ASCII English word");
     std::vector<DefinitionEntry> result;
-    for(const auto* index:{&index_,&inflections_}){
-        const auto found=index->find(normalized);if(found==index->end())continue;
+    for(size_t i=0;i<indexes_.size();++i){
+        const auto found=indexes_[i].find(normalized);if(found==indexes_[i].end())continue;
         for(auto id:found->second){
             if(std::any_of(result.begin(),result.end(),[&](const auto& e){return e.id==id;}))continue;
-            DefinitionEntry e;if(auto error=entry(id,e))return error;e.inflected=index==&inflections_;result.push_back(std::move(e));
+            DefinitionEntry e;if(auto error=entry(id,e))return error;e.match=DefinitionMatch(i);result.push_back(std::move(e));
         }
     }
     out=std::move(result);return Error::success();
 }
 std::string Definitions::indexChecksum() const {
     Md5 hash;
-    for(const auto* index:{&index_,&inflections_}){
-        hash.update(index==&index_?"headwords":"inflections",index==&index_?9:11);hash.update("\0",1);
-        for(const auto& [word,ids]:*index){
+    constexpr std::array<std::string_view,5> names={"headwords","variants","subentries","inflections","derivatives"};
+    for(size_t i=0;i<indexes_.size();++i){
+        hash.update(names[i].data(),names[i].size());hash.update("\0",1);
+        for(const auto& [word,ids]:indexes_[i]){
             hash.update(word.data(),word.size());hash.update("\0",1);
             for(auto id:ids){const std::array<uint8_t,4> bytes={uint8_t(id>>24),uint8_t(id>>16),uint8_t(id>>8),uint8_t(id)};hash.update(bytes.data(),bytes.size());}
             const std::array<uint8_t,4> end{};hash.update(end.data(),end.size());

@@ -545,13 +545,14 @@ void optionsDragging(const std::filesystem::path& tmp){
 }
 
 void definitionNavigation(const std::filesystem::path& tmp){
-    auto t=target(tmp);t.settings["classic_menu"]="0";const auto bytes=fixtures::definitionArchive(true,"<INFL><INF>AAAA</INFL>","<INFL><INF>AAAA</INFL>");fixtures::write(t.path/"Dicts/R016E613.DAT",bytes);
+    auto t=target(tmp);t.settings["classic_menu"]="0";
+    const auto bytes=fixtures::definitionArchive(true,"<UNEQ type=SP><WD>AAAA<DEF>","<RUNSEG><RUN>aa\\bprime/aa<DEF>","<IWD>own-<DLIST><DRV>AAAA<DEFN><ITX>Own root text.");fixtures::write(t.path/"Dicts/R016E613.DAT",bytes);
     fixtures::ScriptedSystem sys;sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
         if(f==0 || f==10)return {keyEvent(key::Return)};
         if(f==1)return {textEvent("AAAA"),keyEvent(key::Return)};
         if(f==2)return {keyEvent(key::F1)};
         if(f==3 || f==8)return {keyEvent('d')};
-        if(f==4)return {keyEvent(key::Right)};
+        if(f==4)return {keyEvent(key::Right),keyEvent(key::Right)};
         if(f==5){Event e;e.type=EventType::FocusLost;return {e};}
         if(f==6){Event e;e.type=EventType::FocusGained;return {e,keyEvent(key::Escape)};}
         if(f==7)return {keyEvent(key::Escape),keyEvent(key::Return)};
@@ -559,7 +560,10 @@ void definitionNavigation(const std::filesystem::path& tmp){
         if(f==11){Event e;e.type=EventType::ReturnToLauncher;return {e};}return {};
     };
     auto game=findEngine("boggle")->create(sys,t);CHECK(!game->run() && sys.frame==11 && sys.textStopped);
-    if(sys.hashes.size()==11)CHECK(sys.hashes[3]==sys.hashes[8] && sys.hashes[3]!=sys.hashes[4] && sys.hashes[4]==sys.hashes[6] && sys.hashes[7]==sys.hashes[9]);
+    if(sys.hashes.size()==11){
+        CHECK(sys.hashes[3]==sys.hashes[8]);CHECK(sys.hashes[3]!=sys.hashes[4]);
+        CHECK(sys.hashes[4]==sys.hashes[6]);CHECK(sys.hashes[7]==sys.hashes[9]);
+    }
     HighScores scores;CHECK(!scores.load(t.savePath,t.path));CHECK(scores.table().size()==1);if(!scores.table().empty())CHECK(scores.table()[0].score==1);
     for(bool missing:{false,true}){
         if(missing)std::filesystem::remove(t.path/"Dicts/R016E613.DAT");else fixtures::write(t.path/"Dicts/R016E613.DAT",std::vector<uint8_t>{1,2,3});
