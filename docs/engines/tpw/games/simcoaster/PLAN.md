@@ -30,12 +30,15 @@ format or system worked out.
    files (`.sam`), the string tables (`BFST`, `.str`) and the fonts
    (`F4FB`, `.bf4`); every archive mounted, loose files over them.
    `reluva-tool tpw` commands to list and extract them.
-4. **Shared EA formats** (in progress; RefPack and the pictures done,
-   [fsh.md](formats/fsh.md)): the pictures (`SHPI`, `.fsh`) and the
-   `SCHl` streams are read by the `nfs` engine's own code; an engine can't
-   use another's, so they move to `src/image/` and `src/audio/` for both,
-   as RefPack has ([refpack.md](../../../../common/refpack.md)).
-5. **The data viewer:** pictures (`.tga`, `.fsh`, `.png`), fonts, text,
+4. **Shared EA formats** (done): RefPack, the pictures and the sound
+   streams, first read for Need for Speed III, moved to the shared code
+   ([refpack.md](../../../../common/refpack.md),
+   [fsh.md](../../../../common/image/fsh.md),
+   [ea-streams.md](../../../../common/audio/ea-streams.md)), and taught
+   SimCoaster's compressed pictures ([fsh.md](formats/fsh.md)). The logo
+   movies' sound (`Data/movies/*.tgq`) reads and decodes with the shared
+   stream reader: 3.24 seconds of stereo EA-XA each.
+5. **The data viewer** (next): pictures (`.tga`, `.fsh`, `.png`), fonts, text,
    sounds (`.sdt` banks and their `.map`s) and the movies: the intro's
    AVI is Cinepak, which Reluva plays; the logos' `.tgq` (EA's TGQ video
    in `SCHl`) need a decoder in `src/video/`.
