@@ -17,8 +17,8 @@ In the install's folder.
 | File | Size | What it is |
 |---|---|---|
 | `Armada.exe` | 2,383,917 | The game: built 10 March 2000 (its PE header's time stamp), 1.8 MB of code. It imports DirectSound, Bink (`binkw32.dll`), `MSVCP60.dll`, `MSVCRT.dll`, `Strlkup.dll` and `WonInterface.dll`, and loads DirectDraw and Direct3D 7 itself. It exports 439 C++ functions and variables by name, the API the missions and the computer player call ([Missions](#missions)) |
-| `assets.zfs` | 832,202 | An archive, `ZFSF` at its start, of 515 entries (`borg4.tt`...) |
-| `objtxt.zfs` | 19,216 | An archive of the same kind, of 81 entries (`b1ob1.txt`...) |
+| `assets.zfs` | 832,202 | A ZFS archive of 515 files: object definitions and tech trees ([zfs.md](zfs.md)) |
+| `objtxt.zfs` | 19,216 | A ZFS archive of 81 files: the missions' objectives ([zfs.md](zfs.md)) |
 | `startrek.zix` | 31,341 | Text, starting `001992` and a line naming the "Battlezone CD" |
 | `string.ldl`, `string_e.ldl`, `string_fi.ldl`, `string_gi.ldl`, `default.ldl`, `language.ldl` | | Not text. All six start with the same 11 bytes, then differ: encoded rather than compressed, perhaps by a fixed key *(guessed)* |
 | `Armada.pal` | 768 | A palette: 256 colours of 3 bytes *(inferred)* |
@@ -90,9 +90,9 @@ network drivers in `dll/`.
 
 The engine finds the game by `Armada.exe`, `assets.zfs` and
 `objtxt.zfs`. With all three hashes in its table, it's the English
-retail release; with the three names alone, an unknown release. Nothing
-else is read yet. `reluva-tool storm3d files <game folder>` lists the
-files with their sizes.
+retail release; with the three names alone, an unknown release. `reluva-tool storm3d files <game folder>` lists the
+files with their sizes; the archives' commands are on
+[zfs.md](zfs.md#in-reluva).
 
 ## Sources and checks
 

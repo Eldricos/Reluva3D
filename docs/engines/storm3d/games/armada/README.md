@@ -19,8 +19,9 @@ multiplayer games.
 ## Where it stands
 
 The English 1.0 install is recognised, and the game shows an empty
-screen until Esc. Nothing of the game is read yet. What comes next is in
-[PLAN.md](PLAN.md).
+screen until Esc. Its ZFS archives can be listed and extracted with
+`reluva-tool storm3d` ([formats/zfs.md](formats/zfs.md)). What comes next
+is in [PLAN.md](PLAN.md).
 
 ## Using it
 
@@ -33,7 +34,7 @@ shows an empty screen; Esc goes back to the launcher.
 |---|---|
 | This page | Where it stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
-| [formats/](formats/) | The game's own files, a page each: [install.md](formats/install.md) (what the install and the CD hold) |
+| [formats/](formats/) | The game's own files, a page each: [install.md](formats/install.md) (what the install and the CD hold), [zfs.md](formats/zfs.md) (the archives) |
 | `systems/` | How the game behaves, a page per part |
 | `research/` | Working notes |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
