@@ -31,6 +31,12 @@ extended. The facts themselves are on their pages, each with its source.
   with each other.
 - **Reading the executable's headers:** its sections and imports
   (DirectX, `smackw32.dll`, WINMM), with a PE reader.
+- **Comparing every file of a kind:** for each format, a layout taken
+  from a few files, then checked on all of them, each file's size
+  accounted for to the byte; fields that never change, or change with
+  no pattern, noted as such. A field's meaning is then taken from what
+  it does across the files (colour 0 in transparent textures, the
+  pictures' x and y on the screen), and marked as inferred.
 
 ## The tools
 
@@ -41,6 +47,8 @@ extended. The facts themselves are on their pages, each with its source.
 |---|---|
 | `reluva-tool sith files <game folder>` | Every file in a folder, with its size |
 | `reluva-tool sith gob <archive.gob>` | A `.gob` archive's index |
+| `reluva-tool sith formats <install> [-q]` | Every colormap, picture, material, font and string table in the install's archives read, a line each, and a count of each kind |
+| `reluva-tool sith strings <install> <file.uni>` | A string table's keys and strings |
 | `reluva-tool sith folders <install>` | The game recognised in an install, and where each CD was found |
 
 ## Working files not included

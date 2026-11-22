@@ -42,7 +42,7 @@ game is found to share it (docs/DOCUMENTATION_STANDARD.md).
 | `folders.cpp` | Telling the CDs apart, and finding them for an install |
 | `import.cpp` | Making an install from the CDs (*Import Game...*) |
 | `game_files.cpp` | The install's archives, as one set |
-| `formats/` | The games' files: `.gob` |
+| `formats/` | The games' files: `.gob`, `.cmp`, `.bm`, `.mat`, `.sft`, `.uni` |
 | `tools/` | `reluva-tool sith` commands (`reluva-tool help sith` lists them) |
 
 ## Tests

@@ -12,10 +12,17 @@ None yet.
 
 ## Inferred
 
-None yet.
+- **Transparent colours:** colour 0 in a material's texture marked
+  transparent ([formats/mat.md](formats/mat.md#behaviour)), and the
+  header's colour in a picture ([formats/bm.md](formats/bm.md)), from the
+  files alone. Seeing them drawn in the game would settle it.
+- **`\n` in strings** is taken for a new line
+  ([formats/uni.md](formats/uni.md#layout)).
 
 ## Guessed
 
+- **Which palette an 8-bit picture without its own takes:** palette mode
+  1 the menus', 0 the level's ([formats/bm.md](formats/bm.md#behaviour)).
 - **Which archive a name comes from:** Reluva looks in the install's
   `Resource` archives, then its `Episode` ones, each folder's in name
   order ([formats/gob.md](formats/gob.md#in-reluva)). The game's own order

@@ -11,12 +11,18 @@ reluva_add_engine(sith
         game_files.cpp
         games.cpp
         import.cpp
-        formats/gob.cpp)
+        formats/bitmap.cpp
+        formats/colormap.cpp
+        formats/font.cpp
+        formats/gob.cpp
+        formats/material.cpp
+        formats/strings.cpp)
 
 # Its reluva-tool commands (reluva-tool help sith lists them).
 reluva_add_engine_tools(sith
     SOURCES
-        tools/files.cpp)
+        tools/files.cpp
+        tools/formats.cpp)
 
 # Its tests (tests/engines/sith/), in reluva-tests: the unit tests by
 # topic, and the engine test, without game files (its record in
@@ -26,11 +32,12 @@ reluva_add_engine_tests(sith
     SOURCES
         ${tests}/unit/detection.cpp
         ${tests}/unit/folders.cpp
+        ${tests}/unit/formats.cpp
         ${tests}/unit/gob.cpp
         ${tests}/unit/import.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.folders unit.gob unit.import engine)
+        unit.detection unit.folders unit.formats unit.gob unit.import engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

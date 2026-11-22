@@ -44,9 +44,11 @@ installer and the readme.
 - **The CDs:** found for an install, and told apart; *Import Game...*
   makes an install from them. Nothing reads them yet.
 - **The archives:** the install's `.gob` archives are read
-  ([formats/gob.md](formats/gob.md)).
-- **Not yet:** everything else: the files in the archives, the data
-  viewer, and the game. Plans, phases and decisions:
+  ([formats/gob.md](formats/gob.md)), and in them every colormap,
+  picture, material, font and string table
+  ([formats/](#this-folder)).
+- **Not yet:** the sounds, models, levels and scripts, the data viewer,
+  and the game. Plans, phases and decisions:
   [PLAN.md](PLAN.md).
 
 ## Using it
@@ -74,7 +76,7 @@ shows an empty screen for now; Esc goes back to the launcher.
 |---|---|
 | This page | The releases, where it stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
-| [formats/](formats/) | The game's own files, a page each: [gob.md](formats/gob.md) (archives), [jk-cd.md](formats/jk-cd.md) (the CD marker) |
+| [formats/](formats/) | The game's own files, a page each: [gob.md](formats/gob.md) (archives), [cmp.md](formats/cmp.md) (colormaps), [bm.md](formats/bm.md) (pictures), [mat.md](formats/mat.md) (materials), [sft.md](formats/sft.md) (fonts), [uni.md](formats/uni.md) (string tables), [jk-cd.md](formats/jk-cd.md) (the CD marker) |
 | `systems/` | How the game behaves, a page per part |
 | `research/` | Working notes |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
