@@ -26,6 +26,10 @@ None yet.
   draw decals or frames' textures
   ([d3drm.md](../../common/x86/d3drm.md#drawing)). How near it looks to
   the original's hasn't been compared.
+- **Turning is too fast** on the island with the arrow keys, as the
+  original's is on today's machines, it's known among its players: a
+  fix, to turn at the speed it was made for, is still to do
+  ([PLAN.md](PLAN.md)).
 - **The setup dialog's settings** (`CONFIG.EXE`) aren't offered: the game
   uses its own defaults, but for where it saves.
 

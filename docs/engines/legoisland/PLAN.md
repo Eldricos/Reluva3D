@@ -52,7 +52,9 @@ Each phase ends with something that runs, is tested and is committed.
    Next: the island's look checked against the original's, driving, and
    building a vehicle.
 7. **Input, saves and settings:** DirectInput and the joystick, the save
-   folder, and `CONFIG.EXE`'s choices as the engine's settings.
+   folder, and `CONFIG.EXE`'s choices as the engine's settings; turning
+   at the speed it was made for, as on today's machines it's too fast
+   ([KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md)).
 8. **A full playthrough**, checked against recordings of the original;
    then speed (the JIT's hot spots, Retained Mode on the GPU).
 
