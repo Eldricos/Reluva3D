@@ -95,7 +95,10 @@ and yes fades out over half a second to the main menu (`0x474a6d`).
 `loadMission` (`game/team.cpp`). A new game shows the mission's briefing,
 then its team selection, if it has one; the team selection's BRIEFING
 shows it again. Lines are broken at line breaks as well as spaces
-(`Font::wrap`, `ui/font.cpp`). The items found since the last
+(`Font::wrap`, `ui/font.cpp`): the game's drawing of text of more than
+one line breaks it at each line break (`0x4b1670`, looking for it at
+`0x4b168c`), each line a font's height and the spacing given under the
+one before (`0x4b16ce`). The items found since the last
 briefing ([objectives.md](objectives.md#the-score)) are lines after its
 own, each said by who found it, and are had from then; while they play
 the movie goes on *(inferred)*. Not there yet: the scroll bar (the mouse wheel scrolls instead), the random numbers, the
@@ -124,5 +127,4 @@ screens show, and the briefing music plays over and over.
   and 2 have none for their briefings.
 - **The briefing music:** where the program plays it isn't traced;
   Reluva plays it over and over while the screen shows.
-- **Line breaks:** whether the game's text drawing breaks lines at them.
 - **The scroll bar's layout** (`0x4e81c0`).

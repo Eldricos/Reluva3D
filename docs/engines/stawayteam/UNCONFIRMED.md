@@ -105,8 +105,8 @@ None now.
   into range first
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **The briefing:** the voice-overs found by name under `Levels/Voice
-  Overs`, the briefing music played over and over and the menu's song
-  stopped meanwhile, and text broken at its line breaks
+  Overs`, and the briefing music played over and over and the menu's
+  song stopped meanwhile
   ([systems/briefing.md](systems/briefing.md#open-questions)).
 - **The team selection:** the attributes out of 100, the inventory's
   empty columns and lit items, Esc closing an item's description, a
