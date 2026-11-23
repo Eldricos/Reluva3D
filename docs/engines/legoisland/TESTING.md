@@ -50,6 +50,45 @@ Not yet.
 ## A playthrough by hand
 
 <!-- A checklist of what to try, in the order a player meets it. -->
+In the engine, on a new save folder, against the original (played, or
+recordings of it). Each item says how far it's been checked: *scripted*
+(`reluva-tool legoisland run` and its frames, by eye), *played* (in the
+engine, by a tester), or *to try*.
+
+1. **The intro:** the LEGO Media, LEGO and Mindscape logos, then the
+   flight over the island, with sound; a click skips it. *Scripted,
+   played.*
+2. **The Information Center:** the Infomaniac's welcome; the portraits'
+   films; the radio; the left arrow to the elevator's lobby, the right to
+   the score cube; the elevator to the observation deck and its
+   controls (sun, moon, sky colour, the globe). *Scripted, but the
+   observation deck's controls: to try.*
+3. **Registering:** a name spelled in the book and its tick; a second
+   player; the history book. *Scripted (one player); the rest to try.*
+4. **Choosing a character:** each of the five dragged to each place on
+   the map: the Information Center, the pizzeria, the boat, the race
+   track, the gas station, the hospital, the police. *Pepper to the
+   pizzeria and the boat: scripted; the rest to try.*
+5. **The island on foot:** walking, turning (at the frame rate set),
+   the islanders, the jukebox, the camera's height; its look against the
+   original's. *Walking and its look at the pizzeria: scripted, played.*
+6. **Vehicles:** the skateboard, the bicycle, the motorcycle, the
+   ambulance, the tow truck, the police car, the pizza deliveries.
+   *Skateboard: played; the rest to try.*
+7. **Building:** the jet-ski, the helicopter, the dune buggy, the race
+   car: built through, painted, ridden. *Jet-ski: played; the rest to
+   try.*
+8. **Races:** the jet-ski race and the car race, each to its end and its
+   score on the cube. *To try.*
+9. **Act 2:** the Brickster's escape, the bricks collected. *To try.*
+10. **Act 3:** the chase in the helicopter, and its end. *To try.*
+11. **Saving and loading:** quit through the door, start again, the
+    player taken from the book; a game in Act 2 or 3 picked up again.
+    *Scripted (Act 1); Acts 2 and 3 to try.*
+12. **The credits**, after quitting through the door. *Scripted.*
+13. **Settings:** each of the engine's (frame rate, the island's
+    quality, music, 3D sound, the game's cursor, a joystick) seen to
+    take effect. *To try.*
 
 ## Last checked
 
