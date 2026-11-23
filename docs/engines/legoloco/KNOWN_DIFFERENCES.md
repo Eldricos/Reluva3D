@@ -28,6 +28,11 @@ the original's way. -->
   engine's "Screen size" setting gives 800 by 600 instead, the boards
   then scrolled ([systems/running.md](systems/running.md#in-reluva)).
   Other sizes the original's players had aren't offered.
+- **The text's font:** the game's text asks for Arial (bubbles bold with
+  a cell of 16, the name box bold of 12, `0x446113`); Reluva draws it in
+  Liberation Sans, as wide as Arial, at sizes matched to a recording of
+  the original so its lines break as there; the letters' shapes differ
+  a little ([common/x86/gdi.md](../../common/x86/gdi.md)).
 - **The default player's name:** the original names a new player by
   Windows' user name (`GetUserNameA`; `User` in the recording), so on
   the player's own computer it's their login; Reluva's is always
@@ -46,10 +51,6 @@ None yet.
 - **The window:** the original runs on the desktop, in windows filling
   it; Reluva shows its desktop as the game's window, with nothing of
   Windows around it ([systems/running.md](systems/running.md)).
-- **The text's font:** the station master's bubbles and the game's other
-  text ask for Arial, 12 pixels, bold (`0x446113`); Reluva draws GDI's
-  text in a font of its own, smaller and plainer, and breaks lines
-  differently.
 - **The windowed mode:** its frame is painted plainly (borders and a
   caption bar, without the title or buttons); the desktop around it is
   black.
