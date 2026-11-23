@@ -96,7 +96,8 @@ on their pages in `formats/` and `systems/`.
 6. **The game hosted** (started): the front end (done), a skirmish
    (it runs and is played: steering, targeting and firing with the
    game's keys and its panels), the tutorials (each runs, its orders
-   following what's done, to its debriefing), then a
+   following what's done, to its debriefing), then a campaign (started:
+   its introduction, the Dynaverse map, moving from hex to hex), then a
    campaign and its missions (the game loads their DLLs itself), saves,
    the film room. Drawing on the GPU through `gfx3d` once the software
    rasterizer is too slow.

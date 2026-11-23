@@ -219,6 +219,20 @@ with VIEW REPLAY and DONE. Passing one is a matter of flying the ship
 (Command 190 wants three containers destroyed, the phasers brought to
 bear on each), not yet done by a scripted run.
 
+A single-player campaign starts from Campaign's Campaign Selector (its
+saved games, LOAD GAME, NEW GAME, DELETE GAME): NEW GAME lists the twelve
+campaigns (Federation vs ISC first), the skill level, the era and the
+character's name; BEGIN NEW CAMPAIGN shows its introduction, pages of
+text and pictures with a progress bar while it loads, each page left
+with a click. Then the Dynaverse: the hex map around the player's
+homeworld, the player's rank, ship (a frigate) and prestige (50), the
+empires and the help topics, MAP, MISSION, NEWS, SUPPLY, SHIPYARD and
+MEDALS, and the stardate moving on (2273.0 at the start). A hex clicked,
+the ship moves there (a MOVEMENT bar filling), and the map scrolls with
+it. The map runs at about 500 frames a billion instructions, a third of
+a mission's rate. No mission has been offered yet: MISSION stays dimmed
+near Earth, where the introduction says space is quiet.
+
 A skirmish is played through DirectPlay, single-player too: starting
 one, the game throws a `TLogicError` naming `fDirectPlayObject` each
 time it finds no DirectPlay object, and goes on. As it starts it calls
