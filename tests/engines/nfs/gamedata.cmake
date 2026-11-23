@@ -13,7 +13,8 @@
 #
 # Each step runs reluva-tool on the game:
 #   release    what the game is (detect)
-#   survey     every file of the install and the CD by name, size and MD5,
+#   survey     the game's files in the install and on the CD (its data
+#              folders, Patch, the top's programs and DLLs) by name, size and MD5,
 #              as one checksum; and every file the engine reads, read and
 #              counted (nfs survey)
 #   formats    every archive, picture, string table, font, model, track,
@@ -114,6 +115,15 @@ elseif(STEP STREQUAL "survey")
         list(SORT files)
         foreach(f IN LISTS files)
             file(RELATIVE_PATH rel "${root}" "${f}")
+            # The game's own files: its data folders, the CD's Voodoo3
+            # patch and the programs and DLLs at the top. Not the CD's
+            # set-up extras (redist, ad, setup, eDocs...), which a copy may
+            # leave out, nor files the game writes as it's played (replays,
+            # ghosts).
+            string(TOLOWER "${rel}" lower)
+            if(NOT (lower MATCHES "^(gamedata|fedata|patch)/" OR lower MATCHES "^[^/]+\\.(exe|dll)$"))
+                continue()
+            endif()
             file(SIZE "${f}" size)
             file(MD5 "${f}" md5)
             string(APPEND listing "${rel} ${size} ${md5}\n")

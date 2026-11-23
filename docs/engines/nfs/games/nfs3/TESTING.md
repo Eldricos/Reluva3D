@@ -42,7 +42,7 @@ game, one step each:
 | Step | What it runs |
 |---|---|
 | `release` | What the game is (`reluva-tool detect`), and whether the CD's files are beside it |
-| `survey` | Every file of the install and the CD by name, size and MD5, as one checksum; every file the engine reads, read and counted (`survey`) |
+| `survey` | The game's files in the install and on the CD by name, size and MD5, as one checksum: `GameData`, `FeData`, `Patch` and the programs and DLLs at the top, not the CD's set-up extras (`redist`, `ad`, `setup`, `eDocs`...) nor what the game writes as it's played (replays, ghosts); the listing is left in the step's output folder as `files.txt`. And every file the engine reads, read and counted (`survey`) |
 | `formats` | Every archive, picture, string table, font, model, track, collision file, sound, music section, movie frame and movie's sound decoded, each kind as a checksum (`survey -hash`) |
 | `host` | The retail game run from the menus into a Hometown race by clicks, on an instruction clock (`host -deterministic 50000 -nomovie -native`, 3.5 billion instructions): its end state, its system calls and the last frame written (in the race), as checksums |
 | `host_glide` | The same with its own Voodoo 2 renderer on the Glide stand-in (`-glide`) |
