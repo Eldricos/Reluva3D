@@ -11,6 +11,7 @@
 #include "common/fs.h"
 #include "common/types.h"
 #include "emulation/x86/a3d.h"
+#include "emulation/x86/miles.h"
 #include "emulation/x86/com.h"
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/directx/dinput.h"
@@ -1150,6 +1151,81 @@ static void testInput() {
 
 // A3D created as a program creates it, a source made, filled through Lock,
 // played once and looped, as the clock moves.
+static void testMiles() {
+    x86::Cpu cpu(32u << 20);
+    x86::Win32Process process(cpu);
+    uint32_t clock = 0;
+    process.milliseconds = [&] { return clock; };
+    x86::Miles miles(process);
+    audio::Mixer mixer(22050);
+    miles.mixer = &mixer;
+    uint32_t r = 0;
+    auto ail = [&](const char *name, const std::vector<uint32_t> &args) {
+        CHECK(!cpu.call(process.provided("mss32.dll", name), args, r));
+        return r;
+    };
+    const uint32_t out = process.memory().alloc(4);
+    ail("_AIL_startup@0", {});
+    CHECK(ail("_AIL_waveOutOpen@16", {out, 0, 0xffffffff, 0}) == 0 && cpu.read32(out) != 0);
+    const uint32_t driver = cpu.read32(out);
+    // A tenth of a second, in 256-byte pieces: 22,050 Hz 16-bit stereo, and IMA ADPCM mono.
+    CHECK(ail("_AIL_minimum_sample_buffer_size@12", {driver, 22050, 3}) == 8960);
+    CHECK(ail("_AIL_minimum_sample_buffer_size@12", {driver, 22050, 4}) == 1280);
+    const uint32_t sample = ail("_AIL_allocate_sample_handle@4", {driver});
+    CHECK(sample != 0 && miles.samplesAllocated() == 1);
+    ail("_AIL_init_sample@4", {sample});
+    CHECK(ail("_AIL_sample_status@4", {sample}) == 2); // done: nothing loaded
+    // 1000 Hz 16-bit mono, two buffers of a quarter of a second each.
+    ail("_AIL_set_sample_type@12", {sample, 1, 0});
+    ail("_AIL_set_sample_playback_rate@8", {sample, 1000});
+    const uint32_t buffers[2] = {process.memory().alloc(500), process.memory().alloc(500)};
+    for (const uint32_t b : buffers)
+        for (uint32_t i = 0; i < 250; ++i)
+            cpu.write16(b + 2 * i, 0x2000);
+    std::vector<int> loaded;
+    miles.bufferLoaded = [&](uint32_t s, const std::vector<int16_t> &pcm, int rate, int channels) {
+        CHECK(s == sample && rate == 1000 && channels == 1 && pcm.size() == 250 && pcm[0] == 0x2000);
+        loaded.push_back(int(pcm.size()));
+    };
+    // The two buffers in turn, then neither until the first has been heard.
+    CHECK(ail("_AIL_sample_buffer_ready@4", {sample}) == 0);
+    ail("_AIL_load_sample_buffer@16", {sample, 0, buffers[0], 500});
+    CHECK(ail("_AIL_sample_status@4", {sample}) == 4); // playing
+    CHECK(ail("_AIL_sample_buffer_ready@4", {sample}) == 1);
+    ail("_AIL_load_sample_buffer@16", {sample, 1, buffers[1], 500});
+    CHECK(ail("_AIL_sample_buffer_ready@4", {sample}) == 0xffffffff);
+    clock = 200;
+    CHECK(ail("_AIL_sample_buffer_ready@4", {sample}) == 0xffffffff);
+    clock = 260;
+    CHECK(ail("_AIL_sample_buffer_ready@4", {sample}) == 0);
+    CHECK(ail("_AIL_sample_buffer_ready@4", {sample}) == 0);
+    CHECK(miles.samplesPlaying() == 1);
+    // What was loaded is heard, at full volume: 0x2000.
+    std::vector<int16_t> mixed(2 * 22050);
+    mixer.mix(mixed.data(), 22050);
+    CHECK(*std::max_element(mixed.begin(), mixed.end()) == 0x2000);
+    // Both heard: done.
+    clock = 600;
+    CHECK(ail("_AIL_sample_status@4", {sample}) == 2 && miles.samplesPlaying() == 0);
+    CHECK(loaded.size() == 2);
+    // IMA ADPCM, a block of 4 header bytes and 4 of samples: 9 frames.
+    ail("_AIL_set_sample_type@12", {sample, 4, 0});
+    ail("_AIL_set_sample_adpcm_block_size@8", {sample, 8});
+    miles.bufferLoaded = [&](uint32_t, const std::vector<int16_t> &pcm, int, int channels) {
+        CHECK(channels == 1 && pcm.size() == 9 && pcm[0] == 0x100);
+    };
+    cpu.write16(buffers[0], 0x100);
+    cpu.write16(buffers[0] + 2, 0);
+    cpu.write32(buffers[0] + 4, 0);
+    ail("_AIL_load_sample_buffer@16", {sample, 0, buffers[0], 8});
+    CHECK(ail("_AIL_sample_status@4", {sample}) == 4);
+    ail("_AIL_end_sample@4", {sample});
+    CHECK(ail("_AIL_sample_status@4", {sample}) == 2);
+    ail("_AIL_release_sample_handle@4", {sample});
+    CHECK(miles.samplesAllocated() == 0);
+    ail("_AIL_shutdown@0", {});
+}
+
 static void testA3d() {
     x86::Cpu cpu(32u << 20);
     x86::Win32Process process(cpu);
@@ -1325,5 +1401,6 @@ static const test::Suite
                {"direct3d 6", [](const std::filesystem::path &) { testDirect3D6(); }},
                {"input", [](const std::filesystem::path &) { testInput(); }},
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
+               {"miles", [](const std::filesystem::path &) { testMiles(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
            });
