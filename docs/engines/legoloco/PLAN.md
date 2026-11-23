@@ -54,7 +54,7 @@ is in [the first survey](research/first-survey.md).
    office and postcards, saving and loading play, with the mouse and
    keys; [systems/running.md](systems/running.md)): the basic engine
    test taken through them.
-6. **Network play** (steps 1 to 3 done; [a first look](research/network.md),
+6. **Network play** (steps 1 to 4 done; [a first look](research/network.md),
    [what's followed](systems/running.md#network-play)):
    the game's own DirectPlay network code run as it is, with DirectPlay
    stood in for over Reluva's networking. In steps:
@@ -88,7 +88,11 @@ is in [the first survey](research/first-survey.md).
       session screens, the players' boards joined, trains crossing,
       postcards sent and received; `reluva-tool legoloco run` able to
       host and join, and an engine test with two copies over the
-      in-memory network.
+      in-memory network. Done, on the in-memory network: the boards
+      scrolled (scroll bars made to work), a train crossing into the
+      other player's board, and a postcard sent to the other player by
+      mail train and arriving. Not yet: an engine test of it, which
+      needs the game's files (the engine test runs without them).
    5. *Later, if wanted:* playing with the original game on Windows,
       over DirectPlay's own protocol as Microsoft has published it.
 7. **Checking against the original:** recordings of the game running,

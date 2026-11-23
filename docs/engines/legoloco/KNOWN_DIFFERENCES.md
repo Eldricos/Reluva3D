@@ -44,8 +44,6 @@ None yet.
   drawn; the animated cursors' files aren't read.
 - **Not stood in for yet:** the Open and Save dialogs (the game's own
   panels serve instead), and opening a web page (`ShellExecuteA`).
-- **Network play, not tried yet:** postcards between players
-  ([systems/running.md](systems/running.md#network-play)).
 - **No new host:** when a network game's host leaves, the others are told
   the game is lost, where DirectPlay could hand the session to another
   player if the game asked for that (`0x4`).

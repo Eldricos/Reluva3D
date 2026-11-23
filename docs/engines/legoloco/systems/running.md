@@ -236,6 +236,21 @@ calls named were seen made, from the addresses given:
 - **Trains crossing:** a train started from a depot runs to a gate and
   on through the places nobody has, shown on every copy's map, into
   another player's board through its gate *(seen, not traced)*.
+- **Postcards between players:** the back of a card made in the Postcard
+  Editor lists the other players to send it to (a click on the address
+  box shows the list, a double click picks one); posted, it's written to
+  `PostBag\Sort\Out` with the addressee's name at `+0x0c` and the
+  sender's at `+0x21`. A train with a mail wagon (the red one, the
+  second slot's first choice in the depot's new train) collects it at
+  the sender's post office, and the card's gone from `Sort\Out`; where
+  the train reaches the addressee's post office, the card arrives in
+  their `Sort\In`, numbered from 10000 *(seen, not traced)*. A lone
+  engine, the depot's quick start, collects none. The card's file goes
+  between the copies in pieces (message `0x3fc`, `0x439df0`), from the
+  sender's `Att_Out` when the other side asks for it (`0x439bcf`).
+  The players' names are `LEGO.INI`'s `[USER]` `Name`, "Player" unless
+  set: two copies both called that can't tell each other apart in the
+  list.
 
 ### Where it finds its files
 
@@ -259,7 +274,8 @@ calls named were seen made, from the addresses given:
     from there first;
   - the registry's `Path` is `C:\Exe\`;
   - the save folder's `Exe\LEGO.INI`, which the program reads first, is
-    the copy's own with its folders made C:'s
+    made from the copy's own the first time, then kept with what the game
+    and the player write there, its folders made C:'s at each start
     ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md#by-choice));
   - its threads run on host threads of their own
     (`Win32Process::useHostThreads`), and DirectDraw is stood in for by
