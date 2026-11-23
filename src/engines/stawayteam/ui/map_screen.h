@@ -164,7 +164,7 @@ public:
 
         bool present = true;  // on this map, not on another of the mission's
         float opacity = 1.0f; // how much of them shows: a quarter cloaked
-        bool cloaked = false; // their cloaking band's on: the enemies don't see them
+        bool cloaked = false; // their cloaking band's on: they fade to a quarter
         float held = 0.0f;    // seconds they're held still (a stasis field's), kHeldForever
 
         bool alive() const { return dead < 0.0f; }
@@ -568,6 +568,9 @@ private:
     // An enemy after a decoy: it goes to it and shoots it (false if it has
     // none).
     bool fightDecoy(Enemy &e, float seconds);
+    // The nearest decoy of its Valid Targets it sees, by part, or -1; its
+    // distance in `distance`.
+    int closestDecoy(const Enemy &e, float &distance) const;
     // Another enemy of its Valid Targets seen, it's alerted and fights
     // them; true while it does (map_enemies.cpp).
     bool fightFoe(size_t self, float seconds);

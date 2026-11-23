@@ -508,30 +508,39 @@ bool MapScreen::runItemProcess(size_t officer, float seconds) {
     return true;
 }
 
-bool MapScreen::fightDecoy(Enemy &e, float seconds) {
-    // One on patrol or looking about that sees a decoy (a part of category
-    // Decoy: a holographic projection) goes after it and shoots it, as an
-    // officer; it's had with its hit points (inferred: the program's
-    // targeting isn't traced).
-    if (!e.weapon)
-        return false;
-    if (e.decoy < 0) {
-        if (e.state != "Patrol" && e.state != "Investigate")
-            return false;
-        for (const Deployed &d : _deployed) {
-            const MapPart &p = _map.parts[d.part];
-            if (!shown(d.part) || !inCategory(p.category, "Decoy") || !inCategory(p.category, e.validTargets))
-                continue;
-            if (seesPoint(e, p.x, p.y)) {
-                e.decoy = int(d.part);
-                e.target = -1;
-                e.route.clear();
-                setState(e, "Attack");
-                break;
-            }
+int MapScreen::closestDecoy(const Enemy &e, float &distance) const {
+    // A decoy (a holographic projection, Decoy,Player,Team Member) is
+    // found as an officer is, the nearest of its Valid Targets seen
+    // (0x5dd690).
+    int best = -1;
+    for (const Deployed &d : _deployed) {
+        const MapPart &p = _map.parts[d.part];
+        if (!shown(d.part) || !inCategory(p.category, "Decoy") || !inCategory(p.category, e.validTargets) ||
+            !seesPoint(e, p.x, p.y))
+            continue;
+        const float off = std::hypot(p.x - e.x, p.y - e.y);
+        if (best < 0 || off < distance) {
+            best = int(d.part);
+            distance = off;
         }
+    }
+    return best;
+}
+
+bool MapScreen::fightDecoy(Enemy &e, float seconds) {
+    // One calm that sees a decoy nearer than any officer goes after it and
+    // shoots it, as an officer; it's had with its hit points (inferred).
+    // Unarmed, it stands at it, as at an officer.
+    if (e.decoy < 0) {
+        if (e.state != "Patrol" && e.state != "Investigate" && e.state != "Recharge" && e.state != "DoSomething")
+            return false;
+        float distance = 0.0f;
+        e.decoy = closestDecoy(e, distance);
         if (e.decoy < 0)
             return false;
+        e.target = -1;
+        e.route.clear();
+        setState(e, "Attack");
     }
     const size_t part = size_t(e.decoy);
     if (!shown(part)) {
@@ -539,6 +548,8 @@ bool MapScreen::fightDecoy(Enemy &e, float seconds) {
         setState(e, "Patrol");
         return true;
     }
+    if (!e.weapon)
+        return true;
     const MapPart &p = _map.parts[part];
     const float distance = std::hypot(p.x - e.x, p.y - e.y);
     if (distance > e.weapon->range) {

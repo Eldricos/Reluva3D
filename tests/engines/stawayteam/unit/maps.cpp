@@ -2029,7 +2029,7 @@ void testShotLines() {
 
 void testKit() {
     // Ann with the cloaking band, a decoy to put down, a phaser and a
-    // grenade; a guard looking her way, one in a stasis field's oval, one of
+    // grenade; a guard looking away from her, one in a stasis field's oval, one of
     // Electronic Equipment, and one to shoot whose body's then of Dead Bodies.
     const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
     const auto guard = [](const std::string &name, int x, int y, float angle, const std::string &more) {
@@ -2041,7 +2041,7 @@ void testKit() {
     };
     const std::string zax =
         "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=500.000000,300.000000\nTree List=CSortList2D\n{\n" +
-        guard("Watcher", 500, 300, 0.0f, "") + guard("Trapped", 900, 900, 0.0f, "") +
+        guard("Watcher", 500, 300, 3.14159f, "") + guard("Trapped", 900, 900, 0.0f, "") +
         guard("Camera", 900, 300, 0.0f, "Category=Electronic Equipment,Enemy\n") +
         guard("Target", 300, 600, 1.5708f, "Default Death Type=Test\n") +
         "Level Part=CEntityBase\n{\nName=Field\nActivity=Array\n{\nItem Count=1\n"
@@ -2096,8 +2096,8 @@ void testKit() {
         while (now < until)
             screen.update(now += 50);
     };
-    // Cloaked, the watcher doesn't see her; the band drains at its Energy
-    // Use a second, and she fades to a quarter.
+    // Cloaked, the band drains at its Energy Use a second, and she fades
+    // to a quarter.
     screen.choose(0);
     screen.chooseItem(0, 0);
     screen.toggleCharge();
@@ -2122,18 +2122,34 @@ void testKit() {
     CHECK(enemies[2].held == 15.0f && enemies[0].held == 0.0f && enemies[3].held == 0.0f);
     run(3000);
     CHECK(std::abs(enemies[2].held - 14.0f) < 0.01f);
+    // Faded, she walks round in front of the watcher unseen.
+    screen.order(700.0f, 420.0f);
+    run(18000);
+    CHECK(std::abs(a.x - 700.0f) < 2.0f && std::abs(a.y - 420.0f) < 2.0f && enemies[0].state == "Patrol");
     // The decoy put down where it's used, within its range, one used up.
     screen.chooseItem(0, 1);
-    CHECK(screen.useItem(500.0f, 400.0f));
-    run(6000);
+    CHECK(screen.useItem(600.0f, 360.0f));
+    run(21000);
     float x = 0.0f;
     float y = 0.0f;
-    CHECK(screen.partPosition("Decoy 1", x, y) && x == 500.0f && y == 400.0f && a.items[1].count == 1);
-    // Off, she's seen.
+    CHECK(screen.partPosition("Decoy 1", x, y) && x == 600.0f && y == 360.0f && a.items[1].count == 1);
+    // Off, she's unseen till she shows more than 0.35 of herself.
     screen.chooseItem(0, 0);
     screen.toggleCharge();
-    run(8000);
-    CHECK(!a.items[0].on && a.opacity == 1.0f && enemies[0].state != "Patrol");
+    run(21100);
+    CHECK(!a.items[0].on && enemies[0].state == "Patrol");
+    // Seen, but the decoy, made a hologram's Decoy and Player as she
+    // shows, is nearer the watcher: it goes for that.
+    TextObject hologram;
+    CHECK(!readTextObject("CMultipleActionsAction\n{\nAction=Array\n{\nItem Count=2\nAction=CSetCategoryAction\n{\n"
+                          "Who to Set=Decoy 1\nCategory to Set=Decoy\n}\nAction=CSetCategoryAction\n{\n"
+                          "Who to Set=Decoy 1\nCategory to Set=Player\n}\n}\n}\n",
+                          hologram));
+    screen.runAction(&hologram);
+    run(21150);
+    CHECK(a.opacity > 0.35f && enemies[0].state == "Attack" && enemies[0].target == -1 && enemies[0].decoy >= 0);
+    run(23000);
+    CHECK(a.opacity == 1.0f && enemies[0].state != "Patrol");
     // A grenade flies up and comes down where it's thrown.
     screen.chooseItem(0, 3);
     CHECK(screen.useItem(300.0f, 500.0f));

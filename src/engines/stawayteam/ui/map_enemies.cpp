@@ -22,6 +22,8 @@ constexpr float kPi = 3.14159265f;
 // An enemy that's lost sight of its target this long goes back to its
 // patrol (inferred).
 constexpr float kForgetAfter = 5.0f;
+// Seen only showing more than this much of themselves (0x4960d0).
+constexpr float kSeenOpacity = 0.35f;
 // Its target this near, as a part of its weapon's range, one that runs
 // away does, this long (0x42b0ad, 0x42b0d1).
 constexpr float kTooClose = 0.05f;
@@ -113,10 +115,11 @@ bool MapScreen::seesPoint(const Enemy &e, float x, float y) const {
 }
 
 bool MapScreen::sees(const Enemy &e, const Officer &o) const {
-    // Nor one cloaked (inferred: the band's description has them unseen),
+    // Nor one faded to 0.35 or less, as a cloaking band fades them, the
+    // enemies' sight (0x434e90) asking that through 0x497e10 (0x4960d0);
     // nor the team at all by one whose Valid Targets don't name them: the
     // officers are Player and Team Member (inferred).
-    if (o.down() || o.cloaked || !inCategory("Player,Team Member", e.validTargets))
+    if (o.down() || o.opacity <= kSeenOpacity || !inCategory("Player,Team Member", e.validTargets))
         return false;
     return seesPoint(e, o.x, o.y);
 }
@@ -616,7 +619,9 @@ void MapScreen::updateEnemies(float seconds) {
             e.state == "Patrol" || e.state == "Investigate" || e.state == "Recharge" || e.state == "DoSomething";
         if (calm && _teamShown) {
             const int seen = closestSeen(e);
-            if (seen >= 0) {
+            float decoy = 0.0f;
+            if (seen >= 0 && (closestDecoy(e, decoy) < 0 ||
+                              decoy >= std::hypot(_officers[size_t(seen)].x - e.x, _officers[size_t(seen)].y - e.y))) {
                 e.target = seen;
                 e.unseen = 0.0f;
                 e.route.clear();

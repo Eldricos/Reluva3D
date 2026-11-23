@@ -90,7 +90,12 @@ indicator (`Foreground Indicator Sequence` over `Background Indicator
 Sequence`, cut to the charge, `Clip Foreground As Charge Indicator`),
 the charge at `Percent Pos`, and its button, `Button On Frame` or `Button
 Off Frame` with DEACTIVATE or ACTIVATE. Its description says the wearer
-can't be seen.
+can't be seen, and that's done by the fade itself: the enemies' sight
+(`0x434e90`, and the security cameras' `0x559f33`) goes through
+`0x497e10`, which first asks the one looked at whether it shows more than
+0.35 of itself (`0x4960d0`), and the band sets nothing else. So the
+wearer is still seen for the first 0.65 seconds of fading, and seen
+again as soon as they show more than 0.35 once it's off.
 
 ### Gadgets
 
@@ -327,13 +332,15 @@ none left, it can't be used. The bar shows each item's uses left in its
 corner *(inferred)*.
 
 A mine chosen is put down where's clicked, the officer walking there
-first *(inferred)*; drawn on the ground, its model's Default Sequence
+first (its `CDropItemAI`'s `Move Behavior`, `Do Path Finding`); drawn on the ground, its model's Default Sequence
 over and over *(inferred)*. A proximity mine arms after its model's
 delay, then goes when an enemy's in its oval: its Activate Sound and
 noise, and its explosion its fuse later, as a grenade's, hurting by the
 mine's Weapon Damage (read from its model's AI; *inferred* for running
-it here). A remote mine waits for DETONATE on its panel, which sets off
-every one put down *(inferred)*. A tricorder chosen, a click on a part
+it here). A remote mine waits for DETONATE on its panel, which sends a message
+on the player's `Remote Mine` broadcaster (`0x48bca0`), setting off
+every one they've put down; its Destroyed Action makes a noise of 350
+and shocks the living within 150 (an `Electric Shock` effect). A tricorder chosen, a click on a part
 with a model (an enemy where it's got to) sends the officer within its
 Item Range and sight, then shows the model's description on its panel,
 typed out *(inferred)*. A part with its own process for the tricorder
@@ -361,9 +368,8 @@ count; the tricorder's words; the band's charge, as a percentage
 and set to stun it stuns what it hits for its Stun Duration.
 
 The cloaking band (`ui/map_gadgets.cpp`) charges and goes on and off as
-above, from its panel's button, and its wearer fades; on, the enemies
-don't see them *(inferred: from its description; the program's sight
-isn't traced)*.
+above, from its panel's button, and its wearer fades, unseen by the
+enemies while they show 0.35 or less of themselves.
 
 An item whose Process Activity puts something down, sets it up or runs an
 action goes through it as a part's process does: a `CDropItemAI` walking
@@ -378,8 +384,10 @@ putting down (at the place, or in front of the officer), using up and
 giving items, holding someone to a `CWaitAI` or `CDoNothingAI` and
 letting them go (`CSendAIDoneMessage`), warping away, setting a part's
 sequence and categories, checking for an item or a category, and noise.
-An enemy that sees a Decoy goes after it and shoots it, its hit points
-down by the weapon's damage and its Pain Sound, gone at none
+A hologram is found as an officer is, the nearest of an enemy's Valid
+Targets that it sees (`0x5dd690`; it's `Player,Team Member` too): one
+nearer than any officer seen is gone after. Shot, its hit points go
+down by the weapon's damage, with its Pain Sound, and it's gone at none
 *(inferred)*. A `CEveryTouchingOvalTriggerAI` answers to the enemies
 its Triggered by names too *(inferred)*. Held, an officer or enemy does
 nothing. A killed enemy's Death Behaviors' actions run, its categories
@@ -465,10 +473,12 @@ Not there yet: the warp effect's dissolve.
   down 200 on, two bounces and lying still; an EM pulse grenade thrown and
   its noise; the phaser's panel with its parts on it. Unit tests
   (`stawayteam.unit.maps`, kit) check the band's charge and fade and a
-  guard not seeing her, a stasis field's oval holding a guard and the
-  done message letting it go, a radius's action holding only the
-  Electronic Equipment 15 seconds, a decoy put down in range and one used
-  up, the guard seeing her with the band off, and a grenade's arc.
+  guard not seeing her as she walks in front of it, a stasis field's oval
+  holding a guard and the done message letting it go, a radius's action
+  holding only the Electronic Equipment 15 seconds, a decoy put down in
+  range and one used up, the guard not seeing her till she shows more
+  than 0.35 with the band off, and then going for a hologram nearer than
+  her, and a grenade's arc.
 
 ## Open questions
 
@@ -476,9 +486,7 @@ Not there yet: the warp effect's dissolve.
   officer walks and when they use it, what the cursors show, how a
   thrown item turns off what it meets, and whether its speed is held to
   its model's Max Velocity.
-- **The band:** whether the enemies' sight is what it beats, and how
-  (its opacity, `0x496880`).
-- **Gadgets:** how the enemies treat a decoy, and how the player orders an enemy taken over, and how its own mind comes
+- **Gadgets:** how an enemy shoots a hologram, and how the player orders an enemy taken over, and how its own mind comes
   back.
 - **Overload:** what an overloaded phaser's projectile does when it
   goes off, and whether a thrown one keeps its countdown.

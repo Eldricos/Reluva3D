@@ -76,7 +76,7 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
   walking into range before using one, what a grenade's explosion's
   hurt falls from, healing up to the whole, and where the bar
   shows counts; the items' panels' layout and the phaser's switch on
-  it, mines put down and set off, and tricorders' scans
+  it, and tricorders' scans
   ([systems/items.md](systems/items.md#open-questions)).
 - **The interface's buttons:** orders given with time stopped, what
   Cancel Orders drops, how an enemy's sight is chosen and drawn, and the
@@ -86,8 +86,8 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
   where, the inventory's places in the team selection's order and where
   its More Indicator goes, what's marked on the minimap, and the zoom's
   steps ([systems/maps.md](systems/maps.md#open-questions)).
-- **The gadgets:** the band hiding its wearer from the enemies' sight,
-  the enemies going after decoys, and what's put down running its model's AIs as a map's part
+- **The gadgets:** an enemy shooting a hologram down by its hit points,
+  and what's put down running its model's AIs as a map's part
   ([systems/items.md](systems/items.md#open-questions)).
 - **The item panels' layout:** sequences placed from the panel's middle,
   pictures and words from the info bar's corner
