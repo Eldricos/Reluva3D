@@ -355,8 +355,9 @@ void Slider::draw(Surface &screen, int originX, int originY) const {
                 const int sx = x + pos + tx;
                 if (sx < 0 || sx >= screen.w)
                     continue;
-                // The texture tiled from the screen's corner (inferred).
-                const uint8_t *src = _thumbFill.pixel(sx % _thumbFill.w, sy % _thumbFill.h);
+                // The texture from the thumb's own top left: its source
+                // rectangle starts at 0,0 (0x4e4d84).
+                const uint8_t *src = _thumbFill.pixel(tx % _thumbFill.w, ty % _thumbFill.h);
                 uint8_t *dst = screen.row(sy) + sx * 4;
                 dst[0] = src[0];
                 dst[1] = src[1];

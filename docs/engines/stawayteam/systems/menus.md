@@ -448,7 +448,9 @@ as "%d,%d,%d,%d".
   bottom; a groove across its middle, a dark line over a light one; a
   thumb the baseline and 1 wide, its whole height, filled with
   `Interface/Window Texture` (`0x40b670`, the picture the toolkit loads at
-  `0x408330`) and framed raised. The thumb's left is the width less the
+  `0x408330`) from the texture's corner at the thumb's top left (the
+  drawing's source starts at 0,0, `0x4e4d84`) and framed raised. The
+  thumb's left is the width less the
   thumb's, times the value / 99, rounded. Held down with the mouse, the
   value follows it, the thumb's middle under it, kept to one less than
   its maximum (`0x4e4ed0`); the program can set it to its maximum
@@ -588,8 +590,8 @@ Game/Background`:
   effects' scale. Reluva has them do so.
 - **The gamma:** how the game's display applies it. Reluva raises each
   colour to 1 / gamma, brightening the dark ones.
-- **A slider's thumb texture:** where its tiling starts. Reluva tiles it
-  from the screen's corner.
+- **A slider's thumb texture:** whether the drawing tiles it where the
+  thumb is bigger. Reluva does.
 - **Brightness:** the toolkit's darkens toward black in six steps
   (`0x44c1e8`); Reluva scales colours smoothly but for the credits.
 - **The credits' underlines:** how the line drawing uses its colour's

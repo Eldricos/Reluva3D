@@ -41,8 +41,7 @@ None now.
 - **The menus:** the confirm dialog and the other windows in the
   middle of the screen, the credits' underlines blended by their alpha, the toolkit's
   brightness scaling colours smoothly outside the credits, the
-  gamma brightening dark colours, the slider's texture tiled from the
-  screen's corner, the sliders' focus, Esc closing the keyboard
+  gamma brightening dark colours, the slider's texture tiled, the sliders' focus, Esc closing the keyboard
   screen, the keyboard screen's
   keys and tab sizes, voiceovers' and movies'
   volume following the effects',

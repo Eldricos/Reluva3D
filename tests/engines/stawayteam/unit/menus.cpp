@@ -243,6 +243,21 @@ void testToolkit() {
     press.key = key::kEnd;
     CHECK(slider.handleEvent(press, 0, 0) && slider.value() == 99);
 
+    // Its thumb's texture starts at the thumb's top left, not the screen's.
+    image::Image fill;
+    fill.w = 3;
+    fill.h = 3;
+    for (int i = 0; i < 9; ++i)
+        fill.rgba.insert(fill.rgba.end(), {uint8_t(i * 20), 7, 9, 255});
+    Slider textured(&font, 100, fill);
+    textured.setWidth(112);
+    textured.setPosition(4, 4);
+    Surface screen;
+    screen.create(130, 40, PixelFormat::kRGBA32);
+    textured.draw(screen, 0, 0);
+    const uint8_t *inside = screen.row(6) + 6 * 4;
+    CHECK(inside[0] == 8 * 20 && inside[1] == 7);
+
     // A check box: its box the baseline and 2, then the label; a click or
     // its key turns it over.
     CheckBox box("&Pause", &font);
