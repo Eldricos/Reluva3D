@@ -305,7 +305,9 @@ calls named were seen made, from the addresses given:
   seconds, `-move s x y` moves the pointer, `-drag s x1 y1 x2 y2` drags,
   `-key s vk` presses a key (a virtual-key code in hex), and
   `-shot s file.ppm` saves the screen (`-shot file.ppm` at the end).
-  `-nomovies` ends each movie as it starts.
+  `-nomovies` ends each movie as it starts. `-desktop 1024x768` gives
+  the program a desktop of that size (800 by 600 otherwise), as a
+  recording of the original was played at.
 - Network games: the engine plays them over the system's UDP sockets
   ([dplay.md](../../../common/x86/dplay.md)), searching each network the
   computer is on, and this computer's other copies. The game's

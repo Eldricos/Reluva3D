@@ -120,9 +120,13 @@ In the data viewer (`reluva-viewer <folder>`):
   building's frames line up with the marks on its strip.
 - Definitions and Sounds: each opens; the sounds play.
 
+Against the original: a recording of it played, its frames set beside
+Reluva's at the same screen size (`run -desktop WxH`), screen by screen.
+
 ## Last checked
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
 | November 2026 | CD, 1.0.18.2 | Linux | Every reader over the CD's files; the viewer's pages drawn with `reluva-tool legoloco view` |
+| November 2026 | CD, 1.0.18.2 | Linux | Against a published recording of the original (34 minutes of single-player play at 1024 by 768): its intro, front screen, first layout, Toybox and palettes, Postcard Editor, a minifigure's card and a zoombox, beside Reluva's with `run -desktop 1024x768`. The same, but for the screen's size, the name box and the text's font ([KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md)) |
 | November 2026 | CD, 1.0.18.2 | Linux | The playthrough with `reluva-tool legoloco run`; the network game with `pair` (in memory and over UDP) and `run -udp` in two processes on one computer, but for one copy leaving; the postcards with `crd` |

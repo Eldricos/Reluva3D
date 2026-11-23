@@ -68,6 +68,8 @@ struct Copy {
     std::vector<Step> steps;
     std::string shot;
     bool log = false;
+    int desktopWidth = 0; // 0: the process's own
+    int desktopHeight = 0;
 
     // Reads one option at argv[i] that's a copy's own, moving i past its
     // arguments; false if it isn't one.
@@ -81,6 +83,8 @@ struct Copy {
         const char *a = argv[i];
         if (!std::strcmp(a, "-log")) {
             log = true;
+        } else if (!std::strcmp(a, "-desktop") && i + 1 < argc) {
+            std::sscanf(argv[++i], "%dx%d", &desktopWidth, &desktopHeight);
         } else if ((!std::strcmp(a, "-click") || !std::strcmp(a, "-rclick")) && i + 3 < argc) {
             const uint32_t at = ms(argv[i + 1]);
             const int button = a[1] == 'r' ? 1 : 0;
@@ -148,6 +152,8 @@ struct Copy {
         legoloco::GameProcess game(gameDir, save);
         game.video().endAtOnce = noMovies;
         game.directPlay().network = network;
+        if (desktopWidth > 0 && desktopHeight > 0)
+            game.process().screenWidth = desktopWidth, game.process().screenHeight = desktopHeight;
         if (Error err = game.load()) {
             say("%s\n", err.message.c_str());
             return 1;
