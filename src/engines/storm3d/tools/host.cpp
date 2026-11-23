@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file]
-//                          [-cd folder] [-toc file] [-cd-label name] [-fonts folder]:
+//                          [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real]:
 // runs the retail Armada.exe in Reluva's x86 emulator, with its own DLLs
 // from the install and Reluva's stand-ins for Windows, DirectX and the C
 // runtimes, as a reference to study, never as the game is played
@@ -13,6 +13,8 @@
 // disc's files on D:, its table of contents from the disc's cue sheet or
 // media descriptor (.mds), which the game's CD check reads through MCI.
 // Text is drawn in fonts found in the folders given, then the system's.
+// The program's clock follows the instructions it runs, so a run, its
+// input included, comes out the same each time; or it's the real one.
 
 #include "common/cue.h"
 #include "common/fs.h"
@@ -65,7 +67,15 @@ struct Options {
     std::filesystem::path tocFile;
     std::string cdLabel = "ARMADA";
     std::vector<std::filesystem::path> fontFolders;
+    bool realClock = false;
 };
+
+// The clock that follows the instructions run: a Pentium II of 300 MHz
+// running one a cycle (guessed: as fast as the game's time asked for).
+constexpr uint64_t kInstructionsPerMs = 300000;
+// With it, the date starts at noon (UTC) on 15 March 2000, days after the
+// program was built.
+constexpr int64_t kStartDate = 953121600000;
 
 /** What the player does, when (ms of the program's clock). */
 struct InputEvent {
@@ -199,9 +209,10 @@ void writeFrame(const x86::DirectX::Frame &f, const std::filesystem::path &path)
 
 int cmdHost(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(stderr,
-                     "usage: reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] "
-                     "[-input file] [-cd folder] [-toc file] [-cd-label name] [-fonts folder]\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] "
+            "[-input file] [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real]\n");
         return 2;
     }
     Options o;
@@ -226,6 +237,9 @@ int cmdHost(int argc, char **argv) {
             o.cdLabel = argv[++a];
         else if (arg == "-fonts" && a + 1 < argc)
             o.fontFolders.push_back(argv[++a]);
+        else if (arg == "-clock" && a + 1 < argc &&
+                 (std::string(argv[a + 1]) == "real" || std::string(argv[a + 1]) == "instructions"))
+            o.realClock = std::string(argv[++a]) == "real";
         else {
             std::fprintf(stderr, "what is %s?\n", arg.c_str());
             return 2;
@@ -248,6 +262,17 @@ int cmdHost(int argc, char **argv) {
     // A whole program: its threads on host threads, with the stand-ins for
     // threads, waits and thread-local storage that come with them.
     process.useHostThreads();
+    // The clock: the instructions run, and a millisecond each time every
+    // thread waits, when time would otherwise pass on its own.
+    std::atomic<uint64_t> idled{0};
+    if (!o.realClock) {
+        process.milliseconds = [&] { return uint32_t(cpu->executed() / kInstructionsPerMs + idled); };
+        process.idleTick = [&] {
+            if (++idled + cpu->executed() / kInstructionsPerMs >= o.limitMs)
+                process.requestExit();
+        };
+        process.startDate = kStartDate;
+    }
     process.setProgram(kProgram, kInstallFolder);
     // Fonts: the folders given, then where systems keep theirs.
     for (const char *folder : {"/usr/share/fonts", "/usr/local/share/fonts", "/Library/Fonts", "C:/Windows/Fonts"})
@@ -388,13 +413,15 @@ int cmdHost(int argc, char **argv) {
             return 1;
         }
 
-    // The time is also kept here: while the program waits (on the player,
-    // say), its threads can go on changing over without a slice ending.
+    // On the real clock, the time is also kept here: while the program
+    // waits (on the player, say), its threads can go on changing over
+    // without a slice ending.
     std::atomic<bool> finished{false};
     std::thread watchdog([&] {
-        while (!finished && process.now() < o.limitMs)
+        while (o.realClock && !finished && process.now() < o.limitMs)
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
-        process.requestExit();
+        if (o.realClock)
+            process.requestExit();
     });
     uint32_t exitCode = 0;
     const Error err = process.run(*process.module(kProgram), exitCode);
@@ -417,14 +444,14 @@ int cmdHost(int argc, char **argv) {
     return 0;
 }
 
-const tool::Commands kCommands("storm3d",
-                               {
-                                   {"host",
-                                    "<game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file] "
-                                    "[-cd folder] [-toc file] [-cd-label name] [-fonts folder]",
-                                    "run the retail Armada.exe in the x86 emulator, to study: files "
-                                    "opened, frames shown, imports missing, where it stops",
-                                    cmdHost},
-                               });
+const tool::Commands
+    kCommands("storm3d", {
+                             {"host",
+                              "<game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file] "
+                              "[-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real]",
+                              "run the retail Armada.exe in the x86 emulator, to study: files "
+                              "opened, frames shown, imports missing, where it stops",
+                              cmdHost},
+                         });
 
 } // namespace

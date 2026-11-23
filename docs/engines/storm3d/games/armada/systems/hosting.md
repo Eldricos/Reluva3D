@@ -76,11 +76,20 @@ primary surface for the same reason.
 
 `reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N]
 [-save dir] [-input file] [-cd folder] [-toc file] [-cd-label name]
-[-fonts folder]` runs the program for `N` milliseconds of its clock
-(20,000 by default), writes every `N`th frame (and the last) to `dir`,
-and the program's own files to the save folder (by default under the
-system's temporary folder). It prints the imports no stand-in answers,
-the files opened, the frames shown, and where it stopped.
+[-fonts folder] [-clock instructions|real]` runs the program for `N`
+milliseconds of its clock (20,000 by default), writes every `N`th frame
+(and the last) to `dir`, and the program's own files to the save folder
+(by default under the system's temporary folder). It prints the imports
+no stand-in answers, the files opened, the frames shown, and where it
+stopped.
+
+The program's clock follows the instructions it runs, 300,000 a
+millisecond, as a Pentium II of 300 MHz of the game's time *(guessed)*,
+and moves on a millisecond each time every thread waits; its date starts
+at noon (UTC) on 15 March 2000. So a run comes out the same each time,
+its input landing at the same moments, and the time it takes is the
+emulator's, not the game's: waiting costs nothing. `-clock real` runs on
+the real clock and date instead.
 
 The CD is the disc's files on D: (`-cd`), its volume label `ARMADA`
 unless `-cd-label` says otherwise *(guessed: the disc's label isn't
@@ -98,10 +107,9 @@ it is.
 The input file is what the player does, a line each, by the program's
 clock: `<ms> move <x> <y>`, `<ms> click <x> <y>` (the left button,
 released 100 ms later) and `<ms> key <virtual key>`, on the 640 × 480
-screen; `#` starts a comment. The clock is real time, so a click can come
-before the screen it's for is ready when loading is slow: OK is clicked
-again below for that. To start "Premonitions", the mission first on the
-Federation's panel (its map `bzn\rom2.bzn`):
+screen; `#` starts a comment. To start "Premonitions", the mission first
+on the Federation's panel (its map `bzn\rom2.bzn`), and skip its two
+opening scenes (Escape, virtual key 27):
 
 ```text
 4000 move 300 300
@@ -110,8 +118,8 @@ Federation's panel (its map `bzn\rom2.bzn`):
 10000 click 130 150  # the Federation
 13000 move 268 395
 14000 click 268 395  # OK
-16000 move 270 396
-17000 click 270 396  # OK, if the panel wasn't ready
+60000 key 27         # the Romulans' scene
+70000 key 27         # the Federation's
 ```
 
 ```bash
