@@ -459,8 +459,8 @@ Game/Background`:
   it; Esc while waiting gives up; Delete or Backspace takes the chosen
   action's key away; EXIT or Esc closes it. The bindings aren't used yet,
   as there's no game to play. A slider
-  clicked takes the keys: Home, End, Left and Down, Right and Up. Load
-  Save Game and Play Network Game play their sound and lead nowhere yet.
+  clicked takes the keys: Home, End, Left and Down, Right and Up. Play
+  Network Game opens Choose Netgame ([network.md](network.md)).
 - **The toolkit's widgets:** `PictureButton`, `Toggle`, `Slider`,
   `CheckBox` and the frames' `drawBevel` (`ui/widgets.cpp`), as above, placed where the program's layout puts
   them, worked out by hand for each window. A picture button's click plays

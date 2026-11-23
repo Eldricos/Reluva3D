@@ -95,6 +95,9 @@ struct Mission {
     std::string primarySong;                      // of Music/, played on its maps
     std::vector<std::string> randomSongs;         // played on them after it
     std::shared_ptr<const TextObject> objectives; // its CMissionObjectiveManager, if it has one
+    bool availableInNetGame = false;
+    std::string netLobbyScript; // a script of Levels/, and its entry the net lobby shows
+    std::string netLobbyText;
 };
 
 /**

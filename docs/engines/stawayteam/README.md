@@ -34,9 +34,12 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
   settings (brightness, scrolling, pausing when hit) and the sound's
   (volumes, voiceovers, stereo, mixing), the credits, and the dialog
   asking before quitting, and the keyboard's (the game's actions and
-  their keys, the mouse's buttons); the game itself, saved games and
-  network games aren't there yet
+  their keys, the mouse's buttons)
   ([systems/menus.md](systems/menus.md)).
+- **Network games:** Choose Netgame and the Net Lobby, between copies of
+  Reluva on a local network: making and finding a game, joining it, the
+  chat, the mission and its countdown; the missions themselves aren't
+  played over the network yet ([systems/network.md](systems/network.md)).
 - **The briefing:** a new game's first mission's movie, and its lines
   typed out beside the speaker's portrait
   ([systems/briefing.md](systems/briefing.md)).
@@ -76,8 +79,8 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
   only closes it, for now); Settings shows the game's settings, kept
   between runs in `options.ini` in the game's folder for Reluva's files;
   Credits rolls the credits (RESUME or Esc closes them); Quit asks, Yes
-  (or Y) going back to the launcher. Esc asks the same. Load and network
-  games don't do anything yet. The movies are the install's
+  (or Y) going back to the launcher. Esc asks the same. Play Network Game
+  opens the network's screens. The movies are the install's
   `DATA/Movies/` files.
 - **Settings** (with the game, or under Settings... for every game):
   **Opening movies** leaves out the logos and the introduction, which
@@ -106,7 +109,7 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
 | This page | The game, where the engine stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
 | [formats/](formats/) | A page per file format: [data-dat.md](formats/data-dat.md), [text-object.md](formats/text-object.md), [binary-object.md](formats/binary-object.md), [rds.md](formats/rds.md), [frm16.md](formats/frm16.md), [pal.md](formats/pal.md) |
-| [systems/](systems/) | A page per part of how the game behaves: [startup.md](systems/startup.md) (the opening movies and the main menu's screen), [menus.md](systems/menus.md) (the menus, their buttons and fonts), [briefing.md](systems/briefing.md) (the briefing before a mission), [team-selection.md](systems/team-selection.md) (choosing the away team), [maps.md](systems/maps.md) (the maps and their drawing), [objectives.md](systems/objectives.md) (objectives and a mission's end), [items.md](systems/items.md) (the officers' items and using them) |
+| [systems/](systems/) | A page per part of how the game behaves: [startup.md](systems/startup.md) (the opening movies and the main menu's screen), [menus.md](systems/menus.md) (the menus, their buttons and fonts), [briefing.md](systems/briefing.md) (the briefing before a mission), [team-selection.md](systems/team-selection.md) (choosing the away team), [maps.md](systems/maps.md) (the maps and their drawing), [objectives.md](systems/objectives.md) (objectives and a mission's end), [items.md](systems/items.md) (the officers' items and using them), [network.md](systems/network.md) (network games' screens and Reluva's protocol) |
 | [research/](research/README.md) | Working notes: [file-survey.md](research/file-survey.md), what the install holds; [binary-objects.md](research/binary-objects.md), the objects saved in binary, and [classes.txt](research/classes.txt), the game's classes |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |

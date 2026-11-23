@@ -31,7 +31,11 @@ None yet.
 ## Not yet as the original
 
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
-- **The main menu:** Play Network Game plays its sound and nothing else; in Settings, the sound's stereo and mixing
+- **Network games:** Reluva's own protocol between copies of Reluva, not
+  the program's DirectPlay, so the original can't be met; there's no IPX;
+  and the missions aren't played over the network yet: the lobby's
+  countdown runs out in it ([systems/network.md](systems/network.md)).
+- **The main menu:** in Settings, the sound's stereo and mixing
   choices, and the keyboard's bindings, are kept but don't change
   anything yet
   ([systems/menus.md](systems/menus.md)).

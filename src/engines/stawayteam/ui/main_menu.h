@@ -16,6 +16,7 @@
 #include "engines/stawayteam/ui/settings.h"
 #include "engines/stawayteam/ui/key_config.h"
 #include "engines/stawayteam/ui/map_screen.h"
+#include "engines/stawayteam/ui/net_menus.h"
 #include "engines/stawayteam/ui/save_menu.h"
 #include "engines/stawayteam/ui/sound_options.h"
 #include "engines/stawayteam/ui/team_selection.h"
@@ -62,8 +63,8 @@ private:
  * The main menu: what Rules.txt's `Main Menu` puts on its screen (its
  * "nernies": movies, looping, and pictures, each at its position), the
  * startup song, and its six buttons. Start New Game asks the difficulty,
- * Settings shows the settings, Credits the credits, Quit asks to be sure;
- * loading and network games aren't there yet.
+ * Load Save Game shows the saves, Play Network Game the network's screens,
+ * Settings the settings, Credits the credits, and Quit asks to be sure.
  */
 class MainMenu {
 public:
@@ -160,6 +161,12 @@ private:
     Campaign _missionStart;
     std::filesystem::path _saves;
     std::unique_ptr<SaveGameScreen> _saveScreen;
+    std::unique_ptr<ChooseNetGameScreen> _chooseNetGame;
+    std::unique_ptr<NetLobbyScreen> _netLobby;
+    // Choose Netgame opened over the menu.
+    void openNetGame();
+    // The network screens' news each frame.
+    void updateNetScreens(uint64_t now);
     // The save or load screen opened, saving the mission's start.
     void openSaveScreen(SaveGameScreen::Mode mode);
     // A saved game begun: its mission, from its briefing.

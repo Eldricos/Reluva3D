@@ -8,6 +8,7 @@
 #include "engines/stawayteam/game/controls.h"
 
 #include <filesystem>
+#include <string>
 
 namespace reluva::stawayteam {
 
@@ -57,6 +58,8 @@ public:
     bool playVoiceovers = true;
     bool stereo = true;
     int mixingChannels = kMixingFaster;
+
+    std::string netPlayerName; // the name last typed in Choose Netgame
 
     /** The keys and mouse buttons the game's actions are bound to. */
     Controls controls;

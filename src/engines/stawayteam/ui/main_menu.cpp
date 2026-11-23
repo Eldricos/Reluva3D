@@ -38,12 +38,16 @@ constexpr std::array<const char *, 6> kMainButtons = {"&START NEW GAME", "&LOAD 
                                                       "S&ETTINGS",       "&CREDITS",        "&QUIT"};
 constexpr size_t kStartButton = 0;
 constexpr size_t kLoadButton = 1;
+constexpr size_t kNetworkButton = 2;
 constexpr size_t kSettingsButton = 3;
 constexpr size_t kCreditsButton = 4;
 constexpr size_t kQuitButton = 5;
 // The program's, not Rules.txt's Menu Font (0x50359a).
 const char *const kMainFont = "Placar Condensed";
-const char *const kMainButtonSound = "Interface/Main Screen Button.wav";     // 0x5036b9
+const char *const kMainButtonSound = "Interface/Main Screen Button.wav"; // 0x5036b9
+// Reluva's own, as the countdown runs out: the missions themselves aren't
+// played over the network yet.
+const char *const kNoNetMissions = "Reluva can't play missions over the network yet.";
 const char *const kQuitQuestion = "Are you sure you want to exit the game?"; // 0x640058
 // The dialog's question is in this font, whatever Rules.txt's Menu Font
 // says (0x4872b5).
@@ -211,6 +215,23 @@ bool MainMenu::run() {
                 }
                 continue;
             }
+            if (_netLobby) {
+                if (_netLobby->handleEvent(ev, _mixer) == NetLobbyScreen::Choice::kExit) {
+                    _netLobby.reset();
+                    _sys.setTextInput(false);
+                }
+                continue;
+            }
+            if (_chooseNetGame) {
+                const ChooseNetGameScreen::Choice choice = _chooseNetGame->handleEvent(ev, _mixer, _sys.getMillis());
+                if (choice == ChooseNetGameScreen::Choice::kCancel) {
+                    _options.netPlayerName = _chooseNetGame->name();
+                    _options.save();
+                    _chooseNetGame.reset();
+                    _sys.setTextInput(false);
+                }
+                continue;
+            }
             if (_difficultyWindow) {
                 if (const auto closed = _difficultyWindow->handleEvent(ev, _mixer)) {
                     _difficultyWindow.reset();
@@ -337,6 +358,8 @@ bool MainMenu::run() {
                 _dialog = std::make_unique<ConfirmDialog>(_data, _rules, kQuitQuestion, _screen.w, _screen.h);
             else if (chosen == int(kLoadButton) && !_saves.empty())
                 openSaveScreen(SaveGameScreen::Mode::kLoad);
+            else if (chosen == int(kNetworkButton))
+                openNetGame();
             else if (chosen == int(kStartButton))
                 _difficultyWindow = std::make_unique<DifficultyWindow>(_data, _screen.w, _screen.h, _difficulty);
             else if (chosen == int(kSettingsButton))
@@ -354,6 +377,7 @@ bool MainMenu::run() {
             song = _mixer->play(_song, audio::SoundType::kMusic, audio::kMaxVolume, 0, true);
         }
         playMissionMusic();
+        updateNetScreens(_sys.getMillis());
         draw();
         brighten();
         // The map's own pointer over it, else Interface/Cursors' Pointer
@@ -691,6 +715,10 @@ void MainMenu::draw() {
         _teamSelection->draw(_screen, now);
         return;
     }
+    if (_netLobby) {
+        _netLobby->draw(_screen, now);
+        return;
+    }
     for (auto &part : _parts) {
         if (!part->movieData.empty()) {
             // Started again as it ends: the screen's movies loop.
@@ -712,8 +740,48 @@ void MainMenu::draw() {
     if (_credits)
         _credits->draw(_screen, now);
     drawWindows(now);
+    if (_chooseNetGame)
+        _chooseNetGame->draw(_screen, now);
     if (_dialog)
         _dialog->draw(_screen);
+}
+
+void MainMenu::openNetGame() {
+    NetAccess network;
+    network.open = [this](uint16_t port) {
+        std::unique_ptr<net::UdpSocket> socket;
+        if (_sys.openUdp(port, socket))
+            return std::unique_ptr<net::UdpSocket>();
+        return socket;
+    };
+    // The local network's broadcasts, and this machine, for a game made by
+    // another copy on it.
+    network.askAt.push_back(net::Address::broadcast(netplay::kDefaultPort));
+    for (uint32_t ip : _sys.broadcastAddresses())
+        network.askAt.push_back({ip, netplay::kDefaultPort});
+    network.askAt.push_back({0x7f000001u, netplay::kDefaultPort});
+    _chooseNetGame = std::make_unique<ChooseNetGameScreen>(_data, _rules, std::move(network), _options.netPlayerName,
+                                                           _screen.w, _screen.h);
+    _sys.setTextInput(true);
+}
+
+void MainMenu::updateNetScreens(uint64_t now) {
+    if (_chooseNetGame && _chooseNetGame->update(now) == ChooseNetGameScreen::Choice::kLobby) {
+        _options.netPlayerName = _chooseNetGame->name();
+        _options.save();
+        _netLobby =
+            std::make_unique<NetLobbyScreen>(_data, _rules, loadNetMissions(_data), _chooseNetGame->takeSession());
+        _chooseNetGame.reset();
+    }
+    if (!_netLobby)
+        return;
+    const NetLobbyScreen::Choice choice = _netLobby->update(now);
+    if (choice == NetLobbyScreen::Choice::kExit) {
+        _netLobby.reset();
+        _sys.setTextInput(false);
+    } else if (choice == NetLobbyScreen::Choice::kStart) {
+        _netLobby->notice(kNoNetMissions);
+    }
 }
 
 void MainMenu::brighten() {

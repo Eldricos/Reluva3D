@@ -311,6 +311,9 @@ Error loadMission(const Archive &data, int number, Mission &out) {
     if (const TextObject *songs = mds.object("Random Song"))
         for (const TextField *item : songs->items())
             out.randomSongs.push_back(item->value);
+    out.availableInNetGame = mds.integer("Available in Net Game").value_or(0) != 0;
+    out.netLobbyScript = text(mds, "Net Lobby Script");
+    out.netLobbyText = text(mds, "Net Lobby Text");
     for (TextField &f : mds.fields)
         if (f.key == "Objective" && f.object)
             out.objectives = std::shared_ptr<const TextObject>(std::move(f.object));

@@ -22,6 +22,7 @@ reluva_add_engine(stawayteam
         ui/map_mission.cpp
         ui/map_noise.cpp
         ui/map_screen.cpp
+        ui/net_menus.cpp
         ui/save_menu.cpp
         ui/map_triggers.cpp
         ui/map_vision.cpp
@@ -39,6 +40,7 @@ reluva_add_engine(stawayteam
         game/controls.cpp
         game/options.cpp
         game/map.cpp
+        game/netplay.cpp
         game/objectives.cpp
         game/team.cpp
         game/water_warp.cpp
@@ -86,9 +88,10 @@ reluva_add_engine_tests(stawayteam
         ${tests}/unit/formats.cpp
         ${tests}/unit/maps.cpp
         ${tests}/unit/menus.cpp
+        ${tests}/unit/network.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.formats unit.maps unit.menus engine)
+        unit.detection unit.formats unit.maps unit.menus unit.network engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

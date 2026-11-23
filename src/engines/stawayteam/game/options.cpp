@@ -29,6 +29,9 @@ const char *const kMusicMute = "Music Mute";
 const char *const kVoiceovers = "Play Voiceovers";
 const char *const kStereo = "Stereo Sounds";
 const char *const kMixing = "Sounds Mixing Channels";
+// The network's name (0x640e54, 0x640e60).
+const char *const kNetSection = "Net Game";
+const char *const kNetPlayerName = "Net Player Name";
 
 int whole(const Config &file, const char *key, int fallback) {
     const std::string value = file.get(kSection, key);
@@ -76,6 +79,7 @@ void GameOptions::load(const std::filesystem::path &file) {
     playVoiceovers = flag(_file, kVoiceovers, true);
     stereo = flag(_file, kStereo, true);
     mixingChannels = whole(_file, kMixing, kMixingFaster);
+    netPlayerName = _file.get(kNetSection, kNetPlayerName);
     controls.load(_file);
 }
 
@@ -97,6 +101,7 @@ void GameOptions::save() const {
     file.set(kSection, kVoiceovers, playVoiceovers ? "1" : "0");
     file.set(kSection, kStereo, stereo ? "1" : "0");
     file.set(kSection, kMixing, std::to_string(mixingChannels));
+    file.set(kNetSection, kNetPlayerName, netPlayerName);
     controls.save(file);
     // The folder for the game's files may not be made yet.
     std::error_code ec;
