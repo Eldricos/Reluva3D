@@ -150,6 +150,19 @@ public:
      * disabled.
      */
     int press(size_t i, audio::Mixer *mixer);
+    /**
+     * Gives button `i` the keyboard's focus, as a dialog does its default
+     * button (0x409a70). From then on, Down, Right or Tab moves it to the
+     * next button, Up, Left or Shift+Tab to the one before, round from
+     * the last to the first and back (0x401e00, 0x409be0, 0x409c30).
+     */
+    void setFocus(size_t i) { _focus = int(i); }
+    int focus() const { return _focus; }
+    /**
+     * Presses the button with the focus as Enter does, or button
+     * `fallback`, the default, if it has none or it's disabled (0x401e57).
+     */
+    int pressFocused(size_t fallback, audio::Mixer *mixer);
     /** Draws them at `now` (milliseconds; 0: with no clock). */
     void draw(Surface &screen, uint64_t now = 0) const;
     /** Sets every button's fade rate (Button::setFadeRate). */
@@ -163,6 +176,7 @@ private:
     int _originY = 0;
     int _hover = -1;
     int _pressed = -1;
+    int _focus = -1;
 };
 
 } // namespace reluva::stawayteam

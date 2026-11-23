@@ -105,6 +105,19 @@ void testButtons() {
     CHECK(label(false, 1300) == whole * 64 / 256);
     CHECK(label(false, 2000) == whole * 64 / 256);
 
+    // With the focus, the arrows and Tab move it round the buttons, and
+    // Enter presses the one that has it.
+    group.setFocus(0);
+    Event arrow;
+    arrow.type = EventType::kKeyDown;
+    arrow.key = key::kDown;
+    CHECK(group.handleEvent(arrow, nullptr) == -1 && group.focus() == 1);
+    arrow.key = key::kTab;
+    CHECK(group.handleEvent(arrow, nullptr) == -1 && group.focus() == 0);
+    arrow.key = key::kUp;
+    CHECK(group.handleEvent(arrow, nullptr) == -1 && group.focus() == 1);
+    CHECK(group.pressFocused(0, nullptr) == 1);
+
     Event ev;
     ev.type = EventType::kKeyDown;
     ev.key = 'q';
@@ -701,6 +714,13 @@ void testEscapeMenu() {
     CHECK(window.handleEvent(key, nullptr) == EscapeWindow::Choice::kRestart);
     key.key = 'c';
     CHECK(window.handleEvent(key, nullptr) == EscapeWindow::Choice::kConfigure);
+    // In the dialog, Left gives Yes the focus, and Enter presses it.
+    key.key = 'm';
+    CHECK(window.handleEvent(key, nullptr) == EscapeWindow::Choice::kNone);
+    key.key = key::kLeft;
+    CHECK(window.handleEvent(key, nullptr) == EscapeWindow::Choice::kNone);
+    key.key = key::kReturn;
+    CHECK(window.handleEvent(key, nullptr) == EscapeWindow::Choice::kRestart);
     // Enter in the dialog presses No, its default button.
     key.key = 'm';
     CHECK(window.handleEvent(key, nullptr) == EscapeWindow::Choice::kNone);

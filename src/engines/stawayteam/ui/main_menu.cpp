@@ -78,13 +78,16 @@ ConfirmDialog::ConfirmDialog(const Archive &data, const TextObject &rules, std::
         button.setSound(gameSound(data, readText(def, key + " Press Sound")));
         _buttons.add(std::move(button));
     }
+    _buttons.setFocus(1);
     _buttons.setOrigin(_x, _y);
 }
 
 std::optional<bool> ConfirmDialog::handleEvent(const Event &ev, audio::Mixer *mixer) {
-    // With Yes and No, No is the dialog's default and cancel button
-    // (0x4871dd).
-    const int chosen = isEnter(ev) || isEscape(ev) ? _buttons.press(1, mixer) : _buttons.handleEvent(ev, mixer);
+    // With Yes and No, No is the dialog's default and cancel button, and
+    // has the focus to start with (0x4871dd).
+    const int chosen = isEnter(ev)    ? _buttons.pressFocused(1, mixer)
+                       : isEscape(ev) ? _buttons.press(1, mixer)
+                                      : _buttons.handleEvent(ev, mixer);
     if (chosen < 0)
         return std::nullopt;
     return chosen == 0;
@@ -163,8 +166,9 @@ MainMenu::MainMenu(System &sys, Surface &screen, const Archive &data, const std:
         y += button.height() + spacing;
         _buttons.add(std::move(button));
     }
-    // Its buttons fade at 4 a second (0x50377e).
+    // Its buttons fade at 4 a second (0x50377e); the first has the focus.
     _buttons.setFadeRate(4.0f);
+    _buttons.setFocus(kStartButton);
 
     // The startup song, from Music/.
     const std::string song = readText(&rules, "Startup Song");
@@ -355,7 +359,7 @@ bool MainMenu::run() {
             }
             // START NEW GAME is the menu's default button, QUIT its cancel
             // button (0x503911).
-            const int chosen = isEnter(ev)    ? _buttons.press(kStartButton, _mixer)
+            const int chosen = isEnter(ev)    ? _buttons.pressFocused(kStartButton, _mixer)
                                : isEscape(ev) ? _buttons.press(kQuitButton, _mixer)
                                               : _buttons.handleEvent(ev, _mixer);
             if (chosen == int(kQuitButton))

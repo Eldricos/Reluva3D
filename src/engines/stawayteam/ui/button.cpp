@@ -194,6 +194,14 @@ int ButtonGroup::handleEvent(const Event &ev, audio::Mixer *mixer) {
         }
         break;
     case EventType::kKeyDown:
+        if (_focus >= 0 && !_buttons.empty()) {
+            const bool shift = (ev.mods & keymod::kShift) != 0;
+            const int count = int(_buttons.size());
+            if (ev.key == key::kDown || ev.key == key::kRight || (ev.key == key::kTab && !shift))
+                _focus = (_focus + 1) % count;
+            else if (ev.key == key::kUp || ev.key == key::kLeft || (ev.key == key::kTab && shift))
+                _focus = (_focus + count - 1) % count;
+        }
         for (size_t i = 0; i < _buttons.size(); ++i)
             if (_buttons[i].enabled() && isShortcut(ev, _buttons[i].shortcut()))
                 chosen = int(i);
@@ -202,6 +210,12 @@ int ButtonGroup::handleEvent(const Event &ev, audio::Mixer *mixer) {
         break;
     }
     return chosen >= 0 ? press(size_t(chosen), mixer) : -1;
+}
+
+int ButtonGroup::pressFocused(size_t fallback, audio::Mixer *mixer) {
+    if (_focus >= 0 && _buttons[size_t(_focus)].enabled())
+        return press(size_t(_focus), mixer);
+    return press(fallback, mixer);
 }
 
 int ButtonGroup::press(size_t i, audio::Mixer *mixer) {

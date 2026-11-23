@@ -43,8 +43,9 @@ None now.
   the slider's texture tiled, the sliders' focus, Esc closing the keyboard
   screen, the keyboard screen's
   keys and tab sizes, voiceovers' and movies'
-  volume following the effects', and
-  the buttons' fades counted in seconds
+  volume following the effects', the
+  buttons' fades counted in seconds, and the main menu's focus starting
+  on START NEW GAME
   ([systems/menus.md](systems/menus.md#open-questions)).
 - **Maps:** the camera's and zoom's frames taken as 30 a second, the
   drawing order's ties, the water's clock stopping while

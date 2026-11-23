@@ -241,9 +241,15 @@ typed characters. The scan code is kept too (`0x4e8ec0`).
   plays `Error.wav`. Without Alt, a letter is only the focused child's.
 - **A dialog's keys** (`0x401e00`, the menus' own windows' key handler
   after the toolkit's): Up or Left gives the child before the focus
-  (`0x409ba0`), Down or Right the next (`0x409b60`); Enter presses the
-  child with the focus, or else the dialog's default button (`+0x11c`);
-  Esc presses its cancel button (`+0x120`). Pressed, a button plays its
+  (`0x409ba0`), Down or Right the next (`0x409b60`), as Shift+Tab and Tab
+  do; Enter presses the child with the focus, or else the dialog's
+  default button (`+0x11c`); Esc presses its cancel button (`+0x120`).
+  The children make a ring: the one with the focus is moved to its
+  start (`0x409a70`), and the next or the one before is the nearest
+  that takes the focus (`+0x59`) and is shown (`+0x5c`), round past the
+  end (`0x409be0`, `0x409c30`). The dialogs give their default button
+  the focus as they're made (the confirm dialog's, `0x4871e9`); the main
+  menu gives none, so its first child has it. Pressed, a button plays its
   sound and does what a click does. The menus set them:
 
   | Window | Default (Enter) | Cancel (Esc) |
@@ -531,8 +537,9 @@ Game/Background`:
   brightness as above, the main menu's at 4 a second; a disabled
   button's shortcut plays nothing.
 - **The main menu:** `MainMenu` (`ui/main_menu.cpp`), its screen and its
-  buttons as above; Enter and Esc press the default and cancel buttons
-  as above, the button's sound played. Quit opens the confirm dialog, in
+  buttons as above; Enter and Esc press the focused (START NEW GAME to
+  start with) and cancel buttons as above, the button's sound played,
+  and the arrows and Tab move the focus round the buttons. Quit opens the confirm dialog, in
   the middle of the screen; Yes (or Y) ends the game and goes back to the
   launcher, No (N, Enter, Esc) closes it. Credits opens the credits
   window (`CreditsWindow`, `ui/credits.cpp`, the roll a `CreditsRoll`),
@@ -614,8 +621,11 @@ Game/Background`:
   by Tab. Reluva gives it to the last slider clicked, and has no Tab.
 - **The keyboard screen's default and cancel buttons:** not traced;
   Reluva closes it with Esc.
-- **The focus moved by the arrows:** Reluva doesn't move it, and Enter
-  always presses the default button.
+- **The main menu's first child:** which of its parts and buttons comes
+  first, and so has the focus. Reluva gives it to START NEW GAME.
+- **The focus outside the main menu and the dialog:** the other
+  windows' arrows and Tab move no focus in Reluva, and Enter presses
+  their default button.
 - **Speech's volume:** whether voiceovers and the movies follow the
   effects' scale. Reluva has them do so.
 - **A slider's thumb texture:** whether the drawing tiles it where the
