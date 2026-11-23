@@ -5,12 +5,15 @@
 // making an Engine to run one) and its Engine, which runs the game's own
 // program.
 
+#include "audio/mixer.h"
 #include "common/fs.h"
+#include "common/settings.h"
 #include "engines/engine.h"
 #include "engines/sfc/host/game_process.h"
 #include "engines/sfc/host/player.h"
 
 #include <cstdio>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -44,7 +47,8 @@ const std::vector<GameVariant> kFallback = {
 
 /**
  * The game running: its own StarFleet2.exe in the x86 emulator (Player),
- * its frames in the window, the mouse and keys passed to it.
+ * its frames in the window, its sound to the mixer, the mouse and keys
+ * passed to it.
  */
 class SfcEngine : public Engine {
 public:
@@ -54,7 +58,20 @@ public:
         if (!fs::findFile(_target.path, GameProcess::kProgram))
             return Error::fail(std::string("Starfleet Command II's program, ") + GameProcess::kProgram + ", isn't in " +
                                _target.path.string());
-        Player player(_target.path, _target.savePath);
+        // Its sound, through Miles, to the mixer; without an audio device
+        // nothing plays.
+        _mixer = std::make_unique<audio::Mixer>(_sys.audioRate());
+        _mixer->setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
+        const bool audioOut = !audio::startMixerOutput(_sys, *_mixer);
+        struct AudioStop {
+            System &sys;
+            bool on;
+            ~AudioStop() {
+                if (on)
+                    sys.stopAudio();
+            }
+        } audioStop{_sys, audioOut};
+        Player player(_target.path, _target.savePath, audioOut ? _mixer.get() : nullptr);
         player.start();
         int width = 800; // the game's own resolution, until its first frame says
         int height = 600;
@@ -117,6 +134,7 @@ private:
     System &_sys;
     GameTarget _target;
     Surface _screen;
+    std::unique_ptr<audio::Mixer> _mixer;
 };
 
 /**

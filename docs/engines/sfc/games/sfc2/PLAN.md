@@ -85,10 +85,13 @@ on their pages in `formats/` and `systems/`.
    - the Windows functions the spike stood in for in the engine
      (`src/engines/sfc/host/system.cpp`), moved to the shared layer as
      they're settled;
+   - DirectPlay's lobby (next: the game asks for `IDirectPlayLobby3A`
+     after its title screen and stops without it);
    - Winsock (`nfs` has one in its host) and DirectPlay 4, for the
      network;
-   - Miles' 25 `AIL_*` sample functions, on the shared mixer (next: past
-     its CD key the game stops at its first);
+   - Miles' 25 `AIL_*` sample functions, on the shared mixer (done): the
+     menu music plays, byte for byte the music's WAVs
+     ([miles.md](../../../../common/x86/miles.md));
    - DirectSound 3D buffers, if Miles doesn't take all the sound.
 6. **The game hosted:** the front end, a skirmish, the tutorials, then a
    campaign and its missions (the game loads their DLLs itself), saves,

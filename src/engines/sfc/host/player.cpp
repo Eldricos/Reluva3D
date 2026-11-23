@@ -12,8 +12,8 @@ namespace {
 constexpr uint32_t kMemoryMb = 256;
 } // namespace
 
-Player::Player(std::filesystem::path gameDir, std::filesystem::path saveDir)
-    : _dir(std::move(gameDir)), _saveDir(std::move(saveDir)) {
+Player::Player(std::filesystem::path gameDir, std::filesystem::path saveDir, audio::Mixer *mixer)
+    : _dir(std::move(gameDir)), _saveDir(std::move(saveDir)), _mixer(mixer) {
 }
 
 Player::~Player() {
@@ -68,6 +68,7 @@ std::string Player::takeOutput() {
 void Player::work() {
     GameProcess game(_dir, kMemoryMb);
     game.setSaveFolder(_saveDir);
+    game.miles().mixer = _mixer;
     x86::Win32Process &process = game.process();
     process.output = [this](const std::string &text) {
         std::lock_guard<std::mutex> lock(_mutex);

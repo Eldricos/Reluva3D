@@ -10,7 +10,7 @@ Command (1999) and Orion Pirates (2001) could follow.
 
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
-| [Star Trek: Starfleet Command Volume II: Empires at War](games/sfc2/README.md) | `sfc2` | Taldren / Interplay, 2000 | Windows | English retail 1.0; others, the 2.0.3.6 patch among them, as an unknown release | Recognised; a data viewer of its files; its own program runs, hosted, to its title screen, its CD key typed and kept |
+| [Star Trek: Starfleet Command Volume II: Empires at War](games/sfc2/README.md) | `sfc2` | Taldren / Interplay, 2000 | Windows | English retail 1.0; others, the 2.0.3.6 patch among them, as an unknown release | Recognised; a data viewer of its files; its own program runs, hosted, to its title screen and its menu music, its CD key typed and kept |
 
 ## Where it stands
 

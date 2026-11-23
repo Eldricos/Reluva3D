@@ -71,6 +71,7 @@ GameProcess::GameProcess(std::filesystem::path install, uint32_t memoryMb) : _di
     };
     _directX = std::make_unique<x86::DirectX>(*_process);
     _directInput = std::make_unique<x86::DirectInput>(*_process);
+    _miles = std::make_unique<x86::Miles>(*_process);
     addSystem();
 }
 

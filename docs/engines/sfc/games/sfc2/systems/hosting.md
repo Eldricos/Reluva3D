@@ -19,8 +19,9 @@ waits for a key to be typed. Run from the launcher it's in Reluva's
 window, and the mouse and keys reach it: a key typed into the dialog is
 checked by the game. Given the owner's key, it writes it to the
 registry, which Reluva keeps in the game's save folder, shows its full
-title screen, and starts its sound, through Miles, which nothing stands
-in for yet. Run again, it finds the key and doesn't ask.
+title screen, and starts its sound, through Miles, and its menu music.
+Run again, it finds the key and doesn't ask. Next it asks COM for
+DirectPlay's lobby, which nothing stands in for, and fails.
 
 ## How it works
 
@@ -139,6 +140,26 @@ copyright lines and "v2.0.0.2" at the bottom right; over them the CD
 key dialog, its ENTER and EXIT buttons, and the game's own mouse
 pointer.
 
+### Its sound
+
+It plays its sound through Miles (`mss32.dll`), which Reluva stands in
+for ([miles.md](../../../../../common/x86/miles.md)). After its title
+screen it starts Miles (`AIL_set_redist_directory`, `AIL_startup`), opens
+a wave-out driver with a format of its own (`AIL_waveOutOpen`), asks the
+smallest buffer for 22,050 Hz 16-bit stereo, sets the master volume to
+127, and allocates 16 sample handles. For its music it allocates two
+128 KB buffers (`AIL_mem_alloc_lock`), sets a sample to 22,050 Hz,
+format 3 (16-bit stereo) and a volume of 38, and fills the buffers in
+turn from the music's WAV files, as `AIL_sample_buffer_ready` offers
+them, checking `AIL_sample_status` between.
+
+The music is the music zip's WAVs, played in the order
+`Assets/Sound/SFCMusic.txt` gives: at the menu, `MNU_A1.WAV` and then
+`MNU_A2.WAV` with nothing between, read and passed to Miles as they are
+*(confirmed)*, by `reluva-tool sfc host -sound`. The game reads the zips
+itself; its effects and voices, which are IMA ADPCM
+([sound-zips.md](../formats/sound-zips.md)), aren't played before it stops.
+
 ### Its mouse and keys
 
 The game asks where the pointer is with `GetCursorPos` (and
@@ -172,7 +193,8 @@ known.
 - **The engine** (`src/engines/sfc/sfc.cpp`): starting the game in the
   launcher runs the program on a thread of its own (`Player`,
   `src/engines/sfc/host/player.h`), shows each frame it shows in the
-  window, scaled to fit, and passes on the mouse, where it is on the
+  window, scaled to fit, plays its sound through the mixer at the
+  launcher's master volume, and passes on the mouse, where it is on the
   game's 800x600 screen, its buttons and wheel, and the keys. The
   window's own pointer is hidden, as the game draws its own. Closing the
   window or Ctrl+F5 asks first, then stops the program.
@@ -190,8 +212,9 @@ known.
   types thrown and the text in the object (a `tErrInfo`'s message).
 - **What it needed of the shared layer** (`src/emulation/x86/`):
   semaphores (`CreateSemaphoreA`, `ReleaseSemaphore`, and waiting on
-  them), a `GetFileType` for files opened through the path mapping, a
-  window's longs and subclassing (`GetWindowLongA`, `SetWindowLongA`,
+  them), Miles' sample functions
+  ([miles.md](../../../../../common/x86/miles.md)), a `GetFileType` for
+  files opened through the path mapping, a window's longs and subclassing (`GetWindowLongA`, `SetWindowLongA`,
   `CallWindowProcA`), `TranslateMessage` typing capitals and
   punctuation with Shift as a US keyboard does, a keyed blit failing
   from a source with no colour key, Direct3D 6
@@ -212,11 +235,14 @@ known.
   the frames the program shows, a step a frame: `-type <frame> <text>`
   types (Shift held for capitals, `\n` for Enter), `-click <frame> <x>
   <y>` clicks with the left button, `-shot <frame> <out.png>` saves that
-  frame. `reluva-tool sfc disasm <game folder> <start> <end>`
+  frame; `-sound <folder>` writes what each Miles sample played, one WAV
+  a sample. `reluva-tool sfc disasm <game folder> <start> <end>`
   disassembles the program.
-- **Not yet:** sound, the network, the opening movie. Past its CD key
-  the program stops at its first call into Miles,
-  `AIL_set_redist_directory`.
+- **Not yet:** the network, the opening movie. After its title screen,
+  with its music started, the program asks COM for DirectPlay's lobby
+  (`IDirectPlayLobby3A`), which nothing stands in for; its code that
+  reports the failure reads through the object it didn't get, at
+  0x619d3f, and the run stops.
 
 ## Sources and checks
 

@@ -34,11 +34,12 @@ Detection signatures (MD5 of each file's start, and its size, as
   `StarFleet2.exe` in the x86 emulator, in Reluva's window, through its
   start-up, its 3D test on Reluva's Direct3D 6 and its loading to its
   title screen and its CD key dialog, with the mouse and keys passed to
-  it: a key can be typed, and the game checks it and remembers it. Past
-  its title screen it stops for want of Miles' sound.
+  it: a key can be typed, and the game checks it and remembers it. Its
+  sound plays through Reluva's Miles: past its title screen its menu
+  music starts, and then it stops for want of DirectPlay's lobby.
   `reluva-tool sfc host` runs it headless
   ([systems/hosting.md](systems/hosting.md)).
-- **Not yet:** anything past the title screen; sound, the network; the
+- **Not yet:** anything past the title screen; the network; the
   `.gf`, `.mct` and `.mvm`
   settings, campaign and map files; the opening movie; the objects in
   `sprites.q3`.

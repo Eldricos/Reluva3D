@@ -30,8 +30,9 @@ None yet.
 ## Not yet as the original
 
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
-The game runs only as far as its title screen: past its CD key it
-stops for want of Miles' sound; it has no network yet
+The game runs only as far as its title screen and the start of its menu
+music: then it stops for want of DirectPlay's lobby; it has no network
+yet
 ([systems/hosting.md](systems/hosting.md)).
 
 ## Additions outside the game

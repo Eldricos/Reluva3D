@@ -13,6 +13,10 @@
 #include <thread>
 #include <vector>
 
+namespace reluva::audio {
+class Mixer;
+}
+
 namespace reluva::sfc {
 
 class GameProcess;
@@ -25,8 +29,11 @@ class GameProcess;
  */
 class Player {
 public:
-    /** What the program writes in its folder goes to `saveDir`. */
-    Player(std::filesystem::path gameDir, std::filesystem::path saveDir);
+    /**
+     * What the program writes in its folder goes to `saveDir`; its sound
+     * goes to `mixer`, if there's one, which must outlive the player.
+     */
+    Player(std::filesystem::path gameDir, std::filesystem::path saveDir, audio::Mixer *mixer = nullptr);
     /** Stops the game and waits for its thread. */
     ~Player();
 
@@ -60,6 +67,7 @@ private:
 
     std::filesystem::path _dir;
     std::filesystem::path _saveDir;
+    audio::Mixer *_mixer;
     GameProcess *_game = nullptr; // the game thread's, while it runs
     std::thread _thread;
     std::mutex _mutex;

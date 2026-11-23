@@ -11,6 +11,8 @@
 #include "emulation/x86/disasm.h"
 #include "engines/sfc/host/game_process.h"
 #include "common/stream.h"
+#include "audio/sound.h"
+#include "audio/wav.h"
 #include "image/image.h"
 
 #include <algorithm>
@@ -18,6 +20,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -83,7 +86,7 @@ int cmdHost(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool sfc host <game folder> [-limit instructions] [-trace count] "
                              "[-frame out.png] [-quiet] [-save folder] [-calls address] [-watch address]... "
-                             "[-type frame text] [-click frame x y] [-shot frame out.png]...\n");
+                             "[-type frame text] [-click frame x y] [-shot frame out.png]... [-sound folder]\n");
         return 2;
     }
     uint64_t limit = 2000000000ull;
@@ -94,6 +97,7 @@ int cmdHost(int argc, char **argv) {
     uint32_t callsFrom = 0;
     std::vector<uint32_t> watch; // addresses at which to show the registers and the stack
     std::vector<Step> steps;
+    std::filesystem::path soundFolder; // each sample's sound, as WAVs
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
         if (arg == "-limit" && a + 1 < argc)
@@ -110,6 +114,8 @@ int cmdHost(int argc, char **argv) {
             callsFrom = uint32_t(std::strtoul(argv[++a], nullptr, 0));
         else if (arg == "-watch" && a + 1 < argc)
             watch.push_back(uint32_t(std::strtoul(argv[++a], nullptr, 0)));
+        else if (arg == "-sound" && a + 1 < argc)
+            soundFolder = argv[++a];
         else if (arg == "-type" && a + 2 < argc) {
             const uint64_t at = std::strtoull(argv[a + 1], nullptr, 0);
             addTyping(steps, at, argv[a + 2]);
@@ -161,6 +167,19 @@ int cmdHost(int argc, char **argv) {
         if (!quiet)
             std::printf("registry %s\\%s written\n", key.c_str(), name.c_str());
     };
+    // With -sound, what each Miles sample plays, in order, one WAV a
+    // sample handle.
+    std::map<uint32_t, audio::Sound> sounds;
+    if (!soundFolder.empty())
+        game.miles().bufferLoaded = [&sounds](uint32_t sample, const std::vector<int16_t> &pcm, int rate,
+                                              int channels) {
+            audio::Sound &out = sounds[sample];
+            if (out.rate != rate || out.channels != channels) {
+                out = audio::Sound{};
+                out.rate = rate, out.channels = channels;
+            }
+            out.samples.insert(out.samples.end(), pcm.begin(), pcm.end());
+        };
     uint64_t raised = 0;
     process.exceptionRaised = [&](x86::Cpu &c, uint32_t record) {
         ++raised;
@@ -268,6 +287,17 @@ int cmdHost(int argc, char **argv) {
     for (size_t i = recentAt > recent.size() ? recentAt - recent.size() : 0; i < recentAt; ++i)
         std::printf(" %08x", recent[i % recent.size()]);
     std::printf("\n");
+    if (!soundFolder.empty()) {
+        std::error_code ec;
+        std::filesystem::create_directories(soundFolder, ec);
+        for (const auto &[sample, sound] : sounds) {
+            char name[32];
+            std::snprintf(name, sizeof name, "sample-%08x.wav", sample);
+            writeFile(soundFolder / name, audio::encodePcmWav(sound));
+            std::printf("%s: %d Hz, %d channels, %.2f s\n", name, sound.rate, sound.channels,
+                        double(sound.frames()) / double(sound.rate));
+        }
+    }
     if (!framePath.empty() && frames)
         writeFrame(game.directX().frame(), framePath);
     return err ? 1 : 0;
@@ -311,7 +341,7 @@ const Commands kCommands(
     {
         {"host",
          "<game folder> [-limit n] [-trace n] [-frame out.png] [-quiet] [-save folder] [-calls address] "
-         "[-watch address]... [-type frame text] [-click frame x y] [-shot frame out.png]...",
+         "[-watch address]... [-type frame text] [-click frame x y] [-shot frame out.png]... [-sound folder]",
          "run StarFleet2.exe in the x86 emulator, headless, and say how far it gets; keys and clicks "
          "given at frames it shows",
          cmdHost},

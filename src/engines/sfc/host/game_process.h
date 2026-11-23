@@ -7,6 +7,7 @@
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/directx/directx.h"
 #include "emulation/x86/directx/dinput.h"
+#include "emulation/x86/miles.h"
 #include "emulation/x86/win32.h"
 
 #include <cstdint>
@@ -22,8 +23,8 @@ namespace reluva::sfc {
 /**
  * Starfleet Command II's own StarFleet2.exe, in the x86 emulator
  * (docs/engines/sfc/games/sfc2/systems/hosting.md): the install's folder
- * as the program's, the shared stand-ins for Windows, DirectDraw and
- * DirectInput, and those of the engine's own.
+ * as the program's, the shared stand-ins for Windows, DirectDraw,
+ * DirectInput and Miles, and those of the engine's own.
  */
 class GameProcess {
 public:
@@ -52,6 +53,7 @@ public:
     x86::Cpu &cpu() { return *_cpu; }
     x86::Win32Process &process() { return *_process; }
     x86::DirectX &directX() { return *_directX; }
+    x86::Miles &miles() { return *_miles; }
     ///@}
 
     /** Told of each file or folder the program looks for in its folder, and whether it was there. */
@@ -87,6 +89,7 @@ private:
     std::unique_ptr<x86::Win32Process> _process;
     std::unique_ptr<x86::DirectX> _directX;
     std::unique_ptr<x86::DirectInput> _directInput;
+    std::unique_ptr<x86::Miles> _miles;
     const x86::Win32Process::Module *_exe = nullptr;
     uint32_t _focus = 0; // the window with the focus
     /** A registry value kept, as the program wrote it. */
