@@ -1,0 +1,1 @@
+world: 0129473b8eb7b7d5 | 58 parts and 191 models read: 770 ROIs, 1083 LODs, 3578 meshes, 277033 triangles, 205 textures

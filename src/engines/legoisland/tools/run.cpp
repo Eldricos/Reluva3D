@@ -12,6 +12,7 @@
 #include "engines/legoisland/host/game_process.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -49,7 +50,7 @@ int cmdRun(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool legoisland run <game folder> [-log] [-files] [-limit instructions] "
-            "[-trace count] [-calls count] [-memory MB] [-save folder] [-shots folder] [-every frames] [-at address]... [-watch address,bytes] [-click frame@x,y]... [-drag frame@x,y:x,y,frames]... [-key frame@key,frames]...\n");
+            "[-trace count] [-calls count] [-memory MB] [-save folder] [-shots folder] [-every frames] [-at address]... [-watch address,bytes] [-click frame@x,y]... [-drag frame@x,y:x,y,frames]... [-key frame@key,frames]... [-fixed-clock instructions-per-ms] [-until frame]\n");
         return 2;
     }
     // A line at a time: a long run is often stopped, and what it said so far is wanted.
@@ -102,6 +103,12 @@ int cmdRun(int argc, char **argv) {
     };
     uint32_t watchBytes = 0;
     uint64_t every = 25;
+    // -fixed-clock: the program's milliseconds are the instructions run over
+    // this many, and each wait with every thread idle one more, so a run
+    // repeats exactly (its threads take turns by instructions too).
+    uint64_t instructionsPerMs = 0;
+    // -until: the run stops at this frame shown, as it should.
+    uint64_t untilFrame = 0;
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
         if (arg == "-log")
@@ -123,6 +130,10 @@ int cmdRun(int argc, char **argv) {
             Click k{};
             if (std::sscanf(argv[++a], "%llu@%d,%d", reinterpret_cast<unsigned long long *>(&k.frame), &k.x, &k.y) == 3)
                 clicks.push_back(k);
+        } else if (arg == "-fixed-clock" && a + 1 < argc) {
+            instructionsPerMs = std::max<uint64_t>(1, std::strtoull(argv[++a], nullptr, 0));
+        } else if (arg == "-until" && a + 1 < argc) {
+            untilFrame = std::strtoull(argv[++a], nullptr, 0);
         } else if (arg == "-drag" && a + 1 < argc) {
             unsigned long long frame = 0;
             unsigned long long count = 10;
@@ -175,8 +186,17 @@ int cmdRun(int argc, char **argv) {
         std::error_code ec;
         std::filesystem::create_directories(shotsDir, ec);
     }
+    std::atomic<uint64_t> idleMs{0};
+    if (instructionsPerMs) {
+        process.milliseconds = [&cpu, &idleMs, instructionsPerMs] {
+            return uint32_t(cpu.executed() / instructionsPerMs + idleMs);
+        };
+        process.idleTick = [&idleMs] { ++idleMs; };
+    }
     game.directX().presented = [&](const x86::DirectX::Frame &f) {
         frames++;
+        if (untilFrame && frames == untilFrame)
+            cpu.requestStop();
         // A click: pressed at its frame, let go at the next, where the
         // picture is in its window's client area.
         for (const Drag &d : drags) {
@@ -346,22 +366,41 @@ int cmdRun(int argc, char **argv) {
         return report("LEGO1.DLL's start-up", e);
     std::printf("LEGO1.DLL's start-up done: %llu instructions\n", static_cast<unsigned long long>(cpu.executed()));
     uint32_t exitCode = 0;
-    if (Error e = game.run(exitCode))
+    const Error e = game.run(exitCode);
+    const bool reached = untilFrame && frames >= untilFrame;
+    if (e && !reached)
         return report("The program", e);
-    const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-    std::printf("the program exited with %u after %llu instructions (%.1f s, %.1f million a second); %llu frames\n",
-                exitCode, static_cast<unsigned long long>(cpu.executed()), seconds,
-                double(cpu.executed()) / 1e6 / std::max(seconds, 1e-6), static_cast<unsigned long long>(frames));
+    // Where it ended, for comparing runs: its memory and registers hashed
+    // (FNV-1a).
+    uint64_t state = 0xcbf29ce484222325ull;
+    for (const uint8_t byte : cpu.memory())
+        state = (state ^ byte) * 0x100000001b3ull;
+    for (const uint32_t r : cpu.reg)
+        state = (state ^ r) * 0x100000001b3ull;
+    if (reached)
+        std::printf("stopped at frame %llu", static_cast<unsigned long long>(frames));
+    else
+        std::printf("the program exited with %u, %llu frames", exitCode, static_cast<unsigned long long>(frames));
+    std::printf(" after %llu instructions; state %016llx\n", static_cast<unsigned long long>(cpu.executed()),
+                static_cast<unsigned long long>(state));
+    if (!instructionsPerMs) { // the speed, which a fixed clock's runs leave out to repeat
+        const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        std::printf("%.1f s, %.1f million instructions a second\n", seconds,
+                    double(cpu.executed()) / 1e6 / std::max(seconds, 1e-6));
+    }
     return 0;
 }
 
-const reluva::tool::Commands kCommands(
-    "legoisland",
-    {
-        {"run", "<game folder> [-log] [-files] [-limit instructions] [-trace count] [-calls count] [-shots folder]",
-         "run ISLE.EXE and LEGO1.DLL in the x86 interpreter, and say how far they get: what nothing "
-         "stands in for, the stand-ins called, the frames shown, where a failure was",
-         cmdRun},
-    });
+const reluva::tool::Commands
+    kCommands("legoisland",
+              {
+                  {"run",
+                   "<game folder> [-log] [-files] [-limit instructions] [-trace count] [-calls count] [-shots folder] "
+                   "[-click frame@x,y]... [-drag frame@x,y:x,y,frames]... [-key frame@key,frames]... "
+                   "[-fixed-clock instructions-per-ms] [-until frame]",
+                   "run ISLE.EXE and LEGO1.DLL in the x86 interpreter, and say how far they get: what nothing "
+                   "stands in for, the stand-ins called, the frames shown, where a failure was",
+                   cmdRun},
+              });
 
 } // namespace

@@ -54,10 +54,10 @@ reluva_add_engine_tests(legoisland
     TOPICS
         unit.detection unit.dta unit.import unit.obj unit.scene unit.si unit.wdb engine)
 
-# Its engine test with the game's own files, when it has one (see
-# docs/DEVELOPMENT.md, Engine tests):
-# reluva_add_gamedata_test(legoisland
-#     GAME <game id>
-#     ENV RELUVA_<GAME>
-#     SCRIPT ${tests}/gamedata.cmake
-#     STEPS release ...)
+# Its engine test with the game's own files (tests/engines/legoisland/
+# gamedata.cmake; docs/DEVELOPMENT.md, Engine tests).
+reluva_add_gamedata_test(legoisland
+    GAME legoisland
+    ENV RELUVA_LEGOISLAND
+    SCRIPT ${tests}/gamedata.cmake
+    STEPS release scripts world animations)
