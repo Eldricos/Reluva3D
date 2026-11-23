@@ -342,6 +342,10 @@ DirectX::~DirectX() {
     _s->process.gdi().screen = nullptr;
 }
 
+void DirectX::show() {
+    _s->present();
+}
+
 const DirectX::Frame &DirectX::frame() const {
     return _s->frame;
 }

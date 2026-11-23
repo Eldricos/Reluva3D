@@ -164,8 +164,22 @@ void testWindowDc(const stdfs::path &tmp) {
     CHECK(f.user("ReleaseDC", {0x10010, lost}) == 1);
     const x86::Gdi::Target screen = f.target;
     f.process.gdi().screen = [screen] { return screen; };
-    const uint32_t window = f.user("GetDC", {0x10010});
-    CHECK(f.user("FillRect", {window, f.rect(0, 0, 1, 1), 6}) == 1 && f.pixel(0, 0) == 0xffff);
+    const uint32_t screenDc = f.user("GetDC", {0});
+    CHECK(f.user("FillRect", {screenDc, f.rect(0, 0, 1, 1), 6}) == 1 && f.pixel(0, 0) == 0xffff);
+    // A window's own draws in its client area: a popup at (4, 2), 8 by 6.
+    const uint32_t cls = f.mem + 256;
+    for (uint32_t i = 0; i < 40; i += 4)
+        f.cpu.write32(cls + i, 0);
+    f.cpu.write32(cls + 4, f.process.standIn("USER32.dll", "DefWindowProcA"));
+    f.cpu.writeString(f.mem + 320, "Plain", 8);
+    f.cpu.write32(cls + 36, f.mem + 320);
+    CHECK(f.user("RegisterClassA", {cls}) != 0);
+    const uint32_t h = f.user("CreateWindowExA", {0, f.mem + 320, 0, 0x90000000, 4, 2, 8, 6, 0, 0, 0, 0});
+    const uint32_t window = f.user("GetDC", {h});
+    CHECK(f.user("FillRect", {window, f.rect(0, 0, 1, 1), 6}) == 1 && f.pixel(4, 2) == 0xffff && f.pixel(3, 2) == 0);
+    // Clipped to it.
+    CHECK(f.user("FillRect", {window, f.rect(7, 5, 20, 20), 6}) == 1 && f.pixel(11, 7) == 0xffff &&
+          f.pixel(12, 7) == 0 && f.pixel(11, 8) == 0);
 }
 
 } // namespace

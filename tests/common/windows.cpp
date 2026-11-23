@@ -402,8 +402,10 @@ static void testWindowsAndRegistry() {
           int32_t(cpu.read32(rc + 4)) == -23 && cpu.read32(rc + 8) == 644 && cpu.read32(rc + 12) == 484);
     CHECK(!cpu.call(fn("USER32.dll", "GetClientRect"), {hwnd, rc}, r) && cpu.read32(rc + 8) == 640 &&
           cpu.read32(rc + 12) == 480);
-    // Posted messages come back from PeekMessageA and go to the procedure.
+    // Shown, it's to be painted; posted messages come back from
+    // PeekMessageA and go to the procedure.
     const uint32_t msg = process.memory().alloc(28);
+    CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 1 && cpu.read32(msg + 4) == 0xf);
     CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 0);
     process.postMessage(hwnd, 0x100, 'Q', 0); // WM_KEYDOWN
     CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 1 && cpu.read32(msg) == hwnd &&

@@ -26,7 +26,6 @@ constexpr uint32_t kWmNcCreate = 0x0081;
 constexpr uint32_t kWmCreate = 0x0001;
 constexpr uint32_t kWmDestroy = 0x0002;
 constexpr uint32_t kWmClose = 0x0010;
-constexpr uint32_t kWsChild = 0x40000000;
 constexpr uint32_t kMmMciNotify = 0x03b9;
 // MCI's commands, also sent to a movie window as messages.
 constexpr uint32_t kMciOpen = 0x0803;
@@ -170,14 +169,9 @@ struct MciVideo::State {
             return;
         int x0 = m.dest[0];
         int y0 = m.dest[1];
-        if (const Win32Process::Window *w = process.window(m.window)) {
-            x0 += w->x;
-            y0 += w->y;
-            if ((w->style & kWsChild) && w->parent)
-                if (const auto area = process.clientArea(w->parent)) {
-                    x0 += (*area)[0];
-                    y0 += (*area)[1];
-                }
+        if (const auto area = process.clientArea(m.window)) {
+            x0 += (*area)[0];
+            y0 += (*area)[1];
         }
         const int dw = m.dest[2];
         const int dh = m.dest[3];

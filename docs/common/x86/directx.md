@@ -29,7 +29,9 @@ headers' (`directx/interfaces.cpp`).
   the engine, through the gamma ramp. In a window, that's the window's
   client area. With `DirectX::presentLate` a flip hands over the frame
   before, once its draws are done, and the program goes on while this
-  one's are drawn.
+  one's are drawn. What's drawn into the primary's pixels another way
+  (GDI on a window, a movie) is shown when the program next blits or
+  flips, or when the engine calls `DirectX::show()`.
 - **Direct3D 7:** RGB emulation and HAL devices, vertex buffers and state
   blocks. The drawing is a software rasterizer (`directx/raster.cpp`):
   - the fixed-function pipeline: transforms, lighting, materials and their

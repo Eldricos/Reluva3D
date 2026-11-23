@@ -42,4 +42,4 @@ add_library(reluva_emulation STATIC
     x86/glide/glide3_x86.cpp
     x86/glide/glide_x86.cpp)
 # graphics: the Glide stand-in's pipeline (src/graphics/glide/), which x86/glide/ serves to programs.
-target_link_libraries(reluva_emulation PUBLIC reluva_common reluva_audio reluva_graphics reluva_video PRIVATE reluva_warnings)
+target_link_libraries(reluva_emulation PUBLIC reluva_common reluva_audio reluva_graphics reluva_image reluva_video PRIVATE reluva_warnings)

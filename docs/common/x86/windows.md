@@ -80,8 +80,19 @@ C++ library have pages of their own ([directx.md](directx.md),
 - **`win32_user.cpp`: USER32 and GDI32's start.** Window classes and windows, kept
   as records (procedure, place, size, visibility) that the engine can show
   as it likes. Making one sends `WM_NCCREATE` and `WM_CREATE`. Showing it
-  first activates it (`WM_ACTIVATEAPP`, `WM_ACTIVATE`, `WM_SETFOCUS`).
-  Other pieces:
+  first activates it (`WM_ACTIVATEAPP`, `WM_ACTIVATE`, `WM_SETFOCUS`) and
+  gives it the focus. Other pieces:
+  - places as Windows keeps them: a window's on the screen, a child's
+    (`WS_CHILD`) in its parent's client area; `windowArea` and
+    `clientArea` work out where one is on the screen, for
+    `GetWindowRect`, `ClientToScreen`, `ScreenToClient`, drawing and
+    input;
+  - a window made, or shown (`SW_MAXIMIZE`), maximized fills the screen
+    (its frame past the edges), a child its parent's client area; the
+    place the program gave is ignored, as Windows does;
+  - a window shown gets `WM_PAINT`, and its children shown with it; one
+    hidden or destroyed has every window shown that it covered painted
+    again; `DestroyWindow` destroys a window's children with it;
   - one message queue, which the engine posts its input to and
     `PeekMessageA` reads, calling `idle` when it's empty;
   - `DispatchMessageA` and `TranslateMessage`;
@@ -96,7 +107,9 @@ C++ library have pages of their own ([directx.md](directx.md),
 - **`win32_windows.cpp`: windows past their making.** Their parents,
   IDs, text and longs (`GetWindowLongA`, `SetWindowLongA`, the window
   procedure and styles among them), enabling, focus and capture,
-  `ScreenToClient` and `WindowFromPoint`, `MoveWindow`,
+  `ScreenToClient`, `WindowFromPoint` (the top window shown there, made
+  last, then its child shown and enabled there, and so down: `windowAt`),
+  `MoveWindow`,
   `CallWindowProcA`; painting (`InvalidateRect` queues one `WM_PAINT`;
   `GetUpdateRect` is the client area until it's handled); timers
   (`SetTimer`, `KillTimer`: `WM_TIMER` comes when one is due and nothing
@@ -134,9 +147,13 @@ C++ library have pages of their own ([directx.md](directx.md),
 - **Input** (`win32_user.cpp`): the engine passes the mouse and keyboard
   to the process with `mouseMoveTo`, `mouseButton`, `mouseWheel` and
   `key`.
-  - They become window messages to the main window (`WM_MOUSEMOVE`,
-    button presses, double clicks for classes with `CS_DBLCLKS`,
-    `WM_KEYDOWN`/`WM_KEYUP` with the scan code in lParam).
+  - They become window messages (`WM_MOUSEMOVE`, button presses, double
+    clicks for classes with `CS_DBLCLKS`, `WM_KEYDOWN`/`WM_KEYUP` with
+    the scan code in lParam). The mouse's go to the window that has
+    captured it, else the window under the pointer, in its client
+    coordinates, and to none that's disabled; keys and the wheel to the
+    window with the focus. Either falls back to the main window (the
+    first still there).
   - They also update the pointer (within `ClipCursor`'s rectangle) and
     what `GetKeyState` and `GetAsyncKeyState` report.
   - `rawInput` listeners (DirectInput) hear the same movements, buttons
@@ -246,7 +263,10 @@ executable's entry point on the main thread until it ends the process.
 - `tests/common/windows_dialogs.cpp` (`common.unit.windows_dialogs`)
   makes a dialog from a template in a DLL built in the test, clicks its
   radio buttons and fills its list box; it checks a window's longs and
-  text, a timer's `WM_TIMER`, rectangles and `wsprintfA`.
+  text, a timer's `WM_TIMER`, rectangles and `wsprintfA`. Its `places`
+  case checks a maximized window, children's places, `WindowFromPoint`,
+  where the pointer's, a captured mouse's and the keys' messages go, and
+  the painting when a window is shown or destroyed.
 - `tests/common/windows_kernel.cpp` (`common.unit.windows_kernel`)
   reads and writes an INI file on a drive (the writes kept apart), and
   checks the locale's answers, string comparison, global memory, a

@@ -82,6 +82,7 @@ private:
     struct Dc {
         std::optional<Target> target; // its own (a bitmap's, a surface's)
         bool window = false;          // draws on screen()
+        uint32_t windowHandle = 0;    // a window DC's: its client area of the screen; 0 the whole screen
         uint32_t brush = 0;
         uint32_t pen = 0;
         uint32_t font = 0;

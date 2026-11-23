@@ -20,8 +20,10 @@ bitmap's, a DirectDraw surface's (its `GetDC`,
 - **Device contexts:** memory ones (`CreateCompatibleDC`, drawing into
   the bitmap selected), a window's (`GetDC`, `BeginPaint`), and those the
   engine makes for pixels of its own (`createDc`: a DirectDraw surface's).
-  A window's draws where `Gdi::screen` says (a DirectDraw primary
-  surface's pixels), or nowhere without it. Text and background colours,
+  A window's draws in its client area of the pixels `Gdi::screen` gives
+  (a DirectDraw primary surface's), clipped to it (one reaching off the
+  screen's left or top starts at the edge instead); `GetDC(0)` draws on
+  the whole screen; nowhere without `Gdi::screen`. Text and background colours,
   the background mode and the current position are kept.
 - **Pixels:** 8 bits (the colour nearest in the target's palette), 16
   (by its masks; 5-6-5 without), 24 and 32.
@@ -61,7 +63,8 @@ drawn.
   makes objects and selects them, fills, draws lines, pixels and an
   ellipse into a 16-bit target, measures text, loads an 8-bit bitmap from
   a drive and stretches it across, and draws through a window's DC with
-  and without a screen.
+  and without a screen, and through a window's own, within its client
+  area.
 - **Confidence:** published unless marked.
 
 ## Used by

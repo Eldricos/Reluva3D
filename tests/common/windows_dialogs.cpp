@@ -14,6 +14,7 @@
 #include <cstring>
 #include <filesystem>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace reluva;
@@ -225,6 +226,67 @@ void testWindows() {
     CHECK(f.user("PtInRect", {f.mem + 720, 4, 3}) == 0);
 }
 
+// Windows' places, the window at a point, where the mouse's and keys'
+// messages go, and what's painted again when a window goes.
+void testPlaces() {
+    Fixture f;
+    const uint32_t cls = f.mem + 256;
+    for (uint32_t i = 0; i < 40; i += 4)
+        f.cpu.write32(cls + i, 0);
+    f.cpu.write32(cls + 4, f.process.standIn("USER32.dll", "DefWindowProcA"));
+    f.cpu.write32(cls + 36, f.str(300, "Main"));
+    CHECK(f.user("RegisterClassA", {cls}) != 0);
+    // The messages queued, as window and message pairs, taken off the queue.
+    auto taken = [&] {
+        std::vector<std::pair<uint32_t, uint32_t>> out;
+        while (f.user("PeekMessageA", {f.mem + 600, 0, 0, 0, 1}))
+            out.emplace_back(f.cpu.read32(f.mem + 600), f.cpu.read32(f.mem + 604));
+        return out;
+    };
+    // Made maximized (WS_POPUP | WS_VISIBLE | WS_MAXIMIZE), the place given
+    // is ignored: it fills the screen. Shown, it's to be painted.
+    const uint32_t top = f.user("CreateWindowExA", {0, f.mem + 300, 0, 0x91000000, 12345, 678, 9, 9, 0, 0, 0, 0});
+    const auto a = f.process.windowArea(top);
+    CHECK(a && (*a)[0] == 0 && (*a)[1] == 0 && (*a)[2] == 800 && (*a)[3] == 600);
+    CHECK((taken() == std::vector<std::pair<uint32_t, uint32_t>>{{top, 0xf}}));
+    // A child's place is in its parent's client area, and so its child's.
+    const uint32_t child = f.user("CreateWindowExA", {0, f.mem + 300, 0, 0x50000000, 100, 50, 200, 100, top, 0, 0, 0});
+    const uint32_t inner = f.user("CreateWindowExA", {0, f.mem + 300, 0, 0x50000000, 10, 10, 20, 20, child, 0, 0, 0});
+    taken();
+    CHECK(f.user("GetWindowRect", {child, f.mem + 700}) == 1 && f.cpu.read32(f.mem + 700) == 100 &&
+          f.cpu.read32(f.mem + 712) == 150);
+    f.cpu.write32(f.mem + 720, 1);
+    f.cpu.write32(f.mem + 724, 2);
+    CHECK(f.user("ClientToScreen", {inner, f.mem + 720}) == 1 && f.cpu.read32(f.mem + 720) == 111 &&
+          f.cpu.read32(f.mem + 724) == 62);
+    // WindowFromPoint: the deepest window shown and enabled there.
+    CHECK(f.user("WindowFromPoint", {115, 65}) == inner);
+    CHECK(f.user("WindowFromPoint", {150, 140}) == child);
+    CHECK(f.user("WindowFromPoint", {5, 5}) == top);
+    // The pointer's messages go to the window under it, in its client area.
+    f.process.mouseMoveTo(150, 140);
+    CHECK(f.user("PeekMessageA", {f.mem + 600, 0, 0, 0, 1}) == 1 && f.cpu.read32(f.mem + 600) == child &&
+          f.cpu.read32(f.mem + 604) == 0x200 && f.cpu.read32(f.mem + 612) == (90u << 16 | 50));
+    // Captured, they go to the window that holds it, wherever the pointer is.
+    f.user("SetCapture", {top});
+    f.process.mouseButton(0, true);
+    CHECK(f.user("PeekMessageA", {f.mem + 600, 0, 0, 0, 1}) == 1 && f.cpu.read32(f.mem + 600) == top &&
+          f.cpu.read32(f.mem + 604) == 0x201 && f.cpu.read32(f.mem + 612) == (140u << 16 | 150));
+    f.user("ReleaseCapture", {});
+    f.process.mouseButton(0, false);
+    // A disabled child isn't found there: its parent is.
+    f.user("EnableWindow", {child, 0});
+    CHECK(f.user("WindowFromPoint", {150, 140}) == top);
+    taken();
+    // Keys go to the window with the focus.
+    f.user("SetFocus", {inner});
+    f.process.key(0x41, 0x1e, true);
+    CHECK((taken() == std::vector<std::pair<uint32_t, uint32_t>>{{inner, 0x100}}));
+    // Destroyed, a window takes its children with it, and what it covered is painted again.
+    CHECK(f.user("DestroyWindow", {child}) == 1 && !f.process.window(inner));
+    CHECK((taken() == std::vector<std::pair<uint32_t, uint32_t>>{{top, 0xf}}));
+}
+
 void testWsprintf() {
     Fixture f;
     // wsprintfA is cdecl: the caller takes its arguments off.
@@ -240,5 +302,6 @@ static const reluva::test::Suite kSuite("common.unit.windows_dialogs",
                                         {
                                             {"dialog", [](const std::filesystem::path &) { testDialog(); }},
                                             {"windows", [](const std::filesystem::path &) { testWindows(); }},
+                                            {"places", [](const std::filesystem::path &) { testPlaces(); }},
                                             {"wsprintf", [](const std::filesystem::path &) { testWsprintf(); }},
                                         });

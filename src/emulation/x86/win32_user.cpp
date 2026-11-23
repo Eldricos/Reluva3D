@@ -45,6 +45,7 @@ constexpr uint32_t kWsCaption = 0x00c00000;
 constexpr uint32_t kWsThickFrame = 0x00040000;
 constexpr uint32_t kWsVisible = 0x10000000;
 constexpr uint32_t kWsChild = 0x40000000;
+constexpr uint32_t kWsMaximize = 0x01000000;
 constexpr uint32_t kCwUseDefault = 0x80000000u;
 constexpr int kCaption = 19;
 constexpr int kMenu = 19;
@@ -90,13 +91,122 @@ const Win32Process::Window *Win32Process::window(uint32_t handle) const {
     return it == _windows.end() ? nullptr : &it->second;
 }
 
-std::optional<std::array<int, 4>> Win32Process::clientArea(uint32_t handle) const {
+std::optional<std::array<int, 4>> Win32Process::windowArea(uint32_t handle) const {
     const Window *w = window(handle);
     if (!w)
         return std::nullopt;
+    std::array<int, 4> a{w->x, w->y, w->width, w->height};
+    // A child's place is in its parent's client area. (A parent past
+    // eight deep is taken as none: no program nests so far, and a loop
+    // would otherwise never end.)
+    for (int depth = 0; (w->style & kWsChild) && w->parent && depth < 8; ++depth) {
+        const Window *parent = window(w->parent);
+        if (!parent)
+            break;
+        const Insets f = frameOf(parent->style, false);
+        a[0] += parent->x + f.left;
+        a[1] += parent->y + f.top;
+        w = parent;
+    }
+    return a;
+}
+
+std::optional<std::array<int, 4>> Win32Process::clientArea(uint32_t handle) const {
+    const Window *w = window(handle);
+    const auto a = windowArea(handle);
+    if (!w || !a)
+        return std::nullopt;
     const Insets f = frameOf(w->style, false);
-    return std::array<int, 4>{w->x + f.left, w->y + f.top, std::max(0, w->width - f.left - f.right),
+    return std::array<int, 4>{(*a)[0] + f.left, (*a)[1] + f.top, std::max(0, w->width - f.left - f.right),
                               std::max(0, w->height - f.top - f.bottom)};
+}
+
+bool Win32Process::shown(uint32_t handle) const {
+    for (int depth = 0; handle && depth < 9; ++depth) {
+        const Window *w = window(handle);
+        if (!w || !w->visible)
+            return false;
+        if (!(w->style & kWsChild))
+            return true;
+        handle = w->parent;
+    }
+    return true;
+}
+
+uint32_t Win32Process::windowAt(int x, int y) const {
+    auto inside = [&](uint32_t h) {
+        const auto a = windowArea(h);
+        return a && x >= (*a)[0] && x < (*a)[0] + (*a)[2] && y >= (*a)[1] && y < (*a)[1] + (*a)[3];
+    };
+    uint32_t found = 0;
+    for (const auto &[h, w] : _windows)
+        if (!(w.style & kWsChild) && w.visible && inside(h))
+            found = h; // the handles go up as they're made: the last is on top
+    for (bool deeper = found != 0; deeper;) {
+        deeper = false;
+        for (const auto &[h, w] : _windows)
+            if ((w.style & kWsChild) && w.parent == found && w.visible && w.enabled && inside(h)) {
+                found = h;
+                deeper = true;
+            }
+    }
+    return found;
+}
+
+uint32_t Win32Process::mouseTarget(int &x, int &y) const {
+    uint32_t target = _capture && window(_capture) ? _capture : windowAt(cursorX, cursorY);
+    if (!target)
+        target = mainWindow();
+    const Window *w = window(target);
+    const auto area = clientArea(target);
+    if (!w || !area || !w->enabled)
+        return 0;
+    x = cursorX - (*area)[0];
+    y = cursorY - (*area)[1];
+    return target;
+}
+
+void Win32Process::destroyWindow(uint32_t handle) {
+    // WM_DESTROY to the window, then to its children, as Windows sends it.
+    sendMessage(handle, kWmDestroy, 0, 0);
+    std::vector<uint32_t> children;
+    for (const auto &[h, w] : _windows)
+        if ((w.style & kWsChild) && w.parent == handle)
+            children.push_back(h);
+    for (uint32_t child : children)
+        if (_windows.count(child))
+            destroyWindow(child);
+    sendMessage(handle, kWmNcDestroy, 0, 0);
+    _windows.erase(handle);
+    if (_focus == handle)
+        _focus = 0;
+    if (_capture == handle)
+        _capture = 0;
+}
+
+void Win32Process::uncover(const std::array<int, 4> &area) {
+    for (const auto &[h, w] : _windows) {
+        const auto a = windowArea(h);
+        if (!a || !shown(h) || (*a)[0] >= area[0] + area[2] || area[0] >= (*a)[0] + (*a)[2] ||
+            (*a)[1] >= area[1] + area[3] || area[1] >= (*a)[1] + (*a)[3])
+            continue;
+        const bool queued = std::any_of(_messages.begin(), _messages.end(),
+                                        [&](const Message &m) { return m.window == h && m.message == 0x000f; });
+        if (!queued)
+            postMessage(h, 0x000f, 0, 0); // WM_PAINT
+    }
+}
+
+void Win32Process::paintShown(uint32_t handle) {
+    if (!shown(handle))
+        return;
+    const bool queued = std::any_of(_messages.begin(), _messages.end(),
+                                    [&](const Message &m) { return m.window == handle && m.message == 0x000f; });
+    if (!queued)
+        postMessage(handle, 0x000f, 0, 0); // WM_PAINT
+    for (const auto &[h, w] : _windows)
+        if ((w.style & kWsChild) && w.parent == handle && w.visible)
+            paintShown(h);
 }
 
 // Input.
@@ -205,9 +315,10 @@ void Win32Process::mouseMoveTo(int x, int y) {
     cursorX = x, cursorY = y;
     if (dx || dy)
         notify({RawInput::Kind::kMotion, dx, dy});
-    if (const uint32_t w = mainWindow())
-        if (auto area = clientArea(w))
-            postMessage(w, kWmMouseMove, _buttons, point(x - (*area)[0], y - (*area)[1]));
+    int cx = 0;
+    int cy = 0;
+    if (const uint32_t w = mouseTarget(cx, cy))
+        postMessage(w, kWmMouseMove, _buttons, point(cx, cy));
 }
 
 void Win32Process::mouseButton(int button, bool down) {
@@ -220,9 +331,10 @@ void Win32Process::mouseButton(int button, bool down) {
         _buttons &= ~flag;
     _keysDown[button == 0 ? 1 : button == 1 ? 2 : 4] = down;
     notify({RawInput::Kind::kButton, button, down});
-    const uint32_t w = mainWindow();
-    auto area = w ? clientArea(w) : std::nullopt;
-    if (!area)
+    int cx = 0;
+    int cy = 0;
+    const uint32_t w = mouseTarget(cx, cy);
+    if (!w)
         return;
     // WM_LBUTTONDOWN/UP/DBLCLK, then the right button's three, then the
     // middle's.
@@ -240,12 +352,13 @@ void Win32Process::mouseButton(int button, bool down) {
             _lastClickX = cursorX, _lastClickY = cursorY;
         }
     }
-    postMessage(w, message, _buttons, point(cursorX - (*area)[0], cursorY - (*area)[1]));
+    postMessage(w, message, _buttons, point(cx, cy));
 }
 
 void Win32Process::mouseWheel(int delta) {
     notify({RawInput::Kind::kWheel, delta, 0});
-    if (const uint32_t w = mainWindow())
+    // To the focus window, as Windows sends it; its point is on the screen.
+    if (const uint32_t w = _focus && window(_focus) ? _focus : mainWindow())
         postMessage(w, kWmMouseWheel, _buttons | uint32_t(uint16_t(int16_t(delta))) << 16, point(cursorX, cursorY));
 }
 
@@ -255,7 +368,7 @@ void Win32Process::key(uint32_t virtualKey, uint32_t scanCode, bool down) {
     const bool was = _keysDown[virtualKey & 0xff] != 0;
     _keysDown[virtualKey & 0xff] = down;
     notify({RawInput::Kind::kKey, int(scanCode), down});
-    const uint32_t w = mainWindow();
+    const uint32_t w = _focus && window(_focus) ? _focus : mainWindow();
     if (!w)
         return;
     uint32_t lParam = 1 | (scanCode & 0xff) << 16 | (scanCode & 0x100 ? 1u << 24 : 0); // 0x100: an extended key
@@ -344,6 +457,16 @@ void Win32Process::addUserStandIns() {
             w = screenWidth;
             h = screenHeight;
         }
+        // Made maximized, the place given is ignored: a window fills the
+        // screen (its frame past the edges), a child its parent's client area.
+        if (style & kWsMaximize) {
+            const auto inside = (style & kWsChild) ? clientArea(parent) : std::nullopt;
+            const Insets f = frameOf(style, false);
+            x = -f.left;
+            y = -f.top;
+            w = (inside ? (*inside)[2] : screenWidth) + f.left + f.right;
+            h = (inside ? (*inside)[3] : screenHeight) + f.top + f.bottom;
+        }
         const uint32_t handle = _nextWindow;
         _nextWindow += 4;
         Window &win = _windows[handle];
@@ -369,17 +492,22 @@ void Win32Process::addUserStandIns() {
             _windows.erase(handle);
             return 0u;
         }
-        if (style & kWsVisible)
+        if (style & kWsVisible) {
             _windows[handle].visible = true;
+            paintShown(handle);
+        }
         return handle;
     });
+    // DestroyWindow: its children go with it; what it covered is painted again.
     stdcall(u, "DestroyWindow", 1, [this](Cpu &c) {
         const uint32_t handle = c.arg(0);
         if (!_windows.count(handle))
             return 0u;
-        sendMessage(handle, kWmDestroy, 0, 0);
-        sendMessage(handle, kWmNcDestroy, 0, 0);
-        _windows.erase(handle);
+        const bool wasShown = shown(handle);
+        const auto area = windowArea(handle);
+        destroyWindow(handle);
+        if (wasShown && area)
+            uncover(*area);
         return 1u;
     });
     // FindWindowA(class, title): either may be 0, matching any.
@@ -402,13 +530,30 @@ void Win32Process::addUserStandIns() {
         const bool was = it->second.visible;
         const bool show = c.arg(1) != 0; // SW_HIDE is 0
         it->second.visible = show;
+        if (c.arg(1) == 3) { // SW_MAXIMIZE
+            Window &w = it->second;
+            const auto inside = (w.style & kWsChild) ? clientArea(w.parent) : std::nullopt;
+            const Insets f = frameOf(w.style, false);
+            w.x = -f.left;
+            w.y = -f.top;
+            w.width = (inside ? (*inside)[2] : screenWidth) + f.left + f.right;
+            w.height = (inside ? (*inside)[3] : screenHeight) + f.top + f.bottom;
+            w.style |= kWsMaximize;
+        }
         if (show != was)
             sendMessage(handle, kWmShowWindow, show, 0);
-        if (show && !was && !(it->second.style & kWsChild)) {
+        const Window *w = window(handle);
+        if (w && show && !was && !(w->style & kWsChild)) {
+            _focus = handle;
             sendMessage(handle, kWmActivateApp, 1, 0);
             sendMessage(handle, kWmActivate, 1, 0); // WA_ACTIVE
             sendMessage(handle, kWmSetFocus, 0, 0);
         }
+        if (show && !was)
+            paintShown(handle);
+        if (!show && was)
+            if (const auto area = windowArea(handle))
+                uncover(*area);
         return was ? 1u : 0u;
     });
     stdcall(u, "UpdateWindow", 1, [this](Cpu &c) { return _windows.count(c.arg(0)) ? 1u : 0u; });
@@ -424,17 +569,23 @@ void Win32Process::addUserStandIns() {
             w.x = int32_t(c.arg(2)), w.y = int32_t(c.arg(3));
         if (!(flags & 1))
             w.width = int32_t(c.arg(4)), w.height = int32_t(c.arg(5));
+        const bool was = w.visible;
         if (flags & 0x40)
             w.visible = true;
         if (flags & 0x80)
             w.visible = false;
+        if (w.visible && !was)
+            paintShown(c.arg(0));
+        if (!w.visible && was)
+            if (const auto area = windowArea(c.arg(0)))
+                uncover(*area);
         return 1u;
     });
     stdcall(u, "GetWindowRect", 2, [this, rect](Cpu &c) {
-        const Window *w = window(c.arg(0));
-        if (!w || !c.valid(c.arg(1), 16))
+        const auto a = windowArea(c.arg(0));
+        if (!a || !c.valid(c.arg(1), 16))
             return 0u;
-        rect(c, c.arg(1), w->x, w->y, w->x + w->width, w->y + w->height);
+        rect(c, c.arg(1), (*a)[0], (*a)[1], (*a)[0] + (*a)[2], (*a)[1] + (*a)[3]);
         return 1u;
     });
     stdcall(u, "GetClientRect", 2, [this, rect](Cpu &c) {
@@ -446,12 +597,11 @@ void Win32Process::addUserStandIns() {
         return 1u;
     });
     stdcall(u, "ClientToScreen", 2, [this](Cpu &c) {
-        const Window *w = window(c.arg(0));
-        if (!w || !c.valid(c.arg(1), 8))
+        const auto area = clientArea(c.arg(0));
+        if (!area || !c.valid(c.arg(1), 8))
             return 0u;
-        const Insets f = frameOf(w->style, false);
-        c.write32(c.arg(1), c.read32(c.arg(1)) + uint32_t(w->x + f.left));
-        c.write32(c.arg(1) + 4, c.read32(c.arg(1) + 4) + uint32_t(w->y + f.top));
+        c.write32(c.arg(1), c.read32(c.arg(1)) + uint32_t((*area)[0]));
+        c.write32(c.arg(1) + 4, c.read32(c.arg(1) + 4) + uint32_t((*area)[1]));
         return 1u;
     });
     // AdjustWindowRect(rect, style, menu): the window's rectangle for a

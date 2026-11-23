@@ -529,7 +529,8 @@ public:
         uint32_t proc = 0; // its window procedure
         uint32_t style = 0;
         uint32_t exStyle = 0;
-        // the whole window, on the screen
+        // The whole window: on the screen, or a child's (WS_CHILD) in its
+        // parent's client area, as Windows keeps them.
         int x = 0;
         int y = 0;
         int width = 0;
@@ -545,6 +546,16 @@ public:
     const Window *window(uint32_t handle) const;
     /** A window's client area on the screen: left, top, width, height; nothing if there's no such window. */
     std::optional<std::array<int, 4>> clientArea(uint32_t handle) const;
+    /** The whole window on the screen: left, top, width, height; nothing if there's no such window. */
+    std::optional<std::array<int, 4>> windowArea(uint32_t handle) const;
+    /** Whether a window is shown: it and every parent it has visible. */
+    bool shown(uint32_t handle) const;
+    /**
+     * The window at a point on the screen, as WindowFromPoint finds it:
+     * the top one shown there (made last), then its child shown and
+     * enabled there, and so on down; 0 if none.
+     */
+    uint32_t windowAt(int x, int y) const;
     /** Moves and sizes a window (as SetWindowPos does). */
     void moveWindow(uint32_t handle, int x, int y, int width, int height);
     /** The first window the program made that's still there; 0 if none. */
@@ -562,19 +573,25 @@ public:
 
     /**
      * The pointer moved to (x, y) on the screen (kept within ClipCursor's
-     * rectangle): WM_MOUSEMOVE to the main window, in its client
-     * coordinates, with the buttons held.
+     * rectangle): WM_MOUSEMOVE, with the buttons held, to the window that
+     * has captured the mouse, else the window under the pointer (the main
+     * window if there's none), in its client coordinates. A disabled
+     * window gets nothing.
      */
     void mouseMoveTo(int x, int y);
     /**
      * A mouse button (0 left, 1 right, 2 middle) pressed or released where
-     * the pointer is; a second press soon after, near the first, is a
-     * double click for a window whose class asks for them.
+     * the pointer is, to the window mouseMoveTo's would go to; a second
+     * press soon after, near the first, is a double click for a window
+     * whose class asks for them.
      */
     void mouseButton(int button, bool down);
     /** The wheel turned, in WHEEL_DELTA units (120 a notch; forward positive). */
     void mouseWheel(int delta);
-    /** A key pressed or released: its virtual-key code and its scan code. */
+    /**
+     * A key pressed or released: its virtual-key code and its scan code,
+     * to the window with the focus (the main window if none has it).
+     */
     void key(uint32_t virtualKey, uint32_t scanCode, bool down);
     /** The same input as raw devices see it (DirectInput listens). */
     struct RawInput {
@@ -706,6 +723,15 @@ private:
     // Whether a timer is due; the one due soonest (of a window's, or any if
     // 0) as its WM_TIMER, its next due time set, or nothing.
     bool timerDue() const;
+    // Where the mouse's messages go, and the point in its client area.
+    uint32_t mouseTarget(int &x, int &y) const;
+    // WM_PAINT for a window just shown and its children shown, unless one is queued.
+    void paintShown(uint32_t handle);
+    // WM_PAINT for each window shown over part of `area` (on the screen),
+    // which a window hidden or destroyed no longer covers.
+    void uncover(const std::array<int, 4> &area);
+    // A window and its children gone, each told (WM_DESTROY, WM_NCDESTROY).
+    void destroyWindow(uint32_t handle);
     std::optional<Message> takeDueTimer(uint32_t window);
     std::unique_ptr<Gdi> _gdi;
     int _cursorShown = 0;

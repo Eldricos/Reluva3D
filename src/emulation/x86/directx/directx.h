@@ -45,6 +45,13 @@ public:
     const Frame &frame() const;
     // Called each time a new frame is shown.
     std::function<void(const Frame &)> presented;
+    /**
+     * Shows the primary surface as it is now, as a new frame: for what's
+     * drawn into its pixels another way (GDI on the screen, a movie), which
+     * isn't shown until the program next blits or flips. From the
+     * program's threads only. Nothing without a primary surface.
+     */
+    void show();
 
     /** A display mode offered: its size, and bits per pixel. */
     struct Mode {

@@ -198,10 +198,27 @@ void Gdi::releaseDc(uint32_t handle) {
     _dcs.erase(handle);
 }
 
+// A window's DC draws in its client area of the screen: the target is
+// that part of the screen's pixels. (Where the area is off the screen's
+// left or top, its drawing starts at the screen's edge instead; no program
+// has needed one there.)
 std::optional<Gdi::Target> Gdi::targetOf(const Dc &d) const {
-    if (d.window)
-        return screen ? screen() : std::nullopt;
-    return d.target;
+    if (!d.window)
+        return d.target;
+    std::optional<Target> t = screen ? screen() : std::nullopt;
+    if (!t || !d.windowHandle)
+        return t;
+    const auto area = _process.clientArea(d.windowHandle);
+    if (!area)
+        return t;
+    const int left = std::clamp((*area)[0], 0, t->width);
+    const int top = std::clamp((*area)[1], 0, t->height);
+    const int right = std::clamp((*area)[0] + (*area)[2], left, t->width);
+    const int bottom = std::clamp((*area)[1] + (*area)[3], top, t->height);
+    t->memory += uint32_t(top * t->pitch + left * t->bits / 8);
+    t->width = right - left;
+    t->height = bottom - top;
+    return t;
 }
 
 void Gdi::plot(Cpu &c, const Target &t, int x, int y, uint32_t colorRef) {
@@ -638,9 +655,10 @@ void Gdi::addStandIns() {
     });
 
     // USER32's drawing.
-    p.provideStdcall(u, "GetDC", 1, [this](Cpu &) {
+    p.provideStdcall(u, "GetDC", 1, [this](Cpu &c) {
         Dc d;
         d.window = true;
+        d.windowHandle = c.arg(0);
         d.brush = kStock;
         d.pen = kStock + 7;
         d.font = kStock + 13;
@@ -655,10 +673,11 @@ void Gdi::addStandIns() {
         _dcs.erase(it);
         return 1u;
     });
-    // BeginPaint(window, PAINTSTRUCT*): a window DC, the whole screen to paint.
+    // BeginPaint(window, PAINTSTRUCT*): the window's DC, its whole client area to paint.
     p.provideStdcall(u, "BeginPaint", 2, [this](Cpu &c) {
         Dc d;
         d.window = true;
+        d.windowHandle = c.arg(0);
         d.brush = kStock;
         d.pen = kStock + 7;
         d.font = kStock + 13;
@@ -668,9 +687,9 @@ void Gdi::addStandIns() {
         if (c.valid(ps, 64)) {
             std::memset(c.memory().data() + ps, 0, 64);
             c.write32(ps, h);
-            const auto t = screen ? screen() : std::nullopt;
-            c.write32(ps + 16, uint32_t(t ? t->width : _process.screenWidth));
-            c.write32(ps + 20, uint32_t(t ? t->height : _process.screenHeight));
+            const auto area = _process.clientArea(c.arg(0));
+            c.write32(ps + 16, uint32_t(area ? (*area)[2] : _process.screenWidth));
+            c.write32(ps + 20, uint32_t(area ? (*area)[3] : _process.screenHeight));
         }
         return h;
     });

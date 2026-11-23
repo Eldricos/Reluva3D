@@ -156,7 +156,9 @@ uint32_t Win32Process::createDialog(Cpu &c, uint32_t instance, uint32_t name, ui
     w.style = style & ~kWsVisible;
     w.exStyle = exStyle;
     w.parent = parent;
-    const auto origin = parent ? clientArea(parent) : std::nullopt;
+    // A dialog's place is in its owner's client area: kept on the screen,
+    // unless it's a child, whose place is kept in its parent's.
+    const auto origin = parent && !(style & kWsChild) ? clientArea(parent) : std::nullopt;
     w.x = px(x) + (origin ? (*origin)[0] : 0);
     w.y = py(y) + (origin ? (*origin)[1] : 0);
     w.width = px(cx);
@@ -207,8 +209,8 @@ uint32_t Win32Process::createDialog(Cpu &c, uint32_t instance, uint32_t name, ui
         item.exStyle = itemExStyle;
         item.parent = dialog;
         item.id = id;
-        item.x = _windows[dialog].x + px(ix);
-        item.y = _windows[dialog].y + py(iy);
+        item.x = px(ix);
+        item.y = py(iy);
         item.width = px(icx);
         item.height = py(icy);
         item.visible = (itemStyle & kWsVisible) != 0;

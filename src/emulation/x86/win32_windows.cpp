@@ -95,17 +95,8 @@ void Win32Process::addWindowStandIns() {
         c.write32(c.arg(1) + 4, c.read32(c.arg(1) + 4) - uint32_t((*area)[1]));
         return 1u;
     });
-    // WindowFromPoint(point by value): the visible window there made last,
-    // as the one on top.
-    stdcall(u, "WindowFromPoint", 2, [this](Cpu &c) {
-        const int x = int32_t(c.arg(0));
-        const int y = int32_t(c.arg(1));
-        uint32_t best = 0;
-        for (const auto &[h, w] : _windows)
-            if (w.visible && x >= w.x && x < w.x + w.width && y >= w.y && y < w.y + w.height)
-                best = std::max(best, h);
-        return best;
-    });
+    // WindowFromPoint(point by value).
+    stdcall(u, "WindowFromPoint", 2, [this](Cpu &c) { return windowAt(int32_t(c.arg(0)), int32_t(c.arg(1))); });
     stdcall(u, "MoveWindow", 6, [this, found](Cpu &c) {
         if (!found(c.arg(0)))
             return 0u;
