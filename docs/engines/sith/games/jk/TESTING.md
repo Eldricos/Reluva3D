@@ -75,6 +75,7 @@ That the US release's signatures match a real install: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | Forces for the second controller: `common.unit.sdl_controller`'s *second's forces* test, with two virtual pads, rumbles each by its own forces alone. Jedi Knight gives none: it has no force feedback ([systems/hosting.md](systems/hosting.md)). A wheel's motor, through SDL's haptics, not yet tried on a real wheel |
 | November 2026 | US retail | Linux | A racing wheel as the second joystick: `common.unit.sdl_controller`'s *second* test, with SDL's virtual pad and wheel, reads the pad as the first controller and the wheel as the second, its wheel and pedals; the game reads the second as in the two-joystick check above. Not yet with a real wheel |
 | November 2026 | US retail | Linux | Two joysticks: `reluva-tool sith host -pad` with two controllers: *Setup*, *Controls*, *Joystick* lists joystick 2's axes too; its X axis bound to *Turn Left/Right* there, the second controller alone turned the view in Nar Shaddaa |
 | November 2026 | US retail | Linux | Joystick: `reluva-tool sith host -pad` with a new player: *Setup*, *Controls*, *Joystick* lists the controller's five axes and buttons once *Disable joystick* is unticked (X turns, Y moves, buttons 1 and 2 fire); in Nar Shaddaa the left stick turned the view and walked Kyle forward. `ctest`'s *joysticks* test reads caps, axes, buttons and the hat |

@@ -178,7 +178,10 @@ it uses are DirectX 5's, by the identifiers in its data:
     *Setup*, *Controls*, *Joystick*, untick *Disable joystick*, and it
     lists the axes and buttons with their default bindings (X turns, Y
     moves forward and back, buttons 1 and 2 fire), which the player's file
-    keeps.
+    keeps. It has no force feedback: its DirectInput devices are the
+    keyboard and mouse alone (`GUID_SysKeyboard` at `0x42dec6`,
+    `GUID_SysMouse` at `0x42e12f`), and the joystick's and force effects'
+    identifiers in its data are never used by its code.
 
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were
