@@ -43,7 +43,7 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
   ([systems/startup.md](systems/startup.md#the-opening-movies)).
 - **The menus:** the confirm dialog and the other windows in the
   middle of the screen, the credits fading to see-through, the toolkit's
-  brightness scaling colours, Normal as the level to start with, the
+  brightness scaling colours, the
   gamma brightening dark colours, the slider's texture tiled from the
   screen's corner, the sliders' keys and focus, the keyboard screen's
   keys and tab sizes, voiceovers' and movies'

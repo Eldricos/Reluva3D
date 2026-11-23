@@ -195,7 +195,9 @@ Start New Game opens it (`0x48be40`), over the main menu:
   in the middle (mode 6), then the first 16 above the middle's top less
   the toggle and 4 more, the second 16 above it (`0x48c0c1`); both lined
   up on the left with the widest in the middle across (`0x48c107`). The
-  game's level is checked to start with (`0x48c144`).
+  game's level is checked to start with (`0x48c144`): the options'
+  `Difficulty`, 2 (Normal) if they don't have it, and 1 at least
+  (`0x5c5f63`, `0x5b92a0`).
 - **START GAME** (`&START GAME`) in the middle across, 20 above the
   window's bottom (`0x48bf76`), and **CANCEL** (`CA&NCEL`) 4 above it
   (`0x48bfc6`): picture buttons on `Difficulty Menu/Button Background`,
@@ -388,9 +390,11 @@ as "%d,%d,%d,%d".
   its maximum (`0x4e4ed0`); the program can set it to its maximum
   (`0x4e50c0`). Its step is its maximum and 10, over 20, at least 1
   (`0x4e4b59`): 5 for 0-99. The mouse's wheel up adds a step, down takes
-  one (`0x4e4f70`); with the keyboard's focus, four of the program's keys
-  set it to 0 and to its last value and step it down and up
-  (`0x4e4fa0`), which keys they are isn't traced.
+  one (`0x4e4f70`); with the keyboard's focus, the program's key 5 sets
+  it to 0, 14 to one less than its maximum, 11 takes a step and 12 adds
+  one (`0x4e4fa0`, its table at `0x4e50b4`); which of the player's keys
+  those numbers are isn't traced (the text box numbers its keys the same
+  way, `0x403624`).
 - **A check box** (`0x4e6310`): its label first, at the box's right and 1
   down; the box, the font's baseline and 2 square, framed raised, or
   sunken while held down on or checked; checked, the grey cross over it.
@@ -504,15 +508,14 @@ Game/Background`:
 
 - **Where the dialog and the other windows go on the screen.** Reluva
   puts them in the middle.
-- **The game's level before one is chosen.** Reluva starts at Normal.
 - **The keyboard screen:** how a tab is sized, which keys take an
   action's key away (Reluva: Delete and Backspace), whether Esc gives up
   waiting for a key, how a held key is recorded, the order of the list of
   changes, and the borders' widths of its texts. Reluva's choices are
   noted in the code.
 - **The sliders' keys:** which of the player's keys the program's key
-  numbers 5, 11, 12 and 14 are, and how a slider gets the keyboard's
-  focus. Reluva takes Home, Left or Down, Right or Up, and End, and the
+  numbers 5 (to 0), 11 (down a step), 12 (up a step) and 14 (to the
+  top) are, and how a slider gets the keyboard's focus. Reluva takes Home, Left or Down, Right or Up, and End, and the
   last slider clicked.
 - **Speech's volume:** whether voiceovers and the movies follow the
   effects' scale. Reluva has them do so.
