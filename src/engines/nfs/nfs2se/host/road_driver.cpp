@@ -1,0 +1,215 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#include "engines/nfs/nfs2se/host/road_driver.h"
+
+#include "engines/nfs/host/game_host.h"
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdio>
+
+namespace reluva::nfs::nfs2se {
+
+namespace {
+
+// nfs2sen.exe's, from its code (road-driver.md).
+constexpr uint32_t kInputSetter = 0x43c942; // mov dword [ecx+0x370], 0x45b3a0
+constexpr uint32_t kReadInput = 0x45b3a0;   // a human car's input function: keys, joystick or replay
+constexpr uint32_t kReplayMode = 0x4fd3d4;  // 0 or 1 live; else a replay plays
+constexpr uint32_t kControls = 0x4ddb18;    // s8 steering, u8 gas, u8 brake, u8 buttons
+constexpr uint8_t kShiftDown = 0x01;
+constexpr uint8_t kShiftUp = 0x02;
+constexpr uint32_t kCars = 0x4dcbe8; // pointers, by slot
+constexpr uint32_t kPlayerSlot = 0x4dd2ec;
+constexpr uint32_t kRoadPoints = 0x4dc9d8; // the .col's, 36 bytes each (col.md)
+constexpr uint32_t kRoadCount = 0x4dc9d0;
+constexpr uint32_t kRaceRunning = 0x4fd580;
+constexpr uint32_t kRaceCars = 0x4dcf64;
+constexpr uint32_t kRaceLaps = 0x4dd2dc;
+
+// A car's fields: 16.16 unless said.
+constexpr uint32_t kSlice = 0x14; // its road point
+constexpr uint32_t kX = 0x9c;
+constexpr uint32_t kZ = 0xa4;
+constexpr uint32_t kRight = 0xc4;   // the orientation's rows: right,
+constexpr uint32_t kForward = 0xdc; // and forward (x, height, z)
+constexpr uint32_t kLaps = 0x1f8;
+constexpr uint32_t kProgress = 0x220; // laps (less those owed) times the road's points, plus its point
+constexpr uint32_t kFinished = 0x280; // 2 once over the line for the last time
+constexpr uint32_t kSpeed = 0x2b8;    // m/s
+constexpr uint32_t kGear = 0x2da;     // u8: 0 reverse, 1 neutral, 2 drive
+
+constexpr float kPi = 3.14159265f;
+// What the car is taken to do, in m/s²: turn at (its grip) and brake at;
+// and its top speed, in m/s (the McLaren's 228 mph).
+constexpr float kGrip = 14.0f;
+constexpr float kBraking = 9.0f;
+constexpr float kTopSpeed = 102.0f;
+
+} // namespace
+
+Error RoadDriver::install(GameHost &host, const Options &options) {
+    x86::Cpu &cpu = host.cpu();
+    const std::array<uint8_t, 10> expected = {0xc7, 0x81, 0x70, 0x03, 0x00, 0x00, 0xa0, 0xb3, 0x45, 0x00};
+    for (size_t i = 0; i < expected.size(); ++i)
+        if (!cpu.valid(kInputSetter + uint32_t(i), 1) || cpu.read8(kInputSetter + uint32_t(i)) != expected[i])
+            return Error::fail("the road driver needs the retail nfs2sen.exe");
+    _options = options;
+    const uint32_t native = cpu.addNative("nfs2se road driver", [this, &host](x86::Cpu &c) {
+        // The game's own input first (the keys, a replay), then ours over
+        // it. The car comes in EAX, as the game passes it.
+        const uint32_t car = c.reg[x86::Cpu::EAX];
+        uint32_t ignored = 0;
+        if (Error e = c.call(kReadInput, {}, ignored); e && log)
+            log("road driver: the game's input function failed: " + e.message);
+        drive(host, car);
+        return 0u;
+    });
+    if (!native)
+        return Error::fail("the road driver: no room for a native function");
+    cpu.write32(kInputSetter + 6, native);
+    return Error::success();
+}
+
+void RoadDriver::drive(GameHost &host, uint32_t car) {
+    x86::Cpu &c = host.cpu();
+    const uint64_t now = host.process().now();
+    if (car != c.read32(kCars + 4 * c.read32(kPlayerSlot)) || c.read32(kReplayMode) > 1)
+        return;
+    auto fixed = [&](uint32_t a) { return float(int32_t(c.read32(a))) / 65536.0f; };
+    auto s8 = [&](uint32_t a) { return float(int8_t(c.read8(a))); };
+
+    // Each lap, with the place then: one after the cars further round
+    // (their laps and road points, as the game ranks them); after the
+    // last, one after those over the line before it. The game's own
+    // standings (0x4ffdec) are sorted a moment later, and a finished car
+    // isn't asked for its controls again.
+    const int laps = int(c.read32(car + kLaps));
+    if (laps != _laps && log) {
+        _laps = laps;
+        const uint32_t cars = std::min<uint32_t>(c.read32(kRaceCars), 16);
+        const bool last = laps > 0 && uint32_t(laps) >= c.read32(kRaceLaps);
+        uint32_t place = 1;
+        for (uint32_t i = 0; i < cars; ++i) {
+            const uint32_t other = c.read32(kCars + 4 * i);
+            if (other != car)
+                place += last ? c.read32(other + kFinished) == 2
+                              : int32_t(c.read32(other + kProgress)) > int32_t(c.read32(car + kProgress));
+        }
+        log("road driver: lap " + std::to_string(laps) + " done at " + std::to_string(now) + " ms, " +
+            (last ? "finished " : "") + std::to_string(place) + " of " + std::to_string(cars));
+    }
+    if (c.read32(car + kFinished) == 2)
+        return;
+    const uint32_t points = c.read32(kRoadPoints);
+    const uint32_t n = c.read32(kRoadCount);
+    if (now < _options.fromMs || now >= _options.toMs || !c.read32(kRaceRunning) || !points || n == 0 || n > 100000)
+        return;
+
+    const float x = fixed(car + kX);
+    const float z = fixed(car + kZ);
+    const float v = fixed(car + kSpeed);
+    const uint32_t slice = c.read32(car + kSlice) % n;
+    auto point = [&](uint32_t i) { return points + 36 * (i % n); };
+    auto distance = [&](uint32_t a, uint32_t b) {
+        return std::hypot(fixed(a) - fixed(b), fixed(a + 8) - fixed(b + 8));
+    };
+    // The middle of the road at a point, from its distances to the edges
+    // (col.md, The virtual road), and right of it as asked: the points
+    // themselves jog sideways where the edges change (TR00's 1190, 4.5 m),
+    // the road's middle doesn't.
+    struct Flat {
+        float x;
+        float z;
+    };
+    auto middle = [&](uint32_t q) {
+        const float off = (float(c.read16(q + 28)) - float(c.read16(q + 26))) / 512.0f + _options.right;
+        return Flat{fixed(q) + off * s8(q + 18) / 128, fixed(q + 8) + off * s8(q + 20) / 128};
+    };
+
+    // Aim at the road a little ahead, farther the faster; the points are
+    // 2 to 5 m apart.
+    const float lookahead = std::clamp(8.0f + v * 0.5f, 8.0f, 40.0f);
+    uint32_t j = slice;
+    for (float along = 0; along < lookahead && j < slice + n; ++j)
+        along += distance(point(j), point(j + 1));
+    const uint32_t p = point(j);
+    const Flat target = middle(p);
+    const float dx = target.x - x;
+    const float dz = target.z - z;
+    const float angle = std::atan2(dx * fixed(car + kRight) + dz * fixed(car + kRight + 8),
+                                   dx * fixed(car + kForward) + dz * fixed(car + kForward + 8));
+
+    // As fast as the bends ahead allow: each one's speed by its curve (the
+    // turn of the road over about 15 m), and the braking there is room for
+    // before it. The road's way from its middle, not its points' forward
+    // vectors: a few of those are far off (TR00's 1190, 50°).
+    auto heading = [&](uint32_t i) {
+        const Flat a = middle(point(i));
+        const Flat b = middle(point(i + 2));
+        return std::atan2(b.x - a.x, b.z - a.z);
+    };
+    float wanted = kTopSpeed;
+    float along = 0;
+    const float seen = v * v / (2 * kBraking) + 30.0f;
+    for (uint32_t k = slice; along < seen && k < slice + n; ++k) {
+        float span = 0;
+        uint32_t m = k;
+        while (span < 15.0f && m < k + 20) {
+            span += distance(point(m), point(m + 1));
+            ++m;
+        }
+        float turn = std::fabs(heading(m) - heading(k));
+        if (turn > kPi)
+            turn = 2 * kPi - turn;
+        const float curve = turn / std::max(span, 1.0f);
+        const float corner = curve > 1e-4f ? std::sqrt(kGrip * _options.grip / curve) : kTopSpeed;
+        wanted = std::min(wanted, std::sqrt(corner * corner + 2 * kBraking * along));
+        along += distance(point(k), point(k + 1));
+    }
+    wanted = std::min(wanted, kTopSpeed);
+
+    int steer = int(std::clamp(angle / 0.35f * 127.0f, -128.0f, 124.0f));
+    int gas = v < wanted ? 255 : 0;
+    int brake = v > wanted + 2 ? 255 : 0;
+    uint8_t buttons = 0;
+    const uint8_t gear = c.read8(car + kGear);
+    // Stuck (against a wall, or turned round): back off for a while,
+    // steering the other way, then on again.
+    if (std::fabs(angle) > kPi / 2 || v < 2.0f) {
+        if (!_slowSince)
+            _slowSince = now;
+    } else {
+        _slowSince = 0;
+    }
+    if (_slowSince && now > _slowSince + 1500 && now >= _reverseUntil && now > _options.fromMs + 4000) {
+        _reverseUntil = now + 1500;
+        _slowSince = 0;
+    }
+    if (now < _reverseUntil) {
+        if (gear != 0)
+            buttons = kShiftDown;
+        steer = -steer;
+        gas = 255;
+        brake = 0;
+    } else if (gear < 2) {
+        buttons = kShiftUp;
+    }
+    c.write8(kControls, uint8_t(int8_t(steer)));
+    c.write8(kControls + 1, uint8_t(gas));
+    c.write8(kControls + 2, uint8_t(brake));
+    c.write8(kControls + 3, buttons);
+    if (log && now >= _logged + 1000) {
+        _logged = now;
+        char line[160];
+        std::snprintf(line, sizeof line,
+                      "road driver at %llu ms: slice %u, %.1f m/s (wanted %.1f), %.2f rad, steer %d gas %d brake %d"
+                      " gear %u",
+                      (unsigned long long)now, slice, v, wanted, angle, steer, gas, brake, gear);
+        log(line);
+    }
+}
+
+} // namespace reluva::nfs::nfs2se

@@ -39,6 +39,7 @@ reluva_add_engine(nfs
         host/thrash.cpp
         nfs3/host/thrash_native.cpp
         nfs2se/files.cpp
+        nfs2se/host/road_driver.cpp
         nfs2se/formats/can.cpp
         nfs2se/formats/col.cpp
         nfs2se/formats/dct.cpp

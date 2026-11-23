@@ -244,8 +244,13 @@ with what it found written on the game's pages in `formats/` and
      menu is then a single race again, location and opponents choosable.
      The knockout ends at the player's elimination.
 
-   Left open: a tournament or knockout driven well enough to place, or
-   to survive a round (it takes steering, which nothing scripts yet).
+   - **Driven to a place** (later in November 2026): `reluva-tool nfs
+     host -roaddrive` drives the player's car along the virtual road,
+     in place of the game's input function
+     ([research/road-driver.md](research/road-driver.md)). On Proving
+     Grounds it finished a one-lap race 2nd of 8, and the knockout's
+     first round (2 laps, 9 cars) 7th: the player *advances*, Klutch is
+     eliminated.
 7. **3dfx** (done): `nfs2sea.exe` on the Glide stand-in, in software and on the
    GPU, as a `renderer` setting.
 

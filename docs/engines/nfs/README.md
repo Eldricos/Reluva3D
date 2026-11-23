@@ -63,7 +63,7 @@ found to share its format, then comes here
 | `ui/` | The window's pages and running them (`runPages`), and the Play page, which shows the game and passes it the input |
 | `pages/` | The data viewer, in `reluva-viewer` only: the folders found, pictures, text, sounds, movies, with the Play page and each game's own pages among them |
 | `host/` | The retail games hosted: `GameHost` (Windows, DirectX, sound, input, the network, serial links), on which `nfs3.exe` plays and `nfs2sen.exe` runs; NFS III's THRASH calls and sound mixer stood in for in its own methods (`thrash.cpp`, `native_sound.cpp`), where its code is as expected |
-| `nfs2se/` | NFS II SE's own, in `reluva::nfs::nfs2se`: its tracks, car models and programs found (`files.cpp`), its formats (`formats/`: `.trk`, `.col`, `.hrz`, `.geo`, `.dct`), the viewer's Tracks, Cars and Movies pages (`pages/`), and the Status page, what was found of it (`status_page.cpp`), which an install without the software program shows |
+| `nfs2se/` | NFS II SE's own, in `reluva::nfs::nfs2se`: its tracks, car models and programs found (`files.cpp`), its formats (`formats/`: `.trk`, `.col`, `.hrz`, `.can`, `.geo`, `.dct`), the host tool's road driver (`host/`), the viewer's Tracks, Cars and Movies pages (`pages/`), and the Status page, what was found of it (`status_page.cpp`), which an install without the software program shows |
 | `nfs3/` | NFS III's own, in `reluva::nfs::nfs3`: its formats (`formats/`: `.fce`, `.frd`, `.hrz`, `.mad`), its tracks' particles and THRASH's frames on the GPU (`render/`), THRASH drawn natively (`host/`), and the viewer's Tracks and Cars pages (`pages/`) |
 | `tools/` | `reluva-tool nfs` commands (`reluva-tool help nfs` lists them) |
 

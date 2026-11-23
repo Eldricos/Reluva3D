@@ -26,6 +26,7 @@
 #include "engines/nfs/formats/refpack.h"
 #include "engines/nfs/formats/text_table.h"
 #include "engines/nfs/formats/viv.h"
+#include "engines/nfs/nfs2se/host/road_driver.h"
 #include "backends/graphics/sdl3/sdl_compute.h"
 #include "devtools/tool.h"
 #include "engines/nfs/tools/helpers.h"
@@ -43,6 +44,7 @@
 #include <fstream>
 #include <iterator>
 #include <map>
+#include <optional>
 #include <set>
 #include <string>
 #include <thread>
@@ -119,6 +121,9 @@ int cmdNfsHost(int argc, char **argv) {
     };
     std::vector<Driver> drivers;
     float driveSign = 1; // the steering's sign (the car's right row against the keys)
+    // -roaddrive: NFS II SE's player's car driven along the road, by the
+    // game's input function rather than the trace (nfs2se/host/road_driver.h).
+    std::optional<reluva::nfs::nfs2se::RoadDriver::Options> roadDrive;
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
         if (arg == "-args" && a + 1 < argc)
@@ -155,6 +160,17 @@ int cmdNfsHost(int argc, char **argv) {
             if (!d.car || (!d.target && !d.road))
                 return fail(Error::fail("-drive: CAR:TARGET:FROMMS[:TOMS[:GAP]]"));
             drivers.push_back(d);
+        } else if (arg == "-roaddrive" && a + 1 < argc) {
+            reluva::nfs::nfs2se::RoadDriver::Options o;
+            char *at = argv[++a];
+            o.fromMs = std::strtoull(at, &at, 10);
+            if (*at == ':')
+                o.toMs = std::strtoull(at + 1, &at, 10);
+            if (*at == ':')
+                o.right = std::strtof(at + 1, &at);
+            if (*at == ':')
+                o.grip = std::strtof(at + 1, &at);
+            roadDrive = o;
         } else if (arg == "-drivesign" && a + 1 < argc)
             driveSign = std::strtof(argv[++a], nullptr) < 0 ? -1.0f : 1.0f;
         else if (arg == "-count" && a + 1 < argc)
@@ -682,6 +698,11 @@ int cmdNfsHost(int argc, char **argv) {
     }
     if (Error err = host.load())
         return fail(err);
+    reluva::nfs::nfs2se::RoadDriver roadDriver;
+    roadDriver.log = [](const std::string &line) { std::printf("  %s\n", line.c_str()); };
+    if (roadDrive)
+        if (Error err = roadDriver.install(host, *roadDrive))
+            return fail(err);
     uint32_t exitCode = 0;
     // The sound, by the game's clock (GameHost::recordSound).
     reluva::audio::Sound sound;
@@ -1606,7 +1627,7 @@ const reluva::tool::Commands kCommands(
     "nfs",
     {
         {"host",
-         "<game folder> [-args \"nfs3.exe\"] [-program file] (another program, as the CD's NFS2SEA.EXE: on Glide, a Voodoo Graphics) [-renderer softtria.dll] [-limit N] [-log N] [-save dir] [-frames dir] [-every N] [-framesfrom N] [-watch address]... [-watchlimit 50] [-watchmem address size] [-watchread address | reg+offset]... (dwords printed at each -watch stop) [-slice instructions] [-dump memory.bin] [-keys ms:key,...] [-keysfile file] (more of them, one a line without the ms, given as they're added) [-poke WHEN:ADDR:VALUE[:SIZE]]... [-pokeevery ...]... [-dumpmem WHEN:ADDR:SIZE:file]... (WHEN ms=N or at=ADDR[#N]; VALUE a number, size 1/2/4, or bytes=0a0b...) (keys: enter, up, a..., kp0-kp9, click, moveDX/DY) [-framelog frames.csv] [-timescale 0.1] [-thrashlog fromframe toframe] [-native] [-wav sound.wav] [-voices voices.csv] [-joystick name] (keys also joy:A=V...: axes 0-5 = V, button bB; +key/-key held) [-wheel] [-ff] (the joystick a wheel; with force feedback) [-forcelog forces.csv] [-net] (the network) [-netaddr a.b.c.d] [-broadcast a.b.c.d,...] [-netlog messages.txt] (each message sent and received, in hex) [-netdrop N[:fromMs[-toMs]]] (every Nth packet sent lost, over those game ms) [-serial listen:port | host:port] (COM ports: a link over TCP, with -net) [-modem listen:port | host:port] (a TAPI modem whose calls are such links) [-deterministic instructionsPerMs] (a clock of instructions; the end state hashed) [-mhz N] (the processor's clock the time stamp counter shows; 300 by default) [-mmx] (CPUID reports MMX: the game mixes its sound with its MMX routines) [-count ADDR] (how many times the instruction at ADDR ran; repeatable) [-drive CAR:TARGET:FROMMS[:TOMS[:GAP]]] (CAR, a human's, steered at TARGET from the controls; full gas, or GAP metres behind at its speed) [-drivesign -1] (TARGET road: along the virtual road, GAP metres right of it, slowed for bends) [-hotspots from to] (instructions counted by where they run, 16-byte blocks) [-gpulog] (THRASH recorded as for the GPU; each frame's list summed up) [-gpudump list dir] (that list in full: list.csv and its textures) [-present voodoo2a.dll] (the renderer the game is told of, -renderer's loaded in its place; the default; none: as -renderer) [-positional] (network races with positional updates, every player alike) [-pointfilter] (native drawing: textures point-sampled, not bilinear) [-direct3d] (the game told of d3da.dll, the Direct3D renderer: its Direct3D look, drawn natively as d3da's device draws; -present d3da.dll -native) [-glide] (the game's own voodoo2a.dll, unchanged, on Reluva's Glide stand-in) [-glidecompare out.csv] (-glide, with each flip also drawn natively and compared) [-glidefilter point | bilinear] (with -glide: the texture filter held, to compare) [-glidegpu] (with -glide: Glide's pixels drawn on the GPU, if there is one) [-glidegpucompare out.csv] (-glide on the GPU, each call also drawn in software and each frame compared: its mean difference, of 255, per flip) [-glidedll file] (-glide with this THRASH DLL in voodoo2a.dll's place, from outside the install, e.g. the CD's Patch/Voodoo3/voodoo2a.dll: Glide 3 on a Voodoo3) [-glideboard voodoo1 | rush | voodoo2 | banshee | voodoo3] (-glide on this board, e.g. -glidedll <install>/voodooa.dll -glideboard voodoo1; the Rush's desktop is 1024x768 at 16 bits unless given: -glideboard rush,desktop=1280x1024x16)", "run the retail nfs3.exe (or NFS II SE's nfs2sen.exe) in the x86 emulator, without a window, and report how it goes: its system calls, files, THRASH's work, frames (each one's moment in frames.txt), sound, the network",
+         "<game folder> [-args \"nfs3.exe\"] [-program file] (another program, as the CD's NFS2SEA.EXE: on Glide, a Voodoo Graphics) [-renderer softtria.dll] [-limit N] [-log N] [-save dir] [-frames dir] [-every N] [-framesfrom N] [-watch address]... [-watchlimit 50] [-watchmem address size] [-watchread address | reg+offset]... (dwords printed at each -watch stop) [-slice instructions] [-dump memory.bin] [-keys ms:key,...] [-keysfile file] (more of them, one a line without the ms, given as they're added) [-poke WHEN:ADDR:VALUE[:SIZE]]... [-pokeevery ...]... [-dumpmem WHEN:ADDR:SIZE:file]... (WHEN ms=N or at=ADDR[#N]; VALUE a number, size 1/2/4, or bytes=0a0b...) (keys: enter, up, a..., kp0-kp9, click, moveDX/DY) [-framelog frames.csv] [-timescale 0.1] [-thrashlog fromframe toframe] [-native] [-wav sound.wav] [-voices voices.csv] [-joystick name] (keys also joy:A=V...: axes 0-5 = V, button bB; +key/-key held) [-wheel] [-ff] (the joystick a wheel; with force feedback) [-forcelog forces.csv] [-net] (the network) [-netaddr a.b.c.d] [-broadcast a.b.c.d,...] [-netlog messages.txt] (each message sent and received, in hex) [-netdrop N[:fromMs[-toMs]]] (every Nth packet sent lost, over those game ms) [-serial listen:port | host:port] (COM ports: a link over TCP, with -net) [-modem listen:port | host:port] (a TAPI modem whose calls are such links) [-deterministic instructionsPerMs] (a clock of instructions; the end state hashed) [-mhz N] (the processor's clock the time stamp counter shows; 300 by default) [-mmx] (CPUID reports MMX: the game mixes its sound with its MMX routines) [-count ADDR] (how many times the instruction at ADDR ran; repeatable) [-drive CAR:TARGET:FROMMS[:TOMS[:GAP]]] (CAR, a human's, steered at TARGET from the controls; full gas, or GAP metres behind at its speed) [-drivesign -1] (TARGET road: along the virtual road, GAP metres right of it, slowed for bends) [-roaddrive FROMMS[:TOMS[:RIGHT[:GRIP]]]] (NFS II SE: the player's car driven along the road's middle, RIGHT metres right of it, round the bends at GRIP times 14 m/s²; each lap and the finishing place reported) [-hotspots from to] (instructions counted by where they run, 16-byte blocks) [-gpulog] (THRASH recorded as for the GPU; each frame's list summed up) [-gpudump list dir] (that list in full: list.csv and its textures) [-present voodoo2a.dll] (the renderer the game is told of, -renderer's loaded in its place; the default; none: as -renderer) [-positional] (network races with positional updates, every player alike) [-pointfilter] (native drawing: textures point-sampled, not bilinear) [-direct3d] (the game told of d3da.dll, the Direct3D renderer: its Direct3D look, drawn natively as d3da's device draws; -present d3da.dll -native) [-glide] (the game's own voodoo2a.dll, unchanged, on Reluva's Glide stand-in) [-glidecompare out.csv] (-glide, with each flip also drawn natively and compared) [-glidefilter point | bilinear] (with -glide: the texture filter held, to compare) [-glidegpu] (with -glide: Glide's pixels drawn on the GPU, if there is one) [-glidegpucompare out.csv] (-glide on the GPU, each call also drawn in software and each frame compared: its mean difference, of 255, per flip) [-glidedll file] (-glide with this THRASH DLL in voodoo2a.dll's place, from outside the install, e.g. the CD's Patch/Voodoo3/voodoo2a.dll: Glide 3 on a Voodoo3) [-glideboard voodoo1 | rush | voodoo2 | banshee | voodoo3] (-glide on this board, e.g. -glidedll <install>/voodooa.dll -glideboard voodoo1; the Rush's desktop is 1024x768 at 16 bits unless given: -glideboard rush,desktop=1280x1024x16)", "run the retail nfs3.exe (or NFS II SE's nfs2sen.exe) in the x86 emulator, without a window, and report how it goes: its system calls, files, THRASH's work, frames (each one's moment in frames.txt), sound, the network",
          cmdNfsHost},
         {"huff-check", "<game folder> [out dir]",
          "every Huffman-compressed file decompressed by the game's own routine and by Reluva's, which must agree",
