@@ -85,8 +85,8 @@ on their pages in `formats/` and `systems/`.
    - the Windows functions the spike stood in for in the engine
      (`src/engines/sfc/host/system.cpp`), moved to the shared layer as
      they're settled;
-   - DirectPlay's lobby (next: the game asks for `IDirectPlayLobby3A`
-     after its title screen and stops without it);
+   - DirectPlay's lobby (done): told no lobby started it, the game shows
+     its main menu ([dplay.md](../../../../common/x86/dplay.md));
    - Winsock (`nfs` has one in its host) and DirectPlay 4, for the
      network;
    - Miles' 25 `AIL_*` sample functions, on the shared mixer (done): the

@@ -50,9 +50,9 @@ its "Loading..." the title screen and the dialog show, the pointer
 following the mouse with no box around it. Click the text box, type
 (capitals with Shift, and `-`), click ENTER: a wrong key gets the
 game's "ERROR! ... incorrect" message; the copy's own key closes the
-dialog, the full title screen shows, and the game stops at its first
-call into DirectPlay's lobby, its menu music started. Started again,
-it asks for no key. Ctrl+F5, and Return
+dialog, the full title screen shows, its menu music starts, and its
+main menu shows; Single Player opens Tutorials, Skirmish and Campaign.
+Started again, it asks for no key. Ctrl+F5, and Return
 to launcher, stop it. Headless, the same with `reluva-tool sfc host <game folder>
 -click 600 395 370 -type 620 <key> -click 700 395 405 -shot 900 out.png`.
 
@@ -60,6 +60,7 @@ to launcher, stop it. Headless, the same with `reluva-tool sfc host <game folder
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 23 November 2026 | English retail 1.0 | Linux | DirectPlay's lobby: `reluva-tool sfc host` past the title screen to the main menu ("Select Game"), its lobby asked each frame; Single Player clicked, its Tutorials, Skirmish and Campaign screen shown; 6 billion instructions without failing |
 | 23 November 2026 | English retail 1.0 | Linux | Miles: `reluva-tool sfc host -sound` past the title screen, the music captured byte for byte `MNU_A1.WAV` then `MNU_A2.WAV`; in the launcher's window (SDL's dummy audio driver) to the same point, stopping for want of DirectPlay's lobby |
 | 23 November 2026 | English retail 1.0 | Linux | `reluva-tool sfc host`, headless: the owner's CD key typed and taken, the full title screen, `registry.txt` written with the `WON\CDKeys` value; a second run with the same save folder went past the dialog with no input, both stopping at `AIL_set_redist_directory` |
 | 22 November 2026 | English retail 1.0 | Linux | In the launcher's window (a virtual X display, the mouse and keys sent by `xdotool`): the title screen and CD key dialog, text typed with capitals and `-`, ENTER answered "incorrect" for a made-up key, the pointer drawn without its background, Ctrl+F5 stopping it. The same headless with `-click`, `-type` and `-shot` |

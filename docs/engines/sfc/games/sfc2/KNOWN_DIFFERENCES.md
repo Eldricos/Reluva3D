@@ -30,9 +30,8 @@ None yet.
 ## Not yet as the original
 
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
-The game runs only as far as its title screen and the start of its menu
-music: then it stops for want of DirectPlay's lobby; it has no network
-yet
+The game runs as far as its main menus; nothing past them has been
+tried, and it has no network yet
 ([systems/hosting.md](systems/hosting.md)).
 
 ## Additions outside the game

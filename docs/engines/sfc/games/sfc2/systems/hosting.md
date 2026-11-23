@@ -20,8 +20,8 @@ window, and the mouse and keys reach it: a key typed into the dialog is
 checked by the game. Given the owner's key, it writes it to the
 registry, which Reluva keeps in the game's save folder, shows its full
 title screen, and starts its sound, through Miles, and its menu music.
-Run again, it finds the key and doesn't ask. Next it asks COM for
-DirectPlay's lobby, which nothing stands in for, and fails.
+Run again, it finds the key and doesn't ask. Told by DirectPlay's lobby
+that no lobby started it, it shows its main menu, whose buttons work.
 
 ## How it works
 
@@ -160,6 +160,21 @@ The music is the music zip's WAVs, played in the order
 itself; its effects and voices, which are IMA ADPCM
 ([sound-zips.md](../formats/sound-zips.md)), aren't played before it stops.
 
+### Its main menu
+
+After its title screen and the start of its music, it asks COM for
+DirectPlay's lobby (`IDirectPlayLobby3A`, at 0x619c94), which Reluva
+stands in for ([dplay.md](../../../../../common/x86/dplay.md)), and asks it
+for its connection settings (`GetConnectionSettings`, at 0x619d46) with
+no buffer: told `DPERR_NOTLOBBIED`, that no lobby started it, it shows
+its main menu, "Select Game": Single Player and Multiplayer, and Film
+Room, Credits, Hot Keys, Vessel Library and Exit Game. It asks again on
+each frame. Single Player leads to Tutorials, Skirmish and Campaign.
+
+Without the lobby, its code reporting that `CoCreateInstance` failed
+went on to ask the object it didn't get, and read through a null
+pointer at 0x619d3f.
+
 ### Its mouse and keys
 
 The game asks where the pointer is with `GetCursorPos` (and
@@ -213,7 +228,8 @@ known.
 - **What it needed of the shared layer** (`src/emulation/x86/`):
   semaphores (`CreateSemaphoreA`, `ReleaseSemaphore`, and waiting on
   them), Miles' sample functions
-  ([miles.md](../../../../../common/x86/miles.md)), a `GetFileType` for
+  ([miles.md](../../../../../common/x86/miles.md)), DirectPlay's lobby
+  ([dplay.md](../../../../../common/x86/dplay.md)), a `GetFileType` for
   files opened through the path mapping, a window's longs and subclassing (`GetWindowLongA`, `SetWindowLongA`,
   `CallWindowProcA`), `TranslateMessage` typing capitals and
   punctuation with Shift as a US keyboard does, a keyed blit failing
@@ -238,11 +254,9 @@ known.
   frame; `-sound <folder>` writes what each Miles sample played, one WAV
   a sample. `reluva-tool sfc disasm <game folder> <start> <end>`
   disassembles the program.
-- **Not yet:** the network, the opening movie. After its title screen,
-  with its music started, the program asks COM for DirectPlay's lobby
-  (`IDirectPlayLobby3A`), which nothing stands in for; its code that
-  reports the failure reads through the object it didn't get, at
-  0x619d3f, and the run stops.
+- **Not yet:** the network (DirectPlay itself), the opening movie;
+  nothing past the main menu and the Single Player screen has been
+  tried.
 
 ## Sources and checks
 

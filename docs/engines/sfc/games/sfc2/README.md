@@ -36,10 +36,11 @@ Detection signatures (MD5 of each file's start, and its size, as
   title screen and its CD key dialog, with the mouse and keys passed to
   it: a key can be typed, and the game checks it and remembers it. Its
   sound plays through Reluva's Miles: past its title screen its menu
-  music starts, and then it stops for want of DirectPlay's lobby.
+  music starts, and its main menu shows, its buttons working.
   `reluva-tool sfc host` runs it headless
   ([systems/hosting.md](systems/hosting.md)).
-- **Not yet:** anything past the title screen; the network; the
+- **Not yet:** anything past the main menus (a skirmish, the tutorials,
+  a campaign); the network; the
   `.gf`, `.mct` and `.mvm`
   settings, campaign and map files; the opening movie; the objects in
   `sprites.q3`.
