@@ -279,6 +279,8 @@ public:
      * at the next instruction. Safe to call from any thread.
      */
     void requestStop() { _stop.store(true, std::memory_order_relaxed); }
+    /** Lets code run again after requestStop: for a call made once a run has stopped. */
+    void clearStop() { _stop.store(false, std::memory_order_relaxed); }
     // Whether instructions run through the decoded-instruction cache (on by
     // default; off runs each from its bytes, as a check).
     bool cacheOn = true;
