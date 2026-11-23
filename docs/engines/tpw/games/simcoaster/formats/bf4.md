@@ -36,8 +36,8 @@ All numbers little-endian.
 | 12 | 4 | How its pixels are stored: 0, 4 bits a pixel; 2, 1 bit a pixel; 1, not worked out (below) |
 | 16 | 2 | Its width, in pixels |
 | 18 | 2 | Its height |
-| 20 | 1 | How far right of the pen it starts |
-| 21 | 1 | How far down from the line's top it starts |
+| 20 | 1 | How far right of the pen it starts, signed: −1 to −3 for some of the anti-aliased fonts' glyphs |
+| 21 | 1 | How far down from the line's top it starts, signed: −1 for `PERSONNELFILE*`'s `*` |
 | 22 | 2 | How far the pen moves on after it |
 | 24 | | Its pixels |
 
@@ -74,7 +74,9 @@ game-files test runs the first (`tpw.gamedata.fonts`).
   the size fields by their values against each glyph's width and height;
   the bit orders by drawing glyphs both ways and seeing which made
   letters; the offsets by the baseline the letters share (`e` 3 rows
-  down and 6 high, `E` at the top and 9 high, `g` 3 down and 8 high).
+  down and 6 high, `E` at the top and 9 high, `g` 3 down and 8 high),
+  and their sign by the large fonts' letters, which sit in line only
+  when 253 to 255 are taken as −3 to −1.
 - **How it was checked:** all 35 fonts read with `reluva-tool tpw
   bf4-check`; text drawn in several with `bf4-show` sits on its baseline,
   descenders below it. The unit tests (`tpw.unit.formats`) read a font

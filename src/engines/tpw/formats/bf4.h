@@ -22,8 +22,8 @@ public:
         char32_t character = 0; // what it draws: '*' where the font hasn't the code's own
         int width = 0;
         int height = 0;
-        int left = 0;    // from the pen, rightwards
-        int top = 0;     // from the line's top, downwards
+        int left = 0;    // from the pen, rightwards; may be negative
+        int top = 0;     // from the line's top, downwards; may be negative
         int advance = 0; // to the next character's pen
         /**
          * Each pixel's coverage, 0 (none) to 15 (whole), row by row; empty

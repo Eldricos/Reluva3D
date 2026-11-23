@@ -1,1 +1,1 @@
-fonts: d07553b225b3b63f | 35 fonts read, 0 failed: 8750 glyphs, 160 of a storage not read, md5 5d2724f44b8d76fe7b085dea44ec9ea5
+fonts: 36b2b1cf2ae960a4 | 35 fonts read, 0 failed: 8750 glyphs, 160 of a storage not read, md5 c57e87a2d286620cb332ed0560397ac5

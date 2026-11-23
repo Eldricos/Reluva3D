@@ -197,8 +197,8 @@ void putGlyph(Bytes &b, char32_t c, uint32_t storage, int w, int h, int left, in
     b.insert(b.end(), px.begin(), px.end());
 }
 
-// Three glyphs: an 'L' at 1 bit a pixel (3x3), a dot at 4 bits (2x2),
-// and one of the storage not read.
+// Three glyphs: an 'L' at 1 bit a pixel (3x3), a dot at 4 bits (2x2) a
+// pixel left of the pen, and one of the storage not read.
 Bytes makeFont() {
     Bytes b = {'F', '4', 'F', 'B', 1, 13, 3, 0};
     b.resize(8 + 12);
@@ -206,7 +206,7 @@ Bytes makeFont() {
     // 100 100 111, then padding: 1001 0011 1000 0000.
     putGlyph(b, U'L', 2, 3, 3, 1, 6, 5, {0x93, 0x80, 0, 0, 0, 0, 0, 0});
     put32(b, 12, uint32_t(b.size()));
-    putGlyph(b, U'.', 0, 2, 2, 0, 7, 3, {0x0f, 0x84, 0, 0, 0, 0, 0, 0});
+    putGlyph(b, U'.', 0, 2, 2, -1, 7, 3, {0x0f, 0x84, 0, 0, 0, 0, 0, 0});
     put32(b, 16, uint32_t(b.size()));
     putGlyph(b, U'?', 1, 2, 2, 0, 0, 3, {0x05, 0x01, 0x63, 0x0d, 0, 0, 0, 0});
     return b;
@@ -221,7 +221,7 @@ void testBf4() {
           l->advance == 5);
     CHECK(l && (l->coverage == Bytes{15, 0, 0, 15, 0, 0, 15, 15, 15}));
     const Font::Glyph *dot = font.glyph(2);
-    CHECK(dot && dot->readable && (dot->coverage == Bytes{0, 15, 8, 4}));
+    CHECK(dot && dot->readable && dot->left == -1 && (dot->coverage == Bytes{0, 15, 8, 4}));
     const Font::Glyph *odd = font.glyph(3);
     CHECK(odd && !odd->readable && odd->coverage.empty() && odd->width == 2);
     CHECK(!font.glyph(0) && !font.glyph(4));

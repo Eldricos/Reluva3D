@@ -44,8 +44,8 @@ Error Font::parse(const std::vector<uint8_t> &data) {
         const uint32_t storage = le32(data, at + 12);
         g.width = int(le16(data, at + 16));
         g.height = int(le16(data, at + 18));
-        g.left = data[at + 20];
-        g.top = data[at + 21];
+        g.left = int8_t(data[at + 20]);
+        g.top = int8_t(data[at + 21]);
         g.advance = int(le16(data, at + 22));
         const size_t pixels = size_t(g.width) * size_t(g.height);
         const size_t bits = storage == kFourBits ? 4 : 1;
