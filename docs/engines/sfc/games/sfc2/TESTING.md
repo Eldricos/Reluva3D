@@ -58,6 +58,8 @@ dialog, the full title screen shows, its menu music starts, and its
 main menu shows; Single Player opens Tutorials, Skirmish and Campaign;
 Skirmish, then PLAY GAME, starts "Hostile Skirmish": S to speed up, Y
 to select the Klingon, R for red alert, Z to fire once it's in range.
+Tutorials, then START on a course: Captain Wells' orders, spoken; T on
+the first, a container targeted, brings the next.
 Started again, it asks for no key. Ctrl+F5, and Return
 to launcher, stop it. Headless, the same with `reluva-tool sfc host <game folder>
 -click 600 395 370 -type 620 <key> -click 700 395 405 -shot 900 out.png`.
@@ -66,6 +68,7 @@ to launcher, stop it. Headless, the same with `reluva-tool sfc host <game folder
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 23 November 2026 | English retail 1.0 | Linux | The tutorials, headless with `-fixed-clock`: all six started from their screen and run; Command 190 followed (T targets a container, the next order comes) and, its containers not destroyed, ended "incomplete" with its debriefing; Command 290 to its debriefing; the voice-over captured with `-sound` |
 | 23 November 2026 | English retail 1.0 | Linux | A skirmish played: headless with `-fixed-clock` (the same frames each run) and in the window with `xdotool`, the game imported from the CDs: S for speed, Y to target, R red alert, the helm's turn arrow, Z and the FIRE button hitting the Klingon, keypad 5's high-energy turn |
 | 23 November 2026 | English retail 1.0 | Linux | Importing from the two CDs (`reluva-tool import`): 3,356 files in 20 seconds, every MD5 the header's, byte for byte the owner's install by setup but for `sfc2.isu`; recognised as 1.0. Every reader over it: 126 fonts, 317 models (6 with 4-cornered polygons), the sounds and `sprites.q3`, none failing |
 | 23 November 2026 | English retail 1.0 | Linux | A skirmish: with a copy of the install short of files, "No missions available"; with the CD's program files added (taken with `unshield`), "Hostile Skirmish" listed and started, the Klingon coming in, 35 billion instructions without failing |

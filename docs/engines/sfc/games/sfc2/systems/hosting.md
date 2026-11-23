@@ -206,6 +206,19 @@ grouped isn't traced. 35 billion instructions (about
 models missing, the run stopped at a null part of a ship the game
 couldn't build (0x415269).
 
+The six tutorials (`Tut_*.scr`), listed under Single Player's
+Tutorials (Command 190 and 290, Science 310, Weapons 380, Weapons
+Advanced 480, Command 590, all the Federation's), each load and run:
+Captain Wells' orders shown and spoken (the voices through Miles, a mono
+sample beside the music), the lesson moving on as an order is followed
+(T targeting a container brings the next, on firing), his prodding when
+it isn't ("C'mon Lieutenant"), and, with orders left undone, "Mission
+incomplete. Closing Session." and the Mission Debriefing: the battle
+report, and "you have failed to follow orders. You must repeat course",
+with VIEW REPLAY and DONE. Passing one is a matter of flying the ship
+(Command 190 wants three containers destroyed, the phasers brought to
+bear on each), not yet done by a scripted run.
+
 A skirmish is played through DirectPlay, single-player too: starting
 one, the game throws a `TLogicError` naming `fDirectPlayObject` each
 time it finds no DirectPlay object, and goes on. As it starts it calls
