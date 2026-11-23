@@ -84,6 +84,14 @@ How it's kept quick, each change giving the same pixels:
   waits for them; those awake take each draw as it comes. Waking them for
   every small draw took a fifth of LEGO Island's thread; held, its island
   frames are 12 to 15% quicker on four processors.
+- A triangle draw is given to the draw threads as its lit vertices: the
+  first thread to come to it clips, projects and culls its triangles,
+  for all of them, so the program's thread doesn't (a fifth of LEGO
+  Island's). On four processors the island is no quicker for it, as its
+  frames are then drawn as fast as the draw threads can; with more, it
+  leaves the program's thread free. (Each thread setting up a share of
+  the triangles, the others waiting for it, was far slower: every
+  thread held to the slowest at each draw.)
 - Each row is filled from its first inside pixel to its last; the edge
   tests are only made at the ends.
 - The depth test comes before a pixel's attributes are worked out.

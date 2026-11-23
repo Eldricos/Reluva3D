@@ -260,6 +260,101 @@ float planeDistance(const ClipVertex &v, int plane) {
 
 } // namespace
 
+ClipVertex TriangleSetup::project(const ClipVertex &v) const {
+    ClipVertex p = v;
+    const float rhw = 1 / v.w;
+    p.x = float(viewport.x) + (v.x * rhw + 1) * float(viewport.width) / 2;
+    p.y = float(viewport.y) + (1 - v.y * rhw) * float(viewport.height) / 2;
+    p.z = viewport.minZ + v.z * rhw * (viewport.maxZ - viewport.minZ);
+    p.w = rhw;
+    return p;
+}
+
+void TriangleSetup::add(const ClipVertex &a, const ClipVertex &b, const ClipVertex &c,
+                        std::vector<std::array<ClipVertex, 3>> &out) const {
+    // Each plane adds at most one corner: 3 + 6 at most.
+    struct Polygon {
+        ClipVertex v[9];
+        size_t n = 0;
+        size_t size() const { return n; }
+        ClipVertex &operator[](size_t i) { return v[i]; }
+        const ClipVertex &operator[](size_t i) const { return v[i]; }
+    } polys[2];
+    Polygon *poly = &polys[0];
+    poly->v[0] = a, poly->v[1] = b, poly->v[2] = c, poly->n = 3;
+    // Flat shaded, the triangle is the first vertex's colour however it's
+    // clipped (which can cut that vertex away): every corner given it,
+    // the fog factor (specular's alpha) still each its own.
+    if (flat)
+        for (size_t i = 1; i < 3; ++i) {
+            poly->v[i].diffuse = a.diffuse;
+            poly->v[i].specular = {a.specular.r, a.specular.g, a.specular.b, poly->v[i].specular.a};
+        }
+    if (!projected) {
+        for (int plane = 0; plane < 6 && poly->n; ++plane) {
+            Polygon &next = poly == &polys[0] ? polys[1] : polys[0];
+            next.n = 0;
+            for (size_t i = 0; i < poly->n; ++i) {
+                const ClipVertex &p = (*poly)[i];
+                const ClipVertex &q = (*poly)[(i + 1) % poly->n];
+                const float dp = planeDistance(p, plane);
+                const float dq = planeDistance(q, plane);
+                if (dp >= 0)
+                    next.v[next.n++] = p;
+                if ((dp >= 0) != (dq >= 0))
+                    next.v[next.n++] = lerp(p, q, dp / (dp - dq));
+            }
+            poly = &next;
+        }
+        if (poly->n < 3)
+            return;
+        for (size_t i = 0; i < poly->n; ++i) {
+            if (poly->v[i].w <= 0)
+                return;
+            poly->v[i] = project(poly->v[i]);
+        }
+    }
+    const Polygon &shape = *poly;
+    // Winding on the screen (y down): positive is clockwise.
+    float area = 0;
+    for (size_t i = 0; i < shape.size(); ++i) {
+        const ClipVertex &p = shape[i];
+        const ClipVertex &q = shape[(i + 1) % shape.size()];
+        area += p.x * q.y - q.x * p.y;
+    }
+    if ((cull == 2 && area > 0) || (cull == 3 && area < 0) || area == 0)
+        return;
+    for (size_t i = 1; i + 1 < shape.size(); ++i)
+        out.push_back({shape[0], shape[i], shape[i + 1]});
+}
+
+size_t TriangleSetup::count(uint32_t primitive, size_t indices) {
+    if (primitive == 4)
+        return indices / 3;
+    return (primitive == 5 || primitive == 6) && indices >= 3 ? indices - 2 : 0;
+}
+
+void TriangleSetup::addRange(uint32_t primitive, const std::vector<ClipVertex> &v, const std::vector<uint32_t> &order,
+                             size_t first, size_t last, std::vector<std::array<ClipVertex, 3>> &out) const {
+    for (size_t t = first; t < last; ++t)
+        switch (primitive) {
+        case 4: // triangle list
+            add(v[order[3 * t]], v[order[3 * t + 1]], v[order[3 * t + 2]], out);
+            break;
+        case 5: // triangle strip: every other one turned round to keep the winding
+            if (t & 1)
+                add(v[order[t + 1]], v[order[t]], v[order[t + 2]], out);
+            else
+                add(v[order[t]], v[order[t + 1]], v[order[t + 2]], out);
+            break;
+        case 6: // triangle fan
+            add(v[order[0]], v[order[t + 1]], v[order[t + 2]], out);
+            break;
+        default:
+            return;
+        }
+}
+
 // Vertices.
 
 void Device::transformAndLight(const VertexLayout &layout, const uint8_t *mem, uint32_t stride, uint32_t count,
@@ -450,13 +545,11 @@ void Device::transformAndLight(const VertexLayout &layout, const uint8_t *mem, u
 }
 
 ClipVertex Device::project(const ClipVertex &v) const {
-    ClipVertex p = v;
-    const float rhw = 1 / v.w;
-    p.x = float(viewport.x) + (v.x * rhw + 1) * float(viewport.width) / 2;
-    p.y = float(viewport.y) + (1 - v.y * rhw) * float(viewport.height) / 2;
-    p.z = viewport.minZ + v.z * rhw * (viewport.maxZ - viewport.minZ);
-    p.w = rhw;
-    return p;
+    return setup().project(v);
+}
+
+TriangleSetup Device::setup() const {
+    return {viewport, _projected, _cfg.flat, renderStates[kCullMode]};
 }
 
 // Primitives.
@@ -505,7 +598,13 @@ void Device::drawVertices(uint32_t primitive, uint32_t fvf, const uint8_t *verti
             order[i] = i;
     }
     const size_t n = order.size();
-    _batching = primitive >= 4 && primitive <= 6; // triangles: gathered, then drawn on several threads
+    if (primitive >= 4 && primitive <= 6) {
+        drawTriangles(primitive, std::move(v), std::move(order));
+        target->touched();
+        if (depth)
+            depth->touched();
+        return;
+    }
     switch (primitive) {
     case 1: // points
         for (size_t i = 0; i < n; ++i)
@@ -519,26 +618,9 @@ void Device::drawVertices(uint32_t primitive, uint32_t fvf, const uint8_t *verti
         for (size_t i = 0; i + 1 < n; ++i)
             line(v[order[i]], v[order[i + 1]]);
         break;
-    case 4: // triangle list
-        for (size_t i = 0; i + 2 < n; i += 3)
-            triangle(v[order[i]], v[order[i + 1]], v[order[i + 2]]);
-        break;
-    case 5: // triangle strip: every other one turned round to keep the winding
-        for (size_t i = 0; i + 2 < n; ++i)
-            if (i & 1)
-                triangle(v[order[i + 1]], v[order[i]], v[order[i + 2]]);
-            else
-                triangle(v[order[i]], v[order[i + 1]], v[order[i + 2]]);
-        break;
-    case 6: // triangle fan
-        for (size_t i = 1; i + 1 < n; ++i)
-            triangle(v[order[0]], v[order[i]], v[order[i + 1]]);
-        break;
     default:
         break;
     }
-    _batching = false;
-    drawBatch();
     target->touched();
     if (depth)
         depth->touched();
@@ -553,6 +635,27 @@ void Device::drawVertices(uint32_t primitive, uint32_t fvf, const uint8_t *verti
 // a draw is done once every thread is past it. (Drawing draws in batches,
 // every thread waiting for the slowest at the end of each, a profile at
 // 1024x768 found the threads idle a third of the time.)
+// A triangle primitive's lit vertices, set up into triangles (clipped,
+// projected, culled) once, by whichever draw thread comes to them first.
+struct Primitives {
+    TriangleSetup setup;
+    uint32_t primitive = 0;
+    std::vector<ClipVertex> vertices;
+    std::vector<uint32_t> order;
+    const std::vector<std::array<ClipVertex, 3>> &triangles() {
+        std::call_once(_once, [this] {
+            setup.addRange(primitive, vertices, order, 0, TriangleSetup::count(primitive, order.size()), _triangles);
+            vertices = {};
+            order = {};
+        });
+        return _triangles;
+    }
+
+private:
+    std::once_flag _once;
+    std::vector<std::array<ClipVertex, 3>> _triangles;
+};
+
 struct DrawQueue {
     struct Job {
         Draw draw;
@@ -561,6 +664,9 @@ struct DrawQueue {
         // Instead of triangles: filling the rows of one band of bands (a
         // clear), in turn with the draws.
         std::function<void(int band, int bands)> fill = {};
+        // Or a primitive's lit vertices, their triangles set up by the
+        // first thread to come to them, for all.
+        std::shared_ptr<Primitives> primitives = {};
     };
     explicit DrawQueue(DirectX::DrawThreads) {
         const int n = std::clamp(int(std::thread::hardware_concurrency()), 1, 8);
@@ -624,7 +730,7 @@ struct DrawQueue {
         for (const Job &j : jobs) {
             if (j.fill)
                 j.fill(0, 1);
-            for (const auto &t : j.triangles)
+            for (const auto &t : j.primitives ? j.primitives->triangles() : j.triangles)
                 j.draw.rasterize(r, t[0], t[1], t[2]);
         }
     }
@@ -655,7 +761,7 @@ private:
             lock.unlock();
             if (job->fill)
                 job->fill(band, bands);
-            for (const auto &t : job->triangles)
+            for (const auto &t : job->primitives ? job->primitives->triangles() : job->triangles)
                 job->draw.rasterize(r, t[0], t[1], t[2]);
             job.reset();
             lock.lock();
@@ -750,64 +856,36 @@ void Device::drawBatch() {
     _queue->push(std::move(job.front()));
 }
 
+// A triangle primitive: its triangles set up and drawn on the draw
+// threads, in turn with the draws before them, while the program goes on
+// (setting them up here took a fifth of LEGO Island's thread); with
+// DirectX::DrawThreads::kOne, here and now.
+void Device::drawTriangles(uint32_t primitive, std::vector<ClipVertex> vertices, std::vector<uint32_t> order) {
+    drawBatch();
+    const DirectX::DrawThreads mode = s->owner.drawThreads;
+    if (mode != DirectX::DrawThreads::kOne && !_queue)
+        _queue = std::make_shared<DrawQueue>(mode);
+    auto prims = std::make_shared<Primitives>();
+    prims->setup = setup();
+    prims->primitive = primitive;
+    prims->vertices = std::move(vertices);
+    prims->order = std::move(order);
+    // Their pixels aren't known until they're set up: roughly, for waking
+    // the threads, so many a triangle.
+    const double area = double(prims->order.size()) * 64;
+    std::vector<DrawQueue::Job> job;
+    job.push_back({current(), {}, area, {}, std::move(prims)});
+    if (mode == DirectX::DrawThreads::kOne) {
+        DrawQueue::draw(job, mode);
+        return;
+    }
+    _queue->push(std::move(job.front()));
+}
+
 // Clips a triangle to the view volume, projects it, culls it by its
 // winding, and fills what's left.
 void Device::triangle(const ClipVertex &a, const ClipVertex &b, const ClipVertex &c) {
-    // Each plane adds at most one corner: 3 + 6 at most.
-    struct Polygon {
-        ClipVertex v[9];
-        size_t n = 0;
-        size_t size() const { return n; }
-        ClipVertex &operator[](size_t i) { return v[i]; }
-        const ClipVertex &operator[](size_t i) const { return v[i]; }
-    } polys[2];
-    Polygon *poly = &polys[0];
-    poly->v[0] = a, poly->v[1] = b, poly->v[2] = c, poly->n = 3;
-    // Flat shaded, the triangle is the first vertex's colour however it's
-    // clipped (which can cut that vertex away): every corner given it,
-    // the fog factor (specular's alpha) still each its own.
-    if (_cfg.flat)
-        for (size_t i = 1; i < 3; ++i) {
-            poly->v[i].diffuse = a.diffuse;
-            poly->v[i].specular = {a.specular.r, a.specular.g, a.specular.b, poly->v[i].specular.a};
-        }
-    if (!_projected) {
-        for (int plane = 0; plane < 6 && poly->n; ++plane) {
-            Polygon &next = poly == &polys[0] ? polys[1] : polys[0];
-            next.n = 0;
-            for (size_t i = 0; i < poly->n; ++i) {
-                const ClipVertex &p = (*poly)[i];
-                const ClipVertex &q = (*poly)[(i + 1) % poly->n];
-                const float dp = planeDistance(p, plane);
-                const float dq = planeDistance(q, plane);
-                if (dp >= 0)
-                    next.v[next.n++] = p;
-                if ((dp >= 0) != (dq >= 0))
-                    next.v[next.n++] = lerp(p, q, dp / (dp - dq));
-            }
-            poly = &next;
-        }
-        if (poly->n < 3)
-            return;
-        for (size_t i = 0; i < poly->n; ++i) {
-            if (poly->v[i].w <= 0)
-                return;
-            poly->v[i] = project(poly->v[i]);
-        }
-    }
-    const Polygon &shape = *poly;
-    // Winding on the screen (y down): positive is clockwise.
-    float area = 0;
-    for (size_t i = 0; i < shape.size(); ++i) {
-        const ClipVertex &p = shape[i];
-        const ClipVertex &q = shape[(i + 1) % shape.size()];
-        area += p.x * q.y - q.x * p.y;
-    }
-    const uint32_t cull = renderStates[kCullMode];
-    if ((cull == 2 && area > 0) || (cull == 3 && area < 0) || area == 0)
-        return;
-    for (size_t i = 1; i + 1 < shape.size(); ++i)
-        _batch.push_back({shape[0], shape[i], shape[i + 1]});
+    setup().add(a, b, c, _batch);
     if (!_batching)
         drawBatch();
 }

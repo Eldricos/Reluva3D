@@ -109,6 +109,29 @@ struct Viewport {
 };
 
 /**
+ * How a device's triangles are set up for drawing, from its states when
+ * they're given: clipped to the view volume (unless they came projected),
+ * projected to the viewport, and culled by their winding.
+ */
+struct TriangleSetup {
+    Viewport viewport;
+    bool projected = false; // the vertices came transformed (XYZRHW)
+    bool flat = false;      // flat shaded: the first vertex's colours
+    uint32_t cull = 1;      // D3DCULL: 1 none, 2 clockwise, 3 counter-clockwise
+
+    /** A clip-space vertex on the screen: x, y, z and 1/w. */
+    ClipVertex project(const ClipVertex &v) const;
+    /** Adds what's left of the triangle to `out`, as triangles on the screen. */
+    void add(const ClipVertex &a, const ClipVertex &b, const ClipVertex &c,
+             std::vector<std::array<ClipVertex, 3>> &out) const;
+    /** How many triangles a list, strip or fan (D3DPRIMITIVETYPE 4 to 6) of so many indices makes. */
+    static size_t count(uint32_t primitive, size_t indices);
+    /** Adds such a primitive's triangles `first` to `last` (not included), `order` indexing `v`. */
+    void addRange(uint32_t primitive, const std::vector<ClipVertex> &v, const std::vector<uint32_t> &order,
+                  size_t first, size_t last, std::vector<std::array<ClipVertex, 3>> &out) const;
+};
+
+/**
  * One draw's pixels: the states they go through, taken from the device
  * when it's made, and the drawing itself. A draw holds what it draws into,
  * so it can be drawn later, on another thread, whatever the device does
@@ -357,6 +380,8 @@ private:
     void line(const ClipVertex &a, const ClipVertex &b);
     void point(const ClipVertex &a);
     ClipVertex project(const ClipVertex &v) const;
+    TriangleSetup setup() const;
+    void drawTriangles(uint32_t primitive, std::vector<ClipVertex> vertices, std::vector<uint32_t> order);
     const DecodedTexture *texture(int stage);
     // The draw as the states are now.
     Draw current() const;
