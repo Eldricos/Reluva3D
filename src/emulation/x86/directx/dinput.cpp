@@ -107,6 +107,7 @@ struct DirectInput::State {
     ComInterface device{"IDirectInputDeviceA", kIidDevice, first(kDevice7, 18)};
     ComInterface device2{"IDirectInputDevice2A", kIidDevice2, first(kDevice7, 27)};
     ComInterface device7{"IDirectInputDevice7A", kIidDevice7, kDevice7};
+    int miceHeld = 0; // mice acquired exclusively
     explicit State(Win32Process &p) : process(p), cpu(p.cpu()), com(p) {}
 };
 
@@ -118,6 +119,8 @@ public:
     DirectInput::State *s = nullptr;
     bool mouse = false;
     bool acquired = false;
+    bool exclusive = false; // DISCL_EXCLUSIVE
+    bool counted = false;   // in State::miceHeld
     // The data format: each object's place in the program's data.
     struct Object {
         enum class Kind { kAxis, kButton, kKey } kind;
@@ -164,10 +167,24 @@ public:
                 buttons[r.a] = r.b != 0;
                 record(Object::Kind::kButton, r.a, r.b ? 0x80 : 0);
             }
-        } else if (r.kind == Kind::kKey && r.a >= 0 && r.a < 256) {
-            keys[r.a] = r.b != 0;
-            record(Object::Kind::kKey, r.a, r.b ? 0x80 : 0);
+        } else if (r.kind == Kind::kKey && r.a >= 0 && r.a < 0x200) {
+            // DirectInput's key codes are scan codes, an extended key's with
+            // 0x80 (DIK_UP 0xc8 for the arrow's 0x48).
+            const int code = (r.a & 0x7f) | (r.a & 0x100 ? 0x80 : 0);
+            keys[code] = r.b != 0;
+            record(Object::Kind::kKey, code, r.b ? 0x80 : 0);
         }
+    }
+    // Counts the mouse as held by the program while it's acquired exclusively.
+    void held() {
+        const bool now = acquired && mouse && exclusive;
+        s->miceHeld += int(now) - int(counted);
+        counted = now;
+    }
+    ~Device() override {
+        acquired = false;
+        if (s)
+            held();
     }
     void change(Object::Kind kind, int axis, int by) {
         if (!by)
@@ -279,14 +296,21 @@ public:
         const std::string_view m = iface.methods[size_t(index)].name;
         if (m == "SetDataFormat")
             return setFormat(c, c.arg(1));
-        if (m == "SetCooperativeLevel" || m == "SetEventNotification" || m == "Initialize")
+        if (m == "SetCooperativeLevel") { // (window, flags)
+            exclusive = c.arg(2) & 1;
+            held();
+            return kOk;
+        }
+        if (m == "SetEventNotification" || m == "Initialize")
             return kOk;
         if (m == "Acquire") {
             acquired = true;
+            held();
             return kOk;
         }
         if (m == "Unacquire") {
             acquired = false;
+            held();
             return kOk;
         }
         if (m == "Poll")
@@ -476,6 +500,10 @@ public:
 } // namespace
 
 DirectInput::~DirectInput() = default;
+
+bool DirectInput::mouseHeld() const {
+    return _s->miceHeld > 0;
+}
 
 DirectInput::DirectInput(Win32Process &process) : _s(std::make_unique<State>(process)) {
     State *s = _s.get();

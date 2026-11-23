@@ -54,6 +54,12 @@ headers' (`directx/interfaces.cpp`).
     `c_dfDIKeyboard` kinds, or its own).
   - Read either as an immediate state (relative or absolute axes) or as a
     buffer of changes (`DIPROP_BUFFERSIZE`, `GetDeviceData`).
+  - A key is its scan code, an extended key's with 0x80 (the up arrow,
+    0x48 extended, is `DIK_UP`, 0xc8), as DirectInput numbers them.
+  - `DirectInput::mouseHeld` tells the engine when the program has the
+    mouse acquired exclusively: it reads the mouse's movement then, and
+    Windows' pointer is hidden, so the engine holds the mouse in its
+    window for it.
 
 ## How it works
 

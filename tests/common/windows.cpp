@@ -860,6 +860,12 @@ static void testInput() {
         cpu.write32(prop + 4 * i, bufferSize[i]);
     CHECK(call(mouse, 6, {1, prop}) == 0); // SetProperty: DIPROP_BUFFERSIZE
     CHECK(call(mouse, 7, {}) == 0);        // Acquire
+    // Held by the program once it's acquired exclusively (DISCL_EXCLUSIVE).
+    CHECK(!directInput.mouseHeld());
+    CHECK(call(mouse, 13, {0, 5}) == 0); // SetCooperativeLevel: exclusive, foreground
+    CHECK(directInput.mouseHeld());
+    CHECK(call(mouse, 8, {}) == 0 && !directInput.mouseHeld()); // Unacquire
+    CHECK(call(mouse, 7, {}) == 0 && directInput.mouseHeld());
     process.mouseMoveTo(140, 65);
     process.mouseButton(1, true);
     CHECK(call(mouse, 9, {16, state}) == 0);
@@ -894,6 +900,10 @@ static void testInput() {
     CHECK(call(keyboard, 9, {256, state}) == 0 && cpu.read8(state + 0x1e) == 0x80 && cpu.read8(state + 0x1f) == 0);
     process.key(0x41, 0x1e, false);
     CHECK(call(keyboard, 9, {256, state}) == 0 && cpu.read8(state + 0x1e) == 0);
+    // An extended key: the up arrow's scan code 0x48 is DIK_UP, 0xc8.
+    process.key(0x26, 0x148, true);
+    CHECK(call(keyboard, 9, {256, state}) == 0 && cpu.read8(state + 0xc8) == 0x80 && cpu.read8(state + 0x48) == 0);
+    process.key(0x26, 0x148, false);
 }
 
 // DirectPlay 3 created through COM, with no connections to offer.
