@@ -594,6 +594,12 @@ static void testCue(const std::filesystem::path &tmp) {
         CHECK(writeCueTrackWav(tracks[0], tmp / "track01.wav")); // data, not audio
     }
     CHECK(parseCueSheet("FILE missing.bin BINARY\nTRACK 01 AUDIO\nINDEX 01 00:00:00\n", tmp, tracks));
+    // A data track's image left out, as with a CD's files copied instead:
+    // the audio tracks are still read.
+    CHECK(!parseCueSheet("FILE data.bin BINARY\nTRACK 01 MODE1/2352\nINDEX 01 00:00:00\n"
+                         "FILE b.bin BINARY\nTRACK 02 AUDIO\nINDEX 01 00:00:00\n",
+                         tmp, tracks));
+    CHECK(tracks.size() == 2 && tracks[0].size == 0 && tracks[1].audio && tracks[1].size == 2352);
     CHECK(parseCueSheet("FILE b.bin WAVE\nTRACK 01 AUDIO\nINDEX 01 00:00:00\n", tmp, tracks));
     CHECK(parseCueSheet("FILE b.bin BINARY\nTRACK 01 AUDIO\nINDEX 01 00:00:75\n", tmp, tracks));
     std::filesystem::remove_all(tmp);
