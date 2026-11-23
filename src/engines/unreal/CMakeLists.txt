@@ -66,8 +66,7 @@ reluva_add_engine_viewers(unreal
 # Its reluva-tool commands (reluva-tool help unreal lists them).
 reluva_add_engine_tools(unreal
     SOURCES
-        tools/commands.cpp
-        tools/soft_renderer.cpp)
+        tools/commands.cpp)
 
 # Its tests (tests/engines/unreal/), in reluva-tests: the unit tests by
 # topic, on packages built in the tests, and the engine test, without game

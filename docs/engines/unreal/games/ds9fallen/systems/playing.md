@@ -82,7 +82,7 @@ along them, steps down off slopes, and doesn't leave the level.
 ## In Reluva
 
 `reluva-tool unreal play` plays the page without a window, through a
-software renderer (`engines/unreal/tools/soft_renderer.cpp`: textured, depth tested,
+software renderer (`devtools/soft_renderer.cpp`: textured, depth tested,
 blended triangles, enough to see a frame), driven by steps:
 `play`, `wait <s>`, `hold <key> <s>`, `down`/`up <key>`, `press <key>`
 (letters, `left` `right` `up` `down`, `space`, `enter`, `escape`, `f1`...),

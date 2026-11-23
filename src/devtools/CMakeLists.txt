@@ -28,7 +28,8 @@ target_compile_definitions(reluva-viewer PRIVATE RELUVA_BUILD_DIR="${PROJECT_BIN
                                                  RELUVA_BUILD_CONFIG="$<$<BOOL:${CMAKE_CONFIGURATION_TYPES}>:$<CONFIG>>")
 
 # reluva-tool: the shared commands (here) and each enabled engine's
-# (reluva_add_engine_tools in its CMakeLists.txt).
+# (reluva_add_engine_tools in its CMakeLists.txt), with what engines'
+# commands share: soft_renderer.cpp, 3D drawn in memory for screenshots.
 reluva_finish_tool(
     ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/tool.cpp
@@ -36,4 +37,5 @@ reluva_finish_tool(
     ${CMAKE_CURRENT_SOURCE_DIR}/media.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/games.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/x86.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/meeting.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/meeting.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/soft_renderer.cpp)

@@ -25,7 +25,7 @@
 #include "engines/unreal/vm/vm.h"
 #include "engines/unreal/vm/vm_level.h"
 #include "engines/unreal/pages/viewers.h"
-#include "engines/unreal/tools/soft_renderer.h"
+#include "devtools/soft_renderer.h"
 #include "engines/unreal/game/collision.h"
 #include "engines/unreal/game/zones.h"
 #include "engines/unreal/formats/model.h"
