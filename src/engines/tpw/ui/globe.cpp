@@ -289,7 +289,7 @@ void drawSpaced(Surface &screen, const Font &font, const CharacterSet &character
 } // namespace
 
 int chooseWorld(System &sys, const SearchSet &files, const GlobeTurning &turning,
-                const std::array<bool, Globe::kWorlds> &open) {
+                const std::array<bool, Globe::kWorlds> &open, const std::function<void()> &onFrame) {
     const Globe &globe = turning.globe();
     Font font;
     CharacterSet characters;
@@ -308,6 +308,8 @@ int chooseWorld(System &sys, const SearchSet &files, const GlobeTurning &turning
     uint64_t chosenAt = 0;
     for (;;) {
         const uint64_t now = sys.getMillis();
+        if (onFrame)
+            onFrame();
         Event ev;
         while (sys.pollEvent(ev)) {
             if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)

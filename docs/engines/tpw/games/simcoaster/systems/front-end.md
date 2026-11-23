@@ -168,19 +168,57 @@ recording times, from the camera's path starting (10 s into it):
 | 34.1 s | 52.2 s | Shown, over the globe turning |
 | 54 s | | The Personnel File opens; no portrait or button over it |
 
-Three spells, as the advisor's speech would have, with pauses between
-*(inferred)*: the script's `VAR_SPEECHSTATUS` doesn't keep time with
-them (it turns 1 at 4.4 s, 2 at about 17 s), and Reluva doesn't play the
-speech yet, so it shows the portrait by the recording's times. The
-game's speech bank (`global/Speech/speechHD.SDT`) and its lip timings
-(`global/Speech/lips.wad`, `SP_0001.LIP` on) would settle which lines
-they are.
+Three spells, one for each of the advisor's lines
+([below](#the-music-and-the-speech)): the portrait shows from 1.2 or 1.3
+s before he speaks to 1.3 to 2.8 s after. The script's
+`VAR_SPEECHSTATUS` doesn't keep time with them (it turns 1 at 4.4 s, 2
+at about 17 s).
 
 The button is skip (▷▷|) until 36.5 s, when the camera has come down
 over the globe, then play (|▷). The recording's player never presses
 it: the path plays out, and the Personnel File opens 54 s in, 1.8 s
 after the advisor's last spell *(inferred: the game opens it once he's
 done)*.
+
+### The music and the speech
+
+The recording's sound, set beside the game's banks by their spectra
+(each line's first 3 seconds, or 3 seconds of the recording, slid over
+every sound), has the advisor saying three lines of the speech bank,
+`global/Speech/speechHD.SDT`, and music of the Intro World's own,
+`levels/wIntro/Music/MusicHD.sdt`, from the front end's start.
+
+The lines, by their numbers in the speech category (1018 is
+`SP_1018`, the bank's 1,018th; [sound-maps.md](../formats/sound-maps.md)),
+from the camera's path starting:
+
+| Line | Length | Said from | Matched |
+|---|---|---|---|
+| 1018 | 20.8 s | 1.6 s | 0.88 (the next best line, 0.38) |
+| 1019 | 2.3 s | 28.5 s | 0.80 |
+| 1020 | 14.7 s | 35.3 s | 0.78 (the next best, 0.42) |
+
+The game has no text for them (no string table holds the speech's
+words). What makes it say them then isn't known: Reluva says them at
+the recording's times *(inferred)*.
+
+The music is the Intro World's category's one effect, 2 (`cat_musicSFX.map`):
+six groups of pieces, 5 to 29 seconds each, every group linked to all
+six. Each link gives a range of 0 to 100: group 1 0 to 10, group 2 11
+to 26, 3 27 to 42, 4 43 to 58, 5 59 to 74, 6 75 to 90 (Arabian Nights'
+seven groups run on to 100). The game, it seems, picks the next group by
+a value of its own, the park's mood perhaps, falling in a link's range
+*(guessed)*. In the recording:
+
+- From 8 s (the front end's start, 2 s before the path), pieces of
+  group 1: `Level1-102` first (0.95), more after under the speech.
+- At 42 s, the path's end, a cut to group 2: `Level2-1663` (0.92), then
+  `Level2-637` at 57.1 s, as `Level2-1663` ends (0.91); group 2's on
+  through the Personnel File, at 1:16 `Level2-174` or `Level2-637`
+  again (0.89, 0.88: much the same music).
+
+Which pieces come in a group is the roll's, so a run differs from the
+recording's but in its groups.
 
 ## In Reluva
 
@@ -200,13 +238,22 @@ turn.
 
 `FrontEndEffects` plays the script's sounds through `SoundEffects`
 ([sound-maps.md](../formats/sound-maps.md#in-reluva)), as sound effects
-on the engine's mixer; skipping the path stops them.
+on the engine's mixer; skipping the path stops them. `FrontEndAudio`
+(`src/engines/tpw/ui/front_end_audio.cpp`) plays the music, from the
+path's start, piece after piece of group 1 by the roll, cut over to
+group 2 at the path's end, through the Personnel File and the globe
+until the park loads; and the advisor's lines at their times, a line
+whose portrait has gone by (the path skipped) not said, his words
+stopped when the Personnel File opens. The mixer's music, speech and
+effects play at the game's own levels, 60, 75 and 75 percent
+(`sound.sam`'s `DefaultVolume`), from after the opening.
 
 `reluva-tool tpw front-end-shot <game folder> <out.png> <frame>` draws
 a frame of the path, the portrait and the button over it, and lists the
 sounds the script has started by then;
 `reluva-tool tpw front-end-run <game folder> [seconds] [-shots
-<folder>]` runs the whole front end headless: the skip button clicked so
+<folder>] [-audio <out.wav>]` runs the whole front end headless, its
+sound mixed into a WAV with `-audio`: the skip button clicked so
 many seconds in (5), then a key for play, the Personnel File's "Enter
 Game" a second later, then a click at the screen's middle every quarter
 second until Land of Invention turns under it; with a checksum of the
@@ -231,9 +278,11 @@ screens, which the game-files test checks (`tpw.gamedata.frontend`).
   model's emitters are numbered.
 - The white burst in the well; what the script's objects (`ADDOBJ 5 1
   200 2`, `FADEOBJ 2`) are; what `EVENT 5`'s second value says.
-- When the game triggers the script, and how the advisor's speech
-  follows `VAR_SPEECHSTATUS`; which lines he speaks, and whether the
-  portrait shows by them.
+- When the game triggers the script, and what `VAR_SPEECHSTATUS` does;
+  what makes the advisor say his lines when he does.
+- How the game moves the music between its groups (the links' ranges),
+  and whether it overlaps a piece's quiet end with the next: Reluva
+  plays them end to end, with lulls where a piece fades out.
 - What the skip button does in the game, pressed during the path or
   while the camera comes down to the globe; whether the Personnel File
   waits for play or opens by itself.

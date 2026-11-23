@@ -55,6 +55,8 @@ public:
      * choosing its group, the second the sound in it; nullptr if it has none.
      */
     static const Sound *pick(const Effect &effect, uint16_t groupRoll, uint16_t soundRoll, const Group **group);
+    /** The sound a roll of 0 to 0xffff picks in a group; nullptr if it has none. */
+    static const Sound *pick(const Group &group, uint16_t roll);
 
 private:
     std::vector<std::string> _banks;

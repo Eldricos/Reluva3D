@@ -10,6 +10,8 @@
 #include "graphics/soft3d/rasterizer.h"
 #include "graphics/soft3d/view3d.h"
 
+#include <cstdint>
+#include <functional>
 #include <vector>
 
 namespace reluva::tpw {
@@ -69,11 +71,12 @@ enum class PathEnd { kPlayed, kSkipped, kQuit };
  * animation's rate; with `effects` (loaded for `scene`), the particles its
  * script starts over it; with `overlay`, the advisor's portrait and the
  * skip button over that. The skip button, or without it any key or
- * click, skips to the path's end.
+ * click, skips to the path's end. `onFrame` is called once a screen with
+ * the time from the path's start, in milliseconds.
  * @return kQuit if the window was closed (or the launcher asked for)
  *     meanwhile.
  */
 PathEnd playFrontEnd(System &sys, const FrontEndScene &scene, FrontEndEffects *effects = nullptr,
-                     FrontEndOverlay *overlay = nullptr);
+                     FrontEndOverlay *overlay = nullptr, const std::function<void(uint32_t)> &onFrame = {});
 
 } // namespace reluva::tpw

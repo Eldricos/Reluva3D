@@ -18,6 +18,13 @@
 namespace reluva::tpw {
 
 /**
+ * A bank's file from its name in a category (`Sound\Ride`), which leads
+ * from the folder above the category's: `global/Sound/RideHD.sdt` for
+ * `global/sound`.
+ */
+std::string soundBankFile(const std::string &categoryFolder, const std::string &bank);
+
+/**
  * The game's sound effects by their numbers, as scripts start them
  * (`EVENT 5 <where> <effect>`): read from a folder's categories, their
  * sounds decoded from the banks as they're first played. See
@@ -45,11 +52,11 @@ public:
     bool choose(uint32_t id, Choice &out);
 
     /**
-     * Starts an effect on a mixer, as a sound effect.
+     * Starts an effect on a mixer, as a sound of `type`.
      * @return The sound's handle; audio::kNoSound for an effect not found,
      *     or a sound that doesn't decode.
      */
-    audio::SoundHandle play(audio::Mixer &mixer, uint32_t id);
+    audio::SoundHandle play(audio::Mixer &mixer, uint32_t id, audio::SoundType type = audio::SoundType::kEffects);
 
 private:
     struct Category {

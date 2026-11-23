@@ -11,6 +11,7 @@
 #include "graphics/soft3d/view3d.h"
 
 #include <array>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -96,10 +97,11 @@ private:
  * turns on until an open world is clicked (`open`, by Globe::worlds()'
  * order), then turns that world to the camera, which flies down to its
  * gate, "- PLEASE WAIT -" over it.
+ * @param onFrame Called once a screen, as for keeping music queued.
  * @return The world chosen, by Globe::worlds()' order; −1 if the window
  *     was closed (or the launcher asked for) meanwhile.
  */
 int chooseWorld(System &sys, const SearchSet &files, const GlobeTurning &turning,
-                const std::array<bool, Globe::kWorlds> &open);
+                const std::array<bool, Globe::kWorlds> &open, const std::function<void()> &onFrame = {});
 
 } // namespace reluva::tpw

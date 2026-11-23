@@ -12,6 +12,7 @@
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/players.h"
 #include "engines/tpw/ui/loading_screen.h"
+#include "engines/tpw/ui/front_end_audio.h"
 #include "engines/tpw/ui/front_end_effects.h"
 #include "engines/tpw/ui/front_end_overlay.h"
 #include "engines/tpw/ui/opening.h"
@@ -25,6 +26,7 @@
 #include "tests/support/test.h"
 #include "tests/support/zip_writer.h"
 
+#include <algorithm>
 #include <vector>
 
 using namespace reluva;
@@ -293,6 +295,69 @@ void testFrontEndOverlay() {
     CHECK(!overlay.handle(ev));
 }
 
+// The front end's music and speech from a game of two tiny banks: the
+// music queued from its group and cut over to another, the advisor's
+// lines said at their times, a line whose portrait has gone by not said.
+void testFrontEndAudio(const std::filesystem::path &tmp) {
+    using tpw::testing::Bytes;
+    using tpw::testing::put32;
+    const std::filesystem::path data = tmp / "game" / "Data";
+    auto bankOf = [](size_t sounds, bool stereo) {
+        Bytes bank;
+        put32(bank, 0, uint32_t(sounds));
+        bank.resize(4 + 4 * sounds);
+        for (size_t i = 0; i < sounds; ++i) {
+            put32(bank, 4 + 4 * i, uint32_t(bank.size()));
+            tpw::testing::putSound(bank, "s.wav", stereo ? 0x03 : 0x02, 22050, Bytes(4000, uint8_t(0x10 + i)), 0);
+        }
+        return bank;
+    };
+    using tpw::testing::MapGroup;
+    test::writeFile(data / "levels" / "wIntro" / "Music" / "cat_musicSFX.map",
+                    tpw::testing::makeEffectMap(
+                        {{2, {{100, 0x7fff, {{1, 0xffff, 45, 1}}, 2}, {100, 0x8000, {{2, 0xffff, 45, 1}}, 2}}}}));
+    test::writeFile(data / "levels" / "wIntro" / "Music" / "cat_musicBANK.map",
+                    tpw::testing::makeBankMap({"Music\\Music"}));
+    test::writeFile(data / "levels" / "wIntro" / "Music" / "MusicHD.sdt", bankOf(2, true));
+    std::vector<std::pair<uint32_t, std::vector<MapGroup>>> lines;
+    for (uint32_t id = 1018; id <= 1020; ++id)
+        lines.push_back({id, {{100, 0xffff, {{id - 1017, 0xffff, 90, 1}}}}});
+    test::writeFile(data / "global" / "Speech" / "cat_speechSFX.map", tpw::testing::makeEffectMap(lines));
+    test::writeFile(data / "global" / "Speech" / "cat_speechBANK.map", tpw::testing::makeBankMap({"speech\\speech"}));
+    test::writeFile(data / "global" / "Speech" / "speechHD.sdt", bankOf(3, false));
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!tpw::mountGame(files, tmp / "game", warnings));
+
+    tpw::FrontEndAudio sound;
+    CHECK(!sound.load(files));
+    audio::Mixer mixer(22050);
+    sound.setMixer(&mixer);
+    sound.update(0);
+    CHECK(!sound.piecesQueued().empty() && sound.piecesQueued()[0] == 0 && sound.linesStarted().empty());
+    std::vector<int16_t> out(2 * 64);
+    mixer.mix(out.data(), 64);
+    CHECK(std::any_of(out.begin(), out.end(), [](int16_t v) { return v != 0; }));
+    sound.update(2000);
+    CHECK((sound.linesStarted() == std::vector<uint32_t>{1018}));
+    sound.setMusicGroup(tpw::FrontEndAudio::kGlobeGroup);
+    CHECK(sound.piecesQueued().back() == 1);
+    // Skipped to the globe: the second line's portrait has gone by.
+    sound.update(tpw::FrontEndOverlay::kGlobeMillis);
+    CHECK((sound.linesStarted() == std::vector<uint32_t>{1018, 1020}));
+    sound.stop();
+    CHECK(!mixer.isTypePlaying(audio::SoundType::kMusic) && !mixer.isTypePlaying(audio::SoundType::kSpeech));
+    sound.setMixer(nullptr);
+
+    tpw::FrontEndAudio silent;
+    CHECK(!silent.load(files));
+    silent.update(30000);
+    CHECK((silent.linesStarted() == std::vector<uint32_t>{1019}) && silent.piecesQueued().empty());
+    silent.stopSpeech(true);
+    silent.update(40000);
+    CHECK(silent.linesStarted().size() == 1);
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -305,4 +370,5 @@ static const reluva::test::Suite
                               {"players", [](const std::filesystem::path &tmp) { testPlayers(tmp); }},
                               {"particles", [](const std::filesystem::path &) { testParticles(); }},
                               {"front-end-overlay", [](const std::filesystem::path &) { testFrontEndOverlay(); }},
+                              {"front-end-audio", [](const std::filesystem::path &tmp) { testFrontEndAudio(tmp); }},
                           });

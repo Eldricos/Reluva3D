@@ -121,12 +121,14 @@ const SoundMap::Sound *SoundMap::pick(const Effect &effect, uint16_t groupRoll, 
     }
     if (group)
         *group = chosen;
-    if (!chosen)
-        return nullptr;
-    for (const Sound &s : chosen->sounds)
-        if (soundRoll <= s.upTo)
+    return chosen ? pick(*chosen, soundRoll) : nullptr;
+}
+
+const SoundMap::Sound *SoundMap::pick(const Group &group, uint16_t roll) {
+    for (const Sound &s : group.sounds)
+        if (roll <= s.upTo)
             return &s;
-    return &chosen->sounds.back();
+    return group.sounds.empty() ? nullptr : &group.sounds.back();
 }
 
 } // namespace reluva::tpw

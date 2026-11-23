@@ -9,6 +9,7 @@
 #include "engines/tpw/ui/model_view.h"
 #include "engines/tpw/ui/ui_model.h"
 
+#include <array>
 #include <cstdint>
 
 namespace reluva::tpw {
@@ -31,6 +32,20 @@ public:
     static constexpr uint32_t kGlobeMillis = 36500;
     /** When the Personnel File opens, if the player hasn't asked for it sooner. */
     static constexpr uint32_t kPersonnelFileMillis = 54000;
+
+    /**
+     * One of the advisor's lines: its number in the speech category
+     * (global/Speech), when he says it and when his portrait shows, in
+     * milliseconds from the start of the camera's path.
+     */
+    struct AdvisorLine {
+        uint32_t speech;
+        uint32_t says;
+        uint32_t shownFrom;
+        uint32_t shownTo;
+    };
+    /** The advisor's three lines, in order. */
+    static const std::array<AdvisorLine, 3> &advisorLines();
 
     /** Reads the models: the portrait, its frame and the button's two faces. */
     Error load(const SearchSet &files);

@@ -22,12 +22,12 @@ constexpr ScreenRect kFrame{503, 8, 129, 129};
 constexpr ScreenRect kPortrait{509, 14, 117, 117};
 constexpr ScreenRect kButton{570, 410, 64, 64};
 
-// While the advisor speaks, it seems *(inferred)*: three spells, in
-// milliseconds from the start of the camera's path.
-constexpr std::array<std::pair<uint32_t, uint32_t>, 3> kAdvisorSpells{{
-    {300, 25200},
-    {27300, 32100},
-    {34100, 52200},
+// His lines found in the recording by their sound; the portrait shows
+// from 1.2 s or so before each to 1.3 to 2.8 s after.
+constexpr std::array<FrontEndOverlay::AdvisorLine, 3> kAdvisorLines{{
+    {1018, 1620, 300, 25200},
+    {1019, 28530, 27300, 32100},
+    {1020, 35280, 34100, 52200},
 }};
 
 } // namespace
@@ -41,10 +41,14 @@ Error FrontEndOverlay::load(const SearchSet &files) {
 }
 
 bool FrontEndOverlay::advisorShown(uint32_t ms) {
-    for (const auto &[from, to] : kAdvisorSpells)
-        if (ms >= from && ms < to)
+    for (const AdvisorLine &line : kAdvisorLines)
+        if (ms >= line.shownFrom && ms < line.shownTo)
             return true;
     return false;
+}
+
+const std::array<FrontEndOverlay::AdvisorLine, 3> &FrontEndOverlay::advisorLines() {
+    return kAdvisorLines;
 }
 
 FrontEndOverlay::Button FrontEndOverlay::buttonAt(uint32_t ms) {

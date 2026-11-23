@@ -274,21 +274,6 @@ void testBf4() {
     CHECK(font.parse(toBytes("BFST")));
 }
 
-// A sound's 0x28-byte header and its data: the format word is the rate,
-// 16 bits, then the kind (0x20 MPEG, 0x01 stereo).
-void putSound(Bytes &b, const std::string &name, uint8_t kind, uint16_t rate, const Bytes &data, uint32_t pcmBytes) {
-    const size_t at = b.size();
-    put32(b, at, 0x28);
-    put32(b, at + 4, uint32_t(data.size()));
-    for (size_t i = 0; i < 16; ++i)
-        b.push_back(i < name.size() ? uint8_t(name[i]) : 0);
-    b.insert(b.end(), {uint8_t(rate), uint8_t(rate >> 8), 16, kind});
-    put32(b, at + 0x1c, 0);
-    put32(b, at + 0x20, pcmBytes);
-    put32(b, at + 0x24, 0);
-    b.insert(b.end(), data.begin(), data.end());
-}
-
 // A bank of three: PCM mono, an MPEG sound's header (its data not real
 // MPEG), and an entry pointing at no header.
 void testSdt() {
@@ -721,74 +706,6 @@ void testParticleLibrary() {
     Bytes size = b;
     put32(size, 4, 300);
     CHECK(library.parse(size));
-}
-
-// A category's banks: their count, a record each, then their names.
-Bytes makeBankMap(const std::vector<std::string> &names) {
-    Bytes b(0x1c);
-    put32(b, 0x18, uint32_t(names.size()));
-    b.resize(b.size() + 11 * names.size(), 0x99);
-    for (const std::string &name : names) {
-        put32(b, b.size(), uint32_t(name.size() + 1));
-        b.insert(b.end(), name.begin(), name.end());
-        b.push_back(0);
-    }
-    return b;
-}
-
-struct MapSound {
-    uint32_t entry; // from 1, as stored
-    uint16_t upTo;
-    uint32_t millis;
-    uint32_t bank; // from 1
-};
-struct MapGroup {
-    uint8_t volume;
-    uint16_t weight;
-    std::vector<MapSound> sounds;
-    uint32_t links = 0;
-};
-
-// A category's effects: the table, then each effect's groups' headers,
-// then each group's sounds and links.
-Bytes makeEffectMap(const std::vector<std::pair<uint32_t, std::vector<MapGroup>>> &effects) {
-    Bytes b(0x34);
-    put32(b, 0x1c, uint32_t(effects.size()));
-    for (const auto &[id, groups] : effects) {
-        const size_t row = b.size();
-        put32(b, row, id);
-        put32(b, row + 4, uint32_t(groups.size()));
-        put32(b, row + 12, 1000);
-        put32(b, row + 16, 0);
-    }
-    for (const auto &[id, groups] : effects) {
-        for (const MapGroup &g : groups) {
-            const size_t at = b.size();
-            b.resize(at + 42);
-            put32(b, at, uint32_t(g.sounds.size()));
-            put32(b, at + 4, g.links);
-            b[at + 12] = b[at + 13] = g.volume;
-            b[at + 20] = b[at + 21] = 50;
-            put16(b, at + 30, g.weight);
-            put32(b, at + 38, 0xf06c0447);
-        }
-        for (const MapGroup &g : groups) {
-            for (const MapSound &s : g.sounds) {
-                const size_t at = b.size();
-                put32(b, at, s.entry);
-                put16(b, at + 4, s.upTo);
-                put16(b, at + 6, 0);
-                put32(b, at + 8, s.millis);
-                put32(b, at + 12, s.bank);
-            }
-            for (uint32_t l = 0; l < g.links; ++l) {
-                const size_t at = b.size();
-                put32(b, at, l + 1);
-                put32(b, at + 4, 0x64000000);
-            }
-        }
-    }
-    return b;
 }
 
 const std::vector<std::pair<uint32_t, std::vector<MapGroup>>> kEffects = {

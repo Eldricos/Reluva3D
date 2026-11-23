@@ -6,6 +6,7 @@
 
 #include "common/fs.h"
 #include "common/headless_system.h"
+#include "audio/mixer.h"
 #include "common/md5.h"
 #include "devtools/tool.h"
 #include "engines/tpw/formats/animation.h"
@@ -414,6 +415,31 @@ void writePng(const reluva::Surface &screen, const char *path) {
     std::ofstream(path, std::ios::binary).write(reinterpret_cast<const char *>(png.data()), long(png.size()));
 }
 
+// Writes stereo 16-bit samples out as a WAV file.
+void writeWav(const std::vector<int16_t> &samples, int rate, const std::string &path) {
+    std::vector<uint8_t> out;
+    auto put = [&out](uint32_t v, int bytes) {
+        for (int i = 0; i < bytes; ++i)
+            out.push_back(uint8_t(v >> (8 * i)));
+    };
+    const uint32_t size = uint32_t(samples.size() * 2);
+    out.insert(out.end(), {'R', 'I', 'F', 'F'});
+    put(36 + size, 4);
+    out.insert(out.end(), {'W', 'A', 'V', 'E', 'f', 'm', 't', ' '});
+    put(16, 4);
+    put(1, 2); // PCM
+    put(2, 2);
+    put(uint32_t(rate), 4);
+    put(uint32_t(rate) * 4, 4);
+    put(4, 2);
+    put(16, 2);
+    out.insert(out.end(), {'d', 'a', 't', 'a'});
+    put(size, 4);
+    for (int16_t v : samples)
+        put(uint16_t(v), 2);
+    std::ofstream(path, std::ios::binary).write(reinterpret_cast<const char *>(out.data()), long(out.size()));
+}
+
 // A ride run by its own script for a while, with guests coming, then
 // drawn as the viewer draws it, as a PNG: posed by the animation its
 // script plays then.
@@ -530,9 +556,8 @@ int cmdFrontEndShot(int argc, char **argv) {
 // in `-save`'s folder, if given (the first slot then may hold a player).
 int cmdFrontEndRun(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(
-            stderr,
-            "usage: reluva-tool tpw front-end-run <game folder> [seconds] [-shots <folder>] [-save <folder>]\n");
+        std::fprintf(stderr, "usage: reluva-tool tpw front-end-run <game folder> [seconds] [-shots <folder>] [-save "
+                             "<folder>] [-audio <out.wav>]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -547,6 +572,18 @@ int cmdFrontEndRun(int argc, char **argv) {
         uint64_t keyAt = 0;
         int sent = 0;
         std::string shots; // a folder for every tenth screen, if given
+        // With -audio, the mixer's sound pulled as the clock moves.
+        reluva::audio::Mixer *mixer = nullptr;
+        std::vector<int16_t> heard;
+        void delayMillis(uint32_t ms) override {
+            HeadlessSystem::delayMillis(ms);
+            if (!mixer)
+                return;
+            const int frames = int(ms) * audioRate() / 1000;
+            const size_t at = heard.size();
+            heard.resize(at + size_t(frames) * 2);
+            mixer->mix(heard.data() + at, frames);
+        }
         void updateScreen(const reluva::Surface &s) override {
             HeadlessSystem::updateScreen(s);
             all.update(s.pixels.data(), s.pixels.size());
@@ -611,16 +648,24 @@ int cmdFrontEndRun(int argc, char **argv) {
     } sys;
     float seconds = 5;
     std::filesystem::path saveFolder;
+    std::string audioOut;
     for (int i = 3; i < argc; ++i) {
         if (std::strcmp(argv[i], "-shots") == 0 && i + 1 < argc)
             sys.shots = argv[++i];
         else if (std::strcmp(argv[i], "-save") == 0 && i + 1 < argc)
             saveFolder = argv[++i];
+        else if (std::strcmp(argv[i], "-audio") == 0 && i + 1 < argc)
+            audioOut = argv[++i];
         else
             seconds = std::strtof(argv[i], nullptr);
     }
     sys.keyAt = uint64_t(seconds * 1000);
-    const int world = reluva::tpw::runFrontEnd(sys, files, saveFolder);
+    reluva::audio::Mixer mixer(sys.audioRate());
+    if (!audioOut.empty())
+        sys.mixer = &mixer;
+    const int world = reluva::tpw::runFrontEnd(sys, files, saveFolder, sys.mixer);
+    if (!audioOut.empty())
+        writeWav(sys.heard, sys.audioRate(), audioOut);
     std::printf("front end: %d screens shown, ended at %llu ms, world %d; md5 %s\n", sys.shown,
                 static_cast<unsigned long long>(sys.getMillis()), world, sys.all.hexDigest().c_str());
     return world < 0 ? 1 : 0;

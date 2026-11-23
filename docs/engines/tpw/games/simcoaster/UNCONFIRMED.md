@@ -87,11 +87,16 @@ None yet.
   ([front-end.md](systems/front-end.md#the-sounds)). A recording on a
   faster computer would settle it.
 
-- **The front end's portrait shows while the advisor speaks**: it comes
-  and goes in three spells, as speech would, but Reluva times it by the
-  recording, and opens the Personnel File 54 s in, after the last
-  ([front-end.md](systems/front-end.md#the-portrait-and-the-button)).
-  Playing the speech bank's lines would settle it.
+- **The front end's advisor speaks at the recording's times**: his
+  three lines, found in the recording, and the portrait about them;
+  the Personnel File opens 54 s in, after the last
+  ([front-end.md](systems/front-end.md#the-music-and-the-speech)). What
+  the game times them by would settle it.
+
+- **The front end's music turns to its second group at the path's end**,
+  as the recording's does; the game's own choice, by the links' ranges
+  and a value of its own, isn't known
+  ([front-end.md](systems/front-end.md#the-music-and-the-speech)).
 
 - **The Personnel File's portrait is the personnel director's**: the
   board's fifth, as `EMAIL_FROM_HR_DIR` is the fifth sender

@@ -7,19 +7,13 @@
 
 namespace reluva::tpw {
 
-namespace {
-
-// A bank's name in a category (`Sound\Ride`) as its file beside the
-// category's folder: `global/sound/RideHD.sdt` for `global/sound`.
-std::string bankFile(const std::string &folder, const std::string &bank) {
+std::string soundBankFile(const std::string &categoryFolder, const std::string &bank) {
     const size_t slash = bank.find_last_of("\\/");
-    const std::string parent = folder.substr(0, folder.find_last_of('/') + 1);
+    const std::string parent = categoryFolder.substr(0, categoryFolder.find_last_of('/') + 1);
     std::string under = bank.substr(0, slash == std::string::npos ? 0 : slash + 1);
     std::replace(under.begin(), under.end(), '\\', '/');
     return parent + under + bank.substr(slash == std::string::npos ? 0 : slash + 1) + "HD.sdt";
 }
-
-} // namespace
 
 const std::vector<std::string> &SoundEffects::globalCategories() {
     static const std::vector<std::string> kNames{"rides", "ui", "kids", "staff", "ambient"};
@@ -61,7 +55,7 @@ bool SoundEffects::choose(uint32_t id, Choice &out) {
         const SoundMap::Sound *sound = SoundMap::pick(*effect, groupRoll, roll(), &group);
         if (!sound || sound->bank >= c.map.banks().size())
             return false;
-        out.bank = bankFile(c.folder, c.map.banks()[sound->bank]);
+        out.bank = soundBankFile(c.folder, c.map.banks()[sound->bank]);
         out.entry = sound->entry;
         const int span = std::max(0, group->volumeHigh - group->volumeLow);
         out.volume = group->volumeLow + (span ? roll() % (span + 1) : 0);
@@ -70,7 +64,7 @@ bool SoundEffects::choose(uint32_t id, Choice &out) {
     return false;
 }
 
-audio::SoundHandle SoundEffects::play(audio::Mixer &mixer, uint32_t id) {
+audio::SoundHandle SoundEffects::play(audio::Mixer &mixer, uint32_t id, audio::SoundType type) {
     Choice choice;
     if (!_files || !choose(id, choice))
         return audio::kNoSound;
@@ -88,7 +82,7 @@ audio::SoundHandle SoundEffects::play(audio::Mixer &mixer, uint32_t id) {
             return audio::kNoSound;
         sound = std::move(decoded);
     }
-    return mixer.play(sound, audio::SoundType::kEffects, choice.volume * audio::kMaxVolume / 100);
+    return mixer.play(sound, type, choice.volume * audio::kMaxVolume / 100);
 }
 
 } // namespace reluva::tpw

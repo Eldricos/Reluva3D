@@ -28,13 +28,14 @@ None yet.
 - **The front end's opening**: its sparkles are drawn by guessed
   numbers, size and speed, without the emitters' flares; the white burst
   in the well isn't drawn; the advisor's portrait shows by the
-  recording's times, without his speech; the skip button jumps to the
+  recording's times; the skip button jumps to the
   globe, a guess, and a key presses it too
   ([front-end.md](systems/front-end.md#the-portrait-and-the-button));
   its sounds play at the script's own times, up to 4.7 s before the
   recording's, whose computer slowed under the sparkles, and from no
-  place; its music and the advisor's speech aren't played
-  ([front-end.md](systems/front-end.md#the-sounds)).
+  place; its music plays its pieces end to end, which may leave lulls
+  the game's doesn't, and the advisor says his lines at the recording's
+  times ([front-end.md](systems/front-end.md#the-music-and-the-speech)).
 - **The Personnel File** keeps its players in a file of Reluva's own,
   `players.txt` in the game's save folder, as the game's own aren't
   known ([players.md](systems/players.md)); "Load A Game" is always

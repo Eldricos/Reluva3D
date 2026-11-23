@@ -15,7 +15,8 @@ starts 242, `intro-doorclose`, as its camera passes the doors
 
 The categories: `global/sound/` has `ambient`, `globallobbysfx`, `kids`,
 `rides`, `staff` and `ui`; `global/Speech/` has `speech`, the advisor's
-1,136 lines; each world has `Music/cat_music`, and Land of Invention,
+1,136 lines, numbered 1 to 1,136 as the bank's files (1018 is
+`SP_1018.mp2`); each world has `Music/cat_music`, and Land of Invention,
 Polar Zone and Arabian Nights `Sound/cat_ambient` and `Sound/cat_rides`.
 Their effects' numbers are one series, 1 to 322, across the global
 categories, which share none but a few of `globallobbysfx`'s; a world's
@@ -89,10 +90,21 @@ A sound, 16 bytes:
 | 0x08 | 4 | How long it is, in milliseconds: every one within 60 ms of its bank's length *(confirmed)* |
 | 0x0C | 4 | Its bank, from 1, in the BANK file's order |
 
-A link, 8 bytes: another group's number, from 1, and a word whose top
-byte is 100. The global ambience's space sounds (`globallobbysfx`'s 3)
-link each of its four groups to the other three: one plays after
-another, it seems *(guessed)*.
+A link, 8 bytes:
+
+| Offset | Size | Field |
+|---|---|---|
+| 0x00 | 4 | Another group's number, from 1 |
+| 0x04 | 2 | 0 |
+| 0x06 | 2 | A range, from its low byte to its high, of 0 to 100 |
+
+The lobby's space sounds (`globallobbysfx`'s 3) link each of its four
+groups to the other three, each 0 to 100: one plays after another, it
+seems *(guessed)*. Each world's music, one effect of six or seven
+groups, links every group to all of them, in ranges that split 0 to 100
+between them (group 1 0 to 10, group 2 11 to 26...): the next group
+picked by a value of the game's falling in its range, it seems
+*(guessed)*; see [front-end.md](../systems/front-end.md#the-music-and-the-speech).
 
 The 230 groups of more than one sound all give rolls rising to 0xFFFF
 or nearly. Of the 51 effects of more than one group, 49 give shares
@@ -108,7 +120,9 @@ its banks' names, and its effects' groups, volumes, shares and sounds,
 not the links. `SoundEffects` (`src/engines/tpw/sound_effects.cpp`) holds
 the global categories, picks an effect's sound as above, reads its bank
 the first time and plays it on the mixer at the group's volume. The
-front end plays its script's sounds so ([front-end.md](../systems/front-end.md#the-sounds)).
+front end plays its script's sounds so ([front-end.md](../systems/front-end.md#the-sounds)),
+and its music and the advisor's lines by these maps' groups and numbers
+([front-end.md](../systems/front-end.md#the-music-and-the-speech)).
 
 `reluva-tool tpw sfx-check <game folder> [cat_*SFX.map]` reads every
 category, finds each sound in its bank and sets its length against the
@@ -136,6 +150,6 @@ sound into a mixer.
 - The fields not worked out: the table's 4th word and flags; the
   groups' other numbers (the pan, a pitch, a delay, a distance?); the
   speech's groups, laid out otherwise.
-- What the links do, and how the game chains a group's sounds by them.
+- What the links do, and what value the music's ranges are set against.
 - Whether a world's categories stand in for the global ones.
 - What the 16 bytes the files start with stand for.

@@ -105,7 +105,8 @@ void FrontEndScene::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const 
     drawMeshes(rasterizer, camera, _model, true, defaultLight(), &transforms, &positions);
 }
 
-PathEnd playFrontEnd(System &sys, const FrontEndScene &scene, FrontEndEffects *effects, FrontEndOverlay *overlay) {
+PathEnd playFrontEnd(System &sys, const FrontEndScene &scene, FrontEndEffects *effects, FrontEndOverlay *overlay,
+                     const std::function<void(uint32_t)> &onFrame) {
     Surface screen;
     screen.create(kOpeningWidth, kOpeningHeight, PixelFormat::kRGBA32);
     soft3d::Rasterizer rasterizer;
@@ -126,6 +127,8 @@ PathEnd playFrontEnd(System &sys, const FrontEndScene &scene, FrontEndEffects *e
             return PathEnd::kSkipped;
         if (played >= scene.frames())
             return PathEnd::kPlayed;
+        if (onFrame)
+            onFrame(ms);
         scene.draw(screen, rasterizer, played);
         if (effects) {
             effects->advance(ms, played);

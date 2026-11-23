@@ -70,7 +70,8 @@ format or system worked out.
    [loading-screen.md](systems/loading-screen.md)); the front end's 3D
    opening, the Intro World's camera path model seen through its camera
    ([front-end.md](systems/front-end.md)), the advisor's portrait and the
-   skip button over it, and the sounds its script starts
+   skip button over it, the advisor's lines, the music, and the sounds
+   its script starts
    ([sound-maps.md](formats/sound-maps.md)); the Personnel File, from the
    interface's flat models ([personnel-file.md](systems/personnel-file.md));
    keeping the players ([players.md](systems/players.md)); choosing a
