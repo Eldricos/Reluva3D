@@ -323,8 +323,17 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                 for (int k = 0; k < 3; ++k)
                     c[size_t(k)] *= std::min(1.0f, call.ambientLight[size_t(k)] + call.vertexLightScale * sum[k]);
             } else {
+                // The two fill lights, as the first: their colour by how far
+                // the surface faces them.
+                float fill[3] = {0, 0, 0};
+                for (size_t f = 0; f < call.fillLight.size() && len > 0; ++f) {
+                    const gfx::Vec3 &d = call.fillDirection[f];
+                    const float faces = std::max(0.0f, (wn[0] * d[0] + wn[1] * d[1] + wn[2] * d[2]) / len);
+                    for (size_t k = 0; k < 3; ++k)
+                        fill[k] += call.fillLight[f][k] * faces;
+                }
                 for (int k = 0; k < 3; ++k)
-                    c[size_t(k)] *= call.ambientLight[size_t(k)] + call.directedLight[size_t(k)] * facing;
+                    c[size_t(k)] *= call.ambientLight[size_t(k)] + call.directedLight[size_t(k)] * facing + fill[k];
             }
         } else if (call.rgbSource == gfx::ColorSource::kShadow) {
             const float dx = out.wx - call.shadowLight[0];
