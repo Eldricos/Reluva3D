@@ -48,9 +48,11 @@ Detection signatures (MD5 of each file's start, and its size, as
   ([InstallShield cabinets](../../../../common/installshield.md)).
   `reluva-tool sfc host` runs it headless
   ([systems/hosting.md](systems/hosting.md)).
+- **Multiplayer**, started: a game hosted alone, to its Multiplayer
+  Startup screen ([systems/hosting.md](systems/hosting.md#its-multiplayer)).
 - **Not yet:** a skirmish, a tutorial or a campaign's mission won (a
   mission forfeited returns to the Dynaverse, which goes on);
-  the network; the 2.0.3.6 patch applied as it's imported; the
+  a multiplayer game started, or played with another machine; the 2.0.3.6 patch applied as it's imported; the
   `.gf`, `.mct` and `.mvm`
   settings, campaign and map files; the objects in
   `sprites.q3`.

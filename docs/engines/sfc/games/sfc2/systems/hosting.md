@@ -275,6 +275,52 @@ time it finds no DirectPlay object, and goes on. As it starts it calls
 `MoveFileA`, and writes `Auto1.rec` and `WeaponDamage.txt` in its
 folder.
 
+The game keeps its list of missions in `assets/scripts/scripts.lst`,
+which it writes in that folder, so in the save folder's copy of it. A
+search of the folder lists the install's and the save folder's together:
+when it listed only the save folder's copy, the game found no missions
+but the cache, nearly empty, and its multiplayer scenarios weren't
+listed.
+
+### Its multiplayer
+
+Multiplayer, on the main menu, asks COM for DirectPlay itself
+(`IDirectPlay4A`) and lists its connections (`EnumConnections`, at
+0x6176fb), making a DirectPlay object for each to try it
+(`InitializeConnection`); it numbers them its own way, TCP/IP 1, IPX 2,
+modem 3, serial 4 (0x61d170). It then asks the modem connection which
+modems there are (`GetPlayerAddress` and the lobby's `EnumAddress`, at
+0x619890), and opens `COM1` to `COM4` (none there) for the serial one.
+With all four connections, the Game Connections screen shows: Dynaverse
+II and standard multiplayer through online services (flipside.com,
+MPlayer), TCP/IP and IPX on a LAN, and an address book ("Local Area
+Network").
+
+HOST makes the TCP/IP connection's address (`CreateCompoundAddress`),
+initializes it, and first clears any game it had: cancels what's to be
+sent, reads what's waiting, destroys its player (0x2710, one it never
+made, which DirectPlay refuses) and closes (0x6184f0). The Create
+Multiplayer Game screen lists the eleven `Mul_` scenarios (Base Assault,
+Battlefest, Free For All, Hockey...), the map types, the most players
+(2 to 6), the BPV limit, the game's speed and the technology era.
+ANNOUNCE GAME asks DirectPlay for its capabilities and looks for other
+games (`EnumSessions`, asynchronous, at 0x617c88), then opens its own
+(`Open` with `DPOPEN_CREATE`, at 0x617fa6) and makes its player
+(`CreatePlayer`, with an event, at 0x6187f2), naming it by the machine
+(Winsock's `gethostname`, to its first dot) and keeping its address
+(`gethostbyname` of that name) in the player's data. Reluva answers
+those two Winsock calls itself, with `GetComputerNameA`'s name and the
+machine's own address, 127.0.0.1: the rest of Winsock the game imports
+(25 functions, sockets among them) it hasn't called.
+
+The Multiplayer Startup screen lists the players, each with its type,
+empire, team and BPV, and a chat. A slot set to AI ("Plato") is a second
+DirectPlay player of the host's own; the human player sends 24 bytes to
+every player over and over, and the AI answers with 36. SELECT chooses a
+ship (Choose Vessel), which is sent to the AI (`SendEx`, asynchronous).
+The game isn't started yet: with the player READY, START MULTIPLAYER
+GAME says "Please press READY button!", whether for the AI isn't traced.
+
 ### Its mouse and keys
 
 The game asks where the pointer is with `GetCursorPos` (and
@@ -336,7 +382,10 @@ known.
   reading `sfc.ini`'s comments after a value as comments), disk space,
   the window's menus, rectangles, and GDI's text calls as no-ops. What
   the program writes in its folder goes to a save folder
-  (`setSaveFolder`), which is read first; the install isn't written to.
+  (`setSaveFolder`): its files are read there first, its folders in the
+  install first (a search lists both); the install isn't written to.
+  Winsock's `gethostname` and `gethostbyname`, for the name and address
+  of the machine.
   `describeException` names an exception raised: for a C++ throw, the
   types thrown and the text in the object (a `tErrInfo`'s message).
 - **What it needed of the shared layer** (`src/emulation/x86/`):
@@ -383,7 +432,8 @@ known.
   random numbers from them: a campaign's ship names and missions came out
   different each run), so a run with the same input repeats
   frame for frame and input lands on the same screens.
-- **Not yet:** the network (DirectPlay itself). The opening movie isn't
+- **Not yet:** another machine: a multiplayer game is hosted alone, its
+  players the host's own; starting it from Multiplayer Startup. The opening movie isn't
   hosted: the engine plays it itself before the game
   ([formats/intro.md](../formats/intro.md)).
 
@@ -435,3 +485,7 @@ isn't measured.
 - What the folders `dmp3dDLL_Release`, `DLL` and `DRIVERS` are looked for,
   and what it loads from them.
 - How many instructions a second a mission needs.
+- What START MULTIPLAYER GAME waits for, with the host's player ready and
+  an AI player in the game.
+- What the game's own Winsock calls are for: the address it keeps in
+  its player's data suggests players reach each other directly as well.

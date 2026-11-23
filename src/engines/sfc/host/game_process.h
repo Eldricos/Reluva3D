@@ -110,7 +110,8 @@ private:
     std::unique_ptr<x86::Miles> _miles;
     std::unique_ptr<x86::DirectPlay> _directPlay;
     const x86::Win32Process::Module *_exe = nullptr;
-    uint32_t _focus = 0; // the window with the focus
+    uint32_t _focus = 0;   // the window with the focus
+    uint32_t _hostent = 0; // gethostbyname's answer, made the first time
     /** A registry value kept, as the program wrote it. */
     struct RegistryValue {
         std::string key;
