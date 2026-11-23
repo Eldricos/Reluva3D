@@ -32,12 +32,12 @@ being worked on first.
 - **Playing it:** the game's own `loco.exe` runs in Reluva's x86
   emulator, with stand-ins for the parts of Windows and DirectX it calls:
   its movies, music and sound, its front screen, its layouts with their
-  trains, the Toybox, placing pieces, saving and loading layouts, its
+  trains, the Toybox, laying track and starting trains from a depot,
+  saving and loading layouts, its
   windowed mode, and leaving, played with the mouse and keys
   ([systems/running.md](systems/running.md)).
-- **Not yet:** building a whole layout and running trains by hand
-  haven't been tried; postcards, Windows' own pointer and network play
-  aren't done. See [PLAN.md](PLAN.md).
+- **Not yet:** postcards and building trains haven't been tried;
+  Windows' own pointer and network play aren't done. See [PLAN.md](PLAN.md).
 
 ## Using it
 

@@ -111,6 +111,24 @@ Seen running in Reluva (`reluva-tool legoloco run`):
   shows the station master's tip about it. A piece is picked up with a
   click and placed with another; one that can't go where it's held is
   drawn faintly.
+- **Laying track** *(seen, not traced)*: the track palette has one of each
+  piece (straight, signal, curve, crossing, two sets of points, buffer,
+  depot...), scrolled a column at a time. A piece held is turned by a
+  right click (its definition's `RMBSeq`, [dat.md](../formats/dat.md)),
+  and placed by a left click with the pointer on its top left square;
+  it stays held for the next, until the palette is closed. A curve
+  covers 3 by 3 squares; its four turns, in order, join west and south,
+  north and west, north and east, east and south, so four of them 48
+  pixels apart close into a loop. The points have eight states, a
+  straight along one side and a curve (the last four set the other
+  way); the second points piece's straight runs north and south.
+- **Trains** *(seen, not traced)* come from a depot (`track\Depot-*.dat`), joined to the
+  track by its green apron with the barrier: that's where trains leave
+  (on its other end the track runs into nothing). With the Toybox
+  closed, a left click on the depot starts a train, which runs out onto
+  the track; a right click builds one. Its first placing shows the
+  station master's tip about it. A loop of three curves and points, the
+  depot under the points' straight, turned twice, runs a train round.
 - **Saving and loading** are the game's own panels, not Windows' dialogs:
   a list of the layouts in `art-res\savegame` (found with
   `FindFirstFileA`), and a name typed into the hidden `EDIT` control it
@@ -187,9 +205,9 @@ plays its three movies (by the clock: about two minutes;
 music ([dsound.md](../../../common/x86/dsound.md)), and shows its front
 screen, about 509 million instructions. Played from there with the
 mouse and keys, as [above](#playing): the first layout and its train,
-the station master's bubbles, the Toybox and its panels, a track picked
-up and placed, a layout saved and loaded again, the windowed mode and
-back, and leaving. For example, past the movies to the board, its
+the station master's bubbles, the Toybox and its panels, a loop of
+track laid with a depot and a train started on it, a layout saved and
+loaded again, the windowed mode and back, and leaving. For example, past the movies to the board, its
 welcome closed:
 
 ```bash
@@ -207,8 +225,8 @@ VERSION.dll's and USER32's ([windows.md](../../../common/x86/windows.md)),
 GDI32's ([gdi.md](../../../common/x86/gdi.md)), the movie window's and
 MCI's ([mci.md](../../../common/x86/mci.md)), and DirectSound's and
 `PlaySoundA` ([dsound.md](../../../common/x86/dsound.md)). Not tried
-yet: trains run by the player, postcards and the post office, a whole
-layout built.
+yet: postcards and the post office, building a train (the depot's
+right click), the minifigures' and vehicles' doings.
 
 ## Sources and checks
 

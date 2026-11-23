@@ -60,7 +60,10 @@ The game, from the launcher:
   runs.
 - The bubble closed: the hand pointer follows the mouse. The LEGO case
   opens the Toybox; each of its buttons opens its panel (a tip first).
-- A track picked up and placed on bare ground stays there.
+- A track picked up and placed on bare ground stays there. Four curves
+  (turned with right clicks while held) close into a loop; with points
+  in one corner and a depot under them, apron towards the loop, a click
+  on the depot (the Toybox closed) starts a train that runs round.
 - Saved under a name typed in the save panel, the layout loads again
   from the load panel, as it was.
 - The windowed mode's button makes a framed window, and back.
