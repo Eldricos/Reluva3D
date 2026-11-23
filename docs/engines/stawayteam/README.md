@@ -53,6 +53,9 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
   and the zoom; the team at their spawn points, an officer chosen and
   walking where clicked, by the map's waypoints, and going through a
   part's process ([systems/maps.md](systems/maps.md)).
+- **Particle systems:** the maps' and models' sparks, embers and smoke,
+  bursts of particles floating, falling and swirling, turned on by their
+  messages ([systems/particles.md](systems/particles.md)).
 - **Objectives:** the mission's objectives, changed by the triggers and
   listed by the objectives button; the mission won or lost, and on to
   the next or again ([systems/objectives.md](systems/objectives.md)).
@@ -109,7 +112,7 @@ Engine id `stawayteam`, in `src/engines/stawayteam/`.
 | This page | The game, where the engine stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
 | [formats/](formats/) | A page per file format: [data-dat.md](formats/data-dat.md), [text-object.md](formats/text-object.md), [binary-object.md](formats/binary-object.md), [rds.md](formats/rds.md), [frm16.md](formats/frm16.md), [pal.md](formats/pal.md) |
-| [systems/](systems/) | A page per part of how the game behaves: [startup.md](systems/startup.md) (the opening movies and the main menu's screen), [menus.md](systems/menus.md) (the menus, their buttons and fonts), [briefing.md](systems/briefing.md) (the briefing before a mission), [team-selection.md](systems/team-selection.md) (choosing the away team), [maps.md](systems/maps.md) (the maps and their drawing), [objectives.md](systems/objectives.md) (objectives and a mission's end), [items.md](systems/items.md) (the officers' items and using them), [network.md](systems/network.md) (network games' screens and Reluva's protocol) |
+| [systems/](systems/) | A page per part of how the game behaves: [startup.md](systems/startup.md) (the opening movies and the main menu's screen), [menus.md](systems/menus.md) (the menus, their buttons and fonts), [briefing.md](systems/briefing.md) (the briefing before a mission), [team-selection.md](systems/team-selection.md) (choosing the away team), [maps.md](systems/maps.md) (the maps and their drawing), [objectives.md](systems/objectives.md) (objectives and a mission's end), [items.md](systems/items.md) (the officers' items and using them), [network.md](systems/network.md) (network games' screens and Reluva's protocol), [particles.md](systems/particles.md) (particle systems) |
 | [research/](research/README.md) | Working notes: [file-survey.md](research/file-survey.md), what the install holds; [binary-objects.md](research/binary-objects.md), the objects saved in binary, and [classes.txt](research/classes.txt), the game's classes |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |

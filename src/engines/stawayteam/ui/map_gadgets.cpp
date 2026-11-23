@@ -142,6 +142,7 @@ size_t MapScreen::spawnPart(const std::string &model, const std::string &name, f
     _deployed.push_back(d);
     for (const TextObject *ai : p.activities) {
         addTrigger(part, ai);
+        addEmitter(part, ai);
         if (ai->className == "CActionAI")
             runAction(ai->object("Action"), -1, int(part));
     }

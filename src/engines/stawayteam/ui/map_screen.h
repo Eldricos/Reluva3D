@@ -10,6 +10,7 @@
 #include "engines/stawayteam/formats/binary_object.h"
 #include "engines/stawayteam/formats/text_object.h"
 #include "engines/stawayteam/game/map.h"
+#include "engines/stawayteam/game/particles.h"
 #include "engines/stawayteam/game/objectives.h"
 #include "engines/stawayteam/game/options.h"
 #include "engines/stawayteam/game/team.h"
@@ -349,6 +350,12 @@ public:
     static constexpr float kOverloadTime = 10.0f;
     /** Switches the chosen officer's chosen charged item (the cloaking band) on or off. */
     void toggleCharge();
+    /** A particle system on a part: one of its AIs (a CGenericParticleSystemAI). */
+    struct Emitter {
+        size_t part;
+        ParticleSystem system;
+    };
+    const std::vector<Emitter> &emitters() const { return _emitters; }
     /** The map as it is now: its parts' categories changed by the game among it. */
     const GameMap &map() const { return _map; }
     /** The enemy taken over by the Psychic Rack, or -1. */
@@ -610,6 +617,15 @@ private:
     void updateItems(float seconds);
     // The charged items and what they do (map_gadgets.cpp).
     void updateCharges(float seconds);
+    // The particle systems: one of a part's AIs taken on, turned on or
+    // off by a message, run, and drawn.
+    std::vector<Emitter> _emitters;
+    void addEmitter(size_t part, const TextObject *ai);
+    void turnEmitters(size_t part, bool on);
+    void updateEmitters(float seconds);
+    void drawEmitters(Surface &view, int left, int top);
+    // A CCreateCustomEntityAction's entity made a part of the map at (x, y).
+    size_t spawnEntity(const TextField &entity, float x, float y, int instigator);
     // The mind meld: whether officer `officer` can take enemy `enemy` over
     // now, taking it over, and each frame, its orders carried out and its
     // charge drained, and the meld ended when it's gone.

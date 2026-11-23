@@ -39,8 +39,9 @@ None yet.
   choices, and the keyboard's bindings, are kept but don't change
   anything yet
   ([systems/menus.md](systems/menus.md)).
-- **Maps:** projectiles don't set off touching triggers, and the animations' and
-  particles' messages aren't there; the camera scripts don't pause the
+- **Maps:** projectiles don't set off touching triggers, and the animations'
+  messages aren't there; particles are drawn over the models rather than
+  among them ([systems/particles.md](systems/particles.md)); the camera scripts don't pause the
   characters, and one taken off the team stays on its bar; walkers keep
   apart by Reluva's own rule; the transporter's pictures aren't drawn
   as enemies beam out; the 5 polygons' processes and the Out Of
@@ -54,9 +55,10 @@ None yet.
   as the triggers say; parts other than the team aren't moved between a
   mission's maps
   ([systems/objectives.md](systems/objectives.md#in-reluva)).
-- **Items:** particle systems aren't there, so the EM pulse's sparks
-  aren't drawn; a part beamed away fades rather than dissolving through
-  its warp effect's noise ([systems/items.md](systems/items.md#in-reluva)).
+- **Items:** a part beamed away fades rather than dissolving through its
+  warp effect's noise; a grenade's throw isn't the program's own (at 45°,
+  its speed from its Gravity and distance)
+  ([systems/items.md](systems/items.md#in-reluva)).
 - **The briefing:** the text has no scroll bar (the mouse wheel
   scrolls it), the random numbers aren't there, and EXIT doesn't fade out
   ([systems/briefing.md](systems/briefing.md#in-reluva)).

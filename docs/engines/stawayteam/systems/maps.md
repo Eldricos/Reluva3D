@@ -947,8 +947,8 @@ map shown's Map Song, over and over; stopping as the maps are left
 
 Not there yet: the processes of the 5 polygons, touching triggers set off by projectiles
 (Mission 15's beamer), the AIs'
-other messages and tasks (CSendMessageAction's to animations and
-particles), walkers going round each other, the enemies' own noises,
+other messages and tasks (CSendMessageAction's to animations; the
+particle systems' are there, [particles.md](particles.md)), walkers going round each other, the enemies' own noises,
 thrown and laid weapons, the doors opening
 by themselves (CDoorAI's own Triggered By flags), the camera scripts'
 Pause Actors, and those off the team still on its bar.

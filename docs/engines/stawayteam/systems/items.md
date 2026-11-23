@@ -276,6 +276,10 @@ Velocity and up so its Gravity, taken as pixels a second each 30th of a
 second, brings it down there; it bounces by its Bounce Factor and
 Friction, with its Bounce Sound, till a bounce is slower than 40 pixels a
 second, and goes off its Shot Duration after it's thrown *(inferred)*.
+The program's own throw (`CThrowGravityAI`, `0x5f91a4`) is otherwise: at
+45°, at √(Gravity × 20.749 × distance) times its `Velocity Factor`, its
+Gravity in the particles' units ([particles.md](particles.md#particles));
+Reluva's isn't that yet.
 A wall, or a collideable polygon standing full height while it's
 active, turns it, mirrored off its side, with its Bounce Sound
 *(inferred)*: Mission 01's and 08's `Fake Grenade Bouncer poly`, made
@@ -386,8 +390,10 @@ the first, played over the warp, raised by its `Overlay YOffset`
 frames of 64 by 64 noise) dissolves the figure in the program; Reluva
 fades it instead.
 
-Not there yet: particle systems (`CGenericParticleSystemAI`), so the
-EM pulse's sparks over what it holds, and the warp effect's dissolve.
+The EM pulse's sparks over what it holds are its entity's particle
+system ([particles.md](particles.md)).
+
+Not there yet: the warp effect's dissolve.
 
 ## Sources and checks
 

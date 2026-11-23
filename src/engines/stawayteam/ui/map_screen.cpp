@@ -787,6 +787,7 @@ void MapScreen::update(uint64_t now) {
     updateNoises(seconds);
     updateEnemies(seconds);
     updateMeld(seconds);
+    updateEmitters(seconds);
     updateCombat(seconds);
     updateItems(seconds);
     updateCharges(seconds);
@@ -1297,6 +1298,9 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
                      b.x1 + px * float(side) - float(left), b.y1 + py * float(side) - float(top), b.outside, fade);
         drawLine(view, b.x0 - float(left), b.y0 - float(top), b.x1 - float(left), b.y1 - float(top), b.middle, fade);
     }
+    // The particles, over the models (inferred: the program sorts them
+    // among them).
+    drawEmitters(view, left, top);
     // The parts beamed away, their Warp Overlay Effect over them: its frames
     // a direction's worth after another, for Num Rotations directions; the
     // direction the figure faces, when its own has as many, else the first;

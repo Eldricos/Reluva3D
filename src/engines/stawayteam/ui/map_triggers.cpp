@@ -62,8 +62,10 @@ void MapScreen::setupTriggers() {
         _partStates[i] = {p.active, p.visible, false, p.collideable};
         if (!p.name.empty())
             _byName[lower(p.name)].push_back(i);
-        for (const TextObject *ai : p.activities)
+        for (const TextObject *ai : p.activities) {
             addTrigger(i, ai);
+            addEmitter(i, ai);
+        }
     }
     setupDoors();
 }
@@ -520,6 +522,19 @@ void MapScreen::runAction(const TextObject *action, int instigator, int trigger)
     } else if (kind == "CSetCollidableAction") {
         for (size_t part : targets("Target Name"))
             _partStates[part].collideable = flag(action, "Collidable");
+    } else if (kind == "CSendMessageAction") {
+        // To a particle system, Particle System On or Off, in any case
+        // (0x5244b0); others aren't there yet.
+        const std::string message = lower(trim(readText(action, "Message")));
+        if (message == "particle system on" || message == "particle system off")
+            for (size_t part : targets("Target"))
+                turnEmitters(part, message == "particle system on");
+    } else if (kind == "CCreateCustomEntityAction") {
+        float x = 0.0f;
+        float y = 0.0f;
+        const TextField *entity = action->field("Entity");
+        if (entity && placeNamed(readText(action, "New Location"), instigator, trigger, x, y))
+            spawnEntity(*entity, x, y, instigator);
     } else if (kind == "CDeleteAction") {
         for (size_t part : targets("Target Name"))
             _partStates[part].deleted = true;
