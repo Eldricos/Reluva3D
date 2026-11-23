@@ -577,14 +577,26 @@ struct DrawQueue {
         for (std::thread &t : _threads)
             t.join();
     }
+    // Threads asleep are woken once the jobs since the last wake come to
+    // this many pixels (by their bounding boxes), or something waits for
+    // them: waking them for each of many small draws took a fifth of the
+    // program's thread in a profile of LEGO Island. Those awake take new
+    // jobs as they come.
+    static constexpr double kWakeArea = 32 * 1024;
+
     void push(Job job) {
+        const double area = job.area + (job.fill ? kWakeArea : 0);
         auto shared = std::make_shared<const Job>(std::move(job));
-        bool wake;
+        bool wake = false;
         {
             std::lock_guard<std::mutex> lock(_mutex);
             _jobs.push_back(std::move(shared));
             ++_pushed;
-            wake = _sleeping > 0;
+            _heldArea += area;
+            if (_sleeping > 0 && _heldArea >= kWakeArea) {
+                wake = true;
+                _heldArea = 0;
+            }
         }
         if (wake)
             _wake.notify_all();
@@ -597,11 +609,13 @@ struct DrawQueue {
     // Waits for the first `count` jobs pushed to be drawn.
     void finishThrough(uint64_t count) {
         std::unique_lock<std::mutex> lock(_mutex);
+        wakeHeld(lock);
         _done.wait(lock, [&] { return _drawn >= count; });
     }
     // Waits for every job pushed to be drawn.
     void finish() {
         std::unique_lock<std::mutex> lock(_mutex);
+        wakeHeld(lock);
         _done.wait(lock, [this] { return _drawn == _pushed; });
     }
     // Draws jobs in order on this thread (DrawThreads::kOne).
@@ -616,6 +630,15 @@ struct DrawQueue {
     }
 
 private:
+    // Under the lock: wakes the threads asleep if jobs are waiting.
+    void wakeHeld(std::unique_lock<std::mutex> &lock) {
+        if (_sleeping == 0 || _drawn == _pushed)
+            return;
+        _heldArea = 0;
+        lock.unlock();
+        _wake.notify_all();
+        lock.lock();
+    }
     void work(int band, int bands) {
         Draw::Raster r;
         r.band = band, r.bands = bands;
@@ -664,6 +687,7 @@ private:
     uint64_t _drawn = 0;
     std::vector<uint64_t> _passed; // by thread: the jobs it's past
     int _sleeping = 0;
+    double _heldArea = 0; // pushed since the threads were last woken
     bool _quit = false;
     std::vector<std::thread> _threads;
 };

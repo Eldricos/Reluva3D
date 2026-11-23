@@ -74,6 +74,11 @@ How it's kept quick, each change giving the same pixels:
   round, and draws every triangle there in order. Small draws stay on
   one thread. `DirectX::drawThreads` can choose one thread, or threads
   always, which the test uses to check both give the same image.
+- Threads with nothing to draw sleep, and are woken only once the draws
+  given since come to 32K pixels (by their bounding boxes), or something
+  waits for them; those awake take each draw as it comes. Waking them for
+  every small draw took a fifth of LEGO Island's thread; held, its island
+  frames are 12 to 15% quicker on four processors.
 - Each row is filled from its first inside pixel to its last; the edge
   tests are only made at the ends.
 - The depth test comes before a pixel's attributes are worked out.
