@@ -49,8 +49,7 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
   keys and tab sizes, voiceovers' and movies'
   volume following the effects',
   Esc on the main menu asking to quit, the shortcut's
-  line shown once Alt is pressed, a fixed-width font's cell, and the
-  sounds named `.wav` being the `.ogg` files of their names
+  line shown once Alt is pressed, and a fixed-width font's cell
   ([systems/menus.md](systems/menus.md#open-questions)).
 - **Maps:** the camera's and zoom's frames taken as 30 a second, the
   drawing order's ties, the water's clock stopping while

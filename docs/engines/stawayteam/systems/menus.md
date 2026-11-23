@@ -82,7 +82,10 @@ Their pictures are `Main Menu/Main Button Default`, `Hover` and `Press`,
 next under the one before, `Button Spacing` (8) between them; the labels
 at `ButtonText Pos` (0,5). A click plays `Interface/Main Screen
 Button.wav` (`0x5036b9`), the `.ogg` of that name in `DATA.dat`'s
-`Sounds/`, as all the game's sounds are *(inferred)*. What's behind the
+`Sounds/`, as all the game's sounds are: its file finder tries a name
+with the other extensions it's given (`0x4ac7b0`), `Music/` its `.wav`
+names as `.ogg` (`0x4d515d`), and the sounds' loader likewise with the
+one it's handed (`0x56dc5a`). What's behind the
 buttons is the main menu's screen ([startup.md](startup.md#the-main-menus-screen)).
 
 ### The confirm dialog
