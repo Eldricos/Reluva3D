@@ -88,7 +88,8 @@ is in [the first survey](research/first-survey.md).
       session screens, the players' boards joined, trains crossing,
       postcards sent and received; `reluva-tool legoloco run` able to
       host and join, and an engine test with two copies over the
-      in-memory network. Done, on the in-memory network: the boards
+      in-memory network. Done, on the in-memory network (the postcard
+      over the system's UDP too): the boards
       scrolled (scroll bars made to work), a train crossing into the
       other player's board, and a postcard sent to the other player by
       mail train and arriving. Not yet: an engine test of it, which

@@ -244,7 +244,8 @@ calls named were seen made, from the addresses given:
   second slot's first choice in the depot's new train) collects it at
   the sender's post office, and the card's gone from `Sort\Out`; where
   the train reaches the addressee's post office, the card arrives in
-  their `Sort\In`, numbered from 10000 *(seen, not traced)*. A lone
+  their `Sort\In`, numbered from 10000, on the in-memory network and
+  over UDP alike *(seen, not traced)*. A lone
   engine, the depot's quick start, collects none. The card's file goes
   between the copies in pieces (message `0x3fc`, `0x439df0`), from the
   sender's `Att_Out` when the other side asks for it (`0x439bcf`).
