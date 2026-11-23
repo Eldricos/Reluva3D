@@ -5,6 +5,7 @@
 
 #include "common/text.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <sstream>
 
@@ -149,7 +150,14 @@ Error SpriteTable::parse(std::string_view name, const Loader &loader, int depth)
                 emitter = &_emitters.back();
                 animation = nullptr;
             } else if (key == "sprite_node") {
-                _spriteNodes.push_back(text::trim(line));
+                SpriteNode node;
+                const std::string trimmed = text::trim(line);
+                if (parseSpriteNode(std::string_view(trimmed).substr(std::min<size_t>(trimmed.size(), 12)), node)) {
+                    node.line = trimmed;
+                    _spriteNodes.push_back(std::move(node));
+                } else {
+                    _problems.push_back(where + ": " + trimmed);
+                }
             } else {
                 _problems.push_back(where + ": " + text::trim(line));
             }
@@ -212,6 +220,66 @@ const SpriteTable::Sprite *SpriteTable::sprite(std::string_view name) const {
         if (s.name == name)
             return &s;
     return nullptr;
+}
+
+bool SpriteTable::parseSpriteNode(std::string_view fields, SpriteNode &out) {
+    // The words, then the bracketed groups' numbers in order: a size, then
+    // a colour. A bracket left open or closed twice is taken as one.
+    std::vector<std::string> words;
+    std::vector<std::vector<double>> groups;
+    size_t i = 0;
+    while (i < fields.size()) {
+        const char c = fields[i];
+        if (c == ' ' || c == '\t' || c == ')') {
+            ++i;
+            continue;
+        }
+        if (c == '(') {
+            const size_t close = fields.find_first_of(")", i);
+            const size_t end = close == std::string_view::npos ? fields.size() : close;
+            std::vector<double> numbers;
+            for (const std::string &n : text::split(std::string(fields.substr(i + 1, end - i - 1)), ','))
+                numbers.push_back(std::atof(n.c_str()));
+            groups.push_back(numbers);
+            i = end;
+            continue;
+        }
+        size_t end = fields.find_first_of(" \t(", i);
+        if (end == std::string_view::npos)
+            end = fields.size();
+        words.emplace_back(fields.substr(i, end - i));
+        i = end;
+    }
+    if (words.size() < 3)
+        return false;
+    out.name = words[0];
+    out.sprite = words[1];
+    out.animation = words[2];
+    // `//billboard` comments the flag out, as one table does.
+    out.billboard = std::find(words.begin() + 3, words.end(), "billboard") != words.end();
+    if (!groups.empty() && groups[0].size() >= 2) {
+        out.width = groups[0][0];
+        out.height = groups[0][1];
+    }
+    if (groups.size() >= 2)
+        for (size_t k = 0; k < 3 && k < groups[1].size(); ++k)
+            out.colour[k] = groups[1][k];
+    return true;
+}
+
+const SpriteTable::SpriteNode *SpriteTable::spriteNodeFor(std::string_view nodeName) const {
+    std::string name = text::toLower(nodeName);
+    while (true) {
+        for (const SpriteNode &n : _spriteNodes)
+            if (text::toLower(n.name) == name)
+                return &n;
+        // Off with a trailing "_<number>", and try again.
+        const size_t under = name.rfind('_');
+        if (under == std::string::npos || under + 1 == name.size() ||
+            name.find_first_not_of("0123456789", under + 1) != std::string::npos)
+            return nullptr;
+        name.resize(under);
+    }
 }
 
 const SpriteTable::Animation *SpriteTable::animation(std::string_view name) const {

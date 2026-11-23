@@ -72,8 +72,29 @@ font's, chosen by character) and `step` or `linear`. Then either:
 
 `@emitter <name>`, then `key=value` lines (`type=spray`, `velocity=12`,
 `sprite=rift`) to `@end_emitter`: the particles of the effects.
-`@sprite_node` lines (183) place sprites in 3D; their fields aren't read
-yet.
+`@sprite_node` lines (183) are the sprites the models' sprite nodes draw
+([sod.md](sod.md)), as the tables' own comment names their fields:
+
+```text
+# @sprite_node name sprite animation (width,height) (r,g,b)
+@sprite_node ion1 ion1 red1.colour  (80,80) (.2,.1,.1) billboard
+```
+
+- **The name**, which a model's node has, or has with `_<number>` after
+  it: `ion1_1` and `whitestrobe_1_2` draw `ion1` and `whitestrobe`. So
+  2,208 of the models' 2,267 sprite nodes find theirs; the rest are
+  markers (`assimbigftur1`) *(inferred)*.
+- **The sprite**, and **an animation**: `const` (87) for none, a colour
+  animation (`red1.colour`, `inoutpurple`), or another (`fire`, `strobe`).
+- **The size** in the model's units: an asteroid 1.5 to 4, a nebula's
+  ion cloud 80.
+- **A colour**: RGB from 0 to 1.
+- **`billboard`** (132): turned to face the camera; without it, the
+  sprite lies as its node does *(inferred)*. One table writes
+  `//billboard`, taken as the flag commented out.
+
+Three lines have slips the reader allows for: a bracket closed twice
+(two) or left open (one).
 
 ### Fonts
 
@@ -95,7 +116,8 @@ has none.
 
 `SpriteTable` (`src/engines/storm3d/formats/sprite_table.h`) reads a
 table and what it includes: sprites, animations with their keyframes,
-emitters' settings, and the sprite nodes' lines as written.
+emitters' settings, and the sprite nodes (`spriteNodeFor` finds a model
+node's).
 
 - **The data viewer's Sprites page** (`SpritePage`,
   `src/engines/storm3d/pages/sprite_page.h`) shows each sprite on its
@@ -121,5 +143,7 @@ emitters' settings, and the sprite nodes' lines as written.
 
 ## Open questions
 
-- The sprite nodes' fields, the emitters' settings, and the materials.
+- The emitters' settings, and the materials.
+- Whether a sprite node's own colour is used when its animation sets a
+  colour: the Maps page takes the animation's *(guessed)*.
 - Whether an animation's rows with no `@keyframes` count in the game.

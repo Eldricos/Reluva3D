@@ -55,6 +55,20 @@ public:
         std::map<std::string, std::string> settings;
     };
 
+    /**
+     * A sprite placed in 3D by a model's node of the same name (its
+     * `@sprite_node` line): a light, a fire, a nebula's cloud.
+     */
+    struct SpriteNode {
+        std::string name;
+        std::string sprite;    // the sprite it draws
+        std::string animation; // the animation it plays: "const" for none, "red1.colour"
+        double width = 0;      // its size in the model's units
+        double height = 0;
+        double colour[3] = {1, 1, 1};
+        bool billboard = false; // turned to face the camera; else lying as its node does
+        std::string line;       // as written
+    };
     /** Gives a file's text by name, or fails if there's none. */
     using Loader = std::function<Error(std::string_view name, std::string &text)>;
 
@@ -71,8 +85,20 @@ public:
     const std::map<std::string, Animation> &animations() const { return _animations; }
     /** The emitters, in the order read. */
     const std::vector<Emitter> &emitters() const { return _emitters; }
-    /** The `@sprite_node` lines, as written: not read yet. */
-    const std::vector<std::string> &spriteNodes() const { return _spriteNodes; }
+    /** The sprite nodes, in the order read. */
+    const std::vector<SpriteNode> &spriteNodes() const { return _spriteNodes; }
+    /**
+     * The sprite node a model's node draws: the one of its name, or of its
+     * name without trailing `_<number>` parts (`ion1_1` and `whitestrobe_1_2`
+     * draw `ion1` and `whitestrobe`), matched ignoring case; nullptr if none.
+     */
+    const SpriteNode *spriteNodeFor(std::string_view nodeName) const;
+    /**
+     * Reads a `@sprite_node` line's fields, after the keyword: tolerant of
+     * the tables' slips (a doubled or missing bracket).
+     * @return false if it hasn't a name, a sprite and an animation
+     */
+    static bool parseSpriteNode(std::string_view fields, SpriteNode &out);
     /** The tables read: the one loaded, then each it includes, as named. */
     const std::vector<std::string> &tables() const { return _tables; }
     /** Lines of no known form, with their file and line number. */
@@ -89,7 +115,7 @@ private:
     std::vector<Sprite> _sprites;
     std::map<std::string, Animation> _animations;
     std::vector<Emitter> _emitters;
-    std::vector<std::string> _spriteNodes;
+    std::vector<SpriteNode> _spriteNodes;
     std::vector<std::string> _tables;
     std::vector<std::string> _problems;
 };

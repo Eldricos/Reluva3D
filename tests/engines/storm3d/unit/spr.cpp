@@ -68,6 +68,13 @@ void testRead() {
 
     CHECK(table.emitters().size() == 1 && table.emitters()[0].settings.at("velocity") == "12");
     CHECK(table.spriteNodes().size() == 1);
+    // A node's fields; a model's node finds it by its name, numbered or not.
+    const SpriteTable::SpriteNode &a1 = table.spriteNodes()[0];
+    CHECK(a1.name == "a1" && a1.sprite == "asteroid1" && a1.animation == "const" && a1.width == 2 && a1.height == 2 &&
+          a1.colour[2] == 0.6 && a1.billboard);
+    CHECK(table.spriteNodeFor("A1") == &a1 && table.spriteNodeFor("a1_3") == &a1 &&
+          table.spriteNodeFor("a1_1_2") == &a1);
+    CHECK(!table.spriteNodeFor("a1x") && !table.spriteNodeFor("a1_") && !table.spriteNodeFor("b1_1"));
 }
 
 // A line of no known form is kept as a problem; a missing include fails.
@@ -114,11 +121,27 @@ void testFrames() {
     CHECK(x == 0 && y == 64);
 }
 
+// The tables' slips in sprite nodes: a bracket closed twice or left open,
+// and a flag commented out.
+void testSpriteNodeSlips() {
+    SpriteTable::SpriteNode n;
+    CHECK(SpriteTable::parseSpriteNode(" asteroid6 asteroid6 const (2.5,2.5) (.8,.7,.6)) billboard", n));
+    CHECK(n.width == 2.5 && n.colour[0] == 0.8 && n.colour[2] == 0.6 && n.billboard);
+    CHECK(SpriteTable::parseSpriteNode(" redconst AmberMulti const (.7,.7)) (1,.8,0)", n));
+    CHECK(n.width == 0.7 && n.colour[1] == 0.8 && n.colour[2] == 0 && !n.billboard);
+    CHECK(SpriteTable::parseSpriteNode(" crewfre23 crew3 fire (2.35,10.88) (1,1,0.5", n));
+    CHECK(n.height == 10.88 && n.colour[2] == 0.5);
+    CHECK(SpriteTable::parseSpriteNode(" whitestrobe Ballflare strobe (.5,.5) (1,1,1) //billboard", n));
+    CHECK(!n.billboard);
+    CHECK(!SpriteTable::parseSpriteNode(" lonely sprite", n));
+}
+
 } // namespace
 
-static const reluva::test::Suite kSuite("storm3d.unit.spr",
-                                        {
-                                            {"read", [](const std::filesystem::path &) { testRead(); }},
-                                            {"problems", [](const std::filesystem::path &) { testProblems(); }},
-                                            {"frames", [](const std::filesystem::path &) { testFrames(); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("storm3d.unit.spr", {
+                                   {"read", [](const std::filesystem::path &) { testRead(); }},
+                                   {"problems", [](const std::filesystem::path &) { testProblems(); }},
+                                   {"frames", [](const std::filesystem::path &) { testFrames(); }},
+                                   {"sprite node slips", [](const std::filesystem::path &) { testSpriteNodeSlips(); }},
+                               });
