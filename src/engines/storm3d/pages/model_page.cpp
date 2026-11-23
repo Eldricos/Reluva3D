@@ -95,6 +95,17 @@ bool ModelPage::shownAtLevel(const SodModel &model, size_t node, int level) {
     return true;
 }
 
+bool ModelPage::assimilationPart(const SodModel &model, size_t node) {
+    int at = int(node);
+    for (size_t steps = 0; at >= 0 && steps <= model.nodes.size(); ++steps) {
+        const SodModel::Node &n = model.nodes[size_t(at)];
+        if (text::equalsIgnoreCase(n.name, "borg"))
+            return true;
+        at = n.parent.empty() ? -1 : findNode(model, n.parent);
+    }
+    return false;
+}
+
 ModelPage::ModelPage(System &sys, Surface &screen, const GameFiles &files)
     : _sys(sys), _screen(screen), _files(files), _meshes(files) {
     for (const std::string &name : files.list())

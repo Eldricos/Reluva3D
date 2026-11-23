@@ -53,6 +53,14 @@ specular, and a power from 0 to 300, mostly 50 *(inferred)*; the byte is
 mesh's groups of faces name them (`base_borg`, `team_Bglow`); the
 executable says it reads "a lighting material palette (material.sod)".
 
+The byte 0 marks what isn't lit *(inferred)*: of the 325 materials with
+it, nearly all are glows, engines, bussards, ore and backgrounds
+(`glow_white`, `warp_fed`, `background`), and the game draws a map's
+background in its material's colour whatever the lights
+([bzn.md](bzn.md#lighting)); the hulls are 1 or 2 (`base_fed` 2,
+`base_borg` 1). A material named `team_...` is drawn in the player's
+colour ([bzn.md](bzn.md#starting-units)).
+
 ### Nodes
 
 A 2-byte count, then for each (from 1.2):
@@ -130,6 +138,12 @@ translation in its last row *(inferred)*), and its mesh's name.
   backgrounds' star sphere `ysp1gn1b`'s 440 all in, as a sky seen from
   inside would; lit the other way, `4first.bzn`'s moon is dark where the
   game's draws light it ([bzn.md](bzn.md#lighting)).
+- **What's drawn only sometimes.** Nearly every ship and station (102
+  models) has a node `borg` with Borg cubes under it, the parts it shows
+  once assimilated *(inferred)*: the game's frames of a new starbase
+  don't have them. The sprite nodes under its systems' nodes (`crew`,
+  `life`...: damage.spr's "crew damage" fires) show when that system is
+  damaged, as the emitters there do.
 - **Handedness.** The coordinates are left-handed, as Direct3D's are:
   seen from above with x to the right, z runs up. The maps settle it:
   their pictures and start positions put z up
@@ -146,7 +160,8 @@ its mesh hasn't.
   `src/engines/storm3d/pages/model_page.h`, its drawing in `SodMeshes`,
   shared with the Maps page) draws each model turning, its
   most detailed level, with its textures and the lighting materials'
-  diffuse colours, lit from one direction; `additive` and `wormhole`
+  diffuse colours, lit from one direction (but not a material of mode 0),
+  without its `borg` parts; `additive` and `wormhole`
   meshes are added over the rest, then the sprite nodes' sprites
   ([spr.md](spr.md#emitters-and-sprite-nodes)), additive, in their
   animation's colour as it changes. Both sides of every face are drawn:
@@ -154,7 +169,7 @@ its mesh hasn't.
   is right-handed, so a model isn't mirrored. Emitters' particles are
   drawn as `emitter.spr` describes them ([spr.md](spr.md#emitters-and-sprite-nodes)),
   worked out from the clock alone as if they'd always been running; the
-  damage emitters (venting) only with V.
+  damage emitters (venting) and the crew's fires only with V.
 - `reluva-tool storm3d sod <game folder> <name.sod>`: a model's
   materials, nodes, meshes and animations.
 - `reluva-tool storm3d sod-check <game folder>`: reads every model whole.
@@ -172,12 +187,12 @@ its mesh hasn't.
   through the 3D renderer (Mesa's software Vulkan): a Borg starbase, a
   Federation and a Klingon battleship, the Kahless sword at each level,
   and a 1.2 model. The unit tests (`storm3d.unit.sod`) write models of
-  1.0, 1.2, 1.6 and 1.8 and read them, and check the placing and the
-  levels.
+  1.0, 1.2, 1.6 and 1.8 and read them, and check the placing, the
+  levels and the assimilated parts.
 
 ## Open questions
 
-- The texture table's use, the lighting materials' byte, the meshes'
+- The texture table's use, the lighting materials' byte 1 against 2, the meshes'
   flag and list of vertices, the animations' 2 bytes, and the texture
   animations' byte and float.
 - 14 textures that meshes name aren't in the install (`nebu4`, `soft`,

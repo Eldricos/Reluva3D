@@ -53,7 +53,8 @@ SodMeshes::Built SodMeshes::build(const SodModel &model, int level) {
     const std::vector<gfx::Mat4> world = ModelPage::worldMatrices(model);
     for (size_t i = 0; i < model.nodes.size(); ++i) {
         const SodModel::Node &node = model.nodes[i];
-        if (node.mesh < 0 || (level >= 0 && !ModelPage::shownAtLevel(model, i, level)))
+        if (node.mesh < 0 || ModelPage::assimilationPart(model, i) ||
+            (level >= 0 && !ModelPage::shownAtLevel(model, i, level)))
             continue;
         const SodModel::Mesh &mesh = model.meshes[size_t(node.mesh)];
         // Normals by vertex, the faces' around it added up, for smooth
@@ -102,9 +103,12 @@ SodMeshes::Built SodMeshes::build(const SodModel &model, int level) {
                 }
             part.indexCount = uint32_t(indices.size()) - part.firstIndex;
             for (const SodModel::LightingMaterial &m : model.materials)
-                if (m.name == g.material)
+                if (m.name == g.material) {
                     part.colour = {std::min(1.0f, m.diffuse[0]), std::min(1.0f, m.diffuse[1]),
                                    std::min(1.0f, m.diffuse[2]), 1};
+                    part.lit = m.mode != 0;
+                }
+            part.team = text::equalsIgnoreCase(std::string_view(g.material).substr(0, 5), "team_");
             parts.push_back(part);
         }
         if (indices.empty())
@@ -146,10 +150,38 @@ const SpriteTable *SodMeshes::sprites() {
 
 // Each sprite node's sprite: a unit square of its rectangle of the texture
 // (made once a sprite), placed at the node.
+namespace {
+
+// Whether a node hangs under one of a ship's systems: what's there shows
+// when the system is damaged (emitter.spr's "Damage emitters", plasma and
+// steam venting; damage.spr's "crew damage" fires).
+bool underSystem(const SodModel &model, size_t node) {
+    static const char *const kSystems[] = {"damage", "crew", "engines", "life", "sensors", "shield", "weapons"};
+    std::string parent = model.nodes[node].parent;
+    // Up the parents, at most as many as there are nodes, against loops.
+    for (size_t steps = 0; !parent.empty() && steps <= model.nodes.size(); ++steps) {
+        for (const char *system : kSystems)
+            if (text::equalsIgnoreCase(parent, system))
+                return true;
+        auto up = std::find_if(model.nodes.begin(), model.nodes.end(),
+                               [&parent](const SodModel::Node &n) { return n.name == parent; });
+        if (up == model.nodes.end())
+            break;
+        parent = up->parent;
+    }
+    return false;
+}
+
+} // namespace
+
 void SodMeshes::addSprites(const SodModel &model, const std::vector<gfx::Mat4> &world, Built &built) {
     for (size_t i = 0; i < model.nodes.size(); ++i)
-        if (model.nodes[i].type == SodModel::kSprite)
+        if (model.nodes[i].type == SodModel::kSprite && !ModelPage::assimilationPart(model, i)) {
+            const size_t before = built.sprites.size();
             addSprite(sprites()->spriteNodeFor(model.nodes[i].name), world[i], built);
+            for (size_t k = before; k < built.sprites.size(); ++k)
+                built.sprites[k].damage = underSystem(model, i);
+        }
 }
 
 // A sprite node's sprite: a unit square of its rectangle of the texture
@@ -235,7 +267,7 @@ const SodMeshes::Built *SodMeshes::spriteNode(const std::string &name) {
 void SodMeshes::addEmitters(const SodModel &model, const std::vector<gfx::Mat4> &world, Built &built) {
     const SpriteTable *table = sprites();
     for (size_t i = 0; i < model.nodes.size(); ++i) {
-        if (model.nodes[i].type != SodModel::kEmitter)
+        if (model.nodes[i].type != SodModel::kEmitter || ModelPage::assimilationPart(model, i))
             continue;
         const SpriteTable::Emitter *emitter = nullptr;
         for (const SpriteTable::Emitter &e : table->emitters())
@@ -267,12 +299,7 @@ void SodMeshes::addEmitters(const SodModel &model, const std::vector<gfx::Mat4> 
         part.count = int(setting("particle_count", 0));
         part.radius = setting("cloud_radius", 0);
         part.seed = uint32_t(i * 2654435761u) ^ uint32_t(built.emitters.size() + 1);
-        // emitter.spr's "Damage emitters" (plasma and steam venting) hang
-        // under the ship's systems: they run when the system is damaged.
-        static const char *const kSystems[] = {"damage", "crew", "engines", "life", "sensors", "shield", "weapons"};
-        for (const char *system : kSystems)
-            if (text::equalsIgnoreCase(model.nodes[i].parent, system))
-                part.damage = true;
+        part.damage = underSystem(model, i);
         built.emitters.push_back(part);
     }
 }
@@ -397,14 +424,14 @@ void SodMeshes::drawPart(const Part &part, const gfx::Mat4 &place, bool behind) 
     call.indexCount = part.indexCount;
     call.model = gfx::multiply(place, part.world);
     call.texture = part.texture;
-    call.color = part.colour;
+    call.color = part.team && _team ? std::array<float, 4>{(*_team)[0], (*_team)[1], (*_team)[2], 1} : part.colour;
     // Both sides drawn: whether the game culls the back ones isn't known.
     call.state.cull = gfx::Cull::kNone;
     if (additive) {
         call.state.src = gfx::Blend::kOne;
         call.state.dst = gfx::Blend::kOne;
         call.state.depthWrite = false;
-    } else {
+    } else if (part.lit) {
         call.rgbSource = gfx::ColorSource::kLighting;
         call.ambientLight = _lighting.ambient;
         for (size_t i = 0; i < _lighting.lights.size() && i < 3; ++i) {
@@ -414,9 +441,9 @@ void SodMeshes::drawPart(const Part &part, const gfx::Mat4 &place, bool behind) 
             else
                 call.fillLight[i - 1] = l.colour, call.fillDirection[i - 1] = l.toLight;
         }
-        if (part.drawMode == "alphathreshold")
-            call.state.alphaTest = gfx::AlphaTest::kGe128;
     }
+    if (!additive && part.drawMode == "alphathreshold")
+        call.state.alphaTest = gfx::AlphaTest::kGe128;
     if (behind) {
         call.state.depthTest = false;
         call.state.depthWrite = false;
@@ -479,7 +506,8 @@ void SodMeshes::draw(const std::vector<std::pair<const Built *, gfx::Mat4>> &bat
         return;
     for (const auto &[built, place] : batch)
         for (const SpritePart &sprite : built->sprites)
-            drawSprite(sprite, place);
+            if (!sprite.damage || _showDamage)
+                drawSprite(sprite, place);
     for (const auto &[built, place] : batch)
         for (const EmitterPart &emitter : built->emitters)
             for (const Particle &p :

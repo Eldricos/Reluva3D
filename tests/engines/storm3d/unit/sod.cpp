@@ -128,11 +128,29 @@ void testLevels() {
     CHECK(ModelPage::shownAtLevel(m, 0, 0));
 }
 
+// The parts a ship gets once assimilated: under its node borg, however
+// deep; the rest of it isn't.
+void testAssimilation() {
+    sodtest::SodWriter w;
+    w.header("Storm3D_SW", 1.8f).u16(0).u16(5);
+    w.u16(0).str("root").str("").transform(0, 0, 0);
+    w.u16(0).str("damage").str("root").transform(0, 0, 0);
+    w.u16(0).str("Borg").str("damage").transform(0, 0, 0);
+    w.u16(0).str("Borgbig").str("Borg").transform(0, 0, 0);
+    w.u16(0).str("hull").str("root").transform(0, 0, 0);
+    w.u16(0).u16(0);
+    SodModel m;
+    CHECK(!m.parse(w.bytes));
+    CHECK(ModelPage::assimilationPart(m, 2) && ModelPage::assimilationPart(m, 3));
+    CHECK(!ModelPage::assimilationPart(m, 1) && !ModelPage::assimilationPart(m, 4));
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("storm3d.unit.sod",
                                         {
                                             {"1.8", [](const std::filesystem::path &) { testV18(); }},
+                                            {"assimilation", [](const std::filesystem::path &) { testAssimilation(); }},
                                             {"1.6", [](const std::filesystem::path &) { testV16(); }},
                                             {"1.2", [](const std::filesystem::path &) { testV12(); }},
                                             {"1.0", [](const std::filesystem::path &) { testV10(); }},

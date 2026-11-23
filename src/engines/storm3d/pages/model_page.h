@@ -57,6 +57,12 @@ public:
     static std::vector<int> detailLevels(const SodModel &model);
     /** Whether a node is shown at a level of detail: not under another level's `lod` node. */
     static bool shownAtLevel(const SodModel &model, size_t node, int level);
+    /**
+     * Whether a node is one of the parts a ship or station has once the
+     * Borg assimilate it: under the node `borg`, which nearly every ship and
+     * station has, and which the game's skirmish doesn't draw on its own.
+     */
+    static bool assimilationPart(const SodModel &model, size_t node);
 
 private:
     void load();

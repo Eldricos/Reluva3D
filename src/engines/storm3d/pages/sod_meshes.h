@@ -32,6 +32,8 @@ public:
         uint32_t indexCount = 0;
         std::array<float, 4> colour{1, 1, 1, 1};
         std::string drawMode;
+        bool team = false; // its material's named team_...: drawn in the team's colour
+        bool lit = true;   // its material's mode isn't 0 (glows, engines, backgrounds): those aren't lit
     };
     /** A sprite node's sprite, placed in the model (SpriteTable::spriteNodeFor). */
     struct SpritePart {
@@ -44,6 +46,7 @@ public:
         const SpriteTable::Animation *colourAnimation = nullptr; // its colour over time, if it has one
         bool billboard = false;
         bool additive = true; // else alpha-tested
+        bool damage = false;  // under a ship's system (the crew's fires): shown only when it's damaged
     };
     /**
      * A particle emitter (a node naming a sprite table's `@emitter`): its
@@ -130,9 +133,14 @@ public:
         m[10] = -1;
         return m;
     }
-    /** Whether the damage emitters run, as if every system were damaged. */
+    /** Whether the damage emitters run and crew damage shows, as if every system were damaged. */
     void showDamage(bool show) { _showDamage = show; }
     bool showingDamage() const { return _showDamage; }
+    /**
+     * The colour the parts whose material is named `team_...` are drawn in
+     * (`teamcolor.odf`'s); none: their material's own.
+     */
+    void setTeamColour(const std::optional<gfx::Vec3> &colour) { _team = colour; }
 
     /** A particle of an emitter: where in its model, how large, and its colour. */
     struct Particle {
@@ -185,6 +193,7 @@ private:
     gfx::Vec3 _up{0, 1, 0};
     double _seconds = 0;
     bool _showDamage = false;
+    std::optional<gfx::Vec3> _team;
     Lighting _lighting;
 };
 
