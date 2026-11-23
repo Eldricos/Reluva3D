@@ -11,6 +11,7 @@
 #include "common/fs.h"
 #include "common/types.h"
 #include "emulation/x86/a3d.h"
+#include "emulation/x86/directx/dsound.h"
 #include "emulation/x86/directx/sound3d.h"
 #include "emulation/x86/dplay.h"
 #include "emulation/x86/com.h"
@@ -1013,6 +1014,146 @@ static void testSound3d() {
     CHECK(near(spatialize(listener, s).doppler, 1));
 }
 
+// DirectSound called as a program calls it: a buffer streamed into as it
+// plays, as SMACKW32 does, its play position by the clock, and the card's
+// output; a 3D buffer placed off to one side.
+static void testDirectSound() {
+    x86::Cpu cpu(32u << 20);
+    x86::Win32Process process(cpu);
+    uint32_t clock = 1000;
+    process.milliseconds = [&] { return clock; };
+    x86::DirectSound sound(process);
+    uint32_t r = 0;
+    auto mem = [&](uint32_t size) { return process.memory().alloc(size); };
+    auto call = [&](uint32_t self, int index, std::vector<uint32_t> args) {
+        args.insert(args.begin(), self);
+        CHECK(!cpu.call(cpu.read32(cpu.read32(self) + 4 * uint32_t(index)), args, r));
+        return r;
+    };
+    const uint32_t out = mem(4);
+    CHECK(!cpu.call(process.provided("DSOUND.dll", "DirectSoundCreate"), {0, out, 0}, r) && r == 0);
+    const uint32_t ds = cpu.read32(out);
+    CHECK(call(ds, 6, {0, 2}) == 0); // SetCooperativeLevel: priority
+    // A quarter of a second of 16-bit stereo at 22050 Hz, as SMACKW32 makes it.
+    const uint32_t format = mem(18);
+    const uint16_t wave[9] = {1, 2, 22050 & 0xffff, 0, 0x5888, 1, 4, 16, 0};
+    for (uint32_t i = 0; i < 9; ++i)
+        cpu.write16(format + 2 * i, wave[i]);
+    const uint32_t desc = mem(20);
+    const uint32_t descFields[5] = {20, 0x8000 | 0x80, 22048, 0, format}; // GLOBALFOCUS, CTRLVOLUME
+    for (uint32_t i = 0; i < 5; ++i)
+        cpu.write32(desc + 4 * i, descFields[i]);
+    CHECK(call(ds, 3, {desc, out, 0}) == 0); // CreateSoundBuffer
+    const uint32_t buffer = cpu.read32(out);
+    // Each frame's samples say which frame of the stream it is: left n,
+    // right -n (n counting from 1, wrapping at 32000).
+    int written = 0;
+    const uint32_t p1 = mem(4);
+    const uint32_t n1 = mem(4);
+    const uint32_t p2 = mem(4);
+    const uint32_t n2 = mem(4);
+    auto fill = [&](uint32_t offset, uint32_t bytes) {
+        CHECK(call(buffer, 11, {offset, bytes, p1, n1, p2, n2, 0}) == 0); // Lock
+        CHECK(cpu.read32(n1) + cpu.read32(n2) == bytes);
+        for (int part = 0; part < 2; ++part) {
+            const uint32_t at = cpu.read32(part ? p2 : p1);
+            for (uint32_t i = 0; i < cpu.read32(part ? n2 : n1); i += 4) {
+                const int16_t v = int16_t(written++ % 32000 + 1);
+                cpu.write16(at + i, uint16_t(v));
+                cpu.write16(at + i + 2, uint16_t(-v));
+            }
+        }
+        CHECK(call(buffer, 19, {cpu.read32(p1), cpu.read32(n1), cpu.read32(p2), cpu.read32(n2)}) == 0); // Unlock
+    };
+    fill(0, 22048);
+    CHECK(call(buffer, 12, {0, 0, 1}) == 0); // Play, looping
+    const uint32_t status = mem(4);
+    CHECK(call(buffer, 9, {status}) == 0 && cpu.read32(status) == 5); // PLAYING | LOOPING
+    // Streamed for two seconds: each 62 ms a quarter of the buffer behind
+    // the play position written again with what comes next, the card's
+    // output read a millisecond at a time, as an audio device takes it.
+    const std::shared_ptr<audio::OutputStream> card = sound.output();
+    std::vector<int16_t> heard;
+    uint32_t nextQuarter = 0;
+    const uint32_t play = mem(4);
+    const uint32_t write = mem(4);
+    for (int ms = 0; ms < 2000; ++ms) {
+        clock += 1;
+        CHECK(call(buffer, 4, {play, write}) == 0); // GetCurrentPosition
+        const uint32_t at = cpu.read32(play);
+        // The quarter just played is written again.
+        if ((at / 5512 + 4 - nextQuarter) % 4 >= 2) {
+            fill(nextQuarter * 5512, 5512);
+            nextQuarter = (nextQuarter + 1) % 4;
+        }
+        int16_t frames[2 * 23];
+        const int n = 22 + (ms % 20 == 0 ? 1 : 0); // 22.05 frames a millisecond
+        card->read(frames, n, 22050);
+        heard.insert(heard.end(), frames, frames + 2 * n);
+    }
+    // Heard in order, every frame once: n then n + 1, right the negative of
+    // left, after the first quarter of a second.
+    int outOfOrder = 0;
+    for (size_t i = 2 * 5512; i + 3 < heard.size(); i += 2) {
+        outOfOrder += heard[i + 1] != -heard[i];
+        const int next = heard[i] % 32000 + 1;
+        outOfOrder += heard[i + 2] != next;
+    }
+    CHECK(outOfOrder == 0);
+    CHECK(sound.buffersPlaying() == 1);
+    CHECK(call(buffer, 18, {}) == 0 && sound.buffersPlaying() == 0); // Stop
+
+    // A 3D buffer, mono, a constant 1000, put a unit to the listener's
+    // right: the left speaker 20 dB down (sound3d.h), the right as it is.
+    // Its 3D interface comes from QueryInterface; the listener from the
+    // primary buffer's.
+    const uint16_t mono[9] = {1, 1, 22050 & 0xffff, 0, 0xac44, 0, 2, 16, 0};
+    for (uint32_t i = 0; i < 9; ++i)
+        cpu.write16(format + 2 * i, mono[i]);
+    cpu.write32(desc + 4, 0x10 | 0x80); // CTRL3D, CTRLVOLUME
+    cpu.write32(desc + 8, 4410);
+    CHECK(call(ds, 3, {desc, out, 0}) == 0);
+    const uint32_t placed = cpu.read32(out);
+    CHECK(call(placed, 11, {0, 4410, p1, n1, p2, n2, 0}) == 0);
+    for (uint32_t i = 0; i < 4410; i += 2)
+        cpu.write16(cpu.read32(p1) + i, 1000);
+    CHECK(call(placed, 19, {cpu.read32(p1), 4410, 0, 0}) == 0);
+    auto iid = [&](const char *g) {
+        const uint32_t a = mem(16);
+        x86::ComHost::writeGuid(cpu, a, g);
+        return a;
+    };
+    CHECK(call(placed, 0, {iid("{279afa86-4981-11ce-a521-0020af0be560}"), out}) == 0);
+    const uint32_t placed3d = cpu.read32(out);
+    auto bits = [](float f) {
+        uint32_t v;
+        std::memcpy(&v, &f, 4);
+        return v;
+    };
+    CHECK(call(placed3d, 19, {bits(1), bits(0), bits(0), 0}) == 0); // SetPosition, at once
+    // The primary buffer's listener, deferred settings applied on Commit.
+    cpu.write32(desc + 4, 0x1 | 0x10); // PRIMARYBUFFER, CTRL3D
+    cpu.write32(desc + 8, 0);
+    cpu.write32(desc + 16, 0);
+    CHECK(call(ds, 3, {desc, out, 0}) == 0);
+    const uint32_t primary = cpu.read32(out);
+    CHECK(call(primary, 0, {iid("{279afa84-4981-11ce-a521-0020af0be560}"), out}) == 0);
+    const uint32_t listener = cpu.read32(out);
+    CHECK(call(listener, 14, {bits(0), bits(0), bits(0), 1}) == 0); // SetPosition, deferred
+    CHECK(call(listener, 17, {}) == 0);                             // CommitDeferredSettings
+    CHECK(call(placed, 12, {0, 0, 1}) == 0);                        // Play, looping
+    int16_t frames[2 * 100];
+    card->read(frames, 100, 22050);
+    CHECK(frames[198] >= 95 && frames[198] <= 105 && frames[199] >= 995 && frames[199] <= 1005);
+    // Behind a deferred SetPosition, uncommitted, it stays where it was.
+    CHECK(call(placed3d, 19, {bits(-1), bits(0), bits(0), 1}) == 0);
+    card->read(frames, 100, 22050);
+    CHECK(frames[199] >= 995 && frames[199] <= 1005);
+    CHECK(call(listener, 17, {}) == 0); // now it's on the left
+    card->read(frames, 100, 22050);
+    CHECK(frames[198] >= 995 && frames[198] <= 1005 && frames[199] >= 95 && frames[199] <= 105);
+}
+
 // DirectPlay 3 created through COM, with no connections to offer.
 static void testDirectPlay() {
     x86::Cpu cpu(16u << 20);
@@ -1217,6 +1358,7 @@ static const test::Suite
                {"input", [](const std::filesystem::path &) { testInput(); }},
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
                {"directplay", [](const std::filesystem::path &) { testDirectPlay(); }},
+               {"directsound", [](const std::filesystem::path &) { testDirectSound(); }},
                {"sound 3d", [](const std::filesystem::path &) { testSound3d(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
            });
