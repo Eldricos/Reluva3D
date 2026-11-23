@@ -99,7 +99,7 @@ on their pages in `formats/` and `systems/`.
    following what's done, to its debriefing), a campaign (started: its
    introduction, the Dynaverse map, moving from hex to hex, a mission
    offered, accepted and played into, forfeited and back to the map,
-   its auto-save loaded),
+   its auto-save loaded, saves made by name and deleted),
    then a
    campaign and its missions (the game loads their DLLs itself), saves,
    the film room. Drawing on the GPU through `gfx3d` once the software

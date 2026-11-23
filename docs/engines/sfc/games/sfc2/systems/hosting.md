@@ -259,8 +259,15 @@ returns to the Dynaverse as it was saved: the same commander, ship and
 prestige, the stardate going on from where it was. Saving needs folders
 made (`CreateDirectoryA`) and found where only the program made them
 (the save folder): without either the auto-save came out without its
-database, and the load read through a null pointer at 0x52781b. A
-mission won, its prestige given, isn't played yet.
+database, and the load read through a null pointer at 0x52781b.
+
+On the map, SAVED GAMES shows the saves (name, empire, time) with a
+NEW SAVED GAME name box and SAVE, LOAD and DELETE. SAVE makes
+`saves/<name>/` (`CreateDirectoryA`) and copies the database into it
+(`CopyFileA`); DELETE deletes the save's two files and removes its
+folder (`DeleteFileA`, `RemoveDirectoryA`). Deleted, Auto Save is made
+again straight away, of the campaign as it is; a save by name stays
+gone. A mission won, its prestige given, isn't played yet.
 
 A skirmish is played through DirectPlay, single-player too: starting
 one, the game throws a `TLogicError` naming `fDirectPlayObject` each
