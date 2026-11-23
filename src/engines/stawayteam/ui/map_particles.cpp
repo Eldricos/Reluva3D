@@ -45,8 +45,8 @@ void MapScreen::turnEmitters(size_t part, bool on) {
 
 void MapScreen::updateEmitters(float seconds) {
     // Each runs while its part's active and there; each burst plays one of
-    // its Sounds, by chance (inferred: its Choose Sound Based On Burst
-    // isn't).
+    // its Sounds, by the game's own random numbers or the burst's size
+    // (0x524fd2).
     for (Emitter &e : _emitters) {
         const PartState &state = _partStates[e.part];
         if (!state.active || state.deleted)
@@ -57,7 +57,7 @@ void MapScreen::updateEmitters(float seconds) {
         const std::vector<std::string> &sounds = e.system.sounds();
         if (bursts > 0 && !sounds.empty() && _mixer) {
             _random = _random * 1103515245u + 12345u;
-            if (auto sound = gameSound(_data, sounds[size_t(_random >> 16) % sounds.size()]))
+            if (auto sound = gameSound(_data, sounds[size_t(e.system.burstSound(_random >> 16))]))
                 _mixer->play(sound, audio::SoundType::kEffects);
         }
     }

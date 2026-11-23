@@ -102,6 +102,12 @@ public:
     ///@}
     /** Its Sounds, one of which is played with each burst. */
     const std::vector<std::string> &sounds() const { return _sounds; }
+    /**
+     * Which of its Sounds its last burst plays, by `random` (any number)
+     * or, with its Choose Sound Based On Burst, by how many particles it
+     * made of the most it could (0x524fd2); -1 if it has none.
+     */
+    int burstSound(uint32_t random) const;
     /** Whether it still bursts: Enabled, and not past its Num Bursts To Stop After. */
     bool enabled() const { return _enabled; }
     /**
@@ -152,6 +158,9 @@ private:
     float _bursts = 0.0f; // bursts due, the whole ones made as they come
     float _rate = 0.0f;   // bursts a second now: its frequency with its variance
     int _made = 0;        // bursts made so far
+    bool _soundByBurst = false;
+    int _lastMade = 0; // the last burst's particles, of...
+    int _lastMost = 0; // ...the most it could have made
     uint32_t _random = 1;
 };
 

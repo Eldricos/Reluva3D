@@ -34,7 +34,11 @@ isn't 0 (45 make one burst). Starting, or turned on, its envelopes go
 back to their starts and its first burst comes a random part of a period
 off (`0x524870`). Each burst makes, for each of its `Particles` (a
 `CParticleInfo`), its `Num Particles` give or take its `Num Particles
-Variance` (`0x524b4e`), and plays one of its `Sounds`.
+Variance` (`0x524b4e`), and plays one of its `Sounds` where it bursts
+(`0x524fd2`): one by the game's random numbers (`0x7706a0`), or, with
+`Choose Sound Based On Burst` (57 systems), by how big the burst was:
+the count of Sounds times the particles it made over the most it could
+have (each kind's count and its variance, added up) and 1.
 
 Each particle:
 
@@ -97,9 +101,9 @@ seconds on.
 screen takes on each `CGenericParticleSystemAI` of its parts, of the
 parts its models put down, and of the entities actions make
 (`ui/map_particles.cpp`). One runs while its part is active and not
-deleted. Its random numbers are its own *(inferred)*; a burst's sound is
-one of its Sounds by chance, `Choose Sound Based On Burst` aside
-*(inferred)*. The particles are drawn over the models, not sorted among
+deleted. Its random numbers are its own (the game's come from its
+shared generators, `0x770ea0`, so only their sequence differs); a
+burst's sound is one of its Sounds as above. The particles are drawn over the models, not sorted among
 them *(inferred)*; a falling one that bounces slower than 1 pixel a
 second lies still *(inferred)*.
 
@@ -122,7 +126,6 @@ second lies still *(inferred)*.
 
 - The cone's axes' senses: Face Angle's zero and turn, and which way
   across the axis a line and a disk's YX Ratio lie *(inferred)*.
-- How particles sort among the models, and how `Choose Sound Based On
-  Burst` chooses.
+- How particles sort among the models.
 - `Rotate Velocity`, `Tries To Collide`, `Collidable` and `Use Particle
   As Shot` aren't there.

@@ -116,6 +116,20 @@ void testBursts() {
     for (int i = 0; i < 300; ++i)
         bursts += t.update(0.01f);
     CHECK(bursts == 2);
+
+    // A burst's sound: by chance, or, Chosen Based On Burst, by how many
+    // particles it made of the most it could: all 3 of 3, the last of 4
+    // (0x524fd2).
+    const std::string sounds = "Sounds=Array\n{\nItem Count=4\nSounds=A.wav\nSounds=B.wav\nSounds=C.wav\n"
+                               "Sounds=D.wav\n}\n";
+    const TextObject chance = objectOf(system(sounds, "CFloatParticleAI\n{\n}"));
+    ParticleSystem c(chance, 3);
+    firstBurst(c);
+    CHECK(c.burstSound(6) == 2);
+    const TextObject sized = objectOf(system(sounds + "Choose Sound Based On Burst=1\n", "CFloatParticleAI\n{\n}"));
+    ParticleSystem z(sized, 3);
+    firstBurst(z);
+    CHECK(z.burstSound(6) == 3);
 }
 
 void testMotions() {

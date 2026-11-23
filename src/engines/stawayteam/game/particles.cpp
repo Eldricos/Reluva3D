@@ -133,6 +133,7 @@ ParticleSystem::ParticleSystem(const TextObject &ai, uint32_t seed) : _random(se
     if (const TextObject *sounds = ai.object("Sounds"))
         for (const TextField *item : sounds->items())
             _sounds.push_back(item->value);
+    _soundByBurst = ai.number("Choose Sound Based On Burst").value_or(0.0) != 0.0;
     // Started as it's made (inferred: as the AI starts).
     restart();
 }
@@ -239,9 +240,13 @@ void ParticleSystem::burst(float ownerAngle) {
     const Vec across{-std::sin(face), std::cos(face), 0.0f};
     const Vec third{axis.y * across.z - axis.z * across.y, axis.z * across.x - axis.x * across.z,
                     axis.x * across.y - axis.y * across.x};
+    _lastMade = 0;
+    _lastMost = 0;
     for (size_t k = 0; k < _kinds.size(); ++k) {
         const Kind &kind = _kinds[k];
         const int count = std::max(0, kind.count + randomInt(-kind.countVariance, kind.countVariance));
+        _lastMade += count;
+        _lastMost += kind.count + kind.countVariance;
         for (int n = 0; n < count; ++n) {
             // Off the axis by the inner cone angle and some of the outer,
             // at any turn about it (0x524bb7, 0x525040); its speed and age
@@ -281,6 +286,15 @@ void ParticleSystem::burst(float ownerAngle) {
                 _particles.push_back(p);
         }
     }
+}
+
+int ParticleSystem::burstSound(uint32_t random) const {
+    if (_sounds.empty())
+        return -1;
+    const auto n = int(_sounds.size());
+    if (_soundByBurst)
+        return std::clamp(n * _lastMade / (_lastMost + 1), 0, n - 1);
+    return int(random % uint32_t(n));
 }
 
 } // namespace reluva::stawayteam
