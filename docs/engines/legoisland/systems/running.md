@@ -143,6 +143,13 @@ that far.
   other people walking by. The arrow keys walk her (read through
   DirectInput's keyboard): up the road to the pizzeria, where the
   Brickolinis are, and on. Run to 33,000 frames, it doesn't stop.
+- **Saving and loading:** quit through the game (the door's green
+  brick), it writes `G0.GS` (the game's state, 4,309 bytes), `History.gsi`
+  (49) and `Players.gsi` (16, a player registered) to `savepath`, then
+  exits with 0. Started again on the same save folder, it reads all
+  three: the register book has the player's name ready, its tick makes
+  it the player again (the name above the portraits), and a character
+  dragged to a place on the map goes out to the island.
 - **Turning is by the frame:** held, an arrow turns the player about 9
   degrees each frame shown, a full turn in 40 frames, whether the frames
   come 17 ms apart (0.84 s a turn) or 75 ms apart (3 s): the game doesn't

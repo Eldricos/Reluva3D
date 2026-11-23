@@ -49,13 +49,14 @@ Each phase ends with something that runs, is tested and is committed.
    scenes drawn and picked, the island in 3D as a screenshot of the
    original shows it, walked, the skateboard ridden, and the jet-ski
    built and ridden ([systems/running.md](systems/running.md#how-far-it-gets)).
-7. **Input, saves and settings:** DirectInput and the joystick, the save
+7. **Input, saves and settings** (done, to be tried in the engine): DirectInput and the joystick, the save
    folder, and `CONFIG.EXE`'s choices as the engine's settings; turning
    at the speed it was made for, as on today's machines it's too fast
    ([KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md)). In progress: the
    frame rate limited (a setting), as the game turns by the frame; the
    setup's choices as the engine's settings; the joystick, through
-   WINMM. Next: saving and loading checked.
+   WINMM; saving and loading, a player and the game's state kept from
+   one session to the next.
 8. **A full playthrough**, checked against recordings of the original;
    then speed (the JIT's hot spots, Retained Mode on the GPU).
 
