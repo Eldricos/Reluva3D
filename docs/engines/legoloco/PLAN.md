@@ -54,7 +54,7 @@ is in [the first survey](research/first-survey.md).
    office and postcards, saving and loading play, with the mouse and
    keys; [systems/running.md](systems/running.md)): the basic engine
    test taken through them.
-6. **Network play** (step 1 done; [a first look](research/network.md),
+6. **Network play** (steps 1 to 3 done; [a first look](research/network.md),
    [what's followed](systems/running.md#network-play)):
    the game's own DirectPlay network code run as it is, with DirectPlay
    stood in for over Reluva's networking. In steps:
@@ -79,7 +79,11 @@ is in [the first survey](research/first-survey.md).
       guaranteed messages): sessions found on the local network by
       broadcast, a host's address typed in reaching it directly, and the
       meeting server listing sessions and introducing players across
-      routers; port mapping for a host on the Internet.
+      routers; port mapping for a host on the Internet. Done: the
+      engine plays over the system's UDP, `run -udp` and `pair -udp`
+      in the tool; tested across a lossy network and walled-off routers;
+      seen with two processes on one computer. Not yet tried between two
+      computers, or typing the host's address into the game.
    4. *Played:* two copies over the loopback and over a network: the
       session screens, the players' boards joined, trains crossing,
       postcards sent and received; `reluva-tool legoloco run` able to

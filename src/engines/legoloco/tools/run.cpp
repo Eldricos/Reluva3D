@@ -4,6 +4,7 @@
 // reluva-tool's LEGO Loco command for running the game's own program and
 // seeing how far it gets (docs/engines/legoloco/systems/running.md).
 
+#include "backends/networking/sockets/socket_net.h"
 #include "devtools/tool.h"
 #include "engines/legoloco/host/game_process.h"
 
@@ -163,7 +164,10 @@ struct Copy {
         size_t callsAt = 0;
         std::string last;
         int repeats = 0;
-        game.process().output = [this](const std::string &s) { say("[program] %s\n", s.c_str()); };
+        // The stand-ins' reports end their own lines, or not.
+        game.process().output = [this](const std::string &s) {
+            say("[program] %s%s", s.c_str(), !s.empty() && s.back() == '\n' ? "" : "\n");
+        };
         cpu.nativeTrace = [&](x86::Cpu &c, const std::string &fn) {
             std::lock_guard<std::mutex> lock(mutex);
             // Each argument as a number, and as text where it points at some.
@@ -283,8 +287,14 @@ struct Common {
     uint64_t limit = 2000;
     uint32_t seconds = 0;
     bool noMovies = false;
+    bool udp = false;
+    std::string meeting;
     bool option(int argc, char **argv, int &i) {
-        if (!std::strcmp(argv[i], "-limit") && i + 1 < argc)
+        if (!std::strcmp(argv[i], "-udp"))
+            udp = true;
+        else if (!std::strcmp(argv[i], "-meeting") && i + 1 < argc)
+            meeting = argv[++i], udp = true;
+        else if (!std::strcmp(argv[i], "-limit") && i + 1 < argc)
             limit = std::strtoull(argv[++i], nullptr, 10);
         else if (!std::strcmp(argv[i], "-seconds") && i + 1 < argc)
             seconds = uint32_t(std::strtoul(argv[++i], nullptr, 10));
@@ -296,6 +306,30 @@ struct Common {
     }
 };
 
+// DirectPlay over the system's UDP sockets: a search with no address
+// goes to each network's broadcast address, and the machine's own; and to
+// the meeting server at `meeting` ("host[:port]"), if it's given.
+std::shared_ptr<x86::DirectPlay::Network> systemNetwork(const std::string &meeting) {
+    auto network = std::make_shared<x86::DirectPlay::Network>();
+    network->open = [](uint16_t port) {
+        std::string error;
+        auto socket = net::openSystemUdp(port, error);
+        if (!socket)
+            std::printf("no UDP socket on port %u: %s\n", unsigned(port), error.c_str());
+        return socket;
+    };
+    network->broadcast = net::systemBroadcastAddresses();
+    network->broadcast.push_back(0xffffffffu);
+    network->broadcast.push_back(0x7f000001u);
+    if (!meeting.empty()) {
+        const auto [host, port] = net::splitHostPort(meeting, net::kMeetingPort);
+        network->meeting.port = port;
+        if (!net::resolveSystemHost(host, network->meeting.ip))
+            std::printf("can't find the meeting server %s\n", meeting.c_str());
+    }
+    return network;
+}
+
 // A copy's options: -log prints each stand-in called; -save folder is
 // where it may write. The program's clock (s, in seconds) times what's
 // done to it: -click s x y and -rclick s x y click a button at (x, y),
@@ -305,9 +339,11 @@ struct Common {
 // (-shot file.ppm, at the end).
 int cmdRun(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool legoloco run <game folder> -save <folder> [-log] [-limit millions] "
-                             "[-seconds n] [-nomovies] [-click|-rclick|-move s x y] [-drag s x1 y1 x2 y2] "
-                             "[-key s vk] [-shot [s] file.ppm]...\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool legoloco run <game folder> -save <folder> [-log] [-limit millions] "
+            "[-seconds n] [-nomovies] [-udp] [-meeting host] [-click|-rclick|-move s x y] [-drag s x1 y1 x2 y2] "
+            "[-key s vk] [-shot [s] file.ppm]...\n");
         return 2;
     }
     Common common;
@@ -319,16 +355,19 @@ int cmdRun(int argc, char **argv) {
         std::fprintf(stderr, "a save folder is needed: -save <folder>\n");
         return 2;
     }
-    return copy.run(argv[2], common.limit, common.seconds, common.noMovies, nullptr);
+    return copy.run(argv[2], common.limit, common.seconds, common.noMovies,
+                    common.udp ? systemNetwork(common.meeting) : nullptr);
 }
 
 // Two copies at once, each with a save folder of its own and its own
-// steps (those after -- are the second's), on one DirectPlay network in
-// memory: for network play without a network.
+// steps (those after -- are the second's), on one DirectPlay network: in
+// memory, for network play without a network, or with -udp the system's.
 int cmdPair(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool legoloco pair <game folder> [-limit millions] [-seconds n] "
-                             "[-nomovies] -save <folder> [first's steps]... -- -save <folder> [second's steps]...\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool legoloco pair <game folder> [-limit millions] [-seconds n] "
+            "[-nomovies] [-udp] [-meeting host] -save <folder> [first's steps]... -- -save <folder> [second's steps]...\n");
         return 2;
     }
     Common common;
@@ -346,7 +385,7 @@ int cmdPair(int argc, char **argv) {
         std::fprintf(stderr, "each copy needs a save folder of its own: -save <folder> ... -- -save <folder>\n");
         return 2;
     }
-    auto network = std::make_shared<x86::DirectPlay::Network>();
+    auto network = common.udp ? systemNetwork(common.meeting) : x86::DirectPlay::Network::inMemory();
     int results[2] = {0, 0};
     std::thread second(
         [&] { results[1] = copies[1].run(argv[2], common.limit, common.seconds, common.noMovies, network); });
@@ -355,17 +394,19 @@ int cmdPair(int argc, char **argv) {
     return results[0] || results[1] ? 1 : 0;
 }
 
-const Commands kCommands("legoloco",
-                         {
-                             {"run",
-                              "<game folder> -save <folder> [-log] [-limit millions] [-seconds n] [-nomovies] "
-                              "[-click|-rclick|-move s x y] [-drag s x1 y1 x2 y2] [-key s vk] [-shot [s] file.ppm]...",
-                              "run the game's own loco.exe and report how far it gets", cmdRun},
-                             {"pair",
-                              "<game folder> [-limit millions] [-seconds n] [-nomovies] -save <folder> [steps]... "
-                              "-- -save <folder> [steps]...",
-                              "run two copies at once on one DirectPlay network in memory, each with its own steps",
-                              cmdPair},
-                         });
+const Commands kCommands(
+    "legoloco",
+    {
+        {"run",
+         "<game folder> -save <folder> [-log] [-limit millions] [-seconds n] [-nomovies] [-udp] [-meeting host] "
+         "[-click|-rclick|-move s x y] [-drag s x1 y1 x2 y2] [-key s vk] [-shot [s] file.ppm]...",
+         "run the game's own loco.exe and report how far it gets", cmdRun},
+        {"pair",
+         "<game folder> [-limit millions] [-seconds n] [-nomovies] [-udp] [-meeting host] -save <folder> "
+         "[steps]... -- -save <folder> [steps]...",
+         "run two copies at once on one DirectPlay network (in memory, or UDP), each with its "
+         "own steps",
+         cmdPair},
+    });
 
 } // namespace

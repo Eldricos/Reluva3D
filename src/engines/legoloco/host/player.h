@@ -4,6 +4,7 @@
 #pragma once
 
 #include "common/events.h"
+#include "emulation/x86/dplay.h"
 
 #include <cstdint>
 #include <deque>
@@ -31,9 +32,11 @@ class Player {
 public:
     /**
      * What it writes (its settings, its layouts) goes to `saveDir`; its
-     * sound to `mixer`, if there's one, which must outlive the player.
+     * sound to `mixer`, if there's one, which must outlive the player; its
+     * network games are played on `network`, if there's one.
      */
-    Player(std::filesystem::path gameDir, std::filesystem::path saveDir, audio::Mixer *mixer = nullptr);
+    Player(std::filesystem::path gameDir, std::filesystem::path saveDir, audio::Mixer *mixer = nullptr,
+           std::shared_ptr<x86::DirectPlay::Network> network = nullptr);
     /** Stops the game and waits for its thread. */
     ~Player();
 
@@ -68,6 +71,7 @@ private:
     std::filesystem::path _dir;
     std::filesystem::path _saveDir;
     audio::Mixer *_mixer;
+    std::shared_ptr<x86::DirectPlay::Network> _network;
     GameProcess *_game = nullptr; // the game thread's, while it runs
     std::thread _thread;
     std::mutex _mutex;

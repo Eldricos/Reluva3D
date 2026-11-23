@@ -10,6 +10,8 @@
 
 #include "audio/mixer.h"
 #include "common/fs.h"
+#include "common/meeting.h"
+#include "common/portmap.h"
 #include "common/settings.h"
 
 #include <cstdio>
@@ -25,6 +27,12 @@ namespace {
 // The CD and an install have the same layout, and the installer copies the
 // same files whichever of the CD's nine languages is chosen (it writes the
 // choice into Exe/LEGO.INI), so the one entry stands for all of them.
+// Its settings: a meeting server ("host" or "host:port", set in the
+// config file: the game has nowhere to type it), and whether to ask the
+// router for the port while hosting ("1" or "0").
+constexpr const char *kMeetingServer = "meeting_server";
+constexpr const char *kMapPort = "map_port";
+
 const std::vector<GameVariant> kVariants = {
     {"legoloco",
      "LEGO Loco (1.0.18.2)",
@@ -64,7 +72,7 @@ private:
     // The game, until it ends or the player leaves. It draws its own
     // pointer (a hand) where the mouse is, so the system's is hidden.
     Error play() {
-        Player player(_target.path, _target.savePath, _audioOut ? _mixer.get() : nullptr);
+        Player player(_target.path, _target.savePath, _audioOut ? _mixer.get() : nullptr, network());
         player.start();
         int width = kWidth;
         int height = kHeight;
@@ -114,6 +122,40 @@ private:
         }
     }
 
+    // Its network games over the system's UDP sockets: a search goes to
+    // each network's broadcast address, to this machine's own copies, and
+    // to the meeting server if one's set.
+    std::shared_ptr<x86::DirectPlay::Network> network() {
+        auto network = std::make_shared<x86::DirectPlay::Network>();
+        System &sys = _sys;
+        network->open = [&sys](uint16_t port) {
+            std::unique_ptr<net::UdpSocket> socket;
+            sys.openUdp(port, socket);
+            return socket;
+        };
+        network->broadcast = _sys.broadcastAddresses();
+        network->broadcast.push_back(0xffffffffu);
+        network->broadcast.push_back(0x7f000001u);
+        const auto setting = [&](const char *key) {
+            auto it = _target.settings.find(key);
+            return it == _target.settings.end() ? std::string() : it->second;
+        };
+        if (const std::string meeting = setting(kMeetingServer); !meeting.empty()) {
+            const auto [host, port] = net::splitHostPort(meeting, net::kMeetingPort);
+            net::Address at;
+            at.port = port;
+            if (net::parseAddress(meeting, net::kMeetingPort, at) || _sys.resolveHost(host, at.ip))
+                network->meeting = at;
+            else
+                std::fprintf(stderr, "LEGO Loco: can't find the meeting server %s\n", meeting.c_str());
+        }
+        if (setting(kMapPort) != "0")
+            network->mapPort = [&sys](uint16_t port) -> std::shared_ptr<void> {
+                return std::make_shared<net::PortMapper>(net::PortMapper::through(sys), port);
+            };
+        return network;
+    }
+
     // Whether to leave after the window was closed (or, `toLauncher`,
     // Ctrl+F5 was pressed): the player is asked, as a layout not saved
     // would be lost.
@@ -144,6 +186,15 @@ public:
 
     std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override {
         return detectFromTable(id(), kVariants, dir);
+    }
+
+    std::vector<GameOption> engineOptions() const override {
+        return {{kMapPort,
+                 "Open the port on the router when hosting",
+                 "When hosting a network game, ask the router (UPnP or NAT-PMP) to pass the game's port on to\n"
+                 "this computer, so players across the Internet can reach it directly.",
+                 true,
+                 {}}};
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {

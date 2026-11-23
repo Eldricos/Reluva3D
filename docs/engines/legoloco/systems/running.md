@@ -183,7 +183,15 @@ calls named were seen made, from the addresses given:
 - **The protocol screen:** `IPX` and `TCP` to choose from, an `I.P.`
   field, "PLEASE SELECT A NETWORK PROTOCOL..." *(seen, not traced)*. Each is a
   DirectPlay connection made with the lobby's `CreateCompoundAddress`
-  and `InitializeConnection` (`0x45f9b3`, `0x45fb55`).
+  and `InitializeConnection` (`0x45f9b3`, `0x45fb55`). TCP's address
+  holds, after the service provider, the field's text (`DPAID_INet`) and
+  `LEGO.INI`'s `[Configuration]` `Port`, 31415 unless set (`0x43a798`), as
+  `DPAID_INetPort` (`0x45f831`); a host was seen given the port too, and
+  listens on it in Reluva. The protocol chosen is kept in the save
+  folder's `art-res\NetSettings.dat`, and the screen is passed over the
+  next time, the places' spanner leading back to it *(seen, not
+  traced)*. A click on the field opens an `EDIT` box (`0x44177a`), which
+  was seen closed again before the keys typed reached it.
 - **The places:** a grid of nine coloured places, the players' names on
   those taken, "SEARCHING FOR GAMES..." and then "PLEASE SELECT AN AREA
   THEN CLICK TO PROCEED"; under it binoculars (search again) and a
@@ -264,9 +272,23 @@ calls named were seen made, from the addresses given:
   `-key s vk` presses a key (a virtual-key code in hex), and
   `-shot s file.ppm` saves the screen (`-shot file.ppm` at the end).
   `-nomovies` ends each movie as it starts.
+- Network games: the engine plays them over the system's UDP sockets
+  ([dplay.md](../../../common/x86/dplay.md)), searching each network the
+  computer is on, and this computer's other copies. The game's
+  `meeting_server` setting (`host` or `host:port`, written into
+  Reluva's config file: the game has nowhere to type it) lists hosted
+  games on a [meeting server](../../../common/meeting-server.md) and
+  finds others' there, for players across the Internet; the launcher's
+  "Open the port on the router when hosting" (`map_port`, on unless
+  turned off) asks the router to pass the host's port on. DirectPlay
+  says in Reluva's output when it hosts (and on which port) or joins.
+- `run -udp` plays a copy's network games over the system's UDP, so
+  copies in separate processes, or on separate computers, can play;
+  `-meeting host[:port]` adds a meeting server (`reluva-tool
+  meet-server` runs one).
 - `reluva-tool legoloco pair <game folder> [options] [A's steps] --
   [B's steps]` runs two copies, A and B, each on a thread of its own,
-  their DirectPlay on one in-memory network
+  their DirectPlay on one network, in memory unless `-udp` is given
   ([dplay.md](../../../common/x86/dplay.md)), so one can host a network
   game and the other join it. The options are `run`'s; each copy's
   steps are as `run`'s, with its own `-save` folder (B's after the
@@ -299,11 +321,13 @@ welcome closed:
 reluva-tool legoloco run <game folder> -save <folder> -limit 4000000 -seconds 40 -nomovies -click 5 365 345 -click 7 718 520 -click 30 586 378 -shot board.ppm
 ```
 
-DirectPlay is stood in for with no network by default
-([dplay.md](../../../common/x86/dplay.md)), so it finds no network
-connection; two copies on Reluva's in-memory network get through the
-network screens into a game, one hosting and one joining
-([above](#network-play)). Of its 115 imports that had nothing at first, 3 are left,
+DirectPlay is stood in for with no network unless one's given
+([dplay.md](../../../common/x86/dplay.md)), so `run` finds no network
+connection without `-udp`. Two copies get through the network screens
+into a game, one hosting and one joining ([above](#network-play)): in
+one process on the in-memory network or over UDP, and in two processes
+over UDP on one computer, with a meeting server listing the host's
+game. Of its 115 imports that had nothing at first, 3 are left,
 none called so far: comdlg32's Open and Save dialogs (its own panels
 serve instead), and SHELL32's `ShellExecuteA`.
 
@@ -327,3 +351,5 @@ postcards between players.
 
 - Whether the program runs on without a network past its start: it
   finds none of its four connections, and plays on regardless.
+- How the `I.P.` field's box takes what's typed, and whether a host is
+  meant to fill it in too (the host was given the port as if it had).

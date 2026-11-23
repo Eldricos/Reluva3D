@@ -14,6 +14,14 @@ the original's way. -->
   folder whose folders are C:'s, where the original's name the folder it
   was installed in. The player's own settings in it are kept
   ([systems/running.md](systems/running.md)).
+- **Network play** goes between copies of Reluva, over UDP with a
+  protocol of Reluva's own, under the game's DirectPlay calls; the
+  original's DirectPlay can't join them, nor they it. IPX is offered as
+  the original offers it, and is the same network as TCP/IP. A
+  meeting server (the `meeting_server` setting) and the router's port
+  being opened while hosting are Reluva's
+  ([common/x86/dplay.md](../../common/x86/dplay.md),
+  [systems/running.md](systems/running.md#network-play)).
 
 ## Bugs fixed
 
@@ -33,9 +41,13 @@ None yet.
   than drawing its own (the busy pointer while saving), nothing is
   drawn; the animated cursors' files aren't read.
 - **Not stood in for yet:** the Open and Save dialogs (the game's own
-  panels serve instead), opening a web page (`ShellExecuteA`), and
-  network play (it finds no network): postcards posted stay in
-  `PostBag\Sort\Out`, and none arrive.
+  panels serve instead), and opening a web page (`ShellExecuteA`).
+- **Network play, not tried yet:** the boards joined, trains crossing
+  between them, and postcards between players
+  ([systems/running.md](systems/running.md#network-play)).
+- **No new host:** when a network game's host leaves, the others are told
+  the game is lost, where DirectPlay could hand the session to another
+  player if the game asked for that (`0x4`).
 
 ## Additions outside the game
 

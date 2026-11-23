@@ -8,8 +8,9 @@
 
 namespace reluva::legoloco {
 
-Player::Player(std::filesystem::path gameDir, std::filesystem::path saveDir, audio::Mixer *mixer)
-    : _dir(std::move(gameDir)), _saveDir(std::move(saveDir)), _mixer(mixer) {
+Player::Player(std::filesystem::path gameDir, std::filesystem::path saveDir, audio::Mixer *mixer,
+               std::shared_ptr<x86::DirectPlay::Network> network)
+    : _dir(std::move(gameDir)), _saveDir(std::move(saveDir)), _mixer(mixer), _network(std::move(network)) {
 }
 
 Player::~Player() {
@@ -95,6 +96,7 @@ void Player::work() {
         drain();
     };
     game.video().frameDrawn = [&game] { game.directX().show(); };
+    game.directPlay().network = _network;
     process.idle = [this] { drain(); };
     {
         std::lock_guard<std::mutex> lock(_mutex);
