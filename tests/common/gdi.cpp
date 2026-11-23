@@ -180,6 +180,16 @@ void testWindowDc(const stdfs::path &tmp) {
     // Clipped to it.
     CHECK(f.user("FillRect", {window, f.rect(7, 5, 20, 20), 6}) == 1 && f.pixel(11, 7) == 0xffff &&
           f.pixel(12, 7) == 0 && f.pixel(11, 8) == 0);
+    // A window with a border (WS_BORDER) shown: its frame painted in the
+    // face colour, (192, 192, 192), its client area left to it.
+    const uint16_t face = (192 >> 3) << 11 | (192 >> 2) << 5 | (192 >> 3);
+    const uint32_t framed = f.user("CreateWindowExA", {0, f.mem + 320, 0, 0x90800000, 16, 8, 12, 6, 0, 0, 0, 0});
+    CHECK(f.pixel(16, 8) == face && f.pixel(27, 13) == face && f.pixel(17, 9) == 0);
+    // Gone, what it covered is the desktop again: black.
+    f.user("FillRect", {screenDc, f.rect(17, 9, 18, 10), 6});
+    CHECK(f.user("DestroyWindow", {framed}) == 1 && f.pixel(16, 8) == 0 && f.pixel(17, 9) == 0);
+    // The other window's place is left as it is.
+    CHECK(f.pixel(4, 2) == 0xffff);
 }
 
 } // namespace

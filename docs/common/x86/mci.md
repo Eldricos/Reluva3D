@@ -55,7 +55,8 @@ to the destination's size and clipped to the screen; at 8 bits each
 colour is the screen palette's nearest, remembered. `MciVideo::frameDrawn` then lets the engine show it.
 
 Without host threads (`Win32Process::useHostThreads`) nothing would draw
-the frames: a play ends as it starts, and says so.
+the frames: a play ends as it starts, and says so. Tools that want to get
+on past a program's movies set `MciVideo::endAtOnce` for the same.
 
 ## Sources and checks
 

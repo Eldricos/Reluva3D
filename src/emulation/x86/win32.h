@@ -556,10 +556,15 @@ public:
      * enabled there, and so on down; 0 if none.
      */
     uint32_t windowAt(int x, int y) const;
-    /** Moves and sizes a window (as SetWindowPos does). */
+    /**
+     * Moves and sizes a window as SetWindowPos does: WM_MOVE and WM_SIZE
+     * where they changed, and, shown, it and what it uncovered painted.
+     */
     void moveWindow(uint32_t handle, int x, int y, int width, int height);
     /** The first window the program made that's still there; 0 if none. */
     uint32_t mainWindow() const;
+    /** The windows there are, as handles, the oldest first. */
+    std::vector<uint32_t> windows() const;
     /** Queues a message as PostMessageA does: how the engine passes input on. */
     void postMessage(uint32_t window, uint32_t message, uint32_t wParam, uint32_t lParam);
     /** Calls a window's procedure as SendMessageA does; 0 if there's no such window. */
@@ -725,16 +730,22 @@ private:
     bool timerDue() const;
     // Where the mouse's messages go, and the point in its client area.
     uint32_t mouseTarget(int &x, int &y) const;
+    // WM_NCHITTEST and WM_SETCURSOR to `window` before the mouse's
+    // `message`: the hit-test code.
+    uint32_t hitTest(uint32_t window, uint32_t message);
     // WM_PAINT for a window just shown and its children shown, unless one is queued.
     void paintShown(uint32_t handle);
     // WM_PAINT for each window shown over part of `area` (on the screen),
     // which a window hidden or destroyed no longer covers.
     void uncover(const std::array<int, 4> &area);
-    // A window and its children gone, each told (WM_DESTROY, WM_NCDESTROY).
+    // A window, its children and the windows it owns gone, each told
+    // (WM_DESTROY, WM_NCDESTROY), and their timers.
     void destroyWindow(uint32_t handle);
     std::optional<Message> takeDueTimer(uint32_t window);
     std::unique_ptr<Gdi> _gdi;
     int _cursorShown = 0;
+    uint32_t _cursor = 0;                            // SetCursor's
+    std::vector<std::filesystem::path> _fileCursors; // LoadCursorFromFileA's files, by handle
     struct RegistryKey {
         std::string path; // as first given
         std::vector<std::pair<std::string, std::pair<uint32_t, std::vector<uint8_t>>>> values;

@@ -833,6 +833,7 @@ void DirectX::State::presentShown() {
             w = (*area)[2], h = (*area)[3];
         }
     frame.width = w, frame.height = h;
+    frame.x = x0, frame.y = y0;
     frame.pixels.assign(size_t(w) * size_t(h), 0xff000000u);
     // The part of the window on the surface, a row at a time.
     const int from = std::max(0, -x0);

@@ -25,6 +25,11 @@ bitmap's, a DirectDraw surface's (its `GetDC`,
   screen's left or top starts at the edge instead); `GetDC(0)` draws on
   the whole screen; nowhere without `Gdi::screen`. Text and background colours,
   the background mode and the current position are kept.
+- **The desktop and frames**, as Windows paints them: `paintDesktop`
+  fills what no window covers in the desktop's colour (black) when a
+  window goes, and `paintFrame` a window's frame when it's shown, plainly
+  (Windows 98's face colour for borders and scroll bar tracks, the active
+  caption's for its caption; no title, buttons or scroll bars' arrows).
 - **Pixels:** 8 bits (the colour nearest in the target's palette), 16
   (by its masks; 5-6-5 without), 24 and 32.
 - **Drawing:** `FillRect` and `FrameRect` (a brush, or a system colour's
@@ -64,7 +69,8 @@ drawn.
   ellipse into a 16-bit target, measures text, loads an 8-bit bitmap from
   a drive and stretches it across, and draws through a window's DC with
   and without a screen, and through a window's own, within its client
-  area.
+  area; a bordered window's frame is painted as it's shown, and the
+  desktop where it was once it's gone.
 - **Confidence:** published unless marked.
 
 ## Used by

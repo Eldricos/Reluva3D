@@ -255,6 +255,50 @@ void Gdi::fill(Cpu &c, const Target &t, int left, int top, int right, int bottom
             plot(c, t, x, y, colorRef);
 }
 
+void Gdi::paintDesktop(const std::array<int, 4> &area) {
+    const auto t = screen ? screen() : std::nullopt;
+    if (!t)
+        return;
+    // The windows shown on top (a child lies within its parent).
+    std::vector<std::array<int, 4>> covered;
+    for (const uint32_t h : _process.windows()) {
+        const Win32Process::Window *w = _process.window(h);
+        if (w && !(w->style & 0x40000000) && _process.shown(h)) // WS_CHILD
+            if (const auto a = _process.windowArea(h))
+                covered.push_back(*a);
+    }
+    Cpu &c = _process.cpu();
+    for (int y = std::max(area[1], 0); y < std::min(area[1] + area[3], t->height); ++y)
+        for (int x = std::max(area[0], 0); x < std::min(area[0] + area[2], t->width); ++x) {
+            const bool under = std::any_of(covered.begin(), covered.end(), [&](const std::array<int, 4> &a) {
+                return x >= a[0] && x < a[0] + a[2] && y >= a[1] && y < a[1] + a[3];
+            });
+            if (!under)
+                plot(c, *t, x, y, 0);
+        }
+}
+
+void Gdi::paintFrame(uint32_t window) {
+    const auto t = screen ? screen() : std::nullopt;
+    const Win32Process::Window *w = _process.window(window);
+    const auto whole = _process.windowArea(window);
+    const auto inside = _process.clientArea(window);
+    if (!t || !w || !whole || !inside || *whole == *inside)
+        return;
+    const int edge = (*inside)[0] - (*whole)[0];
+    Cpu &c = _process.cpu();
+    for (int y = (*whole)[1]; y < (*whole)[1] + (*whole)[3]; ++y)
+        for (int x = (*whole)[0]; x < (*whole)[0] + (*whole)[2]; ++x) {
+            if (x >= (*inside)[0] && x < (*inside)[0] + (*inside)[2] && y >= (*inside)[1] &&
+                y < (*inside)[1] + (*inside)[3])
+                continue;
+            // Windows 98's colours: the face (COLOR_3DFACE) and the active caption (COLOR_ACTIVECAPTION).
+            const bool caption = (w->style & 0x00c00000) == 0x00c00000 && y >= (*whole)[1] + edge && y < (*inside)[1] &&
+                                 x >= (*whole)[0] + edge && x < (*whole)[0] + (*whole)[2] - edge;
+            plot(c, *t, x, y, caption ? 0x800000 : 0xc0c0c0);
+        }
+}
+
 // Bresenham's, the last point left out, as LineTo leaves it.
 void Gdi::line(Cpu &c, const Target &t, int x0, int y0, int x1, int y1, uint32_t colorRef) {
     const int dx = std::abs(x1 - x0);

@@ -11,6 +11,7 @@
 #include "emulation/x86/win32.h"
 
 #include "emulation/x86/format.h"
+#include "emulation/x86/gdi.h"
 
 #include "common/events.h"
 
@@ -46,17 +47,26 @@ constexpr uint32_t kWsThickFrame = 0x00040000;
 constexpr uint32_t kWsVisible = 0x10000000;
 constexpr uint32_t kWsChild = 0x40000000;
 constexpr uint32_t kWsMaximize = 0x01000000;
+constexpr uint32_t kWmNcHitTest = 0x0084;
+constexpr uint32_t kWmMove = 0x0003;
+constexpr uint32_t kWmSize = 0x0005;
+constexpr uint32_t kWmSetCursor = 0x0020;
+constexpr uint32_t kHtClient = 1;
 constexpr uint32_t kCwUseDefault = 0x80000000u;
 constexpr int kCaption = 19;
 constexpr int kMenu = 19;
 constexpr int kFixedFrame = 3;
 constexpr int kSizeFrame = 4;
 constexpr int kBorder = 1;
+constexpr int kScrollBar = 16; // SM_CXVSCROLL, SM_CYHSCROLL
+constexpr uint32_t kWsVScroll = 0x00200000;
+constexpr uint32_t kWsHScroll = 0x00100000;
 // Handles that are only ever passed back: icons and cursors, GDI's stock
 // objects, device contexts.
 constexpr uint32_t kResourceHandles = 0x20000;
 constexpr uint32_t kStockObjects = 0x28000;
 constexpr uint32_t kDeviceContext = 0x30000;
+constexpr uint32_t kFileCursors = 0x2c000; // LoadCursorFromFileA's handles, in the order made
 
 std::string lower(std::string s) {
     for (char &c : s)
@@ -81,7 +91,8 @@ Insets frameOf(uint32_t style, bool menu) {
     else if (style & kWsBorder)
         edge = kBorder;
     const int top = edge + ((style & kWsCaption) == kWsCaption ? kCaption : 0) + (menu ? kMenu : 0);
-    return {edge, top, edge, edge};
+    // Scroll bars lie outside the client area, on its right and bottom.
+    return {edge, top, edge + ((style & kWsVScroll) ? kScrollBar : 0), edge + ((style & kWsHScroll) ? kScrollBar : 0)};
 }
 
 } // namespace
@@ -167,17 +178,22 @@ uint32_t Win32Process::mouseTarget(int &x, int &y) const {
 }
 
 void Win32Process::destroyWindow(uint32_t handle) {
-    // WM_DESTROY to the window, then to its children, as Windows sends it.
+    // WM_DESTROY to the window, then to its children and the windows it
+    // owns (a popup's parent is its owner), as Windows sends it. Its timers
+    // go with it.
     sendMessage(handle, kWmDestroy, 0, 0);
     std::vector<uint32_t> children;
     for (const auto &[h, w] : _windows)
-        if ((w.style & kWsChild) && w.parent == handle)
+        if (w.parent == handle)
             children.push_back(h);
     for (uint32_t child : children)
         if (_windows.count(child))
             destroyWindow(child);
     sendMessage(handle, kWmNcDestroy, 0, 0);
     _windows.erase(handle);
+    _windowTimers.erase(std::remove_if(_windowTimers.begin(), _windowTimers.end(),
+                                       [&](const WindowTimer &t) { return t.window == handle; }),
+                        _windowTimers.end());
     if (_focus == handle)
         _focus = 0;
     if (_capture == handle)
@@ -185,6 +201,7 @@ void Win32Process::destroyWindow(uint32_t handle) {
 }
 
 void Win32Process::uncover(const std::array<int, 4> &area) {
+    _gdi->paintDesktop(area);
     for (const auto &[h, w] : _windows) {
         const auto a = windowArea(h);
         if (!a || !shown(h) || (*a)[0] >= area[0] + area[2] || area[0] >= (*a)[0] + (*a)[2] ||
@@ -200,6 +217,7 @@ void Win32Process::uncover(const std::array<int, 4> &area) {
 void Win32Process::paintShown(uint32_t handle) {
     if (!shown(handle))
         return;
+    _gdi->paintFrame(handle);
     const bool queued = std::any_of(_messages.begin(), _messages.end(),
                                     [&](const Message &m) { return m.window == handle && m.message == 0x000f; });
     if (!queued)
@@ -291,6 +309,7 @@ bool windowsKey(uint32_t k, uint32_t &vk, uint32_t &scan) {
 namespace {
 constexpr uint32_t kWmTimer = 0x113;
 constexpr uint32_t kWmMouseMove = 0x200;
+constexpr uint32_t kWmNcMouseMove = 0x00a0;
 constexpr uint32_t kWmLButtonDown = 0x201;
 constexpr uint32_t kWmLButtonDblClk = 0x203;
 constexpr uint32_t kWmMouseWheel = 0x20a;
@@ -317,8 +336,28 @@ void Win32Process::mouseMoveTo(int x, int y) {
         notify({RawInput::Kind::kMotion, dx, dy});
     int cx = 0;
     int cy = 0;
-    if (const uint32_t w = mouseTarget(cx, cy))
+    const uint32_t w = mouseTarget(cx, cy);
+    if (!w)
+        return;
+    const uint32_t hit = hitTest(w, kWmMouseMove);
+    if (hit == kHtClient)
         postMessage(w, kWmMouseMove, _buttons, point(cx, cy));
+    else
+        postMessage(w, kWmNcMouseMove, hit, point(cursorX, cursorY));
+}
+
+// As Windows does before each of the mouse's messages, without a capture:
+// WM_NCHITTEST asks the window what's at the pointer, and WM_SETCURSOR
+// lets it set its pointer for that and the message to come. Captured, the
+// window gets its messages as on its client area.
+uint32_t Win32Process::hitTest(uint32_t window, uint32_t message) {
+    if (_capture && window == _capture)
+        return kHtClient;
+    const uint32_t hit = sendMessage(window, kWmNcHitTest, 0, point(cursorX, cursorY));
+    // The window may be gone by now.
+    if (_windows.count(window))
+        sendMessage(window, kWmSetCursor, window, (hit & 0xffff) | message << 16);
+    return hit;
 }
 
 void Win32Process::mouseButton(int button, bool down) {
@@ -352,7 +391,11 @@ void Win32Process::mouseButton(int button, bool down) {
             _lastClickX = cursorX, _lastClickY = cursorY;
         }
     }
-    postMessage(w, message, _buttons, point(cx, cy));
+    const uint32_t hit = hitTest(w, message);
+    if (hit == kHtClient)
+        postMessage(w, message, _buttons, point(cx, cy));
+    else // WM_NCLBUTTONDOWN and the others, with the hit-test code
+        postMessage(w, message - kWmMouseMove + kWmNcMouseMove, hit, point(cursorX, cursorY));
 }
 
 void Win32Process::mouseWheel(int delta) {
@@ -379,11 +422,38 @@ void Win32Process::key(uint32_t virtualKey, uint32_t scanCode, bool down) {
     postMessage(w, down ? kWmKeyDown : kWmKeyUp, virtualKey, lParam);
 }
 
+// As Windows does: WM_MOVE with the client area's new corner (on the
+// screen, or a child's in its parent's client area), WM_SIZE with its new
+// size, and, shown, what it left uncovered and the window itself painted.
 void Win32Process::moveWindow(uint32_t handle, int x, int y, int width, int height) {
     auto it = _windows.find(handle);
     if (it == _windows.end())
         return;
-    it->second.x = x, it->second.y = y, it->second.width = width, it->second.height = height;
+    Window &w = it->second;
+    const bool moved = x != w.x || y != w.y;
+    const bool sized = width != w.width || height != w.height;
+    if (!moved && !sized)
+        return;
+    const auto before = windowArea(handle);
+    w.x = x, w.y = y, w.width = width, w.height = height;
+    const Insets f = frameOf(w.style, false);
+    if (moved)
+        sendMessage(handle, kWmMove, 0, point(x + f.left, y + f.top));
+    if (sized)
+        sendMessage(handle, kWmSize, 0, // SIZE_RESTORED
+                    point(std::max(0, width - f.left - f.right), std::max(0, height - f.top - f.bottom)));
+    if (shown(handle)) {
+        if (before)
+            uncover(*before);
+        paintShown(handle);
+    }
+}
+
+std::vector<uint32_t> Win32Process::windows() const {
+    std::vector<uint32_t> out;
+    for (const auto &[h, w] : _windows)
+        out.push_back(h);
+    return out;
 }
 
 uint32_t Win32Process::mainWindow() const {
@@ -563,12 +633,16 @@ void Win32Process::addUserStandIns() {
         auto it = _windows.find(c.arg(0));
         if (it == _windows.end())
             return 0u;
-        Window &w = it->second;
         const uint32_t flags = c.arg(6);
-        if (!(flags & 2))
-            w.x = int32_t(c.arg(2)), w.y = int32_t(c.arg(3));
-        if (!(flags & 1))
-            w.width = int32_t(c.arg(4)), w.height = int32_t(c.arg(5));
+        {
+            const Window &w = it->second;
+            moveWindow(c.arg(0), (flags & 2) ? w.x : int32_t(c.arg(2)), (flags & 2) ? w.y : int32_t(c.arg(3)),
+                       (flags & 1) ? w.width : int32_t(c.arg(4)), (flags & 1) ? w.height : int32_t(c.arg(5)));
+        }
+        it = _windows.find(c.arg(0)); // its procedure may have destroyed it
+        if (it == _windows.end())
+            return 1u;
+        Window &w = it->second;
         const bool was = w.visible;
         if (flags & 0x40)
             w.visible = true;
@@ -683,24 +757,26 @@ void Win32Process::addUserStandIns() {
             it = std::find_if(_messages.begin(), _messages.end(), matches);
         }
         // With nothing else queued, a timer that's due (SetTimer's) gives
-        // WM_TIMER; peeked without removing, it stays due.
+        // WM_TIMER, made as it's taken, never queued; peeked without
+        // removing, the timer stays due.
+        std::optional<Message> timer;
         if (it == _messages.end() && (first == 0 || (first <= kWmTimer && last >= kWmTimer)) && timerDue()) {
             if (const auto t = takeDueTimer(hwnd)) {
-                _messages.push_back(*t);
-                it = std::prev(_messages.end());
+                timer = t;
                 if (!(remove & 1))
-                    for (WindowTimer &timer : _windowTimers)
-                        if (timer.window == t->window && timer.id == t->wParam)
-                            timer.dueMs = milliseconds();
+                    for (WindowTimer &w : _windowTimers)
+                        if (w.window == t->window && w.id == t->wParam)
+                            w.dueMs = milliseconds();
             }
         }
-        if (it == _messages.end() || !c.valid(out, 28))
+        if ((it == _messages.end() && !timer) || !c.valid(out, 28))
             return 0u;
-        const uint32_t fields[7] = {it->window,     it->message,       it->wParam,       it->lParam,
+        const Message m = timer ? *timer : *it;
+        const uint32_t fields[7] = {m.window,       m.message,         m.wParam,         m.lParam,
                                     milliseconds(), uint32_t(cursorX), uint32_t(cursorY)};
         for (int i = 0; i < 7; ++i)
             c.write32(out + 4 * uint32_t(i), fields[i]);
-        if (remove & 1) // PM_REMOVE
+        if ((remove & 1) && !timer) // PM_REMOVE
             _messages.erase(it);
         return 1u;
     });
@@ -744,12 +820,43 @@ void Win32Process::addUserStandIns() {
         const uint32_t wParam = c.arg(2);
         if (message == kWmNcCreate)
             return 1u;
+        // WM_NCHITTEST: what's at a point on the screen, by the window's
+        // frame: its client area, caption, border, or nowhere of it.
+        if (message == kWmNcHitTest) {
+            const int x = int16_t(c.arg(3) & 0xffff);
+            const int y = int16_t(c.arg(3) >> 16);
+            const auto whole = windowArea(handle);
+            const auto inside = clientArea(handle);
+            auto within = [&](const std::array<int, 4> &a) {
+                return x >= a[0] && x < a[0] + a[2] && y >= a[1] && y < a[1] + a[3];
+            };
+            if (!whole || !inside || !within(*whole))
+                return 0u; // HTNOWHERE
+            if (within(*inside))
+                return kHtClient;
+            const Window *w = window(handle);
+            const Insets f = frameOf(w->style, false);
+            const bool caption = (w->style & kWsCaption) == kWsCaption && y >= (*whole)[1] + f.left &&
+                                 y < (*inside)[1] && x >= (*inside)[0] && x < (*inside)[0] + (*inside)[2];
+            return caption ? 2u : 18u; // HTCAPTION, HTBORDER
+        }
+        // WM_SETCURSOR: a child's parent is asked first; on the client area
+        // the class's pointer is set (and the answer says so).
+        if (message == kWmSetCursor) {
+            const Window *w = window(handle);
+            if (w && (w->style & kWsChild) && w->parent)
+                if (const uint32_t r = sendMessage(w->parent, kWmSetCursor, wParam, c.arg(3)))
+                    return r;
+            return (c.arg(3) & 0xffff) == kHtClient ? 1u : 0u;
+        }
         if (message == kWmSysCommand && (wParam & 0xfff0) == kScClose)
             return sendMessage(handle, kWmClose, 0, 0);
         if (message == kWmClose && _windows.count(handle)) {
-            sendMessage(handle, kWmDestroy, 0, 0);
-            sendMessage(handle, kWmNcDestroy, 0, 0);
-            _windows.erase(handle);
+            const bool wasShown = shown(handle);
+            const auto area = windowArea(handle);
+            destroyWindow(handle);
+            if (wasShown && area)
+                uncover(*area);
         }
         return 0u;
     });
@@ -779,7 +886,27 @@ void Win32Process::addUserStandIns() {
     // Icons, cursors and the mouse pointer.
     stdcall(u, "LoadIconA", 2, [](Cpu &c) { return kResourceHandles + (c.arg(1) & 0xffff); });
     stdcall(u, "LoadCursorA", 2, [](Cpu &c) { return kResourceHandles + (c.arg(1) & 0xffff); });
-    stdcall(u, "SetCursor", 1, [](Cpu &) { return 0u; });
+    // LoadCursorFromFileA(file): a cursor (.cur) or animated cursor (.ani)
+    // file, a handle of its own while the file's there, else NULL. Its
+    // pictures aren't read: Reluva doesn't draw Windows' pointer.
+    stdcall(u, "LoadCursorFromFileA", 1, [this](Cpu &c) {
+        const std::string name = c.string(c.arg(0));
+        const auto host = mapPath ? mapPath(fullPath(name), false) : std::nullopt;
+        std::error_code ec;
+        if (!host || !std::filesystem::is_regular_file(*host, ec)) {
+            setLastError(2); // ERROR_FILE_NOT_FOUND
+            return 0u;
+        }
+        _fileCursors.push_back(*host);
+        return kFileCursors + uint32_t(_fileCursors.size() - 1);
+    });
+    // SetCursor(cursor): the pointer's shape, kept; the one before.
+    stdcall(u, "SetCursor", 1, [this](Cpu &c) {
+        const uint32_t before = _cursor;
+        _cursor = c.arg(0);
+        return before;
+    });
+    stdcall(u, "GetCursor", 0, [this](Cpu &) { return _cursor; });
     stdcall(u, "GetCursorPos", 1, [this](Cpu &c) {
         if (!c.valid(c.arg(0), 8))
             return 0u;

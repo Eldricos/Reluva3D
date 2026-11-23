@@ -231,7 +231,7 @@ struct MciVideo::State {
         const uint64_t count = ++m.playCount;
         if (owner.mixer && m.audioTrack && m.startFrame == 0)
             m.sound = owner.mixer->play(m.audioTrack, audio::SoundType::kMusic);
-        if (!process.hostThreads()) {
+        if (!process.hostThreads() || owner.endAtOnce) {
             stop(id, kNotifySuccessful);
             return;
         }

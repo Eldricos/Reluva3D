@@ -13,6 +13,7 @@
 
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -228,7 +229,7 @@ void testWindows() {
 
 // Windows' places, the window at a point, where the mouse's and keys'
 // messages go, and what's painted again when a window goes.
-void testPlaces() {
+void testPlaces(const std::filesystem::path &tmp) {
     Fixture f;
     const uint32_t cls = f.mem + 256;
     for (uint32_t i = 0; i < 40; i += 4)
@@ -282,9 +283,61 @@ void testPlaces() {
     f.user("SetFocus", {inner});
     f.process.key(0x41, 0x1e, true);
     CHECK((taken() == std::vector<std::pair<uint32_t, uint32_t>>{{inner, 0x100}}));
+    // DefWindowProcA's hit-test: a captioned window's client area, its
+    // caption, its border, and outside it.
+    const uint32_t framed = f.user("CreateWindowExA", {0, f.mem + 300, 0, 0x10cf0000, 400, 300, 200, 100, 0, 0, 0, 0});
+    taken();
+    auto hit = [&](int x, int y) {
+        return f.user("DefWindowProcA", {framed, 0x84, 0, uint32_t(y) << 16 | uint32_t(x)});
+    };
+    CHECK(hit(450, 350) == 1 && hit(450, 310) == 2 && hit(401, 350) == 18 && hit(399, 350) == 0);
+    // The pointer on its caption: WM_NCMOUSEMOVE, with the hit-test code and the point on the screen.
+    f.process.mouseMoveTo(450, 310);
+    CHECK(f.user("PeekMessageA", {f.mem + 600, 0, 0, 0, 1}) == 1 && f.cpu.read32(f.mem + 604) == 0xa0 &&
+          f.cpu.read32(f.mem + 608) == 2 && f.cpu.read32(f.mem + 612) == (310u << 16 | 450));
+    taken();
     // Destroyed, a window takes its children with it, and what it covered is painted again.
     CHECK(f.user("DestroyWindow", {child}) == 1 && !f.process.window(inner));
     CHECK((taken() == std::vector<std::pair<uint32_t, uint32_t>>{{top, 0xf}}));
+    // Moved and sized: WM_MOVE (the client area's corner) and WM_SIZE (its
+    // size) sent, then it's painted. The messages sent come to a procedure
+    // of the test's.
+    std::vector<std::pair<uint32_t, uint32_t>> sent;
+    f.process.provideStdcall("TEST", "Proc", 4, [&](x86::Cpu &c) {
+        sent.emplace_back(c.arg(1), c.arg(3));
+        return c.arg(1) == 0x81 ? 1u : 0u;
+    });
+    const uint32_t testCls = f.mem + 800;
+    for (uint32_t i = 0; i < 40; i += 4)
+        f.cpu.write32(testCls + i, 0);
+    f.cpu.write32(testCls + 4, f.process.standIn("TEST", "Proc"));
+    f.cpu.write32(testCls + 36, f.str(860, "Watched"));
+    CHECK(f.user("RegisterClassA", {testCls}) != 0);
+    const uint32_t watched = f.user("CreateWindowExA", {0, f.mem + 860, 0, 0x90000000, 10, 10, 50, 40, top, 0, 0, 0});
+    taken();
+    sent.clear();
+    CHECK(f.user("SetWindowPos", {watched, 0, 20, 30, 60, 40, 0}) == 1);
+    CHECK((sent == std::vector<std::pair<uint32_t, uint32_t>>{{0x3, 30u << 16 | 20}, {0x5, 40u << 16 | 60}}));
+    CHECK((taken() == std::vector<std::pair<uint32_t, uint32_t>>{{top, 0xf}, {watched, 0xf}}));
+    // A timer of the popup's, peeked without removing: still due, nothing queued.
+    CHECK(f.user("SetTimer", {watched, 7, 100, 0}) == 7);
+    f.process.milliseconds = [] { return 1000000u; };
+    CHECK(f.user("PeekMessageA", {f.mem + 600, 0, 0, 0, 0}) == 1 && f.cpu.read32(f.mem + 604) == 0x113);
+    CHECK(f.user("PeekMessageA", {f.mem + 600, 0, 0, 0, 1}) == 1 && f.cpu.read32(f.mem + 604) == 0x113);
+    CHECK(f.user("PeekMessageA", {f.mem + 600, 0, 0, 0, 1}) == 0);
+    // Its owner closed, the popup goes too, and its timer with it.
+    f.process.milliseconds = [] { return 2000000u; };
+    CHECK(f.user("DefWindowProcA", {top, 0x10, 0, 0}) == 0 && !f.process.window(watched) && !f.process.window(top));
+    taken();
+    CHECK(f.user("PeekMessageA", {f.mem + 600, 0, 0, 0, 1}) == 0);
+    // A cursor from a file: a handle while the file's there, else none.
+    std::ofstream(tmp / "busy.ani") << "RIFF";
+    f.process.mapPath = [&tmp](const std::string &path, bool) -> std::optional<std::filesystem::path> {
+        return tmp / (path == "C:\\busy.ani" ? "busy.ani" : "none.ani");
+    };
+    const uint32_t cursor = f.user("LoadCursorFromFileA", {f.str(900, "C:\\busy.ani")});
+    CHECK(cursor != 0 && f.user("LoadCursorFromFileA", {f.str(900, "C:\\none.ani")}) == 0);
+    CHECK(f.user("SetCursor", {cursor}) == 0 && f.user("GetCursor", {}) == cursor);
 }
 
 void testWsprintf() {
@@ -302,6 +355,6 @@ static const reluva::test::Suite kSuite("common.unit.windows_dialogs",
                                         {
                                             {"dialog", [](const std::filesystem::path &) { testDialog(); }},
                                             {"windows", [](const std::filesystem::path &) { testWindows(); }},
-                                            {"places", [](const std::filesystem::path &) { testPlaces(); }},
+                                            {"places", [](const std::filesystem::path &tmp) { testPlaces(tmp); }},
                                             {"wsprintf", [](const std::filesystem::path &) { testWsprintf(); }},
                                         });

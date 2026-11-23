@@ -31,7 +31,9 @@ headers' (`directx/interfaces.cpp`).
   before, once its draws are done, and the program goes on while this
   one's are drawn. What's drawn into the primary's pixels another way
   (GDI on a window, a movie) is shown when the program next blits or
-  flips, or when the engine calls `DirectX::show()`.
+  flips, or when the engine calls `DirectX::show()`. A frame says where
+  its corner is on the screen (`Frame::x`, `y`), for turning the
+  engine's mouse into the screen's.
 - **Direct3D 7:** RGB emulation and HAL devices, vertex buffers and state
   blocks. The drawing is a software rasterizer (`directx/raster.cpp`):
   - the fixed-function pipeline: transforms, lighting, materials and their

@@ -32,6 +32,9 @@ public:
 
     // Where a movie's sound goes; none, and movies play in silence.
     audio::Mixer *mixer = nullptr;
+    // Each play ends as it starts, telling the program so: for tools that
+    // want to get on past a program's movies.
+    bool endAtOnce = false;
     // Called after a frame is drawn onto the screen, for the engine to
     // show it; from the movie's thread, which takes turns with the
     // program's.

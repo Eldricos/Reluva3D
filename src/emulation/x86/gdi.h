@@ -60,6 +60,22 @@ public:
      */
     std::function<std::optional<Target>()> screen;
 
+    /**
+     * The desktop painted, as Windows paints it where windows have gone:
+     * the part of `area` (left, top, width, height, on the screen) that no
+     * window shown covers, in the desktop's colour (black). Nothing without
+     * a screen.
+     */
+    void paintDesktop(const std::array<int, 4> &area);
+    /**
+     * A window's frame painted, as DefWindowProc paints it (WM_NCPAINT),
+     * plainly: what lies outside its client area in the face colour (its
+     * borders, the scroll bars' tracks), and its caption in the active
+     * caption's colour, without its title or buttons. Nothing for a window
+     * without a frame, or without a screen.
+     */
+    void paintFrame(uint32_t window);
+
     /** A COLORREF (0x00BBGGRR) as the pixel value nearest it in a target's format. */
     static uint32_t pixelFor(const Target &t, uint32_t colorRef);
     /** A target's pixel as a COLORREF. */

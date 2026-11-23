@@ -92,7 +92,23 @@ C++ library have pages of their own ([directx.md](directx.md),
     place the program gave is ignored, as Windows does;
   - a window shown gets `WM_PAINT`, and its children shown with it; one
     hidden or destroyed has every window shown that it covered painted
-    again; `DestroyWindow` destroys a window's children with it;
+    again, and the desktop where none is (GDI's `paintDesktop`, black); a
+    window with a frame has it painted plainly as it's shown (GDI's
+    `paintFrame`: grey borders and scroll bar tracks, a navy caption,
+    without its title or buttons);
+  - moved or sized (`SetWindowPos`, `MoveWindow`), a window gets `WM_MOVE`
+    and `WM_SIZE`, and is painted again with what it uncovered;
+  - `DestroyWindow`, and `DefWindowProcA` closing one, destroys a
+    window's children and the windows it owns (a popup's parent is its
+    owner) with it, and their timers;
+  - scroll bars (`WS_VSCROLL`, `WS_HSCROLL`) lie outside the client area,
+    16 pixels each, though they aren't drawn;
+  - `DefWindowProcA` answers `WM_NCHITTEST` by the window's frame (client
+    area, caption, border, or nowhere) and `WM_SETCURSOR` (a child's
+    parent asked first);
+  - `LoadCursorFromFileA` gives a handle while its file is there (the
+    file isn't read), and `SetCursor` and `GetCursor` keep the pointer's
+    shape, though Reluva doesn't draw Windows' pointer;
   - one message queue, which the engine posts its input to and
     `PeekMessageA` reads, calling `idle` when it's empty;
   - `DispatchMessageA` and `TranslateMessage`;
@@ -113,7 +129,9 @@ C++ library have pages of their own ([directx.md](directx.md),
   `CallWindowProcA`; painting (`InvalidateRect` queues one `WM_PAINT`;
   `GetUpdateRect` is the client area until it's handled); timers
   (`SetTimer`, `KillTimer`: `WM_TIMER` comes when one is due and nothing
-  else is queued, from `PeekMessageA` and `GetMessageA`, and
+  else is queued, from `PeekMessageA` and `GetMessageA`, made as it's
+  taken and never queued, so a peek without removing leaves the timer
+  due and the queue as it was; and
   `DispatchMessageA` calls a timer's own procedure); `GetMessageA`, which
   waits (with host threads, letting the others run);
   `SystemParametersInfoA` (the work area, the screen saver off);
@@ -153,7 +171,10 @@ C++ library have pages of their own ([directx.md](directx.md),
     captured it, else the window under the pointer, in its client
     coordinates, and to none that's disabled; keys and the wheel to the
     window with the focus. Either falls back to the main window (the
-    first still there).
+    first still there). Without a capture each mouse message is led, as
+    in Windows, by `WM_NCHITTEST` and `WM_SETCURSOR` sent to the window;
+    off its client area it becomes the non-client message
+    (`WM_NCMOUSEMOVE`, `WM_NCLBUTTONDOWN`...), with the hit-test code.
   - They also update the pointer (within `ClipCursor`'s rectangle) and
     what `GetKeyState` and `GetAsyncKeyState` report.
   - `rawInput` listeners (DirectInput) hear the same movements, buttons
@@ -265,8 +286,11 @@ executable's entry point on the main thread until it ends the process.
   radio buttons and fills its list box; it checks a window's longs and
   text, a timer's `WM_TIMER`, rectangles and `wsprintfA`. Its `places`
   case checks a maximized window, children's places, `WindowFromPoint`,
-  where the pointer's, a captured mouse's and the keys' messages go, and
-  the painting when a window is shown or destroyed.
+  where the pointer's, a captured mouse's and the keys' messages go,
+  `DefWindowProcA`'s hit-test and a non-client move, `WM_MOVE` and
+  `WM_SIZE`, a timer peeked, an owner's closing taking its popup and
+  timer, the painting when a window is shown or destroyed, and
+  `LoadCursorFromFileA`.
 - `tests/common/windows_kernel.cpp` (`common.unit.windows_kernel`)
   reads and writes an INI file on a drive (the writes kept apart), and
   checks the locale's answers, string comparison, global memory, a

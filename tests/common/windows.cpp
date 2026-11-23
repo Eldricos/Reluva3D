@@ -691,8 +691,10 @@ static void testInput() {
         return a;
     };
     uint32_t r = 0;
+    // WM_NCCREATE goes on; WM_NCHITTEST finds the client area, as
+    // DefWindowProcA would for a window without a frame.
     const uint32_t proc = cpu.addNative("test!InputProc", [](x86::Cpu &c) {
-        c.reg[x86::Cpu::EAX] = c.arg(1) == 0x81 ? 1 : 0;
+        c.reg[x86::Cpu::EAX] = c.arg(1) == 0x81 || c.arg(1) == 0x84 ? 1 : 0;
         return 16u;
     });
     const uint32_t wc = process.memory().alloc(40);
