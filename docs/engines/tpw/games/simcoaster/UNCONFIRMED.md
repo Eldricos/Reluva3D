@@ -15,6 +15,10 @@ None yet.
 
 ## Inferred
 
+- **The music banks' entries without headers are never played**: the
+  last 40 and 15 of two worlds' `MusicHD.sdt` point at no header, and
+  Reluva lists them as not readable ([sdt.md](formats/sdt.md#what-doesnt-decode)).
+  Playing those worlds' music in the original would settle it.
 - **The logo movie is shown twice as wide as its frames**, 320 × 480 at
   640 × 480, as its ring is round in the recording
   ([tgq.md](formats/tgq.md#the-logo-tgq)).

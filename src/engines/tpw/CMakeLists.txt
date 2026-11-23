@@ -12,6 +12,7 @@ reluva_add_engine(tpw
         ui/opening.cpp
         formats/bf4.cpp
         formats/sam.cpp
+        formats/sdt.cpp
         formats/str.cpp
         formats/wad.cpp)
 
@@ -21,6 +22,7 @@ reluva_add_engine_tools(tpw
         tools/files.cpp
         tools/movies.cpp
         tools/pictures.cpp
+        tools/sounds.cpp
         tools/text.cpp
         tools/wad.cpp)
 
@@ -44,4 +46,4 @@ reluva_add_gamedata_test(tpw
     GAME simcoaster
     ENV RELUVA_SIMCOASTER
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release data settings text fonts pictures movies opening)
+    STEPS release data settings text fonts pictures movies opening sounds)

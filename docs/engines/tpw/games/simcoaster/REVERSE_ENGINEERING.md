@@ -83,6 +83,7 @@ they are: `Speech/American`, `CoasterData/American`,
 | `reluva-tool tpw tgq-check` | Decodes an EA movie, its frames and sound, or writes a frame out |
 | `reluva-tool tpw movie-check` | Decodes every `.tgq` of a game |
 | `reluva-tool tpw opening-run` | Runs the game's opening headless: the screens shown, when it ended |
+| `reluva-tool tpw sdt-check` | Decodes every sound bank, or lists one's sounds |
 | `reluva-tool tpw data-check` | Reads every file of a game's `Data` folder, archives and loose files, with a checksum of them all |
 
 ## Working files not included

@@ -3,12 +3,14 @@
 
 // The Theme Park World engine's files, built here as SimCoaster's are laid
 // out (docs/engines/tpw/games/simcoaster/formats/): archives and mounting
-// them, settings files, string tables and their character set, fonts.
+// them, settings files, string tables and their character set, fonts,
+// sound banks.
 //
 //   reluva-tests tpw.unit.formats
 
 #include "engines/tpw/formats/bf4.h"
 #include "engines/tpw/formats/sam.h"
+#include "engines/tpw/formats/sdt.h"
 #include "engines/tpw/formats/str.h"
 #include "engines/tpw/formats/wad.h"
 #include "engines/tpw/game_files.h"
@@ -231,6 +233,53 @@ void testBf4() {
     CHECK(font.parse(toBytes("BFST")));
 }
 
+// A sound's 0x28-byte header and its data: the format word is the rate,
+// 16 bits, then the kind (0x20 MPEG, 0x01 stereo).
+void putSound(Bytes &b, const std::string &name, uint8_t kind, uint16_t rate, const Bytes &data, uint32_t pcmBytes) {
+    const size_t at = b.size();
+    put32(b, at, 0x28);
+    put32(b, at + 4, uint32_t(data.size()));
+    for (size_t i = 0; i < 16; ++i)
+        b.push_back(i < name.size() ? uint8_t(name[i]) : 0);
+    b.insert(b.end(), {uint8_t(rate), uint8_t(rate >> 8), 16, kind});
+    put32(b, at + 0x1c, 0);
+    put32(b, at + 0x20, pcmBytes);
+    put32(b, at + 0x24, 0);
+    b.insert(b.end(), data.begin(), data.end());
+}
+
+// A bank of three: PCM mono, an MPEG sound's header (its data not real
+// MPEG), and an entry pointing at no header.
+void testSdt() {
+    Bytes bank;
+    put32(bank, 0, 3);
+    bank.resize(16);
+    put32(bank, 4, uint32_t(bank.size()));
+    putSound(bank, "bkart_b1.wav", 0x02, 22050, {1, 0, 0xff, 0xff, 0x00, 0x80}, 0);
+    put32(bank, 8, uint32_t(bank.size()));
+    putSound(bank, "a_name_cut_at_16.mp2", 0x25, 44100, {0xff, 0xf5, 0, 0}, 4000);
+    put32(bank, 12, uint32_t(bank.size()));
+    bank.insert(bank.end(), {0xd2, 0xcb, 0xb0, 0xa2, 0, 0, 0, 0});
+    SoundBank sdt;
+    CHECK(!sdt.parse(bank));
+    CHECK(sdt.entries().size() == 3);
+    if (sdt.entries().size() != 3)
+        return;
+    const SoundBank::Entry &pcm = sdt.entries()[0];
+    CHECK(pcm.readable && pcm.name == "bkart_b1.wav" && !pcm.mpeg && pcm.rate == 22050 && pcm.channels == 1);
+    const SoundBank::Entry &mpeg = sdt.entries()[1];
+    CHECK(mpeg.readable && mpeg.name == "a_name_cut_at_16" && mpeg.mpeg && mpeg.channels == 2 && mpeg.rate == 44100 &&
+          mpeg.pcmBytes == 4000 && mpeg.size == 4);
+    CHECK(!sdt.entries()[2].readable);
+    audio::Sound sound;
+    CHECK(!sdt.decode(0, sound) && sound.rate == 22050 && (sound.samples == std::vector<int16_t>{1, -1, -32768}));
+    CHECK(sdt.decode(1, sound)); // not MPEG frames
+    CHECK(sdt.decode(2, sound) && sdt.decode(3, sound));
+    Bytes cut = bank;
+    put32(cut, 0, 1000);
+    CHECK(sdt.parse(cut));
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("tpw.unit.formats",
@@ -240,4 +289,5 @@ static const reluva::test::Suite kSuite("tpw.unit.formats",
                                             {"sam", [](const std::filesystem::path &) { testSam(); }},
                                             {"str", [](const std::filesystem::path &) { testStr(); }},
                                             {"bf4", [](const std::filesystem::path &) { testBf4(); }},
+                                            {"sdt", [](const std::filesystem::path &) { testSdt(); }},
                                         });

@@ -11,7 +11,7 @@ files):
 | Suite | What it checks |
 |---|---|
 | `tpw.unit.import` | Importing from a small CD laid out as the US one: the cabinet's `Data` group in `Data/`, the movie and `Game.exe` at the top, the language's folders over the cabinet's files, the DLLs left out, then found by detection; a cabinet without `Game.exe` isn't the game's; a folder missing is said |
-| `tpw.unit.formats` | The game's files: archives with folders, stored and RefPack files, damage; the `Data` folder mounted, each archive as its folder, loose files over them; settings files, every kind of line, broken ones turned away; a character set and a string table with text and parameters, damaged ones turned away; a font of both storages read, and one not |
+| `tpw.unit.formats` | The game's files: archives with folders, stored and RefPack files, damage; the `Data` folder mounted, each archive as its folder, loose files over them; settings files, every kind of line, broken ones turned away; a character set and a string table with text and parameters, damaged ones turned away; a font of both storages read, and one not; a sound bank's entries, PCM decoded, MPEG's header, one without a header |
 | `tpw.unit.ui` | The opening, headless, on an install built in the test: the logo movie stretched to 640 × 480, then the splash held 3 seconds; neither, without their files |
 | `tpw.unit.detection` | Recognising the game: a release not in the table found by its files' names, in any case, as an unknown release; not without `Data/Challenges.sam` |
 
@@ -40,6 +40,7 @@ With your own copy, installed or imported from the CD:
 | `fonts` | Every font read, with a checksum of every glyph (`reluva-tool tpw bf4-check`) |
 | `pictures` | Every picture decoded: `.fsh`, `.tga`, `.png`, `.jpg` (`reluva-tool tpw picture-check`) |
 | `movies` | Every `.tgq` movie decoded, frames and sound (`reluva-tool tpw movie-check`) |
+| `sounds` | Every sound bank decoded, those that can't listed (`reluva-tool tpw sdt-check`) |
 | `opening` | The opening run headless, by a clock that moves only as it waits: the screens shown and when it ended (`reluva-tool tpw opening-run`) |
 
 The installed folder and one imported from the CD pass against the same

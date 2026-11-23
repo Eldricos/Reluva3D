@@ -1,0 +1,1 @@
+sounds: 8f338f381976e7a3 | 28 banks, 0 failed, 5315 sounds decoded, 29 don't, 55 entries without a header, 2 MPEG sounds not their header's length, md5 9bc0408ebcb8f978c89e8e554bebc59c

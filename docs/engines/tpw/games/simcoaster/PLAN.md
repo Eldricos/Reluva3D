@@ -38,9 +38,9 @@ format or system worked out.
    SimCoaster's compressed pictures ([fsh.md](formats/fsh.md)). The logo
    movies' sound (`Data/movies/*.tgq`) reads and decodes with the shared
    stream reader: 3.24 seconds of stereo EA-XA each.
-5. **The data viewer** (in progress; the movies done,
-   [tgq.md](formats/tgq.md), and the opening as a recording shows it,
-   [opening.md](systems/opening.md)): pages for the pictures (`.tga`,
+5. **The data viewer** (in progress; the movies, the sound banks, and
+   the opening as a recording shows it done: [tgq.md](formats/tgq.md),
+   [sdt.md](formats/sdt.md), [opening.md](systems/opening.md)): pages for the pictures (`.tga`,
    `.fsh`, `.png`), fonts, text, settings, sounds (`.sdt` banks and their
    `.map`s: MPEG audio and PCM) and the movies, in `reluva-viewer`.
 6. **Models and the park:** the models (`.md2`, Bullfrog's own, and
