@@ -1,12 +1,12 @@
 # Star Trek: Starfleet Command II: anti-aliased fonts (`.bft`)
 
-> **Status:** decoded · **Code:** `src/engines/sfc/formats/bft_font.cpp` · **Checked on:** English retail 1.0, all 50 files · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/sfc/formats/bft_font.cpp` · **Checked on:** English retail 1.0, all 126 files · **Confidence:** confirmed unless marked
 
 ## Overview
 
-`Assets/aafonts/` holds 50 fonts: Arial, and the Federation's, Gorn's
-and Hydran's lettering, each in sizes 5 to 24 (not every race in every
-size). Each glyph is a bitmap of coverage, 0 to 255, so text is blended
+`Assets/aafonts/` holds 126 fonts: Arial, and the lettering of the
+Federation, the Klingons, the Romulans, the Gorn, the Hydrans, the
+Lyrans, the Mirak and the ISC, each in 14 sizes from 5 to 24. Each glyph is a bitmap of coverage, 0 to 255, so text is blended
 onto what's behind it.
 
 ## Layout
@@ -54,9 +54,11 @@ for a few others).
 - **Where the facts come from:** the files themselves: the records'
   sizes, and glyphs' bitmaps seen as letters ('A' at 65 in Arial 10, 9
   pixels wide and 12 high).
-- **How it was checked:** all 50 files read to their last byte, each
-  holding the header's count of glyphs; every font's characters drawn by
-  the data viewer and seen to be in Windows-1252's order.
+- **How it was checked:** all 126 files read to their last byte, each
+  holding the header's count of glyphs; the characters of Arial's, the
+  Federation's, the Gorn's and the Hydrans' fonts drawn by the data
+  viewer and seen to be in Windows-1252's order (the other races' aren't
+  looked at yet).
 - **Unit test:** `sfc.unit.formats` (font), on a font built in the test.
 
 ## Open questions

@@ -6,7 +6,9 @@
 // program.
 
 #include "audio/mixer.h"
+#include "common/detection.h"
 #include "common/fs.h"
+#include "common/installshield.h"
 #include "common/settings.h"
 #include "engines/engine.h"
 #include "engines/sfc/host/game_process.h"
@@ -44,6 +46,11 @@ const std::vector<GameVariant> kFallback = {
      "windows",
      {{"StarFleet2.exe", "", -1}, {"Assets/Sprites/sprites.q3", "", -1}}},
 };
+
+// The file groups the CDs' setup installs (all but its script kit's,
+// which Reluva doesn't use), and readme.txt, loose on the first CD.
+const std::vector<std::string> kSetupGroups = {
+    "Program Executable Files", "Music", "Voices", "Intro Movie", "Install Files", "Ereg", "Extras", "ReadMe"};
 
 /**
  * The game running: its own StarFleet2.exe in the x86 emulator (Player),
@@ -155,6 +162,42 @@ public:
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
         return std::make_unique<SfcEngine>(system, target);
+    }
+
+    // From the first CD (data1.hdr and data1.cab): planned once the second
+    // (data2.cab) is added too, as the voices and the opening movie are on it.
+    std::vector<ImportPlan> planImport(const std::filesystem::path &source) const override {
+        const auto header = fs::findFile(source, "data1.hdr");
+        if (!header)
+            return {};
+        auto cabinet = std::make_shared<InstallShieldCabinet>();
+        if (readInstallShieldCabinet(*header, *cabinet))
+            return {};
+        const std::vector<InstallShieldGroup> groups = installShieldGroups(*cabinet, kSetupGroups);
+        if (groups.empty())
+            return {};
+        const GameVariant *variant = nullptr;
+        for (const auto *table : {&kVariants, &kFallback})
+            for (const GameVariant &v : *table)
+                if (!variant && installShieldMatches(v, *cabinet, groups))
+                    variant = &v;
+        if (!variant)
+            return {};
+        ImportPlan plan;
+        plan.game = {id(), variant->gameId, variant->description, variant->language, variant->platform};
+        planInstallShield(plan, cabinet, groups);
+        plan.addPatchLabel.clear();
+        plan.addFolderLabel = "Add other disc...";
+        plan.addFolderTooltip = "Copy the game's second CD too (or a copy of it)";
+        return {plan};
+    }
+
+    bool addToImport(ImportPlan &plan, const std::filesystem::path &folder, std::string &message) const override {
+        if (!plan.cabinet) {
+            message = "not a file Reluva can use for this game";
+            return false;
+        }
+        return addInstallShieldVolumes(plan, folder, installShieldGroups(*plan.cabinet, kSetupGroups), message);
     }
 };
 

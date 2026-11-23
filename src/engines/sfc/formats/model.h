@@ -42,7 +42,7 @@ public:
         float v = 0;
     };
 
-    /** A triangle, and how it's drawn. */
+    /** A triangle, and how it's drawn: a polygon's, a few of four corners cut into two. */
     struct Triangle {
         uint32_t material = 0;
         std::array<float, 3> normal{};

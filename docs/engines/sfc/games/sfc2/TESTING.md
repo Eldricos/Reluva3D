@@ -20,7 +20,11 @@ game's files: a small install of its own, taken through what playing
 does, against its record (`data/engine-record.txt`): it isn't taken for
 the game, starting the game without `StarFleet2.exe` says so, and a
 registry value the program writes is kept in its save folder's
-`registry.txt` and read back.
+`registry.txt` and read back, and two CDs laid out as the game's
+(InstallShield 5, the setup's groups) are imported: nothing planned from
+the first alone, all of it once the second is added, the result
+recognised. `common.unit.installshield 5` checks version 5's cabinets
+themselves.
 
 ### The game-files test
 
@@ -60,7 +64,8 @@ to launcher, stop it. Headless, the same with `reluva-tool sfc host <game folder
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
-| 23 November 2026 | English retail 1.0 | Linux | A skirmish: with the install alone, "No missions available"; with the CD's program files added (taken with `unshield`), "Hostile Skirmish" listed and started, the Klingon coming in, 35 billion instructions without failing |
+| 23 November 2026 | English retail 1.0 | Linux | Importing from the two CDs (`reluva-tool import`): 3,356 files in 20 seconds, every MD5 the header's, byte for byte the owner's install by setup but for `sfc2.isu`; recognised as 1.0. Every reader over it: 126 fonts, 317 models (6 with 4-cornered polygons), the sounds and `sprites.q3`, none failing |
+| 23 November 2026 | English retail 1.0 | Linux | A skirmish: with a copy of the install short of files, "No missions available"; with the CD's program files added (taken with `unshield`), "Hostile Skirmish" listed and started, the Klingon coming in, 35 billion instructions without failing |
 | 23 November 2026 | English retail 1.0 | Linux | DirectPlay's lobby: `reluva-tool sfc host` past the title screen to the main menu ("Select Game"), its lobby asked each frame; Single Player clicked, its Tutorials, Skirmish and Campaign screen shown; 6 billion instructions without failing |
 | 23 November 2026 | English retail 1.0 | Linux | Miles: `reluva-tool sfc host -sound` past the title screen, the music captured byte for byte `MNU_A1.WAV` then `MNU_A2.WAV`; in the launcher's window (SDL's dummy audio driver) to the same point, stopping for want of DirectPlay's lobby |
 | 23 November 2026 | English retail 1.0 | Linux | `reluva-tool sfc host`, headless: the owner's CD key typed and taken, the full title screen, `registry.txt` written with the `WON\CDKeys` value; a second run with the same save folder went past the dialog with no input, both stopping at `AIL_set_redist_directory` |

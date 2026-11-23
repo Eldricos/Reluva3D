@@ -145,7 +145,8 @@ void testFont() {
     CHECK(font.read(d));
 }
 
-std::vector<uint8_t> makeModel() {
+// A model of one polygon of `corners` corners (3 or 4).
+std::vector<uint8_t> makeModel(uint32_t corners = 3) {
     std::vector<uint8_t> body;
     put32(body, 512);
     putFloat(body, 1.5f);
@@ -173,19 +174,20 @@ std::vector<uint8_t> makeModel() {
     for (const uint32_t v : {0u, 0u, 0u, 0u, 4u, 0u, 9u})
         put32(body, v);
     std::vector<uint8_t> mesh;
-    put32(mesh, 3);
+    put32(mesh, corners);
     put32(mesh, 1);
     putTag(mesh, "VTXS");
-    put32(mesh, 36);
-    for (const float f : {0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f})
-        putFloat(mesh, f);
+    put32(mesh, 12 * corners);
+    for (const float f : {0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f})
+        if (mesh.size() < 16 + 12 * size_t(corners))
+            putFloat(mesh, f);
     putTag(mesh, "POLY");
-    put32(mesh, 20 + 3 * 28);
-    put32(mesh, 3);
+    put32(mesh, 20 + corners * 28);
+    put32(mesh, corners);
     put32(mesh, 1);
     for (const float f : {0.0f, 0.0f, 1.0f})
         putFloat(mesh, f);
-    for (uint32_t k = 0; k < 3; ++k) {
+    for (uint32_t k = 0; k < corners; ++k) {
         put32(mesh, k | (k == 2 ? 0x20000u : 0u));
         for (const float f : {0.0f, 0.0f, 0.0f, 0.25f * float(k), 0.5f})
             putFloat(mesh, f);
@@ -216,6 +218,24 @@ void testModel() {
     const auto &t = mesh.triangles[0];
     CHECK(t.material == 1 && t.normal[2] == 1.0f);
     CHECK(t.corners[1].vertex == 1 && t.corners[1].u == 0.25f && t.corners[2].vertex == 2 && t.corners[2].piece == 2);
+}
+
+// A polygon of four corners (a few models have them): two triangles, cut
+// from its first corner, for the one polygon the level counts.
+void testModelQuad() {
+    Model model;
+    CHECK(!model.read(makeModel(4)));
+    CHECK(model.meshes().size() == 1);
+    if (model.meshes().size() != 1)
+        return;
+    const auto &mesh = model.meshes()[0];
+    CHECK(mesh.vertices.size() == 4 && mesh.triangles.size() == 2);
+    if (mesh.triangles.size() != 2)
+        return;
+    CHECK(mesh.triangles[0].corners[0].vertex == 0 && mesh.triangles[0].corners[1].vertex == 1 &&
+          mesh.triangles[0].corners[2].vertex == 2);
+    CHECK(mesh.triangles[1].corners[0].vertex == 0 && mesh.triangles[1].corners[1].vertex == 2 &&
+          mesh.triangles[1].corners[2].vertex == 3 && mesh.triangles[1].material == 1);
 }
 
 // A triangle naming a material that isn't there is an error.
@@ -262,6 +282,7 @@ static const reluva::test::Suite
                {"font", [](const std::filesystem::path &) { testFont(); }},
                {"model", [](const std::filesystem::path &) { testModel(); }},
                {"model bad material", [](const std::filesystem::path &) { testModelBadMaterial(); }},
+               {"model quad", [](const std::filesystem::path &) { testModelQuad(); }},
                {"tab table", [](const std::filesystem::path &) { testTabTable(); }},
                {"string table", [](const std::filesystem::path &) { testStringTable(); }},
            });

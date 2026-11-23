@@ -1,6 +1,6 @@
 # Star Trek: Starfleet Command II: models (`.mod`)
 
-> **Status:** partial · **Code:** `src/engines/sfc/formats/model.cpp` · **Checked on:** English retail 1.0, all 102 files · **Confidence:** layout confirmed; meanings inferred unless marked
+> **Status:** partial · **Code:** `src/engines/sfc/formats/model.cpp` · **Checked on:** English retail 1.0, all 317 files · **Confidence:** layout confirmed; meanings inferred unless marked
 
 ## Overview
 
@@ -58,16 +58,19 @@ triangles count materials from 0, in this order.
 
 ### A level of detail (`MOD0`)
 
-The vertex count and the triangle count, 32 bits each, then a `VTXS`
+The vertex count and the polygon count, 32 bits each, then a `VTXS`
 chunk (x, y, z floats for each vertex) and one `POLY` chunk for each
-triangle:
+polygon, nearly all triangles:
 
 | Offset | Size | Field |
 |---|---|---|
-| 0 | 4 | corners: 3 in every POLY |
+| 0 | 4 | corners: 3, or 4 in 328 polygons of a few models (`Ert_brk.mod`'s 182 among them) |
 | 4 | 4 | the material |
 | 8 | 12 | the face's normal |
-| 20 | 28 x 3 | each corner: its vertex (32 bits), three floats (unknown: not of unit length, so not a normal), u and v, and 32 bits that are 0 in every corner |
+| 20 | 28 x corners | each corner: its vertex (32 bits), three floats (unknown: not of unit length, so not a normal), u and v, and 32 bits that are 0 in every corner |
+
+Reluva cuts a polygon of four corners into two triangles from its first
+corner, taking the 4-cornered ones as flat and convex *(inferred)*.
 
 A corner's vertex index uses only its low 16 bits for the vertex. In
 the broken models the high 16 bits are 1, 2, 3 or more; in the others,
@@ -94,11 +97,14 @@ into)*.
   beside them. Taldren's model viewer and 3ds Max plug-ins, published on
   ModDB, say only that models for Volume II also have self-illumination
   maps; no layout of the format was found published.
-- **How it was checked:** all 102 models read to their last byte, each
-  level's counts matching its chunks, every triangle's vertex and
-  material within range; models drawn by the data viewer with their
-  textures in place and their points on their hulls. Four illumination
-  maps are named and not in the install (`hdn_1_1i` among them).
+- **How it was checked:** all 317 models read to their last byte, each
+  level's count of polygons matching its `POLY` chunks, every corner's
+  vertex and every material within range; models drawn by the data
+  viewer with their textures in place and their points on their hulls
+  (102 of them looked at). 22 textures are named and not in the model's
+  folder, in the install as on the CD: illumination maps (`hdn_1_1i`
+  among them), `zbs_brk.mod`'s `zbs_1_5`, and the textures of `kdp`
+  that `xdp_brk.mod` names.
 - **Unit test:** `sfc.unit.formats` (model, model bad material), on a
   model built in the test.
 

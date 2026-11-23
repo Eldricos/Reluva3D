@@ -18,14 +18,14 @@ the patch ([REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md#sources)).
 |---|---|---|
 | `StarFleet2.exe` (4,149,248 bytes in 1.0) | The game. Visual C++ 6 with its C runtime linked in; no CD check, but it asks for its CD key at its title screen | PE; imports DirectDraw (`IDirectDraw2` and `4`, `IDirectDrawSurface3` and `4`), Direct3D 6 (`IDirect3D3`, `IDirect3DTexture2`), DirectInput, DirectSound 3D, DirectPlay 4 and its lobby, Winsock, WinMM, Miles (`mss32.dll`, 25 `AIL_*` functions) and WON's library |
 | `SFC2.exe`, `SFC2Setup.exe` | A launcher, and the resolution and driver setup (MFC) | PE |
-| `Assets/Scripts/*.scr` (49 in 1.0) | The missions: Win32 DLLs exporting `ScriptEntry` and `MissionSpecEntry`, loaded by the game | PE |
+| `Assets/Scripts/*.scr` (104 in 1.0) | The missions: Win32 DLLs exporting `ScriptEntry` and `MissionSpecEntry`, loaded by the game | PE |
 | `Assets/Scripts/Campaigns/*.mct` | A campaign: its three maps, its missions | INI-like text |
 | `MetaAssets/*.mvm`, `MetaMap.war` | The Dynaverse: hexes, regions, terrain | INI-like text with a binary block |
 | `*.gf`, `MetaAssets/ServerProfiles/` | Settings: economy, time, score, the campaign server's | INI-like text |
 | `Assets/specs/shiplist.txt`, `ftrlist.txt`, `bpvdata.ini` | Every ship and fighter: hull, BPV, weapons, systems | Tab-separated text |
-| `Assets/MODELS/<ship>/*.mod` (102) and `.bmp` (890) | Ship, base and asteroid models, with `_brk` broken ones, and their textures | Chunked binary (`MDLS`, `STRS`...) |
+| `Assets/MODELS/<ship>/*.mod` (317) and `.bmp` (2,571) | Ship, base and asteroid models, with `_brk` broken ones, and their textures | Chunked binary (`MDLS`, `STRS`...) |
 | `Assets/Sprites/sprites.q3` (78 MB) | The interface's pictures | Binary archive (`MDM!`) |
-| `Assets/aafonts/*.bft` (50) | Bitmap fonts, by race and size | Binary |
+| `Assets/aafonts/*.bft` (126) | Bitmap fonts, by race and size | Binary |
 | `Assets/Sound/*.zip`, `sounds.txt`, `SFCMusic.txt` | Effects, voices, music, and their tables | Zip; tab-separated text |
 | `Assets/Strings/*.txt` | The game's text | Text |
 | `Assets/mouse/*.cur` | Each race's pointer | Windows cursors |
@@ -33,7 +33,7 @@ the patch ([REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md#sources)).
 | `MetaServer/ServerPlatform.exe` | A dedicated campaign server's launcher | PE |
 | `API/` | Taldren's mission-script kit | Not used ([Decisions](#decisions)) |
 | `SFB/*.pdf` | Star Fleet Battles' Cadet rules | PDF |
-| CDs: `data1.hdr`, `data1.cab`, `data2.cab` | The install, in InstallShield cabinets | Version 5 (0x01005201); Reluva reads version 7's |
+| CDs: `data1.hdr`, `data1.cab`, `data2.cab` | The install, in InstallShield cabinets | Version 5 (0x01005201), read by Reluva ([InstallShield cabinets](../../../../common/installshield.md)) |
 | `sfc2patch20022036.exe` | Patch 2.0.3.6: a self-extracting Microsoft cabinet holding an InstallShield 5 setup, which installs an RTPatch file (`PATCHSFC2-2002-2036.RTP`) and Pocket Soft's `Patch.exe` to apply it | It replaces `StarFleet2.exe`, almost every mission, 25 models and most settings files, and adds missions |
 
 ## Phases
@@ -94,18 +94,18 @@ on their pages in `formats/` and `systems/`.
      ([miles.md](../../../../common/x86/miles.md));
    - DirectSound 3D buffers, if Miles doesn't take all the sound.
 6. **The game hosted** (started): the front end (done), a skirmish
-   (it runs, the AI coming in, with the CD's files: the install in the
-   owner's folder lacks 2,147 of them, the skirmish mission and most
-   ships among them, so importing comes next), the tutorials, then a
+   (it runs, the AI coming in), the tutorials, then a
    campaign and its missions (the game loads their DLLs itself), saves,
    the film room. Drawing on the GPU through `gfx3d` once the software
    rasterizer is too slow.
 7. **Multiplayer:** DirectPlay 4 over the shared networking, between
    copies of Reluva.
-8. **Importing:** InstallShield 5's headers in
-   `src/common/installshield.cpp`, and the `MetaEngine`'s `planImport`,
-   from the CDs. Applying the 2.0.3.6 patch as it's imported, by running
-   its `Patchw32.dll` in the emulator, if RTPatch's format can't be read.
+8. **Importing** (done for the CDs): InstallShield 5's headers in
+   `src/common/installshield.cpp` ([its page](../../../../common/installshield.md)),
+   and the `MetaEngine`'s `planImport` and `addToImport`, from the two
+   CDs: the import is byte for byte an install made by setup. Still to
+   do: applying the 2.0.3.6 patch as it's imported, by running its
+   `Patchw32.dll` in the emulator, if RTPatch's format can't be read.
 9. **Native, part by part:** the game's own code replaced where that
    pays (drawing, sound, the interface, the simulation), each part hooked
    at the functions that do it, as `nfs` draws THRASH's triangles and mixes

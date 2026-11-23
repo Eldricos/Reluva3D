@@ -59,9 +59,10 @@ text files, and the installers' headers.
 - **Data files:** each kind identified by its first bytes and its text,
   then its layout worked out from the files alone: chunk and record
   lengths that add up to each file's end, counts checked against what
-  they count, values compared across every file of a kind (all 50 fonts,
-  102 models, 19,353 images) with short Python scripts, then a reader in
-  Reluva run over every file. Pictures and models were then looked at:
+  they count, values compared across every file of a kind (50 fonts,
+  102 models, 19,353 images, those first downloaded) with short Python
+  scripts, then a reader in Reluva run over every file (since, over the
+  whole install imported from the CDs: 126 fonts, 317 models). Pictures and models were then looked at:
   images written as PNGs, and the data viewer run under Xvfb with
   Mesa's software Vulkan and screenshotted. Each format's page says what
   settled each field.
@@ -77,8 +78,18 @@ text files, and the installers' headers.
   (`-newcode`), which finds what a click runs
   ([systems/hosting.md](systems/hosting.md)).
 - **Installers:** the patch's Microsoft cabinet listed and taken apart
-  with a short script; its InstallShield 5 cabinet listed with `unshield`
-  (a free tool, MIT licence).
+  with a short script; its InstallShield 5 cabinet, and the CDs', listed
+  with `unshield` (a free tool, MIT licence) as the check on Reluva's
+  reading of version 5, worked out from the CDs' own bytes with short
+  Python scripts ([InstallShield cabinets](../../../../common/installshield.md));
+  `unshield`'s source wasn't read.
+- **The owner's install:** made by the CDs' own setup on Windows,
+  copied to a Google Drive folder. The first download of it was short:
+  the script listing the folder read only the first 50 entries of each
+  folder, so larger folders (`Assets/Scripts`, `MODELS`, `aafonts`,
+  `textures`) came down cut short, and for a while the install was
+  taken to be missing files. Listed in full since, it's whole, and the
+  import from the CDs is byte for byte the same.
 
 ## The tools
 

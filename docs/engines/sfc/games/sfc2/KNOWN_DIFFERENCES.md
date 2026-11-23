@@ -21,6 +21,12 @@ systems (a CD check, a mode the hardware no longer has). -->
   are kept in `registry.txt` in its save folder, so they're kept on
   every system Reluva runs on, and nothing is written to Windows' own
   registry ([systems/hosting.md](systems/hosting.md#what-it-writes)).
+- **Imported, the script kit is left out.** The CDs' setup installs
+  Taldren's mission-script kit (`API\`) with the game; an import from
+  the CDs doesn't, as Reluva doesn't use it
+  ([PLAN.md](PLAN.md#decisions)), nor setup's uninstall log
+  (`sfc2.isu`). The game is otherwise as setup installs it
+  ([README.md](README.md#using-it)).
 
 ## Bugs fixed
 

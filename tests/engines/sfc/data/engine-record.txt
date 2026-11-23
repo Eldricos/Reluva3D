@@ -3,3 +3,7 @@
 detect.games: 0
 run.no_program: error
 registry.value: HKEY_LOCAL_MACHINE\SOFTWARE\WON\CDKeys|StarfleetCommand2|3|0123abff
+import.game: sfc2 Star Trek: Starfleet Command II (unknown release)
+import.first_cd.files: 0
+import.both_cds.files: 9
+import.detected: 1

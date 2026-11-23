@@ -109,7 +109,8 @@ Error Model::read(const std::vector<uint8_t> &data) {
             if (c.size < 8)
                 return Error::fail(".mod: MOD0 shorter than its counts");
             const uint32_t vertices = readLE32(p);
-            const uint32_t triangles = readLE32(p + 4);
+            const uint32_t polygons = readLE32(p + 4); // POLY chunks
+            uint32_t read = 0;
             std::vector<Chunk> inner;
             if (Error err = readChunks(data, c.at + 8, c.at + c.size, inner))
                 return err;
@@ -124,28 +125,37 @@ Error Model::read(const std::vector<uint8_t> &data) {
                             {readFloat(q + 12 * i), readFloat(q + 12 * i + 4), readFloat(q + 12 * i + 8)});
                 } else if (ic.tag == tagLE('P', 'O', 'L', 'Y')) {
                     // corners, material, the face's normal, then each corner's
-                    // vertex, three floats, u, v and a word that's always 0
-                    if (ic.size < 20 || readLE32(q) != 3 || ic.size != 20 + 3 * 28)
-                        return Error::fail(".mod: a POLY that isn't a triangle");
-                    Triangle t;
-                    t.material = readLE32(q + 4);
-                    t.normal = {readFloat(q + 8), readFloat(q + 12), readFloat(q + 16)};
-                    for (size_t k = 0; k < 3; ++k) {
+                    // vertex, three floats, u, v and a word that's always 0;
+                    // a polygon of more than three corners (a few models' are
+                    // four) is cut into triangles from its first corner
+                    const uint32_t count = ic.size >= 20 ? readLE32(q) : 0;
+                    if (count < 3 || count > 64 || ic.size != 20 + size_t(count) * 28)
+                        return Error::fail(".mod: a POLY of " + std::to_string(count) + " corners in " +
+                                           std::to_string(ic.size) + " bytes");
+                    std::vector<Corner> corners(count);
+                    for (size_t k = 0; k < count; ++k) {
                         const uint8_t *cp = q + 20 + 28 * k;
                         const uint32_t index = readLE32(cp);
-                        Corner &corner = t.corners[k];
+                        Corner &corner = corners[k];
                         corner.vertex = static_cast<uint16_t>(index & 0xffff);
                         corner.piece = static_cast<uint16_t>(index >> 16);
                         corner.unknown = {readFloat(cp + 4), readFloat(cp + 8), readFloat(cp + 12)};
                         corner.u = readFloat(cp + 16);
                         corner.v = readFloat(cp + 20);
                         if (corner.vertex >= vertices)
-                            return Error::fail(".mod: a triangle's vertex past the vertex count");
+                            return Error::fail(".mod: a polygon's vertex past the vertex count");
                     }
-                    mesh.triangles.push_back(t);
+                    for (size_t k = 1; k + 1 < count; ++k) {
+                        Triangle t;
+                        t.material = readLE32(q + 4);
+                        t.normal = {readFloat(q + 8), readFloat(q + 12), readFloat(q + 16)};
+                        t.corners = {corners[0], corners[k], corners[k + 1]};
+                        mesh.triangles.push_back(t);
+                    }
+                    ++read;
                 }
             }
-            if (mesh.vertices.size() != vertices || mesh.triangles.size() != triangles)
+            if (mesh.vertices.size() != vertices || read != polygons)
                 return Error::fail(".mod: MOD0's counts aren't its contents'");
             _meshes.push_back(std::move(mesh));
         }

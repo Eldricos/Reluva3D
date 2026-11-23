@@ -10,8 +10,9 @@
 //   reluva-tests sfc.engine [--update]
 //
 // It checks the install isn't taken for a game, that the game can't be
-// started without its program, and that what the program writes to the
-// registry is kept in its save folder: add steps as the engine learns to read and
+// started without its program, that what the program writes to the
+// registry is kept in its save folder, and importing from CDs laid out as
+// the game's (InstallShield 5): add steps as the engine learns to read and
 // run its games (see tests/engines/idtech3/engine.cpp), then --update and
 // review the record.
 
@@ -20,6 +21,7 @@
 #include "engines/registry.h"
 #include "engines/sfc/host/game_process.h"
 
+#include "tests/support/installshield_writer.h"
 #include "tests/support/record.h"
 #include "tests/support/test.h"
 
@@ -72,6 +74,49 @@ void engineTest(const std::filesystem::path &tmp) {
         const auto read =
             game.process().registryValue("hkey_local_machine\\software\\won\\cdkeys", "starfleetcommand2", &type);
         CHECK(read && *read == value && type == 3);
+    }
+    // Two CDs as the game's: its setup's groups, the game's files on the
+    // first, the voices running on into the second, readme.txt loose on it.
+    // Not the retail files: an unknown release.
+    {
+        using test::CabinetFile;
+        const std::filesystem::path cd1 = tmp / "cd1";
+        const std::filesystem::path cd2 = tmp / "cd2";
+        std::vector<CabinetFile> files = {
+            {"", "StarFleet2.exe", test::toBytes("MZ the program")},
+            {"Assets\\Sprites", "sprites.q3", test::toBytes("MDM! pictures")},
+            {"Assets\\Sound", "sfcmusic.zip", test::toBytes("music")},
+            {"Assets\\Sound", "SFCVoice.zip", std::vector<uint8_t>(30000, 7), true, 1, -1, true},
+            {"", "SFC2Intro.exe", test::toBytes("the opening"), true, 2},
+            {"", "sfc2.ico", test::toBytes("icon"), true, 2},
+            {"EReg", "Reg32.exe", test::toBytes("registration"), true, 2},
+            {"SFB", "index.htm", test::toBytes("rules"), true, 2},
+            {"", "readme.txt", test::toBytes("Read me."), false, 2, -1, false, true},
+        };
+        test::writeCabinet({cd1, cd2}, files,
+                           {{"Program Executable Files", 0, 1},
+                            {"Music", 2, 2},
+                            {"Voices", 3, 3},
+                            {"Intro Movie", 4, 4},
+                            {"Install Files", 5, 5},
+                            {"Ereg", 6, 6},
+                            {"Extras", 7, 7},
+                            {"ReadMe", 8, 8}},
+                           5);
+        test::writeFile(cd2 / "readme.txt", test::toBytes("Read me."));
+        std::vector<ImportPlan> plans = engine->planImport(cd1);
+        CHECK(plans.size() == 1);
+        if (plans.size() == 1) {
+            ImportPlan &plan = plans.front();
+            rec.add("import.game", plan.game.gameId + " " + plan.game.description);
+            rec.add("import.first_cd.files", int64_t(plan.files.size()));
+            std::string message;
+            CHECK(!engine->addToImport(plan, tmp, message));
+            CHECK(engine->addToImport(plan, cd2, message));
+            rec.add("import.both_cds.files", int64_t(plan.files.size()));
+            CHECK(!runImport(plan, tmp / "imported", [](uint64_t, uint64_t) { return true; }));
+            rec.add("import.detected", int64_t(engine->detect(tmp / "imported").size()));
+        }
     }
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/sfc/data/engine-record.txt", "sfc.engine",
               "tests/engines/sfc/engine.cpp");

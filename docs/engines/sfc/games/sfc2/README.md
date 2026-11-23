@@ -9,7 +9,7 @@ on a strategic map (the Dynaverse) and multiplayer.
 
 | Release | Recognised by | State |
 |---|---|---|
-| English retail 1.0 (`StarFleet2.exe` version 1.0.0.2, built 27 November 2000), two CDs, and an install from them | `StarFleet2.exe` and `Assets/Sprites/sprites.q3` (`kVariants`, `src/engines/sfc/sfc.cpp`) | Recognised |
+| English retail 1.0 (`StarFleet2.exe` version 1.0.0.2, built 27 November 2000), two CDs, and an install from them | `StarFleet2.exe` and `Assets/Sprites/sprites.q3` (`kVariants`, `src/engines/sfc/sfc.cpp`); on the CDs, by their sizes in the first CD's cabinet | Recognised; imported from its CDs |
 | Patch 2.0.3.6 (October 2002), over the retail install | The same files' names (`kFallback`): "unknown release", as the patch rewrites both | Surveyed; its patched files not yet hashed |
 | Other releases | The same files' names: "unknown release" | Not checked |
 
@@ -37,14 +37,15 @@ Detection signatures (MD5 of each file's start, and its size, as
   it: a key can be typed, and the game checks it and remembers it. Its
   sound plays through Reluva's Miles: past its title screen its menu
   music starts, and its main menu shows, its buttons working. A
-  skirmish runs, the Klingon AI coming in, given the whole install
+  skirmish runs, the Klingon AI coming in
   ([systems/hosting.md](systems/hosting.md#its-missions)).
+- **Importing from the CDs:** the launcher's import takes the game from
+  its two CDs, as their setup installs it
+  ([InstallShield cabinets](../../../../common/installshield.md)).
   `reluva-tool sfc host` runs it headless
   ([systems/hosting.md](systems/hosting.md)).
-- **Not yet:** importing from the CDs, which the skirmish, the tutorials
-  and most ships need (an install copied from a computer may be
-  missing them); a skirmish played through, the tutorials, a campaign;
-  the network; the
+- **Not yet:** a skirmish played through, the tutorials, a campaign;
+  the network; the 2.0.3.6 patch applied as it's imported; the
   `.gf`, `.mct` and `.mvm`
   settings, campaign and map files; the opening movie; the objects in
   `sprites.q3`.
@@ -53,8 +54,14 @@ The plan is in [PLAN.md](PLAN.md).
 
 ## Using it
 
-Not playable yet. *Add Game...* in the launcher, with the install's
-folder, finds it. Starting it runs the game's own program, which takes
+Not playable yet. Either import it from its CDs: *Import Game...* in the
+launcher with the first CD (or a copy of it: `data1.hdr` and
+`data1.cab`), then *Add other disc...* with the second (`data2.cab`);
+the game's files, 3,356 of them (900 MB), are taken out of the CDs'
+cabinets as their setup installs them, but for Taldren's script kit,
+which isn't used (`reluva-tool import <first CD> <folder> -patch
+<second CD>` does the same). Or *Add Game...* with the folder of an
+install made on Windows. Starting it runs the game's own program, which takes
 11 to 18 seconds to load to its title screen; its CD key dialog takes
 the copy's CD key, typed as it's printed (Shift for capitals), once:
 it's kept, with whatever else the game writes, in Reluva's folder for

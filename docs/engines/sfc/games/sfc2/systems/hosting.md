@@ -191,22 +191,20 @@ of kind 4 that its empire may play (a bit of the description's word at
 missions available", and PLAY GAME (0x475902) does nothing, there being
 no mission chosen.
 
-The CD installs 104 missions; the install in the owner's Drive folder
-has 49, all the same as the CD's, and of the CD's program files only
-1,172 of 3,315. Missing are `Ski_1Free4All.scr`, the only skirmish
-mission, the tutorials (`Tut_*`), the multiplayer missions (`Mul_*`),
-the `Uni_*` missions, most ship models (the Klingons' among them), 76
-fonts, textures and Miles' drivers. With them, taken from the CD with
-`unshield` for a test, the Skirmish screen lists "Hostile Skirmish"
+The CDs install 104 missions, `Ski_1Free4All.scr` the only skirmish
+mission. Run on a copy of the install missing some of its files (only
+49 missions, few ship models: the copy, not the install, was short), the
+screen listed none; with the whole install, imported from the CDs
+([README.md](../README.md#using-it)), the Skirmish screen lists "Hostile Skirmish"
 ("An all out brawl ensues until one team is left standing"), and PLAY
 GAME starts it: the player's Federation heavy cruiser in space, the
 tactical interface, the mission's clock running. The Klingon ship comes
 in close, and the weapons line under the view changes from 4 photon
 torpedoes and 6 phasers to 2 and 1, whether for damage or the weapons
 grouped isn't traced. 35 billion instructions (about
-13 minutes) ran without a failure. With the install's files alone, the
-Klingons' models missing, the run stopped at a null part of a ship the
-game couldn't build (0x415269).
+13 minutes) ran without a failure. On the short copy, the Klingons'
+models missing, the run stopped at a null part of a ship the game
+couldn't build (0x415269).
 
 A skirmish is played through DirectPlay, single-player too: starting
 one, the game throws a `TLogicError` naming `fDirectPlayObject` each
@@ -299,7 +297,6 @@ known.
   `reluva-tool sfc disasm <game folder or program> <start> <end>`
   disassembles the program, or another (a mission's DLL).
 - **Not yet:** the network (DirectPlay itself), the opening movie;
-  importing the install from the CDs (a test copy was filled by hand);
   a skirmish played with input, the tutorials and a campaign.
 
 ## Sources and checks
