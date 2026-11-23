@@ -18,6 +18,10 @@ namespace reluva::stawayteam {
 
 namespace {
 
+// Updates a character's had where it was put before it sets off a
+// touching trigger (0x417753).
+constexpr int kSettled = 4;
+
 // Near enough a part with no footprint to collide with it (inferred).
 constexpr float kCollideReach = 20.0f;
 
@@ -80,8 +84,6 @@ void MapScreen::addTrigger(size_t part, const TextObject *ai) {
     t.part = part;
     t.ai = ai;
     t.done = flag(ai, "Was Triggered");
-    t.touching.assign(_officers.size(), false);
-    t.nextRepeat.assign(_officers.size(), 0.0f);
     t.timer = number(ai, "Seconds Till Next Execute", number(ai, "Delay Between Actions"));
     _triggers.push_back(std::move(t));
 }
@@ -128,6 +130,13 @@ void MapScreen::relay(const std::string &names, int instigator) {
 }
 
 void MapScreen::updateTriggers(float seconds) {
+    // Each update an active character's had where it is (0x4965a4).
+    for (Officer &o : _officers)
+        if (o.present)
+            o.settled = std::min(o.settled + 1, kSettled);
+    for (Enemy &e : _enemies)
+        if (_partStates[e.part].active)
+            e.settled = std::min(e.settled + 1, kSettled);
     for (size_t k = 0; k < _triggers.size(); ++k) {
         Trigger &t = _triggers[k];
         const PartState &state = _partStates[t.part];
@@ -150,104 +159,89 @@ void MapScreen::updateTriggers(float seconds) {
             continue;
         if (updateOtherTrigger(t, seconds))
             continue;
-        // A touching trigger: who's in its oval or polygon, of those it
-        // answers to.
+        // A touching trigger (0x417670) has one in it at a time: of those it
+        // answers to in its oval or polygon, the last found (0x4162f0,
+        // 0x417840; the order it finds them in, officers, enemies, then
+        // thrown things, is inferred). Its Enter Action as it goes from
+        // empty to someone, them its instigator, unless they were put
+        // there fewer than 4 updates ago (a character's Updates Since
+        // Relocate, 0x417753): then it holds them without one, as at a
+        // map's start. Its Exit Action as it empties, the one it held its
+        // instigator; its Repeat Action as someone's first in and every
+        // Repeat Every after while anyone is, the one it now holds its
+        // instigator.
+        // Whom it answers to (0x417f10): one named its Triggered By Name in
+        // full, any case; else, with Trigge Must Have HP, none with no
+        // health left; then Anything, the Players and the Enemies by their
+        // categories. A Triggered by list (a stasis field's "Enemy,Player,
+        // Team Member") names its kinds.
         const std::string byName = lower(readText(ai, "Triggered By Name"));
-        // A Triggered by list (a stasis field's "Enemy,Player,Team Member")
-        // names its kinds.
         const std::string byList = readText(ai, "Triggered by");
+        const bool mustLive = flag(ai, "Trigge Must Have HP");
         const bool byPlayers = flag(ai, "Triggered By Players") || flag(ai, "Triggered By Anything") ||
                                inCategory(byList, "Player,Team Member");
-        for (size_t o = 0; o < _officers.size() && !t.done; ++o) {
-            const Officer &who = _officers[o];
-            const bool answers =
-                who.present && (byPlayers || (!byName.empty() && lower(_team[who.member].name()) == byName));
-            bool in = false;
-            if (answers) {
-                in = touches(t, who.x, who.y);
-            }
-            const int instigator = int(o);
-            if (in && !t.touching[o]) {
-                t.touching[o] = true;
-                t.nextRepeat[o] = 0.0f;
-                runAction(ai->object("Enter Action"), instigator, int(t.part));
-                if (flag(ai, "Trigger Only Once") && ai->object("Enter Action"))
-                    t.done = true;
-            }
-            if (in && !t.done && ai->object("Repeat Action")) {
-                t.nextRepeat[o] -= seconds;
-                if (t.nextRepeat[o] <= 0.0f) {
-                    t.nextRepeat[o] = number(ai, "Repeat Every");
-                    runAction(ai->object("Repeat Action"), instigator, int(t.part));
-                    if (flag(ai, "Trigger Only Once"))
-                        t.done = true;
-                }
-            }
-            if (!in && t.touching[o]) {
-                t.touching[o] = false;
-                runAction(ai->object("Exit Action"), instigator, int(t.part));
-                if (flag(ai, "Trigger Only Once") && ai->object("Exit Action"))
-                    t.done = true;
+        const bool byEnemies = flag(ai, "Triggered By Enemies") || inCategory(byList, "Enemy");
+        bool found = false;
+        int who = -1;
+        bool settled = true;
+        for (size_t o = 0; o < _officers.size(); ++o) {
+            const Officer &each = _officers[o];
+            const bool named = !byName.empty() && lower(_team[each.member].name()) == byName;
+            if (each.present && (named || ((!mustLive || each.alive()) && byPlayers)) && touches(t, each.x, each.y)) {
+                found = true;
+                who = int(o);
+                settled = each.settled >= kSettled;
             }
         }
-        // The enemies too, for one Triggered By Enemies (66 in the maps),
-        // By Anything, or whose list names them; each as an officer, their
-        // instigator (inferred).
-        const bool byEnemies =
-            flag(ai, "Triggered By Enemies") || flag(ai, "Triggered By Anything") || inCategory(byList, "Enemy");
-        if (byEnemies) {
-            t.touchingEnemies.resize(_enemies.size(), false);
-            t.enemyRepeat.resize(_enemies.size(), 0.0f);
-            for (size_t i = 0; i < _enemies.size() && !t.done; ++i) {
-                const Enemy &e = _enemies[i];
-                const bool in = e.alive() && shown(e.part) && touches(t, e.x, e.y);
-                const int instigator = kEnemyInstigator - int(i);
-                if (in && !t.touchingEnemies[i]) {
-                    t.touchingEnemies[i] = true;
-                    t.enemyRepeat[i] = 0.0f;
-                    runAction(ai->object("Enter Action"), instigator, int(t.part));
-                    if (flag(ai, "Trigger Only Once") && ai->object("Enter Action"))
-                        t.done = true;
-                }
-                if (in && !t.done && ai->object("Repeat Action")) {
-                    t.enemyRepeat[i] -= seconds;
-                    if (t.enemyRepeat[i] <= 0.0f) {
-                        t.enemyRepeat[i] = number(ai, "Repeat Every");
-                        runAction(ai->object("Repeat Action"), instigator, int(t.part));
-                    }
-                }
-                if (!in && t.touchingEnemies[i]) {
-                    t.touchingEnemies[i] = false;
-                    runAction(ai->object("Exit Action"), instigator, int(t.part));
-                    if (flag(ai, "Trigger Only Once") && ai->object("Exit Action"))
-                        t.done = true;
-                }
+        for (size_t i = 0; i < _enemies.size(); ++i) {
+            const Enemy &e = _enemies[i];
+            const MapPart &part = _map.parts[e.part];
+            const bool named = !byName.empty() && lower(part.name) == byName;
+            const bool kind = flag(ai, "Triggered By Anything") ||
+                              (byEnemies && inCategory(part.category.empty() ? "Enemy" : part.category, "Enemy"));
+            if (shown(e.part) && (named || ((!mustLive || e.alive()) && kind)) && touches(t, e.x, e.y)) {
+                found = true;
+                who = kEnemyInstigator - int(i);
+                settled = e.settled >= kSettled;
             }
         }
         // A thrown thing too, flying or lying, for one Triggered By
-        // Anything: the trigger asks for every Active entity in its shape
-        // (0x417670). Triggered By Projectiles isn't it: that's anything
-        // with a CShotAI (0x417fb3), which the energy weapons' shots have
-        // (0x5c95d0) and a thrown thing hasn't. Its Enter and Exit Actions,
-        // the thrown thing their instigator; going off, it leaves.
-        if (flag(ai, "Triggered By Anything")) {
-            std::vector<int> in;
+        // Anything: the trigger asks for every Active entity in its shape.
+        // Triggered By Projectiles isn't it: that's anything with a CShotAI
+        // (0x417fb3), which the energy weapons' shots have (0x5c95d0) and a
+        // thrown thing hasn't.
+        if (flag(ai, "Triggered By Anything"))
             for (const Thrown &th : _thrown)
-                if (!t.done && touches(t, th.x, th.y)) {
-                    in.push_back(th.id);
-                    if (std::find(t.thrownIn.begin(), t.thrownIn.end(), th.id) == t.thrownIn.end()) {
-                        runAction(ai->object("Enter Action"), kThrownInstigator - th.id, int(t.part));
-                        if (flag(ai, "Trigger Only Once") && ai->object("Enter Action"))
-                            t.done = true;
-                    }
+                if (touches(t, th.x, th.y)) {
+                    found = true;
+                    who = kThrownInstigator - th.id;
+                    settled = true;
                 }
-            for (const int id : t.thrownIn)
-                if (!t.done && std::find(in.begin(), in.end(), id) == in.end()) {
-                    runAction(ai->object("Exit Action"), kThrownInstigator - id, int(t.part));
-                    if (flag(ai, "Trigger Only Once") && ai->object("Exit Action"))
-                        t.done = true;
-                }
-            t.thrownIn = std::move(in);
+        const bool was = t.occupied;
+        const int left = t.occupant;
+        t.occupied = found;
+        t.occupant = found ? who : -1;
+        const auto fire = [&](const char *key, int instigator) {
+            const TextObject *action = ai->object(key);
+            if (!action || t.done)
+                return;
+            if (flag(ai, "Trigger Only Once"))
+                t.done = true;
+            runAction(action, instigator, int(t.part));
+        };
+        if (was && !found) {
+            fire("Exit Action", left);
+        } else if (!was && found) {
+            t.repeatIn = 0.0f;
+            if (settled)
+                fire("Enter Action", who);
+        }
+        if (found && number(ai, "Repeat Every") != 0.0f) {
+            t.repeatIn -= seconds;
+            if (t.repeatIn <= 0.0f) {
+                t.repeatIn += number(ai, "Repeat Every");
+                fire("Repeat Action", t.occupant);
+            }
         }
         // Once done, a trigger that flips its switch turns its part off
         // (Auto-Flip Switch).

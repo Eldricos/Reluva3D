@@ -458,9 +458,13 @@ The other triggers:
 - **The team touching** (`CTeamTouchingPolygonTriggerAI`, 3): its
   `Action`, setting objectives.
 - **Colliding** (`CollideTriggerAI`, 47): its `Action` as one of those it
-  answers to runs into the part (`Triggered By Players`, `Enemies`,
-  `Anything`, `Projectiles`), not again within `Disallow Retrigger`
-  seconds.
+  answers to runs into the part, its movement meeting the part's outline
+  (`Triggered By Players`, `Enemies`, `Anything`, `Projectiles`; the
+  part's AIs told of the collision, slot `0x7c`, `0x412c40`). The first
+  time, or once `Disallow Retrigger` seconds have passed since it last
+  ran (`Last Trigger Time`); within them, its `Action for Failed
+  Retrigger`, which is empty in all 33 that have one. 41 of the 47 are
+  on collideable polygons, force fields' edges; 3 on Romulan guards.
 - **Passing through** (`CPassThroughTriggerAI`, 6): its `Action`. A
   collideable part with one lets what runs into it through, and is only
   touched: its AIs are asked whether it lets the mover through
@@ -472,9 +476,25 @@ The other triggers:
   polygon active for half a second.
 - **Triggered By Enemies** on 66 touching triggers.
 
+A touching trigger has one in it at a time (`0x417670`): each update
+it takes, of those it answers to in its shape, the last found
+(`0x4162f0`, `0x417840`). Its `Enter Action` runs as it goes from empty
+to someone, them its instigator, and its `Exit Action` as it empties,
+the one it held its instigator; a second coming in, or one of two
+leaving, runs neither. Its `Repeat Action` runs as someone's first in
+and every `Repeat Every` after while anyone is. One put where they are
+fewer than 4 updates ago (a character's `Updates Since Relocate`,
+counted up each update while it's active, `0x4965a4`, and set to 0 as
+the team's relocated, `0x4ca596`) doesn't set it off (`0x417753`): it's
+held all the same, so the trigger doesn't go till it's empty again. In
+the maps nearly every character starts at 0 (1,904 of them), so one
+standing in a touching trigger as the map starts doesn't set it off.
+
 Whom a trigger answers to (`0x417f10` for the touching ones, `0x562ee0`
-for colliding and passing through): its `Triggered By Name`, then
-`Anything`, then `Players` and `Enemies` by the part's flags, then
+for colliding and passing through): its `Triggered By Name`, the whole
+name in any case; then, with `Trigge Must Have HP` (46 triggers), not
+one with no health left; then `Anything`, then `Players` and `Enemies`
+by the part's flags, then
 `Projectiles`: anything with a `CShotAI` among its AIs or its model's
 (`0x417fb3`). Only an energy weapon's shot has one (`0x5c95d0`, from
 `CShootEnergyWeaponAction`); a thrown thing's AIs are its
@@ -501,10 +521,10 @@ its anything-touching trigger opens it. Its `Triggered By Players` and
 (`0x48e070`, the walker marked so by its path collide checker,
 `0x438cb0`), a door that isn't locked lets players or enemies by as
 they say, as it'll open for them; locked, it's in everyone's way, and
-in the way of sight always.
-
-The program's trigger code isn't traced yet: how these fields act is
-read from the maps.
+in the way of sight always. Opening, a door stays `Collideable` till it's
+all the way open: as it reaches Open it plays that, is made not
+collideable, and runs its After Opened (`0x48e460`); as it starts
+closing it's collideable again at once (`0x48e353`).
 
 ### The enemies
 
@@ -731,9 +751,16 @@ list (`CNoiseManager`, at the game's `0x334`; added at `0x5194e0`, each a
   greens, the Borg gun's blues.
 - **Hearing** (`0x519440`): a listener hears the newest noise it's inside,
   its distance up and down counted 1.403 times (the view's
-  foreshortening), on the same map, if it's of a side that hears that
-  noise's maker. An enemy's AI asks it when its `Investigate Sounds` is 1
-  (23 of Mission 01's 32).
+  foreshortening), whose maker is on the same map, with nothing standing
+  between: `0x497d40` sweeps the line from the listener to the noise as
+  sight does (`0x4ef660`), the listener left out, and a noise behind a
+  wall is passed over for an older one. There's no test of sides: any
+  noise is heard. A noise is where its maker stood as it was made
+  (`0x5194e0`), and one with no maker isn't heard. An enemy's AI asks it
+  when its `Investigate Sounds` is 1 (23 of Mission 01's 32).
+- **A bolt's noise:** a Team Member's bolt meeting something makes a
+  noise of 200 for 1.5 seconds where it meets it (`0x535ef4`, made by the
+  bolt's head).
 - **Investigating:** the `Investigate` state's `Investigate AI`, a
   `CChaseInvestigateAI` in 30 of Mission 01's enemies: `Run To
   Investigate`, `Time To Investigate` (5), path finding on, and its own
@@ -855,12 +882,15 @@ game's stopping leaves going, aren't traced)*.
 
 The triggers (`ui/map_triggers.cpp`): a part is drawn while it's visible
 and active, its triggers acting while it's active *(inferred)*. A
-touching trigger answers to any officer for `Triggered By Players` or
-`Anything`, or to the officer named; its Enter Action runs as one comes
-in, its Repeat Action then and every Repeat Every while they stay, its
-Exit Action as they leave; with Trigger Only Once it's done after the
-first that runs, and with Auto-Flip Switch its part is then turned off
-*(inferred)*. Relays, repeat timers, and these actions are run: several,
+touching trigger answers as above, to the officers and enemies, with
+one in it at a time: its Enter Action as it's first entered, its Repeat
+Action then and every Repeat Every while anyone's in it, its Exit
+Action as it empties, and nothing for a character put there fewer than
+4 updates ago. With Trigger Only Once it's done after the first that
+runs, and with Auto-Flip Switch its part is then turned off. Which of
+several found at once it holds is the last of the officers, then the
+enemies, then the thrown things *(inferred: the program takes them in
+its map's order)*. Relays, repeat timers, and these actions are run: several,
 random, series (each time the next), delays, info and tricorder lines
 (the tricorder's in the info dialog), relays, activating, deactivating,
 showing, hiding, deleting and destroying parts by name, sounds, checks
@@ -980,22 +1010,20 @@ trigger on a character goes where they go. A class check is of the
 officer's field.
 
 The triggers (`ui/map_triggers.cpp`): the anything-touching, team,
-collide and pass-through ones as above *(inferred)*; the touching ones
-Triggered By Enemies, or Anything, answer to the enemies too, each as an
-officer, its instigator *(inferred)*. A thrown thing sets off one
-Triggered By Anything as it comes in, its Enter Action, and as it leaves
-or goes off, its Exit Action; not its Repeat Action *(inferred)*. A
-collide trigger's part is its footprint, or its polygon, or 20 pixels
-about it *(inferred)*; a thrown thing sets off a collide or pass-through
+collide and pass-through ones as above *(inferred)*. A thrown thing in a
+touching trigger Triggered By Anything is one in it as a character is.
+A collide trigger goes as one it answers to comes into the part's
+footprint or polygon, or 20 pixels about it, rather than as their
+movement meets its outline *(inferred)*, and not again within Disallow
+Retrigger; a thrown thing sets off a collide or pass-through
 one by its polygon only. An energy weapon's shot is its line from the
 shooter to the one shot, at once: a touching trigger Triggered By
 Projectiles it crosses runs its Enter and Exit Actions, the shooter
 their instigator *(inferred: the program's bolt flies, and its shape
 against the trigger's isn't traced)*. A door
 (`ui/map_gadgets.cpp`) opens unless locked: its Before Open, its Activate
-Sound, Opening played and then Open, out of the way at once, and its
-After Opened as it's open; closing likewise, back in the way *(inferred:
-when it stops blocking isn't traced)*. A way's planned through a closed
+Sound, Opening played and then Open, out of the way only then, and its
+After Opened; closing likewise, back in the way at once. A way's planned through a closed
 door's outline only if it's not locked and answers to the walker's kind,
 officers by Triggered By Players, enemies by Enemies; without a way,
 they don't go (inferred: the program's goes straight there). The messages
@@ -1048,7 +1076,8 @@ there by the waypoints (running with Run To Investigate) and looks about
 by its own AI for Time To Investigate, then goes back on patrol where it
 left off; another noise heard meanwhile sends it there instead; seeing an
 officer meanwhile alerts it *(inferred)*.
-Walls don't stop noise *(inferred)*. The sound button, or S, shows the
+A wall between stops a noise, and an officer's bolt makes a noise of
+200 for 1.5 seconds on the enemy it meets. The sound button, or S, shows the
 noises as yellow rings, squashed up and down as they're heard, the button
 held down meanwhile *(inferred)*.
 
@@ -1183,8 +1212,9 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   stands between (the program's finding of a target doesn't).
 - **Water's time:** whether the program's clock the water moves by
   stops while the game is paused.
-- **The triggers:** the program's own rules for all of the above, which
-  are read from the maps' fields, not from its code.
+- **The triggers:** the order the program finds those in a touching
+  trigger in (the last found is the one it holds), and the anything-,
+  team- and every-touching triggers' own code, read from the maps' fields.
 - **The enemies:** likewise, the AIs' rules: when they pursue and give
   up, what holding a retreat's place is, what `$Trigger` and the
   instigator are in their states' actions, and how a radius's action
@@ -1194,15 +1224,12 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **Walking:** how the walkers' outlines are swept against each other
   in planning, the plain checker's part, and how a joined character's
   made an officer.
-- **Doors:** when one stops blocking, and whether a closed one stops a
-  walker as it walks, or only its planning.
-- **Noise:** which sides hear which noises, what `0x497d40` checks
-  before a noise is heard (perhaps a way there), how the rings are drawn,
-  and the investigating AI's rules.
+- **Doors:** whether a closed one stops a walker as it walks, or only its
+  planning.
+- **Noise:** how the rings are drawn, and the investigating AI's rules.
 - **Fighting:** the program's rules for sight (whether the footprints
   are what blocks it, `Half Height`), the bolt's hitting someone moving
-  out of its way, a Team Member's shot's noise where it hits (200 for
-  1.5 seconds, `0x535ef4`), how long a beam's shown and how high it ends,
+  out of its way, how long a beam's shown and how high it ends,
   where on a character the
   flashes go, stunning, death, and the mouse for attacking.
 - **Choosing:** the game's mouse for a box and Shift, and where officers

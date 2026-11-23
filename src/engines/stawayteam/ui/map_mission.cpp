@@ -38,6 +38,7 @@ void MapScreen::arrive(size_t officer, const Officer &state, float x, float y) {
     o.present = true;
     o.x = x;
     o.y = y;
+    o.settled = 0;
     o.path.clear();
     o.attacking = -1;
     o.task = Officer::Task::kNone;
@@ -253,10 +254,6 @@ size_t MapScreen::addMember(const TeamMember &member, bool present, float x, flo
         if (o.weapon && o.items[k].name == o.weapon->name && o.item < 0)
             o.item = int(k);
     _officers.push_back(o);
-    for (Trigger &t : _triggers) {
-        t.touching.resize(_officers.size(), false);
-        t.nextRepeat.resize(_officers.size(), 0.0f);
-    }
     _hud->addMember(member);
     return _officers.size() - 1;
 }

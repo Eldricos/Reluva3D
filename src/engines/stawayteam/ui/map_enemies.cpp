@@ -83,6 +83,7 @@ void MapScreen::setupEnemies() {
                 }
                 Enemy e;
                 e.part = i;
+                e.settled = _map.parts[i].settled;
                 e.ai = ai;
                 e.x = p.x;
                 e.y = p.y;

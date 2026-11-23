@@ -24,6 +24,9 @@ constexpr int kDirections = 12;
 constexpr float kBeamTime = 0.25f;
 // A strike reaches about a figure's width at least (inferred).
 constexpr float kStrikeReach = 30.0f;
+// The noise a Team Member's bolt makes where it meets something (0x535ef4).
+constexpr float kHitNoise = 200.0f;
+constexpr float kHitNoiseAge = 1.5f;
 // A shot meets a character this near its line, on the ground
 // unforeshortened: their outline, about 9 either side (inferred).
 constexpr float kHitReach = 9.0f;
@@ -556,10 +559,18 @@ void MapScreen::updateCombat(float seconds) {
                 makeNoise(o.x, o.y, o.weapon->shotNoise, o.weapon->shotNoiseTime);
                 o.shooting = 1e-6f;
                 const int self = int(&o - _officers.data());
-                if (o.weapon->dischargeAction == "CStrikeTargetAction")
+                if (o.weapon->dischargeAction == "CStrikeTargetAction") {
                     hurtEnemy(i, *o.weapon, self, stuns(o));
-                else
-                    hitWith(firstInLine(o.x, o.y, e.x, e.y, self), *o.weapon, self, stuns(o));
+                } else {
+                    // A Team Member's bolt makes a noise of 200 for 1.5
+                    // seconds where it meets someone (0x535ef4).
+                    const int hit = firstInLine(o.x, o.y, e.x, e.y, self);
+                    if (hit <= kEnemyInstigator) {
+                        const Enemy &met = _enemies[size_t(kEnemyInstigator - hit)];
+                        makeNoise(met.x, met.y, kHitNoise, kHitNoiseAge);
+                    }
+                    hitWith(hit, *o.weapon, self, stuns(o));
+                }
             }
         } else if (o.path.empty()) {
             o.path = route(o, e.x, e.y);

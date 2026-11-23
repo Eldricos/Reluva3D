@@ -64,8 +64,8 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
   by box and Shift, and where officers sent together stand; fighting:
   sight blocked by the models' `Bounds Poly`, a shot meeting those on its
   line at once, stunning, the health bar's cut, and a
-  click on an enemy to attack it; noise: going to look, walls not
-  stopping it, and the rings' look; the enemies pursuing, retreating,
+  click on an enemy to attack it; noise: going to look, and the rings'
+  look; the enemies pursuing, retreating,
   holding the place and acting on their messages, and officers stunned
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **Objectives:** when the Win Action runs, counts adding up to complete,
@@ -96,9 +96,9 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
   an officer goes to look, one running away giving up with no way to
   its spot, and End Recharge's AI before its patrol
   ([systems/maps.md](systems/maps.md#open-questions)).
-- **The triggers and doors:** an enemy setting off a touching trigger as
-  an officer does, what counts as colliding with a part, and a door out
-  of the way as soon as it starts opening
+- **The triggers:** which of several in a touching trigger at once it
+  holds, and a collide trigger going as one comes into the part's shape
+  rather than as their movement meets it
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **Walking round and joining:** how near a character makes a way
   through them dearer, how a

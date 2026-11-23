@@ -239,23 +239,29 @@ void testTriggers() {
     MapScreen screen(data, rules, map, options, 0, {officer});
     Surface surface;
     surface.create(640, 480, PixelFormat::kRGBA32);
+    uint64_t now = 0;
+    const auto run = [&](uint64_t until) {
+        while (now < until)
+            screen.update(now += 50);
+    };
     // Not there yet: nothing.
     screen.order(150.0f, 100.0f);
-    screen.update(1000);
+    run(1000);
     CHECK(!screen.partState(2).active);
     // In the oval: the arrow on, the gate off.
     screen.order(195.0f, 103.0f);
-    screen.update(4000);
+    while (now < 4000 && screen.partState(0).active)
+        screen.update(now += 50);
     CHECK(screen.partState(2).active && !screen.partState(0).active);
-    screen.draw(surface, 4000);
+    screen.draw(surface, now);
     // A second later, the arrow off; going out and back doesn't set it off
     // again.
-    screen.update(5100);
+    run(now + 1100);
     CHECK(!screen.partState(2).active);
     screen.order(100.0f, 100.0f);
-    screen.update(9000);
+    run(9000);
     screen.order(200.0f, 100.0f);
-    screen.update(13000);
+    run(13000);
     CHECK(!screen.partState(2).active);
     // A relay run by hand, as any action would.
     TextObject relay;
@@ -684,11 +690,17 @@ void testCombat() {
     CHECK(screen.objectives()[0].status == ObjectiveStatus::kFailed && screen.partState(3).active);
     // With her down it goes back to its patrol; Bo, sent to shoot it,
     // walks towards it till he sees it, and two of his phaser's shots kill
-    // it.
+    // it, each making a noise of 200 where it hits.
     CHECK(screen.enemyAt(500.0f, 500.0f) == 0);
     screen.choose(1);
     screen.attack(0);
-    run(20000);
+    bool hitNoise = false;
+    while (now < 20000) {
+        screen.update(now += 50);
+        for (const MapScreen::Noise &n : screen.noises())
+            hitNoise = hitNoise || (n.radius == 200.0f && n.age == 1.5f && n.x == 500.0f && n.y == 500.0f);
+    }
+    CHECK(hitNoise);
     CHECK(!guard.alive() && guard.state == "Dead" && guard.health == 0.0f && screen.partState(4).active);
     CHECK(screen.enemyAt(500.0f, 500.0f) == -1 && screen.officers()[1].attacking == -1);
     // A radius's action reaches the dead too, as they're still in its
@@ -704,7 +716,7 @@ void testCombat() {
 
 void testNoise() {
     // A guard at (500, 500) facing right, standing about on patrol, that
-    // listens; an officer far off, out of its sight.
+    // listens, a wall to its right; an officer far off, out of its sight.
     const std::string zax =
         "CLayerSaveData\n{\n\tWidth=1000\n\tHeight=1000\n\tView Position=500.000000,500.000000\n"
         "\tTree List=CSortList2D\n\t{\n"
@@ -723,12 +735,16 @@ void testNoise() {
         "\t\t\t\t}\n\t\t\t}\n"
         "\t\t\tModel=Characters/Guard\n\t\t\tPosition X=500\n\t\t\tPosition Y=500\n"
         "\t\t\tFacing Angle=3.14159\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Wall\n\t\t\tVisible=1\n\t\t\tActive=1\n"
+        "\t\t\tModel=Walls/Wall\n\t\t\tPosition X=560\n\t\t\tPosition Y=500\n\t\t}\n"
         "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Lamp\n\t\t\tVisible=0\n\t\t\tActive=0\n\t\t}\n"
         "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 1\n\t\t\tVisible=1\n"
         "\t\t\tPosition X=100\n\t\t\tPosition Y=900\n\t\t}\n"
         "\t}\n}\n";
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    data.files["Cache/Models/Walls/Wall.mdl16"] =
+        modelFile("Wall", 1, 1, 0.0f, {{-10, -40}, {10, -40}, {10, 40}, {-10, 40}, {-10, -40}});
     GameMap map;
     CHECK(!loadMap(data, "Levels/Test.zax", map));
     TextObject rules;
@@ -754,11 +770,15 @@ void testNoise() {
     screen.makeNoise(500.0f, 300.0f, 250.0f, 1.0f);
     screen.update(100);
     CHECK(guard.state == "Patrol" && screen.noises().size() == 1);
+    // One behind the wall isn't heard.
+    screen.makeNoise(620.0f, 500.0f, 200.0f, 1.0f);
+    screen.update(150);
+    CHECK(guard.state == "Patrol");
     // A noise 100 to its left is heard: it goes to look, the Start Action
     // run; the first noise is gone after its second.
     screen.makeNoise(400.0f, 500.0f, 150.0f, 1.0f);
     screen.update(200);
-    CHECK(guard.state == "Investigate" && screen.partState(1).active);
+    CHECK(guard.state == "Investigate" && screen.partState(2).active);
     uint64_t now = 200;
     while (now < 2500)
         screen.update(now += 50);
@@ -2041,7 +2061,7 @@ void testKit() {
     };
     const std::string zax =
         "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=500.000000,300.000000\nTree List=CSortList2D\n{\n" +
-        guard("Watcher", 500, 300, 3.14159f, "") + guard("Trapped", 900, 900, 0.0f, "") +
+        guard("Watcher", 500, 300, 3.14159f, "") + guard("Trapped", 900, 900, 0.0f, "Updates Since Relocate=890\n") +
         guard("Camera", 900, 300, 0.0f, "Category=Electronic Equipment,Enemy\n") +
         guard("Target", 300, 600, 1.5708f, "Default Death Type=Test\n") +
         "Level Part=CEntityBase\n{\nName=Field\nActivity=Array\n{\nItem Count=1\n"
@@ -2383,8 +2403,11 @@ void testDoors() {
                 return i;
         return size_t(0);
     };
-    // Ann's 100 off the door: it opens, out of the way, After Opened run.
+    // Ann's 100 off the door: it opens, in the way till it's done
+    // opening, then out of it, After Opened run.
     CHECK(screen.partState(part("Door")).collideable);
+    run(50);
+    CHECK(screen.partState(part("Door")).collideable && !screen.partState(part("Opened")).active);
     run(500);
     CHECK(!screen.partState(part("Door")).collideable && screen.partState(part("Opened")).active);
     // She walks off: half a second on, it's closed.
@@ -2551,6 +2574,66 @@ void testBeams() {
     CHECK(screen.beams().empty());
 }
 
+void testOccupant() {
+    // A touching trigger with an Enter Action switching Lamp on and an
+    // Exit Action switching Out on; Ann and Bo outside it.
+    const auto marker = [](const std::string &name) {
+        return "Level Part=CEntityBase\n{\nName=" + name + "\nVisible=0\nActive=0\n}\n";
+    };
+    const auto spawn = [](int n, int x) {
+        return "Level Part=CEntityBase\n{\nName=Away Team Spawn Point " + std::to_string(n) +
+               "\nPosition X=" + std::to_string(x) + "\nPosition Y=500\n}\n";
+    };
+    const std::string zax =
+        "CLayerSaveData\n{\nWidth=1000\nHeight=1000\nView Position=500.000000,500.000000\nTree List=CSortList2D\n{\n"
+        "Level Part=CEntityBase\n{\nName=Pad\nActive=1\nActivity=Array\n{\nItem Count=1\n"
+        "Activity=CTouchingOvalTriggerAI\n{\nTriggered By Players=1\nX Radius=60\nYX Ratio=1\n"
+        "Enter Action=CActivateAction\n{\nTarget Name=Lamp\n}\nExit Action=CActivateAction\n{\nTarget Name=Out\n}\n"
+        "}\n}\nPosition X=500\nPosition Y=500\n}\n" +
+        marker("Lamp") + marker("Out") + spawn(1, 300) + spawn(2, 250) + "}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    TeamMember bo;
+    bo.firstName = "Bo";
+    MapScreen screen(data, rules, map, options, 0, {ann, bo});
+    uint64_t now = 0;
+    const auto run = [&](uint64_t until) {
+        while (now < until)
+            screen.update(now += 50);
+    };
+    // Ann in: its Enter Action. Lamp put off by hand, Bo in after her
+    // doesn't run it again.
+    screen.choose(0);
+    screen.order(500.0f, 500.0f);
+    run(10000);
+    CHECK(screen.partState(1).active && !screen.partState(2).active);
+    TextObject off;
+    CHECK(!readTextObject("CDeactivateAction\n{\nTarget Name=Lamp\n}\n", off));
+    screen.runAction(&off);
+    screen.choose(1);
+    screen.order(480.0f, 500.0f);
+    run(20000);
+    CHECK(!screen.partState(1).active && !screen.partState(2).active);
+    // Ann out, Bo still in: no Exit Action; Bo out too: it runs.
+    screen.choose(0);
+    screen.order(300.0f, 500.0f);
+    run(30000);
+    CHECK(!screen.partState(2).active);
+    screen.choose(1);
+    screen.order(250.0f, 500.0f);
+    run(40000);
+    CHECK(screen.partState(2).active && !screen.partState(1).active);
+}
+
 void testChoosing() {
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(kMap, kMap + std::string(kMap).size());
@@ -2672,6 +2755,7 @@ static const reluva::test::Suite
                {"projectiles", [](const std::filesystem::path &) { testProjectiles(); }},
                {"drawing order", [](const std::filesystem::path &) { testDrawingOrder(); }},
                {"choosing", [](const std::filesystem::path &) { testChoosing(); }},
+               {"occupant", [](const std::filesystem::path &) { testOccupant(); }},
                {"combat", [](const std::filesystem::path &) { testCombat(); }},
                {"noise", [](const std::filesystem::path &) { testNoise(); }},
                {"objectives", [](const std::filesystem::path &) { testObjectives(); }},

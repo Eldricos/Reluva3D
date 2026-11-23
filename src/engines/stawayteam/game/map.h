@@ -44,6 +44,7 @@ struct MapPart {
     std::vector<const TextObject *> activities; // its AIs (Activity), in the map's object
     bool collideable = true;
     bool fullHeight = true;                       // tall enough to hide what's behind it (inferred)
+    int settled = 0;                              // updates since it was put there (Updates Since Relocate)
     std::vector<std::string> inventory;           // its items' definitions (Inventory's Definition Index)
     bool stuns = false;                           // an item of its set to stun (its Weapon Setting)
     const TextObject *destroyedAction = nullptr;  // run as it's killed

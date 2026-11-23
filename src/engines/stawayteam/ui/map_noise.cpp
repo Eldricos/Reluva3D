@@ -61,13 +61,14 @@ void MapScreen::updateNoises(float seconds) {
 
 bool MapScreen::hears(const Enemy &e, float &x, float &y) const {
     // The newest noise it's inside, nearer up and down by the view's
-    // foreshortening (0x519440); walls don't stop it (inferred).
+    // foreshortening (0x519440), with nothing standing between, as for
+    // its sight (0x497d40): a wall stops it. Whoever made it, any side.
     if (readText(e.ai, "Investigate Sounds") != "1")
         return false;
     for (const Noise &n : _noises) {
         const float dx = e.x - n.x;
         const float dy = (e.y - n.y) * kHearingSquash;
-        if (dx * dx + dy * dy < n.radius * n.radius) {
+        if (dx * dx + dy * dy < n.radius * n.radius && clearSight(e.x, e.y, n.x, n.y)) {
             x = n.x;
             y = n.y;
             return true;

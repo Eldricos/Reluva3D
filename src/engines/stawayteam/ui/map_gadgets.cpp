@@ -612,6 +612,8 @@ void MapScreen::updateDeployed(float seconds) {
             now.frames = 0;
             now.done = nullptr;
             _map.parts[part].sequence = now.sequence;
+            if (const auto door = _doors.find(part); door != _doors.end() && door->second.open)
+                _partStates[part].collideable = false;
             runAction(done, by, int(part));
         }
     }
@@ -665,9 +667,9 @@ void MapScreen::setupDoors() {
 bool MapScreen::moveDoor(size_t part, bool open, int instigator) {
     // Its Before Open (or Closed) action, its model's Activate (or Close)
     // Sound, Opening (or Closing, else Closed) played once and then Open
-    // (or Closed), and its After Opened (or Closed) action; open, it's
-    // out of the way at once, closed, back (inferred: when it stops
-    // blocking isn't traced). A locked one doesn't.
+    // (or Closed), and its After Opened (or Closed) action. It's in the
+    // way till it's all the way open (0x48e48d, updateDeployed), and back
+    // in it as it starts closing (0x48e35a). A locked one doesn't move.
     const auto it = _doors.find(part);
     if (it == _doors.end())
         return false;
@@ -683,7 +685,8 @@ bool MapScreen::moveDoor(size_t part, bool open, int instigator) {
     if (const BinaryObject *object = modelObject(_map.parts[part].model); object && _mixer)
         if (auto sound = gameSound(_data, readText(&object->object, open ? "Activate Sound" : "Close Sound")))
             _mixer->play(sound, audio::SoundType::kEffects);
-    _partStates[part].collideable = !open && _map.parts[part].collideable;
+    if (!open)
+        _partStates[part].collideable = _map.parts[part].collideable;
     const std::string moving = open ? "Opening" : hasSequence(part, "Closing") ? "Closing" : "Closed";
     playSequence(part, moving, open ? "Open" : "Closed",
                  ai ? ai->object(open ? "After Opened" : "After Closed") : nullptr, instigator);

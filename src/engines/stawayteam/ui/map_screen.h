@@ -119,6 +119,7 @@ public:
         std::vector<const TextObject *> addedAIs; // AIs given them, their stand-in's if they leave
         float x = 0.0f;                           // where they stand
         float y = 0.0f;
+        int settled = 0;                           // updates since they were put there (Updates Since Relocate)
         int direction = 0;                         // of their model's 12, 0 facing left
         std::vector<std::pair<float, float>> path; // where they're walking to, the next first
         float travelled = 0.0f;                    // into their walk's cycle, in pixels
@@ -216,6 +217,7 @@ public:
         const TextObject *ai = nullptr;
         float x = 0.0f; // where it stands
         float y = 0.0f;
+        int settled = 0;        // updates since it was put there (Updates Since Relocate)
         float angle = 0.0f;     // which way it faces, as Facing Angle
         std::string state;      // "Patrol", "Alert", "Attack"...
         int target = -1;        // the officer it's after
@@ -822,19 +824,21 @@ private:
     struct Trigger {
         size_t part;
         const TextObject *ai;
-        bool done = false;                 // triggered, and only once
-        std::vector<bool> touching;        // each officer's, for a touching trigger
-        std::vector<bool> touchingEnemies; // each enemy's (a collide trigger's: each who's about)
-        std::vector<float> enemyRepeat;
+        bool done = false; // triggered, and only once
+        // A touching trigger's one in it, as an instigator, if it's occupied,
+        // and the seconds till its next Repeat Action.
+        bool occupied = false;
+        int occupant = -1;
+        float repeatIn = 0.0f;
+        std::vector<bool> touchingEnemies; // a collide trigger's: each enemy who's about
         // An anything-touching trigger's: something in it, and its action
         // waiting out its delay, for whom.
         bool anything = false;
         const TextObject *pending = nullptr;
         float countdown = 0.0f;
         int instigator = -1;
-        std::vector<float> nextRepeat; // each officer's next Repeat Action
-        std::vector<int> thrownIn;     // the thrown things in it, by id
-        float timer = 0.0f;            // a repeat timer's seconds till it next acts
+        std::vector<int> thrownIn; // the thrown things in a pass-through trigger, by id
+        float timer = 0.0f;        // a repeat timer's seconds till it next acts
     };
     std::vector<PartState> _partStates;
     std::vector<Enemy> _enemies;
