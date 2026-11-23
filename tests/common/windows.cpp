@@ -11,6 +11,7 @@
 #include "common/fs.h"
 #include "common/types.h"
 #include "emulation/x86/a3d.h"
+#include "emulation/x86/dplay.h"
 #include "emulation/x86/com.h"
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/directx/dinput.h"
@@ -834,6 +835,34 @@ static void testInput() {
     CHECK(call(keyboard, 9, {256, state}) == 0 && cpu.read8(state + 0x1e) == 0);
 }
 
+// DirectPlay 3 created through COM, with no connections to offer.
+static void testDirectPlay() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    x86::DirectPlay directPlay(process);
+    uint32_t r = 0;
+    auto guid = [&](const char *g) {
+        const uint32_t a = process.memory().alloc(16);
+        x86::ComHost::writeGuid(cpu, a, g);
+        return a;
+    };
+    const uint32_t out = process.memory().alloc(4);
+    CHECK(!cpu.call(process.provided("ole32.dll", "CoCreateInstance"),
+                    {guid("{d1eb6d20-8923-11d0-9d97-00a0c90a43cb}"), 0, 1,
+                     guid("{133efe40-32dc-11d0-9cfb-00a0c90a43cb}"), out},
+                    r) &&
+          r == 0);
+    const uint32_t dp = cpu.read32(out);
+    int offered = 0;
+    const uint32_t callback = cpu.addNative("test!EnumConnections", [&](x86::Cpu &c) {
+        ++offered;
+        c.reg[x86::Cpu::EAX] = 1;
+        return 24u;
+    });
+    CHECK(!cpu.call(cpu.read32(cpu.read32(dp) + 4 * 35), {dp, 0, callback, 0, 0}, r) && r == 0 && offered == 0);
+    CHECK(!cpu.call(cpu.read32(cpu.read32(dp) + 4 * 2), {dp}, r) && r == 0); // Release
+}
+
 // A3D created as a program creates it, a source made, filled through Lock,
 // played once and looped, as the clock moves.
 static void testA3d() {
@@ -1009,5 +1038,6 @@ static const test::Suite
                {"directx", [](const std::filesystem::path &) { testDirectX(); }},
                {"input", [](const std::filesystem::path &) { testInput(); }},
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
+               {"directplay", [](const std::filesystem::path &) { testDirectPlay(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
            });

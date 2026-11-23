@@ -111,6 +111,7 @@ constexpr uint32_t kEInvalidArg = 0x80070057u;
 constexpr uint32_t kEOutOfMemory = 0x8007000eu;
 constexpr uint32_t kENotImpl = 0x80004001u;
 constexpr uint32_t kEFail = 0x80004005u;
+constexpr uint32_t kClassNotRegistered = 0x80040154u; // REGDB_E_CLASSNOTREG
 ///@}
 
 } // namespace reluva::x86

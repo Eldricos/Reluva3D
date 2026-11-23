@@ -28,7 +28,6 @@ const char *const kIidGeom = "{4730c6c2-b797-11d3-a33d-00104b67d10e}"; // its ge
 // for (NewSource and NewMaterial hand them out); they follow on from it.
 const char *const kIidListener = "{c398e563-d90b-11d1-90fb-006008a1f441}"; // its listener
 
-constexpr uint32_t kClassNotRegistered = 0x80040154u;
 // Play modes; GetStatus's bits.
 constexpr uint32_t kLooped = 1;
 constexpr uint32_t kStatusPlaying = 0x1;
