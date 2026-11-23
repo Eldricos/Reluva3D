@@ -5,8 +5,8 @@
 ## Overview
 
 As the game starts, it plays four movies, the publishers' and the
-developer's logos and then the introduction, each of which a key or a
-click skips; then it shows the main menu, its starry background moving
+developer's logos and then the introduction, each of which a key
+skips; then it shows the main menu, its starry background moving
 behind the title and its buttons, with the startup song.
 
 ## How it works
@@ -28,10 +28,13 @@ The movies are loose files in the install, not in `DATA.dat`: `0x4d4da0`
 makes each name `Movies/<name>.bik` (`0x63e83c`) and opens it, and when
 it can't, goes on to the next (`0x4d4e14`).
 
-**Skipping.** While a movie plays, the player looks at the game's queue
-of input every frame (`0x4d4e83`): anything in it, a key or a click,
-empties it and ends the movie; which kinds of input the queue holds isn't
-traced *(inferred)*. While the game isn't the window in front (the flag at the
+**Skipping.** While a movie plays, the player looks every frame
+(`0x4d4e83`) for a key newly pressed in the program's table of keys
+(`0x4e8de0`: a key's "pressed" bit, set as Windows reports it down,
+`0x4e8ec0`); one ends the movie, the table's pressed bits cleared
+(`0x4e8c80`). The mouse's buttons only change the mouse's state
+(`0x5fa9ea`), so a click doesn't skip it.
+While the game isn't the window in front (the flag at the
 player's `+0x64`) the movie is paused *(inferred)*.
 
 **The startup sound.** After the movies the code plays `Startup.wav`
@@ -60,7 +63,7 @@ The song is `Rules.txt`'s `Startup Song`,
   plays each of `kOpeningMovieNames` from the install's `DATA/Movies/`
   through the shared `video::MoviePlayer`, its picture in the middle of
   the screen on black, its sound through the mixer, until it ends or a key
-  or click; a movie that isn't there is passed over. The engine's setting
+  is pressed; a movie that isn't there is passed over. The engine's setting
   "Opening movies" leaves them out.
 - **The main menu's screen:** `MainMenu`
   (`src/engines/stawayteam/ui/main_menu.cpp`) reads the main menu's nernies

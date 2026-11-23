@@ -37,9 +37,10 @@ bool playMovie(System &sys, Surface &screen, audio::Mixer *mixer, const std::fil
         while (sys.pollEvent(ev)) {
             if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                 return false;
-            // Any key or click, as anything in the game's queue of input
-            // stops its movie (0x4d4e83).
-            if (ev.type == EventType::kKeyDown || ev.type == EventType::kMouseDown)
+            // Any key pressed stops it: the game looks for a key newly down
+            // in its table of keys (0x4d4e83, 0x4e8de0), which the mouse's
+            // buttons don't go into (0x5fa9ea).
+            if (ev.type == EventType::kKeyDown)
                 return true;
         }
         const uint64_t now = sys.getMillis();
