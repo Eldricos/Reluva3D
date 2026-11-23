@@ -91,9 +91,11 @@ reaches its menus; then DirectSound; then a level.
    in Reluva's window, its opening, menus, cut scenes and levels drawn by
    its own software renderer or through Direct3D 1, with the keyboard
    and mouse, its sound through DirectSound, the CDs' music through MCI,
-   and each CD put in the drive as it asks for it
-   ([systems/hosting.md](systems/hosting.md)). Next: DirectPlay for
-   multiplayer.
+   each CD put in the drive as it asks for it, and multiplayer over
+   TCP/IP between copies of Reluva
+   ([systems/hosting.md](systems/hosting.md)). Next: playing through
+   every level and the multiplayer games to find what differs, then
+   Mysteries of the Sith.
 7. **Mysteries of the Sith.**
 
 ## Decisions
@@ -113,3 +115,5 @@ reaches its menus; then DirectSound; then a level.
 | November 2026 | The CDs' music from their audio tracks beside each CD's files: a cue sheet and its image, read as it plays, or tracks ripped as `trackNN.wav` or `.mp3` | A copy of a CD's files doesn't hold its audio; an image's cue sheet needs no ripping, and ripped tracks are Reluva's way for other games' CD music (Clue) |
 | November 2026 | The window shows the system's pointer while the game shows Windows', and holds the mouse while the game holds it through DirectInput | The menus use Windows' pointer without drawing one; play reads the mouse's movement |
 | November 2026 | What the game writes to its registry is kept in the save folder (`registry.txt`), and given back each run | *Setup*'s choices, Direct3D's device among them, live in the registry; Windows kept them, and the emulator's registry is made afresh each run |
+| November 2026 | Multiplayer through the emulator's DirectPlay, over a protocol of Reluva's own on UDP, between copies of Reluva; TCP/IP only | The game uses DirectPlay alone for its network, and only what any DirectPlay game would; Microsoft's protocol isn't published, and copies of Reluva meeting each other is what players need. UDP lets the game's unguaranteed messages be lost as they were, and runs on Reluva's loopback network for tests |
+| November 2026 | A host to join beyond the local network is the `joinaddress` setting | Windows' TCP/IP provider asked for it in a box of its own, which the game never draws |

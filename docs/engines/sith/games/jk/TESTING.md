@@ -75,6 +75,7 @@ That the US release's signatures match a real install: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | Multiplayer: two `reluva-tool sith host -net` on one machine, over its UDP sockets: one hosted *The Duel* (Capture the Flag); the other listed it with its episode, level and players, joined, and saw the host's Kyle in the level; each was told of the other's player, the host of the joiner's leaving. `ctest`'s *directplay* test hosts, joins and passes messages on the loopback network |
 | November 2026 | US retail | Linux | Direct3D: `reluva-tool sith host -d3d` with keys into Nar Shaddaa: the level drawn through Direct3D 1's execute buffers in 16-bit colour, textured and depth-tested, the menus still 8-bit; no call left unanswered. `ctest`'s *direct3d 1* test draws through an execute buffer and checks the pixels |
 | November 2026 | US retail | Linux | Changing CDs: with CD 2's `23a.smk` among a player's cut scenes seen, *Cutscenes* lists "9 - 8t88's Payment"; played, the game checks for CD 2, drive D becomes CD 2's copy, and the cut scene (only on CD 2) plays, without the game asking for the CD |
 | November 2026 | US retail | Linux | CD 1's music from the image's cue sheet and audio tracks beside CD 1's files: `reluva-tool sith folders` finds 7 tracks on CD 1 and 11 on CD 2; `reluva-tool sith host -wav` into Nar Shaddaa: the game plays tracks 2 and 3, and what's heard is track 2 sample for sample (with the script's volume set aside, the bar being quiet) |

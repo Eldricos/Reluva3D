@@ -13,6 +13,7 @@
 #include "emulation/x86/win32.h"
 #include "engines/sith/folders.h"
 
+#include <atomic>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -34,8 +35,8 @@ public:
      * Sets up the process and its stand-ins; nothing is loaded until load().
      * @param folders The install and its CDs (findFolders).
      * @param saveFolder Where what the game writes goes, and is read back from
- *        first; the settings it keeps in the registry are kept there too
- *        (registry.txt).
+     *        first; the settings it keeps in the registry are kept there too
+     *        (registry.txt).
      * @param commandLine Its arguments after "JK.EXE", if any.
      */
     GameProcess(const GameFolders &folders, const std::filesystem::path &saveFolder,
@@ -65,6 +66,7 @@ public:
     x86::DirectX &directX() { return *_directX; }
     x86::DirectInput &directInput() { return *_directInput; }
     x86::DirectSound &directSound() { return *_directSound; }
+    x86::DirectPlay &directPlay() { return *_directPlay; }
     x86::CdAudio &cdAudio() { return *_cdAudio; }
     ///@}
     /**
@@ -81,6 +83,7 @@ private:
     std::unique_ptr<x86::DirectX> _directX;
     std::unique_ptr<x86::DirectInput> _directInput;
     std::unique_ptr<x86::DirectPlay> _directPlay;
+    std::atomic<int64_t> _networkAt{0}; // when the network was last answered, in steady milliseconds
     std::unique_ptr<x86::DirectSound> _directSound;
     std::unique_ptr<x86::CdAudio> _cdAudio;
     const x86::Win32Process::Module *_exe = nullptr;

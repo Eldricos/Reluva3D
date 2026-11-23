@@ -4,6 +4,7 @@
 #pragma once
 
 #include "common/events.h"
+#include "emulation/x86/dplay.h"
 #include "engines/sith/folders.h"
 
 #include <chrono>
@@ -34,9 +35,11 @@ public:
     /**
      * What the game writes (its players, saves and settings) goes to
      * `saveFolder`; its sound card plays through `mixer`, if there's one,
-     * which must outlive the player.
+     * which must outlive the player; its multiplayer sessions over
+     * `network`, if it has one.
      */
-    Player(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer *mixer = nullptr);
+    Player(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer *mixer = nullptr,
+           x86::DirectPlay::Network network = {});
     /** Stops the game and waits for its thread. */
     ~Player();
 
@@ -74,6 +77,7 @@ private:
     GameFolders _folders;
     std::filesystem::path _saveFolder;
     audio::Mixer *_mixer;
+    x86::DirectPlay::Network _network;
     GameProcess *_game = nullptr; // the game thread's, while it runs
     std::thread _thread;
     std::mutex _mutex;

@@ -43,7 +43,8 @@ public:
                     sys.stopAudio();
             }
         } audioStop{_sys, audioOut};
-        Player player(findFolders(_target.path, _target.settings), _target.savePath, audioOut ? &mixer : nullptr);
+        Player player(findFolders(_target.path, _target.settings), _target.savePath, audioOut ? &mixer : nullptr,
+                      network());
         player.start();
         int width = 640;
         int height = 480;
@@ -105,6 +106,28 @@ public:
     }
 
 private:
+    // Multiplayer over the machine's network: sessions looked for on the
+    // local networks and on this machine, and at the host the joinaddress
+    // setting names.
+    x86::DirectPlay::Network network() {
+        x86::DirectPlay::Network n;
+        n.open = [this](uint16_t port) {
+            std::unique_ptr<net::UdpSocket> socket;
+            return _sys.openUdp(port, socket) ? nullptr : std::move(socket);
+        };
+        n.search.push_back(net::Address::broadcast(x86::kDirectPlayPort));
+        for (uint32_t ip : _sys.broadcastAddresses())
+            n.search.push_back({ip, x86::kDirectPlayPort});
+        n.search.push_back({0x7f000001, x86::kDirectPlayPort});
+        if (const auto join = _target.settings.find("joinaddress"); join != _target.settings.end()) {
+            const auto [host, port] = net::splitHostPort(join->second, x86::kDirectPlayPort);
+            uint32_t ip = 0;
+            if (!host.empty() && _sys.resolveHost(host, ip))
+                n.search.push_back({ip, port});
+        }
+        return n;
+    }
+
     // Whether to leave after the window was closed (or, `toLauncher`,
     // Ctrl+F5 was pressed): what the game hasn't saved would be lost.
     bool confirmQuit(bool toLauncher) {

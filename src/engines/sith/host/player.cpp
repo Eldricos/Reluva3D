@@ -11,8 +11,9 @@
 
 namespace reluva::sith {
 
-Player::Player(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer *mixer)
-    : _folders(std::move(folders)), _saveFolder(std::move(saveFolder)), _mixer(mixer) {
+Player::Player(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer *mixer,
+               x86::DirectPlay::Network network)
+    : _folders(std::move(folders)), _saveFolder(std::move(saveFolder)), _mixer(mixer), _network(std::move(network)) {
 }
 
 Player::~Player() {
@@ -74,6 +75,7 @@ std::string Player::takeOutput() {
 
 void Player::work() {
     GameProcess game(_folders, _saveFolder);
+    game.directPlay().network = _network;
     x86::Win32Process &process = game.process();
     process.output = [this](const std::string &text) {
         std::lock_guard<std::mutex> lock(_mutex);
@@ -104,7 +106,11 @@ void Player::work() {
         }
         drain();
     };
-    process.idle = [this] { drain(); };
+    // While every thread waits, the network is still answered.
+    process.idle = [this, &game] {
+        drain();
+        game.directPlay().update();
+    };
     {
         std::lock_guard<std::mutex> lock(_mutex);
         _game = &game;

@@ -13,7 +13,7 @@ archives, strings, fonts and the menus' pictures, lists Direct3D's
 devices, sets the display mode, shows the opening's title and crawl,
 which it draws itself, and its menus, cut scenes and levels play, drawn
 by its own software renderer or through Direct3D, with its sound and the
-CDs' music.
+CDs' music, and multiplayer between copies of Reluva.
 
 ## How it works
 
@@ -135,6 +135,35 @@ it uses are DirectX 5's, by the identifiers in its data:
     blending, linear filtering and the depth test (`ZFUNC` less-equal and
     always). The menus stay 8-bit, drawn as before. If a GUID can't be
     read, it goes back to software (`0x414424`) *(from the code)*.
+18. **Multiplayer** goes through DirectPlay 3 (`IDirectPlay3A`, kept at
+    `0x55d608`), its calls at `0x42fa40` to `0x4305d2` *(from the code)*:
+    - *Host Game* and *Join Game* list the connections
+      (`EnumConnections`, up to 16, by name) for *Choose a network
+      provider*, and the one chosen is initialized
+      (`InitializeConnection`). The service providers' identifiers in its
+      data (TCP/IP, IPX, modem, serial) are never used by its code.
+    - A host makes its session (`Open`, `DPOPEN_CREATE`) from the game's
+      settings: its name, the episode and level as `name:episode:level`
+      (`kyle's Game:JK1CTF:c1.jkl`), its players' limit, a password if
+      there's one, and the rank, score and time limits in the four user
+      words; it asks for keep-alives and no data-change messages, and
+      leaves host migration off. The settings it changes later go by
+      `SetSessionDesc`.
+    - *Join Game* asks for the sessions again and again without waiting
+      (`EnumSessions` with `DPENUMSESSIONS_ASYNC`, all sessions, those
+      with a password too), lists up to 32 by name, and shows the one
+      picked's episode, level, players and rank, and its players before
+      joining (`EnumPlayers` with `DPENUMPLAYERS_SESSION`); then it
+      joins (`Open`, `DPOPEN_JOIN`).
+    - Each end makes its player (`CreatePlayer`, the character's name, no
+      event) and asks the caps (`GetCaps`: the players, speed and
+      latency); teams are groups (`CreateGroup`, `AddPlayerToGroup`).
+    - Every message is sent unguaranteed (`Send`, flags 0): the game
+      resends what must arrive itself. It reads its messages with
+      `Receive` (any, `DPRECEIVE_ALL`) until `DPERR_NOMESSAGES`; of the
+      system's it acts on a player made (`DPSYS_CREATEPLAYERORGROUP`,
+      players only), a player gone (`DPSYS_DESTROYPLAYERORGROUP`) and
+      the session lost (`DPSYS_SESSIONLOST`), and passes over the rest.
 
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were
@@ -165,12 +194,21 @@ it presents in the window, and passes the keyboard and mouse on.
 - **Its devices:** DirectDraw, with the 8-bit modes the menus and the
   software renderer use, Direct3D 1's devices on the emulator's
   rasterizer ([directx.md](../../../../../common/x86/directx.md)),
-  DirectInput, DirectPlay, DirectSound
-  ([dsound.md](../../../../../common/x86/dsound.md)) and the CD's audio
+  DirectInput, DirectPlay ([dplay.md](../../../../../common/x86/dplay.md)),
+  DirectSound ([dsound.md](../../../../../common/x86/dsound.md)) and the
+  CD's audio
   ([cdaudio.md](../../../../../common/x86/cdaudio.md)) are the
   emulator's, the sound card's output and the music played through
   Reluva's mixer. There's no `waveOut` device, no joystick and no
   DirectPlay lobby: the game is told so, as on a machine without them.
+- **Multiplayer:** DirectPlay offers one connection, TCP/IP, over the
+  machine's network. *Join Game* finds sessions hosted by other copies
+  of Reluva on the local networks and on this machine, and at the host
+  the `joinaddress` setting names (`reluva.ini`, the game's section:
+  `host` or `host:port`), for a host beyond the local network; a host
+  listens on UDP port 47624, which a router has to pass on for players
+  from outside. Reluva answers the network as the game runs and while it
+  waits, so a host in its menus still lets players join.
 - **Changing CDs:** the episode's steps each name their CD (levels 9 on,
   and their cut scenes, are on CD 2), and before one starts the game
   checks for it (`0x40ebb0`, its argument the CD's number, 0 for either)
@@ -205,7 +243,10 @@ window, for up to `-seconds` seconds, and says what it opened, wrote to
 the registry, printed for a debugger or showed in a message box, and
 where it stopped (registers, and the return addresses on the stack).
 `-d3d` writes *Setup*'s choice of Direct3D's hardware device and 640 by
-480 in 16-bit colour to the registry before it starts. `-png` saves the last frame, `-calls` lists every stand-in called and the
+480 in 16-bit colour to the registry before it starts. `-net` gives the game the machine's network for multiplayer (and
+`-join <address>` a host to look for sessions at), and says what
+DirectPlay does: sessions made or joined, players come and gone, and the
+datagrams sent and received. `-png` saves the last frame, `-calls` lists every stand-in called and the
 last 40 in order, `-keys "<seconds>:<key>,..."` presses keys at those
 moments (letters, digits, `esc`, `enter`, `space`, `tab`, the arrows, and
 `click<x>x<y>` for the mouse's left button on the screen), `-wav`
@@ -215,7 +256,13 @@ of the program's memory at the end.
 `-keys "8:esc,11:k,11.4:y,11.8:l,12.2:e,13:enter"` goes through the crawl
 and the first player's name to the main menu;
 `,16:click318x188,19:click294x108,25:esc` after it starts a new game and
-skips its cut scene, into the first level. `reluva-tool sith disasm
+skips its cut scene, into the first level. For multiplayer, with a
+player who has a multiplayer character (*Multiplayer Characters*) and
+`-net`: `-keys "8:esc,10:click556x448,13:click318x248,16:click458x100,19:click200x190,20:click518x448,23:click518x448,26:click573x448"`
+hosts *The Duel* (*Players*' *Ok*, *Multiplayer*, *Host Game*, TCP/IP,
+*Ok*, the game's settings' *Ok*, the character's *Ok*);
+`-keys "8:esc,10:click556x448,13:click318x248,16:click180x100,19:click200x190,20:click518x448,28:click220x170,30:click518x448,33:click573x448"`
+in a second copy, with a save folder of its own, joins it. `reluva-tool sith disasm
 <JK.EXE> <address>` shows the program's instructions from an address.
 
 What it still takes to play the whole game this way, from what the runs
@@ -224,7 +271,6 @@ and the imports show:
 | Need | What | How much |
 |---|---|---|
 | Windows | About 40 calls the emulator lacks, none met in play yet: GDI's palettes and DIB sections, dialogs, `CompareString`, WINMM's timer events for Smacker's sound | Small each, in the shared stand-ins |
-| DirectPlay 3 | Multiplayer sessions, on Reluva's network code; for now the class with no connections ([dplay.md](../../../../../common/x86/dplay.md)) | Later |
 
 ## Sources and checks
 
@@ -232,6 +278,12 @@ and the imports show:
   the retail install with CD 1's copy; `JK.EXE`'s imports, and the
   DirectX interface identifiers found in its data; its code at the
   addresses above, read with `reluva-tool sith disasm`.
+- **Multiplayer:** two copies of `reluva-tool sith host -net` on one
+  machine, each with its own save folder: one hosted *The Duel*; the
+  other found "kyle's Game" (episode, level, "Players: 1 of 4" shown),
+  joined it and played, seeing the host's Kyle in the level, about 20
+  datagrams a second passing; each copy was told of the other's player,
+  and the host of the joiner's leaving, 15 seconds after it stopped.
 - **How it was checked:** each run's stop explained by the code where
   it stopped, as above.
 

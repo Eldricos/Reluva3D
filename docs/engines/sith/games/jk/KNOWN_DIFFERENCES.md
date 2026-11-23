@@ -20,8 +20,12 @@ None yet.
   and its image, or ripped tracks); without them, none, as with the CD
   missing ([README.md](README.md#using-it)).
 - **Joysticks:** none; the game finds none.
-- **Multiplayer:** DirectPlay offers no connections, so there's no one to
-  play with.
+- **Multiplayer:** over TCP/IP only, and between copies of Reluva: its
+  DirectPlay plays sessions over a protocol of its own, so it can't meet
+  a game on Windows' DirectPlay. There's no IPX, modem or serial
+  connection, no lobby, and the host's address, where
+  Windows' TCP/IP asked for it in a box, is the `joinaddress` setting.
+  The host's leaving ends the session, as the game asked.
 - **Direct3D:** *Setup*'s hardware drawing is done by the emulator's
   software rasterizer, not a graphics card: its filtering and precision
   are Reluva's, not those of the cards of 1997.

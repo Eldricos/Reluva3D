@@ -59,9 +59,9 @@ installer and the readme.
   *Setup*, through Direct3D, with the keyboard
   and mouse, its sound, and the CDs' music from their audio tracks; CD 2
   is put in the drive when the game asks for it
-  ([systems/hosting.md](systems/hosting.md)). Not yet multiplayer
+  ([systems/hosting.md](systems/hosting.md)); and multiplayer over the
+  network, between copies of Reluva
   ([KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md)).
-- **Not yet:** multiplayer.
   Plans, phases and decisions: [PLAN.md](PLAN.md).
 
 ## Using it
@@ -89,6 +89,13 @@ the CD image's cue sheet and its `.bin` files (the data track's own
 `track03.wav` and so on (`reluva-tool cue-rip <image.cue> <the CD's
 folder>` makes them). `reluva-tool sith folders` says how much music
 each CD has. Without them the game plays without music.
+
+For multiplayer, choose TCP/IP as the network provider. *Join Game*
+finds the games hosted by other copies of Reluva on the local network
+and on the same machine; for a host further away, set `joinaddress` in
+the game's section of `reluva.ini` to its address (`host` or
+`host:port`). A host's router has to pass UDP port 47624 on to it for
+players from outside.
 
 Playing, the game runs as it did on Windows, in Reluva's window. In its
 menus the mouse moves Windows' pointer; in play the window holds the

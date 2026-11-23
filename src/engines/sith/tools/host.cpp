@@ -8,6 +8,7 @@
 #include "common/events.h"
 #include "audio/mixer.h"
 #include "audio/wav.h"
+#include "backends/networking/sockets/socket_net.h"
 #include "common/fs.h"
 #include "common/stream.h"
 #include "devtools/tool.h"
@@ -97,9 +98,10 @@ bool parseKeys(const std::string &text, std::vector<KeyPress> &out) {
 // in drive D, saying what it opens, writes and shows.
 int cmdHost(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(stderr,
-                     "usage: reluva-tool sith host <install> [-seconds N] [-args \"...\"] [-png file] "
-                     "[-files] [-calls] [-d3d] [-keys \"s:key,...\"] [-peek address] [-wav file] [-write folder]\n");
+        std::fprintf(
+            stderr, "usage: reluva-tool sith host <install> [-seconds N] [-args \"...\"] [-png file] "
+                    "[-files] [-calls] [-d3d] [-net] [-join address] [-keys \"s:key,...\"] [-peek address] [-wav file] "
+                    "[-write folder]\n");
         return 2;
     }
     const std::filesystem::path install = argv[2];
@@ -110,6 +112,8 @@ int cmdHost(int argc, char **argv) {
     bool listFiles = false;
     bool listCalls = false;
     bool direct3d = false;
+    bool network = false;
+    std::string join;
     std::vector<uint32_t> peeks;
     std::string keysArg;
     std::filesystem::path writable = std::filesystem::temp_directory_path() / "reluva-sith-host";
@@ -129,6 +133,10 @@ int cmdHost(int argc, char **argv) {
             listCalls = true;
         else if (a == "-d3d")
             direct3d = true;
+        else if (a == "-net")
+            network = true;
+        else if (a == "-join" && i + 1 < argc)
+            join = argv[++i], network = true;
         else if (a == "-keys" && i + 1 < argc)
             keysArg = argv[++i];
         else if (a == "-peek" && i + 1 < argc)
@@ -167,6 +175,31 @@ int cmdHost(int argc, char **argv) {
         process.setRegistryValue(
             key, "3DDeviceGUID", 3,
             {0xe0, 0x3d, 0xe6, 0x84, 0xaa, 0x46, 0xcf, 0x11, 0x81, 0x6f, 0, 0, 0xc0, 0x20, 0x15, 0x6e});
+    }
+    if (network) {
+        // Multiplayer over this machine's network: sessions looked for on
+        // the local networks, on this machine and at -join's address.
+        x86::DirectPlay::Network &n = game.directPlay().network;
+        game.directPlay().log = [](const std::string &line) { std::printf("network: %s\n", line.c_str()); };
+        n.open = [](uint16_t port) {
+            std::string error;
+            auto socket = reluva::net::openSystemUdp(port, error);
+            if (!socket)
+                std::printf("network: %s\n", error.c_str());
+            return socket;
+        };
+        n.search.push_back(reluva::net::Address::broadcast(x86::kDirectPlayPort));
+        for (uint32_t ip : reluva::net::systemBroadcastAddresses())
+            n.search.push_back({ip, x86::kDirectPlayPort});
+        n.search.push_back({0x7f000001, x86::kDirectPlayPort});
+        if (!join.empty()) {
+            const auto [host, port] = reluva::net::splitHostPort(join, x86::kDirectPlayPort);
+            uint32_t ip = 0;
+            if (reluva::net::resolveSystemHost(host, ip))
+                n.search.push_back({ip, port});
+            else
+                std::printf("network: can't find %s\n", host.c_str());
+        }
     }
     if (Error err = game.load()) {
         std::printf("%s\n", err.message.c_str());
@@ -310,6 +343,11 @@ int cmdHost(int argc, char **argv) {
     } else {
         std::printf("the program ended, exit code %u\n", exitCode);
     }
+    if (network) {
+        const x86::DirectPlay::Traffic t = game.directPlay().traffic();
+        std::printf("network: %llu datagrams sent, %llu received\n", (unsigned long long)t.sent,
+                    (unsigned long long)t.received);
+    }
     std::printf("%llu instructions in %.1f s (%.1f million a second)\n", (unsigned long long)cpu.executed(), took,
                 took > 0 ? double(cpu.executed()) / took / 1e6 : 0.0);
     return err ? 1 : 0;
@@ -349,7 +387,8 @@ const Commands kCommands(
     "sith",
     {
         {"host",
-         "<install> [-seconds N] [-args \"...\"] [-png file] [-files] [-calls] [-d3d] [-keys \"s:key,...\"] [-peek address] [-wav file]",
+         "<install> [-seconds N] [-args \"...\"] [-png file] [-files] [-calls] [-d3d] [-net] [-join address] [-keys "
+         "\"s:key,...\"] [-peek address] [-wav file]",
          "run the retail JK.EXE in the x86 emulator: how far it gets", cmdHost},
         {"disasm", "<JK.EXE> <address> [count]", "the program's instructions from an address (hexadecimal) on",
          cmdDisasm},

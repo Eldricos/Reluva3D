@@ -7,6 +7,7 @@
 #include "common/stream.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
 #include <fstream>
 #include <system_error>
@@ -25,7 +26,7 @@ void addAbsentDevices(x86::Win32Process &process) {
     auto absent = [&](const char *dll, const char *name, int args, uint32_t result) {
         process.provideStdcall(dll, name, args, [result](x86::Cpu &) { return result; });
     };
-    absent("DPLAYX.dll", "#4", 5, 0x88770154); // DirectPlayLobbyCreateA: DPERR_UNAVAILABLE
+    absent("DPLAYX.dll", "#4", 5, 0x887700fa); // DirectPlayLobbyCreateA: DPERR_UNAVAILABLE
     absent("WINMM.dll", "joyGetNumDevs", 0, 0);
     absent("WINMM.dll", "joyGetPos", 2, 167);      // JOYERR_UNPLUGGED
     absent("WINMM.dll", "joyGetPosEx", 2, 167);    // JOYERR_UNPLUGGED
@@ -73,6 +74,16 @@ GameProcess::GameProcess(const GameFolders &folders, const std::filesystem::path
     _directX->modes.insert(_directX->modes.begin(), {{640, 480, 8}, {800, 600, 8}, {1024, 768, 8}});
     _directInput = std::make_unique<x86::DirectInput>(p);
     _directPlay = std::make_unique<x86::DirectPlay>(p);
+    // The network answered between the game's own calls to DirectPlay too,
+    // so players can join a host whose menus aren't asking.
+    p.onSlice = [this](x86::Cpu &) {
+        const int64_t now =
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+                .count();
+        int64_t last = _networkAt.load();
+        if (now - last >= 20 && _networkAt.compare_exchange_strong(last, now))
+            _directPlay->update();
+    };
     _directSound = std::make_unique<x86::DirectSound>(p);
     // The music of the CD in drive D: its audio tracks, from a cue sheet and
     // its image, or ripped, beside its files.
