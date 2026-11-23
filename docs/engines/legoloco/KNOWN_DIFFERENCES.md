@@ -35,15 +35,16 @@ None yet.
   it; Reluva shows its 800 by 600 desktop as the game's window, with
   nothing of Windows around it ([systems/running.md](systems/running.md)).
 - **The windowed mode:** its frame is painted plainly (borders and a
-  caption bar, without the title or buttons), and its scroll bars aren't
-  drawn or used; the desktop around it is black.
+  caption bar, without the title or buttons); the desktop around it is
+  black.
+- **Scroll bars** are drawn and work as Windows 98's, but a press on an
+  arrow or the track scrolls once, without repeating while it's held.
 - **Windows' pointer:** where the game shows Windows' own pointer rather
   than drawing its own (the busy pointer while saving), nothing is
   drawn; the animated cursors' files aren't read.
 - **Not stood in for yet:** the Open and Save dialogs (the game's own
   panels serve instead), and opening a web page (`ShellExecuteA`).
-- **Network play, not tried yet:** the boards joined, trains crossing
-  between them, and postcards between players
+- **Network play, not tried yet:** postcards between players
   ([systems/running.md](systems/running.md#network-play)).
 - **No new host:** when a network game's host leaves, the others are told
   the game is lost, where DirectPlay could hand the session to another

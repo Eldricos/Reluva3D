@@ -216,9 +216,26 @@ calls named were seen made, from the addresses given:
   everyone over and over while the places are chosen; `0x1c` and 4
   bytes between them; then, past the tick, messages of `0xc19` bytes
   both ways, to one player and to everyone: the boards *(guessed)*.
-- **Played:** past the tick each copy shows its own board, with blue
-  gates at its edges where it meets its neighbours' places *(seen, not
-  traced)*.
+- **The boards:** past the tick each copy shows its own area of the
+  arrangement, a board of 64 by 48 squares (1024 by 768 pixels), bigger
+  than the screen: its main window gets both scroll bars (style
+  `0x93300000`, `0x407fc7`), sized by `AdjustWindowRect` to 800 by 600
+  with them inside, and `WM_VSCROLL` and `WM_HSCROLL` move the board
+  (`0x462099`: a line 4 pixels, a page 256, or to the thumb's position).
+  Gates (`track\global-n/s/e/w`) are placed at the middle of each edge
+  that has a neighbour (`0x41d466`), and one can be laid from the track
+  palette, which offers no depot or buffer in a network game *(seen, not
+  traced)*. The area boards come with the track joining their gates, a
+  depot on some, and a post office.
+- **The map:** a right click on a gate opens it (`MAPWINDOWCLASS`): the
+  nine places with the whole world's track drawn across them, the
+  players' places lit, each player's trains as dots of their colour
+  moving along it, the list of players by colour, the trains' button
+  (`map\mwtrains`) and a magnet with a train (`map\recall`), calling
+  trains home *(seen, not traced)*.
+- **Trains crossing:** a train started from a depot runs to a gate and
+  on through the places nobody has, shown on every copy's map, into
+  another player's board through its gate *(seen, not traced)*.
 
 ### Where it finds its files
 
