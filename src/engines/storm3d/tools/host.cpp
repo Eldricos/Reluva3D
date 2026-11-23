@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file]
-//                          [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file]:
+//                          [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file]:
 // runs the retail Armada.exe in Reluva's x86 emulator, with its own DLLs
 // from the install and Reluva's stand-ins for Windows, DirectX and the C
 // runtimes, as a reference to study, never as the game is played
@@ -72,6 +72,8 @@ struct Options {
     bool realClock = false;
     // -dump <frame> <file>: the process's memory as the frame is shown.
     std::map<uint64_t, std::filesystem::path> dumps;
+    // -dump-ms <ms> <file>: the same at a moment of the program's clock.
+    std::map<uint64_t, std::filesystem::path> dumpsAt;
 };
 
 // The clock that follows the instructions run: a Pentium II of 300 MHz
@@ -100,7 +102,32 @@ struct InputEvent {
 // An input file's lines: `<ms> move <x> <y>`, `<ms> motion <dx> <dy>`
 // (the mouse moved by that much), `<ms> click [<x> <y>]` (the left button,
 // released 100 ms later; where the pointer is, without a place),
-// `<ms> key <virtual key>` (pressed and released). '#' starts a comment.
+// `<ms> key <virtual key> [held ms]` (pressed, and released after 100 ms
+// or as long as said). '#' starts a comment.
+// A key's scan code, as a US keyboard gives it: 0x100 marks an extended
+// key (the grey arrows, Insert, the keypad's /), which Input.map tells
+// from the keypad's ("GreyRightArrow"). 0 for one not listed.
+uint32_t scanCodeOf(uint32_t virtualKey) {
+    static const std::map<uint32_t, uint32_t> kScanCodes = {
+        {0x08, 0x0e},  {0x09, 0x0f},  {0x0d, 0x1c},  {0x10, 0x2a},  {0x11, 0x1d},  {0x12, 0x38},
+        {0x1b, 0x01},  {0x20, 0x39},  {0x21, 0x149}, {0x22, 0x151}, {0x23, 0x14f}, {0x24, 0x147},
+        {0x25, 0x14b}, {0x26, 0x148}, {0x27, 0x14d}, {0x28, 0x150}, {0x2d, 0x152}, {0x2e, 0x153},
+        {0x6a, 0x37},  {0x6b, 0x4e},  {0x6d, 0x4a},  {0x6f, 0x135}, {0x70, 0x3b},  {0x71, 0x3c},
+    };
+    if (virtualKey >= 'A' && virtualKey <= 'Z') {
+        static const uint8_t kLetters[26] = {0x1e, 0x30, 0x2e, 0x20, 0x12, 0x21, 0x22, 0x23, 0x17,
+                                             0x24, 0x25, 0x26, 0x32, 0x31, 0x18, 0x19, 0x10, 0x13,
+                                             0x1f, 0x14, 0x16, 0x2f, 0x11, 0x2d, 0x15, 0x2c};
+        return kLetters[virtualKey - 'A'];
+    }
+    if (virtualKey >= '1' && virtualKey <= '9')
+        return 0x02 + (virtualKey - '1');
+    if (virtualKey == '0')
+        return 0x0b;
+    const auto it = kScanCodes.find(virtualKey);
+    return it == kScanCodes.end() ? 0 : it->second;
+}
+
 Error readInput(const std::filesystem::path &path, std::vector<InputEvent> &out) {
     std::ifstream in(path);
     if (!in)
@@ -136,8 +163,11 @@ Error readInput(const std::filesystem::path &path, std::vector<InputEvent> &out)
             out.push_back({at, InputEvent::Kind::kButton, 0, 0, true});
             out.push_back({at + 100, InputEvent::Kind::kButton, 0, 0, false});
         } else if (action == "key" && words >> a) {
+            int hold = 100;
+            if (!(words >> hold))
+                hold = 100;
             out.push_back({at, InputEvent::Kind::kKey, a, 0, true});
-            out.push_back({at + 100, InputEvent::Kind::kKey, a, 0, false});
+            out.push_back({at + uint64_t(std::max(hold, 1)), InputEvent::Kind::kKey, a, 0, false});
         } else {
             return Error::fail(path.string() + ": line " + std::to_string(number) + " isn't understood");
         }
@@ -238,7 +268,7 @@ int cmdHost(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] "
-            "[-input file] [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file]\n");
+            "[-input file] [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file]\n");
         return 2;
     }
     Options o;
@@ -249,7 +279,10 @@ int cmdHost(int argc, char **argv) {
             o.limitMs = std::strtoull(argv[++a], nullptr, 10);
         else if (arg == "-frames" && a + 1 < argc)
             o.framesDir = argv[++a];
-        else if (arg == "-dump" && a + 2 < argc) {
+        else if (arg == "-dump-ms" && a + 2 < argc) {
+            const uint64_t ms = std::strtoull(argv[++a], nullptr, 10);
+            o.dumpsAt[ms] = argv[++a];
+        } else if (arg == "-dump" && a + 2 < argc) {
             const uint64_t frame = std::strtoull(argv[++a], nullptr, 10);
             o.dumps[frame] = argv[++a];
         } else if (arg == "-every" && a + 1 < argc)
@@ -433,6 +466,13 @@ int cmdHost(int argc, char **argv) {
     size_t nextInput = 0;
     process.onSlice = [&](x86::Cpu &) {
         const uint64_t now = process.now();
+        while (!o.dumpsAt.empty() && o.dumpsAt.begin()->first <= now) {
+            std::ofstream out(o.dumpsAt.begin()->second, std::ios::binary);
+            out.write(reinterpret_cast<const char *>(cpu->memory().data()), std::streamsize(cpu->memory().size()));
+            std::printf("memory at %llu ms written to %s\n", (unsigned long long)now,
+                        o.dumpsAt.begin()->second.string().c_str());
+            o.dumpsAt.erase(o.dumpsAt.begin());
+        }
         for (; nextInput < input.size() && input[nextInput].at <= now; ++nextInput) {
             const InputEvent &e = input[nextInput];
             if (e.kind == InputEvent::Kind::kMove)
@@ -442,7 +482,7 @@ int cmdHost(int argc, char **argv) {
             else if (e.kind == InputEvent::Kind::kButton)
                 process.mouseButton(e.x, e.down);
             else
-                process.key(uint32_t(e.x), 0, e.down);
+                process.key(uint32_t(e.x), scanCodeOf(uint32_t(e.x)), e.down);
             std::printf("input at %llu ms: %s\n", (unsigned long long)now,
                         e.kind == InputEvent::Kind::kMove     ? text::format("move to %d, %d", e.x, e.y).c_str()
                         : e.kind == InputEvent::Kind::kMotion ? text::format("motion by %d, %d", e.x, e.y).c_str()
@@ -505,7 +545,7 @@ const tool::Commands kCommands(
     {
         {"host",
          "<game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file] "
-         "[-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file]",
+         "[-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file]",
          "run the retail Armada.exe in the x86 emulator, to study: files "
          "opened, frames shown, imports missing, where it stops",
          cmdHost},

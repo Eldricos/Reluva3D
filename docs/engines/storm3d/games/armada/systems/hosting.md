@@ -62,9 +62,10 @@ so they're added in the order the program needs them.
   found from where the read was in the archive.
 - **The frames it shows**, written as PNG.
 - **Where it stops, and why.**
-- **Its memory**, with `-dump <frame> <file>` (as often as wanted): the
-  whole of it, written as that frame is shown, to look for what it keeps
-  there (its camera, say).
+- **Its memory**, with `-dump <frame> <file>` or `-dump-ms <ms> <file>`
+  (as often as wanted): the whole of it, written as that frame is shown
+  or at that moment of its clock, to look for what it keeps there (its
+  camera, say).
 
 Two facts it settled about the files: textures are read from
 `Textures\RGB\` (at least with the display mode it chose), and after each
@@ -83,7 +84,7 @@ primary surface for the same reason.
 
 `reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N]
 [-save dir] [-input file] [-cd folder] [-toc file] [-cd-label name]
-[-fonts folder] [-clock instructions|real] [-dump frame file]` runs the program for `N`
+[-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file]` runs the program for `N`
 milliseconds of its clock (20,000 by default), writes every `N`th frame
 (and the last) to `dir`, and the program's own files to the save folder
 (by default under the system's temporary folder). It prints the imports
@@ -115,8 +116,10 @@ The input file is what the player does, a line each, by the program's
 clock: `<ms> move <x> <y>` (the pointer to a place), `<ms> motion <dx>
 <dy>` (the mouse moved by that much), `<ms> click [<x> <y>]` (the left
 button, released 100 ms later, at the place given or where the pointer
-is) and `<ms> key <virtual key>`, on the 640 × 480 screen; `#` starts a
-comment.
+is) and `<ms> key <virtual key> [held ms]` (100 ms unless said), on the
+640 × 480 screen; `#` starts a comment. A key goes with its scan code
+as a US keyboard gives it, the grey keys (the arrows' block, Insert, the
+keypad's /) as extended keys: `Input.map` tells them from the keypad's.
 
 The front end's dialogs follow Windows' cursor, so `move` and `click`
 with a place work there. A mission doesn't: it keeps a pointer of its
