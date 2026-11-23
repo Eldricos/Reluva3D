@@ -22,7 +22,9 @@ C++ library have pages of their own ([directx.md](directx.md),
   functions a Visual C++ 6 C runtime calls are stood in for:
   - the heap and pages;
   - the version: Windows XP, so the runtime uses the system's heap;
-  - the command line, environment and start-up details;
+  - the command line, environment and start-up details (`setProgram`
+    adds the folder's last backslash if it's missing, as
+    `GetModuleFileNameA`'s path needs it);
   - text conversion for code page 1252;
   - the standard handles, whose output is passed on.
 
@@ -154,6 +156,18 @@ C++ library have pages of their own ([directx.md](directx.md),
   as text, and checks (`GetDlgItem`, `SetDlgItemTextA` and the like);
   they have no procedures, so what's sent them gets 0. `SetTimer` and
   `KillTimer` keep timers for the queue (at least 10 ms).
+- **`win32_mci.cpp`: MCI's CD audio.** `mciSendCommandA` opens the CD-ROM
+  drive's `cdaudio` device (by name, or by type number, 516; the drive as
+  its element) and reads the disc's table of contents from it
+  (`MCI_STATUS`): the number of tracks, each track's start and length
+  (a track lasting to the next one's start), whether it's audio, the
+  disc's length, whether a disc is there; in milliseconds, MSF, frames
+  or TMSF (`MCI_SET`). The engine gives the table of contents
+  (`Win32Process::disc`), which `DiscContents::fromCueSheet` reads from a
+  disc's cue sheet (its files' sizes giving the last tracks' lengths;
+  `PREGAP` gaps, not in the files, counted). Without one, there's no disc:
+  "not ready". Playing is accepted and not heard; no other MCI device is
+  there.
 - **WINMM's sound** (`win32_system.cpp`): no wave or auxiliary device
   (`PlaySoundA` fails, `auxGetNumDevs` is 0), as on a machine whose only
   sound would be DirectSound.
@@ -282,6 +296,10 @@ executable's entry point on the main thread until it ends the process.
   process's own screen, a brush's fill, `DSTINVERT`, a line; and the
   objects' kinds and sizes. The DirectX test reads and writes a 16-bit
   primary surface through a window's device context.
+- It reads a cue sheet of two files (a data track, an audio track after
+  a `PREGAP`, a track with `INDEX 00` and `INDEX 01`) and asks MCI about
+  the disc as Star Trek: Armada does: with no disc, then with it, in MSF,
+  frames and the like, and a track that isn't there.
 - It casts with `dynamic_cast` through a class hierarchy laid out as
   Visual C++ lays it out (Star Trek: Armada's own were read the same way:
   a `HoverCraft` is a `Craft`, a `GameObject`, an `Entity` and an

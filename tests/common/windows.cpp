@@ -569,6 +569,82 @@ static void testGdi() {
     CHECK(painted == 1);
 }
 
+// MCI's CD audio, as Star Trek: Armada's CD check uses it: the disc's
+// table of contents from a cue sheet, read through MCI_OPEN, MCI_SET and
+// MCI_STATUS.
+static void testCdAudio() {
+    // Ten minutes of data, then an audio track two seconds after it (a
+    // gap not in the file) of a minute; a second file with a track whose
+    // INDEX 01 is two seconds in, of 3,000 frames in all.
+    const std::string cue = "FILE \"game disc.bin\" BINARY\n"
+                            "  TRACK 01 MODE1/2352\n"
+                            "    INDEX 01 00:00:00\n"
+                            "  TRACK 02 AUDIO\n"
+                            "    PREGAP 00:02:00\n"
+                            "    INDEX 01 10:00:00\n"
+                            "FILE \"track3.bin\" BINARY\n"
+                            "  TRACK 03 AUDIO\n"
+                            "    INDEX 00 00:00:00\n"
+                            "    INDEX 01 00:02:00\n";
+    auto sizes = [](const std::string &name) -> std::optional<uint64_t> {
+        if (name == "game disc.bin")
+            return uint64_t(49500) * 2352;
+        if (name == "track3.bin")
+            return uint64_t(3000) * 2352;
+        return std::nullopt;
+    };
+    std::string error;
+    const auto disc = x86::Win32Process::DiscContents::fromCueSheet(cue, sizes, error);
+    CHECK(disc && disc->tracks.size() == 3);
+    if (!disc)
+        return;
+    CHECK(disc->tracks[0].start == 150 && !disc->tracks[0].audio && disc->tracks[1].start == 45300 &&
+          disc->tracks[1].audio && disc->tracks[2].start == 49950 && disc->end == 52800);
+    CHECK(!x86::Win32Process::DiscContents::fromCueSheet("FILE \"missing.bin\" BINARY\n", sizes, error) &&
+          error.find("missing.bin") != std::string::npos);
+
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    uint32_t r = 0;
+    auto mci = [&](uint32_t device, uint32_t message, uint32_t flags, uint32_t params) {
+        CHECK(!cpu.call(process.provided("WINMM.dll", "mciSendCommandA"), {device, message, flags, params}, r));
+        return r;
+    };
+    // MCI_OPEN: type by number (CD audio), the drive as its element.
+    const uint32_t open = process.memory().alloc(20);
+    const uint32_t drive = process.memory().alloc(4);
+    cpu.writeString(drive, "D:", 4);
+    cpu.write32(open + 8, 516);
+    cpu.write32(open + 12, drive);
+    CHECK(mci(0, 0x803, 0x3302, open) == 0);
+    const uint32_t device = cpu.read32(open + 4);
+    const uint32_t status = process.memory().alloc(16);
+    auto ask = [&](uint32_t item, uint32_t track, uint32_t flags) {
+        cpu.write32(status + 8, item);
+        cpu.write32(status + 12, track);
+        const uint32_t error = mci(device, 0x814, 0x100 | flags, status);
+        return error ? ~error : cpu.read32(status + 4);
+    };
+    CHECK(ask(5, 0, 0) == 0 && ask(3, 0, 0) == ~276u); // no disc: not ready
+    process.disc = disc;
+    CHECK(ask(5, 0, 0) == 1 && ask(3, 0, 0) == 3);
+    // In MSF (minutes, seconds, frames from the low byte): track 2 starts
+    // at 10:04:00 and lasts to track 3's start, 1:02 with track 3's gap;
+    // in frames, the disc's length.
+    CHECK(ask(2, 2, 0x10) == (10u | 4u << 8) && ask(1, 2, 0x10) == (1u | 2u << 8));
+    const uint32_t set = process.memory().alloc(12);
+    cpu.write32(set + 4, 3); // MCI_FORMAT_FRAMES
+    CHECK(mci(device, 0x80d, 0x400, set) == 0 && ask(1, 0, 0) == 52800 - 150 && ask(2, 3, 0x10) == 49950);
+    CHECK(ask(0x4001, 1, 0x10) == 1089 && ask(0x4001, 3, 0x10) == 1088); // data, audio
+    CHECK(ask(2, 4, 0x10) == ~282u);                                     // no track 4
+    cpu.write32(set + 4, 99);
+    CHECK(mci(device, 0x80d, 0x400, set) == 293);
+    CHECK(mci(device, 0x804, 0, 0) == 0 && mci(device, 0x804, 0, 0) == 257); // closed
+    // Only CD audio is there, and only on the CD-ROM drive.
+    cpu.writeString(drive, "C:", 4);
+    CHECK(mci(0, 0x803, 0x3302, open) == 263);
+}
+
 // A DLL holding one dialog template (resource 7): a pop-up titled "D" with
 // an "OK" button (control 100).
 static std::vector<uint8_t> dialogDll() {
@@ -1538,6 +1614,12 @@ static void testHostedProgramNeeds(const std::filesystem::path &tmp) {
     CHECK(call(m, "__RTDynamicCast", {ship + 8, 0, target, other, 0}) == 0);
     CHECK(call(m, "__RTDynamicCast", {0, 0, target, other, 0}) == 0);
 
+    // The program's folder given without its last backslash still makes
+    // its path whole.
+    process.setProgram("Prog.exe", "C:\\Game");
+    const uint32_t path = process.memory().alloc(64);
+    CHECK(call(k, "GetModuleFileNameA", {0, path, 64}) == 16 && cpu.string(path) == "C:\\Game\\Prog.exe");
+
     // A window's class, placement and tree; capture.
     const uint32_t proc = cpu.addNative("test!NeedsProc", [](x86::Cpu &c) {
         c.reg[x86::Cpu::EAX] = c.arg(1) == 0x81 ? 1 : 0;
@@ -1595,6 +1677,7 @@ static const test::Suite kSuite(
         {"msvcp60", [](const std::filesystem::path &tmp) { testMsvcp60(tmp / "msvcp60"); }},
         {"a dialog", [](const std::filesystem::path &) { testDialog(); }},
         {"GDI's drawing", [](const std::filesystem::path &) { testGdi(); }},
+        {"CD audio", [](const std::filesystem::path &) { testCdAudio(); }},
         {"a hosted program's needs", [](const std::filesystem::path &tmp) { testHostedProgramNeeds(tmp / "needs"); }},
         {"windows and registry", [](const std::filesystem::path &) { testWindowsAndRegistry(); }},
         {"directx", [](const std::filesystem::path &) { testDirectX(); }},

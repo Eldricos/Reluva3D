@@ -382,7 +382,8 @@ uint32_t Win32Process::moduleHandle(const std::string &name) const {
     return kKernel32Handle + 0x1000 * uint32_t(_standInDlls.size());
 }
 
-void Win32Process::setProgram(const std::string &exeName, const std::string &folder) {
+void Win32Process::setProgram(const std::string &exeName, const std::string &givenFolder) {
+    const std::string folder = givenFolder.empty() || givenFolder.back() == '\\' ? givenFolder : givenFolder + '\\';
     _exeName = exeName;
     _programFolder = folder;
     setCurrentFolder(folder);
@@ -810,6 +811,7 @@ void Win32Process::addStandIns() {
     addUserStandIns();
     addRegistryStandIns();
     addDialogStandIns();
+    addMciStandIns();
     addGdiStandIns();
 
     // Text: code page 1252, mapped to Unicode's first 256 characters (the

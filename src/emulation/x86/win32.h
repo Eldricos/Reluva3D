@@ -240,9 +240,10 @@ public:
 
     /**
      * Sets the program: its file name and folder as the program sees them
-     * ("LEGOATeam.exe", "C:\\LEGO Alpha Team\\"), for its command line
-     * (the path, quoted) and GetModuleFileNameA. Also makes the folder
-     * current. Without it, the folder is Elite Force's ("C:\\STVEF\\").
+     * ("LEGOATeam.exe", "C:\\LEGO Alpha Team\\"; the folder's last
+     * backslash is added if it's missing), for its command line (the path,
+     * quoted) and GetModuleFileNameA. Also makes the folder current.
+     * Without it, the folder is Elite Force's ("C:\\STVEF\\").
      */
     void setProgram(const std::string &exeName, const std::string &folder);
     /**
@@ -306,6 +307,32 @@ public:
     // the CD-ROM drive, if any ("LEGOATEN").
     std::string cdDrive = "D";
     std::string cdLabel;
+    /**
+     * A disc's table of contents, as MCI's CD audio reads it: where each
+     * track starts and whether it's audio, and where the disc ends, in
+     * frames (75 a second) from the disc's start, the first track's data
+     * two seconds (150 frames) in.
+     */
+    struct DiscContents {
+        struct Track {
+            uint32_t start = 0;
+            bool audio = true;
+        };
+        std::vector<Track> tracks;
+        uint32_t end = 0;
+        /**
+         * From a cue sheet: its tracks' INDEX 01s, their PREGAPs, and the
+         * sizes of the files it names (through `fileSize`, in bytes), which
+         * give each file's last track its length and the disc its end.
+         * @param error Why not, when it can't.
+         */
+        static std::optional<DiscContents>
+        fromCueSheet(const std::string &text,
+                     const std::function<std::optional<uint64_t>(const std::string &)> &fileSize, std::string &error);
+    };
+    // The disc in the CD-ROM drive (cdDrive) for MCI's CD audio; with none,
+    // MCI finds no disc there.
+    std::optional<DiscContents> disc;
 
     /**
      * An open file, for the stand-ins that work with files (KERNEL32's
@@ -674,6 +701,7 @@ private:
     void addUserStandIns();
     void addRegistryStandIns();
     void addDialogStandIns();
+    void addMciStandIns();
     void addGdiStandIns();
     struct WindowClass {
         uint32_t proc = 0;
@@ -731,9 +759,11 @@ private:
     std::set<uint32_t> _fonts;
     std::set<uint32_t> _palettes;
     std::map<uint32_t, DeviceContext> _dcs;
-    uint32_t _guidState = 0x2545f491; // CoCreateGuid's xorshift
-    std::vector<uint32_t> _screen;    // without screenAccess
-    bool _screenDrawn = false;        // since screenPainted was last called
+    uint32_t _guidState = 0x2545f491;         // CoCreateGuid's xorshift
+    std::map<uint32_t, uint32_t> _mciDevices; // open CD audio devices: their time formats
+    uint32_t _nextMciDevice = 1;
+    std::vector<uint32_t> _screen; // without screenAccess
+    bool _screenDrawn = false;     // since screenPainted was last called
     /** A device context by handle (a window's made as it's first used), or null. */
     DeviceContext *deviceContext(uint32_t handle);
     /** A rectangle of a device context's pixels (0 outside it), and one written (clipped to it). */
