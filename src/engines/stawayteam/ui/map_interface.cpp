@@ -211,16 +211,26 @@ std::string MapScreen::cursorName() {
 }
 
 std::vector<GameHud::Mark> MapScreen::minimapMarks() const {
-    // The officers here and the enemies standing (inferred: which the
-    // program marks isn't traced), and the parts with a
-    // CMiniMapPointOfInterestAI, the band dropped in Mission 01 given one.
+    // Every entity shown (Active and Visible, 0x820000) of the Player or
+    // Enemy categories but not Dead Bodies, a Player's mark if it's a
+    // Player, else an Enemy's (0x504c51): the officers here, the enemies,
+    // dead too if they're still Enemy, and a hologram, a Player. Then the
+    // parts with a CMiniMapPointOfInterestAI, the band dropped in Mission
+    // 01 given one.
     std::vector<GameHud::Mark> marks;
     for (const Officer &o : _officers)
-        if (o.present && o.alive())
+        if (o.present)
             marks.push_back({o.x, o.y, GameHud::Mark::kOfficer});
-    for (const Enemy &e : _enemies)
-        if (e.alive() && shown(e.part))
-            marks.push_back({e.x, e.y, GameHud::Mark::kEnemy});
+    for (size_t i = 0; i < _map.parts.size(); ++i) {
+        const std::string &category = _map.parts[i].category;
+        if (!shown(i) || category.empty() || inCategory(category, "Dead Bodies") ||
+            !inCategory(category, "Player,Enemy"))
+            continue;
+        float x = 0.0f;
+        float y = 0.0f;
+        placeOf(i, x, y);
+        marks.push_back({x, y, inCategory(category, "Player") ? GameHud::Mark::kOfficer : GameHud::Mark::kEnemy});
+    }
     for (size_t i = 0; i < _map.parts.size(); ++i)
         for (const TextObject *ai : _map.parts[i].activities)
             if (ai->className == "CMiniMapPointOfInterestAI" && shown(i)) {

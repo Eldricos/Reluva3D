@@ -92,7 +92,7 @@ struct GameMap {
     float viewX = 0.0f; // where the camera starts
     float viewY = 0.0f;
     std::string minimap; // of Cache/Levels
-    std::string song;    // of Music
+    std::string song;    // of Music; the game never plays it
     GroundMap ground;
     std::vector<MapPart> parts;
     std::shared_ptr<const TextObject> object; // the whole map as read: what its scripts point into

@@ -703,6 +703,11 @@ void testCombat() {
     CHECK(hitNoise);
     CHECK(!guard.alive() && guard.state == "Dead" && guard.health == 0.0f && screen.partState(4).active);
     CHECK(screen.enemyAt(500.0f, 500.0f) == -1 && screen.officers()[1].attacking == -1);
+    // Dead, it's still of Enemy, so on the minimap.
+    const std::vector<GameHud::Mark> marks = screen.minimapMarks();
+    CHECK(std::any_of(marks.begin(), marks.end(), [](const GameHud::Mark &m) {
+        return m.kind == GameHud::Mark::kEnemy && m.x == 500.0f && m.y == 500.0f;
+    }));
     // A radius's action reaches the dead too, as they're still in its
     // categories (the enemies' beaming their dead away).
     TextObject wait;
@@ -2166,6 +2171,11 @@ void testKit() {
                           "Who to Set=Decoy 1\nCategory to Set=Player\n}\n}\n}\n",
                           hologram));
     screen.runAction(&hologram);
+    // A Player, it's marked on the minimap as the officers are.
+    const std::vector<GameHud::Mark> marks = screen.minimapMarks();
+    CHECK(std::any_of(marks.begin(), marks.end(), [](const GameHud::Mark &m) {
+        return m.kind == GameHud::Mark::kOfficer && m.x == 600.0f && m.y == 360.0f;
+    }));
     run(21150);
     CHECK(a.opacity > 0.35f && enemies[0].state == "Attack" && enemies[0].target == -1 && enemies[0].decoy >= 0);
     run(23000);

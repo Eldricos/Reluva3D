@@ -415,10 +415,11 @@ void MainMenu::showCursor(const Animation::Picture *p) {
 }
 
 void MainMenu::playMissionMusic() {
-    // On a mission's maps, its Primary Song, then its Random Songs, one
-    // after another by chance; without them, the map's own Map Song, over
-    // and over (inferred: the program's choosing isn't traced). It stops
-    // as the maps are left.
+    // On a mission's maps, its Primary Song as they start (0x5c3258); as
+    // each song ends, the next of its Random Songs, shuffled, all of them
+    // before they're shuffled again (0x507460); without them, the last
+    // song again (0x5bcbeb). The maps' Map Song isn't played. It stops as
+    // the maps are left.
     if (!_mixer)
         return;
     if (!_mapScreen) {
@@ -426,21 +427,35 @@ void MainMenu::playMissionMusic() {
             _mixer->stop(_missionSong);
         _missionSong = audio::kNoSound;
         _songsPlayed = 0;
+        _playlist.clear();
+        _playlistNext = 0;
+        _lastSong.clear();
         return;
     }
     if (_missionSong != audio::kNoSound && _mixer->isPlaying(_missionSong))
         return;
     std::string name;
-    if (!_mission.primarySong.empty() && _songsPlayed == 0) {
+    if (_songsPlayed == 0) {
         name = _mission.primarySong;
     } else if (!_mission.randomSongs.empty()) {
-        _songRandom = _songRandom * 1103515245u + 12345u;
-        name = _mission.randomSongs[(_songRandom >> 16) % _mission.randomSongs.size()];
-    } else if (_mission.primarySong.empty()) {
-        name = _mapScreen->song();
+        if (_playlistNext >= _playlist.size()) {
+            // Each in turn swapped with one chosen by chance; one that
+            // would come straight after itself goes last instead (0x507380).
+            const std::string previous = _playlist.empty() ? std::string() : _playlist.back();
+            _playlist = _mission.randomSongs;
+            for (size_t i = 0; i < _playlist.size(); ++i) {
+                _songRandom = _songRandom * 1103515245u + 12345u;
+                std::swap(_playlist[i], _playlist[(_songRandom >> 16) % _playlist.size()]);
+            }
+            if (!previous.empty() && _playlist.front() == previous)
+                std::swap(_playlist.front(), _playlist.back());
+            _playlistNext = 0;
+        }
+        name = _playlist[_playlistNext++];
     } else {
-        name = _mission.primarySong;
+        name = _lastSong;
     }
+    _lastSong = name;
     _missionSong = audio::kNoSound;
     ++_songsPlayed;
     std::vector<uint8_t> bytes;

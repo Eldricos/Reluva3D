@@ -84,8 +84,7 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **The interface's pointer, bar and minimap:** which cursor shows
   where, the inventory's places in the team selection's order and where
-  its More Indicator goes, what's marked on the minimap, and the zoom's
-  steps ([systems/maps.md](systems/maps.md#open-questions)).
+  its More Indicator goes, and the zoom's steps ([systems/maps.md](systems/maps.md#open-questions)).
 - **The gadgets:** an enemy shooting a hologram down by its hit points,
   and what's put down running its model's AIs as a map's part
   ([systems/items.md](systems/items.md#open-questions)).
@@ -113,9 +112,6 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
   [systems/menus.md](systems/menus.md#open-questions)).
 - **Parts' processes:** the one chosen for an officer, and their walking
   into range first
-  ([systems/maps.md](systems/maps.md#open-questions)).
-- **The maps' music:** the mission's Primary Song first, then its Random
-  Songs by chance, or the map's Map Song without them
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **The briefing:** the voice-overs found by name under `Levels/Voice
   Overs`, the briefing music played over and over and the menu's song

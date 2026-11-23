@@ -150,6 +150,10 @@ private:
     audio::SoundHandle _missionSong = audio::kNoSound;
     int _songsPlayed = 0;
     unsigned _songRandom = 1;
+    // The mission's Random Songs shuffled, and the next of them to play.
+    std::vector<std::string> _playlist;
+    size_t _playlistNext = 0;
+    std::string _lastSong;
     int _nextMission = 0; // the mission after the debriefing; 0 for the main menu
     Mission _mission;
     std::vector<TeamMember> _missionTeam; // the team it started with, for a restart

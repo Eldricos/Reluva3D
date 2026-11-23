@@ -185,8 +185,12 @@ Around the view, each at its place in Rules.txt's Custom Rules (a
   which Toggle Minimap (M) presses (`0x4dee47`), and the minimap
   (`0x4dddc0`) on `MiniMap Background` at `Info MiniMap Pos`, the map's
   minimap picture centred on `Info MiniMap Map Center Pos`. On the
-  minimap (`0x4ddf50`), dots of a pixel, (128, 128, 255) or red (255, 0,
-  0), and the points of interest, the parts with a
+  minimap (`0x4ddf50`), dots of a pixel (`0x4de3cb`): every entity
+  shown (`Active` and `Visible`) of the `Player` or `Enemy` categories
+  but not `Dead Bodies` (`0x504c51`), (128, 128, 255) for a `Player`,
+  red (255, 0, 0) for an `Enemy`: the officers, a hologram, the enemies,
+  and the dead among them still of `Enemy` (a Klingon's body is `Dead
+  Bodies`). Then the points of interest, the parts with a
   `CMiniMapPointOfInterestAI` (187 in the maps, some given by a
   `CAddAIAction`), as squares of (64, 64, 255) whose half-width is 4 less
   a phase going up 1.5 a second and round at 4 (`0x4de220`). The info
@@ -378,8 +382,19 @@ A mission's `.MDS` has its `Primary Song` and `Random Song`, an array
 Mix.ogg" and its two "Sub Mix"es, for Missions 01, 02, 03, 04, 05, 07
 and 17. Each map has its own `Map Song`: "Scavenger Briefing.ogg",
 "Stasis Briefing.ogg" or "Munro's Briefing.ogg" for the rest, and
-`!None.ogg` for Missions 16 and 18. The program's choosing between them
-isn't traced.
+`!None.ogg` for Missions 16 and 18.
+
+The mission's `Briefing Music` and `Debriefing Music` play on those
+screens; as its maps start, its Primary Song, faded in over 0.2 seconds
+(`0x5c3258`, `0x4d5c00`). The game plays a song queued by name, else,
+with none playing, asks the mission for the next (`0x4d5d23`,
+`0x4e4200`, `0x5bcbd0`): the next of its Random Songs from a list of
+them shuffled, each in turn swapped with one chosen by chance, and the
+last played put at the end if it would come first; the list played
+through, it's shuffled again (`0x507460`, `0x507380`). Without Random
+Songs, the song just played again. Nothing reads a map's `Map Song`:
+it's never played. Rules.txt's `Startup Song` is queued as the game
+starts (`0x4f629b`), and `Startup.wav` by the main menu (`0x503555`).
 
 ### The map's triggers
 
@@ -817,8 +832,8 @@ bottom *(inferred)*), the chosen one's slot lit
 info bar rising while the mouse is over it *(inferred)*, or held up by
 its open button or M, its minimap with the view outlined, a click on it
 moving the view there *(inferred)*, and on it the officers on the map
-and the enemies standing *(inferred)* as dots and the points of interest
-pulsing; the chosen officer's items in the inventory's places, the
+and the parts shown of Player or Enemy, not Dead Bodies, as dots, and
+the points of interest pulsing; the chosen officer's items in the inventory's places, the
 places in the team selection's order, the last type's first
 *(inferred)*, Inventory Next and Prev, and the previous and next
 buttons *(inferred)*, going along them as above, the More Indicator on
@@ -1097,9 +1112,9 @@ objectives, end and time are the same on all its maps, the time counted
 while one's shown.
 
 The music (`ui/main_menu.cpp`): on a mission's maps, its Primary Song,
-then one of its Random Songs by chance after another; without them, the
-map shown's Map Song, over and over; stopping as the maps are left
-*(inferred)*.
+then its Random Songs shuffled as the program does, or the last song
+again without them; stopping as the maps are left. It starts without
+its fade, and Reluva's random numbers aren't the program's.
 
 Not there yet: the AIs'
 other messages and tasks (CSendMessageAction's to animations; the
@@ -1199,9 +1214,13 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 
 ## Open questions
 
-- **The interface:** what the program marks on the minimap, and what
-  the inventory's places and the cursors' choosing
-  are.
+- **The interface:** what the inventory's places are, and the cursors'
+  choosing: `0x43c7e0` picks one from the held item's definition
+  (its `Process` at `+0xe0`: `Process Cursor` `+0xf4`, `Can't Use
+  Cursor` `+0x110`; `Entity Hovering Cursor` `+0x144`, `Obscured
+  Cursor` `+0x148`, `Show Obscured Cursor` `+0x15a`) and what's under
+  the pointer, by checks of the officer's items (`0x5c7940`,
+  `0x5c77f0`, `0x5c7880`) not yet read.
 - **Processes:** how the program chooses one, walks to it, and when the
   officer must be in range.
 - **Frames:** how many a second the program's camera and zoom took
@@ -1239,8 +1258,6 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   degrees as the directions' (90 the viewer's way), the game's path
   finding, its mouse (which button chooses and which sends), the info
   bar's rising, and the frames' movement as a walk's pace.
-- **The music:** which song the program plays when, and whether the Map
-  Song plays with a mission's own.
 - **The buttons:** whether orders can be given with time stopped, what
   CANCEL ORDERS drops, how an enemy's sight is chosen and drawn, and
   whether the escape menu holds the game.
