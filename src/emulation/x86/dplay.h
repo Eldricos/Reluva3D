@@ -6,6 +6,11 @@
 #include "emulation/x86/win32.h"
 
 #include <memory>
+#include <vector>
+
+namespace reluva::net {
+class Sockets;
+}
 
 namespace reluva::x86 {
 
@@ -24,6 +29,14 @@ public:
      */
     explicit DirectPlay(Win32Process &process);
     ~DirectPlay();
+
+    /**
+     * The network its TCP/IP connection plays over, between copies of
+     * Reluva: questions looking for sessions go to each of `broadcast`'s
+     * addresses and the machine itself, and sessions are hosted on `port`
+     * (0: dplay::kPort). Without one, sessions are the program's own.
+     */
+    void setNetwork(std::shared_ptr<net::Sockets> sockets, std::vector<uint32_t> broadcast, uint16_t port = 0);
 
     struct State;
 

@@ -7,8 +7,9 @@ part of DirectX, for programs run in the [x86 emulator](README.md): its
 lobby, which programs ask whether a lobby program (a matchmaking
 service's client) started them, and DirectPlay itself
 (`IDirectPlay4A`): its connections, and a session with its players and
-their messages. So far a session is one program's own: it hosts it, and
-its players (a person's, and the computer's) talk to each other.
+their messages, hosted by one program and joined by others over TCP/IP.
+Programs play each other between copies of Reluva, over Reluva's own
+protocol: not Microsoft's, so not with DirectPlay on Windows.
 
 ## What Reluva supports
 
@@ -31,14 +32,22 @@ its players (a person's, and the computer's) talk to each other.
   Starfleet Command II looks up the modem's to list modems, and read
   through a null pointer without it. `InitializeConnection` takes any
   address naming a provider, the program's own additions too (a host to
-  reach). `GetPlayerAddress` gives the connection's address alone: a
-  modem connection has no modems. None of them reaches another machine
-  yet.
+  reach: `DPAID_INet`, `{c4a54da0-e0af-11cf-9c4e-00a0c905425e}`, a name
+  or address as text, empty for the local network). `GetPlayerAddress`
+  gives the connection's address alone: a modem connection has no
+  modems. Only TCP/IP reaches other machines, given a network
+  (`DirectPlay::setNetwork`).
 - **A session:** `Open` with `DPOPEN_CREATE` (2) makes a session the
   object hosts, from the `DPSESSIONDESC2` it's given, with a new instance
-  GUID; joining one (`DPOPEN_JOIN`) finds none (`DPERR_NOSESSIONS`).
-  `EnumSessions` finds none: the callback is called once, told the time
-  is up (`DPESC_TIMEDOUT`, 1), and not again if it asks to go on.
+  GUID, hosted on the network when there's one (if its port is taken, it
+  fails with `DPERR_GENERIC`). `EnumSessions` calls back with each
+  session of the application asked for that's been heard of in the last
+  five seconds, then once to say the time is up (`DPESC_TIMEDOUT`, 1), and
+  not again if the callback asks to go on: asynchronously
+  (`DPENUMSESSIONS_ASYNC`, 0x10) without waiting, else waiting the time
+  it's given, five seconds at most. `Open` with `DPOPEN_JOIN` (1) joins
+  one it found, by the instance GUID, with its password, waiting up to
+  five seconds to be let in: the session's players come with it.
   `GetSessionDesc` (the structure, its name and password after it) and
   `SetSessionDesc` (the host's alone); `Close`. `GetCaps` gives Reluva's
   own numbers: messages up to 64 KB, sent whole and in order.
@@ -65,16 +74,50 @@ its players (a person's, and the computer's) talk to each other.
   (`DPSYS_CREATEPLAYERORGROUP`, 3) or destroyed
   (`DPSYS_DESTROYPLAYERORGROUP`, 5), each with its name and data, and the
   data every player sees changed (`DPSYS_SETPLAYERORGROUPDATA`, 0x102),
-  each to the session's other local players.
+  each to the session's other local players; and from other programs,
+  as well, the session's description changed (`DPSYS_SETSESSIONDESC`,
+  0x104, the description after the type) and the session lost
+  (`DPSYS_SESSIONLOST`, 0x31, the type alone) when the host goes.
 - Other methods are listed, with their arguments, and not answered: a
   program calling one stops, naming it.
 
-Not there yet: another machine. The session's players are all one
-program's; joining a session hosted by another copy of Reluva, over
-TCP/IP, is next. Also not there: groups, the messages for a session
-lost, a new host, names or the session's description changed, chat, and
+Not there yet: groups, a new host when the host goes (the session's
+lost), players' names changed, chat, and
 the message saying an asynchronous send is done (`SendEx` without
 `DPSEND_NOSENDCOMPLETE` stops); launching or being launched by a lobby.
+
+## The network
+
+Reluva's own, between copies of Reluva (`src/emulation/x86/dplay_net.cpp`,
+`dplay::Node`); all numbers little-endian, a string or a block of bytes
+as its size (32 bits) then its bytes.
+
+- **Finding sessions:** UDP on port 28541 (`dplay::kPort`). A question,
+  `RDPQ` and the application's GUID as text (empty: any), goes to the
+  address in the connection, or with none to each of the machine's
+  networks' broadcast addresses, 255.255.255.255 and 127.0.0.1 (copies on
+  the same machine), once a second at most. A host answers `RDPS`, its
+  TCP port (16 bits) and its session: instance and application GUIDs and
+  name, whether it has a password (never the password), flags, most
+  players, players now, and the four user values.
+- **Playing:** TCP to the host's port, in frames: the size of what
+  follows (32 bits), the frame's kind (8 bits), its contents. A joining
+  program sends *join* (1: the instance, the password). The host answers
+  *welcome* (2): 0 and its session, the first ID for the joiner's
+  players, and every player there is; or DirectPlay's error
+  (`DPERR_ACCESSDENIED` for a wrong password or a full session,
+  `DPERR_NOSESSIONS` for another instance). Then, either way: a player
+  *added* (3: ID, flags, short and long name, the data every player sees),
+  *removed* (4: ID), its *data* changed (5: ID, data), a *message* (6:
+  from, to, 0 for every player but the sender, the bytes); and from the
+  host, the *session*'s description changed (7).
+- **The host passes things on:** each program speaks only to the host,
+  which tells the others of what one's players do, and passes a message
+  to the program whose player it's for, or to every other one. The host
+  numbers players from 0x100001, each joining program from a block of
+  0x10000 after, so programs make their players' IDs themselves. A
+  program whose connection closes has its players removed for everyone;
+  the host's closing loses the session for all.
 
 ## Sources and checks
 
@@ -113,7 +156,15 @@ the message saying an asynchronous send is done (`SendEx` without
   name read through the message's pointer), sends to every player and
   asynchronously, sets and reads the data every player sees (the other
   told), and destroys a player (the other told; a second time refused).
-- **Confidence:** published unless marked.
+- `common.unit.dplay_net` (`tests/common/dplay_net.cpp`), on the
+  machine's loopback: a session hosted (a second host on the same port
+  refused), found at its address but not for another application, joined
+  (a wrong password refused) by two programs, each told the others'
+  players and their data, messages to one player and to every one passed
+  through the host, the host's change to its session, one program's
+  leaving (its player removed for the others) and the host's (the
+  session lost).
+- **Confidence:** published unless marked; the network is Reluva's own.
 
 ## Used by
 

@@ -9,6 +9,7 @@ add_library(reluva_emulation STATIC
     x86/a3d.cpp
     x86/miles.cpp
     x86/dplay.cpp
+    x86/dplay_net.cpp
     x86/com.cpp
     x86/cpu.cpp
     x86/cpu_cache.cpp
