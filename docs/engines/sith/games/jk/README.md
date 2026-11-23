@@ -7,7 +7,7 @@ Game id `jk`, on the [Sith engine](../../README.md); its code is in
 
 | Release | Recognised by | State |
 |---|---|---|
-| US retail, two CDs (English, Windows), unpatched; `JK.EXE` linked 11 September 1997 | `JK.EXE`, `Resource/Res2.gob` and `Episode/JK1.GOB` (`detectionTable`, `src/engines/sith/games.cpp`) | Recognised and imported from its CDs, its CDs found |
+| US retail, two CDs (English, Windows), unpatched; `JK.EXE` linked 11 September 1997 | `JK.EXE`, `Resource/Res2.gob` and `Episode/JK1.GOB` (`detectionTable`, `src/engines/sith/games.cpp`) | Recognised and imported from its CDs, its CDs found; played, silently |
 | Other releases (other languages, patched) | The same three files present (`fallbackTable`): "unknown release" | Not checked |
 
 Detection signatures (MD5 of the first 5000 bytes, size):
@@ -53,15 +53,13 @@ installer and the readme.
 - **The data viewer** (`reluva-viewer`) shows the pictures, materials,
   colormaps, models, levels, fonts and string tables, plays the sounds, the sound
   classes' sounds and the cut scenes, and lists the episodes' steps.
-- **The game:** the retail `JK.EXE` runs in Reluva's x86 emulator through
-  its start-up, reading its archives and the menus' pictures, listing
-  Direct3D's devices and setting its display mode, plays the opening's
-  title and crawl, and with keys pressed and clicks goes through its
-  menus and the first cut scene into the first level, drawn by its own
-  software renderer ([systems/hosting.md](systems/hosting.md));
-  `reluva-tool sith host` runs it, without a window or sound yet.
-- **Not yet:** the scripts, and the game played. Plans, phases and decisions:
-  [PLAN.md](PLAN.md).
+- **The game:** played. The retail `JK.EXE` runs in Reluva's x86
+  emulator, in Reluva's window: the opening, the menus, the cut scenes
+  and the levels, drawn by its own software renderer, with the keyboard
+  and mouse ([systems/hosting.md](systems/hosting.md)). Silent so far,
+  and without multiplayer ([KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md)).
+- **Not yet:** sound, the CDs' music, multiplayer and Direct3D's drawing.
+  Plans, phases and decisions: [PLAN.md](PLAN.md).
 
 ## Using it
 
@@ -79,8 +77,14 @@ cut scenes), the first of:
 
 A folder is taken for a CD by its `GAMEDATA/RESOURCE/JK_.CD`, so a copy
 of the whole CD, or of just its `GAMEDATA/RESOURCE` folder, will do.
-`reluva-tool sith folders <install>` shows what's found. The game itself
-shows an empty screen for now; Esc goes back to the launcher.
+`reluva-tool sith folders <install>` shows what's found.
+
+Playing, the game runs as it did on Windows, in Reluva's window. In its
+menus the mouse moves Windows' pointer; in play the window holds the
+mouse, which turns the view, until Esc brings up the game's menu.
+Ctrl+F5 goes back to the launcher, after asking, since what isn't saved
+is lost. What the game writes (its players, saves and settings) goes to
+Reluva's folder for the game, never into the install.
 
 The data viewer is `reluva-viewer` (`reluva-viewer <its name in the
 launcher>`, or `reluva-viewer <the install>`). Tab moves between its

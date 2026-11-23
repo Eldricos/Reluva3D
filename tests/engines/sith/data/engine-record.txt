@@ -3,6 +3,8 @@
 detect.empty: 0
 detect.games: 1
 detect.release: jk: Jedi Knight: Dark Forces II (unknown release)
+play.empty_program: Jedi Knight stopped: JK.EXE: Not an executable (no MZ header)
+play.window: 640x480
 folders.cd1: Disc 1 (folder beside the install)
 folders.cd2: install/cd2 (folder in the install)
 viewer.archives: 3

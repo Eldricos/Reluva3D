@@ -13,8 +13,16 @@ None yet.
 
 ## Not yet as the original
 
-- **The game:** nothing of it runs yet; the engine shows an empty screen
-  ([PLAN.md](PLAN.md)).
+- **Sound:** none. The game finds no sound card, no CD audio and no
+  joystick, and plays silently ([systems/hosting.md](systems/hosting.md)).
+- **Multiplayer:** DirectPlay offers no connections, so there's no one to
+  play with.
+- **Direct3D:** Direct3D 1's devices aren't there yet, so choosing
+  hardware drawing in *Setup* would stop the game. The game's own
+  software drawing, its default, is what's shown.
+- **Text written through GDI** is in Reluva's built-in bitmap font, not
+  Arial. The menus and the game draw their text in the game's own fonts,
+  which are as they were.
 
 ## Additions outside the game
 

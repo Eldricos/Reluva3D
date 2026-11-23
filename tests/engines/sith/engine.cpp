@@ -15,6 +15,7 @@
 // tests/engines/idtech3/engine.cpp), then --update and review the record.
 
 #include "engines/registry.h"
+#include "common/headless_system.h"
 #include "engines/sith/folders.h"
 #include "engines/sith/pages/pages.h"
 
@@ -53,6 +54,16 @@ void engineTest(const std::filesystem::path &tmp) {
     const std::vector<DetectedGame> found = engine->detect(dir);
     rec.add("detect.games", static_cast<int64_t>(found.size()));
     rec.add("detect.release", found.empty() ? std::string() : found[0].gameId + ": " + found[0].description);
+
+    // Played, the game is the install's JK.EXE, here an empty file: an
+    // error saying so, with the window set up and nothing shown from it.
+    {
+        HeadlessSystem sys;
+        const GameTarget target{"jk", "sith", "jk", "Jedi Knight", dir, tmp / "saves", {}};
+        const Error err = engine->create(sys, target)->run();
+        rec.add("play.empty_program", err ? err.message : std::string("(none)"));
+        rec.add("play.window", std::to_string(sys.width()) + "x" + std::to_string(sys.height()));
+    }
 
     sith::testing::makeCd(tmp / "Disc 1", 1);
     sith::testing::makeCd(dir / "cd2", 2);

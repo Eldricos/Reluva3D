@@ -1,18 +1,18 @@
 # Jedi Knight: running JK.EXE in the emulator
 
-> **Status:** partial · **Code:** `src/engines/sith/tools/host.cpp` · **Checked against:** the retail `JK.EXE` run in Reluva's x86 emulator, and its code · **Confidence:** seen, not traced unless marked
+> **Status:** partial · **Code:** `src/engines/sith/host/`, `src/engines/sith/tools/host.cpp` · **Checked against:** the retail `JK.EXE` run in Reluva's x86 emulator, and its code · **Confidence:** seen, not traced unless marked
 
 ## Overview
 
-The trial of the plan's way B ([PLAN.md](../PLAN.md#two-ways-to-play-the-game)):
-the retail `JK.EXE` run as it shipped in Reluva's x86 emulator
-([docs/common/x86/](../../../../../common/x86/README.md)), with
-`SMACKW32.DLL` from the install, to see how far it gets and what it
-needs that the emulator hasn't. It gets through its start-up, reading its
+The plan's way B ([PLAN.md](../PLAN.md#two-ways-to-play-the-game)), the
+gate's choice: the retail `JK.EXE` run as it shipped in Reluva's x86
+emulator ([docs/common/x86/](../../../../../common/x86/README.md)), with
+`SMACKW32.DLL` from the install, played in Reluva's window. It gets
+through its start-up, reading its
 archives, strings, fonts and the menus' pictures, lists Direct3D's
 devices, sets the display mode, shows the opening's title and crawl,
-which it draws itself, and with keys pressed and clicks reaches its
-menus and plays its first level, drawn by its own software renderer.
+which it draws itself, and its menus, cut scenes and levels play, drawn
+by its own software renderer; silently so far.
 
 ## How it works
 
@@ -110,36 +110,55 @@ Pentiums of 1997 the program was written for.
 
 ## In Reluva
 
-`reluva-tool sith host <install>` runs `JK.EXE` from the install (drive
-C) with CD 1's copy as drive D, for up to `-seconds` seconds, and says
-what it opened, wrote to the registry, printed for a debugger or showed
-in a message box, and where it stopped (registers, and the return
-addresses on the stack). `-png` saves the last frame, `-calls` lists every stand-in called
-and the last 40 in order, `-keys "<seconds>:<key>,..."` presses keys at
-those moments (letters, digits, `esc`, `enter`, `space`, `tab`, the
-arrows, and `click<x>x<y>` for the mouse's left button on the screen),
-and `-peek <address>` prints a word of the program's memory at
-the end. `-keys "8:esc,11:k,11.4:y,11.8:l,12.2:e,13:enter"` goes
-through the crawl and the first player's name to the main menu;
-`,16:click318x188,19:click294x108,25:esc` after it starts a new game
-and skips its cut scene, into the first level. It offers the display modes of 8-bit colour
-too, which the menus need. `reluva-tool sith disasm <JK.EXE> <address>`
-shows the program's instructions from an address.
+The game is played from the launcher: the engine (`src/engines/sith/sith.cpp`)
+runs `JK.EXE` on a thread of its own (`host/player.h`), shows each frame
+it presents in the window, and passes the keyboard and mouse on.
 
-For the trial, `host.cpp` answers a few things itself, each as Windows
-would: no sound card (`DirectSoundCreate`, `waveOut`), no joystick, no CD
-audio (MCI), no DirectPlay lobby; a few USER32, KERNEL32 and COMCTL32
-calls the emulator lacks (the console, time conversions, painting). None of this is how the game would be run:
-it's to see how far it gets.
+- **The process** (`host/game_process.h`): the install as drive C, what
+  the game writes going to Reluva's folder for the game (its player
+  files and saves; it opens its archives for writing too, but only reads
+  them, so they're never copied); CD 1's copy as drive D, for the cut
+  scenes; `SMACKW32.DLL` from the install; the registry's `CD Path` and
+  `Install Path`. Its threads run on threads of this machine.
+- **Its devices:** DirectDraw, with the 8-bit modes the menus and the
+  software renderer use, DirectInput and DirectPlay are the emulator's.
+  There's no sound card (`DirectSoundCreate` and `waveOut` find no
+  device), no joystick, no CD audio (MCI) and no DirectPlay lobby: the
+  game is told so, as on a machine without them, and goes on silently.
+- **Frames:** each one presented, no more often than a 60 Hz display's
+  vertical blank, as the game's flips waited for it.
+- **The mouse:** in the menus the game moves Windows' pointer, which it
+  doesn't draw itself, so the window shows the system's pointer and
+  passes its place on. In play it holds the mouse through DirectInput
+  (exclusively acquired) and reads its movement: the window holds the
+  mouse and passes the movement on, until the game lets go (its in-game
+  menu).
+- **Keys** go both to the window's messages, which the menus read, and to
+  DirectInput, which play reads.
 
-What it would take to run the game this way, from what the run and the
-imports show:
+`reluva-tool sith host <install>` runs the same process without a
+window, for up to `-seconds` seconds, and says what it opened, wrote to
+the registry, printed for a debugger or showed in a message box, and
+where it stopped (registers, and the return addresses on the stack).
+`-png` saves the last frame, `-calls` lists every stand-in called and the
+last 40 in order, `-keys "<seconds>:<key>,..."` presses keys at those
+moments (letters, digits, `esc`, `enter`, `space`, `tab`, the arrows, and
+`click<x>x<y>` for the mouse's left button on the screen), `-write`
+names the folder for what it writes, and `-peek <address>` prints a word
+of the program's memory at the end.
+`-keys "8:esc,11:k,11.4:y,11.8:l,12.2:e,13:enter"` goes through the crawl
+and the first player's name to the main menu;
+`,16:click318x188,19:click294x108,25:esc` after it starts a new game and
+skips its cut scene, into the first level. `reluva-tool sith disasm
+<JK.EXE> <address>` shows the program's instructions from an address.
+
+What it still takes to play the whole game this way, from what the runs
+and the imports show:
 
 | Need | What | How much |
 |---|---|---|
-| The game in Reluva | The engine hosting `JK.EXE` in its window: frames shown, the keyboard and mouse passed on, saves in the install's writable copy | Engine code, on the shared stand-ins |
 | DirectSound | Buffers and 3D buffers on Reluva's mixer | New shared code |
-| Windows | About 60 calls the emulator lacks: GDI's palettes and DIB sections, dialogs, `GetMessageA`, `CompareString`, WINMM's timer events for Smacker | Small each, in the shared stand-ins |
+| Windows | About 40 calls the emulator lacks, none met in play yet: GDI's palettes and DIB sections, dialogs, `CompareString`, WINMM's timer events for Smacker's sound | Small each, in the shared stand-ins |
 | CD audio | MCI's `cdaudio` device, playing the CDs' music tracks, which copies of their files don't hold | To decide: from a CD image's tracks, or none |
 | Direct3D 1 and 2 | Only for the *Setup* choice of hardware drawing: `IDirect3D` and `IDirect3D2` (their device lists are there), their devices with execute buffers, viewports, materials and textures 1 and 2, on the emulator's Direct3D 7 rasterizer | New shared code, for any DirectX 5 game; not needed to play |
 | DirectPlay 3 | Multiplayer sessions, on Reluva's network code; for now the class with no connections ([dplay.md](../../../../../common/x86/dplay.md)) | Later |

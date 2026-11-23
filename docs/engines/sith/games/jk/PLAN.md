@@ -87,14 +87,12 @@ reaches its menus; then DirectSound; then a level.
    `IDirect3D`, which the emulator hasn't; it runs at 200 to 500 million
    instructions a second ([systems/hosting.md](systems/hosting.md)). See
    [The gate](#the-gate).
-6. **The game** (under way), hosted, as the gate chose: Direct3D 1's
-   device list, DirectPlay with no connections, windows activated as
-   Windows does, GDI's text and `GetMessageA` take `JK.EXE` through its
-   opening and menus into the first level, drawn by its own software
-   renderer ([systems/hosting.md](systems/hosting.md)). Next: the game in
-   Reluva's window, with its input; then DirectSound and the cut scenes'
-   sound; then the CDs' music; Direct3D 1's devices only for *Setup*'s
-   hardware drawing.
+6. **The game** (under way), hosted, as the gate chose: `JK.EXE` plays
+   in Reluva's window, its opening, menus, cut scenes and levels drawn by
+   its own software renderer, with the keyboard and mouse
+   ([systems/hosting.md](systems/hosting.md)). Next: DirectSound and the
+   cut scenes' sound; then the CDs' music; Direct3D 1's devices only for
+   *Setup*'s hardware drawing; DirectPlay for multiplayer.
 7. **Mysteries of the Sith.**
 
 ## Decisions
@@ -109,3 +107,5 @@ reaches its menus; then DirectSound; then a level.
 | November 2026 | Published write-ups of the formats by the editing community are used for facts only, each checked on the game's files | Allowed by CONTRIBUTING.md, as for Birth of the Federation's editor |
 | November 2026 | Decompilation-based rebuilds of the game (OpenJKDF2 and the like) aren't read, for facts or code | Their code is a function-for-function rebuild of `JK.EXE`'s; reading it would make copying hard to rule out. `JK.EXE` is studied directly instead |
 | November 2026 | Way B, hosting `JK.EXE`, chosen at the gate; the data layer and viewer kept | The trial showed B's cost bounded and shared with other DirectX 5 games, where A's is the whole engine ([The gate](#the-gate)) |
+| November 2026 | Played before it has sound: the game is told there's no sound card, joystick or CD audio, as Windows would without them | It plays to the end that way, and each device can be added on its own later |
+| November 2026 | The window shows the system's pointer while the game shows Windows', and holds the mouse while the game holds it through DirectInput | The menus use Windows' pointer without drawing one; play reads the mouse's movement |

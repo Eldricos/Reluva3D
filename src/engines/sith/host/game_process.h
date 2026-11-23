@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#pragma once
+
+#include "common/types.h"
+#include "emulation/x86/cpu.h"
+#include "emulation/x86/directx/dinput.h"
+#include "emulation/x86/directx/directx.h"
+#include "emulation/x86/dplay.h"
+#include "emulation/x86/win32.h"
+#include "engines/sith/folders.h"
+
+#include <filesystem>
+#include <memory>
+#include <string>
+
+namespace reluva::sith {
+
+/**
+ * The retail JK.EXE run in the x86 emulator
+ * (docs/engines/sith/games/jk/systems/hosting.md): the install as drive C,
+ * what the game writes going to a save folder, CD 1's copy as drive D, and
+ * SMACKW32.DLL as it shipped. Windows, DirectDraw, DirectInput and
+ * DirectPlay are the emulator's stand-ins; there's no sound card, joystick
+ * or CD audio yet, and the game finds none.
+ */
+class GameProcess {
+public:
+    /**
+     * Sets up the process and its stand-ins; nothing is loaded until load().
+     * @param folders The install and its CDs (findFolders).
+     * @param saveFolder Where what the game writes goes, and is read back from first.
+     * @param commandLine Its arguments after "JK.EXE", if any.
+     */
+    GameProcess(const GameFolders &folders, const std::filesystem::path &saveFolder,
+                const std::string &commandLine = {});
+    ~GameProcess();
+
+    /** Loads SMACKW32.DLL and JK.EXE from the install, and runs the DLL's start-up. */
+    Error load();
+    /**
+     * Runs the program from its entry point, on threads of this machine,
+     * until it ends or is stopped (Cpu::requestStop, Win32Process::requestExit).
+     */
+    Error run(uint32_t &exitCode);
+
+    /** The interpreter, the Windows process and the stand-ins it runs with. */
+    ///@{
+    x86::Cpu &cpu() { return *_cpu; }
+    x86::Win32Process &process() { return *_process; }
+    x86::DirectX &directX() { return *_directX; }
+    x86::DirectInput &directInput() { return *_directInput; }
+    ///@}
+    /**
+     * Whether the game shows Windows' pointer, as its menus do: it hasn't
+     * hidden it, and doesn't hold the mouse through DirectInput, as it does
+     * in play.
+     */
+    bool pointerShown() const { return _process->cursorShown() && !_directInput->mouseHeld(); }
+
+private:
+    GameFolders _folders;
+    std::unique_ptr<x86::Cpu> _cpu;
+    std::unique_ptr<x86::Win32Process> _process;
+    std::unique_ptr<x86::DirectX> _directX;
+    std::unique_ptr<x86::DirectInput> _directInput;
+    std::unique_ptr<x86::DirectPlay> _directPlay;
+    const x86::Win32Process::Module *_exe = nullptr;
+};
+
+} // namespace reluva::sith

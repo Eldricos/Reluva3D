@@ -11,6 +11,8 @@ reluva_add_engine(sith
         game_files.cpp
         games.cpp
         import.cpp
+        host/game_process.cpp
+        host/player.cpp
         render/draw3d.cpp
         formats/bitmap.cpp
         formats/colormap.cpp

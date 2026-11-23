@@ -30,7 +30,8 @@ the test makes and a Smacker video on its CD copies, before and after a
 key (the Colormaps page has one colormap, and the Sounds page one sound,
 so their keys change nothing), the cut scene also played on by the
 clock. The Models, Sprites and Levels pages are recorded as drawn or not: its pixels' edges
-differ between compilers.
+differ between compilers. Played, the engine stops with an error naming
+`JK.EXE`, the test's being an empty file, having set up its window.
 
 ### The game-files test
 
@@ -47,6 +48,12 @@ That the US release's signatures match a real install: checked by hand
 
 - *Add Game...* on the install finds "Jedi Knight: Dark Forces II (US,
   1.0)".
+- Playing it: the opening's title and crawl (Esc skips the crawl), *New
+  Player* (typing a name), the main menu by the mouse, Windows' pointer
+  shown over it; *Single Player*, *New Game*: the first cut scene, then
+  Nar Shaddaa. In play the mouse turns Kyle, held by the window, and the
+  arrows move him; Esc brings up the game's menu with the pointer
+  again. Ctrl+F5 asks before going back to the launcher.
 - `reluva-tool sith folders <install>` finds both CDs where they are.
 - *Import Game...* on CD 1, with CD 2 added, makes an install that's
   recognised, with both CDs' cut scenes in it.
@@ -64,7 +71,8 @@ That the US release's signatures match a real install: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
-| November 2026 | US retail | Linux | `reluva-tool sith host` on the install with CD 1's copy: `JK.EXE` through its start-up to Direct3D's devices, 51 million instructions |
+| November 2026 | US retail | Linux | Played in `reluva`'s window (under Xvfb, driven with xdotool): the crawl, a new player typed, the main menu, *Single Player* and *New Game* clicked, the cut scene skipped, Nar Shaddaa played: walking back with the arrows, turning with the mouse; the game's writes only its player and autosave in the save folder |
+| November 2026 | US retail | Linux | `reluva-tool sith host` with keys and clicks: the opening, the menus, the first cut scene and Nar Shaddaa, drawn by the game's own software renderer |
 | November 2026 | US retail | Linux | The things placed in Nar Shaddaa, Katarn's house and the fuel station drawn on the Levels page: crates on the ground, characters in place |
 | November 2026 | US retail | Linux | `reluva-tool sith formats`: all 35 levels read. The Levels page drawn for Nar Shaddaa, Katarn's house, the fuel station, the tower and level 19B, from their players' starts |
 | November 2026 | US retail | Linux | `reluva-tool sith formats`: all 20 sprites and 3 particle clouds read; an explosion's cels and a cloud drawn on the Sprites page |

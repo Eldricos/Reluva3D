@@ -17,13 +17,14 @@ Jedi Knight's install is recognised, or made from its CDs, and its CDs
 are found; its archives and their pictures, materials, colormaps, fonts,
 string tables, sounds, sound classes, episodes, models, animations, puppets, sprites, particle clouds and levels are read, and the cut
 scenes decoded, all shown or played by the data viewer
-(`reluva-viewer`). The engine itself shows an empty screen. See the game's [README](games/jk/README.md) and
+(`reluva-viewer`). The game is played: its own `JK.EXE`, run in Reluva's x86
+emulator, in Reluva's window, silently so far. See the game's [README](games/jk/README.md) and
 [PLAN.md](games/jk/PLAN.md).
 
 ## Using it
 
 Add Jedi Knight's install in the launcher (*Add Game...*), or import it
-from its CDs (*Import Game...*). The data viewer is `reluva-viewer`. The game's
+from its CDs (*Import Game...*), and play it from there. The data viewer is `reluva-viewer`. The game's
 [README](games/jk/README.md#using-it) says where it looks for the CDs.
 
 ## This folder
@@ -40,7 +41,8 @@ game is found to share it (docs/DOCUMENTATION_STANDARD.md).
 
 | Path | What |
 |---|---|
-| `sith.cpp` | The `MetaEngine` (detection, making an `Engine`) and the `Engine`: an empty screen for now |
+| `sith.cpp` | The `MetaEngine` (detection, making an `Engine`) and the `Engine`: the game in the window |
+| `host/` | `JK.EXE` run in the x86 emulator: the process and its devices (`game_process.cpp`), and the game's own thread, its frames and input (`player.cpp`) |
 | `games.cpp` | The games and their releases |
 | `folders.cpp` | Telling the CDs apart, finding them for an install, and their cut scenes |
 | `import.cpp` | Making an install from the CDs (*Import Game...*) |
