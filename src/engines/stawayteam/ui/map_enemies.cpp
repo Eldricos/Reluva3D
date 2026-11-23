@@ -597,6 +597,9 @@ void MapScreen::updateEnemies(float seconds) {
     for (Enemy &e : _enemies) {
         e.walking = false;
         e.running = false;
+        // One taken over has no mind of its own (updateMeld).
+        if (int(&e - _enemies.data()) == _melded)
+            continue;
         const PartState &state = _partStates[e.part];
         if (!state.active || state.deleted || e.down())
             continue;
@@ -919,7 +922,8 @@ bool MapScreen::fightFoe(size_t self, float seconds) {
     const size_t victim = size_t(e.foe);
     hurtEnemy(victim, *e.weapon, -1, e.stuns);
     Enemy &v = _enemies[victim];
-    if (v.alive() && v.foe < 0 && v.target < 0 && inCategory(_map.parts[e.part].category, v.validTargets)) {
+    if (int(victim) != _melded && v.alive() && v.foe < 0 && v.target < 0 &&
+        inCategory(_map.parts[e.part].category, v.validTargets)) {
         v.foe = int(self);
         v.unseen = 0.0f;
         setState(v, "Attack");

@@ -169,6 +169,12 @@ struct ItemDefinition {
     // A charged one's (the cloaking band's): its charge, out of 100,
     // spent Energy Use a second while it's on and back Energy Recharge a
     // second while it's off (0x5d2c50).
+    // The Psychic Rack (a CStarTrekPsycheDisplacementInventoryItem): used
+    // on an enemy, its holder takes it over while its charge lasts, with
+    // its Fail Sound when it can't and its Break Meld Sound as it ends.
+    bool psyche = false;
+    std::string failSound;
+    std::string breakSound;
     bool charged = false;
     float strikeRadius = 0.0f; // Strike Damage Radius: how near a strike reaches
     // Its Process (what using it does, with its Process Activity) and its

@@ -488,6 +488,7 @@ void MapScreen::choose(int officer, bool add) {
     if (!add)
         for (Officer &o : _officers)
             o.chosen = false;
+    _meldChosen = false;
     Officer &o = _officers[size_t(officer)];
     o.chosen = o.alive() && o.present && (add ? !o.chosen : true);
     _selected = -1;
@@ -507,6 +508,7 @@ void MapScreen::chooseIn(float x0, float y0, float x1, float y1, bool add) {
     if (!add)
         for (Officer &o : _officers)
             o.chosen = false;
+    _meldChosen = false;
     for (Officer &o : _officers)
         if (o.alive() && o.present && o.x >= x0 && o.x <= x1 && o.y >= y0 && o.y <= y1)
             o.chosen = true;
@@ -517,6 +519,7 @@ void MapScreen::chooseIn(float x0, float y0, float x1, float y1, bool add) {
 }
 
 void MapScreen::chooseAll() {
+    _meldChosen = false;
     for (size_t i = 0; i < _officers.size(); ++i) {
         _officers[i].chosen = _officers[i].alive() && _officers[i].present;
         if (_selected < 0 && _officers[i].chosen)
@@ -783,6 +786,7 @@ void MapScreen::update(uint64_t now) {
     // The triggers see where everyone has got to.
     updateNoises(seconds);
     updateEnemies(seconds);
+    updateMeld(seconds);
     updateCombat(seconds);
     updateItems(seconds);
     updateCharges(seconds);
@@ -905,6 +909,10 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
         toggleOverload();
     if (hud.detonate)
         detonate();
+    if (hud.breakMeld)
+        breakMeld();
+    if (hud.centreMeld && _melded >= 0)
+        moveCamera(_enemies[size_t(_melded)].x, _enemies[size_t(_melded)].y);
     if (hud.cancelOrders)
         cancelOrders();
     if (hud.vision)
@@ -942,6 +950,11 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
             // Choosing whose sight to show: the enemy clicked (inferred).
             _visionEnemy = seen;
             _vision = 2;
+        } else if (_melded >= 0 && enemyAt(toMapX(_pressX), toMapY(_pressY)) == _melded && !_meldChosen) {
+            // The enemy taken over chosen (inferred: as an officer is).
+            chooseMelded();
+        } else if (_meldChosen && officerAt(toMapX(_pressX), toMapY(_pressY)) < 0) {
+            orderMelded(toMapX(_pressX), toMapY(_pressY));
         } else if (useItem(toMapX(_pressX), toMapY(_pressY))) {
             // The chosen officer's item used there.
         } else if (const int officer = officerAt(toMapX(_pressX), toMapY(_pressY)); officer >= 0) {

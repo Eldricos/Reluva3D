@@ -123,6 +123,24 @@ bool MapScreen::useItem(float x, float y) {
     const ItemDefinition *def = itemOf(o);
     if (!def || o.down() || o.items[size_t(o.item)].count == 0)
         return false;
+    // The Psychic Rack on an enemy: one it can't take over, its Fail Sound
+    // (0x5d5304); else taken over, walked into range first.
+    if (def->psyche) {
+        const int enemy = enemyAt(x, y);
+        if (enemy < 0)
+            return false;
+        if (!canMeld(size_t(_selected), size_t(enemy))) {
+            if (_mixer)
+                if (auto sound = gameSound(_data, def->failSound))
+                    _mixer->play(sound, audio::SoundType::kEffects);
+            return true;
+        }
+        o.task = Officer::Task::kMeld;
+        o.taskPart = enemy;
+        o.attacking = -1;
+        o.path.clear();
+        return true;
+    }
     // An overloaded item is thrown, whatever it is (0x5cf3c0).
     if (throws(*def) || o.items[size_t(o.item)].overload >= 0.0f) {
         o.task = Officer::Task::kThrow;
@@ -392,6 +410,23 @@ void MapScreen::updateItems(float seconds) {
         } else if (o.task == Officer::Task::kScan) {
             placeOf(size_t(o.taskPart), x, y);
             near = (def->range <= 0.0f || std::hypot(x - o.x, y - o.y) <= def->range) && clearSight(o.x, o.y, x, y);
+        } else if (o.task == Officer::Task::kMeld) {
+            // Taken over from within its Item Range (inferred: walked to
+            // first, as a scan's).
+            const Enemy &e = _enemies[size_t(o.taskPart)];
+            if (!e.alive()) {
+                o.task = Officer::Task::kNone;
+                continue;
+            }
+            x = e.x;
+            y = e.y;
+            if (def->range <= 0.0f || std::hypot(x - o.x, y - o.y) <= def->range) {
+                o.path.clear();
+                o.task = Officer::Task::kNone;
+                if (canMeld(i, size_t(o.taskPart)))
+                    startMeld(i, size_t(o.taskPart));
+                continue;
+            }
         } else if (o.task == Officer::Task::kThrow) {
             const float range = def->range * enhancement(int(&o - _officers.data()));
             near = (range <= 0.0f || std::hypot(x - o.x, y - o.y) <= range) && clearSight(o.x, o.y, x, y);

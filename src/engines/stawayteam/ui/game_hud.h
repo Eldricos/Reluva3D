@@ -41,6 +41,8 @@ public:
         bool options = false;        // the escape button pressed
         bool toggleStun = false;     // the chosen item's panel's STUN or KILL pressed
         bool detonate = false;       // the remote mine's panel's DETONATE pressed
+        bool breakMeld = false;      // the Psychic Rack's panel's BREAK CONTROL pressed
+        bool centreMeld = false;     // the Psychic Rack's panel's CENTER pressed
         bool toggleCharge = false;   // the cloaking band's panel's ACTIVATE or DEACTIVATE pressed
         bool toggleOverload = false; // the phaser's panel's OVERLOAD pressed
         int item = -1;               // an item chosen on the inventory: its place in what setInventory gave

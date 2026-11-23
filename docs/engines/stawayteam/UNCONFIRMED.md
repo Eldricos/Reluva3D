@@ -18,6 +18,9 @@ None yet.
 
 ## Inferred
 
+- **The Psychic Rack:** walking into range, the enemy chosen in
+  Slovaak's place, its orders, and its going back on patrol
+  ([systems/items.md](systems/items.md#in-reluva)).
 - **Overload:** a thrown overloaded phaser keeping its countdown, and its
   going off hurting by its own damage, its holder too
   ([systems/items.md](systems/items.md#in-reluva)).

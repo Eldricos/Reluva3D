@@ -1114,6 +1114,93 @@ void testOverload() {
     CHECK(screen.thrown().empty() && screen.enemies()[1].health == 60.0f && b.health == 100.0f);
 }
 
+void testMeld() {
+    // Slovaak's Psychic Rack, three guards: A, armed, 200 off; B, 300 past
+    // it, unarmed; C, Immune to Psyche Displacement.
+    const auto part = [](const std::string &name, int x, const std::string &category, const std::string &rest) {
+        return "Level Part=CEntityWalking\n{\nName=" + name + "\nVisible=1\nActive=1\nCategory=" + category +
+               "\nActivity=Array\n{\nItem Count=1\nActivity=CBorgAI\n{\nCurrent State=Patrol\nVision Cone=360\nMax Distance=500\n}\n}\n" +
+               rest + "Model=Characters/Guard\nFacing Angle=3.14159\nPosition X=" + std::to_string(x) +
+               "\nPosition Y=500\n}\n";
+    };
+    const std::string zax =
+        "CLayerSaveData\n{\nWidth=3000\nHeight=2000\nView Position=500.000000,500.000000\n"
+        "Tree List=CSortList2D\n{\n" +
+        part("Guard A", 500, "Enemy",
+             "Inventory=CInventory\n{\nInventory List=Array\n{\nItem Count=1\n"
+             "Item=CStarTrekEnergyWeaponInventoryItem\n{\nDefinition Index=Disruptor\n}\n}\n}\n") +
+        part("Guard B", 800, "Enemy", "") + part("Guard C", 400, "Enemy,Immune to Psyche Displacement", "") +
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=500\n}\n}\n}\n";
+    const auto bytesOf = [](const std::string &text) { return std::vector<uint8_t>(text.begin(), text.end()); };
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = bytesOf(zax);
+    data.files["Cache/Models/Characters/Guard.mdl16"] = modelFile("Guard", 1, 1, 100.0f);
+    data.files["Inventory/Item Definitions/Disruptor.txt"] =
+        bytesOf("CStarTrekInventoryItemDefinition\n{\nWeapon Damage=30\nReuse Delay=1\nItem Range=375\n"
+                "Max Shoot Angle=10\nDischarge Action=CShootEnergyWeaponAction\n}\n");
+    data.files["Inventory/Item Definitions/Psychic Rack.txt"] =
+        bytesOf("CStarTrekInventoryItemDefinition\n{\nDisplay In Inventory=1\nItem Range=300\nEnergy Use=3\n"
+                "Energy Recharge=0.03\nDefault Inventory Item=CStarTrekPsycheDisplacementInventoryItem\n{\n"
+                "Current Energy=100\nController Item=Psyche Displacement Controller\n}\n}\n");
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(
+        !readTextObject("CRules\n{\nCustom Rules=CCustomRules\n{\nScreen Pos=0,0\nScreen Size=200,200\n}\n}\n", rules));
+    GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
+    TeamMember slovaak;
+    slovaak.firstName = "Slovaak";
+    slovaak.inventory = {{"Psychic Rack", -1}};
+    MapScreen screen(data, rules, map, options, 0, {slovaak});
+    const MapScreen::Officer &s = screen.officers()[0];
+    const auto &enemies = screen.enemies();
+    uint64_t now = 0;
+    const auto run = [&](uint64_t until) {
+        while (now < until)
+            screen.update(now += 50);
+    };
+    screen.choose(0);
+    screen.chooseItem(0, 0);
+    // The immune one can't be taken: nothing happens but its Fail Sound.
+    CHECK(screen.useItem(400.0f, 500.0f));
+    run(500);
+    CHECK(screen.melded() == -1 && s.task == MapScreen::Officer::Task::kNone);
+    // A is: chosen in his place, of the team for the while; he stands.
+    CHECK(screen.useItem(500.0f, 500.0f));
+    run(1000);
+    CHECK(screen.melded() == 0 && screen.melder() == 0 && screen.meldChosen() && !s.chosen);
+    CHECK(enemies[0].state == "Controlled" && screen.map().parts[enemies[0].part].category == "Enemy,Team Member");
+    const float sx = s.x;
+    // Sent after B, A walks into range and shoots it; its charge goes
+    // down 3 a second.
+    screen.orderMelded(800.0f, 500.0f);
+    run(5000);
+    CHECK(enemies[1].health < 100.0f && enemies[2].health == 100.0f && s.x == sx);
+    // B, whose Valid Targets name the team, goes after it.
+    CHECK(enemies[1].foe == 0);
+    CHECK(s.items[0].energy > 86.0f && s.items[0].energy < 90.0f);
+    // A hurt, Slovaak's hurt as much, at most half what he has.
+    ItemDefinition hit;
+    hit.weaponDamage = 20.0f;
+    screen.hurtEnemy(0, hit, -1, false);
+    CHECK(enemies[0].health == 80.0f && s.health == 80.0f);
+    hit.weaponDamage = 60.0f;
+    screen.hurtEnemy(0, hit, -1, false);
+    CHECK(enemies[0].health == 20.0f && s.health == 40.0f);
+    // Let go, A is on patrol again, an enemy as before.
+    screen.breakMeld();
+    CHECK(screen.melded() == -1 && enemies[0].state == "Patrol" && !s.items[0].on);
+    CHECK(screen.map().parts[enemies[0].part].category == "Enemy");
+    // Taken again, the charge runs out and it ends by itself.
+    screen.choose(0);
+    CHECK(screen.useItem(enemies[0].x, enemies[0].y));
+    run(now + 1000);
+    CHECK(screen.melded() == 0);
+    run(now + 40000);
+    CHECK(screen.melded() == -1 && s.items[0].energy < 1.0f);
+}
+
 void testMaps() {
     // A mission's two maps: on the first, Ann and Bo, and a door's polygon
     // round Ann; on the second, a landing.
@@ -2104,6 +2191,7 @@ static const reluva::test::Suite
                                        {"enemy AI", [](const std::filesystem::path &) { testEnemyAI(); }},
                                        {"items", [](const std::filesystem::path &) { testItems(); }},
                                        {"overload", [](const std::filesystem::path &) { testOverload(); }},
+                                       {"meld", [](const std::filesystem::path &) { testMeld(); }},
                                        {"maps", [](const std::filesystem::path &) { testMaps(); }},
                                        {"interface", [](const std::filesystem::path &) { testInterface(); }},
                                        {"gadgets", [](const std::filesystem::path &) { testGadgets(); }},

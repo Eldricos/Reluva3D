@@ -24,6 +24,10 @@ constexpr int kDirections = 12;
 constexpr float kBeamTime = 0.25f;
 // A strike reaches about a figure's width at least (inferred).
 constexpr float kStrikeReach = 30.0f;
+// Of the damage the enemy taken over by the Psychic Rack takes, its holder
+// takes as much, but no more than half the health they have left
+// (0x43b900).
+constexpr float kSharedAtMost = 0.5f;
 
 // Which side of the line a-b point c is on.
 float side(float ax, float ay, float bx, float by, float cx, float cy) {
@@ -257,8 +261,14 @@ void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attack
         e.target = -1;
         return;
     }
-    if (!stun)
-        e.health -= weapon.weaponDamage * enhancement(attacker);
+    const float damage = stun ? 0.0f : weapon.weaponDamage * enhancement(attacker);
+    e.health -= damage;
+    if (int(enemy) == _melded && damage > 0.0f) {
+        // Its holder hurt with it (0x43b900).
+        Officer &holder = _officers[size_t(_melder)];
+        holder.health = std::max(0.0f, holder.health - std::min(damage, holder.health * kSharedAtMost));
+        officerHit(size_t(_melder));
+    }
     if (e.health <= 0.0f) {
         e.health = 0.0f;
         e.dead = 0.0f;
@@ -270,7 +280,9 @@ void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attack
         return;
     }
     // One that's Target If Hit turns on whoever hit it, and attacks; one
-    // hurt enough retreats.
+    // hurt enough retreats. One taken over does as it's told.
+    if (int(enemy) == _melded)
+        return;
     if (attacker >= 0 && (readText(e.ai, "Target If Hit") == "1" || stun) && e.state != "Attack" &&
         e.state != "Retreat")
         attackOfficer(e, attacker);

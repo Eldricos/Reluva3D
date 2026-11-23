@@ -178,6 +178,11 @@ GameHud::Result GameHud::handleEvent(const Event &ev, uint64_t now) {
             r.toggleOverload = onButton("Overload Pos", picture("Inventory/Toggle Default"));
         if (panel->className == "CChargedItemInfoRenderer" && panel->integer("Show Activate Button").value_or(0))
             r.toggleCharge = onButton("Button Pos", picture(readText(panel, "Button Off Frame")));
+        if (panel->className == "CPsycheDisplacementInfoRenderer" && _chargeOn) {
+            const image::Image &button = picture("Info Bar/Psyche Displacement/Psyche Default");
+            r.breakMeld = onButton("Activate Button Pos", button);
+            r.centreMeld = onButton("Center Button Pos", button);
+        }
         if (panel->className == "CDetonateInfoRenderer")
             r.detonate = onButton("Detonate Button Pos", picture("Info Bar/Remote Mine/Detonate Default"));
     }
@@ -680,6 +685,38 @@ void GameHud::drawItemPanel(Surface &screen, int x, int y, uint64_t now) {
             readPoint(panel, "Button Text Pos", tx, ty);
             if (font.loaded())
                 font.draw(screen, px + tx, py + ty, readText(panel, _chargeOn ? "Button On Text" : "Button Off Text"));
+        }
+    } else if (kind == "CPsycheDisplacementInfoRenderer") {
+        // Its charge, the meter's frame as much as is left of its frames,
+        // and as a percentage; taking an enemy over, BREAK CONTROL and
+        // CENTER on the Psyche buttons (0x54a42e), else its Text in its
+        // Text Width (inferred: the two share a place).
+        const Animation &meter = sequence(readText(panel, "Meter Sequence"));
+        const int frames = std::max(1, meter.perDirection());
+        const int frame = int(std::lround(std::clamp(_energy, 0.0f, 100.0f) / 100.0f * float(frames - 1)));
+        fromMiddle("Indicator Position", px, py);
+        blitBy(screen, meter.frame(frame, 0), px, py);
+        at("Percent Pos", px, py);
+        if (window.loaded())
+            window.draw(screen, px, py, std::to_string(int(std::lround(std::clamp(_energy, 0.0f, 100.0f)))) + "%");
+        if (_chargeOn) {
+            const image::Image &button = picture("Info Bar/Psyche Displacement/Psyche Default");
+            for (const char *which : {"Activate", "Center"}) {
+                const std::string key = std::string(which) + " Button";
+                at((key + " Pos").c_str(), px, py);
+                image::blit(screen, button, px, py);
+                int tx = 0;
+                int ty = 0;
+                readPoint(panel, key + " Text Pos", tx, ty);
+                const Font &font = panelFont(readText(panel, key + " Font"));
+                const std::string label = readText(panel, key + " Text");
+                if (font.loaded())
+                    font.draw(screen, px + tx + (button.w - font.width(label)) / 2, py + ty, label);
+            }
+        } else if (window.loaded()) {
+            at("Text Pos", px, py);
+            window.drawWrapped(screen, px, py, int(panel->integer("Text Width").value_or(0)), readText(panel, "Text"),
+                               Font::Align::kLeft);
         }
     } else if (kind == "CTricorderInfoRenderer") {
         // What it's said, typed out, at Rules.txt's Tricorder Pos in its

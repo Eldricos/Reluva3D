@@ -197,6 +197,32 @@ its whole left, in seconds; run out, its `Overload Projectile` (a
 concussion grenade's model) goes off where its holder is and the item is
 gone (`0x5cf235`).
 
+### The Psychic Rack
+
+Slovaak's Psychic Rack (Enhanced Mind Meld) is a
+`CStarTrekPsycheDisplacementInventoryItem`: used on an enemy within its
+Item Range (300), he takes it over. It can't be used while it's on, nor
+on one already taken, of the team, or of the category `Immune to Psyche
+Displacement` (10 of the maps' enemies; `0x5d4ff0`); then its `Fail
+Sound` plays (`0x5d5304`). It needs a use's worth of charge, its `Energy
+Use` (3; `0x5d5145`). Taken over (`0x5d50e0`), the enemy gets a
+`CPsycheControlAI` in place of its own mind, and the team's category for
+the while (`0x5d522c`): the player chooses and orders it as one of the
+team, the enemies go after it as they would an officer, and Slovaak
+stands still. The charge goes down by its Energy Use a second while it
+lasts (about 33 seconds from full) and comes back by its `Energy
+Recharge` (0.03) a second.
+
+Of the damage the enemy takes, Slovaak takes as much, but no more than
+half the health he has left (`0x43b900`), so it can't kill him. The meld
+ends as the charge runs out, as either of them dies (`0x43b8ce`), or with
+the panel's BREAK CONTROL: the enemy's own mind back, Slovaak free, its
+`Break Meld Sound` (`0x5d5420`).
+
+Its panel (`CPsycheDisplacementInfoRenderer`) has its Meter Sequence,
+the charge as a percentage at Percent Pos, and BREAK CONTROL and CENTER
+on the `Info Bar/Psyche Displacement/Psyche` buttons (`0x54a42e`).
+
 ### The inventory bar
 
 At Rules.txt's `Inventory Pos` (355, 419): its `Background`, and a
@@ -312,6 +338,14 @@ and Default Death Type its model's where the map leaves them out
 Strike Damage Radius, 30 at least, the officer walking up *(inferred)*,
 and does its Weapon Damage.
 
+The Psychic Rack is as above. Out of range, Slovaak walks into it first
+*(inferred)*. The enemy taken over is chosen in his place, chosen again
+with a click on it, and sent with a click: after an enemy clicked,
+shooting it in its weapon's range and sight, else to the place; let go,
+it's on patrol *(inferred)*. Its panel shows the meter's frame for the
+charge left, BREAK CONTROL and CENTER while it's on, else its Text
+*(inferred)*; CENTER brings the view to the enemy.
+
 An enhancement, kept for each officer rather than each item (it's given
 to all their weapons at once), multiplies their weapons' damage and
 range by 1.25, shown in the phaser's panel; the team bar doesn't mark it
@@ -322,9 +356,11 @@ holder too *(inferred)*.
 
 Not there yet: the mines' Deploy and Activate sequences, the phaser's
 range on its panel, the Out Of Range cursor, the full inventory, the
-Psychic Rack and the Psyche Displacement Controller, the sparks and
-transporter pictures, the band and enhancement on the team bar (`Active
-HUD Sequence`, `Inventory Enhanced`), and walls in a grenade's way.
+Psyche Displacement Controller (the enemy's own item while it's taken,
+and its panel), the sparks and transporter pictures, the band,
+enhancement and meld on the team bar (`Active HUD Sequence`, `Inventory
+Enhanced`, `Team Bar/Psyche Displacement`), and walls in a grenade's
+way.
 
 ## Sources and checks
 
@@ -377,7 +413,8 @@ HUD Sequence`, `Inventory Enhanced`), and walls in a grenade's way.
   (its opacity, `0x496880`).
 - **Gadgets:** how the enemies treat a decoy, whether the neck pinch and
   the paralysis stun rather than kill (their Weapon Damage is 50,000), and
-  what the Psychic Rack does.
+  how the player orders an enemy taken over, and how its own mind comes
+  back.
 - **Overload:** what an overloaded phaser's projectile does when it
   goes off, and whether a thrown one keeps its countdown.
 - **Grenades:** whom an explosion reaches and how far, whether it hurts

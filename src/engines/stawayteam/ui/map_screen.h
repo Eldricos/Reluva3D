@@ -148,12 +148,12 @@ public:
         int item = -1;
         // What they've been sent to do with it, walking there first: throw
         // it at a place, or use it on an officer.
-        enum class Task { kNone, kThrow, kUseOn, kPlace, kScan, kProcess, kItemProcess };
+        enum class Task { kNone, kThrow, kUseOn, kPlace, kScan, kProcess, kItemProcess, kMeld };
         Task task = Task::kNone;
         float taskX = 0.0f;
         float taskY = 0.0f;
         int taskOfficer = -1;
-        int taskPart = -1;                       // what a scan or process is of
+        int taskPart = -1;                       // what a scan or process is of, or the enemy a meld's with
         const TextObject *taskProcess = nullptr; // the part's process they're going through
         size_t taskStep = 0;                     // its Process Activity they're on
         // The inventory bar's places, an item type's each: which of the
@@ -349,6 +349,20 @@ public:
     static constexpr float kOverloadTime = 10.0f;
     /** Switches the chosen officer's chosen charged item (the cloaking band) on or off. */
     void toggleCharge();
+    /** The map as it is now: its parts' categories changed by the game among it. */
+    const GameMap &map() const { return _map; }
+    /** The enemy taken over by the Psychic Rack, or -1. */
+    int melded() const { return _melded; }
+    /** The officer holding it, or -1. */
+    int melder() const { return _melder; }
+    /** Whether the enemy taken over is the one chosen: the clicks are its orders. */
+    bool meldChosen() const { return _meldChosen; }
+    /** Chooses the enemy taken over, if there is one. */
+    void chooseMelded();
+    /** Lets the enemy taken over go (the panel's BREAK CONTROL). */
+    void breakMeld();
+    /** Sends the enemy taken over to (x, y), or after the enemy there. */
+    void orderMelded(float x, float y);
     /** What the chosen officer's tricorder last said, and how much of it's typed out. */
     const std::string &scanText() const { return _scanText; }
     /**
@@ -596,6 +610,16 @@ private:
     void updateItems(float seconds);
     // The charged items and what they do (map_gadgets.cpp).
     void updateCharges(float seconds);
+    // The mind meld: whether officer `officer` can take enemy `enemy` over
+    // now, taking it over, and each frame, its orders carried out and its
+    // charge drained, and the meld ended when it's gone.
+    bool canMeld(size_t officer, size_t enemy) const;
+    void startMeld(size_t officer, size_t enemy);
+    void updateMeld(float seconds);
+    int _melded = -1;
+    int _melder = -1;
+    bool _meldChosen = false;
+    std::string _meldCategory; // the enemy's own, given back as it's let go
     // An officer's task done once they're near enough: true when it's done.
     bool doTask(size_t officer);
     void explode(const Thrown &t);
