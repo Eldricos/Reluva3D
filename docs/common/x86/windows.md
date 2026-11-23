@@ -140,7 +140,9 @@ a host folder:
 - names are matched ignoring case;
 - what the program writes can be kept in a folder of its own
   (`Drive::writable`), so the game's folder stays as it was; a file
-  changed is copied there first, and a search lists both;
+  changed is copied there at its first write, and a search lists both. A
+  file opened for writing that's never written isn't copied: Jedi Knight
+  opens its 150 MB of archives so, and only reads them;
 - a CD drive is read-only, with its label and serial;
 - the stand-ins cover files (`CreateFileA` with each disposition's errors,
   a new file only in a folder that's there, `NUL`), searches, folders,
