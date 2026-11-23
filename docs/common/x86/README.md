@@ -19,7 +19,7 @@ documentation. It's all in `src/emulation/x86/`.
 | [dsound.md](dsound.md) | DirectSound and DirectSound 3D, on Reluva's mixer |
 | [cdaudio.md](cdaudio.md) | MCI's CD audio, from a disc image's or ripped tracks |
 | [a3d.md](a3d.md) | Aureal A3D, on Reluva's mixer |
-| [dplay.md](dplay.md) | DirectPlay 3, with no connections |
+| [dplay.md](dplay.md) | DirectPlay 3: sessions over TCP/IP between copies of Reluva |
 | [msvcp60.md](msvcp60.md) | Visual C++ 6's C++ library, rebuilt with its layouts |
 | [disasm.md](disasm.md) | A disassembler, for studying a game's executable |
 

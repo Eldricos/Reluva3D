@@ -10,6 +10,7 @@
 #include "audio/mixer.h"
 #include "audio/wav.h"
 #include "common/fs.h"
+#include "common/net.h"
 #include "common/stream.h"
 #include "common/types.h"
 #include "emulation/x86/a3d.h"
@@ -1414,31 +1415,216 @@ static void testDirect3D1() {
 }
 
 // DirectPlay 3 created through COM, with no connections to offer.
-static void testDirectPlay() {
-    x86::Cpu cpu(16u << 20);
-    x86::Win32Process process(cpu);
-    x86::DirectPlay directPlay(process);
-    uint32_t r = 0;
-    auto guid = [&](const char *g) {
-        const uint32_t a = process.memory().alloc(16);
+// One DirectPlay object in a process of its own, on the loopback network,
+// called as a program calls it.
+struct PlaySide {
+    x86::Cpu cpu{16u << 20};
+    x86::Win32Process process{cpu};
+    x86::DirectPlay directPlay{process};
+    uint32_t dp = 0;
+
+    explicit PlaySide(const std::shared_ptr<net::LoopbackNetwork> &network) {
+        directPlay.network.open = [network](uint16_t port) { return network->open(port); };
+        directPlay.network.search = {net::Address::broadcast(x86::kDirectPlayPort)};
+        const uint32_t clsid = guid("{d1eb6d20-8923-11d0-9d97-00a0c90a43cb}");
+        const uint32_t iid = guid("{133efe41-32dc-11d0-9cfb-00a0c90a43cb}"); // IDirectPlay3A
+        const uint32_t out = mem(4);
+        uint32_t r = 1;
+        CHECK(!cpu.call(process.provided("ole32.dll", "CoCreateInstance"), {clsid, 0, 1, iid, out}, r) && r == 0);
+        dp = cpu.read32(out);
+    }
+    uint32_t mem(uint32_t size) { return process.memory().alloc(size); }
+    uint32_t guid(const char *g) {
+        const uint32_t a = mem(16);
         x86::ComHost::writeGuid(cpu, a, g);
         return a;
-    };
-    const uint32_t out = process.memory().alloc(4);
-    CHECK(!cpu.call(process.provided("ole32.dll", "CoCreateInstance"),
-                    {guid("{d1eb6d20-8923-11d0-9d97-00a0c90a43cb}"), 0, 1,
-                     guid("{133efe40-32dc-11d0-9cfb-00a0c90a43cb}"), out},
-                    r) &&
-          r == 0);
-    const uint32_t dp = cpu.read32(out);
-    int offered = 0;
-    const uint32_t callback = cpu.addNative("test!EnumConnections", [&](x86::Cpu &c) {
-        ++offered;
-        c.reg[x86::Cpu::EAX] = 1;
-        return 24u;
+    }
+    uint32_t text(const std::string &t) {
+        const uint32_t a = mem(uint32_t(t.size()) + 1);
+        cpu.writeString(a, t, uint32_t(t.size()) + 1);
+        return a;
+    }
+    // IDirectPlay3A's method `index`.
+    uint32_t call(int index, std::vector<uint32_t> args) {
+        args.insert(args.begin(), dp);
+        uint32_t r = 0xffffffffu;
+        CHECK(!cpu.call(cpu.read32(cpu.read32(dp) + 4 * uint32_t(index)), args, r));
+        return r;
+    }
+    // A DPSESSIONDESC2 for the application "{11111111-...}".
+    uint32_t sessionDesc(const std::string &name) {
+        const uint32_t d = mem(0x50);
+        for (uint32_t i = 0; i < 0x50; i += 4)
+            cpu.write32(d + i, 0);
+        cpu.write32(d, 0x50);
+        x86::ComHost::writeGuid(cpu, d + 0x18, "{11111111-2222-3333-4444-555555555555}");
+        cpu.write32(d + 0x28, 4);
+        cpu.write32(d + 0x30, text(name));
+        return d;
+    }
+    // Lists the connections and initializes the first: how many there were.
+    int connect() {
+        int listed = 0;
+        uint32_t copy = mem(256);
+        const uint32_t callback = cpu.addNative("test!EnumConnections", [&](x86::Cpu &c) {
+            if (!listed++)
+                for (uint32_t i = 0; i < std::min(c.arg(2), 256u); ++i)
+                    c.write8(copy + i, c.read8(c.arg(1) + i));
+            c.reg[x86::Cpu::EAX] = 1;
+            return 24u;
+        });
+        CHECK(call(35, {0, callback, 0, 0}) == 0); // EnumConnections
+        if (listed)
+            CHECK(call(38, {copy, 0}) == 0); // InitializeConnection
+        return listed;
+    }
+    uint32_t createPlayer(const std::string &name) {
+        const uint32_t dpName = mem(16);
+        cpu.write32(dpName, 16);
+        cpu.write32(dpName + 4, 0);
+        cpu.write32(dpName + 8, text(name));
+        cpu.write32(dpName + 12, 0);
+        const uint32_t id = mem(4);
+        CHECK(call(6, {id, dpName, 0, 0, 0, 0}) == 0); // CreatePlayer
+        return cpu.read32(id);
+    }
+    // Receive: the message's bytes, its sender and receiver; false if there's none.
+    bool receive(std::vector<uint8_t> &data, uint32_t &from, uint32_t &to) {
+        const uint32_t fromAt = mem(4);
+        const uint32_t toAt = mem(4);
+        const uint32_t buffer = mem(512);
+        const uint32_t size = mem(4);
+        cpu.write32(size, 512);
+        const uint32_t r = call(25, {fromAt, toAt, 1, buffer, size});
+        if (r != 0)
+            return false;
+        from = cpu.read32(fromAt);
+        to = cpu.read32(toAt);
+        data.resize(cpu.read32(size));
+        for (size_t i = 0; i < data.size(); ++i)
+            data[i] = cpu.read8(buffer + uint32_t(i));
+        return true;
+    }
+    uint32_t send(uint32_t from, uint32_t to, const std::string &bytes, uint32_t flags = 0) {
+        return call(26, {from, to, flags, text(bytes), uint32_t(bytes.size())});
+    }
+};
+
+// DirectPlay without a network offers no connection; with the loopback
+// network, one process hosts a session, another finds it, joins and makes
+// a player; messages go both ways, to a player, to everyone and to a
+// group; the session's description follows the host's; and the host sees
+// the player come and go, as system messages.
+static void testDirectPlay() {
+    {
+        x86::Cpu cpu(16u << 20);
+        x86::Win32Process process(cpu);
+        x86::DirectPlay directPlay(process);
+        uint32_t r = 0;
+        const uint32_t out = process.memory().alloc(4);
+        const uint32_t clsid = process.memory().alloc(16);
+        const uint32_t iid = process.memory().alloc(16);
+        x86::ComHost::writeGuid(cpu, clsid, "{d1eb6d20-8923-11d0-9d97-00a0c90a43cb}");
+        x86::ComHost::writeGuid(cpu, iid, "{133efe40-32dc-11d0-9cfb-00a0c90a43cb}");
+        CHECK(!cpu.call(process.provided("ole32.dll", "CoCreateInstance"), {clsid, 0, 1, iid, out}, r) && r == 0);
+        const uint32_t dp = cpu.read32(out);
+        int offered = 0;
+        const uint32_t callback = cpu.addNative("test!EnumConnections", [&](x86::Cpu &c) {
+            ++offered;
+            c.reg[x86::Cpu::EAX] = 1;
+            return 24u;
+        });
+        CHECK(!cpu.call(cpu.read32(cpu.read32(dp) + 4 * 35), {dp, 0, callback, 0, 0}, r) && r == 0 && offered == 0);
+        CHECK(!cpu.call(cpu.read32(cpu.read32(dp) + 4 * 2), {dp}, r) && r == 0); // Release
+    }
+
+    auto network = net::LoopbackNetwork::create();
+    PlaySide host(network);
+    PlaySide joiner(network);
+    joiner.directPlay.waiting = [&] { host.directPlay.update(); };
+    CHECK(host.connect() == 1 && joiner.connect() == 1);
+    CHECK(host.call(24, {host.sessionDesc("Bespin"), 2}) == 0); // Open: create
+    const uint32_t hostPlayer = host.createPlayer("Kyle");
+    CHECK(hostPlayer != 0);
+
+    // EnumSessions, asynchronously: asked, then answered.
+    std::string found;
+    uint32_t foundAt = joiner.mem(0x50);
+    const uint32_t sessions = joiner.cpu.addNative("test!EnumSessions", [&](x86::Cpu &c) {
+        if (c.arg(0) && !(c.arg(2) & 1)) {
+            found = c.string(c.read32(c.arg(0) + 0x30));
+            for (uint32_t i = 0; i < 0x50; ++i)
+                c.write8(foundAt + i, c.read8(c.arg(0) + i));
+            CHECK(c.read32(c.arg(0) + 0x2c) == 1); // its players
+        }
+        c.reg[x86::Cpu::EAX] = 0;
+        return 16u;
     });
-    CHECK(!cpu.call(cpu.read32(cpu.read32(dp) + 4 * 35), {dp, 0, callback, 0, 0}, r) && r == 0 && offered == 0);
-    CHECK(!cpu.call(cpu.read32(cpu.read32(dp) + 4 * 2), {dp}, r) && r == 0); // Release
+    const uint32_t wanted = joiner.sessionDesc("");
+    CHECK(joiner.call(13, {wanted, 0, sessions, 0, 0x52}) == 0);
+    host.directPlay.update();
+    CHECK(joiner.call(13, {wanted, 0, sessions, 0, 0x52}) == 0);
+    CHECK(found == "Bespin");
+
+    // Its players, before joining.
+    std::vector<std::string> names;
+    const uint32_t players = joiner.cpu.addNative("test!EnumPlayers", [&](x86::Cpu &c) {
+        names.push_back(c.string(c.read32(c.arg(2) + 8)));
+        c.reg[x86::Cpu::EAX] = 1;
+        return 20u;
+    });
+    CHECK(joiner.call(12, {foundAt + 8, players, 0, 0x80}) == 0 && names == std::vector<std::string>{"Kyle"});
+
+    CHECK(joiner.call(24, {foundAt, 1}) == 0); // Open: join
+    names.clear();
+    CHECK(joiner.call(12, {0, players, 0, 0}) == 0 && names == std::vector<std::string>{"Kyle"});
+    const uint32_t joinerPlayer = joiner.createPlayer("Jerec");
+    CHECK(joinerPlayer != 0 && joinerPlayer != hostPlayer);
+    host.directPlay.update();
+
+    std::vector<uint8_t> data;
+    uint32_t from = 0;
+    uint32_t to = 0;
+    CHECK(host.receive(data, from, to) && from == 0 && data.size() >= 48);
+    CHECK(data[0] == 3 && data[4] == 1); // DPSYS_CREATEPLAYERORGROUP, a player
+    CHECK(uint32_t(data[8] | data[9] << 8 | data[10] << 16 | data[11] << 24) == joinerPlayer);
+
+    CHECK(joiner.send(joinerPlayer, hostPlayer, "hello") == 0);
+    host.directPlay.update();
+    CHECK(host.receive(data, from, to) && from == joinerPlayer && to == hostPlayer &&
+          std::string(data.begin(), data.end()) == "hello");
+    CHECK(host.send(hostPlayer, 0, "everyone", 1) == 0); // guaranteed
+    joiner.directPlay.update();
+    CHECK(joiner.receive(data, from, to) && from == hostPlayer && to == joinerPlayer &&
+          std::string(data.begin(), data.end()) == "everyone");
+    CHECK(!host.receive(data, from, to)); // not back to the sender
+
+    // A group of the host's with the joiner's player in it, and a message to it.
+    const uint32_t groupAt = host.mem(4);
+    CHECK(host.call(5, {groupAt, 0, 0, 0, 0}) == 0); // CreateGroup
+    const uint32_t group = host.cpu.read32(groupAt);
+    CHECK(host.call(3, {group, joinerPlayer}) == 0); // AddPlayerToGroup
+    CHECK(host.send(hostPlayer, group, "team") == 0);
+    joiner.directPlay.update();
+    CHECK(joiner.receive(data, from, to) && from == 0 && data[0] == 3 && data[4] == 0); // the group made
+    CHECK(joiner.receive(data, from, to) && from == 0 && data[0] == 7);                 // DPSYS_ADDPLAYERTOGROUP
+    CHECK(joiner.receive(data, from, to) && to == joinerPlayer && std::string(data.begin(), data.end()) == "team");
+
+    // The host renames the session; the joiner's description follows.
+    CHECK(host.call(31, {host.sessionDesc("Bespin 2"), 0}) == 0); // SetSessionDesc
+    joiner.directPlay.update();
+    const uint32_t descAt = joiner.mem(0x100);
+    const uint32_t descSize = joiner.mem(4);
+    joiner.cpu.write32(descSize, 0x100);
+    CHECK(joiner.call(22, {descAt, descSize}) == 0); // GetSessionDesc
+    CHECK(joiner.cpu.string(joiner.cpu.read32(descAt + 0x30)) == "Bespin 2");
+    CHECK(joiner.cpu.read32(descAt + 0x2c) == 2);
+    CHECK(joiner.call(31, {joiner.sessionDesc("mine"), 0}) != 0); // only the host may
+
+    CHECK(joiner.call(4, {}) == 0); // Close
+    host.directPlay.update();
+    CHECK(host.receive(data, from, to) && from == 0 && data[0] == 5); // DPSYS_DESTROYPLAYERORGROUP
+    CHECK(!host.receive(data, from, to));
 }
 
 // A3D created as a program creates it, a source made, filled through Lock,
