@@ -63,9 +63,9 @@ is in [the first survey](research/first-survey.md).
       groups, the system messages (players and groups made, gone,
       joined; the session lost), guaranteed messages in order and
       others as they come, the message queue, `SendEx` and
-      `CancelMessage`; tested with two objects in one test. Largely
-      done with step 1: what's left is a new host taking over when the
-      host leaves.
+      `CancelMessage`, and a new host taking over when the host leaves
+      in a session that allows it; tested with two objects in one test.
+      Done.
    3. *Over the network:* one service provider (the game's TCP/IP)
       over UDP (`net::UdpSocket`), Reluva to Reluva, with a small
       protocol of its own (a guaranteed, ordered channel for DirectPlay's

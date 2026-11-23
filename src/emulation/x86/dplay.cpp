@@ -347,6 +347,10 @@ Laid layOut(const dplay::Event &e) {
         msg.data.resize(4);
         put32(msg.data, 0, 0x31); // DPSYS_SESSIONLOST
         break;
+    case dplay::Event::kHost:
+        msg.data.resize(4);
+        put32(msg.data, 0, 0x101); // DPSYS_HOST
+        break;
     }
     return msg;
 }

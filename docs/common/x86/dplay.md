@@ -80,8 +80,9 @@ each other's sessions, players, groups and messages. The network says:
   - the system messages, from `DPID_SYSMSG`: a player or group made
     (`DPSYS_CREATEPLAYERORGROUP`) or gone (`DPSYS_DESTROYPLAYERORGROUP`),
     a player added to or taken from a group, the session lost when its
-    host leaves (`DPSYS_SESSIONLOST`), and an asynchronous `SendEx` done
-    (`DPSYS_SENDCOMPLETE`).
+    host leaves (`DPSYS_SESSIONLOST`), this object made the session's
+    host when the old one leaves (`DPSYS_HOST`), and an asynchronous
+    `SendEx` done (`DPSYS_SENDCOMPLETE`).
 - **The lobby**, `IDirectPlayLobby` to `IDirectPlayLobby3A` on one object:
   the program wasn't started by one (`DPERR_NOTLOBBIED` from
   `GetConnectionSettings`, `Connect`, `ConnectEx` and the lobby
@@ -116,21 +117,39 @@ a new player's id needs no answer. Every copy sees the session's
 changes in the host's order.
 
 When an object leaves its session, by `Close` or being released, its
-players and groups are destroyed and the others told. When the host
-leaves or goes silent, the joiners are told the others' players are
-gone, then that the session is lost; they stay in it, alone, until they
-leave (no new host takes over). A joiner gone silent is taken as left.
+players and groups are destroyed and the others told. A joiner gone
+silent is taken as left. When the host leaves or goes silent, the
+joiners are told its players are gone, then:
+
+- **in a session made with `DPSESSION_MIGRATEHOST`**, the endpoint first
+  into the session of those left (the lowest node) takes over, and is
+  told so (`DPSYS_HOST`); DirectPlay doesn't say which it picks. The
+  host tells every endpoint the others' addresses as it sees them, so
+  the rest go straight to the new host's and are taken back as they
+  were, players, ids and all. Where the address is one a meeting server
+  made, which only the old host could use, they find the new host's
+  listing at the server instead (it lists the session again, saying
+  which node hosts it) and are introduced. The new host answers
+  searches at the port the old one listened on, if it can have it, as
+  well as its own; one it waits for that doesn't come back within the
+  timeout is taken as left. If the new host can't be reached either,
+  the next is tried. Messages sent while the hosts change over may be
+  lost: those on their way through the old host, and a joiner's before
+  it has found the new one;
+- **otherwise** they're told the others' players are gone and the
+  session is lost; they stay in it, alone, until they leave.
 
 ### The protocol
 
 Every datagram starts with `RLDP`, the protocol's version (1) and its
 kind; numbers are little-endian, strings and bytes led by their length
-(32 bits).
+(32 bits). Version 2 added the new host's messages and the port in an
+answer.
 
 | Kind | Holds | Means |
 |---|---|---|
 | 1 | an application GUID | Which sessions are there? A host of that application (or of any, for `GUID_NULL`) answers |
-| 2 | a session: GUID, application, flags, most players, players, name, whether it has a password, the four user values | A host's answer |
+| 2 | the port to join at; a session: GUID, application, flags, most players, players, name, whether it has a password, the four user values | A host's answer |
 | 3 | a link, a sequence number, whether it ends a message, a piece of one (up to 1,024 bytes) | A guaranteed message, in pieces |
 | 4 | a link, a sequence number | Every piece up to that one has come |
 | 5 | a link, a message | A message not guaranteed, whole |
@@ -151,14 +170,17 @@ The messages on a link start with their type:
 | 4, 5 | group, player | either: added to the group, taken out |
 | 6 | from, to, guaranteed, data | a joiner, for the host to pass on |
 | 7 | | a joiner leaving |
-| 10 | the joiner's node, the session, its players and groups | the host: welcome |
+| 8 | session GUID, its node | an endpoint of the session, back to the host that took over |
+| 10 | the joiner's node, the host's node, the session, its players and groups, the other nodes' addresses | the host: welcome |
 | 11 | | the host: turned down |
 | 12 | from, to, guaranteed, data | the host, passing a message on |
-| 13 | | the host, leaving: the session's lost |
+| 13 | | the host, leaving: the session's lost, or another takes over |
+| 14 | node, IP address, port (16 bits; 0 if it's gone) | the host: where another endpoint is |
 
 Through a meeting server, a host lists its session as `dplay` and its
 application's GUID, its description (as in an answer) as the listing's
-own, and lists it again every 2 seconds with its players then. A search
+own, followed by its node, and lists it again every 2 seconds with its
+players then. A search
 asks the server for the list too; a session found only there is
 introduced (`MeetingSocket::connect`) when it's joined.
 
@@ -184,15 +206,20 @@ introduced (`MeetingSocket::connect`) when it's joined.
   nothing; joining turned down (full, the wrong password); a hundred
   messages in order and one of 40,000 bytes whole between two joiners
   with a third of the datagrams lost; messages to everyone and to a
-  group; a joiner leaving, and the host and a joiner going silent.
+  group; a joiner leaving, and the host and a joiner going silent; in a
+  session that lets the host migrate, among four, the host leaving and
+  the first joiner taking over, the others back in it, messages
+  passing, a newcomer finding it at the old host's port and joining,
+  then that new host going silent and the next taking over; and the
+  same through a meeting server, the new host found by its listing.
   `reluva-tool legoloco pair` runs two copies of LEGO Loco on one network
   in memory or over the system's UDP, and `run -udp` one each in two
   processes, one hosting and one joining
   ([running.md](../../engines/legoloco/systems/running.md#network-play)).
 - **Confidence:** published unless marked. How the sessions travel
   between computers is Reluva's own, as is what DirectPlay leaves to its
-  service provider: how long a search waits, no host taking over when
-  the host leaves, ids and instance GUIDs numbered as it likes.
+  service provider: how long a search waits, which endpoint takes over
+  as host, ids and instance GUIDs numbered as it likes.
 
 ## Used by
 

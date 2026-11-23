@@ -13,10 +13,10 @@ namespace reluva::x86::dplay {
 namespace {
 
 // Every datagram starts "RLDP", the protocol's version, and its kind.
-constexpr uint8_t kVersion = 1;
+constexpr uint8_t kVersion = 2;
 enum Kind : uint8_t {
     kEnumRequest = 1, // application
-    kEnumReply = 2,   // the session
+    kEnumReply = 2,   // the port to join at, the session
     kData = 3,        // link, sequence, whether it ends a message, a piece of it
     kAck = 4,         // link, every piece up to this one has come
     kUnreliable = 5,  // link, a whole message
@@ -34,11 +34,16 @@ enum Message : uint8_t {
     kRemove = 5,  // group, player
     kSend = 6,    // from, to, guaranteed, data: to the host, to pass on
     kLeave = 7,
-    kWelcome = 10, // node, session, members
+    kRejoin = 8,   // guid, node: to a new host, from an endpoint already in the session
+    kWelcome = 10, // node, the host's node, session, members, nodes
     kRefuse = 11,
     kDeliver = 12, // from, to, guaranteed, data: from the host
     kLost = 13,    // the host has gone
+    kNode = 14,    // node, ip, port: where an endpoint is; port 0 when it's gone
 };
+
+// DPSESSION_MIGRATEHOST: when the host goes, another takes over.
+constexpr uint32_t kMigrateHost = 4;
 
 constexpr size_t kPiece = 1024;           // a datagram's share of a long message, well inside any network's
 constexpr uint64_t kResendMs = 200;       // a piece not acknowledged by then goes again
@@ -314,6 +319,10 @@ Endpoint::Status Endpoint::host(SessionInfo &info, uint16_t port) {
     _members.clear();
     _queue.clear();
     _node = kHostNode;
+    _hostNode = kHostNode;
+    _nodes.clear();
+    _awaiting.clear();
+    _seekingMs = 0;
     _nextId = 1;
     _nextNode = kHostNode + 1;
     _role = Role::kHost;
@@ -341,6 +350,8 @@ Endpoint::Status Endpoint::join(const std::string &guid, const std::string &pass
     closeLinks();
     _session = it->second.info;
     _members.clear();
+    _nodes.clear();
+    _seekingMs = 0;
     _queue.clear();
     _refused = false;
     _role = Role::kJoining;
@@ -384,9 +395,13 @@ void Endpoint::leave() {
         sendReliable(*_links.front(), w.b);
     }
     closeLinks();
+    _listen.reset();
     _role = Role::kNone;
     _session = {};
     _members.clear();
+    _nodes.clear();
+    _awaiting.clear();
+    _seekingMs = 0;
     _queue.clear();
     _node = 0;
 }
@@ -431,7 +446,7 @@ Endpoint::Status Endpoint::create(const Member &member, uint32_t &id) {
     w.member(m);
     if (_role == Role::kHost)
         toOthers(w.b, 0);
-    else
+    else if (!_links.empty())
         sendReliable(*_links.front(), w.b);
     return Status::kOk;
 }
@@ -448,7 +463,7 @@ Endpoint::Status Endpoint::destroy(uint32_t id) {
     apply(w.b, false);
     if (_role == Role::kHost)
         toOthers(w.b, 0);
-    else
+    else if (!_links.empty())
         sendReliable(*_links.front(), w.b);
     return Status::kOk;
 }
@@ -467,7 +482,7 @@ Endpoint::Status Endpoint::membership(uint32_t group, uint32_t player, bool add)
     apply(w.b, false);
     if (_role == Role::kHost)
         toOthers(w.b, 0);
-    else
+    else if (!_links.empty())
         sendReliable(*_links.front(), w.b);
     return Status::kOk;
 }
@@ -535,7 +550,9 @@ Endpoint::Status Endpoint::send(uint32_t from, uint32_t to, const std::vector<ui
     w.u32(to);
     w.u8(guaranteed ? 1 : 0);
     w.bytes(data);
-    sendMessage(*_links.front(), w.b, guaranteed);
+    // Between hosts, still looking for the new one, it's let go.
+    if (!_links.empty())
+        sendMessage(*_links.front(), w.b, guaranteed);
     return Status::kOk;
 }
 
@@ -670,6 +687,93 @@ void Endpoint::dropNode(uint32_t node) {
     }
     _links.erase(std::remove_if(_links.begin(), _links.end(), [&](const auto &l) { return l->node == node; }),
                  _links.end());
+    _nodes.erase(node);
+    _awaiting.erase(node);
+    tellNode(node, {}, node);
+}
+
+void Endpoint::tellNode(uint32_t node, const net::Address &address, uint32_t exceptNode) {
+    Writer w;
+    w.u8(kNode);
+    w.u32(node);
+    w.u32(address.ip);
+    w.u8(uint8_t(address.port));
+    w.u8(uint8_t(address.port >> 8));
+    toOthers(w.b, exceptNode);
+}
+
+// The host has gone: the session's lost unless it lets another take over.
+// Then the endpoint first in the session, of those left, does: its
+// players' order of joining, as DirectPlay doesn't say whom it picks.
+void Endpoint::hostGone() {
+    if (!(_session.flags & kMigrateHost)) {
+        lost();
+        return;
+    }
+    const uint32_t old = _hostNode;
+    std::vector<uint32_t> ids;
+    for (const auto &[id, m] : _members)
+        if (m.node == old)
+            ids.push_back(id);
+    for (uint32_t id : ids) {
+        Writer w;
+        w.u8(kDestroy);
+        w.u32(id);
+        apply(w.b, true);
+    }
+    _nodes.erase(old);
+    // Where the old host listened, for searches to find the session at.
+    uint16_t oldPort = _transport.port;
+    if (!_links.empty() && !net::isMeetingAddress(_links.front()->address))
+        oldPort = _links.front()->address.port;
+    _links.clear();
+    _seekingMs = 0;
+    uint32_t next = _node;
+    for (const auto &[node, address] : _nodes)
+        next = std::min(next, node);
+    _hostNode = next;
+    if (next != _node) {
+        // Straight to the address the old host knew it by, or, where that
+        // was one the meeting server made, through the new host's listing.
+        const net::Address host = _nodes[next];
+        if (host.ip && !net::isMeetingAddress(host))
+            rejoin(host);
+        else if (_meeting)
+            _seekingMs = now();
+        else
+            lost();
+        return;
+    }
+    // This one takes over, and waits for the others to come back to it.
+    _role = Role::kHost;
+    _awaiting.clear();
+    _nextNode = _node + 1;
+    for (const auto &[node, address] : _nodes) {
+        _awaiting[node] = now();
+        _nextNode = std::max(_nextNode, node + 1);
+    }
+    for (const auto &[id, m] : _members)
+        _nextNode = std::max(_nextNode, m.node + 1);
+    _publishedMs = 0;
+    if (_transport.open && oldPort != _socket->port())
+        _listen = _transport.open(oldPort);
+    Event e;
+    e.kind = Event::kHost;
+    _queue.push_back({0, 0, {}, e});
+}
+
+// Goes back into the session through its new host.
+void Endpoint::rejoin(const net::Address &host) {
+    auto link = std::make_unique<Link>();
+    link->address = host;
+    link->id = randomNumber();
+    link->heardMs = now();
+    _links.push_back(std::move(link));
+    Writer w;
+    w.u8(kRejoin);
+    w.str(_session.guid);
+    w.u32(_node);
+    sendReliable(*_links.back(), w.b);
 }
 
 void Endpoint::lost() {
@@ -693,6 +797,22 @@ void Endpoint::lost() {
 void Endpoint::hostMessage(Link &link, const std::vector<uint8_t> &data) {
     Reader r(data, 0);
     const uint8_t type = r.u8();
+    if (link.node == 0 && type == kRejoin) {
+        // One of the session's, back after this endpoint took over.
+        const std::string guid = r.str();
+        const uint32_t node = r.u32();
+        if (!r.ok || guid != _session.guid || !_awaiting.count(node)) {
+            Writer w;
+            w.u8(kRefuse);
+            sendReliable(link, w.b);
+            return;
+        }
+        _awaiting.erase(node);
+        link.node = node;
+        _nodes[node] = link.address;
+        tellNode(node, link.address, node);
+        return;
+    }
     if (link.node == 0) {
         // A new link: it must be asking to join.
         const std::string guid = type == kJoin ? r.str() : std::string();
@@ -710,13 +830,22 @@ void Endpoint::hostMessage(Link &link, const std::vector<uint8_t> &data) {
         Writer w;
         w.u8(kWelcome);
         w.u32(link.node);
+        w.u32(_node);
         w.session(s);
         w.u32(uint32_t(_members.size()));
         for (const auto &[id, m] : _members) {
             w.u32(id);
             w.member(m);
         }
+        w.u32(uint32_t(_nodes.size()));
+        for (const auto &[node, address] : _nodes) {
+            w.u32(node);
+            w.u32(address.ip);
+            w.u32(address.port);
+        }
         sendReliable(link, w.b);
+        _nodes[link.node] = link.address;
+        tellNode(link.node, link.address, link.node);
         return;
     }
     if (type == kCreate || type == kDestroy || type == kAdd || type == kRemove) {
@@ -745,7 +874,8 @@ void Endpoint::joinerMessage(const std::vector<uint8_t> &data) {
             _role = Role::kNone;
             _links.clear();
         } else if (type == kWelcome) {
-            _node = r.u32();
+            const uint32_t node = r.u32();
+            const uint32_t hostNode = r.u32();
             const SessionInfo s = r.session();
             const uint32_t n = r.u32();
             std::map<uint32_t, Member> members;
@@ -753,8 +883,18 @@ void Endpoint::joinerMessage(const std::vector<uint8_t> &data) {
                 const uint32_t id = r.u32();
                 members[id] = r.member();
             }
+            const uint32_t nodes = r.u32();
+            std::map<uint32_t, net::Address> addresses;
+            for (uint32_t i = 0; r.ok && i < nodes; ++i) {
+                const uint32_t other = r.u32();
+                const uint32_t ip = r.u32();
+                addresses[other] = {ip, uint16_t(r.u32())};
+            }
             if (!r.ok)
                 return;
+            _node = node;
+            _hostNode = hostNode;
+            _nodes = addresses;
             _session.flags = s.flags;
             _session.maxPlayers = s.maxPlayers;
             _session.name = s.name;
@@ -767,7 +907,19 @@ void Endpoint::joinerMessage(const std::vector<uint8_t> &data) {
     }
     if (_role != Role::kJoined)
         return;
-    if (type == kCreate || type == kDestroy || type == kAdd || type == kRemove) {
+    if (type == kRefuse) { // a new host that didn't know it
+        lost();
+    } else if (type == kNode) {
+        const uint32_t node = r.u32();
+        const uint32_t ip = r.u32();
+        const uint16_t port = uint16_t(r.u8() | r.u8() << 8);
+        if (r.ok && node != _node) {
+            if (port)
+                _nodes[node] = {ip, port};
+            else
+                _nodes.erase(node);
+        }
+    } else if (type == kCreate || type == kDestroy || type == kAdd || type == kRemove) {
         apply(data, true);
     } else if (type == kDeliver) {
         const uint32_t from = r.u32();
@@ -778,7 +930,7 @@ void Endpoint::joinerMessage(const std::vector<uint8_t> &data) {
         if (r.ok && it != _members.end() && it->second.node == _node)
             _queue.push_back({from, to, bytes, std::nullopt});
     } else if (type == kLost) {
-        lost();
+        hostGone();
     }
 }
 
@@ -791,7 +943,7 @@ void Endpoint::message(Link &link, const std::vector<uint8_t> &data) {
         joinerMessage(data);
 }
 
-void Endpoint::datagram(const net::Address &from, const std::vector<uint8_t> &data) {
+void Endpoint::datagram(const net::Address &from, const std::vector<uint8_t> &data, bool listener) {
     if (data.size() < 6 || data[0] != 'R' || data[1] != 'L' || data[2] != 'D' || data[3] != 'P' || data[4] != kVersion)
         return;
     Reader r(data, 6);
@@ -800,19 +952,28 @@ void Endpoint::datagram(const net::Address &from, const std::vector<uint8_t> &da
         const std::string application = r.str();
         if (r.ok && _role == Role::kHost && (application == kNullGuid || application == _session.application)) {
             Writer w(kEnumReply);
+            w.u32(_socket->port());
             w.session(current());
-            sendDatagram(from, w.b);
+            if (listener && _listen)
+                _listen->send(from, w.b);
+            else
+                sendDatagram(from, w.b);
         }
         return;
     }
     if (kind == kEnumReply) {
+        const uint16_t port = uint16_t(r.u32());
         const SessionInfo s = r.session();
         if (r.ok) {
-            _found[s.guid] = {s, from, now(), 0};
+            // A meeting address is the connection's own, whatever port it was asked at.
+            const net::Address at = net::isMeetingAddress(from) ? from : net::Address{from.ip, port};
+            _found[s.guid] = {s, at, now(), 0};
             ++_answers;
         }
         return;
     }
+    if (listener)
+        return;
     const uint32_t id = r.u32();
     if (!r.ok)
         return;
@@ -841,7 +1002,7 @@ void Endpoint::datagram(const net::Address &from, const std::vector<uint8_t> &da
         if (_role == Role::kHost)
             dropNode(link->node);
         else if (_role == Role::kJoined)
-            lost();
+            hostGone();
         else
             _links.clear();
     } else if (kind == kUnreliable) {
@@ -884,10 +1045,15 @@ void Endpoint::meetingWork() {
         if (!_publishedMs || t - _publishedMs >= kPublishMs) {
             Writer w;
             w.session(current());
+            w.u32(_node); // which endpoint hosts it: a host that took over lists it again
             _meeting->publish(_session.name, w.b);
             _publishedMs = t;
         }
         return;
+    }
+    if (_seekingMs && t - _publishedMs >= kPingMs) {
+        _meeting->requestList();
+        _publishedMs = t;
     }
     if (_meeting->heardFromServerMs() == _listHeardMs)
         return;
@@ -897,6 +1063,13 @@ void Endpoint::meetingWork() {
         const SessionInfo s = r.session();
         if (!r.ok)
             continue;
+        if (_seekingMs && s.guid == _session.guid && r.u32() == _hostNode && r.ok) {
+            // The new host's listing, not the old one's, which the server
+            // may keep a while after its host went.
+            _seekingMs = 0;
+            rejoin(_meeting->connect(l.id));
+            continue;
+        }
         Found &f = _found[s.guid];
         // One that answered on the local network keeps that address.
         if (!f.address.ip || f.listed) {
@@ -915,18 +1088,20 @@ void Endpoint::update() {
     net::Address from;
     std::vector<uint8_t> data;
     for (int i = 0; i < 1000 && _socket->receive(from, data); ++i)
-        datagram(from, data);
+        datagram(from, data, false);
+    for (int i = 0; _listen && i < 1000 && _listen->receive(from, data); ++i)
+        datagram(from, data, true);
     if (_meeting)
         meetingWork();
     const uint64_t t = now();
     std::vector<uint32_t> gone;
-    bool hostGone = false;
+    bool hostLost = false;
     for (const auto &link : _links) {
         if (t - link->heardMs > _transport.timeoutMs) {
             if (_role == Role::kHost)
                 gone.push_back(link->node);
             else
-                hostGone = true;
+                hostLost = true;
             continue;
         }
         int resent = 0;
@@ -949,13 +1124,23 @@ void Endpoint::update() {
     }
     for (uint32_t node : gone)
         dropNode(node);
-    if (hostGone) {
+    // A new host stops waiting for those that haven't come back.
+    for (auto it = _awaiting.begin(); it != _awaiting.end();) {
+        const uint32_t node = it->first;
+        const bool late = t - it->second > _transport.timeoutMs;
+        ++it;
+        if (late)
+            dropNode(node);
+    }
+    if (_seekingMs && t - _seekingMs > _transport.timeoutMs)
+        hostLost = true;
+    if (hostLost) {
         if (_role == Role::kJoining) {
             _refused = true;
             _role = Role::kNone;
             _links.clear();
         } else if (_role == Role::kJoined) {
-            lost();
+            hostGone();
         }
     }
 }

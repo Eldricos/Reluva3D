@@ -6,7 +6,8 @@
 // DirectPlay's sessions between copies of Reluva, over UDP: what the
 // DirectPlay stand-in (dplay.cpp) needs of a network, with no emulator in
 // it. Reluva's own protocol, not DirectPlay's: the host keeps the session
-// and passes on what its members do (docs/common/x86/dplay.md).
+// and passes on what its members do, and when it goes, one of the others
+// takes over if the session allows (docs/common/x86/dplay.md).
 
 #include "common/meeting.h"
 #include "common/net.h"
@@ -51,8 +52,11 @@ struct Member {
 
 /** One of DirectPlay's system messages, before it's laid out for the program. */
 struct Event {
-    /** A player or group made or gone, a player added to a group or taken out, the session lost. */
-    enum Kind { kCreated, kDestroyed, kAdded, kRemoved, kSessionLost };
+    /**
+     * A player or group made or gone, a player added to a group or taken
+     * out, the session lost, or this endpoint made its host.
+     */
+    enum Kind { kCreated, kDestroyed, kAdded, kRemoved, kSessionLost, kHost };
     Kind kind = kCreated;
     uint32_t id = 0;      // the player or group made or gone; the group joined or left
     uint32_t player = 0;  // the player joining or leaving a group
@@ -183,7 +187,7 @@ private:
     void openSearchSocket(const std::string &application);
     std::unique_ptr<net::UdpSocket> openSocket(uint16_t port, const std::string &application);
     void meetingWork();
-    void datagram(const net::Address &from, const std::vector<uint8_t> &data);
+    void datagram(const net::Address &from, const std::vector<uint8_t> &data, bool listener);
     void message(Link &link, const std::vector<uint8_t> &data);
     void hostMessage(Link &link, const std::vector<uint8_t> &data);
     void joinerMessage(const std::vector<uint8_t> &data);
@@ -192,6 +196,9 @@ private:
     void toOthers(const std::vector<uint8_t> &message, uint32_t exceptNode);
     void dropNode(uint32_t node);
     void lost();
+    void hostGone();
+    void rejoin(const net::Address &host);
+    void tellNode(uint32_t node, const net::Address &address, uint32_t exceptNode);
     void apply(const std::vector<uint8_t> &message, bool tell);
     void deliver(uint32_t from, uint32_t to, const std::vector<uint8_t> &data, bool guaranteed, uint32_t exceptNode);
     void sendMessage(Link &link, const std::vector<uint8_t> &message, bool guaranteed);
@@ -202,13 +209,25 @@ private:
     std::mutex _mutex;
     std::unique_ptr<net::UdpSocket> _socket;
     net::MeetingSocket *_meeting = nullptr; // _socket, when it's one
-    std::shared_ptr<void> _mapping;         // the router's port, while hosting
-    uint64_t _publishedMs = 0;
+    // A host that took over: on the port the old one listened on, if it
+    // could be had, answering searches there.
+    std::unique_ptr<net::UdpSocket> _listen;
+    std::shared_ptr<void> _mapping; // the router's port, while hosting
+    uint64_t _publishedMs = 0;      // when a host last published, or a seeker last asked for the list
     uint64_t _listHeardMs = 0;
     Role _role = Role::kNone;
     SessionInfo _session;
     std::map<uint32_t, Member> _members;
     uint32_t _node = 0;
+    uint32_t _hostNode = 0;
+    // The other endpoints' addresses, as the host sees them: where to go
+    // when one of them takes over.
+    std::map<uint32_t, net::Address> _nodes;
+    // A new host's: the endpoints it waits for, and since when.
+    std::map<uint32_t, uint64_t> _awaiting;
+    // A joiner's, its new host's address not reachable: since when it's
+    // looked for the session at the meeting server instead; 0 if not.
+    uint64_t _seekingMs = 0;
     uint32_t _nextId = 1;
     uint32_t _nextNode = 2;
     std::map<std::string, Found> _found;

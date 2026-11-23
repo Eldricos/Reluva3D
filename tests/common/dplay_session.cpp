@@ -6,7 +6,8 @@
 // that loses datagrams, on a clock the test moves. Sessions found by
 // broadcast, at an address and through a meeting server, joining
 // refused, players and groups kept in step, messages long and short
-// arriving whole and in order, and endpoints going quietly or not.
+// arriving whole and in order, endpoints going quietly or not, and
+// another taking over when the host goes.
 //
 //   reluva-tests common.unit.dplay_session
 
@@ -18,6 +19,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <vector>
 
 using namespace reluva;
@@ -26,6 +28,7 @@ using namespace reluva::x86::dplay;
 namespace {
 
 constexpr uint16_t kPort = 47624;
+constexpr uint16_t kFirstFree = 27960; // the loopback network's first port given out
 const char *const kApplication = "{12345678-1234-1234-1234-123456789abc}";
 const char *const kAnyApplication = "{00000000-0000-0000-0000-000000000000}";
 
@@ -331,6 +334,151 @@ void testMeetingServer() {
     CHECK(server.sessions().empty());
 }
 
+// Every message waiting, the system messages' kinds and the others' bytes.
+std::vector<Received> drain(Endpoint &e) {
+    std::vector<Received> all;
+    while (std::optional<Received> r = take(e))
+        all.push_back(*r);
+    return all;
+}
+
+bool has(const std::vector<Received> &all, Event::Kind kind, uint32_t id = 0) {
+    for (const Received &r : all)
+        if (r.event && r.event->kind == kind && (!id || r.event->id == id))
+            return true;
+    return false;
+}
+
+bool hasData(const std::vector<Received> &all, uint32_t from, const std::vector<uint8_t> &data) {
+    for (const Received &r : all)
+        if (!r.event && r.from == from && r.data == data)
+            return true;
+    return false;
+}
+
+// DPSESSION_MIGRATEHOST
+constexpr uint32_t kMigrate = 4;
+
+void testNewHost() {
+    World w;
+    Endpoint &host = w.add();
+    Endpoint &a = w.add();
+    Endpoint &b = w.add();
+    Endpoint &c = w.add();
+    SessionInfo info;
+    info.application = kApplication;
+    info.flags = kMigrate;
+    CHECK(host.host(info, 0) == Endpoint::Status::kOk);
+    uint32_t h = 0;
+    uint32_t pa = 0;
+    uint32_t pb = 0;
+    uint32_t pc = 0;
+    CHECK(host.create(player("H"), h) == Endpoint::Status::kOk);
+    CHECK(joinFirst(w, a) == Endpoint::Status::kOk);
+    CHECK(a.create(player("A"), pa) == Endpoint::Status::kOk);
+    CHECK(joinFirst(w, b) == Endpoint::Status::kOk);
+    CHECK(b.create(player("B"), pb) == Endpoint::Status::kOk);
+    CHECK(joinFirst(w, c) == Endpoint::Status::kOk);
+    CHECK(c.create(player("C"), pc) == Endpoint::Status::kOk);
+    w.run(500);
+    for (Endpoint *e : {&host, &a, &b, &c})
+        drain(*e);
+    w.network->setDropFilter(lossy);
+
+    // The host leaves: A, first in after it, takes over and is told so;
+    // the others come back to it, and the session goes on without H.
+    host.leave();
+    w.endpoints.erase(w.endpoints.begin()); // its program closed, its port free
+    w.run(1000);
+    std::vector<Received> got = drain(a);
+    CHECK(has(got, Event::kDestroyed, h) && has(got, Event::kHost) && !has(got, Event::kSessionLost));
+    CHECK(a.hosting() && !b.hosting() && !c.hosting());
+    got = drain(b);
+    CHECK(has(got, Event::kDestroyed, h) && !has(got, Event::kHost) && !has(got, Event::kSessionLost));
+    CHECK(a.members().size() == 3 && b.members().size() == 3 && c.members().size() == 3);
+    CHECK(b.send(pb, 0, {7}, true) == Endpoint::Status::kOk);
+    CHECK(a.send(pa, pc, {8}, true) == Endpoint::Status::kOk);
+    w.run(1000);
+    got = drain(a);
+    CHECK(hasData(got, pb, {7}));
+    got = drain(c);
+    CHECK(hasData(got, pb, {7}) && hasData(got, pa, {8}));
+
+    // A newcomer finds the session at its new host and joins it.
+    w.network->setDropFilter(nullptr);
+    Endpoint &d = w.add();
+    uint32_t pd = 0;
+    CHECK(joinFirst(w, d) == Endpoint::Status::kOk);
+    CHECK(d.create(player("D"), pd) == Endpoint::Status::kOk);
+    CHECK(d.members().size() == 4);
+    w.run(1000);
+    CHECK(has(drain(b), Event::kCreated, pd) && has(drain(c), Event::kCreated, pd));
+
+    // A goes silent: B, next in, takes over, and C and D come to it.
+    CHECK(a.port() == kFirstFree);
+    w.network->setDropFilter([](const net::Address &from, const net::Address &to, size_t) {
+        return from.port == kFirstFree || to.port == kFirstFree;
+    });
+    w.run(8000);
+    got = drain(b);
+    CHECK(has(got, Event::kDestroyed, pa) && has(got, Event::kHost));
+    CHECK(b.hosting() && !c.hosting() && !d.hosting());
+    CHECK(!has(drain(c), Event::kSessionLost) && !has(drain(d), Event::kSessionLost));
+    CHECK(c.send(pc, 0, {9}, true) == Endpoint::Status::kOk);
+    w.run(1000);
+    CHECK(hasData(drain(b), pc, {9}) && hasData(drain(d), pc, {9}));
+    CHECK(b.members().size() == 3 && c.members().size() == 3 && d.members().size() == 3);
+}
+
+// Over the meeting server, where the endpoints know each other only by
+// the addresses it gives them: the new host's listing is found instead.
+void testNewHostMeeting() {
+    World w;
+    w.network->setDropFilter(walledOff);
+    net::MeetingServer server(w.network->open(net::kMeetingPort));
+    w.transport.meeting = {0x7f000001u, net::kMeetingPort};
+    w.transport.broadcast.clear();
+    Endpoint &host = w.add();
+    Endpoint &a = w.add();
+    Endpoint &b = w.add();
+    const auto run = [&](uint64_t ms) {
+        for (uint64_t t = 0; t < ms; t += 10) {
+            w.run(10);
+            server.update(w.now);
+        }
+    };
+    SessionInfo info;
+    info.application = kApplication;
+    info.flags = kMigrate;
+    CHECK(host.host(info, 0) == Endpoint::Status::kOk);
+    uint32_t h = 0;
+    CHECK(host.create(player("H"), h) == Endpoint::Status::kOk);
+    run(100);
+    uint32_t pa = 0;
+    uint32_t pb = 0;
+    for (auto [e, id, name] : {std::tuple{&a, &pa, "A"}, std::tuple{&b, &pb, "B"}}) {
+        e->search(kApplication, {});
+        run(100);
+        Endpoint::Status status = e->join(info.guid, "");
+        for (int i = 0; i < 200 && status == Endpoint::Status::kConnecting; ++i) {
+            run(20);
+            status = e->join(info.guid, "");
+        }
+        CHECK(status == Endpoint::Status::kOk);
+        CHECK(e->create(player(name), *id) == Endpoint::Status::kOk);
+    }
+    run(500);
+
+    host.leave();
+    run(3000);
+    CHECK(a.hosting() && !b.hosting());
+    CHECK(!has(drain(b), Event::kSessionLost));
+    CHECK(b.send(pb, pa, {5}, true) == Endpoint::Status::kOk);
+    run(1000);
+    CHECK(hasData(drain(a), pb, {5}));
+    CHECK(server.sessions().size() == 1);
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -341,4 +489,6 @@ static const reluva::test::Suite
                {"messages", [](const std::filesystem::path &) { testMessages(); }},
                {"leaving", [](const std::filesystem::path &) { testLeaving(); }},
                {"meeting-server", [](const std::filesystem::path &) { testMeetingServer(); }},
+               {"new-host", [](const std::filesystem::path &) { testNewHost(); }},
+               {"new-host-meeting", [](const std::filesystem::path &) { testNewHostMeeting(); }},
            });
