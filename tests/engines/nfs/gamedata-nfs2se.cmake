@@ -9,8 +9,8 @@
 #
 # The game's install comes from the environment variable named by GAME_ENV
 # (RELUVA_NFS2SE), with a copy of its CD's files in a folder beside it (as
-# the engine finds it: the one holding NFS2SEN.EXE). Without the variable
-# the step is skipped.
+# the engine finds it: the one holding NFS2SEN.EXE and the music). Without
+# the variable the step is skipped.
 #
 # Each step runs reluva-tool on the game:
 #   release  what the game is (detect)
@@ -42,16 +42,8 @@
 include("${HELPERS}")
 gamedata_begin("the game's install, its CD's files in a folder beside it")
 
-# The CD's files: the folder beside the install with the CD's program.
-get_filename_component(parent "${game_dir}" DIRECTORY)
-set(cd_dir "")
-file(GLOB siblings LIST_DIRECTORIES true "${parent}/*")
-foreach(sibling IN LISTS siblings)
-    if(IS_DIRECTORY "${sibling}" AND NOT sibling STREQUAL game_dir
-       AND (EXISTS "${sibling}/NFS2SEN.EXE" OR EXISTS "${sibling}/nfs2sen.exe"))
-        set(cd_dir "${sibling}")
-    endif()
-endforeach()
+# The CD's files: beside the install, as the engine looks for them.
+find_cd_beside(cd_dir "${game_dir}" "nfs2sen.exe" "GameData/Audio/pc" ".mus")
 
 # What the game is: the record's folder is named after the release.
 run_tool(detected detect "${game_dir}")

@@ -35,7 +35,9 @@ with keys, and the format readers on the same files; against its record
 ### The game-files test
 
 With your own copy, `RELUVA_NFS3=<the install> ctest --test-dir build -L
-gamedata`, the CD's files beside the install as `NFS3-CD`.
+gamedata`, the CD's files in a folder beside the install, of any name
+(`NFS3-CD`, say): the first that holds `nfs3.exe` and the music
+(`GameData/Audio/pc/*.mus`), as the engine finds it.
 `tests/engines/nfs/gamedata.cmake` runs `reluva-tool nfs` commands on the
 game, one step each:
 

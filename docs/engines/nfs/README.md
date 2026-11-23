@@ -30,10 +30,10 @@ the data viewer shows its files. See its
 ## Using it
 
 Add the game's install in the launcher (*Add Game...*), with a copy of
-its CD's files beside it (NFS III's as `NFS3-CD`, for the music and
-movies; NFS II SE's for its tracks too): NFS III starts straight into the
-game, NFS II SE too (or shows what was found of it, without either of its
-programs). The data viewer is `reluva-viewer` (`reluva-viewer
+its CD's files in a folder beside it, of any name (NFS III's for the
+music and movies; NFS II SE's for its tracks too): NFS III starts
+straight into the game, NFS II SE too (or shows what was found of it,
+without either of its programs). The data viewer is `reluva-viewer` (`reluva-viewer
 <its name in the launcher>` or `reluva-viewer <the install>`); Esc leaves
 it. The game's
 [README](games/nfs3/README.md#using-it) has its keys, the viewer's pages

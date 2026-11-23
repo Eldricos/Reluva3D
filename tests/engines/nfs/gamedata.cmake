@@ -8,8 +8,9 @@
 # docs/engines/nfs/games/nfs3/TESTING.md.
 #
 # The game's install comes from the environment variable named by GAME_ENV
-# (RELUVA_NFS3), with a copy of its CD's files beside it as NFS3-CD (as the
-# engine finds it). Without the variable the step is skipped.
+# (RELUVA_NFS3), with a copy of its CD's files in a folder beside it (as the
+# engine finds it: the one holding nfs3.exe and the music, any name, NFS3-CD
+# say). Without the variable the step is skipped.
 #
 # Each step runs reluva-tool on the game:
 #   release    what the game is (detect)
@@ -37,11 +38,10 @@
 # RELUVA_GAMEDATA_RECORDS.
 
 include("${HELPERS}")
-gamedata_begin("the game's install, its CD's files beside it as NFS3-CD")
+gamedata_begin("the game's install, its CD's files in a folder beside it")
 
 # The CD's files: beside the install, as the engine looks for them.
-get_filename_component(parent "${game_dir}" DIRECTORY)
-find_folder(cd_dir "${parent}" "NFS3-CD")
+find_cd_beside(cd_dir "${game_dir}" "nfs3.exe" "GameData/Audio/pc" ".mus")
 
 # What the game is: the record's folder is named after the release.
 run_tool(detected detect "${game_dir}")
