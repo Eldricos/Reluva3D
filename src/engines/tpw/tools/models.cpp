@@ -445,7 +445,8 @@ void writeWav(const std::vector<int16_t> &samples, int rate, const std::string &
 // labelled by its number, to a PNG; their places printed.
 int cmdUiShot(int argc, char **argv) {
     if (argc < 5) {
-        std::fprintf(stderr, "usage: reluva-tool tpw ui-shot <game folder> <model in Data> <out.png> [-grid]\n");
+        std::fprintf(
+            stderr, "usage: reluva-tool tpw ui-shot <game folder> <model in Data> <out.png> [-grid | -at <dx> <dy>]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -465,15 +466,24 @@ int cmdUiShot(int argc, char **argv) {
         screen.pixels[i] = screen.pixels[i + 1] = screen.pixels[i + 2] = 96;
         screen.pixels[i + 3] = 255;
     }
-    // With -grid, each mesh in a cell of a grid of 6 across, in order.
+    // With -grid, each mesh in a cell of a grid of 6 across, in order; with
+    // -at, each where the model puts it, moved by so many pixels (for the
+    // models placed about 0, 0, which the program moves where it wants them).
     const bool grid = argc > 5 && std::strcmp(argv[5], "-grid") == 0;
+    const bool at = argc > 7 && std::strcmp(argv[5], "-at") == 0;
+    const int dx = at ? std::atoi(argv[6]) : 0;
+    const int dy = at ? std::atoi(argv[7]) : 0;
     constexpr int kCell = 104;
     for (size_t i = 0; i < model.model.meshes().size(); ++i) {
-        if (grid)
+        if (grid) {
             reluva::tpw::drawUiMesh(screen, model, i,
                                     {int(i % 6) * kCell + 4, int(i / 6) * kCell + 4, kCell - 8, kCell - 8});
-        else
+        } else if (at) {
+            const reluva::tpw::ScreenRect r = reluva::tpw::uiMeshRect(model, i);
+            reluva::tpw::drawUiMesh(screen, model, i, {r.x + dx, r.y + dy, r.w, r.h});
+        } else {
             reluva::tpw::drawUiMesh(screen, model, i);
+        }
         const reluva::tpw::ScreenRect r = reluva::tpw::uiMeshRect(model, i);
         std::printf("mesh %zu %s: %d %d %d %d\n", i, model.model.meshes()[i].name.c_str(), r.x, r.y, r.w, r.h);
     }
@@ -804,8 +814,9 @@ const Commands kCommands(
          "draw a model as the viewer does, to a PNG; with its height map's samples", cmdMd2Shot},
         {"front-end-shot", "<game folder> <out.png> <frame>",
          "draw the front end's scene through its camera at a frame of its path, to a PNG", cmdFrontEndShot},
-        {"ui-shot", "<game folder> <model in Data> <out.png> [-grid]",
-         "draw an interface model's meshes where it puts them, or in a grid, to a PNG, and print their places",
+        {"ui-shot", "<game folder> <model in Data> <out.png> [-grid | -at <dx> <dy>]",
+         "draw an interface model's meshes where it puts them, or moved, or in a grid, to a PNG, and print their "
+         "places",
          cmdUiShot},
         {"personnel-shot", "<game folder> <out.png> [name [-delete]]",
          "draw the Personnel File over the front end's globe, its first slot empty or a new player, to a PNG",

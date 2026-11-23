@@ -65,6 +65,25 @@ three times, then `filetabd` (the player shown, light; the others grey).
 | `!window` | `newpanel1` | The delete dialog: the window without its shadow |
 | `b_okay`, `mb_cancel`, `b_close` | `b_okay`, `mb_cancel`, `b_close` and their states | The dialog's tick, cross and close button, round |
 
+### The park's models
+
+| Model | What |
+|---|---|
+| `happyguage` | The thermometer of the park's mood, full |
+| `face` | Its faces, `face1` to `face6`: unhappiest to happiest, then the red no-entry sign |
+| `comp` | The compass's plate, clover-shaped |
+| `comp_rotatel`, `comp_rotater`, `comp_zoomin`, `comp_zoomout` | Its four buttons, each a quarter of it, in the six states |
+| `compgizn`, `compgizn2` | The compass's dial (N, E, S, W, a red needle north); a small green arrow |
+| `compgiz` | The compass whole, five times: its states, it seems *(guessed)* |
+| `datebox` | The date's box: its black field and a round end |
+| `toolbox`, `tb_pointer`, `tb_path`, `tb_delete`, `tb_camera`, `tb_postcard` | The bar down the left and its tools, in the six states |
+| `gizmo`, `giz_message`, `giz_attract`, `giz_staff`, `giz_visitors`, `giz_finance`, `giz_park`, `giz_maps` | The bar along the bottom and its buttons, in the six states |
+| `researchbulb` | A light bulb, three times: the research's, under the date while research is going (15:00, "9%"; 20:00, "33%") *(inferred)* |
+
+These, like the states, are laid out beside each other, or about (0, 0)
+(the compass's); the park's screen places them
+([park.md](../systems/park.md#the-hud)).
+
 The textures' alpha is drawn: the window's glass is see-through
 (`newpanel1s`' middle at alpha 0xE2), its shadow half black.
 

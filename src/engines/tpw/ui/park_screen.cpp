@@ -27,10 +27,14 @@ constexpr uint32_t kFrameMillis = 40;
 
 // The HUD at 640 × 480: the money at the top left, the date in its box at
 // the top right.
-constexpr int kCashX = 22;
-constexpr int kCashY = 2;
-constexpr ScreenRect kDateBox{566, 97, 60, 16};
+// The money right of the thermometer, its first digit at x 108 as the
+// recording's.
+constexpr int kCashX = 65;
+constexpr int kCashY = 5;
 constexpr Color kHudText{255, 255, 255};
+// The money's shadow, down and right of it.
+constexpr Color kHudShadow{0, 0, 0};
+constexpr int kShadow = 2;
 
 // The camera's start: over the entrance, looking into the park from the
 // road, as the recording's first view after the briefing; how far it may
@@ -115,6 +119,7 @@ Error ParkScreen::load(const SearchSet &files, const Park &park) {
     if (Error err = _world.load(files, park.folder()))
         return err;
     _hud = false;
+    _furnitureRead = !_furniture.load(files);
     for (size_t generation = 0; generation < kVisitorSprites.size(); ++generation) {
         _visitorLooks[generation].clear();
         for (const char *name : kVisitorSprites[generation]) {
@@ -129,8 +134,7 @@ Error ParkScreen::load(const SearchSet &files, const Park &park) {
     const std::string folder = "Language/" + language + "/";
     std::vector<uint8_t> data;
     _hud = !files.read(folder + "MBToUni.dat", data) && !_characters.parse(data) &&
-           !readGameFont(files, folder, "CASHSMALL", _cashFont) &&
-           !readGameFont(files, folder, "DATESMALL", _dateFont) &&
+           !readGameFont(files, folder, "CASHMED", _cashFont) && !readGameFont(files, folder, "DATESMALL", _dateFont) &&
            !readStringTable(files, folder, "MONTHS", _characters, _months);
     return Error::success();
 }
@@ -199,13 +203,24 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
     for (const Park::Cell &c : fixed.busStops)
         mark(screen, eye, c, kBusStopColour);
     drawVisitors(screen, eye, park, camera.yaw);
+    if (_furnitureRead) {
+        ParkHud::View hudView;
+        hudView.canZoomIn = camera.distance > kNearest;
+        hudView.canZoomOut = camera.distance < kFarthest;
+        _furniture.draw(screen, hudView);
+    }
     if (!_hud)
         return;
-    drawGameText(screen, _cashFont, _characters, kCashX, kCashY, "\u00a7 " + std::to_string(park.cash()), kHudText);
-    fillRect(screen, kDateBox, Color{0, 0, 0});
+    // The money font's "$" is the game's currency sign, drawn like a "§".
+    const std::string cash = "$ " + std::to_string(park.cash());
+    drawGameText(screen, _cashFont, _characters, kCashX + kShadow, kCashY + kShadow, cash, kHudShadow);
+    drawGameText(screen, _cashFont, _characters, kCashX, kCashY, cash, kHudText);
+    const ScreenRect field = ParkHud::dateField();
+    if (!_furnitureRead)
+        fillRect(screen, field, Color{0, 0, 0});
     const std::string date = dateText(park.day());
     const int w = gameTextWidth(_dateFont, _characters, date);
-    drawGameText(screen, _dateFont, _characters, kDateBox.x + (kDateBox.w - w) / 2, kDateBox.y + 3, date, kHudText);
+    drawGameText(screen, _dateFont, _characters, field.x + (field.w - w) / 2, field.y + 3, date, kHudText);
 }
 
 bool playPark(System &sys, ParkScreen &screen, Park &park) {
@@ -220,6 +235,8 @@ bool playPark(System &sys, ParkScreen &screen, Park &park) {
         while (sys.pollEvent(ev)) {
             if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                 return false;
+            if (screen.hud().handle(ev))
+                continue;
             if (ev.type == EventType::kKeyDown) {
                 if (ev.key == key::kEscape)
                     return true;
@@ -244,10 +261,14 @@ bool playPark(System &sys, ParkScreen &screen, Park &park) {
         const float sideways = (held.count(key::kRight) ? 1.0f : 0.0f) - (held.count(key::kLeft) ? 1.0f : 0.0f);
         camera.target[0] += pan * (forward * std::sin(camera.yaw) + sideways * std::cos(camera.yaw));
         camera.target[2] += pan * (forward * std::cos(camera.yaw) - sideways * std::sin(camera.yaw));
-        camera.yaw += kTurnPerSecond * seconds * ((held.count('e') ? 1.0f : 0.0f) - (held.count('q') ? 1.0f : 0.0f));
-        if (held.count(key::kPageUp))
+        // The compass's buttons as Q, E, Page Up and Page Down, while held.
+        const ParkHud &hud = screen.hud();
+        const bool turnLeft = held.count('q') || hud.held(ParkHud::CompassButton::kTurnLeft);
+        const bool turnRight = held.count('e') || hud.held(ParkHud::CompassButton::kTurnRight);
+        camera.yaw += kTurnPerSecond * seconds * ((turnRight ? 1.0f : 0.0f) - (turnLeft ? 1.0f : 0.0f));
+        if (held.count(key::kPageUp) || hud.held(ParkHud::CompassButton::kZoomIn))
             camera.distance /= std::pow(kZoomPerSecond, seconds);
-        if (held.count(key::kPageDown))
+        if (held.count(key::kPageDown) || hud.held(ParkHud::CompassButton::kZoomOut))
             camera.distance *= std::pow(kZoomPerSecond, seconds);
         camera.distance = std::clamp(camera.distance, kNearest, kFarthest);
 

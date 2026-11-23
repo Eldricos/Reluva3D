@@ -17,6 +17,7 @@
 #include "engines/tpw/ui/front_end_effects.h"
 #include "engines/tpw/ui/front_end_overlay.h"
 #include "engines/tpw/ui/opening.h"
+#include "engines/tpw/ui/park_hud.h"
 #include "engines/tpw/ui/personnel_file.h"
 #include "engines/tpw/ui/sky.h"
 #include "engines/tpw/ui/ui_model.h"
@@ -373,6 +374,41 @@ void testBriefingControls() {
     CHECK(tpw::Briefing::controlAt(639, 479) == Control::kNone);
 }
 
+// The park's HUD: a tool chosen as the mouse is let go over it, not when
+// dragged off; a compass button held while the mouse is down on it; the
+// park's own clicks left to it.
+void testParkHud() {
+    using tpw::ParkHud;
+    ParkHud hud;
+    auto mouse = [&](EventType type, const tpw::ScreenRect &r) {
+        Event ev;
+        ev.type = type;
+        ev.button = MouseButton::kLeft;
+        ev.mouseX = r.x + r.w / 2;
+        ev.mouseY = r.y + r.h / 2;
+        return hud.handle(ev);
+    };
+    const tpw::ScreenRect path = ParkHud::toolRect(ParkHud::Tool::kPath);
+    const tpw::ScreenRect camera = ParkHud::toolRect(ParkHud::Tool::kCamera);
+    CHECK(hud.tool() == ParkHud::Tool::kPointer);
+    CHECK(mouse(EventType::kMouseDown, path) && mouse(EventType::kMouseUp, path));
+    CHECK(hud.tool() == ParkHud::Tool::kPath);
+    CHECK(mouse(EventType::kMouseDown, camera) && mouse(EventType::kMouseUp, path));
+    CHECK(hud.tool() == ParkHud::Tool::kPath);
+
+    const tpw::ScreenRect zoomIn = ParkHud::compassRect(ParkHud::CompassButton::kZoomIn);
+    CHECK(!hud.held(ParkHud::CompassButton::kZoomIn));
+    CHECK(mouse(EventType::kMouseDown, zoomIn) && hud.held(ParkHud::CompassButton::kZoomIn));
+    CHECK(!hud.held(ParkHud::CompassButton::kZoomOut));
+    mouse(EventType::kMouseMove, {320, 240, 1, 1});
+    CHECK(!hud.held(ParkHud::CompassButton::kZoomIn));
+    CHECK(mouse(EventType::kMouseUp, zoomIn) && !hud.held(ParkHud::CompassButton::kZoomIn));
+
+    CHECK(!mouse(EventType::kMouseDown, {320, 240, 1, 1}) && !mouse(EventType::kMouseUp, {320, 240, 1, 1}));
+    for (size_t i = 0; i < ParkHud::kGizmos; ++i)
+        CHECK(mouse(EventType::kMouseMove, ParkHud::gizmoRect(ParkHud::Gizmo(i))));
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -387,4 +423,5 @@ static const reluva::test::Suite
                               {"front-end-overlay", [](const std::filesystem::path &) { testFrontEndOverlay(); }},
                               {"front-end-audio", [](const std::filesystem::path &tmp) { testFrontEndAudio(tmp); }},
                               {"briefing", [](const std::filesystem::path &) { testBriefingControls(); }},
+                              {"park-hud", [](const std::filesystem::path &) { testParkHud(); }},
                           });

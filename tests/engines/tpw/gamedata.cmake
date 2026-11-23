@@ -50,9 +50,9 @@
 #   scripts  every ride and shop script (.RSE) read, with a checksum of
 #            their disassembly (tpw rse-check)
 #   park     a new park in Land of Invention played headless: its
-#            briefing, the camera moved by keys, a visitor, then Esc; the
-#            screens shown, the date, money and visitors, with a checksum
-#            (tpw park-run)
+#            briefing, the camera moved by keys and the compass, a tool
+#            chosen, a visitor, then Esc; the screens shown, the date,
+#            money, visitors and tool, with a checksum (tpw park-run)
 #   viewer   the data viewer, headless: every page, a few keys on each,
 #            then Esc; a checksum of every screen shown, and its titles
 #            (tpw viewer-run)

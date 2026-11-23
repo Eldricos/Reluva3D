@@ -102,12 +102,34 @@ cell, as the recording's.
 
 ### The HUD
 
-At 640 × 480: the money at the top left in `CASHSMALL`, "§ 50025",
-without separators; the date in its black box at the top right, under
-the compass, in `DATESMALL`, as "30.Jan.00" (the month's name from
-`MONTHS.str`); the thermometer of the park's mood at the left, its face
-(`face1` to `face6` of `ui.wad`) beneath; the toolbar along the bottom
-and the buttons down the left.
+The screen's furniture is the interface's models
+([ui-models.md](../formats/ui-models.md#the-parks-models)), placed as
+the recording has them at 2:38 and 5:00 at 640 × 480, each model's
+picture matched against its frames:
+
+| Piece | Model | Where |
+|---|---|---|
+| The thermometer of the park's mood | `happyguage` | (14, 5), 36 × 96 |
+| Its face | `face`: six, unhappiest first, the last a red no-entry sign | (17, 69), 30 × 30 |
+| The money | in `CASHMED`, white with a black shadow 2 pixels down and right; "$ 50025", the font's "$" drawn like a "§", no separators | its first digit at (108, 13) |
+| The compass | `comp`, a clover-shaped plate; `comp_rotatel`, `comp_rotater` (above), `comp_zoomin`, `comp_zoomout` (below) in its corners; the dial `compgizn` over its middle | (553, 7), 80 square; the buttons 40 square; the dial (569, 23), 48 |
+| The date | `datebox`; the date in `DATESMALL`, "30.Jan.00", the month's name from `MONTHS.str` | (554, 89), 80 × 32 |
+| The tools down the left | `toolbox`, a bar; on it `tb_pointer`, `tb_path` (a hand), `tb_delete` (a bulldozer), `tb_camera`, `tb_postcard` (a newspaper) | the bar (7, 249), 48 × 218; the tools at x 12, y 253, 296, 339, 381 and 424, 38 square |
+| The buttons along the bottom | `gizmo`, a bar; `giz_message` (an envelope, the messages' count in a black ball), then on the bar `giz_attract`, `giz_staff`, `giz_visitors`, `giz_finance`, `giz_park` (the gate), `giz_maps` | the bar (163, 436), 360 × 13; the buttons at y 425, x 107, 181, 237, 293, 349, 405 and 461, 48 square |
+| Help | `b_help`, larger than its model | (570, 414), 36 square, its size by eye *(guessed)* |
+
+A button shows its states as the models name them: the tool chosen as
+`down` (the pointer, yellow, at first), a button under the mouse
+`hilite`, the zoom-out button `disabled`, greyed, with the camera as far
+out as it goes (2:38).
+
+The thermometer's model is full, its liquid light blue; an empty one is
+black above the face. In a bare park it's empty and its face the red
+no-entry sign, until the first attraction is built (the recording's
+first sideshow, at 2:45): then the face turns to the middle one and the
+liquid rises, orange over blue, and the face turns happier as it does
+(4:40) *(inferred)*. The park's mood isn't worked out yet: Reluva's
+parks are bare, and show the red sign.
 
 ## In Reluva
 
@@ -117,27 +139,34 @@ general settings, the world's and the mission's, and keeps its clock;
 ([lnd.md](../formats/lnd.md#in-reluva)), through a camera that starts
 on the road before the entrance, the fixed items marked (the entrance
 yellow, the booths red, the bus stops blue), the money and date over
-it, and its visitors. After the loading screen the mission's briefing
-shows over it ([briefing.md](briefing.md)), then `playPark` runs it: the arrow keys move
-the camera, Q and E turn it, Page Up and Page Down or the wheel zoom,
-Home goes back, Esc leaves the game. Its first mission's, whatever the
+it, and its visitors; `ParkHud` (`src/engines/tpw/ui/park_hud.cpp`)
+draws the HUD over it and follows the mouse over its buttons. After the
+loading screen the mission's briefing shows over it
+([briefing.md](briefing.md)), then `playPark` runs it: the arrow keys
+move the camera, Q and E or the compass's arrows (held) turn it, Page
+Up and Page Down, the compass's magnifiers or the wheel zoom, Home goes
+back, Esc leaves the game. A tool is chosen by clicking it, but does
+nothing yet; the bottom buttons light, but open nothing. Its first mission's, whatever the
 player's objective, for now.
 
 `reluva-tool tpw park-shot <game folder> <world folder> <out.png>
 [seconds] [yaw pitch distance]` draws a new park, its clock run on;
 `reluva-tool tpw park-run <game folder> <world folder>` plays one
 headless: its briefing turned to the details and back, Proceed, the
-camera moved by its keys, until a visitor has come in and paid, with a
+camera moved by its keys and turned by the compass, the bulldozer
+chosen, until a visitor has come in and paid, with a
 checksum of the screens, which the game-files test checks
 (`tpw.gamedata.park`). The
 unit tests (`tpw.unit.park`) set a park up from settings built in the
-test and check its calendar.
+test and check its calendar; `tpw.unit.ui` clicks the HUD's tools and
+holds its compass's buttons.
 
 ## Sources and checks
 
 - **Where the facts come from:** the general settings, the worlds' and
   the missions'; the worlds' attribute maps and placed objects; the
-  recording from 1:25 on, its HUD's money and dates read off its frames.
+  recording from 1:25 on, its HUD's money and dates read off its frames,
+  its pieces found by matching the interface's models against them.
 - **How it was checked:** `park-shot` from above Land of Invention's
   entrance: the booths', bus stops' and entrance's cells on the world's
   booths, shelters and the wall's gap.
@@ -146,9 +175,15 @@ test and check its calendar.
 
 - What the boundary's clicks are measured from, and how the park's
   land and its fence are drawn by them.
-- The fly-in along the road; the toolbar, the thermometer and the rest
-  of the HUD; the gates' model at the entrance; how large the game draws a
-  visitor.
+- The fly-in along the road; the gates' model at the entrance.
+- The HUD: the menus its bottom buttons open (the recording's
+  "Attractions": "Build Attraction", "List All Attractions", "Research
+  Lab", "Attraction Finance Controls", with a tooltip "Right-click to Buy
+  Attractions"); the round newspaper button at the date box's right end
+  (no model of `ui.wad` matched it); whether the dial turns with the
+  view, and the small green arrow (`compgizn2`) at its edge; the
+  thermometer's level and the faces by the park's mood; `compgiz`'s
+  five meshes (the compass whole, in states), `gizmojoin`.
 - How fast the clock runs at each of the game's speeds, and when it
   stops.
 - How the game turns its `Arrival` settings into visitors, and the

@@ -30,6 +30,7 @@ reluva_add_engine(tpw
         ui/sky.cpp
         ui/text.cpp
         ui/ui_model.cpp
+        ui/park_hud.cpp
         ui/park_screen.cpp
         ui/personnel_file.cpp
         ui/world_view.cpp

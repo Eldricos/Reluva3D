@@ -25,8 +25,9 @@ None yet.
   its opening and its front end to a world chosen, shows its loading
   screen, then the new park: its world, money and date, its clock
   running, the mission's briefing over it, visitors coming by guessed
-  rules, drawn by their sprites at a guessed pace, under a camera of Reluva's own keys; no
-  fly-in, toolbar, gates or building yet, its fixed items marked
+  rules, drawn by their sprites at a guessed pace, under its HUD, the
+  camera moved by Reluva's own keys and the compass; the HUD's tools
+  and buttons do nothing yet; no fly-in, gates or building yet, its fixed items marked
   ([PLAN.md](PLAN.md#phases), [park.md](systems/park.md)). Every park
   is its world's first mission's.
 - **The front end's opening**: its sparkles are drawn by guessed
