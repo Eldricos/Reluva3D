@@ -47,13 +47,19 @@ public:
     explicit CdAudio(Win32Process &process);
     ~CdAudio();
 
-    // The disc in the drive, asked whenever the device is opened.
+    // The disc in the drive, asked when the device is opened and when the
+    // disc changes (discChanged).
     std::function<Disc()> disc;
     // Where the music goes; none, and it plays in silence (its position
     // still moves).
     audio::Mixer *mixer = nullptr;
     /** The track playing now, 0 if none. */
     int trackPlaying() const;
+    /**
+     * Another disc was put in the drive: what was playing stops, and the
+     * device has the disc disc() gives now.
+     */
+    void discChanged();
 
     struct State;
 

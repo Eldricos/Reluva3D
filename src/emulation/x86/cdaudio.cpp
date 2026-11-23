@@ -527,6 +527,14 @@ CdAudio::~CdAudio() {
     _s->silence();
 }
 
+void CdAudio::discChanged() {
+    _s->stop();
+    _s->paused = false;
+    _s->stoppedMs = 0;
+    if (_s->open)
+        _s->disc = disc ? disc() : Disc();
+}
+
 int CdAudio::trackPlaying() const {
     return _s->playing && _s->position() < _s->toMs ? _s->trackAt(_s->position()) : 0;
 }

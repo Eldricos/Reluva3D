@@ -12,7 +12,8 @@ Played through Reluva's mixer as music.
 ## What Reluva supports
 
 - **The disc** is the engine's (`CdAudio::disc`), asked each time the
-  device is opened: its number of tracks and each audio track's length
+  device is opened and when the engine changes it
+  (`CdAudio::discChanged`, which stops what was playing): its number of tracks and each audio track's length
   and sound. `CdAudio::discIn(folder)` makes one from a folder holding
   either
   - a cue sheet and its image files (`common/cue.h`), the audio tracks
@@ -48,7 +49,8 @@ Played through Reluva's mixer as music.
   the number of tracks, a track's length, a track played to the next one
   heard through the mixer, its mode as the clock passes its end, the
   volume set to 0 through the auxiliary device, a range off the disc's
-  end, the device closed, and another device type refused. `testCue`
+  end, another disc put in, the device closed, and another device type
+  refused. `testCue`
   (`common.unit.archives`, its "cd images" case) reads a cue sheet
   without its data track's image.
 - **Confidence:** published.

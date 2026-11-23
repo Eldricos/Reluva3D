@@ -1180,7 +1180,8 @@ static void testCdAudio(const std::filesystem::path &tmp) {
     uint32_t clock = 1000;
     process.milliseconds = [&] { return clock; };
     x86::CdAudio cd(process);
-    cd.disc = [&] { return x86::CdAudio::discIn(tmp); };
+    bool second = false; // the other disc in the drive: track 2 alone
+    cd.disc = [&] { return x86::CdAudio::discIn(second ? tmp / "second" : tmp); };
     audio::Mixer mixer(44100);
     cd.mixer = &mixer;
     uint32_t r = 0;
@@ -1228,6 +1229,12 @@ static void testCdAudio(const std::filesystem::path &tmp) {
     // Past the end, as the game asks after the last track: out of range.
     cpu.write32(parms + 8, 6);
     CHECK(mci(1, 0x806, 0xc, parms) == 282);
+    // Another disc put in: what played stops, and the device has the new one.
+    std::filesystem::create_directories(tmp / "second");
+    std::filesystem::copy_file(tmp / "track02.wav", tmp / "second" / "track02.wav");
+    second = true;
+    cd.discChanged();
+    CHECK(cd.trackPlaying() == 0 && status(3) == 2 && status(4) == 525);
     CHECK(mci(1, 0x804, 0, parms) == 0);       // MCI_CLOSE
     CHECK(mci(1, 0x814, 0x100, parms) == 257); // closed: no such device
     cpu.writeString(type, "waveaudio", 16);
