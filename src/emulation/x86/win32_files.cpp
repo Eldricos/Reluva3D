@@ -1133,6 +1133,49 @@ void Win32Process::addFileStandIns() {
         }
         return 1u;
     });
+    // Folders: made and removed only where the program can write, never in
+    // its own; ERROR_ALREADY_EXISTS for one that's there, wherever.
+    stdcall(k, "CreateDirectoryA", 2, [this](Cpu &c) {
+        const std::string name = fullPath(c.string(c.arg(0)));
+        std::error_code ec;
+        if (const auto there = mapPath ? mapPath(name, false) : std::nullopt;
+            there && std::filesystem::exists(*there, ec)) {
+            _lastError = kErrorAlreadyExists;
+            return 0u;
+        }
+        const auto to = mapPath ? mapPath(name, true) : std::nullopt;
+        if (!to || !std::filesystem::create_directories(*to, ec)) {
+            _lastError = kErrorAccessDenied;
+            return 0u;
+        }
+        return 1u;
+    });
+    // RemoveDirectoryA: an empty folder the program made.
+    stdcall(k, "RemoveDirectoryA", 1, [this](Cpu &c) {
+        const std::string name = fullPath(c.string(c.arg(0)));
+        const auto folder = mapPath ? mapPath(name, true) : std::nullopt;
+        std::error_code ec;
+        if (!folder || !std::filesystem::is_directory(*folder, ec)) {
+            _lastError = kErrorFileNotFound;
+            return 0u;
+        }
+        if (!std::filesystem::is_empty(*folder, ec) || !std::filesystem::remove(*folder, ec)) {
+            _lastError = kErrorAccessDenied;
+            return 0u;
+        }
+        return 1u;
+    });
+    // SetFileAttributesA: done, for a file that's there; the attributes
+    // aren't kept (read-only, hidden: nothing here acts on them).
+    stdcall(k, "SetFileAttributesA", 2, [this](Cpu &c) {
+        const auto host = mapPath ? mapPath(fullPath(c.string(c.arg(0))), false) : std::nullopt;
+        std::error_code ec;
+        if (!host || !std::filesystem::exists(*host, ec)) {
+            _lastError = kErrorFileNotFound;
+            return 0u;
+        }
+        return 1u;
+    });
     // CopyFileA(from, to, failIfExists): from anything the program can
     // read (its own files too) to where it can write.
     stdcall(k, "CopyFileA", 3, [this](Cpu &c) {

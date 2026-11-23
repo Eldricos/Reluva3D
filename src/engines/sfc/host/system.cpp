@@ -264,13 +264,6 @@ void GameProcess::addSystem() {
             c.write32(c.arg(3), filePart);
         return uint32_t(full.size());
     });
-    // Nothing is written to the install: folders and attributes stay as
-    // they are, the calls failing with access denied.
-    for (const char *name : {"CreateDirectoryA", "RemoveDirectoryA", "SetFileAttributesA"})
-        stdcall(k, name, name[0] == 'S' || name[0] == 'C' ? 2 : 1, [this](Cpu &) {
-            _process->setLastError(5);
-            return 0u;
-        });
     stdcall(k, "OpenMutexA", 3, [this](Cpu &) {
         _process->setLastError(2); // ERROR_FILE_NOT_FOUND: no other copy running
         return 0u;
