@@ -30,10 +30,10 @@ None yet.
   documented lighting rules (attenuation, range, parallel point lights)
   ([d3drm.md](../../common/x86/d3drm.md#drawing)). It matches a
   screenshot of the original at the pizzeria; elsewhere it hasn't been
-  compared. Decals and frames' textures aren't drawn, but the game
-  hasn't been seen to use them: on the way to the island it blends its
-  translucent faces (render mode 1) unsorted, sets no fog, and no
-  texture of its has a colour key.
+  compared. On the way to the island it blends its translucent faces
+  (render mode 1) unsorted, sets no fog, and uses no decals, frame
+  textures, material modes or colour keys; those are drawn as the
+  documentation describes, should a later part use them.
 - **The setup dialog's** (`CONFIG.EXE`) video memory, palette and device
   choices aren't offered: they're the stand-ins' to decide. Its others
   are the engine's settings, the island's model at High unless set (the

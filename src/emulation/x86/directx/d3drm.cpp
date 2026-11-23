@@ -738,9 +738,9 @@ public:
     std::shared_ptr<dx::Surface> surface;
     uint32_t colors = 0;
     uint32_t shades = 0;
-    int decalWidth = 1;
-    int decalHeight = 1;
-    int decalOriginX = 0;
+    float decalWidth = 1; // model units
+    float decalHeight = 1;
+    int decalOriginX = 0; // the texture's pixels, from its top-left corner (inferred)
     int decalOriginY = 0;
     uint32_t decalScale = 1;
     uint32_t decalTransparency = 0;
@@ -790,12 +790,20 @@ public:
                                                  : decalTransparentColor;
         if (m == "SetDecalSize" || m == "SetDecalOrigin") { // (width or x, height or y), D3DVALUEs or longs
             if (m == "SetDecalSize") {
-                decalWidth = int(asFloat(c.arg(1)));
-                decalHeight = int(asFloat(c.arg(2)));
+                decalWidth = asFloat(c.arg(1));
+                decalHeight = asFloat(c.arg(2));
             } else {
                 decalOriginX = int32_t(c.arg(1));
                 decalOriginY = int32_t(c.arg(2));
             }
+            return kRmOk;
+        }
+        if (m == "GetDecalSize" || m == "GetDecalOrigin") { // (D3DVALUE* or LONG* each)
+            const bool size = m == "GetDecalSize";
+            if (c.valid(c.arg(1), 4))
+                c.write32(c.arg(1), size ? bits(decalWidth) : uint32_t(decalOriginX));
+            if (c.valid(c.arg(2), 4))
+                c.write32(c.arg(2), size ? bits(decalHeight) : uint32_t(decalOriginY));
             return kRmOk;
         }
         if (m == "GetImage") // a texture made from a surface has no D3DRMIMAGE
@@ -1014,7 +1022,10 @@ public:
     std::vector<std::shared_ptr<ComObject>> lights;
     Matrix transform = identity();
     uint32_t color = 0xffffffff;
-    uint32_t materialMode = 1; // D3DRMMATERIAL_FROMFRAME
+    uint32_t materialMode = 0; // D3DRMMATERIAL_FROMMESH
+    std::shared_ptr<Texture> texture;
+    bool wrapU = false; // SetTextureTopology's, kept (not drawn)
+    bool wrapV = false;
     uint32_t sortMode = 0;
     uint32_t zbufferMode = 0;
     // a scene's
@@ -1223,6 +1234,30 @@ public:
         }
         if (m == "GetColor")
             return color;
+        if (m == "SetTexture") { // (texture, or none)
+            texture = s->com.shared<Texture>(c.arg(1));
+            return kRmOk;
+        }
+        if (m == "GetTexture") { // (out), AddRef'd
+            if (!c.valid(c.arg(1), 4))
+                return kRmErrBadValue;
+            c.write32(c.arg(1), texture ? s->com.pointer(texture, s->texture) : 0);
+            if (texture)
+                texture->refs++;
+            return kRmOk;
+        }
+        if (m == "SetTextureTopology") { // (wrap u, wrap v)
+            wrapU = c.arg(1) != 0;
+            wrapV = c.arg(2) != 0;
+            return kRmOk;
+        }
+        if (m == "GetTextureTopology") {
+            if (c.valid(c.arg(1), 4))
+                c.write32(c.arg(1), uint32_t(wrapU));
+            if (c.valid(c.arg(2), 4))
+                c.write32(c.arg(2), uint32_t(wrapV));
+            return kRmOk;
+        }
         if (m == "SetMaterialMode" || m == "SetSortMode" || m == "SetZbufferMode") {
             (m == "SetMaterialMode" ? materialMode : m == "SetSortMode" ? sortMode : zbufferMode) = c.arg(1);
             return kRmOk;
@@ -1438,6 +1473,7 @@ public:
     }
 
     void render(Frame &root);
+    void drawDecal(dx::Device &d, Texture &texture, const Matrix &world, const Matrix &viewProjection) const;
 
     // Whether a box, taken to clip space by `m`, is wholly outside the view:
     // all its corners beyond one of its planes.
@@ -1653,6 +1689,9 @@ enum : uint32_t { kLightAmbient = 0, kLightPoint = 1, kLightSpot = 2, kLightDire
 // D3DRMRENDERQUALITY's parts.
 constexpr uint32_t kShadeMask = 0x7;
 constexpr uint32_t kLightOn = 0x8; // D3DRMLIGHT_ON
+// D3DRMMATERIALMODE.
+constexpr uint32_t kMaterialFromParent = 1;
+constexpr uint32_t kMaterialFromFrame = 2;
 // D3DRMRENDERMODE's sorted transparency.
 constexpr uint32_t kRenderSortedTransparency = 0x2;
 // The device's render states and texture stage states used here
@@ -1817,11 +1856,29 @@ void Viewport::render(Frame &root) {
             std::copy(dir.begin(), dir.end(), d.lights[pp.index].direction);
         }
     };
+    // Where a group's colour and texture come from (D3DRMMATERIALMODE): its
+    // own (FROMMESH), its frame's (FROMFRAME), or as its frame's parent
+    // has them (FROMPARENT), up to a frame that says. A frame's texture is
+    // the group's under FROMFRAME, and else only where the group has none
+    // (inferred: the documentation doesn't say when it's used).
+    struct Source {
+        uint32_t color;
+        Texture *texture;
+    };
+    auto sourceOf = [](const Frame &frame, const Mesh::Group &g) {
+        const Frame *from = &frame;
+        for (int up = 0; from && from->materialMode == kMaterialFromParent && up < 256; ++up)
+            from = from->parent.lock().get();
+        if (from && from->materialMode == kMaterialFromFrame)
+            return Source{from->color, from->texture ? from->texture.get() : g.texture.get()};
+        return Source{g.color, g.texture ? g.texture.get() : frame.texture.get()};
+    };
     std::vector<uint8_t> vertices;
     std::vector<uint32_t> indices;
     auto drawGroup = [&](const Placed &p, const Mesh::Group &g) {
         const uint32_t quality = g.quality & device->quality;
-        const uint32_t argb = p.frame->materialMode == 2 ? p.frame->color : g.color; // D3DRMMATERIAL_FROMFRAME
+        const Source source = sourceOf(*p.frame, g);
+        const uint32_t argb = source.color;
         const dx::Color color = colorOf(argb);
         dx::Material mat;
         mat.diffuse = color;
@@ -1841,9 +1898,9 @@ void Viewport::render(Frame &root) {
         d.renderStates[kRsDestBlend] = 6; // D3DBLEND_INVSRCALPHA
 
         auto &stage = d.stageStates[0];
-        std::shared_ptr<dx::Surface> surface = g.texture ? g.texture->surface : nullptr;
-        if (surface && g.texture->changes != g.texture->seen) {
-            g.texture->seen = g.texture->changes;
+        std::shared_ptr<dx::Surface> surface = source.texture ? source.texture->surface : nullptr;
+        if (surface && source.texture->changes != source.texture->seen) {
+            source.texture->seen = source.texture->changes;
             surface->touched(); // its palette may be new: decoded again
         }
         d.textures[0] = surface;
@@ -1887,7 +1944,7 @@ void Viewport::render(Frame &root) {
             for (const Mesh::Group &g : mesh->groups) {
                 if (g.vertices.empty() || g.faces.empty())
                     continue;
-                const uint32_t argb = p.frame->materialMode == 2 ? p.frame->color : g.color;
+                const uint32_t argb = sourceOf(*p.frame, g).color;
                 if (sorted && (argb >> 24) < 0xff) {
                     // Its depth: its first vertex's, in the camera's terms.
                     const Vector at = transformPoint(g.vertices[0].position, multiply(p.world, d.transforms[2]));
@@ -1906,6 +1963,11 @@ void Viewport::render(Frame &root) {
         d.transforms[1] = l.p->world;
         drawGroup(*l.p, *l.g);
     }
+    // Decals: textures as visuals, drawn after the rest.
+    for (const Placed &p : placed)
+        for (const auto &v : p.frame->visuals)
+            if (auto *texture = dynamic_cast<Texture *>(v.get()))
+                drawDecal(d, *texture, p.world, viewProjection);
 
     d.renderStates = savedStates;
     d.stageStates = savedStages;
@@ -1914,6 +1976,69 @@ void Viewport::render(Frame &root) {
     d.lights = savedLights;
     d.material = savedMaterial;
     d.viewport = savedViewport;
+}
+
+// A decal: its texture drawn into a rectangle aligned with the viewport,
+// its origin (a point of the texture, from its top-left corner) at its
+// frame's position; its size the decal's, in model units at that depth
+// (D3DRMTexture::SetDecalScale), or, not scaled, the texture's own in
+// pixels (inferred); in front of what's nearer, and written into the Z
+// buffer (inferred); the transparent colour, if it has one, left out.
+void Viewport::drawDecal(dx::Device &d, Texture &texture, const Matrix &world, const Matrix &viewProjection) const {
+    const std::shared_ptr<dx::Surface> surface = texture.surface;
+    if (!surface || !d.target || surface->d.width <= 0 || surface->d.height <= 0)
+        return;
+    const Matrix all = multiply(world, viewProjection);
+    const float cx = all[12];
+    const float cy = all[13];
+    const float cz = all[14];
+    const float cw = all[15];
+    if (cw <= 0 || cz < 0 || cz > cw)
+        return;
+    const float sx = float(x) + (cx / cw + 1) * float(width) / 2;
+    const float sy = float(y) + (1 - cy / cw) * float(height) / 2;
+    const float depth = cz / cw;
+    const int tw = surface->d.width;
+    const int th = surface->d.height;
+    float rw = float(tw);
+    float rh = float(th);
+    if (texture.decalScale) {
+        const Matrix proj = projectionMatrix();
+        rw = texture.decalWidth * proj[0] * float(width) / 2 / cw;
+        rh = texture.decalHeight * proj[5] * float(height) / 2 / cw;
+    }
+    if (rw <= 0 || rh <= 0)
+        return;
+    const float left = sx - float(texture.decalOriginX) * rw / float(tw);
+    const float top = sy - float(texture.decalOriginY) * rh / float(th);
+    d.finishDraws();
+    dx::Surface &target = *d.target;
+    dx::Surface *zbuffer = d.depth.get();
+    const uint32_t zMask = zbuffer ? (zbuffer->d.format.g ? zbuffer->d.format.g : 0xffff) : 0;
+    const uint32_t z = uint32_t(double(std::clamp(depth, 0.0f, 1.0f)) * zMask + 0.5);
+    const int x0 = std::max({int(std::floor(left)), x, 0});
+    const int y0 = std::max({int(std::floor(top)), y, 0});
+    const int x1 = std::min({int(std::ceil(left + rw)), x + width, target.d.width});
+    const int y1 = std::min({int(std::ceil(top + rh)), y + height, target.d.height});
+    for (int py = y0; py < y1; ++py)
+        for (int px = x0; px < x1; ++px) {
+            const int u = int((float(px) + 0.5f - left) / rw * float(tw));
+            const int v = int((float(py) + 0.5f - top) / rh * float(th));
+            if (u < 0 || v < 0 || u >= tw || v >= th)
+                continue;
+            const uint32_t argb = surface->argb(u, v);
+            if (texture.decalTransparency && (argb & 0xffffff) == (texture.decalTransparentColor & 0xffffff))
+                continue;
+            if (zbuffer && px < zbuffer->d.width && py < zbuffer->d.height) {
+                if (z > (zbuffer->pixel(px, py) & zMask))
+                    continue;
+                zbuffer->setPixel(px, py, z);
+            }
+            target.setPixel(px, py, target.d.format.fromArgb(argb));
+        }
+    target.touched();
+    if (zbuffer)
+        zbuffer->touched();
 }
 
 // Each face of the meshes in the camera's scene under the point, on the

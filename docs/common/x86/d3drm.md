@@ -30,8 +30,9 @@ So far what LEGO Island calls as it loads its world and plays its intro:
   `IDirect3DRMFrameArray`, `LightArray`, `VisualArray`), its transform and its parts (translation,
   scale, rotation, a matrix, each combined as asked), its position and
   orientation set and read relative to another frame, points taken to the
-  world and back, its colour, material mode, sort and Z buffer modes, and
-  a scene's background and fog.
+  world and back, its colour, material mode, texture and its topology
+  (kept, not drawn), sort and Z buffer modes, and a scene's background
+  and fog.
 - **`IDirect3DRMDevice`, `IDirect3DRMDevice2`:** on a Direct3D device: its
   size, quality, texture quality, shades, dither, buffer count, render
   mode, update callbacks (kept), and the Direct3D device back.
@@ -48,15 +49,16 @@ So far what LEGO Island calls as it loads its world and plays its intro:
   `IDirect3DRMFrameArray`.
 - **`IDirect3DRMLight`, `IDirect3DRMMaterial`:** their settings.
 - **`IDirect3DRMTexture`, `IDirect3DRMTexture2`:** a surface's texture,
-  its colours, shades and decal settings, and `Changed` (its surface's
-  pixels or palette changed).
+  its colours, shades and decal settings (read back too), and `Changed`
+  (its surface's pixels or palette changed); added to a frame as a
+  visual, drawn as a decal.
 - **`IDirect3DRMMesh`:** groups of faces (`AddGroup`: a fixed number of
   vertices a face, or each face's count before it), their vertices
   (`D3DRMVERTEX`: position, normal, texture coordinates, colour), each
   group's colour, mapping, quality, material and texture, read back
   (`GetGroup`, `GetVertices`), scaled, moved, and its box.
-- **Not yet:** in drawing, decals, frames' textures and Retained Mode's
-  own lighting (colour ramps, shades); mesh builders,
+- **Not yet:** in drawing, a frame's texture topology (wrapping) and
+  Retained Mode's own lighting (colour ramps, shades); mesh builders,
   animations, move callbacks and velocities, loading files, and the
   other kinds of object.
   Calling a method nothing stands in for ends the run naming it.
@@ -123,6 +125,22 @@ emissive colour; unlit, its colour as it is. A colour less than opaque
 is blended. A group's texture is its surface's pixels times its colour,
 wrapping, filtered as the device's texture quality says.
 
+A group's colour and texture come from where its frame's material mode
+says (`D3DRMMATERIALMODE`): its own (`FROMMESH`, the default), its
+frame's colour (`FROMFRAME`), or as its frame's parent has them
+(`FROMPARENT`), up the frames to one that says. A frame's texture is
+the group's under `FROMFRAME`, and else only where the group has none
+*(inferred: the documentation doesn't say when it's used)*.
+
+A texture added to a frame as a visual is a decal, drawn after the
+meshes "into a viewport-aligned rectangle": its origin, a point of the
+texture from its top-left corner *(in its pixels, inferred)*, at its
+frame's position; its size the decal's, in model units at that depth
+(`SetDecalScale` on, the default), or, off, the texture's own in pixels
+*(inferred)*; behind what's nearer, and written into the Z buffer
+*(inferred)*; its transparent colour, with `SetDecalTransparency`, left
+out.
+
 ### Picking
 
 `Pick` takes a point of the device and finds, of each mesh in the
@@ -169,7 +187,10 @@ it in `EAX`.
   quarter's constant attenuation no brighter; by a directional light
   and a parallel point light behind it; and by a point light and a
   parallel point light just in front of it, Gouraud shaded, dark and
-  bright. LEGO Island draws its scenes with it, and picks in them
+  bright; its colour from its frame (`FROMFRAME`), its frame's parent
+  (`FROMPARENT`) and itself (`FROMMESH`); its frame's texture where it
+  has none; and a decal of two texels, its origin at its frame, its
+  transparent half left out. LEGO Island draws its scenes with it, and picks in them
   ([running.md](../../engines/legoisland/systems/running.md)).
 - **Confidence:** published unless marked.
 

@@ -1110,6 +1110,69 @@ static void testRetainedMode() {
     CHECK(call(behind, 61, {scene3, 0, 0, bits(4.9f)}) == 0);
     CHECK(litMiddle(behind, 1, [](uint32_t) {}) <= 2);
     CHECK(litMiddle(behind, 4, [](uint32_t) {}) >= 7);
+
+    // Where a group's colour comes from (D3DRMMATERIALMODE): its frame's
+    // (FROMFRAME, blue); its frame's parent's (FROMPARENT, the scene's,
+    // FROMFRAME, green); its own (FROMMESH, the default: grey).
+    CHECK(call(litSquare, 19, {0, 0x80}) == 0); // unlit
+    auto drawn = [&] {
+        CHECK(call(view3, 12, {}) == 0 && call(view3, 13, {scene3}) == 0);
+        return pixelAt(32, 24);
+    };
+    CHECK(call(litHolder, 22, {}) == 0);              // GetMaterialMode: FROMMESH
+    CHECK(call(litHolder, 59, {2}) == 0);             // SetMaterialMode: FROMFRAME
+    CHECK(call(litHolder, 57, {0, 0, bits(1)}) == 0); // SetColorRGB: blue
+    CHECK(drawn() == 0x001f);
+    CHECK(call(scene3, 59, {2}) == 0 && call(scene3, 57, {0, bits(1), 0}) == 0); // green
+    CHECK(call(litHolder, 59, {1}) == 0);                                        // FROMPARENT
+    CHECK(drawn() == 0x07e0);
+    CHECK(call(litHolder, 59, {0}) == 0 && call(scene3, 59, {0}) == 0); // FROMMESH
+    CHECK(drawn() == 0x4208);                                           // its own quarter grey
+    // A frame's texture, on a group with none of its own: the grey one,
+    // times the group's white.
+    CHECK(call(rm2, 18, {greySurface, out}) == 0); // CreateTextureFromSurface
+    const uint32_t greyTexture = cpu.read32(out);
+    CHECK(call(litSquare, 16, {0, 0xffffffffu}) == 0);
+    CHECK(call(litHolder, 64, {greyTexture}) == 0); // SetTexture
+    CHECK(drawn() == 0x8410);
+    CHECK(call(litHolder, 28, {out}) == 0 && cpu.read32(out) != 0); // GetTexture
+
+    // A decal: a texture of two texels, black then red, as a visual, its
+    // origin (its top-left corner) at its frame's position in the middle;
+    // 2 by 2 units at a depth of 5, 19.2 pixels across; black, the
+    // transparent colour, left out, the blue behind showing.
+    CHECK(call(litHolder, 41, {litSquare}) == 0);  // DeleteVisual
+    CHECK(call(scene3, 49, {0, 0, bits(1)}) == 0); // blue behind
+    std::memset(cpu.memory().data() + desc, 0, 108);
+    cpu.write32(desc, 108);
+    cpu.write32(desc + 4, 0x1 | 0x2 | 0x4 | 0x1000);
+    cpu.write32(desc + 8, 1);
+    cpu.write32(desc + 12, 2);
+    cpu.write32(desc + 72, 32);
+    cpu.write32(desc + 76, 0x40); // RGB
+    cpu.write32(desc + 84, 16);
+    cpu.write32(desc + 88, 0xf800);
+    cpu.write32(desc + 92, 0x07e0);
+    cpu.write32(desc + 96, 0x001f);
+    cpu.write32(desc + 104, 0x1000); // TEXTURE
+    CHECK(call(dd, 6, {desc, out, 0}) == 0);
+    const uint32_t decalSurface = cpu.read32(out);
+    std::memset(cpu.memory().data() + lock, 0, 108);
+    cpu.write32(lock, 108);
+    CHECK(call(decalSurface, 25, {0, lock, 1, 0}) == 0); // Lock
+    cpu.write16(cpu.read32(lock + 36), 0x0000);
+    cpu.write16(cpu.read32(lock + 36) + 2, 0xf800);
+    CHECK(call(decalSurface, 32, {0}) == 0); // Unlock
+    CHECK(call(rm2, 18, {decalSurface, out}) == 0);
+    const uint32_t decal = cpu.read32(out);
+    CHECK(call(decal, 17, {bits(2), bits(2)}) == 0);               // SetDecalSize
+    CHECK(call(decal, 20, {1}) == 0);                              // SetDecalTransparency
+    CHECK(call(decal, 22, {out, out}) == 0 && value(out) == 2.0f); // GetDecalSize
+    CHECK(call(litHolder, 18, {decal}) == 0);                      // AddVisual
+    CHECK(call(view3, 12, {}) == 0 && call(view3, 13, {scene3}) == 0);
+    CHECK(pixelAt(46, 30) == 0xf800); // the red half
+    CHECK(pixelAt(36, 30) == 0x001f); // the black half, left out
+    CHECK(pixelAt(28, 30) == 0x001f); // left of its origin: nothing
 }
 
 static void testDirectX() {
