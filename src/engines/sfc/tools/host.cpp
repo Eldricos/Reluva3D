@@ -380,6 +380,17 @@ int cmdHost(int argc, char **argv) {
         if (name->find("LoadLibrary") != std::string::npos || name->find("GetModuleHandle") != std::string::npos)
             if (c.valid(c.arg(0), 1))
                 std::printf("  \"%s\"", c.string(c.arg(0), 260).c_str());
+        // The path a file or folder function is given (UTF-16 for a W one).
+        if ((name->find("File") != std::string::npos || name->find("Directory") != std::string::npos) &&
+            name->find("!") != std::string::npos && c.arg(0) >= 0x10000 && c.valid(c.arg(0), 2)) {
+            std::string path;
+            if (name->back() == 'W')
+                for (uint32_t at = c.arg(0); path.size() < 260 && c.valid(at, 2) && c.read16(at); at += 2)
+                    path.push_back(char(c.read16(at) < 0x80 ? c.read16(at) : '?'));
+            else
+                path = c.string(c.arg(0), 260);
+            std::printf("  \"%s\"", path.c_str());
+        }
         if (name->find("GetProcAddress") != std::string::npos && c.arg(1) >= 0x10000 && c.valid(c.arg(1), 1))
             std::printf("  \"%s\"", c.string(c.arg(1), 260).c_str());
         if (name->find("::QueryInterface") != std::string::npos) {

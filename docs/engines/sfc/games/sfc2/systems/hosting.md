@@ -363,7 +363,8 @@ known.
   and the instruction that made it; `-newcode <from> <to>` lists the
   program's code first run between two frames. `-watch` also shows what
   EAX points to, and text where a pointer has some; `-calls` shows the
-  names `LoadLibraryA` and `GetProcAddress` are given.
+  names `LoadLibraryA` and `GetProcAddress` are given, and the path each
+  file or folder function is.
   `reluva-tool sfc disasm <game folder or program> <start> <end>`
   disassembles the program, or another (a mission's DLL). `-key <frame>
   <name>` presses a key by name (`num5`, `numplus`, `left`, `f1`...);
