@@ -828,13 +828,14 @@ private:
     float _dialogLeft = 0.0f;
     image::Image _dialogBackground;
     Font _dialogFont;
-    // Fighting: the weapons, what the models say, what blocks sight (the
-    // footprints of the parts standing full height, on the map) and the
+    // Fighting: the weapons, what the models say, what blocks sight and
+    // throws (the footprints of the parts that collide, on the map) and the
     // shots' flashes showing.
     std::map<std::string, ItemDefinition> _items;
     std::map<std::string, ModelInfo> _modelInfos;
     struct Wall {
         size_t part;
+        bool full; // standing Full Height, so blocking sight
         std::vector<std::pair<float, float>> points;
         // Its bounds.
         float x0;
@@ -843,7 +844,7 @@ private:
         float y1;
     };
     std::vector<Wall> _walls;
-    std::vector<size_t> _bouncers; // the collideable polygons standing full height
+    std::vector<size_t> _bouncers; // the collideable polygons
     int _thrownIds = 0;
     struct Flash {
         std::string model;

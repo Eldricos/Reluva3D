@@ -1848,11 +1848,12 @@ void testKit() {
 
 void testProjectiles() {
     // A grenade thrown east at a wall: it passes a trigger answering to
-    // projectiles, which turns a lamp on, and is turned back off the wall.
+    // projectiles, which turns a lamp on, and is turned back off the wall,
+    // low and unseen as that is, high as the grenade flies.
     const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
     const std::string zax =
         "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=300.000000,300.000000\nTree List=CSortList2D\n{\n"
-        "Level Part=CFreeRangePoly\n{\nName=Wall\nVisible=1\nActive=1\nCollideable=1\nFull Height=1\n"
+        "Level Part=CFreeRangePoly\n{\nName=Wall\nVisible=0\nActive=1\nCollideable=1\nFull Height=0\n"
         "Polygon=400, 100, 420, 100, 420, 500, 400, 500, 400, 100\n}\n"
         "Level Part=CFreeRangePoly\n{\nVisible=1\nActive=1\nCollideable=0\nActivity=Array\n{\nItem Count=1\n"
         "Activity=CPassThroughTriggerAI\n{\nTriggered By Anything=1\nTriggered By Projectiles=1\n"

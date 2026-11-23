@@ -79,17 +79,18 @@ const ItemDefinition *MapScreen::weaponOf(const std::vector<std::string> &items)
 
 void MapScreen::setupCombat() {
     _items = loadItems(_data);
-    // What stands in the way of seeing: the parts that collide and stand
-    // full height (their Collideable and Full Height), by their model's
-    // Bounds Poly, which is drawn about where it stands (inferred).
+    // What stands in the way: of a thrown thing, the parts that collide,
+    // whatever their height; of seeing, those standing full height (their
+    // Collideable and Full Height); each by its model's Bounds Poly, which
+    // is drawn about where it stands (inferred).
     for (size_t i = 0; i < _map.parts.size(); ++i) {
         const MapPart &p = _map.parts[i];
-        if (p.model.empty() || !p.collideable || !p.fullHeight || _enemyOfPart.count(i))
+        if (p.model.empty() || !p.collideable || _enemyOfPart.count(i))
             continue;
         const ModelInfo &info = modelInfo(p.model);
         if (info.footprint.size() < 3)
             continue;
-        Wall w{i, {}, 1e9f, 1e9f, -1e9f, -1e9f};
+        Wall w{i, p.fullHeight, {}, 1e9f, 1e9f, -1e9f, -1e9f};
         for (const auto &[x, y] : info.footprint) {
             w.points.emplace_back(p.x + x, p.y + y);
             w.x0 = std::min(w.x0, p.x + x);
@@ -100,7 +101,7 @@ void MapScreen::setupCombat() {
         _walls.push_back(std::move(w));
     }
     for (size_t i = 0; i < _map.parts.size(); ++i)
-        if (_map.parts[i].polygon.size() >= 3 && _map.parts[i].collideable && _map.parts[i].fullHeight)
+        if (_map.parts[i].polygon.size() >= 3 && _map.parts[i].collideable)
             _bouncers.push_back(i);
     // The characters' health is their model's Hit Points; an enemy's
     // weapon is in the inventory the map gives it, or else its model's.
@@ -130,7 +131,7 @@ bool MapScreen::clearSight(float x0, float y0, float x1, float y1) const {
     const float ly = std::min(y0, y1);
     const float hy = std::max(y0, y1);
     for (const Wall &w : _walls) {
-        if (w.x1 < lx || w.x0 > hx || w.y1 < ly || w.y0 > hy)
+        if (!w.full || w.x1 < lx || w.x0 > hx || w.y1 < ly || w.y0 > hy)
             continue;
         if (!shown(w.part) || !_partStates[w.part].collideable)
             continue;
@@ -146,10 +147,13 @@ bool MapScreen::clearSight(float x0, float y0, float x1, float y1) const {
 }
 
 bool MapScreen::throwPasses(float x0, float y0, float x1, float y1, float &vx, float &vy) const {
-    // Off the first side crossed, mirrored about it (inferred: the
-    // program's bounce isn't traced). A polygon only while it's active:
-    // Mission 01's Fake Grenade Bouncer poly, made so for half a second as
-    // a grenade passes its trigger.
+    // Anything active and collideable stops it, seen or not, whatever
+    // either's height: its move asks along the ground for all that's Active
+    // and Collideable, not Visible nor Half or Full Height (0x4effe0,
+    // 0x4ef720). So a polygon only while it's active: Mission 01's Fake
+    // Grenade Bouncer poly, made so for half a second as a grenade passes
+    // its trigger. Off the first side crossed, mirrored about it (inferred:
+    // the bounce isn't traced).
     const auto off = [&](float ax, float ay, float bx, float by) {
         if (!crosses(x0, y0, x1, y1, ax, ay, bx, by))
             return false;
@@ -163,8 +167,12 @@ bool MapScreen::throwPasses(float x0, float y0, float x1, float y1, float &vx, f
         vy -= 2.0f * dot * ny;
         return true;
     };
+    const auto blocks = [&](size_t part) {
+        const PartState &state = _partStates[part];
+        return state.active && !state.deleted && state.collideable;
+    };
     for (const Wall &w : _walls) {
-        if (!shown(w.part) || !_partStates[w.part].collideable)
+        if (!blocks(w.part))
             continue;
         for (size_t k = 0; k < w.points.size(); ++k) {
             const auto [ax, ay] = w.points[k];
@@ -174,7 +182,7 @@ bool MapScreen::throwPasses(float x0, float y0, float x1, float y1, float &vx, f
         }
     }
     for (size_t i : _bouncers) {
-        if (!shown(i) || !_partStates[i].collideable)
+        if (!blocks(i))
             continue;
         const auto &pts = _map.parts[i].polygon;
         for (size_t k = 0; k + 1 < pts.size(); ++k)
