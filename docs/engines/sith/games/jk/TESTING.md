@@ -12,7 +12,7 @@ files):
 |---|---|
 | `sith.unit.detection` | Recognising the game's releases: the fallback table, names in any case, a partial install or a CD not taken for one |
 | `sith.unit.formats` | Reading colormaps, 8- and 16-bit pictures, materials, fonts, string tables, episodes and sound classes, and refusing broken ones |
-| `sith.unit.models` | Reading a model with each of the game's quirks, and placing its nodes |
+| `sith.unit.models` | Reading a model with each of the game's quirks, placing its nodes, an animation's values between keyframes, and a puppet's modes and joints |
 | `sith.unit.gob` | Reading `.gob` archives (names with either separator and in any case), refusing broken ones, and the install's set of them |
 | `sith.unit.import` | Importing from CD 1 and adding CD 2, what's copied and where, what isn't imported from, and that the result is recognised and finds its CDs |
 | `sith.unit.folders` | Telling the CDs apart by `JK_.CD`, and finding them in and beside an install and by the settings |
@@ -52,7 +52,8 @@ That the US release's signatures match a real install: checked by hand
 - In `reluva-viewer`: the menus' backgrounds look as in the game; the
   Force powers' icons look right with `bkforce.bm`'s palette; textures
   look right through `dflt.cmp`; the fonts' sample text is evenly spaced;
-  the models' parts meet at their joints;
+  the models' parts meet at their joints, and move together when
+  animated;
   sounds and cut scenes play with their sound, the cut scenes' picture
   keeping pace with it.
 
@@ -60,6 +61,7 @@ That the US release's signatures match a real install: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | `reluva-tool sith formats`: all 504 animations and 49 puppets read, every puppet's animations found. Kyle drawn in four animations on the Models page |
 | November 2026 | US retail | Linux | `reluva-tool sith formats`: all 477 models read. The Models page drawn for Kyle, a stormtrooper and a crate: joints meeting, textures in place |
 | November 2026 | US retail | Linux | The Sounds, Sound classes, Episodes and Cut scenes pages drawn with `reluva-tool sith page`, and a cut scene stepped through 450 frames; without a sound device, so not listened to |
 | November 2026 | US retail | Linux | `reluva-tool sith formats`: all 644 sounds, 102 sound classes and 3 episodes read. `reluva-tool sith episode`: every cut scene a step names found on its CD. `reluva-tool sith movies -all`: every frame and the sound of the 25 cut scenes decoded |

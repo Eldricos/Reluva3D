@@ -17,8 +17,10 @@ reluva_add_engine(sith
         formats/episode.cpp
         formats/font.cpp
         formats/gob.cpp
+        formats/keyframe.cpp
         formats/material.cpp
         formats/model.cpp
+        formats/puppet.cpp
         formats/sound_class.cpp
         formats/strings.cpp
         formats/text.cpp)

@@ -79,6 +79,7 @@ void engineTest(const std::filesystem::path &tmp) {
                                                    {"mat\\test.mat", makeMaterialFile()},
                                                    {"misc\\snd\\door.snd", {snd.begin(), snd.end()}},
                                                    {"3do\\test.3do", makeModelFile()},
+                                                   {"3do\\key\\test.key", makeKeyframeFile()},
                                                    {"3do\\mat\\top.mat", makeMaterialFile()}}));
     const std::string episode = "\"Test\"\r\nTYPE 1\r\nSEQ 2\r\n10: 1 1 CUT 01-02a.smk 0 0 11 -1\r\n"
                                 "11: 1 1 LEVEL 01test.jkl 0 0 -1 -1\r\nend\r\n";
@@ -114,6 +115,13 @@ void engineTest(const std::filesystem::path &tmp) {
                                                : uint32_t(key::kDown));
         page->draw(screen);
         rec.add(step + ".after_keys", summary(page->name(), screen));
+        if (name == "Models") {
+            // The animation that fits it, five frames in.
+            for (const char *key : {"k", ".", ".", ".", ".", "."})
+                page->handleKey(uint32_t(key[0]));
+            page->draw(screen);
+            rec.add(step + ".animated", summary(name, screen));
+        }
         if (name == "Cut scenes") {
             // Played without sound, by the clock: a second on, to its end.
             page->handleKey(' ');

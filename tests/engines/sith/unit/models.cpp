@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Sith's unit tests: .3do models read, and their nodes placed.
+// Sith's unit tests: .3do models read and their nodes placed, .key
+// animations and .pup puppets.
 //
 //   reluva-tests sith.unit.models
 
+#include "engines/sith/formats/keyframe.h"
 #include "engines/sith/formats/model.h"
+#include "engines/sith/formats/puppet.h"
 #include "engines/sith/render/draw3d.h"
 
 #include "tests/engines/sith/fixtures.h"
@@ -73,10 +76,58 @@ void testPose() {
     CHECK(near(posed[1].apply({0, 0, 0}).z, 5));
 }
 
+void testKeyframes() {
+    Keyframes key;
+    CHECK(!parseKeyframes(testing::makeKeyframeFile(), key));
+    CHECK(key.frames == 10 && near(key.fps, 15) && key.joints == 2);
+    CHECK(key.markers.size() == 1 && near(key.markers[0].frame, 4) && key.markers[0].type == 1);
+    CHECK(key.nodes.size() == 2 && key.nodes[1].meshName == "arm node" && key.nodes[0].entries.size() == 2);
+    if (key.nodes.size() != 2)
+        return;
+    // Between keyframes, each value moves by its change a frame; from the
+    // next keyframe on, by that one's.
+    Vec3 p;
+    Vec3 r;
+    CHECK(key.at(key.nodes[0], 2.5f, p, r) && near(p.z, 2.25f));
+    CHECK(key.at(key.nodes[0], 7, p, r) && near(p.z, 2.5f));
+    CHECK(key.at(key.nodes[1], 5, p, r) && near(r.y, 370) && near(p.x, 1));
+
+    std::vector<uint8_t> cut = testing::makeKeyframeFile();
+    cut.resize(cut.size() - 20);
+    CHECK(parseKeyframes(cut, key));
+}
+
+void testPuppet() {
+    const std::string text = "# Puppet control file\r\n"
+                             "Mode=0\t\t# Default mode\r\n"
+                             "stand\t\tkystand0.key\t0x00\t0\t0\r\n"
+                             "walk\t\tkywalkF.key\t0x01\t2\t2\t# submode 1\r\n"
+                             "Mode=1, BasedOn=0\r\n"
+                             "stand\t\tkystand2.key\t0x00\t0\t0\r\n"
+                             "mode=2, basedon=1\t\t\r\n"
+                             "fire\t\tkyfire.key\t0x28\t1\t3\r\n"
+                             "joints\r\n0=15\t# head\r\n2=17\r\nend\r\n"
+                             "after\tignored.key\t0\t0\t0\r\n";
+    Puppet pup;
+    CHECK(!parsePuppet(std::vector<uint8_t>(text.begin(), text.end()), pup));
+    CHECK(pup.modes.size() == 3 && pup.modes[2].basedOn == 1);
+    const Puppet::Action *walk = pup.find(2, "WALK");
+    CHECK(walk && walk->keyframe == "kywalkF.key" && walk->flags == 1 && walk->highPriority == 2);
+    const Puppet::Action *stand = pup.find(2, "stand");
+    CHECK(stand && stand->keyframe == "kystand2.key");
+    CHECK(pup.find(0, "fire") == nullptr);
+    CHECK(pup.joints.size() == 2 && pup.joints[0] == 15 && pup.joints[2] == 17);
+
+    const std::string bad = "Mode=0\r\nstand kystand0.key 0x00 zero 0\r\n";
+    CHECK(parsePuppet(std::vector<uint8_t>(bad.begin(), bad.end()), pup));
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("sith.unit.models",
                                         {
                                             {"read", [](const std::filesystem::path &) { testRead(); }},
                                             {"pose", [](const std::filesystem::path &) { testPose(); }},
+                                            {"keyframes", [](const std::filesystem::path &) { testKeyframes(); }},
+                                            {"puppet", [](const std::filesystem::path &) { testPuppet(); }},
                                         });

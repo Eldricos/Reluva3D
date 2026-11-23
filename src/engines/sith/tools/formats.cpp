@@ -11,7 +11,9 @@
 #include "engines/sith/formats/episode.h"
 #include "engines/sith/formats/font.h"
 #include "engines/sith/formats/material.h"
+#include "engines/sith/formats/keyframe.h"
 #include "engines/sith/formats/model.h"
+#include "engines/sith/formats/puppet.h"
 #include "engines/sith/formats/sound_class.h"
 #include "engines/sith/formats/strings.h"
 #include "engines/sith/game_files.h"
@@ -121,15 +123,38 @@ Error describeModel(const std::vector<uint8_t> &data, std::string &line) {
     return Error::success();
 }
 
+Error describeKeyframes(const std::vector<uint8_t> &data, std::string &line) {
+    sith::Keyframes key;
+    if (Error err = sith::parseKeyframes(data, key))
+        return err;
+    char buf[96];
+    std::snprintf(buf, sizeof(buf), "%d frames at %.0f fps, %zu nodes, %zu markers", key.frames, double(key.fps),
+                  key.nodes.size(), key.markers.size());
+    line = buf;
+    return Error::success();
+}
+
+Error describePuppet(const std::vector<uint8_t> &data, std::string &line) {
+    sith::Puppet pup;
+    if (Error err = sith::parsePuppet(data, pup))
+        return err;
+    size_t actions = 0;
+    for (const sith::Puppet::Mode &m : pup.modes)
+        actions += m.actions.size();
+    line = std::to_string(pup.modes.size()) + " modes, " + std::to_string(actions) + " actions, " +
+           std::to_string(pup.joints.size()) + " joints";
+    return Error::success();
+}
+
 const std::map<std::string, Describe> kKinds = {
-    {".3do", describeModel},      {".cmp", describeColormap}, {".bm", describeBitmap},
-    {".mat", describeMaterial},   {".sft", describeFont},     {".uni", describeStrings},
+    {".key", describeKeyframes},  {".pup", describePuppet},   {".3do", describeModel},  {".cmp", describeColormap},
+    {".bm", describeBitmap},      {".mat", describeMaterial}, {".sft", describeFont},   {".uni", describeStrings},
     {".snd", describeSoundClass}, {".wav", describeWav},      {".jk", describeEpisode},
 };
 
-// Every colormap, picture, material, model, font, string table, sound,
-// sound class and episode in the install's archives read, a line each (-q: only the failures), and a
-// count of each kind.
+// Every colormap, picture, material, model, animation, puppet, font,
+// string table, sound, sound class and episode in the install's archives
+// read, a line each (-q: only the failures), and a count of each kind.
 int cmdFormats(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool sith formats <install> [-q]\n");

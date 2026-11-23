@@ -20,6 +20,7 @@ page.Colormaps.after_keys: 1ed2a3af80c3f273
 page.Models.items: 1
 page.Models.drawn: drawn
 page.Models.after_keys: drawn
+page.Models.animated: drawn
 page.Fonts.items: 1
 page.Fonts.drawn: 32e44654cfd901cb
 page.Fonts.after_keys: 14826f4437271ff0

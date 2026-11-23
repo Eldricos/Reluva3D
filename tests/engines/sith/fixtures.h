@@ -177,6 +177,22 @@ inline std::vector<uint8_t> makeModelFile() {
     return {text.begin(), text.end()};
 }
 
+/**
+ * An animation of makeModelFile's model, 10 frames at 15 a second: the
+ * root moving up, its child turning, and a marker at frame 4.
+ */
+inline std::vector<uint8_t> makeKeyframeFile() {
+    const std::string text = "SECTION: HEADER\r\nFLAGS 0x0000\r\nTYPE 0xFFFF\r\nFRAMES 10\r\nFPS 15.000\r\n"
+                             "JOINTS 2\r\nSECTION: MARKERS\r\nMARKERS 1\r\n4.000000 1\r\n"
+                             "SECTION: KEYFRAME NODES\r\nNODES 2\r\n"
+                             "NODE 0\r\nMESH NAME ROOT\r\nENTRIES 2\r\n"
+                             "0: 0 0x0001 0 0 2 0 0 0\r\n0 0 0.1 0 0 0\r\n"
+                             "1: 5 0x0001 0 0 2.5 0 0 0\r\n0 0 0 0 0 0\r\n"
+                             "NODE 1\r\nMESH NAME arm node\r\nENTRIES 1\r\n"
+                             "0: 0 0x0002 1 0 0 0 350 0\r\n0 0 0 0 4 0\r\n";
+    return {text.begin(), text.end()};
+}
+
 /** An install's files, the names in the case the installer gives them. */
 inline void makeInstall(const stdfs::path &dir) {
     touch(dir / "JK.EXE");
