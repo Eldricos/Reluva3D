@@ -19,26 +19,50 @@ namespace reluva::nfs::nfs2se {
  * container, with other records in it (engines/nfs/formats/col.h).
  */
 struct Collision {
+    /** Texture::flags (0x433bd0, 0x435090). */
+    enum TextureFlag : uint8_t {
+        kAnimated = 0x04,  // frames pictures from `picture` on, in turn
+        kSeeThrough = 0x20 // its keyed colour not drawn
+    };
+    /** Texture::orientation: how its picture is turned on a quad (0x433c34). */
+    enum Orientation : uint8_t {
+        kUnmirrored = 0x01, // set whenever neither mirror is; not read
+        kQuarterTurn = 0x02,
+        kHalfTurn = 0x04,
+        kThreeQuarterTurn = 0x08,
+        kMirrorAcross = 0x10, // the picture's left and right swapped
+        kMirrorDown = 0x40,   // its top and bottom swapped
+    };
     /** What a polygon's texture number stands for (extrablock 2). */
     struct Texture {
         uint16_t picture = 0; // its place in the track's .qfs
-        // Not worked out: a word and two groups of three bytes.
-        uint16_t unknown = 0;
-        std::array<uint8_t, 3> unknown4{};
-        std::array<uint8_t, 3> unknown7{};
+        uint8_t flags = 0;    // TextureFlag; what 0x10 and 0x40 do isn't known
+        uint8_t orientation = 0;
+        std::array<uint8_t, 3> unknown{}; // 178, 178, 178 in most; the program doesn't read them
+        uint8_t frames = 0;               // with kAnimated
+        uint8_t ticksPerFrame = 0;        // of the game's clock, with kAnimated
     };
     /** A point of the virtual road (extrablock 15), about 8 to a block. */
     struct RoadPoint {
         Point position{};
         // Vectors of length about 127: up (mostly), toward the next point,
-        // and across the road (at right angles to both; which side isn't known).
+        // and across the road, toward the right edge.
         std::array<int8_t, 3> up{};
         std::array<int8_t, 3> forward{};
         std::array<int8_t, 3> across{};
         uint16_t block = 0;
-        // Not worked out: the words at 24, 26, 28 and 30, and the u32 at 32.
-        std::array<uint16_t, 4> unknown{};
-        uint32_t unknown32 = 0;
+        // Bits the AI tests for a gap (0x43a9a0); what each means isn't known.
+        uint16_t laneMask = 0;
+        // From the point to the road's edges, in 256ths of the unit.
+        uint16_t leftEdge = 0;
+        uint16_t rightEdge = 0;
+        // What's beyond each edge (left in the high nibble): 0 nothing, a
+        // wall otherwise, kinds 1 to 7 not told apart.
+        uint8_t edges = 0;
+        uint8_t lanes = 0; // the lanes each way, left in the high nibble
+        // Each side's lanes' width, in halves of the unit.
+        uint8_t leftLaneWidth = 0;
+        uint8_t rightLaneWidth = 0;
     };
 
     std::vector<Texture> textures;
@@ -46,6 +70,14 @@ struct Collision {
     std::vector<Placement> placements; // extrablock 7
     std::vector<RoadPoint> road;
 };
+
+/**
+ * The picture corner each of a quad's four vertices takes, for a texture's
+ * orientation: 0 bottom left, 1 bottom right, 2 top right, 3 top left, as
+ * the program lays them (0x4735a4): unturned, top left, top right, bottom
+ * right, bottom left.
+ */
+std::array<uint8_t, 4> pictureCorners(uint8_t orientation);
 
 /** Whether `data` is NFS II's .col: a COLL file whose texture records are 10 bytes. */
 bool isNfs2Collision(const std::vector<uint8_t> &data);

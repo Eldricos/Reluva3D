@@ -20,7 +20,12 @@ using Point = std::array<float, 3>;
 /** A quad of a track's or an object's mesh. */
 struct Quad {
     uint16_t texture = 0; // into the .col's texture table (col.h)
-    uint16_t second = 0;  // the record's second word; 0xFFFF on many, not worked out
+    // Four 3-bit values above the low 4 bits, one for each of vertices 1,
+    // 0, 3 and 2 from the low end: the same for a vertex in nearly every
+    // quad that has it, 7 the most (0xFFFF), a shade by corner
+    // *(guessed)*. The low 4 bits are 0xF, 1 or 2 (2 with all four the
+    // same), not worked out.
+    uint16_t shades = 0;
     std::array<uint8_t, 4> vertices{};
 };
 
@@ -32,10 +37,10 @@ struct Mesh {
 
 /** Where a mesh is placed (extrablocks 7, 18 and 19, and the .col's 7). */
 struct Placement {
-    uint8_t type = 0;   // 1: fixed; 3: animated; 4: fixed, with `extra`
-    uint8_t mesh = 0;   // into the same block's (or the .col's) meshes
-    Point position{};   // for 1 and 4
-    uint32_t extra = 0; // type 4's last word: 0 or 1, not worked out
+    uint8_t type = 0;      // 1: fixed; 3: animated; 4: an obstacle, `obstacle` its record
+    uint8_t mesh = 0;      // into the same block's (or the .col's) meshes
+    Point position{};      // for 1 and 4
+    uint32_t obstacle = 0; // type 4's: its place in the block's obstacles
     /** Type 3: a key of its animation. */
     struct Key {
         Point position{};
@@ -43,6 +48,39 @@ struct Placement {
     };
     uint16_t animationWord = 0; // after the key count, not worked out
     std::vector<Key> keys;
+};
+
+/** A cross-section of a block's road (extrablock 6), one for each virtual road point. */
+struct RoadRow {
+    uint16_t firstQuad = 0; // into the high level's first group
+    uint8_t quads = 0;      // the rows together cover the group, in order
+    uint8_t music = 0;      // the music's section for this stretch, 2-6 (0x436440) *(inferred)*
+    uint32_t unknown = 0;   // 0xFFFFFFFF in nearly all
+};
+
+/** A point of a painted line on the road (extrablock 9), drawn at the high level only (0x435260). */
+struct RoadLine {
+    uint8_t vertex = 0;    // of the block
+    uint8_t roadPoint = 0; // from the block's first
+    uint8_t type = 0;      // which of the lin0-lin7 pictures and how; 0xFF ends a line
+    uint8_t quad = 0;      // of the high level, the line's ground
+};
+
+/** Something a car can hit (extrablock 11): a type 4 placement's (0x44042c). */
+struct Obstacle {
+    Point position{};      // its placement's
+    uint16_t radius = 0;   // in 256ths of the unit
+    uint16_t serial = 0;   // over the track: its slot in the program's table of obstacles' states
+    uint8_t height = 0;    // in halves of the unit, rounded down
+    uint8_t placement = 0; // its placement's place in its extrablock
+    uint8_t kind = 0;      // 1 fixed, 2 knocked over when hit (0x433650)
+};
+
+/** A sound placed by the road (extrablock 17), from the track's TRAMBnn.BNK. */
+struct AmbientSound {
+    Point position{};
+    uint16_t sound = 0;  // its place in the bank
+    uint16_t random = 0; // 1: played now and then; 0: looped
 };
 
 /** An extrablock as the file has it, for those not read into fields. */
@@ -61,7 +99,9 @@ struct TrackBlock {
     /** The level of detail's polygons: the first count's, then the second's. */
     struct Level {
         std::vector<Quad> first;
-        std::vector<Quad> second; // not worked out: what sets them apart
+        // See-through upright things (fences, trees, signs), drawn with the
+        // objects (0x434c48).
+        std::vector<Quad> second;
     };
     /** The levels of detail, as `levels` and `vertexCounts` hold them. */
     enum LevelIndex { kLow, kMedium, kHigh };
@@ -79,12 +119,19 @@ struct TrackBlock {
     std::array<Level, 3> levels;
     std::vector<Mesh> meshes;          // extrablock 8
     std::vector<Placement> placements; // extrablocks 7, 18 and 19
+    std::vector<RoadRow> roadRows;     // extrablock 6
+    std::vector<RoadLine> roadLines;   // extrablock 9
+    std::vector<Obstacle> obstacles;   // extrablock 11
+    std::vector<AmbientSound> sounds;  // extrablock 17
     std::vector<ExtraBlock> extra;     // every extrablock, as it is
 };
 
 /** A track (trNN.trk, "TRAC"). */
 struct Track {
-    std::array<uint32_t, 5> header{}; // after TRAC: 22 in all, then four numbers not worked out
+    // After TRAC: 22 in all; then the largest superblock's size, the
+    // largest block's, the most a block's neighbourhood (extrablock 4)
+    // sums to, and a fourth not worked out. The program doesn't use them.
+    std::array<uint32_t, 5> header{};
     std::vector<TrackBlock> blocks;
     std::vector<uint16_t> superblockOf; // each block's superblock (8 blocks to one)
 };

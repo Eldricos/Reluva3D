@@ -2,11 +2,12 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Need for Speed II SE's own formats, on files built here: its tracks
-// (.trk) and their .col files, skies and lights, car models (.geo) and
-// movies (.dct).
+// (.trk) and their .col files, skies and lights, animation scripts (.can),
+// car models (.geo) and movies (.dct).
 //
 //   reluva-tests nfs.unit.nfs2se
 
+#include "engines/nfs/nfs2se/formats/can.h"
 #include "engines/nfs/nfs2se/formats/col.h"
 #include "engines/nfs/nfs2se/formats/dct.h"
 #include "engines/nfs/nfs2se/formats/geo.h"
@@ -47,7 +48,7 @@ Bytes placements(int x, int y) {
     put16(p, 20);
     p.insert(p.end(), {4, 0});
     put32(p, 0), put32(p, 0), put32(p, 0);
-    put32(p, 1);
+    put32(p, 0); // its obstacle
     return p;
 }
 
@@ -61,11 +62,12 @@ Bytes extrablock(uint16_t id, uint16_t count, const Bytes &records) {
 }
 
 // A block: one vertex from the next block, levels of 1, 2 and 3 own vertices;
-// each level one quad, the high level a second-group quad too; a mesh and
-// two placements. `badIndex` gives the low level a vertex it hasn't.
+// each level one quad, the high level a second-group quad too; a mesh, two
+// placements, the type 4's obstacle and a sound. `badIndex` gives the low
+// level a vertex it hasn't.
 Bytes block(uint32_t serial, bool badIndex = false) {
     Bytes b(88, 0);
-    putU32(b, 8, 2); // two extrablocks
+    putU32(b, 8, 4); // four extrablocks
     putU32(b, 12, serial);
     for (int c = 0; c < 4; ++c)
         putU32(b, size_t(16 + 12 * c), uint32_t(c * 65536));
@@ -78,7 +80,7 @@ Bytes block(uint32_t serial, bool badIndex = false) {
         putS16(b, v * 256), putS16(b, 0), putS16(b, v * 512);
     auto poly = [&](uint16_t texture, std::array<uint8_t, 4> v) {
         put16(b, texture);
-        put16(b, 0xffff);
+        put16(b, 0x1fff); // vertex 2's shade 0, the others 7
         b.insert(b.end(), v.begin(), v.end());
     };
     poly(1, {0, 1, 1, uint8_t(badIndex ? 2 : 0)}); // low: vertices 0-1
@@ -89,13 +91,22 @@ Bytes block(uint32_t serial, bool badIndex = false) {
     const size_t table = (b.size() + 3) & ~size_t(3);
     b.resize(table, 0);
     putU32(b, tableField, uint32_t(table - tableField));
-    b.resize(table + 8, 0);
-    const Bytes meshes = extrablock(8, 1, mesh());
-    putU32(b, table, uint32_t(b.size()));
-    b.insert(b.end(), meshes.begin(), meshes.end());
-    const Bytes placed = extrablock(7, 2, placements(5, 6));
-    putU32(b, table + 4, uint32_t(b.size()));
-    b.insert(b.end(), placed.begin(), placed.end());
+    b.resize(table + 16, 0);
+    Bytes obstacle;
+    Bytes sound;
+    put32(obstacle, 0), put32(obstacle, 0), put32(obstacle, 0);
+    put16(obstacle, 384); // 1.5 units across
+    put16(obstacle, 9);
+    obstacle.insert(obstacle.end(), {3, 0, 1, 2});
+    put32(sound, 65536), put32(sound, 0), put32(sound, 0);
+    put16(sound, 4);
+    put16(sound, 1);
+    const Bytes extras[] = {extrablock(8, 1, mesh()), extrablock(7, 2, placements(5, 6)), extrablock(11, 1, obstacle),
+                            extrablock(17, 1, sound)};
+    for (size_t i = 0; i < 4; ++i) {
+        putU32(b, table + 4 * i, uint32_t(b.size()));
+        b.insert(b.end(), extras[i].begin(), extras[i].end());
+    }
     putU32(b, 0, uint32_t(b.size()));
     putU32(b, 4, uint32_t(b.size()));
     return b;
@@ -147,14 +158,21 @@ void testTrack() {
     CHECK(b.levels[nfs2se::TrackBlock::kHigh].first.size() == 1 &&
           b.levels[nfs2se::TrackBlock::kHigh].second.size() == 1);
     if (!b.levels[nfs2se::TrackBlock::kHigh].second.empty())
-        CHECK(b.levels[nfs2se::TrackBlock::kHigh].second[0].texture == 4);
+        CHECK(b.levels[nfs2se::TrackBlock::kHigh].second[0].texture == 4 &&
+              b.levels[nfs2se::TrackBlock::kHigh].second[0].shades == 0x1fff);
     CHECK(b.meshes.size() == 1 && b.meshes[0].vertices.size() == 4 && b.meshes[0].quads.size() == 1);
     CHECK(b.placements.size() == 2);
     if (b.placements.size() == 2) {
         CHECK(b.placements[0].type == 1 && b.placements[0].position == (nfs2se::Point{5.0f, 0.0f, 6.0f}));
-        CHECK(b.placements[1].type == 4 && b.placements[1].extra == 1);
+        CHECK(b.placements[1].type == 4 && b.placements[1].obstacle == 0);
     }
-    CHECK(b.extra.size() == 2 && b.extra[0].id == 8 && b.extra[1].id == 7);
+    CHECK(b.obstacles.size() == 1 && b.sounds.size() == 1);
+    if (b.obstacles.size() == 1 && b.sounds.size() == 1) {
+        const nfs2se::Obstacle &o = b.obstacles[0];
+        CHECK(o.radius == 384 && o.serial == 9 && o.height == 3 && o.placement == 1 && o.kind == 2);
+        CHECK(b.sounds[0].position[0] == 1.0f && b.sounds[0].sound == 4 && b.sounds[0].random == 1);
+    }
+    CHECK(b.extra.size() == 4 && b.extra[0].id == 8 && b.extra[1].id == 7);
 
     // A polygon using a vertex its level hasn't fails; so does a cut file.
     CHECK(nfs2se::parseTrack(track(true), t));
@@ -173,14 +191,18 @@ void testCollision() {
     col.resize(table + 16, 0);
     Bytes textures;
     put16(textures, 7);
-    put16(textures, 0);
-    textures.insert(textures.end(), {1, 2, 3, 0, 0, 0});
+    textures.insert(textures.end(), {0x24, 0x09, 178, 178, 178, 3, 5, 0}); // see-through, animated; a turn
+
     Bytes road(36, 0);
     putU32(road, 0, 65536 * 2);
     road[18] = 127; // across
     road[22] = 3;   // block
     road[26] = 10;
     road[28] = 20;
+    road[30] = 0x01; // a wall on the right
+    road[31] = 0x12; // a lane on the left, two on the right
+    road[32] = 7;
+    road[33] = 8;
     const Bytes blocks[] = {extrablock(2, 1, textures), extrablock(8, 1, mesh()), extrablock(7, 2, placements(1, 2)),
                             extrablock(15, 1, road)};
     for (int i = 0; i < 4; ++i) {
@@ -190,17 +212,69 @@ void testCollision() {
     CHECK(nfs2se::isNfs2Collision(col));
     nfs2se::Collision c;
     CHECK(!nfs2se::parseCollision(col, c));
-    CHECK(c.textures.size() == 1 && c.textures[0].picture == 7 && c.textures[0].unknown4[2] == 3);
+    CHECK(c.textures.size() == 1);
+    if (!c.textures.empty()) {
+        const nfs2se::Collision::Texture &x = c.textures[0];
+        CHECK(x.picture == 7 && (x.flags & nfs2se::Collision::kSeeThrough) && x.orientation == 0x09);
+        CHECK(x.unknown[2] == 178 && x.frames == 3 && x.ticksPerFrame == 5);
+    }
     CHECK(c.meshes.size() == 1 && c.placements.size() == 2);
     CHECK(c.road.size() == 1);
     if (!c.road.empty()) {
         CHECK(c.road[0].position[0] == 2.0f && c.road[0].across[0] == 127 && c.road[0].block == 3);
-        CHECK(c.road[0].unknown[1] == 10 && c.road[0].unknown[2] == 20);
+        const nfs2se::Collision::RoadPoint &r = c.road[0];
+        CHECK(r.leftEdge == 10 && r.rightEdge == 20 && r.edges == 1 && r.lanes == 0x12);
+        CHECK(r.leftLaneWidth == 7 && r.rightLaneWidth == 8);
     }
     // NFS III's, with 8-byte texture records, isn't.
     Bytes nfs3 = col;
     putU32(nfs3, size_t(16 + 16 + 0), 8 + 8); // its texture block holding 8 bytes
     CHECK(!nfs2se::isNfs2Collision(nfs3));
+}
+
+// Two keys: from 2 units back to the car, unturned, then turned half round y.
+void testAnimationScript() {
+    Bytes s;
+    put16(s, 8 + 2 * 20);
+    put16(s, 0x0164);
+    put16(s, 2);
+    put16(s, 6);
+    put32(s, 0), put32(s, 0), put32(s, uint32_t(-2 * 65536));
+    for (int v : {0, 0, 0, 0x4000})
+        putS16(s, v);
+    put32(s, 0), put32(s, 32768), put32(s, 0);
+    for (int v : {0, 0x4000, 0, 0})
+        putS16(s, v);
+    nfs2se::AnimationScript a;
+    CHECK(!nfs2se::parseAnimationScript(s, a));
+    CHECK(a.unknown == 0x0164 && a.ticksPerKey == 6 && a.keys.size() == 2);
+    if (a.keys.size() == 2) {
+        CHECK(a.keys[0].offset == (nfs2se::Point{0.0f, 0.0f, -2.0f}) && a.keys[0].rotation[3] == 0x4000);
+        CHECK(a.keys[1].offset[1] == 0.5f && a.keys[1].rotation[1] == 0x4000);
+    }
+    Bytes cut = s;
+    cut.resize(cut.size() - 1);
+    CHECK(nfs2se::parseAnimationScript(cut, a)); // its header gives another size
+    Bytes extra = s;
+    put32(extra, 0);
+    extra[0] = uint8_t(extra.size());
+    CHECK(nfs2se::parseAnimationScript(extra, a)); // not a whole key
+}
+
+// A picture's corners on a quad's vertices, as the program turns them: 0
+// bottom left, 1 bottom right, 2 top right, 3 top left.
+void testPictureCorners() {
+    using C = std::array<uint8_t, 4>;
+    CHECK(nfs2se::pictureCorners(0x01) == (C{3, 2, 1, 0})); // top left first
+    CHECK(nfs2se::pictureCorners(0x00) == nfs2se::pictureCorners(0x01));
+    CHECK(nfs2se::pictureCorners(0x10) == (C{2, 3, 0, 1}));
+    CHECK(nfs2se::pictureCorners(0x40) == (C{0, 1, 2, 3}));
+    CHECK(nfs2se::pictureCorners(0x05) == (C{1, 0, 3, 2}));
+    // The turns, and after a mirror the other way round.
+    CHECK(nfs2se::pictureCorners(0x03) == (C{0, 3, 2, 1}));
+    CHECK(nfs2se::pictureCorners(0x09) == (C{2, 1, 0, 3}));
+    CHECK(nfs2se::pictureCorners(0x12) == (C{3, 0, 1, 2}));
+    CHECK(nfs2se::pictureCorners(0x18) == (C{1, 2, 3, 0}));
 }
 
 void testSky() {
@@ -360,6 +434,8 @@ static const reluva::test::Suite kSuite("nfs.unit.nfs2se",
                                             {"track", [](const stdfs::path &) { testTrack(); }},
                                             {"collision", [](const stdfs::path &) { testCollision(); }},
                                             {"sky", [](const stdfs::path &) { testSky(); }},
+                                            {"picture corners", [](const stdfs::path &) { testPictureCorners(); }},
+                                            {"animation script", [](const stdfs::path &) { testAnimationScript(); }},
                                             {"car model", [](const stdfs::path &) { testCarModel(); }},
                                             {"movie", [](const stdfs::path &) { testMovie(); }},
                                         });

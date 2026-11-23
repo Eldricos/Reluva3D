@@ -58,6 +58,37 @@ std::vector<Block> blocks(const std::vector<uint8_t> &data, std::string &why) {
 
 } // namespace
 
+std::array<uint8_t, 4> pictureCorners(uint8_t orientation) {
+    // The program turns a picture's four corners, in the order it draws a
+    // quad's vertices: a mirror first, then a turn, whose way depends on
+    // whether the corners are mirrored by then.
+    std::array<uint8_t, 4> c = {0, 1, 2, 3};
+    auto reorder = [&c](int a, int b, int d, int e) { c = {c[size_t(a)], c[size_t(b)], c[size_t(d)], c[size_t(e)]}; };
+    if (orientation & Collision::kMirrorAcross)
+        reorder(1, 0, 3, 2);
+    else if (orientation & Collision::kMirrorDown)
+        reorder(3, 2, 1, 0);
+    const bool mirrored = c[1] < c[0];
+    if (orientation & Collision::kQuarterTurn) {
+        if (mirrored)
+            reorder(3, 0, 1, 2);
+        else
+            reorder(1, 2, 3, 0);
+    } else if (orientation & Collision::kHalfTurn) {
+        reorder(2, 3, 0, 1);
+    } else if (orientation & Collision::kThreeQuarterTurn) {
+        if (mirrored)
+            reorder(1, 2, 3, 0);
+        else
+            reorder(3, 0, 1, 2);
+    }
+    // It draws a quad's vertices 1, 0, 3, 2 (0x435090), and a track's
+    // pictures come out turned half round from a car's: the corners as a
+    // car's are counted (geo.md), checked against the signs' lettering.
+    auto car = [](uint8_t corner) { return static_cast<uint8_t>((corner + 2) & 3); };
+    return {car(c[1]), car(c[0]), car(c[3]), car(c[2])};
+}
+
 bool isNfs2Collision(const std::vector<uint8_t> &data) {
     std::string why;
     for (const Block &b : blocks(data, why))
@@ -82,9 +113,11 @@ Error parseCollision(const std::vector<uint8_t> &data, Collision &out) {
                 const uint8_t *p = b.begin + kTextureSize * i;
                 Collision::Texture t;
                 t.picture = le16(p);
-                t.unknown = le16(p + 2);
-                std::memcpy(t.unknown4.data(), p + 4, 3);
-                std::memcpy(t.unknown7.data(), p + 7, 3);
+                t.flags = p[2];
+                t.orientation = p[3];
+                std::memcpy(t.unknown.data(), p + 4, 3);
+                t.frames = p[7];
+                t.ticksPerFrame = p[8];
                 out.textures.push_back(t);
             }
         } else if (b.id == kMeshes) {
@@ -102,9 +135,13 @@ Error parseCollision(const std::vector<uint8_t> &data, Collision &out) {
                 std::memcpy(r.forward.data(), p + 15, 3);
                 std::memcpy(r.across.data(), p + 18, 3);
                 r.block = le16(p + 22);
-                for (int w = 0; w < 4; ++w)
-                    r.unknown[size_t(w)] = le16(p + 24 + 2 * w);
-                r.unknown32 = le32(p + 32);
+                r.laneMask = le16(p + 24);
+                r.leftEdge = le16(p + 26);
+                r.rightEdge = le16(p + 28);
+                r.edges = p[30];
+                r.lanes = p[31];
+                r.leftLaneWidth = p[32];
+                r.rightLaneWidth = p[33];
                 out.road.push_back(r);
             }
         }

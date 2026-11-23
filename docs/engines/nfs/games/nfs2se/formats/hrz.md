@@ -71,13 +71,15 @@ The last two have no comments of their own; the comments beside them
 | 2 | Maximum and minimum intensity |
 | 7 | Effects' light colour: type, r0, g0, b0, r1, g1, b1 |
 
-## How the game uses them
+## Behaviour
 
 Addresses are `nfs2sen.exe`'s, or `NFS2SEA.EXE`'s marked [A]. From the
 code, and the software program's tables matched in memory on the hosted
 game at `TR00` (November 2026).
 
-### The software sky (0x470eb0)
+### The software sky
+
+Drawn by 0x470eb0.
 
 - **The ring:** 16 points at the file's angle plus a sixteenth of a turn
   each, at the radius (0x4717f0), a lower ring at the base and an upper
@@ -109,7 +111,7 @@ game at `TR00` (November 2026).
   polygons, 1,240 of them: a polygon's is its four corners' mean depth
   plus 10, in halves of the unit (0x45c5f0). A distance d is about
   d / 2 − 10 units away: `TR00` starts darkening about 115 units out
-  *(the unit inferred)*.
+  (the unit *(inferred)*).
 - **Each frame** (0x46f330) a marker goes in at each change's bucket;
   drawing far to near, it sets the light for the polygons after it.
 - **A light L** is one of 16 colour tables (0x4693c0): each palette
@@ -123,7 +125,9 @@ game at `TR00` (November 2026).
   to a black sky, black horizon, distances 0, 80, 85, 300 with lights
   0, 0, 12, 15, and the colour (10, 10, 10).
 
-### The 3dfx sky ([A] 0x42c3c7)
+### The 3dfx sky
+
+Drawn by [A] 0x42c3c7.
 
 - **The colours at the sun and away from it** are laid round the ring,
   not by the player's heading: the 16 ring points' colours go from the

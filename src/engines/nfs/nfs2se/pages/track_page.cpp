@@ -147,7 +147,9 @@ void TrackPage::build() {
             for (int k = 0; k < 4; ++k)
                 for (int c = 0; c < 3; ++c)
                     corners[size_t(k)][size_t(c)] = vertices[q.vertices[size_t(k)]][size_t(c)] + at[size_t(c)];
-            quads.add(picture(q.texture), corners);
+            const uint8_t orientation =
+                q.texture < _collision.textures.size() ? _collision.textures[q.texture].orientation : 0;
+            quads.add(picture(q.texture), corners, pictureCorners(orientation));
         }
     };
     auto place = [&](const std::vector<Mesh> &meshes, const std::vector<Placement> &placements) {

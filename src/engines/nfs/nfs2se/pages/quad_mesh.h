@@ -16,9 +16,8 @@ namespace reluva::nfs::nfs2se {
 /**
  * NFS II's quads gathered into one mesh, by texture, for the viewer's 3D
  * pages. The files give a quad no texture coordinates: its picture is
- * laid across it whole, its corners in the quad's order taking the
- * picture's corners in an order of the caller's
- * (docs/engines/nfs/games/nfs2se/formats/trk.md, geo.md).
+ * laid across it whole, each vertex taking a corner of it
+ * (docs/engines/nfs/games/nfs2se/formats/col.md, geo.md).
  */
 class QuadMesh {
 public:
@@ -29,14 +28,12 @@ public:
         uint32_t indexCount = 0;
     };
 
-    /** Which picture corner each of a quad's vertices takes, in turn. */
-    enum class Corners {
-        kTopLeftFirst,    // top left, top right, bottom right, bottom left: a guess, for the tracks
-        kBottomLeftFirst, // bottom left, bottom right, top right, top left: the cars' (0x4736a0)
-    };
-
-    /** Adds a quad with the texture `texture`; points as the files give them (x, height, y). */
-    void add(int texture, const std::array<Point, 4> &corners, Corners order = Corners::kTopLeftFirst) {
+    /**
+     * Adds a quad with the texture `texture`; points as the files give them
+     * (x, height, y). `pictureCorners`: the corner each vertex takes, 0
+     * bottom left, 1 bottom right, 2 top right, 3 top left (col.h).
+     */
+    void add(int texture, const std::array<Point, 4> &corners, const std::array<uint8_t, 4> &pictureCorners) {
         const auto base = static_cast<uint32_t>(_vertices.size());
         const Point &a = corners[0];
         const Point &b = corners[1];
@@ -48,17 +45,15 @@ public:
         const float length = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
         for (float &v : n)
             v = length > 0 ? v / length : 0;
-        constexpr float kTopFirst[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
-        constexpr float kBottomFirst[4][2] = {{0, 1}, {1, 1}, {1, 0}, {0, 0}};
-        const auto &uv = order == Corners::kTopLeftFirst ? kTopFirst : kBottomFirst;
+        constexpr float kUv[4][2] = {{0, 1}, {1, 1}, {1, 0}, {0, 0}};
         for (int k = 0; k < 4; ++k) {
             gfx::Vertex v{};
             for (int i = 0; i < 3; ++i) {
                 v.pos[i] = corners[size_t(k)][size_t(i)];
                 v.normal[i] = n[i];
             }
-            v.uv[0] = uv[k][0];
-            v.uv[1] = uv[k][1];
+            v.uv[0] = kUv[pictureCorners[size_t(k)] & 3][0];
+            v.uv[1] = kUv[pictureCorners[size_t(k)] & 3][1];
             v.color[0] = v.color[1] = v.color[2] = v.color[3] = 255;
             _vertices.push_back(v);
         }

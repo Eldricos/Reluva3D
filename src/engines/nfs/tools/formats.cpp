@@ -15,6 +15,7 @@
 #include "engines/nfs/formats/col.h"
 #include "engines/nfs/nfs2se/formats/col.h"
 #include "engines/nfs/nfs2se/formats/dct.h"
+#include "engines/nfs/nfs2se/formats/can.h"
 #include "engines/nfs/nfs2se/formats/geo.h"
 #include "engines/nfs/nfs2se/formats/hrz.h"
 #include "engines/nfs/nfs2se/formats/trk.h"
@@ -294,6 +295,7 @@ int cmdNfsSurvey(int argc, char **argv) {
     Count nfs2Collisions;                 // NFS II's .col (10-byte textures)
     Count nfs2Skies;                      // NFS II's .hrz
     Count nfs2Lights;                     // .lgt
+    Count nfs2Scripts;                    // .can
     Count nfs2Models;                     // .geo
     Count nfs2Movies;                     // .dct
     Count nfs2Frames;                     // their frames (MDEC)
@@ -520,6 +522,13 @@ int cmdNfsSurvey(int argc, char **argv) {
             } else {
                 report(horizons, what, reluva::nfs::nfs3::parseHorizon(text, horizon));
             }
+        } else if (ext == ".can") {
+            reluva::nfs::nfs2se::AnimationScript script;
+            const Error e = reluva::nfs::nfs2se::parseAnimationScript(data, script);
+            report(nfs2Scripts, what, e);
+            if (!e)
+                for (const auto &k : script.keys)
+                    nfs2Scripts.add(&k, sizeof k);
         } else if (ext == ".lgt") {
             reluva::nfs::nfs2se::Lights lights;
             const Error e = reluva::nfs::nfs2se::parseLights(std::string(data.begin(), data.end()), lights);
@@ -566,7 +575,7 @@ int cmdNfsSurvey(int argc, char **argv) {
             } else if (ext == ".fsh" || ext == ".qfs" || ext == ".ffn" || ext == ".fce" || ext == ".frd" ||
                        ext == ".col" || ext == ".hrz" || ext == ".bnk" || ext == ".mus" || ext == ".map" ||
                        ext == ".lin" || ext == ".mad" || ext == ".qda" || ext == ".trk" || ext == ".lgt" ||
-                       ext == ".geo" || ext == ".dct" || lower(path.stem().string()) == "text" ||
+                       ext == ".can" || ext == ".geo" || ext == ".dct" || lower(path.stem().string()) == "text" ||
                        lower(path.stem().string()) == "textsim") {
                 std::vector<uint8_t> data;
                 if (!readFile(path, data)) {
@@ -598,8 +607,8 @@ int cmdNfsSurvey(int argc, char **argv) {
     const std::pair<const Count *, const char *> extra[] = {
         {&compressed, ".qda files"},  {&lentPalette, "lent a palette"}, {&raceText, "textsim tables"},
         {&nfs2Tracks, ".trk tracks"}, {&nfs2Collisions, "NFS II .col"}, {&nfs2Skies, "NFS II .hrz"},
-        {&nfs2Lights, ".lgt lights"}, {&nfs2Models, ".geo models"},     {&nfs2Movies, ".dct movies"},
-        {&nfs2Frames, ".dct frames"}, {&nfs2MovieAudio, ".dct audio"}};
+        {&nfs2Lights, ".lgt lights"}, {&nfs2Scripts, ".can scripts"},   {&nfs2Models, ".geo models"},
+        {&nfs2Movies, ".dct movies"}, {&nfs2Frames, ".dct frames"},     {&nfs2MovieAudio, ".dct audio"}};
     for (const auto &[count, name] : extra) {
         if (count->ok + count->failed == 0)
             continue;

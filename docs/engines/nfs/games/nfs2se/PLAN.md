@@ -133,8 +133,10 @@ with what it found written on the game's pages in `formats/` and
    The readers are done: [trk.md](formats/trk.md), [col.md](formats/col.md),
    [hrz.md](formats/hrz.md), [geo.md](formats/geo.md), every file of
    theirs read (`reluva-tool nfs survey`), and `reluva-tool nfs trk-obj`
-   and `geo-obj` to look at tracks and models elsewhere. The camera paths
-   (`.can`) aren't read yet.
+   and `geo-obj` to look at tracks and models elsewhere. The `.can`
+   files, the camera's and knocked objects' animation scripts, are read
+   too ([can.md](formats/can.md)); their open fields were worked out
+   from the programs later (November 2026).
 
    The Tracks and Cars pages draw them, checked under Xvfb on Mesa's
    software Vulkan ([TESTING.md](TESTING.md#last-checked)).

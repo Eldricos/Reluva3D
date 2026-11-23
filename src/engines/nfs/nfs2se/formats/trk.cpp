@@ -43,13 +43,44 @@ Point vertexFrom(const uint8_t *p, const std::array<int32_t, 3> &base) {
 Quad quad(const uint8_t *p) {
     Quad q;
     q.texture = le16(p);
-    q.second = le16(p + 2);
+    q.shades = le16(p + 2);
     std::memcpy(q.vertices.data(), p + 4, 4);
     return q;
 }
 
 Error bad(const std::string &why) {
     return Error::fail("Not a valid .trk file: " + why);
+}
+
+// The extrablocks read into fields, each record of a fixed size; one of
+// another size fails.
+Error readRecords(TrackBlock &block) {
+    for (const ExtraBlock &x : block.extra) {
+        const uint8_t *p = x.data.data();
+        auto fits = [&](size_t size) { return x.data.size() >= size * x.count; };
+        if (x.id == 6) {
+            if (!fits(8))
+                return Error::fail("its road rows run past their extrablock");
+            for (uint16_t i = 0; i < x.count; ++i, p += 8)
+                block.roadRows.push_back({le16(p), p[2], p[3], le32(p + 4)});
+        } else if (x.id == 9) {
+            if (!fits(4))
+                return Error::fail("its road lines run past their extrablock");
+            for (uint16_t i = 0; i < x.count; ++i, p += 4)
+                block.roadLines.push_back({p[0], p[1], p[2], p[3]});
+        } else if (x.id == 11) {
+            if (!fits(20))
+                return Error::fail("its obstacles run past their extrablock");
+            for (uint16_t i = 0; i < x.count; ++i, p += 20)
+                block.obstacles.push_back({fixedPoint(p), le16(p + 12), le16(p + 14), p[16], p[18], p[19]});
+        } else if (x.id == 17) {
+            if (!fits(16))
+                return Error::fail("its sounds run past their extrablock");
+            for (uint16_t i = 0; i < x.count; ++i, p += 16)
+                block.sounds.push_back({fixedPoint(p), le16(p + 12), le16(p + 14)});
+        }
+    }
+    return Error::success();
 }
 
 } // namespace
@@ -94,7 +125,7 @@ Error readPlacements(const uint8_t *p, const uint8_t *end, uint16_t count, size_
         if ((o.type == 1 && size == 16) || (o.type == 4 && size == 20)) {
             o.position = fixedPoint(p + 4);
             if (o.type == 4)
-                o.extra = le32(p + 16);
+                o.obstacle = le32(p + 16);
         } else if (o.type == 3 && size >= 8 && size == 8u + 20u * le16(p + 4)) {
             o.animationWord = le16(p + 6);
             for (uint16_t k = 0; k < le16(p + 4); ++k) {
@@ -226,6 +257,8 @@ Error parseTrack(const std::vector<uint8_t> &data, Track &out) {
                 if (Error err = readPlacements(x.data.data(), x.data.data() + x.data.size(), x.count,
                                                block.meshes.size(), block.placements))
                     return bad("block " + std::to_string(b) + ": " + err.message);
+        if (Error err = readRecords(block))
+            return bad("block " + std::to_string(b) + ": " + err.message);
         out.blocks.push_back(std::move(block));
     }
     return Error::success();

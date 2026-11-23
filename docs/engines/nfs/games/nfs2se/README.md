@@ -78,7 +78,7 @@ software with `glide=software`), the others its software one. `reluva-viewer
 | Page | What's in it |
 |---|---|
 | This page | Where it stands, how to use it |
-| [formats/](formats/) | The game's own files: [trk.md](formats/trk.md) (tracks), [col.md](formats/col.md) (textures, objects, the virtual road), [hrz.md](formats/hrz.md) (skies and lights), [geo.md](formats/geo.md) (car models), [dct.md](formats/dct.md) (movies) |
+| [formats/](formats/) | The game's own files: [trk.md](formats/trk.md) (tracks), [col.md](formats/col.md) (textures, objects, the virtual road), [hrz.md](formats/hrz.md) (skies and lights), [can.md](formats/can.md) (animation scripts), [geo.md](formats/geo.md) (car models), [dct.md](formats/dct.md) (movies) |
 | [research/](research/README.md) | Working notes: the first survey of the retail files and executables |
 | [PLAN.md](PLAN.md) | The plan, its phases and decisions |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |

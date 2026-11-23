@@ -73,8 +73,8 @@ first entry in its table of texture corners in bytes 2-3 (0x461f55,
 - **Texture corners.** A polygon's vertices 0, 1, 2 and 3 take the
   picture's corners (0, h−1), (w−1, h−1), (w−1, 0) and (0, 0) (0x4736a0,
   0x46f841): with the picture's first row at its top, bottom left,
-  bottom right, top right, top left *(confirmed; the picture's way up
-  inferred)*.
+  bottom right, top right, top left. Seen so: the beer crate's
+  lettering reads on the Cars page laid this way, and not the other.
 - **The paint.** Every entry of the car's palette with red and blue under
   0x56 and green from 0x80 is the paint's: the program recolours it as it
   sets up the car's palette (0x444f80), its shade from the green
