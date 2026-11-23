@@ -71,8 +71,15 @@ uint32_t ComHost::dispatch(const ComInterface &iface, int index, Cpu &c) {
     switch (index) {
     case 0: { // QueryInterface(iid, out)
         const uint32_t out = c.arg(2);
-        const ComInterface *other = object->query(guid(c, c.arg(1)));
+        const std::string iid = guid(c, c.arg(1));
+        const ComInterface *other = object->query(iid);
         if (!other || !other->vtable) {
+            const ComInterface *theirs = nullptr;
+            if (std::shared_ptr<ComObject> part = object->aggregate(iid, theirs); part && theirs && theirs->vtable) {
+                ++part->refs;
+                c.write32(out, pointer(part, *theirs));
+                return kSOk;
+            }
             if (c.valid(out, 4))
                 c.write32(out, 0);
             return kENoInterface;

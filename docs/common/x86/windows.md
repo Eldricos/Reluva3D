@@ -109,6 +109,9 @@ C++ library have pages of their own ([directx.md](directx.md),
   each dispatching to a C++ `ComObject`.
   - QueryInterface, AddRef and Release are done here: an object is freed
     when its count reaches 0.
+  - An object can hand out another for an interface it hasn't
+    (`ComObject::aggregate`), as COM's aggregation does: Direct3D 1's
+    device asked of a DirectDraw surface.
   - A method an object doesn't stand in for ends the run, naming it.
 - **Input** (`win32_user.cpp`): the engine passes the mouse and keyboard
   to the process with `mouseMoveTo`, `mouseButton`, `mouseWheel` and

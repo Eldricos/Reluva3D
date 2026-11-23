@@ -1243,6 +1243,176 @@ static void testCdAudio(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+// Direct3D 1 driven as a DirectX 5 program drives it: the device asked of
+// a 16-bit back buffer by its IID, a viewport, an execute buffer of
+// pre-transformed vertices copied in, a render state and two triangles,
+// executed; a texture's handle and Load; materials' handles for a clear.
+static void testDirect3D1() {
+    x86::Cpu cpu(32u << 20);
+    x86::Win32Process process(cpu);
+    x86::DirectX dx(process);
+    dx.modes.push_back({64, 48, 16});
+    dx.drawThreads = x86::DirectX::DrawThreads::kOne;
+    uint32_t r = 0;
+    auto mem = [&](uint32_t size) {
+        const uint32_t a = process.memory().alloc(size);
+        std::memset(cpu.memory().data() + a, 0, size);
+        return a;
+    };
+    auto guid = [&](const char *g) {
+        const uint32_t a = mem(16);
+        x86::ComHost::writeGuid(cpu, a, g);
+        return a;
+    };
+    auto call = [&](uint32_t self, int index, std::vector<uint32_t> args) {
+        args.insert(args.begin(), self);
+        CHECK(!cpu.call(cpu.read32(cpu.read32(self) + 4 * uint32_t(index)), args, r));
+        return r;
+    };
+    auto bits = [](float f) {
+        uint32_t v;
+        std::memcpy(&v, &f, 4);
+        return v;
+    };
+    const uint32_t out = mem(4);
+    CHECK(!cpu.call(process.provided("DDRAW.dll", "DirectDrawCreate"), {0, out, 0}, r) && r == 0);
+    const uint32_t dd = cpu.read32(out);    // IDirectDraw
+    CHECK(call(dd, 20, {0, 0x11}) == 0);    // SetCooperativeLevel
+    CHECK(call(dd, 21, {64, 48, 16}) == 0); // SetDisplayMode (IDirectDraw's: no refresh rate)
+    const uint32_t desc = mem(108);
+    cpu.write32(desc, 108);
+    cpu.write32(desc + 4, 0x1 | 0x20); // CAPS, BACKBUFFERCOUNT
+    cpu.write32(desc + 20, 1);
+    cpu.write32(desc + 104, 0x200 | 0x10 | 0x8 | 0x2000); // PRIMARY, FLIP, COMPLEX, 3DDEVICE
+    CHECK(call(dd, 6, {desc, out, 0}) == 0);
+    const uint32_t primary = cpu.read32(out);
+    const uint32_t caps = mem(4);
+    cpu.write32(caps, 0x4);
+    CHECK(call(primary, 12, {caps, out}) == 0); // GetAttachedSurface: the back buffer
+    const uint32_t back = cpu.read32(out);
+    // The device, by the HAL's IID; and Direct3D, for a viewport and materials.
+    CHECK(call(back, 0, {guid("{84e63de0-46aa-11cf-816f-0000c020156e}"), out}) == 0);
+    const uint32_t device = cpu.read32(out);
+    CHECK(call(dd, 0, {guid("{3bba0080-2421-11cf-a31a-00aa00b93356}"), out}) == 0);
+    const uint32_t d3d = cpu.read32(out);
+    CHECK(call(d3d, 7, {out, 0}) == 0); // CreateViewport
+    const uint32_t viewport = cpu.read32(out);
+    CHECK(call(device, 9, {viewport}) == 0); // AddViewport
+    const uint32_t vp = mem(44);
+    const uint32_t vpFields[11] = {44, 0, 0, 64, 48, bits(32), bits(24), bits(1), bits(1), bits(0), bits(1)};
+    for (uint32_t i = 0; i < 11; ++i)
+        cpu.write32(vp + 4 * i, vpFields[i]);
+    CHECK(call(viewport, 5, {vp}) == 0); // SetViewport
+    // A blue material as the background, cleared to.
+    CHECK(call(d3d, 6, {out, 0}) == 0); // CreateMaterial
+    const uint32_t material = cpu.read32(out);
+    const uint32_t mat = mem(80);
+    cpu.write32(mat, 80);
+    cpu.write32(mat + 12, bits(1));                                  // diffuse blue
+    cpu.write32(mat + 16, bits(1));                                  // and alpha
+    CHECK(call(material, 4, {mat}) == 0);                            // SetMaterial
+    CHECK(call(material, 6, {device, out}) == 0 && cpu.read32(out)); // GetHandle
+    CHECK(call(viewport, 8, {cpu.read32(out)}) == 0);                // SetBackground
+    const uint32_t rect = mem(16);
+    const uint32_t rectFields[4] = {0, 0, 64, 48};
+    for (uint32_t i = 0; i < 4; ++i)
+        cpu.write32(rect + 4 * i, rectFields[i]);
+    CHECK(call(viewport, 12, {1, rect, 1}) == 0); // Clear: the target
+    // An execute buffer: four D3DTLVERTEXs (a red square from 16,12 to
+    // 48,36), then PROCESSVERTICES (copy), STATERENDER (no texture),
+    // TRIANGLE x 2, EXIT.
+    const uint32_t ebDesc = mem(20);
+    cpu.write32(ebDesc, 20);
+    cpu.write32(ebDesc + 4, 0x2);
+    cpu.write32(ebDesc + 12, 1024);
+    CHECK(call(device, 6, {ebDesc, out, 0}) == 0); // CreateExecuteBuffer
+    const uint32_t eb = cpu.read32(out);
+    CHECK(call(eb, 4, {ebDesc}) == 0); // Lock
+    const uint32_t data = cpu.read32(ebDesc + 16);
+    const float corners[4][2] = {{16, 12}, {48, 12}, {48, 36}, {16, 36}};
+    for (uint32_t i = 0; i < 4; ++i) {
+        const uint32_t v = data + 32 * i;
+        cpu.write32(v, bits(corners[i][0]));
+        cpu.write32(v + 4, bits(corners[i][1]));
+        cpu.write32(v + 8, bits(0.5f));
+        cpu.write32(v + 12, bits(1));
+        cpu.write32(v + 16, 0xffff0000u); // red
+    }
+    uint32_t at = data + 128;
+    auto instruction = [&](uint8_t op, uint8_t size, uint16_t count) {
+        cpu.write8(at, op);
+        cpu.write8(at + 1, size);
+        cpu.write16(at + 2, count);
+        at += 4;
+    };
+    instruction(9, 16, 1); // PROCESSVERTICES: copy, from 0 to 0, 4 of them
+    cpu.write32(at, 2);
+    cpu.write16(at + 4, 0);
+    cpu.write16(at + 6, 0);
+    cpu.write32(at + 8, 4);
+    at += 16;
+    instruction(8, 8, 1); // STATERENDER: TEXTUREHANDLE 0
+    cpu.write32(at, 1);
+    cpu.write32(at + 4, 0);
+    at += 8;
+    instruction(3, 8, 2); // TRIANGLE x 2
+    const uint16_t tris[2][4] = {{0, 1, 2, 0}, {0, 2, 3, 0}};
+    for (const auto &t : tris) {
+        for (uint32_t k = 0; k < 4; ++k)
+            cpu.write16(at + 2 * k, t[k]);
+        at += 8;
+    }
+    instruction(11, 0, 0);       // EXIT
+    CHECK(call(eb, 5, {}) == 0); // Unlock
+    const uint32_t exec = mem(48);
+    const uint32_t execFields[6] = {48, 0, 4, 128, at - data - 128, 0};
+    for (uint32_t i = 0; i < 6; ++i)
+        cpu.write32(exec + 4 * i, execFields[i]);
+    CHECK(call(eb, 6, {exec}) == 0);                // SetExecuteData
+    CHECK(call(device, 19, {}) == 0);               // BeginScene
+    CHECK(call(device, 8, {eb, viewport, 1}) == 0); // Execute
+    CHECK(call(device, 20, {}) == 0);               // EndScene
+    // Red inside, the blue background outside (565).
+    const uint32_t lock = mem(108);
+    cpu.write32(lock, 108);
+    CHECK(call(back, 25, {0, lock, 1, 0}) == 0); // Lock
+    const uint32_t pixels = cpu.read32(lock + 36);
+    const uint32_t pitch = cpu.read32(lock + 16);
+    CHECK(cpu.read16(pixels + 24 * pitch + 2 * 32) == 0xf800);
+    CHECK(cpu.read16(pixels + 2 * pitch + 2 * 2) == 0x001f);
+    CHECK(call(back, 32, {0}) == 0); // Unlock
+    // A texture: its IDirect3DTexture from the surface, a handle, and Load.
+    std::memset(cpu.memory().data() + desc, 0, 108);
+    cpu.write32(desc, 108);
+    cpu.write32(desc + 4, 0x1 | 0x2 | 0x4 | 0x1000); // CAPS, HEIGHT, WIDTH, PIXELFORMAT
+    cpu.write32(desc + 8, 2);
+    cpu.write32(desc + 12, 2);
+    cpu.write32(desc + 72, 32);
+    cpu.write32(desc + 76, 0x40); // RGB
+    cpu.write32(desc + 84, 16);
+    cpu.write32(desc + 88, 0xf800);
+    cpu.write32(desc + 92, 0x07e0);
+    cpu.write32(desc + 96, 0x001f);
+    cpu.write32(desc + 104, 0x1000 | 0x800); // TEXTURE, SYSTEMMEMORY
+    CHECK(call(dd, 6, {desc, out, 0}) == 0);
+    const uint32_t source = cpu.read32(out);
+    cpu.write32(desc + 104, 0x1000 | 0x4000); // TEXTURE, VIDEOMEMORY
+    CHECK(call(dd, 6, {desc, out, 0}) == 0);
+    const uint32_t texSurface = cpu.read32(out);
+    CHECK(call(source, 25, {0, lock, 1, 0}) == 0);
+    cpu.write16(cpu.read32(lock + 36), 0x07e0); // green
+    CHECK(call(source, 32, {0}) == 0);
+    const char *textureIid = "{2cdcd9e0-25a0-11cf-a31a-00aa00b93356}";
+    CHECK(call(source, 0, {guid(textureIid), out}) == 0);
+    const uint32_t from = cpu.read32(out);
+    CHECK(call(texSurface, 0, {guid(textureIid), out}) == 0);
+    const uint32_t texture = cpu.read32(out);
+    CHECK(call(texture, 6, {from}) == 0);                                // Load
+    CHECK(call(texture, 4, {device, out}) == 0 && cpu.read32(out) != 0); // GetHandle
+    CHECK(call(texSurface, 25, {0, lock, 1, 0}) == 0 && cpu.read16(cpu.read32(lock + 36)) == 0x07e0);
+    CHECK(call(texSurface, 32, {0}) == 0);
+}
+
 // DirectPlay 3 created through COM, with no connections to offer.
 static void testDirectPlay() {
     x86::Cpu cpu(16u << 20);
@@ -1446,6 +1616,7 @@ static const test::Suite
                {"directx", [](const std::filesystem::path &) { testDirectX(); }},
                {"input", [](const std::filesystem::path &) { testInput(); }},
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
+               {"direct3d 1", [](const std::filesystem::path &) { testDirect3D1(); }},
                {"directplay", [](const std::filesystem::path &) { testDirectPlay(); }},
                {"cd audio", [](const std::filesystem::path &tmp) { testCdAudio(tmp / "cdaudio"); }},
                {"directsound", [](const std::filesystem::path &) { testDirectSound(); }},

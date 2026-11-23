@@ -350,9 +350,11 @@ const DirectX::Frame &DirectX::frame() const {
 DirectX::DirectX(Win32Process &process) : _s(std::make_unique<State>(*this, process)) {
     State *s = _s.get();
     dx::Interfaces &i = s->interfaces;
-    for (ComInterface *f : {&i.directDraw, &i.directDraw2, &i.directDraw4, &i.directDraw7, &i.surface, &i.surface2,
-                            &i.surface3, &i.surface4, &i.surface7, &i.palette, &i.clipper, &i.gammaControl, &i.direct3d,
-                            &i.direct3d2, &i.direct3d7, &i.device7, &i.vertexBuffer7})
+    for (ComInterface *f :
+         {&i.directDraw, &i.directDraw2,   &i.directDraw4, &i.directDraw7, &i.surface,      &i.surface2,  &i.surface3,
+          &i.surface4,   &i.surface7,      &i.palette,     &i.clipper,     &i.gammaControl, &i.direct3d,  &i.direct3d2,
+          &i.device1,    &i.executeBuffer, &i.viewport,    &i.viewport2,   &i.material,     &i.material2, &i.light,
+          &i.texture,    &i.texture2,      &i.direct3d7,   &i.device7,     &i.vertexBuffer7})
         s->com.define(*f);
     const char *dll = "DDRAW.dll";
     Cpu &c = process.cpu();

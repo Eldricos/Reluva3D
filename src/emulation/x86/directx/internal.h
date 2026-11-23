@@ -221,7 +221,13 @@ public:
 
     std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override;
     const ComInterface *query(const std::string &iid) override;
+    /** A Direct3D 1 device asked of the surface by the device's IID (d3d5.cpp). */
+    std::shared_ptr<ComObject> aggregate(const std::string &iid, const ComInterface *&iface) override;
+    /** IDirect3DTexture's and IDirect3DTexture2's methods on the surface (d3d5.cpp). */
+    std::optional<uint32_t> invokeTexture(const ComInterface &iface, int index, Cpu &c);
     ~Surface() override;
+    std::shared_ptr<ComObject> legacyDevice; // the Direct3D 1 device on it, once asked for
+    uint32_t textureHandle = 0;              // its D3DTEXTUREHANDLE, once asked for
 
     /**
      * A pixel's value as stored, and one stored; unchecked against the
@@ -313,6 +319,15 @@ struct Interfaces {
     ComInterface gammaControl;
     ComInterface direct3d;
     ComInterface direct3d2;
+    ComInterface device1;
+    ComInterface executeBuffer;
+    ComInterface viewport;
+    ComInterface viewport2;
+    ComInterface material;
+    ComInterface material2;
+    ComInterface light;
+    ComInterface texture;
+    ComInterface texture2;
     ComInterface direct3d7;
     ComInterface device7;
     ComInterface vertexBuffer7;
@@ -335,6 +350,15 @@ extern const char *const kIidClipper;
 extern const char *const kIidGammaControl;
 extern const char *const kIidDirect3D;
 extern const char *const kIidDirect3D2;
+extern const char *const kIidDevice1;
+extern const char *const kIidExecuteBuffer;
+extern const char *const kIidViewport;
+extern const char *const kIidViewport2;
+extern const char *const kIidMaterial;
+extern const char *const kIidMaterial2;
+extern const char *const kIidLight;
+extern const char *const kIidTexture;
+extern const char *const kIidRampDevice;
 extern const char *const kIidDirect3D7;
 extern const char *const kIidDevice7;
 extern const char *const kIidVertexBuffer7;
@@ -393,6 +417,12 @@ struct DirectX::State {
     uint32_t videoUsed = 0;
     std::weak_ptr<dx::Surface> primary;
     std::shared_ptr<dx::DirectDraw> directDraw;
+    // Direct3D 1 and 2's handles, which the program passes in render states
+    // and execute buffers: textures (D3DTEXTUREHANDLE) and materials
+    // (D3DMATERIALHANDLE), from 1.
+    std::map<uint32_t, std::weak_ptr<dx::Surface>> textureHandles;
+    std::map<uint32_t, std::weak_ptr<ComObject>> materialHandles;
+    uint32_t nextHandle = 1;
 
     /** The state of `o`, whose objects live in `p`. */
     State(DirectX &o, Win32Process &p) : owner(o), process(p), cpu(p.cpu()), com(p) {}

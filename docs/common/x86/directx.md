@@ -34,8 +34,36 @@ headers' (`directx/interfaces.cpp`).
   devices with DirectX 5's `D3DDEVICEDESC` (204 bytes), a description for
   hardware and one for software each. A software device's hardware
   description has only its size: a colour model of 0 is how programs tell
-  the two kinds apart. Their devices, execute buffers, viewports,
-  materials and lights aren't there yet.
+  the two kinds apart.
+- **Direct3D 1's device** (`IDirect3DDevice`), as DirectX 3 and 5
+  programs make it: asked of a 16- or 32-bit RGB surface by the device's
+  IID (`QueryInterface`, COM's aggregation), one a surface. It draws
+  through a Direct3D 7 device on the surface, so it draws as that does.
+  - **Execute buffers** (`IDirect3DExecuteBuffer`) in the program's
+    memory, their D3DEXECUTEDATA's vertices and instructions run by
+    `Execute`: `PROCESSVERTICES` into a pool of 65,536 vertices
+    (copied as `D3DTLVERTEX`; to be transformed as `D3DLVERTEX`; or
+    transformed and lit as `D3DVERTEX`), `TRIANGLE`, `LINE`, `POINT`,
+    `STATERENDER`, `STATETRANSFORM` and `STATELIGHT` (the material and
+    ambient light), `MATRIXLOAD`, `MATRIXMULTIPLY`, `TEXTURELOAD`,
+    `BRANCHFORWARD`, `SETSTATUS` and `EXIT`; `SPAN` isn't drawn.
+  - **Render states** are Direct3D 7's but for those it replaced with
+    texture stages: the texture handle, address, filters and border
+    colour go to the first stage, and `TEXTUREMAPBLEND` to its
+    operations as the DirectX 6 documentation maps the legacy blends
+    (DECAL and COPY the texture, MODULATE its colour times the vertex's
+    and its own alpha if it has one, DECALALPHA, MODULATEALPHA, ADD).
+    With no texture the vertex's colour is drawn. Culling starts off, as
+    Direct3D 1's did.
+  - **Matrices** by handle (`CreateMatrix`, `SetMatrix`), **viewports**
+    (`IDirect3DViewport` and `IDirect3DViewport2`: the area drawn to, and
+    `Clear` to the background material's colour), **materials** by handle,
+    and **lights** (kept, not lit with).
+  - **Textures:** a texture surface's `IDirect3DTexture` and
+    `IDirect3DTexture2` are its own: `GetHandle`, and `Load` copying
+    another's pixels and palette.
+- **Direct3D 7:** RGB emulation and HAL devices, vertex buffers and state
+  blocks.
 - **Direct3D 7:** RGB emulation and HAL devices, vertex buffers and state
   blocks. The drawing is a software rasterizer (`directx/raster.cpp`):
   - the fixed-function pipeline: transforms, lighting, materials and their
@@ -110,7 +138,10 @@ checked without a GPU.
   the vtables: a clear, a Gouraud triangle, the depth test, a textured
   quad with point sampling, and a flip; GDI's text through the back
   buffer's device context; and Direct3D 1's device list, its
-  descriptions' sizes and colour models.
+  descriptions' sizes and colour models. `testDirect3D1` makes a version 1
+  device of a back buffer, clears its viewport to a material's colour,
+  draws a square of two triangles from an execute buffer of
+  pre-transformed vertices, and loads a texture by its handle.
 
 - `testInput` checks DirectInput's mouse (its state, its movement since
   the last read, its buffer) and keyboard.
@@ -122,5 +153,5 @@ checked without a GPU.
   ([running.md](../../engines/netimmerse/games/legoalphateam/systems/running.md)).
   It doesn't read DirectInput
   ([input.md](../../engines/netimmerse/games/legoalphateam/systems/input.md)).
-- **`sith`**: Jedi Knight's DirectDraw, Direct3D 1's device list and
-  DirectInput ([hosting.md](../../engines/sith/games/jk/systems/hosting.md)).
+- **`sith`**: Jedi Knight's DirectDraw, Direct3D 1's devices (when its
+  Setup chooses 3D acceleration) and DirectInput ([hosting.md](../../engines/sith/games/jk/systems/hosting.md)).
