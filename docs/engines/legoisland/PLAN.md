@@ -61,10 +61,12 @@ Each phase ends with something that runs, is tested and is committed.
    the original, by the checklist in [TESTING.md](TESTING.md#a-playthrough-by-hand);
    then speed (the JIT's hot spots, Retained Mode on the GPU). So far:
    every place on the map reached in Act 1, and its routes run by the
-   game-files test; Acts 2 and 3 not yet played. Render skips what's out
-   of view, and the game runs at 50 to 65 frames a second on the island,
-   about the engine's limit of 60: speed is next, for room on slower
-   machines.
+   game-files test; Acts 2 and 3 not yet played. Speed: Render skips
+   what's out of view, and the draw threads are woken only once enough
+   is waiting; on four processors the island runs at the game's own most,
+   90 frames a second, above the engine's limit of 60. Next, for slower
+   machines: showing a frame without waiting for its drawing to end, and
+   Retained Mode on the GPU.
 
 ## Decisions
 

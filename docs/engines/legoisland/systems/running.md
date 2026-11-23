@@ -159,11 +159,16 @@ that far.
   0x1003a216: `G0.GS` to `G1.GS` when a second player registers, seen to
   work).
 - **Speed:** on the island at the pizzeria, run by `reluva-tool` (no
-  frame rate limit) on a 4-core machine, it shows 50 to 65 frames a
-  second. Sampled with `gdb`, about half the game thread's time was in
-  Retained Mode's `Render` and its drawing, little in the interpreter
-  running the game's code; skipping the meshes out of view takes
-  `Render` from 9.3 to 6.5 ms a frame on average.
+  frame rate limit) on a 4-core machine, it shows 90 frames a second,
+  the game's own most: between frames it waits for its next tick,
+  calling `timeGetTime`, `PeekMessageA` and `Sleep` about 1,300 times a
+  frame. On the fixed clock, which gives it the same work each time, its
+  island frames run at 127 to 140 a second. Sampled with `gdb`, the game
+  thread's time goes to waiting for the draw threads to finish a frame
+  before it's shown, Retained Mode lighting and placing the vertices,
+  and the game's own code; the draw threads are busy about a quarter of
+  the time. Skipping the meshes out of view takes `Render` from 9.3 to
+  6.5 ms a frame on average.
 - **Saving and loading:** quit through the game (the door's green
   brick), it writes `G0.GS` (the game's state, 4,309 bytes), `History.gsi`
   (49) and `Players.gsi` (16, a player registered) to `savepath`, then
