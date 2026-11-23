@@ -1,0 +1,33 @@
+quit: 40a85c090a10b806 | the program exited with 0, 7629 frames after 5435809404 instructions, state 9de19886f0cd0663
+quit.G0.GS: 079b294dc6479104
+quit.History.gsi: bd2f2d3c91bddfb1
+quit.Players.gsi: a53af3d5ddecddb0
+quit.frame_00001.tga: 16dc43ade655176c
+quit.frame_00501.tga: c8979af185c560b5
+quit.frame_01001.tga: e3592bbc885cc823
+quit.frame_01501.tga: 19c214b7bf51f5f1
+quit.frame_02001.tga: c04442b067e7fc59
+quit.frame_02501.tga: 212b67188f1248d1
+quit.frame_03001.tga: 0c1d2a12218297de
+quit.frame_03501.tga: 9288a07a713acc0b
+quit.frame_04001.tga: 3ce8810fdff19f70
+quit.frame_04501.tga: f4cd2d4f2d4b0da8
+quit.frame_05001.tga: aa71d2d3e3012022
+quit.frame_05501.tga: aaddfac56e57bdbf
+quit.frame_06001.tga: 4f6d62c7b2bd6472
+quit.frame_06501.tga: 2f770df82480ce1a
+quit.frame_07001.tga: a912e3e208820013
+quit.frame_07501.tga: c64e9bc25b23a695
+second: 2cd48ee99f535f8e | stopped at frame 4500 after 2301677324 instructions, state 7ab7f6f88c78bcb8
+second.G1.GS: 079b294dc6479104
+second.History.gsi: bd2f2d3c91bddfb1
+second.Players.gsi: a75c5e23b1f68f31
+second.frame_00001.tga: 16dc43ade655176c
+second.frame_00501.tga: c8979af185c560b5
+second.frame_01001.tga: e3592bbc885cc823
+second.frame_01501.tga: 19c214b7bf51f5f1
+second.frame_02001.tga: c04442b067e7fc59
+second.frame_02501.tga: dcdb2b036b7e6b48
+second.frame_03001.tga: cd78134315239f82
+second.frame_03501.tga: fb2a1d28ffe92579
+second.frame_04001.tga: 431d5e7612772e6e

@@ -62,4 +62,4 @@ reluva_add_gamedata_test(legoisland
     GAME legoisland
     ENV RELUVA_LEGOISLAND
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release scripts world animations island turning)
+    STEPS release scripts world animations island turning build elevator players)

@@ -45,6 +45,9 @@ RELUVA_LEGOISLAND=/path/to/LEGO-Island ctest --test-dir build -L gamedata
 | `animations` | Every world's animation list, each animation found (`dta-check`) |
 | `turning` | The same route, then the left arrow held 40 frames once Pepper's arrival is over (frame 9000): that `LEGO1.DLL` was patched to turn by time, and how far she turned, in the state and the frames at 9001 and 9501 |
 | `island` | The game run on a fixed clock from a new save folder: the intro skipped, a player registered, Pepper dragged to the pizzeria, out on the island to frame 7000; its state, a frame every 1000 and its save files, as checksums (`run -fixed-clock 20000 -until 7000`) |
+| `build` | A player registered, Pepper dropped on the boat: the lifeguard hut, its baseplate clicked, the jet-ski's build screen, a piece clicked (its colours and decals offered) and one dragged, to frame 14500 |
+| `elevator` | The elevator ridden from the lobby to the observation deck, to frame 6000 |
+| `players` | A player registered and the game quit through its door (the green brick): its saves written, the credits, its end; then on the same save folder a second player registered, the first's save moved along (`G0.GS` to `G1.GS`, checked) |
 
 The records, in `tests/engines/legoisland/data/gamedata/english-1.0/`,
 hold only checksums, counts and summary lines. The `island` run's clock

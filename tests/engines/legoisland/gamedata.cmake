@@ -27,6 +27,12 @@
 #   turning     the same, then the left arrow held 40 frames on the island:
 #               whether the player turns by time (the patch to LEGO1.DLL
 #               applied), and how far it turned, in its state and frames
+#   build       a player registered, Pepper dropped on the boat, the jet-
+#               ski's build screen, a piece clicked and dragged
+#   elevator    the elevator ridden to the observation deck
+#   players     a player registered and the game quit through its door
+#               (the saves, the credits); then, on the same save folder, a
+#               second player registered, the first's saves moved along
 # A command that fails fails the step. What each prints (the game's folder
 # taken out) is checksummed, with a summary line, into a record, with a
 # checksum of each frame kept and of the save files written:
@@ -93,25 +99,40 @@ if(STEP STREQUAL "animations")
     record_run(animations "" legoisland dta-check "${game_dir}")
 endif()
 
-# The game run on a fixed clock from a new save folder by the route to
-# the island, to frame `until`, with `ARGN` more: its output, then each
-# frame kept and save file written.
-function(record_island name until)
+# The intro skipped and a player registered, at frames shown: the intro
+# clicked away, the register book opened, A and B, its tick.
+set(register -click 60@320,240 -click 1500@330,350 -click 2000@323,306 -click 2400@168,130 -click 2500@196,130
+             -click 2700@524,136)
+# Pepper's portrait dragged to the pizzeria on the map.
+set(to_pizzeria -drag 4500@322,100:315,210,60)
+
+# The game run on a fixed clock to frame `until` (or its end), with `ARGN`
+# for its input and frames kept, from a new save folder if `fresh`, else
+# the step's last one: its output, then each frame kept (in its own
+# folder) and each save file, their record lines begun with `prefix`.
+function(record_game name until fresh prefix)
     set(dir "${OUTPUT}/${STEP}")
-    file(REMOVE_RECURSE "${dir}/save" "${dir}/shots")
-    file(MAKE_DIRECTORY "${dir}/save" "${dir}/shots")
-    # The clicks, at frames shown: the intro skipped, the register book
-    # opened, A and B, its tick; Pepper's portrait dragged to the pizzeria.
-    record_run(${name} "stopped at frame" legoisland run "${game_dir}" -limit 0 -fixed-clock 20000 -until ${until}
-               -save "${dir}/save" -shots "${dir}/shots"
-               -click 60@320,240 -click 1500@330,350 -click 2000@323,306 -click 2400@168,130 -click 2500@196,130
-               -click 2700@524,136 -drag 4500@322,100:315,210,60 ${ARGN})
-    file(GLOB kept "${dir}/shots/*.tga" "${dir}/save/*")
-    list(SORT kept)
-    foreach(file IN LISTS kept)
+    if(fresh)
+        file(REMOVE_RECURSE "${dir}/save")
+    endif()
+    file(REMOVE_RECURSE "${dir}/shots/${name}")
+    file(MAKE_DIRECTORY "${dir}/save" "${dir}/shots/${name}")
+    record_run(${name} " after [0-9]+ instructions" legoisland run "${game_dir}" -limit 0 -fixed-clock 20000
+               -until ${until} -save "${dir}/save" -shots "${dir}/shots/${name}" ${ARGN})
+    file(GLOB shots "${dir}/shots/${name}/*.tga")
+    file(GLOB saves "${dir}/save/*")
+    list(SORT saves)
+    list(SORT shots)
+    foreach(file IN LISTS saves shots)
         get_filename_component(leaf "${file}" NAME)
-        record_file("${leaf}" "${file}")
+        record_file("${prefix}${leaf}" "${file}")
     endforeach()
+    set(record "${record}" PARENT_SCOPE)
+endfunction()
+
+# Registered and out at the pizzeria, from a new save folder, with `ARGN`.
+function(record_island name until)
+    record_game(${name} ${until} TRUE "" ${register} ${to_pizzeria} ${ARGN})
     set(record "${record}" PARENT_SCOPE)
 endfunction()
 
@@ -129,6 +150,34 @@ if(STEP STREQUAL "turning")
         message(FATAL_ERROR "LEGO1.DLL wasn't patched to turn by time: ${line}")
     endif()
     set(record "${record}${line}\n")
+endif()
+
+if(STEP STREQUAL "build")
+    # Registered, Pepper dropped on the boat: the lifeguard hut, its
+    # baseplate clicked, the jet-ski's build screen; a piece clicked, its
+    # colours and decals offered, and one dragged.
+    record_game(build 14500 TRUE "" -every 500 ${register} -drag 4500@322,100:322,236,60 -click 10500@350,290
+                -click 13000@330,170 -click 13300@380,110 -drag 13600@330,170:320,380,40)
+endif()
+
+if(STEP STREQUAL "elevator")
+    # The left arrow to the lobby, into the elevator, its third floor: the
+    # observation deck.
+    record_game(elevator 6000 TRUE "" -every 500 -click 60@320,240 -click 1500@330,350 -click 2200@30,315
+                -click 3000@300,260 -click 3800@402,414)
+endif()
+
+if(STEP STREQUAL "players")
+    # A player registered, and the game quit through its door (the green
+    # brick): its saves written, the credits, its end. Then again on the
+    # same save folder, a second player registered (C and D), the first's
+    # saves moved along (MoveFileA: G0.GS to G1.GS).
+    record_game(quit 9000 TRUE "quit." -every 500 ${register} -click 4200@590,240 -click 5200@235,385)
+    record_game(second 4500 FALSE "second." -every 500 -click 60@320,240 -click 1500@330,350 -click 2000@323,306
+                -click 2400@224,130 -click 2500@252,130 -click 2700@524,136)
+    if(NOT EXISTS "${OUTPUT}/${STEP}/save/G1.GS")
+        message(FATAL_ERROR "The first player's saves weren't moved along for the second (no G1.GS)")
+    endif()
 endif()
 
 gamedata_end("${release}" "${slug}")
