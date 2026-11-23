@@ -128,12 +128,23 @@ files, with `aipdef.h` and `AI\strategic_AI_config.txt`), 61 models and
 layouts (`misc\gui_fed.cfg`, `gui_glob.cfg`), `objtxt.zfs`, music
 (`sounds\music\mfed*.wav`) and the opening scene's speech
 (`sounds\voiceover\cineractive\F1PIC1.wav`), and `credits.txt`. Each
-model is looked for in `addon\` first. Six are in neither folder
-(`borgoff`, `fedoff`, `klingoff`, `romoff`, `fedpod2s` and `sscr_1`),
-perhaps in the archive *(guessed)*. Four textures are made at run time, looked for and not there:
+model is looked for in `addon\` first. Six are in neither folder, nor
+in the archive (`borgoff`, `fedoff`, `klingoff`, `romoff`, `fedpod2s` and
+`sscr_1`): their definitions are an upgrade for each race, a pod and
+scrap, objects with no model of their own, whose names the game tries as
+models and goes on without *(inferred)*. Four textures are made at run time, looked for and not there:
 `fogTexture`, `shroudTexture`, `cachedMapTexture` and `mapTexture`.
-What it reads from inside `assets.zfs` isn't in this list: the program
-reads the archive itself.
+From inside its archives, which it reads itself (the host lists each
+entry a read reaches), it reads 132 files: from `assets.zfs`, the 12
+build lists (`b_list0.odf` to `b_list11.odf`), the definition of every
+object the mission can have, with the definitions they're built on (the
+Federation's ships, stations, pods and their weapons, `phaser`,
+`photon`, `pulse` and the like, and their physics, `battphys`,
+`destphys`, `cnstphys`), its planets, moons, sun and nebulae
+(`mdmoon`, `msun2`, `mbarisa`, `mnebula2`), and the map's tech tree
+`fed1.tt`; and from `objtxt.zfs` the objectives' text, `f1ob1.txt`. At
+start-up it had read 13 others: `audio.odf`, `teamcolor.odf`,
+`races.odf`, and each race's.
 
 Once its objectives are closed, play reads nothing more but the
 interface's sounds (`trekover.wav` as the pointer comes over a button,
