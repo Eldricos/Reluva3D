@@ -10,6 +10,7 @@
 #include "graphics/gfx3d.h"
 
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -39,6 +40,27 @@ public:
     void handleKey(uint32_t key) override;
     void update(uint64_t millis) override;
 
+    /** A camera in the game's coordinates: where, which way, and how wide. */
+    struct Camera {
+        gfx::Vec3 eye{};
+        gfx::Vec3 forward{0, 0, 1};
+        gfx::Vec3 up{0, 1, 0};
+        float fovY = 0.9f; // radians, top to bottom
+    };
+    /** Shows the map of that name (as listed: "bzn/fed1.bzn"), if there's one. */
+    bool select(const std::string &name);
+    /** Looks through this camera until a key moves the view. */
+    void setCamera(const Camera &camera) {
+        _fixed = camera;
+        draw();
+    }
+
+    /**
+     * The game's overview camera on starting, looking at `target`: 450
+     * above the plane and 300 behind it in z, as the game's memory shows.
+     */
+    static Camera overviewOf(const gfx::Vec3 &target);
+
     /** How an object's definition is drawn: its model, and the scale. */
     struct Look {
         std::string model; // empty: none (dont_load_SOD, or no definition)
@@ -67,6 +89,7 @@ public:
 private:
     void load();
     void draw();
+    Camera orbit() const; // the camera the keys move
     void showMessage(const std::string &line);
 
     System &_sys;
@@ -93,6 +116,7 @@ private:
     float _yaw = 0.6f;
     float _pitch = 0.9f;
     bool _turning = false;
+    std::optional<Camera> _fixed; // setCamera's, until a key
     uint64_t _lastMillis = 0;
 };
 

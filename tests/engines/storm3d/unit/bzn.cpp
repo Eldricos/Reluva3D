@@ -189,6 +189,18 @@ void testPlacing(const std::filesystem::path &tmp) {
     CHECK(MapPage::asteroidsOf(o, big).empty());
 }
 
+// The game's overview camera on starting, as its memory held it in
+// "Premonitions": over the Camera_1 path's point, 450 up and 300 behind.
+void testOverview() {
+    const MapPage::Camera c = MapPage::overviewOf({5750.98f, 39.93f, 1042.75f});
+    CHECK(std::fabs(c.eye[0] - 5750.98f) < 1e-3f && c.eye[1] == 450 && std::fabs(c.eye[2] - 742.75f) < 1e-3f);
+    // Memory's forward: 0, -0.808, 0.589.
+    CHECK(std::fabs(c.forward[0]) < 1e-6f && std::fabs(c.forward[1] + 0.808f) < 2e-3f &&
+          std::fabs(c.forward[2] - 0.589f) < 2e-3f);
+    CHECK(std::fabs(c.forward[0] * c.up[0] + c.forward[1] * c.up[1] + c.forward[2] * c.up[2]) < 1e-5f && c.up[1] > 0);
+    CHECK(std::fabs(c.fovY - 0.7853982f) < 1e-6f);
+}
+
 // A sprite's colour over its animation: linear between keyframes, held by
 // a step one, and looping over its length.
 void testColours() {
@@ -216,4 +228,5 @@ static const reluva::test::Suite
                                    {"broken", [](const std::filesystem::path &) { testBroken(); }},
                                    {"placing", [](const std::filesystem::path &tmp) { testPlacing(tmp / "placing"); }},
                                    {"colours", [](const std::filesystem::path &) { testColours(); }},
+                                   {"overview", [](const std::filesystem::path &) { testOverview(); }},
                                });

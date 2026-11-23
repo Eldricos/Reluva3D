@@ -8,13 +8,18 @@
 // pagedown, home, end, space.
 
 #include "common/headless_system.h"
+#include "common/text.h"
+#include "engines/storm3d/game_files.h"
+#include "engines/storm3d/pages/map_page.h"
 #include "engines/viewer_registry.h"
 #include "devtools/soft_renderer.h"
 #include "devtools/tool.h"
 #include "image/image.h"
 
 #include <cstdio>
+#include <cmath>
 #include <cstring>
+#include <cstdlib>
 #include <fstream>
 #include <map>
 #include <memory>
@@ -110,11 +115,90 @@ int cmdViewerShot(int argc, char **argv) {
     return out ? 0 : 1;
 }
 
-const tool::Commands kCommands("storm3d", {
-                                              {"viewer-shot", "<game folder> <out.png> [key...]",
-                                               "the data viewer run without a window, keys pressed, its last screen "
-                                               "written as PNG",
-                                               cmdViewerShot},
-                                          });
+// The game's screen, for setting the Maps page beside the original's frames.
+constexpr int kGameWidth = 640;
+constexpr int kGameHeight = 480;
+
+// A 3D-only System: the software renderer at the game's size.
+class SoftSystem : public HeadlessSystem {
+public:
+    tools::SoftRenderer3D renderer{kGameWidth, kGameHeight};
+    Error init3D(int width, int height, gfx::Renderer3D *&out) override {
+        if (width != renderer.width() || height != renderer.height())
+            return Error::fail("the software renderer is another size");
+        out = &renderer;
+        return Error::success();
+    }
+};
+
+int cmdMapShot(int argc, char **argv) {
+    if (argc < 11) {
+        std::fprintf(stderr, "usage: reluva-tool storm3d map-shot <game folder> <map> <out.png> <eye x y z> "
+                             "<forward x y z> [field of view, degrees, top to bottom]\n");
+        return 2;
+    }
+    storm3d::GameFiles files;
+    if (Error err = files.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    storm3d::MapPage::Camera camera;
+    for (size_t i = 0; i < 3; ++i) {
+        camera.eye[i] = float(std::atof(argv[5 + i]));
+        camera.forward[i] = float(std::atof(argv[8 + i]));
+    }
+    // Up: the world's, made square to the way the camera looks.
+    gfx::Vec3 &f = camera.forward;
+    const float len = std::sqrt(f[0] * f[0] + f[1] * f[1] + f[2] * f[2]);
+    if (len <= 0) {
+        std::fprintf(stderr, "the camera looks nowhere\n");
+        return 2;
+    }
+    for (float &v : f)
+        v /= len;
+    camera.up = {-f[1] * f[0], 1 - f[1] * f[1], -f[1] * f[2]};
+    const float upLen =
+        std::sqrt(camera.up[0] * camera.up[0] + camera.up[1] * camera.up[1] + camera.up[2] * camera.up[2]);
+    for (float &v : camera.up)
+        v /= upLen > 0 ? upLen : 1;
+    if (argc > 11)
+        camera.fovY = float(std::atof(argv[11]) * 3.14159265358979 / 180);
+    SoftSystem sys;
+    Surface screen;
+    screen.create(kGameWidth, kGameHeight, PixelFormat::kRGBA32);
+    storm3d::MapPage page(sys, screen, files);
+    page.activate();
+    std::string name = argv[3];
+    if (!reluva::text::hasSuffixIgnoreCase(name, ".bzn"))
+        name += ".bzn";
+    if (!page.select(name) && !page.select("bzn/" + name)) {
+        std::fprintf(stderr, "no map %s\n", argv[3]);
+        return 1;
+    }
+    page.setCamera(camera);
+    const Surface &shown = sys.renderer.frame();
+    image::Image img;
+    img.w = shown.w;
+    img.h = shown.h;
+    img.rgba = shown.pixels;
+    const std::vector<uint8_t> png = image::encodePng(img);
+    std::ofstream out(argv[4], std::ios::binary);
+    out.write(reinterpret_cast<const char *>(png.data()), std::streamsize(png.size()));
+    page.deactivate();
+    std::printf("%s\n", sys.title().c_str());
+    return out ? 0 : 1;
+}
+
+const tool::Commands kCommands("storm3d",
+                               {
+                                   {"viewer-shot", "<game folder> <out.png> [key...]",
+                                    "the data viewer run without a window, keys pressed, its last screen "
+                                    "written as PNG",
+                                    cmdViewerShot},
+                                   {"map-shot", "<game folder> <map> <out.png> <eye x y z> <forward x y z> [degrees]",
+                                    "a map drawn in software from a camera given exactly, at the game's "
+                                    "640 x 480: to set beside the original's frames",
+                                    cmdMapShot},
+                               });
 
 } // namespace

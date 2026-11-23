@@ -18,8 +18,16 @@ namespace {
 
 constexpr Color kClear = {4, 4, 10};
 constexpr float kTurnPerSecond = 0.15f; // radians
-constexpr float kFieldOfView = 0.9f;    // radians, vertically
-constexpr float kStep = 0.1f;           // of the distance, a W/A/S/D press
+// The game's camera sees 45 degrees from top to bottom: tan 22.5 is in its
+// memory, and the planets of a frame land where the original has them.
+constexpr float kFieldOfView = 0.7853982f; // radians
+constexpr float kStep = 0.1f;
+// The game's overview camera on starting, as its memory shows it in
+// "Premonitions": 450 above the plane (RTS_CFG.h's OVERVIEW_INIT_HEIGHT),
+// 300 behind its target in z (OVERVIEW_INIT_ROTATION 0), looking at it.
+// 300 is 450 over OVERVIEW_INIT_ZOOM's 1.5, which may be the rule.
+constexpr float kOverviewHeight = 450;
+constexpr float kOverviewBack = 300; // of the distance, a W/A/S/D press
 
 } // namespace
 
@@ -97,6 +105,17 @@ MapPage::MapPage(System &sys, Surface &screen, const GameFiles &files)
     for (const std::string &name : files.list())
         if (text::hasSuffixIgnoreCase(name, ".bzn"))
             _names.push_back(name);
+}
+
+bool MapPage::select(const std::string &name) {
+    for (size_t i = 0; i < _names.size(); ++i)
+        if (text::equalsIgnoreCase(_names[i], name)) {
+            _current = i;
+            load();
+            draw();
+            return true;
+        }
+    return false;
 }
 
 MapPage::~MapPage() {
@@ -194,25 +213,17 @@ void MapPage::handleKey(uint32_t key) {
                 _target = _map.paths[_path].points[0];
         }
         break;
-    case 'g': {
-        // The game's own view on starting: from RTS_CFG.h's settings,
-        // OVERVIEW_INIT_HEIGHT above, facing +z (OVERVIEW_INIT_ROTATION
-        // 0). How far behind, if the camera rides a parabola of
-        // OVERVIEW_PARABOLA_FOCUS, is a guess: sqrt(4 * focus * height).
-        const float height = 450;
-        const float back = std::sqrt(4 * 200.0f * height);
-        _yaw = 0;
-        _pitch = std::atan2(height, back);
-        _distance = std::sqrt(height * height + back * back);
-        _turning = false;
-        break;
-    }
+    case 'g':
+        _fixed = overviewOf(_target);
+        draw();
+        return;
     case key::kSpace:
         _turning = !_turning;
         break;
     default:
         return;
     }
+    _fixed.reset();
     if (_current != before)
         load();
     draw();
@@ -280,23 +291,57 @@ void MapPage::load() {
     _distance = std::max(1000.0f, std::max(_map.area[1] - _map.area[0], _map.area[5] - _map.area[4]));
 }
 
+MapPage::Camera MapPage::overviewOf(const gfx::Vec3 &target) {
+    Camera c;
+    c.eye = {target[0], kOverviewHeight, target[2] - kOverviewBack};
+    const gfx::Vec3 to{target[0] - c.eye[0], target[1] - c.eye[1], target[2] - c.eye[2]};
+    const float len = std::sqrt(to[0] * to[0] + to[1] * to[1] + to[2] * to[2]);
+    c.forward = {to[0] / len, to[1] / len, to[2] / len};
+    // Up: square to forward, in the plane of forward and the world's up.
+    const float fy = c.forward[1];
+    c.up = {-fy * c.forward[0], 1 - fy * fy, -fy * c.forward[2]};
+    const float upLen = std::sqrt(c.up[0] * c.up[0] + c.up[1] * c.up[1] + c.up[2] * c.up[2]);
+    for (float &v : c.up)
+        v /= upLen;
+    c.fovY = kFieldOfView;
+    return c;
+}
+
+MapPage::Camera MapPage::orbit() const {
+    // Round the target: yaw 0 faces +z, pitch looks down.
+    const float sy = std::sin(_yaw);
+    const float cy = std::cos(_yaw);
+    const float sp = std::sin(_pitch);
+    const float cp = std::cos(_pitch);
+    Camera c;
+    c.forward = {-cp * sy, -sp, cp * cy};
+    c.up = {-sp * sy, cp, sp * cy};
+    c.eye = {_target[0] - c.forward[0] * _distance, _target[1] - c.forward[1] * _distance,
+             _target[2] - c.forward[2] * _distance};
+    c.fovY = kFieldOfView;
+    return c;
+}
+
 void MapPage::draw() {
     if (!_renderer)
         return;
-    // The camera orbits in the renderer's space, the game's with z
-    // reversed (SodMeshes::mirrorZ); what it draws is in the game's.
-    const gfx::Vec3 offset{std::cos(_pitch) * std::sin(_yaw), std::sin(_pitch), std::cos(_pitch) * std::cos(_yaw)};
-    const gfx::Vec3 eyeView{_target[0] + offset[0] * _distance, _target[1] + offset[1] * _distance,
-                            -_target[2] + offset[2] * _distance};
-    const gfx::Vec3 eye{eyeView[0], eyeView[1], -eyeView[2]};
+    const Camera camera = _fixed ? *_fixed : orbit();
+    // The renderer is right-handed, the game left-handed: the camera's
+    // place and axes have z reversed for it (SodMeshes::mirrorZ), and what
+    // it draws is in the game's coordinates.
+    auto flip = [](const gfx::Vec3 &v) { return gfx::Vec3{v[0], v[1], -v[2]}; };
+    const gfx::Vec3 &eye = camera.eye;
+    const float range = std::max(_distance, 500.0f);
     const gfx::Mat4 viewProj =
-        gfx::multiply(gfx::multiply(gfx::perspective(kFieldOfView, float(_screen.w) / float(_screen.h),
-                                                     _distance * 0.02f, _distance * 4 + 20000),
-                                    gfx::lookAlong(eyeView, {-offset[0], -offset[1], -offset[2]}, {0, 1, 0})),
+        gfx::multiply(gfx::multiply(gfx::perspective(camera.fovY, float(_screen.w) / float(_screen.h), range * 0.02f,
+                                                     range * 4 + 20000),
+                                    gfx::lookAlong(flip(eye), flip(camera.forward), flip(camera.up))),
                       SodMeshes::mirrorZ());
     _renderer->beginFrame(viewProj, eye, kClear);
-    _meshes.setView({std::cos(_yaw), 0, std::sin(_yaw)},
-                    {-std::sin(_pitch) * std::sin(_yaw), std::cos(_pitch), std::sin(_pitch) * std::cos(_yaw)},
+    // Right, in the game's left-handed coordinates, is up × forward.
+    const gfx::Vec3 &u = camera.up;
+    const gfx::Vec3 &f = camera.forward;
+    _meshes.setView({u[1] * f[2] - u[2] * f[1], u[2] * f[0] - u[0] * f[2], u[0] * f[1] - u[1] * f[0]}, u,
                     double(_lastMillis) / 1000);
     // The background round the eye, behind everything: how the game
     // places it isn't known.
