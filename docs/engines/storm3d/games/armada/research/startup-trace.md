@@ -94,13 +94,41 @@ weren't traced. What it compares with what isn't known: `texture.dat`'s
 8 bytes are the likely reference *(guessed: it's read and decoded just
 before)*.
 
+Run with the disc's table of contents (from its Alcohol 120% `.mds`: a
+data track at 00:02:00 and an audio track at 67:39:13, the lead-out at
+74:58:61), it asks, in milliseconds (`MCI_SET`, format 0): the number of
+tracks (2), each track's length (4,057,173 and 439,640 ms), the disc's
+(4,496,813 ms); then it plays the audio track (`MCI_PLAY` with
+`MCI_FROM`) and asks the mode (`MCI_STATUS`, item 4) until the drive says
+it's playing (`MCI_MODE_PLAY`, 526): "Track verification" is a disc that
+plays. Then `MCI_STOP` and `MCI_CLOSE`, and `Track verification
+successful.`
+
 When it fails, it writes `Track verification failed.` and
 `[Armada] Please insert Armada CD` to the debugger and asks again, without
 end. A run's first try at this found `texture.dat` a folder too high: the
 host had given the program's folder without its last backslash, which the
 emulator now adds. With the disc's files on D: (`-cd`) but no table of
-contents, MCI finds no disc, and the check fails the same way; the
-table of contents of the disc is still to come.
+contents, MCI finds no disc, and the check fails the same way.
+
+## The mission
+
+Past the check, the mission first on the Federation's panel (its map
+`bzn\rom2.bzn`) loads and runs (90 seconds of the program's clock
+without a stop, the last frame its 3D scene: Romulan warbirds by a
+planet, drawn by the program's Direct3D 7 through Reluva's rasterizer).
+What it reads: `CCA.cfg`, `input.map`, `gamekey.map` (no
+`giddi\keyboard.std` or `mouse.std`), `Collision.cfg`, the map
+`bzn\rom2.bzn` and its tech tree `rom2.tt` (from `assets.zfs`), every
+computer player's personality (`AI\AIPs\*.aip`, 87 files), 94 models and
+517 textures, the minimap's textures (`shroudTexture`,
+`cachedMapTexture`, `mapTexture`, made at run time: looked for and not
+there), `SOD\font.sod`, and `credits.txt`.
+
+On the way, `>>` into a word read the whole tech tree as one word and
+wrote past its buffer: the host hadn't started Reluva's C++ library, so
+its character table, built in its `DllMain`, was empty. The host starts
+it now, before the install's DLLs.
 
 ## Where the run stops
 

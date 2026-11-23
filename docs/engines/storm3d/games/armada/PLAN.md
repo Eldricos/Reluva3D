@@ -46,10 +46,10 @@ these phases start from, is in [formats/install.md](formats/install.md).
    opens and the frames it shows (`reluva-tool storm3d host`). Its exports
    and classes are in [research/](research/README.md). Clicks given it
    (`-input`) take it through the single-player screen and the mission
-   panel to loading the first mission, where the game's CD check stops
-   it: it reads the disc's table of contents through MCI, which the
-   emulator now has, from a cue sheet (`-cue`); the disc's is still to
-   come. Next: the CD's table of contents, and GDI's text.
+   panel, past the game's CD check (MCI, with the disc's table of
+   contents from its `.mds`), into the mission first on the Federation's
+   panel (its map `bzn\rom2.bzn`), which runs in 3D. Next: GDI's text,
+   input inside the mission, and the files it reads there, for phase 5.
 5. **Maps and the scene:** `.bzn` and `.mdf`, the starfield and nebulae,
    planets, moons and asteroids, the camera (`RTS_CFG.h`'s limits), the
    ships. A skirmish map shown and moved around, checked against the

@@ -25,7 +25,7 @@ with their includes, the settings in C, the key and mouse bindings, and
 the installer's encoded scripts ([formats/](#this-folder)). The data
 viewer shows its pictures, models, sprites and fonts, and text, and plays
 its sounds and movies. The original program runs in Reluva's emulator as
-far as its main menu, as a reference to study
+far as its first mission, as a reference to study
 ([systems/hosting.md](systems/hosting.md)). What comes next is in [PLAN.md](PLAN.md).
 
 ## Using it

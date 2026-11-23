@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file]
-//                          [-cd folder] [-cue file] [-cd-label name]:
+//                          [-cd folder] [-toc file] [-cd-label name]:
 // runs the retail Armada.exe in Reluva's x86 emulator, with its own DLLs
 // from the install and Reluva's stand-ins for Windows, DirectX and the C
 // runtimes, as a reference to study, never as the game is played
@@ -10,8 +10,8 @@
 // files the program opens, the frames it shows (written as PNG), the
 // imports no stand-in answers, and where and why it stops. The input file
 // is the player's mouse and keys, by the program's clock. The CD is the
-// disc's files on D:, its table of contents from the disc's cue sheet,
-// which the game's CD check reads through MCI.
+// disc's files on D:, its table of contents from the disc's cue sheet or
+// media descriptor (.mds), which the game's CD check reads through MCI.
 
 #include "common/fs.h"
 #include "common/pe.h"
@@ -60,7 +60,7 @@ struct Options {
     std::filesystem::path saveDir;
     std::filesystem::path inputFile;
     std::filesystem::path cdFolder;
-    std::filesystem::path cueFile;
+    std::filesystem::path tocFile;
     std::string cdLabel = "ARMADA";
 };
 
@@ -117,7 +117,7 @@ Error readFile(const std::filesystem::path &path, std::vector<uint8_t> &out) {
 
 // Loads the program and each DLL of the install it imports from, the
 // imported ones first, with Reluva's C++ library before all; the DLLs, in
-// that order, for their start-ups.
+// that order (the library too), for their start-ups.
 Error loadModules(x86::Win32Process &process, const std::filesystem::path &dir,
                   std::vector<const x86::Win32Process::Module *> &dlls) {
     struct Pending {
@@ -154,6 +154,7 @@ Error loadModules(x86::Win32Process &process, const std::filesystem::path &dir,
     const x86::Win32Process::Module *library = nullptr;
     if (Error err = x86::loadMsvcp60(process, library))
         return err;
+    dlls.push_back(library); // started first: its DllMain builds its character table and cerr
     std::set<std::string> done;
     std::function<Error(const std::string &, int)> place = [&](const std::string &key, int depth) -> Error {
         if (done.count(key))
@@ -197,7 +198,7 @@ int cmdHost(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr,
                      "usage: reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] "
-                     "[-input file] [-cd folder] [-cue file] [-cd-label name]\n");
+                     "[-input file] [-cd folder] [-toc file] [-cd-label name]\n");
         return 2;
     }
     Options o;
@@ -216,8 +217,8 @@ int cmdHost(int argc, char **argv) {
             o.inputFile = argv[++a];
         else if (arg == "-cd" && a + 1 < argc)
             o.cdFolder = argv[++a];
-        else if (arg == "-cue" && a + 1 < argc)
-            o.cueFile = argv[++a];
+        else if (arg == "-toc" && a + 1 < argc)
+            o.tocFile = argv[++a];
         else if (arg == "-cd-label" && a + 1 < argc)
             o.cdLabel = argv[++a];
         else {
@@ -246,20 +247,26 @@ int cmdHost(int argc, char **argv) {
     // The CD: its files on D:, read only.
     if (!o.cdFolder.empty())
         process.cdLabel = o.cdLabel;
-    if (!o.cueFile.empty()) {
-        std::ifstream in(o.cueFile);
-        const std::string cue((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    if (!o.tocFile.empty()) {
+        std::vector<uint8_t> toc;
         std::string why;
-        process.disc = x86::Win32Process::DiscContents::fromCueSheet(
-            cue,
-            [&](const std::string &name) -> std::optional<uint64_t> {
-                std::error_code sizeError;
-                const auto size = std::filesystem::file_size(o.cueFile.parent_path() / name, sizeError);
-                return sizeError ? std::nullopt : std::optional<uint64_t>(size);
-            },
-            why);
+        if (Error err = readFile(o.tocFile, toc)) {
+            std::fprintf(stderr, "%s\n", err.message.c_str());
+            return 2;
+        }
+        if (text::hasSuffixIgnoreCase(o.tocFile.string(), ".mds"))
+            process.disc = x86::Win32Process::DiscContents::fromMediaDescriptor(toc, why);
+        else
+            process.disc = x86::Win32Process::DiscContents::fromCueSheet(
+                std::string(toc.begin(), toc.end()),
+                [&](const std::string &name) -> std::optional<uint64_t> {
+                    std::error_code sizeError;
+                    const auto size = std::filesystem::file_size(o.tocFile.parent_path() / name, sizeError);
+                    return sizeError ? std::nullopt : std::optional<uint64_t>(size);
+                },
+                why);
         if (!process.disc) {
-            std::fprintf(stderr, "%s: %s\n", o.cueFile.string().c_str(), why.c_str());
+            std::fprintf(stderr, "%s: %s\n", o.tocFile.string().c_str(), why.c_str());
             return 2;
         }
         std::printf("the CD: %zu tracks, %u frames\n", process.disc->tracks.size(), process.disc->end);
@@ -398,7 +405,7 @@ const tool::Commands kCommands("storm3d",
                                {
                                    {"host",
                                     "<game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file] "
-                                    "[-cd folder] [-cue file] [-cd-label name]",
+                                    "[-cd folder] [-toc file] [-cd-label name]",
                                     "run the retail Armada.exe in the x86 emulator, to study: files "
                                     "opened, frames shown, imports missing, where it stops",
                                     cmdHost},
