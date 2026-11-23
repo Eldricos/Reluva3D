@@ -191,14 +191,14 @@ void ModelPage::update(uint64_t millis) {
 void ModelPage::unload() {
     _meshes.clear();
     _meshes.attach(nullptr);
-    _parts.clear();
+    _built = {};
 }
 
 void ModelPage::load() {
     if (!_renderer)
         return;
     _meshes.clear();
-    _parts.clear();
+    _built = {};
     _error.clear();
 
     std::vector<uint8_t> data;
@@ -211,10 +211,9 @@ void ModelPage::load() {
     _levels = detailLevels(_model);
     _level = std::min(_level, _levels.empty() ? 0 : _levels.size() - 1);
     const int level = _levels.empty() ? -1 : _levels[_level];
-    const SodMeshes::Built built = _meshes.build(_model, level);
-    _parts = built.parts;
-    const gfx::Vec3 &lo = built.lo;
-    const gfx::Vec3 &hi = built.hi;
+    _built = _meshes.build(_model, level);
+    const gfx::Vec3 &lo = _built.lo;
+    const gfx::Vec3 &hi = _built.hi;
     if (lo[0] <= hi[0]) {
         _centre = {(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2};
         const float dx = hi[0] - lo[0];
@@ -232,15 +231,22 @@ void ModelPage::draw() {
     if (!_renderer)
         return;
     const gfx::Vec3 offset{std::cos(_pitch) * std::sin(_yaw), std::sin(_pitch), std::cos(_pitch) * std::cos(_yaw)};
-    const gfx::Vec3 eye{_centre[0] + offset[0] * _distance, _centre[1] + offset[1] * _distance,
-                        _centre[2] + offset[2] * _distance};
+    // The camera turns in the renderer's space, the game's with z reversed
+    // (SodMeshes::mirrorZ), so models are drawn the way round they are.
+    const gfx::Vec3 eyeView{_centre[0] + offset[0] * _distance, _centre[1] + offset[1] * _distance,
+                            -_centre[2] + offset[2] * _distance};
+    const gfx::Vec3 eye{eyeView[0], eyeView[1], -eyeView[2]};
     const float zNear = std::max(0.01f, _distance - _radius * 2);
     const float zFar = _distance + _radius * 2;
     const gfx::Mat4 viewProj =
-        gfx::multiply(gfx::perspective(kFieldOfView, float(_screen.w) / float(_screen.h), zNear, zFar),
-                      gfx::lookAlong(eye, {-offset[0], -offset[1], -offset[2]}, {0, 1, 0}));
+        gfx::multiply(gfx::multiply(gfx::perspective(kFieldOfView, float(_screen.w) / float(_screen.h), zNear, zFar),
+                                    gfx::lookAlong(eyeView, {-offset[0], -offset[1], -offset[2]}, {0, 1, 0})),
+                      SodMeshes::mirrorZ());
     _renderer->beginFrame(viewProj, eye, kClear);
-    _meshes.draw(_parts, gfx::identity());
+    _meshes.setView(gfx::Vec3{std::cos(_yaw), 0, std::sin(_yaw)},
+                    gfx::Vec3{-std::sin(_pitch) * std::sin(_yaw), std::cos(_pitch), std::sin(_pitch) * std::cos(_yaw)},
+                    double(_lastMillis) / 1000);
+    _meshes.draw(_built, gfx::identity());
 
     std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), uint8_t(0));
     size_t faces = 0;

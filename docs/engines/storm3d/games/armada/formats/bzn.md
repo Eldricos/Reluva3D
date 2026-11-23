@@ -137,8 +137,11 @@ Start2 = 10 14
 ```
 
 Each start is a cell of the map's 128 × 128 picture, which covers its
-6400 × 6400 area: 50 units a cell *(inferred)*. A mission's map has none:
-its objects are placed.
+6400 × 6400 area, 50 units a cell, with z running up the picture: a
+skirmish map's paths `Camera_1`, `Camera_2`... are where each player's
+camera starts, and they fall within a cell or two of the starts (`2blue.bzn`'s
+`Camera_2` at x 456, z 5,889: cell 9, 10 from the top, against `Start2
+= 8 9`). A mission's map has none: its objects are placed.
 
 ## In Reluva
 
@@ -150,14 +153,22 @@ as the file says.
 
 - **The data viewer's Maps page** (`MapPage`,
   `src/engines/storm3d/pages/map_page.h`) draws a map: each object's
-  model where its transform puts it, and the map's background model
-  around the eye, behind everything (how the game places the background
-  isn't known). An object's model is named for its definition, unless
-  the definition says `dont_load_SOD = 1`, and scaled by its `scaleSOD`
-  *(inferred)*: the traced mission loads `fente.SOD` for `fente`, and no
-  model for the asteroid field. Models of emitters only, as the
-  nebulae are, aren't drawn yet, nor are the paths. N goes from ship to
-  ship.
+  model where its transform puts it, with its sprites (the nebulae are
+  sprites only), and the map's background model around the eye, behind
+  everything (how the game places the background isn't known). An
+  object's model is named for its definition, unless the definition says
+  `dont_load_SOD = 1`, and scaled by its `scaleSOD` *(inferred)*: the
+  traced mission loads `fente.SOD` for `fente`. N goes from ship to ship;
+  T looks from straight above, as the map's picture does.
+
+  An asteroid field (`mafield`, `classLabel "asteroidfield"`) has no
+  model: its definition gives 10 to 15 asteroids within a radius of 100.
+  The mission traced, with 155 fields, loads `master.sod` to
+  `master7.sod`, small clusters of asteroid sprites, but not `master8`,
+  so the asteroids are those eight *(inferred)*. Which the game picks,
+  and where, isn't known: the page scatters as many as the definition
+  says within its radius, chosen from the object's number so a map looks
+  the same each time *(guessed)*.
 - `reluva-tool storm3d bzn <game folder> <name.bzn>`: the settings, each
   object's definition, team, position and name, the scripts, the paths.
 - `reluva-tool storm3d bzn-check <game folder>`: every map read, with
@@ -183,3 +194,4 @@ as the file says.
 - The header's two flags, the light's three floats, the second word of
   each path and its last float.
 - Whether the area bounds the camera or the ships.
+- How the game places an asteroid field's asteroids, and the background.

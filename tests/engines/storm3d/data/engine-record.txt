@@ -6,7 +6,7 @@ run.result: ok
 run.size: 800x600
 run.screens: 150 d0ae81a4fdf383c6
 run.sound: 33075 frames, peak 8000 23d969a963267791
-run.3d: 29 frames, 29 draws 7d1d3a60872f034f
+run.3d: 29 frames, 29 draws 05deeffd89ea2f51
 run.3d.textures: 1 dad03d574cee282a
 run.3d.meshes: 1 8224fbdf08c1de3c
 run.titles: Reluva viewer - Images - 1/3  Textures/Index8/Xspark01  16x16 | Reluva viewer - Images - 2/3  Textures/RGB/Bbase.tga  64x64 | Reluva viewer - Images - 3/3  Textures/RGB/Bbase.1  32x32 | Reluva viewer - Images - 3/3  Textures/RGB/Bbase.1  32x32  alpha | Reluva viewer - Images - 1/3  Textures/Index8/Xspark01  16x16  alpha | Reluva viewer - Models - 1/1  SOD/square.sod  Storm3D_SW 1.8, 4 nodes, 1 meshes, 2 triangles | Reluva viewer - Sprites - 1/2  sprites.spr: box  Bbase 64x64, at 0,0 16x16  frame 1/2  anim walk | Reluva viewer - Sprites - 1/2  sprites.spr: box  Bbase 64x64, at 16,16 16x16  frame 2/2  anim walk | Reluva viewer - Sprites - 2/2  sprites.spr: strip  Bbase 64x64, at 0,32 16x16  frame 1/4  anim strip | Reluva viewer - Sprites - 2/2  sprites.spr: strip  Bbase 64x64, at 16,32 16x16  frame 2/4  anim strip | Reluva viewer - Sounds - 1/1  sounds/effects/tone.wav | Reluva viewer - Sounds - 1/1  sounds/effects/tone.wav  22050 Hz, 16-bit, mono, 0.25 s  playing | Reluva viewer - Sounds - 1/1  sounds/effects/tone.wav  22050 Hz, 16-bit, mono, 0.25 s | Reluva viewer - Text - 1/2  Sprites/sprites.spr  lines 1-17 of 17 | Reluva viewer - Text - 2/2  Credits.txt  lines 1-52 of 82 | Reluva viewer - Text - 2/2  Credits.txt  lines 31-82 of 82 | Reluva viewer - Images - 1/3  Textures/Index8/Xspark01  16x16  alpha

@@ -41,7 +41,49 @@ MapPage::Look MapPage::lookOf(const std::string &odf, const SearchSet &files) {
     look.scale = float(definition.number("scaleSOD", 1));
     if (look.scale <= 0)
         look.scale = 1;
+    if (text::equalsIgnoreCase(definition.string("classLabel"), "asteroidfield")) {
+        look.minAsteroids = int(definition.number("minAsteroids"));
+        look.maxAsteroids = std::max(look.minAsteroids, int(definition.number("maxAsteroids")));
+        look.fieldRadius = float(definition.number("fieldRadius"));
+    }
     return look;
+}
+
+std::vector<std::pair<std::string, gfx::Mat4>> MapPage::asteroidsOf(const BznMap::Object &o, const Look &look) {
+    std::vector<std::pair<std::string, gfx::Mat4>> out;
+    if (look.maxAsteroids <= 0)
+        return out;
+    // xorshift32, seeded from the object's number.
+    uint32_t state = o.handle ^ 0x9e3779b9u;
+    if (!state)
+        state = 1;
+    auto next = [&state] {
+        state ^= state << 13;
+        state ^= state >> 17;
+        state ^= state << 5;
+        return state;
+    };
+    auto unit = [&next] { return float(next() % 10000) / 10000.0f; };
+    const int count = look.minAsteroids + int(next() % uint32_t(look.maxAsteroids - look.minAsteroids + 1));
+    for (int i = 0; i < count; ++i) {
+        const uint32_t which = next() % 8; // master8 isn't loaded by a mission of 155 fields: not used
+        const std::string model = which ? "master" + std::to_string(which) : "master";
+        // Within the radius about the field, on its plane, a little above or below.
+        const float angle = unit() * 6.2831853f;
+        const float r = std::sqrt(unit()) * look.fieldRadius;
+        const float turn = unit() * 6.2831853f;
+        gfx::Mat4 m = gfx::identity();
+        m[0] = std::cos(turn) * look.scale;
+        m[2] = -std::sin(turn) * look.scale;
+        m[5] = look.scale;
+        m[8] = std::sin(turn) * look.scale;
+        m[10] = std::cos(turn) * look.scale;
+        m[12] = o.position[0] + std::cos(angle) * r;
+        m[13] = o.position[1] + (unit() - 0.5f) * look.fieldRadius * 0.2f;
+        m[14] = o.position[2] + std::sin(angle) * r;
+        out.push_back({model, m});
+    }
+    return out;
 }
 
 gfx::Mat4 MapPage::placeOf(const BznMap::Object &o, float scale) {
@@ -86,10 +128,11 @@ void MapPage::deactivate() {
 
 void MapPage::handleKey(uint32_t key) {
     const size_t before = _current;
-    // W/A/S/D move over the map along the way the camera faces.
+    // W/A/S/D move over the map along the way the camera faces, in the
+    // game's coordinates: forward (-sin, cos) and right (cos, sin) in x, z.
     const float step = _distance * kStep;
-    const float fx = -std::sin(_yaw);
-    const float fz = -std::cos(_yaw);
+    const float sy = std::sin(_yaw);
+    const float cy = std::cos(_yaw);
     switch (key) {
     case key::kLeft:
         _current = stepIndex(_current, -1, _names.size());
@@ -117,16 +160,21 @@ void MapPage::handleKey(uint32_t key) {
         _distance = std::min(40000.0f, _distance * 1.25f);
         break;
     case 'w':
-        _target[0] += fx * step, _target[2] += fz * step;
+        _target[0] -= sy * step, _target[2] += cy * step;
         break;
     case 's':
-        _target[0] -= fx * step, _target[2] -= fz * step;
+        _target[0] += sy * step, _target[2] -= cy * step;
         break;
     case 'a':
-        _target[0] += fz * step, _target[2] -= fx * step;
+        _target[0] -= cy * step, _target[2] -= sy * step;
         break;
     case 'd':
-        _target[0] -= fz * step, _target[2] += fx * step;
+        _target[0] += cy * step, _target[2] += sy * step;
+        break;
+    case 't': // from straight above, x to the right and z up the screen, as the map's picture
+        _yaw = 0;
+        _pitch = 1.5f;
+        _turning = false;
         break;
     case 'n':
         for (size_t i = 1; i <= _map.objects.size(); ++i) {
@@ -166,6 +214,7 @@ void MapPage::load() {
     _placed.clear();
     _background = nullptr;
     _unmodelled = 0;
+    _drawn = 0;
     _effects = 0;
     _focus = SIZE_MAX;
     _error.clear();
@@ -179,6 +228,12 @@ void MapPage::load() {
         auto look = _looks.find(key);
         if (look == _looks.end())
             look = _looks.emplace(key, lookOf(o.odf, _files.files())).first;
+        const size_t before = _placed.size();
+        for (const auto &[model, place] : asteroidsOf(o, look->second))
+            if (const SodMeshes::Built *built = _meshes.model(model))
+                _placed.push_back({built, place});
+        if (_placed.size() > before)
+            ++_drawn;
         if (look->second.model.empty())
             continue;
         const SodMeshes::Built *built = _meshes.model(look->second.model);
@@ -186,17 +241,18 @@ void MapPage::load() {
             ++_unmodelled;
             continue;
         }
-        if (built->parts.empty()) {
+        if (built->parts.empty() && built->sprites.empty()) {
             ++_effects;
             continue;
         }
-        _placed.push_back({&built->parts, placeOf(o, look->second.scale)});
+        _placed.push_back({built, placeOf(o, look->second.scale)});
+        ++_drawn;
     }
     std::string background = _map.background;
     if (text::hasSuffixIgnoreCase(background, ".sod"))
         background.resize(background.size() - 4);
     _background = background.empty() ? nullptr : _meshes.model(background);
-    if (_background && _background->parts.empty())
+    if (_background && _background->parts.empty() && _background->sprites.empty())
         _background = nullptr;
     // From above the area's middle, far enough to see it whole.
     _target = {(_map.area[0] + _map.area[1]) / 2, 0, (_map.area[4] + _map.area[5]) / 2};
@@ -206,19 +262,27 @@ void MapPage::load() {
 void MapPage::draw() {
     if (!_renderer)
         return;
+    // The camera orbits in the renderer's space, the game's with z
+    // reversed (SodMeshes::mirrorZ); what it draws is in the game's.
     const gfx::Vec3 offset{std::cos(_pitch) * std::sin(_yaw), std::sin(_pitch), std::cos(_pitch) * std::cos(_yaw)};
-    const gfx::Vec3 eye{_target[0] + offset[0] * _distance, _target[1] + offset[1] * _distance,
-                        _target[2] + offset[2] * _distance};
-    const gfx::Mat4 viewProj = gfx::multiply(
-        gfx::perspective(kFieldOfView, float(_screen.w) / float(_screen.h), _distance * 0.02f, _distance * 4 + 20000),
-        gfx::lookAlong(eye, {-offset[0], -offset[1], -offset[2]}, {0, 1, 0}));
+    const gfx::Vec3 eyeView{_target[0] + offset[0] * _distance, _target[1] + offset[1] * _distance,
+                            -_target[2] + offset[2] * _distance};
+    const gfx::Vec3 eye{eyeView[0], eyeView[1], -eyeView[2]};
+    const gfx::Mat4 viewProj =
+        gfx::multiply(gfx::multiply(gfx::perspective(kFieldOfView, float(_screen.w) / float(_screen.h),
+                                                     _distance * 0.02f, _distance * 4 + 20000),
+                                    gfx::lookAlong(eyeView, {-offset[0], -offset[1], -offset[2]}, {0, 1, 0})),
+                      SodMeshes::mirrorZ());
     _renderer->beginFrame(viewProj, eye, kClear);
+    _meshes.setView({std::cos(_yaw), 0, std::sin(_yaw)},
+                    {-std::sin(_pitch) * std::sin(_yaw), std::cos(_pitch), std::sin(_pitch) * std::cos(_yaw)},
+                    double(_lastMillis) / 1000);
     // The background round the eye, behind everything: how the game
     // places it isn't known.
     if (_background) {
         gfx::Mat4 at = gfx::identity();
         at[12] = eye[0], at[13] = eye[1], at[14] = eye[2];
-        _meshes.draw(_background->parts, at, true);
+        _meshes.draw(*_background, at, true);
     }
     _meshes.draw(_placed);
 
@@ -227,8 +291,8 @@ void MapPage::draw() {
     if (!_error.empty())
         line += "not read: " + _error;
     else
-        line += text::format("\"%s\", %zu objects, %zu drawn, %zu effects (not drawn), %zu models not found",
-                             _map.description.c_str(), _map.objects.size(), _placed.size(), _effects, _unmodelled);
+        line += text::format("\"%s\", %zu objects, %zu drawn, %zu emitters only (not drawn), %zu models not found",
+                             _map.description.c_str(), _map.objects.size(), _drawn, _effects, _unmodelled);
     drawStatus(_overlay, line);
     _renderer->endFrame(&_overlay);
     _sys.setWindowTitle("Reluva viewer - Maps - " + line);

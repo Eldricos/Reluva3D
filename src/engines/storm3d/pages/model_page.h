@@ -71,7 +71,7 @@ private:
     gfx::Renderer3D *_renderer = nullptr;
     Surface _overlay;
     SodMeshes _meshes;
-    std::vector<SodMeshes::Part> _parts;
+    SodMeshes::Built _built;
     SodModel _model;
     std::string _error;
     std::vector<int> _levels;

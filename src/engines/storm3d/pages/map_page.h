@@ -21,6 +21,7 @@ namespace reluva::storm3d {
  *   Left/Right: previous/next map   Home/End: first/last
  *   Up/Down: tilt   +/-: nearer/further   W/A/S/D: move over the map
  *   N: to the next object on a team (a ship or station), close up
+ *   T: from straight above, as the map's picture (`bzn/<map>.bmp`) shows it
  *   Space: turning on/off
  */
 class MapPage : public Page {
@@ -41,6 +42,11 @@ public:
     struct Look {
         std::string model; // empty: none (dont_load_SOD, or no definition)
         float scale = 1;
+        // An asteroid field's (classLabel "asteroidfield"): how many
+        // asteroids, and within what radius.
+        int minAsteroids = 0;
+        int maxAsteroids = 0;
+        float fieldRadius = 0;
     };
     /**
      * The model a definition is drawn with: the definition's own name
@@ -49,6 +55,13 @@ public:
     static Look lookOf(const std::string &odf, const SearchSet &files);
     /** An object's place: its transform, scaled about its position. */
     static gfx::Mat4 placeOf(const BznMap::Object &o, float scale);
+    /**
+     * An asteroid field's asteroids: models `master` to `master7`, as many
+     * as its definition says, scattered within its radius about it, each
+     * turned and scaled. The game's own choice isn't known: this one is
+     * made from the object's number, so a map looks the same each time.
+     */
+    static std::vector<std::pair<std::string, gfx::Mat4>> asteroidsOf(const BznMap::Object &o, const Look &look);
 
 private:
     void load();
@@ -68,10 +81,11 @@ private:
     std::string _error;
     std::map<std::string, Look> _looks; // by lower-case definition
     // What's drawn: each object's model and place; the background's.
-    std::vector<std::pair<const std::vector<SodMeshes::Part> *, gfx::Mat4>> _placed;
+    std::vector<std::pair<const SodMeshes::Built *, gfx::Mat4>> _placed;
     const SodMeshes::Built *_background = nullptr;
+    size_t _drawn = 0;      // objects drawn (an asteroid field's asteroids count as one)
     size_t _unmodelled = 0; // objects whose model isn't there
-    size_t _effects = 0;    // objects whose model has no meshes, only emitters (not drawn yet)
+    size_t _effects = 0;    // objects whose model has nothing drawn: only emitters (not drawn yet)
     gfx::Vec3 _target{};
     float _distance = 1;
     float _yaw = 0.6f;

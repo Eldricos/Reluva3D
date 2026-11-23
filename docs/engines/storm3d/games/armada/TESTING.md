@@ -65,7 +65,8 @@ decode, and last as long as they should.
 4. The Maps page: each map's ships, stations and planets where the map
    places them, over its starfield; N goes from ship to ship. In
    "Premonitions" (`bzn/fed1.bzn`), the Enterprise between two Akira
-   class ships.
+   class ships. T from above: the map as its picture (`bzn/<map>.bmp`)
+   shows it, nebulae and asteroid fields where its colours are.
 
 ## Last checked
 
@@ -81,3 +82,4 @@ decode, and last as long as they should.
 | November 2026 | English retail 1.0, its disc's `.mds` | Linux | The original with the CD (`-cd`, `-toc`): "Track verification successful.", then "Premonitions", the mission first on the Federation's panel (its map `bzn\fed1.bzn`), 90 seconds of its clock without a stop, its 3D scene looked at as a PNG |
 | November 2026 | English retail 1.0 | Linux, Mesa's software Vulkan under Xvfb | All 273 models read whole (`sod-check`); the Models page in `reluva-viewer`: a Borg starbase, a Federation and a Klingon battleship, the Kahless sword at both its levels, and a 1.2 model |
 | November 2026 | English retail 1.0 | Linux | All 49 maps read whole (`bzn-check`: 17,586 objects, 1,238 paths); the Maps page with `viewer-shot`: "Blue Passages" from above, and "Premonitions"' starting fleet up close; the Models page's Borg starbase again, through the shared drawing |
+| November 2026 | English retail 1.0 | Linux | All 183 sprite nodes read (`spr-check`); the Maps page from above (T) set beside the maps' pictures for "Blue Passages" and "The Very First Map": nebulae, asteroid fields and the central ring where the pictures have them, the way round they are |

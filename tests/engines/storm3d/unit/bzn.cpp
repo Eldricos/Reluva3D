@@ -6,6 +6,7 @@
 #include "common/archive.h"
 #include "engines/storm3d/formats/bzn.h"
 #include "engines/storm3d/pages/map_page.h"
+#include "engines/storm3d/pages/sod_meshes.h"
 
 #include "tests/support/test.h"
 
@@ -19,6 +20,8 @@
 using namespace reluva;
 using reluva::storm3d::BznMap;
 using reluva::storm3d::MapPage;
+using reluva::storm3d::SodMeshes;
+using reluva::storm3d::SpriteTable;
 
 namespace {
 
@@ -147,6 +150,9 @@ void testPlacing(const std::filesystem::path &tmp) {
     std::filesystem::create_directories(tmp);
     std::ofstream(tmp / "big.odf") << "[GameObjectClass]\r\nscaleSOD = 2.0\r\n";
     std::ofstream(tmp / "field.odf") << "[GameObjectClass]\r\ndont_load_SOD = 1\r\nscaleSOD = 1.5\r\n";
+    std::ofstream(tmp / "afield.odf") << "[GameObjectClass]\r\nclassLabel = \"asteroidfield\"\r\n"
+                                         "minAsteroids = 10\r\nmaxAsteroids = 15\r\nfieldRadius = 100\r\n"
+                                         "dont_load_SOD = 1\r\nscaleSOD = 1.5\r\n";
     SearchSet files;
     auto folder = std::make_unique<DirectoryArchive>();
     CHECK(!folder->open(tmp, 0));
@@ -162,6 +168,44 @@ void testPlacing(const std::filesystem::path &tmp) {
     o.transform = {0, 0, -1, 0, 1, 0, 1, 0, 0, 100, 0, 50};
     const gfx::Vec3 p = gfx::transformPoint(MapPage::placeOf(o, 2), {1, 0, 0});
     CHECK(std::fabs(p[0] - 100) < 1e-4f && std::fabs(p[2] - 48) < 1e-4f);
+
+    // An asteroid field: its asteroids within its radius, as many as it
+    // says, of the eight models; the same each time for the same object.
+    const MapPage::Look field = MapPage::lookOf("afield", files);
+    CHECK(field.model.empty() && field.minAsteroids == 10 && field.maxAsteroids == 15 && field.fieldRadius == 100);
+    o.handle = 0x80012345;
+    o.position = {1000, 38.5f, 2000};
+    const auto rocks = MapPage::asteroidsOf(o, field);
+    CHECK(rocks.size() >= 10 && rocks.size() <= 15);
+    for (const auto &[model, m] : rocks) {
+        CHECK(model == "master" ||
+              (model.size() == 7 && model.rfind("master", 0) == 0 && model[6] >= '1' && model[6] <= '7'));
+        const float dx = m[12] - 1000;
+        const float dz = m[14] - 2000;
+        CHECK(dx * dx + dz * dz <= 100.0f * 100.0f + 1e-2f);
+        CHECK(std::fabs(std::sqrt(m[0] * m[0] + m[1] * m[1] + m[2] * m[2]) - 1.5f) < 1e-4f);
+    }
+    CHECK(MapPage::asteroidsOf(o, field) == rocks);
+    CHECK(MapPage::asteroidsOf(o, big).empty());
+}
+
+// A sprite's colour over its animation: linear between keyframes, held by
+// a step one, and looping over its length.
+void testColours() {
+    SpriteTable::Animation a;
+    a.kind = "colour";
+    a.duration = 10;
+    a.interpolation = "linear";
+    a.keyframes = {{0, 0, 0, 0}, {2, 0.6, 0, 1}, {8, 0.6, 0, 1}, {9.5, 0, 0, 0}};
+    auto near = [](std::array<float, 3> c, float r, float g, float b) {
+        return std::fabs(c[0] - r) < 1e-4f && std::fabs(c[1] - g) < 1e-4f && std::fabs(c[2] - b) < 1e-4f;
+    };
+    CHECK(near(SodMeshes::colourAt(a, 1), 0.3f, 0, 0.5f));
+    CHECK(near(SodMeshes::colourAt(a, 5), 0.6f, 0, 1));
+    CHECK(near(SodMeshes::colourAt(a, 11), 0.3f, 0, 0.5f)); // round again
+    CHECK(near(SodMeshes::colourAt(a, 9.8), 0, 0, 0));      // past the last keyframe
+    a.interpolation = "step";
+    CHECK(near(SodMeshes::colourAt(a, 1), 0, 0, 0));
 }
 
 } // namespace
@@ -171,4 +215,5 @@ static const reluva::test::Suite
                                    {"parse", [](const std::filesystem::path &) { testParse(); }},
                                    {"broken", [](const std::filesystem::path &) { testBroken(); }},
                                    {"placing", [](const std::filesystem::path &tmp) { testPlacing(tmp / "placing"); }},
+                                   {"colours", [](const std::filesystem::path &) { testColours(); }},
                                });

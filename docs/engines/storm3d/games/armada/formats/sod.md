@@ -123,6 +123,11 @@ translation in its last row *(inferred)*), and its mesh's name.
 - **Levels of detail.** The nodes named `lod<n>` hold the levels: in all
   83 models that have them, the higher the number, the more vertices.
 - **Faces' winding,** which side faces out, isn't known yet.
+- **Handedness.** The coordinates are left-handed, as Direct3D's are:
+  seen from above with x to the right, z runs up. The maps settle it:
+  their pictures and start positions put z up
+  ([bzn.md](bzn.md#start-positions-mdf)), and drawn right-handed every
+  map comes out mirrored against its picture.
 
 ## In Reluva
 
@@ -135,8 +140,11 @@ its mesh hasn't.
   shared with the Maps page) draws each model turning, its
   most detailed level, with its textures and the lighting materials'
   diffuse colours, lit from one direction; `additive` and `wormhole`
-  meshes are added over the rest. Both sides of every face are drawn,
-  while the winding isn't known. Sprite nodes and emitters aren't drawn.
+  meshes are added over the rest, then the sprite nodes' sprites
+  ([spr.md](spr.md#emitters-and-sprite-nodes)), additive, in their
+  animation's colour as it changes. Both sides of every face are drawn,
+  while the winding isn't known. z is reversed for the renderer, which
+  is right-handed, so a model isn't mirrored. Emitters aren't drawn.
 - `reluva-tool storm3d sod <game folder> <name.sod>`: a model's
   materials, nodes, meshes and animations.
 - `reluva-tool storm3d sod-check <game folder>`: reads every model whole.

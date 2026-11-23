@@ -61,8 +61,11 @@ these phases start from, is in [formats/install.md](formats/install.md).
    around, checked against the original in the emulator. Done: the maps
    read, their settings, objects and paths
    ([formats/bzn.md](formats/bzn.md)), and the viewer's Maps page placing
-   each object's model over the background. Next: the nebulae and other
-   emitters, the camera, and the scene set beside the original's.
+   each object's model over the background, with the sprites the nebulae
+   are made of and the asteroid fields, the way round the maps' pictures
+   show them (the game's coordinates are left-handed). Next: the
+   emitters, the planets' and suns' look, the camera, and the scene set
+   beside the original's.
 6. **The front end:** the shell's screens, the opening movie, game setup,
    options, loading and saving.
 7. **Rules:** units from their object definitions: movement and
