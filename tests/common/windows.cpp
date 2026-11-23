@@ -1054,6 +1054,13 @@ static void testInput() {
             return {0, 0, 0, 0};
         return {cpu.read32(msg), cpu.read32(msg + 4), cpu.read32(msg + 8), cpu.read32(msg + 12)};
     };
+    // Reluva's keys as Windows' virtual keys and scan codes: the keypad's
+    // too, its / an extended key.
+    uint32_t vk = 0;
+    uint32_t scan = 0;
+    CHECK(x86::windowsKey(key::kKpPlus, vk, scan) && vk == 0x6b && scan == 0x4e);
+    CHECK(x86::windowsKey(key::kKpDivide, vk, scan) && vk == 0x6f && scan == 0x135);
+    CHECK(x86::windowsKey(key::kKp0 + 5, vk, scan) && vk == 0x65 && scan == 0x4c);
     process.mouseMoveTo(130, 70);
     CHECK((next() == std::array<uint32_t, 4>{hwnd, 0x200, 0, 30 | 20u << 16}));
     process.mouseButton(0, true);
