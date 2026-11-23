@@ -84,8 +84,6 @@ private:
     std::string _prompt;
     std::vector<uint8_t> _movieData; // kept to start it again
     std::unique_ptr<video::MoviePlayer> _movie;
-    std::shared_ptr<audio::Sound> _music;
-    audio::SoundHandle _musicHandle = audio::kNoSound;
     std::shared_ptr<audio::Sound> _spaceSound;
     audio::SoundHandle _voice = audio::kNoSound;
     bool _hadVoice = false;

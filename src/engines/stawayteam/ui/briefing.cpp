@@ -92,22 +92,11 @@ BriefingScreen::BriefingScreen(const Archive &data, const std::filesystem::path 
         std::ifstream in(*file, std::ios::binary);
         _movieData.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
     }
-    // The mission's briefing music, over and over (inferred).
-    std::vector<uint8_t> bytes;
-    auto music = std::make_shared<audio::Sound>();
-    if (!_mission.briefingMusic.empty() && !data.read("Music/" + _mission.briefingMusic, bytes) &&
-        !audio::decodeSound(bytes, *music)) {
-        _music = std::move(music);
-        if (_mixer)
-            _musicHandle = _mixer->play(_music, audio::SoundType::kMusic, audio::kMaxVolume, 0, true);
-    }
     replay(now);
 }
 
 BriefingScreen::~BriefingScreen() {
     stopSounds();
-    if (_mixer && _musicHandle != audio::kNoSound)
-        _mixer->stop(_musicHandle);
 }
 
 void BriefingScreen::stopSounds() {

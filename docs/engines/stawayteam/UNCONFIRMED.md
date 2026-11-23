@@ -101,9 +101,6 @@ None now.
 - **Parts' processes:** the one chosen for an officer, and their walking
   into range first
   ([systems/maps.md](systems/maps.md#open-questions)).
-- **The briefing:** the briefing music played over and over and the
-  menu's song stopped meanwhile
-  ([systems/briefing.md](systems/briefing.md#open-questions)).
 - **The team selection:** the attributes out of 100, the inventory's
   empty columns and lit items, Esc closing an item's description, a
   message's time in seconds, the figures' time from the game's start,

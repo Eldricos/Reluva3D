@@ -430,6 +430,11 @@ void MainMenu::playMissionMusic() {
     // the maps are left.
     if (!_mixer)
         return;
+    const bool briefed = _briefing || _teamSelection;
+    if (_briefingSong != audio::kNoSound && (_mapScreen || !briefed)) {
+        _mixer->stop(_briefingSong);
+        _briefingSong = audio::kNoSound;
+    }
     if (!_mapScreen) {
         if (_missionSong != audio::kNoSound)
             _mixer->stop(_missionSong);
@@ -531,6 +536,18 @@ void MainMenu::beginMission(int number) {
         if (std::find(_campaign.discovered.begin(), _campaign.discovered.end(), name) == _campaign.discovered.end())
             _campaign.discovered.push_back(name);
     _campaign.toDescribe.clear();
+    // The mission's Briefing Music starts as it begins, with or without a
+    // briefing to show (0x5c3104); as it ends it plays again, there being
+    // no other song (0x5bcbeb), until the maps' songs.
+    std::vector<uint8_t> bytes;
+    auto music = std::make_shared<audio::Sound>();
+    if (_mixer && !_mission.briefingMusic.empty() && !_data.read("Music/" + _mission.briefingMusic, bytes) &&
+        !audio::decodeSound(bytes, *music)) {
+        if (_briefingSong != audio::kNoSound)
+            _mixer->stop(_briefingSong);
+        _briefingMusic = std::move(music);
+        _briefingSong = _mixer->play(_briefingMusic, audio::SoundType::kMusic, audio::kMaxVolume, 0, true);
+    }
     if (_mission.showBriefing)
         _briefing =
             std::make_unique<BriefingScreen>(_data, _install, _rules, _mission, _options, _mixer, _sys.getMillis());

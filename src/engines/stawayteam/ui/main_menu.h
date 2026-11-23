@@ -156,6 +156,8 @@ private:
     std::unique_ptr<DebriefingScreen> _debriefing;
     std::shared_ptr<audio::Sound> _missionMusic;
     audio::SoundHandle _missionSong = audio::kNoSound;
+    std::shared_ptr<audio::Sound> _briefingMusic;
+    audio::SoundHandle _briefingSong = audio::kNoSound;
     int _songsPlayed = 0;
     unsigned _songRandom = 1;
     // The mission's Random Songs shuffled, and the next of them to play.

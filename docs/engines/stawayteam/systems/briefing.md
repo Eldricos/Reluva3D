@@ -23,7 +23,13 @@ The mission's `.MDS` (a `CMissionDescription`) gives:
 - **`Briefing Movie`**, of the install's `DATA/Movies` ("Mission 02/Mission
   02 Final.bik"; 15 missions have `Generic/Starfield.bik`), and **`Loop
   movie`** (1 for 14 of them).
-- **`Briefing Music`**, of `Music/` (`Briefing.ogg` for all).
+- **`Briefing Music`**, of `Music/` (`Briefing.ogg` for all). It
+  starts as the mission begins, once its starting movie is over, faded
+  in over a tenth of a second, whether or not there's a briefing to show
+  (`0x5c3104`; Mission 13 has none, so it plays over its team
+  selection); with no other song to follow, it plays again as it ends
+  (`0x5bcbeb`), until the maps' Primary Song takes over. The
+  debriefing's `Debriefing Music` starts the same way (`0x5c2b6e`).
 - **`Script`**, a `CBriefingScript` of `CBriefingScriptLine`s, each
   with `Script` (a script of `Levels/`: `Mission 02/Mission 02` is
   `Levels/Mission 02/Mission 02.RDS`), `Text` (the entry's label),
@@ -109,7 +115,9 @@ briefing ([objectives.md](objectives.md#the-score)) are lines after its
 own, each said by who found it, and are had from then; while they play
 the movie goes on *(inferred)*. Not there yet: the scroll bar (the mouse wheel scrolls instead), the random numbers, the
 fade, and a movie's delay. The main menu's song stops while the game's
-screens show, and the briefing music plays over and over.
+screens show; `MainMenu` starts the briefing music as the mission
+begins and plays it over and over, without the fade, until the maps
+start or the menu comes back.
 
 ## Sources and checks
 
@@ -128,6 +136,4 @@ screens show, and the briefing music plays over and over.
 
 ## Open questions
 
-- **The briefing music:** where the program plays it isn't traced;
-  Reluva plays it over and over while the screen shows.
 - **The scroll bar's layout** (`0x4e81c0`).
