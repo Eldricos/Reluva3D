@@ -274,26 +274,26 @@ void Win32Process::addLocaleStandIns() {
 
     // Time: SYSTEMTIME is 8 WORDs (year, month, day of the week, day, hour,
     // minute, second, milliseconds); FILETIME counts 100 ns from 1601, UTC.
-    stdcall(k, "GetLocalTime", 1, [](Cpu &c) {
-        writeSystemTime(c, c.arg(0), toTm(std::time(nullptr), true), 0);
+    stdcall(k, "GetLocalTime", 1, [this](Cpu &c) {
+        writeSystemTime(c, c.arg(0), dateTimeNow(true), 0);
         return 0u;
     });
-    stdcall(k, "GetSystemTime", 1, [](Cpu &c) {
-        writeSystemTime(c, c.arg(0), toTm(std::time(nullptr), false), 0);
+    stdcall(k, "GetSystemTime", 1, [this](Cpu &c) {
+        writeSystemTime(c, c.arg(0), dateTimeNow(false), 0);
         return 0u;
     });
     // TIME_ZONE_INFORMATION: its Bias, the rest zero (no names, no
     // daylight-saving dates): TIME_ZONE_ID_UNKNOWN.
-    stdcall(k, "GetTimeZoneInformation", 1, [](Cpu &c) {
+    stdcall(k, "GetTimeZoneInformation", 1, [this](Cpu &c) {
         if (!c.valid(c.arg(0), 172))
             return 0xffffffffu;
         std::memset(c.memory().data() + c.arg(0), 0, 172);
-        c.write32(c.arg(0), uint32_t(biasMinutes()));
+        c.write32(c.arg(0), uint32_t(timeZoneBias()));
         return 0u;
     });
-    stdcall(k, "FileTimeToLocalFileTime", 2, [](Cpu &c) {
+    stdcall(k, "FileTimeToLocalFileTime", 2, [this](Cpu &c) {
         uint64_t t = uint64_t(c.read32(c.arg(0))) | uint64_t(c.read32(c.arg(0) + 4)) << 32;
-        t -= int64_t(biasMinutes()) * 600000000ll;
+        t -= int64_t(timeZoneBias()) * 600000000ll;
         c.write32(c.arg(1), uint32_t(t));
         c.write32(c.arg(1) + 4, uint32_t(t >> 32));
         return 1u;
@@ -411,6 +411,18 @@ void Win32Process::addLocaleStandIns() {
         c.write32(c.arg(3), node.valueLength);
         return 1u;
     });
+}
+
+std::tm Win32Process::dateTimeNow(bool local) const {
+    return toTm(std::time_t(dateTimeSeconds()), local && !dateTime);
+}
+
+int64_t Win32Process::dateTimeSeconds() const {
+    return dateTime ? dateTime() : int64_t(std::time(nullptr));
+}
+
+int32_t Win32Process::timeZoneBias() const {
+    return dateTime ? 0 : biasMinutes();
 }
 
 } // namespace reluva::x86

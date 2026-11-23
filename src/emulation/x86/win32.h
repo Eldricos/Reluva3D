@@ -12,6 +12,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdio>
+#include <ctime>
 #include <filesystem>
 #include <functional>
 #include <map>
@@ -217,6 +218,18 @@ public:
     std::function<void(const std::string &text)> output;
     // Milliseconds for timeGetTime and GetTickCount (default: since start).
     std::function<uint32_t()> milliseconds;
+    /**
+     * The date and time the program is given, in seconds since 1970 (UTC);
+     * the system's clock and time zone if unset. Set, its local time is
+     * UTC too, so a run is the same in any time zone.
+     */
+    std::function<int64_t()> dateTime;
+    /** The date and time now, by dateTime or the system's clock: universal, or local. */
+    std::tm dateTimeNow(bool local) const;
+    /** Seconds since 1970 (UTC) now, by dateTime or the system's clock. */
+    int64_t dateTimeSeconds() const;
+    /** The minutes local time is behind UTC (TIME_ZONE_INFORMATION's Bias): 0 with dateTime set. */
+    int32_t timeZoneBias() const;
     /**
      * The milliseconds the main thread has asked to Sleep, in all. It
      * doesn't wait (the other threads run meanwhile, and it goes on), so a
@@ -557,6 +570,7 @@ public:
             int pos = 0;
         };
         std::array<ScrollBar, 2> scroll{}; // SB_HORZ's, SB_VERT's
+        std::array<int, 4> restored{};     // its place before its caption's button maximized it
     };
     /** The window with that handle, or null. */
     const Window *window(uint32_t handle) const;
@@ -572,6 +586,19 @@ public:
      * @param bar 0 the horizontal one, 1 the vertical.
      */
     std::optional<std::array<int, 4>> scrollBarArea(uint32_t handle, int bar) const;
+    /**
+     * A captioned window's caption bar on the screen, inside its border:
+     * left, top, width, height (a pixel short of the caption, which ends in
+     * the face's colour). Nothing for a window without a caption.
+     */
+    std::optional<std::array<int, 4>> captionArea(uint32_t handle) const;
+    /**
+     * One of a caption's buttons on the screen, at its right, when the
+     * window has it: with a system menu (WS_SYSMENU) close, and with
+     * WS_MINIMIZEBOX or WS_MAXIMIZEBOX both the others.
+     * @param button 0 close, 1 maximize (or restore), 2 minimize.
+     */
+    std::optional<std::array<int, 4>> captionButtonArea(uint32_t handle, int button) const;
     /**
      * Where a scroll bar's thumb starts, from the bar's own start (past
      * its arrow), as its position puts it; -1 if there's no room for one

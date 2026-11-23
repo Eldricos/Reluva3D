@@ -13,6 +13,7 @@ add_library(reluva_graphics STATIC
     gfx3d.cpp
     gpu_compute.cpp
     palette.cpp
+    system_fonts.cpp
     truetype.cpp
     truetype_hinting.cpp
     glide/antialias.cpp

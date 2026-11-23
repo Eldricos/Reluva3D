@@ -1185,6 +1185,71 @@ static void testPointer(const std::filesystem::path &tmp) {
     CHECK(*process.pointer() == arrow);
 }
 
+// A captioned window's frame as Windows 98 paints it, and its caption's
+// buttons: found by the hit-test, maximize and restore, and close.
+static void testCaption() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    process.screenWidth = 400, process.screenHeight = 300;
+    auto fn = [&](const char *name) { return process.provided("USER32.dll", name); };
+    auto text = [&](const std::string &s) {
+        const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
+        cpu.writeString(a, s, uint32_t(s.size() + 1));
+        return a;
+    };
+    uint32_t r = 0;
+    x86::Gdi::Target screen;
+    screen.width = 400, screen.height = 300, screen.bits = 32, screen.pitch = 1600;
+    screen.memory = process.memory().alloc(1600 * 300);
+    process.gdi().screen = [screen] { return screen; };
+    auto pixel = [&](int x, int y) { return cpu.read32(screen.memory + uint32_t(y * 1600 + x * 4)) & 0xffffff; };
+    // Its procedure leaves everything to DefWindowProcA.
+    const uint32_t wc = process.memory().alloc(40);
+    cpu.write32(wc + 4, process.provided("USER32.dll", "DefWindowProcA"));
+    cpu.write32(wc + 36, text("Framed"));
+    CHECK(!cpu.call(fn("RegisterClassA"), {wc}, r) && r != 0);
+    // WS_OVERLAPPEDWINDOW | WS_VISIBLE at 20, 10, 200 by 120: a sizing
+    // border of 4, the bar from 24, 14, 192 by 18.
+    CHECK(!cpu.call(fn("CreateWindowExA"),
+                    {0, text("Framed"), text("Title"), 0x10cf0000u, 20, 10, 200, 120, 0, 0, 0, 0}, r) &&
+          r);
+    const uint32_t hwnd = r;
+    CHECK((process.captionArea(hwnd) == std::array<int, 4>{24, 14, 192, 18}));
+    CHECK((process.captionButtonArea(hwnd, 0) == std::array<int, 4>{198, 16, 16, 14}));
+    CHECK((process.captionButtonArea(hwnd, 1) == std::array<int, 4>{180, 16, 16, 14}));
+    CHECK((process.captionButtonArea(hwnd, 2) == std::array<int, 4>{164, 16, 16, 14}));
+    // Painted: the border raised, the bar navy at its left, the title in
+    // white, the close button's face.
+    CHECK(pixel(20, 10) == 0xc0c0c0 && pixel(21, 11) == 0xffffff && pixel(219, 129) == 0 &&
+          pixel(218, 128) == 0x808080);
+    CHECK(pixel(24, 20) == 0x000080 && pixel(208, 18) == 0xc0c0c0);
+    bool title = false;
+    for (int x = 26; x < 60; ++x)
+        for (int y = 15; y < 31; ++y)
+            title = title || pixel(x, y) == 0xffffff;
+    CHECK(title);
+    auto hit = [&](int x, int y) {
+        CHECK(!cpu.call(fn("DefWindowProcA"), {hwnd, 0x84, 0, uint32_t(x) | uint32_t(y) << 16}, r));
+        return r;
+    };
+    CHECK(hit(205, 22) == 20 && hit(185, 22) == 9 && hit(170, 22) == 8 && hit(100, 22) == 2);
+    // A press on a button posts its command, which DefWindowProcA carries out.
+    const uint32_t msg = process.memory().alloc(28);
+    auto press = [&](uint32_t where) {
+        CHECK(!cpu.call(fn("DefWindowProcA"), {hwnd, 0xa1, where, 0}, r));
+        while (!cpu.call(fn("PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r)
+            CHECK(!cpu.call(fn("DispatchMessageA"), {msg}, r));
+    };
+    press(9); // maximize: the screen filled, its frame beyond it
+    CHECK((process.windowArea(hwnd) == std::array<int, 4>{-4, -23, 408, 327}));
+    press(9); // restore
+    CHECK((process.windowArea(hwnd) == std::array<int, 4>{20, 10, 200, 120}));
+    press(8); // minimize: nothing to minimize to
+    CHECK((process.windowArea(hwnd) == std::array<int, 4>{20, 10, 200, 120}));
+    press(20); // close
+    CHECK(!process.window(hwnd));
+}
+
 static void testA3d() {
     x86::Cpu cpu(32u << 20);
     x86::Win32Process process(cpu);
@@ -1361,6 +1426,7 @@ static const test::Suite
                {"scroll bars", [](const std::filesystem::path &) { testScrollBars(); }},
                {"edit control", [](const std::filesystem::path &) { testEditControl(); }},
                {"pointer", [](const std::filesystem::path &tmp) { testPointer(tmp / "pointer"); }},
+               {"caption", [](const std::filesystem::path &) { testCaption(); }},
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
            });

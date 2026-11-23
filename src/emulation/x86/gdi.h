@@ -28,8 +28,9 @@ class Win32Process;
  * contexts drawing into pixels in the program's memory (a bitmap's, a
  * DirectDraw surface's, the screen's); filling, lines, ellipses, pixels,
  * stretched copies and text. Windows' fonts aren't Reluva's to have: text
- * in a proportional font is drawn in Liberation Sans, built in, and in a
- * fixed one in Reluva's own small font.
+ * in a proportional font is drawn in the player's own Arial where arial()
+ * finds it, else in Liberation Sans, built in; in a fixed one in Reluva's
+ * own small font.
  */
 class Gdi {
 public:
@@ -68,18 +69,35 @@ public:
     std::function<std::optional<Target>()> screen;
 
     /**
+     * Arial's file, regular or bold, if the player has it
+     * (ttf::installedArial): proportional fonts are then drawn in it, sized
+     * as Windows sizes them. Unset, or empty, Liberation Sans. Set before
+     * any text is drawn.
+     */
+    std::function<std::vector<uint8_t>(bool bold)> arial;
+
+    /** The system colours' schemes (GetSysColor's). */
+    enum class ColourScheme {
+        kWindows98, ///< Windows 98's standard: grey faces, a navy highlight, a teal desktop
+        kWindowsXp, ///< Windows XP's blue: pale faces, a bright blue highlight and caption
+    };
+    /** The scheme the system colours are taken from. */
+    ColourScheme colours = ColourScheme::kWindows98;
+    /** A system colour (COLOR_ index) of the scheme, as a COLORREF; COLOR_3DFACE's for one there isn't. */
+    uint32_t sysColor(int index) const;
+
+    /**
      * The desktop painted, as Windows paints it where windows have gone:
      * the part of `area` (left, top, width, height, on the screen) that no
-     * window shown covers, in the desktop's colour (black). Nothing without
-     * a screen.
+     * window shown covers, in the desktop's colour (COLOR_BACKGROUND).
+     * Nothing without a screen.
      */
     void paintDesktop(const std::array<int, 4> &area);
     /**
-     * A window's frame painted, as DefWindowProc paints it (WM_NCPAINT),
-     * plainly: what lies outside its client area in the face colour (its
-     * borders), its caption in the active caption's colour, without its
-     * title or buttons, and its scroll bars. Nothing for a window without
-     * a frame, or without a screen.
+     * A window's frame painted, as DefWindowProc paints an active window's
+     * (WM_NCPAINT): its borders raised, its caption with its title and
+     * buttons, and its scroll bars; not its icon. Nothing for a window
+     * without a frame, or without a screen.
      * @param clip Only what's within it (left, top, width, height), if given.
      */
     void paintFrame(uint32_t window, const std::optional<std::array<int, 4>> &clip = std::nullopt);
@@ -140,6 +158,7 @@ private:
     void fill(Cpu &c, const Target &t, int left, int top, int right, int bottom, uint32_t colorRef);
     void line(Cpu &c, const Target &t, int x0, int y0, int x1, int y1, uint32_t colorRef);
     void plot(Cpu &c, const Target &t, int x, int y, uint32_t colorRef);
+    void paintCaption(Cpu &c, const Target &t, uint32_t window, const std::optional<std::array<int, 4>> &clip);
     int drawText(Cpu &c, Dc &d, const std::string &text, int left, int top, int right, int bottom, uint32_t format,
                  uint32_t rect);
     // Text in a font: what DrawTextA, TextOutA and the edit control draw with.
@@ -156,6 +175,7 @@ private:
     Win32Process &_process;
     std::map<uint32_t, Object> _objects;
     mutable std::unique_ptr<ttf::Font> _sans[2]; // regular, bold: loaded when first drawn with
+    mutable bool _isArial[2] = {false, false};   // the player's own Arial, not Liberation Sans
     std::map<uint32_t, Dc> _dcs;
     uint32_t _nextObject = 0x5a000100;
     uint32_t _nextDc = 0x5d000100;

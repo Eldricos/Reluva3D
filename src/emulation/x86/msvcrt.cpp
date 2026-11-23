@@ -1212,8 +1212,8 @@ void addMsvcrt(Win32Process &process) {
     });
 
     // Time.
-    provideCdecl("time", [](Cpu &c) {
-        const uint32_t now = uint32_t(std::time(nullptr));
+    provideCdecl("time", [s](Cpu &c) {
+        const uint32_t now = uint32_t(s->p.dateTimeSeconds());
         if (c.arg(0))
             c.write32(c.arg(0), now);
         return now;
@@ -1221,9 +1221,10 @@ void addMsvcrt(Win32Process &process) {
     provideCdecl("clock",
                  [s](Cpu &) { return s->p.milliseconds ? s->p.milliseconds() : 0u; }); // CLOCKS_PER_SEC is 1000
     // localtime(time_t*): a struct tm (nine ints) kept here.
+    // A clock of the process's own (Win32Process::dateTime) is local time too.
     provideCdecl("localtime", [s](Cpu &c) -> uint32_t {
         const std::time_t t = std::time_t(c.read32(c.arg(0)));
-        const std::tm *tm = std::localtime(&t);
+        const std::tm *tm = s->p.dateTime ? std::gmtime(&t) : std::localtime(&t);
         if (!tm)
             return 0u;
         const int fields[9] = {tm->tm_sec,  tm->tm_min,  tm->tm_hour, tm->tm_mday, tm->tm_mon,
@@ -1234,7 +1235,7 @@ void addMsvcrt(Win32Process &process) {
     });
     provideCdecl("ctime", [s](Cpu &c) -> uint32_t {
         const std::time_t t = std::time_t(c.read32(c.arg(0)));
-        const std::tm *tm = std::localtime(&t);
+        const std::tm *tm = s->p.dateTime ? std::gmtime(&t) : std::localtime(&t);
         if (!tm)
             return 0u;
         char buf[32];

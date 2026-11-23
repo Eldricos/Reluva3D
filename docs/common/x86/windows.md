@@ -66,7 +66,11 @@ C++ library have pages of their own ([directx.md](directx.md),
   `lstrlenA`, the interlocked counters, `FormatMessageA` ("Error n."),
   `GlobalAlloc` and its kin (a handle is its block), `GetLocalTime`,
   `GetSystemTime`, `GetTimeZoneInformation` (the bias only),
-  `FileTimeToSystemTime` and `FileTimeToLocalFileTime`; ADVAPI32's
+  `FileTimeToSystemTime` and `FileTimeToLocalFileTime`, by the system's
+  clock and time zone, or by a date and time the engine gives
+  (`Win32Process::dateTime`, as MSVCRT's `time`, `localtime` and `ctime`
+  and the date and time formats take it too), local time then UTC, so a
+  run repeats in any time zone; ADVAPI32's
   `GetUserNameA` ("Player"); and VERSION.dll's reading of a file's
   version information (`GetFileVersionInfoA`, `VerQueryValueA`, its
   texts given as ANSI in the block's second half).
@@ -131,7 +135,13 @@ C++ library have pages of their own ([directx.md](directx.md),
     it's due, and a wait for messages (`GetMessageA`,
     `MsgWaitForMultipleObjects`) ends for it;
   - `DefWindowProcA` answers `WM_NCHITTEST` by the window's frame (client
-    area, scroll bars, caption, border, or nowhere) and `WM_SETCURSOR` (a child's
+    area, scroll bars, a caption's buttons, caption, border, or nowhere);
+    a press on a caption's button posts its `WM_SYSCOMMAND` (on the
+    press: Windows waits for the release over it), and `SC_CLOSE`
+    closes the window, `SC_MAXIMIZE` fills the screen (a child its
+    parent) with the window, its place kept, and `SC_RESTORE` puts it
+    back; `SC_MINIMIZE` does nothing, there being no taskbar to bring it
+    back from and `WM_SETCURSOR` (a child's
     parent asked first; on the client area the class's cursor set, if it
     has one, elsewhere the arrow);
   - Windows' pointer: the cursor `SetCursor` sets (the arrow at first),

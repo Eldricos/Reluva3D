@@ -33,14 +33,7 @@ struct SystemTime { // SYSTEMTIME
     int second;
 };
 
-SystemTime now() {
-    const std::time_t t = std::time(nullptr);
-    std::tm tm{};
-#ifdef _WIN32
-    localtime_s(&tm, &t);
-#else
-    localtime_r(&t, &tm);
-#endif
+SystemTime fromTm(const std::tm &tm) {
     return {tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_wday, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec};
 }
 
@@ -267,16 +260,15 @@ void Win32Process::addSystemStandIns() {
         c.writeString(buffer, text, n);
         return n;
     };
-    stdcall(k, "GetDateFormatA", 6, [formatted](Cpu &c) {
-        const SystemTime t =
-            c.arg(2) ? readSystemTime(c, c.arg(2)) : x86::now(); // (not Win32Process::now, the threads' clock)
+    stdcall(k, "GetDateFormatA", 6, [this, formatted](Cpu &c) {
+        const SystemTime t = c.arg(2) ? readSystemTime(c, c.arg(2)) : fromTm(dateTimeNow(true));
         const std::string picture = c.arg(3)         ? c.string(c.arg(3))
                                     : (c.arg(1) & 2) ? "dddd, MMMM dd, yyyy" // DATE_LONGDATE
                                                      : "M/d/yyyy";
         return formatted(c, formatPicture(picture, t));
     });
-    stdcall(k, "GetTimeFormatA", 6, [formatted](Cpu &c) {
-        const SystemTime t = c.arg(2) ? readSystemTime(c, c.arg(2)) : x86::now();
+    stdcall(k, "GetTimeFormatA", 6, [this, formatted](Cpu &c) {
+        const SystemTime t = c.arg(2) ? readSystemTime(c, c.arg(2)) : fromTm(dateTimeNow(true));
         const uint32_t flags = c.arg(1);
         std::string picture;
         if (c.arg(3)) {

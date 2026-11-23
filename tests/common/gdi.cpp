@@ -3,13 +3,15 @@
 
 // The GDI stand-in (src/emulation/x86/gdi.cpp): objects, device contexts
 // on pixels in the program's memory, and drawing into them, called as a
-// program would.
+// program would; frames, the desktop, and how Windows looks.
 //
 //   reluva-tests common.unit.gdi
 
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/gdi.h"
 #include "emulation/x86/win32.h"
+#include "graphics/builtin_fonts.h"
+#include "graphics/system_fonts.h"
 #include "tests/support/test.h"
 
 #include <cstring>
@@ -205,16 +207,57 @@ void testWindowDc(const stdfs::path &tmp) {
     // Clipped to it.
     CHECK(f.user("FillRect", {window, f.rect(7, 5, 20, 20), 6}) == 1 && f.pixel(11, 7) == 0xffff &&
           f.pixel(12, 7) == 0 && f.pixel(11, 8) == 0);
-    // A window with a border (WS_BORDER) shown: its frame painted in the
-    // face colour, (192, 192, 192), its client area left to it.
-    const uint16_t face = (192 >> 3) << 11 | (192 >> 2) << 5 | (192 >> 3);
-    const uint32_t framed = f.user("CreateWindowExA", {0, f.mem + 320, 0, 0x90800000, 16, 8, 12, 6, 0, 0, 0, 0});
-    CHECK(f.pixel(16, 8) == face && f.pixel(27, 13) == face && f.pixel(17, 9) == 0);
-    // Gone, what it covered is the desktop again: black.
-    f.user("FillRect", {screenDc, f.rect(17, 9, 18, 10), 6});
-    CHECK(f.user("DestroyWindow", {framed}) == 1 && f.pixel(16, 8) == 0 && f.pixel(17, 9) == 0);
+    // A window with a dialog frame (WS_DLGFRAME) shown: raised, as
+    // Windows 98 paints it, its client area left to it; one with a border
+    // (WS_BORDER), a black line.
+    auto rgb565 = [](int r, int g, int b) { return uint32_t((r >> 3) << 11 | (g >> 2) << 5 | (b >> 3)); };
+    const uint32_t face = rgb565(192, 192, 192);
+    const uint32_t framed = f.user("CreateWindowExA", {0, f.mem + 320, 0, 0x90400000, 16, 8, 12, 9, 0, 0, 0, 0});
+    CHECK(f.pixel(16, 8) == face && f.pixel(17, 9) == 0xffff && f.pixel(18, 10) == face);
+    CHECK(f.pixel(27, 16) == 0 && f.pixel(26, 15) == rgb565(128, 128, 128) && f.pixel(19, 11) == 0);
+    const uint32_t lined = f.user("CreateWindowExA", {0, f.mem + 320, 0, 0x90800000, 30, 2, 6, 6, 0, 0, 0, 0});
+    f.user("FillRect", {screenDc, f.rect(31, 3, 32, 4), 6});
+    CHECK(f.pixel(30, 2) == 0 && f.pixel(35, 7) == 0 && f.pixel(31, 3) == 0xffff);
+    // Gone, what they covered is the desktop again: Windows 98's teal.
+    f.user("FillRect", {screenDc, f.rect(19, 11, 20, 12), 6});
+    CHECK(f.user("DestroyWindow", {framed}) == 1 && f.pixel(16, 8) == rgb565(0, 128, 128) &&
+          f.pixel(19, 11) == rgb565(0, 128, 128));
+    CHECK(f.user("DestroyWindow", {lined}) == 1 && f.pixel(31, 3) == rgb565(0, 128, 128));
     // The other window's place is left as it is.
     CHECK(f.pixel(4, 2) == 0xffff);
+}
+
+// How Windows looks: the system colours' schemes, the player's own Arial
+// in Liberation Sans's place (sized as Windows sizes it, so wider than
+// Liberation Sans drawn a little small), and finding a font among
+// folders by its file's name.
+void testLook(const stdfs::path &tmp) {
+    {
+        Fixture f(tmp);
+        x86::Gdi &gdi = f.process.gdi();
+        CHECK(gdi.sysColor(13) == 0x800000 && gdi.sysColor(1) == 0x808000); // navy highlight, teal desktop
+        gdi.colours = x86::Gdi::ColourScheme::kWindowsXp;
+        CHECK(gdi.sysColor(13) == 0xc56a31 && gdi.sysColor(15) == 0xd8e9ec && gdi.sysColor(99) == 0xd8e9ec);
+    }
+    auto boldWidth = [&](bool own) {
+        Fixture f(tmp);
+        if (own)
+            f.process.gdi().arial = [](bool bold) { return ttf::liberationSans(bold); };
+        f.cpu.writeString(f.mem + 256, "abc", 4);
+        f.cpu.writeString(f.mem + 300, "Arial", 6);
+        f.gdi("SelectObject", {f.dc, f.gdi("CreateFontA", {16, 0, 0, 0, 700, 0, 0, 0, 1, 0, 0, 2, 0, f.mem + 300})});
+        CHECK(f.user("DrawTextA", {f.dc, f.mem + 256, 0xffffffffu, f.rect(0, 0, 0, 0), 0x400}) == 16);
+        return f.cpu.read32(f.mem + 8);
+    };
+    CHECK(boldWidth(true) > boldWidth(false));
+
+    stdfs::create_directories(tmp / "fonts" / "truetype" / "msttcorefonts");
+    std::ofstream(tmp / "fonts" / "truetype" / "msttcorefonts" / "Arial_Bold.ttf", std::ios::binary) << "bold";
+    std::ofstream(tmp / "fonts" / "arial.TTF", std::ios::binary) << "regular";
+    const std::vector<uint8_t> bold = ttf::findFont({tmp / "none", tmp / "fonts"}, {"arialbd.ttf", "Arial_Bold.ttf"});
+    const std::vector<uint8_t> regular = ttf::findFont({tmp / "fonts"}, {"arial.ttf"});
+    CHECK(std::string(bold.begin(), bold.end()) == "bold" && std::string(regular.begin(), regular.end()) == "regular");
+    CHECK(ttf::findFont({tmp / "fonts"}, {"verdana.ttf"}).empty());
 }
 
 } // namespace
@@ -225,4 +268,5 @@ static const reluva::test::Suite kSuite("common.unit.gdi",
                                             {"drawing", [](const stdfs::path &tmp) { testDrawing(tmp); }},
                                             {"bitmaps", [](const stdfs::path &tmp) { testBitmaps(tmp); }},
                                             {"window dc", [](const stdfs::path &tmp) { testWindowDc(tmp); }},
+                                            {"look", [](const stdfs::path &tmp) { testLook(tmp); }},
                                         });

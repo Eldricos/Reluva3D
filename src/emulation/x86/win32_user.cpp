@@ -49,6 +49,12 @@ constexpr uint32_t kWsThickFrame = 0x00040000;
 constexpr uint32_t kWsVisible = 0x10000000;
 constexpr uint32_t kWsChild = 0x40000000;
 constexpr uint32_t kWsMaximize = 0x01000000;
+constexpr uint32_t kWsSysMenu = 0x00080000;
+constexpr uint32_t kWsMinimizeBox = 0x00020000;
+constexpr uint32_t kWsMaximizeBox = 0x00010000;
+constexpr uint32_t kScMinimize = 0xf020;
+constexpr uint32_t kScMaximize = 0xf030;
+constexpr uint32_t kScRestore = 0xf120;
 constexpr uint32_t kWmNcHitTest = 0x0084;
 constexpr uint32_t kWmMove = 0x0003;
 constexpr uint32_t kWmSize = 0x0005;
@@ -253,6 +259,30 @@ std::optional<std::array<int, 4>> Win32Process::scrollBarArea(uint32_t handle, i
     if (bar)
         return std::array<int, 4>{x + width, y, kScrollBar, height};
     return std::array<int, 4>{x, y + height, width, kScrollBar};
+}
+
+std::optional<std::array<int, 4>> Win32Process::captionArea(uint32_t handle) const {
+    const Window *w = window(handle);
+    const auto whole = windowArea(handle);
+    if (!w || !whole || (w->style & kWsCaption) != kWsCaption)
+        return std::nullopt;
+    const int sunken = (w->exStyle & kWsExClientEdge) ? 2 : (w->exStyle & kWsExStaticEdge) ? 1 : 0;
+    const int border = frameOf(w->style, false, w->exStyle).left - sunken;
+    return std::array<int, 4>{(*whole)[0] + border, (*whole)[1] + border, (*whole)[2] - 2 * border, kCaption - 1};
+}
+
+// Windows 98's: 16 by 14, 2 pixels in from the bar's right and centred on
+// it; maximize 2 pixels left of close, minimize against maximize.
+std::optional<std::array<int, 4>> Win32Process::captionButtonArea(uint32_t handle, int button) const {
+    constexpr int kWidth = 16;
+    constexpr int kHeight = 14;
+    const Window *w = window(handle);
+    const auto bar = captionArea(handle);
+    if (!bar || !(w->style & kWsSysMenu) || (button > 0 && !(w->style & (kWsMinimizeBox | kWsMaximizeBox))))
+        return std::nullopt;
+    const int right = (*bar)[0] + (*bar)[2] - 2;
+    const int left = right - kWidth * (button + 1) - (button > 0 ? 2 : 0);
+    return std::array<int, 4>{left, (*bar)[1] + ((*bar)[3] - kHeight) / 2, kWidth, kHeight};
 }
 
 int Win32Process::scrollThumb(uint32_t handle, int bar) const {
@@ -570,7 +600,7 @@ void Win32Process::moveWindow(uint32_t handle, int x, int y, int width, int heig
     if (moved)
         sendMessage(handle, kWmMove, 0, point(x + f.left, y + f.top));
     if (sized)
-        sendMessage(handle, kWmSize, 0, // SIZE_RESTORED
+        sendMessage(handle, kWmSize, (w.style & kWsMaximize) ? 2u : 0u, // SIZE_MAXIMIZED, SIZE_RESTORED
                     point(std::max(0, width - f.left - f.right), std::max(0, height - f.top - f.bottom)));
     if (shown(handle)) {
         if (before)
@@ -984,6 +1014,10 @@ void Win32Process::addUserStandIns() {
             for (int bar = 0; bar < 2; ++bar)
                 if (const auto a = scrollBarArea(handle, bar); a && within(*a))
                     return bar ? kHtVScroll : kHtHScroll;
+            // HTCLOSE, HTMAXBUTTON, HTMINBUTTON
+            for (const auto &[button, hit] : {std::pair{0, 20u}, std::pair{1, 9u}, std::pair{2, 8u}})
+                if (const auto a = captionButtonArea(handle, button); a && within(*a))
+                    return hit;
             const Window *w = window(handle);
             const Insets f = frameOf(w->style, false, w->exStyle);
             const bool caption = (w->style & kWsCaption) == kWsCaption && y >= (*whole)[1] + f.left &&
@@ -1036,8 +1070,41 @@ void Win32Process::addUserStandIns() {
                 sendMessage(handle, bar ? kWmVScroll : kWmHScroll, h.request, 0);
             return 0u;
         }
+        // A caption's button: its command, on the press (Windows waits for
+        // the release over it).
+        if (message == kWmNcLButtonDown && (wParam == 20 || wParam == 9 || wParam == 8)) {
+            const Window *w = window(handle);
+            const uint32_t command = wParam == 20                    ? kScClose
+                                     : wParam == 8                   ? kScMinimize
+                                     : w && (w->style & kWsMaximize) ? kScRestore
+                                                                     : kScMaximize;
+            postMessage(handle, kWmSysCommand, command, c.arg(3));
+            return 0u;
+        }
         if (message == kWmSysCommand && (wParam & 0xfff0) == kScClose)
             return sendMessage(handle, kWmClose, 0, 0);
+        // Maximized to fill the screen (a child its parent), its place kept;
+        // restored to it. Minimized, there's no taskbar to bring it back
+        // from: it stays as it is.
+        if (message == kWmSysCommand && ((wParam & 0xfff0) == kScMaximize || (wParam & 0xfff0) == kScRestore)) {
+            auto it = _windows.find(handle);
+            if (it == _windows.end())
+                return 0u;
+            Window &w = it->second;
+            if ((wParam & 0xfff0) == kScMaximize && !(w.style & kWsMaximize)) {
+                w.restored = {w.x, w.y, w.width, w.height};
+                const auto inside = (w.style & kWsChild) ? clientArea(w.parent) : std::nullopt;
+                const Insets f = frameOf(w.style, false, w.exStyle);
+                w.style |= kWsMaximize;
+                moveWindow(handle, -f.left, -f.top, (inside ? (*inside)[2] : screenWidth) + f.left + f.right,
+                           (inside ? (*inside)[3] : screenHeight) + f.top + f.bottom);
+            } else if ((wParam & 0xfff0) == kScRestore && (w.style & kWsMaximize)) {
+                w.style &= ~kWsMaximize;
+                const std::array<int, 4> r = w.restored;
+                moveWindow(handle, r[0], r[1], r[2], r[3]);
+            }
+            return 0u;
+        }
         if (message == kWmClose && _windows.count(handle)) {
             const bool wasShown = shown(handle);
             const auto area = windowArea(handle);

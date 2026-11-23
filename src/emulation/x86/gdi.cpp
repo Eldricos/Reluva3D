@@ -35,9 +35,6 @@ constexpr uint32_t kStock = 0x5a000000; // stock object i is kStock + i
 // 195 in Liberation Sans at the cell's em of 14 and 180 at 13; drawn at
 // this much of the cell, its em is 13 *(inferred)*.
 constexpr float kArialWidth = 0.93f;
-// The System font's width against Liberation Sans Bold's in the same cell:
-// a line of LEGO Loco's in a recording, 183.5 pixels to 193.5.
-constexpr float kSystemWidth = 183.5f / 193.5f;
 constexpr int kStockObjects = 18;
 constexpr uint32_t kSrcCopy = 0x00cc0020;
 
@@ -76,31 +73,6 @@ uint8_t green(uint32_t colorRef) {
 }
 uint8_t blue(uint32_t colorRef) {
     return uint8_t(colorRef >> 16);
-}
-
-// USER32's system colours (GetSysColor's), Windows 98's standard scheme,
-// as COLORREFs: what FillRect's brush (COLOR_x + 1) and DrawEdge use.
-uint32_t sysColor(int index) {
-    switch (index) {
-    case 5:  // COLOR_WINDOW
-    case 14: // COLOR_HIGHLIGHTTEXT
-    case 20: // COLOR_3DHILIGHT
-        return 0xffffff;
-    case 6:  // COLOR_WINDOWFRAME
-    case 7:  // COLOR_MENUTEXT
-    case 8:  // COLOR_WINDOWTEXT
-    case 18: // COLOR_BTNTEXT
-    case 21: // COLOR_3DDKSHADOW
-        return 0x000000;
-    case 16: // COLOR_3DSHADOW
-        return 0x808080;
-    case 13: // COLOR_HIGHLIGHT
-        return 0x800000;
-    case 1: // COLOR_BACKGROUND
-        return 0x808000;
-    default: // COLOR_3DFACE and the rest
-        return 0xc0c0c0;
-    }
 }
 
 } // namespace
@@ -289,6 +261,22 @@ void Gdi::fill(Cpu &c, const Target &t, int left, int top, int right, int bottom
             plot(c, t, x, y, colorRef);
 }
 
+// Each scheme's colours by index (COLOR_SCROLLBAR, 0, to
+// COLOR_MENUBAR, 30), as COLORREFs: Windows 98's standard scheme, and
+// Windows XP's blue one.
+uint32_t Gdi::sysColor(int index) const {
+    static constexpr std::array<uint32_t, 31> kWindows98 = {
+        0xc0c0c0, 0x808000, 0x800000, 0x808080, 0xc0c0c0, 0xffffff, 0x000000, 0x000000, 0x000000, 0xffffff, 0xc0c0c0,
+        0xc0c0c0, 0x808080, 0x800000, 0xffffff, 0xc0c0c0, 0x808080, 0x808080, 0x000000, 0xc0c0c0, 0xffffff, 0x000000,
+        0xc0c0c0, 0x000000, 0xe1ffff, 0xc0c0c0, 0x800000, 0xd08410, 0xc0c0c0, 0x800000, 0xc0c0c0};
+    static constexpr std::array<uint32_t, 31> kWindowsXp = {
+        0xc8d0d4, 0x984e00, 0xe35400, 0xdf967a, 0xffffff, 0xffffff, 0x000000, 0x000000, 0x000000, 0xffffff, 0xc8d0d4,
+        0xc8d0d4, 0x808080, 0xc56a31, 0xffffff, 0xd8e9ec, 0x99a8ac, 0x99a8ac, 0x000000, 0xf8e4d8, 0xffffff, 0x646f71,
+        0xe2eff1, 0x000000, 0xe1ffff, 0xb5b5b5, 0x800000, 0xff953d, 0xebb99d, 0xc56a31, 0xd8e9ec};
+    const auto &scheme = colours == ColourScheme::kWindowsXp ? kWindowsXp : kWindows98;
+    return index >= 0 && index < int(scheme.size()) ? scheme[size_t(index)] : scheme[15];
+}
+
 void Gdi::paintDesktop(const std::array<int, 4> &area) {
     const auto t = screen ? screen() : std::nullopt;
     if (!t)
@@ -308,7 +296,7 @@ void Gdi::paintDesktop(const std::array<int, 4> &area) {
                 return x >= a[0] && x < a[0] + a[2] && y >= a[1] && y < a[1] + a[3];
             });
             if (!under)
-                plot(c, *t, x, y, 0);
+                plot(c, *t, x, y, sysColor(1)); // COLOR_BACKGROUND
         }
 }
 
@@ -319,32 +307,49 @@ void Gdi::paintFrame(uint32_t window, const std::optional<std::array<int, 4>> &c
     const auto inside = _process.clientArea(window);
     if (!t || !w || !whole || !inside || *whole == *inside)
         return;
-    const int edge = (*inside)[0] - (*whole)[0];
     Cpu &c = _process.cpu();
     auto put = [&](int x, int y, uint32_t colorRef) {
         if (!clip || (x >= (*clip)[0] && x < (*clip)[0] + (*clip)[2] && y >= (*clip)[1] && y < (*clip)[1] + (*clip)[3]))
             plot(c, *t, x, y, colorRef);
     };
-    for (int y = (*whole)[1]; y < (*whole)[1] + (*whole)[3]; ++y)
-        for (int x = (*whole)[0]; x < (*whole)[0] + (*whole)[2]; ++x) {
-            if (x >= (*inside)[0] && x < (*inside)[0] + (*inside)[2] && y >= (*inside)[1] &&
-                y < (*inside)[1] + (*inside)[3])
-                continue;
-            // Windows 98's colours: the face (COLOR_3DFACE) and the active caption (COLOR_ACTIVECAPTION).
-            const bool caption = (w->style & 0x00c00000) == 0x00c00000 && y >= (*whole)[1] + edge && y < (*inside)[1] &&
-                                 x >= (*whole)[0] + edge && x < (*whole)[0] + (*whole)[2] - edge;
-            put(x, y, caption ? 0x800000 : 0xc0c0c0);
-        }
+    const auto [wx, wy, ww, wh] = *whole;
+    // The border's own width, without the sunken edge inside it.
+    const int sunken = (w->exStyle & 0x200) ? 2 : (w->exStyle & 0x20000) ? 1 : 0;
+    const int edge = (*inside)[0] - wx - sunken;
+    for (int y = wy; y < wy + wh; ++y)
+        for (int x = wx; x < wx + ww; ++x)
+            if (!(x >= (*inside)[0] && x < (*inside)[0] + (*inside)[2] && y >= (*inside)[1] &&
+                  y < (*inside)[1] + (*inside)[3]))
+                put(x, y, sysColor(15)); // COLOR_3DFACE
+    // A border of 2 pixels or more is raised, as a button is: light above
+    // and left, dark below and right, in two rings; a border of 1 is a line.
+    auto ring = [&](int inset, uint32_t lightColour, uint32_t darkColour) {
+        const int l = wx + inset;
+        const int tp = wy + inset;
+        const int r = wx + ww - 1 - inset;
+        const int b = wy + wh - 1 - inset;
+        for (int x = l; x <= r; ++x)
+            put(x, tp, lightColour), put(x, b, darkColour);
+        for (int y = tp; y <= b; ++y)
+            put(l, y, lightColour), put(r, y, darkColour);
+    };
+    if (edge >= 2) {
+        ring(0, sysColor(22), sysColor(21)); // COLOR_3DLIGHT, COLOR_3DDKSHADOW
+        ring(1, sysColor(20), sysColor(16)); // COLOR_3DHILIGHT, COLOR_3DSHADOW
+    } else if (edge == 1) {
+        ring(0, sysColor(6), sysColor(6)); // COLOR_WINDOWFRAME
+    }
+    paintCaption(c, *t, window, clip);
     // A sunken edge round the client area and its scroll bars: two rings
     // (WS_EX_CLIENTEDGE), or one (WS_EX_STATICEDGE), dark above and left.
-    const int rings = (w->exStyle & 0x200) ? 2 : (w->exStyle & 0x20000) ? 1 : 0;
+    const int rings = sunken;
     {
         int left = (*inside)[0];
         int top = (*inside)[1];
         int right = left + (*inside)[2] + ((w->style & 0x00200000) ? 16 : 0);
         int bottom = top + (*inside)[3] + ((w->style & 0x00100000) ? 16 : 0);
-        const uint32_t darks[2] = {0x000000, 0x808080}; // inner ring, outer
-        const uint32_t lights[2] = {0xc0c0c0, 0xffffff};
+        const uint32_t darks[2] = {sysColor(21), sysColor(16)}; // inner ring, outer
+        const uint32_t lights[2] = {sysColor(22), sysColor(20)};
         for (int r = 0; r < rings; ++r) {
             --left, --top, ++right, ++bottom;
             const int i = rings == 1 ? 1 : r;
@@ -361,9 +366,13 @@ void Gdi::paintFrame(uint32_t window, const std::optional<std::array<int, 4>> &c
         if (!area)
             continue;
         const auto [bx, by, bw, bh] = *area;
+        // The track: white dotted with COLOR_SCROLLBAR, drawn as their mean.
+        uint32_t track = 0;
+        for (int shift = 0; shift < 24; shift += 8)
+            track |= ((0xffu + ((sysColor(0) >> shift) & 0xff) + 1) / 2) << shift;
         for (int y = by; y < by + bh; ++y)
             for (int x = bx; x < bx + bw; ++x)
-                put(x, y, 0xe0e0e0);
+                put(x, y, track);
         const int size = bar ? bw : bh;
         const int length = bar ? bh : bw;
         // A raised square button `size` long, `from` the bar's start.
@@ -374,7 +383,7 @@ void Gdi::paintFrame(uint32_t window, const std::optional<std::array<int, 4>> &c
                 for (int x = x0; x < x0 + size; ++x) {
                     const bool light = x == x0 || y == y0;
                     const bool dark = x == x0 + size - 1 || y == y0 + size - 1;
-                    put(x, y, dark ? 0x000000 : light ? 0xffffff : 0xc0c0c0);
+                    put(x, y, dark ? sysColor(21) : light ? sysColor(20) : sysColor(15));
                 }
         };
         // An arrow's triangle in a button, pointing back (-1) or on (+1).
@@ -384,7 +393,7 @@ void Gdi::paintFrame(uint32_t window, const std::optional<std::array<int, 4>> &c
             for (int i = 0; i < 4; ++i)
                 for (int j = -i; j <= i; ++j) {
                     const int along = from + mid + way * (2 - i); // the tip first
-                    put(bar ? bx + mid + j : bx + along, bar ? by + along : by + mid + j, 0x000000);
+                    put(bar ? bx + mid + j : bx + along, bar ? by + along : by + mid + j, sysColor(18));
                 }
         };
         arrow(0, -1);
@@ -392,6 +401,91 @@ void Gdi::paintFrame(uint32_t window, const std::optional<std::array<int, 4>> &c
         if (const int thumb = _process.scrollThumb(window, bar); thumb >= 0)
             button(thumb);
     }
+}
+
+// A caption as Windows 98 paints an active window's (WM_NCPAINT): its
+// bar shaded from COLOR_ACTIVECAPTION to COLOR_GRADIENTACTIVECAPTION, the
+// title in bold in COLOR_CAPTIONTEXT, and its buttons. A window's icon
+// isn't drawn: its picture isn't read.
+void Gdi::paintCaption(Cpu &c, const Target &t, uint32_t window, const std::optional<std::array<int, 4>> &clip) {
+    const Win32Process::Window *w = _process.window(window);
+    const auto bar = _process.captionArea(window);
+    if (!w || !bar)
+        return;
+    const auto [x, y, width, height] = *bar;
+    auto put = [&](int px, int py, uint32_t colorRef) {
+        if (!clip ||
+            (px >= (*clip)[0] && px < (*clip)[0] + (*clip)[2] && py >= (*clip)[1] && py < (*clip)[1] + (*clip)[3]))
+            plot(c, t, px, py, colorRef);
+    };
+    const uint32_t from = sysColor(2);
+    const uint32_t to = sysColor(27);
+    for (int i = 0; i < width; ++i) {
+        uint32_t shade = 0;
+        for (int shift = 0; shift < 24; shift += 8) {
+            const int a = int((from >> shift) & 0xff);
+            const int b = int((to >> shift) & 0xff);
+            shade |= uint32_t(a + (b - a) * i / std::max(1, width - 1)) << shift;
+        }
+        for (int j = 0; j < height; ++j)
+            put(x + i, y + j, shade);
+    }
+    // The buttons, raised, each with its glyph in COLOR_BTNTEXT.
+    int titleRight = x + width - 2;
+    for (int button = 0; button < 3; ++button) {
+        const auto a = _process.captionButtonArea(window, button);
+        if (!a)
+            continue;
+        const auto [bx, by, bw, bh] = *a;
+        titleRight = std::min(titleRight, bx - 2);
+        for (int j = 0; j < bh; ++j)
+            for (int i = 0; i < bw; ++i) {
+                const bool outerDark = i == bw - 1 || j == bh - 1;
+                const bool innerDark = i == bw - 2 || j == bh - 2;
+                const bool outerLight = i == 0 || j == 0;
+                const bool innerLight = i == 1 || j == 1;
+                put(bx + i, by + j,
+                    outerDark    ? sysColor(21)
+                    : outerLight ? sysColor(20)
+                    : innerDark  ? sysColor(16)
+                    : innerLight ? sysColor(22)
+                                 : sysColor(15));
+            }
+        const uint32_t ink = sysColor(18);
+        const int gx = bx + 4;
+        const int gy = by + 3;
+        auto box = [&](int left, int top, int boxWidth, int boxHeight) { // a window, its top two pixels thick
+            for (int i = 0; i < boxWidth; ++i)
+                put(left + i, top, ink), put(left + i, top + 1, ink), put(left + i, top + boxHeight - 1, ink);
+            for (int j = 0; j < boxHeight; ++j)
+                put(left, top + j, ink), put(left + boxWidth - 1, top + j, ink);
+        };
+        if (button == 0) { // close: a cross, two pixels thick
+            for (int k = 0; k < 7; ++k) {
+                put(gx + k, gy + k, ink), put(gx + k + 1, gy + k, ink);
+                put(gx + 6 - k, gy + k, ink), put(gx + 7 - k, gy + k, ink);
+            }
+        } else if (button == 1 && (w->style & 0x01000000)) { // restore (WS_MAXIMIZE): two windows
+            box(gx + 2, gy - 1, 6, 5);
+            box(gx, gy + 2, 6, 6);
+        } else if (button == 1) { // maximize
+            box(gx, gy, 9, 8);
+        } else { // minimize: a bar at the foot
+            for (int i = 0; i < 6; ++i)
+                put(gx + i, gy + 6, ink), put(gx + i, gy + 7, ink);
+        }
+    }
+    // The title: 8 points of a bold sans serif, the caption font.
+    Object font;
+    font.kind = Object::kFont;
+    font.height = -11;
+    font.weight = 700;
+    font.face = "MS Sans Serif";
+    std::array<int, 4> area{x + 2, y, titleRight, y + height};
+    if (clip)
+        area = {std::max(area[0], (*clip)[0]), std::max(area[1], (*clip)[1]),
+                std::min(area[2], (*clip)[0] + (*clip)[2]), std::min(area[3], (*clip)[1] + (*clip)[3])};
+    drawString(c, t, font, x + 3, y + (height - lineHeight(font)) / 2, w->title, sysColor(9), area);
 }
 
 // Bresenham's, the last point left out, as LineTo leaves it.
@@ -432,10 +526,13 @@ const Gdi::Object &Gdi::fontObject(uint32_t handle) const {
 ttf::Font *Gdi::proportional(const Object &f) const {
     if (f.fixed)
         return nullptr;
-    std::unique_ptr<ttf::Font> &font = _sans[f.weight >= 600 ? 1 : 0];
+    const int bold = f.weight >= 600 ? 1 : 0;
+    std::unique_ptr<ttf::Font> &font = _sans[bold];
     if (!font) {
         font = std::make_unique<ttf::Font>();
-        if (font->load(ttf::liberationSans(f.weight >= 600)))
+        std::vector<uint8_t> own = arial ? arial(bold != 0) : std::vector<uint8_t>();
+        _isArial[bold] = !own.empty() && !font->load(std::move(own));
+        if (!_isArial[bold] && font->load(ttf::liberationSans(bold != 0)))
             return nullptr;
     }
     return font->loaded() ? font.get() : nullptr;
@@ -443,14 +540,15 @@ ttf::Font *Gdi::proportional(const Object &f) const {
 
 // A font's height: above 0 its cell, the ascent and descent; below 0 its
 // em, without the internal leading (as LOGFONT has them); 0 Windows'
-// default, a cell of 16. Drawn a little smaller than that in Liberation
-// Sans, as Windows' own Arial is narrower at small sizes (kArialWidth).
+// default, a cell of 16. The player's own Arial is drawn so, hinted as
+// Windows hints it; Liberation Sans a little smaller, as Windows' Arial is
+// narrower at small sizes (kArialWidth).
 float Gdi::pixels(const Object &f) const {
     ttf::Font *font = proportional(f);
     if (!font)
         return float(std::abs(f.height ? f.height : 16));
     const float size = f.height < 0 ? font->sizeForPoints(float(-f.height) * 0.75f) : float(f.height ? f.height : 16);
-    return size * kArialWidth;
+    return _isArial[f.weight >= 600 ? 1 : 0] ? size : size * kArialWidth;
 }
 
 int Gdi::textWidth(const Object &f, const std::string &s) const {
@@ -608,8 +706,8 @@ void Gdi::paintEdit(uint32_t window, const std::string &text, int selStart, int 
     drawString(c, *t, f, x, y, before, ink, clip);
     const int chosenX = x + textWidth(f, before);
     if (focused && !chosen.empty())
-        fill(c, *t, chosenX, y, chosenX + textWidth(f, chosen), y + lineHeight(f), 0x800000);
-    drawString(c, *t, f, chosenX, y, chosen, focused ? 0xffffff : ink, clip);
+        fill(c, *t, chosenX, y, chosenX + textWidth(f, chosen), y + lineHeight(f), sysColor(13)); // COLOR_HIGHLIGHT
+    drawString(c, *t, f, chosenX, y, chosen, focused ? sysColor(14) : ink, clip);
     drawString(c, *t, f, chosenX + textWidth(f, chosen), y, after, ink, clip);
     if (focused && from == to) {
         const int caretX = x + textWidth(f, text.substr(0, size_t(std::clamp(selEnd, 0, n))));
