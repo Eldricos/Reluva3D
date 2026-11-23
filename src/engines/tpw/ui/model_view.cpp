@@ -13,6 +13,7 @@ namespace reluva::tpw {
 namespace {
 
 constexpr uint8_t kUntextured = 190;
+constexpr int kDot = 3; // a height sample's size on the screen, in pixels
 
 // The game's models stand with y up; the viewer's world has z up. Swapping
 // the two also turns a left-handed space into a right-handed one, as
@@ -27,6 +28,37 @@ int texel(float t, int size) {
         return 0;
     const float f = t - std::floor(t);
     return std::min(size - 1, int(f * float(size)));
+}
+
+// The height map's samples, each at the middle of its square of the
+// model's ground, from the model's origin, as dots over the model:
+// yellow, red where the sample is the highest of its tile's.
+void drawHeights(Surface &screen, const LoadedModel &loaded, const soft3d::OrbitCamera &camera) {
+    const HeightMap &map = loaded.heights;
+    constexpr int kSide = HeightMap::kSamplesPerTile;
+    constexpr float kStep = HeightMap::kTileSize / float(kSide);
+    for (int z = 0; z < map.depth() * kSide; ++z)
+        for (int x = 0; x < map.width() * kSide; ++x) {
+            const uint8_t h = map.sample(x, z);
+            const gfx::Vec3 at = {(float(x) + 0.5f) * kStep, float(h) * HeightMap::kHeightStep,
+                                  (float(z) + 0.5f) * kStep};
+            const soft3d::ViewVertex v = camera.toView(toWorld(at));
+            if (v.z < camera.nearZ)
+                continue;
+            const soft3d::ScreenVertex p = camera.project(v);
+            const bool top = h == map.tileHeights()[size_t((z / kSide) * map.width() + x / kSide)];
+            for (int dy = 0; dy < kDot; ++dy)
+                for (int dx = 0; dx < kDot; ++dx) {
+                    const int sx = int(p.x) + dx - kDot / 2;
+                    const int sy = int(p.y) + dy - kDot / 2;
+                    if (sx < 0 || sy < 0 || sx >= screen.w || sy >= screen.h)
+                        continue;
+                    uint8_t *px = screen.row(sy) + sx * 4;
+                    px[0] = 255;
+                    px[1] = top ? 60 : 230;
+                    px[2] = 40;
+                }
+        }
 }
 
 } // namespace
@@ -44,6 +76,9 @@ Error LoadedModel::load(const SearchSet &files, const std::string &name) {
         if (!found.empty() && !loadPicture(files, found, textures[i]) && textures[i].w > 0)
             ++texturesFound;
     }
+    std::string heightsName = name.substr(0, name.size() - 4) + ".hmp";
+    if (files.has(heightsName) && !files.read(heightsName, data) && !heights.parse(data))
+        hasHeights = true;
     soft3d::Vec low{INFINITY, INFINITY, INFINITY};
     soft3d::Vec high{-INFINITY, -INFINITY, -INFINITY};
     for (const Model::Mesh &mesh : model.meshes())
@@ -106,6 +141,8 @@ void drawModel(Surface &screen, soft3d::Rasterizer &rasterizer, const LoadedMode
                                         camera.project(polygon[k]), paint);
         }
     }
+    if (view.heights && loaded.hasHeights)
+        drawHeights(screen, loaded, camera);
 }
 
 } // namespace reluva::tpw

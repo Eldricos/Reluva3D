@@ -9,6 +9,7 @@
 //   reluva-tests tpw.unit.formats
 
 #include "engines/tpw/formats/bf4.h"
+#include "engines/tpw/formats/hmp.h"
 #include "engines/tpw/formats/md2.h"
 #include "engines/tpw/formats/sam.h"
 #include "engines/tpw/formats/sdt.h"
@@ -352,6 +353,38 @@ void testMd2() {
     CHECK(model.parse(loop));
 }
 
+// A height map two tiles across and one deep: its samples, then a height
+// and a flag for each tile; then cut, and of another kind.
+void testHmp() {
+    Bytes b(0x30);
+    put16(b, 0, 3);
+    put16(b, 2, 0xab1e);
+    put16(b, 4, 5);
+    put16(b, 6, 100);
+    put16(b, 8, 2);
+    put16(b, 10, 1);
+    put32(b, 12, 0x30);
+    put32(b, 16, 0x30 + 50);
+    put32(b, 20, 0x30 + 52);
+    putFloat(b, 0x18 + 16, 20.5f);
+    for (size_t i = 0; i < 50; ++i)
+        b.push_back(uint8_t(i));
+    b.insert(b.end(), {49, 60, 1, 0});
+    HeightMap map;
+    CHECK(!map.parse(b));
+    CHECK(map.width() == 2 && map.depth() == 1);
+    // Row by row across both tiles: the second tile's first sample is the row's sixth.
+    CHECK(map.sample(5, 0) == 5 && map.sample(0, 1) == 10 && map.sample(9, 4) == 49);
+    CHECK((map.tileHeights() == Bytes{49, 60}) && (map.tileFlags() == Bytes{1, 0}));
+    CHECK(map.bounds()[4] == 20.5f);
+    CHECK(map.parse(Bytes(b.begin(), b.end() - 1)));
+    Bytes other = b;
+    put16(other, 4, 4);
+    CHECK(map.parse(other));
+    put16(other, 2, 0);
+    CHECK(map.parse(other));
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -364,4 +397,5 @@ static const reluva::test::Suite
                                    {"bf4", [](const std::filesystem::path &) { testBf4(); }},
                                    {"sdt", [](const std::filesystem::path &) { testSdt(); }},
                                    {"md2", [](const std::filesystem::path &) { testMd2(); }},
+                                   {"hmp", [](const std::filesystem::path &) { testHmp(); }},
                                });

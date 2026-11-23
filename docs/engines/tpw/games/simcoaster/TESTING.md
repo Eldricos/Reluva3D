@@ -43,6 +43,7 @@ With your own copy, installed or imported from the CD:
 | `movies` | Every `.tgq` movie decoded, frames and sound (`reluva-tool tpw movie-check`) |
 | `sounds` | Every sound bank decoded, those that can't listed (`reluva-tool tpw sdt-check`) |
 | `models` | Every model read, with a checksum of every mesh (`reluva-tool tpw md2-check`) |
+| `heights` | Every height map read, with a checksum of them all (`reluva-tool tpw hmp-check`) |
 | `viewer` | The data viewer, headless: every page, a few keys on each, then Esc; its titles and a checksum of its screens (`reluva-tool tpw viewer-run`) |
 | `opening` | The opening run headless, by a clock that moves only as it waits: the screens shown and when it ended (`reluva-tool tpw opening-run`) |
 

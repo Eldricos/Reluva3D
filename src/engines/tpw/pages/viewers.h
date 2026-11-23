@@ -227,6 +227,7 @@ private:
  * The models (.MD2), drawn in 3D with their textures, turned about their
  * middle; animations and headers alone aren't listed.
  *   A/D: turn   W/S: tilt   Z/X: nearer, further   T: textures on or off
+ *   H: the height map's samples (.hmp) over it, or not
  */
 class ModelPage : public Page {
 public:

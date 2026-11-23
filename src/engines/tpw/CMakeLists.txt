@@ -13,6 +13,7 @@ reluva_add_engine(tpw
         ui/model_view.cpp
         ui/opening.cpp
         formats/bf4.cpp
+        formats/hmp.cpp
         formats/md2.cpp
         formats/sam.cpp
         formats/sdt.cpp
@@ -63,4 +64,4 @@ reluva_add_gamedata_test(tpw
     GAME simcoaster
     ENV RELUVA_SIMCOASTER
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release data settings text fonts pictures movies opening sounds models viewer)
+    STEPS release data settings text fonts pictures movies opening sounds models heights viewer)

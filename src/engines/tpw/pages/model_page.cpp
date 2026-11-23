@@ -60,6 +60,8 @@ void ModelPage::handleKey(uint32_t key) {
         _view.distance = std::min(20.0f, _view.distance * 1.25f);
     else if (key == 't')
         _view.textured = !_view.textured;
+    else if (key == 'h')
+        _view.heights = !_view.heights;
     else
         Page::handleKey(key);
 }
@@ -79,7 +81,8 @@ void ModelPage::draw(Surface &screen) {
     if (!_error.empty())
         drawLabel(screen, 4, kTop + 4, _error, kError);
     drawLabel(screen, 4, screen.h - font::kLineHeight - 2,
-              std::string("A/D turn  W/S tilt  Z/X nearer, further  T textures ") + (_view.textured ? "off" : "on"),
+              std::string("A/D turn  W/S tilt  Z/X nearer, further  T textures ") + (_view.textured ? "off" : "on") +
+                  (_loaded.hasHeights ? std::string("  H heights ") + (_view.heights ? "off" : "on") : ""),
               kDim);
 }
 

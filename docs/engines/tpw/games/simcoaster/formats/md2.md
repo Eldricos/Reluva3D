@@ -187,7 +187,11 @@ right-handed one. `reluva-tool tpw md2-shot <game folder> <model>
 - The node types other than meshes and helpers.
 - Why some models' meshes don't fill the header's box.
 - Whether the game's space is left-handed: a texture with lettering,
-  drawn on its model and seen in a recording, would settle it.
+  drawn on its model and seen in a recording, would settle it. The
+  models' own data doesn't: the faces' stored normals agree with their
+  corners' order in all but 296 of 248,611 faces, and the textures run
+  either way round on them, even the gates' sign placeholders
+  (`sign1.fsh`, `sign2.fsh`: 470 faces one way, 398 the other).
 - Where the game finds the textures Reluva doesn't.
 - What the headers alone are for: a model's size before it loads,
   perhaps *(guessed)*.

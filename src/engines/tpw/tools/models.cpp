@@ -1,19 +1,23 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// reluva-tool's Theme Park World commands for the game's models (.MD2).
+// reluva-tool's Theme Park World commands for the game's models (.MD2) and
+// their height maps (.hmp).
 
 #include "common/fs.h"
 #include "common/md5.h"
 #include "devtools/tool.h"
+#include "engines/tpw/formats/hmp.h"
 #include "engines/tpw/formats/md2.h"
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/ui/model_view.h"
 #include "image/image.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <map>
 #include <string>
@@ -119,10 +123,12 @@ int cmdMd2Check(int argc, char **argv) {
 }
 
 // One model drawn as the viewer draws it, written out as a PNG: from the
-// viewer's starting place, or turned and tilted by the radians given.
+// viewer's starting place, or turned and tilted by the radians given;
+// with -heights, its height map's samples over it.
 int cmdMd2Shot(int argc, char **argv) {
     if (argc < 5) {
-        std::fprintf(stderr, "usage: reluva-tool tpw md2-shot <game folder> <model> <out.png> [yaw pitch]\n");
+        std::fprintf(stderr,
+                     "usage: reluva-tool tpw md2-shot <game folder> <model> <out.png> [yaw pitch] [-heights]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -137,10 +143,13 @@ int cmdMd2Shot(int argc, char **argv) {
         return 1;
     }
     reluva::tpw::ModelView view;
-    if (argc > 6) {
-        view.yaw = std::strtof(argv[5], nullptr);
-        view.pitch = std::strtof(argv[6], nullptr);
+    int at = 5;
+    if (argc > at + 1 && std::strcmp(argv[at], "-heights") != 0) {
+        view.yaw = std::strtof(argv[at], nullptr);
+        view.pitch = std::strtof(argv[at + 1], nullptr);
+        at += 2;
     }
+    view.heights = argc > at && std::strcmp(argv[at], "-heights") == 0;
     reluva::Surface screen;
     screen.create(640, 480, reluva::PixelFormat::kRGBA32);
     // The viewer's background.
@@ -171,11 +180,73 @@ int cmdMd2Shot(int argc, char **argv) {
     return 0;
 }
 
-const Commands kCommands("tpw", {
-                                    {"md2-check", "<game folder> [model]",
-                                     "read every model (.MD2), or list one's meshes", cmdMd2Check},
-                                    {"md2-shot", "<game folder> <model> <out.png> [yaw pitch]",
-                                     "draw a model as the viewer does, to a PNG", cmdMd2Shot},
-                                });
+// Every height map of a game read: their tiles, how many tiles' heights
+// are their highest sample's, with a checksum of the maps.
+int cmdHmpCheck(int argc, char **argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool tpw hmp-check <game folder>\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    std::vector<std::string> warnings;
+    if (reluva::Error err = reluva::tpw::mountGame(files, argv[2], warnings)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    using reluva::tpw::HeightMap;
+    constexpr int kSide = HeightMap::kSamplesPerTile;
+    reluva::Md5 all;
+    int failed = 0;
+    size_t maps = 0;
+    size_t tiles = 0;
+    size_t highest = 0;
+    size_t flagged = 0;
+    for (const std::string &name : files.list()) {
+        if (reluva::fs::toLower(extensionOf(name)) != ".hmp")
+            continue;
+        std::vector<uint8_t> data;
+        HeightMap map;
+        reluva::Error err = files.read(name, data);
+        if (!err)
+            err = map.parse(data);
+        if (err) {
+            std::printf("failed: %s: %s\n", name.c_str(), err.message.c_str());
+            ++failed;
+            continue;
+        }
+        ++maps;
+        for (int tz = 0; tz < map.depth(); ++tz)
+            for (int tx = 0; tx < map.width(); ++tx) {
+                int top = 0;
+                for (int z = 0; z < kSide; ++z)
+                    for (int x = 0; x < kSide; ++x)
+                        top = std::max(top, int(map.sample(tx * kSide + x, tz * kSide + z)));
+                const size_t t = size_t(tz * map.width() + tx);
+                highest += map.tileHeights()[t] == top;
+                flagged += map.tileFlags()[t] != 0;
+                ++tiles;
+            }
+        for (int z = 0; z < map.depth() * kSide; ++z)
+            for (int x = 0; x < map.width() * kSide; ++x) {
+                const uint8_t v = map.sample(x, z);
+                all.update(&v, 1);
+            }
+        all.update(map.tileHeights().data(), map.tileHeights().size());
+        all.update(map.tileFlags().data(), map.tileFlags().size());
+    }
+    std::printf("%d failed; %zu height maps, %zu tiles; %zu tiles' heights their highest sample's, %zu tiles "
+                "flagged; md5 %s\n",
+                failed, maps, tiles, highest, flagged, all.hexDigest().c_str());
+    return failed || maps == 0 ? 1 : 0;
+}
+
+const Commands
+    kCommands("tpw",
+              {
+                  {"md2-check", "<game folder> [model]", "read every model (.MD2), or list one's meshes", cmdMd2Check},
+                  {"hmp-check", "<game folder>", "read every height map (.hmp)", cmdHmpCheck},
+                  {"md2-shot", "<game folder> <model> <out.png> [yaw pitch] [-heights]",
+                   "draw a model as the viewer does, to a PNG; with its height map's samples", cmdMd2Shot},
+              });
 
 } // namespace
