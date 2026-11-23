@@ -27,10 +27,13 @@ None yet.
 
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
 - **The 3D is drawn by Direct3D's rules,** not Retained Mode's own: its
-  lights and shading are Direct3D's, and it doesn't yet sort, fog, or
-  draw decals or frames' textures
-  ([d3drm.md](../../common/x86/d3drm.md#drawing)). How near it looks to
-  the original's hasn't been compared.
+  lights and shading are Direct3D's
+  ([d3drm.md](../../common/x86/d3drm.md#drawing)). It matches a
+  screenshot of the original at the pizzeria; elsewhere it hasn't been
+  compared. Decals and frames' textures aren't drawn, but the game
+  hasn't been seen to use them: on the way to the island it blends its
+  translucent faces (render mode 1) unsorted, sets no fog, and no
+  texture of its has a colour key.
 - **The setup dialog's** (`CONFIG.EXE`) video memory, palette and device
   choices aren't offered: they're the stand-ins' to decide. Its others
   are the engine's settings, the island's model at High unless set (the

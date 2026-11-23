@@ -1466,22 +1466,26 @@ public:
         std::vector<Frame *> path;
     };
     // The frame, the frames in it, and those made its visuals, each where it's drawn.
+    // In the order they're drawn: a frame, its frames made visuals, then
+    // its children, each in the order added, each before what's in it
+    // (inferred: the order a scene with translucent faces shows).
     static std::vector<Placed> place(Frame &root) {
         std::vector<Placed> placed;
         std::vector<Placed> todo{{&root, root.world(), {&root}}};
         while (!todo.empty() && placed.size() < 65536) { // a frame its own visual stops at the limit
             Placed p = std::move(todo.back());
             todo.pop_back();
-            auto add = [&](Frame *f) {
-                std::vector<Frame *> path = p.path;
-                path.push_back(f);
-                todo.push_back({f, multiply(f->transform, p.world), std::move(path)});
-            };
-            for (const auto &child : p.frame->children)
-                add(child.get());
+            std::vector<Frame *> next;
             for (const auto &v : p.frame->visuals)
                 if (auto *vf = dynamic_cast<Frame *>(v.get()))
-                    add(vf);
+                    next.push_back(vf);
+            for (const auto &child : p.frame->children)
+                next.push_back(child.get());
+            for (auto it = next.rbegin(); it != next.rend(); ++it) { // the stack's last out first
+                std::vector<Frame *> path = p.path;
+                path.push_back(*it);
+                todo.push_back({*it, multiply((*it)->transform, p.world), std::move(path)});
+            }
             placed.push_back(std::move(p));
         }
         return placed;
@@ -1649,6 +1653,8 @@ enum : uint32_t { kLightAmbient = 0, kLightPoint = 1, kLightSpot = 2, kLightDire
 // D3DRMRENDERQUALITY's parts.
 constexpr uint32_t kShadeMask = 0x7;
 constexpr uint32_t kLightOn = 0x8; // D3DRMLIGHT_ON
+// D3DRMRENDERMODE's sorted transparency.
+constexpr uint32_t kRenderSortedTransparency = 0x2;
 // The device's render states and texture stage states used here
 // (DirectX 5's and 7's numbers).
 enum : uint32_t {
@@ -1666,6 +1672,14 @@ enum : uint32_t {
     kRsAmbient = 139,
     kRsColorVertex = 141,
     kRsNormalizeNormals = 143,
+    kRsFogEnable = 28,
+    kRsFogColor = 34,
+    kRsFogTableMode = 35,
+    kRsFogStart = 36,
+    kRsFogEnd = 37,
+    kRsFogDensity = 38,
+    kRsRangeFogEnable = 48,
+    kRsFogVertexMode = 140,
 };
 enum : uint32_t {
     kTssColorOp = 1,
@@ -1754,78 +1768,117 @@ void Viewport::render(Frame &root) {
     d.renderStates[kRsColorVertex] = 0;
     d.renderStates[kRsNormalizeNormals] = 1; // a scaled frame's normals, lit as unit ones
     d.renderStates[kRsColorKeyEnable] = 0;
+    // The scene's fog, by the camera's distance along its view, worked out
+    // at each vertex: linear, exponential or exponential squared
+    // (D3DRMFOGMODE), as Direct3D's 3, 1 and 2.
+    const Frame &scene = *camera->scene();
+    d.renderStates[kRsFogEnable] = scene.fogEnable ? 1 : 0;
+    d.renderStates[kRsFogColor] = scene.fogColor;
+    d.renderStates[kRsFogTableMode] = 0;
+    d.renderStates[kRsFogVertexMode] = scene.fogMode == 1 ? 1 : scene.fogMode == 2 ? 2 : 3;
+    d.renderStates[kRsFogStart] = bits(scene.fogStart);
+    d.renderStates[kRsFogEnd] = bits(scene.fogEnd);
+    d.renderStates[kRsFogDensity] = bits(scene.fogDensity);
+    d.renderStates[kRsRangeFogEnable] = 0;
 
+    // With sorted transparency (D3DRMRENDERMODE_SORTEDTRANSPARENCY), the
+    // translucent groups are drawn after the rest, farthest first, writing
+    // no depth (inferred); else each where it comes.
+    const bool sorted = (device->renderMode & kRenderSortedTransparency) != 0;
+    struct Later {
+        const Placed *p;
+        const Mesh *mesh;
+        const Mesh::Group *g;
+        float depth;
+    };
+    std::vector<Later> later;
     std::vector<uint8_t> vertices;
     std::vector<uint32_t> indices;
+    auto drawGroup = [&](const Placed &p, const Mesh::Group &g) {
+        const uint32_t quality = g.quality & device->quality;
+        const uint32_t argb = p.frame->materialMode == 2 ? p.frame->color : g.color; // D3DRMMATERIAL_FROMFRAME
+        const dx::Color color = colorOf(argb);
+        dx::Material mat;
+        mat.diffuse = color;
+        mat.ambient = color;
+        if (g.material) {
+            mat.power = g.material->power;
+            mat.specular = {g.material->specular[0], g.material->specular[1], g.material->specular[2], 1};
+            mat.emissive = {g.material->emissive[0], g.material->emissive[1], g.material->emissive[2], 1};
+        }
+        d.material = mat;
+        d.renderStates[kRsLighting] = (quality & kLightOn) ? 1 : 0;
+        d.renderStates[kRsSpecularEnable] = g.material && mat.power > 0 ? 1 : 0;
+        d.renderStates[kRsShadeMode] = (quality & kShadeMask) == 0 ? 1 : 2; // flat, else Gouraud
+        const bool translucent = color.a < 1;
+        d.renderStates[kRsAlphaBlendEnable] = translucent ? 1 : 0;
+        d.renderStates[kRsSrcBlend] = 5;  // D3DBLEND_SRCALPHA
+        d.renderStates[kRsDestBlend] = 6; // D3DBLEND_INVSRCALPHA
+
+        auto &stage = d.stageStates[0];
+        std::shared_ptr<dx::Surface> surface = g.texture ? g.texture->surface : nullptr;
+        if (surface && g.texture->changes != g.texture->seen) {
+            g.texture->seen = g.texture->changes;
+            surface->touched(); // its palette may be new: decoded again
+        }
+        d.textures[0] = surface;
+        stage[kTssColorOp] = surface ? 4 : 2;   // MODULATE the texture and the colour, or the colour
+        stage[kTssColorArg1] = surface ? 2 : 0; // D3DTA_TEXTURE, D3DTA_DIFFUSE
+        stage[kTssColorArg2] = 0;
+        stage[kTssAlphaOp] = surface ? 4 : 2;
+        stage[kTssAlphaArg1] = surface ? 2 : 0;
+        stage[kTssAlphaArg2] = 0;
+        stage[kTssAddressU] = 1; // D3DTADDRESS_WRAP
+        stage[kTssAddressV] = 1;
+        stage[kTssMagFilter] = device->textureQuality ? 2 : 1; // linear, else point
+        stage[kTssMinFilter] = device->textureQuality ? 2 : 1;
+        d.stageStates[1][kTssColorOp] = 1; // D3DTOP_DISABLE
+        d.stageStates[1][kTssAlphaOp] = 1;
+
+        vertices.resize(g.vertices.size() * 36);
+        for (size_t i = 0; i < g.vertices.size(); ++i) {
+            const Mesh::Vertex &mv = g.vertices[i];
+            uint8_t *o = vertices.data() + i * 36;
+            std::memcpy(o, mv.position.data(), 12);
+            std::memcpy(o + 12, mv.normal.data(), 12);
+            std::memcpy(o + 24, &argb, 4);
+            std::memcpy(o + 28, &mv.u, 4);
+            std::memcpy(o + 32, &mv.v, 4);
+        }
+        indices.clear();
+        for (const auto &face : g.faces) // each face a fan
+            for (size_t i = 1; i + 1 < face.size(); ++i)
+                if (face[0] < g.vertices.size() && face[i] < g.vertices.size() && face[i + 1] < g.vertices.size())
+                    indices.insert(indices.end(), {face[0], face[i], face[i + 1]});
+        if (!indices.empty())
+            d.drawVertices(4, kRmVertexFvf, vertices.data(), 36, uint32_t(g.vertices.size()), &indices);
+    };
     for (const Placed &p : placed)
         for (const auto &v : p.frame->visuals) {
             auto *mesh = dynamic_cast<Mesh *>(v.get());
             if (!mesh || !mesh->bounds() || outside(*mesh->bounds(), multiply(p.world, viewProjection)))
                 continue;
-            d.transforms[1] = p.world;
             for (const Mesh::Group &g : mesh->groups) {
                 if (g.vertices.empty() || g.faces.empty())
                     continue;
-                const uint32_t quality = g.quality & device->quality;
-                const uint32_t argb = p.frame->materialMode == 2 ? p.frame->color : g.color; // D3DRMMATERIAL_FROMFRAME
-                const dx::Color color = colorOf(argb);
-                dx::Material mat;
-                mat.diffuse = color;
-                mat.ambient = color;
-                if (g.material) {
-                    mat.power = g.material->power;
-                    mat.specular = {g.material->specular[0], g.material->specular[1], g.material->specular[2], 1};
-                    mat.emissive = {g.material->emissive[0], g.material->emissive[1], g.material->emissive[2], 1};
+                const uint32_t argb = p.frame->materialMode == 2 ? p.frame->color : g.color;
+                if (sorted && (argb >> 24) < 0xff) {
+                    // Its depth: its first vertex's, in the camera's terms.
+                    const Vector at = transformPoint(g.vertices[0].position, multiply(p.world, d.transforms[2]));
+                    later.push_back({&p, mesh, &g, at[2]});
+                    continue;
                 }
-                d.material = mat;
-                d.renderStates[kRsLighting] = (quality & kLightOn) ? 1 : 0;
-                d.renderStates[kRsSpecularEnable] = g.material && mat.power > 0 ? 1 : 0;
-                d.renderStates[kRsShadeMode] = (quality & kShadeMask) == 0 ? 1 : 2; // flat, else Gouraud
-                const bool translucent = color.a < 1;
-                d.renderStates[kRsAlphaBlendEnable] = translucent ? 1 : 0;
-                d.renderStates[kRsSrcBlend] = 5;  // D3DBLEND_SRCALPHA
-                d.renderStates[kRsDestBlend] = 6; // D3DBLEND_INVSRCALPHA
-
-                auto &stage = d.stageStates[0];
-                std::shared_ptr<dx::Surface> surface = g.texture ? g.texture->surface : nullptr;
-                if (surface && g.texture->changes != g.texture->seen) {
-                    g.texture->seen = g.texture->changes;
-                    surface->touched(); // its palette may be new: decoded again
-                }
-                d.textures[0] = surface;
-                stage[kTssColorOp] = surface ? 4 : 2;   // MODULATE the texture and the colour, or the colour
-                stage[kTssColorArg1] = surface ? 2 : 0; // D3DTA_TEXTURE, D3DTA_DIFFUSE
-                stage[kTssColorArg2] = 0;
-                stage[kTssAlphaOp] = surface ? 4 : 2;
-                stage[kTssAlphaArg1] = surface ? 2 : 0;
-                stage[kTssAlphaArg2] = 0;
-                stage[kTssAddressU] = 1; // D3DTADDRESS_WRAP
-                stage[kTssAddressV] = 1;
-                stage[kTssMagFilter] = device->textureQuality ? 2 : 1; // linear, else point
-                stage[kTssMinFilter] = device->textureQuality ? 2 : 1;
-                d.stageStates[1][kTssColorOp] = 1; // D3DTOP_DISABLE
-                d.stageStates[1][kTssAlphaOp] = 1;
-
-                vertices.resize(g.vertices.size() * 36);
-                for (size_t i = 0; i < g.vertices.size(); ++i) {
-                    const Mesh::Vertex &mv = g.vertices[i];
-                    uint8_t *o = vertices.data() + i * 36;
-                    std::memcpy(o, mv.position.data(), 12);
-                    std::memcpy(o + 12, mv.normal.data(), 12);
-                    std::memcpy(o + 24, &argb, 4);
-                    std::memcpy(o + 28, &mv.u, 4);
-                    std::memcpy(o + 32, &mv.v, 4);
-                }
-                indices.clear();
-                for (const auto &face : g.faces) // each face a fan
-                    for (size_t i = 1; i + 1 < face.size(); ++i)
-                        if (face[0] < g.vertices.size() && face[i] < g.vertices.size() &&
-                            face[i + 1] < g.vertices.size())
-                            indices.insert(indices.end(), {face[0], face[i], face[i + 1]});
-                if (!indices.empty())
-                    d.drawVertices(4, kRmVertexFvf, vertices.data(), 36, uint32_t(g.vertices.size()), &indices);
+                d.transforms[1] = p.world;
+                drawGroup(p, g);
             }
         }
+    std::stable_sort(later.begin(), later.end(), [](const Later &a, const Later &b) { return a.depth > b.depth; });
+    if (!later.empty())
+        d.renderStates[kRsZWriteEnable] = 0;
+    for (const Later &l : later) {
+        d.transforms[1] = l.p->world;
+        drawGroup(*l.p, *l.g);
+    }
 
     d.renderStates = savedStates;
     d.stageStates = savedStages;

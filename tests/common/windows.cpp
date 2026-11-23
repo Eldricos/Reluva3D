@@ -988,6 +988,45 @@ static void testRetainedMode() {
     CHECK(call(holder, 61, {scene2, bits(30), 0, bits(5)}) == 0);
     CHECK(call(view, 12, {}) == 0 && call(view, 13, {scene2}) == 0);
     CHECK(pixelAt(63, 24) == 0);
+
+    // The scene's fog: linear from 1 to 6, the square at 5 a fifth its own
+    // green and four fifths the fog's red.
+    CHECK(call(holder, 61, {scene2, 0, 0, bits(5)}) == 0);     // SetPosition
+    CHECK(call(square, 21, {0, 0}) == 0);                      // SetGroupTexture: none
+    CHECK(call(square, 16, {0, 0xff00ff00u}) == 0);            // SetGroupColor: green
+    CHECK(call(square, 19, {0, 0x80}) == 0);                   // unlit
+    CHECK(call(scene2, 52, {1}) == 0);                         // SetSceneFogEnable
+    CHECK(call(scene2, 53, {0xffff0000u}) == 0);               // SetSceneFogColor: red
+    CHECK(call(scene2, 54, {0}) == 0);                         // SetSceneFogMode: D3DRMFOG_LINEAR
+    CHECK(call(scene2, 55, {bits(1), bits(6), bits(1)}) == 0); // SetSceneFogParams
+    CHECK(call(view, 12, {}) == 0 && call(view, 13, {scene2}) == 0);
+    const uint16_t fogged = pixelAt(32, 24);
+    CHECK((fogged >> 11) >= 23 && (fogged >> 11) <= 27);             // red: 0.8 of 31
+    CHECK(((fogged >> 5) & 63) >= 10 && ((fogged >> 5) & 63) <= 15); // green: 0.2 of 63
+    CHECK(call(scene2, 52, {0}) == 0);
+
+    // Two half-transparent squares, the near red one added first, the far
+    // blue one after (no Z buffer): drawn as they come, the far blends over
+    // the near, more blue than red; sorted
+    // (D3DRMRENDERMODE_SORTEDTRANSPARENCY), the far is drawn first, the
+    // near over it, more red than blue.
+    CHECK(call(holder, 61, {scene2, 0, 0, bits(4)}) == 0);
+    CHECK(call(square, 16, {0, 0x80ff0000u}) == 0);                                        // red, half
+    CHECK(call(square, 3, {0, guid("{a3a80d01-6e12-11cf-ac4a-0000c03825a1}"), out}) == 0); // Clone
+    const uint32_t farSquare = cpu.read32(out);
+    CHECK(call(farSquare, 16, {0, 0x800000ffu}) == 0); // blue, half
+    CHECK(call(rm2, 4, {scene2, out}) == 0);           // CreateFrame
+    const uint32_t farHolder = cpu.read32(out);
+    CHECK(call(farHolder, 61, {scene2, 0, 0, bits(6)}) == 0);
+    CHECK(call(farHolder, 18, {farSquare}) == 0); // AddVisual
+    CHECK(call(device, 36, {1}) == 0);            // SetRenderMode: blended
+    CHECK(call(view, 12, {}) == 0 && call(view, 13, {scene2}) == 0);
+    const uint16_t asAdded = pixelAt(32, 24);
+    CHECK((asAdded & 0x1f) >= 14 && (asAdded >> 11) >= 6 && (asAdded >> 11) <= 9);
+    CHECK(call(device, 36, {1 | 2}) == 0); // blended and sorted
+    CHECK(call(view, 12, {}) == 0 && call(view, 13, {scene2}) == 0);
+    const uint16_t both = pixelAt(32, 24);
+    CHECK((both & 0x1f) >= 6 && (both & 0x1f) <= 9 && (both >> 11) >= 14 && (both >> 11) <= 17);
 }
 
 static void testDirectX() {

@@ -55,8 +55,8 @@ So far what LEGO Island calls as it loads its world and plays its intro:
   (`D3DRMVERTEX`: position, normal, texture coordinates, colour), each
   group's colour, mapping, quality, material and texture, read back
   (`GetGroup`, `GetVertices`), scaled, moved, and its box.
-- **Not yet:** in drawing, sorting, fog, decals, frames' textures and
-  Retained Mode's own lighting (colour ramps, shades); mesh builders,
+- **Not yet:** in drawing, decals, frames' textures and Retained Mode's
+  own lighting (colour ramps, shades); mesh builders,
   animations, move callbacks and velocities, loading files, and the
   other kinds of object.
   Calling a method nothing stands in for ends the run naming it.
@@ -94,6 +94,16 @@ planes, not the matrix)*. The lights in the frames drawn are Direct3D's,
 the ambient ones added together; a light shines down its frame's z, and
 a spotlight's umbra and penumbra are taken as half its cones' angles
 *(inferred)*.
+
+Frames are drawn in order: a frame, the frames made its visuals, then
+its children, each in the order added, each before what's in it
+*(inferred)*. With sorted transparency (`D3DRMRENDERMODE_SORTEDTRANSPARENCY`)
+the translucent groups are drawn last, farthest first (by a vertex's
+depth), writing no depth *(inferred)*; with blended transparency alone,
+each where it comes. The scene's fog (its frame's `SetSceneFog...`) is
+Direct3D's, worked out at each vertex by its distance along the view:
+linear, exponential, or exponential squared, from its start, end and
+density.
 
 A mesh whose box (around its vertices, kept until it changes) is wholly
 outside the view is skipped, as most of a scene is off the screen. Each
@@ -145,7 +155,9 @@ it in `EAX`.
   corner, and picked there (its mesh, group and frames) but not at the
   corner; its middle taken to the viewport's middle pixel and back; lit
   by two white lights, textured mid-grey, drawn grey; and drawn across
-  the view's edge, but not wholly beyond it. LEGO Island draws its scenes with it, and picks in them
+  the view's edge, but not wholly beyond it; fogged; and two
+  half-transparent squares drawn in the order added, or sorted, the
+  far one first. LEGO Island draws its scenes with it, and picks in them
   ([running.md](../../engines/legoisland/systems/running.md)).
 - **Confidence:** published unless marked.
 
