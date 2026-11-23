@@ -1832,9 +1832,10 @@ void testPolygonProcesses() {
 }
 
 void testStandingInTheWay() {
-    // Ann sent east along waypoints at 300, 400 and 500; Bo stands idle 8
-    // pixels from the middle one. Ann, unable to come nearer to it, takes
-    // it as reached and goes on, as she would in Mission 10.
+    // Ann sent east along waypoints at 300, 400 and 500, Bo standing 8
+    // pixels from the middle one. With a way round by (400, 360) she takes
+    // it, the way past Bo costing five times its length; without, she goes
+    // through him. Bo doesn't move either way.
     const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
     const std::string zax =
         "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=400.000000,300.000000\nTree List=CSortList2D\n{\n"
@@ -1848,28 +1849,35 @@ void testStandingInTheWay() {
     CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
                           "\t\tScreen Size=200,200\n\t}\n}\n",
                           rules));
-    WayPoints way;
-    way.points = {{300.0f, 300.0f, {1}}, {400.0f, 300.0f, {0, 2}}, {500.0f, 300.0f, {1}}};
-    GameOptions options;
     TeamMember ann;
     ann.firstName = "Ann";
     TeamMember bo;
     bo.firstName = "Bo";
-    MapScreen screen(data, rules, map, options, 0, {ann, bo}, way);
-    const MapScreen::Officer &a = screen.officers()[0];
-    const MapScreen::Officer &b = screen.officers()[1];
-    uint64_t now = 0;
-    const auto run = [&](uint64_t until) {
-        while (now < until)
+    for (const bool wayRound : {true, false}) {
+        WayPoints way;
+        way.points = {{300.0f, 300.0f, {1}}, {400.0f, 300.0f, {0, 2}}, {500.0f, 300.0f, {1}}};
+        if (wayRound) {
+            way.points.push_back({400.0f, 360.0f, {0, 2}});
+            way.points[0].neighbours.push_back(3);
+            way.points[2].neighbours.push_back(3);
+        }
+        GameOptions options;
+        MapScreen screen(data, rules, map, options, 0, {ann, bo}, way);
+        const MapScreen::Officer &a = screen.officers()[0];
+        const MapScreen::Officer &b = screen.officers()[1];
+        uint64_t now = 0;
+        screen.update(now += 50);
+        screen.choose(0);
+        screen.order(500.0f, 300.0f);
+        float nearest = 1e9f;
+        while (now < 20000) {
             screen.update(now += 50);
-    };
-    run(1000);
-    CHECK(std::hypot(b.x - 392.0f, b.y - 297.0f) < 1.0f);
-    screen.choose(0);
-    screen.order(500.0f, 300.0f);
-    run(now + 15000);
-    CHECK(std::hypot(a.x - 500.0f, a.y - 300.0f) < 2.0f && a.path.empty());
-    CHECK(std::hypot(b.x - 392.0f, b.y - 297.0f) < 1.0f);
+            nearest = std::min(nearest, std::hypot(a.x - b.x, a.y - b.y));
+        }
+        CHECK(std::hypot(a.x - 500.0f, a.y - 300.0f) < 2.0f && a.path.empty());
+        CHECK(std::hypot(b.x - 392.0f, b.y - 297.0f) < 1.0f);
+        CHECK(wayRound ? nearest > 40.0f : nearest < 10.0f);
+    }
 }
 
 void testKit() {
@@ -2279,7 +2287,9 @@ void testCompany() {
         CHECK(!readTextObject(text, action));
         screen.runAction(&action);
     };
-    // Ann walks to the far side of Bo, round him, not through.
+    // With no waypoints to go round by, Ann walks to the far side of Bo
+    // through him, one character not stopping another; sent onto his
+    // spot, she goes onto it.
     screen.choose(0);
     screen.order(500.0f, 300.0f);
     float nearest = 1e9f;
@@ -2287,12 +2297,10 @@ void testCompany() {
         run(now + 50);
         nearest = std::min(nearest, std::hypot(officers[0].x - officers[1].x, officers[0].y - officers[1].y));
     }
-    CHECK(std::hypot(officers[0].x - 500.0f, officers[0].y - 300.0f) < 2.0f && nearest >= 12.0f);
-    // Sent onto Bo's spot, she stops short of him.
+    CHECK(std::hypot(officers[0].x - 500.0f, officers[0].y - 300.0f) < 2.0f && nearest < 2.0f);
     screen.order(officers[1].x, officers[1].y);
     run(now + 6000);
-    CHECK(officers[0].path.empty() &&
-          std::hypot(officers[0].x - officers[1].x, officers[0].y - officers[1].y) >= 12.0f);
+    CHECK(officers[0].path.empty() && std::hypot(officers[0].x - officers[1].x, officers[0].y - officers[1].y) < 2.0f);
     // The prisoner's rescue, its words naming them; killed, it fails.
     act("CAddMissionObjectiveAction\n{\nObjective=CRescueMissionObjective\n{\nObjective Name=Rescue\n"
         "Mission Status=Incomplete\nDisplay Status=Visible\nObjective Script=Test\nObjective Line=Rescue\n"

@@ -25,9 +25,6 @@ constexpr float kForgetAfter = 5.0f;
 // Its target this near, as a part of its weapon's range, one that runs
 // away does, this long (0x42b0ad, 0x42b0d1).
 constexpr float kTooClose = 0.05f;
-// As the officers keep from others (map_screen.cpp).
-constexpr float kPersonalSpace = 14.0f;
-constexpr float kMostWait = 1.0f;
 constexpr float kRunAwayTime = 3.0f;
 // How fast an enemy turns when its AI doesn't say, in degrees a second
 // (inferred).
@@ -160,26 +157,9 @@ bool MapScreen::walkTo(Enemy &e, float x, float y, float ratio, float seconds, b
     float speed = cycle > 0.0f && per > 0 && walking.fps > 0.0f ? cycle * walking.fps / float(per) : kDefaultWalk;
     speed *= ratio > 0.0f ? ratio : 1.0f;
     const float step = std::min(distance, speed * seconds);
-    float ux = dx / distance;
-    float uy = dy / distance;
-    // Round anyone in its way, as the officers go, there if it's getting
-    // no nearer close by and else straight on (inferred).
-    const bool nowhere = e.headway.nowhere(x, y, distance, seconds);
-    if (nowhere && distance < kPersonalSpace * 2.0f)
-        return true;
-    if (nowhere) {
-        e.waited = 0.0f;
-    } else if (!stepAside(e.x, e.y, ux, uy, step, distance, -1, int(&e - _enemies.data()))) {
-        if (distance < kPersonalSpace * 2.0f)
-            return true;
-        e.waited += seconds;
-        if (e.waited < kMostWait)
-            return false;
-    } else {
-        e.waited = 0.0f;
-    }
-    e.x += ux * step;
-    e.y += uy * step;
+    // Through anyone in its way, as the officers go (0x497c60).
+    e.x += dx / distance * step;
+    e.y += dy / distance * step;
     e.walking = true;
     e.running = running;
     e.travelled = cycle > 0.0f ? std::fmod(e.travelled + step / (ratio > 0.0f ? ratio : 1.0f), cycle) : 0.0f;
@@ -357,8 +337,7 @@ void MapScreen::maybeRetreat(Enemy &e) {
     float x = 0.0f;
     float y = 0.0f;
     placeOf(places.front(), x, y);
-    e.route =
-        _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{x, y}} : _wayPoints.path(e.x, e.y, x, y);
+    e.route = route(e, x, y);
     setState(e, "Retreat");
 }
 
@@ -670,8 +649,7 @@ void MapScreen::updateEnemies(float seconds) {
                     break;
                 e.heardX = bx;
                 e.heardY = by;
-                e.route = _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{bx, by}}
-                                                    : _wayPoints.path(e.x, e.y, bx, by);
+                e.route = route(e, bx, by);
                 e.looked = -1.0f;
                 if (const TextObject *s = states->object("InvestigateDeadBody"))
                     forget(e, s->object("Investigate Dead Body AI"));
@@ -782,8 +760,7 @@ void MapScreen::updateEnemies(float seconds) {
         bool arrived = true;
         if (!seen && e.state == "Attack" && chases) {
             if (e.route.empty() && std::hypot(e.seenX - e.x, e.seenY - e.y) > 1.0f)
-                e.route = _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{e.seenX, e.seenY}}
-                                                    : _wayPoints.path(e.x, e.y, e.seenX, e.seenY);
+                e.route = route(e, e.seenX, e.seenY);
             arrived = followRoute(e, seconds, runs(e, "Pursue"));
             if (arrived) {
                 e.seenX = e.x;
@@ -848,8 +825,7 @@ void MapScreen::updateEnemies(float seconds) {
             const float away = distance > 0.0f ? 1.0f / distance : 0.0f;
             const float fx = e.x + (e.x - o.x) * away * e.weapon->range;
             const float fy = e.y + (e.y - o.y) * away * e.weapon->range;
-            e.route = _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{fx, fy}}
-                                                : _wayPoints.path(e.x, e.y, fx, fy);
+            e.route = route(e, fx, fy);
             e.runAway = kRunAwayTime;
             setState(e, "RunAway");
             continue;

@@ -8,6 +8,7 @@
 #include "engines/stawayteam/formats/text_object.h"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -117,8 +118,12 @@ struct WayPoints {
      * The shortest way along the lines from the point nearest (x0, y0) to
      * the one nearest (x1, y1), and then (x1, y1) itself; empty if there's
      * none.
+     * @param factor What a line from (ax, ay) to (bx, by) costs for each
+     *        pixel of it, 0 for one not to be taken; 1 throughout without.
      */
-    std::vector<std::pair<float, float>> path(float x0, float y0, float x1, float y1) const;
+    std::vector<std::pair<float, float>>
+    path(float x0, float y0, float x1, float y1,
+         const std::function<float(float ax, float ay, float bx, float by)> &factor = {}) const;
 };
 
 /** What a model's file says about the things made from it, as far as combat goes. */

@@ -328,9 +328,12 @@ int WayPoints::nearest(float x, float y) const {
     return best;
 }
 
-std::vector<std::pair<float, float>> WayPoints::path(float x0, float y0, float x1, float y1) const {
-    // A* over the lines, by their lengths (inferred: the program's own
-    // search isn't traced).
+std::vector<std::pair<float, float>>
+WayPoints::path(float x0, float y0, float x1, float y1,
+                const std::function<float(float ax, float ay, float bx, float by)> &factor) const {
+    // A* over the lines, by their lengths times the factor the walker's
+    // path collide checker gives each, a line it gives 0 left out (0x52bb5d;
+    // inferred: the rest of the program's search isn't traced).
     const int from = nearest(x0, y0);
     const int to = nearest(x1, y1);
     if (from < 0 || to < 0)
@@ -350,7 +353,12 @@ std::vector<std::pair<float, float>> WayPoints::path(float x0, float y0, float x
         if (at == to)
             break;
         for (int next : points[size_t(at)].neighbours) {
-            const float c = cost[size_t(at)] + distance(at, next);
+            const Point &a = points[size_t(at)];
+            const Point &b = points[size_t(next)];
+            const float f = factor ? factor(a.x, a.y, b.x, b.y) : 1.0f;
+            if (f <= 0.0f)
+                continue;
+            const float c = cost[size_t(at)] + distance(at, next) * f;
             if (c < cost[size_t(next)]) {
                 cost[size_t(next)] = c;
                 came[size_t(next)] = at;

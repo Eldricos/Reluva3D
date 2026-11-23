@@ -109,8 +109,7 @@ void MapScreen::orderMelded(float x, float y) {
     e.route.clear();
     e.foe = other;
     if (other < 0)
-        e.route =
-            _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{x, y}} : _wayPoints.path(e.x, e.y, x, y);
+        e.route = route(e, x, y);
 }
 
 void MapScreen::updateMeld(float seconds) {

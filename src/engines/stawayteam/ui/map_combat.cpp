@@ -491,8 +491,7 @@ void MapScreen::updateCombat(float seconds) {
                 hurtEnemy(i, *o.weapon, int(&o - _officers.data()), stuns(o));
             }
         } else if (o.path.empty()) {
-            o.path = _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{e.x, e.y}}
-                                               : _wayPoints.path(o.x, o.y, e.x, e.y);
+            o.path = route(o, e.x, e.y);
         }
     }
     for (Enemy &e : _enemies) {

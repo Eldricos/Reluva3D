@@ -80,8 +80,7 @@ void MapScreen::investigate(Enemy &e, float x, float y) {
     const bool already = e.state == "Investigate";
     e.heardX = x;
     e.heardY = y;
-    e.route =
-        _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{x, y}} : _wayPoints.path(e.x, e.y, x, y);
+    e.route = route(e, x, y);
     e.looked = -1.0f;
     const TextObject *state = e.ai->object("Investigate");
     if (state)

@@ -482,8 +482,7 @@ bool MapScreen::runItemProcess(size_t officer, float seconds) {
             if (std::hypot(o.taskX - o.x, o.taskY - o.y) > reach ||
                 (ranged && !clearSight(o.x, o.y, o.taskX, o.taskY))) {
                 if (o.path.empty())
-                    o.path = _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{o.taskX, o.taskY}}
-                                                       : _wayPoints.path(o.x, o.y, o.taskX, o.taskY);
+                    o.path = route(o, o.taskX, o.taskY);
                 return false;
             }
             o.path.clear();

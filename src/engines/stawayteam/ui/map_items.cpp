@@ -458,8 +458,7 @@ void MapScreen::updateItems(float seconds) {
             if (doTask(i))
                 o.task = Officer::Task::kNone;
         } else if (o.path.empty()) {
-            o.path = _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{x, y}}
-                                               : _wayPoints.path(o.x, o.y, x, y);
+            o.path = route(o, x, y);
         }
     }
     _scanTyped += seconds * kScanSpeed;
@@ -592,8 +591,7 @@ bool MapScreen::runProcess(size_t officer, float seconds) {
             placeOf(size_t(o.taskPart), x, y);
         if (!inItemRange(*def, o.x, o.y, x, y, def->range)) {
             if (o.path.empty())
-                o.path = _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{x, y}}
-                                                   : _wayPoints.path(o.x, o.y, x, y);
+                o.path = route(o, x, y);
             return false;
         }
         o.path.clear();
@@ -643,8 +641,7 @@ bool MapScreen::runProcess(size_t officer, float seconds) {
                 continue;
             }
             if (o.path.empty())
-                o.path = _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{x, y}}
-                                                   : _wayPoints.path(o.x, o.y, x, y);
+                o.path = route(o, x, y);
             return false;
         }
         if (kind == "CActionAI") {

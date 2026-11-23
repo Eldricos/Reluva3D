@@ -109,22 +109,6 @@ public:
     /** The ground's cell at (cx, cy), 64 pixels square, as drawn. */
     const image::Image &groundCell(int cx, int cy);
 
-    /**
-     * How a walker is getting on toward the point it's going for: whether
-     * it's got nearer of late, going round those in its way.
-     */
-    struct Headway {
-        float x = -1e9f; // the point
-        float y = -1e9f;
-        float closest = 1e9f; // the nearest it's been to it
-        float stuck = 0.0f;   // seconds it's got no nearer
-        /**
-         * Whether it's got no nearer to (x, y), `distance` off, in a second:
-         * walked on `seconds` more.
-         */
-        bool nowhere(float px, float py, float distance, float seconds);
-    };
-
     /** An officer on the map. */
     struct Officer {
         size_t member = 0;                        // in the team
@@ -136,10 +120,8 @@ public:
         int direction = 0;                         // of their model's 12, 0 facing left
         std::vector<std::pair<float, float>> path; // where they're walking to, the next first
         float travelled = 0.0f;                    // into their walk's cycle, in pixels
-        float waited = 0.0f;                       // seconds they've waited for someone in their way
-        Headway headway;
-        int move = 0;        // walking, running (1) or crouching (2)
-        bool chosen = false; // among those the player has chosen
+        int move = 0;                              // walking, running (1) or crouching (2)
+        bool chosen = false;                       // among those the player has chosen
         float health = 0.0f;
         float maxHealth = 0.0f;
         const ItemDefinition *weapon = nullptr; // the one they shoot with, if any
@@ -241,8 +223,6 @@ public:
         bool walking = false;
         bool running = false;   // walking at its Run's pace and frames
         float travelled = 0.0f; // into its walk's cycle
-        float waited = 0.0f;    // seconds it's waited for someone in its way
-        Headway headway;
         // Investigating a noise: where it was heard, the way there, and how
         // long it's looked about since getting there.
         float heardX = 0.0f;
@@ -727,11 +707,16 @@ private:
     // A line a pixel wide, `opacity` (0-1) of the colour over what's there.
     static void drawLine(Surface &view, float x0, float y0, float x1, float y1, const std::array<uint8_t, 3> &rgb,
                          float opacity);
-    // A step of `step` pixels from (x, y) along (ux, uy), turned aside if
-    // someone's in the way (the officer or enemy given isn't), unless it's
-    // `toGo` from where it's going; false if there's no way past, the way
-    // left as it was.
-    bool stepAside(float x, float y, float &ux, float &uy, float step, float toGo, int officer, int enemy) const;
+    // The way from (x0, y0) to (x1, y1) along the waypoints, round the
+    // characters standing in it if that's not much farther, the officer or
+    // enemy given not among them; straight there without waypoints.
+    std::vector<std::pair<float, float>> route(float x0, float y0, float x1, float y1, int officer, int enemy) const;
+    std::vector<std::pair<float, float>> route(const Officer &o, float x, float y) const {
+        return route(o.x, o.y, x, y, int(&o - _officers.data()), -1);
+    }
+    std::vector<std::pair<float, float>> route(const Enemy &e, float x, float y) const {
+        return route(e.x, e.y, x, y, -1, int(&e - _enemies.data()));
+    }
     void drawOfficer(Surface &view, const Officer &o, int left, int top, uint64_t now);
     const Animation &animation(const std::string &model, const std::string &sequence);
     // The officer at (x, y) on the map, or -1.

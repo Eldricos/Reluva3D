@@ -55,13 +55,12 @@ constexpr float kSpacing = 24.0f;
 constexpr int kDrag = 4;
 // Too near a waypoint to walk any further to it.
 constexpr float kArrived = 1.0f;
-// Walkers keep this far from one another, going round; one with no way
-// past waits this long, then goes on (inferred: the program's path
-// collide checker isn't traced).
-constexpr float kPersonalSpace = 14.0f;
-constexpr float kMostWait = 1.0f;
-// Getting nearer by less than this isn't getting nearer.
-constexpr float kProgress = 0.5f;
+// A way that would take a walker through a character costs this many
+// times its length (0x438ecf), and does so within this of one: a figure's
+// outline about 9 across each (inferred: the models' Bounds Polys swept
+// against each other, 0x438d90, as circles).
+constexpr float kThroughCharacter = 5.0f;
+constexpr float kCharacterReach = 18.0f;
 // Time stopped: its words' font (0x5be102).
 const char *const kPauseFont = "Trek Title Red";
 
@@ -540,8 +539,7 @@ void MapScreen::order(float x, float y) {
         const float angle = float(k - 1) * 1.5707963f;
         const float tx = k == 0 ? x : x + kSpacing * std::cos(angle);
         const float ty = k == 0 ? y : y + kSpacing * 0.7f * std::sin(angle);
-        o.path = _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{tx, ty}}
-                                           : _wayPoints.path(o.x, o.y, tx, ty);
+        o.path = route(o, tx, ty);
         o.attacking = -1;
         ++k;
     }
@@ -577,34 +575,11 @@ void MapScreen::walk(Officer &o, float seconds) {
         const float speed =
             cycle > 0.0f && per > 0 && walking.fps > 0.0f ? cycle * walking.fps / float(per) : kDefaultWalk;
         const float step = std::min(distance, speed * left);
-        float ux = dx / distance;
-        float uy = dy / distance;
-        // Going round someone and getting no nearer: near the point, it's
-        // taken as reached, someone standing on it; else they go straight
-        // on, as after a wait (inferred).
-        const bool nowhere = o.headway.nowhere(o.path.front().first, o.path.front().second, distance, left);
-        if (nowhere && distance < kPersonalSpace * 2.0f) {
-            o.path.erase(o.path.begin());
-            continue;
-        }
-        if (nowhere) {
-            o.waited = 0.0f;
-        } else if (!stepAside(o.x, o.y, ux, uy, step, o.path.size() == 1 ? distance : 1e9f, int(&o - _officers.data()),
-                              -1)) {
-            // No way past: near the last place, they stop there short of
-            // whoever's on it; else they wait a moment, then go on.
-            if (o.path.size() == 1 && distance < kPersonalSpace * 2.0f) {
-                o.path.clear();
-                break;
-            }
-            o.waited += left;
-            if (o.waited < kMostWait)
-                break;
-        } else {
-            o.waited = 0.0f;
-        }
-        o.x += ux * step;
-        o.y += uy * step;
+        // Through anyone in the way: the move ignores one character meeting
+        // another (0x497c60), and an officer's doesn't collide at all, its
+        // Tries To Collide off (0x497c0f).
+        o.x += dx / distance * step;
+        o.y += dy / distance * step;
         // The footsteps its frames passed make their noise (the
         // sequence's Trigger, 0x518100).
         if (cycle > 0.0f && per > 0) {
@@ -642,60 +617,35 @@ void MapScreen::drawLine(Surface &view, float x0, float y0, float x1, float y1, 
     }
 }
 
-bool MapScreen::Headway::nowhere(float px, float py, float distance, float seconds) {
-    // Side-stepping round one standing by the point can go back and forth
-    // for ever, never nearer; a new point starts afresh.
-    if (px != x || py != y) {
-        x = px;
-        y = py;
-        closest = distance;
-        stuck = 0.0f;
-        return false;
-    }
-    if (distance < closest - kProgress) {
-        closest = distance;
-        stuck = 0.0f;
-        return false;
-    }
-    stuck += seconds;
-    return stuck >= kMostWait;
-}
-
-bool MapScreen::stepAside(float x, float y, float &ux, float &uy, float step, float toGo, int officer,
-                          int enemy) const {
-    const auto clear = [&](float vx, float vy) {
-        const float nx = x + vx * std::max(step, kPersonalSpace * 0.5f);
-        const float ny = y + vy * std::max(step, kPersonalSpace * 0.5f);
-        const auto inWay = [&](float ox, float oy) {
-            // Only one ahead: one beside or behind can be walked away from.
-            return std::hypot(nx - ox, ny - oy) < kPersonalSpace && (ox - x) * vx + (oy - y) * vy > 0.0f;
-        };
-        for (size_t i = 0; i < _officers.size(); ++i)
-            if (int(i) != officer && _officers[i].present && _officers[i].alive() &&
-                inWay(_officers[i].x, _officers[i].y))
-                return false;
-        for (size_t i = 0; i < _enemies.size(); ++i)
-            if (int(i) != enemy && _enemies[i].alive() && shown(_enemies[i].part) &&
-                inWay(_enemies[i].x, _enemies[i].y))
-                return false;
-        return true;
-    };
-    // Straight on, else turned 30, 60 or 90 degrees one way or the other;
-    // not turned near where it's going (whoever's there's to be stopped
-    // short of, not gone round).
-    for (const float degrees : {0.0f, 30.0f, -30.0f, 60.0f, -60.0f, 90.0f, -90.0f}) {
-        if (degrees != 0.0f && toGo < kPersonalSpace * 2.0f)
-            return false;
-        const float a = degrees * 3.14159265f / 180.0f;
-        const float vx = ux * std::cos(a) - uy * std::sin(a);
-        const float vy = ux * std::sin(a) + uy * std::cos(a);
-        if (clear(vx, vy)) {
-            ux = vx;
-            uy = vy;
-            return true;
+std::vector<std::pair<float, float>> MapScreen::route(float x0, float y0, float x1, float y1, int officer,
+                                                      int enemy) const {
+    // Planned as the move starts, round where the characters stand then,
+    // and not again (0x4492c0): its path collide checker makes a line
+    // through one cost five times as much (0x438d90).
+    if (_wayPoints.points.empty())
+        return {{x1, y1}};
+    std::vector<std::pair<float, float>> others;
+    for (size_t i = 0; i < _officers.size(); ++i)
+        if (int(i) != officer && _officers[i].present && _officers[i].alive())
+            others.emplace_back(_officers[i].x, _officers[i].y);
+    for (size_t i = 0; i < _enemies.size(); ++i)
+        if (int(i) != enemy && _enemies[i].alive() && shown(_enemies[i].part))
+            others.emplace_back(_enemies[i].x, _enemies[i].y);
+    const auto factor = [&](float ax, float ay, float bx, float by) {
+        // How near each comes to the line, on the ground unforeshortened.
+        const float dx = bx - ax;
+        const float dy = (by - ay) / ParticleSystem::kYToX;
+        const float length = dx * dx + dy * dy;
+        for (const auto &[cx, cy] : others) {
+            const float px = cx - ax;
+            const float py = (cy - ay) / ParticleSystem::kYToX;
+            const float t = length > 0.0f ? std::clamp((px * dx + py * dy) / length, 0.0f, 1.0f) : 0.0f;
+            if (std::hypot(px - t * dx, py - t * dy) < kCharacterReach)
+                return kThroughCharacter;
         }
-    }
-    return false;
+        return 1.0f;
+    };
+    return _wayPoints.path(x0, y0, x1, y1, factor);
 }
 
 void MapScreen::showDialog(const std::string &script, const std::string &line, const std::string &speaker) {

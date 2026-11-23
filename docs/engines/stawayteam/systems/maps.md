@@ -294,10 +294,22 @@ the main menu?" (`0x5bb190`).
 - **The waypoints** (`<map>.way`, a `CWayPointMap`): points
   `MinDistBetweenWayPoints` (15) apart over where walkers can go, lines
   joining those within `MaxDistToConnect` (29).
-- **Going round one another:** a walker's moving behaviour has a `Path
-  Collide Checker` (`CPathCollideChecker`), and a wanderer's AI a
-  `TimeOfLastChangeDirectionDueToCollide`; how they keep apart isn't
-  traced.
+- **Going round one another:** only as the way is planned. A walker's
+  move (`CEntityBehaviorMoveToPos`) plans its way along the waypoints as
+  it starts (`0x4492c0`), and not again: first with a plain checker,
+  then, if there's a way, with its `Path Collide Checker`
+  (`CPathCollideChecker`); with no way, it goes straight there. The
+  search (`0x52bb5d`) asks the checker of each line whether it's clear
+  of the unnamed, unmoving parts in it (`0x438cb0`: anything movable or
+  named doesn't count), and its cost: the walker's outline swept along
+  it meeting nothing, 1; only characters, 5; anything else, 0, the line
+  not taken (`0x438d90`). So a way past someone standing costs five
+  times its length, and is taken only if going round is dearer. Walking,
+  they go through one another: the move ignores one character meeting
+  another (`0x497c60`), and an officer's, Tries To Collide off, doesn't
+  collide at all (`0x497c0f`). A destination with nothing collideable
+  but a character on it is gone onto (`0x449481`, `0x438f10`). A
+  wanderer's AI keeps a `TimeOfLastChangeDirectionDueToCollide`.
 - **Joining the team:** `CAddToTeamAction` (`Who To Add`: Data, Ambassador
   Worf, Brexen Ijoula, Ivan Verov, and `$Trigger` 19 times) makes a
   character of the map one of the team, given a `CPlayerAI` as well;
@@ -885,17 +897,12 @@ naming it, Delete When Finished), it's held still and fades over the
 warp's time, then is gone *(inferred: the transporter's pictures aren't
 drawn)*.
 
-Walkers go round one another (`ui/map_screen.cpp`): a step that would
-bring them within 14 pixels of an officer or enemy ahead turns 30, 60 or
-90 degrees either way to pass; with no way past, they wait, and after a
-second go on; near where they're going, whoever's on it is stopped short
-of, not gone round. Going round one standing by a point of their way
-can turn them one way, then back, for ever, never nearer: a walker that
-has got no nearer to the point it's going for in a second takes it as
-reached if it's within 28 pixels of it, someone being on it, and goes on
-to the next; farther off, it goes straight on. Mission 10's officers,
-one beside the first point of another's way, stood so before
-*(inferred)*.
+Walkers' ways (`ui/map_screen.cpp`) are planned as above, round the
+officers and enemies where they stand as the way's planned, each within
+18 pixels of a line, measured on the ground unforeshortened, making it
+cost five times its length (inferred: the models' outlines swept against
+each other, as circles); walking, they go through one another, and onto
+one standing where they're sent.
 
 A character added to the team (`ui/map_mission.cpp`) becomes an officer
 where they stand: the roster's of their name, or one made of their part,
@@ -1001,7 +1008,7 @@ map shown's Map Song, over and over; stopping as the maps are left
 
 Not there yet: the AIs'
 other messages and tasks (CSendMessageAction's to animations; the
-particle systems' are there, [particles.md](particles.md)), walkers going round each other, the enemies' own noises,
+particle systems' are there, [particles.md](particles.md)), the enemies' own noises,
 thrown and laid weapons, the doors opening
 by themselves (CDoorAI's own Triggered By flags), the camera scripts'
 Pause Actors, and those off the team still on its bar.
@@ -1121,8 +1128,9 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   and Lost a Target choose between their choices; what makes a
   low-health enemy run
   away (`0x42b0e2`), and when it looks for bodies.
-- **Walking:** how the program's walkers keep apart, and how a joined
-  character's made an officer.
+- **Walking:** how the walkers' outlines are swept against each other
+  in planning, the plain checker's part, and how a joined character's
+  made an officer.
 - **Doors:** when one stops blocking, and what their own Triggered By
   flags do.
 - **Noise:** which sides hear which noises, what `0x497d40` checks

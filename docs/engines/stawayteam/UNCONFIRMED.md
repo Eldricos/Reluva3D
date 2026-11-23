@@ -104,7 +104,8 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
   an officer does, what counts as colliding with a part, and a door out
   of the way as soon as it starts opening
   ([systems/maps.md](systems/maps.md#open-questions)).
-- **Walking round and joining:** how walkers keep apart and wait, how a
+- **Walking round and joining:** how near a character makes a way
+  through them dearer, how a
   character joining the team is made an officer, and rescues failing as
   their character's killed
   ([systems/maps.md](systems/maps.md#open-questions)).
