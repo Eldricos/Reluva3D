@@ -12,7 +12,7 @@ through its start-up, reading its
 archives, strings, fonts and the menus' pictures, lists Direct3D's
 devices, sets the display mode, shows the opening's title and crawl,
 which it draws itself, and its menus, cut scenes and levels play, drawn
-by its own software renderer, with its sound.
+by its own software renderer, with its sound and the CDs' music.
 
 ## How it works
 
@@ -104,6 +104,19 @@ it uses are DirectX 5's, by the identifiers in its data:
     scene's sound into a buffer of a quarter of a second, 16-bit stereo
     at 22,050 Hz, a quarter (62 ms) at a time, written about three
     quarters of the buffer ahead of the play position.
+16. Its music is the CD's audio tracks, through MCI's `cdaudio` device
+    *(from the code)*: at start-up (`0x4380d0`) it opens the device,
+    sets the TMSF time format, and finds the auxiliary device whose
+    technology is CD audio, for the music's volume. A level's script
+    starts a song (`PlaySong(start, end, loop)`): `0x438220` plays from
+    the start track to the start of the one after the end track, and if
+    that's past the disc's end, from the start track on. Every five
+    seconds (`0x4dafd0`) it asks the device's mode, and plays again if
+    it has stopped. The volume (`0x4382a0`) is the player's music volume
+    times the script's (`SetMusicVol`, `0x4ffaa0`), as left and right on
+    the auxiliary device. Nar Shaddaa (`01_soundtrack.cog`) plays tracks
+    2 and 3 from the start, at volume 0, and fades them in when Kyle
+    leaves the bar: the bar is quiet.
 
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were
@@ -128,11 +141,17 @@ it presents in the window, and passes the keyboard and mouse on.
   scenes; `SMACKW32.DLL` from the install; the registry's `CD Path` and
   `Install Path`. Its threads run on threads of this machine.
 - **Its devices:** DirectDraw, with the 8-bit modes the menus and the
-  software renderer use, DirectInput, DirectPlay and DirectSound
-  ([dsound.md](../../../../../common/x86/dsound.md)) are the emulator's,
-  the sound card's output played through Reluva's mixer. There's no
-  `waveOut` device, no joystick, no CD audio (MCI) and no DirectPlay
-  lobby: the game is told so, as on a machine without them.
+  software renderer use, DirectInput, DirectPlay, DirectSound
+  ([dsound.md](../../../../../common/x86/dsound.md)) and the CD's audio
+  ([cdaudio.md](../../../../../common/x86/cdaudio.md)) are the
+  emulator's, the sound card's output and the music played through
+  Reluva's mixer. There's no `waveOut` device, no joystick and no
+  DirectPlay lobby: the game is told so, as on a machine without them.
+- **The CD's music:** the disc in drive D is CD 1, and its audio tracks
+  are those beside its files: a cue sheet and its image's files, or the
+  tracks ripped as `track02.wav` and on. Without them the game has a CD
+  drive with no audio tracks, and plays without music, as it did with
+  its CD missing.
 - **Frames:** each one presented, no more often than a 60 Hz display's
   vertical blank, as the game's flips waited for it.
 - **The mouse:** in the menus the game moves Windows' pointer, which it
@@ -167,7 +186,7 @@ and the imports show:
 | Need | What | How much |
 |---|---|---|
 | Windows | About 40 calls the emulator lacks, none met in play yet: GDI's palettes and DIB sections, dialogs, `CompareString`, WINMM's timer events for Smacker's sound | Small each, in the shared stand-ins |
-| CD audio | MCI's `cdaudio` device, playing the CDs' music tracks, which copies of their files don't hold | To decide: from a CD image's tracks, or none |
+| CD 2 | Drive D is always CD 1: the levels on CD 2, and its music, need the game to see the other CD when it asks for it | Engine code |
 | Direct3D 1 and 2 | Only for the *Setup* choice of hardware drawing: `IDirect3D` and `IDirect3D2` (their device lists are there), their devices with execute buffers, viewports, materials and textures 1 and 2, on the emulator's Direct3D 7 rasterizer | New shared code, for any DirectX 5 game; not needed to play |
 | DirectPlay 3 | Multiplayer sessions, on Reluva's network code; for now the class with no connections ([dplay.md](../../../../../common/x86/dplay.md)) | Later |
 

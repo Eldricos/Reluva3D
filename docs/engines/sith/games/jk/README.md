@@ -7,7 +7,7 @@ Game id `jk`, on the [Sith engine](../../README.md); its code is in
 
 | Release | Recognised by | State |
 |---|---|---|
-| US retail, two CDs (English, Windows), unpatched; `JK.EXE` linked 11 September 1997 | `JK.EXE`, `Resource/Res2.gob` and `Episode/JK1.GOB` (`detectionTable`, `src/engines/sith/games.cpp`) | Recognised and imported from its CDs, its CDs found; played, with its sound but not its music |
+| US retail, two CDs (English, Windows), unpatched; `JK.EXE` linked 11 September 1997 | `JK.EXE`, `Resource/Res2.gob` and `Episode/JK1.GOB` (`detectionTable`, `src/engines/sith/games.cpp`) | Recognised and imported from its CDs, its CDs found; played, with its sound and CD 1's music |
 | Other releases (other languages, patched) | The same three files present (`fallbackTable`): "unknown release" | Not checked |
 
 Detection signatures (MD5 of the first 5000 bytes, size):
@@ -56,10 +56,10 @@ installer and the readme.
 - **The game:** played. The retail `JK.EXE` runs in Reluva's x86
   emulator, in Reluva's window: the opening, the menus, the cut scenes
   and the levels, drawn by its own software renderer, with the keyboard
-  and mouse, and its sound ([systems/hosting.md](systems/hosting.md)).
-  Without its music (the CDs' audio tracks) and multiplayer so far
-  ([KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md)).
-- **Not yet:** the CDs' music, multiplayer and Direct3D's drawing.
+  and mouse, its sound, and CD 1's music from its audio tracks
+  ([systems/hosting.md](systems/hosting.md)). Not yet CD 2, nor
+  multiplayer ([KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md)).
+- **Not yet:** CD 2's levels and music, multiplayer and Direct3D's drawing.
   Plans, phases and decisions: [PLAN.md](PLAN.md).
 
 ## Using it
@@ -79,6 +79,14 @@ cut scenes), the first of:
 A folder is taken for a CD by its `GAMEDATA/RESOURCE/JK_.CD`, so a copy
 of the whole CD, or of just its `GAMEDATA/RESOURCE` folder, will do.
 `reluva-tool sith folders <install>` shows what's found.
+
+The game's music is on the CDs' audio tracks, which a copy of a CD's
+files doesn't hold. Put each CD's tracks in its folder beside its files:
+the CD image's cue sheet and its `.bin` files (the data track's own
+`.bin` isn't needed), or the tracks ripped as `track02.wav`,
+`track03.wav` and so on (`reluva-tool cue-rip <image.cue> <the CD's
+folder>` makes them). `reluva-tool sith folders` says how much music
+each CD has. Without them the game plays without music.
 
 Playing, the game runs as it did on Windows, in Reluva's window. In its
 menus the mouse moves Windows' pointer; in play the window holds the

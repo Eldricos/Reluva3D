@@ -6,6 +6,7 @@
 // file to reluva_add_engine_tools in the engine's CMakeLists.txt.
 
 #include "devtools/tool.h"
+#include "emulation/x86/cdaudio.h"
 #include "engines/sith/folders.h"
 #include "engines/sith/formats/gob.h"
 #include "engines/sith/games.h"
@@ -59,6 +60,17 @@ int cmdFolders(int argc, char **argv) {
         else
             std::printf("CD %d: %s (%s)\n", i + 1, folders.cds[i].generic_string().c_str(),
                         folders.cdSources[i].c_str());
+        // Its music: the audio tracks of a cue sheet, or ripped, beside its files.
+        const reluva::x86::CdAudio::Disc disc = reluva::x86::CdAudio::discIn(folders.cds[i]);
+        int tracks = 0;
+        uint32_t ms = 0;
+        for (int t = 1; t <= disc.tracks; ++t)
+            if (const uint32_t length = disc.lengthMs(t)) {
+                ++tracks;
+                ms += length;
+            }
+        if (!folders.cds[i].empty())
+            std::printf("  music: %d audio tracks, %u:%02u\n", tracks, ms / 60000, ms / 1000 % 60);
     }
     return 0;
 }
@@ -83,12 +95,12 @@ int cmdGob(int argc, char **argv) {
     return 0;
 }
 
-const Commands kCommands("sith",
-                         {
-                             {"files", "<game folder>", "list every file in a game's folder, with its size", cmdFiles},
-                             {"folders", "<install> [cd1path] [cd2path]",
-                              "the game recognised in an install, and where its CDs were found", cmdFolders},
-                             {"gob", "<archive.gob>", "a .gob archive's index: offsets, sizes and names", cmdGob},
-                         });
+const Commands
+    kCommands("sith", {
+                          {"files", "<game folder>", "list every file in a game's folder, with its size", cmdFiles},
+                          {"folders", "<install> [cd1path] [cd2path]",
+                           "the game recognised in an install, where its CDs were found, and their music", cmdFolders},
+                          {"gob", "<archive.gob>", "a .gob archive's index: offsets, sizes and names", cmdGob},
+                      });
 
 } // namespace

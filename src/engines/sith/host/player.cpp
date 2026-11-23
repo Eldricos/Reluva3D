@@ -114,6 +114,7 @@ void Player::work() {
         }
     }
     // The sound card's output, for as long as the game runs.
+    game.cdAudio().mixer = _mixer;
     const audio::SoundHandle sound =
         _mixer ? _mixer->playOutput(game.directSound().output(), audio::SoundType::kEffects) : audio::kNoSound;
     Error e = game.load();

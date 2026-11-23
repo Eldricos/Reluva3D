@@ -13,9 +13,10 @@ None yet.
 
 ## Not yet as the original
 
-- **Music:** none. The game's music is the CDs' audio tracks, which
-  copies of their files don't hold; it finds no CD audio and plays
-  without it ([systems/hosting.md](systems/hosting.md)).
+- **Music:** CD 1's, from its audio tracks beside its files (a cue
+  sheet and its image, or ripped tracks); without them, none, as with
+  the CD missing ([README.md](README.md#using-it)). CD 2's isn't heard
+  yet: drive D is always CD 1 ([systems/hosting.md](systems/hosting.md)).
 - **Joysticks:** none; the game finds none.
 - **Multiplayer:** DirectPlay offers no connections, so there's no one to
   play with.

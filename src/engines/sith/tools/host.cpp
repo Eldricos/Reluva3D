@@ -167,9 +167,15 @@ int cmdHost(int argc, char **argv) {
     // Stopped after `seconds` of this machine's time; the keys pressed at
     // their times, each held a tenth of a second.
     const auto start = std::chrono::steady_clock::now();
-    // With -wav, the sound card's output, taken as the clock moves.
+    // With -wav, what's heard, taken as the clock moves.
     constexpr int kWavRate = 22050;
-    const std::shared_ptr<reluva::audio::OutputStream> soundOut = game.directSound().output();
+    // The sound card's output and the CD's music, mixed as the engine mixes
+    // them.
+    reluva::audio::Mixer mixer(kWavRate);
+    if (!wav.empty()) {
+        mixer.playOutput(game.directSound().output(), reluva::audio::SoundType::kEffects);
+        game.cdAudio().mixer = &mixer;
+    }
     reluva::audio::Sound recorded;
     recorded.rate = kWavRate;
     recorded.channels = 2;
@@ -183,7 +189,7 @@ int cmdHost(int argc, char **argv) {
             if (due > recorded.samples.size()) {
                 const size_t at = recorded.samples.size();
                 recorded.samples.resize(due);
-                soundOut->read(recorded.samples.data() + at, int((due - at) / 2), kWavRate);
+                mixer.mix(recorded.samples.data() + at, int((due - at) / 2));
             }
         }
         for (KeyPress &k : presses) {

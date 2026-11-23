@@ -16,7 +16,7 @@ namespace {
 constexpr const char *kRegistryKey = "HKEY_LOCAL_MACHINE\\Software\\LucasArts Entertainment Company\\JediKnight\\v1.0";
 
 // What a machine of the time without the device answers: no joystick, no
-// CD audio, no DirectPlay lobby, no waveOut device. The program learns it has
+// DirectPlay lobby, no waveOut device. The program learns it has
 // none, as it would there.
 void addAbsentDevices(x86::Win32Process &process) {
     auto absent = [&](const char *dll, const char *name, int args, uint32_t result) {
@@ -27,12 +27,7 @@ void addAbsentDevices(x86::Win32Process &process) {
     absent("WINMM.dll", "joyGetPos", 2, 167);      // JOYERR_UNPLUGGED
     absent("WINMM.dll", "joyGetPosEx", 2, 167);    // JOYERR_UNPLUGGED
     absent("WINMM.dll", "joyGetDevCapsA", 3, 165); // JOYERR_PARMS
-    absent("WINMM.dll", "auxGetNumDevs", 0, 0);
-    absent("WINMM.dll", "auxGetDevCapsA", 3, 2); // MMSYSERR_BADDEVICEID
-    absent("WINMM.dll", "auxGetVolume", 2, 2);
-    absent("WINMM.dll", "auxSetVolume", 2, 2);
-    absent("WINMM.dll", "mciSendCommandA", 4, 275); // MCIERR_CANNOT_LOAD_DRIVER
-    absent("WINMM.dll", "waveOutOpen", 6, 2);       // MMSYSERR_BADDEVICEID
+    absent("WINMM.dll", "waveOutOpen", 6, 2);      // MMSYSERR_BADDEVICEID
     for (const char *name : {"waveOutClose", "waveOutReset"})
         absent("WINMM.dll", name, 1, 5); // MMSYSERR_INVALHANDLE
     for (const char *name : {"waveOutPrepareHeader", "waveOutUnprepareHeader", "waveOutWrite"})
@@ -65,6 +60,10 @@ GameProcess::GameProcess(const GameFolders &folders, const std::filesystem::path
     _directInput = std::make_unique<x86::DirectInput>(p);
     _directPlay = std::make_unique<x86::DirectPlay>(p);
     _directSound = std::make_unique<x86::DirectSound>(p);
+    // The CD in drive D's music: its audio tracks, from a cue sheet and its
+    // image, or ripped, beside its files.
+    _cdAudio = std::make_unique<x86::CdAudio>(p);
+    _cdAudio->disc = [cd = folders.cds[0]] { return x86::CdAudio::discIn(cd); };
     addAbsentDevices(p);
 }
 

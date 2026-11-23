@@ -89,10 +89,11 @@ reaches its menus; then DirectSound; then a level.
    [The gate](#the-gate).
 6. **The game** (under way), hosted, as the gate chose: `JK.EXE` plays
    in Reluva's window, its opening, menus, cut scenes and levels drawn by
-   its own software renderer, with the keyboard and mouse and its sound
-   through DirectSound ([systems/hosting.md](systems/hosting.md)). Next:
-   the CDs' music; Direct3D 1's devices only for *Setup*'s hardware
-   drawing; DirectPlay for multiplayer.
+   its own software renderer, with the keyboard and mouse, its sound
+   through DirectSound and CD 1's music through MCI
+   ([systems/hosting.md](systems/hosting.md)). Next: CD 2 (its levels and
+   music); Direct3D 1's devices only for *Setup*'s hardware drawing;
+   DirectPlay for multiplayer.
 7. **Mysteries of the Sith.**
 
 ## Decisions
@@ -107,5 +108,6 @@ reaches its menus; then DirectSound; then a level.
 | November 2026 | Published write-ups of the formats by the editing community are used for facts only, each checked on the game's files | Allowed by CONTRIBUTING.md, as for Birth of the Federation's editor |
 | November 2026 | Decompilation-based rebuilds of the game (OpenJKDF2 and the like) aren't read, for facts or code | Their code is a function-for-function rebuild of `JK.EXE`'s; reading it would make copying hard to rule out. `JK.EXE` is studied directly instead |
 | November 2026 | Way B, hosting `JK.EXE`, chosen at the gate; the data layer and viewer kept | The trial showed B's cost bounded and shared with other DirectX 5 games, where A's is the whole engine ([The gate](#the-gate)) |
-| November 2026 | Played before it had sound: the game was told there's no sound card, joystick or CD audio, as Windows would without them | It plays to the end that way, and each device can be added on its own later; DirectSound now is |
+| November 2026 | Played before it had sound: the game was told there's no sound card, joystick or CD audio, as Windows would without them | It plays to the end that way, and each device can be added on its own later; DirectSound and the CD's audio now are |
+| November 2026 | The CDs' music from their audio tracks beside each CD's files: a cue sheet and its image, read as it plays, or tracks ripped as `trackNN.wav` or `.mp3` | A copy of a CD's files doesn't hold its audio; an image's cue sheet needs no ripping, and ripped tracks are Reluva's way for other games' CD music (Clue) |
 | November 2026 | The window shows the system's pointer while the game shows Windows', and holds the mouse while the game holds it through DirectInput | The menus use Windows' pointer without drawing one; play reads the mouse's movement |
