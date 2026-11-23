@@ -7,6 +7,7 @@
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/directx/directx.h"
 #include "emulation/x86/dplay.h"
+#include "emulation/x86/dsound.h"
 #include "emulation/x86/mci.h"
 #include "emulation/x86/win32.h"
 
@@ -50,6 +51,7 @@ public:
     x86::Win32Process &process() { return *_process; }
     x86::DirectX &directX() { return *_directX; }
     x86::MciVideo &video() { return *_video; }
+    x86::DirectSound &directSound() { return *_directSound; }
     ///@}
 
 private:
@@ -62,6 +64,7 @@ private:
     std::unique_ptr<x86::DirectX> _directX;
     std::unique_ptr<x86::DirectPlay> _directPlay;
     std::unique_ptr<x86::MciVideo> _video;
+    std::unique_ptr<x86::DirectSound> _directSound;
     const x86::Win32Process::Module *_exe = nullptr;
 };
 

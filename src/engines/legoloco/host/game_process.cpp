@@ -47,6 +47,7 @@ GameProcess::GameProcess(std::filesystem::path gameDir, std::filesystem::path sa
     _directX = std::make_unique<x86::DirectX>(*_process);
     _directPlay = std::make_unique<x86::DirectPlay>(*_process);
     _video = std::make_unique<x86::MciVideo>(*_process);
+    _directSound = std::make_unique<x86::DirectSound>(*_process);
 }
 
 // The game finds its files by LEGO.INI's [DIRECTORIES] and [Video], which

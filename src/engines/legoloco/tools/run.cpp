@@ -8,11 +8,14 @@
 #include "engines/legoloco/host/game_process.h"
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -21,20 +24,27 @@ using namespace reluva;
 using namespace reluva::tool;
 
 // Options: -log prints each stand-in called; -limit n stops after n
-// million instructions; -save folder is where it may write.
+// million instructions; -seconds n stops once the program's clock has
+// passed n seconds (a program waiting for messages runs no instructions);
+// -save folder is where it may write.
 int cmdRun(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool legoloco run <game folder> [-log] [-limit millions] [-save folder]\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool legoloco run <game folder> [-log] [-limit millions] [-seconds n] [-save folder]\n");
         return 2;
     }
     bool log = false;
     uint64_t limit = 2000;
+    uint32_t seconds = 0;
     std::string save;
     for (int i = 3; i < argc; ++i) {
         if (!std::strcmp(argv[i], "-log"))
             log = true;
         else if (!std::strcmp(argv[i], "-limit") && i + 1 < argc)
             limit = std::strtoull(argv[++i], nullptr, 10);
+        else if (!std::strcmp(argv[i], "-seconds") && i + 1 < argc)
+            seconds = uint32_t(std::strtoul(argv[++i], nullptr, 10));
         else if (!std::strcmp(argv[i], "-save") && i + 1 < argc)
             save = argv[++i];
     }
@@ -93,8 +103,34 @@ int cmdRun(int argc, char **argv) {
         last = name;
         repeats = 1;
     };
+    // The clock is watched from a thread of the tool's own: the program's
+    // may all be waiting.
+    std::atomic<bool> done{false};
+    std::atomic<bool> timedOut{false};
+    std::thread watch;
+    if (seconds)
+        watch = std::thread([&] {
+            while (!done) {
+                if (game.process().milliseconds() >= seconds * 1000) {
+                    timedOut = true;
+                    game.process().requestExit();
+                    return;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
+        });
     uint32_t exitCode = 0;
     const Error err = game.run(exitCode);
+    done = true;
+    if (watch.joinable())
+        watch.join();
+    if (timedOut) {
+        std::printf("%llu instructions; stopped after %u seconds\nlast stand-ins called:\n",
+                    (unsigned long long)cpu.executed(), seconds);
+        for (size_t i = callsAt > calls.size() ? callsAt - calls.size() : 0; i < callsAt; ++i)
+            std::printf("  %s\n", calls[i % calls.size()].c_str());
+        return 0;
+    }
     std::printf("%llu instructions; ", (unsigned long long)cpu.executed());
     if (!err) {
         std::printf("the program ended, code %u\n", exitCode);
@@ -117,7 +153,7 @@ int cmdRun(int argc, char **argv) {
 }
 
 const Commands kCommands("legoloco", {
-                                         {"run", "<game folder> [-log] [-limit millions] [-save folder]",
+                                         {"run", "<game folder> [-log] [-limit millions] [-seconds n] [-save folder]",
                                           "run the game's own loco.exe and report how far it gets", cmdRun},
                                      });
 

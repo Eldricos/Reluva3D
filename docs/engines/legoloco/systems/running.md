@@ -64,9 +64,18 @@ Seen running in Reluva (`reluva-tool legoloco run`):
     with `MCI_NOTIFY`, the callback the main window's handle, its low
     word only (`0x454391`). `MM_MCINOTIFY` at its main window
     (`0x420f66`) closes the movie's window and starts the next.
-11. Its sound: `[Sound]`'s `SelectBestDevice`, then DirectSound's
-    ordinal 2 with a callback and its context, so its devices' list
-    (`DirectSoundEnumerateA`, *inferred* from those arguments).
+11. Its sound (`0x412c50`): with `[Sound]`'s `SelectBestDevice` (1 by
+    default), it lists the devices (`DirectSoundEnumerateA`) and, in its
+    callback (`0x412fb0`), makes each that has a GUID and keeps the one
+    with the most capabilities (`GetCaps`'s flags; a certified driver
+    first). It makes that one, sets the priority level, and sets the
+    primary buffer to 22,050 Hz, 16-bit stereo. Then `[Sound]`'s
+    `VolumeLow`, `VolumeMed` and `VolumeHigh`.
+12. The intro's last step (`0x4208f0` with 7): its two panels hidden and
+    their timers killed, and `art-res\video\music.wav` played looping
+    through `PlaySoundA`. The game's state (`0x4851f4`) is still 2, in
+    which its main loop (`0x463253`) only waits for messages: it waits
+    for the player *(inferred)*.
 
 ### Where it finds its files
 
@@ -98,31 +107,34 @@ Seen running in Reluva (`reluva-tool legoloco run`):
 - `reluva-tool legoloco run <game folder> -save <folder>` runs the
   program and reports how far it gets: the imports nothing stands in for,
   and where it stopped, with the last stand-ins called (`-log` prints each
-  call, `-limit` stops after so many million instructions).
+  call, `-limit` stops after so many million instructions, `-seconds`
+  once the program's clock has passed so many seconds).
 
 ### How far it gets
 
-The program runs through its start ([above](#its-start-as-it-runs)) and
+The program runs through its start ([above](#its-start-as-it-runs)),
 plays its three movies (by the clock: about two minutes;
-[mci.md](../../../common/x86/mci.md)), then stops at DirectSound's
-ordinal 2, which nothing stands in for yet. DirectPlay is stood in for
-without a network ([dplay.md](../../../common/x86/dplay.md)), so it finds
-no network connection. Of its 115 imports that had nothing at first, 7
-are left:
+[mci.md](../../../common/x86/mci.md)), sets up its sound and starts its
+music ([dsound.md](../../../common/x86/dsound.md)), about 509 million
+instructions; then it waits for messages, as it would for the player.
+`-seconds 140` ends the run there. DirectPlay is stood in for without a
+network ([dplay.md](../../../common/x86/dplay.md)), so it finds no
+network connection. Of its 115 imports that had nothing at first, 4 are
+left, none called yet:
 
 | DLL | Functions | What |
 |---|---|---|
-| DSOUND | 2 | DirectSound, by ordinal |
-| WINMM | 1 | `PlaySoundA` |
 | comdlg32, SHELL32 | 2, 1 | the Open and Save dialogs, `ShellExecuteA` |
 | USER32 | 1 | `LoadCursorFromFileA` (its animated cursors) |
 
 The rest are stood in for in the shared code: KERNEL32's, ADVAPI32's,
 VERSION.dll's and USER32's ([windows.md](../../../common/x86/windows.md)),
-GDI32's ([gdi.md](../../../common/x86/gdi.md)), and the movie window's
-and MCI's ([mci.md](../../../common/x86/mci.md)). Nothing is shown yet:
-the movies are drawn into the screen's pixels, but the engine doesn't
-show the program's frames.
+GDI32's ([gdi.md](../../../common/x86/gdi.md)), the movie window's and
+MCI's ([mci.md](../../../common/x86/mci.md)), and DirectSound's and
+`PlaySoundA` ([dsound.md](../../../common/x86/dsound.md)). Nothing is
+shown or heard yet: the movies are drawn into the screen's pixels and
+the sound is mixed, but the engine doesn't show the program's frames or
+play its sound, nor pass it the player's input.
 
 ## Sources and checks
 
@@ -134,5 +146,5 @@ show the program's frames.
 ## Open questions
 
 - Whether the program runs on without a network past its start: it
-  finds none of its four connections, and goes on through its movies to
-  DirectSound.
+  finds none of its four connections, and goes on through its movies and
+  its sound's setting up to its intro's end.

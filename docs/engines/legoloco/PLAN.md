@@ -34,7 +34,8 @@ is in [the first survey](research/first-survey.md).
    `reluva-tool x86-run` to see what it asks for, then stand in for what
    isn't there yet. Shared stand-ins go in `src/emulation/x86/`, since no
    engine may rely on another's code. The likely list (stood in for so
-   far: DirectPlay, the movie window, the dialogs, GDI and the INI files;
+   far: DirectPlay, the movie window, DirectSound and `PlaySoundA`, the
+   dialogs, GDI and the INI files;
    what's left is in [running.md](systems/running.md#how-far-it-gets)):
    - DirectSound, which so far only the `nfs` engine stands in for;
    - DirectPlay (`DPLAYX.dll`);
