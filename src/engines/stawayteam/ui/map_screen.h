@@ -109,6 +109,22 @@ public:
     /** The ground's cell at (cx, cy), 64 pixels square, as drawn. */
     const image::Image &groundCell(int cx, int cy);
 
+    /**
+     * How a walker is getting on toward the point it's going for: whether
+     * it's got nearer of late, going round those in its way.
+     */
+    struct Headway {
+        float x = -1e9f; // the point
+        float y = -1e9f;
+        float closest = 1e9f; // the nearest it's been to it
+        float stuck = 0.0f;   // seconds it's got no nearer
+        /**
+         * Whether it's got no nearer to (x, y), `distance` off, in a second:
+         * walked on `seconds` more.
+         */
+        bool nowhere(float px, float py, float distance, float seconds);
+    };
+
     /** An officer on the map. */
     struct Officer {
         size_t member = 0;                        // in the team
@@ -121,8 +137,9 @@ public:
         std::vector<std::pair<float, float>> path; // where they're walking to, the next first
         float travelled = 0.0f;                    // into their walk's cycle, in pixels
         float waited = 0.0f;                       // seconds they've waited for someone in their way
-        int move = 0;                              // walking, running (1) or crouching (2)
-        bool chosen = false;                       // among those the player has chosen
+        Headway headway;
+        int move = 0;        // walking, running (1) or crouching (2)
+        bool chosen = false; // among those the player has chosen
         float health = 0.0f;
         float maxHealth = 0.0f;
         const ItemDefinition *weapon = nullptr; // the one they shoot with, if any
@@ -225,6 +242,7 @@ public:
         bool running = false;   // walking at its Run's pace and frames
         float travelled = 0.0f; // into its walk's cycle
         float waited = 0.0f;    // seconds it's waited for someone in its way
+        Headway headway;
         // Investigating a noise: where it was heard, the way there, and how
         // long it's looked about since getting there.
         float heardX = 0.0f;

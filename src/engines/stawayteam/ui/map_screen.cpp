@@ -60,6 +60,8 @@ constexpr float kArrived = 1.0f;
 // collide checker isn't traced).
 constexpr float kPersonalSpace = 14.0f;
 constexpr float kMostWait = 1.0f;
+// Getting nearer by less than this isn't getting nearer.
+constexpr float kProgress = 0.5f;
 // Time stopped: its words' font (0x5be102).
 const char *const kPauseFont = "Trek Title Red";
 
@@ -577,7 +579,18 @@ void MapScreen::walk(Officer &o, float seconds) {
         const float step = std::min(distance, speed * left);
         float ux = dx / distance;
         float uy = dy / distance;
-        if (!stepAside(o.x, o.y, ux, uy, step, o.path.size() == 1 ? distance : 1e9f, int(&o - _officers.data()), -1)) {
+        // Going round someone and getting no nearer: near the point, it's
+        // taken as reached, someone standing on it; else they go straight
+        // on, as after a wait (inferred).
+        const bool nowhere = o.headway.nowhere(o.path.front().first, o.path.front().second, distance, left);
+        if (nowhere && distance < kPersonalSpace * 2.0f) {
+            o.path.erase(o.path.begin());
+            continue;
+        }
+        if (nowhere) {
+            o.waited = 0.0f;
+        } else if (!stepAside(o.x, o.y, ux, uy, step, o.path.size() == 1 ? distance : 1e9f, int(&o - _officers.data()),
+                              -1)) {
             // No way past: near the last place, they stop there short of
             // whoever's on it; else they wait a moment, then go on.
             if (o.path.size() == 1 && distance < kPersonalSpace * 2.0f) {
@@ -627,6 +640,25 @@ void MapScreen::drawLine(Surface &view, float x0, float y0, float x1, float y1, 
         for (int c = 0; c < 3; ++c)
             p[c] = uint8_t(float(p[c]) + (float(rgb[size_t(c)]) - float(p[c])) * opacity);
     }
+}
+
+bool MapScreen::Headway::nowhere(float px, float py, float distance, float seconds) {
+    // Side-stepping round one standing by the point can go back and forth
+    // for ever, never nearer; a new point starts afresh.
+    if (px != x || py != y) {
+        x = px;
+        y = py;
+        closest = distance;
+        stuck = 0.0f;
+        return false;
+    }
+    if (distance < closest - kProgress) {
+        closest = distance;
+        stuck = 0.0f;
+        return false;
+    }
+    stuck += seconds;
+    return stuck >= kMostWait;
 }
 
 bool MapScreen::stepAside(float x, float y, float &ux, float &uy, float step, float toGo, int officer,

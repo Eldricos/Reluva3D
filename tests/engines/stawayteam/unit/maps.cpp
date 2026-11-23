@@ -1831,6 +1831,47 @@ void testPolygonProcesses() {
     CHECK(screen.partState(5).active);
 }
 
+void testStandingInTheWay() {
+    // Ann sent east along waypoints at 300, 400 and 500; Bo stands idle 8
+    // pixels from the middle one. Ann, unable to come nearer to it, takes
+    // it as reached and goes on, as she would in Mission 10.
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    const std::string zax =
+        "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=400.000000,300.000000\nTree List=CSortList2D\n{\n"
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=300\n}\n"
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 2\nPosition X=392\nPosition Y=297\n}\n}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = bytesOf(zax);
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    WayPoints way;
+    way.points = {{300.0f, 300.0f, {1}}, {400.0f, 300.0f, {0, 2}}, {500.0f, 300.0f, {1}}};
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    TeamMember bo;
+    bo.firstName = "Bo";
+    MapScreen screen(data, rules, map, options, 0, {ann, bo}, way);
+    const MapScreen::Officer &a = screen.officers()[0];
+    const MapScreen::Officer &b = screen.officers()[1];
+    uint64_t now = 0;
+    const auto run = [&](uint64_t until) {
+        while (now < until)
+            screen.update(now += 50);
+    };
+    run(1000);
+    CHECK(std::hypot(b.x - 392.0f, b.y - 297.0f) < 1.0f);
+    screen.choose(0);
+    screen.order(500.0f, 300.0f);
+    run(now + 15000);
+    CHECK(std::hypot(a.x - 500.0f, a.y - 300.0f) < 2.0f && a.path.empty());
+    CHECK(std::hypot(b.x - 392.0f, b.y - 297.0f) < 1.0f);
+}
+
 void testKit() {
     // Ann with the cloaking band, a decoy to put down, a phaser and a
     // grenade; a guard looking her way, one in a stasis field's oval, one of
@@ -2459,6 +2500,7 @@ static const reluva::test::Suite
                {"gadgets", [](const std::filesystem::path &) { testGadgets(); }},
                {"processes", [](const std::filesystem::path &) { testProcesses(); }},
                {"polygon processes", [](const std::filesystem::path &) { testPolygonProcesses(); }},
+               {"standing in the way", [](const std::filesystem::path &) { testStandingInTheWay(); }},
                {"kit", [](const std::filesystem::path &) { testKit(); }},
                {"states", [](const std::filesystem::path &) { testStates(); }},
                {"doors", [](const std::filesystem::path &) { testDoors(); }},

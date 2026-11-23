@@ -889,7 +889,13 @@ Walkers go round one another (`ui/map_screen.cpp`): a step that would
 bring them within 14 pixels of an officer or enemy ahead turns 30, 60 or
 90 degrees either way to pass; with no way past, they wait, and after a
 second go on; near where they're going, whoever's on it is stopped short
-of, not gone round *(inferred)*.
+of, not gone round. Going round one standing by a point of their way
+can turn them one way, then back, for ever, never nearer: a walker that
+has got no nearer to the point it's going for in a second takes it as
+reached if it's within 28 pixels of it, someone being on it, and goes on
+to the next; farther off, it goes straight on. Mission 10's officers,
+one beside the first point of another's way, stood so before
+*(inferred)*.
 
 A character added to the team (`ui/map_mission.cpp`) becomes an officer
 where they stand: the roster's of their name, or one made of their part,

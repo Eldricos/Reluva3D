@@ -162,8 +162,14 @@ bool MapScreen::walkTo(Enemy &e, float x, float y, float ratio, float seconds, b
     const float step = std::min(distance, speed * seconds);
     float ux = dx / distance;
     float uy = dy / distance;
-    // Round anyone in its way, as the officers go (inferred).
-    if (!stepAside(e.x, e.y, ux, uy, step, distance, -1, int(&e - _enemies.data()))) {
+    // Round anyone in its way, as the officers go, there if it's getting
+    // no nearer close by and else straight on (inferred).
+    const bool nowhere = e.headway.nowhere(x, y, distance, seconds);
+    if (nowhere && distance < kPersonalSpace * 2.0f)
+        return true;
+    if (nowhere) {
+        e.waited = 0.0f;
+    } else if (!stepAside(e.x, e.y, ux, uy, step, distance, -1, int(&e - _enemies.data()))) {
         if (distance < kPersonalSpace * 2.0f)
             return true;
         e.waited += seconds;
