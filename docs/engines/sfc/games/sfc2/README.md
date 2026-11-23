@@ -36,11 +36,15 @@ Detection signatures (MD5 of each file's start, and its size, as
   title screen and its CD key dialog, with the mouse and keys passed to
   it: a key can be typed, and the game checks it and remembers it. Its
   sound plays through Reluva's Miles: past its title screen its menu
-  music starts, and its main menu shows, its buttons working.
+  music starts, and its main menu shows, its buttons working. A
+  skirmish runs, the Klingon AI coming in, given the whole install
+  ([systems/hosting.md](systems/hosting.md#its-missions)).
   `reluva-tool sfc host` runs it headless
   ([systems/hosting.md](systems/hosting.md)).
-- **Not yet:** anything past the main menus (a skirmish, the tutorials,
-  a campaign); the network; the
+- **Not yet:** importing from the CDs, which the skirmish, the tutorials
+  and most ships need (an install copied from a computer may be
+  missing them); a skirmish played through, the tutorials, a campaign;
+  the network; the
   `.gf`, `.mct` and `.mvm`
   settings, campaign and map files; the opening movie; the objects in
   `sprites.q3`.

@@ -21,6 +21,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -84,9 +85,12 @@ void writeFrame(const x86::DirectX::Frame &f, const std::string &path) {
 // frames it showed, the imports nothing stands in for, and where it ended.
 int cmdHost(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool sfc host <game folder> [-limit instructions] [-trace count] "
-                             "[-frame out.png] [-quiet] [-save folder] [-calls address] [-watch address]... "
-                             "[-type frame text] [-click frame x y] [-shot frame out.png]... [-sound folder]\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool sfc host <game folder> [-limit instructions] [-trace count] "
+            "[-frame out.png] [-quiet] [-save folder] [-calls address] [-watch address]... "
+            "[-type frame text] [-click frame x y] [-shot frame out.png]... [-sound folder] [-writes address]... "
+            "[-newcode from to]\n");
         return 2;
     }
     uint64_t limit = 2000000000ull;
@@ -97,6 +101,11 @@ int cmdHost(int argc, char **argv) {
     uint32_t callsFrom = 0;
     std::vector<uint32_t> watch; // addresses at which to show the registers and the stack
     std::vector<Step> steps;
+    std::vector<std::pair<uint32_t, uint32_t>> writes; // addresses whose changes are shown, and their last value
+    // With -newcode, the program's code first run between two frames: a
+    // bit an address of its image, set as it runs.
+    uint64_t newFrom = 0;
+    uint64_t newTo = 0;
     std::filesystem::path soundFolder; // each sample's sound, as WAVs
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
@@ -114,7 +123,13 @@ int cmdHost(int argc, char **argv) {
             callsFrom = uint32_t(std::strtoul(argv[++a], nullptr, 0));
         else if (arg == "-watch" && a + 1 < argc)
             watch.push_back(uint32_t(std::strtoul(argv[++a], nullptr, 0)));
-        else if (arg == "-sound" && a + 1 < argc)
+        else if (arg == "-writes" && a + 1 < argc)
+            writes.emplace_back(uint32_t(std::strtoul(argv[++a], nullptr, 0)), 0);
+        else if (arg == "-newcode" && a + 2 < argc) {
+            newFrom = std::strtoull(argv[a + 1], nullptr, 0);
+            newTo = std::strtoull(argv[a + 2], nullptr, 0);
+            a += 2;
+        } else if (arg == "-sound" && a + 1 < argc)
             soundFolder = argv[++a];
         else if (arg == "-type" && a + 2 < argc) {
             const uint64_t at = std::strtoull(argv[a + 1], nullptr, 0);
@@ -227,13 +242,31 @@ int cmdHost(int argc, char **argv) {
         std::printf("  %s\n", m.c_str());
 
     cpu.setInstructionLimit(limit);
+    constexpr uint32_t kImageStart = 0x400000;
+    constexpr uint32_t kImageEnd = 0x800000;
+    std::vector<bool> ran(newTo ? kImageEnd - kImageStart : 0);
+    std::vector<uint32_t> firstRun; // in order, between the frames
     std::vector<uint32_t> recent(size_t(std::max(traceCount, 1)));
     size_t recentAt = 0;
     // With -calls, each call into a stand-in from the moment the program
     // reaches an address, and the interface each QueryInterface asks for.
     bool logging = false;
     cpu.trace = [&](x86::Cpu &c) {
+        // With -writes, each change to a watched word, after the
+        // instruction before this one made it.
+        for (auto &[at, last] : writes)
+            if (c.valid(at, 4))
+                if (const uint32_t now = c.read32(at); now != last) {
+                    std::printf("write %08x: %x -> %x after %08x\n", at, last, now,
+                                recent[(recentAt + recent.size() - 1) % recent.size()]);
+                    last = now;
+                }
         recent[recentAt++ % recent.size()] = c.eip;
+        if (newTo && c.eip >= kImageStart && c.eip < kImageEnd && !ran[c.eip - kImageStart]) {
+            ran[c.eip - kImageStart] = true;
+            if (frames >= newFrom && frames < newTo)
+                firstRun.push_back(c.eip);
+        }
         if (callsFrom && c.eip == callsFrom)
             logging = true;
         if (std::find(watch.begin(), watch.end(), c.eip) != watch.end()) {
@@ -243,6 +276,13 @@ int cmdHost(int argc, char **argv) {
             for (uint32_t i = 0; i < 8; ++i)
                 std::printf(" %x", c.read32(c.reg[x86::Cpu::ESP] + 4 * i));
             std::printf("\n");
+            // What EAX points to (an object a call returned, say).
+            if (const uint32_t p = c.reg[x86::Cpu::EAX]; p >= 0x10000 && c.valid(p, 128)) {
+                std::printf("  eax->");
+                for (uint32_t k = 0; k < 32; ++k)
+                    std::printf(" %x", c.read32(p + 4 * k));
+                std::printf("\n");
+            }
             // What the stack's first words point to, where they're pointers
             // (a call's arguments, at a call; after the return address, at
             // a function's start).
@@ -253,6 +293,11 @@ int cmdHost(int argc, char **argv) {
                 std::printf("  [%x]:", p);
                 for (uint32_t k = 0; k < 16; ++k)
                     std::printf(" %x", c.read32(p + 4 * k));
+                // and as text, where it starts as some
+                const std::string text = c.string(p, 64);
+                if (text.size() >= 3 &&
+                    std::all_of(text.begin(), text.end(), [](char ch) { return ch >= 0x20 && ch < 0x7f; }))
+                    std::printf("  \"%s\"", text.c_str());
                 std::printf("\n");
             }
         }
@@ -267,6 +312,12 @@ int cmdHost(int argc, char **argv) {
             name->find("RegCreateKeyEx") != std::string::npos || name->find("RegSetValueEx") != std::string::npos)
             if (c.valid(c.arg(1), 1))
                 std::printf("  \"%s\"", c.string(c.arg(1), 200).c_str());
+        // The names a module or function is looked for by.
+        if (name->find("LoadLibrary") != std::string::npos || name->find("GetModuleHandle") != std::string::npos)
+            if (c.valid(c.arg(0), 1))
+                std::printf("  \"%s\"", c.string(c.arg(0), 260).c_str());
+        if (name->find("GetProcAddress") != std::string::npos && c.arg(1) >= 0x10000 && c.valid(c.arg(1), 1))
+            std::printf("  \"%s\"", c.string(c.arg(1), 260).c_str());
         if (name->find("::QueryInterface") != std::string::npos) {
             const uint32_t iid = c.read32(c.reg[x86::Cpu::ESP] + 8);
             std::printf("  {%08x-%04x-%04x-...}", c.read32(iid), c.read16(iid + 4), c.read16(iid + 6));
@@ -287,6 +338,15 @@ int cmdHost(int argc, char **argv) {
     for (size_t i = recentAt > recent.size() ? recentAt - recent.size() : 0; i < recentAt; ++i)
         std::printf(" %08x", recent[i % recent.size()]);
     std::printf("\n");
+    if (newTo) {
+        // Runs of consecutive first-run instructions, as where each began.
+        std::printf("code first run between frames %llu and %llu:", static_cast<unsigned long long>(newFrom),
+                    static_cast<unsigned long long>(newTo));
+        for (size_t i = 0; i < firstRun.size(); ++i)
+            if (i == 0 || firstRun[i] < firstRun[i - 1] || firstRun[i] - firstRun[i - 1] > 16)
+                std::printf(" %08x", firstRun[i]);
+        std::printf("\n");
+    }
     if (!soundFolder.empty()) {
         std::error_code ec;
         std::filesystem::create_directories(soundFolder, ec);
@@ -304,17 +364,20 @@ int cmdHost(int argc, char **argv) {
 }
 
 // StarFleet2.exe's code from one address to another, disassembled, for
-// following what the host run reports.
+// following what the host run reports; or, given a file rather than the
+// game's folder, that program's (a mission's DLL), at its preferred base.
 int cmdDisasm(int argc, char **argv) {
     if (argc < 5) {
-        std::fprintf(stderr, "usage: reluva-tool sfc disasm <game folder> <start> <end>\n");
+        std::fprintf(stderr, "usage: reluva-tool sfc disasm <game folder or program> <start> <end>\n");
         return 2;
     }
-    const auto path = fs::findFile(argv[2], sfc::GameProcess::kProgram);
+    const std::filesystem::path given = argv[2];
+    const auto path = std::filesystem::is_regular_file(given) ? std::optional(given)
+                                                              : fs::findFile(given, sfc::GameProcess::kProgram);
     std::vector<uint8_t> file;
     PeImage pe;
     if (!path || !readFile(*path, file) || parsePe(file, pe)) {
-        std::fprintf(stderr, "can't read %s in %s\n", sfc::GameProcess::kProgram, argv[2]);
+        std::fprintf(stderr, "can't read a program at %s\n", argv[2]);
         return 1;
     }
     const auto start = uint32_t(std::strtoul(argv[3], nullptr, 0));
@@ -336,16 +399,18 @@ int cmdDisasm(int argc, char **argv) {
     return 1;
 }
 
-const Commands kCommands(
-    "sfc",
-    {
-        {"host",
-         "<game folder> [-limit n] [-trace n] [-frame out.png] [-quiet] [-save folder] [-calls address] "
-         "[-watch address]... [-type frame text] [-click frame x y] [-shot frame out.png]... [-sound folder]",
-         "run StarFleet2.exe in the x86 emulator, headless, and say how far it gets; keys and clicks "
-         "given at frames it shows",
-         cmdHost},
-        {"disasm", "<game folder> <start> <end>", "disassemble StarFleet2.exe from one address to another", cmdDisasm},
-    });
+const Commands
+    kCommands("sfc",
+              {
+                  {"host",
+                   "<game folder> [-limit n] [-trace n] [-frame out.png] [-quiet] [-save folder] [-calls address] "
+                   "[-watch address]... [-type frame text] [-click frame x y] [-shot frame out.png]... [-sound folder] "
+                   "[-writes address]... [-newcode from to]",
+                   "run StarFleet2.exe in the x86 emulator, headless, and say how far it gets; keys and clicks "
+                   "given at frames it shows",
+                   cmdHost},
+                  {"disasm", "<game folder or program> <start> <end>",
+                   "disassemble StarFleet2.exe (or another program) from one address to another", cmdDisasm},
+              });
 
 } // namespace

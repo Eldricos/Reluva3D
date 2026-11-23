@@ -70,7 +70,12 @@ text files, and the installers' headers.
   called, the C++ type it threw and the text in it, and the program's
   code disassembled around it (`reluva-tool sfc disasm`); the calls
   into the stand-ins listed from a chosen address (`-calls`), with the
-  interfaces asked for ([systems/hosting.md](systems/hosting.md)).
+  interfaces asked for and the names modules and functions are looked
+  for by; the registers and memory where the program gets to an address
+  (`-watch`); each change to a word of memory and the instruction that
+  made it (`-writes`); the code first run between two frames
+  (`-newcode`), which finds what a click runs
+  ([systems/hosting.md](systems/hosting.md)).
 - **Installers:** the patch's Microsoft cabinet listed and taken apart
   with a short script; its InstallShield 5 cabinet listed with `unshield`
   (a free tool, MIT licence).
@@ -90,7 +95,7 @@ text files, and the installers' headers.
 | `reluva-tool sfc sounds` | Decodes every WAV in the sound zips |
 | `reluva-tool sfc table` | Shows a tab-separated or string table |
 | `reluva-tool sfc host` | Runs StarFleet2.exe in the x86 emulator, headless, and says how far it gets |
-| `reluva-tool sfc disasm` | Disassembles StarFleet2.exe between two addresses |
+| `reluva-tool sfc disasm` | Disassembles StarFleet2.exe, or another program given by its path (a mission's DLL), between two addresses |
 
 ## Working files not included
 

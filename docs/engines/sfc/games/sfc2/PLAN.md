@@ -93,7 +93,10 @@ on their pages in `formats/` and `systems/`.
      menu music plays, byte for byte the music's WAVs
      ([miles.md](../../../../common/x86/miles.md));
    - DirectSound 3D buffers, if Miles doesn't take all the sound.
-6. **The game hosted:** the front end, a skirmish, the tutorials, then a
+6. **The game hosted** (started): the front end (done), a skirmish
+   (it runs, the AI coming in, with the CD's files: the install in the
+   owner's folder lacks 2,147 of them, the skirmish mission and most
+   ships among them, so importing comes next), the tutorials, then a
    campaign and its missions (the game loads their DLLs itself), saves,
    the film room. Drawing on the GPU through `gfx3d` once the software
    rasterizer is too slow.

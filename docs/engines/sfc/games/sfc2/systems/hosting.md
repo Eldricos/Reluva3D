@@ -175,6 +175,45 @@ Without the lobby, its code reporting that `CoCreateInstance` failed
 went on to ask the object it didn't get, and read through a null
 pointer at 0x619d3f.
 
+### Its missions
+
+Opening the Skirmish screen, the game looks for `assets/scripts/*.scr`
+and loads each as a DLL (`LoadLibraryA`), which starts its own C runtime
+and loads `OSSpecific98.dll`; it asks for `ScriptEntry`, which returns
+the mission's object, gives it five callbacks of its own, and keeps what
+the object's method at +0x28 describes of it in a list of missions
+(0x888650), freeing the DLL again (0x4d4431 to 0x4d44ea). It keeps a
+cache of them in `assets/scripts/scripts.lst`. Each mission sets its own
+kind in that description *(from the code)*: the `Met_` missions 0, the
+campaign missions 1, `Gen_Playback` 8. The Skirmish screen lists those
+of kind 4 that its empire may play (a bit of the description's word at
++0x48, at 0x4d4938, asked from 0x4765c6); without one, it says "No
+missions available", and PLAY GAME (0x475902) does nothing, there being
+no mission chosen.
+
+The CD installs 104 missions; the install in the owner's Drive folder
+has 49, all the same as the CD's, and of the CD's program files only
+1,172 of 3,315. Missing are `Ski_1Free4All.scr`, the only skirmish
+mission, the tutorials (`Tut_*`), the multiplayer missions (`Mul_*`),
+the `Uni_*` missions, most ship models (the Klingons' among them), 76
+fonts, textures and Miles' drivers. With them, taken from the CD with
+`unshield` for a test, the Skirmish screen lists "Hostile Skirmish"
+("An all out brawl ensues until one team is left standing"), and PLAY
+GAME starts it: the player's Federation heavy cruiser in space, the
+tactical interface, the mission's clock running. The Klingon ship comes
+in close, and the weapons line under the view changes from 4 photon
+torpedoes and 6 phasers to 2 and 1, whether for damage or the weapons
+grouped isn't traced. 35 billion instructions (about
+13 minutes) ran without a failure. With the install's files alone, the
+Klingons' models missing, the run stopped at a null part of a ship the
+game couldn't build (0x415269).
+
+A skirmish is played through DirectPlay, single-player too: starting
+one, the game throws a `TLogicError` naming `fDirectPlayObject` each
+time it finds no DirectPlay object, and goes on. As it starts it calls
+`MoveFileA`, and writes `Auto1.rec` and `WeaponDamage.txt` in its
+folder.
+
 ### Its mouse and keys
 
 The game asks where the pointer is with `GetCursorPos` (and
@@ -252,11 +291,16 @@ known.
   types (Shift held for capitals, `\n` for Enter), `-click <frame> <x>
   <y>` clicks with the left button, `-shot <frame> <out.png>` saves that
   frame; `-sound <folder>` writes what each Miles sample played, one WAV
-  a sample. `reluva-tool sfc disasm <game folder> <start> <end>`
-  disassembles the program.
+  a sample; `-writes <address>` shows each change to a word of memory
+  and the instruction that made it; `-newcode <from> <to>` lists the
+  program's code first run between two frames. `-watch` also shows what
+  EAX points to, and text where a pointer has some; `-calls` shows the
+  names `LoadLibraryA` and `GetProcAddress` are given.
+  `reluva-tool sfc disasm <game folder or program> <start> <end>`
+  disassembles the program, or another (a mission's DLL).
 - **Not yet:** the network (DirectPlay itself), the opening movie;
-  nothing past the main menu and the Single Player screen has been
-  tried.
+  importing the install from the CDs (a test copy was filled by hand);
+  a skirmish played with input, the tutorials and a campaign.
 
 ## Sources and checks
 
