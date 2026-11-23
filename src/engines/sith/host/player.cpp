@@ -76,6 +76,8 @@ std::string Player::takeOutput() {
 void Player::work() {
     GameProcess game(_folders, _saveFolder);
     game.directPlay().network = _network;
+    // The game looks for joysticks as it starts.
+    offerPad(game);
     x86::Win32Process &process = game.process();
     process.output = [this](const std::string &text) {
         std::lock_guard<std::mutex> lock(_mutex);
@@ -137,6 +139,32 @@ void Player::work() {
         _error = e.message;
 }
 
+void Player::gamepad(const GamepadState *pad) {
+    std::lock_guard<std::mutex> lock(_mutex);
+    _padConnected = pad != nullptr;
+    if (pad)
+        _pad = *pad;
+}
+
+void Player::offerPad(GameProcess &game) {
+    bool connected = false;
+    GamepadState pad;
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        connected = _padConnected;
+        pad = _pad;
+    }
+    x86::Joysticks &joysticks = game.joysticks();
+    if (connected != _padGiven || (connected && pad.name != _padGivenName)) {
+        const x86::Joysticks::Device device = x86::Joysticks::fromGamepad(pad);
+        joysticks.connect(0, connected ? &device : nullptr);
+        _padGiven = connected;
+        _padGivenName = pad.name;
+    }
+    if (connected)
+        joysticks.set(0, x86::Joysticks::stateOf(pad));
+}
+
 void Player::drain() {
     std::deque<Event> events;
     {
@@ -145,7 +173,10 @@ void Player::drain() {
         if (_game)
             _pointerShown = _game->pointerShown();
     }
-    if (!_game || events.empty())
+    if (!_game)
+        return;
+    offerPad(*_game);
+    if (events.empty())
         return;
     x86::Win32Process &p = _game->process();
     const bool pointer = _game->pointerShown();

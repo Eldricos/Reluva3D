@@ -164,6 +164,21 @@ it uses are DirectX 5's, by the identifiers in its data:
       system's it acts on a player made (`DPSYS_CREATEPLAYERORGROUP`,
       players only), a player gone (`DPSYS_DESTROYPLAYERORGROUP`) and
       the session lost (`DPSYS_SESSIONLOST`), and passes over the rest.
+19. **Joysticks** are WINMM's *(from the code)*. At start-up
+    (`0x42df20`) it takes up to two of `joyGetNumDevs`, and for each that
+    `joyGetPos` finds plugged in reads `joyGetDevCapsA`: X's and Y's
+    ranges, Z, R, U and V's where `wCaps` says they're there, up to 12
+    buttons (`wMaxButtons`), and a hat (`JOYCAPS_HASPOV`). An axis's
+    middle is halfway along its range, with a dead zone of 5%. In play
+    (`0x42e799`), only while an axis is bound to a control, it reads each
+    joystick's `joyGetPosEx`: the axes, eight buttons, and the hat in
+    hundredths of a degree (`JOY_RETURNPOVCTS`), cut into four directions.
+    A new player's controls have the joystick disabled (`0x4d70d6` sets
+    bit `0x20` of `0x8bd020`, which the controls then skip, `0x4d6dad`):
+    *Setup*, *Controls*, *Joystick*, untick *Disable joystick*, and it
+    lists the axes and buttons with their default bindings (X turns, Y
+    moves forward and back, buttons 1 and 2 fire), which the player's file
+    keeps.
 
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were
@@ -199,8 +214,13 @@ it presents in the window, and passes the keyboard and mouse on.
   CD's audio
   ([cdaudio.md](../../../../../common/x86/cdaudio.md)) are the
   emulator's, the sound card's output and the music played through
-  Reluva's mixer. There's no `waveOut` device, no joystick and no
-  DirectPlay lobby: the game is told so, as on a machine without them.
+  Reluva's mixer. There's no `waveOut` device and no DirectPlay lobby:
+  the game is told so, as on a machine without them.
+- **The joystick:** the player's game controller, connected when the
+  game starts or later, is its first joystick
+  ([joystick.md](../../../../../common/x86/joystick.md)): the sticks,
+  triggers, ten buttons and the D-pad as the hat. The `joystick` setting
+  (*Game controller* in the launcher) leaves it out.
 - **Multiplayer:** DirectPlay offers one connection, TCP/IP, over the
   machine's network. *Join Game* finds sessions hosted by other copies
   of Reluva on the local networks and on this machine, and at the host
@@ -254,7 +274,10 @@ side's powers, takes the game down the dark side's branch), and
 `-frames <seconds> <folder>` saves a frame each so many seconds. The
 cheats are the game's: 18 words, each byte XOR `0xc5`, from `0x53c680`,
 each tied to a handler as the console starts (`0x41f240` to `0x41f5ff`)
-*(from the code)*. `-net` gives the game the machine's network for multiplayer (and
+*(from the code)*. `-pad "<seconds>:<control>=<value>,..."` connects a game controller and
+moves it at those moments (`lx` `ly` `rx` `ry` -1 to 1, `lt` `rt` 0 to
+1, the buttons `a` `b` `x` `y` `lb` `rb` `back` `start` `ls` `rs` `up`
+`down` `left` `right` 1 or 0). `-net` gives the game the machine's network for multiplayer (and
 `-join <address>` a host to look for sessions at), and says what
 DirectPlay does: sessions made or joined, players come and gone, and the
 datagrams sent and received. `-png` saves the last frame, `-calls` lists every stand-in called and the

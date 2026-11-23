@@ -45,6 +45,12 @@ public:
         } audioStop{_sys, audioOut};
         Player player(findFolders(_target.path, _target.settings), _target.savePath, audioOut ? &mixer : nullptr,
                       network());
+        // The controller, if it's offered: the game's first joystick.
+        const auto joystickSetting = _target.settings.find("joystick");
+        const bool joystick = joystickSetting == _target.settings.end() || joystickSetting->second != "off";
+        GamepadState pad;
+        auto pollPad = [&] { player.gamepad(joystick && _sys.readGamepad(pad) ? &pad : nullptr); };
+        pollPad();
         player.start();
         int width = 640;
         int height = 480;
@@ -74,6 +80,7 @@ public:
                 if (!leaving)
                     player.input(ev);
             }
+            pollPad();
             int w = 0;
             int h = 0;
             if (player.frame(pixels, w, h)) {
@@ -160,6 +167,17 @@ public:
 
     bool addToImport(ImportPlan &plan, const std::filesystem::path &folder, std::string &message) const override {
         return sith::addToImport(plan, folder, message);
+    }
+
+    // The settings the launcher shows for the game; the first choice is
+    // the default.
+    std::vector<GameOption> engineOptions() const override {
+        GameOption joystick;
+        joystick.key = "joystick";
+        joystick.label = "Game controller";
+        joystick.tooltip = "A connected controller offered to the game as its joystick.";
+        joystick.choices = {{"on", "Offered to the game"}, {"off", "Left out"}};
+        return {joystick};
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {

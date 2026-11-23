@@ -10,6 +10,7 @@
 #include "emulation/x86/directx/directx.h"
 #include "emulation/x86/directx/dsound.h"
 #include "emulation/x86/dplay.h"
+#include "emulation/x86/joystick.h"
 #include "emulation/x86/win32.h"
 #include "engines/sith/folders.h"
 
@@ -26,8 +27,8 @@ namespace reluva::sith {
  * (docs/engines/sith/games/jk/systems/hosting.md): the install as drive C,
  * what the game writes going to a save folder, CD 1's copy as drive D, and
  * SMACKW32.DLL as it shipped. Windows, DirectDraw, DirectInput, DirectPlay,
- * DirectSound and the CD's audio are the emulator's stand-ins; there's no
- * joystick yet, and the game finds none.
+ * DirectSound, the joysticks and the CD's audio are the emulator's
+ * stand-ins; there's no waveOut device, and the game finds none.
  */
 class GameProcess {
 public:
@@ -67,6 +68,7 @@ public:
     x86::DirectInput &directInput() { return *_directInput; }
     x86::DirectSound &directSound() { return *_directSound; }
     x86::DirectPlay &directPlay() { return *_directPlay; }
+    x86::Joysticks &joysticks() { return *_joysticks; }
     x86::CdAudio &cdAudio() { return *_cdAudio; }
     ///@}
     /**
@@ -83,6 +85,7 @@ private:
     std::unique_ptr<x86::DirectX> _directX;
     std::unique_ptr<x86::DirectInput> _directInput;
     std::unique_ptr<x86::DirectPlay> _directPlay;
+    std::unique_ptr<x86::Joysticks> _joysticks;
     std::atomic<int64_t> _networkAt{0}; // when the network was last answered, in steady milliseconds
     std::unique_ptr<x86::DirectSound> _directSound;
     std::unique_ptr<x86::CdAudio> _cdAudio;

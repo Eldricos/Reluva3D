@@ -19,19 +19,15 @@ namespace {
 
 constexpr const char *kRegistryKey = "HKEY_LOCAL_MACHINE\\Software\\LucasArts Entertainment Company\\JediKnight\\v1.0";
 
-// What a machine of the time without the device answers: no joystick, no
-// DirectPlay lobby, no waveOut device. The program learns it has
+// What a machine of the time without the device answers: no DirectPlay
+// lobby, no waveOut device. The program learns it has
 // none, as it would there.
 void addAbsentDevices(x86::Win32Process &process) {
     auto absent = [&](const char *dll, const char *name, int args, uint32_t result) {
         process.provideStdcall(dll, name, args, [result](x86::Cpu &) { return result; });
     };
     absent("DPLAYX.dll", "#4", 5, 0x887700fa); // DirectPlayLobbyCreateA: DPERR_UNAVAILABLE
-    absent("WINMM.dll", "joyGetNumDevs", 0, 0);
-    absent("WINMM.dll", "joyGetPos", 2, 167);      // JOYERR_UNPLUGGED
-    absent("WINMM.dll", "joyGetPosEx", 2, 167);    // JOYERR_UNPLUGGED
-    absent("WINMM.dll", "joyGetDevCapsA", 3, 165); // JOYERR_PARMS
-    absent("WINMM.dll", "waveOutOpen", 6, 2);      // MMSYSERR_BADDEVICEID
+    absent("WINMM.dll", "waveOutOpen", 6, 2);  // MMSYSERR_BADDEVICEID
     for (const char *name : {"waveOutClose", "waveOutReset"})
         absent("WINMM.dll", name, 1, 5); // MMSYSERR_INVALHANDLE
     for (const char *name : {"waveOutPrepareHeader", "waveOutUnprepareHeader", "waveOutWrite"})
@@ -74,6 +70,8 @@ GameProcess::GameProcess(const GameFolders &folders, const std::filesystem::path
     _directX->modes.insert(_directX->modes.begin(), {{640, 480, 8}, {800, 600, 8}, {1024, 768, 8}});
     _directInput = std::make_unique<x86::DirectInput>(p);
     _directPlay = std::make_unique<x86::DirectPlay>(p);
+    // No joystick until the player's controller is connected (Player).
+    _joysticks = std::make_unique<x86::Joysticks>(p);
     // The network answered between the game's own calls to DirectPlay too,
     // so players can join a host whose menus aren't asking.
     p.onSlice = [this](x86::Cpu &) {

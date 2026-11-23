@@ -97,6 +97,11 @@ the game's section of `reluva.ini` to its address (`host` or
 `host:port`). A host's router has to pass UDP port 47624 on to it for
 players from outside.
 
+A game controller is the game's joystick. As on Windows, a new player
+has it disabled: in *Setup*, *Controls*, *Joystick*, untick *Disable
+joystick*; the left stick then turns and moves, and A and B fire. The
+launcher's *Game controller* setting leaves it out.
+
 Playing, the game runs as it did on Windows, in Reluva's window. In its
 menus the mouse moves Windows' pointer; in play the window holds the
 mouse, which turns the view, until Esc brings up the game's menu.

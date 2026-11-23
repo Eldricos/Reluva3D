@@ -53,6 +53,12 @@ public:
      */
     void input(const Event &event);
     /**
+     * The player's game controller now, offered to the game as its first
+     * joystick (x86::Joysticks::fromGamepad); nullptr when none is
+     * connected. Any thread; the game sees it at its next frame.
+     */
+    void gamepad(const GamepadState *pad);
+    /**
      * The newest frame shown, as 0xAARRGGBB.
      * @return False, leaving the arguments alone, if none was shown since the last asked for.
      */
@@ -72,7 +78,8 @@ public:
 
 private:
     void work();
-    void drain(); // on the game's thread: applies the queued input
+    void drain();                     // on the game's thread: applies the queued input
+    void offerPad(GameProcess &game); // on the game's thread: the controller as it is now
 
     GameFolders _folders;
     std::filesystem::path _saveFolder;
@@ -97,6 +104,11 @@ private:
     // fractions of a pixel of movement not passed on yet
     float _pendingX = 0;
     float _pendingY = 0;
+    // The controller to offer, and what the game was last given.
+    bool _padConnected = false;
+    GamepadState _pad;
+    bool _padGiven = false;
+    std::string _padGivenName;
 };
 
 } // namespace reluva::sith

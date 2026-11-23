@@ -19,7 +19,10 @@ None yet.
 - **Music:** from each CD's audio tracks beside its files (a cue sheet
   and its image, or ripped tracks); without them, none, as with the CD
   missing ([README.md](README.md#using-it)).
-- **Joysticks:** none; the game finds none.
+- **Joysticks:** one, the player's game controller, laid out as Reluva
+  chooses ([joystick.md](../../../../common/x86/joystick.md)); a second
+  joystick isn't offered, and *Calibrate joystick*'s Windows control
+  panel isn't there.
 - **Multiplayer:** over TCP/IP only, and between copies of Reluva: its
   DirectPlay plays sessions over a protocol of its own, so it can't meet
   a game on Windows' DirectPlay. There's no IPX, modem or serial

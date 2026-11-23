@@ -101,7 +101,7 @@ int cmdHost(int argc, char **argv) {
         std::fprintf(stderr,
                      "usage: reluva-tool sith host <install> [-seconds N] [-args \"...\"] [-png file] "
                      "[-files] [-calls] [-d3d] [-net] [-join address] [-keys \"s:key,...\"] [-skim] [-cheat word] "
-                     "[-frames N folder] [-peek address] [-wav file] [-write folder]\n");
+                     "[-pad \"s:control=value,...\"] [-frames N folder] [-peek address] [-wav file] [-write folder]\n");
         return 2;
     }
     const std::filesystem::path install = argv[2];
@@ -117,6 +117,7 @@ int cmdHost(int argc, char **argv) {
     std::vector<uint32_t> peeks;
     std::string keysArg;
     bool skim = false;
+    std::string padArg;
     std::vector<std::string> cheats; // typed once in each level, with -skim
     double framesEvery = 0;
     std::filesystem::path framesFolder;
@@ -143,6 +144,8 @@ int cmdHost(int argc, char **argv) {
             join = argv[++i], network = true;
         else if (a == "-skim")
             skim = true;
+        else if (a == "-pad" && i + 1 < argc)
+            padArg = argv[++i];
         else if (a == "-cheat" && i + 1 < argc)
             cheats.push_back(argv[++i]);
         else if (a == "-frames" && i + 2 < argc)
@@ -221,6 +224,59 @@ int cmdHost(int argc, char **argv) {
                              "tab, up, down, left, right, or click<x>x<y> for the mouse's left button\n");
         return 2;
     }
+    // With -pad, a game controller connected from the start, moved at the
+    // times given: lx ly rx ry (-1 to 1), lt rt (0 to 1), and the buttons a
+    // b x y lb rb back start ls rs up down left right (1 held, 0 not).
+    struct PadChange {
+        double at;
+        std::string control;
+        float value;
+        bool done = false;
+    };
+    std::vector<PadChange> padChanges;
+    for (size_t at = 0; at < padArg.size();) {
+        size_t end = padArg.find(',', at);
+        if (end == std::string::npos)
+            end = padArg.size();
+        const std::string item = padArg.substr(at, end - at);
+        at = end + 1;
+        const size_t colon = item.find(':');
+        const size_t equals = item.find('=');
+        if (colon == std::string::npos || equals == std::string::npos || equals < colon) {
+            std::fprintf(stderr, "-pad: \"<seconds>:<control>=<value>,...\"\n");
+            return 2;
+        }
+        padChanges.push_back({std::atof(item.substr(0, colon).c_str()), item.substr(colon + 1, equals - colon - 1),
+                              float(std::atof(item.substr(equals + 1).c_str()))});
+    }
+    reluva::GamepadState pad;
+    pad.name = "Test pad";
+    if (!padChanges.empty()) {
+        const x86::Joysticks::Device device = x86::Joysticks::fromGamepad(pad);
+        game.joysticks().connect(0, &device);
+    }
+    auto movePad = [&](double now) {
+        static const std::map<std::string, int> kAxes = {{"lx", 0}, {"ly", 1}, {"rx", 2},
+                                                         {"ry", 3}, {"lt", 4}, {"rt", 5}};
+        static const std::map<std::string, reluva::GamepadButton> kButtons = {
+            {"a", reluva::kPadSouth},       {"b", reluva::kPadEast},          {"x", reluva::kPadWest},
+            {"y", reluva::kPadNorth},       {"lb", reluva::kPadLeftShoulder}, {"rb", reluva::kPadRightShoulder},
+            {"back", reluva::kPadBack},     {"start", reluva::kPadStart},     {"ls", reluva::kPadLeftStick},
+            {"rs", reluva::kPadRightStick}, {"up", reluva::kPadUp},           {"down", reluva::kPadDown},
+            {"left", reluva::kPadLeft},     {"right", reluva::kPadRight}};
+        bool moved = false;
+        for (PadChange &p : padChanges) {
+            if (p.done || now < p.at)
+                continue;
+            p.done = moved = true;
+            if (auto a = kAxes.find(p.control); a != kAxes.end())
+                pad.axes[a->second] = p.value;
+            else if (auto b = kButtons.find(p.control); b != kButtons.end())
+                pad.buttons = p.value != 0 ? pad.buttons | 1u << b->second : pad.buttons & ~(1u << b->second);
+        }
+        if (moved)
+            game.joysticks().set(0, x86::Joysticks::stateOf(pad));
+    };
     // Stopped after `seconds` of this machine's time; the keys pressed at
     // their times, each held a tenth of a second.
     const auto start = std::chrono::steady_clock::now();
@@ -289,6 +345,7 @@ int cmdHost(int argc, char **argv) {
     auto tick = [&](x86::Cpu &c) {
         std::lock_guard<std::mutex> lock(tickMutex);
         const double now = elapsed();
+        movePad(now);
         if (skim && inLevel && now >= nextCheat) {
             double at = now;
             if (!invulnerable) {
@@ -473,7 +530,8 @@ const Commands kCommands(
     {
         {"host",
          "<install> [-seconds N] [-args \"...\"] [-png file] [-files] [-calls] [-d3d] [-net] [-join address] [-keys "
-         "\"s:key,...\"] [-skim] [-cheat word] [-frames N folder] [-peek address] [-wav file]",
+         "\"s:key,...\"] [-skim] [-cheat word] [-pad \"s:control=value,...\"] [-frames N folder] [-peek address] "
+         "[-wav file]",
          "run the retail JK.EXE in the x86 emulator: how far it gets", cmdHost},
         {"disasm", "<JK.EXE> <address> [count]", "the program's instructions from an address (hexadecimal) on",
          cmdDisasm},
