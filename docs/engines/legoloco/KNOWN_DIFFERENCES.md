@@ -33,6 +33,12 @@ the original's way. -->
   Liberation Sans, as wide as Arial, at sizes matched to a recording of
   the original so its lines break as there; the letters' shapes differ
   a little ([common/x86/gdi.md](../../common/x86/gdi.md)).
+- **Windows' arrow:** where the game shows Windows' standard arrow
+  rather than its own hand (over the scroll bars and frame, and after
+  saving where its hand is off), Reluva shows an arrow of its own
+  drawing, as Windows' picture isn't Reluva's to have
+  ([common/graphics/cursors.md](../../common/graphics/cursors.md)). The
+  busy pointer is the game's own file, as the original shows it.
 - **The default player's name:** the original names a new player by
   Windows' user name (`GetUserNameA`; `User` in the recording), so on
   the player's own computer it's their login; Reluva's is always
@@ -54,9 +60,6 @@ None yet.
 - **The windowed mode:** its frame is painted plainly (borders and a
   caption bar, without the title or buttons); the desktop around it is
   black.
-- **Windows' pointer:** where the game shows Windows' own pointer rather
-  than drawing its own (the busy pointer while saving), nothing is
-  drawn; the animated cursors' files aren't read.
 - **Not stood in for yet:** the Open and Save dialogs (the game's own
   panels serve instead), and opening a web page (`ShellExecuteA`).
 

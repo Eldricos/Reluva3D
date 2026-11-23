@@ -28,14 +28,34 @@ using namespace reluva;
 using namespace reluva::tool;
 
 // The frame as a binary PPM; nothing if none was shown.
-void saveShot(const x86::DirectX::Frame &f, const std::string &path) {
+// The screen as shown, with Windows' pointer over it when it's shown.
+void saveShot(const x86::DirectX::Frame &f, x86::Win32Process &process, const std::string &path) {
     if (f.pixels.empty()) {
         std::printf("no frame was shown\n");
         return;
     }
+    std::vector<uint32_t> pixels = f.pixels;
+    if (const Cursor *c = process.pointer()) {
+        const int left = process.cursorX - f.x - c->hotX;
+        const int top = process.cursorY - f.y - c->hotY;
+        for (int y = 0; y < c->h; ++y)
+            for (int x = 0; x < c->w; ++x) {
+                const int sx = left + x;
+                const int sy = top + y;
+                const uint8_t *p = c->pixel(x, y);
+                if (sx < 0 || sy < 0 || sx >= f.width || sy >= f.height || !p[3])
+                    continue;
+                uint32_t &v = pixels[size_t(sy) * size_t(f.width) + size_t(sx)];
+                const auto mix = [&](int shift, uint8_t to) {
+                    const uint32_t from = (v >> shift) & 0xff;
+                    return ((from * (255u - p[3]) + uint32_t(to) * p[3]) / 255u) << shift;
+                };
+                v = 0xff000000u | mix(16, p[0]) | mix(8, p[1]) | mix(0, p[2]);
+            }
+    }
     std::ofstream out(path, std::ios::binary);
     out << "P6\n" << f.width << ' ' << f.height << "\n255\n";
-    for (uint32_t v : f.pixels) {
+    for (uint32_t v : pixels) {
         const char rgb[3] = {char(v >> 16), char(v >> 8), char(v)};
         out.write(rgb, 3);
     }
@@ -242,7 +262,7 @@ struct Copy {
                     p.key(st.key, 0, false);
                     break;
                 case Step::Kind::kShot:
-                    saveShot(game.directX().frame(), st.file);
+                    saveShot(game.directX().frame(), game.process(), st.file);
                     break;
                 }
             }
@@ -253,7 +273,7 @@ struct Copy {
         if (watch.joinable())
             watch.join();
         if (!shot.empty())
-            saveShot(game.directX().frame(), shot);
+            saveShot(game.directX().frame(), game.process(), shot);
         std::string lastCalls;
         for (size_t i = callsAt > calls.size() ? callsAt - calls.size() : 0; i < callsAt; ++i)
             lastCalls += "  " + calls[i % calls.size()] + "\n";

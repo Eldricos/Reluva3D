@@ -5,6 +5,7 @@
 
 #include "common/events.h"
 #include "emulation/x86/dplay.h"
+#include "graphics/cursor.h"
 
 #include <cstdint>
 #include <deque>
@@ -55,6 +56,14 @@ public:
      * @return False, leaving the arguments alone, if none was shown since the last asked for.
      */
     bool frame(std::vector<uint32_t> &pixels, int &width, int &height);
+    /**
+     * Windows' pointer, which the game shows over its own at times (the busy
+     * pointer while it saves).
+     * @param cursor Set to its picture, when it's shown.
+     * @param shown Set to whether it's shown.
+     * @return False, leaving the arguments alone, if it hasn't changed since last asked.
+     */
+    bool pointer(Cursor &cursor, bool &shown);
     /** How many frames the game has shown so far. */
     uint64_t framesShown();
     /**
@@ -68,7 +77,8 @@ public:
 
 private:
     void work();
-    void drain(); // on the game's thread: passes on the input queued
+    void drain();       // on the game's thread: passes on the input queued
+    void takePointer(); // on the game's thread: keeps Windows' pointer for the engine
 
     std::filesystem::path _dir;
     std::filesystem::path _saveDir;
@@ -87,6 +97,11 @@ private:
     // is in the frame's pixels. The game thread's.
     int _frameX = 0;
     int _frameY = 0;
+    const Cursor *_pointerNow = nullptr; // the game thread's: what it last kept
+    Cursor _pointer;
+    bool _pointerShown = false;
+    uint64_t _pointerNumber = 0;
+    uint64_t _pointerTaken = 0;
     uint64_t _frameNumber = 0;
     uint64_t _frameTaken = 0;
     bool _stopping = false;

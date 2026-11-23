@@ -47,6 +47,30 @@ bool Player::frame(std::vector<uint32_t> &pixels, int &width, int &height) {
     return true;
 }
 
+bool Player::pointer(Cursor &cursor, bool &shown) {
+    std::lock_guard<std::mutex> lock(_mutex);
+    if (_pointerNumber == _pointerTaken)
+        return false;
+    _pointerTaken = _pointerNumber;
+    cursor = _pointer;
+    shown = _pointerShown;
+    return true;
+}
+
+// The picture is kept again only when it changes: a new cursor, or the
+// next frame of an animated one.
+void Player::takePointer() {
+    const Cursor *now = _game ? _game->process().pointer() : nullptr;
+    if (now == _pointerNow)
+        return;
+    _pointerNow = now;
+    std::lock_guard<std::mutex> lock(_mutex);
+    _pointerShown = now != nullptr;
+    if (now)
+        _pointer = *now;
+    ++_pointerNumber;
+}
+
 uint64_t Player::framesShown() {
     std::lock_guard<std::mutex> lock(_mutex);
     return _frameNumber;
@@ -94,12 +118,16 @@ void Player::work() {
         }
         _frameX = f.x, _frameY = f.y;
         drain();
+        takePointer();
     };
     game.video().frameDrawn = [&game] { game.directX().show(); };
     game.directPlay().network = _network;
     game.process().screenWidth = _desktopWidth;
     game.process().screenHeight = _desktopHeight;
-    process.idle = [this] { drain(); };
+    process.idle = [this] {
+        drain();
+        takePointer();
+    };
     {
         std::lock_guard<std::mutex> lock(_mutex);
         _game = &game;

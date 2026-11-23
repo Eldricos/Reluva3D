@@ -109,6 +109,17 @@ Seen running in Reluva (`reluva-tool legoloco run`):
   switches the pointer on, elsewhere off. Windows sends `WM_NCHITTEST`
   before each mouse message; until the stand-ins did, the pointer stayed
   off after the welcome, and the board took no clicks.
+- **Windows' pointer** shows where the game's own is off. `0x411dc0`
+  switching the game's pointer on hides Windows' (`ShowCursor` until its
+  count is below 0); asked for the busy pointer as well, it loads
+  `CURSORS\busy.ani` once (`LoadCursorFromFileA`, kept at `+0x108`),
+  shows Windows' pointer (`ShowCursor` until the count's 0 or more) and
+  sets the busy one. Switching off puts the arrow back if the busy
+  pointer was set (`LoadCursorA(0, IDC_ARROW)`), and shows Windows'
+  pointer if asked to. Its window classes have no cursor of their own, so
+  Windows' pointer is whatever was set last *(from the code)*; seen in
+  Reluva, it's hidden on the board and the front screen, and the arrow
+  shows over the board's scroll bars.
 - **The Toybox** (the LEGO case, top left), its buttons as their
   pictures show them: track, buildings, scenery, the eraser, the bomb,
   undo; loading and saving, backdrops, the bulldozer; the windowed mode,
@@ -297,11 +308,14 @@ calls named were seen made, from the addresses given:
     (`DirectX::show`);
   - its sound, DirectSound's buffers with `PlaySoundA`'s music, plays on
     the engine's mixer, as do the movies';
-  - the mouse is passed on where it is on the screen (the game draws its
-    own pointer, so the system's is hidden; the frame's corner on the
-    screen is added, for the windowed mode), with its buttons, the wheel
-    and the keys, when the program looks for a message and finds none or
-    when it presents a frame.
+  - the mouse is passed on where it is on the screen (the frame's corner
+    on the screen is added, for the windowed mode), with its buttons, the
+    wheel and the keys, when the program looks for a message and finds
+    none or when it presents a frame;
+  - the system's pointer is hidden while the game draws its own, and
+    shows Windows' when the game shows that (`Win32Process::pointer`:
+    the busy pointer, or an arrow of Reluva's own), taken at the same
+    times; `run`'s screenshots draw it too.
 - `reluva-tool legoloco run <game folder> -save <folder>` runs the
   program and reports how far it gets: the imports nothing stands in for,
   and where it stopped, with the last stand-ins called (`-log` prints each

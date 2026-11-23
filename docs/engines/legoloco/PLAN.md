@@ -22,8 +22,9 @@ is in [the first survey](research/first-survey.md).
    [`EE.INI`](formats/ee-ini.md) and [area arrangements](formats/lay.md),
    each with `reluva-tool legoloco` commands. The `.but` files are BMPs
    and the `.wav` files standard; the postcards
-   ([formats/crd.md](formats/crd.md)) followed with network play. Left:
-   the animated cursors (`.ani`), as Windows' own pointer isn't drawn.
+   ([formats/crd.md](formats/crd.md)) followed with network play, and
+   the animated cursors (`.ani`) with Windows' pointer, by a shared
+   reader ([common/graphics/cursors.md](../../common/graphics/cursors.md)).
 3. **Data viewer** (done; [systems/data-viewer.md](systems/data-viewer.md)):
    the boards drawn with their pieces, the pictures cut into frames with
    their frame sets played, the definitions and the sounds; on the way,
@@ -36,12 +37,10 @@ is in [the first survey](research/first-survey.md).
    another's code: DirectSound and `PlaySoundA`, DirectPlay, the movie
    window and MCI on the shared Cinepak decoder, dialogs from the
    program's own templates, GDI's text and shapes, the INI files, the
-   windows' frames and scroll bars. Left, as nothing has called them:
-   the Open and Save dialogs (`comdlg32.dll`; the game's own panels serve
-   instead) and `ShellExecuteA`; and the animated cursors' pictures
-   (`busy.ani`, by a shared reader of the published `.ani` format), as
-   Windows' own pointer isn't drawn
-   ([KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md)).
+   windows' frames and scroll bars, and Windows' pointer where the game
+   shows it. Left, as nothing has called them: the Open and Save dialogs
+   (`comdlg32.dll`; the game's own panels serve instead) and
+   `ShellExecuteA` ([KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md)).
 5. **Playable** (largely: the movies, the front screen, the layouts,
    the Toybox, laying track, starting and building trains, the post
    office and postcards, saving and loading play, with the mouse and

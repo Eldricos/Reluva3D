@@ -73,7 +73,8 @@ public:
 
 private:
     // The game, until it ends or the player leaves. It draws its own
-    // pointer (a hand) where the mouse is, so the system's is hidden.
+    // pointer (a hand) where the mouse is; the system's shows Windows'
+    // when the game shows that.
     Error play() {
         Player player(_target.path, _target.savePath, _audioOut ? _mixer.get() : nullptr, network());
         int width = 1024;
@@ -82,10 +83,12 @@ private:
             width = 800, height = 600;
         player.setDesktop(width, height);
         player.start();
+        Cursor pointer;
+        bool pointerShown = false;
         auto screen = [&] {
             _sys.initGraphics(width, height, PixelFormat::kRGBA32);
             _screen.create(width, height, PixelFormat::kRGBA32);
-            _sys.setMouseCursorVisible(false);
+            _sys.setMouseCursorVisible(pointerShown);
         };
         screen();
         _sys.setWindowTitle("Reluva - " + _target.description);
@@ -117,6 +120,10 @@ private:
                     }
                 }
                 _sys.updateScreen(_screen);
+            }
+            if (player.pointer(pointer, pointerShown)) {
+                _sys.setMouseCursor(pointerShown ? &pointer : nullptr);
+                _sys.setMouseCursorVisible(pointerShown);
             }
             if (const std::string out = player.takeOutput(); !out.empty())
                 std::fputs(out.c_str(), stderr);
