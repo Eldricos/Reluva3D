@@ -21,8 +21,7 @@ image::Image screenPicture(const Archive &data, const std::string &name);
 
 /**
  * A voice-over by its name, as scripts name them ("01 Mission Begin1"):
- * `<name>.ogg` under `Levels/Voice Overs` (inferred); nullptr if there's
- * none.
+ * the first `<name>.ogg` anywhere under `Levels`; nullptr if there's none.
  */
 std::shared_ptr<audio::Sound> voiceOver(const Archive &data, const std::string &name);
 

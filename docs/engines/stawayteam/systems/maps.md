@@ -466,7 +466,9 @@ scripts to find. Mission 01 has 103 `CRelayAI`, 31
   `CMultipleActionsAction`, `CTriggerRelayAction`, `CDeactivateAction`,
   `CDelayAction`, `CActivateAction`, the AIs' messages, `CTricorderDialogAction`,
   `CPlaySoundAction`, `CInfoDialogAction`; `$Instigator` names whoever
-  set the trigger off.
+  set the trigger off. A `CPlaySoundAction`'s sound under `Sounds/ENEMIES/`
+  (the enemies' speech, 82 files) or `Sounds/Voice Overs/` plays only
+  while the options play voice-overs (`0x4c9140`).
 
 A part's **processes** (`CProcessListAI`, on 337 parts in the maps, all
 but 5 of them with a model) are what an officer does with it: its

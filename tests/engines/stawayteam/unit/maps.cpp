@@ -4,6 +4,7 @@
 // The maps: a .zax read, its ground's textures blended by their values,
 // the polygons laid on it, and the camera kept on the map.
 
+#include "audio/mixer.h"
 #include "engines/stawayteam/formats/text_object.h"
 #include "engines/stawayteam/game/ground_fractal.h"
 #include "engines/stawayteam/game/map.h"
@@ -268,6 +269,29 @@ void testTriggers() {
     CHECK(!readTextObject("CTriggerRelayAction\n{\n\tRelay Name=Lights\n}\n", relay));
     screen.runAction(&relay);
     CHECK(screen.partState(2).active);
+
+    // An enemy's speech plays only while the options play voice-overs
+    // (0x4c9140); other sounds always.
+    std::vector<uint8_t> wav = {'R', 'I', 'F', 'F', 40,  0,   0,   0,   'W',  'A',  'V', 'E', 'f',  'm',  't', ' ',
+                                16,  0,   0,   0,   1,   0,   1,   0,   0x22, 0x56, 0,   0,   0x44, 0xac, 0,   0,
+                                2,   0,   16,  0,   'd', 'a', 't', 'a', 4,    0,    0,   0,   1,    0,    1,   0};
+    data.files["Sounds/ENEMIES/Romulan/Intruder.ogg"] = wav;
+    data.files["Sounds/Alarm.ogg"] = wav;
+    audio::Mixer mixer(22050);
+    options.playVoiceovers = false;
+    MapScreen quiet(data, rules, map, options, 0, {officer}, {}, &mixer);
+    TextObject speech;
+    CHECK(!readTextObject("CPlaySoundAction\n{\n\tSound=ENEMIES/Romulan/Intruder.ogg\n}\n", speech));
+    quiet.runAction(&speech);
+    CHECK(!mixer.isTypePlaying(audio::SoundType::kEffects));
+    TextObject alarm;
+    CHECK(!readTextObject("CPlaySoundAction\n{\n\tSound=Alarm.wav\n}\n", alarm));
+    quiet.runAction(&alarm);
+    CHECK(mixer.isTypePlaying(audio::SoundType::kEffects));
+    mixer.stopAll();
+    options.playVoiceovers = true;
+    quiet.runAction(&speech);
+    CHECK(mixer.isTypePlaying(audio::SoundType::kEffects));
 }
 
 void testEnemies() {

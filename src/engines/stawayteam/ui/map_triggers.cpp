@@ -552,8 +552,17 @@ void MapScreen::runAction(const TextObject *action, int instigator, int trigger)
         for (size_t part : targets("Target"))
             _partStates[part].deleted = true;
     } else if (kind == "CPlaySoundAction") {
-        if (_mixer)
-            if (auto sound = gameSound(_data, readText(action, "Sound")))
+        // The enemies' speech and the voice-overs only while the options
+        // play voice-overs (0x4c9140).
+        const std::string name = readText(action, "Sound");
+        const auto under = [&](std::string_view folder) {
+            return name.size() >= folder.size() &&
+                   std::equal(folder.begin(), folder.end(), name.begin(),
+                              [](char a, char b) { return std::tolower(a) == std::tolower(b); });
+        };
+        const bool voice = under("ENEMIES/") || under("Voice Overs/");
+        if (_mixer && (!voice || _options.playVoiceovers))
+            if (auto sound = gameSound(_data, name))
                 _mixer->play(sound, audio::SoundType::kEffects);
     } else if (kind == "CConditionalAction") {
         const bool succeeded = checkAction(action->object("Try Action"), instigator, trigger);

@@ -46,12 +46,13 @@ std::shared_ptr<audio::Sound> gameSound(const Archive &data, const std::string &
     return sound;
 }
 
-// The game looks its sounds up by name (0x56dea0).
+// The game looks "<name>.wav" up (0x472d1e) in its list of every sound
+// under Levels, an .ogg standing for a .wav (0x4f609d, 0x56dea0).
 std::shared_ptr<audio::Sound> voiceOver(const Archive &data, const std::string &name) {
     const std::string want = normalizeArchiveName(name + ".ogg");
     for (const std::string &file : data.list()) {
         const std::string key = normalizeArchiveName(file);
-        if (!key.starts_with(normalizeArchiveName("Levels/Voice Overs/")) || key.size() < want.size() ||
+        if (!key.starts_with(normalizeArchiveName("Levels/")) || key.size() < want.size() ||
             key.compare(key.size() - want.size(), want.size(), want) != 0 ||
             (key.size() > want.size() && key[key.size() - want.size() - 1] != '/'))
             continue;

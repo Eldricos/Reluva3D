@@ -78,8 +78,14 @@ CONTINUE or Space (`0x474dde`) shows a line being typed whole, or goes
 on to the next, with `Interface/Space Bar Briefing.wav`. A line with a
 `Frame to start` the movie hasn't reached moves the movie on to it
 (`0x4745d6`). Showing a line (`0x472bc0`) starts its voice-over, the
-sound named as its entry (`<Text>.wav`), when the options play
-voice-overs.
+sound named as its entry (`<Text>.wav`, `0x472d1e`), when the options
+play voice-overs. It's looked up by that name (`0x56dea0`) in the list
+the game makes as it starts of every sound under `Levels`, wherever it
+is, an `.ogg` standing for a `.wav` (`0x4f609d`, `0x56db90`); the
+retail ones are under `Levels/Voice Overs`, Missions 1 and 2 having
+none for their briefings. Sounds under `Sounds/Voice Overs/` and
+`Sounds/ENEMIES/` are played only while the options play voice-overs
+(`0x4c9140`).
 
 After the lines, items found during the mission before ("Discover Next
 Briefing") are described the same way, the movie stopped (`0x474639`).
@@ -122,9 +128,6 @@ screens show, and the briefing music plays over and over.
 
 ## Open questions
 
-- **The voice-overs' files:** the game finds a sound by its name;
-  Reluva looks for `<name>.ogg` under `Levels/Voice Overs`. Missions 1
-  and 2 have none for their briefings.
 - **The briefing music:** where the program plays it isn't traced;
   Reluva plays it over and over while the screen shows.
 - **The scroll bar's layout** (`0x4e81c0`).
