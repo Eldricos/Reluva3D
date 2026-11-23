@@ -64,6 +64,12 @@ public:
         uint32_t texture = 0;
         int textureWidth = 0;
         int textureHeight = 0;
+        // D3DBLEND factors for what's drawn and what's there; both 0 when
+        // blending is off.
+        uint32_t srcBlend = 0;
+        uint32_t destBlend = 0;
+        bool depthTest = false;
+        bool depthWrite = false;
     };
     // Called for each draw (DrawPrimitive and the like), before it's drawn.
     std::function<void(const Draw &)> drawn;

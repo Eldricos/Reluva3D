@@ -479,6 +479,10 @@ void Device::draw(uint32_t primitive, uint32_t fvf, uint32_t vertices, uint32_t 
             d.textureWidth = t->d.width;
             d.textureHeight = t->d.height;
         }
+        if (renderStates[kAlphaBlendEnable])
+            d.srcBlend = renderStates[kSrcBlend], d.destBlend = renderStates[kDestBlend];
+        d.depthTest = renderStates[kZEnable] != 0;
+        d.depthWrite = d.depthTest && renderStates[kZWriteEnable];
         s->owner.drawn(d);
     }
     _projected = layout.rhw;

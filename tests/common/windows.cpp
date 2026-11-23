@@ -1226,6 +1226,10 @@ static void testDirectX() {
     const uint32_t device = cpu.read32(out);
     CHECK(cpu.fpu.control == 0x007f); // Direct3D leaves it in single precision
 
+    // Each draw handed over, with its blending and depth states.
+    std::vector<x86::DirectX::Draw> draws;
+    dx.drawn = [&](const x86::DirectX::Draw &d) { draws.push_back(d); };
+
     // Clear to blue, then a red-green-blue triangle (screen coordinates).
     CHECK(call(device, 10, {0, 0, 3, 0xff0000ffu, bits(1.0f), 0}) == 0); // Clear target and Z
     CHECK(call(device, 20, {22, 1}) == 0);                               // CULLMODE: none
@@ -1282,8 +1286,21 @@ static void testDirectX() {
     vertex(1, 64, 24, 0.5f, 0xffffffffu, 1, 0);
     vertex(2, 40, 48, 0.5f, 0xffffffffu, 0, 1);
     vertex(3, 64, 48, 0.5f, 0xffffffffu, 1, 1);
+    // Blended one to zero, which draws as if it weren't.
+    CHECK(call(device, 20, {27, 1}) == 0);               // ALPHABLENDENABLE
+    CHECK(call(device, 20, {19, 2}) == 0);               // SRCBLEND: one
+    CHECK(call(device, 20, {20, 1}) == 0);               // DESTBLEND: zero
+    CHECK(call(device, 20, {14, 0}) == 0);               // ZWRITEENABLE: off
     CHECK(call(device, 25, {5, fvf, verts, 4, 0}) == 0); // a strip
-    CHECK(call(primary, 11, {0, 1}) == 0);               // Flip
+    CHECK(call(device, 20, {27, 0}) == 0);
+    CHECK(call(device, 20, {14, 1}) == 0);
+    dx.drawn = nullptr;
+    CHECK(draws.size() == 3);
+    CHECK(draws[0].primitive == 4 && draws[0].fvf == fvf && draws[0].vertices.size() == 3 * 28);
+    CHECK(draws[0].srcBlend == 0 && draws[0].destBlend == 0 && draws[0].depthTest && draws[0].depthWrite);
+    CHECK(draws[2].primitive == 5 && draws[2].textureWidth == 2 && draws[2].textureHeight == 2);
+    CHECK(draws[2].srcBlend == 2 && draws[2].destBlend == 1 && draws[2].depthTest && !draws[2].depthWrite);
+    CHECK(call(primary, 11, {0, 1}) == 0); // Flip
 
     const x86::DirectX::Frame &f = dx.frame();
     CHECK(f.width == 64 && f.height == 48 && f.number == 1);
