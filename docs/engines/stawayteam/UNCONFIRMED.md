@@ -44,7 +44,7 @@ None now.
   screen, the keyboard screen's
   keys and tab sizes, voiceovers' and movies'
   volume following the effects', and
-  the shortcut's line opaque
+  the buttons' fades counted in seconds
   ([systems/menus.md](systems/menus.md#open-questions)).
 - **Maps:** the camera's and zoom's frames taken as 30 a second, the
   drawing order's ties, the water's clock stopping while

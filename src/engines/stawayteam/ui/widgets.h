@@ -18,6 +18,13 @@ namespace reluva::stawayteam {
 /** `picture` with its colours scaled by `brightness` (0-1), as the game's toolkit dims what it draws. */
 image::Image dimmed(const image::Image &picture, float brightness);
 
+/**
+ * The toolkit's drawing brightness `brightness` (0-1) as a scale: its
+ * level, 0-255, shifts each colour right by 5 less its sixths, darkening
+ * in six steps (0x44c4f0, 0x44c1e8).
+ */
+float toolkitScale(float brightness);
+
 /** Whether `ev` is Enter pressed, which presses a window's default button (0x401e57). */
 bool isEnter(const Event &ev);
 

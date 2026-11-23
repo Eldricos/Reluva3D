@@ -76,7 +76,7 @@ void testButtons() {
     underlined.setLabel("A&B", &font, 0, 0);
     Surface surface;
     surface.create(40, 10, PixelFormat::kRGBA32);
-    underlined.draw(surface, 0, 0, false, false);
+    underlined.draw(surface, 0, 0, true, false);
     const auto lit = [&](int x) {
         const uint8_t *p = surface.row(9) + x * 4;
         return p[0] == 63 && p[1] == 154 && p[2] == 255;
@@ -86,6 +86,24 @@ void testButtons() {
     surface.create(40, 10, PixelFormat::kRGBA32);
     underlined.draw(surface, 0, 0, false, false);
     CHECK(!lit(20));
+
+    // Its label lit under the mouse and 0.66 bright away from it, a
+    // quarter of its colour in the toolkit's steps; at 4 a second, the
+    // label dims from one to the other in a quarter of a second.
+    Button fading(data, "Menu", "Button", 0, 0);
+    fading.setLabel("A&B", &font, 0, 0);
+    fading.setFadeRate(4.0f);
+    const auto label = [&](bool hover, uint64_t now) {
+        surface.create(40, 10, PixelFormat::kRGBA32);
+        fading.draw(surface, 0, 0, hover, false, now);
+        return int(surface.row(2)[17 * 4]);
+    };
+    const int whole = label(true, 1000);
+    CHECK(whole > 200);
+    CHECK(label(false, 1100) == whole);
+    CHECK(label(false, 1200) == whole * 128 / 256);
+    CHECK(label(false, 1300) == whole * 64 / 256);
+    CHECK(label(false, 2000) == whole * 64 / 256);
 
     Event ev;
     ev.type = EventType::kKeyDown;

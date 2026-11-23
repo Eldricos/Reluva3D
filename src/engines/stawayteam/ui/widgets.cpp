@@ -77,6 +77,11 @@ image::Image dimmed(const image::Image &picture, float brightness) {
     return out;
 }
 
+float toolkitScale(float brightness) {
+    const int level = std::clamp(int(brightness * 255.0f), 0, 255);
+    return 1.0f / float(1 << (5 - level * 6 / 256));
+}
+
 bool isEnter(const Event &ev) {
     return ev.type == EventType::kKeyDown && (ev.key == key::kReturn || ev.key == key::kKpEnter);
 }

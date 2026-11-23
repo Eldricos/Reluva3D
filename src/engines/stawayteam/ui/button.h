@@ -72,8 +72,18 @@ public:
     /** Whether (x, y), on its menu, is on it. */
     bool contains(int x, int y) const;
 
-    /** Draws it, its menu's top left at (originX, originY). */
-    void draw(Surface &screen, int originX, int originY, bool hover, bool pressed) const;
+    /**
+     * How fast, per second, its pictures fade from one state's to the
+     * next and its label brightens or dims (0x5ccd60): the main menu's 4;
+     * otherwise at once.
+     */
+    void setFadeRate(float perSecond) { _fadeRate = perSecond; }
+
+    /**
+     * Draws it at `now` (milliseconds; 0: with no clock, every fade done),
+     * its menu's top left at (originX, originY).
+     */
+    void draw(Surface &screen, int originX, int originY, bool hover, bool pressed, uint64_t now = 0) const;
 
     /** Whether it's checked: then it shows its Press picture, under the mouse or not (0x4e8140). */
     bool checked() const { return _checked; }
@@ -100,6 +110,17 @@ private:
     bool _checked = false;
     bool _enabled = true;
     bool _rightAligned = false;
+    float _fadeRate = 100000.0f; // the game's own at once (0x5ccc51)
+
+    // The game's states (0x4e8140): 0 pressed or checked, 1 under the
+    // mouse, 2 disabled, 3 none of these; each its picture.
+    const image::Image &picture(int state) const;
+    // Drawn as it changes, so kept as it's drawn.
+    mutable int _state = -1;
+    mutable int _previous = -1;
+    mutable float _pictureFade = 1.0f; // the new state's picture, 0-1
+    mutable float _lit = 0.0f;         // the label, 0 dim to 1 lit
+    mutable uint64_t _lastDraw = 0;
 };
 
 /**
@@ -129,7 +150,10 @@ public:
      * disabled.
      */
     int press(size_t i, audio::Mixer *mixer);
-    void draw(Surface &screen) const;
+    /** Draws them at `now` (milliseconds; 0: with no clock). */
+    void draw(Surface &screen, uint64_t now = 0) const;
+    /** Sets every button's fade rate (Button::setFadeRate). */
+    void setFadeRate(float perSecond);
 
 private:
     int buttonAt(int x, int y) const;

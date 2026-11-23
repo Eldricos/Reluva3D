@@ -63,9 +63,19 @@ and `<name> Press`, from `Cache/Interface/Screens/<menu>/`, and a label
   under the font's baseline, but inside the button, from 1 in from the
   character's left to 1 in from its right, in the toolkit's light blue
   (63,154,255, set at `0x408511`), its alpha the label's brightness.
-- **Lit under the mouse:** the label's drawing goes through a
-  brightness set from the button's `+0x174`, a number that changes as
-  the mouse comes over it, so the label brightens *(inferred)*.
+- **Its state** (`0x4e8140`): 2 if it's disabled; else, under the
+  mouse, 0 if it's held down on or checked and 1 if not; away from it, 0
+  if it's checked and 3 if not. Each state has its picture (Press, Hover,
+  Disable, Default).
+- **Fading between states** (`0x5ccfc0`, `0x5cd290`): as the state
+  changes, the new state's picture fades in, drawn at a brightness going
+  from 0 to 1, over the old one's going from 1 to 0 (`0x5ccef0`); and the
+  label's brightness, 0.66 plus 0.34 times a number going to 1 (states
+  0 and 1) or 0 (2 and 3), so 0.66 for an idle or disabled button and 1
+  for one lit (`0x5cd0fe`). Both move at the button's rate a second: at
+  once (100000, `0x5ccc51`) but for the main menu's, 4 (`0x50377e`), a
+  quarter of a second. Through the toolkit's brightness, 0.66 is a
+  quarter of the colours.
 
 ### The main menu
 
@@ -517,8 +527,9 @@ Game/Background`:
   pictures for each state, the label and shortcut; lit under the mouse,
   pressed while it's held down on one, chosen when it's let go on the same
   one, or by its shortcut's key held with Alt (not Ctrl), in either case;
-  its line drawn under it as above, opaque. The label's brightening isn't
-  drawn yet, and a disabled button's shortcut plays nothing.
+  its line drawn under it as above. Its states, fading and the label's
+  brightness as above, the main menu's at 4 a second; a disabled
+  button's shortcut plays nothing.
 - **The main menu:** `MainMenu` (`ui/main_menu.cpp`), its screen and its
   buttons as above; Enter and Esc press the default and cancel buttons
   as above, the button's sound played. Quit opens the confirm dialog, in
@@ -613,10 +624,8 @@ Game/Background`:
   (`0x44c1e8`); Reluva scales colours smoothly but for the credits.
 - **The credits' underlines:** how the line drawing uses its colour's
   alpha. Reluva blends them over the roll by it.
-- **The label lit:** how fast the label's brightness (`+0x174`, from
-  0.66 to 1, `0x5cd0fe`) follows its button's state, and which states
-  dim it (`0x5ccfc0`); the shortcut's line takes the same brightness as
-  its alpha. Reluva draws both whole.
+- **The fade's clock:** the buttons' update (`0x5cd290`) is taken to
+  count in seconds, as the game's other updates do.
 - **Saved games:** how the save screens' rows, time, picture and game
   info are drawn, and the original's save files, for Reluva to read
   them.

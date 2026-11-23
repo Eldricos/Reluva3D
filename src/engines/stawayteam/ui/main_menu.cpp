@@ -163,6 +163,8 @@ MainMenu::MainMenu(System &sys, Surface &screen, const Archive &data, const std:
         y += button.height() + spacing;
         _buttons.add(std::move(button));
     }
+    // Its buttons fade at 4 a second (0x50377e).
+    _buttons.setFadeRate(4.0f);
 
     // The startup song, from Music/.
     const std::string song = readText(&rules, "Startup Song");
@@ -756,7 +758,7 @@ void MainMenu::draw() {
             image::blit(_screen, part->picture, part->x, part->y);
         }
     }
-    _buttons.draw(_screen);
+    _buttons.draw(_screen, now);
     if (_credits)
         _credits->draw(_screen, now);
     drawWindows(now);
