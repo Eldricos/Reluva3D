@@ -47,7 +47,9 @@ None yet.
   planned round characters by their distance from it, not their
   outlines, and round closed doors, which don't stop one walking; the transporter's pictures aren't drawn
   as enemies beam out; the Out Of Range cursor isn't there; parts are
-  picked by their distance from the pointer, not their shapes
+  picked by their distance from the pointer, not their shapes; a
+  radius's action reaches only the officers and enemies in its
+  categories, not other parts
   ([systems/maps.md](systems/maps.md#in-reluva)).
 - **Saved games** are Reluva's own, not the game's: a save keeps the
   mission as it began, and loading one starts that mission again from

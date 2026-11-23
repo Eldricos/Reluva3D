@@ -505,10 +505,11 @@ bool MapScreen::runEnemyAction(const TextObject *action, int instigator, int tri
         for (Enemy *e : enemiesNamed("Entity Name"))
             e->validTargets = readText(action, "Valid Targets");
     } else if (kind == "CDoOnAllWithinRadiusAction") {
-        // Its Touching Action for each enemy in an oval Radius across and
-        // Radius times Y To X Ratio up and down about its Target Entity,
-        // whose name has its Name Filter in it, that isn't Who To Ignore;
-        // each the $Trigger of it (inferred: how it chooses isn't traced).
+        // Its Touching Action for each active one of Who To Affect's
+        // categories (0x5758f2), the dead too, within an oval Radius across
+        // and Radius times Y To X Ratio up and down about its Target Entity
+        // (0x576750, 0x5767d0), named its Name Filter in full, any case
+        // (0x575800), that isn't Who To Ignore; each its $Instigator.
         const std::string centre = readText(action, "Target Entity");
         float cx = 0.0f;
         float cy = 0.0f;
@@ -557,14 +558,14 @@ bool MapScreen::runEnemyAction(const TextObject *action, int instigator, int tri
             }
         for (size_t k = 0; k < _enemies.size(); ++k) {
             const Enemy &e = _enemies[k];
-            if (!e.alive() || !_partStates[e.part].active || _partStates[e.part].deleted || rx <= 0.0f || ry <= 0.0f)
+            if (!_partStates[e.part].active || _partStates[e.part].deleted || rx <= 0.0f || ry <= 0.0f)
                 continue;
             if (!affects.empty() && !inCategory(_map.parts[e.part].category, affects))
                 continue;
             std::string name = _map.parts[e.part].name;
             for (char &c : name)
                 c = char(std::tolower(static_cast<unsigned char>(c)));
-            if ((!filter.empty() && name.find(filter) == std::string::npos) ||
+            if ((!filter.empty() && name != filter) ||
                 std::find(ignored.begin(), ignored.end(), e.part) != ignored.end())
                 continue;
             const float dx = (e.x - cx) / rx;

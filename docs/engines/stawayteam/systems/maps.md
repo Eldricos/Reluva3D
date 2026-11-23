@@ -640,11 +640,16 @@ They tell one another, by actions:
   is made from it (`0x578060`) and sent to the target.
 - **`CSendInvestigateTargetMessageAction`** (213): its `Target` is given
   the instigator as a target (`0x578b70`).
-- **`CDoOnAllWithinRadiusAction`** (719; a `CDoOnAllInsideAction`): its
-  `Touching Action` for each part of `Who To Affect` (`Enemy`) about its
-  `Target Entity` (`$Trigger` or `$Instigator` mostly) within `Radius`
-  and `Y To X Ratio` of it, whose name has its `Name Filter`, but `Who To
-  Ignore`, with its `Start Action` and `Done Action`. In the alert and
+- **`CDoOnAllWithinRadiusAction`** (719; a `CDoOnAllInsideAction`,
+  run by `0x575830`): its `Start Action`, then its `Touching Action` for
+  each active part of `Who To Affect`'s categories (`Enemy`, `Dead
+  Bodies`; `0x5758f2`), the dead as well as the living, about its
+  `Target Entity` (`$Trigger` or `$Instigator` mostly) within an oval
+  `Radius` across and `Radius` times `Y To X Ratio` up and down
+  (`0x576750`, `0x5767d0`), named its `Name Filter` (`Who To
+  Affect/Name Filter`) in full in any case (`0x575800`: `borg` is the
+  Borg named `borg`, not `borg 2`), but not `Who To Ignore`; each its
+  `$Instigator`. Then its `Done Action`. In the alert and
   attack states' Start Actions and the Damage Actions, it calls the
   others near to look (`Touching Action` a
   `CSendInvestigateHereMessageAction` to `$Trigger`) or adds an effect

@@ -691,6 +691,15 @@ void testCombat() {
     run(20000);
     CHECK(!guard.alive() && guard.state == "Dead" && guard.health == 0.0f && screen.partState(4).active);
     CHECK(screen.enemyAt(500.0f, 500.0f) == -1 && screen.officers()[1].attacking == -1);
+    // A radius's action reaches the dead too, as they're still in its
+    // categories (the enemies' beaming their dead away).
+    TextObject wait;
+    CHECK(!readTextObject("CDoOnAllWithinRadiusAction\n{\nTarget Entity=$Trigger\nWho To Affect=Enemy\n"
+                          "Radius=50\nY To X Ratio=1\nTouching Action=CAssignOverrideTemporaryTaskAction\n{\n"
+                          "Target=$instigator\nTemporary Task AI=CWaitAI\n{\nTime To Wait=5\n}\n}\n}\n",
+                          wait));
+    screen.runAction(&wait, -1, int(guard.part));
+    CHECK(guard.held == 5.0f);
 }
 
 void testNoise() {
@@ -865,7 +874,7 @@ void testEnemyAI() {
               "\t\t\t\t\t\t\tTarget Entity=$Trigger\n"
               "\t\t\t\t\t\t\tTouching Action=CSendInvestigateHereMessageAction\n\t\t\t\t\t\t\t{\n"
               "\t\t\t\t\t\t\t\tTarget=$Trigger\n\t\t\t\t\t\t\t}\n"
-              "\t\t\t\t\t\t\tWho To Ignore=Guard 4\n\t\t\t\t\t\t\tName Filter=guard\n"
+              "\t\t\t\t\t\t\tWho To Ignore=Guard 4\n\t\t\t\t\t\t\tName Filter=GUARD 2\n"
               "\t\t\t\t\t\t\tWho To Affect=Enemy\n\t\t\t\t\t\t\tRadius=400\n\t\t\t\t\t\t\tY To X Ratio=1\n"
               "\t\t\t\t\t\t}\n\t\t\t\t\t}\n",
               "\t\t\tInventory=CInventory\n\t\t\t{\n\t\t\t\tInventory List=Array\n\t\t\t\t{\n"
@@ -922,8 +931,9 @@ void testEnemyAI() {
         while (now < until)
             screen.update(now += 50);
     };
-    // The guard sees Ann: its alert calls Guard 2, in its radius, to look
-    // where she is, but not Guard 3, out of it, nor Guard 4, ignored. Then
+    // The guard sees Ann: its alert calls Guard 2, in its radius and named
+    // its Name Filter in full, any case, to look where she is, but not
+    // Guard 3, out of it, nor Guard 4, named otherwise. Then
     // it shoots her with its stun gun: down, unhurt, and she can't walk.
     run(1000);
     CHECK(enemies[1].state == "Investigate" && enemies[1].heardX == 350.0f && enemies[1].heardY == 500.0f);
