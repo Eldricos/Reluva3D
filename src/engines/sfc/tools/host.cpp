@@ -4,6 +4,7 @@
 // reluva-tool's Starfleet Command command for running the game's own
 // StarFleet2.exe in the x86 emulator, without a window: how far it gets.
 
+#include "backends/networking/sockets/socket_net.h"
 #include "common/events.h"
 #include "common/fs.h"
 #include "common/pe.h"
@@ -117,7 +118,7 @@ int cmdHost(int argc, char **argv) {
             "usage: reluva-tool sfc host <game folder> [-limit instructions] [-trace count] "
             "[-frame out.png] [-quiet] [-save folder] [-calls address] [-watch address]... "
             "[-type frame text] [-click frame x y] [-shot frame out.png]... [-sound folder] [-writes address]... "
-            "[-newcode from to] [-fixed-clock] [-key frame name]...\n");
+            "[-newcode from to] [-fixed-clock] [-key frame name]... [-net]\n");
         return 2;
     }
     uint64_t limit = 2000000000ull;
@@ -132,6 +133,7 @@ int cmdHost(int argc, char **argv) {
     // With -newcode, the program's code first run between two frames: a
     // bit an address of its image, set as it runs.
     bool fixedClock = false;
+    bool network = false;
     uint64_t newFrom = 0;
     uint64_t newTo = 0;
     std::filesystem::path soundFolder; // each sample's sound, as WAVs
@@ -155,6 +157,8 @@ int cmdHost(int argc, char **argv) {
             writes.emplace_back(uint32_t(std::strtoul(argv[++a], nullptr, 0)), 0);
         else if (arg == "-fixed-clock")
             fixedClock = true;
+        else if (arg == "-net")
+            network = true;
         else if (arg == "-key" && a + 2 < argc) {
             // Pressed at the frame, released at the next.
             const uint64_t at = std::strtoull(argv[a + 1], nullptr, 0);
@@ -209,6 +213,10 @@ int cmdHost(int argc, char **argv) {
         saveFolder = std::filesystem::temp_directory_path(ec) / "reluva-sfc-host";
     }
     game.setSaveFolder(saveFolder);
+    // -net: multiplayer over the machine's network, so two copies of the
+    // tool (each with a save folder of its own) can play each other.
+    if (network)
+        game.directPlay().setNetwork(net::systemSockets(), net::systemBroadcastAddresses());
     std::printf("writes go to %s\n", saveFolder.string().c_str());
     x86::Cpu &cpu = game.cpu();
     x86::Win32Process &process = game.process();
@@ -480,7 +488,7 @@ const Commands
                   {"host",
                    "<game folder> [-limit n] [-trace n] [-frame out.png] [-quiet] [-save folder] [-calls address] "
                    "[-watch address]... [-type frame text] [-click frame x y] [-shot frame out.png]... [-sound folder] "
-                   "[-writes address]... [-newcode from to] [-fixed-clock] [-key frame name]...",
+                   "[-writes address]... [-newcode from to] [-fixed-clock] [-key frame name]... [-net]",
                    "run StarFleet2.exe in the x86 emulator, headless, and say how far it gets; keys and clicks "
                    "given at frames it shows",
                    cmdHost},

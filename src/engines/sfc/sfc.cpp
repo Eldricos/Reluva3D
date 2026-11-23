@@ -96,6 +96,7 @@ public:
                 return Error::success();
         }
         Player player(_target.path, _target.savePath, audioOut ? _mixer.get() : nullptr);
+        player.setNetwork(_sys.sockets(), _sys.broadcastAddresses());
         player.start();
         int width = 800; // the game's own resolution, until its first frame says
         int height = 600;

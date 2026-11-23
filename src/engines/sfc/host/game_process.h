@@ -61,6 +61,7 @@ public:
     x86::Win32Process &process() { return *_process; }
     x86::DirectX &directX() { return *_directX; }
     x86::Miles &miles() { return *_miles; }
+    x86::DirectPlay &directPlay() { return *_directPlay; }
     ///@}
 
     /** Told of each file or folder the program looks for in its folder, and whether it was there. */

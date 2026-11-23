@@ -8,10 +8,15 @@
 #include <cstdint>
 #include <deque>
 #include <filesystem>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
+
+namespace reluva::net {
+class Sockets;
+}
 
 namespace reluva::audio {
 class Mixer;
@@ -37,6 +42,14 @@ public:
     /** Stops the game and waits for its thread. */
     ~Player();
 
+    /**
+     * The network its multiplayer games are played over (DirectPlay's
+     * TCP/IP), and the local networks' broadcast addresses; before start().
+     */
+    void setNetwork(std::shared_ptr<net::Sockets> sockets, std::vector<uint32_t> broadcast) {
+        _sockets = std::move(sockets);
+        _broadcast = std::move(broadcast);
+    }
     /** Starts the game's thread, which loads and runs the program; call once. */
     void start();
     /**
@@ -68,6 +81,8 @@ private:
     std::filesystem::path _dir;
     std::filesystem::path _saveDir;
     audio::Mixer *_mixer;
+    std::shared_ptr<net::Sockets> _sockets;
+    std::vector<uint32_t> _broadcast;
     GameProcess *_game = nullptr; // the game thread's, while it runs
     std::thread _thread;
     std::mutex _mutex;
