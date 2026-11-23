@@ -62,9 +62,16 @@ C++ library have pages of their own ([directx.md](directx.md),
   it signalled.
 - **`win32_user.cpp`: USER32 and GDI32.** Window classes and windows, kept
   as records (procedure, place, size, visibility) that the engine can show
-  as it likes. Making one sends `WM_NCCREATE` and `WM_CREATE`. Showing it
-  first activates it (`WM_ACTIVATEAPP`, `WM_ACTIVATE`, `WM_SETFOCUS`).
-  Other pieces:
+  as it likes. Making one sends `WM_NCCREATE` and `WM_CREATE`. Showing a
+  top-level window the first time activates it (`WM_ACTIVATEAPP`,
+  `WM_ACTIVATE`, `WM_SETFOCUS`), whether by `ShowWindow` or by making it
+  with `WS_VISIBLE`, as Windows does: Jedi Knight makes its window visible
+  and waits for the activation before it starts. Other pieces:
+  - the active window and the focus (`SetFocus`, with `WM_KILLFOCUS` and
+    `WM_SETFOCUS`), and window longs (`GetWindowLongA`, `SetWindowLongA`:
+    the procedure, style, identifier and user data);
+  - `GetWindow` and `GetTopWindow` among windows in the order they were
+    made, and `GetClassInfoA` for a class's style and procedure;
   - one message queue, which the engine posts its input to and
     `PeekMessageA` reads, calling `idle` when it's empty;
   - `DispatchMessageA` and `TranslateMessage`;

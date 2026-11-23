@@ -422,6 +422,22 @@ static void testWindowsAndRegistry() {
     seen.clear();
     CHECK(!cpu.call(fn("USER32.dll", "DefWindowProcA"), {hwnd, 0x10, 0, 0}, r));
     CHECK((seen == std::vector<uint32_t>{0x2, 0x82}) && process.window(hwnd) == nullptr);
+    // Made visible (WS_VISIBLE), a window is shown and activated as by ShowWindow.
+    seen.clear();
+    CHECK(!cpu.call(fn("USER32.dll", "CreateWindowExA"),
+                    {0, text("testclass"), text("Title"), 0x10cf0000, 0, 0, 640, 480, 0, 0, 0, 0}, r) &&
+          r != 0);
+    const uint32_t shown = r;
+    CHECK((seen == std::vector<uint32_t>{0x81, 0x1, 0x18, 0x1c, 0x6, 0x7}));
+    CHECK(!cpu.call(fn("USER32.dll", "GetActiveWindow"), {}, r) && r == shown);
+    CHECK(!cpu.call(fn("USER32.dll", "SetFocus"), {0}, r) && r == shown);
+    CHECK(!cpu.call(fn("USER32.dll", "GetFocus"), {}, r) && r == 0);
+    CHECK(!cpu.call(fn("USER32.dll", "SetWindowLongA"), {shown, uint32_t(-21), 1234}, r) && r == 0);
+    CHECK(!cpu.call(fn("USER32.dll", "GetWindowLongA"), {shown, uint32_t(-21)}, r) && r == 1234);
+    CHECK(!cpu.call(fn("USER32.dll", "GetWindowLongA"), {shown, uint32_t(-4)}, r) && r == proc);
+    CHECK(!cpu.call(fn("USER32.dll", "GetWindowLongA"), {shown, uint32_t(-16)}, r) && r == 0x10cf0000);
+    CHECK(!cpu.call(fn("USER32.dll", "IsWindow"), {shown}, r) && r == 1);
+    CHECK(!cpu.call(fn("USER32.dll", "GetWindowThreadProcessId"), {shown, 0}, r) && r != 0);
 
     // The registry: a key made, a value set and read back; Windows' own
     // locale list enumerated.

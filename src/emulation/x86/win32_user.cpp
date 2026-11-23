@@ -26,6 +26,7 @@ enum : uint32_t {
     kWmDestroy = 0x2,
     kWmActivate = 0x6,
     kWmSetFocus = 0x7,
+    kWmKillFocus = 0x8,
     kWmClose = 0x10,
     kWmQuit = 0x12,
     kWmShowWindow = 0x18,
@@ -43,6 +44,9 @@ constexpr uint32_t kWsCaption = 0x00c00000;
 constexpr uint32_t kWsThickFrame = 0x00040000;
 constexpr uint32_t kWsVisible = 0x10000000;
 constexpr uint32_t kWsChild = 0x40000000;
+// GetCurrentProcessId's, and the main thread's GetCurrentThreadId.
+constexpr uint32_t kProcessId = 0x100;
+constexpr uint32_t kMainThreadId = 0x104;
 constexpr uint32_t kCwUseDefault = 0x80000000u;
 constexpr int kCaption = 19;
 constexpr int kMenu = 19;
@@ -304,9 +308,10 @@ void Win32Process::addUserStandIns() {
     };
 
     // Classes and windows.
-    // RegisterClassA(WNDCLASSA*): the procedure is at +4, the name at +36.
-    stdcall(u, "RegisterClassA", 1, [this](Cpu &c) {
-        const uint32_t p = c.arg(0);
+    // RegisterClassA(WNDCLASSA*) and RegisterClassExA(WNDCLASSEXA*), which
+    // is the same after a size: the style, the procedure, then the name 32
+    // bytes on.
+    auto registerClass = [this](Cpu &c, uint32_t p) {
         if (!c.valid(p, 40))
             return 0u;
         const std::string name = lower(c.string(c.read32(p + 36)));
@@ -314,10 +319,36 @@ void Win32Process::addUserStandIns() {
             return 0u;
         _classes[name] = {c.read32(p + 4), c.read32(p)};
         return uint32_t(0xc000 + _classes.size()); // an atom
+    };
+    stdcall(u, "RegisterClassA", 1, [registerClass](Cpu &c) { return registerClass(c, c.arg(0)); });
+    stdcall(u, "RegisterClassExA", 1, [registerClass](Cpu &c) { return registerClass(c, c.arg(0) + 4); });
+    // GetClassInfoA(instance, name, WNDCLASSA*): its style and procedure.
+    stdcall(u, "GetClassInfoA", 3, [this](Cpu &c) {
+        const uint32_t p = c.arg(2);
+        auto it = _classes.find(c.arg(1) >= 0x10000 ? lower(c.string(c.arg(1))) : std::string());
+        if (it == _classes.end() || !c.valid(p, 40)) {
+            setLastError(1411); // ERROR_CLASS_DOES_NOT_EXIST
+            return 0u;
+        }
+        std::memset(c.memory().data() + p, 0, 40);
+        c.write32(p, it->second.style);
+        c.write32(p + 4, it->second.proc);
+        c.write32(p + 16, c.arg(0));
+        c.write32(p + 36, c.arg(1));
+        return 1u;
     });
+    // A top-level window shown the first time is activated, and the
+    // application with it, as the foreground window's is.
+    auto activate = [this](uint32_t handle) {
+        _active = handle;
+        sendMessage(handle, kWmActivateApp, 1, 0);
+        sendMessage(handle, kWmActivate, 1, 0); // WA_ACTIVE
+        _focus = handle;
+        sendMessage(handle, kWmSetFocus, 0, 0);
+    };
     // CreateWindowExA: WM_NCCREATE then WM_CREATE go to the procedure, with
     // a CREATESTRUCTA; either saying no destroys the window again.
-    stdcall(u, "CreateWindowExA", 12, [this](Cpu &c) {
+    stdcall(u, "CreateWindowExA", 12, [this, activate](Cpu &c) {
         const uint32_t exStyle = c.arg(0);
         const uint32_t className = c.arg(1);
         const uint32_t title = c.arg(2);
@@ -351,6 +382,9 @@ void Win32Process::addUserStandIns() {
         win.style = style & ~kWsVisible;
         win.exStyle = exStyle;
         win.x = x, win.y = y, win.width = w, win.height = h;
+        win.parent = parent;
+        if (style & kWsChild)
+            win.id = menu;
 
         const uint32_t create = memory().alloc(48); // CREATESTRUCTA
         const uint32_t fields[12] = {param,       instance,    menu,  parent, uint32_t(h), uint32_t(w),
@@ -364,8 +398,13 @@ void Win32Process::addUserStandIns() {
             _windows.erase(handle);
             return 0u;
         }
-        if (style & kWsVisible)
+        // Made visible, it's shown and activated as ShowWindow does it.
+        if (style & kWsVisible) {
             _windows[handle].visible = true;
+            sendMessage(handle, kWmShowWindow, 1, 0);
+            if (!(style & kWsChild))
+                activate(handle);
+        }
         return handle;
     });
     stdcall(u, "DestroyWindow", 1, [this](Cpu &c) {
@@ -375,6 +414,10 @@ void Win32Process::addUserStandIns() {
         sendMessage(handle, kWmDestroy, 0, 0);
         sendMessage(handle, kWmNcDestroy, 0, 0);
         _windows.erase(handle);
+        if (_focus == handle)
+            _focus = 0;
+        if (_active == handle)
+            _active = 0;
         return 1u;
     });
     // FindWindowA(class, title): either may be 0, matching any.
@@ -386,10 +429,9 @@ void Win32Process::addUserStandIns() {
                 return handle;
         return 0u;
     });
-    // ShowWindow: the first time it's shown, the window is activated and the
-    // application with it (WM_ACTIVATEAPP, WM_ACTIVATE, WM_SETFOCUS), as the
-    // foreground window's is. Returns whether it was visible.
-    stdcall(u, "ShowWindow", 2, [this](Cpu &c) {
+    // ShowWindow: the first time it's shown, the window is activated (WM_ACTIVATEAPP,
+    // WM_ACTIVATE, WM_SETFOCUS). Returns whether it was visible.
+    stdcall(u, "ShowWindow", 2, [this, activate](Cpu &c) {
         auto it = _windows.find(c.arg(0));
         if (it == _windows.end())
             return 0u;
@@ -399,14 +441,131 @@ void Win32Process::addUserStandIns() {
         it->second.visible = show;
         if (show != was)
             sendMessage(handle, kWmShowWindow, show, 0);
-        if (show && !was && !(it->second.style & kWsChild)) {
-            sendMessage(handle, kWmActivateApp, 1, 0);
-            sendMessage(handle, kWmActivate, 1, 0); // WA_ACTIVE
-            sendMessage(handle, kWmSetFocus, 0, 0);
-        }
+        if (show && !was && !(it->second.style & kWsChild))
+            activate(handle);
         return was ? 1u : 0u;
     });
     stdcall(u, "UpdateWindow", 1, [this](Cpu &c) { return _windows.count(c.arg(0)) ? 1u : 0u; });
+    stdcall(u, "IsWindow", 1, [this](Cpu &c) { return _windows.count(c.arg(0)) ? 1u : 0u; });
+    stdcall(u, "InvalidateRect", 3, [this](Cpu &c) { return _windows.count(c.arg(0)) ? 1u : 0u; });
+    stdcall(u, "GetActiveWindow", 0, [this](Cpu &) { return _active; });
+    stdcall(u, "GetFocus", 0, [this](Cpu &) { return _focus; });
+    // SetFocus(window): WM_KILLFOCUS to the one losing it, WM_SETFOCUS to the
+    // one gaining it; returns the one that had it.
+    stdcall(u, "SetFocus", 1, [this](Cpu &c) {
+        const uint32_t handle = c.arg(0);
+        const uint32_t was = _focus;
+        if (handle && !_windows.count(handle))
+            return 0u;
+        if (handle == was)
+            return was;
+        _focus = handle;
+        if (was)
+            sendMessage(was, kWmKillFocus, handle, 0);
+        if (handle)
+            sendMessage(handle, kWmSetFocus, was, 0);
+        return was;
+    });
+    // GetWindowThreadProcessId(window, process id out): every window is the
+    // main thread's.
+    stdcall(u, "GetWindowThreadProcessId", 2, [this](Cpu &c) {
+        if (!_windows.count(c.arg(0)))
+            return 0u;
+        if (c.arg(1) && c.valid(c.arg(1), 4))
+            c.write32(c.arg(1), kProcessId);
+        return kMainThreadId;
+    });
+    // GetWindowLongA and SetWindowLongA: GWL_WNDPROC -4, GWL_ID -12,
+    // GWL_STYLE -16, GWL_EXSTYLE -20, GWL_USERDATA -21. Setting returns the
+    // value before.
+    auto windowLong = [](Window &w, int32_t index) -> uint32_t * {
+        switch (index) {
+        case -4:
+            return &w.proc;
+        case -12:
+            return &w.id;
+        case -16:
+            return &w.style;
+        case -20:
+            return &w.exStyle;
+        case -21:
+            return &w.userData;
+        default:
+            return nullptr;
+        }
+    };
+    stdcall(u, "GetWindowLongA", 2, [this, windowLong](Cpu &c) {
+        auto it = _windows.find(c.arg(0));
+        if (it == _windows.end())
+            return 0u;
+        if (int32_t(c.arg(1)) == -16) // with WS_VISIBLE, which `style` leaves out
+            return it->second.style | (it->second.visible ? kWsVisible : 0);
+        const uint32_t *v = windowLong(it->second, int32_t(c.arg(1)));
+        return v ? *v : 0u;
+    });
+    stdcall(u, "SetWindowLongA", 3, [this, windowLong](Cpu &c) {
+        auto it = _windows.find(c.arg(0));
+        if (it == _windows.end())
+            return 0u;
+        if (int32_t(c.arg(1)) == -16) {
+            const uint32_t was = it->second.style | (it->second.visible ? kWsVisible : 0);
+            it->second.style = c.arg(2) & ~kWsVisible;
+            it->second.visible = c.arg(2) & kWsVisible;
+            return was;
+        }
+        uint32_t *v = windowLong(it->second, int32_t(c.arg(1)));
+        if (!v)
+            return 0u;
+        const uint32_t was = *v;
+        *v = c.arg(2);
+        return was;
+    });
+    // CallWindowProcA(procedure, window, message, wParam, lParam)
+    stdcall(u, "CallWindowProcA", 5, [](Cpu &c) {
+        uint32_t result = 0;
+        if (Error e = c.call(c.arg(0), {c.arg(1), c.arg(2), c.arg(3), c.arg(4)}, result))
+            return 0u;
+        return result;
+    });
+    // GetWindow(window, relation): GW_HWNDFIRST 0, GW_HWNDLAST 1,
+    // GW_HWNDNEXT 2, GW_HWNDPREV 3, GW_OWNER 4, GW_CHILD 5, among the
+    // window's siblings in the order they were made.
+    stdcall(u, "GetWindow", 2, [this](Cpu &c) {
+        auto it = _windows.find(c.arg(0));
+        if (it == _windows.end())
+            return 0u;
+        const uint32_t relation = c.arg(1);
+        if (relation == 4) // the owner: top-level windows here have none
+            return it->second.style & kWsChild ? 0u : it->second.parent;
+        std::vector<uint32_t> group;
+        for (const auto &[handle, w] : _windows)
+            if (relation == 5 ? w.parent == c.arg(0) : w.parent == it->second.parent)
+                group.push_back(handle);
+        if (group.empty())
+            return 0u;
+        const auto at = std::find(group.begin(), group.end(), c.arg(0));
+        switch (relation) {
+        case 0:
+        case 5:
+            return group.front();
+        case 1:
+            return group.back();
+        case 2:
+            return at + 1 < group.end() ? *(at + 1) : 0u;
+        case 3:
+            return at > group.begin() && at < group.end() ? *(at - 1) : 0u;
+        default:
+            return 0u;
+        }
+    });
+    // GetTopWindow(window): its first child; with none given, the first
+    // top-level window.
+    stdcall(u, "GetTopWindow", 1, [this](Cpu &c) {
+        for (const auto &[handle, w] : _windows)
+            if (w.parent == c.arg(0))
+                return handle;
+        return 0u;
+    });
     // SetWindowPos(window, after, x, y, cx, cy, flags): SWP_NOSIZE 1,
     // SWP_NOMOVE 2, SWP_SHOWWINDOW 0x40, SWP_HIDEWINDOW 0x80.
     stdcall(u, "SetWindowPos", 7, [this](Cpu &c) {

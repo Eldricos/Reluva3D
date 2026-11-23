@@ -531,6 +531,9 @@ public:
         int height = 0;
         bool visible = false;
         uint32_t classStyle = 0; // its class's (CS_DBLCLKS: it gets double clicks)
+        uint32_t parent = 0;
+        uint32_t id = 0;       // a child's identifier (CreateWindowExA's menu)
+        uint32_t userData = 0; // GWL_USERDATA
     };
     /** The window with that handle, or null. */
     const Window *window(uint32_t handle) const;
@@ -657,6 +660,8 @@ private:
     }
     std::map<uint32_t, Window> _windows;
     uint32_t _nextWindow = 0x10010;
+    uint32_t _focus = 0;  // the window with the keyboard's focus
+    uint32_t _active = 0; // the active top-level window
     struct Message {
         uint32_t window;
         uint32_t message;
