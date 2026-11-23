@@ -36,25 +36,69 @@ on after the name with their arguments' kinds (`"ERR_CANNOT_FIND_FILE %s
 A string runs to the next quote: there's no escape for a quote, and
 `"\"` is a backslash. `\n` in a string is a new line *(inferred: the
 error messages use it between paragraphs)*. One credits line,
-`CREDITS_big_446`, has its string without quotes.
+`CREDITS_big_446`, has its string without quotes (`Paul Zabierek`),
+which the game reads as empty ([Reading a table](#reading-a-table)).
+
+## Behaviour
+
+### Reading a table
+
+In `JK.EXE`: `0x4359b0`, its words found by `0x42f210` (between two
+quotes) and `0x42f1a0` (up to a space or tab).
+
+- **The key** is the text between the line's first two quotes, all of
+  it. A line without them can't be read: it's left out, though counted,
+  with "Cannot understand this line in string table" for a debugger
+  *(from the code)*.
+- **The number** is the word after the key, kept as a number; a line
+  that ends with it can't be read either *(from the code)*.
+- **The string** is the text between the next two quotes after the
+  number. Without them it's empty *(from the code)*: `CREDITS_big_446`
+  is read as an empty string, and the credits show no name there
+  *(inferred)*.
+- **Each string** is widened to 16 bits a character, byte by byte
+  (`0x42f400`), and kept in the file's order, with its key and number
+  *(from the code)*.
+- **A key twice** gives "The key '%s' is in the string table '%s' more
+  than once." for a debugger *(from the code)*.
+
+### Looking strings up
+
+- **By key**, in a hash table, whole and exact, case and all (`0x437d80`).
+  The 4 keys with arguments that `JK.EXE` names, it names by their whole
+  text (`"ERR_CANNOT_LOAD_FILE %s"`, `0x5255d4`; `"ERR_BAD_EPISODE_FILE
+  %d %d"`, `0x5264f0`; `"ERR_CANNOT_SET_PLAYER %s"`;
+  `"ERR_INVALID_EPISODE %s"`), and puts its arguments in the string it
+  finds (`0x41f090`). It doesn't name the other 3
+  (`ERR_CANNOT_FIND_FILE`, `ERR_CANNOT_FIND_CUTSCENE`,
+  `ERR_UNABLE_TO_START_NETWORK`) *(from the code)*.
+- **A key not found** gives its own text back, up to 63 characters
+  (`0x435fe0`) *(from the code)*.
+- **By place:** the cut scenes' subtitles are looked up by their place in
+  `cutstrings.uni`, not their keys ([smk.md](smk.md#subtitles))
+  *(from the code)*.
 
 ## In Reluva
 
 `parseStrings` (`src/engines/sith/formats/strings.h`) reads one into a
 `StringTable`: the string after the number, or the rest of the line when
-it isn't quoted. The data viewer's Strings page lists them. `reluva-tool
-sith strings <install> <file.uni>` prints one table, and `reluva-tool
-sith formats <install>` reads them all.
+it isn't quoted, where the game reads an empty string. The data viewer's
+Strings page lists them. `reluva-tool sith strings <install>
+<file.uni>` prints one table, and `reluva-tool sith formats <install>`
+reads them all.
 
 ## Sources and checks
 
 - **Where the facts come from:** the seven tables, every line of them;
-  the comments at their tops (`"<key>" <unused number> "<string>"`).
+  the comments at their tops (`"<key>" <unused number> "<string>"`);
+  `JK.EXE`'s machine code ([Behaviour](#behaviour)) and the keys in its
+  strings.
 - **How it was checked:** every table read by `reluva-tool sith
   formats`, the count of strings compared with a count by hand;
   `sith.unit.formats` on a table with each of the cases above.
 
 ## Open questions
 
-- How the game reads the unquoted credits line, and whether it looks up
-  the keys with arguments by their whole text.
+- How the credits screen lays out an empty string, and whether
+  `CREDITS_big_446`'s name is missing from the game's credits as the
+  reader says; not seen running.
