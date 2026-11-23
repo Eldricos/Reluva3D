@@ -43,8 +43,8 @@ None now.
   the slider's texture tiled, the sliders' focus, Esc closing the keyboard
   screen, the keyboard screen's
   keys and tab sizes, voiceovers' and movies'
-  volume following the effects',
-  the shortcut's line opaque, and a fixed-width font's cell
+  volume following the effects', and
+  the shortcut's line opaque
   ([systems/menus.md](systems/menus.md#open-questions)).
 - **Maps:** the camera's and zoom's frames taken as 30 a second, the
   drawing order's ties, the water's clock stopping while

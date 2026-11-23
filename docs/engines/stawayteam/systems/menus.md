@@ -30,9 +30,13 @@ draws a line of text a character after another (`0x4b15b4`):
 - **Capitals only:** a font whose `Last ASCII` is under 95 has its text
   drawn in capitals (`0x4b15bc`). None of the retail fonts is one: all go
   to 255.
-- **Fixed width:** each character in the middle of a cell (`0x4b1600`);
-  the cell's width isn't traced; Reluva takes the widest character's
-  *(inferred)*. None of the menus' fonts is one.
+- **Cells:** a caller can give a character whose width makes a cell for
+  every character, each then drawn in the middle of its cell (the
+  drawing's sixth argument, `0x4b1440`, `0x4b1600`). Only two callers
+  give one, `X` (`0x4d599a`) and `0` for a table of numbers
+  (`0x54cc50`); the menus give none. The fonts' own `Fixed Width` (1 in
+  Courier and DebugFont only) isn't what the drawing looks at, and
+  Reluva doesn't use it.
 - **Lines** of text that has more than one are a font's height (its
   sequence's bounds) apart, and a spacing its caller gives (`0x4b16ce`).
   The dialog's spacing isn't traced; Reluva puts none.

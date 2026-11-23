@@ -23,7 +23,6 @@ Error Font::load(const Archive &data, const std::string &name) {
         return Error::fail(path + ": not a font");
     _first = int(font.object.integer("First ASCII").value_or(32));
     _last = int(font.object.integer("Last ASCII").value_or(125));
-    _fixedWidth = font.object.integer("Fixed Width").value_or(0) != 0;
     const auto &box = font.sequence->box;
     _height = box[3] - box[1];
     // CFont's own number before First ASCII has no name; the button's
@@ -34,11 +33,8 @@ Error Font::load(const Archive &data, const std::string &name) {
         if (fields[i].key == "First ASCII" && fields[i - 1].key.empty())
             _baseline = std::atoi(fields[i - 1].value.c_str());
     _glyphs.clear();
-    _cellWidth = 0;
-    for (const auto &frame : font.sequence->frames) {
+    for (const auto &frame : font.sequence->frames)
         _glyphs.push_back(frame ? frameImage(*frame) : image::Image{});
-        _cellWidth = std::max(_cellWidth, _glyphs.back().w);
-    }
     return Error::success();
 }
 
@@ -61,7 +57,7 @@ int Font::width(std::string_view text) const {
     int w = 0;
     for (char c : text)
         if (const image::Image *g = glyph(static_cast<unsigned char>(c)))
-            w += _fixedWidth ? _cellWidth : g->w;
+            w += g->w;
     return w;
 }
 
@@ -70,12 +66,11 @@ void Font::draw(Surface &screen, int x, int y, std::string_view text, int opacit
         const image::Image *g = glyph(static_cast<unsigned char>(c));
         if (!g)
             continue;
-        const int gx = _fixedWidth ? x + (_cellWidth - g->w) / 2 : x; // each in the middle of its cell (0x4b1600)
         if (brightness < 1.0f)
-            image::blit(screen, dimmed(*g, brightness), gx, y, opacity);
+            image::blit(screen, dimmed(*g, brightness), x, y, opacity);
         else
-            image::blit(screen, *g, gx, y, opacity);
-        x += _fixedWidth ? _cellWidth : g->w;
+            image::blit(screen, *g, x, y, opacity);
+        x += g->w;
     }
 }
 

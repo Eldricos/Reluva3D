@@ -64,8 +64,6 @@ private:
     std::vector<image::Image> _glyphs; // from First ASCII on
     int _first = 0;
     int _last = 0;
-    bool _fixedWidth = false;
-    int _cellWidth = 0; // the widest character, for a fixed-width font
     int _height = 0;
     int _baseline = 0;
 };
