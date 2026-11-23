@@ -148,6 +148,16 @@ fields, and where their own fields are), the scripts and the paths. It
 fails if a field's framing, the object count or the paths' count isn't
 as the file says.
 
+- **The data viewer's Maps page** (`MapPage`,
+  `src/engines/storm3d/pages/map_page.h`) draws a map: each object's
+  model where its transform puts it, and the map's background model
+  around the eye, behind everything (how the game places the background
+  isn't known). An object's model is named for its definition, unless
+  the definition says `dont_load_SOD = 1`, and scaled by its `scaleSOD`
+  *(inferred)*: the traced mission loads `fente.SOD` for `fente`, and no
+  model for the asteroid field. Models of emitters only, as the
+  nebulae are, aren't drawn yet, nor are the paths. N goes from ship to
+  ship.
 - `reluva-tool storm3d bzn <game folder> <name.bzn>`: the settings, each
   object's definition, team, position and name, the scripts, the paths.
 - `reluva-tool storm3d bzn-check <game folder>`: every map read, with

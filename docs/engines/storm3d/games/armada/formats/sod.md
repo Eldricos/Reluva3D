@@ -131,7 +131,8 @@ above, and refuses a file with bytes left over or a face naming a vertex
 its mesh hasn't.
 
 - **The data viewer's Models page** (`ModelPage`,
-  `src/engines/storm3d/pages/model_page.h`) draws each model turning, its
+  `src/engines/storm3d/pages/model_page.h`, its drawing in `SodMeshes`,
+  shared with the Maps page) draws each model turning, its
   most detailed level, with its textures and the lighting materials'
   diffuse colours, lit from one direction; `additive` and `wormhole`
   meshes are added over the rest. Both sides of every face are drawn,

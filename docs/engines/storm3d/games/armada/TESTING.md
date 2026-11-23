@@ -46,8 +46,9 @@ What needs the game's own files, checked by hand with `reluva-tool
 storm3d` ([Last checked](#last-checked)): recognising the English
 release by its hashes, and reading every file of each kind
 (`odf-check`, `config-check`, `image-check`, `sound-check`,
-`movie-check`, `spr-check`, `sod-check`, and `zfs-extract`, `ldl` and `input-map` on
-each file); `viewer-shot` shows any page on the install as a PNG.
+`movie-check`, `spr-check`, `sod-check`, `bzn-check`, and `zfs-extract`, `ldl` and `input-map` on
+each file); `viewer-shot` shows any page on the install as a PNG, the
+3D ones drawn in software.
 How the Models page looks: the recording renderer draws nothing (see
 [A playthrough by hand](#a-playthrough-by-hand)). And whether the sounds
 and movies sound right: the checks only show they
@@ -61,6 +62,10 @@ decode, and last as long as they should.
    whole, with their textures, turning; L shows less detailed levels.
    Without a display, run `reluva-viewer` under Xvfb on Mesa's software
    Vulkan driver, as the render check is run in CI.
+4. The Maps page: each map's ships, stations and planets where the map
+   places them, over its starfield; N goes from ship to ship. In
+   "Premonitions" (`bzn/fed1.bzn`), the Enterprise between two Akira
+   class ships.
 
 ## Last checked
 
@@ -75,3 +80,4 @@ decode, and last as long as they should.
 | November 2026 | English retail 1.0 | Linux | The original in the emulator with clicks (`-input`): the single-player screen and the mission panel looked at as PNGs; the first mission starts loading, up to the CD check |
 | November 2026 | English retail 1.0, its disc's `.mds` | Linux | The original with the CD (`-cd`, `-toc`): "Track verification successful.", then "Premonitions", the mission first on the Federation's panel (its map `bzn\fed1.bzn`), 90 seconds of its clock without a stop, its 3D scene looked at as a PNG |
 | November 2026 | English retail 1.0 | Linux, Mesa's software Vulkan under Xvfb | All 273 models read whole (`sod-check`); the Models page in `reluva-viewer`: a Borg starbase, a Federation and a Klingon battleship, the Kahless sword at both its levels, and a 1.2 model |
+| November 2026 | English retail 1.0 | Linux | All 49 maps read whole (`bzn-check`: 17,586 objects, 1,238 paths); the Maps page with `viewer-shot`: "Blue Passages" from above, and "Premonitions"' starting fleet up close; the Models page's Borg starbase again, through the shared drawing |

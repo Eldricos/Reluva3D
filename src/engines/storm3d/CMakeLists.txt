@@ -23,9 +23,11 @@ reluva_add_engine_viewers(storm3d
     SOURCES
         pages/viewer.cpp
         pages/image_page.cpp
+        pages/map_page.cpp
         pages/model_page.cpp
         pages/movie_page.cpp
         pages/page.cpp
+        pages/sod_meshes.cpp
         pages/sound_page.cpp
         pages/sprite_page.cpp
         pages/text_page.cpp)

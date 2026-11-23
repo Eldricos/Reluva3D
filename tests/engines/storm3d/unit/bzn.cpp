@@ -3,16 +3,22 @@
 
 // Storm3D's unit tests: maps (.bzn), written here in the game's layout.
 
+#include "common/archive.h"
 #include "engines/storm3d/formats/bzn.h"
+#include "engines/storm3d/pages/map_page.h"
 
 #include "tests/support/test.h"
 
+#include <cmath>
 #include <cstring>
+#include <fstream>
+#include <memory>
 #include <string>
 #include <vector>
 
 using namespace reluva;
 using reluva::storm3d::BznMap;
+using reluva::storm3d::MapPage;
 
 namespace {
 
@@ -134,10 +140,35 @@ void testBroken() {
     CHECK(!map.parse(none.out) && map.objects.empty() && map.paths.empty());
 }
 
+// How the Maps page draws an object: the model named for its definition,
+// none if the definition says not to load one, scaled as it says; placed
+// by its transform, the scale about its position.
+void testPlacing(const std::filesystem::path &tmp) {
+    std::filesystem::create_directories(tmp);
+    std::ofstream(tmp / "big.odf") << "[GameObjectClass]\r\nscaleSOD = 2.0\r\n";
+    std::ofstream(tmp / "field.odf") << "[GameObjectClass]\r\ndont_load_SOD = 1\r\nscaleSOD = 1.5\r\n";
+    SearchSet files;
+    auto folder = std::make_unique<DirectoryArchive>();
+    CHECK(!folder->open(tmp, 0));
+    files.add(std::move(folder), 0);
+    const MapPage::Look big = MapPage::lookOf("big", files);
+    CHECK(big.model == "big" && big.scale == 2.0f);
+    CHECK(MapPage::lookOf("field", files).model.empty());
+    const MapPage::Look none = MapPage::lookOf("ship", files); // no definition: the model by its name
+    CHECK(none.model == "ship" && none.scale == 1.0f);
+
+    BznMap::Object o;
+    // Turned a quarter about y: right is -z, front is +x; at (100, 0, 50).
+    o.transform = {0, 0, -1, 0, 1, 0, 1, 0, 0, 100, 0, 50};
+    const gfx::Vec3 p = gfx::transformPoint(MapPage::placeOf(o, 2), {1, 0, 0});
+    CHECK(std::fabs(p[0] - 100) < 1e-4f && std::fabs(p[2] - 48) < 1e-4f);
+}
+
 } // namespace
 
-static const reluva::test::Suite kSuite("storm3d.unit.bzn",
-                                        {
-                                            {"parse", [](const std::filesystem::path &) { testParse(); }},
-                                            {"broken", [](const std::filesystem::path &) { testBroken(); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("storm3d.unit.bzn", {
+                                   {"parse", [](const std::filesystem::path &) { testParse(); }},
+                                   {"broken", [](const std::filesystem::path &) { testBroken(); }},
+                                   {"placing", [](const std::filesystem::path &tmp) { testPlacing(tmp / "placing"); }},
+                               });

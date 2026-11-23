@@ -9,6 +9,7 @@
 #include "common/settings.h"
 #include "engines/storm3d/game_files.h"
 #include "engines/storm3d/pages/image_page.h"
+#include "engines/storm3d/pages/map_page.h"
 #include "engines/storm3d/pages/model_page.h"
 #include "engines/storm3d/pages/movie_page.h"
 #include "engines/storm3d/pages/page.h"
@@ -58,6 +59,7 @@ public:
         std::vector<std::unique_ptr<Page>> pages;
         pages.push_back(std::make_unique<storm3d::ImagePage>(_sys, _screen, files));
         pages.push_back(std::make_unique<storm3d::ModelPage>(_sys, _screen, files));
+        pages.push_back(std::make_unique<storm3d::MapPage>(_sys, _screen, files));
         pages.push_back(std::make_unique<storm3d::SpritePage>(_sys, _screen, files));
         pages.push_back(std::make_unique<storm3d::SoundPage>(_sys, _screen, files, out));
         pages.push_back(std::make_unique<storm3d::MoviePage>(_sys, _screen, files, out));

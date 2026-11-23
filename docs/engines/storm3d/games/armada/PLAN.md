@@ -55,10 +55,14 @@ these phases start from, is in [formats/install.md](formats/install.md).
    hears the mouse's motion (`motion` in the input), closes the
    objectives and plays on. Next: the files it reads in play, for phase
    5; where its pointer starts; input that waits for what's shown.
-5. **Maps and the scene:** `.bzn` and `.mdf`, the starfield and nebulae,
-   planets, moons and asteroids, the camera (`RTS_CFG.h`'s limits), the
-   ships. A skirmish map shown and moved around, checked against the
-   original in the emulator.
+5. **Maps and the scene** (in progress): `.bzn` and `.mdf`, the
+   starfield and nebulae, planets, moons and asteroids, the camera
+   (`RTS_CFG.h`'s limits), the ships. A skirmish map shown and moved
+   around, checked against the original in the emulator. Done: the maps
+   read, their settings, objects and paths
+   ([formats/bzn.md](formats/bzn.md)), and the viewer's Maps page placing
+   each object's model over the background. Next: the nebulae and other
+   emitters, the camera, and the scene set beside the original's.
 6. **The front end:** the shell's screens, the opening movie, game setup,
    options, loading and saving.
 7. **Rules:** units from their object definitions: movement and

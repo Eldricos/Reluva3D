@@ -6,6 +6,7 @@
 #include "engines/storm3d/formats/sod.h"
 #include "engines/storm3d/game_files.h"
 #include "engines/storm3d/pages/page.h"
+#include "engines/storm3d/pages/sod_meshes.h"
 #include "graphics/gfx3d.h"
 
 #include <cstdint>
@@ -57,20 +58,9 @@ public:
     static bool shownAtLevel(const SodModel &model, size_t node, int level);
 
 private:
-    struct Part {
-        gfx::MeshId mesh = 0;
-        gfx::TextureId texture = 0;
-        gfx::Mat4 world{};
-        uint32_t firstIndex = 0;
-        uint32_t indexCount = 0;
-        std::array<float, 4> colour{1, 1, 1, 1};
-        std::string drawMode;
-    };
-
     void load();
     void unload();
     void draw();
-    gfx::TextureId texture(const std::string &name);
     void showMessage(const std::string &line);
 
     System &_sys;
@@ -80,9 +70,8 @@ private:
     size_t _current = 0;
     gfx::Renderer3D *_renderer = nullptr;
     Surface _overlay;
-    std::map<std::string, gfx::TextureId> _textures; // by lower-case name; 0 when not found
-    std::vector<gfx::MeshId> _meshes;
-    std::vector<Part> _parts;
+    SodMeshes _meshes;
+    std::vector<SodMeshes::Part> _parts;
     SodModel _model;
     std::string _error;
     std::vector<int> _levels;
