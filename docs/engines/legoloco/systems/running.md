@@ -166,6 +166,52 @@ Seen running in Reluva (`reluva-tool legoloco run`):
   (`WM_CLOSE`), which takes its other windows with it, and posts
   `WM_QUIT`; the process ends with code 0.
 
+### Network play
+
+Followed with two copies on one network in Reluva (`reluva-tool
+legoloco pair`, [below](#in-reluva)), each copy its own player; the
+calls named were seen made, from the addresses given:
+
+- **The front screen** offers it with the case of two heads: two more
+  buttons then show, a grid with a pen (hosting a game) and a grid with
+  binoculars (joining one, chosen at first) *(seen, not traced)*. Their click handler
+  (`0x422c60`) sets the hosting flag, a byte at `+8` of the object at
+  `0x4fd3a8`. The tick posts the network's start
+  (`0x43f070`: the hosting flag, the number of players), handled at
+  `0x439572`, which hands both to the network object at `0x48525c`
+  (`0x45e700`).
+- **The protocol screen:** `IPX` and `TCP` to choose from, an `I.P.`
+  field, "PLEASE SELECT A NETWORK PROTOCOL..." *(seen, not traced)*. Each is a
+  DirectPlay connection made with the lobby's `CreateCompoundAddress`
+  and `InitializeConnection` (`0x45f9b3`, `0x45fb55`).
+- **The places:** a grid of nine coloured places, the players' names on
+  those taken, "SEARCHING FOR GAMES..." and then "PLEASE SELECT AN AREA
+  THEN CLICK TO PROCEED"; under it binoculars (search again) and a
+  spanner (back to the protocol screen). The host's panel lists
+  the arrangements of places (`3 X 3`, `2 X 2`, `2 X 1`, `3 X 1`,
+  `3 X 2`, the [`.lay` files'](../formats/lay.md), the first chosen); a
+  joiner's lists the games found, as `3 X 3.Player` *(seen, not traced)*.
+- **Hosting** (`0x45fd80`): `Open` with `DPOPEN_CREATE` and
+  `DPOPEN_RETURNSTATUS` (`0x82`), retried while it says
+  `DPERR_CONNECTING`; the session's flags `0xa040` (keep-alive,
+  DirectPlay's protocol, latency over speed), with `0x4` (the host
+  migrating) when a third flag is set, its application GUID from
+  `0x479158`, its most players from the start, its name from `+0x18`
+  and its password from `+0x498` when there's one.
+- **Joining:** `EnumSessions` again and again while searching
+  (`0x45f22a`), then `Open` with `DPOPEN_JOIN` and
+  `DPOPEN_RETURNSTATUS` (`0x81`, `0x460532`).
+- **Players and messages:** each copy makes one player (`CreatePlayer`,
+  no event) and polls `Receive` (`0x460768`, then `0x4607b6` with a
+  buffer big enough). All its messages are sent guaranteed
+  (`Send` at `0x460e43`, flag 1): the host's of `0x228` bytes to
+  everyone over and over while the places are chosen; `0x1c` and 4
+  bytes between them; then, past the tick, messages of `0xc19` bytes
+  both ways, to one player and to everyone: the boards *(guessed)*.
+- **Played:** past the tick each copy shows its own board, with blue
+  gates at its edges where it meets its neighbours' places *(seen, not
+  traced)*.
+
 ### Where it finds its files
 
 - The registry's `HKEY_LOCAL_MACHINE\SOFTWARE\Intelligent Games\LEGO
@@ -218,6 +264,21 @@ Seen running in Reluva (`reluva-tool legoloco run`):
   `-key s vk` presses a key (a virtual-key code in hex), and
   `-shot s file.ppm` saves the screen (`-shot file.ppm` at the end).
   `-nomovies` ends each movie as it starts.
+- `reluva-tool legoloco pair <game folder> [options] [A's steps] --
+  [B's steps]` runs two copies, A and B, each on a thread of its own,
+  their DirectPlay on one in-memory network
+  ([dplay.md](../../../common/x86/dplay.md)), so one can host a network
+  game and the other join it. The options are `run`'s; each copy's
+  steps are as `run`'s, with its own `-save` folder (B's after the
+  `--`) and `-log`; what each reports is marked `[A]` or `[B]`.
+
+  ```bash
+  reluva-tool legoloco pair <game folder> -seconds 30 -nomovies -save <A's folder> -click 5 550 345 -click 6.5 718 280 -click 8 718 520 -click 11 390 170 -click 13.5 510 540 -- -save <B's folder> -click 5 550 345 -click 8 718 520 -click 11 390 170 -click 13.5 510 540
+  ```
+
+  A picks the two heads, hosting, the tick, TCP, the tick; B the same
+  but joining. Their clocks run apart, so where a step lands can differ
+  between runs.
 
 ### How far it gets
 
@@ -238,9 +299,11 @@ welcome closed:
 reluva-tool legoloco run <game folder> -save <folder> -limit 4000000 -seconds 40 -nomovies -click 5 365 345 -click 7 718 520 -click 30 586 378 -shot board.ppm
 ```
 
-DirectPlay is stood in for without a network
+DirectPlay is stood in for with no network by default
 ([dplay.md](../../../common/x86/dplay.md)), so it finds no network
-connection. Of its 115 imports that had nothing at first, 3 are left,
+connection; two copies on Reluva's in-memory network get through the
+network screens into a game, one hosting and one joining
+([above](#network-play)). Of its 115 imports that had nothing at first, 3 are left,
 none called so far: comdlg32's Open and Save dialogs (its own panels
 serve instead), and SHELL32's `ShellExecuteA`.
 
@@ -250,7 +313,8 @@ GDI32's ([gdi.md](../../../common/x86/gdi.md)), the movie window's and
 MCI's ([mci.md](../../../common/x86/mci.md)), and DirectSound's and
 `PlaySoundA` ([dsound.md](../../../common/x86/dsound.md)). Not tried
 yet: changing and deleting trains, the minifigures' and vehicles'
-doings, postcards between players (no network).
+doings, and in a network game the boards joined, trains crossing and
+postcards between players.
 
 ## Sources and checks
 

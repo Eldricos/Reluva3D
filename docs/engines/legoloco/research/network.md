@@ -66,3 +66,20 @@ network.
 - Whether the host's program differs from a joiner's (name server, the
   matrix's owner).
 - How the game uses groups (one per board?) and its messages' layout.
+
+## Later: two copies on one network
+
+November 2026, phase 6's step 1 ([PLAN.md](../PLAN.md)): two copies run
+in one Reluva process on an in-memory network; what they did is in
+[running.md](../systems/running.md#network-play). Of the questions
+above:
+
+- The connections it offers are IPX and TCP/IP **seen**; the `I.P.`
+  field is `netInput` **guess**.
+- `APmatrix` is the grid of nine places; the host picks the
+  arrangement of places from the `.lay` files' names **seen**.
+- The host makes the session (`Open` with `DPOPEN_CREATE`), a joiner
+  searches and joins; the program is the same, its path set by a flag
+  **seen**.
+- No groups were made getting into a game **seen**.
+

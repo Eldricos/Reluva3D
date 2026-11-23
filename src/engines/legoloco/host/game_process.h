@@ -45,13 +45,14 @@ public:
      */
     Error run(uint32_t &exitCode);
 
-    /** The interpreter, the Windows process, and DirectX's and the movies' stand-ins. */
+    /** The interpreter, the Windows process, and the stand-ins for DirectX, the movies, DirectSound and DirectPlay. */
     ///@{
     x86::Cpu &cpu() { return *_cpu; }
     x86::Win32Process &process() { return *_process; }
     x86::DirectX &directX() { return *_directX; }
     x86::MciVideo &video() { return *_video; }
     x86::DirectSound &directSound() { return *_directSound; }
+    x86::DirectPlay &directPlay() { return *_directPlay; }
     ///@}
 
 private:

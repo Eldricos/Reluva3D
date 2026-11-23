@@ -54,20 +54,25 @@ is in [the first survey](research/first-survey.md).
    office and postcards, saving and loading play, with the mouse and
    keys; [systems/running.md](systems/running.md)): the basic engine
    test taken through them.
-6. **Network play** (planning; [a first look](research/network.md)):
+6. **Network play** (step 1 done; [a first look](research/network.md),
+   [what's followed](systems/running.md#network-play)):
    the game's own DirectPlay network code run as it is, with DirectPlay
    stood in for over Reluva's networking. In steps:
    1. *Watching it:* two copies of `loco.exe` in one Reluva process,
       their DirectPlay objects joined by an in-memory network, so the
       game's own network screens, sessions, players, groups and
       messages can be followed and stood in for one call at a time,
-      with no real network in the way.
+      with no real network in the way. Done: `reluva-tool legoloco
+      pair` takes one copy hosting and one joining through the network
+      screens into a game.
    2. *DirectPlay's model, in the shared stand-in* (`x86::DirectPlay`,
       for any program that uses it): sessions with a host, players and
       groups, the system messages (players and groups made, gone,
       joined; the session lost), guaranteed messages in order and
       others as they come, the message queue, `SendEx` and
-      `CancelMessage`; tested with two objects in one test.
+      `CancelMessage`; tested with two objects in one test. Largely
+      done with step 1: what's left is a new host taking over when the
+      host leaves.
    3. *Over the network:* one service provider (the game's TCP/IP)
       over UDP (`net::UdpSocket`), Reluva to Reluva, with a small
       protocol of its own (a guaranteed, ordered channel for DirectPlay's
@@ -94,3 +99,5 @@ is in [the first survey](research/first-survey.md).
 | November 2026 | Run `loco.exe` in the x86 emulator rather than reimplement the game natively | The executable is small (1.1 MB), 2D only (DirectDraw, no Direct3D), not protected, and links its C runtime in, so it needs no C++ library stood in for. Its trains', cars' and minifigures' behaviour and its surprises then come out as the original's. What it calls is publicly documented (Windows, DirectX 5). A native engine stays the fallback; the readers and viewer of phases 2 and 3 serve both |
 | November 2026 | One detection entry for the CD, whichever language it was installed in | The installer copies the same files for every language and writes the choice into `Exe/LEGO.INI` (`[Locale] Language=`); English first, the others later |
 | November 2026 | Community write-ups of the resource file's layout and compression may be read as documentation; no code from them is used | They're published notes of the format; every fact taken from one is checked against the CD's files and the page says so ([REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md)) |
+| November 2026 | Network play Reluva to Reluva first; the original game on Windows later, if wanted | Reluva's own protocol under DirectPlay's interfaces is far smaller than DirectPlay's own wire protocol, and needs no copy of Windows to test against |
+| November 2026 | IPX is offered as the local network: the same network as TCP/IP | No computer has IPX now; the game offers it, and a player picking it should still find the others |

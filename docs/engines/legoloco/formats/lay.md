@@ -8,9 +8,10 @@ The [resource file](resource.md)'s `layouts` folder holds 17 area
 boards (`area1.sav`... in the [board format](sav.md)) and six `.lay`
 files that arrange them: `index.lay`, naming the arrangements, and one
 file per arrangement, named after it (`3 x 2.lay`). The game's strings
-include `%sLayouts\index.lay` and `%sLayouts\%s.lay`. What the
-arrangements are for in play, building a board from areas, is
-*(guessed)*.
+include `%sLayouts\index.lay` and `%sLayouts\%s.lay`. The host of a
+network game picks one of them, by these names, for its players' places
+([running.md](../systems/running.md#network-play)); how a board is built
+from its areas is *(guessed)*.
 
 ## Layout
 
