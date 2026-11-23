@@ -83,6 +83,7 @@ void ScriptPage::start() {
     _host = std::make_unique<SimulatedHost>(_context.files, slash == std::string::npos ? "" : name.substr(0, slash));
     _host->setGuests(true);
     _host->readAnimationLengths(name);
+    _host->readSettings(name);
     _host->setTraceLimit(kTraceLines);
     _machine = std::make_unique<ScriptMachine>(_script, *_host);
     _lastTick = 0;

@@ -164,8 +164,8 @@ HostResult FrontEndEffects::perform(ScriptMachine &, const Script::Instruction &
     }
     if (instruction.opcode != kEventOpcode || values.size() < 3)
         return {};
-    // Its second value, 1 or -1 in the game's scripts, isn't worked out:
-    // where the sound plays from, perhaps.
+    // Its second value is the emitter the sound plays from (-1 none),
+    // which Reluva doesn't place sounds by yet.
     if (values[0] == kSoundEvent && values[2] > 0) {
         _soundsStarted.push_back({_ms, uint32_t(values[2])});
         if (_mixer)

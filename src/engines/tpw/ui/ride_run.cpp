@@ -38,6 +38,7 @@ Error RideRun::start(const SearchSet &files, const std::string &model) {
     _host = std::make_unique<SimulatedHost>(files, folder);
     _host->setGuests(true);
     _host->readAnimationLengths(_scriptName);
+    _host->readSettings(_scriptName);
     _machine = std::make_unique<ScriptMachine>(_script, *_host);
     return Error::success();
 }

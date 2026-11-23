@@ -64,6 +64,8 @@ bool answerSetsFlags(uint16_t opcode) {
     case 60: // FORCEUNLIMBO
     case 61: // INLIMBO
     case 62: // LIMBOSPACE
+    case 73: // UNBOUNCE
+    case 74: // FORCEUNBOUNCE
     case 75: // BOUNCING
     case 78: // WALKGET
     case 96: // GETTIMER
@@ -184,7 +186,9 @@ void ScriptMachine::step() {
         store(ops[0], int(_host.now() - _start));
         break;
     case kRand:
-        store(ops[0], _host.random(v(1)));
+        // RAND result n: 0 to n, both ends: the camel race picks among its
+        // four lanes with RAND VAR_TEMP 3, then tests for 0, 1, 2 and 3.
+        store(ops[0], _host.random(v(1) + 1));
         break;
     case kJsr:
         _returns.push_back(_next);
@@ -214,7 +218,8 @@ void ScriptMachine::step() {
             jump(ops[0].value);
         break;
     case kBranchPositive:
-        // Above zero, by the countdown in test.rss (inferred: or not below).
+        // Above zero: the vegetation waits out its timer with GETTIMER,
+        // TEST, BRANCH_PV, which would never end if 0 counted.
         if (!_negative && !_zero)
             jump(ops[0].value);
         break;
@@ -225,8 +230,10 @@ void ScriptMachine::step() {
         setFlags(v(0));
         break;
     case kCmp:
-        // Bitwise AND, OpenTPW's page says (inferred).
-        setFlags(v(0) & v(1));
+        // A subtraction, as SUB's flags: "RAND VAR_TEMP 10; CMP VAR_TEMP 4;
+        // BRANCH_PV; BRANCH_NZ" goes three ways, which an AND (OpenTPW's
+        // page) couldn't.
+        setFlags(v(0) - v(1));
         break;
     case kPush:
         if (_stack.size() >= _script.stackSize()) {
@@ -243,15 +250,13 @@ void ScriptMachine::step() {
         _stack.pop_back();
         break;
     case kWait:
+    case kWaitAbs:
+        // WAITABS waits as WAIT does: the bridge loops on WAITABS 10000 and
+        // its animations, the burning vegetation spreads WAITABS 300 apart.
+        // Its "absolute" is perhaps the clock's time, not the park's when
+        // the game runs fast (guessed); Reluva has only the one.
         _wakeTime = _host.now() + uint32_t(v(0));
         _state = State::kWaiting;
-        _yield = true;
-        break;
-    case kWaitAbs:
-        // Until a time from the script's start (guessed from the name).
-        _wakeTime = _start + uint32_t(v(0));
-        if (int32_t(_host.now() - _wakeTime) < 0)
-            _state = State::kWaiting;
         _yield = true;
         break;
     case kAdd: {

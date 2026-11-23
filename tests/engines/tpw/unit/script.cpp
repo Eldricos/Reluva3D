@@ -248,14 +248,78 @@ void testPlaying() {
     CHECK(host.animationFile(5).empty());
 }
 
+// CMP subtracts, as the three-way branches after it in the game's scripts
+// need; RAND gives 0 to its range, both ends (the test host rolls the
+// top); WAITABS waits as WAIT does.
+void testCompareRandWaitAbs() {
+    const Script script = build({kOp | 28, kVar | 0,   num(3), // 0 RAND V0 3
+                                 kOp | 39, kVar | 0,   num(4), // 3 CMP V0 4
+                                 kOp | 34, kAddr | 13,         // 6 BRANCH_NV 13
+                                 kOp | 3,  kVar | 1,   num(9), // 8 COPY V1 9
+                                 kOp | 52,                     // 11 END
+                                 kOp | 0,                      // 12 NOP
+                                 kOp | 3,  kVar | 1,   num(1), // 13 COPY V1 1
+                                 kOp | 39, kVar | 0,   num(3), // 16 CMP V0 3
+                                 kOp | 33, kAddr | 9,          // 19 BRANCH_NZ 9 (no instruction: fails)
+                                 kOp | 45, num(700),           // 21 WAITABS 700
+                                 kOp | 3,  kVar | 2,   num(1), // 23 COPY V2 1
+                                 kOp | 52},                    // 26 END
+                                3);
+    Host host;
+    host.time = 5000;
+    ScriptMachine m(script, host);
+    m.tick();
+    // 3 less 4 is negative; 3 less 3 zero; then WAITABS 700 from now.
+    CHECK(m.variable(0) == 3 && m.variable(1) == 1);
+    CHECK(m.state() == ScriptMachine::State::kWaiting && m.wakeTime() == 5700);
+    host.time = 5700;
+    m.tick();
+    CHECK(m.state() == ScriptMachine::State::kEnded && m.variable(2) == 1);
+}
+
+// The stand-in's guests on a ride: HUSHed on, HOPped off in turn, walking
+// off until WALKGET has them clear; its timer counting down; TRIGWAITANIM
+// waiting for the animation playing, then going on as its own plays.
+void testRiders() {
+    const Script script = build({kOp | 42, num(7),                     // 0 HUSH 7
+                                 kOp | 42, num(8),                     // 2 HUSH 8
+                                 kOp | 43, kVar | 0,                   // 4 HOP V0
+                                 kOp | 77, kVar | 0,                   // 6 WALKOFF V0
+                                 kOp | 78, kVar | 1,                   // 8 WALKGET V1
+                                 kOp | 32, kAddr | 8,                  // 10 BRANCH_Z 8
+                                 kOp | 95, num(300),                   // 12 SETTIMER 300
+                                 kOp | 96, kVar | 2,                   // 14 GETTIMER V2
+                                 kOp | 35, kAddr | 14,                 // 16 BRANCH_PV 14
+                                 kOp | 17, num(0),     num(0),         // 18 WAITANIM 0 0
+                                 kOp | 19, num(5),     num(1), num(0), // 21 TRIGWAITANIM 5 1 0
+                                 kOp | 3,  kVar | 3,   num(1),         // 25 COPY V3 1
+                                 kOp | 52},                            // 28 END
+                                4);
+    SearchSet files;
+    SimulatedHost host(files, "");
+    ScriptMachine m(script, host);
+    runFor(m, host, 500);
+    // Guest 7 off first, clear a second after: not yet.
+    CHECK(m.variable(0) == 7 && m.variable(1) == 0);
+    runFor(m, host, 600);
+    CHECK(m.variable(1) == 7);
+    runFor(m, host, 400);
+    CHECK(m.variable(2) == 0);
+    runFor(m, host, 3000);
+    CHECK(m.state() == ScriptMachine::State::kEnded && m.variable(3) == 1);
+    CHECK(host.playing().number == 5 && host.playing().variant == 1);
+}
+
 } // namespace
 
-static const reluva::test::Suite kSuite("tpw.unit.script",
-                                        {
-                                            {"arithmetic", [](const std::filesystem::path &) { testArithmetic(); }},
-                                            {"turns", [](const std::filesystem::path &) { testTurns(); }},
-                                            {"calls", [](const std::filesystem::path &) { testCallsAndFailures(); }},
-                                            {"host", [](const std::filesystem::path &) { testHost(); }},
-                                            {"stand-in", [](const std::filesystem::path &) { testSimulatedHost(); }},
-                                            {"playing", [](const std::filesystem::path &) { testPlaying(); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("tpw.unit.script", {
+                                  {"arithmetic", [](const std::filesystem::path &) { testArithmetic(); }},
+                                  {"turns", [](const std::filesystem::path &) { testTurns(); }},
+                                  {"calls", [](const std::filesystem::path &) { testCallsAndFailures(); }},
+                                  {"host", [](const std::filesystem::path &) { testHost(); }},
+                                  {"stand-in", [](const std::filesystem::path &) { testSimulatedHost(); }},
+                                  {"playing", [](const std::filesystem::path &) { testPlaying(); }},
+                                  {"compare", [](const std::filesystem::path &) { testCompareRandWaitAbs(); }},
+                                  {"riders", [](const std::filesystem::path &) { testRiders(); }},
+                              });

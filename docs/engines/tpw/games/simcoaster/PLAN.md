@@ -42,8 +42,7 @@ format or system worked out.
    fonts, text, settings, sounds ([sdt.md](formats/sdt.md),
    [sound-maps.md](formats/sound-maps.md)), movies
    ([tgq.md](formats/tgq.md)) and files; the opening as a recording shows
-   it ([opening.md](systems/opening.md)). The sound banks' `.map` files
-   wait for the game's sounds to be played.
+   it ([opening.md](systems/opening.md)).
 6. **Models and the park** (done; the animations' vertex and texture
    tracks, the paths' texture table and the ground's real painting left
    open): the models (`.MD2`, Bullfrog's own: read and drawn in the
@@ -57,14 +56,19 @@ format or system worked out.
    drawn as markers, [omp.md](formats/omp.md)); and the skies (drawn by
    a guess, [sky.md](systems/sky.md)): an empty park drawn in 3D in the
    viewer.
-7. **The ride scripts** (under way): the rides' and shops' behaviour is
+7. **The ride scripts** (done; the ride commands' numbers, the time
+   slice and how the game interleaves turns wait for the park, phase 9):
+   the rides' and shops' behaviour is
    in compiled scripts (`RSSE`, `.rse`, 288 of them): read and written
    out as source, checked against the five sources the game ships
    ([rse.md](formats/rse.md)); run on a script machine against a
    stand-in for the park, every script for a minute
    ([scripts.md](systems/scripts.md)), waiting as long as their
    animations take; and a ride run by its script in the viewer, its
-   model playing the animations the script plays (the Models page, R).
+   model playing the animations the script plays (the Models page, R);
+   every instruction the scripts use worked out as far as their uses
+   show ([script-instructions.md](systems/script-instructions.md)), the
+   stand-in keeping guests, timers and animations by them.
 8. **The front end** (under way): the start-up screens (`Data/Init/`:
    the loading screen put together as the recording shows it,
    [loading-screen.md](systems/loading-screen.md)); the front end's 3D
@@ -84,9 +88,11 @@ format or system worked out.
    recordings, and saves (`.TPWS`) taken a step apart.
 10. **Coasters:** the designer, riding them, the coaster files (`.cos`)
     and importing them.
-11. **Sound and the rest:** music, speech with its lip-sync (`lips.wad`),
-    QSound's 3D sound on Reluva's mixer, weather, particles (`.plb`),
-    the postcards.
+11. **Sound and the rest:** the parks' music, following their state; the
+    advisor's lip-sync (`lips.wad`); QSound's 3D sound on Reluva's
+    mixer, placed in the park; weather; the park's particles (`.plb`);
+    the postcards. The front end's music, speech and sounds are played
+    (phase 8).
 
 ## Decisions
 

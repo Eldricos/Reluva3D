@@ -138,8 +138,11 @@ under the particles, it seems, the script's waits counting the game's
 time but the camera's path the clock's *(inferred)*. Reluva runs the
 script by its waits, as a fast enough computer would.
 
-The second value, 1 here and -1 in some rides' scripts, isn't worked
-out: where the sound plays from, perhaps *(guessed)*.
+The second value, 1 here and -1 in some rides' scripts, is the emitter
+the sound plays from, -1 for none, as for the particles' `EVENT 2`
+([script-instructions.md](script-instructions.md#effects-particles-and-sounds)).
+The first, 5, says the number is a global sound, of the rides'
+category *(inferred)*.
 
 ### The portrait and the button
 
@@ -306,8 +309,10 @@ screens, which the game-files test checks (`tpw.gamedata.frontend`).
 
 - The particles' parameters ([plb.md](../formats/plb.md)), and how a
   model's emitters are numbered.
-- The white burst in the well; what the script's objects (`ADDOBJ 5 1
-  200 2`, `FADEOBJ 2`) are; what `EVENT 5`'s second value says.
+- The white burst in the well. The script's `ADDOBJ 5 1 200 2` starts
+  a global sound, 200, the rides' `fireW000`, at emitter 1, and
+  `FADEOBJ 2` fades it ([script-instructions.md](script-instructions.md#effects-particles-and-sounds)):
+  Reluva doesn't play lasting sounds yet.
 - When the game triggers the script, and what `VAR_SPEECHSTATUS` does;
   what makes the advisor say his lines when he does.
 - What value the music's links are set against: something of the

@@ -155,10 +155,16 @@ the numbers every script uses:
 | 9 | `b`, break | played after `COPY VAR_BROKEN 1` |
 | 10 | `r`, repair | played after `COPY VAR_BROKEN 0` |
 | 2 | `i` | 37 of the 43 scripts that play it have one *(guessed)* |
+| 3 | `l` | all 13 scripts with an `l` play 3; perhaps load *(guessed)* |
+| 4 | `s` | all 22 with an `s` play 4; the rides play it before their main loop, a start perhaps *(guessed)* |
+| 6 | `e` | all 20 with an `e` play 6; the rides play it after their main loop, an end perhaps *(guessed)* |
+| 7 | `u` | 3 of the 5 with a `u`; perhaps unload *(guessed)* |
 | 11 | `o` | 14 of 17 *(guessed)* |
 
-Numbers 3, 4, 6 and 7, and the endings `l`, `s`, `e`, `u` and the
-numbered `m`s after the first, are not matched yet.
+A script's second number, the variant, picks among numbered files: the
+ATM plays `WAITANIM 5 0` to `WAITANIM 5 14`, and has `atmm1.MD2` to
+`atmm15.MD2`, so variant v is the file numbered v + 1; one without a
+number, as `cameram.MD2`, is variant 0 *(inferred)*.
 
 ### How fast
 

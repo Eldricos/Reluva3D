@@ -90,6 +90,7 @@ int cmdRseCheck(int argc, char **argv) {
         all.update(text.data(), text.size());
         SimulatedHost host(files, folderOf(name));
         host.readAnimationLengths(name);
+        host.readSettings(name);
         host.setGuests(true);
         ScriptMachine machine(script, host);
         reluva::tpw::runFor(machine, host, kCheckRunMs);
@@ -166,6 +167,7 @@ int cmdRseRun(int argc, char **argv) {
     }
     SimulatedHost host(files, folderOf(argv[3]));
     host.readAnimationLengths(argv[3]);
+    host.readSettings(argv[3]);
     host.setGuests(guests);
     ScriptMachine machine(script, host);
     reluva::tpw::runFor(machine, host, seconds * 1000);

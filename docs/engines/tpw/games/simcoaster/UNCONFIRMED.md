@@ -111,8 +111,9 @@ None yet.
   screen would settle it.
 
 - **Which animation a script's number plays**: 0 `c`, 5 `m`, 9 `b`, 10
-  `r` from the scripts' own use, 2 `i` and 11 `o` from which files are
-  there ([md2-animation.md](formats/md2-animation.md#which-animation-is-which)).
+  `r` from the scripts' own use; 2 `i`, 3 `l`, 4 `s`, 6 `e`, 7 `u` and 11
+  `o` from which files are there; a variant v the file numbered v + 1
+  ([md2-animation.md](formats/md2-animation.md#which-animation-is-which)).
   A ride seen building, breaking and running in the game would settle
   them.
 - **The front end's camera**: its field of view, 53° high, measured on
@@ -122,9 +123,10 @@ None yet.
 
 - **How the script machine runs** beyond what the sources show: turns
   ending after the header's 50 instructions, critical sections not
-  keeping the turn, `BRANCH_PV` above zero, `CMP` an AND, `WAITABS`
-  ([scripts.md](systems/scripts.md)). Rides seen running in the game,
-  set beside a script's trace, would settle them.
+  keeping the turn ([scripts.md](systems/scripts.md)); what the game's
+  instructions do, from how the scripts use them
+  ([script-instructions.md](systems/script-instructions.md)). Rides seen
+  running in the game, set beside a script's trace, would settle them.
 
 - **How a world's sky is drawn** from its three pictures: a dome
   coloured by `sky_rgb.tga` and clouded by `sky.tga`, a band round the
