@@ -84,8 +84,9 @@ is in [the first survey](research/first-survey.md).
       over the system's UDP too): the boards
       scrolled (scroll bars made to work), a train crossing into the
       other player's board, and a postcard sent to the other player by
-      mail train and arriving. Not yet: an engine test of it, which
-      needs the game's files (the engine test runs without them).
+      mail train and arriving; and the game-files test's `network`
+      step, two copies into their boards
+      ([TESTING.md](TESTING.md#the-game-files-test)).
    5. *Later, if wanted:* playing with the original game on Windows,
       over DirectPlay's own protocol as Microsoft has published it.
 7. **Checking against the original:** recordings of the game running,

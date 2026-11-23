@@ -64,4 +64,4 @@ reluva_add_gamedata_test(legoloco
     GAME legoloco
     ENV RELUVA_LEGOLOCO
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release files resources formats run)
+    STEPS release files resources formats run network)

@@ -53,6 +53,7 @@ RELUVA_LEGOLOCO=/path/to/LEGO\ Loco ctest --test-dir build -L gamedata -R legolo
 | `resources` | Every entry of the resource file unpacked (`rf-list`) |
 | `formats` | Every object definition, board, area arrangement, date-based surprise and postcard read (`dat`, `sav`, `lay`, `ee`, `crd`) |
 | `run` | `loco.exe` at 1024 by 768 on a clock of instructions (`run -deterministic 50000`), the movies skipped: one player's game started from the front screen, the welcome bubble closed and the Toybox opened; the screen at four moments (loading, the welcome bubble with Windows' arrow over it, the board, the Toybox), as checksums with their frames' numbers |
+| `network` | Two copies on one network in memory (`pair -deterministic 50000`), at 800 by 600: one hosts a game by TCP/IP, the other joins it, each picks an area and goes on to its board; what each did (hosted, joined), the most players each's session had (2), and the longest messages each sent and received (3,097 bytes, the boards: past the tick). Not their screens, nor how many messages: the two copies' threads take turns as the system runs them, and a screen was seen a frame apart |
 
 - **Records:** in `tests/engines/legoloco/data/gamedata/<version>-<language>/`,
   one file a step, holding counts, summary lines and checksums, none of
@@ -74,7 +75,11 @@ RELUVA_LEGOLOCO=/path/to/LEGO\ Loco ctest --test-dir build -L gamedata -R legolo
   given is fixed too, noon on 1 March 2026 in UTC, moving with that
   clock: the game reads the date, and its minifigures walked otherwise
   on another day. Checked by running it again and again, and in another
-  time zone. It was checked to catch a change: the
+  time zone. The `network` step's two copies can't be held to one
+  another's clock, so it records only what comes out the same whatever
+  order their threads run in; it gives them twice the time they need,
+  as one can run ahead of the other. Checked over nine runs, three with
+  the computer busy. It was checked to catch a change: the
   text drawn a little narrower changes the welcome bubble's screen.
 - **Your own baseline:** where your results differ from the committed
   records (another system, say), keep your own before making changes,
@@ -89,9 +94,9 @@ steps: `reluva-tool legoloco run <game folder> -save <folder>` (with
 `-seconds`, `-click` and `-shot`, clicked through and the screen saved:
 [systems/running.md](systems/running.md#how-far-it-gets)).
 
-Playing the game over a network isn't covered by an automated test
-either: it needs the game's own files. `reluva-tool legoloco pair`
-runs two copies on one network, in memory or (`-udp`) over the
+Network play beyond the boards joining (a train crossing, a postcard
+sent by mail train) and over a real network: `reluva-tool legoloco
+pair` runs two copies on one network, in memory or (`-udp`) over the
 system's UDP, and `run -udp` one copy each in two processes or on two
 computers ([systems/running.md](systems/running.md#in-reluva)).
 

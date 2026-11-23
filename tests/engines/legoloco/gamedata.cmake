@@ -24,6 +24,12 @@
 #              started from the front screen, the welcome bubble closed and
 #              the Toybox opened; the screen at four moments, Windows'
 #              pointer drawn where it shows, as checksums
+#   network    two copies on one network in memory (pair -deterministic), at
+#              800 by 600: one hosts a game, the other joins it by TCP/IP,
+#              each picks an area and they go on to their boards; what each
+#              did, and the longest messages they sent each other (the
+#              boards), which come out the same whatever the copies' threads
+#              do; not their screens, which can differ by a frame
 # A command that fails fails the step. The records, in
 # tests/engines/legoloco/data/gamedata/<release>/<step>.txt, hold only
 # counts and checksums. The step passes when its record is the same as the
@@ -116,6 +122,32 @@ elseif(STEP STREQUAL "run")
         set(record "${record}${name}: ${sum} | frame ${frame}\n")
     endforeach()
     file(REMOVE_RECURSE "${out}/save")
+elseif(STEP STREQUAL "network")
+    set(out "${OUTPUT}/${STEP}")
+    file(REMOVE_RECURSE "${out}/a" "${out}/b")
+    file(MAKE_DIRECTORY "${out}/a" "${out}/b")
+    # Both: the two heads, the tick, TCP, the tick. A hosts (the pen),
+    # picks the top left area and goes on; B joins and picks the next.
+    set(both -move 6.5 545 345 -click 7 550 345)
+    set(protocol -click 10 718 520 -move 12.5 385 170 -click 13 390 170 -move 15 505 540 -click 15.5 510 540)
+    run_tool(log legoloco pair "${game_dir}" -seconds 100 -limit 20000 -nomovies -deterministic 50000
+             -save "${out}/a" ${both} -move 8 718 280 -click 8.5 718 280 ${protocol}
+             -move 24 108 100 -click 25 108 100 -move 26 515 545 -click 27 515 545
+             -- -save "${out}/b" ${both} ${protocol}
+             -move 28 270 100 -click 29 270 100 -move 30 515 545 -click 31 515 545)
+    file(WRITE "${out}/pair.txt" "${log}")
+    foreach(copy IN ITEMS A B)
+        string(REGEX MATCH "\\[${copy}\\] DirectPlay: (hosted|joined), ([0-9]+) players at most[^\n]*the longest ([0-9]+) bytes[^\n]*the longest ([0-9]+) bytes"
+               found "${log}")
+        if(NOT found)
+            message(FATAL_ERROR "Copy ${copy} played no network game:\n${log}")
+        endif()
+        set(record "${record}${copy}: ${CMAKE_MATCH_1}, ${CMAKE_MATCH_2} players, the longest messages ${CMAKE_MATCH_3} bytes sent and ${CMAKE_MATCH_4} received\n")
+    endforeach()
+    string(REGEX MATCH "\\[A\\] \\[program\\] DirectPlay: hosting \"[^\"]*\"" hosting "${log}")
+    string(REGEX MATCH "\\[B\\] \\[program\\] DirectPlay: joined \"[^\"]*\"" joined "${log}")
+    set(record "${record}${hosting}\n${joined}\n")
+    file(REMOVE_RECURSE "${out}/a" "${out}/b")
 else()
     message(FATAL_ERROR "No step ${STEP}")
 endif()

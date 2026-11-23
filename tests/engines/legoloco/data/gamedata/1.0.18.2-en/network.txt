@@ -1,0 +1,4 @@
+A: hosted, 2 players, the longest messages 3097 bytes sent and 3097 received
+B: joined, 2 players, the longest messages 3097 bytes sent and 3097 received
+[A] [program] DirectPlay: hosting "3 X 3.Player"
+[B] [program] DirectPlay: joined "3 X 3.Player"

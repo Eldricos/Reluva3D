@@ -308,6 +308,12 @@ struct Copy {
             watch.join();
         if (!shot.empty())
             saveShot(game.directX().frame(), game.process(), shot);
+        // Its network game, if it played one: as a two-copy test checks.
+        if (const x86::DirectPlay::Summary net = game.directPlay().summary(); net.hosted || net.joined)
+            say("DirectPlay: %s, %u players at most in its session; %llu messages sent, the longest %u bytes; %llu "
+                "received, the longest %u bytes\n",
+                net.hosted ? "hosted" : "joined", unsigned(net.players), (unsigned long long)net.sent,
+                unsigned(net.largestSent), (unsigned long long)net.received, unsigned(net.largestReceived));
         std::string lastCalls;
         for (size_t i = callsAt > calls.size() ? callsAt - calls.size() : 0; i < callsAt; ++i)
             lastCalls += "  " + calls[i % calls.size()] + "\n";
