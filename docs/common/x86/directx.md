@@ -35,7 +35,9 @@ headers' (`directx/interfaces.cpp`).
   What reaches the primary surface becomes `DirectX::frame()`, handed to
   the engine, through the gamma ramp. The transforms a program sets are
   handed over too (`DirectX::transformSet`): with the view and the
-  projection, its camera can be read. In a window, that's the window's
+  projection, its camera can be read. So is each draw
+  (`DirectX::drawn`): its primitive, vertex format, vertices and indices
+  as the program gave them, and its first texture. In a window, that's the window's
   client area. With `DirectX::presentLate` a flip hands over the frame
   before, once its draws are done, and the program goes on while this
   one's are drawn.

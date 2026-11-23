@@ -464,6 +464,23 @@ void Device::draw(uint32_t primitive, uint32_t fvf, uint32_t vertices, uint32_t 
     const VertexLayout layout(fvf);
     if (!layout.position || !target || !vertexCount)
         return;
+    if (s->owner.drawn) {
+        DirectX::Draw d;
+        d.primitive = primitive;
+        d.fvf = fvf;
+        d.stride = stride;
+        Cpu &cpu = s->cpu;
+        if (cpu.valid(vertices, vertexCount * stride))
+            d.vertices.assign(cpu.memory().data() + vertices, cpu.memory().data() + vertices + vertexCount * stride);
+        for (uint32_t i = 0; indices && i < indexCount && cpu.valid(indices + 2 * i, 2); ++i)
+            d.indices.push_back(cpu.read16(indices + 2 * i));
+        if (const std::shared_ptr<Surface> &t = textures[0]) {
+            d.texture = t->d.memory;
+            d.textureWidth = t->d.width;
+            d.textureHeight = t->d.height;
+        }
+        s->owner.drawn(d);
+    }
     _projected = layout.rhw;
     _stages = 0;
     while (_stages < 8 && stageStates[size_t(_stages)][kColorOp] != 1)

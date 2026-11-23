@@ -52,6 +52,21 @@ public:
      * PROJECTION 3), and the matrix it is now, row-major as Direct3D's.
      */
     std::function<void(uint32_t state, const std::array<float, 16> &matrix)> transformSet;
+    /** A Direct3D draw, as the program gave it. */
+    struct Draw {
+        uint32_t primitive = 0; // D3DPRIMITIVETYPE
+        uint32_t fvf = 0;
+        uint32_t stride = 0;
+        std::vector<uint8_t> vertices; // vertexCount * stride bytes, as in memory
+        std::vector<uint16_t> indices;
+        // The first stage's texture: where its pixels are in the process
+        // (telling one texture from another), and its size; 0 for none.
+        uint32_t texture = 0;
+        int textureWidth = 0;
+        int textureHeight = 0;
+    };
+    // Called for each draw (DrawPrimitive and the like), before it's drawn.
+    std::function<void(const Draw &)> drawn;
 
     /** A display mode offered: its size, and bits per pixel. */
     struct Mode {
