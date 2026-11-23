@@ -570,8 +570,8 @@ static void testGdi() {
 }
 
 // MCI's CD audio, as Star Trek: Armada's CD check uses it: the disc's
-// table of contents from a cue sheet, read through MCI_OPEN, MCI_SET and
-// MCI_STATUS.
+// table of contents from a cue sheet or a media descriptor, read through
+// MCI_OPEN, MCI_SET and MCI_STATUS.
 static void testCdAudio() {
     // Ten minutes of data, then an audio track two seconds after it (a
     // gap not in the file) of a minute; a second file with a track whose
@@ -602,6 +602,30 @@ static void testCdAudio() {
           disc->tracks[1].audio && disc->tracks[2].start == 49950 && disc->end == 52800);
     CHECK(!x86::Win32Process::DiscContents::fromCueSheet("FILE \"missing.bin\" BINARY\n", sizes, error) &&
           error.find("missing.bin") != std::string::npos);
+
+    // A media descriptor of a data track and an audio track, as Star Trek:
+    // Armada's disc's is laid out: the first and last track's entries
+    // (0xa0, 0xa1), the lead-out's (0xa2) at 74:58:61, then the tracks', at
+    // 00:02:00 and 67:39:13.
+    std::vector<uint8_t> mds(0x160 + 2 * 80, 0);
+    const char *magic = "MEDIA DESCRIPTOR";
+    std::copy(magic, magic + 16, mds.begin());
+    mds[0x14] = 1;    // one session
+    mds[0x50] = 0x58; // its block
+    mds[0x58 + 0xa] = 5;
+    mds[0x58 + 0x14] = 0x70;
+    const uint8_t entries[5][12] = {{0, 0, 0x14, 0, 0xa0, 0, 0, 0, 0, 1, 0, 0},
+                                    {0, 0, 0x14, 0, 0xa1, 0, 0, 0, 0, 2, 0, 0},
+                                    {0, 0, 0x14, 0, 0xa2, 0, 0, 0, 0, 74, 58, 61},
+                                    {0xaa, 0, 0x14, 0, 1, 0, 0, 0, 0, 0, 2, 0},
+                                    {0xa9, 0, 0x10, 0, 2, 0, 0, 0, 0, 67, 39, 13}};
+    for (size_t e = 0; e < 5; ++e)
+        std::copy(entries[e], entries[e] + 12, mds.begin() + 0x70 + 80 * e);
+    const auto armada = x86::Win32Process::DiscContents::fromMediaDescriptor(mds, error);
+    CHECK(armada && armada->tracks.size() == 2 && armada->tracks[0].start == 150 && !armada->tracks[0].audio &&
+          armada->tracks[1].start == 304438 && armada->tracks[1].audio && armada->end == 337411);
+    mds[0] = 'X';
+    CHECK(!x86::Win32Process::DiscContents::fromMediaDescriptor(mds, error));
 
     x86::Cpu cpu(16u << 20);
     x86::Win32Process process(cpu);
@@ -637,6 +661,22 @@ static void testCdAudio() {
     CHECK(mci(device, 0x80d, 0x400, set) == 0 && ask(1, 0, 0) == 52800 - 150 && ask(2, 3, 0x10) == 49950);
     CHECK(ask(0x4001, 1, 0x10) == 1089 && ask(0x4001, 3, 0x10) == 1088); // data, audio
     CHECK(ask(2, 4, 0x10) == ~282u);                                     // no track 4
+    // Playing moves the position on with the clock, to where it was asked
+    // to stop (MCI_FROM, MCI_TO): the mode is playing (526), then stopped
+    // (525) there. Armada's check plays its audio track and looks.
+    uint32_t clock = 1000;
+    process.milliseconds = [&] { return clock; };
+    const uint32_t play = process.memory().alloc(12);
+    cpu.write32(play + 4, 49950);
+    cpu.write32(play + 8, 49950 + 150);
+    CHECK(mci(device, 0x806, 0xc, play) == 0 && ask(4, 0, 0) == 526);
+    clock += 1000; // a second: 75 frames
+    CHECK(ask(2, 0, 0) == 49950 + 75 && ask(4, 0, 0) == 526);
+    clock += 1500;
+    CHECK(ask(2, 0, 0) == 49950 + 150 && ask(4, 0, 0) == 525);
+    CHECK(mci(device, 0x806, 0x4, play) == 0 && mci(device, 0x809, 0, 0) == 0 && ask(4, 0, 0) == 529); // paused
+    cpu.write32(play + 4, 10);
+    CHECK(mci(device, 0x806, 0x4, play) == 282); // before the disc's first track
     cpu.write32(set + 4, 99);
     CHECK(mci(device, 0x80d, 0x400, set) == 293);
     CHECK(mci(device, 0x804, 0, 0) == 0 && mci(device, 0x804, 0, 0) == 257); // closed
@@ -1567,6 +1607,16 @@ static void testHostedProgramNeeds(const std::filesystem::path &tmp) {
           std::filesystem::exists(tmp / "Game" / "Numbers.txt"));
     CHECK(cpu.string(call(m, "setlocale", {0, text("C")})) == "C" && call(m, "setlocale", {0, text("German")}) == 0);
     CHECK(call(m, "getenv", {text("PATH")}) == 0);
+    // _ftime: the time and its milliseconds; strftime in the "C" locale.
+    const uint32_t timeb = process.memory().alloc(12);
+    CHECK(call(m, "_ftime", {timeb}) == 0 && cpu.read32(timeb) > 1700000000u && cpu.read16(timeb + 4) < 1000);
+    const uint32_t tm = process.memory().alloc(36);
+    const uint32_t fields[9] = {5, 4, 3, 2, 0, 100, 0, 1, 0}; // 2 January 2000, 03:04:05
+    for (uint32_t i = 0; i < 9; ++i)
+        cpu.write32(tm + 4 * i, fields[i]);
+    const uint32_t stamp = process.memory().alloc(32);
+    CHECK(call(m, "strftime", {stamp, 32, text("%Y-%m-%d %H:%M:%S"), tm}) == 19 &&
+          cpu.string(stamp) == "2000-01-02 03:04:05");
 
     // typeid(*object) and its name, from the layout Visual C++ gives them.
     const uint32_t typeInfo = process.memory().alloc(32);

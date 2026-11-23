@@ -329,6 +329,12 @@ public:
         static std::optional<DiscContents>
         fromCueSheet(const std::string &text,
                      const std::function<std::optional<uint64_t>(const std::string &)> &fileSize, std::string &error);
+        /**
+         * From a media descriptor (.mds, Alcohol 120%'s): the table of
+         * contents it keeps as the drive read it, each track's start and
+         * kind and the last session's lead-out.
+         */
+        static std::optional<DiscContents> fromMediaDescriptor(const std::vector<uint8_t> &file, std::string &error);
     };
     // The disc in the CD-ROM drive (cdDrive) for MCI's CD audio; with none,
     // MCI finds no disc there.
@@ -771,8 +777,18 @@ private:
     std::set<uint32_t> _fonts;
     std::set<uint32_t> _palettes;
     std::map<uint32_t, DeviceContext> _dcs;
-    uint32_t _guidState = 0x2545f491;         // CoCreateGuid's xorshift
-    std::map<uint32_t, uint32_t> _mciDevices; // open CD audio devices: their time formats
+    uint32_t _guidState = 0x2545f491; // CoCreateGuid's xorshift
+    // An open CD audio device: its time format, and where it plays (in
+    // frames), by the clock.
+    struct MciDevice {
+        uint32_t format = 2; // MCI_FORMAT_MSF
+        uint32_t at = 0;     // where it is, when not playing
+        bool playing = false;
+        bool paused = false;
+        uint32_t to = 0;      // where playing stops
+        uint64_t started = 0; // now() when it played from `at`
+    };
+    std::map<uint32_t, MciDevice> _mciDevices;
     uint32_t _nextMciDevice = 1;
     std::vector<uint32_t> _screen; // without screenAccess
     bool _screenDrawn = false;     // since screenPainted was last called

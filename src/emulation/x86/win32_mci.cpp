@@ -33,6 +33,8 @@ enum : uint32_t {
 };
 enum : uint32_t {
     kNotify = 0x1,
+    kFrom = 0x4,
+    kTo = 0x8,
     kTrack = 0x10,
     kOpenElement = 0x200,
     kOpenTypeId = 0x1000,
@@ -71,6 +73,8 @@ enum : uint32_t {
 };
 constexpr uint32_t kDevTypeCdAudio = 516;
 constexpr uint32_t kModeStop = 525;
+constexpr uint32_t kModePlay = 526;
+constexpr uint32_t kModePause = 529;
 constexpr uint32_t kModeOpen = 530;
 constexpr uint32_t kCdaTrackAudio = 1088;
 constexpr uint32_t kCdaTrackOther = 1089;
@@ -89,6 +93,27 @@ uint32_t inFormat(uint32_t frames, uint32_t format) {
         const uint32_t minutes = frames / (kFramesPerSecond * 60);
         const uint32_t seconds = frames / kFramesPerSecond % 60;
         return minutes | seconds << 8 | (frames % kFramesPerSecond) << 16;
+    }
+    }
+}
+
+// A time in a format as frames: TMSF's is a track and the time into it.
+uint32_t fromFormat(uint32_t value, uint32_t format, const Win32Process::DiscContents &disc) {
+    const uint32_t msf =
+        (value & 0xff) * 60 * kFramesPerSecond + (value >> 8 & 0xff) * kFramesPerSecond + (value >> 16 & 0xff);
+    switch (format) {
+    case kFormatMilliseconds:
+        return uint32_t(uint64_t(value) * kFramesPerSecond / 1000);
+    case kFormatFrames:
+        return value;
+    case kFormatMsf:
+        return msf;
+    default: {
+        const uint32_t track = value & 0xff;
+        const uint32_t start = track >= 1 && track <= disc.tracks.size() ? disc.tracks[track - 1].start : 0;
+        const uint32_t into =
+            (value >> 8 & 0xff) * 60 * kFramesPerSecond + (value >> 16 & 0xff) * kFramesPerSecond + (value >> 24);
+        return start + into;
     }
     }
 }
@@ -220,6 +245,52 @@ Win32Process::DiscContents::fromCueSheet(const std::string &text,
     return disc;
 }
 
+// A media descriptor: "MEDIA DESCRIPTOR", the number of sessions (+0x14,
+// 16 bits) and where their blocks are (+0x50). A session's block (24
+// bytes) has its number of entries (+0xa) and where they are (+0x14); an
+// entry (80 bytes) is the disc's table of contents' own: its control and
+// ADR (+2, the ADR in the high half; control bit 4: data), its point
+// (+4: a track's number, or 0xa2 for the lead-out) and where that is
+// (+9 to +0xb: minutes, seconds, frames). Worked out from Star Trek:
+// Armada's disc's, where each track's start sector (+0x24), its place in
+// the image (+0x28, 2,352 bytes a sector), the lengths after the entries
+// and the session's end (+4) all agree with it.
+std::optional<Win32Process::DiscContents>
+Win32Process::DiscContents::fromMediaDescriptor(const std::vector<uint8_t> &file, std::string &error) {
+    auto u16 = [&](size_t at) { return at + 2 <= file.size() ? uint32_t(file[at] | file[at + 1] << 8) : 0u; };
+    auto u32 = [&](size_t at) { return u16(at) | u16(at + 2) << 16; };
+    if (file.size() < 0x58 || std::string(file.begin(), file.begin() + 16) != "MEDIA DESCRIPTOR") {
+        error = "not a media descriptor";
+        return std::nullopt;
+    }
+    DiscContents disc;
+    const uint32_t sessions = u16(0x14);
+    const uint32_t sessionsAt = u32(0x50);
+    for (uint32_t s = 0; s < sessions; ++s) {
+        const size_t session = sessionsAt + 24 * size_t(s);
+        const uint32_t entries = file.size() > session + 0xa ? file[session + 0xa] : 0;
+        const size_t entriesAt = u32(session + 0x14);
+        for (uint32_t e = 0; e < entries; ++e) {
+            const size_t at = entriesAt + 80 * size_t(e);
+            if (at + 80 > file.size()) {
+                error = "an entry past the file's end";
+                return std::nullopt;
+            }
+            const uint32_t point = file[at + 4];
+            const uint32_t frame = (uint32_t(file[at + 9]) * 60 + file[at + 10]) * kFramesPerSecond + file[at + 11];
+            if (point >= 1 && point <= 99)
+                disc.tracks.push_back({frame, !(file[at + 2] & 0x04)});
+            else if (point == 0xa2)
+                disc.end = frame;
+        }
+    }
+    if (disc.tracks.empty() || !disc.end) {
+        error = "no tracks, or no lead-out";
+        return std::nullopt;
+    }
+    return disc;
+}
+
 void Win32Process::addMciStandIns() {
     const char *w = "WINMM.dll";
 
@@ -254,14 +325,28 @@ void Win32Process::addMciStandIns() {
                     return kErrInvalidDeviceName;
             }
             const uint32_t id = _nextMciDevice++;
-            _mciDevices[id] = kFormatMsf;
+            _mciDevices[id].at = disc ? disc->tracks[0].start : 0;
             c.write32(p + 4, id);
             return done(id);
         }
         auto it = _mciDevices.find(device);
         if (it == _mciDevices.end())
             return kErrInvalidDeviceId;
-        uint32_t &format = it->second;
+        MciDevice &dev = it->second;
+        uint32_t &format = dev.format;
+        // Where it is now: playing moves on with the clock, and stops at
+        // `to`.
+        auto position = [&]() -> uint32_t {
+            if (!dev.playing)
+                return dev.at;
+            const uint64_t moved = (now() - dev.started) * kFramesPerSecond / 1000;
+            if (dev.at + moved >= dev.to) {
+                dev.playing = false;
+                dev.at = dev.to;
+                return dev.at;
+            }
+            return dev.at + uint32_t(moved);
+        };
         switch (message) {
         case kMciClose:
             _mciDevices.erase(it);
@@ -279,10 +364,26 @@ void Win32Process::addMciStandIns() {
         case kMciSeek:
         case kMciStop:
         case kMciPause:
-        case kMciResume:
+        case kMciResume: {
             if (!disc)
                 return kErrDeviceNotReady;
+            // MCI_PLAY_PARMS and MCI_SEEK_PARMS: from (+4), to (+8).
+            const bool wide = message == kMciPlay || message == kMciSeek;
+            const uint32_t from =
+                wide && (flags & kFrom) && c.valid(p, 12) ? fromFormat(c.read32(p + 4), format, *disc) : position();
+            if (wide && (from < disc->tracks[0].start || from > disc->end))
+                return kErrOutOfRange;
+            dev.at = message == kMciStop || message == kMciPause ? position() : from;
+            dev.playing = false;
+            dev.paused = message == kMciPause;
+            if (message == kMciPlay || message == kMciResume) {
+                if (message == kMciPlay)
+                    dev.to = (flags & kTo) && c.valid(p, 12) ? fromFormat(c.read32(p + 8), format, *disc) : disc->end;
+                dev.playing = dev.at < dev.to;
+                dev.started = now();
+            }
             return done(device);
+        }
         case kMciStatus:
             break;
         default:
@@ -297,7 +398,8 @@ void Win32Process::addMciStandIns() {
         if (item == kStatusMediaPresent || item == kStatusReady) {
             answer = disc ? 1 : 0;
         } else if (item == kStatusMode) {
-            answer = disc ? kModeStop : kModeOpen;
+            position();
+            answer = !disc ? kModeOpen : dev.playing ? kModePlay : dev.paused ? kModePause : kModeStop;
         } else if (item == kStatusTimeFormat) {
             answer = format;
         } else if (!disc) {
@@ -321,11 +423,20 @@ void Win32Process::addMciStandIns() {
                 answer = inFormat(ofTrack ? trackEnd - t.start : disc->end - tracks[0].start,
                                   format == kFormatTmsf ? kFormatMsf : format);
                 break;
-            case kStatusPosition: // a track's start in TMSF is the track alone
-                answer = format == kFormatTmsf
-                             ? (ofTrack ? n : 1u)
-                             : inFormat((flags & kStatusStart) || !ofTrack ? tracks[0].start : t.start, format);
+            case kStatusPosition: {
+                // A track's start, the disc's (MCI_STATUS_START), or where
+                // it is; in TMSF, the track and the time into it.
+                const uint32_t at = ofTrack ? t.start : (flags & kStatusStart) ? tracks[0].start : position();
+                if (format != kFormatTmsf) {
+                    answer = inFormat(at, format);
+                    break;
+                }
+                uint32_t track = 1;
+                while (track < tracks.size() && tracks[track].start <= at)
+                    ++track;
+                answer = track | inFormat(at - tracks[track - 1].start, kFormatMsf) << 8;
                 break;
+            }
             case kCdaStatusTypeTrack:
                 answer = t.audio ? kCdaTrackAudio : kCdaTrackOther;
                 break;

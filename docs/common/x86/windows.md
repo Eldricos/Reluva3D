@@ -50,7 +50,8 @@ C++ library have pages of their own ([directx.md](directx.md),
     x87 stack, `_ftol` and `_controlfp`;
   - `printf` and `scanf` formatting, and `FILE` files over the process's
     file handles;
-  - `_stat` with Visual C++ 6's structure, and time;
+  - `_stat` with Visual C++ 6's structure, and time (`_ftime` in UTC,
+    `strftime` in the "C" locale);
   - `fscanf`, which scans the rest of the file as `sscanf` does and puts
     the file back just after what it took; `getc`, `putc`, `bsearch` (with
     the program's compare);
@@ -167,8 +168,13 @@ C++ library have pages of their own ([directx.md](directx.md),
   or TMSF (`MCI_SET`). The engine gives the table of contents
   (`Win32Process::disc`), which `DiscContents::fromCueSheet` reads from a
   disc's cue sheet (its files' sizes giving the last tracks' lengths;
-  `PREGAP` gaps, not in the files, counted). Without one, there's no disc:
-  "not ready". Playing is accepted and not heard; no other MCI device is
+  `PREGAP` gaps, not in the files, counted) and `fromMediaDescriptor` from
+  an Alcohol 120% `.mds` (the table of contents it keeps, as the drive
+  read it; its layout worked out from Star Trek: Armada's disc's, where
+  its fields agree with each other). Without one, there's no disc: "not
+  ready". Playing (`MCI_PLAY` from and to, `MCI_PAUSE`, `MCI_RESUME`,
+  `MCI_SEEK`, `MCI_STOP`) moves the position on with the clock and gives
+  the mode, as a drive would, but isn't heard; no other MCI device is
   there.
 - **WINMM's sound** (`win32_system.cpp`): no wave or auxiliary device
   (`PlaySoundA` fails, `auxGetNumDevs` is 0), as on a machine whose only
@@ -300,9 +306,11 @@ executable's entry point on the main thread until it ends the process.
   primary surface through a window's device context, and through the
   surface's own (`GetDC`, `ReleaseDC`, each twice).
 - It reads a cue sheet of two files (a data track, an audio track after
-  a `PREGAP`, a track with `INDEX 00` and `INDEX 01`) and asks MCI about
-  the disc as Star Trek: Armada does: with no disc, then with it, in MSF,
-  frames and the like, and a track that isn't there.
+  a `PREGAP`, a track with `INDEX 00` and `INDEX 01`) and a media
+  descriptor laid out as Star Trek: Armada's disc's, and asks MCI about
+  the disc as the game does: with no disc, then with it, in MSF, frames
+  and the like, a track that isn't there, and playing on a clock the
+  test moves (playing, then stopped where it was to stop, paused).
 - It casts with `dynamic_cast` through a class hierarchy laid out as
   Visual C++ lays it out (Star Trek: Armada's own were read the same way:
   a `HoverCraft` is a `Craft`, a `GameObject`, an `Entity` and an

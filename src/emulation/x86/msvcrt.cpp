@@ -5,6 +5,7 @@
 #include "emulation/x86/format.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
@@ -1447,6 +1448,38 @@ void addMsvcrt(Win32Process &process) {
     });
     provideCdecl("clock",
                  [s](Cpu &) { return s->p.milliseconds ? s->p.milliseconds() : 0u; }); // CLOCKS_PER_SEC is 1000
+    // _ftime(_timeb*): the time (+0), its milliseconds (+4, 16 bits), the
+    // minutes west of Greenwich (+6) and daylight saving (+8): UTC here.
+    provideCdecl("_ftime", [](Cpu &c) {
+        const auto since = std::chrono::system_clock::now().time_since_epoch();
+        const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(since).count();
+        if (c.valid(c.arg(0), 10)) {
+            c.write32(c.arg(0), uint32_t(ms / 1000));
+            c.write16(c.arg(0) + 4, uint16_t(ms % 1000));
+            c.write16(c.arg(0) + 6, 0);
+            c.write16(c.arg(0) + 8, 0);
+        }
+        return 0u;
+    });
+    // strftime(out, size, format, tm*): as the C library formats it, in
+    // the "C" locale; the tm is nine ints.
+    provideCdecl("strftime", [](Cpu &c) -> uint32_t {
+        const uint32_t out = c.arg(0);
+        const uint32_t size = c.arg(1);
+        if (!size || !c.valid(out, size) || !c.valid(c.arg(3), 36))
+            return 0u;
+        std::tm tm{};
+        int *fields[9] = {&tm.tm_sec,  &tm.tm_min,  &tm.tm_hour, &tm.tm_mday, &tm.tm_mon,
+                          &tm.tm_year, &tm.tm_wday, &tm.tm_yday, &tm.tm_isdst};
+        for (uint32_t i = 0; i < 9; ++i)
+            *fields[i] = int32_t(c.read32(c.arg(3) + 4 * i));
+        std::string text(size, '\0');
+        const size_t n = std::strftime(text.data(), size, c.string(c.arg(2)).c_str(), &tm);
+        if (n == 0)
+            return 0u;
+        c.writeString(out, text.substr(0, n), size);
+        return uint32_t(n);
+    });
     // localtime(time_t*): a struct tm (nine ints) kept here.
     provideCdecl("localtime", [s](Cpu &c) -> uint32_t {
         const std::time_t t = std::time_t(c.read32(c.arg(0)));
