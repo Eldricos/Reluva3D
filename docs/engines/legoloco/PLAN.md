@@ -50,11 +50,10 @@ is in [the first survey](research/first-survey.md).
      `busy.ani`, read by a shared reader of the published `.ani`
      format), and INI files (`GetPrivateProfileStringA`).
 5. **Playable** (largely: the movies, the front screen, the layouts,
-   the Toybox, laying track, starting and building trains, saving and
-   loading play, with the mouse and keys;
-   [systems/running.md](systems/running.md)):
-   postcards to be tried; the basic engine test
-   taken through them.
+   the Toybox, laying track, starting and building trains, the post
+   office and postcards, saving and loading play, with the mouse and
+   keys; [systems/running.md](systems/running.md)): the basic engine
+   test taken through them.
 6. **Postcards and network play:** DirectPlay stood in for over Reluva's
    own networking, its meeting server for players who can't reach each
    other.

@@ -34,7 +34,8 @@ None yet.
   drawn; the animated cursors' files aren't read.
 - **Not stood in for yet:** the Open and Save dialogs (the game's own
   panels serve instead), opening a web page (`ShellExecuteA`), and
-  network play (it finds no network).
+  network play (it finds no network): postcards posted stay in
+  `PostBag\Sort\Out`, and none arrive.
 
 ## Additions outside the game
 

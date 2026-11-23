@@ -66,6 +66,12 @@ The game, from the launcher:
   on the depot (the Toybox closed) starts a train that runs round. A
   right click opens its zoombox; a train built there, an engine and
   three carriages, runs out and round as built.
+- The post office (a right click, the Toybox closed) shows its tip over
+  the sorting room. The pencils open the editor: a background and a
+  sticker put on a card, turned over by the post box, stamped and posted
+  (a file in `PostBag\Sort\Out`). A card put in `PostBag\Sort\In` is
+  held up by the postman, and filed in the album with a click on it and
+  on the book.
 - Saved under a name typed in the save panel, the layout loads again
   from the load panel, as it was.
 - The windowed mode's button makes a framed window, and back.

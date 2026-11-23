@@ -134,6 +134,23 @@ Seen running in Reluva (`reluva-tool legoloco run`):
   Its first placing, and the zoombox's first opening, show the station
   master's tips. A loop of three curves and points, the
   depot under the points' straight, turned twice, runs a train round.
+- **The post office** *(seen, not traced)*: a right click on it (the
+  Toybox closed) opens the mail sorting room (`MAILWINDOWCLASS`), its
+  pictures drawn through a clipper set to its window, under the station
+  master's tip. Cards received are looked for in
+  `art-res\PostBag\Sort\In\000*.crd`: one there, the shutter opens on
+  a mail sack and the postman holds the card up, its message on the
+  desk; clicking the card, then the book, files it in the album
+  (`PostBag\Album\<n>.crd`, with `PostBag\AlbIndex\<n>.ind`). The tin
+  of pencils opens the Postcard Editor, the book the Postcard Album
+  (pages by the first letter of the cards' names), the door leaves.
+- **The Postcard Editor** *(seen, not traced)*: backgrounds along the
+  bottom, stickers by the categories down its left, each picked up with
+  a click and put on the card with another (pictures from
+  `art-res\Clipart`). The post box turns the card over: a message, the
+  addressee (`Anyone`), a stamp; posted again, the card is written to
+  `PostBag\Sort\Out\<n>.crd` (920 bytes, as the CD's cards are), for
+  sending over the network.
 - **Saving and loading** are the game's own panels, not Windows' dialogs:
   a list of the layouts in `art-res\savegame` (found with
   `FindFirstFileA`), and a name typed into the hidden `EDIT` control it
@@ -212,7 +229,8 @@ screen, about 509 million instructions. Played from there with the
 mouse and keys, as [above](#playing): the first layout and its train,
 the station master's bubbles, the Toybox and its panels, a loop of
 track laid with a depot, a train started on it and one built in the
-depot, a layout saved and
+depot, the post office, a postcard made and posted, one received and
+filed in the album, a layout saved and
 loaded again, the windowed mode and back, and leaving. For example, past the movies to the board, its
 welcome closed:
 
@@ -231,8 +249,8 @@ VERSION.dll's and USER32's ([windows.md](../../../common/x86/windows.md)),
 GDI32's ([gdi.md](../../../common/x86/gdi.md)), the movie window's and
 MCI's ([mci.md](../../../common/x86/mci.md)), and DirectSound's and
 `PlaySoundA` ([dsound.md](../../../common/x86/dsound.md)). Not tried
-yet: postcards and the post office, changing and deleting trains, the
-minifigures' and vehicles' doings.
+yet: changing and deleting trains, the minifigures' and vehicles'
+doings, postcards between players (no network).
 
 ## Sources and checks
 

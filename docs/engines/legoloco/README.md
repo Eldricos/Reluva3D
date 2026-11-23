@@ -9,7 +9,7 @@ one game. Engine id `legoloco`, in `src/engines/legoloco/`.
 
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
-| LEGO Loco | `legoloco` | LEGO Media, 1998 | Windows | The CD, version 1.0.18.2 (`Exe/Loco.exe`, `art-res/resource.RFH`), installed or as on the CD | Plays: its movies, front screen, layouts, the Toybox, saving and loading; postcards and network play to come |
+| LEGO Loco | `legoloco` | LEGO Media, 1998 | Windows | The CD, version 1.0.18.2 (`Exe/Loco.exe`, `art-res/resource.RFH`), installed or as on the CD | Plays: its movies, front screen, layouts and trains, the Toybox, postcards, saving and loading; network play to come |
 
 The CD holds one release for nine languages: the installer asks which,
 and writes it into the install's `Exe/LEGO.INI`. The files are the same
@@ -33,11 +33,11 @@ being worked on first.
   emulator, with stand-ins for the parts of Windows and DirectX it calls:
   its movies, music and sound, its front screen, its layouts with their
   trains, the Toybox, laying track, starting and building trains at a
-  depot, saving and loading layouts, its
-  windowed mode, and leaving, played with the mouse and keys
+  depot, the post office and postcards, saving and loading layouts,
+  its windowed mode, and leaving, played with the mouse and keys
   ([systems/running.md](systems/running.md)).
-- **Not yet:** postcards haven't been tried;
-  Windows' own pointer and network play aren't done. See [PLAN.md](PLAN.md).
+- **Not yet:** Windows' own pointer, and network play (postcards
+  between players among it), aren't done. See [PLAN.md](PLAN.md).
 
 ## Using it
 
