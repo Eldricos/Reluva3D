@@ -232,8 +232,8 @@ int ParticleSystem::update(float seconds, float ownerAngle) {
 void ParticleSystem::burst(float ownerAngle) {
     // The cone's axis from its Face Angle about the ground (and the owner's
     // facing, for one that Orients To Parent's Rotation) and its Cone
-    // Trajectory up from it, and two directions across it (0x5250e0;
-    // inferred for the axes' senses).
+    // Trajectory up from it, and two directions across it, as the game
+    // turns a particle's direction (0x5250e0).
     const float face = _faceAngle.now() * kDegree + (_orient ? ownerAngle : 0.0f);
     const float up = _trajectory.now() * kDegree;
     const Vec axis{std::cos(up) * std::cos(face), std::cos(up) * std::sin(face), std::sin(up)};

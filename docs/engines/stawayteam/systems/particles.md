@@ -46,7 +46,12 @@ Each particle:
   part of the `Outer Cone Angle`, at any turn about the axis (`0x525040`).
   The axis points by `Face Angle` about the ground, plus the owner's
   facing with `Orient To Parent's Rotation`, and up by `Cone Trajectory`
-  (`0x5250e0`; 90 is straight up).
+  (`0x5250e0`; 90 is straight up). A particle's direction is made about
+  the axis and then turned: up by the trajectory, then about the
+  vertical by the face angle, so the axis is (cos F cos T, sin F cos T,
+  sin T) on the ground's x and y and up, the first way across
+  (-sin F, cos F, 0) and the second (-cos F sin T, -sin F sin T, cos T),
+  F and T the angles in radians.
 - **Goes** at the `Speed` envelope's value, give or take `Speed
   Variance`, for the `Age` envelope's value, give or take `Age Variance`.
 - **Starts** at the emitter point, its owner's place moved by `X Offset`
@@ -54,10 +59,11 @@ Each particle:
   Point Type`:
   - `CPointParticleStartPositionType`: there.
   - `CLineParticleStartPositionType`: anywhere within its `Center Length`
-    either way across the axis (`0x522ee0`).
+    either way along the second way across the axis (`0x522ee0`).
   - `CDiskParticleStartPositionType`: on a ring about the axis, from its
-    `Inside Radius` out to `Inside Radius` + `Outside Radius`, the one
-    way across scaled by its `YX Ratio`; with `Use Cone Angle For Start
+    `Inside Radius` out to `Inside Radius` + `Outside Radius`, the first
+    way across scaled by its `YX Ratio` (the point (cos a, -sin a) on
+    the two ways across, `0x522782`); with `Use Cone Angle For Start
     Pos`, at the particle's own turn (`0x522640`).
   - `CCylinderParticleStartPositionType`: the disk's, and up the axis by
     up to its `Height of Cylinder` (`0x523740`).
@@ -124,8 +130,10 @@ second lies still *(inferred)*.
 
 ## Open questions
 
-- The cone's axes' senses: Face Angle's zero and turn, and which way
-  across the axis a line and a disk's YX Ratio lie *(inferred)*.
+- The sign of a disk's ring point when it follows the cone (`Use Cone
+  Angle For Start`, `0x52264f`): the game keeps the sign of the
+  particle's own direction across the axis; Reluva puts the second way
+  across's part the other way *(inferred)*.
 - How particles sort among the models.
 - `Rotate Velocity`, `Tries To Collide`, `Collidable` and `Use Particle
   As Shot` aren't there.
