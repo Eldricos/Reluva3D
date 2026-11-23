@@ -18,10 +18,14 @@ constexpr uint32_t kMagic = 0x1cd15d46;
 constexpr uint32_t kVersion = 221;
 constexpr uint32_t kAnimationFlag = 0x20;
 constexpr size_t kHeaderSize = 0xb8;
-constexpr uint32_t kMeshNode = 1;
+// A mesh's type is 1 in its low byte: 0x401 meshes are drawn like the rest.
+constexpr uint32_t kMeshType = 1;
 // A node's type, links and matrix come first; a mesh's own fields follow.
 constexpr size_t kNodeSize = 0x50;
 constexpr size_t kMeshSize = 0xa0;
+// The other nodes' records: in all the game's models they lie in an array
+// of these, as the meshes lie in one of kMeshSize.
+constexpr size_t kOtherSize = 0x58;
 constexpr size_t kTextureNameSize = 20;
 // Nodes deeper than this are taken for a loop the visited set missed.
 constexpr int kMaxDepth = 256;
@@ -76,7 +80,9 @@ Error readMesh(const Reader &r, size_t node, size_t textureTable, size_t texture
         const size_t at = positionsAt + i / 4 * 48 + i % 4 * 4;
         mesh.positions[i] = {r.f32(at), r.f32(at + 16), r.f32(at + 32)};
     }
-    if (!r.has(mapAt, vertices * 2) || !r.has(uvAt, vertices * 8) || !r.has(facesAt, faces * 8) ||
+    // Texture coordinates four to a block of 32 bytes, as the positions:
+    // their u, then v.
+    if (!r.has(mapAt, vertices * 2) || !r.has(uvAt, (vertices + 3) / 4 * 32) || !r.has(facesAt, faces * 8) ||
         !r.has(groupsAt, groups * 16))
         return fail("its tables run past the end");
     mesh.positionOf.resize(vertices);
@@ -85,7 +91,8 @@ Error readMesh(const Reader &r, size_t node, size_t textureTable, size_t texture
         mesh.positionOf[i] = r.u16(mapAt + 2 * i);
         if (mesh.positionOf[i] >= positions)
             return fail("a vertex's position is out of range");
-        mesh.uv[i] = {r.f32(uvAt + 8 * i), r.f32(uvAt + 8 * i + 4)};
+        const size_t at = uvAt + i / 4 * 32 + i % 4 * 4;
+        mesh.uv[i] = {r.f32(at), r.f32(at + 16)};
     }
     mesh.faces.resize(faces);
     size_t normals = vertices + faces;
@@ -161,6 +168,7 @@ Error Model::parse(const std::vector<uint8_t> &data) {
     }
 
     std::set<size_t> visited;
+    std::vector<size_t> offsets;
     // Each node's matrix places it in its parent's space.
     auto walk = [&](auto &self, size_t node, const gfx::Mat4 &parent, int parentIndex, int depth) -> Error {
         for (; node; node = r.u32(node + 8)) {
@@ -173,8 +181,12 @@ Error Model::parse(const std::vector<uint8_t> &data) {
                 local[i] = r.f32(node + 16 + 4 * i);
             const gfx::Mat4 transform = gfx::multiply(parent, local);
             const int index = int(_nodes.size());
-            _nodes.push_back({r.u32(node), parentIndex, local, -1});
-            if (r.u32(node) == kMeshNode) {
+            _nodes.push_back({r.u32(node), parentIndex, local, -1, {}});
+            offsets.push_back(node);
+            // Every node's name is where the word after its matrix says.
+            if (r.has(node, kNodeSize + 8))
+                _nodes.back().name = r.text(r.u32(node + kNodeSize + 4), 64);
+            if ((r.u32(node) & 0xff) == kMeshType) {
                 if (!r.has(node, kMeshSize))
                     return Error::fail("a mesh runs past the end");
                 Mesh mesh;
@@ -194,12 +206,33 @@ Error Model::parse(const std::vector<uint8_t> &data) {
     };
     if (Error err = walk(walk, root, gfx::identity(), -1, 0))
         return err;
-    for (const Mesh &mesh : _meshes)
-        _animationOrder.push_back(mesh.node);
-    for (size_t i = 0; i < _nodes.size(); ++i)
-        if (_nodes[i].mesh < 0)
-            _animationOrder.push_back(i);
+    numberForAnimations(offsets);
     return Error::success();
+}
+
+// An animation numbers the nodes by their records' places in the file: the
+// meshes' array, then the others'. Nodes out of the tree keep their numbers.
+void Model::numberForAnimations(const std::vector<size_t> &offsets) {
+    size_t firstMesh = SIZE_MAX;
+    size_t lastMesh = 0;
+    size_t firstOther = SIZE_MAX;
+    for (size_t i = 0; i < _nodes.size(); ++i) {
+        if (_nodes[i].mesh >= 0) {
+            firstMesh = std::min(firstMesh, offsets[i]);
+            lastMesh = std::max(lastMesh, offsets[i]);
+        } else {
+            firstOther = std::min(firstOther, offsets[i]);
+        }
+    }
+    const size_t meshSlots = _meshes.empty() ? 0 : (lastMesh - firstMesh) / kMeshSize + 1;
+    for (size_t i = 0; i < _nodes.size(); ++i) {
+        const size_t number = _nodes[i].mesh >= 0 ? (offsets[i] - firstMesh) / kMeshSize
+                                                  : meshSlots + (offsets[i] - firstOther) / kOtherSize;
+        if (number >= _animationOrder.size())
+            _animationOrder.resize(number + 1, kNoNode);
+        if (_animationOrder[number] == kNoNode)
+            _animationOrder[number] = i;
+    }
 }
 
 } // namespace reluva::tpw

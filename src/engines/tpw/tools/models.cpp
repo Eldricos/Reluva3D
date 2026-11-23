@@ -5,12 +5,14 @@
 // their height maps (.hmp).
 
 #include "common/fs.h"
+#include "common/headless_system.h"
 #include "common/md5.h"
 #include "devtools/tool.h"
 #include "engines/tpw/formats/animation.h"
 #include "engines/tpw/formats/hmp.h"
 #include "engines/tpw/formats/md2.h"
 #include "engines/tpw/game_files.h"
+#include "engines/tpw/ui/front_end.h"
 #include "engines/tpw/ui/model_view.h"
 #include "engines/tpw/ui/ride_run.h"
 #include "image/image.h"
@@ -346,7 +348,7 @@ int cmdAnimCheck(int argc, char **argv) {
             ++moved;
             if (!hasModel)
                 continue;
-            if (t.target >= model.animationOrder().size()) {
+            if (t.target >= model.animationOrder().size() || model.animationOrder()[t.target] == Model::kNoNode) {
                 ++outOfRange;
                 continue;
             }
@@ -425,6 +427,72 @@ int cmdRideShot(int argc, char **argv) {
     return 0;
 }
 
+// The front end's scene at a frame of its camera's path, as a PNG.
+int cmdFrontEndShot(int argc, char **argv) {
+    if (argc < 5) {
+        std::fprintf(stderr, "usage: reluva-tool tpw front-end-shot <game folder> <out.png> <frame>\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    std::vector<std::string> warnings;
+    if (reluva::Error err = reluva::tpw::mountGame(files, argv[2], warnings)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    reluva::tpw::FrontEndScene scene;
+    if (reluva::Error err = scene.load(files)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    reluva::Surface screen;
+    screen.create(640, 480, reluva::PixelFormat::kRGBA32);
+    reluva::soft3d::Rasterizer rasterizer;
+    scene.draw(screen, rasterizer, std::strtof(argv[4], nullptr));
+    writePng(screen, argv[3]);
+    std::printf("%.0f frames\n", double(scene.frames()));
+    return 0;
+}
+
+// The front end's opening run headless, by a clock that moves only as it
+// waits; a key pressed `seconds` in, and one more a second later.
+int cmdFrontEndRun(int argc, char **argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool tpw front-end-run <game folder> [seconds]\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    std::vector<std::string> warnings;
+    if (reluva::Error err = reluva::tpw::mountGame(files, argv[2], warnings)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    struct Screen : reluva::HeadlessSystem {
+        reluva::Md5 all;
+        int shown = 0;
+        uint64_t keyAt = 0;
+        void updateScreen(const reluva::Surface &s) override {
+            HeadlessSystem::updateScreen(s);
+            all.update(s.pixels.data(), s.pixels.size());
+            ++shown;
+        }
+        bool pollEvent(reluva::Event &ev) override {
+            if (getMillis() < keyAt)
+                return false;
+            ev = reluva::Event{};
+            ev.type = reluva::EventType::kKeyDown;
+            ev.key = reluva::key::kSpace;
+            keyAt += 1000;
+            return true;
+        }
+    } sys;
+    sys.keyAt = uint64_t((argc > 3 ? std::strtof(argv[3], nullptr) : 5) * 1000);
+    const bool open = reluva::tpw::playFrontEnd(sys, files);
+    std::printf("front end: %d screens shown, ended at %llu ms%s; md5 %s\n", sys.shown,
+                static_cast<unsigned long long>(sys.getMillis()), open ? "" : ", window closed",
+                sys.all.hexDigest().c_str());
+    return 0;
+}
+
 const Commands kCommands(
     "tpw",
     {
@@ -435,6 +503,11 @@ const Commands kCommands(
          "run a model's script for a while, then draw it as its script has it, to a PNG", cmdRideShot},
         {"md2-shot", "<game folder> <model> <out.png> [yaw pitch] [-heights] [-anim <file> <frame>]",
          "draw a model as the viewer does, to a PNG; with its height map's samples", cmdMd2Shot},
+        {"front-end-shot", "<game folder> <out.png> <frame>",
+         "draw the front end's scene through its camera at a frame of its path, to a PNG", cmdFrontEndShot},
+        {"front-end-run", "<game folder> [seconds]",
+         "run the front end's opening headless, a key pressed so many seconds in (5) and a second later",
+         cmdFrontEndRun},
     });
 
 } // namespace

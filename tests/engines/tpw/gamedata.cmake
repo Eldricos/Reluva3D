@@ -26,6 +26,9 @@
 #            checksum of them all (tpw movie-check)
 #   opening  the opening run headless: the screens shown, when it ended
 #            (tpw opening-run)
+#   frontend the front end's opening run headless, its camera's path
+#            skipped 5 seconds in and the globe left a second later: the
+#            screens shown, with a checksum (tpw front-end-run)
 #   loading  the loading screen put together, with a checksum of it
 #            (tpw loading-screen)
 #   sounds   every sound bank (.sdt) decoded, with a checksum of every
@@ -86,6 +89,8 @@ elseif(STEP STREQUAL "movies")
     record_run(movies "movies decoded" tpw movie-check "${game_dir}")
 elseif(STEP STREQUAL "opening")
     record_run(opening "screens shown" tpw opening-run "${game_dir}")
+elseif(STEP STREQUAL "frontend")
+    record_run(frontend "screens shown" tpw front-end-run "${game_dir}")
 elseif(STEP STREQUAL "loading")
     record_run(loading "md5" tpw loading-screen "${game_dir}")
 elseif(STEP STREQUAL "sounds")

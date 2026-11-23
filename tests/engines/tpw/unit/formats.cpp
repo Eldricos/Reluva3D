@@ -333,7 +333,7 @@ void testMd2() {
     CHECK((gfx::transformPoint(mesh.transform, mesh.positions[2]) == gfx::Vec3{14, 6, 1}));
     CHECK(mesh.faces[1].normal == 5 && (mesh.faces[1].vertex == std::array<uint16_t, 3>{0, 2, 3}));
     CHECK(mesh.normals.size() == 6 && (mesh.normals[5] == gfx::Vec3{0, 1, 0}));
-    CHECK(mesh.uv[3][0] == 1 && mesh.uv[3][1] == 1);
+    CHECK(mesh.uv[1][0] == 1 && mesh.uv[1][1] == 0 && mesh.uv[2][0] == 0 && mesh.uv[2][1] == 1 && mesh.uv[3][0] == 1);
     CHECK(mesh.groups.size() == 2 && mesh.groups[0].texture == 1 && mesh.groups[0].faceCount == 1);
     CHECK(mesh.groups[1].texture == Model::Group::kNoTexture && mesh.groups[1].firstFace == 1 &&
           mesh.groups[1].flags == 1);
@@ -583,7 +583,8 @@ void testAnimation() {
     for (size_t k = 0; k < 2; ++k) {
         const size_t at = b.size();
         put16(b, at, uint16_t(10 * k));
-        put16(b, at + 2, k ? 0xffff : 0);
+        // The word after the frame doesn't end the keys: the record counts them.
+        put16(b, at + 2, k ? 0 : 0xffff);
         for (size_t i = 0; i < 4; ++i)
             putFloat(b, at + 4 + 4 * i, keys[k][i]);
     }

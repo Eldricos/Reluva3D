@@ -131,7 +131,8 @@ void drawTexturedTriangle(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCam
         static constexpr uint8_t kGrey[4] = {kUntextured, kUntextured, kUntextured, 255};
         const uint8_t *c = kGrey;
         if (texture) {
-            c = texture->pixel(texel(u, texture->w), texel(v, texture->h));
+            // v runs up the picture: the hall's paintings stand upright so.
+            c = texture->pixel(texel(u, texture->w), texel(1 - v, texture->h));
             if (c[3] < 128)
                 return false;
         }
@@ -169,7 +170,7 @@ void drawMeshes(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camer
     }
 }
 
-std::vector<gfx::Mat4> meshTransforms(const LoadedModel &loaded, int animation, float frame) {
+std::vector<gfx::Mat4> nodeTransforms(const LoadedModel &loaded, int animation, float frame) {
     const auto &nodes = loaded.model.nodes();
     std::vector<gfx::Mat4> local(nodes.size());
     for (size_t i = 0; i < nodes.size(); ++i)
@@ -177,7 +178,7 @@ std::vector<gfx::Mat4> meshTransforms(const LoadedModel &loaded, int animation, 
     if (animation >= 0 && size_t(animation) < loaded.animations.size())
         for (const Animation::Track &t : loaded.animations[size_t(animation)].tracks()) {
             const auto &order = loaded.model.animationOrder();
-            if (t.target < order.size() &&
+            if (t.target < order.size() && order[t.target] != Model::kNoNode &&
                 (t.curve != Animation::Curve::kNone || !t.rotations.empty() || !t.scales.empty())) {
                 const size_t node = order[t.target];
                 local[node] = Animation::pose(t, frame, nodes[node].local);
@@ -187,6 +188,11 @@ std::vector<gfx::Mat4> meshTransforms(const LoadedModel &loaded, int animation, 
     std::vector<gfx::Mat4> world(nodes.size());
     for (size_t i = 0; i < nodes.size(); ++i)
         world[i] = nodes[i].parent >= 0 ? gfx::multiply(world[size_t(nodes[i].parent)], local[i]) : local[i];
+    return world;
+}
+
+std::vector<gfx::Mat4> meshTransforms(const LoadedModel &loaded, int animation, float frame) {
+    const std::vector<gfx::Mat4> world = nodeTransforms(loaded, animation, frame);
     std::vector<gfx::Mat4> out;
     for (const Model::Mesh &mesh : loaded.model.meshes())
         out.push_back(mesh.node < world.size() ? world[mesh.node] : mesh.transform);

@@ -38,8 +38,8 @@ where the root begins.
 | 0x00 | 4 | Its number, from 0 |
 | 0x04 | 4 | What it has (below) |
 | 0x0C | 4 | Its length, in frames |
-| 0x10 | 4 | The high half: how many scale keys |
-| 0x14 | 2 | What it moves: a node of the model, numbering its meshes first, in their order, then its other nodes in the tree's (each before its children, children before the node's next) |
+| 0x10 | 4 | How many rotation keys (the low half) and scale keys (the high half) |
+| 0x14 | 2 | What it moves: a node of the model, by its record's place: the meshes' records first, then the other nodes' ([md2.md](md2.md#the-nodes)) |
 | 0x18 | 4 | Where its position track is |
 | 0x1C | 4 | Where its rotation keys are |
 | 0x20 | 4 | Where its scale keys are |
@@ -56,10 +56,15 @@ word at 0x30.
 How the numbers at 0x14 were found: the octopus's create animation
 moves its 1 to (0, −4.5, −0.9), the rest position of its node `octopus`,
 which is its second mesh but its third node; its 4 to `Cylinder01`'s,
-its fifth mesh; its 20 is `smoke01`, past its 7 meshes, the 14th of its
-other nodes. Numbered so, 2,073 of the 3,853 position tracks start or
-end at their node's rest position, against 855 numbering the tree's
-nodes alone; and 1,853 of the 3,273 rotation tracks, against 1,129.
+its fifth mesh; its 20 is `smoke01`, past its 7 meshes. That numbers the
+meshes first; the front end's camera path settled the order: its track
+for 60 moves `sidewallright` from its rest position, the 61st mesh
+record but the 65th node of the tree, and its 145 to 157 move
+`CAMERA1`, `Particle Pivot`, `baseobject`, `Dummyx` and `Dummyx01` from
+theirs, numbered as their records lie, with `superparent`, out of the
+tree, among them. Numbered so, 2,823 of the 6,058 tracks that move
+whole nodes start at their node's rest pose, against 2,077 numbering
+the meshes, then the other nodes, in the tree's order.
 
 ### Positions
 
@@ -78,8 +83,11 @@ from it: they replace the rest pose's.
 
 ### Rotations
 
-20 bytes a key: its frame (2 bytes), a mark (2 bytes: 0xFFFF on the
-last), then a quaternion, x, y, z, w. Every one is of unit length. Read
+As many keys as the record says, 20 bytes each: its frame (2 bytes), a
+word not worked out (2 bytes: 0xFFFF in some keys, counting up in
+others), then a quaternion, x, y, z, w. In all 3,351 rotation tracks the
+keys fit before what follows them, filling the room exactly in 2,885;
+the last key's frame is the animation's in 3,312. Every one is of unit length. Read
 x, y, z, w, far more rotation tracks start at their node's rest
 rotation than read w first (1,129 against 100, counted before the
 numbering above was found). They replace the rest pose's
@@ -119,8 +127,15 @@ the numbers every script uses:
 | 11 | `o` | 14 of 17 *(guessed)* |
 
 Numbers 3, 4, 6 and 7, and the endings `l`, `s`, `e`, `u` and the
-numbered `m`s after the first, are not matched yet. How fast the frames
-run isn't known: Reluva plays 25 a second *(guessed)*.
+numbered `m`s after the first, are not matched yet.
+
+### How fast
+
+25 frames a second *(inferred)*: the front end's camera path
+([front-end.md](../systems/front-end.md)), played so from 10 s into the
+recording, when the advisor's portrait appears, keeps time with it: its
+hall at frame 0 is the recording's at 9 s, its doors open (frames 190 to
+260) at 20 s, its globe rises (from frame 500) from 32 s.
 
 Some rides' motion isn't in their animations: the twister's arm and
 cars don't turn in `twspinrm.MD2`, whose three tracks move the fence
@@ -163,8 +178,10 @@ game-files test runs it (`tpw.gamedata.animations`).
 
 - The vertex and texture tracks, the word of flag 0x20000, and the
   easing runs.
-- 466 tracks name nodes past their model's count: perhaps they move a
-  model other than the one their name starts with, as the rides'
-  supplementary meshes (`SupplementalMeshes`, `wr_ring.md2`).
-- The numbers 3, 4, 6, 7 and the other endings; the frame rate.
+- 444 tracks name nodes past their model's count, all of them the end
+  feature's (`endm1` to `endm3`, 111 in each world): perhaps they move a
+  model other than `end.MD2`, as the rides' supplementary meshes
+  (`SupplementalMeshes`, `wr_ring.md2`).
+- The numbers 3, 4, 6, 7 and the other endings.
+- The rotation keys' second word.
 - The root's other words and its list.

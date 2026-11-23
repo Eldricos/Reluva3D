@@ -31,6 +31,10 @@ None yet.
   a particle library's and the sound events' definitions
   ([omp.md](formats/omp.md)). Hearing a world's river by its bank in
   the running game would settle it.
+- **Animations run 25 frames a second**: so the front end's camera path
+  keeps time with the recording, its doors opening and its globe rising
+  when the recording's do
+  ([md2-animation.md](formats/md2-animation.md#how-fast)).
 - **Which level folder is which world**: `science` Land of Invention,
   `water` Polar Zone, `wIntro` Intro World, `arabian` Arabian Nights, from
   the string table's order and `Objects.txt`'s themes
@@ -52,12 +56,15 @@ None yet.
   The US release has none; a recording of another release's loading
   screen would settle it.
 
-- **Which animation a script's number plays, and how fast**: 0 `c`, 5
-  `m`, 9 `b`, 10 `r` from the scripts' own use, 2 `i` and 11 `o` from
-  which files are there; 25 frames a second
-  ([md2-animation.md](formats/md2-animation.md#which-animation-is-which)).
-  A ride seen building, breaking and running in the game, timed, would
-  settle them.
+- **Which animation a script's number plays**: 0 `c`, 5 `m`, 9 `b`, 10
+  `r` from the scripts' own use, 2 `i` and 11 `o` from which files are
+  there ([md2-animation.md](formats/md2-animation.md#which-animation-is-which)).
+  A ride seen building, breaking and running in the game would settle
+  them.
+- **The front end's camera**: its field of view, 53° high, measured on
+  the recording; the effects of its script's events
+  ([front-end.md](systems/front-end.md)). The view drawn by the game at
+  a known size would settle the first.
 
 - **How the script machine runs** beyond what the sources show: turns
   ending after the header's 50 instructions, critical sections not

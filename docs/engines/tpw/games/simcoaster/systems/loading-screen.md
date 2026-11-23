@@ -57,8 +57,9 @@ which `Init/` has no pictures: what the game does then isn't known.
 
 `composeLoadingScreen` (`src/engines/tpw/ui/loading_screen.cpp`) puts
 the loading screen together from `Init/640/` for the game's language.
-The engine shows it after the opening, until the player leaves: the
-front end that comes between in the game isn't built yet
+The engine shows it after the front end's opening
+([front-end.md](front-end.md)), until the player leaves: the rest of
+the front end, which comes between in the game, isn't built yet
 ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md#not-yet-as-the-original)).
 `reluva-tool tpw loading-screen <game folder> [out.png]` writes it out,
 with a checksum, which the game-files test checks

@@ -80,7 +80,7 @@ The models are made of a tree of nodes, from the one at the header's
 
 | Offset | Size | Field |
 |---|---|---|
-| 0x00 | 4 | Its type: 1 a mesh; 0x200 a helper (`baseobject`, `Head01`...); 0x401, 4, 0x208, 0x300 and 0x600 others, not worked out |
+| 0x00 | 4 | Its type: 1 or 0x401 a mesh; 0x200 a helper (`baseobject`, `Head01`, a camera); 4, 0x208, 0x300 and 0x600 others, not worked out |
 | 0x04 | 4 | Its parent node, or 0 |
 | 0x08 | 4 | The next node of the same parent, or 0 |
 | 0x0C | 4 | Its first child, or 0 |
@@ -89,10 +89,22 @@ The models are made of a tree of nodes, from the one at the header's
 A helper then has its number (4 bytes) and where its name is (4 bytes):
 0x58 bytes in all.
 
+The 281 nodes of type 0x401 are meshes as type 1's are, laid out the
+same and drawn: the front end's hall has its right wall so
+(`sidewallright`, [front-end.md](../systems/front-end.md)). What the
+0x400 says isn't worked out.
+
+The nodes' records lie in two arrays: the meshes' (0xA0 bytes each),
+then the others' (0x58 bytes each), every node of the 698 models on its
+array's stride. The animations number the nodes by their places in these
+([md2-animation.md](md2-animation.md#a-tracks-record)). Not every record
+is in the tree: the front end's model has a helper, `superparent`, that
+its root nodes name as their parent but no node links to.
+
 A mesh's place in the model is its matrix times its parent's, and so on
-up the tree: placed so, 611 of the models' meshes fill the header's box
-to within 1% of its size, against 331 placed by their own matrices
-alone. Of the
+up the tree: placed so, the meshes of 646 of the 698 models fill the
+header's box to within 1% of its size, against 343 placed by their own
+matrices alone. Of the
 others, some boxes have their axes swapped (`levels/science/features/water/water.MD2`)
 and some are slightly off; what makes them differ is not worked out.
 
@@ -127,7 +139,9 @@ After its 0x50 bytes of node, a mesh has, from the node's start:
 - **Vertices**: a vertex is a corner as drawn, with its own texture
   coordinates and normal; vertices at the same point share a position.
   For each, its position's number (2 bytes), and, in the other table,
-  its texture coordinates (two floats, u then v).
+  its texture coordinates: four vertices' to a block of 32 bytes, the
+  four's u, then their v, as the positions are laid out. v runs up the
+  texture: from its last row to its first.
 - **Normals**: three floats each: one for each vertex, then one for each
   face. 27 meshes number their faces' normals past the end of this
   table, into what follows it.
@@ -141,7 +155,7 @@ After its 0x50 bytes of node, a mesh has, from the node's start:
   (`pbobsl.MD2`'s `Loft01`) cover fewer than its faces.
 
 A few meshes have texture coordinates that can't be meant (not numbers,
-or millions): 13 of the 6,981, as `natnav.MD2`'s `subtank`.
+or millions): 3 of the 7,262.
 
 ## In Reluva
 
@@ -157,8 +171,9 @@ The viewer's Models page draws each model in 3D (`src/engines/tpw/ui/model_view.
 in software): its meshes placed, textured, lit by each face's own
 slope, the texels whose alpha is under half left out. The game's y is
 up; the viewer's world has z up, and swapping the two axes also turns
-the game's space, left-handed as Direct3D's *(inferred)*, into a
-right-handed one. `reluva-tool tpw md2-shot <game folder> <model>
+the game's space, left-handed as Direct3D's, into a right-handed one:
+drawn so, the front end's hall matches the recording, its paintings the
+right way round ([front-end.md](../systems/front-end.md)). `reluva-tool tpw md2-shot <game folder> <model>
 <out.png> [yaw pitch]` writes a model drawn so to a PNG.
 
 ## Sources and checks
@@ -169,11 +184,17 @@ right-handed one. `reluva-tool tpw md2-shot <game folder> <model>
   fourth float of a mesh's last block; the vertices' position table by
   its values, never past the positions' count; the matrices' order by
   the header's box, which the meshes fill only when each is placed by
-  its parents' matrices too. Drawn flat-shaded from these, the ATM desk,
+  its parents' matrices too; the texture coordinates' blocks by the
+  faces' shapes: their edges' lengths in the texture against their
+  lengths in the model vary less read in blocks in 4,215 meshes, read as
+  pairs in 182 (838 can't tell), and read so, the hall's carpet is
+  square tiles where pairs make streaks; v's direction by the hall's
+  paintings, seen in the recording. Drawn flat-shaded from these, the ATM desk,
   the water ride with its statue, its ring and the bobsled with its rider
   come out whole, every face in place; drawn textured, the shops of the
   Arabian world are a chip box, a drinks bottle, a hot dog, a magic lamp
-  and a balloon stand, on sand.
+  and a balloon stand, on sand; the front end's hall matches the
+  recording's frame.
 - **How it was checked:** `reluva-tool tpw md2-check` reads all 698
   models with every index in range. The unit tests
   (`tpw.unit.formats`) read a model built in the test, and fail cut or
@@ -184,14 +205,9 @@ right-handed one. `reluva-tool tpw md2-shot <game folder> <model>
 - The animations' tracks of vertices and textures ([md2-animation.md](md2-animation.md)).
 - The header's fields not named above, and its flags.
 - The textures' flags, and the groups'.
-- The node types other than meshes and helpers.
+- The node types other than meshes and helpers, and what type 0x401's
+  0x400 says.
 - Why some models' meshes don't fill the header's box.
-- Whether the game's space is left-handed: a texture with lettering,
-  drawn on its model and seen in a recording, would settle it. The
-  models' own data doesn't: the faces' stored normals agree with their
-  corners' order in all but 296 of 248,611 faces, and the textures run
-  either way round on them, even the gates' sign placeholders
-  (`sign1.fsh`, `sign2.fsh`: 470 faces one way, 398 the other).
 - Where the game finds the textures Reluva doesn't.
 - What the headers alone are for: a model's size before it loads,
   perhaps *(guessed)*.

@@ -51,8 +51,10 @@ picture-dump` and set beside the frames.
   and fills the screen: the three worlds on one ball, Land of Invention
   (green, a lake), Polar Zone (snow) and Arabian Nights (sand), each with
   its rides. It turns.
-- None of it is a movie file: it's the engine drawing models, presumably
-  the `global/Advisor` and the front end's (`ui.wad`) *(guessed)*.
+- None of it is a movie file: it's the engine drawing the Intro World's
+  camera path model (`levels/wIntro/obstacles/Camera/camera.MD2`), the
+  hall, the boardroom and the globe in one, through its own camera
+  ([front-end.md](../systems/front-end.md)).
 
 ## The SC Personnel File
 

@@ -141,10 +141,11 @@ inline Bytes makeModel() {
     b.resize(normals + 6 * 12);
     for (size_t i = 0; i < 6; ++i)
         putFloat(b, normals + 12 * i + 4, 1);
+    // One block of four texture coordinates: their u, then v.
     const size_t uv = b.size();
     for (size_t i = 0; i < 4; ++i) {
-        putFloat(b, uv + 8 * i, float(i % 2));
-        putFloat(b, uv + 8 * i + 4, float(i / 2));
+        putFloat(b, uv + 4 * i, float(i % 2));
+        putFloat(b, uv + 16 + 4 * i, float(i / 2));
     }
     const size_t map = b.size();
     const uint16_t positionOf[4] = {0, 1, 2, 3};

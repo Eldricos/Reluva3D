@@ -73,10 +73,11 @@ public:
      * animation names nodes by their place in nodes().
      */
     struct Node {
-        uint32_t type = 0; // 1 a mesh, 0x200 a helper; the others not worked out
+        uint32_t type = 0; // 1 or 0x401 a mesh, 0x200 a helper; the others not worked out
         int parent = -1;   // in nodes(), or -1 for a root
         gfx::Mat4 local{}; // in its parent's space
         int mesh = -1;     // in meshes(), or -1
+        std::string name;  // a mesh's or a helper's: "Camera01"
     };
 
     /**
@@ -99,12 +100,17 @@ public:
     /** Every node of the tree, each before its children, children before the next of their parent's. */
     const std::vector<Node> &nodes() const { return _nodes; }
     /**
-     * The nodes as an animation numbers them: the meshes' first, in
-     * meshes()' order, then the others', in nodes()' (indices into nodes()).
+     * The nodes as an animation numbers them (indices into nodes()): the
+     * meshes' first, then the others', each by its record's place in the
+     * file; kNoNode for a number no node of the tree has.
      */
     const std::vector<size_t> &animationOrder() const { return _animationOrder; }
 
+    static constexpr size_t kNoNode = SIZE_MAX;
+
 private:
+    void numberForAnimations(const std::vector<size_t> &offsets);
+
     Kind _kind = Kind::kModel;
     std::string _name;
     std::array<float, 6> _bounds{};

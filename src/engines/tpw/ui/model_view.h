@@ -53,6 +53,9 @@ struct ModelView {
     float frame = 0;      // of the animation
 };
 
+/** Each node's matrix to the model's space, as meshTransforms poses them (by Model::nodes()). */
+std::vector<gfx::Mat4> nodeTransforms(const LoadedModel &loaded, int animation, float frame);
+
 /**
  * Each mesh's matrix to the model's space with `animation` (in
  * `loaded.animations`, or -1 for none) at `frame`: its nodes posed, then

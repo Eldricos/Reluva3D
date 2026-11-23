@@ -32,11 +32,8 @@ constexpr size_t kRotationAt = 0x1c;
 constexpr size_t kScaleAt = 0x20;
 constexpr uint32_t kBezierTrack = 0x12;
 constexpr uint32_t kLinearTrack = 0x18;
-constexpr uint16_t kLastKey = 0xffff;
 constexpr size_t kRotationKeySize = 20;
 constexpr size_t kScaleKeySize = 16;
-// A track no longer than this is taken for a broken one.
-constexpr size_t kMostKeys = 10000;
 
 class Reader {
 public:
@@ -81,19 +78,18 @@ Error readPosition(const Reader &r, size_t at, Animation::Track &t) {
     return Error::success();
 }
 
-// Keys of a frame, a mark (0xFFFF on the last) and a quaternion, x, y,
-// z, w.
-Error readRotation(const Reader &r, size_t at, Animation::Track &t) {
-    for (size_t k = 0;; ++k) {
+// `keys` keys of a frame, a word not worked out and a quaternion, x, y, z,
+// w.
+Error readRotation(const Reader &r, size_t at, size_t keys, Animation::Track &t) {
+    if (!r.has(at, kRotationKeySize * keys))
+        return Error::fail("a rotation track runs past the end");
+    for (size_t k = 0; k < keys; ++k) {
         const size_t key = at + kRotationKeySize * k;
-        if (k >= kMostKeys || !r.has(key, kRotationKeySize))
-            return Error::fail("a rotation track runs past the end");
         // Stored x, y, z, w: so read, 1,129 of the tracks start at their
         // node's rest pose, against 100 with w first.
         t.rotations.push_back({r.u16(key), {r.f32(key + 16), r.f32(key + 4), r.f32(key + 8), r.f32(key + 12)}});
-        if (r.u16(key + 2) == kLastKey)
-            return Error::success();
     }
+    return Error::success();
 }
 
 std::array<float, 4> slerp(const std::array<float, 4> &a, std::array<float, 4> b, float u) {
@@ -158,8 +154,9 @@ Error Animation::parse(const std::vector<uint8_t> &data) {
         if (t.flags & kHasPosition)
             if (Error err = readPosition(r, r.u32(at + kPositionAt), t))
                 return err;
+        // As many rotation keys as the low half of the word at 0x10.
         if (t.flags & kHasRotation)
-            if (Error err = readRotation(r, r.u32(at + kRotationAt), t))
+            if (Error err = readRotation(r, r.u32(at + kRotationAt), r.u16(at + 0x10), t))
                 return err;
         if (t.flags & kHasScale) {
             // As many as the high half of the word at 0x10.

@@ -66,8 +66,11 @@ format or system worked out.
    model playing the animations the script plays (the Models page, R).
 8. **The front end** (under way): the start-up screens (`Data/Init/`:
    the loading screen put together as the recording shows it,
-   [loading-screen.md](systems/loading-screen.md)), the main menu,
-   options, saving and loading, from `ui.wad` and recordings.
+   [loading-screen.md](systems/loading-screen.md)); the front end's 3D
+   opening, the Intro World's camera path model seen through its camera
+   ([front-end.md](systems/front-end.md)); then its effects, the
+   Personnel File, choosing a world, options, saving and loading, from
+   `ui.wad` and recordings.
 9. **The park running:** building, paths, guests, staff, money, research,
    the advisor, missions and challenges (`missions/*.sam`,
    `Challenges.sam`). By far the largest part: from the settings files,
