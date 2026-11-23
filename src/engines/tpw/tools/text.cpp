@@ -237,6 +237,7 @@ int cmdBf4Show(int argc, char **argv) {
     std::vector<const Font::Glyph *> line;
     int width = 0;
     int height = 0;
+    int above = 0; // rows over the line's top, where some glyphs reach
     for (const char *c = argv[4]; *c; ++c) {
         for (size_t code = 1; code <= characters.size(); ++code)
             if (characters.unicode(uint8_t(code)) == char32_t(uint8_t(*c))) {
@@ -244,18 +245,19 @@ int cmdBf4Show(int argc, char **argv) {
                 line.push_back(g);
                 width += g ? g->advance : 0;
                 height = g ? std::max(height, g->top + g->height) : height;
+                above = g ? std::max(above, -g->top) : above;
                 break;
             }
     }
-    std::vector<std::string> rows(size_t(height), std::string(size_t(width) + 8, ' '));
+    std::vector<std::string> rows(size_t(height + above), std::string(size_t(width) + 8, ' '));
     int pen = 0;
     for (const Font::Glyph *g : line) {
         if (!g)
             continue;
         for (size_t i = 0; i < g->coverage.size(); ++i) {
             const int x = pen + g->left + int(i) % g->width;
-            const int y = g->top + int(i) / g->width;
-            if (g->coverage[i] && x >= 0 && x < int(rows[0].size()))
+            const int y = above + g->top + int(i) / g->width;
+            if (g->coverage[i] && x >= 0 && x < int(rows[0].size()) && y >= 0)
                 rows[size_t(y)][size_t(x)] = " .:-=+*#%@@@@@@@"[g->coverage[i]];
         }
         pen += g->advance;
