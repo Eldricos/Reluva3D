@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file]
-//                          [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real]:
+//                          [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file]:
 // runs the retail Armada.exe in Reluva's x86 emulator, with its own DLLs
 // from the install and Reluva's stand-ins for Windows, DirectX and the C
 // runtimes, as a reference to study, never as the game is played
@@ -70,6 +70,8 @@ struct Options {
     std::string cdLabel = "ARMADA";
     std::vector<std::filesystem::path> fontFolders;
     bool realClock = false;
+    // -dump <frame> <file>: the process's memory as the frame is shown.
+    std::map<uint64_t, std::filesystem::path> dumps;
 };
 
 // The clock that follows the instructions run: a Pentium II of 300 MHz
@@ -236,7 +238,7 @@ int cmdHost(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] "
-            "[-input file] [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real]\n");
+            "[-input file] [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file]\n");
         return 2;
     }
     Options o;
@@ -247,7 +249,10 @@ int cmdHost(int argc, char **argv) {
             o.limitMs = std::strtoull(argv[++a], nullptr, 10);
         else if (arg == "-frames" && a + 1 < argc)
             o.framesDir = argv[++a];
-        else if (arg == "-every" && a + 1 < argc)
+        else if (arg == "-dump" && a + 2 < argc) {
+            const uint64_t frame = std::strtoull(argv[++a], nullptr, 10);
+            o.dumps[frame] = argv[++a];
+        } else if (arg == "-every" && a + 1 < argc)
             o.every = std::max<uint64_t>(1, std::strtoull(argv[++a], nullptr, 10));
         else if (arg == "-save" && a + 1 < argc)
             o.saveDir = argv[++a];
@@ -410,6 +415,12 @@ int cmdHost(int argc, char **argv) {
     uint64_t frames = 0;
     directX.presented = [&](const x86::DirectX::Frame &f) {
         ++frames;
+        if (auto dump = o.dumps.find(f.number); dump != o.dumps.end()) {
+            std::ofstream out(dump->second, std::ios::binary);
+            out.write(reinterpret_cast<const char *>(cpu->memory().data()), std::streamsize(cpu->memory().size()));
+            std::printf("memory at frame %llu written to %s\n", (unsigned long long)f.number,
+                        dump->second.string().c_str());
+        }
         if (!o.framesDir.empty() && f.number % o.every == 0)
             writeFrame(f, o.framesDir / text::format("frame%05llu.png", (unsigned long long)f.number));
     };
@@ -489,14 +500,15 @@ int cmdHost(int argc, char **argv) {
     return 0;
 }
 
-const tool::Commands
-    kCommands("storm3d", {
-                             {"host",
-                              "<game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file] "
-                              "[-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real]",
-                              "run the retail Armada.exe in the x86 emulator, to study: files "
-                              "opened, frames shown, imports missing, where it stops",
-                              cmdHost},
-                         });
+const tool::Commands kCommands(
+    "storm3d",
+    {
+        {"host",
+         "<game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file] "
+         "[-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file]",
+         "run the retail Armada.exe in the x86 emulator, to study: files "
+         "opened, frames shown, imports missing, where it stops",
+         cmdHost},
+    });
 
 } // namespace
