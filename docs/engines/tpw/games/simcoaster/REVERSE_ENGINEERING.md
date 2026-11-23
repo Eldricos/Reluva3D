@@ -80,6 +80,9 @@ they are: `Speech/American`, `CoasterData/American`,
 | `reluva-tool tpw bf4-show` | Draws text in a font, a character a pixel |
 | `reluva-tool tpw picture-check` | Decodes every picture: `.fsh`, `.tga`, `.png`, `.jpg` |
 | `reluva-tool tpw picture-dump` | Writes one picture out as a TGA |
+| `reluva-tool tpw tgq-check` | Decodes an EA movie, its frames and sound, or writes a frame out |
+| `reluva-tool tpw movie-check` | Decodes every `.tgq` of a game |
+| `reluva-tool tpw opening-run` | Runs the game's opening headless: the screens shown, when it ended |
 | `reluva-tool tpw data-check` | Reads every file of a game's `Data` folder, archives and loose files, with a checksum of them all |
 
 ## Working files not included

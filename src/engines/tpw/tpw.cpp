@@ -3,28 +3,52 @@
 
 // Theme Park World: the engine's MetaEngine (its name, the releases it recognises,
 // making an Engine to run one) and its Engine. So far it recognises
-// SimCoaster and shows an empty screen.
+// SimCoaster, plays its opening and shows an empty screen.
 
+#include "audio/mixer.h"
+#include "common/settings.h"
 #include "engines/engine.h"
+#include "engines/tpw/game_files.h"
 #include "engines/tpw/games.h"
+#include "engines/tpw/ui/opening.h"
 
 namespace reluva::tpw {
 
 namespace {
 
 /**
- * The game running: for now an empty screen until the player quits.
+ * The game running: for now its opening, then an empty screen until the
+ * player quits.
  */
 class TpwEngine : public Engine {
 public:
     TpwEngine(System &system, const GameTarget &target) : _sys(system), _target(target) {}
 
     Error run() override {
-        if (Error err = _sys.initGraphics(kWidth, kHeight, PixelFormat::kCLUT8))
+        SearchSet files;
+        std::vector<std::string> warnings;
+        if (Error err = mountGame(files, _target.path, warnings))
+            return err;
+        if (Error err = _sys.initGraphics(kWidth, kHeight, PixelFormat::kRGBA32))
             return err;
         _sys.setWindowTitle(("Reluva - " + _target.description).c_str());
+
+        audio::Mixer mixer(_sys.audioRate());
+        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
+        const bool audioOut = !audio::startMixerOutput(_sys, mixer);
+        struct AudioOff { // stops the output before the mixer goes
+            System &sys;
+            bool on;
+            ~AudioOff() {
+                if (on)
+                    sys.stopAudio();
+            }
+        } audioOff{_sys, audioOut};
+        if (!playOpening(_sys, audioOut ? &mixer : nullptr, _target.path, files))
+            return Error::success();
+
         Surface screen;
-        screen.create(kWidth, kHeight, PixelFormat::kCLUT8);
+        screen.create(kWidth, kHeight, PixelFormat::kRGBA32);
         for (bool running = true; running;) {
             Event ev;
             while (_sys.pollEvent(ev))
@@ -38,8 +62,8 @@ public:
     }
 
 private:
-    static constexpr int kWidth = 640;
-    static constexpr int kHeight = 480;
+    static constexpr int kWidth = kOpeningWidth;
+    static constexpr int kHeight = kOpeningHeight;
     System &_sys;
     GameTarget _target;
 };

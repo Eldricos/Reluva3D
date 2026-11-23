@@ -15,6 +15,9 @@ None yet.
 
 ## Inferred
 
+- **The logo movie is shown twice as wide as its frames**, 320 × 480 at
+  640 × 480, as its ring is round in the recording
+  ([tgq.md](formats/tgq.md#the-logo-tgq)).
 - **Which level folder is which world**: `science` Land of Invention,
   `water` Polar Zone, `wIntro` Intro World, `arabian` Arabian Nights, from
   the string table's order and `Objects.txt`'s themes
@@ -30,11 +33,11 @@ None yet.
 
 ## Guessed
 
-- **Which `.tgq` is the EA GAMES logo**, seen in the recording at
-  3.73 s; the other is perhaps unused, or the Bullfrog logo's, which the
-  recording shows as a still picture
-  ([research/footage.md](research/footage.md#the-opening-second-by-second)).
-  The TGQ decoder will settle it.
+- **How long the opening's splash stays**: 3 seconds, unless a key or a
+  click skips it; the recording shows it for 0.6 s, probably clicked
+  past ([opening.md](systems/opening.md#open-questions)). A recording of
+  the opening left alone would settle it, and whether the logo movie
+  stops with its sound.
 - **`stexture` folders hold a lower detail setting's textures**, smaller
   copies of their `textures` folders' ([fsh.md](formats/fsh.md#overview)).
   The game's detail options, seen running, would settle which it uses.
@@ -53,4 +56,5 @@ None yet.
 
 ## Settled
 
-None yet.
+- **Which `.tgq` is the EA GAMES logo** (November 2026): both are, being
+  the same file, byte for byte ([tgq.md](formats/tgq.md#overview)).

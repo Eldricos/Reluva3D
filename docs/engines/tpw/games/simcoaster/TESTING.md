@@ -12,6 +12,7 @@ files):
 |---|---|
 | `tpw.unit.import` | Importing from a small CD laid out as the US one: the cabinet's `Data` group in `Data/`, the movie and `Game.exe` at the top, the language's folders over the cabinet's files, the DLLs left out, then found by detection; a cabinet without `Game.exe` isn't the game's; a folder missing is said |
 | `tpw.unit.formats` | The game's files: archives with folders, stored and RefPack files, damage; the `Data` folder mounted, each archive as its folder, loose files over them; settings files, every kind of line, broken ones turned away; a character set and a string table with text and parameters, damaged ones turned away; a font of both storages read, and one not |
+| `tpw.unit.ui` | The opening, headless, on an install built in the test: the logo movie stretched to 640 × 480, then the splash held 3 seconds; neither, without their files |
 | `tpw.unit.detection` | Recognising the game: a release not in the table found by its files' names, in any case, as an unknown release; not without `Data/Challenges.sam` |
 
 ### The basic engine test
@@ -38,6 +39,8 @@ With your own copy, installed or imported from the CD:
 | `text` | Every string table read in the language's character set, with a checksum of every string (`reluva-tool tpw str-check`) |
 | `fonts` | Every font read, with a checksum of every glyph (`reluva-tool tpw bf4-check`) |
 | `pictures` | Every picture decoded: `.fsh`, `.tga`, `.png`, `.jpg` (`reluva-tool tpw picture-check`) |
+| `movies` | Every `.tgq` movie decoded, frames and sound (`reluva-tool tpw movie-check`) |
+| `opening` | The opening run headless, by a clock that moves only as it waits: the screens shown and when it ended (`reluva-tool tpw opening-run`) |
 
 The installed folder and one imported from the CD pass against the same
 records. A baseline of your own is made as
@@ -55,7 +58,9 @@ CD: the tests can't hold the game's files. Checked by hand.
    "SimCoaster (US)", and the folder made holds the game's files as setup
    installs them ([cd.md](formats/cd.md)). Adding an installed folder
    (*Add Game...*) finds it the same.
-2. Start it: an empty screen, which Esc leaves.
+2. Start it: the EA GAMES logo with its sound, filling the window, then
+   the Bullfrog logo for 3 seconds (a key or a click skips either), then
+   an empty screen, which Esc leaves.
 
 ## Last checked
 
@@ -65,3 +70,4 @@ CD: the tests can't hold the game's files. Checked by hand.
 | November 2026 | US | Linux | `reluva-tool import` from the CD: 1,276 files, byte for byte the install's; found as "SimCoaster (US)" |
 | November 2026 | US | Linux | The game-files test on the install and on the CD imported: 303 archives, 16,225 files read |
 | November 2026 | US | Linux | The game-files test's six steps on the install and on the CD imported: 10,344 pictures decoded |
+| November 2026 | US | Linux | The game-files test's eight steps on both: the logo decoded, the opening run (83 screens, 8.3 s) |

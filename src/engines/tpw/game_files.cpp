@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <string_view>
 
 namespace reluva::tpw {
 
@@ -40,6 +41,18 @@ Error mountGame(SearchSet &set, const std::filesystem::path &install, std::vecto
         return err;
     set.add(std::move(loose), 1);
     return Error::success();
+}
+
+std::string languageOf(const SearchSet &files) {
+    const std::string_view prefix = "language/";
+    const std::string_view file = "/mbtouni.dat";
+    for (const std::string &name : files.list()) {
+        const std::string lower = fs::toLower(name);
+        if (lower.size() > prefix.size() + file.size() && lower.compare(0, prefix.size(), prefix) == 0 &&
+            lower.compare(lower.size() - file.size(), file.size(), file) == 0)
+            return name.substr(prefix.size(), name.size() - prefix.size() - file.size());
+    }
+    return {};
 }
 
 } // namespace reluva::tpw

@@ -9,7 +9,7 @@ Park World (Sim Theme Park in the US). Engine id `tpw`, in
 
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
-| [SimCoaster](games/simcoaster/README.md) | `simcoaster` | Electronic Arts, 2001 | Windows | US (by `Data/ui.wad` and the American string tables); others by file names, as "unknown release" | Recognised, and imported from its CD; shows an empty screen |
+| [SimCoaster](games/simcoaster/README.md) | `simcoaster` | Electronic Arts, 2001 | Windows | US (by `Data/ui.wad` and the American string tables); others by file names, as "unknown release" | Recognised, and imported from its CD; plays its opening, then an empty screen |
 | Theme Park World | | Electronic Arts, 1999 | Windows | | Not yet recognised: after SimCoaster runs |
 
 SimCoaster is Theme Park World's engine and file formats with new parks,
@@ -43,9 +43,10 @@ everything was read from SimCoaster.
 
 | Path | What |
 |---|---|
-| `tpw.cpp` | The `MetaEngine` and the `Engine`: an empty screen for now |
+| `tpw.cpp` | The `MetaEngine` and the `Engine`: the opening, then an empty screen for now |
 | `games.cpp` | The games, the detection tables, and importing from the CD |
 | `game_files.cpp` | The `Data` folder mounted: the archives, loose files over them |
+| `ui/` | The screens: the opening |
 | `formats/` | The games' files: `.wad`, `.sam`, `.str`, `.bf4`; their pictures are read by the shared code (`src/image/`) |
 | `tools/` | `reluva-tool tpw` commands (`reluva-tool help tpw` lists them) |
 

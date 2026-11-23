@@ -22,6 +22,10 @@
 #            (tpw bf4-check)
 #   pictures every picture decoded, .fsh banks, .tga, .png and .jpg, with
 #            a checksum of them all (tpw picture-check)
+#   movies   every movie (.tgq) decoded, its frames and its sound, with a
+#            checksum of them all (tpw movie-check)
+#   opening  the opening run headless: the screens shown, when it ended
+#            (tpw opening-run)
 # A command that fails fails the step. What each prints is checksummed,
 # with a summary line, into a record:
 # tests/engines/tpw/data/gamedata/<release>/<step>.txt. The step passes when
@@ -60,6 +64,10 @@ elseif(STEP STREQUAL "fonts")
     record_run(fonts "fonts read" tpw bf4-check "${game_dir}")
 elseif(STEP STREQUAL "pictures")
     record_run(pictures "pictures decoded" tpw picture-check "${game_dir}")
+elseif(STEP STREQUAL "movies")
+    record_run(movies "movies decoded" tpw movie-check "${game_dir}")
+elseif(STEP STREQUAL "opening")
+    record_run(opening "screens shown" tpw opening-run "${game_dir}")
 else()
     message(FATAL_ERROR "No step ${STEP}")
 endif()

@@ -22,4 +22,11 @@ namespace reluva::tpw {
  */
 Error mountGame(SearchSet &set, const std::filesystem::path &install, std::vector<std::string> &warnings);
 
+/**
+ * The language the game's files are in, as its folder in `Data/Language/`
+ * names it ("American"), found by the character set there; empty if
+ * there's none.
+ */
+std::string languageOf(const SearchSet &files);
+
 } // namespace reluva::tpw

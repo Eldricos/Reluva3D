@@ -1,0 +1,1 @@
+opening: 77f112e7b3a9e418 | opening: 83 screens shown at 640x480, ended at 8335 ms, md5 e41db12b2b8a1239d95609a05e2839ca

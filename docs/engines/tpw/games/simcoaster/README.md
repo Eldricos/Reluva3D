@@ -13,7 +13,7 @@ Park Inc. Game id `simcoaster`, on the
 
 | Release | Recognised by | State |
 |---|---|---|
-| US, English, Windows (data version `Beta_21`) | `Data/ui.wad` (MD5 `f8caf97175f18ef3675b3609b03413f4`, 2,817,221 bytes) and `Data/Language/American/OBJECT_NAMES.str` (MD5 `04d5bf6ef8a6d85f15a25a33716fd895`, 10,200 bytes), with `Game.exe` | Recognised; shows an empty screen |
+| US, English, Windows (data version `Beta_21`) | `Data/ui.wad` (MD5 `f8caf97175f18ef3675b3609b03413f4`, 2,817,221 bytes) and `Data/Language/American/OBJECT_NAMES.str` (MD5 `04d5bf6ef8a6d85f15a25a33716fd895`, 10,200 bytes), with `Game.exe` | Recognised; plays its opening, then an empty screen |
 | Any other (Theme Park Inc, other languages) | `Data/ui.wad`, `Data/Challenges.sam` and `Game.exe` by name | Shown as "unknown release"; not checked |
 
 An installed folder is what's recognised: it holds every file the game
@@ -31,6 +31,8 @@ setup installs it ([cd.md](formats/cd.md)).
 | Text | done: string tables (`.str`) and the character set ([str.md](formats/str.md)); all 37 tables' 3,775 strings read; `reluva-tool tpw str-check` |
 | Fonts | `.bf4` ([bf4.md](formats/bf4.md)): all 35 fonts' 8,750 glyphs read, but for the postcard font's 160 of a storage not worked out; `reluva-tool tpw bf4-check` and `bf4-show` |
 | Pictures | done: `.fsh` banks (compressed pictures among them), `.tga`, `.png` and `.jpg` ([fsh.md](formats/fsh.md)); all 10,344 decoded; `reluva-tool tpw picture-check` and `picture-dump` |
+| Movies | done: the EA GAMES logo (`.tgq`, TQI video, [tgq.md](formats/tgq.md)), decoded and played; `reluva-tool tpw tgq-check` and `movie-check` |
+| The opening | the logo, then the Bullfrog splash, as a recording shows them ([opening.md](systems/opening.md)); the front end's 3D opening not yet |
 | The executable | Surveyed: SafeDisc 2, its code encrypted, so the game is to be rebuilt from its data, not run ([executable.md](formats/executable.md)) |
 | Everything else | Not started: see [PLAN.md](PLAN.md) |
 
@@ -39,7 +41,8 @@ setup installs it ([cd.md](formats/cd.md)).
 In the launcher, *Import Game...* and choose the CD (or a copy of its
 files): Reluva copies what the game needs into a folder of its own, as
 its setup would install it. A folder the game's own setup installed can
-be added instead (*Add Game...*). Reluva shows an empty screen for now;
+be added instead (*Add Game...*). Reluva plays the game's opening (a
+key or a click skips each part), then shows an empty screen for now;
 Esc leaves it.
 
 ## This folder
@@ -48,8 +51,8 @@ Esc leaves it.
 |---|---|
 | This page | Where it stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
-| `formats/` | The game's own files, a page each: [the executable](formats/executable.md), [the CD](formats/cd.md), [archives](formats/wad.md), [settings](formats/sam.md), [text](formats/str.md), [fonts](formats/bf4.md), [pictures](formats/fsh.md) |
-| `systems/` | How the game behaves, a page per part |
+| `formats/` | The game's own files, a page each: [the executable](formats/executable.md), [the CD](formats/cd.md), [archives](formats/wad.md), [settings](formats/sam.md), [text](formats/str.md), [fonts](formats/bf4.md), [pictures](formats/fsh.md), [movies](formats/tgq.md) |
+| `systems/` | How the game behaves, a page per part: [the opening](systems/opening.md) |
 | `research/` | Working notes: [what a recording of the game shows](research/footage.md) |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |

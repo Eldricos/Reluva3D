@@ -9,6 +9,7 @@ reluva_add_engine(tpw
         tpw.cpp
         games.cpp
         game_files.cpp
+        ui/opening.cpp
         formats/bf4.cpp
         formats/sam.cpp
         formats/str.cpp
@@ -18,6 +19,7 @@ reluva_add_engine(tpw
 reluva_add_engine_tools(tpw
     SOURCES
         tools/files.cpp
+        tools/movies.cpp
         tools/pictures.cpp
         tools/text.cpp
         tools/wad.cpp)
@@ -31,9 +33,10 @@ reluva_add_engine_tests(tpw
         ${tests}/unit/detection.cpp
         ${tests}/unit/import.cpp
         ${tests}/unit/formats.cpp
+        ${tests}/unit/ui.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.import unit.formats engine)
+        unit.detection unit.import unit.formats unit.ui engine)
 
 # Its engine test with SimCoaster's own files (see docs/DEVELOPMENT.md,
 # Engine tests): RELUVA_SIMCOASTER=<the game's folder>.
@@ -41,4 +44,4 @@ reluva_add_gamedata_test(tpw
     GAME simcoaster
     ENV RELUVA_SIMCOASTER
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release data settings text fonts pictures)
+    STEPS release data settings text fonts pictures movies opening)

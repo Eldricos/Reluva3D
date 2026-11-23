@@ -96,14 +96,8 @@ int cmdSamCheck(int argc, char **argv) {
 
 // The language's folder (Data/Language/<language>/), by its character set.
 std::string languageFolder(const reluva::SearchSet &files) {
-    for (const std::string &name : files.list()) {
-        const std::string lower = reluva::fs::toLower(name);
-        const std::string_view file = "/mbtouni.dat";
-        if (lower.rfind("language/", 0) == 0 && lower.size() > file.size() &&
-            lower.compare(lower.size() - file.size(), file.size(), file) == 0)
-            return name.substr(0, name.size() - file.size() + 1);
-    }
-    return {};
+    const std::string language = reluva::tpw::languageOf(files);
+    return language.empty() ? std::string() : "Language/" + language + "/";
 }
 
 // The language's character set, or a message why not.
