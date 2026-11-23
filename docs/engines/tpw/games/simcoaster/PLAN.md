@@ -48,8 +48,10 @@ format or system worked out.
    animations not yet) and their height maps (`.hmp`: read,
    [hmp.md](formats/hmp.md)); the worlds' terrain (the surroundings, the
    park's ground and attribute maps: read and drawn,
-   [lnd.md](formats/lnd.md), the ground's painting guessed); objects
-   (`scape.omp`) and skies: an empty park drawn in 3D in the viewer.
+   [lnd.md](formats/lnd.md), the ground's painting guessed); the placed
+   objects (`scape.omp`, sound and particle emitters it seems: read and
+   drawn as markers, [omp.md](formats/omp.md)); and the skies: an empty
+   park drawn in 3D in the viewer.
 7. **The ride scripts:** the rides' and shops' behaviour is in compiled
    scripts (`RSSE`, `.rse`, 288 of them): a disassembler command, then an
    interpreter, so rides run in the viewer.

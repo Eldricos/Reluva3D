@@ -26,6 +26,11 @@ None yet.
   square, the file's first row at the far side, filling `base.MD2`'s
   hole ([lnd.md](formats/lnd.md#the-cells)): drawn so, its entrance notch
   and rivers meet the model's.
+- **`scape.omp`'s objects are sound and particle emitters**: kind 1
+  runs along the rivers, kind 3 sits at the entrance, and the file names
+  a particle library's and the sound events' definitions
+  ([omp.md](formats/omp.md)). Hearing a world's river by its bank in
+  the running game would settle it.
 - **Which level folder is which world**: `science` Land of Invention,
   `water` Polar Zone, `wIntro` Intro World, `arabian` Arabian Nights, from
   the string table's order and `Objects.txt`'s themes

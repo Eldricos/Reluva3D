@@ -252,9 +252,10 @@ private:
 
 /**
  * The worlds' terrain: the land around the park and the park's ground,
- * as the game's files give them, before anything is built.
+ * as the game's files give them, before anything is built, with the
+ * world's placed objects as markers.
  *   A/D: turn   W/S: tilt   Z/X: nearer, further   T: textures on or off
- *   G: the park's ground on or off
+ *   G: the park's ground on or off   O: its placed objects (scape.omp) on or off
  */
 class WorldPage : public Page {
 public:

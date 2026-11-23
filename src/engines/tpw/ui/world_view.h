@@ -7,6 +7,7 @@
 #include "common/types.h"
 #include "engines/tpw/formats/attribute_map.h"
 #include "engines/tpw/formats/lnd.h"
+#include "engines/tpw/formats/omp.h"
 #include "engines/tpw/ui/model_view.h"
 #include "graphics/soft3d/view3d.h"
 #include "image/image.h"
@@ -17,8 +18,8 @@ namespace reluva::tpw {
 
 /**
  * A world's terrain read from the game's files: the land around the park
- * (`terrain/base.MD2`), the park's ground (`terrain/base.lnd`) and its
- * attribute map (`terrain/base.map`).
+ * (`terrain/base.MD2`), the park's ground (`terrain/base.lnd`), its
+ * attribute map (`terrain/base.map`) and its placed objects (`scape.omp`).
  */
 struct LoadedWorld {
     LoadedModel surroundings;
@@ -26,6 +27,9 @@ struct LoadedWorld {
     bool hasLand = false;
     AttributeMap attributes;
     bool hasAttributes = false;
+    /** Its placed objects (`scape.omp`), the sound and particle emitters, it seems. */
+    ObjectMap objects;
+    bool hasObjects = false;
     /**
      * The park's ground painted from the land's textures and masks, two
      * pixels a cell, clear where the park has no ground. How the game
@@ -47,10 +51,15 @@ struct WorldView {
     float pitch = 0.6f;
     float distance = 1300;
     bool textured = true;
-    bool ground = true; // the park's ground drawn
+    bool ground = true;  // the park's ground drawn
+    bool objects = true; // the placed objects drawn as markers
 };
 
-/** Draws the world into an RGBA32 surface, over what is there. */
+/**
+ * Draws the world into an RGBA32 surface, over what is there; with
+ * `view.objects`, each placed object as a dot over it and its radius as a
+ * ring of dots, coloured by its kind.
+ */
 void drawWorld(Surface &screen, soft3d::Rasterizer &rasterizer, const LoadedWorld &world, const WorldView &view);
 
 } // namespace reluva::tpw

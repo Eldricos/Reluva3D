@@ -32,8 +32,9 @@
 #            (tpw md2-check)
 #   heights  every height map (.hmp) read, with a checksum of them all
 #            (tpw hmp-check)
-#   terrain  every world's ground (.lnd) and attribute map (base.map)
-#            read, with a checksum of them all (tpw terrain-check)
+#   terrain  every world's ground (.lnd), attribute map (base.map) and
+#            objects (scape.omp) read, with a checksum of them all (tpw
+#            terrain-check)
 #   viewer   the data viewer, headless: every page, a few keys on each,
 #            then Esc; a checksum of every screen shown, and its titles
 #            (tpw viewer-run)

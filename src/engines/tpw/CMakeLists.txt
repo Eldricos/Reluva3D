@@ -18,6 +18,7 @@ reluva_add_engine(tpw
         formats/hmp.cpp
         formats/lnd.cpp
         formats/md2.cpp
+        formats/omp.cpp
         formats/sam.cpp
         formats/sdt.cpp
         formats/str.cpp

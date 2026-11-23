@@ -63,6 +63,8 @@ void WorldPage::handleKey(uint32_t key) {
         _view.textured = !_view.textured;
     else if (key == 'g')
         _view.ground = !_view.ground;
+    else if (key == 'o')
+        _view.objects = !_view.objects;
     else
         Page::handleKey(key);
 }
@@ -76,12 +78,14 @@ void WorldPage::draw(Surface &screen) {
         status += text::format("  ground %dx%d cells", _world.land.width(), _world.land.depth());
     if (_world.hasAttributes)
         status += text::format(", map %dx%d", _world.attributes.width(), _world.attributes.height());
+    if (_world.hasObjects)
+        status += text::format(", %zu objects", _world.objects.objects().size());
     drawLabel(screen, 4, 4, status, kLabel);
     if (!_error.empty())
         drawLabel(screen, 4, kTop + 4, _error, kError);
     drawLabel(screen, 4, screen.h - font::kLineHeight - 2,
               std::string("A/D turn  W/S tilt  Z/X nearer, further  T textures ") + (_view.textured ? "off" : "on") +
-                  "  G ground " + (_view.ground ? "off" : "on"),
+                  "  G ground " + (_view.ground ? "off" : "on") + "  O objects " + (_view.objects ? "off" : "on"),
               kLabel);
 }
 

@@ -2,13 +2,15 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // reluva-tool's Theme Park World commands for the worlds' terrain: the
-// park's ground (.lnd) and the attribute maps (base.map).
+// park's ground (.lnd), the attribute maps (base.map) and the placed
+// objects (scape.omp).
 
 #include "common/fs.h"
 #include "common/md5.h"
 #include "devtools/tool.h"
 #include "engines/tpw/formats/attribute_map.h"
 #include "engines/tpw/formats/lnd.h"
+#include "engines/tpw/formats/omp.h"
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/ui/world_view.h"
 #include "image/image.h"
@@ -24,9 +26,10 @@ namespace {
 using namespace reluva::tool;
 using reluva::tpw::AttributeMap;
 using reluva::tpw::Land;
+using reluva::tpw::ObjectMap;
 
-// Every world's ground and attribute map read: their sizes, with a
-// checksum of them all.
+// Every world's ground, attribute map and placed objects read: their
+// sizes, each object, with a checksum of them all.
 int cmdTerrainCheck(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool tpw terrain-check <game folder>\n");
@@ -42,21 +45,35 @@ int cmdTerrainCheck(int argc, char **argv) {
     int failed = 0;
     int grounds = 0;
     int maps = 0;
+    int objectMaps = 0;
     for (const std::string &name : files.list()) {
         const std::string lower = reluva::fs::toLower(name);
         const bool isGround = lower.size() > 4 && lower.compare(lower.size() - 4, 4, ".lnd") == 0;
         const bool isMap = lower.size() > 9 && lower.compare(lower.size() - 9, 9, "/base.map") == 0;
-        if (!isGround && !isMap)
+        const bool isObjects = lower.size() > 4 && lower.compare(lower.size() - 4, 4, ".omp") == 0;
+        if (!isGround && !isMap && !isObjects)
             continue;
         std::vector<uint8_t> data;
         reluva::Error err = files.read(name, data);
         Land land;
         AttributeMap map;
+        ObjectMap objects;
         if (!err)
-            err = isGround ? land.parse(data) : map.parse(data);
+            err = isGround ? land.parse(data) : isMap ? map.parse(data) : objects.parse(data);
         if (err) {
             std::printf("failed: %s: %s\n", name.c_str(), err.message.c_str());
             ++failed;
+            continue;
+        }
+        if (isObjects) {
+            ++objectMaps;
+            std::printf("%s: %zu objects\n", name.c_str(), objects.objects().size());
+            for (const ObjectMap::Object &o : objects.objects()) {
+                std::printf("  kind %u, %u, number %u at %.1f %.1f %.1f, radius %.1f, %.1f %.1f\n", o.kind, o.variant,
+                            o.number, double(o.position[0]), double(o.position[1]), double(o.position[2]),
+                            double(o.radius), double(o.extra[0]), double(o.extra[1]));
+                all.update(&o, sizeof(o));
+            }
             continue;
         }
         if (isMap) {
@@ -85,7 +102,8 @@ int cmdTerrainCheck(int argc, char **argv) {
             for (int x = 0; x < land.width(); ++x)
                 all.update(land.cell(x, z), 4);
     }
-    std::printf("%d failed; %d grounds, %d attribute maps; md5 %s\n", failed, grounds, maps, all.hexDigest().c_str());
+    std::printf("%d failed; %d grounds, %d attribute maps, %d object maps; md5 %s\n", failed, grounds, maps, objectMaps,
+                all.hexDigest().c_str());
     return failed || grounds == 0 ? 1 : 0;
 }
 
@@ -139,11 +157,13 @@ int cmdWorldShot(int argc, char **argv) {
     return 0;
 }
 
-const Commands kCommands("tpw", {
-                                    {"terrain-check", "<game folder>",
-                                     "read every world's ground (.lnd) and attribute map (base.map)", cmdTerrainCheck},
-                                    {"world-shot", "<game folder> <world folder> <out.png> [yaw pitch distance]",
-                                     "draw a world's terrain as the viewer does, to a PNG", cmdWorldShot},
-                                });
+const Commands kCommands("tpw",
+                         {
+                             {"terrain-check", "<game folder>",
+                              "read every world's ground (.lnd), attribute map (base.map) and objects (scape.omp)",
+                              cmdTerrainCheck},
+                             {"world-shot", "<game folder> <world folder> <out.png> [yaw pitch distance]",
+                              "draw a world's terrain as the viewer does, to a PNG", cmdWorldShot},
+                         });
 
 } // namespace

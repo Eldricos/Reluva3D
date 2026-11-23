@@ -13,6 +13,7 @@
 #include "engines/tpw/formats/hmp.h"
 #include "engines/tpw/formats/lnd.h"
 #include "engines/tpw/formats/md2.h"
+#include "engines/tpw/formats/omp.h"
 #include "engines/tpw/formats/sam.h"
 #include "engines/tpw/formats/sdt.h"
 #include "engines/tpw/formats/str.h"
@@ -23,6 +24,7 @@
 #include "tests/engines/tpw/fixtures.h"
 #include "tests/support/test.h"
 
+#include <cmath>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -461,6 +463,41 @@ void testAttributeMap() {
     CHECK(attributes.parse(toBytes("TP2X")));
 }
 
+// Two objects, then the names of the files their numbers came from; then
+// cut short.
+void testOmp() {
+    Bytes b = toBytes("OBJ_");
+    put32(b, 4, 2);
+    put32(b, 8, 60);
+    const int32_t first[9] = {1, 0, 3, 330100, 0, 155600, 35000, 0, 0};
+    const int32_t second[9] = {2, 20, 0, 349500, 17000, 472400, 0, 100000, -66000};
+    for (const int32_t *record : {first, second}) {
+        const size_t at = b.size();
+        for (size_t i = 0; i < 9; ++i)
+            put32(b, at + 4 * i, uint32_t(record[i]));
+        b.resize(at + 60);
+    }
+    const Bytes incl = toBytes("INCL");
+    b.insert(b.end(), incl.begin(), incl.end());
+    put32(b, b.size(), 1);
+    put32(b, b.size(), 7);
+    const Bytes name = toBytes("par.h");
+    b.insert(b.end(), name.begin(), name.end());
+    b.insert(b.end(), {0, 0});
+    ObjectMap objects;
+    CHECK(!objects.parse(b));
+    CHECK(objects.objects().size() == 2 && objects.includes() == std::vector<std::string>{"par.h"});
+    if (objects.objects().size() == 2) {
+        const ObjectMap::Object &a = objects.objects()[0];
+        CHECK(a.kind == 1 && a.number == 3 && std::fabs(a.position[0] - 330.1f) < 1e-3f && a.radius == 35);
+        const ObjectMap::Object &c = objects.objects()[1];
+        CHECK(c.variant == 20 && c.position[1] == 17 && c.extra[1] == -66);
+    }
+    CHECK(objects.parse(Bytes(b.begin(), b.begin() + 100)));
+    CHECK(objects.parse(Bytes(b.begin(), b.end() - 3)));
+    CHECK(objects.parse(toBytes("OBJX")));
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -476,4 +513,5 @@ static const reluva::test::Suite
                                    {"hmp", [](const std::filesystem::path &) { testHmp(); }},
                                    {"lnd", [](const std::filesystem::path &) { testLnd(); }},
                                    {"attribute-map", [](const std::filesystem::path &) { testAttributeMap(); }},
+                                   {"omp", [](const std::filesystem::path &) { testOmp(); }},
                                });

@@ -4,12 +4,14 @@
 #include "engines/tpw/ui/world_view.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace reluva::tpw {
 
 namespace {
 
 constexpr int kGroundPixels = 2; // the painted ground's pixels to a cell's side
+constexpr int kRingDots = 48;    // dots around a placed object's radius
 constexpr int kQuadCells = 8;    // the ground drawn in squares of this many cells a side
 // The layers' textures, two each: base, middle, top, as the Polar Zone's
 // source pictures name them (base1, base2, mid1...).
@@ -98,6 +100,44 @@ void drawGround(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camer
         }
 }
 
+// A square of the colour around (x, y) on the screen, clipped.
+void plot(Surface &screen, int x, int y, int size, Color c) {
+    for (int dy = 0; dy < size; ++dy)
+        for (int dx = 0; dx < size; ++dx) {
+            const int sx = x + dx - size / 2;
+            const int sy = y + dy - size / 2;
+            if (sx < 0 || sy < 0 || sx >= screen.w || sy >= screen.h)
+                continue;
+            uint8_t *p = screen.row(sy) + sx * 4;
+            p[0] = c.r;
+            p[1] = c.g;
+            p[2] = c.b;
+        }
+}
+
+// The placed objects over the drawing: kind 1 cyan, 2 magenta, 3 yellow,
+// others white.
+void drawObjects(Surface &screen, const soft3d::OrbitCamera &camera, const ObjectMap &objects) {
+    for (const ObjectMap::Object &o : objects.objects()) {
+        const Color colour = o.kind == 1   ? Color{80, 230, 255}
+                             : o.kind == 2 ? Color{255, 80, 230}
+                             : o.kind == 3 ? Color{255, 230, 60}
+                                           : Color{255, 255, 255};
+        auto at = [&](const gfx::Vec3 &p, int size) {
+            const soft3d::ViewVertex v = camera.toView(toViewerWorld(p));
+            if (v.z < camera.nearZ)
+                return;
+            const soft3d::ScreenVertex s = camera.project(v);
+            plot(screen, int(s.x), int(s.y), size, colour);
+        };
+        for (int i = 0; i < kRingDots; ++i) {
+            const float a = float(i) * 2 * float(M_PI) / kRingDots;
+            at({o.position[0] + o.radius * std::cos(a), o.position[1], o.position[2] + o.radius * std::sin(a)}, 2);
+        }
+        at(o.position, 6);
+    }
+}
+
 } // namespace
 
 Error LoadedWorld::load(const SearchSet &files, const std::string &folder) {
@@ -111,6 +151,8 @@ Error LoadedWorld::load(const SearchSet &files, const std::string &folder) {
     }
     if (!files.read(folder + "/terrain/base.map", data) && !attributes.parse(data))
         hasAttributes = true;
+    if (!files.read(folder + "/scape.omp", data) && !objects.parse(data))
+        hasObjects = true;
     return Error::success();
 }
 
@@ -124,6 +166,8 @@ void drawWorld(Surface &screen, soft3d::Rasterizer &rasterizer, const LoadedWorl
     drawMeshes(rasterizer, camera, world.surroundings, view.textured);
     if (view.ground && world.hasLand && world.ground.w > 0)
         drawGround(rasterizer, camera, world);
+    if (view.objects && world.hasObjects)
+        drawObjects(screen, camera, world.objects);
 }
 
 } // namespace reluva::tpw

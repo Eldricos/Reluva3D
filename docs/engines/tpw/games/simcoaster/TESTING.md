@@ -44,7 +44,7 @@ With your own copy, installed or imported from the CD:
 | `sounds` | Every sound bank decoded, those that can't listed (`reluva-tool tpw sdt-check`) |
 | `models` | Every model read, with a checksum of every mesh (`reluva-tool tpw md2-check`) |
 | `heights` | Every height map read, with a checksum of them all (`reluva-tool tpw hmp-check`) |
-| `terrain` | Every world's ground and attribute map read, with a checksum of them all (`reluva-tool tpw terrain-check`) |
+| `terrain` | Every world's ground, attribute map and placed objects read, with a checksum of them all (`reluva-tool tpw terrain-check`) |
 | `viewer` | The data viewer, headless: every page, a few keys on each, then Esc; its titles and a checksum of its screens (`reluva-tool tpw viewer-run`) |
 | `opening` | The opening run headless, by a clock that moves only as it waits: the screens shown and when it ended (`reluva-tool tpw opening-run`) |
 
@@ -71,7 +71,8 @@ CD: the tests can't hold the game's files. Checked by hand.
    the window and Z shows it at its size; text in the game's font (F) on
    the Text page; a model turns with A and D, in its textures' colours
    (the Arabian shops' sand, the ATM desk's brown wood); on the Worlds
-   page, each world's park lies in its surroundings, sand, grass or ice; a sound plays with Space; the logo and the training
+   page, each world's park lies in its surroundings, sand, grass or ice,
+   its placed objects' cyan rings along its river; a sound plays with Space; the logo and the training
    video play on the Movies page.
 
 ## Last checked
