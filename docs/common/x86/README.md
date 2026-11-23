@@ -19,6 +19,7 @@ documentation. It's all in `src/emulation/x86/`.
 | [directx.md](directx.md) | DirectDraw, Direct3D 7 (in software) and DirectInput |
 | [dplay.md](dplay.md) | DirectPlay and its lobby, without a network |
 | [mci.md](mci.md) | The movie window and MCI, playing AVI movies |
+| [dsound.md](dsound.md) | DirectSound and `PlaySoundA`, on Reluva's mixer |
 | [a3d.md](a3d.md) | Aureal A3D, on Reluva's mixer |
 | [msvcp60.md](msvcp60.md) | Visual C++ 6's C++ library, rebuilt with its layouts |
 | [disasm.md](disasm.md) | A disassembler, for studying a game's executable |
