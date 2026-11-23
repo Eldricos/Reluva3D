@@ -28,6 +28,9 @@
 #            (tpw opening-run)
 #   sounds   every sound bank (.sdt) decoded, with a checksum of every
 #            sound (tpw sdt-check)
+#   viewer   the data viewer, headless: every page, a few keys on each,
+#            then Esc; a checksum of every screen shown, and its titles
+#            (tpw viewer-run)
 # A command that fails fails the step. What each prints is checksummed,
 # with a summary line, into a record:
 # tests/engines/tpw/data/gamedata/<release>/<step>.txt. The step passes when
@@ -72,6 +75,8 @@ elseif(STEP STREQUAL "opening")
     record_run(opening "screens shown" tpw opening-run "${game_dir}")
 elseif(STEP STREQUAL "sounds")
     record_run(sounds "sounds decoded" tpw sdt-check "${game_dir}")
+elseif(STEP STREQUAL "viewer")
+    record_run(viewer "left by:" tpw viewer-run "${game_dir}")
 else()
     message(FATAL_ERROR "No step ${STEP}")
 endif()

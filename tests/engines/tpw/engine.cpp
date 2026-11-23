@@ -9,13 +9,16 @@
 //
 //   reluva-tests tpw.engine [--update]
 //
-// So far: the install found as an unknown release of SimCoaster, and its
-// Data folder mounted, archives and loose files. Add steps as the engine
+// So far: the install found as an unknown release of SimCoaster, its Data
+// folder mounted, archives and loose files, and the data viewer run on it. Add steps as the engine
 // learns to read and run its games (see tests/engines/idtech3/engine.cpp),
 // then --update and review the record.
 
+#include "common/events.h"
+#include "common/headless_system.h"
 #include "engines/registry.h"
 #include "engines/tpw/game_files.h"
+#include "engines/viewer_registry.h"
 
 #include "tests/engines/tpw/fixtures.h"
 #include "tests/support/record.h"
@@ -26,6 +29,30 @@
 using namespace reluva;
 
 namespace {
+
+// The viewer's system: Tab at each 100 ms, through every page and round to
+// the first, then Esc; it keeps the titles and a checksum of the screens.
+struct ViewerRun : HeadlessSystem {
+    test::Hash screens;
+    std::vector<std::string> titles;
+    int keys = 0;
+    void updateScreen(const Surface &s) override {
+        HeadlessSystem::updateScreen(s);
+        screens.bytes(s.pixels.data(), s.pixels.size());
+    }
+    void setWindowTitle(const std::string &t) override {
+        if (titles.empty() || titles.back() != t)
+            titles.push_back(t);
+    }
+    bool pollEvent(Event &ev) override {
+        if (getMillis() < uint64_t(keys + 1) * 100)
+            return false;
+        ev = Event{};
+        ev.type = EventType::kKeyDown;
+        ev.key = ++keys < 9 ? key::kTab : key::kEscape;
+        return true;
+    }
+};
 
 void engineTest(const std::filesystem::path &tmp) {
     const std::filesystem::path dir = tmp / "install";
@@ -60,6 +87,17 @@ void engineTest(const std::filesystem::path &tmp) {
         rec.add("files.file", name + " " + std::to_string(data.size()));
     }
     rec.add("files.all", all.hex());
+
+    const MetaViewer *viewer = findViewer("tpw");
+    if (!viewer)
+        return test::fail("tpw has no viewer");
+    ViewerRun sys;
+    GameTarget target{"tpw", "tpw", "simcoaster", "SimCoaster (test)", dir, {}, {}};
+    const Error err = viewer->create(sys, target)->run();
+    rec.add("viewer.result", err ? err.message : "ok");
+    for (const std::string &title : sys.titles)
+        rec.add("viewer.title", title);
+    rec.add("viewer.screens", sys.screens.hex());
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/tpw/data/engine-record.txt", "tpw.engine",
               "tests/engines/tpw/engine.cpp");
 }

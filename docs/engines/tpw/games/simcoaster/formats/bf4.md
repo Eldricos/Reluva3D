@@ -42,7 +42,10 @@ All numbers little-endian.
 | 24 | | Its pixels |
 
 The glyphs follow one another in the codes' order, each straight after
-the one before. A code the font has no glyph of its own for has a `*`
+the one before. A glyph is the game's way of drawing its character, which
+needn't look like it: `CASH*`'s `$` (code 17) is drawn as an S with two
+bars, `§`-like, as the recording shows the money
+([research/footage.md](../research/footage.md#play)). A code the font has no glyph of its own for has a `*`
 (or, for the blanks, a space of no size): 57 to 72 codes in each font.
 
 ### The pixels

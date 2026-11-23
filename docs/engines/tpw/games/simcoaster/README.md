@@ -34,6 +34,7 @@ setup installs it ([cd.md](formats/cd.md)).
 | Movies | done: the EA GAMES logo (`.tgq`, TQI video, [tgq.md](formats/tgq.md)), decoded and played; `reluva-tool tpw tgq-check` and `movie-check` |
 | The opening | the logo, then the Bullfrog splash, as a recording shows them ([opening.md](systems/opening.md)); the front end's 3D opening not yet |
 | Sounds | the banks (`.sdt`, [sdt.md](formats/sdt.md)): 5,315 of their sounds decode, MPEG and PCM; the rest are damaged in the game's own files; `reluva-tool tpw sdt-check`. The `.map` files beside them not yet |
+| Viewer | `reluva-viewer`: pictures, fonts, text, settings, sounds, movies and files (pages above) |
 | The executable | Surveyed: SafeDisc 2, its code encrypted, so the game is to be rebuilt from its data, not run ([executable.md](formats/executable.md)) |
 | Everything else | Not started: see [PLAN.md](PLAN.md) |
 
@@ -45,6 +46,23 @@ its setup would install it. A folder the game's own setup installed can
 be added instead (*Add Game...*). Reluva plays the game's opening (a
 key or a click skips each part), then shows an empty screen for now;
 Esc leaves it.
+
+The data viewer, `reluva-viewer` (`reluva-viewer <its name in the
+launcher>` or `reluva-viewer <the game's folder>`), shows what the game's
+files hold, at 640 × 480. Tab and Shift+Tab move between its pages, Esc
+leaves it. On every page Left and Right go to the previous and next
+thing, PageUp and PageDown 10 at a time, Home and End to the first and
+last; each page has its own keys besides:
+
+| Page | Shows | Its own keys |
+|---|---|---|
+| Pictures | Every `.fsh`, `.tga`, `.png` and `.jpg`, zoomed to fit, over a check where it's clear | Z: its own size |
+| Fonts | Sample text in the font, then each glyph with its code | |
+| Text | A string table's strings by number, the one picked whole below | Up/Down: the string; F: in the game's font (`GAME12.bf4`) |
+| Settings | A settings file's settings, values and grids | Up/Down: scroll |
+| Sounds | A bank's sounds, their kind and length | Up/Down, PageUp/PageDown: the sound; Space or Enter: play or stop |
+| Movies | The logo and the training video | Space or Enter: play (a key or a click stops it) |
+| Files | Every file of `Data/`, where it is, its start as text or bytes | Up/Down, PageUp/PageDown: the file |
 
 ## This folder
 

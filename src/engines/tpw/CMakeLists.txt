@@ -16,6 +16,17 @@ reluva_add_engine(tpw
         formats/str.cpp
         formats/wad.cpp)
 
+# Its data viewer (pictures, fonts, text, settings, sounds, movies, files),
+# in reluva-viewer.
+reluva_add_engine_viewers(tpw
+    ACCESSOR tpwMetaViewer
+    SOURCES
+        pages/viewer.cpp
+        pages/media_pages.cpp
+        pages/page.cpp
+        pages/picture_pages.cpp
+        pages/text_pages.cpp)
+
 # Its reluva-tool commands (reluva-tool help tpw lists them).
 reluva_add_engine_tools(tpw
     SOURCES
@@ -23,6 +34,7 @@ reluva_add_engine_tools(tpw
         tools/movies.cpp
         tools/pictures.cpp
         tools/sounds.cpp
+        tools/viewer.cpp
         tools/text.cpp
         tools/wad.cpp)
 
@@ -46,4 +58,4 @@ reluva_add_gamedata_test(tpw
     GAME simcoaster
     ENV RELUVA_SIMCOASTER
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release data settings text fonts pictures movies opening sounds)
+    STEPS release data settings text fonts pictures movies opening sounds viewer)

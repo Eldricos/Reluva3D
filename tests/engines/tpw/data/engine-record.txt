@@ -10,3 +10,14 @@ files.file: ui/cursors/pick.ani 8
 files.file: ui/stexture/button.tga 8
 files.file: ui/stexture/qickload.txt 12
 files.all: d101e4121a0819d4
+viewer.result: ok
+viewer.title: Reluva - SimCoaster (test) - Pictures: ui/stexture/button.tga
+viewer.title: Reluva - SimCoaster (test) - Settings: Challenges.sam
+viewer.title: Reluva - SimCoaster (test) - Files: Challenges.sam
+viewer.title: Reluva - SimCoaster (test) - Pictures: ui/stexture/button.tga
+viewer.title: Reluva - SimCoaster (test) - Settings: Challenges.sam
+viewer.title: Reluva - SimCoaster (test) - Files: Challenges.sam
+viewer.title: Reluva - SimCoaster (test) - Pictures: ui/stexture/button.tga
+viewer.title: Reluva - SimCoaster (test) - Settings: Challenges.sam
+viewer.title: Reluva - SimCoaster (test) - Files: Challenges.sam
+viewer.screens: 14f0747fa9fcd887

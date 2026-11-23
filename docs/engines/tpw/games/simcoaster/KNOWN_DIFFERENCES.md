@@ -30,4 +30,6 @@ None yet.
 
 ## Additions outside the game
 
-None yet.
+- **The data viewer** (`reluva-viewer`), showing what the game's files
+  hold ([README.md](README.md#using-it)); it isn't in `reluva`, the
+  program players get.

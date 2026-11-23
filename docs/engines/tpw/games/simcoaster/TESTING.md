@@ -20,9 +20,10 @@ files):
 `tpw.engine` (`tests/engines/tpw/engine.cpp`), without the
 game's files: a small install of its own, taken through what playing
 does, against its record (`tests/engines/tpw/data/engine-record.txt`).
-So far: stand-in files found as an unknown release of SimCoaster, and
-its `Data` folder (an archive and a loose file) mounted and every file
-read.
+So far: stand-in files found as an unknown release of SimCoaster, its
+`Data` folder (an archive and a loose file) mounted and every file read,
+and the data viewer run on it, Tab through its pages and Esc: its
+titles and a checksum of its screens.
 
 ### The game-files test
 
@@ -41,6 +42,7 @@ With your own copy, installed or imported from the CD:
 | `pictures` | Every picture decoded: `.fsh`, `.tga`, `.png`, `.jpg` (`reluva-tool tpw picture-check`) |
 | `movies` | Every `.tgq` movie decoded, frames and sound (`reluva-tool tpw movie-check`) |
 | `sounds` | Every sound bank decoded, those that can't listed (`reluva-tool tpw sdt-check`) |
+| `viewer` | The data viewer, headless: every page, a few keys on each, then Esc; its titles and a checksum of its screens (`reluva-tool tpw viewer-run`) |
 | `opening` | The opening run headless, by a clock that moves only as it waits: the screens shown and when it ended (`reluva-tool tpw opening-run`) |
 
 The installed folder and one imported from the CD pass against the same
@@ -62,6 +64,10 @@ CD: the tests can't hold the game's files. Checked by hand.
 2. Start it: the EA GAMES logo with its sound, filling the window, then
    the Bullfrog logo for 3 seconds (a key or a click skips either), then
    an empty screen, which Esc leaves.
+3. Open it in `reluva-viewer`: each page shows its files; a picture fits
+   the window and Z shows it at its size; text in the game's font (F) on
+   the Text page; a sound plays with Space; the logo and the training
+   video play on the Movies page.
 
 ## Last checked
 
