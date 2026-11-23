@@ -25,7 +25,7 @@ pictures, one to a chunk:
 |---|---|---|
 | 0 | 4 | `mTCD` |
 | 4 | u32 | The chunk's size, these 16 bytes included |
-| 8 | u32 | 0 in every chunk |
+| 8 | u32 | 0 in every chunk; the players don't read it |
 | 12 | u16 | The picture's width |
 | 14 | u16 | Its height |
 | 16 | | One MDEC frame ([mdec.md](../../../../../common/video/mdec.md)) |
@@ -46,6 +46,13 @@ The data viewer's Movies page (`src/engines/nfs/nfs2se/pages/movie_page.cpp`)
 plays them with their sound, which keeps the time, as NFS III's page
 plays its `.mad` movies.
 
+The players of both programs (`nfs2sen.exe` 0x422e60; `NFS2SEA.EXE`'s
+the same) keep the chunks tagged `mTCD`, take the size at 4 and the
+picture's size at 12 and 14 (0x422f1e), and decode from 16 (0x423270).
+Nothing reads the word at 8: the hosted game played a copy of
+`titleav.dct` with it set to other values in all 1,761 chunks, and every
+frame came out the same.
+
 ## Sources and checks
 
 - **Where the facts come from:** the files. The chunk's tag and size were
@@ -60,6 +67,5 @@ plays its `.mad` movies.
 
 ## Open questions
 
-- The u32 at 8, 0 in every chunk.
 - When the game plays the attract-mode movies (left at the main menu,
   seen on the host), and whether anything reads `demo.0`-`demo.2`.

@@ -40,10 +40,13 @@ struct Sky {
     int pixmapBase = 0; // percent of the height
     Rgb skyColour{};
     Rgb baseColour{};
-    std::array<int, 4> depthDistances{}; // depth cueing, 0-1100
-    std::array<int, 4> depthLights{};    // their light values, 0-15
+    // Depth cueing: a B-spline through these (distance, light) points
+    // (0x45be20). A distance is a depth bucket, half a unit each from 10
+    // units out; a light of L moves the colours L/16 toward colourValue.
+    std::array<int, 4> depthDistances{}; // 0-1100
+    std::array<int, 4> depthLights{};    // 0-15
     int colourSystem = 0;                // 0 RGB, 1 HSV
-    Rgb colourValue{};
+    Rgb colourValue{};                   // what the distance fades toward
 
     // The 3dfx program's.
     int cloudDomeOffset = 0;
@@ -61,7 +64,10 @@ struct Sky {
 /** Reads a sky file of either kind, by its count of values. */
 Error parseSky(std::string_view text, Sky &out);
 
-/** A track's lights (Tracks/se/trNN.lgt), commented text as the skies are. */
+/**
+ * A track's lights (Tracks/se/trNN.lgt), commented text as the skies are.
+ * Neither program reads them; all eight hold the same values.
+ */
 struct Lights {
     std::array<std::array<int, 2>, 4> depthCueing{}; // pairs, as the file has them
     std::array<Rgb, 16> palette{};                   // the light palettes, 0-127
