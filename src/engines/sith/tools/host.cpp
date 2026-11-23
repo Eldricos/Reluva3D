@@ -209,11 +209,14 @@ void addSimple(x86::Win32Process &process, std::map<std::string, int> &calls) {
     simple("USER32.dll", "EndPaint", 2, value(1));
 }
 
-// A key pressed at a moment of the run (-keys).
+// A key pressed, or the mouse clicked, at a moment of the run (-keys).
 struct KeyPress {
     double at = 0; // seconds from the start
     uint32_t virtualKey = 0;
     uint32_t scanCode = 0;
+    bool click = false; // the left button at (x, y) on the screen, not a key
+    int x = 0;
+    int y = 0;
     bool down = false;
     bool up = false;
 };
@@ -241,8 +244,13 @@ bool parseKeys(const std::string &text, std::vector<KeyPress> &out) {
             code = uint32_t(std::tolower(uint8_t(name[0])));
         KeyPress k;
         k.at = std::atof(item.substr(0, colon).c_str());
-        if (!code || !x86::windowsKey(code, k.virtualKey, k.scanCode))
+        if (name.rfind("click", 0) == 0) { // click<x>x<y>
+            k.click = true;
+            if (std::sscanf(name.c_str() + 5, "%dx%d", &k.x, &k.y) != 2)
+                return false;
+        } else if (!code || !x86::windowsKey(code, k.virtualKey, k.scanCode)) {
             return false;
+        }
         out.push_back(k);
     }
     return true;
@@ -358,7 +366,7 @@ int cmdHost(int argc, char **argv) {
     std::vector<KeyPress> presses;
     if (!parseKeys(keysArg, presses)) {
         std::fprintf(stderr, "-keys: \"<seconds>:<key>,...\", a key being a letter, a digit, esc, enter, space, "
-                             "tab, up, down, left or right\n");
+                             "tab, up, down, left, right, or click<x>x<y> for the mouse's left button\n");
         return 2;
     }
     // Stopped after `seconds` of this machine's time; the keys pressed at
@@ -368,10 +376,18 @@ int cmdHost(int argc, char **argv) {
         const double now = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
         for (KeyPress &k : presses) {
             if (!k.down && now >= k.at) {
-                process.key(k.virtualKey, k.scanCode, true);
+                if (k.click) {
+                    process.mouseMoveTo(k.x, k.y);
+                    process.mouseButton(0, true);
+                } else {
+                    process.key(k.virtualKey, k.scanCode, true);
+                }
                 k.down = true;
             } else if (k.down && !k.up && now >= k.at + 0.1) {
-                process.key(k.virtualKey, k.scanCode, false);
+                if (k.click)
+                    process.mouseButton(0, false);
+                else
+                    process.key(k.virtualKey, k.scanCode, false);
                 k.up = true;
             }
         }

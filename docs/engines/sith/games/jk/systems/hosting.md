@@ -11,8 +11,8 @@ the retail `JK.EXE` run as it shipped in Reluva's x86 emulator
 needs that the emulator hasn't. It gets through its start-up, reading its
 archives, strings, fonts and the menus' pictures, lists Direct3D's
 devices, sets the display mode, shows the opening's title and crawl,
-which it draws itself, and with a few keys pressed reaches its main
-menu.
+which it draws itself, and with keys pressed and clicks reaches its
+menus and plays its first level, drawn by its own software renderer.
 
 ## How it works
 
@@ -88,6 +88,15 @@ it uses are DirectX 5's, by the identifiers in its data:
     install's pictures and fonts, with no Direct3D; while they're up the
     main loop waits for messages (`GetMessageA`) rather than polling, and
     typing goes through `WM_CHAR`.
+13. The menus answer the mouse: *Single Player*, then *New Game*, plays
+    the first cut scene from CD 1 through `SMACKW32.DLL`, silent without
+    a sound card, and Esc skips it.
+14. The first level loads and plays, drawn by the program's own 8-bit
+    software renderer into DirectDraw surfaces, with the HUD; Esc brings
+    up its in-game menu (*Objectives*, *Map*, *Jedi Powers*, *Return To
+    Game*, *Restart*, *Load*, *Save*, *Setup*, *Abort*). No Direct3D
+    device is made: software is the default, and Direct3D only draws when
+    it's chosen in *Setup*. With no sound card, it's silent.
 
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were
@@ -107,10 +116,13 @@ what it opened, wrote to the registry, printed for a debugger or showed
 in a message box, and where it stopped (registers, and the return
 addresses on the stack). `-png` saves the last frame, `-calls` lists every stand-in called
 and the last 40 in order, `-keys "<seconds>:<key>,..."` presses keys at
-those moments (letters, digits, `esc`, `enter`, `space`, `tab` and the
-arrows), and `-peek <address>` prints a word of the program's memory at
+those moments (letters, digits, `esc`, `enter`, `space`, `tab`, the
+arrows, and `click<x>x<y>` for the mouse's left button on the screen),
+and `-peek <address>` prints a word of the program's memory at
 the end. `-keys "8:esc,11:k,11.4:y,11.8:l,12.2:e,13:enter"` goes
-through the crawl and the first player's name to the main menu. It offers the display modes of 8-bit colour
+through the crawl and the first player's name to the main menu;
+`,16:click318x188,19:click294x108,25:esc` after it starts a new game
+and skips its cut scene, into the first level. It offers the display modes of 8-bit colour
 too, which the menus need. `reluva-tool sith disasm <JK.EXE> <address>`
 shows the program's instructions from an address.
 
@@ -125,10 +137,11 @@ imports show:
 
 | Need | What | How much |
 |---|---|---|
-| Direct3D 1 and 2 | `IDirect3D` and `IDirect3D2` (their device lists are there), their devices with execute buffers (`IDirect3DExecuteBuffer`, which version 1 draws with), viewports, materials and textures 1 and 2, on the emulator's Direct3D 7 rasterizer | The most; new shared code, for any DirectX 5 game |
+| The game in Reluva | The engine hosting `JK.EXE` in its window: frames shown, the keyboard and mouse passed on, saves in the install's writable copy | Engine code, on the shared stand-ins |
 | DirectSound | Buffers and 3D buffers on Reluva's mixer | New shared code |
 | Windows | About 60 calls the emulator lacks: GDI's palettes and DIB sections, dialogs, `GetMessageA`, `CompareString`, WINMM's timer events for Smacker | Small each, in the shared stand-ins |
 | CD audio | MCI's `cdaudio` device, playing the CDs' music tracks, which copies of their files don't hold | To decide: from a CD image's tracks, or none |
+| Direct3D 1 and 2 | Only for the *Setup* choice of hardware drawing: `IDirect3D` and `IDirect3D2` (their device lists are there), their devices with execute buffers, viewports, materials and textures 1 and 2, on the emulator's Direct3D 7 rasterizer | New shared code, for any DirectX 5 game; not needed to play |
 | DirectPlay 3 | Multiplayer sessions, on Reluva's network code; for now the class with no connections ([dplay.md](../../../../../common/x86/dplay.md)) | Later |
 
 ## Sources and checks
@@ -145,4 +158,4 @@ imports show:
 - Whether `JK.EXE` draws through Direct3D 1's execute buffers or
   Direct3D 2's `DrawPrimitive` (it has both devices' identifiers), and
   what its own software renderer needs of DirectDraw.
-- What it does once it has its devices: the menus, a level.
+- What it does with Direct3D, when *Setup* chooses it.

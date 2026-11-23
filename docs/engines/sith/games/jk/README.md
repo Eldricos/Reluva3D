@@ -56,9 +56,10 @@ installer and the readme.
 - **The game:** the retail `JK.EXE` runs in Reluva's x86 emulator through
   its start-up, reading its archives and the menus' pictures, listing
   Direct3D's devices and setting its display mode, plays the opening's
-  title and crawl, and with keys pressed reaches its main menu
-  ([systems/hosting.md](systems/hosting.md)); `reluva-tool sith host`
-  runs it, without a window yet.
+  title and crawl, and with keys pressed and clicks goes through its
+  menus and the first cut scene into the first level, drawn by its own
+  software renderer ([systems/hosting.md](systems/hosting.md));
+  `reluva-tool sith host` runs it, without a window or sound yet.
 - **Not yet:** the scripts, and the game played. Plans, phases and decisions:
   [PLAN.md](PLAN.md).
 
