@@ -100,7 +100,11 @@ runs one and prints the trace and its variables. `reluva-tool tpw
 rse-check` runs every script for a simulated minute with guests: all
 288 run it without stopping (182 still running, 106 waiting), the
 game-files test checks it (`tpw.gamedata.scripts`). The viewer's
-Scripts page runs one with R, its variables and trace shown. The unit
+Scripts page runs one with R, its variables and trace shown; the
+Models page runs a model by its script with R, posed by the animation
+the script last started (`WAITANIM`, `TRIGANIM`, `TRIGWAITANIM`,
+`LOOPANIM`; `FLUSHANIM` stops it, `WAIT4ANIM` waits for what is left
+of it). The unit
 tests (`tpw.unit.script`) run scripts built in the test.
 
 ## Sources and checks

@@ -11,6 +11,7 @@
 #include "engines/tpw/formats/bf4.h"
 #include "engines/tpw/formats/md2.h"
 #include "engines/tpw/ui/model_view.h"
+#include "engines/tpw/ui/ride_run.h"
 #include "engines/tpw/ui/world_view.h"
 #include "engines/tpw/formats/sam.h"
 #include "engines/tpw/formats/rse.h"
@@ -269,6 +270,7 @@ private:
  *   A/D: turn   W/S: tilt   Z/X: nearer, further   T: textures on or off
  *   H: the height map's samples (.hmp) over it, or not
  *   N: play its next animation, then none
+ *   R: run it by its script (its .RSE beside it), with guests coming, or stop
  */
 class ModelPage : public Page {
 public:
@@ -289,9 +291,12 @@ private:
     soft3d::Rasterizer _rasterizer;
     ModelView _view;
     uint64_t _lastTick = 0;
+    std::unique_ptr<RideRun> _ride; // while its script runs it
+    std::string _rideError;
 
 public:
     bool tick(uint64_t nowMs) override;
+    void deactivate() override { _ride.reset(); }
 };
 
 /**

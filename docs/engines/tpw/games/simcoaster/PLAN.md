@@ -62,8 +62,8 @@ format or system worked out.
    ([rse.md](formats/rse.md)); run on a script machine against a
    stand-in for the park, every script for a minute
    ([scripts.md](systems/scripts.md)), waiting as long as their
-   animations take; rides seen running in the viewer, their scripts
-   playing their animations, next.
+   animations take; and a ride run by its script in the viewer, its
+   model playing the animations the script plays (the Models page, R).
 8. **The front end:** the start-up screens (`Data/Init/`), the main menu,
    options, saving and loading, from `ui.wad` and recordings.
 9. **The park running:** building, paths, guests, staff, money, research,

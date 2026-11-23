@@ -17,7 +17,12 @@ namespace {
 // and the one it lets off (docs/engines/tpw/games/simcoaster/formats/rse.md#behaviour).
 constexpr size_t kLetMeOn = 0;
 constexpr size_t kLetMeOff = 1;
+constexpr uint16_t kFlushAnim = 15;
 constexpr uint16_t kTrigAnim = 16;
+constexpr uint16_t kWaitAnim = 17;
+constexpr uint16_t kLoopAnim = 18;
+constexpr uint16_t kTrigWaitAnim = 19;
+constexpr uint16_t kWait4Anim = 46;
 constexpr uint16_t kTour = 53;
 constexpr uint16_t kBump = 54;
 constexpr uint16_t kLimbo = 58;
@@ -59,7 +64,13 @@ void SimulatedHost::readAnimationLengths(const std::string &script) {
         if (_files.read(stem + suffix + ".MD2", data) || animation.parse(data))
             continue;
         _animationMs[number] = uint32_t(float(animation.frames()) * 1000 / Animation::kFramesPerSecond);
+        _animationFiles[number] = stem + suffix + ".MD2";
     }
+}
+
+std::string SimulatedHost::animationFile(int number) const {
+    const auto found = _animationFiles.find(number);
+    return found == _animationFiles.end() ? std::string() : found->second;
 }
 
 int SimulatedHost::random(int below) {
@@ -92,6 +103,29 @@ HostResult SimulatedHost::perform(ScriptMachine &machine, const Script::Instruct
     }
     if (waitsForAnimation(instruction.opcode))
         r.waitMs = animationMs;
+    // What the ride's own script plays on its model (its children play
+    // sounds); WAIT4ANIM waits for what is left of it.
+    if (!machine.parent()) {
+        switch (instruction.opcode) {
+        case kTrigAnim:
+        case kWaitAnim:
+        case kLoopAnim:
+        case kTrigWaitAnim:
+            if (!values.empty())
+                _playing = {values[0], _now, animationMs, instruction.opcode == kLoopAnim};
+            break;
+        case kFlushAnim:
+            _playing = {};
+            break;
+        case kWait4Anim:
+            r.waitMs = _playing.number >= 0 && !_playing.loop && _now - _playing.startMs < _playing.lengthMs
+                           ? _playing.lengthMs - (_now - _playing.startMs)
+                           : 0;
+            break;
+        default:
+            break;
+        }
+    }
     const auto &ops = instruction.operands;
     auto setResult = [&](size_t operand, int v) {
         if (operand < ops.size() && ops[operand].kind == Script::OperandKind::kVariable)

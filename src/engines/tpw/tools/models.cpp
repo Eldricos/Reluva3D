@@ -12,6 +12,7 @@
 #include "engines/tpw/formats/md2.h"
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/ui/model_view.h"
+#include "engines/tpw/ui/ride_run.h"
 #include "image/image.h"
 
 #include <algorithm>
@@ -345,11 +346,11 @@ int cmdAnimCheck(int argc, char **argv) {
             ++moved;
             if (!hasModel)
                 continue;
-            if (t.target >= model.nodes().size()) {
+            if (t.target >= model.animationOrder().size()) {
                 ++outOfRange;
                 continue;
             }
-            const reluva::gfx::Mat4 &rest = model.nodes()[t.target].local;
+            const reluva::gfx::Mat4 &rest = model.nodes()[model.animationOrder()[t.target]].local;
             const reluva::gfx::Mat4 start = Animation::pose(t, 0, rest);
             float most = 0;
             for (size_t i = 0; i < 16; ++i)
@@ -364,12 +365,74 @@ int cmdAnimCheck(int argc, char **argv) {
     return failed || animations == 0 ? 1 : 0;
 }
 
+// Writes the screen out as a PNG.
+void writePng(const reluva::Surface &screen, const char *path) {
+    reluva::image::Image out;
+    out.w = screen.w;
+    out.h = screen.h;
+    out.rgba.resize(size_t(screen.w) * size_t(screen.h) * 4);
+    for (int y = 0; y < screen.h; ++y)
+        std::copy(screen.row(y), screen.row(y) + screen.w * 4, out.pixel(0, y));
+    const std::vector<uint8_t> png = reluva::image::encodePng(out);
+    std::ofstream(path, std::ios::binary).write(reinterpret_cast<const char *>(png.data()), long(png.size()));
+}
+
+// A ride run by its own script for a while, with guests coming, then
+// drawn as the viewer draws it, as a PNG: posed by the animation its
+// script plays then.
+int cmdRideShot(int argc, char **argv) {
+    if (argc < 6) {
+        std::fprintf(stderr,
+                     "usage: reluva-tool tpw ride-shot <game folder> <model> <out.png> <seconds> [yaw pitch]\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    std::vector<std::string> warnings;
+    if (reluva::Error err = reluva::tpw::mountGame(files, argv[2], warnings)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    reluva::tpw::LoadedModel loaded;
+    reluva::tpw::RideRun ride;
+    reluva::Error err = loaded.load(files, argv[3]);
+    if (!err)
+        err = ride.start(files, argv[3]);
+    if (err) {
+        std::fprintf(stderr, "%s: %s\n", argv[3], err.message.c_str());
+        return 1;
+    }
+    ride.advance(uint32_t(std::strtof(argv[5], nullptr) * 1000));
+    reluva::tpw::ModelView view;
+    if (argc > 7) {
+        view.yaw = std::strtof(argv[6], nullptr);
+        view.pitch = std::strtof(argv[7], nullptr);
+    }
+    ride.pose(loaded, view);
+    reluva::Surface screen;
+    screen.create(640, 480, reluva::PixelFormat::kRGBA32);
+    for (int y = 0; y < screen.h; ++y)
+        for (int x = 0; x < screen.w; ++x) {
+            uint8_t *p = screen.row(y) + x * 4;
+            p[0] = 44; // the viewer's background
+            p[1] = 52;
+            p[2] = 66;
+            p[3] = 255;
+        }
+    reluva::soft3d::Rasterizer rasterizer;
+    reluva::tpw::drawModel(screen, rasterizer, loaded, view);
+    writePng(screen, argv[4]);
+    std::printf("%s\n", ride.status().c_str());
+    return 0;
+}
+
 const Commands kCommands(
     "tpw",
     {
         {"md2-check", "<game folder> [model]", "read every model (.MD2), or list one's meshes", cmdMd2Check},
         {"hmp-check", "<game folder>", "read every height map (.hmp)", cmdHmpCheck},
         {"anim-check", "<game folder>", "read every model animation (.MD2) and set it against its model", cmdAnimCheck},
+        {"ride-shot", "<game folder> <model> <out.png> <seconds> [yaw pitch]",
+         "run a model's script for a while, then draw it as its script has it, to a PNG", cmdRideShot},
         {"md2-shot", "<game folder> <model> <out.png> [yaw pitch] [-heights] [-anim <file> <frame>]",
          "draw a model as the viewer does, to a PNG; with its height map's samples", cmdMd2Shot},
     });

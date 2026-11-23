@@ -65,7 +65,7 @@ last; each page has its own keys besides:
 | Fonts | Sample text in the font, then each glyph with its code | |
 | Text | A string table's strings by number, the one picked whole below | Up/Down: the string; F: in the game's font (`GAME12.bf4`) |
 | Settings | A settings file's settings, values and grids | Up/Down: scroll |
-| Models | Each model drawn in 3D with its textures, lit from above, turned about its middle (not the animations) | A/D: turn; W/S: tilt; Z/X: nearer, further; T: textures on or off; H: its height map over it; N: play its next animation |
+| Models | Each model drawn in 3D with its textures, lit from above, turned about its middle; its animations played, by hand or by its script | A/D: turn; W/S: tilt; Z/X: nearer, further; T: textures on or off; H: its height map over it; N: play its next animation; R: run it by its script |
 | Worlds | Each world's terrain in 3D: the land around the park and the park's ground, before anything is built, its placed objects as markers, under its sky | A/D: turn; W/S: tilt; Z/X: nearer, further; T: textures on or off; G: the ground on or off; O: the placed objects on or off; K: the sky on or off |
 | Scripts | Each ride and shop script as source, or run with guests coming, its variables and its calls to the game shown | Up/Down: scroll; PageUp/PageDown: a screen; R: run it |
 | Sounds | A bank's sounds, their kind and length | Up/Down, PageUp/PageDown: the sound; Space or Enter: play or stop |

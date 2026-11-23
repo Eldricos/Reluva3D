@@ -37,6 +37,17 @@ public:
      * (inferred; docs/engines/tpw/games/simcoaster/formats/md2-animation.md).
      */
     void readAnimationLengths(const std::string &script);
+    /** The file readAnimationLengths found for an animation's number, as `levels/.../waterideb.MD2`; empty for none. */
+    std::string animationFile(int number) const;
+
+    /** The animation the script last started on its model, and since when. */
+    struct Playing {
+        int number = -1;       // -1 for none, or after FLUSHANIM
+        uint32_t startMs = 0;  // on the host's clock
+        uint32_t lengthMs = 0; // as long as it takes, where known
+        bool loop = false;     // LOOPANIM's go round and round
+    };
+    const Playing &playing() const { return _playing; }
 
     /** A host reading children from `folder`, as `levels/arabian/rides/wateride`. */
     SimulatedHost(const SearchSet &files, std::string folder) : _files(files), _folder(std::move(folder)) {}
@@ -78,6 +89,8 @@ private:
     std::vector<std::pair<int, uint32_t>> _limbo;
     std::vector<std::string> _trace;
     std::map<int, uint32_t> _animationMs; // by the number scripts play them by
+    std::map<int, std::string> _animationFiles;
+    Playing _playing;
     size_t _traceLimit = 0;
 };
 

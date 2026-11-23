@@ -39,7 +39,7 @@ where the root begins.
 | 0x04 | 4 | What it has (below) |
 | 0x0C | 4 | Its length, in frames |
 | 0x10 | 4 | The high half: how many scale keys |
-| 0x14 | 2 | What it moves: a node of the model, by its place in the tree (each node before its children, children before the node's next) for whole parts; a mesh, by its number, for vertices and textures *(inferred)* |
+| 0x14 | 2 | What it moves: a node of the model, numbering its meshes first, in their order, then its other nodes in the tree's (each before its children, children before the node's next) |
 | 0x18 | 4 | Where its position track is |
 | 0x1C | 4 | Where its rotation keys are |
 | 0x20 | 4 | Where its scale keys are |
@@ -52,6 +52,14 @@ What it has, by the bits of 0x04, each over its own pointer in all
 10,075 records: 0x1 a position track; 0x8 or 0x10 rotations; 0x80 or
 0x100 scales; 0x1000 vertex tracks; 0x10000 texture tracks; 0x20000 the
 word at 0x30.
+
+How the numbers at 0x14 were found: the octopus's create animation
+moves its 1 to (0, −4.5, −0.9), the rest position of its node `octopus`,
+which is its second mesh but its third node; its 4 to `Cylinder01`'s,
+its fifth mesh; its 20 is `smoke01`, past its 7 meshes, the 14th of its
+other nodes. Numbered so, 2,073 of the 3,853 position tracks start or
+end at their node's rest position, against 855 numbering the tree's
+nodes alone; and 1,853 of the 3,273 rotation tracks, against 1,129.
 
 ### Positions
 
@@ -72,8 +80,9 @@ from it: they replace the rest pose's.
 
 20 bytes a key: its frame (2 bytes), a mark (2 bytes: 0xFFFF on the
 last), then a quaternion, x, y, z, w. Every one is of unit length. Read
-x, y, z, w, 1,129 of the 3,273 rotation tracks start at their node's
-rest rotation, against 100 read w first. They replace the rest pose's
+x, y, z, w, far more rotation tracks start at their node's rest
+rotation than read w first (1,129 against 100, counted before the
+numbering above was found). They replace the rest pose's
 rotation.
 
 ### Scales
@@ -125,7 +134,11 @@ tracks' positions, rotations and scales, and poses a node at a frame:
 Bezier or straight between position keys, the rotations' shortest turn
 between keys, the scales straight. `Model` keeps its node tree, which
 the tracks name. The viewer's Models page plays a model's animations
-(N), on and on; `reluva-tool tpw md2-shot ... -anim <file> <frame>`
+(N), on and on, or runs the model by its script (R): the script machine
+against the stand-in for the park, the model posed by whatever animation
+the script plays (`src/engines/tpw/ui/ride_run.cpp`); `reluva-tool tpw
+ride-shot <game folder> <model> <out.png> <seconds>` draws a model so
+many seconds into its script; `reluva-tool tpw md2-shot ... -anim <file> <frame>`
 draws one frame. The script machine's stand-in for the park waits for
 an animation as long as its file's frames take, where its number is
 known ([scripts.md](../systems/scripts.md)). `reluva-tool tpw
@@ -142,7 +155,8 @@ game-files test runs it (`tpw.gamedata.animations`).
 - **How it was checked:** all 1,209 read with `reluva-tool tpw
   anim-check`; animations drawn frame by frame: the research centre's
   `c` grows it from the ground and brings its lightning bolt in, the
-  octopus's swings it to its platform. The unit tests
+  octopus's raises it and its sign out of the water to where its idle
+  animation, played next by its script, takes them on without a jump. The unit tests
   (`tpw.unit.formats`) pose a track built in the test between its keys.
 
 ## Open questions
@@ -150,6 +164,7 @@ game-files test runs it (`tpw.gamedata.animations`).
 - The vertex and texture tracks, the word of flag 0x20000, and the
   easing runs.
 - 466 tracks name nodes past their model's count: perhaps they move a
-  model other than the one their name starts with.
+  model other than the one their name starts with, as the rides'
+  supplementary meshes (`SupplementalMeshes`, `wr_ring.md2`).
 - The numbers 3, 4, 6, 7 and the other endings; the frame rate.
 - The root's other words and its list.

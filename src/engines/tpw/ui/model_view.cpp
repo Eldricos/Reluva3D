@@ -175,10 +175,14 @@ std::vector<gfx::Mat4> meshTransforms(const LoadedModel &loaded, int animation, 
     for (size_t i = 0; i < nodes.size(); ++i)
         local[i] = nodes[i].local;
     if (animation >= 0 && size_t(animation) < loaded.animations.size())
-        for (const Animation::Track &t : loaded.animations[size_t(animation)].tracks())
-            if (t.target < nodes.size() &&
-                (t.curve != Animation::Curve::kNone || !t.rotations.empty() || !t.scales.empty()))
-                local[t.target] = Animation::pose(t, frame, nodes[t.target].local);
+        for (const Animation::Track &t : loaded.animations[size_t(animation)].tracks()) {
+            const auto &order = loaded.model.animationOrder();
+            if (t.target < order.size() &&
+                (t.curve != Animation::Curve::kNone || !t.rotations.empty() || !t.scales.empty())) {
+                const size_t node = order[t.target];
+                local[node] = Animation::pose(t, frame, nodes[node].local);
+            }
+        }
     // Each node comes after its parent.
     std::vector<gfx::Mat4> world(nodes.size());
     for (size_t i = 0; i < nodes.size(); ++i)

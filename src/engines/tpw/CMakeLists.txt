@@ -14,6 +14,7 @@ reluva_add_engine(tpw
         script/simulated_host.cpp
         ui/model_view.cpp
         ui/opening.cpp
+        ui/ride_run.cpp
         ui/sky.cpp
         ui/world_view.cpp
         formats/animation.cpp

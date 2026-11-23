@@ -88,6 +88,7 @@ they are: `Speech/American`, `CoasterData/American`,
 | `reluva-tool tpw md2-shot` | Draws a model as the viewer does, to a PNG; with `-heights`, its height map over it |
 | `reluva-tool tpw hmp-check` | Reads every height map |
 | `reluva-tool tpw anim-check` | Reads every model animation and sets it against its model |
+| `reluva-tool tpw ride-shot` | Runs a model by its script for a while, then draws it as the script has it |
 | `reluva-tool tpw terrain-check` | Reads every world's ground (`.lnd`), attribute map and placed objects (`scape.omp`), listing the objects |
 | `reluva-tool tpw rse-check` | Reads every ride and shop script, counting each opcode's uses |
 | `reluva-tool tpw rse-dis` | Writes a script out as source |

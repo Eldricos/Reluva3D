@@ -41,8 +41,9 @@ public:
 
     /** What moves one of the model's nodes. */
     struct Track {
-        uint32_t target = 0; // the node, in Model::nodes(); a mesh's number for vertex and texture tracks
-        uint32_t flags = 0;  // which kinds of track it has: not all worked out
+        /** What it moves: a node, by its place in Model::animationOrder() (meshes first). */
+        uint32_t target = 0;
+        uint32_t flags = 0; // which kinds of track it has: not all worked out
         uint32_t frames = 0;
         Curve curve = Curve::kNone;
         std::vector<uint32_t> positionFrames;

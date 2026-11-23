@@ -20,8 +20,9 @@ constexpr Color kLabel = {230, 230, 230};
 constexpr Color kDim = {150, 160, 175};
 constexpr Color kError = {255, 120, 110};
 constexpr int kTop = 24;
-constexpr float kTurn = 0.2f;     // radians a key
-constexpr uint64_t kFrameMs = 40; // how often a playing animation is drawn again
+constexpr float kTurn = 0.2f;        // radians a key
+constexpr uint64_t kFrameMs = 40;    // how often a playing animation is drawn again
+constexpr uint64_t kMostRunMs = 250; // the most a script runs on between two drawings
 
 } // namespace
 
@@ -43,6 +44,8 @@ std::string ModelPage::current() const {
 
 void ModelPage::selected() {
     _error.clear();
+    _ride.reset();
+    _rideError.clear();
     _view.animation = -1;
     _view.frame = 0;
     if (Error err = _loaded.load(_context.files, _names[_index]))
@@ -64,7 +67,22 @@ void ModelPage::handleKey(uint32_t key) {
         _view.distance = std::min(20.0f, _view.distance * 1.25f);
     else if (key == 't')
         _view.textured = !_view.textured;
-    else if (key == 'n') {
+    else if (key == 'r') {
+        // Run by its script, or back to playing by hand.
+        _rideError.clear();
+        _view.animation = -1;
+        _view.frame = 0;
+        _lastTick = 0;
+        if (_ride) {
+            _ride.reset();
+        } else if (_error.empty()) {
+            _ride = std::make_unique<RideRun>();
+            if (Error err = _ride->start(_context.files, _names[_index])) {
+                _rideError = err.message;
+                _ride.reset();
+            }
+        }
+    } else if (key == 'n' && !_ride) {
         // The next animation, then none again.
         _view.animation = _view.animation + 1 < int(_loaded.animations.size()) ? _view.animation + 1 : -1;
         _view.frame = 0;
@@ -76,6 +94,19 @@ void ModelPage::handleKey(uint32_t key) {
 }
 
 bool ModelPage::tick(uint64_t nowMs) {
+    if (_ride) {
+        if (_lastTick == 0)
+            _lastTick = nowMs;
+        // At most a quarter of a second at a time: a slow screen doesn't
+        // make the script race to catch up.
+        const uint64_t elapsed = std::min<uint64_t>(nowMs - _lastTick, kMostRunMs);
+        if (elapsed < kFrameMs)
+            return false;
+        _lastTick = nowMs;
+        _ride->advance(uint32_t(elapsed));
+        _ride->pose(_loaded, _view);
+        return true;
+    }
     if (_view.animation < 0)
         return false;
     if (_lastTick == 0)
@@ -104,6 +135,10 @@ void ModelPage::draw(Surface &screen) {
               kLabel);
     if (!_error.empty())
         drawLabel(screen, 4, kTop + 4, _error, kError);
+    else if (_ride)
+        drawLabel(screen, 4, kTop, _ride->status(), kLabel);
+    else if (!_rideError.empty())
+        drawLabel(screen, 4, kTop, _rideError, kError);
     else if (_view.animation >= 0)
         drawLabel(screen, 4, kTop,
                   text::format("%s, frame %.0f of %u", _loaded.animationNames[size_t(_view.animation)].c_str(),
@@ -114,7 +149,7 @@ void ModelPage::draw(Surface &screen) {
     drawLabel(screen, 4, screen.h - font::kLineHeight - 2,
               std::string("A/D turn  W/S tilt  Z/X nearer, further  T textures ") + (_view.textured ? "off" : "on") +
                   (_loaded.hasHeights ? std::string("  H heights ") + (_view.heights ? "off" : "on") : "") +
-                  (_loaded.animations.empty() ? "" : "  N animation"),
+                  (_loaded.animations.empty() ? "" : "  N animation") + (_ride ? "  R stop" : "  R run"),
               kDim);
 }
 

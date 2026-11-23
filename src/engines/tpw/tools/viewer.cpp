@@ -75,7 +75,7 @@ private:
 // Every page, a few keys on each, as reluva-viewer shows them: the next
 // picture, zoomed to its size and back; the next font; the next table, a
 // string down, in the game's font; the next settings file, scrolled; the
-// last model, turned, tilted, nearer, untextured, its first animation; the next world, turned,
+// last model, turned, tilted, nearer, untextured, its first animation, then run by its script; the next world, turned,
 // without its ground, its objects, then its sky; the next script, a line
 // and a screen down, then run; the next bank, a sound down, played (nothing heard:
 // there's no device); the movies' list; a file down. Tab round to the pictures, then Esc.
@@ -115,7 +115,7 @@ int cmdViewerRun(int argc, char **argv) {
     for (uint32_t k : {uint32_t(key::kRight), uint32_t(key::kDown), uint32_t(key::kTab)})
         press(k);
     for (uint32_t k : {uint32_t(key::kEnd), uint32_t('d'), uint32_t('w'), uint32_t('z'), uint32_t('t'), uint32_t('n'),
-                       uint32_t(key::kTab)})
+                       uint32_t('r'), uint32_t(key::kTab)})
         press(k);
     for (uint32_t k :
          {uint32_t(key::kRight), uint32_t('a'), uint32_t('g'), uint32_t('o'), uint32_t('k'), uint32_t(key::kTab)})

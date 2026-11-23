@@ -217,6 +217,37 @@ void testSimulatedHost() {
     CHECK(!host.trace().empty() && host.trace()[0].find("WAITANIM") != std::string::npos);
 }
 
+// The stand-in remembers what the script last played on its model:
+// WAITANIM's, then LOOPANIM's going round; WAIT4ANIM waits for what is
+// left of a playing one; FLUSHANIM stops it.
+void testPlaying() {
+    const Script script = build({kOp | 18, num(5), num(0),         // 0 LOOPANIM 5 0
+                                 kOp | 44, num(300),               // 3 WAIT 300
+                                 kOp | 17, num(0), num(0),         // 5 WAITANIM 0 0
+                                 kOp | 16, num(9), num(0), num(0), // 8 TRIGANIM 9 0 0
+                                 kOp | 44, num(400),               // 12 WAIT 400
+                                 kOp | 46,                         // 14 WAIT4ANIM
+                                 kOp | 15,                         // 15 FLUSHANIM
+                                 kOp | 52},                        // 16 END
+                                0);
+    SearchSet files;
+    SimulatedHost host(files, "");
+    ScriptMachine m(script, host);
+    m.tick();
+    CHECK(host.playing().number == 5 && host.playing().loop && host.playing().startMs == 0);
+    runFor(m, host, 400);
+    // WAITANIM 0 at 300 ms, a second long here.
+    CHECK(host.playing().number == 0 && !host.playing().loop && host.playing().startMs == 300);
+    runFor(m, host, 1000);
+    // TRIGANIM 9 at 1,300 ms; 400 ms later WAIT4ANIM waits for the 600 left.
+    CHECK(host.playing().number == 9 && host.playing().startMs == 1300);
+    runFor(m, host, 500);
+    CHECK(m.state() == ScriptMachine::State::kWaiting && m.wakeTime() == 2300);
+    runFor(m, host, 1000);
+    CHECK(m.state() == ScriptMachine::State::kEnded && host.playing().number == -1);
+    CHECK(host.animationFile(5).empty());
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("tpw.unit.script",
@@ -226,4 +257,5 @@ static const reluva::test::Suite kSuite("tpw.unit.script",
                                             {"calls", [](const std::filesystem::path &) { testCallsAndFailures(); }},
                                             {"host", [](const std::filesystem::path &) { testHost(); }},
                                             {"stand-in", [](const std::filesystem::path &) { testSimulatedHost(); }},
+                                            {"playing", [](const std::filesystem::path &) { testPlaying(); }},
                                         });

@@ -192,7 +192,14 @@ Error Model::parse(const std::vector<uint8_t> &data) {
         }
         return Error::success();
     };
-    return walk(walk, root, gfx::identity(), -1, 0);
+    if (Error err = walk(walk, root, gfx::identity(), -1, 0))
+        return err;
+    for (const Mesh &mesh : _meshes)
+        _animationOrder.push_back(mesh.node);
+    for (size_t i = 0; i < _nodes.size(); ++i)
+        if (_nodes[i].mesh < 0)
+            _animationOrder.push_back(i);
+    return Error::success();
 }
 
 } // namespace reluva::tpw

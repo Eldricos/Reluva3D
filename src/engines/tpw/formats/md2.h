@@ -98,6 +98,11 @@ public:
     size_t otherNodes() const { return _otherNodes; }
     /** Every node of the tree, each before its children, children before the next of their parent's. */
     const std::vector<Node> &nodes() const { return _nodes; }
+    /**
+     * The nodes as an animation numbers them: the meshes' first, in
+     * meshes()' order, then the others', in nodes()' (indices into nodes()).
+     */
+    const std::vector<size_t> &animationOrder() const { return _animationOrder; }
 
 private:
     Kind _kind = Kind::kModel;
@@ -107,6 +112,7 @@ private:
     std::vector<Texture> _textures;
     std::vector<Mesh> _meshes;
     std::vector<Node> _nodes;
+    std::vector<size_t> _animationOrder;
     size_t _otherNodes = 0;
 };
 
