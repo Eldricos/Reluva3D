@@ -933,6 +933,8 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
     const bool inView =
         ev.mouseX >= _viewX && ev.mouseY >= _viewY && ev.mouseX < _viewX + _viewW && ev.mouseY < _viewY + _viewH;
     const bool playing = _scripts.empty() && _teamShown;
+    if (!hud.used && playing && inView && ev.type == EventType::kMouseMove && !_pressed)
+        hoverAt(toMapX(ev.mouseX), toMapY(ev.mouseY));
     if (!hud.used && playing && inView && ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
         _pressed = true;
         _dragging = false;

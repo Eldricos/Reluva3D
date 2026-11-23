@@ -654,8 +654,11 @@ private:
     void removeItem(Officer &o, size_t index);
     void updateMines(float seconds);
     // The part with a model nearest (x, y), close enough to be what's
-    // clicked; -1 for none.
+    // clicked, or else a polygon with processes (x, y) is in; -1 for none.
     int partAt(float x, float y) const;
+    // The pointer over (x, y) on the map: a process there that runs on
+    // hovering is started as it comes onto its part.
+    void hoverAt(float x, float y);
     // The process of part `part` (its CProcessListAI's) the chosen officer
     // can go through with their chosen item, or with none; nullptr if none.
     const TextObject *processFor(size_t part, const Officer &o) const;
@@ -761,6 +764,7 @@ private:
     bool _zoomingOut = false;
     int _mouseX = -1;
     int _mouseY = -1;
+    int _hovered = -1; // the part the pointer's over, for processes run on hovering
     uint64_t _last = 0;
     std::vector<TeamMember> _team;
     WayPoints _wayPoints;

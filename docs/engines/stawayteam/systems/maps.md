@@ -402,7 +402,20 @@ Activity`, the officer's AIs one after another: `CGoToAI` to its
 its `Action`, most often a `CTricorderDialogAction` (89), whose line
 shows on the tricorder's panel. `CAddAIAction` gives a part an AI (59
 processes, 28 points of interest, 8 triggers), and `CRemoveAIAction`
-takes one away by its class's name. A touching trigger's `Triggered by`
+takes one away by its class's name.
+
+The 5 without a model are polygons: Mission 16's four gas clouds, each
+with a tricorder `Scan` ("Gas in Area") and a `Medical Scan` ("Dead
+Borg"), and Mission 10's `Holocontrol activate poly`, whose list is
+empty: it's the `Hot Spot` of the holo control panel's list. What's
+under the pointer is picked by the parts' shapes; one whose list names a
+`Hot Spot` is kept only with the pointer in that part's shape
+(`0x5c0396`, `0x53c620`), so the panel is used by its polygon beside
+it, as is Mission 10's last panel by its own. A process with `Execute if
+Hovering` runs with nothing clicked: as the pointer's over its part, the
+one for the chosen item, or else the one to `Use`, is started only if
+it's flagged so (`0x43cd10`, `0x43d020`); the gas clouds' scans, and
+the carpets' in them, which carry the same two, are. A touching trigger's `Triggered by`
 lists whom it answers to (`Enemy,Player` on 111 `CAnyTouchingOvalTriggerAI`;
 the stasis field's `CEveryTouchingOvalTriggerAI`).
 
@@ -892,7 +905,11 @@ process), the officer walks over, uses one up (`CUseInventoryItemAction`)
 and adds them back (`CAddToTeamAction` on `$trigger`): the same officer,
 where the part was, the part gone *(inferred: the program keeps the one
 character)*. `CPlayAnimationAction` plays its `Animation` once, then
-its `End Sequence Name`. A click in reach of a part with processes is
+its `End Sequence Name`. A polygon with processes is picked with the
+pointer in it, when there's no model in reach or the one there has none,
+and an item's range is measured to where it's pointed at; a process run
+on hovering starts once as the pointer comes onto its part *(inferred)*.
+A click in reach of a part with processes is
 on it before any other *(inferred)*. A paused actor's held still till
 unpaused. A touching
 trigger on a character goes where they go. A class check is of the
@@ -976,7 +993,7 @@ then one of its Random Songs by chance after another; without them, the
 map shown's Map Song, over and over; stopping as the maps are left
 *(inferred)*.
 
-Not there yet: the processes of the 5 polygons, the AIs'
+Not there yet: the AIs'
 other messages and tasks (CSendMessageAction's to animations; the
 particle systems' are there, [particles.md](particles.md)), walkers going round each other, the enemies' own noises,
 thrown and laid weapons, the doors opening

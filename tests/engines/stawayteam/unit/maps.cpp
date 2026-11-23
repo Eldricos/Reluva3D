@@ -1741,6 +1741,96 @@ void testProcesses() {
     CHECK(screen.cameraX() == stopped && std::abs(stopped - startX - moved - 135.0f) < 5.0f);
 }
 
+void testPolygonProcesses() {
+    // A gas cloud's polygon about (450, 300): the tricorder's scan of it runs
+    // as the pointer goes over it, the medical tricorder's once clicked. A
+    // panel at (800, 300) used only by its hot spot, a polygon to its right.
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    const auto process = [](const std::string &type, const std::string &item, bool hovering, const std::string &lamp) {
+        return "Process=CProcess\n{\nProcess Type=" + type + "\nRequired Selected Item=" + item +
+               "\nRequired Item In Inventory=!None\nExecute if Hovering=" + (hovering ? "1" : "0") +
+               "\nProcess Activity=Array\n{\nItem Count=1\nProcess Activity=CActionAI\n{\n"
+               "Action=CActivateAction\n{\nTarget Name=" +
+               lamp + "\n}\n}\n}\n}\n";
+    };
+    const auto lamp = [](const std::string &name) {
+        return "Level Part=CEntityBase\n{\nName=" + name + "\nVisible=1\nActive=0\n}\n";
+    };
+    const std::string zax =
+        "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=450.000000,300.000000\nTree List=CSortList2D\n{\n"
+        "Level Part=CRenderablePolygon\n{\nVisible=1\nActive=1\nCollideable=0\nActivity=Array\n{\nItem Count=1\n"
+        "Activity=CProcessListAI\n{\nProcess=Array\n{\nItem Count=2\n" +
+        process("Scan", "Tricorder", true, "Gas Lamp") +
+        process("Medical Scan", "Medical Tricorder", false, "Med Lamp") +
+        "}\n}\n}\nPolygon=400, 250, 500, 250, 500, 350, 400, 350, 400, 250\n}\n"
+        "Level Part=CEntityBase\n{\nName=Panel\nVisible=1\nActive=1\nActivity=Array\n{\nItem Count=1\n"
+        "Activity=CProcessListAI\n{\nHot Spot=Panel Spot\nProcess=Array\n{\nItem Count=1\n" +
+        process("Use", "!None", false, "Panel Lamp") +
+        "}\n}\n}\nModel=Props/Panel\nPosition X=800\nPosition Y=300\n}\n"
+        "Level Part=CFreeRangePoly\n{\nName=Panel Spot\nVisible=1\nActive=1\nActivity=Array\n{\nItem Count=1\n"
+        "Activity=CProcessListAI\n{\nProcess=Array\n{\nItem Count=0\n}\n}\n}\n"
+        "Polygon=840, 280, 880, 280, 880, 320, 840, 320, 840, 280\n}\n" +
+        lamp("Gas Lamp") + lamp("Med Lamp") + lamp("Panel Lamp") +
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=300\n}\n}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = bytesOf(zax);
+    data.files["Cache/Models/Props/Panel.mdl16"] = modelFile("Panel", 1, 1);
+    for (const std::string name : {"Tricorder", "Medical Tricorder"})
+        data.files["Inventory/Item Definitions/" + name + ".txt"] =
+            bytesOf("CStarTrekInventoryItemDefinition\n{\nDisplay In Inventory=1\nItem Range=450\n"
+                    "Process=CProcess\n{\nProcess Type=" +
+                    std::string(name == "Tricorder" ? "Scan" : "Medical Scan") + "\n}\n}\n");
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    ann.inventory = {{"Tricorder", -1}, {"Medical Tricorder", -1}};
+    MapScreen screen(data, rules, map, options, 0, {ann});
+    const MapScreen::Officer &a = screen.officers()[0];
+    uint64_t now = 0;
+    const auto run = [&](uint64_t until) {
+        while (now < until)
+            screen.update(now += 50);
+    };
+    const auto point = [&](float x, float y) {
+        Event mv;
+        mv.type = EventType::kMouseMove;
+        mv.mouseX = int(x - screen.mapX(0));
+        mv.mouseY = int(y - screen.mapY(0));
+        screen.handleEvent(mv, nullptr, now);
+    };
+    run(1000);
+    screen.choose(0);
+    screen.moveCamera(450.0f, 300.0f);
+    // The tricorder over the gas: scanned, no click needed; still over it,
+    // not again.
+    screen.chooseItem(0, 0);
+    point(450.0f, 300.0f);
+    CHECK(a.task == MapScreen::Officer::Task::kProcess);
+    run(now + 3000);
+    CHECK(screen.partState(3).active && a.task == MapScreen::Officer::Task::kNone);
+    point(460.0f, 310.0f);
+    CHECK(a.task == MapScreen::Officer::Task::kNone);
+    // The medical tricorder over it does nothing till it's clicked.
+    screen.chooseItem(0, 1);
+    point(360.0f, 300.0f);
+    point(450.0f, 300.0f);
+    CHECK(a.task == MapScreen::Officer::Task::kNone && !screen.partState(4).active);
+    CHECK(screen.useItem(450.0f, 300.0f));
+    run(now + 3000);
+    CHECK(screen.partState(4).active);
+    // The panel isn't where it stands, but in its hot spot.
+    CHECK(!screen.useItem(800.0f, 300.0f));
+    CHECK(screen.useItem(860.0f, 300.0f));
+    run(now + 3000);
+    CHECK(screen.partState(5).active);
+}
+
 void testKit() {
     // Ann with the cloaking band, a decoy to put down, a phaser and a
     // grenade; a guard looking her way, one in a stasis field's oval, one of
@@ -2339,39 +2429,41 @@ void testFractal() {
 } // namespace
 
 static const reluva::test::Suite
-    kSuite("stawayteam.unit.maps", {
-                                       {"read", [](const std::filesystem::path &) { testRead(); }},
-                                       {"ground", [](const std::filesystem::path &) { testGround(); }},
-                                       {"paths", [](const std::filesystem::path &) { testPaths(); }},
-                                       {"team", [](const std::filesystem::path &) { testTeam(); }},
-                                       {"scripts", [](const std::filesystem::path &) { testScripts(); }},
-                                       {"triggers", [](const std::filesystem::path &) { testTriggers(); }},
-                                       {"enemies", [](const std::filesystem::path &) { testEnemies(); }},
-                                       {"closest", [](const std::filesystem::path &) { testClosest(); }},
-                                       {"foes", [](const std::filesystem::path &) { testFoes(); }},
-                                       {"hostage", [](const std::filesystem::path &) { testHostage(); }},
-                                       {"pause when hit", [](const std::filesystem::path &) { testPauseWhenHit(); }},
-                                       {"projectiles", [](const std::filesystem::path &) { testProjectiles(); }},
-                                       {"drawing order", [](const std::filesystem::path &) { testDrawingOrder(); }},
-                                       {"choosing", [](const std::filesystem::path &) { testChoosing(); }},
-                                       {"combat", [](const std::filesystem::path &) { testCombat(); }},
-                                       {"noise", [](const std::filesystem::path &) { testNoise(); }},
-                                       {"objectives", [](const std::filesystem::path &) { testObjectives(); }},
-                                       {"enemy AI", [](const std::filesystem::path &) { testEnemyAI(); }},
-                                       {"items", [](const std::filesystem::path &) { testItems(); }},
-                                       {"overload", [](const std::filesystem::path &) { testOverload(); }},
-                                       {"throw range", [](const std::filesystem::path &) { testThrowRange(); }},
-                                       {"meld", [](const std::filesystem::path &) { testMeld(); }},
-                                       {"maps", [](const std::filesystem::path &) { testMaps(); }},
-                                       {"interface", [](const std::filesystem::path &) { testInterface(); }},
-                                       {"full inventory", [](const std::filesystem::path &) { testFullInventory(); }},
-                                       {"gadgets", [](const std::filesystem::path &) { testGadgets(); }},
-                                       {"processes", [](const std::filesystem::path &) { testProcesses(); }},
-                                       {"kit", [](const std::filesystem::path &) { testKit(); }},
-                                       {"states", [](const std::filesystem::path &) { testStates(); }},
-                                       {"doors", [](const std::filesystem::path &) { testDoors(); }},
-                                       {"company", [](const std::filesystem::path &) { testCompany(); }},
-                                       {"beams", [](const std::filesystem::path &) { testBeams(); }},
-                                       {"water", [](const std::filesystem::path &) { testWater(); }},
-                                       {"fractal", [](const std::filesystem::path &) { testFractal(); }},
-                                   });
+    kSuite("stawayteam.unit.maps",
+           {
+               {"read", [](const std::filesystem::path &) { testRead(); }},
+               {"ground", [](const std::filesystem::path &) { testGround(); }},
+               {"paths", [](const std::filesystem::path &) { testPaths(); }},
+               {"team", [](const std::filesystem::path &) { testTeam(); }},
+               {"scripts", [](const std::filesystem::path &) { testScripts(); }},
+               {"triggers", [](const std::filesystem::path &) { testTriggers(); }},
+               {"enemies", [](const std::filesystem::path &) { testEnemies(); }},
+               {"closest", [](const std::filesystem::path &) { testClosest(); }},
+               {"foes", [](const std::filesystem::path &) { testFoes(); }},
+               {"hostage", [](const std::filesystem::path &) { testHostage(); }},
+               {"pause when hit", [](const std::filesystem::path &) { testPauseWhenHit(); }},
+               {"projectiles", [](const std::filesystem::path &) { testProjectiles(); }},
+               {"drawing order", [](const std::filesystem::path &) { testDrawingOrder(); }},
+               {"choosing", [](const std::filesystem::path &) { testChoosing(); }},
+               {"combat", [](const std::filesystem::path &) { testCombat(); }},
+               {"noise", [](const std::filesystem::path &) { testNoise(); }},
+               {"objectives", [](const std::filesystem::path &) { testObjectives(); }},
+               {"enemy AI", [](const std::filesystem::path &) { testEnemyAI(); }},
+               {"items", [](const std::filesystem::path &) { testItems(); }},
+               {"overload", [](const std::filesystem::path &) { testOverload(); }},
+               {"throw range", [](const std::filesystem::path &) { testThrowRange(); }},
+               {"meld", [](const std::filesystem::path &) { testMeld(); }},
+               {"maps", [](const std::filesystem::path &) { testMaps(); }},
+               {"interface", [](const std::filesystem::path &) { testInterface(); }},
+               {"full inventory", [](const std::filesystem::path &) { testFullInventory(); }},
+               {"gadgets", [](const std::filesystem::path &) { testGadgets(); }},
+               {"processes", [](const std::filesystem::path &) { testProcesses(); }},
+               {"polygon processes", [](const std::filesystem::path &) { testPolygonProcesses(); }},
+               {"kit", [](const std::filesystem::path &) { testKit(); }},
+               {"states", [](const std::filesystem::path &) { testStates(); }},
+               {"doors", [](const std::filesystem::path &) { testDoors(); }},
+               {"company", [](const std::filesystem::path &) { testCompany(); }},
+               {"beams", [](const std::filesystem::path &) { testBeams(); }},
+               {"water", [](const std::filesystem::path &) { testWater(); }},
+               {"fractal", [](const std::filesystem::path &) { testFractal(); }},
+           });

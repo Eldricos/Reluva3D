@@ -565,6 +565,8 @@ bool MapScreen::startProcess(float x, float y) {
         return false;
     o.task = Officer::Task::kProcess;
     o.taskPart = part;
+    o.taskX = x;
+    o.taskY = y;
     o.taskProcess = process;
     o.taskStep = 0;
     o.attacking = -1;
@@ -583,9 +585,11 @@ bool MapScreen::runProcess(size_t officer, float seconds) {
     // walked to first (inferred: as the item's own scan).
     const ItemDefinition *def = itemOf(o);
     if (o.taskStep == 0 && def && def->range > 0.0f && readText(o.taskProcess, "Required Selected Item") == def->name) {
-        float x = 0.0f;
-        float y = 0.0f;
-        placeOf(size_t(o.taskPart), x, y);
+        // A polygon's is where it was pointed at, having no place of its own.
+        float x = o.taskX;
+        float y = o.taskY;
+        if (!_map.parts[size_t(o.taskPart)].model.empty())
+            placeOf(size_t(o.taskPart), x, y);
         if (!inItemRange(*def, o.x, o.y, x, y, def->range)) {
             if (o.path.empty())
                 o.path = _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{x, y}}
@@ -666,12 +670,38 @@ std::string MapScreen::describe(const std::string &script, const std::string &li
 }
 
 int MapScreen::partAt(float x, float y) const {
+    const auto processes = [](const MapPart &p) -> const TextObject * {
+        for (const TextObject *a : p.activities)
+            if (a->className == "CProcessListAI")
+                return a;
+        return nullptr;
+    };
+    // Many parts carry a CProcessListAI with no processes in it.
+    const auto hasProcesses = [&](const MapPart &p) {
+        const TextObject *list = processes(p);
+        const TextObject *items = list ? list->object("Process") : nullptr;
+        return items && !items->items().empty();
+    };
     int best = -1;
     float nearest = kPartReach;
     for (size_t i = 0; i < _map.parts.size(); ++i) {
         const MapPart &p = _map.parts[i];
         if (p.model.empty() || !shown(i))
             continue;
+        // One whose processes name a Hot Spot is under the pointer only in
+        // that part's shape, the pick dropped if it isn't (0x5c0396): Mission
+        // 10's holo control panel by its polygon; in it, it's this one
+        // (inferred: the program picks by the models' shapes, Reluva by
+        // their distance).
+        if (const TextObject *list = processes(p)) {
+            const std::string spot = readText(list, "Hot Spot");
+            const std::vector<size_t> found = spot.empty() ? std::vector<size_t>{} : partsNamed(spot);
+            if (!found.empty() && _map.parts[found.front()].polygon.size() >= 3) {
+                if (inside(_map.parts[found.front()].polygon, x, y))
+                    return int(i);
+                continue;
+            }
+        }
         float px = 0.0f;
         float py = 0.0f;
         placeOf(i, px, py);
@@ -686,7 +716,35 @@ int MapScreen::partAt(float x, float y) const {
             best = int(i);
         }
     }
+    // Else, or over a model with none, a polygon with processes it's in:
+    // Mission 16's gas, scanned by the tricorder, over its carpets
+    // (inferred: which comes first, a model or a polygon, isn't traced).
+    if (best < 0 || !hasProcesses(_map.parts[size_t(best)]))
+        for (size_t i = 0; i < _map.parts.size(); ++i) {
+            const MapPart &p = _map.parts[i];
+            if (p.model.empty() && p.polygon.size() >= 3 && hasProcesses(p) && shown(i) && inside(p.polygon, x, y))
+                return int(i);
+        }
     return best;
+}
+
+void MapScreen::hoverAt(float x, float y) {
+    // The process for their chosen item there, or the one to Use with none,
+    // with Execute if Hovering, runs with nothing clicked (0x43cd10,
+    // 0x43d020): Mission 16's gas, scanned as the tricorder's moved over
+    // it. Once as the pointer comes onto the part (inferred).
+    const int part = partAt(x, y);
+    if (part == _hovered)
+        return;
+    _hovered = part;
+    if (part < 0 || _selected < 0)
+        return;
+    const Officer &o = _officers[size_t(_selected)];
+    if (o.down() || (o.task == Officer::Task::kProcess && o.taskPart == part))
+        return;
+    const TextObject *process = processFor(size_t(part), o);
+    if (process && process->number("Execute if Hovering").value_or(0.0) != 0.0)
+        startProcess(x, y);
 }
 
 bool MapScreen::stuns(const Officer &o) const {

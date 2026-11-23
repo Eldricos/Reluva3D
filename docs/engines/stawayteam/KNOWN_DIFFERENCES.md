@@ -46,8 +46,8 @@ None yet.
   among them ([systems/particles.md](systems/particles.md)); the camera scripts don't pause the
   characters, and one taken off the team stays on its bar; walkers keep
   apart by Reluva's own rule; the transporter's pictures aren't drawn
-  as enemies beam out; the 5 polygons' processes and the Out Of
-  Range cursor aren't there
+  as enemies beam out; the Out Of Range cursor isn't there; parts are
+  picked by their distance from the pointer, not their shapes
   ([systems/maps.md](systems/maps.md#in-reluva)).
 - **Saved games** are Reluva's own, not the game's: a save keeps the
   mission as it began, and loading one starts that mission again from
