@@ -28,7 +28,31 @@ does, against its record (`data/engine-record.txt`).
 
 <!-- Once it has one: with your own copy of the game, what it runs and
 what its records hold. See docs/DEVELOPMENT.md, "Engine tests". -->
-Not yet.
+With your own copy, imported (`tests/engines/legoisland/gamedata.cmake`,
+ctest `legoisland.gamedata.<step>`, label `gamedata`): the game's folder
+from `RELUVA_LEGOISLAND`, or the launcher's entry for it.
+
+```sh
+RELUVA_LEGOISLAND=/path/to/LEGO-Island ctest --test-dir build -L gamedata
+```
+
+| Step | What it runs |
+|---|---|
+| `release` | What the game is (`detect`) |
+| `scripts` | Every SI file's header and events (`si-info`, `si-events`) |
+| `world` | `WORLD.WDB` read (`wdb-info`) |
+| `animations` | Every world's animation list, each animation found (`dta-check`) |
+| `island` | The game run on a fixed clock from a new save folder: the intro skipped, a player registered, Pepper dragged to the pizzeria, out on the island to frame 7000; its state, a frame every 1000 and its save files, as checksums (`run -fixed-clock 20000 -until 7000`) |
+
+The records, in `tests/engines/legoisland/data/gamedata/english-1.0/`,
+hold only checksums, counts and summary lines. The `island` run's clock
+follows the instructions run, and its threads take turns by them, so it
+repeats exactly on one machine (two runs: the same instructions, state,
+frames and save files); on another system, the maths library's last bit
+can make it differ with nothing broken, so keep a baseline of your own
+(`RELUVA_GAMEDATA_RECORDS`, [DEVELOPMENT.md](../../DEVELOPMENT.md)).
+If a change is meant, run again with `RELUVA_GAMEDATA_UPDATE=1` and
+review the records' diff.
 
 ### What the automated checks don't cover
 

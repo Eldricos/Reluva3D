@@ -60,4 +60,4 @@ reluva_add_gamedata_test(legoisland
     GAME legoisland
     ENV RELUVA_LEGOISLAND
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release scripts world animations)
+    STEPS release scripts world animations island)

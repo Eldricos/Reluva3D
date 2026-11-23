@@ -297,7 +297,9 @@ what an engine does is caught, even where no unit test looks. Elite Force
 [its TESTING.md](engines/stharbinger/TESTING.md)), Murder on the Orient
 Express (`awe`, `RELUVA_MOTOE`, see [its TESTING.md](engines/awe/games/motoe/TESTING.md)),
 LEGO Alpha Team (`netimmerse`, `RELUVA_ALPHATEAM`, see
-[its TESTING.md](engines/netimmerse/games/legoalphateam/TESTING.md)), and
+[its TESTING.md](engines/netimmerse/games/legoalphateam/TESTING.md)),
+LEGO Island (`legoisland`, `RELUVA_LEGOISLAND`, see
+[its TESTING.md](engines/legoisland/TESTING.md)), and
 Need for Speed III (`nfs`, `RELUVA_NFS3`, see
 [its TESTING.md](engines/nfs/games/nfs3/TESTING.md)).
 
