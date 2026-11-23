@@ -188,11 +188,50 @@ players then. A search
 asks the server for the list too; a session found only there is
 introduced (`MeetingSocket::connect`) when it's joined.
 
+### DirectPlay 4's own protocol: finding the original's games
+
+With the system's TCP given (`Transport::tcp`), an endpoint also speaks
+the part of DirectPlay 4's own protocol that finds games, as Microsoft
+publishes it ([MC-DPL4CS]; `src/emulation/x86/dplay4_wire.cpp`), so it
+and the original program on Windows can see each other's games. Only
+that: neither can join the other's yet. The original's sessions also
+use DirectPlay 4's reliable layer ([MC-DPL4R]), which isn't done.
+
+- **A search** also sends `DPSP_MSG_ENUMSESSIONS` (command 2, asking
+  for sessions with room) by UDP to port 47624 at each broadcast
+  address, or the address given. Its header gives a TCP port of ours in
+  the range 2300 to 2400, where it listens; each
+  `DPSP_MSG_ENUMSESSIONSREPLY` (command 1) that comes there is a session
+  found, marked the original's. Joining one is refused
+  (`Status::kOriginal`, and DirectPlay says so). A Reluva host answers
+  both ways, and its own answer is the one kept.
+- **A host** listens on UDP 47624 too, if that isn't its own port
+  already, and answers a `DPSP_MSG_ENUMSESSIONS` of its application (or
+  of any) with its session, by TCP to the port in the search's header at
+  the address it came from: not when it's full and only sessions with
+  room are asked for, nor when it has a password the search hasn't, but
+  for searches that want those too.
+- **The messages:** a header of the size (20 bits) and token (`0xFAB`,
+  12 bits), the sender's `SOCKADDR_IN` (its port and address in network
+  order, the address 0 for the one the message came from), `play`, the
+  dialect (14, DirectX 9's) and the command; then the command's fields,
+  little-endian, GUIDs as Windows lays them out, text as UTF-16 with its
+  terminator, offsets counted from the `play` signature. An answer holds
+  a `DPSESSIONDESC2` (80 bytes; `Reserved1`, from which the host makes
+  ids, a random number of the host's) and the session's name. On TCP a
+  message's length is its header's size.
+
 ## Sources and checks
 
 - **Where the facts come from:** the DirectX 6 SDK's documentation of
   DirectPlay, the lobby and DirectPlay addresses; `MAKE_DPHRESULT`'s
-  codes. The interfaces' IIDs, the classes' and the address types' are
+  codes. DirectPlay 4's own messages from Microsoft's published
+  specification [MC-DPL4CS] (v20240423): their layouts (2.2), how a
+  search is sent and answered (3.1.4.1, 3.2.5.3) and its two examples
+  (4.1, 4.2), which settled that offsets count from the signature. Where
+  a player message's header ends, and that the `SOCKADDR_IN`'s port and
+  address are in network order, from Wireshark's DirectPlay dissector,
+  read for those facts only. The interfaces' IIDs, the classes' and the address types' are
   those in LEGO Loco's `loco.exe`, which holds them; `IDirectPlay4`'s is
   its ANSI twin's less one *(inferred)*, as such pairs are numbered.
 - **How it was checked:** `tests/common/dplay.cpp`
@@ -216,12 +255,19 @@ introduced (`MeetingSocket::connect`) when it's joined.
   passing, a newcomer finding it at the old host's port and joining,
   then that new host going silent and the next taking over; and the
   same through a meeting server, the new host found by its listing.
+  Its `original-messages` case builds the specification's two examples
+  and checks their sizes, fields and offsets byte by byte, and reads
+  them back; `original-on-tcp`, over the machine's own TCP, has the test
+  stand in for the original with the same messages: a search answered
+  and the game found (and not joined), and a host answering a search.
   `reluva-tool legoloco pair` runs two copies of LEGO Loco on one network
   in memory or over the system's UDP, and `run -udp` one each in two
   processes, one hosting and one joining
   ([running.md](../../engines/legoloco/systems/running.md#network-play)).
-- **Confidence:** published unless marked. How the sessions travel
-  between computers is Reluva's own, as is what DirectPlay leaves to its
+- **Confidence:** published unless marked. DirectPlay 4's own messages
+  haven't been tried against the original on Windows: only against the
+  specification's examples, and Reluva against itself. How the sessions
+  travel between computers is otherwise Reluva's own, as is what DirectPlay leaves to its
   service provider: how long a search waits, which endpoint takes over
   as host, ids and instance GUIDs numbered as it likes.
 

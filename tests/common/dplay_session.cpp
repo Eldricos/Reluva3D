@@ -6,12 +6,15 @@
 // that loses datagrams, on a clock the test moves. Sessions found by
 // broadcast, at an address and through a meeting server, joining
 // refused, players and groups kept in step, messages long and short
-// arriving whole and in order, endpoints going quietly or not, and
-// another taking over when the host goes.
+// arriving whole and in order, endpoints going quietly or not, another
+// taking over when the host goes; and DirectPlay 4's own messages, to find
+// the original program's games and answer its searches.
 //
 //   reluva-tests common.unit.dplay_session
 
+#include "backends/networking/sockets/socket_net.h"
 #include "common/meeting.h"
+#include "emulation/x86/dplay4_wire.h"
 #include "emulation/x86/dplay_session.h"
 #include "tests/support/test.h"
 
@@ -24,6 +27,7 @@
 
 using namespace reluva;
 using namespace reluva::x86::dplay;
+namespace dp4 = reluva::x86::dp4;
 
 namespace {
 
@@ -479,6 +483,139 @@ void testNewHostMeeting() {
     CHECK(server.sessions().size() == 1);
 }
 
+// DirectPlay 4's own messages, against the examples [MC-DPL4CS] gives
+// (section 4): a search with a password, and a session's answer.
+void testOriginalMessages() {
+    dp4::EnumRequest request;
+    request.application = "{a052a50b-ffe0-cf11-9c4e-00a0c905425e}";
+    request.flags = 2;
+    request.password = "Password";
+    request.replyPort = 2300;
+    const std::vector<uint8_t> m = dp4::enumSessions(request);
+    CHECK(m.size() == 70 && (m[0] | m[1] << 8 | m[2] << 16 | uint32_t(m[3]) << 24) == (0xfabu << 20 | 70));
+    CHECK(m[4] == 2 && m[5] == 0 && m[6] == 0x08 && m[7] == 0xfc); // AF_INET, port 2300 in network order
+    CHECK(std::string(m.begin() + 20, m.begin() + 24) == "play" && m[24] == 14 && m[26] == 2);
+    CHECK(m[28] == 0x0b && m[29] == 0xa5 && m[30] == 0x52 && m[31] == 0xa0); // the GUID's first field, little-endian
+    CHECK(m[44] == 32); // the password's offset, from the signature
+    dp4::EnumRequest back;
+    CHECK(dp4::readEnumSessions(m, back) && back.application == request.application && back.flags == 2 &&
+          back.password == "Password" && back.replyPort == 2300 && back.replyIp == 0);
+
+    SessionInfo session;
+    session.guid = "{21faa08e-42fc-b546-afd3-5e1584fbbb60}";
+    session.application = request.application;
+    session.flags = 0x404;
+    session.maxPlayers = 1000;
+    session.players = 1;
+    session.name = "LOTHAIR";
+    session.user = {0, 2, 3, 4};
+    const std::vector<uint8_t> reply = dp4::enumSessionsReply(session, 2300, 0x1e52a0a1);
+    CHECK(reply.size() == 128 && reply[28] == 80 && reply[108] == 92); // DPSESSIONDESC2's size; the name's offset
+    CHECK((reply[84] | reply[85] << 8 | reply[86] << 16 | uint32_t(reply[87]) << 24) == 0x1e52a0a1); // Reserved1
+    SessionInfo found;
+    CHECK(dp4::readEnumSessionsReply(reply, found) && found.guid == session.guid && found.name == "LOTHAIR" &&
+          found.maxPlayers == 1000 && found.players == 1 && found.user == session.user && found.flags == 0x404 &&
+          found.password == "?"); // DPSESSION_PASSWORDREQUIRED
+    // A stream of two: one whole, then the next cut short.
+    std::vector<uint8_t> stream = reply;
+    stream.insert(stream.end(), m.begin(), m.begin() + 30);
+    CHECK(dp4::messageLength(stream) == 128);
+    stream.erase(stream.begin(), stream.begin() + 128);
+    CHECK(dp4::messageLength(stream) == 0 && dp4::messageLength({1, 2, 3, 4}) == -1);
+    // Ours aren't taken for the original's.
+    CHECK(!dp4::command({'R', 'L', 'D', 'P', 2, 1}));
+}
+
+// Both ways over the machine's own TCP, the original stood in for by
+// the test with the same messages: a searcher finds its game (which
+// can't be joined), and a host answers its search.
+void testOriginalOnTcp() {
+    std::shared_ptr<net::Sockets> tcp = net::systemSockets();
+    World w;
+    w.transport.tcp = tcp;
+    w.transport.broadcast = {0x7f000001u};
+    Endpoint &searcher = w.add();
+    // The original's host: its search port on the loopback network.
+    std::unique_ptr<net::UdpSocket> original = w.network->open(dp4::kEnumPort);
+    CHECK(original != nullptr);
+    searcher.search(kAnyApplication, {});
+    net::Address from;
+    std::vector<uint8_t> data;
+    dp4::EnumRequest asked;
+    // Ours goes to the same port first; the original's search follows.
+    bool searched = false;
+    while (!searched && original->receive(from, data))
+        searched = dp4::readEnumSessions(data, asked);
+    CHECK(searched && asked.replyPort >= dp4::kFirstPort && asked.replyPort <= dp4::kLastPort);
+    SessionInfo theirs;
+    theirs.guid = "{11111111-2222-3333-4444-555555555555}";
+    theirs.application = kApplication;
+    theirs.name = "On Windows";
+    theirs.maxPlayers = 8;
+    theirs.players = 1;
+    auto sendOver = [&](uint16_t port, const std::vector<uint8_t> &message) {
+        const int s = tcp->open(net::Sockets::kStream);
+        CHECK(s >= 0);
+        tcp->connect(s, {0x7f000001u, port});
+        for (int i = 0; i < 200 && !tcp->ready(s, 10).write; ++i) {}
+        size_t sent = 0;
+        CHECK(tcp->send(s, message.data(), message.size(), sent) == net::Sockets::kOk && sent == message.size());
+        return s;
+    };
+    const int answer = sendOver(asked.replyPort, dp4::enumSessionsReply(theirs, 2300, 7));
+    std::vector<SessionInfo> found;
+    for (int i = 0; i < 100 && found.empty(); ++i) {
+        w.run(10);
+        found = searcher.found();
+    }
+    tcp->close(answer);
+    CHECK(found.size() == 1 && found[0].name == "On Windows" && found[0].application == kApplication);
+    CHECK(searcher.join(theirs.guid, "") == Endpoint::Status::kOriginal);
+
+    // Ours, hosted (on the search port, freed): the original's search
+    // answered at the TCP port it gives.
+    original.reset();
+    Endpoint &host = w.add();
+    SessionInfo ours;
+    ours.application = kApplication;
+    ours.name = "In Reluva";
+    CHECK(host.host(ours, 0) == Endpoint::Status::kOk);
+    const int listen = tcp->open(net::Sockets::kStream);
+    uint16_t port = 0;
+    for (uint16_t p = dp4::kFirstPort + 50; p <= dp4::kLastPort && !port; ++p)
+        if (tcp->bind(listen, {0, p}) == net::Sockets::kOk)
+            port = p;
+    CHECK(port && tcp->listen(listen, 2) == net::Sockets::kOk);
+    dp4::EnumRequest search;
+    search.application = kApplication;
+    search.flags = 1;
+    search.replyPort = port;
+    search.replyIp = 0x7f000001u;
+    std::unique_ptr<net::UdpSocket> asker = w.network->open(0);
+    asker->send({0x7f000001u, kPort}, dp4::enumSessions(search));
+    int accepted = -1;
+    net::Address peer;
+    for (int i = 0; i < 200 && accepted < 0; ++i) {
+        w.run(10);
+        if (tcp->accept(listen, accepted, peer) != net::Sockets::kOk)
+            accepted = -1;
+    }
+    CHECK(accepted >= 0);
+    std::vector<uint8_t> received;
+    for (int i = 0; i < 200 && accepted >= 0 && dp4::messageLength(received) <= 0; ++i) {
+        uint8_t buffer[512];
+        size_t got = 0;
+        if (tcp->receive(accepted, buffer, sizeof buffer, got, false) == net::Sockets::kOk)
+            received.insert(received.end(), buffer, buffer + got);
+        w.run(10);
+    }
+    SessionInfo answered;
+    CHECK(dp4::readEnumSessionsReply(received, answered) && answered.name == "In Reluva" && answered.guid == ours.guid);
+    if (accepted >= 0)
+        tcp->close(accepted);
+    tcp->close(listen);
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -491,4 +628,6 @@ static const reluva::test::Suite
                {"meeting-server", [](const std::filesystem::path &) { testMeetingServer(); }},
                {"new-host", [](const std::filesystem::path &) { testNewHost(); }},
                {"new-host-meeting", [](const std::filesystem::path &) { testNewHostMeeting(); }},
+               {"original-messages", [](const std::filesystem::path &) { testOriginalMessages(); }},
+               {"original-on-tcp", [](const std::filesystem::path &) { testOriginalOnTcp(); }},
            });

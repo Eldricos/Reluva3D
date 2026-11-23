@@ -3,7 +3,10 @@
 
 #include "emulation/x86/dplay_session.h"
 
+#include "emulation/x86/dplay4_wire.h"
+
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstdio>
 #include <random>
@@ -218,6 +221,10 @@ Endpoint::~Endpoint() {
     leave();
     {
         std::lock_guard<std::mutex> lock(_mutex);
+        closeOriginal();
+    }
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
         _stopping = true;
     }
     if (_thread.joinable())
@@ -277,6 +284,8 @@ void Endpoint::search(const std::string &application, const net::Address &where)
             for (uint32_t ip : _transport.broadcast)
                 sendDatagram({ip, port}, w.b);
     }
+    if (_transport.tcp)
+        searchOriginal(application, where);
 }
 
 std::vector<SessionInfo> Endpoint::found() {
@@ -310,6 +319,10 @@ Endpoint::Status Endpoint::host(SessionInfo &info, uint16_t port) {
         return Status::kNoSocket;
     if (_transport.mapPort)
         _mapping = _transport.mapPort(_socket->port());
+    // The original's searches come to its own port.
+    _idSeed = randomNumber();
+    if (_transport.tcp && _socket->port() != dp4::kEnumPort && _transport.open)
+        _originalEnum = _transport.open(dp4::kEnumPort);
     _publishedMs = 0;
     char guid[48];
     std::snprintf(guid, sizeof guid, "{%08x-5245-4c55-%04x-%04x%08x}", randomNumber(), randomNumber() & 0xffff,
@@ -345,6 +358,8 @@ Endpoint::Status Endpoint::join(const std::string &guid, const std::string &pass
     auto it = _found.find(guid);
     if (it == _found.end() || !_socket)
         return Status::kNoSession;
+    if (it->second.original)
+        return Status::kOriginal;
     if (!it->second.address.ip && it->second.listed && _meeting)
         it->second.address = _meeting->connect(it->second.listed);
     closeLinks();
@@ -396,6 +411,7 @@ void Endpoint::leave() {
     }
     closeLinks();
     _listen.reset();
+    _originalEnum.reset();
     _role = Role::kNone;
     _session = {};
     _members.clear();
@@ -944,6 +960,8 @@ void Endpoint::message(Link &link, const std::vector<uint8_t> &data) {
 }
 
 void Endpoint::datagram(const net::Address &from, const std::vector<uint8_t> &data, bool listener) {
+    if (originalDatagram(from, data))
+        return;
     if (data.size() < 6 || data[0] != 'R' || data[1] != 'L' || data[2] != 'D' || data[3] != 'P' || data[4] != kVersion)
         return;
     Reader r(data, 6);
@@ -1071,6 +1089,7 @@ void Endpoint::meetingWork() {
             continue;
         }
         Found &f = _found[s.guid];
+        f.original = false;
         // One that answered on the local network keeps that address.
         if (!f.address.ip || f.listed) {
             f.info = s;
@@ -1091,6 +1110,10 @@ void Endpoint::update() {
         datagram(from, data, false);
     for (int i = 0; _listen && i < 1000 && _listen->receive(from, data); ++i)
         datagram(from, data, true);
+    for (int i = 0; _originalEnum && i < 1000 && _originalEnum->receive(from, data); ++i)
+        originalDatagram(from, data);
+    if (_transport.tcp)
+        originalWork();
     if (_meeting)
         meetingWork();
     const uint64_t t = now();
@@ -1143,6 +1166,162 @@ void Endpoint::update() {
             hostGone();
         }
     }
+}
+
+// DirectPlay 4's own search, beside ours: to its hosts' port, by UDP,
+// the answers to come to a TCP port of ours in its players' range.
+void Endpoint::searchOriginal(const std::string &application, const net::Address &where) {
+    net::Sockets &tcp = *_transport.tcp;
+    if (_originalListen < 0) {
+        _originalListen = tcp.open(net::Sockets::kStream);
+        for (uint16_t port = dp4::kFirstPort; _originalListen >= 0 && port <= dp4::kLastPort; ++port)
+            if (tcp.bind(_originalListen, {0, port}) == net::Sockets::kOk) {
+                _originalPort = port;
+                break;
+            }
+        if (!_originalPort || tcp.listen(_originalListen, 8) != net::Sockets::kOk) {
+            if (_originalListen >= 0)
+                tcp.close(_originalListen);
+            _originalListen = -1;
+            _originalPort = 0;
+            return;
+        }
+    }
+    dp4::EnumRequest request;
+    request.application = application;
+    request.flags = 1; // DPENUMSESSIONS_AVAILABLE
+    request.replyPort = _originalPort;
+    const std::vector<uint8_t> message = dp4::enumSessions(request);
+    if (where.ip)
+        sendDatagram({where.ip, dp4::kEnumPort}, message);
+    else
+        for (uint32_t ip : _transport.broadcast)
+            sendDatagram({ip, dp4::kEnumPort}, message);
+}
+
+// A search of the original's, answered by a host: its session if it's of
+// that application, not full when only those with room are wanted, and
+// its password given, unless those needing one are wanted too.
+bool Endpoint::originalDatagram(const net::Address &from, const std::vector<uint8_t> &data) {
+    if (!_transport.tcp || !dp4::command(data))
+        return false;
+    dp4::EnumRequest request;
+    if (_role != Role::kHost || !dp4::readEnumSessions(data, request))
+        return true;
+    auto lower = [](std::string text) {
+        for (char &c : text)
+            c = char(std::tolower(static_cast<unsigned char>(c)));
+        return text;
+    };
+    const SessionInfo s = current();
+    const bool full = s.maxPlayers && s.players >= s.maxPlayers;
+    const bool application = request.application == kNullGuid || lower(request.application) == lower(s.application);
+    const bool password = s.password.empty() || (request.flags & 0x40) || request.password == s.password;
+    if (!application || !password || ((request.flags & 1) && !(request.flags & 2) && full))
+        return true;
+    Stream answer;
+    answer.socket = _transport.tcp->open(net::Sockets::kStream);
+    if (answer.socket < 0)
+        return true;
+    answer.peer = {request.replyIp ? request.replyIp : from.ip, request.replyPort};
+    answer.pending = dp4::enumSessionsReply(s, dp4::kEnumPort, _idSeed);
+    answer.connecting = true;
+    answer.sinceMs = now();
+    const net::Sockets::Result r = _transport.tcp->connect(answer.socket, answer.peer);
+    if (r != net::Sockets::kOk && r != net::Sockets::kInProgress && r != net::Sockets::kWouldBlock) {
+        _transport.tcp->close(answer.socket);
+        return true;
+    }
+    _streams.push_back(std::move(answer));
+    return true;
+}
+
+// The connections of DirectPlay 4's: answers sent once connected, then
+// closed; the original's answers to our searches read, a session found
+// for each. One gone quiet a while is let go.
+void Endpoint::originalWork() {
+    constexpr uint64_t kStreamMs = 10000;
+    net::Sockets &tcp = *_transport.tcp;
+    if (_originalListen >= 0) {
+        int accepted = -1;
+        net::Address peer;
+        while (tcp.accept(_originalListen, accepted, peer) == net::Sockets::kOk && accepted >= 0) {
+            Stream in;
+            in.socket = accepted;
+            in.peer = peer;
+            in.sinceMs = now();
+            _streams.push_back(std::move(in));
+        }
+    }
+    const uint64_t t = now();
+    for (auto it = _streams.begin(); it != _streams.end();) {
+        Stream &st = *it;
+        bool done = t - st.sinceMs > kStreamMs;
+        const net::Sockets::Ready ready = tcp.ready(st.socket);
+        if (ready.failed)
+            done = true;
+        if (!done && st.connecting && ready.write)
+            st.connecting = false;
+        if (!done && !st.connecting && !st.pending.empty()) {
+            size_t sent = 0;
+            const net::Sockets::Result r = tcp.send(st.socket, st.pending.data(), st.pending.size(), sent);
+            if (r == net::Sockets::kOk)
+                st.pending.erase(st.pending.begin(), st.pending.begin() + long(sent));
+            else if (r != net::Sockets::kWouldBlock)
+                done = true;
+            if (st.pending.empty())
+                done = true; // an answer is all there is to say
+        }
+        if (!done && ready.read) {
+            uint8_t buffer[4096];
+            size_t got = 0;
+            const net::Sockets::Result r = tcp.receive(st.socket, buffer, sizeof buffer, got, false);
+            if (r == net::Sockets::kOk && got == 0)
+                done = true; // the other end has finished
+            else if (r == net::Sockets::kOk)
+                st.received.insert(st.received.end(), buffer, buffer + got);
+            else if (r != net::Sockets::kWouldBlock)
+                done = true;
+        }
+        for (int length = dp4::messageLength(st.received); length > 0; length = dp4::messageLength(st.received)) {
+            const std::vector<uint8_t> message(st.received.begin(), st.received.begin() + length);
+            st.received.erase(st.received.begin(), st.received.begin() + length);
+            SessionInfo found;
+            // A Reluva host answers both ways: its own answer is the one to join by.
+            const bool read = dp4::readEnumSessionsReply(message, found);
+            const auto known = _found.find(found.guid);
+            const bool ours = known != _found.end() && !known->second.original;
+            if (read && !ours) {
+                Found &f = _found[found.guid];
+                f.info = found;
+                f.address = {st.peer.ip, dp4::kEnumPort};
+                f.heardMs = t;
+                f.original = true;
+                ++_answers;
+            }
+        }
+        if (dp4::messageLength(st.received) < 0)
+            done = true;
+        if (done) {
+            tcp.close(st.socket);
+            it = _streams.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+void Endpoint::closeOriginal() {
+    if (!_transport.tcp)
+        return;
+    for (const Stream &st : _streams)
+        _transport.tcp->close(st.socket);
+    _streams.clear();
+    if (_originalListen >= 0)
+        _transport.tcp->close(_originalListen);
+    _originalListen = -1;
+    _originalPort = 0;
+    _originalEnum.reset();
 }
 
 } // namespace reluva::x86::dplay

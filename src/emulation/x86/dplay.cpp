@@ -647,8 +647,11 @@ public:
                 std::lock_guard<std::mutex> lock(s->mutex);
                 s->summary.joined = true;
                 s->inSession = &ep;
-            } else if (status == dplay::Endpoint::Status::kRefused)
+            } else if (status == dplay::Endpoint::Status::kRefused) {
                 say("DirectPlay: the host turned down joining");
+            } else if (status == dplay::Endpoint::Status::kOriginal) {
+                say("DirectPlay: that game is the original program's, which Reluva can find but not join yet");
+            }
             return result(status);
         }
         if (m == "GetCaps") {

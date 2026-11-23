@@ -96,6 +96,15 @@ struct Transport {
      * what it gives back is kept: called when hosting on that port.
      */
     std::function<std::shared_ptr<void>(uint16_t port)> mapPort;
+    /**
+     * The system's TCP, for DirectPlay 4's own protocol ([MC-DPL4CS],
+     * dplay4_wire.h): a search also asks for the original program's games
+     * (DirectPlay on Windows), their answers coming over TCP, and a host
+     * answers the original's searches. Only finding games: none of the
+     * original's can be joined, nor ours by it. None, Reluva's own
+     * protocol only.
+     */
+    std::shared_ptr<net::Sockets> tcp;
 };
 
 /**
@@ -107,7 +116,16 @@ struct Transport {
 class Endpoint {
 public:
     /** How a call went. */
-    enum class Status { kOk, kConnecting, kNoSession, kRefused, kNotInSession, kInvalidMember, kNoSocket };
+    enum class Status {
+        kOk,
+        kConnecting,
+        kNoSession,
+        kRefused,
+        kNotInSession,
+        kInvalidMember,
+        kNoSocket,
+        kOriginal, ///< joining: a game of the original program's, which can't be joined yet
+    };
 
     /** On `transport`; in no session until it hosts or joins one. */
     explicit Endpoint(Transport transport);
@@ -179,7 +197,18 @@ private:
         SessionInfo info;
         net::Address address; // none yet for one the meeting server listed
         uint64_t heardMs = 0;
-        uint32_t listed = 0; // its id at the meeting server, if it's there
+        uint32_t listed = 0;   // its id at the meeting server, if it's there
+        bool original = false; // the original program's, found by DirectPlay 4's own protocol
+    };
+    // A TCP connection of DirectPlay 4's: an answer to the original's
+    // search going out, or the original's answers to ours coming in.
+    struct Stream {
+        int socket = -1;
+        net::Address peer;
+        std::vector<uint8_t> pending; // to send, once connected
+        std::vector<uint8_t> received;
+        bool connecting = false;
+        uint64_t sinceMs = 0;
     };
     enum class Role { kNone, kHost, kJoining, kJoined, kLost };
 
@@ -202,6 +231,10 @@ private:
     void apply(const std::vector<uint8_t> &message, bool tell);
     void deliver(uint32_t from, uint32_t to, const std::vector<uint8_t> &data, bool guaranteed, uint32_t exceptNode);
     void sendMessage(Link &link, const std::vector<uint8_t> &message, bool guaranteed);
+    void searchOriginal(const std::string &application, const net::Address &where);
+    bool originalDatagram(const net::Address &from, const std::vector<uint8_t> &data);
+    void originalWork();
+    void closeOriginal();
     void closeLinks();
     SessionInfo current() const;
 
@@ -212,6 +245,14 @@ private:
     // A host that took over: on the port the old one listened on, if it
     // could be had, answering searches there.
     std::unique_ptr<net::UdpSocket> _listen;
+    // DirectPlay 4's own protocol, with Transport::tcp: where a searcher
+    // takes the original's answers, a host's socket on its port for the
+    // original's searches, and the connections under way.
+    int _originalListen = -1;
+    uint16_t _originalPort = 0;
+    std::unique_ptr<net::UdpSocket> _originalEnum;
+    std::vector<Stream> _streams;
+    uint32_t _idSeed = 0;
     std::shared_ptr<void> _mapping; // the router's port, while hosting
     uint64_t _publishedMs = 0;      // when a host last published, or a seeker last asked for the list
     uint64_t _listHeardMs = 0;
