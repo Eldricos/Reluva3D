@@ -1263,6 +1263,76 @@ void testFullInventory() {
     CHECK(!hud.fullInventory());
 }
 
+void testThrowRange() {
+    // Ann at (300, 500), a wall 100 to her right. A grenade needs no clear
+    // line: she throws over it from where she stands. One that Needs LOS
+    // has her walk round. Its range is on the ground, the map's
+    // foreshortening undone: 340 up the map is 477 away, in its 500; 380
+    // up is 533, out of it.
+    const std::string zax =
+        "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=500.000000,500.000000\nTree List=CSortList2D\n{\n"
+        "Level Part=CEntityBase\n{\nName=Wall\nVisible=1\nActive=1\nCollideable=1\nModel=Walls/Wall\n"
+        "Position X=400\nPosition Y=500\n}\n"
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=500\n}\n}\n}\n";
+    const auto bytesOf = [](const std::string &text) { return std::vector<uint8_t>(text.begin(), text.end()); };
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = bytesOf(zax);
+    data.files["Cache/Models/Walls/Wall.mdl16"] =
+        modelFile("Wall", 1, 1, 0.0f, {{-10, -80}, {10, -80}, {10, 80}, {-10, 80}, {-10, -80}});
+    data.files["Cache/Models/Shots/Grenade.mdl16"] =
+        modelFile("Grenade", 1, 1, 1.0f, {}, 0.0f, false, 400.0f, grenadeLook());
+    const auto grenade = [&](const std::string &more) {
+        return bytesOf("CStarTrekInventoryItemDefinition\n{\nDisplay In Inventory=1\nItem Range=500\n" + more +
+                       "Projectile=Shots/Grenade\nDischarge Action=CThrowProjectileWeaponAction\n{\n"
+                       "Velocity Factor=0.725\nGravity AI=CThrowGravityAI\n{\nGravity=17\n}\n}\n"
+                       "Default Inventory Item=CStarTrekProjectileWeaponInventoryItem\n{\nRounds=9\n}\n}\n");
+    };
+    data.files["Inventory/Item Definitions/Grenade.txt"] = grenade("Need LOS=0\n");
+    data.files["Inventory/Item Definitions/Sighted Grenade.txt"] = grenade("Need LOS=1\n");
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(
+        !readTextObject("CRules\n{\nCustom Rules=CCustomRules\n{\nScreen Pos=0,0\nScreen Size=200,200\n}\n}\n", rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    ann.inventory = {{"Grenade", -1}, {"Sighted Grenade", -1}};
+    MapScreen screen(data, rules, map, options, 0, {ann});
+    const MapScreen::Officer &a = screen.officers()[0];
+    uint64_t now = 0;
+    const auto run = [&](uint64_t ms) {
+        for (uint64_t t = 0; t < ms; t += 20)
+            screen.update(now += 20);
+    };
+    screen.choose(0);
+    screen.chooseItem(0, 0);
+    CHECK(screen.useItem(600.0f, 500.0f));
+    run(100);
+    CHECK(screen.thrown().size() == 1 && a.x == 300.0f && a.y == 500.0f);
+    run(5000);
+    CHECK(screen.thrown().empty());
+    screen.chooseItem(0, 1);
+    CHECK(screen.useItem(600.0f, 500.0f));
+    run(100);
+    CHECK(screen.thrown().empty() && (!a.path.empty() || a.x != 300.0f));
+    screen.cancelOrders();
+    // Back where she started, the first grenade up the map.
+    screen.order(300.0f, 500.0f);
+    run(3000);
+    CHECK(std::hypot(a.x - 300.0f, a.y - 500.0f) < 1.0f);
+    screen.chooseItem(0, 0);
+    CHECK(screen.useItem(300.0f, 120.0f));
+    run(100);
+    CHECK(screen.thrown().empty() && a.y < 500.0f);
+    screen.cancelOrders();
+    screen.order(300.0f, 500.0f);
+    run(3000);
+    CHECK(screen.useItem(300.0f, 160.0f));
+    run(100);
+    CHECK(screen.thrown().size() == 1 && std::hypot(a.x - 300.0f, a.y - 500.0f) < 1.0f);
+}
+
 void testMaps() {
     // A mission's two maps: on the first, Ann and Bo, and a door's polygon
     // round Ann; on the second, a landing.
@@ -2256,6 +2326,7 @@ static const reluva::test::Suite
                                        {"enemy AI", [](const std::filesystem::path &) { testEnemyAI(); }},
                                        {"items", [](const std::filesystem::path &) { testItems(); }},
                                        {"overload", [](const std::filesystem::path &) { testOverload(); }},
+                                       {"throw range", [](const std::filesystem::path &) { testThrowRange(); }},
                                        {"meld", [](const std::filesystem::path &) { testMeld(); }},
                                        {"maps", [](const std::filesystem::path &) { testMaps(); }},
                                        {"interface", [](const std::filesystem::path &) { testInterface(); }},

@@ -723,7 +723,8 @@ chosen item first, else one to Use with nothing (carrying its Required
 Item In Inventory), sends them through its Process Activity: walking to
 each place, `#1-4#` the first, then running its actions, they the
 instigator and the part `$trigger` *(inferred)*; one for their item from
-within its Item Range and in sight *(inferred)*. A
+within its Item Range, as items are ([items.md](items.md#using-one))
+*(inferred)*. A
 `CTricorderDialogAction`'s line is typed on the tricorder's panel.
 `CAddAIAction` gives its parts the AI, a trigger watched from then on;
 `CRemoveAIAction` takes away theirs of that class, stopping its triggers

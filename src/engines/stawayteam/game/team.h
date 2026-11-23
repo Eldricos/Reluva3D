@@ -147,6 +147,7 @@ struct ItemDefinition {
     float health = 0.0f;      // a healer's (its Discharge Action's Health action's Health)
     float enhanceTime = 0.0f; // an enhancer's (its Discharge Action's CEnhanceInventoryAction's Time To Enhance), s
     bool canUseOnSelf = false;
+    bool needLos = false; // used only with a clear line to where (Need LOS)
     std::string useSound;
     bool multipleSettings = false; // Has Multiple Settings: the phaser's kill and stun
     // Is Overloadable: set to overload, it goes off as its Overload

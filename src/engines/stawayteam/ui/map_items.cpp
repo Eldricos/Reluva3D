@@ -339,6 +339,16 @@ void MapScreen::explode(const Thrown &t) {
             hurtOfficer(i, *t.item, stun);
 }
 
+bool MapScreen::inItemRange(const ItemDefinition &item, float fromX, float fromY, float x, float y, float range) const {
+    // Its Item Range on the ground, the map's foreshortening undone across
+    // it (0x5c6d78); a clear line only for an item that Needs LOS: none of
+    // the game's (0x5c6c4e).
+    const float across = (y - fromY) / ParticleSystem::kYToX;
+    if (range > 0.0f && std::hypot(x - fromX, across) > range)
+        return false;
+    return !item.needLos || clearSight(fromX, fromY, x, y);
+}
+
 void MapScreen::removeItem(Officer &o, size_t index) {
     o.items.erase(o.items.begin() + std::ptrdiff_t(index));
     if (o.item == int(index))
@@ -404,8 +414,7 @@ void MapScreen::updateItems(float seconds) {
             continue;
         }
         // Near enough, they use it; else they walk there by the waypoints
-        // (inferred). A throw needs the place in the item's range and a
-        // clear line to it.
+        // (inferred). A throw or scan needs the place in the item's range.
         float x = o.taskX;
         float y = o.taskY;
         bool near = false;
@@ -413,7 +422,7 @@ void MapScreen::updateItems(float seconds) {
             near = std::hypot(x - o.x, y - o.y) <= kUseReach;
         } else if (o.task == Officer::Task::kScan) {
             placeOf(size_t(o.taskPart), x, y);
-            near = (def->range <= 0.0f || std::hypot(x - o.x, y - o.y) <= def->range) && clearSight(o.x, o.y, x, y);
+            near = inItemRange(*def, o.x, o.y, x, y, def->range);
         } else if (o.task == Officer::Task::kMeld) {
             // Taken over from within its Item Range (inferred: walked to
             // first, as a scan's).
@@ -424,7 +433,7 @@ void MapScreen::updateItems(float seconds) {
             }
             x = e.x;
             y = e.y;
-            if (def->range <= 0.0f || std::hypot(x - o.x, y - o.y) <= def->range) {
+            if (inItemRange(*def, o.x, o.y, x, y, def->range)) {
                 o.path.clear();
                 o.task = Officer::Task::kNone;
                 if (canMeld(i, size_t(o.taskPart)))
@@ -433,7 +442,7 @@ void MapScreen::updateItems(float seconds) {
             }
         } else if (o.task == Officer::Task::kThrow) {
             const float range = def->range * enhancement(int(&o - _officers.data()));
-            near = (range <= 0.0f || std::hypot(x - o.x, y - o.y) <= range) && clearSight(o.x, o.y, x, y);
+            near = inItemRange(*def, o.x, o.y, x, y, range);
         } else {
             const Officer &target = _officers[size_t(o.taskOfficer)];
             if (!target.alive()) {
@@ -570,14 +579,14 @@ bool MapScreen::runProcess(size_t officer, float seconds) {
     // officer their instigator and the part $Trigger (inferred).
     (void)seconds;
     Officer &o = _officers[officer];
-    // One for their item, a tricorder's scan, from within its Item Range
-    // and in sight, walked to first (inferred: as the item's own scan).
+    // One for their item, a tricorder's scan, from within its Item Range,
+    // walked to first (inferred: as the item's own scan).
     const ItemDefinition *def = itemOf(o);
     if (o.taskStep == 0 && def && def->range > 0.0f && readText(o.taskProcess, "Required Selected Item") == def->name) {
         float x = 0.0f;
         float y = 0.0f;
         placeOf(size_t(o.taskPart), x, y);
-        if (std::hypot(x - o.x, y - o.y) > def->range || !clearSight(o.x, o.y, x, y)) {
+        if (!inItemRange(*def, o.x, o.y, x, y, def->range)) {
             if (o.path.empty())
                 o.path = _wayPoints.points.empty() ? std::vector<std::pair<float, float>>{{x, y}}
                                                    : _wayPoints.path(o.x, o.y, x, y);

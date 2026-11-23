@@ -190,6 +190,7 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
         if (item.projectile == "!Unknown Model")
             item.projectile.clear();
         item.canUseOnSelf = def.integer("Can Use On Self").value_or(0) != 0;
+        item.needLos = def.integer("Need LOS").value_or(0) != 0;
         item.useSound = text(def, "Use Sound");
         item.multipleSettings = def.integer("Has Multiple Settings").value_or(0) != 0;
         item.overloadable = def.integer("Is Overloadable").value_or(0) != 0;

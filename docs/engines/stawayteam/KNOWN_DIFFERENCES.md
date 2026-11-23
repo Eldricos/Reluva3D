@@ -56,9 +56,7 @@ None yet.
   mission's maps
   ([systems/objectives.md](systems/objectives.md#in-reluva)).
 - **Items:** a part beamed away fades rather than dissolving through its
-  warp effect's noise; an officer walks into sight of where a grenade's
-  thrown, though the items don't Need LOS
-  ([systems/items.md](systems/items.md#in-reluva)).
+  warp effect's noise ([systems/items.md](systems/items.md#in-reluva)).
 - **The briefing:** the text has no scroll bar (the mouse wheel
   scrolls it), the random numbers aren't there, and EXIT doesn't fade out
   ([systems/briefing.md](systems/briefing.md#in-reluva)).

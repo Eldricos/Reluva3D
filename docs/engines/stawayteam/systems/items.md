@@ -34,7 +34,10 @@ An item's definition says what using it does:
   and its `Process Activity`, the AI the officer runs to use it: the
   Hypospray's is a `CStrikeTargetAI`, which walks to the target, path
   finding on, and then uses it. `Can Use On Self`, `Item Range` (-1, or
-  the grenades' 500) and `Need LOS` say where it can be used.
+  the grenades' 500) and `Need LOS` say where it can be used: within its
+  range, measured on the ground with the map's foreshortening undone
+  (up or down the map, × 1/0.7128, `0x5c6d78`), and in sight only with
+  `Need LOS`, which no item sets (`0x5c6c4e`).
 - **Its `Discharge Action`**: what it does then.
   `CShootEnergyWeaponAction`, `CShootProjectileWeaponAction` and
   `CStrikeTargetAction` shoot or strike
@@ -270,8 +273,8 @@ definition's Rounds if it has any; the weapon they shoot with chosen
 *(inferred)*. A click on an item on the bar, or its key (matched by the
 keys' names, *inferred*), chooses it; a weapon chosen is the one they
 shoot with. With a grenade chosen, a click on the map sends the officer
-to throw it there: they walk until the place is in its Item Range and
-in sight *(inferred)*, though the items don't Need LOS, then throw it from its
+to throw it there: they walk until the place is in its Item Range, as
+above (walking there, rather than refusing, *inferred*), then throw it from its
 Height, as the program throws (`0x5f8fc0`): toward the place at 45° up,
 at √(Gravity × 20.749 × distance) times its Discharge Action's `Velocity
 Factor`, no faster than its model's Max Velocity *(inferred)*. Gravity is

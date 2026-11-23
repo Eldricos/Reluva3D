@@ -618,6 +618,9 @@ private:
     void updateItems(float seconds);
     // The charged items and what they do (map_gadgets.cpp).
     void updateCharges(float seconds);
+    // Whether an officer at (fromX, fromY) can use `item` at (x, y): within
+    // `range` (0 or less: anywhere), and in sight of it if it Needs LOS.
+    bool inItemRange(const ItemDefinition &item, float fromX, float fromY, float x, float y, float range) const;
     // The particle systems: one of a part's AIs taken on, turned on or
     // off by a message, run, and drawn.
     std::vector<Emitter> _emitters;
