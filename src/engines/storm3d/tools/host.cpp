@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file]
-//                          [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file] [-draws frame file]:
+//                          [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file] [-draws frame file] [-watch address bytes]:
 // runs the retail Armada.exe in Reluva's x86 emulator, with its own DLLs
 // from the install and Reluva's stand-ins for Windows, DirectX and the C
 // runtimes, as a reference to study, never as the game is played
@@ -76,6 +76,10 @@ struct Options {
     std::map<uint64_t, std::filesystem::path> draws;
     // -dump-ms <ms> <file>: the same at a moment of the program's clock.
     std::map<uint64_t, std::filesystem::path> dumpsAt;
+    // -watch <address> <bytes>: each store into it, with where it was made
+    // from, to find what the program keeps there.
+    uint32_t watchAddress = 0;
+    uint32_t watchSize = 0;
 };
 
 // The clock that follows the instructions run: a Pentium II of 300 MHz
@@ -313,7 +317,7 @@ int cmdHost(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] "
-            "[-input file] [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file] [-draws frame file]\n");
+            "[-input file] [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file] [-draws frame file] [-watch address bytes]\n");
         return 2;
     }
     Options o;
@@ -327,6 +331,9 @@ int cmdHost(int argc, char **argv) {
         else if (arg == "-draws" && a + 2 < argc) {
             const uint64_t frame = std::strtoull(argv[++a], nullptr, 10);
             o.draws[frame] = argv[++a];
+        } else if (arg == "-watch" && a + 2 < argc) {
+            o.watchAddress = uint32_t(std::strtoul(argv[++a], nullptr, 0));
+            o.watchSize = uint32_t(std::strtoul(argv[++a], nullptr, 0));
         } else if (arg == "-dump-ms" && a + 2 < argc) {
             const uint64_t ms = std::strtoull(argv[++a], nullptr, 10);
             o.dumpsAt[ms] = argv[++a];
@@ -372,6 +379,18 @@ int cmdHost(int argc, char **argv) {
     // A whole program: its threads on host threads, with the stand-ins for
     // threads, waits and thread-local storage that come with them.
     process.useHostThreads();
+    if (o.watchSize) {
+        cpu->watchStart = o.watchAddress;
+        cpu->watchEnd = o.watchAddress + o.watchSize;
+        cpu->onWatchedStore = [](x86::Cpu &c, uint32_t address, uint32_t value, int size) {
+            // The stack's top words, among them the callers' return addresses.
+            const uint32_t esp = c.reg[x86::Cpu::ESP];
+            std::string stack;
+            for (uint32_t k = 0; k < 256 && c.valid(esp + 4 * k, 4); ++k)
+                stack += text::format(" %08x", c.read32(esp + 4 * k));
+            std::printf("store %08x <- %08x (%d bytes) at %08x; stack%s\n", address, value, size, c.eip, stack.c_str());
+        };
+    }
     // The clock: the instructions run, and a millisecond each time every
     // thread waits, when time would otherwise pass on its own.
     std::atomic<uint64_t> idled{0};
@@ -611,7 +630,7 @@ const tool::Commands kCommands(
     {
         {"host",
          "<game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file] "
-         "[-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file] [-draws frame file]",
+         "[-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file] [-draws frame file] [-watch address bytes]",
          "run the retail Armada.exe in the x86 emulator, to study: files "
          "opened, frames shown, imports missing, where it stops",
          cmdHost},
