@@ -68,7 +68,8 @@ format or system worked out.
    the loading screen put together as the recording shows it,
    [loading-screen.md](systems/loading-screen.md)); the front end's 3D
    opening, the Intro World's camera path model seen through its camera
-   ([front-end.md](systems/front-end.md)); the Personnel File, from the
+   ([front-end.md](systems/front-end.md)), the advisor's portrait and the
+   skip button over it; the Personnel File, from the
    interface's flat models ([personnel-file.md](systems/personnel-file.md));
    keeping the players ([players.md](systems/players.md)); choosing a
    world on the globe ([globe.md](systems/globe.md)); then the opening's

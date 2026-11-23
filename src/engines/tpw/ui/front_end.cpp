@@ -4,6 +4,7 @@
 #include "engines/tpw/ui/front_end.h"
 
 #include "engines/tpw/ui/front_end_effects.h"
+#include "engines/tpw/ui/front_end_overlay.h"
 #include "engines/tpw/ui/opening.h"
 
 #include <algorithm>
@@ -104,7 +105,7 @@ void FrontEndScene::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const 
     drawMeshes(rasterizer, camera, _model, true, defaultLight(), &transforms, &positions);
 }
 
-bool playFrontEnd(System &sys, const FrontEndScene &scene, FrontEndEffects *effects) {
+PathEnd playFrontEnd(System &sys, const FrontEndScene &scene, FrontEndEffects *effects, FrontEndOverlay *overlay) {
     Surface screen;
     screen.create(kOpeningWidth, kOpeningHeight, PixelFormat::kRGBA32);
     soft3d::Rasterizer rasterizer;
@@ -114,19 +115,24 @@ bool playFrontEnd(System &sys, const FrontEndScene &scene, FrontEndEffects *effe
         Event ev;
         while (sys.pollEvent(ev)) {
             if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
-                return false;
-            if ((ev.type == EventType::kKeyDown && !ev.repeat) || ev.type == EventType::kMouseDown)
+                return PathEnd::kQuit;
+            if (overlay ? overlay->handle(ev)
+                        : (ev.type == EventType::kKeyDown && !ev.repeat) || ev.type == EventType::kMouseDown)
                 skipped = true;
         }
         const uint32_t ms = uint32_t(sys.getMillis() - start);
         const float played = float(ms) * Animation::kFramesPerSecond / 1000;
-        if (skipped || played >= scene.frames())
-            return true;
+        if (skipped)
+            return PathEnd::kSkipped;
+        if (played >= scene.frames())
+            return PathEnd::kPlayed;
         scene.draw(screen, rasterizer, played);
         if (effects) {
             effects->advance(ms, played);
             effects->draw(screen, scene.camera(played, screen.w, screen.h), ms);
         }
+        if (overlay)
+            overlay->draw(screen, ms);
         sys.updateScreen(screen);
         sys.delayMillis(kFrameMillis);
     }

@@ -13,6 +13,7 @@
 #include "engines/tpw/players.h"
 #include "engines/tpw/ui/loading_screen.h"
 #include "engines/tpw/ui/front_end_effects.h"
+#include "engines/tpw/ui/front_end_overlay.h"
 #include "engines/tpw/ui/opening.h"
 #include "engines/tpw/ui/personnel_file.h"
 #include "engines/tpw/ui/sky.h"
@@ -260,6 +261,38 @@ void testParticles() {
     CHECK(particles.size() == 0);
 }
 
+// The front end's overlay: the advisor shown while he speaks, the button
+// skip until the camera is over the globe and play after; a click on the
+// button or a key presses it, the mouse over it lights it.
+void testFrontEndOverlay() {
+    using Overlay = tpw::FrontEndOverlay;
+    CHECK(!Overlay::advisorShown(0) && Overlay::advisorShown(300) && Overlay::advisorShown(25199));
+    CHECK(!Overlay::advisorShown(26000) && Overlay::advisorShown(30000) && !Overlay::advisorShown(52200));
+    CHECK(Overlay::buttonAt(0) == Overlay::Button::kSkip);
+    CHECK(Overlay::buttonAt(Overlay::kGlobeMillis - 1) == Overlay::Button::kSkip);
+    CHECK(Overlay::buttonAt(Overlay::kGlobeMillis) == Overlay::Button::kPlay);
+    CHECK(Overlay::kGlobeMillis < Overlay::kPersonnelFileMillis);
+
+    Overlay overlay;
+    const tpw::ScreenRect r = Overlay::buttonRect();
+    Event ev;
+    ev.type = EventType::kMouseDown;
+    ev.button = MouseButton::kLeft;
+    ev.mouseX = r.x + r.w / 2;
+    ev.mouseY = r.y + r.h / 2;
+    CHECK(overlay.handle(ev));
+    ev.mouseX = r.x - 1;
+    CHECK(!overlay.handle(ev));
+    ev = Event{};
+    ev.type = EventType::kKeyDown;
+    CHECK(overlay.handle(ev));
+    ev.repeat = true;
+    CHECK(!overlay.handle(ev));
+    ev = Event{};
+    ev.type = EventType::kMouseMove;
+    CHECK(!overlay.handle(ev));
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -271,4 +304,5 @@ static const reluva::test::Suite
                               {"personnel-file", [](const std::filesystem::path &) { testPersonnelFileControls(); }},
                               {"players", [](const std::filesystem::path &tmp) { testPlayers(tmp); }},
                               {"particles", [](const std::filesystem::path &) { testParticles(); }},
+                              {"front-end-overlay", [](const std::filesystem::path &) { testFrontEndOverlay(); }},
                           });

@@ -15,6 +15,7 @@
 namespace reluva::tpw {
 
 class FrontEndEffects;
+class FrontEndOverlay;
 
 /**
  * The front end's scene: the Intro World's camera path (`Camera Path`,
@@ -59,14 +60,20 @@ private:
     size_t _camera = 0;  // in _model.model.nodes()
 };
 
+/** How the camera's path ended. */
+enum class PathEnd { kPlayed, kSkipped, kQuit };
+
 /**
  * The front end's opening, as the recording shows it: the camera's path
  * through the hall into the boardroom and down to the globe, at the
- * animation's rate; a key or a click skips to its end, as the game's skip
- * button does; with `effects` (loaded for `scene`), the particles its
- * script starts over it.
- * @return False if the window was closed (or the launcher asked for) meanwhile.
+ * animation's rate; with `effects` (loaded for `scene`), the particles its
+ * script starts over it; with `overlay`, the advisor's portrait and the
+ * skip button over that. The skip button, or without it any key or
+ * click, skips to the path's end.
+ * @return kQuit if the window was closed (or the launcher asked for)
+ *     meanwhile.
  */
-bool playFrontEnd(System &sys, const FrontEndScene &scene, FrontEndEffects *effects = nullptr);
+PathEnd playFrontEnd(System &sys, const FrontEndScene &scene, FrontEndEffects *effects = nullptr,
+                     FrontEndOverlay *overlay = nullptr);
 
 } // namespace reluva::tpw

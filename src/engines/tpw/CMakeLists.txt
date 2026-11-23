@@ -15,6 +15,7 @@ reluva_add_engine(tpw
         script/simulated_host.cpp
         ui/front_end.cpp
         ui/front_end_effects.cpp
+        ui/front_end_overlay.cpp
         ui/globe.cpp
         ui/loading_screen.cpp
         ui/main_menu.cpp

@@ -76,6 +76,12 @@ None yet.
   the well's middle ([front-end.md](systems/front-end.md#the-effects)).
   Decoding the library's other parameters would settle it.
 
+- **The front end's portrait shows while the advisor speaks**: it comes
+  and goes in three spells, as speech would, but Reluva times it by the
+  recording, and opens the Personnel File 54 s in, after the last
+  ([front-end.md](systems/front-end.md#the-portrait-and-the-button)).
+  Playing the speech bank's lines would settle it.
+
 - **The Personnel File's portrait is the personnel director's**: the
   board's fifth, as `EMAIL_FROM_HR_DIR` is the fifth sender
   ([personnel-file.md](systems/personnel-file.md#what-it-shows)).

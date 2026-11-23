@@ -12,7 +12,8 @@ namespace reluva::tpw {
 
 /**
  * The front end, from after the opening to a world chosen: the camera's
- * path through the hall and boardroom (front-end.md), the Personnel File
+ * path through the hall and boardroom (front-end.md), the globe turning
+ * under the advisor's portrait until play is pressed, the Personnel File
  * over the globe turning (personnel-file.md), then choosing a world on it
  * (globe.md), in docs/engines/tpw/games/simcoaster/systems/. Without the
  * scene, the Personnel File alone, over black, then the first world the

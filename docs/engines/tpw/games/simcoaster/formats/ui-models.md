@@ -58,7 +58,8 @@ three times, then `filetabd` (the player shown, light; the others grey).
 | `filebut` | `filebut`, `filebuth`, `filebutd` | "Enter Game", "Load A Game", "Delete Player" |
 | `!cbut` | `b_header` | "Quit Game", "Coaster Design Kit": blue buttons |
 | `!frame` | `f_frame` | A plate with a light blue rim, its middle opaque black: behind the portrait and the blue buttons |
-| `mugshot` | `mugshot1` to `mugshot8` | The board's portraits, one a mesh: the advisor, the fifth the woman of the Personnel File |
+| `mugshot` | `mugshot1` to `mugshot8` | The board's portraits, one a mesh: the first the advisor, over the front end; the fifth the woman of the Personnel File |
+| `b_skip`, `b_play` | `b_skip`, `b_play` and their states | The front end's round button: skip, then play ([front-end.md](../systems/front-end.md#the-portrait-and-the-button)) |
 | `filebox` | `filebox` | The box a new player's name is typed in |
 | `filebutok` | `filebutok`, `filebutokg`, `filebutokh`, `filebutokd` | Its tick: grey (disabled) until a name is typed, then green |
 | `!window` | `newpanel1` | The delete dialog: the window without its shadow |

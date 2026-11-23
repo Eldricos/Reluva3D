@@ -105,8 +105,48 @@ What Reluva doesn't match yet: the particles' number, speed, size and
 look, which the library's other words must hold (it draws 20 a burst,
 small four-pointed stars, flying off at up to 6 units a second,
 *guessed*), and the bright flares at the emitters; the white burst in
-the well; the advisor's portrait; the skip button (bottom right, two
-triangles and a bar).
+the well.
+
+### The portrait and the button
+
+Over the scene, until the Personnel File opens, the front end shows the
+advisor's portrait at the top right and a round button at the bottom
+right. Both are flat models of `ui.wad` ([ui-models.md](../formats/ui-models.md)),
+placed as measured on the recording at 640 × 480:
+
+| What | Model, mesh | Where |
+|---|---|---|
+| The portrait's plate | `!frame` | (503, 8), 129 × 129 |
+| The advisor | `mugshot`, its first mesh (`mugshot1`, a bald man in a dark suit on a green glow) | (509, 14), 117 × 117, inside the plate's rim |
+| The button, ▷▷\| (skip) | `b_skip` | (570, 410), 64 × 64, its texture's own size |
+| The button, \|▷ (play) | `b_play` | the same |
+
+The portrait is a still picture: its face, set beside `mugshot1` in
+frames a second apart, doesn't change. It comes and goes, which the
+recording times, from the camera's path starting (10 s into it):
+
+| From | To | |
+|---|---|---|
+| 0.3 s | 25.2 s | The advisor shown |
+| 25.2 s | 27.3 s | Gone |
+| 27.3 s | 32.1 s | Shown; the path ends at 32 s |
+| 32.1 s | 34.1 s | Gone |
+| 34.1 s | 52.2 s | Shown, over the globe turning |
+| 54 s | | The Personnel File opens; no portrait or button over it |
+
+Three spells, as the advisor's speech would have, with pauses between
+*(inferred)*: the script's `VAR_SPEECHSTATUS` doesn't keep time with
+them (it turns 1 at 4.4 s, 2 at about 17 s), and Reluva doesn't play the
+speech yet, so it shows the portrait by the recording's times. The
+game's speech bank (`global/Speech/speechHD.SDT`) and its lip timings
+(`global/Speech/lips.wad`, `SP_0001.LIP` on) would settle which lines
+they are.
+
+The button is skip (▷▷|) until 36.5 s, when the camera has come down
+over the globe, then play (|▷). The recording's player never presses
+it: the path plays out, and the Personnel File opens 54 s in, 1.8 s
+after the advisor's last spell *(inferred: the game opens it once he's
+done)*.
 
 ## In Reluva
 
@@ -114,19 +154,24 @@ triangles and a bar).
 path's model and its main animation and draws it, through `Camera01`
 posed at a frame, as the viewer draws models
 ([md2.md](../formats/md2.md#in-reluva)). `playFrontEnd` plays the path
-after the opening at 25 frames a second; a key or a click skips to its
-end, as the game's skip button does. Then the Personnel File
-([personnel-file.md](personnel-file.md)) over the globe turning, and
-choosing a world on it ([globe.md](globe.md)); `runFrontEnd`
-(`src/engines/tpw/ui/main_menu.cpp`) runs them in turn.
+after the opening at 25 frames a second, then the globe turning; over
+both, `FrontEndOverlay` (`src/engines/tpw/ui/front_end_overlay.cpp`)
+draws the portrait and the button by the times above. The skip button
+jumps to 36.5 s, the camera down over the globe (Reluva's guess at what
+the game's does); play, or the 54 s mark, opens the Personnel File
+([personnel-file.md](personnel-file.md)) over the globe turning; then
+choosing a world on it ([globe.md](globe.md)). A key presses the button
+too. `runFrontEnd` (`src/engines/tpw/ui/main_menu.cpp`) runs them in
+turn.
 
 `reluva-tool tpw front-end-shot <game folder> <out.png> <frame>` draws
-a frame of the path; `reluva-tool tpw front-end-run <game folder>
-[seconds] [-shots <folder>]` runs the whole front end headless: the
-path skipped so many seconds in (5), the Personnel File's "Enter Game"
-clicked a second later, Land of Invention on the globe a second after
-that; with a checksum of the screens, which the game-files test checks
-(`tpw.gamedata.frontend`).
+a frame of the path, the portrait and the button over it;
+`reluva-tool tpw front-end-run <game folder> [seconds] [-shots
+<folder>]` runs the whole front end headless: the skip button clicked so
+many seconds in (5), then a key for play, the Personnel File's "Enter
+Game" a second later, then a click at the screen's middle every quarter
+second until Land of Invention turns under it; with a checksum of the
+screens, which the game-files test checks (`tpw.gamedata.frontend`).
 
 ## Sources and checks
 
@@ -137,7 +182,9 @@ that; with a checksum of the screens, which the game-files test checks
   the recording's at 9, 14, 20, 24, 32, 38 and 44 s: the hall, its
   paintings (Land of Invention's on the left, Arabian Nights' on the
   right) and its carpet match at 9 s; the doors, the boardroom, the
-  chairs and the table's star where the recording has them.
+  chairs and the table's star where the recording has them. The
+  portrait and the button at frame 500 set on the recording's at 30 s,
+  pixel by pixel: the places above are where they match best.
 
 ## Open questions
 
@@ -147,5 +194,9 @@ that; with a checksum of the screens, which the game-files test checks
   (`EVENT 5`, sounds it seems) and objects (`ADDOBJ 5 1 200 2`,
   `FADEOBJ 2`) are.
 - When the game triggers the script, and how the advisor's speech
-  follows `VAR_SPEECHSTATUS`.
+  follows `VAR_SPEECHSTATUS`; which lines he speaks, and whether the
+  portrait shows by them.
+- What the skip button does in the game, pressed during the path or
+  while the camera comes down to the globe; whether the Personnel File
+  waits for play or opens by itself.
 - The camera's field of view, measured rather than read from the files.

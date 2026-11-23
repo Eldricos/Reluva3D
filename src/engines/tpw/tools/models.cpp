@@ -14,6 +14,7 @@
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/ui/front_end.h"
 #include "engines/tpw/ui/front_end_effects.h"
+#include "engines/tpw/ui/front_end_overlay.h"
 #include "engines/tpw/ui/globe.h"
 #include "engines/tpw/ui/main_menu.h"
 #include "engines/tpw/ui/model_view.h"
@@ -493,15 +494,19 @@ int cmdFrontEndShot(int argc, char **argv) {
         }
         effects.draw(screen, scene.camera(frame, screen.w, screen.h), end);
     }
+    reluva::tpw::FrontEndOverlay overlay;
+    if (!overlay.load(files))
+        overlay.draw(screen, uint32_t(frame * 1000 / reluva::tpw::Animation::kFramesPerSecond));
     writePng(screen, argv[3]);
     std::printf("%.0f frames, %zu particles\n", double(scene.frames()), effects.particles());
     return 0;
 }
 
 // The front end run headless, by a clock that moves only as it waits: its
-// camera's path skipped `seconds` in; then a quarter second apart, "Tester" typed
-// into the Personnel File's first slot, its tick, "Enter Game", and a world
-// on the globe at the screen's middle, below the globe's. The players kept
+// camera's path skipped `seconds` in, by its button; then a quarter second
+// apart, a key to go on to the Personnel File, "Tester" typed into its
+// first slot, its tick, "Enter Game", and a world on the globe at the
+// screen's middle, below the globe's, until one open is there. The players kept
 // in `-save`'s folder, if given (the first slot then may hold a player).
 int cmdFrontEndRun(int argc, char **argv) {
     if (argc < 3) {
@@ -539,9 +544,9 @@ int cmdFrontEndRun(int argc, char **argv) {
                 ev.type = reluva::EventType::kQuit;
                 return true;
             }
-            // The skip, then the rest a quarter of a second apart: the globe
-            // turns on meanwhile, Land of Invention still facing the camera.
-            if (sent >= 5 || getMillis() < keyAt + uint64_t(sent) * 250)
+            // The skip, then the rest a quarter of a second apart; the last
+            // click again and again until the globe turns an open world under it.
+            if (getMillis() < keyAt + uint64_t(sent) * 250)
                 return false;
             auto click = [&](int x, int y) {
                 ev.type = reluva::EventType::kMouseDown;
@@ -554,20 +559,25 @@ int cmdFrontEndRun(int argc, char **argv) {
                 return std::pair{r.x + r.w / 2, r.y + r.h / 2};
             };
             switch (sent++) {
-            case 0:
+            case 0: {
+                const reluva::tpw::ScreenRect r = reluva::tpw::FrontEndOverlay::buttonRect();
+                click(r.x + r.w / 2, r.y + r.h / 2);
+                break;
+            }
+            case 1:
                 ev.type = reluva::EventType::kKeyDown;
                 ev.key = reluva::key::kSpace;
                 break;
-            case 1:
+            case 2:
                 ev.type = reluva::EventType::kTextInput;
                 std::strcpy(ev.text, "Tester");
                 break;
-            case 2: {
+            case 3: {
                 const auto [x, y] = centre(reluva::tpw::PersonnelFile::Control::kNameDone);
                 click(x, y);
                 break;
             }
-            case 3: {
+            case 4: {
                 const auto [x, y] = centre(reluva::tpw::PersonnelFile::Control::kEnterGame);
                 click(x, y);
                 break;

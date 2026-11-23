@@ -42,8 +42,10 @@ picture-dump` and set beside the frames.
 
 - A room with wood panelling, two pictures and a pair of doors; a
   portrait of a man in a dark suit (the advisor) in a box at the top
-  right, from 10 s; a round button at the bottom right, two triangles
-  pointing right: skip *(inferred)*.
+  right, from 10.3 s, gone 35.2 s to 37.3 s and 42.1 s to 44.1 s, and
+  from 62.2 s; a round button at the bottom right, two triangles
+  pointing right and a bar: skip *(inferred)*; from 46.5 s a bar and
+  one triangle: play.
 - The camera goes through the doors into a boardroom: a long table with
   green leather chairs, an inlaid compass star in its middle.
 - 24 s to 32 s: sparkles circle the star; a beam of light comes down.

@@ -27,9 +27,10 @@ None yet.
   [loading-screen.md](systems/loading-screen.md)).
 - **The front end's opening**: its sparkles are drawn by guessed
   numbers, size and speed, without the emitters' flares; the white burst
-  in the well isn't drawn; nor are the advisor's portrait
-  and the skip button; a key or a click skips it
-  ([front-end.md](systems/front-end.md#in-reluva)).
+  in the well isn't drawn; the advisor's portrait shows by the
+  recording's times, without his speech; the skip button jumps to the
+  globe, a guess, and a key presses it too
+  ([front-end.md](systems/front-end.md#the-portrait-and-the-button)).
 - **The Personnel File** keeps its players in a file of Reluva's own,
   `players.txt` in the game's save folder, as the game's own aren't
   known ([players.md](systems/players.md)); "Load A Game" is always
