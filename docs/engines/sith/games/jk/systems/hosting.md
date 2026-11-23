@@ -12,7 +12,7 @@ through its start-up, reading its
 archives, strings, fonts and the menus' pictures, lists Direct3D's
 devices, sets the display mode, shows the opening's title and crawl,
 which it draws itself, and its menus, cut scenes and levels play, drawn
-by its own software renderer; silently so far.
+by its own software renderer, with its sound.
 
 ## How it works
 
@@ -89,14 +89,21 @@ it uses are DirectX 5's, by the identifiers in its data:
     main loop waits for messages (`GetMessageA`) rather than polling, and
     typing goes through `WM_CHAR`.
 13. The menus answer the mouse: *Single Player*, then *New Game*, plays
-    the first cut scene from CD 1 through `SMACKW32.DLL`, silent without
-    a sound card, and Esc skips it.
+    the first cut scene from CD 1 through `SMACKW32.DLL`, which streams
+    its sound into a DirectSound buffer, and Esc skips it.
 14. The first level loads and plays, drawn by the program's own 8-bit
     software renderer into DirectDraw surfaces, with the HUD; Esc brings
     up its in-game menu (*Objectives*, *Map*, *Jedi Powers*, *Return To
     Game*, *Restart*, *Load*, *Save*, *Setup*, *Abort*). No Direct3D
     device is made: software is the default, and Direct3D only draws when
-    it's chosen in *Setup*. With no sound card, it's silent.
+    it's chosen in *Setup*.
+15. Its sound is DirectSound's: the opening's soundtrack, the menus'
+    clicks, the cut scenes', the level's. It makes about 30 buffers,
+    plain ones (no DirectSound 3D buffers in the first level), setting
+    their volume and pan itself as things move. SMACKW32 streams a cut
+    scene's sound into a buffer of a quarter of a second, 16-bit stereo
+    at 22,050 Hz, a quarter (62 ms) at a time, written about three
+    quarters of the buffer ahead of the play position.
 
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were
@@ -121,10 +128,11 @@ it presents in the window, and passes the keyboard and mouse on.
   scenes; `SMACKW32.DLL` from the install; the registry's `CD Path` and
   `Install Path`. Its threads run on threads of this machine.
 - **Its devices:** DirectDraw, with the 8-bit modes the menus and the
-  software renderer use, DirectInput and DirectPlay are the emulator's.
-  There's no sound card (`DirectSoundCreate` and `waveOut` find no
-  device), no joystick, no CD audio (MCI) and no DirectPlay lobby: the
-  game is told so, as on a machine without them, and goes on silently.
+  software renderer use, DirectInput, DirectPlay and DirectSound
+  ([dsound.md](../../../../../common/x86/dsound.md)) are the emulator's,
+  the sound card's output played through Reluva's mixer. There's no
+  `waveOut` device, no joystick, no CD audio (MCI) and no DirectPlay
+  lobby: the game is told so, as on a machine without them.
 - **Frames:** each one presented, no more often than a 60 Hz display's
   vertical blank, as the game's flips waited for it.
 - **The mouse:** in the menus the game moves Windows' pointer, which it
@@ -143,7 +151,8 @@ where it stopped (registers, and the return addresses on the stack).
 `-png` saves the last frame, `-calls` lists every stand-in called and the
 last 40 in order, `-keys "<seconds>:<key>,..."` presses keys at those
 moments (letters, digits, `esc`, `enter`, `space`, `tab`, the arrows, and
-`click<x>x<y>` for the mouse's left button on the screen), `-write`
+`click<x>x<y>` for the mouse's left button on the screen), `-wav`
+saves what the sound card played, `-write`
 names the folder for what it writes, and `-peek <address>` prints a word
 of the program's memory at the end.
 `-keys "8:esc,11:k,11.4:y,11.8:l,12.2:e,13:enter"` goes through the crawl
@@ -157,7 +166,6 @@ and the imports show:
 
 | Need | What | How much |
 |---|---|---|
-| DirectSound | Buffers and 3D buffers on Reluva's mixer | New shared code |
 | Windows | About 40 calls the emulator lacks, none met in play yet: GDI's palettes and DIB sections, dialogs, `CompareString`, WINMM's timer events for Smacker's sound | Small each, in the shared stand-ins |
 | CD audio | MCI's `cdaudio` device, playing the CDs' music tracks, which copies of their files don't hold | To decide: from a CD image's tracks, or none |
 | Direct3D 1 and 2 | Only for the *Setup* choice of hardware drawing: `IDirect3D` and `IDirect3D2` (their device lists are there), their devices with execute buffers, viewports, materials and textures 1 and 2, on the emulator's Direct3D 7 rasterizer | New shared code, for any DirectX 5 game; not needed to play |

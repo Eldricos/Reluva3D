@@ -53,7 +53,8 @@ That the US release's signatures match a real install: checked by hand
   shown over it; *Single Player*, *New Game*: the first cut scene, then
   Nar Shaddaa. In play the mouse turns Kyle, held by the window, and the
   arrows move him; Esc brings up the game's menu with the pointer
-  again. Ctrl+F5 asks before going back to the launcher.
+  again. The opening's soundtrack, the menus' clicks, the cut scene's
+  sound and the level's are heard. Ctrl+F5 asks before going back to the launcher.
 - `reluva-tool sith folders <install>` finds both CDs where they are.
 - *Import Game...* on CD 1, with CD 2 added, makes an install that's
   recognised, with both CDs' cut scenes in it.
@@ -71,6 +72,7 @@ That the US release's signatures match a real install: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | Sound: `reluva-tool sith host -wav` through the opening, menus, first cut scene and Nar Shaddaa; what SMACKW32 wrote into its buffer the same as Reluva's decode of `01-02A.SMK`, and what the card played the same as what was written, in order. `reluva` under Xvfb with SDL's disk audio driver: the same sounds reach the output; not listened to |
 | November 2026 | US retail | Linux | Played in `reluva`'s window (under Xvfb, driven with xdotool): the crawl, a new player typed, the main menu, *Single Player* and *New Game* clicked, the cut scene skipped, Nar Shaddaa played: walking back with the arrows, turning with the mouse; the game's writes only its player and autosave in the save folder |
 | November 2026 | US retail | Linux | `reluva-tool sith host` with keys and clicks: the opening, the menus, the first cut scene and Nar Shaddaa, drawn by the game's own software renderer |
 | November 2026 | US retail | Linux | The things placed in Nar Shaddaa, Katarn's house and the fuel station drawn on the Levels page: crates on the ground, characters in place |

@@ -6,6 +6,8 @@
 // for (docs/engines/sith/games/jk/systems/hosting.md).
 
 #include "common/events.h"
+#include "audio/mixer.h"
+#include "audio/wav.h"
 #include "common/fs.h"
 #include "common/stream.h"
 #include "devtools/tool.h"
@@ -31,6 +33,7 @@
 #include <deque>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -95,13 +98,14 @@ bool parseKeys(const std::string &text, std::vector<KeyPress> &out) {
 int cmdHost(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool sith host <install> [-seconds N] [-args \"...\"] [-png file] "
-                             "[-files] [-calls] [-keys \"s:key,...\"] [-peek address] [-write folder]\n");
+                             "[-files] [-calls] [-keys \"s:key,...\"] [-peek address] [-wav file] [-write folder]\n");
         return 2;
     }
     const std::filesystem::path install = argv[2];
     double seconds = 20;
     std::string args;
     std::string png;
+    std::string wav;
     bool listFiles = false;
     bool listCalls = false;
     std::vector<uint32_t> peeks;
@@ -113,6 +117,8 @@ int cmdHost(int argc, char **argv) {
             seconds = std::atof(argv[++i]);
         else if (a == "-args" && i + 1 < argc)
             args = argv[++i];
+        else if (a == "-wav" && i + 1 < argc)
+            wav = argv[++i];
         else if (a == "-png" && i + 1 < argc)
             png = argv[++i];
         else if (a == "-files")
@@ -161,8 +167,25 @@ int cmdHost(int argc, char **argv) {
     // Stopped after `seconds` of this machine's time; the keys pressed at
     // their times, each held a tenth of a second.
     const auto start = std::chrono::steady_clock::now();
+    // With -wav, the sound card's output, taken as the clock moves.
+    constexpr int kWavRate = 22050;
+    const std::shared_ptr<reluva::audio::OutputStream> soundOut = game.directSound().output();
+    reluva::audio::Sound recorded;
+    recorded.rate = kWavRate;
+    recorded.channels = 2;
+    // Run on every thread's slices, so taken in turn.
+    std::mutex tickMutex;
     auto tick = [&](x86::Cpu &c) {
+        std::lock_guard<std::mutex> lock(tickMutex);
         const double now = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        if (!wav.empty()) {
+            const size_t due = size_t(now * kWavRate) * 2;
+            if (due > recorded.samples.size()) {
+                const size_t at = recorded.samples.size();
+                recorded.samples.resize(due);
+                soundOut->read(recorded.samples.data() + at, int((due - at) / 2), kWavRate);
+            }
+        }
         for (KeyPress &k : presses) {
             if (!k.down && now >= k.at) {
                 if (k.click) {
@@ -219,6 +242,14 @@ int cmdHost(int argc, char **argv) {
         std::printf("called last: %s\n", name.c_str());
     for (uint32_t a : peeks)
         std::printf("at %08x: %08x\n", a, cpu.valid(a, 4) ? cpu.read32(a) : 0u);
+    if (!wav.empty()) {
+        int peak = 0;
+        for (int16_t v : recorded.samples)
+            peak = std::max(peak, std::abs(int(v)));
+        std::printf("sound: %.1f s recorded, peak %d\n", double(recorded.samples.size()) / 2 / kWavRate, peak);
+        if (!reluva::writeFile(wav, reluva::audio::encodePcmWav(recorded)))
+            std::fprintf(stderr, "can't write %s\n", wav.c_str());
+    }
     const x86::DirectX::Frame &frame = directX.frame();
     std::printf("frames shown: %llu, the last %dx%d\n", (unsigned long long)frames, frame.width, frame.height);
     if (!png.empty() && frame.width > 0) {
@@ -295,7 +326,7 @@ const Commands kCommands(
     "sith",
     {
         {"host",
-         "<install> [-seconds N] [-args \"...\"] [-png file] [-files] [-calls] [-keys \"s:key,...\"] [-peek address]",
+         "<install> [-seconds N] [-args \"...\"] [-png file] [-files] [-calls] [-keys \"s:key,...\"] [-peek address] [-wav file]",
          "run the retail JK.EXE in the x86 emulator: how far it gets", cmdHost},
         {"disasm", "<JK.EXE> <address> [count]", "the program's instructions from an address (hexadecimal) on",
          cmdDisasm},

@@ -13,8 +13,10 @@ None yet.
 
 ## Not yet as the original
 
-- **Sound:** none. The game finds no sound card, no CD audio and no
-  joystick, and plays silently ([systems/hosting.md](systems/hosting.md)).
+- **Music:** none. The game's music is the CDs' audio tracks, which
+  copies of their files don't hold; it finds no CD audio and plays
+  without it ([systems/hosting.md](systems/hosting.md)).
+- **Joysticks:** none; the game finds none.
 - **Multiplayer:** DirectPlay offers no connections, so there's no one to
   play with.
 - **Direct3D:** Direct3D 1's devices aren't there yet, so choosing

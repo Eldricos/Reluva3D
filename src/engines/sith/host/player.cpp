@@ -3,6 +3,7 @@
 
 #include "engines/sith/host/player.h"
 
+#include "audio/mixer.h"
 #include "engines/sith/host/game_process.h"
 
 #include <algorithm>
@@ -10,8 +11,8 @@
 
 namespace reluva::sith {
 
-Player::Player(GameFolders folders, std::filesystem::path saveFolder)
-    : _folders(std::move(folders)), _saveFolder(std::move(saveFolder)) {
+Player::Player(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer *mixer)
+    : _folders(std::move(folders)), _saveFolder(std::move(saveFolder)), _mixer(mixer) {
 }
 
 Player::~Player() {
@@ -112,10 +113,15 @@ void Player::work() {
             process.requestExit();
         }
     }
+    // The sound card's output, for as long as the game runs.
+    const audio::SoundHandle sound =
+        _mixer ? _mixer->playOutput(game.directSound().output(), audio::SoundType::kEffects) : audio::kNoSound;
     Error e = game.load();
     uint32_t exitCode = 0;
     if (!e)
         e = game.run(exitCode);
+    if (_mixer)
+        _mixer->stop(sound);
     std::lock_guard<std::mutex> lock(_mutex);
     _game = nullptr;
     _finished = true;

@@ -7,6 +7,7 @@
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/directx/dinput.h"
 #include "emulation/x86/directx/directx.h"
+#include "emulation/x86/directx/dsound.h"
 #include "emulation/x86/dplay.h"
 #include "emulation/x86/win32.h"
 #include "engines/sith/folders.h"
@@ -21,9 +22,9 @@ namespace reluva::sith {
  * The retail JK.EXE run in the x86 emulator
  * (docs/engines/sith/games/jk/systems/hosting.md): the install as drive C,
  * what the game writes going to a save folder, CD 1's copy as drive D, and
- * SMACKW32.DLL as it shipped. Windows, DirectDraw, DirectInput and
- * DirectPlay are the emulator's stand-ins; there's no sound card, joystick
- * or CD audio yet, and the game finds none.
+ * SMACKW32.DLL as it shipped. Windows, DirectDraw, DirectInput, DirectPlay
+ * and DirectSound are the emulator's stand-ins; there's no joystick or CD
+ * audio yet, and the game finds none.
  */
 class GameProcess {
 public:
@@ -51,6 +52,7 @@ public:
     x86::Win32Process &process() { return *_process; }
     x86::DirectX &directX() { return *_directX; }
     x86::DirectInput &directInput() { return *_directInput; }
+    x86::DirectSound &directSound() { return *_directSound; }
     ///@}
     /**
      * Whether the game shows Windows' pointer, as its menus do: it hasn't
@@ -66,6 +68,7 @@ private:
     std::unique_ptr<x86::DirectX> _directX;
     std::unique_ptr<x86::DirectInput> _directInput;
     std::unique_ptr<x86::DirectPlay> _directPlay;
+    std::unique_ptr<x86::DirectSound> _directSound;
     const x86::Win32Process::Module *_exe = nullptr;
 };
 

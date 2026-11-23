@@ -5,6 +5,8 @@
 // making an Engine to run one) and its Engine, which plays the retail
 // JK.EXE in the x86 emulator (host/player.h).
 
+#include "audio/mixer.h"
+#include "common/settings.h"
 #include "engines/engine.h"
 #include "engines/sith/folders.h"
 #include "engines/sith/games.h"
@@ -29,7 +31,19 @@ public:
     SithEngine(System &system, const GameTarget &target) : _sys(system), _target(target) {}
 
     Error run() override {
-        Player player(findFolders(_target.path, _target.settings), _target.savePath);
+        // Without an audio device the game still has its sound card, unheard.
+        audio::Mixer mixer(_sys.audioRate());
+        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
+        const bool audioOut = !audio::startMixerOutput(_sys, mixer);
+        struct AudioStop {
+            System &sys;
+            bool on;
+            ~AudioStop() {
+                if (on)
+                    sys.stopAudio();
+            }
+        } audioStop{_sys, audioOut};
+        Player player(findFolders(_target.path, _target.settings), _target.savePath, audioOut ? &mixer : nullptr);
         player.start();
         int width = 640;
         int height = 480;
