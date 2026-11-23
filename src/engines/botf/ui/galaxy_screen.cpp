@@ -312,6 +312,7 @@ const StellarStrip *stellarStrip(int type) {
 Error GalaxyScreen::load(int empire) {
     _empire = std::clamp(empire, 0, 4);
     _letter = kLetters[_empire];
+    _tips.load(_assets);
     const std::string l(1, _letter);
     _hidden = {kScrollUp, kScrollDown, kScrollBar, kTaskForcesTab};
     if (Error err = loadLayouts((l + "maingal.wdf").c_str(),
@@ -510,6 +511,8 @@ bool GalaxyScreen::handle(const Event &e) {
     // button and the zoom's in a recording; the others taken alike), but
     // for the lit ones.
     trackPointer(e);
+    if (e.type == EventType::kMouseMove || e.type == EventType::kMouseDown)
+        _tipPointer = {e.mouseX, e.mouseY};
     const int32_t pointedButton = buttonAt(e.mouseX, e.mouseY);
     const bool lit = pointedButton == kMilitary || pointedButton == (_zoom == 1 ? kSmallMap : kLargeMap);
     if (e.type == EventType::kMouseMove || e.type == EventType::kMouseDown)
@@ -598,6 +601,25 @@ void GalaxyScreen::draw(Surface &screen) const {
     drawStrip(screen);
     drawText(screen, kTurnText, upperAscii(word(lex::kTurn, "Turn")) + " " + std::to_string(game().summary.turn + 1),
              kTurnColor);
+    if (_toolTips && _tipPointer.first >= 0)
+        if (const int32_t id = toolTipAt(_tipPointer.first, _tipPointer.second))
+            _tips.draw(screen, id, _tipPointer.first, _tipPointer.second);
+}
+
+int32_t GalaxyScreen::toolTipAt(int x, int y) const {
+    if (const int32_t button = buttonAt(x, y); button && _tips.has(button))
+        return button;
+    // The system strip's population boxes; the stellar object's strip
+    // shares their ids, but its description isn't about population.
+    if (_selected.first < 0 || game().galaxy.at(_selected.first, _selected.second).system < 0)
+        return 0;
+    for (const int32_t id : {kStripLabels, kStripValues}) {
+        const WindowLayout::Placed *box = stripWidget(_systemStrip, id);
+        if (box && x >= box->x && y >= box->y && x < box->x + box->widget->w && y < box->y + box->widget->h &&
+            _tips.has(id))
+            return id;
+    }
+    return 0;
 }
 
 void GalaxyScreen::drawIcon(Surface &screen, int x, int y, const Widget &w, const std::string &file) const {

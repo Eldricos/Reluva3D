@@ -12,6 +12,7 @@
 #include "engines/botf/formats/window_layout.h"
 #include "engines/botf/game/game_state.h"
 #include "engines/botf/ui/layout_screen.h"
+#include "engines/botf/ui/tool_tips.h"
 
 #include <functional>
 #include <set>
@@ -81,6 +82,15 @@ public:
     int pointedPlanet() const { return _pointedPlanet; }
     /** The selected sector's column and row, or -1, -1. */
     std::pair<int, int> selected() const { return _selected; }
+    /** Whether the controls' tool tips are shown (the options' Tool Tips). */
+    void setToolTips(bool shown) { _toolTips = shown; }
+    /** Hides the tip until the pointer moves again (a menu opened over the screen). */
+    void hideToolTip() { _tipPointer = {-1, -1}; }
+    /**
+     * The widget whose tip the point (x, y) shows, or 0: a button shown,
+     * or a box of the system strip shown, with a tip in teachtip.tdb.
+     */
+    int32_t toolTipAt(int x, int y) const;
 
     /** Whether the player's scanners reach the sector at column `x` and row `y` now. */
     bool scanned(int x, int y) const;
@@ -128,6 +138,9 @@ private:
     const SavedGame &game() const { return _state.data(); }
 
     GameState _state;
+    ToolTips _tips;
+    bool _toolTips = true;
+    std::pair<int, int> _tipPointer{-1, -1}; // where the pointer is, for its tip; -1, -1 for none
     int _empire = 1;
     DataTable _shipClasses;               // shiplist.sst, for the task forces' ships' names
     DataTable _races;                     // race.rst, for the people living in a system

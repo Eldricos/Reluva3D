@@ -5,9 +5,9 @@
 
 #include "common/events.h"
 #include "common/types.h"
-#include "engines/botf/formats/text_table.h"
 #include "engines/botf/formats/window_layout.h"
 #include "engines/botf/ui/assets.h"
+#include "engines/botf/ui/tool_tips.h"
 
 #include <cstdint>
 
@@ -66,11 +66,10 @@ public:
 private:
     // The button at the screen's point (x, y), or 0.
     int32_t buttonAt(int x, int y) const;
-    void drawToolTip(Surface &screen) const;
 
     Assets &_assets;
     WindowLayout _layout;
-    TextTable _tips;
+    ToolTips _tips;
     bool _toolTips = true;
     bool _open = false;
     int _x = 0;

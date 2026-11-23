@@ -1168,6 +1168,28 @@ void testGalaxyScreen() {
     CHECK(press(700, 440) && press(600, 380) && !screen.zoomedIn());
     CHECK(press(600, 360) && !screen.zoomedIn() && (screen.selected() == std::pair{8, 8}));
     CHECK(press(700, 440) && press(600, 360) && screen.zoomedIn());
+    // The Map button's tip, by the pointer: its box's border 4 right of it
+    // and 17 below, its text's first line 3 below that; none over the map,
+    // and none with tips off or hidden for a menu over the screen.
+    CHECK(screen.toolTipAt(700, 440) == 1002 && screen.toolTipAt(400, 200) == 0);
+    Event over;
+    over.type = EventType::kMouseMove;
+    over.mouseX = 660;
+    over.mouseY = 440;
+    screen.handle(over);
+    s.create(800, 600, PixelFormat::kRGBA32);
+    screen.draw(s);
+    auto tipBorder = [&] { return colour(800 - 1, 457, 99, 77, 181); };
+    CHECK(tipBorder());
+    screen.hideToolTip();
+    s.create(800, 600, PixelFormat::kRGBA32);
+    screen.draw(s);
+    CHECK(!tipBorder());
+    screen.handle(over);
+    screen.setToolTips(false);
+    s.create(800, 600, PixelFormat::kRGBA32);
+    screen.draw(s);
+    CHECK(!tipBorder());
 }
 
 void testEmpireScreen() {

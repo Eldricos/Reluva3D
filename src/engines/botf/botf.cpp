@@ -418,6 +418,7 @@ public:
                     // Escape, with the menu closed, goes there too: a
                     // convenience the game hasn't got.
                     const bool rightClick = ev.type == EventType::kMouseDown && ev.button == MouseButton::kRight;
+                    galaxy.setToolTips(_options.toolTips);
                     if (gameMenu.isOpen()) {
                         if (gameMenu.handle(ev) == GameMenu::Choice::kMainMenu) {
                             menu.setGameInProgress(true);
@@ -425,6 +426,7 @@ public:
                         }
                     } else if (rightClick) {
                         gameMenu.setToolTips(_options.toolTips);
+                        galaxy.hideToolTip();
                         gameMenu.open(ev.mouseX, ev.mouseY);
                     } else if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
                         menu.setGameInProgress(true);

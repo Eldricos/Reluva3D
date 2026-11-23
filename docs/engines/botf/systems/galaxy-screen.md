@@ -367,6 +367,21 @@ don't. With those, the five systems' strips match their screenshots, each
 planet at one of its frames, but for the larger planets' outermost
 pixels.
 
+### Tool tips
+
+With the options' Tool Tips on, a control under the pointer shows its
+tip from `teachtip.tdb`, under its widget's id
+([formats/tdb.md](../formats/tdb.md)), drawn as the game menu's are
+([screens.md](screens.md#the-game-menu)). Of the Federation's galaxy
+screen's widgets, these have one: Turn (1001), Summary (1006), the five
+modes (1027, 1003, 1005, 1004, 1002), the empire's panel's title bar
+(1007), the system strip's population boxes (1102, 1103), and the scroll
+arrows (1038, 1039), which aren't shown. The stellar object's strip's
+description box has 1103's id too, and so the population's tip; Reluva
+shows none there *(guessed)*. A tip that would run off the screen is moved
+back onto it *(guessed)*, as the Map button's would off its right edge. That the galaxy screen's controls show
+tips as the game menu's do, and how soon, isn't seen yet.
+
 ## In Reluva
 
 `GalaxyScreen` (`src/engines/botf/ui/galaxy_screen.cpp`) loads the
@@ -375,7 +390,8 @@ the scanners' sectors, stars and names, the turn, and the empire's
 panel, and the selected sector's strip, turning. The engine opens it
 with the chosen slot's save from Load Game, or with `Auto.sav` from
 Continue; a click on the map selects a sector, the sector under the
-pointer is named over it, and the Map button's two buttons zoom; a right click opens the game menu, whose main menu button (or Escape) goes back to the main menu, the game still in progress, to save it or go on with it ([screens.md](screens.md#the-game-menu)). The map is drawn on a
+pointer is named over it, the Map button's two buttons zoom, controls
+show their tips; a right click opens the game menu, whose main menu button (or Escape) goes back to the main menu, the game still in progress, to save it or go on with it ([screens.md](screens.md#the-game-menu)). The map is drawn on a
 surface the view's size, which cuts it there. The unit tests
 (`botf.unit.screens`: "galaxy") cover the sectors scanned and seen, where
 the backdrop, claims, stars, stellar objects, names, task forces and their

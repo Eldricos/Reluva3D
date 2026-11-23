@@ -488,7 +488,8 @@ std::map<std::string, Bytes> galaxyAssets() {
     menuButton.rgba.assign(30 * 30 * 4, 255);
     files["h_mbon.tga"] = image::encodeTga(menuButton);
     files["teachtip.tdb"] = makeTable({{8001, " Click here to bring up the main galactic \nscreen.\n"},
-                                       {8006, " Click here to pause the game and return to \nthe main menu.\n"}});
+                                       {8006, " Click here to pause the game and return to \nthe main menu.\n"},
+                                       {1002, " Click here to toggle the zoom level of the \ngalactic map.\n"}});
     return files;
 }
 
