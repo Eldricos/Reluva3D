@@ -172,6 +172,12 @@ the placing at `0x40a6d0`):
   spacing (most others), both four fifths of its font's baseline, which a
   window can change. Windows then often move widgets to places of their
   own.
+- **Windows on the screen:** the menus open their windows on the
+  screen's top window (`0x409750`), nearly all with mode 6 (17 of the
+  19 calls; the difficulty and saved games' windows among them,
+  `0x503fe0`, `0x504016`). Mode 6 (`0x40aea0`) puts a window
+  in the middle of its parent's inside: half of what's left across and
+  down, each half rounded toward 0.
 - **Picture buttons** (`0x5ba890`): a picture (`Button Background`), the
   label on it in the button's font, from its left at 21 and 1 above its
   top (`0x5eff58`, from the 20 and -2 the button sets at `+0x13c` and
@@ -573,8 +579,6 @@ Game/Background`:
 
 ## Open questions
 
-- **Where the dialog and the other windows go on the screen.** Reluva
-  puts them in the middle.
 - **The keyboard screen:** how a tab is sized, which keys take an
   action's key away (Reluva: Delete and Backspace), whether Esc gives up
   waiting for a key, how a held key is recorded, the order of the list of

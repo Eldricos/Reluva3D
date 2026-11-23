@@ -38,8 +38,7 @@ None now.
 - **A key or a click skips a movie:** the game ends one on anything in
   its queue of input, and what goes into the queue isn't traced
   ([systems/startup.md](systems/startup.md#the-opening-movies)).
-- **The menus:** the confirm dialog and the other windows in the
-  middle of the screen, the credits' underlines blended by their alpha, the toolkit's
+- **The menus:** the credits' underlines blended by their alpha, the toolkit's
   brightness scaling colours smoothly outside the credits, the
   gamma brightening dark colours, the slider's texture tiled, the sliders' focus, Esc closing the keyboard
   screen, the keyboard screen's
