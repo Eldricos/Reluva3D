@@ -11,6 +11,10 @@ What Reluva does that hasn't been checked against the running original.
   colormap, as `JK.EXE`'s colormap renderer does
   ([formats/jkl.md](formats/jkl.md#light)). The game drawing a level in
   software, compared frame by frame, would settle it.
+- **A sector's tint:** the viewer tints its view by the camera's
+  sector's tint, each channel times 1 + its tint less half the other two
+  ([formats/jkl.md](formats/jkl.md#tint)), as `JK.EXE` changes its
+  palette; the game underwater, compared, would settle it.
 - **Fonts' spacing:** a gap after each glyph, white space moving on by
   the font's space width, and a missing character drawn as the font's
   fallback ([formats/sft.md](formats/sft.md)).

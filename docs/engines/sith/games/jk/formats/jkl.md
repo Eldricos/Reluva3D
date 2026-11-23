@@ -266,8 +266,13 @@ The viewer lights a corner as the game's colormap renderer does
 and the sector's, each held to 0 to 1; skies and light mode 0 unlit;
 light mode 1 by the surface's extra light alone. The skies are placed
 as the game places them ([Skies](#skies)), the camera having no roll; see-through
-faces are drawn at 90/255 after the rest, the farthest first. It
-doesn't yet use the other flags or the tint.
+faces are drawn at 90/255 after the rest, the farthest first; and the
+sector the camera is in tints the view as the game tints its palette
+([Tint](#tint)), the status line giving that sector's flags and tint. The
+other flags change how the game plays, not what it draws: M marks the
+surfaces or sectors with each in turn (floors, skies, scrolling, ice, the
+four step sounds, see-through faces, underwater sectors, pits...), and J
+moves the camera to the next sector marked.
 
 ## Sources and checks
 

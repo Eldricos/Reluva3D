@@ -99,6 +99,8 @@ struct Paint {
     int alpha = 255;
     /** A sky's placing, in place of the texture vertices; nullptr for none. */
     const Sky *sky = nullptr;
+    /** A colour it's marked with, half and half, for the viewer to pick it out; nullptr for none. */
+    const Color *mark = nullptr;
 };
 
 /** The alpha the game draws see-through faces with (face flag 0x2). */

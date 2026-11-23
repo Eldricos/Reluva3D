@@ -163,7 +163,10 @@ void Draw3D::polygon(const std::vector<Corner> &corners, const Paint &paint) {
                 return false;
         }
         const int level = std::clamp(int(light * (Colormap::kLightLevels - 1) + 0.5f), 0, Colormap::kLightLevels - 1);
-        const Color c = pal[cmap.lit(level, index)];
+        Color c = pal[cmap.lit(level, index)];
+        if (paint.mark)
+            c = {uint8_t((c.r + paint.mark->r) / 2), uint8_t((c.g + paint.mark->g) / 2),
+                 uint8_t((c.b + paint.mark->b) / 2)};
         if (paint.alpha < 255) {
             const int a = paint.alpha;
             rgba[0] = uint8_t((c.r * a + rgba[0] * (255 - a)) / 255);
