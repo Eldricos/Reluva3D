@@ -39,8 +39,16 @@ public:
                 const std::string &commandLine = {});
     ~GameProcess();
 
-    /** Loads SMACKW32.DLL and JK.EXE from the install, and runs the DLL's start-up. */
+    /**
+     * Loads SMACKW32.DLL and JK.EXE from the install, and runs the DLL's
+     * start-up. Where JK.EXE is the US release's, its CD check puts the CD
+     * it asks for in drive D (insertCd).
+     */
     Error load();
+    /** Puts CD `number` (1 or 2) in drive D, if it was found; false if it wasn't. */
+    bool insertCd(int number);
+    /** The CD in drive D: 1 or 2, 0 if none. */
+    int cdInDrive() const { return _cdInDrive; }
     /**
      * Runs the program from its entry point, on threads of this machine,
      * until it ends or is stopped (Cpu::requestStop, Win32Process::requestExit).
@@ -73,6 +81,8 @@ private:
     std::unique_ptr<x86::DirectSound> _directSound;
     std::unique_ptr<x86::CdAudio> _cdAudio;
     const x86::Win32Process::Module *_exe = nullptr;
+    int _cdInDrive = 0;
+    void hookCdCheck();
 };
 
 } // namespace reluva::sith

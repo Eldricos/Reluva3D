@@ -5,7 +5,10 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
 
 ## By choice
 
-None yet.
+- **Changing CDs:** the original asks for CD 1 or 2 ("Insert Jedi Knight
+  CD #n and press Enter") when a step of the episode is on the other one.
+  Reluva puts that CD in the drive as the game checks, so it never asks
+  ([systems/hosting.md](systems/hosting.md)).
 
 ## Bugs fixed
 
@@ -13,10 +16,9 @@ None yet.
 
 ## Not yet as the original
 
-- **Music:** CD 1's, from its audio tracks beside its files (a cue
-  sheet and its image, or ripped tracks); without them, none, as with
-  the CD missing ([README.md](README.md#using-it)). CD 2's isn't heard
-  yet: drive D is always CD 1 ([systems/hosting.md](systems/hosting.md)).
+- **Music:** from each CD's audio tracks beside its files (a cue sheet
+  and its image, or ripped tracks); without them, none, as with the CD
+  missing ([README.md](README.md#using-it)).
 - **Joysticks:** none; the game finds none.
 - **Multiplayer:** DirectPlay offers no connections, so there's no one to
   play with.

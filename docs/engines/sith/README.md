@@ -18,7 +18,7 @@ are found; its archives and their pictures, materials, colormaps, fonts,
 string tables, sounds, sound classes, episodes, models, animations, puppets, sprites, particle clouds and levels are read, and the cut
 scenes decoded, all shown or played by the data viewer
 (`reluva-viewer`). The game is played: its own `JK.EXE`, run in Reluva's x86
-emulator, in Reluva's window, with its sound and CD 1's music. See the game's [README](games/jk/README.md) and
+emulator, in Reluva's window, with its sound and the CDs' music. See the game's [README](games/jk/README.md) and
 [PLAN.md](games/jk/PLAN.md).
 
 ## Using it

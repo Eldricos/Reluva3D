@@ -137,8 +137,8 @@ it presents in the window, and passes the keyboard and mouse on.
 - **The process** (`host/game_process.h`): the install as drive C, what
   the game writes going to Reluva's folder for the game (its player
   files and saves; it opens its archives for writing too, but only reads
-  them, so they're never copied); CD 1's copy as drive D, for the cut
-  scenes; `SMACKW32.DLL` from the install; the registry's `CD Path` and
+  them, so they're never copied); a CD's copy as drive D, for the cut
+  scenes and the music, CD 1 to start with; `SMACKW32.DLL` from the install; the registry's `CD Path` and
   `Install Path`. Its threads run on threads of this machine.
 - **Its devices:** DirectDraw, with the 8-bit modes the menus and the
   software renderer use, DirectInput, DirectPlay, DirectSound
@@ -147,8 +147,21 @@ it presents in the window, and passes the keyboard and mouse on.
   emulator's, the sound card's output and the music played through
   Reluva's mixer. There's no `waveOut` device, no joystick and no
   DirectPlay lobby: the game is told so, as on a machine without them.
-- **The CD's music:** the disc in drive D is CD 1, and its audio tracks
-  are those beside its files: a cue sheet and its image's files, or the
+- **Changing CDs:** the episode's steps each name their CD (levels 9 on,
+  and their cut scenes, are on CD 2), and before one starts the game
+  checks for it (`0x40ebb0`, its argument the CD's number, 0 for either)
+  *(from the code)*: it reads `gamedata\resource\jk_.cd` through its CD
+  path and accepts that CD's marker (`0x69923284 | n << (n + 5)`: CD 1's
+  `c4 32 92 69`, CD 2's `84 33 92 69`), either for 0, or `0x69973284`
+  for any. Otherwise it closes its archives, asks "Insert Jedi Knight
+  CD #n and press Enter", and checks again. Reluva puts the CD in drive D
+  as the check starts: a jump at `0x40ebb0` (only where its bytes are the
+  US release's) to a trampoline that calls the engine with the CD's
+  number, runs the instruction the jump replaced and goes on. The game
+  never asks; the CD device gets the new disc's music
+  (`CdAudio::discChanged`).
+- **The CD's music:** the CD in drive D's audio tracks, those beside its
+  files: a cue sheet and its image's files, or the
   tracks ripped as `track02.wav` and on. Without them the game has a CD
   drive with no audio tracks, and plays without music, as it did with
   its CD missing.
@@ -186,7 +199,6 @@ and the imports show:
 | Need | What | How much |
 |---|---|---|
 | Windows | About 40 calls the emulator lacks, none met in play yet: GDI's palettes and DIB sections, dialogs, `CompareString`, WINMM's timer events for Smacker's sound | Small each, in the shared stand-ins |
-| CD 2 | Drive D is always CD 1: the levels on CD 2, and its music, need the game to see the other CD when it asks for it | Engine code |
 | Direct3D 1 and 2 | Only for the *Setup* choice of hardware drawing: `IDirect3D` and `IDirect3D2` (their device lists are there), their devices with execute buffers, viewports, materials and textures 1 and 2, on the emulator's Direct3D 7 rasterizer | New shared code, for any DirectX 5 game; not needed to play |
 | DirectPlay 3 | Multiplayer sessions, on Reluva's network code; for now the class with no connections ([dplay.md](../../../../../common/x86/dplay.md)) | Later |
 

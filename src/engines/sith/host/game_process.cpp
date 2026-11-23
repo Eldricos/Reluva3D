@@ -48,8 +48,7 @@ GameProcess::GameProcess(const GameFolders &folders, const std::filesystem::path
     p.setProgram("JK.EXE", "C:\\");
     p.setCommandLine("JK.EXE" + std::string(commandLine.empty() ? "" : " ") + commandLine);
     p.addDrive({'C', folders.install, saveFolder, 3, "JEDI", 0x12345678});
-    if (!folders.cds[0].empty())
-        p.addDrive({'D', folders.cds[0], {}, 5, "JEDI_KNIGHT_1", 0x0ced1});
+    insertCd(1);
     p.setRegistryString(kRegistryKey, "CD Path", "D:\\");
     p.setRegistryString(kRegistryKey, "Install Path", "C:\\");
     // The program's and Smacker's threads each on a thread of this machine.
@@ -60,10 +59,12 @@ GameProcess::GameProcess(const GameFolders &folders, const std::filesystem::path
     _directInput = std::make_unique<x86::DirectInput>(p);
     _directPlay = std::make_unique<x86::DirectPlay>(p);
     _directSound = std::make_unique<x86::DirectSound>(p);
-    // The CD in drive D's music: its audio tracks, from a cue sheet and its
-    // image, or ripped, beside its files.
+    // The music of the CD in drive D: its audio tracks, from a cue sheet and
+    // its image, or ripped, beside its files.
     _cdAudio = std::make_unique<x86::CdAudio>(p);
-    _cdAudio->disc = [cd = folders.cds[0]] { return x86::CdAudio::discIn(cd); };
+    _cdAudio->disc = [this] {
+        return _cdInDrive ? x86::CdAudio::discIn(_folders.cds[size_t(_cdInDrive - 1)]) : x86::CdAudio::Disc();
+    };
     addAbsentDevices(p);
 }
 
@@ -85,10 +86,61 @@ Error GameProcess::load() {
         return Error::fail("can't read " + exePath->string());
     if (Error e = _process->load("JK.EXE", file, _exe))
         return Error::fail("JK.EXE: " + e.message);
+    hookCdCheck();
     if (smack)
         if (Error e = _process->attach(*smack))
             return e;
     return Error::success();
+}
+
+bool GameProcess::insertCd(int number) {
+    if (number < 1 || number > kCdCount || _folders.cds[size_t(number - 1)].empty())
+        return false;
+    if (number == _cdInDrive)
+        return true;
+    _process->addDrive({'D',
+                        _folders.cds[size_t(number - 1)],
+                        {},
+                        5,
+                        "JEDI_KNIGHT_" + std::to_string(number),
+                        0x0ced0u + uint32_t(number)});
+    _cdInDrive = number;
+    if (_cdAudio)
+        _cdAudio->discChanged();
+    return true;
+}
+
+// JK.EXE checks for the CD a step of its episode is on with the function
+// at 0x40ebb0, its argument the CD's number (0 for either): it reads
+// gamedata\resource\jk_.cd from the CD and, if it isn't that CD's, asks
+// for it and waits (docs/engines/sith/games/jk/systems/hosting.md). Here a
+// trampoline at its start puts that CD in drive D first, as a player would
+// have, then runs the instruction it replaced and goes on.
+void GameProcess::hookCdCheck() {
+    constexpr uint32_t kCheck = 0x40ebb0;
+    // sub esp, 0x18c; push ebx; push ebp: the US release's.
+    const uint8_t expected[] = {0x81, 0xec, 0x8c, 0x01, 0x00, 0x00, 0x53, 0x55};
+    x86::Cpu &c = *_cpu;
+    for (uint32_t i = 0; i < sizeof expected; ++i)
+        if (!c.valid(kCheck + i, 1) || c.read8(kCheck + i) != expected[i])
+            return;
+    // cdecl, called from the trampoline: its return address, the check's
+    // caller's, then the CD's number.
+    const uint32_t native = c.addNative("JK.EXE CD check", [this](x86::Cpu &cpu) {
+        insertCd(int(cpu.arg(1)));
+        return 0u;
+    });
+    const uint32_t trampoline = _process->memory().alloc(16);
+    if (!native || !trampoline)
+        return;
+    const uint8_t code[16] = {0xe8, 0, 0, 0, 0, 0x81, 0xec, 0x8c, 0x01, 0x00, 0x00, 0xe9, 0, 0, 0, 0};
+    for (uint32_t i = 0; i < 16; ++i)
+        c.write8(trampoline + i, code[i]);
+    c.write32(trampoline + 1, native - (trampoline + 5));         // call the native
+    c.write32(trampoline + 12, (kCheck + 6) - (trampoline + 16)); // jmp back after sub esp
+    c.write8(kCheck, 0xe9);                                       // jmp trampoline
+    c.write32(kCheck + 1, trampoline - (kCheck + 5));
+    c.write8(kCheck + 5, 0x90);
 }
 
 Error GameProcess::run(uint32_t &exitCode) {

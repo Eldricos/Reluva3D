@@ -7,7 +7,7 @@ Game id `jk`, on the [Sith engine](../../README.md); its code is in
 
 | Release | Recognised by | State |
 |---|---|---|
-| US retail, two CDs (English, Windows), unpatched; `JK.EXE` linked 11 September 1997 | `JK.EXE`, `Resource/Res2.gob` and `Episode/JK1.GOB` (`detectionTable`, `src/engines/sith/games.cpp`) | Recognised and imported from its CDs, its CDs found; played, with its sound and CD 1's music |
+| US retail, two CDs (English, Windows), unpatched; `JK.EXE` linked 11 September 1997 | `JK.EXE`, `Resource/Res2.gob` and `Episode/JK1.GOB` (`detectionTable`, `src/engines/sith/games.cpp`) | Recognised and imported from its CDs, its CDs found; played, with its sound and music, changing CDs by itself |
 | Other releases (other languages, patched) | The same three files present (`fallbackTable`): "unknown release" | Not checked |
 
 Detection signatures (MD5 of the first 5000 bytes, size):
@@ -56,10 +56,11 @@ installer and the readme.
 - **The game:** played. The retail `JK.EXE` runs in Reluva's x86
   emulator, in Reluva's window: the opening, the menus, the cut scenes
   and the levels, drawn by its own software renderer, with the keyboard
-  and mouse, its sound, and CD 1's music from its audio tracks
-  ([systems/hosting.md](systems/hosting.md)). Not yet CD 2, nor
-  multiplayer ([KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md)).
-- **Not yet:** CD 2's levels and music, multiplayer and Direct3D's drawing.
+  and mouse, its sound, and the CDs' music from their audio tracks; CD 2
+  is put in the drive when the game asks for it
+  ([systems/hosting.md](systems/hosting.md)). Not yet multiplayer
+  ([KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md)).
+- **Not yet:** multiplayer and Direct3D's drawing.
   Plans, phases and decisions: [PLAN.md](PLAN.md).
 
 ## Using it

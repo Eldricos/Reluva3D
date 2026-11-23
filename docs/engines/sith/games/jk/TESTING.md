@@ -55,7 +55,9 @@ That the US release's signatures match a real install: checked by hand
   arrows move him; Esc brings up the game's menu with the pointer
   again. The opening's soundtrack, the menus' clicks, the cut scene's
   sound and the level's are heard; with CD 1's audio tracks beside its
-  files, the music fades in as Kyle leaves the bar. Ctrl+F5 asks before going back to the launcher.
+  files, the music fades in as Kyle leaves the bar. A step on CD 2 (level
+  9 on, or its cut scenes in *Cutscenes*) starts without the game asking
+  for CD 2, and plays CD 2's music. Ctrl+F5 asks before going back to the launcher.
 - `reluva-tool sith folders <install>` finds both CDs where they are.
 - *Import Game...* on CD 1, with CD 2 added, makes an install that's
   recognised, with both CDs' cut scenes in it.
@@ -73,6 +75,7 @@ That the US release's signatures match a real install: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | Changing CDs: with CD 2's `23a.smk` among a player's cut scenes seen, *Cutscenes* lists "9 - 8t88's Payment"; played, the game checks for CD 2, drive D becomes CD 2's copy, and the cut scene (only on CD 2) plays, without the game asking for the CD |
 | November 2026 | US retail | Linux | CD 1's music from the image's cue sheet and audio tracks beside CD 1's files: `reluva-tool sith folders` finds 7 tracks on CD 1 and 11 on CD 2; `reluva-tool sith host -wav` into Nar Shaddaa: the game plays tracks 2 and 3, and what's heard is track 2 sample for sample (with the script's volume set aside, the bar being quiet) |
 | November 2026 | US retail | Linux | Sound: `reluva-tool sith host -wav` through the opening, menus, first cut scene and Nar Shaddaa; what SMACKW32 wrote into its buffer the same as Reluva's decode of `01-02A.SMK`, and what the card played the same as what was written, in order. `reluva` under Xvfb with SDL's disk audio driver: the same sounds reach the output; not listened to |
 | November 2026 | US retail | Linux | Played in `reluva`'s window (under Xvfb, driven with xdotool): the crawl, a new player typed, the main menu, *Single Player* and *New Game* clicked, the cut scene skipped, Nar Shaddaa played: walking back with the arrows, turning with the mouse; the game's writes only its player and autosave in the save folder |
