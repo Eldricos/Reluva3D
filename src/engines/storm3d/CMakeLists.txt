@@ -7,17 +7,27 @@ reluva_add_engine(storm3d
     ACCESSOR storm3dMetaEngine
     SOURCES
         storm3d.cpp
+        game_files.cpp
         formats/config_file.cpp
         formats/input_map.cpp
         formats/ldl.cpp
         formats/odf.cpp
         formats/zfs_archive.cpp)
 
+# Its data viewer, for reluva-viewer: a page for each kind of file.
+reluva_add_engine_viewers(storm3d
+    ACCESSOR storm3dMetaViewer
+    SOURCES
+        pages/viewer.cpp
+        pages/image_page.cpp
+        pages/page.cpp)
+
 # Its reluva-tool commands (reluva-tool help storm3d lists them).
 reluva_add_engine_tools(storm3d
     SOURCES
         tools/archives.cpp
         tools/files.cpp
+        tools/images.cpp
         tools/text.cpp)
 
 # Its tests (tests/engines/storm3d/), in reluva-tests: the unit tests by
@@ -28,13 +38,14 @@ reluva_add_engine_tests(storm3d
     SOURCES
         ${tests}/unit/config.cpp
         ${tests}/unit/detection.cpp
+        ${tests}/unit/images.cpp
         ${tests}/unit/input_map.cpp
         ${tests}/unit/ldl.cpp
         ${tests}/unit/odf.cpp
         ${tests}/unit/zfs.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.config unit.detection unit.input_map unit.ldl unit.odf unit.zfs engine)
+        unit.config unit.detection unit.images unit.input_map unit.ldl unit.odf unit.zfs engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

@@ -59,6 +59,8 @@ extended. The facts themselves are on their pages, each with its source.
 | `reluva-tool storm3d config-check <game folder>` | Reads every settings file |
 | `reluva-tool storm3d ldl <game folder> <file.ldl> [output file]` | An `.ldl` file decoded ([formats/ldl.md](formats/ldl.md)) |
 | `reluva-tool storm3d input-map <Input.map>` | The key and mouse bindings ([formats/input-map.md](formats/input-map.md)) |
+| `reluva-tool storm3d image-check <game folder>` | Decodes every picture ([formats/textures.md](formats/textures.md)) |
+| `reluva-tool storm3d image <game folder> <name> <out.png>` | Writes one picture as PNG |
 
 ## Working files not included
 

@@ -35,7 +35,7 @@ In the install's folder.
 | Folder | Files | What they are |
 |---|---|---|
 | `SOD/` | 265 `.sod`, and 8 more in `SOD/Software/` | Models, `Storm3D_SW` at their start |
-| `Textures/` | 1,368 `.tga`, in `Index8/` (1,078 files) and `RGB/` (993) | Textures; beside many a `.tga` are files of the same name ending `.1` to `.4`, a quarter of the size each step: smaller copies (mip levels) *(inferred)* |
+| `Textures/` | 1,368 `.tga`, in `Index8/` (1,078 files) and `RGB/` (993) | Textures, with their mipmap levels as `.1` to `.4` ([textures.md](textures.md)) |
 | `Sprites/` | 24 `.spr` | Sprite tables, as text (`sprite_table`, `@reference=128`) |
 | `bzn/` | 49 `.bzn`, 28 `.mdf`, 28 `.bmp` | Maps: `.bzn` as text (`version [1] = 2051`), `.mdf` their start positions (`StartLocations = 2`), `.bmp` their pictures |
 | `missions/` | 26 `.dsl` and 26 `.drl` | The campaign's missions, as DLLs ([Missions](#missions)) |

@@ -2,3 +2,7 @@
 # Written by `reluva-tests storm3d.engine --update`; review its diff before committing.
 detect.games: 1
 detect.game: armada: Star Trek: Armada (unknown release)
+run.result: ok
+run.size: 800x600
+run.screens: 45 72852bf70df69c95
+run.titles: Reluva viewer - Images - 1/3  Textures/Index8/Xspark01  16x16 | Reluva viewer - Images - 2/3  Textures/RGB/Bbase.tga  64x64 | Reluva viewer - Images - 3/3  Textures/RGB/Bbase.1  32x32 | Reluva viewer - Images - 3/3  Textures/RGB/Bbase.1  32x32  alpha | Reluva viewer - Images - 1/3  Textures/Index8/Xspark01  16x16  alpha
