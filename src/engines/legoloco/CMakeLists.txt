@@ -14,6 +14,7 @@ reluva_add_engine(legoloco
         formats/board.cpp
         formats/easter_eggs.cpp
         formats/object_definition.cpp
+        formats/postcard.cpp
         formats/resource_file.cpp)
 
 # Its data viewer, in reluva-viewer (never in the game).
@@ -34,6 +35,7 @@ reluva_add_engine_tools(legoloco
         tools/definitions.cpp
         tools/easter_eggs.cpp
         tools/files.cpp
+        tools/postcards.cpp
         tools/resources.cpp
         tools/run.cpp
         tools/viewer.cpp)
@@ -49,10 +51,11 @@ reluva_add_engine_tests(legoloco
         ${tests}/unit/detection.cpp
         ${tests}/unit/easter_eggs.cpp
         ${tests}/unit/game_files.cpp
+        ${tests}/unit/postcards.cpp
         ${tests}/unit/resources.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.boards unit.definitions unit.detection unit.easter_eggs unit.game_files unit.resources engine)
+        unit.boards unit.definitions unit.detection unit.easter_eggs unit.game_files unit.postcards unit.resources engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

@@ -21,9 +21,9 @@ is in [the first survey](research/first-survey.md).
    [object definitions](formats/dat.md), [boards](formats/sav.md),
    [`EE.INI`](formats/ee-ini.md) and [area arrangements](formats/lay.md),
    each with `reluva-tool legoloco` commands. The `.but` files are BMPs
-   and the `.wav` files standard. Left for the phases that need them:
-   the postcards (`.crd`, phase 6; [a first look](research/postcards.md))
-   and the animated cursors (`.ani`, phase 4).
+   and the `.wav` files standard; the postcards
+   ([formats/crd.md](formats/crd.md)) followed with network play. Left:
+   the animated cursors (`.ani`), as Windows' own pointer isn't drawn.
 3. **Data viewer** (done; [systems/data-viewer.md](systems/data-viewer.md)):
    the boards drawn with their pieces, the pictures cut into frames with
    their frame sets played, the definitions and the sounds; on the way,

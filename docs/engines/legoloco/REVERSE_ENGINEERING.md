@@ -50,6 +50,7 @@ extended. The facts themselves are on their pages, each with its source.
 | `reluva-tool legoloco sav <file.sav>` | Prints a board; given a game folder, a board in the resource file, or reads every board of the copy |
 | `reluva-tool legoloco ee <folder>` | Prints `EE.INI`'s date-based surprises |
 | `reluva-tool legoloco lay <folder>` | Prints the area arrangements |
+| `reluva-tool legoloco crd <file \| folder>` | Prints a postcard, or every one in a copy, with its clip art's files |
 | `reluva-tool legoloco run <folder> -save <folder> [-log] [-limit n]` | Runs `loco.exe` in the emulator and reports how far it gets |
 | `reluva-tool legoloco pair <folder> [options] [A's steps] -- [B's steps]` | Runs two copies of `loco.exe` on one in-memory network, for following a network game |
 | `reluva-tool legoloco view <folder> <page> <item> <out.png> [keys]` | Draws a data viewer page into a PNG, without a window |

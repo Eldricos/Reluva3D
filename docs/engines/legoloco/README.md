@@ -24,7 +24,8 @@ being worked on first.
   ([formats/dat.md](formats/dat.md)); the boards: layouts, screen saver
   boards and saves ([formats/sav.md](formats/sav.md)); the date-based
   surprises ([formats/ee-ini.md](formats/ee-ini.md)); the area
-  arrangements ([formats/lay.md](formats/lay.md)).
+  arrangements ([formats/lay.md](formats/lay.md)); postcards
+  ([formats/crd.md](formats/crd.md)).
 - **The data viewer** (`reluva-viewer`): the boards drawn with their
   pieces, every picture cut into its frames with its animations played,
   the object definitions and the sounds
@@ -54,7 +55,7 @@ data viewer ([systems/data-viewer.md](systems/data-viewer.md)).
 |---|---|
 | This page | The game, where the engine stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan: the ways weighed, the phases, the decisions |
-| `formats/` | A page per file format: [the resource file](formats/resource.md), [object definitions](formats/dat.md), [boards](formats/sav.md), [`EE.INI`](formats/ee-ini.md), [area arrangements](formats/lay.md), [resource numbers](formats/resource-numbers.md) |
+| `formats/` | A page per file format: [the resource file](formats/resource.md), [object definitions](formats/dat.md), [boards](formats/sav.md), [`EE.INI`](formats/ee-ini.md), [area arrangements](formats/lay.md), [postcards](formats/crd.md), [resource numbers](formats/resource-numbers.md) |
 | `systems/` | A page per part of how the game behaves: [how pictures are drawn](systems/drawing.md), [the data viewer](systems/data-viewer.md), [running the program](systems/running.md) |
 | [research/](research/README.md) | Working notes: [the first survey](research/first-survey.md) of the CD and `loco.exe`, [postcards](research/postcards.md) |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
