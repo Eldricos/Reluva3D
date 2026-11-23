@@ -807,11 +807,16 @@ Device::~Device() {
     }
 }
 
+void Device::finishQueue() {
+    if (_queue)
+        _queue->finish();
+}
+
 void Device::finishDraws() {
     if (_queue)
         _queue->finish();
-    if (GpuRaster *g = gpu(); g && g->pending())
-        g->flush();
+    if (GpuRaster *g = gpu())
+        g->sync();
 }
 
 GpuRaster *Device::gpu() const {
@@ -828,7 +833,7 @@ bool Device::drawOnGpu(const Draw &d, const std::vector<std::array<ClipVertex, 3
         g->add(d, triangles);
         return true;
     }
-    g->flush();
+    g->sync();
     return false;
 }
 
@@ -839,6 +844,8 @@ uint64_t Device::drawsQueued() {
 void Device::finishDrawsThrough(uint64_t count) {
     if (_queue)
         _queue->finishThrough(count);
+    if (GpuRaster *g = gpu())
+        g->sync();
 }
 
 Draw Device::current() const {
@@ -1472,7 +1479,7 @@ const DecodedTexture *Device::texture(int stage) {
         fresh = d.versions[i] == levels[i]->d.version;
     if (fresh)
         return &d;
-    finishDraws();             // a draw waiting may use the texture as it was decoded
+    finishQueue();             // a draw waiting may use the texture as it was decoded (the GPU has its own copy)
     if (decoded.size() > 4096) // forget textures since freed
         for (auto it = decoded.begin(); it != decoded.end();)
             it = it->second.owner.expired() ? decoded.erase(it) : std::next(it);
@@ -1998,6 +2005,13 @@ void Device::clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t colo
     }
     if (fills.empty() || areas.empty())
         return;
+    if (GpuRaster *g = gpu();
+        g && GpuRaster::canClear((flags & 1) ? target.get() : nullptr, (flags & 2) ? depth.get() : nullptr)) {
+        const uint32_t depthValue = fills.back().value;
+        if (g->clear((flags & 1) ? target : nullptr, (flags & 2) ? depth : nullptr, areas,
+                     (flags & 1) && target ? fills.front().value : 0, depthValue))
+            return;
+    }
     auto fill = [fills, areas](int band, int bands) {
         for (const Fill &f : fills)
             for (Rect r : areas) {
@@ -2031,7 +2045,7 @@ void Device::clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t colo
 void Device::queueRows(std::function<void(int band, int bands)> rows, double area) {
     const DirectX::DrawThreads mode = s->owner.drawThreads;
     if (GpuRaster *g = gpu())
-        g->flush(); // what's drawn there first
+        g->sync(); // what's drawn there first
     if (mode == DirectX::DrawThreads::kOne || mode == DirectX::DrawThreads::kGpu) {
         rows(0, 1);
         return;

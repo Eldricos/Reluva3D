@@ -55,8 +55,14 @@ enum PrimWord : uint32_t {
     kSamplerWords = 5,
     kPFlat = 44,
     kPPlanes = 52,
-    kValues = 26, // z, 1/w, 8 colours, two coordinates for each of 8 stages
-    kPrimWords = kPPlanes + 3 * kValues,
+    kValues = 26,                     // z, 1/w, 8 colours, two coordinates for each of 8 stages
+    kPClear = kPPlanes + 3 * kValues, // a clear: what it fills (1 the target, 2 depth)
+    kPClearColor,
+    kPClearDepth,
+    kPKeyLow, // a blit's (kPClear 4: its pixels at kPClearColor, keyed if kPClearDepth)
+    kPKeyHigh,
+    kPBlitWidth,
+    kPrimWords,
 };
 constexpr int kAttributes = int(kValues) - 2; // diffuse, specular, a u and v per stage
 constexpr uint32_t kTarget565 = 1;
@@ -75,14 +81,14 @@ struct Params {
     uint32_t height;
     uint32_t tilesX;
     uint32_t activeCount;
-    uint32_t depthBase;
+    uint32_t pad0;
     uint32_t depthWidth;
     uint32_t depthHeight;
-    uint32_t pad0;
+    uint32_t pad1;
     uint32_t tileOffsets;
     uint32_t tileList;
     uint32_t activeTiles;
-    uint32_t pad1;
+    uint32_t pad2;
 };
 
 } // namespace
@@ -97,7 +103,7 @@ std::unique_ptr<GpuRaster> GpuRaster::create(std::string &error) {
     code.spirvSize = sizeof shaders::kRasterizeSpirv;
     code.msl = shaders::kRasterizeMsl;
     code.readOnlyBuffers = 2;
-    code.readWriteBuffers = 1;
+    code.readWriteBuffers = 2;
     code.uniformBuffers = 1;
     code.threadsX = kTile;
     code.threadsY = kTile;
@@ -113,6 +119,270 @@ bool GpuRaster::canDraw(const Draw &d) {
     if (!d.target || (d.cfg.target != Target::kRgb565 && d.cfg.target != Target::kRgb888))
         return false;
     return !d.cfg.zTest || d.cfg.zBytes == 2 || d.cfg.zBytes == 4;
+}
+
+bool GpuRaster::canClear(const Surface *target, const Surface *depth) {
+    if (target) {
+        const PixelFormat &f = target->d.format;
+        const bool rgb565 = f.bits == 16 && f.r == 0xf800 && f.g == 0x07e0 && f.b == 0x001f;
+        const bool rgb888 = f.bits == 32 && f.r == 0xff0000 && f.g == 0xff00 && f.b == 0xff;
+        if ((f.flags & (kPfPaletteIndexed8 | kPfAlphaPixels)) || (!rgb565 && !rgb888))
+            return false;
+    }
+    return !depth || depth->d.format.bytes() == 2 || depth->d.format.bytes() == 4;
+}
+
+GpuRaster::~GpuRaster() {
+    sync(); // what was drawn here, into the surfaces still there
+}
+
+GpuRaster::Resident *GpuRaster::resident(const std::shared_ptr<Surface> &s) {
+    uint8_t *at = s->s->cpu.memory().data() + s->d.memory;
+    for (auto it = _resident.begin(); it != _resident.end(); ++it) {
+        Resident &r = **it;
+        auto alive = r.surface.lock();
+        if (r.at == at && alive == s && r.width == s->d.width && r.height == s->d.height && r.pitch == s->d.pitch &&
+            r.bytes == s->d.format.bytes())
+            return &r;
+        // Gone, its memory somewhere else now (a flip, a mode), or its
+        // memory another's: forgotten, what the GPU drew there brought back
+        // first if the memory is still its.
+        if (!alive || alive == s || r.at == at) {
+            if (&r == _target || &r == _depth)
+                flush();
+            if (alive)
+                bringBack(r);
+            _gpu->destroyBuffer(r.buffer);
+            _resident.erase(it);
+            return resident(s);
+        }
+    }
+    auto r = std::make_unique<Resident>();
+    r->surface = s;
+    r->at = at;
+    r->width = s->d.width, r->height = s->d.height, r->pitch = s->d.pitch;
+    r->bytes = s->d.format.bytes();
+    _resident.push_back(std::move(r));
+    return _resident.back().get();
+}
+
+void GpuRaster::use(Resident *target, Resident *depth) {
+    if (pending() && (target != _target || depth != _depth))
+        flush();
+    _target = target;
+    _depth = depth;
+}
+
+// The surface's copy on the GPU made, or the rows the program changed since
+// they last agreed sent to it.
+Error GpuRaster::send(Resident &r) {
+    const size_t words = size_t(r.width) * size_t(r.height);
+    std::vector<uint32_t> now(words);
+    for (int y = 0; y < r.height; ++y) {
+        const uint8_t *row = r.at + uint32_t(y * r.pitch);
+        uint32_t *to = now.data() + size_t(y) * size_t(r.width);
+        if (r.bytes == 2)
+            for (int x = 0; x < r.width; ++x)
+                to[x] = uint32_t(row[2 * x]) | uint32_t(row[2 * x + 1]) << 8;
+        else
+            std::memcpy(to, row, size_t(r.width) * 4);
+    }
+    if (!r.sent) {
+        if (Error e = _gpu->createBuffer(uint32_t(std::max<size_t>(words, 1) * 4), r.buffer))
+            return e;
+        _gpu->upload(r.buffer, 0, now.data(), uint32_t(words * 4), true);
+        r.shadow = std::move(now);
+        r.sent = true;
+        return Error::success();
+    }
+    // Rows that differ, in runs.
+    const size_t rowWords = size_t(r.width);
+    int y = 0;
+    while (y < r.height) {
+        auto differs = [&](int row) {
+            return std::memcmp(now.data() + size_t(row) * rowWords, r.shadow.data() + size_t(row) * rowWords,
+                               rowWords * 4) != 0;
+        };
+        if (!differs(y)) {
+            ++y;
+            continue;
+        }
+        int end = y + 1;
+        while (end < r.height && differs(end))
+            ++end;
+        const size_t from = size_t(y) * rowWords;
+        const size_t count = size_t(end - y) * rowWords;
+        _gpu->upload(r.buffer, uint32_t(from * 4), now.data() + from, uint32_t(count * 4));
+        std::copy(now.begin() + std::ptrdiff_t(from), now.begin() + std::ptrdiff_t(from + count),
+                  r.shadow.begin() + std::ptrdiff_t(from));
+        y = end;
+    }
+    return Error::success();
+}
+
+// The rows the GPU drew, back into the surface's memory (if it's still the
+// surface's).
+Error GpuRaster::bringBack(Resident &r) {
+    if (r.drawnBottom < r.drawnTop)
+        return Error::success();
+    const int top = r.drawnTop;
+    const int rows = r.drawnBottom - r.drawnTop + 1;
+    r.drawnTop = 0;
+    r.drawnBottom = -1;
+    const size_t rowWords = size_t(r.width);
+    const size_t from = size_t(top) * rowWords;
+    if (Error e = _gpu->download(r.buffer, uint32_t(from * 4), r.shadow.data() + from, uint32_t(rows * rowWords * 4)))
+        return e;
+    const auto s = r.surface.lock();
+    if (!s || s->s->cpu.memory().data() + s->d.memory != r.at)
+        return Error::success();
+    for (int y = top; y < top + rows; ++y) {
+        uint8_t *row = r.at + uint32_t(y * r.pitch);
+        const uint32_t *w = r.shadow.data() + size_t(y) * rowWords;
+        if (r.bytes == 2)
+            for (int x = 0; x < r.width; ++x) {
+                row[2 * x] = uint8_t(w[x]);
+                row[2 * x + 1] = uint8_t(w[x] >> 8);
+            }
+        else
+            std::memcpy(row, w, rowWords * 4);
+    }
+    return Error::success();
+}
+
+GpuRaster::Resident *GpuRaster::find(const Surface *s) {
+    if (!s)
+        return nullptr;
+    const uint8_t *at = s->s->cpu.memory().data() + s->d.memory;
+    for (auto &r : _resident)
+        if (r->at == at && r->surface.lock().get() == s)
+            return r.get();
+    return nullptr;
+}
+
+Error GpuRaster::sync(const Surface *s) {
+    Resident *r = find(s);
+    if (!r)
+        return Error::success();
+    Error e = (r == _target || r == _depth) ? flush() : Error::success();
+    if (Error b = bringBack(*r); b && !e)
+        e = b;
+    return e;
+}
+
+bool GpuRaster::fill(const Surface &s, const Rect &to, uint32_t value) {
+    Resident *r = find(&s);
+    if (!r)
+        return false;
+    // A depth buffer is filled in the batch of the target it was drawn
+    // with; a target in its own, with its depth buffer.
+    const bool depth = r == _depth && r != _target;
+    if (depth && !_target)
+        return false;
+    if (depth)
+        use(_target, _depth);
+    else
+        use(r, r == _target ? _depth : nullptr);
+    const int x0 = std::max(to.left, 0);
+    const int y0 = std::max(to.top, 0);
+    const int x1 = std::min(to.right, std::min(r->width, _target->width)) - 1;
+    const int y1 = std::min(to.bottom, std::min(r->height, _target->height)) - 1;
+    if (x0 > x1 || y0 > y1)
+        return true;
+    std::vector<uint32_t> w(kPrimWords, 0);
+    w[kPY0] = uint32_t(y0);
+    w[kPRows] = uint32_t(y1 - y0 + 1);
+    w[kPSpans] = uint32_t(_spans.size());
+    w[kPClear] = depth ? 2 : 1;
+    w[depth ? kPClearDepth : kPClearColor] = value;
+    for (int y = y0; y <= y1; ++y)
+        _spans.push_back(uint32_t(x0) | uint32_t(x1) << 16);
+    _prims.insert(_prims.end(), w.begin(), w.end());
+    _bounds.push_back({x0, y0, x1, y1});
+    return true;
+}
+
+bool GpuRaster::blit(const Surface &dst, const Surface &src, const Rect &from, const Rect &to, bool keyed,
+                     uint32_t keyLow, uint32_t keyHigh) {
+    Resident *t = find(&dst);
+    if (!t || &dst == &src || src.d.format != dst.d.format || from.width() != to.width() ||
+        from.height() != to.height() || (dst.d.format.flags & kPfPaletteIndexed8))
+        return false;
+    sync(&src); // what the GPU drew there, if anything
+    use(t, t == _target ? _depth : nullptr);
+    // Clipped to both surfaces.
+    const int dx = from.left - to.left;
+    const int dy = from.top - to.top;
+    const int x0 = std::max({to.left, 0, -dx});
+    const int x1 = std::min({to.right, dst.d.width, src.d.width - dx}) - 1;
+    const int y0 = std::max({to.top, 0, -dy});
+    const int y1 = std::min({to.bottom, dst.d.height, src.d.height - dy}) - 1;
+    if (x0 > x1 || y0 > y1)
+        return true;
+    std::vector<uint32_t> w(kPrimWords, 0);
+    w[kPY0] = uint32_t(y0);
+    w[kPRows] = uint32_t(y1 - y0 + 1);
+    w[kPClear] = 4;
+    w[kPClearDepth] = keyed;
+    w[kPKeyLow] = keyLow;
+    w[kPKeyHigh] = keyHigh;
+    w[kPBlitWidth] = uint32_t(x1 - x0 + 1);
+    w[kPSpans] = uint32_t(_spans.size());
+    for (int y = y0; y <= y1; ++y)
+        _spans.push_back(uint32_t(x0) | uint32_t(x1) << 16);
+    w[kPClearColor] = uint32_t(_spans.size()); // its pixels, after its spans
+    const uint8_t *mem = src.s->cpu.memory().data() + src.d.memory;
+    const uint32_t bytes = src.d.format.bytes();
+    for (int y = y0; y <= y1; ++y)
+        for (int x = x0; x <= x1; ++x) {
+            uint32_t v = 0;
+            std::memcpy(&v, mem + uint32_t((y + dy) * src.d.pitch) + uint32_t(x + dx) * bytes, bytes);
+            _spans.push_back(v);
+        }
+    _prims.insert(_prims.end(), w.begin(), w.end());
+    _bounds.push_back({x0, y0, x1, y1});
+    return true;
+}
+
+Error GpuRaster::sync() {
+    Error e = flush();
+    for (auto &r : _resident)
+        if (Error b = bringBack(*r); b && !e)
+            e = b;
+    return e;
+}
+
+bool GpuRaster::clear(const std::shared_ptr<Surface> &target, const std::shared_ptr<Surface> &depth,
+                      const std::vector<Rect> &areas, uint32_t color, uint32_t depthValue) {
+    Resident *t = target ? resident(target) : nullptr;
+    Resident *z = depth ? resident(depth) : nullptr;
+    // A batch draws into a target: a depth buffer alone is cleared in its
+    // own batch's, if it's the one waiting, else with no target drawn.
+    if (!t && z == _depth && _target)
+        t = _target;
+    if (!t)
+        return false;
+    use(t, z ? z : (t == _target ? _depth : nullptr));
+    for (const Rect &a : areas) {
+        const int x0 = std::max(a.left, 0);
+        const int y0 = std::max(a.top, 0);
+        const int x1 = std::min(a.right, t->width) - 1;
+        const int y1 = std::min(a.bottom, t->height) - 1;
+        if (x0 > x1 || y0 > y1)
+            continue;
+        std::vector<uint32_t> w(kPrimWords, 0);
+        w[kPY0] = uint32_t(y0);
+        w[kPRows] = uint32_t(y1 - y0 + 1);
+        w[kPSpans] = uint32_t(_spans.size());
+        w[kPClear] = (target ? 1u : 0u) | (depth ? 2u : 0u);
+        w[kPClearColor] = color;
+        w[kPClearDepth] = depthValue;
+        for (int y = y0; y <= y1; ++y)
+            _spans.push_back(uint32_t(x0) | uint32_t(x1) << 16);
+        _prims.insert(_prims.end(), w.begin(), w.end());
+        _bounds.push_back({x0, y0, x1, y1});
+    }
+    return true;
 }
 
 Error GpuRaster::ensureBuffer(gfx::ComputeBuffer &buffer, uint32_t &capacity, uint32_t bytes) {
@@ -197,13 +467,11 @@ uint32_t GpuRaster::stateRecord(const Draw &d) {
 void GpuRaster::add(const Draw &d, const std::vector<std::array<ClipVertex, 3>> &triangles) {
     if (triangles.empty())
         return;
-    if (pending() && (d.target != _target || (d.cfg.zTest ? d.depth : nullptr) != _depth))
-        flush();
-    if (!pending()) {
-        _target = d.target;
-        _depth = d.cfg.zTest ? d.depth : nullptr;
-        _surfaces = d.cfg;
-    }
+    Resident *target = resident(d.target);
+    Resident *depth = d.cfg.zTest && d.depth ? resident(d.depth) : nullptr;
+    // Draws without depth go into the batch of the target's depth buffer as
+    // well, rather than starting another.
+    use(target, depth ? depth : (target == _target ? _depth : nullptr));
     const uint32_t state = stateRecord(d);
     for (const auto &t : triangles)
         addTriangle(d, state, t[0], t[1], t[2]);
@@ -357,14 +625,15 @@ void GpuRaster::addTriangle(const Draw &d, uint32_t state, const ClipVertex &a, 
 Error GpuRaster::flush() {
     if (!pending())
         return Error::success();
-    const Draw::PixelConfig &s = _surfaces;
-    const uint32_t width = uint32_t(s.targetWidth);
-    const uint32_t height = uint32_t(s.targetHeight);
+    Resident &target = *_target;
+    const uint32_t width = uint32_t(target.width);
+    const uint32_t height = uint32_t(target.height);
     const uint32_t tilesX = (width + kTile - 1) / kTile;
     const uint32_t tilesY = (height + kTile - 1) / kTile;
     // The tiles' lists, each in drawing order.
     const size_t prims = _bounds.size();
-    std::vector<uint32_t> counts(size_t(tilesX) * tilesY + 1, 0);
+    const uint32_t tiles = tilesX * tilesY;
+    std::vector<uint32_t> counts(size_t(tiles), 0);
     for (const auto &b : _bounds)
         for (int ty = b[1] / kTile; ty <= b[3] / kTile; ++ty)
             for (int tx = b[0] / kTile; tx <= b[2] / kTile; ++tx)
@@ -373,7 +642,6 @@ Error GpuRaster::flush() {
     const uint32_t primsBase = uint32_t(_states.size());
     const uint32_t spansBase = primsBase + uint32_t(_prims.size());
     const uint32_t offsetsBase = spansBase + uint32_t(_spans.size());
-    const uint32_t tiles = tilesX * tilesY;
     std::vector<uint32_t> offsets(size_t(tiles) + 1, 0);
     for (uint32_t t = 0; t < tiles; ++t)
         offsets[t + 1] = offsets[t] + counts[t];
@@ -387,53 +655,53 @@ Error GpuRaster::flush() {
     batch.reserve(size_t(activeBase) + active.size());
     batch.insert(batch.end(), _states.begin(), _states.end());
     batch.insert(batch.end(), _prims.begin(), _prims.end());
-    for (size_t p = 0; p < prims; ++p) // the spans' offsets, in the batch
-        batch[primsBase + p * kPrimWords + kPSpans] += spansBase;
+    for (size_t p = 0; p < prims; ++p) { // the spans' offsets (and a blit's pixels'), in the batch
+        uint32_t *w = batch.data() + primsBase + p * kPrimWords;
+        w[kPSpans] += spansBase;
+        if (w[kPClear] & 4)
+            w[kPClearColor] += spansBase;
+    }
     batch.insert(batch.end(), _spans.begin(), _spans.end());
     batch.insert(batch.end(), offsets.begin(), offsets.end());
     std::vector<uint32_t> list(offsets[tiles]);
     std::vector<uint32_t> fill(offsets.begin(), offsets.end() - 1);
+    int top = int(height);
+    int bottom = -1;
     for (size_t p = 0; p < prims; ++p) {
         const auto &b = _bounds[p];
+        top = std::min(top, b[1]);
+        bottom = std::max(bottom, b[3]);
         for (int ty = b[1] / kTile; ty <= b[3] / kTile; ++ty)
             for (int tx = b[0] / kTile; tx <= b[2] / kTile; ++tx)
                 list[fill[size_t(ty) * tilesX + size_t(tx)]++] = primsBase + uint32_t(p) * kPrimWords;
     }
     batch.insert(batch.end(), list.begin(), list.end());
     batch.insert(batch.end(), active.begin(), active.end());
+    Resident *depth = _depth;
+    _states.clear();
+    _lastState.clear();
+    _prims.clear();
+    _spans.clear();
+    _bounds.clear();
 
-    // The target's and depth buffer's pixels, a word each.
-    const bool depth = _depth != nullptr;
-    const uint32_t depthWidth = depth ? uint32_t(s.depthWidth) : 0;
-    const uint32_t depthHeight = depth ? uint32_t(s.depthHeight) : 0;
-    std::vector<uint32_t> frame(size_t(width) * height + size_t(depthWidth) * depthHeight);
-    for (uint32_t y = 0; y < height; ++y)
-        for (uint32_t x = 0; x < width; ++x) {
-            uint32_t raw = 0;
-            std::memcpy(&raw, s.targetAt + y * uint32_t(s.targetPitch) + x * s.targetBytes, s.targetBytes);
-            frame[size_t(y) * width + x] = raw;
-        }
-    const size_t depthBase = size_t(width) * height;
-    for (uint32_t y = 0; y < depthHeight; ++y)
-        for (uint32_t x = 0; x < depthWidth; ++x) {
-            uint32_t raw = 0;
-            std::memcpy(&raw, s.depthAt + y * uint32_t(s.depthPitch) + x * s.zBytes, s.zBytes);
-            frame[depthBase + size_t(y) * depthWidth + x] = raw;
-        }
-
-    // Texture memory, at least a word (all of it again in a new buffer); then the run.
+    // The surfaces' copies up to date, texture memory (at least a word, all
+    // of it again in a new buffer), then the run.
+    Error e = send(target);
+    if (!e && depth)
+        e = send(*depth);
+    if (!e && !_noDepth)
+        e = _gpu->createBuffer(4, _noDepth);
     if (_texWords.empty())
         _texWords.push_back(0);
     const gfx::ComputeBuffer oldTex = _texBuffer;
-    Error e = ensureBuffer(_texBuffer, _texCapacity, uint32_t(_texWords.size() * 4));
+    if (!e)
+        e = ensureBuffer(_texBuffer, _texCapacity, uint32_t(_texWords.size() * 4));
     if (_texBuffer != oldTex)
         _texUploaded = 0;
-    if (!e && _texCapacity < _texWords.size() * 4)
-        e = Error::fail("texture memory too large");
-    if (e) {
-        _prims.clear();
+    if (!e)
+        e = ensureBuffer(_batchBuffer, _batchCapacity, uint32_t(batch.size() * 4));
+    if (e)
         return e;
-    }
     if (_texUploaded > _texWords.size())
         _texUploaded = 0;
     if (_texUploaded < _texWords.size()) {
@@ -441,37 +709,27 @@ Error GpuRaster::flush() {
                      uint32_t(_texWords.size() - _texUploaded) * 4);
         _texUploaded = uint32_t(_texWords.size());
     }
-    if (Error be = ensureBuffer(_batchBuffer, _batchCapacity, uint32_t(batch.size() * 4)))
-        return be;
-    if (Error fe = ensureBuffer(_frameBuffer, _frameCapacity, uint32_t(frame.size() * 4)))
-        return fe;
     _gpu->upload(_batchBuffer, 0, batch.data(), uint32_t(batch.size() * 4), true);
-    _gpu->upload(_frameBuffer, 0, frame.data(), uint32_t(frame.size() * 4), true);
     Params p{};
     p.width = width, p.height = height, p.tilesX = tilesX, p.activeCount = uint32_t(active.size());
-    p.depthBase = uint32_t(depthBase), p.depthWidth = depthWidth, p.depthHeight = depthHeight;
+    p.depthWidth = depth ? uint32_t(depth->width) : 0;
+    p.depthHeight = depth ? uint32_t(depth->height) : 0;
     p.tileOffsets = offsetsBase, p.tileList = listBase, p.activeTiles = activeBase;
     if (!active.empty())
-        _gpu->dispatch(_kernel, {_batchBuffer, _texBuffer}, {_frameBuffer}, &p, sizeof p, uint32_t(active.size()));
-    Error de = _gpu->download(_frameBuffer, 0, frame.data(), uint32_t(frame.size() * 4));
-    _states.clear();
-    _lastState.clear();
-    _prims.clear();
-    _spans.clear();
-    _bounds.clear();
-    if (de)
-        return de;
-    // Back into the surfaces' memory.
-    for (uint32_t y = 0; y < height; ++y)
-        for (uint32_t x = 0; x < width; ++x)
-            std::memcpy(s.targetAt + y * uint32_t(s.targetPitch) + x * s.targetBytes, &frame[size_t(y) * width + x],
-                        s.targetBytes);
-    for (uint32_t y = 0; y < depthHeight; ++y)
-        for (uint32_t x = 0; x < depthWidth; ++x)
-            std::memcpy(s.depthAt + y * uint32_t(s.depthPitch) + x * s.zBytes,
-                        &frame[depthBase + size_t(y) * depthWidth + x], s.zBytes);
-    _target.reset();
-    _depth.reset();
+        _gpu->dispatch(_kernel, {_batchBuffer, _texBuffer}, {target.buffer, depth ? depth->buffer : _noDepth}, &p,
+                       sizeof p, uint32_t(active.size()));
+    _gpu->flush();
+    // What it drew, for sync to bring back.
+    auto drawn = [&](Resident &r, int rowTop, int rowBottom) {
+        rowBottom = std::min(rowBottom, r.height - 1);
+        if (rowTop > rowBottom)
+            return;
+        r.drawnTop = r.drawnBottom < r.drawnTop ? rowTop : std::min(r.drawnTop, rowTop);
+        r.drawnBottom = std::max(r.drawnBottom, rowBottom);
+    };
+    drawn(target, top, bottom);
+    if (depth)
+        drawn(*depth, top, bottom);
     // Texture memory starts again once it's large: what's in use is added
     // again as it's used.
     constexpr size_t kMostWords = size_t(64) << 20;

@@ -205,8 +205,12 @@ std::optional<uint32_t> DirectDraw::invoke(const ComInterface &iface, int index,
         return invoke3d(iface, index, c);
     if (&iface == &s->interfaces.direct3d2)
         return invoke3d2(iface, index, c);
-    s->finishDraws(); // seldom called, and some change the surfaces (the mode, restoring them)
     const std::string_view m = iface.methods[size_t(index)].name;
+    // Some change the surfaces (the mode, restoring them): what's drawn
+    // first. On the GPU, only for those, as the rest are called every frame.
+    if (s->owner.drawThreads != DirectX::DrawThreads::kGpu || m == "SetDisplayMode" || m == "RestoreDisplayMode" ||
+        m == "RestoreAllSurfaces" || m == "SetCooperativeLevel" || m == "FlipToGDISurface")
+        s->finishDraws();
     if (m == "CreateSurface")
         return createSurface(c, iface);
     if (m == "EnumDisplayModes")

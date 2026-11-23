@@ -4,6 +4,7 @@
 // IDirect3D7, IDirect3DDevice7's states, and vertex buffers, as the DirectX
 // 7 documentation describes them. The drawing is raster.cpp's.
 
+#include "emulation/x86/directx/gpu_raster.h"
 #include "emulation/x86/directx/device.h"
 
 #include <algorithm>
@@ -662,6 +663,17 @@ namespace reluva::x86 {
 void DirectX::State::finishDraws() {
     for (dx::Device *d : devices)
         d->finishDraws();
+}
+
+void DirectX::State::finishDrawsFor(const dx::Surface *a, const dx::Surface *b) {
+    if (owner.drawThreads != DirectX::DrawThreads::kGpu || !gpu) {
+        finishDraws();
+        return;
+    }
+    for (dx::Device *d : devices) // drawn here instead (a clear, a copy, what the GPU can't draw)
+        d->finishQueue();
+    gpu->sync(a);
+    gpu->sync(b);
 }
 
 } // namespace reluva::x86

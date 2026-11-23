@@ -5,6 +5,7 @@
 // documentation describes them. A surface's pixels are in the process's
 // memory, rows `pitch` bytes apart, in its pixel format.
 
+#include "emulation/x86/directx/gpu_raster.h"
 #include "emulation/x86/directx/device.h"
 #include "emulation/x86/directx/internal.h"
 
@@ -329,10 +330,18 @@ std::optional<uint32_t> Surface::invoke(const ComInterface &iface, int index, Cp
     // draws still drawing.
     if (m == "Lock" || m == "Unlock" || m == "Blt" || m == "BltFast" || m == "BltBatch" || m == "Flip" ||
         m == "GetDC" || m == "ReleaseDC" || m == "Restore" || m == "SetPalette" || m == "SetColorKey" ||
-        m == "UpdateOverlay" || m == "AddAttachedSurface" || m == "DeleteAttachedSurface")
-        if ((m != "Flip" && m != "Blt") || !s->owner.presentLate ||
-            !(d.caps[0] & kCapsPrimarySurface)) // a late flip or blt waits for less (flip, blt)
-            s->finishDraws();
+        m == "UpdateOverlay" || m == "AddAttachedSurface" || m == "DeleteAttachedSurface") {
+        if (s->owner.drawThreads == DirectX::DrawThreads::kGpu && m != "Flip" && m != "Restore" &&
+            m != "AddAttachedSurface" && m != "DeleteAttachedSurface") {
+            // Only what's drawn into this surface (and a blt's source), on
+            // the GPU; a blt there waits for nothing if the GPU copies it
+            // (blt, bltFast).
+            if (m != "Blt" && m != "BltFast")
+                s->finishDrawsFor(this, nullptr);
+        } else if ((m != "Flip" && m != "Blt") || !s->owner.presentLate || !(d.caps[0] & kCapsPrimarySurface)) {
+            s->finishDraws(); // a late flip or blt waits for less (flip, blt)
+        }
+    }
     ComHost &com = s->com;
     // The interface this surface's own pointers are handed out as.
     auto pointerTo = [&](const std::shared_ptr<Surface> &other) { return com.pointer(other, iface); };
@@ -625,6 +634,16 @@ uint32_t Surface::blt(Cpu &c) {
             return kDDOk;
         s->finishDraws(); // as invoke would have
     }
+    if (s->owner.drawThreads == DirectX::DrawThreads::kGpu) {
+        // A fill of what the GPU keeps, done there; else, as invoke would
+        // have, what's drawn into these alone first.
+        if ((flags & (kBltColorFill | kBltDepthFill)) && c.valid(fx, 84) && s->gpu &&
+            s->gpu->fill(*this, to, c.read32(fx + 80))) {
+            touched();
+            return kDDOk;
+        }
+        s->finishDrawsFor(this, flags & (kBltColorFill | kBltDepthFill) ? nullptr : s->com.as<Surface>(srcPtr));
+    }
     if (flags & (kBltColorFill | kBltDepthFill)) {
         if (!c.valid(fx, 84))
             return kDDErrInvalidParams;
@@ -644,6 +663,8 @@ uint32_t Surface::blt(Cpu &c) {
             keyed = true;
             lo = src->srcKeyLow, hi = src->srcKeyHigh;
         }
+        if (bltOnGpu(*src, from, to, keyed, lo, hi))
+            return kDDOk;
         copy(*src, from, to, keyed, lo, hi);
     }
     if (d.caps[0] & kCapsPrimarySurface)
@@ -707,6 +728,21 @@ bool Surface::bltLate(Surface *src, uint32_t srcRect, const Rect &to, uint32_t f
     return true;
 }
 
+// With DirectX::DrawThreads::kGpu, a copy onto a surface the GPU keeps,
+// added there in its turn with the draws (GpuRaster::blit). Not onto the
+// primary, which is shown from its memory.
+bool Surface::bltOnGpu(const Surface &src, const Rect &from, const Rect &to, bool keyed, uint32_t keyLow,
+                       uint32_t keyHigh) {
+    if (s->owner.drawThreads != DirectX::DrawThreads::kGpu || !s->gpu || (d.caps[0] & kCapsPrimarySurface))
+        return false;
+    for (dx::Device *dev : s->devices)
+        dev->finishQueue();
+    if (!s->gpu->blit(*this, src, from, to, keyed, keyLow, keyHigh))
+        return false;
+    touched();
+    return true;
+}
+
 // BltFast(x, y, src, srcRect, flags): an unstretched copy; flag 1 keys it
 // by the source's colour key.
 uint32_t Surface::bltFast(Cpu &c) {
@@ -717,7 +753,12 @@ uint32_t Surface::bltFast(Cpu &c) {
         return kDDErrInvalidObject;
     const Rect from = c.arg(4) ? Rect::read(c, c.arg(4)) : src->bounds();
     const bool keyed = (c.arg(5) & 1) && src->hasSrcKey;
-    copy(*src, from, {x, y, x + from.width(), y + from.height()}, keyed, src->srcKeyLow, src->srcKeyHigh);
+    const Rect to{x, y, x + from.width(), y + from.height()};
+    if (bltOnGpu(*src, from, to, keyed, src->srcKeyLow, src->srcKeyHigh))
+        return kDDOk;
+    if (s->owner.drawThreads == DirectX::DrawThreads::kGpu) // as invoke would have, for these alone
+        s->finishDrawsFor(this, src);
+    copy(*src, from, to, keyed, src->srcKeyLow, src->srcKeyHigh);
     if (d.caps[0] & kCapsPrimarySurface)
         s->present();
     return kDDOk;
@@ -844,7 +885,7 @@ std::shared_ptr<dx::Surface> DirectX::State::makeSurface(int w, int h, const dx:
 // The frame is the primary surface; with a window (not fullscreen), the
 // window's client area of it.
 void DirectX::State::present() {
-    finishDraws();
+    finishDrawsFor(primary.lock().get(), nullptr); // on the GPU, only what's drawn there
     presentShown();
     latePending = false; // a late frame waiting is shown with it
 }

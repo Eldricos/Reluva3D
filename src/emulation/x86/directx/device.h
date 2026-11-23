@@ -338,6 +338,8 @@ public:
      * another thread): before anything else reads or writes the surfaces.
      */
     void finishDraws();
+    /** Waits for the draws drawing on threads here (not the GPU's). */
+    void finishQueue();
     /** The draws (and clears) queued so far, and waiting for the first so many to be drawn. */
     ///@{
     uint64_t drawsQueued();

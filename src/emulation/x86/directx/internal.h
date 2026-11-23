@@ -252,6 +252,12 @@ public:
      */
     bool bltLate(Surface *src, uint32_t srcRect, const Rect &to, uint32_t flags, Cpu &c);
     /**
+     * With DirectX::DrawThreads::kGpu, a copy onto this surface done on the
+     * GPU (GpuRaster::blit), if it keeps it.
+     * @return False, having done nothing, for any other.
+     */
+    bool bltOnGpu(const Surface &src, const Rect &from, const Rect &to, bool keyed, uint32_t keyLow, uint32_t keyHigh);
+    /**
      * Copies src's `from` onto `to` here, stretching and clipped to both
      * surfaces; with a source colour key, its colours are left out.
      */
@@ -412,6 +418,12 @@ struct DirectX::State {
     State(DirectX &o, Win32Process &p) : owner(o), process(p), cpu(p.cpu()), com(p) {}
     /** Waits for every device's draws to be done. */
     void finishDraws();
+    /**
+     * The same, but for the GPU's (DirectX::DrawThreads::kGpu) only those
+     * into `a` and `b` (either may be null): before their pixels are read
+     * or written.
+     */
+    void finishDrawsFor(const dx::Surface *a, const dx::Surface *b);
     /**
      * Copies the primary surface (with a window, its client area) to the
      * frame and tells the engine: once its draws are done, or

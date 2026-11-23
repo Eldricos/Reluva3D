@@ -151,12 +151,28 @@ Island's 3D on the GPU.
   table fog, every blend factor, and the write to a 565 or X888 target.
   Other targets, and depth buffers other than 2 or 4 bytes a pixel, are
   drawn on the CPU, after what's waiting on the GPU.
-- **Memory.** Textures' levels go into one buffer, as ARGB words with a
-  bit a texel for the colour key, kept while their surfaces' versions
-  don't change, and started again once it's 256 MB. The target and the
-  depth buffer are sent with each batch and read back after it, which
-  happens before anything else touches pixels: a clear, a copy, a line or
-  point, a lock or blt.
+- **Clears, fills and copies on the GPU too.** A device's clear, a blt's
+  colour or depth fill, and a blt copy (unstretched, in the same format,
+  keyed by a source colour key or not) onto a surface the GPU keeps go into
+  the batch in their turn, the copy with its source's pixels as they are
+  then. Other targets, depth buffers other than 2 or 4 bytes a pixel,
+  lines and points are drawn on the CPU, after what's waiting on the GPU.
+- **Surfaces kept on the GPU.** Each target and depth buffer drawn into
+  has a copy there (a word a pixel, a buffer each), and beside it its
+  words as the two last agreed. Before a batch, the rows whose memory
+  differs from those are sent; after it, nothing comes back until
+  something touches the surface's pixels: a lock, a blt from or onto it, a
+  device context, a present of the primary. Then the rows the GPU drew
+  since are brought back into its memory (`GpuRaster::sync`), for that
+  surface alone; a flip, a mode change or restoring surfaces bring back
+  every one. A surface gone, or whose memory has moved (a flip), is
+  forgotten, what the GPU drew brought back first while the memory is
+  still its. On LEGO Island's island this sends next to nothing and
+  brings back only the back buffer's drawn rows, once a frame, for the
+  present: the depth buffer never comes back.
+- **Textures** go into one buffer, as ARGB words with a bit a texel for
+  the colour key, kept while their surfaces' versions don't change, and
+  started again once it's 256 MB.
 
 Deviations from the software rasterizer:
 - **The planes per pixel.** The kernel works each value out at each pixel
@@ -166,6 +182,9 @@ Deviations from the software rasterizer:
   130 of a frame is a 565 step off, scattered over textured faces.
 - **Depth** is worked out in floats, not doubles: exact for 16-bit depth
   buffers, a little off for deeper ones.
+- **The depth buffer's memory** isn't what the GPU drew until something
+  reads it, so the process's memory (and a fixed-clock run's state hash)
+  differs from the software rasterizer's, with the same frames.
 
 ## Sources and checks
 
@@ -178,9 +197,10 @@ Deviations from the software rasterizer:
   quad with point sampling, and a flip.
 
 - The GPU's drawing is checked against the software one's in
-  `testDirectX`: the same 30 random triangles, textured, blended and
-  depth tested, each pixel at most a 565 step apart (without a GPU they're
-  drawn as with one thread). On LEGO Island, run on the fixed clock with
+  `testDirectX`: the same 35 random triangles, textured, blended and
+  depth tested, with a clear, a colour fill and a keyed copy among them,
+  each pixel at most a 565 step apart (without a GPU they're drawn as with
+  one thread). On LEGO Island, run on the fixed clock with
   `-gpu`, the Information Center's frames (2001, 4001) are the same to the
   pixel, and the island's (6001) a step apart in 2,267 of 307,200.
 

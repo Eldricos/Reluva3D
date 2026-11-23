@@ -1446,6 +1446,28 @@ static void testDirectX() {
                        next() | 0x40000000u, float(next() % 300) / 100, float(next() % 300) / 100);
             CHECK(call(device, 25, {4, fvf, verts, 3, 0}) == 0);
         }
+        // Between draws, a fill and a copy keyed by a colour (the texture's
+        // white left out), then more triangles over them: on the GPU, in
+        // their turn with the draws.
+        const uint32_t rect = mem(16);
+        const uint32_t fx = mem(100);
+        auto setRect = [&](int l, int t, int r, int b) {
+            cpu.write32(rect, uint32_t(l)), cpu.write32(rect + 4, uint32_t(t));
+            cpu.write32(rect + 8, uint32_t(r)), cpu.write32(rect + 12, uint32_t(b));
+        };
+        cpu.write32(fx, 100);
+        cpu.write32(fx + 80, 0x001f); // blue
+        setRect(8, 8, 24, 20);
+        CHECK(call(back, 5, {rect, 0, 0, 0x400, fx}) == 0); // Blt: COLORFILL
+        cpu.write32(fx + 92, 0xffff), cpu.write32(fx + 96, 0xffff);
+        setRect(40, 30, 42, 32);
+        CHECK(call(back, 5, {rect, texture, 0, 0x10000, fx}) == 0); // Blt: KEYSRCOVERRIDE
+        for (int t = 0; t < 5; ++t) {
+            for (uint32_t i = 0; i < 3; ++i)
+                vertex(i, float(next() % 900) / 10 - 13, float(next() % 700) / 10 - 11, float(next() % 1000) / 1000,
+                       next() | 0x40000000u, float(next() % 300) / 100, float(next() % 300) / 100);
+            CHECK(call(device, 25, {4, fvf, verts, 3, 0}) == 0);
+        }
         CHECK(call(back, 25, {0, desc, 1, 0}) == 0); // Lock
         const uint32_t pixels = cpu.read32(desc + 36);
         const uint32_t rowBytes = cpu.read32(desc + 16);

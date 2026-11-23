@@ -21,14 +21,15 @@ layout(std430, set = 0, binding = 0) readonly buffer Batch { uint batch[]; };
 // The textures' levels, one 0xAARRGGBB word a texel; their colour keys, a
 // bit a texel, after them.
 layout(std430, set = 0, binding = 1) readonly buffer TexMem { uint texmem[]; };
-// The target, one word a pixel (its value in the target's format), then the
-// depth buffer, one word a pixel.
+// The target, one word a pixel (its value in the target's format), and the
+// depth buffer, one word a pixel (a word, unused, without one).
 layout(std430, set = 1, binding = 0) buffer Frame { uint frame[]; };
+layout(std430, set = 1, binding = 1) buffer Depth { uint depthBuffer[]; };
 
 layout(std140, set = 2, binding = 0) uniform Params {
     uint width, height, tilesX, activeCount;
-    uint depthBase, depthWidth, depthHeight, pad0;
-    uint tileOffsets, tileList, activeTiles, pad1;
+    uint pad0, depthWidth, depthHeight, pad1;
+    uint tileOffsets, tileList, activeTiles, pad2;
 };
 
 // A state record's words (gpu_raster.cpp, StateWord).
@@ -42,6 +43,11 @@ const int cColorOp = 0, cColorArg1 = 1, cColorArg2 = 2, cAlphaOp = 3, cAlphaArg1
 const int cAddressU = 6, cAddressV = 7, cBorder = 8;
 // A triangle's words (gpu_raster.cpp, PrimWord).
 const int pState = 0, pY0 = 1, pRows = 2, pSpans = 3, pSampler = 4, pSamplerWords = 5, pFlat = 44, pPlanes = 52;
+// A clear or a blit instead of a triangle: what it does (1 fills the target,
+// 2 the depth buffer, 4 copies its pixels), the target's value and depth's;
+// a blit's pixels (in the batch, the rows of its rectangle), whether it's
+// keyed, its key's range and its width.
+const int pClear = 130, pClearColor = 131, pClearDepth = 132, pKeyLow = 133, pKeyHigh = 134, pBlitWidth = 135;
 const int kValues = 26; // z, 1/w, then 8 colours and two coordinates for each of 8 stages
 // Within a stage's sampler words.
 const int mBase = 0, mKeyBase = 1, mWidth = 2, mHeight = 3, mLinear = 4;
@@ -224,8 +230,8 @@ void main() {
     uint at = uint(y) * width + uint(x);
     uint color = frame[at];
     bool hasDepth = x < int(depthWidth) && y < int(depthHeight);
-    uint depthAt = depthBase + uint(y) * depthWidth + uint(x);
-    uint depth = hasDepth ? frame[depthAt] : 0u;
+    uint depthAt = uint(y) * depthWidth + uint(x);
+    uint depth = hasDepth ? depthBuffer[depthAt] : 0u;
     bool depthWritten = false;
 
     uint first = batch[tileOffsets + tileIndex];
@@ -241,6 +247,23 @@ void main() {
         int to = int(span >> 16);
         if (x < from || x > to)
             continue;
+        // A clear, in its place among the triangles.
+        uint clearing = P(pClear);
+        if ((clearing & 4u) != 0u) {
+            uint v = batch[P(pClearColor) + uint(row) * P(pBlitWidth) + uint(x - from)];
+            if (P(pClearDepth) == 0u || v < P(pKeyLow) || v > P(pKeyHigh))
+                color = v;
+            continue;
+        }
+        if (clearing != 0u) {
+            if ((clearing & 1u) != 0u)
+                color = P(pClearColor);
+            if ((clearing & 2u) != 0u && hasDepth) {
+                depth = P(pClearDepth);
+                depthWritten = true;
+            }
+            continue;
+        }
         stateAt = P(pState);
         float fx = float(x);
         float fy = float(y);
@@ -333,5 +356,5 @@ void main() {
     }
     frame[at] = color;
     if (depthWritten)
-        frame[depthAt] = depth;
+        depthBuffer[depthAt] = depth;
 }

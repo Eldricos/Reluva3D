@@ -21,6 +21,7 @@ s/\(constant Params& [A-Za-z0-9_]*\) \[\[buffer([0-9]*)\]\]/\1 [[buffer(0)]]/
 s/\(const device Batch& [A-Za-z0-9_]*\) \[\[buffer([0-9]*)\]\]/\1 [[buffer(1)]]/
 s/\(const device TexMem& [A-Za-z0-9_]*\) \[\[buffer([0-9]*)\]\]/\1 [[buffer(2)]]/
 s/\(device Frame& [A-Za-z0-9_]*\) \[\[buffer([0-9]*)\]\]/\1 [[buffer(3)]]/
+s/\(device Depth& [A-Za-z0-9_]*\) \[\[buffer([0-9]*)\]\]/\1 [[buffer(4)]]/
 }' "$tmp/rasterize.metal"
 
 out=dx_kernels.h
