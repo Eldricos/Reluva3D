@@ -14,13 +14,14 @@ the builders are in `tests/engines/nfs/fixtures.h`):
 | `nfs.unit.formats` | RefPack, `.viv`, `.fsh` and the cockpit's, text, fonts, `.fce`, the sky, collision, sound banks, music, movies |
 | `nfs.unit.track` | The Tracks page's models: lighting, weather, animation, reflections, placed sounds, headlights, the road frame, particles, the cars' effects and paint |
 | `nfs.unit.computer` | The computer cars' gears, air, driving, catching up, pursuits, hits and the cops' calls |
-| `nfs.unit.host` | The hosted game's force effects, 3D sound and THRASH's fog, Direct3D look and blends |
+| `nfs.unit.host` | The hosted game's force effects and THRASH's fog, Direct3D look and blends |
 
 The shared code this game needs is tested with the rest of it:
 `common.unit.x86_more` (exact FILD/FISTP, segment registers, the
 readable first page, pokes), `common.unit.mmx`, `common.unit.drives`
 (drives, a serial port), `common.unit.mixer`, `common.unit.ea_audio`,
-`common.unit.prologic`, and the Glide stand-in's `common.unit.glide`,
+`common.unit.prologic`, DirectSound 3D's model in `common.unit.windows`,
+and the Glide stand-in's `common.unit.glide`,
 `glide_more`, `glide_boards` and `glide_gpu`.
 
 ### The basic engine test

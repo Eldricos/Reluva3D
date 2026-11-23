@@ -31,7 +31,6 @@ reluva_add_engine(nfs
         host/directx.cpp
         host/force_effects.cpp
         host/native_sound.cpp
-        host/sound3d.cpp
         host/winsock.cpp
         host/serial.cpp
         host/thrash.cpp

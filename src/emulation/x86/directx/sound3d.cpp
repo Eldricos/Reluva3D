@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "engines/nfs/host/sound3d.h"
+#include "emulation/x86/directx/sound3d.h"
 
 #include <algorithm>
 #include <cmath>
 
-namespace reluva::nfs {
+namespace reluva::x86 {
 
 namespace {
 
@@ -119,4 +119,4 @@ double lowPassCoefficient(double cutoff, double rate) {
     return rate > 0 ? 1 - std::exp(-2 * kPi * cutoff / rate) : 1.0;
 }
 
-} // namespace reluva::nfs
+} // namespace reluva::x86

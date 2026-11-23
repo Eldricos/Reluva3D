@@ -32,6 +32,7 @@ add_library(reluva_emulation STATIC
     x86/directx/dinput.cpp
     x86/directx/interfaces.cpp
     x86/directx/raster.cpp
+    x86/directx/sound3d.cpp
     x86/directx/surface.cpp
     x86/glide/glide2_x86.cpp
     x86/glide/glide3_x86.cpp

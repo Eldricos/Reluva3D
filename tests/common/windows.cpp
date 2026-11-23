@@ -11,6 +11,7 @@
 #include "common/fs.h"
 #include "common/types.h"
 #include "emulation/x86/a3d.h"
+#include "emulation/x86/directx/sound3d.h"
 #include "emulation/x86/dplay.h"
 #include "emulation/x86/com.h"
 #include "emulation/x86/cpu.h"
@@ -922,6 +923,96 @@ static void testInput() {
     process.key(0x26, 0x148, false);
 }
 
+// DirectSound 3D's model (directx/sound3d.h): distance, pan, cone and Doppler.
+static void testSound3d() {
+    using namespace x86;
+    auto near = [](double a, double b) { return std::fabs(a - b) < 1e-4; };
+    Ds3dListener listener;
+    Ds3dSource s;
+    // Ahead, within the minimum distance: as it is.
+    s.position[2] = 0.5f;
+    Ds3dResult r = spatialize(listener, s);
+    CHECK(near(r.left, 1) && near(r.right, 1) && near(r.doppler, 1));
+    // Ahead at 2 and 4 times the minimum distance: -6 and -12 dB or so;
+    // twice the rolloff, faster; past the maximum distance, no quieter.
+    s.position[2] = 2;
+    CHECK(near(spatialize(listener, s).left, 0.5));
+    s.position[2] = 4;
+    CHECK(near(spatialize(listener, s).left, 0.25));
+    listener.rolloffFactor = 2;
+    CHECK(near(spatialize(listener, s).left, 1.0 / 7));
+    listener.rolloffFactor = 1;
+    s.maxDistance = 2;
+    CHECK(near(spatialize(listener, s).left, 0.5));
+    s.maxDistance = 1e9f;
+    // Straight to the right: the left speaker 20 dB down; to the left, the
+    // other way round; 30 degrees right, the left down by 10 dB.
+    s.position[0] = 1;
+    s.position[2] = 0;
+    r = spatialize(listener, s);
+    CHECK(near(r.right, 1) && near(r.left, 0.1));
+    s.position[0] = -1;
+    r = spatialize(listener, s);
+    CHECK(near(r.left, 1) && near(r.right, 0.1));
+    s.position[0] = 0.5f;
+    s.position[2] = std::sqrt(0.75f);
+    r = spatialize(listener, s);
+    CHECK(near(r.right, 1) && near(r.left, std::pow(10.0, -0.5)));
+    // The listener turned to face +x: a source at +x is ahead; one at +z is
+    // now to its left.
+    listener.front[0] = 1;
+    listener.front[2] = 0;
+    s.position[0] = 1;
+    s.position[2] = 0;
+    r = spatialize(listener, s);
+    CHECK(near(r.left, 1) && near(r.right, 1));
+    s.position[0] = 0;
+    s.position[2] = 1;
+    r = spatialize(listener, s);
+    CHECK(near(r.left, 1) && near(r.right, 0.1));
+    // Straight behind (-x for this listener): both speakers 3 dB down and
+    // muffled to 4 kHz; beside, neither.
+    s.position[0] = -1;
+    s.position[2] = 0;
+    r = spatialize(listener, s);
+    CHECK(near(r.behind, 1) && near(r.left, std::pow(10.0, -0.15)) && near(r.right, r.left));
+    CHECK(near(rearCutoff(r.behind), 4000) && near(rearCutoff(0), 20000) && near(rearGain(0), 1));
+    CHECK(near(lowPassCoefficient(4000, 44100), 1 - std::exp(-2 * 3.14159265358979 * 4000 / 44100)));
+    // Head-relative: the position is the listener's own, whichever way it
+    // faces; disabled: as it is, wherever.
+    s.mode = 1;
+    s.position[0] = 1;
+    s.position[2] = 0;
+    r = spatialize(listener, s);
+    CHECK(near(r.right, 1) && near(r.left, 0.1));
+    s.mode = 2;
+    s.position[0] = 100;
+    r = spatialize(listener, s);
+    CHECK(near(r.left, 1) && near(r.right, 1));
+    s = Ds3dSource();
+    listener = Ds3dListener();
+    // A cone pointing away (-z) from a listener at the origin, the source
+    // ahead of it at z 1: outside, so -20 dB.
+    s.position[2] = 1;
+    s.insideCone = 90;
+    s.outsideCone = 180;
+    s.coneOrientation[2] = 1;
+    s.coneOutsideVolume = -2000;
+    CHECK(near(spatialize(listener, s).left, 0.1));
+    s.coneOrientation[2] = -1; // pointing at the listener: inside
+    CHECK(near(spatialize(listener, s).left, 1));
+    s = Ds3dSource();
+    // Doppler: a source 10 units ahead coming at the listener at a tenth of
+    // the speed of sound sounds higher, 1 / 0.9; going away, lower.
+    s.position[2] = 10;
+    s.velocity[2] = -34.33f;
+    CHECK(near(spatialize(listener, s).doppler, 1 / 0.9));
+    s.velocity[2] = 34.33f;
+    CHECK(near(spatialize(listener, s).doppler, 1 / 1.1));
+    listener.dopplerFactor = 0;
+    CHECK(near(spatialize(listener, s).doppler, 1));
+}
+
 // DirectPlay 3 created through COM, with no connections to offer.
 static void testDirectPlay() {
     x86::Cpu cpu(16u << 20);
@@ -1126,5 +1217,6 @@ static const test::Suite
                {"input", [](const std::filesystem::path &) { testInput(); }},
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
                {"directplay", [](const std::filesystem::path &) { testDirectPlay(); }},
+               {"sound 3d", [](const std::filesystem::path &) { testSound3d(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
            });

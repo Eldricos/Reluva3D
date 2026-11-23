@@ -5,7 +5,7 @@
 
 #include <cstdint>
 
-namespace reluva::nfs {
+namespace reluva::x86 {
 
 /**
  * DirectSound 3D's model of a sound and its listener, as
@@ -89,4 +89,4 @@ double lowPassCoefficient(double cutoff, double rate);
  */
 Ds3dResult spatialize(const Ds3dListener &listener, const Ds3dSource &source);
 
-} // namespace reluva::nfs
+} // namespace reluva::x86
