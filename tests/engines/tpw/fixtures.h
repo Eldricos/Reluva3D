@@ -240,7 +240,8 @@ struct MapGroup {
     uint8_t volume;
     uint16_t weight;
     std::vector<MapSound> sounds;
-    uint32_t links = 0;
+    // Links to groups 1, 2... in turn, each its range of 0 to 100.
+    std::vector<std::pair<uint8_t, uint8_t>> links = {};
 };
 
 // A category's effects: the table, then each effect's groups' headers,
@@ -260,7 +261,7 @@ inline Bytes makeEffectMap(const std::vector<std::pair<uint32_t, std::vector<Map
             const size_t at = b.size();
             b.resize(at + 42);
             put32(b, at, uint32_t(g.sounds.size()));
-            put32(b, at + 4, g.links);
+            put32(b, at + 4, uint32_t(g.links.size()));
             b[at + 12] = b[at + 13] = g.volume;
             b[at + 20] = b[at + 21] = 50;
             put16(b, at + 30, g.weight);
@@ -275,10 +276,10 @@ inline Bytes makeEffectMap(const std::vector<std::pair<uint32_t, std::vector<Map
                 put32(b, at + 8, s.millis);
                 put32(b, at + 12, s.bank);
             }
-            for (uint32_t l = 0; l < g.links; ++l) {
+            for (size_t l = 0; l < g.links.size(); ++l) {
                 const size_t at = b.size();
-                put32(b, at, l + 1);
-                put32(b, at + 4, 0x64000000);
+                put32(b, at, uint32_t(l + 1));
+                put32(b, at + 4, uint32_t(g.links[l].first) << 16 | uint32_t(g.links[l].second) << 24);
             }
         }
     }

@@ -220,6 +220,33 @@ a value of its own, the park's mood perhaps, falling in a link's range
 Which pieces come in a group is the roll's, so a run differs from the
 recording's but in its groups.
 
+**How the pieces join.** Each starts as the one before's length in the
+map runs out: `Level2-1663` at 41.96 s and 15,139 ms long, `Level2-637`
+at 57.10 s; `Level2-637`, 19,200 ms, then the next at 76.3 s; in the
+park, at 3:03.9 a 24,450 ms piece and the next at 3:28.5, then 19,200 ms
+and the next at 3:47.7, to the 0.1 s the matching resolves *(confirmed)*.
+No overlap, no gap: where a piece fades out at its end, the game's music
+is quiet a moment too. A piece's sound runs a frame or so longer than
+its map length, cut at the map's.
+
+**What moves it between groups.** The recording's park has the same
+music (Land of Invention's map and bank are the Intro World's, byte for
+byte), so its 22 minutes show the groups over time, each piece found
+by voting: 3-second pieces of every piece cross-correlated with the
+whole recording, a piece's start taken where most of them agree (the
+pieces repeat in bars of 4.8 seconds, so a piece matches 4.8 s either
+side of its start too). Group 1 from the park's opening (1:56) to 8:56,
+group 2 at times between (3:50, 12:44 to 13:21, 17:13, 17:52), group 3
+from 18:43 and steadily from 20:48 to the end (24:00). So the value
+isn't rolled afresh each piece: it holds for minutes, and rises as the
+park does. Not the thermometer at the screen's top left (the park's
+mood, `face1` to `face6` under it): it reads 50 to 77 percent all along.
+The Visitor Statistics window, when the player opens it, has 6 visitors
+in the park at 5:40 and 10 at 7:20 (the music group 1, 0 to 10), 34 at
+9:56 (no music found then), 64 at 21:40 and 67 at 22:25 (group 3, 27 to
+42): half the visitors fits, the count itself doesn't *(guessed: too
+few readings to say)*.
+
 ## In Reluva
 
 `FrontEndScene` (`src/engines/tpw/ui/front_end.cpp`) loads the camera
@@ -240,8 +267,11 @@ turn.
 ([sound-maps.md](../formats/sound-maps.md#in-reluva)), as sound effects
 on the engine's mixer; skipping the path stops them. `FrontEndAudio`
 (`src/engines/tpw/ui/front_end_audio.cpp`) plays the music, from the
-path's start, piece after piece of group 1 by the roll, cut over to
-group 2 at the path's end, through the Personnel File and the globe
+path's start, piece after piece by the roll, each cut to its map
+length, end to end; before each piece it follows its group's link whose
+range holds a value, 0 while the camera moves (group 1) and 20 over the
+globe (group 2), the change cutting in at the path's end as the
+recording's does, through the Personnel File and the globe
 until the park loads; and the advisor's lines at their times, a line
 whose portrait has gone by (the path skipped) not said, his words
 stopped when the Personnel File opens. The mixer's music, speech and
@@ -280,9 +310,11 @@ screens, which the game-files test checks (`tpw.gamedata.frontend`).
   200 2`, `FADEOBJ 2`) are; what `EVENT 5`'s second value says.
 - When the game triggers the script, and what `VAR_SPEECHSTATUS` does;
   what makes the advisor say his lines when he does.
-- How the game moves the music between its groups (the links' ranges),
-  and whether it overlaps a piece's quiet end with the next: Reluva
-  plays them end to end, with lulls where a piece fades out.
+- What value the music's links are set against: something of the
+  park's that rises as it grows, half its visitors perhaps; and what it
+  is in the front end. Whether a change of group waits for the piece
+  playing to end: the recording's at the path's end comes as a cut, or
+  at a join it can't tell apart.
 - What the skip button does in the game, pressed during the path or
   while the camera comes down to the globe; whether the Personnel File
   waits for play or opens by itself.

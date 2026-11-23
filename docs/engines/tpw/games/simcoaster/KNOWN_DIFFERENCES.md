@@ -33,9 +33,9 @@ None yet.
   ([front-end.md](systems/front-end.md#the-portrait-and-the-button));
   its sounds play at the script's own times, up to 4.7 s before the
   recording's, whose computer slowed under the sparkles, and from no
-  place; its music plays its pieces end to end, which may leave lulls
-  the game's doesn't, and the advisor says his lines at the recording's
-  times ([front-end.md](systems/front-end.md#the-music-and-the-speech)).
+  place; its music turns between its groups by values Reluva sets to
+  match the recording, and the advisor says his lines at the
+  recording's times ([front-end.md](systems/front-end.md#the-music-and-the-speech)).
 - **The Personnel File** keeps its players in a file of Reluva's own,
   `players.txt` in the game's save folder, as the game's own aren't
   known ([players.md](systems/players.md)); "Load A Game" is always

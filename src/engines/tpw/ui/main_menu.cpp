@@ -90,7 +90,7 @@ int runFrontEnd(System &sys, const SearchSet &files, const std::filesystem::path
     if (end == PathEnd::kQuit)
         return -1;
     // The recording's music turns to the globe's as the path ends.
-    sound.setMusicGroup(FrontEndAudio::kGlobeGroup);
+    sound.setMusicValue(FrontEndAudio::kGlobeValue, true);
     if (end == PathEnd::kSkipped)
         sound.stopSpeech(false);
 

@@ -67,7 +67,7 @@ Error SoundMap::parse(const std::vector<uint8_t> &effects, const std::vector<uin
         if (groups > kMostEffects || at + size_t(groups) * kGroupHeader > effects.size())
             return Error::fail("effect " + std::to_string(effect.id) + " runs past the end");
         // The groups' headers, then each group's sounds and its links to
-        // others (which chain an ambient's sounds; not read).
+        // others.
         std::vector<uint32_t> links(groups);
         effect.groups.resize(groups);
         for (uint32_t g = 0; g < groups; ++g, at += kGroupHeader) {
@@ -92,7 +92,8 @@ Error SoundMap::parse(const std::vector<uint8_t> &effects, const std::vector<uin
             }
             if (links[g] > (effects.size() - at) / kLinkRecord)
                 return Error::fail("effect " + std::to_string(effect.id) + " runs past the end");
-            at += size_t(links[g]) * kLinkRecord;
+            for (uint32_t l = 0; l < links[g]; ++l, at += kLinkRecord)
+                effect.groups[g].links.push_back({le32(effects, at) - 1, effects[at + 6], effects[at + 7]});
         }
     }
     return Error::success();

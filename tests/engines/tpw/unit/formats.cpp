@@ -710,7 +710,9 @@ void testParticleLibrary() {
 
 const std::vector<std::pair<uint32_t, std::vector<MapGroup>>> kEffects = {
     {224, {{100, 0xffff, {{1, 0xffff, 1669, 1}}}}},
-    {3, {{12, 0x5555, {{2, 0x7fff, 100, 2}, {3, 0xffff, 200, 2}}, 2}, {80, 0xaaaa, {{1, 0xffff, 300, 1}}}}},
+    {3,
+     {{12, 0x5555, {{2, 0x7fff, 100, 2}, {3, 0xffff, 200, 2}}, {{0, 10}, {11, 100}}},
+      {80, 0xaaaa, {{1, 0xffff, 300, 1}}}}},
 };
 
 // A category of two effects: one sound; two groups, the first of two
@@ -733,6 +735,11 @@ void testSoundMap() {
     if (!two || two->groups.size() != 2)
         return;
     CHECK(two->groups[0].volumeLow == 12 && two->groups[0].weight == 0x5555 && two->groups[1].sounds.size() == 1);
+    const auto &links = two->groups[0].links;
+    CHECK(links.size() == 2 && two->groups[1].links.empty());
+    if (links.size() == 2)
+        CHECK(links[0].group == 0 && links[0].low == 0 && links[0].high == 10 && links[1].group == 1 &&
+              links[1].low == 11 && links[1].high == 100);
     const SoundMap::Group *group = nullptr;
     const SoundMap::Sound *picked = SoundMap::pick(*two, 0x1000, 0x8000, &group);
     CHECK(group == &two->groups[0] && picked && picked->entry == 2);

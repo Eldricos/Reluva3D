@@ -28,12 +28,23 @@ public:
         uint32_t millis = 0; // how long it is
     };
 
+    /**
+     * A way on from a group to another, taken while a value of the game's
+     * is in its range *(guessed)*: the music's groups split 0 to 100 so.
+     */
+    struct Link {
+        uint32_t group = 0; // in the effect's groups, from 0
+        int low = 0;        // 0 to 100, both ends in the range
+        int high = 0;
+    };
+
     /** Sounds an effect may play, one of them picked. */
     struct Group {
         int volumeLow = 100; // percent: a volume between the two *(inferred)*
         int volumeHigh = 100;
         uint16_t weight = 0; // its chance of being the group played, of 0xffff in all
         std::vector<Sound> sounds;
+        std::vector<Link> links;
     };
 
     struct Effect {

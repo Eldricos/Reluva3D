@@ -93,9 +93,11 @@ None yet.
   ([front-end.md](systems/front-end.md#the-music-and-the-speech)). What
   the game times them by would settle it.
 
-- **The front end's music turns to its second group at the path's end**,
-  as the recording's does; the game's own choice, by the links' ranges
-  and a value of its own, isn't known
+- **The music's groups follow a value of the game's through their links'
+  ranges**: the park's music climbs from group 1 to group 3 as its
+  visitors grow, half their number fitting the readings there are; the
+  front end's value is set to 0 on the path and 20 over the globe, as
+  its music goes
   ([front-end.md](systems/front-end.md#the-music-and-the-speech)).
 
 - **The Personnel File's portrait is the personnel director's**: the

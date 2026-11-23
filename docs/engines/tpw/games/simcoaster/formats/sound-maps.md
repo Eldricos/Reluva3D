@@ -103,8 +103,11 @@ groups to the other three, each 0 to 100: one plays after another, it
 seems *(guessed)*. Each world's music, one effect of six or seven
 groups, links every group to all of them, in ranges that split 0 to 100
 between them (group 1 0 to 10, group 2 11 to 26...): the next group
-picked by a value of the game's falling in its range, it seems
-*(guessed)*; see [front-end.md](../systems/front-end.md#the-music-and-the-speech).
+picked by a value of the game's falling in its range, a value that holds
+for minutes and rises as a park grows, as the recording's park music
+does ([front-end.md](../systems/front-end.md#the-music-and-the-speech))
+*(inferred)*. A world's next piece starts as the map's length of the one
+before runs out, in the recording *(confirmed)*.
 
 The 230 groups of more than one sound all give rolls rising to 0xFFFF
 or nearly. Of the 51 effects of more than one group, 49 give shares
@@ -150,6 +153,7 @@ sound into a mixer.
 - The fields not worked out: the table's 4th word and flags; the
   groups' other numbers (the pan, a pitch, a delay, a distance?); the
   speech's groups, laid out otherwise.
-- What the links do, and what value the music's ranges are set against.
+- What value the music's ranges are set against; what the lobby's
+  links, each 0 to 100, do.
 - Whether a world's categories stand in for the global ones.
 - What the 16 bytes the files start with stand for.

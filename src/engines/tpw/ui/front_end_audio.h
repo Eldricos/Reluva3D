@@ -26,9 +26,13 @@ namespace reluva::tpw {
 class FrontEndAudio {
 public:
     static constexpr const char *kMusicFolder = "levels/wIntro/Music";
-    /** The music's groups: the first while the camera moves, the second over the globe. */
-    static constexpr size_t kPathGroup = 0;
-    static constexpr size_t kGlobeGroup = 1;
+    /**
+     * The values the music follows its groups' links by *(guessed)*: one
+     * in group 1's range (0 to 10) while the camera moves, one in group
+     * 2's (11 to 26) over the globe, as the recording's music goes.
+     */
+    static constexpr int kPathValue = 0;
+    static constexpr int kGlobeValue = 20;
 
     /** Reads the music's category and the speech's. Fails if either can't be read. */
     Error load(const SearchSet &files);
@@ -45,8 +49,14 @@ public:
      * passed, and keeps the music's next pieces queued.
      */
     void update(uint32_t ms);
-    /** Cuts the music over to one of its groups; the same group goes on. */
-    void setMusicGroup(size_t group);
+    /**
+     * The value the music's next piece follows its group's links by, 0 to
+     * 100; with `cut`, the piece playing gives way to one of the group it
+     * leads to at once, if that's another.
+     */
+    void setMusicValue(int value, bool cut);
+    /** The group the music's pieces come from now, from 0. */
+    size_t musicGroup() const { return _group; }
     /** Stops the line the advisor is saying; with `forGood`, he says no more. */
     void stopSpeech(bool forGood);
     /** Stops the music and the speech. */
@@ -60,6 +70,7 @@ public:
 private:
     void refill();
     uint16_t roll();
+    size_t follow(size_t group) const;
 
     const SearchSet *_files = nullptr;
     audio::Mixer *_mixer = nullptr;
@@ -68,7 +79,9 @@ private:
     std::string _musicBankFile;
     SoundBank _musicBank;
     bool _musicBankRead = false;
-    size_t _group = kPathGroup;
+    size_t _group = 0;
+    int _value = kPathValue;
+    bool _started = false; // a piece queued: the next follows a link
     std::shared_ptr<audio::QueuingStream> _stream;
     audio::SoundHandle _musicHandle = audio::kNoSound;
     std::vector<uint32_t> _piecesQueued;

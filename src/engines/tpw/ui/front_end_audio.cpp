@@ -32,8 +32,11 @@ Error FrontEndAudio::load(const SearchSet &files) {
         return err;
     if (Error err = _music.parse(effects, banks))
         return Error::fail(base + ": " + err.message);
-    if (_music.effects().empty() || _music.effects()[0].groups.size() <= kGlobeGroup || _music.banks().empty())
+    if (_music.effects().empty() || _music.effects()[0].groups.empty() || _music.banks().empty())
         return Error::fail(base + ": not the front end's music");
+    // The first piece's group by the value too: the music's groups all
+    // have the same links.
+    _group = follow(0);
     _musicBankFile = soundBankFile(kMusicFolder, _music.banks()[0]);
     if (Error err = _speech.load(files, kSpeechFolder, {kSpeechCategory}))
         return err;
@@ -48,6 +51,16 @@ uint16_t FrontEndAudio::roll() {
 
 void FrontEndAudio::setMixer(audio::Mixer *mixer) {
     _mixer = mixer;
+}
+
+size_t FrontEndAudio::follow(size_t group) const {
+    const auto &groups = _music.effects()[0].groups;
+    if (group >= groups.size())
+        return group;
+    for (const SoundMap::Link &link : groups[group].links)
+        if (_value >= link.low && _value <= link.high && link.group < groups.size())
+            return link.group;
+    return group;
 }
 
 void FrontEndAudio::refill() {
@@ -67,10 +80,17 @@ void FrontEndAudio::refill() {
     for (int tries = 0; tries < 8; ++tries) {
         if (_stream && _stream->queued() >= size_t(kQueuedSeconds * _stream->rate() * (_stream->stereo() ? 2 : 1)))
             return;
+        if (_started)
+            _group = follow(_group);
         const SoundMap::Sound *piece = SoundMap::pick(groups[_group], roll());
         audio::Sound sound;
         if (!piece || _musicBank.decode(piece->entry, sound) || sound.channels < 1 || sound.channels > 2)
             continue;
+        // The recording's next piece starts as the map's length runs out,
+        // which is a frame or so short of the decoded sound's.
+        const size_t mapped = size_t(piece->millis) * size_t(sound.rate) / 1000 * size_t(sound.channels);
+        if (mapped > 0 && mapped < sound.samples.size())
+            sound.samples.resize(mapped);
         if (!_stream) {
             _stream = std::make_shared<audio::QueuingStream>(sound.rate, sound.channels == 2);
             _musicHandle = _mixer->play(_stream, audio::SoundType::kMusic);
@@ -81,6 +101,7 @@ void FrontEndAudio::refill() {
             continue;
         _stream->queue(sound.samples);
         _piecesQueued.push_back(piece->entry);
+        _started = true;
         tries = 0;
     }
 }
@@ -101,10 +122,12 @@ void FrontEndAudio::update(uint32_t ms) {
     refill();
 }
 
-void FrontEndAudio::setMusicGroup(size_t group) {
-    if (group == _group)
+void FrontEndAudio::setMusicValue(int value, bool cut) {
+    _value = value;
+    if (!cut || _music.effects().empty() || follow(_group) == _group)
         return;
-    _group = group;
+    _group = follow(_group);
+    _started = false;
     if (_mixer && _musicHandle != audio::kNoSound)
         _mixer->stop(_musicHandle);
     _musicHandle = audio::kNoSound;

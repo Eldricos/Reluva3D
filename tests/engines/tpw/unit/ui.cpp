@@ -314,8 +314,9 @@ void testFrontEndAudio(const std::filesystem::path &tmp) {
     };
     using tpw::testing::MapGroup;
     test::writeFile(data / "levels" / "wIntro" / "Music" / "cat_musicSFX.map",
-                    tpw::testing::makeEffectMap(
-                        {{2, {{100, 0x7fff, {{1, 0xffff, 45, 1}}, 2}, {100, 0x8000, {{2, 0xffff, 45, 1}}, 2}}}}));
+                    tpw::testing::makeEffectMap({{2,
+                                                  {{100, 0x7fff, {{1, 0xffff, 40, 1}}, {{0, 10}, {11, 26}}},
+                                                   {100, 0x8000, {{2, 0xffff, 40, 1}}, {{0, 10}, {11, 26}}}}}}));
     test::writeFile(data / "levels" / "wIntro" / "Music" / "cat_musicBANK.map",
                     tpw::testing::makeBankMap({"Music\\Music"}));
     test::writeFile(data / "levels" / "wIntro" / "Music" / "MusicHD.sdt", bankOf(2, true));
@@ -340,8 +341,9 @@ void testFrontEndAudio(const std::filesystem::path &tmp) {
     CHECK(std::any_of(out.begin(), out.end(), [](int16_t v) { return v != 0; }));
     sound.update(2000);
     CHECK((sound.linesStarted() == std::vector<uint32_t>{1018}));
-    sound.setMusicGroup(tpw::FrontEndAudio::kGlobeGroup);
-    CHECK(sound.piecesQueued().back() == 1);
+    CHECK(sound.musicGroup() == 0);
+    sound.setMusicValue(tpw::FrontEndAudio::kGlobeValue, true);
+    CHECK(sound.musicGroup() == 1 && sound.piecesQueued().back() == 1);
     // Skipped to the globe: the second line's portrait has gone by.
     sound.update(tpw::FrontEndOverlay::kGlobeMillis);
     CHECK((sound.linesStarted() == std::vector<uint32_t>{1018, 1020}));
