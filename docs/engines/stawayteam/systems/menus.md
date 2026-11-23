@@ -54,9 +54,11 @@ and `<name> Press`, from `Cache/Interface/Screens/<menu>/`, and a label
   right, at the width less both; aligned left, at the x.
 - **The shortcut:** an `&` in the label isn't drawn, and the key after it
   is the button's shortcut, its place kept at the button's `+0x55`. A
-  line is drawn under it, in a colour that changes with time, when the
-  button's flag at `+0x5d` is set (`0x5cd148`), which is likely once the
-  player has pressed Alt *(inferred)*.
+  line is drawn under it while the button and its window are enabled
+  (`+0x5d`, `0x409700`), whether or not Alt is held (`0x5cd148`): a row
+  under the font's baseline, but inside the button, from 1 in from the
+  character's left to 1 in from its right, in the toolkit's light blue
+  (63,154,255, set at `0x408511`), its alpha the label's brightness.
 - **Lit under the mouse:** the label's drawing goes through a
   brightness set from the button's `+0x174`, a number that changes as
   the mouse comes over it, so the label brightens *(inferred)*.
@@ -212,6 +214,11 @@ typed characters. The scan code is kept too (`0x4e8ec0`).
 - **The focus:** a window hands a key to the child that has its focus
   (`0x409250`); Tab gives the next child the focus, with Shift the one
   before.
+- **Shortcuts need Alt:** the key goes first to the window's shortcuts
+  only while Alt is held (`0x406fcc`, slot `0x40`), then to its keys
+  (slot `0x3c`). A shortcut (`0x4093e0`) matches a child's key in upper
+  case; an enabled one gets the focus and is pressed, a disabled one
+  plays `Error.wav`. Without Alt, a letter is only the focused child's.
 - **A dialog's keys** (`0x401e00`, the menus' own windows' key handler
   after the toolkit's): Up or Left gives the child before the focus
   (`0x409ba0`), Down or Right the next (`0x409b60`); Enter presses the
@@ -486,8 +493,9 @@ Game/Background`:
 - **Buttons:** `Button` and `ButtonGroup` (`ui/button.cpp`): the
   pictures for each state, the label and shortcut; lit under the mouse,
   pressed while it's held down on one, chosen when it's let go on the same
-  one, or by its shortcut's key (without Ctrl or Alt). The shortcut's line
-  and the label's brightening aren't drawn yet.
+  one, or by its shortcut's key held with Alt (not Ctrl), in either case;
+  its line drawn under it as above, opaque. The label's brightening isn't
+  drawn yet, and a disabled button's shortcut plays nothing.
 - **The main menu:** `MainMenu` (`ui/main_menu.cpp`), its screen and its
   buttons as above; Enter and Esc press the default and cancel buttons
   as above, the button's sound played. Quit opens the confirm dialog, in
@@ -586,8 +594,10 @@ Game/Background`:
   (`0x44c1e8`); Reluva scales colours smoothly but for the credits.
 - **The credits' underlines:** how the line drawing uses its colour's
   alpha. Reluva blends them over the roll by it.
-- **The shortcut's line and the label lit:** when the game shows them,
-  and how they look.
+- **The label lit:** how fast the label's brightness (`+0x174`, from
+  0.66 to 1, `0x5cd0fe`) follows its button's state, and which states
+  dim it (`0x5ccfc0`); the shortcut's line takes the same brightness as
+  its alpha. Reluva draws both whole.
 - **Saved games:** how the save screens' rows, time, picture and game
   info are drawn, and the original's save files, for Reluva to read
   them.

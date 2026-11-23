@@ -5,10 +5,18 @@
 
 #include "audio/decode.h"
 #include "engines/stawayteam/formats/frame.h"
+#include "engines/stawayteam/ui/widgets.h"
 
+#include <algorithm>
 #include <cctype>
 
 namespace reluva::stawayteam {
+
+namespace {
+
+constexpr uint8_t kShortcutLine[3] = {63, 154, 255};
+
+} // namespace
 
 image::Image screenPicture(const Archive &data, const std::string &name) {
     std::vector<uint8_t> bytes;
@@ -98,11 +106,29 @@ void Button::draw(Surface &screen, int originX, int originY, bool hover, bool pr
     const int x = originX + _x;
     const int y = originY + _y;
     image::blit(screen, picture, x, y);
-    if (_font && _font->loaded())
-        _font->draw(screen,
-                    _rightAligned ? x + width() - _textX - _font->width(_label)
-                                  : x + (width() - _font->width(_label)) / 2 - _textX,
-                    y + _textY, _label);
+    if (!_font || !_font->loaded())
+        return;
+    const int labelX =
+        _rightAligned ? x + width() - _textX - _font->width(_label) : x + (width() - _font->width(_label)) / 2 - _textX;
+    _font->draw(screen, labelX, y + _textY, _label);
+    // An enabled button's shortcut is underlined, whether or not Alt is
+    // held: a row under the baseline, kept inside the button, 1 in from
+    // each side of the character, in the toolkit's light blue (0x5cd148,
+    // its colour 0x408511).
+    if (!_enabled || _shortcut >= _label.size())
+        return;
+    const int left = labelX + _font->width(_label.substr(0, _shortcut)) + 1;
+    const int right = left + _font->width(_label.substr(_shortcut, 1)) - 2;
+    const int lineY = y + std::min(_textY + _font->baseline() + 1, height() - 1);
+    if (lineY < 0 || lineY >= screen.h)
+        return;
+    for (int px = std::max(0, left); px < std::min(right, screen.w); ++px) {
+        uint8_t *p = screen.row(lineY) + px * 4;
+        p[0] = kShortcutLine[0];
+        p[1] = kShortcutLine[1];
+        p[2] = kShortcutLine[2];
+        p[3] = 255;
+    }
 }
 
 int ButtonGroup::buttonAt(int x, int y) const {
@@ -131,11 +157,8 @@ int ButtonGroup::handleEvent(const Event &ev, audio::Mixer *mixer) {
         }
         break;
     case EventType::kKeyDown:
-        if (ev.mods & (keymod::kCtrl | keymod::kAlt))
-            break;
         for (size_t i = 0; i < _buttons.size(); ++i)
-            if (_buttons[i].enabled() && _buttons[i].shortcut() &&
-                uint32_t(static_cast<unsigned char>(_buttons[i].shortcut())) == ev.key)
+            if (_buttons[i].enabled() && isShortcut(ev, _buttons[i].shortcut()))
                 chosen = int(i);
         break;
     default:

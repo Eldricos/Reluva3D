@@ -25,6 +25,13 @@ bool isEnter(const Event &ev);
 bool isEscape(const Event &ev);
 
 /**
+ * Whether `ev` is the key of shortcut `shortcut` (0: none), in either
+ * case: only with Alt held, and not Ctrl, are keys taken as shortcuts
+ * (0x406fcc, 0x4093e0).
+ */
+bool isShortcut(const Event &ev, char shortcut);
+
+/**
  * A button of the game's window toolkit, on one picture (`Button
  * Background`): the picture dim until the mouse is over it, then
  * brightening; the label at its left (docs/engines/stawayteam/systems/menus.md#the-window-toolkit).

@@ -5,23 +5,23 @@ detect.games: 1
 detect.description: Star Trek: Away Team (unknown release)
 play.result: ok
 play.frames: 17
-play.screen 0: 1922aa0063be7d66
-play.screen 1: e82dc80f95192dbc
-play.screen 2: 1922aa0063be7d66
-play.screen 3: 3c70594ee2926ec7
-play.screen 4: 64a8f22cdecd30a7
-play.screen 5: 7c720f7ce91ed8b9
-play.screen 6: bdae998e7a0d22a5
-play.screen 7: 2044cbc95f278b23
-play.screen 8: e3a192827cec2dcb
-play.screen 9: dceaf17a32084c9b
-play.screen 10: f78d514fa3eaebe9
-play.screen 11: 1922aa0063be7d66
-play.screen 12: fa7084d0a747fc76
-play.screen 13: 1922aa0063be7d66
-play.screen 14: 7c7f346b4eaad296
-play.screen 15: 1922aa0063be7d66
-play.screen 16: 7c7f346b4eaad296
+play.screen 0: 1b2ee383be631796
+play.screen 1: 729538f9e8d4866c
+play.screen 2: 1b2ee383be631796
+play.screen 3: 46ee44a75d455ed7
+play.screen 4: c87989c396c543b7
+play.screen 5: 336c8db309985a09
+play.screen 6: 27d13b297f301f15
+play.screen 7: 7e593341a8cf372b
+play.screen 8: f77867c706d575fb
+play.screen 9: 0206603dcc4fc854
+play.screen 10: 110f492f5a5aa4f9
+play.screen 11: 1b2ee383be631796
+play.screen 12: 4115d62bb3437726
+play.screen 13: 1b2ee383be631796
+play.screen 14: 5e9b76aafc2cf25e
+play.screen 15: 1b2ee383be631796
+play.screen 16: 5e9b76aafc2cf25e
 viewer.result: ok
 viewer.screen 0: d8b7fb0c01c13755
 viewer.screen 1: 24895c0f651fd9fb

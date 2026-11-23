@@ -28,6 +28,9 @@ using namespace reluva;
 
 namespace {
 
+// A key held with Alt, as shortcuts are.
+constexpr uint32_t kAlt = 0x80000000u;
+
 // The headless system with a player who presses keys, one a frame, then
 // closes the window; a checksum of the screen is kept as each key is
 // pressed, and at the end.
@@ -50,7 +53,8 @@ public:
             return true;
         }
         ev.type = EventType::kKeyDown;
-        ev.key = _keys[_next++];
+        ev.key = _keys[_next] & ~kAlt;
+        ev.mods = (_keys[_next++] & kAlt) ? keymod::kAlt : 0;
         return true;
     }
 
@@ -296,7 +300,8 @@ void engineTest(const std::filesystem::path &tmp) {
     rec.add("detect.description", found.empty() ? "" : found[0].description);
 
     // Started, it reads the rules; its movies aren't there to play, so the
-    // main menu comes, its picture and buttons at their places. S (Start
+    // main menu comes, its picture and buttons at their places. Each
+    // letter is held with Alt, as a shortcut has to be. S (Start
     // New Game's shortcut) asks the difficulty, N (CANCEL) closes that; C
     // (Credits') shows the credits, Esc closes them; E (Settings') shows the
     // settings, P unchecks pausing when hit, F (DIFFICULTY SETTING) shows
@@ -308,8 +313,9 @@ void engineTest(const std::filesystem::path &tmp) {
     int frames = 0;
     std::vector<std::string> screens;
     rec.add("play.result", play(*engine, dir, frames, &screens,
-                                {'s', 'n', 'e', 'p', 'f', key::kEscape, 's', key::kEscape, 'k', key::kEscape, 'c', 'c',
-                                 key::kEscape, key::kEscape, key::kReturn, 'q', 'y'}));
+                                {kAlt | 's', kAlt | 'n', kAlt | 'e', kAlt | 'p', kAlt | 'f', key::kEscape, kAlt | 's',
+                                 key::kEscape, kAlt | 'k', key::kEscape, kAlt | 'c', kAlt | 'c', key::kEscape,
+                                 key::kEscape, key::kReturn, kAlt | 'q', kAlt | 'y'}));
     rec.add("play.frames", static_cast<int64_t>(frames));
     for (size_t i = 0; i < screens.size(); ++i)
         rec.add("play.screen " + std::to_string(i), screens[i]);

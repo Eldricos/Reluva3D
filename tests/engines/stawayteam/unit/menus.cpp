@@ -65,11 +65,37 @@ void testButtons() {
     CHECK(group.buttons()[0].label() == "PLAY NETWORK GAME" && group.buttons()[0].shortcut() == 'n');
     CHECK(group.buttons()[1].width() == 40 && group.buttons()[1].shortcut() == 'q');
 
+    // An enabled button's shortcut underlined in light blue a row under
+    // the baseline, kept inside the button, 1 in from the character's
+    // sides: B, 4 wide, after A, 3, the label centred in 40.
+    data.files["Cache/Fonts/Test.seq16"] = fontFile({solidFrame(3, 5, 0xffff), solidFrame(4, 5, 0xffe0)}, 65);
+    Font font;
+    CHECK(!font.load(data, "Test"));
+    Button underlined(data, "Menu", "Button", 0, 0);
+    underlined.setLabel("A&B", &font, 0, 0);
+    Surface surface;
+    surface.create(40, 10, PixelFormat::kRGBA32);
+    underlined.draw(surface, 0, 0, false, false);
+    const auto lit = [&](int x) {
+        const uint8_t *p = surface.row(9) + x * 4;
+        return p[0] == 63 && p[1] == 154 && p[2] == 255;
+    };
+    CHECK(!lit(19) && lit(20) && lit(21) && !lit(22));
+    underlined.setEnabled(false);
+    surface.create(40, 10, PixelFormat::kRGBA32);
+    underlined.draw(surface, 0, 0, false, false);
+    CHECK(!lit(20));
+
     Event ev;
     ev.type = EventType::kKeyDown;
     ev.key = 'q';
+    // A shortcut is taken only with Alt held, and not Ctrl.
+    CHECK(group.handleEvent(ev, nullptr) == -1);
+    ev.mods = keymod::kAlt;
     CHECK(group.handleEvent(ev, nullptr) == 1);
-    ev.mods = keymod::kCtrl;
+    ev.key = 'Q';
+    CHECK(group.handleEvent(ev, nullptr) == 1);
+    ev.mods = keymod::kAlt | keymod::kCtrl;
     CHECK(group.handleEvent(ev, nullptr) == -1);
     // A click: down and up on the same button chooses it; let go off it, nothing.
     Event mouse;
@@ -142,6 +168,7 @@ void testWidgets() {
     Event ev;
     ev.type = EventType::kKeyDown;
     ev.key = 'n';
+    ev.mods = keymod::kAlt;
     CHECK(button.handleEvent(ev, 100, 100, nullptr));
     Event mouse;
     mouse.button = MouseButton::kLeft;
@@ -223,6 +250,7 @@ void testToolkit() {
     Event key;
     key.type = EventType::kKeyDown;
     key.key = 'p';
+    key.mods = keymod::kAlt;
     CHECK(box.handleEvent(key, 0, 0) && box.checked());
     CHECK(box.handleEvent(key, 0, 0) && !box.checked());
 }
@@ -373,6 +401,7 @@ void testTeamSelection() {
     Event start;
     start.type = EventType::kKeyDown;
     start.key = 's';
+    start.mods = keymod::kAlt;
     // Slovaak hasn't the tricorder the mission needs.
     CHECK(screen.handleEvent(start, nullptr, 0) == TeamSelectionScreen::Choice::kNone);
     roster[2].inventory.push_back({"Tricorder", 1});
@@ -435,6 +464,7 @@ void testBriefing() {
     CHECK(screen.line() == 1 && !screen.typed());
     Event end = space;
     end.key = 'e';
+    end.mods = keymod::kAlt;
     CHECK(screen.handleEvent(end, 1030) == BriefingScreen::Choice::kEndBriefing);
 }
 void testDebriefing() {
@@ -612,6 +642,7 @@ void testEscapeMenu() {
     Event key;
     key.type = EventType::kKeyDown;
     key.key = 'm';
+    key.mods = keymod::kAlt;
     CHECK(window.handleEvent(key, nullptr) == EscapeWindow::Choice::kNone);
     key.key = 'n';
     CHECK(window.handleEvent(key, nullptr) == EscapeWindow::Choice::kNone);

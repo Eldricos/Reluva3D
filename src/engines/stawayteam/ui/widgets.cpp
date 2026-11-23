@@ -85,6 +85,12 @@ bool isEscape(const Event &ev) {
     return ev.type == EventType::kKeyDown && ev.key == key::kEscape;
 }
 
+bool isShortcut(const Event &ev, char shortcut) {
+    const auto lower = [](uint32_t c) { return c < 0x80 ? uint32_t(std::tolower(int(c))) : c; };
+    return ev.type == EventType::kKeyDown && shortcut && (ev.mods & keymod::kAlt) && !(ev.mods & keymod::kCtrl) &&
+           lower(ev.key) == lower(static_cast<unsigned char>(shortcut));
+}
+
 PictureButton::PictureButton(image::Image picture, const std::string &label, const Font *font)
     : _picture(std::move(picture)), _font(font), _brightness(1.0f) {
     _label = withoutShortcut(label, _shortcut);
@@ -112,8 +118,7 @@ bool PictureButton::handleEvent(const Event &ev, int originX, int originY, audio
         }
         break;
     case EventType::kKeyDown:
-        chosen = !(ev.mods & (keymod::kCtrl | keymod::kAlt)) && _shortcut &&
-                 ev.key == uint32_t(static_cast<unsigned char>(_shortcut));
+        chosen = isShortcut(ev, _shortcut);
         break;
     default:
         break;
@@ -399,8 +404,7 @@ bool CheckBox::handleEvent(const Event &ev, int originX, int originY) {
         }
         break;
     case EventType::kKeyDown:
-        clicked = !(ev.mods & (keymod::kCtrl | keymod::kAlt)) && _shortcut &&
-                  ev.key == uint32_t(static_cast<unsigned char>(_shortcut));
+        clicked = isShortcut(ev, _shortcut);
         break;
     default:
         break;
