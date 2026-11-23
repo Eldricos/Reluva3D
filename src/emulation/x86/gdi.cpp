@@ -297,6 +297,44 @@ void Gdi::paintFrame(uint32_t window) {
                                  x >= (*whole)[0] + edge && x < (*whole)[0] + (*whole)[2] - edge;
             plot(c, *t, x, y, caption ? 0x800000 : 0xc0c0c0);
         }
+    // Its scroll bars, as Windows 98 draws them: a pale track between two
+    // arrow buttons, and the thumb a raised button where the position is.
+    for (int bar = 0; bar < 2; ++bar) {
+        const auto area = _process.scrollBarArea(window, bar);
+        if (!area)
+            continue;
+        const auto [bx, by, bw, bh] = *area;
+        for (int y = by; y < by + bh; ++y)
+            for (int x = bx; x < bx + bw; ++x)
+                plot(c, *t, x, y, 0xe0e0e0);
+        const int size = bar ? bw : bh;
+        const int length = bar ? bh : bw;
+        // A raised square button `size` long, `from` the bar's start.
+        auto button = [&](int from) {
+            const int x0 = bar ? bx : bx + from;
+            const int y0 = bar ? by + from : by;
+            for (int y = y0; y < y0 + size; ++y)
+                for (int x = x0; x < x0 + size; ++x) {
+                    const bool light = x == x0 || y == y0;
+                    const bool dark = x == x0 + size - 1 || y == y0 + size - 1;
+                    plot(c, *t, x, y, dark ? 0x000000 : light ? 0xffffff : 0xc0c0c0);
+                }
+        };
+        // An arrow's triangle in a button, pointing back (-1) or on (+1).
+        auto arrow = [&](int from, int way) {
+            button(from);
+            const int mid = size / 2;
+            for (int i = 0; i < 4; ++i)
+                for (int j = -i; j <= i; ++j) {
+                    const int along = from + mid + way * (2 - i); // the tip first
+                    plot(c, *t, bar ? bx + mid + j : bx + along, bar ? by + along : by + mid + j, 0x000000);
+                }
+        };
+        arrow(0, -1);
+        arrow(length - size, 1);
+        if (const int thumb = _process.scrollThumb(window, bar); thumb >= 0)
+            button(thumb);
+    }
 }
 
 // Bresenham's, the last point left out, as LineTo leaves it.

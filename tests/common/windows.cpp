@@ -886,6 +886,92 @@ static void testInput() {
 
 // A3D created as a program creates it, a source made, filled through Lock,
 // played once and looped, as the clock moves.
+// A window's scroll bars: left out of AdjustWindowRect, hit-tested by
+// DefWindowProcA, a click on an arrow or the track and a thumb dragged
+// told to the window as WM_VSCROLL, shown and hidden with WM_SIZE.
+static void testScrollBars() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    auto fn = [&](const char *name) { return process.provided("USER32.dll", name); };
+    auto text = [&](const std::string &s) {
+        const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
+        cpu.writeString(a, s, uint32_t(s.size() + 1));
+        return a;
+    };
+    uint32_t r = 0;
+    // A popup with both bars keeps the client rectangle it was given.
+    const uint32_t rc = process.memory().alloc(16);
+    cpu.write32(rc, 0), cpu.write32(rc + 4, 0), cpu.write32(rc + 8, 200), cpu.write32(rc + 12, 150);
+    CHECK(!cpu.call(fn("AdjustWindowRect"), {rc, 0x80300000u, 0}, r) && r);
+    CHECK(cpu.read32(rc + 8) == 200 && cpu.read32(rc + 12) == 150);
+    // The procedure says where the vertical bar is, as DefWindowProcA
+    // would, and keeps the scroll messages and WM_SIZE.
+    std::vector<std::pair<uint32_t, uint32_t>> told;
+    const uint32_t proc = cpu.addNative("test!ScrollProc", [&](x86::Cpu &c) {
+        const uint32_t message = c.arg(1);
+        uint32_t result = 0;
+        if (message == 0x81)
+            result = 1;
+        else if (message == 0x84)
+            result = int16_t(c.arg(3) & 0xffff) >= 184 ? 7 : 1; // HTVSCROLL, HTCLIENT
+        else if (message == 0x114 || message == 0x115 || message == 0x5)
+            told.emplace_back(message, c.arg(2));
+        c.reg[x86::Cpu::EAX] = result;
+        return 16u;
+    });
+    const uint32_t wc = process.memory().alloc(40);
+    cpu.write32(wc + 4, proc);
+    cpu.write32(wc + 36, text("Scrolled"));
+    CHECK(!cpu.call(fn("RegisterClassA"), {wc}, r) && r != 0);
+    CHECK(!cpu.call(fn("CreateWindowExA"), {0, text("Scrolled"), 0, 0x90300000u, 0, 0, 200, 150, 0, 0, 0, 0}, r) &&
+          r != 0);
+    const uint32_t hwnd = r;
+    CHECK((process.clientArea(hwnd) == std::array<int, 4>{0, 0, 184, 134}));
+    CHECK(!cpu.call(fn("SetScrollRange"), {hwnd, 1, 0, 100, 0}, r) && r);
+    CHECK(!cpu.call(fn("SetScrollPos"), {hwnd, 1, 50, 0}, r) && r == 0);
+    CHECK(!cpu.call(fn("GetScrollPos"), {hwnd, 1}, r) && r == 50);
+    CHECK(!cpu.call(fn("SetScrollPos"), {hwnd, 1, 500, 0}, r) && r == 50); // kept within the range
+    CHECK(!cpu.call(fn("GetScrollPos"), {hwnd, 1}, r) && r == 100);
+    CHECK(!cpu.call(fn("SetScrollPos"), {hwnd, 1, 50, 0}, r));
+    // DefWindowProcA's hit test: the bars, the client area.
+    auto at = [](int x, int y) { return uint32_t(x) | uint32_t(y) << 16; };
+    CHECK(!cpu.call(fn("DefWindowProcA"), {hwnd, 0x84, 0, at(190, 70)}, r) && r == 7);
+    CHECK(!cpu.call(fn("DefWindowProcA"), {hwnd, 0x84, 0, at(100, 140)}, r) && r == 6);
+    CHECK(!cpu.call(fn("DefWindowProcA"), {hwnd, 0x84, 0, at(50, 50)}, r) && r == 1);
+    // A press goes out as WM_NCLBUTTONDOWN, which DefWindowProcA turns
+    // into the scroll request; letting go ends it.
+    const uint32_t msg = process.memory().alloc(28);
+    auto press = [&](int x, int y) {
+        process.mouseMoveTo(x, y);
+        process.mouseButton(0, true);
+        while (!cpu.call(fn("PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r)
+            if (cpu.read32(msg + 4) == 0xa1)
+                CHECK(!cpu.call(fn("DefWindowProcA"), {hwnd, 0xa1, cpu.read32(msg + 8), cpu.read32(msg + 12)}, r));
+    };
+    // The bar is 134 long: arrows of 16, the thumb (16) at 16 + 50% of 86.
+    CHECK(process.scrollThumb(hwnd, 1) == 59);
+    press(192, 100); // the track below the thumb
+    process.mouseButton(0, false);
+    CHECK((told == std::vector<std::pair<uint32_t, uint32_t>>{{0x115, 3}, {0x115, 8}})); // SB_PAGEDOWN, SB_ENDSCROLL
+    told.clear();
+    press(192, 5); // the arrow at the top
+    process.mouseButton(0, false);
+    CHECK((told == std::vector<std::pair<uint32_t, uint32_t>>{{0x115, 0}, {0x115, 8}})); // SB_LINEUP
+    told.clear();
+    press(192, 65); // the thumb, 6 down it
+    process.mouseMoveTo(192, 100);
+    process.mouseButton(0, false);
+    // Dragged 35 down: (100 - 16 - 6) of 86 is 90 of the range.
+    CHECK((told == std::vector<std::pair<uint32_t, uint32_t>>{
+                       {0x115, 5 | 90u << 16}, {0x115, 4 | 90u << 16}, {0x115, 8}})); // SB_THUMBTRACK, _THUMBPOSITION
+    told.clear();
+    // Hidden, the client area grows, and the window's told its new size.
+    CHECK(!cpu.call(fn("ShowScrollBar"), {hwnd, 3, 0}, r) && r);
+    CHECK((process.clientArea(hwnd) == std::array<int, 4>{0, 0, 200, 150}));
+    CHECK((told == std::vector<std::pair<uint32_t, uint32_t>>{{0x5, 0}}));
+    CHECK(!process.scrollBarArea(hwnd, 1));
+}
+
 static void testA3d() {
     x86::Cpu cpu(32u << 20);
     x86::Win32Process process(cpu);
@@ -1059,6 +1145,7 @@ static const test::Suite
                {"directx", [](const std::filesystem::path &) { testDirectX(); }},
                {"directdraw clipper", [](const std::filesystem::path &) { testDirectDrawClipper(); }},
                {"input", [](const std::filesystem::path &) { testInput(); }},
+               {"scroll bars", [](const std::filesystem::path &) { testScrollBars(); }},
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
            });

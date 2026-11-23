@@ -541,6 +541,13 @@ public:
         uint32_t id = 0; // a child's (CreateWindowExA's menu argument), a dialog item's
         bool enabled = true;
         std::map<int32_t, uint32_t> longs; // SetWindowLongA's, by index
+        /** A scroll bar's range and place, as SetScrollRange and SetScrollPos set them. */
+        struct ScrollBar {
+            int min = 0;
+            int max = 100;
+            int pos = 0;
+        };
+        std::array<ScrollBar, 2> scroll{}; // SB_HORZ's, SB_VERT's
     };
     /** The window with that handle, or null. */
     const Window *window(uint32_t handle) const;
@@ -550,6 +557,19 @@ public:
     std::optional<std::array<int, 4>> windowArea(uint32_t handle) const;
     /** Whether a window is shown: it and every parent it has visible. */
     bool shown(uint32_t handle) const;
+    /**
+     * A window's scroll bar on the screen, when it has one (WS_HSCROLL,
+     * WS_VSCROLL): left, top, width, height.
+     * @param bar 0 the horizontal one, 1 the vertical.
+     */
+    std::optional<std::array<int, 4>> scrollBarArea(uint32_t handle, int bar) const;
+    /**
+     * Where a scroll bar's thumb starts, from the bar's own start (past
+     * its arrow), as its position puts it; -1 if there's no room for one
+     * or its range is empty. The thumb is a square, as long as the bar is
+     * wide.
+     */
+    int scrollThumb(uint32_t handle, int bar) const;
     /**
      * The window at a point on the screen, as WindowFromPoint finds it:
      * the top one shown there (made last), then its child shown and
@@ -696,6 +716,19 @@ private:
     uint32_t _buttons = 0;                       // MK_ flags held
     std::array<uint8_t, 256> _keysDown{};        // by virtual key
     std::optional<std::array<int, 4>> _clip;     // ClipCursor's: left, top, right, bottom
+    // A scroll bar held down (DefWindowProcA's, on WM_NCLBUTTONDOWN): it's
+    // told SB_ENDSCROLL when the button's let go; a thumb being dragged
+    // also SB_THUMBTRACK as it moves and SB_THUMBPOSITION at the end.
+    struct ScrollHold {
+        uint32_t window = 0;
+        int bar = 0;
+        bool thumb = false;
+        int grab = 0; // where on the thumb it was taken
+        int pos = 0;  // where the thumb's been dragged to
+    };
+    std::optional<ScrollHold> _scrollHold;
+    void scrollDrag();
+    void scrollRelease();
     uint32_t _lastClickTime = 0;
     int _lastClickButton = -1;
     int _lastClickX = 0;

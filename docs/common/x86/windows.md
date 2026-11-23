@@ -94,17 +94,29 @@ C++ library have pages of their own ([directx.md](directx.md),
     hidden or destroyed has every window shown that it covered painted
     again, and the desktop where none is (GDI's `paintDesktop`, black); a
     window with a frame has it painted plainly as it's shown (GDI's
-    `paintFrame`: grey borders and scroll bar tracks, a navy caption,
-    without its title or buttons);
+    `paintFrame`: grey borders, a navy caption, without its title or
+    buttons, and its scroll bars);
   - moved or sized (`SetWindowPos`, `MoveWindow`), a window gets `WM_MOVE`
     and `WM_SIZE`, and is painted again with what it uncovered;
   - `DestroyWindow`, and `DefWindowProcA` closing one, destroys a
     window's children and the windows it owns (a popup's parent is its
     owner) with it, and their timers;
   - scroll bars (`WS_VSCROLL`, `WS_HSCROLL`) lie outside the client area,
-    16 pixels each, though they aren't drawn;
+    16 pixels each, and `AdjustWindowRect` leaves them out, as documented;
+    `ShowScrollBar` shows and hides them by the style (`WM_SIZE` when the
+    client area changes), `SetScrollRange`, `SetScrollPos`,
+    `GetScrollPos` and `GetScrollRange` keep their range and position
+    (0 to 100 at first); they're drawn as Windows 98 draws them (two arrow
+    buttons, a pale track, a square thumb at the position);
+  - `DefWindowProcA` works them: on `WM_NCLBUTTONDOWN` an arrow sends
+    `WM_VSCROLL` or `WM_HSCROLL` with `SB_LINEUP` or `SB_LINEDOWN`, the
+    track `SB_PAGEUP` or `SB_PAGEDOWN`, and the thumb is held: dragged,
+    `SB_THUMBTRACK` as its position changes, then `SB_THUMBPOSITION`;
+    letting go ends it with `SB_ENDSCROLL`. While held the mouse is the
+    bar's, as Windows' own loop takes it; a press isn't repeated while
+    held;
   - `DefWindowProcA` answers `WM_NCHITTEST` by the window's frame (client
-    area, caption, border, or nowhere) and `WM_SETCURSOR` (a child's
+    area, scroll bars, caption, border, or nowhere) and `WM_SETCURSOR` (a child's
     parent asked first);
   - `LoadCursorFromFileA` gives a handle while its file is there (the
     file isn't read), and `SetCursor` and `GetCursor` keep the pointer's
@@ -135,9 +147,9 @@ C++ library have pages of their own ([directx.md](directx.md),
   `DispatchMessageA` calls a timer's own procedure); `GetMessageA`, which
   waits (with host threads, letting the others run);
   `SystemParametersInfoA` (the work area, the screen saver off);
-  `LoadStringA` from the program's string table; and scroll bars, kept
-  but not drawn. With host threads, `MsgWaitForMultipleObjects` is a
-  wait that a message or a due timer also ends. Rectangles (`SetRect`,
+  `LoadStringA` from the program's string table. With host threads,
+  `MsgWaitForMultipleObjects` is a wait that a message or a due timer
+  also ends. Rectangles (`SetRect`,
   `IntersectRect`, `UnionRect`, `PtInRect`...), `wsprintfA` and
   `IsCharAlphaNumericA` are in `win32_user.cpp`. Drawing is
   [GDI's](gdi.md).
@@ -279,6 +291,9 @@ executable's entry point on the main thread until it ends the process.
 - `testInput` checks the messages input becomes, double clicks, key
   states and `ClipCursor`. It also checks DirectInput's mouse (its state,
   its movement since the last read, its buffer) and keyboard.
+- `testScrollBars` checks `AdjustWindowRect` leaving scroll bars out,
+  their range and position, `DefWindowProcA`'s hit test, a click on the
+  track and on an arrow, a thumb dragged, and hiding them.
 - **Confidence:** published unless marked.
 
 - `tests/common/windows_dialogs.cpp` (`common.unit.windows_dialogs`)

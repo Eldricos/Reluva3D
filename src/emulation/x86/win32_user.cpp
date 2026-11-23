@@ -59,6 +59,19 @@ constexpr int kFixedFrame = 3;
 constexpr int kSizeFrame = 4;
 constexpr int kBorder = 1;
 constexpr int kScrollBar = 16; // SM_CXVSCROLL, SM_CYHSCROLL
+constexpr uint32_t kWmHScroll = 0x0114;
+constexpr uint32_t kWmVScroll = 0x0115;
+constexpr uint32_t kWmNcLButtonDown = 0x00a1;
+constexpr uint32_t kHtHScroll = 6;
+constexpr uint32_t kHtVScroll = 7;
+// The scroll messages' requests.
+constexpr uint32_t kSbLineUp = 0;
+constexpr uint32_t kSbLineDown = 1;
+constexpr uint32_t kSbPageUp = 2;
+constexpr uint32_t kSbPageDown = 3;
+constexpr uint32_t kSbThumbPosition = 4;
+constexpr uint32_t kSbThumbTrack = 5;
+constexpr uint32_t kSbEndScroll = 8;
 constexpr uint32_t kWsVScroll = 0x00200000;
 constexpr uint32_t kWsHScroll = 0x00100000;
 // Handles that are only ever passed back: icons and cursors, GDI's stock
@@ -214,6 +227,62 @@ void Win32Process::uncover(const std::array<int, 4> &area) {
     }
 }
 
+std::optional<std::array<int, 4>> Win32Process::scrollBarArea(uint32_t handle, int bar) const {
+    const Window *w = window(handle);
+    const auto inside = clientArea(handle);
+    if (!w || !inside || !(w->style & (bar ? kWsVScroll : kWsHScroll)))
+        return std::nullopt;
+    const auto [x, y, width, height] = *inside;
+    if (bar)
+        return std::array<int, 4>{x + width, y, kScrollBar, height};
+    return std::array<int, 4>{x, y + height, width, kScrollBar};
+}
+
+int Win32Process::scrollThumb(uint32_t handle, int bar) const {
+    const Window *w = window(handle);
+    const auto area = scrollBarArea(handle, bar);
+    if (!w || !area)
+        return -1;
+    const Window::ScrollBar &b = w->scroll[size_t(bar)];
+    // Between the two arrows, less the thumb itself.
+    const int track = (bar ? (*area)[3] : (*area)[2]) - 3 * kScrollBar;
+    if (track < 0 || b.max <= b.min)
+        return -1;
+    const int pos = std::clamp(b.pos, b.min, b.max);
+    return kScrollBar + int(int64_t(pos - b.min) * track / (b.max - b.min));
+}
+
+// A thumb dragged to the pointer: the position it stands for, told as it
+// changes.
+void Win32Process::scrollDrag() {
+    ScrollHold &h = *_scrollHold;
+    const Window *w = window(h.window);
+    const auto area = scrollBarArea(h.window, h.bar);
+    if (!w || !area) {
+        _scrollHold.reset();
+        return;
+    }
+    const Window::ScrollBar &b = w->scroll[size_t(h.bar)];
+    const int track = (h.bar ? (*area)[3] : (*area)[2]) - 3 * kScrollBar;
+    const int along = (h.bar ? cursorY - (*area)[1] : cursorX - (*area)[0]) - kScrollBar - h.grab;
+    const int pos = track > 0 ? std::clamp(b.min + int(int64_t(along) * (b.max - b.min) / track), b.min, b.max) : b.min;
+    if (pos == h.pos)
+        return;
+    h.pos = pos;
+    sendMessage(h.window, h.bar ? kWmVScroll : kWmHScroll, kSbThumbTrack | uint32_t(uint16_t(pos)) << 16, 0);
+}
+
+void Win32Process::scrollRelease() {
+    const ScrollHold h = *_scrollHold;
+    _scrollHold.reset();
+    if (!window(h.window))
+        return;
+    const uint32_t message = h.bar ? kWmVScroll : kWmHScroll;
+    if (h.thumb)
+        sendMessage(h.window, message, kSbThumbPosition | uint32_t(uint16_t(h.pos)) << 16, 0);
+    sendMessage(h.window, message, kSbEndScroll, 0);
+}
+
 void Win32Process::paintShown(uint32_t handle) {
     if (!shown(handle))
         return;
@@ -334,6 +403,12 @@ void Win32Process::mouseMoveTo(int x, int y) {
     cursorX = x, cursorY = y;
     if (dx || dy)
         notify({RawInput::Kind::kMotion, dx, dy});
+    // A scroll bar held takes the mouse, as Windows' own loop does.
+    if (_scrollHold) {
+        if (_scrollHold->thumb)
+            scrollDrag();
+        return;
+    }
     int cx = 0;
     int cy = 0;
     const uint32_t w = mouseTarget(cx, cy);
@@ -370,6 +445,11 @@ void Win32Process::mouseButton(int button, bool down) {
         _buttons &= ~flag;
     _keysDown[button == 0 ? 1 : button == 1 ? 2 : 4] = down;
     notify({RawInput::Kind::kButton, button, down});
+    if (_scrollHold) {
+        if (button == 0 && !down)
+            scrollRelease();
+        return;
+    }
     int cx = 0;
     int cy = 0;
     const uint32_t w = mouseTarget(cx, cy);
@@ -679,12 +759,12 @@ void Win32Process::addUserStandIns() {
         return 1u;
     });
     // AdjustWindowRect(rect, style, menu): the window's rectangle for a
-    // client rectangle.
+    // client rectangle. As documented, scroll bars aren't counted.
     stdcall(u, "AdjustWindowRect", 3, [](Cpu &c) {
         const uint32_t p = c.arg(0);
         if (!c.valid(p, 16))
             return 0u;
-        const Insets f = frameOf(c.arg(1), c.arg(2) != 0);
+        const Insets f = frameOf(c.arg(1) & ~(kWsVScroll | kWsHScroll), c.arg(2) != 0);
         c.write32(p, c.read32(p) - uint32_t(f.left));
         c.write32(p + 4, c.read32(p + 4) - uint32_t(f.top));
         c.write32(p + 8, c.read32(p + 8) + uint32_t(f.right));
@@ -813,7 +893,8 @@ void Win32Process::addUserStandIns() {
     });
     stdcall(u, "TranslateAcceleratorA", 3, [](Cpu &) { return 0u; });
     // DefWindowProcA: closing destroys the window (WM_CLOSE, and the close
-    // command); WM_NCCREATE goes on; everything else needs nothing.
+    // command); WM_NCCREATE goes on; the frame's hit-tested and its scroll
+    // bars work; everything else needs nothing.
     stdcall(u, "DefWindowProcA", 4, [this](Cpu &c) {
         const uint32_t handle = c.arg(0);
         const uint32_t message = c.arg(1);
@@ -834,6 +915,9 @@ void Win32Process::addUserStandIns() {
                 return 0u; // HTNOWHERE
             if (within(*inside))
                 return kHtClient;
+            for (int bar = 0; bar < 2; ++bar)
+                if (const auto a = scrollBarArea(handle, bar); a && within(*a))
+                    return bar ? kHtVScroll : kHtHScroll;
             const Window *w = window(handle);
             const Insets f = frameOf(w->style, false);
             const bool caption = (w->style & kWsCaption) == kWsCaption && y >= (*whole)[1] + f.left &&
@@ -848,6 +932,37 @@ void Win32Process::addUserStandIns() {
                 if (const uint32_t r = sendMessage(w->parent, kWmSetCursor, wParam, c.arg(3)))
                     return r;
             return (c.arg(3) & 0xffff) == kHtClient ? 1u : 0u;
+        }
+        // WM_NCLBUTTONDOWN on a scroll bar: an arrow scrolls a line, the
+        // track a page, the thumb is dragged; the bar is held until the
+        // button's let go.
+        if (message == kWmNcLButtonDown && (wParam == kHtHScroll || wParam == kHtVScroll)) {
+            const int bar = wParam == kHtVScroll ? 1 : 0;
+            const auto area = scrollBarArea(handle, bar);
+            if (!area)
+                return 0u;
+            const int x = int16_t(c.arg(3) & 0xffff);
+            const int y = int16_t(c.arg(3) >> 16);
+            const int along = bar ? y - (*area)[1] : x - (*area)[0];
+            const int length = bar ? (*area)[3] : (*area)[2];
+            const int thumb = scrollThumb(handle, bar);
+            ScrollHold h;
+            h.window = handle;
+            h.bar = bar;
+            h.pos = window(handle)->scroll[size_t(bar)].pos;
+            uint32_t request = kSbPageDown;
+            if (along < kScrollBar)
+                request = kSbLineUp;
+            else if (along >= length - kScrollBar)
+                request = kSbLineDown;
+            else if (thumb >= 0 && along >= thumb && along < thumb + kScrollBar)
+                h.thumb = true, h.grab = along - thumb;
+            else if (thumb >= 0 && along < thumb)
+                request = kSbPageUp;
+            _scrollHold = h;
+            if (!h.thumb)
+                sendMessage(handle, bar ? kWmVScroll : kWmHScroll, request, 0);
+            return 0u;
         }
         if (message == kWmSysCommand && (wParam & 0xfff0) == kScClose)
             return sendMessage(handle, kWmClose, 0, 0);

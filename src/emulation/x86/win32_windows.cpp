@@ -8,6 +8,8 @@
 
 #include "emulation/x86/win32.h"
 
+#include "emulation/x86/gdi.h"
+
 #include "common/pe.h"
 
 #include <algorithm>
@@ -349,17 +351,65 @@ void Win32Process::addWindowStandIns() {
         return uint32_t(text.size());
     });
 
-    // Scroll bars: shown and set as asked, drawn nowhere.
-    stdcall(u, "ShowScrollBar", 3, [](Cpu &) { return 1u; });
-    stdcall(u, "SetScrollRange", 5, [](Cpu &) { return 1u; });
-    stdcall(u, "SetScrollPos", 4, [found](Cpu &c) {
+    // Scroll bars, a window's own (SB_HORZ 0, SB_VERT 1, SB_BOTH 3; a
+    // scroll bar control's, SB_CTL 2, aren't kept): shown or hidden with
+    // the window's style, which changes its client area (WM_SIZE), and
+    // drawn on its frame.
+    auto repaintFrame = [this](uint32_t h) {
+        if (shown(h))
+            _gdi->paintFrame(h);
+    };
+    stdcall(u, "ShowScrollBar", 3, [this, found, repaintFrame](Cpu &c) {
         Window *w = found(c.arg(0));
-        if (!w)
+        const uint32_t bar = c.arg(1);
+        if (!w || bar == 2)
             return 0u;
-        uint32_t &pos = w->longs[c.arg(1) == 1 ? -1001 : -1000]; // SB_VERT 1, SB_HORZ 0
-        const uint32_t before = pos;
-        pos = c.arg(2);
-        return before;
+        const uint32_t bits = bar == 0 ? 0x00100000u : bar == 1 ? 0x00200000u : 0x00300000u; // WS_HSCROLL, WS_VSCROLL
+        const auto before = clientArea(c.arg(0));
+        w->style = c.arg(2) ? w->style | bits : w->style & ~bits;
+        const auto after = clientArea(c.arg(0));
+        if (before && after && ((*before)[2] != (*after)[2] || (*before)[3] != (*after)[3]))
+            sendMessage(c.arg(0), 0x0005, 0, uint32_t((*after)[2] & 0xffff) | uint32_t((*after)[3] & 0xffff) << 16);
+        repaintFrame(c.arg(0));
+        return 1u;
+    });
+    // SetScrollRange(window, bar, min, max, redraw).
+    stdcall(u, "SetScrollRange", 5, [found, repaintFrame](Cpu &c) {
+        Window *w = found(c.arg(0));
+        if (!w || c.arg(1) > 1)
+            return 0u;
+        Window::ScrollBar &b = w->scroll[c.arg(1)];
+        b.min = int32_t(c.arg(2));
+        b.max = int32_t(c.arg(3));
+        b.pos = std::clamp(b.pos, b.min, std::max(b.min, b.max));
+        if (c.arg(4))
+            repaintFrame(c.arg(0));
+        return 1u;
+    });
+    // SetScrollPos(window, bar, pos, redraw): the position before.
+    stdcall(u, "SetScrollPos", 4, [found, repaintFrame](Cpu &c) {
+        Window *w = found(c.arg(0));
+        if (!w || c.arg(1) > 1)
+            return 0u;
+        Window::ScrollBar &b = w->scroll[c.arg(1)];
+        const int before = b.pos;
+        b.pos = std::clamp(int32_t(c.arg(2)), b.min, std::max(b.min, b.max));
+        if (c.arg(3))
+            repaintFrame(c.arg(0));
+        return uint32_t(before);
+    });
+    stdcall(u, "GetScrollPos", 2, [found](Cpu &c) {
+        Window *w = found(c.arg(0));
+        return w && c.arg(1) <= 1 ? uint32_t(w->scroll[c.arg(1)].pos) : 0u;
+    });
+    // GetScrollRange(window, bar, *min, *max).
+    stdcall(u, "GetScrollRange", 4, [found](Cpu &c) {
+        Window *w = found(c.arg(0));
+        if (!w || c.arg(1) > 1 || !c.valid(c.arg(2), 4) || !c.valid(c.arg(3), 4))
+            return 0u;
+        c.write32(c.arg(2), uint32_t(w->scroll[c.arg(1)].min));
+        c.write32(c.arg(3), uint32_t(w->scroll[c.arg(1)].max));
+        return 1u;
     });
 }
 
