@@ -81,11 +81,13 @@ have one in these files:
   property, which has no name), a byte, 1 if the frame is there, and the
   frame ([frm16.md](frm16.md), written by `0x4b3d20`).
 - **`CRotationSequence`** (`0x550ff0`): `CSequence`'s, then 8 bytes for
-  each frame: two 4-byte numbers, how far a moving sequence goes. In each
-  direction, the first frame holds the whole cycle's distance, across and
-  down, and each other frame how far into it that frame is *(inferred:
-  the Generic Male Body's `Walk` going left is 26, 0, then 3, 5, 8 ... 23;
-  facing the viewer 0, 19; a standing `Idle`'s are all 0)*.
+  each frame: two 4-byte whole numbers, how far a moving sequence goes,
+  read for a direction from its first frame's (`0x55134d`, as whole
+  numbers). In each direction, the first frame holds the whole cycle's
+  distance, across and down, and each other frame how far into it that
+  frame is *(inferred: the Generic Male Body's `Walk` going left is 26,
+  0, then 3, 5, 8 ... 23; facing the viewer 0, 19; a standing `Idle`'s
+  are all 0)*.
 - **`CModel`** (`0x50f6e0`): a count, a string, then that many entries:
   a byte, 1 if there's a sequence; if there is, its name, a 0 byte and a
   `CRotationSequence`.
@@ -99,13 +101,16 @@ have one in these files:
 
 - **A rotation sequence's frames** go a direction at a time: its `Num
   Rotations` directions, each with the same number of frames, the frames
-  of one direction together *(seen, not traced: the Klingon's `Idle`, 72
-  frames in 12 directions, turns a step with each 6)*. The game refuses a
-  sequence whose frames don't divide evenly (`"There are not an equal
-  number of frames per rotation in %s."`, used at `0x5517a1`).
+  of one direction together: the frame shown is the direction times the
+  frames a direction has, plus the step (`0x5511f4`; the Klingon's
+  `Idle`, 72 frames in 12 directions, turns a step with each 6). The
+  game refuses a sequence whose frames don't divide evenly (`"There are
+  not an equal number of frames per rotation in %s."`, `0x5517a1`).
 - **A frame is drawn with its origin** at the sequence's point: its
-  top left at the point less the origin *(inferred: the sequences' bounds
-  are their frames' so placed)*.
+  top left at the point less the origin. The frame keeps the origin
+  negated (`0x4b3a77`) and finds its pixel under a point by adding the
+  origin back (`0x4b3450`); the blit offsets the picture's bounds by the
+  point (`0x4bd140`).
 - **A font** (`CFont`) has a frame for each character from its `First
   ASCII` to its `Last ASCII`; `Med Gold` has all 256, those under 32 and
   over 127 drawn as their numbers. Its first property of its own, which

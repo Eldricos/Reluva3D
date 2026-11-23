@@ -15,10 +15,7 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
 
 ## Seen running, not traced in the code
 
-- **A rotation sequence's frames go a direction at a time,** each
-  direction's together. Seen in the data viewer, where the models turn
-  smoothly so; the game's drawing of them isn't traced
-  ([formats/binary-object.md](formats/binary-object.md#behaviour)).
+None now.
 
 ## Inferred
 
@@ -120,9 +117,6 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
   where a place answers a click, and the officer's name over the
   transporter's own text
   ([systems/team-selection.md](systems/team-selection.md#open-questions)).
-- **A frame drawn by its origin:** its top left at the point less its
-  origin, as the sequences' bounds have them
-  ([formats/binary-object.md](formats/binary-object.md#behaviour)).
 - **Which fields are objects.** The game knows it from each class's
   properties; Reluva takes a field for an object when a `{` line follows
   it. The same on all of the game's files, but a file edited by hand
