@@ -147,6 +147,17 @@ that far.
   station, the hospital and the police goes out to the island there, as
   to the pizzeria and the boat; each run on to 30,000 frames or more
   without stopping.
+- **Every function imported stood in for** (none left of the 35 at
+  first). What calls those found last, read in the two programs: their
+  C runtime's locale (`GetLocaleInfoA/W`) and process spawning
+  (`CreateProcessA`, `GetExitCodeProcess`, 0x10095602); SmartHeap's
+  shared memory (`OpenFileMappingA`, `MapViewOfFileEx`, `OpenProcess`);
+  two frame rate overlays, drawn as text on a surface's device context
+  (0x1007b080, 0x1009dbb0, "fps"), a palette reset (0x100ba5e3) and a
+  bitmap drawn by GDI (0x100bce70); MIDI music (0x100c0470; no SI file
+  holds any); and moving players' saved games along (`MoveFileA`,
+  0x1003a216: `G0.GS` to `G1.GS` when a second player registers, seen to
+  work).
 - **Speed:** on the island at the pizzeria, run by `reluva-tool` (no
   frame rate limit) on a 4-core machine, it shows 50 to 65 frames a
   second. Sampled with `gdb`, about half the game thread's time was in

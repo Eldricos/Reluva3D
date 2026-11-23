@@ -1,4 +1,4 @@
-turning: e7179e7116425705 | stopped at frame 9501 after 3399354524 instructions, state eb6736b24d8c0d3f
+turning: 0647e83f789b030f | stopped at frame 9501 after 3399354524 instructions, state 1e174ef7bb4d68ea
 Players.gsi: a53af3d5ddecddb0
 frame_00001.tga: 16dc43ade655176c
 frame_00501.tga: c8979af185c560b5
