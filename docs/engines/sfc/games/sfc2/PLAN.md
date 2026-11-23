@@ -79,13 +79,16 @@ on their pages in `formats/` and `systems/`.
      typing as a US keyboard does, and a keyed blit failing from a
      source with no colour key, so the game draws its pointer itself.
      Its CD key dialog takes typed keys and checks them
-     ([systems/hosting.md](systems/hosting.md#its-mouse-and-keys));
+     ([systems/hosting.md](systems/hosting.md#its-mouse-and-keys)); the
+     owner's key is taken, and kept, with the program's other registry
+     writes, in the save folder;
    - the Windows functions the spike stood in for in the engine
      (`src/engines/sfc/host/system.cpp`), moved to the shared layer as
      they're settled;
    - Winsock (`nfs` has one in its host) and DirectPlay 4, for the
      network;
-   - Miles' 25 `AIL_*` sample functions, on the shared mixer;
+   - Miles' 25 `AIL_*` sample functions, on the shared mixer (next: past
+     its CD key the game stops at its first);
    - DirectSound 3D buffers, if Miles doesn't take all the sound.
 6. **The game hosted:** the front end, a skirmish, the tutorials, then a
    campaign and its missions (the game loads their DLLs itself), saves,

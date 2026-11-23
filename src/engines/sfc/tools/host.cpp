@@ -156,6 +156,11 @@ int cmdHost(int argc, char **argv) {
         if (!quiet)
             std::printf("ini %s\n", what.c_str());
     };
+    // Where, not what: a value written may be the player's CD key.
+    game.registryWritten = [quiet](const std::string &key, const std::string &name) {
+        if (!quiet)
+            std::printf("registry %s\\%s written\n", key.c_str(), name.c_str());
+    };
     uint64_t raised = 0;
     process.exceptionRaised = [&](x86::Cpu &c, uint32_t record) {
         ++raised;

@@ -15,6 +15,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace reluva::sfc {
 
@@ -35,9 +36,11 @@ public:
 
     /**
      * Where what the program writes in its folder goes, and is read back
-     * from first; without one, it can't write.
+     * from first; without one, it can't write. The registry values it
+     * wrote before (its CD key among them) are read back from the
+     * folder's registry.txt.
      */
-    void setSaveFolder(std::filesystem::path folder) { _saveDir = std::move(folder); }
+    void setSaveFolder(std::filesystem::path folder);
 
     /** Reads and loads StarFleet2.exe, its imports bound. */
     Error load();
@@ -62,10 +65,19 @@ public:
 
     /** Told of each INI setting the program reads: the file, [section] and key. */
     std::function<void(const std::string &what)> iniReads;
+    /** Told of each registry value the program writes, once it's kept. */
+    std::function<void(const std::string &key, const std::string &name)> registryWritten;
+
+    /** The file in the save folder the program's registry values are kept in. */
+    static constexpr const char *kRegistryFile = "registry.txt";
 
 private:
     /** The Windows functions the shared stand-ins don't have (system.cpp). */
     void addSystem();
+    /** Reads back the registry values kept in the save folder. */
+    void loadRegistry();
+    /** Keeps a value the program wrote, rewriting the save folder's file. */
+    void keepRegistryValue(const std::string &key, const std::string &name);
     /** Stands in for a function taking `args` 32-bit arguments, popping them; `fn` gives EAX. */
     void stdcall(const char *dll, const char *name, int args, std::function<uint32_t(x86::Cpu &)> fn);
 
@@ -77,6 +89,14 @@ private:
     std::unique_ptr<x86::DirectInput> _directInput;
     const x86::Win32Process::Module *_exe = nullptr;
     uint32_t _focus = 0; // the window with the focus
+    /** A registry value kept, as the program wrote it. */
+    struct RegistryValue {
+        std::string key;
+        std::string name;
+        uint32_t type = 0;
+        std::vector<uint8_t> data;
+    };
+    std::map<std::string, RegistryValue> _registry; // by key and name, lower-case, as Windows matches them
 };
 
 } // namespace reluva::sfc

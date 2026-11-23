@@ -10,15 +10,15 @@ Command (1999) and Orion Pirates (2001) could follow.
 
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
-| [Star Trek: Starfleet Command Volume II: Empires at War](games/sfc2/README.md) | `sfc2` | Taldren / Interplay, 2000 | Windows | English retail 1.0; others, the 2.0.3.6 patch among them, as an unknown release | Recognised; a data viewer of its files; its own program runs, hosted, to its title screen, where its CD key can be typed |
+| [Star Trek: Starfleet Command Volume II: Empires at War](games/sfc2/README.md) | `sfc2` | Taldren / Interplay, 2000 | Windows | English retail 1.0; others, the 2.0.3.6 patch among them, as an unknown release | Recognised; a data viewer of its files; its own program runs, hosted, to its title screen, its CD key typed and kept |
 
 ## Where it stands
 
 It recognises Starfleet Command II's installs and reads its pictures,
 fonts, models, tables and sounds, which its data viewer shows. Started,
 the game's own program runs in the x86 emulator, in Reluva's window,
-with the mouse and keys passed to it, as far as its title screen and its
-CD key dialog. The plan is in [games/sfc2/PLAN.md](games/sfc2/PLAN.md).
+with the mouse and keys passed to it, as far as its title screen, past
+its CD key dialog. The plan is in [games/sfc2/PLAN.md](games/sfc2/PLAN.md).
 
 ## Using it
 

@@ -17,7 +17,10 @@ and catches C++ exceptions, which Reluva dispatches, reads
 screen with its CD key dialog ("Authentication Protocol"), where it
 waits for a key to be typed. Run from the launcher it's in Reluva's
 window, and the mouse and keys reach it: a key typed into the dialog is
-checked by the game, which says when it's wrong.
+checked by the game. Given the owner's key, it writes it to the
+registry, which Reluva keeps in the game's save folder, shows its full
+title screen, and starts its sound, through Miles, which nothing stands
+in for yet. Run again, it finds the key and doesn't ask.
 
 ## How it works
 
@@ -118,6 +121,17 @@ As it loads, it writes `tBitmapFontEx.log` in its folder
 was opened: where it can't write, it fails, reading through a null
 `FILE` at 0x6ca498.
 
+Given a CD key it takes, it writes one registry value,
+`HKEY_LOCAL_MACHINE\SOFTWARE\WON\CDKeys`, named `StarfleetCommand2`:
+16 bytes of binary (`REG_BINARY`), not the key's text, so encoded in
+some way *(seen, not traced)*. Started with that value there, it shows
+no dialog.
+
+Reluva has no registry on any system, so what the program writes to it
+is kept in the save folder's `registry.txt`, a line a value (key, name,
+type and bytes in hex, separated by tabs), and read back each time it
+starts.
+
 ### Its title screen
 
 The Starfleet Command logo over stars, Taldren's and Paramount's, the
@@ -133,8 +147,10 @@ the window's messages (`PeekMessageA`): keys through `TranslateMessage`,
 whose `WM_CHAR` types into the CD key dialog. Up to its title screen it
 doesn't create DirectInput, which it imports. Capitals need Shift and `-` its
 own key, as on a US keyboard. A wrong key gets "ERROR! We're sorry, but
-the CD Key you entered was incorrect. Please try again."; the key the
-owner's copy came with hasn't been tried yet.
+the CD Key you entered was incorrect. Please try again." The key the
+owner's copy came with, typed, is taken: the dialog closes, and the
+full title screen shows, the logos of Taldren, 14 East, Interplay and
+Paramount under the game's own.
 
 It draws its own pointer, from `Assets/mouse/cursors.txt` and the `.cur`
 files it names, over its frame each time it shows one: it keeps what's
@@ -198,8 +214,9 @@ known.
   <y>` clicks with the left button, `-shot <frame> <out.png>` saves that
   frame. `reluva-tool sfc disasm <game folder> <start> <end>`
   disassembles the program.
-- **Not yet:** sound, the network, the opening movie; nothing past the
-  CD key dialog has run.
+- **Not yet:** sound, the network, the opening movie. Past its CD key
+  the program stops at its first call into Miles,
+  `AIL_set_redist_directory`.
 
 ## Sources and checks
 
@@ -242,7 +259,7 @@ isn't measured.
   `uibitmaps.zip` and `uq3.txt`.
 - Why the title screen says "v2.0.0.2" when the program's version
   resource says 1.0.0.2.
-- Where the CD key is kept once entered (the program names `SOFTWARE\WON\CDKeys`).
+- How the 16 bytes kept for the CD key are made from it.
 - What the original's display drivers did with a blit keyed by a source
   with no colour key, as the game's pointer is drawn with `hwblit=1`.
 - What the game uses DirectInput for, past its title screen.

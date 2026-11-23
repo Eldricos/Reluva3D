@@ -7,6 +7,9 @@
 #include "common/stream.h"
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+#include <sstream>
 #include <vector>
 
 namespace reluva::sfc {
@@ -59,9 +62,79 @@ GameProcess::GameProcess(std::filesystem::path install, uint32_t memoryMb) : _di
             fileOpened(windowsPath, found.has_value());
         return found;
     };
+    // What it writes to the registry is kept in the save folder, as
+    // Reluva has no registry of its own on any system.
+    _process->registryWritten = [this](const std::string &key, const std::string &name) {
+        keepRegistryValue(key, name);
+        if (registryWritten)
+            registryWritten(key, name);
+    };
     _directX = std::make_unique<x86::DirectX>(*_process);
     _directInput = std::make_unique<x86::DirectInput>(*_process);
     addSystem();
+}
+
+void GameProcess::setSaveFolder(std::filesystem::path folder) {
+    _saveDir = std::move(folder);
+    loadRegistry();
+}
+
+namespace {
+std::string registryId(const std::string &key, const std::string &name) {
+    return fs::toLower(key) + '\n' + fs::toLower(name);
+}
+} // namespace
+
+// registry.txt: a line a value, its key, name, type and bytes in hex,
+// separated by tabs; lines starting with # are comments.
+void GameProcess::loadRegistry() {
+    _registry.clear();
+    std::vector<uint8_t> file;
+    if (_saveDir.empty() || !readFile(_saveDir / kRegistryFile, file))
+        return;
+    std::istringstream in(std::string(file.begin(), file.end()));
+    for (std::string line; std::getline(in, line);) {
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
+        if (line.empty() || line[0] == '#')
+            continue;
+        std::vector<std::string> fields;
+        for (size_t at = 0;;) {
+            const size_t tab = line.find('\t', at);
+            fields.push_back(line.substr(at, tab == std::string::npos ? std::string::npos : tab - at));
+            if (tab == std::string::npos)
+                break;
+            at = tab + 1;
+        }
+        if (fields.size() != 4 || fields[3].size() % 2)
+            continue;
+        RegistryValue v{fields[0], fields[1], uint32_t(std::strtoul(fields[2].c_str(), nullptr, 10)), {}};
+        for (size_t i = 0; i < fields[3].size(); i += 2)
+            v.data.push_back(uint8_t(std::strtoul(fields[3].substr(i, 2).c_str(), nullptr, 16)));
+        _process->setRegistryValue(v.key, v.name, v.type, v.data);
+        _registry[registryId(v.key, v.name)] = std::move(v);
+    }
+}
+
+void GameProcess::keepRegistryValue(const std::string &key, const std::string &name) {
+    uint32_t type = 0;
+    const auto data = _process->registryValue(key, name, &type);
+    if (!data || _saveDir.empty())
+        return;
+    _registry[registryId(key, name)] = RegistryValue{key, name, type, *data};
+    std::string text = "# What StarFleet2.exe wrote to the registry: key, name, type, bytes.\n";
+    for (const auto &[id, v] : _registry) {
+        text += v.key + '\t' + v.name + '\t' + std::to_string(v.type) + '\t';
+        for (const uint8_t b : v.data) {
+            char hex[3];
+            std::snprintf(hex, sizeof hex, "%02x", b);
+            text += hex;
+        }
+        text += '\n';
+    }
+    std::error_code ec;
+    std::filesystem::create_directories(_saveDir, ec);
+    writeFile(_saveDir / kRegistryFile, std::vector<uint8_t>(text.begin(), text.end()));
 }
 
 Error GameProcess::load() {

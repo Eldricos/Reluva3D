@@ -16,6 +16,11 @@ systems (a CD check, a mode the hardware no longer has). -->
   folder; hosted, those go to a save folder, read before the install,
   and the install is left as it is
   ([systems/hosting.md](systems/hosting.md#what-it-writes)).
+- **What the game writes to the registry goes to a file.** The original
+  keeps its CD key in Windows' registry; hosted, the values it writes
+  are kept in `registry.txt` in its save folder, so they're kept on
+  every system Reluva runs on, and nothing is written to Windows' own
+  registry ([systems/hosting.md](systems/hosting.md#what-it-writes)).
 
 ## Bugs fixed
 
@@ -25,8 +30,8 @@ None yet.
 ## Not yet as the original
 
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
-The game runs only as far as its title screen and its CD key dialog;
-it has no sound and no network yet
+The game runs only as far as its title screen: past its CD key it
+stops for want of Miles' sound; it has no network yet
 ([systems/hosting.md](systems/hosting.md)).
 
 ## Additions outside the game

@@ -2,3 +2,4 @@
 # Written by `reluva-tests sfc.engine --update`; review its diff before committing.
 detect.games: 0
 run.no_program: error
+registry.value: HKEY_LOCAL_MACHINE\SOFTWARE\WON\CDKeys|StarfleetCommand2|3|0123abff
