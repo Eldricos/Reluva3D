@@ -1,7 +1,8 @@
 # SimCoaster
 
 Bullfrog's theme park game of 2001, published by Electronic Arts: build
-parks in three themed worlds (Arabian Nights, New Science, Water World)
+parks in three themed worlds (Land of Invention, Polar Zone, Arabian
+Nights)
 around roller coasters of the player's own design, meet the challenges
 of its missions, and keep the guests happy. Released in Europe as Theme
 Park Inc. Game id `simcoaster`, on the
@@ -49,7 +50,7 @@ Esc leaves it.
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
 | `formats/` | The game's own files, a page each: [the executable](formats/executable.md), [the CD](formats/cd.md), [archives](formats/wad.md), [settings](formats/sam.md), [text](formats/str.md), [fonts](formats/bf4.md), [pictures](formats/fsh.md) |
 | `systems/` | How the game behaves, a page per part |
-| `research/` | Working notes |
+| `research/` | Working notes: [what a recording of the game shows](research/footage.md) |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
 | [TESTING.md](TESTING.md) | The tests, and what to check by hand |
@@ -57,8 +58,9 @@ Esc leaves it.
 
 ## Terms
 
-- **World:** one of the game's three themed lands (`arabian`, `science`,
-  `water` in `Data/levels/`), each with its own rides, shops and scenery;
-  `wIntro` is the opening's.
+- **World:** one of the game's three themed lands, each with its own
+  rides, shops and scenery: Land of Invention, Polar Zone and Arabian
+  Nights (`science`, `water` and `arabian` in `Data/levels/`), and the
+  Intro World (`wIntro`) ([research/footage.md](research/footage.md#the-worlds-names-and-folders)).
 - **Challenge:** a goal set by the game's advisor, from
   `Data/Challenges.sam`.

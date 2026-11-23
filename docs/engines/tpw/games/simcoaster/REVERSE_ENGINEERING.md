@@ -19,7 +19,9 @@ extended. The facts themselves are on their pages, each with its source.
 - **The game's files**, from the US release, installed and on its CD.
 - **Recordings of the original**, run from its CD on Windows (a real
   machine, or a virtual machine with the CD passed through), and public
-  gameplay videos: for what the files don't say.
+  gameplay videos: for what the files don't say. So far one public
+  recording, of the opening and 22 minutes of play
+  ([research/footage.md](research/footage.md)).
 - **Published documentation:** Microsoft's PE/COFF specification (the
   executable's headers), the DirectX documentation, and public notes on
   Theme Park World's formats (the OpenTPW project's) where a page says

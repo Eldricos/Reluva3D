@@ -15,6 +15,11 @@ None yet.
 
 ## Inferred
 
+- **Which level folder is which world**: `science` Land of Invention,
+  `water` Polar Zone, `wIntro` Intro World, `arabian` Arabian Nights, from
+  the string table's order and `Objects.txt`'s themes
+  ([research/footage.md](research/footage.md#the-worlds-names-and-folders)).
+  Entering each world, seen with its files, would settle it.
 - **Each archive stands for the folder of its name**, which is how
   Reluva mounts them (`ui.wad`'s files as `ui/...`): no archived file has
   a loose namesake, and `ui.wad` sits beside a loose `ui/` folder
@@ -25,6 +30,11 @@ None yet.
 
 ## Guessed
 
+- **Which `.tgq` is the EA GAMES logo**, seen in the recording at
+  3.73 s; the other is perhaps unused, or the Bullfrog logo's, which the
+  recording shows as a still picture
+  ([research/footage.md](research/footage.md#the-opening-second-by-second)).
+  The TGQ decoder will settle it.
 - **`stexture` folders hold a lower detail setting's textures**, smaller
   copies of their `textures` folders' ([fsh.md](formats/fsh.md#overview)).
   The game's detail options, seen running, would settle which it uses.

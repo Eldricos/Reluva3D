@@ -38,7 +38,10 @@ format or system worked out.
    SimCoaster's compressed pictures ([fsh.md](formats/fsh.md)). The logo
    movies' sound (`Data/movies/*.tgq`) reads and decodes with the shared
    stream reader: 3.24 seconds of stereo EA-XA each.
-5. **The data viewer** (next): pictures (`.tga`, `.fsh`, `.png`), fonts, text,
+5. **The data viewer** (next; the opening as a recording shows it is in
+   [research/footage.md](research/footage.md): an EA GAMES movie, the
+   Bullfrog splash picture, then a 3D boardroom and globe drawn by the
+   engine, with windows of the front end's own models): pictures (`.tga`, `.fsh`, `.png`), fonts, text,
    sounds (`.sdt` banks and their `.map`s) and the movies: the intro's
    AVI is Cinepak, which Reluva plays; the logos' `.tgq` (EA's TGQ video
    in `SCHl`) need a decoder in `src/video/`.
