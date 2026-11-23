@@ -6,12 +6,15 @@
 #include "common/events.h"
 #include "emulation/x86/dplay.h"
 #include "emulation/x86/gdi.h"
+#include "emulation/x86/win32.h"
 #include "graphics/cursor.h"
 
 #include <cstdint>
 #include <deque>
 #include <filesystem>
+#include <functional>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -50,6 +53,23 @@ public:
      * Sans). Before start().
      */
     void setLook(x86::Gdi::ColourScheme colours, bool ownArial) { _colours = colours, _ownArial = ownArial; }
+    /**
+     * Shows the player a dialog for the game's Open or Save (a postcard's
+     * attachment), on the engine's thread, in serve(); `done` is called
+     * once, with the file picked or nothing, from any thread. The game
+     * waits meanwhile. Unset, its dialogs are cancelled. Before start().
+     */
+    std::function<void(const x86::Win32Process::FileRequest &request,
+                       std::function<void(std::optional<std::filesystem::path>)> done)>
+        chooseFile;
+    /**
+     * Asks the player whether to open a web page the game wants opened,
+     * and opens it if so, on the engine's thread, in serve(). Unset, none
+     * is. Before start().
+     */
+    std::function<bool(const std::string &url)> openUrl;
+    /** Does what the game has asked of the engine's thread (its dialogs): call it often. */
+    void serve();
     /** Starts the game's thread, which loads and runs the program; call once. */
     void start();
     /**
@@ -86,6 +106,8 @@ private:
     void work();
     void drain();       // on the game's thread: passes on the input queued
     void takePointer(); // on the game's thread: keeps Windows' pointer for the engine
+    template<typename T>
+    std::optional<T> ask(std::function<void(std::function<void(T)>)> job); // on the game's thread: waits for serve()
 
     std::filesystem::path _dir;
     std::filesystem::path _saveDir;
@@ -99,6 +121,7 @@ private:
     std::thread _thread;
     std::mutex _mutex;
     std::deque<Event> _events;
+    std::deque<std::function<void()>> _jobs; // for serve()
     std::vector<uint32_t> _frame;
     int _width = 0;
     int _height = 0;

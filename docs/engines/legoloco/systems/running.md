@@ -399,9 +399,16 @@ one process on the in-memory network or over UDP, and in two processes
 over UDP on one computer, with a meeting server listing the host's
 game. In the game, their boards scroll, a train crosses from one
 player's board into the other's, and a postcard goes from one player to
-the other by mail train, on the in-memory network and over UDP. Of its 115 imports that had nothing at first, 3 are left,
-none called so far: comdlg32's Open and Save dialogs (its own panels
-serve instead), and SHELL32's `ShellExecuteA`.
+the other by mail train, on the in-memory network and over UDP. Of its 115 imports that had nothing at first, none are left:
+the last, comdlg32's Open and Save dialogs and SHELL32's
+`ShellExecuteA`, haven't been seen called. The Open dialog (`0x419cc1`,
+"all (\*.\*)", the file to exist) and the Save one (`0x42f117`) are
+among the postcards' code, beside the strings `To:` and `wav`: a file
+attached to a card, and one received kept *(inferred)*. `ShellExecuteA`
+(`0x43ca68`) opens `http:\\` and a name sent with a message whose
+first flag is clear (`0x43c860`, from the message handler at
+`0x439a5d`), once its characters are checked *(from the code; what
+sends it isn't known)*.
 
 The rest are stood in for in the shared code: KERNEL32's, ADVAPI32's,
 VERSION.dll's and USER32's ([windows.md](../../../common/x86/windows.md)),

@@ -30,17 +30,16 @@ is in [the first survey](research/first-survey.md).
    their frame sets played, the definitions and the sounds; on the way,
    how the game draws ([systems/drawing.md](systems/drawing.md)) and
    names its resources ([formats/resource-numbers.md](formats/resource-numbers.md)).
-4. **Running `loco.exe`** (done but for two things it hasn't needed;
+4. **Running `loco.exe`** (done;
    [systems/running.md](systems/running.md)): the program loaded in the
    emulator and followed with `reluva-tool legoloco run`, with the shared
    stand-ins in `src/emulation/x86/`, since no engine may rely on
    another's code: DirectSound and `PlaySoundA`, DirectPlay, the movie
    window and MCI on the shared Cinepak decoder, dialogs from the
    program's own templates, GDI's text and shapes, the INI files, the
-   windows' frames and scroll bars, and Windows' pointer where the game
-   shows it. Left, as nothing has called them: the Open and Save dialogs
-   (`comdlg32.dll`; the game's own panels serve instead) and
-   `ShellExecuteA` ([KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md)).
+   windows' frames and scroll bars, Windows' pointer where the game
+   shows it, and the Open and Save dialogs and `ShellExecuteA`, as the
+   system's own ([KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md)).
 5. **Playable** (largely: the movies, the front screen, the layouts,
    the Toybox, laying track, starting and building trains, the post
    office and postcards, saving and loading play, with the mouse and

@@ -47,6 +47,13 @@ the original's way. -->
   drawing, as Windows' picture isn't Reluva's to have
   ([common/graphics/cursors.md](../../common/graphics/cursors.md)). The
   busy pointer is the game's own file, as the original shows it.
+- **Windows' Open and Save dialogs:** where the game shows them (a
+  postcard's attachment, *(inferred)*), Reluva shows the system's own,
+  and the folder of the file picked is the game's drive X:; Windows
+  98's dialogs aren't Reluva's to draw
+  ([common/x86/windows.md](../../common/x86/windows.md)).
+- **Web pages:** where the game opens one in the player's browser
+  (`ShellExecuteA`, `0x43ca68`), Reluva asks the player first.
 - **The default player's name:** the original names a new player by
   Windows' user name (`GetUserNameA`; `User` in the recording), so on
   the player's own computer it's their login; Reluva's is always
@@ -69,8 +76,6 @@ None yet.
   active window's, always active, without the window's icon (its
   picture isn't read); its minimize button does nothing, there being no
   taskbar to bring the window back from.
-- **Not stood in for yet:** the Open and Save dialogs (the game's own
-  panels serve instead), and opening a web page (`ShellExecuteA`).
 
 ## Additions outside the game
 

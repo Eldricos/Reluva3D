@@ -95,6 +95,19 @@ private:
         player.setLook(setting(kColours, "98") == "xp" ? x86::Gdi::ColourScheme::kWindowsXp
                                                        : x86::Gdi::ColourScheme::kWindows98,
                        setting(kFont, "arial") == "arial");
+        // A postcard's attachment is picked, or saved, in the system's own
+        // dialog; a web page the game asks for, opened if the player agrees.
+        player.chooseFile = [this](const x86::Win32Process::FileRequest &request,
+                                   std::function<void(std::optional<std::filesystem::path>)> done) {
+            FileChoice choice;
+            choice.save = request.save;
+            choice.title = request.title;
+            choice.suggested = request.name;
+            for (const auto &[name, patterns] : request.filters)
+                choice.filters.emplace_back(name, extensions(patterns));
+            _sys.chooseFile(choice, std::move(done));
+        };
+        player.openUrl = [this](const std::string &url) { return _sys.openUrl(url); };
         player.start();
         Cursor pointer;
         bool pointerShown = false;
@@ -134,6 +147,7 @@ private:
                 }
                 _sys.updateScreen(_screen);
             }
+            player.serve();
             if (player.pointer(pointer, pointerShown)) {
                 _sys.setMouseCursor(pointerShown ? &pointer : nullptr);
                 _sys.setMouseCursorVisible(pointerShown);
@@ -146,6 +160,24 @@ private:
                 return error.empty() ? Error::success() : Error::fail(_target.description + " stopped: " + error);
             _sys.delayMillis(5);
         }
+    }
+
+    // A filter's Windows patterns ("*.bmp;*.dib", "*.*") as the extensions
+    // a system's dialog takes ("bmp;dib", "*").
+    static std::string extensions(const std::string &patterns) {
+        std::string out;
+        size_t at = 0;
+        while (at <= patterns.size()) {
+            const size_t end = std::min(patterns.find(';', at), patterns.size());
+            std::string one = patterns.substr(at, end - at);
+            const size_t dot = one.rfind('.');
+            one = dot == std::string::npos ? one : one.substr(dot + 1);
+            if (one.empty() || one.find('*') != std::string::npos)
+                return "*";
+            out += (out.empty() ? "" : ";") + one;
+            at = end + 1;
+        }
+        return out.empty() ? "*" : out;
     }
 
     // Its network games over the system's UDP sockets: a search goes to

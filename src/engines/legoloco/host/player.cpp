@@ -5,6 +5,10 @@
 
 #include "graphics/system_fonts.h"
 
+#include <chrono>
+#include <condition_variable>
+#include <memory>
+
 #include "audio/mixer.h"
 #include "engines/legoloco/host/game_process.h"
 
@@ -47,6 +51,47 @@ bool Player::frame(std::vector<uint32_t> &pixels, int &width, int &height) {
     pixels = _frame;
     width = _width, height = _height;
     return true;
+}
+
+void Player::serve() {
+    std::deque<std::function<void()>> jobs;
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        jobs.swap(_jobs);
+    }
+    for (auto &job : jobs)
+        job();
+}
+
+// A job for the engine's thread, the game's waiting for its answer: given
+// to `job` to call once, from any thread, perhaps after this player's
+// gone (so it keeps its own state). Nothing if the game is stopped first.
+template<typename T>
+std::optional<T> Player::ask(std::function<void(std::function<void(T)>)> job) {
+    struct Answer {
+        std::mutex mutex;
+        std::condition_variable ready;
+        std::optional<T> value;
+    };
+    auto answer = std::make_shared<Answer>();
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _jobs.push_back([job = std::move(job), answer] {
+            job([answer](T value) {
+                std::lock_guard<std::mutex> lock(answer->mutex);
+                answer->value = std::move(value);
+                answer->ready.notify_all();
+            });
+        });
+    }
+    std::unique_lock<std::mutex> lock(answer->mutex);
+    while (!answer->value) {
+        answer->ready.wait_for(lock, std::chrono::milliseconds(50));
+        std::lock_guard<std::mutex> stop(_mutex);
+        if (_stopping)
+            break;
+    }
+    return answer->value;
 }
 
 bool Player::pointer(Cursor &cursor, bool &shown) {
@@ -129,6 +174,21 @@ void Player::work() {
         game.process().gdi().arial = ttf::installedArial;
     game.process().screenWidth = _desktopWidth;
     game.process().screenHeight = _desktopHeight;
+    // The game's dialogs and web pages, shown by the engine.
+    process.chooseFile = [this](const x86::Win32Process::FileRequest &request) -> std::optional<std::filesystem::path> {
+        if (!chooseFile)
+            return std::nullopt;
+        using Picked = std::optional<std::filesystem::path>;
+        const auto picked =
+            ask<Picked>([this, request](std::function<void(Picked)> done) { chooseFile(request, std::move(done)); });
+        return picked ? *picked : std::nullopt;
+    };
+    process.openUrl = [this](const std::string &url) {
+        if (!openUrl)
+            return false;
+        const auto opened = ask<bool>([this, url](const std::function<void(bool)> &done) { done(openUrl(url)); });
+        return opened.value_or(false);
+    };
     process.idle = [this] {
         drain();
         takePointer();

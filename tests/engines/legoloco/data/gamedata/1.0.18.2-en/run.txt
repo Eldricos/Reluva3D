@@ -1,4 +1,4 @@
-imports: 3 imports stood in for by nothing: comdlg32.dll!GetSaveFileNameA comdlg32.dll!GetOpenFileNameA SHELL32.dll!ShellExecuteA
+imports: 0 imports stood in for by nothing:
 loading: 32349b28d2046d93 | frame 20
 welcome: ea70a082f4831126 | frame 265
 board: 52a3f9e362bf9bdd | frame 474
