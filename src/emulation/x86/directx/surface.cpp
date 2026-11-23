@@ -370,6 +370,59 @@ std::optional<uint32_t> Surface::invoke(const ComInterface &iface, int index, Cp
     }
     // Lock(rect, desc, flags, event): the pixels' address (at the rectangle's
     // corner) and pitch in the description.
+    // GetDC(out): a device context drawing into the surface's pixels, with
+    // colours matched to its format (to its palette's nearest entry if it
+    // has one); one at a time, until ReleaseDC.
+    if (m == "GetDC") {
+        if (!c.valid(c.arg(1), 4))
+            return kDDErrInvalidParams;
+        if (dc)
+            return kDDErrSurfaceBusy;
+        Win32Process::GdiBitmap b;
+        b.memory = d.memory;
+        b.width = d.width;
+        b.height = d.height;
+        b.pitch = d.pitch;
+        b.bits = int(d.format.bits);
+        const PixelFormat format = d.format;
+        if (const uint32_t *argb = format.flags & kPfPaletteIndexed8 ? paletteArgb() : nullptr) {
+            std::array<uint32_t, 256> colors;
+            std::copy(argb, argb + 256, colors.begin());
+            b.pixelOf = [colors](uint32_t ref) {
+                const int r = int(ref & 0xff);
+                const int g = int((ref >> 8) & 0xff);
+                const int bl = int((ref >> 16) & 0xff);
+                uint32_t best = 0;
+                int bestDistance = 1 << 30;
+                for (uint32_t i = 0; i < 256; ++i) {
+                    const int dr = int((colors[i] >> 16) & 0xff) - r;
+                    const int dg = int((colors[i] >> 8) & 0xff) - g;
+                    const int db = int(colors[i] & 0xff) - bl;
+                    const int distance = dr * dr + dg * dg + db * db;
+                    if (distance < bestDistance) {
+                        bestDistance = distance;
+                        best = i;
+                    }
+                }
+                return best;
+            };
+        } else {
+            b.pixelOf = [format](uint32_t ref) {
+                return format.fromArgb(0xff000000u | (ref & 0xff) << 16 | (ref & 0xff00) | (ref >> 16 & 0xff));
+            };
+        }
+        dc = s->process.createDeviceContext(std::move(b));
+        c.write32(c.arg(1), dc);
+        return kDDOk;
+    }
+    if (m == "ReleaseDC") {
+        if (!dc || c.arg(1) != dc)
+            return kDDErrInvalidParams;
+        s->process.deleteDeviceContext(dc);
+        dc = 0;
+        touched();
+        return kDDOk;
+    }
     if (m == "Lock") {
         const uint32_t rect = c.arg(1);
         const uint32_t desc = c.arg(2);

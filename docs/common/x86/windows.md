@@ -80,6 +80,15 @@ C++ library have pages of their own ([directx.md](directx.md),
   - the mouse pointer, and the desktop's size and colour depth, which the
     engine sets;
   - `MessageBoxA` is reported and answered so the program goes on.
+- **`win32_gdi.cpp`: GDI's device contexts, fonts and text.** A device
+  context draws into a bitmap in the program's memory: DirectDraw's
+  surfaces hand them out (`GetDC`), through `createDeviceContext`, with
+  how a colour becomes a pixel. A window's draws nowhere. Fonts
+  (`CreateFontA`) keep their height; `TextOutA` draws in Reluva's built-in
+  bitmap font scaled to it, in the text colour, over the background colour
+  unless the mode is transparent, and `GetTextExtentPoint32A` measures in
+  the same font. The letters' shapes aren't the font's: no font of
+  Windows is at hand.
 - **`win32_registry.cpp`: the registry and COM.** An in-memory registry,
   seeded with the installed locales. The engine can add an installer's
   values and hear of the program's writes. `CoCreateInstance` asks the

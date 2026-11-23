@@ -561,6 +561,45 @@ static void testDirectX() {
     cpu.write32(caps, 0x4);                     // BACKBUFFER
     CHECK(call(primary, 12, {caps, out}) == 0); // GetAttachedSurface
     const uint32_t back = cpu.read32(out);
+    // GDI text through the back buffer's device context: red on what was
+    // there (black), left alone around it.
+    CHECK(call(back, 17, {out}) == 0); // GetDC
+    const uint32_t dc = cpu.read32(out);
+    CHECK(call(back, 17, {out}) != 0); // one at a time
+    auto gdi = [&](const char *name, const std::vector<uint32_t> &args) {
+        CHECK(!cpu.call(process.provided("GDI32.dll", name), args, r));
+        return r;
+    };
+    const uint32_t text = mem(4);
+    cpu.writeString(text, "Hi", 4);
+    const uint32_t font = gdi("CreateFontA", {uint32_t(-9), 0, 0, 0, 400, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+    CHECK(gdi("SelectObject", {dc, font}) != 0);
+    CHECK(gdi("SetBkMode", {dc, 1}) == 2); // TRANSPARENT, from OPAQUE
+    CHECK(gdi("SetTextColor", {dc, 0x0000ff}) == 0);
+    CHECK(gdi("TextOutA", {dc, 2, 3, text, 2}) == 1);
+    const uint32_t extent = mem(8);
+    CHECK(gdi("GetTextExtentPoint32A", {dc, text, 2, extent}) == 1 && cpu.read32(extent) == 12 &&
+          cpu.read32(extent + 4) == 11);
+    CHECK(call(back, 26, {dc}) == 0); // ReleaseDC
+    const uint32_t lockDesc = mem(124);
+    cpu.write32(lockDesc, 124);
+    CHECK(call(back, 25, {0, lockDesc, 1, 0}) == 0); // Lock
+    {
+        const uint32_t pixels = cpu.read32(lockDesc + 36);
+        const uint32_t pitch = cpu.read32(lockDesc + 16);
+        int red = 0;
+        int other = 0;
+        for (uint32_t y = 0; y < 20; ++y)
+            for (uint32_t x = 0; x < 20; ++x) {
+                const uint16_t v = cpu.read16(pixels + y * pitch + 2 * x);
+                const bool inside = x >= 2 && x < 14 && y >= 3 && y < 14;
+                red += v == 0xf800 && inside;
+                other += v != 0 && (v != 0xf800 || !inside);
+            }
+        CHECK(red > 10 && other == 0);
+    }
+    CHECK(call(back, 32, {0}) == 0); // Unlock
+    gdi("DeleteObject", {font});
     // A 16-bit Z buffer, attached.
     clearDesc();
     cpu.write32(desc + 4, 0x1 | 0x2 | 0x4 | 0x40); // CAPS, HEIGHT, WIDTH, ZBUFFERBITDEPTH

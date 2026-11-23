@@ -601,6 +601,27 @@ public:
     ///@}
     std::function<void(const std::string &key, const std::string &name)> registryWritten;
 
+    // GDI's device contexts (win32_gdi.cpp).
+
+    /** A bitmap a device context draws into: pixels in the process's memory, rows `pitch` bytes apart. */
+    struct GdiBitmap {
+        uint32_t memory = 0;
+        int width = 0;
+        int height = 0;
+        int pitch = 0;
+        int bits = 0; // 8, 16, 24 or 32 per pixel
+        /** A COLORREF (0x00bbggrr) as a pixel's value in the bitmap. */
+        std::function<uint32_t(uint32_t colorRef)> pixelOf;
+    };
+    /**
+     * A device context drawing into `bitmap`, as DirectDraw's surfaces hand
+     * them out (GetDC), and its end.
+     */
+    ///@{
+    uint32_t createDeviceContext(GdiBitmap bitmap);
+    void deleteDeviceContext(uint32_t dc);
+    ///@}
+
     // COM (ole32).
 
     // Makes the object CoCreateInstance asks for (its class and interface as
@@ -642,6 +663,23 @@ private:
     void addSystemStandIns();
     void addUserStandIns();
     void addRegistryStandIns();
+    void addGdiStandIns();
+    struct DeviceContext {
+        std::optional<GdiBitmap> target; // none: a window's, drawn nowhere
+        uint32_t font = 0;
+        uint32_t textColor = 0;
+        uint32_t backColor = 0xffffff;
+        uint32_t backMode = 2; // OPAQUE
+    };
+    struct GdiFont {
+        int height = 16; // its cell's, in pixels
+        int weight = 400;
+        std::string face;
+    };
+    std::map<uint32_t, DeviceContext> _deviceContexts;
+    std::map<uint32_t, GdiFont> _fonts;
+    uint32_t _nextGdiObject = 0x48000;
+    DeviceContext &deviceContext(uint32_t dc) { return _deviceContexts[dc]; }
     struct WindowClass {
         uint32_t proc = 0;
         uint32_t style = 0;

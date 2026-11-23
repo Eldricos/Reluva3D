@@ -18,6 +18,9 @@ headers' (`directx/interfaces.cpp`).
   - blits (stretching, colour keys, colour and depth fills) and flipping
     chains;
   - palettes and clippers;
+  - a surface's device context (`GetDC`), for GDI's text: colours become
+    the surface's pixels, a palettized surface's as its palette's nearest
+    entry;
   - the display's gamma ramp (`IDirectDrawGammaControl`, from any
     surface).
 
@@ -99,7 +102,8 @@ checked without a GPU.
 
 - `testDirectX` in `tests/common/windows.cpp` (`common.unit.windows`) checks these, called through
   the vtables: a clear, a Gouraud triangle, the depth test, a textured
-  quad with point sampling, and a flip; and Direct3D 1's device list, its
+  quad with point sampling, and a flip; GDI's text through the back
+  buffer's device context; and Direct3D 1's device list, its
   descriptions' sizes and colour models.
 
 - `testInput` checks DirectInput's mouse (its state, its movement since
