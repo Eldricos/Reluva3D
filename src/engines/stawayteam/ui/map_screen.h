@@ -874,6 +874,9 @@ private:
         size_t part;
         float left; // seconds
         float time;
+        std::string overlay; // its Warp Overlay Effect's sequence, drawn over it
+        int overlayY = 0;    // and how far up it's raised: its Overlay YOffset
+        int rotations = 4;   // the overlay's frames as so many directions: Num Rotations
     };
     std::vector<Warp> _warping;
     // How much of a part's still there as it's beamed away (0-1).

@@ -155,8 +155,9 @@ struct ItemDefinition {
     std::string overloadProjectile;
     float overloadGravity = 0.0f;
     std::string overloadSequence;
-    std::string deployModel; // what a mine leaves where it's put (its CDropItemAtTargetAction's)
-    bool remote = false;     // a mine set off from its panel, not by who comes near
+    std::string deployModel;    // what a mine leaves where it's put (its CDropItemAtTargetAction's)
+    std::string deploySequence; // its sequence played once as it's put down: that action's Deploy Sequence
+    bool remote = false;        // a mine set off from its panel, not by who comes near
     // Its panel on the info bar (its Info Renderer: a CPhaserInfoRenderer,
     // CGenericInfoRenderer...), kept as written.
     std::shared_ptr<const TextObject> infoRenderer;

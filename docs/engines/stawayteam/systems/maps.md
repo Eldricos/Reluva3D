@@ -227,8 +227,10 @@ Process's `Process Cursor` and `Can't Use Cursor` (`0x546d9e`), its
 `Entity Hovering Cursor` (`0x5d8e10`), and its `Obscured Cursor` with
 `Show Obscured Cursor` (`0x5d8fed`): the phaser's are `Phaser`, `Phaser
 Active`, `Phaser Inactive` and `Phaser Obscured`. A part's processes have
-their own (`Generic Use` and `Generic Can't Use` for 253), and there's an
-`Out Of Range Cursor` (`0x5dacf6`).
+their own (`Generic Use` and `Generic Can't Use` for 253). `Out Of Range
+Cursor` is an old key: read from an item file that has it, it's taken as
+a number into the definition (`0x5dacf0`); no file has it, and no cursor
+is shown for a place out of range.
 
 Zoom In (keypad +), Zoom Out (keypad -) and Zoom Reset (keypad *) are
 sent to the view as 1, 2 and 4 (`0x5bf25c`), which scales it: its scale,
@@ -943,8 +945,7 @@ then one of its Random Songs by chance after another; without them, the
 map shown's Map Song, over and over; stopping as the maps are left
 *(inferred)*.
 
-Not there yet: the processes of the 5 polygons, the Out Of Range
-cursor, touching triggers set off by projectiles
+Not there yet: the processes of the 5 polygons, touching triggers set off by projectiles
 (Mission 15's beamer), the AIs'
 other messages and tasks (CSendMessageAction's to animations and
 particles), walkers going round each other, the enemies' own noises,

@@ -54,8 +54,9 @@ None yet.
   as the triggers say; parts other than the team aren't moved between a
   mission's maps
   ([systems/objectives.md](systems/objectives.md#in-reluva)).
-- **Items:** the gadgets' sparks and the transporter's pictures aren't
-  drawn ([systems/items.md](systems/items.md#in-reluva)).
+- **Items:** particle systems aren't there, so the EM pulse's sparks
+  aren't drawn; a part beamed away fades rather than dissolving through
+  its warp effect's noise ([systems/items.md](systems/items.md#in-reluva)).
 - **The briefing:** the text has no scroll bar (the mouse wheel
   scrolls it), the random numbers aren't there, and EXIT doesn't fade out
   ([systems/briefing.md](systems/briefing.md#in-reluva)).

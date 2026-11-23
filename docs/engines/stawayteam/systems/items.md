@@ -374,9 +374,20 @@ While the enemy taken over is chosen, its bar holds the Psychic Rack's
 taken, `0x5d5233`), and its panel, a `CPsycheControllerInfoRenderer`:
 the charge and BREAK CONTROL.
 
-Not there yet: the mines' Deploy and Activate sequences, the Out Of
-Range cursor, the sparks and transporter pictures, and walls in a
-grenade's way.
+A mine put down plays its drop action's `Deploy Sequence` once, then its
+model's Default Sequence; set off, its `Activate`, its last frame held
+*(inferred for all but the Activate the proximity mine's Enter Action
+plays)*. A part beamed away (a `CAddEffectAction` that's `Delete When
+Finished`) fades over its Warp Time with its `Warp Overlay Effect` drawn
+over it: the overlay's frames are `Num Rotations` (4) directions' worth,
+the figure's direction's chosen when its own sequence has as many, else
+the first, played over the warp, raised by its `Overlay YOffset`
+(`0x584100`, `0x563940`). Its `Warp Effect` (`CSimpleWarpEffect`, 21
+frames of 64 by 64 noise) dissolves the figure in the program; Reluva
+fades it instead.
+
+Not there yet: particle systems (`CGenericParticleSystemAI`), so the
+EM pulse's sparks over what it holds, and the warp effect's dissolve.
 
 ## Sources and checks
 

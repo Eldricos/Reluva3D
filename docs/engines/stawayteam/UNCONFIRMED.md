@@ -25,6 +25,9 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
 - **The Psychic Rack:** walking into range, the enemy chosen in
   Slovaak's place, its orders, and its going back on patrol
   ([systems/items.md](systems/items.md#in-reluva)).
+- **Mines' sequences:** a mine's Deploy Sequence once as it's put down,
+  and its Activate held at its last frame once set off
+  ([systems/items.md](systems/items.md#in-reluva)).
 - **Overload:** a thrown overloaded phaser keeping its countdown, and its
   going off hurting by its own damage, its holder too
   ([systems/items.md](systems/items.md#in-reluva)).

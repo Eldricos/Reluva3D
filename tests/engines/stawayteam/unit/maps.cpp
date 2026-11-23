@@ -1421,7 +1421,7 @@ void testGadgets() {
                 "\tDefault Inventory Item=CStarTrekRemoteMineInventoryItem\n\t{\n\t\tRounds=2\n\t}\n"
                 "\tProcess=CProcess\n\t{\n\t\tProcess Type=Shoot\n\t\tProcess Activity=CDropItemAI\n\t\t{\n"
                 "\t\t\tDestination Action=CDropItemAtTargetAction\n\t\t\t{\n"
-                "\t\t\t\tModel to Create=Shots/Remote\n\t\t\t}\n\t\t}\n\t}\n"
+                "\t\t\t\tModel to Create=Shots/Remote\n\t\t\t\tDeploy Sequence=Deploy\n\t\t\t}\n\t\t}\n\t}\n"
                 "\tInfo Renderer=CDetonateInfoRenderer\n\t{\n\t\tDetonate Button Pos=140,14\n\t}\n}\n");
     data.files["Inventory/Item Definitions/Tricorder.txt"] =
         bytesOf("CStarTrekInventoryItemDefinition\n{\n\tDisplay In Inventory=1\n\tItem Range=450\n"
@@ -1461,6 +1461,7 @@ void testGadgets() {
     CHECK(a.items[1].count == 2 && screen.useItem(480.0f, 300.0f));
     run(8000);
     CHECK(screen.mines().size() == 1 && a.items[1].count == 1);
+    CHECK(screen.mines()[0].item->deploySequence == "Deploy");
     screen.order(250.0f, 300.0f);
     run(16000);
     screen.detonate();

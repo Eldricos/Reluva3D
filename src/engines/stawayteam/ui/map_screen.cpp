@@ -1122,12 +1122,29 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
             if (o.chosen)
                 blitBy(view, animation("Interface/Selection", "Idle").at(now), int(std::lround(o.x)) - left,
                        int(std::lround(o.y)) + kMarkerY - top);
-    // The mines put down, on the ground under everyone, their model's
-    // Default Sequence over and over (inferred).
+    // The mines put down, on the ground under everyone: their Deploy
+    // Sequence once as they're put down, then their model's Default
+    // Sequence over and over; set off, its Activate once, its last frame
+    // held (the proximity mine's Enter Action plays it; inferred for the
+    // rest).
     for (const Mine &m : _mines) {
         const ModelInfo &info = modelInfo(m.model);
-        const Animation &a = animation(m.model, info.defaultSequence.empty() ? "Idle" : info.defaultSequence);
-        blitBy(view, a.at(now), int(std::lround(m.x)) - left, int(std::lround(m.y)) - top);
+        const auto once = [&](const std::string &sequence, float seconds) -> const Animation::Picture * {
+            const Animation &a = animation(m.model, sequence);
+            const int frames = a.perDirection();
+            if (sequence.empty() || frames <= 0 || a.fps <= 0.0f)
+                return nullptr;
+            return a.frame(std::min(int(seconds * a.fps), frames - 1), 0);
+        };
+        const Animation::Picture *p = nullptr;
+        if (m.setOff)
+            p = once("Activate", info.fuseAfterTrigger - m.fuse);
+        else if (const Animation &d = animation(m.model, m.item->deploySequence);
+                 !m.item->deploySequence.empty() && d.fps > 0.0f && m.placed * d.fps < float(d.perDirection()))
+            p = once(m.item->deploySequence, m.placed);
+        if (!p)
+            p = animation(m.model, info.defaultSequence.empty() ? "Idle" : info.defaultSequence).at(now);
+        blitBy(view, p, int(std::lround(m.x)) - left, int(std::lround(m.y)) - top);
     }
     // The models and the officers among them, back to front: each picture,
     // or each strip of it its sequence's cuts make, by where it stands, its
@@ -1279,6 +1296,30 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
             drawLine(view, b.x0 + px * float(side) - float(left), b.y0 + py * float(side) - float(top),
                      b.x1 + px * float(side) - float(left), b.y1 + py * float(side) - float(top), b.outside, fade);
         drawLine(view, b.x0 - float(left), b.y0 - float(top), b.x1 - float(left), b.y1 - float(top), b.middle, fade);
+    }
+    // The parts beamed away, their Warp Overlay Effect over them: its frames
+    // a direction's worth after another, for Num Rotations directions; the
+    // direction the figure faces, when its own has as many, else the first;
+    // its frames played over the warp's time, raised by its Overlay YOffset
+    // (0x584100, 0x563940).
+    for (const Warp &w : _warping) {
+        if (w.overlay.empty() || w.time <= 0.0f)
+            continue;
+        const Animation &a = animation(w.overlay, "");
+        const int each = a.perDirection() / w.rotations;
+        if (each <= 0)
+            continue;
+        const MapPart &p = _map.parts[w.part];
+        const auto enemy = _enemyOfPart.find(w.part);
+        const float angle = enemy != _enemyOfPart.end() ? _enemies[enemy->second].angle : p.angle;
+        const Animation &body = animation(p.model, "Idle");
+        const int direction = body.rotations == w.rotations ? body.direction(angle) : 0;
+        const float done = std::clamp(1.0f - w.left / w.time, 0.0f, 1.0f);
+        const int frame = direction * each + std::min(each - 1, int(done * float(each)));
+        float x = 0.0f;
+        float y = 0.0f;
+        placeOf(w.part, x, y);
+        blitBy(view, a.frame(frame, 0), int(std::lround(x)) - left, int(std::lround(y)) + w.overlayY - top);
     }
     // The shots' flashes, over everyone.
     for (const Flash &f : _flashes) {

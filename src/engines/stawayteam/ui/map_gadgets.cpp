@@ -350,7 +350,8 @@ bool MapScreen::runGadgetAction(const TextObject *action, int instigator, int tr
         // Its Warp Sound; one that's Delete When Finished beams away over
         // its Warp Time, fading, and is gone: a part, or an enemy (the
         // alarms' $Instigator, 330 in the maps), held still meanwhile
-        // (inferred: the effect's pictures aren't drawn, nor officers beamed).
+        // (inferred: its warp effect's dissolving isn't drawn, nor officers
+        // beamed; its overlay is).
         if (_mixer)
             if (auto sound = gameSound(_data, readText(action, "Warp Sound")))
                 _mixer->play(sound, audio::SoundType::kEffects);
@@ -365,8 +366,12 @@ bool MapScreen::runGadgetAction(const TextObject *action, int instigator, int tr
             else if (lower(name) != "$instigator")
                 parts = partsNamed(name, trigger);
             for (size_t part : parts)
-                if (std::none_of(_warping.begin(), _warping.end(), [&](const Warp &w) { return w.part == part; }))
-                    _warping.push_back({part, time, time});
+                if (std::none_of(_warping.begin(), _warping.end(), [&](const Warp &w) { return w.part == part; })) {
+                    const TextObject *overlay = behavior->object("Warp Overlay Effect");
+                    _warping.push_back({part, time, time, readText(overlay, "Overlay Effect"),
+                                        int(number(overlay, "Overlay YOffset")),
+                                        std::max(1, int(number(behavior, "Num Rotations", 4.0f)))});
+                }
         }
     } else if (kind == "COpenDoorAction" || kind == "CCloseDoorAction") {
         for (size_t part : partsNamed(readText(action, "Door Name"), trigger))

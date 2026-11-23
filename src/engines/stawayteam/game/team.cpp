@@ -200,8 +200,10 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
             if (const TextObject *gravity = action->object("Gravity AI"))
                 item.overloadGravity = float(gravity->number("Gravity").value_or(0.0));
         if (const TextObject *process = def.object("Process"))
-            if (const TextObject *drop = findObject(*process, "CDropItemAtTargetAction"))
+            if (const TextObject *drop = findObject(*process, "CDropItemAtTargetAction")) {
                 item.deployModel = text(*drop, "Model to Create");
+                item.deploySequence = text(*drop, "Deploy Sequence");
+            }
         if (const TextObject *held = def.object("Default Inventory Item")) {
             item.remote = held->className == "CStarTrekRemoteMineInventoryItem";
             item.charged = held->className == "CStarTrekInvisBandInventoryItem";
