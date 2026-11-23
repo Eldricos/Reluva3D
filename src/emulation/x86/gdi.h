@@ -70,11 +70,12 @@ public:
     /**
      * A window's frame painted, as DefWindowProc paints it (WM_NCPAINT),
      * plainly: what lies outside its client area in the face colour (its
-     * borders, the scroll bars' tracks), and its caption in the active
-     * caption's colour, without its title or buttons. Nothing for a window
-     * without a frame, or without a screen.
+     * borders), its caption in the active caption's colour, without its
+     * title or buttons, and its scroll bars. Nothing for a window without
+     * a frame, or without a screen.
+     * @param clip Only what's within it (left, top, width, height), if given.
      */
-    void paintFrame(uint32_t window);
+    void paintFrame(uint32_t window, const std::optional<std::array<int, 4>> &clip = std::nullopt);
 
     /** A COLORREF (0x00BBGGRR) as the pixel value nearest it in a target's format. */
     static uint32_t pixelFor(const Target &t, uint32_t colorRef);

@@ -278,7 +278,7 @@ void Gdi::paintDesktop(const std::array<int, 4> &area) {
         }
 }
 
-void Gdi::paintFrame(uint32_t window) {
+void Gdi::paintFrame(uint32_t window, const std::optional<std::array<int, 4>> &clip) {
     const auto t = screen ? screen() : std::nullopt;
     const Win32Process::Window *w = _process.window(window);
     const auto whole = _process.windowArea(window);
@@ -287,6 +287,10 @@ void Gdi::paintFrame(uint32_t window) {
         return;
     const int edge = (*inside)[0] - (*whole)[0];
     Cpu &c = _process.cpu();
+    auto put = [&](int x, int y, uint32_t colorRef) {
+        if (!clip || (x >= (*clip)[0] && x < (*clip)[0] + (*clip)[2] && y >= (*clip)[1] && y < (*clip)[1] + (*clip)[3]))
+            plot(c, *t, x, y, colorRef);
+    };
     for (int y = (*whole)[1]; y < (*whole)[1] + (*whole)[3]; ++y)
         for (int x = (*whole)[0]; x < (*whole)[0] + (*whole)[2]; ++x) {
             if (x >= (*inside)[0] && x < (*inside)[0] + (*inside)[2] && y >= (*inside)[1] &&
@@ -295,7 +299,7 @@ void Gdi::paintFrame(uint32_t window) {
             // Windows 98's colours: the face (COLOR_3DFACE) and the active caption (COLOR_ACTIVECAPTION).
             const bool caption = (w->style & 0x00c00000) == 0x00c00000 && y >= (*whole)[1] + edge && y < (*inside)[1] &&
                                  x >= (*whole)[0] + edge && x < (*whole)[0] + (*whole)[2] - edge;
-            plot(c, *t, x, y, caption ? 0x800000 : 0xc0c0c0);
+            put(x, y, caption ? 0x800000 : 0xc0c0c0);
         }
     // Its scroll bars, as Windows 98 draws them: a pale track between two
     // arrow buttons, and the thumb a raised button where the position is.
@@ -306,7 +310,7 @@ void Gdi::paintFrame(uint32_t window) {
         const auto [bx, by, bw, bh] = *area;
         for (int y = by; y < by + bh; ++y)
             for (int x = bx; x < bx + bw; ++x)
-                plot(c, *t, x, y, 0xe0e0e0);
+                put(x, y, 0xe0e0e0);
         const int size = bar ? bw : bh;
         const int length = bar ? bh : bw;
         // A raised square button `size` long, `from` the bar's start.
@@ -317,7 +321,7 @@ void Gdi::paintFrame(uint32_t window) {
                 for (int x = x0; x < x0 + size; ++x) {
                     const bool light = x == x0 || y == y0;
                     const bool dark = x == x0 + size - 1 || y == y0 + size - 1;
-                    plot(c, *t, x, y, dark ? 0x000000 : light ? 0xffffff : 0xc0c0c0);
+                    put(x, y, dark ? 0x000000 : light ? 0xffffff : 0xc0c0c0);
                 }
         };
         // An arrow's triangle in a button, pointing back (-1) or on (+1).
@@ -327,7 +331,7 @@ void Gdi::paintFrame(uint32_t window) {
             for (int i = 0; i < 4; ++i)
                 for (int j = -i; j <= i; ++j) {
                     const int along = from + mid + way * (2 - i); // the tip first
-                    plot(c, *t, bar ? bx + mid + j : bx + along, bar ? by + along : by + mid + j, 0x000000);
+                    put(bar ? bx + mid + j : bx + along, bar ? by + along : by + mid + j, 0x000000);
                 }
         };
         arrow(0, -1);

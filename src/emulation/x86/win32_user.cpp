@@ -220,6 +220,9 @@ void Win32Process::uncover(const std::array<int, 4> &area) {
         if (!a || !shown(h) || (*a)[0] >= area[0] + area[2] || area[0] >= (*a)[0] + (*a)[2] ||
             (*a)[1] >= area[1] + area[3] || area[1] >= (*a)[1] + (*a)[3])
             continue;
+        // Its frame now, as Windows paints it; its client area when the
+        // program has painted it. The oldest first, so those above come last.
+        _gdi->paintFrame(h, area);
         const bool queued = std::any_of(_messages.begin(), _messages.end(),
                                         [&](const Message &m) { return m.window == h && m.message == 0x000f; });
         if (!queued)

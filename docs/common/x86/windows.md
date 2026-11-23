@@ -92,7 +92,8 @@ C++ library have pages of their own ([directx.md](directx.md),
     place the program gave is ignored, as Windows does;
   - a window shown gets `WM_PAINT`, and its children shown with it; one
     hidden or destroyed has every window shown that it covered painted
-    again, and the desktop where none is (GDI's `paintDesktop`, black); a
+    again (their frames at once, where it was, then `WM_PAINT`), and the
+    desktop where none is (GDI's `paintDesktop`, black); a
     window with a frame has it painted plainly as it's shown (GDI's
     `paintFrame`: grey borders, a navy caption, without its title or
     buttons, and its scroll bars);
