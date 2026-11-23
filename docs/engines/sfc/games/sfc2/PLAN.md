@@ -94,7 +94,8 @@ on their pages in `formats/` and `systems/`.
      ([miles.md](../../../../common/x86/miles.md));
    - DirectSound 3D buffers, if Miles doesn't take all the sound.
 6. **The game hosted** (started): the front end (done), a skirmish
-   (it runs, the AI coming in), the tutorials, then a
+   (it runs and is played: steering, targeting and firing with the
+   game's keys and its panels), the tutorials, then a
    campaign and its missions (the game loads their DLLs itself), saves,
    the film room. Drawing on the GPU through `gfx3d` once the software
    rasterizer is too slow.

@@ -225,6 +225,20 @@ owner's copy came with, typed, is taken: the dialog closes, and the
 full title screen shows, the logos of Taldren, 14 East, Interplay and
 Paramount under the game's own.
 
+In a mission the keys are those `Assets/specs/bindings.ini` names (A
+and S for speed, Y to select an enemy, R red alert, Z to fire, the
+keypad for the helm: 5 a high-energy turn, + to turn back, and others),
+taken from the window's messages as in the menus; the helm's and the
+weapons' panels take clicks. Checked in a skirmish, headless and in
+Reluva's window: speed set with S, the Klingon selected with Y, red
+alert with R, the ship turned by the helm's turn arrow, phasers and
+photons fired with Z and with the FIRE button (the hits on the Klingon
+shown with their damage), and keypad 5's high-energy turn charging.
+Running a Z press for the first time runs the game's code from 0x49b7f9
+through 0x4cf62b *(seen, not traced)*. The keypad's +, -, * and / came
+through only once Reluva mapped them to Windows' keys. Pause, which the
+game binds to pausing, has no key in Reluva yet.
+
 It draws its own pointer, from `Assets/mouse/cursors.txt` and the `.cur`
 files it names, over its frame each time it shows one: it keeps what's
 under the pointer, then copies the pointer on with a blit keyed by the

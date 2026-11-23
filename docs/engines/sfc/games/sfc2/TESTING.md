@@ -55,7 +55,9 @@ following the mouse with no box around it. Click the text box, type
 (capitals with Shift, and `-`), click ENTER: a wrong key gets the
 game's "ERROR! ... incorrect" message; the copy's own key closes the
 dialog, the full title screen shows, its menu music starts, and its
-main menu shows; Single Player opens Tutorials, Skirmish and Campaign.
+main menu shows; Single Player opens Tutorials, Skirmish and Campaign;
+Skirmish, then PLAY GAME, starts "Hostile Skirmish": S to speed up, Y
+to select the Klingon, R for red alert, Z to fire once it's in range.
 Started again, it asks for no key. Ctrl+F5, and Return
 to launcher, stop it. Headless, the same with `reluva-tool sfc host <game folder>
 -click 600 395 370 -type 620 <key> -click 700 395 405 -shot 900 out.png`.
@@ -64,6 +66,7 @@ to launcher, stop it. Headless, the same with `reluva-tool sfc host <game folder
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 23 November 2026 | English retail 1.0 | Linux | A skirmish played: headless with `-fixed-clock` (the same frames each run) and in the window with `xdotool`, the game imported from the CDs: S for speed, Y to target, R red alert, the helm's turn arrow, Z and the FIRE button hitting the Klingon, keypad 5's high-energy turn |
 | 23 November 2026 | English retail 1.0 | Linux | Importing from the two CDs (`reluva-tool import`): 3,356 files in 20 seconds, every MD5 the header's, byte for byte the owner's install by setup but for `sfc2.isu`; recognised as 1.0. Every reader over it: 126 fonts, 317 models (6 with 4-cornered polygons), the sounds and `sprites.q3`, none failing |
 | 23 November 2026 | English retail 1.0 | Linux | A skirmish: with a copy of the install short of files, "No missions available"; with the CD's program files added (taken with `unshield`), "Hostile Skirmish" listed and started, the Klingon coming in, 35 billion instructions without failing |
 | 23 November 2026 | English retail 1.0 | Linux | DirectPlay's lobby: `reluva-tool sfc host` past the title screen to the main menu ("Select Game"), its lobby asked each frame; Single Player clicked, its Tutorials, Skirmish and Campaign screen shown; 6 billion instructions without failing |

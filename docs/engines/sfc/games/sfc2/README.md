@@ -66,7 +66,10 @@ install made on Windows. Starting it runs the game's own program, which takes
 the copy's CD key, typed as it's printed (Shift for capitals), once:
 it's kept, with whatever else the game writes, in Reluva's folder for
 the game (its registry values in `registry.txt`), not the install.
-Closing the window or Ctrl+F5 asks before stopping it.
+Closing the window or Ctrl+F5 asks before stopping it. In a mission the
+game's own keys work, as `Assets/specs/bindings.ini` lists them: A and S
+speed, Y select an enemy, R red alert, Z fire, the keypad the helm,
+Tab the map, Esc to leave; the panels take clicks.
 
 `reluva-viewer` with the game opens its data viewer;
 Tab moves between its pages, Esc leaves:
