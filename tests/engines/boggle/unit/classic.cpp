@@ -30,6 +30,8 @@ void policies(const std::filesystem::path& tmp){
     CHECK(reject.submit("CAT",2)==Submission::Accepted);
     ClassicRound ask(d,&user,WordPolicy::AskNow);CHECK(!ask.board(board()) && !ask.start(0));
     CHECK(ask.submit("TAX",1)==Submission::UnknownWord && ask.candidate() && ask.score()==1);
+    CHECK(!ask.decide(DictionaryChoice::No) && ask.words().empty() && ask.score()==0);
+    CHECK(ask.submit("TAX",1)==Submission::UnknownWord && ask.candidate());
     CHECK(!ask.decide(DictionaryChoice::NoAll) && ask.score()==0 && !ask.candidate());
     CHECK(ask.submit("CAX",2)==Submission::RejectedWord);
     CHECK(bool(ask.board(board()))); // an active round cannot be replaced

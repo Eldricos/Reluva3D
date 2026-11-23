@@ -26,7 +26,7 @@ Error ClassicReviewDialog::read(const std::vector<PeResource>& resources,uint16_
     }
     result.installed_=true;*this=std::move(result);return Error::success();
 }
-void ClassicReviewDialog::draw(Surface& screen,std::string_view word,std::string_view message) const {
+void ClassicReviewDialog::draw(Surface& screen,std::string_view word,std::string_view message,bool all) const {
     if(!installed_ || screen.format!=PixelFormat::RGBA32 || screen.w!=800 || screen.h!=600 || screen.pitch<3200 || screen.pixels.size()<size_t(screen.pitch)*600)return;
     auto box=[&](HistoryButton b,Color color){for(int y=std::max(0,b.y);y<std::min(screen.h,b.y+b.h);++y)for(int x=std::max(0,b.x);x<std::min(screen.w,b.x+b.w);++x){auto* p=screen.row(y)+x*4;p[0]=color.r;p[1]=color.g;p[2]=color.b;p[3]=255;}};
     box(bounds_,{50,78,108});box({bounds_.x+3,bounds_.y+3,bounds_.w-6,bounds_.h-6},{22,40,60});
@@ -34,8 +34,8 @@ void ClassicReviewDialog::draw(Surface& screen,std::string_view word,std::string
     font::drawText(screen,bounds_.x+16,bounds_.y+12,"ADD TO YOUR DICTIONARY?",white);
     font::drawText(screen,message_.x,message_.y,std::string(word),{255,116,116},word.size()>35?1:2);
     font::drawText(screen,message_.x,message_.y+24,"Yes keeps its points; No removes them.",muted);
-    font::drawText(screen,bounds_.x+16,bounds_.y+bounds_.h-58,message.empty()?"All: remaining words for this player.":std::string(message.substr(0,size_t((bounds_.w-32)/6))),muted);
+    font::drawText(screen,bounds_.x+16,bounds_.y+bounds_.h-58,message.empty()?(all?"All: remaining words for this player.":"Yes adds this word; No keeps your turn."):std::string(message.substr(0,size_t((bounds_.w-32)/6))),muted);
     constexpr std::array<const char*,4> labels={"YES (1)","NO (2)","YES TO ALL (3)","NO TO ALL (4)"};
-    for(size_t i=0;i<4;++i){const auto b=buttons_[i];box(b,{48,88,120});font::drawText(screen,b.x+(b.w-int(std::char_traits<char>::length(labels[i]))*6)/2,b.y+(b.h-8)/2,labels[i],white);}
+    for(size_t i=0;i<(all?4u:2u);++i){const auto b=buttons_[i];box(b,{48,88,120});font::drawText(screen,b.x+(b.w-int(std::char_traits<char>::length(labels[i]))*6)/2,b.y+(b.h-8)/2,labels[i],white);}
 }
 } // namespace reluva::boggle

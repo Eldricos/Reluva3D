@@ -15,7 +15,7 @@ private:
     std::vector<std::string> rows_;
     size_t selected_=0,scroll_=0;
     std::string input_,error_;
-    bool replace_=true;
+    bool replace_=true,clearPrompt_=false;
     void refresh();
 };
 }

@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/registry.h"
 #include "engines/boggle/classic/options.h"
+#include "engines/boggle/classic/game.h"
 #include "engines/boggle/frontend/layout.h"
 #include "engines/boggle/frontend/name_dialog.h"
 #include "engines/boggle/frontend/dictionary_editor.h"
@@ -595,6 +596,55 @@ void presentationTools(const std::filesystem::path& tmp){
     CHECK(bool(art.open(resources,t.path,"Bitmaps/Panel.bmp",301,200)) && !art.draw(screen,0,0,10,10));
     fixtures::write(t.path/"Fonts/NELSON.TTF",std::vector<uint8_t>{1,2,3});CHECK(!resources.open(t.path));CHECK(bool(art.open(resources,t.path,"Bitmaps/Panel.bmp",300,200)));
 }
+void liveDefinitions(const std::filesystem::path& tmp){
+    for(bool chess:{false,true}){
+        auto t=target(tmp/(chess?"chess":"traditional"));t.settings["classic_menu"]="0";t.settings["classic_seconds"]="60";t.settings["classic_turns"]=chess?"chess":"traditional";
+        fixtures::write(t.path/"Dicts/R016E613.DAT",fixtures::definitionIndexedArchive(true));
+        fixtures::ScriptedSystem sys;sys.clock=[](size_t f){const uint64_t times[]={0,100,200,300,90000,90001,90002,90100,90200,90300};return times[std::min(f,size_t(9))];};
+        std::vector<uint8_t> livePanel,resultsPanel;
+        sys.present=[&](const Surface& s,size_t frame){
+            if(frame!=2&&frame!=8)return;
+            auto& panel=frame==2?livePanel:resultsPanel;
+            for(int y=24;y<576;++y)panel.insert(panel.end(),s.row(y)+24*4,s.row(y)+776*4);
+        };
+        sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
+            if(f==0)return {keyEvent(key::Return)};
+            if(f==1)return {textEvent("AAAA"),keyEvent(key::Return)};
+            if(f==2){auto e=mouseEvent(EventType::MouseDown,450,220);e.clicks=2;return {e};}
+            if(f==3){Event e;e.type=EventType::FocusLost;return {e};}
+            if(f==4){Event e;e.type=EventType::FocusGained;return {e,keyEvent(key::Escape)};}
+            if(f==5)return {keyEvent(key::Escape),keyEvent(key::F1)};
+            if(f==6)return {textEvent("AAA"),keyEvent(key::Return)};
+            if(f==7)return {keyEvent(key::F1)};
+            if(f==8)return {keyEvent('d')};
+            if(f==9)return {keyEvent(key::Escape)};
+            if(f==10){Event e;e.type=EventType::ReturnToLauncher;return {e};}return {};
+        };
+        auto game=findEngine("boggle")->create(sys,t);CHECK(!game->run()&&sys.frame==10);
+        HighScores scores;CHECK(!scores.load(t.savePath,t.path));CHECK(scores.table().size()==1);if(!scores.table().empty())CHECK(scores.table()[0].score==2);
+        CHECK(!livePanel.empty()&&livePanel==resultsPanel);
+        CHECK(sys.hashes.size()==10);if(sys.hashes.size()==10)CHECK(sys.hashes[2]==sys.hashes[4]);
+    }
+}
+void immediateRefusal(const std::filesystem::path& tmp){
+    auto t=target(tmp);t.settings["classic_word_policy"]="ask";t.settings["classic_turns"]="chess";t.settings["classic_seconds"]="0";
+    fixtures::ScriptedSystem sys;sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
+        if(f==0)return {keyEvent(key::Return)};
+        if(f==1||f==4)return {textEvent("AAAAA"),keyEvent(key::Return)};
+        if(f==2)return {keyEvent('3'),keyEvent('4')}; // All choices are unavailable during play
+        if(f==3)return {keyEvent('2'),keyEvent(key::F1)}; // No stays on Alex and consumes its batch
+        if(f==5)return {keyEvent('1')};
+        if(f==6)return {keyEvent(key::Return)}; // acknowledge handoff to Sam
+        if(f==7||f==9)return {keyEvent(key::F1)};
+        if(f==8)return {keyEvent(key::Return)}; // handoff back to Alex
+        if(f==10){Event e;e.type=EventType::ReturnToLauncher;return {e};}return {};
+    };
+    ClassicGame game(sys,t,false,{"Alex","Sam"});CHECK(!game.run()&&sys.frame==10);
+    CHECK(sys.hashes.size()==10);if(sys.hashes.size()==10)CHECK(sys.hashes[1]==sys.hashes[2]&&sys.hashes[1]==sys.hashes[4]);
+    UserDictionary user;CHECK(!user.load(t.savePath,t.path)&&user.contains("AAAAA"));
+    HighScores scores;CHECK(!scores.load(t.savePath,t.path));CHECK(scores.table().size()==2);
+    if(scores.table().size()==2)CHECK(scores.table()[0].name=="Alex"&&scores.table()[0].score==2&&scores.table()[1].name=="Sam"&&scores.table()[1].score==0);
+}
 void immediateReview(const std::filesystem::path& tmp){
     for(bool chess:{false,true}){
         auto t=target(tmp/(chess?"chess":"traditional"));t.settings["classic_menu"]="0";t.settings["classic_word_policy"]="ask";t.settings["classic_seconds"]="60";t.settings["classic_turns"]=chess?"chess":"traditional";
@@ -623,6 +673,17 @@ void dictionaryEditing(const std::filesystem::path& tmp){
     CHECK(!editor.open(t.savePath,t.path));CHECK(!editor.event(keyEvent(key::Delete)));
     std::filesystem::create_directory(t.savePath/"EnglishUser.dic.tmp");CHECK(!editor.event(keyEvent(key::F1+1)));CHECK(editor.event(keyEvent(key::Escape)));
     CHECK(!words.load(t.savePath,t.path) && words.words().size()==2);std::filesystem::remove(t.savePath/"EnglishUser.dic.tmp");
+    // Clearing remains transactional, including the confirmation's Cancel.
+    CHECK(!editor.open(t.savePath,t.path));CHECK(!editor.event(keyEvent(key::F1+3)));
+    CHECK(!editor.event(keyEvent(key::Escape)));CHECK(editor.event(keyEvent(key::F1+1)));
+    CHECK(!words.load(t.savePath,t.path) && words.words().size()==2);
+    CHECK(!editor.open(t.savePath,t.path));CHECK(!editor.event(keyEvent(key::F1+3)));
+    CHECK(!editor.event(keyEvent('y')));CHECK(editor.event(keyEvent(key::Escape)));
+    CHECK(!words.load(t.savePath,t.path) && words.words().size()==2);
+    CHECK(!editor.open(t.savePath,t.path));CHECK(!editor.event(keyEvent(key::F1+3)));
+    CHECK(!editor.event(keyEvent(key::Return)));CHECK(editor.event(keyEvent(key::F1+1)));
+    CHECK(!words.load(t.savePath,t.path) && words.words().empty());
+    CHECK(!words.add({"AAB","AAC"}));
     fixtures::ScriptedSystem sys;sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
         if(f==0 || f==1)return {keyEvent(key::Return)};
             if(f==2 || f==5)return {keyEvent('d')};
@@ -800,6 +861,8 @@ void timerAndErrors(const std::filesystem::path& tmp) {
 }
 }
 static const test::Suite suite("boggle.unit.frontend",{
+    {"in-round definitions hold Traditional/Chess time and protect focus and close batches",liveDefinitions},
+    {"immediate No permits retry without a Chess handoff; hidden All choices and acknowledgment guards",immediateRefusal},
     {"definition results view, match paging, focus/close guards and optional archive failures",definitionNavigation},
     {"panel sampling/bounds/failures and independent RGB frame comparison metrics",presentationTools},
     {"immediate dictionary review freezes Traditional/Chess clocks and guards focus/ack batches",immediateReview},

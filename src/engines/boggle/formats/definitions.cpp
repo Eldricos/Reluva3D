@@ -162,7 +162,13 @@ Error Definitions::read(const std::vector<uint8_t>& b){
         next.starts_.push_back(symbol);if(auto e=next.markup(symbol,text))return e;
         expanded+=text.size();if(expanded>256*1024*1024)return bad();
         if(id==0 && !text.empty())return bad();
-        next.roots_.push_back(text.starts_with("<IWD>"));
+        const bool root=text.starts_with("<IWD>");next.roots_.push_back(root);
+        next.primary_.push_back(root?std::string{}:key(headword(text)));
+        DefinitionText name;
+        if(auto e=definitionText(headword(text,root?"<IWD>":"<WD>"),name))return e;
+        auto spelling=name.plain();
+        for(size_t p=0;(p=spelling.find("·",p))!=spelling.npos;)spelling.erase(p,2);
+        if(!spelling.empty())(root?next.rootNames_:next.references_)[spelling].push_back(id);
         const std::array<std::vector<std::string>,5> keys={
             std::vector<std::string>{fieldKey(headword(text),false)},alternateFields(text),
             fields(text,"<RUN>",true),storedForms(text),text.starts_with("<IWD>")?fields(text,"<DRV>"):std::vector<std::string>{}};
@@ -187,7 +193,14 @@ Error Definitions::read(const std::vector<uint8_t>& b){
 Error Definitions::entry(uint32_t id,DefinitionEntry& out) const {
     out={};if(id==0 || id>=starts_.size())return Error::fail("Definition entry is out of range");
     uint64_t at=starts_[id];std::string text;if(auto e=markup(at,text))return e;
-    out.id=id;out.headword=plain(headword(text,text.starts_with("<IWD>")?"<IWD>":"<WD>"));out.text=plain(text);return Error::success();
+    out.id=id;out.headword=plain(headword(text,text.starts_with("<IWD>")?"<IWD>":"<WD>"));out.text=plain(text);
+    if(auto error=definitionText(text,out.formatted))return error;
+    // KW also labels etymological fragments and aliases with no article.
+    // Keep their printed text, but offer navigation only to validated targets.
+    for(auto& span:out.formatted.spans)if(!span.reference.empty()&&!hasReference(span.reference,span.root)){
+        span.reference.clear();span.root=false;
+    }
+    return Error::success();
 }
 Error Definitions::lookup(std::string_view word,std::vector<DefinitionEntry>& out) const {
     out.clear();const auto normalized=key(word);if(normalized.empty())return Error::fail("Definition lookup needs an ASCII English word");
@@ -203,8 +216,12 @@ Error Definitions::lookup(std::string_view word,std::vector<DefinitionEntry>& ou
             }
             result.push_back(std::move(e));
         }
-        auto rank=[](DefinitionMatch match){return match==DefinitionMatch::RelatedForm?3:int(match);};
-        std::stable_sort(result.begin(),result.end(),[&](const auto& a,const auto& b){return rank(a.match)<rank(b.match);});
+        // The displayed primary headword (case folded), rather than alternate
+        // WD fields embedded in a sense or inflection, determines first rank.
+        // Keep the authored article order for every other match.
+        std::stable_sort(result.begin(),result.end(),[&](const auto& a,const auto& b){
+            return (primary_[a.id]==normalized)>(primary_[b.id]==normalized);
+        });
         out=std::move(result);return Error::success();
     }
     for(size_t i=0;i<indexes_.size();++i){
@@ -215,6 +232,25 @@ Error Definitions::lookup(std::string_view word,std::vector<DefinitionEntry>& ou
         }
     }
     out=std::move(result);return Error::success();
+}
+bool Definitions::hasReference(std::string_view spelling,bool root) const {
+    if(spelling.empty()||spelling.size()>128)return false;
+    if(root)return rootNames_.contains(std::string(spelling));
+    if(authored_.reference(spelling)||references_.contains(std::string(spelling)))return true;
+    const auto normalized=key(spelling);if(normalized.empty())return false;
+    if(authored_.present())return authored_.find(normalized)!=nullptr;
+    return std::any_of(indexes_.begin(),indexes_.end(),[&](const auto& index){return index.contains(normalized);});
+}
+Error Definitions::reference(std::string_view spelling,bool root,std::vector<DefinitionEntry>& out) const {
+    out.clear();if(spelling.empty()||spelling.size()>128)return Error::fail("Invalid definition reference");
+    const auto& names=root?rootNames_:references_;
+    const auto named=names.find(std::string(spelling));
+    const auto* ids=root?(named==names.end()?nullptr:&named->second):authored_.reference(spelling);
+    if(!ids && named!=names.end())ids=&named->second;
+    if(!ids && !root)return lookup(spelling,out);
+    if(!ids)return Error::success();
+    for(auto id:*ids){DefinitionEntry e;if(auto error=entry(id,e))return error;e.match=root?DefinitionMatch::RootDerivative:DefinitionMatch::Headword;out.push_back(std::move(e));}
+    return Error::success();
 }
 std::string Definitions::indexChecksum() const {
     Md5 hash;

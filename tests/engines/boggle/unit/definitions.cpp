@@ -6,8 +6,28 @@
 #include "tests/engines/boggle/system.h"
 #include "tests/support/test.h"
 #include <limits>
+#include <algorithm>
 using namespace reluva;using namespace reluva::boggle;
 namespace {
+void formatting(){
+    DefinitionText t;CHECK(!definitionText("<WD>ta\xb7z<PR>\\schwa/\\along/\\bprime/<POS>n.<DEF>1. <TX>Own <EM1>example</EM1>.<ETYSEG><LANG>Latin<LFORM>f\xe9<ROOTREF><IEKW>wug-",t));
+    CHECK(t.unsupported.empty());CHECK(t.plain().find("ta·z")!=std::string::npos && t.plain().find("əā′")!=std::string::npos && t.plain().find("fé")!=std::string::npos);
+    CHECK(t.spans.front().style&DefinitionBold);
+    CHECK(std::any_of(t.spans.begin(),t.spans.end(),[](const auto& s){return s.text=="example"&&(s.style&DefinitionItalic); }));
+    CHECK(t.spans.back().reference=="wug-" && t.spans.back().root);
+    CHECK(!definitionText("<WD>X<UP>2</UP><TX>a<UB>3</UB><KW>Other Name",t));
+    CHECK(std::any_of(t.spans.begin(),t.spans.end(),[](const auto& s){return s.text=="2"&&(s.style&DefinitionSuper);}));
+    CHECK(std::any_of(t.spans.begin(),t.spans.end(),[](const auto& s){return s.text=="3"&&(s.style&DefinitionSub);}));
+    CHECK(t.spans.back().reference=="Other Name");
+    for(const auto* name:{"oolong","ulowibreve","rlowangstacute","grTHETA","grepsilonacute","3:1000","phonkh","flat","aelong","elongacute","gibreve"})CHECK(!definitionSymbol(name).empty());
+    CHECK(definitionSymbol("invented").empty());CHECK(!definitionText("\\invented/",t)&&t.unsupported==std::vector<std::string>{"invented"});
+    CHECK(bool(definitionText("<unfinished",t)) && t.spans.empty());CHECK(bool(definitionText("\\unfinished",t)));
+    CHECK(bool(definitionText(std::string(1024*1024+1,'a'),t)));
+    size_t at=0;CHECK(definitionCodepoint("ə",at)==0x259&&at==2);at=0;CHECK(definitionCodepoint("\xf0\x80\x80\x80",at)==0xfffd);
+    Definitions d;CHECK(!d.read(fixtures::definitionIndexedArchive()));std::vector<DefinitionEntry> rows;
+    CHECK(!d.reference("taz",false,rows)&&!rows.empty());CHECK(!d.read(fixtures::definitionArchive(false,{},{},"<IWD>wug-<DLIST><DRV>quiz<DEFN><ITX>Own root.")));
+    CHECK(!d.reference("wug-",true,rows)&&rows.size()==1&&rows[0].id==3);
+}
 void reader(){
     const auto bytes=fixtures::definitionArchive();Definitions d;CHECK(!d.read(bytes) && d.entries()==3 && d.headwords()==2);
     std::vector<DefinitionEntry> rows;CHECK(!d.lookup("taz",rows) && rows.size()==2);if(rows.size()==2)CHECK(rows[0].text=="taz\nOwn text." && rows[1].text=="taz\nOther text.");
@@ -27,7 +47,7 @@ void reader(){
     b=bytes;b.pop_back();invalid(b);CHECK(!d.read(bytes));
 }
 void view(){
-    DefinitionView view;DefinitionEntry a{1,"TAZ",std::string(6000,'A')},b{2,"TAZ","Second meaning."};view.open("TAZ",{a,b});
+    DefinitionView view;DefinitionEntry a{1,"TAZ",std::string(6000,'A'),DefinitionMatch::Headword,{}},b{2,"TAZ","Second meaning.",DefinitionMatch::Headword,{}};view.open("TAZ",{a,b});
     Surface s;s.create(800,600,PixelFormat::RGBA32);view.draw(s);const auto first=s.pixels;
     CHECK(!view.event(fixtures::keyEvent(key::PageDown)));view.draw(s);CHECK(first!=s.pixels);
     CHECK(!view.event(fixtures::keyEvent(key::Right)));view.draw(s);const auto second=s.pixels;CHECK(second!=first);
@@ -40,7 +60,27 @@ void view(){
     Event wheel;wheel.type=EventType::MouseWheel;wheel.wheelY=std::numeric_limits<int>::min();CHECK(!view.event(wheel));CHECK(!view.event(fixtures::keyEvent(key::Home)));view.draw(s);CHECK(s.pixels==first);
     auto repeat=fixtures::keyEvent(key::Return);repeat.repeat=true;CHECK(!view.event(repeat));CHECK(view.event(fixtures::keyEvent(key::Escape)));
     view.open("TAZ",{},"Missing archive");view.draw(s);CHECK(view.event(fixtures::mouseEvent(EventType::MouseDown,620,544)));
+    view.open("TAZ",std::vector<DefinitionEntry>(65,a));view.draw(s);CHECK(view.event(fixtures::keyEvent(key::Return)));
     s.pixels.clear();view.draw(s);
+}
+void links(){
+    Definitions dictionary;CHECK(!dictionary.read(fixtures::definitionArchive()));
+    DefinitionEntry a{1,"OWN","Own article.",DefinitionMatch::Headword,{}};
+    a.formatted.spans={{"quiz",DefinitionBold,"quiz",false}};
+    DefinitionView view;view.open("TAZ",{a},{},&dictionary);Surface s;s.create(800,600,PixelFormat::RGBA32);view.draw(s);const auto first=s.pixels;
+    CHECK(!view.event(fixtures::keyEvent(key::Tab)));CHECK(!view.event(fixtures::keyEvent(key::Return)));view.draw(s);CHECK(s.pixels!=first);
+    CHECK(!view.event(fixtures::keyEvent(key::Backspace)));view.draw(s);CHECK(s.pixels==first);
+    CHECK(!view.event(fixtures::mouseEvent(EventType::MouseDown,48,108)));view.draw(s);CHECK(s.pixels!=first);
+    CHECK(!view.event(fixtures::keyEvent(key::Backspace)));view.draw(s);CHECK(s.pixels==first);
+    CHECK(view.event(fixtures::keyEvent(key::Escape)));
+    CHECK(!definitionText("<WD>Own<UP>2<PR><PRBODY><PRON>\\schwa/\xff<PSEG><POS>n.<DS><DEF><DEFTX><TX>Own sense.",a.formatted));
+    CHECK(a.formatted.plain().find("1. Own sense.")!=std::string::npos);
+    CHECK(std::none_of(a.formatted.spans.begin(),a.formatted.spans.end(),[](const auto& span){return span.text.find("Own sense")!=std::string::npos&&(span.style&DefinitionSuper);}));
+    CHECK(!dictionary.read(fixtures::definitionArchive(false,"<KW>(a)fragment<ROOTREF><IEKW>missing-root-<XREF><KW>quiz<TX>")));
+    DefinitionEntry article;CHECK(!dictionary.entry(1,article));
+    CHECK(std::any_of(article.formatted.spans.begin(),article.formatted.spans.end(),[](const auto& span){return span.text.find("(a)fragment")!=std::string::npos&&span.reference.empty();}));
+    CHECK(std::any_of(article.formatted.spans.begin(),article.formatted.spans.end(),[](const auto& span){return span.reference=="quiz";}));
+    CHECK(definitionSymbol("babreve")=="̮" && definitionSymbol("balong")=="̱" && definitionSymbol("irevc")=="ɔ");
 }
 void inflections(){
     Definitions d;CHECK(!d.read(fixtures::definitionArchive()));const auto exactChecksum=d.indexChecksum();
@@ -133,6 +173,8 @@ void inflectionAlternatives(){
 }
 }
 static const test::Suite suite("boggle.unit.definitions",{
+    {"click/keyboard references, return history, sense layout and implicit superscript end",[](const auto&){links();}},
+    {"UTF-8 pronunciation, accents, styles, references, malformed markup and limits",[](const auto&){formatting();}},
     {"alternate spellings inside inflection groups retain inflection rank and require complete groups",[](const auto&){inflectionAlternatives();}},
     {"authored word index, implicit forms, root spelling, priority, boundaries, sentinel and malformed data",[](const auto&){authoredIndex();}},
     {"Boggle query folding, per-field case eligibility, capitalized parents, direct IDs and reset",[](const auto&){queryCase();}},

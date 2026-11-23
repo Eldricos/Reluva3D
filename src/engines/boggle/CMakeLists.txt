@@ -27,6 +27,7 @@ reluva_add_engine(boggle
         formats/dictionary.cpp
         formats/definitions.cpp
         formats/definition_index.cpp
+        formats/definition_text.cpp
         classic/presentation.cpp
         classic/definition_view.cpp
         classic/cube_geometry.cpp

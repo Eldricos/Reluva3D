@@ -16,9 +16,11 @@ public:
     size_t links() const {return links_;}
     // Keys are uppercase ASCII, already normalized by Definitions::lookup.
     const std::vector<uint32_t>* find(const std::string& key) const;
+    const std::vector<uint32_t>* reference(std::string_view spelling) const;
     std::string checksum() const;
 private:
     std::map<std::string,std::vector<uint32_t>> words_;
+    std::map<std::string,std::vector<uint32_t>> references_;
     size_t records_=0,links_=0;
     bool present_=false;
 };

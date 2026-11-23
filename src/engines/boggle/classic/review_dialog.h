@@ -12,7 +12,7 @@ public:
     Error read(const std::vector<PeResource>& resources,uint16_t language=0x0409);
     bool installed() const {return installed_;}
     const std::array<HistoryButton,4>& buttons() const {return buttons_;}
-    void draw(Surface& screen,std::string_view word,std::string_view message) const;
+    void draw(Surface& screen,std::string_view word,std::string_view message,bool all=true) const;
 private:
     bool installed_=false;
     HistoryButton bounds_{};

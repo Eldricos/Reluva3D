@@ -126,5 +126,7 @@ Missing templates and disabled artwork retain the earlier native panel.
 The completion pass now exposes all four handling choices as native policies:
 `deferred`, `ask`, `add`, `reject`. Their implementation, immediate-prompt clock
 holds and per-round All behavior are described in [dictionary controls](dictionary-editor.md).
-Original labels/defaults and detailed immediate-review edge cases still need VM
-comparison; the existing deferred default is unchanged.
+The completion pass corroborates original labels, default 1 (deferred), Clear,
+immediate Yes/No visibility and refusal-before-insertion from resources and
+control flow. Immediate refusal keeps the Chess turn and remains eligible for
+retry; all decisions at end of round retain their prior scoring behavior.

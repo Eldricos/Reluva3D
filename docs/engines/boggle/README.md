@@ -157,9 +157,10 @@ Supported formats:
   the [Classic handwriting font](fonts.md).
 - BMP and PCM WAV through the existing shared readers.
 
-Not decoded: INSO `.DAT` definitions and broader font/language forms. The resource checker
-also does not interpret PE dialog layouts or validate every asset the original
-program may request. Some bitmap paths
+The English INSO `.DAT` entry/index and rich definition text are decoded; see
+[word definitions](definitions.md). Broader language gameplay remains separate.
+Dedicated dialog and presentation checks cover supported resources, while the
+resource checker does not validate every asset the original program may request. Some bitmap paths
 in the EXE are absent from the supplied copies; see the
 [remaining research questions](../../plans/boggle-1997/unconfirmed.md).
 
@@ -248,8 +249,12 @@ original lighting, seeded shuffle and whole-screen parity remain comparison work
 The [Classic completion tracker](../../plans/boggle-1997/classic-completion.md)
 distinguishes implemented features from remaining original-reference work.
 [Frame comparisons](presentation-comparison.md) now have a metadata-only tool;
-nine supplied clips match FFmpeg decoding exactly. Post-round **D** opens the installed [word definitions](definitions.md) in a
-scrollable native viewer. ASCII headwords, alternate forms, subentries, stored inflections and root
-derivatives are supported. The authored word index also resolves implicit
-inflections and original root links. Pronunciation typography, rich layout and
-broader query-ranking comparisons remain open.
+nine supplied clips match FFmpeg decoding exactly. During play, double-click
+a recorded word with the input empty; after a round, **D** opens the selected
+[word definition](definitions.md). The viewer provides Unicode pronunciation,
+rich formatting, scrolling, literal/root references and return history while
+holding gameplay time. Authored forms and ordering are verified against all
+successful multi-article ASCII queries. Players’ personal dictionary includes
+transactional Add, Remove and confirmed Clear. All four unknown-word policies
+use corroborated original defaults/labels; immediate refusal permits retry
+and keeps the Chess turn. Item 2 is complete for the supported English scope.

@@ -48,7 +48,10 @@ follows, terminated by byte 7, then bytes 0 and 0x10 and a signed big-endian
 The game-query index keeps records with zero case bits and lowercase ASCII
 letter keys of at most 64 bytes. IDs must be within the validated article range.
 Duplicate key/ID pairs are suppressed. Non-ASCII, punctuation and multiword
-records are still structurally validated but not exposed by ASCII game queries.
+records are structurally validated and exposed separately for literal
+reference navigation, without changing ASCII game queries. Case flags restore
+initial-cap (0x80), all-cap (0xC0), literal mixed-case (0x40) or lowercase (0)
+spelling; legacy characters convert to UTF-8.
 
 A block can end with an incomplete lookahead record. Its decoded bytes must
 match the prefix of the next block's complete first record, including case,
@@ -63,7 +66,10 @@ article ID, and zero padding. Its directory prefix must also match.
 The implementation limits archives to 32 MiB, blocks to 4,096, block sizes to
 64–4,096 bytes, symbols to 2–12 bits, words to 128 bytes, a literal cache to
 1 MiB, expanded blocks to 64 KiB each and 64 MiB total, records to 500,000,
-accepted links to 400,000 and distinct articles per key to 64. Unsupported
+game-query links to 400,000 and distinct game articles per key to 64. The
+separate literal-reference index is bounded by the same 500,000 source records
+and 4,096 distinct articles per spelling; the viewer retains its 64-article
+limit and reports an oversized reference instead of rendering it. Unsupported
 headers, metadata, impossible backtracks, invalid IDs or boundary/sentinel
 mismatches clear the result and return an error.
 

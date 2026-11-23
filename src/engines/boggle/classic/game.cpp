@@ -207,22 +207,22 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
         rect(screen,h.x,h.y,h.w,h.h,{48,88,120});label(screen,h.x+8,h.y+8,"HIGH SCORES (H)");
     }
     const auto detail=message.empty() && results.allWords()?"Blue: missed words / potential points. Final score unchanged.":message;
-    label(screen, 24, 535, reviewing ? "Choose one of the four dictionary options." : detail.empty() ? (ready ? "Press Enter when ready. The timer starts with the board." : playing ? "Enter: submit   Backspace: undo   Right click: clear" : results.words().empty()?"No words counted. Enter: replay   F2: new board":"Click a word or use Up/Down to review its path and points.") : detail, muted);
+    label(screen, 24, 535, reviewing ? (playing?"Choose Yes or No.":"Choose one of the four dictionary options.") : detail.empty() ? (ready ? "Press Enter when ready. The timer starts with the board." : playing ? "Enter: submit   Backspace: undo   Right click: clear" : results.words().empty()?"No words counted. Enter: replay   F2: new board":"Click a word or use Up/Down to review its path and points.") : detail, muted);
     if (!reviewing) { rect(screen, 24, 557, 180, 29, {48, 88, 120}); label(screen, 35, 566, playing ? (chess?"END PLAYER (F1)":"END ROUND (F1)") : ready ? "START / REPLAY (ENTER)" : "REPLAY (ENTER)"); }
     if (!playing && !reviewing) { rect(screen, 216, 557, 158, 29, {48, 88, 120}); label(screen, 227, 566, "NEW BOARD (F2)"); }
     label(screen, artwork.active()?450:610, 566, fromMenu ? "MENU (F3)" : "ESC: LAUNCHER", muted);
     if (const auto* word = round.candidate()) {
-        if(reviewDialog.installed())reviewDialog.draw(screen,word->entry.word,message);
+        if(reviewDialog.installed())reviewDialog.draw(screen,word->entry.word,message,!playing);
         else {
         rect(screen, 24, 182, 752, 270, {50, 78, 108});
         rect(screen, 27, 185, 746, 264, {22, 40, 60});
         label(screen, 48, 206, "ADD TO YOUR DICTIONARY?", white, 2);
         label(screen, 48, 244, word->entry.word, {255, 116, 116}, word->entry.word.size() > 40 ? 1 : 2);
         label(screen, 48, 282, "Yes keeps this word's points. No removes them.", muted);
-        label(screen, 48, 306, "All applies to the remaining words in this round.", muted);
-        for (int i = 0; i < 4; ++i) rect(screen, 40 + i * 184, 352, 168, 40, {48, 88, 120});
+        if(!playing)label(screen, 48, 306, "All applies to the remaining words in this round.", muted);
+        for (int i = 0; i < (playing?2:4); ++i) rect(screen, 40 + i * 184, 352, 168, 40, {48, 88, 120});
         label(screen, 54, 368, "YES (1)"); label(screen, 238, 368, "NO (2)");
-        label(screen, 422, 368, "YES TO ALL (3)"); label(screen, 606, 368, "NO TO ALL (4)");
+        if(!playing){label(screen, 422, 368, "YES TO ALL (3)"); label(screen, 606, 368, "NO TO ALL (4)");}
         if (!message.empty()) label(screen, 48, 416, message.substr(0, 88), muted);
         }
     }
@@ -513,7 +513,7 @@ Error ClassicGame::run() {
         const auto result=round().submit(input,gameTime(),selected);
         message=feedback(result,round().minimum());
         if(result==Submission::SaveFailed)message="Word not counted. Save failed; retry or change Unknown words in game options.";
-        if(result==Submission::Accepted || result==Submission::UnknownWord)sound.recorded(round().words().back().entry.word.size());
+        if(result==Submission::Accepted || (result==Submission::UnknownWord && options.wordPolicy!=WordPolicy::AskNow))sound.recorded(round().words().back().entry.word.size());
         if(result!=Submission::SelectPath && result!=Submission::SaveFailed)clear();
         if(result==Submission::UnknownWord && options.wordPolicy==WordPolicy::AskNow){
             dictionaryNotice=true;promptVisible=false;gameplayClock.notice(true,sys_.getMillis());return Error::success();
@@ -524,6 +524,14 @@ Error ClassicGame::run() {
         if(result==Submission::NotPlaying)timeout(nowMillis());
         if(result==Submission::Accepted || result==Submission::UnknownWord || (chess && result==Submission::Duplicate))return passWord();
         return Error::success();
+    };
+    auto openDefinition=[&](const std::string& word){
+        gameplayClock.notice(true,sys_.getMillis());
+        std::string error;
+        if(!definitionsLoaded){const auto e=resources.definitions(definitions);error=e.message;definitionsLoaded=!e;}
+        std::vector<DefinitionEntry> entries;
+        if(error.empty())if(auto e=definitions.lookup(word,entries))error=e.message;
+        definitionView.open(word,std::move(entries),error,&definitions);definitionOpen=true;dragging=false;
     };
     auto select = [&](int x, int y) {
         const size_t side = round().board().side(); const int cellSize = boardSize / int(side);
@@ -609,7 +617,7 @@ Error ClassicGame::run() {
             }
             if(scoreDismissed)continue;
             if(definitionOpen){
-                if(gameplayClock.focused() && definitionView.event(event)){definitionOpen=false;scoreDismissed=true;}
+                if(gameplayClock.focused() && definitionView.event(event)){definitionOpen=false;gameplayClock.notice(false,sys_.getMillis());scoreDismissed=true;}
                 continue;
             }
             if(minimumNotice) {
@@ -672,16 +680,20 @@ Error ClassicGame::run() {
             if (transition.type() != Transition::None) continue;
             if (round().candidate()) {
                 int choice = -1;
-                if (promptVisible && event.type == EventType::KeyDown && !event.repeat && event.key >= '1' && event.key <= '4')
+                if (promptVisible && event.type == EventType::KeyDown && !event.repeat && event.key >= '1' && event.key <= (dictionaryNotice?'2':'4'))
                     choice = int(event.key - '1');
                 if (promptVisible && event.type == EventType::MouseDown && event.button == MouseButton::Left)
-                    for (int i = 0; i < 4; ++i) if (reviewDialog.buttons()[size_t(i)].contains(event.mouseX,event.mouseY)) choice = i;
+                    for (int i = 0; i < (dictionaryNotice?2:4); ++i) if (reviewDialog.buttons()[size_t(i)].contains(event.mouseX,event.mouseY)) choice = i;
                 if (choice >= 0) {
                     const DictionaryChoice choices[] = {DictionaryChoice::Yes, DictionaryChoice::No, DictionaryChoice::YesAll, DictionaryChoice::NoAll};
+                    const auto wordLength=round().candidate()->entry.word.size();
                     if (auto err = round().decide(choices[choice])) message = err.message;
                     else {
                         message.clear();promptVisible=false;resultsVisible=false;
-                        if(dictionaryNotice){dictionaryNotice=false;gameplayClock.notice(false,sys_.getMillis());scoreDismissed=true;if(auto e=passWord())return e;}
+                        if(dictionaryNotice){
+                            dictionaryNotice=false;gameplayClock.notice(false,sys_.getMillis());scoreDismissed=true;
+                            if(choice==0||choice==2){sound.recorded(wordLength);if(auto e=passWord())return e;}
+                        }
                     }
                 }
                 continue;
@@ -694,16 +706,22 @@ Error ClassicGame::run() {
                 if(event.key=='v'){matchOpen=true;continue;}
                 if(event.key>='1' && event.key<'1'+names.size()){if(auto error=chooseReview(size_t(event.key-'1')))return error;continue;}
             }
+            if(hasDefinitions && round().phase()==RoundPhase::Playing && kinds[turn]==ComputerLevel::Human && input.empty() &&
+               event.type==EventType::MouseDown && event.button==MouseButton::Left && event.clicks>=2){
+                const int left=artwork.active()?633:442,top=artwork.active()?58:217,right=artwork.active()?792:776;
+                const size_t visible=artwork.active()?ClassicArtwork::visibleWords:14;
+                if(event.mouseX>=left&&event.mouseX<right&&event.mouseY>=top&&event.mouseY<top+int(visible)*17){
+                    std::vector<const RoundWord*> words;for(const auto& word:round().words())if(word.state!=WordState::Declined)words.push_back(&word);
+                    const auto view=wordHistoryView(words.size(),visible,scroll);const auto row=view.begin+size_t((event.mouseY-top)/17);
+                    if(row<view.end){openDefinition(words[row]->entry.word);continue;}
+                }
+            }
             if(resultsVisible && results.ready() && ((event.type==EventType::KeyDown && !event.repeat && event.key=='d') ||
                (hasDefinitions && event.type==EventType::MouseDown && event.button==MouseButton::Left &&
                 (artwork.active()?definitionsArtwork:definitionsPrototype).contains(event.mouseX,event.mouseY)))) {
                 if(results.words().empty()){message="Select a counted or discovered word before looking up a definition.";continue;}
                 const size_t index=reviewSelection.value_or(0);const auto word=results.words()[index].entry.word;
-                std::string error;
-                if(!definitionsLoaded){const auto e=resources.definitions(definitions);error=e.message;definitionsLoaded=!e;}
-                std::vector<DefinitionEntry> entries;
-                if(error.empty())if(auto e=definitions.lookup(word,entries))error=e.message;
-                definitionView.open(word,std::move(entries),error);definitionOpen=true;dragging=false;continue;
+                openDefinition(word);continue;
             }
             if(resultsVisible && results.ready() && ((event.type==EventType::KeyDown && !event.repeat && event.key=='h') ||
                (event.type==EventType::MouseDown && event.button==MouseButton::Left &&
@@ -830,7 +848,7 @@ Error ClassicGame::run() {
             rect(screen,b.x,b.y,b.w,b.h,{48,88,120});label(screen,b.x+8,b.y+8,"DEFINITION (D)");
         }
         if(definitionOpen)definitionView.draw(screen);
-        if(!gameplayClock.manual() && !handoff && !matchOpen && !scoreOpen && transition.type()==Transition::None && round().phase()==RoundPhase::Playing) {
+        if(!definitionOpen && !gameplayClock.manual() && !handoff && !matchOpen && !scoreOpen && transition.type()==Transition::None && round().phase()==RoundPhase::Playing) {
             rect(screen,pauseButton.x,pauseButton.y,pauseButton.w,pauseButton.h,{48,88,120});
             label(screen,pauseButton.x+12,pauseButton.y+9,"PAUSE");
         }

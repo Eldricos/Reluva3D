@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/formats/definition_index.h"
 #include "common/md5.h"
+#include "engines/boggle/formats/definition_text.h"
 #include <algorithm>
 #include <array>
 namespace reluva::boggle {
@@ -99,6 +100,15 @@ Error DefinitionIndex::read(const std::vector<uint8_t>& b,uint32_t articles,size
                 if(!boundary(last,previousTail,row) || actualDirectory!=(page?directoryKey(row.word):std::string(4,' ')))return bad();
                 first=false;
             }
+            auto spelling=row.word;
+            if(row.kind==0x80 && spelling[0]>='a' && spelling[0]<='z')spelling[0]-=32;
+            if(row.kind==0xc0)for(auto& c:spelling)if(c>='a'&&c<='z')c-=32;
+            std::string utf8;for(unsigned char c:spelling)utf8+=definitionUtf8(c);
+            auto& refs=next.references_[utf8];
+            if(std::find(refs.begin(),refs.end(),row.id)==refs.end()){
+                if(refs.size()>=4096)return bad();
+                refs.push_back(row.id);
+            }
             if(!row.kind && row.word.size()<=64 && std::all_of(row.word.begin(),row.word.end(),[](char c){return c>='a' && c<='z';})){
                 auto word=row.word;for(auto& c:word)c-=32;auto& ids=next.words_[word];
                 if(std::find(ids.begin(),ids.end(),row.id)==ids.end()){
@@ -115,6 +125,9 @@ Error DefinitionIndex::read(const std::vector<uint8_t>& b,uint32_t articles,size
 }
 const std::vector<uint32_t>* DefinitionIndex::find(const std::string& key) const {
     const auto found=words_.find(key);return found==words_.end()?nullptr:&found->second;
+}
+const std::vector<uint32_t>* DefinitionIndex::reference(std::string_view spelling) const {
+    const auto found=references_.find(std::string(spelling));return found==references_.end()?nullptr:&found->second;
 }
 std::string DefinitionIndex::checksum() const {
     Md5 hash;hash.update("word-index\0",11);

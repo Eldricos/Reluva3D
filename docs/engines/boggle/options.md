@@ -174,5 +174,7 @@ or `reject`. Players' Words / W control cycles these for the current session.
 Only legal board words meeting the mode minimum reach this policy. Known words
 remain ordinary submissions. See [dictionary controls](dictionary-editor.md)
 for provisional scoring, persistence failures and immediate prompt clock holds.
-These are native labels; detailed original labels/defaults are still under VM
-comparison. Other menu settings and original registry files remain unchanged.
+The launcher uses the original labels from dialog 10816, and executable
+analysis corroborates default 1 (end-of-game review). Immediate review offers
+Yes/No; refusal keeps the Chess turn and permits retry. All choices are
+available during end-of-round review. Original registry files are not edited.

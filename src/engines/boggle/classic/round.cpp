@@ -225,6 +225,11 @@ Error ClassicRound::decide(DictionaryChoice choice) {
         if (yes) accepted_.push_back(word.entry);
         else score_ -= word.entry.points;
     }
+    // An immediate refusal fails validation in the original before insertion.
+    // It must remain eligible for another attempt, rather than becoming a
+    // duplicate that would hand off a Chess turn.
+    if(phase_==RoundPhase::Playing && !yes)
+        std::erase_if(words_,[](const auto& word){return word.state==WordState::Declined;});
     if(phase_==RoundPhase::Playing && all){approveAll_=yes;rejectAll_=!yes;}
     return Error::success();
 }

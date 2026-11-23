@@ -8,6 +8,7 @@
 namespace reluva::boggle {
 namespace {
 constexpr SelectionRect add{40,382,126,36},remove{180,382,126,36},done{320,382,126,36},cancel{460,382,140,36};
+constexpr SelectionRect clear{480,430,120,26},yesClear{160,252,140,36},noClear{340,252,140,36};
 constexpr size_t visible=13;
 }
 Error DictionaryEditor::open(const std::filesystem::path& save,const std::filesystem::path& game){
@@ -22,6 +23,13 @@ void DictionaryEditor::refresh(){
 bool DictionaryEditor::event(const Event& e){
     const bool key=e.type==EventType::KeyDown,once=key&&!e.repeat,click=e.type==EventType::MouseDown && e.button==MouseButton::Left;
     auto hit=[&](SelectionRect b){return click&&b.contains(e.mouseX,e.mouseY);};
+    if(clearPrompt_){
+        if((once&&(e.key=='y'||e.key==key::Return||e.key==key::KpEnter))||hit(yesClear)){
+            draft_.clear();input_.clear();refresh();error_.clear();clearPrompt_=false;replace_=true;
+        }else if((once&&(e.key=='n'||e.key==key::Escape))||hit(noClear))clearPrompt_=false;
+        return false;
+    }
+    if((once&&e.key==key::F1+3)||hit(clear)){if(!draft_.empty())clearPrompt_=true;return false;}
     if((once&&e.key==key::Escape)||hit(cancel))return true;
     if((once&&e.key==key::F1+1)||hit(done)){
         const auto result=user_.replace({draft_.begin(),draft_.end()});error_=result.message;return !result;
@@ -67,7 +75,14 @@ void DictionaryEditor::draw(Surface& s) const {
     box({40,326,560,36},{43,83,112});font::drawText(s,48,338,input_.size()>64?input_.substr(input_.size()-64):input_,white);
     const SelectionRect buttons[]={add,remove,done,cancel};const char* labels[]={"ADD (ENTER)","REMOVE (DEL)","DONE (F2)","CANCEL (ESC)"};
     for(size_t i=0;i<4;++i){box(buttons[i],{48,64,88});font::drawText(s,buttons[i].x+8,buttons[i].y+14,labels[i],white);}
-    font::drawText(s,40,438,"Changes apply on Done. Cancel discards the whole draft.",muted);
+    font::drawText(s,40,438,"Done saves. Cancel discards all changes.",muted);
+    box(clear,{48,64,88});font::drawText(s,clear.x+8,clear.y+9,"CLEAR (F4)",white);
+    if(clearPrompt_){
+        box({120,180,400,130},{35,45,65});font::drawText(s,144,206,"Clear every personal word?",white,2);
+        font::drawText(s,144,232,"The draft is saved only when you choose Done.",muted);
+        box(yesClear,{48,64,88});box(noClear,{48,64,88});
+        font::drawText(s,172,266,"YES (ENTER / Y)",white);font::drawText(s,352,266,"NO (ESC / N)",white);
+    }
     if(!error_.empty())font::drawText(s,40,460,error_.substr(0,90),{255,150,130});
 }
 }

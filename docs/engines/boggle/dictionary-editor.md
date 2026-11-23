@@ -4,7 +4,8 @@ On Players, choose Dictionary / D to edit words you have added. Type 3–64
 English letters and use Add / Enter; words normalize to uppercase. Up/Down,
 Home/End, Page Up/Page Down, the wheel or a row click selects a word. Typing
 also jumps to the nearest prefix. Remove / Delete removes the selected draft
-row. Backspace edits the input and Ctrl+A replaces it on the next typing.
+row. Clear / F4 asks for confirmation before emptying the draft. No / Escape
+closes that confirmation; Yes / Enter clears the draft. Backspace edits the input and Ctrl+A replaces it on the next typing.
 Thirteen sorted rows are visible at once, up to 32,768 words.
 
 Done / F2 saves the whole draft. Cancel / Escape discards all changes. A save
@@ -40,17 +41,32 @@ input available for retry. Main-dictionary words never require a personal save.
 Immediate review holds the shared gameplay clock, including Traditional/Chess
 budgets and background computers. Focus holds are independent; returning to the
 window cannot answer the prompt in the same event batch. A successful answer
-releases the notice hold, consumes its batch and then performs the normal Chess
-handoff. Yes All/No All govern subsequent unknown words in that round and reset
-on replay. Declined immediate entries remain reviewed entries for duplicate
-checking. Exact original immediate rejection/duplicate/handoff edges and original
-labels/defaults still need VM comparison. Existing deferred play is unchanged.
+releases the notice hold and consumes its batch. Immediate **Yes** persists and
+counts the word, plays its recording cue and performs the Chess handoff.
+Immediate **No** removes provisional points/history, keeps the current turn
+and allows another attempt. It does not play the recording cue. Yes/No are the
+only immediate choices; All buttons/keys are available at end of round.
+Persistence failures keep the prompt open and preserve prior data. Existing
+deferred play and all four end-of-round decisions remain unchanged.
 
-The original validator at `0x414d50` and unknown-word branch at `0x414f31`
-provide static evidence for deferred, immediate, unconditional-add and rejection
-routes. These native controls implement those four concepts with explicit save
-failure and clock contracts; they do not claim exact original UI policies.
-Word definitions have a separate archive reader and post-round viewer; see [definitions](definitions.md).
+The original All Games resource 10816/Unknown Words group supplies the exact
+labels: **Prompt to add when entered**, **Prompt to add at end of game**,
+**Always add**, **Never add**. The launcher uses those labels. The registry
+load at 0x41df87–0x41df9f selects default 1 (end-of-game review). Control 15602
+is **Clear**. Resource 16003 has visible Yes/No controls and initially hidden
+All controls; the immediate validator tests No (ID 7) at 0x414ebe and returns
+failure at 0x414eeb, before word insertion. Its pause/resume virtual calls
+surround the dialog. These resource/control-flow observations close the
+options/default/immediate-edge questions independently of a VM reply.
+
+The supplied original UI has a Clear action rather than the native full word
+editor. Add, remove, sorted browsing and transactional Done/Cancel are native
+conveniences with explicit save semantics. The supported milestone is U.S.
+English Classic Original/Master. Multilingual gameplay, automatic import of
+original personal dictionaries and reproducing registry files are separate
+engine work; none is required by the original English dictionary controls.
+
+Word definitions have a separate archive reader and in-round/results viewer; see [definitions](definitions.md).
 
 ## Validation
 
@@ -61,4 +77,5 @@ and per-round All resets. Scripted Traditional and Chess rounds leave an
 immediate prompt open across 90 seconds of wall time and focus changes, then
 verify accepted words and final scores. Main-dictionary and ordinary deferred
 regressions pass. SDL software runs exercise the installed editor in both
-variants. Windows owner testing of the new controls is pending.
+variants. The owner has validated the earlier controls on Windows; the completed pass
+adds Clear confirmation, immediate refusal/retry and in-round lookup checks.

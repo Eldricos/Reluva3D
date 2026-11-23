@@ -52,3 +52,30 @@ original text placement are not reproduced. FontTools was used only as an
 external reference, without consulting or copying its source. Original fonts,
 reference output and captures remain outside Git; game-data records contain
 only counts and checksums.
+
+## Unicode text views
+
+`font::TrueTypeUnicode` uses the same independently authored contour/raster
+primitives for a requested Unicode subset. It also reads format-12 cmap groups
+and flattens XY-offset composite outlines, including scale and two-by-two
+transforms. Point-attachment composites, CFF/collections and variable fonts
+remain unsupported. Combining marks have zero advance. Drawing supports
+synthetic bold/italic and surface clipping; the caller handles UTF-8, layout,
+font selection and baseline changes. No shaping, kerning or hinting is claimed.
+
+Limits are 8 MiB input, 128 tables, 16,384 glyph IDs, 4,096 requested codepoints,
+16 composite levels, 64 components and 16,384 flattened edges per glyph,
+2,000,000 edges across the cache, 256x256 pixels per glyph and 32 MiB masks.
+The existing simple-outline bounds also apply to composite children.
+`addFallback` fills missing glyphs at the same em height without replacing
+primary glyphs, and bounds the merged cache. A failed supplement preserves the
+loaded primary font. Callers can query `has` and provide a readable fallback.
+
+Synthetic Unicode tests add an independently assembled cmap-12 table, an offset
+composite and a combining mark. They cover successful supplement, preservation
+on failure, invalid groups/IDs, cyclic and unsupported composites, styles,
+clipping, invalid scalar values and every truncated fixture. No system-font
+bytes, glyph masks or rendered captures are embedded in tests or records.
+
+MSVC builds explicitly use `/utf-8` for source and execution character sets,
+so Unicode literals in text decoders/tests have the same bytes on Windows.
