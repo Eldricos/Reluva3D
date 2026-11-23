@@ -155,7 +155,9 @@ C++ library have pages of their own ([directx.md](directx.md),
     aren't read, and show nothing;
   - one message queue, which the engine posts its input to and
     `PeekMessageA` reads, calling `idle` when it's empty;
-  - `DispatchMessageA` and `TranslateMessage`;
+  - `DispatchMessageA`, and `TranslateMessage`, a key's character
+    (`WM_CHAR`) as a US keyboard types it, Shift held or not: letters,
+    digits and their symbols, the punctuation keys and the keypad's;
   - `DefWindowProcA` destroys a window it's asked to close;
   - frames and captions are Windows 98's sizes;
   - the mouse pointer, and the desktop's size and colour depth, which the

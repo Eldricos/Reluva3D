@@ -966,15 +966,35 @@ void Win32Process::addUserStandIns() {
     });
     // TranslateMessage: a key that types a character (letters, digits,
     // space, Enter, Backspace, Escape, Tab) queues WM_CHAR for it.
+    // TranslateMessage: a key's character (WM_CHAR), as a US keyboard
+    // types it, Shift held or not: letters, digits and their symbols, the
+    // punctuation keys, the keypad's, and Backspace, Tab, Enter and Esc.
     stdcall(u, "TranslateMessage", 1, [this](Cpu &c) {
         const uint32_t m = c.arg(0);
         if (!c.valid(m, 16) || c.read32(m + 4) != kWmKeyDown)
             return 0u;
         const uint32_t key = c.read32(m + 8);
+        const bool shift = _keysDown[0x10] || _keysDown[0xa0] || _keysDown[0xa1];
+        // VK_OEM_1 (0xba) to VK_OEM_3 (0xc0), and VK_OEM_4 (0xdb) to VK_OEM_7 (0xde).
+        static const char kPunctuation[] = ";=,-./`";
+        static const char kPunctuationShifted[] = ":+<_>?~";
+        static const char kBrackets[] = "[\\]'";
+        static const char kBracketsShifted[] = "{|}\"";
+        static const char kDigitsShifted[] = ")!@#$%^&*(";
         uint32_t ch = 0;
         if (key >= 'A' && key <= 'Z')
-            ch = key - 'A' + 'a';
-        else if ((key >= '0' && key <= '9') || key == ' ' || key == 8 || key == 9 || key == 13 || key == 27)
+            ch = shift ? key : key - 'A' + 'a';
+        else if (key >= '0' && key <= '9')
+            ch = shift ? uint8_t(kDigitsShifted[key - '0']) : key;
+        else if (key >= 0x60 && key <= 0x69) // the keypad's digits
+            ch = '0' + (key - 0x60);
+        else if (key >= 0x6a && key <= 0x6f && key != 0x6c) // its * + - . /
+            ch = uint8_t("*+?-./"[key - 0x6a]);
+        else if (key >= 0xba && key <= 0xc0)
+            ch = uint8_t((shift ? kPunctuationShifted : kPunctuation)[key - 0xba]);
+        else if (key >= 0xdb && key <= 0xde)
+            ch = uint8_t((shift ? kBracketsShifted : kBrackets)[key - 0xdb]);
+        else if (key == ' ' || key == 8 || key == 9 || key == 13 || key == 27)
             ch = key;
         if (!ch)
             return 0u;

@@ -419,6 +419,23 @@ static void testWindowsAndRegistry() {
     CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 1 && cpu.read32(msg + 4) == 0x102 &&
           cpu.read32(msg + 8) == 'q');
     CHECK((seen == std::vector<uint32_t>{0x100}));
+    // Keys as a US keyboard types them: a full stop, a digit with Shift
+    // held and without, the keypad's digit.
+    auto typed = [&](uint32_t key) {
+        process.postMessage(hwnd, 0x100, key, 0);
+        CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 1);
+        CHECK(!cpu.call(fn("USER32.dll", "TranslateMessage"), {msg}, r));
+        if (!r)
+            return 0u;
+        CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 1);
+        return cpu.read32(msg + 4) == 0x102 ? cpu.read32(msg + 8) : 0u;
+    };
+    CHECK(typed(0xbe) == '.' && typed('1') == '1' && typed(0x61) == '1' && typed(0x70) == 0); // F1 types nothing
+    process.key(0x10, 0x2a, true);                                                            // Shift
+    while (!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r) {}
+    CHECK(typed('1') == '!' && typed(0xbe) == '>' && typed('A') == 'A');
+    process.key(0x10, 0x2a, false);
+    while (!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r) {}
     CHECK(!cpu.call(fn("USER32.dll", "PostQuitMessage"), {3}, r));
     CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, hwnd, 0, 0, 1}, r) && r == 1 &&
           cpu.read32(msg + 4) == 0x12 && cpu.read32(msg + 8) == 3);
