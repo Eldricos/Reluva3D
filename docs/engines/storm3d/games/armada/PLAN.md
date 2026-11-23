@@ -69,8 +69,11 @@ these phases start from, is in [formats/install.md](formats/install.md).
    scrolling ([systems/camera.md](systems/camera.md)), with the planets'
    glows, the emitters' particles, and the maps' own lights as the
    game's draws show them; the original's skirmish runs in the emulator,
-   and its frame matches the Maps page's. Next: the shroud, and the
-   ships, lit and placed at their start positions.
+   and its frame matches the Maps page's, the players' starting units
+   too, made where the game's code puts them
+   ([formats/bzn.md](formats/bzn.md#starting-units)), in their team's
+   colour. Next: the shroud, and the ships' lighting checked against the
+   game's draws.
 6. **The front end:** the shell's screens, the opening movie, game setup,
    options, loading and saving.
 7. **Rules:** units from their object definitions: movement and

@@ -14,6 +14,7 @@
 #include <cstring>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -189,6 +190,46 @@ void testPlacing(const std::filesystem::path &tmp) {
     CHECK(MapPage::asteroidsOf(o, big).empty());
 }
 
+// A skirmish's starting units: a race's, from its definition, made on a
+// spiral about each player's Camera_<n>, as the game's memory had them on
+// "The Very First Map": its starbase, made third, 116.67 out at 60 degrees.
+void testStartingUnits(const std::filesystem::path &tmp) {
+    std::filesystem::create_directories(tmp);
+    std::ofstream(tmp / "fed.odf") << "name = \"federation\"\r\n"
+                                      "minimalUnits1 = \"fconst.odf\"\t// construction ship\r\n"
+                                      "standardUnits1 = \"fconst.odf\"\t// construction ship\r\n"
+                                      "standardUnits2 = \"fconst.odf\"\r\n"
+                                      "standardUnits3 = \"fbase.odf\"\t// starbase\r\n";
+    std::ofstream(tmp / "teamcolor.odf") << "// Team colors.\r\nwhite   =\t0.9\t0.9\t0.9\r\n"
+                                            "federation = \t0.9\t0.9\t0.9\r\nklingon = \t0.2\t0.6\t0.2\r\n";
+    SearchSet files;
+    auto folder = std::make_unique<DirectoryArchive>();
+    CHECK(!folder->open(tmp, 0));
+    files.add(std::move(folder), 0);
+    const std::vector<std::string> units = MapPage::standardUnitsOf("fed", files);
+    CHECK((units == std::vector<std::string>{"fconst", "fconst", "fbase"}));
+    CHECK(MapPage::standardUnitsOf("dom", files).empty());
+    const std::optional<gfx::Vec3> green = MapPage::teamColourOf("klingon", files);
+    CHECK(green && (*green)[0] == 0.2f && (*green)[1] == 0.6f && (*green)[2] == 0.2f);
+    CHECK(!MapPage::teamColourOf("romulan", files));
+
+    BznMap map;
+    map.paths.push_back({"Camera_1", {{576.599f, 38.5f, 444.5f}}, 0});
+    map.paths.push_back({"path_3", {{0, 0, 0}}, 0});
+    map.paths.push_back({"Camera_4", {{5902.03f, 38.5f, 484.8f}}, 0});
+    const std::vector<MapPage::StartUnit> made = MapPage::startUnitsOf(map, units);
+    CHECK(made.size() == 6);
+    auto near = [](const gfx::Vec3 &a, float x, float y, float z) {
+        return std::fabs(a[0] - x) < 0.02f && a[1] == y && std::fabs(a[2] - z) < 0.02f;
+    };
+    // The first a whole turn out: 100 ahead, in z.
+    CHECK(made[0].odf == "fconst" && near(made[0].at, 576.599f, 38.5f, 544.5f));
+    CHECK(near(made[1].at, 576.599f + 54.17f, 38.5f, 444.5f + 93.82f));
+    CHECK(made[2].odf == "fbase" && near(made[2].at, 677.64f, 38.5f, 502.83f));
+    // The other player's, as memory had them: its second and third.
+    CHECK(near(made[4].at, 5956.2f, 38.5f, 578.62f) && near(made[5].at, 6003.07f, 38.5f, 543.13f));
+}
+
 // The game's overview camera on starting, as its memory held it in
 // "Premonitions": over the Camera_1 path's point, 450 up and 300 behind.
 void testOverview() {
@@ -292,12 +333,14 @@ void testColours() {
 } // namespace
 
 static const reluva::test::Suite
-    kSuite("storm3d.unit.bzn", {
-                                   {"parse", [](const std::filesystem::path &) { testParse(); }},
-                                   {"broken", [](const std::filesystem::path &) { testBroken(); }},
-                                   {"placing", [](const std::filesystem::path &tmp) { testPlacing(tmp / "placing"); }},
-                                   {"colours", [](const std::filesystem::path &) { testColours(); }},
-                                   {"overview", [](const std::filesystem::path &) { testOverview(); }},
-                                   {"particles", [](const std::filesystem::path &) { testParticles(); }},
-                                   {"lighting", [](const std::filesystem::path &) { testLighting(); }},
-                               });
+    kSuite("storm3d.unit.bzn",
+           {
+               {"parse", [](const std::filesystem::path &) { testParse(); }},
+               {"broken", [](const std::filesystem::path &) { testBroken(); }},
+               {"placing", [](const std::filesystem::path &tmp) { testPlacing(tmp / "placing"); }},
+               {"colours", [](const std::filesystem::path &) { testColours(); }},
+               {"overview", [](const std::filesystem::path &) { testOverview(); }},
+               {"particles", [](const std::filesystem::path &) { testParticles(); }},
+               {"lighting", [](const std::filesystem::path &) { testLighting(); }},
+               {"starting units", [](const std::filesystem::path &tmp) { testStartingUnits(tmp / "starting"); }},
+           });

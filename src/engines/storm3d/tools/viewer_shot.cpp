@@ -134,7 +134,7 @@ public:
 int cmdMapShot(int argc, char **argv) {
     if (argc < 11) {
         std::fprintf(stderr, "usage: reluva-tool storm3d map-shot <game folder> <map> <out.png> <eye x y z> "
-                             "<forward x y z> [field of view, degrees, top to bottom]\n");
+                             "<forward x y z> [field of view, degrees, top to bottom] [key...]\n");
         return 2;
     }
     storm3d::GameFiles files;
@@ -175,6 +175,9 @@ int cmdMapShot(int argc, char **argv) {
         std::fprintf(stderr, "no map %s\n", argv[3]);
         return 1;
     }
+    // Keys the page takes before the shot (r: the starting units), each a letter.
+    for (int a = 12; a < argc; ++a)
+        page.handleKey(uint32_t(static_cast<unsigned char>(argv[a][0])));
     page.setCamera(camera);
     const Surface &shown = sys.renderer.frame();
     image::Image img;
@@ -195,7 +198,8 @@ const tool::Commands kCommands("storm3d",
                                     "the data viewer run without a window, keys pressed, its last screen "
                                     "written as PNG",
                                     cmdViewerShot},
-                                   {"map-shot", "<game folder> <map> <out.png> <eye x y z> <forward x y z> [degrees]",
+                                   {"map-shot",
+                                    "<game folder> <map> <out.png> <eye x y z> <forward x y z> [degrees] [key...]",
                                     "a map drawn in software from a camera given exactly, at the game's "
                                     "640 x 480: to set beside the original's frames",
                                     cmdMapShot},

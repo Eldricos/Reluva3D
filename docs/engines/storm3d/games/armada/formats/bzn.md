@@ -175,7 +175,41 @@ Each start is a cell of the map's 128 × 128 picture, which covers its
 skirmish map's paths `Camera_1`, `Camera_2`... are where each player's
 camera starts, and they fall within a cell or two of the starts (`2blue.bzn`'s
 `Camera_2` at x 456, z 5,889: cell 9, 10 from the top, against `Start2
-= 8 9`). A mission's map has none: its objects are placed.
+= 8 9`). Not always: `4first.bzn`'s `Camera_1`, at x 577, z 445, is in
+cell 11, 119 from the top, against `Start1 = 10 109`. A mission's map
+has none: its objects are placed.
+
+### Starting units
+
+A skirmish's players start with their race's units, not the map's: a
+race's definition (`fed.odf`, `kling.odf`, `rom.odf`, `borg.odf`) names
+three sets, `minimalUnits1`..., `standardUnits1`... and `superUnits1`...,
+nine at most each; the Federation's standard set is two construction
+ships (`fconst`) and a starbase (`fbase`), and so is each other race's
+with its own. The game makes them *(from the code, 0x440e47 to
+0x441085)*, for each player's slot:
+
+- about the first point of the path `Camera_<n>`, n the slot (the middle
+  of the map's area if there's none), at that point's height;
+- each unit in its set's order, its name taken up to its dot;
+- on a spiral: with r from 1, 1/12 more for each place tried, at
+  (x + sin(2πr) × 100r, z + cos(2πr) × 100r), the first place the unit
+  fits (a test of the unit's own, not traced); past r = 40, at the
+  middle;
+- facing +z, unturned.
+
+The first unit is then 100 ahead of the point, the next a twelfth of a
+turn on and a little further out. The game's memory in its skirmish on
+`4first.bzn` agrees: the starbase, made third, at (677.64, 38.5,
+502.83), 116.67 out at 60 degrees from `Camera_1`, and the other
+player's second and third units the same about `Camera_4`, to 0.01. The
+construction ships had drifted by then, a few units up and down.
+
+Their colours: a mesh whose material is named `team_...` takes the
+player's colour, from `teamcolor.odf`, which has a colour each for the
+teams and the races; the starbase's bands, red in its model, are the
+Federation's 0.9 grey in the game's frame, as no vertex of it is red
+*(inferred)*.
 
 ## In Reluva
 
@@ -211,6 +245,11 @@ as the file says.
   and where, isn't known: the page scatters as many as the definition
   says within its radius, chosen from the object's number so a map looks
   the same each time *(guessed)*.
+
+  R adds each player's starting units, a race's standard set, as the
+  game makes them (`MapPage::startUnitsOf`), but without its test that a
+  unit fits: Federation, Klingon, Romulan, Borg, then none. Their team
+  parts are in that race's colour, a map's own ships' in its race's.
 - `reluva-tool storm3d bzn <game folder> <name.bzn>`: the settings, each
   object's definition, team, position and name, the scripts, the paths.
 - `reluva-tool storm3d bzn-check <game folder>`: every map read, with
@@ -223,15 +262,21 @@ as the file says.
   Enterprise's position in `fed1.bzn` is where the mission starts it).
   Which files the game reads for a mission was traced from the original
   running in Reluva's emulator ([research/startup-trace.md](../research/startup-trace.md)).
+  The starting units' placing was found by watching the starbase's
+  position in the skirmish's memory being written (the host's `-watch`)
+  and reading the code that wrote it, up its callers.
 - **How it was checked:** every map reads to its last byte; the objects
   found come to the count in every map (17,586 of 139 definitions), and
   the paths to theirs (1,238). The unit tests (`storm3d.unit.bzn`) build
   maps in the layout: objects with a weapon's definition among their own
   fields, paths of one and of two points, a map with none, and broken
-  ones. No published description of the format was used.
+  ones; and the starting units against where the game's memory had
+  them. No published description of the format was used.
 
 ## Open questions
 
+- How the game tests that a starting unit fits where the spiral puts it,
+  and how a player's colour is chosen.
 - Each kind of object's own fields, and what follows the objects.
 - The header's two flags, the light's three floats, the second word of
   each path and its last float.

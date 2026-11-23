@@ -11,7 +11,7 @@ files):
 | Suite | What it checks |
 |---|---|
 | `storm3d.unit.detection` | An empty folder, and the executable alone, aren't the game; Armada's three files by name are found as an unknown release |
-| `storm3d.unit.sod` | Models of 1.0, 1.2, 1.6 and 1.8 written and read; damaged ones refused; nodes placed in their parents; levels of detail |
+| `storm3d.unit.sod` | Models of 1.0, 1.2, 1.6 and 1.8 written and read; damaged ones refused; nodes placed in their parents; levels of detail; the parts an assimilated ship has |
 | `storm3d.unit.spr` | Sprite tables: each directive, sprites, an include, each kind of keyframe, an emitter; a font's and a flipbook's frames |
 | `storm3d.unit.zfs` | ZFS archives over two blocks: names, a name filling its field, decoding with an unencoded tail; damaged archives refused |
 | `storm3d.unit.odf` | Object definitions: includes overridden, lists over lines, sections, the value forms, a stray line, failing includes |
@@ -84,3 +84,4 @@ decode, and last as long as they should.
 | November 2026 | English retail 1.0 | Linux | All 49 maps read whole (`bzn-check`: 17,586 objects, 1,238 paths); the Maps page with `viewer-shot`: "Blue Passages" from above, and "Premonitions"' starting fleet up close; the Models page's Borg starbase again, through the shared drawing |
 | November 2026 | English retail 1.0 | Linux | All 183 sprite nodes read (`spr-check`); the Maps page from above (T) set beside the maps' pictures for "Blue Passages" and "The Very First Map": nebulae, asteroid fields and the central ring where the pictures have them, the way round they are |
 | November 2026 | English retail 1.0, its disc's `.mds` | Linux | The original's skirmish (Multiplayer, Instant Action) on "The Very First Map", its frame at 59 seconds of its clock set beside `map-shot` from the camera in its memory: the lava moon lit and the background's nebula over its stars as the game's are; the same for "Premonitions"' planets |
+| November 2026 | English retail 1.0, its disc's `.mds` | Linux | The skirmish's starting units: the game's memory read at 26 to 42 seconds, and the starbase's position watched as it was written (`-watch`); `map-shot` with R set beside its frame: two construction ships and a starbase where the game has them, in the Federation's grey, without the assimilated parts or the crew's fires |

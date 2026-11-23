@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 
 namespace reluva::storm3d {
@@ -36,19 +37,39 @@ constexpr float kOverviewMaxHeight = 700;  // OVERVIEW_MAX_HEIGHT
 constexpr float kOverviewFocus = 200;      // OVERVIEW_PARABOLA_FOCUS
 constexpr float kOverviewZoomStep = 0.8f;  // a + press's height, of the last
 
-} // namespace
+// The races a skirmish's players choose from, by their definitions, and
+// as teamcolor.odf names them.
+constexpr const char *kRaces[] = {"fed", "kling", "rom", "borg"};
+constexpr const char *kRaceNames[] = {"federation", "klingon", "romulan", "borg"};
+// pi as the game has it, a float.
+constexpr double kPi = 3.1415927410125732;
+// The starting units' spiral (0x440f41): its first turn, out each try, and
+// the most; past that a unit is made at the middle.
+constexpr double kSpiralStart = 1;
+constexpr double kSpiralStep = 1.0 / 12;
+constexpr double kSpiralEnd = 40;
+constexpr double kSpiralRadius = 100; // units out, a turn
+// The players' slots the game makes units for: Camera_0 to Camera_8.
+constexpr int kSlots = 9;
 
-MapPage::Look MapPage::lookOf(const std::string &odf, const SearchSet &files) {
-    Look look;
-    look.model = odf;
-    Odf definition;
-    const Odf::Loader loader = [&files](std::string_view name, std::string &text) {
+// Reads definitions (an .odf and what it includes) from the game's files.
+Odf::Loader loaderFor(const SearchSet &files) {
+    return [&files](std::string_view name, std::string &text) {
         std::vector<uint8_t> data;
         if (Error err = files.read(name, data))
             return err;
         text.assign(data.begin(), data.end());
         return Error::success();
     };
+}
+
+} // namespace
+
+MapPage::Look MapPage::lookOf(const std::string &odf, const SearchSet &files) {
+    Look look;
+    look.model = odf;
+    Odf definition;
+    const Odf::Loader loader = loaderFor(files);
     if (definition.load(odf + ".odf", loader))
         return look; // no definition: the model by the same name, if there is one
     if (definition.number("dont_load_SOD") != 0)
@@ -97,6 +118,58 @@ std::vector<std::pair<std::string, gfx::Mat4>> MapPage::asteroidsOf(const BznMap
         m[13] = o.position[1] + (unit() - 0.5f) * look.fieldRadius * 0.2f;
         m[14] = o.position[2] + std::sin(angle) * r;
         out.push_back({model, m});
+    }
+    return out;
+}
+
+std::optional<gfx::Vec3> MapPage::teamColourOf(const std::string &name, const SearchSet &files) {
+    Odf colours;
+    const Odf::Loader loader = loaderFor(files);
+    if (colours.load("teamcolor.odf", loader))
+        return std::nullopt;
+    const Odf::Entry *entry = colours.find(name);
+    gfx::Vec3 c{};
+    if (!entry || std::sscanf(entry->value.c_str(), "%f %f %f", &c[0], &c[1], &c[2]) != 3)
+        return std::nullopt;
+    return c;
+}
+
+std::vector<std::string> MapPage::standardUnitsOf(const std::string &race, const SearchSet &files) {
+    std::vector<std::string> units;
+    Odf definition;
+    const Odf::Loader loader = loaderFor(files);
+    if (definition.load(race + ".odf", loader))
+        return units;
+    for (int i = 1; i <= 9; ++i) {
+        std::string name = definition.string("standardUnits" + std::to_string(i));
+        // The game takes the name up to its dot, 8 letters at most.
+        name = name.substr(0, std::min<size_t>(name.find('.'), 8));
+        if (!name.empty())
+            units.push_back(name);
+    }
+    return units;
+}
+
+std::vector<MapPage::StartUnit> MapPage::startUnitsOf(const BznMap &map, const std::vector<std::string> &units) {
+    std::vector<StartUnit> out;
+    for (int slot = 0; slot < kSlots; ++slot) {
+        const std::string name = "Camera_" + std::to_string(slot);
+        auto path = std::find_if(map.paths.begin(), map.paths.end(),
+                                 [&name](const BznMap::Path &p) { return p.name == name && !p.points.empty(); });
+        if (path == map.paths.end())
+            continue;
+        const gfx::Vec3 middle = path->points[0];
+        double r = kSpiralStart;
+        for (const std::string &odf : units) {
+            StartUnit unit{odf, middle};
+            if (r <= kSpiralEnd) {
+                const double angle = r * kPi * 2;
+                unit.at[0] = float(middle[0] + std::sin(angle) * r * kSpiralRadius);
+                unit.at[2] = float(middle[2] + std::cos(angle) * r * kSpiralRadius);
+                r += kSpiralStep;
+            }
+            out.push_back(unit);
+        }
     }
     return out;
 }
@@ -247,6 +320,10 @@ void MapPage::handleKey(uint32_t key) {
         _overview = Overview{kOverviewInitHeight, 0};
         draw();
         return;
+    case 'r': // the next race's starting units, then none (SIZE_MAX + 1 wraps to the first)
+        _race = _race + 1 < std::size(kRaces) ? _race + 1 : SIZE_MAX;
+        load();
+        break;
     case 'v': // the damage emitters: venting plasma and gas
         _meshes.showDamage(!_meshes.showingDamage());
         break;
@@ -318,6 +395,26 @@ void MapPage::load() {
         _placed.push_back({built, placeOf(o, look->second.scale)});
         ++_drawn;
     }
+    _starting = 0;
+    if (_race < std::size(kRaces))
+        for (const StartUnit &unit : startUnitsOf(_map, standardUnitsOf(kRaces[_race], _files.files()))) {
+            const std::string key = text::toLower(unit.odf);
+            auto look = _looks.find(key);
+            if (look == _looks.end())
+                look = _looks.emplace(key, lookOf(unit.odf, _files.files())).first;
+            const SodMeshes::Built *built = look->second.model.empty() ? nullptr : _meshes.model(look->second.model);
+            if (!built)
+                continue;
+            // Facing +z, as the game makes them.
+            gfx::Mat4 place = gfx::identity();
+            place[0] = place[5] = place[10] = look->second.scale;
+            place[12] = unit.at[0], place[13] = unit.at[1], place[14] = unit.at[2];
+            _placed.push_back({built, place});
+            ++_starting;
+        }
+    // The team parts in the chosen race's colour, or the map's race's: the
+    // game's frames show the Federation's grey on the player's ships.
+    _meshes.setTeamColour(teamColourOf(_race < std::size(kRaces) ? kRaceNames[_race] : _map.race, _files.files()));
     _meshes.setLighting(lightingOf(_map));
     std::string background = _map.background;
     if (text::hasSuffixIgnoreCase(background, ".sod"))
@@ -437,6 +534,8 @@ void MapPage::draw() {
     else
         line += text::format("\"%s\", %zu objects, %zu drawn, %zu with nothing to draw, %zu models not found",
                              _map.description.c_str(), _map.objects.size(), _drawn, _effects, _unmodelled);
+    if (_race < std::size(kRaces))
+        line += text::format(", %zu starting units (%s)", _starting, kRaces[_race]);
     drawStatus(_overlay, line);
     _renderer->endFrame(&_overlay);
     _sys.setWindowTitle("Reluva viewer - Maps - " + line);

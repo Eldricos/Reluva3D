@@ -25,6 +25,7 @@ namespace reluva::storm3d {
  *   T: from straight above, as the map's picture (`bzn/<map>.bmp`) shows it
  *   P: to the next of the map's paths
  *   G: as the game looks on starting; then +/- and W/A/S/D move as the game's overview does
+ *   R: the players' starting units, as a skirmish makes them: Federation, Klingon, Romulan, Borg or none
  *   Space: turning on/off   V: the damage emitters (venting plasma and gas) on/off
  */
 class MapPage : public Page {
@@ -97,6 +98,32 @@ public:
      */
     static std::vector<std::pair<std::string, gfx::Mat4>> asteroidsOf(const BznMap::Object &o, const Look &look);
 
+    /** A unit a skirmish starts a player with: its definition, and where. */
+    struct StartUnit {
+        std::string odf;
+        gfx::Vec3 at{};
+    };
+    /**
+     * Where a skirmish makes each player's starting units, as the game
+     * does (0x440e47): about the first point of the map's path
+     * `Camera_<n>`, the player's, on a spiral, one turn each 100 units
+     * further out, the first 100 out, a twelfth of a turn apart, in the
+     * order of `units`. The game passes over a place where the unit
+     * doesn't fit; this doesn't, so units may overlap where the map has
+     * something in the way.
+     */
+    static std::vector<StartUnit> startUnitsOf(const BznMap &map, const std::vector<std::string> &units);
+    /**
+     * A race's starting units in a skirmish (its `standardUnits1` to `9`):
+     * `race` its definition, "fed", "kling", "rom" or "borg".
+     */
+    static std::vector<std::string> standardUnitsOf(const std::string &race, const SearchSet &files);
+    /**
+     * A colour of `teamcolor.odf`, by its name there ("white", or a race's,
+     * "federation"); none if it isn't there.
+     */
+    static std::optional<gfx::Vec3> teamColourOf(const std::string &name, const SearchSet &files);
+
 private:
     void load();
     void draw();
@@ -134,6 +161,8 @@ private:
         float turn = 0; // radians: 0 faces +z
     };
     std::optional<Overview> _overview;
+    size_t _race = SIZE_MAX; // R's race, of the four; SIZE_MAX: none
+    size_t _starting = 0;    // starting units drawn
     uint64_t _lastMillis = 0;
 };
 
