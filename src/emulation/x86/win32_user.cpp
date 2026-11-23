@@ -19,6 +19,8 @@
 #include <cctype>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <iterator>
 
 namespace reluva::x86 {
 
@@ -618,7 +620,8 @@ void Win32Process::addUserStandIns() {
     };
 
     // Classes and windows.
-    // RegisterClassA(WNDCLASSA*): the procedure is at +4, the name at +36.
+    // RegisterClassA(WNDCLASSA*): the procedure is at +4, the cursor at
+    // +24, the name at +36.
     stdcall(u, "RegisterClassA", 1, [this](Cpu &c) {
         const uint32_t p = c.arg(0);
         if (!c.valid(p, 40))
@@ -626,7 +629,7 @@ void Win32Process::addUserStandIns() {
         const std::string name = lower(c.string(c.read32(p + 36)));
         if (name.empty() || _classes.count(name))
             return 0u;
-        _classes[name] = {c.read32(p + 4), c.read32(p)};
+        _classes[name] = {c.read32(p + 4), c.read32(p), c.read32(p + 24)};
         return uint32_t(0xc000 + _classes.size()); // an atom
     });
     // CreateWindowExA: WM_NCCREATE then WM_CREATE go to the procedure, with
@@ -988,13 +991,21 @@ void Win32Process::addUserStandIns() {
             return caption ? 2u : 18u; // HTCAPTION, HTBORDER
         }
         // WM_SETCURSOR: a child's parent is asked first; on the client area
-        // the class's pointer is set (and the answer says so).
+        // the class's pointer is set, if it has one (and the answer says
+        // so), elsewhere the arrow.
         if (message == kWmSetCursor) {
             const Window *w = window(handle);
             if (w && (w->style & kWsChild) && w->parent)
                 if (const uint32_t r = sendMessage(w->parent, kWmSetCursor, wParam, c.arg(3)))
                     return r;
-            return (c.arg(3) & 0xffff) == kHtClient ? 1u : 0u;
+            if ((c.arg(3) & 0xffff) != kHtClient) {
+                _cursor = kStandardCursors + kIdcArrow;
+                return 0u;
+            }
+            auto cls = w ? _classes.find(lower(w->className)) : _classes.end();
+            if (cls != _classes.end() && cls->second.cursor)
+                _cursor = cls->second.cursor;
+            return 1u;
         }
         // WM_NCLBUTTONDOWN on a scroll bar: an arrow scrolls a line, the
         // track a page, again and again while it's held; the thumb is
@@ -1061,10 +1072,13 @@ void Win32Process::addUserStandIns() {
 
     // Icons, cursors and the mouse pointer.
     stdcall(u, "LoadIconA", 2, [](Cpu &c) { return kResourceHandles + (c.arg(1) & 0xffff); });
-    stdcall(u, "LoadCursorA", 2, [](Cpu &c) { return kResourceHandles + (c.arg(1) & 0xffff); });
+    // LoadCursorA(instance, name): one of Windows' (instance 0, IDC_), or
+    // the program's own, by number; the program's pictures aren't read.
+    stdcall(u, "LoadCursorA", 2,
+            [](Cpu &c) { return (c.arg(0) ? kResourceHandles : kStandardCursors) + (c.arg(1) & 0xffff); });
     // LoadCursorFromFileA(file): a cursor (.cur) or animated cursor (.ani)
-    // file, a handle of its own while the file's there, else NULL. Its
-    // pictures aren't read: Reluva doesn't draw Windows' pointer.
+    // file, a handle of its own while the file's there, else NULL; its
+    // pictures are read when it's first shown.
     stdcall(u, "LoadCursorFromFileA", 1, [this](Cpu &c) {
         const std::string name = c.string(c.arg(0));
         const auto host = mapPath ? mapPath(fullPath(name), false) : std::nullopt;
@@ -1255,6 +1269,32 @@ void Win32Process::addUserStandIns() {
         return std::isalnum(ch) || latin ? 1u : 0u;
     });
     stdcall(u, "MessageBeep", 1, [](Cpu &) { return 1u; });
+}
+
+const Cursor *Win32Process::pointer() {
+    if (_cursorShown < 0 || !_cursor)
+        return nullptr;
+    if (_cursor >= kStandardCursors && _cursor <= kStandardCursors + 0xffff) {
+        if (_arrow.empty())
+            _arrow = standardArrow();
+        return &_arrow;
+    }
+    if (_cursor < kFileCursors || _cursor - kFileCursors >= _fileCursors.size())
+        return nullptr;
+    auto it = _cursorPictures.find(_cursor);
+    if (it == _cursorPictures.end()) {
+        CursorFile file;
+        std::ifstream in(_fileCursors[_cursor - kFileCursors], std::ios::binary);
+        const std::vector<uint8_t> data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        if (Error e = readCursorFile(data, file)) {
+            if (output)
+                output("The cursor " + _fileCursors[_cursor - kFileCursors].filename().string() + " " + e.message +
+                       "\n");
+            file = CursorFile();
+        }
+        it = _cursorPictures.emplace(_cursor, std::move(file)).first;
+    }
+    return it->second.at(milliseconds ? milliseconds() : 0);
 }
 
 } // namespace reluva::x86

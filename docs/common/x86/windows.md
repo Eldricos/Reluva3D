@@ -132,10 +132,17 @@ C++ library have pages of their own ([directx.md](directx.md),
     `MsgWaitForMultipleObjects`) ends for it;
   - `DefWindowProcA` answers `WM_NCHITTEST` by the window's frame (client
     area, scroll bars, caption, border, or nowhere) and `WM_SETCURSOR` (a child's
-    parent asked first);
-  - `LoadCursorFromFileA` gives a handle while its file is there (the
-    file isn't read), and `SetCursor` and `GetCursor` keep the pointer's
-    shape, though Reluva doesn't draw Windows' pointer;
+    parent asked first; on the client area the class's cursor set, if it
+    has one, elsewhere the arrow);
+  - Windows' pointer: the cursor `SetCursor` sets (the arrow at first),
+    shown while `ShowCursor`'s count is 0 or more, `Win32Process::pointer`
+    giving its picture for the engine to show. `LoadCursorFromFileA` gives
+    a handle while its file is there, its pictures read when it's first
+    shown, an animated cursor's at the process's time
+    ([cursors.md](../graphics/cursors.md)); Windows' own cursors
+    (`LoadCursorA` with no instance) are all Reluva's own arrow, their
+    pictures not Reluva's to have; a program's own cursor resources
+    aren't read, and show nothing;
   - one message queue, which the engine posts its input to and
     `PeekMessageA` reads, calling `idle` when it's empty;
   - `DispatchMessageA` and `TranslateMessage`;
@@ -322,6 +329,11 @@ executable's entry point on the main thread until it ends the process.
   over it past its limit (the parent told each change), deletes,
   places the caret with a click (the focus's messages sent), and paints
   it on a screen in memory, white and in its parent's brush.
+- `testPointer` checks the arrow shown at first and hidden by
+  `ShowCursor`, a cursor file loaded and set (and one missing), the
+  arrow from `LoadCursorA`, `SetCursor(NULL)`, and `DefWindowProcA`'s
+  `WM_SETCURSOR`: the class's cursor on the client area, the arrow on
+  the caption.
 - `testScrollBars` checks `AdjustWindowRect` leaving scroll bars out,
   their range and position, `DefWindowProcA`'s hit test, a click on the
   track and on an arrow, a thumb dragged, an arrow held (repeated after

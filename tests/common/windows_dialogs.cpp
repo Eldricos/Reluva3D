@@ -337,7 +337,9 @@ void testPlaces(const std::filesystem::path &tmp) {
     };
     const uint32_t cursor = f.user("LoadCursorFromFileA", {f.str(900, "C:\\busy.ani")});
     CHECK(cursor != 0 && f.user("LoadCursorFromFileA", {f.str(900, "C:\\none.ani")}) == 0);
-    CHECK(f.user("SetCursor", {cursor}) == 0 && f.user("GetCursor", {}) == cursor);
+    // The one before: the arrow, as Windows starts with.
+    const uint32_t arrow = f.user("LoadCursorA", {0, 32512});
+    CHECK(f.user("SetCursor", {cursor}) == arrow && f.user("GetCursor", {}) == cursor);
 }
 
 void testWsprintf() {

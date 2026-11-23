@@ -6,6 +6,7 @@
 #include "common/pe.h"
 #include "common/types.h"
 #include "emulation/x86/cpu.h"
+#include "graphics/cursor_file.h"
 
 #include <array>
 #include <atomic>
@@ -522,6 +523,14 @@ public:
     int screenWidth = 800;
     int screenHeight = 600;
     int screenBits = 16;
+    /**
+     * Windows' pointer as it shows now: the cursor last set, at this moment
+     * of its animation (milliseconds()). Null while it's hidden
+     * (ShowCursor's count below 0), set to none, or one whose picture
+     * isn't had: a program's own cursor resource, or a file that can't be
+     * read. Windows' standard cursors are all Reluva's own arrow.
+     */
+    const Cursor *pointer();
     /** A window the program made. */
     struct Window {
         std::string className;
@@ -722,6 +731,7 @@ private:
     struct WindowClass {
         uint32_t proc = 0;
         uint32_t style = 0;
+        uint32_t cursor = 0; // shown on its windows' client areas, if not 0
     };
     std::map<std::string, WindowClass> _classes; // by lower-case name
     uint32_t _buttons = 0;                       // MK_ flags held
@@ -799,8 +809,13 @@ private:
     std::optional<Message> takeDueTimer(uint32_t window);
     std::unique_ptr<Gdi> _gdi;
     int _cursorShown = 0;
-    uint32_t _cursor = 0;                            // SetCursor's
+    // LoadCursorA's handles for Windows' own cursors: these, plus the IDC_ number.
+    static constexpr uint32_t kStandardCursors = 0x2d0000;
+    static constexpr uint32_t kIdcArrow = 32512;
+    uint32_t _cursor = kStandardCursors + kIdcArrow; // SetCursor's; Windows starts with the arrow
     std::vector<std::filesystem::path> _fileCursors; // LoadCursorFromFileA's files, by handle
+    std::map<uint32_t, CursorFile> _cursorPictures;  // the files', read when first shown; empty if they can't be
+    Cursor _arrow;                                   // Reluva's own, made when first shown
     struct RegistryKey {
         std::string path; // as first given
         std::vector<std::pair<std::string, std::pair<uint32_t, std::vector<uint8_t>>>> values;

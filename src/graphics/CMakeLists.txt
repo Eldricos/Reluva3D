@@ -7,6 +7,7 @@
 add_library(reluva_graphics STATIC
     builtin_fonts.cpp
     cursor.cpp
+    cursor_file.cpp
     draw.cpp
     font.cpp
     gfx3d.cpp

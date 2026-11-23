@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // The Windows a program sees in the x86 emulator: threads, the C and C++
-// runtimes, files, windows and the registry, DirectDraw and Direct3D 7,
+// runtimes, files, windows and the registry, the pointer, DirectDraw and Direct3D 7,
 // DirectInput, Aureal A3D (and the mixer's SoundStream it plays through).
 //
 //   reluva-tests common.unit.windows
@@ -20,6 +20,7 @@
 #include "emulation/x86/msvcp60.h"
 #include "emulation/x86/msvcrt.h"
 #include "emulation/x86/win32.h"
+#include "graphics/cursor_file.h"
 #include "tests/support/test.h"
 
 #include <algorithm>
@@ -29,6 +30,7 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -1120,6 +1122,69 @@ static void testEditControl() {
     CHECK(pixel(100, 40) == 0xe06060); // the screen's 0x00RRGGBB
 }
 
+// Windows' pointer: the arrow it starts with, shown by ShowCursor's count;
+// a cursor file loaded and set; the class's cursor on a window's client
+// area and the arrow on its frame (DefWindowProcA's WM_SETCURSOR).
+static void testPointer(const std::filesystem::path &tmp) {
+    std::filesystem::create_directories(tmp);
+    {
+        // A cursor of 2 by 2 in 24 bits, all 0x336699 but its masked
+        // bottom right, its hotspot 1,0.
+        std::vector<uint8_t> f = {0, 0, 2, 0, 1, 0, 2, 2, 0, 0, 1, 0, 0, 0, 64, 0, 0, 0, 22, 0, 0, 0};
+        const uint8_t header[40] = {40, 0, 0, 0, 2, 0, 0, 0, 4, 0, 0, 0, 1, 0, 24};
+        f.insert(f.end(), header, header + 40);
+        // The bottom row first; black under the mask leaves the screen.
+        f.insert(f.end(), {0x99, 0x66, 0x33, 0, 0, 0, 0, 0, 0x99, 0x66, 0x33, 0x99, 0x66, 0x33, 0, 0});
+        f.insert(f.end(), {0x40, 0, 0, 0, 0, 0, 0, 0});
+        std::ofstream(tmp / "Busy.cur", std::ios::binary)
+            .write(reinterpret_cast<const char *>(f.data()), std::streamsize(f.size()));
+    }
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    process.mapPath = [&](const std::string &path, bool) -> std::optional<std::filesystem::path> {
+        return tmp / std::filesystem::path(path.substr(path.rfind('\\') + 1));
+    };
+    auto fn = [&](const char *name) { return process.provided("USER32.dll", name); };
+    auto text = [&](const std::string &s) {
+        const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
+        cpu.writeString(a, s, uint32_t(s.size() + 1));
+        return a;
+    };
+    uint32_t r = 0;
+    const Cursor arrow = standardArrow();
+    CHECK(process.pointer() && *process.pointer() == arrow);
+    CHECK(!cpu.call(fn("ShowCursor"), {0}, r) && int32_t(r) == -1 && !process.pointer());
+    CHECK(!cpu.call(fn("ShowCursor"), {1}, r) && r == 0 && process.pointer());
+
+    CHECK(!cpu.call(fn("LoadCursorFromFileA"), {text("C:\\Game\\Missing.ani")}, r) && r == 0);
+    CHECK(!cpu.call(fn("LoadCursorFromFileA"), {text("C:\\Game\\Busy.cur")}, r) && r != 0);
+    const uint32_t busy = r;
+    CHECK(!cpu.call(fn("SetCursor"), {busy}, r));
+    const uint32_t standard = r;
+    const Cursor *c = process.pointer();
+    CHECK(c && c->w == 2 && c->h == 2 && c->hotX == 1 && c->hotY == 0);
+    CHECK(c && c->pixel(0, 0)[0] == 0x33 && c->pixel(0, 0)[2] == 0x99 && c->pixel(1, 1)[3] == 0);
+    CHECK(!cpu.call(fn("SetCursor"), {0}, r) && r == busy && !process.pointer());
+    CHECK(!cpu.call(fn("LoadCursorA"), {0, 32512}, r) && r == standard); // IDC_ARROW
+    CHECK(!cpu.call(fn("SetCursor"), {r}, r) && *process.pointer() == arrow);
+
+    const uint32_t proc = cpu.addNative("test!PointerProc", [](x86::Cpu &c) {
+        c.reg[x86::Cpu::EAX] = c.arg(1) == 0x81 ? 1 : 0;
+        return 16u;
+    });
+    const uint32_t wc = process.memory().alloc(40);
+    cpu.write32(wc + 4, proc);
+    cpu.write32(wc + 24, busy);
+    cpu.write32(wc + 36, text("Busy"));
+    CHECK(!cpu.call(fn("RegisterClassA"), {wc}, r) && r != 0);
+    CHECK(!cpu.call(fn("CreateWindowExA"), {0, text("Busy"), 0, 0x90c00000u, 0, 0, 200, 100, 0, 0, 0, 0}, r) && r);
+    const uint32_t hwnd = r;
+    CHECK(!cpu.call(fn("DefWindowProcA"), {hwnd, 0x20, hwnd, 1u | 0x200u << 16}, r) && r == 1); // HTCLIENT
+    CHECK(process.pointer() && process.pointer()->w == 2);
+    CHECK(!cpu.call(fn("DefWindowProcA"), {hwnd, 0x20, hwnd, 2u | 0x200u << 16}, r) && r == 0); // HTCAPTION
+    CHECK(*process.pointer() == arrow);
+}
+
 static void testA3d() {
     x86::Cpu cpu(32u << 20);
     x86::Win32Process process(cpu);
@@ -1295,6 +1360,7 @@ static const test::Suite
                {"input", [](const std::filesystem::path &) { testInput(); }},
                {"scroll bars", [](const std::filesystem::path &) { testScrollBars(); }},
                {"edit control", [](const std::filesystem::path &) { testEditControl(); }},
+               {"pointer", [](const std::filesystem::path &tmp) { testPointer(tmp / "pointer"); }},
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
            });
