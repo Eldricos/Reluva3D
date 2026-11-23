@@ -473,7 +473,10 @@ void Win32Process::addDriveStandIns() {
             _lastError = kInvalidHandleError;
             return 0u;
         }
+        const long at = std::ftell(f->file);
         const size_t n = size ? std::fread(c.memory().data() + buffer, 1, size, f->file) : 0;
+        if (fileRead && n)
+            fileRead(f->path, uint64_t(std::max(at, 0L)), uint32_t(n));
         if (done)
             c.write32(done, uint32_t(n));
         return 1u;
@@ -1021,7 +1024,10 @@ void Win32Process::addFileStandIns() {
             _lastError = kErrorInvalidHandle;
             return 0u;
         }
+        const long at = std::ftell(f->file);
         const size_t n = std::fread(c.memory().data() + buffer, 1, size, f->file);
+        if (fileRead && n)
+            fileRead(f->windowsPath, uint64_t(std::max(at, 0L)), uint32_t(n));
         if (c.arg(3))
             c.write32(c.arg(3), uint32_t(n));
         return 1u;
@@ -1137,7 +1143,11 @@ void Win32Process::addFileStandIns() {
         OpenFile *f = file(c.arg(0));
         if (!f || !c.valid(c.arg(1), c.arg(2)))
             return 0xffffffffu;
-        return uint32_t(std::fread(c.memory().data() + c.arg(1), 1, c.arg(2), f->file));
+        const long at = std::ftell(f->file);
+        const size_t n = std::fread(c.memory().data() + c.arg(1), 1, c.arg(2), f->file);
+        if (fileRead && n)
+            fileRead(f->windowsPath, uint64_t(std::max(at, 0L)), uint32_t(n));
+        return uint32_t(n);
     });
     stdcall(k, "_lclose", 1, [this](Cpu &c) { return closeFile(c.arg(0)) ? 0u : 0xffffffffu; });
 

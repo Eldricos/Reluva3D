@@ -183,7 +183,16 @@ static void testMsvcrtAndFiles(const std::filesystem::path &tmp) {
     CHECK(!cpu.call(fn("MSVCRT.dll", "fclose"), {lines}, r) && r == 0);
     CHECK(!cpu.call(fn("MSVCRT.dll", "fopen"), {text("Lines.dat"), text("rb")}, r) && r != 0);
     const uint32_t raw = r;
-    CHECK(!cpu.call(fn("MSVCRT.dll", "fread"), {vars, 1, 32, raw}, r) && r == 8);
+    // Each binary read is reported: where in the file, and how much.
+    std::vector<std::pair<uint64_t, uint32_t>> reads;
+    process.fileRead = [&](const std::string &path, uint64_t offset, uint32_t bytes) {
+        if (path.ends_with("Lines.dat"))
+            reads.push_back({offset, bytes});
+    };
+    CHECK(!cpu.call(fn("MSVCRT.dll", "fread"), {vars, 1, 3, raw}, r) && r == 3);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "fread"), {vars, 1, 32, raw}, r) && r == 5);
+    CHECK((reads == std::vector<std::pair<uint64_t, uint32_t>>{{0, 3}, {3, 5}}));
+    process.fileRead = nullptr;
     CHECK(!cpu.call(fn("MSVCRT.dll", "fclose"), {raw}, r) && r == 0);
     CHECK(!cpu.call(fn("MSVCRT.dll", "fopen"), {text("Out.dat"), text("w")}, r) && r != 0);
     const uint32_t written = r;

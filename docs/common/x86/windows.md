@@ -353,6 +353,8 @@ executable's entry point on the main thread until it ends the process.
   the run. Then `GetMessageA` with `WM_QUIT`. It also checks
   the registry's keys, values, sizes and enumeration, and
   `CoCreateInstance`.
+- It reads a file in binary in two parts and checks the engine hears
+  each read (`fileRead`): where in the file, and how many bytes.
 - It reads a WAVE file through `mmio`, from a file and from memory: into
   its form, to its data past a chunk of odd size, the sound read through
   the buffer, back to its format, a chunk that isn't there, and a file

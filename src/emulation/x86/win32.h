@@ -401,6 +401,9 @@ public:
     std::filesystem::path hostPath(const std::string &windowsPath, bool forWriting) const;
     // Each file the program opens, and whether it was there.
     std::function<void(const std::string &windowsPath, bool found)> fileOpened;
+    // Each read from a file (ReadFile, _lread, the C runtime's fread in
+    // binary mode): where in it, and how many bytes it gave.
+    std::function<void(const std::string &windowsPath, uint64_t offset, uint32_t bytes)> fileRead;
     // A device the program opens by name: "COM1" to "COM9" (also as
     // "\\.\COM1"), its number given; null if there's none (the open fails
     // with ERROR_FILE_NOT_FOUND).

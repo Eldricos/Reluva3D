@@ -1187,7 +1187,11 @@ void addMsvcrt(Win32Process &process) {
             s->ungot.erase(u);
             at = 1;
         }
+        const long from = std::ftell(f);
         const size_t n = std::fread(s->ptr(c.arg(0)) + at, 1, bytes - at, f) + at;
+        if (s->p.fileRead && n > at)
+            if (const Win32Process::OpenFile *o = s->p.file(s->handles[c.arg(3)]))
+                s->p.fileRead(o->windowsPath, uint64_t(std::max(from, 0L)), uint32_t(n - at));
         return uint32_t(n / size);
     });
     // fscanf reads the rest of the file, scans it as sscanf does, and puts
