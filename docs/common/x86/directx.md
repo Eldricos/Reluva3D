@@ -26,7 +26,9 @@ headers' (`directx/interfaces.cpp`).
 
   - the primary surface is the screen GDI draws the program's windows on
     (`Win32Process::screenAccess`), in the display's format, so what a
-    program paints with GDI and what it blits meet as on Windows.
+    program paints with GDI and what it blits meet as on Windows; what it
+    paints is shown once it next looks for a message
+    (`Win32Process::screenPainted`).
 
   What reaches the primary surface becomes `DirectX::frame()`, handed to
   the engine, through the gamma ramp. In a window, that's the window's

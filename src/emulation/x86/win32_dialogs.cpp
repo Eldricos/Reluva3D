@@ -294,12 +294,15 @@ void Win32Process::addDialogStandIns() {
             sendMessage(handle, kWmShowWindow, 1, 0);
         }
         while (_windows.count(handle) && !_windows[handle].dialogResult) {
-            if (ending())
+            if (ending()) {
                 c.abort("the process is ending");
+                return uint32_t(-1);
+            }
             runThreads();
             Message m;
             if (!takeMessage(0, 0, 0, true, m)) {
-                awaitMessage(c);
+                if (!awaitMessage(c))
+                    return uint32_t(-1);
                 continue;
             }
             if (m.message == kWmQuit) { // ends the dialog, and is left for the program's own loop

@@ -207,7 +207,7 @@ void Win32Process::mouseMoveTo(int x, int y) {
     cursorX = x, cursorY = y;
     if (dx || dy)
         notify({RawInput::Kind::kMotion, dx, dy});
-    if (const uint32_t w = mainWindow())
+    if (const uint32_t w = inputWindow())
         if (auto area = clientArea(w))
             postMessage(w, kWmMouseMove, _buttons, point(x - (*area)[0], y - (*area)[1]));
 }
@@ -222,7 +222,7 @@ void Win32Process::mouseButton(int button, bool down) {
         _buttons &= ~flag;
     _keysDown[button == 0 ? 1 : button == 1 ? 2 : 4] = down;
     notify({RawInput::Kind::kButton, button, down});
-    const uint32_t w = mainWindow();
+    const uint32_t w = inputWindow();
     auto area = w ? clientArea(w) : std::nullopt;
     if (!area)
         return;
@@ -247,7 +247,7 @@ void Win32Process::mouseButton(int button, bool down) {
 
 void Win32Process::mouseWheel(int delta) {
     notify({RawInput::Kind::kWheel, delta, 0});
-    if (const uint32_t w = mainWindow())
+    if (const uint32_t w = inputWindow())
         postMessage(w, kWmMouseWheel, _buttons | uint32_t(uint16_t(int16_t(delta))) << 16, point(cursorX, cursorY));
 }
 
@@ -257,7 +257,7 @@ void Win32Process::key(uint32_t virtualKey, uint32_t scanCode, bool down) {
     const bool was = _keysDown[virtualKey & 0xff] != 0;
     _keysDown[virtualKey & 0xff] = down;
     notify({RawInput::Kind::kKey, int(scanCode), down});
-    const uint32_t w = mainWindow();
+    const uint32_t w = inputWindow();
     if (!w)
         return;
     uint32_t lParam = 1 | (scanCode & 0xff) << 16 | (scanCode & 0x100 ? 1u << 24 : 0); // 0x100: an extended key
@@ -277,6 +277,13 @@ void Win32Process::moveWindow(uint32_t handle, int x, int y, int width, int heig
 
 uint32_t Win32Process::mainWindow() const {
     return _windows.empty() ? 0 : _windows.begin()->first;
+}
+
+uint32_t Win32Process::inputWindow() const {
+    for (auto it = _windows.rbegin(); it != _windows.rend(); ++it)
+        if (it->second.dialogProc && it->second.visible && !it->second.dialogResult)
+            return it->first;
+    return mainWindow();
 }
 
 void Win32Process::postMessage(uint32_t window, uint32_t message, uint32_t wParam, uint32_t lParam) {
@@ -310,6 +317,8 @@ uint32_t Win32Process::sendMessage(uint32_t window, uint32_t message, uint32_t w
 }
 
 bool Win32Process::takeMessage(uint32_t window, uint32_t first, uint32_t last, bool remove, Message &out) {
+    if (std::exchange(_screenDrawn, false) && screenPainted)
+        screenPainted();
     auto inRange = [&](uint32_t message) { return (first == 0 && last == 0) || (message >= first && message <= last); };
     auto matches = [&](const Message &m) {
         return (window == 0 || m.window == window || m.message == kWmQuit) && inRange(m.message);
@@ -351,7 +360,7 @@ uint32_t Win32Process::dispatch(const Message &m) {
     return sendMessage(m.window, m.message, m.wParam, m.lParam);
 }
 
-void Win32Process::awaitMessage(Cpu &c) {
+bool Win32Process::awaitMessage(Cpu &c) {
     uint64_t next = UINT64_MAX;
     for (const auto &[key, timer] : _windowTimers)
         next = std::min(next, timer.due);
@@ -359,18 +368,23 @@ void Win32Process::awaitMessage(Cpu &c) {
         // Taking turns, the program's other threads run here, and the
         // engine's idle() is its chance to post input.
         runThreads();
-        if (idle)
+        if (idle) {
             idle();
-        else if (next == UINT64_MAX && _messages.empty())
+        } else if (next == UINT64_MAX && _messages.empty()) {
             c.abort("the program waits for a message, and nothing could send one");
-        return;
+            return false;
+        }
+        return true;
     }
     const uint64_t at = now();
     const uint32_t ms =
         next == UINT64_MAX ? 0xffffffffu : uint32_t(next > at ? std::min<uint64_t>(next - at, 1000) : 0);
     const bool queued = wait([this] { return !_messages.empty(); }, ms);
-    if (!queued && ending())
+    if (!queued && ending()) {
         c.abort("the process is ending");
+        return false;
+    }
+    return true;
 }
 
 void Win32Process::addUserStandIns() {
@@ -619,7 +633,8 @@ void Win32Process::addUserStandIns() {
             runThreads();
             if (takeMessage(c.arg(1), c.arg(2), c.arg(3), true, m))
                 break;
-            awaitMessage(c);
+            if (!awaitMessage(c))
+                return uint32_t(-1);
         }
         writeMessage(c, out, m);
         return m.message == kWmQuit ? 0u : 1u;
@@ -875,10 +890,10 @@ void Win32Process::addUserStandIns() {
     });
     // The program's windows are the only ones: the first is active, and has
     // the keyboard until SetFocus gives it to another.
-    stdcall(u, "GetActiveWindow", 0, [this](Cpu &) { return mainWindow(); });
-    stdcall(u, "GetFocus", 0, [this](Cpu &) { return _focus && window(_focus) ? _focus : mainWindow(); });
+    stdcall(u, "GetActiveWindow", 0, [this](Cpu &) { return inputWindow(); });
+    stdcall(u, "GetFocus", 0, [this](Cpu &) { return _focus && window(_focus) ? _focus : inputWindow(); });
     stdcall(u, "SetFocus", 1, [this](Cpu &c) {
-        const uint32_t old = _focus && window(_focus) ? _focus : mainWindow();
+        const uint32_t old = _focus && window(_focus) ? _focus : inputWindow();
         _focus = c.arg(0);
         return old;
     });

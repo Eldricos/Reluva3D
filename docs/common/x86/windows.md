@@ -58,7 +58,12 @@ C++ library have pages of their own ([directx.md](directx.md),
   - run-time type information: `__RTtypeid` and `type_info::name` (classes
     and structs, nested names), from Visual C++'s layout: the word before
     an object's vtable is its complete object locator, whose word at +12
-    is its `type_info`;
+    is its `type_info`; `__RTDynamicCast` (`dynamic_cast`), through the
+    locator's offset of the object in the complete one (+4) and its class
+    hierarchy descriptor (+16): the classes (the class itself first) and
+    where each base is, through a vbtable for a virtual one. Types are
+    compared by name, as each module has its own descriptors; a class
+    found at two places is ambiguous, as the standard has it;
   - the start-up helpers (`__getmainargs`, `_initterm`, its variables);
   - `_EH_prolog`'s exception frame, and the `exception` class.
 
@@ -84,7 +89,11 @@ C++ library have pages of their own ([directx.md](directx.md),
     window to be painted (`InvalidateRect`; it stays until `BeginPaint`,
     `ValidateRect` or `DefWindowProcA` paints it) and `WM_TIMER` for a
     `SetTimer` timer that's due. `GetMessageA` waits for one, letting the
-    other threads run and time pass;
+    other threads run and time pass, and returns as soon as the process
+    is ending;
+  - input goes to a modal dialog while one runs, its owner being disabled,
+    and otherwise to the main window; so does what `GetActiveWindow` and
+    `GetFocus` report;
   - `DispatchMessageA` (a timer's `TIMERPROC` is called itself) and
     `TranslateMessage`;
   - `DefWindowProcA` destroys a window it's asked to close;
@@ -116,7 +125,10 @@ C++ library have pages of their own ([directx.md](directx.md),
     area, not clipped to it.
   - The screen is what the engine gives `screenAccess`: DirectX points it
     at the primary surface, as on Windows, where GDI and DirectDraw share
-    the display. Without it, the process keeps a screen of its own.
+    the display. Without it, the process keeps a screen of its own. When
+    the program, having painted, next looks for a message, `screenPainted`
+    is called, for DirectX to show what was painted: on Windows it shows
+    at once, with no flip.
   - `BitBlt` and `PatBlt` take any of the 256 raster operations, with the
     brush as the pattern. Between colour and monochrome, as Windows
     converts: a monochrome source's 0 is the destination's text colour
@@ -151,6 +163,8 @@ C++ library have pages of their own ([directx.md](directx.md),
   (`GetUserNameA`). The engine can add an installer's
   values and hear of the program's writes. `CoCreateInstance` asks the
   engine's `createComObject`; with none, no class is registered.
+  `CoCreateGuid` makes version 4 GUIDs from a sequence that's the same
+  each run, so a run repeats.
 - **`com.h`, `com.cpp`: COM objects.** An interface is a table of method
   names and argument counts. `ComHost` builds its vtable of native
   functions in the program's memory, and makes the interface pointers,
@@ -268,11 +282,17 @@ executable's entry point on the main thread until it ends the process.
   process's own screen, a brush's fill, `DSTINVERT`, a line; and the
   objects' kinds and sizes. The DirectX test reads and writes a 16-bit
   primary surface through a window's device context.
+- It casts with `dynamic_cast` through a class hierarchy laid out as
+  Visual C++ lays it out (Star Trek: Armada's own were read the same way:
+  a `HoverCraft` is a `Craft`, a `GameObject`, an `Entity` and an
+  `ST3D_Instance` at +0, and a `PhysicsParameterSet` at +1696).
 - It runs a modal dialog from a template in a DLL made in the test, with
   a native dialog procedure: the messages in order (`WM_INITDIALOG` with
-  its first control, showing, one `WM_PAINT`, two `WM_TIMER`s, the
-  destruction), its control's text, number and check, `BeginPaint`'s
-  area, and `EndDialog`'s result; then `GetMessageA` with `WM_QUIT`. It also checks
+  its first control, showing, one `WM_PAINT`, a `WM_TIMER`, a click it
+  gets rather than its owner, the second `WM_TIMER`, the destruction),
+  its control's text, number and check, `BeginPaint`'s area, and
+  `EndDialog`'s result. A dialog nothing could send a message to stops
+  the run. Then `GetMessageA` with `WM_QUIT`. It also checks
   the registry's keys, values, sizes and enumeration, and
   `CoCreateInstance`.
 - `testInput` checks the messages input becomes, double clicks, key

@@ -795,8 +795,6 @@ void addMsvcrt(Win32Process &process) {
         s->holdrand = s->holdrand * 214013u + 2531011u;
         return (s->holdrand >> 16) & 0x7fffu;
     });
-    // qsort(base, count, size, compare): a merge sort, which needs only
-    // the comparison to order consistently, calling the program's.
     // Run-time type information, as Visual C++ lays it out: the word before
     // a polymorphic object's vtable points to its complete object locator,
     // whose word at +12 is its type_info (the type descriptor).
@@ -810,6 +808,55 @@ void addMsvcrt(Win32Process &process) {
         const uint32_t vtable = c.read32(object);
         const uint32_t locator = c.read32(vtable - 4);
         return c.valid(locator, 16) ? c.read32(locator + 12) : 0u;
+    });
+    // __RTDynamicCast(object, vfptr offset, source type, target type,
+    // reference): dynamic_cast. The locator's +4 is the object's offset in
+    // the complete one and +16 its class hierarchy descriptor: the number
+    // of its classes (itself first) at +8 and their base class descriptors
+    // at +12. Each of those has its type descriptor, and where that base is
+    // (+8; with +12 not -1, through the vbtable at that offset, entry +16).
+    // A class that's found at more than one place is ambiguous: no result.
+    // Type descriptors are compared by their names, as a DLL has its own.
+    provideCdecl("__RTDynamicCast", [](Cpu &c) -> uint32_t {
+        const uint32_t object = c.arg(0);
+        const uint32_t target = c.arg(3);
+        auto fail = [&]() -> uint32_t {
+            if (c.arg(4))
+                c.abort("a dynamic_cast to a reference failed (bad_cast)");
+            return 0u;
+        };
+        if (!object)
+            return 0u;
+        if (!c.valid(object, 4) || !c.valid(c.read32(object) - 4, 4))
+            return fail();
+        const uint32_t locator = c.read32(c.read32(object) - 4);
+        if (!c.valid(locator, 20))
+            return fail();
+        const uint32_t complete = object - c.read32(locator + 4);
+        const uint32_t hierarchy = c.read32(locator + 16);
+        if (!c.valid(hierarchy, 16) || !c.valid(target + 8, 1))
+            return fail();
+        const std::string wanted = c.string(target + 8);
+        const uint32_t count = c.read32(hierarchy + 8);
+        const uint32_t bases = c.read32(hierarchy + 12);
+        uint32_t found = 0;
+        int matches = 0;
+        for (uint32_t i = 0; i < count && c.valid(bases + 4 * i, 4); ++i) {
+            const uint32_t base = c.read32(bases + 4 * i);
+            if (!c.valid(base, 24) || !c.valid(c.read32(base) + 8, 1) || c.string(c.read32(base) + 8) != wanted)
+                continue;
+            int32_t offset = int32_t(c.read32(base + 8));
+            const int32_t vbtableAt = int32_t(c.read32(base + 12));
+            if (vbtableAt >= 0) {
+                const uint32_t vbtable = c.read32(complete + uint32_t(vbtableAt));
+                offset += vbtableAt + int32_t(c.read32(vbtable + c.read32(base + 16)));
+            }
+            const uint32_t at = complete + uint32_t(offset);
+            if (matches == 0 || at != found)
+                ++matches;
+            found = at;
+        }
+        return matches == 1 ? found : fail();
     });
     // bsearch(key, base, count, size, compare): compare(key, element) < 0
     // means the key comes before it.
@@ -836,6 +883,8 @@ void addMsvcrt(Win32Process &process) {
         }
         return 0u;
     });
+    // qsort(base, count, size, compare): a merge sort, which needs only
+    // the comparison to order consistently, calling the program's.
     provideCdecl("qsort", [s](Cpu &c) {
         const uint32_t base = c.arg(0);
         const uint32_t count = c.arg(1);

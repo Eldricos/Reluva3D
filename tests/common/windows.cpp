@@ -500,6 +500,8 @@ static void testGdi() {
     call(u, "RegisterClassA", {wc});
     const uint32_t hwnd = call(u, "CreateWindowExA", {0, text("Gdi"), 0, 0x80000000, 100, 50, 64, 32, 0, 0, 0, 0});
     const uint32_t screenDc = call(u, "GetDC", {hwnd});
+    int painted = 0;
+    process.screenPainted = [&] { ++painted; };
     auto onScreen = [&](int x, int y) { return process.screen().at(size_t(50 + y) * 800 + size_t(100 + x)); };
 
     // A 2 x 2, 24-bit DIB, bottom-up: red, magenta below green, blue.
@@ -559,6 +561,12 @@ static void testGdi() {
     CHECK(onScreen(2, 5) == 0xff0000 && onScreen(4, 5) == 0xff0000 && onScreen(5, 5) == 0x204080);
     CHECK(call(g, "DeleteObject", {pen}) == 1 && call(g, "DeleteObject", {pen}) == 0);
     CHECK(call(g, "GetClipBox", {image, rect}) == 2 && cpu.read32(rect + 8) == 2 && cpu.read32(rect + 12) == 2);
+    // Having painted, the program looks for a message: the screen is shown
+    // once, and not again until it's painted on again.
+    const uint32_t msg = process.memory().alloc(28);
+    CHECK(painted == 0 && call(u, "PeekMessageA", {msg, 0, 0, 0, 1}) == 0 && painted == 1);
+    call(u, "PeekMessageA", {msg, 0, 0, 0, 1});
+    CHECK(painted == 1);
 }
 
 // A DLL holding one dialog template (resource 7): a pop-up titled "D" with
@@ -651,6 +659,7 @@ static void testDialog() {
     uint32_t ticks = 0;
     uint32_t button = 0;
     uint32_t number = 0;
+    uint32_t clickedAt = 0;
     std::string label;
     bool checked = false;
     const uint32_t buffer = process.memory().alloc(64);
@@ -678,16 +687,30 @@ static void testDialog() {
             result = 1;
         } else if (message == 0x113 && c.arg(2) == 5 && ++ticks == 2) { // WM_TIMER
             call("EndDialog", {hwnd, 42});
+        } else if (message == 0x113 && ticks == 1) { // the player clicks: the dialog gets it
+            process.mouseMoveTo(5, 6);
+            process.mouseButton(0, true);
+        } else if (message == 0x201) {
+            clickedAt = c.arg(3);
         }
         c.reg[x86::Cpu::EAX] = result;
         return 16u;
     });
     CHECK(call("DialogBoxParamA", {dll->base, 7, 0, proc, 0x1234}) == 42);
     CHECK(label == "OK" && number == uint32_t(-12) && checked && ticks == 2);
-    // Shown, painted once, two ticks, destroyed.
-    CHECK((seen == std::vector<uint32_t>{0x110, 0x18, 0xf, 0x113, 0x113, 0x2, 0x82}));
+    // Shown, painted once, a tick, the mouse (before the next tick: posted
+    // messages come first), the second tick, destroyed.
+    CHECK((seen == std::vector<uint32_t>{0x110, 0x18, 0xf, 0x113, 0x200, 0x201, 0x113, 0x2, 0x82}));
+    CHECK(clickedAt == (6u << 16 | 5));
     CHECK(process.window(button) == nullptr);
     CHECK(call("DialogBoxParamA", {dll->base, 8, 0, proc, 0}) == uint32_t(-1));
+    // A dialog waiting with no timer, when nothing could send it a message,
+    // stops the run rather than waiting for ever.
+    const uint32_t idleProc = cpu.addNative("test!IdleDlgProc", [](x86::Cpu &c) {
+        c.reg[x86::Cpu::EAX] = c.arg(1) == 0x110 ? 1 : 0;
+        return 16u;
+    });
+    CHECK(cpu.call(fn("DialogBoxParamA"), {dll->base, 7, 0, idleProc, 0}, r));
 
     // GetMessageA takes what's posted; WM_QUIT makes it return 0.
     const uint32_t msg = process.memory().alloc(28);
@@ -1475,6 +1498,45 @@ static void testHostedProgramNeeds(const std::filesystem::path &tmp) {
     cpu.reg[x86::Cpu::ECX] = typeInfo;
     CHECK(call(m, "?name@type_info@@QBEPBDXZ", {}) && cpu.string(r) == "class Game::Ship" &&
           cpu.read32(typeInfo + 4) == r);
+    // dynamic_cast: a Ship that's a Unit (at +0) and a Target (at +8),
+    // through its class hierarchy descriptor's bases; from the Target part
+    // back to the Ship, and to a class it isn't.
+    auto typeNamed = [&](const char *name) {
+        const uint32_t t = process.memory().alloc(32);
+        cpu.writeString(t + 8, name, 24);
+        return t;
+    };
+    const uint32_t unit = typeNamed(".?AVUnit@@");
+    const uint32_t target = typeNamed(".?AVTarget@@");
+    const uint32_t other = typeNamed(".?AVPlanet@@");
+    const uint32_t shipType = typeNamed(".?AVShip@@");
+    auto baseAt = [&](uint32_t type, uint32_t offset) {
+        const uint32_t b = process.memory().alloc(24);
+        cpu.write32(b, type);
+        cpu.write32(b + 8, offset);
+        cpu.write32(b + 12, 0xffffffffu); // not virtual
+        return b;
+    };
+    const uint32_t bases = process.memory().alloc(12);
+    cpu.write32(bases, baseAt(shipType, 0));
+    cpu.write32(bases + 4, baseAt(unit, 0));
+    cpu.write32(bases + 8, baseAt(target, 8));
+    const uint32_t hierarchy = process.memory().alloc(16);
+    cpu.write32(hierarchy + 4, 1); // multiple inheritance
+    cpu.write32(hierarchy + 8, 3);
+    cpu.write32(hierarchy + 12, bases);
+    const uint32_t targetLocator = process.memory().alloc(20);
+    cpu.write32(targetLocator + 4, 8); // the Target part is 8 into the Ship
+    cpu.write32(targetLocator + 12, target);
+    cpu.write32(targetLocator + 16, hierarchy);
+    const uint32_t targetVtable = process.memory().alloc(8);
+    cpu.write32(targetVtable, targetLocator);
+    const uint32_t ship = process.memory().alloc(16);
+    cpu.write32(ship + 8, targetVtable + 4);
+    CHECK(call(m, "__RTDynamicCast", {ship + 8, 0, target, shipType, 0}) == ship);
+    CHECK(call(m, "__RTDynamicCast", {ship + 8, 0, target, unit, 0}) == ship);
+    CHECK(call(m, "__RTDynamicCast", {ship + 8, 0, target, other, 0}) == 0);
+    CHECK(call(m, "__RTDynamicCast", {0, 0, target, other, 0}) == 0);
 
     // A window's class, placement and tree; capture.
     const uint32_t proc = cpu.addNative("test!NeedsProc", [](x86::Cpu &c) {
@@ -1501,6 +1563,11 @@ static void testHostedProgramNeeds(const std::filesystem::path &tmp) {
     CHECK(call(u, "SetCapture", {hwnd}) == 0 && call(u, "SetCapture", {hwnd}) == hwnd && call(u, "ReleaseCapture", {}));
     CHECK(call(u, "UnregisterClassA", {text("NEEDS"), 0}) == 1 && call(u, "UnregisterClassA", {text("Needs"), 0}) == 0);
     CHECK(call("COMCTL32.dll", "#17", {}) == 0);
+    // GUIDs: version 4, each new.
+    const uint32_t guid = process.memory().alloc(32);
+    CHECK(call("ole32.dll", "CoCreateGuid", {guid}) == 0 && call("ole32.dll", "CoCreateGuid", {guid + 16}) == 0);
+    CHECK((cpu.read8(guid + 7) >> 4) == 4 && (cpu.read8(guid + 8) & 0xc0) == 0x80 &&
+          cpu.read32(guid) != cpu.read32(guid + 16));
 
     // No sound but DirectSound's: no wave or auxiliary device.
     const char *w = "WINMM.dll";

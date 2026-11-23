@@ -253,6 +253,7 @@ void Win32Process::writeArea(const DeviceContext &dc, int x, int y, int width, i
         const int y1 = std::min(y + height, screenHeight);
         if (x0 >= x1 || y0 >= y1)
             return;
+        _screenDrawn = true;
         std::vector<uint32_t> part(size_t(x1 - x0) * size_t(y1 - y0));
         for (int r = y0; r < y1; ++r)
             std::copy_n(pixels.begin() + size_t(r - y) * size_t(width) + size_t(x0 - x), x1 - x0,

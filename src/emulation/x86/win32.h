@@ -554,6 +554,11 @@ public:
     void moveWindow(uint32_t handle, int x, int y, int width, int height);
     /** The first window the program made that's still there; 0 if none. */
     uint32_t mainWindow() const;
+    /**
+     * Where input goes: a modal dialog while one runs (the last made), as
+     * its owner is disabled meanwhile; otherwise the main window.
+     */
+    uint32_t inputWindow() const;
     /** Queues a message as PostMessageA does: how the engine passes input on. */
     void postMessage(uint32_t window, uint32_t message, uint32_t wParam, uint32_t lParam);
     /** Calls a window's procedure as SendMessageA does; 0 if there's no such window. */
@@ -570,6 +575,12 @@ public:
      * display; without it, the process keeps a screen of its own (screen()).
      */
     std::function<void(int x, int y, int width, int height, uint32_t *pixels, bool write)> screenAccess;
+    /**
+     * Called when the program, having drawn on windows with GDI, next looks
+     * for a message, as its painting is done: for DirectX to show the
+     * screen, which no flip of its own would.
+     */
+    std::function<void()> screenPainted;
     /** The process's own screen: screenWidth × screenHeight, 0xRRGGBB (empty until GDI draws on it). */
     const std::vector<uint32_t> &screen() const { return _screen; }
     // Input, as the engine passes it on.
@@ -720,7 +731,9 @@ private:
     std::set<uint32_t> _fonts;
     std::set<uint32_t> _palettes;
     std::map<uint32_t, DeviceContext> _dcs;
-    std::vector<uint32_t> _screen; // without screenAccess
+    uint32_t _guidState = 0x2545f491; // CoCreateGuid's xorshift
+    std::vector<uint32_t> _screen;    // without screenAccess
+    bool _screenDrawn = false;        // since screenPainted was last called
     /** A device context by handle (a window's made as it's first used), or null. */
     DeviceContext *deviceContext(uint32_t handle);
     /** A rectangle of a device context's pixels (0 outside it), and one written (clipped to it). */
@@ -755,8 +768,13 @@ private:
     bool takeMessage(uint32_t window, uint32_t first, uint32_t last, bool remove, Message &out);
     /** Hands a message to its window (or WM_TIMER to its TIMERPROC), as DispatchMessageA does. */
     uint32_t dispatch(const Message &m);
-    /** From the program: lets time pass until a message may be there (one posted, a timer due). */
-    void awaitMessage(Cpu &c);
+    /**
+     * From the program: lets time pass until a message may be there (one
+     * posted, a timer due).
+     * @return False if the program is to stop (the process ending, or
+     *         nothing that could send a message): the caller returns at once.
+     */
+    bool awaitMessage(Cpu &c);
     /**
      * A resource of a module (by its base): `type` and `name` are numbers
      * or (above 0xffff) the addresses of names. Its address and size.

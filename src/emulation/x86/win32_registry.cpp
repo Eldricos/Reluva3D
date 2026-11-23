@@ -307,6 +307,21 @@ void Win32Process::addRegistryStandIns() {
     // COM.
     stdcall(o, "CoInitialize", 1, [](Cpu &) { return 0u; }); // S_OK
     stdcall(o, "CoInitializeEx", 2, [](Cpu &) { return 0u; });
+    // CoCreateGuid: a random (version 4) GUID, from a sequence that's the
+    // same each run, so a run can be repeated.
+    stdcall(o, "CoCreateGuid", 1, [this](Cpu &c) {
+        if (!c.valid(c.arg(0), 16))
+            return 0x80070057u; // E_INVALIDARG
+        for (uint32_t i = 0; i < 16; i += 4) {
+            _guidState ^= _guidState << 13;
+            _guidState ^= _guidState >> 17;
+            _guidState ^= _guidState << 5;
+            c.write32(c.arg(0) + i, _guidState);
+        }
+        c.write8(c.arg(0) + 7, uint8_t((c.read8(c.arg(0) + 7) & 0x0f) | 0x40)); // version 4
+        c.write8(c.arg(0) + 8, uint8_t((c.read8(c.arg(0) + 8) & 0x3f) | 0x80)); // the RFC 4122 variant
+        return 0u;
+    });
     stdcall(o, "CoUninitialize", 0, [](Cpu &) { return 0u; });
     // CoCreateInstance(class, outer, context, interface, result)
     stdcall(o, "CoCreateInstance", 5, [this](Cpu &c) {

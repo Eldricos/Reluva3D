@@ -55,6 +55,7 @@ void showGdiOn(DirectX::State &state, const std::shared_ptr<Surface> &primary) {
         if (write)
             ++p->d.version;
     };
+    state.process.screenPainted = [&state] { state.present(); };
 }
 
 enum : uint32_t {
@@ -387,6 +388,7 @@ namespace reluva::x86 {
 
 DirectX::~DirectX() {
     _s->process.screenAccess = nullptr;
+    _s->process.screenPainted = nullptr;
 }
 
 const DirectX::Frame &DirectX::frame() const {
