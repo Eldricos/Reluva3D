@@ -10,12 +10,24 @@
 #include "common/types.h"
 
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace reluva {
+
+/** A file for the player to pick, for a game's Open or Save dialog (System::chooseFile). */
+struct FileChoice {
+    bool save = false;
+    std::string title; ///< empty for the system's own
+    /** What's offered: each a name and its extensions ("bmp;dib", or "*" for any). */
+    std::vector<std::pair<std::string, std::string>> filters;
+    std::filesystem::path suggested; ///< where to start, and for saving the name; empty for none
+};
 
 /**
  * How a game's picture is shown in the window. The defaults are Reluva's
@@ -147,6 +159,26 @@ public:
     virtual bool confirmQuit(const std::string &text, bool toLauncher = false) {
         (void)text, (void)toLauncher;
         return true;
+    }
+    /**
+     * Shows the system's own Open or Save dialog. `done` is called once,
+     * with the file picked, or nothing (cancelled, or no dialog to show):
+     * maybe before this returns, maybe on another thread, and maybe only
+     * while events are polled. Without a dialog, nothing at once.
+     */
+    virtual void chooseFile(const FileChoice &choice, std::function<void(std::optional<std::filesystem::path>)> done) {
+        (void)choice;
+        const auto answer = std::move(done);
+        answer(std::nullopt);
+    }
+    /**
+     * Asks the player whether to open `url` in their web browser, and
+     * opens it if they say yes. True if it was opened; without a way to
+     * ask, false.
+     */
+    virtual bool openUrl(const std::string &url) {
+        (void)url;
+        return false;
     }
     /**
      * How the picture is shown (the player's display settings): taken up by

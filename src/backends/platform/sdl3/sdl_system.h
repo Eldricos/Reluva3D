@@ -68,6 +68,8 @@ public:
     void setGamepadForce(const GamepadForce &force) override;
     void setWheelPedals(int accelerator, int brake) override;
     bool confirmQuit(const std::string &text, bool toLauncher) override;
+    void chooseFile(const FileChoice &choice, std::function<void(std::optional<std::filesystem::path>)> done) override;
+    bool openUrl(const std::string &url) override;
     void setDisplayOptions(const DisplayOptions &options) override;
     uint64_t getMillis() const override;
     void delayMillis(uint32_t ms) override;

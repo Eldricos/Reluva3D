@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <memory>
 #include <string>
 
 namespace reluva {
@@ -685,6 +686,61 @@ bool SdlSystem::confirmQuit(const std::string &text, bool toLauncher) {
             SDL_SetWindowRelativeMouseMode(_window, true);
     }
     return quit;
+}
+
+// SDL's file dialogs: its filters and the rest must last until it calls
+// back, which it does once, on whatever thread it likes.
+void SdlSystem::chooseFile(const FileChoice &choice, std::function<void(std::optional<std::filesystem::path>)> done) {
+    struct Pending {
+        std::vector<std::string> names;
+        std::vector<std::string> patterns;
+        std::vector<SDL_DialogFileFilter> filters;
+        std::string location;
+        std::function<void(std::optional<std::filesystem::path>)> done;
+    };
+    auto *pending = new Pending;
+    for (const auto &[name, pattern] : choice.filters) {
+        pending->names.push_back(name);
+        pending->patterns.push_back(pattern);
+    }
+    for (size_t i = 0; i < pending->names.size(); ++i)
+        pending->filters.push_back({pending->names[i].c_str(), pending->patterns[i].c_str()});
+    pending->location = choice.suggested.string();
+    pending->done = std::move(done);
+    const auto callback = [](void *userdata, const char *const *files, int) {
+        std::unique_ptr<Pending> p(static_cast<Pending *>(userdata));
+        if (files && files[0])
+            p->done(std::filesystem::path(files[0]));
+        else
+            p->done(std::nullopt);
+    };
+    const char *location = pending->location.empty() ? nullptr : pending->location.c_str();
+    const SDL_DialogFileFilter *filters = pending->filters.empty() ? nullptr : pending->filters.data();
+    const int count = int(pending->filters.size());
+    if (choice.save)
+        SDL_ShowSaveFileDialog(callback, pending, _window, filters, count, location);
+    else
+        SDL_ShowOpenFileDialog(callback, pending, _window, filters, count, location, false);
+}
+
+// A message box first: a game asked, not the player.
+bool SdlSystem::openUrl(const std::string &url) {
+    const SDL_MessageBoxButtonData buttons[] = {
+        {SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "Don't open"},
+        {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Open"},
+    };
+    const std::string text = "The game asks to open a web page in your browser:\n\n" + url;
+    const SDL_MessageBoxData box{SDL_MESSAGEBOX_INFORMATION,
+                                 _window,
+                                 "Open a web page?",
+                                 text.c_str(),
+                                 SDL_arraysize(buttons),
+                                 buttons,
+                                 nullptr};
+    int chosen = 0;
+    if (!SDL_ShowMessageBox(&box, &chosen) || chosen != 1)
+        return false;
+    return SDL_OpenURL(url.c_str());
 }
 
 uint64_t SdlSystem::getMillis() const {
