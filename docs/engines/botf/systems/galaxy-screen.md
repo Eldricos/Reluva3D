@@ -1,6 +1,6 @@
 # Star Trek: Birth of the Federation: the galaxy screen
 
-> **Status:** partial · **Code:** `src/engines/botf/ui/galaxy_screen.cpp` · **Checked against:** screenshots of the English retail game at a new game's first turn, and at a second game's eleventh, as the Federation on small galaxies · **Confidence:** confirmed unless marked
+> **Status:** partial · **Code:** `src/engines/botf/ui/galaxy_*.cpp` · **Checked against:** screenshots of the English retail game at a new game's first turn, and at a second game's eleventh, as the Federation on small galaxies · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -411,7 +411,9 @@ tips as the game menu's do, and how soon, isn't seen yet.
 
 ## In Reluva
 
-`GalaxyScreen` (`src/engines/botf/ui/galaxy_screen.cpp`) loads the
+`GalaxyScreen` (`src/engines/botf/ui/galaxy_screen.cpp`, with the map,
+the empire's panel and the strip in `galaxy_map.cpp`, `galaxy_panel.cpp`
+and `galaxy_strip.cpp`) loads the
 player's empire's layout, and draws its frame, the map's backdrop, grid,
 the scanners' sectors, stars and names, the turn, and the empire's
 panel, and the selected sector's strip, turning. The engine opens it

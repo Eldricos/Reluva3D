@@ -25,7 +25,10 @@ reluva_add_engine(botf
         ui/assets.cpp
         ui/empire_screen.cpp
         ui/fame_screen.cpp
+        ui/galaxy_map.cpp
+        ui/galaxy_panel.cpp
         ui/galaxy_screen.cpp
+        ui/galaxy_strip.cpp
         ui/game_menu.cpp
         ui/tool_tips.cpp
         ui/layout_screen.cpp
