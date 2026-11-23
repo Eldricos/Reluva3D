@@ -43,7 +43,8 @@ format or system worked out.
    ([tgq.md](formats/tgq.md)) and files; the opening as a recording shows
    it ([opening.md](systems/opening.md)). The sound banks' `.map` files
    wait for the game's sounds to be played.
-6. **Models and the park** (next): the models (`.md2`, Bullfrog's own, and
+6. **Models and the park** (under way): the models (`.MD2`, Bullfrog's
+   own: read, [md2.md](formats/md2.md); their animations not yet; and
    `.hmp`), the worlds' terrain, objects (`scape.omp`) and skies: an
    empty park drawn in 3D in the viewer.
 7. **The ride scripts:** the rides' and shops' behaviour is in compiled

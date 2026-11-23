@@ -28,6 +28,8 @@
 #            (tpw opening-run)
 #   sounds   every sound bank (.sdt) decoded, with a checksum of every
 #            sound (tpw sdt-check)
+#   models   every model (.MD2) read, with a checksum of every mesh
+#            (tpw md2-check)
 #   viewer   the data viewer, headless: every page, a few keys on each,
 #            then Esc; a checksum of every screen shown, and its titles
 #            (tpw viewer-run)
@@ -75,6 +77,8 @@ elseif(STEP STREQUAL "opening")
     record_run(opening "screens shown" tpw opening-run "${game_dir}")
 elseif(STEP STREQUAL "sounds")
     record_run(sounds "sounds decoded" tpw sdt-check "${game_dir}")
+elseif(STEP STREQUAL "models")
+    record_run(models "meshes," tpw md2-check "${game_dir}")
 elseif(STEP STREQUAL "viewer")
     record_run(viewer "left by:" tpw viewer-run "${game_dir}")
 else()

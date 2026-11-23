@@ -1,0 +1,98 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#pragma once
+
+#include "common/types.h"
+#include "graphics/gfx3d.h"
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <vector>
+
+namespace reluva::tpw {
+
+/**
+ * A model (`.MD2`), as SimCoaster's `Data/levels/arabian/features/atmdesk/atmdesk.MD2`:
+ * a tree of nodes, some of them meshes of textured triangles. Bullfrog's own
+ * format, not Quake II's. See docs/engines/tpw/games/simcoaster/formats/md2.md.
+ */
+class Model {
+public:
+    /** What the file holds; only a full model has meshes. */
+    enum class Kind : uint8_t {
+        kModel,
+        kAnimation, // keyframes for a model of the same counts: not read yet
+        kSummary,   // the header alone, with its box
+    };
+
+    /** A texture the meshes name, by its file name as stored (".tga"). */
+    struct Texture {
+        std::string name;
+        uint32_t flags = 0; // not worked out: 1 and 3 most often, with 0x10, 0x20 and 0x40 set on some
+    };
+
+    /** A triangle. */
+    struct Face {
+        std::array<uint16_t, 3> vertex{}; // into the mesh's vertices
+        uint16_t normal = 0;              // into the mesh's normals, past its vertices' own
+    };
+
+    /** A run of faces drawn with one texture. */
+    struct Group {
+        static constexpr size_t kNoTexture = SIZE_MAX;
+        size_t texture = 0; // into textures(), or kNoTexture
+        size_t firstFace = 0;
+        size_t faceCount = 0;
+        uint32_t flags = 0; // 1 for some groups of see-through textures: not worked out
+    };
+
+    /**
+     * A mesh. Each vertex has its own texture coordinates and normal, and
+     * shares a position with the others at the same point.
+     */
+    struct Mesh {
+        std::string name;
+        /** Its node's matrix composed with its parents': to the model's space. */
+        gfx::Mat4 transform{};
+        std::vector<gfx::Vec3> positions;
+        std::vector<uint16_t> positionOf; // each vertex's position
+        std::vector<std::array<float, 2>> uv;
+        /** The vertices' normals, then the faces'; empty where they run past the end. */
+        std::vector<gfx::Vec3> normals;
+        std::vector<Face> faces;
+        std::vector<Group> groups;
+        std::array<float, 6> bounds{}; // the positions' box, before the transform: least x, y, z, then most
+    };
+
+    /**
+     * Reads the model. Fails without the magic number, for a version other
+     * than the game's (221), or on a table or index past its end.
+     */
+    Error parse(const std::vector<uint8_t> &data);
+
+    Kind kind() const { return _kind; }
+    /** The name in its header, as "atmdesk.MD2". */
+    const std::string &name() const { return _name; }
+    /** The whole model's box, in its space, as the header gives it: least x, y, z, then most. */
+    const std::array<float, 6> &bounds() const { return _bounds; }
+    /** The header's flags word: 0x20 for an animation; the others not worked out. */
+    uint32_t flags() const { return _flags; }
+    const std::vector<Texture> &textures() const { return _textures; }
+    const std::vector<Mesh> &meshes() const { return _meshes; }
+    /** How many of the tree's nodes aren't meshes: helpers and others, not read. */
+    size_t otherNodes() const { return _otherNodes; }
+
+private:
+    Kind _kind = Kind::kModel;
+    std::string _name;
+    std::array<float, 6> _bounds{};
+    uint32_t _flags = 0;
+    std::vector<Texture> _textures;
+    std::vector<Mesh> _meshes;
+    size_t _otherNodes = 0;
+};
+
+} // namespace reluva::tpw

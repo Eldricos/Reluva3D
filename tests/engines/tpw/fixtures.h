@@ -8,7 +8,9 @@
 
 #include "tests/support/zip_writer.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -73,6 +75,118 @@ inline Bytes makeWad(const std::vector<WadFile> &files) {
     }
     put32(b, 0x4c, uint32_t(names));
     put32(b, 0x50, uint32_t(b.size() - names));
+    return b;
+}
+
+inline void putFloat(Bytes &b, size_t at, float v) {
+    uint32_t bits;
+    std::memcpy(&bits, &v, sizeof bits);
+    put32(b, at, bits);
+}
+
+inline void put16(Bytes &b, size_t at, uint16_t v) {
+    if (b.size() < at + 2)
+        b.resize(at + 2);
+    b[at] = uint8_t(v);
+    b[at + 1] = uint8_t(v >> 8);
+}
+
+// A node's 0x50 bytes: its type, links and a matrix that moves it by
+// (x, y, z).
+inline void putNode(Bytes &b, size_t at, uint32_t type, size_t parent, size_t next, size_t child, float x, float y,
+                    float z) {
+    put32(b, at, type);
+    put32(b, at + 4, uint32_t(parent));
+    put32(b, at + 8, uint32_t(next));
+    put32(b, at + 12, uint32_t(child));
+    for (size_t i = 0; i < 4; ++i)
+        putFloat(b, at + 16 + 20 * i, 1);
+    putFloat(b, at + 64, x);
+    putFloat(b, at + 68, y);
+    putFloat(b, at + 72, z);
+}
+
+// A model: two textures; a helper node moved 10 along x, holding a mesh
+// moved 5 up: five positions, four vertices, two faces, in two groups,
+// the second untextured.
+inline Bytes makeModel() {
+    Bytes b(0xb8);
+    put32(b, 0, 0x1cd15d46);
+    put32(b, 4, 221);
+    put32(b, 8, 203);
+    const std::string name = "test.MD2";
+    std::copy(name.begin(), name.end(), b.begin() + 0x18);
+    put32(b, 0x30, 1);
+    put16(b, 0x36, 2);
+    const float box[6] = {10, 5, 0, 14, 6, 1};
+    for (size_t i = 0; i < 6; ++i)
+        putFloat(b, 0x80 + 4 * i, box[i]);
+    const size_t textures = b.size();
+    put32(b, 0x50, uint32_t(textures));
+    put32(b, textures, 0x11);
+    put32(b, textures + 8, 0x31);
+    b.resize(textures + 16 + 40);
+    const std::string names[2] = {"one.tga", "two.tga"};
+    for (size_t i = 0; i < 2; ++i)
+        std::copy(names[i].begin(), names[i].end(), b.begin() + long(textures + 16 + 20 * i));
+
+    // Two blocks of four positions, x then y then z; the last three unused.
+    const size_t positions = b.size();
+    const float pos[5][3] = {{0, 0, 0}, {4, 0, 0}, {4, 1, 1}, {0, 1, 1}, {2, 0, 0}};
+    b.resize(positions + 96);
+    for (size_t i = 0; i < 5; ++i)
+        for (size_t k = 0; k < 3; ++k)
+            putFloat(b, positions + i / 4 * 48 + k * 16 + i % 4 * 4, pos[i][k]);
+    const size_t normals = b.size();
+    b.resize(normals + 6 * 12);
+    for (size_t i = 0; i < 6; ++i)
+        putFloat(b, normals + 12 * i + 4, 1);
+    const size_t uv = b.size();
+    for (size_t i = 0; i < 4; ++i) {
+        putFloat(b, uv + 8 * i, float(i % 2));
+        putFloat(b, uv + 8 * i + 4, float(i / 2));
+    }
+    const size_t map = b.size();
+    const uint16_t positionOf[4] = {0, 1, 2, 3};
+    for (size_t i = 0; i < 4; ++i)
+        put16(b, map + 2 * i, positionOf[i]);
+    const size_t faces = b.size();
+    const uint16_t face[2][4] = {{4, 0, 1, 2}, {5, 0, 2, 3}};
+    for (size_t i = 0; i < 2; ++i)
+        for (size_t k = 0; k < 4; ++k)
+            put16(b, faces + 8 * i + 2 * k, face[i][k]);
+    const size_t groups = b.size();
+    put32(b, groups, uint32_t(textures + 8));
+    put16(b, groups + 6, 1);
+    put32(b, groups + 16, 0);
+    put16(b, groups + 20, 1);
+    put16(b, groups + 22, 1);
+    put32(b, groups + 28, 1);
+
+    const size_t meshName = b.size();
+    for (char c : std::string("box"))
+        b.push_back(uint8_t(c));
+    b.push_back(0);
+    while (b.size() % 4)
+        b.push_back(0);
+    const size_t root = b.size();
+    const size_t mesh = root + 0x58;
+    putNode(b, root, 0x200, 0, 0, mesh, 10, 0, 0);
+    putNode(b, mesh, 1, root, 0, 0, 0, 5, 0);
+    const size_t m = mesh + 0x50;
+    put32(b, m + 4, uint32_t(meshName));
+    put16(b, m + 8, 5);
+    put16(b, m + 10, 2);
+    put16(b, m + 12, 2);
+    put16(b, m + 14, 4);
+    put32(b, m + 0x10, uint32_t(positions));
+    put32(b, m + 0x14, uint32_t(normals));
+    put32(b, m + 0x18, uint32_t(uv));
+    put32(b, m + 0x1c, uint32_t(groups));
+    put32(b, m + 0x20, uint32_t(faces));
+    put32(b, m + 0x44, uint32_t(map));
+    b.resize(mesh + 0xa0);
+    put32(b, 0x70, uint32_t(root));
     return b;
 }
 

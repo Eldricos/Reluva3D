@@ -9,6 +9,7 @@
 //   reluva-tests tpw.unit.formats
 
 #include "engines/tpw/formats/bf4.h"
+#include "engines/tpw/formats/md2.h"
 #include "engines/tpw/formats/sam.h"
 #include "engines/tpw/formats/sdt.h"
 #include "engines/tpw/formats/str.h"
@@ -280,6 +281,49 @@ void testSdt() {
     CHECK(sdt.parse(cut));
 }
 
+// The model fixtures.h builds, then cut and broken.
+void testMd2() {
+    const Bytes data = makeModel();
+    Model model;
+    CHECK(!model.parse(data));
+    CHECK(model.kind() == Model::Kind::kModel && model.name() == "test.MD2" && model.otherNodes() == 1);
+    CHECK(model.textures().size() == 2 && model.textures()[1].name == "two.tga" && model.textures()[1].flags == 0x31);
+    CHECK(model.meshes().size() == 1);
+    if (model.meshes().size() != 1)
+        return;
+    const Model::Mesh &mesh = model.meshes()[0];
+    CHECK(mesh.name == "box" && mesh.positions.size() == 5 && mesh.uv.size() == 4 && mesh.faces.size() == 2);
+    CHECK((mesh.positions[2] == gfx::Vec3{4, 1, 1}) && (mesh.positions[4] == gfx::Vec3{2, 0, 0}));
+    CHECK((gfx::transformPoint(mesh.transform, mesh.positions[2]) == gfx::Vec3{14, 6, 1}));
+    CHECK(mesh.faces[1].normal == 5 && (mesh.faces[1].vertex == std::array<uint16_t, 3>{0, 2, 3}));
+    CHECK(mesh.normals.size() == 6 && (mesh.normals[5] == gfx::Vec3{0, 1, 0}));
+    CHECK(mesh.uv[3][0] == 1 && mesh.uv[3][1] == 1);
+    CHECK(mesh.groups.size() == 2 && mesh.groups[0].texture == 1 && mesh.groups[0].faceCount == 1);
+    CHECK(mesh.groups[1].texture == Model::Group::kNoTexture && mesh.groups[1].firstFace == 1 &&
+          mesh.groups[1].flags == 1);
+
+    // No table: the header alone, or an animation's.
+    Bytes summary(data.begin(), data.begin() + 0xb8);
+    put32(summary, 0x50, 0);
+    CHECK(!model.parse(summary) && model.kind() == Model::Kind::kSummary && model.meshes().empty());
+    put32(summary, 0x30, 0x20);
+    CHECK(!model.parse(summary) && model.kind() == Model::Kind::kAnimation);
+
+    Bytes old = data;
+    put32(old, 4, 24);
+    CHECK(model.parse(old));
+    CHECK(model.parse(Bytes(data.begin(), data.begin() + 0x100)));
+    // A face's vertex past the mesh's four.
+    Bytes badFace = data;
+    const size_t mesh0 = data.size() - 0xa0;
+    put16(badFace, size_t(data[mesh0 + 0x50 + 0x20] | data[mesh0 + 0x50 + 0x21] << 8) + 2, 4);
+    CHECK(model.parse(badFace));
+    // The mesh made its own child.
+    Bytes loop = data;
+    put32(loop, mesh0 + 12, uint32_t(mesh0));
+    CHECK(model.parse(loop));
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("tpw.unit.formats",
@@ -290,4 +334,5 @@ static const reluva::test::Suite kSuite("tpw.unit.formats",
                                             {"str", [](const std::filesystem::path &) { testStr(); }},
                                             {"bf4", [](const std::filesystem::path &) { testBf4(); }},
                                             {"sdt", [](const std::filesystem::path &) { testSdt(); }},
+                                            {"md2", [](const std::filesystem::path &) { testMd2(); }},
                                         });
