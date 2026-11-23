@@ -48,11 +48,11 @@ Detection signatures (MD5 of each file's start, and its size, as
   ([InstallShield cabinets](../../../../common/installshield.md)).
   `reluva-tool sfc host` runs it headless
   ([systems/hosting.md](systems/hosting.md)).
-- **Multiplayer**, started: a game hosted alone, to its Multiplayer
-  Startup screen ([systems/hosting.md](systems/hosting.md#its-multiplayer)).
+- **Multiplayer**, started: a game hosted alone with AI players, started
+  into its mission ([systems/hosting.md](systems/hosting.md#its-multiplayer)).
 - **Not yet:** a skirmish, a tutorial or a campaign's mission won (a
   mission forfeited returns to the Dynaverse, which goes on);
-  a multiplayer game started, or played with another machine; the 2.0.3.6 patch applied as it's imported; the
+  a multiplayer game played with another machine; the 2.0.3.6 patch applied as it's imported; the
   `.gf`, `.mct` and `.mvm`
   settings, campaign and map files; the objects in
   `sprites.q3`.
@@ -77,7 +77,11 @@ the game (its registry values in `registry.txt`), not the install.
 Closing the window or Ctrl+F5 asks before stopping it. In a mission the
 game's own keys work, as `Assets/specs/bindings.ini` lists them: A and S
 speed, Y select an enemy, R red alert, Z fire, the keypad the helm,
-Tab the map, Esc to leave; the panels take clicks.
+Tab the map, Esc to leave; the panels take clicks. A multiplayer game
+against the computer: Multiplayer, TCP/IP, HOST, ANNOUNCE GAME; set a
+slot to AI, click the icon beside its BPV and SELECT its ship, tick its
+READY, then click the icon beside your own, SELECT yours, tick READY and
+START MULTIPLAYER GAME.
 
 `reluva-viewer` with the game opens its data viewer;
 Tab moves between its pages, Esc leaves:

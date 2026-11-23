@@ -318,8 +318,20 @@ empire, team and BPV, and a chat. A slot set to AI ("Plato") is a second
 DirectPlay player of the host's own; the human player sends 24 bytes to
 every player over and over, and the AI answers with 36. SELECT chooses a
 ship (Choose Vessel), which is sent to the AI (`SendEx`, asynchronous).
-The game isn't started yet: with the player READY, START MULTIPLAYER
-GAME says "Please press READY button!", whether for the AI isn't traced.
+
+START MULTIPLAYER GAME looks at each of the six slots (0x46586f): one in
+use whose READY isn't ticked gets the `MultiError` table's eighth line,
+"Please press READY button!!" (`strings.txt`). An AI player is readied
+by the host, once it has a ship: the icon beside its BPV shows its
+fleet (A.I. Fleet), whose SELECT chooses its ship; READY without one
+says "Choose a ship first by clicking a Select button on the right."
+With both players' ships chosen and both ready, START updates the
+session (`SetSessionDesc`), destroys the AI's DirectPlay player, reads
+its data from the message saying so (0x61db66), destroys its own and
+closes the session (0x6184f0): played alone, with AI players only, the
+game goes on without DirectPlay. The mission starts, Base Assault here:
+the tactical view, the player's ship (a Federation police ship, the
+*Benjamin H. Ford*) and the AI's in space, the mission's clock running.
 
 ### Its mouse and keys
 
@@ -433,7 +445,7 @@ known.
   different each run), so a run with the same input repeats
   frame for frame and input lands on the same screens.
 - **Not yet:** another machine: a multiplayer game is hosted alone, its
-  players the host's own; starting it from Multiplayer Startup. The opening movie isn't
+  players the host's own. The opening movie isn't
   hosted: the engine plays it itself before the game
   ([formats/intro.md](../formats/intro.md)).
 
@@ -485,7 +497,5 @@ isn't measured.
 - What the folders `dmp3dDLL_Release`, `DLL` and `DRIVERS` are looked for,
   and what it loads from them.
 - How many instructions a second a mission needs.
-- What START MULTIPLAYER GAME waits for, with the host's player ready and
-  an AI player in the game.
 - What the game's own Winsock calls are for: the address it keeps in
   its player's data suggests players reach each other directly as well.

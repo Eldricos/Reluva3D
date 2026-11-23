@@ -101,7 +101,9 @@ the message saying an asynchronous send is done (`SendEx` without
   eleven multiplayer scenarios, ANNOUNCE GAME opening the session, its
   Multiplayer Startup screen listing the player, a computer player
   ("Plato") added as a second local player, the two exchanging messages
-  over and over (24 bytes to every player, 36 back), a ship chosen
+  over and over (24 bytes to every player, 36 back), ships chosen, and
+  START: the AI's player destroyed, its data read from the message saying
+  so, the game's own destroyed and the session closed
   ([hosting.md](../../engines/sfc/games/sfc2/systems/hosting.md#its-multiplayer)).
 - `testDirectPlayLobby` (`tests/common/windows.cpp`) makes the lobby
   through `CoCreateInstance`, checks another class still goes on, and

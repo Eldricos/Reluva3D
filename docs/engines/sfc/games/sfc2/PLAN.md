@@ -106,10 +106,9 @@ on their pages in `formats/` and `systems/`.
    rasterizer is too slow.
 7. **Multiplayer** (started): DirectPlay 4 over the shared networking,
    between copies of Reluva. Started: its connections, and a game hosted
-   alone, to the Multiplayer Startup screen with an AI player and a ship
-   chosen ([systems/hosting.md](systems/hosting.md#its-multiplayer)). Next:
-   starting that game, then joining one hosted by another copy over
-   TCP/IP, and the game's own Winsock calls, sharing `nfs`'s Winsock
+   alone with an AI player, started from Multiplayer Startup into its
+   mission ([systems/hosting.md](systems/hosting.md#its-multiplayer)).
+   Next: joining one hosted by another copy over TCP/IP, and the game's own Winsock calls, sharing `nfs`'s Winsock
    stand-in (`src/engines/nfs/host/winsock.cpp`) if they're needed.
 8. **Importing** (done for the CDs): InstallShield 5's headers in
    `src/common/installshield.cpp` ([its page](../../../../common/installshield.md)),
