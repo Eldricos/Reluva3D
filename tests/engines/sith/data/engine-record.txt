@@ -8,6 +8,9 @@ folders.cd2: install/cd2 (folder in the install)
 viewer.archives: 3
 viewer.colormaps: 1
 viewer.palettes: 1
+page.Levels.items: 1
+page.Levels.drawn: drawn
+page.Levels.after_keys: drawn
 page.Pictures.items: 1
 page.Pictures.drawn: f2146468d749bdb5
 page.Pictures.after_keys: f1b044855c1b7eb5

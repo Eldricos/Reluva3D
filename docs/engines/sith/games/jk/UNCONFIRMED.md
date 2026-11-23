@@ -23,6 +23,10 @@ None yet.
   picture uses.
 - **A font's space** is a gap its glyph's width, its glyph a marker not
   drawn ([formats/sft.md](formats/sft.md#ranges)).
+- **How a level's surfaces are lit:** the viewer lights them by their
+  corners' light and their sector's and their own extra light, up to 1,
+  through the sector's colormap ([formats/jkl.md](formats/jkl.md#behaviour)).
+  The game's 8-bit renderer, in a recording, would settle it.
 - **A sound class's flag `0x1`** is taken for a looping sound
   ([formats/snd.md](formats/snd.md#layout)).
 - **`\n` in strings** is taken for a new line

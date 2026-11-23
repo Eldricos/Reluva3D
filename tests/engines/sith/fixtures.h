@@ -193,6 +193,58 @@ inline std::vector<uint8_t> makeKeyframeFile() {
     return {text.begin(), text.end()};
 }
 
+/**
+ * A level of two sectors joined by a pair of adjoins, with lists shorter
+ * than their counts, as the game's are, a "5;" for "5:", templates and a
+ * player: the room is the square 0-1 in x and y, its floor at z 0.
+ */
+inline std::vector<uint8_t> makeLevelFile() {
+    const std::string text = "SECTION: JK\r\n# Jedi Knight specific data\r\n"
+                             "SECTION: COPYRIGHT\r\n....@...@....\r\n"
+                             "SECTION: HEADER\r\nVersion 1\r\nWorld Gravity 4.00\r\nCeiling Sky Z 20.0\r\n"
+                             "Horizon Distance 200.0\r\nHorizon Pixels per Rev 768.0\r\n"
+                             "Horizon Sky Offset 0.5 0.25\r\nCeiling Sky Offset 0.0 0.0\r\n"
+                             "MipMap Distances\t1.0\t2.0\t3.0\t4.0\r\nLOD Distances\t0.3\t0.6\t0.9\t1.2\r\n"
+                             "Perspective distance 2.00\r\nGouraud distance 2.00\r\n"
+                             "SECTION: SOUNDS\r\nWorld sounds 5\r\nwalk01.wav\r\nrun01.wav\r\nend\r\n"
+                             "SECTION: MATERIALS\r\nWorld materials 8\r\n#num:\tmat:\txTile:\tyTile:\r\n"
+                             "0:\ttop.mat\t1.000000\t1.000000\r\n1:\tceil.mat\t2.0\t2.0\r\nend\r\n"
+                             "SECTION: GEORESOURCE\r\nWorld Colormaps 1\r\n0:\tuicolormap.cmp\r\n"
+                             "World vertices 8\r\n0: 0 0 0\r\n1: 1 0 0\r\n2: 1 1 0\r\n3: 0 1 0\r\n"
+                             "4: 0 0 1\r\n5: 1 0 1\r\n6: 1 1 1\r\n7: 0 1 1\r\n"
+                             "World texture vertices 4\r\n0: 0 0\r\n1: 16 0\r\n2: 16 16\r\n3: 0 16\r\n"
+                             "World adjoins 2\r\n#num:\tflags:\tmirror:\tdist:\r\n0:\t0x7\t1\t0.00\r\n"
+                             "1:\t0x7\t0\t0.00\r\n"
+                             "World surfaces 4\r\n"
+                             "0:\t0\t0x4\t0x0\t4\t3\t1\t-1\t0.00\t4\t0,0\t1,1\t2,2\t3,3\t0.5\t0.6\t0.7\t2.0\r\n"
+                             "1:\t-1\t0x0\t0x0\t0\t3\t1\t0\t0.00\t3\t4,-1\t5,-1\t6,-1\t1\t1\t1\r\n"
+                             "2:\t-1\t0x0\t0x0\t0\t3\t1\t1\t0.00\t3\t6,-1\t5,-1\t4,-1\t1\t1\t1\r\n"
+                             "3:\t1\t0x0\t0x0\t3\t3\t1\t-1\t0.25\t3\t7,3\t6,2\t4,0\t0.2\t0.2\t0.2\r\n"
+                             "#--- Surface normals ---\r\n0: 0 0 1\r\n1: 0 0 -1\r\n2: 0 0 1\r\n3: 0 0 -1\r\n"
+                             "Section: SECTORS\r\nWorld sectors 2\r\n"
+                             "SECTOR\t0\r\nFLAGS\t0x0\r\nAMBIENT LIGHT\t0.37\r\nEXTRA LIGHT\t0.10\r\n"
+                             "COLORMAP\t0\r\nTINT\t0.00\t0.00\t0.00\r\nBOUNDBOX\t0 0 0 1 1 1\r\n"
+                             "COLLIDEBOX\t0.1 0.1 0.1 0.9 0.9 0.9\r\nSOUND\t00wind03.wav 0.5\r\n"
+                             "CENTER\t0.5 0.5 0.5\r\nRADIUS\t0.9\r\nVERTICES\t4\r\n0:\t0\r\n1:\t1\r\n2:\t2\r\n"
+                             "3:\t3\r\nSURFACES\t0\t2\r\n"
+                             "SECTOR\t1\r\nFLAGS\t0x1\r\nAMBIENT LIGHT\t0.0\r\nEXTRA LIGHT\t0.0\r\n"
+                             "COLORMAP\t0\r\nTINT\t0.5\t0\t0\r\nBOUNDBOX\t0 0 1 1 1 2\r\nCENTER\t0.5 0.5 1.5\r\n"
+                             "RADIUS\t0.9\r\nVERTICES\t1\r\n0:\t7\r\nSURFACES\t2\t2\r\n"
+                             "SECTION: AICLASS\r\nWorld AIClasses 4\r\n0:\tdefault.ai\r\nend\r\n"
+                             "Section: MODELS\r\nWorld models 8\r\n0:\ttest.3do\r\n1;\tother.3do\r\nend\r\n"
+                             "Section: COGS\r\nWorld cogs 4\r\n#Num\tScript          Symbol values\r\n"
+                             "0:\t00_door.cog\t4 -1 8.000000\r\nend\r\n"
+                             "Section: TEMPLATES\r\nWorld templates 4\r\n#Name:           Based On:        Params:\r\n"
+                             "_actor           none             type=actor collide=1 model3d=test.3do\r\n"
+                             "walkplayer       _actor           type=player light=0.2\r\nend\r\n"
+                             "Section: THINGS\r\nWorld things 8\r\n"
+                             "#num template:       name:  X:  Y:  Z:  Pitch:  Yaw:  Roll:  Sector:\r\n"
+                             "  0: walkplayer walkplayer 0.5 0.2 0.04 0.0 0.0 0.0 0\r\n"
+                             "  1: _actor box 0.5 0.8 0.0 0.0 90.0 0.0 0 thingflags=0x400448 numframes=2\r\n"
+                             "end\r\n";
+    return {text.begin(), text.end()};
+}
+
 /** An install's files, the names in the case the installer gives them. */
 inline void makeInstall(const stdfs::path &dir) {
     touch(dir / "JK.EXE");

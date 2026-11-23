@@ -124,7 +124,8 @@ void Draw3D::polygon(const std::vector<Corner> &corners, const Paint &paint) {
     for (const soft3d::ViewVertex &v : view)
         screen.push_back(_camera.project(v));
 
-    const Palette &pal = _colormap.palette;
+    const Colormap &cmap = paint.colormap ? *paint.colormap : _colormap;
+    const Palette &pal = cmap.palette;
     const bool keyed = tex && tex->transparent && paint.transparent;
     auto shade = [&](float u, float v, float light, uint8_t *rgba) {
         uint8_t index = uint8_t(color < 0 ? 0 : color);
@@ -140,7 +141,7 @@ void Draw3D::polygon(const std::vector<Corner> &corners, const Paint &paint) {
                 return false;
         }
         const int level = std::clamp(int(light * (Colormap::kLightLevels - 1) + 0.5f), 0, Colormap::kLightLevels - 1);
-        const Color c = pal[_colormap.lit(level, index)];
+        const Color c = pal[cmap.lit(level, index)];
         rgba[0] = c.r;
         rgba[1] = c.g;
         rgba[2] = c.b;

@@ -32,7 +32,7 @@ namespace {
 // floating point rounds differently from one compiler to another, whether
 // a good part of the screen (a thousand pixels) isn't the background.
 std::string summary(const std::string &page, const Surface &screen) {
-    if (page != "Models" && page != "Sprites")
+    if (page != "Models" && page != "Sprites" && page != "Levels")
         return test::Hash().bytes(screen.pixels).hex();
     size_t drawn = 0;
     for (size_t i = 0; i + 3 < screen.pixels.size(); i += 4)
@@ -91,7 +91,8 @@ void engineTest(const std::filesystem::path &tmp) {
     const std::string episode = "\"Test\"\r\nTYPE 1\r\nSEQ 2\r\n10: 1 1 CUT 01-02a.smk 0 0 11 -1\r\n"
                                 "11: 1 1 LEVEL 01test.jkl 0 0 -1 -1\r\nend\r\n";
     writeBytes(dir / "Episode/JK1.GOB", makeGob({{"misc\\cogstrings.uni", makeStringsFile()},
-                                                 {"episode.jk", {episode.begin(), episode.end()}}}));
+                                                 {"episode.jk", {episode.begin(), episode.end()}},
+                                                 {"jkl\\01test.jkl", makeLevelFile()}}));
     // The CDs' cut scenes: RAD's format as the game's are, 16-bit stereo sound.
     const std::vector<uint8_t> video(std::begin(kSmackerTest4), std::end(kSmackerTest4));
     writeBytes(tmp / "Disc 1/GAMEDATA/RESOURCE/VIDEO/01-02A.SMK", video);
@@ -120,6 +121,7 @@ void engineTest(const std::filesystem::path &tmp) {
                         : name == "Cut scenes" ? uint32_t('.')
                         : name == "Models"     ? uint32_t('d')
                         : name == "Sprites"    ? uint32_t(key::kRight)
+                        : name == "Levels"     ? uint32_t('v')
                                                : uint32_t(key::kDown));
         page->draw(screen);
         rec.add(step + ".after_keys", summary(page->name(), screen));

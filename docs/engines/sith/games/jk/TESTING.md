@@ -13,6 +13,7 @@ files):
 | `sith.unit.detection` | Recognising the game's releases: the fallback table, names in any case, a partial install or a CD not taken for one |
 | `sith.unit.formats` | Reading colormaps, 8- and 16-bit pictures, materials, fonts, string tables, episodes, sound classes, sprites and particle clouds, and refusing broken ones |
 | `sith.unit.models` | Reading a model with each of the game's quirks, placing its nodes, an animation's values between keyframes, and a puppet's modes and joints |
+| `sith.unit.levels` | Reading a level with the game's quirks (lists shorter than their counts, `5;`), its geometry, sectors, templates and things, a thing's settings through its template's bases, and refusing broken ones |
 | `sith.unit.gob` | Reading `.gob` archives (names with either separator and in any case), refusing broken ones, and the install's set of them |
 | `sith.unit.import` | Importing from CD 1 and adding CD 2, what's copied and where, what isn't imported from, and that the result is recognised and finds its CDs |
 | `sith.unit.folders` | Telling the CDs apart by `JK_.CD`, and finding them in and beside an install and by the settings |
@@ -28,7 +29,7 @@ another in it, and each of the data viewer's pages is drawn from archives
 the test makes and a Smacker video on its CD copies, before and after a
 key (the Colormaps page has one colormap, and the Sounds page one sound,
 so their keys change nothing), the cut scene also played on by the
-clock. The Models and Sprites pages are recorded as drawn or not: its pixels' edges
+clock. The Models, Sprites and Levels pages are recorded as drawn or not: its pixels' edges
 differ between compilers.
 
 ### The game-files test
@@ -52,6 +53,7 @@ That the US release's signatures match a real install: checked by hand
 - In `reluva-viewer`: the menus' backgrounds look as in the game; the
   Force powers' icons look right with `bkforce.bm`'s palette; textures
   look right through `dflt.cmp`; the fonts' sample text is evenly spaced;
+  the levels look as in the game from the player's start;
   the models' parts meet at their joints, and move together when
   animated;
   sounds and cut scenes play with their sound, the cut scenes' picture
@@ -61,6 +63,7 @@ That the US release's signatures match a real install: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | `reluva-tool sith formats`: all 35 levels read. The Levels page drawn for Nar Shaddaa, Katarn's house, the fuel station, the tower and level 19B, from their players' starts |
 | November 2026 | US retail | Linux | `reluva-tool sith formats`: all 20 sprites and 3 particle clouds read; an explosion's cels and a cloud drawn on the Sprites page |
 | November 2026 | US retail | Linux | `reluva-tool sith formats`: all 504 animations and 49 puppets read, every puppet's animations found. Kyle drawn in four animations on the Models page |
 | November 2026 | US retail | Linux | `reluva-tool sith formats`: all 477 models read. The Models page drawn for Kyle, a stormtrooper and a crate: joints meeting, textures in place |

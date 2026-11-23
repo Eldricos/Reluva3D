@@ -68,6 +68,8 @@ struct Paint {
     int color = -1;
     /** Whether colour 0 of a transparent texture is left out. */
     bool transparent = true;
+    /** The colormap to light it through, in place of the Draw3D's own; nullptr for that. */
+    const Colormap *colormap = nullptr;
 };
 
 /** Draws into a surface through a colormap: a rasterizer, a camera and the colours. */

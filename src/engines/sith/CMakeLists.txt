@@ -18,6 +18,7 @@ reluva_add_engine(sith
         formats/font.cpp
         formats/gob.cpp
         formats/keyframe.cpp
+        formats/level.cpp
         formats/material.cpp
         formats/model.cpp
         formats/puppet.cpp
@@ -32,6 +33,7 @@ reluva_add_engine_viewers(sith
     ACCESSOR sithMetaViewer
     SOURCES
         pages/viewer.cpp
+        pages/level_pages.cpp
         pages/model_pages.cpp
         pages/movie_pages.cpp
         pages/picture_pages.cpp
@@ -58,10 +60,11 @@ reluva_add_engine_tests(sith
         ${tests}/unit/formats.cpp
         ${tests}/unit/gob.cpp
         ${tests}/unit/import.cpp
+        ${tests}/unit/levels.cpp
         ${tests}/unit/models.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.folders unit.formats unit.gob unit.import unit.models engine)
+        unit.detection unit.folders unit.formats unit.gob unit.import unit.levels unit.models engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

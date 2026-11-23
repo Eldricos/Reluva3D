@@ -12,6 +12,7 @@
 #include "engines/sith/formats/font.h"
 #include "engines/sith/formats/material.h"
 #include "engines/sith/formats/keyframe.h"
+#include "engines/sith/formats/level.h"
 #include "engines/sith/formats/model.h"
 #include "engines/sith/formats/puppet.h"
 #include "engines/sith/formats/sprite.h"
@@ -165,16 +166,28 @@ Error describeParticles(const std::vector<uint8_t> &data, std::string &line) {
     return Error::success();
 }
 
+Error describeLevel(const std::vector<uint8_t> &data, std::string &line) {
+    sith::Level level;
+    if (Error err = sith::parseLevel(data, level))
+        return err;
+    line = std::to_string(level.sectors.size()) + " sectors, " + std::to_string(level.surfaces.size()) + " surfaces, " +
+           std::to_string(level.adjoins.size()) + " adjoins, " + std::to_string(level.vertices.size()) + " vertices, " +
+           std::to_string(level.materials.size()) + " materials, " + std::to_string(level.templates.size()) +
+           " templates, " + std::to_string(level.things.size()) + " things, " + std::to_string(level.cogs.size()) +
+           " cogs";
+    return Error::success();
+}
+
 const std::map<std::string, Describe> kKinds = {
-    {".spr", describeSprite}, {".par", describeParticles}, {".key", describeKeyframes},  {".pup", describePuppet},
-    {".3do", describeModel},  {".cmp", describeColormap},  {".bm", describeBitmap},      {".mat", describeMaterial},
-    {".sft", describeFont},   {".uni", describeStrings},   {".snd", describeSoundClass}, {".wav", describeWav},
-    {".jk", describeEpisode},
+    {".jkl", describeLevel},    {".spr", describeSprite}, {".par", describeParticles}, {".key", describeKeyframes},
+    {".pup", describePuppet},   {".3do", describeModel},  {".cmp", describeColormap},  {".bm", describeBitmap},
+    {".mat", describeMaterial}, {".sft", describeFont},   {".uni", describeStrings},   {".snd", describeSoundClass},
+    {".wav", describeWav},      {".jk", describeEpisode},
 };
 
 // Every colormap, picture, material, model, animation, puppet, sprite,
-// particle cloud, font, string table, sound, sound class and episode in
-// the install's archives read, a line each (-q: only the failures), and a
+// particle cloud, level, font, string table, sound, sound class and
+// episode in the install's archives read, a line each (-q: only the failures), and a
 // count of each kind.
 int cmdFormats(int argc, char **argv) {
     if (argc < 3) {

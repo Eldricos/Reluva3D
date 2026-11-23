@@ -93,6 +93,7 @@ std::vector<FileRef> filesEnding(const GameFiles &files, std::string_view ext) {
 
 std::vector<std::unique_ptr<Page>> makePages(const ViewerData &data) {
     std::vector<std::unique_ptr<Page>> pages;
+    pages.push_back(makeLevelPage(data));
     pages.push_back(makePicturePage(data));
     pages.push_back(makeMaterialPage(data));
     pages.push_back(makeColormapPage(data));
