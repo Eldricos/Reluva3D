@@ -425,8 +425,9 @@ void testFoes() {
                "\t\t\t\t\tAlert=CBorgStateAlert\n\t\t\t\t\t{\n\t\t\t\t\t\tAlert Time=0.5\n\t\t\t\t\t}\n"
                "\t\t\t\t\tInactive=CBorgStateInactive\n\t\t\t\t\t{\n\t\t\t\t\t\tPlaySequenceBehavior=\n"
                "\t\t\t\t\t\t{\n\t\t\t\t\t\t\tSequence=shutdown\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n"
-               "\t\t\t\t\tVision Cone=360\n\t\t\t\t\tValid Targets=" +
-               targets + "\n\t\t\t\t\tCurrent State=Patrol\n\t\t\t\t}\n\t\t\t}\n" +
+               "\t\t\t\t\tVision Cone=360\n\t\t\t\t\tTargeting=CBorgSetClosestTarget\n\t\t\t\t\t{\n"
+               "\t\t\t\t\t\tValid Targets=" +
+               targets + "\n\t\t\t\t\t}\n\t\t\t\t\tCurrent State=Patrol\n\t\t\t\t}\n\t\t\t}\n" +
                (weapon.empty() ? std::string()
                                : "\t\t\tInventory=CInventory\n\t\t\t{\n\t\t\t\tInventory List=Array\n\t\t\t\t{\n"
                                  "\t\t\t\t\tItem Count=1\n\t\t\t\t\tItem=CStarTrekEnergyWeaponInventoryItem\n"
@@ -719,7 +720,7 @@ void testNoise() {
     ann.attributes = {{"Stealth", 30}};
     MapScreen screen(data, rules, map, options, 0, {ann});
     // A footstep's 100, by her Stealth 30 (0.85) and how she moves.
-    const Animation::Noise step{2, 100.0f, 1.0f, "Stealth"};
+    const Animation::Noise step{2, 100.0f, 1.0f, "Stealth", {}};
     CHECK(std::abs(screen.footstepNoise(screen.officers()[0], step) - 255.0f) < 0.01f);
     screen.setMove(1);
     CHECK(std::abs(screen.footstepNoise(screen.officers()[0], step) - 510.0f) < 0.01f);
@@ -1581,7 +1582,7 @@ void testProjectiles() {
         if (!screen.thrown().empty())
             furthest = std::max(furthest, screen.thrown()[0].x);
     }
-    CHECK(furthest > 340.0f && furthest < 400.0f && screen.partState(2).active);
+    CHECK(furthest > 340.0f && furthest <= 400.0f && screen.partState(2).active); // stopped at the wall's face
 }
 
 void testStates() {
@@ -2005,6 +2006,10 @@ static const reluva::test::Suite
                                        {"triggers", [](const std::filesystem::path &) { testTriggers(); }},
                                        {"enemies", [](const std::filesystem::path &) { testEnemies(); }},
                                        {"closest", [](const std::filesystem::path &) { testClosest(); }},
+                                       {"foes", [](const std::filesystem::path &) { testFoes(); }},
+                                       {"hostage", [](const std::filesystem::path &) { testHostage(); }},
+                                       {"pause when hit", [](const std::filesystem::path &) { testPauseWhenHit(); }},
+                                       {"projectiles", [](const std::filesystem::path &) { testProjectiles(); }},
                                        {"drawing order", [](const std::filesystem::path &) { testDrawingOrder(); }},
                                        {"choosing", [](const std::filesystem::path &) { testChoosing(); }},
                                        {"combat", [](const std::filesystem::path &) { testCombat(); }},
