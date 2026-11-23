@@ -15,7 +15,18 @@ None yet.
 
 ## Inferred
 
-None yet.
+- **A model's transforms:** a node's 3 × 3 matrix applied to a point as
+  a row, then its translation, then its parent's: measured from where
+  the sprite nodes land ([formats/sod.md](formats/sod.md#behaviour)). To
+  settle: a ship seen in the running game against the Models page.
+- **Levels of detail:** the higher a `lod<n>` node's number, the more
+  detailed, from the vertices in all 83 models that have levels
+  ([formats/sod.md](formats/sod.md#behaviour)).
+- **Object definitions:** a key's last definition counts, so a file's
+  own override what it includes ([formats/odf.md](formats/odf.md#behaviour)).
+- **Sprite tables:** `@auto` keyframes laid out as cells along a row,
+  down a column or in a square, by the tables' comments and the textures
+  ([formats/spr.md](formats/spr.md#animations)).
 
 ## Guessed
 

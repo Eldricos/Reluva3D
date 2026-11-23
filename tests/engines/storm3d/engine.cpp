@@ -19,8 +19,10 @@
 #include "engines/registry.h"
 #include "engines/viewer_registry.h"
 #include "image/image.h"
+#include "tests/engines/storm3d/sod_writer.h"
 
 #include "tests/support/record.h"
+#include "tests/support/recording_renderer.h"
 #include "tests/support/test.h"
 
 #include <algorithm>
@@ -34,6 +36,7 @@ using namespace reluva;
 namespace {
 
 using test::Hash;
+using test::RecordingRenderer;
 
 // The headless System with a player: keys pressed at given times, and the
 // sound pulled as the clock moves. It keeps a checksum of every screen
@@ -82,6 +85,12 @@ public:
         soundFrames += frames;
         for (int16_t v : buf)
             soundPeak = std::max<int64_t>(soundPeak, v < 0 ? -int64_t(v) : v);
+    }
+    // 3D through the recording renderer, for the Models page.
+    RecordingRenderer renderer;
+    Error init3D(int, int, gfx::Renderer3D *&out) override {
+        out = &renderer;
+        return Error::success();
     }
     Error startAudio(AudioCallback cb) override {
         _audio = std::move(cb);
@@ -153,8 +162,8 @@ const char *const kSprites = "sprite_table\r\n\r\n@reference=64\r\n@skip=(0,0,0)
                              "box\tBbase\t0\t0\t16\t16\t@anim=walk\r\n"
                              "strip\tBbase\t0\t32\t16\t16\t@anim=strip @origin=(8,8)\r\n";
 
-// Armada's files by name, so an unknown release, a few textures, a sprite
-// table, a sound and a text file.
+// Armada's files by name, so an unknown release, a few textures, a model,
+// a sprite table, a sound and a text file.
 void makeInstall(const std::filesystem::path &dir) {
     for (const char *name : {"Armada.exe", "assets.zfs", "objtxt.zfs"})
         writeFile(dir / name, {'x'});
@@ -162,6 +171,7 @@ void makeInstall(const std::filesystem::path &dir) {
     writeFile(dir / "Textures/RGB/Bbase.1", makeTga(32, 32));
     writeFile(dir / "Textures/Index8/Xspark01", makeTga(16, 16));
     writeFile(dir / "sounds/effects/tone.wav", makeWav());
+    writeFile(dir / "SOD/square.sod", storm3d::testing::modelV18("Bbase"));
     const std::string sprites = kSprites;
     writeFile(dir / "Sprites/sprites.spr", {sprites.begin(), sprites.end()});
     std::string credits = "// Credits\r\n";
@@ -196,17 +206,21 @@ void engineTest(const std::filesystem::path &tmp) {
         {200, keyDown('a')},             // its alpha over a checkerboard
         {250, keyDown('f')},             // the next folder: back to the first
         {300, keyDown('i')},             // no status line
-        {350, keyDown(key::kTab)},       // sprites
-        {400, keyDown(key::kDown)},      // the box's second keyframe
-        {450, keyDown(key::kRight)},     // the strip
-        {500, keyDown(key::kDown)},      // its second cell
-        {550, keyDown(key::kTab)},       // sounds
-        {600, keyDown(key::kSpace)},     // the tone played
-        {1000, keyDown(key::kTab)},      // no movies: the text, the sprite table first
-        {1050, keyDown('f')},            // the next kind: Credits.txt
-        {1100, keyDown(key::kPageDown)}, // its next screen
-        {1150, keyDown(key::kTab)},      // back to the images
-        {1250, keyDown(key::kEscape)},   // to reluva-viewer's list
+        {350, keyDown(key::kTab)},       // models: the square, turning
+        {450, keyDown(key::kUp)},        // seen from higher
+        {500, keyDown('+')},             // nearer
+        {550, keyDown(key::kSpace)},     // no longer turning
+        {600, keyDown(key::kTab)},       // sprites, back in 2D
+        {650, keyDown(key::kDown)},      // the box's second keyframe
+        {700, keyDown(key::kRight)},     // the strip
+        {750, keyDown(key::kDown)},      // its second cell
+        {800, keyDown(key::kTab)},       // sounds
+        {850, keyDown(key::kSpace)},     // the tone played
+        {1250, keyDown(key::kTab)},      // no movies: the text, the sprite table first
+        {1300, keyDown('f')},            // the next kind: Credits.txt
+        {1350, keyDown(key::kPageDown)}, // its next screen
+        {1400, keyDown(key::kTab)},      // back to the images
+        {1500, keyDown(key::kEscape)},   // to reluva-viewer's list
     };
     const Error err = viewer->create(sys, target)->run();
     rec.add("run.result", err ? "error: " + err.message : std::string("ok"));
@@ -214,6 +228,10 @@ void engineTest(const std::filesystem::path &tmp) {
     rec.add("run.screens", std::to_string(sys.shown) + " " + sys.screens.hex());
     rec.add("run.sound",
             std::to_string(sys.soundFrames) + " frames, peak " + std::to_string(sys.soundPeak) + " " + sys.sound.hex());
+    rec.add("run.3d", std::to_string(sys.renderer.frames) + " frames, " + std::to_string(sys.renderer.drawCount) +
+                          " draws " + sys.renderer.draws.hex());
+    rec.add("run.3d.textures", std::to_string(sys.renderer.textureCount) + " " + sys.renderer.textures.hex());
+    rec.add("run.3d.meshes", std::to_string(sys.renderer.meshCount) + " " + sys.renderer.meshes.hex());
     rec.add("run.titles", joined(sys.titles));
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/storm3d/data/engine-record.txt", "storm3d.engine",
               "tests/engines/storm3d/engine.cpp");

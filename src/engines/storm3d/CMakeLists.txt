@@ -12,6 +12,7 @@ reluva_add_engine(storm3d
         formats/input_map.cpp
         formats/ldl.cpp
         formats/odf.cpp
+        formats/sod.cpp
         formats/sprite_table.cpp
         formats/zfs_archive.cpp)
 
@@ -21,6 +22,7 @@ reluva_add_engine_viewers(storm3d
     SOURCES
         pages/viewer.cpp
         pages/image_page.cpp
+        pages/model_page.cpp
         pages/movie_page.cpp
         pages/page.cpp
         pages/sound_page.cpp
@@ -34,6 +36,7 @@ reluva_add_engine_tools(storm3d
         tools/files.cpp
         tools/images.cpp
         tools/media.cpp
+        tools/models.cpp
         tools/text.cpp
         tools/viewer_shot.cpp)
 
@@ -49,11 +52,12 @@ reluva_add_engine_tests(storm3d
         ${tests}/unit/input_map.cpp
         ${tests}/unit/ldl.cpp
         ${tests}/unit/odf.cpp
+        ${tests}/unit/sod.cpp
         ${tests}/unit/spr.cpp
         ${tests}/unit/zfs.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.config unit.detection unit.images unit.input_map unit.ldl unit.odf unit.spr unit.zfs engine)
+        unit.config unit.detection unit.images unit.input_map unit.ldl unit.odf unit.sod unit.spr unit.zfs engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

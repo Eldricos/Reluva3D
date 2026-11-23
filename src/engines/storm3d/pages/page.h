@@ -32,6 +32,11 @@ public:
     virtual ~Page() = default;
     /** The page's name, for the title: "Images". */
     virtual const char *name() const = 0;
+    /**
+     * Whether it draws in 3D (System::init3D): the viewer goes back to 2D
+     * for the next page.
+     */
+    virtual bool uses3D() const { return false; }
     /** How many items it has; the viewer skips a page with none. */
     virtual size_t count() const = 0;
     /** Draws the page as it's shown. */

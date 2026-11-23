@@ -34,7 +34,7 @@ In the install's folder.
 
 | Folder | Files | What they are |
 |---|---|---|
-| `SOD/` | 265 `.sod`, and 8 more in `SOD/Software/` | Models, `Storm3D_SW` at their start |
+| `SOD/` | 265 `.sod`, and 8 more in `SOD/Software/` | Models ([sod.md](sod.md)) |
 | `Textures/` | 1,368 `.tga`, in `Index8/` (1,078 files) and `RGB/` (993) | Textures, with their mipmap levels as `.1` to `.4` ([textures.md](textures.md)) |
 | `Sprites/` | 24 `.spr` | Sprite tables: the interface, the fonts, effects ([spr.md](spr.md)) |
 | `bzn/` | 49 `.bzn`, 28 `.mdf`, 28 `.bmp` | Maps: `.bzn` as text (`version [1] = 2051`), `.mdf` their start positions (`StartLocations = 2`), `.bmp` their pictures |

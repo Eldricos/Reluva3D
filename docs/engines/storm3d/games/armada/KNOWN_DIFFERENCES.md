@@ -26,4 +26,6 @@ None yet.
 ## Additions outside the game
 
 <!-- What Reluva adds around the game: viewers, tools, settings. -->
-None yet.
+- **The data viewer** (`reluva-viewer`): pages for the game's pictures,
+  models, sprites and fonts, sounds, movies and text
+  ([README.md](README.md#using-it)). The game has nothing like it.

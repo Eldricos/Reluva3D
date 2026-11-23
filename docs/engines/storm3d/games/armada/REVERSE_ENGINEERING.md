@@ -42,6 +42,10 @@ extended. The facts themselves are on their pages, each with its source.
   headers, imports and exports. Later, Reluva's disassembler
   (`src/emulation/x86/disasm.h`) for the code, and the original run in
   Reluva's x86 emulator to trace what it does ([PLAN.md](PLAN.md)).
+- **The viewer's pages, seen:** `reluva-tool storm3d viewer-shot` saves a
+  2D page as PNG. The Models page needs a 3D renderer: `reluva-viewer` was
+  run under Xvfb on Mesa's software Vulkan driver, keys sent with
+  `xdotool` and the screen taken with ImageMagick's `import`.
 
 ## The tools
 
@@ -66,6 +70,8 @@ extended. The facts themselves are on their pages, each with its source.
 | `reluva-tool storm3d movie-frame <game folder> <name> <frame> <out.png>` | Writes one frame of a movie as PNG |
 | `reluva-tool storm3d spr <game folder> <table.spr>` | A sprite table ([formats/spr.md](formats/spr.md)) |
 | `reluva-tool storm3d spr-check <game folder>` | Reads every sprite table |
+| `reluva-tool storm3d sod <game folder> <name.sod>` | A model's nodes, meshes and animations ([formats/sod.md](formats/sod.md)) |
+| `reluva-tool storm3d sod-check <game folder>` | Reads every model |
 | `reluva-tool storm3d viewer-shot <game folder> <out.png> [key...]` | The data viewer run without a window, keys pressed, its last screen as PNG |
 
 ## Working files not included

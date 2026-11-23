@@ -10,7 +10,7 @@ Trek: Armada II later, as both share their files' kinds (`.sod` models,
 
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
-| [Star Trek: Armada](games/armada/README.md) | `armada` | Activision, 2000 | Windows | English retail 1.0 | Recognised; nothing runs yet |
+| [Star Trek: Armada](games/armada/README.md) | `armada` | Activision, 2000 | Windows | English retail 1.0 | Recognised; a data viewer of its files |
 
 A page goes in a game's folder when it was worked out from that game, and
 moves up to this folder once another game is found to share it. So far
@@ -18,8 +18,9 @@ everything was read from Star Trek: Armada.
 
 ## Where it stands
 
-Star Trek: Armada is recognised and its archives and text files are read,
-but nothing is shown yet: see
+Star Trek: Armada is recognised, and the data viewer shows its pictures,
+models, sprites, sounds, movies and text; the game itself doesn't run
+yet: see
 [games/armada/](games/armada/README.md#where-it-stands).
 
 ## Using it
@@ -40,7 +41,7 @@ The game's page says how to add it: [Star Trek: Armada](games/armada/README.md#u
 | `storm3d.cpp` | The `MetaEngine` (name, detection tables, making an `Engine`) and the `Engine`: an empty screen so far |
 | `game_files.cpp` | A game's files searched as one: the install's folders, then its archives |
 | `pages/` | The data viewer, for `reluva-viewer`: a page per kind of file |
-| `formats/` | Reading the games' files: ZFS archives, object definitions, settings in C, `Input.map`, `.ldl` files, sprite tables |
+| `formats/` | Reading the games' files: ZFS archives, object definitions, settings in C, `Input.map`, `.ldl` files, sprite tables, models |
 | `tools/` | `reluva-tool storm3d` commands (`reluva-tool help storm3d` lists them) |
 
 What every game shares (the archives, models, object definitions, maps,

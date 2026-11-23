@@ -16,8 +16,8 @@ of the effects:
 | `font.spr`, `font_jag.spr`, `title.spr` | 1 each | The fonts ([Fonts](#fonts)) |
 
 `BZONE.FNT` and `BZONEJ.FNT` in the install's folder aren't the game's
-fonts: `Armada.exe` never names them *(inferred: Battlezone's, left
-behind)*.
+fonts: `Armada.exe` never names them. Their name suggests
+Battlezone's, left behind *(guessed)*.
 
 ## Layout
 

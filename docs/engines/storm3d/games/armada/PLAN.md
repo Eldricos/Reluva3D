@@ -28,11 +28,16 @@ these phases start from, is in [formats/install.md](formats/install.md).
    for the phases that use them: `events.odf` (the announcements, with the
    sounds), the `gui_*.cfg` layouts and `shell.set` (with the front end),
    the tech trees (`.tt`, with the rules), and `Gamekey.map`.
-3. **Data viewer** (next): pictures (BMP, TGA and their smaller copies,
-   `Armada.pal`), fonts, sounds and music, the Bink movies, text, object
-   definitions, and the SOD models on a Models page drawn through
-   `src/graphics/gfx3d.h`.
-4. **The original as a reference:** `Armada.exe` run in Reluva's x86
+3. **Data viewer** (done): pages for the pictures and their mipmap levels
+   ([formats/textures.md](formats/textures.md)), the models in 3D
+   ([formats/sod.md](formats/sod.md)), the sprite tables and fonts
+   ([formats/spr.md](formats/spr.md)), the sounds
+   ([formats/sounds.md](formats/sounds.md)), the Bink movies
+   ([formats/movies.md](formats/movies.md)), and the text files. The
+   fonts are sprites: `BZONE.FNT` isn't used. Left for later: the models'
+   lights and emitters, which way their faces wind, and comparing the
+   movies with Armada's own `binkw32.dll`.
+4. **The original as a reference** (next): `Armada.exe` run in Reluva's x86
    emulator far enough to reach its front end and load a map, with traces
    of its calls and files (a `reluva-tool storm3d` command). Its exports
    and class names go into `research/`.
