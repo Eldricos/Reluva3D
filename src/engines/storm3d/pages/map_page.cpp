@@ -291,6 +291,10 @@ void MapPage::load() {
                 _placed.push_back({built, place});
         if (_placed.size() > before)
             ++_drawn;
+        // A sprite node named for the definition is the object's too, at
+        // its centre: the planets' glows ("Nimbus for planets", planets.spr).
+        if (const SodMeshes::Built *glow = _meshes.spriteNode(o.odf))
+            _placed.push_back({glow, placeOf(o, look->second.scale)});
         if (look->second.model.empty())
             continue;
         const SodMeshes::Built *built = _meshes.model(look->second.model);

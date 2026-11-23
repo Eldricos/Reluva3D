@@ -86,12 +86,22 @@ font's, chosen by character) and `step` or `linear`. Then either:
   markers (`assimbigftur1`) *(inferred)*.
 - **The sprite**, and **an animation**: `const` (87) for none, a colour
   animation (`red1.colour`, `inoutpurple`), or another (`fire`, `strobe`).
-- **The size** in the model's units: an asteroid 1.5 to 4, a nebula's
-  ion cloud 80.
+- **The size** in the model's units, as half the width and height: an
+  asteroid 1.5 to 4, a nebula's ion cloud 80. Half, because the planets'
+  glows (below) are 495 for planets 450 across the middle: their soft
+  discs show as the rims just outside the planets that the original
+  draws only if they reach 495 from the centre *(inferred)*.
 - **A colour**: RGB from 0 to 1.
 - **`billboard`** (132): turned to face the camera; without it, the
   sprite lies as its node does *(inferred)*. One table writes
   `//billboard`, taken as the flag commented out.
+
+A sprite node can also be an object's own: `planets.spr`'s "Nimbus for
+planets" are named for the planets' definitions (`Mbarisa`, `Mearth`),
+and no node of their models has those names, so the game puts them at
+the object (its glow, an orange or blue rim round the planet). The Borg
+collectives' (`bcolect1`) are the same. `MQonos`'s would be `Mquonos`,
+spelt differently, so it has none *(inferred)*.
 
 Three lines have slips the reader allows for: a bracket closed twice
 (two) or left open (one).

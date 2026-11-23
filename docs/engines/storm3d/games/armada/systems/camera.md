@@ -105,4 +105,3 @@ objectives.
   `ROTATION_SCROLL_COEFFICIENT` and `KEYBOARD_SCROLL_RATE` isn't known,
   nor what `OVERVIEW_*_ZOOM` does.
 - The clipping planes, and how the background model is placed.
-- The planets' glow, which the original draws and the Maps page doesn't.

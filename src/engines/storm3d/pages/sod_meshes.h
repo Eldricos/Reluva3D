@@ -75,6 +75,11 @@ public:
      * it can't be read. A model of only sprites (the nebulae) has no parts.
      */
     const Built *model(const std::string &name);
+    /**
+     * The sprite node of exactly that name, as a model of one sprite at
+     * its origin, made once; null if there's none (or its sprite isn't).
+     */
+    const Built *spriteNode(const std::string &name);
 
     /**
      * Where the camera is and which way its screen lies, for the sprites
@@ -115,6 +120,7 @@ private:
     void drawSprite(const SpritePart &sprite, const gfx::Mat4 &place) const;
     const SpriteTable *sprites();
     void addSprites(const SodModel &model, const std::vector<gfx::Mat4> &world, Built &built);
+    void addSprite(const SpriteTable::SpriteNode *node, const gfx::Mat4 &world, Built &built);
 
     const GameFiles &_files;
     gfx::Renderer3D *_renderer = nullptr;

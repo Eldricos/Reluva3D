@@ -154,7 +154,8 @@ as the file says.
 - **The data viewer's Maps page** (`MapPage`,
   `src/engines/storm3d/pages/map_page.h`) draws a map: each object's
   model where its transform puts it, with its sprites (the nebulae are
-  sprites only), and the map's background model around the eye, behind
+  sprites only) and the sprite node named for its definition (a planet's
+  glow, [spr.md](spr.md#emitters-and-sprite-nodes)), and the map's background model around the eye, behind
   everything (how the game places the background isn't known). An
   object's model is named for its definition, unless the definition says
   `dont_load_SOD = 1`, and scaled by its `scaleSOD` *(inferred)*: the

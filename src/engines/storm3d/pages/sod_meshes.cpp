@@ -144,63 +144,87 @@ const SpriteTable *SodMeshes::sprites() {
 // Each sprite node's sprite: a unit square of its rectangle of the texture
 // (made once a sprite), placed at the node.
 void SodMeshes::addSprites(const SodModel &model, const std::vector<gfx::Mat4> &world, Built &built) {
+    for (size_t i = 0; i < model.nodes.size(); ++i)
+        if (model.nodes[i].type == SodModel::kSprite)
+            addSprite(sprites()->spriteNodeFor(model.nodes[i].name), world[i], built);
+}
+
+// A sprite node's sprite: a unit square of its rectangle of the texture
+// (made once a sprite), placed at `world`.
+void SodMeshes::addSprite(const SpriteTable::SpriteNode *node, const gfx::Mat4 &world, Built &built) {
     const SpriteTable *table = sprites();
-    for (size_t i = 0; i < model.nodes.size(); ++i) {
-        if (model.nodes[i].type != SodModel::kSprite)
-            continue;
-        const SpriteTable::SpriteNode *node = table->spriteNodeFor(model.nodes[i].name);
-        const SpriteTable::Sprite *sprite = node ? table->sprite(node->sprite) : nullptr;
-        if (!sprite)
-            continue;
-        SpritePart part;
-        part.texture = texture(sprite->texture);
-        if (!part.texture)
-            continue;
-        auto quad = _quads.find(sprite->name);
-        if (quad == _quads.end()) {
-            const float rw = float(sprite->referenceWidth > 0 ? sprite->referenceWidth : 1);
-            const float rh = float(sprite->referenceHeight > 0 ? sprite->referenceHeight : 1);
-            const float u0 = float(sprite->u) / rw;
-            const float v0 = float(sprite->v) / rh;
-            const float u1 = float(sprite->u + sprite->w) / rw;
-            const float v1 = float(sprite->v + sprite->h) / rh;
-            std::vector<gfx::Vertex> vertices(4);
-            const float corners[4][4] = {
-                {-0.5f, 0.5f, u0, v0}, {0.5f, 0.5f, u1, v0}, {0.5f, -0.5f, u1, v1}, {-0.5f, -0.5f, u0, v1}};
-            for (size_t k = 0; k < 4; ++k) {
-                vertices[k].pos[0] = corners[k][0];
-                vertices[k].pos[1] = corners[k][1];
-                vertices[k].normal[2] = 1;
-                vertices[k].uv[0] = corners[k][2];
-                vertices[k].uv[1] = corners[k][3];
-                std::fill(std::begin(vertices[k].color), std::end(vertices[k].color), uint8_t(255));
-            }
-            gfx::MeshId id = 0;
-            if (_renderer->createMesh(vertices, {0, 1, 2, 0, 2, 3}, id))
-                continue;
-            _meshes.push_back(id);
-            quad = _quads.emplace(sprite->name, id).first;
+    const SpriteTable::Sprite *sprite = node ? table->sprite(node->sprite) : nullptr;
+    if (!sprite || !_renderer)
+        return;
+    SpritePart part;
+    part.texture = texture(sprite->texture);
+    if (!part.texture)
+        return;
+    auto quad = _quads.find(sprite->name);
+    if (quad == _quads.end()) {
+        const float rw = float(sprite->referenceWidth > 0 ? sprite->referenceWidth : 1);
+        const float rh = float(sprite->referenceHeight > 0 ? sprite->referenceHeight : 1);
+        const float u0 = float(sprite->u) / rw;
+        const float v0 = float(sprite->v) / rh;
+        const float u1 = float(sprite->u + sprite->w) / rw;
+        const float v1 = float(sprite->v + sprite->h) / rh;
+        std::vector<gfx::Vertex> vertices(4);
+        const float corners[4][4] = {
+            {-0.5f, 0.5f, u0, v0}, {0.5f, 0.5f, u1, v0}, {0.5f, -0.5f, u1, v1}, {-0.5f, -0.5f, u0, v1}};
+        for (size_t k = 0; k < 4; ++k) {
+            vertices[k].pos[0] = corners[k][0];
+            vertices[k].pos[1] = corners[k][1];
+            vertices[k].normal[2] = 1;
+            vertices[k].uv[0] = corners[k][2];
+            vertices[k].uv[1] = corners[k][3];
+            std::fill(std::begin(vertices[k].color), std::end(vertices[k].color), uint8_t(255));
         }
-        part.quad = quad->second;
-        part.world = world[i];
-        part.width = float(node->width);
-        part.height = float(node->height);
-        for (size_t k = 0; k < 3; ++k)
-            part.colour[k] = float(node->colour[k]);
-        const SpriteTable::Animation *a = table->animation(node->animation);
-        if (a && a->kind == "colour" && !a->keyframes.empty())
-            part.colourAnimation = a;
-        part.billboard = node->billboard;
-        part.additive = sprite->material != "alphathreshold";
-        built.sprites.push_back(part);
-        // The sprite counts towards the model's size.
-        const gfx::Vec3 at = gfx::transformPoint(world[i], {0, 0, 0});
-        const float r = std::max(part.width, part.height) / 2;
-        for (size_t d = 0; d < 3; ++d) {
-            built.lo[d] = std::min(built.lo[d], at[d] - r);
-            built.hi[d] = std::max(built.hi[d], at[d] + r);
-        }
+        gfx::MeshId id = 0;
+        if (_renderer->createMesh(vertices, {0, 1, 2, 0, 2, 3}, id))
+            return;
+        _meshes.push_back(id);
+        quad = _quads.emplace(sprite->name, id).first;
     }
+    part.quad = quad->second;
+    part.world = world;
+    // A sprite node's size is half its width and height: the planets'
+    // glows, 495 for planets of 450, show as rims just outside them only so.
+    part.width = float(node->width) * 2;
+    part.height = float(node->height) * 2;
+    for (size_t k = 0; k < 3; ++k)
+        part.colour[k] = float(node->colour[k]);
+    const SpriteTable::Animation *a = table->animation(node->animation);
+    if (a && a->kind == "colour" && !a->keyframes.empty())
+        part.colourAnimation = a;
+    part.billboard = node->billboard;
+    part.additive = sprite->material != "alphathreshold";
+    built.sprites.push_back(part);
+    // The sprite counts towards the model's size.
+    const gfx::Vec3 at = gfx::transformPoint(world, {0, 0, 0});
+    const float r = std::max(part.width, part.height) / 2;
+    for (size_t d = 0; d < 3; ++d) {
+        built.lo[d] = std::min(built.lo[d], at[d] - r);
+        built.hi[d] = std::max(built.hi[d], at[d] + r);
+    }
+}
+
+const SodMeshes::Built *SodMeshes::spriteNode(const std::string &name) {
+    const std::string key = "@" + text::toLower(name);
+    if (const auto it = _models.find(key); it != _models.end())
+        return it->second ? &*it->second : nullptr;
+    std::optional<Built> &built = _models[key];
+    // By its own name only: a sprite node is an object's when its
+    // definition is named for it (the planets' "Nimbus").
+    const SpriteTable *table = sprites();
+    for (const SpriteTable::SpriteNode &n : table->spriteNodes())
+        if (text::equalsIgnoreCase(n.name, name)) {
+            Built b;
+            addSprite(&n, gfx::identity(), b);
+            if (!b.sprites.empty())
+                built = std::move(b);
+            break;
+        }
+    return built ? &*built : nullptr;
 }
 
 std::array<float, 3> SodMeshes::colourAt(const SpriteTable::Animation &a, double seconds) {
