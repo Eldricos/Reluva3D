@@ -321,8 +321,9 @@ Measured on screenshots of Sol, Babel, Manark and a neutron star:
   second. The sixth line runs past the box's foot. The neutron star's,
   the wormhole's (`worm.ani`, 1448), the radio pulsar's (`rpls.ani`, 969)
   and the X-ray pulsar's (`xp-.ani`, 1451) strips match their screenshots
-  pixel for pixel, each at one of its frames. The black hole's is drawn
-  the same way with `blkh.ani` and its entry *(guessed)*. A nebula has no
+  pixel for pixel, each at one of its frames; and so does the black
+  hole's (`blkh.ani`, 95, "Black Hole K7" in the user's ShipBuild game),
+  its five lines and its picture at one of its frames. A nebula has no
   animation, and no strip is drawn for it yet.
 
 - **Bonuses:** an icon on a planet's frame's top, from its left edge: a
