@@ -1,0 +1,337 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+//
+// The Direct3D stand-in's GPU rasterizer (gpu_raster.cpp,
+// docs/common/x86/directx.md, Drawing on the GPU): a draw's pixels as the
+// software rasterizer works them out (raster.cpp: Draw::shade, sample and
+// finish), for triangles set up on the CPU, each with its rows' spans. One
+// workgroup a 16x16 tile of the target, one thread a pixel; each thread
+// takes the tile's triangles in the order they were drawn, so depth and
+// blending see what the earlier ones wrote, as the software one does.
+//
+// Rebuild dx_kernels.h with build.sh after changing this file.
+
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+// The batch: state records, triangles, their row spans, the tiles' lists
+// (gpu_raster.cpp lays it out).
+layout(std430, set = 0, binding = 0) readonly buffer Batch { uint batch[]; };
+// The textures' levels, one 0xAARRGGBB word a texel; their colour keys, a
+// bit a texel, after them.
+layout(std430, set = 0, binding = 1) readonly buffer TexMem { uint texmem[]; };
+// The target, one word a pixel (its value in the target's format), then the
+// depth buffer, one word a pixel.
+layout(std430, set = 1, binding = 0) buffer Frame { uint frame[]; };
+
+layout(std140, set = 2, binding = 0) uniform Params {
+    uint width, height, tilesX, activeCount;
+    uint depthBase, depthWidth, depthHeight, pad0;
+    uint tileOffsets, tileList, activeTiles, pad1;
+};
+
+// A state record's words (gpu_raster.cpp, StateWord).
+const int sZTest = 0, sZWrite = 1, sZFunc = 2, sZMax = 3, sZMask = 4, sAlphaTest = 5, sAlphaFunc = 6;
+const int sAlphaRef = 7, sBlend = 8, sSrcBlend = 9, sDestBlend = 10, sFog = 11, sFogTableMode = 12;
+const int sFogStart = 13, sFogEnd = 14, sFogDensity = 15, sFogByZ = 16, sFogColor = 17, sColorKey = 21;
+const int sSpecular = 22, sFlat = 23, sFactor = 24, sStages = 28, sTarget = 29, sBound = 30;
+const int sStage = 32, sStageWords = 9;
+// Within a stage's words.
+const int cColorOp = 0, cColorArg1 = 1, cColorArg2 = 2, cAlphaOp = 3, cAlphaArg1 = 4, cAlphaArg2 = 5;
+const int cAddressU = 6, cAddressV = 7, cBorder = 8;
+// A triangle's words (gpu_raster.cpp, PrimWord).
+const int pState = 0, pY0 = 1, pRows = 2, pSpans = 3, pSampler = 4, pSamplerWords = 5, pFlat = 44, pPlanes = 52;
+const int kValues = 26; // z, 1/w, then 8 colours and two coordinates for each of 8 stages
+// Within a stage's sampler words.
+const int mBase = 0, mKeyBase = 1, mWidth = 2, mHeight = 3, mLinear = 4;
+
+const uint kTarget565 = 1u, kTarget888 = 2u;
+
+uint stateAt;
+uint primAt;
+uint S(int i) { return batch[stateAt + uint(i)]; }
+float SF(int i) { return uintBitsToFloat(S(i)); }
+uint P(int i) { return batch[primAt + uint(i)]; }
+float PF(int i) { return uintBitsToFloat(P(i)); }
+uint stage(int st, int i) { return S(sStage + st * sStageWords + i); }
+uint slot(int st, int i) { return P(pSampler + st * pSamplerWords + i); }
+
+vec4 unpackArgb(uint argb) {
+    return vec4(float(argb >> 16 & 0xffu), float(argb >> 8 & 0xffu), float(argb & 0xffu), float(argb >> 24)) / 255.0;
+}
+
+bool compareFunc(uint func, float a, float b) { // a (new) against b (stored)
+    switch (func) {
+    case 1u: return false;
+    case 2u: return a < b;
+    case 3u: return a == b;
+    case 4u: return a <= b;
+    case 5u: return a > b;
+    case 6u: return a != b;
+    case 7u: return a >= b;
+    default: return true;
+    }
+}
+
+float blendFactor(uint f, vec4 src, vec4 dst, int channel) {
+    switch (f) {
+    case 1u: return 0.0;
+    case 2u: return 1.0;
+    case 3u: return src[channel];
+    case 4u: return 1.0 - src[channel];
+    case 5u: return src.a;
+    case 6u: return 1.0 - src.a;
+    case 7u: return dst.a;
+    case 8u: return 1.0 - dst.a;
+    case 9u: return dst[channel];
+    case 10u: return 1.0 - dst[channel];
+    case 11u: return channel == 3 ? 1.0 : min(src.a, 1.0 - dst.a);
+    case 12u: return src.a;
+    case 13u: return 1.0 - src.a;
+    default: return 1.0;
+    }
+}
+
+// Sampling (Draw::sample): a texel's address by the stage's mode.
+int address(int i, int size, uint mode, inout bool border) {
+    if (mode <= 1u) { // wrap
+        int m = i % size;
+        return m < 0 ? m + size : m;
+    }
+    if (mode == 2u) { // mirror
+        int period = 2 * size;
+        int m = i % period;
+        if (m < 0)
+            m += period;
+        return m < size ? m : period - 1 - m;
+    }
+    if (mode != 3u && (i < 0 || i >= size)) // border
+        border = true;
+    return clamp(i, 0, size - 1);
+}
+
+uint texel(int st, int x, int y, inout bool keyed) {
+    int w = int(slot(st, mWidth));
+    int h = int(slot(st, mHeight));
+    bool border = false;
+    x = address(x, w, stage(st, cAddressU), border);
+    y = address(y, h, stage(st, cAddressV), border);
+    if (border)
+        return stage(st, cBorder);
+    uint at = uint(y * w + x);
+    uint keyAt = slot(st, mKeyBase);
+    if ((texmem[keyAt + (at >> 5)] >> (at & 31u) & 1u) != 0u)
+        keyed = true;
+    return texmem[slot(st, mBase) + at];
+}
+
+// Two channels at a time, weights out of 256, as the software one mixes them.
+uint mixTexels(uint p, uint q, int w) {
+    uint rb = ((p & 0xff00ffu) * uint(256 - w) + (q & 0xff00ffu) * uint(w)) >> 8 & 0xff00ffu;
+    uint ag = ((p >> 8 & 0xff00ffu) * uint(256 - w) + (q >> 8 & 0xff00ffu) * uint(w)) & 0xff00ff00u;
+    return rb | ag;
+}
+
+uint sampleStage(int st, float u, float v, out bool keyed) {
+    keyed = false;
+    if (slot(st, mWidth) == 0u)
+        return 0xffffffffu;
+    float fx = u * float(slot(st, mWidth));
+    float fy = v * float(slot(st, mHeight));
+    if (slot(st, mLinear) == 0u)
+        return texel(st, int(floor(fx)), int(floor(fy)), keyed);
+    float gx = fx - 0.5;
+    float gy = fy - 0.5;
+    int ix = int(floor(gx));
+    int iy = int(floor(gy));
+    int ax = int((gx - float(ix)) * 256.0);
+    int ay = int((gy - float(iy)) * 256.0);
+    bool k00 = false, k10 = false, k01 = false, k11 = false;
+    uint t00 = texel(st, ix, iy, k00);
+    uint t10 = texel(st, ix + 1, iy, k10);
+    uint t01 = texel(st, ix, iy + 1, k01);
+    uint t11 = texel(st, ix + 1, iy + 1, k11);
+    keyed = ax < 128 ? (ay < 128 ? k00 : k01) : (ay < 128 ? k10 : k11); // the nearest texel's key
+    return mixTexels(mixTexels(t00, t10, ax), mixTexels(t01, t11, ax), ay);
+}
+
+// A texture stage's argument (D3DTA): its source, complemented or its alpha
+// replicated by its modifiers.
+vec4 argument(uint a, vec4 diffuse, vec4 tex, vec4 factor, vec4 specular, vec4 current) {
+    vec4 v;
+    switch (a & 0xfu) {
+    case 0u: v = diffuse; break;
+    case 2u: v = tex; break;
+    case 3u: v = factor; break;
+    case 4u: v = specular; break;
+    default: v = current; break;
+    }
+    if ((a & 0x10u) != 0u)
+        v = vec4(1.0) - v;
+    if ((a & 0x20u) != 0u)
+        v = vec4(v.a);
+    return v;
+}
+
+// One operation (D3DTOP), per channel, clamped.
+vec4 operation(uint op, vec4 x1, vec4 x2, float diffuseA, float texA, float factorA, float currentA) {
+    vec4 r;
+    switch (op) {
+    case 2u: r = x1; break;
+    case 3u: r = x2; break;
+    case 5u: r = 2.0 * x1 * x2; break;
+    case 6u: r = 4.0 * x1 * x2; break;
+    case 7u: r = x1 + x2; break;
+    case 8u: r = x1 + x2 - 0.5; break;
+    case 9u: r = 2.0 * (x1 + x2 - 0.5); break;
+    case 10u: r = x1 - x2; break;
+    case 11u: r = x1 + x2 - x1 * x2; break;
+    case 12u: r = x1 * diffuseA + x2 * (1.0 - diffuseA); break;
+    case 13u: r = x1 * texA + x2 * (1.0 - texA); break;
+    case 14u: r = x1 * factorA + x2 * (1.0 - factorA); break;
+    case 15u: r = x1 + x2 * (1.0 - texA); break;
+    case 16u: r = x1 * currentA + x2 * (1.0 - currentA); break;
+    case 18u: r = x1 + x1.a * x2; break;
+    case 19u: r = vec4(x1.rgb + x2.rgb, x1.a * x2.a); break;
+    case 20u: r = x1 + (1.0 - x1.a) * x2; break;
+    default: r = x1 * x2; break;
+    }
+    return clamp(r, 0.0, 1.0);
+}
+
+vec4 readTarget(uint raw, uint kind) {
+    if (kind == kTarget565)
+        return vec4(float(raw >> 11 & 31u) / 31.0, float(raw >> 5 & 63u) / 63.0, float(raw & 31u) / 31.0, 1.0);
+    return vec4(float(raw >> 16 & 0xffu) / 255.0, float(raw >> 8 & 0xffu) / 255.0, float(raw & 0xffu) / 255.0, 1.0);
+}
+
+uint channel(float v, float m) { return uint(clamp(v, 0.0, 1.0) * m + 0.5); }
+
+// The plane of value k at (x, y), from the triangle's words.
+float plane(int k, float x, float y) {
+    return PF(pPlanes + kValues * 2 + k) + PF(pPlanes + kValues + k) * y + PF(pPlanes + k) * x;
+}
+
+void main() {
+    uint tileIndex = batch[activeTiles + gl_WorkGroupID.x];
+    uint tx = tileIndex % tilesX;
+    uint ty = tileIndex / tilesX;
+    int x = int(tx * 16u + gl_LocalInvocationID.x);
+    int y = int(ty * 16u + gl_LocalInvocationID.y);
+    if (x >= int(width) || y >= int(height))
+        return;
+    uint at = uint(y) * width + uint(x);
+    uint color = frame[at];
+    bool hasDepth = x < int(depthWidth) && y < int(depthHeight);
+    uint depthAt = depthBase + uint(y) * depthWidth + uint(x);
+    uint depth = hasDepth ? frame[depthAt] : 0u;
+    bool depthWritten = false;
+
+    uint first = batch[tileOffsets + tileIndex];
+    uint last = batch[tileOffsets + tileIndex + 1u];
+    for (uint i = first; i < last; ++i) {
+        primAt = batch[tileList + i];
+        // The row's span, as the CPU found it.
+        int row = y - int(P(pY0));
+        if (row < 0 || row >= int(P(pRows)))
+            continue;
+        uint span = batch[P(pSpans) + uint(row)];
+        int from = int(span & 0xffffu);
+        int to = int(span >> 16);
+        if (x < from || x > to)
+            continue;
+        stateAt = P(pState);
+        float fx = float(x);
+        float fy = float(y);
+        float z = plane(0, fx, fy);
+        // Depth (Draw::depthTest).
+        uint zNew = 0u;
+        bool zTest = S(sZTest) != 0u && hasDepth;
+        if (zTest) {
+            zNew = uint(clamp(z, 0.0, 1.0) * SF(sZMax) + 0.5);
+            if (!compareFunc(S(sZFunc), float(zNew), float(depth & S(sZMask))))
+                continue;
+        }
+        float rhw = plane(1, fx, fy);
+        float inv = rhw != 0.0 ? 1.0 / rhw : 0.0;
+        int stages = int(S(sStages));
+        vec4 diffuse;
+        vec4 specular;
+        if (S(sFlat) != 0u) {
+            diffuse = vec4(PF(pFlat), PF(pFlat + 1), PF(pFlat + 2), PF(pFlat + 3));
+            specular = vec4(PF(pFlat + 4), PF(pFlat + 5), PF(pFlat + 6), PF(pFlat + 7));
+        } else {
+            diffuse = vec4(plane(2, fx, fy), plane(3, fx, fy), plane(4, fx, fy), plane(5, fx, fy)) * inv;
+            specular = vec4(plane(6, fx, fy), plane(7, fx, fy), plane(8, fx, fy), plane(9, fx, fy)) * inv;
+        }
+        vec4 factor = vec4(SF(sFactor), SF(sFactor + 1), SF(sFactor + 2), SF(sFactor + 3));
+        // Texture stages (Draw::shade).
+        vec4 current = diffuse;
+        bool keyed = false;
+        for (int st = 0; st < stages; ++st) {
+            bool k;
+            vec4 tex = unpackArgb(sampleStage(st, plane(10 + 2 * st, fx, fy) * inv,
+                                                    plane(11 + 2 * st, fx, fy) * inv, k));
+            if ((S(sBound) >> st & 1u) != 0u && k)
+                keyed = true;
+            vec4 result = current;
+            vec4 c1 = argument(stage(st, cColorArg1), diffuse, tex, factor, specular, current);
+            vec4 c2 = argument(stage(st, cColorArg2), diffuse, tex, factor, specular, current);
+            result.rgb = operation(stage(st, cColorOp), c1, c2, diffuse.a, tex.a, factor.a, current.a).rgb;
+            if (stage(st, cAlphaOp) != 1u) {
+                vec4 a1 = argument(stage(st, cAlphaArg1), diffuse, tex, factor, specular, current);
+                vec4 a2 = argument(stage(st, cAlphaArg2), diffuse, tex, factor, specular, current);
+                result.a = operation(stage(st, cAlphaOp), a1, a2, diffuse.a, tex.a, factor.a, current.a).a;
+            }
+            current = result;
+        }
+        if (S(sColorKey) != 0u && keyed)
+            continue;
+        // The rest (Draw::finish): specular, alpha test, fog, blending.
+        if (S(sSpecular) != 0u)
+            current.rgb = min(vec3(1.0), current.rgb + specular.rgb);
+        if (S(sAlphaTest) != 0u && !compareFunc(S(sAlphaFunc), floor(current.a * 255.0 + 0.5), SF(sAlphaRef)))
+            continue;
+        if (S(sFog) != 0u) {
+            float f = specular.a;
+            uint mode = S(sFogTableMode);
+            if (mode != 0u) {
+                float d = S(sFogByZ) != 0u ? z : inv;
+                if (mode == 3u)
+                    f = SF(sFogEnd) != SF(sFogStart) ? (SF(sFogEnd) - d) / (SF(sFogEnd) - SF(sFogStart)) : 1.0;
+                else if (mode == 1u)
+                    f = exp(-SF(sFogDensity) * d);
+                else
+                    f = exp(-(SF(sFogDensity) * d) * (SF(sFogDensity) * d));
+            }
+            f = clamp(f, 0.0, 1.0);
+            vec3 fog = vec3(SF(sFogColor), SF(sFogColor + 1), SF(sFogColor + 2));
+            current.rgb = current.rgb * f + fog * (1.0 - f);
+        }
+        uint kind = S(sTarget);
+        vec4 outColor = current;
+        if (S(sBlend) != 0u) {
+            vec4 dst = readTarget(color, kind);
+            uint sb = S(sSrcBlend);
+            uint db = S(sDestBlend);
+            if (sb == 5u && db == 6u) {
+                outColor = current * current.a + dst * (1.0 - current.a);
+            } else {
+                for (int c = 0; c < 4; ++c)
+                    outColor[c] = current[c] * blendFactor(sb, current, dst, c) + dst[c] * blendFactor(db, current, dst, c);
+            }
+        }
+        if (kind == kTarget565)
+            color = channel(outColor.r, 31.0) << 11 | channel(outColor.g, 63.0) << 5 | channel(outColor.b, 31.0);
+        else
+            color = channel(outColor.r, 255.0) << 16 | channel(outColor.g, 255.0) << 8 | channel(outColor.b, 255.0);
+        if (zTest && S(sZWrite) != 0u) {
+            depth = zNew;
+            depthWritten = true;
+        }
+    }
+    frame[at] = color;
+    if (depthWritten)
+        frame[depthAt] = depth;
+}

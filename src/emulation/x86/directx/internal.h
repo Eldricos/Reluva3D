@@ -180,6 +180,7 @@ struct Rect {
 };
 
 class DirectDraw;
+class GpuRaster;
 class Surface;
 class Palette;
 class Clipper;
@@ -399,6 +400,13 @@ struct DirectX::State {
     uint32_t videoUsed = 0;
     std::weak_ptr<dx::Surface> primary;
     std::shared_ptr<dx::DirectDraw> directDraw;
+    /**
+     * With DirectX::DrawThreads::kGpu, the GPU drawing the devices'
+     * triangles: made when first wanted; null if there's no GPU.
+     */
+    dx::GpuRaster *gpuRaster();
+    std::shared_ptr<dx::GpuRaster> gpu; // (shared: its type is gpu_raster.h's)
+    bool gpuTried = false;
 
     /** The state of `o`, whose objects live in `p`. */
     State(DirectX &o, Win32Process &p) : owner(o), process(p), cpu(p.cpu()), com(p) {}

@@ -121,6 +121,52 @@ Alpha Team lock and blit surfaces as well as drawing into them, and doing
 both in one place keeps them consistent. It also lets the frames be
 checked without a GPU.
 
+### Drawing on the GPU
+
+With `DirectX::DrawThreads::kGpu`, triangles are drawn on the GPU by the
+software rasterizer's own rules (`dx::GpuRaster`, `directx/gpu_raster.cpp`,
+`directx/shaders/rasterize.comp`), as the Glide stand-in's GPU backend
+does ([glide.md](../graphics/glide.md#the-gpu-backend)), through
+`gfx::Compute` on a GPU device of its own; where there's none, they're
+drawn as with one thread. Nothing uses it yet but the tests and
+`reluva-tool legoisland run -gpu`: it's the first step of drawing LEGO
+Island's 3D on the GPU.
+
+- **Set-up on the CPU, as the software one does it** (`Draw::rasterize`'s
+  own steps, in doubles): each triangle's pixels on each row, exactly, so
+  which pixels are drawn is the same by construction; the planes of z,
+  1/w and the attributes divided by w; each stage's mip level and its
+  filter.
+- **Batches and tiles.** A draw's state goes into a record (a new one
+  only when it changes), each triangle into the batch with its rows'
+  spans. At a flush the batch is binned into 16x16 tiles in drawing
+  order; the kernel runs a workgroup a tile, a thread a pixel, through
+  the tile's triangles in order, so depth and blending see what the
+  earlier ones wrote.
+- **The pixel pipeline in the kernel**, from `Draw::shade`, `sample` and
+  `finish`: the depth test, every texture stage operation and argument
+  modifier, point and bilinear sampling with the software one's 8-bit
+  weights and integer mixing, the address modes and border colour, the
+  colour key (the nearest texel's), specular, the alpha test, vertex and
+  table fog, every blend factor, and the write to a 565 or X888 target.
+  Other targets, and depth buffers other than 2 or 4 bytes a pixel, are
+  drawn on the CPU, after what's waiting on the GPU.
+- **Memory.** Textures' levels go into one buffer, as ARGB words with a
+  bit a texel for the colour key, kept while their surfaces' versions
+  don't change, and started again once it's 256 MB. The target and the
+  depth buffer are sent with each batch and read back after it, which
+  happens before anything else touches pixels: a clear, a copy, a line or
+  point, a lock or blt.
+
+Deviations from the software rasterizer:
+- **The planes per pixel.** The kernel works each value out at each pixel
+  in 32-bit floats; the software one works it out at the row's start and
+  adds its step pixel by pixel. A value right at a rounding boundary can
+  then come out a step apart: on LEGO Island's island, about 1 pixel in
+  130 of a frame is a 565 step off, scattered over textured faces.
+- **Depth** is worked out in floats, not doubles: exact for 16-bit depth
+  buffers, a little off for deeper ones.
+
 ## Sources and checks
 
 - **Where the facts come from:** the DirectX 7 documentation, and the SDK
@@ -130,6 +176,13 @@ checked without a GPU.
 - `testDirectX` in `tests/common/windows.cpp` (`common.unit.windows`) checks these, called through
   the vtables: a clear, a Gouraud triangle, the depth test, a textured
   quad with point sampling, and a flip.
+
+- The GPU's drawing is checked against the software one's in
+  `testDirectX`: the same 30 random triangles, textured, blended and
+  depth tested, each pixel at most a 565 step apart (without a GPU they're
+  drawn as with one thread). On LEGO Island, run on the fixed clock with
+  `-gpu`, the Information Center's frames (2001, 4001) are the same to the
+  pixel, and the island's (6001) a step apart in 2,267 of 307,200.
 
 - `testDirect3D5` checks DirectX 5's Direct3D as LEGO Island reaches it:
   `IDirect3D2` from a DirectDraw object, its devices listed and found,

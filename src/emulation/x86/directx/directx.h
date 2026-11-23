@@ -61,9 +61,12 @@ public:
     /**
      * How a draw's triangles are drawn: on this thread (kOne), or by rows on
      * as many threads as there are processors, each at its own pace (kAuto
-     * and kAlways, which do the same). What's drawn is the same either way.
+     * and kAlways, which do the same); what's drawn is the same either way.
+     * Or on the GPU, by the same rules (kGpu, dx::GpuRaster: as kOne
+     * where there's none), what's drawn the same but for a little
+     * rounding.
      */
-    enum class DrawThreads { kOne, kAuto, kAlways } drawThreads = DrawThreads::kAuto;
+    enum class DrawThreads { kOne, kAuto, kAlways, kGpu } drawThreads = DrawThreads::kAuto;
     // Frames shown a flip late: at a flip the frame before is shown, its
     // drawing finished by then, and this one's drawing goes on while the
     // program works out the next. The program needn't wait for the drawing

@@ -15,6 +15,7 @@
 //   whatever their pixel formats.
 
 #include "emulation/x86/directx/device.h"
+#include "emulation/x86/directx/gpu_raster.h"
 
 #include <algorithm>
 #include <cmath>
@@ -809,6 +810,26 @@ Device::~Device() {
 void Device::finishDraws() {
     if (_queue)
         _queue->finish();
+    if (GpuRaster *g = gpu(); g && g->pending())
+        g->flush();
+}
+
+GpuRaster *Device::gpu() const {
+    return s->owner.drawThreads == DirectX::DrawThreads::kGpu ? s->gpuRaster() : nullptr;
+}
+
+// On the GPU, if it can draw `d`: else what's waiting there first, then
+// here and now.
+bool Device::drawOnGpu(const Draw &d, const std::vector<std::array<ClipVertex, 3>> &triangles) {
+    GpuRaster *g = gpu();
+    if (!g)
+        return false;
+    if (GpuRaster::canDraw(d)) {
+        g->add(d, triangles);
+        return true;
+    }
+    g->flush();
+    return false;
 }
 
 uint64_t Device::drawsQueued() {
@@ -847,7 +868,9 @@ void Device::drawBatch() {
     std::vector<DrawQueue::Job> job;
     job.push_back({current(), std::move(_batch), area});
     _batch.clear();
-    if (mode == DirectX::DrawThreads::kOne) {
+    if (mode == DirectX::DrawThreads::kGpu && drawOnGpu(job.front().draw, job.front().triangles))
+        return;
+    if (mode == DirectX::DrawThreads::kOne || mode == DirectX::DrawThreads::kGpu) {
         DrawQueue::draw(job, mode);
         return;
     }
@@ -863,6 +886,13 @@ void Device::drawBatch() {
 void Device::drawTriangles(uint32_t primitive, std::vector<ClipVertex> vertices, std::vector<uint32_t> order) {
     drawBatch();
     const DirectX::DrawThreads mode = s->owner.drawThreads;
+    if (mode == DirectX::DrawThreads::kGpu) { // set up here, for the GPU
+        std::vector<std::array<ClipVertex, 3>> triangles;
+        setup().addRange(primitive, vertices, order, 0, TriangleSetup::count(primitive, order.size()), triangles);
+        _batch = std::move(triangles);
+        drawBatch();
+        return;
+    }
     if (mode != DirectX::DrawThreads::kOne && !_queue)
         _queue = std::make_shared<DrawQueue>(mode);
     auto prims = std::make_shared<Primitives>();
@@ -2000,7 +2030,9 @@ void Device::clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t colo
 
 void Device::queueRows(std::function<void(int band, int bands)> rows, double area) {
     const DirectX::DrawThreads mode = s->owner.drawThreads;
-    if (mode == DirectX::DrawThreads::kOne) {
+    if (GpuRaster *g = gpu())
+        g->flush(); // what's drawn there first
+    if (mode == DirectX::DrawThreads::kOne || mode == DirectX::DrawThreads::kGpu) {
         rows(0, 1);
         return;
     }

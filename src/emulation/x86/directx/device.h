@@ -96,6 +96,7 @@ struct DecodedTexture {
 };
 
 class Device;
+class GpuRaster;
 struct VertexLayout;
 
 /** A D3DVIEWPORT7: the area drawn to, in pixels, and the depths it maps z to. */
@@ -381,6 +382,8 @@ private:
     void point(const ClipVertex &a);
     ClipVertex project(const ClipVertex &v) const;
     TriangleSetup setup() const;
+    GpuRaster *gpu() const; // with DirectX::DrawThreads::kGpu, if there's a GPU
+    bool drawOnGpu(const Draw &d, const std::vector<std::array<ClipVertex, 3>> &triangles);
     void drawTriangles(uint32_t primitive, std::vector<ClipVertex> vertices, std::vector<uint32_t> order);
     const DecodedTexture *texture(int stage);
     // The draw as the states are now.

@@ -7,6 +7,7 @@
 //
 //   reluva-tests common.unit.windows
 
+#include "backends/graphics/sdl3/sdl_compute.h"
 #include "audio/mixer.h"
 #include "common/fs.h"
 #include "common/types.h"
@@ -1455,6 +1456,27 @@ static void testDirectX() {
     const std::vector<uint8_t> one = scene(x86::DirectX::DrawThreads::kOne);
     CHECK(scene(x86::DirectX::DrawThreads::kAlways) == one);
     CHECK(std::adjacent_find(one.begin(), one.end(), std::not_equal_to<>()) != one.end()); // something was drawn
+    // On the GPU (where there's one: else on one thread), the same but for
+    // a little rounding: the values' planes are worked out at each pixel,
+    // not stepped along the row. 565 pixels, each channel a step at most.
+    reluva::gfx::setComputeFactory(reluva::makeSdlCompute);
+    const std::vector<uint8_t> gpu = scene(x86::DirectX::DrawThreads::kGpu);
+    reluva::gfx::setComputeFactory(nullptr);
+    CHECK(gpu.size() == one.size());
+    int differ = 0;
+    int far = 0;
+    for (size_t i = 0; i + 1 < std::min(gpu.size(), one.size()); i += 2) {
+        const int p = one[i] | one[i + 1] << 8;
+        const int q = gpu[i] | gpu[i + 1] << 8;
+        if (p == q)
+            continue;
+        ++differ;
+        if (std::abs((p >> 11) - (q >> 11)) > 1 || std::abs((p >> 5 & 63) - (q >> 5 & 63)) > 1 ||
+            std::abs((p & 31) - (q & 31)) > 1)
+            ++far;
+    }
+    std::printf("dx gpu: %d of %zu pixels differ, %d by more than a step\n", differ, one.size() / 2, far);
+    CHECK(far == 0);
     // Release the device and the DirectDraw object's.
     CHECK(call(device, 2, {}) == 0);
 }
