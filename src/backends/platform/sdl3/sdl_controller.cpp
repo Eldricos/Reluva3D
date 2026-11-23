@@ -4,7 +4,8 @@
 // Game controllers for SdlSystem: the first pad connected (SDL's gamepads),
 // or else the first racing wheel (a joystick SDL knows as one), and the
 // forces they're to give: a wheel's motor through SDL's haptics, a pad's
-// rumble otherwise; and a second pad, for a second player's joystick.
+// rumble otherwise; and a second, another pad or else a wheel, for a second
+// player's joystick, its pedals found as they rest.
 
 #include "backends/platform/sdl3/sdl_controller.h"
 
@@ -73,11 +74,63 @@ void readPad(SDL_Gamepad *pad, GamepadState &out) {
 
 } // namespace
 
-void SdlSystem::closeController() {
-    if (_secondPad) {
-        SDL_CloseGamepad(_secondPad);
-        _secondPad = nullptr;
+// A controller's state: a pad's, or a wheel's by its axes.
+void SdlSystem::readState(Controller &c, GamepadState &out) {
+    if (c.gamepad) {
+        readPad(c.gamepad, out);
+        return;
     }
+    // A wheel by its axes: the wheel on the first; the pedals as set, or
+    // the first two after it found resting at an end (pressed, they move
+    // to the other). Each pedal 0 up to 1 pressed.
+    SDL_Joystick *j = c.wheel;
+    const int axisCount = SDL_GetNumJoystickAxes(j);
+    auto axis = [&](int i) { return i >= 0 && i < axisCount ? float(SDL_GetJoystickAxis(j, i)) / 32767.0f : 0.0f; };
+    out.axes[0] = std::max(-1.0f, axis(0));
+    for (int i = 1; i < std::min(axisCount, 16); ++i)
+        if (c.rest[i] == 0 && std::fabs(axis(i)) > 0.9f)
+            c.rest[i] = axis(i) > 0 ? 1.0f : -1.0f;
+    const int chosen[2] = {c.accelerator, c.brake};
+    for (int p = 0; p < 2; ++p) {
+        if (c.pedalAxis[p] < 0) {
+            if (chosen[p] >= 0) {
+                c.pedalAxis[p] = chosen[p];
+            } else {
+                const int other = c.pedalAxis[1 - p] >= 0 ? c.pedalAxis[1 - p] : chosen[1 - p];
+                for (int i = 1; i < axisCount; ++i)
+                    if (i != other && i < 16 && c.rest[i] != 0) {
+                        c.pedalAxis[p] = i;
+                        break;
+                    }
+            }
+        }
+        const int a = c.pedalAxis[p];
+        if (a < 1 || a >= 16 || c.rest[a] == 0)
+            continue;
+        const float v = std::clamp(axis(a), -1.0f, 1.0f);
+        out.axes[p == 0 ? 5 : 4] = std::clamp((c.rest[a] - v) * c.rest[a] / 2, 0.0f, 1.0f);
+    }
+    // Its buttons as the pad's, in order, and its hat as the d-pad.
+    for (int i = 0; i < std::min(SDL_GetNumJoystickButtons(j), int(kPadUp)); ++i)
+        if (SDL_GetJoystickButton(j, i))
+            out.buttons |= 1u << i;
+    if (SDL_GetNumJoystickHats(j) > 0) {
+        const uint8_t hat = SDL_GetJoystickHat(j, 0);
+        if (hat & SDL_HAT_UP)
+            out.buttons |= 1u << kPadUp;
+        if (hat & SDL_HAT_DOWN)
+            out.buttons |= 1u << kPadDown;
+        if (hat & SDL_HAT_LEFT)
+            out.buttons |= 1u << kPadLeft;
+        if (hat & SDL_HAT_RIGHT)
+            out.buttons |= 1u << kPadRight;
+    }
+    if (const char *name = SDL_GetJoystickName(j))
+        out.name = name;
+}
+
+void SdlSystem::closeController() {
+    closeSecond();
     if (!_controller)
         return;
     Controller &c = *_controller;
@@ -147,59 +200,18 @@ bool SdlSystem::readGamepad(GamepadState &out) {
         c.rumbleSentMs = SDL_GetTicks();
     }
 
-    if (c.gamepad) {
-        readPad(c.gamepad, out);
-        return true;
-    }
-
-    // A wheel by its axes: the wheel on the first; the pedals as set, or
-    // the first two after it found resting at an end (pressed, they move
-    // to the other). Each pedal 0 up to 1 pressed.
-    SDL_Joystick *j = c.wheel;
-    const int axisCount = SDL_GetNumJoystickAxes(j);
-    auto axis = [&](int i) { return i >= 0 && i < axisCount ? float(SDL_GetJoystickAxis(j, i)) / 32767.0f : 0.0f; };
-    out.axes[0] = std::max(-1.0f, axis(0));
-    for (int i = 1; i < std::min(axisCount, 16); ++i)
-        if (c.rest[i] == 0 && std::fabs(axis(i)) > 0.9f)
-            c.rest[i] = axis(i) > 0 ? 1.0f : -1.0f;
-    const int chosen[2] = {c.accelerator, c.brake};
-    for (int p = 0; p < 2; ++p) {
-        if (c.pedalAxis[p] < 0) {
-            if (chosen[p] >= 0) {
-                c.pedalAxis[p] = chosen[p];
-            } else {
-                const int other = c.pedalAxis[1 - p] >= 0 ? c.pedalAxis[1 - p] : chosen[1 - p];
-                for (int i = 1; i < axisCount; ++i)
-                    if (i != other && i < 16 && c.rest[i] != 0) {
-                        c.pedalAxis[p] = i;
-                        break;
-                    }
-            }
-        }
-        const int a = c.pedalAxis[p];
-        if (a < 1 || a >= 16 || c.rest[a] == 0)
-            continue;
-        const float v = std::clamp(axis(a), -1.0f, 1.0f);
-        out.axes[p == 0 ? 5 : 4] = std::clamp((c.rest[a] - v) * c.rest[a] / 2, 0.0f, 1.0f);
-    }
-    // Its buttons as the pad's, in order, and its hat as the d-pad.
-    for (int i = 0; i < std::min(SDL_GetNumJoystickButtons(j), int(kPadUp)); ++i)
-        if (SDL_GetJoystickButton(j, i))
-            out.buttons |= 1u << i;
-    if (SDL_GetNumJoystickHats(j) > 0) {
-        const uint8_t hat = SDL_GetJoystickHat(j, 0);
-        if (hat & SDL_HAT_UP)
-            out.buttons |= 1u << kPadUp;
-        if (hat & SDL_HAT_DOWN)
-            out.buttons |= 1u << kPadDown;
-        if (hat & SDL_HAT_LEFT)
-            out.buttons |= 1u << kPadLeft;
-        if (hat & SDL_HAT_RIGHT)
-            out.buttons |= 1u << kPadRight;
-    }
-    if (const char *name = SDL_GetJoystickName(j))
-        out.name = name;
+    readState(c, out);
     return true;
+}
+
+void SdlSystem::closeSecond() {
+    if (!_second)
+        return;
+    if (_second->gamepad)
+        SDL_CloseGamepad(_second->gamepad);
+    if (_second->wheel)
+        SDL_CloseJoystick(_second->wheel);
+    _second.reset();
 }
 
 bool SdlSystem::readGamepad(int index, GamepadState &out) {
@@ -208,26 +220,37 @@ bool SdlSystem::readGamepad(int index, GamepadState &out) {
     out = GamepadState{};
     if (index != 1)
         return false;
-    // The first is opened first, so the second is a pad other than it.
+    // The first is opened first, so the second is another: the next pad,
+    // or else a racing wheel (the first is a wheel only when there's no pad).
     GamepadState first;
     readGamepad(first);
-    const SDL_JoystickID firstId = _controller && _controller->gamepad ? SDL_GetGamepadID(_controller->gamepad) : 0;
-    if (_secondPad && (!SDL_GamepadConnected(_secondPad) || SDL_GetGamepadID(_secondPad) == firstId)) {
-        SDL_CloseGamepad(_secondPad);
-        _secondPad = nullptr;
-    }
-    if (!_secondPad) {
+    SDL_Joystick *firstJoystick = _controller ? _controller->joystick() : nullptr;
+    const SDL_JoystickID firstId = firstJoystick ? SDL_GetJoystickID(firstJoystick) : 0;
+    if (_second && (!_second->connected() || SDL_GetJoystickID(_second->joystick()) == firstId))
+        closeSecond();
+    if (!_second) {
+        auto second = std::make_unique<Controller>();
         int count = 0;
         if (SDL_JoystickID *ids = SDL_GetGamepads(&count)) {
-            for (int i = 0; i < count && !_secondPad; ++i)
+            for (int i = 0; i < count && !second->gamepad; ++i)
                 if (ids[i] != firstId)
-                    _secondPad = SDL_OpenGamepad(ids[i]);
+                    second->gamepad = SDL_OpenGamepad(ids[i]);
             SDL_free(ids);
         }
+        if (!second->gamepad)
+            if (SDL_JoystickID *ids = SDL_GetJoysticks(&count)) {
+                for (int i = 0; i < count && !second->wheel; ++i)
+                    if (ids[i] != firstId && SDL_GetJoystickTypeForID(ids[i]) == SDL_JOYSTICK_TYPE_WHEEL)
+                        second->wheel = SDL_OpenJoystick(ids[i]);
+                SDL_free(ids);
+            }
+        if (!second->gamepad && !second->wheel)
+            return false;
+        second->isWheel = second->wheel || SDL_GetJoystickType(second->joystick()) == SDL_JOYSTICK_TYPE_WHEEL;
+        _second = std::move(second);
     }
-    if (!_secondPad)
-        return false;
-    readPad(_secondPad, out);
+    out.wheel = _second->isWheel;
+    readState(*_second, out);
     return true;
 }
 

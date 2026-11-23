@@ -105,7 +105,11 @@ private:
     struct Controller;
     std::unique_ptr<Controller> _controller;
     void closeController();
-    SDL_Gamepad *_secondPad = nullptr; // the next pad connected, for readGamepad(1)
+    static void readState(Controller &c, GamepadState &out); // a pad's, or a wheel's by its axes
+    // The second (readGamepad(1)): the next pad connected, or else a wheel;
+    // no forces.
+    std::unique_ptr<Controller> _second;
+    void closeSecond();
     SDL_Joystick *_joystick = nullptr; // the first connected, whose events are passed on
     SDL_JoystickID _joystickId = 0;
     bool _relativeMouse = false; // held by setRelativeMouse, held again when the window changes

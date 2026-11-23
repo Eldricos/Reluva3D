@@ -111,9 +111,11 @@ public:
         return false;
     }
     /**
-     * Controller `index`: 0 is readGamepad's, 1 the next pad connected, for
-     * a game with a second player's joystick; false when there's none.
-     * Forces and wheels are the first's only.
+     * Controller `index`: 0 is readGamepad's, 1 the next pad connected or
+     * else a racing wheel other than the first, for a game with a second
+     * player's joystick; false when there's none. setWheelPedals and the
+     * forces are the first's only: a second wheel's pedals are found as
+     * they rest.
      */
     virtual bool readGamepad(int index, GamepadState &out) {
         if (index == 0)

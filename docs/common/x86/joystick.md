@@ -7,7 +7,7 @@ programs run in the [x86 emulator](README.md) that read their joysticks
 the way most Windows 95 games did, before DirectInput's: up to two
 joysticks, whose state the engine sets from the players' controllers
 (`System::readGamepad(index)`: the first controller, and the next pad
-connected).
+connected or else a racing wheel).
 
 ## What Reluva supports
 
@@ -31,6 +31,10 @@ connected).
   | R, U | The right stick |
   | Buttons 1 to 10 | A, B, X, Y, left and right shoulder, Back, Start, the left and right stick's click |
   | The hat | The D-pad, eight ways |
+
+  A racing wheel comes as a pad does (`GamepadState`): the wheel as X,
+  the pedals as Z (the accelerator less the brake), its buttons as the
+  pad's in order, its hat as the D-pad.
 
 - **Not yet:** a joystick's own registry settings (calibration, names),
   `joySetCapture` and its messages, `joyGetThreshold` and
