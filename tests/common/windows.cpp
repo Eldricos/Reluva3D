@@ -8,9 +8,12 @@
 //   reluva-tests common.unit.windows
 
 #include "audio/mixer.h"
+#include "audio/wav.h"
 #include "common/fs.h"
+#include "common/stream.h"
 #include "common/types.h"
 #include "emulation/x86/a3d.h"
+#include "emulation/x86/cdaudio.h"
 #include "emulation/x86/directx/dsound.h"
 #include "emulation/x86/directx/sound3d.h"
 #include "emulation/x86/dplay.h"
@@ -1154,6 +1157,85 @@ static void testDirectSound() {
     CHECK(frames[198] >= 995 && frames[198] <= 1005 && frames[199] >= 95 && frames[199] <= 105);
 }
 
+// MCI's cdaudio device driven as Jedi Knight drives it, on a disc of
+// ripped tracks: opened, set to TMSF, a track played from it to the next,
+// its mode as the clock moves, a track's length, a range off the disc's end;
+// the CD volume through the auxiliary device.
+static void testCdAudio(const std::filesystem::path &tmp) {
+    std::filesystem::remove_all(tmp);
+    std::filesystem::create_directories(tmp);
+    // Tracks 2 to 4, half a second each, left n * 100 and right -n * 100.
+    for (int n = 2; n <= 4; ++n) {
+        audio::Sound track;
+        track.rate = 44100;
+        track.channels = 2;
+        for (int i = 0; i < 22050; ++i)
+            track.samples.insert(track.samples.end(), {int16_t(n * 100), int16_t(-n * 100)});
+        char name[16];
+        std::snprintf(name, sizeof name, "track%02d.wav", n);
+        CHECK(writeFile(tmp / name, audio::encodePcmWav(track)));
+    }
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    uint32_t clock = 1000;
+    process.milliseconds = [&] { return clock; };
+    x86::CdAudio cd(process);
+    cd.disc = [&] { return x86::CdAudio::discIn(tmp); };
+    audio::Mixer mixer(44100);
+    cd.mixer = &mixer;
+    uint32_t r = 0;
+    auto mci = [&](uint32_t device, uint32_t message, uint32_t flags, uint32_t parms) {
+        CHECK(!cpu.call(process.provided("WINMM.dll", "mciSendCommandA"), {device, message, flags, parms}, r));
+        return r;
+    };
+    const uint32_t parms = process.memory().alloc(32);
+    const uint32_t type = process.memory().alloc(16);
+    cpu.writeString(type, "CDAudio", 16);
+    cpu.write32(parms + 8, type);
+    CHECK(mci(0, 0x803, 0x2000, parms) == 0 && cpu.read32(parms + 4) == 1); // MCI_OPEN, by its type
+    cpu.write32(parms + 4, 10);
+    CHECK(mci(1, 0x80d, 0x400, parms) == 0); // MCI_SET: TMSF
+    auto status = [&](uint32_t item, uint32_t flags = 0x100, uint32_t track = 0) {
+        cpu.write32(parms + 8, item);
+        cpu.write32(parms + 12, track);
+        CHECK(mci(1, 0x814, flags, parms) == 0);
+        return cpu.read32(parms + 4);
+    };
+    CHECK(status(3) == 4);                     // tracks, the data track among them
+    CHECK(status(1, 0x110, 3) == (37u << 16)); // track 3's length: 0:00 and 37 frames
+    CHECK(status(0x4001, 0x110, 1) == 0x441);  // track 1 isn't audio
+    // Track 2 to the start of 3: its sound, then stopped.
+    cpu.write32(parms + 4, 2);
+    cpu.write32(parms + 8, 3);
+    CHECK(mci(1, 0x806, 0xc, parms) == 0 && cd.trackPlaying() == 2);
+    CHECK(status(4) == 526); // MCI_MODE_PLAY
+    int16_t frames[2 * 64];
+    mixer.mix(frames, 64);
+    CHECK(frames[126] > 190 && frames[126] < 210 && frames[127] < -190 && frames[127] > -210);
+    clock += 600;
+    CHECK(status(4) == 525 && cd.trackPlaying() == 0); // MCI_MODE_STOP, at its end
+    // The volume through the CD's auxiliary device: 0, and nothing's heard.
+    CHECK(!cpu.call(process.provided("WINMM.dll", "auxGetNumDevs"), {}, r) && r == 1);
+    const uint32_t caps = process.memory().alloc(48);
+    CHECK(!cpu.call(process.provided("WINMM.dll", "auxGetDevCapsA"), {0, caps, 48}, r) && r == 0 &&
+          cpu.read16(caps + 40) == 1); // AUXCAPS_CDAUDIO
+    CHECK(!cpu.call(process.provided("WINMM.dll", "auxSetVolume"), {0, 0}, r) && r == 0);
+    cpu.write32(parms + 4, 3);
+    cpu.write32(parms + 8, 5); // the end of the disc
+    CHECK(mci(1, 0x806, 0xc, parms) == 0 && cd.trackPlaying() == 3);
+    mixer.mix(frames, 64);
+    CHECK(frames[126] == 0 && frames[127] == 0);
+    // Past the end, as the game asks after the last track: out of range.
+    cpu.write32(parms + 8, 6);
+    CHECK(mci(1, 0x806, 0xc, parms) == 282);
+    CHECK(mci(1, 0x804, 0, parms) == 0);       // MCI_CLOSE
+    CHECK(mci(1, 0x814, 0x100, parms) == 257); // closed: no such device
+    cpu.writeString(type, "waveaudio", 16);
+    CHECK(mci(0, 0x803, 0x2000, parms) == 263);            // only the CD
+    CHECK(x86::CdAudio::discIn(tmp / "none").tracks == 0); // no disc
+    std::filesystem::remove_all(tmp);
+}
+
 // DirectPlay 3 created through COM, with no connections to offer.
 static void testDirectPlay() {
     x86::Cpu cpu(16u << 20);
@@ -1358,6 +1440,7 @@ static const test::Suite
                {"input", [](const std::filesystem::path &) { testInput(); }},
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
                {"directplay", [](const std::filesystem::path &) { testDirectPlay(); }},
+               {"cd audio", [](const std::filesystem::path &tmp) { testCdAudio(tmp / "cdaudio"); }},
                {"directsound", [](const std::filesystem::path &) { testDirectSound(); }},
                {"sound 3d", [](const std::filesystem::path &) { testSound3d(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},

@@ -7,6 +7,7 @@
 # stand-in served to programs as glide2x.dll and glide3x.dll.
 add_library(reluva_emulation STATIC
     x86/a3d.cpp
+    x86/cdaudio.cpp
     x86/com.cpp
     x86/cpu.cpp
     x86/cpu_cache.cpp
