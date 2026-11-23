@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <deque>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -146,7 +147,7 @@ public:
  * game's own player talking to its own server without the network.
  * Each socket gets the address 127.0.0.1 and its port; a broadcast
  * reaches every other socket on that port. A datagram to any other
- * address is lost. Not thread-safe: use it from one thread.
+ * address is lost. Its sockets may be used from several threads at once.
  */
 class LoopbackNetwork : public std::enable_shared_from_this<LoopbackNetwork> {
 public:
@@ -171,6 +172,7 @@ private:
         std::deque<std::pair<Address, std::vector<uint8_t>>> datagrams;
         bool open = false;
     };
+    std::mutex _mutex; // over all of it, the sockets' queues included
     std::vector<std::pair<uint16_t, std::shared_ptr<Queue>>> _queues;
     bool (*_drop)(const Address &, const Address &, size_t) = nullptr;
     size_t _sent = 0;

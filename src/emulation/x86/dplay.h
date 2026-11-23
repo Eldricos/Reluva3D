@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "emulation/x86/dplay_session.h"
 #include "emulation/x86/win32.h"
 
 #include <memory>
@@ -17,29 +18,21 @@ namespace reluva::x86 {
  * DirectPlay addresses are built and read as documented. Without a
  * network, no connection or session is found and none can be made; on
  * one, the TCP/IP and IPX service providers find each other's sessions,
- * players, groups and messages.
+ * players, groups and messages, over UDP (dplay_session.h).
  */
 class DirectPlay {
 public:
     /**
-     * Where DirectPlay objects meet: the sessions open, their players and
-     * groups, and the messages between them. Shared by the copies that
-     * play together, each its own process's DirectPlay; calls from their
-     * threads at once are safe. In memory, for copies in one Reluva
-     * process.
+     * The network the DirectPlay objects play on: the UDP sockets they're
+     * given, where a search goes, and where hosts listen
+     * (dplay::Transport). Shared by the programs that play together.
      */
-    class Network {
-    public:
-        Network();
-        ~Network();
-        /** The sessions open on it. */
-        size_t sessions() const;
-        struct State;
-        /** Its state, for the stand-in's objects. */
-        State &state() const { return *_s; }
-
-    private:
-        std::unique_ptr<State> _s;
+    struct Network : dplay::Transport {
+        /**
+         * One in memory, for programs in one Reluva process: its sockets
+         * reach only each other (net::LoopbackNetwork).
+         */
+        static std::shared_ptr<Network> inMemory();
     };
 
     /**

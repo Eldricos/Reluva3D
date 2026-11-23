@@ -2,21 +2,21 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // DirectPlay of DirectX 6, from the SDK's documentation (dplay.h and
-// dplobby.h's interfaces and their methods' order). Without a network: see
-// docs/common/x86/dplay.md.
+// dplobby.h's interfaces and their methods' order); its sessions over the
+// network are dplay_session.cpp's. See docs/common/x86/dplay.md.
 
 #include "emulation/x86/dplay.h"
 
 #include "emulation/x86/com.h"
 
 #include <algorithm>
-#include <deque>
+#include <chrono>
 #include <map>
 #include <memory>
-#include <mutex>
-#include <set>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 namespace reluva::x86 {
@@ -28,18 +28,24 @@ constexpr uint32_t kDpENoInterface = 0x80004002u;
 constexpr uint32_t kDpClassNotRegistered = 0x80040154u;
 constexpr uint32_t kDpErrInvalidParams = 0x80070057u;
 // MAKE_DPHRESULT(code): 0x88770000 + code.
-constexpr uint32_t kDpErrBufferTooSmall = 0x8877001eu; // 30
-constexpr uint32_t kDpErrUnavailable = 0x887700d2u;    // 210
-constexpr uint32_t kDpErrNotLobbied = 0x8877042eu;     // 1070
-constexpr uint32_t kDpErrInvalidPlayer = 0x88770096u;  // 150
-constexpr uint32_t kDpErrNoMessages = 0x887700beu;     // 190
-constexpr uint32_t kDpErrNoConnection = 0x887700b4u;   // 180
-constexpr uint32_t kDpErrPending = 0x8000000au;        // E_PENDING
-constexpr uint32_t kDpErrGeneric = 0x80004005u;        // E_FAIL
+constexpr uint32_t kDpErrBufferTooSmall = 0x8877001eu;    // 30
+constexpr uint32_t kDpErrUnavailable = 0x887700d2u;       // 210
+constexpr uint32_t kDpErrNotLobbied = 0x8877042eu;        // 1070
+constexpr uint32_t kDpErrInvalidPlayer = 0x88770096u;     // 150
+constexpr uint32_t kDpErrNoMessages = 0x887700beu;        // 190
+constexpr uint32_t kDpErrNoConnection = 0x887700b4u;      // 180
+constexpr uint32_t kDpErrPending = 0x8000000au;           // E_PENDING
+constexpr uint32_t kDpErrGeneric = 0x80004005u;           // E_FAIL
+constexpr uint32_t kDpErrConnecting = 0x8877015eu;        // 350
+constexpr uint32_t kDpErrCantCreateSession = 0x887700a0u; // 160
+// How long a search waits for answers when the program doesn't say.
+constexpr uint32_t kSearchMs = 300;
 // The service providers that find each other on a network.
 const char *const kSpTcpIp = "{36e95ee0-8577-11cf-960c-0080c7534e82}";
 const char *const kSpIpx = "{685bc400-9d2c-11cf-a9cd-00aa006886e3}";
 const char *const kDpaidInet = "{c4a54da0-e0af-11cf-9c4e-00a0c905425e}";
+const char *const kDpaidInetPort = "{e4524541-8ea5-11d1-8a96-006097b01411}";
+const char *const kNullGuid = "{00000000-0000-0000-0000-000000000000}";
 
 // As loco.exe's own GUID table has them (IDirectPlay4's, the Unicode one,
 // is its ANSI twin's less one, as the SDK numbers such pairs).
@@ -175,82 +181,6 @@ Methods lobby(int version) {
 
 } // namespace
 
-namespace {
-
-// A message waiting to be received: from and to whom, and its bytes. A
-// system message (from DPID_SYSMSG) is laid out as its structure with its
-// pointers as offsets into it, `pointers` saying where those are, so it
-// can be written anywhere.
-struct Message {
-    uint32_t from = 0;
-    uint32_t to = 0;
-    std::vector<uint8_t> data;
-    std::vector<uint32_t> pointers;
-};
-
-} // namespace
-
-// One DirectPlay object in a session: its local players and the messages
-// waiting for them.
-struct Node {
-    std::string session; // its guidInstance; empty when in none
-    std::deque<Message> queue;
-    std::set<uint32_t> players; // and groups it made
-};
-
-struct DirectPlay::Network::State {
-    // A player or a group.
-    struct Member {
-        Node *node = nullptr;
-        bool group = false;
-        std::string shortName;
-        std::string longName;
-        std::vector<uint8_t> data;
-        uint32_t flags = 0;
-        std::set<uint32_t> members; // a group's players
-    };
-    struct Session {
-        std::string application;
-        uint32_t flags = 0;
-        uint32_t maxPlayers = 0; // 0: as many as come
-        std::string name;
-        std::string password;
-        uint32_t user[4] = {};
-        Node *host = nullptr;
-        std::set<Node *> nodes;
-        std::map<uint32_t, Member> members;
-        uint32_t players() const {
-            return uint32_t(
-                std::count_if(members.begin(), members.end(), [](const auto &m) { return !m.second.group; }));
-        }
-    };
-    std::mutex mutex;
-    std::map<std::string, Session> sessions; // by guidInstance
-    uint32_t nextId = 0x4c4f0002;            // above DPID_SYSMSG (0) and DPID_SERVERPLAYER (1)
-    uint32_t nextGuid = 1;
-    uint32_t nextMessage = 1; // SendEx's ids
-
-    // Queues `m` for every node of `session` but `except`, to its first
-    // player (or none).
-    void tell(Session &session, const Node *except, Message m) {
-        for (Node *n : session.nodes)
-            if (n != except) {
-                m.to = n->players.empty() ? 0 : *n->players.begin();
-                n->queue.push_back(m);
-            }
-    }
-};
-
-DirectPlay::Network::Network() : _s(std::make_unique<State>()) {
-}
-
-DirectPlay::Network::~Network() = default;
-
-size_t DirectPlay::Network::sessions() const {
-    std::lock_guard<std::mutex> lock(_s->mutex);
-    return _s->sessions.size();
-}
-
 struct DirectPlay::State {
     DirectPlay &owner;
     Win32Process &process;
@@ -267,6 +197,13 @@ struct DirectPlay::State {
     ComInterface lobby3A{"IDirectPlayLobby3A", kIidLobby3A, lobby(3)};
     State(DirectPlay &o, Win32Process &p) : owner(o), process(p), cpu(p.cpu()), com(p) {}
 };
+
+std::shared_ptr<DirectPlay::Network> DirectPlay::Network::inMemory() {
+    auto network = std::make_shared<Network>();
+    auto loopback = net::LoopbackNetwork::create();
+    network->open = [loopback](uint16_t port) { return loopback->open(port); };
+    return network;
+}
 
 namespace {
 
@@ -310,6 +247,27 @@ uint32_t writeAddress(Cpu &c, std::vector<Element> elements, uint32_t out, uint3
     return kDpOk;
 }
 
+// Reads an address led by its total size, as InitializeConnection is given
+// one (with no size beside it).
+std::vector<Element> readAddress(Cpu &c, uint32_t at) {
+    std::vector<Element> elements;
+    if (!at || !c.valid(at, 24) || ComHost::guid(c, at) != kDpaidTotalSize)
+        return elements;
+    const uint32_t total = c.read32(at + 20);
+    uint32_t p = at;
+    while (p + 20 <= at + total && c.valid(p, 20)) {
+        Element e{ComHost::guid(c, p), {}};
+        const uint32_t n = c.read32(p + 16);
+        if (p + 20 + n > at + total || !c.valid(p + 20, n))
+            break;
+        for (uint32_t i = 0; i < n; ++i)
+            e.data.push_back(c.read8(p + 20 + i));
+        elements.push_back(e);
+        p += 20 + n;
+    }
+    return elements;
+}
+
 // Little-endian writing into a message's bytes.
 void put32(std::vector<uint8_t> &b, size_t at, uint32_t v) {
     if (b.size() < at + 4)
@@ -318,9 +276,17 @@ void put32(std::vector<uint8_t> &b, size_t at, uint32_t v) {
         b[at + size_t(i)] = uint8_t(v >> (8 * i));
 }
 
+// A system message laid out for the program: its pointers (to names and
+// data) as offsets into it, `pointers` saying where those are, so it can be
+// written anywhere.
+struct Laid {
+    std::vector<uint8_t> data;
+    std::vector<uint32_t> pointers;
+};
+
 // Appends a string or bytes to a system message, its offset written at
-// `field` (a pointer, to be made the receiver's) unless it's empty.
-void attach(Message &m, size_t field, const std::vector<uint8_t> &bytes) {
+// `field` unless it's empty.
+void attach(Laid &m, size_t field, const std::vector<uint8_t> &bytes) {
     if (bytes.empty())
         return;
     put32(m.data, field, uint32_t(m.data.size()));
@@ -336,48 +302,52 @@ std::vector<uint8_t> text(const std::string &s) {
     return b;
 }
 
-// DPSYS_CREATEPLAYERORGROUP (3): type, player or group, id, players now,
-// its data, its DPNAME, its parent, flags.
-Message created(uint32_t id, const DirectPlay::Network::State::Member &m, uint32_t players) {
-    Message msg;
-    msg.data.resize(48);
-    put32(msg.data, 0, 3);
-    put32(msg.data, 4, m.group ? 0 : 1); // DPPLAYERTYPE_GROUP, _PLAYER
-    put32(msg.data, 8, id);
-    put32(msg.data, 12, players);
-    put32(msg.data, 20, uint32_t(m.data.size()));
-    put32(msg.data, 24, 16); // DPNAME's size
-    put32(msg.data, 44, m.flags);
-    attach(msg, 16, m.data);
-    attach(msg, 32, text(m.shortName));
-    attach(msg, 36, text(m.longName));
-    return msg;
-}
-
-// DPSYS_DESTROYPLAYERORGROUP (5): type, player or group, id, its local
-// and remote data, its DPNAME, its parent, flags.
-Message destroyed(uint32_t id, const DirectPlay::Network::State::Member &m) {
-    Message msg;
-    msg.data.resize(52);
-    put32(msg.data, 0, 5);
-    put32(msg.data, 4, m.group ? 0 : 1);
-    put32(msg.data, 8, id);
-    put32(msg.data, 24, uint32_t(m.data.size()));
-    put32(msg.data, 28, 16);
-    put32(msg.data, 48, m.flags);
-    attach(msg, 20, m.data);
-    attach(msg, 36, text(m.shortName));
-    attach(msg, 40, text(m.longName));
-    return msg;
-}
-
-// DPSYS_ADDPLAYERTOGROUP (7) and DPSYS_DELETEPLAYERFROMGROUP (0x21).
-Message membership(uint32_t type, uint32_t group, uint32_t player) {
-    Message msg;
-    msg.data.resize(12);
-    put32(msg.data, 0, type);
-    put32(msg.data, 4, group);
-    put32(msg.data, 8, player);
+// The system message an event is, as dplay.h lays them out.
+Laid layOut(const dplay::Event &e) {
+    Laid msg;
+    switch (e.kind) {
+    case dplay::Event::kCreated:
+        // DPSYS_CREATEPLAYERORGROUP (3): type, player or group, id, players
+        // now, its data, its DPNAME, its parent, flags.
+        msg.data.resize(48);
+        put32(msg.data, 0, 3);
+        put32(msg.data, 4, e.member.group ? 0 : 1); // DPPLAYERTYPE_GROUP, _PLAYER
+        put32(msg.data, 8, e.id);
+        put32(msg.data, 12, e.players);
+        put32(msg.data, 20, uint32_t(e.member.data.size()));
+        put32(msg.data, 24, 16); // DPNAME's size
+        put32(msg.data, 44, e.member.flags);
+        attach(msg, 16, e.member.data);
+        attach(msg, 32, text(e.member.shortName));
+        attach(msg, 36, text(e.member.longName));
+        break;
+    case dplay::Event::kDestroyed:
+        // DPSYS_DESTROYPLAYERORGROUP (5): type, player or group, id, its
+        // local and remote data, its DPNAME, its parent, flags.
+        msg.data.resize(52);
+        put32(msg.data, 0, 5);
+        put32(msg.data, 4, e.member.group ? 0 : 1);
+        put32(msg.data, 8, e.id);
+        put32(msg.data, 24, uint32_t(e.member.data.size()));
+        put32(msg.data, 28, 16);
+        put32(msg.data, 48, e.member.flags);
+        attach(msg, 20, e.member.data);
+        attach(msg, 36, text(e.member.shortName));
+        attach(msg, 40, text(e.member.longName));
+        break;
+    case dplay::Event::kAdded:
+    case dplay::Event::kRemoved:
+        // DPSYS_ADDPLAYERTOGROUP (7), DPSYS_DELETEPLAYERFROMGROUP (0x21).
+        msg.data.resize(12);
+        put32(msg.data, 0, e.kind == dplay::Event::kAdded ? 7 : 0x21);
+        put32(msg.data, 4, e.id);
+        put32(msg.data, 8, e.player);
+        break;
+    case dplay::Event::kSessionLost:
+        msg.data.resize(4);
+        put32(msg.data, 0, 0x31); // DPSYS_SESSIONLOST
+        break;
+    }
     return msg;
 }
 
@@ -385,10 +355,9 @@ class Play : public ComObject {
 public:
     DirectPlay::State *s = nullptr;
     std::string provider; // the service provider's GUID
-    std::shared_ptr<DirectPlay::Network> network;
-    Node node;
-
-    ~Play() override { leave(); }
+    std::unique_ptr<dplay::Endpoint> endpoint;
+    net::Address where;       // the host's address and port given, if any
+    uint32_t nextMessage = 1; // SendEx's ids
 
     const ComInterface *query(const std::string &iid) override {
         for (const ComInterface *f : {&s->play1, &s->play4, &s->play4A})
@@ -400,64 +369,32 @@ public:
     // Whether its service provider finds a network: TCP/IP's and IPX's do
     // (both the same one), when the process has one.
     bool connected() const { return s->owner.network && (provider == kSpTcpIp || provider == kSpIpx); }
-    DirectPlay::Network::State &net() const { return s->owner.network->state(); }
 
-    // Its session, or null; the network's lock held.
-    DirectPlay::Network::State::Session *session() const {
-        if (!network || node.session.empty())
-            return nullptr;
-        auto it = network->state().sessions.find(node.session);
-        return it == network->state().sessions.end() ? nullptr : &it->second;
-    }
-
-    // Leaves its session: its players and groups gone, the others told;
-    // the host gone, the session's lost to them.
-    void leave() {
-        if (!network)
+    // Waits up to `ms` for `ready`, letting the program's other threads
+    // run; a program without threads of its own (a test) just waits.
+    void pause(const std::function<bool()> &ready, uint32_t ms) const {
+        if (s->process.currentThread()) {
+            s->process.wait(ready, ms);
             return;
-        DirectPlay::Network::State &n = network->state();
-        std::lock_guard<std::mutex> lock(n.mutex);
-        DirectPlay::Network::State::Session *sess = session();
-        if (sess) {
-            for (uint32_t id : node.players)
-                if (auto it = sess->members.find(id); it != sess->members.end()) {
-                    n.tell(*sess, &node, destroyed(id, it->second));
-                    sess->members.erase(it);
-                }
-            for (auto &[id, m] : sess->members)
-                for (uint32_t p : node.players)
-                    m.members.erase(p);
-            sess->nodes.erase(&node);
-            if (sess->host == &node) {
-                Message lost;
-                lost.data.resize(4);
-                put32(lost.data, 0, 0x31); // DPSYS_SESSIONLOST
-                n.tell(*sess, &node, lost);
-                sess->host = nullptr;
-            }
-            if (sess->nodes.empty())
-                n.sessions.erase(node.session);
         }
-        node.players.clear();
-        node.session.clear();
-        node.queue.clear();
+        for (uint32_t waited = 0; waited < ms && !ready(); waited += 5)
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
 
     // Writes a DPSESSIONDESC2 (80 bytes) at `at`, its name at `name`.
-    void writeSession(Cpu &c, uint32_t at, uint32_t name, const std::string &guid,
-                      const DirectPlay::Network::State::Session &sess) {
+    static void writeSession(Cpu &c, uint32_t at, uint32_t name, const dplay::SessionInfo &sess) {
         for (uint32_t i = 0; i < 80; i += 4)
             c.write32(at + i, 0);
         c.write32(at, 80);
         c.write32(at + 4, sess.flags);
-        ComHost::writeGuid(c, at + 8, guid);
+        ComHost::writeGuid(c, at + 8, sess.guid);
         ComHost::writeGuid(c, at + 24, sess.application);
         c.write32(at + 40, sess.maxPlayers);
-        c.write32(at + 44, sess.players());
+        c.write32(at + 44, sess.players);
         c.writeString(name, sess.name, uint32_t(sess.name.size() + 1));
         c.write32(at + 48, name);
         for (int i = 0; i < 4; ++i)
-            c.write32(at + 64 + 4 * uint32_t(i), sess.user[i]);
+            c.write32(at + 64 + 4 * uint32_t(i), sess.user[size_t(i)]);
     }
 
     // Reads a DPNAME's short and long names.
@@ -479,8 +416,8 @@ public:
 
     // Calls an EnumPlayers-style callback(id, type, DPNAME, flags, context)
     // for each of `ids`, until it says to stop.
-    void enumerate(Cpu &c, const std::vector<std::pair<uint32_t, DirectPlay::Network::State::Member>> &ids,
-                   uint32_t callback, uint32_t context) const {
+    void enumerate(Cpu &c, const std::vector<std::pair<uint32_t, dplay::Member>> &ids, uint32_t callback,
+                   uint32_t context) const {
         for (const auto &[id, m] : ids) {
             const uint32_t name = s->process.memory().alloc(uint32_t(16 + m.shortName.size() + m.longName.size() + 2));
             const uint32_t shortAt = name + 16;
@@ -499,6 +436,27 @@ public:
         }
     }
 
+    // Tells whoever runs the program, if anyone listens.
+    void say(const std::string &text) const {
+        if (s->process.output)
+            s->process.output(text + "\n");
+    }
+
+    static uint32_t result(dplay::Endpoint::Status status) {
+        switch (status) {
+        case dplay::Endpoint::Status::kOk:
+            return kDpOk;
+        case dplay::Endpoint::Status::kConnecting:
+            return kDpErrConnecting;
+        case dplay::Endpoint::Status::kInvalidMember:
+            return kDpErrInvalidPlayer;
+        case dplay::Endpoint::Status::kNoSocket:
+            return kDpErrCantCreateSession;
+        default:
+            return kDpErrNoConnection;
+        }
+    }
+
     std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override {
         const std::string_view m = iface.methods[size_t(index)].name;
         if (m == "Initialize")
@@ -506,15 +464,33 @@ public:
         if (m == "EnumConnections")
             return kDpOk;
         if (m == "Close") {
-            leave();
+            if (endpoint)
+                endpoint->leave();
             return kDpOk;
         }
+        // CancelMessage(id, flags): every message has gone already.
+        if (m == "CancelMessage")
+            return kDpErrGeneric;
         // InitializeConnection(address, flags): the service provider the
-        // address names.
+        // address names, and the host's address and port, if it gives them.
         if (m == "InitializeConnection") {
-            const uint32_t address = c.arg(1);
-            if (address && c.valid(address, 40) && ComHost::guid(c, address + 20 + 4) == kDpaidServiceProvider)
-                provider = ComHost::guid(c, address + 24 + 20);
+            where = {};
+            for (const Element &e : readAddress(c, c.arg(1))) {
+                if (e.type == kDpaidServiceProvider && e.data.size() == 16) {
+                    const uint32_t at = s->process.memory().alloc(16);
+                    for (uint32_t i = 0; i < 16; ++i)
+                        c.write8(at + i, e.data[i]);
+                    provider = ComHost::guid(c, at);
+                    s->process.memory().free(at);
+                } else if (e.type == kDpaidInet) {
+                    net::Address a;
+                    if (net::parseAddress(std::string(e.data.begin(), std::find(e.data.begin(), e.data.end(), 0)), 0,
+                                          a))
+                        where.ip = a.ip;
+                } else if (e.type == kDpaidInetPort && e.data.size() >= 2) {
+                    where.port = uint16_t(e.data[0] | (e.data[1] << 8));
+                }
+            }
             return connected() ? kDpOk : kDpErrUnavailable;
         }
         // GetPlayerAddress(player, address, *size): for the local machine
@@ -527,12 +503,10 @@ public:
                 return kDpErrUnavailable;
             }
             Element sp{kDpaidServiceProvider, {}};
-            for (int i = 0; i < 16; ++i)
-                sp.data.push_back(0);
             const uint32_t spAt = s->process.memory().alloc(16);
             ComHost::writeGuid(c, spAt, provider);
             for (uint32_t i = 0; i < 16; ++i)
-                sp.data[i] = c.read8(spAt + i);
+                sp.data.push_back(c.read8(spAt + i));
             s->process.memory().free(spAt);
             std::vector<Element> elements{sp};
             if (provider == kSpTcpIp)
@@ -558,37 +532,33 @@ public:
                 return kDpErrUnavailable;
             return std::nullopt;
         }
-        network = s->owner.network;
-        DirectPlay::Network::State &n = net();
+        if (!endpoint)
+            endpoint = std::make_unique<dplay::Endpoint>(*s->owner.network);
+        dplay::Endpoint &ep = *endpoint;
         // EnumSessions(desc, timeout, callback, context, flags): each
-        // session of the desc's application (all for GUID_NULL), and with
-        // DPENUMSESSIONS_AVAILABLE (1) only those that can be joined; then
-        // the timeout, again while the callback asks for it.
+        // session of the desc's application (all for GUID_NULL) that has
+        // answered, and with DPENUMSESSIONS_AVAILABLE (1) only those that
+        // can be joined; then the timeout, again while the callback asks
+        // for it.
         if (m == "EnumSessions") {
             const uint32_t desc = c.arg(1);
             const uint32_t callback = c.arg(3);
             const uint32_t context = c.arg(4);
             const uint32_t flags = c.arg(5);
-            const std::string application = c.valid(desc, 80) ? ComHost::guid(c, desc + 24) : std::string();
+            const uint32_t waitMs = std::min<uint32_t>(c.arg(2) ? c.arg(2) : kSearchMs, 5000);
+            const std::string application = c.valid(desc, 80) ? ComHost::guid(c, desc + 24) : kNullGuid;
             for (int rounds = 0; callback && rounds < 1000; ++rounds) {
-                std::vector<std::pair<std::string, DirectPlay::Network::State::Session>> found;
-                {
-                    std::lock_guard<std::mutex> lock(n.mutex);
-                    for (const auto &[guid, sess] : n.sessions) {
-                        const bool closed =
-                            (sess.flags & 0x21) || (sess.maxPlayers && sess.players() >= sess.maxPlayers);
-                        if (sess.host &&
-                            (application == "{00000000-0000-0000-0000-000000000000}" ||
-                             application == sess.application) &&
-                            !((flags & 1) && closed))
-                            found.emplace_back(guid, sess);
-                    }
-                }
+                const uint64_t before = ep.answers();
+                ep.search(application, where);
+                pause([&] { return ep.answers() > before; }, waitMs);
                 const uint32_t block = s->process.memory().alloc(4 + 80 + 256);
                 c.write32(block, c.arg(2));
                 bool stop = false;
-                for (const auto &[guid, sess] : found) {
-                    writeSession(c, block + 4, block + 84, guid, sess);
+                for (const dplay::SessionInfo &sess : ep.found()) {
+                    const bool closed = (sess.flags & 0x21) || (sess.maxPlayers && sess.players >= sess.maxPlayers);
+                    if ((application != kNullGuid && application != sess.application) || ((flags & 1) && closed))
+                        continue;
+                    writeSession(c, block + 4, block + 84, sess);
                     uint32_t more = 0;
                     if (s->cpu.call(callback, {block + 4, block, 0, context}, more) || !more) {
                         stop = true;
@@ -601,48 +571,49 @@ public:
                 s->process.memory().free(block);
                 if (stop || !again)
                     break;
-                // Asked to keep looking: a while, as the timeout would be.
-                s->process.wait([] { return false; }, 100);
             }
             return kDpOk;
         }
         // Open(desc, flags): DPOPEN_CREATE (2) a session this object hosts,
-        // DPOPEN_JOIN (1) the one with the desc's guidInstance.
+        // DPOPEN_JOIN (1) the one with the desc's guidInstance; with
+        // DPOPEN_RETURNSTATUS (0x80) a join under way says so rather than
+        // waiting.
         if (m == "Open") {
             const uint32_t desc = c.arg(1);
             const uint32_t flags = c.arg(2);
             if (!c.valid(desc, 80))
                 return kDpErrInvalidParams;
-            leave();
-            std::lock_guard<std::mutex> lock(n.mutex);
+            const std::string password = c.read32(desc + 52) ? c.string(c.read32(desc + 52)) : std::string();
             if (flags & 2) {
-                DirectPlay::Network::State::Session sess;
+                dplay::SessionInfo sess;
                 sess.application = ComHost::guid(c, desc + 24);
                 sess.flags = c.read32(desc + 4);
                 sess.maxPlayers = c.read32(desc + 40);
                 if (c.read32(desc + 48))
                     sess.name = c.string(c.read32(desc + 48));
+                sess.password = password;
                 for (int i = 0; i < 4; ++i)
-                    sess.user[i] = c.read32(desc + 64 + 4 * uint32_t(i));
-                sess.host = &node;
-                sess.nodes.insert(&node);
-                char guid[40];
-                std::snprintf(guid, sizeof guid, "{%08x-5245-4c55-5641-000000000000}", n.nextGuid++);
-                n.sessions[guid] = sess;
-                node.session = guid;
-                ComHost::writeGuid(c, desc + 8, guid);
-                return kDpOk;
+                    sess.user[size_t(i)] = c.read32(desc + 64 + 4 * uint32_t(i));
+                const dplay::Endpoint::Status status = ep.host(sess, where.port);
+                if (status == dplay::Endpoint::Status::kOk) {
+                    ComHost::writeGuid(c, desc + 8, sess.guid);
+                    say("DirectPlay: hosting \"" + sess.name + "\" on UDP port " + std::to_string(ep.port()));
+                }
+                return result(status);
             }
             const std::string guid = ComHost::guid(c, desc + 8);
-            auto it = n.sessions.find(guid);
-            if (it == n.sessions.end() || !it->second.host)
-                return kDpErrNoConnection;
-            it->second.nodes.insert(&node);
-            node.session = guid;
-            return kDpOk;
+            dplay::Endpoint::Status status = ep.join(guid, password);
+            if (!(flags & 0x80))
+                for (int tries = 0; status == dplay::Endpoint::Status::kConnecting && tries < 200; ++tries) {
+                    pause([] { return false; }, 50);
+                    status = ep.join(guid, password);
+                }
+            if (status == dplay::Endpoint::Status::kOk)
+                say("DirectPlay: joined \"" + ep.session().value_or(dplay::SessionInfo()).name + "\"");
+            else if (status == dplay::Endpoint::Status::kRefused)
+                say("DirectPlay: the host turned down joining");
+            return result(status);
         }
-        std::lock_guard<std::mutex> lock(n.mutex);
-        DirectPlay::Network::State::Session *sess = session();
         if (m == "GetCaps") {
             // DPCAPS: size, flags (DPCAPS_ISHOST 2), the largest message,
             // queue, players, speed (hundreds of baud), latency, local
@@ -650,125 +621,80 @@ public:
             const uint32_t caps = c.arg(1);
             if (!c.valid(caps, 40))
                 return kDpErrInvalidParams;
-            const uint32_t values[10] = {
-                40, sess && sess->host == &node ? 2u : 0u, 0xffff, 0, 0xffff, 100000, 50, 0xffff, 0, 5000};
+            const uint32_t values[10] = {40, ep.hosting() ? 2u : 0u, 0xffff, 0, 0xffff, 100000, 50, 0xffff, 0, 5000};
             for (int i = 0; i < 10; ++i)
                 c.write32(caps + 4 * uint32_t(i), values[i]);
             return kDpOk;
         }
-        if (!sess)
-            return kDpErrNoConnection;
         // CreatePlayer(*id, DPNAME, event, data, size, flags) and
         // CreateGroup(*id, DPNAME, data, size, flags): the others told.
         if (m == "CreatePlayer" || m == "CreateGroup") {
             const bool group = m == "CreateGroup";
-            DirectPlay::Network::State::Member member;
-            member.node = &node;
+            if (!c.valid(c.arg(1), 4))
+                return kDpErrInvalidParams;
+            dplay::Member member;
             member.group = group;
             readName(c, c.arg(2), member.shortName, member.longName);
             member.data = readBytes(c, c.arg(group ? 3 : 4), c.arg(group ? 4 : 5));
             member.flags = c.arg(group ? 5 : 6);
-            if (!c.valid(c.arg(1), 4))
-                return kDpErrInvalidParams;
-            const uint32_t id = n.nextId++;
-            sess->members[id] = member;
-            node.players.insert(id);
-            c.write32(c.arg(1), id);
-            n.tell(*sess, &node, created(id, member, sess->players()));
-            return kDpOk;
+            uint32_t id = 0;
+            const dplay::Endpoint::Status status = ep.create(member, id);
+            if (status == dplay::Endpoint::Status::kOk)
+                c.write32(c.arg(1), id);
+            return result(status);
         }
-        if (m == "DestroyPlayer" || m == "DestroyGroup") {
-            auto it = sess->members.find(c.arg(1));
-            if (it == sess->members.end())
-                return kDpErrInvalidPlayer;
-            n.tell(*sess, &node, destroyed(it->first, it->second));
-            for (auto &[id, other] : sess->members)
-                other.members.erase(it->first);
-            node.players.erase(it->first);
-            sess->members.erase(it);
-            return kDpOk;
-        }
+        if (m == "DestroyPlayer" || m == "DestroyGroup")
+            return result(ep.destroy(c.arg(1)));
         // AddPlayerToGroup(group, player), DeletePlayerFromGroup.
-        if (m == "AddPlayerToGroup" || m == "DeletePlayerFromGroup") {
-            auto group = sess->members.find(c.arg(1));
-            if (group == sess->members.end() || !group->second.group || !sess->members.count(c.arg(2)))
-                return kDpErrInvalidPlayer;
-            const bool add = m == "AddPlayerToGroup";
-            if (add)
-                group->second.members.insert(c.arg(2));
-            else
-                group->second.members.erase(c.arg(2));
-            n.tell(*sess, &node, membership(add ? 7 : 0x21, c.arg(1), c.arg(2)));
-            return kDpOk;
-        }
+        if (m == "AddPlayerToGroup" || m == "DeletePlayerFromGroup")
+            return result(ep.membership(c.arg(1), c.arg(2), m == "AddPlayerToGroup"));
         // EnumPlayers(guid, callback, context, flags), EnumGroups, and
         // EnumGroupPlayers(group, guid, callback, context, flags).
         if (m == "EnumPlayers" || m == "EnumGroups" || m == "EnumGroupPlayers") {
-            std::vector<std::pair<uint32_t, DirectPlay::Network::State::Member>> ids;
+            if (!ep.session())
+                return kDpErrNoConnection;
+            const std::map<uint32_t, dplay::Member> members = ep.members();
             const bool ofGroup = m == "EnumGroupPlayers";
-            const DirectPlay::Network::State::Member *group = nullptr;
+            const dplay::Member *group = nullptr;
             if (ofGroup) {
-                auto it = sess->members.find(c.arg(1));
-                if (it == sess->members.end() || !it->second.group)
+                auto it = members.find(c.arg(1));
+                if (it == members.end() || !it->second.group)
                     return kDpErrInvalidPlayer;
                 group = &it->second;
             }
-            for (const auto &[id, member] : sess->members)
+            std::vector<std::pair<uint32_t, dplay::Member>> ids;
+            for (const auto &[id, member] : members)
                 if (ofGroup ? group->members.count(id) != 0 : member.group == (m == "EnumGroups"))
                     ids.emplace_back(id, member);
-            const uint32_t callback = c.arg(ofGroup ? 3 : 2);
-            const uint32_t context = c.arg(ofGroup ? 4 : 3);
-            n.mutex.unlock();
-            enumerate(c, ids, callback, context);
-            n.mutex.lock();
+            enumerate(c, ids, c.arg(ofGroup ? 3 : 2), c.arg(ofGroup ? 4 : 3));
             return kDpOk;
         }
         // Send(from, to, flags, data, size) and SendEx(..., priority,
-        // timeout, context, *id): to a player, a group's players, or every
-        // player (DPID_ALLPLAYERS, 0), never back to the sender. Delivered
-        // at once; an asynchronous SendEx (DPSEND_ASYNC, 0x200) says it's
-        // pending, and is told complete unless asked not to (0x400).
+        // timeout, context, *id): DPSEND_GUARANTEED (1) arrives, in order.
+        // An asynchronous SendEx (DPSEND_ASYNC, 0x200) says it's pending,
+        // and is told complete unless asked not to (0x400).
         if (m == "Send" || m == "SendEx") {
             const uint32_t from = c.arg(1);
             const uint32_t to = c.arg(2);
-            Message msg;
-            msg.from = from;
-            msg.data = readBytes(c, c.arg(4), c.arg(5));
-            std::set<uint32_t> targets;
-            if (to == 0) {
-                for (const auto &[id, member] : sess->members)
-                    if (!member.group && id != from)
-                        targets.insert(id);
-            } else if (auto it = sess->members.find(to); it != sess->members.end()) {
-                if (it->second.group)
-                    targets = it->second.members;
-                else
-                    targets.insert(to);
-                targets.erase(from);
-            } else {
-                return kDpErrInvalidPlayer;
-            }
-            for (uint32_t t : targets) {
-                auto it = sess->members.find(t);
-                if (it == sess->members.end() || !it->second.node)
-                    continue;
-                msg.to = t;
-                it->second.node->queue.push_back(msg);
-            }
-            if (m == "SendEx" && (c.arg(3) & 0x200)) {
-                const uint32_t id = n.nextMessage++;
+            const uint32_t flags = c.arg(3);
+            const dplay::Endpoint::Status status =
+                ep.send(from, to, readBytes(c, c.arg(4), c.arg(5)), (flags & 1) != 0);
+            if (status != dplay::Endpoint::Status::kOk)
+                return result(status);
+            if (m == "SendEx" && (flags & 0x200)) {
+                const uint32_t id = nextMessage++;
                 if (c.arg(9) && c.valid(c.arg(9), 4))
                     c.write32(c.arg(9), id);
-                if (!(c.arg(3) & 0x400)) {
+                if (!(flags & 0x400)) {
                     // DPSYS_SENDCOMPLETE: from, to, flags, priority,
                     // timeout, context, the message's id, its result, time.
-                    Message done;
+                    dplay::Received done;
                     done.data.resize(40);
-                    const uint32_t fields[10] = {0x10d, from, to, c.arg(3), c.arg(6), c.arg(7), c.arg(8), id, kDpOk, 0};
+                    const uint32_t fields[10] = {0x10d, from, to, flags, c.arg(6), c.arg(7), c.arg(8), id, kDpOk, 0};
                     for (int i = 0; i < 10; ++i)
                         put32(done.data, 4 * size_t(i), fields[i]);
                     done.to = from;
-                    node.queue.push_back(done);
+                    ep.post(done);
                 }
                 return kDpErrPending;
             }
@@ -782,39 +708,47 @@ public:
             const uint32_t flags = c.arg(3);
             const uint32_t data = c.arg(4);
             const uint32_t sizePtr = c.arg(5);
-            auto it = std::find_if(node.queue.begin(), node.queue.end(), [&](const Message &msg) {
-                if ((flags & 4) && c.valid(fromPtr, 4) && msg.from != c.read32(fromPtr))
-                    return false;
-                return !((flags & 2) && c.valid(toPtr, 4) && msg.to != c.read32(toPtr));
-            });
-            if (it == node.queue.end())
+            const uint32_t wantFrom = (flags & 4) && c.valid(fromPtr, 4) ? c.read32(fromPtr) : 0;
+            const uint32_t wantTo = (flags & 2) && c.valid(toPtr, 4) ? c.read32(toPtr) : 0;
+            const auto match = [&](const dplay::Received &r) {
+                return (!(flags & 4) || r.from == wantFrom) && (!(flags & 2) || r.to == wantTo);
+            };
+            std::optional<dplay::Received> got = ep.receive(match, true);
+            if (!got)
                 return kDpErrNoMessages;
             if (!c.valid(sizePtr, 4))
                 return kDpErrInvalidParams;
-            const uint32_t size = uint32_t(it->data.size());
+            Laid laid;
+            if (got->event)
+                laid = layOut(*got->event);
+            else
+                laid.data = got->data;
+            const uint32_t size = uint32_t(laid.data.size());
             const uint32_t room = c.read32(sizePtr);
             c.write32(sizePtr, size);
             if (!data || room < size || !c.valid(data, size))
                 return kDpErrBufferTooSmall;
+            if (!(flags & 8))
+                ep.receive(match, false);
             for (uint32_t i = 0; i < size; ++i)
-                c.write8(data + i, it->data[i]);
-            for (uint32_t field : it->pointers)
+                c.write8(data + i, laid.data[i]);
+            for (uint32_t field : laid.pointers)
                 c.write32(data + field, data + c.read32(data + field));
             if (c.valid(fromPtr, 4))
-                c.write32(fromPtr, it->from);
+                c.write32(fromPtr, got->from);
             if (c.valid(toPtr, 4))
-                c.write32(toPtr, it->to);
-            if (!(flags & 8))
-                node.queue.erase(it);
+                c.write32(toPtr, got->to);
             return kDpOk;
         }
         // GetMessageCount(player, *count).
         if (m == "GetMessageCount") {
             if (!c.valid(c.arg(2), 4))
                 return kDpErrInvalidParams;
-            c.write32(c.arg(2), uint32_t(std::count_if(node.queue.begin(), node.queue.end(), [&](const Message &msg) {
-                          return c.arg(1) == 0 || msg.to == c.arg(1);
-                      })));
+            const uint32_t player = c.arg(1);
+            uint32_t count = 0;
+            uint32_t bytes = 0;
+            ep.waiting([&](const dplay::Received &r) { return player == 0 || r.to == player; }, count, bytes);
+            c.write32(c.arg(2), count);
             return kDpOk;
         }
         // GetMessageQueue(from, to, flags, *count, *bytes): what's waiting
@@ -823,21 +757,17 @@ public:
         if (m == "GetMessageQueue") {
             uint32_t count = 0;
             uint32_t bytes = 0;
+            const uint32_t from = c.arg(1);
+            const uint32_t to = c.arg(2);
             if (c.arg(3) & 2)
-                for (const Message &msg : node.queue)
-                    if ((!c.arg(1) || msg.from == c.arg(1)) && (!c.arg(2) || msg.to == c.arg(2))) {
-                        ++count;
-                        bytes += uint32_t(msg.data.size());
-                    }
+                ep.waiting([&](const dplay::Received &r) { return (!from || r.from == from) && (!to || r.to == to); },
+                           count, bytes);
             if (c.arg(4) && c.valid(c.arg(4), 4))
                 c.write32(c.arg(4), count);
             if (c.arg(5) && c.valid(c.arg(5), 4))
                 c.write32(c.arg(5), bytes);
             return kDpOk;
         }
-        // CancelMessage(id, flags): every message has gone already.
-        if (m == "CancelMessage")
-            return kDpErrGeneric;
         return std::nullopt;
     }
 };

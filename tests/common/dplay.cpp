@@ -14,9 +14,11 @@
 #include "emulation/x86/win32.h"
 #include "tests/support/test.h"
 
+#include <chrono>
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 using namespace reluva;
@@ -170,26 +172,35 @@ struct Peer : Fixture {
         CHECK(method(dp, kCreatePlayer, {mem + 760, dpname, 0, 0, 0, 0}) == 0);
         return cpu.read32(mem + 760);
     }
-    // Receives into mem + 2048: the result, and from whom.
-    uint32_t receive(uint32_t &from, uint32_t room = 1024) {
-        cpu.write32(mem + 768, 0);
-        cpu.write32(mem + 772, 0);
-        cpu.write32(mem + 776, room);
-        const uint32_t r = method(dp, kReceive, {mem + 768, mem + 772, 1, mem + 2048, mem + 776});
+    // Receives into mem + 2048, waiting up to `waitMs` for a message to
+    // come over the network: the result, and from whom.
+    uint32_t receive(uint32_t &from, uint32_t room = 1024, int waitMs = 2000) {
+        uint32_t r = kNoMessages;
+        for (int waited = 0; r == kNoMessages && waited <= waitMs; waited += 5) {
+            cpu.write32(mem + 768, 0);
+            cpu.write32(mem + 772, 0);
+            cpu.write32(mem + 776, room);
+            r = method(dp, kReceive, {mem + 768, mem + 772, 1, mem + 2048, mem + 776});
+            if (r == kNoMessages)
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
         from = cpu.read32(mem + 768);
         return r;
+    }
+    uint32_t nothing() {
+        uint32_t from = 0;
+        return receive(from, 1024, 100);
     }
     uint32_t received(uint32_t offset) { return cpu.read32(mem + 2048 + offset); }
 };
 
 void testNetwork() {
-    auto network = std::make_shared<x86::DirectPlay::Network>();
+    auto network = x86::DirectPlay::Network::inMemory();
     Peer host(network);
     Peer guest(network);
 
     // The host's session, made; its GUID written back into the desc.
     CHECK(host.method(host.dp, kOpen, {host.desc("Loco", 4), 2}) == 0);
-    CHECK(network->sessions() == 1);
     const std::string session = x86::ComHost::guid(host.cpu, host.mem + 512 + 8);
     const uint32_t hostPlayer = host.player("Host");
     CHECK(host.method(host.dp, kGetCaps, {host.mem + 800, 0}) == 0);
@@ -223,12 +234,12 @@ void testNetwork() {
     CHECK(host.receive(from) == 0);
     CHECK(from == 0 && host.received(0) == 3 && host.received(8) == guestPlayer);
     CHECK(host.cpu.string(host.received(36)) == "Guest"); // its long name, made the host's pointer
-    CHECK(host.receive(from) == kNoMessages);
+    CHECK(host.nothing() == kNoMessages);
 
     // A message to everyone reaches the host alone; too little room says how much.
     guest.cpu.writeString(guest.mem + 1024, "hello", 6);
     CHECK(guest.method(guest.dp, kSend, {guestPlayer, 0, 1, guest.mem + 1024, 6}) == 0);
-    CHECK(guest.receive(from) == kNoMessages);
+    CHECK(guest.nothing() == kNoMessages);
     CHECK(host.method(host.dp, kGetMessageCount, {hostPlayer, host.mem + 800}) == 0);
     CHECK(host.cpu.read32(host.mem + 800) == 1);
     CHECK(host.receive(from, 2) == kBufferTooSmall);
@@ -267,9 +278,7 @@ void testNetwork() {
     CHECK(guest.receive(from) == 0 && guest.received(0) == 5 && guest.received(8) == hostPlayer);
     CHECK(guest.receive(from) == 0 && guest.received(0) == 5 && guest.received(8) == group);
     CHECK(guest.receive(from) == 0 && guest.received(0) == 0x31);
-    CHECK(network->sessions() == 1);
     CHECK(guest.method(guest.dp, kClose, {}) == 0);
-    CHECK(network->sessions() == 0);
 }
 
 } // namespace

@@ -95,6 +95,11 @@ is the game's own and passed up as it is.
 
 ## Used by
 
+- **DirectPlay** ([x86/dplay.md](x86/dplay.md#the-protocol)): a
+  program's DirectPlay sessions are listed there, by the program's
+  application GUID, and joined through it; LEGO Loco's when its
+  `meeting_server` is set
+  ([running.md](../engines/legoloco/systems/running.md#in-reluva)).
 - **`age`**: Midtown Madness 2's network menus take a meeting server on
   the sessions screen, list its sessions and host and join through it
   ([network-protocol.md](../engines/age/games/mm2/systems/network-protocol.md#through-a-meeting-server)).

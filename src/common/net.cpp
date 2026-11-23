@@ -65,6 +65,7 @@ public:
     Socket(std::shared_ptr<LoopbackNetwork> network, uint16_t port, std::shared_ptr<Queue> queue)
         : _network(std::move(network)), _port(port), _queue(std::move(queue)) {}
     ~Socket() override {
+        std::lock_guard<std::mutex> lock(_network->_mutex);
         _queue->open = false;
         _queue->datagrams.clear();
     }
@@ -73,6 +74,7 @@ public:
         return _network->deliver({0x7f000001u, _port}, to, data);
     }
     bool receive(Address &from, std::vector<uint8_t> &data) override {
+        std::lock_guard<std::mutex> lock(_network->_mutex);
         if (_queue->datagrams.empty())
             return false;
         from = _queue->datagrams.front().first;
@@ -88,6 +90,7 @@ private:
 };
 
 std::unique_ptr<UdpSocket> LoopbackNetwork::open(uint16_t port) {
+    std::lock_guard<std::mutex> lock(_mutex);
     auto taken = [&](uint16_t p) {
         return std::any_of(_queues.begin(), _queues.end(),
                            [&](const auto &q) { return q.first == p && q.second->open; });
@@ -112,10 +115,12 @@ std::unique_ptr<UdpSocket> LoopbackNetwork::open(uint16_t port) {
 }
 
 void LoopbackNetwork::setDropFilter(bool (*drop)(const Address &, const Address &, size_t)) {
+    std::lock_guard<std::mutex> lock(_mutex);
     _drop = drop;
 }
 
 bool LoopbackNetwork::deliver(const Address &from, const Address &to, const std::vector<uint8_t> &data) {
+    std::lock_guard<std::mutex> lock(_mutex);
     const size_t index = _sent++;
     if (to.ip != 0xffffffffu && !to.isLoopback())
         return true; // nowhere to go, as a datagram to nobody
