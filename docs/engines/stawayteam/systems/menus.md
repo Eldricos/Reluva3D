@@ -443,7 +443,9 @@ as "%d,%d,%d,%d".
   at 47,6 in Placar Condensed, and "Click on an action to bind it to a new
   key." at 220,107 in Trek Small Red, 181 wide.
 - **A tab for each category,** in the order the actions bring them, text
-  buttons in Placar Condensed (`0x4ea441`), the first at `ButtonStart Pos`
+  buttons in Placar Condensed (`0x4ea441`), each its label's width and 2
+  by the font's baseline and 2, with no margin (`0x4ea4c7`, `0x4e4730`,
+  the margin 0 fifths at `0x40a080`), the first at `ButtonStart Pos`
   (62,75), each next the first's height and `Button Spacing` (6) under
   the one before (`0x4eaaf0`); the one chosen is checked, so bright.
 - **Its panel** at `ConfigStart Pos` (208,72), `ConfigStart Size`
@@ -453,11 +455,18 @@ as "%d,%d,%d,%d".
   apart, the name 3 in from the right; what it's bound to just after the
   row (`0x4e99e0`).
 - **Binding:** a click on an action makes it wait for a key, checked
-  (`0x4e9c30`); the next key binds it (`0x484060`); any other action bound
-  to that key loses it, and "Name action deleted." shows in the list of
+  (`0x4e9c30`). While it waits (`0x484060`, reading the keys as they're
+  down): Esc gives up, the binding as it was (`0x48417e`); Delete takes
+  its key away (`0x484149`); the keys kept for the program can't be
+  bound and play `Error.wav` (`0x484213`, the list at `0x63b6e8`: the
+  Windows keys, F1, F8 to F12 and 1 to 6); any other key down becomes the
+  key, the one down before it, if there was one, the key held with it
+  (`0x4841c6`), whatever keys they are; once every key is let go, it's
+  bound (`0x4841d6`). Any other action bound to that key loses it, and "Name action deleted." shows in the list of
   changes at `KeyChangeList Pos` (62,208) for 10 seconds (`0x4ea960`). With
-  an action chosen, two of the program's keys take its key away
-  (`0x4e990f`).
+  an action chosen, Delete and Backspace take its key away (`0x4e990f`,
+  the program's keys 17 and 8). EXIT is the screen's default and cancel
+  button, and has the focus (`0x4ea923`).
 - **The mouse's panel** at `Mouse Pos` (412,94) (`0x4e90c0`): "MOUSE
   CONFIG" in its font, Trek Small, at `MouseTitle Pos`; `Key Config/Mouse`
   at `MouseImage Pos` (8,32); each button's use at `Button1-3 Pos`, wrapped
@@ -565,9 +574,10 @@ Game/Background`:
   but don't change what's heard yet. CONFIGURE KEYBOARD opens the keyboard screen
   (`KeyConfigScreen`, `ui/key_config.cpp`; the actions and bindings in
   `Controls`, `game/controls.cpp`, kept with the options): a click on an
-  action, then a key, binds it, a key held with Shift, Ctrl or Alt with
-  it; Esc while waiting gives up; Delete or Backspace takes the chosen
-  action's key away; EXIT or Esc closes it. The bindings aren't used yet,
+  action, then keys, bind it as the game does, a key held before
+  another with it; Esc while waiting gives up,
+  Delete clears it; Delete or Backspace takes the chosen action's key
+  away; EXIT, Enter or Esc closes it. The bindings aren't used yet,
   as there's no game to play. A slider
   clicked takes the keys: Home, End, Left and Right. Play
   Network Game opens Choose Netgame ([network.md](network.md)).
@@ -612,11 +622,9 @@ Game/Background`:
 
 ## Open questions
 
-- **The keyboard screen:** how a tab is sized, which keys take an
-  action's key away (Reluva: Delete and Backspace), whether Esc gives up
-  waiting for a key, how a held key is recorded, the order of the list of
-  changes, and the borders' widths of its texts. Reluva's choices are
-  noted in the code.
+- **The keyboard screen:** the order of the list of changes (Reluva adds
+  each at the end) and the borders' widths of its texts. Reluva's
+  choices are noted in the code.
 - **A slider's focus:** how a slider gets the keyboard's focus other than
   by Tab. Reluva gives it to the last slider clicked, and has no Tab.
 - **The keyboard screen's default and cancel buttons:** not traced;

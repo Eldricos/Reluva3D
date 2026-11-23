@@ -14,6 +14,7 @@
 #include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/credits.h"
 #include "engines/stawayteam/ui/font.h"
+#include "engines/stawayteam/ui/key_config.h"
 #include "engines/stawayteam/ui/main_menu.h"
 #include "engines/stawayteam/game/controls.h"
 #include "engines/stawayteam/game/options.h"
@@ -383,6 +384,55 @@ void testControls() {
     CHECK(again.text(25) == "W" && again.text(1) == "Shift+R" && again.scheme == 1);
     again.reset();
     CHECK(again.text(0) == "W" && again.text(25).empty());
+
+    // The keyboard screen: a click on Walk waits for a key; Esc gives up,
+    // the binding kept; Delete takes the key away; Enter presses EXIT.
+    MemoryArchive data;
+    data.files["Cache/Fonts/Trek Small.seq16"] = fontFile({solidFrame(3, 5, 0xffff)}, 65);
+    TextObject rules;
+    GameOptions options;
+    KeyConfigScreen screen(data, rules, options);
+    Event click;
+    click.button = MouseButton::kLeft;
+    click.mouseX = 10;
+    click.mouseY = 2 + 0x18 + 5;
+    const auto clickWalk = [&] {
+        click.type = EventType::kMouseDown;
+        (void)screen.handleEvent(click, nullptr, 0);
+        click.type = EventType::kMouseUp;
+        (void)screen.handleEvent(click, nullptr, 0);
+    };
+    Event press;
+    press.type = EventType::kKeyDown;
+    clickWalk();
+    press.key = key::kEscape;
+    CHECK(!screen.handleEvent(press, nullptr, 0) && options.controls.text(0) == "W");
+    clickWalk();
+    press.key = key::kDelete;
+    CHECK(!screen.handleEvent(press, nullptr, 0) && options.controls.text(0).empty());
+    // A key is bound as every key is let go, with the one held before it,
+    // whatever it is; 1-6 are the program's and can't be bound.
+    const auto key = [&](EventType type, uint32_t k) {
+        press.type = type;
+        press.key = k;
+        (void)screen.handleEvent(press, nullptr, 0);
+    };
+    clickWalk();
+    key(EventType::kKeyDown, key::kLShift);
+    key(EventType::kKeyDown, 'r');
+    key(EventType::kKeyUp, 'r');
+    CHECK(options.controls.text(0).empty());
+    key(EventType::kKeyUp, key::kLShift);
+    CHECK(options.controls.text(0) == "Shift+R");
+    clickWalk();
+    key(EventType::kKeyDown, '1');
+    key(EventType::kKeyDown, 't');
+    key(EventType::kKeyUp, 't');
+    key(EventType::kKeyUp, '1');
+    CHECK(options.controls.text(0) == "T");
+    press.type = EventType::kKeyDown;
+    press.key = key::kReturn;
+    CHECK(screen.handleEvent(press, nullptr, 0));
 }
 
 std::vector<uint8_t> bytesOf(const std::string &text) {

@@ -5,6 +5,7 @@
 
 #include "engines/stawayteam/ui/layout.h"
 #include "engines/stawayteam/ui/main_menu.h"
+#include "engines/stawayteam/ui/widgets.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -21,6 +22,8 @@ constexpr uint64_t kChangeMs = 10000;                                           
 // wide as 33 X's (0x4e9817), its name 3 in from its right and down
 // (0x5efef0); what it's bound to just after it, 2 in.
 constexpr int kTitleGap = 0x18;
+constexpr std::array<int, 14> kReserved = {0x15b, 0x15c, 0x3b, 0x42, 0x43, 0x44, 0x57,
+                                           0x58,  0x2,   0x3,  0x4,  0x5,  0x6,  0x7};
 constexpr int kRowGap = 2;
 const char *const kRowWidth = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
 constexpr int kRowTextInset = 3;
@@ -72,7 +75,9 @@ KeyConfigScreen::KeyConfigScreen(const Archive &data, const TextObject &rules, G
     int panelW = 0;
     int panelH = 0;
     readPoint(def, "ConfigStart Size", panelW, panelH);
-    const int titleH = (_windowFont.loaded() ? _windowFont.height() : 0) + 2;
+    // A tab is its label's width and 2 by the font's baseline and 2, with
+    // no margin (0x4ea4c7, 0x4e4730).
+    const int titleH = (_windowFont.loaded() ? _windowFont.baseline() : 0) + 2;
     _rowsTop = titleH + kTitleGap;
     const int rowW = _panelFont.loaded() ? _panelFont.width(kRowWidth) : 0;
     const int rowH = (_panelFont.loaded() ? _panelFont.baseline() : 0) + 6;
@@ -83,7 +88,6 @@ KeyConfigScreen::KeyConfigScreen(const Archive &data, const TextObject &rules, G
         if (panel == _panels.end()) {
             _panels.push_back({actions[i].category, {}});
             panel = _panels.end() - 1;
-            // A tab is its label's size, and 2 (inferred).
             const int w = (_windowFont.loaded() ? _windowFont.width(actions[i].category) : 0) + 2;
             TextButton tab(actions[i].category, &_windowFont, w, titleH);
             const int step = _tabs.empty() ? 0 : _tabs.front().height() + spacing;
@@ -148,28 +152,44 @@ bool KeyConfigScreen::handleEvent(const Event &ev, audio::Mixer *mixer, uint64_t
         return false;
     }
     Panel &panel = _panels[_shown];
-    if (_waiting >= 0 && ev.type == EventType::kKeyDown) {
-        // Waiting for a key (0x484060): Esc gives up (inferred); a key
-        // held with another is bound with it.
-        if (ev.key == key::kEscape) {
+    if (_waiting >= 0 && (ev.type == EventType::kKeyDown || ev.type == EventType::kKeyUp)) {
+        // Waiting for a key (0x484060): Esc gives up, the binding as it
+        // was (0x48417e); Delete takes its key away (0x484149).
+        const int code = scanCode(ev.key);
+        if (ev.type == EventType::kKeyDown && (ev.key == key::kEscape || ev.key == key::kDelete)) {
+            if (ev.key == key::kDelete) {
+                _options.controls.clearKey(panel.rows[size_t(_waiting)].action);
+                save();
+            }
             panel.rows[size_t(_waiting)].name.setChecked(false);
             _waiting = -1;
             return false;
         }
-        const int code = scanCode(ev.key);
-        const bool isModifier =
-            code == 0x2a || code == 0x36 || code == 0x1d || code == 0x11d || code == 0x38 || code == 0x138;
-        if (code && !isModifier) {
-            const int modifier = ev.mods & keymod::kShift  ? 0x2a
-                                 : ev.mods & keymod::kCtrl ? 0x1d
-                                 : ev.mods & keymod::kAlt  ? 0x38
-                                                           : 0;
-            bind(code, modifier, now);
+        if (ev.type == EventType::kKeyDown && code && std::find(_down.begin(), _down.end(), code) == _down.end()) {
+            _down.push_back(code);
+            // Keys kept for the program can't be bound (0x63b6e8): the
+            // Windows keys, F1 and F8-F12, and 1-6 (the game plays an
+            // Error.wav it hasn't got).
+            if (std::find(kReserved.begin(), kReserved.end(), code) != kReserved.end())
+                return false;
+            // Any key down before the last is held with it (0x4841c6).
+            if (_key && !_held)
+                _held = _key;
+            _key = code;
+        } else if (ev.type == EventType::kKeyUp) {
+            std::erase(_down, code);
+            // Bound once every key is let go (0x4841d6).
+            if (_down.empty() && _key) {
+                bind(_key, _held, now);
+                _key = _held = 0;
+            }
         }
         return false;
     }
     if (ev.type == EventType::kKeyDown) {
-        if (ev.key == key::kEscape)
+        // EXIT is the screen's default and cancel button, and has the
+        // focus (0x4ea923).
+        if ((isEnter(ev) || isEscape(ev)) && _buttons.press(0, mixer) == 0)
             return true;
         // Delete or Backspace takes the chosen action's key away (0x4e990f).
         if ((ev.key == key::kDelete || ev.key == key::kBackspace) && _selected >= 0) {
@@ -204,6 +224,8 @@ bool KeyConfigScreen::handleEvent(const Event &ev, audio::Mixer *mixer, uint64_t
             if (_waiting >= 0)
                 current.rows[size_t(_waiting)].name.setChecked(false);
             _waiting = _selected = int(i);
+            _down.clear();
+            _key = _held = 0;
             current.rows[i].name.setChecked(true);
         }
     if (_reverse.handleEvent(ev, _mouseX, _mouseY)) {

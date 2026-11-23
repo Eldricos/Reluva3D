@@ -82,6 +82,11 @@ private:
     // its key away).
     int _waiting = -1;
     int _selected = -1;
+    // While waiting: the keys down, and the key and the one held with it
+    // so far (scan codes; 0: none).
+    std::vector<int> _down;
+    int _key = 0;
+    int _held = 0;
     std::vector<Change> _changes;
     int _changesX = 0;
     int _changesY = 0;
