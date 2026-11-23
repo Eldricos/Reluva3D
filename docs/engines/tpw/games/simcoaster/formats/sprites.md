@@ -16,12 +16,34 @@ Each sprite is two or three files of one name:
 
 - `.TPC`, a sheet: a palette and frames, each a picture of run-length
   coded rows;
-- `.FPC`, the same frames a little larger, beside some sheets: another
-  detail setting's, it seems *(guessed)*;
+- `.FPC`, the same frames seen from lower down, beside the sheets of
+  those walking about (not the balloons', thoughts' or heads'): for the
+  first-person view, where the camera walks among the visitors at eye
+  level (from 22:30 in the recording), as `.TPC`'s are for the park's
+  view from above *(inferred)*. The settings' `FP` fields for a
+  visitor's umbrella (below) are the first-person view's, beside its
+  others;
 - `.ESP`, its animations: which frames of the sheet each plays.
 
 The visitors: kids `SPR_KB`, `SPR_GK`, `SPR_BD` and `SPR_GB`; parents
 `SPR_FA` and `SPR_MO`; grandparents `SPR_GR` and `SPR_GM`.
+
+A `.TPC` frame is a `.FPC` one squashed: as wide, but shorter (the
+father standing 54 pixels high against 63), its point below the feet
+rather than at them, as a person is seen from above *(confirmed: every
+pair of sheets alike)*.
+
+### How large
+
+A frame's pixel is about a tenth of the world's unit *(inferred)*:
+
+- the recording's visitors stand about half a path's cell (10 units)
+  high, 15 to 20 pixels against the cell's 32, at 11:40 and 20:00;
+- the general settings (`levels/Standard.sam`) hold an umbrella over
+  each kind of visitor (`PersonSpriteUmbrellaModifiers[n].Y`): 5.7
+  units up over a child, 6.5 over the "tall woman", 5.5 and 5.6 over the
+  "old biddy" and "old bloke", the comments say; their `.FPC` frames
+  are 50 to 63 pixels high, 0.10 to 0.11 units each.
 
 ## Layout
 
@@ -86,7 +108,19 @@ so)*. No animation's frames run past its sheet's *(confirmed)*.
 
 For the visitors, animation 0 is one frame in five directions, standing;
 1 is eight in five, walking; the kids' 2 eight in five, running, by their frames
-*(inferred)*. What the rest are isn't worked out.
+*(inferred)*. The others, four frames in five directions, by what they
+show; what the game plays them for isn't known:
+
+| Animation | What its frames show |
+|---|---|
+| 4 | Leaning, then bending forward |
+| 6 | Bending right down to the ground |
+| 12 | Arms flung out, the mouth open: cheering, or shouting |
+| 15 | A hand to the mouth: eating or drinking |
+
+The guards' have more: 4 holding up a card with a red cross, 5 a sign,
+8 walking with a sack over the shoulder (eight frames), 7 and 9 lifting
+and putting down the sack.
 
 ## In Reluva
 
@@ -96,7 +130,9 @@ read the sheets and the animations; `drawSpriteFrame` and `spritePose`
 heading against the camera's, the nearest of the eight, and draw it,
 blended, scaled by its distance. The park's visitors are drawn so
 ([park.md](../systems/park.md#visitors)), from the `.TPC` sheets, a
-look each, walking at 12 frames a second *(guessed)*.
+look each of their generation's, 0.1 units a pixel. Their walk steps a
+frame each unit walked, its eight frames over 8 units, about one and a
+half of an adult's heights *(guessed)*.
 
 `reluva-tool tpw sprite-check <game folder>` reads every sheet and
 animation set, and checks each animation's frames are in its sheet;
@@ -108,15 +144,19 @@ choose frames by heading.
 
 - **Where the facts come from:** the US release's `esprites.wad`
   (November 2026): the frames by reading every sheet through to its
-  end; the palette's order and the directions by drawing them.
+  end; the palette's order and the directions by drawing them; the
+  general settings' umbrellas and their comments; the recording, its
+  visitors measured against its paths.
 - **How it was checked:** `sprite-check`: 71 sheets and 45 sets read,
   7,893 frames, none of the animations past its sheet's frames; the
   visitors drawn walking up the park's path, their backs to the camera.
 
 ## Open questions
 
-- Which detail setting picks `.FPC` over `.TPC`; the frames' 128s.
-- The animations past the third: what each plays; the `.ESP`'s flags.
-- How fast the game plays them, and how large it draws a sprite against
-  the world: Reluva's 0.05 units a pixel is matched by eye to a
-  recording.
+- The frames' 128s; the `.ESP`'s flags.
+- When the game plays the visitors' animations 4, 6, 12 and 15, and the
+  staff's others.
+- How fast the game steps them: the recording's visitors are too small,
+  and its camera moves too often, to count their frames.
+- Which umbrella setting is which visitor's: 10 of them, against 8
+  visitors' sprites.

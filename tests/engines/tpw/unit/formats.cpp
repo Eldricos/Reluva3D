@@ -844,15 +844,15 @@ void testSprites() {
 
     const SpriteSet::Animation &walk = set.animations()[1];
     constexpr float kQuarter = 1.5707963f;
-    // Away, at its first frame; right, the third direction, 250 ms in at
-    // 12 frames a second its third frame; left, mirrored; towards.
-    SpritePose p = spritePose(walk, 0, 0, 12);
+    // Away, at its first frame; right, the third direction, three frames
+    // on; left, mirrored; towards, round once and four on.
+    SpritePose p = spritePose(walk, 0, 0);
     CHECK(p.frame == 125 && !p.mirror);
-    p = spritePose(walk, kQuarter, 250, 12);
+    p = spritePose(walk, kQuarter, 3);
     CHECK(p.frame == 125 + 2 * 8 + 3 && !p.mirror);
-    p = spritePose(walk, -kQuarter, 0, 12);
+    p = spritePose(walk, -kQuarter, 0);
     CHECK(p.frame == 125 + 2 * 8 && p.mirror);
-    p = spritePose(walk, 2 * kQuarter, 1000, 12);
+    p = spritePose(walk, 2 * kQuarter, 12);
     CHECK(p.frame == 125 + 4 * 8 + 4 && !p.mirror);
     CHECK(set.parse(Bytes(esp.begin(), esp.end() - 1)));
 }

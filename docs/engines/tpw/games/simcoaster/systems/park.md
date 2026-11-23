@@ -82,15 +82,23 @@ window: 6 at 5:40, 10 at 7:20, 34 at 9:56, 64 at 21:40, 67 at 22:25,
 as the player built. They come by bus, it seems, to the stops on the
 road; through the ticket booths, where they pay the admission
 (`InitialAdmissionFee` 25); and in by the entrance. Reluva walks each
-along that way *(guessed)*, cell to cell at 12 units a second: off the
+along that way *(guessed)*, cell to cell, a child at 12 units a second
+*(guessed)* and the others slower, at their type's `SpeedMultiplier`
+of the general settings: off the
 bus at the first stop, over the crossing from the bus's side to the
 park's, past the first booth, paying, through the entrance's first cell
 and up the path four cells in, the attribute map's path tiles
-([attribute-map.md](../formats/attribute-map.md)). Each is drawn by
-one of the eight visitors' sprites ([sprites.md](../formats/sprites.md)),
-walking or standing, turned by its way against the camera's, about 1.4
-units across, as wide as the recording's against its paths
-*(guessed)*.
+([attribute-map.md](../formats/attribute-map.md)).
+
+The settings have 24 types of visitor (`PeepTypes`), 8 of each
+generation (children, parents, grandparents), each with the excitement
+it likes, its money, how soon it's bored and its pace: the children's
+1, the parents' 0.95 down to 0.81, the grandparents' 0.47 down to 0.33.
+Reluva gives each visitor a type, and draws them by one of their
+generation's sprites ([sprites.md](../formats/sprites.md)): four
+children's, two parents', two grandparents'. They walk or stand, turned
+by their way against the camera's, about 5 units tall, half a path's
+cell, as the recording's.
 
 ### The HUD
 

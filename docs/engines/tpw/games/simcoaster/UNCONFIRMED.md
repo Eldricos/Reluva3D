@@ -15,6 +15,16 @@ None yet.
 
 ## Inferred
 
+- **A sprite's pixel is a tenth of a unit**: the recording's visitors
+  half a path's cell high, and the settings' umbrellas over each kind
+  of visitor ([sprites.md](formats/sprites.md#how-large)). The game's
+  own scale, if a file gives it, would settle it.
+
+- **`.FPC` sheets are the first-person view's**: the same frames as the
+  `.TPC`'s, seen from lower down, beside only those walking about
+  ([sprites.md](formats/sprites.md)). The first-person view, once it
+  runs, would settle it.
+
 - **The music banks' entries without headers are never played**: the
   last 40 and 15 of two worlds' `MusicHD.sdt` point at no header, and
   Reluva lists them as not readable ([sdt.md](formats/sdt.md#what-doesnt-decode)).
@@ -85,16 +95,10 @@ None yet.
 
 ## Guessed
 
-- **How large a visitor is drawn**: 0.05 units a sprite's pixel, so
-  about 1.4 units across, matched by eye to the recording's against its
-  paths, walking at 12 frames a second
-  ([sprites.md](formats/sprites.md#in-reluva)). The game's own sizes,
-  or a still of a visitor by a known model, would settle it.
-
-- **`.FPC` sheets are another detail setting's**: the same frames as
-  the `.TPC`'s, a little larger; Reluva draws the `.TPC`
-  ([sprites.md](formats/sprites.md)). Trying the game's detail settings
-  would settle it.
+- **How fast a visitor walks, and steps**: a child 12 units a second,
+  the others at their type's `SpeedMultiplier`; a walking frame a unit
+  walked ([sprites.md](formats/sprites.md#in-reluva)). A recording
+  closer in, with the camera still, would settle it.
 
 - **How the front end's particles fly and look**: 20 a burst, small
   stars, up to 6 units a second; emitters 11 to 14 the `Fx` helpers, 1

@@ -28,10 +28,18 @@ void writeText(const std::filesystem::path &path, const std::string &text) {
 // its money, fixed items, objective and boundary.
 void testNewPark(const std::filesystem::path &tmp) {
     const std::filesystem::path data = tmp / "game" / "Data";
+    // Every visitor type but the last a grandparent at half the pace.
+    std::string typeLines;
+    for (int i = 0; i < 23; ++i) {
+        const std::string base = "PeepTypes[" + std::to_string(i) + "].";
+        typeLines += base + "PreferredExcitement.StartingCash.BoredomThreshold.Generation 90 100 60 2\r\n" + base +
+                     "SpeedMultiplier 0.5\r\n";
+    }
     writeText(data / "levels" / "Standard.sam",
               "BankAccountInfo.InitialCash 50000\r\nBankAccountInfo.InitialAdmissionFee 25\r\n"
               "Arrival.MinPeople 1\r\nArrival.TimeBetweenArrivals 25\r\nArrival.FixedRate 15\r\n"
-              "Arrival.NewParkBonus 20\r\nArrival.PointsPerVisitor 25\r\n");
+              "Arrival.NewParkBonus 20\r\nArrival.PointsPerVisitor 25\r\n" +
+                  typeLines);
     writeText(data / "levels" / "science" / "Standard.sam",
               "FixedItemInfo.NumTicketBooths 2\r\nTicketBooth[0].PosX 45\r\nTicketBooth[0].PosY 11\r\n"
               "TicketBooth[0].Angle 512\r\nTicketBooth[1].PosX 45\r\nTicketBooth[1].PosY 8\r\n"
@@ -47,6 +55,11 @@ void testNewPark(const std::filesystem::path &tmp) {
     Park park;
     CHECK(!park.load(files, "levels/science", 0));
     CHECK(park.cash() == 50000 && park.admissionFee() == 25 && park.visitors() == 0 && park.day() == 0);
+    // The type the settings leave out is a grandparent by its place, at the
+    // children's pace.
+    const std::vector<Park::VisitorType> &types = park.visitorTypes();
+    CHECK(types.size() == 24 && types[0].generation == 2 && types[0].speed == 0.5f);
+    CHECK(types.size() == 24 && types[23].generation == 2 && types[23].speed == 1);
     const Park::FixedItems &fixed = park.fixedItems();
     CHECK(fixed.ticketBooths.size() == 2 && (fixed.ticketBooths[1] == Park::Cell{45, 8}));
     CHECK(fixed.ticketBoothAngles[0] == 512 && (fixed.entrance[1] == Park::Cell{48, 17}));
@@ -65,9 +78,10 @@ void testNewPark(const std::filesystem::path &tmp) {
     park.advance(60000);
     CHECK(park.cash() == 50000 && park.day() == 6);
     park.setPaused(false);
-    park.advance(60000);
+    park.advance(120000); // at half the pace
     CHECK(park.cash() == 50025 && park.visitors() == 1 && park.visitorsAbout().size() == 1);
-    CHECK(park.visitorsAbout()[0].inPark);
+    CHECK(park.visitorsAbout()[0].inPark && park.visitorsAbout()[0].generation == 2);
+    CHECK(park.visitorsAbout()[0].walked > 40);
     CHECK(park.load(files, "levels/science", 1)); // no miss01.sam
     CHECK(park.load(files, "levels/water", 7));
 }

@@ -13,6 +13,7 @@
 #include "engines/tpw/ui/world_view.h"
 #include "graphics/soft3d/rasterizer.h"
 
+#include <array>
 #include <vector>
 
 namespace reluva::tpw {
@@ -52,8 +53,8 @@ private:
     Font _cashFont;
     Font _dateFont;
     StringTable _months;
-    bool _hud = false;                       // the fonts and months read
-    std::vector<LoadedSprite> _visitorLooks; // the visitors' sprites, those read
+    bool _hud = false;                                      // the fonts and months read
+    std::array<std::vector<LoadedSprite>, 3> _visitorLooks; // each generation's sprites, those read
 };
 
 /**

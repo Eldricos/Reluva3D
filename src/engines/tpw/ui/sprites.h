@@ -32,11 +32,11 @@ struct SpritePose {
 
 /**
  * The frame of an animation for a heading seen from the viewer, in
- * radians (0 walking away, π/2 to the right, π towards it), at a time in
- * milliseconds: its five directions drawn as they are on the right, and
- * mirrored on the left; `fps` frames a second.
+ * radians (0 walking away, π/2 to the right, π towards it), so many
+ * frames on from its start, round and round: its five directions drawn
+ * as they are on the right, and mirrored on the left.
  */
-SpritePose spritePose(const SpriteSet::Animation &animation, float heading, uint32_t ms, int fps);
+SpritePose spritePose(const SpriteSet::Animation &animation, float heading, uint32_t step);
 
 /**
  * Draws a frame onto an RGBA32 surface, blended by its palette's

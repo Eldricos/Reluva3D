@@ -73,11 +73,24 @@ public:
     };
     const Arrivals &arrivals() const { return _arrivals; }
 
+    /**
+     * A kind of visitor, by the general settings' `PeepTypes`: 24 of them,
+     * 8 of each generation.
+     */
+    struct VisitorType {
+        int generation = 0; // 0 children, 1 parents, 2 grandparents
+        float speed = 1;    // SpeedMultiplier: of the children's pace
+    };
+    const std::vector<VisitorType> &visitorTypes() const { return _visitorTypes; }
+
     /** A visitor coming in, or in the park. */
     struct Visitor {
         int id = 0;
-        uint32_t look = 0; // which of the visitors' looks they have: the screen picks by it
-        float x = 0;       // where they are, in the world's units
+        uint32_t look = 0; // which of their generation's looks they have: the screen picks by it
+        int generation = 0;
+        float speed = 1;  // of kWalkPerSecond
+        float walked = 0; // units walked since they came, which steps their walk
+        float x = 0;      // where they are, in the world's units
         float z = 0;
         float headingX = 0; // the way they walk, a unit along the ground; 0, 0 standing
         float headingZ = 0;
@@ -91,7 +104,7 @@ public:
     int visitorsWanted() const;
     /** The way a visitor walks in, cell by cell: off the bus, over the crossing, past a booth, in. */
     const std::vector<gfx::Vec3> &wayIn() const { return _wayIn; }
-    /** How fast visitors walk, in units a second (guessed). */
+    /** How fast children walk, in units a second (guessed); the others by their type's speed. */
     static constexpr float kWalkPerSecond = 12;
 
     /** Money in the bank. */
@@ -136,6 +149,7 @@ private:
     uint64_t _millis = 0;
     bool _paused = false;
     Arrivals _arrivals;
+    std::vector<VisitorType> _visitorTypes;
     std::vector<gfx::Vec3> _wayIn;
     std::vector<Visitor> _people;
     uint64_t _nextArrivalMs = 0;

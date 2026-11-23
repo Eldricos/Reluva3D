@@ -34,10 +34,10 @@ Error LoadedSprite::load(const SearchSet &files, const std::string &name) {
     return Error::success();
 }
 
-SpritePose spritePose(const SpriteSet::Animation &animation, float heading, uint32_t ms, int fps) {
+SpritePose spritePose(const SpriteSet::Animation &animation, float heading, uint32_t step) {
     SpritePose pose;
-    const int frames = std::max(1, animation.frames);
-    const int step = int(uint64_t(ms) * uint64_t(std::max(1, fps)) / 1000 % uint64_t(frames));
+    const int frames = std::max(1, int(animation.frames));
+    const int frame = int(step % uint32_t(frames));
     int direction = 0;
     if (animation.directions == kDrawnDirections) {
         // The eighth of a turn the heading is nearest, 0 to 7, clockwise
@@ -48,7 +48,7 @@ SpritePose spritePose(const SpriteSet::Animation &animation, float heading, uint
         direction = eighth <= 4 ? eighth : kTurnEighths - eighth;
         pose.mirror = eighth > 4;
     }
-    pose.frame = size_t(animation.first + direction * frames + step);
+    pose.frame = size_t(animation.first + direction * frames + frame);
     return pose;
 }
 

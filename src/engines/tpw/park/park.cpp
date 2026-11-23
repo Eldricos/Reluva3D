@@ -26,6 +26,7 @@ constexpr int kMostTicketBooths = 8;
 constexpr int kPathIn = 4;
 // Which waypoint of the way in is the booth's, where a visitor pays, and
 // the entrance's, past which they're in the park.
+constexpr int kVisitorTypes = 24;
 constexpr size_t kBoothLeg = 3;
 constexpr size_t kEntranceLeg = 4;
 
@@ -60,6 +61,19 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
     _arrivals.newParkBonus = int(general.number("Arrival.NewParkBonus"));
     _arrivals.pointsPerVisitor = std::max(1, int(general.number("Arrival.PointsPerVisitor", 1)));
     _nextArrivalMs = _arrivals.everyMs;
+    for (int i = 0; i < kVisitorTypes; ++i) {
+        const std::string base = "PeepTypes[" + std::to_string(i) + "].";
+        VisitorType type;
+        // One line gives four values, the generation last.
+        const SamFile::Entry *line =
+            general.find(base + "PreferredExcitement.StartingCash.BoredomThreshold.Generation");
+        if (line && line->values.size() >= 4)
+            type.generation = std::clamp(int(line->values[3].number), 0, 2);
+        else
+            type.generation = i / (kVisitorTypes / 3);
+        type.speed = float(general.number(base + "SpeedMultiplier", 1));
+        _visitorTypes.push_back(type);
+    }
 
     // The world's fixed items; a world without its settings has none.
     SamFile world;
@@ -133,17 +147,22 @@ void Park::step(uint32_t ms) {
         if (int(_people.size()) < visitorsWanted() && !_wayIn.empty()) {
             Visitor v;
             v.id = _nextId++;
-            // A look spread over the ids, the same each run.
-            v.look = uint32_t(v.id) * 2654435761u >> 16;
+            // A type and look spread over the ids, the same each run.
+            const uint32_t roll = uint32_t(v.id) * 2654435761u >> 16;
+            if (!_visitorTypes.empty()) {
+                const VisitorType &type = _visitorTypes[roll % _visitorTypes.size()];
+                v.generation = type.generation;
+                v.speed = type.speed;
+            }
+            v.look = roll / uint32_t(kVisitorTypes);
             v.x = _wayIn[0][0];
             v.z = _wayIn[0][2];
             v.leg = 1;
             _people.push_back(v);
         }
     }
-    const float step = kWalkPerSecond * float(ms) / 1000;
     for (Visitor &v : _people) {
-        float left = step;
+        float left = kWalkPerSecond * v.speed * float(ms) / 1000;
         if (v.leg >= _wayIn.size())
             v.headingX = v.headingZ = 0;
         while (left > 0 && v.leg < _wayIn.size()) {
@@ -157,10 +176,12 @@ void Park::step(uint32_t ms) {
             if (d > left) {
                 v.x += dx / d * left;
                 v.z += dz / d * left;
+                v.walked += left;
                 break;
             }
             v.x = _wayIn[v.leg][0];
             v.z = _wayIn[v.leg][2];
+            v.walked += d;
             left -= d;
             if (v.leg == kBoothLeg && !v.paid) {
                 v.paid = true;
