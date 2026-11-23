@@ -162,7 +162,7 @@ Error Model::parse(const std::vector<uint8_t> &data) {
 
     std::set<size_t> visited;
     // Each node's matrix places it in its parent's space.
-    auto walk = [&](auto &self, size_t node, const gfx::Mat4 &parent, int depth) -> Error {
+    auto walk = [&](auto &self, size_t node, const gfx::Mat4 &parent, int parentIndex, int depth) -> Error {
         for (; node; node = r.u32(node + 8)) {
             if (depth > kMaxDepth || !visited.insert(node).second)
                 return Error::fail("the nodes loop");
@@ -172,23 +172,27 @@ Error Model::parse(const std::vector<uint8_t> &data) {
             for (size_t i = 0; i < 16; ++i)
                 local[i] = r.f32(node + 16 + 4 * i);
             const gfx::Mat4 transform = gfx::multiply(parent, local);
+            const int index = int(_nodes.size());
+            _nodes.push_back({r.u32(node), parentIndex, local, -1});
             if (r.u32(node) == kMeshNode) {
                 if (!r.has(node, kMeshSize))
                     return Error::fail("a mesh runs past the end");
                 Mesh mesh;
                 mesh.transform = transform;
+                mesh.node = size_t(index);
+                _nodes.back().mesh = int(_meshes.size());
                 if (Error err = readMesh(r, node, textureTable, textures, mesh))
                     return err;
                 _meshes.push_back(std::move(mesh));
             } else {
                 ++_otherNodes;
             }
-            if (Error err = self(self, r.u32(node + 12), transform, depth + 1))
+            if (Error err = self(self, r.u32(node + 12), transform, index, depth + 1))
                 return err;
         }
         return Error::success();
     };
-    return walk(walk, root, gfx::identity(), 0);
+    return walk(walk, root, gfx::identity(), -1, 0);
 }
 
 } // namespace reluva::tpw

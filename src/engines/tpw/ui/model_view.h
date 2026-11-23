@@ -5,6 +5,7 @@
 
 #include "common/archive.h"
 #include "common/types.h"
+#include "engines/tpw/formats/animation.h"
 #include "engines/tpw/formats/hmp.h"
 #include "engines/tpw/formats/md2.h"
 #include "graphics/soft3d/view3d.h"
@@ -24,6 +25,12 @@ struct LoadedModel {
     /** The height map beside it, of its name (`wateride.hmp`); `hasHeights` false without one. */
     HeightMap heights;
     bool hasHeights = false;
+    /**
+     * Its animations: the animations in its folder whose names start with
+     * its own and are longer (`waterideb.MD2` for `wateride.MD2`), by name.
+     */
+    std::vector<std::string> animationNames;
+    std::vector<Animation> animations;
     /** The middle of its placed meshes' box, and half its diagonal, in the viewer's world (z up). */
     soft3d::Vec centre{0, 0, 0};
     float radius = 1;
@@ -42,7 +49,16 @@ struct ModelView {
     float distance = 2.4f;
     bool textured = true;
     bool heights = false; // the height map's samples shown as dots
+    int animation = -1;   // in LoadedModel::animations, or -1 for the rest pose
+    float frame = 0;      // of the animation
 };
+
+/**
+ * Each mesh's matrix to the model's space with `animation` (in
+ * `loaded.animations`, or -1 for none) at `frame`: its nodes posed, then
+ * composed down the tree.
+ */
+std::vector<gfx::Mat4> meshTransforms(const LoadedModel &loaded, int animation, float frame);
 
 /** A point of the game's space (y up) in the viewer's world (z up). */
 soft3d::Vec toViewerWorld(const gfx::Vec3 &p);
@@ -60,9 +76,13 @@ void drawTexturedTriangle(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCam
                           const std::array<soft3d::Vec, 3> &corners, const std::array<std::array<float, 2>, 3> &uv,
                           const image::Image *texture, const soft3d::Vec &light);
 
-/** Draws a model's meshes as drawModel does, into a drawing already begun, lit by `light`. */
+/**
+ * Draws a model's meshes as drawModel does, into a drawing already begun,
+ * lit by `light`; placed by `transforms` (meshTransforms'), or by their own
+ * without.
+ */
 void drawMeshes(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera, const LoadedModel &loaded,
-                bool textured, const soft3d::Vec &light);
+                bool textured, const soft3d::Vec &light, const std::vector<gfx::Mat4> *transforms = nullptr);
 
 /**
  * Draws the model into an RGBA32 surface, over what is there, lit from

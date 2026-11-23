@@ -16,6 +16,7 @@ reluva_add_engine(tpw
         ui/opening.cpp
         ui/sky.cpp
         ui/world_view.cpp
+        formats/animation.cpp
         formats/attribute_map.cpp
         formats/bf4.cpp
         formats/hmp.cpp
@@ -77,4 +78,4 @@ reluva_add_gamedata_test(tpw
     GAME simcoaster
     ENV RELUVA_SIMCOASTER
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release data settings text fonts pictures movies opening sounds models heights terrain scripts viewer)
+    STEPS release data settings text fonts pictures movies opening sounds models animations heights terrain scripts viewer)

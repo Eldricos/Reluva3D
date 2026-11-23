@@ -3,6 +3,7 @@
 
 #include "engines/tpw/ui/model_view.h"
 
+#include "common/fs.h"
 #include "engines/tpw/textures.h"
 
 #include <algorithm>
@@ -69,6 +70,22 @@ Error LoadedModel::load(const SearchSet &files, const std::string &name) {
         if (!found.empty() && !loadPicture(files, found, textures[i]) && textures[i].w > 0)
             ++texturesFound;
     }
+    // Its animations: the folder's animations named as it, and more.
+    const size_t slash = name.rfind('/');
+    const std::string folder = name.substr(0, slash + 1);
+    const std::string stem = fs::toLower(name.substr(slash + 1, name.size() - slash - 5));
+    for (const std::string &other : files.list()) {
+        if (other.size() <= folder.size() + stem.size() + 4 || other.compare(0, folder.size(), folder) != 0 ||
+            other.find('/', folder.size()) != std::string::npos ||
+            fs::toLower(other.substr(other.size() - 4)) != ".md2" ||
+            fs::toLower(other.substr(folder.size(), stem.size())) != stem)
+            continue;
+        Animation animation;
+        if (!files.read(other, data) && !animation.parse(data)) {
+            animationNames.push_back(other.substr(folder.size()));
+            animations.push_back(std::move(animation));
+        }
+    }
     std::string heightsName = name.substr(0, name.size() - 4) + ".hmp";
     if (files.has(heightsName) && !files.read(heightsName, data) && !heights.parse(data))
         hasHeights = true;
@@ -129,8 +146,10 @@ void drawTexturedTriangle(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCam
 }
 
 void drawMeshes(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera, const LoadedModel &loaded,
-                bool textured, const soft3d::Vec &light) {
-    for (const Model::Mesh &mesh : loaded.model.meshes()) {
+                bool textured, const soft3d::Vec &light, const std::vector<gfx::Mat4> *transforms) {
+    for (size_t m = 0; m < loaded.model.meshes().size(); ++m) {
+        const Model::Mesh &mesh = loaded.model.meshes()[m];
+        const gfx::Mat4 &transform = transforms && m < transforms->size() ? (*transforms)[m] : mesh.transform;
         // Each face's texture, by the group it is in; none outside them.
         std::vector<const image::Image *> faceTexture(mesh.faces.size(), nullptr);
         for (const Model::Group &g : mesh.groups)
@@ -142,7 +161,7 @@ void drawMeshes(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camer
             std::array<std::array<float, 2>, 3> uv;
             for (size_t k = 0; k < 3; ++k) {
                 corners[k] =
-                    toViewerWorld(gfx::transformPoint(mesh.transform, mesh.positions[mesh.positionOf[face.vertex[k]]]));
+                    toViewerWorld(gfx::transformPoint(transform, mesh.positions[mesh.positionOf[face.vertex[k]]]));
                 uv[k] = mesh.uv[face.vertex[k]];
             }
             drawTexturedTriangle(rasterizer, camera, corners, uv, faceTexture[f], light);
@@ -150,11 +169,32 @@ void drawMeshes(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camer
     }
 }
 
+std::vector<gfx::Mat4> meshTransforms(const LoadedModel &loaded, int animation, float frame) {
+    const auto &nodes = loaded.model.nodes();
+    std::vector<gfx::Mat4> local(nodes.size());
+    for (size_t i = 0; i < nodes.size(); ++i)
+        local[i] = nodes[i].local;
+    if (animation >= 0 && size_t(animation) < loaded.animations.size())
+        for (const Animation::Track &t : loaded.animations[size_t(animation)].tracks())
+            if (t.target < nodes.size() &&
+                (t.curve != Animation::Curve::kNone || !t.rotations.empty() || !t.scales.empty()))
+                local[t.target] = Animation::pose(t, frame, nodes[t.target].local);
+    // Each node comes after its parent.
+    std::vector<gfx::Mat4> world(nodes.size());
+    for (size_t i = 0; i < nodes.size(); ++i)
+        world[i] = nodes[i].parent >= 0 ? gfx::multiply(world[size_t(nodes[i].parent)], local[i]) : local[i];
+    std::vector<gfx::Mat4> out;
+    for (const Model::Mesh &mesh : loaded.model.meshes())
+        out.push_back(mesh.node < world.size() ? world[mesh.node] : mesh.transform);
+    return out;
+}
+
 void drawModel(Surface &screen, soft3d::Rasterizer &rasterizer, const LoadedModel &loaded, const ModelView &view) {
     const soft3d::OrbitCamera camera(loaded.centre, view.yaw, view.pitch, loaded.radius * view.distance, screen.w,
                                      screen.h);
     rasterizer.begin(screen);
-    drawMeshes(rasterizer, camera, loaded, view.textured, defaultLight());
+    const std::vector<gfx::Mat4> transforms = meshTransforms(loaded, view.animation, view.frame);
+    drawMeshes(rasterizer, camera, loaded, view.textured, defaultLight(), &transforms);
     if (view.heights && loaded.hasHeights)
         drawHeights(screen, loaded, camera);
 }

@@ -18,7 +18,7 @@ Of the 1,980 files:
 | Kind | How many | What it is |
 |---|---|---|
 | A model | 698 | Its meshes, textures and node tree, below |
-| An animation | 1,209 | Keyframes for a model: header flag 0x20, and the same counts as the model it moves (`waterideb.MD2` and `wateridec.MD2` for `wateride.MD2`). Not worked out: 100 frames, keys packed in 16 bits, from their look *(guessed)* |
+| An animation | 1,209 | Keyframes for a model: header flag 0x20, and the same counts as the model it moves (`waterideb.MD2` and `wateridec.MD2` for `wateride.MD2`): [md2-animation.md](md2-animation.md) |
 | A header alone | 71 | The header and its box, no tables: mostly 256 bytes, beside a model whose name they carry with an `m` added (`atmdeskm.MD2` for `atmdesk.MD2`) |
 | Another version | 2 | `generic/dynamic/garrow.MD2` and `rarrow.MD2`: version 24, laid out otherwise; not read |
 
@@ -181,7 +181,7 @@ right-handed one. `reluva-tool tpw md2-shot <game folder> <model>
 
 ## Open questions
 
-- The animations.
+- The animations' tracks of vertices and textures ([md2-animation.md](md2-animation.md)).
 - The header's fields not named above, and its flags.
 - The textures' flags, and the groups'.
 - The node types other than meshes and helpers.

@@ -43,11 +43,12 @@ format or system worked out.
    ([tgq.md](formats/tgq.md)) and files; the opening as a recording shows
    it ([opening.md](systems/opening.md)). The sound banks' `.map` files
    wait for the game's sounds to be played.
-6. **Models and the park** (done; the models' animations, the paths'
-   texture table and the ground's real painting left open): the models
-   (`.MD2`, Bullfrog's own: read and drawn in the viewer,
-   [md2.md](formats/md2.md); their
-   animations not yet) and their height maps (`.hmp`: read,
+6. **Models and the park** (done; the animations' vertex and texture
+   tracks, the paths' texture table and the ground's real painting left
+   open): the models (`.MD2`, Bullfrog's own: read and drawn in the
+   viewer, [md2.md](formats/md2.md); their animations' moves of whole
+   parts played, [md2-animation.md](formats/md2-animation.md)) and their
+   height maps (`.hmp`: read,
    [hmp.md](formats/hmp.md)); the worlds' terrain (the surroundings, the
    park's ground and attribute maps: read and drawn,
    [lnd.md](formats/lnd.md), the ground's painting guessed); the placed
@@ -60,8 +61,9 @@ format or system worked out.
    out as source, checked against the five sources the game ships
    ([rse.md](formats/rse.md)); run on a script machine against a
    stand-in for the park, every script for a minute
-   ([scripts.md](systems/scripts.md)); rides seen running in the viewer
-   wait for their animations (phase 6's open `.MD2` animations).
+   ([scripts.md](systems/scripts.md)), waiting as long as their
+   animations take; rides seen running in the viewer, their scripts
+   playing their animations, next.
 8. **The front end:** the start-up screens (`Data/Init/`), the main menu,
    options, saving and loading, from `ui.wad` and recordings.
 9. **The park running:** building, paths, guests, staff, money, research,

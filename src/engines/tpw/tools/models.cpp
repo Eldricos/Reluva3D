@@ -7,6 +7,7 @@
 #include "common/fs.h"
 #include "common/md5.h"
 #include "devtools/tool.h"
+#include "engines/tpw/formats/animation.h"
 #include "engines/tpw/formats/hmp.h"
 #include "engines/tpw/formats/md2.h"
 #include "engines/tpw/game_files.h"
@@ -124,11 +125,14 @@ int cmdMd2Check(int argc, char **argv) {
 
 // One model drawn as the viewer draws it, written out as a PNG: from the
 // viewer's starting place, or turned and tilted by the radians given;
-// with -heights, its height map's samples over it.
+// with -heights, its height map's samples over it; with -anim, posed by
+// one of its animations at a frame.
 int cmdMd2Shot(int argc, char **argv) {
     if (argc < 5) {
-        std::fprintf(stderr,
-                     "usage: reluva-tool tpw md2-shot <game folder> <model> <out.png> [yaw pitch] [-heights]\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool tpw md2-shot <game folder> <model> <out.png> [yaw pitch] [-heights] [-anim <file> "
+            "<frame>]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -149,7 +153,22 @@ int cmdMd2Shot(int argc, char **argv) {
         view.pitch = std::strtof(argv[at + 1], nullptr);
         at += 2;
     }
-    view.heights = argc > at && std::strcmp(argv[at], "-heights") == 0;
+    for (; at < argc; ++at) {
+        if (std::strcmp(argv[at], "-heights") == 0) {
+            view.heights = true;
+        } else if (std::strcmp(argv[at], "-anim") == 0 && at + 2 < argc) {
+            // An animation of the model's, by its file's name, at a frame.
+            for (size_t i = 0; i < loaded.animationNames.size(); ++i)
+                if (reluva::fs::toLower(loaded.animationNames[i]) == reluva::fs::toLower(argv[at + 1]))
+                    view.animation = int(i);
+            if (view.animation < 0) {
+                std::fprintf(stderr, "%s isn't one of the model's animations\n", argv[at + 1]);
+                return 1;
+            }
+            view.frame = std::strtof(argv[at + 2], nullptr);
+            at += 2;
+        }
+    }
     reluva::Surface screen;
     screen.create(640, 480, reluva::PixelFormat::kRGBA32);
     // The viewer's background.
@@ -240,13 +259,119 @@ int cmdHmpCheck(int argc, char **argv) {
     return failed || maps == 0 ? 1 : 0;
 }
 
-const Commands
-    kCommands("tpw",
-              {
-                  {"md2-check", "<game folder> [model]", "read every model (.MD2), or list one's meshes", cmdMd2Check},
-                  {"hmp-check", "<game folder>", "read every height map (.hmp)", cmdHmpCheck},
-                  {"md2-shot", "<game folder> <model> <out.png> [yaw pitch] [-heights]",
-                   "draw a model as the viewer does, to a PNG; with its height map's samples", cmdMd2Shot},
-              });
+// The model an animation moves: of the models in its folder (`models`,
+// by folder), the one whose name its own starts with, longest ("wateride"
+// for "waterideb"); empty for none.
+std::string modelOf(const std::map<std::string, std::vector<std::string>> &models, const std::string &animation) {
+    const size_t slash = animation.rfind('/');
+    const std::string folder = animation.substr(0, slash + 1);
+    const std::string stem = reluva::fs::toLower(animation.substr(slash + 1, animation.size() - slash - 5));
+    std::string best;
+    size_t bestLength = 0;
+    const auto inFolder = models.find(folder);
+    if (inFolder == models.end())
+        return best;
+    for (const std::string &name : inFolder->second) {
+        const std::string other = reluva::fs::toLower(name.substr(folder.size(), name.size() - folder.size() - 4));
+        if (other.size() < stem.size() && stem.compare(0, other.size(), other) == 0 && other.size() > bestLength) {
+            best = name;
+            bestLength = other.size();
+        }
+    }
+    return best;
+}
+
+// Every animation of a game read and set against its model: its tracks'
+// nodes in range, and how many tracks start at their node's rest pose.
+int cmdAnimCheck(int argc, char **argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool tpw anim-check <game folder>\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    std::vector<std::string> warnings;
+    if (reluva::Error err = reluva::tpw::mountGame(files, argv[2], warnings)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    using reluva::tpw::Animation;
+    reluva::Md5 all;
+    int failed = 0;
+    int animations = 0;
+    int withoutModel = 0;
+    size_t tracks = 0;
+    size_t moved = 0;
+    size_t outOfRange = 0;
+    size_t atRest = 0;
+    size_t other = 0;
+    // The models and the animations, the models by folder.
+    std::map<std::string, std::vector<std::string>> models;
+    std::vector<std::string> animationNames;
+    for (const std::string &name : files.list()) {
+        if (reluva::fs::toLower(extensionOf(name)) != ".md2")
+            continue;
+        std::vector<uint8_t> data;
+        Model probe;
+        if (files.read(name, data) || probe.parse(data))
+            continue;
+        if (probe.kind() == Model::Kind::kModel)
+            models[name.substr(0, name.rfind('/') + 1)].push_back(name);
+        else if (probe.kind() == Model::Kind::kAnimation)
+            animationNames.push_back(name);
+    }
+    for (const std::string &name : animationNames) {
+        std::vector<uint8_t> data;
+        if (files.read(name, data))
+            continue;
+        Animation animation;
+        if (reluva::Error err = animation.parse(data)) {
+            std::printf("failed: %s: %s\n", name.c_str(), err.message.c_str());
+            ++failed;
+            continue;
+        }
+        ++animations;
+        all.update(data.data(), data.size());
+        const std::string modelName = modelOf(models, name);
+        Model model;
+        std::vector<uint8_t> modelData;
+        const bool hasModel = !modelName.empty() && !files.read(modelName, modelData) && !model.parse(modelData);
+        if (!hasModel)
+            ++withoutModel;
+        for (const Animation::Track &t : animation.tracks()) {
+            ++tracks;
+            other += t.hasOther;
+            if (t.curve == Animation::Curve::kNone && t.rotations.empty() && t.scales.empty())
+                continue;
+            ++moved;
+            if (!hasModel)
+                continue;
+            if (t.target >= model.nodes().size()) {
+                ++outOfRange;
+                continue;
+            }
+            const reluva::gfx::Mat4 &rest = model.nodes()[t.target].local;
+            const reluva::gfx::Mat4 start = Animation::pose(t, 0, rest);
+            float most = 0;
+            for (size_t i = 0; i < 16; ++i)
+                most = std::max(most, std::fabs(start[i] - rest[i]));
+            atRest += most < 0.01f;
+        }
+    }
+    std::printf("%d failed; %d animations (%d without a model of their name), %zu tracks: %zu moving whole nodes "
+                "(%zu at nodes past their model's, %zu starting at their node's rest pose), %zu moving vertices or "
+                "textures; md5 %s\n",
+                failed, animations, withoutModel, tracks, moved, outOfRange, atRest, other, all.hexDigest().c_str());
+    return failed || animations == 0 ? 1 : 0;
+}
+
+const Commands kCommands(
+    "tpw",
+    {
+        {"md2-check", "<game folder> [model]", "read every model (.MD2), or list one's meshes", cmdMd2Check},
+        {"hmp-check", "<game folder>", "read every height map (.hmp)", cmdHmpCheck},
+        {"anim-check", "<game folder>", "read every model animation (.MD2) and set it against its model", cmdAnimCheck},
+        {"md2-shot", "<game folder> <model> <out.png> [yaw pitch] [-heights] [-anim <file> <frame>]",
+         "draw a model as the viewer does, to a PNG; with its height map's samples", cmdMd2Shot},
+    });
 
 } // namespace

@@ -268,6 +268,7 @@ private:
  * middle; animations and headers alone aren't listed.
  *   A/D: turn   W/S: tilt   Z/X: nearer, further   T: textures on or off
  *   H: the height map's samples (.hmp) over it, or not
+ *   N: play its next animation, then none
  */
 class ModelPage : public Page {
 public:
@@ -287,6 +288,10 @@ private:
     std::string _error;
     soft3d::Rasterizer _rasterizer;
     ModelView _view;
+    uint64_t _lastTick = 0;
+
+public:
+    bool tick(uint64_t nowMs) override;
 };
 
 /**

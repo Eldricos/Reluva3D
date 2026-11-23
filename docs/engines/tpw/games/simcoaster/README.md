@@ -34,7 +34,7 @@ setup installs it ([cd.md](formats/cd.md)).
 | Movies | done: the EA GAMES logo (`.tgq`, TQI video, [tgq.md](formats/tgq.md)), decoded and played; `reluva-tool tpw tgq-check` and `movie-check` |
 | The opening | the logo, then the Bullfrog splash, as a recording shows them ([opening.md](systems/opening.md)); the front end's 3D opening not yet |
 | Sounds | the banks (`.sdt`, [sdt.md](formats/sdt.md)): 5,315 of their sounds decode, MPEG and PCM; the rest are damaged in the game's own files; `reluva-tool tpw sdt-check`. The `.map` files beside them not yet |
-| Models | `.MD2` ([md2.md](formats/md2.md)): all 698 models' 6,981 meshes read, placed by their node trees; their 1,209 animations not yet; `reluva-tool tpw md2-check` |
+| Models | `.MD2` ([md2.md](formats/md2.md)): all 698 models' 6,981 meshes read, placed by their node trees; their 1,209 animations' moves of whole parts read and played ([md2-animation.md](formats/md2-animation.md)), not their moves of vertices and textures; `reluva-tool tpw md2-check`, `anim-check` |
 | Height maps | `.hmp` ([hmp.md](formats/hmp.md)): all 411 read: a model's height over each part of its ground; `reluva-tool tpw hmp-check` |
 | Terrain | Each world's surroundings (`base.MD2`), its park's ground (`.lnd`, [lnd.md](formats/lnd.md)) and attribute map ([attribute-map.md](formats/attribute-map.md)) read, with its placed objects (`scape.omp`, [omp.md](formats/omp.md)), sound and particle emitters it seems; the ground painted by a guess; `reluva-tool tpw terrain-check`, `world-shot` |
 | Skies | Each world's sky pictures, fog colour and light read ([sky.md](systems/sky.md)); drawn behind its terrain by a guess |
@@ -65,7 +65,7 @@ last; each page has its own keys besides:
 | Fonts | Sample text in the font, then each glyph with its code | |
 | Text | A string table's strings by number, the one picked whole below | Up/Down: the string; F: in the game's font (`GAME12.bf4`) |
 | Settings | A settings file's settings, values and grids | Up/Down: scroll |
-| Models | Each model drawn in 3D with its textures, lit from above, turned about its middle (not the animations) | A/D: turn; W/S: tilt; Z/X: nearer, further; T: textures on or off; H: its height map over it |
+| Models | Each model drawn in 3D with its textures, lit from above, turned about its middle (not the animations) | A/D: turn; W/S: tilt; Z/X: nearer, further; T: textures on or off; H: its height map over it; N: play its next animation |
 | Worlds | Each world's terrain in 3D: the land around the park and the park's ground, before anything is built, its placed objects as markers, under its sky | A/D: turn; W/S: tilt; Z/X: nearer, further; T: textures on or off; G: the ground on or off; O: the placed objects on or off; K: the sky on or off |
 | Scripts | Each ride and shop script as source, or run with guests coming, its variables and its calls to the game shown | Up/Down: scroll; PageUp/PageDown: a screen; R: run it |
 | Sounds | A bank's sounds, their kind and length | Up/Down, PageUp/PageDown: the sound; Space or Enter: play or stop |
@@ -78,7 +78,7 @@ last; each page has its own keys besides:
 |---|---|
 | This page | Where it stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
-| `formats/` | The game's own files, a page each: [the executable](formats/executable.md), [the CD](formats/cd.md), [archives](formats/wad.md), [settings](formats/sam.md), [text](formats/str.md), [fonts](formats/bf4.md), [pictures](formats/fsh.md), [movies](formats/tgq.md), [sound banks](formats/sdt.md), [models](formats/md2.md), [height maps](formats/hmp.md), [the park's ground](formats/lnd.md), [attribute maps](formats/attribute-map.md), [placed objects](formats/omp.md), [scripts](formats/rse.md) |
+| `formats/` | The game's own files, a page each: [the executable](formats/executable.md), [the CD](formats/cd.md), [archives](formats/wad.md), [settings](formats/sam.md), [text](formats/str.md), [fonts](formats/bf4.md), [pictures](formats/fsh.md), [movies](formats/tgq.md), [sound banks](formats/sdt.md), [models](formats/md2.md), [their animations](formats/md2-animation.md), [height maps](formats/hmp.md), [the park's ground](formats/lnd.md), [attribute maps](formats/attribute-map.md), [placed objects](formats/omp.md), [scripts](formats/rse.md) |
 | `systems/` | How the game behaves, a page per part: [the opening](systems/opening.md), [the sky](systems/sky.md), [how scripts run](systems/scripts.md) |
 | `research/` | Working notes: [what a recording of the game shows](research/footage.md) |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |

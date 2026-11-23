@@ -57,6 +57,7 @@ public:
         std::string name;
         /** Its node's matrix composed with its parents': to the model's space. */
         gfx::Mat4 transform{};
+        size_t node = 0; // its node, in nodes()
         std::vector<gfx::Vec3> positions;
         std::vector<uint16_t> positionOf; // each vertex's position
         std::vector<std::array<float, 2>> uv;
@@ -65,6 +66,17 @@ public:
         std::vector<Face> faces;
         std::vector<Group> groups;
         std::array<float, 6> bounds{}; // the positions' box, before the transform: least x, y, z, then most
+    };
+
+    /**
+     * A node of the model's tree: a mesh, a helper or another kind. An
+     * animation names nodes by their place in nodes().
+     */
+    struct Node {
+        uint32_t type = 0; // 1 a mesh, 0x200 a helper; the others not worked out
+        int parent = -1;   // in nodes(), or -1 for a root
+        gfx::Mat4 local{}; // in its parent's space
+        int mesh = -1;     // in meshes(), or -1
     };
 
     /**
@@ -84,6 +96,8 @@ public:
     const std::vector<Mesh> &meshes() const { return _meshes; }
     /** How many of the tree's nodes aren't meshes: helpers and others, not read. */
     size_t otherNodes() const { return _otherNodes; }
+    /** Every node of the tree, each before its children, children before the next of their parent's. */
+    const std::vector<Node> &nodes() const { return _nodes; }
 
 private:
     Kind _kind = Kind::kModel;
@@ -92,6 +106,7 @@ private:
     uint32_t _flags = 0;
     std::vector<Texture> _textures;
     std::vector<Mesh> _meshes;
+    std::vector<Node> _nodes;
     size_t _otherNodes = 0;
 };
 

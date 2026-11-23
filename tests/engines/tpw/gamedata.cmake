@@ -30,6 +30,8 @@
 #            sound (tpw sdt-check)
 #   models   every model (.MD2) read, with a checksum of every mesh
 #            (tpw md2-check)
+#   animations every model animation (.MD2, flag 0x20) read and set
+#            against its model (tpw anim-check)
 #   heights  every height map (.hmp) read, with a checksum of them all
 #            (tpw hmp-check)
 #   terrain  every world's ground (.lnd), attribute map (base.map) and
@@ -86,6 +88,8 @@ elseif(STEP STREQUAL "sounds")
     record_run(sounds "sounds decoded" tpw sdt-check "${game_dir}")
 elseif(STEP STREQUAL "models")
     record_run(models "meshes," tpw md2-check "${game_dir}")
+elseif(STEP STREQUAL "animations")
+    record_run(animations "animations" tpw anim-check "${game_dir}")
 elseif(STEP STREQUAL "heights")
     record_run(heights "height maps," tpw hmp-check "${game_dir}")
 elseif(STEP STREQUAL "terrain")

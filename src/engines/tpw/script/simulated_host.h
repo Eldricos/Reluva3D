@@ -7,6 +7,7 @@
 #include "engines/tpw/script/machine.h"
 
 #include <cstdint>
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -17,16 +18,25 @@ namespace reluva::tpw {
  * A stand-in for the park, for running a script on its own: a clock the
  * caller moves on, a fixed sequence of chance, children read from the
  * script's own folder, and every instruction for the game written to a
- * trace. Animations last kAnimationMs, until their own lengths can be
- * read; guests can be sent to the ride's queue, and kept in its limbo
+ * trace. Animations last as long as the model's own of their number, or
+ * kAnimationMs; guests can be sent to the ride's queue, and kept in its limbo
  * (LIMBO, INLIMBO, UNLIMBO, FORCEUNLIMBO), as the shipped Shop.rss uses
  * it; a ride's checks of itself (its track valid, a car in its station)
  * answer yes. Everything else answers 0.
  */
 class SimulatedHost : public ScriptHost {
 public:
-    /** How long an animation lasts here, in milliseconds: a stand-in. */
+    /** How long an animation lasts here, in milliseconds, without its own length: a stand-in. */
     static constexpr uint32_t kAnimationMs = 1000;
+
+    /**
+     * Reads the lengths of the animations of the model named as `script`
+     * (`levels/arabian/rides/wateride/Wateride.RSE`: `wateride.MD2`), by
+     * the numbers scripts play them by, as far as they are known: 0 its
+     * `c` animation, 2 `i`, 5 `m` (or `m1`), 9 `b`, 10 `r`, 11 `o`
+     * (inferred; docs/engines/tpw/games/simcoaster/formats/md2-animation.md).
+     */
+    void readAnimationLengths(const std::string &script);
 
     /** A host reading children from `folder`, as `levels/arabian/rides/wateride`. */
     SimulatedHost(const SearchSet &files, std::string folder) : _files(files), _folder(std::move(folder)) {}
@@ -67,6 +77,7 @@ private:
     /** Each guest in limbo and when its time there ends, in the order they went in. */
     std::vector<std::pair<int, uint32_t>> _limbo;
     std::vector<std::string> _trace;
+    std::map<int, uint32_t> _animationMs; // by the number scripts play them by
     size_t _traceLimit = 0;
 };
 

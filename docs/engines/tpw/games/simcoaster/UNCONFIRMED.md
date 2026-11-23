@@ -46,6 +46,13 @@ None yet.
 
 ## Guessed
 
+- **Which animation a script's number plays, and how fast**: 0 `c`, 5
+  `m`, 9 `b`, 10 `r` from the scripts' own use, 2 `i` and 11 `o` from
+  which files are there; 25 frames a second
+  ([md2-animation.md](formats/md2-animation.md#which-animation-is-which)).
+  A ride seen building, breaking and running in the game, timed, would
+  settle them.
+
 - **How the script machine runs** beyond what the sources show: turns
   ending after the header's 50 instructions, critical sections not
   keeping the turn, `BRANCH_PV` above zero, `CMP` an AND, `WAITABS`

@@ -3,7 +3,9 @@
 
 #include "engines/tpw/script/simulated_host.h"
 
+#include "common/fs.h"
 #include "common/text.h"
+#include "engines/tpw/formats/animation.h"
 
 #include <string>
 
@@ -43,6 +45,23 @@ bool waitsForAnimation(uint16_t opcode) {
 
 } // namespace
 
+void SimulatedHost::readAnimationLengths(const std::string &script) {
+    // The animation numbers whose files are known, by their names' ends.
+    static const std::pair<int, const char *> kSuffixes[] = {{0, "c"}, {2, "i"},  {5, "m"}, {5, "m1"},
+                                                             {9, "b"}, {10, "r"}, {11, "o"}};
+    const size_t dot = script.rfind('.');
+    const std::string stem = script.substr(0, dot);
+    for (const auto &[number, suffix] : kSuffixes) {
+        if (_animationMs.count(number))
+            continue;
+        std::vector<uint8_t> data;
+        Animation animation;
+        if (_files.read(stem + suffix + ".MD2", data) || animation.parse(data))
+            continue;
+        _animationMs[number] = uint32_t(float(animation.frames()) * 1000 / Animation::kFramesPerSecond);
+    }
+}
+
 int SimulatedHost::random(int below) {
     // A linear congruential sequence, the same on every run.
     _seed = _seed * 1103515245u + 12345u;
@@ -64,8 +83,15 @@ HostResult SimulatedHost::perform(ScriptMachine &machine, const Script::Instruct
     for (int v : values)
         line += " " + std::to_string(v);
     HostResult r;
+    // The animation's length: its own, where its number's file is known.
+    uint32_t animationMs = kAnimationMs;
+    if (!values.empty()) {
+        const auto known = _animationMs.find(values[0]);
+        if (known != _animationMs.end())
+            animationMs = known->second;
+    }
     if (waitsForAnimation(instruction.opcode))
-        r.waitMs = kAnimationMs;
+        r.waitMs = animationMs;
     const auto &ops = instruction.operands;
     auto setResult = [&](size_t operand, int v) {
         if (operand < ops.size() && ops[operand].kind == Script::OperandKind::kVariable)
@@ -75,7 +101,7 @@ HostResult SimulatedHost::perform(ScriptMachine &machine, const Script::Instruct
     case kTrigAnim:
         // Its last operand gets the animation's length: the bus waits for
         // it, less 3 seconds.
-        setResult(2, int(kAnimationMs));
+        setResult(2, int(animationMs));
         break;
     case kTour:
         r.value = values[0] == kTourCarInStation;

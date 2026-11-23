@@ -8,6 +8,7 @@
 //
 //   reluva-tests tpw.unit.formats
 
+#include "engines/tpw/formats/animation.h"
 #include "engines/tpw/formats/attribute_map.h"
 #include "engines/tpw/formats/bf4.h"
 #include "engines/tpw/formats/hmp.h"
@@ -552,6 +553,88 @@ void testRse() {
     CHECK(script.parse(Bytes(b.begin(), b.end() - 3)));
 }
 
+// An animation as the game lays one out: its header, a Bezier position
+// track, rotation and scale keys, one track's record moving node 2, then
+// its root; posed between keys; then a broken one.
+void testAnimation() {
+    Bytes b(0xb8);
+    put32(b, 0, 0x1cd15d46);
+    put32(b, 4, 221);
+    put32(b, 0x30, 0x20);
+    // Positions: (0,0,0) at frame 0 to (3,0,0) at 10, control points on the line.
+    const size_t values = b.size();
+    for (float x : {0.0f, 1.0f, 2.0f, 3.0f}) {
+        putFloat(b, b.size(), x);
+        putFloat(b, b.size(), 0);
+        putFloat(b, b.size(), 0);
+    }
+    const size_t frames = b.size();
+    put32(b, frames, 0);
+    put32(b, frames + 4, 10);
+    const size_t position = b.size();
+    put32(b, position, 0x12);
+    put16(b, position + 4, 4);
+    put16(b, position + 6, 2);
+    put32(b, position + 8, uint32_t(values));
+    put32(b, position + 12, uint32_t(frames));
+    // Rotations, x y z w: none at frame 0, a half turn about z at 10.
+    const size_t rotation = b.size();
+    const float keys[2][4] = {{0, 0, 0, 1}, {0, 0, 1, 0}};
+    for (size_t k = 0; k < 2; ++k) {
+        const size_t at = b.size();
+        put16(b, at, uint16_t(10 * k));
+        put16(b, at + 2, k ? 0xffff : 0);
+        for (size_t i = 0; i < 4; ++i)
+            putFloat(b, at + 4 + 4 * i, keys[k][i]);
+    }
+    // Scales: 1 at frame 0, 3 at 10.
+    const size_t scale = b.size();
+    for (size_t k = 0; k < 2; ++k) {
+        const size_t at = b.size();
+        put32(b, at, uint32_t(10 * k));
+        for (size_t i = 0; i < 3; ++i)
+            putFloat(b, at + 4 + 4 * i, k ? 3.0f : 1.0f);
+    }
+    const size_t track = b.size();
+    put32(b, track, 0);
+    put32(b, track + 4, 0x1 | 0x18 | 0x180);
+    put32(b, track + 0x0c, 10);
+    put32(b, track + 0x10, 2 << 16 | 2); // scale keys, rotation keys
+    put32(b, track + 0x14, 2);
+    put32(b, track + 0x18, uint32_t(position));
+    put32(b, track + 0x1c, uint32_t(rotation));
+    put32(b, track + 0x20, uint32_t(scale));
+    b.resize(track + 0x40);
+    const size_t root = b.size();
+    b.resize(root + 0x48);
+    put32(b, root + 8, 10);
+    put32(b, root + 0x2c, uint32_t(track));
+
+    Animation animation;
+    CHECK(!animation.parse(b));
+    CHECK(animation.frames() == 10 && animation.tracks().size() == 1);
+    if (animation.tracks().size() != 1)
+        return;
+    const Animation::Track &t = animation.tracks()[0];
+    CHECK(t.target == 2 && t.curve == Animation::Curve::kBezier && t.rotations.size() == 2 && t.scales.size() == 2);
+    // Halfway: at x 1.5, scaled 2, turned a quarter (x onto y).
+    const gfx::Mat4 m = Animation::pose(t, 5, gfx::identity());
+    CHECK(std::fabs(m[12] - 1.5f) < 1e-4f);
+    CHECK(std::fabs(m[0]) < 1e-4f && std::fabs(m[1] - 2) < 1e-4f && std::fabs(m[10] - 2) < 1e-4f);
+    // Held past the last key.
+    CHECK(std::fabs(Animation::pose(t, 20, gfx::identity())[12] - 3) < 1e-4f);
+
+    Bytes model = b;
+    put32(model, 0x50, 0xb8);
+    CHECK(animation.parse(model));
+    Bytes kind = b;
+    put32(kind, position, 0x13);
+    CHECK(animation.parse(kind));
+    Bytes lost = b;
+    put32(lost, root + 0x2c, uint32_t(track + 4));
+    CHECK(animation.parse(lost));
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -564,6 +647,7 @@ static const reluva::test::Suite
                                    {"bf4", [](const std::filesystem::path &) { testBf4(); }},
                                    {"sdt", [](const std::filesystem::path &) { testSdt(); }},
                                    {"md2", [](const std::filesystem::path &) { testMd2(); }},
+                                   {"animation", [](const std::filesystem::path &) { testAnimation(); }},
                                    {"hmp", [](const std::filesystem::path &) { testHmp(); }},
                                    {"lnd", [](const std::filesystem::path &) { testLnd(); }},
                                    {"attribute-map", [](const std::filesystem::path &) { testAttributeMap(); }},

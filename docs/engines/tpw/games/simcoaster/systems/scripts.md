@@ -88,8 +88,10 @@ and lets the next out into `VAR_LETMEOFF` when their time is up
 `ScriptMachine` (`src/engines/tpw/script/machine.cpp`) runs a script as
 above; the game's instructions go to a `ScriptHost`. Until the park
 runs, `SimulatedHost` stands in for it: a clock, guests coming into the
-queue and walking off, a limbo as the shop uses it, animations of a
-second each (their own lengths aren't read yet), "yes" to a ride's
+queue and walking off, a limbo as the shop uses it, animations as long
+as the model's own of their number, where known
+([md2-animation.md](../formats/md2-animation.md#which-animation-is-which)),
+or a second, "yes" to a ride's
 checks of itself (a car in the station, its track valid), 0 to the
 rest; and a trace of every instruction for the game.
 
