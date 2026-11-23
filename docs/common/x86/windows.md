@@ -206,6 +206,23 @@ C++ library have pages of their own ([directx.md](directx.md),
   highlight's colours and the caret while it has the focus (GDI's
   `paintEdit`). Other controls aren't drawn yet,
   nor an edit control's several lines (`ES_MULTILINE`).
+- **`win32_shell.cpp`: the common dialogs and SHELL32.**
+  `GetOpenFileNameA` and `GetSaveFileNameA` (`OPENFILENAMEA`) ask the
+  engine (`Win32Process::chooseFile`) for a file: the program's title,
+  its filter's names and patterns, and the name it suggests are passed
+  on, and the engine shows the system's own dialog, Windows 98's not
+  being Reluva's to draw. The file's folder becomes the program's drive
+  X:, readable and writable, and its buffer gets `X:\name`, with
+  `nFileOffset`, `nFileExtension`, the title buffer, and, saving, the
+  default extension added to a name without one. Cancelled, the answer
+  is 0 with `CommDlgExtendedError` 0; a buffer too small, 0 with
+  `FNERR_BUFFERTOOSMALL` and the size needed in its first two bytes.
+  Without `chooseFile` every dialog is cancelled. The program's hook
+  procedure and template aren't used. `ShellExecuteA` opens a web page
+  (`http://`, `https://`, `www.`, and the `http:\\` Windows also took)
+  through `Win32Process::openUrl`, which asks the player first: done
+  (42) if it's opened, `SE_ERR_ACCESSDENIED` if not; anything else isn't
+  run (`SE_ERR_NOASSOC`), reported.
 - **`win32_registry.cpp`: the registry and COM.** An in-memory registry,
   seeded with the installed locales. The engine can add an installer's
   values and hear of the program's writes. `CoCreateInstance` asks the
@@ -344,6 +361,11 @@ executable's entry point on the main thread until it ends the process.
   arrow from `LoadCursorA`, `SetCursor(NULL)`, and `DefWindowProcA`'s
   `WM_SETCURSOR`: the class's cursor on the client area, the arrow on
   the caption.
+- `testFileDialogs` checks the Open and Save dialogs with a pick given
+  in the test: what the player is asked, the program's buffer and
+  offsets, the file read and written through X:, a dialog cancelled and
+  a buffer too small; and `ShellExecuteA`'s web pages, opened, declined,
+  and a file that isn't one.
 - `testScrollBars` checks `AdjustWindowRect` leaving scroll bars out,
   their range and position, `DefWindowProcA`'s hit test, a click on the
   track and on an arrow, a thumb dragged, an arrow held (repeated after

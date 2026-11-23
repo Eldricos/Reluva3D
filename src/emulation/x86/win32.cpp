@@ -817,6 +817,7 @@ void Win32Process::addStandIns() {
     addIniStandIns();
     addWindowStandIns();
     addDialogStandIns();
+    addShellStandIns();
     // GDI's stand-ins take the place of USER32's GetDC and GDI32's stock objects.
     _gdi = std::make_unique<Gdi>(*this);
 

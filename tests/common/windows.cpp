@@ -1250,6 +1250,100 @@ static void testCaption() {
     CHECK(!process.window(hwnd));
 }
 
+// The common dialogs' Open and Save, the player's pick standing in for
+// them: the program given X:\name, read and written through drive X:;
+// cancelled, and a buffer too small. ShellExecuteA's web pages.
+static void testFileDialogs(const std::filesystem::path &tmp) {
+    std::filesystem::create_directories(tmp / "Pictures");
+    std::ofstream(tmp / "Pictures" / "Train.bmp", std::ios::binary) << "choo";
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    auto call = [&](const char *dll, const char *name, const std::vector<uint32_t> &args) {
+        uint32_t r = 0;
+        CHECK(!cpu.call(process.provided(dll, name), args, r));
+        return r;
+    };
+    auto text = [&](const std::string &s) {
+        const uint32_t a = process.memory().alloc(uint32_t(s.size() + 2));
+        cpu.writeString(a, s, uint32_t(s.size() + 1));
+        cpu.write8(a + uint32_t(s.size()) + 1, 0);
+        return a;
+    };
+    // What the player is asked, and what they pick.
+    x86::Win32Process::FileRequest asked;
+    std::optional<std::filesystem::path> pick;
+    process.chooseFile = [&](const x86::Win32Process::FileRequest &r) {
+        asked = r;
+        return pick;
+    };
+    // OPENFILENAMEA: the filter "all(*.*)", "*.*"; a buffer of 260; a title.
+    const uint32_t filter = process.memory().alloc(32);
+    cpu.writeString(filter, "all(*.*)", 9);
+    cpu.writeString(filter + 9, "*.*", 4);
+    cpu.write8(filter + 13, 0);
+    const uint32_t ofn = process.memory().alloc(0x4c);
+    const uint32_t buffer = process.memory().alloc(260);
+    const uint32_t name = process.memory().alloc(64);
+    auto request = [&](uint32_t size, const std::string &given) {
+        std::memset(cpu.memory().data() + ofn, 0, 0x4c);
+        cpu.write32(ofn, 0x4c);
+        cpu.write32(ofn + 12, filter);
+        cpu.write32(ofn + 28, buffer);
+        cpu.write32(ofn + 32, size);
+        cpu.write32(ofn + 36, name);
+        cpu.write32(ofn + 40, 64);
+        cpu.write32(ofn + 48, text("Attach a file"));
+        cpu.writeString(buffer, given, 260);
+        return ofn;
+    };
+    pick = tmp / "Pictures" / "Train.bmp";
+    CHECK(call("comdlg32.dll", "GetOpenFileNameA", {request(260, "")}) == 1);
+    CHECK(!asked.save && asked.title == "Attach a file" && asked.filters.size() == 1 &&
+          asked.filters[0] == std::make_pair(std::string("all(*.*)"), std::string("*.*")));
+    CHECK(cpu.string(buffer) == "X:\\Train.bmp" && cpu.read16(ofn + 56) == 3 && cpu.read16(ofn + 58) == 9);
+    CHECK(cpu.string(name) == "Train.bmp");
+    // The program reads it through X:.
+    const uint32_t h = call("KERNEL32.dll", "CreateFileA", {buffer, 0x80000000u, 1, 0, 3, 0x80, 0});
+    CHECK(h != 0xffffffffu);
+    const uint32_t got = process.memory().alloc(16);
+    const uint32_t read = process.memory().alloc(4);
+    CHECK(call("KERNEL32.dll", "ReadFile", {h, got, 16, read, 0}) == 1 && cpu.read32(read) == 4);
+    CHECK(cpu.string(got).substr(0, 4) == "choo");
+    call("KERNEL32.dll", "CloseHandle", {h});
+    // Saved: the name suggested passed on, the file written where picked.
+    pick = tmp / "Pictures" / "Kept.crd";
+    CHECK(call("comdlg32.dll", "GetSaveFileNameA", {request(260, "C:\\Art\\Card.crd")}) == 1);
+    CHECK(asked.save && asked.name == "Card.crd" && cpu.string(buffer) == "X:\\Kept.crd");
+    const uint32_t w = call("KERNEL32.dll", "CreateFileA", {buffer, 0x40000000u, 0, 0, 2, 0x80, 0});
+    CHECK(w != 0xffffffffu && call("KERNEL32.dll", "WriteFile", {w, text("card"), 4, read, 0}) == 1);
+    call("KERNEL32.dll", "CloseHandle", {w});
+    CHECK(std::filesystem::file_size(tmp / "Pictures" / "Kept.crd") == 4);
+    // Cancelled: no error; a buffer too small: FNERR_BUFFERTOOSMALL, and
+    // the size it needs.
+    pick.reset();
+    CHECK(call("comdlg32.dll", "GetOpenFileNameA", {request(260, "")}) == 0);
+    CHECK(call("comdlg32.dll", "CommDlgExtendedError", {}) == 0);
+    pick = tmp / "Pictures" / "Train.bmp";
+    CHECK(call("comdlg32.dll", "GetOpenFileNameA", {request(8, "")}) == 0);
+    CHECK(call("comdlg32.dll", "CommDlgExtendedError", {}) == 0x3003 && cpu.read16(buffer) == 13);
+
+    // A web page, as LEGO Loco writes it, opened if the player agrees.
+    std::string opened;
+    bool agree = true;
+    process.openUrl = [&](const std::string &url) {
+        opened = url;
+        return agree;
+    };
+    CHECK(call("SHELL32.dll", "ShellExecuteA", {0, text("open"), text("http:\\\\www.lego.com"), 0, 0, 1}) > 32);
+    CHECK(opened == "http://www.lego.com");
+    agree = false;
+    CHECK(call("SHELL32.dll", "ShellExecuteA", {0, 0, text("www.lego.com"), 0, 0, 1}) == 5);
+    CHECK(opened == "http://www.lego.com");
+    opened.clear();
+    CHECK(call("SHELL32.dll", "ShellExecuteA", {0, text("open"), text("C:\\readme.txt"), 0, 0, 1}) == 31);
+    CHECK(opened.empty());
+}
+
 static void testA3d() {
     x86::Cpu cpu(32u << 20);
     x86::Win32Process process(cpu);
@@ -1427,6 +1521,7 @@ static const test::Suite
                {"edit control", [](const std::filesystem::path &) { testEditControl(); }},
                {"pointer", [](const std::filesystem::path &tmp) { testPointer(tmp / "pointer"); }},
                {"caption", [](const std::filesystem::path &) { testCaption(); }},
+               {"file dialogs", [](const std::filesystem::path &tmp) { testFileDialogs(tmp / "dialogs"); }},
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
            });

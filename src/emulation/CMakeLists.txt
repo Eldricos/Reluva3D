@@ -25,6 +25,7 @@ add_library(reluva_emulation STATIC
     x86/gdi.cpp
     x86/win32.cpp
     x86/win32_dialogs.cpp
+    x86/win32_shell.cpp
     x86/win32_files.cpp
     x86/win32_ini.cpp
     x86/win32_locale.cpp

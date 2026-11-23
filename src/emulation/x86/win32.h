@@ -22,6 +22,7 @@
 #include <set>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace reluva::x86 {
@@ -218,6 +219,27 @@ public:
     std::function<void(const std::string &text)> output;
     // Milliseconds for timeGetTime and GetTickCount (default: since start).
     std::function<uint32_t()> milliseconds;
+    /** What a program's Open or Save dialog (comdlg32) asks the player for. */
+    struct FileRequest {
+        bool save = false;
+        std::string title; // the dialog's, empty for the system's own
+        /** Its filter's pairs: a name and its patterns ("Pictures", "*.bmp;*.dib"). */
+        std::vector<std::pair<std::string, std::string>> filters;
+        std::string name; // the name it suggests, empty for none
+    };
+    /**
+     * Shows the player a dialog for a program's GetOpenFileNameA or
+     * GetSaveFileNameA, and waits: the host file picked, or nothing
+     * (cancelled). Unset, every such dialog is cancelled. The file's folder
+     * is then the program's drive X:.
+     */
+    std::function<std::optional<std::filesystem::path>(const FileRequest &request)> chooseFile;
+    /**
+     * Asks the player whether to open a web page a program wants opened
+     * (ShellExecuteA), and opens it if so; true if it was. Unset, none is.
+     */
+    std::function<bool(const std::string &url)> openUrl;
+
     /**
      * The date and time the program is given, in seconds since 1970 (UTC);
      * the system's clock and time zone if unset. Set, its local time is
@@ -729,6 +751,7 @@ private:
     void addIniStandIns();
     void addWindowStandIns();
     void addDialogStandIns();
+    void addShellStandIns();
     // The state of the standard controls dialogs are made of (win32_dialogs.cpp).
     struct Control {
         std::vector<std::string> items; // a list box's
@@ -835,6 +858,7 @@ private:
     void destroyWindow(uint32_t handle);
     std::optional<Message> takeDueTimer(uint32_t window);
     std::unique_ptr<Gdi> _gdi;
+    uint32_t _dialogError = 0; // CommDlgExtendedError's
     int _cursorShown = 0;
     // LoadCursorA's handles for Windows' own cursors: these, plus the IDC_ number.
     static constexpr uint32_t kStandardCursors = 0x2d0000;
