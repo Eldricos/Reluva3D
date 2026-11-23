@@ -333,6 +333,24 @@ game goes on without DirectPlay. The mission starts, Base Assault here:
 the tactical view, the player's ship (a Federation police ship, the
 *Benjamin H. Ford*) and the AI's in space, the mission's clock running.
 
+Joining from another copy of Reluva, over TCP/IP: CONNECT on the Game
+Connections screen (with "Local Area Network") opens Select Game, which
+asks DirectPlay for sessions on each frame (`EnumSessions`,
+asynchronous) and lists them: the game's name, scenario, most players
+and speed ("Starfleet2", Base Assault, 5, 7). JOIN opens the session
+(`Open` with `DPOPEN_JOIN` and `DPOPEN_RETURNSTATUS`, 0x81, at
+0x617fa6) and makes the joining player as the host does, its name and
+address from Winsock. Both copies' Multiplayer Startup screens then list
+the two human players, each with its ping to the other (27 to 29). Each
+chooses a ship and ticks READY, and the host's START starts the mission
+in both: both in the tactical view, the joining player on the
+defenders' side by a planet. Through the battle they send each other
+messages (`SendEx`, 30 to 111 bytes, a few a second) for as long as
+both run; when the joining copy stopped, the host was told its player
+had gone, and its sends to it after were refused
+(`DPERR_INVALIDPLAYER`, which it throws and catches). The game's other
+Winsock functions weren't called: it plays through DirectPlay alone.
+
 ### Its mouse and keys
 
 The game asks where the pointer is with `GetCursorPos` (and
@@ -444,8 +462,11 @@ known.
   random numbers from them: a campaign's ship names and missions came out
   different each run), so a run with the same input repeats
   frame for frame and input lands on the same screens.
-- **Not yet:** another machine: a multiplayer game is hosted alone, its
-  players the host's own. The opening movie isn't
+- **Multiplayer:** DirectPlay's TCP/IP between copies of Reluva
+  ([dplay.md](../../../../../common/x86/dplay.md#the-network)); the
+  engine gives it the system's sockets, the host tool `-net`.
+- **Not yet:** a multiplayer game played to its end over the network,
+  or with players on separate machines (only on one). The opening movie isn't
   hosted: the engine plays it itself before the game
   ([formats/intro.md](../formats/intro.md)).
 
@@ -497,5 +518,6 @@ isn't measured.
 - What the folders `dmp3dDLL_Release`, `DLL` and `DRIVERS` are looked for,
   and what it loads from them.
 - How many instructions a second a mission needs.
-- What the game's own Winsock calls are for: the address it keeps in
-  its player's data suggests players reach each other directly as well.
+- What the game's own Winsock functions are for (sockets, `connect`,
+  `select`...): a game played over TCP/IP didn't call them; perhaps the
+  online services' (Dynaverse II, MPlayer).

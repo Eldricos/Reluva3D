@@ -108,8 +108,10 @@ on their pages in `formats/` and `systems/`.
    between copies of Reluva. Started: its connections, and a game hosted
    alone with an AI player, started from Multiplayer Startup into its
    mission ([systems/hosting.md](systems/hosting.md#its-multiplayer)).
-   Next: joining one hosted by another copy over TCP/IP, and the game's own Winsock calls, sharing `nfs`'s Winsock
-   stand-in (`src/engines/nfs/host/winsock.cpp`) if they're needed.
+   Joined from another copy over TCP/IP
+   ([dplay.md](../../../../common/x86/dplay.md#the-network)) and started
+   in both, the two exchanging the battle's messages. Next: a game played
+   to its end between two machines.
 8. **Importing** (done for the CDs): InstallShield 5's headers in
    `src/common/installshield.cpp` ([its page](../../../../common/installshield.md)),
    and the `MetaEngine`'s `planImport` and `addToImport`, from the two

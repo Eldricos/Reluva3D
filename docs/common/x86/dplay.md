@@ -146,7 +146,11 @@ as its size (32 bits) then its bytes.
   ("Plato") added as a second local player, the two exchanging messages
   over and over (24 bytes to every player, 36 back), ships chosen, and
   START: the AI's player destroyed, its data read from the message saying
-  so, the game's own destroyed and the session closed
+  so, the game's own destroyed and the session closed. Between two
+  copies of the host tool on one machine (`-net`): the session found on
+  Select Game, joined, both players listed on both with their pings,
+  and the mission started in both, their messages passing through the
+  battle; the joining copy's stopping removed its player at the host
   ([hosting.md](../../engines/sfc/games/sfc2/systems/hosting.md#its-multiplayer)).
 - `testDirectPlayLobby` (`tests/common/windows.cpp`) makes the lobby
   through `CoCreateInstance`, checks another class still goes on, and

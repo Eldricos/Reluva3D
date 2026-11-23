@@ -68,6 +68,7 @@ to launcher, stop it. Headless, the same with `reluva-tool sfc host <game folder
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 23 November 2026 | English retail 1.0 | Linux | Multiplayer between two copies on one machine, headless with `-fixed-clock -net`: one hosting Base Assault, the other finding it on Select Game and joining; both listing the two players with their pings, ships chosen, READY, START: the mission in both, their messages passing for five minutes |
 | 23 November 2026 | English retail 1.0 | Linux | A multiplayer game started, headless with `-fixed-clock`: hosted, an AI player given a ship from its fleet and readied, the player's ship chosen and readied, START: the DirectPlay session closed and Base Assault started, both ships in space; 30 billion instructions |
 | 23 November 2026 | English retail 1.0 | Linux | Multiplayer, headless with `-fixed-clock`: the Game Connections screen, HOST, the eleven multiplayer scenarios listed, ANNOUNCE GAME opening a DirectPlay session, Multiplayer Startup with the player, an AI player added, a ship chosen, READY; START not yet starting it |
 | 23 November 2026 | English retail 1.0 | Linux | The opening movie: `reluva-tool sfc intro` decoding all 2,721 frames and its 181.4 s of sound; in the window, played with its sound before the game, a click skipping it to the title screen |

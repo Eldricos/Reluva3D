@@ -48,11 +48,11 @@ Detection signatures (MD5 of each file's start, and its size, as
   ([InstallShield cabinets](../../../../common/installshield.md)).
   `reluva-tool sfc host` runs it headless
   ([systems/hosting.md](systems/hosting.md)).
-- **Multiplayer**, started: a game hosted alone with AI players, started
-  into its mission ([systems/hosting.md](systems/hosting.md#its-multiplayer)).
+- **Multiplayer**, started: a game against AI players, or between copies
+  of Reluva over TCP/IP, started into its mission ([systems/hosting.md](systems/hosting.md#its-multiplayer)).
 - **Not yet:** a skirmish, a tutorial or a campaign's mission won (a
   mission forfeited returns to the Dynaverse, which goes on);
-  a multiplayer game played with another machine; the 2.0.3.6 patch applied as it's imported; the
+  a multiplayer game played to its end between machines; the 2.0.3.6 patch applied as it's imported; the
   `.gf`, `.mct` and `.mvm`
   settings, campaign and map files; the objects in
   `sprites.q3`.
@@ -81,7 +81,11 @@ Tab the map, Esc to leave; the panels take clicks. A multiplayer game
 against the computer: Multiplayer, TCP/IP, HOST, ANNOUNCE GAME; set a
 slot to AI, click the icon beside its BPV and SELECT its ship, tick its
 READY, then click the icon beside your own, SELECT yours, tick READY and
-START MULTIPLAYER GAME.
+START MULTIPLAYER GAME. To play another copy of Reluva on the same
+network (or machine): Multiplayer, TCP/IP, CONNECT, pick the game on
+Select Game and JOIN; both choose a ship and tick READY, and the host
+starts it. Sessions are found and played on port 28541 (UDP and TCP),
+which a firewall must let through.
 
 `reluva-viewer` with the game opens its data viewer;
 Tab moves between its pages, Esc leaves:
