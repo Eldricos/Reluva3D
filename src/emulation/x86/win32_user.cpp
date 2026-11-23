@@ -10,6 +10,8 @@
 
 #include "emulation/x86/win32.h"
 
+#include "emulation/x86/format.h"
+
 #include "common/events.h"
 
 #include <algorithm>
@@ -747,6 +749,16 @@ void Win32Process::addUserStandIns() {
     // (the mouse buttons are VK_LBUTTON and the like). GetAsyncKeyState's
     // lowest bit says it was pressed since GetAsyncKeyState last asked,
     // which programs polling for clicks rely on.
+    // wsprintfA(buffer, format, ...), cdecl, and wvsprintfA(buffer, format,
+    // arguments): as sprintf (Windows' has no floating point, which no
+    // program here asks of it); the characters written, without the NUL.
+    auto wsprintf = [](Cpu &c, uint32_t args) {
+        const std::string text = formatPrintf(c, c.arg(1), args);
+        c.writeString(c.arg(0), text, uint32_t(text.size() + 1));
+        return uint32_t(text.size());
+    };
+    provideCdecl(u, "wsprintfA", [wsprintf](Cpu &c) { return wsprintf(c, c.reg[Cpu::ESP] + 4 + 4 * 2); });
+    stdcall(u, "wvsprintfA", 3, [wsprintf](Cpu &c) { return wsprintf(c, c.arg(2)); });
     stdcall(u, "GetKeyState", 1, [this](Cpu &c) { return _keysDown[c.arg(0) & 0xff] ? 0xffff8000u : 0u; });
     stdcall(u, "GetAsyncKeyState", 1, [this](Cpu &c) {
         const uint32_t key = c.arg(0) & 0xff;

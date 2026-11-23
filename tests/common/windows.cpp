@@ -1891,6 +1891,9 @@ static void testHostedProgramNeeds(const std::filesystem::path &tmp) {
     cpu.write32(point, 15);
     cpu.write32(point + 4, 30);
     CHECK(call(u, "ScreenToClient", {hwnd, point}) == 1 && cpu.read32(point) == 5 && cpu.read32(point + 4) == 10);
+    const uint32_t formatted = process.memory().alloc(64);
+    CHECK(call(u, "wsprintfA", {formatted, text("%s %d/%03d"), text("Player"), 2, 7}) == 12 &&
+          cpu.string(formatted) == "Player 2/007");
     CHECK(call(u, "GetWindowThreadProcessId", {hwnd, point}) == call(k, "GetCurrentThreadId", {}) &&
           cpu.read32(point) == call(k, "GetCurrentProcessId", {}));
     CHECK(call(u, "SetCapture", {hwnd}) == 0 && call(u, "SetCapture", {hwnd}) == hwnd && call(u, "ReleaseCapture", {}));
