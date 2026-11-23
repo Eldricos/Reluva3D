@@ -5,12 +5,15 @@
 
 #include "common/fs.h"
 #include "engines/sith/formats/level.h"
+#include "engines/sith/formats/model.h"
+#include "engines/sith/formats/sprite.h"
 #include "engines/sith/pages/pages.h"
 #include "engines/sith/render/draw3d.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <map>
 #include <memory>
 #include <string>
 
@@ -51,7 +54,7 @@ public:
     size_t count() const override { return _files.size(); }
     const char *keys() const override {
         return "Left/Right: level, W/S: forward/back, A/D: turn, R/F: up/down, T/G: look up/down, Q/E: sideways, "
-               "V: overview";
+               "V: overview, H: things";
     }
 
     bool handleKey(uint32_t pressed) override {
@@ -84,6 +87,8 @@ public:
             _pitch = std::max(-1.5f, _pitch - kTurn);
         else if (pressed == 'v')
             _overview = !_overview;
+        else if (pressed == 'h')
+            _showThings = !_showThings;
         else
             return false;
         load();
@@ -144,14 +149,71 @@ public:
                 ++drawn;
             }
         }
+        const int things = _showThings ? drawThings(draw) : 0;
         char info[200];
-        std::snprintf(info, sizeof(info), "  %zu sectors, %zu surfaces (%d drawn), %zu things; %s at %.2f %.2f %.2f",
-                      _level.sectors.size(), _level.surfaces.size(), drawn, _level.things.size(),
+        std::snprintf(info, sizeof(info),
+                      "  %zu sectors, %zu surfaces (%d drawn), %zu things (%d drawn); %s at %.2f %.2f %.2f",
+                      _level.sectors.size(), _level.surfaces.size(), drawn, _level.things.size(), things,
                       _overview ? "overview" : "eye", double(_eye.x), double(_eye.y), double(_eye.z));
         drawStatus(screen, line + info);
     }
 
 private:
+    // The things with a model or a sprite, each at its place, lit through
+    // its sector's colormap; in the player's own view, not the player.
+    int drawThings(Draw3D &draw) {
+        int drawn = 0;
+        for (const Level::Thing &t : _level.things) {
+            if (!_overview && fs::toLower(_level.setting(t, "type")) == "player")
+                continue;
+            const Colormap *cmp = nullptr;
+            if (t.sector >= 0 && t.sector < int(_level.sectors.size())) {
+                const int c = _level.sectors[size_t(t.sector)].colormap;
+                if (c >= 0 && c < int(_colormaps.size()))
+                    cmp = _colormaps[size_t(c)].get();
+            }
+            const std::string modelName = _level.setting(t, "model3d");
+            if (const Model *model = modelName.empty() ? nullptr : findModel(modelName)) {
+                drawModel(draw, _materials, *model, poseNodes(*model), Transform::place(t.position, t.rotation), 0,
+                          cmp);
+                ++drawn;
+                continue;
+            }
+            const std::string spriteName = _level.setting(t, "sprite");
+            if (const Sprite *sprite = spriteName.empty() ? nullptr : findSprite(spriteName)) {
+                Paint paint;
+                paint.material = _materials.find(sprite->material);
+                paint.colormap = cmp;
+                draw.billboard(t.position, sprite->width, sprite->height, paint);
+                ++drawn;
+            }
+        }
+        return drawn;
+    }
+
+    // A model or sprite read once, by name; nullptr if it isn't in the archives.
+    const Model *findModel(const std::string &name) {
+        auto [it, added] = _models.try_emplace(fs::toLower(name));
+        if (added) {
+            std::vector<uint8_t> bytes;
+            auto model = std::make_unique<Model>();
+            if (!_data.files.read("3do/" + name, bytes) && !parseModel(bytes, *model))
+                it->second = std::move(model);
+        }
+        return it->second.get();
+    }
+
+    const Sprite *findSprite(const std::string &name) {
+        auto [it, added] = _sprites.try_emplace(fs::toLower(name));
+        if (added) {
+            std::vector<uint8_t> bytes;
+            auto sprite = std::make_unique<Sprite>();
+            if (!_data.files.read("misc/spr/" + name, bytes) && !parseSprite(bytes, *sprite))
+                it->second = std::move(sprite);
+        }
+        return it->second.get();
+    }
+
     void load() {
         if (_loaded)
             return;
@@ -214,6 +276,9 @@ private:
     float _yaw = 0;
     float _pitch = 0;
     bool _overview = false;
+    bool _showThings = true;
+    std::map<std::string, std::unique_ptr<Model>> _models;
+    std::map<std::string, std::unique_ptr<Sprite>> _sprites;
 };
 
 } // namespace

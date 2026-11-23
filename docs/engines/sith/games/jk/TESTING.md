@@ -53,7 +53,8 @@ That the US release's signatures match a real install: checked by hand
 - In `reluva-viewer`: the menus' backgrounds look as in the game; the
   Force powers' icons look right with `bkforce.bm`'s palette; textures
   look right through `dflt.cmp`; the fonts' sample text is evenly spaced;
-  the levels look as in the game from the player's start;
+  the levels look as in the game from the player's start, their things
+  in place;
   the models' parts meet at their joints, and move together when
   animated;
   sounds and cut scenes play with their sound, the cut scenes' picture
@@ -63,6 +64,7 @@ That the US release's signatures match a real install: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | The things placed in Nar Shaddaa, Katarn's house and the fuel station drawn on the Levels page: crates on the ground, characters in place |
 | November 2026 | US retail | Linux | `reluva-tool sith formats`: all 35 levels read. The Levels page drawn for Nar Shaddaa, Katarn's house, the fuel station, the tower and level 19B, from their players' starts |
 | November 2026 | US retail | Linux | `reluva-tool sith formats`: all 20 sprites and 3 particle clouds read; an explosion's cels and a cloud drawn on the Sprites page |
 | November 2026 | US retail | Linux | `reluva-tool sith formats`: all 504 animations and 49 puppets read, every puppet's animations found. Kyle drawn in four animations on the Models page |

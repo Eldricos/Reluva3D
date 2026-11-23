@@ -54,9 +54,11 @@ the reference to check native against.
    `episode.jk` episodes, and the Smacker cut scenes from both CDs, each
    read or decoded on every retail file and shown or played by the data
    viewer.
-4. **Models and levels** (next): `.3do` models, `.key` animations, `.pup`
-   puppets, `.spr` sprites, `.par` particles; `.jkl` levels drawn in 3D.
-5. **Hosting spike:** how far `JK.EXE` gets in the emulator, and what it
+4. **Models and levels** (done): `.3do` models, `.key` animations, `.pup`
+   puppets, `.spr` sprites, `.par` particles, and the `.jkl` levels with
+   their things, each read on every retail file and drawn in 3D by the
+   data viewer ([formats/](README.md#this-folder)).
+5. **Hosting spike** (next): how far `JK.EXE` gets in the emulator, and what it
    needs; the gate between A and B.
 6. **The game,** by the gate's choice.
 7. **Mysteries of the Sith.**

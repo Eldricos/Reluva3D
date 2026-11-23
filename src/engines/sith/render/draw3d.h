@@ -113,8 +113,9 @@ std::vector<Transform> poseNodes(const Model &model, const std::vector<std::arra
  * Draws a model's first geometry set, placed by `where`, its nodes by
  * `nodes` (poseNodes), lit from above and in front.
  * @param cel Which cel of each material: an animated material's frame.
+ * @param colormap The colormap to light it through, in place of the Draw3D's; nullptr for that.
  */
 void drawModel(Draw3D &draw, MaterialCache &materials, const Model &model, const std::vector<Transform> &nodes,
-               const Transform &where, int cel = 0);
+               const Transform &where, int cel = 0, const Colormap *colormap = nullptr);
 
 } // namespace reluva::sith

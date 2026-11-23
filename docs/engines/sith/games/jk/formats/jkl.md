@@ -103,7 +103,13 @@ A template's settings are `key=value` words (`type=player`,
 template it's based on (`none` for none). A thing's own settings, after
 its sector, are over its template's (a door's `numframes=2` and its
 `frame=(x/y/z:pitch/yaw/roll)` positions). The player is the thing of
-`type=player`.
+`type=player`. 2,386 template lines name a model (`model3d=`), 743 a
+sprite (`sprite=`).
+
+A thing's model is placed with its origin at the thing's position,
+turned by its pitch, yaw and roll as a model's nodes are
+([3do.md](3do.md#behaviour)): crates and fences stand on the ground that
+way, without the model's insertion offset, as drawn in the data viewer.
 
 ## Behaviour
 
@@ -120,7 +126,8 @@ ambient light, isn't traced)*.
 `Level`; `Level::setting` looks a thing's setting up through its
 template's bases. The data viewer's Levels page draws a level from the
 player's start, through each sector's colormap, or from above (V), the
-surfaces facing away from the camera left out. `reluva-tool sith formats
+surfaces facing away from the camera left out, and the things with a
+model or a sprite in their places (H hides them). `reluva-tool sith formats
 <install>` reads them all.
 
 ## Sources and checks

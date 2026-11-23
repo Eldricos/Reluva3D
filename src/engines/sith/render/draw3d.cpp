@@ -202,7 +202,7 @@ std::vector<Transform> poseNodes(const Model &model, const std::vector<std::arra
 }
 
 void drawModel(Draw3D &draw, MaterialCache &materials, const Model &model, const std::vector<Transform> &nodes,
-               const Transform &where, int cel) {
+               const Transform &where, int cel, const Colormap *colormap) {
     if (model.geosets.empty())
         return;
     const std::vector<Model::Mesh> &meshes = model.geosets[0];
@@ -221,6 +221,7 @@ void drawModel(Draw3D &draw, MaterialCache &materials, const Model &model, const
             Paint paint;
             paint.material = face.material >= 0 ? materials.find(model.materials[size_t(face.material)]) : nullptr;
             paint.cel = cel;
+            paint.colormap = colormap;
             if (face.geometryMode < 4)
                 paint.color = paint.material && !paint.material->cels.empty() ? paint.material->cels[0].color : 0;
             const float lit = 0.45f + 0.55f * std::max(0.0f, dot(place.turn(face.normal), lightDir));

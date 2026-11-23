@@ -53,7 +53,7 @@ installer and the readme.
 - **The data viewer** (`reluva-viewer`) shows the pictures, materials,
   colormaps, models, levels, fonts and string tables, plays the sounds, the sound
   classes' sounds and the cut scenes, and lists the episodes' steps.
-- **Not yet:** the things in the levels, the scripts, and the game. Plans, phases and decisions:
+- **Not yet:** the scripts, and the game. Plans, phases and decisions:
   [PLAN.md](PLAN.md).
 
 ## Using it
@@ -82,7 +82,8 @@ pages, Esc leaves it, and on each page Left/Right step through the files
 
 - **Levels:** every `.jkl`, in 3D from the player's start. W/S move
   forward and back, A/D turn, Q/E step sideways, R/F go up and down, T/G
-  look up and down; V shows the whole level from above.
+  look up and down; V shows the whole level from above, H hides the
+  things placed in it.
 - **Pictures:** every `.bm` and its cels. C steps through the palettes a
   picture without its own may take (the interface's, each colormap's,
   each menu background's), K shows the transparent colour or not.
