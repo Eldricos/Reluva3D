@@ -37,8 +37,6 @@ None yet.
 - **The windowed mode:** its frame is painted plainly (borders and a
   caption bar, without the title or buttons); the desktop around it is
   black.
-- **Scroll bars** are drawn and work as Windows 98's, but a press on an
-  arrow or the track scrolls once, without repeating while it's held.
 - **Windows' pointer:** where the game shows Windows' own pointer rather
   than drawing its own (the busy pointer while saving), nothing is
   drawn; the animated cursors' files aren't read.
