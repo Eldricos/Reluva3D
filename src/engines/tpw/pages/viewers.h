@@ -256,6 +256,7 @@ private:
  * world's placed objects as markers.
  *   A/D: turn   W/S: tilt   Z/X: nearer, further   T: textures on or off
  *   G: the park's ground on or off   O: its placed objects (scape.omp) on or off
+ *   K: its sky on or off
  */
 class WorldPage : public Page {
 public:

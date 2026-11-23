@@ -46,6 +46,11 @@ None yet.
 
 ## Guessed
 
+- **How a world's sky is drawn** from its three pictures: a dome
+  coloured by `sky_rgb.tga` and clouded by `sky.tga`, a band round the
+  horizon from `sky_cyl.tga`, fog below ([sky.md](systems/sky.md)). A
+  recording looking up at each world's sky would settle it.
+
 - **How the park's ground is painted** from its textures and masks:
   each layer's two textures mixed by its blend mask, the middle and top
   layers laid over the base by a cell's bytes 2 and 3

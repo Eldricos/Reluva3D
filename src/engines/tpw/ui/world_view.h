@@ -9,6 +9,7 @@
 #include "engines/tpw/formats/lnd.h"
 #include "engines/tpw/formats/omp.h"
 #include "engines/tpw/ui/model_view.h"
+#include "engines/tpw/ui/sky.h"
 #include "graphics/soft3d/view3d.h"
 #include "image/image.h"
 
@@ -19,7 +20,8 @@ namespace reluva::tpw {
 /**
  * A world's terrain read from the game's files: the land around the park
  * (`terrain/base.MD2`), the park's ground (`terrain/base.lnd`), its
- * attribute map (`terrain/base.map`) and its placed objects (`scape.omp`).
+ * attribute map (`terrain/base.map`), its placed objects (`scape.omp`) and
+ * its sky (`sky/`).
  */
 struct LoadedWorld {
     LoadedModel surroundings;
@@ -30,6 +32,9 @@ struct LoadedWorld {
     /** Its placed objects (`scape.omp`), the sound and particle emitters, it seems. */
     ObjectMap objects;
     bool hasObjects = false;
+    /** Its sky, fog and light; `hasSky` false without its sky pictures. */
+    Sky sky;
+    bool hasSky = false;
     /**
      * The park's ground painted from the land's textures and masks, two
      * pixels a cell, clear where the park has no ground. How the game
@@ -53,10 +58,12 @@ struct WorldView {
     bool textured = true;
     bool ground = true;  // the park's ground drawn
     bool objects = true; // the placed objects drawn as markers
+    bool sky = true;     // the sky drawn behind, the world lit by its light
 };
 
 /**
- * Draws the world into an RGBA32 surface, over what is there; with
+ * Draws the world into an RGBA32 surface: its sky, or over what is there
+ * without; with
  * `view.objects`, each placed object as a dot over it and its radius as a
  * ring of dots, coloured by its kind.
  */

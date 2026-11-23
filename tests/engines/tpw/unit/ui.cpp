@@ -2,13 +2,15 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // The Theme Park World engine's screens, run headless on installs built
-// here: the opening (docs/engines/tpw/games/simcoaster/research/footage.md).
+// here: the opening (docs/engines/tpw/games/simcoaster/research/footage.md),
+// and a world's sky.
 //
 //   reluva-tests tpw.unit.ui
 
 #include "common/headless_system.h"
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/ui/opening.h"
+#include "engines/tpw/ui/sky.h"
 #include "image/image.h"
 
 #include "tests/support/ea_movie_writer.h"
@@ -69,9 +71,50 @@ void testOpening(const std::filesystem::path &tmp) {
     CHECK(tpw::playOpening(quiet, nullptr, tmp / "bare", bare) && quiet.shown == 0);
 }
 
+// A picture of one colour, as a TGA.
+std::vector<uint8_t> plainTga(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+    image::Image img;
+    img.w = 8;
+    img.h = 8;
+    for (int i = 0; i < 64; ++i)
+        img.rgba.insert(img.rgba.end(), {r, g, b, a});
+    return image::encodeTga(img, true);
+}
+
+// A world's sky: a red dome under clear clouds and band, its fog and light
+// from its settings over the levels' own; drawn, the sky overhead is the
+// dome's and the view down the fog's.
+void testSky(const std::filesystem::path &tmp) {
+    const std::filesystem::path data = tmp / "game" / "Data" / "levels";
+    test::writeFile(data / "Standard.sam", test::toBytes("ThemeEngine.FogColour 255\r\nLightNormal.X 1\r\n"
+                                                         "LightNormal.Y 0\r\nLightNormal.Z 0\r\n"));
+    test::writeFile(data / "test" / "Standard.sam", test::toBytes("ThemeEngine.FogColour 65280\r\n"));
+    test::writeFile(data / "test" / "sky" / "sky_rgb.tga", plainTga(255, 0, 0, 255));
+    test::writeFile(data / "test" / "sky" / "sky.tga", plainTga(255, 255, 255, 255));
+    test::writeFile(data / "test" / "sky" / "sky_cyl.tga", plainTga(0, 0, 0, 0));
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!tpw::mountGame(files, tmp / "game", warnings));
+    tpw::Sky sky;
+    CHECK(!sky.load(files, "levels/test"));
+    CHECK(sky.fog.r == 0 && sky.fog.g == 255 && sky.fog.b == 0);
+    CHECK(sky.light[0] == 1 && sky.light[1] == 0);
+    Surface screen;
+    screen.create(64, 64, PixelFormat::kRGBA32);
+    // Looking straight up, then straight down.
+    tpw::drawSky(screen, soft3d::OrbitCamera({0, 0, 0}, 0, -1.5f, 10, 64, 64), sky);
+    const uint8_t *up = screen.row(32) + 32 * 4;
+    CHECK(up[0] == 255 && up[1] == 0 && up[2] == 0);
+    tpw::drawSky(screen, soft3d::OrbitCamera({0, 0, 0}, 0, 1.5f, 10, 64, 64), sky);
+    const uint8_t *down = screen.row(32) + 32 * 4;
+    CHECK(down[0] == 0 && down[1] == 255 && down[2] == 0);
+    CHECK(sky.load(files, "levels/none"));
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("tpw.unit.ui",
                                         {
                                             {"opening", [](const std::filesystem::path &tmp) { testOpening(tmp); }},
+                                            {"sky", [](const std::filesystem::path &tmp) { testSky(tmp); }},
                                         });

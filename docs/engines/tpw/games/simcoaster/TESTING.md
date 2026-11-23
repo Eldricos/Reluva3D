@@ -72,7 +72,8 @@ CD: the tests can't hold the game's files. Checked by hand.
    the Text page; a model turns with A and D, in its textures' colours
    (the Arabian shops' sand, the ATM desk's brown wood); on the Worlds
    page, each world's park lies in its surroundings, sand, grass or ice,
-   its placed objects' cyan rings along its river; a sound plays with Space; the logo and the training
+   its placed objects' cyan rings along its river, under its sky: an
+   Arabian sunset, a pale blue, a deep blue; a sound plays with Space; the logo and the training
    video play on the Movies page.
 
 ## Last checked

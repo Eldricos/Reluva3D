@@ -79,7 +79,8 @@ image::Image paintGround(const Land &land) {
 
 // The ground lies flat at y = 0 over x from 0 and z from 0, the file's
 // first row of cells at the far side, z largest (inferred).
-void drawGround(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera, const LoadedWorld &world) {
+void drawGround(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera, const LoadedWorld &world,
+                const soft3d::Vec &light) {
     const Land &land = world.land;
     const float size = Land::kCellSize;
     for (int z = 0; z < land.depth(); z += kQuadCells)
@@ -94,9 +95,9 @@ void drawGround(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camer
                 return toViewerWorld({float(cx) * size, 0, float(land.depth() - cz) * size});
             };
             drawTexturedTriangle(rasterizer, camera, {at(x, z), at(x1, z), at(x1, z1)},
-                                 {{{u0, v0}, {u1, v0}, {u1, v1}}}, &world.ground);
+                                 {{{u0, v0}, {u1, v0}, {u1, v1}}}, &world.ground, light);
             drawTexturedTriangle(rasterizer, camera, {at(x, z), at(x1, z1), at(x, z1)},
-                                 {{{u0, v0}, {u1, v1}, {u0, v1}}}, &world.ground);
+                                 {{{u0, v0}, {u1, v1}, {u0, v1}}}, &world.ground, light);
         }
 }
 
@@ -153,6 +154,7 @@ Error LoadedWorld::load(const SearchSet &files, const std::string &folder) {
         hasAttributes = true;
     if (!files.read(folder + "/scape.omp", data) && !objects.parse(data))
         hasObjects = true;
+    hasSky = !sky.load(files, folder);
     return Error::success();
 }
 
@@ -162,10 +164,15 @@ void drawWorld(Surface &screen, soft3d::Rasterizer &rasterizer, const LoadedWorl
         toViewerWorld({float(land.width()) * Land::kCellSize / 2, 0, float(land.depth()) * Land::kCellSize / 2});
     const soft3d::OrbitCamera camera(world.hasLand ? middle : world.surroundings.centre, view.yaw, view.pitch,
                                      view.distance, screen.w, screen.h);
+    soft3d::Vec light = defaultLight();
+    if (view.sky && world.hasSky) {
+        drawSky(screen, camera, world.sky);
+        light = soft3d::normalize(toViewerWorld(world.sky.light));
+    }
     rasterizer.begin(screen);
-    drawMeshes(rasterizer, camera, world.surroundings, view.textured);
+    drawMeshes(rasterizer, camera, world.surroundings, view.textured, light);
     if (view.ground && world.hasLand && world.ground.w > 0)
-        drawGround(rasterizer, camera, world);
+        drawGround(rasterizer, camera, world, light);
     if (view.objects && world.hasObjects)
         drawObjects(screen, camera, world.objects);
 }

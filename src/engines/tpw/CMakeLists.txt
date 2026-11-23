@@ -12,6 +12,7 @@ reluva_add_engine(tpw
         textures.cpp
         ui/model_view.cpp
         ui/opening.cpp
+        ui/sky.cpp
         ui/world_view.cpp
         formats/attribute_map.cpp
         formats/bf4.cpp

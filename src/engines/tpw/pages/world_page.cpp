@@ -65,6 +65,8 @@ void WorldPage::handleKey(uint32_t key) {
         _view.ground = !_view.ground;
     else if (key == 'o')
         _view.objects = !_view.objects;
+    else if (key == 'k')
+        _view.sky = !_view.sky;
     else
         Page::handleKey(key);
 }
@@ -85,7 +87,8 @@ void WorldPage::draw(Surface &screen) {
         drawLabel(screen, 4, kTop + 4, _error, kError);
     drawLabel(screen, 4, screen.h - font::kLineHeight - 2,
               std::string("A/D turn  W/S tilt  Z/X nearer, further  T textures ") + (_view.textured ? "off" : "on") +
-                  "  G ground " + (_view.ground ? "off" : "on") + "  O objects " + (_view.objects ? "off" : "on"),
+                  "  G ground " + (_view.ground ? "off" : "on") + "  O objects " + (_view.objects ? "off" : "on") +
+                  "  K sky " + (_view.sky ? "off" : "on"),
               kLabel);
 }
 

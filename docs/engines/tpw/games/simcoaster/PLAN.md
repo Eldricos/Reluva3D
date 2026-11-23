@@ -43,17 +43,20 @@ format or system worked out.
    ([tgq.md](formats/tgq.md)) and files; the opening as a recording shows
    it ([opening.md](systems/opening.md)). The sound banks' `.map` files
    wait for the game's sounds to be played.
-6. **Models and the park** (under way): the models (`.MD2`, Bullfrog's
-   own: read and drawn in the viewer, [md2.md](formats/md2.md); their
+6. **Models and the park** (done; the models' animations, the paths'
+   texture table and the ground's real painting left open): the models
+   (`.MD2`, Bullfrog's own: read and drawn in the viewer,
+   [md2.md](formats/md2.md); their
    animations not yet) and their height maps (`.hmp`: read,
    [hmp.md](formats/hmp.md)); the worlds' terrain (the surroundings, the
    park's ground and attribute maps: read and drawn,
    [lnd.md](formats/lnd.md), the ground's painting guessed); the placed
    objects (`scape.omp`, sound and particle emitters it seems: read and
-   drawn as markers, [omp.md](formats/omp.md)); and the skies: an empty
-   park drawn in 3D in the viewer.
-7. **The ride scripts:** the rides' and shops' behaviour is in compiled
-   scripts (`RSSE`, `.rse`, 288 of them): a disassembler command, then an
+   drawn as markers, [omp.md](formats/omp.md)); and the skies (drawn by
+   a guess, [sky.md](systems/sky.md)): an empty park drawn in 3D in the
+   viewer.
+7. **The ride scripts** (next): the rides' and shops' behaviour is in
+   compiled scripts (`RSSE`, `.rse`, 288 of them): a disassembler command, then an
    interpreter, so rides run in the viewer.
 8. **The front end:** the start-up screens (`Data/Init/`), the main menu,
    options, saving and loading, from `ui.wad` and recordings.

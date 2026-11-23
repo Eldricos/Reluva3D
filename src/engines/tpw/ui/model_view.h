@@ -47,18 +47,22 @@ struct ModelView {
 /** A point of the game's space (y up) in the viewer's world (z up). */
 soft3d::Vec toViewerWorld(const gfx::Vec3 &p);
 
+/** The light drawModel uses: from above, a little to one side, in the viewer's world. */
+soft3d::Vec defaultLight();
+
 /**
- * Draws a triangle given in the viewer's world, lit by its own slope:
+ * Draws a triangle given in the viewer's world, lit by its own slope
+ * against `light` (a direction in the viewer's world, either way):
  * textured, its texels whose alpha is under half left out, or grey
  * without a texture.
  */
 void drawTexturedTriangle(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera,
                           const std::array<soft3d::Vec, 3> &corners, const std::array<std::array<float, 2>, 3> &uv,
-                          const image::Image *texture);
+                          const image::Image *texture, const soft3d::Vec &light);
 
-/** Draws a model's meshes as drawModel does, into a drawing already begun. */
+/** Draws a model's meshes as drawModel does, into a drawing already begun, lit by `light`. */
 void drawMeshes(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera, const LoadedModel &loaded,
-                bool textured);
+                bool textured, const soft3d::Vec &light);
 
 /**
  * Draws the model into an RGBA32 surface, over what is there, lit from

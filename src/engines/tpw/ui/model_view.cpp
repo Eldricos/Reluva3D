@@ -14,7 +14,6 @@ namespace {
 
 constexpr uint8_t kUntextured = 190;
 constexpr int kDot = 3; // a height sample's size on the screen, in pixels
-const soft3d::Vec kLight = soft3d::normalize({0.4f, -0.6f, 0.7f});
 
 // A texture coordinate as a texel, repeating; one that isn't a number is 0.
 int texel(float t, int size) {
@@ -88,6 +87,10 @@ Error LoadedModel::load(const SearchSet &files, const std::string &name) {
     return Error::success();
 }
 
+soft3d::Vec defaultLight() {
+    return soft3d::normalize({0.4f, -0.6f, 0.7f});
+}
+
 soft3d::Vec toViewerWorld(const gfx::Vec3 &p) {
     // Swapping y and z also turns a left-handed space into a right-handed
     // one, as Direct3D's would be (inferred).
@@ -96,10 +99,10 @@ soft3d::Vec toViewerWorld(const gfx::Vec3 &p) {
 
 void drawTexturedTriangle(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera,
                           const std::array<soft3d::Vec, 3> &corners, const std::array<std::array<float, 2>, 3> &uv,
-                          const image::Image *texture) {
+                          const image::Image *texture, const soft3d::Vec &light) {
     // Lit by the face's own slope, from either side.
     const soft3d::Vec normal = soft3d::normalize(soft3d::cross(corners[1] - corners[0], corners[2] - corners[0]));
-    const float shade = 0.4f + 0.6f * std::fabs(soft3d::dot(normal, kLight));
+    const float shade = 0.4f + 0.6f * std::fabs(soft3d::dot(normal, light));
     std::vector<soft3d::ViewVertex> polygon;
     for (size_t k = 0; k < 3; ++k) {
         soft3d::ViewVertex v = camera.toView(corners[k], uv[k][0], uv[k][1]);
@@ -126,7 +129,7 @@ void drawTexturedTriangle(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCam
 }
 
 void drawMeshes(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera, const LoadedModel &loaded,
-                bool textured) {
+                bool textured, const soft3d::Vec &light) {
     for (const Model::Mesh &mesh : loaded.model.meshes()) {
         // Each face's texture, by the group it is in; none outside them.
         std::vector<const image::Image *> faceTexture(mesh.faces.size(), nullptr);
@@ -142,7 +145,7 @@ void drawMeshes(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camer
                     toViewerWorld(gfx::transformPoint(mesh.transform, mesh.positions[mesh.positionOf[face.vertex[k]]]));
                 uv[k] = mesh.uv[face.vertex[k]];
             }
-            drawTexturedTriangle(rasterizer, camera, corners, uv, faceTexture[f]);
+            drawTexturedTriangle(rasterizer, camera, corners, uv, faceTexture[f], light);
         }
     }
 }
@@ -151,7 +154,7 @@ void drawModel(Surface &screen, soft3d::Rasterizer &rasterizer, const LoadedMode
     const soft3d::OrbitCamera camera(loaded.centre, view.yaw, view.pitch, loaded.radius * view.distance, screen.w,
                                      screen.h);
     rasterizer.begin(screen);
-    drawMeshes(rasterizer, camera, loaded, view.textured);
+    drawMeshes(rasterizer, camera, loaded, view.textured, defaultLight());
     if (view.heights && loaded.hasHeights)
         drawHeights(screen, loaded, camera);
 }
