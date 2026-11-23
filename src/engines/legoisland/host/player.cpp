@@ -65,6 +65,7 @@ std::string Player::takeOutput() {
 
 void Player::work() {
     GameProcess game(_dir);
+    game.setTurningByTime(_turningByTime);
     if (!_saveDir.empty())
         game.setSaveFolder(_saveDir);
     game.directSound().mixer = _mixer;

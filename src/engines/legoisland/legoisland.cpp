@@ -22,10 +22,10 @@ namespace reluva::legoisland {
 
 namespace {
 
-// Frames a second, unless the settings say otherwise: about 180 degrees a
-// second turning, as the game turns 9 a frame (inferred: what it was
-// made for isn't known).
-constexpr int kDefaultFrameRate = 20;
+// Frames a second, unless the settings say otherwise: a display's. The
+// player turns by time unless the original's way is asked for, when 20
+// turns it as fast (systems/running.md).
+constexpr int kDefaultFrameRate = 60;
 
 /**
  * The game running: its program played (Player), its frames shown, the
@@ -58,6 +58,8 @@ private:
         Player player(_target.path, _target.savePath, _audioOut ? _mixer.get() : nullptr);
         const auto rate = _target.settings.find("framerate");
         player.setFrameRate(rate == _target.settings.end() ? kDefaultFrameRate : std::atoi(rate->second.c_str()));
+        const auto turning = _target.settings.find("turning");
+        player.setTurningByTime(turning == _target.settings.end() || turning->second != "frame");
         // The setup's choices, each where it's set; unset, the program's
         // own default (but for the island's model, GameProcess's).
         auto set = [&](const char *key) -> const std::string * {
@@ -159,18 +161,24 @@ public:
     std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override { return detectGame(id(), dir); }
 
     // The game turns the player a set amount each frame it shows, however
-    // long the frame took (systems/running.md): its frame rate is how fast
-    // it turns. The first choice is the default.
+    // long the frame took (systems/running.md): Reluva turns it by time
+    // instead, unless the original's way is chosen, when the frame rate is
+    // how fast it turns. The first choice of each is the default.
     std::vector<GameOption> engineOptions() const override {
+        GameOption turning;
+        turning.key = "turning";
+        turning.label = "Turning";
+        turning.tooltip = "The original turns the player a set amount each frame, too fast on today's machines. By "
+                          "time, it turns as fast as at 20 frames a second, however many there are.";
+        turning.choices = {{"time", "By time"}, {"frame", "By frame, as the original (20 frames a second to match)"}};
         GameOption o;
         o.key = "framerate";
         o.label = "Frame rate";
-        o.tooltip = "At most this many frames a second. The game turns the player a set amount each frame, so "
-                    "the more frames, the faster it turns, too fast on today's machines.";
-        o.choices = {{std::to_string(kDefaultFrameRate), "20 a second"},
-                     {"15", "15 a second"},
+        o.tooltip = "At most this many frames a second.";
+        o.choices = {{std::to_string(kDefaultFrameRate), "60 a second"},
+                     {"20", "20 a second"},
                      {"30", "30 a second"},
-                     {"60", "60 a second"},
+                     {"15", "15 a second"},
                      {"0", "As many as it draws"}};
         // The setup's (CONFIG.EXE's) choices that matter here; its video
         // memory, palette and device ones are the stand-ins' to decide.
@@ -191,7 +199,8 @@ public:
             c.defaultOn = on;
             return c;
         };
-        return {o,
+        return {turning,
+                o,
                 choice("islandquality", "Island model quality",
                        "The setup's Island Model Quality: High draws the island's detailed model, its roads marked.",
                        {{"2", "High"}, {"1", "Medium"}, {"0", "Fast"}}),

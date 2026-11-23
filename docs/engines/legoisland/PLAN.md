@@ -53,7 +53,7 @@ Each phase ends with something that runs, is tested and is committed.
    folder, and `CONFIG.EXE`'s choices as the engine's settings; turning
    at the speed it was made for, as on today's machines it's too fast
    ([KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md)). In progress: the
-   frame rate limited (a setting), as the game turns by the frame; the
+   player turning by time, where the game turns by the frame; the
    setup's choices as the engine's settings; the joystick, through
    WINMM; saving and loading, a player and the game's state kept from
    one session to the next.

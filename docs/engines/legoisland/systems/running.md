@@ -165,7 +165,15 @@ that far.
   come 17 ms apart (0.84 s a turn) or 75 ms apart (3 s): the game doesn't
   scale it by the time a frame took. At today's frame rates it turns
   far faster than on the machines it was made for (seen by a tester, and
-  known among its players).
+  known among its players). Why, read in `LEGO1.DLL`: its navigation
+  (0x10054de0, the object 0x10015780 returns) takes the milliseconds
+  since it last ran (times 0.001, at 0x100d8550) and moves the player by
+  its speed times them; but unless it eases its turns in (a flag at
+  +0x54 of it), it turns the player by its turn speed (+0x1c) times a
+  factor (+0x50) each time, in degrees (made radians by 0.0174533, at
+  0x100d8560), the time left out (0x10054f9f). The player's step
+  (0x1002de80) calls it, and sets the camera's frame through a matrix
+  (0x100a3190, `IDirect3DRMFrame2::AddTransform`).
 - **Building:** dropped on the map's boat, Pepper goes to the lifeguard
   hut on the beach, its jet-ski shown built as she comes; clicked, its
   yellow baseplate opens the jet-ski's build screen (`JETSKI.SI`, world
@@ -210,10 +218,15 @@ primary surface), and passes the player's input on: the pointer where it
 is in the game's picture, which fills the window's client area, its
 buttons and wheel, and keys, as window messages and DirectInput's state.
 The program's sound goes to the engine's mixer through the DirectSound
-stand-in. Closing the window asks first. The engine shows at most so
-many frames a second, its *Frame rate* setting (20 unless set: 15, 30,
-60, or as many as it draws), as the game turns the player by the frame
-(above). Its settings give the setup's choices that matter here: the
+stand-in. Closing the window asks first. The player turns by time
+(`GameProcess::turnByTime`): the five bytes that work out the untimed
+turn (0x10054f9f) are a call to a native that works it out the same way
+times the frame's time and 20, so it turns as fast as at 20 frames a
+second (a tester found 20 right), a frame of a quarter second or longer
+counting as a quarter; only where `LEGO1.DLL`'s bytes are as expected.
+Its *Turning* setting gives back the original's way. The engine shows
+at most so many frames a second, its *Frame rate* setting (60 unless
+set: 20, 30, 15, or as many as it draws). Its settings give the setup's choices that matter here: the
 island's model and texture quality, music, 3D sound, the game's own
 cursor and a joystick, each set in the registry when chosen. With *Use a
 joystick*, the first one connected is the game's joystick 0

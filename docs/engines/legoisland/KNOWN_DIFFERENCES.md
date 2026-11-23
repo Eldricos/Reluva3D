@@ -13,11 +13,10 @@ the original's way. -->
 systems (a CD check, a mode the hardware no longer has). -->
 - **Turning:** the original turns the player a set amount each frame,
   so on today's machines, drawing many more frames a second, far too
-  fast (known among its players). Reluva shows at most 20 frames a
-  second unless the *Frame rate* setting says otherwise, which slows the
-  turning to about 180 degrees a second; "As many as it draws" gives
-  back the original's way
-  ([systems/running.md](systems/running.md#in-reluva)).
+  fast (known among its players). Reluva turns it by time, as fast as
+  at 20 frames a second, however many it draws; the *Turning* setting
+  gives back the original's way, with the *Frame rate* setting at 20 to
+  match ([systems/running.md](systems/running.md#in-reluva)).
 
 ## Bugs fixed
 

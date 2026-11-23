@@ -57,6 +57,13 @@ public:
      */
     void setSetting(const std::string &name, const std::string &value);
 
+    /**
+     * Whether the player turns by the time a frame took, at the speed it
+     * turns at 20 frames a second, rather than a set amount each frame, as
+     * the original does (systems/running.md); on unless set. Before load().
+     */
+    void setTurningByTime(bool on) { _turningByTime = on; }
+
     /** Reads and loads LEGO1.DLL, then ISLE.EXE, from the game folder. */
     Error load();
     /** Runs LEGO1.DLL's start-up. */
@@ -77,6 +84,7 @@ public:
 
 private:
     std::optional<std::filesystem::path> mapPath(const std::string &windowsPath, bool forWriting) const;
+    void turnByTime();
 
     std::filesystem::path _dir;
     std::filesystem::path _saveDir;
@@ -88,6 +96,7 @@ private:
     std::unique_ptr<x86::DirectInput> _directInput;
     const x86::Win32Process::Module *_dll = nullptr;
     const x86::Win32Process::Module *_exe = nullptr;
+    bool _turningByTime = true;
 };
 
 } // namespace reluva::legoisland

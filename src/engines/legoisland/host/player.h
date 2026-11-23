@@ -41,6 +41,8 @@ public:
 
     /** One of the program's registry settings (GameProcess::setSetting); before start. */
     void setSetting(const std::string &name, const std::string &value) { _settings.emplace_back(name, value); }
+    /** Whether the player turns by time (GameProcess::setTurningByTime); before start. */
+    void setTurningByTime(bool on) { _turningByTime = on; }
     /** Whether the game is told of a joystick, which the input's joystick events move; before start. */
     void setJoystick(bool present) { _joystick = present; }
     /** At most so many frames a second (0: as many as it draws); before start. */
@@ -78,6 +80,7 @@ private:
     audio::Mixer *_mixer;
     int _frameRate = 0;
     bool _joystick = false;
+    bool _turningByTime = true;
     std::vector<std::pair<std::string, std::string>> _settings;
     std::chrono::steady_clock::time_point _nextFrame; // the game thread's
     GameProcess *_game = nullptr;                     // the game thread's, while it runs
