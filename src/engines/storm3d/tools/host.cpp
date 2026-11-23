@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file]
-//                          [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file]:
+//                          [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file] [-draws frame file]:
 // runs the retail Armada.exe in Reluva's x86 emulator, with its own DLLs
 // from the install and Reluva's stand-ins for Windows, DirectX and the C
 // runtimes, as a reference to study, never as the game is played
@@ -72,6 +72,8 @@ struct Options {
     bool realClock = false;
     // -dump <frame> <file>: the process's memory as the frame is shown.
     std::map<uint64_t, std::filesystem::path> dumps;
+    // -draws <frame> <file>: the Direct3D draws that make that frame.
+    std::map<uint64_t, std::filesystem::path> draws;
     // -dump-ms <ms> <file>: the same at a moment of the program's clock.
     std::map<uint64_t, std::filesystem::path> dumpsAt;
 };
@@ -176,6 +178,47 @@ Error readInput(const std::filesystem::path &path, std::vector<InputEvent> &out)
     return Error::success();
 }
 
+// A frame's draws as text: each draw's primitive, vertex format and
+// texture, then its vertices: screen x, y, z and 1/w, colour (ARGB) and
+// texture coordinates for the formats Armada uses (D3DFVF_XYZRHW with
+// D3DFVF_DIFFUSE, and D3DFVF_TEX1 perhaps), else their bytes in hex.
+void writeDraws(const std::vector<x86::DirectX::Draw> &draws, const std::filesystem::path &path) {
+    std::ofstream out(path);
+    for (size_t i = 0; i < draws.size(); ++i) {
+        const x86::DirectX::Draw &d = draws[i];
+        out << "draw " << i << " primitive " << d.primitive << " fvf " << text::format("%x", d.fvf) << " vertices "
+            << (d.stride ? d.vertices.size() / d.stride : 0) << " indices " << d.indices.size() << " texture "
+            << text::format("%x", d.texture) << ' ' << d.textureWidth << 'x' << d.textureHeight << '\n';
+        const bool known = d.fvf == 0x44 || d.fvf == 0x144;
+        for (size_t at = 0; d.stride && at + d.stride <= d.vertices.size(); at += d.stride) {
+            const uint8_t *v = d.vertices.data() + at;
+            if (!known) {
+                for (uint32_t k = 0; k < d.stride; ++k)
+                    out << text::format("%02x", v[k]);
+                out << '\n';
+                continue;
+            }
+            float f[6] = {};
+            uint32_t colour = 0;
+            std::memcpy(f, v, 16);
+            std::memcpy(&colour, v + 16, 4);
+            if (d.fvf == 0x144)
+                std::memcpy(f + 4, v + 20, 8);
+            out << text::format("  %.2f %.2f %.5f %.6f %08x", double(f[0]), double(f[1]), double(f[2]), double(f[3]),
+                                colour);
+            if (d.fvf == 0x144)
+                out << text::format(" %.4f %.4f", double(f[4]), double(f[5]));
+            out << '\n';
+        }
+        if (!d.indices.empty()) {
+            out << "  indices";
+            for (const uint16_t ix : d.indices)
+                out << ' ' << ix;
+            out << '\n';
+        }
+    }
+}
+
 Error readFile(const std::filesystem::path &path, std::vector<uint8_t> &out) {
     std::ifstream in(path, std::ios::binary);
     if (!in)
@@ -268,7 +311,7 @@ int cmdHost(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] "
-            "[-input file] [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file]\n");
+            "[-input file] [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file] [-draws frame file]\n");
         return 2;
     }
     Options o;
@@ -279,7 +322,10 @@ int cmdHost(int argc, char **argv) {
             o.limitMs = std::strtoull(argv[++a], nullptr, 10);
         else if (arg == "-frames" && a + 1 < argc)
             o.framesDir = argv[++a];
-        else if (arg == "-dump-ms" && a + 2 < argc) {
+        else if (arg == "-draws" && a + 2 < argc) {
+            const uint64_t frame = std::strtoull(argv[++a], nullptr, 10);
+            o.draws[frame] = argv[++a];
+        } else if (arg == "-dump-ms" && a + 2 < argc) {
             const uint64_t ms = std::strtoull(argv[++a], nullptr, 10);
             o.dumpsAt[ms] = argv[++a];
         } else if (arg == "-dump" && a + 2 < argc) {
@@ -446,8 +492,16 @@ int cmdHost(int argc, char **argv) {
     x86::DirectInput directInput(process);
     directX.presentLate = false;
     uint64_t frames = 0;
+    // The draws since the last frame shown, while one of -draws' frames may
+    // be the next.
+    std::vector<x86::DirectX::Draw> drawsSince;
+    if (!o.draws.empty())
+        directX.drawn = [&](const x86::DirectX::Draw &d) { drawsSince.push_back(d); };
     directX.presented = [&](const x86::DirectX::Frame &f) {
         ++frames;
+        if (auto wanted = o.draws.find(f.number); wanted != o.draws.end())
+            writeDraws(drawsSince, wanted->second);
+        drawsSince.clear();
         if (auto dump = o.dumps.find(f.number); dump != o.dumps.end()) {
             std::ofstream out(dump->second, std::ios::binary);
             out.write(reinterpret_cast<const char *>(cpu->memory().data()), std::streamsize(cpu->memory().size()));
@@ -545,7 +599,7 @@ const tool::Commands kCommands(
     {
         {"host",
          "<game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file] "
-         "[-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file]",
+         "[-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file] [-draws frame file]",
          "run the retail Armada.exe in the x86 emulator, to study: files "
          "opened, frames shown, imports missing, where it stops",
          cmdHost},
