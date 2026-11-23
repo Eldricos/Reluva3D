@@ -978,6 +978,12 @@ void testItems() {
                 "\tProcess=CProcess\n\t{\n\t\tProcess Type=Hypospray Use\n\t}\n"
                 "\tDischarge Action=CGiveHealthWeaponAction\n\t{\n\t\tHealth action=CGiveHealthAction\n\t\t{\n"
                 "\t\t\tHealth=40\n\t\t}\n\t}\n}\n");
+    data.files["Inventory/Item Definitions/Weapon Enhancement.txt"] =
+        bytesOf("CStarTrekInventoryItemDefinition\n{\n\tDisplay In Inventory=1\n\tCan Use On Self=1\n"
+                "\tDefault Inventory Item=CStarTrekCountInventoryItem\n\t{\n\t\tRounds=5\n\t}\n"
+                "\tProcess=CProcess\n\t{\n\t\tProcess Type=Weapon Enhancement\n\t}\n"
+                "\tDischarge Action=CExecuteActionWeaponAction\n\t{\n\t\tAction=CEnhanceInventoryAction\n\t\t{\n"
+                "\t\t\tTarget=$trigger\n\t\t\tTime To Enhance=60\n\t\t}\n\t}\n}\n");
     GameMap map;
     CHECK(!loadMap(data, "Levels/Test.zax", map));
     TextObject rules;
@@ -988,14 +994,14 @@ void testItems() {
     options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember ann;
     ann.firstName = "Ann";
-    ann.inventory = {{"Concussion Grenade", 2}, {"Frag Grenade", 1}, {"Hypospray", -1}};
+    ann.inventory = {{"Concussion Grenade", 2}, {"Frag Grenade", 1}, {"Hypospray", -1}, {"Weapon Enhancement", -1}};
     TeamMember bo;
     bo.firstName = "Bo";
     MapScreen screen(data, rules, map, options, 0, {ann, bo});
     const MapScreen::Officer &a = screen.officers()[0];
     const MapScreen::Officer &b = screen.officers()[1];
     // Her counts as the roster gives them, or the item's Rounds for -1.
-    CHECK(a.items.size() == 3 && a.items[0].count == 2 && a.items[1].count == 1 && a.items[2].count == 5);
+    CHECK(a.items.size() == 4 && a.items[0].count == 2 && a.items[1].count == 1 && a.items[2].count == 5);
     CHECK(a.item == -1 && !screen.useItem(600.0f, 500.0f));
     uint64_t now = 0;
     const auto run = [&](uint64_t until) {
@@ -1026,6 +1032,86 @@ void testItems() {
     CHECK(screen.useItem(300.0f, 420.0f));
     run(12000);
     CHECK(b.health == 100.0f && a.items[2].count == 4 && std::hypot(a.x - b.x, a.y - b.y) <= 30.0f);
+    // The enhancement on Bo: for its 60 seconds his weapons do a quarter
+    // more; then as before.
+    screen.chooseItem(0, 3);
+    CHECK(screen.useItem(b.x, b.y));
+    run(now + 3000);
+    CHECK(a.items[3].count == 4 && b.enhanced > 55.0f && b.enhanced <= 60.0f);
+    ItemDefinition phaser;
+    phaser.weaponDamage = 20.0f;
+    screen.hurtEnemy(1, phaser, 1, false);
+    CHECK(screen.enemies()[1].health == 75.0f);
+    run(now + 60000);
+    screen.hurtEnemy(1, phaser, 1, false);
+    CHECK(b.enhanced == 0.0f && screen.enemies()[1].health == 55.0f);
+}
+
+void testOverload() {
+    // Ann's phaser set to overload, a guard 100 off: ten seconds on it goes
+    // off where she is, hurting both, and it's gone. Bo's, set and thrown
+    // at a guard 300 off, goes off there when its time's up.
+    const auto part = [](const std::string &name, int x, int y, const std::string &rest) {
+        return "Level Part=CEntityWalking\n{\nName=" + name + "\nVisible=1\nActive=1\n" + rest +
+               "Position X=" + std::to_string(x) + "\nPosition Y=" + std::to_string(y) + "\n}\n";
+    };
+    const std::string guardAI = "Activity=Array\n{\nItem Count=1\nActivity=CBorgAI\n{\nCurrent State=Patrol\n"
+                                "Max Distance=50\n}\n}\nModel=Characters/Guard\nFacing Angle=3.14159\n";
+    const std::string zax = "CLayerSaveData\n{\nWidth=3000\nHeight=2000\nView Position=500.000000,500.000000\n"
+                            "Tree List=CSortList2D\n{\n" +
+                            part("Guard A", 400, 500, guardAI) + part("Guard B", 1600, 1500, guardAI) +
+                            part("Away Team Spawn Point 1", 300, 500, "") +
+                            part("Away Team Spawn Point 2", 1300, 1500, "") + "}\n}\n";
+    const auto bytesOf = [](const std::string &text) { return std::vector<uint8_t>(text.begin(), text.end()); };
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = bytesOf(zax);
+    data.files["Cache/Models/Shots/Concussion.mdl16"] = modelFile("Concussion", 1, 1, 50.0f, {}, 150.0f, false, 400.0f);
+    data.files["Inventory/Item Definitions/Phaser.txt"] = bytesOf(
+        "CStarTrekInventoryItemDefinition\n{\nDisplay In Inventory=1\nWeapon Damage=40\nItem Range=375\n"
+        "Discharge Action=CShootEnergyWeaponAction\n{\n}\nOverload Discharge Action=CThrowProjectileWeaponAction\n"
+        "{\nGravity AI=CThrowGravityAI\n{\nGravity=17\n}\n}\nOverload Discharge Sequence=Throw\n"
+        "Is Overloadable=1\nOverload Projectile=Shots/Concussion\n}\n");
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(
+        !readTextObject("CRules\n{\nCustom Rules=CCustomRules\n{\nScreen Pos=0,0\nScreen Size=200,200\n}\n}\n", rules));
+    GameOptions options;
+    options.pauseWhenHit = false; // the hits here don't stop time
+    TeamMember ann;
+    ann.firstName = "Ann";
+    ann.inventory = {{"Phaser", -1}};
+    TeamMember bo;
+    bo.firstName = "Bo";
+    bo.inventory = {{"Phaser", -1}};
+    MapScreen screen(data, rules, map, options, 0, {ann, bo});
+    const MapScreen::Officer &a = screen.officers()[0];
+    const MapScreen::Officer &b = screen.officers()[1];
+    uint64_t now = 0;
+    const auto run = [&](uint64_t until) {
+        while (now < until)
+            screen.update(now += 50);
+    };
+    screen.choose(0);
+    screen.chooseItem(0, 0);
+    screen.toggleOverload();
+    CHECK(a.items[0].overload == MapScreen::kOverloadTime);
+    screen.toggleOverload();
+    CHECK(a.items[0].overload < 0.0f);
+    screen.toggleOverload();
+    run(9000);
+    CHECK(a.items.size() == 1 && screen.enemies()[0].health == 100.0f);
+    run(11000);
+    CHECK(a.items.empty() && a.weapon == nullptr && screen.enemies()[0].health == 60.0f && a.health == 60.0f);
+    // Bo's thrown: it's gone from him as it's thrown, and goes off by the guard.
+    screen.choose(1);
+    screen.chooseItem(1, 0);
+    screen.toggleOverload();
+    CHECK(screen.useItem(1600.0f, 1500.0f));
+    run(now + 1000);
+    CHECK(b.items.empty() && screen.thrown().size() == 1 && screen.thrown()[0].model == "Shots/Concussion");
+    run(now + 10000);
+    CHECK(screen.thrown().empty() && screen.enemies()[1].health == 60.0f && b.health == 100.0f);
 }
 
 void testMaps() {
@@ -2017,6 +2103,7 @@ static const reluva::test::Suite
                                        {"objectives", [](const std::filesystem::path &) { testObjectives(); }},
                                        {"enemy AI", [](const std::filesystem::path &) { testEnemyAI(); }},
                                        {"items", [](const std::filesystem::path &) { testItems(); }},
+                                       {"overload", [](const std::filesystem::path &) { testOverload(); }},
                                        {"maps", [](const std::filesystem::path &) { testMaps(); }},
                                        {"interface", [](const std::filesystem::path &) { testInterface(); }},
                                        {"gadgets", [](const std::filesystem::path &) { testGadgets(); }},

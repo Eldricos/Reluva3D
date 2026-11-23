@@ -174,6 +174,8 @@ GameHud::Result GameHud::handleEvent(const Event &ev, uint64_t now) {
         };
         if (panel->className == "CPhaserInfoRenderer" && item->multipleSettings)
             r.toggleStun = onButton("Stun Pos", picture("Inventory/Toggle Default"));
+        if (panel->className == "CPhaserInfoRenderer" && item->overloadable && !r.toggleStun)
+            r.toggleOverload = onButton("Overload Pos", picture("Inventory/Toggle Default"));
         if (panel->className == "CChargedItemInfoRenderer" && panel->integer("Show Activate Button").value_or(0))
             r.toggleCharge = onButton("Button Pos", picture(readText(panel, "Button Off Frame")));
         if (panel->className == "CDetonateInfoRenderer")
@@ -600,13 +602,13 @@ void GameHud::drawItemPanel(Surface &screen, int x, int y, uint64_t now) {
     } else if (kind == "CPhaserInfoRenderer") {
         // Its power, full; its damage ("Damage: %g", 0x41bc47); and its
         // STUN or KILL as it's set, in their fonts, on the toolkit's toggle,
-        // with OVERLOAD, which isn't there yet, off.
+        // and OVERLOAD likewise.
         fromMiddle("Phaser Indicator Pos", px, py);
         blitBy(screen, sequence(readText(panel, "Phaser Power Indicator Sequence")).frame(0, 0), px, py);
         const Font &font = panelFont(readText(panel, "Phaser Font"));
         at("Phaser Damage Pos", px, py);
         char damage[32];
-        std::snprintf(damage, sizeof damage, "Damage: %g", double(item->weaponDamage));
+        std::snprintf(damage, sizeof damage, "Damage: %g", double(item->weaponDamage * _enhancement));
         if (font.loaded())
             font.draw(screen, px, py, damage);
         const auto toggle = [&](const char *pos, const char *textPos, bool on, const char *onText, const char *onFont,
@@ -623,8 +625,8 @@ void GameHud::drawItemPanel(Surface &screen, int x, int y, uint64_t now) {
         if (item->multipleSettings)
             toggle("Stun Pos", "Stun Text Pos", _stun, "Stun On Text", "Stun On Font", "Stun Off Text",
                    "Stun Off Font");
-        toggle("Overload Pos", "Overload Text Pos", false, "Overload On Text", "Overload On Font", "Overload Off Text",
-               "Overload Off Font");
+        toggle("Overload Pos", "Overload Text Pos", _overload, "Overload On Text", "Overload On Font",
+               "Overload Off Text", "Overload Off Font");
     } else if (kind == "CDetonateInfoRenderer") {
         // Its button, its words on it; and how many mines are left, beside
         // its Count Text (inferred for the count's place after it).

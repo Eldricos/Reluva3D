@@ -123,7 +123,8 @@ bool MapScreen::useItem(float x, float y) {
     const ItemDefinition *def = itemOf(o);
     if (!def || o.down() || o.items[size_t(o.item)].count == 0)
         return false;
-    if (throws(*def)) {
+    // An overloaded item is thrown, whatever it is (0x5cf3c0).
+    if (throws(*def) || o.items[size_t(o.item)].overload >= 0.0f) {
         o.task = Officer::Task::kThrow;
         o.taskX = x;
         o.taskY = y;
@@ -170,9 +171,10 @@ bool MapScreen::useItem(float x, float y) {
         o.path.clear();
         return true;
     }
-    if (def->health > 0.0f) {
-        // An officer healed; else a part with a process for it (Mission
-        // 13's hostages revived, a Hypospray Use; inferred).
+    if (def->health > 0.0f || def->enhanceTime > 0.0f) {
+        // An officer healed or their weapons enhanced; else a part with a
+        // process for it (Mission 13's hostages revived, a Hypospray Use;
+        // inferred).
         const int target = officerAt(x, y);
         if (target < 0)
             return startProcess(x, y);
@@ -227,13 +229,22 @@ bool MapScreen::doTask(size_t officer) {
         // it goes off its Shot Duration after it's thrown (inferred: the
         // throw's speed and Gravity's units aren't traced).
         o.direction = directionOf(o.taskX - o.x, o.taskY - o.y);
-        const ModelInfo &info = modelInfo(def->projectile);
-        Thrown t{def,         def->projectile, o.x, o.y, o.taskX, o.taskY, info.fuse > 0.0f ? info.fuse : kDefaultFuse,
-                 int(officer)};
+        // Overloaded, it's its Overload Projectile, going off as its
+        // overload runs out (inferred), and it's gone from them.
+        const float overload = o.items[size_t(o.item)].overload;
+        const std::string &projectile = overload >= 0.0f ? def->overloadProjectile : def->projectile;
+        if (overload >= 0.0f && !def->overloadSequence.empty())
+            o.discharge = def->overloadSequence;
+        const ModelInfo &info = modelInfo(projectile);
+        const float fuse = overload >= 0.0f ? overload : info.fuse > 0.0f ? info.fuse : kDefaultFuse;
+        Thrown t{def, projectile, o.x, o.y, o.taskX, o.taskY, fuse, int(officer)};
         const float speed = info.maxVelocity > 0.0f ? info.maxVelocity : kDefaultThrowSpeed;
         const float distance = std::hypot(o.taskX - o.x, o.taskY - o.y);
         const float flight = std::max(0.1f, distance / speed);
-        const float g = gravityOf(*def);
+        ItemDefinition thrownAs = *def;
+        if (overload >= 0.0f)
+            thrownAs.gravity = def->overloadGravity;
+        const float g = gravityOf(thrownAs);
         t.z = def->height;
         t.vx = distance > 0.0f ? (o.taskX - o.x) / flight : 0.0f;
         t.vy = distance > 0.0f ? (o.taskY - o.y) / flight : 0.0f;
@@ -243,14 +254,19 @@ bool MapScreen::doTask(size_t officer) {
         if (_mixer)
             if (auto sound = gameSound(_data, def->shotSound))
                 _mixer->play(sound, audio::SoundType::kEffects);
+        if (overload >= 0.0f)
+            removeItem(o, size_t(o.item));
         return true;
     }
     // Used on an officer: its Health action's Health given, up to their
-    // whole (inferred), with its Use Sound.
+    // whole (inferred), or their weapons enhanced for its time, from then
+    // whatever was left (0x5cf050); with its Use Sound.
     Officer &target = _officers[size_t(o.taskOfficer)];
     if (&target != &o)
         o.direction = directionOf(target.x - o.x, target.y - o.y);
     target.health = std::min(target.maxHealth, target.health + def->health);
+    if (def->enhanceTime > 0.0f)
+        target.enhanced = def->enhanceTime;
     if (_mixer)
         if (auto sound = gameSound(_data, def->useSound))
             _mixer->play(sound, audio::SoundType::kEffects);
@@ -301,7 +317,51 @@ void MapScreen::explode(const Thrown &t) {
             hurtOfficer(i, *t.item, stun);
 }
 
+void MapScreen::removeItem(Officer &o, size_t index) {
+    o.items.erase(o.items.begin() + std::ptrdiff_t(index));
+    if (o.item == int(index))
+        o.item = -1;
+    else if (o.item > int(index))
+        --o.item;
+    std::fill(o.shown.begin(), o.shown.end(), 0);
+    std::vector<std::string> names;
+    for (const Officer::Held &h : o.items)
+        names.push_back(h.name);
+    o.weapon = weaponOf(names);
+}
+
+void MapScreen::updateOverloads(float seconds) {
+    // Counting down, it beeps (Weapons/Overload.wav), the beeps closer as
+    // it runs out: the next after the part of its whole left, in seconds;
+    // run out, its Overload Projectile goes off where its holder is, and
+    // it's gone (0x5cf235).
+    for (size_t i = 0; i < _officers.size(); ++i) {
+        Officer &o = _officers[i];
+        for (size_t k = 0; k < o.items.size(); ++k) {
+            Officer::Held &h = o.items[k];
+            if (h.overload < 0.0f)
+                continue;
+            h.overload -= seconds;
+            const auto def = _items.find(h.name);
+            if (h.overload < 0.0f) {
+                if (def != _items.end() && !def->second.overloadProjectile.empty())
+                    explode({&def->second, def->second.overloadProjectile, o.x, o.y, o.x, o.y, 0.0f, int(i)});
+                removeItem(o, k);
+                break;
+            }
+            h.beep -= seconds;
+            if (h.beep <= 0.0f) {
+                h.beep = h.overload / kOverloadTime;
+                if (_mixer)
+                    if (auto sound = gameSound(_data, "Weapons/Overload.wav"))
+                        _mixer->play(sound, audio::SoundType::kEffects);
+            }
+        }
+    }
+}
+
 void MapScreen::updateItems(float seconds) {
+    updateOverloads(seconds);
     for (size_t i = 0; i < _officers.size(); ++i) {
         Officer &o = _officers[i];
         if (o.task == Officer::Task::kNone)
@@ -333,7 +393,8 @@ void MapScreen::updateItems(float seconds) {
             placeOf(size_t(o.taskPart), x, y);
             near = (def->range <= 0.0f || std::hypot(x - o.x, y - o.y) <= def->range) && clearSight(o.x, o.y, x, y);
         } else if (o.task == Officer::Task::kThrow) {
-            near = (def->range <= 0.0f || std::hypot(x - o.x, y - o.y) <= def->range) && clearSight(o.x, o.y, x, y);
+            const float range = def->range * enhancement(int(&o - _officers.data()));
+            near = (range <= 0.0f || std::hypot(x - o.x, y - o.y) <= range) && clearSight(o.x, o.y, x, y);
         } else {
             const Officer &target = _officers[size_t(o.taskOfficer)];
             if (!target.alive()) {
@@ -587,6 +648,18 @@ void MapScreen::toggleStun() {
     const ItemDefinition *def = itemOf(o);
     if (def && def->multipleSettings)
         o.items[size_t(o.item)].stun = !o.items[size_t(o.item)].stun;
+}
+
+void MapScreen::toggleOverload() {
+    if (_selected < 0)
+        return;
+    Officer &o = _officers[size_t(_selected)];
+    const ItemDefinition *def = itemOf(o);
+    if (!def || !def->overloadable)
+        return;
+    Officer::Held &h = o.items[size_t(o.item)];
+    h.overload = h.overload >= 0.0f ? -1.0f : kOverloadTime;
+    h.beep = 0.0f;
 }
 
 void MapScreen::detonate() {

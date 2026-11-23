@@ -54,11 +54,10 @@ None yet.
   as the triggers say; parts other than the team aren't moved between a
   mission's maps
   ([systems/objectives.md](systems/objectives.md#in-reluva)).
-- **Items:** the Psychic Rack, the enhancements and the Psyche
-  Displacement Controller aren't there; the
-  gadgets' sparks and the transporter's pictures aren't drawn, nor the
-  band on the team bar; there's no full inventory, and the phaser's
-  overload isn't there ([systems/items.md](systems/items.md#in-reluva)).
+- **Items:** the Psychic Rack and the Psyche Displacement Controller
+  aren't there; the gadgets' sparks and the transporter's pictures aren't
+  drawn, nor the band or an enhancement on the team bar; there's no full
+  inventory ([systems/items.md](systems/items.md#in-reluva)).
 - **The briefing:** the text has no scroll bar (the mouse wheel
   scrolls it), the random numbers aren't there, and EXIT doesn't fade out
   ([systems/briefing.md](systems/briefing.md#in-reluva)).

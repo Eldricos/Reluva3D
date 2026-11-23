@@ -174,6 +174,29 @@ Small Red; OVERLOAD likewise. The phaser comes set to `Kill` (its
 `Default Inventory Item`'s `Weapon Setting`); a map can set an enemy's
 to `Stun` (34 Borg guns).
 
+### Enhancement and overload
+
+**Weapon Enhancement** (Equipment Enhancement), an engineer's skill, is
+used on a team-mate (`Can Use On Self`): its Discharge Action, a
+`CExecuteActionWeaponAction`, runs a `CEnhanceInventoryAction` whose
+`Time To Enhance` (60; 60 if left out, `0x57ed8a`) is given to each of
+their items that's a weapon, energy or counted (`0x57ede0`), as its
+`Enhance Time`, whatever was left of it before (`0x5cf050`). It counts
+down with the game's time (`0x5cdcf0`); while it's above 0 the item's
+`Item Range` and `Weapon Damage` are a quarter more (×1.25, `0x5cded0`,
+`0x5cfda2`). The team bar marks an enhanced officer with `Interface/Team
+Bar/Inventory Enhanced` (`0x5e1ad0`).
+
+A phaser that's `Is Overloadable` (only `Phaser Damage Increase
+Overload`, the second of its upgrades) has its panel's OVERLOAD button:
+pressed, it's set to overload for 10 seconds (`0x5350d7`), or back.
+Overloaded, the item's Discharge Action, Sequence and Projectile are its
+Overload ones (`0x5cf080`, `0x5cf3c0`): it's thrown, not fired. Counting
+down it beeps, `Weapons/Overload.wav`, the next beep after the part of
+its whole left, in seconds; run out, its `Overload Projectile` (a
+concussion grenade's model) goes off where its holder is and the item is
+gone (`0x5cf235`).
+
 ### The inventory bar
 
 At Rules.txt's `Inventory Pos` (355, 419): its `Background`, and a
@@ -256,7 +279,7 @@ placed as above *(inferred)*, over the minimap: a generic
 one's text; the phaser's power, full, "Damage: %g" (`0x41bc47`), and its
 STUN or KILL on the toolkit's toggle (`Inventory/Toggle Default` and
 `Press`), a click on it switching the chosen officer's phaser
-*(inferred)*, with OVERLOAD, off; the remote mine's DETONATE and its
+*(inferred)*, and OVERLOAD likewise, for a phaser that has it; the remote mine's DETONATE and its
 count; the tricorder's words; the band's charge, as a percentage
 *(inferred)*, and its button. Each officer's phaser is set as it comes,
 and set to stun it stuns what it hits for its Stun Duration.
@@ -289,11 +312,19 @@ and Default Death Type its model's where the map leaves them out
 Strike Damage Radius, 30 at least, the officer walking up *(inferred)*,
 and does its Weapon Damage.
 
+An enhancement, kept for each officer rather than each item (it's given
+to all their weapons at once), multiplies their weapons' damage and
+range by 1.25, shown in the phaser's panel; the team bar doesn't mark it
+yet. An overloaded phaser can't be fired; thrown, it goes off as its
+overload runs out *(inferred)*; going off, it hurts by the phaser's own
+Weapon Damage within its projectile's Explosion Radial Damage, its
+holder too *(inferred)*.
+
 Not there yet: the mines' Deploy and Activate sequences, the phaser's
-overload and range, the Out Of Range cursor, the full inventory, the
-Psychic Rack, the enhancements, the Psyche Displacement Controller, the
-sparks and transporter pictures, the band on the team bar (`Active HUD
-Sequence`), and walls in a grenade's way.
+range on its panel, the Out Of Range cursor, the full inventory, the
+Psychic Rack and the Psyche Displacement Controller, the sparks and
+transporter pictures, the band and enhancement on the team bar (`Active
+HUD Sequence`, `Inventory Enhanced`), and walls in a grenade's way.
 
 ## Sources and checks
 
@@ -346,7 +377,9 @@ Sequence`), and walls in a grenade's way.
   (its opacity, `0x496880`).
 - **Gadgets:** how the enemies treat a decoy, whether the neck pinch and
   the paralysis stun rather than kill (their Weapon Damage is 50,000), and
-  what the Psychic Rack and the enhancements do.
+  what the Psychic Rack does.
+- **Overload:** what an overloaded phaser's projectile does when it
+  goes off, and whether a thrown one keeps its countdown.
 - **Grenades:** whom an explosion reaches and how far, whether it hurts
   the team, and what the EM Pulse Grenade does.
 - **The bar:** where a count is shown, where the More Indicator is

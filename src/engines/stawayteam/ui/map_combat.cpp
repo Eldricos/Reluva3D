@@ -232,6 +232,14 @@ float MapScreen::shoot(const ItemDefinition &weapon, const std::string &model, f
     return per > 0 && a.fps > 0.0f ? float(per) / a.fps : weapon.shotDuration;
 }
 
+float MapScreen::enhancement(int officer) const {
+    // An enhanced item's Weapon Damage and Item Range are a quarter more
+    // (0x5cded0, 0x5cfda2).
+    const bool enhanced =
+        officer >= 0 && size_t(officer) < _officers.size() && _officers[size_t(officer)].enhanced > 0.0f;
+    return enhanced ? 1.25f : 1.0f;
+}
+
 void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attacker, bool stun) {
     Enemy &e = _enemies[enemy];
     if (!e.alive())
@@ -250,7 +258,7 @@ void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attack
         return;
     }
     if (!stun)
-        e.health -= weapon.weaponDamage;
+        e.health -= weapon.weaponDamage * enhancement(attacker);
     if (e.health <= 0.0f) {
         e.health = 0.0f;
         e.dead = 0.0f;
@@ -334,6 +342,7 @@ void MapScreen::updateCombat(float seconds) {
     });
     for (Officer &o : _officers) {
         o.reload = std::max(0.0f, o.reload - seconds);
+        o.enhanced = std::max(0.0f, o.enhanced - seconds);
         if (!o.alive()) {
             o.dead += seconds;
             continue;
@@ -354,7 +363,11 @@ void MapScreen::updateCombat(float seconds) {
             continue;
         const size_t i = size_t(o.attacking);
         const Enemy &e = _enemies[i];
-        if (!e.alive() || !shown(e.part) || !o.weapon) {
+        // An overloaded weapon doesn't shoot: it's thrown (0x5cf080).
+        bool overloaded = false;
+        for (const Officer::Held &h : o.items)
+            overloaded = overloaded || (o.weapon && h.name == o.weapon->name && h.overload >= 0.0f);
+        if (!e.alive() || !shown(e.part) || !o.weapon || overloaded) {
             // Done with it: they stop where they are (inferred).
             o.attacking = -1;
             o.path.clear();
@@ -367,7 +380,7 @@ void MapScreen::updateCombat(float seconds) {
         const float distance = std::hypot(e.x - o.x, e.y - o.y);
         const float reach = o.weapon->dischargeAction == "CStrikeTargetAction"
                                 ? std::max(o.weapon->strikeRadius, kStrikeReach)
-                                : o.weapon->range;
+                                : o.weapon->range * enhancement(int(&o - _officers.data()));
         if (distance <= reach && clearSight(o.x, o.y, e.x, e.y)) {
             o.path.clear();
             o.direction = directionOf(e.x - o.x, e.y - o.y);

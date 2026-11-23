@@ -18,6 +18,9 @@ None yet.
 
 ## Inferred
 
+- **Overload:** a thrown overloaded phaser keeping its countdown, and its
+  going off hurting by its own damage, its holder too
+  ([systems/items.md](systems/items.md#in-reluva)).
 - **Network games:** only the host starting, the chat's lines' form,
   the chosen game's and mission's font, the host starting on the first
   mission, the countdown stopped by another mission or a player leaving

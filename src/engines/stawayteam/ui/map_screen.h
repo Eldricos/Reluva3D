@@ -130,6 +130,7 @@ public:
         float shooting = 0.0f;                  // seconds into their shot's sequence; 0 not shooting
         float dead = -1.0f;                     // seconds since they fell; below 0 alive
         float stunned = 0.0f;                   // seconds of their stun left
+        float enhanced = 0.0f;                  // seconds their weapons are enhanced for
         std::string discharge = "Shoot1";       // the sequence they're using an item with
         // What they carry: each item's definition and how many uses are
         // left (-1 as many as wanted), as the inventory shows them; the
@@ -137,9 +138,11 @@ public:
         struct Held {
             std::string name;
             int count = -1;
-            bool stun = false;     // set to stun, one with the phaser's settings
-            float energy = 100.0f; // a charged one's charge, out of 100
-            bool on = false;       // a charged one switched on
+            bool stun = false;      // set to stun, one with the phaser's settings
+            float energy = 100.0f;  // a charged one's charge, out of 100
+            bool on = false;        // a charged one switched on
+            float overload = -1.0f; // seconds till an overloaded one goes off; below 0 not overloaded
+            float beep = 0.0f;      // seconds till its next beep
         };
         std::vector<Held> items;
         int item = -1;
@@ -337,6 +340,13 @@ public:
     void detonate();
     /** Switches the chosen officer's chosen item between kill and stun, one that has both. */
     void toggleStun();
+    /**
+     * Sets the chosen officer's chosen item to overload, one that can be,
+     * or back.
+     */
+    void toggleOverload();
+    /** How long an overload lasts, in seconds: the panel's button gives 10 (0x5350d7). */
+    static constexpr float kOverloadTime = 10.0f;
     /** Switches the chosen officer's chosen charged item (the cloaking band) on or off. */
     void toggleCharge();
     /** What the chosen officer's tricorder last said, and how much of it's typed out. */
@@ -346,6 +356,9 @@ public:
      * `weapon`: stunning it with `stun`, else hurting it.
      */
     void hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attacker, bool stun);
+    // What officer `officer`'s weapons' damage and range are multiplied by:
+    // more while they're enhanced; 1 for anyone else.
+    float enhancement(int officer) const;
     /** The enemy standing at (x, y) on the map, alive, or -1. */
     int enemyAt(float x, float y) const;
     /** Whether nothing that stands full height is between two points on the map. */
@@ -586,6 +599,10 @@ private:
     // An officer's task done once they're near enough: true when it's done.
     bool doTask(size_t officer);
     void explode(const Thrown &t);
+    // Overloaded items counting down, beeping, and going off.
+    void updateOverloads(float seconds);
+    // Takes item `index` from officer `o`, choosing their weapon again.
+    void removeItem(Officer &o, size_t index);
     void updateMines(float seconds);
     // The part with a model nearest (x, y), close enough to be what's
     // clicked; -1 for none.

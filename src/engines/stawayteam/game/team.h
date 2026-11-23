@@ -143,12 +143,20 @@ struct ItemDefinition {
     // A thrown one's Gravity AI's Gravity and Bounce Sound.
     float gravity = 0.0f;
     std::string bounceSound;
-    float health = 0.0f; // a healer's (its Discharge Action's Health action's Health)
+    float health = 0.0f;      // a healer's (its Discharge Action's Health action's Health)
+    float enhanceTime = 0.0f; // an enhancer's (its Discharge Action's CEnhanceInventoryAction's Time To Enhance), s
     bool canUseOnSelf = false;
     std::string useSound;
     bool multipleSettings = false; // Has Multiple Settings: the phaser's kill and stun
-    std::string deployModel;       // what a mine leaves where it's put (its CDropItemAtTargetAction's)
-    bool remote = false;           // a mine set off from its panel, not by who comes near
+    // Is Overloadable: set to overload, it goes off as its Overload
+    // Projectile where it is, or is thrown as it, by its Overload Discharge
+    // Action's Gravity and Overload Discharge Sequence.
+    bool overloadable = false;
+    std::string overloadProjectile;
+    float overloadGravity = 0.0f;
+    std::string overloadSequence;
+    std::string deployModel; // what a mine leaves where it's put (its CDropItemAtTargetAction's)
+    bool remote = false;     // a mine set off from its panel, not by who comes near
     // Its panel on the info bar (its Info Renderer: a CPhaserInfoRenderer,
     // CGenericInfoRenderer...), kept as written.
     std::shared_ptr<const TextObject> infoRenderer;

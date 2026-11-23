@@ -37,14 +37,15 @@ public:
         bool objectives = false;  // the objectives button pressed
         bool pause = false;       // the pause button pressed: time stopped or going again
         bool cancelOrders = false;
-        bool vision = false;       // the vision button pressed: its state on
-        bool options = false;      // the escape button pressed
-        bool toggleStun = false;   // the chosen item's panel's STUN or KILL pressed
-        bool detonate = false;     // the remote mine's panel's DETONATE pressed
-        bool toggleCharge = false; // the cloaking band's panel's ACTIVATE or DEACTIVATE pressed
-        int item = -1;             // an item chosen on the inventory: its place in what setInventory gave
-        int step = 0;              // the inventory's Next (1) or Previous (-1) button pressed
-        float cameraX = 0.0f;      // where, for moveCamera: the view's middle on the map
+        bool vision = false;         // the vision button pressed: its state on
+        bool options = false;        // the escape button pressed
+        bool toggleStun = false;     // the chosen item's panel's STUN or KILL pressed
+        bool detonate = false;       // the remote mine's panel's DETONATE pressed
+        bool toggleCharge = false;   // the cloaking band's panel's ACTIVATE or DEACTIVATE pressed
+        bool toggleOverload = false; // the phaser's panel's OVERLOAD pressed
+        int item = -1;               // an item chosen on the inventory: its place in what setInventory gave
+        int step = 0;                // the inventory's Next (1) or Previous (-1) button pressed
+        float cameraX = 0.0f;        // where, for moveCamera: the view's middle on the map
         float cameraY = 0.0f;
     };
 
@@ -113,6 +114,10 @@ public:
         _scan = std::move(scan);
         _scanTyped = typed;
     }
+    /** What the chosen officer's weapons' damage is multiplied by: more while they're enhanced. */
+    void setEnhancement(float factor) { _enhancement = factor; }
+    /** Whether the chosen item's set to overload. */
+    void setOverload(bool on) { _overload = on; }
     /** A charged item's charge (0-100), and whether it's on. */
     void setCharge(float energy, bool on) {
         _energy = energy;
@@ -161,6 +166,8 @@ private:
     bool _paused = false;
     int _vision = 0;
     bool _stun = false;
+    float _enhancement = 1.0f;
+    bool _overload = false;
     float _energy = 100.0f;
     bool _chargeOn = false;
     std::string _scan;

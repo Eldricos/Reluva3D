@@ -147,6 +147,10 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
             item.shotNoiseTime = float(action->number("Time").value_or(0.0));
             if (const TextObject *heal = action->object("Health action"))
                 item.health = float(heal->number("Health").value_or(0.0));
+            // Its Time To Enhance's default 60 (0x57ed8a).
+            if (const TextObject *enhance = action->object("Action");
+                enhance && enhance->className == "CEnhanceInventoryAction")
+                item.enhanceTime = float(enhance->number("Time To Enhance").value_or(60.0));
             item.forward = float(action->number("Forward Position").value_or(0.0));
             item.lateral = float(action->number("Lateral Position").value_or(0.0));
             item.height = float(action->number("Height").value_or(0.0));
@@ -187,6 +191,14 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
         item.canUseOnSelf = def.integer("Can Use On Self").value_or(0) != 0;
         item.useSound = text(def, "Use Sound");
         item.multipleSettings = def.integer("Has Multiple Settings").value_or(0) != 0;
+        item.overloadable = def.integer("Is Overloadable").value_or(0) != 0;
+        item.overloadProjectile = text(def, "Overload Projectile");
+        if (item.overloadProjectile == "!Unknown Model")
+            item.overloadProjectile.clear();
+        item.overloadSequence = text(def, "Overload Discharge Sequence");
+        if (const TextObject *action = def.object("Overload Discharge Action"))
+            if (const TextObject *gravity = action->object("Gravity AI"))
+                item.overloadGravity = float(gravity->number("Gravity").value_or(0.0));
         if (const TextObject *process = def.object("Process"))
             if (const TextObject *drop = findObject(*process, "CDropItemAtTargetAction"))
                 item.deployModel = text(*drop, "Model to Create");
