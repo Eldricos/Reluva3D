@@ -66,8 +66,9 @@ n-th type-3 object taking row n of a per-track table (`0x410e30`,
 see [bnk.md](../../../formats/bnk.md), The moving objects' sounds. Block 7 holds 1
 object on Hometown (the loop), 4 on Redrock Ridge, 1 on Atlantica (with
 2 more in block 18), 3 on Lost Canyons, 2 on Aquatica, 2 on Summit and
-5 on Empire City. Type 1, a still object with a
-16.16 reference point, follows the community's description, untested.
+5 on Empire City. No retail object has another type; the reader keeps
+another type's type and structure only, what follows them not being
+known.
 
 ### Virtual road (id 15), 36 bytes per point
 
@@ -1262,8 +1263,11 @@ road (key G). The wall hits' particles and the weather are in
 
 October 2026, from hex dumps and survey scripts:
 
-- **Starting point.** The block ids follow the NFS modding community's
-  descriptions of NFS III's COL.
+- **Block ids.** Each id's records were identified on the data, as the
+  checks below say (2's records aren't decoded yet), and the game's
+  loader reads them so (`0x41e370`, `0x41dcc0`). A community description
+  of the format was the first guide to them; its terms forbid commercial
+  use, so nothing here rests on it ([PLAN.md](../PLAN.md#the-formats-sources-reviewed-done)).
 - **Blocks.** Every block's size field accounts for exactly the space to
   the next.
 - **Structures.** Every structure's size is 8 + 16 × vertices + 6 ×

@@ -481,9 +481,11 @@ Read as `Model` (`src/engines/nfs/nfs3/formats/fce.cpp`), and checked on all
 
 - **Where the facts come from:** the game's own files and `nfs3.exe`, read as each section above says, with the addresses it gives.
 - **How it was checked:** the reader run on every model to its end; the unit tests (`nfs.unit.formats`) and the game-files test (`nfs.gamedata.formats`).
-- **Field order.** The order of the fields follows the NFS modding
-  community's descriptions of NFS III's FCE (as used by tools such as
-  FCEFinish).
+- **Field order.** Found on the models, as below. A community
+  description of the format was the first guide to it; its authors'
+  terms couldn't be checked, so nothing here rests on it: every offset
+  was checked on the files, and the names are Reluva's own
+  ([PLAN.md](../PLAN.md#the-formats-sources-reviewed-done)).
 - **Layout.** Every offset and size on this page was checked on the retail models
   with survey scripts, October 2026:
   - each part's counts sum to the model's;

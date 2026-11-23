@@ -1624,18 +1624,31 @@ stand-in's default shows what the game asked for, drawn on an idealised
 device, and the profiles are guesses at particular cards, not
 references.
 
-### Later: the formats' sources reviewed (to do)
+### The formats' sources reviewed (done)
 
 The project uses no source whose terms don't sit with the GPL (decided
 for NFS II SE in November 2026: [its plan](../nfs2se/PLAN.md#decisions)).
-Denis Auroux's NFS II notes forbid commercial use of their information;
-his NFS III notes, in T3ED's help file, are cited for `.frd`, `.col` and
-`.fce` ([REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md#sources),
-[frd.md](formats/frd.md), [fce.md](formats/fce.md)) and their terms
-aren't known. To do: find their terms; if they don't sit with the GPL,
-work out again from the files each fact taken from them, drop the
-meanings only they give, and rename what's named after them, as was done
-for NFS II SE.
+Denis Auroux's NFS III notes, the FRD and COL structures in T3ED's help
+file (version 0.06, 1999), say: "It may not be used for commercial
+purposes. It is forbidden to distribute a modified version of this
+document." The same terms as his NFS II notes, so they're dropped as
+those were (November 2026):
+
+- **What rested on them.** They were the first guide to the FRD and COL
+  layouts and the COL block ids; every field had since been found on the
+  files, and the road's and objects' meanings in `nfs3.exe` (frd.md,
+  col.md). The one meaning they alone gave, a still object (COL type 1)
+  with a reference point, is dropped from the reader: no retail file has
+  one, and nothing read it.
+- **Names.** Of their structure and field names, Reluva used none in its
+  code but `leftWall` and `rightWall`, plain words for what `nfs3.exe`
+  does with them (`car_track_walls`), which stay; `xbid` in comments and
+  `nPolygons` in frd.md became plain words.
+- **FCE.** Its field order came first from a community description whose
+  terms couldn't be found; every offset was checked on the models and
+  the names are Reluva's own, so nothing rests on it.
+
+The format pages' sources sections and REVERSE_ENGINEERING.md say so.
 
 ### Merged into main (November 2026, done)
 

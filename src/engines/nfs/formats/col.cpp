@@ -48,9 +48,9 @@ Error readObjects(const uint8_t *p, const uint8_t *end, uint32_t count, std::vec
         o.structure = p[3];
         if (size < 4 || end - p < size)
             return Error::fail("an object runs past its block");
-        if (o.type == 1 && size >= 16) {
-            o.reference = {fixed(p + 4), fixed(p + 8), fixed(p + 12)};
-        } else if (o.type == 3 && size >= 8) {
+        // Another type keeps only its type and structure: no retail file
+        // has one, and what it holds isn't known.
+        if (o.type == 3 && size >= 8) {
             const uint16_t keys = le16(p + 4);
             o.delay = static_cast<int16_t>(le16(p + 6));
             if (8 + keys * kKeySize > size)
