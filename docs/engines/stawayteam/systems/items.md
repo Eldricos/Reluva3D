@@ -167,10 +167,14 @@ the info bar's corner, which puts them on it (the phaser's `Stun Pos`
 155, 39; the band's `Button Pos` 116, 13). A `CGenericInfoRenderer` its
 `Text` in `Text Size` at `Text Pos`. The phaser's `CPhaserInfoRenderer`: its `Phaser Power Indicator
 Sequence` at `Phaser Indicator Pos`, its damage and range at `Phaser
-Damage Pos` and `Phaser Range Pos` in `Phaser Font`, and two buttons
-(`Buttons/Stun Pos` 155, 39; `Overload Pos` 95, 39), each's words at its
-`Text Pos`: STUN in Trek Small with it set to stun, else KILL in Trek
-Small Red; OVERLOAD likewise. The phaser comes set to `Kill` (its
+Damage Pos` and `Phaser Range Pos` in `Phaser Font` ("Damage: %3.0f",
+or "Damage: ---" for an item without a Discharge Action; "Range:
+%3.0f"; both as the item has them now, enhanced or not), overloaded the
+seconds left, "OVERLOAD: %1.1f", at `Overload Offset` (`0x534c80`), and
+two buttons (`Buttons/Stun Pos` 155, 39; `Overload Pos` 95, 39), each's
+words at its `Text Pos`: STUN in Trek Small with it set to stun, else
+KILL in Trek Small Red; OVERLOAD likewise, made only for an item that
+`Is Overloadable` (`0x534ed1`). The phaser comes set to `Kill` (its
 `Default Inventory Item`'s `Weapon Setting`); a map can set an enemy's
 to `Stun` (34 Borg guns).
 
@@ -184,8 +188,11 @@ their items that's a weapon, energy or counted (`0x57ede0`), as its
 `Enhance Time`, whatever was left of it before (`0x5cf050`). It counts
 down with the game's time (`0x5cdcf0`); while it's above 0 the item's
 `Item Range` and `Weapon Damage` are a quarter more (×1.25, `0x5cded0`,
-`0x5cfda2`). The team bar marks an enhanced officer with `Interface/Team
-Bar/Inventory Enhanced` (`0x5e1ad0`).
+`0x5cfda2`). The team bar loads `Interface/Team Bar/Inventory Enhanced`
+(`0x5e1ad0`), but nothing draws it (its place, `+0x158`, isn't read
+again); nor is an item's `Active HUD Sequence` (the band's
+`Invisibility Band`, the Psionic Projection's `Psyche Displacement`)
+read by anything that draws.
 
 A phaser that's `Is Overloadable` (only `Phaser Damage Increase
 Overload`, the second of its upgrades) has its panel's OVERLOAD button:
@@ -311,8 +318,8 @@ sight, or elsewhere *(inferred)*.
 The chosen item's panel is drawn on the info bar: its Background
 Sequence centred at Info Renderer Pos (its frames' origin), its parts
 placed as above *(inferred)*, over the minimap: a generic
-one's text; the phaser's power, full, "Damage: %g" (`0x41bc47`), and its
-STUN or KILL on the toolkit's toggle (`Inventory/Toggle Default` and
+one's text; the phaser's power, full, its damage and range, its overload's
+seconds left, and its STUN or KILL on the toolkit's toggle (`Inventory/Toggle Default` and
 `Press`), a click on it switching the chosen officer's phaser
 *(inferred)*, and OVERLOAD likewise, for a phaser that has it; the remote mine's DETONATE and its
 count; the tricorder's words; the band's charge, as a percentage
@@ -357,19 +364,19 @@ charge left, BREAK CONTROL and CENTER while it's on, else its Text
 
 An enhancement, kept for each officer rather than each item (it's given
 to all their weapons at once), multiplies their weapons' damage and
-range by 1.25, shown in the phaser's panel; the team bar doesn't mark it
-yet. An overloaded phaser can't be fired; thrown, it goes off as its
+range by 1.25, shown in the phaser's panel. An overloaded phaser can't be fired; thrown, it goes off as its
 overload runs out *(inferred)*; going off, it hurts by the phaser's own
 Weapon Damage within its projectile's Explosion Radial Damage, its
 holder too *(inferred)*.
 
-Not there yet: the mines' Deploy and Activate sequences, the phaser's
-range on its panel, the Out Of Range cursor, the
-Psyche Displacement Controller (the enemy's own item while it's taken,
-and its panel), the sparks and transporter pictures, the band,
-enhancement and meld on the team bar (`Active HUD Sequence`, `Inventory
-Enhanced`, `Team Bar/Psyche Displacement`), and walls in a grenade's
-way.
+While the enemy taken over is chosen, its bar holds the Psychic Rack's
+`Controller Item`, the Psyche Displacement Controller (given it as it's
+taken, `0x5d5233`), and its panel, a `CPsycheControllerInfoRenderer`:
+the charge and BREAK CONTROL.
+
+Not there yet: the mines' Deploy and Activate sequences, the Out Of
+Range cursor, the sparks and transporter pictures, and walls in a
+grenade's way.
 
 ## Sources and checks
 

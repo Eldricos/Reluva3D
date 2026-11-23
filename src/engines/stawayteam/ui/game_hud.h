@@ -124,8 +124,8 @@ public:
     }
     /** What the chosen officer's weapons' damage is multiplied by: more while they're enhanced. */
     void setEnhancement(float factor) { _enhancement = factor; }
-    /** Whether the chosen item's set to overload. */
-    void setOverload(bool on) { _overload = on; }
+    /** How long till the chosen item goes off, overloaded, in seconds; below 0 it isn't. */
+    void setOverload(float secondsLeft) { _overload = secondsLeft; }
     /** A charged item's charge (0-100), and whether it's on. */
     void setCharge(float energy, bool on) {
         _energy = energy;
@@ -175,7 +175,7 @@ private:
     int _vision = 0;
     bool _stun = false;
     float _enhancement = 1.0f;
-    bool _overload = false;
+    float _overload = -1.0f; // seconds till the chosen item goes off; below 0 not overloaded
     float _energy = 100.0f;
     bool _chargeOn = false;
     std::string _scan;

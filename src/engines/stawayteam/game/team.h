@@ -175,6 +175,7 @@ struct ItemDefinition {
     bool psyche = false;
     std::string failSound;
     std::string breakSound;
+    std::string controllerItem; // the item the enemy taken over is given: its own panel
     bool charged = false;
     float strikeRadius = 0.0f; // Strike Damage Radius: how near a strike reaches
     // Its Process (what using it does, with its Process Activity) and its

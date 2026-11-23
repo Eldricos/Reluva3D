@@ -7,7 +7,11 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
 
 ## Read from the code, not seen running
 
-None yet.
+- **No marks on the team bar** for an enhancement or a charged item: the
+  program loads `Inventory Enhanced` and the items' `Active HUD
+  Sequence` but nothing found draws them; seeing the original with an
+  enhanced officer would settle it
+  ([systems/items.md](systems/items.md#enhancement-and-overload)).
 
 ## Seen running, not traced in the code
 

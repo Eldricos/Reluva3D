@@ -208,6 +208,7 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
             item.psyche = held->className == "CStarTrekPsycheDisplacementInventoryItem";
             item.failSound = text(*held, "Fail Sound");
             item.breakSound = text(*held, "Break Meld Sound");
+            item.controllerItem = text(*held, "Controller Item");
         }
         item.energyUse = float(def.number("Energy Use").value_or(20.0));
         item.energyRecharge = float(def.number("Energy Recharge").value_or(2.5));

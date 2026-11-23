@@ -203,10 +203,12 @@ GameHud::Result GameHud::handleEvent(const Event &ev, uint64_t now) {
             r.toggleOverload = onButton("Overload Pos", picture("Inventory/Toggle Default"));
         if (panel->className == "CChargedItemInfoRenderer" && panel->integer("Show Activate Button").value_or(0))
             r.toggleCharge = onButton("Button Pos", picture(readText(panel, "Button Off Frame")));
-        if (panel->className == "CPsycheDisplacementInfoRenderer" && _chargeOn) {
+        const bool meld = panel->className == "CPsycheDisplacementInfoRenderer" ||
+                          panel->className == "CPsycheControllerInfoRenderer";
+        if (meld && _chargeOn) {
             const image::Image &button = picture("Info Bar/Psyche Displacement/Psyche Default");
             r.breakMeld = onButton("Activate Button Pos", button);
-            r.centreMeld = onButton("Center Button Pos", button);
+            r.centreMeld = panel->value("Center Button Pos") && onButton("Center Button Pos", button);
         }
         if (panel->className == "CDetonateInfoRenderer")
             r.detonate = onButton("Detonate Button Pos", picture("Info Bar/Remote Mine/Detonate Default"));
@@ -484,7 +486,7 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
     };
     if (_full && _fullLeft && now - _fullLeft >= 1500)
         _full = false;
-    if (selected >= 0 && size_t(selected) < _team.size() && iw > 0) {
+    if (!_held.empty() && iw > 0) {
         int x = vx + barX;
         std::vector<int> columns; // each place's x
         for (const Place &place : _places) {
@@ -657,17 +659,33 @@ void GameHud::drawItemPanel(Surface &screen, int x, int y, uint64_t now) {
         if (window.loaded())
             window.drawWrapped(screen, px, py, w, readText(panel, "Text"), Font::Align::kLeft);
     } else if (kind == "CPhaserInfoRenderer") {
-        // Its power, full; its damage ("Damage: %g", 0x41bc47); and its
-        // STUN or KILL as it's set, in their fonts, on the toolkit's toggle,
-        // and OVERLOAD likewise.
+        // Its power, full; its damage and range, as the item has them now
+        // (enhanced, or "---" for damage without a Discharge Action), and,
+        // overloaded, the seconds left at Overload Offset (0x534c80); and
+        // its STUN or KILL as it's set, in their fonts, on the toolkit's
+        // toggle, and OVERLOAD likewise, for an item that can overload
+        // (0x534ed1).
         fromMiddle("Phaser Indicator Pos", px, py);
         blitBy(screen, sequence(readText(panel, "Phaser Power Indicator Sequence")).frame(0, 0), px, py);
         const Font &font = panelFont(readText(panel, "Phaser Font"));
+        char text[48];
+        if (item->dischargeAction.empty())
+            std::snprintf(text, sizeof text, "Damage: ---");
+        else
+            std::snprintf(text, sizeof text, "Damage: %3.0f", double(item->weaponDamage * _enhancement));
         at("Phaser Damage Pos", px, py);
-        char damage[32];
-        std::snprintf(damage, sizeof damage, "Damage: %g", double(item->weaponDamage * _enhancement));
         if (font.loaded())
-            font.draw(screen, px, py, damage);
+            font.draw(screen, px, py, text);
+        std::snprintf(text, sizeof text, "Range: %3.0f", double(item->range * _enhancement));
+        at("Phaser Range Pos", px, py);
+        if (font.loaded())
+            font.draw(screen, px, py, text);
+        if (_overload >= 0.0f) {
+            std::snprintf(text, sizeof text, "OVERLOAD: %1.1f", double(_overload));
+            at("Overload Offset", px, py);
+            if (font.loaded())
+                font.draw(screen, px, py, text);
+        }
         const auto toggle = [&](const char *pos, const char *textPos, bool on, const char *onText, const char *onFont,
                                 const char *offText, const char *offFont) {
             at(pos, px, py);
@@ -682,8 +700,9 @@ void GameHud::drawItemPanel(Surface &screen, int x, int y, uint64_t now) {
         if (item->multipleSettings)
             toggle("Stun Pos", "Stun Text Pos", _stun, "Stun On Text", "Stun On Font", "Stun Off Text",
                    "Stun Off Font");
-        toggle("Overload Pos", "Overload Text Pos", _overload, "Overload On Text", "Overload On Font",
-               "Overload Off Text", "Overload Off Font");
+        if (item->overloadable)
+            toggle("Overload Pos", "Overload Text Pos", _overload >= 0.0f, "Overload On Text", "Overload On Font",
+                   "Overload Off Text", "Overload Off Font");
     } else if (kind == "CDetonateInfoRenderer") {
         // Its button, its words on it; and how many mines are left, beside
         // its Count Text (inferred for the count's place after it).
@@ -738,11 +757,13 @@ void GameHud::drawItemPanel(Surface &screen, int x, int y, uint64_t now) {
             if (font.loaded())
                 font.draw(screen, px + tx, py + ty, readText(panel, _chargeOn ? "Button On Text" : "Button Off Text"));
         }
-    } else if (kind == "CPsycheDisplacementInfoRenderer") {
+    } else if (kind == "CPsycheDisplacementInfoRenderer" || kind == "CPsycheControllerInfoRenderer") {
         // Its charge, the meter's frame as much as is left of its frames,
         // and as a percentage; taking an enemy over, BREAK CONTROL and
         // CENTER on the Psyche buttons (0x54a42e), else its Text in its
-        // Text Width (inferred: the two share a place).
+        // Text Width (inferred: the two share a place). The taken enemy's
+        // own (the Psyche Displacement Controller's) has BREAK CONTROL
+        // alone.
         const Animation &meter = sequence(readText(panel, "Meter Sequence"));
         const int frames = std::max(1, meter.perDirection());
         const int frame = int(std::lround(std::clamp(_energy, 0.0f, 100.0f) / 100.0f * float(frames - 1)));
@@ -755,6 +776,8 @@ void GameHud::drawItemPanel(Surface &screen, int x, int y, uint64_t now) {
             const image::Image &button = picture("Info Bar/Psyche Displacement/Psyche Default");
             for (const char *which : {"Activate", "Center"}) {
                 const std::string key = std::string(which) + " Button";
+                if (!panel->value(key + " Pos"))
+                    continue;
                 at((key + " Pos").c_str(), px, py);
                 image::blit(screen, button, px, py);
                 int tx = 0;

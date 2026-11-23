@@ -1316,12 +1316,31 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         const bool stun = chosen.item >= 0 && chosen.items[size_t(chosen.item)].stun;
         _hud->setItemPanel(stun, _scanText, size_t(std::max(0.0f, _scanTyped)));
         _hud->setEnhancement(enhancement(_selected));
-        _hud->setOverload(chosen.item >= 0 && chosen.items[size_t(chosen.item)].overload >= 0.0f);
+        _hud->setOverload(chosen.item >= 0 ? chosen.items[size_t(chosen.item)].overload : -1.0f);
         if (chosen.item >= 0)
             _hud->setCharge(chosen.items[size_t(chosen.item)].energy, chosen.items[size_t(chosen.item)].on);
     }
     _hud->setVision(_vision);
-    if (_selected >= 0) {
+    if (_meldChosen) {
+        // The enemy taken over has the Psychic Rack's Controller Item, and
+        // its panel (0x5d5233): the charge, and BREAK CONTROL.
+        const Officer &o = _officers[size_t(_melder)];
+        std::string controller;
+        for (const Officer::Held &h : o.items)
+            if (const auto def = _items.find(h.name); def != _items.end() && def->second.psyche && h.on) {
+                controller = def->second.controllerItem;
+                _hud->setCharge(h.energy, true);
+            }
+        std::vector<GameHud::Place> places(_itemTypes.size());
+        const auto def = _items.find(controller);
+        const auto type =
+            def == _items.end() ? _itemTypes.end() : std::find(_itemTypes.begin(), _itemTypes.end(), def->second.type);
+        if (type != _itemTypes.end())
+            places[size_t(_itemTypes.end() - type) - 1] = {0, 1, {0}};
+        _hud->setItemPanel(false, {}, 0);
+        _hud->setOverload(-1.0f);
+        _hud->setInventory({{controller, -1}}, std::move(places), 0);
+    } else if (_selected >= 0) {
         const Officer &o = _officers[size_t(_selected)];
         std::vector<GameHud::Held> held;
         for (const Officer::Held &h : o.items)
