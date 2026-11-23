@@ -23,7 +23,8 @@ namespace reluva::storm3d {
  *   Up/Down: tilt   +/-: nearer/further   W/A/S/D: move over the map
  *   N: to the next object on a team (a ship or station), close up
  *   T: from straight above, as the map's picture (`bzn/<map>.bmp`) shows it
- *   P: to the next of the map's paths   G: as the game looks on starting
+ *   P: to the next of the map's paths
+ *   G: as the game looks on starting; then +/- and W/A/S/D move as the game's overview does
  *   Space: turning on/off
  */
 class MapPage : public Page {
@@ -56,10 +57,12 @@ public:
     }
 
     /**
-     * The game's overview camera on starting, looking at `target`: 450
-     * above the plane and 300 behind it in z, as the game's memory shows.
+     * The game's overview camera, looking at `target`: `height` above the
+     * plane (kept within 10 to 700), behind the target by sqrt(200 x
+     * height), facing (sin turn, cos turn) in x and z, as the game's
+     * memory shows it. 450 and 0 are how it starts.
      */
-    static Camera overviewOf(const gfx::Vec3 &target);
+    static Camera overviewOf(const gfx::Vec3 &target, float height = 450, float turn = 0);
 
     /** How an object's definition is drawn: its model, and the scale. */
     struct Look {
@@ -117,6 +120,12 @@ private:
     float _pitch = 0.9f;
     bool _turning = false;
     std::optional<Camera> _fixed; // setCamera's, until a key
+    // G's: the game's overview over _target, until a key other than its own.
+    struct Overview {
+        float height = 450;
+        float turn = 0; // radians: 0 faces +z
+    };
+    std::optional<Overview> _overview;
     uint64_t _lastMillis = 0;
 };
 

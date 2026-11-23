@@ -21,13 +21,14 @@ constexpr float kTurnPerSecond = 0.15f; // radians
 // The game's camera sees 45 degrees from top to bottom: tan 22.5 is in its
 // memory, and the planets of a frame land where the original has them.
 constexpr float kFieldOfView = 0.7853982f; // radians
-constexpr float kStep = 0.1f;
-// The game's overview camera on starting, as its memory shows it in
-// "Premonitions": 450 above the plane (RTS_CFG.h's OVERVIEW_INIT_HEIGHT),
-// 300 behind its target in z (OVERVIEW_INIT_ROTATION 0), looking at it.
-// 300 is 450 over OVERVIEW_INIT_ZOOM's 1.5, which may be the rule.
-constexpr float kOverviewHeight = 450;
-constexpr float kOverviewBack = 300; // of the distance, a W/A/S/D press
+constexpr float kStep = 0.1f;              // of the distance, a W/A/S/D press
+// The game's overview camera, from RTS_CFG.h: its height above the plane,
+// at first and at most and least, and the parabola it rides.
+constexpr float kOverviewInitHeight = 450; // OVERVIEW_INIT_HEIGHT
+constexpr float kOverviewMinHeight = 10;   // OVERVIEW_MIN_HEIGHT
+constexpr float kOverviewMaxHeight = 700;  // OVERVIEW_MAX_HEIGHT
+constexpr float kOverviewFocus = 200;      // OVERVIEW_PARABOLA_FOCUS
+constexpr float kOverviewZoomStep = 0.8f;  // a + press's height, of the last
 
 } // namespace
 
@@ -146,6 +147,29 @@ void MapPage::deactivate() {
 }
 
 void MapPage::handleKey(uint32_t key) {
+    // As the game's overview: + and - along the parabola, W/A/S/D over the
+    // map along the way it faces; other keys leave it.
+    if (_overview && (key == '+' || key == '=' || key == '-' || key == 'w' || key == 'a' || key == 's' || key == 'd')) {
+        Overview &o = *_overview;
+        const float st = std::sin(o.turn);
+        const float ct = std::cos(o.turn);
+        const float step = std::sqrt(kOverviewFocus * o.height);
+        if (key == '+' || key == '=')
+            o.height = std::max(kOverviewMinHeight, o.height * kOverviewZoomStep);
+        else if (key == '-')
+            o.height = std::min(kOverviewMaxHeight, o.height / kOverviewZoomStep);
+        else if (key == 'w')
+            _target[0] += st * step, _target[2] += ct * step;
+        else if (key == 's')
+            _target[0] -= st * step, _target[2] -= ct * step;
+        else if (key == 'd') // right, in the game's left-handed coordinates
+            _target[0] += ct * step, _target[2] -= st * step;
+        else
+            _target[0] -= ct * step, _target[2] += st * step;
+        draw();
+        return;
+    }
+    _overview.reset();
     const size_t before = _current;
     // W/A/S/D move over the map along the way the camera faces, in the
     // game's coordinates: forward (-sin, cos) and right (cos, sin) in x, z.
@@ -214,7 +238,7 @@ void MapPage::handleKey(uint32_t key) {
         }
         break;
     case 'g':
-        _fixed = overviewOf(_target);
+        _overview = Overview{kOverviewInitHeight, 0};
         draw();
         return;
     case key::kSpace:
@@ -249,6 +273,7 @@ void MapPage::load() {
     _effects = 0;
     _focus = SIZE_MAX;
     _path = SIZE_MAX;
+    _overview.reset();
     _error.clear();
     std::vector<uint8_t> data;
     if (Error err = _files.read(_names[_current], data); err || (err = _map.parse(data))) {
@@ -291,9 +316,13 @@ void MapPage::load() {
     _distance = std::max(1000.0f, std::max(_map.area[1] - _map.area[0], _map.area[5] - _map.area[4]));
 }
 
-MapPage::Camera MapPage::overviewOf(const gfx::Vec3 &target) {
+MapPage::Camera MapPage::overviewOf(const gfx::Vec3 &target, float height, float turn) {
+    // On a parabola: as far behind the target as sqrt(focus x height), as
+    // the game's memory shows at three heights.
+    height = std::clamp(height, kOverviewMinHeight, kOverviewMaxHeight);
+    const float back = std::sqrt(kOverviewFocus * height);
     Camera c;
-    c.eye = {target[0], kOverviewHeight, target[2] - kOverviewBack};
+    c.eye = {target[0] - std::sin(turn) * back, height, target[2] - std::cos(turn) * back};
     const gfx::Vec3 to{target[0] - c.eye[0], target[1] - c.eye[1], target[2] - c.eye[2]};
     const float len = std::sqrt(to[0] * to[0] + to[1] * to[1] + to[2] * to[2]);
     c.forward = {to[0] / len, to[1] / len, to[2] / len};
@@ -325,7 +354,9 @@ MapPage::Camera MapPage::orbit() const {
 void MapPage::draw() {
     if (!_renderer)
         return;
-    const Camera camera = _fixed ? *_fixed : orbit();
+    const Camera camera = _fixed      ? *_fixed
+                          : _overview ? overviewOf(_target, _overview->height, _overview->turn)
+                                      : orbit();
     // The renderer is right-handed, the game left-handed: the camera's
     // place and axes have z reversed for it (SodMeshes::mirrorZ), and what
     // it draws is in the game's coordinates.

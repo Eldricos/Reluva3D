@@ -65,8 +65,9 @@ these phases start from, is in [formats/install.md](formats/install.md).
    are made of and the asteroid fields, the way round the maps' pictures
    show them (the game's coordinates are left-handed), and the game's
    camera from its memory, so a map drawn from it matches the original's
-   frame ([systems/camera.md](systems/camera.md)). Next: how the camera
-   moves in play, the emitters, and the planets' and suns' look.
+   frame, and moves in play: on a parabola as it zooms, turning, and
+   scrolling ([systems/camera.md](systems/camera.md)). Next: the
+   emitters, the planets' and suns' look, and the shroud.
 6. **The front end:** the shell's screens, the opening movie, game setup,
    options, loading and saving.
 7. **Rules:** units from their object definitions: movement and

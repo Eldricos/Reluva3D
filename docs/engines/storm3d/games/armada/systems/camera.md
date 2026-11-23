@@ -33,27 +33,50 @@ planet Barisa and the blue planet beside it land where the original's
 frame has them, and as large; at 45° across (34.5° from top to bottom)
 both are too large.
 
-### The overview on starting
+### The overview
 
-Elsewhere in memory, unchanged between the two frames, the camera play
-will start with: (5,751, 450, 743), looking at the mission's `Camera_1`
-path point (5,751, 40, 1,043), with 450 and 540.833 after it. So:
+Elsewhere in memory is the overview camera: its axes and position, then
+its height, its distance from the point on the plane under its target,
+the angle it looks down at that point, the angle it's turned, 200
+(`OVERVIEW_PARABOLA_FOCUS`), the target, and the way it faces on the
+plane. Saved before and after each of the camera's keys in play (the
+keypad's + and −, its *, a grey arrow: `Input.map`'s `zoom_factor_plus`,
+`zoom_factor_minus`, `camera_rotate_plus`, `scroll_right`), it settles:
 
-- 450 above the plane: `OVERVIEW_INIT_HEIGHT`.
-- 300 behind its target in z, facing +z: `OVERVIEW_INIT_ROTATION` is 0.
-- Looking straight at the target; 540.833 is its distance to the point
-  under the target on the plane, √(450² + 300²).
+| | Height | Behind the target | Down | Turned |
+|---|---|---|---|---|
+| On starting | 450 | 300 | 56.3° | 0 |
+| + held 0.6 s | 333.4 | 258.2 | 52.2° | 0 |
+| * held 0.6 s | 333.4 | 258.2 | 52.2° | −17.3° |
+| → held 0.6 s, the target moved 908 | 333.4 | 258.2 | 52.2° | −17.3° |
+| − held 2 s | 700 | 374.2 | 61.9° | −17.3° |
 
-Drawn from there, the map is as the original's first frame of play
-shows it behind the objectives. 300 is 450 over `OVERVIEW_INIT_ZOOM`'s
-1.5, which may be the rule, from one case *(inferred)*.
+- **The height** is above the plane, whatever the target's: 450 on
+  starting (`OVERVIEW_INIT_HEIGHT`), and − stops at 700
+  (`OVERVIEW_MAX_HEIGHT`). The target is on the plane, at y 38.5 in
+  "Premonitions".
+- **On a parabola:** the camera is √(200 × height) behind its target, at
+  each height: 300, 258.2, 374.2. So the higher it is, the steeper it
+  looks down.
+- **Turned** by a, it faces (sin a, cos a) on the plane, and sits behind
+  the target that way; 0 faces +z (`OVERVIEW_INIT_ROTATION`).
+- **It looks** straight at its target.
+- **Scrolling** moves the target along the camera's right, which in the
+  game's left-handed coordinates is (cos a, −sin a): (0.955, 0.297)
+  turned −17.3°.
+
+On starting, in "Premonitions", it's over the mission's `Camera_1` path
+point (5,751, 40, 1,043), at (5,751, 450, 743). Drawn from there, the
+map is as the original's first frame of play shows it behind the
+objectives.
 
 ## In Reluva
 
-- The data viewer's Maps page sees 45° from top to bottom; G looks as
+- The data viewer's Maps page sees 45° from top to bottom. G looks as
   the overview starts, at whatever the view is on (P moves it to a
   path: "Premonitions"' `Camera_1` gives the original's first frame of
-  play). `MapPage::overviewOf` is the rule.
+  play); then + and − move it along the parabola and W/A/S/D over the
+  map, as the game's do. `MapPage::overviewOf` is the rule.
 - `reluva-tool storm3d map-shot <game folder> <map> <out.png> <eye x y
   z> <forward x y z> [degrees]` draws a map from a camera given exactly,
   at the game's 640 × 480, to set beside the original's frames.
@@ -69,12 +92,17 @@ shows it behind the objectives. 300 is 450 over `OVERVIEW_INIT_ZOOM`'s
   the overview's, set beside the original's frames 6,100 and 6,200: the
   planets in the same places and sizes. The ships differ, as the script
   has moved them from where the map starts them. The unit test
-  (`storm3d.unit.bzn`, "overview") gives the overview's camera for
-  `Camera_1` as memory held it.
+  (`storm3d.unit.bzn`, "overview") gives the overview's camera as memory
+  held it, on starting, zoomed in, and zoomed out and turned. Further
+  from the start the original shows only its shroud, the grey of what
+  hasn't been explored, so those views can't be set beside its frames.
 
 ## Open questions
 
-- How zooming, turning and moving change the overview: the parabola of
-  `OVERVIEW_PARABOLA_FOCUS`, the zoom's and height's ranges.
+- How fast the keys move it: + for 0.6 s took the height from 450 to
+  333.4, * turned it 0.302 radians, → moved the target 908. How these
+  follow from `RTS_CFG.h`'s `ZOOM_SCROLL_COEFFICIENT`,
+  `ROTATION_SCROLL_COEFFICIENT` and `KEYBOARD_SCROLL_RATE` isn't known,
+  nor what `OVERVIEW_*_ZOOM` does.
 - The clipping planes, and how the background model is placed.
 - The planets' glow, which the original draws and the Maps page doesn't.

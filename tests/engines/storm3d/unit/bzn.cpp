@@ -199,6 +199,13 @@ void testOverview() {
           std::fabs(c.forward[2] - 0.589f) < 2e-3f);
     CHECK(std::fabs(c.forward[0] * c.up[0] + c.forward[1] * c.up[1] + c.forward[2] * c.up[2]) < 1e-5f && c.up[1] > 0);
     CHECK(std::fabs(c.fovY - 0.7853982f) < 1e-6f);
+    // Zoomed out to the most, and turned: memory had its eye at (5580.605,
+    // 700, 2071.604) over (5469.319, 38.5, 2428.837), turned 5.981 radians.
+    const MapPage::Camera far = MapPage::overviewOf({5469.319f, 38.5f, 2428.837f}, 900, 5.981f);
+    CHECK(far.eye[1] == 700 && std::fabs(far.eye[0] - 5580.605f) < 0.1f && std::fabs(far.eye[2] - 2071.604f) < 0.1f);
+    // Zoomed in: 333.362 up, 258.2 behind (memory's distance 421.666).
+    const MapPage::Camera near = MapPage::overviewOf({4601.699f, 38.5f, 2158.552f}, 333.362f, 0);
+    CHECK(std::fabs(near.eye[2] - 1900.343f) < 0.1f);
 }
 
 // A sprite's colour over its animation: linear between keyframes, held by
