@@ -56,7 +56,10 @@ so they're added in the order the program needs them.
 ### What the run shows
 
 - **The files it opens, in order**, and those it looks for and doesn't
-  find: the most direct trace of what the game reads and when.
+  find: the most direct trace of what the game reads and when. With them,
+  the files it reads from inside its ZFS archives (`assets.zfs >
+  fed.odf`), which it reads itself: each archive entry a read reaches,
+  found from where the read was in the archive.
 - **The frames it shows**, written as PNG.
 - **Where it stops, and why.**
 

@@ -27,6 +27,7 @@
 #include "emulation/x86/msvcp60.h"
 #include "emulation/x86/msvcrt.h"
 #include "emulation/x86/win32.h"
+#include "engines/storm3d/formats/zfs_archive.h"
 #include "image/image.h"
 
 #include <algorithm>
@@ -375,6 +376,29 @@ int cmdHost(int argc, char **argv) {
     };
     std::vector<std::pair<std::string, bool>> opened;
     process.fileOpened = [&](const std::string &path, bool found) { opened.push_back({path, found}); };
+    // What's read from inside the ZFS archives, which the program reads
+    // itself: each entry a read's bytes reach, listed with the files when
+    // it's first read, as "<archive> > <entry>".
+    std::map<std::string, std::unique_ptr<storm3d::ZfsArchive>> archives;
+    std::set<std::pair<std::string, uint32_t>> entriesRead;
+    process.fileRead = [&](const std::string &path, uint64_t offset, uint32_t bytes) {
+        if (!text::toLower(path).ends_with(".zfs"))
+            return;
+        auto it = archives.find(path);
+        if (it == archives.end()) {
+            auto archive = std::make_unique<storm3d::ZfsArchive>();
+            const auto host = process.mapPath(path, false);
+            if (!host || archive->open(*host))
+                archive.reset();
+            it = archives.emplace(path, std::move(archive)).first;
+        }
+        if (!it->second)
+            return;
+        for (const storm3d::ZfsArchive::Entry &e : it->second->entries())
+            if (e.size && e.offset < offset + bytes && offset < uint64_t(e.offset) + e.size &&
+                entriesRead.insert({path, e.index}).second)
+                opened.push_back({path + " > " + e.name, true});
+    };
     process.output = [](const std::string &text) { std::printf("debug output: %s", text.c_str()); };
     x86::addMsvcrt(process);
     // A silent sound card, whose sounds end when they would have: the
