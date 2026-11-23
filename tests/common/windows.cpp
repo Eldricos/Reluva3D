@@ -483,6 +483,15 @@ static void testMsvcrtAndFiles(const std::filesystem::path &tmp) {
     CHECK(!std::filesystem::exists(tmp / "Game" / "Out.dat") &&
           std::filesystem::file_size(tmp / "Game" / "Moved.dat") == 5);
     CHECK(std::filesystem::exists(tmp / "Game" / "Data.txt"));
+    // CopyFileA: the program's own file copied to where it can write; not
+    // over a file that's there when asked not to.
+    const uint32_t copy = fn("KERNEL32.dll", "CopyFileA");
+    CHECK(!cpu.call(copy, {text("C:\\Game\\Data.txt"), text("C:\\Game\\Moved.dat"), 1}, r) && r == 0);
+    CHECK(!cpu.call(lastError, {}, r) && r == 183);
+    CHECK(!cpu.call(copy, {text("C:\\Game\\Data.txt"), text("C:\\Game\\Moved.dat"), 0}, r) && r == 1);
+    CHECK(std::filesystem::file_size(tmp / "Game" / "Moved.dat") == 11 &&
+          std::filesystem::exists(tmp / "Game" / "Data.txt"));
+    CHECK(!cpu.call(copy, {text("C:\\Game\\None.dat"), text("C:\\Game\\Moved.dat"), 0}, r) && r == 0);
     // The UTF-16 twins, by the ANSI stand-ins; "." in a full path resolved.
     auto wide = [&](const std::string &s) {
         const uint32_t a = process.memory().alloc(uint32_t(2 * s.size() + 2));

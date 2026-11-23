@@ -1133,6 +1133,33 @@ void Win32Process::addFileStandIns() {
         }
         return 1u;
     });
+    // CopyFileA(from, to, failIfExists): from anything the program can
+    // read (its own files too) to where it can write.
+    stdcall(k, "CopyFileA", 3, [this](Cpu &c) {
+        const std::string fromName = fullPath(c.string(c.arg(0)));
+        const std::string toName = fullPath(c.string(c.arg(1)));
+        const auto from = mapPath ? mapPath(fromName, false) : std::nullopt;
+        std::error_code ec;
+        if (!from || !std::filesystem::is_regular_file(*from, ec)) {
+            _lastError = kErrorFileNotFound;
+            return 0u;
+        }
+        if (const auto there = mapPath(toName, false); c.arg(2) && there && std::filesystem::exists(*there, ec)) {
+            _lastError = kErrorAlreadyExists;
+            return 0u;
+        }
+        const auto to = mapPath(toName, true);
+        if (!to || (std::filesystem::exists(*to, ec) && std::filesystem::equivalent(*from, *to, ec))) {
+            _lastError = kErrorAccessDenied;
+            return 0u;
+        }
+        std::filesystem::copy_file(*from, *to, std::filesystem::copy_options::overwrite_existing, ec);
+        if (ec) {
+            _lastError = kErrorAccessDenied;
+            return 0u;
+        }
+        return 1u;
+    });
     stdcall(k, "GetFileAttributesA", 1, [this](Cpu &c) {
         const auto host = mapPath ? mapPath(fullPath(c.string(c.arg(0))), false) : std::nullopt;
         std::error_code ec;
