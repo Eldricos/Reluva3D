@@ -4,6 +4,9 @@
 #include "common/detection.h"
 #include "common/fs.h"
 
+#include "common/text.h"
+
+#include <algorithm>
 #include <fstream>
 #include <map>
 #include <optional>
@@ -55,6 +58,108 @@ std::vector<DetectedGame> detectFromTable(const std::string &engineId, const std
             results.push_back({engineId, variant.gameId, variant.description, variant.language, variant.platform});
     }
     return results;
+}
+
+std::vector<InstallShieldGroup> installShieldGroups(const InstallShieldCabinet &cabinet,
+                                                    const std::vector<std::string> &names) {
+    std::vector<InstallShieldGroup> found;
+    for (const std::string &name : names) {
+        auto it = std::find_if(cabinet.groups.begin(), cabinet.groups.end(),
+                               [&](const InstallShieldGroup &g) { return g.name == name; });
+        if (it == cabinet.groups.end())
+            return {};
+        found.push_back(*it);
+    }
+    return found;
+}
+
+bool installShieldMatches(const GameVariant &variant, const InstallShieldCabinet &cabinet,
+                          const std::vector<InstallShieldGroup> &groups) {
+    return std::all_of(variant.files.begin(), variant.files.end(), [&](const FileSignature &sig) {
+        return std::any_of(groups.begin(), groups.end(), [&](const InstallShieldGroup &g) {
+            const long i = cabinet.find(g, sig.name);
+            return i >= 0 && (sig.size < 0 || cabinet.files[size_t(i)].size == uint64_t(sig.size));
+        });
+    });
+}
+
+void planInstallShield(ImportPlan &plan, const std::shared_ptr<const InstallShieldCabinet> &cabinet,
+                       const std::vector<InstallShieldGroup> &groups, const std::vector<std::string> &leaveOut) {
+    plan.cabinet = cabinet;
+    plan.files.clear();
+    plan.notes.clear();
+    std::vector<int> wanted;
+    std::vector<std::string> loose; // not on the CDs given (on one still to be added, maybe)
+    // The CDs given: the header's and each volume's folder.
+    std::vector<std::filesystem::path> discs = {cabinet->header.parent_path()};
+    for (const InstallShieldVolume &v : cabinet->volumes)
+        if (!v.path.empty() && std::find(discs.begin(), discs.end(), v.path.parent_path()) == discs.end())
+            discs.push_back(v.path.parent_path());
+    for (const InstallShieldGroup &g : groups)
+        for (size_t i = g.first; i <= g.last && i < cabinet->files.size(); ++i) {
+            const InstallShieldFile &f = cabinet->files[i];
+            if (f.path.empty() || std::any_of(leaveOut.begin(), leaveOut.end(), [&](const std::string &folder) {
+                    return f.path.size() > folder.size() && f.path[folder.size()] == '/' &&
+                           text::equalsIgnoreCase(f.path.substr(0, folder.size()), folder);
+                }))
+                continue;
+            if (f.loose) {
+                std::optional<std::filesystem::path> found;
+                for (size_t d = 0; d < discs.size() && !found; ++d)
+                    found = fs::findFile(discs[d], f.path);
+                if (found)
+                    plan.files.push_back({*found, f.path, f.size, std::nullopt, std::nullopt});
+                else
+                    loose.push_back(f.path);
+                continue;
+            }
+            plan.files.push_back({cabinet->header, f.path, f.size, std::nullopt, i});
+            if (cabinet->reachable(i))
+                continue;
+            for (size_t v = cabinet->files[f.data].volume; v < cabinet->volumes.size(); ++v)
+                if (cabinet->volumes[v].path.empty() && std::find(wanted.begin(), wanted.end(), int(v)) == wanted.end())
+                    wanted.push_back(int(v));
+            // Version 5's volumes are known as they're found: the next one, at least.
+            if (cabinet->files[f.data].volume >= cabinet->volumes.size())
+                if (const int v = cabinet->files[f.data].volume;
+                    std::find(wanted.begin(), wanted.end(), v) == wanted.end())
+                    wanted.push_back(v);
+        }
+    if (wanted.empty()) {
+        for (const std::string &path : loose)
+            plan.notes.push_back(path + " isn't on the CDs: it's left out");
+        return;
+    }
+    std::sort(wanted.begin(), wanted.end());
+    std::string names;
+    for (int v : wanted)
+        names += (names.empty() ? "" : ", ") + cabinet->volumeName(v);
+    plan.notes.push_back("The game is on two CDs: add the other (with " + names +
+                         ") with \"Add other disc...\" to import it");
+    plan.files.clear();
+}
+
+bool addInstallShieldVolumes(ImportPlan &plan, const std::filesystem::path &folder,
+                             const std::vector<InstallShieldGroup> &groups, std::string &message,
+                             const std::vector<std::string> &leaveOut) {
+    if (!plan.cabinet) {
+        message = "not a file Reluva can use for this game";
+        return false;
+    }
+    auto cabinet = std::make_shared<InstallShieldCabinet>(*plan.cabinet);
+    std::error_code ec;
+    const std::filesystem::path dir = std::filesystem::is_directory(folder, ec) ? folder : folder.parent_path();
+    if (findInstallShieldVolumes(*cabinet, dir) == 0) {
+        std::string names;
+        for (size_t v = 1; v < cabinet->volumes.size(); ++v)
+            if (cabinet->volumes[v].path.empty())
+                names += (names.empty() ? "" : ", ") + cabinet->volumeName(int(v));
+        message = names.empty() ? "the game's CDs are both added already"
+                                : "not the game's other CD: none of " + names + " is here";
+        return false;
+    }
+    planInstallShield(plan, cabinet, groups, leaveOut);
+    return true;
 }
 
 Error runImport(const ImportPlan &plan, const std::filesystem::path &dest,

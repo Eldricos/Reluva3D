@@ -29,6 +29,7 @@ struct CabinetFile {
     int volume = 1;
     int linkTo = -1;    // shares this earlier file's data (its own volume number kept, as found)
     bool split = false; // half its packed data in its volume, the rest first in the next
+    bool loose = false; // version 5: not in the volumes (on the CD itself)
 };
 
 /** A file group: the files from index `first` to `last`, both included. */
@@ -40,10 +41,13 @@ struct CabinetGroup {
 
 /**
  * Writes data1.hdr in volumeDirs[0], and volume n (`data<n>.cab`) in
- * volumeDirs[n - 1]. Files are in the order of their data in the volumes.
+ * volumeDirs[n - 1], as InstallShield `version` 7 or 5 lays them out (5
+ * has no linked files). Files are in the order of their data in the volumes.
  */
 inline void writeCabinet(const std::vector<std::filesystem::path> &volumeDirs, const std::vector<CabinetFile> &files,
-                         const std::vector<CabinetGroup> &groups) {
+                         const std::vector<CabinetGroup> &groups, int version = 7) {
+    const bool v5 = version == 5;
+    const size_t chunk = v5 ? 0x2800 : 0x8000;
     auto put = [](std::vector<uint8_t> &v, size_t at, uint64_t x, int bytes) {
         if (v.size() < at + size_t(bytes))
             v.resize(at + size_t(bytes));
@@ -74,15 +78,16 @@ inline void writeCabinet(const std::vector<std::filesystem::path> &volumeDirs, c
     std::vector<Placed> placed(files.size());
     for (size_t i = 0; i < files.size(); ++i) {
         const CabinetFile &f = files[i];
-        if (f.name.empty() || f.linkTo >= 0)
+        if (f.name.empty() || f.linkTo >= 0 || f.loose)
             continue;
         Placed &p = placed[i];
         if (!f.compressed) {
             p.packed = f.data;
         } else {
-            // 32 KiB chunks, each a 16-bit length and one stored block.
-            for (size_t at = 0; at < f.data.size(); at += 0x8000) {
-                const size_t n = std::min<size_t>(0x8000, f.data.size() - at);
+            // 32 KiB chunks (10 KiB in version 5), each a 16-bit length and
+            // one stored block.
+            for (size_t at = 0; at < f.data.size(); at += chunk) {
+                const size_t n = std::min<size_t>(chunk, f.data.size() - at);
                 put(p.packed, p.packed.size(), n + 5, 2);
                 p.packed.push_back(1);
                 put(p.packed, p.packed.size(), n, 2);
@@ -116,14 +121,14 @@ inline void writeCabinet(const std::vector<std::filesystem::path> &volumeDirs, c
     std::vector<uint8_t> h(0x200 + 0x400, 0);
     const size_t cd = 0x200;
     put(h, 0, 0x28635349, 4);
-    put(h, 4, 0x01007000, 4);
+    put(h, 4, v5 ? 0x01005201 : 0x01007000, 4);
     put(h, 12, cd, 4);
     for (size_t g = 0; g < groups.size(); ++g) {
         const size_t name = text(h, groups[g].name);
         const size_t desc = h.size();
         put(h, desc, name - cd, 4);
-        put(h, desc + 0x16, groups[g].first, 4);
-        put(h, desc + 0x1a, groups[g].last, 4);
+        put(h, desc + (v5 ? 0x4c : 0x16), groups[g].first, 4);
+        put(h, desc + (v5 ? 0x50 : 0x1a), groups[g].last, 4);
         const size_t entry = h.size();
         put(h, entry, name - cd, 4);
         put(h, entry + 4, desc - cd, 4);
@@ -146,8 +151,27 @@ inline void writeCabinet(const std::vector<std::filesystem::path> &volumeDirs, c
         names[i] = files[i].name.empty() ? 0 : text(h, files[i].name) - table;
     const size_t entries = h.size();
     put(h, cd + 0x2c, entries - table, 4);
-    h.resize(entries + 0x57 * files.size(), 0);
-    for (size_t i = 0; i < files.size(); ++i) {
+    // Version 5: an offset for each entry, then the entries, 0x3a bytes each.
+    if (v5) {
+        h.resize(entries + 4 * files.size() + 0x3a * files.size(), 0);
+        for (size_t i = 0; i < files.size(); ++i) {
+            const CabinetFile &f = files[i];
+            const size_t e = entries + 4 * files.size() + 0x3a * i;
+            const Placed &p = placed[i];
+            put(h, entries + 4 * i, e - table, 4);
+            put(h, e, names[i], 4);
+            put(h, e + 4, size_t(std::find(folders.begin(), folders.end(), f.folder) - folders.begin()), 4);
+            put(h, e + 8, f.name.empty() ? 8 : f.loose ? 0 : (f.compressed ? 4 : 0) | (f.split ? 1 : 0), 2);
+            put(h, e + 0x0a, f.data.size(), 4);
+            put(h, e + 0x0e, f.loose ? f.data.size() : p.packed.size(), 4);
+            put(h, e + 0x26, p.offset, 4);
+            for (size_t k = 0; k < 16; ++k)
+                h[e + 0x2a + k] = p.md5[k];
+        }
+    }
+    if (!v5)
+        h.resize(entries + 0x57 * files.size(), 0);
+    for (size_t i = 0; !v5 && i < files.size(); ++i) {
         const CabinetFile &f = files[i];
         const size_t e = entries + 0x57 * i;
         const size_t owner = f.linkTo >= 0 ? size_t(f.linkTo) : i;
@@ -172,13 +196,14 @@ inline void writeCabinet(const std::vector<std::filesystem::path> &volumeDirs, c
     for (size_t n = 1; n < volumes.size(); ++n) {
         Volume &v = volumes[n];
         put(v.bytes, 0, 0x28635349, 4);
-        put(v.bytes, 4, 0x01007000, 4);
+        put(v.bytes, 4, v5 ? 0x01005201 : 0x01007000, 4);
         put(v.bytes, 0x14, 0x200, 4);
         put(v.bytes, 0x1c, v.first == 0xffffffff ? 0 : v.first, 4);
         put(v.bytes, 0x20, v.last, 4);
-        put(v.bytes, 0x24, v.firstOffset, 8);
-        put(v.bytes, 0x34, v.firstPacked, 8);
-        put(v.bytes, 0x4c, v.lastPacked, 8);
+        // Version 5's offsets and sizes are 32-bit.
+        put(v.bytes, 0x24, v.firstOffset, v5 ? 4 : 8);
+        put(v.bytes, v5 ? 0x2c : 0x34, v.firstPacked, v5 ? 4 : 8);
+        put(v.bytes, v5 ? 0x38 : 0x4c, v.lastPacked, v5 ? 4 : 8);
         writeFile(volumeDirs[n - 1] / ("data" + std::to_string(n) + ".cab"), v.bytes);
     }
 }

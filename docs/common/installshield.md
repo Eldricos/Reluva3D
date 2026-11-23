@@ -14,11 +14,15 @@ from its CDs on any system, without running setup.
 `common/installshield.cpp` (`readInstallShieldCabinet`,
 `findInstallShieldVolumes`, `extractInstallShieldFile`) reads the
 header, finds the volumes beside it or in another folder (the other CD),
-and takes a file out, its MD5 checked. Only version 7's header is read
-(InstallShield 7's; the only one seen yet). An engine's import says which
-groups are the game's, and takes them as setup would install them:
-Murder on the Orient Express's and And Then There Were None's (`awe`).
-`reluva-tool import <first CD> <dest> -patch <other CD>` shows and does it.
+and takes a file out, its MD5 checked. Versions 7 and 5 are read
+(InstallShield 7's and 5's, the two seen). An engine's import says which
+groups are the game's, and takes them as setup would install them, a
+file loose on a CD (version 5's) from that CD's folder: Murder on the
+Orient Express's and And Then There Were None's (`awe`), Starfleet
+Command II's (`sfc`). The shared `installShieldGroups`,
+`installShieldMatches`, `planInstallShield` and `addInstallShieldVolumes`
+(`common/detection.h`) do it for an engine. `reluva-tool import <first
+CD> <dest> -patch <other CD>` shows and does it.
 
 ## The format
 
@@ -93,6 +97,38 @@ Not read: the rest of a group's descriptor and the components, which say
 which groups setup offers; the link entries' other fields (+80, the next
 file sharing the data); flag 2 (never set here).
 
+## Version 5
+
+What differs in version 5's (0x01005201 in the common header, 5 in bits
+12–15): the rest is as above.
+
+- **The file entries:** after the folders' offsets, an offset for each
+  entry (from the file table), the entries 0x3a bytes each:
+
+| Offset | Size | What |
+|---|---|---|
+| 0x00 | 4 | its name's offset, from the file table |
+| 0x04 | 4 | its folder |
+| 0x08 | 2 | flags, as version 7's; none at all: the file isn't in the volumes but loose on a CD (setup copies it from there) |
+| 0x0a | 4 | its size |
+| 0x0e | 4 | its data's size, all volumes together |
+| 0x12 | 20 | not read: its Windows attributes (0x20, archive, at 0x12), a DOS date and time (0x16, 0x1a), and in some DLLs' entries what looks like their version (0x1c) *(guessed)* |
+| 0x26 | 4 | where its data starts, in its volume |
+| 0x2a | 16 | the MD5 of the file |
+
+  No volume and no link: a file's volume is the one whose header's range
+  holds it (where its data starts, when it runs on); none shares data.
+- **Groups:** a group descriptor's first and last files at 0x4c and 0x50.
+- **A volume's header:** the same fields at the same offsets to 0x20; the
+  offsets and sizes after them are 32-bit: 0x24 where the first file's
+  rest is, 0x28 its size, 0x2c how much of its data is here, 0x30 where
+  the last file's data starts, 0x34 its size, 0x38 how much of it is
+  here. The header doesn't say how many volumes there are: a volume
+  whose last file isn't the cabinet's last has another after it.
+- **Compressed data:** chunks of 10 KiB of the file (10,240 bytes; the
+  last the rest), each a 16-bit length and raw deflate, as version 7's
+  32 KiB ones.
+
 ## Sources and checks
 
 - **Worked out on** And Then There Were None's two English CDs: the first
@@ -122,11 +158,31 @@ file sharing the data); flag 2 (never set here).
   `unshield` writes with `_` for the `Ä` (0xc4 in Windows-1252) the
   header has, as the install has it
   (`Text/Dialogue/Events/gen_solutionexit_0_Ä3b.txt`).
-- **Confidence:** confirmed (worked out on these CDs, version 7's
-  header) unless marked.
+- **Version 5, worked out on** Starfleet Command II's two English CDs:
+  `data1.hdr` (296,095 bytes) and `data1.cab` (600,978,059) on the
+  first, `data2.cab` (97,185,453) on the second, 3,735 entries in 9
+  groups. The entries' fields by their names and sizes against
+  `unshield l`'s listing (3,355 files, all matched by folder, name and
+  size); the data's offsets by each file's following the one before; the
+  chunks' size by inflating them; the groups' first and last files by
+  finding the indexes `unshield`'s listing puts in each; the volumes'
+  fields by the voices' zip, split between the two (65,466,317 bytes of
+  data in the first, 17,436,070 in the second, together its packed size);
+  the loose files by `readme.txt` and the script kit, on the second CD.
+- **Checked:** the game imported from the two CDs (`reluva-tool import`),
+  3,356 files, is byte for byte the owner's install made by the CDs' own
+  setup on Windows, but for its uninstall log (`sfc2.isu`), which isn't
+  imported; every file's MD5 the header's.
+- **Unit tests:** `common.unit.installshield` and `installshield 5`, on
+  cabinets written by the test (`tests/support/installshield_writer.h`)
+  of either version: two CDs, a file split between them, a stored one, a
+  shared one (7), a loose one (5), the import planned and run.
+- **Confidence:** confirmed (worked out on these CDs) unless marked.
 
 ## Used by
 
 - **`awe`**: Murder on the Orient Express's and And Then There Were
   None's CDs ([README](../engines/awe/games/motoe/README.md),
   [README](../engines/awe/games/attwn/README.md)).
+- **`sfc`**: Starfleet Command II's CDs, version 5
+  ([README](../engines/sfc/games/sfc2/README.md#using-it)).

@@ -405,6 +405,60 @@ static void testInflateAndWise(const std::filesystem::path &tmp) {
     CHECK(readWiseInstaller(tmp / "other.exe", streams));
 }
 
+// Version 5's layout (Starfleet Command II's CDs): an offset for each
+// entry, 10 KiB chunks, volumes known as they're found, and a file loose
+// on the second CD rather than in the volumes.
+static void testInstallShield5(const std::filesystem::path &tmp) {
+    using test::CabinetFile;
+    using test::toBytes;
+    std::vector<uint8_t> big(0x2800 * 2 + 300);
+    for (size_t i = 0; i < big.size(); ++i)
+        big[i] = uint8_t(i * 5 + i / 241);
+    std::vector<CabinetFile> files(5);
+    files[0] = {"Data", "a.bin", toBytes("the first file's bytes")};
+    files[1] = {"Data", "", {}};
+    files[2] = {"Data\\Sub", "big.bin", big, true, 1, -1, true};
+    files[3] = {"Data", "last.bin", toBytes("on the second CD"), true, 2};
+    files[4] = {"", "readme.txt", toBytes("Read me."), false, 1, -1, false, true};
+    test::writeCabinet({tmp / "cd1", tmp / "cd2"}, files, {{"Game", 0, 3}, {"ReadMe", 4, 4}}, 5);
+    test::writeFile(tmp / "cd2" / "readme.txt", toBytes("Read me."));
+
+    InstallShieldCabinet cab;
+    CHECK(!readInstallShieldCabinet(tmp / "cd1" / "data1.hdr", cab));
+    CHECK(cab.version == 5 && cab.files.size() == 5 && cab.files[2].path == "Data/Sub/big.bin" &&
+          cab.files[1].path.empty() && cab.files[4].loose && !cab.files[0].loose);
+    CHECK(cab.groups.size() == 2 && cab.groups[0].first == 0 && cab.groups[0].last == 3 && cab.groups[1].first == 4);
+    // The first CD's volume ends inside big.bin: the next is wanted.
+    CHECK(cab.volumes.size() == 3 && !cab.volumes[1].path.empty() && cab.volumes[2].path.empty());
+    CHECK(cab.reachable(0) && !cab.reachable(2) && !cab.reachable(3) && !cab.reachable(4));
+    std::vector<uint8_t> out;
+    CHECK(!extractInstallShieldFile(cab, 0, out) && out == toBytes("the first file's bytes"));
+    const Error missing = extractInstallShieldFile(cab, 3, out);
+    CHECK(missing && missing.message.find("data2.cab") != std::string::npos);
+    const Error loose = extractInstallShieldFile(cab, 4, out);
+    CHECK(loose && loose.message.find("CD itself") != std::string::npos);
+
+    // Planned from the first CD: nothing until the second is added; then
+    // every file, readme.txt from the second CD's folder.
+    ImportPlan plan;
+    auto shared = std::make_shared<InstallShieldCabinet>(cab);
+    const std::vector<InstallShieldGroup> groups = installShieldGroups(*shared, {"Game", "ReadMe"});
+    CHECK(groups.size() == 2 && installShieldGroups(*shared, {"Game", "Nothing"}).empty());
+    planInstallShield(plan, shared, groups);
+    CHECK(plan.files.empty() && plan.notes.size() == 1 && plan.notes[0].find("data2.cab") != std::string::npos);
+    std::string message;
+    CHECK(!addInstallShieldVolumes(plan, tmp / "cd1", groups, message));
+    CHECK(addInstallShieldVolumes(plan, tmp / "cd2", groups, message));
+    CHECK(plan.files.size() == 4 && plan.notes.empty() && plan.files.back().to == "readme.txt" &&
+          plan.files.back().from == tmp / "cd2" / "readme.txt" && !plan.files.back().cabinetFile);
+    CHECK(!extractInstallShieldFile(*plan.cabinet, 2, out) && out == big);
+    CHECK(!extractInstallShieldFile(*plan.cabinet, 3, out) && out == toBytes("on the second CD"));
+    CHECK(!runImport(plan, tmp / "game", [](uint64_t, uint64_t) { return true; }));
+    std::vector<uint8_t> copied;
+    CHECK(readFile(tmp / "game" / "Data" / "Sub" / "big.bin", copied) && copied == big);
+    CHECK(readFile(tmp / "game" / "readme.txt", copied) && copied == toBytes("Read me."));
+}
+
 static void testInstallShield(const std::filesystem::path &tmp) {
     using test::CabinetFile;
     using test::toBytes;
@@ -1297,6 +1351,7 @@ static const reluva::test::Suite
                        {"zip", [](const std::filesystem::path &tmp) { testZip(tmp / "zip"); }},
                        {"inflate and wise", [](const std::filesystem::path &tmp) { testInflateAndWise(tmp / "wise"); }},
                        {"installshield", [](const std::filesystem::path &tmp) { testInstallShield(tmp / "is"); }},
+                       {"installshield 5", [](const std::filesystem::path &tmp) { testInstallShield5(tmp / "is5"); }},
                        {"dcl", [](const std::filesystem::path &) { testDcl(); }},
                        {"cd images", [](const std::filesystem::path &tmp) { testCue(tmp / "cue"); }},
                    });

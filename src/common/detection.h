@@ -98,6 +98,36 @@ struct ImportPlan {
 Error runImport(const ImportPlan &plan, const std::filesystem::path &dest,
                 const std::function<bool(uint64_t done, uint64_t total)> &progress);
 
+/** Importing from an InstallShield cabinet, a game's CDs. */
+///@{
+/** The groups named, as setup installs them; none if one of them isn't in `cabinet`. */
+std::vector<InstallShieldGroup> installShieldGroups(const InstallShieldCabinet &cabinet,
+                                                    const std::vector<std::string> &names);
+/**
+ * Whether `variant`'s files are among the groups' with their sizes. Their
+ * MD5s are of what's unpacked, so not known yet: detection checks them
+ * once the game is imported.
+ */
+bool installShieldMatches(const GameVariant &variant, const InstallShieldCabinet &cabinet,
+                          const std::vector<InstallShieldGroup> &groups);
+/**
+ * The plan's files: the groups', as setup would install them, but for
+ * those under a folder in `leaveOut`; a file loose on a CD (version 5's)
+ * from the folder of the CD it's on: the header's or a volume's. Until every volume they're in
+ * is found there are none: the notes say which are still wanted.
+ */
+void planInstallShield(ImportPlan &plan, const std::shared_ptr<const InstallShieldCabinet> &cabinet,
+                       const std::vector<InstallShieldGroup> &groups, const std::vector<std::string> &leaveOut = {});
+/**
+ * Adds the volumes in `folder` (the game's other CD) to the plan's
+ * cabinet and plans again.
+ * @return False, with why in `message`, if none of the volumes wanted are there.
+ */
+bool addInstallShieldVolumes(ImportPlan &plan, const std::filesystem::path &folder,
+                             const std::vector<InstallShieldGroup> &groups, std::string &message,
+                             const std::vector<std::string> &leaveOut = {});
+///@}
+
 /** Every variant in `table` whose files all match inside `dir` (a variant without files never does). */
 std::vector<DetectedGame> detectFromTable(const std::string &engineId, const std::vector<GameVariant> &table,
                                           const std::filesystem::path &dir);

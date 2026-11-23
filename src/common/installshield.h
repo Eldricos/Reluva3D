@@ -22,6 +22,7 @@ struct InstallShieldFile {
     uint16_t volume = 0;     ///< which volume its data starts in, from 1
     bool compressed = false;
     bool split = false; ///< its data runs on into the next volume
+    bool loose = false; ///< not in the volumes: setup copies it from the CD's own folders (version 5)
     /** Whose data it is: its own index, or the file it shares data with. */
     uint32_t data = 0;
     std::array<uint8_t, 16> md5{}; ///< of the unpacked file
@@ -48,10 +49,11 @@ struct InstallShieldVolume {
  * An InstallShield cabinet, as games' CDs held their files (And Then There
  * Were None's): a header (data1.hdr) listing the files and their groups,
  * and their data in volumes (data1.cab, data2.cab...), one CD's or two.
- * Only the layout of version 7's header is read.
+ * The layouts of versions 5 (Starfleet Command II's) and 7 are read.
  */
 struct InstallShieldCabinet {
     std::filesystem::path header;
+    int version = 0;                      ///< InstallShield's: 5 or 7
     std::vector<InstallShieldFile> files; ///< by index; a file with no name isn't one
     std::vector<InstallShieldGroup> groups;
     std::vector<InstallShieldVolume> volumes; ///< [n] is volume n; [0] unused
