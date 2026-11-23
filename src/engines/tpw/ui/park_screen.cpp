@@ -52,6 +52,8 @@ constexpr float kWheelZoom = 1.15f;
 constexpr Color kEntranceColour{255, 220, 0};
 constexpr Color kBoothColour{255, 80, 40};
 constexpr Color kBusStopColour{80, 160, 255};
+// The visitors' markers, until their sprites are drawn.
+constexpr Color kVisitorColour{255, 255, 255};
 
 void fillRect(Surface &s, const ScreenRect &r, Color c) {
     for (int y = std::max(0, r.y); y < std::min(s.h, r.y + r.h); ++y)
@@ -64,13 +66,18 @@ void fillRect(Surface &s, const ScreenRect &r, Color c) {
         }
 }
 
-void mark(Surface &screen, const soft3d::OrbitCamera &camera, const Park::Cell &cell, Color c) {
-    const soft3d::ViewVertex v = camera.toView(toViewerWorld(Park::cellCentre(cell)));
+// A square at a point of the world, `units` across.
+void mark(Surface &screen, const soft3d::OrbitCamera &camera, const gfx::Vec3 &at, float units, Color c) {
+    const soft3d::ViewVertex v = camera.toView(toViewerWorld(at));
     if (v.z < camera.nearZ)
         return;
     const soft3d::ScreenVertex s = camera.project(v);
-    const int size = std::max(2, int(4 * Park::kCellUnits * camera.focal / v.z / 10));
+    const int size = std::max(1, int(units * camera.focal / v.z / 2));
     fillRect(screen, {int(s.x) - size, int(s.y) - size, 2 * size, 2 * size}, c);
+}
+
+void mark(Surface &screen, const soft3d::OrbitCamera &camera, const Park::Cell &cell, Color c) {
+    mark(screen, camera, Park::cellCentre(cell), 4, c);
 }
 
 WorldView viewOf(const ParkScreen::Camera &camera) {
@@ -130,6 +137,8 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
         mark(screen, eye, c, kBoothColour);
     for (const Park::Cell &c : fixed.busStops)
         mark(screen, eye, c, kBusStopColour);
+    for (const Park::Visitor &v : park.visitorsAbout())
+        mark(screen, eye, {v.x, 1, v.z}, 2, kVisitorColour);
     if (!_hud)
         return;
     drawGameText(screen, _cashFont, _characters, kCashX, kCashY, "\u00a7 " + std::to_string(park.cash()), kHudText);

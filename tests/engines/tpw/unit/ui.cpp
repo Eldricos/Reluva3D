@@ -12,6 +12,7 @@
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/players.h"
 #include "engines/tpw/ui/loading_screen.h"
+#include "engines/tpw/ui/briefing.h"
 #include "engines/tpw/ui/front_end_audio.h"
 #include "engines/tpw/ui/front_end_effects.h"
 #include "engines/tpw/ui/front_end_overlay.h"
@@ -360,6 +361,18 @@ void testFrontEndAudio(const std::filesystem::path &tmp) {
     CHECK(silent.linesStarted().size() == 1);
 }
 
+// The briefing's controls are where it draws them, and nowhere else.
+void testBriefingControls() {
+    using Control = tpw::Briefing::Control;
+    for (Control c : {Control::kObjectivesTab, Control::kChallengesTab, Control::kTurn, Control::kProceed,
+                      Control::kCancel, Control::kClose}) {
+        const tpw::ScreenRect r = tpw::Briefing::placeOf(c);
+        CHECK(r.w > 0 && tpw::Briefing::controlAt(r.x + r.w / 2, r.y + r.h / 2) == c);
+    }
+    CHECK(tpw::Briefing::controlAt(0, 0) == Control::kNone);
+    CHECK(tpw::Briefing::controlAt(639, 479) == Control::kNone);
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -373,4 +386,5 @@ static const reluva::test::Suite
                               {"particles", [](const std::filesystem::path &) { testParticles(); }},
                               {"front-end-overlay", [](const std::filesystem::path &) { testFrontEndOverlay(); }},
                               {"front-end-audio", [](const std::filesystem::path &tmp) { testFrontEndAudio(tmp); }},
+                              {"briefing", [](const std::filesystem::path &) { testBriefingControls(); }},
                           });

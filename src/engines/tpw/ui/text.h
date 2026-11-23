@@ -8,7 +8,9 @@
 #include "engines/tpw/formats/bf4.h"
 #include "engines/tpw/formats/str.h"
 
+#include <map>
 #include <string>
+#include <vector>
 
 namespace reluva::tpw {
 
@@ -24,6 +26,16 @@ int drawGameText(Surface &s, const Font &font, const CharacterSet &characters, i
 
 /** How far drawGameText moves the pen for the text. */
 int gameTextWidth(const Font &font, const CharacterSet &characters, const std::string &utf8);
+
+/** A table's string with its parameters' places filled, by their numbers; one not given is left empty. */
+std::string fillGameString(const StringTable &table, size_t index, const std::map<int, std::string> &values);
+
+/**
+ * Text broken into lines no wider than `width` in a font, at spaces
+ * where it can, and at its own line breaks.
+ */
+std::vector<std::string> wrapGameText(const Font &font, const CharacterSet &characters, const std::string &utf8,
+                                      int width);
 
 /** Reads a font of the language's folder (`Language/American/`), by its name (`CASHMED`). */
 Error readGameFont(const SearchSet &files, const std::string &folder, const char *name, Font &out);

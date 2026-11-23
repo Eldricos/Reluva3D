@@ -56,7 +56,8 @@ bool watchGlobe(System &sys, const Globe &globe, uint64_t &start, uint32_t pathM
 
 } // namespace
 
-int runFrontEnd(System &sys, const SearchSet &files, const std::filesystem::path &saveFolder, audio::Mixer *mixer) {
+int runFrontEnd(System &sys, const SearchSet &files, const std::filesystem::path &saveFolder, audio::Mixer *mixer,
+                PlayerFile *chosen) {
     FrontEndScene scene;
     Globe globe;
     const bool drawn = !scene.load(files) && !globe.load(scene);
@@ -114,6 +115,8 @@ int runFrontEnd(System &sys, const SearchSet &files, const std::filesystem::path
     PlayerFile player;
     if (!choosePlayer(sys, files, saveFolder, backdrop, player))
         return -1;
+    if (chosen)
+        *chosen = player;
 
     std::array<bool, Globe::kWorlds> open{};
     for (size_t i = 0; i < open.size(); ++i)

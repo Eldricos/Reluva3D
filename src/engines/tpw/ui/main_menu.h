@@ -6,6 +6,7 @@
 #include "audio/mixer.h"
 #include "common/archive.h"
 #include "common/system.h"
+#include "engines/tpw/players.h"
 
 #include <filesystem>
 
@@ -22,10 +23,11 @@ namespace reluva::tpw {
  * @param saveFolder Where the players are kept (players.md); none kept for
  *     an empty path.
  * @param mixer Where the script's sound effects play; nullptr for silence.
+ * @param chosen Given the player chosen, if not nullptr.
  * @return The world chosen, by Globe::worlds()' order; −1 if the player
  *     quit, or the window was closed (or the launcher asked for).
  */
 int runFrontEnd(System &sys, const SearchSet &files, const std::filesystem::path &saveFolder,
-                audio::Mixer *mixer = nullptr);
+                audio::Mixer *mixer = nullptr, PlayerFile *chosen = nullptr);
 
 } // namespace reluva::tpw

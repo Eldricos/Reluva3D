@@ -29,7 +29,9 @@ void writeText(const std::filesystem::path &path, const std::string &text) {
 void testNewPark(const std::filesystem::path &tmp) {
     const std::filesystem::path data = tmp / "game" / "Data";
     writeText(data / "levels" / "Standard.sam",
-              "BankAccountInfo.InitialCash 50000\r\nBankAccountInfo.InitialAdmissionFee 25\r\n");
+              "BankAccountInfo.InitialCash 50000\r\nBankAccountInfo.InitialAdmissionFee 25\r\n"
+              "Arrival.MinPeople 1\r\nArrival.TimeBetweenArrivals 25\r\nArrival.FixedRate 15\r\n"
+              "Arrival.NewParkBonus 20\r\nArrival.PointsPerVisitor 25\r\n");
     writeText(data / "levels" / "science" / "Standard.sam",
               "FixedItemInfo.NumTicketBooths 2\r\nTicketBooth[0].PosX 45\r\nTicketBooth[0].PosY 11\r\n"
               "TicketBooth[0].Angle 512\r\nTicketBooth[1].PosX 45\r\nTicketBooth[1].PosY 8\r\n"
@@ -52,6 +54,20 @@ void testNewPark(const std::filesystem::path &tmp) {
     const Park::Mission &m = park.mission();
     CHECK(m.number == 0 && m.statistic == 8 && m.target == 40 && m.obstacle == 1700);
     CHECK(m.boundary.size() == 2 && (m.boundary[1] == Park::Cell{2, -6}));
+    // One visitor wanted, (15 + 20) / 25; they come at 25 s, walk the way
+    // in past the booth, paying, and through the entrance.
+    CHECK(park.visitorsWanted() == 1 && park.wayIn().size() == 6);
+    park.advance(24900);
+    CHECK(park.visitorsAbout().empty());
+    park.advance(200);
+    CHECK(park.visitorsAbout().size() == 1 && !park.visitorsAbout()[0].paid);
+    park.setPaused(true);
+    park.advance(60000);
+    CHECK(park.cash() == 50000 && park.day() == 6);
+    park.setPaused(false);
+    park.advance(60000);
+    CHECK(park.cash() == 50025 && park.visitors() == 1 && park.visitorsAbout().size() == 1);
+    CHECK(park.visitorsAbout()[0].inPark);
     CHECK(park.load(files, "levels/science", 1)); // no miss01.sam
     CHECK(park.load(files, "levels/water", 7));
 }

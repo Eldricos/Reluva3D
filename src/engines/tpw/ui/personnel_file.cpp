@@ -121,16 +121,6 @@ constexpr Color kGreyedColour{112, 112, 112};   // a greyed blue button's
 constexpr Color kQuestionColour{40, 72, 104};
 constexpr Color kSelectionColour{91, 144, 174};
 
-// A string with its parameters' places filled, by their numbers.
-std::string fill(const StringTable &table, size_t index, const std::map<int, std::string> &values) {
-    std::string out;
-    for (const StringTable::Part &p : table.parts(index)) {
-        const auto it = values.find(p.number);
-        out += p.parameter ? (it == values.end() ? std::string() : it->second) : p.text;
-    }
-    return out;
-}
-
 // Multiplies a rectangle's colours by `percent` / 100.
 void dim(Surface &screen, const ScreenRect &r, int percent) {
     for (int y = std::max(0, r.y); y < std::min(screen.h, r.y + r.h); ++y)
@@ -241,7 +231,8 @@ void PersonnelFile::drawCentred(Surface &screen, const Font &font, const ScreenR
 std::string PersonnelFile::worldLine(const PlayerFile::World &world) const {
     if (!world.open)
         return _ui.text(kNotOpenText);
-    return fill(_ui, kChallengesText, {{1, std::to_string(world.won)}, {2, std::to_string(world.challenges)}});
+    return fillGameString(_ui, kChallengesText,
+                          {{1, std::to_string(world.won)}, {2, std::to_string(world.challenges)}});
 }
 
 void PersonnelFile::drawRecord(Surface &screen, const PlayerFile &p) const {
@@ -308,7 +299,7 @@ void PersonnelFile::drawDeleteDialog(Surface &screen, const PlayerFile &p, const
     drawUiMesh(screen, _dialog, 0, kDialog);
     // The string's first line is the title, the player's name; a blank
     // line, then the question's.
-    const std::vector<std::string> text = lines(fill(_ui, kDeleteQuestionText, {{0, p.name}}));
+    const std::vector<std::string> text = lines(fillGameString(_ui, kDeleteQuestionText, {{0, p.name}}));
     drawText(screen, _title, kDialogTitleX, kDialogTitleY, text.front(), kTitleColour);
     int y = kQuestionY;
     for (size_t i = 2; i < text.size(); ++i, y += kQuestionStep)

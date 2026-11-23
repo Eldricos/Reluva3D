@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdio>
 
 namespace reluva::tpw {
@@ -20,6 +21,13 @@ namespace {
 constexpr const char *kGeneralSettings = "levels/Standard.sam";
 constexpr int kMostBoundaryClicks = 256;
 constexpr int kMostTicketBooths = 8;
+// How far the entrance's path runs in, in cells: its tiles, in the
+// attribute map.
+constexpr int kPathIn = 4;
+// Which waypoint of the way in is the booth's, where a visitor pays, and
+// the entrance's, past which they're in the park.
+constexpr size_t kBoothLeg = 3;
+constexpr size_t kEntranceLeg = 4;
 
 Error readSettings(const SearchSet &files, const std::string &name, SamFile &out) {
     std::vector<uint8_t> data;
@@ -46,6 +54,12 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
         return err;
     _cash = int(general.number("BankAccountInfo.InitialCash"));
     _admissionFee = int(general.number("BankAccountInfo.InitialAdmissionFee"));
+    _arrivals.minPeople = int(general.number("Arrival.MinPeople", 1));
+    _arrivals.everyMs = uint32_t(std::max(1.0, general.number("Arrival.TimeBetweenArrivals", 25)) * 1000);
+    _arrivals.fixedRate = int(general.number("Arrival.FixedRate"));
+    _arrivals.newParkBonus = int(general.number("Arrival.NewParkBonus"));
+    _arrivals.pointsPerVisitor = std::max(1, int(general.number("Arrival.PointsPerVisitor", 1)));
+    _nextArrivalMs = _arrivals.everyMs;
 
     // The world's fixed items; a world without its settings has none.
     SamFile world;
@@ -68,6 +82,15 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
                                    cellOf(world, f + "CrossingParkSideBPosX", f + "CrossingParkSideBPosY")};
     }
 
+    // The way in: off the bus at its first stop, over the crossing from
+    // the bus's side to the park's, past the first booth, through the
+    // entrance and up the path inside (the attribute map's path tiles run
+    // four cells in).
+    const Cell in = _fixed.entrance[0];
+    for (const Cell &c : {_fixed.busStops[0], _fixed.crossingBusSide[0], _fixed.crossingParkSide[0],
+                          _fixed.ticketBooths.empty() ? in : _fixed.ticketBooths[0], in, Cell{in.x, in.y + kPathIn}})
+        _wayIn.push_back(cellCentre(c));
+
     char name[32];
     std::snprintf(name, sizeof name, "missions/miss%02d.sam", mission);
     SamFile m;
@@ -84,6 +107,58 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
         _mission.boundary.push_back(cellOf(m, base + "X", base + "Y"));
     }
     return Error::success();
+}
+
+int Park::visitorsWanted() const {
+    const int points = _arrivals.fixedRate + _arrivals.newParkBonus;
+    return std::max(_arrivals.minPeople, points / _arrivals.pointsPerVisitor);
+}
+
+void Park::advance(uint32_t ms) {
+    if (_paused)
+        return;
+    // In short steps, so that a visitor arriving partway through one
+    // walks only from then.
+    while (ms > kStepMillis) {
+        step(kStepMillis);
+        ms -= kStepMillis;
+    }
+    step(ms);
+}
+
+void Park::step(uint32_t ms) {
+    _millis += ms;
+    while (_millis >= _nextArrivalMs) {
+        _nextArrivalMs += _arrivals.everyMs;
+        if (int(_people.size()) < visitorsWanted() && !_wayIn.empty())
+            _people.push_back({_nextId++, _wayIn[0][0], _wayIn[0][2], 1, false, false});
+    }
+    const float step = kWalkPerSecond * float(ms) / 1000;
+    for (Visitor &v : _people) {
+        float left = step;
+        while (left > 0 && v.leg < _wayIn.size()) {
+            const float dx = _wayIn[v.leg][0] - v.x;
+            const float dz = _wayIn[v.leg][2] - v.z;
+            const float d = std::sqrt(dx * dx + dz * dz);
+            if (d > left) {
+                v.x += dx / d * left;
+                v.z += dz / d * left;
+                break;
+            }
+            v.x = _wayIn[v.leg][0];
+            v.z = _wayIn[v.leg][2];
+            left -= d;
+            if (v.leg == kBoothLeg && !v.paid) {
+                v.paid = true;
+                _cash += _admissionFee;
+            }
+            if (v.leg == kEntranceLeg && !v.inPark) {
+                v.inPark = true;
+                ++_visitors;
+            }
+            ++v.leg;
+        }
+    }
 }
 
 Park::Date Park::dateOf(uint32_t days) {

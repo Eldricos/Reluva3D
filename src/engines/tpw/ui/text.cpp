@@ -59,6 +59,49 @@ int gameTextWidth(const Font &font, const CharacterSet &characters, const std::s
     return forEachGlyph(font, characters, utf8, [](const Font::Glyph &, int) {});
 }
 
+std::string fillGameString(const StringTable &table, size_t index, const std::map<int, std::string> &values) {
+    std::string out;
+    for (const StringTable::Part &p : table.parts(index)) {
+        const auto it = values.find(p.number);
+        out += p.parameter ? (it == values.end() ? std::string() : it->second) : p.text;
+    }
+    return out;
+}
+
+std::vector<std::string> wrapGameText(const Font &font, const CharacterSet &characters, const std::string &utf8,
+                                      int width) {
+    std::vector<std::string> out;
+    std::string paragraph;
+    auto flush = [&] {
+        std::string line;
+        size_t at = 0;
+        while (at <= paragraph.size()) {
+            const size_t space = paragraph.find(' ', at);
+            const std::string word = paragraph.substr(at, space == std::string::npos ? std::string::npos : space - at);
+            const std::string tried = line.empty() ? word : line + " " + word;
+            if (!line.empty() && gameTextWidth(font, characters, tried) > width) {
+                out.push_back(line);
+                line = word;
+            } else {
+                line = tried;
+            }
+            if (space == std::string::npos)
+                break;
+            at = space + 1;
+        }
+        out.push_back(line);
+        paragraph.clear();
+    };
+    for (char c : utf8) {
+        if (c == '\n')
+            flush();
+        else if (c != '\r')
+            paragraph += c;
+    }
+    flush();
+    return out;
+}
+
 Error readGameFont(const SearchSet &files, const std::string &folder, const char *name, Font &out) {
     std::vector<uint8_t> data;
     if (Error err = files.read(folder + name + ".bf4", data))

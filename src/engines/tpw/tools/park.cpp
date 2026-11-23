@@ -8,6 +8,7 @@
 #include "devtools/tool.h"
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/park/park.h"
+#include "engines/tpw/ui/briefing.h"
 #include "engines/tpw/ui/park_screen.h"
 #include "image/image.h"
 
@@ -20,6 +21,17 @@
 namespace {
 
 using namespace reluva::tool;
+
+void writePng(const reluva::Surface &surface, const char *path) {
+    reluva::image::Image out;
+    out.w = surface.w;
+    out.h = surface.h;
+    out.rgba.resize(size_t(surface.w) * size_t(surface.h) * 4);
+    for (int y = 0; y < surface.h; ++y)
+        std::copy(surface.row(y), surface.row(y) + surface.w * 4, out.pixel(0, y));
+    const std::vector<uint8_t> png = reluva::image::encodePng(out);
+    std::ofstream(path, std::ios::binary).write(reinterpret_cast<const char *>(png.data()), long(png.size()));
+}
 
 // Mounts the game and sets up a new park in a world for a mission, with
 // its screen; false, having said why, if it can't.
@@ -64,14 +76,7 @@ int cmdParkShot(int argc, char **argv) {
     surface.create(640, 480, reluva::PixelFormat::kRGBA32);
     reluva::soft3d::Rasterizer rasterizer;
     screen.draw(surface, rasterizer, park, camera);
-    reluva::image::Image out;
-    out.w = surface.w;
-    out.h = surface.h;
-    out.rgba.resize(size_t(surface.w) * size_t(surface.h) * 4);
-    for (int y = 0; y < surface.h; ++y)
-        std::copy(surface.row(y), surface.row(y) + surface.w * 4, out.pixel(0, y));
-    const std::vector<uint8_t> png = reluva::image::encodePng(out);
-    std::ofstream(argv[4], std::ios::binary).write(reinterpret_cast<const char *>(png.data()), long(png.size()));
+    writePng(surface, argv[4]);
     const auto &fixed = park.fixedItems();
     std::printf("%s: mission %d (statistic %d to %d), cash %d, admission %d, %s; entrance %d,%d and %d,%d; %zu ticket "
                 "booths; boundary of %zu clicks\n",
@@ -81,9 +86,44 @@ int cmdParkShot(int argc, char **argv) {
     return 0;
 }
 
+// The briefing over a new park in a world, its letter to `player` or its
+// details, to a PNG; the letter's lines printed.
+int cmdBriefingShot(int argc, char **argv) {
+    if (argc < 5) {
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool tpw briefing-shot <game folder> <world folder> <out.png> [player [-details]]\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    reluva::tpw::Park park;
+    reluva::tpw::ParkScreen screen;
+    if (!newPark(argv[2], argv[3], 0, files, park, screen))
+        return 1;
+    reluva::tpw::Briefing briefing;
+    if (reluva::Error err = briefing.load(files)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    const std::string player = argc > 5 ? argv[5] : "Tester";
+    reluva::tpw::Briefing::View view;
+    view.details = argc > 6 && std::string(argv[6]) == "-details";
+    reluva::Surface surface;
+    surface.create(640, 480, reluva::PixelFormat::kRGBA32);
+    reluva::soft3d::Rasterizer rasterizer;
+    screen.draw(surface, rasterizer, park, screen.startCamera(park));
+    briefing.draw(surface, park, player, view);
+    writePng(surface, argv[4]);
+    for (const std::string &line : view.details ? briefing.details(park) : briefing.letter(park, player))
+        std::printf("%s\n", line.c_str());
+    return 0;
+}
+
 // A new park played headless, by a clock that moves only as it waits:
-// the camera moved by keys a second at a time (forward, a turn, out),
-// then Esc; the screens shown, the date reached, with a checksum.
+// its briefing turned to the details and back, then Proceed; the camera
+// moved by keys a second at a time (forward, a turn, out); Esc at 45 s,
+// a visitor having come; the screens shown, the date reached, the money
+// and visitors, with a checksum.
 int cmdParkRun(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool tpw park-run <game folder> <world folder>\n");
@@ -105,31 +145,52 @@ int cmdParkRun(int argc, char **argv) {
         }
         bool pollEvent(reluva::Event &ev) override {
             ev = reluva::Event{};
-            // Up held for the first second, E for the next, Page Down for
-            // the third; Esc at five.
+            // The briefing's bar clicked at 0.5 s and 1 s, Proceed at 1.5;
+            // then Up held for a second, E for the next, Page Down for the
+            // third; Esc at 45 s.
+            using Control = reluva::tpw::Briefing::Control;
             static const struct {
                 uint64_t at;
                 reluva::EventType type;
                 uint32_t key;
-            } kScript[] = {{0, reluva::EventType::kKeyDown, reluva::key::kUp},
-                           {1000, reluva::EventType::kKeyUp, reluva::key::kUp},
-                           {1000, reluva::EventType::kKeyDown, 'e'},
-                           {2000, reluva::EventType::kKeyUp, 'e'},
-                           {2000, reluva::EventType::kKeyDown, reluva::key::kPageDown},
-                           {3000, reluva::EventType::kKeyUp, reluva::key::kPageDown},
-                           {5000, reluva::EventType::kKeyDown, reluva::key::kEscape}};
+                Control click;
+            } kScript[] = {{500, reluva::EventType::kMouseDown, 0, Control::kTurn},
+                           {1000, reluva::EventType::kMouseDown, 0, Control::kTurn},
+                           {1500, reluva::EventType::kMouseDown, 0, Control::kProceed},
+                           {2000, reluva::EventType::kKeyDown, reluva::key::kUp, Control::kNone},
+                           {3000, reluva::EventType::kKeyUp, reluva::key::kUp, Control::kNone},
+                           {3000, reluva::EventType::kKeyDown, 'e', Control::kNone},
+                           {4000, reluva::EventType::kKeyUp, 'e', Control::kNone},
+                           {4000, reluva::EventType::kKeyDown, reluva::key::kPageDown, Control::kNone},
+                           {5000, reluva::EventType::kKeyUp, reluva::key::kPageDown, Control::kNone},
+                           {45000, reluva::EventType::kKeyDown, reluva::key::kEscape, Control::kNone}};
             if (sent >= int(std::size(kScript)) || getMillis() < kScript[sent].at)
                 return false;
             ev.type = kScript[sent].type;
             ev.key = kScript[sent].key;
+            if (ev.type == reluva::EventType::kMouseDown) {
+                const reluva::tpw::ScreenRect r = reluva::tpw::Briefing::placeOf(kScript[sent].click);
+                ev.button = reluva::MouseButton::kLeft;
+                ev.mouseX = r.x + r.w / 2;
+                ev.mouseY = r.y + r.h / 2;
+            }
             ++sent;
             return true;
         }
     } sys;
-    const bool left = reluva::tpw::playPark(sys, screen, park);
-    std::printf("park: %d screens shown, %s at %llu ms, %s, cash %d; md5 %s\n", sys.shown, left ? "left" : "closed",
-                static_cast<unsigned long long>(sys.getMillis()), screen.dateText(park.day()).c_str(), park.cash(),
-                sys.all.hexDigest().c_str());
+    reluva::tpw::Briefing briefing;
+    if (reluva::Error err = briefing.load(files)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    reluva::soft3d::Rasterizer rasterizer;
+    const reluva::tpw::ParkScreen::Camera start = screen.startCamera(park);
+    const bool briefed = reluva::tpw::showBriefing(
+        sys, briefing, park, "Tester", [&](reluva::Surface &s) { screen.draw(s, rasterizer, park, start); });
+    const bool left = briefed && reluva::tpw::playPark(sys, screen, park);
+    std::printf("park: %d screens shown, %s at %llu ms, %s, cash %d, %d visitors; md5 %s\n", sys.shown,
+                left ? "left" : "closed", static_cast<unsigned long long>(sys.getMillis()),
+                screen.dateText(park.day()).c_str(), park.cash(), park.visitors(), sys.all.hexDigest().c_str());
     return left ? 0 : 1;
 }
 
@@ -137,8 +198,11 @@ const Commands kCommands("tpw",
                          {
                              {"park-shot", "<game folder> <world folder> <out.png> [seconds] [yaw pitch distance]",
                               "set up a new park in a world and draw it, its HUD over it, to a PNG", cmdParkShot},
+                             {"briefing-shot", "<game folder> <world folder> <out.png> [player [-details]]",
+                              "draw the mission's briefing over a new park, to a PNG", cmdBriefingShot},
                              {"park-run", "<game folder> <world folder>",
-                              "play a new park headless: the camera moved by keys, then Esc", cmdParkRun},
+                              "play a new park headless: its briefing, the camera moved by keys, a visitor, Esc",
+                              cmdParkRun},
                          });
 
 } // namespace

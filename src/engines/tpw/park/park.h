@@ -63,17 +63,48 @@ public:
     const FixedItems &fixedItems() const { return _fixed; }
     const Mission &mission() const { return _mission; }
 
+    /** How visitors come, by the general settings' `Arrival` (guessed: see park.md). */
+    struct Arrivals {
+        int minPeople = 1;
+        uint32_t everyMs = 25000; // TimeBetweenArrivals, seconds
+        int fixedRate = 0;        // points a park has however bare
+        int newParkBonus = 0;     // and while new
+        int pointsPerVisitor = 1;
+    };
+    const Arrivals &arrivals() const { return _arrivals; }
+
+    /** A visitor coming in, or in the park. */
+    struct Visitor {
+        int id = 0;
+        float x = 0; // where they are, in the world's units
+        float z = 0;
+        size_t leg = 0; // the waypoint they walk to next
+        bool paid = false;
+        bool inPark = false;
+    };
+    const std::vector<Visitor> &visitorsAbout() const { return _people; }
+
+    /** How many visitors the park draws now: its points, at so many a visitor. */
+    int visitorsWanted() const;
+    /** The way a visitor walks in, cell by cell: off the bus, over the crossing, past a booth, in. */
+    const std::vector<gfx::Vec3> &wayIn() const { return _wayIn; }
+    /** How fast visitors walk, in units a second (guessed). */
+    static constexpr float kWalkPerSecond = 12;
+
     /** Money in the bank. */
     int cash() const { return _cash; }
     /** What a visitor pays to come in. */
     int admissionFee() const { return _admissionFee; }
     /** How many visitors are in the park. */
     int visitors() const { return _visitors; }
+    /** Whether the park's clock runs: it stops while a window is open over it. */
+    void setPaused(bool paused) { _paused = paused; }
+    bool paused() const { return _paused; }
 
     /** Days since the park opened on 1 January 2000. */
     uint32_t day() const { return uint32_t(_millis / kDayMillis); }
-    /** Moves the park's clock on by so many milliseconds of play. */
-    void advance(uint32_t ms) { _millis += ms; }
+    /** Moves the park on by so many milliseconds of play: its clock, visitors coming and walking. */
+    void advance(uint32_t ms);
 
     /** A date in the game's calendar. */
     struct Date {
@@ -88,6 +119,9 @@ public:
     static gfx::Vec3 cellCentre(const Cell &cell);
 
 private:
+    static constexpr uint32_t kStepMillis = 100;
+    void step(uint32_t ms);
+
     std::string _folder;
     FixedItems _fixed;
     Mission _mission;
@@ -95,6 +129,12 @@ private:
     int _admissionFee = 0;
     int _visitors = 0;
     uint64_t _millis = 0;
+    bool _paused = false;
+    Arrivals _arrivals;
+    std::vector<gfx::Vec3> _wayIn;
+    std::vector<Visitor> _people;
+    uint64_t _nextArrivalMs = 0;
+    int _nextId = 1;
 };
 
 } // namespace reluva::tpw

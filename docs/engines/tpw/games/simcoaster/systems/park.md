@@ -60,7 +60,34 @@ The park opens on 1 January 2000; the HUD's date reads "14.Jan.00" at
 30 Jan at 3:35: a day every 4 seconds *(inferred)*, the first day back
 at about 1:38, as the camera flies in. Over the whole recording the
 days come slower, 4.6 seconds each (19 October at 24:00): the game
-stops its clock, it seems, while some windows are open.
+stops its clock, it seems, while some windows are open. Reluva stops
+it while the briefing is open ([briefing.md](briefing.md)).
+
+### Visitors
+
+The general settings say how visitors come (`Arrival`): `MinPeople` 1,
+`TimeBetweenArrivals` 25, `FixedRate` 15, `NewParkBonus` 20,
+`PointsPerVisitor` 25, and how rain, storms, snow and heat change it
+(90, 80, 75 and 120 percent). How the game uses them isn't known.
+Reluva reads them so *(guessed)*: a park draws as many visitors as its
+points pay for, at `PointsPerVisitor` a visitor and never fewer than
+`MinPeople`, its points `FixedRate` and `NewParkBonus` (and, once there
+is building, what it has); while it has fewer, one comes every
+`TimeBetweenArrivals` seconds. A bare new park draws (15 + 20) / 25,
+one: the recording's first visitor paid by 2:32, under a minute in,
+and its money stayed § 50025 until the player built.
+
+The recording's visitors in the park, from the Visitor Statistics
+window: 6 at 5:40, 10 at 7:20, 34 at 9:56, 64 at 21:40, 67 at 22:25,
+as the player built. They come by bus, it seems, to the stops on the
+road; through the ticket booths, where they pay the admission
+(`InitialAdmissionFee` 25); and in by the entrance. Reluva walks each
+along that way *(guessed)*, cell to cell at 12 units a second: off the
+bus at the first stop, over the crossing from the bus's side to the
+park's, past the first booth, paying, through the entrance's first cell
+and up the path four cells in, the attribute map's path tiles
+([attribute-map.md](../formats/attribute-map.md)). Their sprites aren't
+read yet (`esprites.wad`): a white square marks each.
 
 ### The HUD
 
@@ -79,7 +106,8 @@ general settings, the world's and the mission's, and keeps its clock;
 ([lnd.md](../formats/lnd.md#in-reluva)), through a camera that starts
 on the road before the entrance, the fixed items marked (the entrance
 yellow, the booths red, the bus stops blue), the money and date over
-it. `playPark` runs it after the loading screen: the arrow keys move
+it, and its visitors. After the loading screen the mission's briefing
+shows over it ([briefing.md](briefing.md)), then `playPark` runs it: the arrow keys move
 the camera, Q and E turn it, Page Up and Page Down or the wheel zoom,
 Home goes back, Esc leaves the game. Its first mission's, whatever the
 player's objective, for now.
@@ -87,8 +115,10 @@ player's objective, for now.
 `reluva-tool tpw park-shot <game folder> <world folder> <out.png>
 [seconds] [yaw pitch distance]` draws a new park, its clock run on;
 `reluva-tool tpw park-run <game folder> <world folder>` plays one
-headless, moving the camera by its keys, with a checksum of the
-screens, which the game-files test checks (`tpw.gamedata.park`). The
+headless: its briefing turned to the details and back, Proceed, the
+camera moved by its keys, until a visitor has come in and paid, with a
+checksum of the screens, which the game-files test checks
+(`tpw.gamedata.park`). The
 unit tests (`tpw.unit.park`) set a park up from settings built in the
 test and check its calendar.
 
@@ -105,9 +135,9 @@ test and check its calendar.
 
 - What the boundary's clicks are measured from, and how the park's
   land and its fence are drawn by them.
-- The fly-in along the road and the briefing window; the toolbar, the
-  thermometer and the rest of the HUD; the gates' model at the entrance.
+- The fly-in along the road; the toolbar, the thermometer and the rest
+  of the HUD; the gates' model at the entrance; the visitors' sprites.
 - How fast the clock runs at each of the game's speeds, and when it
   stops.
-- How visitors arrive (`Arrival` in the general settings), what they
-  pay and do: the park's running, the rest of this phase.
+- How the game turns its `Arrival` settings into visitors, and the
+  way they walk in; what they do once in: the rest of this phase.

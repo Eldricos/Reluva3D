@@ -26,6 +26,11 @@ None yet.
   dates read every few seconds ([park.md](systems/park.md#time)). A
   recording at another speed would settle it.
 
+- **How visitors arrive**: as many as the park's points pay for, one
+  every `TimeBetweenArrivals` seconds, walking from the bus stop through
+  a booth ([park.md](systems/park.md#visitors)). Counts of visitors
+  set beside a park's building, over a recording, would settle it.
+
 - **The mission's boundary is measured from the entrance**: its clicks
   run from (0, 0) to (−50, 66) ([park.md](systems/park.md#what-a-new-park-has)).
   Drawing it over the world, beside the recording's park fence, would

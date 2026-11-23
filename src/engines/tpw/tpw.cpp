@@ -13,6 +13,7 @@
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/games.h"
 #include "engines/tpw/park/park.h"
+#include "engines/tpw/ui/briefing.h"
 #include "engines/tpw/ui/globe.h"
 #include "engines/tpw/ui/loading_screen.h"
 #include "engines/tpw/ui/park_screen.h"
@@ -59,7 +60,8 @@ public:
             return Error::success();
         // After the movie, which plays as music, at its own full level.
         setTypeVolumes(files, mixer);
-        const int world = runFrontEnd(_sys, files, _target.savePath, audioOut ? &mixer : nullptr);
+        PlayerFile player;
+        const int world = runFrontEnd(_sys, files, _target.savePath, audioOut ? &mixer : nullptr, &player);
         if (world < 0)
             return Error::success();
 
@@ -80,6 +82,13 @@ public:
             return err;
         if (Error err = parkScreen.load(files, park))
             return err;
+        // The mission's briefing over the park as it opens.
+        Briefing briefing;
+        soft3d::Rasterizer rasterizer;
+        const ParkScreen::Camera start = parkScreen.startCamera(park);
+        if (!briefing.load(files) && !showBriefing(_sys, briefing, park, player.name,
+                                                   [&](Surface &s) { parkScreen.draw(s, rasterizer, park, start); }))
+            return Error::success();
         playPark(_sys, parkScreen, park);
         return Error::success();
     }

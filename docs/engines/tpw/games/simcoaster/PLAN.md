@@ -84,7 +84,8 @@ format or system worked out.
    recordings.
 9. **The park running** (under way: a new park set up from its
    settings and mission, shown running with its money and date under a
-   camera that moves, [park.md](systems/park.md)): building, paths,
+   camera that moves, visitors arriving, the mission's briefing,
+   [park.md](systems/park.md), [briefing.md](systems/briefing.md)): building, paths,
    guests, staff, money, research,
    the advisor, missions and challenges (`missions/*.sam`,
    `Challenges.sam`). By far the largest part: from the settings files,

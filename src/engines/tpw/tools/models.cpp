@@ -22,6 +22,7 @@
 #include "engines/tpw/ui/model_view.h"
 #include "engines/tpw/ui/personnel_file.h"
 #include "engines/tpw/ui/ride_run.h"
+#include "engines/tpw/ui/ui_model.h"
 #include "image/image.h"
 
 #include <algorithm>
@@ -440,6 +441,46 @@ void writeWav(const std::vector<int16_t> &samples, int rate, const std::string &
     std::ofstream(path, std::ios::binary).write(reinterpret_cast<const char *>(out.data()), long(out.size()));
 }
 
+// A UI model's meshes drawn where the model puts them, over grey, each
+// labelled by its number, to a PNG; their places printed.
+int cmdUiShot(int argc, char **argv) {
+    if (argc < 5) {
+        std::fprintf(stderr, "usage: reluva-tool tpw ui-shot <game folder> <model in Data> <out.png> [-grid]\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    std::vector<std::string> warnings;
+    if (reluva::Error err = reluva::tpw::mountGame(files, argv[2], warnings)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    reluva::tpw::LoadedModel model;
+    if (reluva::Error err = model.load(files, argv[3])) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    reluva::Surface screen;
+    screen.create(640, 480, reluva::PixelFormat::kRGBA32);
+    for (size_t i = 0; i < screen.pixels.size(); i += 4) {
+        screen.pixels[i] = screen.pixels[i + 1] = screen.pixels[i + 2] = 96;
+        screen.pixels[i + 3] = 255;
+    }
+    // With -grid, each mesh in a cell of a grid of 6 across, in order.
+    const bool grid = argc > 5 && std::strcmp(argv[5], "-grid") == 0;
+    constexpr int kCell = 104;
+    for (size_t i = 0; i < model.model.meshes().size(); ++i) {
+        if (grid)
+            reluva::tpw::drawUiMesh(screen, model, i,
+                                    {int(i % 6) * kCell + 4, int(i / 6) * kCell + 4, kCell - 8, kCell - 8});
+        else
+            reluva::tpw::drawUiMesh(screen, model, i);
+        const reluva::tpw::ScreenRect r = reluva::tpw::uiMeshRect(model, i);
+        std::printf("mesh %zu %s: %d %d %d %d\n", i, model.model.meshes()[i].name.c_str(), r.x, r.y, r.w, r.h);
+    }
+    writePng(screen, argv[4]);
+    return 0;
+}
+
 // A ride run by its own script for a while, with guests coming, then
 // drawn as the viewer draws it, as a PNG: posed by the animation its
 // script plays then.
@@ -763,6 +804,9 @@ const Commands kCommands(
          "draw a model as the viewer does, to a PNG; with its height map's samples", cmdMd2Shot},
         {"front-end-shot", "<game folder> <out.png> <frame>",
          "draw the front end's scene through its camera at a frame of its path, to a PNG", cmdFrontEndShot},
+        {"ui-shot", "<game folder> <model in Data> <out.png> [-grid]",
+         "draw an interface model's meshes where it puts them, or in a grid, to a PNG, and print their places",
+         cmdUiShot},
         {"personnel-shot", "<game folder> <out.png> [name [-delete]]",
          "draw the Personnel File over the front end's globe, its first slot empty or a new player, to a PNG",
          cmdPersonnelShot},
