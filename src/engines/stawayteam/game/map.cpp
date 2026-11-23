@@ -5,6 +5,7 @@
 
 #include "engines/stawayteam/formats/binary_object.h"
 #include "engines/stawayteam/formats/text_object.h"
+#include "engines/stawayteam/game/team.h"
 
 #include <cctype>
 #include <algorithm>
@@ -166,7 +167,7 @@ MapPart readPart(const std::string &className, const TextObject &o) {
             for (const TextField *item : list->items())
                 if (item->object) {
                     part.inventory.push_back(text(*item->object, "Definition Index"));
-                    part.stuns = part.stuns || text(*item->object, "Weapon Setting") == "Stun";
+                    part.stuns = part.stuns || setToStun(*item->object);
                 }
     part.polygon = readPolygon(text(o, "Polygon"));
     part.angle = float(o.number("Facing Angle").value_or(0.0));

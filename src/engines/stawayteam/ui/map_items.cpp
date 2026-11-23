@@ -297,11 +297,14 @@ bool MapScreen::doTask(size_t officer) {
 }
 
 void MapScreen::explode(const Thrown &t) {
-    // Its Explosion where it lies, its Death Sound and its noise; everyone
-    // within its Explosion Radial Damage, with a clear line to it if it
-    // needs one, stunned for the grenade's Stun Duration if it does no
-    // damage (a concussion grenade's), else hurt (inferred: whom it reaches
-    // isn't traced; the team too).
+    // Its Explosion where it lies, its Death Sound and its noise; every
+    // character within its Explosion Radial Damage, an oval on the ground
+    // as the map's foreshortening has it (0x4883bf), the team too (only
+    // Active asked of them, 0x4883b8), with a clear line to it if it
+    // Requires LOS For Damage: stunned for the grenade's Stun Duration if
+    // it does no damage (a concussion grenade's), else hurt, less the
+    // further off, to none at its edge (0x488357). What it's hurt from at
+    // the middle, the grenade's Weapon Damage, is inferred.
     const ModelInfo &info = modelInfo(t.model);
     if (!info.explosion.empty())
         _flashes.push_back({info.explosion, t.x, t.y});
@@ -326,17 +329,23 @@ void MapScreen::explode(const Thrown &t) {
     if (radius <= 0.0f)
         return;
     const bool stun = t.item->weaponDamage <= 0.0f && t.item->stunDuration > 0.0f;
+    const auto off = [&](float x, float y) { return std::hypot(x - t.x, (y - t.y) / ParticleSystem::kYToX); };
     const auto reaches = [&](float x, float y) {
-        return std::hypot(x - t.x, y - t.y) <= radius && (!info.explosionNeedsSight || clearSight(t.x, t.y, x, y));
+        return off(x, y) <= radius && (!info.explosionNeedsSight || clearSight(t.x, t.y, x, y));
+    };
+    const auto at = [&](float x, float y) {
+        ItemDefinition weakened = *t.item;
+        weakened.weaponDamage *= 1.0f - off(x, y) / radius;
+        return weakened;
     };
     for (size_t i = 0; i < _enemies.size(); ++i) {
         const Enemy &e = _enemies[i];
         if (e.alive() && _partStates[e.part].active && !_partStates[e.part].deleted && reaches(e.x, e.y))
-            hurtEnemy(i, *t.item, t.thrower, stun);
+            hurtEnemy(i, at(e.x, e.y), t.thrower, stun);
     }
     for (size_t i = 0; i < _officers.size(); ++i)
         if (_officers[i].alive() && reaches(_officers[i].x, _officers[i].y))
-            hurtOfficer(i, *t.item, stun);
+            hurtOfficer(i, at(_officers[i].x, _officers[i].y), stun);
 }
 
 bool MapScreen::inItemRange(const ItemDefinition &item, float fromX, float fromY, float x, float y, float range) const {

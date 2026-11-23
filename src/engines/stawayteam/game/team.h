@@ -211,6 +211,13 @@ struct ItemDefinition {
 std::map<std::string, ItemDefinition> loadItems(const Archive &data);
 
 /**
+ * Whether an inventory item stuns rather than kills (0x5cf4d0): its Weapon
+ * Setting is Stun, or, for the hand weapons, which have Weapon Kills in its
+ * place, that is 0.
+ */
+bool setToStun(const TextObject &item);
+
+/**
  * The item an officer has as `name` (0x5b7c90): none (empty) if it isn't
  * discovered, else the item it's overridden by if that's discovered, and
  * so on. An item that starts discovered, or is in `discovered`, is; one

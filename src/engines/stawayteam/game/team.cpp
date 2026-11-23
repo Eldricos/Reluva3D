@@ -120,6 +120,11 @@ std::vector<std::string> loadFields(const Archive &data) {
     return out;
 }
 
+bool setToStun(const TextObject &item) {
+    // The setting's values: Stun 0, Kill 1 (0x649e60).
+    return text(item, "Weapon Setting") == "Stun" || item.integer("Weapon Kills").value_or(1) == 0;
+}
+
 std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
     std::map<std::string, ItemDefinition> out;
     // The enemies' are in folders of it, and named with them ("Enemy
@@ -228,7 +233,7 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
         item.shotDuration = float(def.number("Shot Duration").value_or(0.0));
         item.stunDuration = float(def.number("Stun Duration").value_or(0.0));
         if (const TextObject *held = def.object("Default Inventory Item"))
-            item.stuns = text(*held, "Weapon Setting") == "Stun";
+            item.stuns = setToStun(*held);
         item.strikeRadius = float(def.number("Strike Damage Radius").value_or(0.0));
         item.startsDiscovered = def.integer("Starts Discovered").value_or(1) != 0;
         item.pointsToDiscover = int(def.integer("Points to Discover").value_or(0));

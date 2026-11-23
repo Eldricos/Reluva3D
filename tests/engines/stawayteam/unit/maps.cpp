@@ -1049,11 +1049,12 @@ void testItems() {
     CHECK(screen.thrown().empty() && screen.enemies()[0].state == "Stun" && screen.enemies()[0].health == 100.0f);
     CHECK(screen.enemies()[1].state == "Patrol");
     // The frag grenade thrown 50 toward Bo skips on to his feet: he's hurt,
-    // Ann, 100 off, isn't; then there's none left.
+    // by no more than its 30, less the further off; Ann, 100 off, isn't;
+    // then there's none left.
     screen.chooseItem(0, 1);
     CHECK(screen.useItem(300.0f, 450.0f));
     run(7000);
-    CHECK(b.health == 70.0f && a.health == 100.0f && a.items[1].count == 0);
+    CHECK(b.health >= 70.0f && b.health < 100.0f && a.health == 100.0f && a.items[1].count == 0);
     CHECK(!screen.useItem(300.0f, 400.0f));
     // The hypospray on Bo: she goes to him and heals him, up to his whole.
     screen.chooseItem(0, 2);
@@ -1131,7 +1132,8 @@ void testOverload() {
     run(9000);
     CHECK(a.items.size() == 1 && screen.enemies()[0].health == 100.0f);
     run(11000);
-    CHECK(a.items.empty() && a.weapon == nullptr && screen.enemies()[0].health == 60.0f && a.health == 60.0f);
+    CHECK(a.items.empty() && a.weapon == nullptr && screen.enemies()[0].health >= 60.0f &&
+          screen.enemies()[0].health < 100.0f && a.health == 60.0f);
     // Bo's thrown: it's gone from him as it's thrown, and goes off by the guard.
     screen.choose(1);
     screen.chooseItem(1, 0);
@@ -1140,7 +1142,8 @@ void testOverload() {
     run(now + 1000);
     CHECK(b.items.empty() && screen.thrown().size() == 1 && screen.thrown()[0].model == "Shots/Concussion");
     run(now + 10000);
-    CHECK(screen.thrown().empty() && screen.enemies()[1].health == 60.0f && b.health == 100.0f);
+    CHECK(screen.thrown().empty() && screen.enemies()[1].health >= 60.0f && screen.enemies()[1].health < 100.0f &&
+          b.health == 100.0f);
 }
 
 void testMeld() {
@@ -1574,7 +1577,7 @@ void testGadgets() {
     run(16000);
     screen.detonate();
     run(16100);
-    CHECK(screen.mines().empty() && guard.health == 40.0f && a.health == 100.0f);
+    CHECK(screen.mines().empty() && guard.health >= 40.0f && guard.health < 100.0f && a.health == 100.0f);
     // The tricorder on the guard: the description of its model.
     screen.chooseItem(0, 2);
     CHECK(screen.useItem(500.0f, 300.0f));

@@ -462,6 +462,15 @@ void testCampaign(const std::filesystem::path &tmp) {
     set(1, ObjectiveStatus::kComplete, false, 25);
     set(2, ObjectiveStatus::kFailed, false, 30);
     CHECK(missionScore(mission, objectives) == 125);
+    // Set to stun: a Weapon Setting of Stun, or the hand weapons' Weapon
+    // Kills of 0 (the neck pinch's); by default an item kills.
+    const auto setTo = [](const char *fields) {
+        TextObject held;
+        CHECK(!readTextObject(std::string("CStarTrekHandWeaponInventoryItem\n{\n") + fields + "}\n", held));
+        return setToStun(held);
+    };
+    CHECK(setTo("\tWeapon Setting=Stun\n") && !setTo("\tWeapon Setting=Kill\n"));
+    CHECK(setTo("\tWeapon Kills=0\n") && !setTo("\tWeapon Kills=1\n") && !setTo(""));
     // An officer's items as had: one not found yet left out; one overridden
     // by an item found since, that one, and on along those found.
     std::map<std::string, ItemDefinition> defs;

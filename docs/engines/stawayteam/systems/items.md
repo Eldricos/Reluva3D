@@ -123,8 +123,10 @@ does the rest by its model's own AIs:
   `Dead Bodies` rather than `Enemy`.
 - **Strikes:** the Vulcan Neck Pinch, Phase Neural Disrupter and Botanical
   Paralysis are `CStrikeTargetAI`s and `CStrikeTargetAction`s (`Strike
-  Damage Radius` 40, 20), all with a `Weapon Damage` of 50,000; Botanical
-  Healing heals as the hypospray, by 20.
+  Damage Radius` 40, 30, 20), all with a `Weapon Damage` of 50,000 and a
+  `Stun Duration` of 30; the neck pinch's `Weapon Kills` is 0, the
+  others' `Weapon Setting` Kill. Botanical Healing heals as the
+  hypospray, by 20.
 - **Skills:** Computer Systems, Security Doors & Systems, Terminal Repair,
   Antimatter Charges, the Extractor and the Borg serum have no Process
   Activity of their own: the maps' parts have processes for them
@@ -308,10 +310,14 @@ It flies through people: either side of a collision can turn it down
 of that class or one made from it (`0x4381c0`). Every character on the
 maps is: a `CEntityWalking`, a `CEntityOverlayWalking` or a
 `CEntityStarTrekTeamMember`, each made from the one before. For the same
-reason they walk over one lying on the ground. Then its Explosion and Death Sound, its noise, and everyone in
-its Explosion Radial Damage, in sight of it if it needs that, stunned for
-its Stun Duration by one that does no damage, else hurt by its Weapon
-Damage, the team too *(inferred)*. A grenade's own Destroyed Action,
+reason they walk over one lying on the ground. Then its Explosion and Death Sound, its noise, and its
+explosion (`0x496710`). That reaches every active character, the team's
+too, within an oval of its Explosion Radial Damage across and that over
+1.403 up and down (`0x4883bf`), in sight of it if it needs that
+(`0x4883b8`). Each is hurt by less the farther off it is, falling
+evenly to none at the edge (`0x488357`); what it falls from is the
+grenade's Weapon Damage *(inferred)*. One that does no damage stuns
+those it reaches for its Stun Duration instead *(inferred)*. A grenade's own Destroyed Action,
 more than a noise, runs where it went off: the EM pulse's holds the
 Electronic Equipment within it 15 seconds, doing nothing *(inferred)*.
 With a hypospray chosen, a click on an
@@ -380,7 +386,11 @@ nothing. A killed enemy's Death Behaviors' actions run, its categories
 and Default Death Type its model's where the map leaves them out
 *(inferred)*. A strike (`CStrikeTargetAction`) is made from within its
 Strike Damage Radius, 30 at least, the officer walking up *(inferred)*,
-and does its Weapon Damage.
+and, as a shot does (`0x5cf4d0`), does its Weapon Damage of its Damage
+Type if it's set to kill, else stuns for its Stun Duration. The Phase
+Neural Disrupter and the paralysis are set to Kill, so they kill; the
+neck pinch, a `CStarTrekHandWeaponInventoryItem`, has `Weapon Kills=0`
+where the others have a Weapon Setting, so it stuns.
 
 The Psychic Rack is as above. Out of range, Slovaak walks into it first
 *(inferred)*. The enemy taken over is chosen in his place, chosen again
@@ -468,14 +478,13 @@ Not there yet: the warp effect's dissolve.
   its model's Max Velocity.
 - **The band:** whether the enemies' sight is what it beats, and how
   (its opacity, `0x496880`).
-- **Gadgets:** how the enemies treat a decoy, whether the neck pinch and
-  the paralysis stun rather than kill (their Weapon Damage is 50,000), and
-  how the player orders an enemy taken over, and how its own mind comes
+- **Gadgets:** how the enemies treat a decoy, and how the player orders an enemy taken over, and how its own mind comes
   back.
 - **Overload:** what an overloaded phaser's projectile does when it
   goes off, and whether a thrown one keeps its countdown.
-- **Grenades:** whom an explosion reaches and how far, whether it hurts
-  the team, and what the EM Pulse Grenade does.
+- **Grenades:** what an explosion's hurt falls from (a reading of the
+  stack gave twice its Explosion Radial Damage, which the items' numbers
+  don't bear out), and what the EM Pulse Grenade does.
 - **The bar:** where a count is shown, where the More Indicator is
   drawn, the order of its places, and whether the full inventory's
   items are in their Item Frames.
