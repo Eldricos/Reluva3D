@@ -159,6 +159,14 @@ wrote past its buffer: the host hadn't started Reluva's C++ library, so
 its character table, built in its `DllMain`, was empty. The host starts
 it now, before the install's DLLs.
 
+## How it draws
+
+Storm3D transforms its vertices itself: in the mission every draw is of
+vertices already on the screen (`D3DFVF_XYZRHW` with a colour, `0x44`,
+or a colour and a texture, `0x144`, through `DrawPrimitive`), and the
+program never calls `SetTransform`. So its camera can't be read from
+Direct3D; it's in the program's own memory.
+
 ## Input in the mission
 
 A trace of the input functions it calls in the mission settled how it
