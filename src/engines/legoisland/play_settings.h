@@ -36,6 +36,7 @@ struct PlaySettings {
     int frameRate = kDefaultFrameRate; // at most so many a second; 0, no limit
     bool turningByTime = true;
     bool joystick = false;
+    bool gpu = false; // the 3D drawn on the GPU (DirectX::DrawThreads::kGpu)
     // The program's registry settings, as CONFIG.EXE writes them
     // (GameProcess::setSetting): only those set, the rest left at the
     // program's own defaults (but for the island's model, GameProcess's).

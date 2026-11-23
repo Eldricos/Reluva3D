@@ -64,6 +64,8 @@ public:
     void setTurningByTime(bool on) { _turningByTime = on; }
     /** Whether the game is told of a joystick, which the input's joystick events move; before start. */
     void setJoystick(bool present) { _joystick = present; }
+    /** Whether the 3D is drawn on the GPU (DirectX::DrawThreads::kGpu); before start. */
+    void setGpu(bool on) { _gpu = on; }
     /** At most so many frames a second (0: as many as it draws); before start. */
     void setFrameRate(int framesPerSecond) { _pacer.setRate(framesPerSecond); }
     /** Starts the game's thread, which loads and runs the program; call once. */
@@ -98,6 +100,7 @@ private:
     std::filesystem::path _saveDir;
     audio::Mixer *_mixer;
     bool _joystick = false;
+    bool _gpu = false;
     bool _turningByTime = true;
     std::vector<std::pair<std::string, std::string>> _settings;
     FramePacer _pacer;            // the game thread's

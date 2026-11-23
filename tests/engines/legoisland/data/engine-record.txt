@@ -8,9 +8,10 @@ detect.install.game: legoisland LEGO Island (unknown release)  windows
 import.game: legoisland LEGO Island (unknown release)
 import.files: 5 68 6db3f0bf725e7dbc
 import.note: From the CD's LEGO\SCRIPTS folder, not found: ACT2/ACT2MAIN.SI, ACT3/ACT3.SI, BUILD/COPTER.SI, BUILD/DUNECAR.SI, .... The CD's copy may be incomplete, or another release's.
-options: 9
+options: 10
 options.turning: Turning | time By time | frame By frame, as the original (20 frames a second to match)
 options.framerate: Frame rate | 60 60 a second | 20 20 a second | 30 30 a second | 15 15 a second | 0 As many as it draws
+options.drawing: 3D drawn by | processor The processor | gpu The GPU
 options.device: 3D device | hardware Hardware | software Software (RGB Emulation)
 options.islandquality: Island model quality | 2 High | 1 Medium | 0 Fast
 options.islandtexture: Island texture quality | 1 High | 0 Fast
@@ -21,7 +22,7 @@ options.usejoystick: Use a joystick [off]
 settings.unset: 60 time -
 settings.defaults: 60 time -, 3D Device ID=0 0x84e63de0 0x11cf46aa 0x00006f81 0x6e1520c0, 3D Device Name=Direct3D HAL, Island Quality=2, Island Texture=1, Music=YES, 3DSound=YES, Draw Cursor=NO
 settings.original: 20 frame -
-settings.changed: 0 time joystick, 3D Device ID=0 0xa4665c60 0x11cf2673 0xaa001aa3 0x5633b900, 3D Device Name=RGB Emulation, Island Quality=1, Island Texture=0, Music=NO, 3DSound=YES, Draw Cursor=YES, UseJoystick=YES, JoystickIndex=0
+settings.changed: 0 time joystick gpu, 3D Device ID=0 0xa4665c60 0x11cf2673 0xaa001aa3 0x5633b900, 3D Device Name=RGB Emulation, Island Quality=1, Island Texture=0, Music=NO, 3DSound=YES, Draw Cursor=YES, UseJoystick=YES, JoystickIndex=0
 settings.unreadable: 60 time -
 settings.negative: 0 time -
 pacing.60: 0 16666 33333 49999 100000 116666 200000

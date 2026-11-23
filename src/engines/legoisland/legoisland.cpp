@@ -55,6 +55,7 @@ private:
         player.setFrameRate(settings.frameRate);
         player.setTurningByTime(settings.turningByTime);
         player.setJoystick(settings.joystick);
+        player.setGpu(settings.gpu);
         for (const auto &[name, value] : settings.registry)
             player.setSetting(name, value);
         player.start();
@@ -181,6 +182,10 @@ public:
         };
         return {turning,
                 o,
+                choice("drawing", "3D drawn by",
+                       "Who draws the game's 3D: the processor, as Reluva has, or the GPU, by the same rules "
+                       "(the same pictures but for a little rounding). Without a GPU, the processor draws it.",
+                       {{"processor", "The processor"}, {"gpu", "The GPU"}}),
                 choice("device", "3D device",
                        "The setup's 3D device. Hardware smooths the game's textures; software, the setup's "
                        "RGB Emulation, draws them unsmoothed.",

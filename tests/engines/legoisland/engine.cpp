@@ -103,8 +103,8 @@ void found(const MetaEngine &engine, const std::filesystem::path &tmp, Record &r
 }
 
 std::string describe(const PlaySettings &s) {
-    std::string out =
-        std::to_string(s.frameRate) + (s.turningByTime ? " time" : " frame") + (s.joystick ? " joystick" : " -");
+    std::string out = std::to_string(s.frameRate) + (s.turningByTime ? " time" : " frame") +
+                      (s.joystick ? " joystick" : " -") + (s.gpu ? " gpu" : "");
     for (const auto &[name, value] : s.registry)
         out += ", " + name + "=" + value;
     return out;
@@ -139,6 +139,7 @@ void options(const MetaEngine &engine, Record &rec) {
                    " against " + unset);
     rec.add("settings.original", describe(playSettings({{"turning", "frame"}, {"framerate", "20"}})));
     rec.add("settings.changed", describe(playSettings({{"framerate", "0"},
+                                                       {"drawing", "gpu"},
                                                        {"device", "software"},
                                                        {"islandquality", "1"},
                                                        {"islandtexture", "0"},

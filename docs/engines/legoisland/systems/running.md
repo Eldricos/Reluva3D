@@ -276,7 +276,10 @@ at most so many frames a second, its *Frame rate* setting (60 unless
 set: 20, 30, 15, or as many as it draws). Its settings give the setup's choices that matter here: the
 island's model and texture quality, music, 3D sound, the game's own
 cursor, a joystick and the 3D device, each set in the registry when chosen,
-the others as the setup writes them (above). With *Use a
+the others as the setup writes them (above). *3D drawn by* is the
+processor unless set; *The GPU* draws the 3D on the GPU by the same rules
+([directx.md](../../../common/x86/directx.md#drawing-on-the-gpu)), and the
+program's output says which draws it, the processor where there's no GPU. With *Use a
 joystick*, the first one connected is the game's joystick 0
 (`UseJoystick` "YES", `JoystickIndex` 0), through WINMM's
 `joyGetPosEx`. The *3D device* is Direct3D's hardware device unless set,

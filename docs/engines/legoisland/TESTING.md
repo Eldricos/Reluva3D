@@ -131,8 +131,10 @@ engine, by a tester), or *to try*.
     player taken from the book; a game in Act 2 or 3 picked up again.
     *Scripted (Act 1); Acts 2 and 3 to try.*
 12. **The credits**, after quitting through the door. *Scripted.*
-13. **Settings:** each of the engine's (frame rate, the 3D device, the
-    island's quality, music, 3D sound, the game's cursor, a joystick) seen to
+13. **Settings:** each of the engine's (frame rate, who draws the 3D (the
+    GPU: the output names it; how fast, against the processor), the 3D
+    device, the island's quality, music, 3D sound, the game's cursor, a
+    joystick) seen to
     take effect. *To try.*
 
 ## Last checked
