@@ -221,7 +221,21 @@ with what it found written on the game's pages in `formats/` and
      plays the `demoav*.dct` movies. Unused by the retail game, as far
      as can be seen *(inferred)*.
 
-   Left open: a whole tournament or knockout run to its end.
+   - **A tournament to its end** (on the host, real clock): seven races,
+     Proving Grounds, Outback, Last Resort, North Country, Pacific
+     Spirit, Mediterraneo and Mystic Peaks, the next one's location and
+     car chosen by the game each time. The first was driven, Up held, the
+     car scraping round the walls (4 laps, 8:19.46, 8th); on Outback it
+     ran off onto the sand and stuck, and the rest were quit from the
+     pause menu (*aborted*). After each, the race summary, lap times and
+     the standings (30, 25, 20, 16, 12, 8, 4 and 0 points by place);
+     after the seventh, the tournament summary naming the champion
+     (Klutch, 185 points), then the main menu, its opponents choosable
+     again. The game wrote its replay (`replay.rpy`) and `HUDCON.DAT`
+     to the save folder.
+
+   Left open: a knockout run to its end; a tournament driven well
+   enough to place (it takes steering, which nothing scripts yet).
 7. **3dfx** (done): `nfs2sea.exe` on the Glide stand-in, in software and on the
    GPU, as a `renderer` setting.
 
