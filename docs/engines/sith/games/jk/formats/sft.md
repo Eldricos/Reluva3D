@@ -21,9 +21,9 @@ All numbers little-endian.
 |---|---|---|
 | 0 | 4 | `SFNT` |
 | 4 | 4 | Version: 10 in every file |
-| 8 | 4 | 0 to 3: not yet understood |
-| 12 | 4 | 0 to 8: not yet understood. Not the space between glyphs: text drawn with it as one is far too widely spaced, and without it looks right |
-| 16 | 4 | 0, 32 or 63 (a space or `?`): perhaps the character drawn for one the font lacks *(guessed)* |
+| 8 | 4 | The gap after each glyph, in pixels: 0 to 3 (`0x4347d0`) *(from the code)* |
+| 12 | 4 | A space's width, in pixels: 0 to 8. A character the C library counts as white space moves the text on this far (`0x43470a`); a tab, to the next multiple of eight spaces, or of 16 pixels where eight spaces are less (`0x4346d3`) *(from the code)* |
+| 16 | 4 | The character drawn for one the font lacks: 32 or 63 (a space or `?`), 0 in the digit fonts. If the font lacks it too, the text moves on by the gap alone (`0x434734`) *(from the code)* |
 | 20 | 4 | How many ranges of characters |
 | 24 | 16 | 0 in every file |
 
@@ -36,7 +36,9 @@ accented letters from 161 to 252, in Windows' Western European code page
 *(inferred)*. The digit fonts have one, `0` to `:`.
 
 In the text fonts the space's glyph is a small block, a marker, not
-blank: a space is drawn as a gap its width *(inferred)*.
+blank. The game never draws it: a space moves the text on by the
+header's width for one, before any glyph is looked for (`0x4346fb`)
+*(from the code)*.
 
 ### The strip
 
@@ -49,17 +51,16 @@ in every font.
 `parseFont` (`src/engines/sith/formats/font.h`) reads one into a `Font`.
 The data viewer's Fonts page shows the strip, and sample text drawn with
 the font glyph against glyph, with no gap between them; a space moves on
-by its glyph's width without drawing it. `reluva-tool sith formats <install>` reads them all.
+by its glyph's width without drawing it. The game puts the header's gap
+after each glyph and moves on by its space width
+([Header](#header)), so the viewer's spacing isn't yet the game's. `reluva-tool sith formats <install>` reads them all.
 
 ## Sources and checks
 
 - **Where the facts come from:** the 27 fonts compared: their ranges and
   glyphs read to where the picture starts; sample text drawn with each in
-  the data viewer.
+  the data viewer; `JK.EXE`'s reader (`0x434160`) and the code that
+  draws text with a font, from `0x4346a0`.
 - **How it was checked:** every font read by `reluva-tool sith formats`,
   each glyph inside its strip; `sith.unit.formats` on a font made by the
   test.
-
-## Open questions
-
-- The header's fields at 8, 12 and 16.

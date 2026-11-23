@@ -13,10 +13,10 @@ pictures too ([sft.md](sft.md)).
 
 | Kind | Files |
 |---|---|
-| 8-bit, a palette of its own | 11: the menus' backgrounds |
-| 8-bit, palette mode 1 | 72: the menus' buttons and icons |
-| 8-bit, palette mode 0 | 22: the Force powers' icons, the saber's and the Force meter's pieces |
-| 16-bit | 41 |
+| 8-bit, a palette of its own (flags 2) | 11: the menus' backgrounds |
+| 8-bit, a transparent colour (flags 1) | 72: the menus' buttons and icons, the HUD's pieces |
+| 8-bit, neither (flags 0) | 22: the Force powers' icons, the sabers' and the Force meter's pieces |
+| 16-bit, a transparent colour (flags 1) | 41 |
 
 ## Layout
 
@@ -31,11 +31,11 @@ All numbers little-endian.
 | 0 | 4 | `BM  ` |
 | 4 | 4 | Version: 70 (`0x46`) in every file |
 | 8 | 4 | 0 in every file |
-| 12 | 4 | Palette mode: 2 when a palette ends the file; else 0 or 1, which don't say whose palette the picture takes ([Behaviour](#behaviour)) |
+| 12 | 4 | Flags: bit 0, the transparent colour at 28 is used (`0x42cf89`); bit 1, a palette ends the file (`0x42cfb7`) *(from the code)*. 0, 1 or 2 in the files. They don't say whose palette a picture without its own takes ([Behaviour](#behaviour)) |
 | 16 | 4 | How many cels |
-| 20 | 8 | Where the picture goes, x and y: set on 41, all within the 640x480 screen for the menus' pieces (`flok.bm`: 568, 344) and small for the HUD's (`sthealth.bm`: 21, 21) *(inferred)*; 0, 0 on the rest |
-| 28 | 4 | The transparent colour: 0 in the 8-bit pictures, `0xf81f` (magenta) in the 16-bit ones |
-| 32 | 4 | 1 in the 16-bit pictures, 0 in the 8-bit ones |
+| 20 | 8 | Where the picture goes, x and y: on a menu screen, from the screen's top left; in the HUD, from the top left of the status picture it's drawn into (`sthealth.bm`: 21, 21) ([Behaviour](#behaviour)) *(from the code)*. Set on 41; 0, 0 on the rest |
+| 28 | 4 | The transparent colour, used when bit 0 of the flags is set: 0 in the 8-bit pictures, `0xf81f` (magenta) in the 16-bit ones |
+| 32 | 4 | The colour format's kind: 1 in the 16-bit pictures, 0 in the 8-bit ones, as in a material's header ([mat.md](mat.md#header)): 0 palette indexes, 1 red, green and blue *(inferred)*. Bytes 32 to 87 are the format, read as one (`0x42ce6e`) *(from the code)*. Not about transparency: the 8-bit pictures with a transparent colour have 0 |
 | 36 | 4 | Bits a pixel: 8 or 16 |
 | 40 | 12 | 16-bit: red, green and blue's bits: 5, 6, 5 |
 | 52 | 12 | 16-bit: where each starts: 11, 5, 0 |
@@ -49,25 +49,60 @@ by row from the top, one byte each (8-bit) or two (16-bit).
 
 ### Palette
 
-When the palette mode is 2: 256 colours of three bytes, red, green and
+When bit 1 of the flags is set: 256 colours of three bytes, red, green and
 blue, at the end of the file.
 
 ## Behaviour
 
-An 8-bit picture without a palette takes the palette of the screen it's
-drawn on *(inferred)*:
+`JK.EXE` reads a picture at `0x42cd30`; the fonts' strips go through the
+same code (`0x42cbcc`). A picture with bit 0 of its flags set has its transparent
+colour made each cel's colour key (`0x42cf89` to `0x42cf94`, `0x423830`)
+*(from the code)*. The 22 without it are drawn whole: the Force powers'
+icons and the meter's back have no colour 0 at all, and the sabers'
+colour 0 is drawn as the palette's colour *(inferred)*.
 
-- **The interface's palette:** `uicolormap.cmp`'s, which two of the
-  menus' backgrounds (`bkbuildload.bm`, `bkbuildmulti.bm`) have as their
-  own. The buttons, arrows and lists, and the sabers of the multiplayer
-  character screens (palette mode 0), look right with it.
-- **A background's own:** the Force powers' icons (palette mode 0) look
-  right only with `bkforce.bm`'s, and at their x and y each sits in one of
-  that screen's sockets. With the interface's palette, or a level's, their
-  colours are wrong.
-- Every background shares colours 0 and 224 to 255 with the interface's
-  palette, so a picture keeping to those looks the same on any of them;
-  16 of the 72 in palette mode 1 do.
+### The menus
+
+The menus load 35 pictures, their backgrounds and the buttons they
+share, once (names at `0x52b238`, read at `0x412acd`), and start with
+`bkmain.bm`'s palette (`0x412b4d`). Each screen is opened with its
+background (`0x4129a0`), and opening it makes the background's palette
+the screen's (`0x50fad7` to `0x50fb6b`): every 8-bit picture on a
+screen is drawn with its background's palette. A background without a
+palette of its own (`bkdialog.bm`) leaves the one already there *(from
+the code)*.
+
+- **The Force powers' screen** loads its own 17 pictures, the powers'
+  icons, the stars and the meter's pieces (`0x4167cc`), and opens with
+  `bkforce.bm` (`0x4167c2`) *(from the code)*: so its icons look right
+  only with that palette, and at their x and y each sits in one of the
+  screen's sockets.
+- **The buttons, arrows and lists** are drawn on many screens, with each
+  one's palette. Every background but `bkfieldlog.bm` has colours 224 to
+  255 of the interface's palette (`uicolormap.cmp`'s), and colour 0
+  black or nearly, so a picture keeping to those looks the same on any
+  of them; 16 of the 72 with a transparent colour do.
+- **A button's place**: where the screen doesn't give one (a negative x
+  or y), the picture's x and y, and its first cel's size, are used
+  (`0x512250`) *(from the code)*. These are within the 640x480 screen
+  (`flok.bm`: 568, 344).
+- **The character screens** (`bkbuildmulti.bm`, `bkbuildload.bm`) have
+  `uicolormap.cmp`'s palette as their own, and load that colormap to draw
+  the character (`0x419af9`) *(from the code)*. The sabers' pictures,
+  named in `misc\sabers.dat`, are loaded by the multiplayer character
+  screen's code (`0x419378`, `0x4194e8`), which uses
+  `bkbuildmulti.bm` (`0x41924d`) *(from the code)*, so they take its
+  palette *(inferred)*.
+
+### The HUD
+
+`statusleft.bm` and `statusright.bm` sit in the screen's bottom left
+and bottom right corners (`0x4076ca` to `0x40770e`). The other pieces
+are drawn into them, each at its own x and y from their top left:
+`sthealth.bm` and `stshield.bm` into the left (`0x408112`,
+`0x408013`), `stbat.bm`, `stfieldlite.bm`, `stfrc.bm` and
+`stfrcsuper.bm` into the right (`0x407dfa`, `0x407e52`, `0x407ea7`,
+`0x407f0f`) *(from the code)*.
 
 ## In Reluva
 
@@ -84,14 +119,15 @@ all.
   compared: every file's size is the header, its cels and its palette to
   the byte; the editing community's published write-ups of the format,
   which agree; the pictures drawn in the data viewer with each palette,
-  and the Force powers' icons placed on their screen.
+  and the Force powers' icons placed on their screen; `JK.EXE`'s reader
+  (`0x42cd30`), and the menus' and the HUD's code that loads and draws
+  the pictures.
 - **How it was checked:** every picture read by `reluva-tool sith
   formats`; `sith.unit.formats` on 8-bit and 16-bit pictures made by the
   test.
 
 ## Open questions
 
-- What palette modes 0 and 1 mean to the game, and what the HUD's x and
-  y are measured from.
-- Which screen each picture is drawn on, and so its palette.
-- Whether the field at 32 says the transparent colour is used.
+- Which palette the HUD's 8-bit pictures take in the game, where no
+  menu screen's background sets it.
+- Which menu screens each of the shared buttons is drawn on.
