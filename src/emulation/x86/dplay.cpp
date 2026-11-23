@@ -196,7 +196,26 @@ struct DirectPlay::State {
     ComInterface lobby3{"IDirectPlayLobby3", kIidLobby3, lobby(3)};
     ComInterface lobby3A{"IDirectPlayLobby3A", kIidLobby3A, lobby(3)};
     State(DirectPlay &o, Win32Process &p) : owner(o), process(p), cpu(p.cpu()), com(p) {}
+    // For summary(): the endpoint of the session it's in, if any (its
+    // object's own, which clears it when it goes).
+    std::mutex mutex;
+    DirectPlay::Summary summary;
+    dplay::Endpoint *inSession = nullptr;
+    // The players in the session now, kept as the most there have been:
+    // at each message sent or looked for.
+    void notePlayers() {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (inSession)
+            if (const auto session = inSession->session())
+                summary.players = std::max(summary.players, session->players);
+    }
 };
+
+DirectPlay::Summary DirectPlay::summary() const {
+    _s->notePlayers();
+    std::lock_guard<std::mutex> lock(_s->mutex);
+    return _s->summary;
+}
 
 std::shared_ptr<DirectPlay::Network> DirectPlay::Network::inMemory() {
     auto network = std::make_shared<Network>();
@@ -362,6 +381,14 @@ public:
     std::unique_ptr<dplay::Endpoint> endpoint;
     net::Address where;       // the host's address and port given, if any
     uint32_t nextMessage = 1; // SendEx's ids
+
+    ~Play() override {
+        if (s && endpoint) {
+            std::lock_guard<std::mutex> lock(s->mutex);
+            if (s->inSession == endpoint.get())
+                s->inSession = nullptr;
+        }
+    }
 
     const ComInterface *query(const std::string &iid) override {
         for (const ComInterface *f : {&s->play1, &s->play4, &s->play4A})
@@ -602,6 +629,9 @@ public:
                 if (status == dplay::Endpoint::Status::kOk) {
                     ComHost::writeGuid(c, desc + 8, sess.guid);
                     say("DirectPlay: hosting \"" + sess.name + "\" on UDP port " + std::to_string(ep.port()));
+                    std::lock_guard<std::mutex> lock(s->mutex);
+                    s->summary.hosted = true;
+                    s->inSession = &ep;
                 }
                 return result(status);
             }
@@ -612,9 +642,12 @@ public:
                     pause([] { return false; }, 50);
                     status = ep.join(guid, password);
                 }
-            if (status == dplay::Endpoint::Status::kOk)
+            if (status == dplay::Endpoint::Status::kOk) {
                 say("DirectPlay: joined \"" + ep.session().value_or(dplay::SessionInfo()).name + "\"");
-            else if (status == dplay::Endpoint::Status::kRefused)
+                std::lock_guard<std::mutex> lock(s->mutex);
+                s->summary.joined = true;
+                s->inSession = &ep;
+            } else if (status == dplay::Endpoint::Status::kRefused)
                 say("DirectPlay: the host turned down joining");
             return result(status);
         }
@@ -685,6 +718,12 @@ public:
                 ep.send(from, to, readBytes(c, c.arg(4), c.arg(5)), (flags & 1) != 0);
             if (status != dplay::Endpoint::Status::kOk)
                 return result(status);
+            {
+                std::lock_guard<std::mutex> lock(s->mutex);
+                ++s->summary.sent;
+                s->summary.largestSent = std::max(s->summary.largestSent, c.arg(5));
+            }
+            s->notePlayers();
             if (m == "SendEx" && (flags & 0x200)) {
                 const uint32_t id = nextMessage++;
                 if (c.arg(9) && c.valid(c.arg(9), 4))
@@ -717,6 +756,7 @@ public:
             const auto match = [&](const dplay::Received &r) {
                 return (!(flags & 4) || r.from == wantFrom) && (!(flags & 2) || r.to == wantTo);
             };
+            s->notePlayers();
             std::optional<dplay::Received> got = ep.receive(match, true);
             if (!got)
                 return kDpErrNoMessages;
@@ -732,8 +772,14 @@ public:
             c.write32(sizePtr, size);
             if (!data || room < size || !c.valid(data, size))
                 return kDpErrBufferTooSmall;
-            if (!(flags & 8))
+            if (!(flags & 8)) {
                 ep.receive(match, false);
+                if (!got->event && got->from != 0) {
+                    std::lock_guard<std::mutex> lock(s->mutex);
+                    ++s->summary.received;
+                    s->summary.largestReceived = std::max(s->summary.largestReceived, size);
+                }
+            }
             for (uint32_t i = 0; i < size; ++i)
                 c.write8(data + i, laid.data[i]);
             for (uint32_t field : laid.pointers)

@@ -46,6 +46,19 @@ public:
     // none, and it finds no service provider that can connect.
     std::shared_ptr<Network> network;
 
+    /** What the program's DirectPlay has done, for a report. */
+    struct Summary {
+        bool hosted = false;          ///< it hosted a session
+        bool joined = false;          ///< it joined one
+        uint32_t players = 0;         ///< the most players its session has had at once
+        uint64_t sent = 0;            ///< the program's messages sent
+        uint64_t received = 0;        ///< and received (not DirectPlay's own)
+        uint32_t largestSent = 0;     ///< the longest of them sent, in bytes
+        uint32_t largestReceived = 0; ///< and received
+    };
+    /** What it's done so far. */
+    Summary summary() const;
+
     struct State;
 
 private:

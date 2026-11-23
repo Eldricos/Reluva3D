@@ -91,6 +91,10 @@ each other's sessions, players, groups and messages. The network says:
   size, the service provider, then the element given),
   `CreateCompoundAddress`, `EnumAddress`; too small a buffer gets
   `DPERR_BUFFERTOOSMALL` and the size needed.
+- **A summary** for the engine's reports (`DirectPlay::summary`):
+  whether the program hosted or joined, the most players its session
+  had at once, and the program's messages sent and received, with the
+  longest of each.
 - A method not listed ends the run, naming it.
 
 ## How it works
