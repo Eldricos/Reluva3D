@@ -8,8 +8,10 @@ add_library(reluva_video STATIC
     bink.cpp
     bink_tables.cpp
     cinepak.cpp
+    ea_movie.cpp
     indeo5.cpp
     indeo5_tables.cpp
     movie.cpp
-    smacker.cpp)
+    smacker.cpp
+    tqi.cpp)
 target_link_libraries(reluva_video PUBLIC reluva_common reluva_audio reluva_graphics PRIVATE reluva_warnings)

@@ -172,6 +172,7 @@ reluva_add_tests(common
         ${PROJECT_SOURCE_DIR}/tests/common/ea_audio.cpp
         ${PROJECT_SOURCE_DIR}/tests/common/refpack.cpp
         ${PROJECT_SOURCE_DIR}/tests/common/fsh.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/tqi.cpp
         ${PROJECT_SOURCE_DIR}/tests/common/prologic.cpp
         ${PROJECT_SOURCE_DIR}/tests/common/glide.cpp
         ${PROJECT_SOURCE_DIR}/tests/common/glide_more.cpp
@@ -187,7 +188,7 @@ reluva_add_tests(common
         ${PROJECT_SOURCE_DIR}/tests/common/meeting.cpp
         ${PROJECT_SOURCE_DIR}/tests/common/truetype.cpp
     TOPICS unit.hashes unit.files unit.archives unit.text unit.audio unit.image unit.video unit.net unit.x86
-        unit.jit unit.windows unit.indeo unit.x86_more unit.mmx unit.drives unit.mixer unit.ea_audio unit.refpack unit.fsh unit.prologic
+        unit.jit unit.windows unit.indeo unit.x86_more unit.mmx unit.drives unit.mixer unit.ea_audio unit.refpack unit.fsh unit.tqi unit.prologic
         unit.glide unit.glide_more unit.glide_boards unit.glide_gpu unit.sockets unit.sdl_controller
         unit.tracker unit.windows_resources unit.directmusic unit.portmap unit.truetype unit.crypto unit.meeting)
 # reluva-viewer's Tests window's planning (src/devtools/test_runs.h).

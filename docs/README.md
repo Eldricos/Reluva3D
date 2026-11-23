@@ -37,6 +37,7 @@ Laid out as `src/common/` is, a page per component:
 - **[video/](common/video/):** [Bink](common/video/bink.md),
   [Smacker](common/video/smacker.md),
   [Cinepak](common/video/cinepak.md),
+  [EA's TQI movies](common/video/tqi.md),
   [AVI files](common/video/avi.md) and
   [Intel Indeo 5](common/video/indeo5.md).
 - **[dcl.md](common/dcl.md):** PKWARE DCL ("implode") compression.
