@@ -351,9 +351,7 @@ bool MainMenu::run() {
                     _credits.reset();
                 continue;
             }
-            // Esc asks to quit, as the Quit button does.
-            const bool escape = ev.type == EventType::kKeyDown && ev.key == key::kEscape;
-            const int chosen = escape ? int(kQuitButton) : _buttons.handleEvent(ev, _mixer);
+            const int chosen = _buttons.handleEvent(ev, _mixer);
             if (chosen == int(kQuitButton))
                 _dialog = std::make_unique<ConfirmDialog>(_data, _rules, kQuitQuestion, _screen.w, _screen.h);
             else if (chosen == int(kLoadButton) && !_saves.empty())

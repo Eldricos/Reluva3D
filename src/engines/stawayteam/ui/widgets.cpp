@@ -291,16 +291,16 @@ bool Slider::handleEvent(const Event &ev, int originX, int originY) {
             _value = std::max(0, _value - step);
         break;
     case EventType::kKeyDown:
-        // The keys the program steps by (0x4e4fa0), taken as these (inferred).
+        // The program's keys 5, 14, 11 and 12 (0x4e4fa0), from these (0x5fa470).
         if (!_focused)
             break;
         if (ev.key == key::kHome)
             _value = 0;
         else if (ev.key == key::kEnd)
             _value = last;
-        else if (ev.key == key::kLeft || ev.key == key::kDown)
+        else if (ev.key == key::kLeft)
             _value = std::max(0, _value - step);
-        else if (ev.key == key::kRight || ev.key == key::kUp)
+        else if (ev.key == key::kRight)
             _value = std::min(last, _value + step);
         break;
     case EventType::kMouseUp:

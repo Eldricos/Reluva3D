@@ -42,10 +42,11 @@ None now.
   middle of the screen, the credits' underlines not fading, the toolkit's
   brightness scaling colours smoothly outside the credits, the
   gamma brightening dark colours, the slider's texture tiled from the
-  screen's corner, the sliders' keys and focus, the keyboard screen's
+  screen's corner, the sliders' focus, Esc closing the windows but for
+  the main menu and the credits, the keyboard screen's
   keys and tab sizes, voiceovers' and movies'
   volume following the effects',
-  Esc on the main menu asking to quit, the shortcut's
+  the shortcut's
   line shown once Alt is pressed, and a fixed-width font's cell
   ([systems/menus.md](systems/menus.md#open-questions)).
 - **Maps:** the camera's and zoom's frames taken as 30 a second, the

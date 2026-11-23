@@ -163,8 +163,6 @@ CreditsWindow::CreditsWindow(const Archive &data, const TextObject &rules, int s
 }
 
 bool CreditsWindow::handleEvent(const Event &ev, audio::Mixer *mixer) {
-    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
-        return true;
     return _resume.handleEvent(ev, _x, _y, mixer);
 }
 

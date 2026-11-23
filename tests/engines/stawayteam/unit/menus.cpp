@@ -175,6 +175,20 @@ void testToolkit() {
     mouse.type = EventType::kMouseMove;
     mouse.mouseX = 0;
     CHECK(!slider.handleEvent(mouse, 0, 0) && slider.value() == 99);
+    // Clicked, it has the keys: Home to 0, Right a step up, Left a step
+    // down, End to the top; Up and Down aren't its.
+    Event press;
+    press.type = EventType::kKeyDown;
+    press.key = key::kHome;
+    CHECK(slider.handleEvent(press, 0, 0) && slider.value() == 0);
+    press.key = key::kRight;
+    CHECK(slider.handleEvent(press, 0, 0) && slider.value() == 5);
+    press.key = key::kUp;
+    CHECK(!slider.handleEvent(press, 0, 0) && slider.value() == 5);
+    press.key = key::kLeft;
+    CHECK(slider.handleEvent(press, 0, 0) && slider.value() == 0);
+    press.key = key::kEnd;
+    CHECK(slider.handleEvent(press, 0, 0) && slider.value() == 99);
 
     // A check box: its box the baseline and 2, then the label; a click or
     // its key turns it over.

@@ -98,6 +98,17 @@ In `Star Trek.exe`: `0x40d9f0` reads an object, `0x40d8c0` writes one.
   `0x40db36`) and numbers written `%s=0x%08X` (`0x6362b0`). Neither is in
   any of the game's files.
 
+### Text files that aren't objects
+
+- **`Credits.txt`** has `//` comments and lines to centre: it's read by
+  the credits' own reader ([menus.md](../systems/menus.md)). Each `NN
+  Voice Script.txt` has `*Speaker*` lines then `:Label` and text, as
+  `.RDS` files do, and the game never reads them: under `Levels` it
+  looks only for maps (`.zax`, `0x4f7648`), missions (`.MDS`,
+  `0x507830`), scripts (`.RDS`, `0x4f60b3`), sounds (`0x4f609d`) and
+  minimaps (`0x5c5df6`), and no name of a voice script is in the
+  program. They look like the script the voices were recorded from.
+
 ## In Reluva
 
 - **Reading:** `readTextObject` into a `TextObject`: its class, and its
@@ -128,17 +139,6 @@ In `Star Trek.exe`: `0x40d9f0` reads an object, `0x40d8c0` writes one.
   (`stawayteam.unit.formats`) on objects made in the test: arrays with
   and without counts, spaces at values' ends, lines without `=`, LF and
   CRLF, and text that isn't an object.
-
-## Text files that aren't objects
-
-- **`Credits.txt`** has `//` comments and lines to centre: it's read by
-  the credits' own reader ([menus.md](../systems/menus.md)). Each `NN
-  Voice Script.txt` has `*Speaker*` lines then `:Label` and text, as
-  `.RDS` files do, and the game never reads them: under `Levels` it
-  looks only for maps (`.zax`, `0x4f7648`), missions (`.MDS`,
-  `0x507830`), scripts (`.RDS`, `0x4f60b3`), sounds (`0x4f609d`) and
-  minimaps (`0x5c5df6`), and no name of a voice script is in the
-  program. They look like the script the voices were recorded from.
 
 ## Open questions
 

@@ -186,11 +186,34 @@ the placing at `0x40a6d0`):
   Switch.wav` and `Error.wav` (`0x4082c5`); `DATA.dat` has the first two
   as `Sounds/Button Action.ogg` and `Sounds/Button Switch.ogg`. A button
   pressed is set off as the mouse is let go over it (`0x4e47c0`), or by
-  the program's key 32 (`0x4e4890`): its sound (slot `0x140`, `Button
+  the program's key 32, Space (`0x4e4890`): its sound (slot `0x140`, `Button
   Action` unless it has its own) and then its action (`0x4e4ab0`).
   `Button Switch` plays as a group of tabs or toggles changes to another
   (`0x40786f`, `0x407bd8`) and as a check box changes (`0x4e64b0`).
   Coming over a button does nothing (`0x5d2330`).
+
+### The program's keys
+
+The program's message loop (`0x5fa800`) turns a key pressed into the
+program's own number for it (`0x5fa470`, a switch on the Windows key code,
+its table at `0x5fa768`) and a typed character into its character code
+(`0x5fa948`): Tab 9, Home 5, Up 6, Page Up 7, Down 10, Left 11, Right 12,
+End 14, Page Down 15, Insert 16, Delete 17, F1 19, F4 20, F7 21, F8 23,
+F10 25, F11 26, F6 28, F9 29, F12 30, and the digits their characters;
+others none. Enter (13), Esc (27), Space (32) and the letters come as
+typed characters. The scan code is kept too (`0x4e8ec0`).
+
+- **The focus:** a window hands a key to the child that has its focus
+  (`0x409250`); Tab gives the next child the focus, with Shift the one
+  before.
+- **Esc:** only four places look for it: a drag is given up, the mouse
+  put back where it started (`0x409382`); the text entry's dialog closes
+  (`0x4dfd0a`, Enter takes what's typed, `0x4dfca0`); in a mission the
+  screen's own handler (`0x4f6ee0`, from `0x5c8f46`); and a drop-down
+  list closes, as Enter or F4 choose from it (`0x4055d0`). Nothing makes Esc quit the main menu or close the credits.
+- **A group of buttons** (tabs, toggles, linked in a ring, `0x4e43ad`):
+  Right gives the next the focus and presses it, Left the one before
+  (`0x4e4890`).
 
 ### The difficulty window
 
@@ -400,11 +423,10 @@ as "%d,%d,%d,%d".
   its maximum (`0x4e4ed0`); the program can set it to its maximum
   (`0x4e50c0`). Its step is its maximum and 10, over 20, at least 1
   (`0x4e4b59`): 5 for 0-99. The mouse's wheel up adds a step, down takes
-  one (`0x4e4f70`); with the keyboard's focus, the program's key 5 sets
-  it to 0, 14 to one less than its maximum, 11 takes a step and 12 adds
-  one (`0x4e4fa0`, its table at `0x4e50b4`); which of the player's keys
-  those numbers are isn't traced (the text box numbers its keys the same
-  way, `0x403624`).
+  one (`0x4e4f70`); with the keyboard's focus, the program's key 5 (Home)
+  sets it to 0, 14 (End) to one less than its maximum, 11 (Left) takes a
+  step and 12 (Right) adds one (`0x4e4fa0`, its table at `0x4e50b4`);
+  Up and Down aren't its keys.
 - **A check box** (`0x4e6310`): its label first, at the box's right and 1
   down; the box, the font's baseline and 2 square, framed raised, or
   sunken while held down on or checked; checked, the grey cross over it.
@@ -443,11 +465,11 @@ Game/Background`:
   one, or by its shortcut's key (without Ctrl or Alt). The shortcut's line
   and the label's brightening aren't drawn yet.
 - **The main menu:** `MainMenu` (`ui/main_menu.cpp`), its screen and its
-  buttons as above. Quit, or Esc, opens the confirm dialog, in the middle
+  buttons as above. Quit opens the confirm dialog, in the middle
   of the screen; Yes (or Y) ends the game and goes back to the launcher,
   No (N, Esc) closes it. Credits opens the credits window (`CreditsWindow`,
   `ui/credits.cpp`, the roll a `CreditsRoll`), in the middle of the
-  screen; RESUME, R or Esc closes it. Start New Game opens the difficulty
+  screen; RESUME (or R) closes it. Start New Game opens the difficulty
   window (`DifficultyWindow`, `ui/difficulty.cpp`), in the middle of the
   screen, Normal checked to start with: START GAME (S) keeps the level
   checked and closes it, as the game isn't there to start yet; CANCEL
@@ -473,7 +495,7 @@ Game/Background`:
   it; Esc while waiting gives up; Delete or Backspace takes the chosen
   action's key away; EXIT or Esc closes it. The bindings aren't used yet,
   as there's no game to play. A slider
-  clicked takes the keys: Home, End, Left and Down, Right and Up. Play
+  clicked takes the keys: Home, End, Left and Right. Play
   Network Game opens Choose Netgame ([network.md](network.md)).
 - **The toolkit's widgets:** `PictureButton`, `Toggle`, `Slider`,
   `CheckBox` and the frames' `drawBevel` (`ui/widgets.cpp`), as above, placed where the program's layout puts
@@ -523,10 +545,11 @@ Game/Background`:
   waiting for a key, how a held key is recorded, the order of the list of
   changes, and the borders' widths of its texts. Reluva's choices are
   noted in the code.
-- **The sliders' keys:** which of the player's keys the program's key
-  numbers 5 (to 0), 11 (down a step), 12 (up a step) and 14 (to the
-  top) are, and how a slider gets the keyboard's focus. Reluva takes Home, Left or Down, Right or Up, and End, and the
-  last slider clicked.
+- **A slider's focus:** how a slider gets the keyboard's focus other than
+  by Tab. Reluva gives it to the last slider clicked, and has no Tab.
+- **Esc in the other windows:** no handler for it was found in the
+  dialog, the difficulty, settings, sound and keyboard windows; Reluva
+  closes them with it.
 - **Speech's volume:** whether voiceovers and the movies follow the
   effects' scale. Reluva has them do so.
 - **The gamma:** how the game's display applies it. Reluva raises each
@@ -537,8 +560,6 @@ Game/Background`:
   (`0x44c1e8`); Reluva scales colours smoothly but for the credits.
 - **The credits' fading:** whether the lines under headings fade too.
   Reluva draws them whole.
-- **Esc in the credits.** Reluva closes them.
-- **Esc on the main menu.** Reluva opens the confirm dialog, as Quit.
 - **The shortcut's line and the label lit:** when the game shows them,
   and how they look.
 - **Saved games:** how the save screens' rows, time, picture and game
