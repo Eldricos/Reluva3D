@@ -12,7 +12,8 @@ through its start-up, reading its
 archives, strings, fonts and the menus' pictures, lists Direct3D's
 devices, sets the display mode, shows the opening's title and crawl,
 which it draws itself, and its menus, cut scenes and levels play, drawn
-by its own software renderer, with its sound and the CDs' music.
+by its own software renderer or through Direct3D, with its sound and the
+CDs' music.
 
 ## How it works
 
@@ -96,7 +97,7 @@ it uses are DirectX 5's, by the identifiers in its data:
     up its in-game menu (*Objectives*, *Map*, *Jedi Powers*, *Return To
     Game*, *Restart*, *Load*, *Save*, *Setup*, *Abort*). No Direct3D
     device is made: software is the default, and Direct3D only draws when
-    it's chosen in *Setup*.
+    it's chosen in *Setup* (step 17).
 15. Its sound is DirectSound's: the opening's soundtrack, the menus'
     clicks, the cut scenes', the level's. It makes about 30 buffers,
     plain ones (no DirectSound 3D buffers in the first level), setting
@@ -117,6 +118,23 @@ it uses are DirectX 5's, by the identifiers in its data:
     the auxiliary device. Nar Shaddaa (`01_soundtrack.cog`) plays tracks
     2 and 3 from the start, at volume 0, and fades them in when Kyle
     leaves the bar: the bar is quiet.
+17. With hardware drawing chosen in *Setup*, kept in the registry as
+    `b3DAccel` 1, `displayDeviceGUID` (DirectDraw's, all zeros for the
+    display's own), `3DDeviceGUID` (one of the devices Direct3D listed)
+    and `displayMode` (an index into the modes it lists; 3 is 640 by 480
+    in 16-bit colour), a level is drawn through Direct3D 1. It asks its
+    back buffer for the chosen device (`QueryInterface` with the device's
+    identifier), lists the device's texture formats, makes a viewport
+    through `IDirect3D` and adds it to the device, and makes execute
+    buffers. Each frame's polygons go into them as vertices already
+    transformed and lit (`PROCESSVERTICES` copying them), triangles and
+    render states, then `Execute`; it never uses Direct3D 2's
+    `DrawPrimitive`. Its textures are surfaces it fills, and loads into
+    the device's with `IDirect3DTexture::Load`, naming them by
+    `GetHandle`. The render states it sets include modulated texture
+    blending, linear filtering and the depth test (`ZFUNC` less-equal and
+    always). The menus stay 8-bit, drawn as before. If a GUID can't be
+    read, it goes back to software (`0x414424`) *(from the code)*.
 
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were
@@ -140,8 +158,14 @@ it presents in the window, and passes the keyboard and mouse on.
   them, so they're never copied); a CD's copy as drive D, for the cut
   scenes and the music, CD 1 to start with; `SMACKW32.DLL` from the install; the registry's `CD Path` and
   `Install Path`. Its threads run on threads of this machine.
+- **The registry:** what the game writes there (its *Setup* choices of
+  display and Direct3D device among it) is kept in `registry.txt` in the
+  game's save folder, and given back the next time it runs; `CD Path`
+  and `Install Path` are Reluva's, set each time.
 - **Its devices:** DirectDraw, with the 8-bit modes the menus and the
-  software renderer use, DirectInput, DirectPlay, DirectSound
+  software renderer use, Direct3D 1's devices on the emulator's
+  rasterizer ([directx.md](../../../../../common/x86/directx.md)),
+  DirectInput, DirectPlay, DirectSound
   ([dsound.md](../../../../../common/x86/dsound.md)) and the CD's audio
   ([cdaudio.md](../../../../../common/x86/cdaudio.md)) are the
   emulator's, the sound card's output and the music played through
@@ -180,7 +204,8 @@ it presents in the window, and passes the keyboard and mouse on.
 window, for up to `-seconds` seconds, and says what it opened, wrote to
 the registry, printed for a debugger or showed in a message box, and
 where it stopped (registers, and the return addresses on the stack).
-`-png` saves the last frame, `-calls` lists every stand-in called and the
+`-d3d` writes *Setup*'s choice of Direct3D's hardware device and 640 by
+480 in 16-bit colour to the registry before it starts. `-png` saves the last frame, `-calls` lists every stand-in called and the
 last 40 in order, `-keys "<seconds>:<key>,..."` presses keys at those
 moments (letters, digits, `esc`, `enter`, `space`, `tab`, the arrows, and
 `click<x>x<y>` for the mouse's left button on the screen), `-wav`
@@ -199,7 +224,6 @@ and the imports show:
 | Need | What | How much |
 |---|---|---|
 | Windows | About 40 calls the emulator lacks, none met in play yet: GDI's palettes and DIB sections, dialogs, `CompareString`, WINMM's timer events for Smacker's sound | Small each, in the shared stand-ins |
-| Direct3D 1 and 2 | Only for the *Setup* choice of hardware drawing: `IDirect3D` and `IDirect3D2` (their device lists are there), their devices with execute buffers, viewports, materials and textures 1 and 2, on the emulator's Direct3D 7 rasterizer | New shared code, for any DirectX 5 game; not needed to play |
 | DirectPlay 3 | Multiplayer sessions, on Reluva's network code; for now the class with no connections ([dplay.md](../../../../../common/x86/dplay.md)) | Later |
 
 ## Sources and checks
@@ -213,7 +237,7 @@ and the imports show:
 
 ## Open questions
 
-- Whether `JK.EXE` draws through Direct3D 1's execute buffers or
-  Direct3D 2's `DrawPrimitive` (it has both devices' identifiers), and
-  what its own software renderer needs of DirectDraw.
-- What it does with Direct3D, when *Setup* chooses it.
+- What `IDirect3D2` and its devices are asked for, if ever: the runs
+  only used Direct3D 1's.
+- Whether *Setup*'s own screen writes the registry as `-d3d` does: the
+  values were read from the code, and set by hand.

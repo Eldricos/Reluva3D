@@ -89,11 +89,11 @@ reaches its menus; then DirectSound; then a level.
    [The gate](#the-gate).
 6. **The game** (under way), hosted, as the gate chose: `JK.EXE` plays
    in Reluva's window, its opening, menus, cut scenes and levels drawn by
-   its own software renderer, with the keyboard and mouse, its sound
-   through DirectSound, the CDs' music through MCI, and each CD put in
-   the drive as it asks for it ([systems/hosting.md](systems/hosting.md)).
-   Next: Direct3D 1's devices, for *Setup*'s hardware drawing; DirectPlay
-   for multiplayer.
+   its own software renderer or through Direct3D 1, with the keyboard
+   and mouse, its sound through DirectSound, the CDs' music through MCI,
+   and each CD put in the drive as it asks for it
+   ([systems/hosting.md](systems/hosting.md)). Next: DirectPlay for
+   multiplayer.
 7. **Mysteries of the Sith.**
 
 ## Decisions
@@ -112,3 +112,4 @@ reaches its menus; then DirectSound; then a level.
 | November 2026 | The CD the game asks for is put in the drive as its check (`0x40ebb0`) starts, by a jump there to engine code; the game never asks to change CDs | The game can't be asked to see a CD that isn't there, and a player has nothing to swap: both CDs' files are on the disk. Hooking the check, where the CD's number is an argument, is exact; the marker that passes for any CD would have hidden which CD's music to play |
 | November 2026 | The CDs' music from their audio tracks beside each CD's files: a cue sheet and its image, read as it plays, or tracks ripped as `trackNN.wav` or `.mp3` | A copy of a CD's files doesn't hold its audio; an image's cue sheet needs no ripping, and ripped tracks are Reluva's way for other games' CD music (Clue) |
 | November 2026 | The window shows the system's pointer while the game shows Windows', and holds the mouse while the game holds it through DirectInput | The menus use Windows' pointer without drawing one; play reads the mouse's movement |
+| November 2026 | What the game writes to its registry is kept in the save folder (`registry.txt`), and given back each run | *Setup*'s choices, Direct3D's device among them, live in the registry; Windows kept them, and the emulator's registry is made afresh each run |

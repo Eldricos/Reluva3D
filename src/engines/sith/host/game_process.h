@@ -16,6 +16,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace reluva::sith {
 
@@ -32,7 +33,9 @@ public:
     /**
      * Sets up the process and its stand-ins; nothing is loaded until load().
      * @param folders The install and its CDs (findFolders).
-     * @param saveFolder Where what the game writes goes, and is read back from first.
+     * @param saveFolder Where what the game writes goes, and is read back from
+ *        first; the settings it keeps in the registry are kept there too
+ *        (registry.txt).
      * @param commandLine Its arguments after "JK.EXE", if any.
      */
     GameProcess(const GameFolders &folders, const std::filesystem::path &saveFolder,
@@ -83,6 +86,12 @@ private:
     const x86::Win32Process::Module *_exe = nullptr;
     int _cdInDrive = 0;
     void hookCdCheck();
+    // The game's registry key, kept in the save folder between runs: the
+    // file, and the names of the values in it.
+    std::filesystem::path _registryFile;
+    std::vector<std::string> _registryNames;
+    void loadRegistry();
+    void saveRegistry();
 };
 
 } // namespace reluva::sith

@@ -97,8 +97,9 @@ bool parseKeys(const std::string &text, std::vector<KeyPress> &out) {
 // in drive D, saying what it opens, writes and shows.
 int cmdHost(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool sith host <install> [-seconds N] [-args \"...\"] [-png file] "
-                             "[-files] [-calls] [-keys \"s:key,...\"] [-peek address] [-wav file] [-write folder]\n");
+        std::fprintf(stderr,
+                     "usage: reluva-tool sith host <install> [-seconds N] [-args \"...\"] [-png file] "
+                     "[-files] [-calls] [-d3d] [-keys \"s:key,...\"] [-peek address] [-wav file] [-write folder]\n");
         return 2;
     }
     const std::filesystem::path install = argv[2];
@@ -108,6 +109,7 @@ int cmdHost(int argc, char **argv) {
     std::string wav;
     bool listFiles = false;
     bool listCalls = false;
+    bool direct3d = false;
     std::vector<uint32_t> peeks;
     std::string keysArg;
     std::filesystem::path writable = std::filesystem::temp_directory_path() / "reluva-sith-host";
@@ -125,6 +127,8 @@ int cmdHost(int argc, char **argv) {
             listFiles = true;
         else if (a == "-calls")
             listCalls = true;
+        else if (a == "-d3d")
+            direct3d = true;
         else if (a == "-keys" && i + 1 < argc)
             keysArg = argv[++i];
         else if (a == "-peek" && i + 1 < argc)
@@ -148,9 +152,22 @@ int cmdHost(int argc, char **argv) {
     process.fileOpened = [&](const std::string &path, bool found) {
         opened.push_back(path + (found ? "" : "  (not found)"));
     };
-    process.registryWritten = [](const std::string &key, const std::string &name) {
+    process.registryWritten = [kept = process.registryWritten](const std::string &key, const std::string &name) {
         std::printf("registry written: %s\\%s\n", key.c_str(), name.c_str());
+        if (kept)
+            kept(key, name);
     };
+    if (direct3d) {
+        // Setup's 3D acceleration on, on the primary display with Direct3D's
+        // HAL device, as the game keeps them.
+        const std::string key = "HKEY_LOCAL_MACHINE\\Software\\LucasArts Entertainment Company\\JediKnight\\v1.0";
+        process.setRegistryValue(key, "b3DAccel", 4, {1, 0, 0, 0});
+        process.setRegistryValue(key, "displayDeviceGUID", 3, std::vector<uint8_t>(16, 0)); // the primary display
+        process.setRegistryValue(key, "displayMode", 4, {3, 0, 0, 0}); // 640 by 480 in 16-bit colour
+        process.setRegistryValue(
+            key, "3DDeviceGUID", 3,
+            {0xe0, 0x3d, 0xe6, 0x84, 0xaa, 0x46, 0xcf, 0x11, 0x81, 0x6f, 0, 0, 0xc0, 0x20, 0x15, 0x6e});
+    }
     if (Error err = game.load()) {
         std::printf("%s\n", err.message.c_str());
         return 1;
@@ -332,7 +349,7 @@ const Commands kCommands(
     "sith",
     {
         {"host",
-         "<install> [-seconds N] [-args \"...\"] [-png file] [-files] [-calls] [-keys \"s:key,...\"] [-peek address] [-wav file]",
+         "<install> [-seconds N] [-args \"...\"] [-png file] [-files] [-calls] [-d3d] [-keys \"s:key,...\"] [-peek address] [-wav file]",
          "run the retail JK.EXE in the x86 emulator: how far it gets", cmdHost},
         {"disasm", "<JK.EXE> <address> [count]", "the program's instructions from an address (hexadecimal) on",
          cmdDisasm},

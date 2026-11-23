@@ -6,6 +6,9 @@
 #include "common/fs.h"
 #include "common/stream.h"
 
+#include <algorithm>
+#include <cstdlib>
+#include <fstream>
 #include <system_error>
 #include <vector>
 
@@ -49,8 +52,20 @@ GameProcess::GameProcess(const GameFolders &folders, const std::filesystem::path
     p.setCommandLine("JK.EXE" + std::string(commandLine.empty() ? "" : " ") + commandLine);
     p.addDrive({'C', folders.install, saveFolder, 3, "JEDI", 0x12345678});
     insertCd(1);
+    // The settings the game keeps in the registry (its display, its last
+    // player...), as it left them; then where it's installed, as its
+    // installer would have them.
+    _registryFile = saveFolder / "registry.txt";
+    loadRegistry();
     p.setRegistryString(kRegistryKey, "CD Path", "D:\\");
     p.setRegistryString(kRegistryKey, "Install Path", "C:\\");
+    p.registryWritten = [this](const std::string &key, const std::string &name) {
+        if (fs::toLower(key) != fs::toLower(kRegistryKey))
+            return;
+        if (std::find(_registryNames.begin(), _registryNames.end(), name) == _registryNames.end())
+            _registryNames.push_back(name);
+        saveRegistry();
+    };
     // The program's and Smacker's threads each on a thread of this machine.
     p.useHostThreads();
     _directX = std::make_unique<x86::DirectX>(p);
@@ -91,6 +106,42 @@ Error GameProcess::load() {
         if (Error e = _process->attach(*smack))
             return e;
     return Error::success();
+}
+
+// The registry file: a value a line, its name, type and bytes in hex,
+// separated by tabs.
+void GameProcess::loadRegistry() {
+    std::ifstream f(_registryFile);
+    std::string line;
+    while (std::getline(f, line)) {
+        const size_t a = line.find('\t');
+        const size_t b = a == std::string::npos ? a : line.find('\t', a + 1);
+        if (b == std::string::npos)
+            continue;
+        const std::string name = line.substr(0, a);
+        const uint32_t type = uint32_t(std::strtoul(line.substr(a + 1, b - a - 1).c_str(), nullptr, 10));
+        const std::string hex = line.substr(b + 1);
+        std::vector<uint8_t> data;
+        for (size_t i = 0; i + 1 < hex.size(); i += 2)
+            data.push_back(uint8_t(std::strtoul(hex.substr(i, 2).c_str(), nullptr, 16)));
+        _registryNames.push_back(name);
+        _process->setRegistryValue(kRegistryKey, name, type, std::move(data));
+    }
+}
+
+void GameProcess::saveRegistry() {
+    std::ofstream f(_registryFile);
+    for (const std::string &name : _registryNames) {
+        uint32_t type = 0;
+        const auto value = _process->registryValue(kRegistryKey, name, &type);
+        if (!value || name == "CD Path" || name == "Install Path")
+            continue;
+        f << name << '\t' << type << '\t';
+        static const char kHex[] = "0123456789abcdef";
+        for (uint8_t byte : *value)
+            f << kHex[byte >> 4] << kHex[byte & 15];
+        f << '\n';
+    }
 }
 
 bool GameProcess::insertCd(int number) {

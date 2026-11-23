@@ -22,9 +22,9 @@ None yet.
 - **Joysticks:** none; the game finds none.
 - **Multiplayer:** DirectPlay offers no connections, so there's no one to
   play with.
-- **Direct3D:** Direct3D 1's devices aren't there yet, so choosing
-  hardware drawing in *Setup* would stop the game. The game's own
-  software drawing, its default, is what's shown.
+- **Direct3D:** *Setup*'s hardware drawing is done by the emulator's
+  software rasterizer, not a graphics card: its filtering and precision
+  are Reluva's, not those of the cards of 1997.
 - **Text written through GDI** is in Reluva's built-in bitmap font, not
   Arial. The menus and the game draw their text in the game's own fonts,
   which are as they were.

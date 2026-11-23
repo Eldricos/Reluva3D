@@ -55,12 +55,13 @@ installer and the readme.
   classes' sounds and the cut scenes, and lists the episodes' steps.
 - **The game:** played. The retail `JK.EXE` runs in Reluva's x86
   emulator, in Reluva's window: the opening, the menus, the cut scenes
-  and the levels, drawn by its own software renderer, with the keyboard
+  and the levels, drawn by its own software renderer or, chosen in
+  *Setup*, through Direct3D, with the keyboard
   and mouse, its sound, and the CDs' music from their audio tracks; CD 2
   is put in the drive when the game asks for it
   ([systems/hosting.md](systems/hosting.md)). Not yet multiplayer
   ([KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md)).
-- **Not yet:** multiplayer and Direct3D's drawing.
+- **Not yet:** multiplayer.
   Plans, phases and decisions: [PLAN.md](PLAN.md).
 
 ## Using it
