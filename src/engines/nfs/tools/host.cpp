@@ -39,6 +39,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <atomic>
 #include <fstream>
 #include <iterator>
 #include <map>
@@ -83,6 +84,7 @@ int cmdNfsHost(int argc, char **argv) {
     uint32_t watchMem = 0;
     uint32_t watchMemSize = 0;
     std::string keyScript;    // "ms:key,ms:key...": each pressed for 100 ms
+    std::string keysFile;     // items as -keys has them, one a line, added as the game runs
     std::string frameLogFile; // each frame's time and instructions, as CSV
     std::string wavFile;      // what the game's sound buffers played
     std::string voicesFile;   // what the game's mixer adds, front and behind, each 100 ms (CSV)
@@ -280,6 +282,8 @@ int cmdNfsHost(int argc, char **argv) {
             forceLogFile = argv[++a];
         else if (arg == "-keys" && a + 1 < argc)
             keyScript = argv[++a];
+        else if (arg == "-keysfile" && a + 1 < argc)
+            keysFile = argv[++a];
         else if (arg == "-slice" && a + 1 < argc)
             slice = uint32_t(std::strtoul(argv[++a], nullptr, 0));
         else if (arg == "-watchmem" && a + 2 < argc) {
@@ -612,15 +616,9 @@ int cmdNfsHost(int argc, char **argv) {
     reluva::GamepadState pad; // the joystick's state, as the script sets it
     pad.wheel = options.joystickWheel;
     pad.forceFeedback = options.forceFeedback;
-    for (size_t at = 0; at < keyScript.size();) {
-        const size_t comma = keyScript.find(',', at);
-        const std::string item = keyScript.substr(at, comma == std::string::npos ? std::string::npos : comma - at);
-        at = comma == std::string::npos ? keyScript.size() : comma + 1;
-        const size_t colon = item.find(':');
-        if (colon == std::string::npos)
-            continue;
-        const uint64_t ms = std::strtoull(item.c_str(), nullptr, 10);
-        const std::string key = item.substr(colon + 1);
+    // One key, mouse or joystick item of -keys or -keysfile, at the game's
+    // millisecond `ms`.
+    auto queueItem = [&host, &pad](uint64_t ms, const std::string &key) {
         int dx = 0;
         int dy = 0;
         int index = 0;
@@ -642,7 +640,35 @@ int cmdNfsHost(int argc, char **argv) {
         } else if (!host.queueKey(key, true, ms) || !host.queueKey(key, false, ms + 100)) {
             std::fprintf(stderr, "unknown key '%s'\n", key.c_str());
         }
+    };
+    for (size_t at = 0; at < keyScript.size();) {
+        const size_t comma = keyScript.find(',', at);
+        const std::string item = keyScript.substr(at, comma == std::string::npos ? std::string::npos : comma - at);
+        at = comma == std::string::npos ? keyScript.size() : comma + 1;
+        const size_t colon = item.find(':');
+        if (colon != std::string::npos)
+            queueItem(std::strtoull(item.c_str(), nullptr, 10), item.substr(colon + 1));
     }
+    // -keysfile: lines added to the file while the game runs, each item
+    // given at once (by the game's clock as it reads the line), for
+    // driving it by what its frames show.
+    std::atomic<bool> running{true};
+    std::thread keysReader;
+    if (!keysFile.empty())
+        keysReader = std::thread([&] {
+            size_t done = 0;
+            while (running) {
+                std::ifstream in(keysFile);
+                std::string line;
+                for (size_t n = 0; std::getline(in, line); ++n)
+                    if (n >= done) {
+                        ++done;
+                        if (!line.empty())
+                            queueItem(host.process().now(), line);
+                    }
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+        });
     if (watchMemSize) {
         host.cpu().watchStart = watchMem;
         host.cpu().watchEnd = watchMem + watchMemSize;
@@ -666,6 +692,9 @@ int cmdNfsHost(int argc, char **argv) {
         host.logVoices(&voices, 100);
     const auto start = std::chrono::steady_clock::now();
     const Error err = host.run(exitCode);
+    running = false;
+    if (keysReader.joinable())
+        keysReader.join();
     if (!glideCompareFile.empty())
         writeFile(glideCompareFile, std::vector<uint8_t>(compareCsv.begin(), compareCsv.end()));
     if (!glideGpuCompareFile.empty()) {
@@ -1575,7 +1604,7 @@ const reluva::tool::Commands kCommands(
     "nfs",
     {
         {"host",
-         "<game folder> [-args \"nfs3.exe\"] [-program file] (another program, as the CD's NFS2SEA.EXE: on Glide, a Voodoo Graphics) [-renderer softtria.dll] [-limit N] [-log N] [-save dir] [-frames dir] [-every N] [-framesfrom N] [-watch address]... [-watchlimit 50] [-watchmem address size] [-watchread address | reg+offset]... (dwords printed at each -watch stop) [-slice instructions] [-dump memory.bin] [-keys ms:key,...] [-poke WHEN:ADDR:VALUE[:SIZE]]... [-pokeevery ...]... [-dumpmem WHEN:ADDR:SIZE:file]... (WHEN ms=N or at=ADDR[#N]; VALUE a number, size 1/2/4, or bytes=0a0b...) (keys: enter, up, a..., kp0-kp9, click, moveDX/DY) [-framelog frames.csv] [-timescale 0.1] [-thrashlog fromframe toframe] [-native] [-wav sound.wav] [-voices voices.csv] [-joystick name] (keys also joy:A=V...: axes 0-5 = V, button bB; +key/-key held) [-wheel] [-ff] (the joystick a wheel; with force feedback) [-forcelog forces.csv] [-net] (the network) [-netaddr a.b.c.d] [-broadcast a.b.c.d,...] [-netlog messages.txt] (each message sent and received, in hex) [-netdrop N[:fromMs[-toMs]]] (every Nth packet sent lost, over those game ms) [-serial listen:port | host:port] (COM ports: a link over TCP, with -net) [-modem listen:port | host:port] (a TAPI modem whose calls are such links) [-deterministic instructionsPerMs] (a clock of instructions; the end state hashed) [-mhz N] (the processor's clock the time stamp counter shows; 300 by default) [-mmx] (CPUID reports MMX: the game mixes its sound with its MMX routines) [-count ADDR] (how many times the instruction at ADDR ran; repeatable) [-drive CAR:TARGET:FROMMS[:TOMS[:GAP]]] (CAR, a human's, steered at TARGET from the controls; full gas, or GAP metres behind at its speed) [-drivesign -1] (TARGET road: along the virtual road, GAP metres right of it, slowed for bends) [-hotspots from to] (instructions counted by where they run, 16-byte blocks) [-gpulog] (THRASH recorded as for the GPU; each frame's list summed up) [-gpudump list dir] (that list in full: list.csv and its textures) [-present voodoo2a.dll] (the renderer the game is told of, -renderer's loaded in its place; the default; none: as -renderer) [-positional] (network races with positional updates, every player alike) [-pointfilter] (native drawing: textures point-sampled, not bilinear) [-direct3d] (the game told of d3da.dll, the Direct3D renderer: its Direct3D look, drawn natively as d3da's device draws; -present d3da.dll -native) [-glide] (the game's own voodoo2a.dll, unchanged, on Reluva's Glide stand-in) [-glidecompare out.csv] (-glide, with each flip also drawn natively and compared) [-glidefilter point | bilinear] (with -glide: the texture filter held, to compare) [-glidegpu] (with -glide: Glide's pixels drawn on the GPU, if there is one) [-glidegpucompare out.csv] (-glide on the GPU, each call also drawn in software and each frame compared: its mean difference, of 255, per flip) [-glidedll file] (-glide with this THRASH DLL in voodoo2a.dll's place, from outside the install, e.g. the CD's Patch/Voodoo3/voodoo2a.dll: Glide 3 on a Voodoo3) [-glideboard voodoo1 | rush | voodoo2 | banshee | voodoo3] (-glide on this board, e.g. -glidedll <install>/voodooa.dll -glideboard voodoo1; the Rush's desktop is 1024x768 at 16 bits unless given: -glideboard rush,desktop=1280x1024x16)", "run the retail nfs3.exe (or NFS II SE's nfs2sen.exe) in the x86 emulator, without a window, and report how it goes: its system calls, files, THRASH's work, frames (each one's moment in frames.txt), sound, the network",
+         "<game folder> [-args \"nfs3.exe\"] [-program file] (another program, as the CD's NFS2SEA.EXE: on Glide, a Voodoo Graphics) [-renderer softtria.dll] [-limit N] [-log N] [-save dir] [-frames dir] [-every N] [-framesfrom N] [-watch address]... [-watchlimit 50] [-watchmem address size] [-watchread address | reg+offset]... (dwords printed at each -watch stop) [-slice instructions] [-dump memory.bin] [-keys ms:key,...] [-keysfile file] (more of them, one a line without the ms, given as they're added) [-poke WHEN:ADDR:VALUE[:SIZE]]... [-pokeevery ...]... [-dumpmem WHEN:ADDR:SIZE:file]... (WHEN ms=N or at=ADDR[#N]; VALUE a number, size 1/2/4, or bytes=0a0b...) (keys: enter, up, a..., kp0-kp9, click, moveDX/DY) [-framelog frames.csv] [-timescale 0.1] [-thrashlog fromframe toframe] [-native] [-wav sound.wav] [-voices voices.csv] [-joystick name] (keys also joy:A=V...: axes 0-5 = V, button bB; +key/-key held) [-wheel] [-ff] (the joystick a wheel; with force feedback) [-forcelog forces.csv] [-net] (the network) [-netaddr a.b.c.d] [-broadcast a.b.c.d,...] [-netlog messages.txt] (each message sent and received, in hex) [-netdrop N[:fromMs[-toMs]]] (every Nth packet sent lost, over those game ms) [-serial listen:port | host:port] (COM ports: a link over TCP, with -net) [-modem listen:port | host:port] (a TAPI modem whose calls are such links) [-deterministic instructionsPerMs] (a clock of instructions; the end state hashed) [-mhz N] (the processor's clock the time stamp counter shows; 300 by default) [-mmx] (CPUID reports MMX: the game mixes its sound with its MMX routines) [-count ADDR] (how many times the instruction at ADDR ran; repeatable) [-drive CAR:TARGET:FROMMS[:TOMS[:GAP]]] (CAR, a human's, steered at TARGET from the controls; full gas, or GAP metres behind at its speed) [-drivesign -1] (TARGET road: along the virtual road, GAP metres right of it, slowed for bends) [-hotspots from to] (instructions counted by where they run, 16-byte blocks) [-gpulog] (THRASH recorded as for the GPU; each frame's list summed up) [-gpudump list dir] (that list in full: list.csv and its textures) [-present voodoo2a.dll] (the renderer the game is told of, -renderer's loaded in its place; the default; none: as -renderer) [-positional] (network races with positional updates, every player alike) [-pointfilter] (native drawing: textures point-sampled, not bilinear) [-direct3d] (the game told of d3da.dll, the Direct3D renderer: its Direct3D look, drawn natively as d3da's device draws; -present d3da.dll -native) [-glide] (the game's own voodoo2a.dll, unchanged, on Reluva's Glide stand-in) [-glidecompare out.csv] (-glide, with each flip also drawn natively and compared) [-glidefilter point | bilinear] (with -glide: the texture filter held, to compare) [-glidegpu] (with -glide: Glide's pixels drawn on the GPU, if there is one) [-glidegpucompare out.csv] (-glide on the GPU, each call also drawn in software and each frame compared: its mean difference, of 255, per flip) [-glidedll file] (-glide with this THRASH DLL in voodoo2a.dll's place, from outside the install, e.g. the CD's Patch/Voodoo3/voodoo2a.dll: Glide 3 on a Voodoo3) [-glideboard voodoo1 | rush | voodoo2 | banshee | voodoo3] (-glide on this board, e.g. -glidedll <install>/voodooa.dll -glideboard voodoo1; the Rush's desktop is 1024x768 at 16 bits unless given: -glideboard rush,desktop=1280x1024x16)", "run the retail nfs3.exe (or NFS II SE's nfs2sen.exe) in the x86 emulator, without a window, and report how it goes: its system calls, files, THRASH's work, frames (each one's moment in frames.txt), sound, the network",
          cmdNfsHost},
         {"huff-check", "<game folder> [out dir]",
          "every Huffman-compressed file decompressed by the game's own routine and by Reluva's, which must agree",
