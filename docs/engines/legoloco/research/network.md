@@ -102,4 +102,5 @@ above, what remained:
   places are chosen, `0xc19` bytes both ways past the tick **seen**; what
   they hold, beyond the boards' **guess**, isn't known.
 - **The `I.P.` field** is an `EDIT` box opened on a click (`0x44177a`)
-  **seen**; typing a host's address into it hasn't been tried.
+  **seen**; typing a host's address into it hasn't been tried. (Since
+  tried, and it works: [running.md](../systems/running.md#network-play).)

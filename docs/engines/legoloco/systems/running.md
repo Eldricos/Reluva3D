@@ -208,8 +208,17 @@ calls named were seen made, from the addresses given:
   listens on it in Reluva. The protocol chosen is kept in the save
   folder's `art-res\NetSettings.dat`, and the screen is passed over the
   next time, the places' spanner leading back to it *(seen, not
-  traced)*. A click on the field opens an `EDIT` box (`0x44177a`), which
-  was seen closed again before the keys typed reached it.
+  traced)*.
+- **The `I.P.` field:** choosing TCP shows it; a click on it makes an
+  `EDIT` box (`0x44177a`) of up to 64 characters (`EM_LIMITTEXT`), given
+  the text kept at `+0x6c` of the object at `0x4fd3a8`, whose own
+  procedure (`0x4417e0`) passes Enter and Esc on to its parent and
+  shows the I-beam pointer. The text is taken back from it
+  (`GetWindowTextA` into `+0x6c`, `0x441d36` and `0x442056`) and is what
+  `DPAID_INet` holds. Seen in Reluva: a joiner typing `127.0.0.1` there,
+  then the tick, searched there (and only there, `run -nobroadcast`),
+  found the game of a host in another process and joined it; nothing
+  typed, it found none.
 - **The places:** a grid of nine coloured places, the players' names on
   those taken, "SEARCHING FOR GAMES..." and then "PLEASE SELECT AN AREA
   THEN CLICK TO PROCEED"; under it binoculars (search again) and a
@@ -355,7 +364,8 @@ calls named were seen made, from the addresses given:
 - `run -udp` plays a copy's network games over the system's UDP, so
   copies in separate processes, or on separate computers, can play;
   `-meeting host[:port]` adds a meeting server (`reluva-tool
-  meet-server` runs one).
+  meet-server` runs one), and `-nobroadcast` searches only at the
+  address typed into the game's `I.P.` field.
 - `reluva-tool legoloco pair <game folder> [options] [A's steps] --
   [B's steps]` runs two copies, A and B, each on a thread of its own,
   their DirectPlay on one network, in memory unless `-udp` is given
@@ -429,5 +439,5 @@ doings, and a network game between two computers.
 
 - Whether the program runs on without a network past its start: it
   finds none of its four connections, and plays on regardless.
-- How the `I.P.` field's box takes what's typed, and whether a host is
-  meant to fill it in too (the host was given the port as if it had).
+- Whether a host is meant to fill in the `I.P.` field too (the host was
+  given the port as if it had).

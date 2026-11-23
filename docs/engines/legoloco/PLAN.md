@@ -73,8 +73,9 @@ is in [the first survey](research/first-survey.md).
       routers; port mapping for a host on the Internet. Done: the
       engine plays over the system's UDP, `run -udp` and `pair -udp`
       in the tool; tested across a lossy network and walled-off routers;
-      seen with two processes on one computer. Not yet tried between two
-      computers, or typing the host's address into the game.
+      seen with two processes on one computer, a joiner finding the host
+      by the address typed into the game. Not yet tried between two
+      computers.
    4. *Played:* two copies over the loopback and over a network: the
       session screens, the players' boards joined, trains crossing,
       postcards sent and received; `reluva-tool legoloco run` able to
