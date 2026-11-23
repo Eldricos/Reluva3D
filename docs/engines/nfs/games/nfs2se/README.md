@@ -33,7 +33,9 @@ the cars' data is in both. The CD's 3dfx program, `NFS2SEA.EXE`, is in
   ([research/hosted-spike.md](research/hosted-spike.md)). With
   `renderer=glide` the 3dfx program (`nfs2sea.exe`, the install's or
   the CD's) plays instead, on Reluva's Glide stand-in as a Voodoo
-  Graphics. Without either program the game shows what was found of it
+  Graphics. Two players race over the network (IPX), a serial link or a
+  modem, as in NFS III ([research/network-play.md](research/network-play.md)).
+  Without either program the game shows what was found of it
   (its folders, programs, music, movies, tracks and car models:
   `src/engines/nfs/nfs2se/status_page.cpp`).
 - **Its files that NFS III's formats cover all read**: every archive,

@@ -232,8 +232,24 @@ with what it found written on the game's pages in `formats/` and
    of the game, and in the app, with Glide's GPU backend on Mesa's
    software Vulkan (no GPU here), it ran about 20 frames a second. On a
    real GPU it's to be measured.
-8. **Network play** (next): UDP (winsock), modem (TAPI) and serial, on
+8. **Network play** (done): UDP (winsock), modem (TAPI) and serial, on
    NFS III's stand-ins.
+
+   Built: nothing new was needed of the host. Two copies of
+   `nfs2sen.exe` on one machine raced Proving Grounds against each other
+   over each of the game's three links: the network (IPX, carried over
+   UDP), a serial link (one TCP link) and a modem call (TAPI over TCP),
+   each from its connect screen through the lobby, ready lights and
+   *synchronizing*, the two race clocks within a few hundredths of a
+   second ([research/network-play.md](research/network-play.md)). The
+   Play page gives the game these links as NFS III's (the `network`,
+   `serial` and `modem` settings). The host tool's `-keysfile` drove the
+   copies by what their frames showed: on a clock of instructions their
+   clocks drift apart and the game's own timeouts fire.
+
+   Left open: races and tournaments run to their end over a link, lost
+   packets and a player leaving, copies on two machines, the 3dfx
+   program on a link.
 
 ## Decisions
 
@@ -243,5 +259,6 @@ with what it found written on the game's pages in `formats/` and
 | November 2026 | Each game's own code in a folder of its own (`nfs3/`, `nfs2se/`) and namespace (`reluva::nfs::nfs3`...), the shared code at the engine's top, before NFS II SE's work begins | docs/ADDING_AN_ENGINE.md (Code layout) and the coding guide's namespaces, as `awe` and `netimmerse` do; the host waits for Phase 5, as `GameHost`'s NFS III parts are in its own methods, not files apart |
 | November 2026 | The data layer and viewer first, then a hosted spike with a gate | As NFS III; hosting keeps the game's own behaviour, and most of it already exists ([Two ways to play it](#two-ways-to-play-it)) |
 | November 2026 | Open-source readers (OpenNFS, FFmpeg's EA demuxer and decoders) and community write-ups of NFS II's formats read as references only, no code taken | CONTRIBUTING.md, as for NFS III |
+| November 2026 | NFS II SE's network play on NFS III's stand-ins, as they are | All three of its links raced with nothing changed ([research/network-play.md](research/network-play.md)) |
 | November 2026 | NFS II SE hosted, through the plan's gate | Its software program races at about 39 frames a second on the host with nothing of its own natively ([research/hosted-spike.md](research/hosted-spike.md)) |
 | November 2026 | Denis Auroux's NFS II track notes not used; the `.trk` and `.col` pages rest on the files alone | They forbid using their information commercially, which doesn't sit with the GPL; every fact they gave was worked out again from the files, and the meanings only they gave dropped |

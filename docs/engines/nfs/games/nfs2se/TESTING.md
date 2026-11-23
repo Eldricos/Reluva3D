@@ -73,7 +73,10 @@ That the real release is recognised by its hashes: checked by hand
    main menu. Up and Down move along it, every press; the mouse moves its
    cursor. RACE starts a race at Proving Grounds: Up accelerates.
    Ctrl+F5 goes back. With `renderer=glide` the same, on the 3dfx
-   program.
+   program. With two copies (on two machines, or one with
+   `reluva-tool nfs host -net -netaddr`): *game setup*'s game type
+   *network*, CONNECT, *create game* on one and *join game* on the
+   other; both press RACE in the lobby, the host's last.
 3. In `reluva-viewer`, the Status page lists the install, the CD's copy
    (beside the install), 19 music streams, 15 movies, `nfs2sen.exe` in
    the install and `NFS2SEA.EXE` on the CD, 8 tracks (`TR00`, `TR02` to
@@ -90,6 +93,7 @@ That the real release is recognised by its hashes: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US CD and an install from it | Linux | Two copies on the host (`-keysfile`), raced at Proving Grounds over the network (IPX over UDP, 127.0.0.2 and .3), a serial link and a modem call, each from its connect screen through the lobby ([research/network-play.md](research/network-play.md)) |
 | November 2026 | US CD and an install from it | Linux, Xvfb | The 3dfx program (`renderer=glide`) from `reluva-viewer`'s Play page: the title movie, the menu by the keys, a race at Proving Grounds with Up held (about 20 frames a second, Glide's GPU backend on Mesa's software Vulkan); on the host (`-program`), its movies, front end and race on the software rasterizer, `grChromakeyValue(0x00FF00)` in the race; the `host_glide` step twice, the same record |
 | November 2026 | US CD and an install from it | Linux | The game-files test (`RELUVA_NFS2SE`), its four steps twice with the same records; on the host: tournament and knockout races started, the attract mode's movies, the sound recorded (`-wav`) through the movie, menus and a race, the save folder's files, a wheel with force feedback offered (`-joystick -wheel -ff`) and taken |
 | November 2026 | US CD and an install from it | Linux, Xvfb | The game from `reluva-viewer`'s Play page: the title movie, Enter to the menu, Down four times to RACE (each press taken), the race at Proving Grounds, Up held to 132 mph |
