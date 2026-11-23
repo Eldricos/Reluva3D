@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 namespace reluva::storm3d {
 
@@ -22,6 +23,11 @@ constexpr float kTurnPerSecond = 0.15f; // radians
 // memory, and the planets of a frame land where the original has them.
 constexpr float kFieldOfView = 0.7853982f; // radians
 constexpr float kStep = 0.1f;              // of the distance, a W/A/S/D press
+// The map's lights, its settings' colour and its directional lights',
+// are this much brighter in what the game draws: one factor fits the
+// planet Barisa's 198 vertex colours in a frame of "Premonitions" to
+// within 0.014 on average. Where it comes from isn't known.
+constexpr float kLightScale = 1.75f;
 // The game's overview camera, from RTS_CFG.h: its height above the plane,
 // at first and at most and least, and the parabola it rides.
 constexpr float kOverviewInitHeight = 450; // OVERVIEW_INIT_HEIGHT
@@ -312,6 +318,7 @@ void MapPage::load() {
         _placed.push_back({built, placeOf(o, look->second.scale)});
         ++_drawn;
     }
+    _meshes.setLighting(lightingOf(_map));
     std::string background = _map.background;
     if (text::hasSuffixIgnoreCase(background, ".sod"))
         background.resize(background.size() - 4);
@@ -321,6 +328,39 @@ void MapPage::load() {
     // From above the area's middle, far enough to see it whole.
     _target = {(_map.area[0] + _map.area[1]) / 2, 0, (_map.area[4] + _map.area[5]) / 2};
     _distance = std::max(1000.0f, std::max(_map.area[1] - _map.area[0], _map.area[5] - _map.area[4]));
+}
+
+SodMeshes::Lighting MapPage::lightingOf(const BznMap &map) {
+    SodMeshes::Lighting lighting;
+    SodMeshes::Lighting own;
+    lighting.lights.clear();
+    for (const BznMap::Object &o : map.objects) {
+        if (!text::equalsIgnoreCase(o.odf, "dlight") || o.firstField + 9 >= map.fields.size())
+            continue;
+        SodMeshes::Lighting::Directed light;
+        for (size_t k = 0; k < 3; ++k) {
+            const BznMap::Field &f = map.fields[o.firstField + 7 + k];
+            if (f.type == BznMap::kFloat && f.data.size() == 4)
+                std::memcpy(&light.colour[k], f.data.data(), 4);
+            light.colour[k] *= kLightScale;
+        }
+        // It shines along its front axis, the third row of its transform.
+        float len = 0;
+        for (size_t k = 0; k < 3; ++k)
+            len += o.transform[6 + k] * o.transform[6 + k];
+        len = std::sqrt(len);
+        if (len <= 0)
+            continue;
+        for (size_t k = 0; k < 3; ++k)
+            light.toLight[k] = -o.transform[6 + k] / len;
+        lighting.lights.push_back(light);
+    }
+    // A map with no lights of its own is lit as the Models page is.
+    if (lighting.lights.empty())
+        return own;
+    for (size_t k = 0; k < 3; ++k)
+        lighting.ambient[k] = map.light[k] * kLightScale;
+    return lighting;
 }
 
 MapPage::Camera MapPage::overviewOf(const gfx::Vec3 &target, float height, float turn) {

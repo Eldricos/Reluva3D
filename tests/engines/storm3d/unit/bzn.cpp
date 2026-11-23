@@ -208,6 +208,33 @@ void testOverview() {
     CHECK(std::fabs(near.eye[2] - 1900.343f) < 0.1f);
 }
 
+// A map's lighting: its directional lights, each its colour along its
+// front axis, and its settings' colour as the ambient, all 1.75 times.
+void testLighting() {
+    BznMap map;
+    map.light = {0.2f, 0.2f, 0.2f};
+    BznMap::Object light;
+    light.odf = "dlight";
+    light.transform = {1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0}; // front: straight down
+    light.firstField = 0;
+    for (int i = 0; i < 7; ++i)
+        map.fields.push_back({BznMap::kInt, {0, 0, 0, 0}});
+    for (const float c : {0.4f, 0.2f, 0.0f}) {
+        BznMap::Field f{BznMap::kFloat, std::vector<uint8_t>(4)};
+        std::memcpy(f.data.data(), &c, 4);
+        map.fields.push_back(f);
+    }
+    map.fields.push_back({BznMap::kVector, std::vector<uint8_t>(12)});
+    map.objects.push_back(light);
+    const SodMeshes::Lighting lit = MapPage::lightingOf(map);
+    CHECK(lit.lights.size() == 1 && std::fabs(lit.lights[0].colour[0] - 0.7f) < 1e-5f &&
+          std::fabs(lit.lights[0].colour[1] - 0.35f) < 1e-5f && lit.lights[0].colour[2] == 0);
+    CHECK(lit.lights[0].toLight[1] == 1 && std::fabs(lit.ambient[0] - 0.35f) < 1e-5f); // towards it: up
+    // A map with no lights of its own: the page's.
+    BznMap none;
+    CHECK(MapPage::lightingOf(none).lights.size() == 1 && MapPage::lightingOf(none).ambient[0] > 0.3f);
+}
+
 // An emitter's particles: a spray's fired each period within the last
 // lifespan, moving along its axis and growing; a cloud's within its radius.
 void testParticles() {
@@ -272,4 +299,5 @@ static const reluva::test::Suite
                                    {"colours", [](const std::filesystem::path &) { testColours(); }},
                                    {"overview", [](const std::filesystem::path &) { testOverview(); }},
                                    {"particles", [](const std::filesystem::path &) { testParticles(); }},
+                                   {"lighting", [](const std::filesystem::path &) { testLighting(); }},
                                });

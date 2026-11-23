@@ -64,6 +64,14 @@ public:
      */
     static Camera overviewOf(const gfx::Vec3 &target, float height = 450, float turn = 0);
 
+    /**
+     * How the game lights a map: its directional lights ("dlight"), each
+     * its colour shining along its front axis, and its settings' colour as
+     * the ambient light, all 1.75 times as bright; a map with none is lit
+     * as the Models page is.
+     */
+    static SodMeshes::Lighting lightingOf(const BznMap &map);
+
     /** How an object's definition is drawn: its model, and the scale. */
     struct Look {
         std::string model; // empty: none (dont_load_SOD, or no definition)

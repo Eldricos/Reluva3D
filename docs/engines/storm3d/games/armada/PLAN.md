@@ -67,8 +67,9 @@ these phases start from, is in [formats/install.md](formats/install.md).
    camera from its memory, so a map drawn from it matches the original's
    frame, and moves in play: on a parabola as it zooms, turning, and
    scrolling ([systems/camera.md](systems/camera.md)), with the planets'
-   glows and the emitters' particles. Next: how planets are lit, and
-   the shroud.
+   glows, the emitters' particles, and the maps' own lights as the
+   game's draws show them. Next: the shroud, and maps with no lights of
+   their own.
 6. **The front end:** the shell's screens, the opening movie, game setup,
    options, loading and saving.
 7. **Rules:** units from their object definitions: movement and

@@ -101,9 +101,8 @@ fields matches: in every map they come to the number the settings give.
 A directional light (`dlight`) has, after its transform, three floats
 of colour ((0.357, 0.408, 0.49) and (0, 0.294, 0.592) in `fed1.bzn`'s
 two) and a second position a little way along its front axis, the way
-it shines *(inferred)*. Lit by them, with the settings' 0.267 as the
-ambient light, the planet Barisa comes out darker than the original
-draws it, evenly bright: how the game lights its planets isn't known.
+it shines *(inferred)*. They, and the settings' colour as the ambient
+light, are how the game lights the map ([Lighting](#lighting)).
 
 ### After the objects
 
@@ -132,6 +131,24 @@ in `fulltech.bzn`. Each is seven fields:
 
 A mission's script moves its ships along them, by name. A patrol's last
 point is its first.
+
+### Lighting
+
+Storm3D lights its vertices itself and hands them to Direct3D coloured
+([research/startup-trace.md](../research/startup-trace.md#how-it-draws)),
+so a frame's draws (the host's `-draws`) show its lighting. The planet
+Barisa's 198 vertices in frame 6,100 of "Premonitions", each placed
+back in the world through the camera read
+from memory ([systems/camera.md](../systems/camera.md)), have the colour
+
+> 1.75 × (the settings' colour + Σ each light's colour × max(0, n · towards it))
+
+where n is the vertex's direction from the planet's centre: on average
+within 0.014 (of 1), at worst 0.094. Fitted channel by channel instead,
+the lights come out 1.69, 1.61 and 1.60 times, the ambient 0.47 to 0.50:
+so one factor fits about as well. Where 1.75 comes from isn't known, nor
+whether ships are lit the same way, nor how a map without directional
+lights is lit (most maps', and their settings' colour, are 0).
 
 ### Start positions (`.mdf`)
 
@@ -170,6 +187,9 @@ as the file says.
   P from path to path; T looks from straight above, as the map's picture
   does, and G as the game does on starting
   ([systems/camera.md](../systems/camera.md)).
+
+  A map is lit by its own lights, as above (`MapPage::lightingOf`); one
+  without directional lights by the page's own light.
 
   An asteroid field (`mafield`, `classLabel "asteroidfield"`) has no
   model: its definition gives 10 to 15 asteroids within a radius of 100.

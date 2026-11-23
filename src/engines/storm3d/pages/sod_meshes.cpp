@@ -402,9 +402,14 @@ void SodMeshes::drawPart(const Part &part, const gfx::Mat4 &place, bool behind) 
         call.state.depthWrite = false;
     } else {
         call.rgbSource = gfx::ColorSource::kLighting;
-        call.ambientLight = {0.35f, 0.35f, 0.38f};
-        call.directedLight = {0.8f, 0.8f, 0.75f};
-        call.lightDirection = {0.42f, 0.74f, 0.52f};
+        call.ambientLight = _lighting.ambient;
+        for (size_t i = 0; i < _lighting.lights.size() && i < 3; ++i) {
+            const Lighting::Directed &l = _lighting.lights[i];
+            if (i == 0)
+                call.directedLight = l.colour, call.lightDirection = l.toLight;
+            else
+                call.fillLight[i - 1] = l.colour, call.fillDirection[i - 1] = l.toLight;
+        }
         if (part.drawMode == "alphathreshold")
             call.state.alphaTest = gfx::AlphaTest::kGe128;
     }

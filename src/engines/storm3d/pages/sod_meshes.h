@@ -147,6 +147,21 @@ public:
      */
     static std::vector<Particle> particlesAt(const EmitterPart &emitter, double seconds);
 
+    /**
+     * How the models are lit: an ambient light, and up to three from
+     * directions (a colour each, and the way to it, in the game's
+     * coordinates). By default, a light of the page's own.
+     */
+    struct Lighting {
+        gfx::Vec3 ambient{0.35f, 0.35f, 0.38f};
+        struct Directed {
+            gfx::Vec3 colour{};
+            gfx::Vec3 toLight{0, 1, 0};
+        };
+        std::vector<Directed> lights{{{0.8f, 0.8f, 0.75f}, {0.42f, 0.74f, 0.52f}}};
+    };
+    void setLighting(const Lighting &lighting) { _lighting = lighting; }
+
     /** A colour animation's colour at a time, looping over its length. */
     static std::array<float, 3> colourAt(const SpriteTable::Animation &a, double seconds);
 
@@ -170,6 +185,7 @@ private:
     gfx::Vec3 _up{0, 1, 0};
     double _seconds = 0;
     bool _showDamage = false;
+    Lighting _lighting;
 };
 
 } // namespace reluva::storm3d
