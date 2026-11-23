@@ -43,12 +43,10 @@ void writeSystemTime(Cpu &c, uint32_t at, std::time_t t, bool local) {
         c.write16(at + 2 * uint32_t(i), fields[i]);
 }
 
-// 100-nanosecond intervals since 1601, as a FILETIME counts them.
-uint64_t fileTimeNow() {
-    const auto since1970 =
-        std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
-            .count();
-    return uint64_t(since1970) * 10 + 116444736000000000ull;
+// 100-nanosecond intervals since 1601, as a FILETIME counts them, from
+// microseconds since 1970.
+uint64_t fileTime(uint64_t since1970) {
+    return since1970 * 10 + 116444736000000000ull;
 }
 
 // What GetPrivateProfileString reads: a key's value in a section of an INI
@@ -208,16 +206,16 @@ void GameProcess::addSystem() {
             c.write8(c.arg(2) + uint32_t(i), i < value.size() ? uint8_t(value[i]) : 0);
         return uint32_t(value.size() + 1);
     });
-    stdcall(k, "GetLocalTime", 1, [](Cpu &c) {
-        writeSystemTime(c, c.arg(0), std::time(nullptr), true);
+    stdcall(k, "GetLocalTime", 1, [this](Cpu &c) {
+        writeSystemTime(c, c.arg(0), std::time_t(wallClockMicros() / 1000000), true);
         return 0u;
     });
-    stdcall(k, "GetSystemTime", 1, [](Cpu &c) {
-        writeSystemTime(c, c.arg(0), std::time(nullptr), false);
+    stdcall(k, "GetSystemTime", 1, [this](Cpu &c) {
+        writeSystemTime(c, c.arg(0), std::time_t(wallClockMicros() / 1000000), false);
         return 0u;
     });
-    stdcall(k, "GetSystemTimeAsFileTime", 1, [](Cpu &c) {
-        const uint64_t t = fileTimeNow();
+    stdcall(k, "GetSystemTimeAsFileTime", 1, [this](Cpu &c) {
+        const uint64_t t = fileTime(wallClockMicros());
         c.write32(c.arg(0), uint32_t(t));
         c.write32(c.arg(0) + 4, uint32_t(t >> 32));
         return 0u;

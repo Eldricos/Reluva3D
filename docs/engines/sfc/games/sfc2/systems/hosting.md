@@ -341,7 +341,10 @@ known.
   `-fixed-clock` runs the program's clock by the instructions run (40,000
   a millisecond), its sleeps, and a millisecond each time every thread
   waits (without that, a tutorial waiting on the clock stood still for
-  good), so a run with the same input repeats
+  good), and the date and time of day it's told (`GetLocalTime` and the
+  like) from 1 January 2001 moving on with that clock (the game seeds its
+  random numbers from them: a campaign's ship names and missions came out
+  different each run), so a run with the same input repeats
   frame for frame and input lands on the same screens.
 - **Not yet:** the network (DirectPlay itself), the opening movie;
   a skirmish played with input, the tutorials and a campaign.

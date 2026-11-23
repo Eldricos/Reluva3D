@@ -11,6 +11,7 @@
 #include "emulation/x86/miles.h"
 #include "emulation/x86/win32.h"
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -68,6 +69,17 @@ public:
 
     /** Told of each INI setting the program reads: the file, [section] and key. */
     std::function<void(const std::string &what)> iniReads;
+    /**
+     * The date and time of day the program is told (its GetLocalTime and the
+     * like), in microseconds since 1970: by default the host's; a tool may
+     * fix it, for runs that repeat (the game seeds its random numbers from it).
+     */
+    std::function<uint64_t()> wallClockMicros = [] {
+        return uint64_t(
+            std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+                .count());
+    };
+
     /** Told of each registry value the program writes, once it's kept. */
     std::function<void(const std::string &key, const std::string &name)> registryWritten;
 

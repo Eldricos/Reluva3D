@@ -226,6 +226,11 @@ int cmdHost(int argc, char **argv) {
             return uint32_t(cpu.executed() / kInstructionsPerMs + process.slept() + idleMs);
         };
         process.idleTick = [&idleMs] { ++idleMs; };
+        // And the date, from 1 January 2001, moving on with that clock.
+        game.wallClockMicros = [&process] {
+            constexpr uint64_t kStart = 978307200ull * 1000000; // 2001-01-01, in microseconds since 1970
+            return kStart + uint64_t(process.milliseconds()) * 1000;
+        };
     }
     process.output = [](const std::string &text) { std::printf("program: %s", text.c_str()); };
     game.fileOpened = [quiet](const std::string &path, bool found) {
