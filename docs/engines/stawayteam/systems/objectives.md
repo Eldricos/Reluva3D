@@ -41,7 +41,30 @@ has:
   `CNeedItemMissionObjective` `Item Needed`. Rescues: Data (Mission 05),
   Worf (Mission 08, its Fail Action the mission failed: "You have allowed
   Ambassador..."), and Mission 13's added ones, `$instigator`, their line
-  "Rescue %s.". The map's actions complete them.
+  "Rescue %s.". The map's actions complete them, and so do their own
+  rules, below.
+
+### The objectives' own rules
+
+The manager tells each objective still to do of every death (`0x5b7880`,
+after the "Died" sequence, `0x494eae`) and of everyone joining the team
+(`0x5be8e0`); each judges it (`0x50c870`):
+
+- **Protect** (`0x50b610`): its whom dead, it's failed.
+- **Rescue** (`0x50c0d0`): its whom dead, it's failed; its whom joining
+  the team, it's complete (Mission 16's Brexen, taken off the team and
+  then back; Data, Worf).
+- **Need item** (`0x50bb20`): someone dead, and no one living on the
+  team holding its `Item Needed`, used up or not, it's failed. None of
+  the missions has one.
+
+A protect's or rescue's `$trigger` or `$instigator` is made the name of
+that part or officer as it's added (`0x50c270`). An objective's status
+set (`0x50a1f0`): Failed runs its Fail Action, Complete its Success
+Action, and the manager looks again: with every required objective not
+Disabled complete, those still Incomplete are failed without their
+actions, and its Win Action runs, once (`0x50c9d0`). A required one
+failed doesn't end the mission by itself: the maps' Fail Actions do.
 
 Mission 01 has three: rescue the two scientists (a count of 2, required),
 free the pinned-down warriors (a count of 3, not required), and retrieve
@@ -165,14 +188,15 @@ then those added, and runs the actions above. A count's Count is added,
 and at its Count Before Success the objective is complete *(inferred)*.
 An objective completed runs its Success Action, failed its Fail Action;
 with every objective that's required and not disabled complete, the
-others still to do fail, without their Fail Actions *(inferred)*, and the
-Win Action runs, once. Each
-spawn point's Spawn Action runs as the map starts, its officer the
-instigator *(inferred)*; a protect objective's `$instigator` is that
-officer, and it fails as they fall *(inferred)*. A rescue fails likewise
-as its officer falls, or as the character of its name is killed, till
-they've joined the team; its "%s" is their name *(inferred)*. A part's
-Destroyed Action runs as an enemy is killed.
+others still to do fail, without their Fail Actions, and the Win Action
+runs, once. Each spawn point's Spawn Action runs as the map starts, its
+officer the instigator *(inferred)*; a protect objective's `$instigator`
+is that officer. Their own rules are as above: a protect or rescue
+fails as their officer, the character of its name, or an officer's
+stand-in off the team dies; a rescue's complete as they join the team,
+or come back to it; a need-item objective fails as someone dies with no
+one living on the team holding its item. A rescue's "%s" is their name
+*(inferred)*. A part's Destroyed Action runs as an enemy is killed.
 
 The objectives window (`ui/objectives_window.cpp`) opens from the
 objectives button and O, listing the objectives shown; RESUME or Esc
@@ -208,8 +232,7 @@ found left out, those overridden by an item found as that
 (`resolveInventories`, `game/team.cpp`), and the items a mission needs
 likewise.
 
-Not there yet: need-item objectives' own rules, and the found items
-being what the team selection offers.
+Not there yet: the found items being what the team selection offers.
 
 ## Sources and checks
 
@@ -233,11 +256,6 @@ being what the team selection offers.
 
 ## Open questions
 
-- **The manager:** whether a failed required objective ends the mission
-  by itself, and whether the objectives failed on winning run their Fail
-  Actions.
-- **Rescue and need-item objectives:** whether the program completes or
-  fails them itself, or only the maps' actions do.
 - **The windows:** where they're placed, whether the game's held still
   under them, and what the Objectives Menu's `Placar Condensed` font is
   for.

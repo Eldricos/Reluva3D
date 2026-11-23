@@ -162,8 +162,15 @@ void MapScreen::setObjectiveStatus(size_t objective, ObjectiveStatus status) {
     }
 }
 
+// The objectives are told of each death (0x5b7880, after its "Died"
+// sequence, 0x494eae) and each joining the team (0x5be8e0), those still
+// to do each judging it (0x50c870); "$instigator" or "$trigger" in a
+// protect's or rescue's whom is made the name of who that is as it's
+// added (0x50c270).
+
 void MapScreen::officerFell(size_t officer) {
-    // Who's protected or to be rescued has failed to be (inferred).
+    // Who's protected or to be rescued, dead, has failed to be (0x50b610,
+    // 0x50c0d0).
     for (size_t i = 0; i < _progress->objectives.size(); ++i) {
         const Objective &o = _progress->objectives[i];
         if (o.officer == int(officer) &&
@@ -171,19 +178,49 @@ void MapScreen::officerFell(size_t officer) {
             o.status == ObjectiveStatus::kIncomplete)
             setObjectiveStatus(i, ObjectiveStatus::kFailed);
     }
+    checkNeedItems();
 }
 
 void MapScreen::partFell(size_t part) {
-    // A character killed who was to be rescued or protected, by name: that
-    // objective fails (Mission 08's Worf: the mission's lost; inferred).
+    // A character killed who was to be rescued or protected, by name, or
+    // an officer off the team in their stand-in: that objective fails
+    // (Mission 08's Worf: the mission's lost).
     const std::string name = lower(_map.parts[part].name);
-    if (name.empty())
-        return;
     for (size_t i = 0; i < _progress->objectives.size(); ++i) {
         const Objective &o = _progress->objectives[i];
-        if (o.officer < 0 && lower(o.who) == name &&
-            (o.className == "CProtectMissionObjective" || o.className == "CRescueMissionObjective") &&
+        const bool them =
+            o.officer >= 0 ? size_t(o.officer) < _officers.size() && _officers[size_t(o.officer)].standIn == int(part)
+                           : !name.empty() && lower(o.who) == name;
+        if (them && (o.className == "CProtectMissionObjective" || o.className == "CRescueMissionObjective") &&
             o.status == ObjectiveStatus::kIncomplete)
+            setObjectiveStatus(i, ObjectiveStatus::kFailed);
+    }
+    checkNeedItems();
+}
+
+void MapScreen::joinedTeam(size_t officer) {
+    // Who was to be rescued is (0x50c103).
+    for (size_t i = 0; i < _progress->objectives.size(); ++i) {
+        const Objective &o = _progress->objectives[i];
+        if (o.officer == int(officer) && o.className == "CRescueMissionObjective" &&
+            o.status == ObjectiveStatus::kIncomplete)
+            setObjectiveStatus(i, ObjectiveStatus::kComplete);
+    }
+}
+
+void MapScreen::checkNeedItems() {
+    // Failed once no one on the team still living has the item among
+    // theirs, used up or not (0x50bb20). None of the missions has one.
+    for (size_t i = 0; i < _progress->objectives.size(); ++i) {
+        const Objective &o = _progress->objectives[i];
+        if (o.className != "CNeedItemMissionObjective" || o.item.empty() || o.status != ObjectiveStatus::kIncomplete)
+            continue;
+        bool held = false;
+        for (const Officer &officer : _officers)
+            if (officer.alive() && officer.standIn < 0)
+                for (const Officer::Held &h : officer.items)
+                    held = held || h.name == o.item;
+        if (!held)
             setObjectiveStatus(i, ObjectiveStatus::kFailed);
     }
 }
@@ -255,6 +292,7 @@ bool MapScreen::runTeamAction(const TextObject *action, int instigator, int trig
                     o.standIn = -1;
                     _partStates[part].deleted = true;
                     back = true;
+                    joinedTeam(size_t(&o - _officers.data()));
                 }
             if (back)
                 continue;
@@ -276,6 +314,7 @@ bool MapScreen::runTeamAction(const TextObject *action, int instigator, int trig
             for (Objective &o : _progress->objectives)
                 if (o.officer < 0 && lower(o.who) == lower(p.name))
                     o.officer = int(officer);
+            joinedTeam(officer);
         }
     } else if (kind == "CRemoveFromTeamAction") {
         // They leave the team but stay where they are, a part of the map in
@@ -378,7 +417,8 @@ bool MapScreen::runMissionAction(const TextObject *action, int instigator) {
     } else if (kind == "CSetMissionObjectiveDisplayStatusAction") {
         const bool visible = readText(action, "Display Status") != "Hidden";
         named([&](size_t i) { _progress->objectives[i].visible = visible; });
-    } else if (kind == "CStarTrekRelocateTeamAction" || kind == "CStarTrekRelocateAction") {
+    } else if (kind == "CStarTrekRelocateTeamAction" || kind == "CStarTrekRelocateAction" ||
+               kind == "CStarTrekRelocateGroupAction") {
         // The officers in its Touching Poly, or else Who To Switch (the
         // instigator, or an officer by name), only those chosen with Only
         // Relocated Selected Members, go to New Location on New Map Name,
@@ -402,6 +442,11 @@ bool MapScreen::runMissionAction(const TextObject *action, int instigator) {
             bool in = false;
             if (!area.empty())
                 in = inside(area, o.x, o.y);
+            else if (kind == "CStarTrekRelocateGroupAction")
+                // Its Group Name, the movement group a process's
+                // CGotoTargetsAI sent (Mission 18's "video room #1-5#"):
+                // whoever set it off and those chosen with them (inferred).
+                in = int(i) == instigator || o.chosen;
             else if (who == "$instigator")
                 in = int(i) == instigator;
             else

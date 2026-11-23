@@ -54,10 +54,6 @@ None yet.
   mission as it began, and loading one starts that mission again from
   its briefing; the save screens' picture and random numbers aren't
   shown ([systems/menus.md](systems/menus.md#saved-games)).
-- **Objectives:** rescue and need-item objectives are only done
-  as the triggers say; parts other than the team aren't moved between a
-  mission's maps
-  ([systems/objectives.md](systems/objectives.md#in-reluva)).
 - **Items:** a part beamed away fades rather than dissolving through its
   warp effect's noise ([systems/items.md](systems/items.md#in-reluva)).
 - **The briefing:** the text has no scroll bar (the mouse wheel

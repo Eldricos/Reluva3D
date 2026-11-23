@@ -41,6 +41,7 @@ Objective readObjective(const TextObject &o) {
     out.who = text(o, "WhoToProtect");
     if (out.who.empty())
         out.who = text(o, "WhoToRescue");
+    out.item = text(o, "Item Needed");
     return out;
 }
 

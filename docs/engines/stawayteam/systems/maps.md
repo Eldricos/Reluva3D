@@ -361,7 +361,10 @@ each officer ("to lower bay 1" to "to lower bay 4" on the Security
 Deck), or a list (Mission 15's "space1,space2,space3,space4").
 `CStarTrekRelocateAction` (7) moves `Who To Switch` alone, `Relative
 Position` or not; one of Mission 16's names no map, moving them on the
-same one. `CStarTrekRelocateGroupAction` (4) moves a `Group Name`.
+same one. `CStarTrekRelocateGroupAction` (4, all Mission 18's) moves a
+`Group Name`: the movement group of a process's `CGotoTargetsAI`, the
+officers it sent to "video room #1-5#". Every relocation in the game
+moves officers: Mission 16's "Brexen Ijoula" is one of its team.
 
 ### The music
 
@@ -992,7 +995,9 @@ A mission's maps (`ui/main_menu.cpp`): each is loaded as the team's
 first sent there, its parts as they start, and kept while the mission
 lasts, those the team isn't on going on meanwhile *(inferred)*. A
 relocation's officers are those in its polygon, or else Who To Switch,
-only the chosen ones if it says; each leaves their map and arrives at
+only the chosen ones if it says; a group's, whoever set it off and
+those chosen with them *(inferred: the process's movement group, which
+Reluva doesn't keep)*; each leaves their map and arrives at
 their place, the place's number as they go, or the list's next, or
 beside the place itself, as they were but with nothing under way
 *(inferred)*; the map's shown, them chosen, if it says. An officer on

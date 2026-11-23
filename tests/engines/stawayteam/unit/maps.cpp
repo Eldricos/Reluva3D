@@ -1395,6 +1395,15 @@ void testMaps() {
     const std::vector<Relocation> moves = first.takeRelocations();
     CHECK(moves.size() == 1 && moves[0].map == "Test B.zax" && moves[0].show);
     CHECK((moves[0].officers == std::vector<int>{0}) && first.takeRelocations().empty());
+    // A group's, with Bo chosen and Ann setting it off, sends them both.
+    TextObject group;
+    CHECK(!readTextObject("CStarTrekRelocateGroupAction\n{\n\tNew Map Name=Test B.zax\n\tNew Location=Landing\n"
+                          "\tWho To Switch=$Instigator\n\tGroup Name=Door Team\n}\n",
+                          group));
+    first.choose(1);
+    first.runAction(&group, 0);
+    const std::vector<Relocation> groupMoves = first.takeRelocations();
+    CHECK(groupMoves.size() == 1 && (groupMoves[0].officers == std::vector<int>{0, 1}));
     // She leaves the first and arrives at the landing, as she was.
     float x = 0.0f;
     float y = 0.0f;
@@ -2274,6 +2283,7 @@ void testCompany() {
     ann.field = "Science";
     TeamMember bo;
     bo.firstName = "Bo";
+    bo.inventory = {{"Phaser", 1}};
     MapScreen screen(data, rules, map, options, 0, {ann, bo});
     const auto &officers = screen.officers();
     const auto &enemies = screen.enemies();
@@ -2310,10 +2320,22 @@ void testCompany() {
     blast.weaponDamage = 1000.0f;
     screen.hurtEnemy(0, blast, -1, false);
     CHECK(screen.objectives()[0].status == ObjectiveStatus::kFailed);
-    // The helper joins the team where it stands, its part gone.
+    // The helper, to be rescued too, joins the team where it stands, its
+    // part gone: its rescue's done. A need-item objective for Bo's
+    // phaser holds while Bo lives, and fails as Bo dies, no one else
+    // having one.
+    act("CAddMissionObjectiveAction\n{\nObjective=CRescueMissionObjective\n{\nObjective Name=Rescue Helper\n"
+        "Mission Status=Incomplete\nWhoToRescue=Helper\n}\n}\n");
+    act("CAddMissionObjectiveAction\n{\nObjective=CNeedItemMissionObjective\n{\nObjective Name=Keep\n"
+        "Mission Status=Incomplete\nItem Needed=Phaser\n}\n}\n");
     act("CAddToTeamAction\n{\nWho To Add=Helper\n}\n");
     CHECK(officers.size() == 3 && screen.team()[officers[2].member].name() == "Helper" && officers[2].x == 1200.0f &&
           screen.partState(enemies[1].part).deleted);
+    CHECK(screen.objectives()[1].status == ObjectiveStatus::kComplete);
+    screen.hurtEnemy(2, blast, -1, false);
+    CHECK(screen.objectives()[2].status == ObjectiveStatus::kIncomplete);
+    screen.hurtOfficer(1, blast, false);
+    CHECK(!officers[1].alive() && screen.objectives()[2].status == ObjectiveStatus::kFailed);
     // The sleeper paused and let go.
     act("CPauseActorAction\n{\nTarget=Sleeper\n}\n");
     CHECK(enemies[2].held == MapScreen::kHeldForever);

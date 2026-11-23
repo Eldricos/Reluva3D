@@ -376,6 +376,8 @@ public:
      * `weapon`: stunning it with `stun`, else hurting it.
      */
     void hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attacker, bool stun);
+    /** A shot at officer `officer` with `weapon`: stunning them with `stun`, else hurting them. */
+    void hurtOfficer(size_t officer, const ItemDefinition &weapon, bool stun);
     // What officer `officer`'s weapons' damage and range are multiplied by:
     // more while they're enhanced; 1 for anyone else.
     float enhancement(int officer) const;
@@ -669,9 +671,6 @@ private:
     // A line of a script of Levels/; empty if there's none.
     std::string describe(const std::string &script, const std::string &line) const;
     const ItemDefinition *itemOf(const Officer &o) const;
-    // A shot at officer `officer`: hurting them, or, from a weapon set to
-    // `stun`, stunning them.
-    void hurtOfficer(size_t officer, const ItemDefinition &weapon, bool stun);
     // The sequence a character's drawn with, and how far into it, for one
     // shooting or fallen; empty for neither.
     std::string combatSequence(float shooting, float dead, float stunned, int &frame, const std::string &model,
@@ -691,7 +690,14 @@ private:
     bool runMissionAction(const TextObject *action, int instigator);
     void setObjectiveStatus(size_t objective, ObjectiveStatus status);
     void addObjective(Objective o, int instigator);
+    // Officer `officer` dead: whose rescue or protection fails, and the
+    // items needed checked.
     void officerFell(size_t officer);
+    // Officer `officer` on the team, joining or back: their rescue's done.
+    void joinedTeam(size_t officer);
+    // Someone dead: a need-item objective whose item no one living on the
+    // team holds has failed.
+    void checkNeedItems();
     void runSpawnActions();
     void endMission(bool completed, const std::string &script, const std::string &line);
     // The team's noises: ageing, and their rings shown (map_noise.cpp).

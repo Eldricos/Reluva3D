@@ -37,6 +37,7 @@ struct Objective {
     int count = 0;
     std::string who;  // whom a protect or rescue objective is about ("$instigator", a part's name)
     int officer = -1; // the officer it protects, once known
+    std::string item; // a need-item objective's Item Needed
 };
 
 /** Reads an objective; its actions point into `o`, which must outlive it. */
