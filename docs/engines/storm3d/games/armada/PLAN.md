@@ -38,13 +38,15 @@ these phases start from, is in [formats/install.md](formats/install.md).
    lights and emitters, which way their faces wind, and comparing the
    movies with Armada's own `binkw32.dll`.
 4. **The original as a reference** (in progress): `Armada.exe` runs in
-   Reluva's x86 emulator through its start-up: its DLLs, the
+   Reluva's x86 emulator through its start-up (its DLLs, the
    configuration, the display mode, the sprite tables and their textures,
-   to reading `events.odf` ([systems/hosting.md](systems/hosting.md)),
-   tracing the files it opens and the frames it shows
-   (`reluva-tool storm3d host`). Its exports and classes are in
-   [research/](research/README.md). Next: the C++ library's string
-   streams, measured from the program's code, then on to its front end.
+   `events.odf`) to its main menu, which shows as it should: a modal
+   dialog painted with GDI, its Bink panels playing through DirectDraw
+   ([systems/hosting.md](systems/hosting.md)). It traces the files it
+   opens and the frames it shows (`reluva-tool storm3d host`). Its exports
+   and classes are in [research/](research/README.md). Next: passing the
+   mouse and keys to it, to go from the menu into a skirmish, and GDI's
+   text.
 5. **Maps and the scene:** `.bzn` and `.mdf`, the starfield and nebulae,
    planets, moons and asteroids, the camera (`RTS_CFG.h`'s limits), the
    ships. A skirmish map shown and moved around, checked against the

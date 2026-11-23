@@ -14,4 +14,4 @@ copy.
 |---|---|
 | [script-api.md](script-api.md) | The 213 functions and variables of `Armada.exe` that the missions' and the computer player's DLLs import, with how many import each |
 | [classes.md](classes.md) | The 459 classes the program's run-time type information names |
-| [startup-trace.md](startup-trace.md) | The retail program's start-up in the emulator: the files it opens, in order, and where the run has stopped so far |
+| [startup-trace.md](startup-trace.md) | The retail program's start-up in the emulator, to its main menu: the files it opens, in order, and where the run stopped on the way |

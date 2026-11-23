@@ -10,9 +10,11 @@ its own DLLs and Reluva's stand-ins for Windows. It's a tool for working
 on the engine, never how the game is played: the plan is a native Armada
 ([PLAN.md](../PLAN.md)).
 
-So far it runs the program's start-up: the configuration, the display
-mode, the sprite tables and their textures, up to reading `events.odf`
-([research/startup-trace.md](../research/startup-trace.md)).
+It runs the program's start-up (the configuration, the display mode, the
+sprite tables and their textures, `events.odf`) and its main menu, which
+it shows as on Windows and keeps showing, its Bink panels playing
+([research/startup-trace.md](../research/startup-trace.md)). Nothing is
+clicked yet, so the run goes no further than the menu.
 
 ## How it works
 
@@ -30,9 +32,10 @@ functions from 18 DLLs:
 | `WonInterface.dll`, `binkw32.dll`, `Strlkup.dll`, `IMAGEHLP.dll` | 57 | the install's own DLLs, loaded and run |
 
 DirectDraw and Direct3D 7 it loads itself, at run time, from Reluva's
-stand-ins ([directx.md](../../../../../common/x86/directx.md)). 148 of the
-imports have no stand-in yet; a call to one stops the run, naming it, so
-they're added in the order the program needs them.
+stand-ins ([directx.md](../../../../../common/x86/directx.md)). 69 of the
+imports have no stand-in yet (most of them KERNEL32's, WINMM's and
+MSVCRT's, and AVIFIL32's movies); a call to one stops the run, naming it,
+so they're added in the order the program needs them.
 
 ### Setting up the process
 
@@ -58,6 +61,14 @@ Two facts it settled about the files: textures are read from
 `.tga` the program opens `.1`, `.2` and on until one is missing: its
 mipmap levels ([formats/textures.md](../formats/textures.md)).
 
+And how the front end is built: the main menu is a modal dialog (template
+0x123, with no controls) run by the program's own dialog procedure. It
+paints the background (`bitmaps\main\mainbk.bmp`) and the labels with
+GDI, each label blitted through a mask against the colour key
+`0xff00ff`, while four Bink movies play in panels through DirectDraw.
+On Windows both land on the display; in Reluva, GDI draws on DirectDraw's
+primary surface for the same reason.
+
 ## In Reluva
 
 `reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N]
@@ -76,14 +87,18 @@ each, its imports, and its classes ([research/](../research/README.md)).
 - **Where the facts come from:** the program running in the emulator;
   its imports and exports from its PE headers.
 - **How it was checked:** each stand-in added for it is tested on its own
-  in `common.unit.windows` ("a hosted program's needs", and `msvcp60` for
-  the C++ library), and the engines hosting other programs (`nfs`,
-  `netimmerse`) pass their tests with them.
+  in `common.unit.windows` ("a hosted program's needs", "a dialog",
+  "GDI's drawing", and `msvcp60` for the C++ library), and the engines
+  hosting other programs (`idtech3`, `nfs`, `netimmerse`) pass their tests
+  with them. The run's frames were looked at: the background is
+  `mainbk.bmp` as it is, the labels sit on it without their key colour,
+  and the panels move from frame to frame. It hasn't been set beside the
+  game running on Windows.
 
 ## Open questions
 
-- The C++ library's string streams (`basic_istringstream`,
-  `basic_stringstream`, `strstream`), which the program builds inline: their
-  layouts have to be measured from its code before Reluva's library can
-  have them. The run stops there now.
+- Input: the host passes no mouse or keys yet, so the run stays on the
+  main menu. Going on into the game needs clicks at the labels.
+- Text: GDI measures text but draws none (there are no fonts), so what
+  the menu writes with `DrawTextExA` (in red, at the start) isn't seen.
 - Its sound, while DirectSound isn't stood in for.
