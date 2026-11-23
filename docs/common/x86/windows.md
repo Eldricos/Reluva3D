@@ -141,7 +141,14 @@ C++ library have pages of their own ([directx.md](directx.md),
     brush as the pattern. Between colour and monochrome, as Windows
     converts: a monochrome source's 0 is the destination's text colour
     and 1 its background colour; a colour source's background colour is
-    1. That's what a masked blit with a colour key needs.
+    1, matched as the source's device stores colours (on a 15- or 16-bit
+    one, without the low bits it can't hold, so a key 0xff00ff read back
+    from a 16-bit screen as 0xf800f8 is still the key). That's what a
+    masked blit with a colour key needs.
+  - A window draws only where no shown window above it is: the top-level
+    windows made after its own are taken as above it (no other order is
+    kept). So a program's main window, drawing over the whole screen,
+    doesn't cover its dialog, as on Windows.
   - `FillRect` (a brush, or a system colour's index + 1, in Windows 98's
     standard scheme), `SetPixel`, `GetPixel`, `Polyline` (each line
     without its last point).
@@ -172,7 +179,18 @@ C++ library have pages of their own ([directx.md](directx.md),
   and is left for the program. Its procedure is called for its messages
   as a window procedure would be. The controls keep their text, numbers
   as text, and checks (`GetDlgItem`, `SetDlgItemTextA` and the like);
-  they have no procedures, so what's sent them gets 0. `SetTimer` and
+  they have no procedures, so what's sent them gets 0, but for list
+  boxes and combo boxes. Those keep a list: added to (sorted with
+  `LBS_SORT` or `CBS_SORT`), inserted into, deleted from, searched, its
+  items' text and data read, one selected (the `LB_` messages, and the
+  `CB_` ones as theirs; a combo box's text is its selected item). An
+  owner-drawn list box is measured once, before `WM_INITDIALOG`
+  (`WM_MEASUREITEM`), and its shown items are drawn by the dialog's
+  procedure after it paints (`WM_DRAWITEM`, the selected one marked); a
+  click on it selects the item under it, and with `LBS_NOTIFY` tells the
+  dialog (`LBN_SELCHANGE`, and `LBN_DBLCLK` for the same item again
+  within half a second). A control's place is in its dialog's client
+  area. `SetTimer` and
   `KillTimer` keep timers for the queue (at least 10 ms).
 - **`win32_mci.cpp`: MCI's CD audio.** `mciSendCommandA` opens the CD-ROM
   drive's `cdaudio` device (by name, or by type number, 516; the drive as
@@ -344,6 +362,11 @@ executable's entry point on the main thread until it ends the process.
   an "A" that's a box): where its box falls, its measure, `DrawTextA`
   sizing and centring, the opaque background, the font asked for once;
   and measures without a font.
+- It fills a hidden combo box and an owner-drawn, sorted list box in a
+  dialog, reads them back, has the list box measured and its items drawn
+  by the dialog, and clicks one, the dialog told; a window drawn over
+  where another lies above it, which stays; and a mask made against a
+  colour key as a 16-bit device holds it.
 - It runs a modal dialog from a template in a DLL made in the test, with
   a native dialog procedure: the messages in order (`WM_INITDIALOG` with
   its first control, showing, one `WM_PAINT`, a `WM_TIMER`, a click it

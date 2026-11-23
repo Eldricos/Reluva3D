@@ -10,6 +10,8 @@
 
 #include "emulation/x86/win32.h"
 
+#include "common/text.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
@@ -20,6 +22,54 @@
 namespace reluva::x86 {
 
 namespace {
+
+// List boxes: their messages, styles and notifications, and what owner
+// drawing passes.
+enum : uint32_t {
+    kLbAddString = 0x180,
+    kLbInsertString = 0x181,
+    kLbDeleteString = 0x182,
+    kLbResetContent = 0x184,
+    kLbSetCurSel = 0x186,
+    kLbGetSel = 0x187,
+    kLbGetCurSel = 0x188,
+    kLbGetText = 0x189,
+    kLbGetTextLen = 0x18a,
+    kLbGetCount = 0x18b,
+    kLbSelectString = 0x18c,
+    kLbGetTopIndex = 0x18e,
+    kLbFindString = 0x18f,
+    kLbSetTopIndex = 0x197,
+    kLbGetItemRect = 0x198,
+    kLbGetItemData = 0x199,
+    kLbSetItemData = 0x19a,
+    kLbSetCaretIndex = 0x19e,
+    kLbGetCaretIndex = 0x19f,
+    kLbSetItemHeight = 0x1a0,
+    kLbGetItemHeight = 0x1a1,
+    kLbFindStringExact = 0x1a2,
+    kLbErr = 0xffffffffu,
+    kLbsNotify = 0x1,
+    kLbsSort = 0x2,
+    kLbsOwnerDrawFixed = 0x10,
+    kLbsOwnerDrawVariable = 0x20,
+    kLbsHasStrings = 0x40,
+    kLbnSelChange = 1,
+    kLbnDblClk = 2,
+    kWmCommand = 0x111,
+    kWmDrawItem = 0x2b,
+    kWmMeasureItem = 0x2c,
+    kWmLButtonDownMsg = 0x201,
+    kWmLButtonDblClkMsg = 0x203,
+    kOdtListBox = 2,
+    kOdaDrawEntire = 1,
+    kOdsSelected = 1,
+    kWsDisabled = 0x08000000,
+    kCbsSort = 0x100,
+    kWmGetText = 0xd,
+    kWmGetTextLength = 0xe,
+    kListBoxDoubleClickMs = 500,
+};
 
 enum : uint32_t {
     kWmDestroy = 0x2,
@@ -282,8 +332,27 @@ void Win32Process::addDialogStandIns() {
             w.visible = item.style & kWsVisible;
             w.parent = handle;
             w.id = item.id;
+            w.enabled = !(item.style & kWsDisabled);
+            // A combo box keeps its list as a list box does.
+            if (text::equalsIgnoreCase(item.className, "#131") || text::equalsIgnoreCase(item.className, "listbox") ||
+                text::equalsIgnoreCase(item.className, "#133") || text::equalsIgnoreCase(item.className, "combobox"))
+                w.listBox = Window::ListBox();
             if (!focus && (item.style & kWsTabStop))
                 focus = child;
+        }
+        // An owner-drawn list box of fixed height asks its dialog, once, how
+        // high its items are (WM_MEASUREITEM), before WM_INITDIALOG.
+        for (auto &[child, w] : _windows) {
+            if (w.parent != handle || !w.listBox || !(w.style & kLbsOwnerDrawFixed))
+                continue;
+            const uint32_t mis = memory().alloc(24); // MEASUREITEMSTRUCT
+            const uint32_t fields[6] = {kOdtListBox, w.id, 0, uint32_t(w.width), w.listBox->itemHeight, 0};
+            for (uint32_t k = 0; k < 6; ++k)
+                c.write32(mis + 4 * k, fields[k]);
+            sendMessage(handle, kWmMeasureItem, w.id, mis);
+            if (_windows.count(child) && c.read32(mis + 16))
+                _windows[child].listBox->itemHeight = c.read32(mis + 16);
+            memory().free(mis);
         }
         const bool ownerWasEnabled = _windows.count(owner) && _windows[owner].enabled;
         if (_windows.count(owner))
@@ -434,6 +503,233 @@ void Win32Process::addDialogStandIns() {
         return id ? id : 1u;
     });
     stdcall(u, "KillTimer", 2, [this](Cpu &c) { return _windowTimers.erase({c.arg(0), c.arg(1)}) ? 1u : 0u; });
+}
+
+uint32_t Win32Process::listBoxMessage(uint32_t handle, uint32_t message, uint32_t wParam, uint32_t lParam) {
+    auto it = _windows.find(handle);
+    if (it == _windows.end() || !it->second.listBox)
+        return 0;
+    Window &w = it->second;
+    Window::ListBox &box = *w.listBox;
+    // A combo box's CB_ messages are its list's LB_ ones; its text is the
+    // item selected.
+    const bool combo = text::equalsIgnoreCase(w.className, "#133") || text::equalsIgnoreCase(w.className, "combobox");
+    if (combo) {
+        static const std::pair<uint32_t, uint32_t> kComboToList[] = {
+            {0x143, kLbAddString},   {0x144, kLbDeleteString},  {0x146, kLbGetCount},      {0x147, kLbGetCurSel},
+            {0x148, kLbGetText},     {0x149, kLbGetTextLen},    {0x14a, kLbInsertString},  {0x14b, kLbResetContent},
+            {0x14c, kLbFindString},  {0x14d, kLbSelectString},  {0x14e, kLbSetCurSel},     {0x150, kLbGetItemData},
+            {0x151, kLbSetItemData}, {0x153, kLbSetItemHeight}, {0x154, kLbGetItemHeight}, {0x158, kLbFindStringExact}};
+        bool known = false;
+        for (const auto &[cb, lb] : kComboToList)
+            if (message == cb) {
+                message = lb;
+                known = true;
+                break;
+            }
+        if (!known && (message == kWmGetText || message == kWmGetTextLength)) {
+            const std::string text =
+                box.selected >= 0 && size_t(box.selected) < box.text.size() ? box.text[size_t(box.selected)] : "";
+            if (message == kWmGetTextLength)
+                return uint32_t(text.size());
+            if (!wParam)
+                return 0;
+            const std::string part = text.substr(0, wParam - 1);
+            _cpu.writeString(lParam, part, uint32_t(part.size() + 1));
+            return uint32_t(part.size());
+        }
+        if (!known)
+            return 0;
+    }
+    const bool strings = (w.style & kLbsHasStrings) || !(w.style & (kLbsOwnerDrawFixed | kLbsOwnerDrawVariable));
+    const int count = int(box.data.size());
+    auto changed = [&] {
+        if (auto parent = _windows.find(w.parent); parent != _windows.end())
+            parent->second.invalid = true;
+    };
+    auto valid = [&](uint32_t index) { return int(index) >= 0 && int(index) < count; };
+    auto insert = [&](int at, uint32_t value) {
+        std::string text = strings && value ? _cpu.string(value) : std::string();
+        if (at < 0 || at > count)
+            at = count;
+        box.text.insert(box.text.begin() + at, text);
+        box.data.insert(box.data.begin() + at, strings ? 0 : value);
+        if (box.selected >= at)
+            ++box.selected;
+        changed();
+        return uint32_t(at);
+    };
+    // By prefix, or whole, ignoring case, after the item given (-1: all).
+    auto find = [&](uint32_t after, uint32_t value, bool exact) -> uint32_t {
+        for (int k = 0; k < count; ++k) {
+            const int i = (int(after) + 1 + k) % std::max(count, 1);
+            const bool hit =
+                strings ? (exact ? text::equalsIgnoreCase(box.text[size_t(i)], _cpu.string(value))
+                                 : text::toLower(box.text[size_t(i)]).rfind(text::toLower(_cpu.string(value)), 0) == 0)
+                        : box.data[size_t(i)] == value;
+            if (hit)
+                return uint32_t(i);
+        }
+        return kLbErr;
+    };
+    switch (message) {
+    case kLbAddString: {
+        if (!(w.style & (combo ? kCbsSort : kLbsSort)) || !strings)
+            return insert(count, lParam);
+        // Sorted: before the first that comes after it, ignoring case.
+        const std::string text = _cpu.string(lParam);
+        int at = 0;
+        while (at < count && text::toLower(box.text[size_t(at)]) <= text::toLower(text))
+            ++at;
+        return insert(at, lParam);
+    }
+    case kLbInsertString:
+        return insert(int(wParam), lParam);
+    case kLbDeleteString:
+        if (!valid(wParam))
+            return kLbErr;
+        box.text.erase(box.text.begin() + wParam);
+        box.data.erase(box.data.begin() + wParam);
+        if (box.selected == int(wParam))
+            box.selected = -1;
+        else if (box.selected > int(wParam))
+            --box.selected;
+        changed();
+        return uint32_t(count - 1);
+    case kLbResetContent:
+        box = Window::ListBox{{}, {}, -1, 0, box.itemHeight};
+        changed();
+        return 0;
+    case kLbSetCurSel:
+        box.selected = valid(wParam) ? int(wParam) : -1;
+        changed();
+        return valid(wParam) ? wParam : kLbErr;
+    case kLbGetSel:
+        return valid(wParam) ? uint32_t(box.selected == int(wParam)) : kLbErr;
+    case kLbGetCurSel:
+    case kLbGetCaretIndex:
+        return box.selected < 0 ? kLbErr : uint32_t(box.selected);
+    case kLbSetCaretIndex:
+        return 0;
+    case kLbGetText:
+        if (!valid(wParam))
+            return kLbErr;
+        if (strings)
+            _cpu.writeString(lParam, box.text[wParam], uint32_t(box.text[wParam].size() + 1));
+        else
+            _cpu.write32(lParam, box.data[wParam]);
+        return strings ? uint32_t(box.text[wParam].size()) : 4;
+    case kLbGetTextLen:
+        return valid(wParam) ? (strings ? uint32_t(box.text[wParam].size()) : 4) : kLbErr;
+    case kLbGetCount:
+        return uint32_t(count);
+    case kLbFindString:
+    case kLbFindStringExact:
+        return find(wParam, lParam, message == kLbFindStringExact);
+    case kLbSelectString: {
+        const uint32_t i = find(wParam, lParam, false);
+        if (i != kLbErr) {
+            box.selected = int(i);
+            changed();
+        }
+        return i;
+    }
+    case kLbGetTopIndex:
+        return uint32_t(box.top);
+    case kLbSetTopIndex:
+        if (!valid(wParam) && wParam != 0)
+            return kLbErr;
+        box.top = int(wParam);
+        changed();
+        return 0;
+    case kLbGetItemRect: {
+        if (!valid(wParam) || !_cpu.valid(lParam, 16))
+            return kLbErr;
+        const int y = (int(wParam) - box.top) * int(box.itemHeight);
+        const uint32_t r[4] = {0, uint32_t(y), uint32_t(w.width), uint32_t(y + int(box.itemHeight))};
+        for (uint32_t k = 0; k < 4; ++k)
+            _cpu.write32(lParam + 4 * k, r[k]);
+        return 1;
+    }
+    case kLbGetItemData:
+        return valid(wParam) ? box.data[wParam] : kLbErr;
+    case kLbSetItemData:
+        if (!valid(wParam))
+            return kLbErr;
+        box.data[wParam] = lParam;
+        return 0;
+    case kLbSetItemHeight:
+        if (lParam & 0xffff)
+            box.itemHeight = lParam & 0xffff;
+        changed();
+        return 0;
+    case kLbGetItemHeight:
+        return box.itemHeight;
+    case kWmLButtonDownMsg:
+    case kWmLButtonDblClkMsg: {
+        // The item under the click, selected; the dialog told, with a
+        // double click (the same item again, soon) told as one.
+        const int y = int(int16_t(lParam >> 16));
+        const int item = box.top + y / int(std::max<uint32_t>(box.itemHeight, 1));
+        if (item < 0 || item >= count)
+            return 0;
+        const uint32_t now = milliseconds();
+        const bool twice = box.lastClicked == item && now - box.lastClickTime <= kListBoxDoubleClickMs;
+        box.lastClicked = twice ? -1 : item;
+        box.lastClickTime = now;
+        const bool moved = box.selected != item;
+        box.selected = item;
+        changed();
+        const uint32_t parent = w.parent;
+        const uint32_t id = w.id;
+        if (w.style & kLbsNotify) {
+            if (moved)
+                sendMessage(parent, kWmCommand, id | kLbnSelChange << 16, handle);
+            if (twice)
+                sendMessage(parent, kWmCommand, id | kLbnDblClk << 16, handle);
+        }
+        return 0;
+    }
+    default:
+        return 0;
+    }
+}
+
+void Win32Process::paintOwnerDrawn(uint32_t dialog) {
+    std::vector<uint32_t> boxes;
+    for (const auto &[handle, w] : _windows)
+        if (w.parent == dialog && w.listBox && w.visible && (w.style & (kLbsOwnerDrawFixed | kLbsOwnerDrawVariable)))
+            boxes.push_back(handle);
+    const uint32_t dis = memory().alloc(48); // DRAWITEMSTRUCT
+    for (const uint32_t handle : boxes) {
+        auto it = _windows.find(handle);
+        if (it == _windows.end())
+            continue;
+        const Window::ListBox box = *it->second.listBox;
+        const int height = it->second.height;
+        const int width = it->second.width;
+        const uint32_t id = it->second.id;
+        const int step = int(std::max<uint32_t>(box.itemHeight, 1));
+        for (int item = box.top; item < int(box.data.size()) && (item - box.top) * step < height; ++item) {
+            const int y = (item - box.top) * step;
+            const uint32_t fields[12] = {kOdtListBox,
+                                         id,
+                                         uint32_t(item),
+                                         kOdaDrawEntire,
+                                         item == box.selected ? kOdsSelected : 0u,
+                                         handle,
+                                         windowDeviceContext(handle),
+                                         0,
+                                         uint32_t(y),
+                                         uint32_t(width),
+                                         uint32_t(y + step),
+                                         box.data[size_t(item)]};
+            for (uint32_t k = 0; k < 12; ++k)
+                _cpu.write32(dis + 4 * k, fields[k]);
+            sendMessage(dialog, kWmDrawItem, id, dis);
+        }
+    }
+    memory().free(dis);
 }
 
 } // namespace reluva::x86

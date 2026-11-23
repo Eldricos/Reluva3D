@@ -579,6 +579,32 @@ static void testGdi() {
     CHECK(painted == 0 && call(u, "PeekMessageA", {msg, 0, 0, 0, 1}) == 0 && painted == 1);
     call(u, "PeekMessageA", {msg, 0, 0, 0, 1});
     CHECK(painted == 1);
+
+    // A window drawing doesn't reach a window shown above it (made after it):
+    // the second window covers the first's right half.
+    const uint32_t over = call(u, "CreateWindowExA", {0, text("Gdi"), 0, 0x90000000, 132, 50, 32, 32, 0, 0, 0, 0});
+    CHECK(over != 0);
+    cpu.write32(rect, 0);
+    cpu.write32(rect + 4, 0);
+    cpu.write32(rect + 8, 64);
+    cpu.write32(rect + 12, 32);
+    const uint32_t over16 = onScreen(40, 20);
+    CHECK(call(u, "FillRect", {screenDc, rect, call(g, "CreateSolidBrush", {0x00ff00})}) == 1);
+    CHECK(onScreen(10, 20) == 0x00ff00 && onScreen(40, 20) == over16);
+
+    // A colour key matched as a 16-bit device stores colours: a pixel read
+    // back as 0xf800f8 is the key 0xff00ff when a mask is made.
+    const uint32_t keyed = call(g, "CreateCompatibleBitmap", {screenDc, 2, 1});
+    const uint32_t keyedDc = call(g, "CreateCompatibleDC", {screenDc});
+    call(g, "SelectObject", {keyedDc, keyed});
+    call(g, "SetPixel", {keyedDc, 0, 0, 0xf800f8}); // COLORREF: blue, green, red
+    call(g, "SetPixel", {keyedDc, 1, 0, 0x102030});
+    call(g, "SetBkColor", {keyedDc, 0xff00ff});
+    const uint32_t keyMask = call(g, "CreateBitmap", {2, 1, 1, 1, 0});
+    const uint32_t keyMaskDc = call(g, "CreateCompatibleDC", {screenDc});
+    call(g, "SelectObject", {keyMaskDc, keyMask});
+    CHECK(call(g, "BitBlt", {keyMaskDc, 0, 0, 2, 1, keyedDc, 0, 0, 0xcc0020}) == 1);
+    CHECK(call(g, "GetPixel", {keyMaskDc, 0, 0}) == 0xffffff && call(g, "GetPixel", {keyMaskDc, 1, 0}) == 0);
 }
 
 // MCI's CD audio, as Star Trek: Armada's CD check uses it: the disc's
@@ -771,7 +797,9 @@ static void testGdiText() {
 
 // A DLL holding one dialog template (resource 7): a pop-up titled "D" with
 // an "OK" button (control 100).
-static std::vector<uint8_t> dialogDll() {
+// A DLL holding one dialog template, 7: a control of the class (an atom:
+// 0x80 a button, 0x83 a list box, 0x85 a combo box) and style given, id 100.
+static std::vector<uint8_t> dialogDll(uint16_t control = 0x80, uint32_t style = 0x50010000) {
     std::vector<uint8_t> f(0x400, 0);
     auto put16 = [&](size_t at, uint32_t v) {
         f[at] = uint8_t(v);
@@ -825,17 +853,110 @@ static std::vector<uint8_t> dialogDll() {
     put16(t + 16, 16);
     put16(t + 22, 'D'); // no menu, the dialog class, "D"
     const size_t item = t + 28;
-    put32(item, 0x50010000); // WS_CHILD | WS_VISIBLE | WS_TABSTOP
+    put32(item, style); // by default WS_CHILD | WS_VISIBLE | WS_TABSTOP
     put16(item + 8, 4);
     put16(item + 10, 4);
     put16(item + 12, 20);
     put16(item + 14, 8);
     put16(item + 16, 100);
     put16(item + 18, 0xffff); // a button
-    put16(item + 20, 0x80);
+    put16(item + 20, control);
     put16(item + 22, 'O');
     put16(item + 24, 'K');
     return f;
+}
+
+// List and combo boxes, as Star Trek: Armada's setup screen uses them: a
+// hidden combo box holding a list (added to, selected, read back), and an
+// owner-drawn, sorted list box, measured before WM_INITDIALOG, its items
+// drawn by the dialog (WM_DRAWITEM) after it paints, and a click on it
+// selecting one and telling the dialog (LBN_SELCHANGE).
+static void testListBoxes() {
+    for (const bool combo : {true, false}) {
+        x86::Cpu cpu(16u << 20);
+        x86::Win32Process process(cpu);
+        const x86::Win32Process::Module *dll = nullptr;
+        // A hidden combo box (CBS_DROPDOWN); a shown list box with LBS_NOTIFY,
+        // LBS_SORT, LBS_OWNERDRAWFIXED and LBS_HASSTRINGS.
+        CHECK(!process.load("Dlg.dll", combo ? dialogDll(0x85, 0x40010002) : dialogDll(0x83, 0x50000073), dll) && dll);
+        if (!dll)
+            return;
+        auto call = [&](const char *name, const std::vector<uint32_t> &args) {
+            uint32_t result = 0;
+            CHECK(!cpu.call(process.provided("USER32.dll", name), args, result));
+            return result;
+        };
+        auto text = [&](const std::string &str) {
+            const uint32_t a = process.memory().alloc(uint32_t(str.size() + 1));
+            cpu.writeString(a, str, uint32_t(str.size() + 1));
+            return a;
+        };
+        const uint32_t buffer = process.memory().alloc(64);
+        uint32_t box = 0;
+        uint32_t measured = 0;
+        std::vector<uint32_t> drawn; // item, selected
+        uint32_t told = 0;
+        const uint32_t proc = cpu.addNative("test!ListProc", [&](x86::Cpu &c) {
+            const uint32_t hwnd = c.arg(0);
+            const uint32_t message = c.arg(1);
+            uint32_t result = 0;
+            const uint32_t add = combo ? 0x143 : 0x180;
+            if (message == 0x2c) { // WM_MEASUREITEM: before WM_INITDIALOG
+                CHECK(!box && c.read32(c.arg(3)) == 2 && c.read32(c.arg(3) + 4) == 100);
+                c.write32(c.arg(3) + 16, 12);
+                ++measured;
+                result = 1;
+            } else if (message == 0x110) {
+                box = call("GetDlgItem", {hwnd, 100});
+                CHECK(call("SendMessageA", {box, add, 0, text("Romulan")}) == 0);
+                const uint32_t at = call("SendMessageA", {box, add, 0, text("Federation")});
+                CHECK(at == (combo ? 1u : 0u)); // the list box sorts
+                CHECK(call("SendMessageA", {box, combo ? 0x146u : 0x18bu, 0, 0}) == 2);
+                CHECK(call("SendMessageA", {box, combo ? 0x14eu : 0x186u, 1, 0}) == 1); // select the second
+                CHECK(call("SendMessageA", {box, combo ? 0x147u : 0x188u, 0, 0}) == 1);
+                CHECK(call("SendMessageA", {box, combo ? 0x148u : 0x189u, 1, buffer}) == (combo ? 10u : 7u));
+                CHECK(cpu.string(buffer) == (combo ? "Federation" : "Romulan"));
+                CHECK(call("SendMessageA", {box, combo ? 0x158u : 0x1a2u, uint32_t(-1), text("romulan")}) ==
+                      (combo ? 0u : 1u));
+                if (combo) {
+                    CHECK(call("SendMessageA", {box, 0xd, 64, buffer}) == 10 && cpu.string(buffer) == "Federation");
+                    call("EndDialog", {hwnd, 7});
+                }
+                result = 1;
+            } else if (message == 0xf) {
+                const uint32_t ps = process.memory().alloc(64);
+                call("BeginPaint", {hwnd, ps});
+                call("EndPaint", {hwnd, ps});
+                result = 1;
+            } else if (message == 0x2b) { // WM_DRAWITEM
+                const uint32_t dis = c.arg(3);
+                CHECK(c.read32(dis) == 2 && c.read32(dis + 4) == 100 && c.read32(dis + 20) == box);
+                CHECK(c.read32(dis + 28) == 0 && c.read32(dis + 32) == c.read32(dis + 8) * 12); // its row
+                drawn.push_back(c.read32(dis + 8));
+                drawn.push_back(c.read32(dis + 16) & 1);
+                if (drawn.size() == 4 && !told) { // both drawn: the player clicks the first
+                    const auto at = process.clientArea(box);
+                    process.mouseMoveTo((*at)[0] + 2, (*at)[1] + 3);
+                    process.mouseButton(0, true);
+                    process.mouseButton(0, false);
+                }
+                result = 1;
+            } else if (message == 0x111) { // WM_COMMAND
+                told = c.arg(2);
+                CHECK(c.arg(3) == box);
+                call("EndDialog", {hwnd, 9});
+            }
+            c.reg[x86::Cpu::EAX] = result;
+            return 16u;
+        });
+        CHECK(call("DialogBoxParamA", {dll->base, 7, 0, proc, 0}) == (combo ? 7u : 9u));
+        if (combo)
+            continue;
+        CHECK(measured == 1);
+        // Federation, then Romulan selected; told of the first chosen.
+        CHECK((std::vector<uint32_t>(drawn.begin(), drawn.begin() + 4) == std::vector<uint32_t>{0, 0, 1, 1}));
+        CHECK(told == (100 | 1u << 16));
+    }
 }
 
 // A modal dialog from a template: WM_INITDIALOG with its first control,
@@ -1979,6 +2100,7 @@ static const test::Suite kSuite(
         {"msvcrt and files", [](const std::filesystem::path &tmp) { testMsvcrtAndFiles(tmp / "msvcrt"); }},
         {"msvcp60", [](const std::filesystem::path &tmp) { testMsvcp60(tmp / "msvcp60"); }},
         {"a dialog", [](const std::filesystem::path &) { testDialog(); }},
+        {"list and combo boxes", [](const std::filesystem::path &) { testListBoxes(); }},
         {"GDI's drawing", [](const std::filesystem::path &) { testGdi(); }},
         {"GDI's text", [](const std::filesystem::path &) { testGdiText(); }},
         {"CD audio", [](const std::filesystem::path &tmp) { testCdAudio(tmp / "cd"); }},

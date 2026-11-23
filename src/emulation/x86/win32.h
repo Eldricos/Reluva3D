@@ -594,6 +594,19 @@ public:
         uint32_t id = 0;
         uint32_t checked = 0;
         uint32_t thread = 0; // the id of the thread that made it
+        // A list box's ("#131", "listbox"): its items' text (with
+        // LBS_HASSTRINGS) and data, the one selected (-1: none), the first
+        // shown, and how high an item is.
+        struct ListBox {
+            std::vector<std::string> text;
+            std::vector<uint32_t> data;
+            int selected = -1;
+            int top = 0;
+            uint32_t itemHeight = 16;
+            int lastClicked = -1; // for LBN_DBLCLK: the item, and when
+            uint32_t lastClickTime = 0;
+        };
+        std::optional<ListBox> listBox;
     };
     /** The window with that handle, or null. */
     const Window *window(uint32_t handle) const;
@@ -748,6 +761,15 @@ private:
     void addUserStandIns();
     void addRegistryStandIns();
     void addDialogStandIns();
+    /** A message to a list box (its LB_ messages and clicks); its parent is told of changes. */
+    uint32_t listBoxMessage(uint32_t handle, uint32_t message, uint32_t wParam, uint32_t lParam);
+    /**
+     * After a dialog paints: its owner-drawn list boxes' visible items, each
+     * drawn by the dialog's procedure (WM_DRAWITEM).
+     */
+    void paintOwnerDrawn(uint32_t dialog);
+    /** A window's device context (GetDC's). */
+    static uint32_t windowDeviceContext(uint32_t window);
     void addMciStandIns();
     void addMmioStandIns();
     void addGdiStandIns();
@@ -871,6 +893,8 @@ private:
         int right = 0;
         int bottom = 0;
     };
+    /** The screen rectangles of the shown top-level windows above a window: where it can't draw. */
+    std::vector<Rect> windowsAbove(uint32_t handle) const;
     /**
      * For a device context that isn't a bitmap's: moves (x, y) onto what it
      * draws on, and gives the part of the rectangle there (`on`, false if

@@ -100,7 +100,15 @@ std::optional<std::array<int, 4>> Win32Process::clientArea(uint32_t handle) cons
     if (!w)
         return std::nullopt;
     const Insets f = frameOf(w->style, false);
-    return std::array<int, 4>{w->x + f.left, w->y + f.top, std::max(0, w->width - f.left - f.right),
+    // A control's place is in its dialog's client area.
+    int x = w->x;
+    int y = w->y;
+    if (w->parent && w->parent != handle)
+        if (const auto parent = clientArea(w->parent)) {
+            x += (*parent)[0];
+            y += (*parent)[1];
+        }
+    return std::array<int, 4>{x + f.left, y + f.top, std::max(0, w->width - f.left - f.right),
                               std::max(0, w->height - f.top - f.bottom)};
 }
 
@@ -246,6 +254,17 @@ void Win32Process::mouseButton(int button, bool down) {
             _lastClickX = cursorX, _lastClickY = cursorY;
         }
     }
+    // Over a list box of the window, the click is the list box's.
+    for (const auto &[handle, child] : _windows) {
+        if (child.parent != w || !child.listBox || !child.visible || !child.enabled)
+            continue;
+        const auto at = clientArea(handle);
+        if (at && cursorX >= (*at)[0] && cursorX < (*at)[0] + (*at)[2] && cursorY >= (*at)[1] &&
+            cursorY < (*at)[1] + (*at)[3]) {
+            postMessage(handle, message, _buttons, point(cursorX - (*at)[0], cursorY - (*at)[1]));
+            return;
+        }
+    }
     postMessage(w, message, _buttons, point(cursorX - (*area)[0], cursorY - (*area)[1]));
 }
 
@@ -301,6 +320,8 @@ uint32_t Win32Process::sendMessage(uint32_t window, uint32_t message, uint32_t w
         return 0;
     // A dialog's window procedure would be the system's, calling the
     // dialog's own; that's called here, and what it says is returned.
+    if (it->second.listBox)
+        return listBoxMessage(window, message, wParam, lParam);
     const bool dialog = !it->second.proc && it->second.dialogProc;
     const uint32_t proc = dialog ? it->second.dialogProc : it->second.proc;
     if (!proc)
@@ -318,6 +339,8 @@ uint32_t Win32Process::sendMessage(uint32_t window, uint32_t message, uint32_t w
     if (dialog && message == kWmPaint && !result)
         if (auto w = _windows.find(window); w != _windows.end())
             w->second.invalid = false;
+    if (dialog && message == kWmPaint)
+        paintOwnerDrawn(window);
     return result;
 }
 

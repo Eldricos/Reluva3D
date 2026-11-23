@@ -181,6 +181,27 @@ uint32_t systemColour(uint32_t index) {
 
 } // namespace
 
+uint32_t Win32Process::windowDeviceContext(uint32_t window) {
+    return kDeviceContext + (window & 0xffff);
+}
+
+std::vector<Win32Process::Rect> Win32Process::windowsAbove(uint32_t handle) const {
+    // The window's own top-level window; those made after it, and shown,
+    // are above it (Reluva keeps no other order).
+    uint32_t top = handle;
+    for (int guard = 0; guard < 64; ++guard) {
+        const Window *w = window(top);
+        if (!w || !w->parent)
+            break;
+        top = w->parent;
+    }
+    std::vector<Rect> out;
+    for (const auto &[other, w] : _windows)
+        if (other > top && !w.parent && w.visible)
+            out.push_back({w.x, w.y, w.x + w.width, w.y + w.height});
+    return out;
+}
+
 Win32Process::DeviceContext *Win32Process::deviceContext(uint32_t handle) {
     if (auto it = _dcs.find(handle); it != _dcs.end())
         return &it->second;
@@ -283,6 +304,24 @@ void Win32Process::writeArea(const DeviceContext &dc, int x, int y, int width, i
         for (int r = on.top; r < on.bottom; ++r)
             std::copy_n(pixels.begin() + size_t(r - y) * size_t(width) + size_t(on.left - x), w,
                         part.begin() + (r - on.top) * w);
+        // A window draws only where no window above it is: what's under
+        // those stays as it is.
+        const std::vector<Rect> above = dc.window ? windowsAbove(dc.window) : std::vector<Rect>{};
+        bool covered = false;
+        for (const Rect &a : above)
+            covered = covered || (a.left < on.right && on.left < a.right && a.top < on.bottom && on.top < a.bottom);
+        if (covered) {
+            std::vector<uint32_t> under(part.size());
+            through(on.left, on.top, w, on.bottom - on.top, under.data(), false);
+            for (int r = on.top; r < on.bottom; ++r)
+                for (int col = on.left; col < on.right; ++col)
+                    for (const Rect &a : above)
+                        if (col >= a.left && col < a.right && r >= a.top && r < a.bottom) {
+                            const size_t i = size_t(r - on.top) * size_t(w) + size_t(col - on.left);
+                            part[i] = under[i];
+                            break;
+                        }
+        }
         through(on.left, on.top, w, on.bottom - on.top, part.data(), true);
         return;
     }
@@ -443,7 +482,7 @@ void Win32Process::addGdiStandIns() {
     // Device contexts. A window's is its handle's low 16 bits after
     // kDeviceContext (the desktop's for none), drawing on the screen at its
     // client area; ReleaseDC forgets what was selected into it.
-    stdcall(u, "GetDC", 1, [](Cpu &c) { return kDeviceContext + ((c.arg(0) ? c.arg(0) : kDesktopWindow) & 0xffff); });
+    stdcall(u, "GetDC", 1, [](Cpu &c) { return windowDeviceContext(c.arg(0) ? c.arg(0) : kDesktopWindow); });
     stdcall(u, "ReleaseDC", 2, [this](Cpu &c) {
         _dcs.erase(c.arg(1));
         return 1u;
@@ -719,9 +758,25 @@ void Win32Process::addGdiStandIns() {
             if (fromMono && !toMono)
                 for (uint32_t &px : s)
                     px = px ? pixelOf(d->backColour) : pixelOf(d->textColour);
-            else if (!fromMono && toMono)
+            else if (!fromMono && toMono) {
+                // As the source's device holds colours: on a 15- or 16-bit
+                // one, the background colour is matched as it would be
+                // stored, its low bits gone (a key 0xff00ff read back from
+                // a 16-bit screen is 0xf800f8).
+                int bits = screenBits;
+                if (!sdc->window && !sdc->access)
+                    if (auto b = _bitmaps.find(sdc->bitmap); b != _bitmaps.end())
+                        bits = b->second.bits;
+                auto stored = [bits](uint32_t px) {
+                    if (bits != 15 && bits != 16)
+                        return px & 0xffffff;
+                    const uint32_t g = bits == 16 ? 0xfc : 0xf8;
+                    return px & (0xf80000 | g << 8 | 0xf8);
+                };
+                const uint32_t key = stored(pixelOf(sdc->backColour));
                 for (uint32_t &px : s)
-                    px = px == pixelOf(sdc->backColour) ? 0xffffff : 0;
+                    px = stored(px) == key ? 0xffffff : 0;
+            }
         }
         std::vector<uint32_t> out =
             usesDest ? readArea(*d, x, y, width, height) : std::vector<uint32_t>(size_t(width) * size_t(height), 0);
