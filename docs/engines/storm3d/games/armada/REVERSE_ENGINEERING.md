@@ -64,6 +64,9 @@ extended. The facts themselves are on their pages, each with its source.
 | `reluva-tool storm3d sound-check <game folder>` | Decodes every sound ([formats/sounds.md](formats/sounds.md)) |
 | `reluva-tool storm3d movie-check <game folder> [name filter]` | Decodes every movie ([formats/movies.md](formats/movies.md)) |
 | `reluva-tool storm3d movie-frame <game folder> <name> <frame> <out.png>` | Writes one frame of a movie as PNG |
+| `reluva-tool storm3d spr <game folder> <table.spr>` | A sprite table ([formats/spr.md](formats/spr.md)) |
+| `reluva-tool storm3d spr-check <game folder>` | Reads every sprite table |
+| `reluva-tool storm3d viewer-shot <game folder> <out.png> [key...]` | The data viewer run without a window, keys pressed, its last screen as PNG |
 
 ## Working files not included
 

@@ -144,8 +144,17 @@ std::vector<uint8_t> makeWav() {
     return audio::encodePcmWav(tone);
 }
 
-// Armada's files by name, so an unknown release, a few textures and a
-// sound.
+// A sprite table as the game's are written: a sprite on Bbase.tga stepped
+// through two keyframes, and one laid out in a row by the game.
+const char *const kSprites = "sprite_table\r\n\r\n@reference=64\r\n@skip=(0,0,0)\r\n"
+                             "@animation walk\r\noffset 2 1.0 step\r\n@keyframes\r\n0\t0\r\n16\t16\r\n"
+                             "@animation strip\r\noffset 4 1.0 step\r\n@auto=row\r\n@keyframes\r\n"
+                             "# Name\tFile\tU\tV\tW\tH\r\n"
+                             "box\tBbase\t0\t0\t16\t16\t@anim=walk\r\n"
+                             "strip\tBbase\t0\t32\t16\t16\t@anim=strip @origin=(8,8)\r\n";
+
+// Armada's files by name, so an unknown release, a few textures, a sprite
+// table, a sound and a text file.
 void makeInstall(const std::filesystem::path &dir) {
     for (const char *name : {"Armada.exe", "assets.zfs", "objtxt.zfs"})
         writeFile(dir / name, {'x'});
@@ -153,6 +162,12 @@ void makeInstall(const std::filesystem::path &dir) {
     writeFile(dir / "Textures/RGB/Bbase.1", makeTga(32, 32));
     writeFile(dir / "Textures/Index8/Xspark01", makeTga(16, 16));
     writeFile(dir / "sounds/effects/tone.wav", makeWav());
+    const std::string sprites = kSprites;
+    writeFile(dir / "Sprites/sprites.spr", {sprites.begin(), sprites.end()});
+    std::string credits = "// Credits\r\n";
+    for (int i = 1; i <= 80; ++i)
+        credits += "\tLine " + std::to_string(i) + "\r\n";
+    writeFile(dir / "Credits.txt", {credits.begin(), credits.end()});
 }
 
 void engineTest(const std::filesystem::path &tmp) {
@@ -176,15 +191,22 @@ void engineTest(const std::filesystem::path &tmp) {
     GameTarget target{"armada", "storm3d", "armada", "Star Trek: Armada", dir, tmp / "saves", {}};
     PlayingSystem sys;
     sys.inputs = {
-        {100, keyDown(key::kRight)},  // RGB/Bbase.tga, after Index8's one picture
-        {150, keyDown(key::kRight)},  // its smaller copy, Bbase.1
-        {200, keyDown('a')},          // its alpha over a checkerboard
-        {250, keyDown('f')},          // the next folder: back to the first
-        {300, keyDown('i')},          // no status line
-        {350, keyDown(key::kTab)},    // sounds
-        {400, keyDown(key::kSpace)},  // the tone played
-        {800, keyDown(key::kTab)},    // no movies: back to the images
-        {900, keyDown(key::kEscape)}, // to reluva-viewer's list
+        {100, keyDown(key::kRight)},     // RGB/Bbase.tga, after Index8's one picture
+        {150, keyDown(key::kRight)},     // its smaller copy, Bbase.1
+        {200, keyDown('a')},             // its alpha over a checkerboard
+        {250, keyDown('f')},             // the next folder: back to the first
+        {300, keyDown('i')},             // no status line
+        {350, keyDown(key::kTab)},       // sprites
+        {400, keyDown(key::kDown)},      // the box's second keyframe
+        {450, keyDown(key::kRight)},     // the strip
+        {500, keyDown(key::kDown)},      // its second cell
+        {550, keyDown(key::kTab)},       // sounds
+        {600, keyDown(key::kSpace)},     // the tone played
+        {1000, keyDown(key::kTab)},      // no movies: the text, the sprite table first
+        {1050, keyDown('f')},            // the next kind: Credits.txt
+        {1100, keyDown(key::kPageDown)}, // its next screen
+        {1150, keyDown(key::kTab)},      // back to the images
+        {1250, keyDown(key::kEscape)},   // to reluva-viewer's list
     };
     const Error err = viewer->create(sys, target)->run();
     rec.add("run.result", err ? "error: " + err.message : std::string("ok"));

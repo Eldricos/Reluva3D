@@ -40,7 +40,7 @@ The game's page says how to add it: [Star Trek: Armada](games/armada/README.md#u
 | `storm3d.cpp` | The `MetaEngine` (name, detection tables, making an `Engine`) and the `Engine`: an empty screen so far |
 | `game_files.cpp` | A game's files searched as one: the install's folders, then its archives |
 | `pages/` | The data viewer, for `reluva-viewer`: a page per kind of file |
-| `formats/` | Reading the games' files: ZFS archives, object definitions, settings in C, `Input.map`, `.ldl` files |
+| `formats/` | Reading the games' files: ZFS archives, object definitions, settings in C, `Input.map`, `.ldl` files, sprite tables |
 | `tools/` | `reluva-tool storm3d` commands (`reluva-tool help storm3d` lists them) |
 
 What every game shares (the archives, models, object definitions, maps,

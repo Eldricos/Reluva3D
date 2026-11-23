@@ -10,6 +10,8 @@
 //   reluva-tool storm3d config-check <game folder>
 //   reluva-tool storm3d ldl <game folder> <file.ldl> [output file]
 //   reluva-tool storm3d input-map <Input.map>
+//   reluva-tool storm3d spr <game folder> <table.spr>
+//   reluva-tool storm3d spr-check <game folder>
 
 #include "common/archive.h"
 #include "common/fs.h"
@@ -18,13 +20,17 @@
 #include "engines/storm3d/formats/input_map.h"
 #include "engines/storm3d/formats/ldl.h"
 #include "engines/storm3d/formats/odf.h"
+#include "engines/storm3d/formats/sprite_table.h"
+#include "engines/storm3d/game_files.h"
 #include "engines/storm3d/formats/zfs_archive.h"
 #include "devtools/tool.h"
 
 #include <cstdio>
 #include <fstream>
 #include <iterator>
+#include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -298,6 +304,98 @@ int cmdInputMap(int argc, char **argv) {
     return 0;
 }
 
+// The sprite tables are in Sprites/, and include each other by name alone.
+reluva::storm3d::SpriteTable::Loader spriteLoader(const reluva::storm3d::GameFiles &files) {
+    return [&files](std::string_view name, std::string &text) {
+        std::vector<uint8_t> data;
+        if (Error err = files.read("Sprites/" + std::string(name), data))
+            return err;
+        text.assign(data.begin(), data.end());
+        return Error::success();
+    };
+}
+
+int cmdSpr(int argc, char **argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool storm3d spr <game folder> <table.spr>\n");
+        return 2;
+    }
+    reluva::storm3d::GameFiles files;
+    reluva::storm3d::SpriteTable table;
+    if (Error err = files.open(argv[2]); err || (err = table.load(argv[3], spriteLoader(files)))) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    for (const auto &s : table.sprites()) {
+        std::string params;
+        for (const std::string &a : s.animations)
+            params += " anim=" + a;
+        for (const auto &[k, v] : s.parameters)
+            params += " " + k + (v.empty() ? "" : "=" + v);
+        std::printf("sprite %-24s %-14s %g,%g %gx%g of %dx%d%s\n", s.name.c_str(), s.texture.c_str(), s.u, s.v, s.w,
+                    s.h, s.referenceWidth, s.referenceHeight, params.c_str());
+    }
+    for (const auto &[name, a] : table.animations())
+        std::printf("animation %-24s %s %d %g %s%s, %zu keyframes\n", name.c_str(), a.kind.c_str(), a.count, a.duration,
+                    a.interpolation.c_str(), a.autoLayout.empty() ? "" : (" auto=" + a.autoLayout).c_str(),
+                    a.keyframes.size());
+    for (const auto &e : table.emitters())
+        std::printf("emitter %s: %zu settings\n", e.name.c_str(), e.settings.size());
+    std::printf("%zu sprites, %zu animations, %zu emitters, %zu sprite nodes\n", table.sprites().size(),
+                table.animations().size(), table.emitters().size(), table.spriteNodes().size());
+    for (const std::string &p : table.problems())
+        std::printf("not read: %s\n", p.c_str());
+    return 0;
+}
+
+int cmdSprCheck(int argc, char **argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool storm3d spr-check <game folder>\n");
+        return 2;
+    }
+    reluva::storm3d::GameFiles files;
+    if (Error err = files.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    int read = 0;
+    int failed = 0;
+    size_t problems = 0;
+    std::set<std::string> animations;
+    std::multimap<std::string, std::string> named; // an animation -> "table: sprite" using it
+    for (const std::string &path : files.list()) {
+        if (!reluva::text::hasSuffixIgnoreCase(path, ".spr"))
+            continue;
+        const std::string name = std::filesystem::path(path).filename().string();
+        reluva::storm3d::SpriteTable table;
+        if (Error err = table.load(name, spriteLoader(files))) {
+            std::printf("%s: %s\n", name.c_str(), err.message.c_str());
+            ++failed;
+            continue;
+        }
+        ++read;
+        problems += table.problems().size();
+        for (const std::string &p : table.problems())
+            std::printf("not read: %s\n", p.c_str());
+        for (const auto &[an, a] : table.animations())
+            if (a.autoLayout.empty() && int(a.keyframes.size()) != a.count)
+                std::printf("%s: %s has %zu keyframes, its header says %d\n", name.c_str(), an.c_str(),
+                            a.keyframes.size(), a.count);
+        for (const auto &[an, a] : table.animations())
+            animations.insert(an);
+        for (const auto &sp : table.sprites())
+            for (const std::string &a : sp.animations)
+                named.insert({a, name + ": " + sp.name});
+    }
+    // An animation may be in another table than its sprite's: tex_anim.spr's
+    // are used by most of the others.
+    for (const auto &[a, user] : named)
+        if (!animations.count(a))
+            std::printf("%s names animation %s, which no table has\n", user.c_str(), a.c_str());
+    std::printf("%d tables read, %d failed, %zu lines not read\n", read, failed, problems);
+    return failed ? 1 : 0;
+}
+
 const reluva::tool::Commands kCommands(
     "storm3d",
     {
@@ -314,6 +412,10 @@ const reluva::tool::Commands kCommands(
          "an .ldl file decoded with the key from the install's Armada.exe, printed or written", cmdLdl},
         {"input-map", "<Input.map>", "the actions in an Input.map, each with the controls that trigger it",
          cmdInputMap},
+        {"spr", "<game folder> <table.spr>", "a sprite table with what it includes: sprites, animations, emitters",
+         cmdSpr},
+        {"spr-check", "<game folder>", "read every sprite table, and report what isn't read or doesn't add up",
+         cmdSprCheck},
     });
 
 } // namespace

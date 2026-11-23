@@ -22,7 +22,7 @@ In the install's folder.
 | `startrek.zix` | 31,341 | Text, starting `001992` and a line naming the "Battlezone CD" |
 | `string.ldl`, `string_e.ldl`, `string_fi.ldl`, `string_gi.ldl`, `default.ldl`, `language.ldl` | | The installer's scripts, encoded ([ldl.md](ldl.md)) |
 | `Armada.pal` | 768 | A palette: 256 colours of 3 bytes *(inferred)* |
-| `BZONE.FNT`, `BZONEJ.FNT` | 11,944 and 271,512 | Fonts |
+| `BZONE.FNT`, `BZONEJ.FNT` | 11,944 and 271,512 | Fonts, but not the game's: it never names them ([spr.md](spr.md)) |
 | `RTS_CFG.h`, `ART_CFG.h`, `game_cfg.h`, `shell_cfg.h`, `Dynamic_Localized_Strings.h` | | The game's settings, as C declarations (`float OVERVIEW_MAX_ZOOM = 4.0;`) ([config.md](config.md)) |
 | `Input.map`, `Gamekey.map`, `label.map` | | The keys and the mouse, as text ([input-map.md](input-map.md)) |
 | `Collision.cfg`, `CCA.cfg`, `Logfile.cfg` | | Collision avoidance and logging settings, as text |
@@ -36,7 +36,7 @@ In the install's folder.
 |---|---|---|
 | `SOD/` | 265 `.sod`, and 8 more in `SOD/Software/` | Models, `Storm3D_SW` at their start |
 | `Textures/` | 1,368 `.tga`, in `Index8/` (1,078 files) and `RGB/` (993) | Textures, with their mipmap levels as `.1` to `.4` ([textures.md](textures.md)) |
-| `Sprites/` | 24 `.spr` | Sprite tables, as text (`sprite_table`, `@reference=128`) |
+| `Sprites/` | 24 `.spr` | Sprite tables: the interface, the fonts, effects ([spr.md](spr.md)) |
 | `bzn/` | 49 `.bzn`, 28 `.mdf`, 28 `.bmp` | Maps: `.bzn` as text (`version [1] = 2051`), `.mdf` their start positions (`StartLocations = 2`), `.bmp` their pictures |
 | `missions/` | 26 `.dsl` and 26 `.drl` | The campaign's missions, as DLLs ([Missions](#missions)) |
 | `AI/` | 7 DLLs, 85 `.aip` in `AI/AIPs/` | The computer player: its DLLs, its personalities as text, `strategic_AI_config.txt` and the developers' `Scheduler_README.txt` |
