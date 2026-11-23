@@ -30,7 +30,7 @@ reluva::Error decodePicture(const std::string &name, const std::vector<uint8_t> 
         return reluva::image::decode(data, out);
     }
     reluva::image::ShapeBank bank;
-    if (reluva::Error err = reluva::image::parseShapeBank(data, bank))
+    if (reluva::Error err = reluva::image::parseShapeBank(data, bank, reluva::tpw::kShapeOptions))
         return err;
     if (bank.shapes.empty())
         return reluva::Error::fail("no shapes");

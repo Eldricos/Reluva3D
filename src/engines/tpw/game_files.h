@@ -4,6 +4,7 @@
 #pragma once
 
 #include "common/archive.h"
+#include "image/fsh.h"
 
 #include <filesystem>
 #include <string>
@@ -28,5 +29,11 @@ Error mountGame(SearchSet &set, const std::filesystem::path &install, std::vecto
  * there's none.
  */
 std::string languageOf(const SearchSet &files);
+
+/**
+ * How the game's `.fsh` banks are read: their 24-bit palettes are R, G, B
+ * (docs/engines/tpw/games/simcoaster/formats/fsh.md).
+ */
+inline constexpr image::ShapeOptions kShapeOptions{true};
 
 } // namespace reluva::tpw

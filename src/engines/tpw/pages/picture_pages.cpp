@@ -7,6 +7,7 @@
 #include "common/fs.h"
 #include "common/text.h"
 #include "engines/tpw/pages/viewers.h"
+#include "engines/tpw/game_files.h"
 #include "graphics/font.h"
 #include "image/fsh.h"
 
@@ -51,7 +52,7 @@ void PicturePage::selected() {
         return;
     }
     image::ShapeBank bank;
-    if (Error err = image::parseShapeBank(std::move(data), bank)) {
+    if (Error err = image::parseShapeBank(std::move(data), bank, kShapeOptions)) {
         _error = err.message;
         return;
     }

@@ -112,7 +112,7 @@ const char *shapeTypeName(uint8_t type) {
     }
 }
 
-Error parseShapeBank(std::vector<uint8_t> data, ShapeBank &out) {
+Error parseShapeBank(std::vector<uint8_t> data, ShapeBank &out, const ShapeOptions &options) {
     out = {};
     if (Error err = unpackIfRefPack(data))
         return err;
@@ -186,8 +186,12 @@ Error parseShapeBank(std::vector<uint8_t> data, ShapeBank &out) {
                 if (pos + 16 > end || pos + 16 + static_cast<size_t>(w) * bpp > end)
                     return bad("shape " + shape.name + "'s palette runs past its block");
                 shape.palette.resize(static_cast<size_t>(w) * 4);
-                for (int c = 0; c < w; ++c)
-                    toRgba(type, &data[pos + 16 + c * bpp], &shape.palette[c * 4]);
+                for (int c = 0; c < w; ++c) {
+                    uint8_t *colour = &shape.palette[c * 4];
+                    toRgba(type, &data[pos + 16 + c * bpp], colour);
+                    if (type == kPalette24Bit && options.rgbPalette24)
+                        std::swap(colour[0], colour[2]);
+                }
             } else if (type == kShapeText) {
                 // The text's length, then the text.
                 const uint32_t length = le32(&data[pos + 4]);

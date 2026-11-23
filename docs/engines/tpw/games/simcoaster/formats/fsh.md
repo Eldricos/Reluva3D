@@ -41,6 +41,15 @@ holding a single picture, with directory id `G231`:
 Every bank's size field is its file's. The name block's name is the
 file's name without `.fsh`, for all but 55.
 
+The 24-bit palettes' colours are R, G, B, not the B, G, R of Need for
+Speed III's: read as B, G, R, the Arabian world's picture on the world
+menu (`ui/stexture/arab4.fsh`) is ice blue and the Polar world's
+(`water3.fsh`) sand, the ATM desk's wood (`woodentable.fsh`) navy, and
+the cross in `mugshot.fsh` blue where the cancel buttons' is red; as
+R, G, B each is the colour it should be. The 32-bit palettes are B, G, R, A, as in
+Need for Speed III: their pictures (the Theme Park logo's gold, the
+red cancel cross) come out right that way.
+
 ### The start-up screens
 
 `Data/Init/<width>/` (640, 800, 1024 and 1280) holds each screen at that
@@ -65,7 +74,8 @@ writes one out. The game-files test runs the first
   2026): every bank's blocks listed, and the `.png` files' chunks.
 - **How it was checked:** all 10,344 pictures decoded with `reluva-tool
   tpw picture-check`, and some written out and looked at: a ride's
-  feather texture, the welcome screen.
+  feather texture, the welcome screen; the world menu's pictures, the
+  logo and textures of both palette kinds, for their colours.
 
 ## Open questions
 

@@ -22,7 +22,7 @@ enum ShapeType : uint8_t {
     kShape16Bit1555 = 0x7e, // alpha bit, 5:5:5
     kShape24Bit = 0x7f,     // B, G, R
     kShape32Bit = 0x7d,     // B, G, R, A
-    kPalette24Bit = 0x24,
+    kPalette24Bit = 0x24,   // B, G, R or R, G, B: ShapeOptions
     kPalette16Bit1555 = 0x2d,
     kPalette32Bit = 0x2a,
     kShapeText = 0x6f,
@@ -63,8 +63,17 @@ struct ShapeBank {
     std::vector<Shape> shapes;
 };
 
+/** How a game's banks store what the format leaves open. */
+struct ShapeOptions {
+    /**
+     * 24-bit palettes (0x24) as R, G, B, as SimCoaster's are; B, G, R
+     * otherwise, as Need for Speed III's.
+     */
+    bool rgbPalette24 = false;
+};
+
 /** Reads an .fsh file, or a .qfs (RefPack- or EA Huffman-compressed .fsh). */
-Error parseShapeBank(std::vector<uint8_t> data, ShapeBank &out);
+Error parseShapeBank(std::vector<uint8_t> data, ShapeBank &out, const ShapeOptions &options = {});
 
 /**
  * A shape as RGBA. 8-bit shapes without a palette fail; pixels whose index

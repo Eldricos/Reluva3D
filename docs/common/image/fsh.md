@@ -83,7 +83,7 @@ Attached blocks after the picture:
 | Type | Meaning |
 |---|---|
 | `0x2D` | Palette, 16-bit 1:5:5:5; a 16-byte header like a picture's, its width the number of colours (up to 256) |
-| `0x24` | Palette, 24-bit B, G, R |
+| `0x24` | Palette, 24-bit: B, G, R in Need for Speed III; R, G, B in SimCoaster (the reader's `ShapeOptions` says which) |
 | `0x2A` | Palette, 32-bit B, G, R, A |
 | `0x6F` | Text: a u32 length at offset 4, the text at 8 |
 | `0x70` | The picture's whole name, at offset 4, ending in a 0 and padded with zeros (to 12 or 28 bytes); the directory's is its first 4 characters |

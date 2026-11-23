@@ -150,7 +150,7 @@ void testCompressedShape() {
     putShapeHeader(shape, 0xfb, uint32_t(16 + packed.size()), 2, 2, 0, 0, 0, 0);
     shape.insert(shape.end(), packed.begin(), packed.end());
     putShapeHeader(shape, 0x24, 16 + 6, 2, 1, 0, 0, 0, 0);
-    shape.insert(shape.end(), {0, 0, 255, 0, 255, 0}); // red, green (B, G, R)
+    shape.insert(shape.end(), {0, 0, 255, 0, 255, 0}); // red, green as B, G, R; blue, green as R, G, B
     shape.insert(shape.end(), {0x70, 0, 0, 0});
     putText(shape, "wood_long\0\0\0", 12);
     ShapeBank bank;
@@ -165,6 +165,11 @@ void testCompressedShape() {
     CHECK(!decodeShape(s, img));
     const uint8_t first[] = {255, 0, 0, 255, 0, 255, 0, 255};
     CHECK(img.rgba.size() == 16 && std::memcmp(img.rgba.data(), first, 8) == 0);
+    // SimCoaster's own order, R, G, B.
+    CHECK(!parseShapeBank(makeShapeBank({{"wood", shape}}, "G231"), bank, ShapeOptions{true}));
+    CHECK(bank.shapes.size() == 1 && !decodeShape(bank.shapes[0], img));
+    const uint8_t rgbFirst[] = {0, 0, 255, 255, 0, 255, 0, 255};
+    CHECK(img.rgba.size() == 16 && std::memcmp(img.rgba.data(), rgbFirst, 8) == 0);
 
     // Too few pixels unpacked fails.
     const Bytes few = refPack({0, 1});
