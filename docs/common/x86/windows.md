@@ -142,9 +142,21 @@ C++ library have pages of their own ([directx.md](directx.md),
   - `FillRect` (a brush, or a system colour's index + 1, in Windows 98's
     standard scheme), `SetPixel`, `GetPixel`, `Polyline` (each line
     without its last point).
-  - Text is measured as 8 x 16 pixels a character
-    (`GetTextExtentPoint32A`, `GetTextExtentExPointA`, `DrawTextA`), but
-    not drawn: there are no fonts yet.
+  - Text is drawn in the font the engine gives for the face the program
+    asks for (`fontFile`, a TrueType file; `findFont` looks in folders of
+    fonts for Windows' own, else free ones made to the same widths:
+    Liberation Sans for Arial, Liberation Serif for Times New Roman,
+    Liberation Mono for Courier New, then FreeSans and its like). A
+    `LOGFONT`'s height above 0 is the font's cell, below 0 its em; its
+    weight (600 on is bold) and italic choose the file. `TextOutA` draws
+    in the text colour, over the background colour when the mode is
+    opaque. `DrawTextA` and `DrawTextExA` break lines, wrap words
+    (`DT_WORDBREAK`), place them (left, centred, right; a single line
+    centred or at the bottom too), take '&' as a mark (not underlined),
+    and size the rectangle (`DT_CALCRECT`). Measuring
+    (`GetTextExtentPoint32A`, `GetTextExtentExPointA`) is the font's.
+    Without a font, text is measured as 8 x 16 pixels a character and
+    not drawn. Text is Windows-1252.
   - Coordinates are device units (`MM_TEXT`, no origin moved);
     `GetClipBox` is a bitmap's size or a window's client area. Palettes
     are handles only: there's no palette above 8 bits.
@@ -315,6 +327,10 @@ executable's entry point on the main thread until it ends the process.
   Visual C++ lays it out (Star Trek: Armada's own were read the same way:
   a `HoverCraft` is a `Craft`, a `GameObject`, an `Entity` and an
   `ST3D_Instance` at +0, and a `PhysicsParameterSet` at +1696).
+- It draws text in a font made in the test (`tests/support/ttf_writer.h`,
+  an "A" that's a box): where its box falls, its measure, `DrawTextA`
+  sizing and centring, the opaque background, the font asked for once;
+  and measures without a font.
 - It runs a modal dialog from a template in a DLL made in the test, with
   a native dialog procedure: the messages in order (`WM_INITDIALOG` with
   its first control, showing, one `WM_PAINT`, a `WM_TIMER`, a click it

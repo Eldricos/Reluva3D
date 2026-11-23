@@ -24,6 +24,10 @@
 #include <utility>
 #include <vector>
 
+namespace reluva::ttf {
+class Font;
+} // namespace reluva::ttf
+
 namespace reluva::x86 {
 
 /**
@@ -607,6 +611,22 @@ public:
     using PixelAccess = std::function<void(int x, int y, int width, int height, uint32_t *pixels, bool write)>;
     PixelAccess screenAccess;
     /**
+     * A TrueType file for a font the program asks for (its face name, as
+     * "Arial", and whether bold, italic), for GDI to draw text with; empty
+     * if there's none, when text is measured as 8 x 16 pixels a character
+     * and not drawn. findFont finds one in folders of fonts.
+     */
+    std::function<std::vector<uint8_t>(const std::string &face, bool bold, bool italic)> fontFile;
+    /**
+     * A file for a Windows font in `folders` (and their subfolders): the
+     * font itself if it's there ("arialbd.ttf"), else a free one made to
+     * the same widths (Liberation Sans for Arial, Liberation Serif for
+     * Times New Roman, Liberation Mono for Courier New), else a like one
+     * (FreeSans, FreeSerif, FreeMono). Sans serif for faces not known.
+     */
+    static std::optional<std::filesystem::path> findFont(const std::vector<std::filesystem::path> &folders,
+                                                         const std::string &face, bool bold, bool italic);
+    /**
      * A device context drawing on pixels kept elsewhere (a DirectDraw
      * surface's, for its GetDC): `access` reads or writes them as
      * screenAccess does, within width × height. Its handle, until
@@ -771,7 +791,23 @@ private:
     std::map<uint32_t, Bitmap> _bitmaps;
     std::map<uint32_t, Brush> _brushes;
     std::map<uint32_t, Pen> _pens;
-    std::set<uint32_t> _fonts;
+    // A font as CreateFontIndirectA was asked for it (LOGFONTA): its height
+    // (above 0 the cell's, below the characters'), weight, italic, face.
+    struct LogicalFont {
+        int height = 0;
+        int weight = 400;
+        bool italic = false;
+        std::string face;
+    };
+    std::map<uint32_t, LogicalFont> _fonts;
+    // The faces fontFile gave, loaded, by face, weight and italic (null: none).
+    std::map<std::string, std::shared_ptr<ttf::Font>> _loadedFonts;
+    /** The font a device context draws with, loaded, and its size for ttf::Font; null if there's none. */
+    ttf::Font *fontOf(const DeviceContext &dc, float &pixels);
+    /** Draws text (Windows-1252) with its top left at (x, y): the text colour over the background's when opaque. */
+    void drawText(const DeviceContext &dc, int x, int y, const std::string &text);
+    /** How wide and high text is in a device context's font (8 x 16 a character without one). */
+    std::pair<int, int> textSize(const DeviceContext &dc, const std::string &text);
     std::set<uint32_t> _palettes;
     std::map<uint32_t, DeviceContext> _dcs;
     uint32_t _guidState = 0x2545f491; // CoCreateGuid's xorshift

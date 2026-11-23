@@ -11,7 +11,15 @@
 
 #include "emulation/x86/win32.h"
 
+#include "graphics/truetype.h"
+
+#include "common/text.h"
+
 #include <algorithm>
+#include <memory>
+#include <filesystem>
+#include <cmath>
+#include <cctype>
 #include <array>
 #include <cstdio>
 #include <cstdlib>
@@ -307,6 +315,126 @@ void Win32Process::releaseDeviceContext(uint32_t handle) {
     _dcs.erase(handle);
 }
 
+ttf::Font *Win32Process::fontOf(const DeviceContext &dc, float &pixels) {
+    LogicalFont lf;
+    if (auto it = _fonts.find(dc.font); it != _fonts.end())
+        lf = it->second;
+    else
+        lf = {16, 700, false, "System"}; // the stock fonts
+    const bool bold = lf.weight >= 600;
+    std::string key = lf.face;
+    for (char &ch : key)
+        ch = char(std::tolower(static_cast<unsigned char>(ch)));
+    key += bold ? "/bold" : "";
+    key += lf.italic ? "/italic" : "";
+    auto it = _loadedFonts.find(key);
+    if (it == _loadedFonts.end()) {
+        std::shared_ptr<ttf::Font> font;
+        if (fontFile) {
+            std::vector<uint8_t> data = fontFile(lf.face, bold, lf.italic);
+            font = std::make_shared<ttf::Font>();
+            if (data.empty() || font->load(std::move(data)))
+                font.reset();
+        }
+        it = _loadedFonts.emplace(key, font).first;
+    }
+    if (!it->second)
+        return nullptr;
+    // A height above 0 is the cell's (ttf::Font's size), below 0 the em's.
+    const int height = lf.height ? lf.height : 16;
+    pixels = height > 0 ? float(height) : it->second->sizeForPoints(float(-height) * 72.0f / 96.0f);
+    return it->second.get();
+}
+
+std::pair<int, int> Win32Process::textSize(const DeviceContext &dc, const std::string &text) {
+    float pixels = 0;
+    ttf::Font *font = fontOf(dc, pixels);
+    if (!font)
+        return {kCharWidth * int(text.size()), kCharHeight};
+    return {font->width(text::windows1252ToUtf8(text), pixels), int(std::ceil(pixels))};
+}
+
+void Win32Process::drawText(const DeviceContext &dc, int x, int y, const std::string &text) {
+    float pixels = 0;
+    ttf::Font *font = fontOf(dc, pixels);
+    if (!font || text.empty())
+        return;
+    const std::string utf8 = text::windows1252ToUtf8(text);
+    const int width = font->width(utf8, pixels);
+    const int height = int(std::ceil(pixels));
+    if (width <= 0 || height <= 0)
+        return;
+    // White on nothing: its alpha is how much each pixel is covered.
+    Surface coverage;
+    coverage.create(width, height, PixelFormat::kRGBA32);
+    font->draw(coverage, 0, 0, utf8, pixels, Color{255, 255, 255});
+    std::vector<uint32_t> area = readArea(dc, x, y, width, height);
+    const uint32_t ink = pixelOf(dc.textColour);
+    const uint32_t paper = pixelOf(dc.backColour);
+    const bool opaque = dc.backMode == 2;
+    for (size_t i = 0; i < area.size(); ++i) {
+        const uint32_t a = coverage.pixels[i * 4 + 3];
+        const uint32_t under = opaque ? paper : area[i];
+        uint32_t px = 0;
+        for (int shift = 0; shift < 24; shift += 8) {
+            const int from = int(under >> shift & 0xff);
+            const int to = int(ink >> shift & 0xff);
+            px |= uint32_t(from + (to - from) * int(a) / 255) << shift;
+        }
+        area[i] = px;
+    }
+    writeArea(dc, x, y, width, height, area);
+}
+
+std::optional<std::filesystem::path> Win32Process::findFont(const std::vector<std::filesystem::path> &folders,
+                                                            const std::string &face, bool bold, bool italic) {
+    std::string lower = face;
+    for (char &ch : lower)
+        ch = char(std::tolower(static_cast<unsigned char>(ch)));
+    const int style = (bold ? 1 : 0) + (italic ? 2 : 0);
+    // Each face's files: Windows' own, then free ones made to the same
+    // widths, then like ones; by style (regular, bold, italic, both).
+    struct Family {
+        const char *files[4];
+    };
+    static const Family kArial[] = {
+        {{"arial.ttf", "arialbd.ttf", "ariali.ttf", "arialbi.ttf"}},
+        {{"LiberationSans-Regular.ttf", "LiberationSans-Bold.ttf", "LiberationSans-Italic.ttf",
+          "LiberationSans-BoldItalic.ttf"}},
+        {{"FreeSans.ttf", "FreeSansBold.ttf", "FreeSansOblique.ttf", "FreeSansBoldOblique.ttf"}}};
+    static const Family kTimes[] = {
+        {{"times.ttf", "timesbd.ttf", "timesi.ttf", "timesbi.ttf"}},
+        {{"LiberationSerif-Regular.ttf", "LiberationSerif-Bold.ttf", "LiberationSerif-Italic.ttf",
+          "LiberationSerif-BoldItalic.ttf"}},
+        {{"FreeSerif.ttf", "FreeSerifBold.ttf", "FreeSerifItalic.ttf", "FreeSerifBoldItalic.ttf"}}};
+    static const Family kCourier[] = {
+        {{"cour.ttf", "courbd.ttf", "couri.ttf", "courbi.ttf"}},
+        {{"LiberationMono-Regular.ttf", "LiberationMono-Bold.ttf", "LiberationMono-Italic.ttf",
+          "LiberationMono-BoldItalic.ttf"}},
+        {{"FreeMono.ttf", "FreeMonoBold.ttf", "FreeMonoOblique.ttf", "FreeMonoBoldOblique.ttf"}}};
+    const Family *families = kArial;
+    if (lower.find("times") != std::string::npos || lower.find("roman") != std::string::npos)
+        families = kTimes;
+    else if (lower.find("courier") != std::string::npos || lower.find("mono") != std::string::npos)
+        families = kCourier;
+    for (int f = 0; f < 3; ++f)
+        for (const std::filesystem::path &folder : folders) {
+            std::error_code ec;
+            for (auto it = std::filesystem::recursive_directory_iterator(folder, ec);
+                 !ec && it != std::filesystem::recursive_directory_iterator(); it.increment(ec)) {
+                std::string name = it->path().filename().string();
+                std::string want = families[f].files[style];
+                for (char &ch : name)
+                    ch = char(std::tolower(static_cast<unsigned char>(ch)));
+                for (char &ch : want)
+                    ch = char(std::tolower(static_cast<unsigned char>(ch)));
+                if (name == want)
+                    return it->path();
+            }
+        }
+    return std::nullopt;
+}
+
 void Win32Process::addGdiStandIns() {
     const char *u = "USER32.dll";
     const char *g = "GDI32.dll";
@@ -460,9 +588,15 @@ void Win32Process::addGdiStandIns() {
         _pens[handle] = {c.arg(2), c.arg(0) == 5}; // PS_NULL
         return handle;
     });
-    stdcall(g, "CreateFontIndirectA", 1, [this](Cpu &) {
+    // CreateFontIndirectA(LOGFONTA*): its height (+0), weight (+16),
+    // italic (+20) and face (+28) are kept; the rest is as Windows would
+    // choose.
+    stdcall(g, "CreateFontIndirectA", 1, [this](Cpu &c) {
+        const uint32_t lf = c.arg(0);
+        if (!c.valid(lf, 60))
+            return 0u;
         const uint32_t handle = kGdiObjects + _nextGdiObject++;
-        _fonts.insert(handle);
+        _fonts[handle] = {int32_t(c.read32(lf)), int32_t(c.read32(lf + 16)), c.read8(lf + 20) != 0, c.string(lf + 28)};
         return handle;
     });
     stdcall(g, "CreatePalette", 1, [this](Cpu &) {
@@ -791,35 +925,150 @@ void Win32Process::addGdiStandIns() {
     });
     stdcall(u, "LoadBitmapA", 2, [resourceBitmap](Cpu &c) { return resourceBitmap(c, c.arg(0), c.arg(1)); });
 
-    // Text: measured by the stand-in font, 8 x 16 pixels a character, and
-    // not drawn.
-    stdcall(g, "TextOutA", 5, [](Cpu &) { return 1u; });
-    stdcall(g, "GetTextExtentPoint32A", 4, [](Cpu &c) {
-        if (!c.valid(c.arg(3), 8))
+    // Text, in the font the engine gives for the face asked for (fontFile);
+    // without one, measured as 8 x 16 pixels a character and not drawn.
+    // Text is Windows-1252.
+    auto textOf = [](Cpu &c, uint32_t at, int32_t n) {
+        if (n < 0)
+            return c.string(at);
+        std::string s(size_t(n), '\0');
+        for (int32_t i = 0; i < n && c.valid(at + uint32_t(i), 1); ++i)
+            s[size_t(i)] = char(c.read8(at + uint32_t(i)));
+        return s;
+    };
+    stdcall(g, "TextOutA", 5, [this, textOf](Cpu &c) {
+        const DeviceContext *dc = deviceContext(c.arg(0));
+        if (!dc)
             return 0u;
-        c.write32(c.arg(3), c.arg(2) * kCharWidth);
-        c.write32(c.arg(3) + 4, kCharHeight);
+        drawText(*dc, int32_t(c.arg(1)), int32_t(c.arg(2)), textOf(c, c.arg(3), int32_t(c.arg(4))));
+        return 1u;
+    });
+    stdcall(g, "GetTextExtentPoint32A", 4, [this, textOf](Cpu &c) {
+        const DeviceContext *dc = deviceContext(c.arg(0));
+        if (!dc || !c.valid(c.arg(3), 8))
+            return 0u;
+        const auto [width, height] = textSize(*dc, textOf(c, c.arg(1), int32_t(c.arg(2))));
+        c.write32(c.arg(3), uint32_t(width));
+        c.write32(c.arg(3) + 4, uint32_t(height));
         return 1u;
     });
     // GetTextExtentExPointA(dc, text, n, room, fit*, ends*, size*): how many
     // characters fit in `room` pixels, and where each ends.
-    stdcall(g, "GetTextExtentExPointA", 7, [](Cpu &c) {
-        const uint32_t n = c.arg(2);
+    stdcall(g, "GetTextExtentExPointA", 7, [this, textOf](Cpu &c) {
+        const DeviceContext *dc = deviceContext(c.arg(0));
+        if (!dc)
+            return 0u;
+        const std::string text = textOf(c, c.arg(1), int32_t(c.arg(2)));
+        const int room = int32_t(c.arg(3));
+        uint32_t fit = 0;
+        for (size_t i = 0; i < text.size(); ++i) {
+            const int end = textSize(*dc, text.substr(0, i + 1)).first;
+            if (c.arg(5) && c.valid(c.arg(5) + 4 * uint32_t(i), 4))
+                c.write32(c.arg(5) + 4 * uint32_t(i), uint32_t(end));
+            if (end <= room)
+                fit = uint32_t(i + 1);
+        }
         if (c.arg(4))
-            c.write32(c.arg(4), std::min<uint32_t>(n, int32_t(c.arg(3)) > 0 ? c.arg(3) / kCharWidth : 0));
-        if (c.arg(5) && c.valid(c.arg(5), 4 * n))
-            for (uint32_t i = 0; i < n; ++i)
-                c.write32(c.arg(5) + 4 * i, kCharWidth * (i + 1));
+            c.write32(c.arg(4), fit);
         if (c.arg(6) && c.valid(c.arg(6), 8)) {
-            c.write32(c.arg(6), kCharWidth * n);
-            c.write32(c.arg(6) + 4, kCharHeight);
+            const auto [width, height] = textSize(*dc, text);
+            c.write32(c.arg(6), uint32_t(width));
+            c.write32(c.arg(6) + 4, uint32_t(height));
         }
         return 1u;
     });
-    // DrawTextA(dc, text, n, rect, format) and DrawTextExA (with margins):
-    // the height of one line.
-    stdcall(u, "DrawTextA", 5, [](Cpu &) { return uint32_t(kCharHeight); });
-    stdcall(u, "DrawTextExA", 6, [](Cpu &) { return uint32_t(kCharHeight); });
+    // DrawTextA(dc, text, n, rect, format) and DrawTextExA (with margins,
+    // left alone): lines at their breaks, wrapped to the rectangle with
+    // DT_WORDBREAK (0x10), placed left, centred (1) or right (2); one line
+    // (DT_SINGLELINE, 0x20) can be centred (DT_VCENTER, 4) or at the bottom
+    // (DT_BOTTOM, 8). '&' marks the next character (shown underlined on
+    // Windows; here, not) unless DT_NOPREFIX (0x800); "&&" is '&'.
+    // DT_CALCRECT (0x400) sizes the rectangle instead of drawing. Returns
+    // the text's height.
+    auto drawTextIn = [this, textOf](Cpu &c) -> uint32_t {
+        const DeviceContext *dc = deviceContext(c.arg(0));
+        const uint32_t r = c.arg(3);
+        if (!dc || !c.valid(r, 16))
+            return 0u;
+        const uint32_t format = c.arg(4);
+        std::string text = textOf(c, c.arg(1), int32_t(c.arg(2)));
+        if (!(format & 0x800)) {
+            std::string shown;
+            for (size_t i = 0; i < text.size(); ++i)
+                if (text[i] != '&' || (i + 1 < text.size() && text[i + 1] == '&' && ++i))
+                    shown += text[i];
+            text = shown;
+        }
+        const int left = int32_t(c.read32(r));
+        const int top = int32_t(c.read32(r + 4));
+        const int right = int32_t(c.read32(r + 8));
+        const int bottom = int32_t(c.read32(r + 12));
+        std::vector<std::string> lines;
+        if (format & 0x20) {
+            lines.push_back(text);
+        } else {
+            std::string line;
+            for (const char ch : text + "\n") {
+                if (ch == '\n') {
+                    lines.push_back(line);
+                    line.clear();
+                } else if (ch != '\r') {
+                    line += ch;
+                }
+            }
+        }
+        if ((format & 0x10) && !(format & 0x20)) {
+            // Word by word, a line as long as it fits; a word too long stays whole.
+            std::vector<std::string> wrapped;
+            for (const std::string &line : lines) {
+                std::string current;
+                size_t at = 0;
+                while (at <= line.size()) {
+                    size_t end = line.find(' ', at);
+                    if (end == std::string::npos)
+                        end = line.size();
+                    const std::string word = line.substr(at, end - at);
+                    const std::string longer = current.empty() ? word : current + " " + word;
+                    if (!current.empty() && textSize(*dc, longer).first > right - left) {
+                        wrapped.push_back(current);
+                        current = word;
+                    } else {
+                        current = longer;
+                    }
+                    at = end + 1;
+                }
+                wrapped.push_back(current);
+            }
+            lines = wrapped;
+        }
+        const int lineHeight = textSize(*dc, "").second;
+        const int height = lineHeight * int(lines.size());
+        if (format & 0x400) {
+            int widest = 0;
+            for (const std::string &line : lines)
+                widest = std::max(widest, textSize(*dc, line).first);
+            if (!(format & 0x10))
+                c.write32(r + 8, uint32_t(left + widest));
+            c.write32(r + 12, uint32_t(top + height));
+            return uint32_t(height);
+        }
+        int y = top;
+        if (format & 0x20) {
+            if (format & 0x4)
+                y = top + (bottom - top - lineHeight) / 2;
+            else if (format & 0x8)
+                y = bottom - lineHeight;
+        }
+        for (const std::string &line : lines) {
+            const int width = textSize(*dc, line).first;
+            const int x = (format & 1) ? left + (right - left - width) / 2 : (format & 2) ? right - width : left;
+            drawText(*dc, x, y, line);
+            y += lineHeight;
+        }
+        return uint32_t(height);
+    };
+    stdcall(u, "DrawTextA", 5, drawTextIn);
+    stdcall(u, "DrawTextExA", 6, drawTextIn);
 
     // Coordinates: only MM_TEXT (1), device units, no origin moved.
     stdcall(g, "GetMapMode", 1, [](Cpu &) { return 1u; });

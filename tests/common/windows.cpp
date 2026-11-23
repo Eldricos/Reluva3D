@@ -21,6 +21,7 @@
 #include "emulation/x86/msvcrt.h"
 #include "emulation/x86/win32.h"
 #include "tests/support/test.h"
+#include "tests/support/ttf_writer.h"
 
 #include <algorithm>
 #include <cmath>
@@ -680,6 +681,82 @@ static void testCdAudio(const std::filesystem::path &tmp) {
     // Only CD audio is there, and only on the CD-ROM drive.
     cpu.writeString(drive, "C:", 4);
     CHECK(mci(0, 0x803, 0x3302, open) == 263);
+}
+
+// GDI's text, in a font the engine gives (made here): an "A" that's a box
+// a pixel in from the left, 8 pixels wide and high above the baseline, 10
+// pixels on; the font 16 pixels from its ascent (12.5) to its descent.
+static void testGdiText() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    uint32_t r = 0;
+    auto call = [&](const char *dll, const char *name, const std::vector<uint32_t> &args) {
+        CHECK(!cpu.call(process.provided(dll, name), args, r));
+        return r;
+    };
+    auto text = [&](const std::string &s) {
+        const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
+        cpu.writeString(a, s, uint32_t(s.size() + 1));
+        return a;
+    };
+    const char *g = "GDI32.dll";
+    const char *u = "USER32.dll";
+    reluva::testing::TestGlyph box;
+    box.points = {{64, 0}, {64, 512}, {576, 512}, {576, 0}};
+    box.contourEnds = {3};
+    box.advance = 640;
+    box.codepoint = 'A';
+    const std::vector<uint8_t> font = reluva::testing::testFont({box}, {}, {}, {}, 800, -224);
+    std::vector<std::string> asked;
+    process.fontFile = [&](const std::string &face, bool bold, bool italic) {
+        asked.push_back(face + (bold ? " bold" : "") + (italic ? " italic" : ""));
+        return font;
+    };
+    // LOGFONTA: 16 high, bold, "Arial".
+    const uint32_t lf = process.memory().alloc(60);
+    cpu.write32(lf, 16);
+    cpu.write32(lf + 16, 700);
+    cpu.writeString(lf + 28, "Arial", 32);
+    const uint32_t handle = call(g, "CreateFontIndirectA", {lf});
+    const uint32_t dc = call(g, "CreateCompatibleDC", {0});
+    call(g, "SelectObject", {dc, call(g, "CreateBitmap", {32, 24, 1, 32, 0})});
+    call(g, "PatBlt", {dc, 0, 0, 32, 24, 0xff0062}); // WHITENESS
+    call(g, "SelectObject", {dc, handle});
+    call(g, "SetTextColor", {dc, 0x0000ff});
+    call(g, "SetBkMode", {dc, 1}); // TRANSPARENT
+    CHECK(call(g, "TextOutA", {dc, 2, 2, text("AA"), 2}) == 1);
+    // Inside the first box (its middle: 5 across, 8.5 down), between the
+    // two (a pixel before the second), above them: red, white, white.
+    CHECK(call(g, "GetPixel", {dc, 7, 10}) == 0x0000ff && call(g, "GetPixel", {dc, 12, 10}) == 0xffffff &&
+          call(g, "GetPixel", {dc, 7, 3}) == 0xffffff);
+    const uint32_t size = process.memory().alloc(8);
+    CHECK(call(g, "GetTextExtentPoint32A", {dc, text("AA"), 2, size}) == 1 && cpu.read32(size) == 20 &&
+          cpu.read32(size + 4) == 16);
+    // DrawTextA: sizing a rectangle ('&' only marks the next letter), then
+    // one line centred both ways in 32 x 24: its cell from x 11, y 4, its
+    // box a pixel further in.
+    const uint32_t rect = process.memory().alloc(16);
+    for (uint32_t i = 0; i < 16; i += 4)
+        cpu.write32(rect + i, 0);
+    CHECK(call(u, "DrawTextA", {dc, text("&A"), 0xffffffffu, rect, 0x400}) == 16 && cpu.read32(rect + 8) == 10 &&
+          cpu.read32(rect + 12) == 16);
+    call(g, "PatBlt", {dc, 0, 0, 32, 24, 0xff0062});
+    cpu.write32(rect + 8, 32);
+    cpu.write32(rect + 12, 24);
+    CHECK(call(u, "DrawTextA", {dc, text("A"), 1, rect, 0x25}) == 16); // DT_CENTER | DT_VCENTER | DT_SINGLELINE
+    CHECK(call(g, "GetPixel", {dc, 16, 12}) == 0x0000ff && call(g, "GetPixel", {dc, 11, 12}) == 0xffffff);
+    // Opaque, the text's cell is the background colour.
+    call(g, "SetBkMode", {dc, 2});
+    call(g, "SetBkColor", {dc, 0x00ff00});
+    call(g, "TextOutA", {dc, 0, 0, text("A"), 1});
+    CHECK(call(g, "GetPixel", {dc, 0, 0}) == 0x00ff00);
+    CHECK((asked == std::vector<std::string>{"Arial bold"})); // loaded once
+    // Without a font from the engine, text is measured as 8 x 16 a letter.
+    process.fontFile = nullptr;
+    cpu.writeString(lf + 28, "Courier New", 32);
+    const uint32_t other = call(g, "CreateFontIndirectA", {lf});
+    call(g, "SelectObject", {dc, other});
+    CHECK(call(g, "GetTextExtentPoint32A", {dc, text("AAA"), 3, size}) == 1 && cpu.read32(size) == 24);
 }
 
 // A DLL holding one dialog template (resource 7): a pop-up titled "D" with
@@ -1733,6 +1810,7 @@ static const test::Suite kSuite(
         {"msvcp60", [](const std::filesystem::path &tmp) { testMsvcp60(tmp / "msvcp60"); }},
         {"a dialog", [](const std::filesystem::path &) { testDialog(); }},
         {"GDI's drawing", [](const std::filesystem::path &) { testGdi(); }},
+        {"GDI's text", [](const std::filesystem::path &) { testGdiText(); }},
         {"CD audio", [](const std::filesystem::path &tmp) { testCdAudio(tmp / "cd"); }},
         {"a hosted program's needs", [](const std::filesystem::path &tmp) { testHostedProgramNeeds(tmp / "needs"); }},
         {"windows and registry", [](const std::filesystem::path &) { testWindowsAndRegistry(); }},
