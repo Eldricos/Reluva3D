@@ -224,7 +224,16 @@ for each task force from 147 down, 40 apart.
   the three screenshots of games loaded from the first turn's saves, "5
   Events" at the eleventh turn, "1 Event" at the thirty-first and
   thirty-fourth (a race met, its value 0 too, counts), "No Events" from
-  the saves without the Federation's. The words are in
+  the saves without the Federation's. The rule is incomplete: in the
+  ShipBuild game's turn-2 save the Federation has four results, a ship
+  built and its task force (military 5 and 4, value -1) and Sol's two
+  (economic 0 and 8), and the game, loaded, shows "2 Events", listing
+  "Destroyer built in Sol." and "Sol System queue empty" (the user); the
+  Colony game's second save shows 2 of the same four kinds, its fourth
+  "1 Event" of four (economic 31, military 4, 5 and 16), while the second
+  game's eleventh turn counts all five of its, a ship and a task force
+  among them. No field of the results' headers tells them apart; Reluva
+  counts 4, 3 and 4 there. The words are in
   orange (247, 121, 33), the figures in green (173, 227, 115), the
   figures ending 6 pixels short of the box's right edge; the words are
   `lexicon.dic`'s (entries 1361, 194, 239, 833). The figures are the

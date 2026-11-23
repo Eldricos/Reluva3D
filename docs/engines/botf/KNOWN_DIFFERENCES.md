@@ -33,7 +33,10 @@ None yet.
   another), but its other buttons and playing the turn are still to
   come; the Ferengi's and Cardassians' claims aren't drawn on the map. A
   new game's first turn shows "2 Events" where the game, before it's
-  saved, shows "No Events". The strip
+  saved, shows "No Events"; on a turn a ship was built or a colony
+  founded, the count can be too high
+  ([systems/galaxy-screen.md](systems/galaxy-screen.md#the-empires-panel)).
+  The strip
   leaves out a system's growth rate and orbitals, and the people's word
   for races other than the Federation's
   ([systems/galaxy-screen.md](systems/galaxy-screen.md#the-strip)).
