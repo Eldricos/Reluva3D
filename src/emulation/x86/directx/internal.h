@@ -252,9 +252,17 @@ public:
     ///@}
     /**
      * Copies src's `from` onto `to` here, stretching and clipped to both
-     * surfaces; with a source colour key, its colours are left out.
+     * surfaces, and to `limit` here if given (the stretch stays `to`'s);
+     * with a source colour key, its colours are left out.
      */
-    void copy(const Surface &src, Rect from, Rect to, bool keyed, uint32_t keyLow, uint32_t keyHigh);
+    void copy(const Surface &src, Rect from, Rect to, bool keyed, uint32_t keyLow, uint32_t keyHigh,
+              const std::optional<Rect> &limit = std::nullopt);
+    /**
+     * Where a blit onto `to` may draw: all of it, or, on the primary
+     * surface with a clipper set to a window, the part of the window's
+     * client area that no window shown above it covers (its clip list).
+     */
+    std::vector<Rect> clipped(const Rect &to) const;
     /** Fills `r`, clipped to the surface, with a pixel's value. */
     void fill(Rect r, uint32_t value);
     /** The whole surface. */

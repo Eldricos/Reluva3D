@@ -481,6 +481,66 @@ static void testWindowsAndRegistry() {
           asked == "{d8f1eee0-f634-11cf-8700-00a0245d918b}");
 }
 
+// A blit onto the primary through a clipper set to a window draws only
+// where the window shows: its client area, less a window shown above it.
+static void testDirectDrawClipper() {
+    x86::Cpu cpu(32u << 20);
+    x86::Win32Process process(cpu);
+    x86::DirectX dx(process);
+    uint32_t r = 0;
+    auto mem = [&](uint32_t size) {
+        const uint32_t a = process.memory().alloc(size);
+        std::memset(cpu.memory().data() + a, 0, size);
+        return a;
+    };
+    auto call = [&](uint32_t self, int index, std::vector<uint32_t> args) {
+        args.insert(args.begin(), self);
+        CHECK(!cpu.call(cpu.read32(cpu.read32(self) + 4 * uint32_t(index)), args, r));
+        return r;
+    };
+    auto user = [&](const char *name, const std::vector<uint32_t> &args) {
+        CHECK(!cpu.call(process.provided("USER32.dll", name), args, r));
+        return r;
+    };
+    // Two popups shown, the second (made later, so on top) over part of the first.
+    const uint32_t cls = mem(40);
+    cpu.write32(cls + 4, process.provided("USER32.dll", "DefWindowProcA"));
+    const uint32_t name = mem(8);
+    cpu.writeString(name, "Plain", 8);
+    cpu.write32(cls + 36, name);
+    CHECK(user("RegisterClassA", {cls}) != 0);
+    const uint32_t below = user("CreateWindowExA", {0, name, 0, 0x90000000, 0, 0, 100, 100, 0, 0, 0, 0});
+    user("CreateWindowExA", {0, name, 0, 0x90000000, 20, 20, 30, 30, 0, 0, 0, 0});
+    // DirectDraw in a window (DSSCL_NORMAL), its primary surface, and a clipper on the first.
+    const uint32_t out = mem(4);
+    CHECK(!cpu.call(process.provided("DDRAW.dll", "DirectDrawCreate"), {0, out, 0}, r) && r == 0);
+    const uint32_t dd = cpu.read32(out);
+    CHECK(call(dd, 20, {0, 1}) == 0);
+    const uint32_t desc = mem(124);
+    cpu.write32(desc, 108);
+    cpu.write32(desc + 4, 0x1);     // CAPS
+    cpu.write32(desc + 104, 0x200); // PRIMARYSURFACE
+    CHECK(call(dd, 6, {desc, out, 0}) == 0);
+    const uint32_t primary = cpu.read32(out);
+    CHECK(call(dd, 4, {0, out, 0}) == 0); // CreateClipper
+    const uint32_t clipper = cpu.read32(out);
+    CHECK(call(clipper, 8, {0, below}) == 0); // SetHWnd
+    CHECK(call(primary, 28, {clipper}) == 0); // SetClipper
+    // A colour fill of the first window's whole place.
+    const uint32_t rect = mem(16);
+    cpu.write32(rect + 8, 100);
+    cpu.write32(rect + 12, 100);
+    const uint32_t fx = mem(100);
+    cpu.write32(fx, 100);
+    cpu.write32(fx + 80, 0xffff);
+    CHECK(call(primary, 5, {rect, 0, 0, 0x400, fx}) == 0); // Blt, DDBLT_COLORFILL
+    const x86::DirectX::Frame &f = dx.frame();
+    auto at = [&](int x, int y) { return f.pixels[size_t(y * f.width + x)] & 0xffffff; };
+    CHECK(f.width == 800 && at(5, 5) == 0xffffff && at(99, 99) == 0xffffff);
+    CHECK(at(25, 25) == 0 && at(49, 49) == 0); // under the second window
+    CHECK(at(50, 25) == 0xffffff && at(100, 5) == 0);
+}
+
 // DirectDraw and Direct3D 7 called through their vtables as a program
 // calls them: a 64x48 fullscreen mode with a back buffer and Z buffer, a
 // clear, a Gouraud triangle, a textured quad, the depth test, a flip.
@@ -997,6 +1057,7 @@ static const test::Suite
                {"msvcp60", [](const std::filesystem::path &tmp) { testMsvcp60(tmp / "msvcp60"); }},
                {"windows and registry", [](const std::filesystem::path &) { testWindowsAndRegistry(); }},
                {"directx", [](const std::filesystem::path &) { testDirectX(); }},
+               {"directdraw clipper", [](const std::filesystem::path &) { testDirectDrawClipper(); }},
                {"input", [](const std::filesystem::path &) { testInput(); }},
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},

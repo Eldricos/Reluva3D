@@ -586,7 +586,8 @@ void Surface::fill(Rect r, uint32_t value) {
     touched();
 }
 
-void Surface::copy(const Surface &src, Rect from, Rect to, bool keyed, uint32_t keyLow, uint32_t keyHigh) {
+void Surface::copy(const Surface &src, Rect from, Rect to, bool keyed, uint32_t keyLow, uint32_t keyHigh,
+                   const std::optional<Rect> &limit) {
     if (from.width() <= 0 || from.height() <= 0 || to.width() <= 0 || to.height() <= 0)
         return;
     const bool same = src.d.format == d.format && !keyed && from.width() == to.width() &&
@@ -596,10 +597,13 @@ void Surface::copy(const Surface &src, Rect from, Rect to, bool keyed, uint32_t 
     // Clipped to both surfaces, keeping the scale.
     const double sx = double(from.width()) / to.width();
     const double sy = double(from.height()) / to.height();
-    const int x0 = std::max(to.left, 0);
-    const int x1 = std::min(to.right, d.width);
-    const int y0 = std::max(to.top, 0);
-    const int y1 = std::min(to.bottom, d.height);
+    const Rect within = limit.value_or(bounds());
+    const int x0 = std::max({to.left, 0, within.left});
+    const int x1 = std::min({to.right, d.width, within.right});
+    const int y0 = std::max({to.top, 0, within.top});
+    const int y1 = std::min({to.bottom, d.height, within.bottom});
+    if (x0 >= x1 || y0 >= y1)
+        return;
     if (same && sx == 1 && sy == 1) {
         const int dx = from.left - to.left;
         const int dy = from.top - to.top;
@@ -648,10 +652,12 @@ uint32_t Surface::blt(Cpu &c) {
     const uint32_t flags = c.arg(4);
     const uint32_t fx = c.arg(5);
     const Rect to = destRect ? Rect::read(c, destRect) : bounds();
+    const std::vector<Rect> visible = clipped(to);
     if (flags & (kBltColorFill | kBltDepthFill)) {
         if (!c.valid(fx, 84))
             return kDDErrInvalidParams;
-        fill(to, c.read32(fx + 80));
+        for (const Rect &r : visible)
+            fill(r, c.read32(fx + 80));
     } else {
         Surface *src = s->com.as<Surface>(srcPtr);
         if (!src)
@@ -667,11 +673,65 @@ uint32_t Surface::blt(Cpu &c) {
             keyed = true;
             lo = src->srcKeyLow, hi = src->srcKeyHigh;
         }
-        copy(*src, from, to, keyed, lo, hi);
+        for (const Rect &r : visible)
+            copy(*src, from, to, keyed, lo, hi, r);
     }
     if (d.caps[0] & kCapsPrimarySurface)
         s->present();
     return kDDOk;
+}
+
+namespace {
+
+// `rects` less `cut`: each split into the parts of it outside `cut`.
+std::vector<Rect> subtract(const std::vector<Rect> &rects, const Rect &cut) {
+    std::vector<Rect> out;
+    for (const Rect &r : rects) {
+        if (cut.left >= r.right || cut.right <= r.left || cut.top >= r.bottom || cut.bottom <= r.top) {
+            out.push_back(r);
+            continue;
+        }
+        const int top = std::max(r.top, cut.top);
+        const int bottom = std::min(r.bottom, cut.bottom);
+        if (r.top < cut.top)
+            out.push_back({r.left, r.top, r.right, cut.top});
+        if (cut.bottom < r.bottom)
+            out.push_back({r.left, cut.bottom, r.right, r.bottom});
+        if (r.left < cut.left)
+            out.push_back({r.left, top, cut.left, bottom});
+        if (cut.right < r.right)
+            out.push_back({cut.right, top, r.right, bottom});
+    }
+    return out;
+}
+
+} // namespace
+
+std::vector<Rect> Surface::clipped(const Rect &to) const {
+    const Win32Process &process = s->process;
+    const uint32_t window = clipper ? clipper->window : 0;
+    if (!(d.caps[0] & kCapsPrimarySurface) || !window || !process.window(window))
+        return {to};
+    std::vector<Rect> visible;
+    if (const auto area = process.clientArea(window))
+        visible.push_back({std::max(to.left, (*area)[0]), std::max(to.top, (*area)[1]),
+                           std::min(to.right, (*area)[0] + (*area)[2]), std::min(to.bottom, (*area)[1] + (*area)[3])});
+    if (visible.empty() || visible[0].width() <= 0 || visible[0].height() <= 0)
+        return {};
+    // The windows on top of it: those made after its top-level window
+    // (the stand-ins' order), shown.
+    uint32_t top = window;
+    for (const Win32Process::Window *w = process.window(top); w && (w->style & 0x40000000) && w->parent;
+         w = process.window(top))
+        top = w->parent;
+    for (const uint32_t h : process.windows()) {
+        const Win32Process::Window *w = process.window(h);
+        if (h <= top || (w->style & 0x40000000) || !process.shown(h))
+            continue;
+        if (const auto a = process.windowArea(h))
+            visible = subtract(visible, {(*a)[0], (*a)[1], (*a)[0] + (*a)[2], (*a)[1] + (*a)[3]});
+    }
+    return visible;
 }
 
 // BltFast(x, y, src, srcRect, flags): an unstretched copy; flag 1 keys it

@@ -17,7 +17,11 @@ headers' (`directx/interfaces.cpp`).
     them;
   - blits (stretching, colour keys, colour and depth fills) and flipping
     chains;
-  - palettes and clippers (`GetClipper` among their methods);
+  - palettes and clippers (`GetClipper` among their methods). A blit
+    onto the primary surface through a clipper set to a window
+    (`SetHWnd`) draws only where the window shows: its client area, less
+    the windows shown above it (made later, in the stand-ins' order), as
+    Windows' clip list would have it;
   - `GetDC` and `ReleaseDC`: a [GDI](gdi.md) device context drawing into
     the surface's pixels, one at a time; an 8-bit surface without a
     palette takes the primary's colours. A window's GDI drawing lands on
@@ -99,7 +103,9 @@ checked without a GPU.
 
 - `testDirectX` in `tests/common/windows.cpp` (`common.unit.windows`) checks these, called through
   the vtables: a clear, a Gouraud triangle, the depth test, a textured
-  quad with point sampling, and a flip.
+  quad with point sampling, and a flip. `testDirectDrawClipper` fills
+  the primary through a clipper set to a window, part of which another
+  window covers, and finds only the uncovered part filled.
 
 - `testInput` checks DirectInput's mouse (its state, its movement since
   the last read, its buffer) and keyboard.
