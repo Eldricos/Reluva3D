@@ -67,8 +67,8 @@ engine, by a tester), or *to try*.
    player; the history book. *Scripted (one player); the rest to try.*
 4. **Choosing a character:** each of the five dragged to each place on
    the map: the Information Center, the pizzeria, the boat, the race
-   track, the gas station, the hospital, the police. *Pepper to the
-   pizzeria and the boat: scripted; the rest to try.*
+   track, the gas station, the hospital, the police. *Pepper to every
+   place but the Information Center: scripted; the other four to try.*
 5. **The island on foot:** walking, turning (at the frame rate set),
    the islanders, the jukebox, the camera's height; its look against the
    original's. *Walking and its look at the pizzeria: scripted, played.*

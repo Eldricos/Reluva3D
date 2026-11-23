@@ -143,6 +143,10 @@ that far.
   other people walking by. The arrow keys walk her (read through
   DirectInput's keyboard): up the road to the pizzeria, where the
   Brickolinis are, and on. Run to 33,000 frames, it doesn't stop.
+- **Every place on the map:** Pepper dropped on the race track, the gas
+  station, the hospital and the police goes out to the island there, as
+  to the pizzeria and the boat; each run on to 30,000 frames or more
+  without stopping.
 - **Saving and loading:** quit through the game (the door's green
   brick), it writes `G0.GS` (the game's state, 4,309 bytes), `History.gsi`
   (49) and `Players.gsi` (16, a player registered) to `savepath`, then
