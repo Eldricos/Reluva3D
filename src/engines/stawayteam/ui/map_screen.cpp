@@ -621,7 +621,9 @@ std::vector<std::pair<float, float>> MapScreen::route(float x0, float y0, float 
                                                       int enemy) const {
     // Planned as the move starts, round where the characters stand then,
     // and not again (0x4492c0): its path collide checker makes a line
-    // through one cost five times as much (0x438d90).
+    // through one cost five times as much, and one through anything else
+    // in the way not taken (0x438d90); here the doors, the waypoints
+    // already keeping off the rest (inferred).
     if (_wayPoints.points.empty())
         return {{x1, y1}};
     std::vector<std::pair<float, float>> others;
@@ -631,7 +633,41 @@ std::vector<std::pair<float, float>> MapScreen::route(float x0, float y0, float 
     for (size_t i = 0; i < _enemies.size(); ++i)
         if (int(i) != enemy && _enemies[i].alive() && shown(_enemies[i].part))
             others.emplace_back(_enemies[i].x, _enemies[i].y);
+    // The closed doors in the way: a line through one isn't taken, but
+    // through one not locked that answers to this kind of walker, its
+    // Triggered By Players or Enemies (0x48e070: asked as the way's
+    // planned, it lets them by, and is opened as they come).
+    std::vector<const std::vector<std::pair<float, float>> *> doors;
+    for (const Wall &w : _walls) {
+        const auto door = _doors.find(w.part);
+        const PartState &state = _partStates[w.part];
+        if (door == _doors.end() || !state.active || state.deleted || !state.collideable)
+            continue;
+        const Door &d = door->second;
+        if (!d.locked && ((officer >= 0 && d.byPlayers) || (enemy >= 0 && d.byEnemies)))
+            continue;
+        doors.push_back(&w.points);
+    }
+    const auto through = [](const std::vector<std::pair<float, float>> &outline, float ax, float ay, float bx,
+                            float by) {
+        if (inside(outline, ax, ay) || inside(outline, bx, by))
+            return true;
+        const auto side = [](float px, float py, float qx, float qy, float rx, float ry) {
+            return (qx - px) * (ry - py) - (qy - py) * (rx - px);
+        };
+        for (size_t k = 0; k < outline.size(); ++k) {
+            const auto [cx, cy] = outline[k];
+            const auto [dx, dy] = outline[(k + 1) % outline.size()];
+            if ((side(ax, ay, bx, by, cx, cy) > 0.0f) != (side(ax, ay, bx, by, dx, dy) > 0.0f) &&
+                (side(cx, cy, dx, dy, ax, ay) > 0.0f) != (side(cx, cy, dx, dy, bx, by) > 0.0f))
+                return true;
+        }
+        return false;
+    };
     const auto factor = [&](float ax, float ay, float bx, float by) {
+        for (const auto *outline : doors)
+            if (through(*outline, ax, ay, bx, by))
+                return 0.0f;
         // How near each comes to the line, on the ground unforeshortened.
         const float dx = bx - ax;
         const float dy = (by - ay) / ParticleSystem::kYToX;

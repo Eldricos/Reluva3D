@@ -45,7 +45,7 @@ None yet.
   messages aren't there; particles are drawn over the models rather than
   among them ([systems/particles.md](systems/particles.md)); one taken off the team stays on its bar; a way's
   planned round characters by their distance from it, not their
-  outlines; the transporter's pictures aren't drawn
+  outlines, and round closed doors, which don't stop one walking; the transporter's pictures aren't drawn
   as enemies beam out; the Out Of Range cursor isn't there; parts are
   picked by their distance from the pointer, not their shapes
   ([systems/maps.md](systems/maps.md#in-reluva)).

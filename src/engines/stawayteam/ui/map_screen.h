@@ -901,6 +901,8 @@ private:
     struct Door {
         bool locked = false;
         bool open = false;
+        bool byPlayers = false; // its Triggered By Players and Enemies: theirs to walk through
+        bool byEnemies = false;
     };
     std::map<size_t, Door> _doors;
     void setupDoors();

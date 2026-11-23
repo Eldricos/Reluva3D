@@ -495,7 +495,13 @@ before and after they open and close (`Before Open`, `After Opened`,
 `Before Closed`, `After Closed`: some relocate the team). A door's model
 has `Closed`, `Opening`, `Open` and `Closing` sequences, and its
 `Activate Sound` and `Close Sound`. `CLockDoorAction` and
-`CUnlockDoorAction` lock and unlock them.
+`CUnlockDoorAction` lock and unlock them. A door doesn't open by itself:
+its anything-touching trigger opens it. Its `Triggered By Players` and
+`Triggered By Enemies` are for the ways walkers plan: asked whether it's in the way of one planning
+(`0x48e070`, the walker marked so by its path collide checker,
+`0x438cb0`), a door that isn't locked lets players or enemies by as
+they say, as it'll open for them; locked, it's in everyone's way, and
+in the way of sight always.
 
 The program's trigger code isn't traced yet: how these fields act is
 read from the maps.
@@ -956,7 +962,10 @@ against the trigger's isn't traced)*. A door
 (`ui/map_gadgets.cpp`) opens unless locked: its Before Open, its Activate
 Sound, Opening played and then Open, out of the way at once, and its
 After Opened as it's open; closing likewise, back in the way *(inferred:
-when it stops blocking isn't traced)*. The messages
+when it stops blocking isn't traced)*. A way's planned through a closed
+door's outline only if it's not locked and answers to the walker's kind,
+officers by Triggered By Players, enemies by Enemies; without a way,
+they don't go (inferred: the program's goes straight there). The messages
 above are acted on: told to look, one on patrol or looking goes there;
 given a target, it attacks them; a radius's action reaches the enemies in
 its oval, whose name has the filter in it *(inferred)*.
@@ -1023,8 +1032,7 @@ map shown's Map Song, over and over; stopping as the maps are left
 Not there yet: the AIs'
 other messages and tasks (CSendMessageAction's to animations; the
 particle systems' are there, [particles.md](particles.md)), the enemies' own noises,
-thrown and laid weapons, the doors opening
-by themselves (CDoorAI's own Triggered By flags), and those off the team
+thrown and laid weapons, and those off the team
 still on its bar.
 
 ## Sources and checks
@@ -1145,8 +1153,8 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **Walking:** how the walkers' outlines are swept against each other
   in planning, the plain checker's part, and how a joined character's
   made an officer.
-- **Doors:** when one stops blocking, and what their own Triggered By
-  flags do.
+- **Doors:** when one stops blocking, and whether a closed one stops a
+  walker as it walks, or only its planning.
 - **Noise:** which sides hear which noises, what `0x497d40` checks
   before a noise is heard (perhaps a way there), how the rings are drawn,
   and the investigating AI's rules.

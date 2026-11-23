@@ -1926,6 +1926,52 @@ void testScriptsHoldActors() {
     CHECK(!screen.scripted() && std::abs(a.x - 400.0f) < 1.0f);
 }
 
+void testDoorWays() {
+    // A door across the way at 400, 300, its outline 20 by 80, and a way
+    // round it by 400, 380. Locked, Ann's way goes round; unlocked and
+    // Triggered By Players, it's planned through, as it'll open for her.
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    TeamMember ann;
+    ann.firstName = "Ann";
+    for (const bool locked : {true, false}) {
+        const std::string zax =
+            "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=400.000000,300.000000\nTree List=CSortList2D\n{\n"
+            "Level Part=CEntityAnimated\n{\nName=Door\nCollideable=1\nActivity=Array\n{\nItem Count=1\n"
+            "Activity=CDoorAI\n{\nIs Locked=" +
+            std::string(locked ? "1" : "0") +
+            "\nTriggered By Players=1\nTriggered By Enemies=1\n}\n}\n"
+            "Model=Props/Door\nCur Sequence=Closed\nPosition X=400\nPosition Y=300\n}\n"
+            "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=300\n}\n}\n}\n";
+        MemoryArchive data;
+        data.files["Levels/Test.zax"] = bytesOf(zax);
+        data.files["Cache/Models/Props/Door.mdl16"] =
+            modelFile("Door", 1, 1, 0.0f, {{-10, -40}, {10, -40}, {10, 40}, {-10, 40}, {-10, -40}});
+        GameMap map;
+        CHECK(!loadMap(data, "Levels/Test.zax", map));
+        WayPoints way;
+        way.points = {
+            {300.0f, 300.0f, {1, 3}}, {400.0f, 300.0f, {0, 2}}, {500.0f, 300.0f, {1, 3}}, {400.0f, 380.0f, {0, 2}}};
+        GameOptions options;
+        MapScreen screen(data, rules, map, options, 0, {ann}, way);
+        const MapScreen::Officer &a = screen.officers()[0];
+        uint64_t now = 0;
+        screen.update(now += 50);
+        screen.choose(0);
+        screen.order(500.0f, 300.0f);
+        float lowest = 0.0f;
+        while (now < 15000) {
+            screen.update(now += 50);
+            lowest = std::max(lowest, a.y);
+        }
+        CHECK(std::hypot(a.x - 500.0f, a.y - 300.0f) < 2.0f);
+        CHECK(locked ? lowest > 370.0f : lowest < 310.0f);
+    }
+}
+
 void testKit() {
     // Ann with the cloaking band, a decoy to put down, a phaser and a
     // grenade; a guard looking her way, one in a stasis field's oval, one of
@@ -2569,6 +2615,7 @@ static const reluva::test::Suite
                {"polygon processes", [](const std::filesystem::path &) { testPolygonProcesses(); }},
                {"standing in the way", [](const std::filesystem::path &) { testStandingInTheWay(); }},
                {"scripts hold actors", [](const std::filesystem::path &) { testScriptsHoldActors(); }},
+               {"door ways", [](const std::filesystem::path &) { testDoorWays(); }},
                {"kit", [](const std::filesystem::path &) { testKit(); }},
                {"states", [](const std::filesystem::path &) { testStates(); }},
                {"doors", [](const std::filesystem::path &) { testDoors(); }},

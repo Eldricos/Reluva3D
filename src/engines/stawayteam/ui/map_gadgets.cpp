@@ -647,7 +647,8 @@ void MapScreen::setupDoors() {
     for (size_t i = 0; i < _map.parts.size(); ++i)
         for (const TextObject *ai : _map.parts[i].activities)
             if (ai->className == "CDoorAI")
-                _doors[i] = {flag(ai, "Is Locked"), lower(_map.parts[i].sequence) == "open"};
+                _doors[i] = {flag(ai, "Is Locked"), lower(_map.parts[i].sequence) == "open",
+                             flag(ai, "Triggered By Players"), flag(ai, "Triggered By Enemies")};
 }
 
 bool MapScreen::moveDoor(size_t part, bool open, int instigator) {
