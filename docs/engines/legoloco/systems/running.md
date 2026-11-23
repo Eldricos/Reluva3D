@@ -361,7 +361,9 @@ connection without `-udp`. Two copies get through the network screens
 into a game, one hosting and one joining ([above](#network-play)): in
 one process on the in-memory network or over UDP, and in two processes
 over UDP on one computer, with a meeting server listing the host's
-game. Of its 115 imports that had nothing at first, 3 are left,
+game. In the game, their boards scroll, a train crosses from one
+player's board into the other's, and a postcard goes from one player to
+the other by mail train, on the in-memory network and over UDP. Of its 115 imports that had nothing at first, 3 are left,
 none called so far: comdlg32's Open and Save dialogs (its own panels
 serve instead), and SHELL32's `ShellExecuteA`.
 
@@ -371,8 +373,7 @@ GDI32's ([gdi.md](../../../common/x86/gdi.md)), the movie window's and
 MCI's ([mci.md](../../../common/x86/mci.md)), and DirectSound's and
 `PlaySoundA` ([dsound.md](../../../common/x86/dsound.md)). Not tried
 yet: changing and deleting trains, the minifigures' and vehicles'
-doings, and in a network game the boards joined, trains crossing and
-postcards between players.
+doings, and a network game between two computers.
 
 ## Sources and checks
 
