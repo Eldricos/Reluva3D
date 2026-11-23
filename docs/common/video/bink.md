@@ -190,3 +190,6 @@ block starts on a 32-bit boundary.
   ([cinematics.md](../../engines/idtech3/games/stvef/systems/cinematics.md)).
 - **`awe`**: Murder on the Orient Express's movies and video loops
   ([movies.md](../../engines/awe/games/motoe/systems/movies.md)).
+- **`sfc`**: Starfleet Command II's opening movie, played by
+  `video::playMovie`
+  ([intro.md](../../engines/sfc/games/sfc2/formats/intro.md)).

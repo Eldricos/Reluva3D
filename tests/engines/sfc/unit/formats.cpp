@@ -5,6 +5,7 @@
 
 #include "common/bytes.h"
 #include "engines/sfc/formats/bft_font.h"
+#include "engines/sfc/formats/intro_movie.h"
 #include "engines/sfc/formats/model.h"
 #include "engines/sfc/formats/sprite_archive.h"
 #include "engines/sfc/formats/text_tables.h"
@@ -248,6 +249,40 @@ void testModelBadMaterial() {
     CHECK(model.read(d));
 }
 
+// A program as SFC2Intro.exe is: one section, its data to 0x400, then a
+// Bink movie of `size` bytes after the 8 of its signature and size.
+std::vector<uint8_t> makeIntro(uint32_t size, uint32_t claimed) {
+    std::vector<uint8_t> d(0x400, 0);
+    d[0] = 'M', d[1] = 'Z';
+    writeLE32(d.data() + 0x3c, 0x40);
+    std::memcpy(d.data() + 0x40, "PE\0\0", 4);
+    writeLE16(d.data() + 0x46, 1);    // one section
+    writeLE16(d.data() + 0x54, 0xe0); // the optional header's size
+    writeLE16(d.data() + 0x58, 0x10b);
+    const size_t section = 0x58 + 0xe0;
+    std::memcpy(d.data() + section, ".text", 5);
+    writeLE32(d.data() + section + 16, 0x200); // its data's size, and where it is
+    writeLE32(d.data() + section + 20, 0x200);
+    const std::string bink = "BIKi";
+    d.insert(d.end(), bink.begin(), bink.end());
+    put32(d, claimed);
+    for (uint32_t i = 0; i < size; ++i)
+        d.push_back(uint8_t(i));
+    return d;
+}
+
+void testIntroMovie() {
+    std::vector<uint8_t> movie;
+    CHECK(!introMovie(makeIntro(20, 20), movie));
+    CHECK(movie.size() == 28 && movie[0] == 'B' && movie[3] == 'i' && movie[8] == 0 && movie[27] == 19);
+    // A movie longer than the file, or none after the program, isn't one.
+    CHECK(introMovie(makeIntro(20, 21), movie) && movie.empty());
+    std::vector<uint8_t> none = makeIntro(20, 20);
+    none[0x400] = 'X';
+    CHECK(introMovie(none, movie));
+    CHECK(introMovie(std::vector<uint8_t>(64, 0), movie)); // not a program
+}
+
 void testTabTable() {
     const std::string text = "\tA comment\r\nRace\tBPV\r\nFederation\t\"1\"\"2\"\r\n\t\r\nKlingon\t3";
     TabTable table;
@@ -283,6 +318,7 @@ static const reluva::test::Suite
                {"model", [](const std::filesystem::path &) { testModel(); }},
                {"model bad material", [](const std::filesystem::path &) { testModelBadMaterial(); }},
                {"model quad", [](const std::filesystem::path &) { testModelQuad(); }},
+               {"intro movie", [](const std::filesystem::path &) { testIntroMovie(); }},
                {"tab table", [](const std::filesystem::path &) { testTabTable(); }},
                {"string table", [](const std::filesystem::path &) { testStringTable(); }},
            });

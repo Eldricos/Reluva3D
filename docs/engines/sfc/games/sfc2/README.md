@@ -52,7 +52,7 @@ Detection signatures (MD5 of each file's start, and its size, as
   mission forfeited returns to the Dynaverse, which goes on);
   the network; the 2.0.3.6 patch applied as it's imported; the
   `.gf`, `.mct` and `.mvm`
-  settings, campaign and map files; the opening movie; the objects in
+  settings, campaign and map files; the objects in
   `sprites.q3`.
 
 The plan is in [PLAN.md](PLAN.md).
@@ -66,7 +66,8 @@ the game's files, 3,356 of them (900 MB), are taken out of the CDs'
 cabinets as their setup installs them, but for Taldren's script kit,
 which isn't used (`reluva-tool import <first CD> <folder> -patch
 <second CD>` does the same). Or *Add Game...* with the folder of an
-install made on Windows. Starting it runs the game's own program, which takes
+install made on Windows. Starting it plays the opening movie, out of `SFC2Intro.exe` (a key or
+click skips it; [formats/intro.md](formats/intro.md)), then runs the game's own program, which takes
 11 to 18 seconds to load to its title screen; its CD key dialog takes
 the copy's CD key, typed as it's printed (Shift for capitals), once:
 it's kept, with whatever else the game writes, in Reluva's folder for
@@ -101,7 +102,7 @@ Tab moves between its pages, Esc leaves:
 | This page | Where it stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases, what the install holds, and the decisions taken |
 | [systems/](systems/) | How the game behaves: [hosting.md](systems/hosting.md) (running its own program) |
-| [formats/](formats/) | A page per file format: [sprites-q3.md](formats/sprites-q3.md), [bft.md](formats/bft.md), [mod.md](formats/mod.md), [text-tables.md](formats/text-tables.md), [sound-zips.md](formats/sound-zips.md) |
+| [formats/](formats/) | A page per file format: [sprites-q3.md](formats/sprites-q3.md), [bft.md](formats/bft.md), [mod.md](formats/mod.md), [text-tables.md](formats/text-tables.md), [sound-zips.md](formats/sound-zips.md), [intro.md](formats/intro.md) |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
 | [TESTING.md](TESTING.md) | The tests, and what to check by hand |

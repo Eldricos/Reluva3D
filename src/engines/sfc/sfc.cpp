@@ -11,8 +11,11 @@
 #include "common/installshield.h"
 #include "common/settings.h"
 #include "engines/engine.h"
+#include "common/stream.h"
+#include "engines/sfc/formats/intro_movie.h"
 #include "engines/sfc/host/game_process.h"
 #include "engines/sfc/host/player.h"
+#include "video/movie.h"
 
 #include <cstdio>
 #include <memory>
@@ -78,6 +81,20 @@ public:
                     sys.stopAudio();
             }
         } audioStop{_sys, audioOut};
+        // The opening movie first, inside SFC2Intro.exe, as the original's
+        // launcher plays it on each start; a key or click skips it.
+        if (const auto intro = fs::findFile(_target.path, "SFC2Intro.exe")) {
+            std::vector<uint8_t> program;
+            std::vector<uint8_t> movie;
+            bool quit = false;
+            if (!readFile(*intro, program) || introMovie(program, movie))
+                std::fprintf(stderr, "%s holds no movie Reluva reads\n", intro->string().c_str());
+            else if (Error err = video::playMovie(_sys, audioOut ? _mixer.get() : nullptr, std::move(movie),
+                                                  "SFC2Intro.exe", quit))
+                std::fprintf(stderr, "%s\n", err.message.c_str());
+            if (quit)
+                return Error::success();
+        }
         Player player(_target.path, _target.savePath, audioOut ? _mixer.get() : nullptr);
         player.start();
         int width = 800; // the game's own resolution, until its first frame says

@@ -12,10 +12,12 @@
 #include "common/stream.h"
 #include "devtools/tool.h"
 #include "engines/sfc/formats/bft_font.h"
+#include "engines/sfc/formats/intro_movie.h"
 #include "engines/sfc/formats/model.h"
 #include "engines/sfc/formats/sprite_archive.h"
 #include "engines/sfc/formats/text_tables.h"
 #include "image/image.h"
+#include "video/bink.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -254,6 +256,65 @@ int cmdSounds(int argc, char **argv) {
     return failed ? 1 : 0;
 }
 
+// The opening movie, out of SFC2Intro.exe: its header, every frame and
+// its sound decoded; with -frame, that frame as a PNG.
+int cmdIntro(int argc, char **argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool sfc intro <game folder> [-frame n out.png]...\n");
+        return 2;
+    }
+    std::map<uint32_t, std::string> pngs;
+    for (int a = 3; a + 2 < argc; a += 3)
+        if (std::string(argv[a]) == "-frame")
+            pngs[uint32_t(std::strtoul(argv[a + 1], nullptr, 0))] = argv[a + 2];
+    const auto path = fs::findFile(argv[2], "SFC2Intro.exe");
+    std::vector<uint8_t> program;
+    std::vector<uint8_t> data;
+    if (!path || !readFile(*path, program)) {
+        std::fprintf(stderr, "no SFC2Intro.exe in %s\n", argv[2]);
+        return 1;
+    }
+    if (Error err = sfc::introMovie(program, data)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    const size_t bytes = data.size();
+    bink::Movie movie;
+    if (Error err = movie.open(std::move(data))) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    std::printf("Bink revision %c, %d x %d, %u frames at %u/%u a second, %zu bytes; audio %d Hz, %d channels\n",
+                movie.revision(), movie.width(), movie.height(), movie.frameCount(), movie.rateNumerator(),
+                movie.rateDenominator(), bytes, movie.audioRate(), movie.audioChannels());
+    std::vector<int16_t> sound;
+    if (Error err = movie.decodeAllAudio(sound))
+        std::printf("audio: %s\n", err.message.c_str());
+    else if (movie.audioChannels() > 0)
+        std::printf("audio: %.2f s\n", double(sound.size()) / movie.audioChannels() / movie.audioRate());
+    std::vector<uint8_t> rgba;
+    uint32_t decoded = 0;
+    for (bool more = true;;) {
+        if (Error err = movie.nextFrame(more)) {
+            std::printf("frame %u: %s\n", decoded, err.message.c_str());
+            return 1;
+        }
+        if (!more)
+            break;
+        if (auto it = pngs.find(decoded); it != pngs.end()) {
+            movie.toRgba(rgba);
+            image::Image img;
+            img.w = movie.width();
+            img.h = movie.height();
+            img.rgba = rgba;
+            writeFile(it->second, image::encodePng(img));
+        }
+        ++decoded;
+    }
+    std::printf("%u frames decoded\n", decoded);
+    return decoded == movie.frameCount() ? 0 : 1;
+}
+
 const Commands kCommands("sfc", {
                                     {"sprites", "<game folder> [-q]",
                                      "list sprites.q3's images and decode each (-q: only the failures)", cmdSprites},
@@ -263,6 +324,8 @@ const Commands kCommands("sfc", {
                                     {"models", "<game folder>", "read every .mod model under a folder", cmdModels},
                                     {"sounds", "<game folder>", "decode every WAV in Assets/Sound's zips", cmdSounds},
                                     {"table", "<file>", "show a tab-separated table or a string table", cmdTable},
+                                    {"intro", "<game folder> [-frame n out.png]...",
+                                     "decode the opening movie in SFC2Intro.exe", cmdIntro},
                                 });
 
 } // namespace

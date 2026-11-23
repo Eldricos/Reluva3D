@@ -383,8 +383,9 @@ known.
   random numbers from them: a campaign's ship names and missions came out
   different each run), so a run with the same input repeats
   frame for frame and input lands on the same screens.
-- **Not yet:** the network (DirectPlay itself), the opening movie;
-  a skirmish played with input, the tutorials and a campaign.
+- **Not yet:** the network (DirectPlay itself). The opening movie isn't
+  hosted: the engine plays it itself before the game
+  ([formats/intro.md](../formats/intro.md)).
 
 ## Sources and checks
 

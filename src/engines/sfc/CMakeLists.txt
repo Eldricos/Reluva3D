@@ -8,6 +8,7 @@ reluva_add_engine(sfc
     SOURCES
         sfc.cpp
         formats/bft_font.cpp
+        formats/intro_movie.cpp
         formats/model.cpp
         formats/sprite_archive.cpp
         formats/text_tables.cpp

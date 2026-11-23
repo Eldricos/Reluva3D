@@ -105,6 +105,7 @@ text files, and the installers' headers.
 | `reluva-tool sfc models` | Reads every .mod model, and lists textures it names that aren't there |
 | `reluva-tool sfc sounds` | Decodes every WAV in the sound zips |
 | `reluva-tool sfc table` | Shows a tab-separated or string table |
+| `reluva-tool sfc intro` | Reads the opening movie out of SFC2Intro.exe, decodes it and writes frames as PNGs |
 | `reluva-tool sfc host` | Runs StarFleet2.exe in the x86 emulator, headless, and says how far it gets |
 | `reluva-tool sfc disasm` | Disassembles StarFleet2.exe, or another program given by its path (a mission's DLL), between two addresses |
 

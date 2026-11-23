@@ -68,6 +68,7 @@ to launcher, stop it. Headless, the same with `reluva-tool sfc host <game folder
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 23 November 2026 | English retail 1.0 | Linux | The opening movie: `reluva-tool sfc intro` decoding all 2,721 frames and its 181.4 s of sound; in the window, played with its sound before the game, a click skipping it to the title screen |
 | 23 November 2026 | English retail 1.0 | Linux | Saving by hand and deleting: on the map, SAVED GAMES, "Reluva Test" typed and saved (its folder and files made), then deleted (its files and folder removed, `-calls` showing the paths); Auto Save deleted too, and made again by the game at once |
 | 23 November 2026 | English retail 1.0 | Linux | A campaign saved and loaded: its auto-save on finishing Convoy Escort (`Sfc2Spd.sds` and `db.info` under `saves/Auto Save`), listed by the Campaign Selector, loaded with LOAD GAME back to the Dynaverse as saved (commander, ship, prestige, the stardate going on) |
 | 23 November 2026 | English retail 1.0 | Linux | A campaign's mission finished: Convoy Escort forfeited from Esc's menu, its debriefing, DONE, back on the Dynaverse map, the ship moved again and missions offered again; 38 billion instructions |
