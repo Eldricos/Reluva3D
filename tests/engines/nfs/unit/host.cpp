@@ -11,6 +11,9 @@
 #include "engines/nfs/host/game_host.h"
 #include "tests/engines/nfs/fixtures.h"
 
+#include <chrono>
+#include <thread>
+
 using namespace reluva::nfs::testing;
 using reluva::nfs::nfs3::NativeThrash;
 using reluva::nfs::nfs3::ThrashFrame;
@@ -521,7 +524,9 @@ void testHostWindows(const stdfs::path &tmp) {
     CHECK(call("USER32.dll", "PeekMessageA", {msg, 0, 0, 0, 1}) == 0); // kept by the hook
     CHECK(cpu.read32(counter) == 2);
 
-    // A flipping pair: drawing into the front shows at its Unlock.
+    // A flipping pair: drawing into the front shows once the writing stops
+    // (4 ms of the clock, at a change of threads), once for several
+    // Unlocks; a Flip shows at once.
     int frames = 0;
     host.onFrame = [&](const reluva::Surface &) { ++frames; };
     const uint32_t out = process.memory().alloc(4);
@@ -540,8 +545,20 @@ void testHostWindows(const stdfs::path &tmp) {
     cpu.write32(desc + 104, 0x200 | 0x10 | 0x8);  // primary, flip, complex
     CHECK(method(ddraw, 6, {desc, out, 0}) == 0); // CreateSurface
     const uint32_t front = cpu.read32(out);
-    CHECK(method(front, 25, {0, desc, 1, 0}) == 0 && frames == 0); // Lock
-    CHECK(method(front, 32, {0}) == 0 && frames == 1);             // Unlock
+    for (int strip = 0; strip < 3; ++strip) {
+        CHECK(method(front, 25, {0, desc, 1, 0}) == 0); // Lock
+        CHECK(method(front, 32, {0}) == 0);             // Unlock
+    }
+    CHECK(frames == 0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    host.process().onSlice(cpu);
+    host.process().onSlice(cpu);
+    CHECK(frames == 1);
+    CHECK(method(front, 25, {0, desc, 1, 0}) == 0 && method(front, 32, {0}) == 0);
+    CHECK(method(front, 11, {0, 1}) == 0 && frames == 2); // Flip
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    host.process().onSlice(cpu);
+    CHECK(frames == 2); // the Flip showed it
 }
 
 } // namespace

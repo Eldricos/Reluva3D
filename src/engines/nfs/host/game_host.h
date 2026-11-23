@@ -560,6 +560,11 @@ private:
     int _modeBits = 16;
     uint32_t newSurface(int width, int height, int bits, uint32_t caps);
     void present(const DdSurface &s);
+    // A flipping pair's front surface written through a lock (Unlock), shown
+    // once the writing stops, by the game's clock: its object, and when.
+    uint32_t _pendingFront = 0;
+    uint64_t _pendingFrontMs = 0;
+    void presentPendingFront();
     Surface _frame;
 
     // DirectSound's buffers: played in time, not heard yet.

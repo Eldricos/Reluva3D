@@ -186,6 +186,17 @@ void GameHost::present(const DdSurface &s) {
         onFrame(_frame);
 }
 
+void GameHost::presentPendingFront() {
+    // 4 ms of the game's clock with no more writing: NFS II SE writes a
+    // race's strips well within that, and draws at most 40 frames a second.
+    if (!_pendingFront || _process->now() < _pendingFrontMs + 4)
+        return;
+    const auto it = _surfaces.find(_pendingFront);
+    _pendingFront = 0;
+    if (it != _surfaces.end())
+        present(it->second);
+}
+
 void GameHost::addDirectX() {
     // DirectDrawEnumerateA(callback, context): the one display.
     const uint32_t description = _process->memory().alloc(32);
@@ -346,6 +357,7 @@ void GameHost::addDirectX() {
             if (front->back)
                 if (DdSurface *back = surface(c, front->back))
                     std::swap(front->memory, back->memory);
+            _pendingFront = 0;
             present(*front);
             return kOk;
         });
@@ -424,13 +436,20 @@ void GameHost::addDirectX() {
                 s->palette = c.arg(1);
             return kOk;
         });
-        // Unlock: drawing straight onto the primary surface shows at once,
-        // with a back buffer too: NFS II SE draws its movies into the front
-        // surface of its flipping pair.
+        // Unlock: drawing straight onto the primary surface shows. Without
+        // a back buffer at once; with one (NFS II SE draws its movies and
+        // races into the front surface of its flipping pair, a race's
+        // picture in 9 strips) once the writing stops (presentPendingFront).
         add("Unlock", 2, [this, surface](Cpu &c) {
-            if (DdSurface *s = surface(c, c.arg(0)))
-                if (s->primary)
-                    present(*s);
+            DdSurface *s = surface(c, c.arg(0));
+            if (!s || !s->primary)
+                return kOk;
+            if (s->back) {
+                _pendingFront = c.arg(0);
+                _pendingFrontMs = _process->now();
+            } else {
+                present(*s);
+            }
             return kOk;
         });
         add("UpdateOverlay", 6, ok);

@@ -127,6 +127,7 @@ GameHost::GameHost(GameFolders folders, Options options) : _folders(std::move(fo
     _process->onSlice = [this](Cpu &) {
         if (_inputQueued.load(std::memory_order_relaxed))
             applyInput();
+        presentPendingFront();
     };
     // Before each native function: input that's due, and the log. Kept
     // cheap: the game makes millions of these calls.

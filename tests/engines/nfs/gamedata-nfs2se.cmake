@@ -159,7 +159,7 @@ elseif(STEP STREQUAL "survey")
 elseif(STEP STREQUAL "formats")
     record_run(formats ".dct frames" nfs survey "${game_dir}" ${cd_dir} -hash)
 elseif(STEP STREQUAL "host")
-    record_host(host -limit 24000000000 -framesfrom 20000 -every 500)
+    record_host(host -limit 24000000000 -framesfrom 2000 -every 100)
 elseif(STEP STREQUAL "host_glide")
     # The 3dfx program, the install's or else the CD's.
     set(program "")
