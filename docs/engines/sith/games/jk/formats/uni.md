@@ -20,8 +20,10 @@ Line by line:
 
 - **Blank lines and lines starting `#`** are left out.
 - **`MSGS <count>`** first. The count is at least the number of strings,
-  but not always equal (900 for 787 strings), so it's taken as a limit
-  the game reserves for *(inferred)*.
+  but not always equal (900 for 787 strings): a limit. `JK.EXE` says as
+  much when it reads `jkstrings.uni`, for a debugger: `Premature 'END'
+  found after only 787 lines in 'ui\jkstrings.uni'. Check number in 'MSG
+  xxx' header.` ([systems/hosting.md](../systems/hosting.md)).
 - **An entry:** `"<key>"  <number>  "<string>"`, spaced with tabs or
   spaces, and perhaps a `#` comment after it, which may hold quotes of its
   own. The number is 0 in every entry.

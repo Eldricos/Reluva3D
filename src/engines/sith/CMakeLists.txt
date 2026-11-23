@@ -46,6 +46,7 @@ reluva_add_engine_tools(sith
     SOURCES
         tools/files.cpp
         tools/formats.cpp
+        tools/host.cpp
         tools/movies.cpp
         tools/pages.cpp)
 

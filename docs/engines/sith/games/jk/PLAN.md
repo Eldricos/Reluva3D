@@ -40,6 +40,29 @@ data and COG scripts, so native is more within reach than for NFS III;
 hosting stays the faster way to a game that plays as the original, and
 the reference to check native against.
 
+### The gate
+
+What the trial found, for choosing between A and B:
+
+- **B's cost is known and bounded.** What `JK.EXE` needs that the
+  emulator hasn't is DirectX 5's: Direct3D 1 and 2 (execute buffers,
+  viewports, materials, older textures) on the emulator's Direct3D 7
+  rasterizer; DirectSound with 3D buffers on Reluva's mixer; about 75
+  small Windows calls; later DirectPlay 3 for multiplayer, and the CDs'
+  music. All of it is shared code, of use to any DirectX 5 game.
+- **Speed isn't a concern.** 200 to 500 million instructions a second,
+  for a program written for the Pentiums of 1997.
+- **A's cost is the whole engine.** The data is read and drawn already,
+  but the game's rules are in `JK.EXE`: the COG script machine and its
+  verbs, physics and collision, the AI's instincts, weapons and the
+  Force, the menus, saves and multiplayer, each to be matched by reading
+  the code and watching the game.
+
+**Recommendation: B**, with the data layer and viewer kept as they are
+(the reference to check the hosted game against, and the start of A if
+it's ever wanted). Next: Direct3D 1 in the emulator, until `JK.EXE`
+reaches its menus; then DirectSound; then a level.
+
 ## Phases
 
 1. **Skeleton and detection** (done): the engine from the template, the
@@ -58,9 +81,13 @@ the reference to check native against.
    puppets, `.spr` sprites, `.par` particles, and the `.jkl` levels with
    their things, each read on every retail file and drawn in 3D by the
    data viewer ([formats/](README.md#this-folder)).
-5. **Hosting spike** (next): how far `JK.EXE` gets in the emulator, and what it
-   needs; the gate between A and B.
-6. **The game,** by the gate's choice.
+5. **Hosting trial** (done): `JK.EXE` run in the emulator gets through its
+   start-up (its registry, window, archives, strings, fonts and the menus'
+   pictures) and stops where it asks for Direct3D's first interface,
+   `IDirect3D`, which the emulator hasn't; it runs at 200 to 500 million
+   instructions a second ([systems/hosting.md](systems/hosting.md)). See
+   [The gate](#the-gate).
+6. **The game** (next), by the gate's choice.
 7. **Mysteries of the Sith.**
 
 ## Decisions

@@ -46,8 +46,12 @@ index's order, which isn't sorted by name.
 
 `JK.EXE` names the archives it opens by pattern (`%s.gob`,
 `episode\%s`, `%s\gamedata\resource`), and says "Bad version %d for gob
-file" when the version is wrong. Which archives it searches for a name,
-and in what order, isn't traced yet.
+file" when the version is wrong. Run in the emulator, it opens the
+install's `Resource\Res1hi.gob` and `Resource\Res2.gob`, and for each
+file it wants tries a loose file first: at the install's root, in its
+`resource` folder, then in the CD's `gamedata\resource`; then the
+archives ([systems/hosting.md](../systems/hosting.md)). Which archive
+wins when two have a name isn't traced yet.
 
 ## In Reluva
 

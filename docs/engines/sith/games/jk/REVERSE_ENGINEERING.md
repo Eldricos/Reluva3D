@@ -16,7 +16,10 @@ extended. The facts themselves are on their pages, each with its source.
 - **The game's files:** the US retail release, both CDs and an install
   from them (`JK.EXE` 1,387,520 bytes, whole-file MD5
   `1cbc984348811f40d0d520a1d43e9106`).
-- **`JK.EXE`:** its imports and strings so far; no disassembly yet.
+- **`JK.EXE`:** its imports, strings and the DirectX interface
+  identifiers in its data; its code where a run of it stopped, read with
+  `reluva-tool sith disasm`; and the program itself run in Reluva's x86
+  emulator (`reluva-tool sith host`).
 - **The readme** (`README.TXT`, 9 September 1997) and the troubleshooting
   guide (`Jedi.doc`).
 - **Published write-ups** of the formats by the game's editing community,
@@ -37,6 +40,10 @@ extended. The facts themselves are on their pages, each with its source.
   no pattern, noted as such. A field's meaning is then taken from what
   it does across the files (colour 0 in transparent textures, the
   pictures' x and y on the screen), and marked as inferred.
+- **Running it:** the retail program run in the emulator, each stop
+  explained by the code where it stopped, and what it opened, wrote and
+  printed for a debugger noted
+  ([systems/hosting.md](systems/hosting.md)).
 - **Drawing it:** pictures drawn with each palette they might take, and
   placed where their x and y say on a menu's background, to see which
   fits; fonts drawn with and without a field as their spacing.
@@ -54,6 +61,8 @@ extended. The facts themselves are on their pages, each with its source.
 | `reluva-tool sith strings <install> <file.uni>` | A string table's keys and strings |
 | `reluva-tool sith episode <install>` | Each episode's steps, and the CD each cut scene was found on |
 | `reluva-tool sith movies <install> [-all]` | The cut scenes on the CDs found; with `-all` every frame and its sound decoded |
+| `reluva-tool sith host <install> [-seconds N] [-args "..."] [-png file] [-files]` | The retail `JK.EXE` run in the x86 emulator: what it opens and asks for, and where it stops |
+| `reluva-tool sith disasm <JK.EXE> <address> [count]` | The program's instructions from an address on |
 | `reluva-tool sith page <install> <page> [keys...] <out.png>` | One of the data viewer's pages drawn after the keys given, as a PNG |
 | `reluva-tool sith folders <install>` | The game recognised in an install, and where each CD was found |
 

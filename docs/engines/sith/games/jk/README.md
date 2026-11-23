@@ -53,7 +53,12 @@ installer and the readme.
 - **The data viewer** (`reluva-viewer`) shows the pictures, materials,
   colormaps, models, levels, fonts and string tables, plays the sounds, the sound
   classes' sounds and the cut scenes, and lists the episodes' steps.
-- **Not yet:** the scripts, and the game. Plans, phases and decisions:
+- **The game:** the retail `JK.EXE` runs in Reluva's x86 emulator through
+  its start-up, reading its archives and the menus' pictures, and stops
+  where it asks for Direct3D's first interface, which the emulator hasn't
+  ([systems/hosting.md](systems/hosting.md)); `reluva-tool sith host`
+  runs it.
+- **Not yet:** the scripts, and the game played. Plans, phases and decisions:
   [PLAN.md](PLAN.md).
 
 ## Using it
@@ -120,7 +125,7 @@ after the keys given, without a window.
 | This page | The releases, where it stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
 | [formats/](formats/) | The game's own files, a page each: [gob.md](formats/gob.md) (archives), [cmp.md](formats/cmp.md) (colormaps), [bm.md](formats/bm.md) (pictures), [mat.md](formats/mat.md) (materials), [sft.md](formats/sft.md) (fonts), [uni.md](formats/uni.md) (string tables), [wav.md](formats/wav.md) (sounds), [snd.md](formats/snd.md) (sound classes), [episode-jk.md](formats/episode-jk.md) (episodes), [smk.md](formats/smk.md) (cut scenes), [3do.md](formats/3do.md) (models), [key.md](formats/key.md) (animations), [pup.md](formats/pup.md) (puppets), [spr.md](formats/spr.md) (sprites), [par.md](formats/par.md) (particle clouds), [jkl.md](formats/jkl.md) (levels), [jk-cd.md](formats/jk-cd.md) (the CD marker) |
-| `systems/` | How the game behaves, a page per part |
+| [systems/](systems/) | How the game behaves, a page per part: [hosting.md](systems/hosting.md) (the retail program run in the emulator) |
 | `research/` | Working notes |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |

@@ -51,6 +51,8 @@ are in `tests/common/` (`common.unit.x86`, `common.unit.jit`,
   ([disasm.md](disasm.md)).
 - **`awe`**: Murder on the Orient Express's `granny2.dll` and `binkw32.dll`,
   run by its tools to check Reluva's own decoders against them.
+- **`sith`**: Jedi Knight's whole program, in a trial of how far it gets
+  ([hosting.md](../../engines/sith/games/jk/systems/hosting.md)).
 - **`nfs`**: Need for Speed III's whole program, with its threads, drives,
   DirectX of its own and its Voodoo renderers on the Glide stand-in
   ([its README](../../engines/nfs/games/nfs3/README.md)).

@@ -36,8 +36,10 @@ None yet.
 
 - **Which archive a name comes from:** Reluva looks in the install's
   `Resource` archives, then its `Episode` ones, each folder's in name
-  order ([formats/gob.md](formats/gob.md#in-reluva)). The game's own order
-  would be settled by tracing how `JK.EXE` opens them.
+  order ([formats/gob.md](formats/gob.md#in-reluva)). The game was seen to
+  try loose files first, then its archives
+  ([formats/gob.md](formats/gob.md#behaviour)); which archive wins when
+  two have a name would be settled by tracing how `JK.EXE` searches them.
 - **Which CD the game wants:** Reluva tells the CDs apart by `JK_.CD`'s
   bytes, and doesn't yet know how the game itself does
   ([formats/jk-cd.md](formats/jk-cd.md#behaviour)). Tracing its reads of
@@ -45,4 +47,6 @@ None yet.
 
 ## Settled
 
-None yet.
+- **November 2026: a string table's count is a limit.** `JK.EXE`, run in
+  the emulator, warns that `jkstrings.uni` ends before its count and
+  reads on ([formats/uni.md](formats/uni.md#layout)).

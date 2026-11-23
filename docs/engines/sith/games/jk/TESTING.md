@@ -64,6 +64,7 @@ That the US release's signatures match a real install: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | `reluva-tool sith host` on the install with CD 1's copy: `JK.EXE` through its start-up to Direct3D's devices, 51 million instructions |
 | November 2026 | US retail | Linux | The things placed in Nar Shaddaa, Katarn's house and the fuel station drawn on the Levels page: crates on the ground, characters in place |
 | November 2026 | US retail | Linux | `reluva-tool sith formats`: all 35 levels read. The Levels page drawn for Nar Shaddaa, Katarn's house, the fuel station, the tower and level 19B, from their players' starts |
 | November 2026 | US retail | Linux | `reluva-tool sith formats`: all 20 sprites and 3 particle clouds read; an explosion's cels and a cloud drawn on the Sprites page |
