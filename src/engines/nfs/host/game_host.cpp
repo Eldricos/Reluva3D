@@ -18,6 +18,12 @@
 
 namespace reluva::nfs {
 
+bool isThrashRenderer(const PeImage &image) {
+    return std::any_of(image.exports.begin(), image.exports.end(), [](const PeImage::Export &e) {
+        return e.name.starts_with("_THRASH_") || e.name.starts_with("THRASH_");
+    });
+}
+
 namespace {
 
 using x86::Cpu;
@@ -103,14 +109,14 @@ GameHost::GameHost(GameFolders folders, Options options) : _folders(std::move(fo
     c.letter = 'C';
     c.root = _folders.install;
     c.writable = _options.saveFolder;
-    c.label = "NFS3";
+    c.label = _options.driveLabel;
     _process->addDrive(c);
     if (!_folders.cd.empty()) {
         x86::Win32Process::Drive d;
         d.letter = 'D';
         d.root = _folders.cd;
         d.type = 5;
-        d.label = "NFS3";
+        d.label = _options.driveLabel;
         d.serial = 0x1998;
         _process->addDrive(d);
     }
@@ -578,14 +584,7 @@ void GameHost::addSystem() {
                     return 0u;
                 }
                 _gameDlls[name] = m;
-                // A renderer exports THRASH's functions, stdcall-decorated
-                // (_THRASH_init@0, thrash.md); the sound DLL and NFS II SE's
-                // dsetup.dll (DirectX's set-up) don't.
-                const bool thrash =
-                    std::any_of(m->image.exports.begin(), m->image.exports.end(), [](const PeImage::Export &e) {
-                        return e.name.starts_with("_THRASH_") || e.name.starts_with("THRASH_");
-                    });
-                if (thrash) {
+                if (isThrashRenderer(m->image)) {
                     _thrash.dll = name;
                     _thrashBase = m->base;
                     // The retail softtria.dll (June 1998), whose globals thrash.md describes.

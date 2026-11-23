@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // What the games' programs are given in the x86 emulator: force feedback,
-// DirectSound 3D's model, THRASH's fog, Direct3D look and blending (NFS
+// DirectSound 3D's model, THRASH's DLLs told apart, THRASH's fog, Direct3D look and blending (NFS
 // III's), and the keyboard hook, drawing into a flipping pair's front and
 // the joystick count NFS II SE's program needs.
 //
@@ -561,6 +561,23 @@ void testHostWindows(const stdfs::path &tmp) {
     CHECK(frames == 2); // the Flip showed it
 }
 
+// A renderer is told from the game's other DLLs by its exports: NFS III's
+// softtria.dll decorates THRASH's names, so matching only the plain ones
+// lost its renderer.
+void testThrashDetection() {
+    auto dll = [](std::initializer_list<const char *> names) {
+        PeImage image;
+        for (const char *name : names)
+            image.exports.push_back({name, uint32_t(image.exports.size() + 1), 0x1000, {}});
+        return image;
+    };
+    CHECK(reluva::nfs::isThrashRenderer(dll({"DllMain", "_THRASH_init@0"})));
+    CHECK(reluva::nfs::isThrashRenderer(dll({"THRASH_init"})));
+    CHECK(!reluva::nfs::isThrashRenderer(dll({"DirectXSetupA", "DirectXSetupGetVersion"}))); // dsetup.dll
+    CHECK(!reluva::nfs::isThrashRenderer(dll({"iSNDdirectstart_", "iSNDdllversion_"})));     // eacsnd.dll
+    CHECK(!reluva::nfs::isThrashRenderer(dll({})));
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("nfs.unit.host",
@@ -570,5 +587,6 @@ static const reluva::test::Suite kSuite("nfs.unit.host",
                                             {"thrash fog", [](const stdfs::path &) { testThrashFog(); }},
                                             {"thrash direct3d", [](const stdfs::path &) { testThrashDirect3D(); }},
                                             {"thrash blend", [](const stdfs::path &) { testThrashBlend(); }},
+                                            {"thrash detection", [](const stdfs::path &) { testThrashDetection(); }},
                                             {"windows", [](const stdfs::path &tmp) { testHostWindows(tmp); }},
                                         });

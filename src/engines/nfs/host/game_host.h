@@ -32,6 +32,15 @@
 namespace reluva::nfs {
 
 /**
+ * Whether a DLL the game loads is a THRASH renderer, by its exports: THRASH's
+ * functions, stdcall-decorated as the retail renderers export them
+ * (_THRASH_init@0, docs/engines/nfs/games/nfs3/systems/thrash.md) or
+ * undecorated. The sound DLL (eacsnd.dll) and NFS II SE's dsetup.dll
+ * (DirectX's set-up) aren't.
+ */
+bool isThrashRenderer(const PeImage &image);
+
+/**
  * The retail nfs3.exe run in the x86 interpreter (docs/engines/nfs/games/nfs3/PLAN.md,
  * Phase 4): a Windows process whose C: is the install folder and D: the
  * CD, with the system's functions it calls stood in for. Its own renderer
@@ -50,6 +59,10 @@ public:
         // 3dfx program (NFS2SEA.EXE), which an install made without a 3dfx
         // card leaves there. It still runs as C:\<program>.
         std::filesystem::path programFile;
+        // The volume label of both drives (C: and the CD's D:). NFS III's CD
+        // is labelled "NFS3"; NFS II SE's is given "NFS2SE", its real label
+        // not known (its UNCONFIRMED.md), and its program doesn't need it.
+        std::string driveLabel = "NFS3";
         std::string commandLine = "nfs3.exe";
         std::string renderer = "softtria.dll"; // the THRASH DLL, as the registry names it
         // The THRASH DLL the game is told it has, if not renderer: say a 3D
