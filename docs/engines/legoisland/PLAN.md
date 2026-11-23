@@ -49,20 +49,22 @@ Each phase ends with something that runs, is tested and is committed.
    scenes drawn and picked, the island in 3D as a screenshot of the
    original shows it, walked, the skateboard ridden, and the jet-ski
    built and ridden ([systems/running.md](systems/running.md#how-far-it-gets)).
-7. **Input, saves and settings** (done, to be tried in the engine): DirectInput and the joystick, the save
-   folder, and `CONFIG.EXE`'s choices as the engine's settings; turning
-   at the speed it was made for, as on today's machines it's too fast
-   ([KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md)). In progress: the
-   player turning by time, where the game turns by the frame; the
-   setup's choices as the engine's settings; the joystick, through
-   WINMM; saving and loading, a player and the game's state kept from
-   one session to the next.
+7. **Input, saves and settings** (done, to be tried in the engine):
+   DirectInput's keys and WINMM's joystick, the first one connected; the
+   save folder, players registered and their games kept from one session
+   to the next; what the installer and the setup (`CONFIG.EXE`) write to
+   the registry, its choices as the engine's settings (the 3D device
+   among them); and the player turning by time, at the speed it was
+   made for, where the original turns by the frame, too fast on today's
+   machines ([KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md)).
 8. **A full playthrough** (in progress), checked against recordings of
    the original, by the checklist in [TESTING.md](TESTING.md#a-playthrough-by-hand);
    then speed (the JIT's hot spots, Retained Mode on the GPU). So far:
-   every place on the map reached; Render skips what's out of view, and
-   the game runs at 50 to 65 frames a second on the island, three times
-   the engine's limit of 20, so the GPU can wait.
+   every place on the map reached in Act 1, and its routes run by the
+   game-files test; Acts 2 and 3 not yet played. Render skips what's out
+   of view, and the game runs at 50 to 65 frames a second on the island,
+   about the engine's limit of 60: speed is next, for room on slower
+   machines.
 
 ## Decisions
 
