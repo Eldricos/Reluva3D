@@ -8,6 +8,7 @@ reluva_add_engine(storm3d
     SOURCES
         storm3d.cpp
         formats/config_file.cpp
+        formats/input_map.cpp
         formats/ldl.cpp
         formats/odf.cpp
         formats/zfs_archive.cpp)
@@ -27,12 +28,13 @@ reluva_add_engine_tests(storm3d
     SOURCES
         ${tests}/unit/config.cpp
         ${tests}/unit/detection.cpp
+        ${tests}/unit/input_map.cpp
         ${tests}/unit/ldl.cpp
         ${tests}/unit/odf.cpp
         ${tests}/unit/zfs.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.config unit.detection unit.ldl unit.odf unit.zfs engine)
+        unit.config unit.detection unit.input_map unit.ldl unit.odf unit.zfs engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

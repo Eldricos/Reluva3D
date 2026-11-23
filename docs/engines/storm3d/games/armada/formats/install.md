@@ -24,7 +24,7 @@ In the install's folder.
 | `Armada.pal` | 768 | A palette: 256 colours of 3 bytes *(inferred)* |
 | `BZONE.FNT`, `BZONEJ.FNT` | 11,944 and 271,512 | Fonts |
 | `RTS_CFG.h`, `ART_CFG.h`, `game_cfg.h`, `shell_cfg.h`, `Dynamic_Localized_Strings.h` | | The game's settings, as C declarations (`float OVERVIEW_MAX_ZOOM = 4.0;`) ([config.md](config.md)) |
-| `Input.map`, `Gamekey.map`, `label.map` | | The keys and the mouse, as text |
+| `Input.map`, `Gamekey.map`, `label.map` | | The keys and the mouse, as text ([input-map.md](input-map.md)) |
 | `Collision.cfg`, `CCA.cfg`, `Logfile.cfg` | | Collision avoidance and logging settings, as text |
 | `events.odf` | 52,762 | The announcements' sounds and messages, as text; not an object definition despite its name ([odf.md](odf.md#open-questions)) |
 | `shell.set`, `mshell.set`, `mshelldemo.set` | | The front end's settings |

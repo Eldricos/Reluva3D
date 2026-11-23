@@ -9,11 +9,13 @@
 //   reluva-tool storm3d config <game folder> <file>
 //   reluva-tool storm3d config-check <game folder>
 //   reluva-tool storm3d ldl <game folder> <file.ldl> [output file]
+//   reluva-tool storm3d input-map <Input.map>
 
 #include "common/archive.h"
 #include "common/fs.h"
 #include "common/text.h"
 #include "engines/storm3d/formats/config_file.h"
+#include "engines/storm3d/formats/input_map.h"
 #include "engines/storm3d/formats/ldl.h"
 #include "engines/storm3d/formats/odf.h"
 #include "engines/storm3d/formats/zfs_archive.h"
@@ -267,6 +269,35 @@ int cmdLdl(int argc, char **argv) {
     return 0;
 }
 
+int cmdInputMap(int argc, char **argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool storm3d input-map <Input.map>\n");
+        return 2;
+    }
+    std::ifstream in(argv[2], std::ios::binary);
+    if (!in) {
+        std::fprintf(stderr, "Cannot open %s\n", argv[2]);
+        return 1;
+    }
+    const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    reluva::storm3d::InputMap map;
+    if (Error err = map.parse(text)) {
+        std::fprintf(stderr, "%s: %s\n", argv[2], err.message.c_str());
+        return 1;
+    }
+    for (const auto &b : map.bindings) {
+        std::string conditions;
+        for (const auto &c : b.conditions)
+            conditions +=
+                (conditions.empty() ? "" : "  ") + std::string(c.down ? "+" : "-") + c.device + ":" + c.control;
+        std::printf("%-28s %s\n", b.action.c_str(), conditions.c_str());
+    }
+    for (const std::string &p : map.problems)
+        std::printf("not read: %s\n", p.c_str());
+    std::printf("%zu actions\n", map.bindings.size());
+    return 0;
+}
+
 const reluva::tool::Commands kCommands(
     "storm3d",
     {
@@ -281,6 +312,8 @@ const reluva::tool::Commands kCommands(
          cmdConfigCheck},
         {"ldl", "<game folder> <file.ldl> [output file]",
          "an .ldl file decoded with the key from the install's Armada.exe, printed or written", cmdLdl},
+        {"input-map", "<Input.map>", "the actions in an Input.map, each with the controls that trigger it",
+         cmdInputMap},
     });
 
 } // namespace
