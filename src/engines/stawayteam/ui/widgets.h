@@ -18,6 +18,12 @@ namespace reluva::stawayteam {
 /** `picture` with its colours scaled by `brightness` (0-1), as the game's toolkit dims what it draws. */
 image::Image dimmed(const image::Image &picture, float brightness);
 
+/** Whether `ev` is Enter pressed, which presses a window's default button (0x401e57). */
+bool isEnter(const Event &ev);
+
+/** Whether `ev` is Esc pressed, which presses a window's cancel button (0x401e83). */
+bool isEscape(const Event &ev);
+
 /**
  * A button of the game's window toolkit, on one picture (`Button
  * Background`): the picture dim until the mouse is over it, then
@@ -49,6 +55,11 @@ public:
      * through `mixer` (nullptr: none).
      */
     bool handleEvent(const Event &ev, int originX, int originY, audio::Mixer *mixer);
+    /**
+     * Presses it as its window's Enter or Esc does: its sound played
+     * through `mixer` (nullptr: none). Returns whether it's enabled.
+     */
+    bool press(audio::Mixer *mixer);
     /** Draws it at `now` (milliseconds), its window's top left at (originX, originY). */
     void draw(Surface &screen, int originX, int originY, uint64_t now);
 

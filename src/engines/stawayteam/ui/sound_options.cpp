@@ -121,7 +121,8 @@ void SoundOptionsWindow::showOptions() {
 }
 
 bool SoundOptionsWindow::handleEvent(const Event &ev, audio::Mixer *mixer) {
-    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
+    // CONTINUE is the window's default and cancel button (0x486ad0).
+    if ((isEnter(ev) || isEscape(ev)) && _continue.press(mixer))
         return true;
     if (_continue.handleEvent(ev, _x, _y, mixer))
         return true;

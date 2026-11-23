@@ -212,11 +212,29 @@ typed characters. The scan code is kept too (`0x4e8ec0`).
 - **The focus:** a window hands a key to the child that has its focus
   (`0x409250`); Tab gives the next child the focus, with Shift the one
   before.
-- **Esc:** only four places look for it: a drag is given up, the mouse
-  put back where it started (`0x409382`); the text entry's dialog closes
-  (`0x4dfd0a`, Enter takes what's typed, `0x4dfca0`); in a mission the
-  screen's own handler (`0x4f6ee0`, from `0x5c8f46`); and a drop-down
-  list closes, as Enter or F4 choose from it (`0x4055d0`). Nothing makes Esc quit the main menu or close the credits.
+- **A dialog's keys** (`0x401e00`, the menus' own windows' key handler
+  after the toolkit's): Up or Left gives the child before the focus
+  (`0x409ba0`), Down or Right the next (`0x409b60`); Enter presses the
+  child with the focus, or else the dialog's default button (`+0x11c`);
+  Esc presses its cancel button (`+0x120`). Pressed, a button plays its
+  sound and does what a click does. The menus set them:
+
+  | Window | Default (Enter) | Cancel (Esc) |
+  |---|---|---|
+  | The main menu | START NEW GAME | QUIT (`0x503911`) |
+  | The confirm dialog, Yes and No | No | No (`0x4871dd`) |
+  | The confirm dialog, one button | OK | OK |
+  | The difficulty window | START GAME | CANCEL (`0x48c1ad`, `0x48c1c0`) |
+  | The settings | CONTINUE | CONTINUE (`0x486311`) |
+  | The sound's settings | CONTINUE | CONTINUE (`0x486ad0`) |
+  | The credits | RESUME | RESUME (`0x5bb614`) |
+  | The escape menu | RESUME, made last | the same (`0x5bae25`) |
+
+- **Esc elsewhere:** a drag is given up, the mouse put back where it
+  started (`0x409382`); the text entry's dialog closes (`0x4dfd0a`,
+  Enter takes what's typed, `0x4dfca0`); in a mission the screen's own
+  handler (`0x4f6ee0`, from `0x5c8f46`); and a drop-down list closes, as
+  Enter or F4 choose from it (`0x4055d0`).
 - **A group of buttons** (tabs, toggles, linked in a ring, `0x4e43ad`):
   Right gives the next the focus and presses it, Left the one before
   (`0x4e4890`).
@@ -471,24 +489,25 @@ Game/Background`:
   one, or by its shortcut's key (without Ctrl or Alt). The shortcut's line
   and the label's brightening aren't drawn yet.
 - **The main menu:** `MainMenu` (`ui/main_menu.cpp`), its screen and its
-  buttons as above. Quit opens the confirm dialog, in the middle
-  of the screen; Yes (or Y) ends the game and goes back to the launcher,
-  No (N, Esc) closes it. Credits opens the credits window (`CreditsWindow`,
-  `ui/credits.cpp`, the roll a `CreditsRoll`), in the middle of the
-  screen; RESUME (or R) closes it. Start New Game opens the difficulty
+  buttons as above; Enter and Esc press the default and cancel buttons
+  as above, the button's sound played. Quit opens the confirm dialog, in
+  the middle of the screen; Yes (or Y) ends the game and goes back to the
+  launcher, No (N, Enter, Esc) closes it. Credits opens the credits
+  window (`CreditsWindow`, `ui/credits.cpp`, the roll a `CreditsRoll`),
+  in the middle of the screen; RESUME (R, Enter, Esc) closes it. Start New Game opens the difficulty
   window (`DifficultyWindow`, `ui/difficulty.cpp`), in the middle of the
   screen, Normal checked to start with: START GAME (S) keeps the level
   checked and closes it, as the game isn't there to start yet; CANCEL
-  (N, Esc) closes it. Settings opens the settings window
+  (N, Esc) closes it, Enter pressing START GAME. Settings opens the settings window
   (`SettingsWindow`, `ui/settings.cpp`), in the middle of the screen:
   its sliders and check box change the game's options as they're set,
   kept in `options.ini` (`GameOptions`, `game/options.cpp`) where Reluva
   keeps the game's files, with the program's names; RESET DEFAULTS puts
   the defaults back; DIFFICULTY SETTING opens the difficulty window over
-  it; CONTINUE (or Esc) closes it. The brightness is the screen's gamma,
+  it; CONTINUE (Enter, Esc) closes it. The brightness is the screen's gamma,
   applied to all Reluva draws. CONFIGURE SOUND opens the sound window
   (`SoundOptionsWindow`, `ui/sound_options.cpp`), its controls set as
-  above and kept with the others; CONTINUE (or Esc) closes it. On
+  above and kept with the others; CONTINUE (Enter, Esc) closes it. On
   Reluva's mixer the master volume and the music's or the effects'
   multiply, as gains (a hundredth of a decibel each), into its music and
   effects volumes; speech, the movies' and voiceovers', go with the
@@ -553,9 +572,10 @@ Game/Background`:
   noted in the code.
 - **A slider's focus:** how a slider gets the keyboard's focus other than
   by Tab. Reluva gives it to the last slider clicked, and has no Tab.
-- **Esc in the other windows:** no handler for it was found in the
-  dialog, the difficulty, settings, sound and keyboard windows; Reluva
-  closes them with it.
+- **The keyboard screen's default and cancel buttons:** not traced;
+  Reluva closes it with Esc.
+- **The focus moved by the arrows:** Reluva doesn't move it, and Enter
+  always presses the default button.
 - **Speech's volume:** whether voiceovers and the movies follow the
   effects' scale. Reluva has them do so.
 - **The gamma:** how the game's display applies it. Reluva raises each

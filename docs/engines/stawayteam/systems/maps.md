@@ -915,7 +915,7 @@ Max Distance and Vision Cone and in sight past what stands in the way,
 is tinted over the ground in squares *(inferred)*.
 The options button, or Esc, opens the escape menu, holding the game
 still *(inferred)*: CONFIGURE the settings over the map, RESTART MISSION
-and END GAME as asked, RESUME or Esc back; SAVE GAME and LOAD GAME are
+and END GAME as asked, RESUME, Enter or Esc back ([menus.md](menus.md#the-programs-keys)); SAVE GAME and LOAD GAME are
 greyed out, as saved games aren't there yet.
 
 The map's other characters face their `Facing Angle`, their shadow under

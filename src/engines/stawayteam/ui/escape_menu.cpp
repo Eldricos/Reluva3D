@@ -58,7 +58,9 @@ EscapeWindow::Choice EscapeWindow::handleEvent(const Event &ev, audio::Mixer *mi
         _confirm.reset();
         return *answer ? std::exchange(_asking, Choice::kNone) : Choice::kNone;
     }
-    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
+    // RESUME, made last, is the window's default and cancel button
+    // (0x5bae25).
+    if ((isEnter(ev) || isEscape(ev)) && _buttons[kResume].press(mixer))
         return Choice::kResume;
     for (size_t i = 0; i < _buttons.size(); ++i) {
         if (!_buttons[i].handleEvent(ev, _x, _y, mixer))

@@ -141,9 +141,15 @@ int ButtonGroup::handleEvent(const Event &ev, audio::Mixer *mixer) {
     default:
         break;
     }
-    if (chosen >= 0 && mixer && _buttons[size_t(chosen)].sound())
-        mixer->play(_buttons[size_t(chosen)].sound(), audio::SoundType::kEffects, audio::kMaxVolume, 0, false);
-    return chosen;
+    return chosen >= 0 ? press(size_t(chosen), mixer) : -1;
+}
+
+int ButtonGroup::press(size_t i, audio::Mixer *mixer) {
+    if (!_buttons[i].enabled())
+        return -1;
+    if (mixer && _buttons[i].sound())
+        mixer->play(_buttons[i].sound(), audio::SoundType::kEffects, audio::kMaxVolume, 0, false);
+    return int(i);
 }
 
 void ButtonGroup::draw(Surface &screen) const {

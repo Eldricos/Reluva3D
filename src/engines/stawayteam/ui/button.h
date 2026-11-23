@@ -123,6 +123,12 @@ public:
      * sound played through `mixer` (nullptr: none), or -1.
      */
     int handleEvent(const Event &ev, audio::Mixer *mixer);
+    /**
+     * Presses button `i` as its menu's Enter or Esc does: its sound
+     * played through `mixer` (nullptr: none). Returns `i`, or -1 if it's
+     * disabled.
+     */
+    int press(size_t i, audio::Mixer *mixer);
     void draw(Surface &screen) const;
 
 private:

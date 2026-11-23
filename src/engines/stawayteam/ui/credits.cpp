@@ -166,6 +166,9 @@ CreditsWindow::CreditsWindow(const Archive &data, const TextObject &rules, int s
 }
 
 bool CreditsWindow::handleEvent(const Event &ev, audio::Mixer *mixer) {
+    // RESUME is the window's default and cancel button (0x5bb614).
+    if ((isEnter(ev) || isEscape(ev)) && _resume.press(mixer))
+        return true;
     return _resume.handleEvent(ev, _x, _y, mixer);
 }
 

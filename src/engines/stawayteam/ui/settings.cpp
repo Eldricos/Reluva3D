@@ -108,7 +108,8 @@ void SettingsWindow::showOptions() {
 }
 
 SettingsWindow::Choice SettingsWindow::handleEvent(const Event &ev, audio::Mixer *mixer) {
-    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
+    // CONTINUE is the window's default and cancel button (0x486311).
+    if ((isEnter(ev) || isEscape(ev)) && _continue.press(mixer))
         return Choice::kContinue;
     if (ev.type == EventType::kMouseDown)
         for (Slider &slider : _sliders)

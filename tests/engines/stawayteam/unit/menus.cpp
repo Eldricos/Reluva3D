@@ -621,6 +621,13 @@ void testEscapeMenu() {
     CHECK(window.handleEvent(key, nullptr) == EscapeWindow::Choice::kRestart);
     key.key = 'c';
     CHECK(window.handleEvent(key, nullptr) == EscapeWindow::Choice::kConfigure);
+    // Enter in the dialog presses No, its default button.
+    key.key = 'm';
+    CHECK(window.handleEvent(key, nullptr) == EscapeWindow::Choice::kNone);
+    key.key = key::kReturn;
+    CHECK(window.handleEvent(key, nullptr) == EscapeWindow::Choice::kNone);
+    key.key = 'y';
+    CHECK(window.handleEvent(key, nullptr) == EscapeWindow::Choice::kNone);
 }
 } // namespace
 

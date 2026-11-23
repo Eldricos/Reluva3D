@@ -64,14 +64,16 @@ DifficultyWindow::DifficultyWindow(const Archive &data, int screenW, int screenH
 }
 
 std::optional<std::optional<Difficulty>> DifficultyWindow::handleEvent(const Event &ev, audio::Mixer *mixer) {
-    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
+    // START GAME is the window's default button, CANCEL its cancel
+    // button (0x48c1ad, 0x48c1c0).
+    if (isEscape(ev) && _cancel.press(mixer))
         return std::optional<Difficulty>();
     // One level checked at a time (0x48c36a).
     for (size_t i = 0; i < _toggles.size(); ++i)
         if (_toggles[i].handleEvent(ev, _x, _y))
             for (size_t j = 0; j < _toggles.size(); ++j)
                 _toggles[j].setChecked(j == i);
-    if (_start.handleEvent(ev, _x, _y, mixer)) {
+    if ((isEnter(ev) && _start.press(mixer)) || _start.handleEvent(ev, _x, _y, mixer)) {
         for (size_t i = 0; i < _toggles.size(); ++i)
             if (_toggles[i].checked())
                 return std::optional<Difficulty>(Difficulty(i + 1));

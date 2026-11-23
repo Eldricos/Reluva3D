@@ -42,8 +42,8 @@ None now.
   middle of the screen, the credits' underlines blended by their alpha, the toolkit's
   brightness scaling colours smoothly outside the credits, the
   gamma brightening dark colours, the slider's texture tiled from the
-  screen's corner, the sliders' focus, Esc closing the windows but for
-  the main menu and the credits, the keyboard screen's
+  screen's corner, the sliders' focus, Esc closing the keyboard
+  screen, the keyboard screen's
   keys and tab sizes, voiceovers' and movies'
   volume following the effects',
   the shortcut's

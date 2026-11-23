@@ -82,9 +82,9 @@ ConfirmDialog::ConfirmDialog(const Archive &data, const TextObject &rules, std::
 }
 
 std::optional<bool> ConfirmDialog::handleEvent(const Event &ev, audio::Mixer *mixer) {
-    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
-        return false;
-    const int chosen = _buttons.handleEvent(ev, mixer);
+    // With Yes and No, No is the dialog's default and cancel button
+    // (0x4871dd).
+    const int chosen = isEnter(ev) || isEscape(ev) ? _buttons.press(1, mixer) : _buttons.handleEvent(ev, mixer);
     if (chosen < 0)
         return std::nullopt;
     return chosen == 0;
@@ -351,7 +351,11 @@ bool MainMenu::run() {
                     _credits.reset();
                 continue;
             }
-            const int chosen = _buttons.handleEvent(ev, _mixer);
+            // START NEW GAME is the menu's default button, QUIT its cancel
+            // button (0x503911).
+            const int chosen = isEnter(ev)    ? _buttons.press(kStartButton, _mixer)
+                               : isEscape(ev) ? _buttons.press(kQuitButton, _mixer)
+                                              : _buttons.handleEvent(ev, _mixer);
             if (chosen == int(kQuitButton))
                 _dialog = std::make_unique<ConfirmDialog>(_data, _rules, kQuitQuestion, _screen.w, _screen.h);
             else if (chosen == int(kLoadButton) && !_saves.empty())

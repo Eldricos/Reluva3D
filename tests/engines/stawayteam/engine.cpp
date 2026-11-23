@@ -298,18 +298,18 @@ void engineTest(const std::filesystem::path &tmp) {
     // Started, it reads the rules; its movies aren't there to play, so the
     // main menu comes, its picture and buttons at their places. S (Start
     // New Game's shortcut) asks the difficulty, N (CANCEL) closes that; C
-    // (Credits') shows the credits, R (RESUME) closes them; E (Settings') shows the
+    // (Credits') shows the credits, Esc closes them; E (Settings') shows the
     // settings, P unchecks pausing when hit, F (DIFFICULTY SETTING) shows
     // the difficulty window over them, Esc closes it, S (CONFIGURE SOUND)
     // shows the sound's settings, Esc closes them, K (CONFIGURE KEYBOARD)
-    // the keyboard's, Esc closes them, C (CONTINUE) closes the settings; Q asks whether to
-    // quit, N says no, Q (Quit's shortcut) asks again, and Y quits: the
+    // the keyboard's, Esc closes them, C (CONTINUE) closes the settings; Esc asks whether to
+    // quit, Enter says no, Q (Quit's shortcut) asks again, and Y quits: the
     // window isn't closed.
     int frames = 0;
     std::vector<std::string> screens;
     rec.add("play.result", play(*engine, dir, frames, &screens,
                                 {'s', 'n', 'e', 'p', 'f', key::kEscape, 's', key::kEscape, 'k', key::kEscape, 'c', 'c',
-                                 'r', 'q', 'n', 'q', 'y'}));
+                                 key::kEscape, key::kEscape, key::kReturn, 'q', 'y'}));
     rec.add("play.frames", static_cast<int64_t>(frames));
     for (size_t i = 0; i < screens.size(); ++i)
         rec.add("play.screen " + std::to_string(i), screens[i]);

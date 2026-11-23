@@ -77,6 +77,14 @@ image::Image dimmed(const image::Image &picture, float brightness) {
     return out;
 }
 
+bool isEnter(const Event &ev) {
+    return ev.type == EventType::kKeyDown && (ev.key == key::kReturn || ev.key == key::kKpEnter);
+}
+
+bool isEscape(const Event &ev) {
+    return ev.type == EventType::kKeyDown && ev.key == key::kEscape;
+}
+
 PictureButton::PictureButton(image::Image picture, const std::string &label, const Font *font)
     : _picture(std::move(picture)), _font(font), _brightness(1.0f) {
     _label = withoutShortcut(label, _shortcut);
@@ -110,9 +118,15 @@ bool PictureButton::handleEvent(const Event &ev, int originX, int originY, audio
     default:
         break;
     }
-    if (chosen && mixer && _sound)
+    return chosen && press(mixer);
+}
+
+bool PictureButton::press(audio::Mixer *mixer) {
+    if (!_enabled)
+        return false;
+    if (mixer && _sound)
         mixer->play(_sound, audio::SoundType::kEffects, audio::kMaxVolume, 0, false);
-    return chosen;
+    return true;
 }
 
 void PictureButton::draw(Surface &screen, int originX, int originY, uint64_t now) {
