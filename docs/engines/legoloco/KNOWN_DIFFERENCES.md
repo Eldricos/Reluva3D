@@ -26,9 +26,15 @@ None yet.
 - **The window:** the original runs on the desktop, in windows filling
   it; Reluva shows its 800 by 600 desktop as the game's window, with
   nothing of Windows around it ([systems/running.md](systems/running.md)).
-- **Not stood in for yet:** the Open and Save dialogs, opening a web
-  page (`ShellExecuteA`), the animated cursors (`LoadCursorFromFileA`),
-  and network play (it finds no network).
+- **The windowed mode:** its frame is painted plainly (borders and a
+  caption bar, without the title or buttons), and its scroll bars aren't
+  drawn or used; the desktop around it is black.
+- **Windows' pointer:** where the game shows Windows' own pointer rather
+  than drawing its own (the busy pointer while saving), nothing is
+  drawn; the animated cursors' files aren't read.
+- **Not stood in for yet:** the Open and Save dialogs (the game's own
+  panels serve instead), opening a web page (`ShellExecuteA`), and
+  network play (it finds no network).
 
 ## Additions outside the game
 

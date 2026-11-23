@@ -75,6 +75,10 @@ private:
     std::vector<uint32_t> _frame;
     int _width = 0;
     int _height = 0;
+    // Where the frame's corner is on the game's screen: the engine's mouse
+    // is in the frame's pixels. The game thread's.
+    int _frameX = 0;
+    int _frameY = 0;
     uint64_t _frameNumber = 0;
     uint64_t _frameTaken = 0;
     bool _stopping = false;

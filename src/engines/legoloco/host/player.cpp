@@ -91,6 +91,7 @@ void Player::work() {
             _width = f.width, _height = f.height;
             ++_frameNumber;
         }
+        _frameX = f.x, _frameY = f.y;
         drain();
     };
     game.video().frameDrawn = [&game] { game.directX().show(); };
@@ -129,9 +130,9 @@ void Player::drain() {
     for (const Event &ev : events) {
         switch (ev.type) {
         // The game draws its own pointer where Windows says the mouse is:
-        // the place on the engine's screen, which is the game's.
+        // the place on the frame shown, which is its window's client area.
         case EventType::kMouseMove:
-            p.mouseMoveTo(ev.mouseX, ev.mouseY);
+            p.mouseMoveTo(_frameX + ev.mouseX, _frameY + ev.mouseY);
             break;
         case EventType::kMouseDown:
         case EventType::kMouseUp: {
@@ -139,8 +140,8 @@ void Player::drain() {
                                : ev.button == MouseButton::kRight  ? 1
                                : ev.button == MouseButton::kMiddle ? 2
                                                                    : -1;
-            if (ev.mouseX != p.cursorX || ev.mouseY != p.cursorY)
-                p.mouseMoveTo(ev.mouseX, ev.mouseY);
+            if (_frameX + ev.mouseX != p.cursorX || _frameY + ev.mouseY != p.cursorY)
+                p.mouseMoveTo(_frameX + ev.mouseX, _frameY + ev.mouseY);
             if (button >= 0)
                 p.mouseButton(button, ev.type == EventType::kMouseDown);
             break;

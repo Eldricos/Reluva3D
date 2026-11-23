@@ -88,6 +88,43 @@ Seen running in Reluva (`reluva-tool legoloco run`):
     GDI. (Its main loop, in a state other than 2, peeks messages and
     draws a frame each time the 28 ms timer has set its flag,
     `0x485444`; that it's that path now is *inferred* from the frames.)
+    Its states (`0x4851f4`), as seen: 2 the front screen, 1 loading a
+    layout, 8 a station master's bubble, 3 playing, 4 within a layout's
+    loading.
+
+### Playing
+
+- **The pointer on the board** is the game's own, an object at
+  `0x4854c8` drawn where the mouse is while it's on (`+0x24`, switched by
+  `0x411dc0`). Switching it on asks Windows where the pointer is
+  (`GetCursorPos`, then `WindowFromPoint`, `0x410a40`), and switches it
+  off again unless it's over the main window: so it's off while a bubble
+  is up. It's switched back on by `WM_NCHITTEST` (`0x461e40`): the main
+  window asks `DefWindowProcA` for the hit-test, and on its client area
+  switches the pointer on, elsewhere off. Windows sends `WM_NCHITTEST`
+  before each mouse message; until the stand-ins did, the pointer stayed
+  off after the welcome, and the board took no clicks.
+- **The Toybox** (the LEGO case, top left), its buttons as their
+  pictures show them: track, buildings, scenery, the eraser, the bomb,
+  undo; loading and saving, backdrops, the bulldozer; the windowed mode,
+  help, sound. The first press of each
+  shows the station master's tip about it. A piece is picked up with a
+  click and placed with another; one that can't go where it's held is
+  drawn faintly.
+- **Saving and loading** are the game's own panels, not Windows' dialogs:
+  a list of the layouts in `art-res\savegame` (found with
+  `FindFirstFileA`), and a name typed into the hidden `EDIT` control it
+  made, which the typed keys reach. Saving writes
+  `art-res\savegame\<name>.sav` ([sav.md](../formats/sav.md)), with the
+  busy pointer (`CURSORS\busy.ani`, `LoadCursorFromFileA`) while it does;
+  the layout being played is kept in `art-res\~curr` and taken up again
+  at the next start.
+- **The windowed mode** (`SetWindowPos` at `0x407e0a`) makes the main window framed, with
+  scroll bars (style `0x92ff0000`), at 700 by 500, and back to filling
+  the screen.
+- **Leaving** (the front screen's arrow): the game closes its main window
+  (`WM_CLOSE`), which takes its other windows with it, and posts
+  `WM_QUIT`; the process ends with code 0.
 
 ### Where it finds its files
 
@@ -126,16 +163,21 @@ Seen running in Reluva (`reluva-tool legoloco run`):
   - its sound, DirectSound's buffers with `PlaySoundA`'s music, plays on
     the engine's mixer, as do the movies';
   - the mouse is passed on where it is on the screen (the game draws its
-    own pointer, so the system's is hidden), with its buttons, the wheel
+    own pointer, so the system's is hidden; the frame's corner on the
+    screen is added, for the windowed mode), with its buttons, the wheel
     and the keys, when the program looks for a message and finds none or
     when it presents a frame.
 - `reluva-tool legoloco run <game folder> -save <folder>` runs the
   program and reports how far it gets: the imports nothing stands in for,
   and where it stopped, with the last stand-ins called (`-log` prints each
   call, `-limit` stops after so many million instructions, `-seconds`
-  once the program's clock has passed so many seconds). `-click s x y`
-  clicks at (x, y) once the clock has passed s seconds, as often as
-  given; `-shot file.ppm` saves the last frame shown.
+  once the program's clock has passed so many seconds). The program's
+  clock times what's done to it, as a player would, in any number:
+  `-click s x y` and `-rclick s x y` click at (x, y) once it has passed s
+  seconds, `-move s x y` moves the pointer, `-drag s x1 y1 x2 y2` drags,
+  `-key s vk` presses a key (a virtual-key code in hex), and
+  `-shot s file.ppm` saves the screen (`-shot file.ppm` at the end).
+  `-nomovies` ends each movie as it starts.
 
 ### How far it gets
 
@@ -143,30 +185,30 @@ The program runs through its start ([above](#its-start-as-it-runs)),
 plays its three movies (by the clock: about two minutes;
 [mci.md](../../../common/x86/mci.md)), sets up its sound and starts its
 music ([dsound.md](../../../common/x86/dsound.md)), and shows its front
-screen, about 509 million instructions; then it waits for the player.
-Clicked through (the one-player case, then the tick), it plays: the
-first layout and the station master's welcome.
+screen, about 509 million instructions. Played from there with the
+mouse and keys, as [above](#playing): the first layout and its train,
+the station master's bubbles, the Toybox and its panels, a track picked
+up and placed, a layout saved and loaded again, the windowed mode and
+back, and leaving. For example, past the movies to the board, its
+welcome closed:
 
 ```bash
-reluva-tool legoloco run <game folder> -save <folder> -limit 400000 -seconds 150 -click 127 365 345 -click 130 718 520 -shot board.ppm
+reluva-tool legoloco run <game folder> -save <folder> -limit 4000000 -seconds 40 -nomovies -click 5 365 345 -click 7 718 520 -click 30 586 378 -shot board.ppm
 ```
 
 DirectPlay is stood in for without a network
 ([dplay.md](../../../common/x86/dplay.md)), so it finds no network
-connection. Of its 115 imports that had nothing at first, 4 are left,
-none called so far:
-
-| DLL | Functions | What |
-|---|---|---|
-| comdlg32, SHELL32 | 2, 1 | the Open and Save dialogs, `ShellExecuteA` |
-| USER32 | 1 | `LoadCursorFromFileA` (its animated cursors) |
+connection. Of its 115 imports that had nothing at first, 3 are left,
+none called so far: comdlg32's Open and Save dialogs (its own panels
+serve instead), and SHELL32's `ShellExecuteA`.
 
 The rest are stood in for in the shared code: KERNEL32's, ADVAPI32's,
 VERSION.dll's and USER32's ([windows.md](../../../common/x86/windows.md)),
 GDI32's ([gdi.md](../../../common/x86/gdi.md)), the movie window's and
 MCI's ([mci.md](../../../common/x86/mci.md)), and DirectSound's and
-`PlaySoundA` ([dsound.md](../../../common/x86/dsound.md)). How much of
-the game plays beyond the first layout hasn't been tried yet.
+`PlaySoundA` ([dsound.md](../../../common/x86/dsound.md)). Not tried
+yet: trains run by the player, postcards and the post office, a whole
+layout built.
 
 ## Sources and checks
 
@@ -178,5 +220,4 @@ the game plays beyond the first layout hasn't been tried yet.
 ## Open questions
 
 - Whether the program runs on without a network past its start: it
-  finds none of its four connections, and goes on to its front screen
-  and the first layout.
+  finds none of its four connections, and plays on regardless.

@@ -56,8 +56,16 @@ The game, from the launcher:
   with their sound; then the front screen, with music. The game's hand
   follows the mouse.
 - Choosing the one-player case, then the tick: the first layout, and the
-  station master's welcome in a bubble, its text legible.
-- Closing the window asks first.
+  station master's welcome in a bubble, its text legible; its train
+  runs.
+- The bubble closed: the hand pointer follows the mouse. The LEGO case
+  opens the Toybox; each of its buttons opens its panel (a tip first).
+- A track picked up and placed on bare ground stays there.
+- Saved under a name typed in the save panel, the layout loads again
+  from the load panel, as it was.
+- The windowed mode's button makes a framed window, and back.
+- The front screen's arrow leaves the game; closing Reluva's window asks
+  first.
 
 In the data viewer (`reluva-viewer <folder>`):
 

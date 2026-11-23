@@ -9,7 +9,7 @@ one game. Engine id `legoloco`, in `src/engines/legoloco/`.
 
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
-| LEGO Loco | `legoloco` | LEGO Media, 1998 | Windows | The CD, version 1.0.18.2 (`Exe/Loco.exe`, `art-res/resource.RFH`), installed or as on the CD | Starts: its movies, front screen and first layout play; the rest untried |
+| LEGO Loco | `legoloco` | LEGO Media, 1998 | Windows | The CD, version 1.0.18.2 (`Exe/Loco.exe`, `art-res/resource.RFH`), installed or as on the CD | Plays: its movies, front screen, layouts, the Toybox, saving and loading; postcards and network play to come |
 
 The CD holds one release for nine languages: the installer asks which,
 and writes it into the install's `Exe/LEGO.INI`. The files are the same
@@ -31,12 +31,13 @@ being worked on first.
   ([systems/data-viewer.md](systems/data-viewer.md)).
 - **Playing it:** the game's own `loco.exe` runs in Reluva's x86
   emulator, with stand-ins for the parts of Windows and DirectX it calls:
-  its movies, music and sound, its front screen, and its first layout
-  with the station master, played with the mouse
+  its movies, music and sound, its front screen, its layouts with their
+  trains, the Toybox, placing pieces, saving and loading layouts, its
+  windowed mode, and leaving, played with the mouse and keys
   ([systems/running.md](systems/running.md)).
-- **Not yet:** the game past its first layout hasn't been tried; the
-  Open and Save dialogs, its animated cursors and network play aren't
-  stood in for. See [PLAN.md](PLAN.md).
+- **Not yet:** building a whole layout and running trains by hand
+  haven't been tried; postcards, Windows' own pointer and network play
+  aren't done. See [PLAN.md](PLAN.md).
 
 ## Using it
 

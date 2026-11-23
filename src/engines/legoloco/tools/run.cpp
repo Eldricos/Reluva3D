@@ -39,30 +39,58 @@ void saveShot(const x86::DirectX::Frame &f, const std::string &path) {
     std::printf("frame %llu saved to %s\n", (unsigned long long)f.number, path.c_str());
 }
 
+// What the tool does to the program, at a time on its clock: the
+// player's input, or saving the screen.
+struct Step {
+    uint32_t at = 0; // milliseconds
+    enum class Kind { kMove, kDown, kUp, kKey, kShot } kind = Kind::kMove;
+    int x = 0; // kMove: where; kDown, kUp: the button (0 left, 1 right)
+    int y = 0;
+    uint32_t key = 0; // kKey: a virtual-key code
+    std::string file; // kShot
+};
+
+Step step(uint32_t at, Step::Kind kind, int x = 0, int y = 0) {
+    Step s;
+    s.at = at, s.kind = kind, s.x = x, s.y = y;
+    return s;
+}
+
 // Options: -log prints each stand-in called; -limit n stops after n
 // million instructions; -seconds n stops once the program's clock has
 // passed n seconds (a program waiting for messages runs no instructions);
-// -click s x y clicks the left button at (x, y) once the clock has passed s
-// seconds (as many as wanted, in order); -shot file.ppm saves the last frame
-// shown; -save folder is where it may write.
+// -save folder is where it may write; -nomovies ends each movie as it
+// starts. The program's clock (s, in seconds) times what's done to it:
+// -click s x y and -rclick s x y click a button at (x, y), -move s x y
+// moves the pointer, -drag s x1 y1 x2 y2 drags with the left button over
+// half a second, -key s vk presses and releases a key (a virtual-key code,
+// in hex), and -shot s file.ppm saves the screen (-shot file.ppm, at the
+// end).
 int cmdRun(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(
-            stderr,
-            "usage: reluva-tool legoloco run <game folder> [-log] [-limit millions] [-seconds n] [-click s x y]... [-shot file.ppm] [-save folder]\n");
+        std::fprintf(stderr, "usage: reluva-tool legoloco run <game folder> -save <folder> [-log] [-limit millions] "
+                             "[-seconds n] [-nomovies] [-click|-rclick|-move s x y] [-drag s x1 y1 x2 y2] "
+                             "[-key s vk] [-shot [s] file.ppm]...\n");
         return 2;
     }
     bool log = false;
+    bool noMovies = false;
     uint64_t limit = 2000;
     uint32_t seconds = 0;
-    struct Click {
-        double at; // seconds
-        int x;
-        int y;
-    };
-    std::vector<Click> clicks;
+    std::vector<Step> steps;
     std::string shot;
     std::string save;
+    auto ms = [](const char *s) { return uint32_t(std::strtod(s, nullptr) * 1000); };
+    auto isNumber = [](const char *s) {
+        char *end = nullptr;
+        std::strtod(s, &end);
+        return end != s && *end == 0;
+    };
+    auto click = [&](uint32_t at, int button, int x, int y) {
+        steps.push_back(step(at, Step::Kind::kMove, x, y));
+        steps.push_back(step(at, Step::Kind::kDown, button));
+        steps.push_back(step(at + 100, Step::Kind::kUp, button)); // held a tenth of a second
+    };
     for (int i = 3; i < argc; ++i) {
         if (!std::strcmp(argv[i], "-log"))
             log = true;
@@ -70,9 +98,37 @@ int cmdRun(int argc, char **argv) {
             limit = std::strtoull(argv[++i], nullptr, 10);
         else if (!std::strcmp(argv[i], "-seconds") && i + 1 < argc)
             seconds = uint32_t(std::strtoul(argv[++i], nullptr, 10));
-        else if (!std::strcmp(argv[i], "-click") && i + 3 < argc) {
-            clicks.push_back({std::strtod(argv[i + 1], nullptr), std::atoi(argv[i + 2]), std::atoi(argv[i + 3])});
+        else if (!std::strcmp(argv[i], "-nomovies"))
+            noMovies = true;
+        else if ((!std::strcmp(argv[i], "-click") || !std::strcmp(argv[i], "-rclick")) && i + 3 < argc) {
+            click(ms(argv[i + 1]), argv[i][1] == 'r' ? 1 : 0, std::atoi(argv[i + 2]), std::atoi(argv[i + 3]));
             i += 3;
+        } else if (!std::strcmp(argv[i], "-move") && i + 3 < argc) {
+            steps.push_back(step(ms(argv[i + 1]), Step::Kind::kMove, std::atoi(argv[i + 2]), std::atoi(argv[i + 3])));
+            i += 3;
+        } else if (!std::strcmp(argv[i], "-drag") && i + 5 < argc) {
+            const uint32_t at = ms(argv[i + 1]);
+            const int x1 = std::atoi(argv[i + 2]);
+            const int y1 = std::atoi(argv[i + 3]);
+            const int x2 = std::atoi(argv[i + 4]);
+            const int y2 = std::atoi(argv[i + 5]);
+            steps.push_back(step(at, Step::Kind::kMove, x1, y1));
+            steps.push_back(step(at, Step::Kind::kDown, 0));
+            for (int k = 1; k <= 10; ++k)
+                steps.push_back(
+                    step(at + uint32_t(k) * 50, Step::Kind::kMove, x1 + (x2 - x1) * k / 10, y1 + (y2 - y1) * k / 10));
+            steps.push_back(step(at + 600, Step::Kind::kUp, 0));
+            i += 5;
+        } else if (!std::strcmp(argv[i], "-key") && i + 2 < argc) {
+            Step key = step(ms(argv[i + 1]), Step::Kind::kKey);
+            key.key = uint32_t(std::strtoul(argv[i + 2], nullptr, 16));
+            steps.push_back(key);
+            i += 2;
+        } else if (!std::strcmp(argv[i], "-shot") && i + 2 < argc && isNumber(argv[i + 1])) {
+            Step s = step(ms(argv[i + 1]), Step::Kind::kShot);
+            s.file = argv[i + 2];
+            steps.push_back(s);
+            i += 2;
         } else if (!std::strcmp(argv[i], "-shot") && i + 1 < argc)
             shot = argv[++i];
         else if (!std::strcmp(argv[i], "-save") && i + 1 < argc)
@@ -82,7 +138,9 @@ int cmdRun(int argc, char **argv) {
         std::fprintf(stderr, "a save folder is needed: -save <folder>\n");
         return 2;
     }
+    std::stable_sort(steps.begin(), steps.end(), [](const Step &a, const Step &b) { return a.at < b.at; });
     legoloco::GameProcess game(argv[2], save);
+    game.video().endAtOnce = noMovies;
     if (Error err = game.load()) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
@@ -149,23 +207,29 @@ int cmdRun(int argc, char **argv) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
             }
         });
-    // Clicks are passed on as the player's would be: when the program looks
-    // for a message and finds none. The button's held a tenth of a second.
-    size_t nextClick = 0;
-    bool pressed = false;
-    uint32_t pressedAt = 0;
+    // The steps are taken as the player's input would be: when the program
+    // looks for a message and finds none.
+    size_t next = 0;
     game.process().idle = [&] {
         x86::Win32Process &p = game.process();
-        const uint32_t now = p.milliseconds();
-        if (pressed && now - pressedAt >= 100) {
-            p.mouseButton(0, false);
-            pressed = false;
-        } else if (!pressed && nextClick < clicks.size() && now >= uint32_t(clicks[nextClick].at * 1000)) {
-            p.mouseMoveTo(clicks[nextClick].x, clicks[nextClick].y);
-            p.mouseButton(0, true);
-            pressed = true;
-            pressedAt = now;
-            ++nextClick;
+        for (const uint32_t now = p.milliseconds(); next < steps.size() && steps[next].at <= now; ++next) {
+            const Step &st = steps[next];
+            switch (st.kind) {
+            case Step::Kind::kMove:
+                p.mouseMoveTo(st.x, st.y);
+                break;
+            case Step::Kind::kDown:
+            case Step::Kind::kUp:
+                p.mouseButton(st.x, st.kind == Step::Kind::kDown);
+                break;
+            case Step::Kind::kKey:
+                p.key(st.key, 0, true);
+                p.key(st.key, 0, false);
+                break;
+            case Step::Kind::kShot:
+                saveShot(game.directX().frame(), st.file);
+                break;
+            }
         }
     };
     uint32_t exitCode = 0;
@@ -205,8 +269,9 @@ int cmdRun(int argc, char **argv) {
 
 const Commands kCommands("legoloco", {
                                          {"run",
-                                          "<game folder> [-log] [-limit millions] [-seconds n] [-click s x y]... "
-                                          "[-shot file.ppm] [-save folder]",
+                                          "<game folder> -save <folder> [-log] [-limit millions] [-seconds n] "
+                                          "[-nomovies] [-click|-rclick|-move s x y] [-drag s x1 y1 x2 y2] [-key s vk] "
+                                          "[-shot [s] file.ppm]...",
                                           "run the game's own loco.exe and report how far it gets", cmdRun},
                                      });
 
