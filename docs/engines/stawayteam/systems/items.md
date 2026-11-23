@@ -292,8 +292,11 @@ whatever the height of either, seen or not: its move asks for what's
 `Active` and `Collideable`, not `Visible`, `Half Height` or `Full
 Height` (`0x4effe0`, `0x4ef720`), so a low box or a pit's polygon does,
 as a wall does; but not a part with a pass-through trigger, which lets
-it through ([maps.md](maps.md#the-maps-triggers)). It's turned back,
-mirrored off the side it meets, with its Bounce Sound *(inferred)*.
+it through ([maps.md](maps.md#the-maps-triggers)). A side turns it only
+as it goes in: what's met takes away only what of its move goes into the
+side (`0x4efcf1`), so one thrown from inside an outline, its thrower
+standing in it, goes out. It's turned back, mirrored off the side it
+meets, with its Bounce Sound *(inferred)*.
 Mission 01's and 08's `Fake Grenade Bouncer poly`, made active for half
 a second by a pass-through trigger a grenade crosses, is for that. A
 thrown thing sets off the triggers `Triggered By Anything`, flying or

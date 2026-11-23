@@ -42,17 +42,6 @@ float number(const TextObject *o, const char *key, float fallback = 0.0f) {
     return o ? float(o->number(key).value_or(fallback)) : fallback;
 }
 
-bool inside(const std::vector<std::pair<float, float>> &polygon, float x, float y) {
-    bool in = false;
-    for (size_t i = 0, j = polygon.size() - 1; i < polygon.size(); j = i++) {
-        const auto [xi, yi] = polygon[i];
-        const auto [xj, yj] = polygon[j];
-        if ((yi > y) != (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi)
-            in = !in;
-    }
-    return in;
-}
-
 } // namespace
 
 void MapScreen::setupTriggers() {

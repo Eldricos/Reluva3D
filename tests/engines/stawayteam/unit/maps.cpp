@@ -579,7 +579,16 @@ void testClosest() {
 
 void testCombat() {
     // A guard at (500, 500) facing left with a disruptor, a wall between
-    // it and the officers at (300, 500), 20 x 80 about (400, 500).
+    // it and the officers at (300, 500), 20 x 80 about (400, 500). Two
+    // touching triggers about (420, 548), on the guard's line to (300,
+    // 620): one answering to projectiles, one to nothing.
+    const auto shotTrigger = [](const std::string &by, const std::string &lamp) {
+        return "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tActive=1\n\t\t\tPosition X=420\n\t\t\tPosition Y=548\n"
+               "\t\t\tActivity=Array\n\t\t\t{\n\t\t\t\tItem Count=1\n\t\t\t\tActivity=CTouchingOvalTriggerAI\n"
+               "\t\t\t\t{\n\t\t\t\t\tX Radius=15\n\t\t\t\t\tYX Ratio=1\n\t\t\t\t\t" +
+               by + "\n\t\t\t\t\tEnter Action=CActivateAction\n\t\t\t\t\t{\n\t\t\t\t\t\tTarget Name=" + lamp +
+               "\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n";
+    };
     const std::string zax =
         "CLayerSaveData\n{\n\tWidth=1000\n\tHeight=1000\n\tView Position=300.000000,500.000000\n"
         "\tTree List=CSortList2D\n\t{\n"
@@ -609,7 +618,10 @@ void testCombat() {
         "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Flag\n\t\t\tVisible=0\n\t\t\tActive=0\n\t\t}\n"
         "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Trophy\n\t\t\tVisible=0\n\t\t\tActive=0\n\t\t}\n"
         "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 2\n\t\t\tVisible=1\n"
-        "\t\t\tPosition X=300\n\t\t\tPosition Y=480\n\t\t}\n"
+        "\t\t\tPosition X=300\n\t\t\tPosition Y=480\n\t\t}\n" +
+        shotTrigger("Triggered By Projectiles=1", "Shot Lamp") + shotTrigger("", "Other Lamp") +
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Shot Lamp\n\t\t\tActive=0\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Other Lamp\n\t\t\tActive=0\n\t\t}\n"
         "\t}\n}\n";
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
@@ -660,6 +672,8 @@ void testCombat() {
     run(6000);
     CHECK(guard.state == "Attack" && guard.target == 0);
     CHECK(screen.officers()[0].health < 100.0f);
+    // Its shots cross the triggers: the one answering to projectiles goes.
+    CHECK(screen.partState(8).active && !screen.partState(9).active);
     run(12000);
     CHECK(!screen.officers()[0].alive() && screen.officers()[0].health == 0.0f && !screen.officers()[0].chosen);
     screen.choose(0);
@@ -1852,6 +1866,7 @@ void testProjectiles() {
     // and unseen as that is, high as the grenade flies. A touching trigger
     // answering to anything turns a second lamp on as it comes in, and off
     // as it goes off; one answering to projectiles doesn't answer to it.
+    // Ann stands in a collideable outline, which lets the grenade out.
     const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
     const std::string zax =
         "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=300.000000,300.000000\nTree List=CSortList2D\n{\n"
@@ -1870,7 +1885,9 @@ void testProjectiles() {
         "Enter Action=CActivateAction\n{\nTarget Name=Third Lamp\n}\n}\n}\n}\n"
         "Level Part=CEntityBase\n{\nName=Second Lamp\nVisible=1\nActive=0\n}\n"
         "Level Part=CEntityBase\n{\nName=Third Lamp\nVisible=1\nActive=0\n}\n"
-        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=300\n}\n}\n}\n";
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=300\n}\n"
+        "Level Part=CFreeRangePoly\n{\nVisible=1\nActive=1\nCollideable=1\nFull Height=1\n"
+        "Polygon=280, 280, 320, 280, 320, 320, 280, 320, 280, 280\n}\n}\n}\n";
     MemoryArchive data;
     data.files["Levels/Test.zax"] = bytesOf(zax);
     data.files["Cache/Models/Shots/Grenade.mdl16"] =

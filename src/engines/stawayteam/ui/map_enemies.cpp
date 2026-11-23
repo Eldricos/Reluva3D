@@ -851,7 +851,8 @@ void MapScreen::updateEnemies(float seconds) {
         const float off = std::abs(wrap(toward - e.angle)) * 180.0f / kPi;
         if (off <= e.weapon->maxShootAngle && e.reload <= 0.0f) {
             e.reload = e.weapon->reuseDelay;
-            shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, o.x, o.y);
+            shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, o.x, o.y,
+                  kEnemyInstigator - int(&e - _enemies.data()));
             e.shooting = 1e-6f;
             hurtOfficer(size_t(e.target), *e.weapon, e.stuns);
         }
@@ -917,7 +918,7 @@ bool MapScreen::fightFoe(size_t self, float seconds) {
     if (off > e.weapon->maxShootAngle || e.reload > 0.0f)
         return true;
     e.reload = e.weapon->reuseDelay;
-    shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, f.x, f.y);
+    shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, f.x, f.y, kEnemyInstigator - int(&e - _enemies.data()));
     e.shooting = 1e-6f;
     const size_t victim = size_t(e.foe);
     hurtEnemy(victim, *e.weapon, -1, e.stuns);

@@ -125,6 +125,17 @@ bool inCategory(const std::string &categories, const std::string &wanted) {
     return false;
 }
 
+bool inside(const std::vector<std::pair<float, float>> &polygon, float x, float y) {
+    bool in = false;
+    for (size_t i = 0, j = polygon.size() - 1; i < polygon.size(); j = i++) {
+        const auto [xi, yi] = polygon[i];
+        const auto [xj, yj] = polygon[j];
+        if ((yi > y) != (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi)
+            in = !in;
+    }
+    return in;
+}
+
 MapPart readPart(const std::string &className, const TextObject &o) {
     MapPart part;
     part.className = className;

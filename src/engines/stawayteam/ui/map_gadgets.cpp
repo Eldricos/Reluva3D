@@ -550,7 +550,7 @@ bool MapScreen::fightDecoy(Enemy &e, float seconds) {
     if (e.reload > 0.0f)
         return true;
     e.reload = e.weapon->reuseDelay;
-    shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, p.x, p.y);
+    shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, p.x, p.y, kEnemyInstigator - int(&e - _enemies.data()));
     e.shooting = 1e-6f;
     for (Deployed &d : _deployed)
         if (d.part == part) {

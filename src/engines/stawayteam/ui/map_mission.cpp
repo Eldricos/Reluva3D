@@ -27,17 +27,6 @@ std::string lower(std::string s) {
     return s;
 }
 
-bool inside(const std::vector<std::pair<float, float>> &polygon, float x, float y) {
-    bool in = false;
-    for (size_t i = 0, j = polygon.size() - 1; i < polygon.size(); j = i++) {
-        const auto [xi, yi] = polygon[i];
-        const auto [xj, yj] = polygon[j];
-        if ((yi > y) != (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi)
-            in = !in;
-    }
-    return in;
-}
-
 } // namespace
 
 void MapScreen::arrive(size_t officer, const Officer &state, float x, float y) {

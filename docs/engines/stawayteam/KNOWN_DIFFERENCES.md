@@ -39,8 +39,9 @@ None yet.
   choices, and the keyboard's bindings, are kept but don't change
   anything yet
   ([systems/menus.md](systems/menus.md)).
-- **Maps:** the energy weapons' shots aren't things on the map, so they
-  set off no trigger `Triggered By Projectiles`, and the animations'
+- **Maps:** the energy weapons' shots set off the triggers `Triggered
+  By Projectiles` they cross as soon as they're fired, rather than as
+  their bolt flies through, and the animations'
   messages aren't there; particles are drawn over the models rather than
   among them ([systems/particles.md](systems/particles.md)); the camera scripts don't pause the
   characters, and one taken off the team stays on its bar; walkers keep

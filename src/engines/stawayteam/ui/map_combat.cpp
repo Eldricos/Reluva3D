@@ -182,8 +182,11 @@ bool MapScreen::throwPasses(float x0, float y0, float x1, float y1, float &vx, f
         return std::none_of(ais.begin(), ais.end(),
                             [](const TextObject *ai) { return ai->className == "CPassThroughTriggerAI"; });
     };
+    // A side turns it only as it goes in: the move takes away only what of
+    // it goes into the side met (0x4efcf1), so one leaving an outline it's
+    // in, thrown from where its thrower stands in it, goes on.
     for (const Wall &w : _walls) {
-        if (!blocks(w.part))
+        if (!blocks(w.part) || inside(w.points, x0, y0))
             continue;
         for (size_t k = 0; k < w.points.size(); ++k) {
             const auto [ax, ay] = w.points[k];
@@ -193,9 +196,9 @@ bool MapScreen::throwPasses(float x0, float y0, float x1, float y1, float &vx, f
         }
     }
     for (size_t i : _bouncers) {
-        if (!blocks(i))
-            continue;
         const auto &pts = _map.parts[i].polygon;
+        if (!blocks(i) || inside(pts, x0, y0))
+            continue;
         for (size_t k = 0; k + 1 < pts.size(); ++k)
             if (off(pts[k].first, pts[k].second, pts[k + 1].first, pts[k + 1].second))
                 return false;
@@ -225,7 +228,8 @@ void MapScreen::attack(int enemy) {
         }
 }
 
-float MapScreen::shoot(const ItemDefinition &weapon, const std::string &model, float x, float y, float tx, float ty) {
+float MapScreen::shoot(const ItemDefinition &weapon, const std::string &model, float x, float y, float tx, float ty,
+                       int instigator) {
     // Its Shot Sound; its Shot Flash where the shooter stands and its Hit
     // Flash on the one hit (inferred: where on them, and the beam between,
     // aren't traced).
@@ -250,9 +254,72 @@ float MapScreen::shoot(const ItemDefinition &weapon, const std::string &model, f
         const float time = weapon.shotDuration > 0.0f ? weapon.shotDuration : kBeamTime;
         _beams.push_back({mx, my, tx, ty - weapon.height, weapon.beamOutside, weapon.beamMiddle, time, time});
     }
+    if (weapon.dischargeAction == "CShootEnergyWeaponAction")
+        shotThrough(x, y, tx, ty, instigator);
     const Animation &a = animation(model, weapon.dischargeSequence.empty() ? "Shoot1" : weapon.dischargeSequence);
     const int per = a.perDirection();
     return per > 0 && a.fps > 0.0f ? float(per) / a.fps : weapon.shotDuration;
+}
+
+void MapScreen::shotThrough(float x0, float y0, float x1, float y1, int instigator) {
+    // The shot's a CPhaserShot, a bolt going on from the muzzle at its
+    // speed, with a CShotAI (0x5c95d0, 0x535c00), which is what a trigger
+    // Triggered By Projectiles answers to (0x417fb3); a touching trigger
+    // asks for what's in its shape (0x417670). Here the shot's its line at
+    // once, coming into and leaving each it crosses (inferred: Reluva's
+    // shots are drawn as beams, not flown).
+    const auto meets = [&](const Trigger &t) {
+        const MapPart &p = _map.parts[t.part];
+        if (t.ai->className.find("Oval") != std::string::npos) {
+            const float rx = float(t.ai->number("X Radius").value_or(0.0));
+            const float ry = rx * float(t.ai->number("YX Ratio").value_or(1.0));
+            if (rx <= 0.0f || ry <= 0.0f)
+                return false;
+            float px = 0.0f;
+            float py = 0.0f;
+            placeOf(t.part, px, py);
+            // The nearest point of the line to the oval's middle, measured
+            // in its radii.
+            const float ax = (x0 - px) / rx;
+            const float ay = (y0 - py) / ry;
+            const float dx = (x1 - x0) / rx;
+            const float dy = (y1 - y0) / ry;
+            const float length = dx * dx + dy * dy;
+            const float k = length > 0.0f ? std::clamp(-(ax * dx + ay * dy) / length, 0.0f, 1.0f) : 0.0f;
+            return std::hypot(ax + k * dx, ay + k * dy) <= 1.0f;
+        }
+        const auto &pts = p.polygon;
+        if (pts.size() < 3)
+            return false;
+        if (inside(pts, x0, y0) || inside(pts, x1, y1))
+            return true;
+        for (size_t k = 0; k < pts.size(); ++k) {
+            const auto [ax, ay] = pts[k];
+            const auto [bx, by] = pts[(k + 1) % pts.size()];
+            if (crosses(x0, y0, x1, y1, ax, ay, bx, by))
+                return true;
+        }
+        return false;
+    };
+    const auto flag = [](const TextObject *o, const char *key) { return o->number(key).value_or(0.0) != 0.0; };
+    for (Trigger &t : _triggers) {
+        const PartState &state = _partStates[t.part];
+        const std::string &kind = t.ai->className;
+        if (t.done || !state.active || state.deleted ||
+            (kind != "CTouchingOvalTriggerAI" && kind != "CTouchingPolygonTriggerAI") ||
+            !flag(t.ai, "Triggered By Projectiles") || !meets(t))
+            continue;
+        for (const char *key : {"Enter Action", "Exit Action"}) {
+            const TextObject *action = t.ai->object(key);
+            if (!action || t.done)
+                continue;
+            if (flag(t.ai, "Trigger Only Once"))
+                t.done = true;
+            runAction(action, instigator, int(t.part));
+        }
+        if (t.done && flag(t.ai, "Auto-Flip Switch"))
+            _partStates[t.part].active = false;
+    }
 }
 
 float MapScreen::enhancement(int officer) const {
@@ -418,7 +485,7 @@ void MapScreen::updateCombat(float seconds) {
             if (o.reload <= 0.0f) {
                 o.reload = o.weapon->reuseDelay;
                 o.discharge = o.weapon->dischargeSequence.empty() ? "Shoot1" : o.weapon->dischargeSequence;
-                shoot(*o.weapon, _team[o.member].bodyModel, o.x, o.y, e.x, e.y);
+                shoot(*o.weapon, _team[o.member].bodyModel, o.x, o.y, e.x, e.y, int(&o - _officers.data()));
                 makeNoise(o.x, o.y, o.weapon->shotNoise, o.weapon->shotNoiseTime);
                 o.shooting = 1e-6f;
                 hurtEnemy(i, *o.weapon, int(&o - _officers.data()), stuns(o));

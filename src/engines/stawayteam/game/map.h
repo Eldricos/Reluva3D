@@ -76,6 +76,9 @@ std::vector<CameraScript> readCameraScripts(const TextObject &manager);
 /** Whether a list of categories ("Enemy,Player") has any of `wanted`'s, also a list. */
 bool inCategory(const std::string &categories, const std::string &wanted);
 
+/** Whether (x, y) is within the polygon, its last point joined to its first. */
+bool inside(const std::vector<std::pair<float, float>> &polygon, float x, float y);
+
 /** A part of a map from its object, of class `className` (a Level Part's, or a model's Default Entity's). */
 MapPart readPart(const std::string &className, const TextObject &o);
 

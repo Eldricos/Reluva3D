@@ -451,7 +451,9 @@ trigger looks at every `Active` entity in its oval or polygon
 (`0x417670`, `0x4f1d30`), so a thrown thing among them, flying or
 lying. No touching trigger in the maps is `Triggered By Anything`, and
 the one `Triggered By Projectiles` (Mission 15's Borg beamer) answers to
-the officers too.
+the officers too. The energy weapons' shot is a `CPhaserShot`, a bolt
+whose head goes on from the muzzle along its way each frame, up to its
+range, meeting what's in its way as it goes (`0x535c00`).
 
 **Doors** (`CDoorAI`, 237 parts): `Is Locked` (12), and actions run
 before and after they open and close (`Before Open`, `After Opened`,
@@ -902,7 +904,11 @@ Triggered By Anything as it comes in, its Enter Action, and as it leaves
 or goes off, its Exit Action; not its Repeat Action *(inferred)*. A
 collide trigger's part is its footprint, or its polygon, or 20 pixels
 about it *(inferred)*; a thrown thing sets off a collide or pass-through
-one by its polygon only. A door
+one by its polygon only. An energy weapon's shot is its line from the
+shooter to the one shot, at once: a touching trigger Triggered By
+Projectiles it crosses runs its Enter and Exit Actions, the shooter
+their instigator *(inferred: the program's bolt flies, and its shape
+against the trigger's isn't traced)*. A door
 (`ui/map_gadgets.cpp`) opens unless locked: its Before Open, its Activate
 Sound, Opening played and then Open, out of the way at once, and its
 After Opened as it's open; closing likewise, back in the way *(inferred:
@@ -968,9 +974,7 @@ then one of its Random Songs by chance after another; without them, the
 map shown's Map Song, over and over; stopping as the maps are left
 *(inferred)*.
 
-Not there yet: the processes of the 5 polygons, the energy weapons'
-shots as things on the map setting off triggers `Triggered By
-Projectiles` (Mission 15's beamer), the AIs'
+Not there yet: the processes of the 5 polygons, the AIs'
 other messages and tasks (CSendMessageAction's to animations; the
 particle systems' are there, [particles.md](particles.md)), walkers going round each other, the enemies' own noises,
 thrown and laid weapons, the doors opening

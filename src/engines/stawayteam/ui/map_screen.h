@@ -610,9 +610,14 @@ private:
     void updateCombat(float seconds);
     const ModelInfo &modelInfo(const std::string &model);
     const ItemDefinition *weaponOf(const std::vector<std::string> &items) const;
-    // A shot from (x, y) with `weapon` at (tx, ty): its sound, its flashes;
-    // how long the shooter's `model` takes over shooting it.
-    float shoot(const ItemDefinition &weapon, const std::string &model, float x, float y, float tx, float ty);
+    // A shot from (x, y) with `weapon` at (tx, ty) by `instigator`: its
+    // sound, its flashes, the triggers it sets off; how long the shooter's
+    // `model` takes over shooting it.
+    float shoot(const ItemDefinition &weapon, const std::string &model, float x, float y, float tx, float ty,
+                int instigator);
+    // An energy weapon's shot from (x0, y0) to (x1, y1) setting off the
+    // touching triggers Triggered By Projectiles it crosses.
+    void shotThrough(float x0, float y0, float x1, float y1, int instigator);
     // The items (map_items.cpp).
     void setupItems();
     void updateItems(float seconds);
