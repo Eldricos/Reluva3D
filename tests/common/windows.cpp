@@ -16,6 +16,7 @@
 #include "emulation/x86/directx/dinput.h"
 #include "emulation/x86/directx/directx.h"
 #include "emulation/x86/directx/internal.h"
+#include "emulation/x86/gdi.h"
 #include "emulation/x86/msvcp60.h"
 #include "emulation/x86/msvcrt.h"
 #include "emulation/x86/win32.h"
@@ -539,6 +540,16 @@ static void testDirectDrawClipper() {
     CHECK(f.width == 800 && at(5, 5) == 0xffffff && at(99, 99) == 0xffffff);
     CHECK(at(25, 25) == 0 && at(49, 49) == 0); // under the second window
     CHECK(at(50, 25) == 0xffffff && at(100, 5) == 0);
+    // A child of the first, shown: filled over unless the first has
+    // WS_CLIPCHILDREN, as an edit control on a game's window.
+    user("CreateWindowExA", {0, name, 0, 0x50000000, 60, 60, 10, 10, below, 0, 0, 0});
+    cpu.write32(fx + 80, 0x1f);
+    CHECK(call(primary, 5, {rect, 0, 0, 0x400, fx}) == 0);
+    CHECK(at(65, 65) == at(5, 5));
+    user("SetWindowLongA", {below, 0xfffffff0u, 0x92000000u}); // GWL_STYLE
+    cpu.write32(fx + 80, 0x7e0);
+    CHECK(call(primary, 5, {rect, 0, 0, 0x400, fx}) == 0);
+    CHECK(at(65, 65) != at(5, 5) && at(59, 65) == at(5, 5));
 }
 
 // DirectDraw and Direct3D 7 called through their vtables as a program
@@ -1006,6 +1017,101 @@ static void testScrollBars() {
     CHECK(!process.scrollBarArea(hwnd, 1));
 }
 
+// An edit control made by CreateWindowExA (Windows' own class): its
+// sunken edge, text set and typed, its limit, selection and caret, the
+// parent told of changes, the focus's messages, and its painting.
+static void testEditControl() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    auto fn = [&](const char *name) { return process.provided("USER32.dll", name); };
+    auto text = [&](const std::string &s) {
+        const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
+        cpu.writeString(a, s, uint32_t(s.size() + 1));
+        return a;
+    };
+    uint32_t r = 0;
+    // A screen of 200 by 100, 32 bits, in the process's memory.
+    x86::Gdi::Target screen;
+    screen.width = 200, screen.height = 100, screen.bits = 32, screen.pitch = 800;
+    screen.memory = process.memory().alloc(800 * 100);
+    process.gdi().screen = [screen] { return screen; };
+    auto pixel = [&](int x, int y) { return cpu.read32(screen.memory + uint32_t(y * 800 + x * 4)) & 0xffffff; };
+    // A parent keeping what it's told: WM_COMMAND, and the focus's messages.
+    std::vector<std::pair<uint32_t, uint32_t>> told;
+    const uint32_t proc = cpu.addNative("test!EditParent", [&](x86::Cpu &c) {
+        const uint32_t message = c.arg(1);
+        if (message == 0x111 || message == 7 || message == 8)
+            told.emplace_back(message, c.arg(2));
+        c.reg[x86::Cpu::EAX] = message == 0x81 ? 1 : 0;
+        return 16u;
+    });
+    const uint32_t wc = process.memory().alloc(40);
+    cpu.write32(wc + 4, proc);
+    cpu.write32(wc + 36, text("Parent"));
+    CHECK(!cpu.call(fn("RegisterClassA"), {wc}, r) && r != 0);
+    CHECK(!cpu.call(fn("CreateWindowExA"), {0, text("Parent"), 0, 0x92000000u, 0, 0, 200, 100, 0, 0, 0, 0}, r) &&
+          r != 0);
+    const uint32_t parent = r;
+    // Windows' EDIT class, not registered by the program; WS_EX_CLIENTEDGE.
+    CHECK(!cpu.call(fn("CreateWindowExA"),
+                    {0x200, text("Edit"), text("Player"), 0x50000000u, 10, 20, 100, 24, parent, 7, 0, 0}, r) &&
+          r != 0);
+    const uint32_t edit = r;
+    CHECK((process.clientArea(edit) == std::array<int, 4>{12, 22, 96, 20}));
+    auto send = [&](uint32_t message, uint32_t wp, uint32_t lp) {
+        CHECK(!cpu.call(fn("SendMessageA"), {edit, message, wp, lp}, r));
+        return r;
+    };
+    auto content = [&] {
+        const uint32_t buf = process.memory().alloc(64);
+        CHECK(!cpu.call(fn("GetWindowTextA"), {edit, buf, 64}, r));
+        const std::string s = cpu.string(buf);
+        process.memory().free(buf);
+        return s;
+    };
+    CHECK(content() == "Player");
+    CHECK(!cpu.call(fn("SetWindowTextA"), {edit, text("Bea")}, r) && r);
+    CHECK(content() == "Bea");
+    // All of it chosen, then typed over; five at most.
+    send(0xc5, 5, 0);                           // EM_LIMITTEXT
+    send(0xb1, 0, 0xffffffffu);                 // EM_SETSEL
+    CHECK(send(0xb0, 0, 0) == (0u | 3u << 16)); // EM_GETSEL
+    told.clear();
+    for (char ch : std::string("Kristian"))
+        send(0x102, uint32_t(ch), 1); // WM_CHAR
+    CHECK(content() == "Krist");
+    CHECK(told.size() == 5 && told[0] == std::make_pair(0x111u, 7u | 0x300u << 16)); // EN_CHANGE, its id
+    send(0x102, 8, 1);                                                               // Backspace
+    send(0x100, 0x24, 1);                                                            // Home
+    send(0x100, 0x2e, 1);                                                            // Delete
+    CHECK(content() == "ris");
+    send(0x100, 0x23, 1); // End
+    CHECK(send(0xb0, 0, 0) == (3u | 3u << 16));
+    // A click puts the caret by the nearest character, from a margin of 1;
+    // and gives it the focus, the parent told it's lost it.
+    const int advance = process.gdi().textWidth(0, "r");
+    CHECK(!cpu.call(fn("SetFocus"), {parent}, r));
+    told.clear();
+    send(0x201, 0, uint32_t(1 + advance + advance / 3)); // WM_LBUTTONDOWN
+    CHECK(send(0xb0, 0, 0) == (1u | 1u << 16));
+    CHECK((told == std::vector<std::pair<uint32_t, uint32_t>>{{8u, edit}}));
+    // Painted: white, its sunken edge, the text, the caret.
+    CHECK(!cpu.call(fn("ShowWindow"), {edit, 5}, r));
+    send(0xf, 0, 0); // WM_PAINT
+    CHECK(pixel(100, 40) == 0xffffff);
+    CHECK(pixel(10, 20) == 0x808080 && pixel(11, 21) == 0x000000); // the edge's outer and inner rings, top left
+    const int caretX = 12 + 1 + advance;
+    bool caret = true;
+    for (int y = 26; y < 34; ++y) // the middle of the line, whatever the font's height
+        caret = caret && pixel(caretX, y) == 0;
+    CHECK(caret);
+    bool inked = false;
+    for (int x = 13; x < caretX; ++x)
+        for (int y = 22; y < 42; ++y)
+            inked = inked || pixel(x, y) == 0;
+    CHECK(inked); // the r
+}
+
 static void testA3d() {
     x86::Cpu cpu(32u << 20);
     x86::Win32Process process(cpu);
@@ -1180,6 +1286,7 @@ static const test::Suite
                {"directdraw clipper", [](const std::filesystem::path &) { testDirectDrawClipper(); }},
                {"input", [](const std::filesystem::path &) { testInput(); }},
                {"scroll bars", [](const std::filesystem::path &) { testScrollBars(); }},
+               {"edit control", [](const std::filesystem::path &) { testEditControl(); }},
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
            });

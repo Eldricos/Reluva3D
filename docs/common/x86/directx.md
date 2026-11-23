@@ -20,8 +20,9 @@ headers' (`directx/interfaces.cpp`).
   - palettes and clippers (`GetClipper` among their methods). A blit
     onto the primary surface through a clipper set to a window
     (`SetHWnd`) draws only where the window shows: its client area, less
-    the windows shown above it (made later, in the stand-ins' order), as
-    Windows' clip list would have it;
+    the windows shown above it (made later, in the stand-ins' order) and,
+    with `WS_CLIPCHILDREN`, its children shown, as Windows' clip list
+    would have it;
   - `GetDC` and `ReleaseDC`: a [GDI](gdi.md) device context drawing into
     the surface's pixels, one at a time; an 8-bit surface without a
     palette takes the primary's colours. A window's GDI drawing lands on

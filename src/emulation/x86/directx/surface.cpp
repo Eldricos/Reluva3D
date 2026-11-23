@@ -724,9 +724,12 @@ std::vector<Rect> Surface::clipped(const Rect &to) const {
     for (const Win32Process::Window *w = process.window(top); w && (w->style & 0x40000000) && w->parent;
          w = process.window(top))
         top = w->parent;
+    // With WS_CLIPCHILDREN, its children shown (an edit control on it) too.
+    const bool clipChildren = process.window(window)->style & 0x02000000;
     for (const uint32_t h : process.windows()) {
         const Win32Process::Window *w = process.window(h);
-        if (h <= top || (w->style & 0x40000000) || !process.shown(h))
+        const bool child = (w->style & 0x40000000) && w->parent == window;
+        if (!(child ? clipChildren : h > top && !(w->style & 0x40000000)) || !process.shown(h))
             continue;
         if (const auto a = process.windowArea(h))
             visible = subtract(visible, {(*a)[0], (*a)[1], (*a)[0] + (*a)[2], (*a)[1] + (*a)[3]});

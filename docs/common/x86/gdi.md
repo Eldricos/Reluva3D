@@ -29,8 +29,9 @@ bitmap's, a DirectDraw surface's (its `GetDC`,
   fills what no window covers in the desktop's colour (black) when a
   window goes, and `paintFrame` a window's frame when it's shown, plainly
   (Windows 98's face colour for borders, the active caption's for its
-  caption, no title or buttons; scroll bars with their arrows, pale
-  track and thumb).
+  caption, no title or buttons; a sunken edge, two rings or one; scroll
+  bars with their arrows, pale track and thumb); `paintEdit` an edit
+  control's client area (Windows' `EDIT` class's painting).
 - **Pixels:** 8 bits (the colour nearest in the target's palette), 16
   (by its masks; 5-6-5 without), 24 and 32.
 - **Drawing:** `FillRect` and `FrameRect` (a brush, or a system colour's

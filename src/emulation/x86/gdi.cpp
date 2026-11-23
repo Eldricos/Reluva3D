@@ -301,6 +301,25 @@ void Gdi::paintFrame(uint32_t window, const std::optional<std::array<int, 4>> &c
                                  x >= (*whole)[0] + edge && x < (*whole)[0] + (*whole)[2] - edge;
             put(x, y, caption ? 0x800000 : 0xc0c0c0);
         }
+    // A sunken edge round the client area and its scroll bars: two rings
+    // (WS_EX_CLIENTEDGE), or one (WS_EX_STATICEDGE), dark above and left.
+    const int rings = (w->exStyle & 0x200) ? 2 : (w->exStyle & 0x20000) ? 1 : 0;
+    {
+        int left = (*inside)[0];
+        int top = (*inside)[1];
+        int right = left + (*inside)[2] + ((w->style & 0x00200000) ? 16 : 0);
+        int bottom = top + (*inside)[3] + ((w->style & 0x00100000) ? 16 : 0);
+        const uint32_t darks[2] = {0x000000, 0x808080}; // inner ring, outer
+        const uint32_t lights[2] = {0xc0c0c0, 0xffffff};
+        for (int r = 0; r < rings; ++r) {
+            --left, --top, ++right, ++bottom;
+            const int i = rings == 1 ? 1 : r;
+            for (int x = left; x < right; ++x)
+                put(x, top, darks[i]), put(x, bottom - 1, lights[i]);
+            for (int y = top; y < bottom; ++y)
+                put(left, y, darks[i]), put(right - 1, y, lights[i]);
+        }
+    }
     // Its scroll bars, as Windows 98 draws them: a pale track between two
     // arrow buttons, and the thumb a raised button where the position is.
     for (int bar = 0; bar < 2; ++bar) {
@@ -362,15 +381,56 @@ void Gdi::line(Cpu &c, const Target &t, int x0, int y0, int x1, int y1, uint32_t
     }
 }
 
+// The built-in font, scaled to a font's height (whole times).
+namespace {
+int fontScale(int height) {
+    return std::max(1, int(std::lround(std::abs(height ? height : 16) / double(font::kLineHeight))));
+}
+} // namespace
+
+const Gdi::Object &Gdi::fontObject(uint32_t handle) const {
+    const auto it = _objects.find(handle);
+    if (it != _objects.end() && it->second.kind == Object::kFont)
+        return it->second;
+    return _objects.at(kStock + 13); // SYSTEM_FONT
+}
+
+int Gdi::textWidth(const Object &font, const std::string &s) {
+    return int(s.size()) * font::kAdvance * fontScale(font.height);
+}
+
+int Gdi::textWidth(uint32_t font, const std::string &s) const {
+    return textWidth(fontObject(font), s);
+}
+
+int Gdi::lineHeight(const Object &font) {
+    return font::kLineHeight * fontScale(font.height);
+}
+
+// The glyphs, drawn white on black, give the pixels to colour.
+void Gdi::drawString(Cpu &c, const Target &t, const Object &font, int x, int y, const std::string &s, uint32_t colorRef,
+                     const std::array<int, 4> &clip) {
+    const int w = textWidth(font, s);
+    if (w <= 0)
+        return;
+    Surface glyphs;
+    glyphs.create(w, lineHeight(font), PixelFormat::kRGBA32);
+    font::drawText(glyphs, 0, 0, s, {255, 255, 255}, fontScale(font.height));
+    for (int gy = 0; gy < glyphs.h; ++gy)
+        for (int gx = 0; gx < glyphs.w; ++gx) {
+            const int px = x + gx;
+            const int py = y + gy;
+            if (glyphs.row(gy)[gx * 4] && px >= clip[0] && px < clip[2] && py >= clip[1] && py < clip[3])
+                plot(c, t, px, py, colorRef);
+        }
+}
+
 // DrawTextA: lines broken at line feeds and (DT_WORDBREAK) to fit the
-// width; each character the built-in font's advance, scaled to the font's
-// height. Returns the text's height.
+// width. Returns the text's height.
 int Gdi::drawText(Cpu &c, Dc &d, const std::string &raw, int left, int top, int right, int bottom, uint32_t format,
                   uint32_t rect) {
-    const Object &f = _objects.count(d.font) ? _objects[d.font] : _objects[kStock + 13];
-    const int scale = std::max(1, int(std::lround(std::abs(f.height ? f.height : 16) / double(font::kLineHeight))));
-    const int advance = font::kAdvance * scale;
-    const int lineHeight = font::kLineHeight * scale;
+    const Object &f = fontObject(d.font);
+    const int lh = lineHeight(f);
     // '&' marks the next character (shown underlined, here plain), "&&" is '&'.
     std::string text;
     for (size_t i = 0; i < raw.size(); ++i) {
@@ -401,7 +461,7 @@ int Gdi::drawText(Cpu &c, Dc &d, const std::string &raw, int left, int top, int 
             continue;
         }
         current += ch;
-        if ((format & 0x10) && !single && int(current.size()) * advance > width && current.size() > 1) {
+        if ((format & 0x10) && !single && textWidth(f, current) > width && current.size() > 1) {
             const size_t space = current.find_last_of(' ');
             if (space != std::string::npos && space > 0) {
                 const std::string rest = current.substr(space + 1);
@@ -413,12 +473,12 @@ int Gdi::drawText(Cpu &c, Dc &d, const std::string &raw, int left, int top, int 
     }
     if (!current.empty() || lines.empty())
         flush();
-    const int height = lineHeight * int(lines.size());
+    const int height = lh * int(lines.size());
     if (format & 0x400) { // DT_CALCRECT: the rectangle the text needs
-        size_t longest = 0;
+        int widest = 0;
         for (const std::string &l : lines)
-            longest = std::max(longest, l.size());
-        c.write32(rect + 8, uint32_t(left + int(longest) * advance));
+            widest = std::max(widest, textWidth(f, l));
+        c.write32(rect + 8, uint32_t(left + widest));
         c.write32(rect + 12, uint32_t(top + height));
         return height;
     }
@@ -427,29 +487,55 @@ int Gdi::drawText(Cpu &c, Dc &d, const std::string &raw, int left, int top, int 
         return height;
     int y = top;
     if (single && (format & 0x4))
-        y = top + (bottom - top - lineHeight) / 2;
+        y = top + (bottom - top - lh) / 2;
     else if (single && (format & 0x8))
-        y = bottom - lineHeight;
+        y = bottom - lh;
     for (const std::string &l : lines) {
-        const int w = int(l.size()) * advance;
+        const int w = textWidth(f, l);
         int x = left;
         if (format & 0x1)
             x = left + (width - w) / 2;
         else if (format & 0x2)
             x = right - w;
         if (d.bkMode == 2)
-            fill(c, *target, x, y, x + w, y + lineHeight, d.bkColor);
-        // The glyphs, drawn white on black, give the pixels to colour.
-        Surface glyphs;
-        glyphs.create(std::max(1, w), lineHeight, PixelFormat::kRGBA32);
-        font::drawText(glyphs, 0, 0, l, {255, 255, 255}, scale);
-        for (int gy = 0; gy < glyphs.h; ++gy)
-            for (int gx = 0; gx < glyphs.w; ++gx)
-                if (glyphs.row(gy)[gx * 4] && x + gx < right && y + gy < bottom && x + gx >= left)
-                    plot(c, *target, x + gx, y + gy, d.textColor);
-        y += lineHeight;
+            fill(c, *target, x, y, x + w, y + lh, d.bkColor);
+        drawString(c, *target, f, x, y, l, d.textColor, {left, top, right, bottom});
+        y += lh;
     }
     return height;
+}
+
+// White (COLOR_WINDOW), the text from a margin of 1 pixel, the selection
+// in the highlight's colours (COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT) and a
+// caret of a pixel's width while focused, as Windows 98's.
+void Gdi::paintEdit(uint32_t window, const std::string &text, int selStart, int selEnd, bool focused, uint32_t font) {
+    const auto t = screen ? screen() : std::nullopt;
+    const auto area = _process.clientArea(window);
+    if (!t || !area || !_process.shown(window))
+        return;
+    Cpu &c = _process.cpu();
+    const auto [ax, ay, aw, ah] = *area;
+    const std::array<int, 4> clip{ax, ay, ax + aw, ay + ah};
+    fill(c, *t, ax, ay, ax + aw, ay + ah, 0xffffff);
+    const Object &f = fontObject(font);
+    const int x = ax + 1;
+    const int y = ay + std::max(0, (ah - lineHeight(f)) / 2);
+    const int n = int(text.size());
+    const int from = std::clamp(std::min(selStart, selEnd), 0, n);
+    const int to = std::clamp(std::max(selStart, selEnd), 0, n);
+    const std::string before = text.substr(0, size_t(from));
+    const std::string chosen = text.substr(size_t(from), size_t(to - from));
+    const std::string after = text.substr(size_t(to));
+    drawString(c, *t, f, x, y, before, 0x000000, clip);
+    const int chosenX = x + textWidth(f, before);
+    if (focused && !chosen.empty())
+        fill(c, *t, chosenX, y, chosenX + textWidth(f, chosen), y + lineHeight(f), 0x800000);
+    drawString(c, *t, f, chosenX, y, chosen, focused ? 0xffffff : 0x000000, clip);
+    drawString(c, *t, f, chosenX + textWidth(f, chosen), y, after, 0x000000, clip);
+    if (focused && from == to) {
+        const int caretX = x + textWidth(f, text.substr(0, size_t(std::clamp(selEnd, 0, n))));
+        fill(c, *t, caretX, y, caretX + 1, y + lineHeight(f), 0x000000);
+    }
 }
 
 void Gdi::addStandIns() {

@@ -699,7 +699,18 @@ private:
         std::vector<uint32_t> itemData;
         int32_t selection = -1;
         uint32_t check = 0; // a button's
+        // An edit control's: the selection, in characters (the caret at
+        // its end), the most it takes, its font.
+        int selStart = 0;
+        int selEnd = 0;
+        uint32_t limit = 30000; // Windows 98's for a single line
+        uint32_t font = 0;
     };
+    // An edit control's work (win32_dialogs.cpp): its text changed by a key
+    // or a message, repainted.
+    std::optional<uint32_t> editMessage(uint32_t h, uint32_t message, uint32_t wp, uint32_t lp);
+    void editReplace(uint32_t h, const std::string &with);
+    void paintEdit(uint32_t h);
     std::map<uint32_t, Control> _controls;
     // A dialog's result once EndDialog is called, by its window.
     std::map<uint32_t, uint32_t> _dialogResults;
@@ -766,6 +777,9 @@ private:
     uint32_t _nextTimerId = 1;
     uint32_t _capture = 0;
     uint32_t _focus = 0;
+    // Gives a window the focus as SetFocus does: WM_KILLFOCUS to the one
+    // that had it, WM_SETFOCUS to it. The one before.
+    uint32_t setFocus(uint32_t h);
     // Whether a timer is due; the one due soonest (of a window's, or any if
     // 0) as its WM_TIMER, its next due time set, or nothing.
     bool timerDue() const;

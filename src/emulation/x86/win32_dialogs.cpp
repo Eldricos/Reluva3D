@@ -10,6 +10,8 @@
 
 #include "emulation/x86/win32.h"
 
+#include "emulation/x86/gdi.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cstring>
@@ -100,6 +102,16 @@ std::string sz(Cpu &c, uint32_t &at, uint32_t *ordinal = nullptr) {
         text += ch < 0x100 ? char(ch) : '?';
     at += 2;
     return text;
+}
+
+} // namespace
+
+namespace {
+
+std::string lowerName(std::string s) {
+    for (char &ch : s)
+        ch = char(std::tolower(static_cast<unsigned char>(ch)));
+    return s;
 }
 
 } // namespace
@@ -258,9 +270,11 @@ void Win32Process::addDialogStandIns() {
             postMessage(h, kWmCommand, kIdCancel, 0);
         return 0u;
     });
-    // The standard controls' procedure: their text, a button's check
+    // The standard controls' procedure, for a dialog's items and the
+    // controls CreateWindowExA makes: their text, a button's check
     // (BM_GETCHECK 0xf0, BM_SETCHECK 0xf1, BM_CLICK 0xf5, an auto radio
-    // button unchecking its group), a list box's items (LB_*).
+    // button unchecking its group), a list box's items (LB_*), and an
+    // edit control's typing (editMessage).
     stdcall("RELUVA", "ControlProc", 4, [this](Cpu &c) -> uint32_t {
         const uint32_t h = c.arg(0);
         const uint32_t message = c.arg(1);
@@ -270,6 +284,11 @@ void Win32Process::addDialogStandIns() {
         if (it == _windows.end())
             return 0;
         Window &w = it->second;
+        if (message == 0x0081) // WM_NCCREATE: made as asked
+            return 1;
+        if (lowerName(w.className) == "edit")
+            if (const auto r = editMessage(h, message, wp, lp))
+                return *r;
         Control &ctl = _controls[h];
         switch (message) {
         case kWmSetText:
@@ -411,6 +430,159 @@ void Win32Process::addDialogStandIns() {
         const uint32_t child = childWithId(c.arg(0), c.arg(1));
         return child ? sendMessage(child, c.arg(2), c.arg(3), c.arg(4)) : 0u;
     });
+}
+
+void Win32Process::paintEdit(uint32_t h) {
+    const auto it = _windows.find(h);
+    if (it == _windows.end())
+        return;
+    const Control &ctl = _controls[h];
+    _gdi->paintEdit(h, it->second.title, ctl.selStart, ctl.selEnd, _focus == h, ctl.font);
+}
+
+// The selection replaced, within the limit, the caret after what's put in;
+// the parent told (EN_CHANGE) if the text changed.
+void Win32Process::editReplace(uint32_t h, const std::string &with) {
+    Window &w = _windows[h];
+    Control &ctl = _controls[h];
+    const int n = int(w.title.size());
+    const int from = std::clamp(std::min(ctl.selStart, ctl.selEnd), 0, n);
+    const int to = std::clamp(std::max(ctl.selStart, ctl.selEnd), 0, n);
+    std::string put = with;
+    const size_t room = ctl.limit > uint32_t(n - (to - from)) ? ctl.limit - uint32_t(n - (to - from)) : 0;
+    if (put.size() > room)
+        put.resize(room);
+    if (put.empty() && from == to)
+        return;
+    w.title.replace(size_t(from), size_t(to - from), put);
+    ctl.selStart = ctl.selEnd = from + int(put.size());
+    paintEdit(h);
+    if (w.parent)
+        sendMessage(w.parent, 0x0111, (w.id & 0xffff) | 0x0300u << 16, h); // WM_COMMAND, EN_CHANGE
+}
+
+// What an edit control does with a message, if it's one of its own: a
+// single line of text, typed into (WM_CHAR, the arrows, Home, End and
+// Delete, a click placing the caret), set and read (EM_SETSEL, EM_GETSEL,
+// EM_REPLACESEL, EM_LIMITTEXT, WM_SETFONT), and painted.
+std::optional<uint32_t> Win32Process::editMessage(uint32_t h, uint32_t message, uint32_t wp, uint32_t lp) {
+    Window &w = _windows[h];
+    Control &ctl = _controls[h];
+    const int n = int(w.title.size());
+    switch (message) {
+    case 0x000c: // WM_SETTEXT: the caret to the start
+        w.title = lp ? _cpu.string(lp) : "";
+        if (w.title.size() > ctl.limit)
+            w.title.resize(ctl.limit);
+        ctl.selStart = ctl.selEnd = 0;
+        paintEdit(h);
+        return 1u;
+    case 0x0030: // WM_SETFONT
+        ctl.font = wp;
+        if (lp)
+            paintEdit(h);
+        return 0u;
+    case 0x0031: // WM_GETFONT
+        return ctl.font;
+    case 0x000f: // WM_PAINT
+        paintEdit(h);
+        return 0u;
+    case 0x0007: // WM_SETFOCUS
+    case 0x0008: // WM_KILLFOCUS
+        paintEdit(h);
+        return 0u;
+    case 0x0087: // WM_GETDLGCODE: it takes the characters and arrows
+        return 0x0001u | 0x0080u | 0x0100u;
+    case 0x00b0: { // EM_GETSEL
+        const uint32_t from = uint32_t(std::min(ctl.selStart, ctl.selEnd));
+        const uint32_t to = uint32_t(std::max(ctl.selStart, ctl.selEnd));
+        if (wp && _cpu.valid(wp, 4))
+            _cpu.write32(wp, from);
+        if (lp && _cpu.valid(lp, 4))
+            _cpu.write32(lp, to);
+        return (from & 0xffff) | to << 16;
+    }
+    case 0x00b1: // EM_SETSEL: -1 to start leaves none; an end of -1 is the text's end
+        if (int32_t(wp) == -1) {
+            ctl.selStart = ctl.selEnd;
+        } else {
+            ctl.selStart = std::clamp(int(int32_t(wp)), 0, n);
+            ctl.selEnd = int32_t(lp) < 0 ? n : std::clamp(int(lp), 0, n);
+        }
+        paintEdit(h);
+        return 1u;
+    case 0x00c2: // EM_REPLACESEL
+        editReplace(h, lp ? _cpu.string(lp) : "");
+        return 0u;
+    case 0x00c5: // EM_LIMITTEXT: 0 for as much as there's room for
+        ctl.limit = wp ? wp : 0x7ffffffeu;
+        return 0u;
+    case 0x00d5: // EM_GETLIMITTEXT
+        return ctl.limit;
+    case 0x0102: { // WM_CHAR
+        const uint8_t ch = uint8_t(wp);
+        if (ch == 8) { // Backspace: the selection, else the character before
+            if (ctl.selStart == ctl.selEnd && ctl.selEnd > 0)
+                ctl.selStart = ctl.selEnd - 1;
+            editReplace(h, "");
+        } else if (ch >= 32) {
+            std::string one(1, char(ch));
+            if (w.style & 0x0008) // ES_UPPERCASE
+                one[0] = char(std::toupper(ch));
+            else if (w.style & 0x0010) // ES_LOWERCASE
+                one[0] = char(std::tolower(ch));
+            editReplace(h, one);
+        }
+        return 0u;
+    }
+    case 0x0100: { // WM_KEYDOWN: the caret moved, Shift held stretching the selection
+        int caret = ctl.selEnd;
+        switch (wp) {
+        case 0x25: // VK_LEFT
+            caret = std::max(0, caret - 1);
+            break;
+        case 0x27: // VK_RIGHT
+            caret = std::min(n, caret + 1);
+            break;
+        case 0x24: // VK_HOME
+            caret = 0;
+            break;
+        case 0x23: // VK_END
+            caret = n;
+            break;
+        case 0x2e: // VK_DELETE: the selection, else the character after
+            if (ctl.selStart == ctl.selEnd && ctl.selEnd < n)
+                ctl.selEnd = ctl.selEnd + 1;
+            editReplace(h, "");
+            return 0u;
+        default:
+            return 0u;
+        }
+        ctl.selEnd = caret;
+        if (!_keysDown[0x10])
+            ctl.selStart = caret;
+        paintEdit(h);
+        return 0u;
+    }
+    case 0x0201: { // WM_LBUTTONDOWN: the focus, and the caret at the nearest character
+        setFocus(h);
+        const int x = int16_t(lp & 0xffff) - 1;
+        int at = n;
+        for (int i = 0; i <= n; ++i) {
+            const int edge = _gdi->textWidth(ctl.font, w.title.substr(0, size_t(i)));
+            const int next = i < n ? _gdi->textWidth(ctl.font, w.title.substr(0, size_t(i + 1))) : edge;
+            if (x < (edge + next) / 2) {
+                at = i;
+                break;
+            }
+        }
+        ctl.selStart = ctl.selEnd = at;
+        paintEdit(h);
+        return 0u;
+    }
+    default:
+        return std::nullopt;
+    }
 }
 
 } // namespace reluva::x86

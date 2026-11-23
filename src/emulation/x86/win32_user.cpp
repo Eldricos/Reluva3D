@@ -59,6 +59,8 @@ constexpr int kFixedFrame = 3;
 constexpr int kSizeFrame = 4;
 constexpr int kBorder = 1;
 constexpr int kScrollBar = 16; // SM_CXVSCROLL, SM_CYHSCROLL
+constexpr uint32_t kWsExClientEdge = 0x00000200;
+constexpr uint32_t kWsExStaticEdge = 0x00020000;
 constexpr uint32_t kWmHScroll = 0x0114;
 constexpr uint32_t kWmVScroll = 0x0115;
 constexpr uint32_t kWmNcLButtonDown = 0x00a1;
@@ -99,7 +101,7 @@ struct Insets {
     int right;
     int bottom;
 };
-Insets frameOf(uint32_t style, bool menu) {
+Insets frameOf(uint32_t style, bool menu, uint32_t exStyle = 0) {
     int edge = 0;
     if (style & kWsThickFrame)
         edge = kSizeFrame;
@@ -107,6 +109,12 @@ Insets frameOf(uint32_t style, bool menu) {
         edge = kFixedFrame;
     else if (style & kWsBorder)
         edge = kBorder;
+    // A sunken edge inside any border: WS_EX_CLIENTEDGE's of 2 pixels,
+    // WS_EX_STATICEDGE's of 1.
+    if (exStyle & kWsExClientEdge)
+        edge += 2;
+    else if (exStyle & kWsExStaticEdge)
+        edge += 1;
     const int top = edge + ((style & kWsCaption) == kWsCaption ? kCaption : 0) + (menu ? kMenu : 0);
     // Scroll bars lie outside the client area, on its right and bottom.
     return {edge, top, edge + ((style & kWsVScroll) ? kScrollBar : 0), edge + ((style & kWsHScroll) ? kScrollBar : 0)};
@@ -131,7 +139,7 @@ std::optional<std::array<int, 4>> Win32Process::windowArea(uint32_t handle) cons
         const Window *parent = window(w->parent);
         if (!parent)
             break;
-        const Insets f = frameOf(parent->style, false);
+        const Insets f = frameOf(parent->style, false, parent->exStyle);
         a[0] += parent->x + f.left;
         a[1] += parent->y + f.top;
         w = parent;
@@ -144,7 +152,7 @@ std::optional<std::array<int, 4>> Win32Process::clientArea(uint32_t handle) cons
     const auto a = windowArea(handle);
     if (!w || !a)
         return std::nullopt;
-    const Insets f = frameOf(w->style, false);
+    const Insets f = frameOf(w->style, false, w->exStyle);
     return std::array<int, 4>{(*a)[0] + f.left, (*a)[1] + f.top, std::max(0, w->width - f.left - f.right),
                               std::max(0, w->height - f.top - f.bottom)};
 }
@@ -556,7 +564,7 @@ void Win32Process::moveWindow(uint32_t handle, int x, int y, int width, int heig
         return;
     const auto before = windowArea(handle);
     w.x = x, w.y = y, w.width = width, w.height = height;
-    const Insets f = frameOf(w.style, false);
+    const Insets f = frameOf(w.style, false, w.exStyle);
     if (moved)
         sendMessage(handle, kWmMove, 0, point(x + f.left, y + f.top));
     if (sized)
@@ -636,11 +644,19 @@ void Win32Process::addUserStandIns() {
         int y = int32_t(c.arg(5));
         int w = int32_t(c.arg(6));
         int h = int32_t(c.arg(7));
-        auto cls = _classes.find(lower(className < 0x10000 ? "" : c.string(className)));
+        const std::string name = lower(className < 0x10000 ? "" : c.string(className));
+        auto cls = _classes.find(name);
+        // Windows' own classes, unless the program has its own of the name.
+        WindowClass system;
         if (cls == _classes.end()) {
-            setLastError(1407); // ERROR_CANNOT_FIND_WND_CLASS
-            return 0u;
+            static const char *const kSystem[] = {"button", "edit", "static", "listbox", "scrollbar", "combobox"};
+            if (std::find(std::begin(kSystem), std::end(kSystem), name) == std::end(kSystem)) {
+                setLastError(1407); // ERROR_CANNOT_FIND_WND_CLASS
+                return 0u;
+            }
+            system.proc = provided("RELUVA", "ControlProc");
         }
+        const WindowClass &wc = cls == _classes.end() ? system : cls->second;
         if (uint32_t(x) == kCwUseDefault)
             x = y = 0;
         if (uint32_t(w) == kCwUseDefault) {
@@ -651,7 +667,7 @@ void Win32Process::addUserStandIns() {
         // screen (its frame past the edges), a child its parent's client area.
         if (style & kWsMaximize) {
             const auto inside = (style & kWsChild) ? clientArea(parent) : std::nullopt;
-            const Insets f = frameOf(style, false);
+            const Insets f = frameOf(style, false, exStyle);
             x = -f.left;
             y = -f.top;
             w = (inside ? (*inside)[2] : screenWidth) + f.left + f.right;
@@ -662,8 +678,8 @@ void Win32Process::addUserStandIns() {
         Window &win = _windows[handle];
         win.className = c.string(className);
         win.title = title ? c.string(title) : std::string();
-        win.proc = cls->second.proc;
-        win.classStyle = cls->second.style;
+        win.proc = wc.proc;
+        win.classStyle = wc.style;
         win.style = style & ~kWsVisible;
         win.exStyle = exStyle;
         win.x = x, win.y = y, win.width = w, win.height = h;
@@ -723,7 +739,7 @@ void Win32Process::addUserStandIns() {
         if (c.arg(1) == 3) { // SW_MAXIMIZE
             Window &w = it->second;
             const auto inside = (w.style & kWsChild) ? clientArea(w.parent) : std::nullopt;
-            const Insets f = frameOf(w.style, false);
+            const Insets f = frameOf(w.style, false, w.exStyle);
             w.x = -f.left;
             w.y = -f.top;
             w.width = (inside ? (*inside)[2] : screenWidth) + f.left + f.right;
@@ -786,7 +802,7 @@ void Win32Process::addUserStandIns() {
         const Window *w = window(c.arg(0));
         if (!w || !c.valid(c.arg(1), 16))
             return 0u;
-        const Insets f = frameOf(w->style, false);
+        const Insets f = frameOf(w->style, false, w->exStyle);
         rect(c, c.arg(1), 0, 0, std::max(0, w->width - f.left - f.right), std::max(0, w->height - f.top - f.bottom));
         return 1u;
     });
@@ -934,14 +950,20 @@ void Win32Process::addUserStandIns() {
     });
     stdcall(u, "TranslateAcceleratorA", 3, [](Cpu &) { return 0u; });
     // DefWindowProcA: closing destroys the window (WM_CLOSE, and the close
-    // command); WM_NCCREATE goes on; the frame's hit-tested and its scroll
-    // bars work; everything else needs nothing.
+    // command); WM_NCCREATE goes on; WM_SETTEXT keeps the text; the frame's
+    // hit-tested and its scroll bars work; everything else needs nothing.
     stdcall(u, "DefWindowProcA", 4, [this](Cpu &c) {
         const uint32_t handle = c.arg(0);
         const uint32_t message = c.arg(1);
         const uint32_t wParam = c.arg(2);
         if (message == kWmNcCreate)
             return 1u;
+        // WM_SETTEXT keeps a window's text (its title).
+        if (message == 0x000c) {
+            if (auto it = _windows.find(handle); it != _windows.end())
+                it->second.title = c.arg(3) ? c.string(c.arg(3)) : "";
+            return 1u;
+        }
         // WM_NCHITTEST: what's at a point on the screen, by the window's
         // frame: its client area, caption, border, or nowhere of it.
         if (message == kWmNcHitTest) {
@@ -960,7 +982,7 @@ void Win32Process::addUserStandIns() {
                 if (const auto a = scrollBarArea(handle, bar); a && within(*a))
                     return bar ? kHtVScroll : kHtHScroll;
             const Window *w = window(handle);
-            const Insets f = frameOf(w->style, false);
+            const Insets f = frameOf(w->style, false, w->exStyle);
             const bool caption = (w->style & kWsCaption) == kWsCaption && y >= (*whole)[1] + f.left &&
                                  y < (*inside)[1] && x >= (*inside)[0] && x < (*inside)[0] + (*inside)[2];
             return caption ? 2u : 18u; // HTCAPTION, HTBORDER

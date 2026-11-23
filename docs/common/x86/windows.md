@@ -79,11 +79,19 @@ C++ library have pages of their own ([directx.md](directx.md),
   `C:\WINDOWS`.
 - **`win32_user.cpp`: USER32 and GDI32's start.** Window classes and windows, kept
   as records (procedure, place, size, visibility) that the engine can show
-  as it likes. Making one sends `WM_NCCREATE` and `WM_CREATE`. Showing it
-  first activates it (`WM_ACTIVATEAPP`, `WM_ACTIVATE`, `WM_SETFOCUS`) and
-  gives it the focus. Other pieces:
+  as it likes. Making one sends `WM_NCCREATE` and `WM_CREATE`; besides the
+  program's own classes, Windows' standard ones (`BUTTON`, `EDIT`,
+  `STATIC`, `LISTBOX`, `SCROLLBAR`, `COMBOBOX`) are made with the
+  controls' procedure the dialogs' items have (`win32_dialogs.cpp`).
+  Showing it first activates it (`WM_ACTIVATEAPP`, `WM_ACTIVATE`,
+  `WM_SETFOCUS`) and gives it the focus. `SetFocus` sends `WM_KILLFOCUS`
+  to the window that had it and `WM_SETFOCUS` to the new one.
+  `SetWindowTextA` sends `WM_SETTEXT`, which `DefWindowProcA` keeps as the
+  window's text. Other pieces:
   - places as Windows keeps them: a window's on the screen, a child's
-    (`WS_CHILD`) in its parent's client area; `windowArea` and
+    (`WS_CHILD`) in its parent's client area; a sunken edge
+    (`WS_EX_CLIENTEDGE`, 2 pixels; `WS_EX_STATICEDGE`, 1) inside the
+    border, painted with the frame; `windowArea` and
     `clientArea` work out where one is on the screen, for
     `GetWindowRect`, `ClientToScreen`, `ScreenToClient`, drawing and
     input;
@@ -169,7 +177,16 @@ C++ library have pages of their own ([directx.md](directx.md),
   disabled), `GetDlgItem` and `SendDlgItemMessageA`. The controls keep
   their state and answer their messages: text, buttons' checks (auto
   radio buttons unchecking their group, `BM_CLICK` telling the dialog),
-  list boxes' items, selection and data. Nothing is drawn yet.
+  list boxes' items, selection and data. An edit control is a single
+  line of text that's typed into and drawn: `WM_CHAR` (Backspace, and
+  `ES_UPPERCASE` and `ES_LOWERCASE`), the arrows, Home and End (with
+  Shift choosing), Delete, a click placing the caret by the nearest
+  character and taking the focus; `EM_SETSEL`, `EM_GETSEL`,
+  `EM_REPLACESEL`, `EM_LIMITTEXT` (30,000 at first), `WM_SETFONT`; the
+  parent told of each change (`EN_CHANGE`); painted white, its text in
+  its font, the selection in the highlight's colours and the caret while
+  it has the focus (GDI's `paintEdit`). Other controls aren't drawn yet,
+  nor an edit control's several lines (`ES_MULTILINE`).
 - **`win32_registry.cpp`: the registry and COM.** An in-memory registry,
   seeded with the installed locales. The engine can add an installer's
   values and hear of the program's writes. `CoCreateInstance` asks the
@@ -298,6 +315,11 @@ executable's entry point on the main thread until it ends the process.
 - `testInput` checks the messages input becomes, double clicks, key
   states and `ClipCursor`. It also checks DirectInput's mouse (its state,
   its movement since the last read, its buffer) and keyboard.
+- `testEditControl` makes an `EDIT` with `CreateWindowExA`, its edge
+  taken from the client area; sets its text, chooses it all and types
+  over it past its limit (the parent told each change), deletes,
+  places the caret with a click (the focus's messages sent), and paints
+  it on a screen in memory.
 - `testScrollBars` checks `AdjustWindowRect` leaving scroll bars out,
   their range and position, `DefWindowProcA`'s hit test, a click on the
   track and on an arrow, a thumb dragged, an arrow held (repeated after

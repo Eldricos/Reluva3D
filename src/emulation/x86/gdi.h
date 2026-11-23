@@ -76,6 +76,16 @@ public:
      * @param clip Only what's within it (left, top, width, height), if given.
      */
     void paintFrame(uint32_t window, const std::optional<std::array<int, 4>> &clip = std::nullopt);
+    /**
+     * An edit control's client area painted, as Windows' EDIT class paints
+     * it: white, its text in its font from a small margin, the selection
+     * (from `selStart` to `selEnd`, in characters) highlighted and the
+     * caret at `selEnd` while it has the focus.
+     * @param font The font it was given (WM_SETFONT); 0 for the system font.
+     */
+    void paintEdit(uint32_t window, const std::string &text, int selStart, int selEnd, bool focused, uint32_t font);
+    /** A string's width in pixels in a font (0 for the system font). */
+    int textWidth(uint32_t font, const std::string &s) const;
 
     /** A COLORREF (0x00BBGGRR) as the pixel value nearest it in a target's format. */
     static uint32_t pixelFor(const Target &t, uint32_t colorRef);
@@ -119,6 +129,12 @@ private:
     void plot(Cpu &c, const Target &t, int x, int y, uint32_t colorRef);
     int drawText(Cpu &c, Dc &d, const std::string &text, int left, int top, int right, int bottom, uint32_t format,
                  uint32_t rect);
+    // Text in a font: what DrawTextA, TextOutA and the edit control draw with.
+    const Object &fontObject(uint32_t handle) const;
+    static int textWidth(const Object &font, const std::string &s);
+    static int lineHeight(const Object &font);
+    void drawString(Cpu &c, const Target &t, const Object &font, int x, int y, const std::string &s, uint32_t colorRef,
+                    const std::array<int, 4> &clip);
 
     Win32Process &_process;
     std::map<uint32_t, Object> _objects;

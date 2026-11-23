@@ -28,6 +28,18 @@ constexpr uint32_t kDesktop = 0x10000;
 
 } // namespace
 
+uint32_t Win32Process::setFocus(uint32_t h) {
+    const uint32_t before = _focus;
+    if (h == before)
+        return before;
+    _focus = h;
+    if (before && _windows.count(before))
+        sendMessage(before, 0x0008, h, 0); // WM_KILLFOCUS
+    if (h && _windows.count(h))
+        sendMessage(h, 0x0007, before, 0); // WM_SETFOCUS
+    return before;
+}
+
 bool Win32Process::timerDue() const {
     const uint64_t now = milliseconds();
     return std::any_of(_windowTimers.begin(), _windowTimers.end(),
@@ -74,11 +86,7 @@ void Win32Process::addWindowStandIns() {
     });
     for (const char *name : {"BringWindowToTop", "SetForegroundWindow"})
         stdcall(u, name, 1, [found](Cpu &c) { return found(c.arg(0)) ? 1u : 0u; });
-    stdcall(u, "SetFocus", 1, [this](Cpu &c) {
-        const uint32_t before = _focus;
-        _focus = c.arg(0);
-        return before;
-    });
+    stdcall(u, "SetFocus", 1, [this](Cpu &c) { return setFocus(c.arg(0)); });
     stdcall(u, "SetCapture", 1, [this](Cpu &c) {
         const uint32_t before = _capture;
         _capture = c.arg(0);
@@ -166,12 +174,12 @@ void Win32Process::addWindowStandIns() {
             output("A window procedure failed: " + e.message + "\n");
         return result;
     });
-    stdcall(u, "SetWindowTextA", 2, [found](Cpu &c) {
-        Window *w = found(c.arg(0));
-        if (!w)
+    // SetWindowTextA(window, text): WM_SETTEXT, so a control shows it;
+    // DefWindowProcA keeps it for other windows.
+    stdcall(u, "SetWindowTextA", 2, [this, found](Cpu &c) {
+        if (!found(c.arg(0)))
             return 0u;
-        w->title = c.arg(1) ? c.string(c.arg(1)) : "";
-        return 1u;
+        return sendMessage(c.arg(0), 0x000c, 0, c.arg(1)) ? 1u : 0u;
     });
     // GetWindowTextA(window, buffer, size): the characters copied, cut to fit.
     stdcall(u, "GetWindowTextA", 3, [found](Cpu &c) {
