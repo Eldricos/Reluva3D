@@ -54,7 +54,9 @@ bool parsePlacedTable(const std::vector<uint8_t> &data, TextTable &out) {
         table.strings.emplace_back(begin, std::find(begin, data.end(), 0));
         TextTable::Place place;
         place.fontSize = r[0];
-        place.unknown = {r[1], r[2], r[3]};
+        place.colour = r[1];
+        place.pickedColour = r[2];
+        place.style = r[3];
         place.x = r[4] | r[5] << 8;
         place.y = r[6] | r[7] << 8;
         table.places.push_back(place);

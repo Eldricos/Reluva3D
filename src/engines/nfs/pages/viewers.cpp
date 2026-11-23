@@ -107,7 +107,11 @@ void TexturePage::decodeCurrent() {
     if (_shape >= static_cast<int>(_loaded.shapes.size()))
         return;
     const Shape &shape = _loaded.shapes[_shape];
-    if ((shape.type == kShape8Bit || shape.type == kShape4Bit) && shape.palette.empty() && !_lent.empty()) {
+    // The software game draws its pause screens in the race's palette, the
+    // four pictures with their own as well (fsh.md, NFS II SE's pause
+    // screens).
+    const bool pause = fs::toLower(_banks[size_t(_bank)].name).find("pause/") != std::string::npos;
+    if ((shape.type == kShape8Bit || shape.type == kShape4Bit) && (shape.palette.empty() || pause) && !_lent.empty()) {
         Shape lent = shape;
         lent.palette = _lent;
         _shownLent = !decodeShape(lent, _image);

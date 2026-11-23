@@ -21,12 +21,20 @@ namespace reluva::nfs {
  * fonts are drawn in.
  */
 struct TextTable {
-    /** Where NFS II SE's front end puts a string: its record in the table (text.md). */
+    /** Where and how NFS II SE's front end draws a string: its record in the table (text.md). */
     struct Place {
-        int fontSize = 0;                 // 16, 18, 24 or 36: its swiss*.ffn fonts' sizes
-        int x = 0;                        // on the 640x480 screen
-        int y = 0;                        //
-        std::array<uint8_t, 3> unknown{}; // bytes 1-3, each 0-5: not worked out
+        int fontSize = 0; // 13, 14, 16, 18 or 36 picks a font (nfs2sen.exe 0x4056e0); 24 has none
+        // On the 640x480 screen: x at the left, right or middle of the
+        // string, by `style`; y the top of its line.
+        int x = 0;
+        int y = 0;
+        // Colours, 0-5, of a table in the program (0x4bfd9c): the string's,
+        // and as it's picked (inferred).
+        uint8_t colour = 0;
+        uint8_t pickedColour = 0;
+        // 0 left, 1 right, 2 centred; 3 to 5 the same over a shadow
+        // (0x405540).
+        uint8_t style = 0;
     };
 
     std::vector<std::string> strings;

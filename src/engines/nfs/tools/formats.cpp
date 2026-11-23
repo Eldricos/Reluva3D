@@ -545,7 +545,8 @@ int cmdNfsSurvey(int argc, char **argv) {
                     count.add(t.c_str(), t.size() + 1);
             for (const auto &p : table.places) {
                 count.add(int32_t(p.fontSize)), count.add(int32_t(p.x)), count.add(int32_t(p.y));
-                count.add(p.unknown.data(), p.unknown.size());
+                const uint8_t look[] = {p.colour, p.pickedColour, p.style};
+                count.add(look, sizeof look);
             }
         }
     };

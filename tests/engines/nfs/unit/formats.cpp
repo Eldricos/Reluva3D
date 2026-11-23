@@ -250,12 +250,12 @@ void testShapesNfs2se() {
     put16(own, 0);
     put16(own, 0x07e0); // green
     // 4-bit, 3x2: rows of two bytes, the low half of a byte first; a
-    // 24-bit palette of two colours (B, G, R).
+    // 24-bit palette of two colours (R, G, B).
     Bytes four;
     putShapeHeader(four, 0x7a, 16 + 4, 3, 2, 0, 0, 0, 0);
     four.insert(four.end(), {0x10, 0x01, 0x01, 0x00});
     putShapeHeader(four, 0x24, 0, 2, 1, 0, 0, 0, 0);
-    four.insert(four.end(), {0, 0, 0, 255, 255, 255}); // black, white
+    four.insert(four.end(), {0, 0, 0, 255, 0, 0}); // black, red
 
     ShapeBank bank;
     CHECK(
@@ -284,9 +284,9 @@ void testShapesNfs2se() {
     CHECK(dot.type == kShape4Bit && dot.pixels.size() == 4 && !dot.bankPalette);
     CHECK(!decodeShape(dot, img));
     // Row 0: 0x10 gives 0 then 1, 0x01 gives 1; row 1: 0x01 gives 1, 0, then 0.
-    const int white[] = {0, 1, 1, 1, 0, 0};
+    const int red[] = {0, 1, 1, 1, 0, 0};
     for (int i = 0; i < 6 && img.rgba.size() == 24; ++i)
-        CHECK(img.rgba[size_t(i) * 4] == (white[i] ? 255 : 0));
+        CHECK(img.rgba[size_t(i) * 4] == (red[i] ? 255 : 0) && img.rgba[size_t(i) * 4 + 2] == 0);
 
     // A bank without a palette entry leaves its 8-bit pictures without one.
     CHECK(!parseShapeBank(makeShapeBank({{"plan", plain}}), bank));
@@ -384,7 +384,7 @@ void testTextTable() {
     if (table.places.size() == 2) {
         CHECK(table.places[0].fontSize == 18 && table.places[0].x == 168 && table.places[0].y == 126);
         CHECK(table.places[1].fontSize == 36 && table.places[1].x == 620 && table.places[1].y == 447);
-        CHECK(table.places[0].unknown == (std::array<uint8_t, 3>{2, 4, 5}));
+        CHECK(table.places[0].colour == 2 && table.places[0].pickedColour == 4 && table.places[0].style == 5);
     }
     // An offset outside the file fails it, as in NFS III's layout.
     Bytes placedOutside = placed;

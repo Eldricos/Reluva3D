@@ -10,9 +10,14 @@ The game's movies, on the CD in `FeData/pc/movies/`: the title movie
 and others). All are 304x224 at 15 frames a second, with stereo sound.
 
 The same folder's `demo.0`, `demo.1` and `demo.2` aren't movies: the
-three are the same 124,344 bytes, mostly zeros. Neither program names
-them, and the attract mode plays `demoav0.dct`-`demoav2.dct`: they seem
-unused *(inferred)*.
+three are the same 124,344 bytes, a recorded race in the layout of the
+game's replays (its settings, "Player1" at 0xA8, the controls frame by
+frame from 0x5B4), 4 bytes longer than what the program writes
+(`replay.rpy`, 0x45b440): from an earlier build. Neither program opens
+them: the only "demo" either has is `demoav`, with `%s%d.dct`
+(0x40d972), the attract mode playing `demoav0.dct` to `demoav2.dct`
+after a while at the main menu. Recorded races were the attract mode,
+perhaps, before the movies *(guessed)*.
 
 ## Layout
 
@@ -67,5 +72,5 @@ frame came out the same.
 
 ## Open questions
 
-- When the game plays the attract-mode movies (left at the main menu,
-  seen on the host), and whether anything reads `demo.0`-`demo.2`.
+- How long the main menu waits before the attract mode, in seconds:
+  more than 0xC80 of its ticks (0x40d972).

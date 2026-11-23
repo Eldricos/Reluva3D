@@ -211,17 +211,27 @@ pictures).
 - **The bank's palette.** A directory entry may be a palette alone,
   named `!pal` or `0000`: the palette's header, its width the number of
   colours, then the colours. 113 banks have one, none more. An 8-bit
-  picture without a palette of its own uses it, the bank's only one, with
-  which the pictures look right *(inferred)*; one with its own attached
-  palette uses that, as in NFS III. 7,864 of the CD's
-  pictures use the bank's.
-- **4-bit pictures** (`0x7A`): two pixels a byte, the low half first,
-  as the pictures look right only so *(inferred)*; each row starts on a
+  picture without a palette of its own uses it; one with its own attached
+  palette uses that, as in NFS III. 7,864 of the CD's pictures use the
+  bank's. The program finds the bank's palette by type, not by name: the
+  last entry whose first block is a palette (`nfs2sen.exe` 0x46bec0).
+  A picture's own palette is looked for first, and without one the
+  current palette is used (0x492448, 0x48bbd0).
+- **4-bit pictures** (`0x7A`): two pixels a byte, the low half first
+  (0x495db0: even x from the low 4 bits, odd from the high); each row
+  starts on a
   byte, so a row is (width + 1) ÷ 2 bytes. The eight are the 6×6 `dot `
   of the front end's track records (`FeData/pc/art/track/*rec.qfs`),
   each with a 16-colour `0x24` palette.
-- **`0x24`**, attached: a 24-bit palette, B, G, R (600 on the CD).
-- **`0x29`**, attached: a 16-bit palette, 5:6:5 *(inferred)*. Read so,
+- **`0x24`**, attached: a 24-bit palette, **R, G, B**, unlike the
+  32-bit palettes and pictures (600 on the CD). The program converts it
+  so (0x49e794), and copies a `0x24` palette's bytes as they are where it
+  reverses a `0x2A`'s (0x46bec0). The files agree: in `main.qfs`, 10,785
+  of the `0x24` colours are colours of its `0x2A` palettes read so,
+  4,358 read the other way; and its car makers' and tracks' emblems come
+  out gold, as the hosted game's front end shows them, not blue.
+- **`0x29`**, attached: a 16-bit palette, 5:6:5 (0x4921d8: red bits 11
+  to 15, green 5 to 10; a colour of 0 is see-through). Read so,
   `tr050.qfs`'s 16×16 `0033` is an even brown ground; read as 1:5:5:5 it
   is yellow with green flecks, and with the bank's palette blue noise. Of
   the ten on the CD, the eight on 16-bit pictures (`hisfer.qfs`,
@@ -268,16 +278,21 @@ Textures).
 ### NFS II SE's pause screens
 
 NFS II SE has two sets of its pause screens in `GameData/Pause`: the
-software program's (`pause??.qfs`, one per language) as 8-bit pictures
-with no palette at all, 156 pictures; and the 3dfx program's
-(`paus3??.qfs`) as the same pictures in 16-bit 5:6:5. Over the pictures
-of the same size in both, every pixel of an index has the same colour in
-the 3dfx set (22 indices). The HUD's palette, `!pal` of
-`GameData/DashHud/pc/hud.fsh` (the dashboards' `!pal` are the same),
-gives those colours within 4 of 255, the rounding to 5:6:5; it is the
-nearest of the CD's 1,030 palettes. So the software game draws its pause
-screens in the race's palette, though this isn't traced in `nfs2sen.exe`
-*(inferred)*.
+software program's (`pause??.qfs`, one per language) as 8-bit pictures,
+156, most with no palette; and the 3dfx program's (`paus3??.qfs`) as
+the same pictures in 16-bit 5:6:5. The software game draws its pause
+screens in the race's palette, `!pal` of
+`GameData/DashHud/pc/hud.fsh`: the hosted game, paused in a race,
+showed 306,117 of its 307,200 pixels as `pauseen.qfs`'s pictures
+through that palette exactly, and the rest are seams of the mirrored
+background, which the comparison left out. Four pictures (`logo`, `ps50` to `ps52`)
+carry palettes of their own (`0x2D`), which the game doesn't use: `logo`
+and `ps51` matched through the race's. The screen uses only 21 colours,
+which 30 of the CD's and install's palettes share, all of them races'
+(the HUD's, the dashboards', `dtexture.fsh`'s); the dashboards' differ
+from the HUD's in 45 to 54 others. The 3dfx set agrees: over the
+pictures of the same size, every pixel of an index has the HUD's colour
+for it, to within 4 of 255.
 
 ## In Reluva
 

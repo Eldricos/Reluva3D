@@ -76,10 +76,15 @@ void toRgba(uint8_t type, const uint8_t *p, uint8_t *out) {
         break;
     }
     case kShape24Bit:
-    case kPalette24Bit:
         out[0] = p[2];
         out[1] = p[1];
         out[2] = p[0];
+        out[3] = 255;
+        break;
+    case kPalette24Bit: // R, G, B, unlike the others (nfs2sen.exe 0x49e794)
+        out[0] = p[0];
+        out[1] = p[1];
+        out[2] = p[2];
         out[3] = 255;
         break;
     case kShape32Bit:

@@ -23,7 +23,7 @@ enum ShapeType : uint8_t {
     kShape16Bit1555 = 0x7e, // alpha bit, 5:5:5
     kShape24Bit = 0x7f,     // B, G, R
     kShape32Bit = 0x7d,     // B, G, R, A
-    kPalette24Bit = 0x24,
+    kPalette24Bit = 0x24,   // R, G, B (NFS II SE)
     kPalette16Bit1555 = 0x2d,
     kPalette16Bit565 = 0x29, // NFS II SE
     kPalette32Bit = 0x2a,
