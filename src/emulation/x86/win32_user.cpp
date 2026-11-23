@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// USER32's windows and messages, and the little of GDI32 that's asked for,
-// as Microsoft documents them. Nothing is drawn: a window is a record of its
-// class's procedure, place and size, which the engine shows however it
-// likes. Messages the engine posts (its input) wait in one queue, which
-// PeekMessageA reads and DispatchMessageA hands to the window's procedure.
+// USER32's windows and messages, as Microsoft documents them. A window is a
+// record of its class's procedure, place and size, which the engine shows
+// however it likes (win32_gdi.cpp draws on them). Messages the engine posts
+// (its input) wait in one queue, which PeekMessageA reads and
+// DispatchMessageA hands to the window's procedure.
 // The sizes of frames and captions are Windows 98's at 96 dpi.
 
 #include "emulation/x86/win32.h"
@@ -56,14 +56,9 @@ constexpr int kMenu = 19;
 constexpr int kFixedFrame = 3;
 constexpr int kSizeFrame = 4;
 constexpr int kBorder = 1;
-// Handles that are only ever passed back: icons and cursors, GDI's stock
-// objects, device contexts.
+// Handles that are only ever passed back: icons and cursors
+// (win32_gdi.cpp has GDI's).
 constexpr uint32_t kResourceHandles = 0x20000;
-constexpr uint32_t kStockObjects = 0x28000;
-constexpr uint32_t kDeviceContext = 0x30000;
-// The fonts, brushes, pens, bitmaps, palettes and memory device contexts the
-// program makes, counted up from here.
-constexpr uint32_t kGdiObjects = 0x38000;
 
 std::string lower(std::string s) {
     for (char &c : s)
@@ -380,7 +375,6 @@ void Win32Process::awaitMessage(Cpu &c) {
 
 void Win32Process::addUserStandIns() {
     const char *u = "USER32.dll";
-    const char *g = "GDI32.dll";
     auto rect = [](Cpu &c, uint32_t p, int left, int top, int right, int bottom) {
         c.write32(p, uint32_t(left));
         c.write32(p + 4, uint32_t(top));
@@ -1003,209 +997,6 @@ void Win32Process::addUserStandIns() {
     // Single-byte text: the next and previous characters are a byte away.
     stdcall(u, "CharNextA", 1, [](Cpu &c) { return c.read8(c.arg(0)) ? c.arg(0) + 1 : c.arg(0); });
     stdcall(u, "CharPrevA", 2, [](Cpu &c) { return c.arg(1) > c.arg(0) ? c.arg(1) - 1 : c.arg(0); });
-
-    stdcall(u, "GetDC", 1, [](Cpu &c) { return kDeviceContext + (c.arg(0) & 0xffff); });
-    stdcall(u, "ReleaseDC", 2, [](Cpu &) { return 1u; });
-    // BeginPaint(window, PAINTSTRUCT*): its device context, and the whole
-    // client area to paint (nothing is drawn, so all of it always is); the
-    // window is then painted.
-    stdcall(u, "BeginPaint", 2, [this](Cpu &c) {
-        auto it = _windows.find(c.arg(0));
-        const uint32_t ps = c.arg(1);
-        if (it == _windows.end() || !c.valid(ps, 64))
-            return 0u;
-        it->second.invalid = false;
-        const Insets f = frameOf(it->second.style, false);
-        const uint32_t dc = kDeviceContext + (c.arg(0) & 0xffff);
-        c.write32(ps, dc);
-        c.write32(ps + 4, 0); // fErase: the background is left alone
-        c.write32(ps + 8, 0);
-        c.write32(ps + 12, 0);
-        c.write32(ps + 16, uint32_t(std::max(0, it->second.width - f.left - f.right)));
-        c.write32(ps + 20, uint32_t(std::max(0, it->second.height - f.top - f.bottom)));
-        return dc;
-    });
-    stdcall(u, "EndPaint", 2, [](Cpu &) { return 1u; });
-    stdcall(u, "FillRect", 3, [](Cpu &) { return 1u; });
-    // GetDeviceCaps(dc, index): the desktop's.
-    stdcall(g, "GetDeviceCaps", 2, [this](Cpu &c) {
-        switch (c.arg(1)) {
-        case 8:
-            return uint32_t(screenWidth); // HORZRES
-        case 10:
-            return uint32_t(screenHeight); // VERTRES
-        case 12:
-            return uint32_t(screenBits); // BITSPIXEL
-        case 14:
-            return 1u; // PLANES
-        case 24:
-            return screenBits <= 8 ? 256u : ~0u; // NUMCOLORS: -1 above 8 bits
-        case 38:
-            return screenBits <= 8 ? 0x100u : 0u; // RASTERCAPS: RC_PALETTE
-        case 88:
-        case 90:
-            return 96u; // LOGPIXELSX, LOGPIXELSY
-        case 104:
-            return screenBits <= 8 ? 256u : 0u; // SIZEPALETTE
-        case 116:
-            return 60u; // VREFRESH
-        default:
-            return 0u;
-        }
-    });
-    // GetSystemPaletteEntries: none unless the desktop has a palette, when
-    // they're greys.
-    stdcall(g, "GetSystemPaletteEntries", 4, [this](Cpu &c) {
-        const uint32_t start = c.arg(1);
-        const uint32_t count = c.arg(2);
-        const uint32_t out = c.arg(3);
-        if (screenBits > 8)
-            return 0u;
-        if (!out)
-            return 256u;
-        uint32_t n = 0;
-        for (; n < count && start + n < 256 && c.valid(out + 4 * n, 4); ++n) {
-            const uint32_t v = start + n;
-            c.write32(out + 4 * n, v | v << 8 | v << 16);
-        }
-        return n;
-    });
-    stdcall(g, "GetStockObject", 1, [](Cpu &c) { return kStockObjects + c.arg(0); });
-
-    // GDI's objects are handles kept with what's selected and the colours,
-    // but nothing is drawn through them: the programs here show their
-    // pictures with DirectDraw, and what they write through GDI (text on a
-    // surface's device context, say) doesn't appear.
-    auto made = [this](Cpu &) { return kGdiObjects + _nextGdiObject++; };
-    for (const char *name :
-         {"CreateFontIndirectA", "CreateSolidBrush", "CreatePalette", "CreateCompatibleDC", "CreatePatternBrush"})
-        stdcall(g, name, 1, made);
-    stdcall(g, "CreatePen", 3, made);
-    stdcall(g, "CreateCompatibleBitmap", 3, made);
-    stdcall(g, "CreateBitmap", 5, made);
-    stdcall(g, "DeleteObject", 1, [](Cpu &) { return 1u; });
-    stdcall(g, "DeleteDC", 1, [](Cpu &) { return 1u; });
-    // SelectObject returns what was selected before of the same kind; kinds
-    // aren't told apart here, so it returns the last selected.
-    stdcall(g, "SelectObject", 2, [this](Cpu &c) {
-        uint32_t &selected = _selected[c.arg(0)];
-        const uint32_t old = selected ? selected : kStockObjects + 13; // SYSTEM_FONT
-        selected = c.arg(1);
-        return old;
-    });
-    stdcall(g, "SelectPalette", 3, [](Cpu &) { return kStockObjects + 15; }); // DEFAULT_PALETTE
-    stdcall(g, "RealizePalette", 1, [](Cpu &) { return 0u; });
-    // The colours and mode return what they replace.
-    stdcall(g, "SetTextColor", 2, [this](Cpu &c) { return std::exchange(_textColour[c.arg(0)], c.arg(1)); });
-    stdcall(g, "SetBkColor", 2, [this](Cpu &c) {
-        auto [it, added] = _backColour.try_emplace(c.arg(0), 0xffffffu);
-        return std::exchange(it->second, c.arg(1));
-    });
-    stdcall(g, "SetBkMode", 2, [this](Cpu &c) {
-        auto [it, added] = _backMode.try_emplace(c.arg(0), 2u); // OPAQUE
-        return std::exchange(it->second, c.arg(1));
-    });
-    stdcall(g, "TextOutA", 5, [](Cpu &) { return 1u; });
-    for (const char *name : {"BitBlt", "PatBlt"})
-        stdcall(g, name, name[0] == 'B' ? 9 : 6, [](Cpu &) { return 1u; });
-
-    // LoadImageA(instance, name, type, width, height, flags): a bitmap from
-    // a file (LR_LOADFROMFILE, 0x10) is a handle that knows the file's size
-    // and bits per pixel, from its BMP header, for GetObjectA; any other
-    // image is a handle only.
-    stdcall(u, "LoadImageA", 6, [this](Cpu &c) {
-        const uint32_t handle = kGdiObjects + _nextGdiObject++;
-        if (c.arg(2) != 0 || !(c.arg(5) & 0x10))
-            return handle;
-        const std::string full = fullPath(c.string(c.arg(1)));
-        const auto host = mapPath ? mapPath(full, false) : std::nullopt;
-        std::FILE *f = host ? std::fopen(host->string().c_str(), "rb") : nullptr;
-        if (fileOpened)
-            fileOpened(full, f != nullptr);
-        if (!f)
-            return 0u;
-        uint8_t header[30] = {};
-        const bool read = std::fread(header, 1, sizeof header, f) == sizeof header;
-        std::fclose(f);
-        if (!read || header[0] != 'B' || header[1] != 'M')
-            return 0u;
-        auto le32 = [&](int at) {
-            return uint32_t(header[at]) | uint32_t(header[at + 1]) << 8 | uint32_t(header[at + 2]) << 16 |
-                   uint32_t(header[at + 3]) << 24;
-        };
-        _bitmaps[handle] = {int32_t(le32(18)), int32_t(le32(22)), int(header[28] | header[29] << 8)};
-        return handle;
-    });
-    // GetObjectA(handle, size, out): a BITMAP for a bitmap LoadImageA read.
-    stdcall(g, "GetObjectA", 3, [this](Cpu &c) {
-        auto it = _bitmaps.find(c.arg(0));
-        const uint32_t out = c.arg(2);
-        if (it == _bitmaps.end() || c.arg(1) < 24 || !c.valid(out, 24))
-            return 0u;
-        const auto &[width, height, bits] = it->second;
-        const int absHeight = height < 0 ? -height : height;
-        c.write32(out, 0);                                             // bmType
-        c.write32(out + 4, uint32_t(width));                           // bmWidth
-        c.write32(out + 8, uint32_t(absHeight));                       // bmHeight
-        c.write32(out + 12, uint32_t(((width * bits + 15) / 16) * 2)); // bmWidthBytes, even
-        c.write16(out + 16, 1);                                        // bmPlanes
-        c.write16(out + 18, uint16_t(bits));                           // bmBitsPixel
-        c.write32(out + 20, 0);                                        // bmBits
-        return 24u;
-    });
-    // A character 8 pixels wide and 16 high, as a stand-in font's.
-    stdcall(g, "GetTextExtentPoint32A", 4, [](Cpu &c) {
-        if (!c.valid(c.arg(3), 8))
-            return 0u;
-        c.write32(c.arg(3), c.arg(2) * 8);
-        c.write32(c.arg(3) + 4, 16);
-        return 1u;
-    });
-    // GetTextExtentExPointA(dc, text, n, room, fit*, ends*, size*): how many
-    // characters fit in `room` pixels, and where each ends, by the same font.
-    stdcall(g, "GetTextExtentExPointA", 7, [](Cpu &c) {
-        const uint32_t n = c.arg(2);
-        if (c.arg(4))
-            c.write32(c.arg(4), std::min<uint32_t>(n, int32_t(c.arg(3)) > 0 ? c.arg(3) / 8 : 0));
-        if (c.arg(5) && c.valid(c.arg(5), 4 * n))
-            for (uint32_t i = 0; i < n; ++i)
-                c.write32(c.arg(5) + 4 * i, 8 * (i + 1));
-        if (c.arg(6) && c.valid(c.arg(6), 8)) {
-            c.write32(c.arg(6), 8 * n);
-            c.write32(c.arg(6) + 4, 16);
-        }
-        return 1u;
-    });
-    // Coordinates: only MM_TEXT (1), device units, no origin moved.
-    stdcall(g, "GetMapMode", 1, [](Cpu &) { return 1u; });
-    stdcall(g, "SetMapMode", 2, [](Cpu &) { return 1u; });
-    stdcall(g, "DPtoLP", 3, [](Cpu &) { return 1u; });
-    stdcall(g, "GetDCOrgEx", 2, [](Cpu &c) {
-        if (!c.valid(c.arg(1), 8))
-            return 0u;
-        c.write32(c.arg(1), 0);
-        c.write32(c.arg(1) + 4, 0);
-        return 1u;
-    });
-    // GetClipBox: the screen, as a simple region (2).
-    stdcall(g, "GetClipBox", 2, [this](Cpu &c) {
-        if (!c.valid(c.arg(1), 16))
-            return 0u;
-        c.write32(c.arg(1), 0);
-        c.write32(c.arg(1) + 4, 0);
-        c.write32(c.arg(1) + 8, uint32_t(screenWidth));
-        c.write32(c.arg(1) + 12, uint32_t(screenHeight));
-        return 2u;
-    });
-    stdcall(g, "SetDIBitsToDevice", 12, [](Cpu &c) { return c.arg(8); }); // the lines "drawn"
-    stdcall(g, "SetPixel", 4, [](Cpu &c) { return c.arg(3); });
-    stdcall(g, "GetPixel", 3, [](Cpu &) { return 0u; });
-    stdcall(g, "Polyline", 3, [](Cpu &) { return 1u; });
-    // DrawTextA(dc, text, n, rect, format) and DrawTextExA (with margins):
-    // the height of one line of the stand-in font.
-    stdcall(u, "DrawTextA", 5, [](Cpu &) { return 16u; });
-    stdcall(u, "DrawTextExA", 6, [](Cpu &) { return 16u; });
-    stdcall(u, "LoadBitmapA", 2, [this](Cpu &) { return kGdiObjects + _nextGdiObject++; });
 }
 
 } // namespace reluva::x86

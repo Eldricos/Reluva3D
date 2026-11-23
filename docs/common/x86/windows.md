@@ -102,14 +102,35 @@ C++ library have pages of their own ([directx.md](directx.md),
     101-key keyboard; `SetSystemCursor` and `SystemParametersInfoA`
     answered without changing anything; `InitCommonControls`, with no
     controls drawn;
-  - GDI's objects (fonts, brushes, pens, bitmaps, palettes, memory device
-    contexts) as handles, with each device context's selection and
-    colours; nothing is drawn through them (`TextOutA`, `BitBlt` do
-    nothing), since the programs here show their pictures with
-    DirectDraw. `LoadImageA` reads a BMP file's size for `GetObjectA`.
-    Coordinates are device units (`MM_TEXT`, no origin moved); a clip box
-    is the screen; text is measured as 8 x 16 pixels a character
-    (`GetTextExtentPoint32A`, `GetTextExtentExPointA`, `DrawTextA`).
+  - GDI is in `win32_gdi.cpp` (below).
+- **`win32_gdi.cpp`: GDI's drawing.**
+  - Bitmaps are pixels in colour or monochrome: made (`CreateBitmap`,
+    `CreateCompatibleBitmap`, which is monochrome for a memory device
+    context that still has its first bitmap, as on Windows), read from a
+    file (`LoadImageA`) or a module's resources (`LoadBitmapA`), and set
+    from a DIB of 1, 4, 8, 16, 24 or 32 bits (`SetDIBitsToDevice`).
+  - A device context keeps its bitmap, brush, pen and font apart
+    (`SelectObject` returns what was selected of the same kind) with its
+    colours and background mode. A memory one draws on its bitmap; a
+    window's (`GetDC`, `BeginPaint`) on the screen at the window's client
+    area, not clipped to it.
+  - The screen is what the engine gives `screenAccess`: DirectX points it
+    at the primary surface, as on Windows, where GDI and DirectDraw share
+    the display. Without it, the process keeps a screen of its own.
+  - `BitBlt` and `PatBlt` take any of the 256 raster operations, with the
+    brush as the pattern. Between colour and monochrome, as Windows
+    converts: a monochrome source's 0 is the destination's text colour
+    and 1 its background colour; a colour source's background colour is
+    1. That's what a masked blit with a colour key needs.
+  - `FillRect` (a brush, or a system colour's index + 1, in Windows 98's
+    standard scheme), `SetPixel`, `GetPixel`, `Polyline` (each line
+    without its last point).
+  - Text is measured as 8 x 16 pixels a character
+    (`GetTextExtentPoint32A`, `GetTextExtentExPointA`, `DrawTextA`), but
+    not drawn: there are no fonts yet.
+  - Coordinates are device units (`MM_TEXT`, no origin moved);
+    `GetClipBox` is a bitmap's size or a window's client area. Palettes
+    are handles only: there's no palette above 8 bits.
 - **`win32_dialogs.cpp`: dialogs and timers.** `DialogBoxParamA` reads
   the template (`DLGTEMPLATE` or `DLGTEMPLATEEX`) from the module's
   resources, makes the dialog and a record of each control (in pixels
@@ -241,6 +262,12 @@ executable's entry point on the main thread until it ends the process.
   - `MulDiv`'s rounding, date and time text, the performance counter.
 - It makes a window with a native window procedure and checks the
   messages it gets, the queue, frame sizes, and closing.
+- It draws with GDI as Star Trek: Armada's front end does: a DIB set
+  into a memory bitmap, a mask made from it against a colour key, the
+  masked blit (AND, the key blacked out, OR) onto a window on the
+  process's own screen, a brush's fill, `DSTINVERT`, a line; and the
+  objects' kinds and sizes. The DirectX test reads and writes a 16-bit
+  primary surface through a window's device context.
 - It runs a modal dialog from a template in a DLL made in the test, with
   a native dialog procedure: the messages in order (`WM_INITDIALOG` with
   its first control, showing, one `WM_PAINT`, two `WM_TIMER`s, the
@@ -268,5 +295,5 @@ executable's entry point on the main thread until it ends the process.
 - **`nfs`**: Need for Speed III's whole program, on drives, with host
   threads ([the game's threads](../../engines/nfs/games/nfs3/systems/threads.md)).
 - **`storm3d`**: Star Trek: Armada's whole program, as a reference to
-  study, as far as its main menu, which is a modal dialog
+  study, as far as its main menu, a modal dialog painted with GDI
   ([hosting.md](../../engines/storm3d/games/armada/systems/hosting.md)).

@@ -24,6 +24,10 @@ headers' (`directx/interfaces.cpp`).
     surface is ever lost, so a program going through them to restore them
     has nothing to do.
 
+  - the primary surface is the screen GDI draws the program's windows on
+    (`Win32Process::screenAccess`), in the display's format, so what a
+    program paints with GDI and what it blits meet as on Windows.
+
   What reaches the primary surface becomes `DirectX::frame()`, handed to
   the engine, through the gamma ramp. In a window, that's the window's
   client area. With `DirectX::presentLate` a flip hands over the frame

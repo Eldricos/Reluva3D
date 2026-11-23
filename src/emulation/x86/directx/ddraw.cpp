@@ -16,6 +16,47 @@ namespace reluva::x86::dx {
 
 namespace {
 
+// GDI draws the program's windows on the screen, which is the primary
+// surface while it's there: in the display's format, the program's own
+// writes and blits meeting GDI's as on Windows.
+void showGdiOn(DirectX::State &state, const std::shared_ptr<Surface> &primary) {
+    std::weak_ptr<Surface> weak = primary;
+    state.process.screenAccess = [&state, weak](int x, int y, int width, int height, uint32_t *pixels, bool write) {
+        auto p = weak.lock();
+        if (!p)
+            return;
+        state.finishDraws();
+        Cpu &c = state.cpu;
+        const SurfaceData &d = p->d;
+        const uint32_t bytes = d.format.bytes();
+        const ArgbConverter convert(d.format, p->paletteArgb());
+        for (int r = 0; r < height; ++r) {
+            if (y + r < 0 || y + r >= d.height)
+                continue;
+            for (int col = 0; col < width; ++col) {
+                if (x + col < 0 || x + col >= d.width)
+                    continue;
+                const uint32_t at = d.memory + uint32_t((y + r) * d.pitch) + uint32_t(x + col) * bytes;
+                uint32_t &px = pixels[size_t(r) * size_t(width) + size_t(col)];
+                if (!c.valid(at, bytes))
+                    continue;
+                if (write) {
+                    const uint32_t v = d.format.fromArgb(0xff000000u | px);
+                    for (uint32_t b = 0; b < bytes; ++b)
+                        c.write8(at + b, uint8_t(v >> (8 * b)));
+                } else {
+                    uint32_t v = 0;
+                    for (uint32_t b = 0; b < bytes; ++b)
+                        v |= uint32_t(c.read8(at + b)) << (8 * b);
+                    px = convert(v) & 0xffffff;
+                }
+            }
+        }
+        if (write)
+            ++p->d.version;
+    };
+}
+
 enum : uint32_t {
     kSdCaps = 0x1,
     kSdHeight = 0x2,
@@ -167,6 +208,7 @@ uint32_t DirectDraw::createSurface(Cpu &c, const ComInterface &iface) {
             previous = back.get();
         }
         s->primary = surface;
+        showGdiOn(*s, surface);
     } else {
         if (caps[0] & kCapsZBuffer) {
             if (!(flags & kSdPixelFormat))
@@ -343,7 +385,9 @@ std::optional<uint32_t> DirectDraw::invoke(const ComInterface &iface, int index,
 
 namespace reluva::x86 {
 
-DirectX::~DirectX() = default;
+DirectX::~DirectX() {
+    _s->process.screenAccess = nullptr;
+}
 
 const DirectX::Frame &DirectX::frame() const {
     return _s->frame;

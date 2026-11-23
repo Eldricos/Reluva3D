@@ -472,6 +472,95 @@ static void testMsvcp60(const std::filesystem::path &tmp) {
     CHECK(output == "n = 42 x = 1.5\n");
 }
 
+// GDI's drawing as Star Trek: Armada's front end does it: a DIB set into a
+// memory bitmap, a mask made from it against a colour key, the masked blit
+// onto a window (on the process's own screen), a brush's fill, a line.
+static void testGdi() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    uint32_t r = 0;
+    auto call = [&](const char *dll, const char *name, const std::vector<uint32_t> &args) {
+        CHECK(!cpu.call(process.provided(dll, name), args, r));
+        return r;
+    };
+    auto text = [&](const std::string &s) {
+        const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
+        cpu.writeString(a, s, uint32_t(s.size() + 1));
+        return a;
+    };
+    const char *u = "USER32.dll";
+    const char *g = "GDI32.dll";
+    const uint32_t proc = cpu.addNative("test!GdiProc", [](x86::Cpu &c) {
+        c.reg[x86::Cpu::EAX] = c.arg(1) == 0x81 ? 1 : 0;
+        return 16u;
+    });
+    const uint32_t wc = process.memory().alloc(40);
+    cpu.write32(wc + 4, proc);
+    cpu.write32(wc + 36, text("Gdi"));
+    call(u, "RegisterClassA", {wc});
+    const uint32_t hwnd = call(u, "CreateWindowExA", {0, text("Gdi"), 0, 0x80000000, 100, 50, 64, 32, 0, 0, 0, 0});
+    const uint32_t screenDc = call(u, "GetDC", {hwnd});
+    auto onScreen = [&](int x, int y) { return process.screen().at(size_t(50 + y) * 800 + size_t(100 + x)); };
+
+    // A 2 x 2, 24-bit DIB, bottom-up: red, magenta below green, blue.
+    const uint32_t info = process.memory().alloc(40);
+    const uint32_t header[10] = {40, 2, 2, 0x00180001};
+    for (uint32_t i = 0; i < 10; ++i)
+        cpu.write32(info + 4 * i, header[i]);
+    const uint8_t rows[16] = {0, 0, 0xff, 0xff, 0, 0xff, 0, 0, 0, 0xff, 0, 0xff, 0, 0, 0, 0};
+    const uint32_t bits = process.memory().alloc(16);
+    for (uint32_t i = 0; i < 16; ++i)
+        cpu.write8(bits + i, rows[i]);
+    const uint32_t image = call(g, "CreateCompatibleDC", {screenDc});
+    const uint32_t bitmap = call(g, "CreateCompatibleBitmap", {screenDc, 2, 2});
+    CHECK(call(g, "SelectObject", {image, bitmap}) != 0);
+    const uint32_t object = process.memory().alloc(24);
+    CHECK(call(g, "GetObjectA", {bitmap, 24, object}) == 24 && cpu.read32(object + 4) == 2 &&
+          cpu.read16(object + 18) == 16);
+    CHECK(call(g, "SetDIBitsToDevice", {image, 0, 0, 2, 2, 0, 0, 0, 2, bits, info, 0}) == 2);
+    CHECK(call(g, "GetPixel", {image, 0, 0}) == 0x00ff00 && call(g, "GetPixel", {image, 1, 0}) == 0xff0000 &&
+          call(g, "GetPixel", {image, 0, 1}) == 0x0000ff && call(g, "GetPixel", {image, 1, 1}) == 0xff00ff);
+
+    // The mask: the source's background colour (the key) becomes white.
+    const uint32_t maskDc = call(g, "CreateCompatibleDC", {screenDc});
+    call(g, "SelectObject", {maskDc, call(g, "CreateBitmap", {2, 2, 1, 1, 0})});
+    call(g, "SetBkColor", {image, 0xff00ff});
+    call(g, "BitBlt", {maskDc, 0, 0, 2, 2, image, 0, 0, 0xcc0020}); // SRCCOPY
+    CHECK(call(g, "GetPixel", {maskDc, 1, 1}) == 0xffffff && call(g, "GetPixel", {maskDc, 0, 0}) == 0);
+    call(g, "SetBkColor", {image, 0xffffff});
+
+    // The window filled with a brush, then the image blitted through the
+    // mask: AND with the mask (white keeps), the key made black in the
+    // image (D & ~S), then OR.
+    const uint32_t rect = process.memory().alloc(16);
+    for (uint32_t i : {0u, 4u})
+        cpu.write32(rect + i, 0);
+    cpu.write32(rect + 8, 64);
+    cpu.write32(rect + 12, 32);
+    CHECK(call(u, "FillRect", {screenDc, rect, call(g, "CreateSolidBrush", {0x804020})}) == 1);
+    CHECK(onScreen(5, 5) == 0x204080);
+    call(g, "BitBlt", {screenDc, 0, 0, 2, 2, maskDc, 0, 0, 0x8800c6}); // SRCAND
+    call(g, "BitBlt", {image, 0, 0, 2, 2, maskDc, 0, 0, 0x220326});    // D & ~S
+    call(g, "BitBlt", {screenDc, 0, 0, 2, 2, image, 0, 0, 0xee0086});  // SRCPAINT
+    CHECK(onScreen(0, 0) == 0x00ff00 && onScreen(1, 0) == 0x0000ff && onScreen(0, 1) == 0xff0000 &&
+          onScreen(1, 1) == 0x204080);
+    CHECK(call(g, "PatBlt", {screenDc, 10, 10, 1, 1, 0x550009}) == 1 && onScreen(10, 10) == 0xdfbf7f); // DSTINVERT
+
+    // A red line from (2, 5) to (5, 5), its last point not drawn; selecting
+    // the pen gives back the stock black one.
+    const uint32_t pen = call(g, "CreatePen", {0, 1, 0x0000ff});
+    CHECK(call(g, "SelectObject", {screenDc, pen}) == call(g, "GetStockObject", {7}));
+    const uint32_t points = process.memory().alloc(16);
+    for (uint32_t i : {0u, 8u})
+        cpu.write32(points + i, i ? 5 : 2);
+    cpu.write32(points + 4, 5);
+    cpu.write32(points + 12, 5);
+    CHECK(call(g, "Polyline", {screenDc, points, 2}) == 1);
+    CHECK(onScreen(2, 5) == 0xff0000 && onScreen(4, 5) == 0xff0000 && onScreen(5, 5) == 0x204080);
+    CHECK(call(g, "DeleteObject", {pen}) == 1 && call(g, "DeleteObject", {pen}) == 0);
+    CHECK(call(g, "GetClipBox", {image, rect}) == 2 && cpu.read32(rect + 8) == 2 && cpu.read32(rect + 12) == 2);
+}
+
 // A DLL holding one dialog template (resource 7): a pop-up titled "D" with
 // an "OK" button (control 100).
 static std::vector<uint8_t> dialogDll() {
@@ -859,6 +948,13 @@ static void testDirectX() {
     CHECK(at(40, 5) == 0x0000ff);  // the clear colour
     CHECK(at(31, 31) == 0x0000ff); // past the hypotenuse
     CHECK(at(45, 28) == 0xffffff && at(58, 28) == 0xff0000 && at(45, 44) == 0x00ff00 && at(58, 44) == 0x000000);
+    // GDI draws on the screen, which is the primary surface: it reads what
+    // was flipped there, and writes in the display's format.
+    uint32_t screenDc = 0;
+    CHECK(!cpu.call(process.provided("USER32.dll", "GetDC"), {0}, screenDc));
+    CHECK(!cpu.call(process.provided("GDI32.dll", "GetPixel"), {screenDc, 5, 5}, r) && r == 0x0000ff);
+    CHECK(!cpu.call(process.provided("GDI32.dll", "SetPixel"), {screenDc, 2, 2, 0x00ff00}, r) && r == 0x00ff00);
+    CHECK(!cpu.call(process.provided("GDI32.dll", "GetPixel"), {screenDc, 2, 2}, r) && r == 0x00ff00);
     // The display's gamma ramp (IDirectDrawGammaControl, from the primary):
     // red turned upside down, shown from then on.
     CHECK(call(primary, 0, {guid("{69c11c3e-b46b-11d1-ad7a-00c04fc29b4e}"), out}) == 0);
@@ -1411,13 +1507,15 @@ static void testHostedProgramNeeds(const std::filesystem::path &tmp) {
     CHECK(call(w, "PlaySoundA", {text("x.wav"), 0, 0x20000}) == 0 && call(w, "auxGetNumDevs", {}) == 0 &&
           call(w, "auxGetVolume", {0, values}) == 2);
 
-    // GDI's coordinates are device units; text by the stand-in font, 8 x 16.
-    CHECK(call(g, "GetMapMode", {0x30000}) == 1 && call(g, "SetMapMode", {0x30000, 1}) == 1);
+    // GDI's coordinates are device units, the desktop's clip box the
+    // screen; text by the stand-in font, 8 x 16.
+    const uint32_t desktopDc = call(u, "GetDC", {0});
+    CHECK(call(g, "GetMapMode", {desktopDc}) == 1 && call(g, "SetMapMode", {desktopDc, 1}) == 1);
     const uint32_t box = process.memory().alloc(16);
-    CHECK(call(g, "GetClipBox", {0x30000, box}) == 2 && cpu.read32(box + 8) == 800 && cpu.read32(box + 12) == 600);
+    CHECK(call(g, "GetClipBox", {desktopDc, box}) == 2 && cpu.read32(box + 8) == 800 && cpu.read32(box + 12) == 600);
     const uint32_t fit = process.memory().alloc(4);
     const uint32_t extent = process.memory().alloc(8);
-    CHECK(call(g, "GetTextExtentExPointA", {0x30000, text("abcdef"), 6, 20, fit, 0, extent}) == 1 &&
+    CHECK(call(g, "GetTextExtentExPointA", {desktopDc, text("abcdef"), 6, 20, fit, 0, extent}) == 1 &&
           cpu.read32(fit) == 2 && cpu.read32(extent) == 48 && cpu.read32(extent + 4) == 16);
 }
 
@@ -1429,6 +1527,7 @@ static const test::Suite kSuite(
         {"msvcrt and files", [](const std::filesystem::path &tmp) { testMsvcrtAndFiles(tmp / "msvcrt"); }},
         {"msvcp60", [](const std::filesystem::path &tmp) { testMsvcp60(tmp / "msvcp60"); }},
         {"a dialog", [](const std::filesystem::path &) { testDialog(); }},
+        {"GDI's drawing", [](const std::filesystem::path &) { testGdi(); }},
         {"a hosted program's needs", [](const std::filesystem::path &tmp) { testHostedProgramNeeds(tmp / "needs"); }},
         {"windows and registry", [](const std::filesystem::path &) { testWindowsAndRegistry(); }},
         {"directx", [](const std::filesystem::path &) { testDirectX(); }},

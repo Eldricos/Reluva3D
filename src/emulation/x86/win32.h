@@ -563,6 +563,15 @@ public:
     int cursorY = 0;
     // Called when the program looks for a message and none is queued.
     std::function<void()> idle;
+    /**
+     * The screen GDI draws windows on: reads (`write` false) or writes the
+     * 0xRRGGBB pixels of a rectangle, a row after another, all of it on the
+     * screen. DirectX points it at the primary surface while it owns the
+     * display; without it, the process keeps a screen of its own (screen()).
+     */
+    std::function<void(int x, int y, int width, int height, uint32_t *pixels, bool write)> screenAccess;
+    /** The process's own screen: screenWidth × screenHeight, 0xRRGGBB (empty until GDI draws on it). */
+    const std::vector<uint32_t> &screen() const { return _screen; }
     // Input, as the engine passes it on.
 
     /**
@@ -654,6 +663,7 @@ private:
     void addUserStandIns();
     void addRegistryStandIns();
     void addDialogStandIns();
+    void addGdiStandIns();
     struct WindowClass {
         uint32_t proc = 0;
         uint32_t style = 0;
@@ -673,19 +683,53 @@ private:
     std::map<uint32_t, Window> _windows;
     uint32_t _focus = 0;   // the window SetFocus gave the keyboard; 0 for the first
     uint32_t _capture = 0; // the window SetCapture gave the mouse
-    // GDI (win32_user.cpp): the objects made, and each device context's
-    // selection and colours.
+    // GDI (win32_gdi.cpp): the objects made, by handle, and the device
+    // contexts. Pixels are 0xRRGGBB, the top row first; a monochrome
+    // bitmap's are 0 or 0xffffff.
     uint32_t _nextGdiObject = 0;
-    std::map<uint32_t, uint32_t> _selected;
-    std::map<uint32_t, uint32_t> _textColour;
-    std::map<uint32_t, uint32_t> _backColour;
-    std::map<uint32_t, uint32_t> _backMode;
-    struct BitmapSize {
-        int32_t width = 0;
-        int32_t height = 0; // negative for top-down
-        int bits = 0;
+    struct Bitmap {
+        int width = 0;
+        int height = 0;
+        int bits = 0; // as GetObjectA reports it; 1 is monochrome
+        std::vector<uint32_t> pixels;
     };
-    std::map<uint32_t, BitmapSize> _bitmaps; // LoadImageA's from files
+    struct Brush {
+        uint32_t colour = 0; // a COLORREF
+        bool hollow = false;
+        int patternWidth = 0; // a pattern brush's copy of its bitmap
+        int patternHeight = 0;
+        std::vector<uint32_t> pattern;
+    };
+    struct Pen {
+        uint32_t colour = 0;
+        bool none = false; // PS_NULL
+    };
+    struct DeviceContext {
+        uint32_t window = 0; // a window's (its client area on the screen); 0 for a memory one
+        uint32_t bitmap = 0;
+        uint32_t brush = 0;
+        uint32_t pen = 0;
+        uint32_t font = 0;
+        uint32_t textColour = 0;
+        uint32_t backColour = 0xffffff;
+        uint32_t backMode = 2; // OPAQUE
+    };
+    std::map<uint32_t, Bitmap> _bitmaps;
+    std::map<uint32_t, Brush> _brushes;
+    std::map<uint32_t, Pen> _pens;
+    std::set<uint32_t> _fonts;
+    std::set<uint32_t> _palettes;
+    std::map<uint32_t, DeviceContext> _dcs;
+    std::vector<uint32_t> _screen; // without screenAccess
+    /** A device context by handle (a window's made as it's first used), or null. */
+    DeviceContext *deviceContext(uint32_t handle);
+    /** A rectangle of a device context's pixels (0 outside it), and one written (clipped to it). */
+    ///@{
+    std::vector<uint32_t> readArea(const DeviceContext &dc, int x, int y, int width, int height);
+    void writeArea(const DeviceContext &dc, int x, int y, int width, int height, const std::vector<uint32_t> &pixels);
+    ///@}
+    /** Whether a device context draws in monochrome (a monochrome bitmap is selected). */
+    bool monochrome(const DeviceContext &dc) const;
     uint32_t _nextWindow = 0x10010;
     struct Message {
         uint32_t window;
