@@ -7,7 +7,9 @@ around 2000: every frame a picture of its own (there are no frames built
 from the one before), coded as MPEG-1 codes its intra frames. A movie
 (`.tgq`) is an EA sound stream with the pictures' chunks (`pIQT`)
 between the sound's. The code is `src/video/tqi.cpp` (`tqi::Decoder`)
-and `src/video/ea_movie.cpp` (`EaMovie`).
+and `src/video/ea_movie.cpp` (`EaMovie`); the shared movie player,
+`video::playMovie` (`src/video/movie.cpp`), plays such a movie with its
+sound, as it plays AVIs.
 
 ## What Reluva supports
 
@@ -77,7 +79,8 @@ Each block is coded as an MPEG-1 intra block (ISO/IEC 11172-2):
   planes match to 58-61 dB, never more than 4 levels apart, the inverse
   DCTs' differences. The unit tests (`common.unit.tqi`,
   `tests/common/tqi.cpp`) decode frames built bit by bit and a movie
-  built in the test.
+  built in the test, and play that movie headless, stretched to twice
+  its width.
 - **Confidence:** confirmed unless marked.
 
 ## Used by

@@ -7,47 +7,28 @@
 //
 //   reluva-tests common.unit.tqi
 
+#include "tests/support/ea_movie_writer.h"
 #include "tests/support/test.h"
 #include "audio/sound.h"
+#include "common/headless_system.h"
+#include "video/movie.h"
 #include "video/ea_movie.h"
 #include "video/tqi.h"
 
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
 
 namespace {
 
 using Bytes = std::vector<uint8_t>;
-
-// A frame of `width` x `height` at quantiser `q`, its codes given as a
-// string of bits, packed into 32-bit little-endian words from their top.
-Bytes makeFrame(int width, int height, int q, std::string bits) {
-    Bytes f = {uint8_t(width), uint8_t(width >> 8), uint8_t(height), uint8_t(height >> 8), uint8_t(q), 0, 0, 0};
-    while (bits.size() % 32)
-        bits += '0';
-    for (size_t at = 0; at < bits.size(); at += 32) {
-        const uint32_t word = uint32_t(std::stoul(bits.substr(at, 32), nullptr, 2));
-        for (int i = 0; i < 4; ++i)
-            f.push_back(uint8_t(word >> (8 * i)));
-    }
-    return f;
-}
-
-// One macroblock: the first luma block's DC 100 (size 7) with an AC
-// coefficient of 2 (code 0100) and an escaped one (run 3, level -5); the
-// other luma blocks' DC unchanged; both chroma blocks' DC 128 (size 8).
-const std::string kMacroblock = std::string("111110") + "1100100" + "0100" + "0" + "000001" + "000011" + "11111011" +
-                                "10" +
-                                "100"
-                                "10" +
-                                "100"
-                                "10" +
-                                "100"
-                                "10" +
-                                "11111110" + "10000000" + "10" + "11111110" + "10000000" + "10";
+using reluva::test::kTqiMacroblock;
+using reluva::test::makeEaMovie;
+using reluva::test::makeTqiFrame;
+using reluva::test::movieChunk;
 
 bool grey(const reluva::Surface &s, int x, int y, int value) {
     const uint8_t *p = s.row(y) + x * 4;
@@ -56,7 +37,8 @@ bool grey(const reluva::Surface &s, int x, int y, int value) {
 
 void testFrame() {
     reluva::tqi::Decoder decoder;
-    CHECK(!decoder.decode(makeFrame(16, 16, 99, kMacroblock).data(), makeFrame(16, 16, 99, kMacroblock).size()));
+    CHECK(!decoder.decode(makeTqiFrame(16, 16, 99, kTqiMacroblock).data(),
+                          makeTqiFrame(16, 16, 99, kTqiMacroblock).size()));
     CHECK(decoder.width() == 16 && decoder.height() == 16 && decoder.surface().w == 16);
     // Luma 100, chroma neutral: BT.601's grey, (100 - 16) x 1.164, in the
     // blocks without AC coefficients.
@@ -85,47 +67,24 @@ void testFrame() {
                                "10" +
                                "00"
                                "10";
-    const Bytes two = makeFrame(32, 16, 99, kMacroblock + second);
+    const Bytes two = makeTqiFrame(32, 16, 99, kTqiMacroblock + second);
     CHECK(!decoder.decode(two.data(), two.size()) && decoder.width() == 32 && grey(decoder.surface(), 20, 4, 98));
 
     // A size not of whole macroblocks; cut short; a code that isn't one.
-    const Bytes odd = makeFrame(20, 16, 99, kMacroblock);
+    const Bytes odd = makeTqiFrame(20, 16, 99, kTqiMacroblock);
     CHECK(decoder.decode(odd.data(), odd.size()));
-    const Bytes cut = makeFrame(32, 16, 99, kMacroblock);
+    const Bytes cut = makeTqiFrame(32, 16, 99, kTqiMacroblock);
     CHECK(decoder.decode(cut.data(), cut.size()));
-    const Bytes bad = makeFrame(16, 16, 99, std::string(32, '0'));
+    const Bytes bad = makeTqiFrame(16, 16, 99, std::string(32, '0'));
     CHECK(decoder.decode(bad.data(), bad.size()));
     CHECK(decoder.decode(two.data(), 5));
 }
 
-// A chunk of an EA movie: its tag, its size with these 8 bytes, its bytes.
-void chunk(Bytes &out, const char *tag, const Bytes &body) {
-    out.insert(out.end(), tag, tag + 4);
-    const uint32_t size = uint32_t(8 + body.size());
-    for (int i = 0; i < 4; ++i)
-        out.push_back(uint8_t(size >> (8 * i)));
-    out.insert(out.end(), body.begin(), body.end());
-}
-
-// A movie of two frames and a sound of 2 stereo PCM samples, the frames
-// between the sound's chunks.
-Bytes makeMovie() {
-    const Bytes frame = makeFrame(16, 16, 99, kMacroblock);
-    Bytes m;
-    chunk(m, "SCHl", {'P', 'T', 0, 0, 0x82, 1, 2, 0x85, 1, 2, 0xff});
-    chunk(m, "pIQT", frame);
-    chunk(m, "SCCl", {1, 0, 0, 0});
-    chunk(m, "SCDl", {2, 0, 0, 0, 1, 0, 0xff, 0xff, 2, 0, 0xfe, 0xff});
-    chunk(m, "pIQT", frame);
-    chunk(m, "SCEl", {});
-    return m;
-}
-
 void testMovie() {
     reluva::video::EaMovie movie;
-    const Bytes data = makeMovie();
+    const Bytes data = makeEaMovie();
     CHECK(reluva::video::EaMovie::looksLike(data) && !movie.open(data));
-    CHECK(movie.frameCount() == 2 && movie.frameSize(1) == makeFrame(16, 16, 99, kMacroblock).size());
+    CHECK(movie.frameCount() == 2 && movie.frameSize(1) == makeTqiFrame(16, 16, 99, kTqiMacroblock).size());
     reluva::tqi::Decoder decoder;
     CHECK(!decoder.decode(movie.frame(1), movie.frameSize(1)) && decoder.width() == 16);
     reluva::audio::Sound sound;
@@ -135,11 +94,41 @@ void testMovie() {
     // Not a movie; one without pictures; a chunk running past the end.
     CHECK(!reluva::video::EaMovie::looksLike(Bytes{'R', 'I', 'F', 'F', 0, 0, 0, 0}));
     Bytes soundOnly;
-    chunk(soundOnly, "SCHl", {'P', 'T', 0, 0, 0xff});
+    movieChunk(soundOnly, "SCHl", {'P', 'T', 0, 0, 0xff});
     CHECK(movie.open(soundOnly));
     Bytes cut = data;
     cut.resize(cut.size() - 3);
     CHECK(movie.open(cut));
+}
+
+// The movie played, with no mixer, by the clock: its 16x16 picture shown
+// stretched to 32x16, in the middle of a 40x20 screen on black.
+void testPlay(const std::filesystem::path &tmp) {
+    const Bytes data = makeEaMovie();
+    std::ofstream(tmp / "logo.tgq", std::ios::binary)
+        .write(reinterpret_cast<const char *>(data.data()), std::streamsize(data.size()));
+    struct Screen : reluva::HeadlessSystem {
+        reluva::Surface last;
+        void updateScreen(const reluva::Surface &s) override {
+            HeadlessSystem::updateScreen(s);
+            last = s;
+        }
+    } sys;
+    reluva::video::MovieOptions options;
+    options.screenWidth = 40;
+    options.screenHeight = 20;
+    options.pictureWidth = 32;
+    options.pictureHeight = 16;
+    bool quit = true;
+    CHECK(!reluva::video::playMovie(sys, nullptr, tmp / "logo.tgq", quit, options) && !quit);
+    CHECK(sys.width() == 40 && sys.height() == 20 && sys.last.w == 40);
+    // The picture from (4, 2) to (35, 17): its right half, grey, at 20-35.
+    auto black = [&](int x, int y) {
+        const uint8_t *p = sys.last.row(y) + x * 4;
+        return p[0] == 0 && p[1] == 0 && p[2] == 0;
+    };
+    CHECK(grey(sys.last, 20, 2, 98) && grey(sys.last, 35, 17, 98) && black(3, 2) && black(36, 2) && black(20, 1));
+    CHECK(sys.getMillis() >= 66); // the second frame is due at 1/15 s
 }
 
 } // namespace
@@ -148,4 +137,5 @@ static const reluva::test::Suite kSuite("common.unit.tqi",
                                         {
                                             {"frame", [](const std::filesystem::path &) { testFrame(); }},
                                             {"movie", [](const std::filesystem::path &) { testMovie(); }},
+                                            {"play", [](const std::filesystem::path &tmp) { testPlay(tmp); }},
                                         });
