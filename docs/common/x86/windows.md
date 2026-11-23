@@ -166,12 +166,12 @@ C++ library have pages of their own ([directx.md](directx.md),
   (a track lasting to the next one's start), whether it's audio, the
   disc's length, whether a disc is there; in milliseconds, MSF, frames
   or TMSF (`MCI_SET`). The engine gives the table of contents
-  (`Win32Process::disc`), which `DiscContents::fromCueSheet` reads from a
-  disc's cue sheet (its files' sizes giving the last tracks' lengths;
-  `PREGAP` gaps, not in the files, counted) and `fromMediaDescriptor` from
-  an Alcohol 120% `.mds` (the table of contents it keeps, as the drive
-  read it; its layout worked out from Star Trek: Armada's disc's, where
-  its fields agree with each other). Without one, there's no disc: "not
+  (`Win32Process::disc`), which `DiscContents::fromCueTracks` makes from
+  a disc's cue sheet as `common/cue.h` reads it (each track after its gap,
+  in the file or not (`PREGAP`), lasting its sectors) and
+  `fromMediaDescriptor` from an Alcohol 120% `.mds` (the table of
+  contents it keeps, as the drive read it; its layout worked out from
+  Star Trek: Armada's disc's, where its fields agree with each other). Without one, there's no disc: "not
   ready". Playing (`MCI_PLAY` from and to, `MCI_PAUSE`, `MCI_RESUME`,
   `MCI_SEEK`, `MCI_STOP`) moves the position on with the clock and gives
   the mode, as a drive would, but isn't heard; no other MCI device is

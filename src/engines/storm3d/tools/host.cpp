@@ -13,6 +13,7 @@
 // disc's files on D:, its table of contents from the disc's cue sheet or
 // media descriptor (.mds), which the game's CD check reads through MCI.
 
+#include "common/cue.h"
 #include "common/fs.h"
 #include "common/pe.h"
 #include "common/text.h"
@@ -256,15 +257,13 @@ int cmdHost(int argc, char **argv) {
         }
         if (text::hasSuffixIgnoreCase(o.tocFile.string(), ".mds"))
             process.disc = x86::Win32Process::DiscContents::fromMediaDescriptor(toc, why);
-        else
-            process.disc = x86::Win32Process::DiscContents::fromCueSheet(
-                std::string(toc.begin(), toc.end()),
-                [&](const std::string &name) -> std::optional<uint64_t> {
-                    std::error_code sizeError;
-                    const auto size = std::filesystem::file_size(o.tocFile.parent_path() / name, sizeError);
-                    return sizeError ? std::nullopt : std::optional<uint64_t>(size);
-                },
-                why);
+        else {
+            std::vector<CueTrack> tracks;
+            if (Error err = readCueSheet(o.tocFile, tracks))
+                why = err.message;
+            else
+                process.disc = x86::Win32Process::DiscContents::fromCueTracks(tracks);
+        }
         if (!process.disc) {
             std::fprintf(stderr, "%s: %s\n", o.tocFile.string().c_str(), why.c_str());
             return 2;

@@ -26,12 +26,17 @@ struct CueTrack {
     bool bigEndian = false;     // the file is MOTOROLA (audio samples big-endian)
     uint64_t offset = 0;        // where INDEX 01 starts in the file, in bytes
     uint64_t size = 0;          // up to the next track (its pregap left out) or the file's end
+    // Sectors before INDEX 01 on the disc: in the file (from INDEX 00, or
+    // from the file's start for its first track), and not in it (PREGAP).
+    uint32_t lead = 0;
+    uint32_t pregap = 0;
 };
 
 /**
  * Reads a cue sheet whose image files are in `dir`. Only BINARY and
- * MOTOROLA files are supported: WAVE, MP3 and AIFF files fail. PREGAP and
- * POSTGAP aren't stored in the files and so are ignored.
+ * MOTOROLA files are supported: WAVE, MP3 and AIFF files fail. PREGAP
+ * isn't stored in the files: it's kept for where the tracks are on the
+ * disc. POSTGAP is ignored.
  */
 Error parseCueSheet(std::string_view text, const std::filesystem::path &dir, std::vector<CueTrack> &out);
 /** The same, from the .cue file, its images in the folder beside it. */

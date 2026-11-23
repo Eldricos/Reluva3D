@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "common/cue.h"
 #include "common/pe.h"
 #include "common/types.h"
 #include "emulation/x86/cpu.h"
@@ -321,14 +322,10 @@ public:
         std::vector<Track> tracks;
         uint32_t end = 0;
         /**
-         * From a cue sheet: its tracks' INDEX 01s, their PREGAPs, and the
-         * sizes of the files it names (through `fileSize`, in bytes), which
-         * give each file's last track its length and the disc its end.
-         * @param error Why not, when it can't.
+         * From a cue sheet's tracks (readCueSheet): one after another, each
+         * after its gap (in the file or not) and lasting its sectors.
          */
-        static std::optional<DiscContents>
-        fromCueSheet(const std::string &text,
-                     const std::function<std::optional<uint64_t>(const std::string &)> &fileSize, std::string &error);
+        static DiscContents fromCueTracks(const std::vector<CueTrack> &tracks);
         /**
          * From a media descriptor (.mds, Alcohol 120%'s): the table of
          * contents it keeps as the drive read it, each track's start and

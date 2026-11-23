@@ -9,11 +9,8 @@
 #include "emulation/x86/win32.h"
 
 #include <cctype>
-#include <cstdio>
 #include <cstdlib>
-#include <functional>
 #include <optional>
-#include <sstream>
 #include <string>
 
 namespace reluva::x86 {
@@ -126,120 +123,13 @@ std::string lowerCase(std::string s) {
 
 } // namespace
 
-std::optional<Win32Process::DiscContents>
-Win32Process::DiscContents::fromCueSheet(const std::string &text,
-                                         const std::function<std::optional<uint64_t>(const std::string &)> &fileSize,
-                                         std::string &error) {
-    // Each file's tracks: their sector size, INDEX 01 within the file, and
-    // the gap before them that isn't in it.
-    struct CueTrack {
-        uint32_t sectorBytes = 2352;
-        bool audio = true;
-        int64_t index = -1;
-        uint32_t pregap = 0;
-    };
-    struct CueFile {
-        uint64_t bytes = 0;
-        std::vector<CueTrack> tracks;
-    };
-    std::vector<CueFile> files;
-    auto msf = [](const std::string &s, uint32_t &frames) {
-        int m = 0;
-        int sec = 0;
-        int f = 0;
-        if (std::sscanf(s.c_str(), "%d:%d:%d", &m, &sec, &f) != 3 || m < 0 || sec < 0 || sec > 59 || f < 0 || f > 74)
-            return false;
-        frames = uint32_t((m * 60 + sec) * 75 + f);
-        return true;
-    };
-    std::istringstream lines(text);
-    std::string line;
-    for (int number = 1; std::getline(lines, line); ++number) {
-        std::istringstream words(line);
-        std::string keyword;
-        words >> keyword;
-        keyword = lowerCase(keyword);
-        auto fail = [&](const std::string &why) {
-            error = "line " + std::to_string(number) + ": " + why;
-            return std::nullopt;
-        };
-        if (keyword == "file") {
-            // FILE "name" TYPE: the name may be quoted, with spaces.
-            const size_t open = line.find('"');
-            const size_t close = open == std::string::npos ? open : line.find('"', open + 1);
-            std::string name;
-            if (close != std::string::npos) {
-                name = line.substr(open + 1, close - open - 1);
-            } else {
-                words >> name;
-            }
-            const auto size = fileSize(name);
-            if (!size)
-                return fail("there's no file " + name);
-            files.push_back({*size, {}});
-        } else if (keyword == "track") {
-            std::string numberText;
-            std::string type;
-            words >> numberText >> type;
-            if (files.empty())
-                return fail("a track before any file");
-            type = lowerCase(type);
-            CueTrack t;
-            t.audio = type == "audio";
-            if (type == "mode1/2048" || type == "mode2/2048")
-                t.sectorBytes = 2048;
-            else if (type == "mode2/2336")
-                t.sectorBytes = 2336;
-            else if (type != "audio" && type != "mode1/2352" && type != "mode2/2352")
-                return fail("a track of type " + type + " isn't known");
-            files.back().tracks.push_back(t);
-        } else if (keyword == "index" || keyword == "pregap") {
-            if (files.empty() || files.back().tracks.empty())
-                return fail(keyword + " outside a track");
-            std::string first;
-            std::string second;
-            words >> first >> second;
-            uint32_t frames = 0;
-            if (keyword == "pregap") {
-                if (!msf(first, frames))
-                    return fail("PREGAP's time isn't mm:ss:ff");
-                files.back().tracks.back().pregap = frames;
-            } else if (std::atoi(first.c_str()) == 1) {
-                if (!msf(second, frames))
-                    return fail("INDEX 01's time isn't mm:ss:ff");
-                files.back().tracks.back().index = frames;
-            }
-        }
-    }
+Win32Process::DiscContents Win32Process::DiscContents::fromCueTracks(const std::vector<CueTrack> &tracks) {
     DiscContents disc;
-    uint64_t at = 150; // the frame the next file starts at
-    for (const CueFile &f : files) {
-        uint64_t gaps = 0;
-        for (size_t i = 0; i < f.tracks.size(); ++i) {
-            const CueTrack &t = f.tracks[i];
-            if (t.index < 0) {
-                error = "a track without INDEX 01";
-                return std::nullopt;
-            }
-            gaps += t.pregap;
-            disc.tracks.push_back({uint32_t(at + gaps + uint64_t(t.index)), t.audio});
-        }
-        // The file's length in sectors: what's before its last track, then
-        // that track's sectors to the end.
-        uint64_t before = f.tracks.empty() ? 0 : uint64_t(f.tracks[0].index) * f.tracks[0].sectorBytes;
-        for (size_t i = 0; i + 1 < f.tracks.size(); ++i)
-            before += uint64_t(f.tracks[i + 1].index - f.tracks[i].index) * f.tracks[i].sectorBytes;
-        const CueTrack &last = f.tracks.empty() ? CueTrack{} : f.tracks.back();
-        const uint64_t lastIndex = f.tracks.empty() ? 0 : uint64_t(last.index);
-        if (f.bytes < before) {
-            error = "a file shorter than its tracks";
-            return std::nullopt;
-        }
-        at += gaps + lastIndex + (f.bytes - before) / last.sectorBytes;
-    }
-    if (disc.tracks.empty()) {
-        error = "no tracks";
-        return std::nullopt;
+    uint64_t at = 150; // the disc's first track's data starts two seconds in
+    for (const CueTrack &t : tracks) {
+        at += t.pregap + t.lead;
+        disc.tracks.push_back({uint32_t(at), t.audio});
+        at += t.size / uint64_t(t.sectorSize);
     }
     disc.end = uint32_t(at);
     return disc;

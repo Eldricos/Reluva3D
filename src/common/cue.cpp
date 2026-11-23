@@ -148,9 +148,14 @@ Error parseCueSheet(std::string_view text, const std::filesystem::path &dir, std
                 t.firstIndex = frames;
             if (n == 1)
                 t.index1 = frames;
+        } else if (cmd == "pregap") {
+            int64_t frames = 0;
+            if (tracks.empty() || w.size() < 2 || !parseMsf(w[1], frames))
+                return bad("PREGAP needs a track and a length");
+            tracks.back().track.pregap = uint32_t(frames);
         }
-        // REM, CATALOG, TITLE, PERFORMER, FLAGS, ISRC, PREGAP, POSTGAP and
-        // the like don't change where the data is.
+        // REM, CATALOG, TITLE, PERFORMER, FLAGS, ISRC, POSTGAP and the like
+        // don't change where the data is.
     }
     if (tracks.empty())
         return Error::fail("the cue sheet has no tracks");
@@ -188,6 +193,8 @@ Error parseCueSheet(std::string_view text, const std::filesystem::path &dir, std
             return Error::fail("track " + std::to_string(track.number) + " lies beyond the end of " +
                                track.file.filename().string());
         track.size = end - track.offset;
+        const bool firstInFile = i == 0 || tracks[i - 1].fileIndex != tracks[i].fileIndex;
+        track.lead = uint32_t((track.offset - (firstInFile ? 0 : regionStart[i])) / uint64_t(track.sectorSize));
         out.push_back(std::move(track));
     }
     return Error::success();

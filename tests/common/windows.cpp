@@ -8,6 +8,7 @@
 //   reluva-tests common.unit.windows
 
 #include "audio/mixer.h"
+#include "common/cue.h"
 #include "common/fs.h"
 #include "common/types.h"
 #include "emulation/x86/a3d.h"
@@ -572,36 +573,32 @@ static void testGdi() {
 // MCI's CD audio, as Star Trek: Armada's CD check uses it: the disc's
 // table of contents from a cue sheet or a media descriptor, read through
 // MCI_OPEN, MCI_SET and MCI_STATUS.
-static void testCdAudio() {
-    // Ten minutes of data, then an audio track two seconds after it (a
-    // gap not in the file) of a minute; a second file with a track whose
-    // INDEX 01 is two seconds in, of 3,000 frames in all.
-    const std::string cue = "FILE \"game disc.bin\" BINARY\n"
-                            "  TRACK 01 MODE1/2352\n"
-                            "    INDEX 01 00:00:00\n"
-                            "  TRACK 02 AUDIO\n"
-                            "    PREGAP 00:02:00\n"
-                            "    INDEX 01 10:00:00\n"
-                            "FILE \"track3.bin\" BINARY\n"
-                            "  TRACK 03 AUDIO\n"
-                            "    INDEX 00 00:00:00\n"
-                            "    INDEX 01 00:02:00\n";
-    auto sizes = [](const std::string &name) -> std::optional<uint64_t> {
-        if (name == "game disc.bin")
-            return uint64_t(49500) * 2352;
-        if (name == "track3.bin")
-            return uint64_t(3000) * 2352;
-        return std::nullopt;
-    };
+static void testCdAudio(const std::filesystem::path &tmp) {
+    // A thousand sectors of data, then an audio track two seconds after it
+    // (a gap not in the file) of 500; a second file of 300 sectors, its
+    // track's INDEX 01 two seconds in.
+    std::filesystem::create_directories(tmp);
+    for (const auto &[name, sectors] : {std::pair<const char *, int>{"game disc.bin", 1500}, {"track3.bin", 300}}) {
+        std::ofstream(tmp / name, std::ios::binary).put(0);
+        std::filesystem::resize_file(tmp / name, uint64_t(sectors) * 2352);
+    }
+    std::ofstream(tmp / "game.cue") << "FILE \"game disc.bin\" BINARY\n"
+                                       "  TRACK 01 MODE1/2352\n"
+                                       "    INDEX 01 00:00:00\n"
+                                       "  TRACK 02 AUDIO\n"
+                                       "    PREGAP 00:02:00\n"
+                                       "    INDEX 01 00:13:25\n"
+                                       "FILE \"track3.bin\" BINARY\n"
+                                       "  TRACK 03 AUDIO\n"
+                                       "    INDEX 00 00:00:00\n"
+                                       "    INDEX 01 00:02:00\n";
+    std::vector<CueTrack> cueTracks;
+    CHECK(!readCueSheet(tmp / "game.cue", cueTracks) && cueTracks.size() == 3 && cueTracks[1].pregap == 150 &&
+          cueTracks[2].lead == 150);
+    const auto disc = std::optional(x86::Win32Process::DiscContents::fromCueTracks(cueTracks));
+    CHECK(disc->tracks.size() == 3 && disc->tracks[0].start == 150 && !disc->tracks[0].audio &&
+          disc->tracks[1].start == 1300 && disc->tracks[1].audio && disc->tracks[2].start == 1950 && disc->end == 2100);
     std::string error;
-    const auto disc = x86::Win32Process::DiscContents::fromCueSheet(cue, sizes, error);
-    CHECK(disc && disc->tracks.size() == 3);
-    if (!disc)
-        return;
-    CHECK(disc->tracks[0].start == 150 && !disc->tracks[0].audio && disc->tracks[1].start == 45300 &&
-          disc->tracks[1].audio && disc->tracks[2].start == 49950 && disc->end == 52800);
-    CHECK(!x86::Win32Process::DiscContents::fromCueSheet("FILE \"missing.bin\" BINARY\n", sizes, error) &&
-          error.find("missing.bin") != std::string::npos);
 
     // A media descriptor of a data track and an audio track, as Star Trek:
     // Armada's disc's is laid out: the first and last track's entries
@@ -653,12 +650,12 @@ static void testCdAudio() {
     process.disc = disc;
     CHECK(ask(5, 0, 0) == 1 && ask(3, 0, 0) == 3);
     // In MSF (minutes, seconds, frames from the low byte): track 2 starts
-    // at 10:04:00 and lasts to track 3's start, 1:02 with track 3's gap;
-    // in frames, the disc's length.
-    CHECK(ask(2, 2, 0x10) == (10u | 4u << 8) && ask(1, 2, 0x10) == (1u | 2u << 8));
+    // at 00:17:25 and lasts to track 3's start, 650 frames (00:08:50)
+    // with track 3's gap; in frames, the disc's length.
+    CHECK(ask(2, 2, 0x10) == (0u | 17u << 8 | 25u << 16) && ask(1, 2, 0x10) == (0u | 8u << 8 | 50u << 16));
     const uint32_t set = process.memory().alloc(12);
     cpu.write32(set + 4, 3); // MCI_FORMAT_FRAMES
-    CHECK(mci(device, 0x80d, 0x400, set) == 0 && ask(1, 0, 0) == 52800 - 150 && ask(2, 3, 0x10) == 49950);
+    CHECK(mci(device, 0x80d, 0x400, set) == 0 && ask(1, 0, 0) == 2100 - 150 && ask(2, 3, 0x10) == 1950);
     CHECK(ask(0x4001, 1, 0x10) == 1089 && ask(0x4001, 3, 0x10) == 1088); // data, audio
     CHECK(ask(2, 4, 0x10) == ~282u);                                     // no track 4
     // Playing moves the position on with the clock, to where it was asked
@@ -667,13 +664,13 @@ static void testCdAudio() {
     uint32_t clock = 1000;
     process.milliseconds = [&] { return clock; };
     const uint32_t play = process.memory().alloc(12);
-    cpu.write32(play + 4, 49950);
-    cpu.write32(play + 8, 49950 + 150);
+    cpu.write32(play + 4, 1950);
+    cpu.write32(play + 8, 1950 + 150);
     CHECK(mci(device, 0x806, 0xc, play) == 0 && ask(4, 0, 0) == 526);
     clock += 1000; // a second: 75 frames
-    CHECK(ask(2, 0, 0) == 49950 + 75 && ask(4, 0, 0) == 526);
+    CHECK(ask(2, 0, 0) == 1950 + 75 && ask(4, 0, 0) == 526);
     clock += 1500;
-    CHECK(ask(2, 0, 0) == 49950 + 150 && ask(4, 0, 0) == 525);
+    CHECK(ask(2, 0, 0) == 1950 + 150 && ask(4, 0, 0) == 525);
     CHECK(mci(device, 0x806, 0x4, play) == 0 && mci(device, 0x809, 0, 0) == 0 && ask(4, 0, 0) == 529); // paused
     cpu.write32(play + 4, 10);
     CHECK(mci(device, 0x806, 0x4, play) == 282); // before the disc's first track
@@ -1736,7 +1733,7 @@ static const test::Suite kSuite(
         {"msvcp60", [](const std::filesystem::path &tmp) { testMsvcp60(tmp / "msvcp60"); }},
         {"a dialog", [](const std::filesystem::path &) { testDialog(); }},
         {"GDI's drawing", [](const std::filesystem::path &) { testGdi(); }},
-        {"CD audio", [](const std::filesystem::path &) { testCdAudio(); }},
+        {"CD audio", [](const std::filesystem::path &tmp) { testCdAudio(tmp / "cd"); }},
         {"a hosted program's needs", [](const std::filesystem::path &tmp) { testHostedProgramNeeds(tmp / "needs"); }},
         {"windows and registry", [](const std::filesystem::path &) { testWindowsAndRegistry(); }},
         {"directx", [](const std::filesystem::path &) { testDirectX(); }},
