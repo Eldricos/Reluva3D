@@ -511,6 +511,20 @@ static void testDirectX() {
                     {0, out, guid("{15e65ec0-3b9c-11d2-b92f-00609797ea5b}"), 0}, r) &&
           r == 0);
     const uint32_t dd = cpu.read32(out);
+    // Direct3D 1's devices, as DirectX 5 programs list them: software, then
+    // hardware, a description each for hardware and for software.
+    CHECK(call(dd, 0, {guid("{3bba0080-2421-11cf-a31a-00aa00b93356}"), out}) == 0);
+    const uint32_t d3d1 = cpu.read32(out);
+    std::vector<uint32_t> colorModels; // the hardware description's, for each device
+    const uint32_t listed = cpu.addNative("test!EnumDevices", [&](x86::Cpu &c) {
+        CHECK(c.read32(c.arg(3)) == 204 && c.read32(c.arg(4) + 8) == 2); // sizes; software always RGB
+        colorModels.push_back(c.read32(c.arg(3) + 8));
+        c.reg[x86::Cpu::EAX] = 1; // D3DENUMRET_OK
+        return 24u;
+    });
+    CHECK(call(d3d1, 4, {listed, 0}) == 0);
+    CHECK((colorModels == std::vector<uint32_t>{0, 2}));
+    call(d3d1, 2, {});                            // Release: the DirectDraw object stays
     CHECK(call(dd, 20, {0, 0x11}) == 0);          // SetCooperativeLevel: exclusive, fullscreen
     CHECK(call(dd, 21, {64, 48, 16, 0, 0}) == 0); // SetDisplayMode
     CHECK(call(dd, 21, {65, 48, 16, 0, 0}) != 0); // a mode not offered

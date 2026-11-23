@@ -288,6 +288,8 @@ public:
     const ComInterface *query(const std::string &iid) override;
     /** IDirect3D7's methods (d3d7.cpp), as ComObject::invoke runs them. */
     std::optional<uint32_t> invoke3d(const ComInterface &iface, int index, Cpu &c);
+    /** IDirect3D's and IDirect3D2's methods (d3d5.cpp), as ComObject::invoke runs them. */
+    std::optional<uint32_t> invoke3d5(const ComInterface &iface, int index, Cpu &c) const;
 
 private:
     uint32_t createSurface(Cpu &c, const ComInterface &iface);
@@ -309,6 +311,8 @@ struct Interfaces {
     ComInterface palette;
     ComInterface clipper;
     ComInterface gammaControl;
+    ComInterface direct3d;
+    ComInterface direct3d2;
     ComInterface direct3d7;
     ComInterface device7;
     ComInterface vertexBuffer7;
@@ -329,6 +333,8 @@ extern const char *const kIidSurface7;
 extern const char *const kIidPalette;
 extern const char *const kIidClipper;
 extern const char *const kIidGammaControl;
+extern const char *const kIidDirect3D;
+extern const char *const kIidDirect3D2;
 extern const char *const kIidDirect3D7;
 extern const char *const kIidDevice7;
 extern const char *const kIidVertexBuffer7;

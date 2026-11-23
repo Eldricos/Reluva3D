@@ -57,6 +57,8 @@ const DeviceKind kDevices[] = {
     {"Microsoft Direct3D Hardware acceleration through Direct3D HAL", "Direct3D HAL", kIidHalDevice, true},
 };
 
+} // namespace
+
 void writePrimCaps(Cpu &c, uint32_t p) {
     const uint32_t v[14] = {
         56,
@@ -76,8 +78,6 @@ void writePrimCaps(Cpu &c, uint32_t p) {
     for (uint32_t i = 0; i < 14; ++i)
         c.write32(p + 4 * i, v[i]);
 }
-
-} // namespace
 
 void writeDeviceDesc(Cpu &c, uint32_t p, const std::string &iid) {
     std::memset(c.memory().data() + p, 0, 236);

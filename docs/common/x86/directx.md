@@ -26,6 +26,13 @@ headers' (`directx/interfaces.cpp`).
   client area. With `DirectX::presentLate` a flip hands over the frame
   before, once its draws are done, and the program goes on while this
   one's are drawn.
+- **Direct3D 1 and 2** (DirectX 3 and 5), on the same DirectDraw object:
+  `IDirect3D` and `IDirect3D2`, listing the same RGB emulation and HAL
+  devices with DirectX 5's `D3DDEVICEDESC` (204 bytes), a description for
+  hardware and one for software each. A software device's hardware
+  description has only its size: a colour model of 0 is how programs tell
+  the two kinds apart. Their devices, execute buffers, viewports,
+  materials and lights aren't there yet.
 - **Direct3D 7:** RGB emulation and HAL devices, vertex buffers and state
   blocks. The drawing is a software rasterizer (`directx/raster.cpp`):
   - the fixed-function pipeline: transforms, lighting, materials and their
@@ -87,11 +94,13 @@ checked without a GPU.
 ## Sources and checks
 
 - **Where the facts come from:** the DirectX 7 documentation, and the SDK
-  headers for interfaces, method orders and IIDs.
+  headers for interfaces, method orders and IIDs; for Direct3D 1 and 2,
+  the DirectX 5 documentation and SDK headers (`directx/d3d5.cpp`).
 
 - `testDirectX` in `tests/common/windows.cpp` (`common.unit.windows`) checks these, called through
   the vtables: a clear, a Gouraud triangle, the depth test, a textured
-  quad with point sampling, and a flip.
+  quad with point sampling, and a flip; and Direct3D 1's device list, its
+  descriptions' sizes and colour models.
 
 - `testInput` checks DirectInput's mouse (its state, its movement since
   the last read, its buffer) and keyboard.
@@ -103,3 +112,5 @@ checked without a GPU.
   ([running.md](../../engines/netimmerse/games/legoalphateam/systems/running.md)).
   It doesn't read DirectInput
   ([input.md](../../engines/netimmerse/games/legoalphateam/systems/input.md)).
+- **`sith`**: Jedi Knight's DirectDraw, Direct3D 1's device list and
+  DirectInput ([hosting.md](../../engines/sith/games/jk/systems/hosting.md)).

@@ -386,5 +386,7 @@ struct VertexLayout {
  * for each, but the hardware one (kIidHalDevice) says it's hardware.
  */
 void writeDeviceDesc(Cpu &c, uint32_t p, const std::string &iid);
+/** Writes the D3DPRIMCAPS (56 bytes) every device offers for lines and triangles at `p`. */
+void writePrimCaps(Cpu &c, uint32_t p);
 
 } // namespace reluva::x86::dx

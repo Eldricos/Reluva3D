@@ -20,6 +20,8 @@ const char *const kIidSurface7 = "{06675a80-3b9b-11d2-b92f-00609797ea5b}";
 const char *const kIidPalette = "{6c14db84-a733-11ce-a521-0020af0be560}";
 const char *const kIidClipper = "{6c14db85-a733-11ce-a521-0020af0be560}";
 const char *const kIidGammaControl = "{69c11c3e-b46b-11d1-ad7a-00c04fc29b4e}";
+const char *const kIidDirect3D = "{3bba0080-2421-11cf-a31a-00aa00b93356}";
+const char *const kIidDirect3D2 = "{6aae1ec1-662a-11d0-889d-00aa00bbb76a}";
 const char *const kIidDirect3D7 = "{f5049e77-4861-11d2-a407-00a0c90629a8}";
 const char *const kIidDevice7 = "{f5049e79-4861-11d2-a407-00a0c90629a8}";
 const char *const kIidVertexBuffer7 = "{f5049e7d-4861-11d2-a407-00a0c90629a8}";
@@ -146,6 +148,20 @@ Interfaces::Interfaces() {
                      {"IsClipListChanged", 1},
                      {"SetClipList", 2},
                      {"SetHWnd", 2}})};
+    direct3d = {"IDirect3D", kIidDirect3D,
+                with({{"Initialize", 1},
+                      {"EnumDevices", 2},
+                      {"CreateLight", 2},
+                      {"CreateMaterial", 2},
+                      {"CreateViewport", 2},
+                      {"FindDevice", 2}})};
+    direct3d2 = {"IDirect3D2", kIidDirect3D2,
+                 with({{"EnumDevices", 2},
+                       {"CreateLight", 2},
+                       {"CreateMaterial", 2},
+                       {"CreateViewport", 2},
+                       {"FindDevice", 2},
+                       {"CreateDevice", 3}})};
     direct3d7 = {"IDirect3D7", kIidDirect3D7,
                  with({{"EnumDevices", 2},
                        {"CreateDevice", 3},
