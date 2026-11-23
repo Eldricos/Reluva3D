@@ -9,8 +9,12 @@
 #include "devtools/tool.h"
 #include "engines/tpw/formats/rse.h"
 #include "engines/tpw/game_files.h"
+#include "engines/tpw/script/machine.h"
+#include "engines/tpw/script/simulated_host.h"
 
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <map>
 #include <string>
 #include <vector>
@@ -19,9 +23,35 @@ namespace {
 
 using namespace reluva::tool;
 using reluva::tpw::Script;
+using reluva::tpw::ScriptMachine;
+using reluva::tpw::SimulatedHost;
 
-// Every script of a game read: how often each opcode is used, with a
-// checksum of every script's disassembly.
+// How long rse-check runs each script for, in milliseconds.
+constexpr uint32_t kCheckRunMs = 60000;
+
+std::string folderOf(const std::string &name) {
+    const size_t slash = name.rfind('/');
+    return slash == std::string::npos ? std::string() : name.substr(0, slash);
+}
+
+const char *stateName(ScriptMachine::State s) {
+    switch (s) {
+    case ScriptMachine::State::kRunning:
+        return "running";
+    case ScriptMachine::State::kWaiting:
+        return "waiting";
+    case ScriptMachine::State::kEnded:
+        return "ended";
+    case ScriptMachine::State::kFailed:
+        return "failed";
+    }
+    return "?";
+}
+
+// Every script of a game read, how often each opcode is used, and each
+// run for a minute with guests queueing, on a stand-in for the park: how
+// each was left, with a checksum of every script's disassembly and of
+// what each asked of the game.
 int cmdRseCheck(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool tpw rse-check <game folder>\n");
@@ -35,6 +65,7 @@ int cmdRseCheck(int argc, char **argv) {
     }
     reluva::Md5 all;
     std::map<uint16_t, int> uses;
+    std::map<std::string, int> states;
     int failed = 0;
     int scripts = 0;
     size_t instructions = 0;
@@ -57,9 +88,20 @@ int cmdRseCheck(int argc, char **argv) {
             ++uses[ins.opcode];
         const std::string text = script.disassemble();
         all.update(text.data(), text.size());
+        SimulatedHost host(files, folderOf(name));
+        host.setGuests(true);
+        ScriptMachine machine(script, host);
+        reluva::tpw::runFor(machine, host, kCheckRunMs);
+        ++states[stateName(machine.state())];
+        if (machine.state() == ScriptMachine::State::kFailed)
+            std::printf("stopped: %s: %s\n", name.c_str(), machine.error().c_str());
+        for (const std::string &line : host.trace())
+            all.update(line.data(), line.size());
     }
     for (const auto &[opcode, n] : uses)
         std::printf("  %3u %-16s %5d\n", opcode, Script::opcodeName(opcode), n);
+    for (const auto &[state, n] : states)
+        std::printf("  after a minute: %-8s %d\n", state.c_str(), n);
     std::printf("%d failed; %d scripts, %zu instructions, %zu opcodes used; md5 %s\n", failed, scripts, instructions,
                 uses.size(), all.hexDigest().c_str());
     return failed || scripts == 0 ? 1 : 0;
@@ -91,9 +133,55 @@ int cmdRseDis(int argc, char **argv) {
     return 0;
 }
 
+// One script run on a stand-in for the park: what it asks of the game,
+// as it asks it, then how it was left and its variables.
+int cmdRseRun(int argc, char **argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool tpw rse-run <game folder> <script in Data> [seconds] [-guests]\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    std::vector<std::string> warnings;
+    if (reluva::Error err = reluva::tpw::mountGame(files, argv[2], warnings)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    uint32_t seconds = 30;
+    bool guests = false;
+    for (int i = 4; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-guests") == 0)
+            guests = true;
+        else
+            seconds = uint32_t(std::strtoul(argv[i], nullptr, 10));
+    }
+    std::vector<uint8_t> data;
+    Script script;
+    reluva::Error err = files.read(argv[3], data);
+    if (!err)
+        err = script.parse(data);
+    if (err) {
+        std::fprintf(stderr, "%s: %s\n", argv[3], err.message.c_str());
+        return 1;
+    }
+    SimulatedHost host(files, folderOf(argv[3]));
+    host.setGuests(guests);
+    ScriptMachine machine(script, host);
+    reluva::tpw::runFor(machine, host, seconds * 1000);
+    for (const std::string &line : host.trace())
+        std::printf("%s\n", line.c_str());
+    std::printf("%s at word %zu after %u s%s%s\n", stateName(machine.state()), machine.address(), seconds,
+                machine.error().empty() ? "" : ": ", machine.error().c_str());
+    for (size_t i = 0; i < machine.variables().size(); ++i)
+        std::printf("  %-20s %d\n", script.variables()[i].c_str(), machine.variable(i));
+    return machine.state() == ScriptMachine::State::kFailed ? 1 : 0;
+}
+
 const Commands kCommands("tpw",
                          {
-                             {"rse-check", "<game folder>", "read every ride and shop script (.RSE)", cmdRseCheck},
+                             {"rse-check", "<game folder>",
+                              "read every ride and shop script (.RSE), and run each for a minute", cmdRseCheck},
+                             {"rse-run", "<game folder> <script in Data> [seconds] [-guests]",
+                              "run a script on a stand-in for the park, tracing what it asks of the game", cmdRseRun},
                              {"rse-dis", "<game folder> <script in Data>",
                               "write a script out as source, as the game's own .rss files are", cmdRseDis},
                          });

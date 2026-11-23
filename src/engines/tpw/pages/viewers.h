@@ -16,6 +16,8 @@
 #include "engines/tpw/formats/rse.h"
 #include "engines/tpw/formats/sdt.h"
 #include "engines/tpw/formats/str.h"
+#include "engines/tpw/script/machine.h"
+#include "engines/tpw/script/simulated_host.h"
 #include "graphics/soft3d/view3d.h"
 #include "image/image.h"
 
@@ -195,9 +197,10 @@ private:
 
 /**
  * The ride and shop scripts (.RSE), each as source, in the language of
- * the sources that ship with the game.
+ * the sources that ship with the game; or run, on a stand-in for the park
+ * with guests coming, its variables and what it asks of the game shown.
  *   Up/Down: scroll a line   PageUp/PageDown here: a screen
- *   Left/Right: the previous and next script
+ *   Left/Right: the previous and next script   R: run it, or back to its source
  */
 class ScriptPage : public Page {
 public:
@@ -208,15 +211,24 @@ public:
     std::string current() const override;
     void draw(Surface &screen) override;
     void handleKey(uint32_t key) override;
+    void deactivate() override { stop(); }
+    bool tick(uint64_t nowMs) override;
 
 private:
     void selected() override;
+    void start();
+    void stop();
+    void drawRun(Surface &screen);
 
     std::vector<std::string> _names;
     std::vector<std::string> _lines;
     std::string _summary;
     std::string _error;
     size_t _first = 0;
+    Script _script;
+    std::unique_ptr<SimulatedHost> _host;
+    std::unique_ptr<ScriptMachine> _machine;
+    uint64_t _lastTick = 0;
 };
 
 /**

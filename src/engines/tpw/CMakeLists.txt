@@ -10,6 +10,8 @@ reluva_add_engine(tpw
         games.cpp
         game_files.cpp
         textures.cpp
+        script/machine.cpp
+        script/simulated_host.cpp
         ui/model_view.cpp
         ui/opening.cpp
         ui/sky.cpp
@@ -64,9 +66,10 @@ reluva_add_engine_tests(tpw
         ${tests}/unit/import.cpp
         ${tests}/unit/formats.cpp
         ${tests}/unit/ui.cpp
+        ${tests}/unit/script.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.import unit.formats unit.ui engine)
+        unit.detection unit.import unit.formats unit.ui unit.script engine)
 
 # Its engine test with SimCoaster's own files (see docs/DEVELOPMENT.md,
 # Engine tests): RELUVA_SIMCOASTER=<the game's folder>.

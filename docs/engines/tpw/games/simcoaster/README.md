@@ -38,7 +38,7 @@ setup installs it ([cd.md](formats/cd.md)).
 | Height maps | `.hmp` ([hmp.md](formats/hmp.md)): all 411 read: a model's height over each part of its ground; `reluva-tool tpw hmp-check` |
 | Terrain | Each world's surroundings (`base.MD2`), its park's ground (`.lnd`, [lnd.md](formats/lnd.md)) and attribute map ([attribute-map.md](formats/attribute-map.md)) read, with its placed objects (`scape.omp`, [omp.md](formats/omp.md)), sound and particle emitters it seems; the ground painted by a guess; `reluva-tool tpw terrain-check`, `world-shot` |
 | Skies | Each world's sky pictures, fog colour and light read ([sky.md](systems/sky.md)); drawn behind its terrain by a guess |
-| Scripts | The rides' and shops' scripts (`.RSE`, [rse.md](formats/rse.md)): all 288 read and written out as source, in the language of the sources the game ships; `reluva-tool tpw rse-check`, `rse-dis`. Not run yet |
+| Scripts | The rides' and shops' scripts (`.RSE`, [rse.md](formats/rse.md)): all 288 read and written out as source, in the language of the sources the game ships, and run on a machine ([scripts.md](systems/scripts.md)) against a stand-in for the park; `reluva-tool tpw rse-check`, `rse-dis`, `rse-run` |
 | Viewer | `reluva-viewer`: pictures, fonts, text, settings, models and worlds in 3D, scripts, sounds, movies and files (pages above) |
 | The executable | Surveyed: SafeDisc 2, its code encrypted, so the game is to be rebuilt from its data, not run ([executable.md](formats/executable.md)) |
 | Everything else | Not started: see [PLAN.md](PLAN.md) |
@@ -67,7 +67,7 @@ last; each page has its own keys besides:
 | Settings | A settings file's settings, values and grids | Up/Down: scroll |
 | Models | Each model drawn in 3D with its textures, lit from above, turned about its middle (not the animations) | A/D: turn; W/S: tilt; Z/X: nearer, further; T: textures on or off; H: its height map over it |
 | Worlds | Each world's terrain in 3D: the land around the park and the park's ground, before anything is built, its placed objects as markers, under its sky | A/D: turn; W/S: tilt; Z/X: nearer, further; T: textures on or off; G: the ground on or off; O: the placed objects on or off; K: the sky on or off |
-| Scripts | Each ride and shop script as source | Up/Down: scroll; PageUp/PageDown: a screen |
+| Scripts | Each ride and shop script as source, or run with guests coming, its variables and its calls to the game shown | Up/Down: scroll; PageUp/PageDown: a screen; R: run it |
 | Sounds | A bank's sounds, their kind and length | Up/Down, PageUp/PageDown: the sound; Space or Enter: play or stop |
 | Movies | The logo and the training video | Space or Enter: play (a key or a click stops it) |
 | Files | Every file of `Data/`, where it is, its start as text or bytes | Up/Down, PageUp/PageDown: the file |
@@ -79,7 +79,7 @@ last; each page has its own keys besides:
 | This page | Where it stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
 | `formats/` | The game's own files, a page each: [the executable](formats/executable.md), [the CD](formats/cd.md), [archives](formats/wad.md), [settings](formats/sam.md), [text](formats/str.md), [fonts](formats/bf4.md), [pictures](formats/fsh.md), [movies](formats/tgq.md), [sound banks](formats/sdt.md), [models](formats/md2.md), [height maps](formats/hmp.md), [the park's ground](formats/lnd.md), [attribute maps](formats/attribute-map.md), [placed objects](formats/omp.md), [scripts](formats/rse.md) |
-| `systems/` | How the game behaves, a page per part: [the opening](systems/opening.md), [the sky](systems/sky.md) |
+| `systems/` | How the game behaves, a page per part: [the opening](systems/opening.md), [the sky](systems/sky.md), [how scripts run](systems/scripts.md) |
 | `research/` | Working notes: [what a recording of the game shows](research/footage.md) |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |

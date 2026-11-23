@@ -58,8 +58,10 @@ format or system worked out.
 7. **The ride scripts** (under way): the rides' and shops' behaviour is
    in compiled scripts (`RSSE`, `.rse`, 288 of them): read and written
    out as source, checked against the five sources the game ships
-   ([rse.md](formats/rse.md)); then an interpreter, so rides run in the
-   viewer.
+   ([rse.md](formats/rse.md)); run on a script machine against a
+   stand-in for the park, every script for a minute
+   ([scripts.md](systems/scripts.md)); rides seen running in the viewer
+   wait for their animations (phase 6's open `.MD2` animations).
 8. **The front end:** the start-up screens (`Data/Init/`), the main menu,
    options, saving and loading, from `ui.wad` and recordings.
 9. **The park running:** building, paths, guests, staff, money, research,

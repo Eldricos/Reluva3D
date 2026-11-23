@@ -180,8 +180,8 @@ puts the list's names on the right opcodes from `COPY` (3) on.
 
 ## Behaviour
 
-How the game runs the scripts is for the interpreter (phase 7). What
-the sources and OpenTPW's pages say:
+How the game runs the scripts: [scripts.md](../systems/scripts.md).
+What the sources and OpenTPW's pages say:
 
 - Every ride's first twelve variables are the same: `VAR_LETMEON`,
   `VAR_LETMEOFF`, `VAR_CAPACITY`, `VAR_DURATION`, `VAR_BREAKSTAT`,

@@ -90,6 +90,7 @@ they are: `Speech/American`, `CoasterData/American`,
 | `reluva-tool tpw terrain-check` | Reads every world's ground (`.lnd`), attribute map and placed objects (`scape.omp`), listing the objects |
 | `reluva-tool tpw rse-check` | Reads every ride and shop script, counting each opcode's uses |
 | `reluva-tool tpw rse-dis` | Writes a script out as source |
+| `reluva-tool tpw rse-run` | Runs a script on a stand-in for the park, tracing what it asks of the game |
 | `reluva-tool tpw world-shot` | Draws a world's terrain as the viewer does, to a PNG |
 | `reluva-tool tpw viewer-run` | Runs the data viewer headless, every page and a few keys; with `-shots`, writes the screen after each key |
 | `reluva-tool tpw data-check` | Reads every file of a game's `Data` folder, archives and loose files, with a checksum of them all |

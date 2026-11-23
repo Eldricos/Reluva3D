@@ -46,6 +46,12 @@ None yet.
 
 ## Guessed
 
+- **How the script machine runs** beyond what the sources show: turns
+  ending after the header's 50 instructions, critical sections not
+  keeping the turn, `BRANCH_PV` above zero, `CMP` an AND, `WAITABS`
+  ([scripts.md](systems/scripts.md)). Rides seen running in the game,
+  set beside a script's trace, would settle them.
+
 - **How a world's sky is drawn** from its three pictures: a dome
   coloured by `sky_rgb.tga` and clouded by `sky.tga`, a band round the
   horizon from `sky_cyl.tga`, fog below ([sky.md](systems/sky.md)). A
