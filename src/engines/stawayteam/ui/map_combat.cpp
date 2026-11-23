@@ -153,7 +153,10 @@ bool MapScreen::throwPasses(float x0, float y0, float x1, float y1, float &vx, f
     // 0x4ef720). So a polygon only while it's active: Mission 01's Fake
     // Grenade Bouncer poly, made so for half a second as a grenade passes
     // its trigger. Off the first side crossed, mirrored about it (inferred:
-    // the bounce isn't traced).
+    // the bounce isn't traced). The characters aren't in its way: each side
+    // of a collision may turn it down (0x4ef85b, 0x4ef87d), and a grenade's
+    // CIgnoreCollisionAI turns down any CEntityWalking (0x4381c0), the kind
+    // every character on the maps is.
     const auto off = [&](float ax, float ay, float bx, float by) {
         if (!crosses(x0, y0, x1, y1, ax, ay, bx, by))
             return false;

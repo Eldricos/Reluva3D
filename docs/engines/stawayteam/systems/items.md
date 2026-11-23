@@ -294,7 +294,14 @@ Height` (`0x4effe0`, `0x4ef720`), so a low box or a pit's polygon does,
 as a wall does. It's turned back, mirrored off the side it meets, with
 its Bounce Sound *(inferred)*. Mission 01's and 08's `Fake Grenade
 Bouncer poly`, made active for half a second by a pass-through trigger a
-grenade crosses ([maps.md](maps.md#the-maps-triggers)), is for that. Then its Explosion and Death Sound, its noise, and everyone in
+grenade crosses ([maps.md](maps.md#the-maps-triggers)), is for that.
+It flies through people: either side of a collision can turn it down
+(`0x4ef85b`, `0x4ef87d`), and a grenade's model has a
+`CIgnoreCollisionAI` listing `CEntityWalking`, which turns down anything
+of that class or one made from it (`0x4381c0`). Every character on the
+maps is: a `CEntityWalking`, a `CEntityOverlayWalking` or a
+`CEntityStarTrekTeamMember`, each made from the one before. For the same
+reason they walk over one lying on the ground. Then its Explosion and Death Sound, its noise, and everyone in
 its Explosion Radial Damage, in sight of it if it needs that, stunned for
 its Stun Duration by one that does no damage, else hurt by its Weapon
 Damage, the team too *(inferred)*. A grenade's own Destroyed Action,
@@ -450,9 +457,8 @@ Not there yet: the warp effect's dissolve.
 
 - **Using items:** the program's rules for each Process: when the
   officer walks and when they use it, what the cursors show, how a
-  thrown item turns off what it meets, whether the characters stop it
-  (its move passes over only a walker meeting a walker, `0x497c60`), and
-  whether its speed is held to its model's Max Velocity.
+  thrown item turns off what it meets, and whether its speed is held to
+  its model's Max Velocity.
 - **The band:** whether the enemies' sight is what it beats, and how
   (its opacity, `0x496880`).
 - **Gadgets:** how the enemies treat a decoy, whether the neck pinch and
