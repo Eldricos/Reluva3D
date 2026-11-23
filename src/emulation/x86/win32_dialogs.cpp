@@ -258,6 +258,7 @@ void Win32Process::addDialogStandIns() {
         d.owner = owner;
         d.title = t.title;
         d.dialogProc = c.arg(3);
+        d.thread = currentThread() ? currentThread()->id : kMainThreadId;
         d.style = t.style & ~kWsVisible;
         d.exStyle = t.exStyle;
         d.x = ownerX + t.x * kBaseX / 4;
@@ -273,6 +274,7 @@ void Win32Process::addDialogStandIns() {
             w.title = item.title;
             w.style = item.style;
             w.exStyle = item.exStyle;
+            w.thread = d.thread;
             w.x = item.x * kBaseX / 4;
             w.y = item.y * kBaseY / 8;
             w.width = item.width * kBaseX / 4;

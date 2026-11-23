@@ -341,7 +341,7 @@ uint32_t Win32Process::runTimers() {
 
 void Win32Process::addThreadStandIns() {
     const char *k = "KERNEL32.dll";
-    auto selfId = [this]() { return _running ? _running->id : 0x104u; };
+    auto selfId = [this]() { return _running ? _running->id : kMainThreadId; };
     // A thread from a handle, the current thread's pseudo handle included.
     auto thread = [this](uint32_t h) -> std::shared_ptr<Thread> {
         if (h == kCurrentThread && _running)

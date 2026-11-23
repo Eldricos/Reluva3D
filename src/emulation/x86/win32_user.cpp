@@ -444,6 +444,7 @@ void Win32Process::addUserStandIns() {
         win.style = style & ~kWsVisible;
         win.exStyle = exStyle;
         win.x = x, win.y = y, win.width = w, win.height = h;
+        win.thread = currentThread() ? currentThread()->id : kMainThreadId;
 
         const uint32_t create = memory().alloc(48); // CREATESTRUCTA
         const uint32_t fields[12] = {param,       instance,    menu,  parent, uint32_t(h), uint32_t(w),
@@ -878,6 +879,16 @@ void Win32Process::addUserStandIns() {
     stdcall(u, "IsWindowVisible", 1, [this](Cpu &c) {
         const Window *w = window(c.arg(0));
         return uint32_t(w && w->visible);
+    });
+    // GetWindowThreadProcessId(window, process id*): the thread that made
+    // it, in this process.
+    stdcall(u, "GetWindowThreadProcessId", 2, [this](Cpu &c) {
+        const Window *w = window(c.arg(0));
+        if (!w)
+            return 0u;
+        if (c.arg(1) && c.valid(c.arg(1), 4))
+            c.write32(c.arg(1), kProcessId);
+        return w->thread;
     });
     stdcall(u, "IsIconic", 1, [](Cpu &) { return 0u; }); // nothing is ever minimised
     stdcall(u, "EnableWindow", 2, [this](Cpu &c) {

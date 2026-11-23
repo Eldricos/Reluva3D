@@ -464,6 +464,11 @@ public:
     void resumeThread(Thread &t);
     /** The thread running, or null if none runs on a host thread. */
     Thread *currentThread() const { return _running; }
+    /** The process's id, and its first thread's, as programs see them. */
+    ///@{
+    static constexpr uint32_t kProcessId = 0x100;
+    static constexpr uint32_t kMainThreadId = 0x104;
+    ///@}
     /**
      * From the running thread: waits until `ready` is true or `timeoutMs`
      * passes (0xffffffff: never), letting the others run.
@@ -585,6 +590,7 @@ public:
         uint32_t parent = 0;
         uint32_t id = 0;
         uint32_t checked = 0;
+        uint32_t thread = 0; // the id of the thread that made it
     };
     /** The window with that handle, or null. */
     const Window *window(uint32_t handle) const;
@@ -740,6 +746,7 @@ private:
     void addRegistryStandIns();
     void addDialogStandIns();
     void addMciStandIns();
+    void addMmioStandIns();
     void addGdiStandIns();
     struct WindowClass {
         uint32_t proc = 0;
@@ -829,6 +836,22 @@ private:
     };
     std::map<uint32_t, MciDevice> _mciDevices;
     uint32_t _nextMciDevice = 1;
+    // A file mmioOpenA opened: read whole from the drives, or the
+    // program's memory; and its buffer, which the program may read from.
+    struct MmioFile {
+        bool inMemory = false;
+        std::vector<uint8_t> data; // a file's
+        uint32_t memory = 0;       // a memory file's address
+        uint32_t size = 0;
+        uint32_t position = 0;
+        uint32_t buffer = 0;       // in the process's memory (a memory file's own)
+        uint32_t bufferOffset = 0; // the file position the buffer starts at
+        uint32_t buffered = 0;     // the bytes in it
+        /** Copies up to `bytes` from `at`; the bytes there were. */
+        uint32_t read(Cpu &c, uint32_t at, uint32_t bytes, uint8_t *to) const;
+    };
+    std::map<uint32_t, MmioFile> _mmioFiles;
+    uint32_t _nextMmioFile = 0x5000;
     std::vector<uint32_t> _screen; // without screenAccess
     bool _screenDrawn = false;     // since screenPainted was last called
     /** A device context by handle (a window's made as it's first used), or null. */
@@ -977,7 +1000,7 @@ private:
     std::shared_ptr<Thread> _timerThread;
     uint64_t _turnStart = 0; // instructions run when the running thread's turn began
     uint32_t runTimers();
-    uint32_t _nextThreadId = 0x104;
+    uint32_t _nextThreadId = kMainThreadId;
     std::vector<bool> _tlsUsed = std::vector<bool>(64);
 };
 

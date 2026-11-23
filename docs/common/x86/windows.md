@@ -194,6 +194,15 @@ C++ library have pages of their own ([directx.md](directx.md),
 - **WINMM's sound** (`win32_system.cpp`): no wave or auxiliary device
   (`PlaySoundA` fails, `auxGetNumDevs` is 0), as on a machine whose only
   sound would be DirectSound.
+- **`win32_mmio.cpp`: WINMM's multimedia files**, for reading RIFF files
+  such as WAVE sounds: `mmioOpenA` on a file of the drives (read whole)
+  or on memory (the `MEM ` I/O procedure); `mmioRead` and `mmioSeek`;
+  `mmioDescend` into the next chunk, or to the one sought by its id
+  (`MMIO_FINDCHUNK`) or form type (`MMIO_FINDRIFF`, `MMIO_FINDLIST`)
+  within its parent, and `mmioAscend` past it, padded to a word; and the
+  buffer a program reads from itself (`mmioGetInfo`, `mmioAdvance`,
+  `mmioSetInfo`), 8 KB from where it's read to (a memory file's is its
+  memory). Writing, and the other I/O procedures, aren't stood in for.
 - **`win32_registry.cpp`: the registry and COM.** An in-memory registry,
   seeded with the installed locales; keys can be listed
   (`RegEnumKeyExA`) and deleted. The user is called "Player"
@@ -343,6 +352,10 @@ executable's entry point on the main thread until it ends the process.
   the run. Then `GetMessageA` with `WM_QUIT`. It also checks
   the registry's keys, values, sizes and enumeration, and
   `CoCreateInstance`.
+- It reads a WAVE file through `mmio`, from a file and from memory: into
+  its form, to its data past a chunk of odd size, the sound read through
+  the buffer, back to its format, a chunk that isn't there, and a file
+  that isn't.
 - `testInput` checks the messages input becomes, double clicks, key
   states and `ClipCursor`. It also checks DirectInput's mouse (its state,
   its movement since the last read, its buffer) and keyboard.

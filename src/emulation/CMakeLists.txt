@@ -23,6 +23,7 @@ add_library(reluva_emulation STATIC
     x86/win32_files.cpp
     x86/win32_gdi.cpp
     x86/win32_mci.cpp
+    x86/win32_mmio.cpp
     x86/win32_registry.cpp
     x86/win32_system.cpp
     x86/win32_threads.cpp

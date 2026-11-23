@@ -1649,6 +1649,15 @@ static void testHostedProgramNeeds(const std::filesystem::path &tmp) {
                                     0,   0,   0, 3, 0, 0, 0, 2, 0, 0, 0,  1, 0, 24};
         bmp.write(reinterpret_cast<const char *>(header), sizeof header);
         std::ofstream(tmp / "Save" / "Old.txt") << "x";
+        // A WAVE file: a format chunk, an odd-sized chunk (padded) and 5
+        // bytes of 8-bit sound.
+        std::ofstream wav(tmp / "Game" / "Beep.wav", std::ios::binary);
+        const uint8_t riff[60] = {'R', 'I', 'F', 'F', 53,  0,   0,   0,   'W', 'A',  'V',  'E', 'f', 'm',  't',
+                                  ' ', 16,  0,   0,   0,   1,   0,   1,   0,   0x40, 0x1f, 0,   0,   0x40, 0x1f,
+                                  0,   0,   1,   0,   8,   0,   'n', 'o', 't', 'e',  3,    0,   0,   0,    'a',
+                                  'b', 'c', 0,   'd', 'a', 't', 'a', 5,   0,   0,    0,    1,   2,   3,    4};
+        wav.write(reinterpret_cast<const char *>(riff), sizeof riff);
+        wav.put(5);
     }
     x86::Cpu cpu(64u << 20);
     x86::Win32Process process(cpu);
@@ -1870,6 +1879,8 @@ static void testHostedProgramNeeds(const std::filesystem::path &tmp) {
     cpu.write32(point, 15);
     cpu.write32(point + 4, 30);
     CHECK(call(u, "ScreenToClient", {hwnd, point}) == 1 && cpu.read32(point) == 5 && cpu.read32(point + 4) == 10);
+    CHECK(call(u, "GetWindowThreadProcessId", {hwnd, point}) == call(k, "GetCurrentThreadId", {}) &&
+          cpu.read32(point) == call(k, "GetCurrentProcessId", {}));
     CHECK(call(u, "SetCapture", {hwnd}) == 0 && call(u, "SetCapture", {hwnd}) == hwnd && call(u, "ReleaseCapture", {}));
     CHECK(call(u, "UnregisterClassA", {text("NEEDS"), 0}) == 1 && call(u, "UnregisterClassA", {text("Needs"), 0}) == 0);
     CHECK(call("COMCTL32.dll", "#17", {}) == 0);
@@ -1884,6 +1895,54 @@ static void testHostedProgramNeeds(const std::filesystem::path &tmp) {
     CHECK(call(w, "PlaySoundA", {text("x.wav"), 0, 0x20000}) == 0 && call(w, "auxGetNumDevs", {}) == 0 &&
           call(w, "auxGetVolume", {0, values}) == 2);
 
+    // A WAVE file through mmio: into the RIFF form, to its chunks by id,
+    // the sound read through the buffer as mmioGetInfo and mmioAdvance give
+    // it; then the same file from memory.
+    const uint32_t ck = process.memory().alloc(40); // the form's MMCKINFO, then the chunk's
+    const uint32_t info = process.memory().alloc(72);
+    const uint32_t bytes = process.memory().alloc(64);
+    auto readWave = [&](uint32_t file) {
+        cpu.write32(ck + 8, 0x45564157); // 'WAVE'
+        CHECK(call(w, "mmioDescend", {file, ck, 0, 0x20}) == 0 && cpu.read32(ck + 4) == 53 && cpu.read32(ck + 12) == 8);
+        cpu.write32(ck + 20, 0x61746164); // 'data', past 'note'
+        CHECK(call(w, "mmioDescend", {file, ck + 20, ck, 0x10}) == 0 && cpu.read32(ck + 24) == 5 &&
+              cpu.read32(ck + 32) == 56);
+        CHECK(call(w, "mmioGetInfo", {file, info, 0}) == 0);
+        uint32_t next = cpu.read32(info + 28);
+        std::string sound;
+        for (int i = 0; i < 5; ++i) {
+            if (next == cpu.read32(info + 32)) {
+                cpu.write32(info + 28, next);
+                CHECK(call(w, "mmioAdvance", {file, info, 0}) == 0);
+                next = cpu.read32(info + 28);
+            }
+            sound += char('0' + cpu.read8(next++));
+        }
+        cpu.write32(info + 28, next);
+        CHECK(sound == "12345" && call(w, "mmioSetInfo", {file, info, 0}) == 0);
+        CHECK(call(w, "mmioAscend", {file, ck + 20, 0}) == 0 && call(w, "mmioSeek", {file, 0, 1}) == 62);
+        cpu.write32(ck + 20, 0x20746d66); // 'fmt ', back at the start of the form
+        CHECK(call(w, "mmioSeek", {file, 12, 0}) == 12 && call(w, "mmioDescend", {file, ck + 20, ck, 0x10}) == 0);
+        CHECK(call(w, "mmioRead", {file, bytes, 64}) == 41 && cpu.read16(bytes + 4) == 8000);
+        cpu.write32(ck + 20, 0x6b6e756a); // 'junk'
+        CHECK(call(w, "mmioSeek", {file, 12, 0}) == 12 && call(w, "mmioDescend", {file, ck + 20, ck, 0x10}) == 265);
+        CHECK(call(w, "mmioClose", {file, 0}) == 0);
+    };
+    const uint32_t wav = call(w, "mmioOpenA", {text("C:\\Game\\Beep.wav"), 0, 0x10000}); // MMIO_ALLOCBUF
+    CHECK(wav != 0);
+    readWave(wav);
+    std::memset(cpu.memory().data() + info, 0, 72);
+    CHECK(call(w, "mmioOpenA", {text("C:\\Game\\None.wav"), info, 0}) == 0 && cpu.read32(info + 12) == 257);
+    const uint32_t copy = process.memory().alloc(61);
+    std::ifstream original(tmp / "Game" / "Beep.wav", std::ios::binary);
+    original.read(reinterpret_cast<char *>(cpu.memory().data() + copy), 61);
+    std::memset(cpu.memory().data() + info, 0, 72);
+    cpu.write32(info + 4, 0x204d454d); // 'MEM '
+    cpu.write32(info + 20, 61);
+    cpu.write32(info + 24, copy);
+    const uint32_t inMemory = call(w, "mmioOpenA", {0, info, 0});
+    CHECK(inMemory != 0 && cpu.read32(info + 68) == inMemory);
+    readWave(inMemory);
 
     // GDI's coordinates are device units, the desktop's clip box the
     // screen; text by the stand-in font, 8 x 16.

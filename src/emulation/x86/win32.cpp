@@ -745,8 +745,8 @@ void Win32Process::addStandIns() {
     stdcall(k, "FreeLibrary", 1, [](Cpu &) { return 1u; });
     stdcall(k, "DisableThreadLibraryCalls", 1, [](Cpu &) { return 1u; });
     stdcall(k, "GetCurrentProcess", 0, [](Cpu &) { return 0xffffffffu; });
-    stdcall(k, "GetCurrentProcessId", 0, [](Cpu &) { return 0x100u; });
-    stdcall(k, "GetCurrentThreadId", 0, [](Cpu &) { return 0x104u; });
+    stdcall(k, "GetCurrentProcessId", 0, [](Cpu &) { return kProcessId; });
+    stdcall(k, "GetCurrentThreadId", 0, [](Cpu &) { return kMainThreadId; });
     stdcall(k, "GetLastError", 0, [this](Cpu &) { return _lastError; });
     stdcall(k, "SetLastError", 1, [this](Cpu &c) {
         _lastError = c.arg(0);
@@ -819,6 +819,7 @@ void Win32Process::addStandIns() {
     addRegistryStandIns();
     addDialogStandIns();
     addMciStandIns();
+    addMmioStandIns();
     addGdiStandIns();
 
     // Text: code page 1252, mapped to Unicode's first 256 characters (the
