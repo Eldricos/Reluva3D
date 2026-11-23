@@ -33,6 +33,11 @@ public:
     /** The program's own folder, as the program sees it. */
     static constexpr const char *kInstallFolder = "C:\\SFC2\\";
     static constexpr const char *kProgram = "StarFleet2.exe";
+    /**
+     * The memory it's given: a campaign's mission ran out of 256 MB (its
+     * SmartHeap's "Out of memory"), loading the Dynaverse and the mission.
+     */
+    static constexpr uint32_t kMemoryMb = 512;
 
     /** `install` is the game's folder; nothing in it is written to. */
     GameProcess(std::filesystem::path install, uint32_t memoryMb);

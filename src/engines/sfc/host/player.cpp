@@ -7,11 +7,6 @@
 
 namespace reluva::sfc {
 
-namespace {
-// The memory the program is given, as reluva-tool's host command gives it.
-constexpr uint32_t kMemoryMb = 256;
-} // namespace
-
 Player::Player(std::filesystem::path gameDir, std::filesystem::path saveDir, audio::Mixer *mixer)
     : _dir(std::move(gameDir)), _saveDir(std::move(saveDir)), _mixer(mixer) {
 }
@@ -66,7 +61,7 @@ std::string Player::takeOutput() {
 }
 
 void Player::work() {
-    GameProcess game(_dir, kMemoryMb);
+    GameProcess game(_dir, GameProcess::kMemoryMb);
     game.setSaveFolder(_saveDir);
     game.miles().mixer = _mixer;
     x86::Win32Process &process = game.process();

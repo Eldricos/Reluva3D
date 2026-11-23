@@ -202,7 +202,7 @@ int cmdHost(int argc, char **argv) {
             a += 2;
         }
     }
-    sfc::GameProcess game(argv[2], 256);
+    sfc::GameProcess game(argv[2], sfc::GameProcess::kMemoryMb);
     // Without -save, a folder of its own in the system's temporary folder.
     if (saveFolder.empty()) {
         std::error_code ec;
