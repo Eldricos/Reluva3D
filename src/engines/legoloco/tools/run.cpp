@@ -166,7 +166,7 @@ struct Copy {
     // Runs the program until it ends, fails, passes `limit` million
     // instructions or `seconds` of its clock; the report printed. 0 if it
     // ran (or ended) as asked.
-    int run(const std::string &gameDir, uint64_t limit, uint32_t seconds, bool noMovies,
+    int run(const std::string &gameDir, uint64_t limit, uint32_t seconds, bool noMovies, uint32_t perMs,
             const std::shared_ptr<x86::DirectPlay::Network> &network) {
         std::stable_sort(steps.begin(), steps.end(), [](const Step &a, const Step &b) { return a.at < b.at; });
         legoloco::GameProcess game(gameDir, save);
@@ -174,6 +174,14 @@ struct Copy {
         game.directPlay().network = network;
         if (desktopWidth > 0 && desktopHeight > 0)
             game.process().screenWidth = desktopWidth, game.process().screenHeight = desktopHeight;
+        // A clock of instructions run, moved on a millisecond whenever every
+        // thread waits: the same run every time, for the game-files test.
+        std::atomic<uint64_t> idleMs{0};
+        if (perMs) {
+            x86::Cpu &c = game.cpu();
+            game.process().milliseconds = [&c, &idleMs, perMs] { return uint32_t(c.executed() / perMs + idleMs); };
+            game.process().idleTick = [&idleMs] { ++idleMs; };
+        }
         if (Error err = game.load()) {
             say("%s\n", err.message.c_str());
             return 1;
@@ -227,11 +235,13 @@ struct Copy {
             repeats = 1;
         };
         // The clock is watched from a thread of the tool's own: the
-        // program's may all be waiting.
+        // program's may all be waiting. An instruction clock is watched
+        // where the steps are taken, so a run ends at the same moment
+        // every time; it moves on while they wait.
         std::atomic<bool> done{false};
         std::atomic<bool> timedOut{false};
         std::thread watch;
-        if (seconds)
+        if (seconds && !perMs)
             watch = std::thread([&] {
                 while (!done) {
                     if (game.process().milliseconds() >= seconds * 1000) {
@@ -247,6 +257,10 @@ struct Copy {
         size_t next = 0;
         game.process().idle = [&] {
             x86::Win32Process &p = game.process();
+            if (perMs && seconds && p.milliseconds() >= seconds * 1000 && !timedOut) {
+                timedOut = true;
+                p.requestExit();
+            }
             for (const uint32_t now = p.milliseconds(); next < steps.size() && steps[next].at <= now; ++next) {
                 const Step &st = steps[next];
                 switch (st.kind) {
@@ -308,10 +322,12 @@ struct Copy {
 // Options both commands take: -limit n stops after n million
 // instructions; -seconds n stops once the program's clock has passed n
 // seconds (a program waiting for messages runs no instructions);
-// -nomovies ends each movie as it starts.
+// -nomovies ends each movie as it starts; -deterministic n gives the
+// program a clock of n instructions a millisecond.
 struct Common {
     uint64_t limit = 2000;
     uint32_t seconds = 0;
+    uint32_t perMs = 0;
     bool noMovies = false;
     bool udp = false;
     std::string meeting;
@@ -326,6 +342,8 @@ struct Common {
             seconds = uint32_t(std::strtoul(argv[++i], nullptr, 10));
         else if (!std::strcmp(argv[i], "-nomovies"))
             noMovies = true;
+        else if (!std::strcmp(argv[i], "-deterministic") && i + 1 < argc)
+            perMs = uint32_t(std::strtoul(argv[++i], nullptr, 10));
         else
             return false;
         return true;
@@ -365,11 +383,11 @@ std::shared_ptr<x86::DirectPlay::Network> systemNetwork(const std::string &meeti
 // (-shot file.ppm, at the end).
 int cmdRun(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(
-            stderr,
-            "usage: reluva-tool legoloco run <game folder> -save <folder> [-log] [-limit millions] "
-            "[-seconds n] [-nomovies] [-udp] [-meeting host] [-click|-rclick|-move s x y] [-drag s x1 y1 x2 y2] "
-            "[-key s vk] [-shot [s] file.ppm]...\n");
+        std::fprintf(stderr,
+                     "usage: reluva-tool legoloco run <game folder> -save <folder> [-log] [-limit millions] "
+                     "[-seconds n] [-nomovies] [-deterministic n] [-udp] [-meeting host] [-click|-rclick|-move s x y] "
+                     "[-drag s x1 y1 x2 y2] "
+                     "[-key s vk] [-shot [s] file.ppm]...\n");
         return 2;
     }
     Common common;
@@ -381,7 +399,7 @@ int cmdRun(int argc, char **argv) {
         std::fprintf(stderr, "a save folder is needed: -save <folder>\n");
         return 2;
     }
-    return copy.run(argv[2], common.limit, common.seconds, common.noMovies,
+    return copy.run(argv[2], common.limit, common.seconds, common.noMovies, common.perMs,
                     common.udp ? systemNetwork(common.meeting) : nullptr);
 }
 
@@ -392,7 +410,7 @@ int cmdPair(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(
             stderr,
-            "usage: reluva-tool legoloco pair <game folder> [-limit millions] [-seconds n] "
+            "usage: reluva-tool legoloco pair <game folder> [-limit millions] [-seconds n] [-deterministic n] "
             "[-nomovies] [-udp] [-meeting host] -save <folder> [first's steps]... -- -save <folder> [second's steps]...\n");
         return 2;
     }
@@ -413,9 +431,10 @@ int cmdPair(int argc, char **argv) {
     }
     auto network = common.udp ? systemNetwork(common.meeting) : x86::DirectPlay::Network::inMemory();
     int results[2] = {0, 0};
-    std::thread second(
-        [&] { results[1] = copies[1].run(argv[2], common.limit, common.seconds, common.noMovies, network); });
-    results[0] = copies[0].run(argv[2], common.limit, common.seconds, common.noMovies, network);
+    std::thread second([&] {
+        results[1] = copies[1].run(argv[2], common.limit, common.seconds, common.noMovies, common.perMs, network);
+    });
+    results[0] = copies[0].run(argv[2], common.limit, common.seconds, common.noMovies, common.perMs, network);
     second.join();
     return results[0] || results[1] ? 1 : 0;
 }
@@ -424,11 +443,11 @@ const Commands kCommands(
     "legoloco",
     {
         {"run",
-         "<game folder> -save <folder> [-log] [-limit millions] [-seconds n] [-nomovies] [-udp] [-meeting host] "
+         "<game folder> -save <folder> [-log] [-limit millions] [-seconds n] [-nomovies] [-deterministic n] [-udp] [-meeting host] "
          "[-click|-rclick|-move s x y] [-drag s x1 y1 x2 y2] [-key s vk] [-shot [s] file.ppm]...",
          "run the game's own loco.exe and report how far it gets", cmdRun},
         {"pair",
-         "<game folder> [-limit millions] [-seconds n] [-nomovies] [-udp] [-meeting host] -save <folder> "
+         "<game folder> [-limit millions] [-seconds n] [-nomovies] [-deterministic n] [-udp] [-meeting host] -save <folder> "
          "[steps]... -- -save <folder> [steps]...",
          "run two copies at once on one DirectPlay network (in memory, or UDP), each with its "
          "own steps",

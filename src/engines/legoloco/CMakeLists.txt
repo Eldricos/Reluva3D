@@ -57,10 +57,11 @@ reluva_add_engine_tests(legoloco
     TOPICS
         unit.boards unit.definitions unit.detection unit.easter_eggs unit.game_files unit.postcards unit.resources engine)
 
-# Its engine test with the game's own files, when it has one (see
-# docs/DEVELOPMENT.md, Engine tests):
-# reluva_add_gamedata_test(legoloco
-#     GAME <game id>
-#     ENV RELUVA_<GAME>
-#     SCRIPT ${tests}/gamedata.cmake
-#     STEPS release ...)
+# Its engine test with the game's own files (tests/engines/legoloco/gamedata.cmake):
+# RELUVA_LEGOLOCO=<the game's install> ctest -L gamedata. See
+# docs/DEVELOPMENT.md (Engine tests).
+reluva_add_gamedata_test(legoloco
+    GAME legoloco
+    ENV RELUVA_LEGOLOCO
+    SCRIPT ${tests}/gamedata.cmake
+    STEPS release files resources formats run)

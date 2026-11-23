@@ -19,10 +19,11 @@ files):
 | `legoloco.unit.resources` | The resource file: reading its index and entries by name, unpacking a compressed entry, and refusing damaged ones |
 
 The shared code that runs the game has its own tests, in `common.unit.*`;
-those LEGO Loco leans on most: `windows` (windows, input, scroll bars),
-`gdi`, `dsound`, `mci`, `dplay` (DirectPlay, two objects meeting on a
-network) and `dplay_session` (its sessions over UDP: loss, routers, a
-meeting server).
+those LEGO Loco leans on most: `windows` (windows, input, scroll bars,
+the pointer), `cursors` (the busy pointer's file format), `gdi`,
+`dsound`, `mci`, `dplay` (DirectPlay, two objects meeting on a network)
+and `dplay_session` (its sessions over UDP: loss, routers, a meeting
+server, a new host taking over).
 
 ### The basic engine test
 
@@ -36,24 +37,54 @@ pages' titles.
 
 ### The game-files test
 
-<!-- Once it has one: with your own copy of the game, what it runs and
-what its records hold. See docs/DEVELOPMENT.md, "Engine tests". -->
-Not yet.
+With your own copy of the game: point `RELUVA_LEGOLOCO` at its install
+(the folder holding `Exe` and `art-res`), or add it in the launcher, then
+run the steps (`tests/engines/legoloco/gamedata.cmake`, ctest
+`legoloco.gamedata.<step>`):
+
+```sh
+RELUVA_LEGOLOCO=/path/to/LEGO\ Loco ctest --test-dir build -L gamedata -R legoloco
+```
+
+| Step | What it runs |
+|---|---|
+| `release` | What the game is: its version and language |
+| `files` | The files it came with, by name, size and MD5, as one checksum; not those its own games change (`LEGO.INI`, the layout being played, the post bag's own folders) |
+| `resources` | Every entry of the resource file unpacked (`rf-list`) |
+| `formats` | Every object definition, board, area arrangement, date-based surprise and postcard read (`dat`, `sav`, `lay`, `ee`, `crd`) |
+| `run` | `loco.exe` at 1024 by 768 on a clock of instructions (`run -deterministic 50000`), the movies skipped: one player's game started from the front screen, the welcome bubble closed and the Toybox opened; the screen at four moments (loading, the welcome bubble with Windows' arrow over it, the board, the Toybox), as checksums with their frames' numbers |
+
+- **Records:** in `tests/engines/legoloco/data/gamedata/<version>-<language>/`,
+  one file a step, holding counts, summary lines and checksums, none of
+  the game's own content. So far: `1.0.18.2-en`, the English release,
+  made on Linux.
+- **A copy as installed:** the steps expect the files the game came
+  with. A copy played on Windows may hold the player's own layouts in
+  `art-res\SAVEGAME`, which the `files` and `formats` steps then count;
+  Reluva writes its own to the save folder, so a copy played only in
+  Reluva stays as installed.
+- **When a step fails:** it prints the recorded and the new lines; each
+  command's output is kept in the build, under `gamedata/legoloco/<step>/`
+  (the run's screens as `.ppm` files, its report as `run.txt`), with the
+  previous run's beside it. If the change is meant, run again with
+  `RELUVA_GAMEDATA_UPDATE=1` and review the records' diff.
+- **The same every time:** the run's clock counts instructions, moved
+  on a millisecond whenever every thread waits, and the run ends where
+  the steps are taken, not by a clock of the tool's own; checked by
+  running it again and again. It was checked to catch a change: the
+  text drawn a little narrower changes the welcome bubble's screen.
+- **Your own baseline:** where your results differ from the committed
+  records (another system, say), keep your own before making changes,
+  as [DEVELOPMENT.md](../../DEVELOPMENT.md#the-game-files-test-with-your-own-copy-of-the-game)
+  says (`RELUVA_GAMEDATA_RECORDS`, or **Make my baseline** in the Tests
+  window).
 
 ### What the automated checks don't cover
 
-Reading the real game's files: until there's a game-files test,
-`reluva-tool legoloco rf-list <game folder>` reads and unpacks every
-entry of a copy's resource file, and should end with none failed;
-`reluva-tool legoloco dat <game folder>` reads every object definition,
-`reluva-tool legoloco sav <game folder>` every board,
-`reluva-tool legoloco run <game folder> -save <folder>` how far the
-program gets (with `-seconds`, `-click` and `-shot`, clicked through to
-its first layout and the screen saved:
-[systems/running.md](systems/running.md#how-far-it-gets)),
-`reluva-tool legoloco ee <game folder>` `EE.INI`,
-`reluva-tool legoloco lay <game folder>` the area arrangements and
-`reluva-tool legoloco crd <game folder>` the postcards, likewise.
+Beyond the game-files test's run, how far the program gets with other
+steps: `reluva-tool legoloco run <game folder> -save <folder>` (with
+`-seconds`, `-click` and `-shot`, clicked through and the screen saved:
+[systems/running.md](systems/running.md#how-far-it-gets)).
 
 Playing the game over a network isn't covered by an automated test
 either: it needs the game's own files. `reluva-tool legoloco pair`

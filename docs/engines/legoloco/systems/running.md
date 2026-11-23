@@ -329,6 +329,10 @@ calls named were seen made, from the addresses given:
   `-nomovies` ends each movie as it starts. `-desktop 1024x768` gives
   the program a desktop of that size, as the engine does; the tool's
   is 800 by 600 otherwise, which the clicks in these pages are for.
+  `-deterministic n` gives the program a clock of n instructions a
+  millisecond, moved on a millisecond whenever every thread waits, and
+  ends the run where the steps are taken: the same run every time, as
+  the game-files test needs ([TESTING.md](../TESTING.md)).
 - Network games: the engine plays them over the system's UDP sockets
   ([dplay.md](../../../common/x86/dplay.md)), searching each network the
   computer is on, and this computer's other copies. The game's
