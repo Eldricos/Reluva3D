@@ -40,6 +40,8 @@
 #            (tpw md2-check)
 #   animations every model animation (.MD2, flag 0x20) read and set
 #            against its model (tpw anim-check)
+#   sprites  every sprite sheet (.TPC) and animation set (.ESP) of
+#            esprites.wad read, with a checksum (tpw sprite-check)
 #   heights  every height map (.hmp) read, with a checksum of them all
 #            (tpw hmp-check)
 #   terrain  every world's ground (.lnd), attribute map (base.map) and
@@ -108,6 +110,8 @@ elseif(STEP STREQUAL "models")
     record_run(models "meshes," tpw md2-check "${game_dir}")
 elseif(STEP STREQUAL "animations")
     record_run(animations "animations" tpw anim-check "${game_dir}")
+elseif(STEP STREQUAL "sprites")
+    record_run(sprites "sheets," tpw sprite-check "${game_dir}")
 elseif(STEP STREQUAL "heights")
     record_run(heights "height maps," tpw hmp-check "${game_dir}")
 elseif(STEP STREQUAL "terrain")

@@ -20,10 +20,12 @@
 #include "engines/tpw/formats/sam.h"
 #include "engines/tpw/formats/sdt.h"
 #include "engines/tpw/formats/sound_map.h"
+#include "engines/tpw/formats/sprites.h"
 #include "engines/tpw/formats/str.h"
 #include "engines/tpw/formats/wad.h"
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/sound_effects.h"
+#include "engines/tpw/ui/sprites.h"
 #include "engines/tpw/textures.h"
 
 #include "tests/engines/tpw/fixtures.h"
@@ -781,12 +783,87 @@ void testSoundEffects(const std::filesystem::path &tmp) {
     CHECK(missing.load(files, "global/sound", {"none"}));
 }
 
+// A sheet of two frames: a 3 × 2 one of a run and copies, and a 1 × 1
+// one; its palette's colours stored blue first.
+Bytes makeSpriteSheet() {
+    Bytes b(8 + 1024);
+    put16(b, 0, 3);
+    put16(b, 2, 3);
+    put32(b, 4, 2);
+    b[8 + 4 * 7] = 10; // colour 7: blue 10, green 20, red 30, opaque
+    b[8 + 4 * 7 + 1] = 20;
+    b[8 + 4 * 7 + 2] = 30;
+    b[8 + 4 * 7 + 3] = 255;
+    auto frame = [&](int w, int h, int left, int top, const Bytes &rows) {
+        const size_t at = b.size();
+        put32(b, at, uint32_t(rows.size()));
+        put16(b, at + 4, uint16_t(w));
+        put16(b, at + 6, uint16_t(h));
+        put16(b, at + 8, 128);
+        put16(b, at + 10, 128);
+        put32(b, at + 12, uint32_t(left));
+        put32(b, at + 16, uint32_t(top));
+        b.insert(b.end(), rows.begin(), rows.end());
+    };
+    // Row 0: 0xfe 7, two sevens, then 1 copied: 0. Row 1: three 7s.
+    frame(3, 2, -1, -2, {4, 0xfe, 7, 1, 0, 2, 0xfd, 7});
+    frame(1, 1, 0, -1, {2, 1, 7});
+    return b;
+}
+
+// A sprite's frames and animations read back; a frame's run past its row
+// fails; the frame an animation shows for headings and times.
+void testSprites() {
+    SpriteSheet sheet;
+    const Bytes data = makeSpriteSheet();
+    CHECK(!sheet.parse(data));
+    CHECK(sheet.frames().size() == 2 && sheet.palette()[7].r == 30 && sheet.palette()[7].b == 10);
+    if (sheet.frames().size() == 2) {
+        const SpriteSheet::Frame &f = sheet.frames()[0];
+        CHECK(f.width == 3 && f.height == 2 && f.left == -1 && f.top == -2 && f.scaleX == 128);
+        CHECK((f.pixels == Bytes{7, 7, 0, 7, 7, 7}));
+    }
+    Bytes cut = data;
+    cut.resize(cut.size() - 2);
+    CHECK(sheet.parse(cut));
+    Bytes wide = data;
+    wide[8 + 1024 + 20 + 1] = 0xfc; // four sevens in a row of three
+    CHECK(sheet.parse(wide));
+
+    Bytes esp(350);
+    const std::string magic = "ESP_FILE2.00SPR_KB.TPS";
+    std::copy(magic.begin(), magic.end(), esp.begin());
+    // Slot 1: from frame 125, 8 frames in 5 directions.
+    put16(esp, 270 + 4, 125);
+    esp[270 + 4 + 2] = 8;
+    esp[270 + 4 + 3] = 5;
+    SpriteSet set;
+    CHECK(!set.parse(esp));
+    CHECK(set.sheet() == "SPR_KB.TPS" && set.animations()[1].first == 125 && set.animations()[1].frames == 8);
+    CHECK(set.animations()[0].frames == 0);
+
+    const SpriteSet::Animation &walk = set.animations()[1];
+    constexpr float kQuarter = 1.5707963f;
+    // Away, at its first frame; right, the third direction, 250 ms in at
+    // 12 frames a second its third frame; left, mirrored; towards.
+    SpritePose p = spritePose(walk, 0, 0, 12);
+    CHECK(p.frame == 125 && !p.mirror);
+    p = spritePose(walk, kQuarter, 250, 12);
+    CHECK(p.frame == 125 + 2 * 8 + 3 && !p.mirror);
+    p = spritePose(walk, -kQuarter, 0, 12);
+    CHECK(p.frame == 125 + 2 * 8 && p.mirror);
+    p = spritePose(walk, 2 * kQuarter, 1000, 12);
+    CHECK(p.frame == 125 + 4 * 8 + 4 && !p.mirror);
+    CHECK(set.parse(Bytes(esp.begin(), esp.end() - 1)));
+}
+
 } // namespace
 
 static const reluva::test::Suite
     kSuite("tpw.unit.formats", {
                                    {"wad", [](const std::filesystem::path &tmp) { testWad(tmp); }},
                                    {"sound-map", [](const std::filesystem::path &) { testSoundMap(); }},
+                                   {"sprites", [](const std::filesystem::path &) { testSprites(); }},
                                    {"sound-effects", [](const std::filesystem::path &tmp) { testSoundEffects(tmp); }},
                                    {"mount", [](const std::filesystem::path &tmp) { testMount(tmp); }},
                                    {"textures", [](const std::filesystem::path &tmp) { testFindTexture(tmp); }},

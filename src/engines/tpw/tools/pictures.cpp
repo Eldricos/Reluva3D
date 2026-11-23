@@ -7,11 +7,13 @@
 #include "common/fs.h"
 #include "common/md5.h"
 #include "devtools/tool.h"
+#include "engines/tpw/formats/sprites.h"
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/ui/loading_screen.h"
 #include "image/fsh.h"
 #include "image/image.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <fstream>
 #include <map>
@@ -138,11 +140,85 @@ int cmdLoadingScreen(int argc, char **argv) {
     return 0;
 }
 
+// Every sprite sheet (.TPC, .FPC) and animation set (.ESP) of a game
+// read: their frames, and each set's animations within its sheets' frames.
+int cmdSpriteCheck(int argc, char **argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool tpw sprite-check <game folder>\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    std::vector<std::string> warnings;
+    if (reluva::Error err = reluva::tpw::mountGame(files, argv[2], warnings)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    reluva::Md5 all;
+    int sheets = 0;
+    int sets = 0;
+    int failed = 0;
+    int outside = 0;
+    size_t frames = 0;
+    std::map<std::string, size_t> framesOf; // by the file's name without its ending
+    std::vector<std::pair<std::string, reluva::tpw::SpriteSet>> animations;
+    for (const std::string &name : files.list()) {
+        const std::string ext = reluva::fs::toLower(extensionOf(name));
+        if (ext != ".tpc" && ext != ".fpc" && ext != ".esp")
+            continue;
+        std::vector<uint8_t> data;
+        reluva::Error err = files.read(name, data);
+        const std::string stem = reluva::fs::toLower(name.substr(0, name.size() - ext.size()));
+        if (ext == ".esp") {
+            reluva::tpw::SpriteSet set;
+            if (!err)
+                err = set.parse(data);
+            if (!err) {
+                ++sets;
+                animations.emplace_back(stem, set);
+            }
+        } else {
+            reluva::tpw::SpriteSheet sheet;
+            if (!err)
+                err = sheet.parse(data);
+            if (!err) {
+                ++sheets;
+                frames += sheet.frames().size();
+                // A set plays either sheet: the two must have the same frames.
+                if (ext == ".tpc" || !framesOf.count(stem))
+                    framesOf[stem] = sheet.frames().size();
+                for (const auto &f : sheet.frames()) {
+                    all.update(f.pixels.data(), f.pixels.size());
+                    if (f.scaleX != 128 || f.scaleY != 128)
+                        std::printf("%s: a frame scaled %d, %d\n", name.c_str(), f.scaleX, f.scaleY);
+                }
+            }
+        }
+        if (err) {
+            std::printf("failed: %s: %s\n", name.c_str(), err.message.c_str());
+            ++failed;
+        }
+    }
+    for (const auto &[stem, set] : animations)
+        for (const auto &a : set.animations()) {
+            const size_t end = size_t(a.first) + size_t(a.frames) * size_t(std::max(1, a.directions));
+            if (a.frames && framesOf.count(stem) && end > framesOf[stem]) {
+                std::printf("%s: an animation past the sheet's %zu frames: %d + %d x %d\n", stem.c_str(),
+                            framesOf[stem], a.first, a.frames, a.directions);
+                ++outside;
+            }
+        }
+    std::printf("%d sheets, %d animation sets, %d failed; %zu frames; %d animations past their frames; md5 %s\n",
+                sheets, sets, failed, frames, outside, all.hexDigest().c_str());
+    return failed || sheets == 0 ? 1 : 0;
+}
+
 const Commands kCommands(
     "tpw",
     {
         {"picture-check", "<game folder>", "decode every picture: .fsh banks, .tga, .png and .jpg", cmdPictureCheck},
         {"picture-dump", "<game folder> <name in Data> <out.tga>", "write one picture out as a TGA", cmdPictureDump},
+        {"sprite-check", "<game folder>", "read every sprite sheet (.TPC, .FPC) and its animations (.ESP)",
+         cmdSpriteCheck},
         {"loading-screen", "<game folder> [out.png]",
          "put the loading screen together as the game shows it; write it out", cmdLoadingScreen},
     });

@@ -85,6 +85,17 @@ None yet.
 
 ## Guessed
 
+- **How large a visitor is drawn**: 0.05 units a sprite's pixel, so
+  about 1.4 units across, matched by eye to the recording's against its
+  paths, walking at 12 frames a second
+  ([sprites.md](formats/sprites.md#in-reluva)). The game's own sizes,
+  or a still of a visitor by a known model, would settle it.
+
+- **`.FPC` sheets are another detail setting's**: the same frames as
+  the `.TPC`'s, a little larger; Reluva draws the `.TPC`
+  ([sprites.md](formats/sprites.md)). Trying the game's detail settings
+  would settle it.
+
 - **How the front end's particles fly and look**: 20 a burst, small
   stars, up to 6 units a second; emitters 11 to 14 the `Fx` helpers, 1
   the well's middle ([front-end.md](systems/front-end.md#the-effects)).

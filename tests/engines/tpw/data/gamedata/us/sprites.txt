@@ -1,0 +1,1 @@
+sprites: 69a4fd2c820473d5 | 71 sheets, 45 animation sets, 0 failed, 7893 frames, 0 animations past their frames, md5 47e66211d422e6dd95ea234f2acaf9b0

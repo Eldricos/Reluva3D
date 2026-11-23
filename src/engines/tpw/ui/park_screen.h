@@ -9,15 +9,18 @@
 #include "engines/tpw/formats/bf4.h"
 #include "engines/tpw/formats/str.h"
 #include "engines/tpw/park/park.h"
+#include "engines/tpw/ui/sprites.h"
 #include "engines/tpw/ui/world_view.h"
 #include "graphics/soft3d/rasterizer.h"
+
+#include <vector>
 
 namespace reluva::tpw {
 
 /**
  * The park as the player sees it: its world drawn through a camera that
- * pans, turns and zooms over it, its fixed items marked, and the HUD's
- * money and date. See docs/engines/tpw/games/simcoaster/systems/park.md.
+ * pans, turns and zooms over it, its fixed items marked, its visitors by
+ * their sprites, and the HUD's money and date. See docs/engines/tpw/games/simcoaster/systems/park.md.
  */
 class ParkScreen {
 public:
@@ -42,12 +45,15 @@ public:
     std::string dateText(uint32_t day) const;
 
 private:
+    void drawVisitors(Surface &screen, const soft3d::OrbitCamera &eye, const Park &park, float yaw) const;
+
     LoadedWorld _world;
     CharacterSet _characters;
     Font _cashFont;
     Font _dateFont;
     StringTable _months;
-    bool _hud = false; // the fonts and months read
+    bool _hud = false;                       // the fonts and months read
+    std::vector<LoadedSprite> _visitorLooks; // the visitors' sprites, those read
 };
 
 /**

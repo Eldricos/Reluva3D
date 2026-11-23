@@ -130,16 +130,30 @@ void Park::step(uint32_t ms) {
     _millis += ms;
     while (_millis >= _nextArrivalMs) {
         _nextArrivalMs += _arrivals.everyMs;
-        if (int(_people.size()) < visitorsWanted() && !_wayIn.empty())
-            _people.push_back({_nextId++, _wayIn[0][0], _wayIn[0][2], 1, false, false});
+        if (int(_people.size()) < visitorsWanted() && !_wayIn.empty()) {
+            Visitor v;
+            v.id = _nextId++;
+            // A look spread over the ids, the same each run.
+            v.look = uint32_t(v.id) * 2654435761u >> 16;
+            v.x = _wayIn[0][0];
+            v.z = _wayIn[0][2];
+            v.leg = 1;
+            _people.push_back(v);
+        }
     }
     const float step = kWalkPerSecond * float(ms) / 1000;
     for (Visitor &v : _people) {
         float left = step;
+        if (v.leg >= _wayIn.size())
+            v.headingX = v.headingZ = 0;
         while (left > 0 && v.leg < _wayIn.size()) {
             const float dx = _wayIn[v.leg][0] - v.x;
             const float dz = _wayIn[v.leg][2] - v.z;
             const float d = std::sqrt(dx * dx + dz * dz);
+            if (d > 0) {
+                v.headingX = dx / d;
+                v.headingZ = dz / d;
+            }
             if (d > left) {
                 v.x += dx / d * left;
                 v.z += dz / d * left;

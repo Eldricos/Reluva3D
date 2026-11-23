@@ -76,8 +76,11 @@ public:
     /** A visitor coming in, or in the park. */
     struct Visitor {
         int id = 0;
-        float x = 0; // where they are, in the world's units
+        uint32_t look = 0; // which of the visitors' looks they have: the screen picks by it
+        float x = 0;       // where they are, in the world's units
         float z = 0;
+        float headingX = 0; // the way they walk, a unit along the ground; 0, 0 standing
+        float headingZ = 0;
         size_t leg = 0; // the waypoint they walk to next
         bool paid = false;
         bool inPark = false;
@@ -101,6 +104,8 @@ public:
     void setPaused(bool paused) { _paused = paused; }
     bool paused() const { return _paused; }
 
+    /** The park's time, in milliseconds since it opened. */
+    uint64_t millis() const { return _millis; }
     /** Days since the park opened on 1 January 2000. */
     uint32_t day() const { return uint32_t(_millis / kDayMillis); }
     /** Moves the park on by so many milliseconds of play: its clock, visitors coming and walking. */

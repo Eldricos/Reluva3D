@@ -52,8 +52,20 @@ constexpr float kWheelZoom = 1.15f;
 constexpr Color kEntranceColour{255, 220, 0};
 constexpr Color kBoothColour{255, 80, 40};
 constexpr Color kBusStopColour{80, 160, 255};
-// The visitors' markers, until their sprites are drawn.
-constexpr Color kVisitorColour{255, 255, 255};
+// The visitors' sprites: the children's, the parents', the grandparents'
+// (esprites.wad), walking at so many frames a second, a pixel of a frame
+// so many units of the world (guessed: about as tall against a path's
+// cell as the recording's visitors).
+constexpr const char *kVisitorSprites[] = {
+    "esprites/Generic/Kids/SPR_KB",         "esprites/Generic/Kids/SPR_GK",         "esprites/Generic/Kids/SPR_BD",
+    "esprites/Generic/Kids/SPR_GB",         "esprites/Generic/Parents/SPR_FA",      "esprites/Generic/Parents/SPR_MO",
+    "esprites/Generic/Grandparents/SPR_GR", "esprites/Generic/Grandparents/SPR_GM",
+};
+constexpr size_t kWalkAnimation = 1;
+constexpr size_t kStandAnimation = 0;
+constexpr int kWalkFps = 12;
+constexpr float kSpritePixelUnits = 0.05f;
+constexpr Color kVisitorColour{255, 255, 255}; // a visitor whose sprite isn't read
 
 void fillRect(Surface &s, const ScreenRect &r, Color c) {
     for (int y = std::max(0, r.y); y < std::min(s.h, r.y + r.h); ++y)
@@ -97,6 +109,12 @@ Error ParkScreen::load(const SearchSet &files, const Park &park) {
     if (Error err = _world.load(files, park.folder()))
         return err;
     _hud = false;
+    _visitorLooks.clear();
+    for (const char *name : kVisitorSprites) {
+        LoadedSprite sprite;
+        if (!sprite.load(files, name))
+            _visitorLooks.push_back(std::move(sprite));
+    }
     const std::string language = languageOf(files);
     if (language.empty())
         return Error::success();
@@ -125,6 +143,40 @@ std::string ParkScreen::dateText(uint32_t day) const {
     return text;
 }
 
+void ParkScreen::drawVisitors(Surface &screen, const soft3d::OrbitCamera &eye, const Park &park, float yaw) const {
+    // Farthest first, each at the point it stands on.
+    struct Seen {
+        float depth;
+        const Park::Visitor *visitor;
+        soft3d::ScreenVertex at;
+    };
+    std::vector<Seen> seen;
+    for (const Park::Visitor &v : park.visitorsAbout()) {
+        const soft3d::ViewVertex view = eye.toView(toViewerWorld({v.x, 0, v.z}));
+        if (view.z >= eye.nearZ)
+            seen.push_back({view.z, &v, eye.project(view)});
+    }
+    std::sort(seen.begin(), seen.end(), [](const Seen &a, const Seen &b) { return a.depth > b.depth; });
+    for (const Seen &s : seen) {
+        const Park::Visitor &v = *s.visitor;
+        if (_visitorLooks.empty()) {
+            mark(screen, eye, {v.x, 1, v.z}, 2, kVisitorColour);
+            continue;
+        }
+        const LoadedSprite &look = _visitorLooks[v.look % _visitorLooks.size()];
+        const bool walking = v.headingX != 0 || v.headingZ != 0;
+        const auto &animation = look.set.animations()[walking ? kWalkAnimation : kStandAnimation];
+        // The heading as the camera sees it: 0 away from it, a quarter
+        // turn to its right.
+        const float forward = v.headingX * std::sin(yaw) + v.headingZ * std::cos(yaw);
+        const float right = v.headingX * std::cos(yaw) - v.headingZ * std::sin(yaw);
+        const SpritePose pose = spritePose(animation, walking ? std::atan2(right, forward) : 3.14159265f,
+                                           uint32_t(park.millis()), kWalkFps);
+        drawSpriteFrame(screen, look.sheet, pose.frame, s.at.x, s.at.y, kSpritePixelUnits * eye.focal / s.depth,
+                        pose.mirror);
+    }
+}
+
 void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Park &park, const Camera &camera) const {
     std::fill(screen.pixels.begin(), screen.pixels.end(), uint8_t(0));
     const WorldView view = viewOf(camera);
@@ -137,8 +189,7 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
         mark(screen, eye, c, kBoothColour);
     for (const Park::Cell &c : fixed.busStops)
         mark(screen, eye, c, kBusStopColour);
-    for (const Park::Visitor &v : park.visitorsAbout())
-        mark(screen, eye, {v.x, 1, v.z}, 2, kVisitorColour);
+    drawVisitors(screen, eye, park, camera.yaw);
     if (!_hud)
         return;
     drawGameText(screen, _cashFont, _characters, kCashX, kCashY, "\u00a7 " + std::to_string(park.cash()), kHudText);

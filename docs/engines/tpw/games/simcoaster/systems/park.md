@@ -86,8 +86,11 @@ along that way *(guessed)*, cell to cell at 12 units a second: off the
 bus at the first stop, over the crossing from the bus's side to the
 park's, past the first booth, paying, through the entrance's first cell
 and up the path four cells in, the attribute map's path tiles
-([attribute-map.md](../formats/attribute-map.md)). Their sprites aren't
-read yet (`esprites.wad`): a white square marks each.
+([attribute-map.md](../formats/attribute-map.md)). Each is drawn by
+one of the eight visitors' sprites ([sprites.md](../formats/sprites.md)),
+walking or standing, turned by its way against the camera's, about 1.4
+units across, as wide as the recording's against its paths
+*(guessed)*.
 
 ### The HUD
 
@@ -136,7 +139,8 @@ test and check its calendar.
 - What the boundary's clicks are measured from, and how the park's
   land and its fence are drawn by them.
 - The fly-in along the road; the toolbar, the thermometer and the rest
-  of the HUD; the gates' model at the entrance; the visitors' sprites.
+  of the HUD; the gates' model at the entrance; how large the game draws a
+  visitor.
 - How fast the clock runs at each of the game's speeds, and when it
   stops.
 - How the game turns its `Arrival` settings into visitors, and the
