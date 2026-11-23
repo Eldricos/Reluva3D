@@ -15,9 +15,9 @@ namespace reluva::tpw {
 /**
  * A model's animation (an `.MD2` of header flag 0x20, as SimCoaster's
  * `Data/levels/arabian/rides/wateride/waterideb.MD2` for `wateride.MD2`):
- * tracks moving the model's nodes over its frames. Its moves of the
- * whole parts are read; its moves of single vertices and of textures
- * are counted, not read. See
+ * tracks moving the model's nodes over its frames: whole parts, and
+ * single vertices of a mesh. Its moves of textures are counted, not read.
+ * See
  * docs/engines/tpw/games/simcoaster/formats/md2-animation.md.
  */
 class Animation {
@@ -39,6 +39,18 @@ public:
         gfx::Vec3 scale{1, 1, 1};
     };
 
+    /**
+     * Some of a mesh's positions moved together: their places at each of
+     * the run's keys, the keys' frames shared.
+     */
+    struct VertexRun {
+        /** Into the mesh's positions; a number past them, as each track's first run has two, isn't worked out. */
+        std::vector<uint16_t> positions;
+        std::vector<uint32_t> frames;
+        /** Each key's places for the run's positions, in their order, a key after another: keys × positions. */
+        std::vector<gfx::Vec3> places;
+    };
+
     /** What moves one of the model's nodes. */
     struct Track {
         /** What it moves: a node, by its place in Model::animationOrder() (meshes first). */
@@ -54,7 +66,10 @@ public:
         std::vector<gfx::Vec3> positions;
         std::vector<RotationKey> rotations;
         std::vector<ScaleKey> scales;
-        /** Whether it moves vertices or textures too, which aren't read. */
+        /** For a mesh, its positions moved, in the mesh's own space, and how fine their steps are. */
+        std::vector<VertexRun> vertexRuns;
+        gfx::Vec3 vertexStep{};
+        /** Whether it moves textures, or has another part not read. */
         bool hasOther = false;
     };
 
@@ -74,6 +89,13 @@ public:
      * pose's translation, rotation or scale.
      */
     static gfx::Mat4 pose(const Track &track, float frame, const gfx::Mat4 &rest);
+
+    /**
+     * Moves a mesh's positions to where `track`'s vertex runs have them at
+     * a frame: straight between a run's keys, held before its first and
+     * after its last; positions it hasn't are left as they are.
+     */
+    static void poseVertices(const Track &track, float frame, std::vector<gfx::Vec3> &positions);
 
 private:
     uint32_t _frames = 0;

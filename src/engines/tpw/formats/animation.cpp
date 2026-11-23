@@ -26,10 +26,15 @@ constexpr size_t kTrackSize = 0x40;
 constexpr uint32_t kHasPosition = 0x1;
 constexpr uint32_t kHasRotation = 0x18;
 constexpr uint32_t kHasScale = 0x180;
-constexpr uint32_t kHasOther = 0x1000 | 0x10000 | 0x20000;
+constexpr uint32_t kHasVertices = 0x1000;
+constexpr uint32_t kHasOther = 0x10000 | 0x20000;
 constexpr size_t kPositionAt = 0x18;
 constexpr size_t kRotationAt = 0x1c;
 constexpr size_t kScaleAt = 0x20;
+constexpr size_t kVerticesAt = 0x28;
+// A vertex track: a header of 0x34 bytes, then its runs' records.
+constexpr size_t kVertexHeaderSize = 0x34;
+constexpr size_t kVertexRunSize = 20;
 constexpr uint32_t kBezierTrack = 0x12;
 constexpr uint32_t kLinearTrack = 0x18;
 constexpr size_t kRotationKeySize = 20;
@@ -88,6 +93,51 @@ Error readRotation(const Reader &r, size_t at, size_t keys, Animation::Track &t)
         // Stored x, y, z, w: so read, 1,129 of the tracks start at their
         // node's rest pose, against 100 with w first.
         t.rotations.push_back({r.u16(key), {r.f32(key + 16), r.f32(key + 4), r.f32(key + 8), r.f32(key + 12)}});
+    }
+    return Error::success();
+}
+
+// A vertex track: two words (the first 1 or 3, not worked out; the
+// second how many runs), where the runs' records are, then the offset
+// and the scale its keys are of (three floats each, at 0x14 and 0x20).
+// A run's record: how many keys and positions (2 bytes each), then where
+// the positions' numbers, the keys' frames (2 bytes each) and the keys
+// are. A key is 4 bytes a position, a key's positions after another's:
+// three signed 10-bit numbers, x, y, z, from the bottom, each the place
+// as so many of the scale's steps from the offset, the mesh's middle.
+Error readVertices(const Reader &r, size_t at, Animation::Track &t) {
+    if (!r.has(at, kVertexHeaderSize))
+        return Error::fail("a vertex track runs past the end");
+    const size_t runs = r.u16(at + 2);
+    const size_t runsAt = r.u32(at + 12);
+    const gfx::Vec3 offset = r.vec3(at + 0x14);
+    const gfx::Vec3 scale = r.vec3(at + 0x20);
+    t.vertexStep = scale;
+    if (!r.has(runsAt, kVertexRunSize * runs))
+        return Error::fail("a vertex track's runs run past the end");
+    auto signed10 = [](uint32_t v) { return int(v & 0x3ff) - (v & 0x200 ? 0x400 : 0); };
+    for (size_t i = 0; i < runs; ++i) {
+        const size_t run = runsAt + kVertexRunSize * i;
+        const size_t keys = r.u16(run);
+        const size_t count = r.u16(run + 2);
+        const size_t positionsAt = r.u32(run + 4);
+        const size_t framesAt = r.u32(run + 8);
+        const size_t keysAt = r.u32(run + 12);
+        if (!r.has(positionsAt, 2 * count) || !r.has(framesAt, 2 * keys) || !r.has(keysAt, 4 * keys * count))
+            return Error::fail("a vertex run runs past the end");
+        Animation::VertexRun v;
+        for (size_t k = 0; k < count; ++k)
+            v.positions.push_back(r.u16(positionsAt + 2 * k));
+        for (size_t k = 0; k < keys; ++k)
+            v.frames.push_back(r.u16(framesAt + 2 * k));
+        for (size_t k = 0; k < keys * count; ++k) {
+            const uint32_t word = r.u32(keysAt + 4 * k);
+            gfx::Vec3 place;
+            for (size_t axis = 0; axis < 3; ++axis)
+                place[axis] = offset[axis] + float(signed10(word >> (10 * axis))) * scale[axis];
+            v.places.push_back(place);
+        }
+        t.vertexRuns.push_back(std::move(v));
     }
     return Error::success();
 }
@@ -167,6 +217,9 @@ Error Animation::parse(const std::vector<uint8_t> &data) {
             for (size_t k = 0; k < keys; ++k)
                 t.scales.push_back({r.u32(keysAt + kScaleKeySize * k), r.vec3(keysAt + kScaleKeySize * k + 4)});
         }
+        if (t.flags & kHasVertices)
+            if (Error err = readVertices(r, r.u32(at + kVerticesAt), t))
+                return err;
         _tracks.push_back(std::move(t));
     }
     return Error::success();
@@ -237,6 +290,24 @@ gfx::Mat4 Animation::pose(const Track &t, float frame, const gfx::Mat4 &rest) {
     m[13] = translation[1];
     m[14] = translation[2];
     return m;
+}
+
+void Animation::poseVertices(const Track &track, float frame, std::vector<gfx::Vec3> &positions) {
+    for (const VertexRun &run : track.vertexRuns) {
+        if (run.frames.empty())
+            continue;
+        const auto [key, u] = place(run.frames.size(), [&](size_t k) { return run.frames[k]; }, frame);
+        const size_t next = std::min(key + 1, run.frames.size() - 1);
+        const size_t count = run.positions.size();
+        for (size_t i = 0; i < count; ++i) {
+            if (run.positions[i] >= positions.size())
+                continue;
+            const gfx::Vec3 &a = run.places[key * count + i];
+            const gfx::Vec3 &b = run.places[next * count + i];
+            for (size_t axis = 0; axis < 3; ++axis)
+                positions[run.positions[i]][axis] = a[axis] + (b[axis] - a[axis]) * u;
+        }
+    }
 }
 
 } // namespace reluva::tpw

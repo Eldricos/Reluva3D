@@ -26,7 +26,7 @@ None yet.
   loading screen: the park after it isn't built ([PLAN.md](PLAN.md#phases),
   [loading-screen.md](systems/loading-screen.md)).
 - **The front end's opening** lacks its effects (the sparkles, the beam,
-  the ring of light, the lit hole in the table), the advisor's portrait
+  the ring of light, the glow in the table's well), the advisor's portrait
   and the skip button; a key or a click skips it
   ([front-end.md](systems/front-end.md#in-reluva)).
 - **The Personnel File** keeps its players in a file of Reluva's own,

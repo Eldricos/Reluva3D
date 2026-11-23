@@ -63,6 +63,12 @@ std::vector<gfx::Mat4> nodeTransforms(const LoadedModel &loaded, int animation, 
  */
 std::vector<gfx::Mat4> meshTransforms(const LoadedModel &loaded, int animation, float frame);
 
+/**
+ * Each mesh's positions with `animation` (in `loaded.animations`, or -1
+ * for none) at `frame`, its vertex tracks applied: by Model::meshes().
+ */
+std::vector<std::vector<gfx::Vec3>> meshPositions(const LoadedModel &loaded, int animation, float frame);
+
 /** A point of the game's space (y up) in the viewer's world (z up). */
 soft3d::Vec toViewerWorld(const gfx::Vec3 &p);
 
@@ -82,10 +88,11 @@ void drawTexturedTriangle(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCam
 /**
  * Draws a model's meshes as drawModel does, into a drawing already begun,
  * lit by `light`; placed by `transforms` (meshTransforms'), or by their own
- * without.
+ * without; their positions `positions` (meshPositions'), or their own.
  */
 void drawMeshes(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera, const LoadedModel &loaded,
-                bool textured, const soft3d::Vec &light, const std::vector<gfx::Mat4> *transforms = nullptr);
+                bool textured, const soft3d::Vec &light, const std::vector<gfx::Mat4> *transforms = nullptr,
+                const std::vector<std::vector<gfx::Vec3>> *positions = nullptr);
 
 /**
  * Draws the model into an RGBA32 surface, over what is there, lit from

@@ -80,18 +80,23 @@ soft3d::OrbitCamera FrontEndScene::camera(float frame, int w, int h) const {
 }
 
 void FrontEndScene::draw(Surface &screen, soft3d::Rasterizer &rasterizer, float frame) const {
-    draw(screen, rasterizer, camera(frame, screen.w, screen.h), meshTransforms(frame));
+    draw(screen, rasterizer, camera(frame, screen.w, screen.h), meshTransforms(frame), meshPositions(frame));
 }
 
 std::vector<gfx::Mat4> FrontEndScene::meshTransforms(float frame) const {
     return tpw::meshTransforms(_model, _animation, frame);
 }
 
+std::vector<std::vector<gfx::Vec3>> FrontEndScene::meshPositions(float frame) const {
+    return tpw::meshPositions(_model, _animation, frame);
+}
+
 void FrontEndScene::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera,
-                         const std::vector<gfx::Mat4> &transforms) const {
+                         const std::vector<gfx::Mat4> &transforms,
+                         const std::vector<std::vector<gfx::Vec3>> &positions) const {
     clear(screen);
     rasterizer.begin(screen);
-    drawMeshes(rasterizer, camera, _model, true, defaultLight(), &transforms);
+    drawMeshes(rasterizer, camera, _model, true, defaultLight(), &transforms, &positions);
 }
 
 bool playFrontEnd(System &sys, const FrontEndScene &scene) {

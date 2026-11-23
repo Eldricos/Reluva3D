@@ -147,10 +147,14 @@ void drawTexturedTriangle(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCam
 }
 
 void drawMeshes(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera, const LoadedModel &loaded,
-                bool textured, const soft3d::Vec &light, const std::vector<gfx::Mat4> *transforms) {
+                bool textured, const soft3d::Vec &light, const std::vector<gfx::Mat4> *transforms,
+                const std::vector<std::vector<gfx::Vec3>> *positions) {
     for (size_t m = 0; m < loaded.model.meshes().size(); ++m) {
         const Model::Mesh &mesh = loaded.model.meshes()[m];
         const gfx::Mat4 &transform = transforms && m < transforms->size() ? (*transforms)[m] : mesh.transform;
+        const std::vector<gfx::Vec3> &places =
+            positions && m < positions->size() && (*positions)[m].size() == mesh.positions.size() ? (*positions)[m]
+                                                                                                  : mesh.positions;
         // Each face's texture, by the group it is in; none outside them.
         std::vector<const image::Image *> faceTexture(mesh.faces.size(), nullptr);
         for (const Model::Group &g : mesh.groups)
@@ -161,8 +165,7 @@ void drawMeshes(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camer
             std::array<soft3d::Vec, 3> corners;
             std::array<std::array<float, 2>, 3> uv;
             for (size_t k = 0; k < 3; ++k) {
-                corners[k] =
-                    toViewerWorld(gfx::transformPoint(transform, mesh.positions[mesh.positionOf[face.vertex[k]]]));
+                corners[k] = toViewerWorld(gfx::transformPoint(transform, places[mesh.positionOf[face.vertex[k]]]));
                 uv[k] = mesh.uv[face.vertex[k]];
             }
             drawTexturedTriangle(rasterizer, camera, corners, uv, faceTexture[f], light);
@@ -191,6 +194,25 @@ std::vector<gfx::Mat4> nodeTransforms(const LoadedModel &loaded, int animation, 
     return world;
 }
 
+std::vector<std::vector<gfx::Vec3>> meshPositions(const LoadedModel &loaded, int animation, float frame) {
+    const auto &meshes = loaded.model.meshes();
+    std::vector<std::vector<gfx::Vec3>> out;
+    for (const Model::Mesh &mesh : meshes)
+        out.push_back(mesh.positions);
+    if (animation < 0 || size_t(animation) >= loaded.animations.size())
+        return out;
+    const auto &nodes = loaded.model.nodes();
+    const auto &order = loaded.model.animationOrder();
+    for (const Animation::Track &t : loaded.animations[size_t(animation)].tracks()) {
+        if (t.vertexRuns.empty() || t.target >= order.size() || order[t.target] == Model::kNoNode)
+            continue;
+        const int mesh = nodes[order[t.target]].mesh;
+        if (mesh >= 0)
+            Animation::poseVertices(t, frame, out[size_t(mesh)]);
+    }
+    return out;
+}
+
 std::vector<gfx::Mat4> meshTransforms(const LoadedModel &loaded, int animation, float frame) {
     const std::vector<gfx::Mat4> world = nodeTransforms(loaded, animation, frame);
     std::vector<gfx::Mat4> out;
@@ -204,7 +226,8 @@ void drawModel(Surface &screen, soft3d::Rasterizer &rasterizer, const LoadedMode
                                      screen.h);
     rasterizer.begin(screen);
     const std::vector<gfx::Mat4> transforms = meshTransforms(loaded, view.animation, view.frame);
-    drawMeshes(rasterizer, camera, loaded, view.textured, defaultLight(), &transforms);
+    const std::vector<std::vector<gfx::Vec3>> positions = meshPositions(loaded, view.animation, view.frame);
+    drawMeshes(rasterizer, camera, loaded, view.textured, defaultLight(), &transforms, &positions);
     if (view.heights && loaded.hasHeights)
         drawHeights(screen, loaded, camera);
 }

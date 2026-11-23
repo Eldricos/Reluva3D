@@ -84,9 +84,9 @@ it, or on the way to a gate.
 
 ## Open questions
 
-- The lit hole the globe stands in: the table's middle opens, it seems,
-  by the animation's vertex tracks, which Reluva doesn't play yet
-  ([md2-animation.md](../formats/md2-animation.md#open-questions)).
+- The light in the well the globe stands in: Reluva draws the well
+  ([md2-animation.md](../formats/md2-animation.md#vertices)), not its
+  glow.
 - What the game shows over a world under the pointer; what a click on a
   closed world does; which way, and how fast, it turns a world round.
 - The close view and the timings, measured rather than read from the

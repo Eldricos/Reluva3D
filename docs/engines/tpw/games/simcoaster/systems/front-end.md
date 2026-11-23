@@ -66,10 +66,13 @@ The camera's field of view: the recording's hall measured against
 Reluva's at frame 0 (the doors' height and width), a focal length of the
 screen's height, 53° high *(inferred)*.
 
-What the recording shows that Reluva doesn't draw yet: the sparkles
-round the star, the beam of light, the ring of light the globe rises
-through and the hole it leaves in the table, the advisor's portrait,
-the skip button (bottom right, two triangles and a bar).
+The table's middle opens by the animation's vertex track, from frame
+500, the globe rising through the lit well beneath it
+([md2-animation.md](../formats/md2-animation.md#vertices)). What the
+recording shows that Reluva doesn't draw yet: the sparkles round the
+star, the beam of light, the ring of light round the globe, the
+advisor's portrait, the skip button (bottom right, two triangles and a
+bar).
 
 ## In Reluva
 
@@ -104,8 +107,8 @@ that; with a checksum of the screens, which the game-files test checks
 
 ## Open questions
 
-- The effects: the sparkles, the beam, the ring of light, the globe's
-  hole in the table; what the script's events and objects are.
+- The effects: the sparkles, the beam, the ring of light; what the
+  script's events and objects are.
 - When the game triggers the script, and how the advisor's speech
   follows `VAR_SPEECHSTATUS`.
 - The camera's field of view, measured rather than read from the files.

@@ -222,7 +222,7 @@ right way round ([front-end.md](../systems/front-end.md)). `reluva-tool tpw md2-
 
 ## Open questions
 
-- The animations' tracks of vertices and textures ([md2-animation.md](md2-animation.md)).
+- The animations' tracks of textures ([md2-animation.md](md2-animation.md)).
 - The header's fields not named above, and its flags.
 - The textures' flags, and the groups'.
 - The node types other than meshes and helpers, and what type 0x401's

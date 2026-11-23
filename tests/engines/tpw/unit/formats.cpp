@@ -567,8 +567,8 @@ void testRse() {
 }
 
 // An animation as the game lays one out: its header, a Bezier position
-// track, rotation and scale keys, one track's record moving node 2, then
-// its root; posed between keys; then a broken one.
+// track, rotation and scale keys, a vertex track, one track's record
+// moving node 2, then its root; posed between keys; then a broken one.
 void testAnimation() {
     Bytes b(0xb8);
     put32(b, 0, 0x1cd15d46);
@@ -609,15 +609,51 @@ void testAnimation() {
         for (size_t i = 0; i < 3; ++i)
             putFloat(b, at + 4 + 4 * i, k ? 3.0f : 1.0f);
     }
+    // Vertices: position 0 at (1, -2, 3) at frame 0, (3, 0, -1) at 10, in
+    // signed 10-bit steps of 0.5 from (0, -1, 2); a second number past
+    // the mesh's, left alone.
+    const size_t vertices = b.size();
+    b.resize(vertices + 0x34);
+    put16(b, vertices, 3);
+    put16(b, vertices + 2, 1);
+    const size_t runs = b.size();
+    put32(b, vertices + 12, uint32_t(runs));
+    const float offset[3] = {0, -1, 2};
+    for (size_t i = 0; i < 3; ++i) {
+        putFloat(b, vertices + 0x14 + 4 * i, offset[i]);
+        putFloat(b, vertices + 0x20 + 4 * i, 0.5f);
+    }
+    b.resize(runs + 20);
+    const size_t numbers = b.size();
+    put16(b, numbers, 0);
+    put16(b, numbers + 2, 7);
+    const size_t keyFrames = b.size();
+    put16(b, keyFrames, 0);
+    put16(b, keyFrames + 2, 10);
+    const size_t keyWords = b.size();
+    auto word = [](int x, int y, int z) {
+        return uint32_t(x & 0x3ff) | uint32_t(y & 0x3ff) << 10 | uint32_t(z & 0x3ff) << 20;
+    };
+    put32(b, keyWords, word(2, -2, 2));     // (1, -2, 3)
+    put32(b, keyWords + 4, word(0, 0, 0));  // the number past the mesh's
+    put32(b, keyWords + 8, word(6, 2, -6)); // (3, 0, -1)
+    put32(b, keyWords + 12, word(0, 0, 0));
+    put16(b, runs, 2);
+    put16(b, runs + 2, 2);
+    put32(b, runs + 4, uint32_t(numbers));
+    put32(b, runs + 8, uint32_t(keyFrames));
+    put32(b, runs + 12, uint32_t(keyWords));
+
     const size_t track = b.size();
     put32(b, track, 0);
-    put32(b, track + 4, 0x1 | 0x18 | 0x180);
+    put32(b, track + 4, 0x1 | 0x18 | 0x180 | 0x1000);
     put32(b, track + 0x0c, 10);
     put32(b, track + 0x10, 2 << 16 | 2); // scale keys, rotation keys
     put32(b, track + 0x14, 2);
     put32(b, track + 0x18, uint32_t(position));
     put32(b, track + 0x1c, uint32_t(rotation));
     put32(b, track + 0x20, uint32_t(scale));
+    put32(b, track + 0x28, uint32_t(vertices));
     b.resize(track + 0x40);
     const size_t root = b.size();
     b.resize(root + 0x48);
@@ -637,6 +673,14 @@ void testAnimation() {
     CHECK(std::fabs(m[0]) < 1e-4f && std::fabs(m[1] - 2) < 1e-4f && std::fabs(m[10] - 2) < 1e-4f);
     // Held past the last key.
     CHECK(std::fabs(Animation::pose(t, 20, gfx::identity())[12] - 3) < 1e-4f);
+    // The vertex track: halfway at (2, -1, 1); the number past the mesh's
+    // positions left alone, and position 1, not in the run.
+    CHECK(t.vertexRuns.size() == 1 && t.vertexRuns[0].places.size() == 4);
+    std::vector<gfx::Vec3> places{{9, 9, 9}, {8, 8, 8}};
+    Animation::poseVertices(t, 5, places);
+    CHECK((places[0] == gfx::Vec3{2, -1, 1}) && (places[1] == gfx::Vec3{8, 8, 8}));
+    Animation::poseVertices(t, 0, places);
+    CHECK((places[0] == gfx::Vec3{1, -2, 3}));
 
     Bytes model = b;
     put32(model, 0x50, 0xb8);
@@ -647,6 +691,9 @@ void testAnimation() {
     Bytes lost = b;
     put32(lost, root + 0x2c, uint32_t(track + 4));
     CHECK(animation.parse(lost));
+    Bytes cut = b;
+    put16(cut, runs, 900);
+    CHECK(animation.parse(cut));
 }
 
 } // namespace

@@ -39,10 +39,15 @@ public:
 
     /** Each mesh's place at `frame` of the animation (meshTransforms'). */
     std::vector<gfx::Mat4> meshTransforms(float frame) const;
+    /** Each mesh's positions at `frame` of the animation (meshPositions'). */
+    std::vector<std::vector<gfx::Vec3>> meshPositions(float frame) const;
 
-    /** Draws the scene over the whole of an RGBA32 surface, its meshes at `transforms`, through `camera`. */
+    /**
+     * Draws the scene over the whole of an RGBA32 surface, its meshes at
+     * `transforms` with their positions `positions`, through `camera`.
+     */
     void draw(Surface &screen, soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera,
-              const std::vector<gfx::Mat4> &transforms) const;
+              const std::vector<gfx::Mat4> &transforms, const std::vector<std::vector<gfx::Vec3>> &positions) const;
 
 private:
     LoadedModel _model;

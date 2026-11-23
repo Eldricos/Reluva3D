@@ -310,6 +310,9 @@ int cmdAnimCheck(int argc, char **argv) {
     size_t moved = 0;
     size_t outOfRange = 0;
     size_t atRest = 0;
+    size_t vertexTracks = 0;
+    size_t vertexKeys = 0;   // keys at frame 0 of positions the mesh has
+    size_t vertexAtRest = 0; // of them, within a step and a half of the rest position
     size_t other = 0;
     // The models and the animations, the models by folder.
     std::map<std::string, std::vector<std::string>> models;
@@ -347,6 +350,29 @@ int cmdAnimCheck(int argc, char **argv) {
         for (const Animation::Track &t : animation.tracks()) {
             ++tracks;
             other += t.hasOther;
+            if (!t.vertexRuns.empty()) {
+                ++vertexTracks;
+                const bool known = hasModel && t.target < model.animationOrder().size() &&
+                                   model.animationOrder()[t.target] != Model::kNoNode &&
+                                   model.nodes()[model.animationOrder()[t.target]].mesh >= 0;
+                const float tolerance = 1.5f * std::max({t.vertexStep[0], t.vertexStep[1], t.vertexStep[2], 0.001f});
+                for (const Animation::VertexRun &run : t.vertexRuns) {
+                    if (!known || run.frames.empty() || run.frames[0] != 0)
+                        continue;
+                    const Model::Mesh &mesh =
+                        model.meshes()[size_t(model.nodes()[model.animationOrder()[t.target]].mesh)];
+                    for (size_t i = 0; i < run.positions.size(); ++i) {
+                        if (run.positions[i] >= mesh.positions.size())
+                            continue;
+                        ++vertexKeys;
+                        float most = 0;
+                        for (size_t axis = 0; axis < 3; ++axis)
+                            most =
+                                std::max(most, std::fabs(run.places[i][axis] - mesh.positions[run.positions[i]][axis]));
+                        vertexAtRest += most <= tolerance;
+                    }
+                }
+            }
             if (t.curve == Animation::Curve::kNone && t.rotations.empty() && t.scales.empty())
                 continue;
             ++moved;
@@ -365,9 +391,11 @@ int cmdAnimCheck(int argc, char **argv) {
         }
     }
     std::printf("%d failed; %d animations (%d without a model of their name), %zu tracks: %zu moving whole nodes "
-                "(%zu at nodes past their model's, %zu starting at their node's rest pose), %zu moving vertices or "
-                "textures; md5 %s\n",
-                failed, animations, withoutModel, tracks, moved, outOfRange, atRest, other, all.hexDigest().c_str());
+                "(%zu at nodes past their model's, %zu starting at their node's rest pose), %zu moving vertices "
+                "(%zu of %zu vertices at frame 0 at their rest position), %zu moving textures or with parts not read; "
+                "md5 %s\n",
+                failed, animations, withoutModel, tracks, moved, outOfRange, atRest, vertexTracks, vertexAtRest,
+                vertexKeys, other, all.hexDigest().c_str());
     return failed || animations == 0 ? 1 : 0;
 }
 

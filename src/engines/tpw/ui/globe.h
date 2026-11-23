@@ -60,8 +60,9 @@ private:
     std::vector<gfx::Mat4> turned(float turn) const;
 
     const FrontEndScene *_scene = nullptr;
-    std::vector<gfx::Mat4> _rest; // each mesh's place at the path's end
-    std::vector<int> _worldOf;    // each mesh's world, or −1 off the globe
+    std::vector<gfx::Mat4> _rest;                       // each mesh's place at the path's end
+    std::vector<std::vector<gfx::Vec3>> _restPositions; // and its positions
+    std::vector<int> _worldOf;                          // each mesh's world, or −1 off the globe
     gfx::Vec3 _centre{};
     float _radius = 1;
     std::array<gfx::Vec3, kWorlds> _gates{};

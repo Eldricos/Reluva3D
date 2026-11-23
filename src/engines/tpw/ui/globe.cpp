@@ -109,6 +109,7 @@ Error Globe::load(const FrontEndScene &scene) {
     const Model &model = scene.model().model;
     const auto &nodes = model.nodes();
     _rest = scene.meshTransforms(scene.frames());
+    _restPositions = scene.meshPositions(scene.frames());
 
     auto underGlobe = [&](size_t node) {
         for (int n = int(node); n >= 0; n = nodes[size_t(n)].parent)
@@ -227,7 +228,7 @@ soft3d::OrbitCamera Globe::cameraToGate(int world, float turn, float t, int w, i
 }
 
 void Globe::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera, float turn) const {
-    _scene->draw(screen, rasterizer, camera, turned(turn));
+    _scene->draw(screen, rasterizer, camera, turned(turn), _restPositions);
 }
 
 int Globe::worldAt(int x, int y, const soft3d::OrbitCamera &camera, float turn, int w, int h) const {

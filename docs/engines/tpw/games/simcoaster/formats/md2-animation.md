@@ -98,15 +98,46 @@ rotation.
 16 bytes a key: its frame (4 bytes), x, y and z. As many as the record
 says.
 
-### Vertices and textures
+### Vertices
 
-Not read yet. A vertex track is records of 20 bytes, each how many keys
-and how many of the mesh's vertices it moves (2 bytes each), then where
-the vertices' numbers, the keys' frames and the keys are; a key is 4
-bytes a vertex, three 10-bit fields near 512 (offsets, it seems, scaled
-by floats in the track's header) *(guessed)*. A texture track holds 2 ×
-2 matrices of floats over frames: the water rides' flowing textures,
-perhaps *(guessed)*.
+A mesh's single vertices move by its vertex track: its positions, some
+at a time, each set of them with keys of its own. At the record's 0x28:
+
+| Offset | Size | Field |
+|---|---|---|
+| 0x00 | 2 | 1 or 3 (1,438 and 1,282 of the tracks): not worked out |
+| 0x02 | 2 | How many runs |
+| 0x0C | 4 | Where the runs' records are: straight after this header, at its 0x34, in all |
+| 0x14 | 12 | The offset the keys are from: three floats, the mesh's middle |
+| 0x20 | 12 | The size of the keys' steps: three floats |
+
+A run, 20 bytes: how many keys and how many positions (2 bytes each),
+then where the positions' numbers, the keys' frames (2 bytes each) and
+the keys are, then 0. A key is 4 bytes a position, the key's positions
+in the run's order, then the next key's: three signed 10-bit numbers
+from the word's bottom, x, y and z, each the position as so many steps
+from the offset (−512 to 511 of them). The positions are in the mesh's
+own space; they replace the rest pose's, straight between keys
+*(inferred)*.
+
+How it was found: read with the numbers unsigned from the offset, the
+keys at frame 0 put 4,495 of 75,985 positions at their rest place; the
+bunting's misses were off by exactly its mesh's width (29.62 in x, 4.94
+in y), the offset in its middle; read signed, 54,632 of the 101,918
+positions keyed at frame 0 are at rest (within a step and a half),
+about as many as the whole-node tracks starting at rest; read a
+position's keys together instead, far fewer. Each track's first run
+names two numbers just past its mesh's positions (99 and 100 of the
+whale spout's 99): not worked out, left alone.
+
+The camera path's table opens so: its middle's vertices part from frame
+500, and the globe rises through the lit well beneath, as the recording
+shows ([front-end.md](../systems/front-end.md)).
+
+### Textures
+
+Not read yet. A texture track holds 2 × 2 matrices of floats over
+frames: the water rides' flowing textures, perhaps *(guessed)*.
 
 ## Behaviour
 
@@ -145,9 +176,11 @@ and two helpers not at all. The game moves them itself, it seems
 ## In Reluva
 
 `Animation` (`src/engines/tpw/formats/animation.cpp`) reads the
-tracks' positions, rotations and scales, and poses a node at a frame:
-Bezier or straight between position keys, the rotations' shortest turn
-between keys, the scales straight. `Model` keeps its node tree, which
+tracks' positions, rotations, scales and vertex runs, and poses a node
+at a frame: Bezier or straight between position keys, the rotations'
+shortest turn between keys, the scales straight; and a mesh's positions,
+straight between a run's keys (`meshPositions`, in
+`src/engines/tpw/ui/model_view.cpp`, gives every mesh's). `Model` keeps its node tree, which
 the tracks name. The viewer's Models page plays a model's animations
 (N), on and on, or runs the model by its script (R): the script machine
 against the stand-in for the park, the model posed by whatever animation
@@ -171,13 +204,17 @@ game-files test runs it (`tpw.gamedata.animations`).
   anim-check`; animations drawn frame by frame: the research centre's
   `c` grows it from the ground and brings its lightning bolt in, the
   octopus's raises it and its sign out of the water to where its idle
-  animation, played next by its script, takes them on without a jump. The unit tests
-  (`tpw.unit.formats`) pose a track built in the test between its keys.
+  animation, played next by its script, takes them on without a jump;
+  the camera path's table opens under the globe. The unit tests
+  (`tpw.unit.formats`) pose a track built in the test between its keys,
+  its vertices among them.
 
 ## Open questions
 
-- The vertex and texture tracks, the word of flag 0x20000, and the
-  easing runs.
+- The texture tracks, the word of flag 0x20000, and the easing runs.
+- The vertex track's first word (1 or 3), and the two numbers past the
+  mesh's positions in each first run: the mesh's box, perhaps
+  *(guessed)*.
 - 444 tracks name nodes past their model's count, all of them the end
   feature's (`endm1` to `endm3`, 111 in each world): perhaps they move a
   model other than `end.MD2`, as the rides' supplementary meshes
