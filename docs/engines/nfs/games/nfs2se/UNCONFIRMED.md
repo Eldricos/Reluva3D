@@ -29,10 +29,6 @@ None yet.
 - **The pause screens' palette** is the race's, `hud.fsh`'s: the 3dfx
   copies' colours agree with it ([fsh.md](../../formats/fsh.md), NFS II
   SE's pause screens). The software game, paused, would settle it.
-- **The 3dfx program's chroma key**: `nfs2sea.exe` sets `0x00FF00`
-  (`grChromakeyValue`, seen on the host), and its track pictures' see-through
-  green is `0x07C0` ([fsh.md](../../formats/fsh.md), NFS II SE). How the
-  two meet isn't worked out; the viewer's pages key out `0x07C0`.
 - **The 3dfx program's board**: a Voodoo Graphics, by its date (1997,
   before the Voodoo2). It passes its vertices snapped (`x + 3 << 18`,
   never taken off again) and so relies on the board reading only their
@@ -67,4 +63,11 @@ None yet.
 
 ## Settled
 
-None yet.
+- **The 3dfx program's see-through texels** (November 2026, on the
+  host): they aren't chroma-keyed. `nfs2sea.exe` uploads its track
+  pictures to Glide as ARGB 1555 (`grTexDownloadMipMap`, format 11),
+  each `0x07C0` texel made `0x0000`, alpha 0 and black, and draws with
+  an alpha test that keeps alpha above `0x10`. The chroma key it also
+  sets, `0x00FF00`, isn't what hides them: no texel it uploads is that
+  green ([fsh.md](../../formats/fsh.md), NFS II SE). The viewer's pages,
+  keying out `0x07C0`, show the same texels see-through.

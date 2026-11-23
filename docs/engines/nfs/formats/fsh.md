@@ -231,13 +231,15 @@ pictures).
   (`Tracks/se/trNN0.qfs`) are 16-bit 5:6:5, with no alpha; their
   see-through texels are `0x07C0`, a green found in no other picture
   (1,677,495 texels of 1,360 pictures). `nfs2sea.exe`, run on Reluva's
-  Glide stand-in, turns Glide's chroma key on and off as it draws a race
-  (`grChromakeyMode`), setting it each time to `0x00FF00`, pure green
-  (`grChromakeyValue`; `0` in the front end, where it stays off). As
-  5:6:5 that green would be `0x07E0`, not these texels' `0x07C0`: how
-  they meet (in the textures as the program uploads them, or the board's
-  comparison) isn't worked out. The race drawn on the stand-in shows the
-  trees and fences see-through.
+  Glide stand-in, uploads these pictures as ARGB 1555 (`grTexDownloadMipMap`,
+  format 11), each `0x07C0` texel made `0x0000` (alpha 0, black), and
+  draws with an alpha test keeping alpha above `0x10`
+  (`grAlphaTestFunction(GR_CMP_GREATER)`, `grAlphaTestReferenceValue(0x10)`):
+  that is what makes them see-through. It also turns Glide's chroma key
+  on and off in a race, at `0x00FF00` (`0` in the front end), but no
+  texel it uploads is that green (565 or 1555); what it keys, if
+  anything, isn't known. Counted over the uploads of a run into a race
+  at Proving Grounds (November 2026).
 - **Empty banks.** `huddata.viv` holds `hud.fsh`, `hud*.fsh` and
   `mapdots.fsh` as empty entries; the game's are the loose files beside
   it.
