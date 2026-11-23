@@ -353,6 +353,7 @@ int cmdRun(int argc, char **argv) {
         const size_t bang = m.find('!');
         missing[m.substr(0, bang)].push_back(m.substr(bang + 1));
     }
+    std::printf("turning by time: %s\n", game.turningByTime() ? "yes" : "no, LEGO1.DLL isn't as expected");
     std::printf("not stood in for: %zu functions\n", process.missingImports().size());
     for (const auto &[dll, names] : missing) {
         std::printf("  %s (%zu):", dll.c_str(), names.size());

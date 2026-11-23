@@ -1,0 +1,23 @@
+turning: e7179e7116425705 | stopped at frame 9501 after 3399354524 instructions, state eb6736b24d8c0d3f
+Players.gsi: a53af3d5ddecddb0
+frame_00001.tga: 16dc43ade655176c
+frame_00501.tga: c8979af185c560b5
+frame_01001.tga: e3592bbc885cc823
+frame_01501.tga: 19c214b7bf51f5f1
+frame_02001.tga: c04442b067e7fc59
+frame_02501.tga: 212b67188f1248d1
+frame_03001.tga: 0c1d2a12218297de
+frame_03501.tga: 9288a07a713acc0b
+frame_04001.tga: 3ce8810fdff19f70
+frame_04501.tga: 3ce8810fdff19f70
+frame_05001.tga: b777a1729156b6fb
+frame_05501.tga: 1481d7052b6ca58e
+frame_06001.tga: abbd1920508ad603
+frame_06501.tga: 8d90b9d633c3b7bf
+frame_07001.tga: ff5fed9419eb5e77
+frame_07501.tga: 94c43802792b01fd
+frame_08001.tga: 376abdbc206ff894
+frame_08501.tga: f633301ea2b0e476
+frame_09001.tga: 65687eb70b0ab5a2
+frame_09501.tga: 8234738cc2dc32d6
+turning by time: yes

@@ -24,6 +24,9 @@
 #               pizzeria on the Information Center's map, and out on the
 #               island to frame 7000, a frame kept every 1000 (run
 #               -fixed-clock)
+#   turning     the same, then the left arrow held 40 frames on the island:
+#               whether the player turns by time (the patch to LEGO1.DLL
+#               applied), and how far it turned, in its state and frames
 # A command that fails fails the step. What each prints (the game's folder
 # taken out) is checksummed, with a summary line, into a record, with a
 # checksum of each frame kept and of the save files written:
@@ -90,22 +93,42 @@ if(STEP STREQUAL "animations")
     record_run(animations "" legoisland dta-check "${game_dir}")
 endif()
 
-if(STEP STREQUAL "island")
+# The game run on a fixed clock from a new save folder by the route to
+# the island, to frame `until`, with `ARGN` more: its output, then each
+# frame kept and save file written.
+function(record_island name until)
     set(dir "${OUTPUT}/${STEP}")
     file(REMOVE_RECURSE "${dir}/save" "${dir}/shots")
     file(MAKE_DIRECTORY "${dir}/save" "${dir}/shots")
     # The clicks, at frames shown: the intro skipped, the register book
     # opened, A and B, its tick; Pepper's portrait dragged to the pizzeria.
-    record_run(island "stopped at frame" legoisland run "${game_dir}" -limit 0 -fixed-clock 20000 -until 7000
-               -save "${dir}/save" -shots "${dir}/shots" -every 1000
+    record_run(${name} "stopped at frame" legoisland run "${game_dir}" -limit 0 -fixed-clock 20000 -until ${until}
+               -save "${dir}/save" -shots "${dir}/shots"
                -click 60@320,240 -click 1500@330,350 -click 2000@323,306 -click 2400@168,130 -click 2500@196,130
-               -click 2700@524,136 -drag 4500@322,100:315,210,60)
+               -click 2700@524,136 -drag 4500@322,100:315,210,60 ${ARGN})
     file(GLOB kept "${dir}/shots/*.tga" "${dir}/save/*")
     list(SORT kept)
     foreach(file IN LISTS kept)
         get_filename_component(leaf "${file}" NAME)
         record_file("${leaf}" "${file}")
     endforeach()
+    set(record "${record}" PARENT_SCOPE)
+endfunction()
+
+if(STEP STREQUAL "island")
+    record_island(island 7000 -every 1000)
+endif()
+
+if(STEP STREQUAL "turning")
+    # Pepper out on the island, her arrival over, by frame 9000; the left
+    # arrow held from it, her view at 9001 and, turned, at 9501.
+    record_island(turning 9501 -every 500 -key 9000@left,40)
+    file(READ "${OUTPUT}/${STEP}/turning.txt" out)
+    string(REGEX MATCH "turning by time: [^\n]*" line "${out}")
+    if(NOT line MATCHES "yes")
+        message(FATAL_ERROR "LEGO1.DLL wasn't patched to turn by time: ${line}")
+    endif()
+    set(record "${record}${line}\n")
 endif()
 
 gamedata_end("${release}" "${slug}")

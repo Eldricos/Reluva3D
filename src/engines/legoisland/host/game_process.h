@@ -63,6 +63,8 @@ public:
      * the original does (systems/running.md); on unless set. Before load().
      */
     void setTurningByTime(bool on) { _turningByTime = on; }
+    /** Whether the player turns by time: asked for, and LEGO1.DLL as expected. After load(). */
+    bool turningByTime() const { return _turnedByTime; }
 
     /** Reads and loads LEGO1.DLL, then ISLE.EXE, from the game folder. */
     Error load();
@@ -84,7 +86,6 @@ public:
 
 private:
     std::optional<std::filesystem::path> mapPath(const std::string &windowsPath, bool forWriting) const;
-    void turnByTime();
 
     std::filesystem::path _dir;
     std::filesystem::path _saveDir;
@@ -97,6 +98,7 @@ private:
     const x86::Win32Process::Module *_dll = nullptr;
     const x86::Win32Process::Module *_exe = nullptr;
     bool _turningByTime = true;
+    bool _turnedByTime = false;
 };
 
 } // namespace reluva::legoisland

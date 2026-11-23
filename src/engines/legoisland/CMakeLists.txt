@@ -13,6 +13,7 @@ reluva_add_engine(legoisland
         formats/wdb.cpp
         host/game_process.cpp
         host/player.cpp
+        host/turning.cpp
         legoisland.cpp)
 
 # Its data viewer, in reluva-viewer only (docs/DEVELOPMENT.md, The data
@@ -49,10 +50,11 @@ reluva_add_engine_tests(legoisland
         ${tests}/unit/obj.cpp
         ${tests}/unit/scene.cpp
         ${tests}/unit/si.cpp
+        ${tests}/unit/turning.cpp
         ${tests}/unit/wdb.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.dta unit.import unit.obj unit.scene unit.si unit.wdb engine)
+        unit.detection unit.dta unit.import unit.obj unit.scene unit.si unit.turning unit.wdb engine)
 
 # Its engine test with the game's own files (tests/engines/legoisland/
 # gamedata.cmake; docs/DEVELOPMENT.md, Engine tests).
@@ -60,4 +62,4 @@ reluva_add_gamedata_test(legoisland
     GAME legoisland
     ENV RELUVA_LEGOISLAND
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release scripts world animations island)
+    STEPS release scripts world animations island turning)

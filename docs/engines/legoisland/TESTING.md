@@ -14,6 +14,7 @@ files):
 | `legoisland.unit.obj` | The SI files' 3D objects, built in the test: an animation with and without the camera, textures with old bytes after a name, a model taking a part's LODs, a path of two faces with a trigger; an object's data without its last 0 |
 | `legoisland.unit.scene` | The data viewer placing an animation's nodes: keys between and outside their times, a turn the short way round, a child moved and turned with its parent, a showing key hiding a node |
 | `legoisland.unit.si` | SI files, from one built in the test: the objects, a select, pieces split across buffers with a pad chunk and filler, rebuilding a `.bmp`, `.wav` and `.flc`, and an event |
+| `legoisland.unit.turning` | Turning by time, on the code it patches built in the test and run by the interpreter: unpatched, the same turn whatever the frame's time; patched, as unpatched at 20 frames a second, a third of it at 60, a quarter second's for a longer frame; code not as expected left alone |
 | `legoisland.unit.wdb` | `WORLD.WDB`, from one built in the test: a world, the shared textures (one with a second picture) and part, a part's LODs and meshes (corners given again, texture coordinates beside them), a model's animation and ROIs (one with an empty LOD, one taking a part's), and files cut short or with wrong offsets |
 | `legoisland.unit.dta` | A world's `*INF.DTA`, from one built in the test: its animations and their models; files cut short, too long, or of another version |
 | `legoisland.unit.import` | Importing: from the CD, from an install with the CD added after, what each note says is missing, and a folder with neither |
@@ -42,6 +43,7 @@ RELUVA_LEGOISLAND=/path/to/LEGO-Island ctest --test-dir build -L gamedata
 | `scripts` | Every SI file's header and events (`si-info`, `si-events`) |
 | `world` | `WORLD.WDB` read (`wdb-info`) |
 | `animations` | Every world's animation list, each animation found (`dta-check`) |
+| `turning` | The same route, then the left arrow held 40 frames once Pepper's arrival is over (frame 9000): that `LEGO1.DLL` was patched to turn by time, and how far she turned, in the state and the frames at 9001 and 9501 |
 | `island` | The game run on a fixed clock from a new save folder: the intro skipped, a player registered, Pepper dragged to the pizzeria, out on the island to frame 7000; its state, a frame every 1000 and its save files, as checksums (`run -fixed-clock 20000 -until 7000`) |
 
 The records, in `tests/engines/legoisland/data/gamedata/english-1.0/`,
