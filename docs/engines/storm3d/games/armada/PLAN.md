@@ -68,8 +68,9 @@ these phases start from, is in [formats/install.md](formats/install.md).
    frame, and moves in play: on a parabola as it zooms, turning, and
    scrolling ([systems/camera.md](systems/camera.md)), with the planets'
    glows, the emitters' particles, and the maps' own lights as the
-   game's draws show them. Next: the shroud, and maps with no lights of
-   their own.
+   game's draws show them; the original's skirmish runs in the emulator,
+   and its frame matches the Maps page's. Next: the shroud, and the
+   ships, lit and placed at their start positions.
 6. **The front end:** the shell's screens, the opening movie, game setup,
    options, loading and saving.
 7. **Rules:** units from their object definitions: movement and

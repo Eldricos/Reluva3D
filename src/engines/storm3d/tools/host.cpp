@@ -188,7 +188,9 @@ void writeDraws(const std::vector<x86::DirectX::Draw> &draws, const std::filesys
         const x86::DirectX::Draw &d = draws[i];
         out << "draw " << i << " primitive " << d.primitive << " fvf " << text::format("%x", d.fvf) << " vertices "
             << (d.stride ? d.vertices.size() / d.stride : 0) << " indices " << d.indices.size() << " texture "
-            << text::format("%x", d.texture) << ' ' << d.textureWidth << 'x' << d.textureHeight << '\n';
+            << text::format("%x", d.texture) << ' ' << d.textureWidth << 'x' << d.textureHeight << " blend "
+            << d.srcBlend << ' ' << d.destBlend << " depth " << (d.depthTest ? "test" : "-")
+            << (d.depthWrite ? " write" : "") << '\n';
         const bool known = d.fvf == 0x44 || d.fvf == 0x144;
         for (size_t at = 0; d.stride && at + d.stride <= d.vertices.size(); at += d.stride) {
             const uint8_t *v = d.vertices.data() + at;

@@ -57,7 +57,8 @@ SodMeshes::Built SodMeshes::build(const SodModel &model, int level) {
             continue;
         const SodModel::Mesh &mesh = model.meshes[size_t(node.mesh)];
         // Normals by vertex, the faces' around it added up, for smooth
-        // shading.
+        // shading. The faces wind so that (c - a) x (b - a) points out: the
+        // other way, 4first's moon is dark where the game's draws light it.
         std::vector<gfx::Vec3> normals(mesh.vertices.size(), gfx::Vec3{0, 0, 0});
         for (const SodModel::Group &g : mesh.groups)
             for (const SodModel::Face &f : g.faces) {
@@ -66,7 +67,7 @@ SodMeshes::Built SodMeshes::build(const SodModel &model, int level) {
                 const auto &c = mesh.vertices[f.vertex[2]];
                 const gfx::Vec3 u{b[0] - a[0], b[1] - a[1], b[2] - a[2]};
                 const gfx::Vec3 v{c[0] - a[0], c[1] - a[1], c[2] - a[2]};
-                const gfx::Vec3 n{u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]};
+                const gfx::Vec3 n{v[1] * u[2] - v[2] * u[1], v[2] * u[0] - v[0] * u[2], v[0] * u[1] - v[1] * u[0]};
                 for (const uint16_t k : f.vertex)
                     for (int d = 0; d < 3; ++d)
                         normals[k][size_t(d)] += n[size_t(d)];
@@ -386,7 +387,10 @@ const SodMeshes::Built *SodMeshes::model(const std::string &name) {
 }
 
 void SodMeshes::drawPart(const Part &part, const gfx::Mat4 &place, bool behind) const {
-    const bool additive = part.drawMode == "additive" || part.drawMode == "wormhole";
+    // A background is added up, onto the frame cleared black: the game draws
+    // MbgKlin3's star sphere (one, zero) and its nebula's cube over it (one,
+    // one), which comes to the same.
+    const bool additive = behind || part.drawMode == "additive" || part.drawMode == "wormhole";
     gfx::DrawCall call;
     call.mesh = part.mesh;
     call.firstIndex = part.firstIndex;
@@ -394,7 +398,7 @@ void SodMeshes::drawPart(const Part &part, const gfx::Mat4 &place, bool behind) 
     call.model = gfx::multiply(place, part.world);
     call.texture = part.texture;
     call.color = part.colour;
-    // Which way the faces wind isn't known yet: both sides drawn.
+    // Both sides drawn: whether the game culls the back ones isn't known.
     call.state.cull = gfx::Cull::kNone;
     if (additive) {
         call.state.src = gfx::Blend::kOne;

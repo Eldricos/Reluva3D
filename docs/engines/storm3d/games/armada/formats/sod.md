@@ -122,7 +122,14 @@ translation in its last row *(inferred)*), and its mesh's name.
   198, some as far as 1.4 times the model's size outside it.
 - **Levels of detail.** The nodes named `lod<n>` hold the levels: in all
   83 models that have them, the higher the number, the more vertices.
-- **Faces' winding,** which side faces out, isn't known yet.
+- **Faces' winding.** A face's vertices a, b, c go so that
+  (c − a) × (b − a), in the file's left-handed coordinates, points out:
+  for 88,187 of all the models' faces it points away from its mesh's
+  middle, for 28,350 towards it (the rest of meshes that aren't
+  convex). The planet `MKrios`'s 480 faces all point out, and the
+  backgrounds' star sphere `ysp1gn1b`'s 440 all in, as a sky seen from
+  inside would; lit the other way, `4first.bzn`'s moon is dark where the
+  game's draws light it ([bzn.md](bzn.md#lighting)).
 - **Handedness.** The coordinates are left-handed, as Direct3D's are:
   seen from above with x to the right, z runs up. The maps settle it:
   their pictures and start positions put z up
@@ -142,8 +149,8 @@ its mesh hasn't.
   diffuse colours, lit from one direction; `additive` and `wormhole`
   meshes are added over the rest, then the sprite nodes' sprites
   ([spr.md](spr.md#emitters-and-sprite-nodes)), additive, in their
-  animation's colour as it changes. Both sides of every face are drawn,
-  while the winding isn't known. z is reversed for the renderer, which
+  animation's colour as it changes. Both sides of every face are drawn:
+  whether the game culls the back ones isn't known. z is reversed for the renderer, which
   is right-handed, so a model isn't mirrored. Emitters' particles are
   drawn as `emitter.spr` describes them ([spr.md](spr.md#emitters-and-sprite-nodes)),
   worked out from the clock alone as if they'd always been running; the
@@ -176,4 +183,4 @@ its mesh hasn't.
 - 14 textures that meshes name aren't in the install (`nebu4`, `soft`,
   `Mplanet`), and 134 meshes name none: the game may give those their
   textures otherwise.
-- Which way faces wind, so which side the game culls.
+- Whether the game culls faces' back sides.

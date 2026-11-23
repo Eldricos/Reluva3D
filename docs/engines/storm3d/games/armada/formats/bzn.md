@@ -69,7 +69,7 @@ The first 17 fields, the same types in every map:
 | 2 | text (100) | The same name again (in `finale1.bzn`, without `.bzn`) |
 | 3–8 | float × 6 | The map's area: x from and to, y, z. 0 to 6400 across and deep (`2duel.bzn`: 12800 × 3200), −28.5 to 105.5 high. Most objects lie within it; scenery can lie far outside (`borg1.bzn`'s reach x 10,641) *(inferred)* |
 | 9 | flag | 0 in every map |
-| 10–12 | float × 3 | 0 in most maps; 0.267 grey in `fed1.bzn`, a bluish 0.37, 0.39, 0.49 in `borg1.bzn` perhaps the light's colour *(guessed)* |
+| 10–12 | float × 3 | The ambient light's colour ([Lighting](#lighting)): 0 in 37 of the 49 maps, 0.267 grey in `fed1.bzn`, a bluish 0.37, 0.39, 0.49 in `borg1.bzn` |
 | 13 | text (100) | The background's model, one of 15: `mbgstars.sod`, `mbgborg.sod`... |
 | 14 | text (128) | The tech tree, from `assets.zfs`: `fed1.tt` |
 | 15 | text (128) | The player's race: `federation` |
@@ -146,9 +146,19 @@ from memory ([systems/camera.md](../systems/camera.md)), have the colour
 where n is the vertex's direction from the planet's centre: on average
 within 0.014 (of 1), at worst 0.094. Fitted channel by channel instead,
 the lights come out 1.69, 1.61 and 1.60 times, the ambient 0.47 to 0.50:
-so one factor fits about as well. Where 1.75 comes from isn't known, nor
-whether ships are lit the same way, nor how a map without directional
-lights is lit (most maps', and their settings' colour, are 0).
+so one factor fits about as well. The planet's darkest vertices, lit by
+neither light, are 119 of 255: 1.75 × 0.267, the ambient alone.
+
+A skirmish on `4first.bzn` (no ambient; lights (1, 0.737, 0.608) and
+0.886 grey, both shining down) agrees: 164 of the lava moon's 198
+vertices in its frame 4,100 are white, the sum over 1 and held there.
+Every one of the 49 maps has directional lights. Where 1.75 comes from
+isn't known, nor whether ships are lit the same way.
+
+The map's background model isn't lit: in the same frame its vertices are
+its material's diffuse colour (255, 253, 255). Its star sphere is drawn
+first, with depth tested but not written, blended one to zero, and its
+nebula's cube faces after it added (one, one).
 
 ### Start positions (`.mdf`)
 
@@ -180,7 +190,8 @@ as the file says.
   model where its transform puts it, with its sprites (the nebulae are
   sprites only) and the sprite node named for its definition (a planet's
   glow, [spr.md](spr.md#emitters-and-sprite-nodes)), and the map's background model around the eye, behind
-  everything (how the game places the background isn't known). An
+  everything, added up and unlit, as above (how the game places and
+  turns the background isn't known). An
   object's model is named for its definition, unless the definition says
   `dont_load_SOD = 1`, and scaled by its `scaleSOD` *(inferred)*: the
   traced mission loads `fente.SOD` for `fente`. N goes from ship to ship,
@@ -188,8 +199,9 @@ as the file says.
   does, and G as the game does on starting
   ([systems/camera.md](../systems/camera.md)).
 
-  A map is lit by its own lights, as above (`MapPage::lightingOf`); one
-  without directional lights by the page's own light.
+  A map is lit by its own lights, as above (`MapPage::lightingOf`). Set
+  beside the game's skirmish on `4first.bzn` and its mission
+  "Premonitions", the planets, moon and backgrounds match.
 
   An asteroid field (`mafield`, `classLabel "asteroidfield"`) has no
   model: its definition gives 10 to 15 asteroids within a radius of 100.

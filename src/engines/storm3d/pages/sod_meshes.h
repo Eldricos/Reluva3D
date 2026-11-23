@@ -113,7 +113,7 @@ public:
      * Draws a model placed by `place`: the opaque parts, then the additive
      * ones and the sprites over them.
      * @param behind drawn behind whatever comes after (a map's background):
-     *               no depth tested or written
+     *               added up, unlit, and no depth tested or written
      */
     void draw(const Built &built, const gfx::Mat4 &place, bool behind = false) const;
     /** The same for many: each model with its place. */

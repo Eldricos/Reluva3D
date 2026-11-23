@@ -64,8 +64,9 @@ so they're added in the order the program needs them.
 - **Where it stops, and why.**
 - **A frame's draws**, with `-draws <frame> <file>`: each Direct3D draw
   that makes it, with its texture (where its pixels are, and its size)
-  and its vertices as Storm3D gives them, already on the screen: x, y,
-  depth, 1/w, colour, and texture coordinates. Storm3D lights its
+  its blending (the D3DBLEND factors, 0 when off) and depth test and
+  write, and its vertices as Storm3D gives them, already on the screen:
+  x, y, depth, 1/w, colour, and texture coordinates. Storm3D lights its
   vertices itself, so their colours are its lighting.
 - **Its memory**, with `-dump <frame> <file>` or `-dump-ms <ms> <file>`
   (as often as wanted): the whole of it, written as that frame is shown
