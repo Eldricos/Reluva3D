@@ -2,16 +2,21 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // LEGO Loco's unit tests: a copy's files, the resource names in the
-// executable's string table, and how a picture is cut into frames.
+// executable's string table, how a picture is cut into frames, and the
+// save folder's LEGO.INI.
 
 #include "engines/legoloco/formats/object_definition.h"
 #include "engines/legoloco/game_files.h"
+#include "engines/legoloco/host/game_process.h"
 
 #include "tests/engines/legoloco/install.h"
 #include "tests/support/test.h"
 
 #include <filesystem>
+#include <fstream>
 #include <map>
+#include <sstream>
+#include <string>
 
 using namespace reluva;
 using namespace reluva::legoloco;
@@ -58,6 +63,31 @@ void testFrameWidth() {
     CHECK(frameWidth(64, 0) == 64);
 }
 
+std::string readText(const std::filesystem::path &path) {
+    std::ifstream in(path, std::ios::binary);
+    std::ostringstream s;
+    s << in.rdbuf();
+    return s.str();
+}
+
+// The save folder's LEGO.INI: made from the copy's, its folders C:'s; then
+// kept, with what was written into it, its folders made C:'s again.
+void testSavedIni(const std::filesystem::path &tmp) {
+    const std::filesystem::path game = tmp / "game";
+    const std::filesystem::path save = tmp / "save";
+    std::filesystem::create_directories(game / "Exe");
+    std::ofstream(game / "Exe" / "LEGO.INI", std::ios::binary)
+        << "[DIRECTORIES]\r\nRes=d:\\loco\\art-res\r\n[Locale]\r\nLanguage=DANISH\r\n";
+    // Without the program the load stops, the INI written already.
+    CHECK(bool(GameProcess(game, save).load()));
+    const std::filesystem::path ini = save / "Exe" / "LEGO.INI";
+    CHECK(readText(ini) == "[DIRECTORIES]\r\nRes=C:\\art-res\r\n[Locale]\r\nLanguage=DANISH\r\n");
+    std::ofstream(ini, std::ios::binary | std::ios::app) << "[USER]\r\nName=Bea\r\n";
+    std::ofstream(game / "Exe" / "LEGO.INI", std::ios::binary) << "[Locale]\r\nLanguage=ENGLISH\r\n";
+    CHECK(bool(GameProcess(game, save).load()));
+    CHECK(readText(ini) == "[DIRECTORIES]\r\nRes=C:\\art-res\r\n[Locale]\r\nLanguage=DANISH\r\n[USER]\r\nName=Bea\r\n");
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -67,4 +97,5 @@ static const reluva::test::Suite
                {"open", [](const std::filesystem::path &tmp) { testOpen(tmp); }},
                {"no executable", [](const std::filesystem::path &tmp) { testNoExecutable(tmp); }},
                {"frame width", [](const std::filesystem::path &) { testFrameWidth(); }},
+               {"saved ini", [](const std::filesystem::path &tmp) { testSavedIni(tmp / "ini"); }},
            });

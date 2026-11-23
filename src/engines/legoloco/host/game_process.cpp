@@ -53,12 +53,19 @@ GameProcess::GameProcess(std::filesystem::path gameDir, std::filesystem::path sa
 // The game finds its files by LEGO.INI's [DIRECTORIES] and [Video], which
 // name the folder it was installed in (or the CD's d:\loco). The save
 // folder's copy, which the program reads first, names C:'s instead; the
-// rest (the language) is the player's own.
+// rest is the player's own: the copy's at first (the language), then what
+// the game and the player keep there.
 Error GameProcess::writeIni() {
     std::string text;
-    if (const auto own = fs::findFile(_dir, "Exe/LEGO.INI"))
+    const std::filesystem::path saved = _saveDir / "Exe" / "LEGO.INI";
+    std::error_code exists;
+    if (std::filesystem::is_regular_file(saved, exists)) {
+        if (Error err = readFile(saved, text))
+            return err;
+    } else if (const auto own = fs::findFile(_dir, "Exe/LEGO.INI")) {
         if (Error err = readFile(*own, text))
             return err;
+    }
     std::istringstream in(text);
     std::ostringstream out;
     std::string line;
