@@ -53,13 +53,13 @@ specular, and a power from 0 to 300, mostly 50 *(inferred)*; the byte is
 mesh's groups of faces name them (`base_borg`, `team_Bglow`); the
 executable says it reads "a lighting material palette (material.sod)".
 
-The byte 0 marks what isn't lit *(inferred)*: of the 325 materials with
-it, nearly all are glows, engines, bussards, ore and backgrounds
-(`glow_white`, `warp_fed`, `background`), and the game draws a map's
-background in its material's colour whatever the lights
-([bzn.md](bzn.md#lighting)); the hulls are 1 or 2 (`base_fed` 2,
-`base_borg` 1). A material named `team_...` is drawn in the player's
-colour ([bzn.md](bzn.md#starting-units)).
+Of the 325 materials with the byte 0, nearly all are glows, engines,
+bussards, ore and backgrounds (`glow_white`, `warp_fed`, `background`);
+the hulls' are 1 or 2 (`base_fed` 2, `base_borg` 1). What it means isn't
+known: it isn't that they're unlit, as the starbase's `glow_white1`
+vertices in the game's draws grow brighter the more light they face
+([bzn.md](bzn.md#lighting)). A material named `team_...` is drawn in the
+player's colour ([bzn.md](bzn.md#starting-units)).
 
 ### Nodes
 
@@ -160,7 +160,7 @@ its mesh hasn't.
   `src/engines/storm3d/pages/model_page.h`, its drawing in `SodMeshes`,
   shared with the Maps page) draws each model turning, its
   most detailed level, with its textures and the lighting materials'
-  diffuse colours, lit from one direction (but not a material of mode 0),
+  diffuse colours, lit from one direction,
   without its `borg` parts; `additive` and `wormhole`
   meshes are added over the rest, then the sprite nodes' sprites
   ([spr.md](spr.md#emitters-and-sprite-nodes)), additive, in their

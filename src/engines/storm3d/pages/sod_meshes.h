@@ -33,7 +33,6 @@ public:
         std::array<float, 4> colour{1, 1, 1, 1};
         std::string drawMode;
         bool team = false; // its material's named team_...: drawn in the team's colour
-        bool lit = true;   // its material's mode isn't 0 (glows, engines, backgrounds): those aren't lit
     };
     /** A sprite node's sprite, placed in the model (SpriteTable::spriteNodeFor). */
     struct SpritePart {

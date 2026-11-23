@@ -103,11 +103,9 @@ SodMeshes::Built SodMeshes::build(const SodModel &model, int level) {
                 }
             part.indexCount = uint32_t(indices.size()) - part.firstIndex;
             for (const SodModel::LightingMaterial &m : model.materials)
-                if (m.name == g.material) {
+                if (m.name == g.material)
                     part.colour = {std::min(1.0f, m.diffuse[0]), std::min(1.0f, m.diffuse[1]),
                                    std::min(1.0f, m.diffuse[2]), 1};
-                    part.lit = m.mode != 0;
-                }
             part.team = text::equalsIgnoreCase(std::string_view(g.material).substr(0, 5), "team_");
             parts.push_back(part);
         }
@@ -431,7 +429,7 @@ void SodMeshes::drawPart(const Part &part, const gfx::Mat4 &place, bool behind) 
         call.state.src = gfx::Blend::kOne;
         call.state.dst = gfx::Blend::kOne;
         call.state.depthWrite = false;
-    } else if (part.lit) {
+    } else {
         call.rgbSource = gfx::ColorSource::kLighting;
         call.ambientLight = _lighting.ambient;
         for (size_t i = 0; i < _lighting.lights.size() && i < 3; ++i) {
