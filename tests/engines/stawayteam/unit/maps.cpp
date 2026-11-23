@@ -1772,6 +1772,29 @@ void testProcesses() {
     CHECK(screen.cursorName() == "Rifle Obscured");
     pointAt(600.0f, 300.0f);
     CHECK(screen.cursorName() == "Generic Use");
+
+    // Reach is any chosen officer's whose chosen item is of the same kind:
+    // a place beyond Ann's rifle but by Bob's is in reach once he's chosen
+    // too with his rifle (0x5b6580).
+    TeamMember bob;
+    bob.firstName = "Bob";
+    bob.inventory = {{"Rifle", -1}};
+    MapScreen pair(data, rules, map, options, 0, {ann, bob});
+    const MapScreen::Officer &a2 = pair.officers()[0];
+    const MapScreen::Officer &b2 = pair.officers()[1];
+    pair.choose(0);
+    pair.chooseItem(0, 3);
+    pair.chooseItem(1, 0);
+    const float far = b2.x - a2.x > 0.0f ? b2.x + 20.0f : b2.x - 20.0f;
+    CHECK(std::abs(far - a2.x) > 70.0f);
+    pair.moveCamera(far, b2.y);
+    mv.mouseX = int(far - pair.mapX(0));
+    mv.mouseY = int(b2.y - pair.mapY(0));
+    pair.handleEvent(mv, nullptr, now);
+    CHECK(pair.cursorName() == "Rifle Obscured");
+    pair.choose(1, true);
+    pair.handleEvent(mv, nullptr, now);
+    CHECK(pair.cursorName() == "Rifle");
     // Zoom Out held a second shows 30 steps more of the map, then no more
     // than 1.5 times; Reset; Zoom In held a little, let go, eases back.
     screen.holdZoom(-1, true);

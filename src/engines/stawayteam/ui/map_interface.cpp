@@ -195,16 +195,26 @@ std::string MapScreen::cursorName() {
                 return named(processCursor(process));
         return "Pointer";
     }
-    // Within its Item Range of the officer, the view's foreshortening
-    // counted (any reach if it has none), and in their sight; out of sight
-    // is told only for one that Shows Obscured Cursor (0x5c7940, 0x5c6d30).
+    // Within its Item Range, the view's foreshortening counted (any reach
+    // if it has none), of any chosen officer whose chosen item is of the
+    // same kind (0x5c7940, 0x5b6580), and in sight of one of those; out
+    // of sight is told only for one that Shows Obscured Cursor (0x5c6d30).
     bool inReach = true;
     bool hidden = false;
     if (def->range > 0.0f) {
-        const float dx = tx - o.x;
-        const float dy = (ty - o.y) / ParticleSystem::kYToX;
-        inReach = dx * dx + dy * dy <= def->range * def->range;
-        hidden = def->showObscured && (!inReach || !clearSight(o.x, o.y, tx, ty));
+        bool seen = false;
+        inReach = false;
+        for (const Officer &holder : _officers) {
+            if (&holder != &o && (!holder.chosen || itemOf(holder) != def))
+                continue;
+            const float dx = tx - holder.x;
+            const float dy = (ty - holder.y) / ParticleSystem::kYToX;
+            if (dx * dx + dy * dy > def->range * def->range)
+                continue;
+            inReach = true;
+            seen = seen || clearSight(holder.x, holder.y, tx, ty);
+        }
+        hidden = def->showObscured && !seen;
     }
     if (over) {
         // Over something (0x43c7e0): in reach, its process for the item's

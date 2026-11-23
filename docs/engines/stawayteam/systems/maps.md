@@ -241,13 +241,21 @@ Cursor` is an old key: read from an item file that has it, it's taken as
 a number into the definition (`0x5dacf0`); no file has it, and no cursor
 is shown for a place out of range.
 
-Which is shown is asked of the parts' process lists (`CProcessListAI`'s
-`0x43c7e0`, `0x43cb90`, `0x43cc60`). In reach means within the item's
-`Item Range` of a chosen officer, up and down counted 1.403 times (any
-reach without a range); out of sight, that no chosen officer has it in
-reach with nothing between, which counts only for an item that Shows
-Obscured Cursor (`0x5c7940`, `0x5c6d30`; `Need LOS` would make sight a
-part of reach, but no item has it).
+Which is shown is asked each frame (`0x5bf440`): over a part of the
+interface, that part's cursor; otherwise one of four functions of the
+process lists' cursor object (`0xb8a82c`, its table at `0x62dca4`), by
+what's under the mouse and whether the player's chosen officers have an
+item chosen (`0x5c8fe0`): over a part with an item (`0x43c7e0`), over a
+part without (`0x43cb90`), over nothing with an item (`0x43cc60`), and
+over nothing without one, or with nobody chosen (`0x43cd00`), which
+gives none. None (-1) is sent as the player's cursor (`0x55edb0`), and
+the pointer shows. In reach means within the item's `Item Range` of a
+chosen officer whose chosen item is of the same kind, any of them
+(`0x5c7940`, going through the chosen at `0x5b6580`), up and down
+counted 1.403 times (any reach without a range); out of sight, that
+none of those has it in reach with nothing between, which counts only
+for an item that Shows Obscured Cursor (`0x5c6d30`; `Need LOS` would
+make sight a part of reach, but no item has it).
 
 - **Over the ground, an item chosen:** one used `Only Execute If
   Hovering` (the tricorders, the hypospray: 10 items) its Can't Use
@@ -1247,10 +1255,7 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 
 ## Open questions
 
-- **The interface:** what the inventory's places are, and, for the
-  cursors, what calls the process lists' three cursor functions and
-  what it shows when they give none, and whether reach is any chosen
-  officer's or the one's whose item it is (Reluva: the one's).
+- **The interface:** what the inventory's places are.
 - **Processes:** how the program chooses one, walks to it, and when the
   officer must be in range.
 - **Frames:** how many a second the program's camera and zoom took
