@@ -1,3 +1,6 @@
 # Binary test data: never converted.
 *.tga binary
 *.pk3 binary
+
+# Fonts: never converted.
+*.ttf binary

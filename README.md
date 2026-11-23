@@ -330,8 +330,8 @@ src/
 tests/               the tests (reluva-tests) and their data: shared code's in common/, each
                      engine's in engines/<engine>/
 tools/               scripts for working on Reluva (docs checks, moving files)
-third_party/         outside code built in, each with its licence (minimp3, stb_image,
-                     stb_truetype)
+third_party/         outside code and data built in, each with its licence (minimp3,
+                     stb_image, stb_truetype, the Liberation Sans font)
 docs/                documentation: shared in docs/common/, each engine's in docs/engines/<engine>/
 ```
 
@@ -388,8 +388,9 @@ license's text, as the Free Software Foundation publishes it; it isn't
 changed. Each source file says the same in its first lines
 (`SPDX-License-Identifier: GPL-3.0-or-later` and the copyright line), as
 the license's "How to Apply These Terms" asks; `tools/check-headers.py`
-checks that every file does. Code in `third_party/` keeps its own
-licenses.
+checks that every file does. Code and fonts in `third_party/` keep their
+own licenses: the Liberation Sans font is under the SIL Open Font License
+1.1, which lets it be built into Reluva.
 
 The Indeo 5 decoder (`src/video/indeo5*`) is derived from FFmpeg's
 LGPL 2.1+ decoder by Maxim Poliakovski, used under the GPL 3 as the LGPL

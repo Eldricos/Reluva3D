@@ -105,11 +105,36 @@ void testDrawing(const stdfs::path &tmp) {
     f.gdi("SelectObject", {f.dc, f.gdi("GetStockObject", {8})}); // NULL_PEN
     CHECK(f.gdi("Ellipse", {f.dc, 20, 0, 30, 10}) == 1);
     CHECK(f.pixel(25, 5) == 0xf800 && f.pixel(20, 0) == 0 && f.pixel(29, 9) == 0);
-    // DrawTextA with DT_CALCRECT measures without drawing: 3 characters of
-    // the built-in font, 6 pixels each, 11 high.
+    // DrawTextA with DT_CALCRECT measures without drawing: in a fixed
+    // font (ANSI_FIXED_FONT), Reluva's own, 3 characters 6 pixels each, 11
+    // high.
     f.cpu.writeString(f.mem + 256, "abc", 4);
+    f.gdi("SelectObject", {f.dc, f.gdi("GetStockObject", {11})});
     CHECK(f.user("DrawTextA", {f.dc, f.mem + 256, 0xffffffffu, f.rect(0, 0, 0, 0), 0x400}) == 11);
     CHECK(f.cpu.read32(f.mem + 8) == 18 && f.cpu.read32(f.mem + 12) == 11);
+    // In Arial, drawn in Liberation Sans: a cell of 12, its letters drawn
+    // at an em of 10 (bold, 18 wide), the regular no wider.
+    f.cpu.writeString(f.mem + 300, "Arial", 6);
+    auto arial = [&](uint32_t weight) {
+        return f.gdi("CreateFontA", {12, 0, 0, 0, weight, 0, 0, 0, 1, 0, 0, 2, 0, f.mem + 300});
+    };
+    f.gdi("SelectObject", {f.dc, arial(800)});
+    CHECK(f.user("DrawTextA", {f.dc, f.mem + 256, 0xffffffffu, f.rect(0, 0, 0, 0), 0x400}) == 12);
+    const uint32_t bold = f.cpu.read32(f.mem + 8);
+    f.gdi("SelectObject", {f.dc, arial(400)});
+    CHECK(f.user("DrawTextA", {f.dc, f.mem + 256, 0xffffffffu, f.rect(0, 0, 0, 0), 0x400}) == 12);
+    const uint32_t regular = f.cpu.read32(f.mem + 8);
+    CHECK(bold == 18 && regular <= bold);
+    // Drawn: some pixels in the text's colour, none elsewhere.
+    f.gdi("SetTextColor", {f.dc, kBlue});
+    f.gdi("SetBkMode", {f.dc, 1}); // TRANSPARENT
+    std::memset(f.cpu.memory().data() + f.target.memory, 0, 64 * 16);
+    CHECK(f.user("DrawTextA", {f.dc, f.mem + 256, 0xffffffffu, f.rect(0, 0, 32, 16), 0}) == 12);
+    int inked = 0;
+    for (int y = 0; y < 16; ++y)
+        for (int x = 0; x < 32; ++x)
+            inked += f.pixel(x, y) == 0x001f;
+    CHECK(inked > 10 && f.pixel(31, 15) == 0);
 }
 
 // A 4 by 2 8-bit BMP, its pixels i = x + 4y coloured (i * 30, 0, 0).

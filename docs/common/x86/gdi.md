@@ -42,10 +42,23 @@ bitmap's, a DirectDraw surface's (its `GetDC`,
   reported).
 - **Text:** `DrawTextA`, with line feeds, word breaks, `&` prefixes,
   centring and right alignment, a single line centred upright or at the
-  bottom, and `DT_CALCRECT`. It's drawn in Reluva's own small font
-  (`src/graphics/font.h`), scaled to a whole multiple near the font's
-  height: Windows' fonts aren't Reluva's to have, so text looks
-  different, and takes different room.
+  bottom, and `DT_CALCRECT`. Windows' fonts aren't Reluva's to have, so:
+  - a proportional font (Arial, the System font, and every face but the
+    fixed ones) is drawn in Liberation Sans (`third_party/liberation/`,
+    built into Reluva), whose letters are as wide as Arial's in its
+    design, bold from weight 600, unsmoothed as Windows 98 draws text
+    (a pixel set where the letter covers half of it or more);
+  - its height as `LOGFONT` has it: above 0 the cell, below 0 the em;
+    lines are the cell apart; the letters are drawn at 0.93 of the cell,
+    as Windows' hinted Arial is narrower at the sizes programs use than
+    Liberation Sans in the same cell *(inferred: matched to a recording
+    of LEGO Loco, whose lines then break as there)*;
+  - a fixed-pitch font (`FIXED_PITCH`, Courier, Fixedsys, Terminal,
+    Lucida Console, and the stock `OEM_FIXED_FONT`, `ANSI_FIXED_FONT`
+    and `SYSTEM_FIXED_FONT`) in Reluva's own small font
+    (`src/graphics/font.h`), scaled to a whole multiple near its height.
+  The stock `SYSTEM_FONT`, a device context's own, is bold, with a cell
+  of 16.
 - **Bitmaps from files:** `LoadImageA` with `LR_LOADFROMFILE`, stretched
   to the size asked if one is. Bitmaps, icons and cursors from a
   program's resources aren't loaded.
@@ -65,10 +78,12 @@ drawn.
 
 - **Where the facts come from:** Microsoft's documentation of each
   function and structure, and Windows 98's standard colour scheme for the
-  system colours.
+  system colours. Liberation Sans's sizes against Arial's from a
+  recording of LEGO Loco, played on Windows.
 - **How it was checked:** `tests/common/gdi.cpp` (`common.unit.gdi`)
   makes objects and selects them, fills, draws lines, pixels and an
-  ellipse into a 16-bit target, measures text, loads an 8-bit bitmap from
+  ellipse into a 16-bit target, measures text in a fixed font and in
+  Arial, draws it, loads an 8-bit bitmap from
   a drive and stretches it across, and draws through a window's DC with
   and without a screen, and through a window's own, within its client
   area; a bordered window's frame is painted as it's shown, and the

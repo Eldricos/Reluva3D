@@ -5,6 +5,7 @@
 # renderer interface (gfx3d.h) with the software one (soft3d/), GPU compute
 # (gpu_compute.h), and the Glide stand-in's pipeline (glide/).
 add_library(reluva_graphics STATIC
+    builtin_fonts.cpp
     cursor.cpp
     draw.cpp
     font.cpp
@@ -24,5 +25,8 @@ add_library(reluva_graphics STATIC
     glide/software_renderer.cpp
     glide/textures.cpp)
 target_link_libraries(reluva_graphics PUBLIC reluva_common PRIVATE reluva_warnings)
+# Liberation Sans (third_party/liberation/, see its README), built in.
+reluva_embed(reluva_graphics kLiberationSansRegular ${PROJECT_SOURCE_DIR}/third_party/liberation/LiberationSans-Regular.ttf)
+reluva_embed(reluva_graphics kLiberationSansBold ${PROJECT_SOURCE_DIR}/third_party/liberation/LiberationSans-Bold.ttf)
 # stb_truetype (third_party/, see its README) as a system include.
 target_include_directories(reluva_graphics SYSTEM PRIVATE ${PROJECT_SOURCE_DIR}/third_party/stb)

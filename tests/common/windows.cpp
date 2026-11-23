@@ -1036,13 +1036,16 @@ static void testEditControl() {
     screen.memory = process.memory().alloc(800 * 100);
     process.gdi().screen = [screen] { return screen; };
     auto pixel = [&](int x, int y) { return cpu.read32(screen.memory + uint32_t(y * 800 + x * 4)) & 0xffffff; };
-    // A parent keeping what it's told: WM_COMMAND, and the focus's messages.
+    // A parent keeping what it's told: WM_COMMAND, and the focus's
+    // messages; and choosing the control's brush when it's set
+    // (WM_CTLCOLOREDIT).
     std::vector<std::pair<uint32_t, uint32_t>> told;
+    uint32_t brush = 0;
     const uint32_t proc = cpu.addNative("test!EditParent", [&](x86::Cpu &c) {
         const uint32_t message = c.arg(1);
         if (message == 0x111 || message == 7 || message == 8)
             told.emplace_back(message, c.arg(2));
-        c.reg[x86::Cpu::EAX] = message == 0x81 ? 1 : 0;
+        c.reg[x86::Cpu::EAX] = message == 0x81 ? 1 : message == 0x133 ? brush : 0;
         return 16u;
     });
     const uint32_t wc = process.memory().alloc(40);
@@ -1092,7 +1095,7 @@ static void testEditControl() {
     const int advance = process.gdi().textWidth(0, "r");
     CHECK(!cpu.call(fn("SetFocus"), {parent}, r));
     told.clear();
-    send(0x201, 0, uint32_t(1 + advance + advance / 3)); // WM_LBUTTONDOWN
+    send(0x201, 0, uint32_t(1 + advance)); // WM_LBUTTONDOWN, on the edge after the r
     CHECK(send(0xb0, 0, 0) == (1u | 1u << 16));
     CHECK((told == std::vector<std::pair<uint32_t, uint32_t>>{{8u, edit}}));
     // Painted: white, its sunken edge, the text, the caret.
@@ -1110,6 +1113,11 @@ static void testEditControl() {
         for (int y = 22; y < 42; ++y)
             inked = inked || pixel(x, y) == 0;
     CHECK(inked); // the r
+    // In the brush its parent gives.
+    CHECK(!cpu.call(process.provided("GDI32.dll", "CreateSolidBrush"), {0x6060e0}, r) && r);
+    brush = r;
+    send(0xf, 0, 0);
+    CHECK(pixel(100, 40) == 0xe06060); // the screen's 0x00RRGGBB
 }
 
 static void testA3d() {

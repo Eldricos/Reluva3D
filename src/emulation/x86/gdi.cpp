@@ -6,12 +6,17 @@
 
 #include "emulation/x86/gdi.h"
 
+#include "common/text.h"
+#include "graphics/builtin_fonts.h"
+#include "graphics/truetype.h"
+
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/win32.h"
 #include "graphics/font.h"
 #include "image/bmp.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -24,6 +29,15 @@ namespace reluva::x86 {
 namespace {
 
 constexpr uint32_t kStock = 0x5a000000; // stock object i is kStock + i
+// Windows' hinted Arial at the small sizes programs draw in is narrower than
+// Liberation Sans drawn in the same cell: a line of LEGO Loco's, in Arial
+// Bold with a cell of 16, is 183.5 pixels in a recording of the original,
+// 195 in Liberation Sans at the cell's em of 14 and 180 at 13; drawn at
+// this much of the cell, its em is 13 *(inferred)*.
+constexpr float kArialWidth = 0.93f;
+// The System font's width against Liberation Sans Bold's in the same cell:
+// a line of LEGO Loco's in a recording, 183.5 pixels to 193.5.
+constexpr float kSystemWidth = 183.5f / 193.5f;
 constexpr int kStockObjects = 18;
 constexpr uint32_t kSrcCopy = 0x00cc0020;
 
@@ -166,11 +180,19 @@ Gdi::Gdi(Win32Process &process) : _process(process) {
     _objects[kStock + 6] = Object{Object::kPen, 0xffffff, 0, 0, 1, 0, 400, false, {}, {}, true};
     _objects[kStock + 7] = Object{Object::kPen, 0x000000, 0, 0, 1, 0, 400, false, {}, {}, true};
     _objects[kStock + 8] = Object{Object::kPen, 0, 5, 0, 1, 0, 400, false, {}, {}, true}; // NULL_PEN
+    // The fonts, as Windows 98's: OEM_FIXED_FONT, ANSI_FIXED_FONT and
+    // SYSTEM_FIXED_FONT fixed; SYSTEM_FONT bold; the others plain.
     for (int i = 10; i < kStockObjects; ++i)
-        if (i != 15) // DEFAULT_PALETTE
-            _objects[kStock + uint32_t(i)] = Object{Object::kFont, 0, 0, 0, 1, 16, 400, false, "System", {}, true};
+        if (i != 15) { // DEFAULT_PALETTE
+            const bool fixed = i == 10 || i == 11 || i == 16;
+            _objects[kStock + uint32_t(i)] =
+                Object{Object::kFont, 0,    0, 0, 1, 16, i == 13 ? 700 : 400, false, fixed ? "Fixedsys" : "System", {},
+                       true,          fixed};
+        }
     addStandIns();
 }
+
+Gdi::~Gdi() = default;
 
 uint32_t Gdi::addObject(Object o) {
     const uint32_t h = _nextObject++;
@@ -186,6 +208,18 @@ Gdi::Dc *Gdi::dc(uint32_t handle) {
 uint32_t Gdi::createDc(const Target &target) {
     Dc d;
     d.target = target;
+    d.brush = kStock;
+    d.pen = kStock + 7;
+    d.font = kStock + 13;
+    const uint32_t h = _nextDc++;
+    _dcs[h] = d;
+    return h;
+}
+
+uint32_t Gdi::windowDc(uint32_t window) {
+    Dc d;
+    d.window = true;
+    d.windowHandle = window;
     d.brush = kStock;
     d.pen = kStock + 7;
     d.font = kStock + 13;
@@ -395,32 +429,64 @@ const Gdi::Object &Gdi::fontObject(uint32_t handle) const {
     return _objects.at(kStock + 13); // SYSTEM_FONT
 }
 
-int Gdi::textWidth(const Object &font, const std::string &s) {
-    return int(s.size()) * font::kAdvance * fontScale(font.height);
+ttf::Font *Gdi::proportional(const Object &f) const {
+    if (f.fixed)
+        return nullptr;
+    std::unique_ptr<ttf::Font> &font = _sans[f.weight >= 600 ? 1 : 0];
+    if (!font) {
+        font = std::make_unique<ttf::Font>();
+        if (font->load(ttf::liberationSans(f.weight >= 600)))
+            return nullptr;
+    }
+    return font->loaded() ? font.get() : nullptr;
+}
+
+// A font's height: above 0 its cell, the ascent and descent; below 0 its
+// em, without the internal leading (as LOGFONT has them); 0 Windows'
+// default, a cell of 16. Drawn a little smaller than that in Liberation
+// Sans, as Windows' own Arial is narrower at small sizes (kArialWidth).
+float Gdi::pixels(const Object &f) const {
+    ttf::Font *font = proportional(f);
+    if (!font)
+        return float(std::abs(f.height ? f.height : 16));
+    const float size = f.height < 0 ? font->sizeForPoints(float(-f.height) * 0.75f) : float(f.height ? f.height : 16);
+    return size * kArialWidth;
+}
+
+int Gdi::textWidth(const Object &f, const std::string &s) const {
+    if (ttf::Font *font = proportional(f))
+        return font->width(text::windows1252ToUtf8(s), pixels(f));
+    return int(s.size()) * font::kAdvance * fontScale(f.height);
 }
 
 int Gdi::textWidth(uint32_t font, const std::string &s) const {
     return textWidth(fontObject(font), s);
 }
 
-int Gdi::lineHeight(const Object &font) {
-    return font::kLineHeight * fontScale(font.height);
+int Gdi::lineHeight(const Object &f) const {
+    if (proportional(f)) // the cell asked for
+        return f.height > 0 ? f.height : f.height < 0 ? int(std::ceil(pixels(f) - 0.01f)) : 16;
+    return font::kLineHeight * fontScale(f.height);
 }
 
-// The glyphs, drawn white on black, give the pixels to colour.
-void Gdi::drawString(Cpu &c, const Target &t, const Object &font, int x, int y, const std::string &s, uint32_t colorRef,
+// The glyphs, drawn white on black, give the pixels to colour: without
+// smoothing, as Windows 98 draws text, those half covered or more.
+void Gdi::drawString(Cpu &c, const Target &t, const Object &f, int x, int y, const std::string &s, uint32_t colorRef,
                      const std::array<int, 4> &clip) {
-    const int w = textWidth(font, s);
+    const int w = textWidth(f, s);
     if (w <= 0)
         return;
     Surface glyphs;
-    glyphs.create(w, lineHeight(font), PixelFormat::kRGBA32);
-    font::drawText(glyphs, 0, 0, s, {255, 255, 255}, fontScale(font.height));
+    glyphs.create(w, lineHeight(f), PixelFormat::kRGBA32);
+    if (ttf::Font *font = proportional(f))
+        font->draw(glyphs, 0, 0, text::windows1252ToUtf8(s), pixels(f), {255, 255, 255});
+    else
+        font::drawText(glyphs, 0, 0, s, {255, 255, 255}, fontScale(f.height));
     for (int gy = 0; gy < glyphs.h; ++gy)
         for (int gx = 0; gx < glyphs.w; ++gx) {
             const int px = x + gx;
             const int py = y + gy;
-            if (glyphs.row(gy)[gx * 4] && px >= clip[0] && px < clip[2] && py >= clip[1] && py < clip[3])
+            if (glyphs.row(gy)[gx * 4] >= 128 && px >= clip[0] && px < clip[2] && py >= clip[1] && py < clip[3])
                 plot(c, t, px, py, colorRef);
         }
 }
@@ -505,10 +571,12 @@ int Gdi::drawText(Cpu &c, Dc &d, const std::string &raw, int left, int top, int 
     return height;
 }
 
-// White (COLOR_WINDOW), the text from a margin of 1 pixel, the selection
-// in the highlight's colours (COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT) and a
-// caret of a pixel's width while focused, as Windows 98's.
-void Gdi::paintEdit(uint32_t window, const std::string &text, int selStart, int selEnd, bool focused, uint32_t font) {
+// The parent's brush and text colour, else white (COLOR_WINDOW) and black;
+// the text from a margin of 1 pixel, the selection in the highlight's
+// colours (COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT) and a caret of a pixel's
+// width while focused, as Windows 98's.
+void Gdi::paintEdit(uint32_t window, const std::string &text, int selStart, int selEnd, bool focused, uint32_t font,
+                    uint32_t dcHandle, uint32_t brush) {
     const auto t = screen ? screen() : std::nullopt;
     const auto area = _process.clientArea(window);
     if (!t || !area || !_process.shown(window))
@@ -516,7 +584,18 @@ void Gdi::paintEdit(uint32_t window, const std::string &text, int selStart, int 
     Cpu &c = _process.cpu();
     const auto [ax, ay, aw, ah] = *area;
     const std::array<int, 4> clip{ax, ay, ax + aw, ay + ah};
-    fill(c, *t, ax, ay, ax + aw, ay + ah, 0xffffff);
+    uint32_t back = 0xffffff;
+    bool filled = true;
+    if (brush) {
+        const auto b = _objects.find(brush);
+        filled = b != _objects.end() && b->second.kind == Object::kBrush && b->second.style != 1; // not BS_NULL
+        if (filled)
+            back = b->second.color;
+    }
+    const Dc *d = brush ? dc(dcHandle) : nullptr;
+    const uint32_t ink = d ? d->textColor : 0x000000;
+    if (filled)
+        fill(c, *t, ax, ay, ax + aw, ay + ah, back);
     const Object &f = fontObject(font);
     const int x = ax + 1;
     const int y = ay + std::max(0, (ah - lineHeight(f)) / 2);
@@ -526,15 +605,15 @@ void Gdi::paintEdit(uint32_t window, const std::string &text, int selStart, int 
     const std::string before = text.substr(0, size_t(from));
     const std::string chosen = text.substr(size_t(from), size_t(to - from));
     const std::string after = text.substr(size_t(to));
-    drawString(c, *t, f, x, y, before, 0x000000, clip);
+    drawString(c, *t, f, x, y, before, ink, clip);
     const int chosenX = x + textWidth(f, before);
     if (focused && !chosen.empty())
         fill(c, *t, chosenX, y, chosenX + textWidth(f, chosen), y + lineHeight(f), 0x800000);
-    drawString(c, *t, f, chosenX, y, chosen, focused ? 0xffffff : 0x000000, clip);
-    drawString(c, *t, f, chosenX + textWidth(f, chosen), y, after, 0x000000, clip);
+    drawString(c, *t, f, chosenX, y, chosen, focused ? 0xffffff : ink, clip);
+    drawString(c, *t, f, chosenX + textWidth(f, chosen), y, after, ink, clip);
     if (focused && from == to) {
         const int caretX = x + textWidth(f, text.substr(0, size_t(std::clamp(selEnd, 0, n))));
-        fill(c, *t, caretX, y, caretX + 1, y + lineHeight(f), 0x000000);
+        fill(c, *t, caretX, y, caretX + 1, y + lineHeight(f), ink);
     }
 }
 
@@ -596,6 +675,12 @@ void Gdi::addStandIns() {
         o.weight = int(c.arg(4));
         o.italic = c.arg(5) != 0;
         o.face = c.arg(13) ? c.string(c.arg(13), 32) : "";
+        // FIXED_PITCH (1), or a face Windows has only of fixed pitch.
+        std::string face = o.face;
+        for (char &ch : face)
+            ch = char(std::tolower(static_cast<unsigned char>(ch)));
+        o.fixed = (c.arg(12) & 3) == 1 || face == "courier" || face == "courier new" || face == "fixedsys" ||
+                  face == "terminal" || face == "lucida console";
         return addObject(o);
     });
     p.provideStdcall(g, "DeleteObject", 1, [this](Cpu &c) {
@@ -827,17 +912,7 @@ void Gdi::addStandIns() {
     });
 
     // USER32's drawing.
-    p.provideStdcall(u, "GetDC", 1, [this](Cpu &c) {
-        Dc d;
-        d.window = true;
-        d.windowHandle = c.arg(0);
-        d.brush = kStock;
-        d.pen = kStock + 7;
-        d.font = kStock + 13;
-        const uint32_t h = _nextDc++;
-        _dcs[h] = d;
-        return h;
-    });
+    p.provideStdcall(u, "GetDC", 1, [this](Cpu &c) { return windowDc(c.arg(0)); });
     p.provideStdcall(u, "ReleaseDC", 2, [this](Cpu &c) {
         const auto it = _dcs.find(c.arg(1));
         if (it == _dcs.end() || !it->second.window)

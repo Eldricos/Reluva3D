@@ -9,8 +9,13 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
+
+namespace reluva::ttf {
+class Font;
+}
 
 namespace reluva::x86 {
 
@@ -22,8 +27,9 @@ class Win32Process;
  * them (docs/common/x86/gdi.md): brushes, pens, fonts and bitmaps; device
  * contexts drawing into pixels in the program's memory (a bitmap's, a
  * DirectDraw surface's, the screen's); filling, lines, ellipses, pixels,
- * stretched copies and text. Text is drawn in Reluva's own small font,
- * scaled to the height asked for: Windows' fonts aren't Reluva's to have.
+ * stretched copies and text. Windows' fonts aren't Reluva's to have: text
+ * in a proportional font is drawn in Liberation Sans, built in, and in a
+ * fixed one in Reluva's own small font.
  */
 class Gdi {
 public:
@@ -44,6 +50,7 @@ public:
 
     /** Registers GDI32's stand-ins, and USER32's that draw, with the process. */
     explicit Gdi(Win32Process &process);
+    ~Gdi();
 
     /**
      * A device context drawing into `target` (a DirectDraw surface's, for
@@ -76,14 +83,19 @@ public:
      * @param clip Only what's within it (left, top, width, height), if given.
      */
     void paintFrame(uint32_t window, const std::optional<std::array<int, 4>> &clip = std::nullopt);
+    /** A device context for a window's client area, as GetDC makes, until releaseDc(). */
+    uint32_t windowDc(uint32_t window);
     /**
      * An edit control's client area painted, as Windows' EDIT class paints
-     * it: white, its text in its font from a small margin, the selection
-     * (from `selStart` to `selEnd`, in characters) highlighted and the
-     * caret at `selEnd` while it has the focus.
+     * it: in the brush and text colour its parent gave (WM_CTLCOLOREDIT,
+     * on `dc`), white and black if none; its text in its font from a small
+     * margin, the selection (from `selStart` to `selEnd`, in characters)
+     * highlighted and the caret at `selEnd` while it has the focus.
      * @param font The font it was given (WM_SETFONT); 0 for the system font.
+     * @param brush The parent's answer; 0 for COLOR_WINDOW.
      */
-    void paintEdit(uint32_t window, const std::string &text, int selStart, int selEnd, bool focused, uint32_t font);
+    void paintEdit(uint32_t window, const std::string &text, int selStart, int selEnd, bool focused, uint32_t font,
+                   uint32_t dc, uint32_t brush);
     /** A string's width in pixels in a font (0 for the system font). */
     int textWidth(uint32_t font, const std::string &s) const;
 
@@ -105,6 +117,7 @@ private:
         std::string face;
         Target bitmap; // a bitmap's pixels
         bool stock = false;
+        bool fixed = false; // a font of fixed pitch, drawn in Reluva's own
     };
     struct Dc {
         std::optional<Target> target; // its own (a bitmap's, a surface's)
@@ -131,13 +144,18 @@ private:
                  uint32_t rect);
     // Text in a font: what DrawTextA, TextOutA and the edit control draw with.
     const Object &fontObject(uint32_t handle) const;
-    static int textWidth(const Object &font, const std::string &s);
-    static int lineHeight(const Object &font);
+    int textWidth(const Object &font, const std::string &s) const;
+    int lineHeight(const Object &font) const;
+    // A proportional font's TrueType stand-in (Liberation Sans, bold from
+    // weight 600) and its size; null for a fixed one, drawn in Reluva's own.
+    ttf::Font *proportional(const Object &font) const;
+    float pixels(const Object &font) const;
     void drawString(Cpu &c, const Target &t, const Object &font, int x, int y, const std::string &s, uint32_t colorRef,
                     const std::array<int, 4> &clip);
 
     Win32Process &_process;
     std::map<uint32_t, Object> _objects;
+    mutable std::unique_ptr<ttf::Font> _sans[2]; // regular, bold: loaded when first drawn with
     std::map<uint32_t, Dc> _dcs;
     uint32_t _nextObject = 0x5a000100;
     uint32_t _nextDc = 0x5d000100;

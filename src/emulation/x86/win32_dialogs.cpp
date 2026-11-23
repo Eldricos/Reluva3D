@@ -437,7 +437,13 @@ void Win32Process::paintEdit(uint32_t h) {
     if (it == _windows.end())
         return;
     const Control &ctl = _controls[h];
-    _gdi->paintEdit(h, it->second.title, ctl.selStart, ctl.selEnd, _focus == h, ctl.font);
+    // Its parent chooses its colours, on a DC for it: WM_CTLCOLOREDIT.
+    const uint32_t dc = _gdi->windowDc(h);
+    const uint32_t parent = it->second.parent;
+    const uint32_t brush = parent && _windows.count(parent) ? sendMessage(parent, 0x0133, dc, h) : 0;
+    if (_windows.count(h))
+        _gdi->paintEdit(h, _windows[h].title, ctl.selStart, ctl.selEnd, _focus == h, ctl.font, dc, brush);
+    _gdi->releaseDc(dc);
 }
 
 // The selection replaced, within the limit, the caret after what's put in;

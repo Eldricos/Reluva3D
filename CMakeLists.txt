@@ -56,6 +56,8 @@ if(RELUVA_BUILD_TESTS)
 endif()
 # Which engines are built: engines.cfg (see cmake/ReluvaEngines.cmake).
 include(cmake/ReluvaEngines.cmake)
+# Data Reluva builds into itself (cmake/ReluvaEmbed.cmake).
+include(cmake/ReluvaEmbed.cmake)
 
 include(FetchContent)
 

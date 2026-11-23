@@ -183,9 +183,11 @@ C++ library have pages of their own ([directx.md](directx.md),
   Shift choosing), Delete, a click placing the caret by the nearest
   character and taking the focus; `EM_SETSEL`, `EM_GETSEL`,
   `EM_REPLACESEL`, `EM_LIMITTEXT` (30,000 at first), `WM_SETFONT`; the
-  parent told of each change (`EN_CHANGE`); painted white, its text in
-  its font, the selection in the highlight's colours and the caret while
-  it has the focus (GDI's `paintEdit`). Other controls aren't drawn yet,
+  parent told of each change (`EN_CHANGE`); painted in the brush and
+  text colour its parent gives (`WM_CTLCOLOREDIT`, on a DC of its own),
+  white and black if none, its text in its font, the selection in the
+  highlight's colours and the caret while it has the focus (GDI's
+  `paintEdit`). Other controls aren't drawn yet,
   nor an edit control's several lines (`ES_MULTILINE`).
 - **`win32_registry.cpp`: the registry and COM.** An in-memory registry,
   seeded with the installed locales. The engine can add an installer's
@@ -319,7 +321,7 @@ executable's entry point on the main thread until it ends the process.
   taken from the client area; sets its text, chooses it all and types
   over it past its limit (the parent told each change), deletes,
   places the caret with a click (the focus's messages sent), and paints
-  it on a screen in memory.
+  it on a screen in memory, white and in its parent's brush.
 - `testScrollBars` checks `AdjustWindowRect` leaving scroll bars out,
   their range and position, `DefWindowProcA`'s hit test, a click on the
   track and on an arrow, a thumb dragged, an arrow held (repeated after
