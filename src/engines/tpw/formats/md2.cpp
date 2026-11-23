@@ -7,6 +7,7 @@
 #include "engines/tpw/formats/md2.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstring>
 #include <set>
 
@@ -27,6 +28,7 @@ constexpr size_t kMeshSize = 0xa0;
 // of these, as the meshes lie in one of kMeshSize.
 constexpr size_t kOtherSize = 0x58;
 constexpr size_t kTextureNameSize = 20;
+constexpr uint32_t kAnimatedTexture = 0x40;
 // Nodes deeper than this are taken for a loop the visited set missed.
 constexpr int kMaxDepth = 256;
 
@@ -54,6 +56,44 @@ public:
 private:
     const std::vector<uint8_t> &_d;
 };
+
+// A name without its extension, in lower case: "tail2a".
+std::string stemOf(const std::string &name) {
+    std::string s = name.substr(0, name.rfind('.'));
+    for (char &c : s)
+        c = char(std::tolower(uint8_t(c)));
+    return s;
+}
+
+// What a frame's name is a number of: its stem without a number at its
+// end, or a number and a letter ("tail2a", "swampbank08" to "tail",
+// "swampbank").
+std::string familyOf(const std::string &stem) {
+    size_t end = stem.size();
+    if (end >= 2 && std::isalpha(uint8_t(stem[end - 1])) && std::isdigit(uint8_t(stem[end - 2])))
+        --end;
+    const size_t digits = end;
+    while (end > 0 && std::isdigit(uint8_t(stem[end - 1])))
+        --end;
+    return end < digits ? stem.substr(0, end) : stem;
+}
+
+// Where an animated texture's names starting at `first` end: its frames
+// share the first's family; the animation's own name follows them, and is
+// the first to have another family, to be the family itself, or to repeat
+// a frame ("watr01" ... "watr06", "watr"; "swampbank08" ... "swampbankm2";
+// "tv00" ... "tv09", "tv01"). So the names of all 698 models add up.
+size_t animatedRun(const std::vector<std::string> &names, size_t first) {
+    const std::string family = familyOf(stemOf(names[first]));
+    std::vector<std::string> seen{stemOf(names[first])};
+    for (size_t i = first + 1; i < names.size(); ++i) {
+        const std::string stem = stemOf(names[i]);
+        if (familyOf(stem) != family || stem == family || std::find(seen.begin(), seen.end(), stem) != seen.end())
+            return i + 1;
+        seen.push_back(stem);
+    }
+    return names.size();
+}
 
 Error readMesh(const Reader &r, size_t node, size_t textureTable, size_t textures, Model::Mesh &mesh) {
     const size_t m = node + kNodeSize;
@@ -158,14 +198,45 @@ Error Model::parse(const std::vector<uint8_t> &data) {
         _kind = _flags & kAnimationFlag ? Kind::kAnimation : Kind::kSummary;
         return Error::success();
     }
-    // Each texture's 8-byte entry, then all their names.
-    if (!r.has(textureTable, textures * (8 + kTextureNameSize)))
+    // Each texture's 8-byte entry, then their names, up to where the
+    // header's word at 0x54 points: an animated texture has several.
+    const size_t namesAt = textureTable + 8 * textures;
+    const size_t namesEnd = r.u32(0x54);
+    size_t names = textures;
+    if (namesEnd > namesAt && (namesEnd - namesAt) % kTextureNameSize == 0)
+        names = std::max(names, (namesEnd - namesAt) / kTextureNameSize);
+    if (!r.has(textureTable, 8 * textures + kTextureNameSize * names))
         return Error::fail("the textures run past the end");
+    std::vector<std::string> nameList(names);
+    for (size_t i = 0; i < names; ++i)
+        nameList[i] = r.text(namesAt + kTextureNameSize * i, kTextureNameSize);
     _textures.resize(textures);
+    size_t lastAnimated = textures;
+    for (size_t i = 0; i < textures; ++i)
+        if (r.u32(textureTable + 8 * i) & kAnimatedTexture)
+            lastAnimated = i;
+    size_t next = 0;
     for (size_t i = 0; i < textures; ++i) {
-        _textures[i].flags = r.u32(textureTable + 8 * i);
-        _textures[i].name = r.text(textureTable + 8 * textures + kTextureNameSize * i, kTextureNameSize);
+        Texture &t = _textures[i];
+        t.flags = r.u32(textureTable + 8 * i);
+        if (next >= names)
+            return Error::fail("the textures' names run short");
+        if (!(t.flags & kAnimatedTexture)) {
+            t.name = nameList[next++];
+            continue;
+        }
+        // The last animated texture takes the names the plain ones after
+        // it leave; the others end where animatedRun says.
+        const size_t end = i == lastAnimated ? names - (textures - 1 - i) : animatedRun(nameList, next);
+        if (end < next + 2 || end > names)
+            return Error::fail("an animated texture's names don't add up");
+        t.frames.assign(nameList.begin() + long(next), nameList.begin() + long(end) - 1);
+        t.animation = nameList[end - 1];
+        t.name = t.frames.front();
+        next = end;
     }
+    if (next != names)
+        return Error::fail("the textures' names don't add up");
 
     std::set<size_t> visited;
     std::vector<size_t> offsets;

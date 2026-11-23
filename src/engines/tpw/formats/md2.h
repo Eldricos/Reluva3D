@@ -30,8 +30,11 @@ public:
 
     /** A texture the meshes name, by its file name as stored (".tga"). */
     struct Texture {
-        std::string name;
-        uint32_t flags = 0; // not worked out: 1 and 3 most often, with 0x10, 0x20 and 0x40 set on some
+        std::string name;   // an animated texture's first frame's
+        uint32_t flags = 0; // 0x40 animated; the rest not worked out: 1 and 3 most often, with 0x10 and 0x20 on some
+        /** An animated texture's frames, its name among them, and the animation's own name after them. */
+        std::vector<std::string> frames;
+        std::string animation;
     };
 
     /** A triangle. */

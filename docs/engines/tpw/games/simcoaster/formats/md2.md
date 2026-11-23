@@ -50,9 +50,29 @@ normals agree for 629 of the 698 models, its meshes for 625.
 
 At the header's offset (0x50), usually straight after the header
 (0xB8), sometimes 4 bytes on (0xBC), for each texture 8 bytes: a flags
-word, not worked out (1 and 3 most often, with 0x10, 0x20 and 0x40 set
-on some), then 4 zero bytes. Then, for each, its file's name in 20
-bytes, as `deskpillars.tga`.
+word (1 and 3 most often, with 0x10, 0x20 and 0x40 set on some), then 4
+zero bytes. Then the textures' names, 20 bytes each, as
+`deskpillars.tga`, up to where the header's word at 0x54 points: one for
+each texture, but more for an animated one.
+
+A texture with flag 0x40 is animated: its frames' names come in turn,
+then a name for the animation, which no file has (`watr01` to `watr06`,
+then `watr`; `walface01` to `walface08`, then `walface`). The names
+don't say how many frames there are: a run of frames shares the first's
+stem without its number at the end, or its number and a letter
+(`tail2a`, `tail2b`, `tail2c`, `tail2d`, `tail`), and the animation's
+name is the first to have another stem, to be the stem itself, or to
+repeat a frame (`swampbank08` ... `swampbank01`, `swampbankm2`; `tv00`
+... `tv09`, `tv01`) *(inferred)*; the last animated texture takes what
+the plain ones after it leave. Read so, the names of all 698 models add
+up exactly: the 622 without an animated texture have one name each, the
+76 with them as many more as their frames. How fast the frames run, and
+whether a model's animations choose them, isn't worked out.
+
+Before this was found, the camera path model's later textures were read
+one name each: its Land of Invention came out snow (`allsnow`) where the
+same pieces in `atm.MD2` are grass (`ns_g02`), its one animated texture
+(`walface01`, with its 8 frames) having shifted every name after it.
 
 ### Finding the textures
 

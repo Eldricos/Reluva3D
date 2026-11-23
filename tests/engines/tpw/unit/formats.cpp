@@ -338,6 +338,19 @@ void testMd2() {
     CHECK(mesh.groups[1].texture == Model::Group::kNoTexture && mesh.groups[1].firstFace == 1 &&
           mesh.groups[1].flags == 1);
 
+    // An animated texture: its frames' names, then the animation's, take
+    // the places of the names after it.
+    const Bytes animated = makeModel(true);
+    CHECK(!model.parse(animated));
+    CHECK(model.textures().size() == 3 && model.textures()[1].name == "fr01.tga" &&
+          (model.textures()[1].frames == std::vector<std::string>{"fr01.tga", "fr02.tga"}) &&
+          model.textures()[1].animation == "fr.tga" && model.textures()[2].name == "three.tga");
+    CHECK(model.textures()[0].frames.empty() && model.meshes().size() == 1);
+    // Names that don't add up: one each, too few for an animated texture.
+    Bytes fewNames = animated;
+    put32(fewNames, 0x54, uint32_t(0xb8 + 24 + 20 * 3));
+    CHECK(model.parse(fewNames));
+
     // No table: the header alone, or an animation's.
     Bytes summary(data.begin(), data.begin() + 0xb8);
     put32(summary, 0x50, 0);

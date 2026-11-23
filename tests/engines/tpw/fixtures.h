@@ -108,8 +108,9 @@ inline void putNode(Bytes &b, size_t at, uint32_t type, size_t parent, size_t ne
 
 // A model: two textures; a helper node moved 10 along x, holding a mesh
 // moved 5 up: five positions, four vertices, two faces, in two groups,
-// the second untextured.
-inline Bytes makeModel() {
+// the second untextured. With `animated`, a third texture, and the second
+// animated: its frames "fr01" and "fr02", then the animation's name "fr".
+inline Bytes makeModel(bool animated = false) {
     Bytes b(0xb8);
     put32(b, 0, 0x1cd15d46);
     put32(b, 4, 221);
@@ -117,18 +118,26 @@ inline Bytes makeModel() {
     const std::string name = "test.MD2";
     std::copy(name.begin(), name.end(), b.begin() + 0x18);
     put32(b, 0x30, 1);
-    put16(b, 0x36, 2);
+    put16(b, 0x36, uint16_t(animated ? 3 : 2));
     const float box[6] = {10, 5, 0, 14, 6, 1};
     for (size_t i = 0; i < 6; ++i)
         putFloat(b, 0x80 + 4 * i, box[i]);
     const size_t textures = b.size();
     put32(b, 0x50, uint32_t(textures));
     put32(b, textures, 0x11);
-    put32(b, textures + 8, 0x31);
-    b.resize(textures + 16 + 40);
-    const std::string names[2] = {"one.tga", "two.tga"};
-    for (size_t i = 0; i < 2; ++i)
-        std::copy(names[i].begin(), names[i].end(), b.begin() + long(textures + 16 + 20 * i));
+    put32(b, textures + 8, animated ? 0x41 : 0x31);
+    const std::vector<std::string> names =
+        animated ? std::vector<std::string>{"one.tga", "fr01.tga", "fr02.tga", "fr.tga", "three.tga"}
+                 : std::vector<std::string>{"one.tga", "two.tga"};
+    const size_t entries = animated ? 3 : 2;
+    if (animated)
+        b.resize(textures + 24);
+    const size_t namesAt = textures + 8 * entries;
+    b.resize(namesAt + 20 * names.size());
+    for (size_t i = 0; i < names.size(); ++i)
+        std::copy(names[i].begin(), names[i].end(), b.begin() + long(namesAt + 20 * i));
+    // Where the names end: the first mesh's positions, next.
+    put32(b, 0x54, uint32_t(b.size()));
 
     // Two blocks of four positions, x then y then z; the last three unused.
     const size_t positions = b.size();
