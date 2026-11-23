@@ -21,6 +21,7 @@ reluva_add_engine(sith
         formats/material.cpp
         formats/model.cpp
         formats/puppet.cpp
+        formats/sprite.cpp
         formats/sound_class.cpp
         formats/strings.cpp
         formats/text.cpp)
@@ -35,6 +36,7 @@ reluva_add_engine_viewers(sith
         pages/movie_pages.cpp
         pages/picture_pages.cpp
         pages/sound_pages.cpp
+        pages/sprite_pages.cpp
         pages/text_pages.cpp)
 
 # Its reluva-tool commands (reluva-tool help sith lists them).

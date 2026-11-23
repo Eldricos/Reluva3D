@@ -15,7 +15,7 @@ Dark Forces II; its expansion, Mysteries of the Sith, would be the next.
 
 Jedi Knight's install is recognised, or made from its CDs, and its CDs
 are found; its archives and their pictures, materials, colormaps, fonts,
-string tables, sounds, sound classes, episodes, models, animations and puppets are read, and the cut
+string tables, sounds, sound classes, episodes, models, animations, puppets, sprites and particle clouds are read, and the cut
 scenes decoded, all shown or played by the data viewer
 (`reluva-viewer`). The engine itself shows an empty screen. See the game's [README](games/jk/README.md) and
 [PLAN.md](games/jk/PLAN.md).
@@ -45,9 +45,9 @@ game is found to share it (docs/DOCUMENTATION_STANDARD.md).
 | `folders.cpp` | Telling the CDs apart, finding them for an install, and their cut scenes |
 | `import.cpp` | Making an install from the CDs (*Import Game...*) |
 | `game_files.cpp` | The install's archives, as one set |
-| `formats/` | The games' files: `.gob`, `.cmp`, `.bm`, `.mat`, `.sft`, `.uni`, `.snd`, `episode.jk`, `.3do`, `.key`, `.pup` |
+| `formats/` | The games' files: `.gob`, `.cmp`, `.bm`, `.mat`, `.sft`, `.uni`, `.snd`, `episode.jk`, `.3do`, `.key`, `.pup`, `.spr`, `.par` |
 | `render/` | Drawing models (and, to come, levels) in software through a colormap, for the data viewer |
-| `pages/` | The data viewer, in `reluva-viewer` only: pictures, materials, colormaps, models, fonts, string tables, sounds, sound classes, episodes, cut scenes |
+| `pages/` | The data viewer, in `reluva-viewer` only: pictures, materials, colormaps, models, sprites, fonts, string tables, sounds, sound classes, episodes, cut scenes |
 | `tools/` | `reluva-tool sith` commands (`reluva-tool help sith` lists them) |
 
 ## Tests

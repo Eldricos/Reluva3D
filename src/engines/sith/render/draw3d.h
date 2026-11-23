@@ -79,6 +79,12 @@ public:
     /** A polygon, its corners in order around it. */
     void polygon(const std::vector<Corner> &corners, const Paint &paint);
 
+    /**
+     * A rectangle facing the camera, `width` by `height` about `centre`,
+     * with its texture across it once.
+     */
+    void billboard(const Vec3 &centre, float width, float height, const Paint &paint, float light = 1);
+
     /** How many polygons were drawn, and how many were left out (behind the camera, no paint). */
     ///@{
     int drawn() const { return _drawn; }

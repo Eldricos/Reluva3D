@@ -14,6 +14,7 @@
 #include "engines/sith/formats/keyframe.h"
 #include "engines/sith/formats/model.h"
 #include "engines/sith/formats/puppet.h"
+#include "engines/sith/formats/sprite.h"
 #include "engines/sith/formats/sound_class.h"
 #include "engines/sith/formats/strings.h"
 #include "engines/sith/game_files.h"
@@ -146,15 +147,35 @@ Error describePuppet(const std::vector<uint8_t> &data, std::string &line) {
     return Error::success();
 }
 
+Error describeSprite(const std::vector<uint8_t> &data, std::string &line) {
+    sith::Sprite spr;
+    if (Error err = sith::parseSprite(data, spr))
+        return err;
+    char buf[96];
+    std::snprintf(buf, sizeof(buf), "%s, %.3f x %.3f", spr.material.c_str(), double(spr.width), double(spr.height));
+    line = buf;
+    return Error::success();
+}
+
+Error describeParticles(const std::vector<uint8_t> &data, std::string &line) {
+    sith::Particles par;
+    if (Error err = sith::parseParticles(data, par))
+        return err;
+    line = par.material + ", " + std::to_string(par.points.size()) + " points";
+    return Error::success();
+}
+
 const std::map<std::string, Describe> kKinds = {
-    {".key", describeKeyframes},  {".pup", describePuppet},   {".3do", describeModel},  {".cmp", describeColormap},
-    {".bm", describeBitmap},      {".mat", describeMaterial}, {".sft", describeFont},   {".uni", describeStrings},
-    {".snd", describeSoundClass}, {".wav", describeWav},      {".jk", describeEpisode},
+    {".spr", describeSprite}, {".par", describeParticles}, {".key", describeKeyframes},  {".pup", describePuppet},
+    {".3do", describeModel},  {".cmp", describeColormap},  {".bm", describeBitmap},      {".mat", describeMaterial},
+    {".sft", describeFont},   {".uni", describeStrings},   {".snd", describeSoundClass}, {".wav", describeWav},
+    {".jk", describeEpisode},
 };
 
-// Every colormap, picture, material, model, animation, puppet, font,
-// string table, sound, sound class and episode in the install's archives
-// read, a line each (-q: only the failures), and a count of each kind.
+// Every colormap, picture, material, model, animation, puppet, sprite,
+// particle cloud, font, string table, sound, sound class and episode in
+// the install's archives read, a line each (-q: only the failures), and a
+// count of each kind.
 int cmdFormats(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool sith formats <install> [-q]\n");

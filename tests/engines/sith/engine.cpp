@@ -32,7 +32,7 @@ namespace {
 // floating point rounds differently from one compiler to another, whether
 // a good part of the screen (a thousand pixels) isn't the background.
 std::string summary(const std::string &page, const Surface &screen) {
-    if (page != "Models")
+    if (page != "Models" && page != "Sprites")
         return test::Hash().bytes(screen.pixels).hex();
     size_t drawn = 0;
     for (size_t i = 0; i + 3 < screen.pixels.size(); i += 4)
@@ -65,6 +65,11 @@ void engineTest(const std::filesystem::path &tmp) {
 
     // Archives of the install's own, one file of each kind the viewer shows.
     using namespace sith::testing;
+    const std::string spr = "top.mat 0 0.5 0.5 4 0 0 0.0 0.0 0.0 0.0\r\n";
+    const std::vector<uint8_t> spriteText(spr.begin(), spr.end());
+    const std::string par = "PAR 1.0\r\nSIZE .05\r\nMATERIAL top.mat\r\nRADIUS 0.5\r\nVERTICES 3\r\n"
+                            "0: 0 0 0 0\r\n1: 0.3 0 0 0\r\n2: 0 0 0.3 0\r\n";
+    const std::vector<uint8_t> particleText(par.begin(), par.end());
     audio::Sound tone;
     tone.rate = 22050;
     tone.channels = 1;
@@ -80,6 +85,8 @@ void engineTest(const std::filesystem::path &tmp) {
                                                    {"misc\\snd\\door.snd", {snd.begin(), snd.end()}},
                                                    {"3do\\test.3do", makeModelFile()},
                                                    {"3do\\key\\test.key", makeKeyframeFile()},
+                                                   {"misc\\spr\\test.spr", spriteText},
+                                                   {"misc\\par\\test.par", particleText},
                                                    {"3do\\mat\\top.mat", makeMaterialFile()}}));
     const std::string episode = "\"Test\"\r\nTYPE 1\r\nSEQ 2\r\n10: 1 1 CUT 01-02a.smk 0 0 11 -1\r\n"
                                 "11: 1 1 LEVEL 01test.jkl 0 0 -1 -1\r\nend\r\n";
@@ -112,6 +119,7 @@ void engineTest(const std::filesystem::path &tmp) {
                         : name == "Fonts"      ? uint32_t('+')
                         : name == "Cut scenes" ? uint32_t('.')
                         : name == "Models"     ? uint32_t('d')
+                        : name == "Sprites"    ? uint32_t(key::kRight)
                                                : uint32_t(key::kDown));
         page->draw(screen);
         rec.add(step + ".after_keys", summary(page->name(), screen));

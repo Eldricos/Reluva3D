@@ -12,6 +12,7 @@
 #include "engines/sith/formats/font.h"
 #include "engines/sith/formats/material.h"
 #include "engines/sith/formats/sound_class.h"
+#include "engines/sith/formats/sprite.h"
 #include "engines/sith/formats/strings.h"
 
 #include "tests/support/test.h"
@@ -288,6 +289,32 @@ void testSoundClass() {
     CHECK(parseSoundClass(std::vector<uint8_t>(noWav.begin(), noWav.end()), snd));
 }
 
+void testSprite() {
+    const std::string text = "#material\ttype\twidth\theight  geo     light   tex\textralight\txoff    yoff\tzoff\r\n"
+                             "conx.mat\t\t0\t\t0.6\t0.6     4       0       0  \t0.0       \t0.0    -0.1\t\t0.22\r\n";
+    Sprite spr;
+    CHECK(!parseSprite(std::vector<uint8_t>(text.begin(), text.end()), spr));
+    CHECK(spr.material == "conx.mat" && spr.width == 0.6f && spr.geometryMode == 4 && spr.offset.y == -0.1f &&
+          spr.offset.z == 0.22f);
+    const std::string shortLine = "conx.mat 0 0.6 0.6 4 0 0 0.0\r\n";
+    CHECK(parseSprite(std::vector<uint8_t>(shortLine.begin(), shortLine.end()), spr));
+}
+
+void testParticles() {
+    const std::string text = "SECTION: HEADER\r\nPAR 1.0\r\nSIZE .005\r\nMATERIAL 00teleport.mat\r\n"
+                             "LIGHTINGMODE 0\r\nSECTION: GEOMETRYDEF\r\n# Object radius\r\nRADIUS   0.109546\r\n"
+                             "INSERT OFFSET   0.000000   0.000000   0.108216\r\nVERTICES 2\r\n"
+                             "# num:     x:         y:         z:         i:\r\n"
+                             "    0:  -0.000141  -0.096503   0.000141   0.000000\r\n"
+                             "    1:  -0.023951   0.033595  -0.088717   0.500000\r\n";
+    Particles par;
+    CHECK(!parseParticles(std::vector<uint8_t>(text.begin(), text.end()), par));
+    CHECK(par.size == 0.005f && par.material == "00teleport.mat" && par.points.size() == 2);
+    CHECK(par.pointLight.size() == 2 && par.pointLight[1] == 0.5f && par.insertOffset.z == 0.108216f);
+    const std::string empty = "PAR 1.0\r\nSIZE .005\r\nMATERIAL a.mat\r\nVERTICES 0\r\n";
+    CHECK(parseParticles(std::vector<uint8_t>(empty.begin(), empty.end()), par));
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("sith.unit.formats",
@@ -300,4 +327,6 @@ static const reluva::test::Suite kSuite("sith.unit.formats",
                                             {"strings", [](const std::filesystem::path &) { testStrings(); }},
                                             {"episode", [](const std::filesystem::path &) { testEpisode(); }},
                                             {"sound class", [](const std::filesystem::path &) { testSoundClass(); }},
+                                            {"sprite", [](const std::filesystem::path &) { testSprite(); }},
+                                            {"particles", [](const std::filesystem::path &) { testParticles(); }},
                                         });

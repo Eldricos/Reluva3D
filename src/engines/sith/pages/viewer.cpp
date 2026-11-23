@@ -97,6 +97,7 @@ std::vector<std::unique_ptr<Page>> makePages(const ViewerData &data) {
     pages.push_back(makeMaterialPage(data));
     pages.push_back(makeColormapPage(data));
     pages.push_back(makeModelPage(data));
+    pages.push_back(makeSpritePage(data));
     pages.push_back(makeFontPage(data));
     pages.push_back(makeStringPage(data));
     pages.push_back(makeSoundPage(data));

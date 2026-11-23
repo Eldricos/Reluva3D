@@ -95,6 +95,7 @@ std::unique_ptr<Page> makeSoundClassPage(const ViewerData &data);
 std::unique_ptr<Page> makeEpisodePage(const ViewerData &data);
 std::unique_ptr<Page> makeCutScenePage(const ViewerData &data);
 std::unique_ptr<Page> makeModelPage(const ViewerData &data);
+std::unique_ptr<Page> makeSpritePage(const ViewerData &data);
 ///@}
 
 /** A file in one of the archives. */

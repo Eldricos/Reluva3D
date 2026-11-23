@@ -21,6 +21,9 @@ page.Models.items: 1
 page.Models.drawn: drawn
 page.Models.after_keys: drawn
 page.Models.animated: drawn
+page.Sprites.items: 2
+page.Sprites.drawn: drawn
+page.Sprites.after_keys: drawn
 page.Fonts.items: 1
 page.Fonts.drawn: 32e44654cfd901cb
 page.Fonts.after_keys: 14826f4437271ff0

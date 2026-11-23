@@ -152,6 +152,28 @@ void Draw3D::polygon(const std::vector<Corner> &corners, const Paint &paint) {
     ++_drawn;
 }
 
+void Draw3D::billboard(const Vec3 &centre, float width, float height, const Paint &paint, float light) {
+    float texW = 1;
+    float texH = 1;
+    if (paint.material && !paint.material->textures.empty()) {
+        texW = float(paint.material->textures[0].w);
+        texH = float(paint.material->textures[0].h);
+    }
+    const soft3d::Vec r = _camera.right * (width / 2);
+    const soft3d::Vec u = _camera.up * (height / 2);
+    auto corner = [&](float sx, float sy, float tu, float tv) {
+        Corner c;
+        c.at = {centre.x + r.x * sx + u.x * sy, centre.y + r.y * sx + u.y * sy, centre.z + r.z * sx + u.z * sy};
+        c.u = tu * texW;
+        c.v = tv * texH;
+        c.light = light;
+        return c;
+    };
+    // Texel centres: the texture's last row and column, not the next tile's first.
+    const float e = 0.999f;
+    polygon({corner(-1, 1, 0, 0), corner(1, 1, e, 0), corner(1, -1, e, e), corner(-1, -1, 0, e)}, paint);
+}
+
 std::vector<Transform> poseNodes(const Model &model, const std::vector<std::array<Vec3, 2>> &pose) {
     std::vector<Transform> out(model.nodes.size());
     std::vector<bool> done(model.nodes.size(), false);
