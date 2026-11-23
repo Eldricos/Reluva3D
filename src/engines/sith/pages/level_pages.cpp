@@ -34,6 +34,9 @@ soft3d::OrbitCamera flyCamera(const Vec3 &eye, float yaw, float pitch, int w, in
     const Vec3 ahead{-std::sin(yaw) * std::cos(pitch), std::cos(yaw) * std::cos(pitch), std::sin(pitch)};
     soft3d::OrbitCamera cam({eye.x + ahead.x, eye.y + ahead.y, eye.z + ahead.z}, yaw, -pitch, 1.0f, w, h);
     cam.nearZ = 0.005f;
+    // The game's 90 degrees across the view (0x4c4deb): half its width over
+    // tan(45 degrees) (0x4436ad).
+    cam.focal = float(w) / 2;
     return cam;
 }
 
@@ -309,20 +312,20 @@ private:
     }
 
     // Each of red, green and blue times 1 + its tint less half the other
-    // two's, each tint held to 0 to 1, as the game changes its palette
-    // (0x4c8d30, 0x4290e0); above the status line.
+    // two's, each tint held to 0 to 1, rounded to the nearest, as the game
+    // changes its palette (0x4c8d30, 0x4290e0); above the status line.
     static void tint(Surface &screen, const Vec3 &t) {
-        const float r = std::clamp(t.x, 0.0f, 1.0f);
-        const float g = std::clamp(t.y, 0.0f, 1.0f);
-        const float b = std::clamp(t.z, 0.0f, 1.0f);
+        const double r = std::clamp(double(t.x), 0.0, 1.0);
+        const double g = std::clamp(double(t.y), 0.0, 1.0);
+        const double b = std::clamp(double(t.z), 0.0, 1.0);
         if (r == 0 && g == 0 && b == 0)
             return;
-        const float k[3] = {1 + r - (g + b) / 2, 1 + g - (r + b) / 2, 1 + b - (r + g) / 2};
+        const double k[3] = {1 + r - (g + b) / 2, 1 + g - (r + b) / 2, 1 + b - (r + g) / 2};
         for (int y = 0; y < screen.h - 16; ++y) {
             uint8_t *p = screen.row(y);
             for (int x = 0; x < screen.w; ++x, p += 4)
                 for (int c = 0; c < 3; ++c)
-                    p[c] = uint8_t(std::clamp(float(p[c]) * k[c], 0.0f, 255.0f));
+                    p[c] = uint8_t(std::clamp(std::floor(double(p[c]) * k[c] + 0.5), 0.0, 255.0));
         }
     }
 

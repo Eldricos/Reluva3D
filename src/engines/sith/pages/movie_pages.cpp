@@ -233,7 +233,9 @@ private:
 
     // Centred in the game's rectangle (10, 360, 620, 120), below the
     // picture, in the subtitle font through the video's palette, as the
-    // game's 8-bit screen draws it; wrapped at the rectangle's width.
+    // game's 8-bit screen draws it; wrapped at the rectangle's width, a
+    // line broken at a space centred with that space, the lines a font's
+    // height apart, as the game was seen to (smk.md).
     void drawSubtitle(Surface &screen, const std::string &text, int ox, int oy, const uint8_t *pal) const {
         if (!_hasFont)
             return;
@@ -250,7 +252,7 @@ private:
             const std::string word = text.substr(at, end - at);
             const std::string tried = current.empty() ? word : current + " " + word;
             if (!current.empty() && fontTextWidth(_font, tried) > kSubtitleW) {
-                lines.push_back(current);
+                lines.push_back(current + " ");
                 current = word;
             } else {
                 current = tried;
@@ -268,7 +270,7 @@ private:
             if (y + strip.h > oy + 360 + 120)
                 break;
             drawFontText(screen, _font, strip, ox + 10 + (kSubtitleW - fontTextWidth(_font, l)) / 2, y, l);
-            y += strip.h + 2;
+            y += strip.h;
         }
     }
     static constexpr int kSubtitleW = 620;

@@ -57,8 +57,10 @@ and `0x4269c0` (the calls to `SMACKW32.DLL`).
   so by default only the Nar Shaddaa title shows, as it does in the
   emulator at 2 seconds into `03-04A`. With the setting on, every line
   shows: in `03-04A` the first spoken line at about 76 seconds. A line
-  too wide for the area is broken between words into two, each centred.
-  Seen in Reluva's emulator.
+  too wide for the area is broken between words, the lines a font's
+  height apart (17 rows), each centred, a line broken at a space with
+  that space counted in its width (the first line 2 pixels further left
+  than without it). Seen in Reluva's emulator.
 - **Keys:** space pauses and goes on, "Paused" (`GUI_PAUSED`) in the
   strip at the top (0, 10, 640, 40); Escape ends the cut scene
   (`0x4215c0`) *(from the code)*.
@@ -72,8 +74,9 @@ them with their sound, the picture following the clock, placed as on the
 game's 640x480 screen, with the subtitles below it as the game draws
 them: the titles, or every line with S, as the game's full subtitles. A
 line too wide for the area is broken between words onto centred lines,
-as the game breaks it: the same frames of `03-04A`, the game's and the
-viewer's, match.
+as the game breaks, spaces and centres them: the same frame of `03-04A`,
+the game's and the viewer's, is the same to the pixel below the
+picture.
 `reluva-tool sith movies <install> -all`
 decodes every frame and its sound.
 

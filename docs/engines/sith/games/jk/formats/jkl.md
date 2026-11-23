@@ -136,7 +136,7 @@ In the renderer that draws through the colormaps (`0x43c3c0`), a
 surface of light mode 3, as all but 15 are, gets a light at each corner:
 the corner's light plus the surface's extra light, held to 0 to 1; or
 the sector's `EXTRA LIGHT`, held to 0 to 1, if that's more (`0x43c693`,
-`0x4c739b`) *(from the code)*. That light times 63 is the light level
+`0x4c739b`) *(from the code)*; seen running, below. That light times 63 is the light level
 of the sector's colormap ([cmp.md](cmp.md#light-levels)), blended
 across the surface. So a corner's light of 1 or more is full light, as
 for the 14% above 1. When all its corners' lights are within 1/64 of
@@ -177,8 +177,12 @@ player's screen tint, each of red, green and blue held to 0 to 1
 (`0x4c6427`, `0x4c8d30`) *(from the code)*. The screen's tints are
 added up (`0x428e7b`) and the palette changed by them: each colour's
 red is multiplied by 1 + red − (green + blue) / 2, held to 0 to 255, and
-its green and blue the same way (`0x4290e0`) *(from the code)*. The
-water's 0.4 0.8 1.0 makes red 0.5 times, green 1.1 and blue 1.4.
+its green and blue the same way (`0x4290e0`) *(from the code)*, rounded
+to the nearest, a half up *(confirmed)*. The water's 0.4 0.8 1.0 makes
+red 0.5 times, green 1.1 and blue 1.4: under the water in
+`06abarons.jkl`, every colour of the HUD, drawn the same before and
+after, became its colour so multiplied and rounded, 3788 pixels without
+a difference.
 
 With a 3D card there is no palette to change: each frame the screen's
 effects are copied to the Direct3D renderer (`0x401f46`, `0x43abb0`)
@@ -312,7 +316,10 @@ stop at adjoins with `0x10`; the lines of sight and the AI's checks with
 `parseLevel` (`src/engines/sith/formats/level.h`) reads one into a
 `Level`; `Level::setting` looks a thing's setting up through its
 template's bases. The data viewer's Levels page draws a level from the
-player's start, through each sector's colormap, or from above (V), the
+player's start (its position, 0.04 higher, facing its yaw), as the game's
+camera sees: 90 degrees across the view (`0x4c4deb`), the focal length
+half the view's width over tan 45° (`0x4436ad` to `0x443721`) *(from the
+code)*; through each sector's colormap, or from above (V), the
 surfaces facing away from the camera left out, and the things with a
 model or a sprite in their places (H hides them). `reluva-tool sith formats
 <install>` reads them all.
@@ -323,8 +330,8 @@ and the sector's, each held to 0 to 1; skies and light mode 0 unlit;
 light mode 1 by the surface's extra light alone. The skies are placed
 as the game places them ([Skies](#skies)), the camera having no roll; see-through
 faces are drawn at 90/255 after the rest, the farthest first; and the
-sector the camera is in tints the view as the game tints its palette
-([Tint](#tint)), the status line giving that sector's flags and tint. The
+sector the camera is in tints the view as the game tints its palette,
+rounding as it does ([Tint](#tint)), the status line giving that sector's flags and tint. The
 other flags change how the game plays, not what it draws: M marks the
 surfaces or sectors with each in turn (floors, skies, scrolling, ice, the
 four step sounds, see-through faces, underwater sectors, pits...), and J
@@ -358,6 +365,13 @@ moves the camera to the next sector marked.
   (`0x5004b0` to `0x500693`) and every use of those in the 540 cogs; and
   where the words are copied whole. The weapons' `typeflags` and physics
   flags were read from every template in the files, through their bases.
+- **Seen running:** the game's first frame of `01narshadda.jkl` from the
+  player's start, drawn in software by `reluva-tool sith host`, and the
+  viewer's from the same start: the same view, the game's weapon and the
+  Rodian's animation aside, and the walls', bench's, ceiling's and
+  grating's colours within 2 of 255 of each other. Under the water in
+  `06abarons.jkl` (the game's `warp` cheat, `0x420000`, taking x, y and z,
+  `0x53c95c`), the tint as above.
 - **The Direct3D path** was told from the software one in the running
   game: `reluva-tool sith host` into the first level, with and without
   `-d3d`, reading `0x8605ec` and `0x889ef8` at the end.

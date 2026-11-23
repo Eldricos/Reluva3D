@@ -137,7 +137,11 @@ are drawn with the display's palette in play, the level's: in
 `statusright.bm` where `01narsh.cmp`'s palette and `uicolormap.cmp`'s
 differ (colour 95) show `01narsh.cmp`'s colour, in a frame of the
 running game. With Direct3D the display is 16-bit and the 16-bit
-pieces are used, with no palette *(from the code)*.
+pieces are used, with no palette *(from the code)*. In
+`06abarons.jkl` too the HUD's pieces show the level's colours, a piece's
+colour 0 showing what's beneath it: the gauge, its shield and health
+pieces drawn over it, rebuilt from the files through `06Baron.cmp`, is
+the frame's to the pixel but for the health numbers drawn on it.
 
 ## In Reluva
 
@@ -163,9 +167,13 @@ all.
   test; a frame of the first level from `reluva-tool sith host`, its HUD
   compared pixel by pixel with the 8-bit pieces through each palette.
 
+Whether the HUD takes a level's first colormap's palette or the one in
+use makes no difference in any retail level: the three levels with two
+colormaps have palettes that differ in colour 0 (`01narshadda.jkl`,
+`16aescapeship.jkl`, `16bescapeship.jkl`) or in 49 of the colours from 192 to 255
+(`04escapehouse.jkl`), and the HUD's pieces show neither: colour 0 is
+their transparent colour, and none uses colours from 192.
+
 ## Open questions
 
-- Whether the HUD's 8-bit pieces take the palette of the level's first
-  colormap in every level, or of whichever colormap the game makes the
-  display's: seen in the first level only, where they're the same
-  colormap.
+None.

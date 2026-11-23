@@ -63,4 +63,7 @@ all.
   draws text with a font, from `0x4346a0`.
 - **How it was checked:** every font read by `reluva-tool sith formats`,
   each glyph inside its strip; `sith.unit.formats` on a font made by the
-  test.
+  test. Seen running: a full subtitle of `03-04A`, two lines in
+  `subtitlefont.sft`, drawn by the game and by the viewer, the same to
+  the pixel, 5403 lit, none different
+  ([smk.md](smk.md#behaviour)).

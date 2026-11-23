@@ -4,35 +4,21 @@ What Reluva does that hasn't been checked against the running original.
 
 ## Read from the code, not seen running
 
-- **How a level's surfaces are lit:** the viewer lights a corner by its
-  light and its surface's extra light, or by its sector's extra light
-  where that's more, each up to 1; skies and light mode 0 unlit, light
-  mode 1 by the surface's extra light alone, through the sector's
-  colormap, as `JK.EXE`'s colormap renderer does
-  ([formats/jkl.md](formats/jkl.md#light)). The game drawing a level in
-  software, compared frame by frame, would settle it.
-- **A sector's tint:** the viewer tints its view by the camera's
-  sector's tint, each channel times 1 + its tint less half the other two
-  ([formats/jkl.md](formats/jkl.md#tint)), as `JK.EXE` changes its
-  palette; the game underwater, compared, would settle it.
-- **Fonts' spacing:** a gap after each glyph, white space moving on by
-  the font's space width, and a missing character drawn as the font's
-  fallback ([formats/sft.md](formats/sft.md)).
-- **Which pictures are transparent:** a picture's transparent colour only
-  where its flags' bit 0 says so, and a texture's from its own flag and
-  colour ([formats/bm.md](formats/bm.md), [formats/mat.md](formats/mat.md)).
+- **A missing character drawn as a font's fallback**
+  ([formats/sft.md](formats/sft.md)): the fonts' spacing was seen
+  running, but no text met had a character its font lacks.
+- **Which textures are transparent:** a texture's transparent colour from
+  its own flag and colour ([formats/mat.md](formats/mat.md)); the
+  pictures' was seen running.
 
 ## Seen running, not traced in the code
 
-None yet.
+- **How a long subtitle is laid out:** its lines a font's height apart,
+  a line broken at a space centred with that space in its width; seen in
+  one subtitle of `03-04A` ([formats/smk.md](formats/smk.md#behaviour)).
 
 ## Inferred
 
-- **Which palette an 8-bit picture without its own takes, on the HUD:**
-  the menus' screens are known from the code
-  ([formats/bm.md](formats/bm.md#behaviour)); which palette the game's
-  HUD pictures are drawn with in play isn't. The viewer starts with the
-  interface's.
 - **`\n` in strings** is taken for a new line
   ([formats/uni.md](formats/uni.md#layout)).
 
@@ -47,6 +33,22 @@ None yet.
 
 ## Settled
 
+- **November 2026: how a level's surfaces are lit.** The game's first
+  frame of Nar Shaddaa and the viewer's, from the same start with the
+  game's 90-degree view, agree within 2 of 255
+  ([formats/jkl.md](formats/jkl.md#light)).
+- **November 2026: a sector's tint.** Under the water in Baron's Hed the
+  game's palette is the tint's multipliers, rounded to the nearest, to
+  the pixel; the viewer now rounds as it does
+  ([formats/jkl.md](formats/jkl.md#tint)).
+- **November 2026: fonts' spacing.** A full subtitle, the game's and the
+  viewer's, is the same to the pixel, once the viewer spaces its lines a
+  font's height apart and centres a line with the space it was broken at
+  ([formats/sft.md](formats/sft.md), [formats/smk.md](formats/smk.md)).
+- **November 2026: the HUD's palette and transparency.** The HUD shows
+  the level's colours in Baron's Hed as in Nar Shaddaa, each piece clear
+  at colour 0; and which of a level's colormaps it takes changes nothing
+  in any retail level ([formats/bm.md](formats/bm.md#the-hud)).
 - **November 2026: a sound class's flag `0x1` loops the sound.**
   `JK.EXE`'s sound code keeps it playing, and stops it when its thing
   goes ([formats/snd.md](formats/snd.md#flags)).
