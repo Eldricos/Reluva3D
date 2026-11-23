@@ -230,8 +230,18 @@ empires and the help topics, MAP, MISSION, NEWS, SUPPLY, SHIPYARD and
 MEDALS, and the stardate moving on (2273.0 at the start). A hex clicked,
 the ship moves there (a MOVEMENT bar filling), and the map scrolls with
 it. The map runs at about 500 frames a billion instructions, a third of
-a mission's rate. No mission has been offered yet: MISSION stays dimmed
-near Earth, where the introduction says space is quiet.
+a mission's rate. After a move, the button reads MISSIONS while missions
+are offered (a minute of the map's time, then it dims again); its
+Mission Selector lists them (Convoy Escort and Patrol, the first time),
+each with ACCEPT. Once one is offered, moving is refused ("You have
+missions that must either be played or forfeited"). Accepted, its
+Mission Briefing shows the orders and a map of the start, with READY;
+then LOADING, and the mission: Convoy Escort's captain's log ("Our
+convoy has been intercepted by an enemy raiding party"), the freighters
+and their attackers, and the mission's reports as it goes ("They have
+destroyed one of our freighters"). The mission and the Dynaverse
+together need more than 256 MB: given that, the game stopped with its
+SmartHeap's "Out of memory" as the mission loaded, so it's given 512.
 
 A skirmish is played through DirectPlay, single-player too: starting
 one, the game throws a `TLogicError` naming `fDirectPlayObject` each

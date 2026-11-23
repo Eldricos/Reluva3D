@@ -37,7 +37,9 @@ Detection signatures (MD5 of each file's start, and its size, as
   it: a key can be typed, and the game checks it and remembers it. Its
   sound plays through Reluva's Miles: past its title screen its menu
   music starts, and its main menu shows, its buttons working. A
-  skirmish runs, the Klingon AI coming in, and the six tutorials run,
+  skirmish runs, the Klingon AI coming in; a campaign begins, its
+  Dynaverse map moved on and its first mission played into; and the six
+  tutorials run,
   their orders spoken and following what's done, to their debriefing
   ([systems/hosting.md](systems/hosting.md#its-missions)).
 - **Importing from the CDs:** the launcher's import takes the game from
@@ -45,8 +47,8 @@ Detection signatures (MD5 of each file's start, and its size, as
   ([InstallShield cabinets](../../../../common/installshield.md)).
   `reluva-tool sfc host` runs it headless
   ([systems/hosting.md](systems/hosting.md)).
-- **Not yet:** a skirmish or a tutorial played through to its end, a
-  campaign;
+- **Not yet:** a skirmish, a tutorial or a campaign's mission played
+  through to its end, and back to the Dynaverse;
   the network; the 2.0.3.6 patch applied as it's imported; the
   `.gf`, `.mct` and `.mvm`
   settings, campaign and map files; the opening movie; the objects in
