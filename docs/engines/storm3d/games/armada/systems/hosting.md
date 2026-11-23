@@ -17,7 +17,8 @@ it shows as on Windows and keeps showing, its Bink panels playing
 given it (`-input`) and the CD (`-cd`, `-toc`), it goes on through the
 single-player screen and the mission panel, past the game's CD check,
 into "Premonitions", the mission first on the Federation's panel (its map
-`bzn\rom2.bzn`), which it runs in 3D.
+`bzn\rom2.bzn`), which it runs in 3D: its opening scenes, its interface
+and objectives, and play once they're closed.
 
 ## How it works
 
@@ -170,6 +171,4 @@ each, its imports, and its classes ([research/](../research/README.md)).
   corner first (which scrolls the map there).
 - Fonts: without Windows' own (`-fonts`), text is in look-alikes with
   the same widths.
-- Text: GDI measures text but draws none (there are no fonts), so what
-  the menu writes with `DrawTextExA` (in red, at the start) isn't seen.
 - Its sound: DirectSound is there, but silent.

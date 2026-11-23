@@ -50,8 +50,11 @@ these phases start from, is in [formats/install.md](formats/install.md).
    table of contents from its `.mds`), into "Premonitions", the mission
    first on the Federation's panel (its map `bzn\rom2.bzn`), which runs
    in 3D. Its text is drawn in fonts like the ones it asks for
-   (`-fonts`). Next: input inside the mission, and the files it reads
-   there, for phase 5.
+   (`-fonts`). With a silent sound card that keeps time, the mission
+   goes past its opening scenes to its interface, and its pointer, which
+   hears the mouse's motion (`motion` in the input), closes the
+   objectives and plays on. Next: the files it reads in play, for phase
+   5; where its pointer starts; input that waits for what's shown.
 5. **Maps and the scene:** `.bzn` and `.mdf`, the starfield and nebulae,
    planets, moons and asteroids, the camera (`RTS_CFG.h`'s limits), the
    ships. A skirmish map shown and moved around, checked against the
@@ -80,7 +83,7 @@ these phases start from, is in [formats/install.md](formats/install.md).
 | November 2026 | Detection keys on `Armada.exe` and the two archives together | Which files a patch changes isn't known yet |
 | November 2026 | Published tools are read for layouts only, every field checked against the game's files: stau (MIT) and SomaZ's Blender tools (GPL-2.0) for SOD and ODF, Open76 (GPL-3.0) for ZFS | Public documentation, as CONTRIBUTING.md allows; no code is copied |
 | November 2026 | Not used: any source said to be Activision's, a ModDB download described as Battlezone II's source, and Dark Reign 2's source | Whether they may be used isn't clear, or they're other programs; leaving them alone keeps the work clean-room |
-| November 2026 | The reference runs silent: DirectSoundCreate fails, as on a machine with no sound device | A DirectSound stand-in is a large piece, and the reference is for what the program does, not how it sounds |
+| November 2026 | The reference has a sound card that's silent but keeps time (the emulator's DirectSound), not one that fails | With DirectSoundCreate failing, the missions wait for their speech for ever; the reference is for what the program does, so its sounds need to end, not be heard |
 | November 2026 | What the reference needs of Windows goes into the shared emulator, each part tested on its own | Any other hosted game can use it, as LEGO Alpha Team's and Need for Speed III's needs went there before |
 | November 2026 | The online service (WON) isn't rebuilt | It no longer runs; network play goes through Reluva's own |
 
