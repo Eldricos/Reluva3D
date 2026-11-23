@@ -34,9 +34,11 @@ reluva_add_engine_tools(storm3d
     SOURCES
         tools/archives.cpp
         tools/files.cpp
+        tools/host.cpp
         tools/images.cpp
         tools/media.cpp
         tools/models.cpp
+        tools/survey.cpp
         tools/text.cpp
         tools/viewer_shot.cpp)
 

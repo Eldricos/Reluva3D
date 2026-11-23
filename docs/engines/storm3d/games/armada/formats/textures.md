@@ -53,10 +53,15 @@ Exceptions:
 
 ## Behaviour
 
-- The game looks for a texture in `Textures\Index8\` and, failing that, in
-  `Textures\RGB\` (its message `Couldn't find index texture '%s', using
-  rgb.`) *(inferred)*: which folder it prefers in which display mode isn't
-  known yet.
+- **Which folder.** Run in Reluva's emulator at the 640 × 480 display
+  mode it chose, the original read every texture from `Textures\RGB\`,
+  none from `Index8\` ([systems/hosting.md](../systems/hosting.md)). Its
+  message `Couldn't find index texture '%s', using rgb.` suggests
+  `Index8\` comes first in another mode *(inferred)*: an 8-bit one, by the
+  name.
+- **Mipmap levels, as the original reads them.** After each `.tga` it
+  opens `.1`, `.2` and on until one is missing (`MBuild.tga`, `.1`, `.2`,
+  then no `.3`); seen running, as above.
 - `texture.dat` (8 bytes: `02 00 00 00 ef 89 b5 96`) and the setting
   `texture_detail` are presumably the chosen texture detail *(guessed)*.
 

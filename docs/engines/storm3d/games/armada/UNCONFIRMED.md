@@ -11,7 +11,10 @@ None yet.
 
 ## Seen running, not traced in the code
 
-None yet.
+- **Textures:** read from `Textures\RGB\`, each with its mipmap levels
+  `.1`, `.2`... until one is missing, in the original hosted in the
+  emulator at 640 × 480 ([formats/textures.md](formats/textures.md#behaviour)).
+  Not yet: which folder in other display modes.
 
 ## Inferred
 

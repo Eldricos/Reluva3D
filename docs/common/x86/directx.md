@@ -106,3 +106,7 @@ checked without a GPU.
   ([running.md](../../engines/netimmerse/games/legoalphateam/systems/running.md)).
   It doesn't read DirectInput
   ([input.md](../../engines/netimmerse/games/legoalphateam/systems/input.md)).
+- **`storm3d`**: Star Trek: Armada's program, run as a reference
+  ([hosting.md](../../engines/storm3d/games/armada/systems/hosting.md)). It asks `IDirectDraw7::EnumSurfaces` for every
+  surface there is; none is listed, since what's made isn't kept for it and
+  nothing is ever lost.

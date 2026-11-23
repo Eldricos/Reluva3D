@@ -37,10 +37,14 @@ these phases start from, is in [formats/install.md](formats/install.md).
    fonts are sprites: `BZONE.FNT` isn't used. Left for later: the models'
    lights and emitters, which way their faces wind, and comparing the
    movies with Armada's own `binkw32.dll`.
-4. **The original as a reference** (next): `Armada.exe` run in Reluva's x86
-   emulator far enough to reach its front end and load a map, with traces
-   of its calls and files (a `reluva-tool storm3d` command). Its exports
-   and class names go into `research/`.
+4. **The original as a reference** (in progress): `Armada.exe` runs in
+   Reluva's x86 emulator through its start-up: its DLLs, the
+   configuration, the display mode, the sprite tables and their textures,
+   to reading `events.odf` ([systems/hosting.md](systems/hosting.md)),
+   tracing the files it opens and the frames it shows
+   (`reluva-tool storm3d host`). Its exports and classes are in
+   [research/](research/README.md). Next: the C++ library's string
+   streams, measured from the program's code, then on to its front end.
 5. **Maps and the scene:** `.bzn` and `.mdf`, the starfield and nebulae,
    planets, moons and asteroids, the camera (`RTS_CFG.h`'s limits), the
    ships. A skirmish map shown and moved around, checked against the
@@ -69,6 +73,8 @@ these phases start from, is in [formats/install.md](formats/install.md).
 | November 2026 | Detection keys on `Armada.exe` and the two archives together | Which files a patch changes isn't known yet |
 | November 2026 | Published tools are read for layouts only, every field checked against the game's files: stau (MIT) and SomaZ's Blender tools (GPL-2.0) for SOD and ODF, Open76 (GPL-3.0) for ZFS | Public documentation, as CONTRIBUTING.md allows; no code is copied |
 | November 2026 | Not used: any source said to be Activision's, a ModDB download described as Battlezone II's source, and Dark Reign 2's source | Whether they may be used isn't clear, or they're other programs; leaving them alone keeps the work clean-room |
+| November 2026 | The reference runs silent: DirectSoundCreate fails, as on a machine with no sound device | A DirectSound stand-in is a large piece, and the reference is for what the program does, not how it sounds |
+| November 2026 | What the reference needs of Windows goes into the shared emulator, each part tested on its own | Any other hosted game can use it, as LEGO Alpha Team's and Need for Speed III's needs went there before |
 | November 2026 | The online service (WON) isn't rebuilt | It no longer runs; network play goes through Reluva's own |
 
 ### The missions

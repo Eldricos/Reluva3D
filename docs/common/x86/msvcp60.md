@@ -81,3 +81,7 @@ reads, the vftables it builds for its own subclasses):
 
 - **`netimmerse`**: LEGO Alpha Team imports it
   ([running.md](../../engines/netimmerse/games/legoalphateam/systems/running.md)).
+- **`storm3d`**: Star Trek: Armada's program imports it too
+  ([hosting.md](../../engines/storm3d/games/armada/systems/hosting.md)): for it, `getline` into a string, `ws`,
+  `basic_string`'s constructor from part of another, `c_str` and
+  `char_traits<char>::copy`. Its string streams aren't there yet.

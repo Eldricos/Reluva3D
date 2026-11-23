@@ -42,6 +42,11 @@ extended. The facts themselves are on their pages, each with its source.
   headers, imports and exports. Later, Reluva's disassembler
   (`src/emulation/x86/disasm.h`) for the code, and the original run in
   Reluva's x86 emulator to trace what it does ([PLAN.md](PLAN.md)).
+- **The original, run:** `reluva-tool storm3d host` runs `Armada.exe` in
+  Reluva's x86 emulator and reports the files it opens and the frames it
+  shows ([systems/hosting.md](systems/hosting.md)). The names in the
+  research notes come from its export table and run-time type
+  information, made readable with LLVM's `llvm-undname`.
 - **The viewer's pages, seen:** `reluva-tool storm3d viewer-shot` saves a
   2D page as PNG. The Models page needs a 3D renderer: `reluva-viewer` was
   run under Xvfb on Mesa's software Vulkan driver, keys sent with
@@ -72,6 +77,8 @@ extended. The facts themselves are on their pages, each with its source.
 | `reluva-tool storm3d spr-check <game folder>` | Reads every sprite table |
 | `reluva-tool storm3d sod <game folder> <name.sod>` | A model's nodes, meshes and animations ([formats/sod.md](formats/sod.md)) |
 | `reluva-tool storm3d sod-check <game folder>` | Reads every model |
+| `reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir]` | Runs the original in the emulator: files opened, frames shown, where it stops ([systems/hosting.md](systems/hosting.md)) |
+| `reluva-tool storm3d exe-survey <game folder>` | The program's exports and who imports them, its imports, its classes ([research/](research/README.md)) |
 | `reluva-tool storm3d viewer-shot <game folder> <out.png> [key...]` | The data viewer run without a window, keys pressed, its last screen as PNG |
 
 ## Working files not included

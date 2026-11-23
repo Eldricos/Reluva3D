@@ -234,3 +234,5 @@ executable's entry point on the main thread until it ends the process.
   run by its tools to check Reluva's own decoders against them.
 - **`nfs`**: Need for Speed III's whole program, on drives, with host
   threads ([the game's threads](../../engines/nfs/games/nfs3/systems/threads.md)).
+- **`storm3d`**: Star Trek: Armada's whole program, as a reference to
+  study, as far as its start-up ([hosting.md](../../engines/storm3d/games/armada/systems/hosting.md)).

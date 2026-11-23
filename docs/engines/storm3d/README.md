@@ -42,7 +42,7 @@ The game's page says how to add it: [Star Trek: Armada](games/armada/README.md#u
 | `game_files.cpp` | A game's files searched as one: the install's folders, then its archives |
 | `pages/` | The data viewer, for `reluva-viewer`: a page per kind of file |
 | `formats/` | Reading the games' files: ZFS archives, object definitions, settings in C, `Input.map`, `.ldl` files, sprite tables, models |
-| `tools/` | `reluva-tool storm3d` commands (`reluva-tool help storm3d` lists them) |
+| `tools/` | `reluva-tool storm3d` commands (`reluva-tool help storm3d` lists them), the original hosted in the emulator among them |
 
 What every game shares (the archives, models, object definitions, maps,
 the renderer) goes in the engine's folders as ADDING_AN_ENGINE.md lays
