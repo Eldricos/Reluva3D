@@ -51,6 +51,12 @@ constexpr double kSpiralEnd = 40;
 constexpr double kSpiralRadius = 100; // units out, a turn
 // The players' slots the game makes units for: Camera_0 to Camera_8.
 constexpr int kSlots = 9;
+// The game's grid (its draws in a skirmish): lines each 100 units in x and
+// z on the plane y = 0, added on in this colour.
+constexpr float kGridSpacing = 100;
+constexpr uint8_t kGridColour[3] = {38, 33, 0};
+// Texels across a square of the grid's texture: its line one wide.
+constexpr int kGridTexels = 64;
 
 // Reads definitions (an .odf and what it includes) from the game's files.
 Odf::Loader loaderFor(const SearchSet &files) {
@@ -218,6 +224,7 @@ void MapPage::activate() {
 }
 
 void MapPage::deactivate() {
+    freeGrid();
     _meshes.clear();
     _meshes.attach(nullptr);
     _placed.clear();
@@ -324,6 +331,9 @@ void MapPage::handleKey(uint32_t key) {
         _race = _race + 1 < std::size(kRaces) ? _race + 1 : SIZE_MAX;
         load();
         break;
+    case 'h':
+        _showGrid = !_showGrid;
+        break;
     case 'v': // the damage emitters: venting plasma and gas
         _meshes.showDamage(!_meshes.showingDamage());
         break;
@@ -346,6 +356,54 @@ void MapPage::update(uint64_t millis) {
         _yaw += seconds * kTurnPerSecond;
     if (_renderer)
         draw();
+}
+
+void MapPage::freeGrid() {
+    if (_renderer) {
+        if (_gridMesh)
+            _renderer->destroyMesh(_gridMesh);
+        if (_gridTexture)
+            _renderer->destroyTexture(_gridTexture);
+    }
+    _gridMesh = 0;
+    _gridTexture = 0;
+}
+
+void MapPage::makeGrid() {
+    freeGrid();
+    if (!_renderer || _map.area[1] <= _map.area[0] || _map.area[5] <= _map.area[4])
+        return;
+    // A square of the grid: its line along two edges, the rest black, which
+    // adds nothing.
+    std::vector<uint8_t> rgba(size_t(kGridTexels * kGridTexels) * 4, 0);
+    for (int y = 0; y < kGridTexels; ++y)
+        for (int x = 0; x < kGridTexels; ++x)
+            if (x == 0 || y == 0) {
+                uint8_t *t = &rgba[size_t(y * kGridTexels + x) * 4];
+                t[0] = kGridColour[0], t[1] = kGridColour[1], t[2] = kGridColour[2], t[3] = 255;
+            }
+    gfx::TextureParams params;
+    params.anisotropic = true; // the lines seen at a slant stay lines
+    if (_renderer->createTexture(kGridTexels, kGridTexels, rgba.data(), params, _gridTexture))
+        _gridTexture = 0;
+    // Over the area, out to whole squares.
+    const float x0 = std::floor(_map.area[0] / kGridSpacing) * kGridSpacing;
+    const float x1 = std::ceil(_map.area[1] / kGridSpacing) * kGridSpacing;
+    const float z0 = std::floor(_map.area[4] / kGridSpacing) * kGridSpacing;
+    const float z1 = std::ceil(_map.area[5] / kGridSpacing) * kGridSpacing;
+    std::vector<gfx::Vertex> corners(4);
+    const float xs[4] = {x0, x1, x1, x0};
+    const float zs[4] = {z0, z0, z1, z1};
+    for (size_t i = 0; i < 4; ++i) {
+        gfx::Vertex &v = corners[i];
+        v.pos[0] = xs[i], v.pos[1] = 0, v.pos[2] = zs[i];
+        v.normal[1] = 1;
+        v.uv[0] = xs[i] / kGridSpacing;
+        v.uv[1] = zs[i] / kGridSpacing;
+        std::fill(std::begin(v.color), std::end(v.color), uint8_t(255));
+    }
+    if (_renderer->createMesh(corners, {0, 1, 2, 0, 2, 3}, _gridMesh))
+        _gridMesh = 0;
 }
 
 void MapPage::load() {
@@ -416,6 +474,7 @@ void MapPage::load() {
     // game's frames show the Federation's grey on the player's ships.
     _meshes.setTeamColour(teamColourOf(_race < std::size(kRaces) ? kRaceNames[_race] : _map.race, _files.files()));
     _meshes.setLighting(lightingOf(_map));
+    makeGrid();
     std::string background = _map.background;
     if (text::hasSuffixIgnoreCase(background, ".sod"))
         background.resize(background.size() - 4);
@@ -524,6 +583,18 @@ void MapPage::draw() {
         gfx::Mat4 at = gfx::identity();
         at[12] = eye[0], at[13] = eye[1], at[14] = eye[2];
         _meshes.draw(*_background, at, true);
+    }
+    if (_showGrid && _gridMesh && _gridTexture) {
+        gfx::DrawCall grid;
+        grid.mesh = _gridMesh;
+        grid.indexCount = 6;
+        grid.model = gfx::identity();
+        grid.texture = _gridTexture;
+        grid.state.cull = gfx::Cull::kNone;
+        grid.state.src = gfx::Blend::kOne;
+        grid.state.dst = gfx::Blend::kOne;
+        grid.state.depthWrite = false;
+        _renderer->draw(grid);
     }
     _meshes.draw(_placed);
 

@@ -72,8 +72,11 @@ these phases start from, is in [formats/install.md](formats/install.md).
    and its frame matches the Maps page's, the players' starting units
    too, made where the game's code puts them
    ([formats/bzn.md](formats/bzn.md#starting-units)), in their team's
-   colour. Next: the shroud, and the ships' lighting checked against the
-   game's draws.
+   colour. The ships' lighting, checked against the game's draws, isn't
+   the maps' formula, and isn't worked out
+   ([formats/bzn.md](formats/bzn.md#lighting)). The game's grid over the
+   map is drawn as its frame shows it. Next: the shroud, then the
+   ships' lighting from the code.
 6. **The front end:** the shell's screens, the opening movie, game setup,
    options, loading and saving.
 7. **Rules:** units from their object definitions: movement and

@@ -153,12 +153,34 @@ A skirmish on `4first.bzn` (no ambient; lights (1, 0.737, 0.608) and
 0.886 grey, both shining down) agrees: 164 of the lava moon's 198
 vertices in its frame 4,100 are white, the sum over 1 and held there.
 Every one of the 49 maps has directional lights. Where 1.75 comes from
-isn't known, nor whether ships are lit the same way.
+isn't known: the planet's 0.467 is as well its material's ambient, 0.2,
+added to the map's 0.267, so the factor may be only the lights'.
+
+A ship isn't lit the same way, or not with the normals Reluva makes.
+The starbase's vertices in the skirmish's frame 4,100, placed back in
+the world through the camera and matched to the model's, all within 0.5
+of one: facing down, away from both lights, they're black, as the
+formula has them; facing up, white, as it has them too; but between,
+facing sideways, they're about twice as bright, and no factor, nor the
+materials' ambient added, fits every material. Placing a draw's
+vertices back takes their depth as 1.208 / rhw, not 1 / rhw: so the
+vertices fall on the model, to 0.4 at the median.
 
 The map's background model isn't lit: in the same frame its vertices are
 its material's diffuse colour (255, 253, 255). Its star sphere is drawn
 first, with depth tested but not written, blended one to zero, and its
 nebula's cube faces after it added (one, one).
+
+### The grid
+
+In play the game draws a grid over the map, as `ART_CFG.h`'s
+`DETAIL_<n>_main_show_grid = 1` asks at every detail level: in the
+skirmish's frame 4,100, 15 lines of two points each, placed back in the
+world, lie on the plane y = 0 (to 0.8), a line at each x and each z a
+multiple of 100, in 0x262100 (38, 33, 0), added on (one, one), depth
+tested but not written, drawn after the background and the planets and
+before the ships. How far out the game draws them isn't known (its
+lines are cut at the screen's edges; `GRID_FAR_CLIP_PLANE` is 10,000).
 
 ### Start positions (`.mdf`)
 
@@ -246,6 +268,10 @@ as the file says.
   says within its radius, chosen from the object's number so a map looks
   the same each time *(guessed)*.
 
+  The grid is drawn over the map's area, as above: one square across
+  the area, its texture a line on two edges each 100 units, so it fades
+  at a distance as lines wouldn't; H hides it.
+
   R adds each player's starting units, a race's standard set, as the
   game makes them (`MapPage::startUnitsOf`), but without its test that a
   unit fits: Federation, Klingon, Romulan, Borg, then none. Their team
@@ -275,6 +301,7 @@ as the file says.
 
 ## Open questions
 
+- How ships are lit (above), and how far out the grid goes.
 - How the game tests that a starting unit fits where the spiral puts it,
   and how a player's colour is chosen.
 - Each kind of object's own fields, and what follows the objects.

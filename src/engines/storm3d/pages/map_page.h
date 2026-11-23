@@ -25,6 +25,7 @@ namespace reluva::storm3d {
  *   T: from straight above, as the map's picture (`bzn/<map>.bmp`) shows it
  *   P: to the next of the map's paths
  *   G: as the game looks on starting; then +/- and W/A/S/D move as the game's overview does
+ *   H: the game's grid over the map on/off
  *   R: the players' starting units, as a skirmish makes them: Federation, Klingon, Romulan, Borg or none
  *   Space: turning on/off   V: the damage emitters (venting plasma and gas) on/off
  */
@@ -127,6 +128,8 @@ public:
 private:
     void load();
     void draw();
+    void makeGrid();
+    void freeGrid();
     Camera orbit() const; // the camera the keys move
     void showMessage(const std::string &line);
 
@@ -163,6 +166,11 @@ private:
     std::optional<Overview> _overview;
     size_t _race = SIZE_MAX; // R's race, of the four; SIZE_MAX: none
     size_t _starting = 0;    // starting units drawn
+    // The grid on the plane y = 0: one quad over the map's area, a line
+    // each 100 units in its repeating texture.
+    gfx::MeshId _gridMesh = 0;
+    gfx::TextureId _gridTexture = 0;
+    bool _showGrid = true;
     uint64_t _lastMillis = 0;
 };
 
