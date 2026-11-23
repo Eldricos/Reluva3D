@@ -48,7 +48,7 @@ these phases start from, is in [formats/install.md](formats/install.md).
    Clicks given it (`-input`) take it through the single-player screen
    and the mission panel, past the game's CD check (MCI, with the disc's
    table of contents from its `.mds`), into "Premonitions", the mission
-   first on the Federation's panel (its map `bzn\rom2.bzn`), which runs
+   first on the Federation's panel (its map `bzn\fed1.bzn`), which runs
    in 3D. Its text is drawn in fonts like the ones it asks for
    (`-fonts`). With a silent sound card that keeps time, the mission
    goes past its opening scenes to its interface, and its pointer, which

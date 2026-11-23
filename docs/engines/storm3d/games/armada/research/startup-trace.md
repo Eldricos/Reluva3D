@@ -117,17 +117,31 @@ contents, MCI finds no disc, and the check fails the same way.
 ## The mission
 
 Past the check, "Premonitions", the mission first on the Federation's
-panel (its map `bzn\rom2.bzn`), loads and runs (90 seconds of the
-program's clock
-without a stop, the last frame its 3D scene: Romulan warbirds by a
-planet, drawn by the program's Direct3D 7 through Reluva's rasterizer).
-What it reads: `CCA.cfg`, `input.map`, `gamekey.map` (no
-`giddi\keyboard.std` or `mouse.std`), `Collision.cfg`, the map
-`bzn\rom2.bzn` and its tech tree `rom2.tt` (from `assets.zfs`), every
-computer player's personality (`AI\AIPs\*.aip`, 87 files), 94 models and
-517 textures, the minimap's textures (`shroudTexture`,
-`cachedMapTexture`, `mapTexture`, made at run time: looked for and not
-there), `SOD\font.sod`, and `credits.txt`.
+panel (its map `bzn\fed1.bzn`, its script `Federation1S`), loads and
+runs. While it loads, it shows `bzn\4first.mdf` with the models
+`mbgbaku.sod` and `stalogo.sod`; then it reads `CCA.cfg`, `input.map`,
+`gamekey.map` (no `giddi\keyboard.std` or `mouse.std`), `Collision.cfg`,
+the map, every computer player's personality (`AI\AIPs\*.aip`, 85
+files, with `aipdef.h` and `AI\strategic_AI_config.txt`), 61 models and
+325 textures (102 mipmap levels), the interface's sprite tables
+(`gui_global.spr`, `tex_anim_gui.spr`, `gui_federation.spr`) and
+layouts (`misc\gui_fed.cfg`, `gui_glob.cfg`), `objtxt.zfs`, music
+(`sounds\music\mfed*.wav`) and the opening scene's speech
+(`sounds\voiceover\cineractive\F1PIC1.wav`), and `credits.txt`. Each
+model is looked for in `addon\` first. Six are in neither folder
+(`borgoff`, `fedoff`, `klingoff`, `romoff`, `fedpod2s` and `sscr_1`),
+perhaps in the archive *(guessed)*. Four textures are made at run time, looked for and not there:
+`fogTexture`, `shroudTexture`, `cachedMapTexture` and `mapTexture`.
+What it reads from inside `assets.zfs` isn't in this list: the program
+reads the archive itself.
+
+Once its objectives are closed, play reads nothing more but the
+interface's sounds (`trekover.wav` as the pointer comes over a button,
+`trekbeep.wav` for a click): the mission loads all it needs first.
+
+An earlier run's notes gave the map as `bzn\rom2.bzn`, with a tech tree
+`rom2.tt`; no run since has opened them (`rom2` is only in two of the
+personalities, `rom2d.aip` and `rom2o.aip`), so that was a misreading.
 
 On the way, `>>` into a word read the whole tech tree as one word and
 wrote past its buffer: the host hadn't started Reluva's C++ library, so

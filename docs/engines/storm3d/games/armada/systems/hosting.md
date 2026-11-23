@@ -17,7 +17,7 @@ it shows as on Windows and keeps showing, its Bink panels playing
 given it (`-input`) and the CD (`-cd`, `-toc`), it goes on through the
 single-player screen and the mission panel, past the game's CD check,
 into "Premonitions", the mission first on the Federation's panel (its map
-`bzn\rom2.bzn`), which it runs in 3D: its opening scenes, its interface
+`bzn\fed1.bzn`), which it runs in 3D: its opening scenes, its interface
 and objectives, and play once they're closed.
 
 ## How it works
@@ -125,7 +125,7 @@ apart: first far into a corner, which puts it at a known place, then to
 where it's wanted.
 
 To start "Premonitions", the mission first on the Federation's panel
-(its map `bzn\rom2.bzn`), skip its two opening scenes (Escape, virtual
+(its map `bzn\fed1.bzn`), skip its two opening scenes (Escape, virtual
 key 27), and close its objectives:
 
 ```text
