@@ -45,10 +45,10 @@ None now.
   ([systems/menus.md](systems/menus.md#open-questions)).
 - **Maps:** the camera's and zoom's frames taken as 30 a second, the
   drawing order's ties, the water's clock stopping while
-  paused, enemies not seeing past what stands between; the team at the spawn points
-  in order, their facing, the path finding by A*, the mouse's buttons,
-  the info bar rising under the mouse, a walk's pace from its frames,
-  characters' facing in radians, the move button's order, the view held
+  paused, enemies not seeing past what stands between; the path
+  finding by A*, the mouse's buttons, the info bar rising under the
+  mouse, a walk's pace from its frames, the move button's order, the
+  view held
   by the camera's scripts, a line's time and the beaming in's look; the
   triggers' and the enemies' rules, read from the maps' fields; choosing
   by box and Shift, and where officers sent together stand; fighting:

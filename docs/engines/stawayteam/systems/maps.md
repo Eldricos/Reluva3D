@@ -131,7 +131,8 @@ others. They share `Visible`, `Collideable` and the rest; then:
   (below). A
   character's `Facing Angle` is in radians, 0 to 2 pi, its rotation
   sequence's `Rotational Range` turning through its directions (4.69 is
-  about direction 9 of 12) *(inferred)*; some have an `Overlay Model`, a
+  about direction 9 of 12): the spawn points turn who spawns there by
+  their degrees made radians (`0x415c49`); some have an `Overlay Model`, a
   head drawn over them (`Characters/Head Fed Generic 01`, 157 in all).
 - **Its place in the drawing:** below.
 - **A polygon:** `Polygon` (its corners, the first again at the end),
@@ -318,9 +319,18 @@ the main menu?" (`0x5bb190`).
   the team's order, takes a spawn point given for them, else the one
   named `<their name> Spawn Point` (`Sheila Thatcher Spawn Point` in
   Mission 13, where the others' points take them hostage), else the
-  first numbered one no one's taken (`0x5bc2b0`, `0x5bc160`). The
-  program tries a numbered point named after something of the officer's
-  between the last two, not worked out.
+  first numbered one no one's taken (`0x5bc2b0`, `0x5bc160`). Between
+  the last two the program tries the numbered points (`<name> 1` to
+  `6`, `%s %d`) named after the officer's field (`Character/Field`, the
+  list at `0x71d850`, by `0x4a9f30` and `0x4affc0`): `science 1` in
+  Mission 10's Planet Surface and Mission 13, matched without regard to
+  case; a point given by name is tried as itself, then numbered the
+  same way.
+- **Which way they face:** a `CSpawnPointAI`'s `Facing Angle` is in
+  degrees (registered as `Deg`, 180 if left out, `0x415874`); with its
+  `Set Facing Angle` on (30 points have it off), whoever spawns there is
+  turned to it, as radians (`0x415c49`, by `0x496890`), the models'
+  directions turning through them as through characters' angles.
 - **What they look like:** the officer's portrait's definition names a
   `Body Model` and a `Head Model` (`Characters/Generic Male Body`,
   `Characters/Head Cpt Marcus Refelian`). Each has the same sequences
@@ -1290,9 +1300,7 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   flashes go, stunning, death, and the mouse for attacking.
 - **Choosing:** the game's mouse for a box and Shift, and where officers
   sent together stand.
-- **The team:** the numbered spawn point named after something of the
-  officer's, `Facing Angle`'s
-  degrees as the directions' (90 the viewer's way), the game's path
+- **The team:** the game's path
   finding, its mouse (which button chooses and which sends), the info
   bar's rising, and the frames' movement as a walk's pace.
 - **The buttons:** whether orders can be given with time stopped, what

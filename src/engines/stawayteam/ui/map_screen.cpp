@@ -202,10 +202,10 @@ MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, 
 
     // The team at the map's spawn points (0x5bc2b0): each at the part named
     // "<their name> Spawn Point" if there's one (Sheila Thatcher's in
-    // Mission 13), else the first of Away Team Spawn Point 1 to 6 no one's
-    // taken (0x5bc160); facing as it says. The program tries a numbered
-    // point named after something of the officer's between the two, not
-    // worked out.
+    // Mission 13), else the first of "<their field> 1" to 6 no one's taken
+    // ("science 1" in Missions 10 and 13), else of Away Team Spawn Point 1
+    // to 6 (0x5bc160); facing as it says, if it sets the facing (0x415c49:
+    // its degrees as radians, the models' directions turning through 2 pi).
     std::vector<bool> taken(_map.parts.size(), false);
     const auto spawnNamed = [&](const std::string &name) {
         for (size_t k = 0; k < _map.parts.size(); ++k)
@@ -219,6 +219,8 @@ MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, 
         o.x = _map.viewX;
         o.y = _map.viewY;
         o.spawn = spawnNamed(_team[i].name() + " Spawn Point");
+        for (int n = 1; n <= 6 && o.spawn < 0 && !_team[i].field.empty(); ++n)
+            o.spawn = spawnNamed(_team[i].field + " " + std::to_string(n));
         for (int n = 1; n <= 6 && o.spawn < 0; ++n)
             o.spawn = spawnNamed("Away Team Spawn Point " + std::to_string(n));
         if (o.spawn >= 0) {
@@ -226,7 +228,8 @@ MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, 
             taken[size_t(o.spawn)] = true;
             o.x = p.x;
             o.y = p.y;
-            o.direction = int(std::lround(p.facing / 30.0f)) % kDirections;
+            if (p.setsFacing)
+                o.direction = int(std::lround(p.facing / 30.0f)) % kDirections;
         }
         o.present = !arriving;
         _officers.push_back(o);

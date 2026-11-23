@@ -397,6 +397,47 @@ void testDrawingOrder() {
     CHECK(pixel(85, 100)[2] > 200 && pixel(100, 150)[2] < 50);
 }
 
+void testSpawnPoints() {
+    // Ann, a scientist, at "science 1" before the away team's points,
+    // which doesn't turn her (Set Facing Angle 0); Bob at Away Team Spawn
+    // Point 1, turned to its 90 degrees, direction 3; Cy at point 2,
+    // without a Facing Angle: 180, direction 6 (0x5bc2b0, 0x415c2d).
+    const auto point = [](const std::string &name, int x, const std::string &ai) {
+        return "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=" + name +
+               "\n\t\t\tVisible=0\n\t\t\tActivity=Array\n\t\t\t{\n\t\t\t\tItem Count=1\n"
+               "\t\t\t\tActivity=CSpawnPointAI\n\t\t\t\t{\n" +
+               ai + "\t\t\t\t}\n\t\t\t}\n\t\t\tPosition X=" + std::to_string(x) + "\n\t\t\tPosition Y=500\n\t\t}\n";
+    };
+    const std::string zax =
+        "CLayerSaveData\n{\n\tWidth=2000\n\tHeight=2000\n\tView Position=500.000000,500.000000\n"
+        "\tTree List=CSortList2D\n\t{\n" +
+        point("Away Team Spawn Point 1", 500, "\t\t\t\t\tFacing Angle=90\n\t\t\t\t\tSet Facing Angle=1\n") +
+        point("Away Team Spawn Point 2", 550, "") +
+        point("science 1", 600, "\t\t\t\t\tFacing Angle=270\n\t\t\t\t\tSet Facing Angle=0\n") + "\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    ann.field = "Science";
+    TeamMember bob;
+    bob.firstName = "Bob";
+    bob.field = "Security";
+    TeamMember cy;
+    cy.firstName = "Cy";
+    MapScreen screen(data, rules, map, options, 0, {ann, bob, cy});
+    const auto &o = screen.officers();
+    CHECK(o[0].x == 600.0f && o[0].direction == 0);
+    CHECK(o[1].x == 500.0f && o[1].direction == 3);
+    CHECK(o[2].x == 550.0f && o[2].direction == 6);
+}
+
 void testPauseWhenHit() {
     // Two officers, Ann at Away Team Spawn Point 1 in the view's middle,
     // Bea at her own spawn point far off it, not at point 2. The first
@@ -2828,6 +2869,7 @@ static const reluva::test::Suite
                {"closest", [](const std::filesystem::path &) { testClosest(); }},
                {"foes", [](const std::filesystem::path &) { testFoes(); }},
                {"hostage", [](const std::filesystem::path &) { testHostage(); }},
+               {"spawn points", [](const std::filesystem::path &) { testSpawnPoints(); }},
                {"pause when hit", [](const std::filesystem::path &) { testPauseWhenHit(); }},
                {"projectiles", [](const std::filesystem::path &) { testProjectiles(); }},
                {"drawing order", [](const std::filesystem::path &) { testDrawingOrder(); }},

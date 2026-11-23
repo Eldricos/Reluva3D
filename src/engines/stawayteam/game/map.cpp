@@ -150,8 +150,13 @@ MapPart readPart(const std::string &className, const TextObject &o) {
             if (!ai->object)
                 continue;
             part.activities.push_back(ai->object.get());
-            if (ai->value == "CSpawnPointAI" && ai->object->number("Facing Angle"))
-                part.facing = float(*ai->object->number("Facing Angle"));
+            if (ai->value == "CSpawnPointAI") {
+                // In degrees, 180 if left out (registered as "Deg" at
+                // 0x415874); turned to only with Set Facing Angle on
+                // (0x415c2d).
+                part.facing = float(ai->object->number("Facing Angle").value_or(180.0));
+                part.setsFacing = ai->object->number("Set Facing Angle").value_or(1) != 0;
+            }
         }
     part.model = text(o, "Model");
     part.sequence = text(o, "Cur Sequence");

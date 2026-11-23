@@ -55,9 +55,10 @@ struct MapPart {
     std::string texture;                          // a textured polygon's, of Cache/Textures
     std::string warpEffect;                       // a Warped polygon's, of Water Warp Effects
     bool onGround = false;
-    float facing = 0.0f; // a spawn point's facing, in degrees
-    float angle = 0.0f;  // which way it faces, in radians: its model's directions turning through 2 pi
-    std::string overlay; // a model drawn over it frame for frame: a character's head
+    float facing = 180.0f;   // a spawn point's facing, in degrees (CSpawnPointAI's 180 if it has none)
+    bool setsFacing = false; // whether a spawn point turns who spawns there to its facing
+    float angle = 0.0f;      // which way it faces, in radians: its model's directions turning through 2 pi
+    std::string overlay;     // a model drawn over it frame for frame: a character's head
 };
 
 /**
