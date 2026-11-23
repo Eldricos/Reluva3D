@@ -801,7 +801,7 @@ private:
         float countdown = 0.0f;
         int instigator = -1;
         std::vector<float> nextRepeat; // each officer's next Repeat Action
-        std::vector<int> thrownIn;     // the thrown things in a collide or pass-through trigger, by id
+        std::vector<int> thrownIn;     // the thrown things in it, by id
         float timer = 0.0f;            // a repeat timer's seconds till it next acts
     };
     std::vector<PartState> _partStates;

@@ -170,9 +170,17 @@ bool MapScreen::throwPasses(float x0, float y0, float x1, float y1, float &vx, f
         vy -= 2.0f * dot * ny;
         return true;
     };
+    // But not a part with a CPassThroughTriggerAI: its AIs let it through
+    // (0x4ef966, 0x492e40), as that one does (0x43a640), and it's only
+    // touched. So Mission 01's grenade bouncers' triggers, collideable as
+    // they are.
     const auto blocks = [&](size_t part) {
         const PartState &state = _partStates[part];
-        return state.active && !state.deleted && state.collideable;
+        if (!state.active || state.deleted || !state.collideable)
+            return false;
+        const std::vector<const TextObject *> &ais = _map.parts[part].activities;
+        return std::none_of(ais.begin(), ais.end(),
+                            [](const TextObject *ai) { return ai->className == "CPassThroughTriggerAI"; });
     };
     for (const Wall &w : _walls) {
         if (!blocks(w.part))

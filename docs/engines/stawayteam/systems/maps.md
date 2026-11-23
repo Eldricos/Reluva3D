@@ -428,12 +428,30 @@ The other triggers:
   answers to runs into the part (`Triggered By Players`, `Enemies`,
   `Anything`, `Projectiles`), not again within `Disallow Retrigger`
   seconds.
-- **Passing through** (`CPassThroughTriggerAI`, 6): its `Action`. With
-  `Triggered By Projectiles` (4), a thrown thing crossing it too, the
+- **Passing through** (`CPassThroughTriggerAI`, 6): its `Action`. A
+  collideable part with one lets what runs into it through, and is only
+  touched: its AIs are asked whether it lets the mover through
+  (`0x4ef966`, `0x492e40`), and that one says yes (`0x43a640`), where a
+  `CollideTriggerAI` and the touching triggers say no (`0x43d0f0`).
+  With `Triggered By Anything`, a thrown thing crossing it too, the
   instigator; Mission 01's and 08's check it's of `Grenades` (the
   grenade model's `Default Entity` `Category`) and make a bouncer
   polygon active for half a second.
 - **Triggered By Enemies** on 66 touching triggers.
+
+Whom a trigger answers to (`0x417f10` for the touching ones, `0x562ee0`
+for colliding and passing through): its `Triggered By Name`, then
+`Anything`, then `Players` and `Enemies` by the part's flags, then
+`Projectiles`: anything with a `CShotAI` among its AIs or its model's
+(`0x417fb3`). Only an energy weapon's shot has one (`0x5c95d0`, from
+`CShootEnergyWeaponAction`); a thrown thing's AIs are its
+`CThrowGravityAI` (a `CGravityParticleAI`) and a `CIgnoreParentAI`, so
+it's answered to only by a trigger `Triggered By Anything`. A touching
+trigger looks at every `Active` entity in its oval or polygon
+(`0x417670`, `0x4f1d30`), so a thrown thing among them, flying or
+lying. No touching trigger in the maps is `Triggered By Anything`, and
+the one `Triggered By Projectiles` (Mission 15's Borg beamer) answers to
+the officers too.
 
 **Doors** (`CDoorAI`, 237 parts): `Is Locked` (12), and actions run
 before and after they open and close (`Before Open`, `After Opened`,
@@ -879,8 +897,12 @@ officer's field.
 The triggers (`ui/map_triggers.cpp`): the anything-touching, team,
 collide and pass-through ones as above *(inferred)*; the touching ones
 Triggered By Enemies, or Anything, answer to the enemies too, each as an
-officer, its instigator *(inferred)*. A collide trigger's part is its
-footprint, or its polygon, or 20 pixels about it *(inferred)*. A door
+officer, its instigator *(inferred)*. A thrown thing sets off one
+Triggered By Anything as it comes in, its Enter Action, and as it leaves
+or goes off, its Exit Action; not its Repeat Action *(inferred)*. A
+collide trigger's part is its footprint, or its polygon, or 20 pixels
+about it *(inferred)*; a thrown thing sets off a collide or pass-through
+one by its polygon only. A door
 (`ui/map_gadgets.cpp`) opens unless locked: its Before Open, its Activate
 Sound, Opening played and then Open, out of the way at once, and its
 After Opened as it's open; closing likewise, back in the way *(inferred:
@@ -946,8 +968,9 @@ then one of its Random Songs by chance after another; without them, the
 map shown's Map Song, over and over; stopping as the maps are left
 *(inferred)*.
 
-Not there yet: the processes of the 5 polygons, touching triggers set off by projectiles
-(Mission 15's beamer), the AIs'
+Not there yet: the processes of the 5 polygons, the energy weapons'
+shots as things on the map setting off triggers `Triggered By
+Projectiles` (Mission 15's beamer), the AIs'
 other messages and tasks (CSendMessageAction's to animations; the
 particle systems' are there, [particles.md](particles.md)), walkers going round each other, the enemies' own noises,
 thrown and laid weapons, the doors opening

@@ -39,7 +39,8 @@ None yet.
   choices, and the keyboard's bindings, are kept but don't change
   anything yet
   ([systems/menus.md](systems/menus.md)).
-- **Maps:** projectiles don't set off touching triggers, and the animations'
+- **Maps:** the energy weapons' shots aren't things on the map, so they
+  set off no trigger `Triggered By Projectiles`, and the animations'
   messages aren't there; particles are drawn over the models rather than
   among them ([systems/particles.md](systems/particles.md)); the camera scripts don't pause the
   characters, and one taken off the team stays on its bar; walkers keep

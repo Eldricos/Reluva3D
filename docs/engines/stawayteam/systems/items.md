@@ -291,10 +291,14 @@ Anything active and collideable in its way along the ground stops it,
 whatever the height of either, seen or not: its move asks for what's
 `Active` and `Collideable`, not `Visible`, `Half Height` or `Full
 Height` (`0x4effe0`, `0x4ef720`), so a low box or a pit's polygon does,
-as a wall does. It's turned back, mirrored off the side it meets, with
-its Bounce Sound *(inferred)*. Mission 01's and 08's `Fake Grenade
-Bouncer poly`, made active for half a second by a pass-through trigger a
-grenade crosses ([maps.md](maps.md#the-maps-triggers)), is for that.
+as a wall does; but not a part with a pass-through trigger, which lets
+it through ([maps.md](maps.md#the-maps-triggers)). It's turned back,
+mirrored off the side it meets, with its Bounce Sound *(inferred)*.
+Mission 01's and 08's `Fake Grenade Bouncer poly`, made active for half
+a second by a pass-through trigger a grenade crosses, is for that. A
+thrown thing sets off the triggers `Triggered By Anything`, flying or
+lying, but not those `Triggered By Projectiles`, which answer to the
+energy weapons' shots.
 It flies through people: either side of a collision can turn it down
 (`0x4ef85b`, `0x4ef87d`), and a grenade's model has a
 `CIgnoreCollisionAI` listing `CEntityWalking`, which turns down anything

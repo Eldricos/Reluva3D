@@ -235,6 +235,31 @@ void MapScreen::updateTriggers(float seconds) {
                 }
             }
         }
+        // A thrown thing too, flying or lying, for one Triggered By
+        // Anything: the trigger asks for every Active entity in its shape
+        // (0x417670). Triggered By Projectiles isn't it: that's anything
+        // with a CShotAI (0x417fb3), which the energy weapons' shots have
+        // (0x5c95d0) and a thrown thing hasn't. Its Enter and Exit Actions,
+        // the thrown thing their instigator; going off, it leaves.
+        if (flag(ai, "Triggered By Anything")) {
+            std::vector<int> in;
+            for (const Thrown &th : _thrown)
+                if (!t.done && touches(t, th.x, th.y)) {
+                    in.push_back(th.id);
+                    if (std::find(t.thrownIn.begin(), t.thrownIn.end(), th.id) == t.thrownIn.end()) {
+                        runAction(ai->object("Enter Action"), kThrownInstigator - th.id, int(t.part));
+                        if (flag(ai, "Trigger Only Once") && ai->object("Enter Action"))
+                            t.done = true;
+                    }
+                }
+            for (const int id : t.thrownIn)
+                if (!t.done && std::find(in.begin(), in.end(), id) == in.end()) {
+                    runAction(ai->object("Exit Action"), kThrownInstigator - id, int(t.part));
+                    if (flag(ai, "Trigger Only Once") && ai->object("Exit Action"))
+                        t.done = true;
+                }
+            t.thrownIn = std::move(in);
+        }
         // Once done, a trigger that flips its switch turns its part off
         // (Auto-Flip Switch).
         if (t.done && flag(ai, "Auto-Flip Switch"))
@@ -337,8 +362,10 @@ bool MapScreen::updateOtherTrigger(Trigger &t, float seconds) {
         // One it answers to walking into the part (its footprint, or its
         // polygon), or, passing through, crossing it: its Action, once per
         // coming in, not again within Disallow Retrigger seconds (inferred).
-        // With Triggered By Projectiles, a thrown thing too, the instigator
-        // (Mission 01's and 08's grenade bouncers).
+        // With Triggered By Anything, a thrown thing too, the instigator
+        // (Mission 01's and 08's grenade bouncers); not by Triggered By
+        // Projectiles, which asks for a CShotAI (0x562f1e), as a touching
+        // trigger's does.
         t.countdown = std::max(0.0f, t.countdown - seconds);
         const bool players = flag(ai, "Triggered By Players") || flag(ai, "Triggered By Anything");
         const bool enemies = flag(ai, "Triggered By Enemies") || flag(ai, "Triggered By Anything");
@@ -370,7 +397,7 @@ bool MapScreen::updateOtherTrigger(Trigger &t, float seconds) {
                 t.done = true;
             runAction(ai->object("Action"), w.instigator, int(t.part));
         }
-        if (flag(ai, "Triggered By Projectiles") && p.polygon.size() >= 3) {
+        if (flag(ai, "Triggered By Anything") && p.polygon.size() >= 3) {
             std::vector<int> in;
             std::vector<int> entering;
             for (const Thrown &th : _thrown)

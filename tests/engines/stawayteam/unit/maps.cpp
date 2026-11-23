@@ -1848,18 +1848,28 @@ void testKit() {
 
 void testProjectiles() {
     // A grenade thrown east at a wall: it passes a trigger answering to
-    // projectiles, which turns a lamp on, and is turned back off the wall,
-    // low and unseen as that is, high as the grenade flies.
+    // anything, collideable as that is, which turns a lamp on, and is turned back off the wall, low
+    // and unseen as that is, high as the grenade flies. A touching trigger
+    // answering to anything turns a second lamp on as it comes in, and off
+    // as it goes off; one answering to projectiles doesn't answer to it.
     const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
     const std::string zax =
         "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=300.000000,300.000000\nTree List=CSortList2D\n{\n"
         "Level Part=CFreeRangePoly\n{\nName=Wall\nVisible=0\nActive=1\nCollideable=1\nFull Height=0\n"
         "Polygon=400, 100, 420, 100, 420, 500, 400, 500, 400, 100\n}\n"
-        "Level Part=CFreeRangePoly\n{\nVisible=1\nActive=1\nCollideable=0\nActivity=Array\n{\nItem Count=1\n"
-        "Activity=CPassThroughTriggerAI\n{\nTriggered By Anything=1\nTriggered By Projectiles=1\n"
+        "Level Part=CFreeRangePoly\n{\nVisible=1\nActive=1\nCollideable=1\nActivity=Array\n{\nItem Count=1\n"
+        "Activity=CPassThroughTriggerAI\n{\nTriggered By Anything=1\n"
         "Action=CActivateAction\n{\nTarget Name=Lamp\n}\n}\n}\n"
         "Polygon=340, 100, 380, 100, 380, 500, 340, 500, 340, 100\n}\n"
         "Level Part=CEntityBase\n{\nName=Lamp\nVisible=1\nActive=0\n}\n"
+        "Level Part=CEntityBase\n{\nPosition X=360\nPosition Y=300\nActivity=Array\n{\nItem Count=2\n"
+        "Activity=CTouchingOvalTriggerAI\n{\nTriggered By Anything=1\nX Radius=30\nYX Ratio=10\n"
+        "Enter Action=CActivateAction\n{\nTarget Name=Second Lamp\n}\n"
+        "Exit Action=CDeactivateAction\n{\nTarget Name=Second Lamp\n}\n}\n"
+        "Activity=CTouchingOvalTriggerAI\n{\nTriggered By Projectiles=1\nX Radius=30\nYX Ratio=10\n"
+        "Enter Action=CActivateAction\n{\nTarget Name=Third Lamp\n}\n}\n}\n}\n"
+        "Level Part=CEntityBase\n{\nName=Second Lamp\nVisible=1\nActive=0\n}\n"
+        "Level Part=CEntityBase\n{\nName=Third Lamp\nVisible=1\nActive=0\n}\n"
         "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=300\n}\n}\n}\n";
     MemoryArchive data;
     data.files["Levels/Test.zax"] = bytesOf(zax);
@@ -1886,12 +1896,18 @@ void testProjectiles() {
     screen.chooseItem(0, 0);
     CHECK(screen.useItem(600.0f, 300.0f));
     float furthest = 0.0f;
+    bool lit = false;
     for (int k = 0; k < 60; ++k) {
         screen.update(now += 50);
         if (!screen.thrown().empty())
             furthest = std::max(furthest, screen.thrown()[0].x);
+        lit = lit || screen.partState(4).active;
     }
     CHECK(furthest > 340.0f && furthest <= 400.0f && screen.partState(2).active); // stopped at the wall's face
+    CHECK(lit && !screen.partState(5).active);
+    for (int k = 0; k < 200 && !screen.thrown().empty(); ++k)
+        screen.update(now += 50);
+    CHECK(screen.thrown().empty() && !screen.partState(4).active);
 }
 
 void testStates() {
