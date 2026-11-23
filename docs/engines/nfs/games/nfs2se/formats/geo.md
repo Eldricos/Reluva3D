@@ -19,9 +19,14 @@ The unit looks like a metre: the F355's body is 2.0 wide and 4.4 long
 
 | Offset | Size | Field |
 |---|---|---|
-| 0 | u32 | 2 in 40, 1 in 7, 0 in 6; not worked out |
-| 4 | 32 × u32 | rising by 0x40 (in 52 of the 53): memory addresses, not read |
-| 132 | 8 | 0 in 38 of the 53; not worked out |
+| 0 | u32 | 2 in 40, 1 in 7, 0 in 6 (the six are props of one part); the program doesn't read it *(inferred)* |
+| 4 | 32 × u32 | room for the parts' addresses, which the loader writes (0x459dc3); the files hold their maker's (rising by 0x40 in 52 of the 53) |
+| 132 | u32 | room for the model's first entry in the program's table of texture corners (0x461dd4) |
+| 136 | u32 | room for its picture bank's handle (0x461da4) |
+
+The words at 132 and 136 are 0 in 38 of the files; in the others,
+files whose part addresses start alike hold the same bytes: the maker's
+leftovers, overwritten.
 
 ### Parts
 
@@ -32,14 +37,17 @@ The unit looks like a metre: the F355's body is 2.0 wide and 4.4 long
 | 0 | u32 | vertex count |
 | 4 | u32 | polygon count |
 | 8 | 3 × 4 | the part's position, 16.16 |
-| 20 | 4 × u16 | not worked out |
+| 20 | 2 × u32 | room for the addresses of its vertices and polygons, written as the model loads (0x459dd8, 0x459e00); 0 in every part without them |
 | 28 | 3 × u64 | 0, 1 and 1, in all 1,696 parts |
 | 52 | 6 each | the vertices: three s16, 256ths of the unit, from the position |
 | | 6 | after an odd number of vertices |
 | | 12 each | the polygons |
 
-A polygon, always a quad: a u32 of flags, four vertex indices, and its
-picture's 4-character name in the car's `.qfs`.
+A polygon: a byte of flags, three bytes the program fills in as it loads
+the model, four vertex indices, and its picture's 4-character name in
+the car's `.qfs`. The loader sets byte 1 to 0 and puts the polygon's
+first entry in its table of texture corners in bytes 2-3 (0x461f55,
+0x461f6a); 25 of the files hold their maker's leftovers there.
 
 - **The parts.** The 16 racing cars have parts 0 to 19, the detailed
   model; every model has part 21, and the others (traffic, the other
@@ -48,9 +56,36 @@ picture's 4-character name in the car's `.qfs`.
   forward, 1.48 back); 21 is the whole car at medium detail, 24 and 25 at
   low. OpenNFS names the same order: 0-19 high, 20-22 medium, 23-25 low,
   26-31 reserved *(published)*.
-- **Flags.** The left-hand parts' polygons have 0x4 set where their
-  mirrored right-hand ones haven't (parts 5 and 6, 7 and 8); OpenNFS
-  turns such polygons' facing *(published)*. Other bits not worked out.
+- **Flags**, from the code that sets up and draws the polygons
+  (0x461d80, 0x46da60) and counted over the 4,182 polygons:
+
+  | Bit | Meaning | Polygons |
+  |---|---|---|
+  | 0x01 | a triangle: vertices 0 to 2 drawn (the fourth repeats one of them) | 578 |
+  | 0x02 | a quad: set on every polygon without 0x01 | 3,604 |
+  | 0x04 | facing the other way: drawn v0, v3, v2, v1 (a triangle v2, v1, v0), the picture's corners reversed with them, so each vertex keeps its corner (0x46dad3, 0x461ee5). The left-hand parts, mirrors of the right's (5 and 6, 7 and 8), and about half the low-detail ones | 1,931 |
+  | 0x08 | see-through: the picture's palette entry 255 isn't drawn (the software renderer's span modes 1 and 5, 0x4a1688). Every `m` and `z` picture, and others; the cars' palettes make 255 black | 1,042 |
+  | 0x10 | two-sided: never culled (0x46da92, 0x46f836). Every `n` and `x` picture, the tyres' treads (13, 15, 17, 19) | 423 |
+  | 0xE0 | a count of pictures taken in turn, `flags >> 5` (0 meaning one): the file's, then each with its number added to the name's second character (0x461e5c). 2 only on part 11 (`l000` and `l100`: the tail lights, off and on *(inferred)*), 4 only on the wheels' faces (`m000` to `m300`: the wheel turning *(inferred)*) | 46, 64 |
+
+  Which picture is shown is a byte the program adds as it draws
+  (0x46da64); what sets it wasn't found.
+- **Texture corners.** A polygon's vertices 0, 1, 2 and 3 take the
+  picture's corners (0, h−1), (w−1, h−1), (w−1, 0) and (0, 0) (0x4736a0,
+  0x46f841): with the picture's first row at its top, bottom left,
+  bottom right, top right, top left *(confirmed; the picture's way up
+  inferred)*.
+- **The paint.** Every entry of the car's palette with red and blue under
+  0x56 and green from 0x80 is the paint's: the program recolours it as it
+  sets up the car's palette (0x444f80), its shade from the green
+  (0 to 127 above 0x80): black rising to the chosen colour, then toward
+  white for the highlights, by a threshold of each colour's. The colours
+  are a table in the program (0x4c3634, 16 bytes each), three values
+  each (hue, saturation and value, by how they're turned into RGB:
+  0x444af8 *(inferred)*) and the threshold. Most cars' palettes have 50
+  to 146 such entries (the F355's 103, all pure greens from 128 to 255);
+  `CHEV` and `DAYT` have none, `IDGO` and `LIMO` one, and the props
+  none: those can't be repainted.
 
 ## In Reluva
 
@@ -60,16 +95,17 @@ Read as `CarModel` (`src/engines/nfs/nfs2se/formats/geo.cpp`);
 
 The data viewer's Cars page (`src/engines/nfs/nfs2se/pages/car_page.cpp`)
 draws each model a level at a time, its pictures from the car's `.qfs`
-by name, laid on the quads as the Tracks page lays them
-([trk.md](trk.md), In Reluva), both faces, lit from one side. The racing
-cars' bodies come out the palette's bright green: likely where the game
-puts the chosen paint, not worked out *(guessed)*.
+by name, their corners as the program lays them, both faces, lit from
+one side, each polygon's first picture. The paint isn't put in, so the
+racing cars' bodies come out the palette's green.
 
 ## Sources and checks
 
 - **Where the facts come from:** the files; OpenNFS (MIT, `LibOpenNFS`'s
   NFS2 reader, read only), the only public description, for the layout;
-  no prose write-up was found.
+  no prose write-up was found. The flags, the words the program fills
+  in, the corners and the paint from `nfs2sen.exe`'s loader and renderer,
+  disassembled and read (November 2026).
 - **How it was checked:** survey scripts over the 53 (November 2026):
   every part's counts and polygons' indices, and the padding, which
   OpenNFS gives as 6 bytes after an odd count: every model then ends
@@ -78,4 +114,7 @@ puts the chosen paint, not worked out *(guessed)*.
 
 ## Open questions
 
-- The parts' four u16, the polygons' other flag bits, the header's u32.
+- The header's first word, which the program doesn't seem to read.
+- What chooses a polygon's picture among its frames as the car runs.
+- The wheel parts' first polygons, moved by 5/256 across for some cars
+  (0x45a750, by a word of the car's at 0x21c): which cars, and why.

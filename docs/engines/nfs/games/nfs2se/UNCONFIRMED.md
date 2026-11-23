@@ -55,8 +55,7 @@ None yet.
   (`GetVolumeInformationA`), but its game-files records are the same
   with NFS III's `NFS3`.
   The CD itself would settle it.
-
-- **How a quad's picture is laid on it**: its corners taking the
+- **How a track's quad takes its picture is laid on it**: its corners taking the
   picture's top left, top right, bottom right and bottom left in turn
   ([trk.md](formats/trk.md), In Reluva). Roads and signs look right so,
   but the `.col`'s texture word at 2 may turn or flip some; the game
@@ -64,11 +63,18 @@ None yet.
 - **Whether the pages show the world the right way round**, or mirrored:
   no readable text was big enough in the shots taken. A sign seen in the
   game, against the Tracks page, would settle it.
-- **The racing cars' green bodies** are where the game puts the chosen
-  paint ([geo.md](formats/geo.md)): the game's car selection would show
-  it.
 
 ## Settled
+
+- **The racing cars' green bodies are the paint** (November 2026, from
+  the code): the program recolours the car palette's greens, by their
+  shade, to the chosen colour as it sets up the car (0x444f80;
+  [geo.md](formats/geo.md), The paint).
+- **How a car's polygon takes its picture** (November 2026, from the
+  code): its vertices take the picture's bottom left, bottom right, top
+  right and top left ([geo.md](formats/geo.md)); that the picture's
+  first row is its top is still inferred. The tracks' quads are still
+  guessed, below.
 
 - **The 3dfx program's see-through texels** (November 2026, on the
   host): they aren't chroma-keyed. `nfs2sea.exe` uploads its track

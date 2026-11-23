@@ -258,7 +258,7 @@ Bytes carModel(uint8_t badVertex = 0) {
     for (int v : {256, 0, 0, 0, 512, 0, 0, 0, -256})
         putS16(m, v);
     m.resize(m.size() + 6, 0);
-    put32(m, 0x5);
+    put32(m, 0xdead0085); // 4 frames, facing the other way, a triangle; the rest the program's
     m.insert(m.end(), {0, 1, 2, badVertex});
     putText(m, "a000", 4);
     header(2, 0, 65536, 32768, -131072);
@@ -272,14 +272,14 @@ Bytes carModel(uint8_t badVertex = 0) {
 void testCarModel() {
     nfs2se::CarModel model;
     CHECK(!nfs2se::parseCarModel(carModel(), model));
-    CHECK(model.version == 2);
+    CHECK(model.unknown == 2);
     const auto &p0 = model.parts[0];
     CHECK(p0.vertices.size() == 3 && p0.polygons.size() == 1);
     if (p0.vertices.size() == 3)
         CHECK(p0.vertices[0] == (nfs2se::Point{1.0f, 0.0f, 0.0f}) &&
               p0.vertices[2] == (nfs2se::Point{0.0f, 0.0f, -1.0f}));
     if (!p0.polygons.empty())
-        CHECK(p0.polygons[0].flags == 5 && p0.polygons[0].texture == "a000");
+        CHECK(p0.polygons[0].flags == 0x85 && p0.polygons[0].frames() == 4 && p0.polygons[0].texture == "a000");
     CHECK(model.parts[1].position == (nfs2se::Point{1.0f, 0.5f, -2.0f}) && model.parts[1].vertices.size() == 2);
     CHECK(model.parts[31].vertices.empty());
 

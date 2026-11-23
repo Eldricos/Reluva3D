@@ -143,7 +143,7 @@ void CarPage::build() {
                 for (int c = 0; c < 3; ++c)
                     corners[size_t(k)][size_t(c)] =
                         part.vertices[poly.vertices[size_t(k)]][size_t(c)] + part.position[size_t(c)];
-            quads.add(texture, corners);
+            quads.add(texture, corners, QuadMesh::Corners::kBottomLeftFirst);
         }
     }
     _quads = quads.quads();
