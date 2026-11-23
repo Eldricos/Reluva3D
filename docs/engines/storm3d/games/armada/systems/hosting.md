@@ -60,7 +60,9 @@ so they're added in the order the program needs them.
   the files it reads from inside its ZFS archives (`assets.zfs >
   fed.odf`), which it reads itself: each archive entry a read reaches,
   found from where the read was in the archive.
-- **The frames it shows**, written as PNG.
+- **The frames it shows**, written as PNG, each with its camera beside
+  it (`frame<n>.camera.txt`): the view and projection matrices the
+  program last gave Direct3D, as Direct3D lays them out.
 - **Where it stops, and why.**
 
 Two facts it settled about the files: textures are read from

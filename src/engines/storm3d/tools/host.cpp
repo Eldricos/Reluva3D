@@ -31,6 +31,7 @@
 #include "image/image.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <atomic>
 #include <chrono>
@@ -408,10 +409,24 @@ int cmdHost(int argc, char **argv) {
     x86::DirectInput directInput(process);
     directX.presentLate = false;
     uint64_t frames = 0;
+    // The view and projection the program last gave Direct3D, written
+    // beside each frame: its camera.
+    std::map<uint32_t, std::array<float, 16>> transforms;
+    directX.transformSet = [&](uint32_t state, const std::array<float, 16> &m) { transforms[state] = m; };
     directX.presented = [&](const x86::DirectX::Frame &f) {
         ++frames;
-        if (!o.framesDir.empty() && f.number % o.every == 0)
-            writeFrame(f, o.framesDir / text::format("frame%05llu.png", (unsigned long long)f.number));
+        if (o.framesDir.empty() || f.number % o.every != 0)
+            return;
+        writeFrame(f, o.framesDir / text::format("frame%05llu.png", (unsigned long long)f.number));
+        std::ofstream camera(o.framesDir / text::format("frame%05llu.camera.txt", (unsigned long long)f.number));
+        for (const auto &[state, m] : transforms) {
+            if (state != 2 && state != 3) // D3DTRANSFORMSTATE_VIEW, _PROJECTION
+                continue;
+            camera << (state == 2 ? "view" : "projection");
+            for (const float v : m)
+                camera << ' ' << v;
+            camera << '\n';
+        }
     };
     std::vector<InputEvent> input;
     if (!o.inputFile.empty())
