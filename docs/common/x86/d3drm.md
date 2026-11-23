@@ -95,7 +95,9 @@ the ambient ones added together; a light shines down its frame's z, and
 a spotlight's umbra and penumbra are taken as half its cones' angles
 *(inferred)*.
 
-Each mesh group's faces are drawn as triangle fans, clockwise faces
+A mesh whose box (around its vertices, kept until it changes) is wholly
+outside the view is skipped, as most of a scene is off the screen. Each
+mesh group's faces are drawn as triangle fans, clockwise faces
 facing the camera, with the Z buffer if the device has one. A render
 quality (`D3DRMRENDERQUALITY`) is a shade in bits 0 to 2 (flat 0,
 Gouraud 1), lighting in 3 to 5 (on 8) and fill in 6 and 7 (solid
@@ -141,8 +143,9 @@ it in `EAX`.
   data read back, and a clone apart from its original; and a green square
   in front of a camera, drawn in the viewport's middle and not its
   corner, and picked there (its mesh, group and frames) but not at the
-  corner; its middle taken to the viewport's middle pixel and back; and
-  lit by two white lights, textured mid-grey, drawn grey. LEGO Island draws its scenes with it, and picks in them
+  corner; its middle taken to the viewport's middle pixel and back; lit
+  by two white lights, textured mid-grey, drawn grey; and drawn across
+  the view's edge, but not wholly beyond it. LEGO Island draws its scenes with it, and picks in them
   ([running.md](../../engines/legoisland/systems/running.md)).
 - **Confidence:** published unless marked.
 

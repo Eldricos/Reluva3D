@@ -971,6 +971,23 @@ static void testRetainedMode() {
     const uint16_t lit = cpu.read16(cpu.read32(lock + 36) + 24 * cpu.read32(lock + 16) + 32 * 2);
     CHECK(call(surface, 32, {0}) == 0);            // Unlock
     CHECK((lit >> 11) >= 14 && (lit >> 11) <= 18); // grey, not white
+
+    // Partly out of view, across its right edge (at 3.33 at that depth),
+    // it's still drawn; wholly out of it, not.
+    auto pixelAt = [&](int x, int y) {
+        std::memset(cpu.memory().data() + lock, 0, 108);
+        cpu.write32(lock, 108);
+        CHECK(call(surface, 25, {0, lock, 1, 0}) == 0); // Lock
+        const uint16_t v = cpu.read16(cpu.read32(lock + 36) + uint32_t(y) * cpu.read32(lock + 16) + uint32_t(x) * 2);
+        CHECK(call(surface, 32, {0}) == 0); // Unlock
+        return v;
+    };
+    CHECK(call(holder, 61, {scene2, bits(3), 0, bits(5)}) == 0);     // SetPosition: 2 to 4 across
+    CHECK(call(view, 12, {}) == 0 && call(view, 13, {scene2}) == 0); // Clear, Render
+    CHECK(pixelAt(56, 24) != 0 && pixelAt(32, 24) == 0);
+    CHECK(call(holder, 61, {scene2, bits(30), 0, bits(5)}) == 0);
+    CHECK(call(view, 12, {}) == 0 && call(view, 13, {scene2}) == 0);
+    CHECK(pixelAt(63, 24) == 0);
 }
 
 static void testDirectX() {

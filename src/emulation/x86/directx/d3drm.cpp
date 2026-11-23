@@ -14,6 +14,7 @@
 #include <array>
 #include <cmath>
 #include <cstring>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -833,6 +834,11 @@ public:
         return iid == s->mesh.iid || iid == kIidVisual || iid == kIidObject ? &s->mesh : nullptr;
     }
 
+private:
+    std::optional<std::array<Vector, 2>> _bounds;
+    bool _boundsMade = false;
+
+public:
     static Vertex readVertex(Cpu &c, uint32_t p) {
         return {readVector(c, p), readVector(c, p + 12), asFloat(c.read32(p + 24)), asFloat(c.read32(p + 28)),
                 c.read32(p + 32)};
@@ -846,8 +852,29 @@ public:
     }
     Group *group(uint32_t id) { return id < groups.size() ? &groups[id] : nullptr; }
 
+    // The box around every group's vertices (smallest, largest corner),
+    // made when asked and forgotten when the mesh changes; none if empty.
+    const std::optional<std::array<Vector, 2>> &bounds() {
+        if (!_boundsMade) {
+            _bounds.reset();
+            for (const Group &g : groups)
+                for (const Vertex &v : g.vertices) {
+                    if (!_bounds)
+                        _bounds = std::array<Vector, 2>{v.position, v.position};
+                    for (size_t k = 0; k < 3; ++k) {
+                        (*_bounds)[0][k] = std::min((*_bounds)[0][k], v.position[k]);
+                        (*_bounds)[1][k] = std::max((*_bounds)[1][k], v.position[k]);
+                    }
+                }
+            _boundsMade = true;
+        }
+        return _bounds;
+    }
+
     std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override {
         const std::string_view m = iface.methods[size_t(index)].name;
+        if (m.substr(0, 3) != "Get") // anything but a Get may change the vertices
+            _boundsMade = false;
         if (auto r = objectMethod(m, c))
             return r;
         if (m == "AddGroup") { // (vertices, faces, vertices a face, face data, id out)
@@ -1412,6 +1439,26 @@ public:
 
     void render(Frame &root);
 
+    // Whether a box, taken to clip space by `m`, is wholly outside the view:
+    // all its corners beyond one of its planes.
+    static bool outside(const std::array<Vector, 2> &box, const Matrix &m) {
+        int beyond[6] = {};
+        for (int i = 0; i < 8; ++i) {
+            const Vector q{box[size_t(i & 1)][0], box[size_t((i >> 1) & 1)][1], box[size_t((i >> 2) & 1)][2]};
+            const float cx = q[0] * m[0] + q[1] * m[4] + q[2] * m[8] + m[12];
+            const float cy = q[0] * m[1] + q[1] * m[5] + q[2] * m[9] + m[13];
+            const float cz = q[0] * m[2] + q[1] * m[6] + q[2] * m[10] + m[14];
+            const float cw = q[0] * m[3] + q[1] * m[7] + q[2] * m[11] + m[15];
+            beyond[0] += cx < -cw;
+            beyond[1] += cx > cw;
+            beyond[2] += cy < -cw;
+            beyond[3] += cy > cw;
+            beyond[4] += cz < 0;
+            beyond[5] += cz > cw;
+        }
+        return std::any_of(std::begin(beyond), std::end(beyond), [](int n) { return n == 8; });
+    }
+
     /** A frame where it's drawn: its world transform, and the frames from the root down to it. */
     struct Placed {
         Frame *frame;
@@ -1662,6 +1709,7 @@ void Viewport::render(Frame &root) {
     d.viewport = {x, y, width, height, 0, 1};
     d.transforms[2] = inverse(camera->world());
     d.transforms[3] = projectionMatrix();
+    const Matrix viewProjection = multiply(d.transforms[2], d.transforms[3]);
 
     const std::vector<Placed> placed = place(root);
 
@@ -1711,8 +1759,8 @@ void Viewport::render(Frame &root) {
     std::vector<uint32_t> indices;
     for (const Placed &p : placed)
         for (const auto &v : p.frame->visuals) {
-            const auto *mesh = dynamic_cast<Mesh *>(v.get());
-            if (!mesh)
+            auto *mesh = dynamic_cast<Mesh *>(v.get());
+            if (!mesh || !mesh->bounds() || outside(*mesh->bounds(), multiply(p.world, viewProjection)))
                 continue;
             d.transforms[1] = p.world;
             for (const Mesh::Group &g : mesh->groups) {
