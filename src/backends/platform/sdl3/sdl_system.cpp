@@ -660,6 +660,12 @@ void SdlSystem::setRelativeMouse(bool on) {
 }
 
 // A message box of the window's: the mouse is let go while it shows.
+void SdlSystem::showError(const std::string &title, const std::string &text) {
+    if (_window)
+        SDL_SetWindowRelativeMouseMode(_window, false);
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title.c_str(), text.c_str(), _window);
+}
+
 bool SdlSystem::confirmQuit(const std::string &text, bool toLauncher) {
     const bool held = _relativeMouse;
     if (_window && held)

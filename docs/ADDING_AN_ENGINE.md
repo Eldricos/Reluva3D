@@ -69,6 +69,11 @@ and adds `<name>=enabled` to `engines.cfg`. Build it: it compiles, and
   `src/audio/`, `src/video/`, `src/graphics/` (drawing, palettes, fonts,
   cursors, 3D), `src/image/`, and `src/emulation/x86/` to run a game's
   own Windows code.
+- **When the game can't go on**, `run()` returns the reason as an
+  `Error`: the launcher shows it in a message box
+  (`System::showError`) and on its status line, in words a player can
+  act on. A game the player left or that ended by itself returns
+  success.
 - **A mouse pointer of the game's own** goes to `System::setMouseCursor`
   (a `Cursor` from `src/graphics/cursor.h`, made from the game's palette
   indices with `cursor::fromIndexed`). The backend shows it as the

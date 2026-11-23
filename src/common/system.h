@@ -149,6 +149,12 @@ public:
         return true;
     }
     /**
+     * Tells the player a game stopped because of an error, showing `text`
+     * under `title`, and waits for them to read it. Without a way to show
+     * it, nothing: the launcher's status line still says it.
+     */
+    virtual void showError(const std::string &title, const std::string &text) { (void)title, (void)text; }
+    /**
      * How the picture is shown (the player's display settings): taken up by
      * the next initGraphics() or init3D(); vsync at once. Backends without a
      * window ignore it.

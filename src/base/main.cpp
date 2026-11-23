@@ -135,6 +135,8 @@ int main(int argc, char **argv) {
         }
         if (system.quitRequested())
             break;
+        if (err)
+            system.showError(target->description + " stopped", err.message);
         launcher.setStatus(err ? target->description + ": " + err.message : "Returned from " + target->description);
     }
     return 0;
