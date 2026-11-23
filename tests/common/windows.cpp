@@ -3,7 +3,7 @@
 
 // The Windows a program sees in the x86 emulator: threads, the C and C++
 // runtimes, files, windows and the registry, DirectDraw and Direct3D 7,
-// DirectInput, Aureal A3D (and the mixer's SoundStream it plays through).
+// DirectInput, DirectSound, Aureal A3D (and the mixer's SoundStream it plays through).
 //
 //   reluva-tests common.unit.windows
 
@@ -16,6 +16,7 @@
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/directx/dinput.h"
 #include "emulation/x86/directx/directx.h"
+#include "emulation/x86/directx/dsound.h"
 #include "emulation/x86/directx/internal.h"
 #include "emulation/x86/msvcp60.h"
 #include "emulation/x86/msvcrt.h"
@@ -1237,6 +1238,89 @@ static void testDirectX() {
     CHECK(call(device, 2, {}) == 0);
 }
 
+// DirectSound's silent card: buffers that play by the process's clock,
+// a sound ending on its own unless it loops, and memory that duplicates
+// share.
+static void testDirectSound() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    x86::DirectSound directSound(process);
+    uint32_t now = 1000;
+    process.milliseconds = [&] { return now; };
+    uint32_t r = 0;
+    auto call = [&](uint32_t self, int index, std::vector<uint32_t> args) {
+        args.insert(args.begin(), self);
+        const bool ok = !cpu.call(cpu.read32(cpu.read32(self) + 4 * uint32_t(index)), args, r);
+        CHECK(ok);
+        return r;
+    };
+    const uint32_t out = process.memory().alloc(4);
+    CHECK(!cpu.call(process.provided("DSOUND.dll", "#1"), {0, out, 0}, r) && r == 0);
+    const uint32_t ds = cpu.read32(out);
+    CHECK(call(ds, 6, {0, 2}) == 0); // SetCooperativeLevel: DSSCL_PRIORITY
+    // A buffer of a second of 8 kHz mono 16-bit sound.
+    const uint32_t wave = process.memory().alloc(18);
+    const uint16_t pcm[7] = {1, 1, 8000 & 0xffff, 0, 16000 & 0xffff, 0, 2};
+    for (uint32_t i = 0; i < 7; ++i)
+        cpu.write16(wave + 2 * i, pcm[i]);
+    cpu.write16(wave + 14, 16);
+    const uint32_t desc = process.memory().alloc(20);
+    const uint32_t fields[5] = {20, 0x80, 16000, 0, wave}; // DSBCAPS_CTRLVOLUME
+    for (uint32_t i = 0; i < 5; ++i)
+        cpu.write32(desc + 4 * i, fields[i]);
+    CHECK(call(ds, 3, {desc, out, 0}) == 0); // CreateSoundBuffer
+    const uint32_t buffer = cpu.read32(out);
+    // Lock: the last 1000 bytes and, wrapping, the first 1000.
+    const uint32_t lock = process.memory().alloc(16);
+    CHECK(call(buffer, 11, {15000, 2000, lock, lock + 4, lock + 8, lock + 12, 0}) == 0);
+    CHECK(cpu.read32(lock + 4) == 1000 && cpu.read32(lock + 12) == 1000 &&
+          cpu.read32(lock + 8) + 15000 == cpu.read32(lock));
+    const uint32_t base = cpu.read32(lock + 8);
+    CHECK(call(buffer, 19, {cpu.read32(lock), 1000, base, 1000}) == 0); // Unlock
+    const uint32_t status = process.memory().alloc(8);
+    auto playing = [&](uint32_t b) {
+        call(b, 9, {status}); // GetStatus
+        return cpu.read32(status);
+    };
+    CHECK(call(buffer, 12, {0, 0, 0}) == 0 && playing(buffer) == 1); // Play, once
+    now += 250;
+    CHECK(call(buffer, 4, {status, status + 4}) == 0); // GetCurrentPosition
+    CHECK(cpu.read32(status) == 4000 && cpu.read32(status + 4) == 4160);
+    now += 750;
+    CHECK(playing(buffer) == 0);                                     // played to its end
+    CHECK(call(buffer, 12, {0, 0, 1}) == 0 && playing(buffer) == 5); // Play, looping
+    now += 1500;
+    CHECK(call(buffer, 4, {status, 0}) == 0 && cpu.read32(status) == 8000 && playing(buffer) == 5);
+    CHECK(call(buffer, 18, {}) == 0 && playing(buffer) == 0); // Stop
+    // A duplicate shares the memory but plays on its own.
+    CHECK(call(ds, 5, {buffer, out}) == 0);
+    const uint32_t copy = cpu.read32(out);
+    CHECK(call(copy, 11, {0, 16, lock, lock + 4, 0, 0, 2}) == 0); // DSBLOCK_ENTIREBUFFER
+    CHECK(cpu.read32(lock) == base && cpu.read32(lock + 4) == 16000);
+    CHECK(playing(copy) == 0);
+    CHECK(call(copy, 2, {}) == 0 && call(buffer, 2, {}) == 0); // Release both
+    // The primary buffer takes a format, but can't be locked; with
+    // DSBCAPS_CTRL3D it's the listener.
+    cpu.write32(desc + 4, 0x1 | 0x10);
+    cpu.write32(desc + 16, 0);
+    CHECK(call(ds, 3, {desc, out, 0}) == 0);
+    const uint32_t primary = cpu.read32(out);
+    CHECK(call(primary, 14, {wave}) == 0); // SetFormat
+    CHECK(call(primary, 5, {wave, 18, 0}) == 0 && cpu.read32(wave + 4) == 8000);
+    CHECK(call(primary, 11, {0, 16, lock, lock + 4, 0, 0, 0}) != 0);
+    const uint32_t iid = process.memory().alloc(16);
+    x86::ComHost::writeGuid(cpu, iid, "{279afa84-4981-11ce-a521-0020af0be560}");
+    CHECK(call(primary, 0, {iid, out}) == 0 && cpu.read32(out) != 0);
+    // The listener keeps what it's set to: facing +z, +y up, at first.
+    const uint32_t listener = cpu.read32(out);
+    const uint32_t vector = process.memory().alloc(24);
+    CHECK(call(listener, 6, {vector, vector + 12}) == 0); // GetOrientation
+    CHECK(cpu.read32(vector + 8) == 0x3f800000u && cpu.read32(vector + 16) == 0x3f800000u && cpu.read32(vector) == 0);
+    CHECK(call(listener, 14, {0x40000000u, 0, 0x3f800000u, 0}) == 0); // SetPosition(2, 0, 1)
+    CHECK(call(listener, 7, {vector}) == 0 && cpu.read32(vector) == 0x40000000u &&
+          cpu.read32(vector + 8) == 0x3f800000u);
+}
+
 // Input as the engine passes it on: window messages (with a double click
 // for a class that asks for them), key states, the pointer kept within
 // ClipCursor's rectangle; and DirectInput's mouse and keyboard, read as a
@@ -1800,6 +1884,7 @@ static void testHostedProgramNeeds(const std::filesystem::path &tmp) {
     CHECK(call(w, "PlaySoundA", {text("x.wav"), 0, 0x20000}) == 0 && call(w, "auxGetNumDevs", {}) == 0 &&
           call(w, "auxGetVolume", {0, values}) == 2);
 
+
     // GDI's coordinates are device units, the desktop's clip box the
     // screen; text by the stand-in font, 8 x 16.
     const uint32_t desktopDc = call(u, "GetDC", {0});
@@ -1827,6 +1912,7 @@ static const test::Suite kSuite(
         {"windows and registry", [](const std::filesystem::path &) { testWindowsAndRegistry(); }},
         {"directx", [](const std::filesystem::path &) { testDirectX(); }},
         {"input", [](const std::filesystem::path &) { testInput(); }},
+        {"DirectSound", [](const std::filesystem::path &) { testDirectSound(); }},
         {"a3d", [](const std::filesystem::path &) { testA3d(); }},
         {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
     });

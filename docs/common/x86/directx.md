@@ -1,4 +1,4 @@
-# DirectDraw, Direct3D 7 and DirectInput
+# DirectDraw, Direct3D 7, DirectInput and DirectSound
 
 ## What it is
 
@@ -55,6 +55,25 @@ headers' (`directx/interfaces.cpp`).
     `c_dfDIKeyboard` kinds, or its own).
   - Read either as an immediate state (relative or absolute axes) or as a
     buffer of changes (`DIPROP_BUFFERSIZE`, `GetDeviceData`).
+- **`directx/dsound.cpp`: DSOUND.dll**, DirectSound up to DirectX 7
+  (`DirectSoundCreate`, by name or as the first export), for programs
+  that need a sound card to go on. It's silent:
+  - buffers in the program's memory, locked and written as on Windows,
+    wrapping round their end; duplicates share their memory;
+  - played by the process's clock: the play cursor moves at the
+    buffer's rate, and a sound not looping stops at its end, so a program
+    waiting for one to finish (speech, say) waits as long as it would
+    have; the write cursor is 10 ms ahead;
+  - the primary buffer, one for every request, takes a format;
+  - the 3D interfaces (`IDirectSound3DListener` on the primary buffer,
+    `IDirectSound3DBuffer` on others, both made with `DSBCAPS_CTRL3D`)
+    keep each value they're set to, starting from the documentation's
+    defaults;
+  - the card has software buffers only, 8 and 16 bits, mono and stereo,
+    at any rate.
+
+  Nothing is mixed or heard, and notifications (`IDirectSoundNotify`)
+  aren't there.
 
 ## How it works
 
@@ -106,6 +125,10 @@ checked without a GPU.
 
 - `testInput` checks DirectInput's mouse (its state, its movement since
   the last read, its buffer) and keyboard.
+- `testDirectSound` checks a buffer on a clock the test moves: a lock
+  wrapping round its end, the cursors, a sound played once ending, one
+  looping going on, a duplicate on the same memory; the primary buffer's
+  format, and its listener's orientation and position.
 - **Confidence:** published unless marked.
 
 ## Used by
@@ -117,4 +140,6 @@ checked without a GPU.
 - **`storm3d`**: Star Trek: Armada's program, run as a reference
   ([hosting.md](../../engines/storm3d/games/armada/systems/hosting.md)). It asks `IDirectDraw7::EnumSurfaces` for every
   surface there is; none is listed, since what's made isn't kept for it and
-  nothing is ever lost.
+  nothing is ever lost. With no sound card (`DirectSoundCreate` failing),
+  its missions wait for their speech for ever; with the silent one, they
+  go on.
