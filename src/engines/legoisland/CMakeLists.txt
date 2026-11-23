@@ -30,7 +30,8 @@ reluva_add_engine_viewers(legoisland
         pages/wdb_viewer.cpp)
 
 # Its reluva-tool commands (reluva-tool help legoisland lists them).
-reluva_add_engine_tools(legoisland
+# WITH_SDL: run -gpu draws on the GPU, through the SDL backend's compute.
+reluva_add_engine_tools(legoisland WITH_SDL
     SOURCES
         tools/dta.cpp
         tools/files.cpp

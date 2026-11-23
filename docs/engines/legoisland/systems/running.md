@@ -294,7 +294,9 @@ module+offset); the frames shown, and how fast it ran. `-trace <count>`
 keeps the last so many instructions for a failure's report too, which,
 as `-at` does, runs the program without the JIT, many times slower;
 `-speed <frames>` prints how many frames a second it shows over each so
-many, and `-present-late` shows frames late, as the engine does. `-log` prints
+many, `-present-late` shows frames late, as the engine does, and `-gpu`
+draws the triangles on the GPU
+([directx.md](../../../common/x86/directx.md#drawing-on-the-gpu)). `-log` prints
 every stand-in called (and, for `QueryInterface`, the interface asked
 for), `-files` each file the program asks for, and
 `-save <folder>` lets it write, `-shots <folder>` saves every
