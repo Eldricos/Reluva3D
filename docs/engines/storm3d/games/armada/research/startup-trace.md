@@ -182,6 +182,25 @@ with its tooltip ("Return to the game"), the click closes the
 objectives, and the mission plays on, the Enterprise turning in the
 unit panel.
 
+## Towards a skirmish
+
+The main menu's Multiplayer (552, 18) opens the multiplayer connection
+screen: a name to enter, then Internet, Local Area Network or Instant
+Action, the skirmish against the computer. That screen waits in a
+dialog for the player and runs no instructions meanwhile, so the host
+now gives it its input as its clock moves on while every thread waits
+too. With a name typed and Instant Action (320, 310) clicked, it reads
+`bzn\4first.mdf` and `4first.bmp` (the map first chosen) and the game
+setup screen's pictures, and shows the screen's frame, but none of its
+text, nor the map's picture: those are in owner-drawn list boxes.
+
+Armada.exe's dialog templates (39, all `DLGTEMPLATEEX`) have 16 of
+them: the setup screens' (templates 103 and 105 have four each, style
+`LBS_OWNERDRAWFIXED` with `LBS_HASSTRINGS`), whose items the program
+paints when Windows asks (`WM_MEASUREITEM`, `WM_DRAWITEM`). Reluva's
+dialogs have no list boxes yet, nor ask controls to be drawn, so the
+setup screen stays empty, and a skirmish can't be started from it.
+
 ## Where the run stops
 
 Each stop was a function the emulator didn't stand in for; each was
@@ -215,6 +234,7 @@ added, and the run went on to the next:
 | (no stop) the mission panel not seen | | GDI's painting shown when the program next looks for a message |
 | `CoCreateGuid` | starting the mission | ole32 |
 | `__RTDynamicCast` | loading the mission | MSVCRT |
+| `wsprintfA` | Instant Action's setup screen | USER32 |
 | (no stop) black after the opening scene | the mission's script waiting for speech | DirectSound, silent but in time |
 | `GetWindowThreadProcessId` | with a sound card | USER32 |
 | `mmioOpenA` | its sounds' WAVE files | WINMM's `mmio` |
