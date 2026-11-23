@@ -314,6 +314,8 @@ int cmdNfsHost(int argc, char **argv) {
             options.commandLine = "nfs2sen.exe";
         options.program = "nfs2sen.exe";
     }
+    if (nfs2se)
+        options.driveLabel = "NFS2SE";
     // NFS II SE's 3dfx program draws only through Glide, made for the
     // Voodoo Graphics (1997): that board unless -glideboard names another.
     if (options.program == "nfs2sea.exe") {

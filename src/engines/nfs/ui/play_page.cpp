@@ -213,6 +213,8 @@ void PlayPage::start() {
     options.program = _program;
     options.programFile = _programFile;
     options.commandLine = _program;
+    if (_program.starts_with("nfs2se"))
+        options.driveLabel = "NFS2SE";
     options.saveFolder = _saveFolder.empty() ? _folders.install / "reluva-save" : _saveFolder / "game";
     options.nativeThrash = true;
     options.pointSampled = !_smoothTextures;

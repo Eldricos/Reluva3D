@@ -49,6 +49,13 @@ None yet.
 
 ## Guessed
 
+- **The CD's volume label**: the host gives both drives `NFS2SE`
+  (`GameHost::Options::driveLabel`). The real CD's label wasn't read
+  (a copy of its files keeps none); the program asks it
+  (`GetVolumeInformationA`), but its game-files records are the same
+  with NFS III's `NFS3`.
+  The CD itself would settle it.
+
 - **How a quad's picture is laid on it**: its corners taking the
   picture's top left, top right, bottom right and bottom left in turn
   ([trk.md](formats/trk.md), In Reluva). Roads and signs look right so,
