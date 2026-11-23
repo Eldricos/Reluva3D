@@ -1,3 +1,40 @@
 # The record of legoisland.engine (tests/engines/legoisland/engine.cpp).
 # Written by `reluva-tests legoisland.engine --update`; review its diff before committing.
-detect.games: 0
+engine: legoisland LEGO Island
+detect.empty: 0
+import.empty: 0
+detect.install: 1
+detect.install.game: legoisland LEGO Island (unknown release)  windows
+import.game: legoisland LEGO Island (unknown release)
+import.files: 5 68 6db3f0bf725e7dbc
+import.note: From the CD's LEGO\SCRIPTS folder, not found: ACT2/ACT2MAIN.SI, ACT3/ACT3.SI, BUILD/COPTER.SI, BUILD/DUNECAR.SI, .... The CD's copy may be incomplete, or another release's.
+options: 8
+options.turning: Turning | time By time | frame By frame, as the original (20 frames a second to match)
+options.framerate: Frame rate | 60 60 a second | 20 20 a second | 30 30 a second | 15 15 a second | 0 As many as it draws
+options.islandquality: Island model quality | 2 High | 1 Medium | 0 Fast
+options.islandtexture: Island texture quality | 1 High | 0 Fast
+options.music: Music [on]
+options.sound3d: 3D sound [on]
+options.drawcursor: The game's own cursor [off]
+options.usejoystick: Use a joystick [off]
+settings.unset: 60 time -
+settings.defaults: 60 time -, Island Quality=2, Island Texture=1, Music=YES, 3DSound=YES, Draw Cursor=NO
+settings.original: 20 frame -
+settings.changed: 0 time joystick, Island Quality=1, Island Texture=0, Music=NO, 3DSound=YES, Draw Cursor=YES, UseJoystick=YES, JoystickIndex=0
+settings.unreadable: 60 time -
+settings.negative: 0 time -
+pacing.60: 0 16666 33333 49999 100000 116666 200000
+pacing.20: 0 50000 100000 150000
+pacing.unlimited: 0 0 1000 1000
+process.registry: diskpath=C:\PROGRA~1\LEGOIS~1, cdpath=D:, savepath=C:\PROGRA~1\LEGOIS~1, Island Quality=2, Island Texture=(unset), Music=(unset), 3DSound=(unset), Draw Cursor=(unset), UseJoystick=(unset), JoystickIndex=(unset)
+process.joystick: no
+process.registry.set: diskpath=C:\PROGRA~1\LEGOIS~1, cdpath=D:, savepath=C:\PROGRA~1\LEGOIS~1, Island Quality=0, Island Texture=(unset), Music=NO, 3DSound=(unset), Draw Cursor=(unset), UseJoystick=YES, JoystickIndex=0
+process.joystick.set: yes
+process.load: LEGO1.DLL: Not an executable (no MZ header)
+process.turning: by frame
+process.load.empty: No LEGO1.DLL in <dir>/empty
+player.ended: no
+player.error: LEGO1.DLL: Not an executable (no MZ header)
+player.frames: 0
+engine.empty: LEGO Island's program, ISLE.EXE and LEGO1.DLL, isn't in <dir>/empty (0 frames shown, title "")
+engine.install: The game went where Reluva can't follow it yet, and stopped (what it hadn't saved is lost): LEGO1.DLL: Not an executable (no MZ header) (1 frames shown, title "Reluva - LEGO Island")

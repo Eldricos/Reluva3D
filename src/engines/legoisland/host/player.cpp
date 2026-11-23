@@ -63,6 +63,15 @@ std::string Player::takeOutput() {
     return out;
 }
 
+FramePacer::Clock::time_point FramePacer::next(Clock::time_point now) {
+    if (_rate <= 0)
+        return now;
+    const auto frame = std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(1.0 / _rate));
+    const Clock::time_point at = std::max(_next, now);
+    _next = at + frame;
+    return at;
+}
+
 void Player::work() {
     GameProcess game(_dir);
     game.setTurningByTime(_turningByTime);
@@ -82,16 +91,9 @@ void Player::work() {
     // taken; it's also taken whenever the program looks for a message and
     // finds none.
     game.directX().presented = [this](const x86::DirectX::Frame &f) {
-        // No more frames than the frame rate: a frame that came late
-        // doesn't make the next ones hurry.
-        if (_frameRate > 0) {
-            using namespace std::chrono;
-            const auto frame = duration_cast<steady_clock::duration>(duration<double>(1.0 / _frameRate));
-            const auto now = steady_clock::now();
-            if (_nextFrame > now)
-                std::this_thread::sleep_until(_nextFrame);
-            _nextFrame = std::max(_nextFrame, now) + frame;
-        }
+        const auto now = FramePacer::Clock::now();
+        if (const auto at = _pacer.next(now); at > now)
+            std::this_thread::sleep_until(at);
         {
             std::lock_guard<std::mutex> lock(_mutex);
             _frame = f.pixels;

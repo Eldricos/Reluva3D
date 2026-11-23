@@ -94,11 +94,11 @@ front plane (`GetPlane`'s) to the viewport's, and the front plane to the
 back to depths 0 to 1 *(inferred: the documentation gives the edges and
 planes, not the matrix)*. The lights in the frames drawn are Direct3D's,
 the ambient ones added together, with Retained Mode's rules: a light is
-where its frame is and shines down its frame's z *(the z inferred)*; its
+where its frame is and shines down its frame's z (which axis, *inferred*); its
 attenuation, `1 / (constant + linear d + quadratic d²)`, never above 1;
 its range a spotlight's alone, the others reaching any distance; a
 parallel point light shining from where it is one way across each
-object, aimed at the middle of the mesh's box *(the middle inferred)*;
+object, aimed at the middle of the mesh's box (where, *inferred*);
 a spotlight's umbra and penumbra taken as half its cones' angles
 *(inferred)*.
 
@@ -130,11 +130,11 @@ says (`D3DRMMATERIALMODE`): its own (`FROMMESH`, the default), its
 frame's colour (`FROMFRAME`), or as its frame's parent has them
 (`FROMPARENT`), up the frames to one that says. A frame's texture is
 the group's under `FROMFRAME`, and else only where the group has none
-*(inferred: the documentation doesn't say when it's used)*.
+(the documentation doesn't say when it's used) *(inferred)*.
 
 A texture added to a frame as a visual is a decal, drawn after the
 meshes "into a viewport-aligned rectangle": its origin, a point of the
-texture from its top-left corner *(in its pixels, inferred)*, at its
+texture from its top-left corner, in its pixels (*inferred*), at its
 frame's position; its size the decal's, in model units at that depth
 (`SetDecalScale` on, the default), or, off, the texture's own in pixels
 *(inferred)*; behind what's nearer, and written into the Z buffer

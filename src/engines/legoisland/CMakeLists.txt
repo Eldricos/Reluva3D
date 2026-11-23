@@ -14,7 +14,8 @@ reluva_add_engine(legoisland
         host/game_process.cpp
         host/player.cpp
         host/turning.cpp
-        legoisland.cpp)
+        legoisland.cpp
+        play_settings.cpp)
 
 # Its data viewer, in reluva-viewer only (docs/DEVELOPMENT.md, The data
 # viewer).

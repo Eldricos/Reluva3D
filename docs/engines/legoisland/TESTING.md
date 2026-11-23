@@ -22,8 +22,23 @@ files):
 ### The basic engine test
 
 `legoisland.engine` (`tests/engines/legoisland/engine.cpp`), without the
-game's files: a small install of its own, taken through what playing
-does, against its record (`data/engine-record.txt`).
+game's files: a small install of its own (the files' names, made-up
+contents), taken through what playing does short of the game's own
+program, against its record (`data/engine-record.txt`):
+
+- the install found, and planned for import with a copy of the CD's
+  scripts beside it;
+- the engine's options, their defaults the same as nothing set, and the
+  settings each makes (frame rate, turning, the setup's registry values,
+  the joystick);
+- frames held to 60 and 20 a second, and unheld, on a made-up clock: a
+  late frame shown when it's ready, the next ones not hurried;
+- the process's registry as the installer leaves it, then with settings,
+  and the joystick reported;
+- the program loaded, played on its thread and run by the engine as the
+  launcher runs it, each stopping with the error it should.
+
+The game-files test (below) runs the program itself.
 
 ### The game-files test
 

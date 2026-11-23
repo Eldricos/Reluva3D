@@ -11,9 +11,9 @@
 #include "engines/engine.h"
 #include "engines/legoisland/detection.h"
 #include "engines/legoisland/host/player.h"
+#include "engines/legoisland/play_settings.h"
 
 #include <cstdio>
-#include <cstdlib>
 #include <memory>
 #include <string>
 #include <vector>
@@ -21,11 +21,6 @@
 namespace reluva::legoisland {
 
 namespace {
-
-// Frames a second, unless the settings say otherwise: a display's. The
-// player turns by time unless the original's way is asked for, when 20
-// turns it as fast (systems/running.md).
-constexpr int kDefaultFrameRate = 60;
 
 /**
  * The game running: its program played (Player), its frames shown, the
@@ -56,30 +51,12 @@ public:
 private:
     Error play() {
         Player player(_target.path, _target.savePath, _audioOut ? _mixer.get() : nullptr);
-        const auto rate = _target.settings.find("framerate");
-        player.setFrameRate(rate == _target.settings.end() ? kDefaultFrameRate : std::atoi(rate->second.c_str()));
-        const auto turning = _target.settings.find("turning");
-        player.setTurningByTime(turning == _target.settings.end() || turning->second != "frame");
-        // The setup's choices, each where it's set; unset, the program's
-        // own default (but for the island's model, GameProcess's).
-        auto set = [&](const char *key) -> const std::string * {
-            const auto it = _target.settings.find(key);
-            return it == _target.settings.end() ? nullptr : &it->second;
-        };
-        if (const std::string *v = set("islandquality"))
-            player.setSetting("Island Quality", *v);
-        if (const std::string *v = set("islandtexture"))
-            player.setSetting("Island Texture", *v);
-        for (const auto &[key, name] :
-             {std::pair{"music", "Music"}, {"sound3d", "3DSound"}, {"drawcursor", "Draw Cursor"}})
-            if (const std::string *v = set(key))
-                player.setSetting(name, *v != "0" ? "YES" : "NO");
-        // A joystick, if asked for: the first one connected, as joystick 0.
-        if (const std::string *v = set("usejoystick"); v && *v != "0") {
-            player.setSetting("UseJoystick", "YES");
-            player.setSetting("JoystickIndex", "0");
-            player.setJoystick(true);
-        }
+        const PlaySettings settings = playSettings(_target.settings);
+        player.setFrameRate(settings.frameRate);
+        player.setTurningByTime(settings.turningByTime);
+        player.setJoystick(settings.joystick);
+        for (const auto &[name, value] : settings.registry)
+            player.setSetting(name, value);
         player.start();
         int width = 640;
         int height = 480;

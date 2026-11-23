@@ -24,6 +24,25 @@ namespace reluva::legoisland {
 class GameProcess;
 
 /**
+ * Holds frames to a rate: when each may be shown. A frame that came late
+ * doesn't make the next ones hurry.
+ */
+class FramePacer {
+public:
+    /** The clock it paces by. */
+    using Clock = std::chrono::steady_clock;
+
+    /** At most so many frames a second; 0 (the default), no limit. */
+    void setRate(int framesPerSecond) { _rate = framesPerSecond; }
+    /** When the frame ready at `now` may be shown: `now`, or later. */
+    Clock::time_point next(Clock::time_point now);
+
+private:
+    int _rate = 0;
+    Clock::time_point _next;
+};
+
+/**
  * LEGO Island played: its program (GameProcess) run on a thread of its own,
  * since its main loop never hands back control. The engine's thread passes
  * it events and takes its frames; every call here is for the engine's
@@ -46,7 +65,7 @@ public:
     /** Whether the game is told of a joystick, which the input's joystick events move; before start. */
     void setJoystick(bool present) { _joystick = present; }
     /** At most so many frames a second (0: as many as it draws); before start. */
-    void setFrameRate(int framesPerSecond) { _frameRate = framesPerSecond; }
+    void setFrameRate(int framesPerSecond) { _pacer.setRate(framesPerSecond); }
     /** Starts the game's thread, which loads and runs the program; call once. */
     void start();
     /**
@@ -78,12 +97,11 @@ private:
     std::filesystem::path _dir;
     std::filesystem::path _saveDir;
     audio::Mixer *_mixer;
-    int _frameRate = 0;
     bool _joystick = false;
     bool _turningByTime = true;
     std::vector<std::pair<std::string, std::string>> _settings;
-    std::chrono::steady_clock::time_point _nextFrame; // the game thread's
-    GameProcess *_game = nullptr;                     // the game thread's, while it runs
+    FramePacer _pacer;            // the game thread's
+    GameProcess *_game = nullptr; // the game thread's, while it runs
     std::thread _thread;
     std::mutex _mutex;
     std::deque<Event> _events;
