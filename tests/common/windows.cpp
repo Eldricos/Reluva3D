@@ -1226,6 +1226,118 @@ static void testDirectPlayLobby() {
     CHECK(!cpu.call(cpu.read32(cpu.read32(lobby) + 4 * 2), {lobby}, r) && r == 0); // Release
 }
 
+// A DirectPlay session hosted by one process: its connection, players and
+// messages, as Starfleet Command II uses them.
+static void testDirectPlaySession() {
+    x86::Cpu cpu(32u << 20);
+    x86::Win32Process process(cpu);
+    x86::DirectPlay directPlay(process);
+    uint32_t r = 0;
+    auto mem = [&](uint32_t size) { return process.memory().alloc(size); };
+    auto guid = [&](uint32_t at, const char *g) {
+        x86::ComHost::writeGuid(cpu, at, g);
+        return at;
+    };
+    const uint32_t out = mem(4);
+    CHECK(!cpu.call(process.provided("ole32.dll", "CoCreateInstance"),
+                    {guid(mem(16), "{d1eb6d20-8923-11d0-9d97-00a0c90a43cb}"), 0, 1,
+                     guid(mem(16), "{0ab1c531-4745-11d1-a7a1-0000f803abfc}"), out},
+                    r) &&
+          r == 0);
+    const uint32_t play = cpu.read32(out);
+    // IDirectPlay4A's methods by their place in its vtable.
+    auto call = [&](int index, std::vector<uint32_t> args) {
+        args.insert(args.begin(), play);
+        CHECK(!cpu.call(cpu.read32(cpu.read32(play) + 4 * uint32_t(index)), args, r));
+        return r;
+    };
+    enum {
+        kCreatePlayer = 6,
+        kDestroyPlayer = 9,
+        kGetPlayerAddress = 18,
+        kGetPlayerData = 20,
+        kGetSessionDesc = 22,
+        kOpen = 24,
+        kReceive = 25,
+        kSend = 26,
+        kSetPlayerData = 29,
+        kInitializeConnection = 38,
+        kGetPlayerFlags = 46,
+        kSendEx = 49
+    };
+    // The TCP/IP connection, as EnumConnections gives it: the address's
+    // total size, then its provider.
+    const uint32_t address = mem(60);
+    guid(address, "{1318f560-912c-11d0-9daa-00a0c90a43cb}");
+    cpu.write32(address + 16, 4);
+    cpu.write32(address + 20, 60);
+    guid(address + 24, "{07d916c0-e0af-11cf-9c4e-00a0c905425e}");
+    cpu.write32(address + 40, 16);
+    guid(address + 44, "{36e95ee0-8577-11cf-960c-0080c7534e82}");
+    CHECK(call(kInitializeConnection, {address, 0}) == 0);
+    const uint32_t size = mem(4);
+    cpu.write32(size, 0);
+    CHECK(call(kGetPlayerAddress, {0, 0, size}) == 0x8877001eu && cpu.read32(size) == 60);
+    // Open(DPOPEN_CREATE): a session named "Duel" for four.
+    const uint32_t desc = mem(80);
+    cpu.write32(desc, 80);
+    cpu.write32(desc + 40, 4);
+    const uint32_t name = mem(8);
+    cpu.writeString(name, "Duel", 8);
+    cpu.write32(desc + 48, name);
+    CHECK(call(kOpen, {desc, 0x82}) == 0);
+    const uint32_t got = mem(200);
+    cpu.write32(size, 200);
+    CHECK(call(kGetSessionDesc, {got, size}) == 0 && cpu.read32(got + 40) == 4);
+    CHECK(cpu.string(cpu.read32(got + 48)) == "Duel" && x86::ComHost::guid(cpu, got + 8) != "{}");
+    // Two local players: the first told of the second, by name.
+    const uint32_t ids = mem(8);
+    const uint32_t dpName = mem(16 + 8);
+    cpu.write32(dpName, 16);
+    cpu.write32(dpName + 8, dpName + 16);
+    cpu.writeString(dpName + 16, "Kirk", 8);
+    CHECK(call(kCreatePlayer, {ids, dpName, 0, 0, 0, 0}) == 0);
+    cpu.writeString(dpName + 16, "Plato", 8);
+    CHECK(call(kCreatePlayer, {ids + 4, dpName, 0, 0, 0, 0}) == 0);
+    const uint32_t kirk = cpu.read32(ids);
+    const uint32_t plato = cpu.read32(ids + 4);
+    CHECK(kirk > 1 && plato > 1 && kirk != plato);
+    CHECK(call(kGetPlayerFlags, {kirk, out}) == 0 && cpu.read32(out) == 8);
+    const uint32_t from = mem(4);
+    const uint32_t to = mem(4);
+    const uint32_t buffer = mem(256);
+    auto receive = [&](uint32_t room) {
+        cpu.write32(size, room);
+        return call(kReceive, {from, to, 1, room ? buffer : 0, size});
+    };
+    CHECK(receive(0) == 0x8877001eu); // DPERR_BUFFERTOOSMALL, and the size
+    CHECK(receive(256) == 0 && cpu.read32(from) == 0 && cpu.read32(to) == kirk);
+    CHECK(cpu.read32(buffer) == 3 && cpu.read32(buffer + 4) == 1 && cpu.read32(buffer + 8) == plato); // created
+    CHECK(cpu.string(cpu.read32(buffer + 24 + 8)) == "Plato");
+    CHECK(receive(256) == 0x887700beu); // DPERR_NOMESSAGES
+    // A message to every player but its sender; one to a player.
+    const uint32_t data = mem(4);
+    cpu.write32(data, 0x12345678);
+    CHECK(call(kSend, {kirk, 0, 0, data, 4}) == 0);
+    CHECK(receive(256) == 0 && cpu.read32(from) == kirk && cpu.read32(to) == plato && cpu.read32(size) == 4 &&
+          cpu.read32(buffer) == 0x12345678);
+    CHECK(receive(256) == 0x887700beu);
+    // Sent asynchronously, it's under way (E_PENDING).
+    CHECK(call(kSendEx, {plato, kirk, 0x601, data, 4, 0, 0, 0, 0}) == 0x8000000au);
+    CHECK(receive(256) == 0 && cpu.read32(from) == plato && cpu.read32(to) == kirk);
+    // Data every player sees: set, read back, the other player told.
+    CHECK(call(kSetPlayerData, {kirk, data, 4, 2}) == 0);
+    cpu.write32(size, 16);
+    CHECK(call(kGetPlayerData, {kirk, buffer, size, 0}) == 0 && cpu.read32(size) == 4 &&
+          cpu.read32(buffer) == 0x12345678);
+    CHECK(receive(256) == 0 && cpu.read32(to) == plato && cpu.read32(buffer) == 0x102 &&
+          cpu.read32(buffer + 8) == kirk && cpu.read32(cpu.read32(buffer + 12)) == 0x12345678);
+    // A player destroyed: the other told; one not there refused.
+    CHECK(call(kDestroyPlayer, {plato}) == 0);
+    CHECK(receive(256) == 0 && cpu.read32(to) == kirk && cpu.read32(buffer) == 5 && cpu.read32(buffer + 8) == plato);
+    CHECK(call(kDestroyPlayer, {plato}) == 0x88770096u);
+}
+
 static void testMiles() {
     x86::Cpu cpu(32u << 20);
     x86::Win32Process process(cpu);
@@ -1478,5 +1590,6 @@ static const test::Suite
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
                {"miles", [](const std::filesystem::path &) { testMiles(); }},
                {"directplay lobby", [](const std::filesystem::path &) { testDirectPlayLobby(); }},
+               {"directplay session", [](const std::filesystem::path &) { testDirectPlaySession(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
            });
