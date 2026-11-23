@@ -8,40 +8,21 @@
 #include "common/types.h"
 #include "engines/tpw/formats/bf4.h"
 #include "engines/tpw/formats/str.h"
+#include "engines/tpw/players.h"
 #include "engines/tpw/ui/model_view.h"
 #include "engines/tpw/ui/ui_model.h"
 
 #include <array>
+#include <filesystem>
 #include <functional>
 #include <string>
 
 namespace reluva::tpw {
 
-/** A player's record, as the Personnel File shows it. */
-struct PlayerFile {
-    /** A world's line: its name's number in `THEMENAMES.str`, and how its challenges stand. */
-    struct World {
-        int theme = 0;
-        bool open = false;
-        int won = 0;
-        int challenges = 0;
-    };
-
-    std::string name; // empty for a player not yet named
-    int rank = 1;     // in PROMOTIONLEVELS.str: 1 "Assistant Manager"
-    int goldenTickets = 0;
-    int sharesOwned = 0;
-    int sharesIssued = 0;
-    int sharePrice = 0;
-    std::array<World, 3> worlds{};
-    int objective = 0;      // in OPERATION.str: 0 "Operation Expand!"
-    int objectiveTheme = 0; // where it is, in THEMENAMES.str
-};
-
 /**
  * The "SC Personnel File" window of the front end, where a player is
- * chosen, drawn from the game's UI models, fonts and strings at the
- * places a recording shows them. See
+ * chosen, named or deleted, drawn from the game's UI models, fonts and
+ * strings at the places a recording shows them. See
  * docs/engines/tpw/games/simcoaster/systems/personnel-file.md.
  */
 class PersonnelFile {
@@ -57,51 +38,70 @@ public:
         kLoadGame,
         kDeletePlayer,
         kQuitGame,
-        kCoasterKit
+        kCoasterKit,
+        kNameDone,     // the tick by the name box
+        kConfirmYes,   // the delete dialog's tick
+        kConfirmNo,    // its cross
+        kConfirmClose, // its close button
     };
 
-    static constexpr int kPlayers = 4;
+    /** What the window shows, besides the players. */
+    struct View {
+        int selected = 0; // the slot shown
+        Control hovered = Control::kNone;
+        /** For a slot with no player: the name box's text, and whether it's still "Enter name here", selected. */
+        std::string typed;
+        bool placeholder = true;
+        bool confirmingDelete = false; // asking whether to delete the player shown
+    };
 
     /** Reads what it draws with, and the settings a new player starts from. Fails on the first piece missing. */
     Error load(const SearchSet &files);
 
-    /** A new player's record, from the settings (`levels/Standard.sam`, each world's `global.sam`, `Challenges.sam`). */
+    /** A new player's record, unnamed, from the settings (`levels/Standard.sam`, each world's `global.sam`, `Challenges.sam`). */
     const PlayerFile &newPlayer() const { return _newPlayer; }
 
-    /**
-     * Draws the window over what's on the screen (640 × 480, RGBA32): the
-     * players' tabs, `selected`'s record, the buttons, `hovered` lit.
-     */
-    void draw(Surface &screen, const std::array<PlayerFile, kPlayers> &players, int selected, Control hovered) const;
+    /** Draws the window over what's on the screen (640 × 480, RGBA32). */
+    void draw(Surface &screen, const PlayerSlots &players, const View &view) const;
 
-    /** What's at a point of the screen. */
-    static Control controlAt(int x, int y);
+    /** What's at a point of the screen that can be clicked, as the window shows `players` and `view`. */
+    static Control controlAt(int x, int y, const PlayerSlots &players, const View &view);
     /** Where a control is on the screen; empty for kNone. */
     static ScreenRect placeOf(Control control);
 
     /**
-     * Adds typed text to a player's name, as much of it as fits on its
-     * tab; a backspace (U+0008) takes its last character off.
+     * Adds typed text to a name, as much of it as fits on a tab; a
+     * backspace (U+0008) takes its last character off.
      */
-    void type(PlayerFile &player, const std::string &utf8) const;
+    void type(std::string &name, const std::string &utf8) const;
 
 private:
     void drawText(Surface &screen, const Font &font, int x, int y, const std::string &text, Color c) const;
     void drawCentred(Surface &screen, const Font &font, const ScreenRect &in, int y, const std::string &text,
                      Color c) const;
     std::string worldLine(const PlayerFile::World &world) const;
+    void drawRecord(Surface &screen, const PlayerFile &p) const;
+    void drawNameBox(Surface &screen, const View &view) const;
+    void drawDeleteDialog(Surface &screen, const PlayerFile &p, const View &view) const;
 
     LoadedModel _window;
+    LoadedModel _dialog;
     LoadedModel _page;
     LoadedModel _tab;
     LoadedModel _button;
     LoadedModel _bigButton;
     LoadedModel _frame;
     LoadedModel _portraits;
+    LoadedModel _nameBox;
+    LoadedModel _nameDone;
+    LoadedModel _yes;
+    LoadedModel _no;
+    LoadedModel _close;
     CharacterSet _characters;
     Font _title;
     Font _small;
     Font _label;
+    Font _message;
     Font _hand;
     StringTable _ui;
     StringTable _ranks;
@@ -114,15 +114,18 @@ private:
 using Backdrop = std::function<void(Surface &screen)>;
 
 /**
- * The Personnel File over `backdrop`, four new players, the first shown:
- * the mouse lights the buttons, a tab shows its player, typing names the
- * one shown, "Enter Game" goes on with the player shown, "Quit Game"
- * leaves. Without its pieces, goes on at once with a new player's record
- * as the settings give it, or an empty one.
+ * The Personnel File over `backdrop`, its players read from and kept in
+ * the save folder (none kept without one): the mouse lights the buttons,
+ * a tab shows its slot; an empty slot's name box takes a name and its
+ * tick makes the player; "Delete Player" asks, then empties the slot;
+ * "Enter Game" goes on with the player shown, whose first objective is
+ * set if it had none; "Quit Game" leaves. Without its pieces, goes on at
+ * once with a new player as the settings give it, or an empty one.
  * @param chosen Gets the player shown when "Enter Game" is clicked.
  * @return True to go on into the game; false to leave it, or if the
  *     window was closed (or the launcher asked for).
  */
-bool choosePlayer(System &sys, const SearchSet &files, const Backdrop &backdrop, PlayerFile &chosen);
+bool choosePlayer(System &sys, const SearchSet &files, const std::filesystem::path &saveFolder,
+                  const Backdrop &backdrop, PlayerFile &chosen);
 
 } // namespace reluva::tpw

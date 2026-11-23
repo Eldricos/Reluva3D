@@ -12,7 +12,7 @@ files):
 |---|---|
 | `tpw.unit.import` | Importing from a small CD laid out as the US one: the cabinet's `Data` group in `Data/`, the movie and `Game.exe` at the top, the language's folders over the cabinet's files, the DLLs left out, then found by detection; a cabinet without `Game.exe` isn't the game's; a folder missing is said |
 | `tpw.unit.formats` | The game's files: archives with folders, stored and RefPack files, damage; the `Data` folder mounted, each archive as its folder, loose files over them; settings files, every kind of line, broken ones turned away; a character set and a string table with text and parameters, damaged ones turned away; a font of both storages read, and one not; a sound bank's entries, PCM decoded, MPEG's header, one without a header |
-| `tpw.unit.ui` | The opening, headless, on an install built in the test: the logo movie stretched to 640 × 480, then the splash held 3 seconds; neither, without their files. A world's sky; the loading screen from pieces built in the test; a flat model's mesh stretched into a rectangle, its alpha blended; each of the Personnel File's controls where it says it is |
+| `tpw.unit.ui` | The opening, headless, on an install built in the test: the logo movie stretched to 640 × 480, then the splash held 3 seconds; neither, without their files. A world's sky; the loading screen from pieces built in the test; a flat model's mesh stretched into a rectangle, its alpha blended; each of the Personnel File's controls where it says it is, clickable only when its state shows it; players written to a save folder and read back |
 | `tpw.unit.detection` | Recognising the game: a release not in the table found by its files' names, in any case, as an unknown release; not without `Data/Challenges.sam` |
 
 ### The basic engine test
@@ -50,7 +50,7 @@ With your own copy, installed or imported from the CD:
 | `scripts` | Every ride and shop script read, and run for a simulated minute with guests; a checksum of their disassembly and of what each asked of the game (`reluva-tool tpw rse-check`) |
 | `viewer` | The data viewer, headless: every page, a few keys on each, then Esc; its titles and a checksum of its screens (`reluva-tool tpw viewer-run`) |
 | `opening` | The opening run headless, by a clock that moves only as it waits: the screens shown and when it ended (`reluva-tool tpw opening-run`) |
-| `frontend` | The front end run headless: its opening skipped 5 s in, the Personnel File's "Enter Game" clicked a second later, then Land of Invention on the globe; the screens shown, the world chosen, with a checksum of the screens (`reluva-tool tpw front-end-run`) |
+| `frontend` | The front end run headless: its opening skipped 5 s in, then a quarter of a second apart a player named "Tester", made, "Enter Game", and Land of Invention on the globe; the screens shown, the world chosen, with a checksum of the screens (`reluva-tool tpw front-end-run`) |
 
 The installed folder and one imported from the CD pass against the same
 records. A baseline of your own is made as

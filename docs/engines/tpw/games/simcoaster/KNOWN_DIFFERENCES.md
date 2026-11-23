@@ -29,10 +29,12 @@ None yet.
   the ring of light, the lit hole in the table), the advisor's portrait
   and the skip button; a key or a click skips it
   ([front-end.md](systems/front-end.md#in-reluva)).
-- **The Personnel File** starts with four new players every time and
-  keeps none; "Load A Game", "Delete Player" and the Coaster Design Kit
-  do nothing; its blue buttons are lighter than the game's
-  ([personnel-file.md](systems/personnel-file.md#in-reluva)).
+- **The Personnel File** keeps its players in a file of Reluva's own,
+  `players.txt` in the game's save folder, as the game's own aren't
+  known ([players.md](systems/players.md)); "Load A Game" is always
+  disabled and the Coaster Design Kit does nothing; there are no
+  tooltips; the portrait always shows; its blue buttons are lighter than
+  the game's ([personnel-file.md](systems/personnel-file.md#in-reluva)).
 - **On the globe**, a world under the pointer shows nothing, and the
   chosen world turns to the camera the shorter way round, guesses
   ([globe.md](systems/globe.md#in-reluva)).

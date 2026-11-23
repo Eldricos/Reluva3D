@@ -9,6 +9,7 @@ reluva_add_engine(tpw
         tpw.cpp
         games.cpp
         game_files.cpp
+        players.cpp
         textures.cpp
         script/machine.cpp
         script/simulated_host.cpp

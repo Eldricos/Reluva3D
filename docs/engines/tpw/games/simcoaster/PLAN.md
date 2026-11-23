@@ -70,9 +70,10 @@ format or system worked out.
    opening, the Intro World's camera path model seen through its camera
    ([front-end.md](systems/front-end.md)); the Personnel File, from the
    interface's flat models ([personnel-file.md](systems/personnel-file.md));
-   choosing a world on the globe ([globe.md](systems/globe.md)); then
-   the opening's effects, keeping players, options, saving and loading,
-   from `ui.wad` and recordings.
+   keeping the players ([players.md](systems/players.md)); choosing a
+   world on the globe ([globe.md](systems/globe.md)); then the opening's
+   effects, options, saving and loading parks, from `ui.wad` and
+   recordings.
 9. **The park running:** building, paths, guests, staff, money, research,
    the advisor, missions and challenges (`missions/*.sam`,
    `Challenges.sam`). By far the largest part: from the settings files,

@@ -59,7 +59,10 @@ three times, then `filetabd` (the player shown, light; the others grey).
 | `!cbut` | `b_header` | "Quit Game", "Coaster Design Kit": blue buttons |
 | `!frame` | `f_frame` | A plate with a light blue rim, its middle opaque black: behind the portrait and the blue buttons |
 | `mugshot` | `mugshot1` to `mugshot8` | The board's portraits, one a mesh: the advisor, the fifth the woman of the Personnel File |
-| `filebox` | `filebox` | A box to type in: not seen in the recording |
+| `filebox` | `filebox` | The box a new player's name is typed in |
+| `filebutok` | `filebutok`, `filebutokg`, `filebutokh`, `filebutokd` | Its tick: grey (disabled) until a name is typed, then green |
+| `!window` | `newpanel1` | The delete dialog: the window without its shadow |
+| `b_okay`, `mb_cancel`, `b_close` | `b_okay`, `mb_cancel`, `b_close` and their states | The dialog's tick, cross and close button, round |
 
 The textures' alpha is drawn: the window's glass is see-through
 (`newpanel1s`' middle at alpha 0xE2), its shadow half black.

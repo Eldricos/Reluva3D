@@ -6,6 +6,8 @@
 #include "common/archive.h"
 #include "common/system.h"
 
+#include <filesystem>
+
 namespace reluva::tpw {
 
 /**
@@ -15,9 +17,11 @@ namespace reluva::tpw {
  * (globe.md), in docs/engines/tpw/games/simcoaster/systems/. Without the
  * scene, the Personnel File alone, over black, then the first world the
  * player has open.
+ * @param saveFolder Where the players are kept (players.md); none kept for
+ *     an empty path.
  * @return The world chosen, by Globe::worlds()' order; −1 if the player
  *     quit, or the window was closed (or the launcher asked for).
  */
-int runFrontEnd(System &sys, const SearchSet &files);
+int runFrontEnd(System &sys, const SearchSet &files, const std::filesystem::path &saveFolder);
 
 } // namespace reluva::tpw

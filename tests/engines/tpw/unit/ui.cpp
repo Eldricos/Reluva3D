@@ -10,6 +10,7 @@
 
 #include "common/headless_system.h"
 #include "engines/tpw/game_files.h"
+#include "engines/tpw/players.h"
 #include "engines/tpw/ui/loading_screen.h"
 #include "engines/tpw/ui/opening.h"
 #include "engines/tpw/ui/personnel_file.h"
@@ -180,14 +181,59 @@ void testUiModel() {
     CHECK(tpw::uiMeshRect(model, 1).w == 0);
 }
 
-// Each of the Personnel File's controls is where it says it is.
+// Each of the Personnel File's controls is where it says it is, and only
+// those its state shows can be clicked: an empty slot's tick once a name
+// is typed, a player's buttons, the delete dialog's alone while it asks.
 void testPersonnelFileControls() {
     using Control = tpw::PersonnelFile::Control;
-    for (int c = int(Control::kTab0); c <= int(Control::kCoasterKit); ++c) {
-        const tpw::ScreenRect r = tpw::PersonnelFile::placeOf(Control(c));
-        CHECK(r.w > 0 && tpw::PersonnelFile::controlAt(r.x + r.w / 2, r.y + r.h / 2) == Control(c));
-    }
-    CHECK(tpw::PersonnelFile::controlAt(0, 0) == Control::kNone);
+    auto at = [](Control c, const tpw::PlayerSlots &players, const tpw::PersonnelFile::View &view) {
+        const tpw::ScreenRect r = tpw::PersonnelFile::placeOf(c);
+        return tpw::PersonnelFile::controlAt(r.x + r.w / 2, r.y + r.h / 2, players, view);
+    };
+    tpw::PlayerSlots players;
+    tpw::PersonnelFile::View view;
+    for (int c = int(Control::kTab0); c <= int(Control::kTab3); ++c)
+        CHECK(at(Control(c), players, view) == Control(c));
+    CHECK(at(Control::kQuitGame, players, view) == Control::kQuitGame);
+    CHECK(at(Control::kEnterGame, players, view) == Control::kNone);
+    CHECK(at(Control::kNameDone, players, view) == Control::kNone);
+    view.placeholder = false;
+    view.typed = "Tester";
+    CHECK(at(Control::kNameDone, players, view) == Control::kNameDone);
+    players[0].name = "Tester";
+    for (Control c : {Control::kEnterGame, Control::kDeletePlayer, Control::kCoasterKit})
+        CHECK(at(c, players, view) == c);
+    CHECK(at(Control::kLoadGame, players, view) == Control::kNone);
+    view.confirmingDelete = true;
+    CHECK(at(Control::kTab1, players, view) == Control::kNone);
+    for (Control c : {Control::kConfirmYes, Control::kConfirmNo, Control::kConfirmClose})
+        CHECK(at(c, players, view) == c);
+    CHECK(tpw::PersonnelFile::controlAt(0, 0, players, view) == Control::kNone);
+}
+
+// Players kept in a save folder and read back: names with spaces, their
+// numbers, empty slots; a fresh record's numbers for what the file lacks.
+void testPlayers(const std::filesystem::path &tmp) {
+    tpw::PlayerFile fresh;
+    fresh.sharesIssued = 30000;
+    fresh.sharesOwned = 1000;
+    fresh.worlds[0] = {0, true, 0, 10};
+    fresh.worlds[1] = {1, false, 0, 10};
+    fresh.worlds[2] = {3, false, 0, 10};
+    tpw::PlayerSlots players = tpw::readPlayers(tmp / "none", fresh);
+    CHECK(!players[0].exists() && players[3].sharesOwned == 1000);
+    players[1] = fresh;
+    players[1].name = "No Self";
+    players[1].goldenTickets = 3;
+    players[1].worlds[1].open = true;
+    players[1].worlds[0].won = 2;
+    players[1].objective = 0;
+    CHECK(!tpw::writePlayers(tmp / "saves", players));
+    const tpw::PlayerSlots back = tpw::readPlayers(tmp / "saves", fresh);
+    CHECK(!back[0].exists() && !back[2].exists() && back[1].name == "No Self");
+    CHECK(back[1].goldenTickets == 3 && back[1].worlds[1].open && back[1].worlds[0].won == 2);
+    CHECK(back[1].objective == 0 && back[1].sharesIssued == 30000 && back[1].worlds[2].challenges == 10);
+    CHECK(tpw::writePlayers({}, players));
 }
 
 } // namespace
@@ -199,4 +245,5 @@ static const reluva::test::Suite
                               {"loading", [](const std::filesystem::path &tmp) { testLoadingScreen(tmp); }},
                               {"ui-model", [](const std::filesystem::path &) { testUiModel(); }},
                               {"personnel-file", [](const std::filesystem::path &) { testPersonnelFileControls(); }},
+                              {"players", [](const std::filesystem::path &tmp) { testPlayers(tmp); }},
                           });

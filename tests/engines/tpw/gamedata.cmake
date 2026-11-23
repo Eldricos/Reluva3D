@@ -27,9 +27,9 @@
 #   opening  the opening run headless: the screens shown, when it ended
 #            (tpw opening-run)
 #   frontend the front end run headless: its camera's path skipped 5
-#            seconds in, the Personnel File's "Enter Game" clicked a
-#            second later, then a world on the globe; the screens shown,
-#            the world chosen, with a checksum (tpw front-end-run)
+#            seconds in, then a player named in the Personnel File and
+#            made, "Enter Game", and a world on the globe; the screens
+#            shown, the world chosen, with a checksum (tpw front-end-run)
 #   loading  the loading screen put together, with a checksum of it
 #            (tpw loading-screen)
 #   sounds   every sound bank (.sdt) decoded, with a checksum of every

@@ -37,7 +37,7 @@ None yet.
   ([md2-animation.md](formats/md2-animation.md#how-fast)).
 - **Ten challenges a world**: `Challenges.sam` says so of its first ten
   only; the Personnel File counts ten for each world
-  ([personnel-file.md](systems/personnel-file.md#a-new-player)).
+  ([personnel-file.md](systems/personnel-file.md#a-new-players-numbers)).
   Winning a challenge in another world would settle it.
 - **The interface's templates are stretched with their edges kept**:
   drawn so, the Personnel File matches the recording
@@ -45,6 +45,9 @@ None yet.
 - **How many frames an animated texture has**: its names are read in
   runs of a stem and its numbers; read so, every model's names add up
   ([md2.md](formats/md2.md#the-textures)).
+- **A player's first objective is set when they enter their first
+  game**: a new player shows "None", one who had played "Operation
+  Expand!" ([players.md](systems/players.md)).
 - **The globe's close view and timings**, measured on the recording
   ([globe.md](systems/globe.md#turning)).
 - **Which level folder is which world**: `science` Land of Invention,

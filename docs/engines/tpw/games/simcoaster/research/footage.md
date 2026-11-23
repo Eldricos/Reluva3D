@@ -62,7 +62,9 @@ At 1:06 (full frame), over the globe, a window drawn as a light-blue
 panel, in the handwriting-style font of `PERSONNELFILE*.bf4` for its
 values:
 
-- Tabs for four players: "Enter name here", then three "New Player".
+- Tabs for four players: "Enter name here", then three "New Player"
+  (the first a player named so, who had played: see
+  [personnel-file.md](../systems/personnel-file.md#an-empty-slot)).
 - "Assistant Manager" (the rank), "Golden Tickets : 0".
 - "Shareholding % : 3%", "Share Price : $ 100", "Shares Owned : 1000",
   "Portfolio Value : $ 100000".

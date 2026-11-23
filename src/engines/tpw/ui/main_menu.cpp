@@ -12,7 +12,7 @@
 
 namespace reluva::tpw {
 
-int runFrontEnd(System &sys, const SearchSet &files) {
+int runFrontEnd(System &sys, const SearchSet &files, const std::filesystem::path &saveFolder) {
     FrontEndScene scene;
     Globe globe;
     const bool drawn = !scene.load(files) && !globe.load(scene);
@@ -28,7 +28,7 @@ int runFrontEnd(System &sys, const SearchSet &files) {
             std::fill(screen.pixels.begin(), screen.pixels.end(), uint8_t(0));
     };
     PlayerFile player;
-    if (!choosePlayer(sys, files, backdrop, player))
+    if (!choosePlayer(sys, files, saveFolder, backdrop, player))
         return -1;
 
     std::array<bool, Globe::kWorlds> open{};

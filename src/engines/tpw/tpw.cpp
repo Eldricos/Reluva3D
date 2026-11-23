@@ -51,7 +51,8 @@ public:
                     sys.stopAudio();
             }
         } audioOff{_sys, audioOut};
-        if (!playOpening(_sys, audioOut ? &mixer : nullptr, _target.path, files) || runFrontEnd(_sys, files) < 0)
+        if (!playOpening(_sys, audioOut ? &mixer : nullptr, _target.path, files) ||
+            runFrontEnd(_sys, files, _target.savePath) < 0)
             return Error::success();
 
         // What the game shows while the chosen world's park loads; the park

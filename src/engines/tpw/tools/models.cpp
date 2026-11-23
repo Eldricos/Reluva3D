@@ -458,12 +458,15 @@ int cmdFrontEndShot(int argc, char **argv) {
 }
 
 // The front end run headless, by a clock that moves only as it waits: its
-// camera's path skipped `seconds` in, the Personnel File's "Enter Game"
-// clicked a second later, then a world on the globe a second after that,
-// at the screen's middle, below the globe's.
+// camera's path skipped `seconds` in; then a quarter second apart, "Tester" typed
+// into the Personnel File's first slot, its tick, "Enter Game", and a world
+// on the globe at the screen's middle, below the globe's. The players kept
+// in `-save`'s folder, if given (the first slot then may hold a player).
 int cmdFrontEndRun(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool tpw front-end-run <game folder> [seconds] [-shots <folder>]\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool tpw front-end-run <game folder> [seconds] [-shots <folder>] [-save <folder>]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -495,49 +498,69 @@ int cmdFrontEndRun(int argc, char **argv) {
                 ev.type = reluva::EventType::kQuit;
                 return true;
             }
-            if (sent >= 3 || getMillis() < keyAt + uint64_t(sent) * 1000)
+            // The skip, then the rest a quarter of a second apart: the globe
+            // turns on meanwhile, Land of Invention still facing the camera.
+            if (sent >= 5 || getMillis() < keyAt + uint64_t(sent) * 250)
                 return false;
+            auto click = [&](int x, int y) {
+                ev.type = reluva::EventType::kMouseDown;
+                ev.button = reluva::MouseButton::kLeft;
+                ev.mouseX = x;
+                ev.mouseY = y;
+            };
+            auto centre = [](reluva::tpw::PersonnelFile::Control c) {
+                const reluva::tpw::ScreenRect r = reluva::tpw::PersonnelFile::placeOf(c);
+                return std::pair{r.x + r.w / 2, r.y + r.h / 2};
+            };
             switch (sent++) {
             case 0:
                 ev.type = reluva::EventType::kKeyDown;
                 ev.key = reluva::key::kSpace;
-                return true;
-            case 1: {
-                const reluva::tpw::ScreenRect enter =
-                    reluva::tpw::PersonnelFile::placeOf(reluva::tpw::PersonnelFile::Control::kEnterGame);
-                ev.mouseX = enter.x + enter.w / 2;
-                ev.mouseY = enter.y + enter.h / 2;
+                break;
+            case 1:
+                ev.type = reluva::EventType::kTextInput;
+                std::strcpy(ev.text, "Tester");
+                break;
+            case 2: {
+                const auto [x, y] = centre(reluva::tpw::PersonnelFile::Control::kNameDone);
+                click(x, y);
+                break;
+            }
+            case 3: {
+                const auto [x, y] = centre(reluva::tpw::PersonnelFile::Control::kEnterGame);
+                click(x, y);
                 break;
             }
             default:
-                ev.mouseX = 320;
-                ev.mouseY = 330;
+                click(320, 330);
                 break;
             }
-            ev.type = reluva::EventType::kMouseDown;
-            ev.button = reluva::MouseButton::kLeft;
             return true;
         }
     } sys;
     float seconds = 5;
+    std::filesystem::path saveFolder;
     for (int i = 3; i < argc; ++i) {
         if (std::strcmp(argv[i], "-shots") == 0 && i + 1 < argc)
             sys.shots = argv[++i];
+        else if (std::strcmp(argv[i], "-save") == 0 && i + 1 < argc)
+            saveFolder = argv[++i];
         else
             seconds = std::strtof(argv[i], nullptr);
     }
     sys.keyAt = uint64_t(seconds * 1000);
-    const int world = reluva::tpw::runFrontEnd(sys, files);
+    const int world = reluva::tpw::runFrontEnd(sys, files, saveFolder);
     std::printf("front end: %d screens shown, ended at %llu ms, world %d; md5 %s\n", sys.shown,
                 static_cast<unsigned long long>(sys.getMillis()), world, sys.all.hexDigest().c_str());
     return world < 0 ? 1 : 0;
 }
 
-// The Personnel File over the front end's globe, as a PNG: four new
-// players, the first shown, named if a name is given.
+// The Personnel File over the front end's globe, as a PNG: the first slot
+// shown, empty (its name box), or a new player of the name given; with
+// -delete, asking whether to delete it.
 int cmdPersonnelShot(int argc, char **argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool tpw personnel-shot <game folder> <out.png> [name]\n");
+        std::fprintf(stderr, "usage: reluva-tool tpw personnel-shot <game folder> <out.png> [name [-delete]]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -555,15 +578,18 @@ int cmdPersonnelShot(int argc, char **argv) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }
-    std::array<reluva::tpw::PlayerFile, reluva::tpw::PersonnelFile::kPlayers> players;
-    players.fill(file.newPlayer());
-    if (argc > 4)
-        file.type(players[0], argv[4]);
+    reluva::tpw::PlayerSlots players = reluva::tpw::readPlayers({}, file.newPlayer());
+    reluva::tpw::PersonnelFile::View view;
+    if (argc > 4) {
+        players[0] = file.newPlayer();
+        file.type(players[0].name, argv[4]);
+        view.confirmingDelete = argc > 5 && std::strcmp(argv[5], "-delete") == 0;
+    }
     reluva::Surface screen;
     screen.create(640, 480, reluva::PixelFormat::kRGBA32);
     reluva::soft3d::Rasterizer rasterizer;
     scene.draw(screen, rasterizer, scene.frames());
-    file.draw(screen, players, 0, reluva::tpw::PersonnelFile::Control::kNone);
+    file.draw(screen, players, view);
     writePng(screen, argv[3]);
     return 0;
 }
@@ -621,13 +647,14 @@ const Commands kCommands(
          "draw a model as the viewer does, to a PNG; with its height map's samples", cmdMd2Shot},
         {"front-end-shot", "<game folder> <out.png> <frame>",
          "draw the front end's scene through its camera at a frame of its path, to a PNG", cmdFrontEndShot},
-        {"personnel-shot", "<game folder> <out.png> [name]",
-         "draw the Personnel File over the front end's globe, four new players, to a PNG", cmdPersonnelShot},
+        {"personnel-shot", "<game folder> <out.png> [name [-delete]]",
+         "draw the Personnel File over the front end's globe, its first slot empty or a new player, to a PNG",
+         cmdPersonnelShot},
         {"globe-shot", "<game folder> <out.png> <degrees> [approach] [world gate]",
          "draw the front end's globe turned, from the close view or on the way to it or to a gate, to a PNG",
          cmdGlobeShot},
-        {"front-end-run", "<game folder> [seconds] [-shots <folder>]",
-         "run the front end headless: its path skipped so many seconds in (5), the Personnel File's Enter Game "
+        {"front-end-run", "<game folder> [seconds] [-shots <folder>] [-save <folder>]",
+         "run the front end headless: its path skipped so many seconds in (5), a player named and Enter Game "
          "clicked, then a world",
          cmdFrontEndRun},
     });
