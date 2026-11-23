@@ -58,6 +58,7 @@ constexpr int kBorder = 1;
 constexpr uint32_t kResourceHandles = 0x20000;
 constexpr uint32_t kStockObjects = 0x28000;
 constexpr uint32_t kDeviceContext = 0x30000;
+constexpr uint32_t kDesktopWindow = 0x10004; // below the windows the program makes
 
 std::string lower(std::string s) {
     for (char &c : s)
@@ -449,6 +450,30 @@ void Win32Process::addUserStandIns() {
     stdcall(u, "IsWindow", 1, [this](Cpu &c) { return _windows.count(c.arg(0)) ? 1u : 0u; });
     stdcall(u, "InvalidateRect", 3, [this](Cpu &c) { return _windows.count(c.arg(0)) ? 1u : 0u; });
     stdcall(u, "GetActiveWindow", 0, [this](Cpu &) { return _active; });
+    stdcall(u, "SetActiveWindow", 1, [this](Cpu &c) {
+        if (!_windows.count(c.arg(0)))
+            return 0u;
+        return std::exchange(_active, c.arg(0));
+    });
+    stdcall(u, "GetDesktopWindow", 0, [](Cpu &) { return kDesktopWindow; });
+    // Nothing is ever waiting to be painted: the engine shows what's drawn.
+    stdcall(u, "ValidateRect", 2, [](Cpu &) { return 1u; });
+    stdcall(u, "GetUpdateRect", 3, [](Cpu &c) {
+        if (c.arg(1) && c.valid(c.arg(1), 16))
+            std::memset(c.memory().data() + c.arg(1), 0, 16);
+        return 0u;
+    });
+    // BeginPaint(window, PAINTSTRUCT*): the window's device context, and
+    // nothing to paint.
+    stdcall(u, "BeginPaint", 2, [this](Cpu &c) {
+        const uint32_t dc = kDeviceContext + (c.arg(0) & 0xffff);
+        if (!_windows.count(c.arg(0)) || !c.valid(c.arg(1), 64))
+            return 0u;
+        std::memset(c.memory().data() + c.arg(1), 0, 64);
+        c.write32(c.arg(1), dc);
+        return dc;
+    });
+    stdcall(u, "EndPaint", 2, [](Cpu &) { return 1u; });
     stdcall(u, "GetFocus", 0, [this](Cpu &) { return _focus; });
     // SetFocus(window): WM_KILLFOCUS to the one losing it, WM_SETFOCUS to the
     // one gaining it; returns the one that had it.
@@ -760,6 +785,30 @@ void Win32Process::addUserStandIns() {
         }
         return 0u;
     });
+    // MessageBoxW: MessageBoxA's, its UTF-16 text taken as Latin-1 ('?'
+    // beyond); answered OK.
+    stdcall(u, "MessageBoxW", 4, [this](Cpu &c) {
+        auto wide = [&c](uint32_t at) {
+            std::string out;
+            for (uint32_t i = 0; at && i < 8192 && c.valid(at + i, 2); i += 2) {
+                const uint16_t ch = c.read16(at + i);
+                if (!ch)
+                    break;
+                out.push_back(ch < 256 ? char(ch) : '?');
+            }
+            return out;
+        };
+        const std::string text = wide(c.arg(1));
+        const std::string caption = c.arg(2) ? wide(c.arg(2)) : std::string("Error");
+        if (messageBox)
+            messageBox(caption, text);
+        else if (output)
+            output("[" + caption + "] " + text + "\n");
+        return 1u; // IDOK
+    });
+    stdcall(u, "MessageBeep", 1, [](Cpu &) { return 1u; });
+    // InitCommonControls, by its ordinal: the controls' classes are there.
+    stdcall("COMCTL32.dll", "#17", 0, [](Cpu &) { return 0u; });
     // MessageBoxA(window, text, caption, type): reported, and answered with
     // the button that lets the program go on: OK, Yes, or Cancel/Abort
     // where there's no OK.

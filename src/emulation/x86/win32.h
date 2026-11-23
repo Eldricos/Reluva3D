@@ -550,6 +550,8 @@ public:
     // The mouse pointer, on the screen.
     int cursorX = 0;
     int cursorY = 0;
+    /** Whether the program shows the mouse pointer (ShowCursor's count isn't below 0). */
+    bool cursorShown() const { return _cursorShown >= 0; }
     // Called when the program looks for a message and none is queued.
     std::function<void()> idle;
     // Input, as the engine passes it on.

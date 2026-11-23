@@ -444,6 +444,22 @@ static void testWindowsAndRegistry() {
     CHECK(!cpu.call(fn("USER32.dll", "GetWindowLongA"), {shown, uint32_t(-16)}, r) && r == 0x10cf0000);
     CHECK(!cpu.call(fn("USER32.dll", "IsWindow"), {shown}, r) && r == 1);
     CHECK(!cpu.call(fn("USER32.dll", "GetWindowThreadProcessId"), {shown, 0}, r) && r != 0);
+    CHECK(!cpu.call(fn("USER32.dll", "GetDesktopWindow"), {}, r) && r != 0 && r != shown);
+    const uint32_t paint = process.memory().alloc(64);
+    CHECK(!cpu.call(fn("USER32.dll", "BeginPaint"), {shown, paint}, r) && r != 0 && cpu.read32(paint) == r);
+    // FILETIME to SYSTEMTIME: 2000-02-29 12:34:56.789 UTC, a Tuesday.
+    const uint32_t fileTime = process.memory().alloc(8);
+    const uint32_t systemTime = process.memory().alloc(16);
+    const uint64_t ticks = 125963012967890000ull;
+    cpu.write32(fileTime, uint32_t(ticks));
+    cpu.write32(fileTime + 4, uint32_t(ticks >> 32));
+    CHECK(!cpu.call(fn("KERNEL32.dll", "FileTimeToSystemTime"), {fileTime, systemTime}, r) && r == 1);
+    const uint16_t expected[8] = {2000, 2, 2, 29, 12, 34, 56, 789};
+    for (uint32_t i = 0; i < 8; ++i)
+        CHECK(cpu.read16(systemTime + 2 * i) == expected[i]);
+    const uint32_t copy = process.memory().alloc(16);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "lstrcpyA"), {copy, text("copied")}, r) && r == copy &&
+          cpu.string(copy) == "copied");
 
     // The registry: a key made, a value set and read back; Windows' own
     // locale list enumerated.

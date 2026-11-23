@@ -57,7 +57,11 @@ C++ library have pages of their own ([directx.md](directx.md),
 - **`win32_system.cpp`: the system.** System information (one Pentium
   II-class processor, 256 MB), the performance counter (microseconds),
   `MulDiv`, the computer's name, and `GetDateFormatA`/`GetTimeFormatA` with
-  English (United States) pictures. There's one thread, so critical
+  English (United States) pictures. The time and the time zone are the
+  host's (`GetLocalTime`, `GetSystemTime`, `GetTimeZoneInformation`,
+  `FileTimeToLocalFileTime`, `FileTimeToSystemTime`). No console can be
+  made; what's written to one goes to `output`. The environment stays
+  empty: `SetEnvironmentVariableA` is accepted, not kept. There's one thread, so critical
   sections do nothing, `Sleep` returns at once and a wait on an event finds
   it signalled.
 - **`win32_user.cpp`: USER32 and GDI32.** Window classes and windows, kept
@@ -81,7 +85,11 @@ C++ library have pages of their own ([directx.md](directx.md),
   - frames and captions are Windows 98's sizes;
   - the mouse pointer, and the desktop's size and colour depth, which the
     engine sets;
-  - `MessageBoxA` is reported and answered so the program goes on.
+  - `MessageBoxA` and `MessageBoxW` are reported and answered so the
+    program goes on;
+  - nothing is ever waiting to be painted (`GetUpdateRect`, `BeginPaint`),
+    and the desktop is a window of its own (`GetDesktopWindow`);
+  - COMCTL32's `InitCommonControls`, by its ordinal, does nothing.
 - **`win32_gdi.cpp`: GDI's device contexts, fonts and text.** A device
   context draws into a bitmap in the program's memory: DirectDraw's
   surfaces hand them out (`GetDC`), through `createDeviceContext`, with
