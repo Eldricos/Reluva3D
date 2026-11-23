@@ -90,7 +90,8 @@ engine, by a tester), or *to try*.
    controls (sun, moon, sky colour, the globe). *Scripted, but the
    observation deck's controls: to try.*
 3. **Registering:** a name spelled in the book and its tick; a second
-   player; the history book. *Scripted (one player); the rest to try.*
+   player; the history book. *A first and a second player: scripted,
+   played; the history book to try.*
 4. **Choosing a character:** each of the five dragged to each place on
    the map: the Information Center, the pizzeria, the boat, the race
    track, the gas station, the hospital, the police. *Pepper to every
