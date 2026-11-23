@@ -232,8 +232,26 @@ for each task force from 147 down, 40 apart.
   Colony game's second save shows 2 of the same four kinds, its fourth
   "1 Event" of four (economic 31, military 4, 5 and 16), while the second
   game's eleventh turn counts all five of its, a ship and a task force
-  among them. No field of the results' headers tells them apart; Reluva
-  counts 4, 3 and 4 there. The words are in
+  among them. Reluva counts 4, 3 and 4 there. The games' Summary
+  screens list the events (the user, November 2026), which ties results
+  to them:
+
+  | Save | The Federation's results (kind, content) | Listed |
+  |---|---|---|
+  | ShipBuild, turn 1 | military 5 and 4 twice (the starting ships, value 0), economic 17 twice | "Sol System has enough population for new trade routes." twice |
+  | ShipBuild, turn 2 | military 5 and 4 (a ship built), economic 0 and 8 | "Destroyer built in Sol.", "Sol System queue empty" |
+  | Colony, fourth save | economic 31, military 4, 5 (the colony ship used) and 16 | "Xerxes colonized" |
+  | Second game, turn 11 | military 10, 4, 5 and 34, economic 31 | "Federation defeat Klingons", "IKC LoHwI' A destroyed", "Encountered Klingons in sector j5", "Ship destroyed by neutron star in d2", the home front's spirits raised by the victory |
+
+  So economic 17 is a system ready for trade routes, 0 a ship built and
+  8 a queue left empty, military 16 a colony founded and 10 a battle won;
+  identical results are each listed. A ship's and its task force's
+  results (5 and 4) are listed when it's lost, but not when it's built or
+  used up founding a colony, and the colony's turn doesn't list its
+  economic 31 either. Neither the results' headers nor their contents
+  hold why they were made (the contents of all of them are laid out
+  alike, the rest of each the game's memory left over): Reluva will know
+  that once it plays the turns itself. The words are in
   orange (247, 121, 33), the figures in green (173, 227, 115), the
   figures ending 6 pixels short of the box's right edge; the words are
   `lexicon.dic`'s (entries 1361, 194, 239, 833). The figures are the
