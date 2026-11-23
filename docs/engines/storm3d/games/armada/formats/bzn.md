@@ -98,6 +98,13 @@ second position, 1e30 in one float). These aren't worked out.
 The objects are found by those seven fields, which no other run of
 fields matches: in every map they come to the number the settings give.
 
+A directional light (`dlight`) has, after its transform, three floats
+of colour ((0.357, 0.408, 0.49) and (0, 0.294, 0.592) in `fed1.bzn`'s
+two) and a second position a little way along its front axis, the way
+it shines *(inferred)*. Lit by them, with the settings' 0.267 as the
+ambient light, the planet Barisa comes out darker than the original
+draws it, evenly bright: how the game lights its planets isn't known.
+
 ### After the objects
 
 What follows the last object isn't worked out: integers and floats in

@@ -88,9 +88,10 @@ font's, chosen by character) and `step` or `linear`. Then either:
   animation (`red1.colour`, `inoutpurple`), or another (`fire`, `strobe`).
 - **The size** in the model's units, as half the width and height: an
   asteroid 1.5 to 4, a nebula's ion cloud 80. Half, because the planets'
-  glows (below) are 495 for planets 450 across the middle: their soft
-  discs show as the rims just outside the planets that the original
-  draws only if they reach 495 from the centre *(inferred)*.
+  glows (below) are 495 for planets of about 450 from the centre (the
+  mesh's name, `earth450`, and its size drawn agree): their soft discs
+  show as the rims just outside the planets that the original draws
+  only if they reach 495 from the centre *(inferred)*.
 - **A colour**: RGB from 0 to 1.
 - **`billboard`** (132): turned to face the camera; without it, the
   sprite lies as its node does *(inferred)*. One table writes
