@@ -83,3 +83,23 @@ above:
   **seen**.
 - No groups were made getting into a game **seen**.
 
+
+## Later still: played between two copies
+
+November 2026, phase 6's steps 3 and 4: the two copies played on, over
+the in-memory network and over UDP; what's settled is in
+[running.md](../systems/running.md#network-play). Of the questions
+above, what remained:
+
+- **What crosses between boards:** trains, through the gates
+  (`track\global-n/s/e/w`) placed where an area has a neighbour, and
+  postcards, collected and delivered by a train with a mail wagon, the
+  card's file sent in pieces (`0x3fc`) **seen**. Minifigures weren't
+  seen crossing.
+- **Groups:** still none made, getting into a game or playing in it
+  **seen**.
+- **Messages:** all guaranteed; `0x228` bytes from the host while the
+  places are chosen, `0xc19` bytes both ways past the tick **seen**; what
+  they hold, beyond the boards' **guess**, isn't known.
+- **The `I.P.` field** is an `EDIT` box opened on a click (`0x44177a`)
+  **seen**; typing a host's address into it hasn't been tried.
