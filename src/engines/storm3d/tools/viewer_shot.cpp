@@ -9,6 +9,7 @@
 
 #include "common/headless_system.h"
 #include "engines/viewer_registry.h"
+#include "devtools/soft_renderer.h"
 #include "devtools/tool.h"
 #include "image/image.h"
 
@@ -16,6 +17,7 @@
 #include <cstring>
 #include <fstream>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -28,11 +30,27 @@ class ShotSystem : public HeadlessSystem {
 public:
     std::vector<uint32_t> keys;
     Surface last;
+    Surface shot;
     std::string title;
+
+    // 3D pages are drawn in software, so their frames can be saved too.
+    std::unique_ptr<tools::SoftRenderer3D> renderer;
+    bool lastIn3D = false;
 
     void updateScreen(const Surface &s) override {
         HeadlessSystem::updateScreen(s);
         last = s;
+    }
+    Error initGraphics(int width, int height, PixelFormat format) override {
+        lastIn3D = false;
+        return HeadlessSystem::initGraphics(width, height, format);
+    }
+    Error init3D(int width, int height, gfx::Renderer3D *&out) override {
+        if (!renderer || renderer->width() != width || renderer->height() != height)
+            renderer = std::make_unique<tools::SoftRenderer3D>(width, height);
+        out = renderer.get();
+        lastIn3D = true;
+        return Error::success();
     }
     void setWindowTitle(const std::string &t) override { title = t; }
     bool pollEvent(Event &ev) override {
@@ -41,6 +59,8 @@ public:
         _nextAt = getMillis() + 100;
         ev.type = EventType::kKeyDown;
         ev.key = _next < keys.size() ? keys[_next] : key::kEscape;
+        if (_next == keys.size()) // the screen as it is, before Escape leaves it
+            shot = lastIn3D && renderer ? renderer->frame() : last;
         ++_next;
         return true;
     }
@@ -78,10 +98,11 @@ int cmdViewerShot(int argc, char **argv) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }
+    const Surface &shown = sys.shot.pixels.empty() ? sys.last : sys.shot;
     image::Image img;
-    img.w = sys.last.w;
-    img.h = sys.last.h;
-    img.rgba = sys.last.pixels;
+    img.w = shown.w;
+    img.h = shown.h;
+    img.rgba = shown.pixels;
     const std::vector<uint8_t> png = image::encodePng(img);
     std::ofstream out(argv[3], std::ios::binary);
     out.write(reinterpret_cast<const char *>(png.data()), std::streamsize(png.size()));

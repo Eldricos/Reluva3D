@@ -48,9 +48,11 @@ extended. The facts themselves are on their pages, each with its source.
   research notes come from its export table and run-time type
   information, made readable with LLVM's `llvm-undname`.
 - **The viewer's pages, seen:** `reluva-tool storm3d viewer-shot` saves a
-  2D page as PNG. The Models page needs a 3D renderer: `reluva-viewer` was
-  run under Xvfb on Mesa's software Vulkan driver, keys sent with
-  `xdotool` and the screen taken with ImageMagick's `import`.
+  page as PNG, the 3D pages (Models, Maps) drawn by reluva-tool's
+  software renderer (`src/devtools/soft_renderer.h`). Before it had one,
+  `reluva-viewer` was run under Xvfb on Mesa's software Vulkan driver,
+  keys sent with `xdotool` and the screen taken with ImageMagick's
+  `import`.
 
 ## The tools
 
