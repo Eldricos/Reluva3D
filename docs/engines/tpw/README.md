@@ -9,7 +9,7 @@ Park World (Sim Theme Park in the US). Engine id `tpw`, in
 
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
-| [SimCoaster](games/simcoaster/README.md) | `simcoaster` | Electronic Arts, 2001 | Windows | US (by `Data/ui.wad` and the American string tables); others by file names, as "unknown release" | Recognised, and imported from its CD; plays its opening, then an empty screen |
+| [SimCoaster](games/simcoaster/README.md) | `simcoaster` | Electronic Arts, 2001 | Windows | US (by `Data/ui.wad` and the American string tables); others by file names, as "unknown release" | Recognised, and imported from its CD; plays its opening, then its loading screen |
 | Theme Park World | | Electronic Arts, 1999 | Windows | | Not yet recognised: after SimCoaster runs |
 
 SimCoaster is Theme Park World's engine and file formats with new parks,
@@ -43,12 +43,12 @@ everything was read from SimCoaster.
 
 | Path | What |
 |---|---|
-| `tpw.cpp` | The `MetaEngine` and the `Engine`: the opening, then an empty screen for now |
+| `tpw.cpp` | The `MetaEngine` and the `Engine`: the opening, then the loading screen for now |
 | `games.cpp` | The games, the detection tables, and importing from the CD |
 | `game_files.cpp` | The `Data` folder mounted: the archives, loose files over them |
 | `textures.cpp` | A model's textures found among the files, and pictures decoded |
 | `script/` | The script machine, and a stand-in for the park to run scripts against |
-| `ui/` | The screens: the opening; a model and a world's terrain drawn in 3D |
+| `ui/` | The screens: the opening, the loading screen; a model and a world's terrain drawn in 3D |
 | `pages/` | The data viewer's pages (in `reluva-viewer`) |
 | `formats/` | The games' files: `.wad`, `.sam`, `.str`, `.bf4`, `.sdt`, `.MD2` and their animations, `.hmp`, `.lnd`, `base.map`, `scape.omp`, `.RSE`; their pictures are read by the shared code (`src/image/`) |
 | `tools/` | `reluva-tool tpw` commands (`reluva-tool help tpw` lists them) |

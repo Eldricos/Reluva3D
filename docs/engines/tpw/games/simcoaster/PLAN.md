@@ -64,7 +64,9 @@ format or system worked out.
    ([scripts.md](systems/scripts.md)), waiting as long as their
    animations take; and a ride run by its script in the viewer, its
    model playing the animations the script plays (the Models page, R).
-8. **The front end:** the start-up screens (`Data/Init/`), the main menu,
+8. **The front end** (under way): the start-up screens (`Data/Init/`:
+   the loading screen put together as the recording shows it,
+   [loading-screen.md](systems/loading-screen.md)), the main menu,
    options, saving and loading, from `ui.wad` and recordings.
 9. **The park running:** building, paths, guests, staff, money, research,
    the advisor, missions and challenges (`missions/*.sam`,

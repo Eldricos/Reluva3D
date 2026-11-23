@@ -34,7 +34,8 @@ white. Only 0.6 s, perhaps cut short by a click.
 
 From 7.83 s, the boardroom drawn by the engine
 ([research/footage.md](../research/footage.md#the-front-ends-opening)):
-not done in Reluva yet.
+not done in Reluva yet. After it, when a park loads, the loading screen
+([loading-screen.md](loading-screen.md)).
 
 ## In Reluva
 
@@ -43,7 +44,8 @@ the shared player (`video::playMovie`), on a 640 × 480 screen, stretched
 to fill it, with its sound; then the splash for the language
 (`languageOf`, `src/engines/tpw/game_files.cpp`) at 640 × 480. A key or a
 click skips either, as the shared player and the splash let it. The
-engine runs it first, then shows an empty screen.
+engine runs it first, then shows the loading screen
+([loading-screen.md](loading-screen.md)).
 
 Done differently, for now (also in
 [KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md#not-yet-as-the-original)):

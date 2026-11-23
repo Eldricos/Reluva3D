@@ -12,6 +12,7 @@ reluva_add_engine(tpw
         textures.cpp
         script/machine.cpp
         script/simulated_host.cpp
+        ui/loading_screen.cpp
         ui/model_view.cpp
         ui/opening.cpp
         ui/ride_run.cpp
@@ -79,4 +80,4 @@ reluva_add_gamedata_test(tpw
     GAME simcoaster
     ENV RELUVA_SIMCOASTER
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release data settings text fonts pictures movies opening sounds models animations heights terrain scripts viewer)
+    STEPS release data settings text fonts pictures movies opening loading sounds models animations heights terrain scripts viewer)

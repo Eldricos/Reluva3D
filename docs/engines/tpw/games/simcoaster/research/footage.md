@@ -104,11 +104,11 @@ it:
   same words as `UITEXT.str` string 929;
 - top right, the EA GAMES logo; bottom left, QSound's "Q" logo.
 
-The background isn't in any of the game's installed files: no picture of
-that size, and `Data/Init/` holds only the welcome, legal, splash and
-Bullfrog pieces. The CD's `Images/Data.lmp` (the installer's) starts
-with the same scene, 640 x 480, mirrored (the graph on the left) and
-with a shorter copyright line.
+The scene is `Data/Init/<width>/welcome.png`, the logos pieces drawn
+over it ([loading-screen.md](../systems/loading-screen.md)). The CD's
+`Images/Data.lmp` (the installer's) starts with the same scene, 640 x
+480, mirrored (the graph on the left) and with a shorter copyright
+line.
 
 ## The road into the park
 

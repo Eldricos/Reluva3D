@@ -46,6 +46,12 @@ None yet.
 
 ## Guessed
 
+- **Where a release's Bullfrog logos go on the loading screen**: over
+  the scene's QSound logo, at the bottom left
+  ([loading-screen.md](systems/loading-screen.md#the-loading-screen)).
+  The US release has none; a recording of another release's loading
+  screen would settle it.
+
 - **Which animation a script's number plays, and how fast**: 0 `c`, 5
   `m`, 9 `b`, 10 `r` from the scripts' own use, 2 `i` and 11 `o` from
   which files are there; 25 frames a second

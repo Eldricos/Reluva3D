@@ -8,6 +8,7 @@
 #include "common/md5.h"
 #include "devtools/tool.h"
 #include "engines/tpw/game_files.h"
+#include "engines/tpw/ui/loading_screen.h"
 #include "image/fsh.h"
 #include "image/image.h"
 
@@ -109,11 +110,41 @@ int cmdPictureDump(int argc, char **argv) {
     return 0;
 }
 
-const Commands kCommands("tpw", {
-                                    {"picture-check", "<game folder>",
-                                     "decode every picture: .fsh banks, .tga, .png and .jpg", cmdPictureCheck},
-                                    {"picture-dump", "<game folder> <name in Data> <out.tga>",
-                                     "write one picture out as a TGA", cmdPictureDump},
-                                });
+// The loading screen, put together as the game shows it, with a checksum
+// of it; written out as a PNG if asked.
+int cmdLoadingScreen(int argc, char **argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool tpw loading-screen <game folder> [out.png]\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    std::vector<std::string> warnings;
+    if (reluva::Error err = reluva::tpw::mountGame(files, argv[2], warnings)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    reluva::image::Image screen;
+    if (reluva::Error err = reluva::tpw::composeLoadingScreen(files, reluva::tpw::languageOf(files), screen)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    if (argc > 3) {
+        const std::vector<uint8_t> png = reluva::image::encodePng(screen);
+        std::ofstream(argv[3], std::ios::binary).write(reinterpret_cast<const char *>(png.data()), long(png.size()));
+    }
+    reluva::Md5 md5;
+    md5.update(screen.rgba.data(), screen.rgba.size());
+    std::printf("%dx%d, md5 %s\n", screen.w, screen.h, md5.hexDigest().c_str());
+    return 0;
+}
+
+const Commands kCommands(
+    "tpw",
+    {
+        {"picture-check", "<game folder>", "decode every picture: .fsh banks, .tga, .png and .jpg", cmdPictureCheck},
+        {"picture-dump", "<game folder> <name in Data> <out.tga>", "write one picture out as a TGA", cmdPictureDump},
+        {"loading-screen", "<game folder> [out.png]",
+         "put the loading screen together as the game shows it; write it out", cmdLoadingScreen},
+    });
 
 } // namespace

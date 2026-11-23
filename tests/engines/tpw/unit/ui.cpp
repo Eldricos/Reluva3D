@@ -9,6 +9,7 @@
 
 #include "common/headless_system.h"
 #include "engines/tpw/game_files.h"
+#include "engines/tpw/ui/loading_screen.h"
 #include "engines/tpw/ui/opening.h"
 #include "engines/tpw/ui/sky.h"
 #include "image/image.h"
@@ -111,10 +112,51 @@ void testSky(const std::filesystem::path &tmp) {
     CHECK(sky.load(files, "levels/none"));
 }
 
+// A picture of one colour, as a PNG.
+std::vector<uint8_t> plainPng(int w, int h, uint8_t r, uint8_t g, uint8_t b) {
+    image::Image img;
+    img.w = w;
+    img.h = h;
+    for (int i = 0; i < w * h; ++i)
+        img.rgba.insert(img.rgba.end(), {r, g, b, 255});
+    return image::encodePng(img);
+}
+
+// The loading screen from its pieces: the scene, the logo at the top left,
+// the legal text at the bottom right, the Bullfrog logos at the bottom
+// left; without its scene, none.
+void testLoadingScreen(const std::filesystem::path &tmp) {
+    const std::filesystem::path init = tmp / "game" / "Data" / "Init" / "640";
+    test::writeFile(init / "welcome.png", plainPng(640, 480, 0, 0, 255));
+    test::writeFile(init / "welcome_american.png", plainPng(384, 144, 255, 0, 0));
+    test::writeFile(init / "Legal_american.png", plainPng(320, 96, 0, 255, 0));
+    test::writeFile(init / "bull_american.png", plainPng(64, 144, 255, 255, 0));
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!tpw::mountGame(files, tmp / "game", warnings));
+    image::Image screen;
+    CHECK(!tpw::composeLoadingScreen(files, "American", screen));
+    CHECK(screen.w == 640 && screen.h == 480);
+    if (screen.w != 640 || screen.h != 480)
+        return;
+    auto is = [&](int x, int y, uint8_t r, uint8_t g, uint8_t b) {
+        const uint8_t *p = screen.pixel(x, y);
+        return p[0] == r && p[1] == g && p[2] == b;
+    };
+    CHECK(is(383, 143, 255, 0, 0) && is(384, 143, 0, 0, 255));
+    CHECK(is(320, 384, 0, 255, 0) && is(639, 479, 0, 255, 0) && is(319, 479, 0, 0, 255));
+    CHECK(is(0, 479, 255, 255, 0) && is(63, 336, 255, 255, 0) && is(64, 479, 0, 0, 255));
+    CHECK(!tpw::composeLoadingScreen(files, "French", screen));
+    CHECK(is(0, 0, 0, 0, 255));
+    SearchSet none;
+    CHECK(tpw::composeLoadingScreen(none, "American", screen));
+}
+
 } // namespace
 
-static const reluva::test::Suite kSuite("tpw.unit.ui",
-                                        {
-                                            {"opening", [](const std::filesystem::path &tmp) { testOpening(tmp); }},
-                                            {"sky", [](const std::filesystem::path &tmp) { testSky(tmp); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("tpw.unit.ui", {
+                              {"opening", [](const std::filesystem::path &tmp) { testOpening(tmp); }},
+                              {"sky", [](const std::filesystem::path &tmp) { testSky(tmp); }},
+                              {"loading", [](const std::filesystem::path &tmp) { testLoadingScreen(tmp); }},
+                          });

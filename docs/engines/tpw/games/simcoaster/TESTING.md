@@ -41,6 +41,7 @@ With your own copy, installed or imported from the CD:
 | `fonts` | Every font read, with a checksum of every glyph (`reluva-tool tpw bf4-check`) |
 | `pictures` | Every picture decoded: `.fsh`, `.tga`, `.png`, `.jpg` (`reluva-tool tpw picture-check`) |
 | `movies` | Every `.tgq` movie decoded, frames and sound (`reluva-tool tpw movie-check`) |
+| `loading` | The loading screen put together, with a checksum of it (`reluva-tool tpw loading-screen`) |
 | `sounds` | Every sound bank decoded, those that can't listed (`reluva-tool tpw sdt-check`) |
 | `models` | Every model read, with a checksum of every mesh (`reluva-tool tpw md2-check`) |
 | `animations` | Every model animation read and set against its model (`reluva-tool tpw anim-check`) |
@@ -68,7 +69,8 @@ CD: the tests can't hold the game's files. Checked by hand.
    (*Add Game...*) finds it the same.
 2. Start it: the EA GAMES logo with its sound, filling the window, then
    the Bullfrog logo for 3 seconds (a key or a click skips either), then
-   an empty screen, which Esc leaves.
+   the loading screen, the SimCoaster logo top left and the legal text
+   bottom right, which Esc leaves.
 3. Open it in `reluva-viewer`: each page shows its files; a picture fits
    the window and Z shows it at its size; text in the game's font (F) on
    the Text page; a model turns with A and D, in its textures' colours

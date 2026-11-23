@@ -13,7 +13,7 @@ Park Inc. Game id `simcoaster`, on the
 
 | Release | Recognised by | State |
 |---|---|---|
-| US, English, Windows (data version `Beta_21`) | `Data/ui.wad` (MD5 `f8caf97175f18ef3675b3609b03413f4`, 2,817,221 bytes) and `Data/Language/American/OBJECT_NAMES.str` (MD5 `04d5bf6ef8a6d85f15a25a33716fd895`, 10,200 bytes), with `Game.exe` | Recognised; plays its opening, then an empty screen |
+| US, English, Windows (data version `Beta_21`) | `Data/ui.wad` (MD5 `f8caf97175f18ef3675b3609b03413f4`, 2,817,221 bytes) and `Data/Language/American/OBJECT_NAMES.str` (MD5 `04d5bf6ef8a6d85f15a25a33716fd895`, 10,200 bytes), with `Game.exe` | Recognised; plays its opening, then its loading screen |
 | Any other (Theme Park Inc, other languages) | `Data/ui.wad`, `Data/Challenges.sam` and `Game.exe` by name | Shown as "unknown release"; not checked |
 
 An installed folder is what's recognised: it holds every file the game
@@ -33,6 +33,7 @@ setup installs it ([cd.md](formats/cd.md)).
 | Pictures | done: `.fsh` banks (compressed pictures among them), `.tga`, `.png` and `.jpg` ([fsh.md](formats/fsh.md)); all 10,344 decoded; `reluva-tool tpw picture-check` and `picture-dump` |
 | Movies | done: the EA GAMES logo (`.tgq`, TQI video, [tgq.md](formats/tgq.md)), decoded and played; `reluva-tool tpw tgq-check` and `movie-check` |
 | The opening | the logo, then the Bullfrog splash, as a recording shows them ([opening.md](systems/opening.md)); the front end's 3D opening not yet |
+| The loading screen | put together from `Data/Init/` as the recording shows it, pixel for pixel ([loading-screen.md](systems/loading-screen.md)); shown after the opening for now; `reluva-tool tpw loading-screen` |
 | Sounds | the banks (`.sdt`, [sdt.md](formats/sdt.md)): 5,315 of their sounds decode, MPEG and PCM; the rest are damaged in the game's own files; `reluva-tool tpw sdt-check`. The `.map` files beside them not yet |
 | Models | `.MD2` ([md2.md](formats/md2.md)): all 698 models' 6,981 meshes read, placed by their node trees; their 1,209 animations' moves of whole parts read and played ([md2-animation.md](formats/md2-animation.md)), not their moves of vertices and textures; `reluva-tool tpw md2-check`, `anim-check` |
 | Height maps | `.hmp` ([hmp.md](formats/hmp.md)): all 411 read: a model's height over each part of its ground; `reluva-tool tpw hmp-check` |
@@ -49,7 +50,7 @@ In the launcher, *Import Game...* and choose the CD (or a copy of its
 files): Reluva copies what the game needs into a folder of its own, as
 its setup would install it. A folder the game's own setup installed can
 be added instead (*Add Game...*). Reluva plays the game's opening (a
-key or a click skips each part), then shows an empty screen for now;
+key or a click skips each part), then shows its loading screen for now;
 Esc leaves it.
 
 The data viewer, `reluva-viewer` (`reluva-viewer <its name in the
@@ -79,7 +80,7 @@ last; each page has its own keys besides:
 | This page | Where it stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
 | `formats/` | The game's own files, a page each: [the executable](formats/executable.md), [the CD](formats/cd.md), [archives](formats/wad.md), [settings](formats/sam.md), [text](formats/str.md), [fonts](formats/bf4.md), [pictures](formats/fsh.md), [movies](formats/tgq.md), [sound banks](formats/sdt.md), [models](formats/md2.md), [their animations](formats/md2-animation.md), [height maps](formats/hmp.md), [the park's ground](formats/lnd.md), [attribute maps](formats/attribute-map.md), [placed objects](formats/omp.md), [scripts](formats/rse.md) |
-| `systems/` | How the game behaves, a page per part: [the opening](systems/opening.md), [the sky](systems/sky.md), [how scripts run](systems/scripts.md) |
+| `systems/` | How the game behaves, a page per part: [the opening](systems/opening.md), [the sky](systems/sky.md), [how scripts run](systems/scripts.md), [the loading screen](systems/loading-screen.md) |
 | `research/` | Working notes: [what a recording of the game shows](research/footage.md) |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
