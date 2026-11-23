@@ -38,7 +38,8 @@ Detection signatures (MD5 of each file's start, and its size, as
   sound plays through Reluva's Miles: past its title screen its menu
   music starts, and its main menu shows, its buttons working. A
   skirmish runs, the Klingon AI coming in; a campaign begins, its
-  Dynaverse map moved on and its first mission played into; and the six
+  Dynaverse map moved on, its first mission played into and left, its
+  auto-save loaded again; and the six
   tutorials run,
   their orders spoken and following what's done, to their debriefing
   ([systems/hosting.md](systems/hosting.md#its-missions)).

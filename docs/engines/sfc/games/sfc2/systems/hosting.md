@@ -249,7 +249,17 @@ the Mission Debriefing (the mission, "Forfeit", the prestige gained, 0,
 and the battle report); DONE returns to the Dynaverse map, where the
 stardate goes on, the ship moves again and missions are offered again.
 The game keeps the mission's recording (`Auto1.rec`) and the campaign's
-state (under `MetaAssets/`) in its folder, so in the save folder. A
+state in its folder, so in the save folder: its database,
+`MetaAssets/db/Sfc2Spd.sds` and `db.info`, and on finishing a mission an
+auto-save, a copy of both in `MetaAssets/db/saves/Auto Save/`. The
+Campaign Selector lists the folders under `saves/` (its name, the
+empire, the date it was saved); LOAD GAME copies the save's files back
+over the database (`CopyFileA`), shows "LOADING... Please Wait." and
+returns to the Dynaverse as it was saved: the same commander, ship and
+prestige, the stardate going on from where it was. Saving needs folders
+made (`CreateDirectoryA`) and found where only the program made them
+(the save folder): without either the auto-save came out without its
+database, and the load read through a null pointer at 0x52781b. A
 mission won, its prestige given, isn't played yet.
 
 A skirmish is played through DirectPlay, single-player too: starting
