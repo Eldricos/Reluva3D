@@ -1681,6 +1681,17 @@ static void testHostedProgramNeeds(const std::filesystem::path &tmp) {
           std::filesystem::exists(tmp / "Game" / "Numbers.txt"));
     CHECK(cpu.string(call(m, "setlocale", {0, text("C")})) == "C" && call(m, "setlocale", {0, text("German")}) == 0);
     CHECK(call(m, "getenv", {text("PATH")}) == 0);
+    // A date of the process's own (startDate) moves on with its clock:
+    // noon on 15 March 2000 and 1.5 seconds; local time is UTC then.
+    process.startDate = 953121600000;
+    process.milliseconds = [] { return 1500u; };
+    CHECK(call(m, "time", {0}) == 953121601u);
+    const uint32_t localNow = process.memory().alloc(16);
+    call(k, "GetLocalTime", {localNow});
+    CHECK(cpu.read16(localNow) == 2000 && cpu.read16(localNow + 2) == 3 && cpu.read16(localNow + 6) == 15 &&
+          cpu.read16(localNow + 8) == 12 && cpu.read16(localNow + 12) == 1 && cpu.read16(localNow + 14) == 500);
+    process.startDate.reset();
+    process.milliseconds = nullptr;
     // _ftime: the time and its milliseconds; strftime in the "C" locale.
     const uint32_t timeb = process.memory().alloc(12);
     CHECK(call(m, "_ftime", {timeb}) == 0 && cpu.read32(timeb) > 1700000000u && cpu.read16(timeb + 4) < 1000);

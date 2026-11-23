@@ -34,29 +34,25 @@ struct SystemTime { // SYSTEMTIME
     int second;
 };
 
-SystemTime now() {
-    const std::time_t t = std::time(nullptr);
+// A date (milliseconds since 1970, UTC) in this machine's time zone, or
+// in UTC; its milliseconds.
+SystemTime dateOf(int64_t ms, bool utc, int *millis = nullptr) {
+    const std::time_t secs = std::time_t(ms / 1000);
+    if (millis)
+        *millis = int(ms % 1000);
     std::tm tm{};
 #ifdef _WIN32
-    localtime_s(&tm, &t);
+    if (utc)
+        gmtime_s(&tm, &secs);
+    else
+        localtime_s(&tm, &secs);
 #else
-    localtime_r(&t, &tm);
+    if (utc)
+        gmtime_r(&secs, &tm);
+    else
+        localtime_r(&secs, &tm);
 #endif
     return {tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_wday, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec};
-}
-
-// The clock as UTC, with its milliseconds.
-void utcNow(SystemTime &t, int &millis) {
-    const auto since = std::chrono::system_clock::now().time_since_epoch();
-    const std::time_t secs = std::time_t(std::chrono::duration_cast<std::chrono::seconds>(since).count());
-    millis = int(std::chrono::duration_cast<std::chrono::milliseconds>(since).count() % 1000);
-    std::tm tm{};
-#ifdef _WIN32
-    gmtime_s(&tm, &secs);
-#else
-    gmtime_r(&secs, &tm);
-#endif
-    t = {tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_wday, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec};
 }
 
 // A SYSTEMTIME's 8 words.
@@ -166,32 +162,30 @@ void Win32Process::addSystemStandIns() {
         return v;
     });
 
-    stdcall(k, "GetLocalTime", 1, [](Cpu &c) {
+    // Local time is UTC once the date is the process's own (startDate), so
+    // a run doesn't depend on this machine's time zone.
+    auto localNow = [this](int *millis = nullptr) { return dateOf(dateMs(), startDate.has_value(), millis); };
+    stdcall(k, "GetLocalTime", 1, [localNow](Cpu &c) {
         if (c.valid(c.arg(0), 16)) {
-            // The milliseconds are the same in local time as in UTC.
-            SystemTime utc;
             int millis = 0;
-            utcNow(utc, millis);
-            writeSystemTime(c, c.arg(0), x86::now(), millis);
+            const SystemTime t = localNow(&millis);
+            writeSystemTime(c, c.arg(0), t, millis);
         }
         return 0u;
     });
-    stdcall(k, "GetSystemTime", 1, [](Cpu &c) {
+    stdcall(k, "GetSystemTime", 1, [this](Cpu &c) {
         if (c.valid(c.arg(0), 16)) {
-            SystemTime t;
             int millis = 0;
-            utcNow(t, millis);
+            const SystemTime t = dateOf(dateMs(), true, &millis);
             writeSystemTime(c, c.arg(0), t, millis);
         }
         return 0u;
     });
     // FILETIME: 100 ns units since 1601 (UTC).
-    stdcall(k, "GetSystemTimeAsFileTime", 1, [](Cpu &c) {
+    stdcall(k, "GetSystemTimeAsFileTime", 1, [this](Cpu &c) {
         if (c.valid(c.arg(0), 8)) {
             constexpr uint64_t kUnixEpoch = 116444736000000000ULL;
-            const auto since = std::chrono::system_clock::now().time_since_epoch();
-            const uint64_t t =
-                kUnixEpoch + uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(since).count()) * 10;
+            const uint64_t t = kUnixEpoch + uint64_t(dateMs()) * 10000;
             c.write32(c.arg(0), uint32_t(t));
             c.write32(c.arg(0) + 4, uint32_t(t >> 32));
         }
@@ -374,16 +368,15 @@ void Win32Process::addSystemStandIns() {
         c.writeString(buffer, text, n);
         return n;
     };
-    stdcall(k, "GetDateFormatA", 6, [formatted](Cpu &c) {
-        const SystemTime t =
-            c.arg(2) ? readSystemTime(c, c.arg(2)) : x86::now(); // (not Win32Process::now, the threads' clock)
+    stdcall(k, "GetDateFormatA", 6, [formatted, localNow](Cpu &c) {
+        const SystemTime t = c.arg(2) ? readSystemTime(c, c.arg(2)) : localNow();
         const std::string picture = c.arg(3)         ? c.string(c.arg(3))
                                     : (c.arg(1) & 2) ? "dddd, MMMM dd, yyyy" // DATE_LONGDATE
                                                      : "M/d/yyyy";
         return formatted(c, formatPicture(picture, t));
     });
-    stdcall(k, "GetTimeFormatA", 6, [formatted](Cpu &c) {
-        const SystemTime t = c.arg(2) ? readSystemTime(c, c.arg(2)) : x86::now();
+    stdcall(k, "GetTimeFormatA", 6, [formatted, localNow](Cpu &c) {
+        const SystemTime t = c.arg(2) ? readSystemTime(c, c.arg(2)) : localNow();
         const uint32_t flags = c.arg(1);
         std::string picture;
         if (c.arg(3)) {

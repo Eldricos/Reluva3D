@@ -1440,8 +1440,8 @@ void addMsvcrt(Win32Process &process) {
     });
 
     // Time.
-    provideCdecl("time", [](Cpu &c) {
-        const uint32_t now = uint32_t(std::time(nullptr));
+    provideCdecl("time", [s](Cpu &c) {
+        const uint32_t now = uint32_t(s->p.dateMs() / 1000);
         if (c.arg(0))
             c.write32(c.arg(0), now);
         return now;
@@ -1450,9 +1450,8 @@ void addMsvcrt(Win32Process &process) {
                  [s](Cpu &) { return s->p.milliseconds ? s->p.milliseconds() : 0u; }); // CLOCKS_PER_SEC is 1000
     // _ftime(_timeb*): the time (+0), its milliseconds (+4, 16 bits), the
     // minutes west of Greenwich (+6) and daylight saving (+8): UTC here.
-    provideCdecl("_ftime", [](Cpu &c) {
-        const auto since = std::chrono::system_clock::now().time_since_epoch();
-        const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(since).count();
+    provideCdecl("_ftime", [s](Cpu &c) {
+        const int64_t ms = s->p.dateMs();
         if (c.valid(c.arg(0), 10)) {
             c.write32(c.arg(0), uint32_t(ms / 1000));
             c.write16(c.arg(0) + 4, uint16_t(ms % 1000));

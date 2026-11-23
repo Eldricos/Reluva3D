@@ -217,6 +217,12 @@ public:
     std::function<void(const std::string &text)> output;
     // Milliseconds for timeGetTime and GetTickCount (default: since start).
     std::function<uint32_t()> milliseconds;
+    // The date the program starts on (milliseconds since 1970, UTC): with
+    // it, the date moves on from there with milliseconds() (and local time
+    // is UTC), so a run repeats; without it, the date is this machine's.
+    std::optional<int64_t> startDate;
+    /** The date now, for the program: milliseconds since 1970, UTC. */
+    int64_t dateMs() const;
     /**
      * The milliseconds the main thread has asked to Sleep, in all. It
      * doesn't wait (the other threads run meanwhile, and it goes on), so a

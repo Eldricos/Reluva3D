@@ -76,7 +76,10 @@ C++ library have pages of their own ([directx.md](directx.md),
   II-class processor, 256 MB), the performance counter (microseconds),
   `MulDiv`, the computer's name, and `GetDateFormatA`/`GetTimeFormatA` with
   English (United States) pictures. The clock (`GetLocalTime`,
-  `GetSystemTime`, `GetSystemTimeAsFileTime`), English (United States) as
+  `GetSystemTime`, `GetSystemTimeAsFileTime`, MSVCRT's `time` and
+  `_ftime`): the machine's date, or one of the process's own
+  (`startDate`) moving on with its clock, local time then being UTC, so
+  a run repeats. English (United States) as
   the locale, the `Interlocked` functions (atomic as they are, since
   threads change over between instructions), `lstrlenA` and `lstrcpyA`. There's one thread, so critical
   sections do nothing, `Sleep` returns at once and a wait on an event finds

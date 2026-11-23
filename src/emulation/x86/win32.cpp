@@ -382,6 +382,13 @@ uint32_t Win32Process::moduleHandle(const std::string &name) const {
     return kKernel32Handle + 0x1000 * uint32_t(_standInDlls.size());
 }
 
+int64_t Win32Process::dateMs() const {
+    if (startDate)
+        return *startDate + int64_t(milliseconds ? milliseconds() : 0);
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
+        .count();
+}
+
 void Win32Process::setProgram(const std::string &exeName, const std::string &givenFolder) {
     const std::string folder = givenFolder.empty() || givenFolder.back() == '\\' ? givenFolder : givenFolder + '\\';
     _exeName = exeName;
