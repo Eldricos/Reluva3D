@@ -113,8 +113,7 @@ public:
     /**
      * Controller `index`: 0 is readGamepad's, 1 the next pad connected or
      * else a racing wheel other than the first, for a game with a second
-     * player's joystick; false when there's none. setWheelPedals is the
-     * first's only: a second wheel's pedals are found as they rest.
+     * player's joystick; false when there's none.
      */
     virtual bool readGamepad(int index, GamepadState &out) {
         if (index == 0)
@@ -139,6 +138,11 @@ public:
      * that rest at an end of their travel).
      */
     virtual void setWheelPedals(int accelerator, int brake) { (void)accelerator, (void)brake; }
+    /** The pedals of controller `index`'s wheel (readGamepad(index, ...)): 0 is setWheelPedals's. */
+    virtual void setWheelPedals(int index, int accelerator, int brake) {
+        if (index == 0)
+            setWheelPedals(accelerator, brake);
+    }
     /**
      * The window for a game's video mode: the whole screen, or a window of
      * width x height (when it fits on the screen; the frame is letterboxed

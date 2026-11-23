@@ -103,7 +103,10 @@ on Windows, a new player has them disabled: in *Setup*, *Controls*,
 *Joystick*, untick *Disable joystick*; the first's left stick then
 turns and moves, and A and B fire. The second's controls are bound
 there too (*Edit*), as the game binds none by default. The launcher's
-*Game controller* setting leaves them out.
+*Game controller* setting leaves them out. A wheel's pedals are found as
+they rest; where they aren't, `wheelpedals=2,3` (the first controller's)
+or `wheel2pedals=2,3` (the second's) in the game's section of
+`reluva.ini` names its accelerator and brake axes.
 
 Playing, the game runs as it did on Windows, in Reluva's window. In its
 menus the mouse moves Windows' pointer; in play the window holds the

@@ -19,13 +19,15 @@ None yet.
 - **Music:** from each CD's audio tracks beside its files (a cue sheet
   and its image, or ripped tracks); without them, none, as with the CD
   missing ([README.md](README.md#using-it)).
-- **Joysticks:** two at most, the players' game controllers, laid out as
-  Reluva chooses ([joystick.md](../../../../common/x86/joystick.md)),
-  a racing wheel as either; a second wheel's pedals are found as they
-  rest, not set; *Calibrate joystick*'s Windows control panel isn't
-  there: the game's `WinExec` of "control joy.cpl" fails as for a
-  program that isn't installed
-  ([windows.md](../../../../common/x86/windows.md)).
+- **Joysticks:** the players' game controllers, laid out as Reluva
+  chooses ([joystick.md](../../../../common/x86/joystick.md)), a racing
+  wheel as either. Two, as the game itself reads no more. *Calibrate
+  joystick* opens nothing: Windows' control panel isn't there, the
+  game's `WinExec` of "control joy.cpl" fails as for a program that isn't
+  installed ([windows.md](../../../../common/x86/windows.md)), and the
+  game ignores the failure (`0x41edb0`) *(from the code)*. Reluva's
+  joysticks need no calibration: their ranges are always 0 to 65535,
+  centred.
 - **Windows' dialog boxes:** none is shown. Where the game would make one
   (`CreateDialogParamA`), the call fails, and the game goes on as it does
   when Windows can't make it. None has been met in play.
@@ -38,9 +40,6 @@ None yet.
 - **Direct3D:** *Setup*'s hardware drawing is done by the emulator's
   software rasterizer, not a graphics card: its filtering and precision
   are Reluva's, not those of the cards of 1997.
-- **Text written through GDI** is in Reluva's built-in bitmap font, not
-  Arial. The menus and the game draw their text in the game's own fonts,
-  which are as they were.
 
 ## Additions outside the game
 

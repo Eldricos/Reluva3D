@@ -81,8 +81,11 @@ answer as Windows does when they fail
 10. Active, it takes the focus, sets the display to 640 by 480 in 8-bit
     colour, makes its primary surface and palette and clears the screen,
     then makes an Arial font through GDI (`CreateFontA`, `0x422a0e`), for
-    text it can write on a surface through its device context
-    (`0x424130`: `GetDC`, `SetBkMode`, `SetTextColor`, `TextOutA`).
+    text it could write on a surface through its device context
+    (`0x4240f0` to `0x4242ab`: `GetDC`, `SetBkMode`, `SetTextColor`,
+    `TextOutA`). Nothing calls that code: run through the menus, a level
+    and a cut scene, the game made its fonts four times and called
+    `TextOutA` never; all its text is drawn in its own fonts.
 11. It shows "A long time ago, in a galaxy far, far away....", in blue,
     and then the opening crawl over a field of stars, drawn by its own
     8-bit renderer into surfaces it locks, about 15 frames a second.

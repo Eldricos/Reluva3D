@@ -48,6 +48,16 @@ public:
         // The controllers, if they're offered: the game's two joysticks.
         const auto joystickSetting = _target.settings.find("joystick");
         const bool joystick = joystickSetting == _target.settings.end() || joystickSetting->second != "off";
+        // A wheel's pedal axes where they aren't found ("accelerator,brake",
+        // set in reluva.ini): wheelpedals the first's, wheel2pedals the second's.
+        for (int i = 0; i < x86::Joysticks::kConnectable; ++i) {
+            const auto pedals = _target.settings.find(i == 0 ? "wheelpedals" : "wheel2pedals");
+            int accelerator = -1;
+            int brake = -1;
+            if (pedals != _target.settings.end() &&
+                std::sscanf(pedals->second.c_str(), "%d,%d", &accelerator, &brake) == 2)
+                _sys.setWheelPedals(i, accelerator, brake);
+        }
         GamepadState pad;
         auto pollPad = [&] {
             for (int i = 0; i < x86::Joysticks::kConnectable; ++i)

@@ -165,6 +165,10 @@ void testSecond() {
         SDL_UpdateJoysticks();
         CHECK(sys.readGamepad(1, second) && near(second.axes[5], 1.0f) && second.buttons == 1u << 1);
         CHECK(sys.readGamepad(0, first) && first.axes[5] == 0); // the pad's own
+        // The second wheel's pedals set the other way about: the pedal
+        // pressed is now its brake.
+        sys.setWheelPedals(1, 2, 1);
+        CHECK(sys.readGamepad(1, second) && near(second.axes[4], 1.0f) && second.axes[5] == 0);
         CHECK(!sys.readGamepad(2, second));
     }
     // With the wheel gone, a second pad is the second.

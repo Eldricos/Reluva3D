@@ -191,6 +191,22 @@ void SdlSystem::closeSecond() {
     _second.reset();
 }
 
+void SdlSystem::setWheelPedals(int index, int accelerator, int brake) {
+    if (index == 0) {
+        setWheelPedals(accelerator, brake);
+        return;
+    }
+    if (index != 1)
+        return;
+    _secondAccelerator = accelerator;
+    _secondBrake = brake;
+    if (_second) {
+        _second->accelerator = accelerator;
+        _second->brake = brake;
+        _second->pedalAxis[0] = _second->pedalAxis[1] = -1;
+    }
+}
+
 bool SdlSystem::readGamepad(int index, GamepadState &out) {
     if (index == 0)
         return readGamepad(out);
@@ -224,6 +240,8 @@ bool SdlSystem::readGamepad(int index, GamepadState &out) {
         if (!second->gamepad && !second->wheel)
             return false;
         second->isWheel = second->wheel || SDL_GetJoystickType(second->joystick()) == SDL_JOYSTICK_TYPE_WHEEL;
+        second->accelerator = _secondAccelerator;
+        second->brake = _secondBrake;
         openForces(*second);
         _second = std::move(second);
     }

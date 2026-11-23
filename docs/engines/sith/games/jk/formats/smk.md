@@ -55,7 +55,10 @@ and `0x4269c0` (the calls to `SMACKW32.DLL`).
   (`0x4214b8`) *(from the code)*. They aren't drawn over the picture.
   That setting is off for a new player (`0x401487`) *(from the code)*,
   so by default only the Nar Shaddaa title shows, as it does in the
-  emulator at 2 seconds into `03-04A`.
+  emulator at 2 seconds into `03-04A`. With the setting on, every line
+  shows: in `03-04A` the first spoken line at about 76 seconds. A line
+  too wide for the area is broken between words into two, each centred.
+  Seen in Reluva's emulator.
 - **Keys:** space pauses and goes on, "Paused" (`GUI_PAUSED`) in the
   strip at the top (0, 10, 640, 40); Escape ends the cut scene
   (`0x4215c0`) *(from the code)*.
@@ -68,9 +71,9 @@ the CDs found for an install. The data viewer's Cut scenes page plays
 them with their sound, the picture following the clock, placed as on the
 game's 640x480 screen, with the subtitles below it as the game draws
 them: the titles, or every line with S, as the game's full subtitles. A
-line too wide for the rectangle is wrapped, which no retail line needs
-at the title's width *(inferred)*; how the game would break one isn't
-known.
+line too wide for the area is broken between words onto centred lines,
+as the game breaks it: the same frames of `03-04A`, the game's and the
+viewer's, match.
 `reluva-tool sith movies <install> -all`
 decodes every frame and its sound.
 
@@ -84,8 +87,10 @@ decodes every frame and its sound.
   `reluva-tool sith movies -all`, the sound as long as the picture in
   each; a new game run by `reluva-tool sith host` up to `03-04A`, its
   frames saved each half second: the picture in rows 50 to 349, the
-  title below it.
+  title below it; then again with *Enable full subtitles on cutscenes*
+  ticked in *Setup*, *General*: every line below the picture, the long
+  ones on two lines, compared with the viewer's.
 
 ## Open questions
 
-- The full subtitles, with the setting on, not yet seen running.
+None.

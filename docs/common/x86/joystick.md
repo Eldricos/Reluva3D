@@ -34,7 +34,10 @@ connected or else a racing wheel).
 
   A racing wheel comes as a pad does (`GamepadState`): the wheel as X,
   the pedals as Z (the accelerator less the brake), its buttons as the
-  pad's in order, its hat as the D-pad.
+  pad's in order, its hat as the D-pad. Its pedals are found as they rest;
+  an engine names them where they aren't
+  (`System::setWheelPedals(index, accelerator, brake)`, for either
+  controller).
 
 - **No forces:** WINMM's joysticks have none, so a program reading them
   gives the controllers none. Each controller can be given forces apart
