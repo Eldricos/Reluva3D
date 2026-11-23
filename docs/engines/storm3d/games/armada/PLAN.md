@@ -18,12 +18,17 @@ these phases start from, is in [formats/install.md](formats/install.md).
 1. **Start** (done): the engine from the template, detection of the
    English release ([formats/install.md](formats/install.md)), and its
    pages.
-2. **Archives and text** (next): the ZFS archives, with LZO (in
-   `src/common/` if another engine could use it), the object definitions
-   (`.odf`) with their inheritance, the settings in `.h` and `.cfg`
-   files, `Input.map`, and the `.ldl` strings. `reluva-tool storm3d`
-   commands to list and extract them.
-3. **Data viewer:** pictures (BMP, TGA and their smaller copies,
+2. **Archives and text** (done): the ZFS archives
+   ([formats/zfs.md](formats/zfs.md)), the object definitions with their
+   includes ([formats/odf.md](formats/odf.md)), the settings in C
+   ([formats/config.md](formats/config.md)), `Input.map`
+   ([formats/input-map.md](formats/input-map.md)) and the `.ldl` files,
+   which are the installer's scripts, not the game's strings
+   ([formats/ldl.md](formats/ldl.md)). The archives need no LZO. Left
+   for the phases that use them: `events.odf` (the announcements, with the
+   sounds), the `gui_*.cfg` layouts and `shell.set` (with the front end),
+   the tech trees (`.tt`, with the rules), and `Gamekey.map`.
+3. **Data viewer** (next): pictures (BMP, TGA and their smaller copies,
    `Armada.pal`), fonts, sounds and music, the Bink movies, text, object
    definitions, and the SOD models on a Models page drawn through
    `src/graphics/gfx3d.h`.

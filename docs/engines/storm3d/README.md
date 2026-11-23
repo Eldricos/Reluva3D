@@ -18,7 +18,8 @@ everything was read from Star Trek: Armada.
 
 ## Where it stands
 
-Star Trek: Armada is recognised, and shows an empty screen: see
+Star Trek: Armada is recognised and its archives and text files are read,
+but nothing is shown yet: see
 [games/armada/](games/armada/README.md#where-it-stands).
 
 ## Using it
@@ -37,6 +38,7 @@ The game's page says how to add it: [Star Trek: Armada](games/armada/README.md#u
 | Path | What |
 |---|---|
 | `storm3d.cpp` | The `MetaEngine` (name, detection tables, making an `Engine`) and the `Engine`: an empty screen so far |
+| `formats/` | Reading the games' files: ZFS archives, object definitions, settings in C, `Input.map`, `.ldl` files |
 | `tools/` | `reluva-tool storm3d` commands (`reluva-tool help storm3d` lists them) |
 
 What every game shares (the archives, models, object definitions, maps,

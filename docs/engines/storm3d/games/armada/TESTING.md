@@ -11,6 +11,11 @@ files):
 | Suite | What it checks |
 |---|---|
 | `storm3d.unit.detection` | An empty folder, and the executable alone, aren't the game; Armada's three files by name are found as an unknown release |
+| `storm3d.unit.zfs` | ZFS archives over two blocks: names, a name filling its field, decoding with an unencoded tail; damaged archives refused |
+| `storm3d.unit.odf` | Object definitions: includes overridden, lists over lines, sections, the value forms, a stray line, failing includes |
+| `storm3d.unit.config` | Settings in C: variables, defines, expressions, structures grouped, strings over lines, what's skipped, failures |
+| `storm3d.unit.ldl` | The `.ldl` encoding, with a key made in the test; no key from a file that isn't the game's |
+| `storm3d.unit.input_map` | `Input.map`'s blocks and conditions, a stray line, a block left open |
 
 ### The basic engine test
 
@@ -27,8 +32,11 @@ Not yet.
 
 ### What the automated checks don't cover
 
-Recognising the English release by its hashes: that needs the game's own
-files, so it's checked by hand ([Last checked](#last-checked)).
+What needs the game's own files, checked by hand with `reluva-tool
+storm3d` ([Last checked](#last-checked)): recognising the English
+release by its hashes, and reading every file of each kind
+(`odf-check`, `config-check`, and `zfs-extract`, `ldl` and `input-map` on
+each file).
 
 ## A playthrough by hand
 
@@ -40,3 +48,4 @@ files, so it's checked by hand ([Last checked](#last-checked)).
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
 | November 2026 | English retail 1.0 | Linux | `reluva-tool detect` on the install finds it as the English release |
+| November 2026 | English retail 1.0 | Linux | Both ZFS archives extract whole (596 files); all 488 object definitions, 94 settings files and 3 `Input.map`s read; all six `.ldl` files decode |

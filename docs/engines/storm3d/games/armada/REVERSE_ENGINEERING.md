@@ -35,6 +35,9 @@ extended. The facts themselves are on their pages, each with its source.
 ## Methods
 
 - **Listing:** every file's size and kind, over the whole install and CD.
+- **The game's files:** each kind's layout worked out from the files
+  themselves, then a reader checked against every file of that kind;
+  each format page says how.
 - **The executables:** `reluva-tool pe-info` and `objdump -p` for their
   headers, imports and exports. Later, Reluva's disassembler
   (`src/emulation/x86/disasm.h`) for the code, and the original run in
@@ -48,6 +51,14 @@ extended. The facts themselves are on their pages, each with its source.
 | Command | What it does |
 |---|---|
 | `reluva-tool storm3d files <game folder>` | Lists every file in the game's folder, with its size |
+| `reluva-tool storm3d zfs-list <file.zfs>` | A ZFS archive's tables ([formats/zfs.md](formats/zfs.md)) |
+| `reluva-tool storm3d zfs-extract <file.zfs> <output dir> [name filter]` | Its files, decoded |
+| `reluva-tool storm3d odf <game folder> <name.odf>` | An object definition with its includes ([formats/odf.md](formats/odf.md)) |
+| `reluva-tool storm3d odf-check <game folder>` | Reads every object definition |
+| `reluva-tool storm3d config <game folder> <file>` | A settings file's values ([formats/config.md](formats/config.md)) |
+| `reluva-tool storm3d config-check <game folder>` | Reads every settings file |
+| `reluva-tool storm3d ldl <game folder> <file.ldl> [output file]` | An `.ldl` file decoded ([formats/ldl.md](formats/ldl.md)) |
+| `reluva-tool storm3d input-map <Input.map>` | The key and mouse bindings ([formats/input-map.md](formats/input-map.md)) |
 
 ## Working files not included
 
