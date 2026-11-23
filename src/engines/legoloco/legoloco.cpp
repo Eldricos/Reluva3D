@@ -41,6 +41,9 @@ constexpr const char *kFont = "font";
 // Windows' colours: "98" (its standard scheme, of the game's time) or "xp"
 // (Windows XP's blue, as in a recording of the original).
 constexpr const char *kColours = "colours";
+// Whether searches also find the original program's games, on Windows
+// ("1" or "0"): found only, they can't be joined yet.
+constexpr const char *kFindOriginal = "find_original";
 
 const std::vector<GameVariant> kVariants = {
     {"legoloco",
@@ -207,6 +210,8 @@ private:
             else
                 std::fprintf(stderr, "LEGO Loco: can't find the meeting server %s\n", meeting.c_str());
         }
+        if (setting(kFindOriginal) == "1")
+            network->tcp = _sys.sockets();
         if (setting(kMapPort) != "0")
             network->mapPort = [&sys](uint16_t port) -> std::shared_ptr<void> {
                 return std::make_shared<net::PortMapper>(net::PortMapper::through(sys), port);
@@ -262,6 +267,12 @@ public:
                  "frame): Windows 98's, of the game's time, or Windows XP's.",
                  true,
                  {{"98", "Windows 98"}, {"xp", "Windows XP"}}},
+                {kFindOriginal,
+                 "Find games of the original on Windows",
+                 "Also look for network games hosted by the original LEGO Loco, on Windows, and answer its\n"
+                 "searches, by DirectPlay's own protocol. They're listed, but can't be joined yet.",
+                 false,
+                 {}},
                 {kMapPort,
                  "Open the port on the router when hosting",
                  "When hosting a network game, ask the router (UPnP or NAT-PMP) to pass the game's port on to\n"

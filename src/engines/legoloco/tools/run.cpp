@@ -349,7 +349,8 @@ struct Copy {
 // instructions; -seconds n stops once the program's clock has passed n
 // seconds (a program waiting for messages runs no instructions);
 // -nomovies ends each movie as it starts; -nobroadcast (over UDP) searches
-// only at the address typed into the game; -deterministic n gives the
+// only at the address typed into the game; -original (over UDP) also finds
+// the original program's games, by DirectPlay 4's own protocol; -deterministic n gives the
 // program a clock of n instructions a millisecond.
 struct Common {
     uint64_t limit = 2000;
@@ -358,12 +359,15 @@ struct Common {
     bool noMovies = false;
     bool udp = false;
     bool broadcast = true;
+    bool original = false;
     std::string meeting;
     bool option(int argc, char **argv, int &i) {
         if (!std::strcmp(argv[i], "-udp"))
             udp = true;
         else if (!std::strcmp(argv[i], "-nobroadcast"))
             broadcast = false, udp = true;
+        else if (!std::strcmp(argv[i], "-original"))
+            original = true, udp = true;
         else if (!std::strcmp(argv[i], "-meeting") && i + 1 < argc)
             meeting = argv[++i], udp = true;
         else if (!std::strcmp(argv[i], "-limit") && i + 1 < argc)
@@ -383,7 +387,7 @@ struct Common {
 // DirectPlay over the system's UDP sockets: a search with no address
 // goes to each network's broadcast address, and the machine's own; and to
 // the meeting server at `meeting` ("host[:port]"), if it's given.
-std::shared_ptr<x86::DirectPlay::Network> systemNetwork(const std::string &meeting, bool broadcast) {
+std::shared_ptr<x86::DirectPlay::Network> systemNetwork(const std::string &meeting, bool broadcast, bool original) {
     auto network = std::make_shared<x86::DirectPlay::Network>();
     network->open = [](uint16_t port) {
         std::string error;
@@ -397,6 +401,8 @@ std::shared_ptr<x86::DirectPlay::Network> systemNetwork(const std::string &meeti
     network->broadcast.push_back(0x7f000001u);
     if (!broadcast)
         network->broadcast.clear();
+    if (original)
+        network->tcp = net::systemSockets();
     if (!meeting.empty()) {
         const auto [host, port] = net::splitHostPort(meeting, net::kMeetingPort);
         network->meeting.port = port;
@@ -419,7 +425,7 @@ int cmdRun(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool legoloco run <game folder> -save <folder> [-log] [-xp] [-arial] [-limit millions] "
-            "[-seconds n] [-nomovies] [-deterministic n] [-udp] [-nobroadcast] [-meeting host] [-click|-rclick|-move s x y] "
+            "[-seconds n] [-nomovies] [-deterministic n] [-udp] [-nobroadcast] [-original] [-meeting host] [-click|-rclick|-move s x y] "
             "[-drag s x1 y1 x2 y2] "
             "[-key s vk] [-shot [s] file.ppm]...\n");
         return 2;
@@ -434,7 +440,7 @@ int cmdRun(int argc, char **argv) {
         return 2;
     }
     return copy.run(argv[2], common.limit, common.seconds, common.noMovies, common.perMs,
-                    common.udp ? systemNetwork(common.meeting, common.broadcast) : nullptr);
+                    common.udp ? systemNetwork(common.meeting, common.broadcast, common.original) : nullptr);
 }
 
 // Two copies at once, each with a save folder of its own and its own
@@ -445,7 +451,7 @@ int cmdPair(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool legoloco pair <game folder> [-limit millions] [-seconds n] [-deterministic n] "
-            "[-nomovies] [-udp] [-nobroadcast] [-meeting host] -save <folder> [first's steps]... -- -save <folder> [second's steps]...\n");
+            "[-nomovies] [-udp] [-nobroadcast] [-original] [-meeting host] -save <folder> [first's steps]... -- -save <folder> [second's steps]...\n");
         return 2;
     }
     Common common;
@@ -463,7 +469,8 @@ int cmdPair(int argc, char **argv) {
         std::fprintf(stderr, "each copy needs a save folder of its own: -save <folder> ... -- -save <folder>\n");
         return 2;
     }
-    auto network = common.udp ? systemNetwork(common.meeting, common.broadcast) : x86::DirectPlay::Network::inMemory();
+    auto network = common.udp ? systemNetwork(common.meeting, common.broadcast, common.original)
+                              : x86::DirectPlay::Network::inMemory();
     int results[2] = {0, 0};
     std::thread second([&] {
         results[1] = copies[1].run(argv[2], common.limit, common.seconds, common.noMovies, common.perMs, network);
@@ -477,11 +484,11 @@ const Commands kCommands(
     "legoloco",
     {
         {"run",
-         "<game folder> -save <folder> [-log] [-xp] [-arial] [-limit millions] [-seconds n] [-nomovies] [-deterministic n] [-udp] [-nobroadcast] [-meeting host] "
+         "<game folder> -save <folder> [-log] [-xp] [-arial] [-limit millions] [-seconds n] [-nomovies] [-deterministic n] [-udp] [-nobroadcast] [-original] [-meeting host] "
          "[-click|-rclick|-move s x y] [-drag s x1 y1 x2 y2] [-key s vk] [-shot [s] file.ppm]...",
          "run the game's own loco.exe and report how far it gets", cmdRun},
         {"pair",
-         "<game folder> [-limit millions] [-seconds n] [-nomovies] [-deterministic n] [-udp] [-nobroadcast] [-meeting host] -save <folder> "
+         "<game folder> [-limit millions] [-seconds n] [-nomovies] [-deterministic n] [-udp] [-nobroadcast] [-original] [-meeting host] -save <folder> "
          "[steps]... -- -save <folder> [steps]...",
          "run two copies at once on one DirectPlay network (in memory, or UDP), each with its "
          "own steps",

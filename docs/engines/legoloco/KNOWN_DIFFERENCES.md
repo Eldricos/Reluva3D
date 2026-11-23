@@ -16,7 +16,11 @@ the original's way. -->
   ([systems/running.md](systems/running.md)).
 - **Network play** goes between copies of Reluva, over UDP with a
   protocol of Reluva's own, under the game's DirectPlay calls; the
-  original's DirectPlay can't join them, nor they it. IPX is offered as
+  original's DirectPlay can't join them, nor they it. With the engine's
+  "Find games of the original on Windows" setting (off unless set), the
+  original's games are listed, and the original's searches answered,
+  by DirectPlay's own published protocol, but neither can join the
+  other's yet (untried against Windows). IPX is offered as
   the original offers it, and is the same network as TCP/IP. A
   meeting server (the `meeting_server` setting) and the router's port
   being opened while hosting are Reluva's
