@@ -2229,14 +2229,16 @@ void testStates() {
     // The prisoner, Ann beside it, doesn't take her for a target.
     run(1000);
     CHECK(enemies[1].state == "Patrol" && enemies[1].target < 0);
-    // Stunned: its Stun's Start Action; up again, the transition from Stun
-    // and its Next State, Investigate.
+    // Stunned by Ann: its Stun's Start Action; up again, the transition
+    // from Stun and its Next State, Investigate, going to where she shot
+    // from.
     ItemDefinition stunner;
     stunner.stunDuration = 1.0f;
-    screen.hurtEnemy(0, stunner, -1, true);
+    screen.hurtEnemy(0, stunner, 0, true);
     CHECK(enemies[0].state == "Stun" && lit("Stun Start") && !lit("Stun Over"));
     run(2500);
     CHECK(lit("Stun Over") && enemies[0].state == "Investigate");
+    CHECK(enemies[0].heardX == 300.0f && enemies[0].heardY == 300.0f);
     // The looker sees the body: Investigate Dead Body, its Start Action,
     // then back on patrol, not looking at it again.
     CHECK(lit("Body Found"));

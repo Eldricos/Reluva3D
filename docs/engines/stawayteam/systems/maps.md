@@ -563,6 +563,31 @@ In all the maps' 776 enemies:
   Patrol for 42); `LostATarget`'s `Had a Target` (Investigate for 756) and
   `Default` (Patrol for 687). The `Alert`'s `Next State` is `Got a
   Target` for 746.
+- **How they choose:** the AI keeps a place to go to, and two flags: it
+  has one, and it's a body's. Attacking or alerted, the target's place
+  is taken (`0x429610`, `0x42a67e`); stunned, where the shot came from,
+  the target dropped (`0x42cdd8`); a body seen, its place, and the body
+  put in the AI's `Dead Bodies` (`CDeadBodyInfo`) so as not to be
+  looked at again. `Got a Target` (`0x42e1d0`), with a target in sight,
+  its reaction time past, not dead, and in its Valid Targets, goes to
+  `Acquired a Target`, else `Default`; without one, to `Dead Body` with
+  a body's place, `Had a Target` with another, else `Default`. `Lost a
+  Target` (`0x42d970`) goes to `Had a Target` with a place, else
+  `Default`. Investigate goes to the place.
+- **Bodies** are seen on patrol and alerted (`0x4295db`, `0x42a550`):
+  a candidate its targeting turns up, in its sight and reach, that's a
+  dead walker or not a target, of the game's dead bodies' category,
+  and not in its list.
+- **Running away** (`0x4306e0`): its `CRunAwayRetreatAI` is given a
+  quarter of its weapon's range (`State/Weapon Dist`, `0x617400`), and
+  goes to a spot 0.83 to 1.2 times that from its target, within 45
+  degrees of straight away from them, on the ground unforeshortened;
+  with no way there, anywhere round them, and with none, tries again a
+  second on (`0x5530f0`, `0x5531a0`).
+- **Recharging** (`0x427e70`): its Recharge AI each frame, for its `Time
+  To Recharge` (none: for good), then End Recharge. A
+  `CRechargeHealthAI` takes its `Hit Points` a second off the damage
+  taken, to none (`0x43c610`); it's never done of itself.
 - **Their actions:** Start and End Actions on every state: the Alert's
   relay to a voice (307), the Stun's (184 and 265), the Investigate Dead
   Body's relay, mostly to an alarm (254), the Attack's (300 or so).
@@ -891,17 +916,19 @@ Target when its target's another), and the new state's Start Action,
 in that order, as the program does; at once, where the program waits
 for the AI's next run, a frame on. One whose Valid Targets don't name Player or
 Team Member doesn't see the officers. Losing its target, it goes by its
-LostATarget's Had a Target: Investigate, looking about where it saw them
-last *(inferred)*. Up from a stun, its Stun's Next State: Investigate,
-looking about where it is *(inferred)*, or Recharge. Recharging, it runs
-its Recharge AI (a CRechargeHealthAI its Hit Points back a second,
-*inferred*), for its Time To Recharge if it has one, then End Recharge's
-AI and its patrol; it sees the team as on patrol. A target within a
-twentieth of its weapon's range, one that Runs Away If Too Close runs off
-from them three seconds, then back at them; where to, its weapon's
-range away, *inferred*. On patrol, looking about or recharging, a dead
-body it sees and hasn't before: its GotATarget's Dead Body, Investigate
-Dead Body, going to look at it, then back on patrol *(inferred)*. A
+LostATarget's Had a Target: Investigate, going to where it saw them last.
+Up from a stun, its Stun's Next State: Investigate, going to where the
+shot came from (its own place for a shot not an officer's,
+*inferred*), or Recharge. Recharging, it runs its Recharge AI, its Hit
+Points back a second to whole, for its Time To Recharge if it has one,
+then End Recharge's AI and its patrol (*inferred* for those two); it
+sees the team as on patrol. A target within a twentieth of its weapon's
+range, one that Runs Away If Too Close runs off three seconds, then
+back at them; to the retreat's spot as above, tried in its cone and
+then anywhere, giving up with no way there (*inferred*: the program
+tries again a second on). On patrol or alerted, a dead body it sees and
+hasn't before: its target dropped, its GotATarget's Dead Body,
+Investigate Dead Body, going to look at it, then back on patrol. A
 CSetPatrolAIAction's AI is its patrol from then. With no officer to
 go after, one whose Valid Targets name another enemy's category fights
 the nearest it sees as it would an officer: alerted, then shooting in
@@ -1147,10 +1174,8 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   up, what holding a retreat's place is, what `$Trigger` and the
   instigator are in their states' actions, and how a radius's action
   chooses whom it reaches.
-- **The states:** how Got a Target and Lost a Target choose between
-  their choices; what makes a
-  low-health enemy run
-  away (`0x42b0e2`), and when it looks for bodies.
+- **The states:** what makes a low-health enemy run away (`0x42b0e2`),
+  and the reaction time Got a Target waits on.
 - **Walking:** how the walkers' outlines are swept against each other
   in planning, the plain checker's part, and how a joined character's
   made an officer.

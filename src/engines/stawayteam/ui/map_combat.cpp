@@ -341,10 +341,20 @@ void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attack
     // maps' enemies: the Borg's), which it then does (inferred).
     const bool stunnable = readText(e.ai, "Stun State") != "Attack";
     if (stun && stunnable) {
+        // Its target dropped, and where the shot came from taken as its
+        // place to go to (0x42cdd8, 0x42cdf9): up again, its Next State
+        // goes there.
         e.stunned = weapon.stunDuration;
         e.route.clear();
         setState(e, "Stun");
         e.target = -1;
+        if (attacker >= 0 && size_t(attacker) < _officers.size()) {
+            e.seenX = _officers[size_t(attacker)].x;
+            e.seenY = _officers[size_t(attacker)].y;
+        } else {
+            e.seenX = e.x;
+            e.seenY = e.y;
+        }
         return;
     }
     const float damage = stun ? 0.0f : weapon.weaponDamage * enhancement(attacker);
@@ -509,12 +519,13 @@ void MapScreen::updateCombat(float seconds) {
         if (e.stunned > 0.0f) {
             e.stunned = std::max(0.0f, e.stunned - seconds);
             if (e.stunned <= 0.0f) {
-                // Up: its Stun state's Next State, Investigate (looking
-                // about where it is) or Recharge, else its patrol (inferred).
+                // Up, its stun AI done: its Stun state's Next State
+                // (0x42ce3f), Investigate going to where the shot came
+                // from, or Recharge; else its patrol (inferred).
                 const TextObject *stun = e.ai->object("Stun");
                 const std::string next = stun ? readText(stun, "Next State") : std::string();
                 if (stateKey(next) == "Investigate")
-                    investigate(e, e.x, e.y);
+                    investigate(e, e.seenX, e.seenY);
                 else
                     setState(e, next.empty() || next == "Any" ? "Patrol" : next);
             }

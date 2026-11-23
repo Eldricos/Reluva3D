@@ -93,9 +93,9 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
 - **The item panels' layout:** sequences placed from the panel's middle,
   pictures and words from the info bar's corner
   ([systems/items.md](systems/items.md#an-items-panel)).
-- **The enemies' states:** an enemy losing its target going to look
-  where it saw them, one up from a stun looking about where it is, where one running
-  away runs to, when one looks for bodies, and a recharge's health
+- **The enemies' states:** where one stunned by something other than
+  an officer goes to look, one running away giving up with no way to
+  its spot, and End Recharge's AI before its patrol
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **The triggers and doors:** an enemy setting off a touching trigger as
   an officer does, what counts as colliding with a part, and a door out

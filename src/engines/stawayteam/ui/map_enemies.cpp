@@ -26,6 +26,11 @@ constexpr float kForgetAfter = 5.0f;
 // away does, this long (0x42b0ad, 0x42b0d1).
 constexpr float kTooClose = 0.05f;
 constexpr float kRunAwayTime = 3.0f;
+// A retreat's reach as a part of its weapon's range, and its spot's
+// nearest and farthest as parts of that (0x617400, 0x6296f0, 0x614320).
+constexpr float kRetreatPart = 0.25f;
+constexpr float kRetreatNearest = 0.8333333f;
+constexpr float kRetreatFarthest = 1.2f;
 // How fast an enemy turns when its AI doesn't say, in degrees a second
 // (inferred).
 constexpr float kTurnSpeed = 360.0f;
@@ -265,7 +270,8 @@ bool MapScreen::runAI(Enemy &e, const TextObject *ai, float seconds) {
         return true; // Go To End
     }
     if (kind == "CRechargeHealthAI") {
-        // Its Hit Points back a second, till it's whole (inferred).
+        // Its Hit Points back a second, the damage taken going no lower
+        // than none (0x43c610, 0x4951f0); it's never done of itself.
         e.health = std::min(e.maxHealth, e.health + number(ai, "Hit Points") * seconds);
         return e.health >= e.maxHealth;
     }
@@ -628,12 +634,13 @@ void MapScreen::updateEnemies(float seconds) {
             continue;
         if ((e.decoy >= 0 || e.target < 0) && fightDecoy(e, seconds))
             continue;
-        // A dead body seen (a part of Dead Bodies: a Klingon's body, by its
-        // death behaviours), not looked at before: its GotATarget's Dead
-        // Body, mostly Investigate Dead Body, going to look at it, its
-        // Start Action raising the alarm; else nothing (inferred: when the
-        // program looks for bodies isn't traced).
-        if ((e.state == "Patrol" || e.state == "Investigate" || e.state == "Recharge") && e.target < 0)
+        // Patrolling or alerted, a dead body seen (a part of Dead Bodies: a
+        // Klingon's body, by its death behaviours), within its sight, not
+        // in its list of those seen: its place taken as the one to go to,
+        // the body put in the list (0x4295db, and Alert's 0x42a550), and
+        // its GotATarget's Dead Body, mostly Investigate Dead Body, going
+        // to look at it, its Start Action raising the alarm (0x42e318).
+        if (e.state == "Patrol" || e.state == "Alert")
             for (const size_t part : bodies) {
                 if (!shown(part) || part == e.part ||
                     std::find(e.bodiesSeen.begin(), e.bodiesSeen.end(), part) != e.bodiesSeen.end())
@@ -647,6 +654,7 @@ void MapScreen::updateEnemies(float seconds) {
                 const TextObject *got = states->object("GotATarget");
                 if (stateKey(got ? readText(got, "Dead Body") : std::string()) != "InvestigateDeadBody")
                     break;
+                e.target = -1;
                 e.heardX = bx;
                 e.heardY = by;
                 e.route = route(e, bx, by);
@@ -663,7 +671,7 @@ void MapScreen::updateEnemies(float seconds) {
         }
         // Recharging (80 enemies start so): its Recharge AI, for its Time
         // To Recharge if it has one (-1: till it's disturbed), then End
-        // Recharge's AI and its patrol (inferred).
+        // Recharge (0x427e89); its AI, then its patrol (inferred).
         if (e.state == "Recharge") {
             const TextObject *recharge = states->object("Recharge");
             e.recharge += seconds;
@@ -818,14 +826,25 @@ void MapScreen::updateEnemies(float seconds) {
             continue;
         }
         // Its target within a twentieth of its weapon's range, one that
-        // Runs Away If Too Close does, three seconds (0x42b084); away from
-        // them by its weapon's range (inferred: CRunAwayRetreatAI's point
-        // isn't traced).
+        // Runs Away If Too Close does, three seconds (0x42b084). Its
+        // CRunAwayRetreatAI's spot is a quarter of its weapon's range from
+        // the target (0x430702), 0.83 to 1.2 times that, within 45 degrees
+        // of straight away from them, on the ground unforeshortened; with
+        // no way there, anywhere round them (0x5530f0, 0x5531a0).
         if (distance <= e.weapon->range * kTooClose && readText(e.ai, "Run Away If Too Close") == "1") {
-            const float away = distance > 0.0f ? 1.0f / distance : 0.0f;
-            const float fx = e.x + (e.x - o.x) * away * e.weapon->range;
-            const float fy = e.y + (e.y - o.y) * away * e.weapon->range;
-            e.route = route(e, fx, fy);
+            const auto randomUnit = [&] {
+                _random = _random * 1103515245u + 12345u;
+                return float((_random >> 8) & 0xffffff) / float(0xffffff);
+            };
+            const float away = std::atan2((e.y - o.y) / ParticleSystem::kYToX, e.x - o.x);
+            const float reach = e.weapon->range * kRetreatPart;
+            for (const float spread : {kPi / 4.0f, kPi}) {
+                const float a = away + (randomUnit() * 2.0f - 1.0f) * spread;
+                const float r = reach * (kRetreatNearest + randomUnit() * (kRetreatFarthest - kRetreatNearest));
+                e.route = route(e, o.x + std::cos(a) * r, o.y + std::sin(a) * r * ParticleSystem::kYToX);
+                if (!e.route.empty())
+                    break;
+            }
             e.runAway = kRunAwayTime;
             setState(e, "RunAway");
             continue;
