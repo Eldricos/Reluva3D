@@ -46,7 +46,8 @@ everything was read from SimCoaster.
 | `tpw.cpp` | The `MetaEngine` and the `Engine`: the opening, then an empty screen for now |
 | `games.cpp` | The games, the detection tables, and importing from the CD |
 | `game_files.cpp` | The `Data` folder mounted: the archives, loose files over them |
-| `ui/` | The screens: the opening |
+| `textures.cpp` | A model's textures found among the files, and pictures decoded |
+| `ui/` | The screens: the opening; a model drawn in 3D |
 | `pages/` | The data viewer's pages (in `reluva-viewer`) |
 | `formats/` | The games' files: `.wad`, `.sam`, `.str`, `.bf4`, `.sdt`, `.MD2`; their pictures are read by the shared code (`src/image/`) |
 | `tools/` | `reluva-tool tpw` commands (`reluva-tool help tpw` lists them) |

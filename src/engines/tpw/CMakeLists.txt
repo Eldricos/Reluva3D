@@ -9,6 +9,8 @@ reluva_add_engine(tpw
         tpw.cpp
         games.cpp
         game_files.cpp
+        textures.cpp
+        ui/model_view.cpp
         ui/opening.cpp
         formats/bf4.cpp
         formats/md2.cpp
@@ -24,6 +26,7 @@ reluva_add_engine_viewers(tpw
     SOURCES
         pages/viewer.cpp
         pages/media_pages.cpp
+        pages/model_page.cpp
         pages/page.cpp
         pages/picture_pages.cpp
         pages/text_pages.cpp)

@@ -8,9 +8,13 @@
 #include "devtools/tool.h"
 #include "engines/tpw/formats/md2.h"
 #include "engines/tpw/game_files.h"
+#include "engines/tpw/ui/model_view.h"
+#include "image/image.h"
 
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
+#include <fstream>
 #include <map>
 #include <string>
 #include <vector>
@@ -114,9 +118,64 @@ int cmdMd2Check(int argc, char **argv) {
     return models == 0 ? 1 : 0;
 }
 
+// One model drawn as the viewer draws it, written out as a PNG: from the
+// viewer's starting place, or turned and tilted by the radians given.
+int cmdMd2Shot(int argc, char **argv) {
+    if (argc < 5) {
+        std::fprintf(stderr, "usage: reluva-tool tpw md2-shot <game folder> <model> <out.png> [yaw pitch]\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    std::vector<std::string> warnings;
+    if (reluva::Error err = reluva::tpw::mountGame(files, argv[2], warnings)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    reluva::tpw::LoadedModel loaded;
+    if (reluva::Error err = loaded.load(files, argv[3])) {
+        std::fprintf(stderr, "%s: %s\n", argv[3], err.message.c_str());
+        return 1;
+    }
+    reluva::tpw::ModelView view;
+    if (argc > 6) {
+        view.yaw = std::strtof(argv[5], nullptr);
+        view.pitch = std::strtof(argv[6], nullptr);
+    }
+    reluva::Surface screen;
+    screen.create(640, 480, reluva::PixelFormat::kRGBA32);
+    // The viewer's background.
+    for (int y = 0; y < screen.h; ++y)
+        for (int x = 0; x < screen.w; ++x) {
+            uint8_t *p = screen.row(y) + x * 4;
+            p[0] = 44;
+            p[1] = 52;
+            p[2] = 66;
+            p[3] = 255;
+        }
+    reluva::soft3d::Rasterizer rasterizer;
+    reluva::tpw::drawModel(screen, rasterizer, loaded, view);
+    reluva::image::Image out;
+    out.w = screen.w;
+    out.h = screen.h;
+    out.rgba.resize(size_t(screen.w) * size_t(screen.h) * 4);
+    for (int y = 0; y < screen.h; ++y)
+        std::copy(screen.row(y), screen.row(y) + screen.w * 4, out.pixel(0, y));
+    const std::vector<uint8_t> png = reluva::image::encodePng(out);
+    std::ofstream(argv[4], std::ios::binary).write(reinterpret_cast<const char *>(png.data()), long(png.size()));
+    if (loaded.model.kind() != Model::Kind::kModel)
+        std::printf("%s: not a model but %s: nothing drawn\n", argv[3],
+                    loaded.model.kind() == Model::Kind::kAnimation ? "an animation" : "a header alone");
+    else
+        std::printf("%s: %zu meshes, %zu of %zu textures found\n", argv[3], loaded.model.meshes().size(),
+                    loaded.texturesFound, loaded.textures.size());
+    return 0;
+}
+
 const Commands kCommands("tpw", {
                                     {"md2-check", "<game folder> [model]",
                                      "read every model (.MD2), or list one's meshes", cmdMd2Check},
+                                    {"md2-shot", "<game folder> <model> <out.png> [yaw pitch]",
+                                     "draw a model as the viewer does, to a PNG", cmdMd2Shot},
                                 });
 
 } // namespace

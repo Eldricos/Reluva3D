@@ -35,7 +35,7 @@ setup installs it ([cd.md](formats/cd.md)).
 | The opening | the logo, then the Bullfrog splash, as a recording shows them ([opening.md](systems/opening.md)); the front end's 3D opening not yet |
 | Sounds | the banks (`.sdt`, [sdt.md](formats/sdt.md)): 5,315 of their sounds decode, MPEG and PCM; the rest are damaged in the game's own files; `reluva-tool tpw sdt-check`. The `.map` files beside them not yet |
 | Models | `.MD2` ([md2.md](formats/md2.md)): all 698 models' 6,981 meshes read, placed by their node trees; their 1,209 animations not yet; `reluva-tool tpw md2-check` |
-| Viewer | `reluva-viewer`: pictures, fonts, text, settings, sounds, movies and files (pages above) |
+| Viewer | `reluva-viewer`: pictures, fonts, text, settings, models in 3D, sounds, movies and files (pages above) |
 | The executable | Surveyed: SafeDisc 2, its code encrypted, so the game is to be rebuilt from its data, not run ([executable.md](formats/executable.md)) |
 | Everything else | Not started: see [PLAN.md](PLAN.md) |
 
@@ -61,6 +61,7 @@ last; each page has its own keys besides:
 | Fonts | Sample text in the font, then each glyph with its code | |
 | Text | A string table's strings by number, the one picked whole below | Up/Down: the string; F: in the game's font (`GAME12.bf4`) |
 | Settings | A settings file's settings, values and grids | Up/Down: scroll |
+| Models | Each model drawn in 3D with its textures, lit from above, turned about its middle (not the animations) | A/D: turn; W/S: tilt; Z/X: nearer, further; T: textures on or off |
 | Sounds | A bank's sounds, their kind and length | Up/Down, PageUp/PageDown: the sound; Space or Enter: play or stop |
 | Movies | The logo and the training video | Space or Enter: play (a key or a click stops it) |
 | Files | Every file of `Data/`, where it is, its start as text or bytes | Up/Down, PageUp/PageDown: the file |

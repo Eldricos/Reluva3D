@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // The Theme Park World engine's data viewer, in reluva-viewer: the game's
-// pictures, fonts, text, settings, sounds, movies and files (see
+// pictures, fonts, text, settings, models, sounds, movies and files (see
 // viewers.h for each page's keys). Tab and Shift+Tab move between the
 // pages, Esc leaves.
 
@@ -62,6 +62,7 @@ public:
         pages.push_back(std::make_unique<FontPage>(context));
         pages.push_back(std::make_unique<TextPage>(context));
         pages.push_back(std::make_unique<SettingsPage>(context));
+        pages.push_back(std::make_unique<ModelPage>(context));
         pages.push_back(std::make_unique<SoundPage>(context));
         pages.push_back(std::make_unique<MoviePage>(context));
         pages.push_back(std::make_unique<FilePage>(context));

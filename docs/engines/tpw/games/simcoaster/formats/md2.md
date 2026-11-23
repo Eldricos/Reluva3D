@@ -54,9 +54,24 @@ word, not worked out (1 and 3 most often, with 0x10, 0x20 and 0x40 set
 on some), then 4 zero bytes. Then, for each, its file's name in 20
 bytes, as `deskpillars.tga`.
 
-The names end `.tga`, but the model's `textures/` folder holds most as
-`.fsh` banks of the same name (`textures/deskpillars.fsh`), and some as
-`.tga`; its `stexture/` folder holds another set, smaller *(inferred)*.
+### Finding the textures
+
+The names end `.tga`, but a texture is most often an `.fsh` bank of the
+same name. Of the 9,529 textures the models name, Reluva finds:
+
+| Where | How many |
+|---|---|
+| The model's own `textures/` folder (`levels/arabian/features/atmdesk/textures/deskpillars.fsh`) | 3,826 |
+| Its world's shared `sharetex/` (`levels/arabian/sharetex/`) | 5,059 |
+| The model's `stexture/` | 58 |
+| Its world's `ssharete/` | 3 |
+| Only in another model's or another world's folders, as `generic/sweather/lightning.fsh` | 423 |
+| Nowhere | 160 |
+
+and looks in that order, a bank before a `.tga` of the name. `stexture/`
+and `ssharete/` hold the same pictures smaller ([fsh.md](fsh.md)): for
+a lower detail setting *(guessed)*, so last. Where the game looks for
+the 583 not found so is not worked out; Reluva draws them grey.
 
 ### The nodes
 
@@ -137,6 +152,15 @@ header alone from a model but reads neither. `reluva-tool tpw md2-check
 their groups' textures, and counts the models whose meshes fill their
 header's box. The game-files test runs it (`tpw.gamedata.models`).
 
+`findTexture` (`src/engines/tpw/textures.cpp`) finds a texture as above.
+The viewer's Models page draws each model in 3D (`src/engines/tpw/ui/model_view.cpp`,
+in software): its meshes placed, textured, lit by each face's own
+slope, the texels whose alpha is under half left out. The game's y is
+up; the viewer's world has z up, and swapping the two axes also turns
+the game's space, left-handed as Direct3D's *(inferred)*, into a
+right-handed one. `reluva-tool tpw md2-shot <game folder> <model>
+<out.png> [yaw pitch]` writes a model drawn so to a PNG.
+
 ## Sources and checks
 
 - **Where the facts come from:** the US release's models (November
@@ -147,7 +171,9 @@ header's box. The game-files test runs it (`tpw.gamedata.models`).
   the header's box, which the meshes fill only when each is placed by
   its parents' matrices too. Drawn flat-shaded from these, the ATM desk,
   the water ride with its statue, its ring and the bobsled with its rider
-  come out whole, every face in place.
+  come out whole, every face in place; drawn textured, the shops of the
+  Arabian world are a chip box, a drinks bottle, a hot dog, a magic lamp
+  and a balloon stand, on sand.
 - **How it was checked:** `reluva-tool tpw md2-check` reads all 698
   models with every index in range. The unit tests
   (`tpw.unit.formats`) read a model built in the test, and fail cut or
@@ -160,5 +186,8 @@ header's box. The game-files test runs it (`tpw.gamedata.models`).
 - The textures' flags, and the groups'.
 - The node types other than meshes and helpers.
 - Why some models' meshes don't fill the header's box.
+- Whether the game's space is left-handed: a texture with lettering,
+  drawn on its model and seen in a recording, would settle it.
+- Where the game finds the textures Reluva doesn't.
 - What the headers alone are for: a model's size before it loads,
   perhaps *(guessed)*.

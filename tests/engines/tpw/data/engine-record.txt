@@ -13,11 +13,11 @@ files.all: d101e4121a0819d4
 viewer.result: ok
 viewer.title: Reluva - SimCoaster (test) - Pictures: ui/stexture/button.tga
 viewer.title: Reluva - SimCoaster (test) - Settings: Challenges.sam
+viewer.title: Reluva - SimCoaster (test) - Models: ui/!frame.MD2
 viewer.title: Reluva - SimCoaster (test) - Files: Challenges.sam
 viewer.title: Reluva - SimCoaster (test) - Pictures: ui/stexture/button.tga
 viewer.title: Reluva - SimCoaster (test) - Settings: Challenges.sam
+viewer.title: Reluva - SimCoaster (test) - Models: ui/!frame.MD2
 viewer.title: Reluva - SimCoaster (test) - Files: Challenges.sam
 viewer.title: Reluva - SimCoaster (test) - Pictures: ui/stexture/button.tga
-viewer.title: Reluva - SimCoaster (test) - Settings: Challenges.sam
-viewer.title: Reluva - SimCoaster (test) - Files: Challenges.sam
-viewer.screens: 14f0747fa9fcd887
+viewer.screens: 9baeb04a83569641

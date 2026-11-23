@@ -85,6 +85,7 @@ they are: `Speech/American`, `CoasterData/American`,
 | `reluva-tool tpw opening-run` | Runs the game's opening headless: the screens shown, when it ended |
 | `reluva-tool tpw sdt-check` | Decodes every sound bank, or lists one's sounds |
 | `reluva-tool tpw md2-check` | Reads every model, or lists one's meshes and their textures |
+| `reluva-tool tpw md2-shot` | Draws a model as the viewer does, to a PNG |
 | `reluva-tool tpw viewer-run` | Runs the data viewer headless, every page and a few keys; with `-shots`, writes the screen after each key |
 | `reluva-tool tpw data-check` | Reads every file of a game's `Data` folder, archives and loose files, with a checksum of them all |
 

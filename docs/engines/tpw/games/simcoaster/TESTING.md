@@ -67,7 +67,8 @@ CD: the tests can't hold the game's files. Checked by hand.
    an empty screen, which Esc leaves.
 3. Open it in `reluva-viewer`: each page shows its files; a picture fits
    the window and Z shows it at its size; text in the game's font (F) on
-   the Text page; a sound plays with Space; the logo and the training
+   the Text page; a model turns with A and D, in its textures' colours
+   (the Arabian shops' sand, the ATM desk's brown wood); a sound plays with Space; the logo and the training
    video play on the Movies page.
 
 ## Last checked

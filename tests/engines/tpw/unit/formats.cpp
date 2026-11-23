@@ -15,6 +15,7 @@
 #include "engines/tpw/formats/str.h"
 #include "engines/tpw/formats/wad.h"
 #include "engines/tpw/game_files.h"
+#include "engines/tpw/textures.h"
 
 #include "tests/engines/tpw/fixtures.h"
 #include "tests/support/test.h"
@@ -89,6 +90,33 @@ void testMount(const std::filesystem::path &tmp) {
     CHECK(!files.read("ui/button.md2", out) && out == toBytes("loose button"));
     CHECK(!files.read("config.sam", out));
     CHECK(mountGame(files, tmp / "nothing", warnings));
+}
+
+// A model's textures: its own folder's first, then its world's shared
+// ones, then the smaller copies; a bank of the name before the .tga it names.
+void testFindTexture(const std::filesystem::path &tmp) {
+    const std::filesystem::path data = tmp / "game" / "Data";
+    const std::filesystem::path ride = data / "levels" / "water" / "rides" / "ride";
+    test::writeFile(ride / "ride.MD2", toBytes("model"));
+    test::writeFile(ride / "textures" / "own.fsh", toBytes("bank"));
+    test::writeFile(ride / "textures" / "own.tga", toBytes("picture"));
+    test::writeFile(ride / "textures" / "plain.tga", toBytes("picture"));
+    test::writeFile(ride / "stexture" / "small.fsh", toBytes("bank"));
+    test::writeFile(ride / "stexture" / "shared.fsh", toBytes("bank"));
+    test::writeFile(data / "levels" / "water" / "sharetex" / "shared.fsh", toBytes("bank"));
+    test::writeFile(data / "levels" / "water" / "ssharete" / "tiny.tga", toBytes("picture"));
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!mountGame(files, tmp / "game", warnings));
+    const std::string model = "levels/water/rides/ride/ride.MD2";
+    CHECK(findTexture(files, model, "own.tga") == "levels/water/rides/ride/textures/own.fsh");
+    CHECK(findTexture(files, model, "plain.tga") == "levels/water/rides/ride/textures/plain.tga");
+    CHECK(findTexture(files, model, "shared.tga") == "levels/water/sharetex/shared.fsh");
+    CHECK(findTexture(files, model, "small.tga") == "levels/water/rides/ride/stexture/small.fsh");
+    CHECK(findTexture(files, model, "tiny.tga") == "levels/water/ssharete/tiny.tga");
+    CHECK(findTexture(files, model, "missing.tga").empty());
+    image::Image picture;
+    CHECK(loadPicture(files, "levels/water/rides/ride/textures/own.fsh", picture));
 }
 
 // Settings: names with their values (as many as fields after the group),
@@ -326,13 +354,14 @@ void testMd2() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("tpw.unit.formats",
-                                        {
-                                            {"wad", [](const std::filesystem::path &tmp) { testWad(tmp); }},
-                                            {"mount", [](const std::filesystem::path &tmp) { testMount(tmp); }},
-                                            {"sam", [](const std::filesystem::path &) { testSam(); }},
-                                            {"str", [](const std::filesystem::path &) { testStr(); }},
-                                            {"bf4", [](const std::filesystem::path &) { testBf4(); }},
-                                            {"sdt", [](const std::filesystem::path &) { testSdt(); }},
-                                            {"md2", [](const std::filesystem::path &) { testMd2(); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("tpw.unit.formats", {
+                                   {"wad", [](const std::filesystem::path &tmp) { testWad(tmp); }},
+                                   {"mount", [](const std::filesystem::path &tmp) { testMount(tmp); }},
+                                   {"textures", [](const std::filesystem::path &tmp) { testFindTexture(tmp); }},
+                                   {"sam", [](const std::filesystem::path &) { testSam(); }},
+                                   {"str", [](const std::filesystem::path &) { testStr(); }},
+                                   {"bf4", [](const std::filesystem::path &) { testBf4(); }},
+                                   {"sdt", [](const std::filesystem::path &) { testSdt(); }},
+                                   {"md2", [](const std::filesystem::path &) { testMd2(); }},
+                               });

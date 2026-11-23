@@ -9,9 +9,12 @@
 #include "common/system.h"
 #include "common/types.h"
 #include "engines/tpw/formats/bf4.h"
+#include "engines/tpw/formats/md2.h"
+#include "engines/tpw/ui/model_view.h"
 #include "engines/tpw/formats/sam.h"
 #include "engines/tpw/formats/sdt.h"
 #include "engines/tpw/formats/str.h"
+#include "graphics/soft3d/view3d.h"
 #include "image/image.h"
 
 #include <cstddef>
@@ -218,6 +221,31 @@ private:
     audio::SoundHandle _playing = audio::kNoSound;
     std::string _playError;
     uint64_t _lastDraw = 0;
+};
+
+/**
+ * The models (.MD2), drawn in 3D with their textures, turned about their
+ * middle; animations and headers alone aren't listed.
+ *   A/D: turn   W/S: tilt   Z/X: nearer, further   T: textures on or off
+ */
+class ModelPage : public Page {
+public:
+    /** Lists the game's models and reads the first. */
+    explicit ModelPage(ViewerContext &context);
+    const char *name() const override { return "Models"; }
+    size_t count() const override { return _names.size(); }
+    std::string current() const override;
+    void draw(Surface &screen) override;
+    void handleKey(uint32_t key) override;
+
+private:
+    void selected() override;
+
+    std::vector<std::string> _names;
+    LoadedModel _loaded;
+    std::string _error;
+    soft3d::Rasterizer _rasterizer;
+    ModelView _view;
 };
 
 /**
