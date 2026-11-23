@@ -45,6 +45,12 @@ None yet.
   of their words the string's place on the screen. The front end drawn
   by the game would settle it; the other three bytes aren't worked out.
 
+- **`demo.0`-`demo.2`** on the CD (three copies of one file) are used by
+  neither program: neither names them, nor builds such a name, and the
+  attract mode plays the `demoav*.dct` movies
+  ([formats/dct.md](formats/dct.md)). A leftover of the game's making,
+  perhaps; the game's code read through would settle it.
+
 ## Guessed
 
 - **How a quad's picture is laid on it**: its corners taking the

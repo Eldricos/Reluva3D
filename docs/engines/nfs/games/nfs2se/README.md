@@ -65,7 +65,9 @@ is found:
   music (`GameData/Audio/pc`).
 
 Without it, the game says where to put it. The keys and mouse go to the
-game, Esc included; Ctrl+F5 goes back to the launcher. The game's
+game, Esc included; Ctrl+F5 goes back to the launcher. A wheel's force
+feedback plays once the wheel is the game's controller: in *options*,
+*controls*, *setup*, re-map steering and the pedals by moving them. The game's
 *Renderer* setting picks its program: *Voodoo on Glide*
 (`renderer=glide` in `reluva.ini`) its 3dfx one, drawn on the GPU (or in
 software with `glide=software`), the others its software one. `reluva-viewer

@@ -10,8 +10,9 @@ The game's movies, on the CD in `FeData/pc/movies/`: the title movie
 and others). All are 304x224 at 15 frames a second, with stereo sound.
 
 The same folder's `demo.0`, `demo.1` and `demo.2` aren't movies: the
-three are the same 124,344 bytes, mostly zeros. What the game does with
-them isn't worked out.
+three are the same 124,344 bytes, mostly zeros. Neither program names
+them, and the attract mode plays `demoav0.dct`-`demoav2.dct`: they seem
+unused *(inferred)*.
 
 ## Layout
 
@@ -60,5 +61,5 @@ plays its `.mad` movies.
 ## Open questions
 
 - The u32 at 8, 0 in every chunk.
-- When the game plays the attract-mode movies, and what `demo.0`-`demo.2`
-  are.
+- When the game plays the attract-mode movies (left at the main menu,
+  seen on the host), and whether anything reads `demo.0`-`demo.2`.

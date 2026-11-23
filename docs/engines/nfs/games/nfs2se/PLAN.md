@@ -205,14 +205,23 @@ with what it found written on the game's pages in `formats/` and
    read, and given three force-feedback effects
    ([TESTING.md](TESTING.md#last-checked)).
 
-   Left open:
-   - forces not yet seen playing, nor a whole tournament or knockout
-     run to its end;
-   - `demo.0`-`demo.2`: `nfs2sen.exe` never opens them (the 3dfx
-     program's, perhaps);
-   - each strip of a race's picture presented whole (9 a frame): once a
-     frame would do;
-   - network play (Phase 8) and the 3dfx program (Phase 7).
+   Settled afterwards:
+   - **Presenting:** a race's picture is shown once a frame, when the
+     game stops writing its strips into the front surface (4 ms of its
+     clock), not at each of its 9 Unlocks.
+   - **Force feedback** plays once the wheel is the game's controller:
+     *options*, *controls*, *setup*, each control re-mapped by moving
+     the wheel (steering took axis 0, the accelerator axis 1). In a race
+     the game then keeps a spring on the wheel whose centre follows the
+     road (214 changes in a minute), and a full constant push at two
+     impacts; no damper or vibration. Left on the keyboard, the game
+     downloads its three effects but never starts them.
+   - **`demo.0`-`demo.2`:** neither program names them, nor builds a
+     name like theirs, nor does the set-up script; the attract mode
+     plays the `demoav*.dct` movies. Unused by the retail game, as far
+     as can be seen *(inferred)*.
+
+   Left open: a whole tournament or knockout run to its end.
 7. **3dfx** (done): `nfs2sea.exe` on the Glide stand-in, in software and on the
    GPU, as a `renderer` setting.
 
