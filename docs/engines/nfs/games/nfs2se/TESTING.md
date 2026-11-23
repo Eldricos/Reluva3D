@@ -93,6 +93,7 @@ That the real release is recognised by its hashes: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US CD and an install from it | Linux | A knockout to its end on the host: round 1 (Proving Grounds, 2 laps, 9 cars) quit from the pause menu, the player eliminated, the knockout standings, then the main menu back to a single race (PLAN.md, Phase 6) |
 | November 2026 | US CD and an install from it | Linux | A tournament to its end on the host (`-keysfile`): seven races, the first driven with Up held (8th, 8:19.46), the rest quit from the pause menu; each race's summary and standings, then the tournament summary and the main menu (PLAN.md, Phase 6) |
 | November 2026 | US CD and an install from it | Linux | A race's presents: one whole picture every 23-29 ms; a wheel with force feedback (`-joystick Wheel -wheel -ff`) mapped in the game's controls setup, then a race on it (accelerator `joy:4`, steering `joy:0`): 224 force changes, a spring following the road and two full pushes (`-forcelog`) |
 | November 2026 | US CD and an install from it | Linux | Two copies on the host (`-keysfile`), raced at Proving Grounds over the network (IPX over UDP, 127.0.0.2 and .3), a serial link and a modem call, each from its connect screen through the lobby ([research/network-play.md](research/network-play.md)) |

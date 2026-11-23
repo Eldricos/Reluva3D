@@ -234,8 +234,16 @@ with what it found written on the game's pages in `formats/` and
      again. The game wrote its replay (`replay.rpy`) and `HUDCON.DAT`
      to the save folder.
 
-   Left open: a knockout run to its end; a tournament driven well
-   enough to place (it takes steering, which nothing scripts yet).
+   - **A knockout to its end** (on the host): 9 cars, its first round
+     Proving Grounds over 2 laps; *location* and *opponents* are greyed
+     in the main menu, the game choosing them. The race quit from the
+     pause menu, the player is *eliminated*: the knockout standings list
+     the field, Player1 last, with *main menu* and also *quit*; the main
+     menu is then a single race again, location and opponents choosable.
+     The knockout ends at the player's elimination.
+
+   Left open: a tournament or knockout driven well enough to place, or
+   to survive a round (it takes steering, which nothing scripts yet).
 7. **3dfx** (done): `nfs2sea.exe` on the Glide stand-in, in software and on the
    GPU, as a `renderer` setting.
 
