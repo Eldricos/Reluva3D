@@ -117,6 +117,11 @@ void testScript() {
     CHECK(script.find("Empty") && script.find("Empty")->empty());
     // Comments alone: no entries.
     CHECK(readRdsScript("//***Mission 01\r\n\r\n//***Mission 02\r\n").entries.empty());
+    // As the game reads them: text before a label dropped, a blank line
+    // after one kept, trailing spaces trimmed, the first of two labels the
+    // one found.
+    const RdsScript edges = readRdsScript("stray\r\n:A\r\n\r\nText  \t\r\n:A\r\nSecond\r\n");
+    CHECK(edges.entries.size() == 2 && edges.find("A") && *edges.find("A") == "\nText");
 }
 
 void testFrame() {

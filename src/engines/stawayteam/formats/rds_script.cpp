@@ -13,11 +13,21 @@ const std::string *RdsScript::find(std::string_view label) const {
 }
 
 RdsScript readRdsScript(std::string_view text) {
+    // As the game's reader does (0x413f40): `//` lines skipped; a `:` line
+    // starts an entry, its label the rest of the line as written; any other
+    // line, blank ones too, is added to the entry with a line break after
+    // it, and the entry's text loses its trailing tabs, spaces and line
+    // breaks as the next starts or the file ends (0x4e3450, 0x5dfce0).
+    // Lines before the first label are dropped (0x5dfc00).
     RdsScript out;
-    RdsScript::Entry *entry = nullptr;
-    // Blank lines are held back until a line of text follows them, so that
-    // those between entries aren't part of either.
-    size_t blanks = 0;
+    const auto finish = [&out] {
+        if (out.entries.empty())
+            return;
+        std::string &done = out.entries.back().text;
+        while (!done.empty() &&
+               (done.back() == ' ' || done.back() == '\t' || done.back() == '\r' || done.back() == '\n'))
+            done.pop_back();
+    };
     for (size_t at = 0; at < text.size();) {
         size_t end = text.find('\n', at);
         if (end == std::string_view::npos)
@@ -29,22 +39,16 @@ RdsScript readRdsScript(std::string_view text) {
         if (line.substr(0, 2) == "//")
             continue;
         if (!line.empty() && line.front() == ':') {
+            finish();
             out.entries.push_back({std::string(line.substr(1)), {}});
-            entry = &out.entries.back();
-            blanks = 0;
             continue;
         }
-        if (!entry)
-            continue; // before the first label: only comments and blank lines in the game's files
-        if (line.empty()) {
-            ++blanks;
+        if (out.entries.empty())
             continue;
-        }
-        if (!entry->text.empty())
-            entry->text.append(blanks + 1, '\n');
-        blanks = 0;
-        entry->text += line;
+        out.entries.back().text.append(line);
+        out.entries.back().text += '\n';
     }
+    finish();
     return out;
 }
 

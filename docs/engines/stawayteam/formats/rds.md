@@ -39,6 +39,20 @@ Text in Windows-1252 (`’` is `0x92`), lines ending CRLF.
   between them. Blank lines after an entry, before the next label or
   comment, aren't part of it. Two entries are empty.
 - **Before the first label** there are only comments and blank lines.
+
+The game's reader (`0x413f40`, the scripts found as `Levels/*.RDS`,
+`0x4f9ea0`, the extension at `0x63eeec`): lines of up to 1024 bytes
+(`0x4adfa0`); a `//` line skipped, wherever it is; a `:` line starts an
+entry, its label the rest of the line as written; any other line, blank
+ones too, is added to the entry with a line break after it, and an
+entry's text loses its trailing tabs, spaces and line breaks as the
+next starts or the file ends (`0x4e3450`, `0x5dfce0`, the set `\t \r\n`
+at `0x64ab20`). A line before the first label is dropped (`0x5dfc00`).
+The list starts with an entry `!None` of no text. A label is found by
+the first entry with it, compared exactly, case and all (`0x414320`,
+`0x4e38b0`). On the game's files this is what the table above says: a
+blank line after a label would be kept at the text's start, and spaces
+at the end of the last line dropped, but no file has either.
   Three crew members' scripts (Losak Wotril, Lyrit Bronail, Olanda
   Rewpolok) have no entries at all, only their comments.
 
@@ -75,6 +89,5 @@ Filled in or chosen by the game as it shows the text *(inferred)*:
 
 ## Open questions
 
-- **The game's own reader** hasn't been found in `Star Trek.exe`, so
-  how it treats what the files don't have (text before a label, a label
-  twice) isn't known. Reluva takes the first entry of a label.
+- **A line over 1024 bytes:** whether the game's line reader cuts it or
+  carries the rest to the next line; no file has one.
