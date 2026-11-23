@@ -36,6 +36,11 @@ it uses are DirectX 5's, by the identifiers in its data:
 `SMACKW32.DLL` plays sound through WINMM's `waveOut`, and asks for
 0x400000 as `JK.EXE` does (it can be relocated; `JK.EXE` can't).
 
+The emulator stands in for every function the two import. Dialog boxes
+and running another program (`WinExec`, for the joystick control panel)
+answer as Windows does when they fail
+([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
+
 ### Its start-up, as run
 
 1. It writes `Version` under
@@ -318,13 +323,6 @@ hosts *The Duel* (*Players*' *Ok*, *Multiplayer*, *Host Game*, TCP/IP,
 `-keys "8:esc,10:click556x448,13:click318x248,16:click180x100,19:click200x190,20:click518x448,28:click220x170,30:click518x448,33:click573x448"`
 in a second copy, with a save folder of its own, joins it. `reluva-tool sith disasm
 <JK.EXE> <address>` shows the program's instructions from an address.
-
-What it still takes to play the whole game this way, from what the runs
-and the imports show:
-
-| Need | What | How much |
-|---|---|---|
-| Windows | About 40 calls the emulator lacks, none met in play yet: GDI's palettes and DIB sections, dialogs, `CompareString`, WINMM's timer events for Smacker's sound | Small each, in the shared stand-ins |
 
 ## Sources and checks
 

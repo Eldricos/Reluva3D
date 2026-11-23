@@ -23,7 +23,12 @@ None yet.
   Reluva chooses ([joystick.md](../../../../common/x86/joystick.md)),
   a racing wheel as either; a second wheel's pedals are found as they
   rest, not set; *Calibrate joystick*'s Windows control panel isn't
-  there.
+  there: the game's `WinExec` of "control joy.cpl" fails as for a
+  program that isn't installed
+  ([windows.md](../../../../common/x86/windows.md)).
+- **Windows' dialog boxes:** none is shown. Where the game would make one
+  (`CreateDialogParamA`), the call fails, and the game goes on as it does
+  when Windows can't make it. None has been met in play.
 - **Multiplayer:** over TCP/IP only, and between copies of Reluva: its
   DirectPlay plays sessions over a protocol of its own, so it can't meet
   a game on Windows' DirectPlay. There's no IPX, modem or serial
