@@ -1,0 +1,5 @@
+release: US, 1.0
+CD 1: found
+music: 7 audio tracks, 19:09
+CD 2: found
+music: 11 audio tracks, 25:40

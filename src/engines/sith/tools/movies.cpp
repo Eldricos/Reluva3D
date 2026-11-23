@@ -65,8 +65,17 @@ int cmdEpisode(int argc, char **argv) {
     return failures ? 1 : 0;
 }
 
+// FNV-1a, 64 bits, over `size` bytes.
+void addTo(uint64_t &hash, const void *data, size_t size) {
+    const auto *b = static_cast<const uint8_t *>(data);
+    for (size_t i = 0; i < size; ++i)
+        hash = (hash ^ b[i]) * 0x100000001b3ull;
+}
+
 // Every cut scene on the CDs found for the install: its picture, length
-// and sound, and with -all every frame decoded.
+// and sound, and with -all every frame decoded, with a checksum of its
+// pictures, palettes, sound and subtitle numbers: what changes when the
+// decoder does, with nothing of the game's own in it.
 int cmdMovies(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool sith movies <install> [-all]\n");
@@ -95,6 +104,7 @@ int cmdMovies(int argc, char **argv) {
         }
         int frames = 0;
         size_t samples = 0;
+        uint64_t hash = 0xcbf29ce484222325ull;
         bool ok = true;
         if (all) {
             while (!dec.endOfVideo()) {
@@ -103,7 +113,15 @@ int cmdMovies(int argc, char **argv) {
                     break;
                 }
                 ++frames;
-                samples += dec.takeAudio().size();
+                const std::vector<int16_t> audio = dec.takeAudio();
+                samples += audio.size();
+                addTo(hash, audio.data(), audio.size() * 2);
+                const reluva::Surface &picture = dec.surface();
+                for (int y = 0; y < picture.h; ++y)
+                    addTo(hash, picture.row(y), size_t(picture.w));
+                addTo(hash, dec.palette(), 768);
+                const std::vector<uint8_t> &subtitle = dec.trackData(1);
+                addTo(hash, subtitle.data(), subtitle.size());
             }
         }
         std::printf("CD %d %-12s %dx%d, %d frames, %.2f fps, %.1f s, sound %s", cut.cd, cut.name.c_str(), dec.width(),
@@ -114,8 +132,8 @@ int cmdMovies(int argc, char **argv) {
                         : "none");
         if (all) {
             const int channels = dec.audioStereo() ? 2 : 1;
-            std::printf(", %d frames decoded%s, %.1f s of sound", frames, ok ? "" : " (FAILED)",
-                        dec.hasAudio() ? double(samples) / channels / dec.audioRate() : 0.0);
+            std::printf(", %d frames decoded%s, %.1f s of sound, checksum %016llx", frames, ok ? "" : " (FAILED)",
+                        dec.hasAudio() ? double(samples) / channels / dec.audioRate() : 0.0, (unsigned long long)hash);
         }
         std::printf("\n");
         failures += ok ? 0 : 1;

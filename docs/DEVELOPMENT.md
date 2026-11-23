@@ -299,7 +299,9 @@ Express (`awe`, `RELUVA_MOTOE`, see [its TESTING.md](engines/awe/games/motoe/TES
 LEGO Alpha Team (`netimmerse`, `RELUVA_ALPHATEAM`, see
 [its TESTING.md](engines/netimmerse/games/legoalphateam/TESTING.md)), and
 Need for Speed III (`nfs`, `RELUVA_NFS3`, see
-[its TESTING.md](engines/nfs/games/nfs3/TESTING.md)).
+[its TESTING.md](engines/nfs/games/nfs3/TESTING.md)), and Jedi Knight
+(`sith`, `RELUVA_JK`, see
+[its TESTING.md](engines/sith/games/jk/TESTING.md)).
 
 ### The basic engine test: no game files
 

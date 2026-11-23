@@ -70,10 +70,10 @@ reluva_add_engine_tests(sith
     TOPICS
         unit.detection unit.folders unit.formats unit.gob unit.import unit.levels unit.models unit.render engine)
 
-# Its engine test with the game's own files, when it has one (see
-# docs/DEVELOPMENT.md, Engine tests):
-# reluva_add_gamedata_test(sith
-#     GAME <game id>
-#     ENV RELUVA_<GAME>
-#     SCRIPT ${tests}/gamedata.cmake
-#     STEPS release ...)
+# Its engine test with the game's own files (see docs/DEVELOPMENT.md,
+# Engine tests, and tests/engines/sith/gamedata.cmake).
+reluva_add_gamedata_test(sith
+    GAME jk
+    ENV RELUVA_JK
+    SCRIPT ${tests}/gamedata.cmake
+    STEPS release formats movies start level)

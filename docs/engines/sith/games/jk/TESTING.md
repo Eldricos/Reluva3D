@@ -35,9 +35,28 @@ differ between compilers. Played, the engine stops with an error naming
 
 ### The game-files test
 
-<!-- Once it has one: with your own copy of the game, what it runs and
-what its records hold. See docs/DEVELOPMENT.md, "Engine tests". -->
-Not yet.
+With your own copy, `RELUVA_JK=<the install> ctest --test-dir build -L
+gamedata`, both CDs' copies in the install (`cd1`, `cd2`) or beside it,
+with their music for the `release` step's. Without the variable, the
+launcher's entry for the game is used.
+`tests/engines/sith/gamedata.cmake` runs `reluva-tool sith` commands on
+the game, one step each:
+
+| Step | What it runs |
+|---|---|
+| `release` | What the game is (`reluva-tool detect`), and the CDs and the music found on each (`folders`) |
+| `formats` | Every file of the kinds Reluva reads in the archives decoded: colormaps, pictures, materials, fonts, models, animations, puppets, sprites, particles, levels, string tables, sounds, sound classes and episodes, each kind as a checksum (`formats -hash`) |
+| `movies` | Every cut scene's frames, palettes, sound and subtitle numbers, each cut scene as a checksum (`movies -all`) |
+| `start` | The retail game run from a new state until it waits at *New Player* (30 seconds): the files it opens, its registry writes and its debug output, as a checksum |
+| `level` | A player made, *Single Player*, *New Game*, by clicks at set seconds; cut scenes skipped and Nar Shaddaa ended by its cheat (`host -skim`, 75 seconds): the cut scenes and levels reached, and every file opened up to the second level, as a checksum |
+
+The game runs on the machine's clock, not an instruction clock, so the
+hosted steps keep only what the run decides itself, up to a point any
+machine that plays the game reaches in time: two runs of each opened the
+same files in the same order. The records, in
+`tests/engines/sith/data/gamedata/<release>/`, hold only counts, names of
+the game's files and checksums. They were made on Linux with the US
+retail CDs (`us-1.0`).
 
 ### What the automated checks don't cover
 
@@ -75,7 +94,8 @@ That the US release's signatures match a real install: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
-| November 2026 | US retail | Linux | Import with the music: `sith.unit.import`'s *music* test copies CD 1's cue sheet and its audio track's image (not the data track's, nor a cue sheet of data alone) and CD 2's ripped tracks into `cd1` and `cd2`; the imported CD 1's music is read from the copies. Not yet with the retail CDs' images |
+| November 2026 | US retail | Linux | The game-files test: its five steps made from an install with both CDs' copies beside it and run again, also two at a time, as recorded. An install imported from the CDs' images, their music copied with them (7 and 11 tracks), passes `release`, `formats` and `start` |
+| November 2026 | US retail | Linux | Import with the music: `sith.unit.import`'s *music* test copies CD 1's cue sheet and its audio track's image (not the data track's, nor a cue sheet of data alone) and CD 2's ripped tracks into `cd1` and `cd2`; the imported CD 1's music is read from the copies. The retail CDs' images too, in the game-files test's row above |
 | November 2026 | US retail | Linux | Full subtitles: *Setup*, *General*, *Enable full subtitles on cutscenes*, *Ok*, through `reluva-tool sith host`; the setting kept for the player, and in `03-04A` every spoken line shown below the picture, the first at about 76 seconds, long ones on two centred lines as the viewer breaks them |
 | November 2026 | US retail | Linux | Small differences: run through the menus, a level and a cut scene, the game makes its Arial fonts and never calls `TextOutA`. A second wheel's pedals named by `wheel2pedals`: `common.unit.sdl_controller`'s *second* test sets them the other way about and reads the pedal pressed as the brake |
 | November 2026 | US retail | Linux | *Setup*'s 3D choice through the game's own screens: *Display*, *Enable 3D Acceleration*, *Ok*; *Quit* writes `b3DAccel` 1, the primary display, the HAL device and mode 3, as `-d3d` does, and the next new game draws through Direct3D. Closing the window in the menus (`-close`) ends the game with its settings saved; stopped in play, its settings are saved for it and the next run draws through Direct3D from the start |
