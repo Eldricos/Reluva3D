@@ -52,7 +52,7 @@ public:
             }
         } audioOff{_sys, audioOut};
         if (!playOpening(_sys, audioOut ? &mixer : nullptr, _target.path, files) ||
-            runFrontEnd(_sys, files, _target.savePath) < 0)
+            runFrontEnd(_sys, files, _target.savePath, audioOut ? &mixer : nullptr) < 0)
             return Error::success();
 
         // What the game shows while the chosen world's park loads; the park

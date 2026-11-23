@@ -12,6 +12,7 @@
 #include "engines/tpw/formats/hmp.h"
 #include "engines/tpw/formats/md2.h"
 #include "engines/tpw/game_files.h"
+#include "engines/tpw/sound_effects.h"
 #include "engines/tpw/ui/front_end.h"
 #include "engines/tpw/ui/front_end_effects.h"
 #include "engines/tpw/ui/front_end_overlay.h"
@@ -499,6 +500,25 @@ int cmdFrontEndShot(int argc, char **argv) {
         overlay.draw(screen, uint32_t(frame * 1000 / reluva::tpw::Animation::kFramesPerSecond));
     writePng(screen, argv[3]);
     std::printf("%.0f frames, %zu particles\n", double(scene.frames()), effects.particles());
+    // The sounds the script started, each as a SoundEffects would pick it.
+    reluva::tpw::SoundEffects sounds;
+    const bool withSounds = !sounds.load(files, "global/sound", reluva::tpw::SoundEffects::globalCategories());
+    std::map<std::string, reluva::tpw::SoundBank> banks;
+    for (const auto &s : effects.soundsStarted()) {
+        std::string name = "?";
+        reluva::tpw::SoundEffects::Choice choice;
+        if (withSounds && sounds.choose(s.id, choice)) {
+            if (!banks.count(choice.bank)) {
+                std::vector<uint8_t> data;
+                if (!files.read(choice.bank, data))
+                    (void)banks[choice.bank].parse(std::move(data));
+            }
+            const auto &entries = banks[choice.bank].entries();
+            if (choice.entry < entries.size())
+                name = entries[choice.entry].name;
+        }
+        std::printf("  sound %u at %.2f s: %s\n", s.id, double(s.ms) / 1000, name.c_str());
+    }
     return 0;
 }
 

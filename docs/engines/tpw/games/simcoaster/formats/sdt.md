@@ -9,8 +9,9 @@ The game's sounds and music are in banks: 28 of them, loose in
 `Data/global/Speech/speechHD.SDT` (the advisor's 1,136 lines) and each
 world's `Sound/` and `Music/` folders, 5,399 entries in all. The `HD`
 in their names is perhaps "hard disk" *(guessed)*. Beside them, `.map`
-files ("cat_...BANK.map", "cat_...SFX.map") describe them to the game:
-not read yet.
+files ("cat_...BANK.map", "cat_...SFX.map") gather their sounds into
+categories of effects, by the numbers scripts play them by
+([sound-maps.md](sound-maps.md)).
 
 ## Layout
 
@@ -100,6 +101,4 @@ sounds. The game-files test runs it (`tpw.gamedata.sounds`).
 
 ## Open questions
 
-- The `.map` files: what they say of each sound (volumes, priorities,
-  which bank), and the 16-byte id they start with.
 - The kind byte's `0x04` and `0x02`.

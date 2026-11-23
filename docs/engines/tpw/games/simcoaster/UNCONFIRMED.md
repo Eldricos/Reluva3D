@@ -76,6 +76,17 @@ None yet.
   the well's middle ([front-end.md](systems/front-end.md#the-effects)).
   Decoding the library's other parameters would settle it.
 
+- **How an effect picks its sound**: a group by the shares, a sound in
+  it by a roll, at a volume between the group's two; the links not
+  followed ([sound-maps.md](formats/sound-maps.md#the-effects-cat_sfxmap)).
+  The game's own choices, heard over many plays, would settle it.
+
+- **The front end's sounds come late in the recording because its
+  computer slowed**: the script's waits run at half speed while the
+  sparkles fly, the camera's path at its own
+  ([front-end.md](systems/front-end.md#the-sounds)). A recording on a
+  faster computer would settle it.
+
 - **The front end's portrait shows while the advisor speaks**: it comes
   and goes in three spells, as speech would, but Reluva times it by the
   recording, and opens the Personnel File 54 s in, after the last

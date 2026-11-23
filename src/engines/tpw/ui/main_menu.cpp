@@ -53,17 +53,21 @@ bool watchGlobe(System &sys, const Globe &globe, uint64_t &start, uint32_t pathM
 
 } // namespace
 
-int runFrontEnd(System &sys, const SearchSet &files, const std::filesystem::path &saveFolder) {
+int runFrontEnd(System &sys, const SearchSet &files, const std::filesystem::path &saveFolder, audio::Mixer *mixer) {
     FrontEndScene scene;
     Globe globe;
     const bool drawn = !scene.load(files) && !globe.load(scene);
     FrontEndEffects effects;
     const bool withEffects = drawn && !effects.load(files, scene);
+    effects.setMixer(mixer);
     FrontEndOverlay overlay;
     const bool withOverlay = drawn && !overlay.load(files);
     const PathEnd end =
         drawn ? playFrontEnd(sys, scene, withEffects ? &effects : nullptr, withOverlay ? &overlay : nullptr)
               : PathEnd::kSkipped;
+    effects.setMixer(nullptr);
+    if (mixer && end == PathEnd::kSkipped)
+        mixer->stopType(audio::SoundType::kEffects);
     if (end == PathEnd::kQuit)
         return -1;
 

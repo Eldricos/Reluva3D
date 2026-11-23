@@ -107,6 +107,40 @@ small four-pointed stars, flying off at up to 6 units a second,
 *guessed*), and the bright flares at the emitters; the white burst in
 the well.
 
+### The sounds
+
+The script's other events, `EVENT 5 1 <effect>`, start sound effects by
+their numbers in the game's sound categories
+([sound-maps.md](../formats/sound-maps.md)): all of them the global
+rides' category's, in `global/sound/RideHD.sdt`. Times from the script
+being set going, by its own waits:
+
+| Time | Effect | Sound |
+|---|---|---|
+| 6.2 s | 224 | `barrier_up3`, 1.7 s |
+| 8.0 s | 242 | `intro-doorclose`, 0.7 s |
+| 13.3 s | 250 | `intro-trapdoor`, 1.2 s |
+| 14.0 s | 254 | `magicfx3`, 1.8 s |
+| 14.8 s | 250 | `intro-trapdoor` |
+| 15.4 s | 245 | `intro-flyin`, 3.2 s |
+| 16.7 s, 17.8 s | 252 | `magicfx`, 5.6 s |
+| 20.2 s | 253 | `magicfx2`, 5.0 s |
+
+The recording's sound, set beside the sounds by their spectra, has
+`magicfx3` at 31.3 s, the second `intro-trapdoor` at 32.8 s and the two
+`magicfx` at 34.9 s and 35.9 s, 1.1 s apart as in the script; the others
+are lost under the music and the speech. Against the script's times
+(the script set going 13.4 s into the recording, as the sparkles put it,
+[above](#the-effects)) they're late, by 3.9 s at the first and 4.7 s
+from the sparkles' end on: the script ran at about half its speed while
+the sparkles flew, then at its own. The recording's computer slowed
+under the particles, it seems, the script's waits counting the game's
+time but the camera's path the clock's *(inferred)*. Reluva runs the
+script by its waits, as a fast enough computer would.
+
+The second value, 1 here and -1 in some rides' scripts, isn't worked
+out: where the sound plays from, perhaps *(guessed)*.
+
 ### The portrait and the button
 
 Over the scene, until the Personnel File opens, the front end shows the
@@ -164,8 +198,13 @@ choosing a world on it ([globe.md](globe.md)). A key presses the button
 too. `runFrontEnd` (`src/engines/tpw/ui/main_menu.cpp`) runs them in
 turn.
 
+`FrontEndEffects` plays the script's sounds through `SoundEffects`
+([sound-maps.md](../formats/sound-maps.md#in-reluva)), as sound effects
+on the engine's mixer; skipping the path stops them.
+
 `reluva-tool tpw front-end-shot <game folder> <out.png> <frame>` draws
-a frame of the path, the portrait and the button over it;
+a frame of the path, the portrait and the button over it, and lists the
+sounds the script has started by then;
 `reluva-tool tpw front-end-run <game folder> [seconds] [-shots
 <folder>]` runs the whole front end headless: the skip button clicked so
 many seconds in (5), then a key for play, the Personnel File's "Enter
@@ -177,7 +216,7 @@ screens, which the game-files test checks (`tpw.gamedata.frontend`).
 
 - **Where the facts come from:** the Intro World's files: the obstacle's
   settings and script, its model's node names and its animation's
-  tracks; the recording's front end, from 7.83 s to 1:04.
+  tracks; the sound categories and banks; the recording's front end, from 7.83 s to 1:04.
 - **How it was checked:** frames drawn by `front-end-shot` set beside
   the recording's at 9, 14, 20, 24, 32, 38 and 44 s: the hall, its
   paintings (Land of Invention's on the left, Arabian Nights' on the
@@ -190,9 +229,8 @@ screens, which the game-files test checks (`tpw.gamedata.frontend`).
 
 - The particles' parameters ([plb.md](../formats/plb.md)), and how a
   model's emitters are numbered.
-- The white burst in the well; what the script's other events
-  (`EVENT 5`, sounds it seems) and objects (`ADDOBJ 5 1 200 2`,
-  `FADEOBJ 2`) are.
+- The white burst in the well; what the script's objects (`ADDOBJ 5 1
+  200 2`, `FADEOBJ 2`) are; what `EVENT 5`'s second value says.
 - When the game triggers the script, and how the advisor's speech
   follows `VAR_SPEECHSTATUS`; which lines he speaks, and whether the
   portrait shows by them.

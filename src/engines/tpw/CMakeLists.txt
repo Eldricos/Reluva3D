@@ -10,6 +10,7 @@ reluva_add_engine(tpw
         games.cpp
         game_files.cpp
         players.cpp
+        sound_effects.cpp
         textures.cpp
         script/machine.cpp
         script/simulated_host.cpp
@@ -38,6 +39,7 @@ reluva_add_engine(tpw
         formats/rse.cpp
         formats/sam.cpp
         formats/sdt.cpp
+        formats/sound_map.cpp
         formats/str.cpp
         formats/wad.cpp)
 
@@ -90,4 +92,4 @@ reluva_add_gamedata_test(tpw
     GAME simcoaster
     ENV RELUVA_SIMCOASTER
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release data settings text fonts pictures movies opening frontend loading sounds models animations heights terrain scripts viewer)
+    STEPS release data settings text fonts pictures movies opening frontend loading sounds soundmaps models animations heights terrain scripts viewer)

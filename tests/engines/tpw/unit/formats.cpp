@@ -19,14 +19,17 @@
 #include "engines/tpw/formats/rse.h"
 #include "engines/tpw/formats/sam.h"
 #include "engines/tpw/formats/sdt.h"
+#include "engines/tpw/formats/sound_map.h"
 #include "engines/tpw/formats/str.h"
 #include "engines/tpw/formats/wad.h"
 #include "engines/tpw/game_files.h"
+#include "engines/tpw/sound_effects.h"
 #include "engines/tpw/textures.h"
 
 #include "tests/engines/tpw/fixtures.h"
 #include "tests/support/test.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <string>
@@ -720,11 +723,147 @@ void testParticleLibrary() {
     CHECK(library.parse(size));
 }
 
+// A category's banks: their count, a record each, then their names.
+Bytes makeBankMap(const std::vector<std::string> &names) {
+    Bytes b(0x1c);
+    put32(b, 0x18, uint32_t(names.size()));
+    b.resize(b.size() + 11 * names.size(), 0x99);
+    for (const std::string &name : names) {
+        put32(b, b.size(), uint32_t(name.size() + 1));
+        b.insert(b.end(), name.begin(), name.end());
+        b.push_back(0);
+    }
+    return b;
+}
+
+struct MapSound {
+    uint32_t entry; // from 1, as stored
+    uint16_t upTo;
+    uint32_t millis;
+    uint32_t bank; // from 1
+};
+struct MapGroup {
+    uint8_t volume;
+    uint16_t weight;
+    std::vector<MapSound> sounds;
+    uint32_t links = 0;
+};
+
+// A category's effects: the table, then each effect's groups' headers,
+// then each group's sounds and links.
+Bytes makeEffectMap(const std::vector<std::pair<uint32_t, std::vector<MapGroup>>> &effects) {
+    Bytes b(0x34);
+    put32(b, 0x1c, uint32_t(effects.size()));
+    for (const auto &[id, groups] : effects) {
+        const size_t row = b.size();
+        put32(b, row, id);
+        put32(b, row + 4, uint32_t(groups.size()));
+        put32(b, row + 12, 1000);
+        put32(b, row + 16, 0);
+    }
+    for (const auto &[id, groups] : effects) {
+        for (const MapGroup &g : groups) {
+            const size_t at = b.size();
+            b.resize(at + 42);
+            put32(b, at, uint32_t(g.sounds.size()));
+            put32(b, at + 4, g.links);
+            b[at + 12] = b[at + 13] = g.volume;
+            b[at + 20] = b[at + 21] = 50;
+            put16(b, at + 30, g.weight);
+            put32(b, at + 38, 0xf06c0447);
+        }
+        for (const MapGroup &g : groups) {
+            for (const MapSound &s : g.sounds) {
+                const size_t at = b.size();
+                put32(b, at, s.entry);
+                put16(b, at + 4, s.upTo);
+                put16(b, at + 6, 0);
+                put32(b, at + 8, s.millis);
+                put32(b, at + 12, s.bank);
+            }
+            for (uint32_t l = 0; l < g.links; ++l) {
+                const size_t at = b.size();
+                put32(b, at, l + 1);
+                put32(b, at + 4, 0x64000000);
+            }
+        }
+    }
+    return b;
+}
+
+const std::vector<std::pair<uint32_t, std::vector<MapGroup>>> kEffects = {
+    {224, {{100, 0xffff, {{1, 0xffff, 1669, 1}}}}},
+    {3, {{12, 0x5555, {{2, 0x7fff, 100, 2}, {3, 0xffff, 200, 2}}, 2}, {80, 0xaaaa, {{1, 0xffff, 300, 1}}}}},
+};
+
+// A category of two effects: one sound; two groups, the first of two
+// sounds and links to other groups. Read back, picked from by rolls, cut.
+void testSoundMap() {
+    SoundMap map;
+    const Bytes effects = makeEffectMap(kEffects);
+    const Bytes banks = makeBankMap({"Sound\\Ride", "Sound\\sSfx"});
+    CHECK(!map.parse(effects, banks));
+    CHECK((map.banks() == std::vector<std::string>{"Sound\\Ride", "Sound\\sSfx"}));
+    CHECK(map.effects().size() == 2 && !map.find(4));
+    const SoundMap::Effect *one = map.find(224);
+    CHECK(one && one->groups.size() == 1 && one->groups[0].sounds.size() == 1);
+    if (!one || one->groups.empty() || one->groups[0].sounds.empty())
+        return;
+    const SoundMap::Sound &s = one->groups[0].sounds[0];
+    CHECK(s.entry == 0 && s.bank == 0 && s.millis == 1669 && one->groups[0].volumeHigh == 100);
+    const SoundMap::Effect *two = map.find(3);
+    CHECK(two && two->groups.size() == 2);
+    if (!two || two->groups.size() != 2)
+        return;
+    CHECK(two->groups[0].volumeLow == 12 && two->groups[0].weight == 0x5555 && two->groups[1].sounds.size() == 1);
+    const SoundMap::Group *group = nullptr;
+    const SoundMap::Sound *picked = SoundMap::pick(*two, 0x1000, 0x8000, &group);
+    CHECK(group == &two->groups[0] && picked && picked->entry == 2);
+    picked = SoundMap::pick(*two, 0x1000, 0x7fff, &group);
+    CHECK(picked && picked->entry == 1);
+    picked = SoundMap::pick(*two, 0x6000, 0, &group);
+    CHECK(group == &two->groups[1] && picked && picked->entry == 0 && picked->millis == 300);
+    CHECK(map.parse(Bytes(effects.begin(), effects.end() - 1), banks));
+    CHECK(map.parse(effects, Bytes(banks.begin(), banks.end() - 1)));
+}
+
+// A category in a game's folder, its sound in a bank beside it: chosen and
+// played into a mixer, which then mixes it.
+void testSoundEffects(const std::filesystem::path &tmp) {
+    const std::filesystem::path sound = tmp / "game" / "Data" / "global" / "sound";
+    test::writeFile(sound / "cat_testSFX.map", makeEffectMap(kEffects));
+    test::writeFile(sound / "cat_testBANK.map", makeBankMap({"Sound\\Ride", "Sound\\sSfx"}));
+    Bytes bank;
+    put32(bank, 0, 1);
+    put32(bank, 4, 8);
+    putSound(bank, "loud.wav", 0x02, 22050, Bytes(2000, 0x40), 0);
+    test::writeFile(sound / "RideHD.sdt", bank);
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!mountGame(files, tmp / "game", warnings));
+    SoundEffects effects;
+    CHECK(!effects.load(files, "global/sound", {"test"}));
+    SoundEffects::Choice choice;
+    CHECK(effects.choose(224, choice) && choice.bank == "global/Sound/RideHD.sdt" && choice.entry == 0 &&
+          choice.volume == 100);
+    CHECK(!effects.choose(7, choice));
+    audio::Mixer mixer(22050);
+    CHECK(effects.play(mixer, 224) != audio::kNoSound);
+    CHECK(effects.play(mixer, 7) == audio::kNoSound);
+    std::vector<int16_t> out(2 * 100);
+    mixer.mix(out.data(), 100);
+    CHECK(std::any_of(out.begin(), out.end(), [](int16_t v) { return v != 0; }));
+    SoundEffects missing;
+    CHECK(missing.load(files, "global/sound", {"none"}));
+}
+
 } // namespace
 
 static const reluva::test::Suite
     kSuite("tpw.unit.formats", {
                                    {"wad", [](const std::filesystem::path &tmp) { testWad(tmp); }},
+                                   {"sound-map", [](const std::filesystem::path &) { testSoundMap(); }},
+                                   {"sound-effects", [](const std::filesystem::path &tmp) { testSoundEffects(tmp); }},
                                    {"mount", [](const std::filesystem::path &tmp) { testMount(tmp); }},
                                    {"textures", [](const std::filesystem::path &tmp) { testFindTexture(tmp); }},
                                    {"sam", [](const std::filesystem::path &) { testSam(); }},

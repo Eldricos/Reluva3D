@@ -34,6 +34,8 @@
 #            (tpw loading-screen)
 #   sounds   every sound bank (.sdt) decoded, with a checksum of every
 #            sound (tpw sdt-check)
+#   soundmaps every sound category's maps read, each sound found in its
+#            bank and its length checked, with a checksum (tpw sfx-check)
 #   models   every model (.MD2) read, with a checksum of every mesh
 #            (tpw md2-check)
 #   animations every model animation (.MD2, flag 0x20) read and set
@@ -96,6 +98,8 @@ elseif(STEP STREQUAL "loading")
     record_run(loading "md5" tpw loading-screen "${game_dir}")
 elseif(STEP STREQUAL "sounds")
     record_run(sounds "sounds decoded" tpw sdt-check "${game_dir}")
+elseif(STEP STREQUAL "soundmaps")
+    record_run(soundmaps "categories," tpw sfx-check "${game_dir}")
 elseif(STEP STREQUAL "models")
     record_run(models "meshes," tpw md2-check "${game_dir}")
 elseif(STEP STREQUAL "animations")

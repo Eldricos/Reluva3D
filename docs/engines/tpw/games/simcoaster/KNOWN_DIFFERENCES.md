@@ -30,7 +30,11 @@ None yet.
   in the well isn't drawn; the advisor's portrait shows by the
   recording's times, without his speech; the skip button jumps to the
   globe, a guess, and a key presses it too
-  ([front-end.md](systems/front-end.md#the-portrait-and-the-button)).
+  ([front-end.md](systems/front-end.md#the-portrait-and-the-button));
+  its sounds play at the script's own times, up to 4.7 s before the
+  recording's, whose computer slowed under the sparkles, and from no
+  place; its music and the advisor's speech aren't played
+  ([front-end.md](systems/front-end.md#the-sounds)).
 - **The Personnel File** keeps its players in a file of Reluva's own,
   `players.txt` in the game's save folder, as the game's own aren't
   known ([players.md](systems/players.md)); "Load A Game" is always

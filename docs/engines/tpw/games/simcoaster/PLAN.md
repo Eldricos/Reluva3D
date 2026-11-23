@@ -39,7 +39,8 @@ format or system worked out.
    movies' sound (`Data/movies/*.tgq`) reads and decodes with the shared
    stream reader: 3.24 seconds of stereo EA-XA each.
 5. **The data viewer** (done): `reluva-viewer`'s pages for the pictures,
-   fonts, text, settings, sounds ([sdt.md](formats/sdt.md)), movies
+   fonts, text, settings, sounds ([sdt.md](formats/sdt.md),
+   [sound-maps.md](formats/sound-maps.md)), movies
    ([tgq.md](formats/tgq.md)) and files; the opening as a recording shows
    it ([opening.md](systems/opening.md)). The sound banks' `.map` files
    wait for the game's sounds to be played.
@@ -69,7 +70,8 @@ format or system worked out.
    [loading-screen.md](systems/loading-screen.md)); the front end's 3D
    opening, the Intro World's camera path model seen through its camera
    ([front-end.md](systems/front-end.md)), the advisor's portrait and the
-   skip button over it; the Personnel File, from the
+   skip button over it, and the sounds its script starts
+   ([sound-maps.md](formats/sound-maps.md)); the Personnel File, from the
    interface's flat models ([personnel-file.md](systems/personnel-file.md));
    keeping the players ([players.md](systems/players.md)); choosing a
    world on the globe ([globe.md](systems/globe.md)); then the opening's

@@ -27,6 +27,8 @@ constexpr uint32_t kTriggerMs = 3400;
 constexpr uint16_t kEventOpcode = 13;
 constexpr uint16_t kWait4AnimOpcode = 46;
 constexpr int kParticleEvent = 2;
+constexpr int kSoundEvent = 5;
+constexpr const char *kSoundFolder = "global/sound";
 
 // The emitters the script names: 11 to 14 the four Fx helpers round the
 // star, which it always sets off together; 1 the well's middle.
@@ -118,6 +120,10 @@ Error FrontEndEffects::load(const SearchSet &files, const FrontEndScene &scene) 
         return err;
     if (Error err = _library.parse(data))
         return err;
+    _sounds = SoundEffects();
+    if (_sounds.load(files, kSoundFolder, SoundEffects::globalCategories()))
+        _sounds = SoundEffects();
+    _soundsStarted.clear();
     ScriptHost &host = *this;
     _machine = std::make_unique<ScriptMachine>(_script, host);
     _ms = 0;
@@ -156,7 +162,17 @@ HostResult FrontEndEffects::perform(ScriptMachine &, const Script::Instruction &
         const uint32_t end = uint32_t(_scene->frames() * 1000 / Animation::kFramesPerSecond);
         return {0, end > _ms ? end - _ms : 0};
     }
-    if (instruction.opcode != kEventOpcode || values.size() < 3 || values[0] != kParticleEvent)
+    if (instruction.opcode != kEventOpcode || values.size() < 3)
+        return {};
+    // Its second value, 1 or -1 in the game's scripts, isn't worked out:
+    // where the sound plays from, perhaps.
+    if (values[0] == kSoundEvent && values[2] > 0) {
+        _soundsStarted.push_back({_ms, uint32_t(values[2])});
+        if (_mixer)
+            _sounds.play(*_mixer, uint32_t(values[2]));
+        return {};
+    }
+    if (values[0] != kParticleEvent)
         return {};
     const int node = emitterNode(values[1]);
     const auto &effects = _library.effects();
