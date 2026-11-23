@@ -804,23 +804,25 @@ void MainMenu::updateNetScreens(uint64_t now) {
     }
 }
 
-void MainMenu::brighten() {
-    const float gamma = _options.brightness;
-    if (gamma <= GameOptions::kBrightnessMin)
+void brightenScreen(Surface &screen, float gamma) {
+    // Truncated, as the program's float to int is (0x6076f8).
+    const int amount = std::min(int((gamma - 1.0f) * 128.0f), 255);
+    if (amount < 8)
         return;
-    // The display's gamma, as the game sets it (0x558fc0), taken as
-    // brightening the darker colours (inferred).
-    std::array<uint8_t, 256> table{};
-    for (size_t i = 0; i < table.size(); ++i)
-        table[i] = uint8_t(std::lround(255.0 * std::pow(double(i) / 255.0, 1.0 / double(gamma))));
-    for (int y = 0; y < _screen.h; ++y) {
-        uint8_t *p = _screen.row(y);
-        for (int x = 0; x < _screen.w; ++x, p += 4) {
-            p[0] = table[p[0]];
-            p[1] = table[p[1]];
-            p[2] = table[p[2]];
+    const int redBlue = amount >> 3 << 3;
+    const int green = amount >> 2 << 2;
+    for (int y = 0; y < screen.h; ++y) {
+        uint8_t *p = screen.row(y);
+        for (int x = 0; x < screen.w; ++x, p += 4) {
+            p[0] = uint8_t(std::min(255, p[0] + redBlue));
+            p[1] = uint8_t(std::min(255, p[1] + green));
+            p[2] = uint8_t(std::min(255, p[2] + redBlue));
         }
     }
+}
+
+void MainMenu::brighten() {
+    brightenScreen(_screen, _options.brightness);
 }
 
 } // namespace reluva::stawayteam

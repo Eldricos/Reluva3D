@@ -14,6 +14,7 @@
 #include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/credits.h"
 #include "engines/stawayteam/ui/font.h"
+#include "engines/stawayteam/ui/main_menu.h"
 #include "engines/stawayteam/game/controls.h"
 #include "engines/stawayteam/game/options.h"
 #include "engines/stawayteam/game/team.h"
@@ -304,6 +305,21 @@ void testOptions(const std::filesystem::path &tmp) {
     CHECK(third.masterVolume == -2000 && third.musicMute && !third.stereo && third.mixingChannels == 5);
     third.applySound(mixer);
     CHECK(mixer.typeVolume(audio::SoundType::kEffects) == 26 && mixer.typeVolume(audio::SoundType::kMusic) == 1);
+
+    // The brightness adds to each colour: at 1.25, 32 (red and blue in
+    // 8s, green in 4s), kept to 255; under 1.0625, nothing.
+    Surface screen;
+    screen.create(2, 1, PixelFormat::kRGBA32);
+    uint8_t *p = screen.row(0);
+    p[0] = 10;
+    p[1] = 20;
+    p[2] = 240;
+    brightenScreen(screen, 1.25f);
+    CHECK(p[0] == 42 && p[1] == 52 && p[2] == 255);
+    brightenScreen(screen, 1.05f);
+    CHECK(p[0] == 42);
+    brightenScreen(screen, 1.1f);
+    CHECK(p[0] == 50 && p[1] == 64);
 }
 
 void testControls() {

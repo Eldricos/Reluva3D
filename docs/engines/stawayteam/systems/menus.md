@@ -324,6 +324,17 @@ least and the range times the value / 100 (`0x486f04`). RESET DEFAULTS
 puts back both scrolls' defaults (`0x5bcfa0`, `0x5bcfb0`), gamma 1 and
 pausing when hit (`0x486d32`).
 
+The "gamma" isn't a curve: the display keeps it (`0x558fc0`) and, as a
+frame goes to the screen in 16-bit colour (`0x558780`), adds
+(fade x gamma - 1) x 128, cut to a whole number, to every colour, the
+fade being the screen's own fading in and out (1 when shown). The add
+(`0x455c50`) is kept to 0-255 and goes in a 5-bit red's and blue's steps
+(an eighth of it) and a 6-bit green's (a quarter), each kept to its
+most; under 8 nothing is added, and below 0 the screen is darkened
+instead (`0x455d80`). In 8-bit colour the palette's colours are moved
+the same way (`0x5584b0`), and a third drawing mode (`+0xd4`) takes
+steps of 4 (`0x4596a0`).
+
 With Pause Game When Hit on, an officer hit in a single-player game
 stops time if they're out of the view or on a map not shown
 (`0x5ca290`). The first time, while the options' `Show Pause When Hit
@@ -520,8 +531,8 @@ Game/Background`:
   kept in `options.ini` (`GameOptions`, `game/options.cpp`) where Reluva
   keeps the game's files, with the program's names; RESET DEFAULTS puts
   the defaults back; DIFFICULTY SETTING opens the difficulty window over
-  it; CONTINUE (Enter, Esc) closes it. The brightness is the screen's gamma,
-  applied to all Reluva draws. CONFIGURE SOUND opens the sound window
+  it; CONTINUE (Enter, Esc) closes it. The brightness is added over all Reluva draws
+  as the 16-bit display adds it. CONFIGURE SOUND opens the sound window
   (`SoundOptionsWindow`, `ui/sound_options.cpp`), its controls set as
   above and kept with the others; CONTINUE (Enter, Esc) closes it. On
   Reluva's mixer the master volume and the music's or the effects'
@@ -592,8 +603,6 @@ Game/Background`:
   always presses the default button.
 - **Speech's volume:** whether voiceovers and the movies follow the
   effects' scale. Reluva has them do so.
-- **The gamma:** how the game's display applies it. Reluva raises each
-  colour to 1 / gamma, brightening the dark ones.
 - **A slider's thumb texture:** whether the drawing tiles it where the
   thumb is bigger. Reluva does.
 - **Brightness:** the toolkit's darkens toward black in six steps

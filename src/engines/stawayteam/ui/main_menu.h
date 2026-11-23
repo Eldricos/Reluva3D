@@ -34,6 +34,14 @@
 namespace reluva::stawayteam {
 
 /**
+ * Brightens `screen` as the game's brightness `gamma` (1 to 1.5) does in
+ * 16-bit colour: (gamma - 1) x 128 added to each colour, in the steps a
+ * 5-bit red and blue and a 6-bit green have, kept to 255, and nothing
+ * under 8 (0x5587a2, 0x455c50).
+ */
+void brightenScreen(Surface &screen, float gamma);
+
+/**
  * The confirm dialog ("Are you sure you want to exit the game?"): a
  * question and Yes and No, laid out by Rules.txt's `Confirm Dialog`, in
  * the middle of the screen.

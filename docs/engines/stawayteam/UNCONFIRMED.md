@@ -40,7 +40,7 @@ None now.
   ([systems/startup.md](systems/startup.md#the-opening-movies)).
 - **The menus:** the credits' underlines blended by their alpha, the toolkit's
   brightness scaling colours smoothly outside the credits, the
-  gamma brightening dark colours, the slider's texture tiled, the sliders' focus, Esc closing the keyboard
+  the slider's texture tiled, the sliders' focus, Esc closing the keyboard
   screen, the keyboard screen's
   keys and tab sizes, voiceovers' and movies'
   volume following the effects',
