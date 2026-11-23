@@ -11,6 +11,7 @@
 #include "engines/sith/formats/episode.h"
 #include "engines/sith/formats/font.h"
 #include "engines/sith/formats/material.h"
+#include "engines/sith/formats/model.h"
 #include "engines/sith/formats/sound_class.h"
 #include "engines/sith/formats/strings.h"
 #include "engines/sith/game_files.h"
@@ -107,13 +108,27 @@ Error describeEpisode(const std::vector<uint8_t> &data, std::string &line) {
     return Error::success();
 }
 
+Error describeModel(const std::vector<uint8_t> &data, std::string &line) {
+    sith::Model model;
+    if (Error err = sith::parseModel(data, model))
+        return err;
+    size_t faces = 0;
+    for (const sith::Model::Mesh &m : model.geosets[0])
+        faces += m.faces.size();
+    line = std::to_string(model.geosets.size()) + " geometry sets, " + std::to_string(model.geosets[0].size()) +
+           " meshes, " + std::to_string(faces) + " faces, " + std::to_string(model.nodes.size()) + " nodes, " +
+           std::to_string(model.materials.size()) + " materials";
+    return Error::success();
+}
+
 const std::map<std::string, Describe> kKinds = {
-    {".cmp", describeColormap}, {".bm", describeBitmap},      {".mat", describeMaterial}, {".sft", describeFont},
-    {".uni", describeStrings},  {".snd", describeSoundClass}, {".wav", describeWav},      {".jk", describeEpisode},
+    {".3do", describeModel},      {".cmp", describeColormap}, {".bm", describeBitmap},
+    {".mat", describeMaterial},   {".sft", describeFont},     {".uni", describeStrings},
+    {".snd", describeSoundClass}, {".wav", describeWav},      {".jk", describeEpisode},
 };
 
-// Every colormap, picture, material, font, string table, sound, sound
-// class and episode in the install's archives read, a line each (-q: only the failures), and a
+// Every colormap, picture, material, model, font, string table, sound,
+// sound class and episode in the install's archives read, a line each (-q: only the failures), and a
 // count of each kind.
 int cmdFormats(int argc, char **argv) {
     if (argc < 3) {

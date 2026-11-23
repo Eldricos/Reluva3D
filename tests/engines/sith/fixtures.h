@@ -140,6 +140,43 @@ inline std::vector<uint8_t> makeStringsFile() {
     return {text.begin(), text.end()};
 }
 
+/**
+ * A model with each of the quirks the game's have: a mesh name with a space,
+ * a material without a space after its colon, corners with and without a
+ * space after their commas, an untextured mesh whose faces name texture
+ * vertex 0, and a second, smaller geometry set.
+ */
+inline std::vector<uint8_t> makeModelFile() {
+    const std::string text = "# MODEL 'test.3do'\r\n"
+                             "SECTION: HEADER\r\n3DO 2.1\r\n"
+                             "SECTION: MODELRESOURCE\r\nMATERIALS 2\r\n0:\ttop.mat\r\n1:SIDE.MAT\r\n"
+                             "SECTION: GEOMETRYDEF\r\nRADIUS 0.5\r\nINSERT OFFSET 0 0 0.25\r\nGEOSETS 2\r\n"
+                             "GEOSET 0\r\nMESHES 2\r\n"
+                             "MESH 0\r\nNAME salad bar\r\nRADIUS 0.5\r\nGEOMETRYMODE 4\r\nLIGHTINGMODE 3\r\n"
+                             "TEXTUREMODE 0\r\nVERTICES 4\r\n"
+                             "0: -0.5 -0.5 0 0\r\n1: 0.5 -0.5 0 0\r\n2: 0.5 0.5 0 0\r\n3: -0.5 0.5 0 0.5\r\n"
+                             "TEXTURE VERTICES 4\r\n0: 0 0\r\n1: 63 0\r\n2: 63 63\r\n3: 0 63\r\n"
+                             "VERTEX NORMALS\r\n0: 0 0 1\r\n1: 0 0 1\r\n2: 0 0 1\r\n3: 0 0 1\r\n"
+                             "FACES 2\r\n"
+                             "#  num:  material:   type:  geo:  light:   tex:  extralight:  verts:\r\n"
+                             "0: 0 0x0000 4 3 0 0.0000 4 0,0 1,1 2,2 3,3\r\n"
+                             "1: 1 0x0001 4 3 0 0.1000 3 0, 0   1, 2   2, 1\r\n"
+                             "FACE NORMALS\r\n0: 0 0 1\r\n1: 0 0 1\r\n"
+                             "MESH 1\r\nNAME solid\r\nRADIUS 0.1\r\nGEOMETRYMODE 3\r\nLIGHTINGMODE 3\r\n"
+                             "TEXTUREMODE 0\r\nVERTICES 3\r\n0: 0 0 0 0\r\n1: 0.1 0 0 0\r\n2: 0 0.1 0 0\r\n"
+                             "TEXTURE VERTICES 0\r\nVERTEX NORMALS\r\n0: 0 0 1\r\n1: 0 0 1\r\n2: 0 0 1\r\n"
+                             "FACES 1\r\n0: 0 0x0000 3 3 0 0.0000 3 0, 0 1, 0 2, 0\r\nFACE NORMALS\r\n0: 0 0 1\r\n"
+                             "GEOSET 1\r\nMESHES 1\r\nMESH 0\r\nNAME low\r\nRADIUS 0.5\r\nGEOMETRYMODE 3\r\n"
+                             "LIGHTINGMODE 3\r\nTEXTUREMODE 0\r\nVERTICES 3\r\n0: 0 0 0 0\r\n1: 1 0 0 0\r\n"
+                             "2: 0 1 0 0\r\nTEXTURE VERTICES 0\r\nVERTEX NORMALS\r\n0: 0 0 1\r\n1: 0 0 1\r\n"
+                             "2: 0 0 1\r\nFACES 1\r\n0: 0 0x0000 3 3 0 0.0000 3 0, 0 1, 0 2, 0\r\n"
+                             "FACE NORMALS\r\n0: 0 0 1\r\n"
+                             "SECTION: HIERARCHYDEF\r\nHIERARCHY NODES 2\r\n"
+                             "0: 0x0000 0x00001 0 -1 1 -1 1 0 0 2 0 0 0 0 0 0 root\r\n"
+                             "1: 0x0000 0x00002 1 0 -1 -1 0 1 0 0 0 90 0 0.1 0 0 arm node\r\n";
+    return {text.begin(), text.end()};
+}
+
 /** An install's files, the names in the case the installer gives them. */
 inline void makeInstall(const stdfs::path &dir) {
     touch(dir / "JK.EXE");

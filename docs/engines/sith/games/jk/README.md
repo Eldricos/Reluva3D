@@ -45,14 +45,14 @@ installer and the readme.
   makes an install from them. Nothing reads them yet.
 - **The archives:** the install's `.gob` archives are read
   ([formats/gob.md](formats/gob.md)), and in them every colormap,
-  picture, material, font, string table, sound, sound class and episode
-  ([formats/](#this-folder)).
+  picture, material, font, string table, sound, sound class, episode and
+  model ([formats/](#this-folder)).
 - **The cut scenes:** every one on the CDs decodes, picture and sound
   ([formats/smk.md](formats/smk.md)).
 - **The data viewer** (`reluva-viewer`) shows the pictures, materials,
-  colormaps, fonts and string tables, plays the sounds, the sound
+  colormaps, models, fonts and string tables, plays the sounds, the sound
   classes' sounds and the cut scenes, and lists the episodes' steps.
-- **Not yet:** the models, levels and scripts, and the game. Plans, phases and decisions:
+- **Not yet:** animations, the levels and scripts, and the game. Plans, phases and decisions:
   [PLAN.md](PLAN.md).
 
 ## Using it
@@ -87,6 +87,9 @@ pages, Esc leaves it, and on each page Left/Right step through the files
   transparency.
 - **Colormaps:** the palette, the light levels from dark (top) to bright,
   and the blend table.
+- **Models:** every `.3do`, drawn in 3D through a colormap. A/D and W/S
+  turn about it, `+` and `-` go nearer and further, C steps through the
+  colormaps.
 - **Fonts:** the glyph strip and sample text; `+` and `-` its size.
 - **Strings:** every string table; Up/Down and PageUp/PageDown scroll.
 - **Sounds:** every `.wav` and its waveform. Space plays or stops it, A
@@ -107,7 +110,7 @@ after the keys given, without a window.
 |---|---|
 | This page | The releases, where it stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
-| [formats/](formats/) | The game's own files, a page each: [gob.md](formats/gob.md) (archives), [cmp.md](formats/cmp.md) (colormaps), [bm.md](formats/bm.md) (pictures), [mat.md](formats/mat.md) (materials), [sft.md](formats/sft.md) (fonts), [uni.md](formats/uni.md) (string tables), [wav.md](formats/wav.md) (sounds), [snd.md](formats/snd.md) (sound classes), [episode-jk.md](formats/episode-jk.md) (episodes), [smk.md](formats/smk.md) (cut scenes), [jk-cd.md](formats/jk-cd.md) (the CD marker) |
+| [formats/](formats/) | The game's own files, a page each: [gob.md](formats/gob.md) (archives), [cmp.md](formats/cmp.md) (colormaps), [bm.md](formats/bm.md) (pictures), [mat.md](formats/mat.md) (materials), [sft.md](formats/sft.md) (fonts), [uni.md](formats/uni.md) (string tables), [wav.md](formats/wav.md) (sounds), [snd.md](formats/snd.md) (sound classes), [episode-jk.md](formats/episode-jk.md) (episodes), [smk.md](formats/smk.md) (cut scenes), [3do.md](formats/3do.md) (models), [jk-cd.md](formats/jk-cd.md) (the CD marker) |
 | `systems/` | How the game behaves, a page per part |
 | `research/` | Working notes |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |

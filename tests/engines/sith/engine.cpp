@@ -28,6 +28,18 @@ using namespace reluva;
 
 namespace {
 
+// A page as drawn: its pixels' checksum; for the 3D pages, whose edges
+// floating point rounds differently from one compiler to another, whether
+// a good part of the screen (a thousand pixels) isn't the background.
+std::string summary(const std::string &page, const Surface &screen) {
+    if (page != "Models")
+        return test::Hash().bytes(screen.pixels).hex();
+    size_t drawn = 0;
+    for (size_t i = 0; i + 3 < screen.pixels.size(); i += 4)
+        drawn += screen.pixels[i] != 40 || screen.pixels[i + 1] != 40 || screen.pixels[i + 2] != 48;
+    return drawn > 1000 ? "drawn" : "nothing drawn";
+}
+
 void engineTest(const std::filesystem::path &tmp) {
     const std::filesystem::path dir = tmp / "install";
     std::filesystem::create_directories(dir);
@@ -65,7 +77,9 @@ void engineTest(const std::filesystem::path &tmp) {
                                                      {"sound\\tone.wav", audio::encodePcmWav(tone)}}));
     writeBytes(dir / "Resource/Res2.gob", makeGob({{"misc\\cmp\\uicolormap.cmp", makeColormapFile()},
                                                    {"mat\\test.mat", makeMaterialFile()},
-                                                   {"misc\\snd\\door.snd", {snd.begin(), snd.end()}}}));
+                                                   {"misc\\snd\\door.snd", {snd.begin(), snd.end()}},
+                                                   {"3do\\test.3do", makeModelFile()},
+                                                   {"3do\\mat\\top.mat", makeMaterialFile()}}));
     const std::string episode = "\"Test\"\r\nTYPE 1\r\nSEQ 2\r\n10: 1 1 CUT 01-02a.smk 0 0 11 -1\r\n"
                                 "11: 1 1 LEVEL 01test.jkl 0 0 -1 -1\r\nend\r\n";
     writeBytes(dir / "Episode/JK1.GOB", makeGob({{"misc\\cogstrings.uni", makeStringsFile()},
@@ -88,7 +102,7 @@ void engineTest(const std::filesystem::path &tmp) {
         if (page->count() == 0)
             continue;
         page->draw(screen);
-        rec.add(step + ".drawn", test::Hash().bytes(screen.pixels).hex());
+        rec.add(step + ".drawn", summary(page->name(), screen));
         // A key that changes each page: transparency, light level, size, a
         // line, the next frame.
         const std::string name = page->name();
@@ -96,9 +110,10 @@ void engineTest(const std::filesystem::path &tmp) {
                         : name == "Materials"  ? uint32_t('[')
                         : name == "Fonts"      ? uint32_t('+')
                         : name == "Cut scenes" ? uint32_t('.')
+                        : name == "Models"     ? uint32_t('d')
                                                : uint32_t(key::kDown));
         page->draw(screen);
-        rec.add(step + ".after_keys", test::Hash().bytes(screen.pixels).hex());
+        rec.add(step + ".after_keys", summary(page->name(), screen));
         if (name == "Cut scenes") {
             // Played without sound, by the clock: a second on, to its end.
             page->handleKey(' ');

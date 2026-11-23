@@ -11,14 +11,17 @@ reluva_add_engine(sith
         game_files.cpp
         games.cpp
         import.cpp
+        render/draw3d.cpp
         formats/bitmap.cpp
         formats/colormap.cpp
         formats/episode.cpp
         formats/font.cpp
         formats/gob.cpp
         formats/material.cpp
+        formats/model.cpp
         formats/sound_class.cpp
-        formats/strings.cpp)
+        formats/strings.cpp
+        formats/text.cpp)
 
 # Its data viewer, for reluva-viewer only: reluva, which players get,
 # doesn't link it. See docs/DEVELOPMENT.md (The data viewer).
@@ -26,6 +29,7 @@ reluva_add_engine_viewers(sith
     ACCESSOR sithMetaViewer
     SOURCES
         pages/viewer.cpp
+        pages/model_pages.cpp
         pages/movie_pages.cpp
         pages/picture_pages.cpp
         pages/sound_pages.cpp
@@ -50,9 +54,10 @@ reluva_add_engine_tests(sith
         ${tests}/unit/formats.cpp
         ${tests}/unit/gob.cpp
         ${tests}/unit/import.cpp
+        ${tests}/unit/models.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.folders unit.formats unit.gob unit.import engine)
+        unit.detection unit.folders unit.formats unit.gob unit.import unit.models engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):
