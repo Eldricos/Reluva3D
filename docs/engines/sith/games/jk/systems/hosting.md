@@ -118,7 +118,10 @@ it uses are DirectX 5's, by the identifiers in its data:
     the auxiliary device. Nar Shaddaa (`01_soundtrack.cog`) plays tracks
     2 and 3 from the start, at volume 0, and fades them in when Kyle
     leaves the bar: the bar is quiet.
-17. With hardware drawing chosen in *Setup*, kept in the registry as
+17. With hardware drawing chosen in *Setup* (*Display*, *Enable 3D
+    Acceleration*: the modes then offered are 16-bit; there's no list of
+    devices to choose from, the game taking the HAL device), kept in the
+    registry as
     `b3DAccel` 1, `displayDeviceGUID` (DirectDraw's, all zeros for the
     display's own), `3DDeviceGUID` (one of the devices Direct3D listed)
     and `displayMode` (an index into the modes it lists; 3 is 640 by 480
@@ -208,7 +211,15 @@ it presents in the window, and passes the keyboard and mouse on.
 - **The registry:** what the game writes there (its *Setup* choices of
   display and Direct3D device among it) is kept in `registry.txt` in the
   game's save folder, and given back the next time it runs; `CD Path`
-  and `Install Path` are Reluva's, set each time.
+  and `Install Path` are Reluva's, set each time. The game writes its
+  settings only as it ends (`0x4148f0`, in its end at `0x4013c5`), all of
+  them as binary values. Leaving Reluva closes the game's window
+  (`WM_CLOSE`): in the menus it then ends as on Windows, its window's
+  `WM_DESTROY` running its end, settings saved. In play the game takes
+  `WM_CLOSE` for itself and goes on (its handler at `0x41ede0` *(from
+  the code)*), as it would on Windows; after three seconds Reluva stops
+  it, then runs its own saving of the settings (`0x4148f0`, where its
+  bytes are the US release's), so a choice made in *Setup* isn't lost.
 - **Its devices:** DirectDraw, with the 8-bit modes the menus and the
   software renderer use, Direct3D 1's devices on the emulator's
   rasterizer ([directx.md](../../../../../common/x86/directx.md)),
@@ -268,7 +279,11 @@ window, for up to `-seconds` seconds, and says what it opened, wrote to
 the registry, printed for a debugger or showed in a message box, and
 where it stopped (registers, and the return addresses on the stack).
 `-d3d` writes *Setup*'s choice of Direct3D's hardware device and 640 by
-480 in 16-bit colour to the registry before it starts. `-skim` goes through the game unattended: each level and cut scene is
+480 in 16-bit colour to the registry before it starts, as the game writes
+them. `-close <seconds>` closes the game's window then, as the player's
+closing Reluva's does. A run stopped at its time rather than ended by
+the game has its settings saved for it, as Reluva's player does
+(below). `-skim` goes through the game unattended: each level and cut scene is
 said as the game first looks for it; a cut scene is skipped after four
 seconds, and in a level the game's own cheats are typed through its chat
 key (T): `jediwannabe` (invulnerable) once it has loaded, then
@@ -330,5 +345,3 @@ and the imports show:
 
 - What `IDirect3D2` and its devices are asked for, if ever: the runs
   only used Direct3D 1's.
-- Whether *Setup*'s own screen writes the registry as `-d3d` does: the
-  values were read from the code, and set by hand.

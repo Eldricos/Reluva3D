@@ -102,7 +102,8 @@ int cmdHost(int argc, char **argv) {
         std::fprintf(stderr,
                      "usage: reluva-tool sith host <install> [-seconds N] [-args \"...\"] [-png file] "
                      "[-files] [-calls] [-d3d] [-net] [-join address] [-keys \"s:key,...\"] [-skim] [-cheat word] "
-                     "[-pad \"s:control=value,...\"] [-frames N folder] [-peek address] [-wav file] [-write folder]\n");
+                     "[-pad \"s:control=value,...\"] [-close seconds] [-frames N folder] [-peek address] [-wav file] "
+                     "[-write folder]\n");
         return 2;
     }
     const std::filesystem::path install = argv[2];
@@ -118,6 +119,7 @@ int cmdHost(int argc, char **argv) {
     std::vector<uint32_t> peeks;
     std::string keysArg;
     bool skim = false;
+    double closeAt = -1;
     std::string padArg;
     std::vector<std::string> cheats; // typed once in each level, with -skim
     double framesEvery = 0;
@@ -145,6 +147,8 @@ int cmdHost(int argc, char **argv) {
             join = argv[++i], network = true;
         else if (a == "-skim")
             skim = true;
+        else if (a == "-close" && i + 1 < argc)
+            closeAt = std::atof(argv[++i]);
         else if (a == "-pad" && i + 1 < argc)
             padArg = argv[++i];
         else if (a == "-cheat" && i + 1 < argc)
@@ -180,9 +184,9 @@ int cmdHost(int argc, char **argv) {
         // Setup's 3D acceleration on, on the primary display with Direct3D's
         // HAL device, as the game keeps them.
         const std::string key = "HKEY_LOCAL_MACHINE\\Software\\LucasArts Entertainment Company\\JediKnight\\v1.0";
-        process.setRegistryValue(key, "b3DAccel", 4, {1, 0, 0, 0});
+        process.setRegistryValue(key, "b3DAccel", 3, {1, 0, 0, 0});
         process.setRegistryValue(key, "displayDeviceGUID", 3, std::vector<uint8_t>(16, 0)); // the primary display
-        process.setRegistryValue(key, "displayMode", 4, {3, 0, 0, 0}); // 640 by 480 in 16-bit colour
+        process.setRegistryValue(key, "displayMode", 3, {3, 0, 0, 0}); // 640 by 480 in 16-bit colour
         process.setRegistryValue(
             key, "3DDeviceGUID", 3,
             {0xe0, 0x3d, 0xe6, 0x84, 0xaa, 0x46, 0xcf, 0x11, 0x81, 0x6f, 0, 0, 0xc0, 0x20, 0x15, 0x6e});
@@ -359,6 +363,12 @@ int cmdHost(int argc, char **argv) {
         std::lock_guard<std::mutex> lock(tickMutex);
         const double now = elapsed();
         movePad(now);
+        // With -close, the game's window closed as the player's closing
+        // Reluva's does (sith::Player): the game ends as on Windows.
+        if (closeAt >= 0 && now >= closeAt) {
+            process.postMessage(process.mainWindow(), 0x10, 0, 0); // WM_CLOSE
+            closeAt = -1;
+        }
         if (skim && inLevel && now >= nextCheat) {
             double at = now;
             if (!invulnerable) {
@@ -453,6 +463,10 @@ int cmdHost(int argc, char **argv) {
     uint32_t exitCode = 0;
     const Error err = game.run(exitCode);
     const double took = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    // Stopped at the time given, not ended by itself: its Setup settings
+    // saved for it, as Reluva's player does.
+    if (!err && took >= seconds && game.saveSettings())
+        std::printf("settings saved for the game\n");
 
     if (listFiles)
         for (const std::string &f : opened)
@@ -543,8 +557,8 @@ const Commands kCommands(
     {
         {"host",
          "<install> [-seconds N] [-args \"...\"] [-png file] [-files] [-calls] [-d3d] [-net] [-join address] [-keys "
-         "\"s:key,...\"] [-skim] [-cheat word] [-pad \"s:control=value,...\"] [-frames N folder] [-peek address] "
-         "[-wav file]",
+         "\"s:key,...\"] [-skim] [-cheat word] [-pad \"s:control=value,...\"] [-close seconds] [-frames N folder] "
+         "[-peek address] [-wav file]",
          "run the retail JK.EXE in the x86 emulator: how far it gets", cmdHost},
         {"disasm", "<JK.EXE> <address> [count]", "the program's instructions from an address (hexadecimal) on",
          cmdDisasm},

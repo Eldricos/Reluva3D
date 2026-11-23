@@ -42,7 +42,11 @@ public:
      */
     Player(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer *mixer = nullptr,
            x86::DirectPlay::Network network = {});
-    /** Stops the game and waits for its thread. */
+    /**
+     * Closes the game's window, so it ends as it would on Windows (saving its
+     * settings), and waits for its thread; stops it if it hasn't ended in
+     * a few seconds.
+     */
     ~Player();
 
     /** Starts the game's thread, which loads and runs the program; call once. */
@@ -98,6 +102,9 @@ private:
     uint64_t _frameTaken = 0;
     bool _pointerShown = true;
     std::chrono::steady_clock::time_point _nextFlip{}; // the next vertical blank a flip may show at
+    bool _closing = false;                             // the game's window is to be closed (by the game's thread)
+    bool _closeSent = false;                           // and has been
+    bool _forced = false;                              // it didn't end, and was stopped
     bool _stopping = false;
     bool _finished = false;
     bool _ended = false;

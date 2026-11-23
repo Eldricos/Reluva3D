@@ -75,6 +75,7 @@ That the US release's signatures match a real install: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | *Setup*'s 3D choice through the game's own screens: *Display*, *Enable 3D Acceleration*, *Ok*; *Quit* writes `b3DAccel` 1, the primary display, the HAL device and mode 3, as `-d3d` does, and the next new game draws through Direct3D. Closing the window in the menus (`-close`) ends the game with its settings saved; stopped in play, its settings are saved for it and the next run draws through Direct3D from the start |
 | November 2026 | US retail | Linux | Forces for the second controller: `common.unit.sdl_controller`'s *second's forces* test, with two virtual pads, rumbles each by its own forces alone. Jedi Knight gives none: it has no force feedback ([systems/hosting.md](systems/hosting.md)). A wheel's motor, through SDL's haptics, not yet tried on a real wheel |
 | November 2026 | US retail | Linux | A racing wheel as the second joystick: `common.unit.sdl_controller`'s *second* test, with SDL's virtual pad and wheel, reads the pad as the first controller and the wheel as the second, its wheel and pedals; the game reads the second as in the two-joystick check above. Not yet with a real wheel |
 | November 2026 | US retail | Linux | Two joysticks: `reluva-tool sith host -pad` with two controllers: *Setup*, *Controls*, *Joystick* lists joystick 2's axes too; its X axis bound to *Turn Left/Right* there, the second controller alone turned the view in Nar Shaddaa |

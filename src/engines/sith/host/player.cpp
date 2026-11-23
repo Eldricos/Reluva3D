@@ -17,10 +17,30 @@ Player::Player(GameFolders folders, std::filesystem::path saveFolder, audio::Mix
 }
 
 Player::~Player() {
+    // The game is asked to close its window first, as Windows would when the
+    // player closes it: it then saves what it saves only as it ends (its
+    // Setup's display and 3D choices, 0x4148f0), and is stopped only if it
+    // hasn't ended in a few seconds.
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _closing = true;
+    }
+    const auto giveUp = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (std::chrono::steady_clock::now() < giveUp) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_finished || !_game)
+                break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
     {
         std::lock_guard<std::mutex> lock(_mutex);
         _stopping = true;
         if (_game) {
+            // In play the game takes the close for itself and goes on: its
+            // settings are saved for it once it's stopped (work()).
+            _forced = true;
             _game->cpu().requestStop();
             _game->process().requestExit(); // for a thread waiting for a message
         }
@@ -129,6 +149,13 @@ void Player::work() {
     uint32_t exitCode = 0;
     if (!e)
         e = game.run(exitCode);
+    bool forced = false;
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        forced = _forced;
+    }
+    if (forced)
+        game.saveSettings();
     if (_mixer)
         _mixer->stop(sound);
     std::lock_guard<std::mutex> lock(_mutex);
@@ -172,14 +199,21 @@ void Player::offerPads(GameProcess &game) {
 
 void Player::drain() {
     std::deque<Event> events;
+    bool close = false;
     {
         std::lock_guard<std::mutex> lock(_mutex);
         events.swap(_events);
         if (_game)
             _pointerShown = _game->pointerShown();
+        close = _closing && !_closeSent;
+        _closeSent = _closeSent || close;
     }
     if (!_game)
         return;
+    if (close) {
+        x86::Win32Process &p = _game->process();
+        p.postMessage(p.mainWindow(), 0x10, 0, 0); // WM_CLOSE
+    }
     offerPads(*_game);
     if (events.empty())
         return;

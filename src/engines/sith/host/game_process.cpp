@@ -176,6 +176,29 @@ bool GameProcess::insertCd(int number) {
 // for it and waits (docs/engines/sith/games/jk/systems/hosting.md). Here a
 // trampoline at its start puts that CD in drive D first, as a player would
 // have, then runs the instruction it replaced and goes on.
+bool GameProcess::saveSettings() {
+    constexpr uint32_t kSave = 0x4148f0;
+    // mov eax, [0x556588]; push eax: the US release's.
+    const uint8_t expected[] = {0xa1, 0x88, 0x65, 0x55, 0x00, 0x50};
+    x86::Cpu &c = *_cpu;
+    for (uint32_t i = 0; i < sizeof expected; ++i)
+        if (!c.valid(kSave + i, 1) || c.read8(kSave + i) != expected[i])
+            return false;
+    // The stopped thread's stack may be anywhere: a fresh one for the call.
+    constexpr uint32_t kStack = 0x10000;
+    const uint32_t stack = _process->memory().alloc(kStack);
+    if (!stack)
+        return false;
+    const uint32_t esp = c.reg[x86::Cpu::ESP];
+    c.reg[x86::Cpu::ESP] = stack + kStack - 16;
+    uint32_t result = 0;
+    c.clearStop();
+    const Error e = c.call(kSave, {}, result);
+    c.reg[x86::Cpu::ESP] = esp;
+    _process->memory().free(stack);
+    return !e;
+}
+
 void GameProcess::hookCdCheck() {
     constexpr uint32_t kCheck = 0x40ebb0;
     // sub esp, 0x18c; push ebx; push ebp: the US release's.

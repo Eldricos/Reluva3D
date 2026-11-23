@@ -52,6 +52,14 @@ public:
     Error load();
     /** Puts CD `number` (1 or 2) in drive D, if it was found; false if it wasn't. */
     bool insertCd(int number);
+    /**
+     * After the program has been stopped rather than ending by itself: runs
+     * its own saving of its Setup settings to the registry (0x4148f0, a
+     * step of its end) where JK.EXE is the US release's, so a choice made
+     * in Setup isn't lost.
+     * @return Whether they were saved.
+     */
+    bool saveSettings();
     /** The CD in drive D: 1 or 2, 0 if none. */
     int cdInDrive() const { return _cdInDrive; }
     /**
