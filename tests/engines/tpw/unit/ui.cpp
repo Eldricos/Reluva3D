@@ -3,7 +3,8 @@
 
 // The Theme Park World engine's screens, run headless on installs built
 // here: the opening (docs/engines/tpw/games/simcoaster/research/footage.md),
-// and a world's sky.
+// a world's sky, the loading screen, and the front end's flat models and
+// Personnel File.
 //
 //   reluva-tests tpw.unit.ui
 
@@ -11,9 +12,12 @@
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/ui/loading_screen.h"
 #include "engines/tpw/ui/opening.h"
+#include "engines/tpw/ui/personnel_file.h"
 #include "engines/tpw/ui/sky.h"
+#include "engines/tpw/ui/ui_model.h"
 #include "image/image.h"
 
+#include "tests/engines/tpw/fixtures.h"
 #include "tests/support/ea_movie_writer.h"
 #include "tests/support/test.h"
 #include "tests/support/zip_writer.h"
@@ -152,6 +156,40 @@ void testLoadingScreen(const std::filesystem::path &tmp) {
     CHECK(tpw::composeLoadingScreen(none, "American", screen));
 }
 
+// A flat model's mesh stretched into a rectangle: the test model's first
+// face (its corners (0, 0), (4, 0) and (4, 1), textured) fills the lower
+// right half of it; its second, untextured, isn't drawn. Then the same
+// half blended over what's there by its texture's alpha.
+void testUiModel() {
+    tpw::LoadedModel model;
+    CHECK(!model.model.parse(tpw::testing::makeModel()));
+    model.textures.resize(2);
+    image::Image &red = model.textures[1];
+    red.w = red.h = 1;
+    red.rgba = {255, 0, 0, 255};
+    Surface screen;
+    screen.create(64, 48, PixelFormat::kRGBA32);
+    tpw::drawUiMesh(screen, model, 0, {10, 10, 40, 20});
+    auto pixel = [&](int x, int y) { return screen.row(y) + x * 4; };
+    CHECK(pixel(45, 25)[0] == 255 && pixel(45, 25)[1] == 0);
+    CHECK(pixel(15, 25)[0] == 0 && pixel(45, 8)[0] == 0 && pixel(52, 25)[0] == 0);
+    red.rgba[3] = 128;
+    screen.create(64, 48, PixelFormat::kRGBA32);
+    tpw::drawUiMesh(screen, model, 0, {10, 10, 40, 20});
+    CHECK(pixel(45, 25)[0] == 128);
+    CHECK(tpw::uiMeshRect(model, 1).w == 0);
+}
+
+// Each of the Personnel File's controls is where it says it is.
+void testPersonnelFileControls() {
+    using Control = tpw::PersonnelFile::Control;
+    for (int c = int(Control::kTab0); c <= int(Control::kCoasterKit); ++c) {
+        const tpw::ScreenRect r = tpw::PersonnelFile::placeOf(Control(c));
+        CHECK(r.w > 0 && tpw::PersonnelFile::controlAt(r.x + r.w / 2, r.y + r.h / 2) == Control(c));
+    }
+    CHECK(tpw::PersonnelFile::controlAt(0, 0) == Control::kNone);
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -159,4 +197,6 @@ static const reluva::test::Suite
                               {"opening", [](const std::filesystem::path &tmp) { testOpening(tmp); }},
                               {"sky", [](const std::filesystem::path &tmp) { testSky(tmp); }},
                               {"loading", [](const std::filesystem::path &tmp) { testLoadingScreen(tmp); }},
+                              {"ui-model", [](const std::filesystem::path &) { testUiModel(); }},
+                              {"personnel-file", [](const std::filesystem::path &) { testPersonnelFileControls(); }},
                           });

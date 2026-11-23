@@ -66,41 +66,6 @@ void drawPicture(Surface &s, const image::Image &picture, int x, int y, int zoom
     }
 }
 
-int drawGameText(Surface &s, const Font &font, const CharacterSet &characters, int x, int y, const std::string &utf8,
-                 Color c) {
-    // Each UTF-8 character to the set's code for it, as a game string holds it.
-    std::map<char32_t, uint8_t> codes;
-    for (size_t code = 1; code <= characters.size(); ++code)
-        codes.emplace(characters.unicode(uint8_t(code)), uint8_t(code));
-    for (size_t i = 0; i < utf8.size();) {
-        char32_t ch = uint8_t(utf8[i]);
-        int extra = ch >= 0xf0 ? 3 : ch >= 0xe0 ? 2 : ch >= 0xc0 ? 1 : 0;
-        if (extra)
-            ch &= 0x3f >> extra;
-        ++i;
-        for (; extra > 0 && i < utf8.size(); --extra, ++i)
-            ch = ch << 6 | (uint8_t(utf8[i]) & 0x3f);
-        const auto it = codes.find(ch);
-        const Font::Glyph *g = it == codes.end() ? nullptr : font.glyph(it->second);
-        if (!g)
-            continue;
-        for (int py = 0; py < g->height && !g->coverage.empty(); ++py)
-            for (int px = 0; px < g->width; ++px) {
-                const int sx = x + g->left + px;
-                const int sy = y + g->top + py;
-                const int cover = g->coverage[size_t(py * g->width + px)];
-                if (cover == 0 || sx < 0 || sy < 0 || sx >= s.w || sy >= s.h)
-                    continue;
-                uint8_t *dst = s.row(sy) + sx * 4;
-                dst[0] = uint8_t((c.r * cover + dst[0] * (15 - cover)) / 15);
-                dst[1] = uint8_t((c.g * cover + dst[1] * (15 - cover)) / 15);
-                dst[2] = uint8_t((c.b * cover + dst[2] * (15 - cover)) / 15);
-            }
-        x += g->advance;
-    }
-    return x;
-}
-
 void Page::handleKey(uint32_t key) {
     const long at = long(_index);
     if (key == key::kLeft)

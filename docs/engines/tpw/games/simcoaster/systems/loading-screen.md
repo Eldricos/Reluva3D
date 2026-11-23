@@ -51,14 +51,16 @@ memory, and each configuration has a default resolution, one of
 `Data/Resolution.sam`'s (2 is 640 × 480, 3 800 × 600, ... 6 1600 ×
 1200), unless the options screen sets another. Today's computers meet
 configuration 3's least values, and its default is 6, 1600 × 1200, for
-which `Init/` has no pictures: what the game does then isn't known.
+which `Init/` has no pictures: what the game does then isn't known. The
+recording's game ran at 640 × 480: its Personnel File's words are its
+fonts' widths at that size ([personnel-file.md](personnel-file.md#the-screens-size)).
 
 ## In Reluva
 
 `composeLoadingScreen` (`src/engines/tpw/ui/loading_screen.cpp`) puts
 the loading screen together from `Init/640/` for the game's language.
-The engine shows it after the front end's opening
-([front-end.md](front-end.md)), until the player leaves: the rest of
+The engine shows it after the front end's opening and its Personnel
+File ([front-end.md](front-end.md), [personnel-file.md](personnel-file.md)), until the player leaves: the rest of
 the front end, which comes between in the game, isn't built yet
 ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md#not-yet-as-the-original)).
 `reluva-tool tpw loading-screen <game folder> [out.png]` writes it out,

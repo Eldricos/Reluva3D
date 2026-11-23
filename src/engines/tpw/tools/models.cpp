@@ -14,10 +14,12 @@
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/ui/front_end.h"
 #include "engines/tpw/ui/model_view.h"
+#include "engines/tpw/ui/personnel_file.h"
 #include "engines/tpw/ui/ride_run.h"
 #include "image/image.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -453,8 +455,9 @@ int cmdFrontEndShot(int argc, char **argv) {
     return 0;
 }
 
-// The front end's opening run headless, by a clock that moves only as it
-// waits; a key pressed `seconds` in, and one more a second later.
+// The front end run headless, by a clock that moves only as it waits: its
+// camera's path skipped `seconds` in, then the Personnel File's "Enter
+// Game" clicked a second later.
 int cmdFrontEndRun(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool tpw front-end-run <game folder> [seconds]\n");
@@ -470,26 +473,72 @@ int cmdFrontEndRun(int argc, char **argv) {
         reluva::Md5 all;
         int shown = 0;
         uint64_t keyAt = 0;
+        int sent = 0;
         void updateScreen(const reluva::Surface &s) override {
             HeadlessSystem::updateScreen(s);
             all.update(s.pixels.data(), s.pixels.size());
             ++shown;
         }
         bool pollEvent(reluva::Event &ev) override {
-            if (getMillis() < keyAt)
+            if (sent >= 2 || getMillis() < keyAt + uint64_t(sent) * 1000)
                 return false;
             ev = reluva::Event{};
-            ev.type = reluva::EventType::kKeyDown;
-            ev.key = reluva::key::kSpace;
-            keyAt += 1000;
+            if (sent++ == 0) {
+                ev.type = reluva::EventType::kKeyDown;
+                ev.key = reluva::key::kSpace;
+                return true;
+            }
+            const reluva::tpw::ScreenRect enter =
+                reluva::tpw::PersonnelFile::placeOf(reluva::tpw::PersonnelFile::Control::kEnterGame);
+            ev.type = reluva::EventType::kMouseDown;
+            ev.button = reluva::MouseButton::kLeft;
+            ev.mouseX = enter.x + enter.w / 2;
+            ev.mouseY = enter.y + enter.h / 2;
             return true;
         }
     } sys;
     sys.keyAt = uint64_t((argc > 3 ? std::strtof(argv[3], nullptr) : 5) * 1000);
-    const bool open = reluva::tpw::playFrontEnd(sys, files);
+    reluva::Surface last;
+    const bool path = reluva::tpw::playFrontEnd(sys, files, last);
+    const bool chosen = path && reluva::tpw::choosePlayer(sys, files, last);
     std::printf("front end: %d screens shown, ended at %llu ms%s; md5 %s\n", sys.shown,
-                static_cast<unsigned long long>(sys.getMillis()), open ? "" : ", window closed",
+                static_cast<unsigned long long>(sys.getMillis()), chosen ? ", into the game" : ", left",
                 sys.all.hexDigest().c_str());
+    return 0;
+}
+
+// The Personnel File over the front end's globe, as a PNG: four new
+// players, the first shown, named if a name is given.
+int cmdPersonnelShot(int argc, char **argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool tpw personnel-shot <game folder> <out.png> [name]\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    std::vector<std::string> warnings;
+    if (reluva::Error err = reluva::tpw::mountGame(files, argv[2], warnings)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    reluva::tpw::FrontEndScene scene;
+    reluva::tpw::PersonnelFile file;
+    reluva::Error err = scene.load(files);
+    if (!err)
+        err = file.load(files);
+    if (err) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    std::array<reluva::tpw::PlayerFile, reluva::tpw::PersonnelFile::kPlayers> players;
+    players.fill(file.newPlayer());
+    if (argc > 4)
+        file.type(players[0], argv[4]);
+    reluva::Surface screen;
+    screen.create(640, 480, reluva::PixelFormat::kRGBA32);
+    reluva::soft3d::Rasterizer rasterizer;
+    scene.draw(screen, rasterizer, scene.frames());
+    file.draw(screen, players, 0, reluva::tpw::PersonnelFile::Control::kNone);
+    writePng(screen, argv[3]);
     return 0;
 }
 
@@ -505,8 +554,11 @@ const Commands kCommands(
          "draw a model as the viewer does, to a PNG; with its height map's samples", cmdMd2Shot},
         {"front-end-shot", "<game folder> <out.png> <frame>",
          "draw the front end's scene through its camera at a frame of its path, to a PNG", cmdFrontEndShot},
+        {"personnel-shot", "<game folder> <out.png> [name]",
+         "draw the Personnel File over the front end's globe, four new players, to a PNG", cmdPersonnelShot},
         {"front-end-run", "<game folder> [seconds]",
-         "run the front end's opening headless, a key pressed so many seconds in (5) and a second later",
+         "run the front end headless: its path skipped so many seconds in (5), then the Personnel File's Enter Game "
+         "clicked",
          cmdFrontEndRun},
     });
 

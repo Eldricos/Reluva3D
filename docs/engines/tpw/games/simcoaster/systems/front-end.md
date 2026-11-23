@@ -78,16 +78,17 @@ path's model and its main animation and draws it, through `Camera01`
 posed at a frame, as the viewer draws models
 ([md2.md](../formats/md2.md#in-reluva)). `playFrontEnd` plays the path
 after the opening at 25 frames a second; a key or a click skips to its
-end, as the game's skip button does, and another goes on, to the
-loading screen ([loading-screen.md](loading-screen.md)): the Personnel
-File and the globe's choosing aren't built yet
+end, as the game's skip button does. Then the Personnel File, over its
+last screen ([personnel-file.md](personnel-file.md)); choosing a world
+on the globe isn't built yet
 ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md#not-yet-as-the-original)).
 
 `reluva-tool tpw front-end-shot <game folder> <out.png> <frame>` draws
 a frame of the path; `reluva-tool tpw front-end-run <game folder>
-[seconds]` runs it headless, skipped so many seconds in (5) and left a
-second later, with a checksum of the screens, which the game-files test
-checks (`tpw.gamedata.frontend`).
+[seconds]` runs it headless, skipped so many seconds in (5), then the
+Personnel File's "Enter Game" clicked a second later, with a checksum
+of the screens, which the game-files test checks
+(`tpw.gamedata.frontend`).
 
 ## Sources and checks
 

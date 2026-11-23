@@ -12,6 +12,7 @@
 #include "engines/tpw/formats/md2.h"
 #include "engines/tpw/ui/model_view.h"
 #include "engines/tpw/ui/ride_run.h"
+#include "engines/tpw/ui/text.h"
 #include "engines/tpw/ui/world_view.h"
 #include "engines/tpw/formats/sam.h"
 #include "engines/tpw/formats/rse.h"
@@ -62,9 +63,6 @@ void fillRect(Surface &s, int x, int y, int w, int h, Color c);
 int drawLabel(Surface &s, int x, int y, const std::string &utf8, Color c);
 /** Draws a picture at (x, y), `zoom` screen pixels to one of its, over a grey check where it's clear. */
 void drawPicture(Surface &s, const image::Image &picture, int x, int y, int zoom);
-/** Text in a game font at (x, y), each of its codes in the language's character set; returns the x after it. */
-int drawGameText(Surface &s, const Font &font, const CharacterSet &characters, int x, int y, const std::string &utf8,
-                 Color c);
 
 /** A page of the viewer: a list of things, one shown at a time. */
 class Page {

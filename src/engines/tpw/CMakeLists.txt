@@ -18,6 +18,9 @@ reluva_add_engine(tpw
         ui/opening.cpp
         ui/ride_run.cpp
         ui/sky.cpp
+        ui/text.cpp
+        ui/ui_model.cpp
+        ui/personnel_file.cpp
         ui/world_view.cpp
         formats/animation.cpp
         formats/attribute_map.cpp

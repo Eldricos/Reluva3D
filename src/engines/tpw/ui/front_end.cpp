@@ -87,32 +87,29 @@ void FrontEndScene::draw(Surface &screen, soft3d::Rasterizer &rasterizer, float 
     drawMeshes(rasterizer, view, _model, true, defaultLight(), &transforms);
 }
 
-bool playFrontEnd(System &sys, const SearchSet &files) {
+bool playFrontEnd(System &sys, const SearchSet &files, Surface &last) {
+    last.create(kOpeningWidth, kOpeningHeight, PixelFormat::kRGBA32);
+    clear(last);
     FrontEndScene scene;
     if (scene.load(files))
         return true;
-    Surface screen;
-    screen.create(kOpeningWidth, kOpeningHeight, PixelFormat::kRGBA32);
     soft3d::Rasterizer rasterizer;
     const uint64_t start = sys.getMillis();
-    bool atEnd = false;
+    bool skipped = false;
     for (;;) {
         Event ev;
         while (sys.pollEvent(ev)) {
             if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                 return false;
-            if ((ev.type == EventType::kKeyDown && !ev.repeat) || ev.type == EventType::kMouseDown) {
-                // The first skips the path; one at its end goes on.
-                if (atEnd)
-                    return true;
-                atEnd = true;
-            }
+            if ((ev.type == EventType::kKeyDown && !ev.repeat) || ev.type == EventType::kMouseDown)
+                skipped = true;
         }
         const float played = float(sys.getMillis() - start) * Animation::kFramesPerSecond / 1000;
-        atEnd = atEnd || played >= scene.frames();
-        const float frame = atEnd ? scene.frames() : played;
-        scene.draw(screen, rasterizer, frame);
-        sys.updateScreen(screen);
+        const bool atEnd = skipped || played >= scene.frames();
+        scene.draw(last, rasterizer, atEnd ? scene.frames() : played);
+        sys.updateScreen(last);
+        if (atEnd)
+            return true;
         sys.delayMillis(kFrameMillis);
     }
 }

@@ -45,10 +45,11 @@ private:
  * The front end's opening, as the recording shows it: the camera's path
  * through the hall into the boardroom and down to the globe, at the
  * animation's rate; a key or a click skips to its end, as the game's skip
- * button does; then held on the globe until a key or a click. Left out
- * if the scene can't be read.
+ * button does. Left out if the scene can't be read.
+ * @param last Gets the screen it ends on (640 × 480, RGBA32), black
+ *     without the scene.
  * @return False if the window was closed (or the launcher asked for) meanwhile.
  */
-bool playFrontEnd(System &sys, const SearchSet &files);
+bool playFrontEnd(System &sys, const SearchSet &files, Surface &last);
 
 } // namespace reluva::tpw

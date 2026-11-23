@@ -1,0 +1,131 @@
+# SimCoaster: the Personnel File
+
+> **Status:** partial · **Code:** `src/engines/tpw/ui/personnel_file.cpp` · **Checked against:** a recording · **Confidence:** seen, not traced unless marked
+
+## Overview
+
+After the front end's opening ([front-end.md](front-end.md)), over the
+globe, the "SC Personnel File" window: four players' records on tabs,
+the one shown with its rank, shares and progress, and the buttons to go
+on. From 1:04 to 1:14 in the recording
+([research/footage.md](../research/footage.md#the-sc-personnel-file)).
+
+## How it works
+
+### What it shows
+
+For the player shown, on a ruled page:
+
+| Line | Left | Right |
+|---|---|---|
+| 1 | The rank, `PROMOTIONLEVELS.str`'s string (1 "Assistant Manager") | "Golden Tickets :" and their number |
+| 3 | "Shareholding % :" and the share of the company owned, whole per cent | "Share Price :" and "$ " with the price |
+| 4 | "Shares Owned :" and their number | "Portfolio Value :" and "$ " with the shares times the price |
+| 6 to 8 | Land of Invention, Polar Zone, Arabian Nights (`THEMENAMES.str` 0, 1 and 3), each "{1} of {2} challenges completed" or "Zone not yet opened" | |
+| 10 | "Current Objective :" and the mission (`OPERATION.str`), a comma, its world | |
+
+The labels are `UITEXT.str`'s strings 19 to 35 in `GAME8AA`, grey; the
+values in `PERSONNELFILESMALL`, a handwriting, blue; the title,
+`TITLEMED`, white. Then three buttons, "Enter Game", "Load A Game",
+"Delete Player" (`GAME8AA`), below the page "Quit Game" and "Coaster
+Design Kit" (`GAME8AA`, white, on blue), and a woman's portrait, the
+board's fifth (`mugshot5`): the personnel director, perhaps, as the
+fifth of the e-mail senders `Challenges.sam` lists is
+`EMAIL_FROM_HR_DIR` *(guessed)*. The
+tabs carry the players' names in `GAME7AA`; one without a name says
+"Enter name here" when shown and "New Player" when not.
+
+The window is drawn from the interface's flat models
+([ui-models.md](../formats/ui-models.md)).
+
+### A new player
+
+Every number comes from the settings:
+
+- the shares, from `levels/Standard.sam`: `ShareInfo.InitialSharesOwned`
+  1000 of `ShareInfo.CompanySharesIssued` 30000, 3 % shown, at
+  `ShareInfo.InitialSharePrice` 100: "$ 100000";
+- which worlds are open, from each world's `global.sam`:
+  `ParkInfo.AvailableFromStart` 1 for Land of Invention (`levels/science`)
+  only;
+- the challenges, 10 a world: `Challenges.sam` has 30, its comment
+  saying "First 10 are for NEW SCIENCE"; the other worlds ten each so
+  *(inferred)*;
+- the rank, 1 "Assistant Manager"; the objective, `OPERATION.str`'s
+  first, "Operation Expand!", in Land of Invention.
+
+These are the recording's numbers for its new player.
+
+### The screen's size
+
+The recording's words are the fonts' own widths at 640 × 480 (it was
+scaled to 960 × 720): "Shareholding % :" is 65 pixels in it, 66 in
+`GAME8AA`; "Assistant Manager" 115 in it and in `PERSONNELFILESMALL`;
+"SC Personnel File" 113 against `TITLEMED`'s 112. So the game ran at
+640 × 480 there.
+
+### Where things are
+
+Measured on the recording's frame at 1:06, at 640 × 480 (x, y from the
+top left):
+
+| What | Where |
+|---|---|
+| The window, with its shadow | (88, 23), 464 × 430 |
+| The title | at (124, 30) |
+| The tabs | from (137, 71), 94 × 32 each, side by side; the one shown over the page's edge |
+| The page | (122, 99) to (528, 380), its own model's place |
+| The labels | x 137 and 337; lines at y 134, 167, 184, 213, 229, 245 and 278: about 6 pixels above the ruled lines |
+| The values | x 251 and 451; 2 pixels up on the share lines, 1 down on the worlds' and the objective's, level on the rank's |
+| The three buttons | y 315, 112 × 26, at x 141, 269 and 397 |
+| The blue buttons | y 391, 145 × 32, at x 123 and 382, on plates |
+| The portrait | (573, 394), 49 × 46, on a plate at (568, 389) |
+
+### What the player can do
+
+Seen in the recording: a name typed onto the first tab (1:12); "Delete
+Player" asking "Are you sure you want to delete this player?" in a
+smaller window with a tick and a cross; a world chosen on the globe
+after "Enter Game" (1:14).
+
+## In Reluva
+
+`PersonnelFile` (`src/engines/tpw/ui/personnel_file.cpp`) reads its
+models, fonts, strings and a new player's record, and draws the window;
+`choosePlayer` runs it over the front end's last screen, after
+`playFrontEnd`, with four new players: the mouse lights a button
+(`filebuth`), a tab shows its player, typing names the one shown (as
+much as fits on its tab, backspace taking off), "Enter Game" goes on to
+the loading screen ([loading-screen.md](loading-screen.md)), "Quit Game"
+leaves. Not yet ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md#not-yet-as-the-original)):
+"Load A Game", "Delete Player" and the Coaster Design Kit do nothing;
+the players aren't kept from one run to the next; the globe behind
+isn't brought up close, as the game has it by then.
+
+`reluva-tool tpw personnel-shot <game folder> <out.png> [name]` draws
+it over the front end's globe; `reluva-tool tpw front-end-run` runs the
+front end headless into it and clicks "Enter Game", which the game-files
+test checks (`tpw.gamedata.frontend`). The unit tests (`tpw.unit.ui`)
+check each control is where it says.
+
+## Sources and checks
+
+- **Where the facts come from:** the recording's frames at 1:04 to
+  1:14; `UITEXT.str`, `PROMOTIONLEVELS.str`, `OPERATION.str`,
+  `THEMENAMES.str`; `levels/Standard.sam`, the worlds' `global.sam`,
+  `Challenges.sam`; the fonts' widths.
+- **How it was checked:** `personnel-shot` set beside the recording's
+  frame at 640 × 480: the page's ruled lines within a pixel, the rows
+  of words within a pixel or two, the buttons and tabs where the
+  recording has them.
+
+## Open questions
+
+- Where the game keeps its players, and what a played player's file
+  shows (golden tickets, promotions, the share price as it moves).
+- What "Load A Game" and "Delete Player" show; the Coaster Design Kit.
+- How long a name can be.
+- Why the values' rows sit differently against their labels; the blue
+  buttons' shade ([ui-models.md](../formats/ui-models.md#open-questions)).
+- Whether the game says what world a challenge is in, rather than
+  counting ten a world.

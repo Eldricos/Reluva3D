@@ -3,8 +3,8 @@
 
 // Theme Park World: the engine's MetaEngine (its name, the releases it recognises,
 // making an Engine to run one) and its Engine. So far it recognises
-// SimCoaster, plays its opening and the front end's, and shows its loading
-// screen.
+// SimCoaster, plays its opening and the front end's, shows the Personnel
+// File, then its loading screen.
 
 #include "audio/mixer.h"
 #include "common/settings.h"
@@ -14,6 +14,7 @@
 #include "engines/tpw/ui/front_end.h"
 #include "engines/tpw/ui/loading_screen.h"
 #include "engines/tpw/ui/opening.h"
+#include "engines/tpw/ui/personnel_file.h"
 #include "image/image.h"
 
 #include <algorithm>
@@ -24,8 +25,8 @@ namespace reluva::tpw {
 namespace {
 
 /**
- * The game running: for now its opening and the front end's, then its
- * loading screen until the player quits.
+ * The game running: for now its opening and the front end's, the
+ * Personnel File, then its loading screen until the player quits.
  */
 class TpwEngine : public Engine {
 public:
@@ -51,11 +52,13 @@ public:
                     sys.stopAudio();
             }
         } audioOff{_sys, audioOut};
-        if (!playOpening(_sys, audioOut ? &mixer : nullptr, _target.path, files) || !playFrontEnd(_sys, files))
+        Surface frontEnd;
+        if (!playOpening(_sys, audioOut ? &mixer : nullptr, _target.path, files) ||
+            !playFrontEnd(_sys, files, frontEnd) || !choosePlayer(_sys, files, frontEnd))
             return Error::success();
 
-        // What the game shows while a park loads; the rest of the front end,
-        // the Personnel File and choosing a world, isn't built yet.
+        // What the game shows while a park loads; choosing a world, between,
+        // isn't built yet.
         Surface screen;
         screen.create(kWidth, kHeight, PixelFormat::kRGBA32);
         image::Image loading;

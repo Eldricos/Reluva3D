@@ -35,6 +35,13 @@ None yet.
   keeps time with the recording, its doors opening and its globe rising
   when the recording's do
   ([md2-animation.md](formats/md2-animation.md#how-fast)).
+- **Ten challenges a world**: `Challenges.sam` says so of its first ten
+  only; the Personnel File counts ten for each world
+  ([personnel-file.md](systems/personnel-file.md#a-new-player)).
+  Winning a challenge in another world would settle it.
+- **The interface's templates are stretched with their edges kept**:
+  drawn so, the Personnel File matches the recording
+  ([ui-models.md](formats/ui-models.md#stretching)).
 - **Which level folder is which world**: `science` Land of Invention,
   `water` Polar Zone, `wIntro` Intro World, `arabian` Arabian Nights, from
   the string table's order and `Objects.txt`'s themes
@@ -49,6 +56,10 @@ None yet.
   spelt two ways ([sam.md](formats/sam.md#a-setting)).
 
 ## Guessed
+
+- **The Personnel File's portrait is the personnel director's**: the
+  board's fifth, as `EMAIL_FROM_HR_DIR` is the fifth sender
+  ([personnel-file.md](systems/personnel-file.md#what-it-shows)).
 
 - **Where a release's Bullfrog logos go on the loading screen**: over
   the scene's QSound logo, at the bottom left
