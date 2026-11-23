@@ -21,7 +21,7 @@ nesting is 49 levels.
 
 Not every `.txt` is an object: `Credits.txt` and the ten
 `Levels/Mission NN/NN Voice Script.txt` are text of their own kinds
-([Open questions](#open-questions)).
+([below](#text-files-that-arent-objects)).
 
 ## Layout
 
@@ -129,10 +129,17 @@ In `Star Trek.exe`: `0x40d9f0` reads an object, `0x40d8c0` writes one.
   and without counts, spaces at values' ends, lines without `=`, LF and
   CRLF, and text that isn't an object.
 
+## Text files that aren't objects
+
+- **`Credits.txt`** has `//` comments and lines to centre: it's read by
+  the credits' own reader ([menus.md](../systems/menus.md)). Each `NN
+  Voice Script.txt` has `*Speaker*` lines then `:Label` and text, as
+  `.RDS` files do, and the game never reads them: under `Levels` it
+  looks only for maps (`.zax`, `0x4f7648`), missions (`.MDS`,
+  `0x507830`), scripts (`.RDS`, `0x4f60b3`), sounds (`0x4f609d`) and
+  minimaps (`0x5c5df6`), and no name of a voice script is in the
+  program. They look like the script the voices were recorded from.
+
 ## Open questions
 
-- **`Credits.txt` and the voice scripts.** `Credits.txt` has `//` comments
-  and lines to centre; each `NN Voice Script.txt` has `*Speaker*` lines
-  then `:Label` and text, as `.RDS` files do. Whether the game reads the
-  voice scripts at all isn't known: they look like the script the voices
-  were recorded from.
+None now.
