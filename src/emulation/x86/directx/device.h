@@ -384,7 +384,8 @@ private:
     void point(const ClipVertex &a);
     ClipVertex project(const ClipVertex &v) const;
     TriangleSetup setup() const;
-    GpuRaster *gpu() const; // with DirectX::DrawThreads::kGpu, if there's a GPU
+    GpuRaster *gpu() const;                // with DirectX::DrawThreads::kGpu, if there's a GPU
+    DirectX::DrawThreads drawMode() const; // DirectX::drawThreads, kGpu only if there's a GPU
     bool drawOnGpu(const Draw &d, const std::vector<std::array<ClipVertex, 3>> &triangles);
     void drawTriangles(uint32_t primitive, std::vector<ClipVertex> vertices, std::vector<uint32_t> order);
     const DecodedTexture *texture(int stage);

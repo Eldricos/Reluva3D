@@ -127,10 +127,11 @@ With `DirectX::DrawThreads::kGpu`, triangles are drawn on the GPU by the
 software rasterizer's own rules (`dx::GpuRaster`, `directx/gpu_raster.cpp`,
 `directx/shaders/rasterize.comp`), as the Glide stand-in's GPU backend
 does ([glide.md](../graphics/glide.md#the-gpu-backend)), through
-`gfx::Compute` on a GPU device of its own; where there's none, they're
-drawn as with one thread. Nothing uses it yet but the tests and
-`reluva-tool legoisland run -gpu`: it's the first step of drawing LEGO
-Island's 3D on the GPU.
+`gfx::Compute` on a GPU device of its own. Where there's none, the first
+draw finds out, says so in the process's output (as it names the GPU when
+there is one), and `drawThreads` becomes `kAuto`. LEGO Island uses it when
+its *3D drawn by* setting is *The GPU*; `reluva-tool legoisland run -gpu`
+does too.
 
 - **Set-up on the CPU, as the software one does it** (`Draw::rasterize`'s
   own steps, in doubles): each triangle's pixels on each row, exactly, so

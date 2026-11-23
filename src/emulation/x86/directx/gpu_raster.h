@@ -37,6 +37,8 @@ public:
      */
     static std::unique_ptr<GpuRaster> create(std::string &error);
     ~GpuRaster();
+    /** The GPU and driver doing the work. */
+    std::string deviceName() const { return _gpu->deviceName(); }
 
     /**
      * Whether it can draw `d`'s pixels: a 16-bit 565 or 32-bit X888 target,

@@ -823,6 +823,11 @@ GpuRaster *Device::gpu() const {
     return s->owner.drawThreads == DirectX::DrawThreads::kGpu ? s->gpuRaster() : nullptr;
 }
 
+DirectX::DrawThreads Device::drawMode() const {
+    gpu(); // without a GPU, kGpu becomes kAuto
+    return s->owner.drawThreads;
+}
+
 // On the GPU, if it can draw `d`: else what's waiting there first, then
 // here and now.
 bool Device::drawOnGpu(const Draw &d, const std::vector<std::array<ClipVertex, 3>> &triangles) {
@@ -871,7 +876,7 @@ void Device::drawBatch() {
         const auto [y0, y1] = std::minmax({t[0].y, t[1].y, t[2].y});
         area += double(x1 - x0) * double(y1 - y0);
     }
-    const DirectX::DrawThreads mode = s->owner.drawThreads;
+    const DirectX::DrawThreads mode = drawMode();
     std::vector<DrawQueue::Job> job;
     job.push_back({current(), std::move(_batch), area});
     _batch.clear();
@@ -892,7 +897,7 @@ void Device::drawBatch() {
 // DirectX::DrawThreads::kOne, here and now.
 void Device::drawTriangles(uint32_t primitive, std::vector<ClipVertex> vertices, std::vector<uint32_t> order) {
     drawBatch();
-    const DirectX::DrawThreads mode = s->owner.drawThreads;
+    const DirectX::DrawThreads mode = drawMode();
     if (mode == DirectX::DrawThreads::kGpu) { // set up here, for the GPU
         std::vector<std::array<ClipVertex, 3>> triangles;
         setup().addRange(primitive, vertices, order, 0, TriangleSetup::count(primitive, order.size()), triangles);
@@ -2043,7 +2048,7 @@ void Device::clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t colo
 }
 
 void Device::queueRows(std::function<void(int band, int bands)> rows, double area) {
-    const DirectX::DrawThreads mode = s->owner.drawThreads;
+    const DirectX::DrawThreads mode = drawMode();
     if (GpuRaster *g = gpu())
         g->sync(); // what's drawn there first
     if (mode == DirectX::DrawThreads::kOne || mode == DirectX::DrawThreads::kGpu) {

@@ -408,7 +408,8 @@ struct DirectX::State {
     std::shared_ptr<dx::DirectDraw> directDraw;
     /**
      * With DirectX::DrawThreads::kGpu, the GPU drawing the devices'
-     * triangles: made when first wanted; null if there's no GPU.
+     * triangles: made when first wanted; null if there's no GPU, when
+     * DirectX::drawThreads becomes kAuto.
      */
     dx::GpuRaster *gpuRaster();
     std::shared_ptr<dx::GpuRaster> gpu; // (shared: its type is gpu_raster.h's)

@@ -750,6 +750,12 @@ dx::GpuRaster *DirectX::State::gpuRaster() {
         gpuTried = true;
         std::string error;
         gpu = dx::GpuRaster::create(error);
+        // Said in the program's output, so a player can tell which draws.
+        if (process.output)
+            process.output(gpu ? "Reluva: drawing 3D on the GPU (" + gpu->deviceName() + ")"
+                               : "Reluva: no GPU to draw 3D on (" + error + "), so the processor draws it");
+        if (!gpu)
+            owner.drawThreads = DirectX::DrawThreads::kAuto;
     }
     return gpu.get();
 }
