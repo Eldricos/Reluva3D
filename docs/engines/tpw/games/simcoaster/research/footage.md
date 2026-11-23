@@ -32,9 +32,9 @@ picture-dump` and set beside the frames.
 | 3.73 s | 7.22 s | The EA GAMES logo, its ring turning, on grey: a movie, with sound. One of `Data/movies/bf.tgq` and `bfSim.tgq` *(guessed: both last 3.24 s)* |
 | 7.22 s | 7.83 s | The Bullfrog logo, black on white: `Data/Init/<width>/Splash_American.png`, as it is. Only 0.6 s: perhaps clicked past |
 | 7.83 s | 1:04 | The front end's opening, drawn in the game's 3D engine (below) |
-| 1:04 | 1:14 | The "SC Personnel File" window |
-| 1:14 | 1:23 | The globe turning; a world clicked |
-| 1:23 | 1:34 | The loading screen |
+| 1:04 | 1:22 | The "SC Personnel File" window: a player deleted, another named, "Enter Game" |
+| 1:22 | 1:25.7 | A world clicked on the globe, turned to the camera, the camera flown to its gate, "- PLEASE WAIT -" |
+| 1:25.7 | 1:34 | The loading screen |
 | 1:34 | 1:50 | The camera flown along the road into the park, to its gates |
 | 1:50 | | The mission's briefing, "Operation Expand!", then play |
 
@@ -97,7 +97,7 @@ Nights" (the Theme Park World themes they replace). So the folders are
 
 ## The loading screen
 
-1:23 to 1:34, a still picture: children on a roller coaster car in front
+1:25.7 to 1:34, a still picture: children on a roller coaster car in front
 of a Ferris wheel, a share-price graph and a banknote on the right. On
 it:
 

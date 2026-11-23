@@ -22,19 +22,20 @@ None yet.
   of its 250): their boxes are, not their pixels
   ([bf4.md](formats/bf4.md#the-pixels)).
 - **Little of the game runs yet:** Reluva recognises the install, plays
-  its opening and the front end's camera path, shows the Personnel
-  File, and then its loading screen, which the game shows later, when a park loads: the rest of the
-  front end between isn't built ([PLAN.md](PLAN.md#phases),
+  its opening and its front end to a world chosen, then shows its
+  loading screen: the park after it isn't built ([PLAN.md](PLAN.md#phases),
   [loading-screen.md](systems/loading-screen.md)).
 - **The front end's opening** lacks its effects (the sparkles, the beam,
-  the ring of light), the advisor's portrait and the skip button; a key
-  or a click skips it, another leaves the globe, which doesn't turn
+  the ring of light, the lit hole in the table), the advisor's portrait
+  and the skip button; a key or a click skips it
   ([front-end.md](systems/front-end.md#in-reluva)).
 - **The Personnel File** starts with four new players every time and
   keeps none; "Load A Game", "Delete Player" and the Coaster Design Kit
-  do nothing; the globe behind it isn't brought up close; its blue
-  buttons are lighter than the game's
+  do nothing; its blue buttons are lighter than the game's
   ([personnel-file.md](systems/personnel-file.md#in-reluva)).
+- **On the globe**, a world under the pointer shows nothing, and the
+  chosen world turns to the camera the shorter way round, guesses
+  ([globe.md](systems/globe.md#in-reluva)).
 - **The opening's logo movie** plays to its last frame (5.4 s, its last
   2 s silent), where the game may stop it with its sound; its colours
   are BT.601's, brighter than the game's; the splash after it stays 3

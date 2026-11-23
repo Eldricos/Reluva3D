@@ -50,7 +50,7 @@ With your own copy, installed or imported from the CD:
 | `scripts` | Every ride and shop script read, and run for a simulated minute with guests; a checksum of their disassembly and of what each asked of the game (`reluva-tool tpw rse-check`) |
 | `viewer` | The data viewer, headless: every page, a few keys on each, then Esc; its titles and a checksum of its screens (`reluva-tool tpw viewer-run`) |
 | `opening` | The opening run headless, by a clock that moves only as it waits: the screens shown and when it ended (`reluva-tool tpw opening-run`) |
-| `frontend` | The front end run headless: its opening skipped 5 s in, the Personnel File's "Enter Game" clicked a second later; the screens shown, with a checksum of them (`reluva-tool tpw front-end-run`) |
+| `frontend` | The front end run headless: its opening skipped 5 s in, the Personnel File's "Enter Game" clicked a second later, then Land of Invention on the globe; the screens shown, the world chosen, with a checksum of the screens (`reluva-tool tpw front-end-run`) |
 
 The installed folder and one imported from the CD pass against the same
 records. A baseline of your own is made as

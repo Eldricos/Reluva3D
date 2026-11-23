@@ -42,6 +42,11 @@ None yet.
 - **The interface's templates are stretched with their edges kept**:
   drawn so, the Personnel File matches the recording
   ([ui-models.md](formats/ui-models.md#stretching)).
+- **How many frames an animated texture has**: its names are read in
+  runs of a stem and its numbers; read so, every model's names add up
+  ([md2.md](formats/md2.md#the-textures)).
+- **The globe's close view and timings**, measured on the recording
+  ([globe.md](systems/globe.md#turning)).
 - **Which level folder is which world**: `science` Land of Invention,
   `water` Polar Zone, `wIntro` Intro World, `arabian` Arabian Nights, from
   the string table's order and `Objects.txt`'s themes

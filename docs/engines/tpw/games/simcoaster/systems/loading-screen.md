@@ -33,7 +33,7 @@ the game's files are matched without regard to it.
 
 ### The loading screen
 
-From 1:23 to 1:34 in the recording
+From 1:25.7 to 1:34 in the recording
 ([research/footage.md](../research/footage.md#the-loading-screen)),
 after a world is chosen and before the park appears: the scene, the
 logo over its top left corner, the legal text over its bottom right.

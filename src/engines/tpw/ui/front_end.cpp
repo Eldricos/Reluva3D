@@ -80,19 +80,23 @@ soft3d::OrbitCamera FrontEndScene::camera(float frame, int w, int h) const {
 }
 
 void FrontEndScene::draw(Surface &screen, soft3d::Rasterizer &rasterizer, float frame) const {
-    clear(screen);
-    const soft3d::OrbitCamera view = camera(frame, screen.w, screen.h);
-    rasterizer.begin(screen);
-    const std::vector<gfx::Mat4> transforms = meshTransforms(_model, _animation, frame);
-    drawMeshes(rasterizer, view, _model, true, defaultLight(), &transforms);
+    draw(screen, rasterizer, camera(frame, screen.w, screen.h), meshTransforms(frame));
 }
 
-bool playFrontEnd(System &sys, const SearchSet &files, Surface &last) {
-    last.create(kOpeningWidth, kOpeningHeight, PixelFormat::kRGBA32);
-    clear(last);
-    FrontEndScene scene;
-    if (scene.load(files))
-        return true;
+std::vector<gfx::Mat4> FrontEndScene::meshTransforms(float frame) const {
+    return tpw::meshTransforms(_model, _animation, frame);
+}
+
+void FrontEndScene::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera,
+                         const std::vector<gfx::Mat4> &transforms) const {
+    clear(screen);
+    rasterizer.begin(screen);
+    drawMeshes(rasterizer, camera, _model, true, defaultLight(), &transforms);
+}
+
+bool playFrontEnd(System &sys, const FrontEndScene &scene) {
+    Surface screen;
+    screen.create(kOpeningWidth, kOpeningHeight, PixelFormat::kRGBA32);
     soft3d::Rasterizer rasterizer;
     const uint64_t start = sys.getMillis();
     bool skipped = false;
@@ -105,11 +109,10 @@ bool playFrontEnd(System &sys, const SearchSet &files, Surface &last) {
                 skipped = true;
         }
         const float played = float(sys.getMillis() - start) * Animation::kFramesPerSecond / 1000;
-        const bool atEnd = skipped || played >= scene.frames();
-        scene.draw(last, rasterizer, atEnd ? scene.frames() : played);
-        sys.updateScreen(last);
-        if (atEnd)
+        if (skipped || played >= scene.frames())
             return true;
+        scene.draw(screen, rasterizer, played);
+        sys.updateScreen(screen);
         sys.delayMillis(kFrameMillis);
     }
 }

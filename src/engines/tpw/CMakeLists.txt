@@ -13,7 +13,9 @@ reluva_add_engine(tpw
         script/machine.cpp
         script/simulated_host.cpp
         ui/front_end.cpp
+        ui/globe.cpp
         ui/loading_screen.cpp
+        ui/main_menu.cpp
         ui/model_view.cpp
         ui/opening.cpp
         ui/ride_run.cpp

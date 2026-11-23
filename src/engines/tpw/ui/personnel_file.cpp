@@ -51,6 +51,8 @@ constexpr size_t kPortraitMesh = 4;    // mugshot5.tga
 
 // How long a screen waits for the next, in milliseconds.
 constexpr uint32_t kFrameMillis = 40;
+constexpr int kScreenWidth = 640;
+constexpr int kScreenHeight = 480;
 
 // The places, in pixels.
 constexpr ScreenRect kWindow{88, 23, 464, 430}; // its shadow too, 8 pixels left and below
@@ -303,10 +305,12 @@ void PersonnelFile::type(PlayerFile &player, const std::string &utf8) const {
     }
 }
 
-bool choosePlayer(System &sys, const SearchSet &files, const Surface &background) {
+bool choosePlayer(System &sys, const SearchSet &files, const Backdrop &backdrop, PlayerFile &chosen) {
     PersonnelFile file;
-    if (file.load(files))
+    if (file.load(files)) {
+        chosen = {};
         return true;
+    }
     std::array<PlayerFile, PersonnelFile::kPlayers> players;
     players.fill(file.newPlayer());
     int selected = 0;
@@ -317,7 +321,7 @@ bool choosePlayer(System &sys, const SearchSet &files, const Surface &background
         ~TextInput() { sys.setTextInput(false); }
     } typing(sys);
     Surface screen;
-    screen.create(background.w, background.h, PixelFormat::kRGBA32);
+    screen.create(kScreenWidth, kScreenHeight, PixelFormat::kRGBA32);
     for (;;) {
         Event ev;
         while (sys.pollEvent(ev)) {
@@ -332,8 +336,10 @@ bool choosePlayer(System &sys, const SearchSet &files, const Surface &background
                 if (ev.button != MouseButton::kLeft)
                     break;
                 const PersonnelFile::Control c = PersonnelFile::controlAt(ev.mouseX, ev.mouseY);
-                if (c == PersonnelFile::Control::kEnterGame)
+                if (c == PersonnelFile::Control::kEnterGame) {
+                    chosen = players[size_t(selected)];
                     return true;
+                }
                 if (c == PersonnelFile::Control::kQuitGame)
                     return false;
                 if (c >= PersonnelFile::Control::kTab0 && c <= PersonnelFile::Control::kTab3)
@@ -351,7 +357,7 @@ bool choosePlayer(System &sys, const SearchSet &files, const Surface &background
                 break;
             }
         }
-        screen.pixels = background.pixels;
+        backdrop(screen);
         file.draw(screen, players, selected, hovered);
         sys.updateScreen(screen);
         sys.delayMillis(kFrameMillis);

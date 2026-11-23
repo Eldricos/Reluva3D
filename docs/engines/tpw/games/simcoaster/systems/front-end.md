@@ -78,16 +78,17 @@ path's model and its main animation and draws it, through `Camera01`
 posed at a frame, as the viewer draws models
 ([md2.md](../formats/md2.md#in-reluva)). `playFrontEnd` plays the path
 after the opening at 25 frames a second; a key or a click skips to its
-end, as the game's skip button does. Then the Personnel File, over its
-last screen ([personnel-file.md](personnel-file.md)); choosing a world
-on the globe isn't built yet
-([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md#not-yet-as-the-original)).
+end, as the game's skip button does. Then the Personnel File
+([personnel-file.md](personnel-file.md)) over the globe turning, and
+choosing a world on it ([globe.md](globe.md)); `runFrontEnd`
+(`src/engines/tpw/ui/main_menu.cpp`) runs them in turn.
 
 `reluva-tool tpw front-end-shot <game folder> <out.png> <frame>` draws
 a frame of the path; `reluva-tool tpw front-end-run <game folder>
-[seconds]` runs it headless, skipped so many seconds in (5), then the
-Personnel File's "Enter Game" clicked a second later, with a checksum
-of the screens, which the game-files test checks
+[seconds] [-shots <folder>]` runs the whole front end headless: the
+path skipped so many seconds in (5), the Personnel File's "Enter Game"
+clicked a second later, Land of Invention on the globe a second after
+that; with a checksum of the screens, which the game-files test checks
 (`tpw.gamedata.frontend`).
 
 ## Sources and checks
@@ -107,6 +108,4 @@ of the screens, which the game-files test checks
   hole in the table; what the script's events and objects are.
 - When the game triggers the script, and how the advisor's speech
   follows `VAR_SPEECHSTATUS`.
-- How the game turns the globe after the path, and what the player can
-  do there.
 - The camera's field of view, measured rather than read from the files.

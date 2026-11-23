@@ -12,6 +12,7 @@
 #include "engines/tpw/ui/ui_model.h"
 
 #include <array>
+#include <functional>
 #include <string>
 
 namespace reluva::tpw {
@@ -109,14 +110,19 @@ private:
     PlayerFile _newPlayer;
 };
 
+/** Draws what's behind the Personnel File onto a 640 × 480 RGBA32 screen, as it is at the time. */
+using Backdrop = std::function<void(Surface &screen)>;
+
 /**
- * The Personnel File over `background` (640 × 480, RGBA32), four new
- * players, the first shown: the mouse lights the buttons, a tab shows its
- * player, typing names the one shown, "Enter Game" goes on, "Quit Game"
- * leaves. Without its pieces, goes on at once.
+ * The Personnel File over `backdrop`, four new players, the first shown:
+ * the mouse lights the buttons, a tab shows its player, typing names the
+ * one shown, "Enter Game" goes on with the player shown, "Quit Game"
+ * leaves. Without its pieces, goes on at once with a new player's record
+ * as the settings give it, or an empty one.
+ * @param chosen Gets the player shown when "Enter Game" is clicked.
  * @return True to go on into the game; false to leave it, or if the
  *     window was closed (or the launcher asked for).
  */
-bool choosePlayer(System &sys, const SearchSet &files, const Surface &background);
+bool choosePlayer(System &sys, const SearchSet &files, const Backdrop &backdrop, PlayerFile &chosen);
 
 } // namespace reluva::tpw

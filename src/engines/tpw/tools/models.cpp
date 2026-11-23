@@ -13,6 +13,8 @@
 #include "engines/tpw/formats/md2.h"
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/ui/front_end.h"
+#include "engines/tpw/ui/globe.h"
+#include "engines/tpw/ui/main_menu.h"
 #include "engines/tpw/ui/model_view.h"
 #include "engines/tpw/ui/personnel_file.h"
 #include "engines/tpw/ui/ride_run.h"
@@ -456,11 +458,12 @@ int cmdFrontEndShot(int argc, char **argv) {
 }
 
 // The front end run headless, by a clock that moves only as it waits: its
-// camera's path skipped `seconds` in, then the Personnel File's "Enter
-// Game" clicked a second later.
+// camera's path skipped `seconds` in, the Personnel File's "Enter Game"
+// clicked a second later, then a world on the globe a second after that,
+// at the screen's middle, below the globe's.
 int cmdFrontEndRun(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool tpw front-end-run <game folder> [seconds]\n");
+        std::fprintf(stderr, "usage: reluva-tool tpw front-end-run <game folder> [seconds] [-shots <folder>]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -474,37 +477,60 @@ int cmdFrontEndRun(int argc, char **argv) {
         int shown = 0;
         uint64_t keyAt = 0;
         int sent = 0;
+        std::string shots; // a folder for every tenth screen, if given
         void updateScreen(const reluva::Surface &s) override {
             HeadlessSystem::updateScreen(s);
             all.update(s.pixels.data(), s.pixels.size());
+            if (!shots.empty() && shown % 10 == 0) {
+                char name[32];
+                std::snprintf(name, sizeof name, "/%05d.png", shown);
+                writePng(s, (shots + name).c_str());
+            }
             ++shown;
         }
         bool pollEvent(reluva::Event &ev) override {
-            if (sent >= 2 || getMillis() < keyAt + uint64_t(sent) * 1000)
-                return false;
             ev = reluva::Event{};
-            if (sent++ == 0) {
+            // Left alone too long, it closes the window.
+            if (getMillis() > keyAt + 60000) {
+                ev.type = reluva::EventType::kQuit;
+                return true;
+            }
+            if (sent >= 3 || getMillis() < keyAt + uint64_t(sent) * 1000)
+                return false;
+            switch (sent++) {
+            case 0:
                 ev.type = reluva::EventType::kKeyDown;
                 ev.key = reluva::key::kSpace;
                 return true;
+            case 1: {
+                const reluva::tpw::ScreenRect enter =
+                    reluva::tpw::PersonnelFile::placeOf(reluva::tpw::PersonnelFile::Control::kEnterGame);
+                ev.mouseX = enter.x + enter.w / 2;
+                ev.mouseY = enter.y + enter.h / 2;
+                break;
             }
-            const reluva::tpw::ScreenRect enter =
-                reluva::tpw::PersonnelFile::placeOf(reluva::tpw::PersonnelFile::Control::kEnterGame);
+            default:
+                ev.mouseX = 320;
+                ev.mouseY = 330;
+                break;
+            }
             ev.type = reluva::EventType::kMouseDown;
             ev.button = reluva::MouseButton::kLeft;
-            ev.mouseX = enter.x + enter.w / 2;
-            ev.mouseY = enter.y + enter.h / 2;
             return true;
         }
     } sys;
-    sys.keyAt = uint64_t((argc > 3 ? std::strtof(argv[3], nullptr) : 5) * 1000);
-    reluva::Surface last;
-    const bool path = reluva::tpw::playFrontEnd(sys, files, last);
-    const bool chosen = path && reluva::tpw::choosePlayer(sys, files, last);
-    std::printf("front end: %d screens shown, ended at %llu ms%s; md5 %s\n", sys.shown,
-                static_cast<unsigned long long>(sys.getMillis()), chosen ? ", into the game" : ", left",
-                sys.all.hexDigest().c_str());
-    return 0;
+    float seconds = 5;
+    for (int i = 3; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-shots") == 0 && i + 1 < argc)
+            sys.shots = argv[++i];
+        else
+            seconds = std::strtof(argv[i], nullptr);
+    }
+    sys.keyAt = uint64_t(seconds * 1000);
+    const int world = reluva::tpw::runFrontEnd(sys, files);
+    std::printf("front end: %d screens shown, ended at %llu ms, world %d; md5 %s\n", sys.shown,
+                static_cast<unsigned long long>(sys.getMillis()), world, sys.all.hexDigest().c_str());
+    return world < 0 ? 1 : 0;
 }
 
 // The Personnel File over the front end's globe, as a PNG: four new
@@ -542,6 +568,47 @@ int cmdPersonnelShot(int argc, char **argv) {
     return 0;
 }
 
+// The front end's globe turned by so many degrees, seen from the close
+// view (or `approach` of the way to it from the path's end), as a PNG; with
+// a world, from `gate` of the way down to its gate.
+int cmdGlobeShot(int argc, char **argv) {
+    if (argc < 5) {
+        std::fprintf(stderr, "usage: reluva-tool tpw globe-shot <game folder> <out.png> <degrees> [approach] "
+                             "[world gate]\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    std::vector<std::string> warnings;
+    if (reluva::Error err = reluva::tpw::mountGame(files, argv[2], warnings)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    reluva::tpw::FrontEndScene scene;
+    reluva::tpw::Globe globe;
+    reluva::Error err = scene.load(files);
+    if (!err)
+        err = globe.load(scene);
+    if (err) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    const float turn = std::strtof(argv[4], nullptr) * 3.14159265f / 180;
+    const float approach = argc > 5 ? std::strtof(argv[5], nullptr) : 1;
+    reluva::soft3d::OrbitCamera camera = globe.camera(approach, 640, 480);
+    if (argc > 7)
+        camera = globe.cameraToGate(std::atoi(argv[6]), turn, std::strtof(argv[7], nullptr), 640, 480);
+    reluva::Surface screen;
+    screen.create(640, 480, reluva::PixelFormat::kRGBA32);
+    reluva::soft3d::Rasterizer rasterizer;
+    globe.draw(screen, rasterizer, camera, turn);
+    writePng(screen, argv[3]);
+    for (int w = 0; w < reluva::tpw::Globe::kWorlds; ++w)
+        std::printf("world %d faces the camera at %.0f degrees\n", w,
+                    double(std::remainder(globe.facing(w), 2 * 3.14159265f)) * 180 / 3.14159265);
+    std::printf("world at the middle: %d\n", globe.worldAt(320, 240, camera, turn, 640, 480));
+    return 0;
+}
+
 const Commands kCommands(
     "tpw",
     {
@@ -556,9 +623,12 @@ const Commands kCommands(
          "draw the front end's scene through its camera at a frame of its path, to a PNG", cmdFrontEndShot},
         {"personnel-shot", "<game folder> <out.png> [name]",
          "draw the Personnel File over the front end's globe, four new players, to a PNG", cmdPersonnelShot},
-        {"front-end-run", "<game folder> [seconds]",
-         "run the front end headless: its path skipped so many seconds in (5), then the Personnel File's Enter Game "
-         "clicked",
+        {"globe-shot", "<game folder> <out.png> <degrees> [approach] [world gate]",
+         "draw the front end's globe turned, from the close view or on the way to it or to a gate, to a PNG",
+         cmdGlobeShot},
+        {"front-end-run", "<game folder> [seconds] [-shots <folder>]",
+         "run the front end headless: its path skipped so many seconds in (5), the Personnel File's Enter Game "
+         "clicked, then a world",
          cmdFrontEndRun},
     });
 

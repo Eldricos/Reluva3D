@@ -10,6 +10,8 @@
 #include "graphics/soft3d/rasterizer.h"
 #include "graphics/soft3d/view3d.h"
 
+#include <vector>
+
 namespace reluva::tpw {
 
 /**
@@ -35,6 +37,13 @@ public:
     /** Draws the scene at `frame` over the whole of an RGBA32 surface. */
     void draw(Surface &screen, soft3d::Rasterizer &rasterizer, float frame) const;
 
+    /** Each mesh's place at `frame` of the animation (meshTransforms'). */
+    std::vector<gfx::Mat4> meshTransforms(float frame) const;
+
+    /** Draws the scene over the whole of an RGBA32 surface, its meshes at `transforms`, through `camera`. */
+    void draw(Surface &screen, soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera,
+              const std::vector<gfx::Mat4> &transforms) const;
+
 private:
     LoadedModel _model;
     int _animation = -1; // in _model.animations
@@ -45,11 +54,9 @@ private:
  * The front end's opening, as the recording shows it: the camera's path
  * through the hall into the boardroom and down to the globe, at the
  * animation's rate; a key or a click skips to its end, as the game's skip
- * button does. Left out if the scene can't be read.
- * @param last Gets the screen it ends on (640 × 480, RGBA32), black
- *     without the scene.
+ * button does.
  * @return False if the window was closed (or the launcher asked for) meanwhile.
  */
-bool playFrontEnd(System &sys, const SearchSet &files, Surface &last);
+bool playFrontEnd(System &sys, const FrontEndScene &scene);
 
 } // namespace reluva::tpw

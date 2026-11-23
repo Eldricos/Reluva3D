@@ -7,7 +7,7 @@
 After the front end's opening ([front-end.md](front-end.md)), over the
 globe, the "SC Personnel File" window: four players' records on tabs,
 the one shown with its rank, shares and progress, and the buttons to go
-on. From 1:04 to 1:14 in the recording
+on. From 1:04 to 1:22 in the recording
 ([research/footage.md](../research/footage.md#the-sc-personnel-file)).
 
 ## How it works
@@ -86,32 +86,32 @@ top left):
 Seen in the recording: a name typed onto the first tab (1:12); "Delete
 Player" asking "Are you sure you want to delete this player?" in a
 smaller window with a tick and a cross; a world chosen on the globe
-after "Enter Game" (1:14).
+after "Enter Game" (1:22; [globe.md](globe.md)).
 
 ## In Reluva
 
 `PersonnelFile` (`src/engines/tpw/ui/personnel_file.cpp`) reads its
 models, fonts, strings and a new player's record, and draws the window;
-`choosePlayer` runs it over the front end's last screen, after
-`playFrontEnd`, with four new players: the mouse lights a button
-(`filebuth`), a tab shows its player, typing names the one shown (as
-much as fits on its tab, backspace taking off), "Enter Game" goes on to
-the loading screen ([loading-screen.md](loading-screen.md)), "Quit Game"
-leaves. Not yet ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md#not-yet-as-the-original)):
+`choosePlayer` runs it after the camera's path, over the globe coming
+up close and turning ([globe.md](globe.md)), with four new players: the
+mouse lights a button (`filebuth`), a tab shows its player, typing
+names the one shown (as much as fits on its tab, backspace taking off),
+"Enter Game" goes on to choosing a world on the globe with the player
+shown, "Quit Game" leaves. Not yet
+([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md#not-yet-as-the-original)):
 "Load A Game", "Delete Player" and the Coaster Design Kit do nothing;
-the players aren't kept from one run to the next; the globe behind
-isn't brought up close, as the game has it by then.
+the players aren't kept from one run to the next.
 
 `reluva-tool tpw personnel-shot <game folder> <out.png> [name]` draws
 it over the front end's globe; `reluva-tool tpw front-end-run` runs the
-front end headless into it and clicks "Enter Game", which the game-files
-test checks (`tpw.gamedata.frontend`). The unit tests (`tpw.unit.ui`)
+front end headless through it, clicking "Enter Game", which the
+game-files test checks (`tpw.gamedata.frontend`). The unit tests (`tpw.unit.ui`)
 check each control is where it says.
 
 ## Sources and checks
 
 - **Where the facts come from:** the recording's frames at 1:04 to
-  1:14; `UITEXT.str`, `PROMOTIONLEVELS.str`, `OPERATION.str`,
+  1:22; `UITEXT.str`, `PROMOTIONLEVELS.str`, `OPERATION.str`,
   `THEMENAMES.str`; `levels/Standard.sam`, the worlds' `global.sam`,
   `Challenges.sam`; the fonts' widths.
 - **How it was checked:** `personnel-shot` set beside the recording's
