@@ -63,7 +63,9 @@ The game, from the launcher:
 - A track picked up and placed on bare ground stays there. Four curves
   (turned with right clicks while held) close into a loop; with points
   in one corner and a depot under them, apron towards the loop, a click
-  on the depot (the Toybox closed) starts a train that runs round.
+  on the depot (the Toybox closed) starts a train that runs round. A
+  right click opens its zoombox; a train built there, an engine and
+  three carriages, runs out and round as built.
 - Saved under a name typed in the save panel, the layout loads again
   from the load panel, as it was.
 - The windowed mode's button makes a framed window, and back.

@@ -126,8 +126,13 @@ Seen running in Reluva (`reluva-tool legoloco run`):
   track by its green apron with the barrier: that's where trains leave
   (on its other end the track runs into nothing). With the Toybox
   closed, a left click on the depot starts a train, which runs out onto
-  the track; a right click builds one. Its first placing shows the
-  station master's tip about it. A loop of three curves and points, the
+  the track; a right click opens its zoombox (a magnifier over the depot,
+  closed by its X, and a panel in the Toybox): a new train, changing one,
+  deleting one. A new train is built in four slots, each part picked
+  with the arrows above and below it (the first an engine, the others
+  carriages and wagons), and the green button sends it out of the depot.
+  Its first placing, and the zoombox's first opening, show the station
+  master's tips. A loop of three curves and points, the
   depot under the points' straight, turned twice, runs a train round.
 - **Saving and loading** are the game's own panels, not Windows' dialogs:
   a list of the layouts in `art-res\savegame` (found with
@@ -206,7 +211,8 @@ music ([dsound.md](../../../common/x86/dsound.md)), and shows its front
 screen, about 509 million instructions. Played from there with the
 mouse and keys, as [above](#playing): the first layout and its train,
 the station master's bubbles, the Toybox and its panels, a loop of
-track laid with a depot and a train started on it, a layout saved and
+track laid with a depot, a train started on it and one built in the
+depot, a layout saved and
 loaded again, the windowed mode and back, and leaving. For example, past the movies to the board, its
 welcome closed:
 
@@ -225,8 +231,8 @@ VERSION.dll's and USER32's ([windows.md](../../../common/x86/windows.md)),
 GDI32's ([gdi.md](../../../common/x86/gdi.md)), the movie window's and
 MCI's ([mci.md](../../../common/x86/mci.md)), and DirectSound's and
 `PlaySoundA` ([dsound.md](../../../common/x86/dsound.md)). Not tried
-yet: postcards and the post office, building a train (the depot's
-right click), the minifigures' and vehicles' doings.
+yet: postcards and the post office, changing and deleting trains, the
+minifigures' and vehicles' doings.
 
 ## Sources and checks
 
