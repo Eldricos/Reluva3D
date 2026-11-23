@@ -3,7 +3,8 @@
 
 // Tests for the SDL backend's game controllers (sdl_controller.cpp) against
 // SDL's virtual joysticks: a wheel read by its axes, a pad's rumble from
-// the forces a game asks for, and a second controller beside the first. No window or real controller is needed.
+// the forces a game asks for, and a second controller beside the first,
+// with forces of its own. No window or real controller is needed.
 
 #include "backends/platform/sdl3/sdl_system.h"
 #include "tests/support/test.h"
@@ -185,13 +186,56 @@ void testSecond() {
     SDL_DetachVirtualJoystick(padId);
 }
 
-} // namespace
+// Two pads that rumble: each controller's forces go to it alone.
+void testSecondForces() {
+    CHECK(SDL_Init(SDL_INIT_GAMEPAD));
+    SdlSystem sys;
+    Rumble first;
+    Rumble second;
+    SDL_VirtualJoystickDesc desc;
+    SDL_INIT_INTERFACE(&desc);
+    desc.type = SDL_JOYSTICK_TYPE_GAMEPAD;
+    desc.naxes = SDL_GAMEPAD_AXIS_COUNT;
+    desc.nbuttons = SDL_GAMEPAD_BUTTON_COUNT;
+    desc.Rumble = rumble;
+    desc.name = "First Pad";
+    desc.userdata = &first;
+    const SDL_JoystickID firstId = SDL_AttachVirtualJoystick(&desc);
+    desc.name = "Second Pad";
+    desc.userdata = &second;
+    const SDL_JoystickID secondId = SDL_AttachVirtualJoystick(&desc);
+    CHECK(firstId != 0 && secondId != 0);
+    {
+        GamepadState s;
+        CHECK(sys.readGamepad(0, s) && s.name == "First Pad");
+        CHECK(sys.readGamepad(1, s) && s.name == "Second Pad" && s.forceFeedback);
+        GamepadForce f;
+        f.constant = 1;
+        sys.setGamepadForce(1, f);
+        CHECK(second.calls == 1 && second.low == 65535 && first.calls == 0);
+        GamepadForce half;
+        half.constant = 0.5f;
+        sys.setGamepadForce(0, half);
+        CHECK(first.calls == 1 && first.low > 32000 && first.low < 33000 && second.low == 65535);
+        sys.setGamepadForce(1, {});
+        CHECK(second.low == 0 && first.low > 32000);
+        sys.setGamepadForce(0, {});
+        sys.setGamepadForce(2, f); // no third: nothing
+        CHECK(first.low == 0 && second.low == 0);
+    }
+    SDL_DetachVirtualJoystick(secondId);
+    SDL_DetachVirtualJoystick(firstId);
+}
 
 } // namespace
 
-static const reluva::test::Suite kSuite("common.unit.sdl_controller",
-                                        {
-                                            {"wheel", [](const std::filesystem::path &) { testWheel(); }},
-                                            {"pad rumble", [](const std::filesystem::path &) { testPadRumble(); }},
-                                            {"second", [](const std::filesystem::path &) { testSecond(); }},
-                                        });
+} // namespace
+
+static const reluva::test::Suite
+    kSuite("common.unit.sdl_controller",
+           {
+               {"wheel", [](const std::filesystem::path &) { testWheel(); }},
+               {"pad rumble", [](const std::filesystem::path &) { testPadRumble(); }},
+               {"second", [](const std::filesystem::path &) { testSecond(); }},
+               {"second's forces", [](const std::filesystem::path &) { testSecondForces(); }},
+           });

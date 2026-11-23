@@ -36,6 +36,10 @@ connected or else a racing wheel).
   the pedals as Z (the accelerator less the brake), its buttons as the
   pad's in order, its hat as the D-pad.
 
+- **No forces:** WINMM's joysticks have none, so a program reading them
+  gives the controllers none. Each controller can be given forces apart
+  (`System::setGamepadForce(index, ...)`: a wheel's motor through SDL's
+  haptics, a pad's rumble), for an engine with force feedback of its own.
 - **Not yet:** a joystick's own registry settings (calibration, names),
   `joySetCapture` and its messages, `joyGetThreshold` and
   `joySetThreshold`, the Unicode `joyGetDevCapsW`.

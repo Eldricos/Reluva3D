@@ -113,9 +113,8 @@ public:
     /**
      * Controller `index`: 0 is readGamepad's, 1 the next pad connected or
      * else a racing wheel other than the first, for a game with a second
-     * player's joystick; false when there's none. setWheelPedals and the
-     * forces are the first's only: a second wheel's pedals are found as
-     * they rest.
+     * player's joystick; false when there's none. setWheelPedals is the
+     * first's only: a second wheel's pedals are found as they rest.
      */
     virtual bool readGamepad(int index, GamepadState &out) {
         if (index == 0)
@@ -129,6 +128,11 @@ public:
      * vibration). A GamepadForce{} stops them.
      */
     virtual void setGamepadForce(const GamepadForce &force) { (void)force; }
+    /** The forces controller `index` (readGamepad(index, ...)) is to give: 0 is setGamepadForce's. */
+    virtual void setGamepadForce(int index, const GamepadForce &force) {
+        if (index == 0)
+            setGamepadForce(force);
+    }
     /**
      * For a wheel SDL has no layout for: which of its axes are the
      * accelerator and brake (-1 for either: the first two, after the wheel,

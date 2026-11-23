@@ -5,7 +5,7 @@
 // or else the first racing wheel (a joystick SDL knows as one), and the
 // forces they're to give: a wheel's motor through SDL's haptics, a pad's
 // rumble otherwise; and a second, another pad or else a wheel, for a second
-// player's joystick, its pedals found as they rest.
+// player's joystick, its pedals found as they rest, with forces of its own.
 
 #include "backends/platform/sdl3/sdl_controller.h"
 
@@ -134,14 +134,7 @@ void SdlSystem::closeController() {
     if (!_controller)
         return;
     Controller &c = *_controller;
-    if (c.haptic)
-        SDL_CloseHaptic(c.haptic); // its effects with it
-    if (c.gamepad) {
-        SDL_RumbleGamepad(c.gamepad, 0, 0, 0);
-        SDL_CloseGamepad(c.gamepad);
-    }
-    if (c.wheel)
-        SDL_CloseJoystick(c.wheel);
+    closeDevices(c);
     const int accelerator = c.accelerator;
     const int brake = c.brake;
     _controller = std::make_unique<Controller>();
@@ -182,24 +175,11 @@ bool SdlSystem::readGamepad(GamepadState &out) {
             return false;
         SDL_Joystick *j = c.joystick();
         c.isWheel = c.wheel || SDL_GetJoystickType(j) == SDL_JOYSTICK_TYPE_WHEEL;
-        if (SDL_IsJoystickHaptic(j) && (SDL_WasInit(SDL_INIT_HAPTIC) || SDL_InitSubSystem(SDL_INIT_HAPTIC)))
-            c.haptic = SDL_OpenHapticFromJoystick(j);
-        if (c.haptic) {
-            c.features = SDL_GetHapticFeatures(c.haptic);
-            if (c.features & SDL_HAPTIC_GAIN)
-                SDL_SetHapticGain(c.haptic, 100);
-        }
-        c.rumble = c.gamepad && SDL_GetBooleanProperty(SDL_GetGamepadProperties(c.gamepad),
-                                                       SDL_PROP_GAMEPAD_CAP_RUMBLE_BOOLEAN, false);
+        openForces(c);
     }
     out.wheel = c.isWheel;
     out.forceFeedback = c.haptic || c.rumble;
-    // The rumble runs out unless sent again.
-    if (c.rumble && (c.rumbleLow || c.rumbleHigh) && SDL_GetTicks() - c.rumbleSentMs > 500) {
-        SDL_RumbleGamepad(c.gamepad, c.rumbleLow, c.rumbleHigh, 1000);
-        c.rumbleSentMs = SDL_GetTicks();
-    }
-
+    resendRumble(c);
     readState(c, out);
     return true;
 }
@@ -207,10 +187,7 @@ bool SdlSystem::readGamepad(GamepadState &out) {
 void SdlSystem::closeSecond() {
     if (!_second)
         return;
-    if (_second->gamepad)
-        SDL_CloseGamepad(_second->gamepad);
-    if (_second->wheel)
-        SDL_CloseJoystick(_second->wheel);
+    closeDevices(*_second);
     _second.reset();
 }
 
@@ -247,17 +224,61 @@ bool SdlSystem::readGamepad(int index, GamepadState &out) {
         if (!second->gamepad && !second->wheel)
             return false;
         second->isWheel = second->wheel || SDL_GetJoystickType(second->joystick()) == SDL_JOYSTICK_TYPE_WHEEL;
+        openForces(*second);
         _second = std::move(second);
     }
     out.wheel = _second->isWheel;
+    out.forceFeedback = _second->haptic || _second->rumble;
+    resendRumble(*_second);
     readState(*_second, out);
     return true;
 }
 
 void SdlSystem::setGamepadForce(const GamepadForce &f) {
-    if (!_controller)
-        return;
-    Controller &c = *_controller;
+    if (_controller)
+        applyForce(*_controller, f);
+}
+
+void SdlSystem::setGamepadForce(int index, const GamepadForce &f) {
+    if (index == 0)
+        setGamepadForce(f);
+    else if (index == 1 && _second)
+        applyForce(*_second, f);
+}
+
+void SdlSystem::openForces(Controller &c) {
+    SDL_Joystick *j = c.joystick();
+    if (SDL_IsJoystickHaptic(j) && (SDL_WasInit(SDL_INIT_HAPTIC) || SDL_InitSubSystem(SDL_INIT_HAPTIC)))
+        c.haptic = SDL_OpenHapticFromJoystick(j);
+    if (c.haptic) {
+        c.features = SDL_GetHapticFeatures(c.haptic);
+        if (c.features & SDL_HAPTIC_GAIN)
+            SDL_SetHapticGain(c.haptic, 100);
+    }
+    c.rumble = c.gamepad &&
+               SDL_GetBooleanProperty(SDL_GetGamepadProperties(c.gamepad), SDL_PROP_GAMEPAD_CAP_RUMBLE_BOOLEAN, false);
+}
+
+void SdlSystem::resendRumble(Controller &c) {
+    // The rumble runs out unless sent again.
+    if (c.rumble && (c.rumbleLow || c.rumbleHigh) && SDL_GetTicks() - c.rumbleSentMs > 500) {
+        SDL_RumbleGamepad(c.gamepad, c.rumbleLow, c.rumbleHigh, 1000);
+        c.rumbleSentMs = SDL_GetTicks();
+    }
+}
+
+void SdlSystem::closeDevices(Controller &c) {
+    if (c.haptic)
+        SDL_CloseHaptic(c.haptic); // its effects with it
+    if (c.gamepad) {
+        SDL_RumbleGamepad(c.gamepad, 0, 0, 0);
+        SDL_CloseGamepad(c.gamepad);
+    }
+    if (c.wheel)
+        SDL_CloseJoystick(c.wheel);
+}
+
+void SdlSystem::applyForce(Controller &c, const GamepadForce &f) {
     if (c.haptic) {
         if (c.features & SDL_HAPTIC_AUTOCENTER && f.autoCentre != c.autoCentre)
             SDL_SetHapticAutocenter(c.haptic, f.autoCentre ? 100 : 0);
