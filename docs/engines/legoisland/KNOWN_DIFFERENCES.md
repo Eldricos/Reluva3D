@@ -26,8 +26,8 @@ None yet.
 ## Not yet as the original
 
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
-- **The 3D is drawn by Direct3D's rules,** not Retained Mode's own: its
-  lights and shading are Direct3D's
+- **The 3D is drawn by Direct3D's pipeline,** with Retained Mode's
+  documented lighting rules (attenuation, range, parallel point lights)
   ([d3drm.md](../../common/x86/d3drm.md#drawing)). It matches a
   screenshot of the original at the pizzeria; elsewhere it hasn't been
   compared. Decals and frames' textures aren't drawn, but the game

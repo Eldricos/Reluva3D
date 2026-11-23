@@ -53,6 +53,7 @@ struct Light {
     float theta = 0;
     float phi = 0;
     bool enabled = false;
+    bool attenuationAtMostOne = false; // Retained Mode's lights: never brighter for it
 };
 
 /** A D3DMATERIAL7. */

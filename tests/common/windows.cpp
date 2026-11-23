@@ -1059,6 +1059,57 @@ static void testRetainedMode() {
     CHECK(call(view, 12, {}) == 0 && call(view, 13, {scene2}) == 0);
     const uint16_t both = pixelAt(32, 24);
     CHECK((both & 0x1f) >= 6 && (both & 0x1f) <= 9 && (both >> 11) >= 14 && (both >> 11) <= 17);
+
+    // Lighting as Retained Mode's: a grey square lit by one light at a time
+    // in a scene of its own, its front facing the camera.
+    CHECK(call(device, 36, {1}) == 0); // blended, not sorted
+    CHECK(call(rm2, 4, {0, out}) == 0);
+    const uint32_t scene3 = cpu.read32(out);
+    CHECK(call(rm2, 4, {scene3, out}) == 0);
+    const uint32_t camera3 = cpu.read32(out);
+    CHECK(call(rm2, 4, {scene3, out}) == 0);
+    const uint32_t litHolder = cpu.read32(out);
+    CHECK(call(litHolder, 61, {scene3, 0, 0, bits(5)}) == 0);
+    CHECK(call(square, 3, {0, guid("{a3a80d01-6e12-11cf-ac4a-0000c03825a1}"), out}) == 0); // Clone
+    const uint32_t litSquare = cpu.read32(out);
+    CHECK(call(litSquare, 16, {0, 0xff404040u}) == 0); // a quarter grey
+    CHECK(call(litSquare, 19, {0, 0x88}) == 0);        // flat, lit, solid
+    CHECK(call(litHolder, 18, {litSquare}) == 0);
+    CHECK(call(rm2, 20, {device, camera3, 0, 0, 64, 48, out}) == 0); // CreateViewport
+    const uint32_t view3 = cpu.read32(out);
+    CHECK(call(scene3, 49, {0, 0, 0}) == 0); // black behind
+    auto litMiddle = [&](uint32_t lightFrame, uint32_t type, auto setUp) {
+        CHECK(call(rm2, 12, {type, bits(1), bits(1), bits(1), out}) == 0); // CreateLightRGB
+        const uint32_t light = cpu.read32(out);
+        setUp(light);
+        CHECK(call(lightFrame, 12, {light}) == 0); // AddLight
+        CHECK(call(view3, 12, {}) == 0 && call(view3, 13, {scene3}) == 0);
+        CHECK(call(lightFrame, 39, {light}) == 0); // DeleteLight
+        return pixelAt(32, 24) >> 11;              // red, of 31
+    };
+    // A point light at the camera, 5 away: its range (1) doesn't cut it
+    // off, a spotlight's alone; a constant attenuation of a quarter doesn't
+    // make it four times as bright.
+    CHECK(litMiddle(camera3, 1, [&](uint32_t l) { CHECK(call(l, 14, {bits(1)}) == 0); }) >= 7); // SetRange
+    const uint32_t attenuated = litMiddle(camera3, 1, [&](uint32_t l) {
+        CHECK(call(l, 17, {bits(0.25f)}) == 0); // SetConstantAttenuation
+    });
+    CHECK(attenuated >= 7 && attenuated <= 9);
+    // Behind the square (10 away), facing the way it does: a directional
+    // light shines on its front; a parallel point light, from where it is,
+    // on its back.
+    CHECK(call(rm2, 4, {scene3, out}) == 0);
+    const uint32_t behind = cpu.read32(out);
+    CHECK(call(behind, 61, {scene3, 0, 0, bits(10)}) == 0);
+    CHECK(litMiddle(behind, 3, [](uint32_t) {}) >= 7);
+    CHECK(litMiddle(behind, 4, [](uint32_t) {}) == 0);
+    // Just in front of its middle, Gouraud shaded: a point light reaches its
+    // corners at a slant, dark; a parallel point light one way across it,
+    // straight on, bright.
+    CHECK(call(litSquare, 19, {0, 0x89}) == 0);
+    CHECK(call(behind, 61, {scene3, 0, 0, bits(4.9f)}) == 0);
+    CHECK(litMiddle(behind, 1, [](uint32_t) {}) <= 2);
+    CHECK(litMiddle(behind, 4, [](uint32_t) {}) >= 7);
 }
 
 static void testDirectX() {

@@ -1727,10 +1727,19 @@ void Viewport::render(Frame &root) {
 
     const std::vector<Placed> placed = place(root);
 
-    // The lights: ambient ones added together, the others Direct3D's.
+    // The lights: ambient ones added together, the others Direct3D's. A
+    // light's attenuation never makes it brighter, and its range is a
+    // spotlight's alone (as the documentation says). A parallel point
+    // light lights each mesh from where it is, in one direction across it:
+    // a directional light aimed at the mesh's middle as it's drawn.
     d.lights.clear();
     dx::Color ambient;
     uint32_t lightIndex = 0;
+    struct ParallelPoint {
+        uint32_t index;
+        Vector at;
+    };
+    std::vector<ParallelPoint> parallelPoints;
     for (const Placed &p : placed)
         for (const auto &o : p.frame->lights) {
             const auto *l = dynamic_cast<Light *>(o.get());
@@ -1742,14 +1751,19 @@ void Viewport::render(Frame &root) {
                 continue;
             }
             dx::Light dl;
-            dl.type = l->type == kLightDirectional ? 3 : l->type == kLightSpot ? 2 : 1;
+            dl.type = l->type == kLightDirectional || l->type == kLightParallelPoint ? 3
+                      : l->type == kLightSpot                                        ? 2
+                                                                                     : 1;
             dl.diffuse = color;
             dl.specular = color;
             const Vector at = transformPoint({0, 0, 0}, p.world);
             const Vector dir = normalized(transformDirection({0, 0, 1}, p.world)); // a light shines down its z
             std::copy(at.begin(), at.end(), dl.position);
             std::copy(dir.begin(), dir.end(), dl.direction);
-            dl.range = l->type == kLightParallelPoint ? 1e30f : l->range;
+            dl.range = l->type == kLightSpot ? l->range : 0;
+            dl.attenuationAtMostOne = true;
+            if (l->type == kLightParallelPoint)
+                parallelPoints.push_back({lightIndex, at});
             dl.att0 = l->constant;
             dl.att1 = l->linear;
             dl.att2 = l->quadratic;
@@ -1787,11 +1801,22 @@ void Viewport::render(Frame &root) {
     const bool sorted = (device->renderMode & kRenderSortedTransparency) != 0;
     struct Later {
         const Placed *p;
-        const Mesh *mesh;
+        Mesh *mesh;
         const Mesh::Group *g;
         float depth;
     };
     std::vector<Later> later;
+    // The parallel point lights aimed at a mesh's middle, in the world.
+    auto aim = [&](const Placed &p, Mesh &mesh) {
+        if (parallelPoints.empty() || !mesh.bounds())
+            return;
+        const auto &[lo, hi] = *mesh.bounds();
+        const Vector middle = transformPoint({(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2}, p.world);
+        for (const ParallelPoint &pp : parallelPoints) {
+            const Vector dir = normalized({middle[0] - pp.at[0], middle[1] - pp.at[1], middle[2] - pp.at[2]});
+            std::copy(dir.begin(), dir.end(), d.lights[pp.index].direction);
+        }
+    };
     std::vector<uint8_t> vertices;
     std::vector<uint32_t> indices;
     auto drawGroup = [&](const Placed &p, const Mesh::Group &g) {
@@ -1858,6 +1883,7 @@ void Viewport::render(Frame &root) {
             auto *mesh = dynamic_cast<Mesh *>(v.get());
             if (!mesh || !mesh->bounds() || outside(*mesh->bounds(), multiply(p.world, viewProjection)))
                 continue;
+            aim(p, *mesh);
             for (const Mesh::Group &g : mesh->groups) {
                 if (g.vertices.empty() || g.faces.empty())
                     continue;
@@ -1876,6 +1902,7 @@ void Viewport::render(Frame &root) {
     if (!later.empty())
         d.renderStates[kRsZWriteEnable] = 0;
     for (const Later &l : later) {
+        aim(*l.p, *l.mesh);
         d.transforms[1] = l.p->world;
         drawGroup(*l.p, *l.g);
     }

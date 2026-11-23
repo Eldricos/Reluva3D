@@ -91,8 +91,13 @@ down its frame's z, y up. The projection maps the view's edges on the
 front plane (`GetPlane`'s) to the viewport's, and the front plane to the
 back to depths 0 to 1 *(inferred: the documentation gives the edges and
 planes, not the matrix)*. The lights in the frames drawn are Direct3D's,
-the ambient ones added together; a light shines down its frame's z, and
-a spotlight's umbra and penumbra are taken as half its cones' angles
+the ambient ones added together, with Retained Mode's rules: a light is
+where its frame is and shines down its frame's z *(the z inferred)*; its
+attenuation, `1 / (constant + linear d + quadratic d²)`, never above 1;
+its range a spotlight's alone, the others reaching any distance; a
+parallel point light shining from where it is one way across each
+object, aimed at the middle of the mesh's box *(the middle inferred)*;
+a spotlight's umbra and penumbra taken as half its cones' angles
 *(inferred)*.
 
 Frames are drawn in order: a frame, the frames made its visuals, then
@@ -143,7 +148,10 @@ it in `EAX`.
   256, umbra 0.4, penumbra 0.5), the combine types and render qualities,
   a viewport's plane ("the dimensions of the viewport on the front
   clipping plane") and its camera's axes, and what a pick holds
-  (`D3DRMPICKDESC`).
+  (`D3DRMPICKDESC`); the lights' rules (`IDirect3DRMLight`: "The total
+  attenuation factor cannot be greater than 1", "The range property is
+  for spotlights only", a parallel point light's "orientation … taken
+  from the position of the parallel point light source").
 - **How it was checked:** `common.unit.windows`'s `retained mode` case,
   on a DirectX 5 Direct3D device: frames placed and turned relative to
   each other and the world, points taken to the world and back, names,
@@ -157,7 +165,11 @@ it in `EAX`.
   by two white lights, textured mid-grey, drawn grey; and drawn across
   the view's edge, but not wholly beyond it; fogged; and two
   half-transparent squares drawn in the order added, or sorted, the
-  far one first. LEGO Island draws its scenes with it, and picks in them
+  far one first; lit by a point light past its range, and by one of a
+  quarter's constant attenuation no brighter; by a directional light
+  and a parallel point light behind it; and by a point light and a
+  parallel point light just in front of it, Gouraud shaded, dark and
+  bright. LEGO Island draws its scenes with it, and picks in them
   ([running.md](../../engines/legoisland/systems/running.md)).
 - **Confidence:** published unless marked.
 

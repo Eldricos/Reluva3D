@@ -363,6 +363,8 @@ void Device::transformAndLight(const VertexLayout &layout, const uint8_t *mem, u
                         normalize3(toLight);
                         const float a = l.att0 + l.att1 * dist + l.att2 * dist * dist;
                         atten = a > 0 ? 1 / a : 1;
+                        if (l.attenuationAtMostOne)
+                            atten = std::min(atten, 1.0f);
                         if (l.type == 2) { // spot
                             const float rho = -dot3(toLight, e.dir);
                             const float cosPhi = std::cos(l.phi / 2);
