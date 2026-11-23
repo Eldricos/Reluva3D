@@ -14,13 +14,7 @@ namespace {
 
 constexpr uint8_t kUntextured = 190;
 constexpr int kDot = 3; // a height sample's size on the screen, in pixels
-
-// The game's models stand with y up; the viewer's world has z up. Swapping
-// the two also turns a left-handed space into a right-handed one, as
-// Direct3D's would be (inferred).
-soft3d::Vec toWorld(const gfx::Vec3 &p) {
-    return {p[0], p[2], p[1]};
-}
+const soft3d::Vec kLight = soft3d::normalize({0.4f, -0.6f, 0.7f});
 
 // A texture coordinate as a texel, repeating; one that isn't a number is 0.
 int texel(float t, int size) {
@@ -42,7 +36,7 @@ void drawHeights(Surface &screen, const LoadedModel &loaded, const soft3d::Orbit
             const uint8_t h = map.sample(x, z);
             const gfx::Vec3 at = {(float(x) + 0.5f) * kStep, float(h) * HeightMap::kHeightStep,
                                   (float(z) + 0.5f) * kStep};
-            const soft3d::ViewVertex v = camera.toView(toWorld(at));
+            const soft3d::ViewVertex v = camera.toView(toViewerWorld(at));
             if (v.z < camera.nearZ)
                 continue;
             const soft3d::ScreenVertex p = camera.project(v);
@@ -83,7 +77,7 @@ Error LoadedModel::load(const SearchSet &files, const std::string &name) {
     soft3d::Vec high{-INFINITY, -INFINITY, -INFINITY};
     for (const Model::Mesh &mesh : model.meshes())
         for (const gfx::Vec3 &p : mesh.positions) {
-            const soft3d::Vec w = toWorld(gfx::transformPoint(mesh.transform, p));
+            const soft3d::Vec w = toViewerWorld(gfx::transformPoint(mesh.transform, p));
             low = {std::min(low.x, w.x), std::min(low.y, w.y), std::min(low.z, w.z)};
             high = {std::max(high.x, w.x), std::max(high.y, w.y), std::max(high.z, w.z)};
         }
@@ -94,53 +88,70 @@ Error LoadedModel::load(const SearchSet &files, const std::string &name) {
     return Error::success();
 }
 
-void drawModel(Surface &screen, soft3d::Rasterizer &rasterizer, const LoadedModel &loaded, const ModelView &view) {
-    const soft3d::OrbitCamera camera(loaded.centre, view.yaw, view.pitch, loaded.radius * view.distance, screen.w,
-                                     screen.h);
-    const soft3d::Vec light = soft3d::normalize({0.4f, -0.6f, 0.7f});
-    rasterizer.begin(screen);
+soft3d::Vec toViewerWorld(const gfx::Vec3 &p) {
+    // Swapping y and z also turns a left-handed space into a right-handed
+    // one, as Direct3D's would be (inferred).
+    return {p[0], p[2], p[1]};
+}
+
+void drawTexturedTriangle(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera,
+                          const std::array<soft3d::Vec, 3> &corners, const std::array<std::array<float, 2>, 3> &uv,
+                          const image::Image *texture) {
+    // Lit by the face's own slope, from either side.
+    const soft3d::Vec normal = soft3d::normalize(soft3d::cross(corners[1] - corners[0], corners[2] - corners[0]));
+    const float shade = 0.4f + 0.6f * std::fabs(soft3d::dot(normal, kLight));
+    std::vector<soft3d::ViewVertex> polygon;
+    for (size_t k = 0; k < 3; ++k) {
+        soft3d::ViewVertex v = camera.toView(corners[k], uv[k][0], uv[k][1]);
+        v.s = shade;
+        polygon.push_back(v);
+    }
+    polygon = soft3d::clipNear(polygon, camera.nearZ);
+    auto paint = [texture](float u, float v, float s, uint8_t *rgba) {
+        static constexpr uint8_t kGrey[4] = {kUntextured, kUntextured, kUntextured, 255};
+        const uint8_t *c = kGrey;
+        if (texture) {
+            c = texture->pixel(texel(u, texture->w), texel(v, texture->h));
+            if (c[3] < 128)
+                return false;
+        }
+        for (int i = 0; i < 3; ++i)
+            rgba[i] = uint8_t(std::min(255.0f, float(c[i]) * s));
+        rgba[3] = 255;
+        return true;
+    };
+    for (size_t k = 2; k < polygon.size(); ++k)
+        rasterizer.drawTriangle(camera.project(polygon[0]), camera.project(polygon[k - 1]), camera.project(polygon[k]),
+                                paint);
+}
+
+void drawMeshes(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera, const LoadedModel &loaded,
+                bool textured) {
     for (const Model::Mesh &mesh : loaded.model.meshes()) {
         // Each face's texture, by the group it is in; none outside them.
         std::vector<const image::Image *> faceTexture(mesh.faces.size(), nullptr);
         for (const Model::Group &g : mesh.groups)
-            if (view.textured && g.texture < loaded.textures.size() && loaded.textures[g.texture].w > 0)
+            if (textured && g.texture < loaded.textures.size() && loaded.textures[g.texture].w > 0)
                 std::fill_n(faceTexture.begin() + long(g.firstFace), g.faceCount, &loaded.textures[g.texture]);
         for (size_t f = 0; f < mesh.faces.size(); ++f) {
             const Model::Face &face = mesh.faces[f];
-            soft3d::Vec corner[3];
-            for (size_t k = 0; k < 3; ++k)
-                corner[k] =
-                    toWorld(gfx::transformPoint(mesh.transform, mesh.positions[mesh.positionOf[face.vertex[k]]]));
-            // Lit by the face's own shape, from either side.
-            const soft3d::Vec normal = soft3d::normalize(soft3d::cross(corner[1] - corner[0], corner[2] - corner[0]));
-            const float shade = 0.4f + 0.6f * std::fabs(soft3d::dot(normal, light));
-            std::vector<soft3d::ViewVertex> polygon;
+            std::array<soft3d::Vec, 3> corners;
+            std::array<std::array<float, 2>, 3> uv;
             for (size_t k = 0; k < 3; ++k) {
-                const auto &uv = mesh.uv[face.vertex[k]];
-                soft3d::ViewVertex v = camera.toView(corner[k], uv[0], uv[1]);
-                v.s = shade;
-                polygon.push_back(v);
+                corners[k] =
+                    toViewerWorld(gfx::transformPoint(mesh.transform, mesh.positions[mesh.positionOf[face.vertex[k]]]));
+                uv[k] = mesh.uv[face.vertex[k]];
             }
-            polygon = soft3d::clipNear(polygon, camera.nearZ);
-            const image::Image *texture = faceTexture[f];
-            auto paint = [texture](float u, float v, float s, uint8_t *rgba) {
-                static constexpr uint8_t kGrey[4] = {kUntextured, kUntextured, kUntextured, 255};
-                const uint8_t *c = kGrey;
-                if (texture) {
-                    c = texture->pixel(texel(u, texture->w), texel(v, texture->h));
-                    if (c[3] < 128)
-                        return false;
-                }
-                for (int i = 0; i < 3; ++i)
-                    rgba[i] = uint8_t(std::min(255.0f, float(c[i]) * s));
-                rgba[3] = 255;
-                return true;
-            };
-            for (size_t k = 2; k < polygon.size(); ++k)
-                rasterizer.drawTriangle(camera.project(polygon[0]), camera.project(polygon[k - 1]),
-                                        camera.project(polygon[k]), paint);
+            drawTexturedTriangle(rasterizer, camera, corners, uv, faceTexture[f]);
         }
     }
+}
+
+void drawModel(Surface &screen, soft3d::Rasterizer &rasterizer, const LoadedModel &loaded, const ModelView &view) {
+    const soft3d::OrbitCamera camera(loaded.centre, view.yaw, view.pitch, loaded.radius * view.distance, screen.w,
+                                     screen.h);
+    rasterizer.begin(screen);
+    drawMeshes(rasterizer, camera, loaded, view.textured);
     if (view.heights && loaded.hasHeights)
         drawHeights(screen, loaded, camera);
 }

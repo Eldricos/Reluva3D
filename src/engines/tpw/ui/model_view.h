@@ -10,6 +10,7 @@
 #include "graphics/soft3d/view3d.h"
 #include "image/image.h"
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -42,6 +43,22 @@ struct ModelView {
     bool textured = true;
     bool heights = false; // the height map's samples shown as dots
 };
+
+/** A point of the game's space (y up) in the viewer's world (z up). */
+soft3d::Vec toViewerWorld(const gfx::Vec3 &p);
+
+/**
+ * Draws a triangle given in the viewer's world, lit by its own slope:
+ * textured, its texels whose alpha is under half left out, or grey
+ * without a texture.
+ */
+void drawTexturedTriangle(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera,
+                          const std::array<soft3d::Vec, 3> &corners, const std::array<std::array<float, 2>, 3> &uv,
+                          const image::Image *texture);
+
+/** Draws a model's meshes as drawModel does, into a drawing already begun. */
+void drawMeshes(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera, const LoadedModel &loaded,
+                bool textured);
 
 /**
  * Draws the model into an RGBA32 surface, over what is there, lit from

@@ -75,8 +75,9 @@ private:
 // Every page, a few keys on each, as reluva-viewer shows them: the next
 // picture, zoomed to its size and back; the next font; the next table, a
 // string down, in the game's font; the next settings file, scrolled; the
-// last model, turned, tilted, nearer, untextured; the next bank, a sound down, played (nothing heard: there's no device); the
-// movies' list; a file down. Tab round to the pictures, then Esc.
+// last model, turned, tilted, nearer, untextured; the next world, turned,
+// without its ground; the next bank, a sound down, played (nothing heard:
+// there's no device); the movies' list; a file down. Tab round to the pictures, then Esc.
 int cmdViewerRun(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool tpw viewer-run <game folder> [-shots <folder>]\n");
@@ -114,6 +115,8 @@ int cmdViewerRun(int argc, char **argv) {
         press(k);
     for (uint32_t k :
          {uint32_t(key::kEnd), uint32_t('d'), uint32_t('w'), uint32_t('z'), uint32_t('t'), uint32_t(key::kTab)})
+        press(k);
+    for (uint32_t k : {uint32_t(key::kRight), uint32_t('a'), uint32_t('g'), uint32_t(key::kTab)})
         press(k);
     for (uint32_t k : {uint32_t(key::kRight), uint32_t(key::kDown), uint32_t(key::kSpace), uint32_t(key::kTab)})
         press(k);

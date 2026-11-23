@@ -8,8 +8,10 @@
 //
 //   reluva-tests tpw.unit.formats
 
+#include "engines/tpw/formats/attribute_map.h"
 #include "engines/tpw/formats/bf4.h"
 #include "engines/tpw/formats/hmp.h"
+#include "engines/tpw/formats/lnd.h"
 #include "engines/tpw/formats/md2.h"
 #include "engines/tpw/formats/sam.h"
 #include "engines/tpw/formats/sdt.h"
@@ -21,6 +23,7 @@
 #include "tests/engines/tpw/fixtures.h"
 #include "tests/support/test.h"
 
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -385,6 +388,79 @@ void testHmp() {
     CHECK(map.parse(other));
 }
 
+// A picture of the ground: its width, height and bytes a pixel, then its
+// pixels, each the given bytes.
+void putLandPicture(Bytes &b, uint32_t w, uint32_t h, const Bytes &pixel) {
+    const size_t at = b.size();
+    put32(b, at, w);
+    put32(b, at + 4, h);
+    put32(b, at + 8, uint32_t(pixel.size()));
+    for (uint32_t i = 0; i < w * h; ++i)
+        b.insert(b.end(), pixel.begin(), pixel.end());
+}
+
+// A ground of 3 x 2 cells: its header, its cells, then three sizes of six
+// textures (A, R, G, B) and seven masks; then cut, and out of order.
+void testLnd() {
+    Bytes b = {3, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    putLandPicture(b, 3, 2, {255, 10, 20, 30});
+    for (uint8_t level = 0; level < 3; ++level) {
+        const size_t at = b.size();
+        put32(b, at, 64u >> level);
+        b.push_back(level);
+        for (int t = 0; t < 6; ++t)
+            putLandPicture(b, 4, 4, {0, uint8_t(t), 2, 3});
+        for (int m = 0; m < 7; ++m)
+            putLandPicture(b, 4, 2, {uint8_t(100 + m)});
+    }
+    Land land;
+    CHECK(!land.parse(b));
+    CHECK(land.width() == 3 && land.depth() == 2 && land.settings()[9] == 10);
+    const uint8_t *cell = land.cell(2, 1);
+    CHECK(cell[0] == 255 && cell[1] == 10 && cell[3] == 30);
+    CHECK(land.levels().size() == 3 && land.levels()[2].scale == 16);
+    if (land.levels().size() == 3) {
+        const Land::Level &first = land.levels()[0];
+        CHECK(first.textures.size() == 6 && first.masks.size() == 7);
+        // A, R, G, B read as R, G, B, opaque.
+        const uint8_t texel[4] = {5, 2, 3, 255};
+        CHECK(first.textures[5].w == 4 && std::memcmp(first.textures[5].pixel(1, 1), texel, 4) == 0);
+        CHECK(first.masks[6].width == 4 && first.masks[6].height == 2 && first.masks[6].pixels[0] == 106);
+    }
+    CHECK(land.parse(Bytes(b.begin(), b.end() - 1)));
+    // The first size's number, after its scale, made 1.
+    Bytes wrongOrder = b;
+    wrongOrder[11 + 12 + 3 * 2 * 4 + 4] = 1;
+    CHECK(land.parse(wrongOrder));
+    Bytes other = b;
+    other[0] = 2;
+    CHECK(land.parse(other));
+}
+
+// An attribute map of 4 x 3 tiles, its chunks, then one cut short.
+void testAttributeMap() {
+    Bytes b = toBytes("TP2MTheme Park 2 Attribute Map File");
+    b.push_back(0);
+    const Bytes map = toBytes("MAP ");
+    b.insert(b.end(), map.begin(), map.end());
+    const size_t size = b.size();
+    put32(b, size, 28 + 12);
+    put32(b, size + 4, 4);
+    put32(b, size + 8, 3);
+    for (size_t i = 0; i < 5; ++i)
+        put32(b, size + 12 + 4 * i, 8);
+    for (uint8_t i = 0; i < 12; ++i)
+        b.push_back(i);
+    const Bytes end = toBytes("END ");
+    b.insert(b.end(), end.begin(), end.end());
+    put32(b, b.size(), 0);
+    AttributeMap attributes;
+    CHECK(!attributes.parse(b));
+    CHECK(attributes.width() == 4 && attributes.height() == 3 && attributes.at(1, 2) == 9);
+    CHECK(attributes.parse(Bytes(b.begin(), b.begin() + long(size) + 20)));
+    CHECK(attributes.parse(toBytes("TP2X")));
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -398,4 +474,6 @@ static const reluva::test::Suite
                                    {"sdt", [](const std::filesystem::path &) { testSdt(); }},
                                    {"md2", [](const std::filesystem::path &) { testMd2(); }},
                                    {"hmp", [](const std::filesystem::path &) { testHmp(); }},
+                                   {"lnd", [](const std::filesystem::path &) { testLnd(); }},
+                                   {"attribute-map", [](const std::filesystem::path &) { testAttributeMap(); }},
                                });

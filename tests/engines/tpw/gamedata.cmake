@@ -32,6 +32,8 @@
 #            (tpw md2-check)
 #   heights  every height map (.hmp) read, with a checksum of them all
 #            (tpw hmp-check)
+#   terrain  every world's ground (.lnd) and attribute map (base.map)
+#            read, with a checksum of them all (tpw terrain-check)
 #   viewer   the data viewer, headless: every page, a few keys on each,
 #            then Esc; a checksum of every screen shown, and its titles
 #            (tpw viewer-run)
@@ -83,6 +85,8 @@ elseif(STEP STREQUAL "models")
     record_run(models "meshes," tpw md2-check "${game_dir}")
 elseif(STEP STREQUAL "heights")
     record_run(heights "height maps," tpw hmp-check "${game_dir}")
+elseif(STEP STREQUAL "terrain")
+    record_run(terrain "grounds," tpw terrain-check "${game_dir}")
 elseif(STEP STREQUAL "viewer")
     record_run(viewer "left by:" tpw viewer-run "${game_dir}")
 else()

@@ -11,6 +11,7 @@
 #include "engines/tpw/formats/bf4.h"
 #include "engines/tpw/formats/md2.h"
 #include "engines/tpw/ui/model_view.h"
+#include "engines/tpw/ui/world_view.h"
 #include "engines/tpw/formats/sam.h"
 #include "engines/tpw/formats/sdt.h"
 #include "engines/tpw/formats/str.h"
@@ -247,6 +248,32 @@ private:
     std::string _error;
     soft3d::Rasterizer _rasterizer;
     ModelView _view;
+};
+
+/**
+ * The worlds' terrain: the land around the park and the park's ground,
+ * as the game's files give them, before anything is built.
+ *   A/D: turn   W/S: tilt   Z/X: nearer, further   T: textures on or off
+ *   G: the park's ground on or off
+ */
+class WorldPage : public Page {
+public:
+    /** Lists the worlds, `levels/<world>` with a `terrain/base.MD2`, and reads the first. */
+    explicit WorldPage(ViewerContext &context);
+    const char *name() const override { return "Worlds"; }
+    size_t count() const override { return _folders.size(); }
+    std::string current() const override;
+    void draw(Surface &screen) override;
+    void handleKey(uint32_t key) override;
+
+private:
+    void selected() override;
+
+    std::vector<std::string> _folders;
+    LoadedWorld _world;
+    std::string _error;
+    soft3d::Rasterizer _rasterizer;
+    WorldView _view;
 };
 
 /**

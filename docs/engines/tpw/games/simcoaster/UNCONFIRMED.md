@@ -22,6 +22,10 @@ None yet.
 - **The logo movie is shown twice as wide as its frames**, 320 × 480 at
   640 × 480, as its ring is round in the recording
   ([tgq.md](formats/tgq.md#the-logo-tgq)).
+- **Where the park's ground lies**: flat at y = 0, its cells 2.5 units
+  square, the file's first row at the far side, filling `base.MD2`'s
+  hole ([lnd.md](formats/lnd.md#the-cells)): drawn so, its entrance notch
+  and rivers meet the model's.
 - **Which level folder is which world**: `science` Land of Invention,
   `water` Polar Zone, `wIntro` Intro World, `arabian` Arabian Nights, from
   the string table's order and `Objects.txt`'s themes
@@ -36,6 +40,13 @@ None yet.
   spelt two ways ([sam.md](formats/sam.md#a-setting)).
 
 ## Guessed
+
+- **How the park's ground is painted** from its textures and masks:
+  each layer's two textures mixed by its blend mask, the middle and top
+  layers laid over the base by a cell's bytes 2 and 3
+  ([lnd.md](formats/lnd.md#behaviour)). The ground looks like the
+  recordings', but a close recording of one patch of ground would
+  settle the recipe.
 
 - **How long the opening's splash stays**: 3 seconds, unless a key or a
   click skips it; the recording shows it for 0.6 s, probably clicked
