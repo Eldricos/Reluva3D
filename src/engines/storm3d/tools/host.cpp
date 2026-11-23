@@ -397,9 +397,9 @@ int cmdHost(int argc, char **argv) {
     process.fontFile = [&](const std::string &face, bool bold, bool italic) {
         std::vector<uint8_t> data;
         const auto file = x86::Win32Process::findFont(o.fontFolders, face, bold, italic);
-        if (file && !readFile(*file, data))
-            std::printf("font %s%s%s: %s\n", face.c_str(), bold ? " bold" : "", italic ? " italic" : "",
-                        file->string().c_str());
+        const bool read = file && !readFile(*file, data);
+        std::printf("font %s%s%s: %s\n", face.c_str(), bold ? " bold" : "", italic ? " italic" : "",
+                    read ? file->string().c_str() : "not found, so its text isn't drawn");
         return data;
     };
     // The CD: its files on D:, read only.
