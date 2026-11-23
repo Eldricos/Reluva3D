@@ -823,6 +823,18 @@ static void testX86Dll() {
             CHECK(!cpu.call(again->exportAddress("testdll_run"), {13, kX86TestInputs[i][0], kX86TestInputs[i][1]}, r) &&
                   r == kX86TestExpected[13][i]);
     }
+
+    // Asking for the program's place (0x400000) before the program is
+    // loaded, it's put elsewhere. (Its header is changed, not its code, so
+    // it's only placed here, not run.)
+    std::vector<uint8_t> atProgram = file;
+    const uint32_t peHeader = uint32_t(atProgram[0x3c]) | uint32_t(atProgram[0x3d]) << 8;
+    writeLE32(&atProgram[peHeader + 0x34], 0x400000);
+    x86::Cpu cpu2(64u << 20);
+    x86::Win32Process withProgram(cpu2, "game.exe", true);
+    const x86::Win32Process::Module *moved = nullptr;
+    CHECK(!withProgram.load("early.dll", atProgram, moved));
+    CHECK(moved && (moved->base + moved->size <= 0x400000 || moved->base >= 0x1000000));
 }
 
 static void testStreams(const std::filesystem::path &tmp) {

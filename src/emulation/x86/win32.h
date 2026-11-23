@@ -625,6 +625,7 @@ private:
     int _current = -1;          // the thread running (-1: the main one)
     uint32_t _threadReturn = 0; // where a thread's function returns to: a native that ends it
     std::string _exeName;
+    bool _loadsExe = false;
     std::string _programFolder = "C:\\STVEF\\";
     uint32_t _commandLine = 0;
     uint32_t _environment = 0;

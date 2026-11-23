@@ -181,7 +181,7 @@ uint32_t Win32Process::Module::exportAddress(const std::string &function) const 
 }
 
 Win32Process::Win32Process(Cpu &cpu, std::string exeName, bool loadsExe, bool stackAtTop)
-    : _cpu(cpu), _exeName(std::move(exeName)) {
+    : _cpu(cpu), _exeName(std::move(exeName)), _loadsExe(loadsExe) {
     _arena = std::make_unique<Arena>(cpu, 0x10000, cpu.nativeBase() & ~0xfffu);
     _startMs = steadyMs();
     milliseconds = [this] { return uint32_t(steadyMs() - _startMs); };
@@ -503,11 +503,25 @@ Error Win32Process::load(const std::string &name, const std::vector<uint8_t> &fi
     if (pe.machine != 0x14c || pe.pe32Plus)
         return Error::fail(name + " isn't a 32-bit x86 image");
     const uint32_t size = (pe.imageSize + Cpu::kPageSize - 1) & ~(Cpu::kPageSize - 1);
+    // Windows loads the program before its DLLs, at its base. A DLL loaded
+    // here first that asks for the same place (JK.EXE's SMACKW32.DLL, both
+    // at 0x400000) is moved, as the program may not be relocatable.
+    constexpr uint32_t kProgramArea = 0x400000;
+    constexpr uint32_t kProgramAreaSize = 0xc00000;
+    const bool isDll = (pe.characteristics & 0x2000) != 0;
+    const bool programsPlace = _loadsExe && isDll && !module(_exeName) &&
+                               pe.imageBase < kProgramArea + kProgramAreaSize &&
+                               pe.imageBase + uint64_t(size) > kProgramArea;
     uint32_t base = 0;
-    if (pe.imageBase + uint64_t(size) <= _cpu.nativeBase() && _arena->claim(uint32_t(pe.imageBase), size))
+    if (!programsPlace && pe.imageBase + uint64_t(size) <= _cpu.nativeBase() &&
+        _arena->claim(uint32_t(pe.imageBase), size))
         base = uint32_t(pe.imageBase);
-    else if (pe.relocationCount || !(pe.characteristics & 1))
+    else if (pe.relocationCount || !(pe.characteristics & 1)) {
+        const bool kept = programsPlace && _arena->claim(kProgramArea, kProgramAreaSize);
         base = _arena->alloc(size, 0x10000);
+        if (kept)
+            _arena->free(kProgramArea);
+    }
     if (!base)
         return Error::fail("No room for " + name + " (" + std::to_string(size) + " bytes)");
     m->base = base;

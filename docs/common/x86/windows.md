@@ -158,6 +158,10 @@ executable's entry point on the main thread until it ends the process.
 ### Executables
 
 - an EXE is loaded at 0x400000, which is kept clear (`loadsExe`);
+- a DLL loaded before the EXE (one it imports) that asks for the EXE's
+  place is put elsewhere, as Windows loads the program first: Jedi
+  Knight's `SMACKW32.DLL` asks for 0x400000, as `JK.EXE` does, which has
+  no relocations;
 - its name, folder and command line are set by the engine (`setProgram`,
   `setCommandLine`);
 - zero-filled sections are left as zeros whatever raw size the file
