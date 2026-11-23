@@ -11,6 +11,7 @@
 #include "common/fs.h"
 #include "common/types.h"
 #include "emulation/x86/a3d.h"
+#include "emulation/x86/dplay.h"
 #include "emulation/x86/miles.h"
 #include "emulation/x86/com.h"
 #include "emulation/x86/cpu.h"
@@ -1151,6 +1152,41 @@ static void testInput() {
 
 // A3D created as a program creates it, a source made, filled through Lock,
 // played once and looped, as the clock moves.
+static void testDirectPlayLobby() {
+    x86::Cpu cpu(32u << 20);
+    x86::Win32Process process(cpu);
+    x86::DirectPlay directPlay(process);
+    uint32_t r = 0;
+    auto mem = [&](uint32_t size) { return process.memory().alloc(size); };
+    auto guid = [&](const char *g) {
+        const uint32_t a = mem(16);
+        x86::ComHost::writeGuid(cpu, a, g);
+        return a;
+    };
+    const uint32_t out = mem(4);
+    const uint32_t create = process.provided("ole32.dll", "CoCreateInstance");
+    // Other classes aren't its.
+    CHECK(!cpu.call(create,
+                    {guid("{11111111-2222-3333-4444-555555555555}"), 0, 1,
+                     guid("{2db72491-652c-11d1-a7a8-0000f803abfc}"), out},
+                    r) &&
+          r != 0);
+    CHECK(!cpu.call(create,
+                    {guid("{2fe8f810-b2a5-11d0-a787-0000f803abfc}"), 0, 1,
+                     guid("{2db72491-652c-11d1-a7a8-0000f803abfc}"), out},
+                    r) &&
+          r == 0);
+    const uint32_t lobby = cpu.read32(out);
+    CHECK(lobby != 0);
+    // GetConnectionSettings(0, null, &size): not started by a lobby,
+    // DPERR_NOTLOBBIED; the size left as it was.
+    const uint32_t size = mem(4);
+    cpu.write32(size, 0);
+    CHECK(!cpu.call(cpu.read32(cpu.read32(lobby) + 4 * 8), {lobby, 0, 0, size}, r) && r == 0x8877042eu);
+    CHECK(cpu.read32(size) == 0);
+    CHECK(!cpu.call(cpu.read32(cpu.read32(lobby) + 4 * 2), {lobby}, r) && r == 0); // Release
+}
+
 static void testMiles() {
     x86::Cpu cpu(32u << 20);
     x86::Win32Process process(cpu);
@@ -1402,5 +1438,6 @@ static const test::Suite
                {"input", [](const std::filesystem::path &) { testInput(); }},
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
                {"miles", [](const std::filesystem::path &) { testMiles(); }},
+               {"directplay lobby", [](const std::filesystem::path &) { testDirectPlayLobby(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
            });
