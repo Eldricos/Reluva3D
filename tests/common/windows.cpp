@@ -1233,6 +1233,25 @@ static void testDirectX() {
     vertex(2, 40, 48, 0.5f, 0xffffffffu, 0, 1);
     vertex(3, 64, 48, 0.5f, 0xffffffffu, 1, 1);
     CHECK(call(device, 25, {5, fvf, verts, 4, 0}) == 0); // a strip
+    // Flat shaded, a triangle whose first (red) corner is off the screen's
+    // left is still red where it shows, however it's clipped. Not
+    // transformed (clip space, the transforms being the identity), unlit.
+    const uint32_t flatVerts = mem(3 * 16);
+    const float flatXy[3][2] = {{-3.0f, -0.5f}, {-0.5f, -0.3f}, {-0.5f, -0.9f}};
+    const uint32_t flatColors[3] = {0xffff0000u, 0xff00ff00u, 0xff0000ffu};
+    for (uint32_t i = 0; i < 3; ++i) {
+        cpu.write32(flatVerts + 16 * i, bits(flatXy[i][0]));
+        cpu.write32(flatVerts + 16 * i + 4, bits(flatXy[i][1]));
+        cpu.write32(flatVerts + 16 * i + 8, bits(0.5f));
+        cpu.write32(flatVerts + 16 * i + 12, flatColors[i]);
+    }
+    CHECK(call(device, 35, {0, 0}) == 0);                           // SetTexture: none
+    CHECK(call(device, 37, {0, 1, 2}) == 0);                        // COLOROP: SELECTARG1
+    CHECK(call(device, 37, {0, 2, 0}) == 0);                        // COLORARG1: diffuse
+    CHECK(call(device, 20, {137, 0}) == 0);                         // LIGHTING: off
+    CHECK(call(device, 20, {9, 1}) == 0);                           // SHADEMODE: flat
+    CHECK(call(device, 25, {4, 0x2 | 0x40, flatVerts, 3, 0}) == 0); // XYZ | DIFFUSE
+    CHECK(call(device, 20, {9, 2}) == 0);                           // SHADEMODE: Gouraud again
     // GDI on a surface's device context (GetDC): a red "I" in a font 9 high,
     // transparent behind, its size measured; a 2x2 bitmap of 24 bits,
     // bottom-up, stretched twice its size. In 565 once let go (ReleaseDC).
@@ -1304,6 +1323,7 @@ static void testDirectX() {
     CHECK(at(40, 5) == 0x0000ff);  // the clear colour
     CHECK(at(31, 31) == 0x0000ff); // past the hypotenuse
     CHECK(at(45, 28) == 0xffffff && at(58, 28) == 0xff0000 && at(45, 44) == 0x00ff00 && at(58, 44) == 0x000000);
+    CHECK(at(10, 38) == 0xff0000 && at(2, 38) == 0xff0000); // the flat triangle, clipped
     // The display's gamma ramp (IDirectDrawGammaControl, from the primary):
     // red turned upside down, shown from then on.
     CHECK(call(primary, 0, {guid("{69c11c3e-b46b-11d1-ad7a-00c04fc29b4e}"), out}) == 0);

@@ -37,7 +37,8 @@ headers' (`directx/interfaces.cpp`).
     clamped to 0 to 1 at the vertex), materials and their vertex-colour
     sources, and texture coordinate generation and
     transforms;
-  - clipping to the view volume, and culling by winding;
+  - clipping to the view volume, and culling by winding; a flat-shaded
+    triangle keeps its first vertex's colour however clipping cuts it;
   - pixel centres at whole coordinates, with a top-left fill rule;
   - perspective-correct interpolation;
   - up to 8 texture stages with all the D3D7 operations from DISABLE to

@@ -739,6 +739,14 @@ void Device::triangle(const ClipVertex &a, const ClipVertex &b, const ClipVertex
     } polys[2];
     Polygon *poly = &polys[0];
     poly->v[0] = a, poly->v[1] = b, poly->v[2] = c, poly->n = 3;
+    // Flat shaded, the triangle is the first vertex's colour however it's
+    // clipped (which can cut that vertex away): every corner given it,
+    // the fog factor (specular's alpha) still each its own.
+    if (_cfg.flat)
+        for (size_t i = 1; i < 3; ++i) {
+            poly->v[i].diffuse = a.diffuse;
+            poly->v[i].specular = {a.specular.r, a.specular.g, a.specular.b, poly->v[i].specular.a};
+        }
     if (!_projected) {
         for (int plane = 0; plane < 6 && poly->n; ++plane) {
             Polygon &next = poly == &polys[0] ? polys[1] : polys[0];

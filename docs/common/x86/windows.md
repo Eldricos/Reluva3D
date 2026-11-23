@@ -248,7 +248,8 @@ executable's entry point on the main thread until it ends the process.
   mapping by name nor view at an address; the own process only; nothing
   run; no MIDI device. `testDirectX` draws on a surface's device
   context: text in a colour with nothing behind it, its size, and a
-  bottom-up bitmap stretched.
+  bottom-up bitmap stretched; and a flat-shaded triangle, its first
+  corner off the screen, still that corner's colour.
 - **Confidence:** published unless marked.
 
 - `tests/common/drives.cpp` (`common.unit.drives`) checks the drives'
