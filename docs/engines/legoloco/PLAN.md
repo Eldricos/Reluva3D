@@ -54,9 +54,34 @@ is in [the first survey](research/first-survey.md).
    office and postcards, saving and loading play, with the mouse and
    keys; [systems/running.md](systems/running.md)): the basic engine
    test taken through them.
-6. **Postcards and network play:** DirectPlay stood in for over Reluva's
-   own networking, its meeting server for players who can't reach each
-   other.
+6. **Network play** (planning; [a first look](research/network.md)):
+   the game's own DirectPlay network code run as it is, with DirectPlay
+   stood in for over Reluva's networking. In steps:
+   1. *Watching it:* two copies of `loco.exe` in one Reluva process,
+      their DirectPlay objects joined by an in-memory network, so the
+      game's own network screens, sessions, players, groups and
+      messages can be followed and stood in for one call at a time,
+      with no real network in the way.
+   2. *DirectPlay's model, in the shared stand-in* (`x86::DirectPlay`,
+      for any program that uses it): sessions with a host, players and
+      groups, the system messages (players and groups made, gone,
+      joined; the session lost), guaranteed messages in order and
+      others as they come, the message queue, `SendEx` and
+      `CancelMessage`; tested with two objects in one test.
+   3. *Over the network:* one service provider (the game's TCP/IP)
+      over UDP (`net::UdpSocket`), Reluva to Reluva, with a small
+      protocol of its own (a guaranteed, ordered channel for DirectPlay's
+      guaranteed messages): sessions found on the local network by
+      broadcast, a host's address typed in reaching it directly, and the
+      meeting server listing sessions and introducing players across
+      routers; port mapping for a host on the Internet.
+   4. *Played:* two copies over the loopback and over a network: the
+      session screens, the players' boards joined, trains crossing,
+      postcards sent and received; `reluva-tool legoloco run` able to
+      host and join, and an engine test with two copies over the
+      in-memory network.
+   5. *Later, if wanted:* playing with the original game on Windows,
+      over DirectPlay's own protocol as Microsoft has published it.
 7. **Checking against the original:** recordings of the game running,
    [TESTING.md](TESTING.md)'s playthrough,
    [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md), and speed.

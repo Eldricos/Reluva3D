@@ -10,5 +10,6 @@ executable's headers) or **guess** (a working assumption).
 
 | File | Contents |
 |---|---|
+| [network.md](network.md) | A first look at network play: the DirectPlay it calls, its screens, and Reluva's networking to build on |
 | [postcards.md](postcards.md) | A first look at the postcards (`.crd`): where they are, and three of them |
 | [first-survey.md](first-survey.md) | The first look at the CD, an install, `loco.exe`'s headers and imports, and the resource file |
