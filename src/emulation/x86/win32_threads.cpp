@@ -611,7 +611,7 @@ void Win32Process::addThreadStandIns() {
         int which = -1;
         auto ready = [&] {
             which = -1;
-            if (!_messages.empty() || timerDue()) {
+            if (!_messages.empty() || timerDue() || scrollRepeatDue()) {
                 which = int(count);
                 return true;
             }

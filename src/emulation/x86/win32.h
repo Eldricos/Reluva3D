@@ -718,17 +718,25 @@ private:
     std::optional<std::array<int, 4>> _clip;     // ClipCursor's: left, top, right, bottom
     // A scroll bar held down (DefWindowProcA's, on WM_NCLBUTTONDOWN): it's
     // told SB_ENDSCROLL when the button's let go; a thumb being dragged
-    // also SB_THUMBTRACK as it moves and SB_THUMBPOSITION at the end.
+    // also SB_THUMBTRACK as it moves and SB_THUMBPOSITION at the end; an
+    // arrow or the track held, its request again and again.
     struct ScrollHold {
         uint32_t window = 0;
         int bar = 0;
         bool thumb = false;
-        int grab = 0; // where on the thumb it was taken
-        int pos = 0;  // where the thumb's been dragged to
+        int grab = 0;         // where on the thumb it was taken
+        int pos = 0;          // where the thumb's been dragged to
+        uint32_t request = 0; // an arrow's or the track's (SB_LINEUP...)
+        uint64_t nextMs = 0;  // when it's repeated, in milliseconds()
     };
     std::optional<ScrollHold> _scrollHold;
     void scrollDrag();
     void scrollRelease();
+    // The part of a window's scroll bar at a point on the screen: its
+    // request (SB_LINEUP to SB_PAGEDOWN), kScrollThumb, or -1 off it.
+    int scrollPart(uint32_t handle, int bar, int x, int y) const;
+    bool scrollRepeatDue() const;
+    void repeatScroll();
     uint32_t _lastClickTime = 0;
     int _lastClickButton = -1;
     int _lastClickX = 0;

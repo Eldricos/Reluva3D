@@ -72,6 +72,10 @@ constexpr uint32_t kSbPageDown = 3;
 constexpr uint32_t kSbThumbPosition = 4;
 constexpr uint32_t kSbThumbTrack = 5;
 constexpr uint32_t kSbEndScroll = 8;
+constexpr int kScrollThumb = 4; // scrollPart's answer for the thumb
+// A held arrow or track scrolls again after a pause, then steadily.
+constexpr uint64_t kScrollFirstRepeatMs = 400;
+constexpr uint64_t kScrollRepeatMs = 50;
 constexpr uint32_t kWsVScroll = 0x00200000;
 constexpr uint32_t kWsHScroll = 0x00100000;
 // Handles that are only ever passed back: icons and cursors, GDI's stock
@@ -253,6 +257,39 @@ int Win32Process::scrollThumb(uint32_t handle, int bar) const {
         return -1;
     const int pos = std::clamp(b.pos, b.min, b.max);
     return kScrollBar + int(int64_t(pos - b.min) * track / (b.max - b.min));
+}
+
+int Win32Process::scrollPart(uint32_t handle, int bar, int x, int y) const {
+    const auto area = scrollBarArea(handle, bar);
+    if (!area || x < (*area)[0] || x >= (*area)[0] + (*area)[2] || y < (*area)[1] || y >= (*area)[1] + (*area)[3])
+        return -1;
+    const int along = bar ? y - (*area)[1] : x - (*area)[0];
+    const int length = bar ? (*area)[3] : (*area)[2];
+    const int thumb = scrollThumb(handle, bar);
+    if (along < kScrollBar)
+        return int(kSbLineUp);
+    if (along >= length - kScrollBar)
+        return int(kSbLineDown);
+    if (thumb >= 0 && along >= thumb && along < thumb + kScrollBar)
+        return kScrollThumb;
+    return int(thumb >= 0 && along < thumb ? kSbPageUp : kSbPageDown);
+}
+
+// Due while the pointer stays on the part pressed: a page goes on until
+// the thumb reaches the pointer.
+bool Win32Process::scrollRepeatDue() const {
+    if (!_scrollHold || _scrollHold->thumb || milliseconds() < _scrollHold->nextMs)
+        return false;
+    return scrollPart(_scrollHold->window, _scrollHold->bar, cursorX, cursorY) == int(_scrollHold->request);
+}
+
+// Posted, where Windows' own loop would send it: the program takes it in
+// its own loop, as its window procedure would have.
+void Win32Process::repeatScroll() {
+    if (!scrollRepeatDue())
+        return;
+    postMessage(_scrollHold->window, _scrollHold->bar ? kWmVScroll : kWmHScroll, _scrollHold->request, 0);
+    _scrollHold->nextMs = milliseconds() + kScrollRepeatMs;
 }
 
 // A thumb dragged to the pointer: the position it stands for, told as it
@@ -834,6 +871,7 @@ void Win32Process::addUserStandIns() {
                    ((first == 0 && last == 0) || (m.message >= first && m.message <= last));
         };
         runThreads();
+        repeatScroll();
         auto it = std::find_if(_messages.begin(), _messages.end(), matches);
         if (it == _messages.end() && idle) {
             idle();
@@ -937,8 +975,8 @@ void Win32Process::addUserStandIns() {
             return (c.arg(3) & 0xffff) == kHtClient ? 1u : 0u;
         }
         // WM_NCLBUTTONDOWN on a scroll bar: an arrow scrolls a line, the
-        // track a page, the thumb is dragged; the bar is held until the
-        // button's let go.
+        // track a page, again and again while it's held; the thumb is
+        // dragged. The bar is held until the button's let go.
         if (message == kWmNcLButtonDown && (wParam == kHtHScroll || wParam == kHtVScroll)) {
             const int bar = wParam == kHtVScroll ? 1 : 0;
             const auto area = scrollBarArea(handle, bar);
@@ -946,25 +984,23 @@ void Win32Process::addUserStandIns() {
                 return 0u;
             const int x = int16_t(c.arg(3) & 0xffff);
             const int y = int16_t(c.arg(3) >> 16);
-            const int along = bar ? y - (*area)[1] : x - (*area)[0];
-            const int length = bar ? (*area)[3] : (*area)[2];
-            const int thumb = scrollThumb(handle, bar);
+            const int part = scrollPart(handle, bar, x, y);
+            if (part < 0)
+                return 0u;
             ScrollHold h;
             h.window = handle;
             h.bar = bar;
             h.pos = window(handle)->scroll[size_t(bar)].pos;
-            uint32_t request = kSbPageDown;
-            if (along < kScrollBar)
-                request = kSbLineUp;
-            else if (along >= length - kScrollBar)
-                request = kSbLineDown;
-            else if (thumb >= 0 && along >= thumb && along < thumb + kScrollBar)
-                h.thumb = true, h.grab = along - thumb;
-            else if (thumb >= 0 && along < thumb)
-                request = kSbPageUp;
+            h.thumb = part == kScrollThumb;
+            if (h.thumb) {
+                const int along = bar ? y - (*area)[1] : x - (*area)[0];
+                h.grab = along - scrollThumb(handle, bar);
+            }
+            h.request = h.thumb ? 0 : uint32_t(part);
+            h.nextMs = milliseconds() + kScrollFirstRepeatMs;
             _scrollHold = h;
             if (!h.thumb)
-                sendMessage(handle, bar ? kWmVScroll : kWmHScroll, request, 0);
+                sendMessage(handle, bar ? kWmVScroll : kWmHScroll, h.request, 0);
             return 0u;
         }
         if (message == kWmSysCommand && (wParam & 0xfff0) == kScClose)

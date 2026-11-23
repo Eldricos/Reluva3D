@@ -114,8 +114,14 @@ C++ library have pages of their own ([directx.md](directx.md),
     track `SB_PAGEUP` or `SB_PAGEDOWN`, and the thumb is held: dragged,
     `SB_THUMBTRACK` as its position changes, then `SB_THUMBPOSITION`;
     letting go ends it with `SB_ENDSCROLL`. While held the mouse is the
-    bar's, as Windows' own loop takes it; a press isn't repeated while
-    held;
+    bar's, as Windows' own loop takes it. An arrow or the track held is
+    repeated, 400 ms after the press and then every 50 ms *(guessed: the
+    timings aren't documented)*, while the pointer stays on the part
+    pressed (on the track, until the thumb reaches the pointer). Where
+    Windows' loop sends the repeats, they're posted, so the program takes
+    them in its own loop: `PeekMessageA` and `GetMessageA` post one when
+    it's due, and a wait for messages (`GetMessageA`,
+    `MsgWaitForMultipleObjects`) ends for it;
   - `DefWindowProcA` answers `WM_NCHITTEST` by the window's frame (client
     area, scroll bars, caption, border, or nowhere) and `WM_SETCURSOR` (a child's
     parent asked first);
@@ -294,7 +300,9 @@ executable's entry point on the main thread until it ends the process.
   its movement since the last read, its buffer) and keyboard.
 - `testScrollBars` checks `AdjustWindowRect` leaving scroll bars out,
   their range and position, `DefWindowProcA`'s hit test, a click on the
-  track and on an arrow, a thumb dragged, and hiding them.
+  track and on an arrow, a thumb dragged, an arrow held (repeated after
+  the pause, steadily, and not once the pointer's off it), the track held
+  until the thumb passes the pointer, and hiding them.
 - **Confidence:** published unless marked.
 
 - `tests/common/windows_dialogs.cpp` (`common.unit.windows_dialogs`)

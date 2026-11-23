@@ -888,10 +888,13 @@ static void testInput() {
 // played once and looped, as the clock moves.
 // A window's scroll bars: left out of AdjustWindowRect, hit-tested by
 // DefWindowProcA, a click on an arrow or the track and a thumb dragged
-// told to the window as WM_VSCROLL, shown and hidden with WM_SIZE.
+// told to the window as WM_VSCROLL, an arrow and the track held repeated,
+// shown and hidden with WM_SIZE.
 static void testScrollBars() {
     x86::Cpu cpu(16u << 20);
     x86::Win32Process process(cpu);
+    uint32_t now = 1000;
+    process.milliseconds = [&] { return now; };
     auto fn = [&](const char *name) { return process.provided("USER32.dll", name); };
     auto text = [&](const std::string &s) {
         const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
@@ -964,6 +967,37 @@ static void testScrollBars() {
     // Dragged 35 down: (100 - 16 - 6) of 86 is 90 of the range.
     CHECK((told == std::vector<std::pair<uint32_t, uint32_t>>{
                        {0x115, 5 | 90u << 16}, {0x115, 4 | 90u << 16}, {0x115, 8}})); // SB_THUMBTRACK, _THUMBPOSITION
+    told.clear();
+    // An arrow held: after a pause its request comes again, posted, then
+    // steadily, while the pointer stays on it.
+    auto repeated = [&]() -> uint32_t {
+        if (cpu.call(fn("PeekMessageA"), {msg, 0, 0, 0, 1}, r) || !r || cpu.read32(msg + 4) != 0x115)
+            return ~0u;
+        return cpu.read32(msg + 8);
+    };
+    press(192, 125);                                                         // the arrow at the bottom
+    CHECK((told == std::vector<std::pair<uint32_t, uint32_t>>{{0x115, 1}})); // SB_LINEDOWN
+    now += 399;
+    CHECK(repeated() == ~0u);
+    now += 1;
+    CHECK(repeated() == 1);
+    CHECK(repeated() == ~0u);
+    now += 50;
+    CHECK(repeated() == 1);
+    process.mouseMoveTo(192, 100); // off the arrow
+    now += 50;
+    CHECK(repeated() == ~0u);
+    process.mouseButton(0, false);
+    told.clear();
+    // The track held: pages until the thumb reaches the pointer.
+    press(192, 100);
+    CHECK((told == std::vector<std::pair<uint32_t, uint32_t>>{{0x115, 3}}));
+    now += 400;
+    CHECK(repeated() == 3);
+    CHECK(!cpu.call(fn("SetScrollPos"), {hwnd, 1, 100, 0}, r)); // the thumb now past the pointer
+    now += 50;
+    CHECK(repeated() == ~0u);
+    process.mouseButton(0, false);
     told.clear();
     // Hidden, the client area grows, and the window's told its new size.
     CHECK(!cpu.call(fn("ShowScrollBar"), {hwnd, 3, 0}, r) && r);

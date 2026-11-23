@@ -247,6 +247,7 @@ void Win32Process::addWindowStandIns() {
                    ((first == 0 && last == 0) || (m.message >= first && m.message <= last));
         };
         for (;;) {
+            repeatScroll();
             auto it = std::find_if(_messages.begin(), _messages.end(), matches);
             std::optional<Message> m;
             if (it != _messages.end()) {
@@ -273,7 +274,7 @@ void Win32Process::addWindowStandIns() {
                 const uint64_t now = milliseconds();
                 const uint32_t timeout =
                     next == UINT64_MAX ? 10u : uint32_t(next > now ? std::min<uint64_t>(next - now, 10) : 0);
-                if (!wait([&] { return !_messages.empty() || timerDue(); }, timeout) && ending())
+                if (!wait([&] { return !_messages.empty() || timerDue() || scrollRepeatDue(); }, timeout) && ending())
                     return 0u;
             } else {
                 runThreads();
