@@ -392,6 +392,22 @@ bool MapScreen::updateOtherTrigger(Trigger &t, float seconds) {
     return false;
 }
 
+void MapScreen::giveAI(size_t part, const TextObject *ai) {
+    _map.parts[part].activities.push_back(ai);
+    addTrigger(part, ai);
+    // A temporary task playing a sequence once plays it, held at its end
+    // (a hostage laid out, "dead"; inferred).
+    if (ai->className != "CTemporaryTaskAI")
+        return;
+    const TextObject *activity = ai->object("Temporary AI");
+    const TextObject *queue = activity ? activity->object("Behavior Queue") : nullptr;
+    const TextObject *list = queue ? queue->object("Behavior") : nullptr;
+    for (const TextField *b : list ? list->items() : std::vector<const TextField *>{})
+        if (b->object && b->object->className == "CEntityBehaviorPlaySequenceOnce")
+            playSequence(part, readText(b->object.get(), "Sequence"), readText(b->object.get(), "Done Sequence"),
+                         nullptr, -1);
+}
+
 void MapScreen::runAction(const TextObject *action, int instigator, int trigger) {
     if (!action || runMissionAction(action, instigator) || runEnemyAction(action, instigator, trigger) ||
         runGadgetAction(action, instigator, trigger) || runTeamAction(action, instigator, trigger))
@@ -399,6 +415,12 @@ void MapScreen::runAction(const TextObject *action, int instigator, int trigger)
     const std::string &kind = action->className;
     const auto targets = [&](const char *key) {
         const std::string names = readText(action, key);
+        // An officer taken off the team is their stand-in.
+        if (lower(trim(names)) == "$instigator") {
+            const int who = _hasTouched ? _touched : instigator;
+            if (who >= 0 && size_t(who) < _officers.size() && _officers[size_t(who)].standIn >= 0)
+                return std::vector<size_t>{size_t(_officers[size_t(who)].standIn)};
+        }
         std::vector<size_t> parts = partsNamed(names, trigger);
         return parts;
     };
@@ -456,12 +478,35 @@ void MapScreen::runAction(const TextObject *action, int instigator, int trigger)
         }
     } else if (kind == "CAddAIAction") {
         // Its AI given to its Target Name: a process to go through, a
-        // trigger, a point of interest on the minimap.
-        if (const TextObject *ai = action->object("AI"))
-            for (size_t part : targets("Target Name")) {
-                _map.parts[part].activities.push_back(ai);
-                addTrigger(part, ai);
+        // trigger, a point of interest on the minimap. One given an officer
+        // on the team is kept for their stand-in, should they leave it.
+        if (const TextObject *ai = action->object("AI")) {
+            if (lower(trim(readText(action, "Target Name"))) == "$instigator") {
+                const int who = _hasTouched ? _touched : instigator;
+                if (who >= 0 && size_t(who) < _officers.size() && _officers[size_t(who)].standIn < 0) {
+                    _officers[size_t(who)].addedAIs.push_back(ai);
+                    return;
+                }
             }
+            for (size_t part : targets("Target Name"))
+                giveAI(part, ai);
+        }
+    } else if (kind == "CPlayAnimationAction") {
+        // Its Animation once, then its End Sequence Name (a hostage's
+        // getup; inferred).
+        const std::string then =
+            readText(action, "When Done") == "Set Sequence" ? readText(action, "End Sequence Name") : std::string();
+        for (size_t part : targets("Target Name"))
+            playSequence(part, readText(action, "Animation"), then.empty() ? _map.parts[part].sequence : then, nullptr,
+                         -1);
+    } else if (kind == "CUseInventoryItemAction") {
+        // One of its item used up by whoever's doing it (a hypospray).
+        if (instigator >= 0 && size_t(instigator) < _officers.size())
+            for (Officer::Held &h : _officers[size_t(instigator)].items)
+                if (h.name == readText(action, "Inventory Item Definition") && h.count > 0) {
+                    h.count = std::max(0, h.count - int(action->integer("Count").value_or(1)));
+                    break;
+                }
     } else if (kind == "CRemoveAIAction") {
         // Its AI, a class's name, taken from its Target Name: a trigger
         // stops (inferred: all of that class).

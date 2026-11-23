@@ -257,6 +257,18 @@ bool MapScreen::runTeamAction(const TextObject *action, int instigator, int trig
             const MapPart &p = _map.parts[part];
             if (_partStates[part].deleted)
                 continue;
+            // One of the team's, back where their stand-in is.
+            bool back = false;
+            for (Officer &o : _officers)
+                if (o.standIn == int(part)) {
+                    placeOf(part, o.x, o.y);
+                    o.present = true;
+                    o.standIn = -1;
+                    _partStates[part].deleted = true;
+                    back = true;
+                }
+            if (back)
+                continue;
             TeamMember member;
             member.firstName = p.name;
             member.bodyModel = p.model;
@@ -277,10 +289,34 @@ bool MapScreen::runTeamAction(const TextObject *action, int instigator, int trig
                     o.officer = int(officer);
         }
     } else if (kind == "CRemoveFromTeamAction") {
-        // They leave the team: gone from this map (inferred).
+        // They leave the team but stay where they are, a part of the map in
+        // their place for what's done to them: Mission 13's hostages, laid
+        // out by a task and given a process to revive them by, which adds
+        // them back (inferred: the program keeps the same character).
         const int who = whoNamed(readText(action, "Who To Remove"), instigator, trigger);
-        if (who >= 0 && size_t(who) < _officers.size())
+        if (who >= 0 && size_t(who) < _officers.size() && _officers[size_t(who)].present) {
+            Officer &o = _officers[size_t(who)];
+            const TeamMember &m = _team[o.member];
+            MapPart p;
+            p.name = m.name();
+            p.model = m.bodyModel;
+            p.overlay = m.headModel;
+            p.x = o.x;
+            p.y = o.y;
+            p.angle = float(o.direction) * 2.0f * 3.14159265f / 12.0f; // of the 12 directions
+            p.sequence = "Idle";
+            p.collideable = false;
+            const size_t part = _map.parts.size();
+            _map.parts.push_back(p);
+            _partStates.push_back({true, true, false, false});
+            _byName[lower(p.name)].push_back(part);
+            _standing.push_back(part);
             depart(size_t(who));
+            o.standIn = int(part);
+            for (const TextObject *ai : o.addedAIs)
+                giveAI(part, ai);
+            o.addedAIs.clear();
+        }
     } else if (kind == "CPauseActorAction" || kind == "CUnpauseActorAction") {
         // An actor held still, and let go (a scientist till they're
         // reached; inferred).

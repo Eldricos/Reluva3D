@@ -110,9 +110,11 @@ public:
 
     /** An officer on the map. */
     struct Officer {
-        size_t member = 0; // in the team
-        int spawn = -1;    // the part they spawned at, or -1
-        float x = 0.0f;    // where they stand
+        size_t member = 0;                        // in the team
+        int spawn = -1;                           // the part they spawned at, or -1
+        int standIn = -1;                         // off the team, the part left on the map in their place, or -1
+        std::vector<const TextObject *> addedAIs; // AIs given them, their stand-in's if they leave
+        float x = 0.0f;                           // where they stand
         float y = 0.0f;
         int direction = 0;                         // of their model's 12, 0 facing left
         std::vector<std::pair<float, float>> path; // where they're walking to, the next first
@@ -811,6 +813,8 @@ private:
     // then `done` run (a door opening, then Open, then After Opened).
     void playSequence(size_t part, const std::string &sequence, const std::string &then, const TextObject *done,
                       int doneBy);
+    // An AI given a part (CAddAIAction's).
+    void giveAI(size_t part, const TextObject *ai);
     // Whether a part's model has a sequence of that name.
     bool hasSequence(size_t part, const std::string &sequence);
     // The doors (CDoorAI), each's locked and open.

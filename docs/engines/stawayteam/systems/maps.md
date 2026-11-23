@@ -857,8 +857,19 @@ A character added to the team (`ui/map_mission.cpp`) becomes an officer
 where they stand: the roster's of their name, or one made of their part,
 its model their body *(inferred)*; their part's gone, its AI with it,
 and they're on the team bar, and on the mission's other maps as away
-from them *(inferred)*. Taken off the team, they leave the map
-*(inferred)*. A paused actor's held still till unpaused. A touching
+from them *(inferred)*. Taken off the team, they stay on the map, a
+part of it in their place: their name, body and head, where they stood
+and facing their way, with the AIs given them before (`$Instigator`
+of the action taking them off is that part after). So Mission 13's
+hostages, laid out by a temporary task's `dead`, have a process each for
+a hypospray; used on one (the hypospray, on no officer, goes to a part's
+process), the officer walks over, uses one up (`CUseInventoryItemAction`)
+and adds them back (`CAddToTeamAction` on `$trigger`): the same officer,
+where the part was, the part gone *(inferred: the program keeps the one
+character)*. `CPlayAnimationAction` plays its `Animation` once, then
+its `End Sequence Name`. A click in reach of a part with processes is
+on it before any other *(inferred)*. A paused actor's held still till
+unpaused. A touching
 trigger on a character goes where they go. A class check is of the
 officer's field.
 
@@ -1019,7 +1030,9 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   shot where they beam in, a patrol seeing them across open ground, as
   the program's would; Mission 13's team, all taken hostage at their
   spawn points, till Sheila Thatcher's own point was found to come
-  first.
+  first; then, with the Borg shut down, Sheila walking to Yraxys,
+  using a hypospray, and Yraxys back on the team where she lay; a unit
+  test of a hostage revived.
 - **The drawing order:** traced in the program; a unit test of a cut
   wall and a lifted crate; Mission 05's StarFleet HQ on the retail files,
   its roofs' trim, windows and canopies up on the buildings where they'd

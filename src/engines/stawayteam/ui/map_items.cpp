@@ -171,8 +171,12 @@ bool MapScreen::useItem(float x, float y) {
         return true;
     }
     if (def->health > 0.0f) {
+        // An officer healed; else a part with a process for it (Mission
+        // 13's hostages revived, a Hypospray Use; inferred).
         const int target = officerAt(x, y);
-        if (target < 0 || (target == _selected && !def->canUseOnSelf))
+        if (target < 0)
+            return startProcess(x, y);
+        if (target == _selected && !def->canUseOnSelf)
             return false;
         o.task = Officer::Task::kUseOn;
         o.taskOfficer = target;
@@ -554,7 +558,12 @@ int MapScreen::partAt(float x, float y) const {
         float px = 0.0f;
         float py = 0.0f;
         placeOf(i, px, py);
-        const float d = std::hypot(px - x, py - y);
+        // One with processes before any other in reach (a hostage before
+        // the mark under them; inferred).
+        float d = std::hypot(px - x, py - y);
+        if (d < kPartReach && std::any_of(p.activities.begin(), p.activities.end(),
+                                          [](const TextObject *a) { return a->className == "CProcessListAI"; }))
+            d -= kPartReach;
         if (d < nearest) {
             nearest = d;
             best = int(i);

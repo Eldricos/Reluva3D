@@ -482,6 +482,64 @@ void testFoes() {
     CHECK(enemies[1].state == "Investigate");
 }
 
+void testHostage() {
+    // Bea's spawn point lays her out and gives her a process for a
+    // hypospray, then takes her off the team: she stays where she is, a
+    // part in her place. Ann with a hypospray uses it on her: she walks
+    // over, uses one up, and Bea's back on the team where she lay.
+    const std::string spawn =
+        "Spawn Action=CMultipleActionsAction\n{\nAction=Array\n{\nItem Count=3\n"
+        "Action=CAddAIAction\n{\nTarget Name=$instigator\nAI=CTemporaryTaskAI\n{\n"
+        "Temporary AI=CBehaviorActivity\n{\nBehavior Queue=CEntityBehaviorQueue\n{\nBehavior=Array\n{\n"
+        "Item Count=1\nBehavior=CEntityBehaviorPlaySequenceOnce\n{\nSequence=dead\nDone Sequence=dead\n}\n}\n}\n}\n}\n}\n"
+        "Action=CAddAIAction\n{\nTarget Name=$Instigator\nAI=CProcessListAI\n{\nProcess=Array\n{\nItem Count=1\n"
+        "Process=CProcess\n{\nProcess Type=Hypospray Use\nRequired Selected Item=Hypospray\n"
+        "Required Item In Inventory=Hypospray\nProcess Activity=Array\n{\nItem Count=1\n"
+        "Process Activity=CGotoRadiusAI\n{\nDestination=$trigger\nRadius=30\nDone action=CMultipleActionsAction\n{\n"
+        "Action=Array\n{\nItem Count=2\nAction=CUseInventoryItemAction\n{\nInventory Item Definition=Hypospray\n"
+        "Count=1\n}\nAction=CAddToTeamAction\n{\nWho To Add=$trigger\n}\n}\n}\n}\n}\n}\n}\n}\n}\n"
+        "Action=CRemoveFromTeamAction\n{\nWho To Remove=$Instigator\n}\n}\n}\n";
+    const std::string zax =
+        "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=500.000000,500.000000\nTree List=CSortList2D\n{\n"
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nVisible=0\nPosition X=400\nPosition Y=500\n}\n"
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 2\nVisible=0\nActivity=Array\n{\nItem Count=1\n"
+        "Activity=CSpawnPointAI\n{\n" +
+        spawn + "}\n}\nPosition X=600\nPosition Y=500\n}\n}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    data.files["Cache/Models/Characters/Body.mdl16"] = modelFile("Body", 1, 1);
+    const std::string hypospray = "CStarTrekInventoryItemDefinition\n{\nDisplay In Inventory=1\n"
+                                  "Discharge Action=CGiveHealthWeaponAction\n{\nHealth action=CGiveHealthAction\n{\n"
+                                  "Health=30\n}\n}\n}\n";
+    data.files["Inventory/Item Definitions/Hypospray.txt"] = std::vector<uint8_t>(hypospray.begin(), hypospray.end());
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    ann.inventory = {{"Hypospray", 3}};
+    TeamMember bea;
+    bea.firstName = "Bea";
+    bea.bodyModel = "Characters/Body";
+    MapScreen screen(data, rules, map, options, 0, {ann, bea});
+    const auto &officers = screen.officers();
+    float x = 0.0f;
+    float y = 0.0f;
+    CHECK(!officers[1].present && officers[1].standIn >= 0 && screen.partPosition("Bea", x, y) && x == 600.0f);
+    screen.choose(0);
+    screen.chooseItem(0, 0);
+    CHECK(screen.useItem(600.0f, 500.0f));
+    uint64_t now = 0;
+    while (now < 10000 && !officers[1].present)
+        screen.update(now += 50);
+    CHECK(officers[1].present && officers[1].x == 600.0f && officers[0].items[0].count == 2);
+    CHECK(screen.partState(size_t(2)).deleted);
+}
+
 void testClosest() {
     // A guard seeing all round, Ann 80 away and Bea 40: it goes for Bea,
     // the nearer, though Ann's first.
