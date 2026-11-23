@@ -40,6 +40,8 @@ public:
     /** Stops the game and waits for its thread. */
     ~Player();
 
+    /** The desktop the game is given, in pixels: it fills it. Before start(). */
+    void setDesktop(int width, int height) { _desktopWidth = width, _desktopHeight = height; }
     /** Starts the game's thread, which loads and runs the program; call once. */
     void start();
     /**
@@ -72,6 +74,8 @@ private:
     std::filesystem::path _saveDir;
     audio::Mixer *_mixer;
     std::shared_ptr<x86::DirectPlay::Network> _network;
+    int _desktopWidth = 1024; // as the game was played: its boards fit it
+    int _desktopHeight = 768;
     GameProcess *_game = nullptr; // the game thread's, while it runs
     std::thread _thread;
     std::mutex _mutex;

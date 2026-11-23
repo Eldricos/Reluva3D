@@ -32,6 +32,9 @@ namespace {
 // router for the port while hosting ("1" or "0").
 constexpr const char *kMeetingServer = "meeting_server";
 constexpr const char *kMapPort = "map_port";
+// The desktop the game fills: "1024x768" (as it was played, its boards
+// fitting it) or "800x600" (its least, the boards scrolled).
+constexpr const char *kDesktop = "desktop";
 
 const std::vector<GameVariant> kVariants = {
     {"legoloco",
@@ -73,9 +76,12 @@ private:
     // pointer (a hand) where the mouse is, so the system's is hidden.
     Error play() {
         Player player(_target.path, _target.savePath, _audioOut ? _mixer.get() : nullptr, network());
+        int width = 1024;
+        int height = 768;
+        if (const auto it = _target.settings.find(kDesktop); it != _target.settings.end() && it->second == "800x600")
+            width = 800, height = 600;
+        player.setDesktop(width, height);
         player.start();
-        int width = kWidth;
-        int height = kHeight;
         auto screen = [&] {
             _sys.initGraphics(width, height, PixelFormat::kRGBA32);
             _screen.create(width, height, PixelFormat::kRGBA32);
@@ -165,9 +171,6 @@ private:
                                 toLauncher);
     }
 
-    // The desktop the game runs on (Win32Process's), its window filling it.
-    static constexpr int kWidth = 800;
-    static constexpr int kHeight = 600;
     System &_sys;
     GameTarget _target;
     Surface _screen;
@@ -189,7 +192,13 @@ public:
     }
 
     std::vector<GameOption> engineOptions() const override {
-        return {{kMapPort,
+        return {{kDesktop,
+                 "Screen size",
+                 "The size of the game's screen. It was made for 1024 by 768, where its boards fit; at 800 by\n"
+                 "600 they scroll.",
+                 true,
+                 {{"1024x768", "1024 by 768"}, {"800x600", "800 by 600"}}},
+                {kMapPort,
                  "Open the port on the router when hosting",
                  "When hosting a network game, ask the router (UPnP or NAT-PMP) to pass the game's port on to\n"
                  "this computer, so players across the Internet can reach it directly.",

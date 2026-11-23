@@ -22,6 +22,18 @@ the original's way. -->
   being opened while hosting are Reluva's
   ([common/x86/dplay.md](../../common/x86/dplay.md),
   [systems/running.md](systems/running.md#network-play)).
+- **The screen's size:** the game fills the desktop at whatever size it
+  is. Reluva gives it 1024 by 768, as a recording of the original was
+  played, where a board (64 by 48 squares) fits without scrolling; the
+  engine's "Screen size" setting gives 800 by 600 instead, the boards
+  then scrolled ([systems/running.md](systems/running.md#in-reluva)).
+  Other sizes the original's players had aren't offered.
+- **The default player's name:** the original names a new player by
+  Windows' user name (`GetUserNameA`; `User` in the recording), so on
+  the player's own computer it's their login; Reluva's is always
+  `Player`, keeping the computer's user name out of the game and the
+  network games it's shown in. A name of the player's own can be set as
+  `LEGO.INI`'s `[USER]` `Name` in the save folder.
 
 ## Bugs fixed
 
@@ -32,15 +44,8 @@ None yet.
 
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
 - **The window:** the original runs on the desktop, in windows filling
-  it; Reluva shows its 800 by 600 desktop as the game's window, with
-  nothing of Windows around it ([systems/running.md](systems/running.md)).
-- **The screen's size:** the game fills the desktop at whatever size it
-  is; a recording of the original was played at 1024 by 768, where a
-  board (64 by 48 squares) fits without scrolling, the front screen's
-  and the station master's places are as they'd be, and the Postcard
-  Editor shows more of its room. Reluva's desktop is 800 by 600, so the
-  boards scroll (`reluva-tool legoloco run -desktop 1024x768` plays it
-  at the recording's size).
+  it; Reluva shows its desktop as the game's window, with nothing of
+  Windows around it ([systems/running.md](systems/running.md)).
 - **The player's name box:** the front screen's ticket has a box to type
   the player's name in, an `EDIT` control the game makes with
   `CreateWindowExA` (`0x42063d`). Reluva makes only the windows of the
@@ -51,9 +56,6 @@ None yet.
   text ask for Arial, 12 pixels, bold (`0x446113`); Reluva draws GDI's
   text in a font of its own, smaller and plainer, and breaks lines
   differently.
-- **The default name:** the original names a new player by Windows'
-  user name (`GetUserNameA`, `User` in the recording); Reluva's is
-  `Player`.
 - **The windowed mode:** its frame is painted plainly (borders and a
   caption bar, without the title or buttons); the desktop around it is
   black.

@@ -217,10 +217,10 @@ calls named were seen made, from the addresses given:
   bytes between them; then, past the tick, messages of `0xc19` bytes
   both ways, to one player and to everyone: the boards *(guessed)*.
 - **The boards:** past the tick each copy shows its own area of the
-  arrangement, a board of 64 by 48 squares (1024 by 768 pixels), bigger
-  than the screen: its main window gets both scroll bars (style
-  `0x93300000`, `0x407fc7`), sized by `AdjustWindowRect` to 800 by 600
-  with them inside, and `WM_VSCROLL` and `WM_HSCROLL` move the board
+  arrangement, a board of 64 by 48 squares (1024 by 768 pixels). On a
+  screen of 1024 by 768 it fits; on a smaller one (800 by 600) its main
+  window gets both scroll bars (style `0x93300000`, `0x407fc7`), sized
+  by `AdjustWindowRect` to the screen with them inside, and `WM_VSCROLL` and `WM_HSCROLL` move the board
   (`0x462099`: a line 4 pixels, a page 256, or to the thumb's position).
   Gates (`track\global-n/s/e/w`) are placed at the middle of each edge
   that has a neighbour (`0x41d466`), and one can be laid from the track
@@ -282,8 +282,10 @@ calls named were seen made, from the addresses given:
     (`Win32Process::useHostThreads`), and DirectDraw is stood in for by
     the shared `x86::DirectX`.
 - `src/engines/legoloco/host/player.cpp`: `Player` runs it on a thread of
-  its own, for the engine (`legoloco.cpp`), which shows its 800 by 600
-  screen:
+  its own, for the engine (`legoloco.cpp`), which shows its screen, a
+  desktop of 1024 by 768 (as a recording of the original was played,
+  the boards fitting it) or, by the engine's "Screen size" setting
+  (`desktop`), 800 by 600:
   - each frame presented (a blit or flip onto the primary surface, in the
     game's window) is kept for the engine; a movie's frames, drawn into
     the screen's pixels, are presented as they're drawn
@@ -306,8 +308,8 @@ calls named were seen made, from the addresses given:
   `-key s vk` presses a key (a virtual-key code in hex), and
   `-shot s file.ppm` saves the screen (`-shot file.ppm` at the end).
   `-nomovies` ends each movie as it starts. `-desktop 1024x768` gives
-  the program a desktop of that size (800 by 600 otherwise), as a
-  recording of the original was played at.
+  the program a desktop of that size, as the engine does; the tool's
+  is 800 by 600 otherwise, which the clicks in these pages are for.
 - Network games: the engine plays them over the system's UDP sockets
   ([dplay.md](../../../common/x86/dplay.md)), searching each network the
   computer is on, and this computer's other copies. The game's

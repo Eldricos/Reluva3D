@@ -97,6 +97,8 @@ void Player::work() {
     };
     game.video().frameDrawn = [&game] { game.directX().show(); };
     game.directPlay().network = _network;
+    game.process().screenWidth = _desktopWidth;
+    game.process().screenHeight = _desktopHeight;
     process.idle = [this] { drain(); };
     {
         std::lock_guard<std::mutex> lock(_mutex);
