@@ -1054,6 +1054,15 @@ static void testDirectX() {
     CHECK(!cpu.call(process.provided("GDI32.dll", "GetPixel"), {screenDc, 5, 5}, r) && r == 0x0000ff);
     CHECK(!cpu.call(process.provided("GDI32.dll", "SetPixel"), {screenDc, 2, 2, 0x00ff00}, r) && r == 0x00ff00);
     CHECK(!cpu.call(process.provided("GDI32.dll", "GetPixel"), {screenDc, 2, 2}, r) && r == 0x00ff00);
+    // A surface's own device context (GetDC), drawing in its format, once
+    // at a time; released, it's gone.
+    const uint32_t surfaceDc = mem(4);
+    CHECK(call(primary, 17, {surfaceDc}) == 0 && call(primary, 17, {surfaceDc}) == 0x8876026cu); // GetDC twice
+    const uint32_t hdc = cpu.read32(surfaceDc);
+    CHECK(!cpu.call(process.provided("GDI32.dll", "SetPixel"), {hdc, 3, 2, 0x0000ff}, r) && r == 0x0000ff);
+    CHECK(!cpu.call(process.provided("GDI32.dll", "GetPixel"), {screenDc, 3, 2}, r) && r == 0x0000ff);
+    CHECK(call(primary, 26, {hdc}) == 0 && call(primary, 26, {hdc}) == 0x8876024au); // ReleaseDC twice
+    CHECK(!cpu.call(process.provided("GDI32.dll", "GetPixel"), {hdc, 3, 2}, r) && r == 0xffffffffu);
     // The display's gamma ramp (IDirectDrawGammaControl, from the primary):
     // red turned upside down, shown from then on.
     CHECK(call(primary, 0, {guid("{69c11c3e-b46b-11d1-ad7a-00c04fc29b4e}"), out}) == 0);

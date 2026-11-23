@@ -39,6 +39,8 @@ constexpr uint32_t kDDErrNotFlippable = 0x887601e5u;
 constexpr uint32_t kDDErrNoColorKey = 0x887600d7u;
 constexpr uint32_t kD3DErrInvalidVertexType = 0x887602d4u;
 constexpr uint32_t kDDErrCantCreateDc = 0x8876024bu;
+constexpr uint32_t kDDErrNoDc = 0x8876024au;
+constexpr uint32_t kDDErrDcAlreadyCreated = 0x8876026cu;
 ///@}
 
 /** DDPIXELFORMAT's flags. */
@@ -264,6 +266,12 @@ public:
     std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override;
     const ComInterface *query(const std::string &iid) override;
 };
+
+/**
+ * GDI's way to a surface's pixels (Win32Process::PixelAccess), in its
+ * format: `surface` finds it each time (null: gone).
+ */
+Win32Process::PixelAccess pixelAccess(DirectX::State &state, const std::function<Surface *()> &surface);
 
 /** An IDirectDrawClipper: only the window it clips to. */
 class Clipper : public ComObject {

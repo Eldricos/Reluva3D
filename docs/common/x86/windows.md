@@ -124,7 +124,9 @@ C++ library have pages of their own ([directx.md](directx.md),
     (`SelectObject` returns what was selected of the same kind) with its
     colours and background mode. A memory one draws on its bitmap; a
     window's (`GetDC`, `BeginPaint`) on the screen at the window's client
-    area, not clipped to it.
+    area, not clipped to it. One the engine makes
+    (`makeDeviceContext`) draws on pixels it keeps, through a function:
+    DirectX's surfaces' `GetDC`.
   - The screen is what the engine gives `screenAccess`: DirectX points it
     at the primary surface, as on Windows, where GDI and DirectDraw share
     the display. Without it, the process keeps a screen of its own. When
@@ -295,7 +297,8 @@ executable's entry point on the main thread until it ends the process.
   masked blit (AND, the key blacked out, OR) onto a window on the
   process's own screen, a brush's fill, `DSTINVERT`, a line; and the
   objects' kinds and sizes. The DirectX test reads and writes a 16-bit
-  primary surface through a window's device context.
+  primary surface through a window's device context, and through the
+  surface's own (`GetDC`, `ReleaseDC`, each twice).
 - It reads a cue sheet of two files (a data track, an audio track after
   a `PREGAP`, a track with `INDEX 00` and `INDEX 01`) and asks MCI about
   the disc as Star Trek: Armada does: with no disc, then with it, in MSF,

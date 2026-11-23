@@ -230,6 +230,8 @@ Rect Rect::read(Cpu &c, uint32_t p) {
 // Surfaces.
 
 Surface::~Surface() {
+    if (s && dc)
+        s->process.releaseDeviceContext(dc);
     if (s && d.memory) {
         s->process.memory().free(d.memory);
         if (d.caps[0] & kCapsVideoMemory)
@@ -346,6 +348,26 @@ std::optional<uint32_t> Surface::invoke(const ComInterface &iface, int index, Cp
             else
                 c.write16(ramp + uint32_t(2 * i), s->gamma[i]);
         }
+        return kDDOk;
+    }
+    // GetDC(HDC*): a device context drawing on the surface, until ReleaseDC.
+    if (m == "GetDC") {
+        if (dc)
+            return kDDErrDcAlreadyCreated;
+        if (!c.valid(c.arg(1), 4))
+            return kDDErrInvalidParams;
+        dc = s->process.makeDeviceContext(d.width, d.height, pixelAccess(*s, [this] { return this; }));
+        c.write32(c.arg(1), dc);
+        return kDDOk;
+    }
+    if (m == "ReleaseDC") {
+        if (!dc || c.arg(1) != dc)
+            return kDDErrNoDc;
+        s->process.releaseDeviceContext(dc);
+        dc = 0;
+        touched();
+        if (d.caps[0] & kCapsPrimarySurface)
+            s->present();
         return kDDOk;
     }
     if (m == "GetSurfaceDesc") {
@@ -668,6 +690,43 @@ uint32_t Surface::flip(Cpu &, const ComInterface &) {
         s->presentShown();
     }
     return kDDOk;
+}
+
+Win32Process::PixelAccess pixelAccess(DirectX::State &state, const std::function<Surface *()> &surface) {
+    return [&state, surface](int x, int y, int width, int height, uint32_t *pixels, bool write) {
+        Surface *p = surface();
+        if (!p)
+            return;
+        state.finishDraws();
+        Cpu &c = state.cpu;
+        const SurfaceData &d = p->d;
+        const uint32_t bytes = d.format.bytes();
+        const ArgbConverter convert(d.format, p->paletteArgb());
+        for (int r = 0; r < height; ++r) {
+            if (y + r < 0 || y + r >= d.height)
+                continue;
+            for (int col = 0; col < width; ++col) {
+                if (x + col < 0 || x + col >= d.width)
+                    continue;
+                const uint32_t at = d.memory + uint32_t((y + r) * d.pitch) + uint32_t(x + col) * bytes;
+                uint32_t &px = pixels[size_t(r) * size_t(width) + size_t(col)];
+                if (!c.valid(at, bytes))
+                    continue;
+                if (write) {
+                    const uint32_t v = d.format.fromArgb(0xff000000u | px);
+                    for (uint32_t b = 0; b < bytes; ++b)
+                        c.write8(at + b, uint8_t(v >> (8 * b)));
+                } else {
+                    uint32_t v = 0;
+                    for (uint32_t b = 0; b < bytes; ++b)
+                        v |= uint32_t(c.read8(at + b)) << (8 * b);
+                    px = convert(v) & 0xffffff;
+                }
+            }
+        }
+        if (write)
+            ++p->d.version;
+    };
 }
 
 // Palettes and clippers.

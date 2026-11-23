@@ -601,7 +601,16 @@ public:
      * screen. DirectX points it at the primary surface while it owns the
      * display; without it, the process keeps a screen of its own (screen()).
      */
-    std::function<void(int x, int y, int width, int height, uint32_t *pixels, bool write)> screenAccess;
+    using PixelAccess = std::function<void(int x, int y, int width, int height, uint32_t *pixels, bool write)>;
+    PixelAccess screenAccess;
+    /**
+     * A device context drawing on pixels kept elsewhere (a DirectDraw
+     * surface's, for its GetDC): `access` reads or writes them as
+     * screenAccess does, within width × height. Its handle, until
+     * releaseDeviceContext.
+     */
+    uint32_t makeDeviceContext(int width, int height, PixelAccess access);
+    void releaseDeviceContext(uint32_t handle);
     /**
      * Called when the program, having drawn on windows with GDI, next looks
      * for a message, as its painting is done: for DirectX to show the
@@ -745,6 +754,9 @@ private:
     };
     struct DeviceContext {
         uint32_t window = 0; // a window's (its client area on the screen); 0 for a memory one
+        PixelAccess access;  // makeDeviceContext's
+        int accessWidth = 0;
+        int accessHeight = 0;
         uint32_t bitmap = 0;
         uint32_t brush = 0;
         uint32_t pen = 0;
@@ -771,6 +783,18 @@ private:
     std::vector<uint32_t> readArea(const DeviceContext &dc, int x, int y, int width, int height);
     void writeArea(const DeviceContext &dc, int x, int y, int width, int height, const std::vector<uint32_t> &pixels);
     ///@}
+    struct Rect {
+        int left = 0;
+        int top = 0;
+        int right = 0;
+        int bottom = 0;
+    };
+    /**
+     * For a device context that isn't a bitmap's: moves (x, y) onto what it
+     * draws on, and gives the part of the rectangle there (`on`, false if
+     * none) and how to reach it.
+     */
+    bool outsideArea(const DeviceContext &dc, int &x, int &y, int width, int height, Rect &on, PixelAccess &through);
     /** Whether a device context draws in monochrome (a monochrome bitmap is selected). */
     bool monochrome(const DeviceContext &dc) const;
     uint32_t _nextWindow = 0x10010;

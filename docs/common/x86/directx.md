@@ -28,7 +28,9 @@ headers' (`directx/interfaces.cpp`).
     (`Win32Process::screenAccess`), in the display's format, so what a
     program paints with GDI and what it blits meet as on Windows; what it
     paints is shown once it next looks for a message
-    (`Win32Process::screenPainted`).
+    (`Win32Process::screenPainted`);
+  - a surface's own device context (`GetDC`, one at a time, until
+    `ReleaseDC`), for GDI to draw on it in its format.
 
   What reaches the primary surface becomes `DirectX::frame()`, handed to
   the engine, through the gamma ramp. In a window, that's the window's

@@ -191,40 +191,62 @@ Win32Process::DeviceContext *Win32Process::deviceContext(uint32_t handle) {
 }
 
 bool Win32Process::monochrome(const DeviceContext &dc) const {
-    if (dc.window)
+    if (dc.window || dc.access)
         return false;
     auto it = _bitmaps.find(dc.bitmap);
     return it == _bitmaps.end() || it->second.bits == 1;
 }
 
-std::vector<uint32_t> Win32Process::readArea(const DeviceContext &dc, int x, int y, int width, int height) {
-    std::vector<uint32_t> out(size_t(std::max(width, 0)) * size_t(std::max(height, 0)), 0);
-    if (out.empty())
-        return out;
-    if (dc.window) {
+bool Win32Process::outsideArea(const DeviceContext &dc, int &x, int &y, int width, int height, Rect &on,
+                               PixelAccess &through) {
+    int boundsWidth = screenWidth;
+    int boundsHeight = screenHeight;
+    if (dc.access) {
+        boundsWidth = dc.accessWidth;
+        boundsHeight = dc.accessHeight;
+        through = dc.access;
+    } else {
         // The screen, at the window's client area (not clipped to it).
         if (dc.window != kDesktopWindow)
             if (auto area = clientArea(dc.window)) {
                 x += (*area)[0];
                 y += (*area)[1];
             }
-        const int x0 = std::max(x, 0);
-        const int y0 = std::max(y, 0);
-        const int x1 = std::min(x + width, screenWidth);
-        const int y1 = std::min(y + height, screenHeight);
-        if (x0 >= x1 || y0 >= y1)
-            return out;
-        std::vector<uint32_t> part(size_t(x1 - x0) * size_t(y1 - y0));
-        if (screenAccess) {
-            screenAccess(x0, y0, x1 - x0, y1 - y0, part.data(), false);
-        } else {
+        through = [this](int ax, int ay, int aw, int ah, uint32_t *pixels, bool write) {
+            if (screenAccess) {
+                screenAccess(ax, ay, aw, ah, pixels, write);
+                return;
+            }
             _screen.resize(size_t(screenWidth) * size_t(screenHeight), 0);
-            for (int r = y0; r < y1; ++r)
-                std::copy_n(_screen.begin() + r * screenWidth + x0, x1 - x0, part.begin() + (r - y0) * (x1 - x0));
-        }
-        for (int r = y0; r < y1; ++r)
-            std::copy_n(part.begin() + (r - y0) * (x1 - x0), x1 - x0,
-                        out.begin() + size_t(r - y) * size_t(width) + size_t(x0 - x));
+            for (int r = ay; r < ay + ah; ++r) {
+                uint32_t *row = _screen.data() + size_t(r) * size_t(screenWidth) + size_t(ax);
+                uint32_t *part = pixels + size_t(r - ay) * size_t(aw);
+                if (write)
+                    std::copy_n(part, aw, row);
+                else
+                    std::copy_n(row, aw, part);
+            }
+        };
+    }
+    on = {std::max(x, 0), std::max(y, 0), std::min(x + width, boundsWidth), std::min(y + height, boundsHeight)};
+    return on.left < on.right && on.top < on.bottom;
+}
+
+std::vector<uint32_t> Win32Process::readArea(const DeviceContext &dc, int x, int y, int width, int height) {
+    std::vector<uint32_t> out(size_t(std::max(width, 0)) * size_t(std::max(height, 0)), 0);
+    if (out.empty())
+        return out;
+    if (dc.window || dc.access) {
+        Rect on;
+        PixelAccess through;
+        if (!outsideArea(dc, x, y, width, height, on, through))
+            return out;
+        const int w = on.right - on.left;
+        std::vector<uint32_t> part(size_t(w) * size_t(on.bottom - on.top));
+        through(on.left, on.top, w, on.bottom - on.top, part.data(), false);
+        for (int r = on.top; r < on.bottom; ++r)
+            std::copy_n(part.begin() + (r - on.top) * w, w,
+                        out.begin() + size_t(r - y) * size_t(width) + size_t(on.left - x));
         return out;
     }
     auto it = _bitmaps.find(dc.bitmap);
@@ -241,30 +263,19 @@ void Win32Process::writeArea(const DeviceContext &dc, int x, int y, int width, i
                              const std::vector<uint32_t> &pixels) {
     if (width <= 0 || height <= 0)
         return;
-    if (dc.window) {
-        if (dc.window != kDesktopWindow)
-            if (auto area = clientArea(dc.window)) {
-                x += (*area)[0];
-                y += (*area)[1];
-            }
-        const int x0 = std::max(x, 0);
-        const int y0 = std::max(y, 0);
-        const int x1 = std::min(x + width, screenWidth);
-        const int y1 = std::min(y + height, screenHeight);
-        if (x0 >= x1 || y0 >= y1)
+    if (dc.window || dc.access) {
+        Rect on;
+        PixelAccess through;
+        if (!outsideArea(dc, x, y, width, height, on, through))
             return;
-        _screenDrawn = true;
-        std::vector<uint32_t> part(size_t(x1 - x0) * size_t(y1 - y0));
-        for (int r = y0; r < y1; ++r)
-            std::copy_n(pixels.begin() + size_t(r - y) * size_t(width) + size_t(x0 - x), x1 - x0,
-                        part.begin() + (r - y0) * (x1 - x0));
-        if (screenAccess) {
-            screenAccess(x0, y0, x1 - x0, y1 - y0, part.data(), true);
-        } else {
-            _screen.resize(size_t(screenWidth) * size_t(screenHeight), 0);
-            for (int r = y0; r < y1; ++r)
-                std::copy_n(part.begin() + (r - y0) * (x1 - x0), x1 - x0, _screen.begin() + r * screenWidth + x0);
-        }
+        if (dc.window)
+            _screenDrawn = true;
+        const int w = on.right - on.left;
+        std::vector<uint32_t> part(size_t(w) * size_t(on.bottom - on.top));
+        for (int r = on.top; r < on.bottom; ++r)
+            std::copy_n(pixels.begin() + size_t(r - y) * size_t(width) + size_t(on.left - x), w,
+                        part.begin() + (r - on.top) * w);
+        through(on.left, on.top, w, on.bottom - on.top, part.data(), true);
         return;
     }
     auto it = _bitmaps.find(dc.bitmap);
@@ -278,6 +289,22 @@ void Win32Process::writeArea(const DeviceContext &dc, int x, int y, int width, i
                 px = px ? 0xffffff : 0;
             b.pixels[size_t(r) * size_t(b.width) + size_t(col)] = px;
         }
+}
+
+uint32_t Win32Process::makeDeviceContext(int width, int height, PixelAccess access) {
+    const uint32_t handle = kGdiObjects + _nextGdiObject++;
+    DeviceContext &dc = _dcs[handle];
+    dc.access = std::move(access);
+    dc.accessWidth = width;
+    dc.accessHeight = height;
+    dc.brush = kStockObjects + kWhiteBrush;
+    dc.pen = kStockObjects + kBlackPen;
+    dc.font = kStockObjects + kSystemFont;
+    return handle;
+}
+
+void Win32Process::releaseDeviceContext(uint32_t handle) {
+    _dcs.erase(handle);
 }
 
 void Win32Process::addGdiStandIns() {
@@ -458,7 +485,7 @@ void Win32Process::addGdiStandIns() {
             return 0u;
         const uint32_t stock = h - kStockObjects;
         if (_bitmaps.count(h))
-            return dc->window ? 0u : std::exchange(dc->bitmap, h);
+            return dc->window || dc->access ? 0u : std::exchange(dc->bitmap, h);
         if (_brushes.count(h) || stock <= kNullBrush)
             return std::exchange(dc->brush, h);
         if (_pens.count(h) || (stock >= kWhitePen && stock <= kNullPen))
@@ -818,7 +845,10 @@ void Win32Process::addGdiStandIns() {
             return 0u;
         int width = screenWidth;
         int height = screenHeight;
-        if (!dc->window) {
+        if (dc->access) {
+            width = dc->accessWidth;
+            height = dc->accessHeight;
+        } else if (!dc->window) {
             auto it = _bitmaps.find(dc->bitmap);
             width = it != _bitmaps.end() ? it->second.width : 1;
             height = it != _bitmaps.end() ? it->second.height : 1;
