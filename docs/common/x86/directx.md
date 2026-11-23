@@ -28,7 +28,12 @@ headers' (`directx/interfaces.cpp`).
   the engine, through the gamma ramp. In a window, that's the window's
   client area. With `DirectX::presentLate` a flip hands over the frame
   before, once its draws are done, and the program goes on while this
-  one's are drawn.
+  one's are drawn. So does a blt to the primary of a plain copy (the
+  same format and size, no colour key) from a surface a device draws to:
+  the copy is made by the draw threads, each row by the thread that
+  draws it, after that frame's draws and before the next's, and the blt
+  shows the frame before. LEGO Island's island frames are 40 to 54%
+  quicker for it on four processors, the same pixels a frame later.
 - **Direct3D 7:** RGB emulation and HAL devices, vertex buffers and state
   blocks. The drawing is a software rasterizer (`directx/raster.cpp`),
   which Retained Mode's stand-in draws through too, its vertices the

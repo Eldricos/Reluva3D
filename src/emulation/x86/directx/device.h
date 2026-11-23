@@ -340,6 +340,14 @@ public:
      *        viewport; 0 for the whole viewport.
      */
     void clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t color, float z);
+    /**
+     * Work on the target's pixels done in turn with the draws, on their
+     * threads: `rows(band, bands)` does the rows a thread draws (groups of
+     * 8, dealt round: those with (y >> 3) % bands == band; all with one
+     * band). With one draw thread, here and now.
+     * @param area The pixels it comes to, roughly.
+     */
+    void queueRows(std::function<void(int band, int bands)> rows, double area);
 
 private:
     void setRenderState(uint32_t state, uint32_t value);

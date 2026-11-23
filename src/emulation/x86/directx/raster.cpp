@@ -1917,14 +1917,18 @@ void Device::clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t colo
     double area = 0;
     for (const Rect &r : areas)
         area += double(std::max(0, r.right - r.left)) * double(std::max(0, r.bottom - r.top));
+    queueRows(std::move(fill), area);
+}
+
+void Device::queueRows(std::function<void(int band, int bands)> rows, double area) {
     const DirectX::DrawThreads mode = s->owner.drawThreads;
     if (mode == DirectX::DrawThreads::kOne) {
-        fill(0, 1);
+        rows(0, 1);
         return;
     }
     if (!_queue)
         _queue = std::make_shared<DrawQueue>(mode);
-    _queue->push({Draw{}, {}, area, fill});
+    _queue->push({Draw{}, {}, area, std::move(rows)});
 }
 
 } // namespace reluva::x86::dx

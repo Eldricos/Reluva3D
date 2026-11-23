@@ -1415,6 +1415,18 @@ static void testDirectX() {
     CHECK(f.number == shown + 1 && at(40, 5) == 0x00ff00); // the green one
     CHECK(call(primary, 11, {0, 1}) == 0);
     CHECK(f.number == shown + 2 && at(40, 5) == 0xffff00);
+    // A blt to the primary from the back buffer the device draws to,
+    // late: each blt shows the frame before, copied in turn with the
+    // draws; the back buffer drawn again meanwhile doesn't change it.
+    CHECK(call(device, 10, {0, 0, 1, 0xffff0000u, bits(1.0f), 0}) == 0); // red
+    CHECK(call(primary, 5, {0, back, 0, 0, 0}) == 0);                    // Blt
+    CHECK(f.number == shown + 3 && at(40, 5) == 0x00ff00);               // the front buffer as the last flip left it
+    CHECK(call(device, 10, {0, 0, 1, 0xff00ffffu, bits(1.0f), 0}) == 0); // cyan
+    CHECK(call(primary, 5, {0, back, 0, 0, 0}) == 0);
+    CHECK(f.number == shown + 4 && at(40, 5) == 0xff0000);               // the red frame
+    CHECK(call(device, 10, {0, 0, 1, 0xffffffffu, bits(1.0f), 0}) == 0); // white, not blted
+    CHECK(call(primary, 5, {0, back, 0, 0, 0}) == 0);
+    CHECK(f.number == shown + 5 && at(40, 5) == 0x00ffff); // the cyan one
     dx.presentLate = false;
     // Drawing by rows on several threads draws the same as on one:
     // overlapping triangles, depth tested, bilinear, blended.

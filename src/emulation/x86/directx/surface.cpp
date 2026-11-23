@@ -330,7 +330,8 @@ std::optional<uint32_t> Surface::invoke(const ComInterface &iface, int index, Cp
     if (m == "Lock" || m == "Unlock" || m == "Blt" || m == "BltFast" || m == "BltBatch" || m == "Flip" ||
         m == "GetDC" || m == "ReleaseDC" || m == "Restore" || m == "SetPalette" || m == "SetColorKey" ||
         m == "UpdateOverlay" || m == "AddAttachedSurface" || m == "DeleteAttachedSurface")
-        if (m != "Flip" || !s->owner.presentLate) // a late flip waits for less (flip)
+        if ((m != "Flip" && m != "Blt") || !s->owner.presentLate ||
+            !(d.caps[0] & kCapsPrimarySurface)) // a late flip or blt waits for less (flip, blt)
             s->finishDraws();
     ComHost &com = s->com;
     // The interface this surface's own pointers are handed out as.
@@ -619,6 +620,11 @@ uint32_t Surface::blt(Cpu &c) {
     const uint32_t flags = c.arg(4);
     const uint32_t fx = c.arg(5);
     const Rect to = destRect ? Rect::read(c, destRect) : bounds();
+    if (s->owner.presentLate && (d.caps[0] & kCapsPrimarySurface)) {
+        if (!(flags & (kBltColorFill | kBltDepthFill)) && bltLate(s->com.as<Surface>(srcPtr), srcRect, to, flags, c))
+            return kDDOk;
+        s->finishDraws(); // as invoke would have
+    }
     if (flags & (kBltColorFill | kBltDepthFill)) {
         if (!c.valid(fx, 84))
             return kDDErrInvalidParams;
@@ -645,6 +651,62 @@ uint32_t Surface::blt(Cpu &c) {
     return kDDOk;
 }
 
+// With DirectX::presentLate, a plain copy to the primary from a surface a
+// device draws to: copied in turn with its draws, on their threads (each
+// row by the thread that draws it), after this frame's and before the
+// next's; the frame before is shown meanwhile, so each blt still shows
+// one. False, having done nothing, for any other.
+bool Surface::bltLate(Surface *src, uint32_t srcRect, const Rect &to, uint32_t flags, Cpu &c) {
+    if (!src || src == this || (flags & (kBltKeySrc | kBltKeySrcOverride)) || src->d.format != d.format ||
+        (d.format.flags & kPfPaletteIndexed8))
+        return false;
+    dx::Device *drawer = nullptr;
+    for (dx::Device *dev : s->devices) {
+        if (dev->target.get() == this)
+            return false; // drawn to itself: its own draws to keep in turn
+        if (dev->target.get() == src) {
+            if (drawer)
+                return false;
+            drawer = dev;
+        }
+    }
+    const Rect from = srcRect ? Rect::read(c, srcRect) : src->bounds();
+    if (!drawer || from.width() != to.width() || from.height() != to.height())
+        return false;
+    s->presentFrameBefore();
+    // Clipped to both surfaces; where they are now, as the draws queued
+    // draw where they were.
+    const int dx = from.left - to.left;
+    const int dy = from.top - to.top;
+    const int x0 = std::max({to.left, 0, -dx});
+    const int x1 = std::min({to.right, d.width, src->d.width - dx});
+    const int y0 = std::max({to.top, 0, -dy});
+    const int y1 = std::min({to.bottom, d.height, src->d.height - dy});
+    if (x0 < x1 && y0 < y1) {
+        uint8_t *mem = s->cpu.memory().data();
+        uint8_t *dst = mem + d.memory;
+        const uint8_t *from0 = mem + src->d.memory;
+        const int pitch = d.pitch;
+        const int srcPitch = src->d.pitch;
+        const uint32_t bytes = d.format.bytes();
+        auto rows = [=](int band, int bands) {
+            for (int y = y0; y < y1; ++y) {
+                if (bands > 1 && ((y + dy) >> 3) % bands != band) // drawn by another thread
+                    continue;
+                std::memcpy(dst + uint32_t(y * pitch) + uint32_t(x0) * bytes,
+                            from0 + uint32_t((y + dy) * srcPitch) + uint32_t(x0 + dx) * bytes, size_t(x1 - x0) * bytes);
+            }
+        };
+        drawer->queueRows(rows, double(x1 - x0) * double(y1 - y0));
+        touched();
+    }
+    s->lateDraws.clear();
+    for (dx::Device *dev : s->devices)
+        s->lateDraws[dev] = dev->drawsQueued();
+    s->latePending = true;
+    return true;
+}
+
 // BltFast(x, y, src, srcRect, flags): an unstretched copy; flag 1 keys it
 // by the source's colour key.
 uint32_t Surface::bltFast(Cpu &c) {
@@ -667,17 +729,13 @@ uint32_t Surface::flip(Cpu &, const ComInterface &) {
     if (chain.size() < 2)
         return kDDErrNotFlippable;
     const bool late = s->owner.presentLate && (d.caps[0] & kCapsPrimarySurface);
+    // Late, the frame before, on the front buffer, is shown once the draws
+    // queued before its flip are done. This frame's go on meanwhile;
+    // they're in the back buffer, as are the draws to come.
     if (!late)
         s->finishDraws();
-    else if (s->latePending) {
-        // The frame before, on the front buffer: shown once the draws
-        // queued before its flip are done. This frame's go on meanwhile;
-        // they're in the back buffer, as are the draws to come.
-        for (dx::Device *dev : s->devices)
-            if (auto it = s->lateDraws.find(dev); it != s->lateDraws.end())
-                dev->finishDrawsThrough(it->second);
-        s->presentShown();
-    }
+    else if (s->latePending)
+        s->presentFrameBefore();
     const uint32_t first = chain[0]->d.memory;
     for (size_t i = 0; i + 1 < chain.size(); ++i)
         chain[i]->d.memory = chain[i + 1]->d.memory;
@@ -787,6 +845,14 @@ std::shared_ptr<dx::Surface> DirectX::State::makeSurface(int w, int h, const dx:
 // window's client area of it.
 void DirectX::State::present() {
     finishDraws();
+    presentShown();
+    latePending = false; // a late frame waiting is shown with it
+}
+
+void DirectX::State::presentFrameBefore() {
+    for (dx::Device *dev : devices)
+        if (auto it = lateDraws.find(dev); it != lateDraws.end())
+            dev->finishDrawsThrough(it->second);
     presentShown();
 }
 

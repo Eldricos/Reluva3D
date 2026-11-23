@@ -245,6 +245,12 @@ public:
     uint32_t bltFast(Cpu &c);
     ///@}
     /**
+     * Blt to the primary with DirectX::presentLate: a plain copy from a
+     * surface a device draws to, done in turn with its draws.
+     * @return False, having done nothing, for any other.
+     */
+    bool bltLate(Surface *src, uint32_t srcRect, const Rect &to, uint32_t flags, Cpu &c);
+    /**
      * Copies src's `from` onto `to` here, stretching and clipped to both
      * surfaces; with a source colour key, its colours are left out.
      */
@@ -407,6 +413,12 @@ struct DirectX::State {
     void present();
     void presentShown();
     ///@}
+    /**
+     * With DirectX::presentLate: shows the frame before, once the draws
+     * queued by its flip or blt are done (or the primary as it is, if
+     * there's none).
+     */
+    void presentFrameBefore();
 
     /** Makes a surface's memory, setting its pitch; 0 if there's no room. */
     uint32_t allocate(dx::SurfaceData &d);
