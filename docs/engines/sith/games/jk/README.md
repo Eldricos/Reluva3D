@@ -97,7 +97,8 @@ the game's section of `reluva.ini` to its address (`host` or
 `host:port`). A host's router has to pass UDP port 47624 on to it for
 players from outside.
 
-A game controller is the game's joystick, and a second its second. As
+A game controller is the game's joystick, and a second (a pad, or else
+a racing wheel) its second. As
 on Windows, a new player has them disabled: in *Setup*, *Controls*,
 *Joystick*, untick *Disable joystick*; the first's left stick then
 turns and moves, and A and B fire. The second's controls are bound

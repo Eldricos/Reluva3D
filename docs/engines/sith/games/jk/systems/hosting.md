@@ -217,8 +217,8 @@ it presents in the window, and passes the keyboard and mouse on.
   Reluva's mixer. There's no `waveOut` device and no DirectPlay lobby:
   the game is told so, as on a machine without them.
 - **The joysticks:** the player's game controller, connected when the
-  game starts or later, is its first joystick, and a second pad its
-  second ([joystick.md](../../../../../common/x86/joystick.md)): the
+  game starts or later, is its first joystick, and a second pad, or
+  else a racing wheel, its second ([joystick.md](../../../../../common/x86/joystick.md)): the
   sticks, triggers, ten buttons and the D-pad as the hat. The game's
   defaults bind only the first; its *Setup* binds the second's axes and
   buttons like any other control. The `joystick` setting (*Game
