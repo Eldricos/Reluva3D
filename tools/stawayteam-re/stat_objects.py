@@ -194,7 +194,7 @@ class Reader:
             return self.f32()
         if k in ('bool', 'flag'):
             return self.u8()
-        if k in ('point', 'double'):
+        if k in ('point', 'fpoint', 'double'):
             return self.raw(8).hex()
         if k == 'colour':
             return self.raw(3).hex()

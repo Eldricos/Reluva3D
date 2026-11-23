@@ -177,6 +177,16 @@ bool Reader::value(const PropertySchema &p, Saved saved, TextField &field, int d
         field.value = std::to_string(xy[0]) + "," + std::to_string(xy[1]);
         return true;
     }
+    case Saved::kFloatPoint: {
+        // As the game writes one as text, "%f,%f" (0x4b2c60).
+        float xy[2];
+        if (!bytes(xy, 8))
+            return false;
+        char buf[96];
+        std::snprintf(buf, sizeof buf, "%f,%f", double(xy[0]), double(xy[1]));
+        field.value = buf;
+        return true;
+    }
     case Saved::kDouble: {
         double v = 0;
         if (!bytes(&v, 8))

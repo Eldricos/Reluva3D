@@ -169,7 +169,7 @@ class CBorgAI version=31445564.0 parent=CSkeletonBaseAI own-data=- size=248 glob
   "Debug/State To Change To" choice
   "Debug/Need To Change State" bool
   "Debug/AI Paused" bool
-  "Debug/Start Position" point
+  "Debug/Start Position" fpoint
   "Debug/Original Weapon Setting" int
   "Debug/Blind Time" float
   "Debug/Retreat Time" float
@@ -288,8 +288,8 @@ class CCameraScript version=565.0 parent=- own-data=- size=64 global=0x71d360
   "Time To Wait" float
   "Pan To Position" bool
   "Destination Action" object
-  "Start Point" point
-  "Dir Vector" point
+  "Start Point" fpoint
+  "Dir Vector" fpoint
   "Cur Pan Time" float
   "Cur Wait Time" float
   "Dist" float
@@ -546,10 +546,10 @@ class CEntityAnimatedLine version=2400172.0 parent=CEntityBase own-data=- size=2
   "BoundBottom" int
   "Outside Color" colour
   "Middle Color" colour
-  "Start" point
-  "End" point
-  "Normal" point
-  "PerpenNormal" point
+  "Start" fpoint
+  "End" fpoint
+  "Normal" fpoint
+  "PerpenNormal" fpoint
   "Width" float
 class CEntityAnimatedViewArea version=6242037760.0 parent=CEntityAnimated own-data=0x40d780 size=360 global=0x71e1d0
   "Cone/View Distance" float
@@ -596,9 +596,9 @@ class CEntityBehaviorMoveToPos version=528621.0 parent=CEntityBehaviorTurnToAngl
   "CurTargetNormalX" float
   "CurTargetNormalY" float
   "Path Finding Params" inline class=CWayPointPath size=48
-  "Pos Moving From" point
-  "Final Dest" point
-  "Cur Dest Move To" point
+  "Pos Moving From" fpoint
+  "Final Dest" fpoint
+  "Cur Dest Move To" fpoint
   "Last Neg Dist" float
   "NumTimesLostGound" int
   "Path Collide Checker" object
@@ -809,7 +809,7 @@ class CGoHomeAI version=31443682.0 parent=CPatrolBaseAI own-data=- size=164 glob
   "State" choice
 class CGoToAI version=617248.0 parent=CLayerPartAI own-data=- size=208 global=0x71f180
   "Destination" name
-  "Offset" point
+  "Offset" fpoint
   "Starting Action" object
   "Debug/Finished" bool
   "Debug/Move Finished" bool
@@ -1020,7 +1020,7 @@ class CLayerPart version=915.0 parent=- own-data=- size=84 global=0x721158
   "Activity/Activity" array element=object
   "Categories/Category" text
   "Debug/Current Target" ref
-  "Targeting Point" point
+  "Targeting Point" fpoint
   "Debug/Broadcaster" object
 class CLayerPartAI version=12089.0 parent=CAIBase own-data=- size=24 global=0x721170
 class CLayerSaveData version=1086.0 parent=- own-data=0x4ed960 size=244 global=0x720780
@@ -1035,7 +1035,7 @@ class CLayerSaveData version=1086.0 parent=- own-data=0x4ed960 size=244 global=0
   "Listener Settings/Environment Type" choice
   "Listener Settings/Rolloff" float
   "Listener Settings/Environment Size" float
-  "View Position" point
+  "View Position" fpoint
   "Int View Position" point
   "Partial File Name" name
   "Team/Team Info" array element=object
@@ -1043,7 +1043,7 @@ class CLayerSaveData version=1086.0 parent=- own-data=0x4ed960 size=244 global=0
   "Shake Time" float
   "Max Shake Time" float
   "Pixels To Shake" inline size=32
-  "Last Shake Delta" point
+  "Last Shake Delta" fpoint
   "Active Paths" object
   "Path Data" object
   "Monitor" inline size=20
@@ -1268,7 +1268,7 @@ class CPathWayPoint version=142.0 parent=- own-data=0x5305e0 size=32 global=0x72
   "Position X" int
   "Position Y" int
 class CPatrolAnAreaAI version=1603630336.0 parent=CPatrolAreaAI own-data=- size=164 global=0x72f254
-  "HomePos" point
+  "HomePos" fpoint
 class CPatrolAreaAI version=31443730.0 parent=CPatrolBaseAI own-data=- size=156 global=0x72f22c
   "Radius" float
   "TimeOfLastChangeDirectionDueToCollide" float
@@ -1277,7 +1277,7 @@ class CPatrolAreaAI version=31443730.0 parent=CPatrolBaseAI own-data=- size=156 
 class CPatrolBaseAI version=616540.0 parent=CLayerPartAI own-data=- size=24 global=0x72f234
 class CPatrolFormationAI version=31443776.0 parent=CPatrolBaseAI own-data=- size=168 global=0x652224
   "Formation/Who To Follow" name
-  "Formation/Offset From Target" point
+  "Formation/Offset From Target" fpoint
   "Move/Move" inline class=CEntityBehaviorMoveToPos size=120
   "Part to follow" ref
   "Formation/Need To Restart" bool
@@ -1290,7 +1290,7 @@ class CPatrolPathAI version=31444012.0 parent=CPatrolBaseAI own-data=- size=184 
   "Ignore last point" bool
   "End of path action" object
   "TimeBeforCanReviseData" float
-  "Revise Point" point
+  "Revise Point" fpoint
   "Revising Data" bool
   "Target Point" int
   "Moving/Moving" inline class=CEntityBehaviorMoveToPos size=120
@@ -1321,9 +1321,9 @@ class CPhaserShot version=122409384.0 parent=CEntityAnimatedLine own-data=- size
   "End Is Moving" bool
   "Start Is Moving" bool
   "Collided" bool
-  "Dir Vector" point
-  "Start Pos" point
-  "End Pos" point
+  "Dir Vector" fpoint
+  "Start Pos" fpoint
+  "End Pos" fpoint
   "Cur Length" float
   "Max Length" float
   "Weapon" ref
@@ -1361,8 +1361,8 @@ class CPlayerMoveToPos version=392.0 parent=CEntityBehavior own-data=- size=152 
   "Move/Move Behavior" inline size=120
   "Time to check move" float
   "Move/Idle Behavior" object
-  "MoveToPos" point
-  "Final Pos" point
+  "MoveToPos" fpoint
+  "Final Pos" fpoint
 class CPlayGenericFailSoundAction version=2700.0 parent=CStarTrekAction own-data=- size=16 global=0xb8a408
   "Who to Play" name
 class CPlayItemInfoSoundAction version=2747.0 parent=CStarTrekAction own-data=- size=16 global=0xb8a40c

@@ -51,7 +51,7 @@ key in text; neither is in binary, where there are no keys.
 | Whole number, an object of the same file (by number) | 4 bytes |
 | Number | A 32-bit float |
 | True or false, one bit of the object's flags | 1 byte |
-| Point | 8 bytes: two 4-byte numbers, shown as whole numbers *(guessed)* |
+| Point | 8 bytes, two 4-byte numbers: whole numbers, or two floats for 22 properties (`Targeting Point`, `Offset`, a walk's `Pos Moving From`, `Final Dest` and `Cur Dest Move To`...). The two kinds share their binary writer (`0x4b2cd0`) and are told by their class: whole numbers `0x53b480` (as text `%d,%d`), floats `0x4b2be0` (`%f,%f`, `0x4b2c60`) |
 | Double | 8 bytes |
 | Colour | 3 bytes |
 | String, name, choice from a list (by its name), AI (by its class's name) | A 4-byte length, then its bytes, nothing after them |
@@ -155,8 +155,7 @@ disruptor where it fell.
 
 ## Open questions
 
-- **The 8 bytes of a point** (not a polygon's, which are floats): integers or floats;
-  and how the game uses a rotation sequence's frames' movement.
+- **How the game uses a rotation sequence's frames' movement.**
 - **Five properties** of the table aren't identified, nor two arrays'
   items (`unknown` in [research/classes.txt](../research/classes.txt));
   none of them is in the game's binary files.

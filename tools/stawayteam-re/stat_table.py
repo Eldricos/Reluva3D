@@ -17,7 +17,7 @@ import re
 
 SAVED = {
     'int': 'kInt', 'ref': 'kRef', 'float': 'kFloat', 'bool': 'kBool', 'flag': 'kFlag',
-    'point': 'kPoint', 'double': 'kDouble', 'colour': 'kColour',
+    'point': 'kPoint', 'fpoint': 'kFloatPoint', 'double': 'kDouble', 'colour': 'kColour',
     'choice': 'kString', 'name': 'kString', 'string': 'kString', 'text': 'kString', 'ai': 'kString',
     'object': 'kObject', 'inline': 'kInline', 'objects': 'kObjects', 'array': 'kArray',
     'polygon': 'kPolygon', 'unknown': 'kUnknown',

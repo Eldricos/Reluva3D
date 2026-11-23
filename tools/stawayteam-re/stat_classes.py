@@ -60,6 +60,10 @@ KINDS = {
     0x40f920: 'array',    # a count, then items of the element property
     0x53df30: 'polygon',  # 12 bytes, then 8 bytes for each point
 }
+# The two kinds of point share their writer: two whole numbers (vtable
+# 0x6286a0, written as text "%d,%d") or two floats (this one, "%f,%f",
+# 0x4b2c60).
+FLOAT_POINT = 0x61f974
 REG = r'(e[a-d]x|e[sd]i|ebp)'
 
 
@@ -295,6 +299,8 @@ class Extractor:
         writer = self.p.u32(vtable + 0x34) if vtable else None
         prop = {'name': name, 'kind': KINDS.get(writer, 'unknown:%s' % (hex(writer) if writer else None)),
                 'vtable': vtable, 'ctor': ctor, 'args': tuple(map(str, values))}
+        if prop['kind'] == 'point' and vtable == FLOAT_POINT:
+            prop['kind'] = 'fpoint'
         if prop['kind'] == 'inline' and len(values) > 2 and isinstance(values[2], int):
             # its class is its owner's to make; its size is given (0x548d50)
             prop['size'] = values[2]

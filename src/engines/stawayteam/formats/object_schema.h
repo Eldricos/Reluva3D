@@ -15,21 +15,22 @@ namespace reluva::stawayteam {
  * Star Trek.exe (docs/engines/stawayteam/formats/binary-object.md).
  */
 enum class Saved : uint8_t {
-    kInt,     // 4 bytes, signed
-    kRef,     // 4 bytes: an object of the same file, by its number
-    kFloat,   // a 32-bit float
-    kBool,    // 1 byte
-    kFlag,    // 1 byte, 0 or 1: one bit of the object's flags
-    kPoint,   // 8 bytes: two 4-byte numbers
-    kDouble,  // 8 bytes
-    kColour,  // 3 bytes
-    kString,  // a 4-byte length, then its bytes: names, text, choices from lists
-    kObject,  // a string, the object's class's name (empty for none), then the object
-    kInline,  // an object held in place, of a class the file doesn't name
-    kObjects, // a count, then objects held in place, of the property's class
-    kArray,   // a count, then the items (each after a string, if named)
-    kPolygon, // "POLY2D", 0, 7, a 4-byte count, then 8 bytes for each point
-    kUnknown, // not worked out: a file holding one can't be read
+    kInt,        // 4 bytes, signed
+    kRef,        // 4 bytes: an object of the same file, by its number
+    kFloat,      // a 32-bit float
+    kBool,       // 1 byte
+    kFlag,       // 1 byte, 0 or 1: one bit of the object's flags
+    kPoint,      // 8 bytes: two 4-byte whole numbers
+    kFloatPoint, // 8 bytes: two 32-bit floats
+    kDouble,     // 8 bytes
+    kColour,     // 3 bytes
+    kString,     // a 4-byte length, then its bytes: names, text, choices from lists
+    kObject,     // a string, the object's class's name (empty for none), then the object
+    kInline,     // an object held in place, of a class the file doesn't name
+    kObjects,    // a count, then objects held in place, of the property's class
+    kArray,      // a count, then the items (each after a string, if named)
+    kPolygon,    // "POLY2D", 0, 7, a 4-byte count, then 8 bytes for each point
+    kUnknown,    // not worked out: a file holding one can't be read
 };
 
 /** What a class saves after its properties: the five the engine reads. */

@@ -136,9 +136,6 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
   which name them for 55 such properties; the other 24 are told by their
   version and size, and none of those is in the game's binary files
   ([formats/binary-object.md](formats/binary-object.md#properties)).
-- **The `.RDS` scripts' rules** where the files don't show them (text
-  before a label, a label twice): the game's reader isn't traced
-  ([formats/rds.md](formats/rds.md#open-questions)).
 - **The length of a few sounds.** For 5 of 27 sampled sounds, libvorbis
   1.3.7 gives 128 samples (6 ms) more at the end than FFmpeg does
   ([research/file-survey.md](research/file-survey.md#sound)). Reluva
@@ -150,9 +147,6 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
 
 - **The main menu's movies and song loop,** the movies without sound
   ([systems/startup.md](systems/startup.md#open-questions)).
-- **Points' 8 bytes as two whole numbers,** not two floats, in what
-  Reluva shows of an object
-  ([formats/binary-object.md](formats/binary-object.md#properties)).
 
 ## Settled
 
