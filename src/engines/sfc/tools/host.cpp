@@ -16,6 +16,7 @@
 #include "image/image.h"
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -66,6 +67,31 @@ void addTyping(std::vector<Step> &steps, uint64_t frame, const std::string &text
     }
 }
 
+// Reluva's key by a name given to -key: num0 to num9, numplus, numminus,
+// nummult, numdiv, numdec, numenter, the arrows, f1 to f12, and enter,
+// esc, space, tab, backspace, shift, ctrl, alt; 0 for none.
+uint32_t keyByName(const std::string &name) {
+    static const std::pair<const char *, uint32_t> kNames[] = {
+        {"numplus", key::kKpPlus},  {"numminus", key::kKpMinus}, {"nummult", key::kKpMultiply},
+        {"numdiv", key::kKpDivide}, {"numdec", key::kKpPeriod},  {"numenter", key::kKpEnter},
+        {"left", key::kLeft},       {"right", key::kRight},      {"up", key::kUp},
+        {"down", key::kDown},       {"enter", key::kReturn},     {"esc", key::kEscape},
+        {"space", key::kSpace},     {"tab", key::kTab},          {"backspace", key::kBackspace},
+        {"shift", key::kLShift},    {"ctrl", key::kLCtrl},       {"alt", key::kLAlt},
+    };
+    for (const auto &[n, k] : kNames)
+        if (name == n)
+            return k;
+    if (name.size() == 4 && name.rfind("num", 0) == 0 && name[3] >= '0' && name[3] <= '9')
+        return key::kKp0 + uint32_t(name[3] - '0');
+    if (name.size() >= 2 && name[0] == 'f' && std::isdigit(static_cast<unsigned char>(name[1]))) {
+        const int n = std::atoi(name.c_str() + 1);
+        if (n >= 1 && n <= 12)
+            return key::kF1 + uint32_t(n - 1);
+    }
+    return 0;
+}
+
 void writeFrame(const x86::DirectX::Frame &f, const std::string &path) {
     image::Image img;
     img.w = f.width;
@@ -90,7 +116,7 @@ int cmdHost(int argc, char **argv) {
             "usage: reluva-tool sfc host <game folder> [-limit instructions] [-trace count] "
             "[-frame out.png] [-quiet] [-save folder] [-calls address] [-watch address]... "
             "[-type frame text] [-click frame x y] [-shot frame out.png]... [-sound folder] [-writes address]... "
-            "[-newcode from to]\n");
+            "[-newcode from to] [-fixed-clock] [-key frame name]...\n");
         return 2;
     }
     uint64_t limit = 2000000000ull;
@@ -104,6 +130,7 @@ int cmdHost(int argc, char **argv) {
     std::vector<std::pair<uint32_t, uint32_t>> writes; // addresses whose changes are shown, and their last value
     // With -newcode, the program's code first run between two frames: a
     // bit an address of its image, set as it runs.
+    bool fixedClock = false;
     uint64_t newFrom = 0;
     uint64_t newTo = 0;
     std::filesystem::path soundFolder; // each sample's sound, as WAVs
@@ -125,7 +152,23 @@ int cmdHost(int argc, char **argv) {
             watch.push_back(uint32_t(std::strtoul(argv[++a], nullptr, 0)));
         else if (arg == "-writes" && a + 1 < argc)
             writes.emplace_back(uint32_t(std::strtoul(argv[++a], nullptr, 0)), 0);
-        else if (arg == "-newcode" && a + 2 < argc) {
+        else if (arg == "-fixed-clock")
+            fixedClock = true;
+        else if (arg == "-key" && a + 2 < argc) {
+            // Pressed at the frame, released at the next.
+            const uint64_t at = std::strtoull(argv[a + 1], nullptr, 0);
+            const uint32_t k = keyByName(argv[a + 2]);
+            if (!k)
+                std::fprintf(stderr, "no key named %s\n", argv[a + 2]);
+            for (const bool down : {true, false}) {
+                Step s;
+                s.frame = at + (down ? 0 : 1);
+                s.key = k, s.down = down;
+                if (k)
+                    steps.push_back(s);
+            }
+            a += 2;
+        } else if (arg == "-newcode" && a + 2 < argc) {
             newFrom = std::strtoull(argv[a + 1], nullptr, 0);
             newTo = std::strtoull(argv[a + 2], nullptr, 0);
             a += 2;
@@ -168,6 +211,15 @@ int cmdHost(int argc, char **argv) {
     std::printf("writes go to %s\n", saveFolder.string().c_str());
     x86::Cpu &cpu = game.cpu();
     x86::Win32Process &process = game.process();
+    // -fixed-clock: the clock follows the instructions run, 40,000 to a
+    // millisecond, and the program's sleeps, not the time: a run with the
+    // same input shows the same frames, so input given at frames lands
+    // where it did, however fast the host is.
+    if (fixedClock)
+        process.milliseconds = [&cpu, &process] {
+            constexpr uint64_t kInstructionsPerMs = 40000;
+            return uint32_t(cpu.executed() / kInstructionsPerMs + process.slept());
+        };
     process.output = [](const std::string &text) { std::printf("program: %s", text.c_str()); };
     game.fileOpened = [quiet](const std::string &path, bool found) {
         if (!quiet || !found)
@@ -405,7 +457,7 @@ const Commands
                   {"host",
                    "<game folder> [-limit n] [-trace n] [-frame out.png] [-quiet] [-save folder] [-calls address] "
                    "[-watch address]... [-type frame text] [-click frame x y] [-shot frame out.png]... [-sound folder] "
-                   "[-writes address]... [-newcode from to]",
+                   "[-writes address]... [-newcode from to] [-fixed-clock] [-key frame name]...",
                    "run StarFleet2.exe in the x86 emulator, headless, and say how far it gets; keys and clicks "
                    "given at frames it shows",
                    cmdHost},

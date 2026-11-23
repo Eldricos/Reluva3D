@@ -295,7 +295,11 @@ known.
   EAX points to, and text where a pointer has some; `-calls` shows the
   names `LoadLibraryA` and `GetProcAddress` are given.
   `reluva-tool sfc disasm <game folder or program> <start> <end>`
-  disassembles the program, or another (a mission's DLL).
+  disassembles the program, or another (a mission's DLL). `-key <frame>
+  <name>` presses a key by name (`num5`, `numplus`, `left`, `f1`...);
+  `-fixed-clock` runs the program's clock by the instructions run (40,000
+  a millisecond) and its sleeps, so a run with the same input repeats
+  frame for frame and input lands on the same screens.
 - **Not yet:** the network (DirectPlay itself), the opening movie;
   a skirmish played with input, the tutorials and a campaign.
 
