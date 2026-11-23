@@ -5,6 +5,7 @@
 
 #include "emulation/x86/win32.h"
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -45,6 +46,12 @@ public:
     const Frame &frame() const;
     // Called each time a new frame is shown.
     std::function<void(const Frame &)> presented;
+    /**
+     * Called each time a program sets a Direct3D transform (SetTransform,
+     * MultiplyTransform): which (D3DTRANSFORMSTATE_WORLD 1, VIEW 2,
+     * PROJECTION 3), and the matrix it is now, row-major as Direct3D's.
+     */
+    std::function<void(uint32_t state, const std::array<float, 16> &matrix)> transformSet;
 
     /** A display mode offered: its size, and bits per pixel. */
     struct Mode {

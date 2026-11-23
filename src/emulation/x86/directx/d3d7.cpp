@@ -392,6 +392,8 @@ std::optional<uint32_t> Device::invoke(const ComInterface &iface, int index, Cpu
         t = m == "SetTransform" ? given : multiply(given, current);
         if (recording)
             recording->transforms[c.arg(1)] = t;
+        if (s->owner.transformSet)
+            s->owner.transformSet(c.arg(1), t);
         return kDDOk;
     }
     if (m == "GetTransform") {

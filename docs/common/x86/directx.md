@@ -33,7 +33,9 @@ headers' (`directx/interfaces.cpp`).
     `ReleaseDC`), for GDI to draw on it in its format.
 
   What reaches the primary surface becomes `DirectX::frame()`, handed to
-  the engine, through the gamma ramp. In a window, that's the window's
+  the engine, through the gamma ramp. The transforms a program sets are
+  handed over too (`DirectX::transformSet`): with the view and the
+  projection, its camera can be read. In a window, that's the window's
   client area. With `DirectX::presentLate` a flip hands over the frame
   before, once its draws are done, and the program goes on while this
   one's are drawn.
