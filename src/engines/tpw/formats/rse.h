@@ -67,8 +67,8 @@ public:
 
     /**
      * The script as source, in the language of the sources that ship with
-     * the game (`Data/TestScript/*.rss`): its directives, its variables, then
-     * its code, a label at each branch's target.
+     * the game (the `.rss` files in `Data/TestScript/`): its directives, its
+     * variables, then its code, a label at each branch's target.
      */
     std::string disassemble() const;
 
