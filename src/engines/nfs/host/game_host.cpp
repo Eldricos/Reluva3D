@@ -578,10 +578,13 @@ void GameHost::addSystem() {
                     return 0u;
                 }
                 _gameDlls[name] = m;
-                // A renderer exports THRASH's functions; the sound DLL and
-                // NFS II SE's dsetup.dll (DirectX's set-up) don't.
-                const bool thrash = std::any_of(m->image.exports.begin(), m->image.exports.end(),
-                                                [](const PeImage::Export &e) { return e.name.starts_with("THRASH_"); });
+                // A renderer exports THRASH's functions, stdcall-decorated
+                // (_THRASH_init@0, thrash.md); the sound DLL and NFS II SE's
+                // dsetup.dll (DirectX's set-up) don't.
+                const bool thrash =
+                    std::any_of(m->image.exports.begin(), m->image.exports.end(), [](const PeImage::Export &e) {
+                        return e.name.starts_with("_THRASH_") || e.name.starts_with("THRASH_");
+                    });
                 if (thrash) {
                     _thrash.dll = name;
                     _thrashBase = m->base;
