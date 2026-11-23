@@ -1381,6 +1381,9 @@ static void testInput() {
     k = next();
     CHECK(k[1] == 0x101 && k[3] == (1 | 0x1eu << 16 | 3u << 30));
     CHECK(!cpu.call(fn("USER32.dll", "GetKeyState"), {0x41}, r) && !(r & 0x8000));
+    // GetAsyncKeyState also says A was pressed since it last asked, once.
+    CHECK(!cpu.call(fn("USER32.dll", "GetAsyncKeyState"), {0x41}, r) && r == 1);
+    CHECK(!cpu.call(fn("USER32.dll", "GetAsyncKeyState"), {0x41}, r) && r == 0);
     // ClipCursor keeps the pointer in.
     const uint32_t rc = process.memory().alloc(16);
     for (uint32_t i = 0; i < 4; ++i)

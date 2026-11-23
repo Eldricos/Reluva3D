@@ -220,7 +220,9 @@ void Win32Process::mouseButton(int button, bool down) {
         _buttons |= flag;
     else
         _buttons &= ~flag;
-    _keysDown[button == 0 ? 1 : button == 1 ? 2 : 4] = down;
+    const int key = button == 0 ? 1 : button == 1 ? 2 : 4;
+    _keysDown[key] = down;
+    _pressedSinceAsked[key] = _pressedSinceAsked[key] || down;
     notify({RawInput::Kind::kButton, button, down});
     const uint32_t w = inputWindow();
     auto area = w ? clientArea(w) : std::nullopt;
@@ -256,6 +258,7 @@ void Win32Process::mouseWheel(int delta) {
 void Win32Process::key(uint32_t virtualKey, uint32_t scanCode, bool down) {
     const bool was = _keysDown[virtualKey & 0xff] != 0;
     _keysDown[virtualKey & 0xff] = down;
+    _pressedSinceAsked[virtualKey & 0xff] = _pressedSinceAsked[virtualKey & 0xff] || down;
     notify({RawInput::Kind::kKey, int(scanCode), down});
     const uint32_t w = inputWindow();
     if (!w)
@@ -740,12 +743,17 @@ void Win32Process::addUserStandIns() {
         }
         return 1u;
     });
-    // GetKeyState and GetAsyncKeyState(key): the top bit while it's down.
-    auto keyState = [this](Cpu &c) {
-        return _keysDown[c.arg(0) & 0xff] ? 0xffff8000u : 0u; // the mouse buttons are VK_LBUTTON and the like
-    };
-    stdcall(u, "GetKeyState", 1, keyState);
-    stdcall(u, "GetAsyncKeyState", 1, keyState);
+    // GetKeyState and GetAsyncKeyState(key): the top bit while it's down
+    // (the mouse buttons are VK_LBUTTON and the like). GetAsyncKeyState's
+    // lowest bit says it was pressed since GetAsyncKeyState last asked,
+    // which programs polling for clicks rely on.
+    stdcall(u, "GetKeyState", 1, [this](Cpu &c) { return _keysDown[c.arg(0) & 0xff] ? 0xffff8000u : 0u; });
+    stdcall(u, "GetAsyncKeyState", 1, [this](Cpu &c) {
+        const uint32_t key = c.arg(0) & 0xff;
+        const uint32_t state = (_keysDown[key] ? 0xffff8000u : 0u) | (_pressedSinceAsked[key] ? 1u : 0u);
+        _pressedSinceAsked[key] = false;
+        return state;
+    });
 
     // Device contexts.
     // Rectangles (RECT: left, top, right, bottom).

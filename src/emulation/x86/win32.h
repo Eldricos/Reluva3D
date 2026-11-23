@@ -752,10 +752,11 @@ private:
         uint32_t proc = 0;
         uint32_t style = 0;
     };
-    std::map<std::string, WindowClass> _classes; // by lower-case name
-    uint32_t _buttons = 0;                       // MK_ flags held
-    std::array<uint8_t, 256> _keysDown{};        // by virtual key
-    std::optional<std::array<int, 4>> _clip;     // ClipCursor's: left, top, right, bottom
+    std::map<std::string, WindowClass> _classes;   // by lower-case name
+    uint32_t _buttons = 0;                         // MK_ flags held
+    std::array<uint8_t, 256> _keysDown{};          // by virtual key
+    std::array<uint8_t, 256> _pressedSinceAsked{}; // since GetAsyncKeyState last asked, by virtual key
+    std::optional<std::array<int, 4>> _clip;       // ClipCursor's: left, top, right, bottom
     uint32_t _lastClickTime = 0;
     int _lastClickButton = -1;
     int _lastClickX = 0;
