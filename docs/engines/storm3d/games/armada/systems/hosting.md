@@ -16,7 +16,7 @@ it shows as on Windows and keeps showing, its Bink panels playing
 ([research/startup-trace.md](../research/startup-trace.md)). With clicks
 given it (`-input`) and the CD (`-cd`, `-toc`), it goes on through the
 single-player screen and the mission panel, past the game's CD check,
-into the mission first on the Federation's panel (its map
+into "Premonitions", the mission first on the Federation's panel (its map
 `bzn\rom2.bzn`), which it runs in 3D.
 
 ## How it works
@@ -75,12 +75,12 @@ primary surface for the same reason.
 ## In Reluva
 
 `reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N]
-[-save dir] [-input file] [-cd folder] [-toc file] [-cd-label name]` runs
-the program for `N` milliseconds of its clock (20,000 by default), writes
-every `N`th frame (and the last) to `dir`, and the program's own files to
-the save folder (by default under the system's temporary folder). It
-prints the imports no stand-in answers, the files opened, the frames
-shown, and where it stopped.
+[-save dir] [-input file] [-cd folder] [-toc file] [-cd-label name]
+[-fonts folder]` runs the program for `N` milliseconds of its clock
+(20,000 by default), writes every `N`th frame (and the last) to `dir`,
+and the program's own files to the save folder (by default under the
+system's temporary folder). It prints the imports no stand-in answers,
+the files opened, the frames shown, and where it stopped.
 
 The CD is the disc's files on D: (`-cd`), its volume label `ARMADA`
 unless `-cd-label` says otherwise *(guessed: the disc's label isn't
@@ -88,13 +88,20 @@ known)*, and its table of contents (`-toc`) from the disc's cue sheet or
 Alcohol 120% media descriptor (`.mds`), for the game's CD check, which
 reads it through MCI and plays the audio track.
 
+Text is drawn in the fonts the program asks for (Arial Bold), looked for
+in the folders given (`-fonts`, which can be a Windows fonts folder),
+then in the system's: Windows' own files if they're there, else ones
+made to the same widths, as Liberation Sans for Arial. So the letters
+may differ from Windows' a little, but not where text breaks or how wide
+it is.
+
 The input file is what the player does, a line each, by the program's
 clock: `<ms> move <x> <y>`, `<ms> click <x> <y>` (the left button,
 released 100 ms later) and `<ms> key <virtual key>`, on the 640 × 480
 screen; `#` starts a comment. The clock is real time, so a click can come
 before the screen it's for is ready when loading is slow: OK is clicked
-again below for that. To start the mission first on the Federation's
-panel (its map `bzn\rom2.bzn`):
+again below for that. To start "Premonitions", the mission first on the
+Federation's panel (its map `bzn\rom2.bzn`):
 
 ```text
 4000 move 300 300
@@ -132,6 +139,8 @@ each, its imports, and its classes ([research/](../research/README.md)).
 
 - Clicks by the clock can come before the screen they're for; a run that
   goes further will want input that waits for what's shown.
+- Fonts: without Windows' own (`-fonts`), text is in look-alikes with
+  the same widths.
 - Text: GDI measures text but draws none (there are no fonts), so what
   the menu writes with `DrawTextExA` (in red, at the start) isn't seen.
 - Its sound, while DirectSound isn't stood in for.

@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file]
-//                          [-cd folder] [-toc file] [-cd-label name]:
+//                          [-cd folder] [-toc file] [-cd-label name] [-fonts folder]:
 // runs the retail Armada.exe in Reluva's x86 emulator, with its own DLLs
 // from the install and Reluva's stand-ins for Windows, DirectX and the C
 // runtimes, as a reference to study, never as the game is played
@@ -12,6 +12,7 @@
 // is the player's mouse and keys, by the program's clock. The CD is the
 // disc's files on D:, its table of contents from the disc's cue sheet or
 // media descriptor (.mds), which the game's CD check reads through MCI.
+// Text is drawn in fonts found in the folders given, then the system's.
 
 #include "common/cue.h"
 #include "common/fs.h"
@@ -63,6 +64,7 @@ struct Options {
     std::filesystem::path cdFolder;
     std::filesystem::path tocFile;
     std::string cdLabel = "ARMADA";
+    std::vector<std::filesystem::path> fontFolders;
 };
 
 /** What the player does, when (ms of the program's clock). */
@@ -199,7 +201,7 @@ int cmdHost(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr,
                      "usage: reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] "
-                     "[-input file] [-cd folder] [-toc file] [-cd-label name]\n");
+                     "[-input file] [-cd folder] [-toc file] [-cd-label name] [-fonts folder]\n");
         return 2;
     }
     Options o;
@@ -222,6 +224,8 @@ int cmdHost(int argc, char **argv) {
             o.tocFile = argv[++a];
         else if (arg == "-cd-label" && a + 1 < argc)
             o.cdLabel = argv[++a];
+        else if (arg == "-fonts" && a + 1 < argc)
+            o.fontFolders.push_back(argv[++a]);
         else {
             std::fprintf(stderr, "what is %s?\n", arg.c_str());
             return 2;
@@ -245,6 +249,19 @@ int cmdHost(int argc, char **argv) {
     // threads, waits and thread-local storage that come with them.
     process.useHostThreads();
     process.setProgram(kProgram, kInstallFolder);
+    // Fonts: the folders given, then where systems keep theirs.
+    for (const char *folder : {"/usr/share/fonts", "/usr/local/share/fonts", "/Library/Fonts", "C:/Windows/Fonts"})
+        o.fontFolders.push_back(folder);
+    if (const char *home = std::getenv("HOME"))
+        o.fontFolders.push_back(std::filesystem::path(home) / ".fonts");
+    process.fontFile = [&](const std::string &face, bool bold, bool italic) {
+        std::vector<uint8_t> data;
+        const auto file = x86::Win32Process::findFont(o.fontFolders, face, bold, italic);
+        if (file && !readFile(*file, data))
+            std::printf("font %s%s%s: %s\n", face.c_str(), bold ? " bold" : "", italic ? " italic" : "",
+                        file->string().c_str());
+        return data;
+    };
     // The CD: its files on D:, read only.
     if (!o.cdFolder.empty())
         process.cdLabel = o.cdLabel;
@@ -404,7 +421,7 @@ const tool::Commands kCommands("storm3d",
                                {
                                    {"host",
                                     "<game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file] "
-                                    "[-cd folder] [-toc file] [-cd-label name]",
+                                    "[-cd folder] [-toc file] [-cd-label name] [-fonts folder]",
                                     "run the retail Armada.exe in the x86 emulator, to study: files "
                                     "opened, frames shown, imports missing, where it stops",
                                     cmdHost},

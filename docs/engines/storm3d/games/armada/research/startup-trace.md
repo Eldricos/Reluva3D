@@ -49,7 +49,8 @@ What the program reads from its first instructions to its main menu
     through a mask made against the colour key `0xff00ff`.
 
 The menu then waits, its panels playing, at about 59 frames a second of
-the program's clock.
+the program's clock. In its bottom right corner it writes its version,
+"v1.0", in red (`DrawTextExA`).
 
 ## Into a mission
 
@@ -67,8 +68,10 @@ Federation's panel (130, 150), then at the mission panel's OK button
 3. Clicking a race opens the mission panel inside it, a third dialog
    (template 0x124), which the program moves to (224, 46), 192 × 405:
    `sppanel.bmp`, `spselect.bmp` (the chosen mission's bar), `spok` and
-   `spgame`. The race's movies stop meanwhile. The missions' names are
-   text, not drawn here yet.
+   `spgame`. The race's movies stop meanwhile. The missions' names and
+   the buttons' labels ("O.K.", "Cancel") are text, in Arial Bold
+   (`CreateFontIndirectA`, 12, 14, 16 and 20 pixels high): the
+   Federation's first is "Premonitions".
 4. OK: `sounds\effects\cornrclk.wav`, then the first mission's map,
    `bzn\4first.mdf`.
 5. The loading screen's models, each looked for in `addon\` before `SOD\`
@@ -113,8 +116,9 @@ contents, MCI finds no disc, and the check fails the same way.
 
 ## The mission
 
-Past the check, the mission first on the Federation's panel (its map
-`bzn\rom2.bzn`) loads and runs (90 seconds of the program's clock
+Past the check, "Premonitions", the mission first on the Federation's
+panel (its map `bzn\rom2.bzn`), loads and runs (90 seconds of the
+program's clock
 without a stop, the last frame its 3D scene: Romulan warbirds by a
 planet, drawn by the program's Direct3D 7 through Reluva's rasterizer).
 What it reads: `CCA.cfg`, `input.map`, `gamekey.map` (no

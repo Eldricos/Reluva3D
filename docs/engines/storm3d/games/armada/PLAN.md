@@ -39,17 +39,19 @@ these phases start from, is in [formats/install.md](formats/install.md).
    movies with Armada's own `binkw32.dll`.
 4. **The original as a reference** (in progress): `Armada.exe` runs in
    Reluva's x86 emulator through its start-up (its DLLs, the
-   configuration, the display mode, the sprite tables and their textures,
-   `events.odf`) to its main menu, which shows as it should: a modal
-   dialog painted with GDI, its Bink panels playing through DirectDraw
-   ([systems/hosting.md](systems/hosting.md)). It traces the files it
-   opens and the frames it shows (`reluva-tool storm3d host`). Its exports
-   and classes are in [research/](research/README.md). Clicks given it
-   (`-input`) take it through the single-player screen and the mission
-   panel, past the game's CD check (MCI, with the disc's table of
-   contents from its `.mds`), into the mission first on the Federation's
-   panel (its map `bzn\rom2.bzn`), which runs in 3D. Next: GDI's text,
-   input inside the mission, and the files it reads there, for phase 5.
+   configuration, the display mode, the sprite tables and their
+   textures, `events.odf`) to its main menu, which shows as it should: a
+   modal dialog painted with GDI, its Bink panels playing through
+   DirectDraw ([systems/hosting.md](systems/hosting.md)). It traces the
+   files it opens and the frames it shows (`reluva-tool storm3d host`).
+   Its exports and classes are in [research/](research/README.md).
+   Clicks given it (`-input`) take it through the single-player screen
+   and the mission panel, past the game's CD check (MCI, with the disc's
+   table of contents from its `.mds`), into "Premonitions", the mission
+   first on the Federation's panel (its map `bzn\rom2.bzn`), which runs
+   in 3D. Its text is drawn in fonts like the ones it asks for
+   (`-fonts`). Next: input inside the mission, and the files it reads
+   there, for phase 5.
 5. **Maps and the scene:** `.bzn` and `.mdf`, the starfield and nebulae,
    planets, moons and asteroids, the camera (`RTS_CFG.h`'s limits), the
    ships. A skirmish map shown and moved around, checked against the
