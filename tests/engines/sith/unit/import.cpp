@@ -9,11 +9,13 @@
 #include "engines/sith/folders.h"
 #include "engines/sith/games.h"
 #include "engines/sith/import.h"
+#include "emulation/x86/cdaudio.h"
 
 #include "tests/engines/sith/fixtures.h"
 #include "tests/support/test.h"
 
 #include <algorithm>
+#include <fstream>
 
 using namespace reluva;
 using namespace reluva::sith;
@@ -78,6 +80,44 @@ void testPlan(const stdfs::path &tmp) {
     CHECK(f.cds[1] == install / "cd2");
 }
 
+void writeFile(const stdfs::path &path, const std::string &text) {
+    stdfs::create_directories(path.parent_path());
+    std::ofstream(path, std::ios::binary) << text;
+}
+
+// Each CD's music comes with it: CD 1's cue sheet and its audio track's
+// image, not the data track's; CD 2's ripped tracks; not another cue
+// sheet holding only data.
+void testMusic(const stdfs::path &tmp) {
+    const stdfs::path cd1 = tmp / "Disc 1";
+    makeFullCd1(cd1);
+    writeFile(cd1 / "JK1.cue", "FILE \"JK1 (Track 1).bin\" BINARY\n  TRACK 01 MODE1/2352\n    INDEX 01 00:00:00\n"
+                               "FILE \"JK1 (Track 2).bin\" BINARY\n  TRACK 02 AUDIO\n    INDEX 01 00:00:00\n");
+    writeFile(cd1 / "JK1 (Track 1).bin", std::string(2352, 'd'));
+    writeFile(cd1 / "JK1 (Track 2).bin", std::string(2352, 'a'));
+    writeFile(cd1 / "data.cue", "FILE \"JK1 (Track 1).bin\" BINARY\n  TRACK 01 MODE1/2352\n    INDEX 01 00:00:00\n");
+    const stdfs::path cd2 = tmp / "Disc 2";
+    makeCd(cd2, 2);
+    writeFile(cd2 / "Track02.wav", "");
+    writeFile(cd2 / "track3.wav", "");
+    std::vector<ImportPlan> plans = planImport(cd1);
+    CHECK(plans.size() == 1);
+    if (plans.empty())
+        return;
+    ImportPlan &plan = plans[0];
+    std::string message;
+    CHECK(addToImport(plan, cd2, message));
+    CHECK(copies(plan, "cd1/JK1.cue") && copies(plan, "cd1/JK1 (Track 2).bin"));
+    CHECK(!copies(plan, "cd1/JK1 (Track 1).bin") && !copies(plan, "cd1/data.cue"));
+    CHECK(copies(plan, "cd2/Track02.wav") && !copies(plan, "cd2/track3.wav"));
+
+    // The imported CD 1 plays its music from the copies.
+    const stdfs::path install = tmp / "imported";
+    CHECK(!runImport(plan, install, nullptr));
+    const x86::CdAudio::Disc disc = x86::CdAudio::discIn(findFolders(install, {}).cds[0]);
+    CHECK(disc.tracks == 2 && disc.lengthMs(2) > 0 && disc.load(2));
+}
+
 // CD 2 alone, an install, or a CD 1 without its executable isn't imported
 // from; one without the sounds' archive is, with a note.
 void testNotFrom(const stdfs::path &tmp) {
@@ -105,5 +145,6 @@ void testNotFrom(const stdfs::path &tmp) {
 static const reluva::test::Suite kSuite("sith.unit.import",
                                         {
                                             {"plan", [](const std::filesystem::path &tmp) { testPlan(tmp); }},
+                                            {"music", [](const std::filesystem::path &tmp) { testMusic(tmp); }},
                                             {"not from", [](const std::filesystem::path &tmp) { testNotFrom(tmp); }},
                                         });

@@ -60,7 +60,7 @@ That the US release's signatures match a real install: checked by hand
   for CD 2, and plays CD 2's music. Ctrl+F5 asks before going back to the launcher.
 - `reluva-tool sith folders <install>` finds both CDs where they are.
 - *Import Game...* on CD 1, with CD 2 added, makes an install that's
-  recognised, with both CDs' cut scenes in it.
+  recognised, with both CDs' cut scenes in it, and their music when it was beside them.
 - In `reluva-viewer`: the menus' backgrounds look as in the game; the
   Force powers' icons look right with `bkforce.bm`'s palette; textures
   look right through `dflt.cmp`; the fonts' sample text is evenly spaced;
@@ -75,6 +75,7 @@ That the US release's signatures match a real install: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | Import with the music: `sith.unit.import`'s *music* test copies CD 1's cue sheet and its audio track's image (not the data track's, nor a cue sheet of data alone) and CD 2's ripped tracks into `cd1` and `cd2`; the imported CD 1's music is read from the copies. Not yet with the retail CDs' images |
 | November 2026 | US retail | Linux | Full subtitles: *Setup*, *General*, *Enable full subtitles on cutscenes*, *Ok*, through `reluva-tool sith host`; the setting kept for the player, and in `03-04A` every spoken line shown below the picture, the first at about 76 seconds, long ones on two centred lines as the viewer breaks them |
 | November 2026 | US retail | Linux | Small differences: run through the menus, a level and a cut scene, the game makes its Arial fonts and never calls `TextOutA`. A second wheel's pedals named by `wheel2pedals`: `common.unit.sdl_controller`'s *second* test sets them the other way about and reads the pedal pressed as the brake |
 | November 2026 | US retail | Linux | *Setup*'s 3D choice through the game's own screens: *Display*, *Enable 3D Acceleration*, *Ok*; *Quit* writes `b3DAccel` 1, the primary display, the HAL device and mode 3, as `-d3d` does, and the next new game draws through Direct3D. Closing the window in the menus (`-close`) ends the game with its settings saved; stopped in play, its settings are saved for it and the next run draws through Direct3D from the start |

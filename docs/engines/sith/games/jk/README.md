@@ -87,8 +87,11 @@ files doesn't hold. Put each CD's tracks in its folder beside its files:
 the CD image's cue sheet and its `.bin` files (the data track's own
 `.bin` isn't needed), or the tracks ripped as `track02.wav`,
 `track03.wav` and so on (`reluva-tool cue-rip <image.cue> <the CD's
-folder>` makes them). `reluva-tool sith folders` says how much music
-each CD has. Without them the game plays without music.
+folder>` makes them). *Import Game...* copies them with each CD's files
+when they're in the CD's folder: a copy of the CD's files with its cue
+sheet and images (or ripped tracks) beside them. `reluva-tool sith
+folders` says how much music each CD has. Without them the game plays
+without music.
 
 For multiplayer, choose TCP/IP as the network provider. *Join Game*
 finds the games hosted by other copies of Reluva on the local network
