@@ -78,18 +78,26 @@ constexpr uint64_t kInstructionsPerMs = 300000;
 // program was built.
 constexpr int64_t kStartDate = 953121600000;
 
+// The most a motion moves the mouse at once: within the 640 x 480 screen
+// from its centre.
+constexpr int kMotionStepX = 300;
+constexpr int kMotionStepY = 220;
+
 /** What the player does, when (ms of the program's clock). */
 struct InputEvent {
     uint64_t at = 0;
-    enum class Kind { kMove, kButton, kKey } kind = Kind::kMove;
-    int x = 0; // kMove: the pointer on the screen; kButton: 0 left, 1 right; kKey: a virtual key
+    enum class Kind { kMove, kMotion, kButton, kKey } kind = Kind::kMove;
+    // kMove: the pointer on the screen; kMotion: how far the mouse moves;
+    // kButton: 0 left, 1 right; kKey: a virtual key
+    int x = 0;
     int y = 0;
     bool down = false;
 };
 
-// An input file's lines: `<ms> move <x> <y>`, `<ms> click <x> <y>` (the
-// left button, released 100 ms later), `<ms> key <virtual key>` (pressed
-// and released). '#' starts a comment.
+// An input file's lines: `<ms> move <x> <y>`, `<ms> motion <dx> <dy>`
+// (the mouse moved by that much), `<ms> click [<x> <y>]` (the left button,
+// released 100 ms later; where the pointer is, without a place),
+// `<ms> key <virtual key>` (pressed and released). '#' starts a comment.
 Error readInput(const std::filesystem::path &path, std::vector<InputEvent> &out) {
     std::ifstream in(path);
     if (!in)
@@ -106,8 +114,22 @@ Error readInput(const std::filesystem::path &path, std::vector<InputEvent> &out)
         int b = 0;
         if (action == "move" && words >> a >> b) {
             out.push_back({at, InputEvent::Kind::kMove, a, b, false});
-        } else if (action == "click" && words >> a >> b) {
-            out.push_back({at, InputEvent::Kind::kMove, a, b, false});
+        } else if (action == "motion" && words >> a >> b) {
+            // In steps the screen holds, 50 ms apart: a mission's pointer
+            // hears the cursor's distance from the centre each frame, then
+            // puts it back there, so a step can't go further than an edge.
+            for (uint64_t step = at; a || b; step += 50) {
+                const int dx = std::clamp(a, -kMotionStepX, kMotionStepX);
+                const int dy = std::clamp(b, -kMotionStepY, kMotionStepY);
+                out.push_back({step, InputEvent::Kind::kMotion, dx, dy, false});
+                a -= dx;
+                b -= dy;
+            }
+        } else if (action == "click") {
+            if (words >> a >> b)
+                out.push_back({at, InputEvent::Kind::kMove, a, b, false});
+            else if (!words.eof())
+                return Error::fail(path.string() + ": line " + std::to_string(number) + " isn't understood");
             out.push_back({at, InputEvent::Kind::kButton, 0, 0, true});
             out.push_back({at + 100, InputEvent::Kind::kButton, 0, 0, false});
         } else if (action == "key" && words >> a) {
@@ -380,12 +402,15 @@ int cmdHost(int argc, char **argv) {
             const InputEvent &e = input[nextInput];
             if (e.kind == InputEvent::Kind::kMove)
                 process.mouseMoveTo(e.x, e.y);
+            else if (e.kind == InputEvent::Kind::kMotion)
+                process.mouseMoveTo(process.cursorX + e.x, process.cursorY + e.y);
             else if (e.kind == InputEvent::Kind::kButton)
                 process.mouseButton(e.x, e.down);
             else
                 process.key(uint32_t(e.x), 0, e.down);
             std::printf("input at %llu ms: %s\n", (unsigned long long)now,
-                        e.kind == InputEvent::Kind::kMove ? text::format("move to %d, %d", e.x, e.y).c_str()
+                        e.kind == InputEvent::Kind::kMove     ? text::format("move to %d, %d", e.x, e.y).c_str()
+                        : e.kind == InputEvent::Kind::kMotion ? text::format("motion by %d, %d", e.x, e.y).c_str()
                         : e.kind == InputEvent::Kind::kButton
                             ? (e.down ? "button down" : "button up")
                             : text::format("key %d %s", e.x, e.down ? "down" : "up").c_str());

@@ -225,7 +225,8 @@ C++ library have pages of their own ([directx.md](directx.md),
     button presses, double clicks for classes with `CS_DBLCLKS`,
     `WM_KEYDOWN`/`WM_KEYUP` with the scan code in lParam).
   - They also update the pointer (within `ClipCursor`'s rectangle) and
-    what `GetKeyState` and `GetAsyncKeyState` report.
+    what `GetKeyState` and `GetAsyncKeyState` report (with
+    `GetAsyncKeyState`'s lowest bit: pressed since it last asked).
   - `rawInput` listeners (DirectInput) hear the same movements, buttons
     and keys.
 - Threads (`_beginthread`) take turns with the main thread, so no two

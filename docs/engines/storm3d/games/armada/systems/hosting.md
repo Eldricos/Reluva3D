@@ -105,11 +105,27 @@ may differ from Windows' a little, but not where text breaks or how wide
 it is.
 
 The input file is what the player does, a line each, by the program's
-clock: `<ms> move <x> <y>`, `<ms> click <x> <y>` (the left button,
-released 100 ms later) and `<ms> key <virtual key>`, on the 640 × 480
-screen; `#` starts a comment. To start "Premonitions", the mission first
-on the Federation's panel (its map `bzn\rom2.bzn`), and skip its two
-opening scenes (Escape, virtual key 27):
+clock: `<ms> move <x> <y>` (the pointer to a place), `<ms> motion <dx>
+<dy>` (the mouse moved by that much), `<ms> click [<x> <y>]` (the left
+button, released 100 ms later, at the place given or where the pointer
+is) and `<ms> key <virtual key>`, on the 640 × 480 screen; `#` starts a
+comment.
+
+The front end's dialogs follow Windows' cursor, so `move` and `click`
+with a place work there. A mission doesn't: it keeps a pointer of its
+own, and each frame takes the cursor's distance from the screen's centre
+as the mouse's movement, then puts the cursor back in the centre
+(`GetCursorPos`, `SetCursorPos(320, 240)`); its buttons come as window
+messages. Its pointer moves half as far as the mouse *(seen, not traced:
+it may be the game's mouse speed setting)*, and stops at the screen's
+edges, where the map scrolls. So in a mission the pointer is moved with
+`motion`, which the host breaks into steps the screen holds, 50 ms
+apart: first far into a corner, which puts it at a known place, then to
+where it's wanted.
+
+To start "Premonitions", the mission first on the Federation's panel
+(its map `bzn\rom2.bzn`), skip its two opening scenes (Escape, virtual
+key 27), and close its objectives:
 
 ```text
 4000 move 300 300
@@ -120,10 +136,13 @@ opening scenes (Escape, virtual key 27):
 14000 click 268 395  # OK
 60000 key 27         # the Romulans' scene
 70000 key 27         # the Federation's
+90000 motion -2000 -2000  # the mission's pointer into the top-left corner
+92000 motion 636 584      # to the objectives' OK, (318, 292)
+95000 click
 ```
 
 ```bash
-reluva-tool storm3d host <game folder> -ms 90000 -frames frames -input mission.txt -cd <disc folder> -toc Armada.mds
+reluva-tool storm3d host <game folder> -ms 110000 -frames frames -input mission.txt -cd <disc folder> -toc Armada.mds
 ```
 
 `reluva-tool storm3d exe-survey <game folder>` lists the program's
@@ -147,6 +166,8 @@ each, its imports, and its classes ([research/](../research/README.md)).
 
 - Clicks by the clock can come before the screen they're for; a run that
   goes further will want input that waits for what's shown.
+- Where a mission's pointer starts, so that it needn't be pushed into a
+  corner first (which scrolls the map there).
 - Fonts: without Windows' own (`-fonts`), text is in look-alikes with
   the same widths.
 - Text: GDI measures text but draws none (there are no fonts), so what

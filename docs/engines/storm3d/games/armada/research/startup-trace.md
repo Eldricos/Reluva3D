@@ -134,6 +134,21 @@ wrote past its buffer: the host hadn't started Reluva's C++ library, so
 its character table, built in its `DllMain`, was empty. The host starts
 it now, before the install's DLLs.
 
+## Input in the mission
+
+A trace of the input functions it calls in the mission settled how it
+reads the mouse: each frame `GetCursorPos`, `ScreenToClient`, then
+`SetCursorPos(320, 240)`, its own pointer moved by the cursor's distance
+from the centre, half of it *(seen, not traced)*; buttons as window
+messages, through `PeekMessageA`. It never calls `GetAsyncKeyState`
+there, nor DirectInput (which it doesn't import). Clicks by a place on
+the screen therefore missed: the pointer took the jump to the place as a
+movement from wherever it was. With the pointer pushed into a corner,
+then moved by twice the distance to the objectives' OK, the button lights
+with its tooltip ("Return to the game"), the click closes the
+objectives, and the mission plays on, the Enterprise turning in the
+unit panel.
+
 ## Where the run stops
 
 Each stop was a function the emulator didn't stand in for; each was
