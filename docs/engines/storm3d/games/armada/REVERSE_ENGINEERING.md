@@ -77,7 +77,7 @@ extended. The facts themselves are on their pages, each with its source.
 | `reluva-tool storm3d spr-check <game folder>` | Reads every sprite table |
 | `reluva-tool storm3d sod <game folder> <name.sod>` | A model's nodes, meshes and animations ([formats/sod.md](formats/sod.md)) |
 | `reluva-tool storm3d sod-check <game folder>` | Reads every model |
-| `reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir]` | Runs the original in the emulator: files opened, frames shown, where it stops ([systems/hosting.md](systems/hosting.md)) |
+| `reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file]` | Runs the original in the emulator: files opened, frames shown, where it stops ([systems/hosting.md](systems/hosting.md)) |
 | `reluva-tool storm3d exe-survey <game folder>` | The program's exports and who imports them, its imports, its classes ([research/](research/README.md)) |
 | `reluva-tool storm3d viewer-shot <game folder> <out.png> [key...]` | The data viewer run without a window, keys pressed, its last screen as PNG |
 

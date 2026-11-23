@@ -51,6 +51,46 @@ What the program reads from its first instructions to its main menu
 The menu then waits, its panels playing, at about 59 frames a second of
 the program's clock.
 
+## Into a mission
+
+With `-input`, clicks at "Single Player" (90, 18), then at the
+Federation's panel (130, 150), then at the mission panel's OK button
+(268, 395):
+
+1. `sounds\effects\cornron.wav`; the single-player screen, another modal
+   dialog (template 0x73), over `bitmaps\single\singlebk.bmp` and
+   `bitmaps\sp\sptitle.bmp`, with ten Bink movies: `fed01.bik`,
+   `kling01.bik`, `rom01.bik`, `borg01.bik`, `omega01.bik`, then the `02`s.
+   The race under the pointer plays its movie (the Federation's emblem
+   lit when the pointer was over it).
+2. Its buttons (`spprev`, `spload`, three bitmaps each).
+3. Clicking a race opens the mission panel inside it, a third dialog
+   (template 0x124), which the program moves to (224, 46), 192 × 405:
+   `sppanel.bmp`, `spselect.bmp` (the chosen mission's bar), `spok` and
+   `spgame`. The race's movies stop meanwhile. The missions' names are
+   text, not drawn here yet.
+4. OK: `sounds\effects\cornrclk.wav`, then the first mission's map,
+   `bzn\4first.mdf`.
+5. The loading screen's models, each looked for in `addon\` before `SOD\`
+   (`mbgbaku.sod`, `stalogo.sod`), with their textures. `addon\` isn't in
+   the install: a place for add-ons' models to replace the game's
+   *(guessed: by the order)*.
+6. No `texture.dat`, looked for in the folder above the install's.
+7. Then the CD check, below.
+
+## The CD check
+
+Before the mission, the program checks for its CD (0x4fbb00): it reads
+its own `Armada.exe`, then for each drive `GetDriveTypeA` calls a CD-ROM
+drive it asks MCI (`mciSendCommandA`, 0x4fbdd0) for the disc's number of
+tracks (`MCI_STATUS` 0x814 with `MCI_STATUS_ITEM`, item 3), then about
+each track (`MCI_STATUS` with `MCI_TRACK`). The registry calls after it
+(0x4fbff2 on) weren't traced. With no CD-ROM drive here it writes
+`Track verification failed.` and `[Armada] Please insert Armada CD` to
+the debugger, and asks again, without end. The disc copy here is its
+files only, without the table of contents the check reads, so the run
+goes no further.
+
 ## Where the run stops
 
 Each stop was a function the emulator didn't stand in for; each was
@@ -80,6 +120,10 @@ added, and the run went on to the next:
 | `GetWindow` | the menu's start | USER32 |
 | `SetDIBitsToDevice` | the menu's background | GDI32 |
 | `DPtoLP` | the labels' masked blits | GDI32 |
+| (no stop) a nested dialog waiting | the mission panel | the waiting dialog returns when the process ends |
+| (no stop) the mission panel not seen | | GDI's painting shown when the program next looks for a message |
+| `CoCreateGuid` | starting the mission | ole32 |
+| `__RTDynamicCast` | loading the mission | MSVCRT |
 
 With those, nothing stops it: at the time asked, the run ends it.
 Until GDI drew, the frames showed only the panels; with GDI the whole

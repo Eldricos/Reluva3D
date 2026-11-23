@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir]:
+// reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file]:
 // runs the retail Armada.exe in Reluva's x86 emulator, with its own DLLs
 // from the install and Reluva's stand-ins for Windows, DirectX and the C
 // runtimes, as a reference to study, never as the game is played
 // (docs/engines/storm3d/games/armada/systems/hosting.md). It reports the
 // files the program opens, the frames it shows (written as PNG), the
-// imports no stand-in answers, and where and why it stops.
+// imports no stand-in answers, and where and why it stops. The input file
+// is the player's mouse and keys, by the program's clock.
 
 #include "common/fs.h"
 #include "common/pe.h"
@@ -21,6 +22,8 @@
 #include "image/image.h"
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -31,7 +34,9 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -49,7 +54,51 @@ struct Options {
     std::filesystem::path framesDir;
     uint64_t every = 1; // with framesDir: every Nth frame written
     std::filesystem::path saveDir;
+    std::filesystem::path inputFile;
 };
+
+/** What the player does, when (ms of the program's clock). */
+struct InputEvent {
+    uint64_t at = 0;
+    enum class Kind { kMove, kButton, kKey } kind = Kind::kMove;
+    int x = 0; // kMove: the pointer on the screen; kButton: 0 left, 1 right; kKey: a virtual key
+    int y = 0;
+    bool down = false;
+};
+
+// An input file's lines: `<ms> move <x> <y>`, `<ms> click <x> <y>` (the
+// left button, released 100 ms later), `<ms> key <virtual key>` (pressed
+// and released). '#' starts a comment.
+Error readInput(const std::filesystem::path &path, std::vector<InputEvent> &out) {
+    std::ifstream in(path);
+    if (!in)
+        return Error::fail("Cannot read " + path.string());
+    std::string line;
+    for (int number = 1; std::getline(in, line); ++number) {
+        line = line.substr(0, line.find('#'));
+        std::istringstream words(line);
+        uint64_t at = 0;
+        std::string action;
+        if (!(words >> at >> action))
+            continue;
+        int a = 0;
+        int b = 0;
+        if (action == "move" && words >> a >> b) {
+            out.push_back({at, InputEvent::Kind::kMove, a, b, false});
+        } else if (action == "click" && words >> a >> b) {
+            out.push_back({at, InputEvent::Kind::kMove, a, b, false});
+            out.push_back({at, InputEvent::Kind::kButton, 0, 0, true});
+            out.push_back({at + 100, InputEvent::Kind::kButton, 0, 0, false});
+        } else if (action == "key" && words >> a) {
+            out.push_back({at, InputEvent::Kind::kKey, a, 0, true});
+            out.push_back({at + 100, InputEvent::Kind::kKey, a, 0, false});
+        } else {
+            return Error::fail(path.string() + ": line " + std::to_string(number) + " isn't understood");
+        }
+    }
+    std::stable_sort(out.begin(), out.end(), [](const InputEvent &l, const InputEvent &r) { return l.at < r.at; });
+    return Error::success();
+}
 
 Error readFile(const std::filesystem::path &path, std::vector<uint8_t> &out) {
     std::ifstream in(path, std::ios::binary);
@@ -140,7 +189,8 @@ void writeFrame(const x86::DirectX::Frame &f, const std::filesystem::path &path)
 int cmdHost(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr,
-                     "usage: reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir]\n");
+                     "usage: reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] "
+                     "[-input file]\n");
         return 2;
     }
     Options o;
@@ -155,6 +205,8 @@ int cmdHost(int argc, char **argv) {
             o.every = std::max<uint64_t>(1, std::strtoull(argv[++a], nullptr, 10));
         else if (arg == "-save" && a + 1 < argc)
             o.saveDir = argv[++a];
+        else if (arg == "-input" && a + 1 < argc)
+            o.inputFile = argv[++a];
         else {
             std::fprintf(stderr, "what is %s?\n", arg.c_str());
             return 2;
@@ -223,8 +275,30 @@ int cmdHost(int argc, char **argv) {
         if (!o.framesDir.empty() && f.number % o.every == 0)
             writeFrame(f, o.framesDir / text::format("frame%05llu.png", (unsigned long long)f.number));
     };
+    std::vector<InputEvent> input;
+    if (!o.inputFile.empty())
+        if (Error err = readInput(o.inputFile, input)) {
+            std::fprintf(stderr, "%s\n", err.message.c_str());
+            return 2;
+        }
+    size_t nextInput = 0;
     process.onSlice = [&](x86::Cpu &) {
-        if (process.now() >= o.limitMs)
+        const uint64_t now = process.now();
+        for (; nextInput < input.size() && input[nextInput].at <= now; ++nextInput) {
+            const InputEvent &e = input[nextInput];
+            if (e.kind == InputEvent::Kind::kMove)
+                process.mouseMoveTo(e.x, e.y);
+            else if (e.kind == InputEvent::Kind::kButton)
+                process.mouseButton(e.x, e.down);
+            else
+                process.key(uint32_t(e.x), 0, e.down);
+            std::printf("input at %llu ms: %s\n", (unsigned long long)now,
+                        e.kind == InputEvent::Kind::kMove ? text::format("move to %d, %d", e.x, e.y).c_str()
+                        : e.kind == InputEvent::Kind::kButton
+                            ? (e.down ? "button down" : "button up")
+                            : text::format("key %d %s", e.x, e.down ? "down" : "up").c_str());
+        }
+        if (now >= o.limitMs)
             process.requestExit();
     };
 
@@ -243,8 +317,18 @@ int cmdHost(int argc, char **argv) {
             return 1;
         }
 
+    // The time is also kept here: while the program waits (on the player,
+    // say), its threads can go on changing over without a slice ending.
+    std::atomic<bool> finished{false};
+    std::thread watchdog([&] {
+        while (!finished && process.now() < o.limitMs)
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        process.requestExit();
+    });
     uint32_t exitCode = 0;
     const Error err = process.run(*process.module(kProgram), exitCode);
+    finished = true;
+    watchdog.join();
     std::printf("files opened:\n");
     std::set<std::string> seen;
     for (const auto &[path, found] : opened)
@@ -262,11 +346,12 @@ int cmdHost(int argc, char **argv) {
     return 0;
 }
 
-const tool::Commands kCommands("storm3d", {
-                                              {"host", "<game folder> [-ms N] [-frames dir] [-every N] [-save dir]",
-                                               "run the retail Armada.exe in the x86 emulator, to study: files "
-                                               "opened, frames shown, imports missing, where it stops",
-                                               cmdHost},
-                                          });
+const tool::Commands kCommands("storm3d",
+                               {
+                                   {"host", "<game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file]",
+                                    "run the retail Armada.exe in the x86 emulator, to study: files "
+                                    "opened, frames shown, imports missing, where it stops",
+                                    cmdHost},
+                               });
 
 } // namespace

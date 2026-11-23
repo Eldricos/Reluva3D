@@ -13,8 +13,10 @@ on the engine, never how the game is played: the plan is a native Armada
 It runs the program's start-up (the configuration, the display mode, the
 sprite tables and their textures, `events.odf`) and its main menu, which
 it shows as on Windows and keeps showing, its Bink panels playing
-([research/startup-trace.md](../research/startup-trace.md)). Nothing is
-clicked yet, so the run goes no further than the menu.
+([research/startup-trace.md](../research/startup-trace.md)). With clicks
+given it (`-input`), it goes on through the single-player screen and the
+mission panel into loading the first mission, up to the game's CD check,
+which needs the disc's table of contents.
 
 ## How it works
 
@@ -72,11 +74,25 @@ primary surface for the same reason.
 ## In Reluva
 
 `reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N]
-[-save dir]` runs the program for `N` milliseconds of its clock (20,000
-by default), writes every `N`th frame (and the last) to `dir`, and the
-program's own files to the save folder (by default under the system's
-temporary folder). It prints the imports no stand-in answers, the files
-opened, the frames shown, and where it stopped.
+[-save dir] [-input file]` runs the program for `N` milliseconds of its
+clock (20,000 by default), writes every `N`th frame (and the last) to
+`dir`, and the program's own files to the save folder (by default under
+the system's temporary folder). It prints the imports no stand-in
+answers, the files opened, the frames shown, and where it stopped.
+
+The input file is what the player does, a line each, by the program's
+clock: `<ms> move <x> <y>`, `<ms> click <x> <y>` (the left button,
+released 100 ms later) and `<ms> key <virtual key>`, on the 640 × 480
+screen; `#` starts a comment. To start the Federation's first mission:
+
+```text
+4000 move 300 300
+5000 click 90 18     # Single Player
+9000 move 130 150
+10000 click 130 150  # the Federation
+12000 move 268 395
+13000 click 268 395  # OK
+```
 
 `reluva-tool storm3d exe-survey <game folder>` lists the program's
 exports, which of the missions' and the computer player's DLLs import
@@ -97,8 +113,8 @@ each, its imports, and its classes ([research/](../research/README.md)).
 
 ## Open questions
 
-- Input: the host passes no mouse or keys yet, so the run stays on the
-  main menu. Going on into the game needs clicks at the labels.
+- The CD check before a mission reads the disc's table of contents
+  through MCI; the copy of the disc here has its files only.
 - Text: GDI measures text but draws none (there are no fonts), so what
   the menu writes with `DrawTextExA` (in red, at the start) isn't seen.
 - Its sound, while DirectSound isn't stood in for.
