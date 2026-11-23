@@ -10,8 +10,8 @@ the retail `JK.EXE` run as it shipped in Reluva's x86 emulator
 `SMACKW32.DLL` from the install, to see how far it gets and what it
 needs that the emulator hasn't. It gets through its start-up, reading its
 archives, strings, fonts and the menus' pictures, lists Direct3D's
-devices, sets the display mode and shows its first frame, and stops where
-it asks GDI for a font.
+devices, sets the display mode, and shows the opening's title and crawl,
+which it draws itself.
 
 ## How it works
 
@@ -72,10 +72,14 @@ it uses are DirectX 5's, by the identifiers in its data:
    *(from the code)*; the window is made with `WS_VISIBLE`, which
    activates it.
 10. Active, it takes the focus, sets the display to 640 by 480 in 8-bit
-    colour, makes its primary surface and palette and clears the screen
-    (the first frame), then makes an Arial font through GDI
-    (`CreateFontA`) and stops there: GDI's fonts and text aren't stood in
-    for yet.
+    colour, makes its primary surface and palette and clears the screen,
+    then makes an Arial font through GDI (`CreateFontA`, `0x422a0e`), for
+    text it can write on a surface through its device context
+    (`0x424130`: `GetDC`, `SetBkMode`, `SetTextColor`, `TextOutA`).
+11. It shows "A long time ago, in a galaxy far, far away....", in blue,
+    and then the opening crawl over a field of stars, drawn by its own
+    8-bit renderer into surfaces it locks, about 15 frames a second.
+    It runs on with no input, past 40 seconds.
 
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were
@@ -112,7 +116,7 @@ imports show:
 |---|---|---|
 | Direct3D 1 and 2 | `IDirect3D` and `IDirect3D2` (their device lists are there), their devices with execute buffers (`IDirect3DExecuteBuffer`, which version 1 draws with), viewports, materials and textures 1 and 2, on the emulator's Direct3D 7 rasterizer | The most; new shared code, for any DirectX 5 game |
 | DirectSound | Buffers and 3D buffers on Reluva's mixer | New shared code |
-| Windows | About 75 calls the emulator lacks: GDI's palettes, fonts and DIB sections, dialogs, `GetMessageA`, `CompareString`, WINMM's timer events for Smacker | Small each, in the shared stand-ins |
+| Windows | About 60 calls the emulator lacks: GDI's palettes and DIB sections, dialogs, `GetMessageA`, `CompareString`, WINMM's timer events for Smacker | Small each, in the shared stand-ins |
 | CD audio | MCI's `cdaudio` device, playing the CDs' music tracks, which copies of their files don't hold | To decide: from a CD image's tracks, or none |
 | DirectPlay 3 | Multiplayer sessions, on Reluva's network code; for now the class with no connections ([dplay.md](../../../../../common/x86/dplay.md)) | Later |
 

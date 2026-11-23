@@ -88,10 +88,10 @@ reaches its menus; then DirectSound; then a level.
    instructions a second ([systems/hosting.md](systems/hosting.md)). See
    [The gate](#the-gate).
 6. **The game** (under way), hosted, as the gate chose: Direct3D 1's
-   device list, DirectPlay with no connections and windows activated as
-   Windows does take `JK.EXE` to its display mode and first frame
-   ([systems/hosting.md](systems/hosting.md)). Next: GDI's fonts and
-   text, then Direct3D 1's devices, until it reaches its menus; then
+   device list, DirectPlay with no connections, windows activated as
+   Windows does and GDI's text take `JK.EXE` through its start-up to the
+   opening's title and crawl ([systems/hosting.md](systems/hosting.md)).
+   Next: input, to go on to the menus; then Direct3D 1's devices; then
    DirectSound; then a level.
 7. **Mysteries of the Sith.**
 
