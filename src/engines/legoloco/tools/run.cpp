@@ -6,7 +6,9 @@
 
 #include "backends/networking/sockets/socket_net.h"
 #include "devtools/tool.h"
+#include "emulation/x86/gdi.h"
 #include "engines/legoloco/host/game_process.h"
+#include "graphics/system_fonts.h"
 
 #include <algorithm>
 #include <cstdarg>
@@ -62,6 +64,10 @@ void saveShot(const x86::DirectX::Frame &f, x86::Win32Process &process, const st
     std::printf("frame %llu saved to %s\n", (unsigned long long)f.number, path.c_str());
 }
 
+// The date a run on a clock of instructions starts at: noon on 1 March
+// 2026, UTC, a day no surprise in EE.INI is on.
+constexpr int64_t kFixedDate = 1772366400;
+
 // What the tool does to the program, at a time on its clock: the
 // player's input, or saving the screen.
 struct Step {
@@ -90,6 +96,8 @@ struct Copy {
     bool log = false;
     int desktopWidth = 0; // 0: the process's own
     int desktopHeight = 0;
+    bool xpColours = false;
+    bool ownArial = false;
 
     // Reads one option at argv[i] that's a copy's own, moving i past its
     // arguments; false if it isn't one.
@@ -103,6 +111,10 @@ struct Copy {
         const char *a = argv[i];
         if (!std::strcmp(a, "-log")) {
             log = true;
+        } else if (!std::strcmp(a, "-xp")) {
+            xpColours = true;
+        } else if (!std::strcmp(a, "-arial")) {
+            ownArial = true;
         } else if (!std::strcmp(a, "-desktop") && i + 1 < argc) {
             std::sscanf(argv[++i], "%dx%d", &desktopWidth, &desktopHeight);
         } else if ((!std::strcmp(a, "-click") || !std::strcmp(a, "-rclick")) && i + 3 < argc) {
@@ -172,15 +184,23 @@ struct Copy {
         legoloco::GameProcess game(gameDir, save);
         game.video().endAtOnce = noMovies;
         game.directPlay().network = network;
+        if (xpColours)
+            game.process().gdi().colours = x86::Gdi::ColourScheme::kWindowsXp;
+        if (ownArial)
+            game.process().gdi().arial = ttf::installedArial;
         if (desktopWidth > 0 && desktopHeight > 0)
             game.process().screenWidth = desktopWidth, game.process().screenHeight = desktopHeight;
         // A clock of instructions run, moved on a millisecond whenever every
         // thread waits: the same run every time, for the game-files test.
         std::atomic<uint64_t> idleMs{0};
+        // The date is fixed too, and moves with that clock: the game reads
+        // it (its date-based surprises, and its random numbers' seed).
         if (perMs) {
             x86::Cpu &c = game.cpu();
-            game.process().milliseconds = [&c, &idleMs, perMs] { return uint32_t(c.executed() / perMs + idleMs); };
-            game.process().idleTick = [&idleMs] { ++idleMs; };
+            x86::Win32Process &p = game.process();
+            p.milliseconds = [&c, &idleMs, perMs] { return uint32_t(c.executed() / perMs + idleMs); };
+            p.idleTick = [&idleMs] { ++idleMs; };
+            p.dateTime = [&p] { return kFixedDate + int64_t(p.milliseconds() / 1000); };
         }
         if (Error err = game.load()) {
             say("%s\n", err.message.c_str());
@@ -380,14 +400,16 @@ std::shared_ptr<x86::DirectPlay::Network> systemNetwork(const std::string &meeti
 // -move s x y moves the pointer, -drag s x1 y1 x2 y2 drags with the left
 // button over half a second, -key s vk presses and releases a key (a
 // virtual-key code, in hex), and -shot s file.ppm saves the screen
-// (-shot file.ppm, at the end).
+// (-shot file.ppm, at the end). -xp gives it Windows XP's colours, -arial
+// the player's own Arial where it's installed.
 int cmdRun(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(stderr,
-                     "usage: reluva-tool legoloco run <game folder> -save <folder> [-log] [-limit millions] "
-                     "[-seconds n] [-nomovies] [-deterministic n] [-udp] [-meeting host] [-click|-rclick|-move s x y] "
-                     "[-drag s x1 y1 x2 y2] "
-                     "[-key s vk] [-shot [s] file.ppm]...\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool legoloco run <game folder> -save <folder> [-log] [-xp] [-arial] [-limit millions] "
+            "[-seconds n] [-nomovies] [-deterministic n] [-udp] [-meeting host] [-click|-rclick|-move s x y] "
+            "[-drag s x1 y1 x2 y2] "
+            "[-key s vk] [-shot [s] file.ppm]...\n");
         return 2;
     }
     Common common;
@@ -443,7 +465,7 @@ const Commands kCommands(
     "legoloco",
     {
         {"run",
-         "<game folder> -save <folder> [-log] [-limit millions] [-seconds n] [-nomovies] [-deterministic n] [-udp] [-meeting host] "
+         "<game folder> -save <folder> [-log] [-xp] [-arial] [-limit millions] [-seconds n] [-nomovies] [-deterministic n] [-udp] [-meeting host] "
          "[-click|-rclick|-move s x y] [-drag s x1 y1 x2 y2] [-key s vk] [-shot [s] file.ppm]...",
          "run the game's own loco.exe and report how far it gets", cmdRun},
         {"pair",

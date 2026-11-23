@@ -70,8 +70,11 @@ RELUVA_LEGOLOCO=/path/to/LEGO\ Loco ctest --test-dir build -L gamedata -R legolo
   `RELUVA_GAMEDATA_UPDATE=1` and review the records' diff.
 - **The same every time:** the run's clock counts instructions, moved
   on a millisecond whenever every thread waits, and the run ends where
-  the steps are taken, not by a clock of the tool's own; checked by
-  running it again and again. It was checked to catch a change: the
+  the steps are taken, not by a clock of the tool's own. The date it's
+  given is fixed too, noon on 1 March 2026 in UTC, moving with that
+  clock: the game reads the date, and its minifigures walked otherwise
+  on another day. Checked by running it again and again, and in another
+  time zone. It was checked to catch a change: the
   text drawn a little narrower changes the welcome bubble's screen.
 - **Your own baseline:** where your results differ from the committed
   records (another system, say), keep your own before making changes,

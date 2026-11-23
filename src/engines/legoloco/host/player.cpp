@@ -3,6 +3,8 @@
 
 #include "engines/legoloco/host/player.h"
 
+#include "graphics/system_fonts.h"
+
 #include "audio/mixer.h"
 #include "engines/legoloco/host/game_process.h"
 
@@ -122,6 +124,9 @@ void Player::work() {
     };
     game.video().frameDrawn = [&game] { game.directX().show(); };
     game.directPlay().network = _network;
+    game.process().gdi().colours = _colours;
+    if (_ownArial)
+        game.process().gdi().arial = ttf::installedArial;
     game.process().screenWidth = _desktopWidth;
     game.process().screenHeight = _desktopHeight;
     process.idle = [this] {

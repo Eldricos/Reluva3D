@@ -5,6 +5,7 @@
 
 #include "common/events.h"
 #include "emulation/x86/dplay.h"
+#include "emulation/x86/gdi.h"
 #include "graphics/cursor.h"
 
 #include <cstdint>
@@ -43,6 +44,12 @@ public:
 
     /** The desktop the game is given, in pixels: it fills it. Before start(). */
     void setDesktop(int width, int height) { _desktopWidth = width, _desktopHeight = height; }
+    /**
+     * How Windows looks to it: its system colours, and whether its text is
+     * drawn in the player's own Arial where it's installed (else Liberation
+     * Sans). Before start().
+     */
+    void setLook(x86::Gdi::ColourScheme colours, bool ownArial) { _colours = colours, _ownArial = ownArial; }
     /** Starts the game's thread, which loads and runs the program; call once. */
     void start();
     /**
@@ -86,6 +93,8 @@ private:
     std::shared_ptr<x86::DirectPlay::Network> _network;
     int _desktopWidth = 1024; // as the game was played: its boards fit it
     int _desktopHeight = 768;
+    x86::Gdi::ColourScheme _colours = x86::Gdi::ColourScheme::kWindows98;
+    bool _ownArial = false;
     GameProcess *_game = nullptr; // the game thread's, while it runs
     std::thread _thread;
     std::mutex _mutex;

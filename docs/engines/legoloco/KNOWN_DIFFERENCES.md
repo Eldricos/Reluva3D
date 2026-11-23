@@ -29,10 +29,18 @@ the original's way. -->
   then scrolled ([systems/running.md](systems/running.md#in-reluva)).
   Other sizes the original's players had aren't offered.
 - **The text's font:** the game's text asks for Arial (bubbles bold with
-  a cell of 16, the name box bold of 12, `0x446113`); Reluva draws it in
-  Liberation Sans, as wide as Arial, at sizes matched to a recording of
-  the original so its lines break as there; the letters' shapes differ
-  a little ([common/x86/gdi.md](../../common/x86/gdi.md)).
+  a cell of 16, the name box bold of 12, `0x446113`). Arial isn't
+  Reluva's to ship: the player's own is used where it's installed (the
+  engine's "Text font" setting, "Arial if installed"); otherwise, or set
+  to "Liberation Sans", Reluva's built-in Liberation Sans, as wide as
+  Arial, at sizes matched to a recording of the original so its lines
+  break as there, its letters' shapes a little different
+  ([common/x86/gdi.md](../../common/x86/gdi.md)).
+- **Windows' colours:** where the game shows Windows' own (the name box's
+  selection, the windowed mode's frame, the desktop around it), Reluva
+  gives Windows 98's standard scheme, of the game's time; the recording
+  of the original was made on Windows XP, whose selection is a brighter
+  blue. The engine's "Windows colours" setting gives XP's instead.
 - **Windows' arrow:** where the game shows Windows' standard arrow
   rather than its own hand (over the scroll bars and frame, and after
   saving where its hand is off), Reluva shows an arrow of its own
@@ -57,9 +65,10 @@ None yet.
 - **The window:** the original runs on the desktop, in windows filling
   it; Reluva shows its desktop as the game's window, with nothing of
   Windows around it ([systems/running.md](systems/running.md)).
-- **The windowed mode:** its frame is painted plainly (borders and a
-  caption bar, without the title or buttons); the desktop around it is
-  black.
+- **The windowed mode:** its frame is painted as Windows 98 paints an
+  active window's, always active, without the window's icon (its
+  picture isn't read); its minimize button does nothing, there being no
+  taskbar to bring the window back from.
 - **Not stood in for yet:** the Open and Save dialogs (the game's own
   panels serve instead), and opening a web page (`ShellExecuteA`).
 

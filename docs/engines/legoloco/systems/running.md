@@ -177,7 +177,9 @@ Seen running in Reluva (`reluva-tool legoloco run`):
   at the next start.
 - **The windowed mode** (`SetWindowPos` at `0x407e0a`) makes the main window framed, with
   scroll bars (style `0x92ff0000`), at 700 by 500, and back to filling
-  the screen.
+  the screen. In Reluva, on a desktop of 1024 by 768, it's framed as
+  Windows 98 frames it, "LEGO LOCO" in its caption with its three
+  buttons, on the teal desktop *(seen, not traced)*.
 - **Leaving** (the front screen's arrow): the game closes its main window
   (`WM_CLOSE`), which takes its other windows with it, and posts
   `WM_QUIT`; the process ends with code 0.
@@ -301,7 +303,10 @@ calls named were seen made, from the addresses given:
   its own, for the engine (`legoloco.cpp`), which shows its screen, a
   desktop of 1024 by 768 (as a recording of the original was played,
   the boards fitting it) or, by the engine's "Screen size" setting
-  (`desktop`), 800 by 600:
+  (`desktop`), 800 by 600; Windows' colours by its "Windows colours"
+  setting (`colours`: `98` or `xp`), and the text in the player's own
+  Arial where it's installed by its "Text font" setting (`font`:
+  `arial` or `liberation`):
   - each frame presented (a blit or flip onto the primary surface, in the
     game's window) is kept for the engine; a movie's frames, drawn into
     the screen's pixels, are presented as they're drawn
@@ -329,8 +334,12 @@ calls named were seen made, from the addresses given:
   `-nomovies` ends each movie as it starts. `-desktop 1024x768` gives
   the program a desktop of that size, as the engine does; the tool's
   is 800 by 600 otherwise, which the clicks in these pages are for.
+  `-xp` gives it Windows XP's colours and `-arial` the player's own
+  Arial; without them the tool's are Windows 98's and Liberation Sans,
+  as the game-files test needs.
   `-deterministic n` gives the program a clock of n instructions a
-  millisecond, moved on a millisecond whenever every thread waits, and
+  millisecond, moved on a millisecond whenever every thread waits, and a
+  date of its own from noon on 1 March 2026, UTC, moving with it, and
   ends the run where the steps are taken: the same run every time, as
   the game-files test needs ([TESTING.md](../TESTING.md)).
 - Network games: the engine plays them over the system's UDP sockets

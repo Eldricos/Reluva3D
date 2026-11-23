@@ -35,6 +35,12 @@ constexpr const char *kMapPort = "map_port";
 // The desktop the game fills: "1024x768" (as it was played, its boards
 // fitting it) or "800x600" (its least, the boards scrolled).
 constexpr const char *kDesktop = "desktop";
+// The text's font: "arial" (the player's own Arial where it's installed,
+// else Liberation Sans) or "liberation" (always Liberation Sans).
+constexpr const char *kFont = "font";
+// Windows' colours: "98" (its standard scheme, of the game's time) or "xp"
+// (Windows XP's blue, as in a recording of the original).
+constexpr const char *kColours = "colours";
 
 const std::vector<GameVariant> kVariants = {
     {"legoloco",
@@ -82,6 +88,13 @@ private:
         if (const auto it = _target.settings.find(kDesktop); it != _target.settings.end() && it->second == "800x600")
             width = 800, height = 600;
         player.setDesktop(width, height);
+        const auto setting = [&](const char *key, const char *otherwise) {
+            const auto it = _target.settings.find(key);
+            return it == _target.settings.end() ? std::string(otherwise) : it->second;
+        };
+        player.setLook(setting(kColours, "98") == "xp" ? x86::Gdi::ColourScheme::kWindowsXp
+                                                       : x86::Gdi::ColourScheme::kWindows98,
+                       setting(kFont, "arial") == "arial");
         player.start();
         Cursor pointer;
         bool pointerShown = false;
@@ -205,6 +218,18 @@ public:
                  "600 they scroll.",
                  true,
                  {{"1024x768", "1024 by 768"}, {"800x600", "800 by 600"}}},
+                {kFont,
+                 "Text font",
+                 "The font the game's text is drawn in. It asks for Arial: your own, where it's installed, is\n"
+                 "as the original; Liberation Sans, built in, is as wide.",
+                 true,
+                 {{"arial", "Arial if installed"}, {"liberation", "Liberation Sans"}}},
+                {kColours,
+                 "Windows colours",
+                 "Windows' own colours, where the game shows them (the name box's selection, the window's\n"
+                 "frame): Windows 98's, of the game's time, or Windows XP's.",
+                 true,
+                 {{"98", "Windows 98"}, {"xp", "Windows XP"}}},
                 {kMapPort,
                  "Open the port on the router when hosting",
                  "When hosting a network game, ask the router (UPnP or NAT-PMP) to pass the game's port on to\n"
