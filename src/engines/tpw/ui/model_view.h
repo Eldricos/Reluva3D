@@ -76,19 +76,31 @@ soft3d::Vec toViewerWorld(const gfx::Vec3 &p);
 soft3d::Vec defaultLight();
 
 /**
+ * How a triangle's texture is drawn, as its group and texture say
+ * (md2.md): lit by its slope or at full brightness (a group's flag 1);
+ * its texels whose alpha is under half left out, or blended by their
+ * alpha (a texture's flag 2).
+ */
+struct TriangleStyle {
+    bool unlit = false;
+    bool blended = false;
+};
+
+/**
  * Draws a triangle given in the viewer's world, lit by its own slope
- * against `light` (a direction in the viewer's world, either way):
- * textured, its texels whose alpha is under half left out, or grey
- * without a texture.
+ * against `light` (a direction in the viewer's world, either way), unless
+ * `style` says it's unlit: textured, or grey without a texture. A blended
+ * texel records its depth only if it's near opaque.
  */
 void drawTexturedTriangle(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera,
                           const std::array<soft3d::Vec, 3> &corners, const std::array<std::array<float, 2>, 3> &uv,
-                          const image::Image *texture, const soft3d::Vec &light);
+                          const image::Image *texture, const soft3d::Vec &light, TriangleStyle style = {});
 
 /**
  * Draws a model's meshes as drawModel does, into a drawing already begun,
  * lit by `light`; placed by `transforms` (meshTransforms'), or by their own
- * without; their positions `positions` (meshPositions'), or their own.
+ * without; their positions `positions` (meshPositions'), or their own. The
+ * groups with blended textures go after the others.
  */
 void drawMeshes(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera, const LoadedModel &loaded,
                 bool textured, const soft3d::Vec &light, const std::vector<gfx::Mat4> *transforms = nullptr,

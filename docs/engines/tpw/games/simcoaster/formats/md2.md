@@ -170,8 +170,12 @@ After its 0x50 bytes of node, a mesh has, from the node's start:
 - **Groups**: 16 bytes each, a run of faces drawn with one texture:
   where the texture's entry is (0 for none), the first face (2 bytes),
   how many (2 bytes), the lowest and highest vertex they use (2 bytes
-  each), and a flags word: 1 on some groups of see-through textures
-  (`glowinside.tga`), not worked out. One mesh's groups
+  each), and a flags word: 1 on 537 groups (beams, flames, lightning,
+  signs, water), drawn unlit, at full brightness *(inferred)*: so the
+  front end's beam and glow look as in the recording. A texture whose
+  entry's flags have 2 is blended by its alpha (the beam's top fades
+  out so); the others' texels under half alpha are left out
+  *(inferred)*. One mesh's groups
   (`pbobsl.MD2`'s `Loft01`) cover fewer than its faces.
 
 A few meshes have texture coordinates that can't be meant (not numbers,

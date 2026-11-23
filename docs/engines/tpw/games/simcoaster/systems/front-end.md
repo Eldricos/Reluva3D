@@ -68,11 +68,45 @@ screen's height, 53° high *(inferred)*.
 
 The table's middle opens by the animation's vertex track, from frame
 500, the globe rising through the lit well beneath it
-([md2-animation.md](../formats/md2-animation.md#vertices)). What the
-recording shows that Reluva doesn't draw yet: the sparkles round the
-star, the beam of light, the ring of light round the globe, the
-advisor's portrait, the skip button (bottom right, two triangles and a
-bar).
+([md2-animation.md](../formats/md2-animation.md#vertices)).
+
+### The effects
+
+From 23.2 s in the recording, sparkles circle the octagon round the
+star, then thin out by 32 s; at 31.5 s a pale-blue beam comes down on
+the star and widens into a cone over the opening well, whose walls glow
+yellow; from 36 s a white burst lights the well under the rising globe.
+
+- **The beam and the glow** are the model's own meshes: `Cylinder02`
+  and `Cylinder04`, textured `BeamTop`, `BeamMain` and `BeamBot`, moved
+  and widened by the animation; the desk's `glowinside` and
+  `insidewood`. Their groups have flag 1, drawn unlit, and `BeamTop`'s
+  texture flag 2, blended by its alpha, which fades the beam out at its
+  top ([md2.md](../formats/md2.md#a-mesh)).
+- **The sparkles** are particles the script starts: `EVENT 2 <emitter>
+  <effect>` starts a particle effect of the library
+  ([plb.md](../formats/plb.md)) at one of the model's emitters. The
+  script sets off effect 60, "FW1explosion", at emitters 11 to 14 every
+  200 ms, 4 seconds and more; then 89, "Upgrade", at emitter 1, six
+  times. 11 to 14 are the four helpers `Fx1` to `Fx4` round the star,
+  under `Particle Pivot`, which the animation turns: the sparkles trail
+  round the octagon as in the recording. How emitters are numbered in
+  general isn't worked out: the swamp's script names its 73 "snow
+  particle" helpers 30 to 102, the speakers' their one helper
+  `Particle` 1 *(guessed: Reluva takes 11 to 14 for `Fx1` to `Fx4`, 1
+  for `Particle Pivot`)*.
+- **When:** the script's waits put its first sparkles 9.8 s after the
+  game sets it going (`VAR_OBSTACLETRIG`); the recording has them 13.2 s
+  after the path starts, so the game sets it about 3.4 s into the path
+  *(inferred)*. The sparkles' 3-second lives, the library's, match how
+  long the recording's linger after the last burst.
+
+What Reluva doesn't match yet: the particles' number, speed, size and
+look, which the library's other words must hold (it draws 20 a burst,
+small four-pointed stars, flying off at up to 6 units a second,
+*guessed*), and the bright flares at the emitters; the white burst in
+the well; the advisor's portrait; the skip button (bottom right, two
+triangles and a bar).
 
 ## In Reluva
 
@@ -107,8 +141,11 @@ that; with a checksum of the screens, which the game-files test checks
 
 ## Open questions
 
-- The effects: the sparkles, the beam, the ring of light; what the
-  script's events and objects are.
+- The particles' parameters ([plb.md](../formats/plb.md)), and how a
+  model's emitters are numbered.
+- The white burst in the well; what the script's other events
+  (`EVENT 5`, sounds it seems) and objects (`ADDOBJ 5 1 200 2`,
+  `FADEOBJ 2`) are.
 - When the game triggers the script, and how the advisor's speech
   follows `VAR_SPEECHSTATUS`.
 - The camera's field of view, measured rather than read from the files.

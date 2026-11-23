@@ -15,6 +15,7 @@
 #include "engines/tpw/formats/lnd.h"
 #include "engines/tpw/formats/md2.h"
 #include "engines/tpw/formats/omp.h"
+#include "engines/tpw/formats/plb.h"
 #include "engines/tpw/formats/rse.h"
 #include "engines/tpw/formats/sam.h"
 #include "engines/tpw/formats/sdt.h"
@@ -696,6 +697,29 @@ void testAnimation() {
     CHECK(animation.parse(cut));
 }
 
+// A particle library of two effects, as the game's: its count and record
+// size, then each record's 70 words and its name; then cut and broken.
+void testParticleLibrary() {
+    Bytes b(8 + 2 * 320);
+    put32(b, 0, 2);
+    put32(b, 4, 320);
+    const size_t second = 8 + 320;
+    put32(b, second + 4 * 29, 3000);
+    put32(b, second + 4 * 54, 0xa2f84400);
+    put32(b, second + 4 * 69, 0xa0806bf0);
+    const std::string name = "Twinkle";
+    std::copy(name.begin(), name.end(), b.begin() + long(second + 280));
+    ParticleLibrary library;
+    CHECK(!library.parse(b));
+    CHECK(library.effects().size() == 2 && library.effects()[1].name == "Twinkle");
+    CHECK(library.effects()[1].lifeMs == 3000 && library.effects()[1].colours[0] == 0xa2f84400 &&
+          library.effects()[1].colours[15] == 0xa0806bf0 && library.effects()[0].name.empty());
+    CHECK(library.parse(Bytes(b.begin(), b.end() - 1)));
+    Bytes size = b;
+    put32(size, 4, 300);
+    CHECK(library.parse(size));
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -709,6 +733,7 @@ static const reluva::test::Suite
                                    {"sdt", [](const std::filesystem::path &) { testSdt(); }},
                                    {"md2", [](const std::filesystem::path &) { testMd2(); }},
                                    {"animation", [](const std::filesystem::path &) { testAnimation(); }},
+                                   {"particle-library", [](const std::filesystem::path &) { testParticleLibrary(); }},
                                    {"hmp", [](const std::filesystem::path &) { testHmp(); }},
                                    {"lnd", [](const std::filesystem::path &) { testLnd(); }},
                                    {"attribute-map", [](const std::filesystem::path &) { testAttributeMap(); }},

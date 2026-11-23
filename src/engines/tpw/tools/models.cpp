@@ -13,6 +13,7 @@
 #include "engines/tpw/formats/md2.h"
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/ui/front_end.h"
+#include "engines/tpw/ui/front_end_effects.h"
 #include "engines/tpw/ui/globe.h"
 #include "engines/tpw/ui/main_menu.h"
 #include "engines/tpw/ui/model_view.h"
@@ -479,9 +480,21 @@ int cmdFrontEndShot(int argc, char **argv) {
     reluva::Surface screen;
     screen.create(640, 480, reluva::PixelFormat::kRGBA32);
     reluva::soft3d::Rasterizer rasterizer;
-    scene.draw(screen, rasterizer, std::strtof(argv[4], nullptr));
+    const float frame = std::strtof(argv[4], nullptr);
+    scene.draw(screen, rasterizer, frame);
+    // The effects as the path played to the frame, a step of 40 ms at a time.
+    reluva::tpw::FrontEndEffects effects;
+    if (!effects.load(files, scene)) {
+        const uint32_t end = uint32_t(frame * 1000 / reluva::tpw::Animation::kFramesPerSecond);
+        for (uint32_t ms = 0;; ms = std::min(end, ms + 40)) {
+            effects.advance(ms, float(ms) * reluva::tpw::Animation::kFramesPerSecond / 1000);
+            if (ms == end)
+                break;
+        }
+        effects.draw(screen, scene.camera(frame, screen.w, screen.h), end);
+    }
     writePng(screen, argv[3]);
-    std::printf("%.0f frames\n", double(scene.frames()));
+    std::printf("%.0f frames, %zu particles\n", double(scene.frames()), effects.particles());
     return 0;
 }
 

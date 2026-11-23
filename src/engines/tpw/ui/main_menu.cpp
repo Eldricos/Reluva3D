@@ -4,6 +4,7 @@
 #include "engines/tpw/ui/main_menu.h"
 
 #include "engines/tpw/ui/front_end.h"
+#include "engines/tpw/ui/front_end_effects.h"
 #include "engines/tpw/ui/globe.h"
 #include "engines/tpw/ui/personnel_file.h"
 
@@ -16,7 +17,9 @@ int runFrontEnd(System &sys, const SearchSet &files, const std::filesystem::path
     FrontEndScene scene;
     Globe globe;
     const bool drawn = !scene.load(files) && !globe.load(scene);
-    if (drawn && !playFrontEnd(sys, scene))
+    FrontEndEffects effects;
+    const bool withEffects = drawn && !effects.load(files, scene);
+    if (drawn && !playFrontEnd(sys, scene, withEffects ? &effects : nullptr))
         return -1;
 
     const GlobeTurning turning(globe, sys.getMillis());

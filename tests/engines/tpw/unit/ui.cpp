@@ -12,6 +12,7 @@
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/players.h"
 #include "engines/tpw/ui/loading_screen.h"
+#include "engines/tpw/ui/front_end_effects.h"
 #include "engines/tpw/ui/opening.h"
 #include "engines/tpw/ui/personnel_file.h"
 #include "engines/tpw/ui/sky.h"
@@ -236,6 +237,29 @@ void testPlayers(const std::filesystem::path &tmp) {
     CHECK(tpw::writePlayers({}, players));
 }
 
+// A burst of particles: 20 of them, drawn over a black screen in front
+// of the camera, gone once their life is over.
+void testParticles() {
+    tpw::ParticleLibrary::Effect effect;
+    effect.lifeMs = 1000;
+    effect.colours.fill(0xffffffff);
+    tpw::Particles particles;
+    particles.burst(effect, {0, 0, 0}, 0);
+    CHECK(particles.size() == 20);
+    Surface screen;
+    screen.create(64, 48, PixelFormat::kRGBA32);
+    const soft3d::OrbitCamera camera({0, 0, 0}, 0, 0, 50, 64, 48);
+    particles.draw(screen, camera, 100);
+    bool lit = false;
+    for (size_t i = 0; i < screen.pixels.size(); i += 4)
+        lit = lit || screen.pixels[i] > 0;
+    CHECK(lit);
+    particles.forget(999);
+    CHECK(particles.size() == 20);
+    particles.forget(1000);
+    CHECK(particles.size() == 0);
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -246,4 +270,5 @@ static const reluva::test::Suite
                               {"ui-model", [](const std::filesystem::path &) { testUiModel(); }},
                               {"personnel-file", [](const std::filesystem::path &) { testPersonnelFileControls(); }},
                               {"players", [](const std::filesystem::path &tmp) { testPlayers(tmp); }},
+                              {"particles", [](const std::filesystem::path &) { testParticles(); }},
                           });

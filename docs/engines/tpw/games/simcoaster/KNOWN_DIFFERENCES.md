@@ -25,8 +25,9 @@ None yet.
   its opening and its front end to a world chosen, then shows its
   loading screen: the park after it isn't built ([PLAN.md](PLAN.md#phases),
   [loading-screen.md](systems/loading-screen.md)).
-- **The front end's opening** lacks its effects (the sparkles, the beam,
-  the ring of light, the glow in the table's well), the advisor's portrait
+- **The front end's opening**: its sparkles are drawn by guessed
+  numbers, size and speed, without the emitters' flares; the white burst
+  in the well isn't drawn; nor are the advisor's portrait
   and the skip button; a key or a click skips it
   ([front-end.md](systems/front-end.md#in-reluva)).
 - **The Personnel File** keeps its players in a file of Reluva's own,

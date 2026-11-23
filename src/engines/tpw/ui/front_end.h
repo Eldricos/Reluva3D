@@ -14,6 +14,8 @@
 
 namespace reluva::tpw {
 
+class FrontEndEffects;
+
 /**
  * The front end's scene: the Intro World's camera path (`Camera Path`,
  * `levels/wIntro/obstacles/Camera/camera.MD2`), its hall, boardroom and
@@ -37,6 +39,8 @@ public:
     /** Draws the scene at `frame` over the whole of an RGBA32 surface. */
     void draw(Surface &screen, soft3d::Rasterizer &rasterizer, float frame) const;
 
+    /** Each node's place at `frame` of the animation (nodeTransforms'), by Model::nodes(). */
+    std::vector<gfx::Mat4> nodeTransforms(float frame) const;
     /** Each mesh's place at `frame` of the animation (meshTransforms'). */
     std::vector<gfx::Mat4> meshTransforms(float frame) const;
     /** Each mesh's positions at `frame` of the animation (meshPositions'). */
@@ -59,9 +63,10 @@ private:
  * The front end's opening, as the recording shows it: the camera's path
  * through the hall into the boardroom and down to the globe, at the
  * animation's rate; a key or a click skips to its end, as the game's skip
- * button does.
+ * button does; with `effects` (loaded for `scene`), the particles its
+ * script starts over it.
  * @return False if the window was closed (or the launcher asked for) meanwhile.
  */
-bool playFrontEnd(System &sys, const FrontEndScene &scene);
+bool playFrontEnd(System &sys, const FrontEndScene &scene, FrontEndEffects *effects = nullptr);
 
 } // namespace reluva::tpw

@@ -3,6 +3,7 @@
 
 #include "engines/tpw/ui/front_end.h"
 
+#include "engines/tpw/ui/front_end_effects.h"
 #include "engines/tpw/ui/opening.h"
 
 #include <algorithm>
@@ -66,7 +67,7 @@ float FrontEndScene::frames() const {
 }
 
 soft3d::OrbitCamera FrontEndScene::camera(float frame, int w, int h) const {
-    const gfx::Mat4 at = nodeTransforms(_model, _animation, frame)[_camera];
+    const gfx::Mat4 at = tpw::nodeTransforms(_model, _animation, frame)[_camera];
     soft3d::OrbitCamera camera({0, 0, 0}, 0, 0, 1, w, h);
     camera.eye = toViewerWorld(gfx::transformPoint(at, {0, 0, 0}));
     // A 3ds Max camera looks down its own -z, its y up; the game's files
@@ -81,6 +82,10 @@ soft3d::OrbitCamera FrontEndScene::camera(float frame, int w, int h) const {
 
 void FrontEndScene::draw(Surface &screen, soft3d::Rasterizer &rasterizer, float frame) const {
     draw(screen, rasterizer, camera(frame, screen.w, screen.h), meshTransforms(frame), meshPositions(frame));
+}
+
+std::vector<gfx::Mat4> FrontEndScene::nodeTransforms(float frame) const {
+    return tpw::nodeTransforms(_model, _animation, frame);
 }
 
 std::vector<gfx::Mat4> FrontEndScene::meshTransforms(float frame) const {
@@ -99,7 +104,7 @@ void FrontEndScene::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const 
     drawMeshes(rasterizer, camera, _model, true, defaultLight(), &transforms, &positions);
 }
 
-bool playFrontEnd(System &sys, const FrontEndScene &scene) {
+bool playFrontEnd(System &sys, const FrontEndScene &scene, FrontEndEffects *effects) {
     Surface screen;
     screen.create(kOpeningWidth, kOpeningHeight, PixelFormat::kRGBA32);
     soft3d::Rasterizer rasterizer;
@@ -113,10 +118,15 @@ bool playFrontEnd(System &sys, const FrontEndScene &scene) {
             if ((ev.type == EventType::kKeyDown && !ev.repeat) || ev.type == EventType::kMouseDown)
                 skipped = true;
         }
-        const float played = float(sys.getMillis() - start) * Animation::kFramesPerSecond / 1000;
+        const uint32_t ms = uint32_t(sys.getMillis() - start);
+        const float played = float(ms) * Animation::kFramesPerSecond / 1000;
         if (skipped || played >= scene.frames())
             return true;
         scene.draw(screen, rasterizer, played);
+        if (effects) {
+            effects->advance(ms, played);
+            effects->draw(screen, scene.camera(played, screen.w, screen.h), ms);
+        }
         sys.updateScreen(screen);
         sys.delayMillis(kFrameMillis);
     }

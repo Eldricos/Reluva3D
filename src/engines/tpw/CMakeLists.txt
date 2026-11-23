@@ -14,6 +14,7 @@ reluva_add_engine(tpw
         script/machine.cpp
         script/simulated_host.cpp
         ui/front_end.cpp
+        ui/front_end_effects.cpp
         ui/globe.cpp
         ui/loading_screen.cpp
         ui/main_menu.cpp
@@ -32,6 +33,7 @@ reluva_add_engine(tpw
         formats/lnd.cpp
         formats/md2.cpp
         formats/omp.cpp
+        formats/plb.cpp
         formats/rse.cpp
         formats/sam.cpp
         formats/sdt.cpp

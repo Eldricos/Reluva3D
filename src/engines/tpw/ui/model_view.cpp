@@ -15,6 +15,13 @@ namespace {
 
 constexpr uint8_t kUntextured = 190;
 constexpr int kDot = 3; // a height sample's size on the screen, in pixels
+// A group drawn at full brightness, unlit: the beams, flames, lightning and
+// signs have it.
+constexpr uint32_t kUnlitGroup = 0x1;
+// A texture blended by its alpha rather than cut at half.
+constexpr uint32_t kAlphaTexture = 0x2;
+// A blended texel at least this opaque hides what's behind it.
+constexpr int kOpaqueAlpha = 240;
 
 // A texture coordinate as a texel, repeating; one that isn't a number is 0.
 int texel(float t, int size) {
@@ -116,10 +123,10 @@ soft3d::Vec toViewerWorld(const gfx::Vec3 &p) {
 
 void drawTexturedTriangle(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera,
                           const std::array<soft3d::Vec, 3> &corners, const std::array<std::array<float, 2>, 3> &uv,
-                          const image::Image *texture, const soft3d::Vec &light) {
+                          const image::Image *texture, const soft3d::Vec &light, TriangleStyle style) {
     // Lit by the face's own slope, from either side.
     const soft3d::Vec normal = soft3d::normalize(soft3d::cross(corners[1] - corners[0], corners[2] - corners[0]));
-    const float shade = 0.4f + 0.6f * std::fabs(soft3d::dot(normal, light));
+    const float shade = style.unlit ? 1.0f : 0.4f + 0.6f * std::fabs(soft3d::dot(normal, light));
     std::vector<soft3d::ViewVertex> polygon;
     for (size_t k = 0; k < 3; ++k) {
         soft3d::ViewVertex v = camera.toView(corners[k], uv[k][0], uv[k][1]);
@@ -127,19 +134,20 @@ void drawTexturedTriangle(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCam
         polygon.push_back(v);
     }
     polygon = soft3d::clipNear(polygon, camera.nearZ);
-    auto paint = [texture](float u, float v, float s, uint8_t *rgba) {
+    auto paint = [texture, style](float u, float v, float s, uint8_t *rgba) {
         static constexpr uint8_t kGrey[4] = {kUntextured, kUntextured, kUntextured, 255};
         const uint8_t *c = kGrey;
         if (texture) {
             // v runs up the picture: the hall's paintings stand upright so.
             c = texture->pixel(texel(u, texture->w), texel(1 - v, texture->h));
-            if (c[3] < 128)
+            if (!style.blended && c[3] < 128)
                 return false;
         }
+        const int a = style.blended && texture ? c[3] : 255;
         for (int i = 0; i < 3; ++i)
-            rgba[i] = uint8_t(std::min(255.0f, float(c[i]) * s));
+            rgba[i] = uint8_t((std::min(255.0f, float(c[i]) * s) * float(a) + float(rgba[i]) * float(255 - a)) / 255);
         rgba[3] = 255;
-        return true;
+        return a >= kOpaqueAlpha;
     };
     for (size_t k = 2; k < polygon.size(); ++k)
         rasterizer.drawTriangle(camera.project(polygon[0]), camera.project(polygon[k - 1]), camera.project(polygon[k]),
@@ -149,28 +157,51 @@ void drawTexturedTriangle(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCam
 void drawMeshes(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera, const LoadedModel &loaded,
                 bool textured, const soft3d::Vec &light, const std::vector<gfx::Mat4> *transforms,
                 const std::vector<std::vector<gfx::Vec3>> *positions) {
+    struct MeshFaces {
+        const Model::Mesh *mesh;
+        const gfx::Mat4 *transform;
+        const std::vector<gfx::Vec3> *places;
+        std::vector<const image::Image *> texture;
+        std::vector<TriangleStyle> style;
+    };
+    std::vector<MeshFaces> meshFaces;
     for (size_t m = 0; m < loaded.model.meshes().size(); ++m) {
         const Model::Mesh &mesh = loaded.model.meshes()[m];
         const gfx::Mat4 &transform = transforms && m < transforms->size() ? (*transforms)[m] : mesh.transform;
         const std::vector<gfx::Vec3> &places =
             positions && m < positions->size() && (*positions)[m].size() == mesh.positions.size() ? (*positions)[m]
                                                                                                   : mesh.positions;
-        // Each face's texture, by the group it is in; none outside them.
+        // Each face's texture and style, by the group it is in; none outside them.
         std::vector<const image::Image *> faceTexture(mesh.faces.size(), nullptr);
-        for (const Model::Group &g : mesh.groups)
+        std::vector<TriangleStyle> faceStyle(mesh.faces.size());
+        for (const Model::Group &g : mesh.groups) {
             if (textured && g.texture < loaded.textures.size() && loaded.textures[g.texture].w > 0)
                 std::fill_n(faceTexture.begin() + long(g.firstFace), g.faceCount, &loaded.textures[g.texture]);
-        for (size_t f = 0; f < mesh.faces.size(); ++f) {
-            const Model::Face &face = mesh.faces[f];
-            std::array<soft3d::Vec, 3> corners;
-            std::array<std::array<float, 2>, 3> uv;
-            for (size_t k = 0; k < 3; ++k) {
-                corners[k] = toViewerWorld(gfx::transformPoint(transform, places[mesh.positionOf[face.vertex[k]]]));
-                uv[k] = mesh.uv[face.vertex[k]];
-            }
-            drawTexturedTriangle(rasterizer, camera, corners, uv, faceTexture[f], light);
+            const bool blended =
+                g.texture < loaded.model.textures().size() && loaded.model.textures()[g.texture].flags & kAlphaTexture;
+            std::fill_n(faceStyle.begin() + long(g.firstFace), g.faceCount,
+                        TriangleStyle{(g.flags & kUnlitGroup) != 0, blended});
         }
+        meshFaces.push_back({&mesh, &transform, &places, std::move(faceTexture), std::move(faceStyle)});
     }
+    // The blended faces over the rest.
+    for (int pass = 0; pass < 2; ++pass)
+        for (const MeshFaces &m : meshFaces) {
+            const Model::Mesh &mesh = *m.mesh;
+            for (size_t f = 0; f < mesh.faces.size(); ++f) {
+                if (m.style[f].blended != (pass == 1))
+                    continue;
+                const Model::Face &face = mesh.faces[f];
+                std::array<soft3d::Vec, 3> corners;
+                std::array<std::array<float, 2>, 3> uv;
+                for (size_t k = 0; k < 3; ++k) {
+                    corners[k] =
+                        toViewerWorld(gfx::transformPoint(*m.transform, (*m.places)[mesh.positionOf[face.vertex[k]]]));
+                    uv[k] = mesh.uv[face.vertex[k]];
+                }
+                drawTexturedTriangle(rasterizer, camera, corners, uv, m.texture[f], light, m.style[f]);
+            }
+        }
 }
 
 std::vector<gfx::Mat4> nodeTransforms(const LoadedModel &loaded, int animation, float frame) {

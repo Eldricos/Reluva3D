@@ -48,6 +48,12 @@ None yet.
 - **A player's first objective is set when they enter their first
   game**: a new player shows "None", one who had played "Operation
   Expand!" ([players.md](systems/players.md)).
+- **A group's flag 1 draws it unlit, a texture's flag 2 blends it**:
+  so the front end's beam and glow look as in the recording
+  ([md2.md](formats/md2.md#a-mesh)).
+- **A particle effect's word 29 is its particles' lifetime**, and the
+  front end's script is set going 3.4 s into the path
+  ([front-end.md](systems/front-end.md#the-effects)).
 - **The globe's close view and timings**, measured on the recording
   ([globe.md](systems/globe.md#turning)).
 - **Which level folder is which world**: `science` Land of Invention,
@@ -64,6 +70,11 @@ None yet.
   spelt two ways ([sam.md](formats/sam.md#a-setting)).
 
 ## Guessed
+
+- **How the front end's particles fly and look**: 20 a burst, small
+  stars, up to 6 units a second; emitters 11 to 14 the `Fx` helpers, 1
+  the well's middle ([front-end.md](systems/front-end.md#the-effects)).
+  Decoding the library's other parameters would settle it.
 
 - **The Personnel File's portrait is the personnel director's**: the
   board's fifth, as `EMAIL_FROM_HR_DIR` is the fifth sender
