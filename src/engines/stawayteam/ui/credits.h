@@ -41,8 +41,9 @@ public:
 
 private:
     // Draws line `line` with its top at y, across an area w wide, its
-    // colours scaled by `brightness`, 0-1.
-    void drawLine(Surface &area, const std::string &line, int y, int w, float brightness) const;
+    // text's colours scaled by `brightness`, 0-1, and its underline
+    // `level`/255 opaque.
+    void drawLine(Surface &area, const std::string &line, int y, int w, float brightness, int level) const;
 
     const Font &_font;
     std::vector<std::string> _lines;

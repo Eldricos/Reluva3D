@@ -95,6 +95,32 @@ void testCredits() {
     CHECK(roll.lines().size() == 4);
     CHECK(roll.lines()[0] == "_Heading" && roll.lines()[1].empty() && roll.lines()[2] == "Role: Name");
     CHECK(roll.lines()[3].size() == 255);
+
+    // A heading's line fades as its text does: whole across the middle,
+    // part see-through toward the edges.
+    MemoryArchive data;
+    data.files["Cache/Fonts/Test.seq16"] = fontFile({solidFrame(3, 5, 0xffff), solidFrame(4, 5, 0xffe0)}, 65);
+    Font drawn;
+    CHECK(!drawn.load(data, "Test"));
+    std::string headings;
+    for (int i = 0; i < 20; ++i)
+        headings += "_AB\n";
+    CreditsRoll heading(headings, drawn);
+    bool whole = false;
+    bool faded = false;
+    for (uint64_t now = 0; now < 20000; now += 50) {
+        Surface screen;
+        screen.create(40, 60, PixelFormat::kRGBA32);
+        heading.draw(screen, 0, 0, 40, 60, now);
+        for (int y = 0; y < 60; ++y) {
+            const uint8_t *p = screen.row(y) + 20 * 4;
+            if (p[1] == 0 && p[2] == 0 && p[0] == 0x9c)
+                whole = true;
+            else if (p[1] == 0 && p[2] == 0 && p[0] > 0 && p[0] < 0x9c)
+                faded = true;
+        }
+    }
+    CHECK(whole && faded);
 }
 
 void testWidgets() {

@@ -143,6 +143,12 @@ The roll (`0x4873f0` reads it, `0x487530` draws it):
     after it starts there.
   - `_Heading`: a heading, with a line under it in dark red (156,0,0).
   - `+Role`: a role, with a line under it in green (0,150,0).
+  - The lines under them fade with them another way: their colours take
+    the brightness's level, 0 to 255, as their alpha (`0x4876f8`,
+    `0x48777c`), so they're part see-through toward the edges.
+- **Stopping:** nothing is drawn once the first line it would draw is
+  the last line or past it (`0x4875d5`), as the last goes up past the
+  top; a roll of one line never shows.
   - Anything else, as it is.
 
   The line under a heading or role is one pixel high, a row below the
@@ -558,8 +564,8 @@ Game/Background`:
   from the screen's corner.
 - **Brightness:** the toolkit's darkens toward black in six steps
   (`0x44c1e8`); Reluva scales colours smoothly but for the credits.
-- **The credits' fading:** whether the lines under headings fade too.
-  Reluva draws them whole.
+- **The credits' underlines:** how the line drawing uses its colour's
+  alpha. Reluva blends them over the roll by it.
 - **The shortcut's line and the label lit:** when the game shows them,
   and how they look.
 - **Saved games:** how the save screens' rows, time, picture and game

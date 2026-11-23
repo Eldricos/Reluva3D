@@ -59,14 +59,14 @@ void paste(Surface &screen, const Surface &area, int x, int y) {
     }
 }
 
-void fillRow(Surface &area, int left, int right, int y, const uint8_t (&rgb)[3]) {
+// Blends a row over what's there, `alpha` 0-255.
+void fillRow(Surface &area, int left, int right, int y, const uint8_t (&rgb)[3], int alpha) {
     if (y < 0 || y >= area.h)
         return;
     for (int x = std::max(0, left); x < std::min(right, area.w); ++x) {
         uint8_t *p = area.row(y) + x * 4;
-        p[0] = rgb[0];
-        p[1] = rgb[1];
-        p[2] = rgb[2];
+        for (int c = 0; c < 3; ++c)
+            p[c] = uint8_t((rgb[c] * alpha + p[c] * (255 - alpha) + 127) / 255);
         p[3] = 255;
     }
 }
@@ -96,7 +96,7 @@ CreditsRoll::CreditsRoll(std::string_view text, const Font &font) : _font(font) 
     }
 }
 
-void CreditsRoll::drawLine(Surface &area, const std::string &line, int y, int w, float brightness) const {
+void CreditsRoll::drawLine(Surface &area, const std::string &line, int y, int w, float brightness, int level) const {
     const int center = w / 2;
     // "Role: name": the role ends at the middle, the name starts there.
     const size_t colon = line.rfind(':');
@@ -111,7 +111,10 @@ void CreditsRoll::drawLine(Surface &area, const std::string &line, int y, int w,
         const int width = _font.width(text);
         _font.draw(area, center - width / 2, y, text, 255, brightness);
         const int under = y + _font.height() + 1;
-        fillRow(area, center - width / 2, center + width / 2 + 1, under, line[0] == '_' ? kHeadingLine : kRoleLine);
+        // The line's colour takes the brightness's level as its alpha
+        // (0x4876f8, 0x48777c).
+        fillRow(area, center - width / 2, center + width / 2 + 1, under, line[0] == '_' ? kHeadingLine : kRoleLine,
+                level);
         return;
     }
     _font.draw(area, center - _font.width(line) / 2, y, line, 255, brightness);
@@ -139,7 +142,7 @@ void CreditsRoll::draw(Surface &screen, int x, int y, int w, int h, uint64_t now
             const float bright = std::clamp(std::sin(float(top) * std::numbers::pi_v<float> / float(h)), 0.0f, 1.0f);
             const int level = int(std::lround(bright * 255.0f));
             const int shift = 5 - level * 6 / 256;
-            drawLine(area, _lines[size_t(i)], top, w, 1.0f / float(1 << shift));
+            drawLine(area, _lines[size_t(i)], top, w, 1.0f / float(1 << shift), level);
         }
         paste(screen, area, x, y);
     }

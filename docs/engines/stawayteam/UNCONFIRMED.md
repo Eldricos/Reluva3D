@@ -39,7 +39,7 @@ None now.
   its queue of input, and what goes into the queue isn't traced
   ([systems/startup.md](systems/startup.md#the-opening-movies)).
 - **The menus:** the confirm dialog and the other windows in the
-  middle of the screen, the credits' underlines not fading, the toolkit's
+  middle of the screen, the credits' underlines blended by their alpha, the toolkit's
   brightness scaling colours smoothly outside the credits, the
   gamma brightening dark colours, the slider's texture tiled from the
   screen's corner, the sliders' focus, Esc closing the windows but for
