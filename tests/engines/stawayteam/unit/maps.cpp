@@ -1889,6 +1889,43 @@ void testStandingInTheWay() {
     }
 }
 
+void testScriptsHoldActors() {
+    // A script whose manager has Pause Actors, waiting 3 seconds: Ann,
+    // sent off meanwhile, stays where she is till it's over, then goes.
+    const std::string zax =
+        "CLayerSaveData\n{\nWidth=1000\nHeight=1000\nView Position=300.000000,300.000000\n"
+        "Custom Map Properties=CStarTrekLayerSaveData\n{\nCamera Script Manager=CCameraScriptManager\n{\n"
+        "Pause Game=0\nPause Actors=1\nCamera Script Array=Array\n{\nArray Count=1\n"
+        "Array Item=CCameraScript\n{\nWhere To Pan=Spot\nTime To Pan=0\nTime To Wait=3\nPan To Position=0\n}\n}\n}\n}\n"
+        "Tree List=CSortList2D\n{\n"
+        "Level Part=CEntityBase\n{\nName=Spot\nVisible=0\nPosition X=300\nPosition Y=300\n}\n"
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=300\n}\n}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    CHECK(map.cameraScripts.size() == 1 && map.cameraScripts[0].holdsActors);
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    MapScreen screen(data, rules, map, options, 0, {ann});
+    const MapScreen::Officer &a = screen.officers()[0];
+    uint64_t now = 0;
+    screen.update(now += 50);
+    screen.choose(0);
+    screen.order(400.0f, 300.0f);
+    while (now < 2500)
+        screen.update(now += 50);
+    CHECK(screen.scripted() && a.x == 300.0f);
+    while (now < 8000)
+        screen.update(now += 50);
+    CHECK(!screen.scripted() && std::abs(a.x - 400.0f) < 1.0f);
+}
+
 void testKit() {
     // Ann with the cloaking band, a decoy to put down, a phaser and a
     // grenade; a guard looking her way, one in a stasis field's oval, one of
@@ -2531,6 +2568,7 @@ static const reluva::test::Suite
                {"processes", [](const std::filesystem::path &) { testProcesses(); }},
                {"polygon processes", [](const std::filesystem::path &) { testPolygonProcesses(); }},
                {"standing in the way", [](const std::filesystem::path &) { testStandingInTheWay(); }},
+               {"scripts hold actors", [](const std::filesystem::path &) { testScriptsHoldActors(); }},
                {"kit", [](const std::filesystem::path &) { testKit(); }},
                {"states", [](const std::filesystem::path &) { testStates(); }},
                {"doors", [](const std::filesystem::path &) { testDoors(); }},

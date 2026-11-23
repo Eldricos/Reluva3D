@@ -69,6 +69,7 @@ struct CameraScript {
     float timeToWait = 0.0f;            // after it, seconds
     bool panToPosition = false;         // false: there at once
     const TextObject *action = nullptr; // its Destination Action, in the map's object; nullptr for none
+    bool holdsActors = false;           // its manager's Pause Actors or Pause Game: the characters held meanwhile
 };
 
 /** Reads a camera script manager's (`CCameraScriptManager`) steps; their actions stay in `manager`. */

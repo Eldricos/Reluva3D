@@ -337,6 +337,11 @@ another as the map starts:
   Pan`.
 - **Then** its `Destination Action`, and `Time To Wait` seconds before
   the next step.
+- **The characters held:** a manager with `Pause Actors` (49 of the
+  maps' and missions' 93) sends every active part of every map a
+  `CPauseActorMessage` to stop as it starts, and one to go on as its
+  steps are done (`0x478246`, `0x5ca760`, `0x4780f5`); one with `Pause
+  Game` (2) stops the game instead (`0x47822b`).
 - **Mission 01's actions:** `CMultipleActionsAction` (its `Action`s at
   once), `CDelayAction` (its `Next Action` after `Delay` seconds),
   `CInfoDialogAction` (a line in the info dialog), `CAddEffectToTeam`
@@ -806,7 +811,11 @@ The map's other characters face their `Facing Angle`, their shadow under
 them and their head over them, as the officers are *(inferred)*.
 
 The camera's scripts play as the map starts, the view panned by them and
-not by the player meanwhile *(inferred)*.
+not by the player meanwhile *(inferred)*. While a step of a manager with
+Pause Actors or Pause Game plays, the officers don't walk and the
+enemies and the fighting stand still, both kinds holding the characters
+*(inferred: what a character does with the message, and what the
+game's stopping leaves going, aren't traced)*.
 
 The triggers (`ui/map_triggers.cpp`): a part is drawn while it's visible
 and active, its triggers acting while it's active *(inferred)*. A
@@ -1015,8 +1024,8 @@ Not there yet: the AIs'
 other messages and tasks (CSendMessageAction's to animations; the
 particle systems' are there, [particles.md](particles.md)), the enemies' own noises,
 thrown and laid weapons, the doors opening
-by themselves (CDoorAI's own Triggered By flags), the camera scripts'
-Pause Actors, and those off the team still on its bar.
+by themselves (CDoorAI's own Triggered By flags), and those off the team
+still on its bar.
 
 ## Sources and checks
 

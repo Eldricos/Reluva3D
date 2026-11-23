@@ -82,6 +82,8 @@ std::vector<CameraScript> readCameraScripts(const TextObject &manager) {
     const TextObject *array = manager.object("Camera Script Array");
     if (!array)
         return out;
+    const bool holds =
+        manager.integer("Pause Actors").value_or(0) != 0 || manager.integer("Pause Game").value_or(0) != 0;
     for (const TextField *item : array->items()) {
         if (!item->object)
             continue;
@@ -92,6 +94,7 @@ std::vector<CameraScript> readCameraScripts(const TextObject &manager) {
         s.timeToWait = float(o.number("Time To Wait").value_or(0.0));
         s.panToPosition = o.integer("Pan To Position").value_or(0) != 0;
         s.action = o.object("Destination Action");
+        s.holdsActors = holds;
         out.push_back(s);
     }
     return out;

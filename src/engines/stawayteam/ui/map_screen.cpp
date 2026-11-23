@@ -762,15 +762,24 @@ void MapScreen::update(uint64_t now) {
     // The camera's scripts move the view meanwhile (inferred).
     if (_scripts.empty())
         scroll(seconds);
+    // A script whose manager has Pause Actors tells every character on the
+    // maps to stop as it starts (a CPauseActorMessage, 0x478246, 0x5ca760)
+    // and to go on as it ends (0x4780f5): they neither walk nor act nor
+    // shoot meanwhile. One with Pause Game stops the game (0x47822b),
+    // here as that (inferred: what the game's stopping leaves going isn't
+    // traced).
+    const bool held = !_scripts.empty() && _scripts.front().holdsActors;
     for (Officer &o : _officers)
-        if (o.held <= 0.0f)
+        if (o.held <= 0.0f && !held)
             walk(o, seconds);
     // The triggers see where everyone has got to.
     updateNoises(seconds);
-    updateEnemies(seconds);
+    if (!held)
+        updateEnemies(seconds);
     updateMeld(seconds);
     updateEmitters(seconds);
-    updateCombat(seconds);
+    if (!held)
+        updateCombat(seconds);
     updateItems(seconds);
     updateCharges(seconds);
     updateDeployed(seconds);
