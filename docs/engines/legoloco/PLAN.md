@@ -49,8 +49,10 @@ is in [the first survey](research/first-survey.md).
    - `PlaySoundA`, animated cursors (`LoadCursorFromFileA` with
      `busy.ani`, read by a shared reader of the published `.ani`
      format), and INI files (`GetPrivateProfileStringA`).
-5. **Playable:** the intro movie, the main screen, building and running
-   trains, saving and loading; the basic engine test taken through them.
+5. **Playable** (started: the movies, the front screen and the first
+   layout play, with the mouse; [systems/running.md](systems/running.md)):
+   building and running trains, saving and loading; the basic engine test
+   taken through them.
 6. **Postcards and network play:** DirectPlay stood in for over Reluva's
    own networking, its meeting server for players who can't reach each
    other.

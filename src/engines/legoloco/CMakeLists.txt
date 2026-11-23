@@ -9,6 +9,7 @@ reluva_add_engine(legoloco
         legoloco.cpp
         game_files.cpp
         host/game_process.cpp
+        host/player.cpp
         formats/area_layout.cpp
         formats/board.cpp
         formats/easter_eggs.cpp

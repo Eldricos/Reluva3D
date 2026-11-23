@@ -74,8 +74,20 @@ Seen running in Reluva (`reluva-tool legoloco run`):
 12. The intro's last step (`0x4208f0` with 7): its two panels hidden and
     their timers killed, and `art-res\video\music.wav` played looping
     through `PlaySoundA`. The game's state (`0x4851f4`) is still 2, in
-    which its main loop (`0x463253`) only waits for messages: it waits
-    for the player *(inferred)*.
+    which its main loop (`0x463253`) only waits for messages.
+13. The front screen: its windows are popups made maximized (style
+    `0x87000000`, the place given left unset: Windows ignores it), each
+    filling the screen, the front window (`FRONTWINDOWCLASS`) over the
+    main one. When the last movie's window is destroyed, the front window
+    is painted again (`WM_PAINT`), and draws itself by blits onto the
+    primary surface: the LEGO and LOCO logos, the station master, a case
+    for one player and one for two, a way back and a tick. It draws its
+    own pointer, a hand, where the mouse is.
+14. A case chosen and the tick clicked, the game's own loop runs: the
+    first layout, and the station master's welcome, its text drawn by
+    GDI. (Its main loop, in a state other than 2, peeks messages and
+    draws a frame each time the 28 ms timer has set its flag,
+    `0x485444`; that it's that path now is *inferred* from the frames.)
 
 ### Where it finds its files
 
@@ -104,23 +116,45 @@ Seen running in Reluva (`reluva-tool legoloco run`):
   - its threads run on host threads of their own
     (`Win32Process::useHostThreads`), and DirectDraw is stood in for by
     the shared `x86::DirectX`.
+- `src/engines/legoloco/host/player.cpp`: `Player` runs it on a thread of
+  its own, for the engine (`legoloco.cpp`), which shows its 800 by 600
+  screen:
+  - each frame presented (a blit or flip onto the primary surface, in the
+    game's window) is kept for the engine; a movie's frames, drawn into
+    the screen's pixels, are presented as they're drawn
+    (`DirectX::show`);
+  - its sound, DirectSound's buffers with `PlaySoundA`'s music, plays on
+    the engine's mixer, as do the movies';
+  - the mouse is passed on where it is on the screen (the game draws its
+    own pointer, so the system's is hidden), with its buttons, the wheel
+    and the keys, when the program looks for a message and finds none or
+    when it presents a frame.
 - `reluva-tool legoloco run <game folder> -save <folder>` runs the
   program and reports how far it gets: the imports nothing stands in for,
   and where it stopped, with the last stand-ins called (`-log` prints each
   call, `-limit` stops after so many million instructions, `-seconds`
-  once the program's clock has passed so many seconds).
+  once the program's clock has passed so many seconds). `-click s x y`
+  clicks at (x, y) once the clock has passed s seconds, as often as
+  given; `-shot file.ppm` saves the last frame shown.
 
 ### How far it gets
 
 The program runs through its start ([above](#its-start-as-it-runs)),
 plays its three movies (by the clock: about two minutes;
 [mci.md](../../../common/x86/mci.md)), sets up its sound and starts its
-music ([dsound.md](../../../common/x86/dsound.md)), about 509 million
-instructions; then it waits for messages, as it would for the player.
-`-seconds 140` ends the run there. DirectPlay is stood in for without a
-network ([dplay.md](../../../common/x86/dplay.md)), so it finds no
-network connection. Of its 115 imports that had nothing at first, 4 are
-left, none called yet:
+music ([dsound.md](../../../common/x86/dsound.md)), and shows its front
+screen, about 509 million instructions; then it waits for the player.
+Clicked through (the one-player case, then the tick), it plays: the
+first layout and the station master's welcome.
+
+```bash
+reluva-tool legoloco run <game folder> -save <folder> -limit 400000 -seconds 150 -click 127 365 345 -click 130 718 520 -shot board.ppm
+```
+
+DirectPlay is stood in for without a network
+([dplay.md](../../../common/x86/dplay.md)), so it finds no network
+connection. Of its 115 imports that had nothing at first, 4 are left,
+none called so far:
 
 | DLL | Functions | What |
 |---|---|---|
@@ -131,20 +165,18 @@ The rest are stood in for in the shared code: KERNEL32's, ADVAPI32's,
 VERSION.dll's and USER32's ([windows.md](../../../common/x86/windows.md)),
 GDI32's ([gdi.md](../../../common/x86/gdi.md)), the movie window's and
 MCI's ([mci.md](../../../common/x86/mci.md)), and DirectSound's and
-`PlaySoundA` ([dsound.md](../../../common/x86/dsound.md)). Nothing is
-shown or heard yet: the movies are drawn into the screen's pixels and
-the sound is mixed, but the engine doesn't show the program's frames or
-play its sound, nor pass it the player's input.
+`PlaySoundA` ([dsound.md](../../../common/x86/dsound.md)). How much of
+the game plays beyond the first layout hasn't been tried yet.
 
 ## Sources and checks
 
 - **Where the facts come from:** `loco.exe`'s imports and strings, and
   what it asks for running; `LEGO.INI` as the installer leaves it.
 - **How it was checked:** `reluva-tool legoloco run` on the English
-  install.
+  install, its frames saved (`-shot`) and looked at.
 
 ## Open questions
 
 - Whether the program runs on without a network past its start: it
-  finds none of its four connections, and goes on through its movies and
-  its sound's setting up to its intro's end.
+  finds none of its four connections, and goes on to its front screen
+  and the first layout.

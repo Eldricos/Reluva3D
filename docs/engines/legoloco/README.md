@@ -9,7 +9,7 @@ one game. Engine id `legoloco`, in `src/engines/legoloco/`.
 
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
-| LEGO Loco | `legoloco` | LEGO Media, 1998 | Windows | The CD, version 1.0.18.2 (`Exe/Loco.exe`, `art-res/resource.RFH`), installed or as on the CD | Recognised; shows an empty screen |
+| LEGO Loco | `legoloco` | LEGO Media, 1998 | Windows | The CD, version 1.0.18.2 (`Exe/Loco.exe`, `art-res/resource.RFH`), installed or as on the CD | Starts: its movies, front screen and first layout play; the rest untried |
 
 The CD holds one release for nine languages: the installer asks which,
 and writes it into the install's `Exe/LEGO.INI`. The files are the same
@@ -29,19 +29,22 @@ being worked on first.
   pieces, every picture cut into its frames with its animations played,
   the object definitions and the sounds
   ([systems/data-viewer.md](systems/data-viewer.md)).
-- **Running the game's own program:** `loco.exe` loads and runs its C
-  runtime's start-up in the x86 emulator, as far as its first GDI call
+- **Playing it:** the game's own `loco.exe` runs in Reluva's x86
+  emulator, with stand-ins for the parts of Windows and DirectX it calls:
+  its movies, music and sound, its front screen, and its first layout
+  with the station master, played with the mouse
   ([systems/running.md](systems/running.md)).
-- **Not yet:** the game itself. The plan is to run the game's own
-  `loco.exe` in Reluva's x86 emulator, with stand-ins for the parts of
-  Windows and DirectX it calls, after readers and a data viewer for its
-  files; see [PLAN.md](PLAN.md).
+- **Not yet:** the game past its first layout hasn't been tried; the
+  Open and Save dialogs, its animated cursors and network play aren't
+  stood in for. See [PLAN.md](PLAN.md).
 
 ## Using it
 
 Add the game's folder in the launcher: the install (the folder holding
 `Exe` and `art-res`), or the CD itself, which has the same layout. It
-then shows an empty screen; Escape goes back. `reluva-viewer` opens its
+then runs the game in an 800 by 600 window; what it writes (`LEGO.INI`,
+its layouts) goes to the game's save folder. Closing the window asks
+first, as a layout not saved would be lost. `reluva-viewer` opens its
 data viewer ([systems/data-viewer.md](systems/data-viewer.md)).
 
 ## This folder

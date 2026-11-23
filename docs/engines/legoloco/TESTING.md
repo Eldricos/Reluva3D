@@ -41,14 +41,25 @@ entry of a copy's resource file, and should end with none failed;
 `reluva-tool legoloco dat <game folder>` reads every object definition,
 `reluva-tool legoloco sav <game folder>` every board,
 `reluva-tool legoloco run <game folder> -save <folder>` how far the
-program gets,
+program gets (with `-seconds`, `-click` and `-shot`, clicked through to
+its first layout and the screen saved:
+[systems/running.md](systems/running.md#how-far-it-gets)),
 `reluva-tool legoloco ee <game folder>` `EE.INI` and
 `reluva-tool legoloco lay <game folder>` the area arrangements,
 likewise.
 
 ## A playthrough by hand
 
-No game to play yet. In the data viewer (`reluva-viewer <folder>`):
+The game, from the launcher:
+
+- The LEGO logo, the Intelligent Games logo and the intro movie play,
+  with their sound; then the front screen, with music. The game's hand
+  follows the mouse.
+- Choosing the one-player case, then the tick: the first layout, and the
+  station master's welcome in a bubble, its text legible.
+- Closing the window asks first.
+
+In the data viewer (`reluva-viewer <folder>`):
 
 - Boards: every layout drawn whole on its backdrop, no magenta squares
   (pieces without a picture); S shows the squares' values.

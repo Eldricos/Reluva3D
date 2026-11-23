@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -23,20 +24,44 @@ namespace {
 using namespace reluva;
 using namespace reluva::tool;
 
+// The frame as a binary PPM; nothing if none was shown.
+void saveShot(const x86::DirectX::Frame &f, const std::string &path) {
+    if (f.pixels.empty()) {
+        std::printf("no frame was shown\n");
+        return;
+    }
+    std::ofstream out(path, std::ios::binary);
+    out << "P6\n" << f.width << ' ' << f.height << "\n255\n";
+    for (uint32_t v : f.pixels) {
+        const char rgb[3] = {char(v >> 16), char(v >> 8), char(v)};
+        out.write(rgb, 3);
+    }
+    std::printf("frame %llu saved to %s\n", (unsigned long long)f.number, path.c_str());
+}
+
 // Options: -log prints each stand-in called; -limit n stops after n
 // million instructions; -seconds n stops once the program's clock has
 // passed n seconds (a program waiting for messages runs no instructions);
-// -save folder is where it may write.
+// -click s x y clicks the left button at (x, y) once the clock has passed s
+// seconds (as many as wanted, in order); -shot file.ppm saves the last frame
+// shown; -save folder is where it may write.
 int cmdRun(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(
             stderr,
-            "usage: reluva-tool legoloco run <game folder> [-log] [-limit millions] [-seconds n] [-save folder]\n");
+            "usage: reluva-tool legoloco run <game folder> [-log] [-limit millions] [-seconds n] [-click s x y]... [-shot file.ppm] [-save folder]\n");
         return 2;
     }
     bool log = false;
     uint64_t limit = 2000;
     uint32_t seconds = 0;
+    struct Click {
+        double at; // seconds
+        int x;
+        int y;
+    };
+    std::vector<Click> clicks;
+    std::string shot;
     std::string save;
     for (int i = 3; i < argc; ++i) {
         if (!std::strcmp(argv[i], "-log"))
@@ -45,6 +70,11 @@ int cmdRun(int argc, char **argv) {
             limit = std::strtoull(argv[++i], nullptr, 10);
         else if (!std::strcmp(argv[i], "-seconds") && i + 1 < argc)
             seconds = uint32_t(std::strtoul(argv[++i], nullptr, 10));
+        else if (!std::strcmp(argv[i], "-click") && i + 3 < argc) {
+            clicks.push_back({std::strtod(argv[i + 1], nullptr), std::atoi(argv[i + 2]), std::atoi(argv[i + 3])});
+            i += 3;
+        } else if (!std::strcmp(argv[i], "-shot") && i + 1 < argc)
+            shot = argv[++i];
         else if (!std::strcmp(argv[i], "-save") && i + 1 < argc)
             save = argv[++i];
     }
@@ -119,11 +149,32 @@ int cmdRun(int argc, char **argv) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
             }
         });
+    // Clicks are passed on as the player's would be: when the program looks
+    // for a message and finds none. The button's held a tenth of a second.
+    size_t nextClick = 0;
+    bool pressed = false;
+    uint32_t pressedAt = 0;
+    game.process().idle = [&] {
+        x86::Win32Process &p = game.process();
+        const uint32_t now = p.milliseconds();
+        if (pressed && now - pressedAt >= 100) {
+            p.mouseButton(0, false);
+            pressed = false;
+        } else if (!pressed && nextClick < clicks.size() && now >= uint32_t(clicks[nextClick].at * 1000)) {
+            p.mouseMoveTo(clicks[nextClick].x, clicks[nextClick].y);
+            p.mouseButton(0, true);
+            pressed = true;
+            pressedAt = now;
+            ++nextClick;
+        }
+    };
     uint32_t exitCode = 0;
     const Error err = game.run(exitCode);
     done = true;
     if (watch.joinable())
         watch.join();
+    if (!shot.empty())
+        saveShot(game.directX().frame(), shot);
     if (timedOut) {
         std::printf("%llu instructions; stopped after %u seconds\nlast stand-ins called:\n",
                     (unsigned long long)cpu.executed(), seconds);
@@ -153,7 +204,9 @@ int cmdRun(int argc, char **argv) {
 }
 
 const Commands kCommands("legoloco", {
-                                         {"run", "<game folder> [-log] [-limit millions] [-seconds n] [-save folder]",
+                                         {"run",
+                                          "<game folder> [-log] [-limit millions] [-seconds n] [-click s x y]... "
+                                          "[-shot file.ppm] [-save folder]",
                                           "run the game's own loco.exe and report how far it gets", cmdRun},
                                      });
 

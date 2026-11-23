@@ -23,7 +23,12 @@ None yet.
 ## Not yet as the original
 
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
-None yet.
+- **The window:** the original runs on the desktop, in windows filling
+  it; Reluva shows its 800 by 600 desktop as the game's window, with
+  nothing of Windows around it ([systems/running.md](systems/running.md)).
+- **Not stood in for yet:** the Open and Save dialogs, opening a web
+  page (`ShellExecuteA`), the animated cursors (`LoadCursorFromFileA`),
+  and network play (it finds no network).
 
 ## Additions outside the game
 
