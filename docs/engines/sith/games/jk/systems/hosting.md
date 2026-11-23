@@ -243,7 +243,18 @@ window, for up to `-seconds` seconds, and says what it opened, wrote to
 the registry, printed for a debugger or showed in a message box, and
 where it stopped (registers, and the return addresses on the stack).
 `-d3d` writes *Setup*'s choice of Direct3D's hardware device and 640 by
-480 in 16-bit colour to the registry before it starts. `-net` gives the game the machine's network for multiplayer (and
+480 in 16-bit colour to the registry before it starts. `-skim` goes through the game unattended: each level and cut scene is
+said as the game first looks for it; a cut scene is skipped after four
+seconds, and in a level the game's own cheats are typed through its chat
+key (T): `jediwannabe` (invulnerable) once it has loaded, then
+`thereisnotry` (the level ends) every half minute until the next level
+or cut scene comes; between levels the screens' *Ok* is clicked.
+`-cheat <word>` types another cheat in each level (`sithlord`, the dark
+side's powers, takes the game down the dark side's branch), and
+`-frames <seconds> <folder>` saves a frame each so many seconds. The
+cheats are the game's: 18 words, each byte XOR `0xc5`, from `0x53c680`,
+each tied to a handler as the console starts (`0x41f240` to `0x41f5ff`)
+*(from the code)*. `-net` gives the game the machine's network for multiplayer (and
 `-join <address>` a host to look for sessions at), and says what
 DirectPlay does: sessions made or joined, players come and gone, and the
 datagrams sent and received. `-png` saves the last frame, `-calls` lists every stand-in called and the

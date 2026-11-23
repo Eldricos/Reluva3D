@@ -93,9 +93,11 @@ reaches its menus; then DirectSound; then a level.
    and mouse, its sound through DirectSound, the CDs' music through MCI,
    each CD put in the drive as it asks for it, and multiplayer over
    TCP/IP between copies of Reluva
-   ([systems/hosting.md](systems/hosting.md)). Next: playing through
-   every level and the multiplayer games to find what differs, then
-   Mysteries of the Sith.
+   ([systems/hosting.md](systems/hosting.md)). Every level, cut scene
+   and both endings have been gone through with the game's cheats
+   ([TESTING.md](TESTING.md#last-checked)). Next: levels played through
+   by a person, and the multiplayer games at length, to find what
+   differs; then Mysteries of the Sith.
 7. **Mysteries of the Sith.**
 
 ## Decisions

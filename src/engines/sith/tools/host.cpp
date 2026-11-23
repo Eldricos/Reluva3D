@@ -98,10 +98,10 @@ bool parseKeys(const std::string &text, std::vector<KeyPress> &out) {
 // in drive D, saying what it opens, writes and shows.
 int cmdHost(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(
-            stderr, "usage: reluva-tool sith host <install> [-seconds N] [-args \"...\"] [-png file] "
-                    "[-files] [-calls] [-d3d] [-net] [-join address] [-keys \"s:key,...\"] [-peek address] [-wav file] "
-                    "[-write folder]\n");
+        std::fprintf(stderr,
+                     "usage: reluva-tool sith host <install> [-seconds N] [-args \"...\"] [-png file] "
+                     "[-files] [-calls] [-d3d] [-net] [-join address] [-keys \"s:key,...\"] [-skim] [-cheat word] "
+                     "[-frames N folder] [-peek address] [-wav file] [-write folder]\n");
         return 2;
     }
     const std::filesystem::path install = argv[2];
@@ -116,6 +116,10 @@ int cmdHost(int argc, char **argv) {
     std::string join;
     std::vector<uint32_t> peeks;
     std::string keysArg;
+    bool skim = false;
+    std::vector<std::string> cheats; // typed once in each level, with -skim
+    double framesEvery = 0;
+    std::filesystem::path framesFolder;
     std::filesystem::path writable = std::filesystem::temp_directory_path() / "reluva-sith-host";
     for (int i = 3; i < argc; ++i) {
         const std::string a = argv[i];
@@ -137,6 +141,12 @@ int cmdHost(int argc, char **argv) {
             network = true;
         else if (a == "-join" && i + 1 < argc)
             join = argv[++i], network = true;
+        else if (a == "-skim")
+            skim = true;
+        else if (a == "-cheat" && i + 1 < argc)
+            cheats.push_back(argv[++i]);
+        else if (a == "-frames" && i + 2 < argc)
+            framesEvery = std::atof(argv[++i]), framesFolder = argv[++i];
         else if (a == "-keys" && i + 1 < argc)
             keysArg = argv[++i];
         else if (a == "-peek" && i + 1 < argc)
@@ -156,9 +166,6 @@ int cmdHost(int argc, char **argv) {
     process.output = [](const std::string &text) { std::printf("debug output: %s", text.c_str()); };
     process.messageBox = [](const std::string &caption, const std::string &text) {
         std::printf("message box: %s: %s\n", caption.c_str(), text.c_str());
-    };
-    process.fileOpened = [&](const std::string &path, bool found) {
-        opened.push_back(path + (found ? "" : "  (not found)"));
     };
     process.registryWritten = [kept = process.registryWritten](const std::string &key, const std::string &name) {
         std::printf("registry written: %s\\%s\n", key.c_str(), name.c_str());
@@ -217,6 +224,55 @@ int cmdHost(int argc, char **argv) {
     // Stopped after `seconds` of this machine's time; the keys pressed at
     // their times, each held a tenth of a second.
     const auto start = std::chrono::steady_clock::now();
+    auto elapsed = [&] { return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count(); };
+    std::mutex tickMutex;
+    // Each level and cut scene said as the game first looks for it (a loose
+    // file before the archives'); with -skim, a cut scene skipped after a
+    // few seconds, and a level after it has loaded and played a little, by
+    // the cheat that ends it (thereisnotry, in the program XOR 0xc5 at
+    // 0x53c760).
+    std::string lastNamed;
+    // In a level: invulnerable once it has loaded (jediwannabe), then the
+    // cheat that ends it tried every half minute until another level or cut
+    // scene comes, in case the level had the controls when it was typed.
+    // After a level, the screens' Ok clicked every few seconds (the tally,
+    // the Force powers).
+    bool inLevel = false;
+    bool invulnerable = false;
+    double nextCheat = 0;
+    bool betweenLevels = false;
+    double nextOk = 0;
+    auto typed = [](double at, const std::string &word) {
+        std::string keys = std::to_string(at) + ":t";
+        for (size_t i = 0; i < word.size(); ++i)
+            keys += "," + std::to_string(at + 0.4 + 0.25 * double(i)) + ":" + word[i];
+        return keys + "," + std::to_string(at + 0.6 + 0.25 * double(word.size())) + ":enter";
+    };
+    process.fileOpened = [&](const std::string &path, bool found) {
+        std::lock_guard<std::mutex> lock(tickMutex);
+        opened.push_back(path + (found ? "" : "  (not found)"));
+        const std::string lower = reluva::fs::toLower(path);
+        const bool level = lower.size() > 4 && lower.compare(lower.size() - 4, 4, ".jkl") == 0;
+        const bool movie = lower.size() > 4 && lower.compare(lower.size() - 4, 4, ".smk") == 0;
+        const std::string name = lower.substr(lower.find_last_of("\\/") + 1);
+        if ((!level && !movie) || name == lastNamed || name == "static.jkl")
+            return;
+        lastNamed = name;
+        const double now = elapsed();
+        std::printf("%.1f s: %s %s\n", now, level ? "level" : "cut scene", name.c_str());
+        std::fflush(stdout);
+        if (!skim)
+            return;
+        inLevel = level;
+        if (movie) {
+            parseKeys(std::to_string(now + 4) + ":esc", presses);
+            return;
+        }
+        invulnerable = false;
+        nextCheat = now + 12;
+        betweenLevels = true;
+        nextOk = now + 25;
+    };
     // With -wav, what's heard, taken as the clock moves.
     constexpr int kWavRate = 22050;
     // The sound card's output and the CD's music, mixed as the engine mixes
@@ -230,10 +286,24 @@ int cmdHost(int argc, char **argv) {
     recorded.rate = kWavRate;
     recorded.channels = 2;
     // Run on every thread's slices, so taken in turn.
-    std::mutex tickMutex;
     auto tick = [&](x86::Cpu &c) {
         std::lock_guard<std::mutex> lock(tickMutex);
-        const double now = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        const double now = elapsed();
+        if (skim && inLevel && now >= nextCheat) {
+            double at = now;
+            if (!invulnerable) {
+                parseKeys(typed(at, "jediwannabe"), presses);
+                for (const std::string &cheat : cheats)
+                    parseKeys(typed(at += 4.5, cheat), presses);
+            }
+            parseKeys(typed(at + 4.5, "thereisnotry"), presses);
+            invulnerable = true;
+            nextCheat = now + 30;
+        }
+        if (skim && betweenLevels && now >= nextOk) {
+            parseKeys(std::to_string(now) + ":click563x438", presses);
+            nextOk = now + 6;
+        }
         if (!wav.empty()) {
             const size_t due = size_t(now * kWavRate) * 2;
             if (due > recorded.samples.size()) {
@@ -281,8 +351,35 @@ int cmdHost(int argc, char **argv) {
             if (lastCalled.size() > 40)
                 lastCalled.pop_front();
         };
+    auto savePng = [](const std::filesystem::path &path, const x86::DirectX::Frame &f) {
+        reluva::image::Image img;
+        img.w = f.width;
+        img.h = f.height;
+        img.rgba.resize(size_t(img.w) * img.h * 4);
+        for (size_t i = 0; i < f.pixels.size() && i * 4 < img.rgba.size(); ++i) {
+            const uint32_t p = f.pixels[i];
+            img.rgba[i * 4] = uint8_t(p >> 16);
+            img.rgba[i * 4 + 1] = uint8_t(p >> 8);
+            img.rgba[i * 4 + 2] = uint8_t(p);
+            img.rgba[i * 4 + 3] = 255;
+        }
+        reluva::writeFile(path, reluva::image::encodePng(img));
+    };
     uint64_t frames = 0;
-    directX.presented = [&](const x86::DirectX::Frame &) { ++frames; };
+    double nextSaved = 0;
+    if (framesEvery > 0)
+        std::filesystem::create_directories(framesFolder);
+    // With -frames, one frame each so many seconds, named by the second.
+    directX.presented = [&](const x86::DirectX::Frame &f) {
+        ++frames;
+        const double now = elapsed();
+        if (framesEvery > 0 && now >= nextSaved && f.width > 0) {
+            char name[32];
+            std::snprintf(name, sizeof name, "%05d.png", int(now));
+            savePng(framesFolder / name, f);
+            nextSaved = now + framesEvery;
+        }
+    };
     uint32_t exitCode = 0;
     const Error err = game.run(exitCode);
     const double took = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
@@ -308,20 +405,8 @@ int cmdHost(int argc, char **argv) {
     }
     const x86::DirectX::Frame &frame = directX.frame();
     std::printf("frames shown: %llu, the last %dx%d\n", (unsigned long long)frames, frame.width, frame.height);
-    if (!png.empty() && frame.width > 0) {
-        reluva::image::Image img;
-        img.w = frame.width;
-        img.h = frame.height;
-        img.rgba.resize(size_t(img.w) * img.h * 4);
-        for (size_t i = 0; i < frame.pixels.size() && i * 4 < img.rgba.size(); ++i) {
-            const uint32_t p = frame.pixels[i];
-            img.rgba[i * 4] = uint8_t(p >> 16);
-            img.rgba[i * 4 + 1] = uint8_t(p >> 8);
-            img.rgba[i * 4 + 2] = uint8_t(p);
-            img.rgba[i * 4 + 3] = 255;
-        }
-        reluva::writeFile(png, reluva::image::encodePng(img));
-    }
+    if (!png.empty() && frame.width > 0)
+        savePng(png, frame);
     if (err) {
         std::printf("stopped: %s\n", err.message.c_str());
         const auto &r = cpu.faultReg;
@@ -388,7 +473,7 @@ const Commands kCommands(
     {
         {"host",
          "<install> [-seconds N] [-args \"...\"] [-png file] [-files] [-calls] [-d3d] [-net] [-join address] [-keys "
-         "\"s:key,...\"] [-peek address] [-wav file]",
+         "\"s:key,...\"] [-skim] [-cheat word] [-frames N folder] [-peek address] [-wav file]",
          "run the retail JK.EXE in the x86 emulator: how far it gets", cmdHost},
         {"disasm", "<JK.EXE> <address> [count]", "the program's instructions from an address (hexadecimal) on",
          cmdDisasm},
