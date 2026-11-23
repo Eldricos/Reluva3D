@@ -77,7 +77,7 @@ void Player::work() {
     GameProcess game(_folders, _saveFolder);
     game.directPlay().network = _network;
     // The game looks for joysticks as it starts.
-    offerPad(game);
+    offerPads(game);
     x86::Win32Process &process = game.process();
     process.output = [this](const std::string &text) {
         std::lock_guard<std::mutex> lock(_mutex);
@@ -139,30 +139,35 @@ void Player::work() {
         _error = e.message;
 }
 
-void Player::gamepad(const GamepadState *pad) {
+void Player::gamepad(int index, const GamepadState *pad) {
+    if (index < 0 || index >= int(_pads.size()))
+        return;
     std::lock_guard<std::mutex> lock(_mutex);
-    _padConnected = pad != nullptr;
+    _pads[size_t(index)].connected = pad != nullptr;
     if (pad)
-        _pad = *pad;
+        _pads[size_t(index)].state = *pad;
 }
 
-void Player::offerPad(GameProcess &game) {
-    bool connected = false;
-    GamepadState pad;
+void Player::offerPads(GameProcess &game) {
+    std::array<std::pair<bool, GamepadState>, x86::Joysticks::kConnectable> now;
     {
         std::lock_guard<std::mutex> lock(_mutex);
-        connected = _padConnected;
-        pad = _pad;
+        for (size_t i = 0; i < _pads.size(); ++i)
+            now[i] = {_pads[i].connected, _pads[i].state};
     }
     x86::Joysticks &joysticks = game.joysticks();
-    if (connected != _padGiven || (connected && pad.name != _padGivenName)) {
-        const x86::Joysticks::Device device = x86::Joysticks::fromGamepad(pad);
-        joysticks.connect(0, connected ? &device : nullptr);
-        _padGiven = connected;
-        _padGivenName = pad.name;
+    for (size_t i = 0; i < now.size(); ++i) {
+        const auto &[connected, pad] = now[i];
+        Pad &p = _pads[i]; // given and givenName are the game thread's alone
+        if (connected != p.given || (connected && pad.name != p.givenName)) {
+            const x86::Joysticks::Device device = x86::Joysticks::fromGamepad(pad);
+            joysticks.connect(int(i), connected ? &device : nullptr);
+            p.given = connected;
+            p.givenName = pad.name;
+        }
+        if (connected)
+            joysticks.set(int(i), x86::Joysticks::stateOf(pad));
     }
-    if (connected)
-        joysticks.set(0, x86::Joysticks::stateOf(pad));
 }
 
 void Player::drain() {
@@ -175,7 +180,7 @@ void Player::drain() {
     }
     if (!_game)
         return;
-    offerPad(*_game);
+    offerPads(*_game);
     if (events.empty())
         return;
     x86::Win32Process &p = _game->process();

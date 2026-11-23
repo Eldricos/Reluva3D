@@ -45,11 +45,14 @@ public:
         } audioStop{_sys, audioOut};
         Player player(findFolders(_target.path, _target.settings), _target.savePath, audioOut ? &mixer : nullptr,
                       network());
-        // The controller, if it's offered: the game's first joystick.
+        // The controllers, if they're offered: the game's two joysticks.
         const auto joystickSetting = _target.settings.find("joystick");
         const bool joystick = joystickSetting == _target.settings.end() || joystickSetting->second != "off";
         GamepadState pad;
-        auto pollPad = [&] { player.gamepad(joystick && _sys.readGamepad(pad) ? &pad : nullptr); };
+        auto pollPad = [&] {
+            for (int i = 0; i < x86::Joysticks::kConnectable; ++i)
+                player.gamepad(i, joystick && _sys.readGamepad(i, pad) ? &pad : nullptr);
+        };
         pollPad();
         player.start();
         int width = 640;
@@ -175,7 +178,7 @@ public:
         GameOption joystick;
         joystick.key = "joystick";
         joystick.label = "Game controller";
-        joystick.tooltip = "A connected controller offered to the game as its joystick.";
+        joystick.tooltip = "Connected controllers offered to the game as its joysticks, two at most.";
         joystick.choices = {{"on", "Offered to the game"}, {"off", "Left out"}};
         return {joystick};
     }

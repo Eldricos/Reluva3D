@@ -5,7 +5,9 @@
 `src/emulation/x86/joystick.cpp`: WINMM's joystick functions, for
 programs run in the [x86 emulator](README.md) that read their joysticks
 the way most Windows 95 games did, before DirectInput's: up to two
-joysticks, whose state the engine sets from the player's controllers.
+joysticks, whose state the engine sets from the players' controllers
+(`System::readGamepad(index)`: the first controller, and the next pad
+connected).
 
 ## What Reluva supports
 
@@ -44,9 +46,11 @@ joysticks, whose state the engine sets from the player's controllers.
   ([hosting.md](../../engines/sith/games/jk/systems/hosting.md)).
 - `testJoysticks` (`common.unit.windows`): none plugged in, then a
   controller as the first: its caps, a stick, a trigger, a button and the
-  D-pad as `joyGetPosEx` and `joyGetPos` give them, and unplugged again.
+  D-pad as `joyGetPosEx` and `joyGetPos` give them; a second, read apart
+from the first; a third not there; and the first unplugged again.
 - Jedi Knight turned and walked with a controller scripted through
-  `reluva-tool sith host -pad`
+  `reluva-tool sith host -pad`, and turned with a second one bound in its
+  *Setup*
   ([TESTING.md](../../engines/sith/games/jk/TESTING.md)).
 - **Confidence:** published for the API; Reluva's own for the controller's
   layout.

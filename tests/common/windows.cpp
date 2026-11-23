@@ -1629,7 +1629,7 @@ static void testDirectPlay() {
 }
 
 // WINMM's joysticks: none plugged in, then a game controller as the first,
-// its caps, axes, buttons and hat as JK.EXE reads them.
+// its caps, axes, buttons and hat as JK.EXE reads them, and a second.
 static void testJoysticks() {
     x86::Cpu cpu(16u << 20);
     x86::Win32Process process(cpu);
@@ -1673,8 +1673,19 @@ static void testJoysticks() {
     cpu.write32(info, 20);
     CHECK(call("joyGetPosEx", {0, info}) == 165); // too small a structure
 
+    // A second, on its own: the first's state isn't its.
+    joysticks.connect(1, &device);
+    GamepadState second;
+    second.axes[0] = -1;
+    joysticks.set(1, x86::Joysticks::stateOf(second));
+    cpu.write32(info, 52);
+    CHECK(call("joyGetPosEx", {1, info}) == 0 && cpu.read32(info + 8) == 0 && cpu.read32(info + 32) == 0);
+    CHECK(call("joyGetPosEx", {0, info}) == 0 && cpu.read32(info + 8) == 65535);
+    CHECK(call("joyGetPos", {2, info}) == 167); // a third isn't offered
+
     joysticks.connect(0, nullptr);
     CHECK(call("joyGetPos", {0, info}) == 167);
+    CHECK(call("joyGetPos", {1, info}) == 0);
 }
 
 // A3D created as a program creates it, a source made, filled through Lock,

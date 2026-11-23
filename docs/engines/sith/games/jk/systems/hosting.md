@@ -216,11 +216,13 @@ it presents in the window, and passes the keyboard and mouse on.
   emulator's, the sound card's output and the music played through
   Reluva's mixer. There's no `waveOut` device and no DirectPlay lobby:
   the game is told so, as on a machine without them.
-- **The joystick:** the player's game controller, connected when the
-  game starts or later, is its first joystick
-  ([joystick.md](../../../../../common/x86/joystick.md)): the sticks,
-  triggers, ten buttons and the D-pad as the hat. The `joystick` setting
-  (*Game controller* in the launcher) leaves it out.
+- **The joysticks:** the player's game controller, connected when the
+  game starts or later, is its first joystick, and a second pad its
+  second ([joystick.md](../../../../../common/x86/joystick.md)): the
+  sticks, triggers, ten buttons and the D-pad as the hat. The game's
+  defaults bind only the first; its *Setup* binds the second's axes and
+  buttons like any other control. The `joystick` setting (*Game
+  controller* in the launcher) leaves them out.
 - **Multiplayer:** DirectPlay offers one connection, TCP/IP, over the
   machine's network. *Join Game* finds sessions hosted by other copies
   of Reluva on the local networks and on this machine, and at the host
@@ -277,7 +279,7 @@ each tied to a handler as the console starts (`0x41f240` to `0x41f5ff`)
 *(from the code)*. `-pad "<seconds>:<control>=<value>,..."` connects a game controller and
 moves it at those moments (`lx` `ly` `rx` `ry` -1 to 1, `lt` `rt` 0 to
 1, the buttons `a` `b` `x` `y` `lb` `rb` `back` `start` `ls` `rs` `up`
-`down` `left` `right` 1 or 0). `-net` gives the game the machine's network for multiplayer (and
+`down` `left` `right` 1 or 0; `2.lx` and so on, a second controller's). `-net` gives the game the machine's network for multiplayer (and
 `-join <address>` a host to look for sessions at), and says what
 DirectPlay does: sessions made or joined, players come and gone, and the
 datagrams sent and received. `-png` saves the last frame, `-calls` lists every stand-in called and the

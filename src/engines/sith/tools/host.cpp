@@ -24,6 +24,7 @@
 #include "image/image.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cctype>
 #include <cstdlib>
@@ -226,12 +227,14 @@ int cmdHost(int argc, char **argv) {
     }
     // With -pad, a game controller connected from the start, moved at the
     // times given: lx ly rx ry (-1 to 1), lt rt (0 to 1), and the buttons a
-    // b x y lb rb back start ls rs up down left right (1 held, 0 not).
+    // b x y lb rb back start ls rs up down left right (1 held, 0 not); "2."
+    // before a control is a second controller's.
     struct PadChange {
         double at;
         std::string control;
         float value;
         bool done = false;
+        int pad = 0;
     };
     std::vector<PadChange> padChanges;
     for (size_t at = 0; at < padArg.size();) {
@@ -246,14 +249,22 @@ int cmdHost(int argc, char **argv) {
             std::fprintf(stderr, "-pad: \"<seconds>:<control>=<value>,...\"\n");
             return 2;
         }
-        padChanges.push_back({std::atof(item.substr(0, colon).c_str()), item.substr(colon + 1, equals - colon - 1),
-                              float(std::atof(item.substr(equals + 1).c_str()))});
+        PadChange change{std::atof(item.substr(0, colon).c_str()), item.substr(colon + 1, equals - colon - 1),
+                         float(std::atof(item.substr(equals + 1).c_str()))};
+        if (change.control.rfind("2.", 0) == 0) {
+            change.control = change.control.substr(2);
+            change.pad = 1;
+        }
+        padChanges.push_back(change);
     }
-    reluva::GamepadState pad;
-    pad.name = "Test pad";
-    if (!padChanges.empty()) {
-        const x86::Joysticks::Device device = x86::Joysticks::fromGamepad(pad);
-        game.joysticks().connect(0, &device);
+    std::array<reluva::GamepadState, 2> pads;
+    for (size_t i = 0; i < pads.size(); ++i) {
+        pads[i].name = "Test pad " + std::to_string(i + 1);
+        const bool used =
+            std::any_of(padChanges.begin(), padChanges.end(), [&](const PadChange &c) { return c.pad == int(i); });
+        const x86::Joysticks::Device device = x86::Joysticks::fromGamepad(pads[i]);
+        if (used)
+            game.joysticks().connect(int(i), &device);
     }
     auto movePad = [&](double now) {
         static const std::map<std::string, int> kAxes = {{"lx", 0}, {"ly", 1}, {"rx", 2},
@@ -264,18 +275,20 @@ int cmdHost(int argc, char **argv) {
             {"back", reluva::kPadBack},     {"start", reluva::kPadStart},     {"ls", reluva::kPadLeftStick},
             {"rs", reluva::kPadRightStick}, {"up", reluva::kPadUp},           {"down", reluva::kPadDown},
             {"left", reluva::kPadLeft},     {"right", reluva::kPadRight}};
-        bool moved = false;
+        std::array<bool, 2> moved{};
         for (PadChange &p : padChanges) {
             if (p.done || now < p.at)
                 continue;
-            p.done = moved = true;
+            p.done = moved[size_t(p.pad)] = true;
+            reluva::GamepadState &pad = pads[size_t(p.pad)];
             if (auto a = kAxes.find(p.control); a != kAxes.end())
                 pad.axes[a->second] = p.value;
             else if (auto b = kButtons.find(p.control); b != kButtons.end())
                 pad.buttons = p.value != 0 ? pad.buttons | 1u << b->second : pad.buttons & ~(1u << b->second);
         }
-        if (moved)
-            game.joysticks().set(0, x86::Joysticks::stateOf(pad));
+        for (size_t i = 0; i < pads.size(); ++i)
+            if (moved[i])
+                game.joysticks().set(int(i), x86::Joysticks::stateOf(pads[i]));
     };
     // Stopped after `seconds` of this machine's time; the keys pressed at
     // their times, each held a tenth of a second.
