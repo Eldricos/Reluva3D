@@ -133,6 +133,12 @@ void Cpu::setWritesTracked(const std::string &nativeName) {
 void Cpu::noteWrite(uint32_t address, uint32_t size) {
     if (size == 0 || !valid(address, size))
         return;
+    // A native function's write is watched as an instruction's is: the
+    // first word of it that falls in the range.
+    if (address < watchEnd && address + size > watchStart && onWatchedStore) [[unlikely]] {
+        const uint32_t at = std::max(address, watchStart);
+        onWatchedStore(*this, at, read32(at), int(std::min<uint32_t>(4, address + size - at)));
+    }
     for (uint32_t page = address >> 12; page <= (address + size - 1) >> 12; ++page)
         if (_codePages[page]) {
             ++_codeEpoch;
@@ -510,8 +516,10 @@ void Cpu::stringOp(uint8_t op) {
     const uint32_t step = (eflags & DF) ? uint32_t(-size) : uint32_t(size);
     const bool repeat = _d.rep || _d.repne;
     const bool compare = op == 0xa6 || op == 0xa7 || op == 0xae || op == 0xaf;
-    // rep movs and rep stos forward, a run at a time.
-    if (repeat && !(eflags & DF) && (op == 0xa4 || op == 0xa5) && reg[ECX]) {
+    // rep movs and rep stos forward, a run at a time; one at a time while
+    // stores are watched, so each is seen.
+    const bool runs = repeat && !(eflags & DF) && watchEnd <= watchStart;
+    if (runs && (op == 0xa4 || op == 0xa5) && reg[ECX]) {
         const uint64_t bytes = uint64_t(reg[ECX]) * uint32_t(size);
         const uint32_t src = reg[ESI] + _d.segment;
         const uint32_t dst = reg[EDI];
@@ -525,7 +533,7 @@ void Cpu::stringOp(uint8_t op) {
             return;
         }
     }
-    if (repeat && !(eflags & DF) && (op == 0xaa || op == 0xab) && reg[ECX]) {
+    if (runs && (op == 0xaa || op == 0xab) && reg[ECX]) {
         const uint64_t bytes = uint64_t(reg[ECX]) * uint32_t(size);
         if (bytes <= 0xffffffffu) {
             uint8_t *to = atWrite(reg[EDI], uint32_t(bytes));

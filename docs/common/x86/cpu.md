@@ -81,7 +81,9 @@ for the cache's blocks is [jit.md](jit.md).
   such a change the cache finds the block at eip again, as another
   thread may have changed the table.
 - **For debugging**: stores into a range watched (`watchStart`,
-  `watchEnd`, `onWatchedStore`; instructions then run one at a time), a
+  `watchEnd`, `onWatchedStore`; instructions then run one at a time,
+  `rep movs` and `rep stos` a store at a time, and the native functions
+  that say what they write, as `memcpy`, are reported too), a
   callback before each native function (`nativeTrace`), and how often
   each native was called (`nativeCallCounts`).
 - **Native functions.** The engine's functions, and stand-ins for the
