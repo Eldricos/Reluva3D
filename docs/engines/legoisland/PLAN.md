@@ -69,9 +69,10 @@ Each phase ends with something that runs, is tested and is committed.
    triangle's set-up is done on the draw threads too. Next, for slower
    machines: Retained Mode on the GPU, begun: a compute kernel drawing by
    the software rasterizer's rules, checked against it
-   ([directx.md](../../common/x86/directx.md#drawing-on-the-gpu)); still
-   to come, the surfaces kept on the GPU between draws, and the engine
-   using it.
+   ([directx.md](../../common/x86/directx.md#drawing-on-the-gpu)), the
+   surfaces it draws into kept there between batches, clears, fills and
+   copies drawn there too; still to come, the engine using it (a setting,
+   software where there's no GPU), and its speed measured on a GPU.
 
 ## Decisions
 
