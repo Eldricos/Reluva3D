@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "common/archive.h"
 #include "common/types.h"
 #include "engines/tpw/formats/bf4.h"
 #include "engines/tpw/formats/str.h"
@@ -23,5 +24,11 @@ int drawGameText(Surface &s, const Font &font, const CharacterSet &characters, i
 
 /** How far drawGameText moves the pen for the text. */
 int gameTextWidth(const Font &font, const CharacterSet &characters, const std::string &utf8);
+
+/** Reads a font of the language's folder (`Language/American/`), by its name (`CASHMED`). */
+Error readGameFont(const SearchSet &files, const std::string &folder, const char *name, Font &out);
+/** Reads a string table of the language's folder, by its name (`MONTHS`). */
+Error readStringTable(const SearchSet &files, const std::string &folder, const char *name,
+                      const CharacterSet &characters, StringTable &out);
 
 } // namespace reluva::tpw

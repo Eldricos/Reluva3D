@@ -12,7 +12,10 @@
 #include "engines/tpw/formats/sam.h"
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/games.h"
+#include "engines/tpw/park/park.h"
+#include "engines/tpw/ui/globe.h"
 #include "engines/tpw/ui/loading_screen.h"
+#include "engines/tpw/ui/park_screen.h"
 #include "engines/tpw/ui/main_menu.h"
 #include "engines/tpw/ui/opening.h"
 #include "image/image.h"
@@ -56,26 +59,28 @@ public:
             return Error::success();
         // After the movie, which plays as music, at its own full level.
         setTypeVolumes(files, mixer);
-        if (runFrontEnd(_sys, files, _target.savePath, audioOut ? &mixer : nullptr) < 0)
+        const int world = runFrontEnd(_sys, files, _target.savePath, audioOut ? &mixer : nullptr);
+        if (world < 0)
             return Error::success();
 
-        // What the game shows while the chosen world's park loads; the park
-        // itself isn't built yet.
+        // The loading screen while the chosen world's park loads, then the
+        // park. Its first mission's for now: missions after the first wait
+        // for the park to be won.
         Surface screen;
         screen.create(kWidth, kHeight, PixelFormat::kRGBA32);
         image::Image loading;
         if (!composeLoadingScreen(files, languageOf(files), loading))
             for (int y = 0; y < std::min(loading.h, kHeight); ++y)
                 std::memcpy(screen.row(y), loading.pixel(0, y), size_t(std::min(loading.w, kWidth)) * 4);
-        for (bool running = true; running;) {
-            Event ev;
-            while (_sys.pollEvent(ev))
-                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher ||
-                    (ev.type == EventType::kKeyDown && ev.key == key::kEscape))
-                    running = false;
-            _sys.updateScreen(screen);
-            _sys.delayMillis(1);
-        }
+        _sys.updateScreen(screen);
+        Park park;
+        ParkScreen parkScreen;
+        const std::string folder = Globe::worlds()[size_t(world)].folder;
+        if (Error err = park.load(files, folder.substr(0, folder.size() - 1), 0))
+            return err;
+        if (Error err = parkScreen.load(files, park))
+            return err;
+        playPark(_sys, parkScreen, park);
         return Error::success();
     }
 

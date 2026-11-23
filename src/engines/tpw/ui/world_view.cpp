@@ -158,12 +158,18 @@ Error LoadedWorld::load(const SearchSet &files, const std::string &folder) {
     return Error::success();
 }
 
-void drawWorld(Surface &screen, soft3d::Rasterizer &rasterizer, const LoadedWorld &world, const WorldView &view) {
+soft3d::OrbitCamera worldCamera(const LoadedWorld &world, const WorldView &view, int w, int h) {
     const Land &land = world.land;
     const soft3d::Vec middle =
         toViewerWorld({float(land.width()) * Land::kCellSize / 2, 0, float(land.depth()) * Land::kCellSize / 2});
-    const soft3d::OrbitCamera camera(world.hasLand ? middle : world.surroundings.centre, view.yaw, view.pitch,
-                                     view.distance, screen.w, screen.h);
+    const soft3d::Vec target = view.aimed      ? toViewerWorld(view.target)
+                               : world.hasLand ? middle
+                                               : world.surroundings.centre;
+    return soft3d::OrbitCamera(target, view.yaw, view.pitch, view.distance, w, h);
+}
+
+void drawWorld(Surface &screen, soft3d::Rasterizer &rasterizer, const LoadedWorld &world, const WorldView &view) {
+    const soft3d::OrbitCamera camera = worldCamera(world, view, screen.w, screen.h);
     soft3d::Vec light = defaultLight();
     if (view.sky && world.hasSky) {
         drawSky(screen, camera, world.sky);

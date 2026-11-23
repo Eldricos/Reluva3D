@@ -121,21 +121,6 @@ constexpr Color kGreyedColour{112, 112, 112};   // a greyed blue button's
 constexpr Color kQuestionColour{40, 72, 104};
 constexpr Color kSelectionColour{91, 144, 174};
 
-Error readTable(const SearchSet &files, const std::string &folder, const char *name, const CharacterSet &characters,
-                StringTable &out) {
-    std::vector<uint8_t> data;
-    if (Error err = files.read(folder + name + ".str", data))
-        return err;
-    return out.parse(data, characters);
-}
-
-Error readFont(const SearchSet &files, const std::string &folder, const char *name, Font &out) {
-    std::vector<uint8_t> data;
-    if (Error err = files.read(folder + name + ".bf4", data))
-        return err;
-    return out.parse(data);
-}
-
 // A string with its parameters' places filled, by their numbers.
 std::string fill(const StringTable &table, size_t index, const std::map<int, std::string> &values) {
     std::string out;
@@ -216,11 +201,11 @@ Error PersonnelFile::load(const SearchSet &files) {
     for (auto [font, name] :
          {std::pair{&_title, "TITLEMED"}, std::pair{&_small, "GAME7AA"}, std::pair{&_label, "GAME8AA"},
           std::pair{&_message, "GAME9AA"}, std::pair{&_hand, "PERSONNELFILESMALL"}})
-        if (Error err = readFont(files, folder, name, *font))
+        if (Error err = readGameFont(files, folder, name, *font))
             return err;
     for (auto [table, name] : {std::pair{&_ui, "UITEXT"}, std::pair{&_ranks, "PROMOTIONLEVELS"},
                                std::pair{&_operations, "OPERATION"}, std::pair{&_themes, "THEMENAMES"}})
-        if (Error err = readTable(files, folder, name, _characters, *table))
+        if (Error err = readStringTable(files, folder, name, _characters, *table))
             return err;
 
     SamFile standard;

@@ -22,9 +22,12 @@ None yet.
   of its 250): their boxes are, not their pixels
   ([bf4.md](formats/bf4.md#the-pixels)).
 - **Little of the game runs yet:** Reluva recognises the install, plays
-  its opening and its front end to a world chosen, then shows its
-  loading screen: the park after it isn't built ([PLAN.md](PLAN.md#phases),
-  [loading-screen.md](systems/loading-screen.md)).
+  its opening and its front end to a world chosen, shows its loading
+  screen, then the new park: its world, money and date, its clock
+  running, under a camera of Reluva's own keys; no fly-in, briefing,
+  toolbar, gates, building or visitors yet, its fixed items marked
+  ([PLAN.md](PLAN.md#phases), [park.md](systems/park.md)). Every park
+  is its world's first mission's.
 - **The front end's opening**: its sparkles are drawn by guessed
   numbers, size and speed, without the emitters' flares; the white burst
   in the well isn't drawn; the advisor's portrait shows by the

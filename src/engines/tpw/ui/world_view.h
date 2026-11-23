@@ -50,8 +50,13 @@ struct LoadedWorld {
     Error load(const SearchSet &files, const std::string &folder);
 };
 
-/** Where the camera is: it looks at the park's middle from `distance` units. */
+/**
+ * Where the camera is: it looks at the park's middle, or at `target` if
+ * `aimed`, from `distance` units.
+ */
 struct WorldView {
+    bool aimed = false;
+    gfx::Vec3 target{}; // in the world's units, y up
     float yaw = 0.6f;
     float pitch = 0.6f;
     float distance = 1300;
@@ -60,6 +65,9 @@ struct WorldView {
     bool objects = true; // the placed objects drawn as markers
     bool sky = true;     // the sky drawn behind, the world lit by its light
 };
+
+/** The camera drawWorld draws through, for a screen of w × h. */
+soft3d::OrbitCamera worldCamera(const LoadedWorld &world, const WorldView &view, int w, int h);
 
 /**
  * Draws the world into an RGBA32 surface: its sky, or over what is there

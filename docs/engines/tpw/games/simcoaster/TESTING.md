@@ -43,6 +43,7 @@ With your own copy, installed or imported from the CD:
 | `movies` | Every `.tgq` movie decoded, frames and sound (`reluva-tool tpw movie-check`) |
 | `loading` | The loading screen put together, with a checksum of it (`reluva-tool tpw loading-screen`) |
 | `sounds` | Every sound bank decoded, those that can't listed (`reluva-tool tpw sdt-check`) |
+| `park` | A new park in Land of Invention played headless, the camera moved by keys, then Esc; the screens shown, the date reached, with a checksum (`reluva-tool tpw park-run`) |
 | `soundmaps` | Every sound category read, each sound found in its bank and its length set against the bank's, with a checksum (`reluva-tool tpw sfx-check`) |
 | `models` | Every model read, with a checksum of every mesh (`reluva-tool tpw md2-check`) |
 | `animations` | Every model animation read and set against its model (`reluva-tool tpw anim-check`) |

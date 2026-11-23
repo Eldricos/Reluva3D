@@ -59,4 +59,19 @@ int gameTextWidth(const Font &font, const CharacterSet &characters, const std::s
     return forEachGlyph(font, characters, utf8, [](const Font::Glyph &, int) {});
 }
 
+Error readGameFont(const SearchSet &files, const std::string &folder, const char *name, Font &out) {
+    std::vector<uint8_t> data;
+    if (Error err = files.read(folder + name + ".bf4", data))
+        return err;
+    return out.parse(data);
+}
+
+Error readStringTable(const SearchSet &files, const std::string &folder, const char *name,
+                      const CharacterSet &characters, StringTable &out) {
+    std::vector<uint8_t> data;
+    if (Error err = files.read(folder + name + ".str", data))
+        return err;
+    return out.parse(data, characters);
+}
+
 } // namespace reluva::tpw

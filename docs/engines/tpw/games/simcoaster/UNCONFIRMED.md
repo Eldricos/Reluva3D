@@ -22,6 +22,15 @@ None yet.
 - **The logo movie is shown twice as wide as its frames**, 320 × 480 at
   640 × 480, as its ring is round in the recording
   ([tgq.md](formats/tgq.md#the-logo-tgq)).
+- **A day lasts 4 seconds, from 1 January 2000**: the recording's
+  dates read every few seconds ([park.md](systems/park.md#time)). A
+  recording at another speed would settle it.
+
+- **The mission's boundary is measured from the entrance**: its clicks
+  run from (0, 0) to (−50, 66) ([park.md](systems/park.md#what-a-new-park-has)).
+  Drawing it over the world, beside the recording's park fence, would
+  settle it.
+
 - **Where the park's ground lies**: flat at y = 0, its cells 2.5 units
   square, the file's first row at the far side, filling `base.MD2`'s
   hole ([lnd.md](formats/lnd.md#the-cells)): drawn so, its entrance notch

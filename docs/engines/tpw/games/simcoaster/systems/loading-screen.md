@@ -59,10 +59,8 @@ fonts' widths at that size ([personnel-file.md](personnel-file.md#the-screens-si
 
 `composeLoadingScreen` (`src/engines/tpw/ui/loading_screen.cpp`) puts
 the loading screen together from `Init/640/` for the game's language.
-The engine shows it after the front end's opening and its Personnel
-File ([front-end.md](front-end.md), [personnel-file.md](personnel-file.md)), until the player leaves: the rest of
-the front end, which comes between in the game, isn't built yet
-([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md#not-yet-as-the-original)).
+The engine shows it after a world is chosen on the globe
+([globe.md](globe.md)), while the park loads ([park.md](park.md)).
 `reluva-tool tpw loading-screen <game folder> [out.png]` writes it out,
 with a checksum, which the game-files test checks
 (`tpw.gamedata.loading`). The unit tests (`tpw.unit.ui`) put one

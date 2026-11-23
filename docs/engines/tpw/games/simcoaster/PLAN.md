@@ -82,7 +82,10 @@ format or system worked out.
    world on the globe ([globe.md](systems/globe.md)); then the opening's
    effects, options, saving and loading parks, from `ui.wad` and
    recordings.
-9. **The park running:** building, paths, guests, staff, money, research,
+9. **The park running** (under way: a new park set up from its
+   settings and mission, shown running with its money and date under a
+   camera that moves, [park.md](systems/park.md)): building, paths,
+   guests, staff, money, research,
    the advisor, missions and challenges (`missions/*.sam`,
    `Challenges.sam`). By far the largest part: from the settings files,
    recordings, and saves (`.TPWS`) taken a step apart.

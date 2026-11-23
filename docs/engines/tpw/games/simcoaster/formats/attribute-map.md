@@ -34,13 +34,26 @@ size 0):
 ### The tiles
 
 The Arabian Nights' map has 1,491 tiles not 0, all within 85 × 96 of
-its first corner: the park's 96 × 86 tiles of 10 units
-([lnd.md](lnd.md#the-cells)), across and down swapped *(inferred)*.
-1 (929 tiles) traces the park's edge and its rivers; the others are
-0x11 (242), 0x10 (175), 0x94 (124), 8 (10), 0x90 (8) and 0x95 (3). The
-Land of Invention's and the Intro World's add 3 (285) and 0x91 (18);
-the Polar Zone's has the most 1s (1,990), along its wider river. What
-the bits mean is not worked out.
+its first corner: the park's cells of 10 units
+([park.md](../systems/park.md#the-parks-cells)), a tile for each. Row x,
+column y is the settings' cell (x, y), and the world's square at x 10x,
+z 10y *(confirmed: the fixed items' cells fall on their tiles, and the
+river's tiles on the world's river emitters)*. What each tile holds,
+from Land of Invention's set beside its settings and the world's model:
+
+| Tile | Tiles | Where |
+|---|---|---|
+| 0 | | The park's own land, open |
+| 1 | 929 | The park's edges and walls, and the rivers' banks *(inferred)* |
+| 3 | 285 | Its river (Land of Invention's and the Intro World's) |
+| 8 | 10 | The entrance's path: the cells (47, 17) and (48, 17) and the four rows in from them |
+| 0x10, 0x11 | 175, 242 | Outside the park, about the road |
+| 0x90 | 8 | The ticket booths' cells, (45, 8) and (45, 11), and the road's edge |
+| 0x91, 0x94, 0x95 | 18, 124, 3 | The road the bus comes along, its bus stops' cells among them |
+
+(The counts are the Arabian Nights' map's; the Polar Zone's has the
+most 1s, 1,990, along its wider river.) What each bit means is not
+worked out.
 
 ## In Reluva
 
@@ -60,4 +73,3 @@ the game-files test runs it (`tpw.gamedata.terrain`).
 ## Open questions
 
 - What the tiles' bits mean, and the five words.
-- Which way the map lies over the park.

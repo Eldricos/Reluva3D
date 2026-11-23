@@ -9,6 +9,7 @@ reluva_add_engine(tpw
         tpw.cpp
         games.cpp
         game_files.cpp
+        park/park.cpp
         players.cpp
         sound_effects.cpp
         textures.cpp
@@ -27,6 +28,7 @@ reluva_add_engine(tpw
         ui/sky.cpp
         ui/text.cpp
         ui/ui_model.cpp
+        ui/park_screen.cpp
         ui/personnel_file.cpp
         ui/world_view.cpp
         formats/animation.cpp
@@ -64,6 +66,7 @@ reluva_add_engine_tools(tpw
         tools/files.cpp
         tools/models.cpp
         tools/movies.cpp
+        tools/park.cpp
         tools/pictures.cpp
         tools/scripts.cpp
         tools/sounds.cpp
@@ -83,9 +86,10 @@ reluva_add_engine_tests(tpw
         ${tests}/unit/formats.cpp
         ${tests}/unit/ui.cpp
         ${tests}/unit/script.cpp
+        ${tests}/unit/park.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.import unit.formats unit.ui unit.script engine)
+        unit.detection unit.import unit.formats unit.ui unit.script unit.park engine)
 
 # Its engine test with SimCoaster's own files (see docs/DEVELOPMENT.md,
 # Engine tests): RELUVA_SIMCOASTER=<the game's folder>.
@@ -93,4 +97,4 @@ reluva_add_gamedata_test(tpw
     GAME simcoaster
     ENV RELUVA_SIMCOASTER
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release data settings text fonts pictures movies opening frontend loading sounds soundmaps models animations heights terrain scripts viewer)
+    STEPS release data settings text fonts pictures movies opening frontend loading sounds soundmaps models animations heights terrain scripts viewer park)

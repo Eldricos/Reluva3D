@@ -47,6 +47,9 @@
 #            terrain-check)
 #   scripts  every ride and shop script (.RSE) read, with a checksum of
 #            their disassembly (tpw rse-check)
+#   park     a new park in Land of Invention played headless: the camera
+#            moved by keys, then Esc; the screens shown, the date, with a
+#            checksum (tpw park-run)
 #   viewer   the data viewer, headless: every page, a few keys on each,
 #            then Esc; a checksum of every screen shown, and its titles
 #            (tpw viewer-run)
@@ -110,6 +113,8 @@ elseif(STEP STREQUAL "terrain")
     record_run(terrain "grounds," tpw terrain-check "${game_dir}")
 elseif(STEP STREQUAL "scripts")
     record_run(scripts "scripts," tpw rse-check "${game_dir}")
+elseif(STEP STREQUAL "park")
+    record_run(park "screens shown" tpw park-run "${game_dir}" levels/science)
 elseif(STEP STREQUAL "viewer")
     record_run(viewer "left by:" tpw viewer-run "${game_dir}")
 else()
