@@ -477,10 +477,13 @@ void MainMenu::loadGame(const SaveGame &save) {
 
 void MainMenu::startGame() {
     // A new game: no score, nothing found but what starts so; begun at a
-    // later mission, the score's 100 for each before it (0x5c3070).
+    // later mission, the score's 100 for each before it (0x5c3070), and
+    // the items that's reached are found as its mission starts (0x5c319d,
+    // 0x5b8fe0), described in its briefing as any found (inferred).
     _campaign = Campaign{};
     _campaign.score = 100 * (_firstMission - 1);
     _campaign.difficulty = int(_difficulty);
+    _campaign.toDescribe = foundByScore(loadItems(_data), _campaign);
     beginMission(_firstMission);
 }
 

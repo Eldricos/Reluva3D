@@ -134,10 +134,12 @@ saved with the game:
   keeps the score it had (`0x5c140a`, `0x5c1529`).
 - **What it's for:** an item's `Points to Discover` (up to 2,400: the
   Phaser Damage Increase's 400, the Remote Mine's 250); 38 are 0 and 6
-  -1. An item's found as a mission's won once the score's at least its
-  Points to Discover, -1 never (`0x5b90c0`; a network game's own
-  points otherwise): so the cloaking band, at 1, after the first
-  mission. Found, an item's described in the next briefing
+  -1. An item's found once the score's at least its Points to
+  Discover, -1 never (`0x5b90c0`; a network game's own points
+  otherwise), looked for as each mission starts (`0x5c319d`, and the
+  briefing's `0x473dc6`, both calling `0x5b8fe0`): so the cloaking band,
+  at 1, after the first mission, and a game begun at a later mission
+  with all its score has reached. Found, an item's described in the next briefing
   ([briefing.md](briefing.md)) by its `Who Discovers` (Asunder for 41),
   its `Discovery Text` a line of its `Script` (`Discovery Items`). The
   maps find some themselves (`CDiscoverInventoryNextBriefingAction`, 5),
@@ -223,16 +225,16 @@ Where to go is shown on the minimap by its points of interest
 The score (`game/campaign.cpp`) is kept from mission to mission, and
 saved: a mission completed adds its base and the Points of its
 objectives done that aren't required. A new game begun at a later
-mission starts with 100 for each before. Restarting a mission keeps the
-score it had. Each item whose Points to Discover the score's reached is
+mission starts with 100 for each before, and the items that's reached
+found, described in its briefing *(inferred)*. Restarting a mission keeps
+the score it had. Each item whose Points to Discover the score's reached is
 found, described in the next briefing ([briefing.md](briefing.md)) with
 those the maps found. The officers' inventories, in the team selection
 and taken into the mission, are as the program has them: those not
 found left out, those overridden by an item found as that
 (`resolveInventories`, `game/team.cpp`), and the items a mission needs
-likewise.
-
-Not there yet: the found items being what the team selection offers.
+likewise: so the team selection offers what's been found, the Phaser
+Damage Increase in place of the Phaser once the score's 400.
 
 ## Sources and checks
 
