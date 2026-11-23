@@ -182,6 +182,11 @@ block starts on a 32-bit boundary.
   keyframes, every audio track's form,
   `rewind()` for loops, binkw32's colour conversion and the audio cut at
   each packet's declared size.
+- **Revision `f`,** on Star Trek: Armada's 69 movies: every frame and
+  the sound decode, the sound as long as the pictures to within a frame,
+  and frames looked at are whole and in their colours. Not compared with
+  that game's `binkw32.dll`, an older one that the checker above can't
+  run yet ([movies.md](../../engines/storm3d/games/armada/formats/movies.md#open-questions)).
 - **Confidence:** published unless marked.
 
 ## Used by
@@ -190,3 +195,5 @@ block starts on a 32-bit boundary.
   ([cinematics.md](../../engines/idtech3/games/stvef/systems/cinematics.md)).
 - **`awe`**: Murder on the Orient Express's movies and video loops
   ([movies.md](../../engines/awe/games/motoe/systems/movies.md)).
+- **`storm3d`**: Star Trek: Armada's movies, in the data viewer
+  ([movies.md](../../engines/storm3d/games/armada/formats/movies.md)).

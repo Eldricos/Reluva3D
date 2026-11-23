@@ -61,6 +61,9 @@ extended. The facts themselves are on their pages, each with its source.
 | `reluva-tool storm3d input-map <Input.map>` | The key and mouse bindings ([formats/input-map.md](formats/input-map.md)) |
 | `reluva-tool storm3d image-check <game folder>` | Decodes every picture ([formats/textures.md](formats/textures.md)) |
 | `reluva-tool storm3d image <game folder> <name> <out.png>` | Writes one picture as PNG |
+| `reluva-tool storm3d sound-check <game folder>` | Decodes every sound ([formats/sounds.md](formats/sounds.md)) |
+| `reluva-tool storm3d movie-check <game folder> [name filter]` | Decodes every movie ([formats/movies.md](formats/movies.md)) |
+| `reluva-tool storm3d movie-frame <game folder> <name> <frame> <out.png>` | Writes one frame of a movie as PNG |
 
 ## Working files not included
 

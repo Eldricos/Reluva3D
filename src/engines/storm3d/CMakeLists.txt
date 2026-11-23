@@ -20,7 +20,9 @@ reluva_add_engine_viewers(storm3d
     SOURCES
         pages/viewer.cpp
         pages/image_page.cpp
-        pages/page.cpp)
+        pages/movie_page.cpp
+        pages/page.cpp
+        pages/sound_page.cpp)
 
 # Its reluva-tool commands (reluva-tool help storm3d lists them).
 reluva_add_engine_tools(storm3d
@@ -28,6 +30,7 @@ reluva_add_engine_tools(storm3d
         tools/archives.cpp
         tools/files.cpp
         tools/images.cpp
+        tools/media.cpp
         tools/text.cpp)
 
 # Its tests (tests/engines/storm3d/), in reluva-tests: the unit tests by

@@ -5,9 +5,13 @@
 // game has, each page's keys in its header. Tab moves to the next page
 // that has something to show, Esc leaves.
 
+#include "audio/mixer.h"
+#include "common/settings.h"
 #include "engines/storm3d/game_files.h"
 #include "engines/storm3d/pages/image_page.h"
+#include "engines/storm3d/pages/movie_page.h"
 #include "engines/storm3d/pages/page.h"
+#include "engines/storm3d/pages/sound_page.h"
 #include "engines/viewer.h"
 
 #include <memory>
@@ -33,8 +37,25 @@ public:
             return err;
         _screen.create(storm3d::kViewerWidth, storm3d::kViewerHeight, PixelFormat::kRGBA32);
 
+        // One mixer for as long as the viewer runs; without an audio device
+        // sounds are listed and not played.
+        audio::Mixer mixer(_sys.audioRate());
+        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
+        const bool audioOut = !audio::startMixerOutput(_sys, mixer);
+        struct AudioStop {
+            System &sys;
+            bool on;
+            ~AudioStop() {
+                if (on)
+                    sys.stopAudio();
+            }
+        } audioStop{_sys, audioOut};
+        audio::Mixer *out = audioOut ? &mixer : nullptr;
+
         std::vector<std::unique_ptr<Page>> pages;
         pages.push_back(std::make_unique<storm3d::ImagePage>(_sys, _screen, files));
+        pages.push_back(std::make_unique<storm3d::SoundPage>(_sys, _screen, files, out));
+        pages.push_back(std::make_unique<storm3d::MoviePage>(_sys, _screen, files, out));
 
         size_t page = 0;
         while (page < pages.size() && pages[page]->count() == 0)

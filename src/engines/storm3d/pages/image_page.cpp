@@ -38,37 +38,6 @@ std::tuple<std::string, std::string, int, std::string> sortKey(const std::string
     return {folder, stem, level, ext};
 }
 
-// The image drawn as large as fits, up to 4 times its size, centred above
-// the status line; over a checkerboard when its alpha is shown.
-void drawFitted(Surface &screen, const image::Image &img, bool alpha, int areaHeight) {
-    fillRect(screen, 0, 0, screen.w, screen.h, kBackground);
-    if (img.w <= 0 || img.h <= 0)
-        return;
-    const double fit = std::min(double(screen.w) / img.w, double(areaHeight) / img.h);
-    const double scale = fit >= 1 ? std::min(4.0, std::floor(fit)) : fit;
-    const int w = std::max(1, int(img.w * scale));
-    const int h = std::max(1, int(img.h * scale));
-    const int x0 = (screen.w - w) / 2;
-    const int y0 = (areaHeight - h) / 2;
-    for (int y = 0; y < h; ++y) {
-        uint8_t *out = screen.row(y0 + y) + size_t(x0) * 4;
-        const int sy = std::min(img.h - 1, int(y / scale));
-        for (int x = 0; x < w; ++x, out += 4) {
-            const uint8_t *in = img.pixel(std::min(img.w - 1, int(x / scale)), sy);
-            if (!alpha) {
-                out[0] = in[0];
-                out[1] = in[1];
-                out[2] = in[2];
-            } else {
-                const uint8_t check = ((x / 8 + y / 8) % 2) ? 96 : 160;
-                for (int c = 0; c < 3; ++c)
-                    out[c] = uint8_t((in[c] * in[3] + check * (255 - in[3])) / 255);
-            }
-            out[3] = 255;
-        }
-    }
-}
-
 } // namespace
 
 bool ImagePage::listedBefore(const std::string &a, const std::string &b) {
@@ -148,6 +117,7 @@ void ImagePage::show() {
         what = std::to_string(img.w) + "x" + std::to_string(img.h);
     }
     const int area = _status ? _screen.h - font::kLineHeight - 4 : _screen.h;
+    fillRect(_screen, 0, 0, _screen.w, _screen.h, kBackground);
     drawFitted(_screen, img, _alpha, area);
     const std::string line = std::to_string(_current + 1) + "/" + std::to_string(_names.size()) + "  " + name + "  " +
                              what + (_alpha ? "  alpha" : "");

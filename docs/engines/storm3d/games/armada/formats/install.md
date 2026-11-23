@@ -41,8 +41,8 @@ In the install's folder.
 | `missions/` | 26 `.dsl` and 26 `.drl` | The campaign's missions, as DLLs ([Missions](#missions)) |
 | `AI/` | 7 DLLs, 85 `.aip` in `AI/AIPs/` | The computer player: its DLLs, its personalities as text, `strategic_AI_config.txt` and the developers' `Scheduler_README.txt` |
 | `3D_Paths/` | 6 `.pth` | Paths as text: a count, then a point a line |
-| `animations/` | 68 `.bik` | Bink movies |
-| `sounds/` | 1,163 `.wav`, in `effects/`, `music/` and `voiceover/` | Sound effects, music, speech |
+| `animations/` | 68 `.bik` | Bink movies ([movies.md](movies.md)) |
+| `sounds/` | 1,163 `.wav`, in `effects/`, `music/` and `voiceover/` | Sound effects, music, speech ([sounds.md](sounds.md)) |
 | `bitmaps/`, `bmp/` | 222 `.bmp` | The front end's pictures |
 | `misc/` | 17 | The races' interface settings (`gui_fed.cfg`...), and a few more |
 | `giddi/` | 11 `.std` | Joystick settings |

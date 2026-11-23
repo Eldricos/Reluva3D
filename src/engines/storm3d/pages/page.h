@@ -11,6 +11,10 @@
 #include <string>
 #include <string_view>
 
+namespace reluva::image {
+struct Image;
+} // namespace reluva::image
+
 namespace reluva::storm3d {
 
 /** The data viewer's screen, in pixels. */
@@ -48,6 +52,14 @@ void fillRect(Surface &s, int x, int y, int w, int h, Color c);
 
 /** A line of text at the screen's foot, on a dark band. */
 void drawStatus(Surface &s, std::string_view text);
+
+/**
+ * An image drawn as large as fits, up to 4 times its size, centred in the
+ * screen's top `areaHeight` rows (over what's there where it doesn't
+ * reach); over a checkerboard where it's see-through when `alpha` is set,
+ * else opaque.
+ */
+void drawFitted(Surface &screen, const image::Image &img, bool alpha, int areaHeight);
 
 /** `index` moved by `step` within [0, count), stopping at the ends. */
 size_t stepIndex(size_t index, int step, size_t count);

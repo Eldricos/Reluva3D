@@ -14,6 +14,7 @@
 // (see tests/engines/idtech3/engine.cpp), then --update and review the
 // record.
 
+#include "audio/wav.h"
 #include "common/headless_system.h"
 #include "engines/registry.h"
 #include "engines/viewer_registry.h"
@@ -22,6 +23,8 @@
 #include "tests/support/record.h"
 #include "tests/support/test.h"
 
+#include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -32,8 +35,9 @@ namespace {
 
 using test::Hash;
 
-// The headless System with a player: keys pressed at given times. It keeps
-// a checksum of every screen shown and each window title.
+// The headless System with a player: keys pressed at given times, and the
+// sound pulled as the clock moves. It keeps a checksum of every screen
+// shown, of the sound, and each window title.
 class PlayingSystem : public HeadlessSystem {
 public:
     struct Input {
@@ -42,7 +46,10 @@ public:
     };
     std::vector<Input> inputs;
     Hash screens;
+    Hash sound;
     int shown = 0;
+    int64_t soundFrames = 0;
+    int64_t soundPeak = 0;
     std::vector<std::string> titles;
 
     void updateScreen(const Surface &s) override {
@@ -62,9 +69,30 @@ public:
         }
         return false;
     }
+    void delayMillis(uint32_t ms) override {
+        HeadlessSystem::delayMillis(ms);
+        if (!_audio)
+            return;
+        _pending += int64_t(ms) * audioRate();
+        const int frames = int(_pending / 1000);
+        _pending %= 1000;
+        std::vector<int16_t> buf(size_t(frames) * 2);
+        _audio(buf.data(), frames);
+        sound.bytes(buf.data(), buf.size() * 2);
+        soundFrames += frames;
+        for (int16_t v : buf)
+            soundPeak = std::max<int64_t>(soundPeak, v < 0 ? -int64_t(v) : v);
+    }
+    Error startAudio(AudioCallback cb) override {
+        _audio = std::move(cb);
+        return Error::success();
+    }
+    void stopAudio() override { _audio = nullptr; }
 
 private:
     size_t _next = 0;
+    AudioCallback _audio;
+    int64_t _pending = 0;
 };
 
 Event keyDown(uint32_t key) {
@@ -104,13 +132,27 @@ std::vector<uint8_t> makeTga(int w, int h) {
     return image::encodeTga(img, true);
 }
 
-// Armada's files by name, so an unknown release, and a few textures.
+// A quarter of a second of a 440 Hz tone at Armada's effects' rate,
+// 22,050 Hz mono (the shared encoder writes 16-bit).
+std::vector<uint8_t> makeWav() {
+    audio::Sound tone;
+    tone.rate = 22050;
+    tone.channels = 1;
+    tone.sourceBits = 8;
+    for (int i = 0; i < 22050 / 4; ++i)
+        tone.samples.push_back(int16_t(std::lround(8000 * std::sin(i * 2 * 3.14159265358979 * 440 / 22050))));
+    return audio::encodePcmWav(tone);
+}
+
+// Armada's files by name, so an unknown release, a few textures and a
+// sound.
 void makeInstall(const std::filesystem::path &dir) {
     for (const char *name : {"Armada.exe", "assets.zfs", "objtxt.zfs"})
         writeFile(dir / name, {'x'});
     writeFile(dir / "Textures/RGB/Bbase.tga", makeTga(64, 64));
     writeFile(dir / "Textures/RGB/Bbase.1", makeTga(32, 32));
     writeFile(dir / "Textures/Index8/Xspark01", makeTga(16, 16));
+    writeFile(dir / "sounds/effects/tone.wav", makeWav());
 }
 
 void engineTest(const std::filesystem::path &tmp) {
@@ -139,13 +181,17 @@ void engineTest(const std::filesystem::path &tmp) {
         {200, keyDown('a')},          // its alpha over a checkerboard
         {250, keyDown('f')},          // the next folder: back to the first
         {300, keyDown('i')},          // no status line
-        {350, keyDown(key::kTab)},    // the next page with something to show
-        {450, keyDown(key::kEscape)}, // to reluva-viewer's list
+        {350, keyDown(key::kTab)},    // sounds
+        {400, keyDown(key::kSpace)},  // the tone played
+        {800, keyDown(key::kTab)},    // no movies: back to the images
+        {900, keyDown(key::kEscape)}, // to reluva-viewer's list
     };
     const Error err = viewer->create(sys, target)->run();
     rec.add("run.result", err ? "error: " + err.message : std::string("ok"));
     rec.add("run.size", std::to_string(sys.width()) + "x" + std::to_string(sys.height()));
     rec.add("run.screens", std::to_string(sys.shown) + " " + sys.screens.hex());
+    rec.add("run.sound",
+            std::to_string(sys.soundFrames) + " frames, peak " + std::to_string(sys.soundPeak) + " " + sys.sound.hex());
     rec.add("run.titles", joined(sys.titles));
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/storm3d/data/engine-record.txt", "storm3d.engine",
               "tests/engines/storm3d/engine.cpp");
