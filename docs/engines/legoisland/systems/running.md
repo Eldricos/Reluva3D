@@ -218,7 +218,9 @@ primary surface), and passes the player's input on: the pointer where it
 is in the game's picture, which fills the window's client area, its
 buttons and wheel, and keys, as window messages and DirectInput's state.
 The program's sound goes to the engine's mixer through the DirectSound
-stand-in. Closing the window asks first. The player turns by time
+stand-in. Closing the window asks first. If the program stops where
+Reluva can't follow it (a function nothing stands in for), the launcher
+says so in a message box, naming it. The player turns by time
 (`GameProcess::turnByTime`): the five bytes that work out the untimed
 turn (0x10054f9f) are a call to a native that works it out the same way
 times the frame's time and 20, so it turns as fast as at 20 frames a

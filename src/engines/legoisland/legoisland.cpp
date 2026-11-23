@@ -127,7 +127,10 @@ private:
             bool ended = false;
             std::string error;
             if (player.finished(ended, error))
-                return error.empty() ? Error::success() : Error::fail(_target.description + " stopped: " + error);
+                return error.empty() ? Error::success()
+                                     : Error::fail("The game went where Reluva can't follow it yet, and stopped "
+                                                   "(what it hadn't saved is lost): " +
+                                                   error);
             _sys.delayMillis(5);
         }
     }
