@@ -20,10 +20,15 @@ C++ library have pages of their own ([directx.md](directx.md),
   memory (`stackAtTop`, LEGO Alpha Team's), so an EXE without relocations
   can have 0x400000. The KERNEL32
   functions a Visual C++ 6 C runtime calls are stood in for:
-  - the heap and pages;
+  - the heap and pages, and `LocalAlloc`'s blocks, all fixed (a movable
+    block's handle is its address) and zeroed;
   - the version: Windows XP, so the runtime uses the system's heap;
   - the command line, environment and start-up details;
   - text conversion for code page 1252;
+  - `CompareStringA` and `CompareStringW`, character by character
+    rather than by Windows' word sort: the locale is ignored, and of the
+    flags only `NORM_IGNORECASE` (Latin-1's letters) counts, so "abc"
+    sorts after "ABC" as it wouldn't on Windows;
   - the standard handles, whose output is passed on.
 
   An import nothing stands in for is bound to a function that fails the
@@ -63,7 +68,10 @@ C++ library have pages of their own ([directx.md](directx.md),
   made; what's written to one goes to `output`. The environment stays
   empty: `SetEnvironmentVariableA` is accepted, not kept. There's one thread, so critical
   sections do nothing, `Sleep` returns at once and a wait on an event finds
-  it signalled.
+  it signalled. No other program can be run: `WinExec` and `LoadModule`
+  fail with `ERROR_FILE_NOT_FOUND`, as for a program that isn't there,
+  saying so to `output`. `DebugBreak` ends the run, naming it, there being
+  no debugger.
 - **`win32_user.cpp`: USER32 and GDI32.** Window classes and windows, kept
   as records (procedure, place, size, visibility) that the engine can show
   as it likes. Making one sends `WM_NCCREATE` and `WM_CREATE`. Showing a
@@ -89,20 +97,57 @@ C++ library have pages of their own ([directx.md](directx.md),
     program goes on;
   - nothing is ever waiting to be painted (`GetUpdateRect`, `BeginPaint`),
     and the desktop is a window of its own (`GetDesktopWindow`);
-  - COMCTL32's `InitCommonControls`, by its ordinal, does nothing.
-- **`win32_gdi.cpp`: GDI's device contexts, fonts and text.** A device
-  context draws into a bitmap in the program's memory: DirectDraw's
-  surfaces hand them out (`GetDC`), through `createDeviceContext`, with
-  how a colour becomes a pixel. A window's draws nowhere. Fonts
+  - COMCTL32's `InitCommonControls`, by its ordinal, does nothing;
+  - `LoadStringA` reads the module's string table resources, from its
+    image in memory, as Latin-1 ('?' beyond);
+  - `wsprintfA` formats as MSVCRT's `sprintf` does (a superset of its
+    conversions: it would print no floating point), at most 1024 bytes;
+  - no dialog box can be shown: `CreateDialogParamA` fails, returning
+    NULL (saying so to `output`); `GetDlgItem`, `SetDlgItemTextA` and
+    `GetDlgItemTextA` find no dialog, and `IsDialogMessageA` says no
+    message is a dialog's, so the program dispatches it.
+- **`win32_gdi.cpp`: GDI's device contexts, fonts and text, bitmaps and
+  palettes.** A device context draws into a bitmap in the program's
+  memory: DirectDraw's surfaces hand them out (`GetDC`), through
+  `createDeviceContext`, with how a colour becomes a pixel and back
+  (`GdiBitmap`). A window's draws nowhere and reads as black. Fonts
   (`CreateFontA`) keep their height; `TextOutA` draws in Reluva's built-in
   bitmap font scaled to it, in the text colour, over the background colour
   unless the mode is transparent, and `GetTextExtentPoint32A` measures in
   the same font. The letters' shapes aren't the font's: no font of
-  Windows is at hand.
+  Windows is at hand. Besides:
+  - memory device contexts (`CreateCompatibleDC`, `DeleteDC`) draw into
+    the bitmap selected into them;
+  - bitmaps are of 8, 16, 24 or 32 bits: `CreateDIBSection` (BI_RGB, or
+    BI_BITFIELDS's masks; its colour table as RGBQUADs or, with
+    DIB_PAL_COLORS, indices into the context's palette), and
+    `CreateCompatibleBitmap`, as the context's bitmap is, else of the
+    desktop's depth (16 bits being 5-6-5). A memory context that has no
+    bitmap yet gives the desktop's depth too, where Windows would make a
+    monochrome bitmap. A file mapping given to `CreateDIBSection` isn't
+    shared: the pixels are in memory of their own;
+  - `BitBlt`, `StretchBlt` and `StretchDIBits` (a bottom-up DIB's source
+    measured from its lower left corner) convert between depths and
+    colour tables, scale by the nearest pixel whatever
+    `SetStretchBltMode` keeps, and mirror where the signs of the widths or
+    heights differ. Raster operations are the ternary table, but those
+    that use a brush's pattern fail, there being no brushes;
+  - `GetDIBits` gives a bitmap's format, or its scan lines in 16, 24 or
+    32 bits (8 only from an 8-bit bitmap: colours aren't reduced to a
+    table);
+  - palettes: `CreatePalette`, `SelectPalette`, `GetNearestPaletteIndex`,
+    `AnimatePalette` (only PC_RESERVED entries change) and an 8-bit DIB
+    section's `SetDIBColorTable`. `RealizePalette` maps every entry on a
+    desktop of 8 bits and none above, where `GetSystemPaletteUse` says
+    SYSPAL_ERROR; at 8 bits it's SYSPAL_STATIC. A palette realized
+    doesn't change how a DirectDraw surface's context matches colours.
 - **`win32_registry.cpp`: the registry and COM.** An in-memory registry,
   seeded with the installed locales. The engine can add an installer's
-  values and hear of the program's writes. `CoCreateInstance` asks the
-  engine's `createComObject`; with none, no class is registered.
+  values and hear of the program's writes. `RegDeleteKeyA` deletes a key
+  and its values as Windows NT does, not one with keys under it
+  (`ERROR_ACCESS_DENIED`); the engine isn't told of a deletion.
+  `CoCreateInstance` asks the engine's `createComObject`; with none, no
+  class is registered.
 - **`com.h`, `com.cpp`: COM objects.** An interface is a table of method
   names and argument counts. `ComHost` builds its vtable of native
   functions in the program's memory, and makes the interface pointers,
@@ -228,6 +273,14 @@ executable's entry point on the main thread until it ends the process.
 - `testInput` checks the messages input becomes, double clicks, key
   states and `ClipCursor`. It also checks DirectInput's mouse (its state,
   its movement since the last read, its buffer) and keyboard.
+- `testGdi` blits an 8-bit DIB section into a 32-bit one, mirrored, with
+  raster operations and a changed colour table, stretches a 24-bit DIB
+  over it, reads it back with `GetDIBits`, and checks palettes.
+  `testOddsAndEnds` checks `CompareStringA` and `CompareStringW`,
+  `LocalAlloc`, `wsprintfA`, the dialogs and programs that fail,
+  `RegDeleteKeyA` and `DebugBreak`. `tests/common/windows_resources.cpp`
+  (`common.unit.windows_resources`) loads a module with a string table
+  and checks `LoadStringA`.
 - **Confidence:** published unless marked.
 
 - `tests/common/drives.cpp` (`common.unit.drives`) checks the drives'

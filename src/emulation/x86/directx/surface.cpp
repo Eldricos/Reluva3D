@@ -413,9 +413,17 @@ std::optional<uint32_t> Surface::invoke(const ComInterface &iface, int index, Cp
                 }
                 return best;
             };
+            b.colorOf = [colors](uint32_t v) {
+                const uint32_t argb = colors[v & 0xff];
+                return (argb >> 16 & 0xff) | (argb & 0xff00) | (argb & 0xff) << 16;
+            };
         } else {
             b.pixelOf = [format](uint32_t ref) {
                 return format.fromArgb(0xff000000u | (ref & 0xff) << 16 | (ref & 0xff00) | (ref >> 16 & 0xff));
+            };
+            b.colorOf = [format](uint32_t v) {
+                const uint32_t argb = format.toArgb(v, nullptr);
+                return (argb >> 16 & 0xff) | (argb & 0xff00) | (argb & 0xff) << 16;
             };
         }
         dc = s->process.createDeviceContext(std::move(b));

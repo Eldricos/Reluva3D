@@ -11,6 +11,7 @@
 #include "emulation/x86/win32.h"
 
 #include "common/events.h"
+#include "emulation/x86/format.h"
 
 #include <algorithm>
 #include <cctype>
@@ -38,6 +39,8 @@ enum : uint32_t {
     kWmSysCommand = 0x112
 };
 constexpr uint32_t kScClose = 0xf060;
+constexpr uint32_t kErrorCallNotImplemented = 120;
+constexpr uint32_t kErrorInvalidWindowHandle = 1400;
 constexpr uint32_t kWsBorder = 0x00800000;
 constexpr uint32_t kWsDlgFrame = 0x00400000;
 constexpr uint32_t kWsCaption = 0x00c00000;
@@ -807,6 +810,93 @@ void Win32Process::addUserStandIns() {
         return 1u; // IDOK
     });
     stdcall(u, "MessageBeep", 1, [](Cpu &) { return 1u; });
+
+    // Dialog boxes aren't made: CreateDialogParamA(instance, template,
+    // parent, procedure, parameter) fails, as Windows does when it can't
+    // make one, and the dialog calls find no dialog.
+    stdcall(u, "CreateDialogParamA", 5, [this](Cpu &c) {
+        if (output) {
+            const uint32_t name = c.arg(1);
+            output("dialog box not made: " + (name > 0xffff ? c.string(name) : "#" + std::to_string(name)) + "\n");
+        }
+        _lastError = kErrorCallNotImplemented;
+        return 0u;
+    });
+    stdcall(u, "GetDlgItem", 2, [this](Cpu &) {
+        _lastError = kErrorInvalidWindowHandle;
+        return 0u;
+    });
+    stdcall(u, "SetDlgItemTextA", 3, [this](Cpu &) {
+        _lastError = kErrorInvalidWindowHandle;
+        return 0u;
+    });
+    // GetDlgItemTextA(dialog, item, buffer, size): nothing, an empty string.
+    stdcall(u, "GetDlgItemTextA", 4, [this](Cpu &c) {
+        if (c.arg(3) && c.valid(c.arg(2), 1))
+            c.write8(c.arg(2), 0);
+        _lastError = kErrorInvalidWindowHandle;
+        return 0u;
+    });
+    // IsDialogMessageA(dialog, message): never a dialog's, so the program
+    // dispatches it as usual.
+    stdcall(u, "IsDialogMessageA", 2, [](Cpu &) { return 0u; });
+
+    // LoadStringA(instance, id, buffer, size): from the module's string
+    // table resources (RT_STRING, 6: blocks of 16 strings, block n holding
+    // the ids (n - 1) * 16 on, each a length and that many UTF-16 units),
+    // taken as Latin-1 ('?' beyond), cut to fit with its NUL. The
+    // characters copied; 0 if there's no such string.
+    stdcall(u, "LoadStringA", 4, [this](Cpu &c) {
+        const uint32_t buffer = c.arg(2);
+        const uint32_t size = c.arg(3);
+        if (!size || !c.valid(buffer, size))
+            return 0u;
+        c.write8(buffer, 0);
+        const Module *m = moduleAt(c.arg(0) ? c.arg(0) : exeBase());
+        if (!m || !m->image.resourceRva)
+            return 0u;
+        const uint32_t resources = m->base + m->image.resourceRva;
+        // A directory's entry (16 bytes of header, the named and id
+        // entries' counts at 12 and 14, then 8-byte entries of an id and an
+        // offset from the resources' start), for `id`, or its first if
+        // `any`; the offset, 0 if there's none.
+        auto entry = [&c, resources](uint32_t directory, uint32_t id, bool any) {
+            const uint32_t at = resources + (directory & 0x7fffffff);
+            const uint32_t count = uint32_t(c.read16(at + 12)) + c.read16(at + 14);
+            for (uint32_t i = 0; i < count && i < 4096; ++i)
+                if (any || c.read32(at + 16 + i * 8) == id)
+                    return c.read32(at + 20 + i * 8);
+            return 0u;
+        };
+        const uint32_t id = c.arg(1) & 0xffff;
+        const uint32_t type = entry(0, 6, false);
+        const uint32_t block = type & 0x80000000 ? entry(type, id / 16 + 1, false) : 0;
+        const uint32_t language = block & 0x80000000 ? entry(block, 0, true) : 0;
+        if (!language || language & 0x80000000)
+            return 0u;
+        // The data entry: the strings' RVA.
+        uint32_t at = m->base + c.read32(resources + language);
+        for (uint32_t k = 0; k < id % 16; ++k)
+            at += 2 + 2 * uint32_t(c.read16(at));
+        const uint32_t length = std::min<uint32_t>(c.read16(at), size - 1);
+        for (uint32_t i = 0; i < length; ++i) {
+            const uint16_t ch = c.read16(at + 2 + 2 * i);
+            c.write8(buffer + i, ch < 256 ? uint8_t(ch) : uint8_t('?'));
+        }
+        c.write8(buffer + length, 0);
+        return length;
+    });
+    // wsprintfA(buffer, format, ...), cdecl: printf's formatting, which
+    // takes all of wsprintf's; at most 1024 bytes are written, as Windows
+    // writes. The characters written, without the NUL.
+    provideCdecl(u, "wsprintfA", [](Cpu &c) {
+        std::string text = formatPrintf(c, c.arg(1), c.reg[Cpu::ESP] + 4 + 4 * 2);
+        if (text.size() > 1023)
+            text.resize(1023);
+        if (!c.writeString(c.arg(0), text, uint32_t(text.size() + 1)))
+            return 0u;
+        return uint32_t(text.size());
+    });
     // InitCommonControls, by its ordinal: the controls' classes are there.
     stdcall("COMCTL32.dll", "#17", 0, [](Cpu &) { return 0u; });
     // MessageBoxA(window, text, caption, type): reported, and answered with

@@ -19,6 +19,7 @@ namespace reluva::x86 {
 
 namespace {
 
+constexpr uint32_t kErrorFileNotFound = 2;
 constexpr uint32_t kErrorBufferOverflow = 111;
 constexpr uint32_t kErrorInsufficientBuffer = 122;
 constexpr uint32_t kEventHandles = 0x7fd00000;
@@ -420,6 +421,24 @@ void Win32Process::addSystemStandIns() {
                 picture += " tt";
         }
         return formatted(c, formatPicture(picture, t));
+    });
+
+    // No other program can be run. WinExec(command, show) and
+    // LoadModule(name, parameters) say so as Windows does when the file
+    // isn't there: ERROR_FILE_NOT_FOUND, which is below 32, so a failure.
+    // Jedi Knight's "control joy.cpl", to calibrate a joystick, ends here.
+    auto cannotRun = [this](const std::string &what) {
+        if (output)
+            output("not run (no other program can be): " + what + "\n");
+        _lastError = kErrorFileNotFound;
+        return kErrorFileNotFound;
+    };
+    stdcall(k, "WinExec", 2, [cannotRun](Cpu &c) { return cannotRun(c.string(c.arg(0))); });
+    stdcall(k, "LoadModule", 2, [cannotRun](Cpu &c) { return cannotRun(c.string(c.arg(0))); });
+    // A breakpoint for a debugger, which there isn't: the run ends there.
+    stdcall(k, "DebugBreak", 0, [](Cpu &c) {
+        c.abort("the program called DebugBreak");
+        return 0u;
     });
 }
 

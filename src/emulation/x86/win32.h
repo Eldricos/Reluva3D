@@ -605,7 +605,11 @@ public:
 
     // GDI's device contexts (win32_gdi.cpp).
 
-    /** A bitmap a device context draws into: pixels in the process's memory, rows `pitch` bytes apart. */
+    /**
+     * A bitmap a device context draws into: pixels in the process's memory,
+     * the top row's at `memory`, rows `pitch` bytes apart (negative for a
+     * bitmap stored bottom up).
+     */
     struct GdiBitmap {
         uint32_t memory = 0;
         int width = 0;
@@ -614,6 +618,8 @@ public:
         int bits = 0; // 8, 16, 24 or 32 per pixel
         /** A COLORREF (0x00bbggrr) as a pixel's value in the bitmap. */
         std::function<uint32_t(uint32_t colorRef)> pixelOf;
+        /** A pixel's value as a COLORREF; without it, blits copy only between bitmaps of the same depth. */
+        std::function<uint32_t(uint32_t pixel)> colorOf;
     };
     /**
      * A device context drawing into `bitmap`, as DirectDraw's surfaces hand
@@ -671,7 +677,19 @@ private:
         uint32_t font = 0;
         uint32_t textColor = 0;
         uint32_t backColor = 0xffffff;
-        uint32_t backMode = 2; // OPAQUE
+        uint32_t backMode = 2;    // OPAQUE
+        bool memory = false;      // CreateCompatibleDC's, which takes bitmaps
+        uint32_t bitmap = 0;      // the bitmap selected into a memory one; 0: its first
+        uint32_t palette = 0;     // SelectPalette's; 0: the default
+        uint32_t stretchMode = 1; // BLACKONWHITE
+    };
+    // CreateCompatibleBitmap's and CreateDIBSection's.
+    struct GdiBitmapObject {
+        GdiBitmap bitmap;
+        uint32_t block = 0; // its pixels' memory, freed with it
+        // An 8-bit one's colours (COLORREFs), shared with its pixelOf and colorOf.
+        std::shared_ptr<std::vector<uint32_t>> colors;
+        bool dibSection = false;
     };
     struct GdiFont {
         int height = 16; // its cell's, in pixels
@@ -680,6 +698,12 @@ private:
     };
     std::map<uint32_t, DeviceContext> _deviceContexts;
     std::map<uint32_t, GdiFont> _fonts;
+    std::map<uint32_t, GdiBitmapObject> _bitmaps;
+    // CreatePalette's PALETTEENTRYs: red in the low byte, the flags in the high.
+    std::map<uint32_t, std::vector<uint32_t>> _palettes;
+    // A bitmap of 8, 16, 24 or 32 bits: in `memory`, or in a block of its own.
+    GdiBitmapObject makeBitmap(int width, int height, int bits, bool bottomUp, std::array<uint32_t, 3> masks,
+                               std::vector<uint32_t> colors, uint32_t memory = 0);
     uint32_t _nextGdiObject = 0x48000;
     DeviceContext &deviceContext(uint32_t dc) { return _deviceContexts[dc]; }
     struct WindowClass {

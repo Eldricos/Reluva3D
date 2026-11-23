@@ -2,13 +2,15 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Windows programs' resources: a string table read from a DLL's
-// resources (readPeStrings), and Windows Help files (.hlp): topics, text
-// and pictures.
+// resources (readPeStrings, and LoadStringA in the x86 emulator), and
+// Windows Help files (.hlp): topics, text and pictures.
 //
 //   reluva-tests common.unit.windows_resources
 
 #include "common/pe.h"
 #include "common/winhelp.h"
+#include "emulation/x86/cpu.h"
+#include "emulation/x86/win32.h"
 #include "tests/support/test.h"
 
 #include <cstdint>
@@ -90,6 +92,27 @@ void testPeStrings() {
     CHECK(strings.size() == 2 && strings[529] == "Go!" && strings[543] == "F\xc3\xbcnf");
     pe.resourceRva = 0;
     CHECK(readPeStrings(dll, pe, strings));
+}
+
+// LoadStringA, as a program loaded in the emulator calls it.
+void testLoadString() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    const x86::Win32Process::Module *m = nullptr;
+    CHECK(!process.load("strings.dll", stringTableDll(), m) && m);
+    if (!m)
+        return;
+    const uint32_t buffer = process.memory().alloc(16);
+    uint32_t r = 0;
+    auto load = [&](uint32_t id, uint32_t size) {
+        CHECK(!cpu.call(process.provided("USER32.dll", "LoadStringA"), {m->base, id, buffer, size}, r));
+        return r;
+    };
+    CHECK(load(529, 16) == 3 && cpu.string(buffer) == "Go!");
+    CHECK(load(543, 16) == 4 && cpu.string(buffer) == "F\xfcnf"); // as Latin-1
+    CHECK(load(543, 3) == 2 && cpu.string(buffer) == "F\xfc");
+    CHECK(load(530, 16) == 0 && cpu.string(buffer).empty());
+    CHECK(load(5, 16) == 0);
 }
 
 // A Windows Help file made here: its directory (a B+ tree of one leaf),
@@ -196,5 +219,6 @@ void testWinHelp() {
 static const reluva::test::Suite kSuite("common.unit.windows_resources",
                                         {
                                             {"string table", [](const std::filesystem::path &) { testPeStrings(); }},
+                                            {"LoadStringA", [](const std::filesystem::path &) { testLoadString(); }},
                                             {"help file", [](const std::filesystem::path &) { testWinHelp(); }},
                                         });

@@ -1688,6 +1688,202 @@ static void testJoysticks() {
     CHECK(call("joyGetPos", {1, info}) == 0);
 }
 
+// GDI's bitmaps as a program uses them: an 8-bit DIB section blitted, mirrored
+// and stretched into a 32-bit one, read back with GetDIBits; palettes.
+static void testGdi() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    uint32_t r = 0;
+    auto call = [&](const char *name, const std::vector<uint32_t> &args) {
+        CHECK(!cpu.call(process.provided("GDI32.dll", name), args, r));
+        return r;
+    };
+    const uint32_t srccopy = 0x00cc0020;
+    // A 4 by 2 bottom-up DIB of 8 bits: black, red, green and blue.
+    const uint32_t info = process.memory().alloc(40 + 256 * 4);
+    cpu.write32(info, 40);
+    cpu.write32(info + 4, 4);
+    cpu.write32(info + 8, 2);
+    cpu.write16(info + 12, 1);
+    cpu.write16(info + 14, 8);
+    cpu.write32(info + 32, 4);
+    const uint32_t quads[4] = {0, 0x00ff0000, 0x0000ff00, 0x000000ff}; // RGBQUADs: blue, green, red
+    for (uint32_t i = 0; i < 4; ++i)
+        cpu.write32(info + 40 + 4 * i, quads[i]);
+    const uint32_t bitsOut = process.memory().alloc(4);
+    const uint32_t dc8 = call("CreateCompatibleDC", {0});
+    const uint32_t dib8 = call("CreateDIBSection", {dc8, info, 0, bitsOut, 0, 0});
+    CHECK(dib8 != 0 && cpu.read32(bitsOut) != 0);
+    const uint32_t pixels8 = cpu.read32(bitsOut);
+    cpu.write32(pixels8, 0x00000000);     // the bottom row
+    cpu.write32(pixels8 + 4, 0x00030201); // the top row: red, green, blue, black
+    const uint32_t first = call("SelectObject", {dc8, dib8});
+    CHECK(first != 0 && first != dib8);
+    // A 4 by 2 top-down one of 32 bits.
+    const uint32_t info32 = process.memory().alloc(40);
+    cpu.write32(info32, 40);
+    cpu.write32(info32 + 4, 4);
+    cpu.write32(info32 + 8, uint32_t(-2));
+    cpu.write16(info32 + 12, 1);
+    cpu.write16(info32 + 14, 32);
+    const uint32_t dc32 = call("CreateCompatibleDC", {dc8});
+    const uint32_t dib32 = call("CreateDIBSection", {dc32, info32, 0, bitsOut, 0, 0});
+    const uint32_t pixels32 = cpu.read32(bitsOut);
+    CHECK(dib32 != 0 && call("SelectObject", {dc32, dib32}) != 0);
+    auto row32 = [&](int y) {
+        std::vector<uint32_t> row;
+        for (uint32_t x = 0; x < 4; ++x)
+            row.push_back(cpu.read32(pixels32 + uint32_t(y) * 16 + 4 * x));
+        return row;
+    };
+    CHECK(call("BitBlt", {dc32, 0, 0, 4, 2, dc8, 0, 0, srccopy}) == 1);
+    CHECK((row32(0) == std::vector<uint32_t>{0xff0000, 0xff00, 0xff, 0}) &&
+          (row32(1) == std::vector<uint32_t>{0, 0, 0, 0}));
+    // Mirrored by a negative source width.
+    CHECK(call("StretchBlt", {dc32, 0, 0, 4, 2, dc8, 4, 0, uint32_t(-4), 2, srccopy}) == 1);
+    CHECK((row32(0) == std::vector<uint32_t>{0, 0xff, 0xff00, 0xff0000}));
+    // A colour of the DIB section's table changed.
+    const uint32_t yellow = process.memory().alloc(4);
+    cpu.write32(yellow, 0x00ffff00);
+    CHECK(call("SetDIBColorTable", {dc8, 1, 1, yellow}) == 1);
+    CHECK(call("BitBlt", {dc32, 0, 0, 1, 1, dc8, 0, 0, srccopy}) == 1 && cpu.read32(pixels32) == 0xffff00);
+    // Raster operations without a pattern; one with fails.
+    CHECK(call("BitBlt", {dc32, 0, 1, 4, 1, 0, 0, 0, 0x00ff0062}) == 1 && row32(1)[3] == 0xffffff); // WHITENESS
+    CHECK(call("BitBlt", {dc32, 0, 1, 4, 1, dc8, 0, 0, 0x008800c6}) == 1 &&                         // SRCAND
+          (row32(1) == std::vector<uint32_t>{0xffff00, 0xff00, 0xff, 0}));
+    CHECK(call("BitBlt", {dc32, 0, 0, 4, 2, 0, 0, 0, 0x00f00021}) == 0); // PATCOPY
+    // A 2 by 1 DIB of 24 bits, white and blue, stretched over the whole.
+    const uint32_t info24 = process.memory().alloc(40);
+    cpu.write32(info24, 40);
+    cpu.write32(info24 + 4, 2);
+    cpu.write32(info24 + 8, 1);
+    cpu.write16(info24 + 12, 1);
+    cpu.write16(info24 + 14, 24);
+    const uint32_t pixels24 = process.memory().alloc(8);
+    for (uint32_t i = 0; i < 3; ++i)
+        cpu.write8(pixels24 + i, 0xff);
+    cpu.write8(pixels24 + 3, 0xff); // blue, green, red: blue
+    CHECK(call("StretchDIBits", {dc32, 0, 0, 4, 2, 0, 0, 2, 1, pixels24, info24, 0, srccopy}) == 1);
+    CHECK((row32(0) == std::vector<uint32_t>{0xffffff, 0xffffff, 0xff, 0xff}) && row32(1) == row32(0));
+    CHECK(call("SetStretchBltMode", {dc32, 3}) == 1 && call("SetStretchBltMode", {dc32, 4}) == 3);
+    CHECK(call("SetStretchBltMode", {dc32, 9}) == 0);
+    // GetDIBits: the format, then the rows as 24 bits, bottom up.
+    const uint32_t asked = process.memory().alloc(52);
+    cpu.write32(asked, 40);
+    CHECK(call("GetDIBits", {dc32, dib32, 0, 2, 0, asked, 0}) == 1);
+    CHECK(cpu.read32(asked + 4) == 4 && cpu.read32(asked + 8) == 2 && cpu.read16(asked + 14) == 32 &&
+          cpu.read32(asked + 16) == 0);
+    cpu.write16(asked + 14, 24);
+    const uint32_t lines = process.memory().alloc(24);
+    cpu.write32(pixels32 + 16, 0x00123456); // the bottom row's first
+    CHECK(call("GetDIBits", {dc32, dib32, 0, 2, lines, asked, 0}) == 2);
+    CHECK(cpu.read8(lines) == 0x56 && cpu.read8(lines + 1) == 0x34 && cpu.read8(lines + 2) == 0x12 &&
+          cpu.read8(lines + 12) == 0xff && cpu.read8(lines + 15) == 0xff);
+    // A compatible bitmap of the context's depth.
+    const uint32_t compatible = call("CreateCompatibleBitmap", {dc32, 3, 3});
+    cpu.write32(asked + 14, 0);
+    CHECK(compatible != 0 && call("GetDIBits", {dc32, compatible, 0, 3, 0, asked, 0}) == 1 &&
+          cpu.read16(asked + 14) == 32 && cpu.read32(asked + 4) == 3);
+
+    // Palettes: black, a PC_RESERVED white, red.
+    const uint32_t logPalette = process.memory().alloc(16);
+    cpu.write16(logPalette, 0x300);
+    cpu.write16(logPalette + 2, 3);
+    cpu.write32(logPalette + 4, 0);
+    cpu.write32(logPalette + 8, 0x01ffffff);
+    cpu.write32(logPalette + 12, 0x000000ff);
+    const uint32_t palette = call("CreatePalette", {logPalette});
+    CHECK(palette != 0 && call("GetNearestPaletteIndex", {palette, 0x000010e0}) == 2);
+    CHECK(call("GetNearestPaletteIndex", {palette + 1, 0}) == 0xffffffffu);
+    const uint32_t greens = process.memory().alloc(12);
+    for (uint32_t i = 0; i < 3; ++i)
+        cpu.write32(greens + 4 * i, 0x0000ff00);
+    CHECK(call("AnimatePalette", {palette, 0, 3, greens}) == 1);
+    CHECK(call("GetNearestPaletteIndex", {palette, 0x0000ff00}) == 1 &&
+          call("GetNearestPaletteIndex", {palette, 0x000000ff}) == 2);
+    const uint32_t stock = call("SelectPalette", {dc8, palette, 0});
+    CHECK(stock != 0 && call("SelectPalette", {dc8, stock, 0}) == palette);
+    CHECK(call("SelectPalette", {dc8, palette, 0}) == stock);
+    CHECK(call("RealizePalette", {dc8}) == 0 && call("GetSystemPaletteUse", {dc8}) == 0);
+    process.screenBits = 8;
+    CHECK(call("RealizePalette", {dc8}) == 3 && call("GetSystemPaletteUse", {dc8}) == 1);
+
+    CHECK(call("SelectObject", {dc8, first}) == dib8);
+    CHECK(call("DeleteObject", {dib8}) == 1 && call("DeleteObject", {palette}) == 1);
+    CHECK(call("DeleteDC", {dc8}) == 1 && call("DeleteDC", {dc8}) == 0);
+}
+
+// KERNEL32's, USER32's and ADVAPI32's odds and ends: string comparison,
+// LocalAlloc, wsprintfA, the dialogs and programs that can't be had,
+// RegDeleteKeyA and DebugBreak.
+static void testOddsAndEnds() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    uint32_t r = 0;
+    auto call = [&](const char *dll, const char *name, const std::vector<uint32_t> &args) {
+        CHECK(!cpu.call(process.provided(dll, name), args, r));
+        return r;
+    };
+    auto text = [&](const std::string &s) {
+        const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
+        cpu.writeString(a, s, uint32_t(s.size() + 1));
+        return a;
+    };
+    auto wide = [&](const std::string &s) {
+        const uint32_t a = process.memory().alloc(uint32_t(2 * s.size() + 2));
+        for (size_t i = 0; i <= s.size(); ++i)
+            cpu.write16(a + 2 * uint32_t(i), i < s.size() ? uint8_t(s[i]) : 0);
+        return a;
+    };
+    const char *k = "KERNEL32.dll";
+    const char *u = "USER32.dll";
+    const uint32_t minus = uint32_t(-1);
+    CHECK(call(k, "CompareStringA", {0x409, 0, text("abc"), minus, text("abd"), minus}) == 1);
+    CHECK(call(k, "CompareStringA", {0x409, 0, text("abc"), minus, text("ABC"), minus}) == 3);
+    CHECK(call(k, "CompareStringA", {0x409, 1, text("abc\xe9"), minus, text("ABC\xc9"), minus}) == 2);
+    CHECK(call(k, "CompareStringA", {0x409, 0, text("abcX"), 3, text("abc"), minus}) == 2);
+    CHECK(call(k, "CompareStringA", {0x409, 0, text("abc"), minus, text("ab"), minus}) == 3);
+    CHECK(call(k, "CompareStringA", {0x409, 0, 0, minus, text("ab"), minus}) == 0);
+    CHECK(call(k, "CompareStringW", {0x409, 1, wide("Jedi"), minus, wide("JEDI"), 4}) == 2);
+    CHECK(call(k, "CompareStringW", {0x409, 0, wide("Jedi"), 2, wide("Jedi"), minus}) == 1);
+
+    const uint32_t block = call(k, "LocalAlloc", {0x40, 64});
+    CHECK(block != 0 && cpu.read32(block) == 0 && cpu.read32(block + 60) == 0);
+    CHECK(call(k, "LocalFree", {block}) == 0);
+
+    const uint32_t buffer = process.memory().alloc(2048);
+    CHECK(call(u, "wsprintfA", {buffer, text("%s=%d %04x %c"), text("n"), uint32_t(-5), 0xab, 'z'}) == 11 &&
+          cpu.string(buffer) == "n=-5 00ab z");
+    CHECK(call(u, "wsprintfA", {buffer, text("%s"), text(std::string(1500, 'x'))}) == 1023 &&
+          cpu.string(buffer, 4096).size() == 1023);
+
+    // What can't be had: other programs, and dialog boxes.
+    std::string said;
+    process.output = [&](const std::string &s) { said += s; };
+    CHECK(call(k, "WinExec", {text("control joy.cpl"), 1}) == 2);
+    CHECK(said.find("control joy.cpl") != std::string::npos);
+    CHECK(call(k, "LoadModule", {text("SETUP.EXE"), 0}) == 2);
+    CHECK(call(u, "CreateDialogParamA", {0x400000, 101, 0, 0, 0}) == 0);
+    CHECK(call(u, "GetDlgItem", {0, 101}) == 0 && call(u, "SetDlgItemTextA", {0, 101, text("x")}) == 0);
+    cpu.write8(buffer, 'x');
+    CHECK(call(u, "GetDlgItemTextA", {0, 101, buffer, 16}) == 0 && cpu.read8(buffer) == 0);
+    CHECK(call(u, "IsDialogMessageA", {0, buffer}) == 0);
+
+    // A key with keys under it isn't deleted.
+    const uint32_t key = process.memory().alloc(4);
+    const char *a = "ADVAPI32.dll";
+    CHECK(call(a, "RegCreateKeyExA", {0x80000001u, text("Software\\Game\\Sub"), 0, 0, 0, 0, 0, key, 0}) == 0);
+    CHECK(call(a, "RegDeleteKeyA", {0x80000001u, text("Software\\Game")}) == 5);
+    CHECK(call(a, "RegDeleteKeyA", {0x80000001u, text("software\\game\\sub")}) == 0);
+    CHECK(call(a, "RegDeleteKeyA", {0x80000001u, text("Software\\Game\\Sub")}) == 2);
+    CHECK(call(a, "RegDeleteKeyA", {0x80000001u, text("Software\\Game")}) == 0);
+    CHECK(call(a, "RegOpenKeyExA", {0x80000001u, text("Software\\Game"), 0, 1, key}) == 2);
+
+    // DebugBreak ends the run.
+    const Error e = cpu.call(process.provided(k, "DebugBreak"), {}, r);
+    CHECK(e && e.message.find("DebugBreak") != std::string::npos);
+}
+
 // A3D created as a program creates it, a source made, filled through Lock,
 // played once and looped, as the clock moves.
 static void testA3d() {
@@ -1866,6 +2062,8 @@ static const test::Suite
                {"direct3d 1", [](const std::filesystem::path &) { testDirect3D1(); }},
                {"directplay", [](const std::filesystem::path &) { testDirectPlay(); }},
                {"joysticks", [](const std::filesystem::path &) { testJoysticks(); }},
+               {"gdi", [](const std::filesystem::path &) { testGdi(); }},
+               {"odds and ends", [](const std::filesystem::path &) { testOddsAndEnds(); }},
                {"cd audio", [](const std::filesystem::path &tmp) { testCdAudio(tmp / "cdaudio"); }},
                {"directsound", [](const std::filesystem::path &) { testDirectSound(); }},
                {"sound 3d", [](const std::filesystem::path &) { testSound3d(); }},

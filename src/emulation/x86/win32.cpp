@@ -7,6 +7,7 @@
 #include <cctype>
 #include <chrono>
 #include <cstring>
+#include <vector>
 
 namespace reluva::x86 {
 
@@ -634,6 +635,26 @@ void Win32Process::addStandIns() {
         _arena->free(old);
         return p;
     });
+    // LocalAlloc(flags, size): a fixed block of the heap's, whatever the
+    // flags; the handle of a movable one is its address, which LocalLock
+    // would give. New blocks are zeroed (LMEM_ZEROINIT) anyway.
+    stdcall(k, "LocalAlloc", 2, [this](Cpu &c) {
+        const uint32_t p = _arena->alloc(std::max(c.arg(1), 1u));
+        if (!p)
+            _lastError = 8; // ERROR_NOT_ENOUGH_MEMORY
+        return p;
+    });
+    // LocalFree(handle): 0 when freed, the handle when it isn't a block's.
+    stdcall(k, "LocalFree", 1, [this](Cpu &c) {
+        if (!c.arg(0))
+            return 0u;
+        if (!_arena->size(c.arg(0))) {
+            _lastError = 6; // ERROR_INVALID_HANDLE
+            return c.arg(0);
+        }
+        _arena->free(c.arg(0));
+        return 0u;
+    });
     // VirtualAlloc(address, size, type, protection): anywhere, or at an
     // address asked for if nothing's there (else ERROR_INVALID_ADDRESS, and
     // the program tries elsewhere). Committing pages of a block reserved
@@ -923,6 +944,37 @@ void Win32Process::addStandIns() {
             c.write16(c.arg(4) + 2 * uint32_t(i), uint16_t(mapCase(c.arg(1), c.read16(c.arg(2) + 2 * uint32_t(i)))));
         return uint32_t(n);
     });
+    // CompareStringA(locale, flags, text1, length1, text2, length2), and
+    // CompareStringW: CSTR_LESS_THAN (1), CSTR_EQUAL (2) or
+    // CSTR_GREATER_THAN (3); 0 for a missing string. A negative length
+    // reads to the NUL. Compared character by character, not by Windows'
+    // word sort: the locale is ignored, and so are the flags but
+    // NORM_IGNORECASE.
+    auto compareStrings = [this](Cpu &c, uint32_t unit) {
+        const uint32_t texts[2] = {c.arg(2), c.arg(4)};
+        const int32_t lengths[2] = {int32_t(c.arg(3)), int32_t(c.arg(5))};
+        if (!texts[0] || !texts[1]) {
+            _lastError = 87; // ERROR_INVALID_PARAMETER
+            return 0u;
+        }
+        const bool ignoreCase = c.arg(1) & 1;
+        std::vector<uint32_t> units[2];
+        for (int s = 0; s < 2; ++s)
+            for (uint32_t i = 0; lengths[s] < 0 ? i < (1u << 20) : i < uint32_t(lengths[s]); ++i) {
+                const uint32_t at = texts[s] + i * unit;
+                uint32_t ch = unit == 1 ? c.read8(at) : c.read16(at);
+                if (lengths[s] < 0 && !ch)
+                    break;
+                // Latin-1's lower-case letters, but for the division sign.
+                if (ignoreCase && ((ch >= 'a' && ch <= 'z') || (ch >= 0xe0 && ch <= 0xfe && ch != 0xf7)))
+                    ch -= 0x20;
+                units[s].push_back(ch);
+            }
+        const int order = units[0] < units[1] ? -1 : units[1] < units[0] ? 1 : 0;
+        return uint32_t(2 + order);
+    };
+    stdcall(k, "CompareStringA", 6, [compareStrings](Cpu &c) { return compareStrings(c, 1); });
+    stdcall(k, "CompareStringW", 6, [compareStrings](Cpu &c) { return compareStrings(c, 2); });
     // MultiByteToWideChar(codePage, flags, text, length, out, outLength)
     stdcall(k, "MultiByteToWideChar", 6, [](Cpu &c) {
         int32_t n = int32_t(c.arg(3));

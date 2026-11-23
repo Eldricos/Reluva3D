@@ -18,6 +18,7 @@ namespace reluva::x86 {
 namespace {
 
 constexpr uint32_t kErrorFileNotFound = 2;
+constexpr uint32_t kErrorAccessDenied = 5;
 constexpr uint32_t kErrorInvalidHandle = 6;
 constexpr uint32_t kErrorMoreData = 234;
 constexpr uint32_t kErrorNoMoreItems = 259;
@@ -172,6 +173,27 @@ void Win32Process::addRegistryStandIns() {
         c.write32(c.arg(7), open(path));
         if (c.arg(8))
             c.write32(c.arg(8), existed ? 2u : 1u);
+        return 0u;
+    });
+    // RegDeleteKeyA(key, sub): the key and its values, as Windows NT does
+    // it, which won't delete a key with keys under it (Windows 95 would).
+    // Open handles to it are left dangling; the engine isn't told
+    // (registryWritten is for values).
+    stdcall(a, "RegDeleteKeyA", 2, [this, pathOf](Cpu &c) {
+        const std::string path = pathOf(c, c.arg(0), c.arg(1));
+        if (path.empty())
+            return kErrorInvalidHandle;
+        const std::string key = lower(path);
+        if (rootName(c.arg(0)) && key == lower(rootName(c.arg(0))))
+            return kErrorAccessDenied; // a root can't be deleted
+        auto it = _registry.find(key);
+        if (it == _registry.end())
+            return kErrorFileNotFound;
+        const std::string below = key + "\\";
+        auto sub = _registry.lower_bound(below);
+        if (sub != _registry.end() && sub->first.compare(0, below.size(), below) == 0)
+            return kErrorAccessDenied;
+        _registry.erase(it);
         return 0u;
     });
     stdcall(a, "RegCloseKey", 1, [this](Cpu &c) {
