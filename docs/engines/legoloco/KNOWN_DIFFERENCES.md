@@ -46,12 +46,6 @@ None yet.
 - **The window:** the original runs on the desktop, in windows filling
   it; Reluva shows its desktop as the game's window, with nothing of
   Windows around it ([systems/running.md](systems/running.md)).
-- **The player's name box:** the front screen's ticket has a box to type
-  the player's name in, an `EDIT` control the game makes with
-  `CreateWindowExA` (`0x42063d`). Reluva makes only the windows of the
-  program's own classes and the controls of dialogs, so the box isn't
-  made, nor drawn; the name is `LEGO.INI`'s `[USER]` `Name`. The mail
-  room's and the save panel's boxes are the same kind.
 - **The text's font:** the station master's bubbles and the game's other
   text ask for Arial, 12 pixels, bold (`0x446113`); Reluva draws GDI's
   text in a font of its own, smaller and plainer, and breaks lines

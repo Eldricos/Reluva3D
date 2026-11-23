@@ -82,7 +82,12 @@ Seen running in Reluva (`reluva-tool legoloco run`):
     is painted again (`WM_PAINT`), and draws itself by blits onto the
     primary surface: the LEGO and LOCO logos, the station master, a case
     for one player and one for two, a way back and a tick. It draws its
-    own pointer, a hand, where the mouse is.
+    own pointer, a hand, where the mouse is. On its ticket is the
+    player's name, in an edit control it makes (`0x42063d`: `EDIT`, its
+    sunken edge, at most 11 characters, its window procedure its own,
+    passing the rest on), filled from `LEGO.INI`'s `[USER]` `Name` and
+    chosen, to be typed over; the name taken at the tick is kept there,
+    and the player's profile is `art-res\<name>.usr`.
 14. A case chosen and the tick clicked, the game's own loop runs: the
     first layout, and the station master's welcome, its text drawn by
     GDI. (Its main loop, in a state other than 2, peeks messages and
