@@ -308,7 +308,8 @@ public:
         float vy = 0.0f;
         float vz = 0.0f;
         bool resting = false;
-        int id = 0; // its instigator is kThrownInstigator less this
+        int id = 0;           // its instigator is kThrownInstigator less this
+        float gravity = 0.0f; // falling by so much a second each second
     };
     const std::vector<Thrown> &thrown() const { return _thrown; }
     /** A thrown thing as an action's instigator: kThrownInstigator less its id. */

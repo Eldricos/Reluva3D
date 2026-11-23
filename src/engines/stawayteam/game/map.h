@@ -136,9 +136,13 @@ struct ModelInfo {
     bool explosionNeedsSight = false;
     float maxVelocity = 0.0f;
     // How it bounces: the part of its fall's speed it keeps going up (Bounce
-    // Factor), and of its speed along the ground it loses (Bounce Friction).
+    // Factor), and of its speed along the ground it loses (Bounce Friction);
+    // a bounce slower than Min Bounce, or speed along the ground less than
+    // Min Bounce Friction, is none (0x51fc10).
     float bounceFactor = 0.0f;
     float bounceFriction = 0.0f;
+    float minBounce = 0.0f;
+    float minBounceFriction = 0.0f;
     float fuse = 0.0f;
     float noiseRadius = 0.0f;
     float noiseAge = 0.0f;

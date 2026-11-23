@@ -959,14 +959,17 @@ void testItems() {
                             part("Away Team Spawn Point 2", 300, 420, "") + "\t}\n}\n";
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
-    data.files["Cache/Models/Shots/Concussion.mdl16"] = modelFile("Concussion", 1, 1, 50.0f, {}, 150.0f, true, 400.0f);
-    data.files["Cache/Models/Shots/Frag.mdl16"] = modelFile("Frag", 1, 1, 50.0f, {}, 60.0f, false, 400.0f);
+    data.files["Cache/Models/Shots/Concussion.mdl16"] =
+        modelFile("Concussion", 1, 1, 50.0f, {}, 150.0f, true, 400.0f, grenadeLook());
+    data.files["Cache/Models/Shots/Frag.mdl16"] =
+        modelFile("Frag", 1, 1, 50.0f, {}, 60.0f, false, 400.0f, grenadeLook());
     const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
     const auto grenade = [&](const std::string &damage, const std::string &projectile) {
         return bytesOf(
             "CStarTrekInventoryItemDefinition\n{\n\tDisplay In Inventory=1\n\tWeapon Damage=" + damage +
             "\n\tStun Duration=30\n\tItem Range=500\n\tDischarge Sequence=Throw\n\tProjectile=" + projectile +
-            "\n\tDischarge Action=CThrowProjectileWeaponAction\n\t{\n\t}\n"
+            "\n\tDischarge Action=CThrowProjectileWeaponAction\n\t{\n\t\tHeight=31\n\t\tVelocity Factor=0.725\n"
+            "\t\tGravity AI=CThrowGravityAI\n\t\t{\n\t\t\tGravity=17\n\t\t}\n\t}\n"
             "\tDefault Inventory Item=CStarTrekProjectileWeaponInventoryItem\n\t{\n"
             "\t\tRounds=3\n\t}\n}\n");
     };
@@ -1008,22 +1011,33 @@ void testItems() {
         while (now < until)
             screen.update(now += 50);
     };
-    // A concussion grenade thrown at the guard, in range: it flies there,
-    // and three seconds on stuns Guard A, in its 150, not Guard B.
+    // A concussion grenade thrown at the guard, in range: three seconds on
+    // it stuns Guard A, in its 150, not Guard B.
     screen.choose(0);
     screen.chooseItem(0, 0);
     CHECK(screen.useItem(600.0f, 500.0f));
     run(100);
     CHECK(a.items[0].count == 1 && screen.thrown().size() == 1 && a.discharge == "Throw");
-    run(1000);
-    CHECK(screen.thrown()[0].x == 600.0f);
+    // Thrown at 45 degrees at 0.725 of what would land it there, it comes
+    // down about half way, then skips on along the ground toward it.
+    float top = 0.0f;
+    float landed = 0.0f;
+    while (now < 1300) {
+        run(now + 50);
+        top = std::max(top, screen.thrown()[0].z);
+        if (landed == 0.0f && screen.thrown()[0].z == 0.0f)
+            landed = screen.thrown()[0].x;
+    }
+    CHECK(top > 60.0f && landed > 450.0f && landed < 520.0f);
+    run(3000);
+    CHECK(screen.thrown()[0].x > 580.0f && screen.thrown()[0].x < 640.0f && screen.thrown()[0].y == 500.0f);
     run(3200);
     CHECK(screen.thrown().empty() && screen.enemies()[0].state == "Stun" && screen.enemies()[0].health == 100.0f);
     CHECK(screen.enemies()[1].state == "Patrol");
-    // The frag grenade at Bo's feet: he's hurt, Ann, 100 off, isn't; then
-    // there's none left.
+    // The frag grenade thrown 50 toward Bo skips on to his feet: he's hurt,
+    // Ann, 100 off, isn't; then there's none left.
     screen.chooseItem(0, 1);
-    CHECK(screen.useItem(300.0f, 400.0f));
+    CHECK(screen.useItem(300.0f, 450.0f));
     run(7000);
     CHECK(b.health == 70.0f && a.health == 100.0f && a.items[1].count == 0);
     CHECK(!screen.useItem(300.0f, 400.0f));
@@ -1065,11 +1079,12 @@ void testOverload() {
     const auto bytesOf = [](const std::string &text) { return std::vector<uint8_t>(text.begin(), text.end()); };
     MemoryArchive data;
     data.files["Levels/Test.zax"] = bytesOf(zax);
-    data.files["Cache/Models/Shots/Concussion.mdl16"] = modelFile("Concussion", 1, 1, 50.0f, {}, 150.0f, false, 400.0f);
+    data.files["Cache/Models/Shots/Concussion.mdl16"] =
+        modelFile("Concussion", 1, 1, 50.0f, {}, 150.0f, false, 400.0f, grenadeLook());
     data.files["Inventory/Item Definitions/Phaser.txt"] = bytesOf(
         "CStarTrekInventoryItemDefinition\n{\nDisplay In Inventory=1\nWeapon Damage=40\nItem Range=375\n"
         "Discharge Action=CShootEnergyWeaponAction\n{\n}\nOverload Discharge Action=CThrowProjectileWeaponAction\n"
-        "{\nGravity AI=CThrowGravityAI\n{\nGravity=17\n}\n}\nOverload Discharge Sequence=Throw\n"
+        "{\nVelocity Factor=0.725\nGravity AI=CThrowGravityAI\n{\nGravity=17\n}\n}\nOverload Discharge Sequence=Throw\n"
         "Is Overloadable=1\nOverload Projectile=Shots/Concussion\n}\n");
     GameMap map;
     CHECK(!loadMap(data, "Levels/Test.zax", map));
@@ -1669,7 +1684,8 @@ void testKit() {
     data.files["Levels/Test.zax"] = bytesOf(zax);
     data.files["Cache/Models/Characters/Guard.mdl16"] = modelFile("Guard", 1, 1);
     data.files["Cache/Models/Props/Box.mdl16"] = modelFile("Box", 1, 1);
-    data.files["Cache/Models/Shots/Grenade.mdl16"] = modelFile("Grenade", 1, 1, 1.0f, {}, 0.0f, false, 400.0f);
+    data.files["Cache/Models/Shots/Grenade.mdl16"] =
+        modelFile("Grenade", 1, 1, 1.0f, {}, 0.0f, false, 400.0f, grenadeLook());
     data.files["Death Behaviors/Test.txt"] =
         bytesOf("CDeathBehaviorDefinition\n{\nDeath Behaviors=CEntityBehaviorExecuteAction\n{\n"
                 "Action=CSetCategoryAction\n{\nWho to Set=$trigger\nCategory to Set=Dead Bodies\n}\n}\n}\n");
@@ -1776,7 +1792,8 @@ void testProjectiles() {
         "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=300\n}\n}\n}\n";
     MemoryArchive data;
     data.files["Levels/Test.zax"] = bytesOf(zax);
-    data.files["Cache/Models/Shots/Grenade.mdl16"] = modelFile("Grenade", 1, 1, 1.0f, {}, 0.0f, false, 400.0f);
+    data.files["Cache/Models/Shots/Grenade.mdl16"] =
+        modelFile("Grenade", 1, 1, 1.0f, {}, 0.0f, false, 400.0f, grenadeLook());
     data.files["Inventory/Item Definitions/Grenade.txt"] =
         bytesOf("CStarTrekInventoryItemDefinition\n{\nDisplay In Inventory=1\nItem Range=500\n"
                 "Projectile=Shots/Grenade\nDischarge Action=CThrowProjectileWeaponAction\n{\nHeight=30\n"

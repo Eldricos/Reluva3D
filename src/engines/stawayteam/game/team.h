@@ -142,6 +142,7 @@ struct ItemDefinition {
     std::array<uint8_t, 3> beamMiddle{};
     // A thrown one's Gravity AI's Gravity and Bounce Sound.
     float gravity = 0.0f;
+    float velocityFactor = 1.0f; // its throw's speed is so much of what would land it there
     std::string bounceSound;
     float health = 0.0f;      // a healer's (its Discharge Action's Health action's Health)
     float enhanceTime = 0.0f; // an enhancer's (its Discharge Action's CEnhanceInventoryAction's Time To Enhance), s
@@ -154,6 +155,7 @@ struct ItemDefinition {
     bool overloadable = false;
     std::string overloadProjectile;
     float overloadGravity = 0.0f;
+    float overloadVelocityFactor = 1.0f;
     std::string overloadSequence;
     std::string deployModel;    // what a mine leaves where it's put (its CDropItemAtTargetAction's)
     std::string deploySequence; // its sequence played once as it's put down: that action's Deploy Sequence

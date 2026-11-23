@@ -271,15 +271,19 @@ definition's Rounds if it has any; the weapon they shoot with chosen
 keys' names, *inferred*), chooses it; a weapon chosen is the one they
 shoot with. With a grenade chosen, a click on the map sends the officer
 to throw it there: they walk until the place is in its Item Range and
-in sight, then throw it from its Height, along the ground at its Max
-Velocity and up so its Gravity, taken as pixels a second each 30th of a
-second, brings it down there; it bounces by its Bounce Factor and
-Friction, with its Bounce Sound, till a bounce is slower than 40 pixels a
-second, and goes off its Shot Duration after it's thrown *(inferred)*.
-The program's own throw (`CThrowGravityAI`, `0x5f91a4`) is otherwise: at
-45°, at √(Gravity × 20.749 × distance) times its `Velocity Factor`, its
-Gravity in the particles' units ([particles.md](particles.md#particles));
-Reluva's isn't that yet.
+in sight *(inferred)*, though the items don't Need LOS, then throw it from its
+Height, as the program throws (`0x5f8fc0`): toward the place at 45° up,
+at √(Gravity × 20.749 × distance) times its Discharge Action's `Velocity
+Factor`, no faster than its model's Max Velocity *(inferred)*. Gravity is
+its `Gravity AI`'s, in the particles' units, a second each second
+([particles.md](particles.md#particles)). At a Velocity Factor of 1 that
+would land it there; the game's 0.725 lands it about half way. Each time
+it lands it bounces by its model's `Bounce Factor` of its fall and loses
+its `Bounce Friction` of its speed along the ground; a bounce slower than
+its `Min Bounce` is none, and less speed along the ground than its `Min
+Bounce Friction` stops it (`0x51fc10`). So it skips on toward the place,
+ending about there on a long throw and past it on a short one. It goes
+off its Shot Duration after it's thrown.
 A wall, or a collideable polygon standing full height while it's
 active, turns it, mirrored off its side, with its Bounce Sound
 *(inferred)*: Mission 01's and 08's `Fake Grenade Bouncer poly`, made
@@ -439,9 +443,9 @@ Not there yet: the warp effect's dissolve.
 ## Open questions
 
 - **Using items:** the program's rules for each Process: when the
-  officer walks and when they use it, what the cursors show, and how a
-  thrown item flies and bounces (Gravity's units, how it turns off a
-  wall).
+  officer walks and when they use it, what the cursors show, how a
+  thrown item turns off a wall, and whether its speed is held to its
+  model's Max Velocity.
 - **The band:** whether the enemies' sight is what it beats, and how
   (its opacity, `0x496880`).
 - **Gadgets:** how the enemies treat a decoy, whether the neck pinch and

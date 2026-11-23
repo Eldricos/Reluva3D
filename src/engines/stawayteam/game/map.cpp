@@ -243,6 +243,8 @@ Error loadModelInfo(const Archive &data, const std::string &model, ModelInfo &ou
     out.maxVelocity = float(object.object.number("Max Velocity").value_or(0.0));
     out.bounceFactor = float(object.object.number("Bounce Factor").value_or(0.0));
     out.bounceFriction = float(object.object.number("Bounce Friction").value_or(0.0));
+    out.minBounce = float(object.object.number("Min Bounce").value_or(0.0));
+    out.minBounceFriction = float(object.object.number("Min Bounce Friction").value_or(0.0));
     out.descriptionScript = text(object.object, "Description Script");
     out.descriptionLine = text(object.object, "Description Line");
     out.defaultSequence = text(object.object, "Default Sequence");

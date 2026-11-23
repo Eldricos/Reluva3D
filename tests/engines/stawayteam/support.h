@@ -143,9 +143,10 @@ inline std::vector<uint8_t> fontFile(const std::vector<std::vector<uint8_t>> &gl
 
 /**
  * How a test model looks: its frames' colour and size (each frame a pixel
- * wider than the one before, its origin at its middle), its Sorting Y, and
- * its sequence's Sorting Y Offset and cuts (Cut Offset, Strip Sorting Y
- * Offset).
+ * wider than the one before, its origin at its middle), its Sorting Y, its
+ * sequence's Sorting Y Offset and cuts (Cut Offset, Strip Sorting Y
+ * Offset), and how it bounces (Bounce Factor, Min Bounce, Bounce Friction,
+ * Min Bounce Friction).
  */
 struct ModelLook {
     uint16_t colour = 0x07e0;
@@ -153,7 +154,21 @@ struct ModelLook {
     int sortingY = 0;
     int sequenceSortingY = 0;
     std::vector<std::pair<int, int>> cuts;
+    float bounceFactor = 0.0f;
+    float minBounce = 0.0f;
+    float bounceFriction = 0.0f;
+    float minBounceFriction = 0.0f;
 };
+
+/** How the game's grenades bounce (their models', "Player Shots/Concussion Grenade"). */
+inline ModelLook grenadeLook() {
+    ModelLook look;
+    look.bounceFactor = 0.6f;
+    look.minBounce = 0.05f;
+    look.bounceFriction = 0.4f;
+    look.minBounceFriction = 0.05f;
+    return look;
+}
 
 /**
  * A .mdl16: a CModel (version 1603) of its thirty properties, with one
@@ -174,9 +189,8 @@ inline std::vector<uint8_t> modelFile(const std::string &name, int rotations, in
     w.str("Idle");
     for (int i = 0; i < 6; ++i)
         w.str("");
-    w.f32(maxVelocity);
-    for (int i = 0; i < 5; ++i)
-        w.f32(0.0f);
+    w.f32(maxVelocity).f32(look.bounceFactor).f32(look.minBounce).f32(look.bounceFriction).f32(look.minBounceFriction);
+    w.f32(0.0f);
     w.bytes({'P', 'O', 'L', 'Y', '2', 'D', 0, 7}).i32(int32_t(footprint.size()));
     for (const auto &[x, y] : footprint)
         w.f32(x).f32(y);

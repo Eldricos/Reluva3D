@@ -19,14 +19,12 @@ namespace reluva::stawayteam {
 namespace {
 
 constexpr float kPi = 3.14159265f;
-// A grenade's flight and fuse when its model doesn't give them (inferred).
-constexpr float kDefaultThrowSpeed = 400.0f;
+// A grenade's fuse when its model doesn't give it (inferred).
 constexpr float kDefaultFuse = 3.0f;
-// A thrown thing's Gravity, taken as pixels a second each 30th of a second
-// (inferred), and a bounce too slow to be one, pixels a second (inferred).
-constexpr float kGravityScale = 30.0f;
+// A thrown thing's Gravity in pixels a second each second, as a falling
+// particle's (0x5f91bf), and the Gravity AI's own when it gives none.
+constexpr float kGravityScale = ParticleSystem::kGravityScale;
 constexpr float kDefaultGravity = 17.0f;
-constexpr float kRestingBounce = 40.0f;
 // Near enough an officer to use an item on them: about the items' Strike
 // Damage Radius (20) and a figure's width (inferred).
 constexpr float kUseReach = 30.0f;
@@ -242,10 +240,12 @@ bool MapScreen::doTask(size_t officer) {
         return true;
     }
     if (o.task == Officer::Task::kThrow) {
-        // Thrown from their hand's Height at the place: along the ground at
-        // its model's Max Velocity, up so its Gravity brings it down there;
-        // it goes off its Shot Duration after it's thrown (inferred: the
-        // throw's speed and Gravity's units aren't traced).
+        // Thrown from their hand's Height toward the place, at 45 degrees up,
+        // as fast as would land it there from the ground, by its Gravity,
+        // times its Velocity Factor (0x5f8fc0): the game's 0.725 lands it
+        // about half way, to bounce on. No faster than its model's Max
+        // Velocity (inferred). It goes off its Shot Duration after it's
+        // thrown.
         o.direction = directionOf(o.taskX - o.x, o.taskY - o.y);
         // Overloaded, it's its Overload Projectile, going off as its
         // overload runs out (inferred), and it's gone from them.
@@ -256,17 +256,21 @@ bool MapScreen::doTask(size_t officer) {
         const ModelInfo &info = modelInfo(projectile);
         const float fuse = overload >= 0.0f ? overload : info.fuse > 0.0f ? info.fuse : kDefaultFuse;
         Thrown t{def, projectile, o.x, o.y, o.taskX, o.taskY, fuse, int(officer)};
-        const float speed = info.maxVelocity > 0.0f ? info.maxVelocity : kDefaultThrowSpeed;
-        const float distance = std::hypot(o.taskX - o.x, o.taskY - o.y);
-        const float flight = std::max(0.1f, distance / speed);
         ItemDefinition thrownAs = *def;
-        if (overload >= 0.0f)
+        if (overload >= 0.0f) {
             thrownAs.gravity = def->overloadGravity;
-        const float g = gravityOf(thrownAs);
+            thrownAs.velocityFactor = def->overloadVelocityFactor;
+        }
+        t.gravity = gravityOf(thrownAs);
+        const float distance = std::hypot(o.taskX - o.x, o.taskY - o.y);
+        float speed = std::sqrt(t.gravity * distance) * thrownAs.velocityFactor;
+        if (info.maxVelocity > 0.0f)
+            speed = std::min(speed, info.maxVelocity);
+        const float along = speed * std::cos(kPi / 4.0f);
         t.z = def->height;
-        t.vx = distance > 0.0f ? (o.taskX - o.x) / flight : 0.0f;
-        t.vy = distance > 0.0f ? (o.taskY - o.y) / flight : 0.0f;
-        t.vz = g * flight / 2.0f - t.z / flight;
+        t.vx = distance > 0.0f ? (o.taskX - o.x) / distance * along : 0.0f;
+        t.vy = distance > 0.0f ? (o.taskY - o.y) / distance * along : 0.0f;
+        t.vz = speed * std::sin(kPi / 4.0f);
         t.id = ++_thrownIds;
         _thrown.push_back(t);
         if (_mixer)
@@ -453,8 +457,9 @@ void MapScreen::updateItems(float seconds) {
     updateMines(seconds);
     // In flight it falls by its Gravity; landing, it bounces up by its
     // model's Bounce Factor of its fall, with its Bounce Sound, losing its
-    // Bounce Friction of its speed along the ground; too slow a bounce and
-    // it lies there (inferred).
+    // Bounce Friction of its speed along the ground; a bounce slower than
+    // its Min Bounce is none, and less speed along the ground than its Min
+    // Bounce Friction stops it there (0x51fc10).
     for (Thrown &t : _thrown) {
         t.left -= seconds;
         if (t.resting)
@@ -469,17 +474,24 @@ void MapScreen::updateItems(float seconds) {
             if (auto sound = gameSound(_data, t.item->bounceSound))
                 _mixer->play(sound, audio::SoundType::kEffects);
         }
-        t.vz -= gravityOf(*t.item) * seconds;
+        t.vz -= t.gravity * seconds;
         t.z += t.vz * seconds;
         if (t.z > 0.0f)
             continue;
         t.z = 0.0f;
-        t.vz = -t.vz * info.bounceFactor;
+        const float fall = -t.vz;
+        t.vz = fall * info.bounceFactor;
         t.vx *= 1.0f - info.bounceFriction;
         t.vy *= 1.0f - info.bounceFriction;
-        if (t.vz < kRestingBounce) {
+        if (std::hypot(t.vx, t.vy) < info.minBounceFriction)
+            t.vx = t.vy = 0.0f;
+        if (t.vz < info.minBounce)
+            t.vz = 0.0f;
+        // Stopped along the ground, and bouncing no higher than a frame's
+        // fall, it lies there (inferred).
+        if (t.vx == 0.0f && t.vy == 0.0f && t.vz <= t.gravity * seconds) {
             t.resting = true;
-            t.vx = t.vy = t.vz = 0.0f;
+            t.vz = 0.0f;
             continue;
         }
         if (_mixer)
