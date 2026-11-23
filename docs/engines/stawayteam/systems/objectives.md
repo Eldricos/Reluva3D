@@ -81,7 +81,11 @@ Actions in the maps and missions (counted over all of them):
   Team") 4 seconds later.
 - **`CSetMissionObjectiveStatusAction`** (158) sets an objective's
   `Status`: Complete, Failed, Incomplete or Disabled.
-- **`CSetMissionObjectiveCountAction`** (158), its `Count` always 1.
+- **`CSetMissionObjectiveCountAction`** (158), its `Count` always 1,
+  added to a count objective's `Current Count`; at its `Count Before
+  Success` or past it, the count's held there and the objective's made
+  Complete, whatever its status was (`0x50b100`). Its line's `%d`s are
+  the count and the target (`0x50b0d9`).
 - **`CSetMissionObjectiveDisplayStatusAction`** (29) shows or hides one.
 - **`CSetNextMissionAction`** (17): the `Next Mission` ("Mission
   02/Mission 02").
@@ -186,13 +190,13 @@ Rules.txt's `Debriefing Screen` (`CStarTrekDebriefingMenu`, made at
 `loadMission` keeps the mission's objective manager, and
 `readMissionObjectives` (`game/objectives.cpp`) reads it. `MapScreen`
 (`ui/map_mission.cpp`) keeps the objectives, the mission's first and
-then those added, and runs the actions above. A count's Count is added,
-and at its Count Before Success the objective is complete *(inferred)*.
+then those added, and runs the actions above, a count's as above.
 An objective completed runs its Success Action, failed its Fail Action;
 with every objective that's required and not disabled complete, the
 others still to do fail, without their Fail Actions, and the Win Action
-runs, once. Each spawn point's Spawn Action runs as the map starts, its
-officer the instigator *(inferred)*; a protect objective's `$instigator`
+runs, once. Each spawn point's Spawn Action runs as its officer's put
+there, the officer the instigator and the point the trigger
+(`CSpawnPointAI`, `0x415ca9`); a protect objective's `$instigator`
 is that officer. Their own rules are as above: a protect or rescue
 fails as their officer, the character of its name, or an officer's
 stand-in off the team dies; a rescue's complete as they join the team,

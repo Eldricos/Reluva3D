@@ -925,6 +925,9 @@ void testObjectives() {
     CHECK(objectives[0].status == ObjectiveStatus::kComplete && screen.missionOver() && screen.missionCompleted());
     CHECK(screen.missionOverText() == "Both scientists have been beamed aboard.");
     CHECK(screen.nextMission() == "Mission 02/Mission 02");
+    // A count past its target is held at it (0x50b100).
+    screen.runAction(&count);
+    CHECK(objectives[0].count == 2 && screen.objectiveText(objectives[0]) == "Rescue the two scientists. (2 of 2)");
     // The game's held still meanwhile; Esc doesn't leave it.
     Surface surface;
     surface.create(640, 480, PixelFormat::kRGBA32);

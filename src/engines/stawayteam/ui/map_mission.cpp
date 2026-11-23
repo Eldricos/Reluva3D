@@ -359,15 +359,15 @@ bool MapScreen::runTeamAction(const TextObject *action, int instigator, int trig
 }
 
 void MapScreen::runSpawnActions() {
-    // Each officer's spawn point's Spawn Action, the officer the
-    // instigator: Mission 01's add an objective to protect them (inferred:
-    // run as the team's put there).
+    // Each officer's spawn point's Spawn Action as they're put there, the
+    // officer the instigator and the point the trigger (0x415ca9): Mission
+    // 01's add an objective to protect them.
     for (size_t i = 0; i < _officers.size(); ++i) {
         if (_officers[i].spawn < 0)
             continue;
         for (const TextObject *ai : _map.parts[size_t(_officers[i].spawn)].activities)
             if (ai->className == "CSpawnPointAI")
-                runAction(ai->object("Spawn Action"), int(i));
+                runAction(ai->object("Spawn Action"), int(i), _officers[i].spawn);
     }
 }
 
@@ -402,14 +402,19 @@ bool MapScreen::runMissionAction(const TextObject *action, int instigator) {
         const ObjectiveStatus status = objectiveStatus(readText(action, "Status"));
         named([&](size_t i) { setObjectiveStatus(i, status); });
     } else if (kind == "CSetMissionObjectiveCountAction") {
-        // Its Count added (always 1 in the missions), complete at Count
-        // Before Success (inferred).
+        // Its Count added (always 1 in the missions); at Count Before
+        // Success the count's held there and the objective's made
+        // complete, whatever it was (0x50b100).
         const int count = int(action->integer("Count").value_or(1));
         named([&](size_t i) {
             Objective &o = _progress->objectives[i];
+            if (o.className != "CCountMissionObjective")
+                return;
             o.count += count;
-            if (o.needed > 0 && o.count >= o.needed && o.status == ObjectiveStatus::kIncomplete)
+            if (o.count >= o.needed) {
+                o.count = o.needed;
                 setObjectiveStatus(i, ObjectiveStatus::kComplete);
+            }
         });
     } else if (kind == "CSetMissionObjectiveDisplayStatusAction") {
         const bool visible = readText(action, "Display Status") != "Hidden";
