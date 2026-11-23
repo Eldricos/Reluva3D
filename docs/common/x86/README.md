@@ -20,6 +20,7 @@ documentation. It's all in `src/emulation/x86/`.
 | [cdaudio.md](cdaudio.md) | MCI's CD audio, from a disc image's or ripped tracks |
 | [a3d.md](a3d.md) | Aureal A3D, on Reluva's mixer |
 | [dplay.md](dplay.md) | DirectPlay 3: sessions over TCP/IP between copies of Reluva |
+| [joystick.md](joystick.md) | WINMM's joysticks, from the player's game controller |
 | [msvcp60.md](msvcp60.md) | Visual C++ 6's C++ library, rebuilt with its layouts |
 | [disasm.md](disasm.md) | A disassembler, for studying a game's executable |
 

@@ -18,6 +18,7 @@
 #include "emulation/x86/directx/dsound.h"
 #include "emulation/x86/directx/sound3d.h"
 #include "emulation/x86/dplay.h"
+#include "emulation/x86/joystick.h"
 #include "emulation/x86/com.h"
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/directx/dinput.h"
@@ -1627,6 +1628,55 @@ static void testDirectPlay() {
     CHECK(!host.receive(data, from, to));
 }
 
+// WINMM's joysticks: none plugged in, then a game controller as the first,
+// its caps, axes, buttons and hat as JK.EXE reads them.
+static void testJoysticks() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    x86::Joysticks joysticks(process);
+    uint32_t r = 0;
+    auto call = [&](const char *name, const std::vector<uint32_t> &args) {
+        CHECK(!cpu.call(process.provided("WINMM.dll", name), args, r));
+        return r;
+    };
+    const uint32_t info = process.memory().alloc(52);
+    const uint32_t caps = process.memory().alloc(404);
+    CHECK(call("joyGetNumDevs", {}) == 16);
+    CHECK(call("joyGetPos", {0, info}) == 167);  // JOYERR_UNPLUGGED
+    CHECK(call("joyGetPos", {16, info}) == 165); // JOYERR_PARMS
+    CHECK(call("joyGetDevCapsA", {0, caps, 404}) == 167);
+
+    GamepadState pad;
+    pad.name = "Test pad";
+    const x86::Joysticks::Device device = x86::Joysticks::fromGamepad(pad);
+    joysticks.connect(0, &device);
+    CHECK(call("joyGetDevCapsA", {0, caps, 404}) == 0);
+    CHECK(cpu.string(caps + 4) == "Test pad" && cpu.read32(caps + 40) == 65535 && cpu.read32(caps + 76) == 65535);
+    CHECK(cpu.read32(caps + 96) == (0x1 | 0x2 | 0x4 | 0x10 | 0x40)); // Z, R, U and a hat by degrees
+    CHECK(cpu.read32(caps + 104) == 5 && cpu.read32(caps + 108) == 10);
+    CHECK(call("joyGetDevCapsA", {1, caps, 404}) == 167);
+
+    // The left stick right and up, the right trigger, B held, the D-pad
+    // down and left.
+    pad.axes[0] = 1;
+    pad.axes[1] = -1;
+    pad.axes[5] = 1;
+    pad.buttons = 1u << kPadEast | 1u << kPadDown | 1u << kPadLeft;
+    joysticks.set(0, x86::Joysticks::stateOf(pad));
+    cpu.write32(info, 52);
+    CHECK(call("joyGetPosEx", {0, info}) == 0);
+    CHECK(cpu.read32(info + 8) == 65535 && cpu.read32(info + 12) == 0 && cpu.read32(info + 16) == 65535);
+    CHECK(cpu.read32(info + 20) == x86::Joysticks::kCentre);
+    CHECK(cpu.read32(info + 32) == 2 && cpu.read32(info + 36) == 1);
+    CHECK(cpu.read32(info + 40) == 22500); // down and left: 225 degrees clockwise from ahead
+    CHECK(call("joyGetPos", {0, info}) == 0 && cpu.read32(info) == 65535 && cpu.read32(info + 12) == 2);
+    cpu.write32(info, 20);
+    CHECK(call("joyGetPosEx", {0, info}) == 165); // too small a structure
+
+    joysticks.connect(0, nullptr);
+    CHECK(call("joyGetPos", {0, info}) == 167);
+}
+
 // A3D created as a program creates it, a source made, filled through Lock,
 // played once and looped, as the clock moves.
 static void testA3d() {
@@ -1804,6 +1854,7 @@ static const test::Suite
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
                {"direct3d 1", [](const std::filesystem::path &) { testDirect3D1(); }},
                {"directplay", [](const std::filesystem::path &) { testDirectPlay(); }},
+               {"joysticks", [](const std::filesystem::path &) { testJoysticks(); }},
                {"cd audio", [](const std::filesystem::path &tmp) { testCdAudio(tmp / "cdaudio"); }},
                {"directsound", [](const std::filesystem::path &) { testDirectSound(); }},
                {"sound 3d", [](const std::filesystem::path &) { testSound3d(); }},
