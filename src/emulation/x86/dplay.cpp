@@ -390,9 +390,9 @@ public:
         put32(b, 0);
         put32(b, 0);
         put32(b, 0);
-        put32(b, 0); // dpIdParent
-        put32(b, 0); // dwFlags
-        const size_t dataAt = type == kSysCreate ? 16 : 24;
+        put32(b, 0);                                        // dpIdParent
+        put32(b, 0);                                        // dwFlags
+        const size_t dataAt = type == kSysCreate ? 16 : 20; // lpData, or lpRemoteData
         if (!p.remoteData.empty()) {
             set32(b, dataAt, uint32_t(b.size()));
             m.pointers.push_back(uint32_t(dataAt));

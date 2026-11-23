@@ -1298,7 +1298,9 @@ static void testDirectPlaySession() {
     cpu.writeString(dpName + 16, "Kirk", 8);
     CHECK(call(kCreatePlayer, {ids, dpName, 0, 0, 0, 0}) == 0);
     cpu.writeString(dpName + 16, "Plato", 8);
-    CHECK(call(kCreatePlayer, {ids + 4, dpName, 0, 0, 0, 0}) == 0);
+    const uint32_t platoData = mem(4);
+    cpu.write32(platoData, 0xa1a1a1a1);
+    CHECK(call(kCreatePlayer, {ids + 4, dpName, 0, platoData, 4, 0}) == 0);
     const uint32_t kirk = cpu.read32(ids);
     const uint32_t plato = cpu.read32(ids + 4);
     CHECK(kirk > 1 && plato > 1 && kirk != plato);
@@ -1314,6 +1316,7 @@ static void testDirectPlaySession() {
     CHECK(receive(256) == 0 && cpu.read32(from) == 0 && cpu.read32(to) == kirk);
     CHECK(cpu.read32(buffer) == 3 && cpu.read32(buffer + 4) == 1 && cpu.read32(buffer + 8) == plato); // created
     CHECK(cpu.string(cpu.read32(buffer + 24 + 8)) == "Plato");
+    CHECK(cpu.read32(buffer + 20) == 4 && cpu.read32(cpu.read32(buffer + 16)) == 0xa1a1a1a1);
     CHECK(receive(256) == 0x887700beu); // DPERR_NOMESSAGES
     // A message to every player but its sender; one to a player.
     const uint32_t data = mem(4);
@@ -1335,6 +1338,8 @@ static void testDirectPlaySession() {
     // A player destroyed: the other told; one not there refused.
     CHECK(call(kDestroyPlayer, {plato}) == 0);
     CHECK(receive(256) == 0 && cpu.read32(to) == kirk && cpu.read32(buffer) == 5 && cpu.read32(buffer + 8) == plato);
+    CHECK(cpu.read32(buffer + 24) == 4 && cpu.read32(cpu.read32(buffer + 20)) == 0xa1a1a1a1); // its remote data
+    CHECK(cpu.string(cpu.read32(buffer + 28 + 8)) == "Plato");
     CHECK(call(kDestroyPlayer, {plato}) == 0x88770096u);
 }
 
