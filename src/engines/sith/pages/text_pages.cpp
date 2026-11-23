@@ -84,27 +84,7 @@ public:
         y += kGap;
         for (const char *sample : {"The quick brown fox jumps over the lazy dog.", "0123456789 :;!?()-+",
                                    "\xc0\xc9\xcd\xd1\xd6\xdc \xe0\xe7\xe9\xe8\xea\xf1\xf6\xfc\xdf\xbf\xa1"}) {
-            // As the game spaces it (sft.md): white space moves on by the
-            // font's space width, a missing character is drawn as its
-            // fallback, and each glyph is followed by the gap.
-            int x = kGap;
-            for (const char ch : std::string_view(sample)) {
-                if (ch == ' ') {
-                    x += font.spaceWidth * _scale;
-                    continue;
-                }
-                const Font::Glyph *g = font.glyph(uint8_t(ch));
-                if (!g)
-                    g = font.glyph(font.fallback);
-                if (!g) {
-                    x += font.gap * _scale;
-                    continue;
-                }
-                if (x + g->width * _scale > kViewerW - kGap)
-                    break;
-                blitPart(screen, strip, g->x, 0, g->width, strip.h, x, y, _scale);
-                x += (g->width + font.gap) * _scale;
-            }
+            drawFontText(screen, font, strip, kGap, y, sample, _scale, kViewerW - kGap);
             y += (strip.h + 6) * _scale;
         }
         line += "  " + std::to_string(font.glyphs.size()) + " glyphs, " + std::to_string(strip.h) + " high, " +
@@ -183,6 +163,43 @@ private:
 };
 
 } // namespace
+
+// A character's glyph as the game finds it: the font's own, else its
+// fallback's; nullptr for white space, or if the font has neither.
+static const Font::Glyph *glyphFor(const Font &font, char ch) {
+    if (ch == ' ' || ch == '\t')
+        return nullptr;
+    const Font::Glyph *g = font.glyph(uint8_t(ch));
+    return g ? g : font.glyph(font.fallback);
+}
+
+int fontTextWidth(const Font &font, std::string_view text) {
+    int w = 0;
+    for (const char ch : text) {
+        if (ch == ' ' || ch == '\t')
+            w += font.spaceWidth;
+        else if (const Font::Glyph *g = glyphFor(font, ch))
+            w += g->width + font.gap;
+        else
+            w += font.gap;
+    }
+    return w;
+}
+
+void drawFontText(Surface &s, const Font &font, const image::Image &strip, int x, int y, std::string_view text,
+                  int scale, int right) {
+    for (const char ch : text) {
+        const Font::Glyph *g = glyphFor(font, ch);
+        if (!g) {
+            x += ((ch == ' ' || ch == '\t') ? font.spaceWidth : font.gap) * scale;
+            continue;
+        }
+        if (x + g->width * scale > right)
+            break;
+        blitPart(s, strip, g->x, 0, g->width, strip.h, x, y, scale);
+        x += (g->width + font.gap) * scale;
+    }
+}
 
 std::unique_ptr<Page> makeFontPage(const ViewerData &data) {
     return std::make_unique<FontPage>(data);

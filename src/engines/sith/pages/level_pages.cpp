@@ -112,6 +112,25 @@ public:
         const Vec3 camEye{camera.eye.x, camera.eye.y, camera.eye.z};
         int drawn = 0;
         Draw3D draw(screen, camera, !_colormaps.empty() && _colormaps[0] ? *_colormaps[0] : _fallback);
+        // The skies as the game places them, by the camera's turn (jkl.md, Skies).
+        constexpr float kDegrees = 180.0f / 3.14159265f;
+        Sky horizon;
+        horizon.horizonDistance = _level.header.horizonDistance;
+        horizon.pixelsPerRev = _level.header.horizonPixelsPerRev;
+        horizon.ceilingZ = _level.header.ceilingSkyZ;
+        horizon.horizonOffset = _level.header.horizonSkyOffset;
+        horizon.ceilingOffset = _level.header.ceilingSkyOffset;
+        horizon.yaw = _yaw * kDegrees;
+        horizon.pitch = (_overview ? -0.9f : _pitch) * kDegrees;
+        Sky ceiling = horizon;
+        ceiling.kind = Sky::kCeiling;
+        // See-through surfaces (face flag 0x2), drawn last, the farthest first.
+        struct Later {
+            float distance;
+            std::vector<Corner> corners;
+            Paint paint;
+        };
+        std::vector<Later> later;
         for (const Level::Sector &sector : _level.sectors) {
             for (int s = sector.firstSurface; s < sector.firstSurface + sector.surfaceCount; ++s) {
                 const Level::Surface &surf = _level.surfaces[size_t(s)];
@@ -131,6 +150,10 @@ public:
                 if (surf.geometryMode < 4) {
                     paint.color = paint.material && !paint.material->cels.empty() ? paint.material->cels[0].color : 0;
                     paint.material = nullptr;
+                } else if (surf.surfaceFlags & kHorizonSky) {
+                    paint.sky = &horizon;
+                } else if (surf.surfaceFlags & kCeilingSky) {
+                    paint.sky = &ceiling;
                 }
                 std::vector<Corner> corners;
                 corners.reserve(surf.vertices.size());
@@ -145,9 +168,22 @@ public:
                     corner.light = cornerLight(sector, surf, surf.intensities[c]);
                     corners.push_back(corner);
                 }
+                if (surf.faceFlags & kFaceTranslucent) {
+                    paint.alpha = kTranslucentAlpha;
+                    const float dx = p0.x - camEye.x;
+                    const float dy = p0.y - camEye.y;
+                    const float dz = p0.z - camEye.z;
+                    later.push_back({dx * dx + dy * dy + dz * dz, std::move(corners), paint});
+                    continue;
+                }
                 draw.polygon(corners, paint);
                 ++drawn;
             }
+        }
+        std::sort(later.begin(), later.end(), [](const Later &a, const Later &b) { return a.distance > b.distance; });
+        for (const Later &l : later) {
+            draw.polygon(l.corners, l.paint);
+            ++drawn;
         }
         const int things = _showThings ? drawThings(draw) : 0;
         char info[200];
@@ -163,9 +199,12 @@ private:
     // (jkl.md, Light): the corner's and the surface's, or the sector's extra
     // light where that's more (0x43c693); the skies unlit (0x4e5eb6); light
     // mode 1 the surface's extra light alone.
+    // Surface flags: the two skies (0x4f2e30, 0x4f2f60).
+    static constexpr uint32_t kHorizonSky = 0x200;
+    static constexpr uint32_t kCeilingSky = 0x400;
+
     static float cornerLight(const Level::Sector &sector, const Level::Surface &surf, float corner) {
-        constexpr uint32_t kSkies = 0x200 | 0x400;
-        if (surf.lightingMode == 0 || (surf.surfaceFlags & kSkies))
+        if (surf.lightingMode == 0 || (surf.surfaceFlags & (kHorizonSky | kCeilingSky)))
             return 1.0f;
         const float own = std::clamp((surf.lightingMode == 1 ? 0.0f : corner) + surf.extraLight, 0.0f, 1.0f);
         return std::max(own, std::clamp(sector.extraLight, 0.0f, 1.0f));

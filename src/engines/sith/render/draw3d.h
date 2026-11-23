@@ -60,6 +60,27 @@ struct Corner {
     float light = 1;
 };
 
+/**
+ * How a level's skies are placed (jkl.md, Skies): textured by where each
+ * pixel is on the screen, not by the surface's texture vertices.
+ */
+struct Sky {
+    /** The horizon sky (surface flag 0x200) or the ceiling sky (0x400). */
+    enum Kind { kHorizon, kCeiling };
+    Kind kind = kHorizon;
+    /** The level header's Horizon Distance and Horizon Pixels per Rev. */
+    float horizonDistance = 0;
+    float pixelsPerRev = 0;
+    /** The level header's Ceiling Sky Z. */
+    float ceilingZ = 0;
+    /** The header's sky offsets, in texels. */
+    std::array<float, 2> horizonOffset{};
+    std::array<float, 2> ceilingOffset{};
+    /** The camera's yaw and pitch in degrees, as the game's: yaw to the left, pitch up. */
+    float yaw = 0;
+    float pitch = 0;
+};
+
 /** What a polygon is drawn with: a cel of a material, or a plain colour. */
 struct Paint {
     const Material *material = nullptr;
@@ -70,7 +91,18 @@ struct Paint {
     bool transparent = true;
     /** The colormap to light it through, in place of the Draw3D's own; nullptr for that. */
     const Colormap *colormap = nullptr;
+    /**
+     * How much of it covers what's behind, 0 to 255: below 255 it's
+     * see-through, as a face of the game's with face flag 0x2 is drawn at
+     * 90 (0x43b428), and hides nothing drawn after it.
+     */
+    int alpha = 255;
+    /** A sky's placing, in place of the texture vertices; nullptr for none. */
+    const Sky *sky = nullptr;
 };
+
+/** The alpha the game draws see-through faces with (face flag 0x2). */
+constexpr int kTranslucentAlpha = 90;
 
 /** Draws into a surface through a colormap: a rasterizer, a camera and the colours. */
 class Draw3D {
@@ -86,6 +118,9 @@ public:
      * with its texture across it once.
      */
     void billboard(const Vec3 &centre, float width, float height, const Paint &paint, float light = 1);
+
+    /** The camera it draws from. */
+    const soft3d::OrbitCamera &camera() const { return _camera; }
 
     /** How many polygons were drawn, and how many were left out (behind the camera, no paint). */
     ///@{

@@ -17,6 +17,10 @@ Reluva decodes SMK2 and SMK4 in `src/video/smacker.cpp`
 - **Sound:** the first audio track with data, raw or Huffman-packed DPCM,
   8 or 16 bits, mono or stereo. `takeAudio()` hands over what each frame
   carried, for a `QueuingStream` (`src/audio/stream.h`).
+- **Other tracks:** a track that isn't the sound played is kept as it is,
+  frame by frame (`trackData()`), for a game that puts its own data there:
+  Jedi Knight's videos carry their subtitles' numbers in a second track
+  ([smk.md](../../engines/sith/games/jk/formats/smk.md#subtitles)).
 - **Not handled:** Bink audio inside a Smacker file (flag `0x08000000`), and
   the ring frame's looping (a player may restart from frame 1 itself).
 

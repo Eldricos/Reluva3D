@@ -210,6 +210,30 @@ and gets geometry mode 3; a sky gets light mode 0 (`0x4e5e91`,
 `0x4e5eb6`) *(from the code)*. A weapon that hits a sky is removed
 (`0x4d4e9d`) *(from the code)*.
 
+### Skies
+
+A sky's texture vertices aren't used: each frame the game works out a
+texture place for each of its corners on the screen *(from the code)*.
+
+- **The horizon sky** (`0x200`, `0x4f2e30`): the corner's place from the
+  screen's centre, in pixels, times `Horizon Distance` divided by the
+  view's focal length (`0x4f2dd0`), turned by the camera's roll; less the
+  camera's yaw and pitch in degrees times `Horizon Pixels per Rev` / 360;
+  plus `Horizon Sky Offset`, and the surface's own scroll. So the sky
+  stays put as the camera moves, and slides a revolution's pixels as it
+  turns once.
+- **The ceiling sky** (`0x400`, `0x4f2f60`): where the ray from the
+  camera through the corner meets the plane at `Ceiling Sky Z`, facing
+  down, or 1,000 units along the ray if it never does (`0x508be0`); its x
+  and y times 16 (`0x52316c`), plus `Ceiling Sky Offset` and the
+  surface's scroll. So the ceiling sky is a flat plane overhead, 16
+  texels a unit.
+
+The header's three settings are kept at the world's `0xdc` to `0xe4`,
+and its offsets at `0xe8` and `0xf0` (`0x4d0341` to `0x4d03f3`); the cog
+verbs `SetHorizonSkyOffset` and `SlideHorizonSky`, and the ceiling's,
+change the offsets as a level plays.
+
 ### Face flags
 
 | Flag | Surfaces | What the game does | Confidence |
@@ -240,8 +264,10 @@ model or a sprite in their places (H hides them). `reluva-tool sith formats
 The viewer lights a corner as the game's colormap renderer does
 ([Light](#light)): the more of the corner's light with the surface's,
 and the sector's, each held to 0 to 1; skies and light mode 0 unlit;
-light mode 1 by the surface's extra light alone. It doesn't yet use the
-other flags, the skies' placing, translucent faces, or the tint.
+light mode 1 by the surface's extra light alone. The skies are placed
+as the game places them ([Skies](#skies)), the camera having no roll; see-through
+faces are drawn at 90/255 after the rest, the farthest first. It
+doesn't yet use the other flags or the tint.
 
 ## Sources and checks
 

@@ -125,7 +125,9 @@ mode 2 lights the face as a whole from the lights near it (`0x4466be`)
 `parseModel` (`src/engines/sith/formats/model.h`) reads one into a
 `Model`. `poseNodes` and `drawModel` (`src/engines/sith/render/draw3d.h`)
 place the nodes and draw the first geometry set in software, textured
-through a colormap's light levels, lit from one direction. The data
+through a colormap's light levels, lit from one direction; faces turned
+away left out unless double-sided (`0x1`), and see-through ones (`0x2`)
+drawn at 90/255 over the rest. The data
 viewer's Models page shows every model. `reluva-tool sith formats
 <install>` reads them all.
 

@@ -8,7 +8,10 @@
 #include "common/events.h"
 #include "common/fs.h"
 #include "common/stream.h"
+#include "engines/sith/formats/bitmap.h"
 #include "engines/sith/formats/episode.h"
+#include "engines/sith/formats/font.h"
+#include "engines/sith/formats/strings.h"
 #include "engines/sith/pages/pages.h"
 #include "graphics/font.h"
 #include "image/image.h"
@@ -88,17 +91,25 @@ private:
 };
 
 /**
- * The cut scenes on the CDs found: the picture, played with its sound.
- * Space plays or pauses, `.` steps a frame while paused.
+ * The cut scenes on the CDs found, placed as on the game's 640x480 screen:
+ * the picture at row 50, played with its sound, and its subtitles below
+ * (smk.md, Behaviour). Space plays or pauses, `.` steps a frame while
+ * paused, S shows every subtitle as the game's full subtitles do, not
+ * just the titles.
  */
 class CutScenePage : public Page {
 public:
     explicit CutScenePage(const ViewerData &data)
-        : _data(data), _cuts(findCutScenes(data.folders)), _episodes(readEpisodes(data.files)) {}
+        : _data(data), _cuts(findCutScenes(data.folders)), _episodes(readEpisodes(data.files)) {
+        std::vector<uint8_t> bytes;
+        _hasStrings = !data.files.read("ui\\cutstrings.uni", bytes) && !parseStrings(bytes, _strings);
+        _hasFont = !data.files.read("ui\\sft\\subtitlefont.sft", bytes) && !parseFont(bytes, _font) &&
+                   !_font.strip.cels.empty();
+    }
 
     const char *name() const override { return "Cut scenes"; }
     size_t count() const override { return _cuts.size(); }
-    const char *keys() const override { return "Left/Right, Space: play or pause, .: next frame"; }
+    const char *keys() const override { return "Left/Right, Space: play or pause, .: next frame, S: subtitles"; }
 
     bool handleKey(uint32_t pressed) override {
         if (stepIndex(pressed, _cuts.size(), _index)) {
@@ -111,6 +122,10 @@ public:
                 stop();
             else
                 _startPending = true;
+            return true;
+        }
+        if (pressed == 's' || pressed == 'S') {
+            _fullSubtitles = !_fullSubtitles;
             return true;
         }
         if (pressed == '.' && !_decoder && !open(_cuts[_index]))
@@ -170,7 +185,13 @@ public:
                 p[2] = pal[i * 3 + 2];
                 p[3] = 255;
             }
-        image::blit(screen, img, (kViewerW - img.w) / 2, (kViewerH - 16 - img.h) / 2);
+        // The game's screen, its picture in the rectangle (0, 50, 640, 300).
+        const int ox = (kViewerW - kGameW) / 2;
+        const int oy = (kViewerH - 16 - kGameH) / 2;
+        image::blit(screen, img, ox + (kGameW - img.w) / 2, oy + 50);
+        const std::string subtitle = currentSubtitle();
+        if (!subtitle.empty())
+            drawSubtitle(screen, subtitle, ox, oy, pal);
 
         char info[160];
         std::snprintf(info, sizeof(info), "  %dx%d, frame %d/%d, %.1f/%.1f s%s", _decoder->width(), _decoder->height(),
@@ -181,6 +202,7 @@ public:
                       : _data.mixer ? ""
                                     : ", no sound output");
         line += info;
+        line += _fullSubtitles ? ", full subtitles" : ", titles only";
         // Where the episodes play it.
         for (const auto &[archive, episode] : _episodes)
             for (const Episode::Step &s : episode.steps)
@@ -190,6 +212,67 @@ public:
     }
 
 private:
+    static constexpr int kGameW = 640;
+    static constexpr int kGameH = 480;
+
+    // The string the video's second track names this frame, if the game
+    // would show it: a title (the number's top bit) always, the rest with
+    // full subtitles (0x4214b8). The number is the string's place in
+    // cutstrings.uni, 0 for none (0x4214f2).
+    std::string currentSubtitle() const {
+        const std::vector<uint8_t> &data = _decoder->trackData(1);
+        if (!_hasStrings || data.size() < 4)
+            return {};
+        const uint32_t value =
+            uint32_t(data[0]) | uint32_t(data[1]) << 8 | uint32_t(data[2]) << 16 | uint32_t(data[3]) << 24;
+        const uint32_t place = value & 0x7fffffffu;
+        if (place == 0 || place >= _strings.entries.size() || (!(value & 0x80000000u) && !_fullSubtitles))
+            return {};
+        return _strings.entries[place].second;
+    }
+
+    // Centred in the game's rectangle (10, 360, 620, 120), below the
+    // picture, in the subtitle font through the video's palette, as the
+    // game's 8-bit screen draws it; wrapped at the rectangle's width.
+    void drawSubtitle(Surface &screen, const std::string &text, int ox, int oy, const uint8_t *pal) const {
+        if (!_hasFont)
+            return;
+        Palette palette;
+        for (int i = 0; i < 256; ++i)
+            palette[size_t(i)] = {pal[i * 3], pal[i * 3 + 1], pal[i * 3 + 2]};
+        const image::Image strip = bitmapToImage(_font.strip, _font.strip.cels[0], palette, true);
+        std::vector<std::string> lines;
+        std::string current;
+        for (size_t at = 0; at <= text.size();) {
+            size_t end = text.find_first_of(" \n", at);
+            if (end == std::string::npos)
+                end = text.size();
+            const std::string word = text.substr(at, end - at);
+            const std::string tried = current.empty() ? word : current + " " + word;
+            if (!current.empty() && fontTextWidth(_font, tried) > kSubtitleW) {
+                lines.push_back(current);
+                current = word;
+            } else {
+                current = tried;
+            }
+            if (end < text.size() && text[end] == '\n') {
+                lines.push_back(current);
+                current.clear();
+            }
+            at = end + 1;
+        }
+        if (!current.empty())
+            lines.push_back(current);
+        int y = oy + 360;
+        for (const std::string &l : lines) {
+            if (y + strip.h > oy + 360 + 120)
+                break;
+            drawFontText(screen, _font, strip, ox + 10 + (kSubtitleW - fontTextWidth(_font, l)) / 2, y, l);
+            y += strip.h + 2;
+        }
+    }
+    static constexpr int kSubtitleW = 620;
+
     bool open(const CutScene &cut) {
         std::vector<uint8_t> bytes;
         if (!readFile(cut.path, bytes)) {
@@ -244,6 +327,11 @@ private:
     size_t _index = 0;
     std::unique_ptr<smacker::Decoder> _decoder;
     std::string _error;
+    StringTable _strings;
+    bool _hasStrings = false;
+    Font _font;
+    bool _hasFont = false;
+    bool _fullSubtitles = false;
     bool _playing = false;
     bool _startPending = false;
     uint64_t _now = 0;

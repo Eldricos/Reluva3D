@@ -65,8 +65,12 @@ and `0x4269c0` (the calls to `SMACKW32.DLL`).
 Read by the shared decoder (`smacker::Decoder`, `src/video/smacker.h`).
 `findCutScenes` (`src/engines/sith/folders.h`) lists the cut scenes on
 the CDs found for an install. The data viewer's Cut scenes page plays
-them with their sound, the picture following the clock, without
-subtitles.
+them with their sound, the picture following the clock, placed as on the
+game's 640x480 screen, with the subtitles below it as the game draws
+them: the titles, or every line with S, as the game's full subtitles. A
+line too wide for the rectangle is wrapped, which no retail line needs
+at the title's width *(inferred)*; how the game would break one isn't
+known.
 `reluva-tool sith movies <install> -all`
 decodes every frame and its sound.
 

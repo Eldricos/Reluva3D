@@ -13,6 +13,12 @@
 
 namespace reluva::sith {
 
+/** A face's type flags: drawn from behind too (0x446548), and see-through (0x43b428). */
+///@{
+constexpr uint32_t kFaceDoubleSided = 0x1;
+constexpr uint32_t kFaceTranslucent = 0x2;
+///@}
+
 /**
  * A .3do model: its materials, its meshes (in one or more geometry sets,
  * the levels of detail) and the hierarchy of nodes that places them
@@ -23,6 +29,7 @@ struct Model {
     struct Face {
         /** Into the model's materials; -1 for none. */
         int material = -1;
+        /** kFaceDoubleSided, kFaceTranslucent; 0x4 is set on a few but never read by the game. */
         uint32_t type = 0;
         int geometryMode = 0;
         int lightingMode = 0;

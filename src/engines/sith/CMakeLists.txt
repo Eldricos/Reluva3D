@@ -65,9 +65,10 @@ reluva_add_engine_tests(sith
         ${tests}/unit/import.cpp
         ${tests}/unit/levels.cpp
         ${tests}/unit/models.cpp
+        ${tests}/unit/render.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.folders unit.formats unit.gob unit.import unit.levels unit.models engine)
+        unit.detection unit.folders unit.formats unit.gob unit.import unit.levels unit.models unit.render engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

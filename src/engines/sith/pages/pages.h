@@ -7,7 +7,9 @@
 #include "common/types.h"
 #include "engines/sith/folders.h"
 #include "engines/sith/formats/colormap.h"
+#include "engines/sith/formats/font.h"
 #include "engines/sith/game_files.h"
+#include "image/image.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -117,5 +119,20 @@ void drawStatus(Surface &s, std::string_view line);
  * @return Whether the key was one of them.
  */
 bool stepIndex(uint32_t pressed, size_t n, size_t &index);
+
+/**
+ * How wide `text` is in `font`, in the font's pixels, spaced as the game
+ * spaces it (docs/engines/sith/games/jk/formats/sft.md): each glyph and the
+ * font's gap after it, white space the font's space width, a character the
+ * font lacks its fallback's; a tab is taken as a space.
+ */
+int fontTextWidth(const Font &font, std::string_view text);
+/**
+ * Draws `text` in `font` at (x, y), spaced as fontTextWidth, each pixel
+ * `scale` times; `strip` is the font's glyph strip as RGBA (bitmapToImage).
+ * What would go past `right` isn't drawn.
+ */
+void drawFontText(Surface &s, const Font &font, const image::Image &strip, int x, int y, std::string_view text,
+                  int scale = 1, int right = 1 << 30);
 
 } // namespace reluva::sith

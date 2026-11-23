@@ -127,7 +127,29 @@ void Draw3D::polygon(const std::vector<Corner> &corners, const Paint &paint) {
     const Colormap &cmap = paint.colormap ? *paint.colormap : _colormap;
     const Palette &pal = cmap.palette;
     const bool keyed = tex && tex->transparent && paint.transparent;
-    auto shade = [&](float u, float v, float light, uint8_t *rgba) {
+    const Sky *sky = paint.sky;
+    // The horizon sky's texels per screen pixel, and where the view's turn
+    // puts it (0x4f2dd0); the ceiling sky's plane is 16 texels a unit
+    // (0x4f2f60).
+    const float horizonScale = sky ? sky->horizonDistance / _camera.focal : 0;
+    const float perDegree = sky ? sky->pixelsPerRev / 360 : 0;
+    auto shade = [&](int px, int py, float u, float v, float light, uint8_t *rgba) {
+        if (sky && sky->kind == Sky::kHorizon) {
+            // The camera has no roll, so the screen's offsets aren't turned.
+            u = (float(px) + 0.5f - _camera.halfW) * horizonScale - sky->yaw * perDegree + sky->horizonOffset[0];
+            v = (float(py) + 0.5f - _camera.halfH) * horizonScale - sky->pitch * perDegree + sky->horizonOffset[1];
+        } else if (sky) {
+            // Where the ray through the pixel meets the plane at the ceiling's
+            // height, or 1000 units on if it never does.
+            const soft3d::Vec dir =
+                normalize(_camera.forward + _camera.right * ((float(px) + 0.5f - _camera.halfW) / _camera.focal) -
+                          _camera.up * ((float(py) + 0.5f - _camera.halfH) / _camera.focal));
+            float t = 1000;
+            if (dir.z > 0 && sky->ceilingZ > _camera.eye.z)
+                t = std::min(t, (sky->ceilingZ - _camera.eye.z) / dir.z);
+            u = (_camera.eye.x + dir.x * t) * 16 + sky->ceilingOffset[0];
+            v = (_camera.eye.y + dir.y * t) * 16 + sky->ceilingOffset[1];
+        }
         uint8_t index = uint8_t(color < 0 ? 0 : color);
         if (tex) {
             const int w = tex->w;
@@ -142,6 +164,13 @@ void Draw3D::polygon(const std::vector<Corner> &corners, const Paint &paint) {
         }
         const int level = std::clamp(int(light * (Colormap::kLightLevels - 1) + 0.5f), 0, Colormap::kLightLevels - 1);
         const Color c = pal[cmap.lit(level, index)];
+        if (paint.alpha < 255) {
+            const int a = paint.alpha;
+            rgba[0] = uint8_t((c.r * a + rgba[0] * (255 - a)) / 255);
+            rgba[1] = uint8_t((c.g * a + rgba[1] * (255 - a)) / 255);
+            rgba[2] = uint8_t((c.b * a + rgba[2] * (255 - a)) / 255);
+            return false;
+        }
         rgba[0] = c.r;
         rgba[1] = c.g;
         rgba[2] = c.b;
@@ -207,6 +236,9 @@ void drawModel(Draw3D &draw, MaterialCache &materials, const Model &model, const
         return;
     const std::vector<Model::Mesh> &meshes = model.geosets[0];
     const Vec3 lightDir{0.3f, -0.5f, 0.81f};
+    const Vec3 eye{draw.camera().eye.x, draw.camera().eye.y, draw.camera().eye.z};
+    // See-through faces are drawn once the rest is, so they show it.
+    std::vector<std::pair<std::vector<Corner>, Paint>> seeThrough;
     for (size_t n = 0; n < model.nodes.size() && n < nodes.size(); ++n) {
         const int m = model.nodes[n].mesh;
         if (m < 0 || m >= int(meshes.size()))
@@ -218,13 +250,21 @@ void drawModel(Draw3D &draw, MaterialCache &materials, const Model &model, const
         for (const Model::Face &face : mesh.faces) {
             if (face.geometryMode == 0)
                 continue;
+            // A face turned away isn't drawn unless it's double-sided (0x446548).
+            const Vec3 normal = place.turn(face.normal);
+            if (!(face.type & kFaceDoubleSided) && !face.vertices.empty()) {
+                const Vec3 &v0 = mesh.vertices[size_t(face.vertices[0])];
+                const Vec3 p0 = place.apply({v0.x + pivot.x, v0.y + pivot.y, v0.z + pivot.z});
+                if (dot({eye.x - p0.x, eye.y - p0.y, eye.z - p0.z}, normal) < 0)
+                    continue;
+            }
             Paint paint;
             paint.material = face.material >= 0 ? materials.find(model.materials[size_t(face.material)]) : nullptr;
             paint.cel = cel;
             paint.colormap = colormap;
             if (face.geometryMode < 4)
                 paint.color = paint.material && !paint.material->cels.empty() ? paint.material->cels[0].color : 0;
-            const float lit = 0.45f + 0.55f * std::max(0.0f, dot(place.turn(face.normal), lightDir));
+            const float lit = 0.45f + 0.55f * std::max(0.0f, dot(normal, lightDir));
             std::vector<Corner> corners;
             corners.reserve(face.vertices.size());
             for (size_t c = 0; c < face.vertices.size(); ++c) {
@@ -241,9 +281,16 @@ void drawModel(Draw3D &draw, MaterialCache &materials, const Model &model, const
             }
             if (face.geometryMode < 4)
                 paint.material = nullptr;
+            if (face.type & kFaceTranslucent) {
+                paint.alpha = kTranslucentAlpha;
+                seeThrough.emplace_back(std::move(corners), paint);
+                continue;
+            }
             draw.polygon(corners, paint);
         }
     }
+    for (const auto &[corners, paint] : seeThrough)
+        draw.polygon(corners, paint);
 }
 
 } // namespace reluva::sith
