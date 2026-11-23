@@ -1201,6 +1201,53 @@ void testMeld() {
     CHECK(screen.melded() == -1 && s.items[0].energy < 1.0f);
 }
 
+void testFullInventory() {
+    // The bar with two places: a phaser, and two grenades. Right-clicked,
+    // the second place's both show over it; a click on one chooses it, and
+    // it closes 1.5 seconds after the mouse goes.
+    MemoryArchive data;
+    data.files["Cache/Interface/Screens/Inventory/Background.frm16"] = solidFrame(320, 60, 0x001f);
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\nCustom Rules=CCustomRules\n{\nScreen Pos=0,0\nScreen Size=640,480\n"
+                          "Inventory Pos=300,400\nInventory Bar Offset=37,12\nInventory Icon Size=34,34\n"
+                          "Inventory Icon Spacing=2\nInventory Next Button Pos=287,12\n}\n}\n",
+                          rules));
+    TeamMember ann;
+    ann.firstName = "Ann";
+    GameHud hud(data, rules, {ann}, "", 1000, 1000);
+    hud.setInventory({{"Phaser", -1}, {"Concussion Grenade", 3}, {"Frag Grenade", 2}}, {{0, 1, {0}}, {1, 2, {1, 2}}},
+                     0);
+    Surface s;
+    s.create(640, 480, PixelFormat::kRGBA32);
+    const auto drawn = [&](uint64_t now) {
+        std::fill(s.pixels.begin(), s.pixels.end(), uint8_t(255));
+        hud.draw(s, now, 0, 500.0f, 500.0f, 400, 400);
+    };
+    const auto mouse = [&](EventType type, int x, int y, MouseButton button, uint64_t now) {
+        Event ev;
+        ev.type = type;
+        ev.button = button;
+        ev.mouseX = x;
+        ev.mouseY = y;
+        return hud.handleEvent(ev, now);
+    };
+    // The second place's column: x 373, its items from 376 up.
+    drawn(1000);
+    CHECK(!hud.fullInventory() && s.row(345)[380 * 4] == 255);
+    mouse(EventType::kMouseDown, 340, 420, MouseButton::kRight, 1000);
+    CHECK(hud.fullInventory());
+    drawn(1100);
+    CHECK(s.row(345)[380 * 4] == 0 && s.row(380)[380 * 4] == 0 && s.row(345)[340 * 4] == 255);
+    const GameHud::Result chosen = mouse(EventType::kMouseDown, 380, 345, MouseButton::kLeft, 1200);
+    CHECK(chosen.used && chosen.item == 2 && !hud.fullInventory());
+    mouse(EventType::kMouseDown, 340, 420, MouseButton::kRight, 2000);
+    mouse(EventType::kMouseMove, 100, 100, MouseButton::kLeft, 2000);
+    drawn(3000);
+    CHECK(hud.fullInventory());
+    drawn(3600);
+    CHECK(!hud.fullInventory());
+}
+
 void testMaps() {
     // A mission's two maps: on the first, Ann and Bo, and a door's polygon
     // round Ann; on the second, a landing.
@@ -2194,6 +2241,7 @@ static const reluva::test::Suite
                                        {"meld", [](const std::filesystem::path &) { testMeld(); }},
                                        {"maps", [](const std::filesystem::path &) { testMaps(); }},
                                        {"interface", [](const std::filesystem::path &) { testInterface(); }},
+                                       {"full inventory", [](const std::filesystem::path &) { testFullInventory(); }},
                                        {"gadgets", [](const std::filesystem::path &) { testGadgets(); }},
                                        {"processes", [](const std::filesystem::path &) { testProcesses(); }},
                                        {"kit", [](const std::filesystem::path &) { testKit(); }},

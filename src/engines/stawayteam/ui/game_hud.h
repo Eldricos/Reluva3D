@@ -78,12 +78,13 @@ public:
     };
     /**
      * One of the inventory bar's places, an item type's: the item it shows,
-     * its place in the items (-1 none), and how many of the officer's are
-     * of that type.
+     * its place in the items (-1 none), how many of the officer's are of
+     * that type, and those items, as the full inventory shows them.
      */
     struct Place {
         int item = -1;
         int count = 0;
+        std::vector<int> items;
     };
     /** The chosen officer's items, the bar's places, and the item they've chosen (-1 none). */
     void setInventory(std::vector<Held> items, std::vector<Place> places, int chosen) {
@@ -91,6 +92,11 @@ public:
         _places = std::move(places);
         _heldChosen = chosen;
     }
+    /**
+     * Whether the full inventory's open: a right-click on the bar opens it,
+     * and closes it.
+     */
+    bool fullInventory() const { return _full; }
     /** Whether the chosen item's name shows over the bar, as it's just been chosen. */
     void setItemTitle(bool shown) { _itemTitle = shown; }
     /** Something marked on the minimap, where it is on the map. */
@@ -197,6 +203,11 @@ private:
         int item;
     };
     std::vector<Slot> _slots;
+    // The full inventory: open, its items as drawn, and when the mouse left
+    // it and the bar (0: it hasn't).
+    bool _full = false;
+    std::vector<Slot> _fullSlots;
+    uint64_t _fullLeft = 0;
     int _mouseX = -1;
     int _mouseY = -1;
 };

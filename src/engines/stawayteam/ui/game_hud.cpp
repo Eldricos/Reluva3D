@@ -126,11 +126,36 @@ GameHud::Result GameHud::handleEvent(const Event &ev, uint64_t now) {
     const image::Image &pause = picture("Pause Time Button/Pause Time Default");
     const bool overPause =
         ev.mouseX >= pauseX && ev.mouseY >= pauseY && ev.mouseX < pauseX + pause.w && ev.mouseY < pauseY + pause.h;
-    r.used = overInfo || overTeam || overBox || overInventory || overPause;
+    // Over the full inventory's items counts as over the bar.
+    int iconW = 0;
+    int iconH = 0;
+    readPoint(_custom, "Inventory Icon Size", iconW, iconH);
+    int fullItem = -1;
+    for (const Slot &s : _full ? _fullSlots : std::vector<Slot>{})
+        if (ev.mouseX >= s.x && ev.mouseY >= s.y && ev.mouseX < s.x + iconW && ev.mouseY < s.y + iconH)
+            fullItem = s.item;
+    const bool overFull = fullItem >= 0;
+    // It closes 1.5 seconds after the mouse leaves it and the bar
+    // (0x423940, 0x423b8d).
+    if (ev.type == EventType::kMouseMove && _full)
+        _fullLeft = overInventory || overFull ? 0 : _fullLeft ? _fullLeft : std::max<uint64_t>(now, 1);
+    // A right-click on the bar opens it, or closes it (0x423a60).
+    if (overInventory && ev.type == EventType::kMouseDown && ev.button == MouseButton::kRight) {
+        _full = !_full;
+        _fullLeft = 0;
+    }
+    r.used = overInfo || overTeam || overBox || overInventory || overPause || overFull;
     _mouseOver = r.used;
     r.pause = overPause && ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft;
     if (ev.type != EventType::kMouseDown || ev.button != MouseButton::kLeft)
         return r;
+    // A left click on an item of it or the bar chooses it, and closes it.
+    if (overFull || overInventory)
+        _full = false;
+    if (overFull) {
+        r.item = fullItem;
+        return r;
+    }
     if (overBox) {
         int mx = 0;
         int my = 0;
@@ -433,11 +458,39 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
     // corner and the More Indicator on a place with more than one
     // (inferred for where).
     _slots.clear();
+    _fullSlots.clear();
+    // An item in its frame, the chosen one on its Selected Icon Background
+    // (0x41ae4b), its uses left in its corner.
+    const auto drawItem = [&](int item, int x, int y) {
+        const Held &held = _held[size_t(item)];
+        const auto def = _items.find(held.name);
+        image::blit(screen,
+                    picture(item == _heldChosen ? "Inventory/Selected Icon Background" : "Inventory/Item Frame"), x, y);
+        if (def != _items.end()) {
+            auto found = _icons.find(def->second.iconImage);
+            if (found == _icons.end())
+                found = _icons
+                            .emplace(def->second.iconImage,
+                                     cachePicture(_data, "Inventory/Icon Frames/" + def->second.iconImage))
+                            .first;
+            const image::Image &icon = found->second;
+            image::blit(screen, icon, x + (iw - icon.w) / 2, y + (ih - icon.h) / 2);
+        }
+        // Its Count Format String, "%d" (inferred for where).
+        if (held.count >= 0 && _font.loaded()) {
+            const std::string count = std::to_string(held.count);
+            _font.draw(screen, x + iw - _font.width(count) - 1, y + ih - _font.height(), count);
+        }
+    };
+    if (_full && _fullLeft && now - _fullLeft >= 1500)
+        _full = false;
     if (selected >= 0 && size_t(selected) < _team.size() && iw > 0) {
         int x = vx + barX;
+        std::vector<int> columns; // each place's x
         for (const Place &place : _places) {
             if (x + iw > vx + nx)
                 break;
+            columns.push_back(x);
             const int y = vy + barY;
             if (place.item < 0 || size_t(place.item) >= _held.size()) {
                 for (int row = std::max(0, y); row < std::min(screen.h, y + ih); ++row)
@@ -450,32 +503,31 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
                 x += iw + gap;
                 continue;
             }
-            const Held &held = _held[size_t(place.item)];
-            const auto def = _items.find(held.name);
-            image::blit(
-                screen,
-                picture(place.item == _heldChosen ? "Inventory/Selected Icon Background" : "Inventory/Item Frame"), x,
-                y);
+            drawItem(place.item, x, y);
             _slots.push_back({x, y, place.item});
-            if (def != _items.end()) {
-                auto found = _icons.find(def->second.iconImage);
-                if (found == _icons.end())
-                    found = _icons
-                                .emplace(def->second.iconImage,
-                                         cachePicture(_data, "Inventory/Icon Frames/" + def->second.iconImage))
-                                .first;
-                const image::Image &icon = found->second;
-                image::blit(screen, icon, x + (iw - icon.w) / 2, y + (ih - icon.h) / 2);
-            }
             if (place.count > 1)
                 image::blit(screen, picture("Inventory/More Indicator"), x, y);
-            // Its uses left in its bottom right corner (its Count Format
-            // String, "%d"; inferred for where).
-            if (held.count >= 0 && _font.loaded()) {
-                const std::string count = std::to_string(held.count);
-                _font.draw(screen, x + iw - _font.width(count) - 1, y + ih - _font.height(), count);
-            }
             x += iw + gap;
+        }
+        // The full inventory: over each place, all the officer's items of
+        // its type, one above another from an icon and a space over the
+        // bar, each on black (0x424880).
+        for (size_t p = 0; _full && p < columns.size(); ++p) {
+            int y = vy + barY;
+            for (const int item : _places[p].items) {
+                if (item < 0 || size_t(item) >= _held.size())
+                    continue;
+                y -= ih + gap;
+                const int cx = columns[p];
+                for (int row = std::max(0, y); row < std::min(screen.h, y + ih); ++row)
+                    for (int col = std::max(0, cx); col < std::min(screen.w, cx + iw); ++col) {
+                        uint8_t *px = screen.row(row) + col * 4;
+                        px[0] = px[1] = px[2] = 0;
+                        px[3] = 255;
+                    }
+                drawItem(item, cx, y);
+                _fullSlots.push_back({cx, y, item});
+            }
         }
         // The chosen item's name over the bar a while after it's chosen, in
         // the bar's Trek Small (0x41ad95), centred at Inventory Title Pos

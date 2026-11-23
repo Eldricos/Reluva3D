@@ -944,7 +944,7 @@ map shown's Map Song, over and over; stopping as the maps are left
 *(inferred)*.
 
 Not there yet: the processes of the 5 polygons, the Out Of Range
-cursor, the full inventory, touching triggers set off by projectiles
+cursor, touching triggers set off by projectiles
 (Mission 15's beamer), the AIs'
 other messages and tasks (CSendMessageAction's to animations and
 particles), walkers going round each other, the enemies' own noises,
@@ -1045,7 +1045,7 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 ## Open questions
 
 - **The interface:** what the program marks on the minimap, and what
-  the inventory's places, its full inventory and the cursors' choosing
+  the inventory's places and the cursors' choosing
   are.
 - **Processes:** how the program chooses one, walks to it, and when the
   officer must be in range.

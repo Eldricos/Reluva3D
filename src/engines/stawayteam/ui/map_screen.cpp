@@ -1332,7 +1332,7 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         for (size_t p = 0; p < slots.size(); ++p) {
             const int at = p < o.shown.size() ? o.shown[p] : 0;
             places.push_back({slots[p].empty() ? -1 : slots[p][size_t(std::clamp(at, 0, int(slots[p].size()) - 1))],
-                              int(slots[p].size())});
+                              int(slots[p].size()), slots[p]});
         }
         _hud->setInventory(std::move(held), std::move(places), o.item);
     } else {

@@ -234,9 +234,18 @@ one chosen on the `Selected Icon Background` (`0x41ae4b`), with the
 `More Indicator` (`0x41ae65`); one with none darkened (`0x423fe2`).
 Inventory Next and Prev go along a place's items and on to the next
 place's (`0x423da0`, `0x423e90`; [maps.md](maps.md#the-interface)). Its
-hint says "Right-click for full inventory" (`0x41b158`). The inventory
-screens' `Skill Tab`, `Item Tab` and `Toggle` pictures aren't named by
-the program.
+hint, its item's name and "(Right-click for full inventory)"
+(`0x41b158`). The inventory screens' `Skill Tab`, `Item Tab` and `Toggle`
+pictures aren't named by the program.
+
+The bar's icons are a strip (`0x423560`) with a pop-up of its own, the
+full inventory. A right-click on the bar opens it, or closes it; a left
+click chooses the icon under the mouse, the pop-up's or the bar's, and
+closes it (`0x423a60`). It closes too 1.5 seconds after the mouse leaves
+the bar and it (`0x423940`, `0x423b8d`). Over each of the bar's places it
+shows all the officer's items of its type, one above another from an
+icon and a space over the bar, each on black and drawn as the bar's, the
+chosen one on the Selected Icon Background (`0x424880`).
 
 ### Its cursors
 
@@ -355,7 +364,7 @@ Weapon Damage within its projectile's Explosion Radial Damage, its
 holder too *(inferred)*.
 
 Not there yet: the mines' Deploy and Activate sequences, the phaser's
-range on its panel, the Out Of Range cursor, the full inventory, the
+range on its panel, the Out Of Range cursor, the
 Psyche Displacement Controller (the enemy's own item while it's taken,
 and its panel), the sparks and transporter pictures, the band,
 enhancement and meld on the team bar (`Active HUD Sequence`, `Inventory
@@ -420,7 +429,8 @@ way.
 - **Grenades:** whom an explosion reaches and how far, whether it hurts
   the team, and what the EM Pulse Grenade does.
 - **The bar:** where a count is shown, where the More Indicator is
-  drawn, the order of its places, and the full inventory.
+  drawn, the order of its places, and whether the full inventory's
+  items are in their Item Frames.
 - **Cursors:** when the program shows each of an item's cursors.
 - **The panels:** where each part of an item's panel is drawn, whether
   it's over the minimap, and how the phaser's switch is used.

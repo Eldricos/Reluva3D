@@ -55,9 +55,9 @@ None yet.
   mission's maps
   ([systems/objectives.md](systems/objectives.md#in-reluva)).
 - **Items:** the Psyche Displacement Controller (the taken enemy's own
-  panel) isn't there; the gadgets' sparks and the transporter's pictures aren't
-  drawn, nor the band or an enhancement on the team bar; there's no full
-  inventory ([systems/items.md](systems/items.md#in-reluva)).
+  panel) isn't there; the gadgets' sparks and the transporter's pictures
+  aren't drawn, nor the band, an enhancement or the meld on the team bar
+  ([systems/items.md](systems/items.md#in-reluva)).
 - **The briefing:** the text has no scroll bar (the mouse wheel
   scrolls it), the random numbers aren't there, and EXIT doesn't fade out
   ([systems/briefing.md](systems/briefing.md#in-reluva)).
