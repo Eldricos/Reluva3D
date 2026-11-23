@@ -23,6 +23,11 @@ PlaySettings playSettings(const std::map<std::string, std::string> &settings) {
     }
     if (const std::string *v = set("turning"))
         out.turningByTime = *v != "frame";
+    if (const std::string *v = set("device")) {
+        const SetupDevice &device = *v == "software" ? kSoftwareDevice : kHardwareDevice;
+        out.registry.emplace_back("3D Device ID", device.id);
+        out.registry.emplace_back("3D Device Name", device.name);
+    }
     if (const std::string *v = set("islandquality"))
         out.registry.emplace_back("Island Quality", *v);
     if (const std::string *v = set("islandtexture"))

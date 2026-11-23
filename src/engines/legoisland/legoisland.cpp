@@ -161,7 +161,7 @@ public:
                      {"15", "15 a second"},
                      {"0", "As many as it draws"}};
         // The setup's (CONFIG.EXE's) choices that matter here; its video
-        // memory, palette and device ones are the stand-ins' to decide.
+        // memory and palette ones are the stand-ins' to decide.
         auto choice = [](const char *key, const char *label, const char *tooltip,
                          std::vector<std::pair<std::string, std::string>> choices) {
             GameOption c;
@@ -181,6 +181,10 @@ public:
         };
         return {turning,
                 o,
+                choice("device", "3D device",
+                       "The setup's 3D device. Hardware smooths the game's textures; software, the setup's "
+                       "RGB Emulation, draws them unsmoothed.",
+                       {{"hardware", "Hardware"}, {"software", "Software (RGB Emulation)"}}),
                 choice("islandquality", "Island model quality",
                        "The setup's Island Model Quality: High draws the island's detailed model, its roads marked.",
                        {{"2", "High"}, {"1", "Medium"}, {"0", "Fast"}}),

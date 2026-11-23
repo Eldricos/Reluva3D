@@ -30,11 +30,11 @@ program, against its record (`data/engine-record.txt`):
   scripts beside it;
 - the engine's options, their defaults the same as nothing set, and the
   settings each makes (frame rate, turning, the setup's registry values,
-  the joystick);
+  the 3D device, the joystick);
 - frames held to 60 and 20 a second, and unheld, on a made-up clock: a
   late frame shown when it's ready, the next ones not hurried;
-- the process's registry as the installer leaves it, then with settings,
-  and the joystick reported;
+- the process's registry as the installer and the setup leave it, then
+  with settings, and the joystick reported;
 - the program loaded, played on its thread and run by the engine as the
   launcher runs it, each stopping with the error it should.
 
@@ -131,8 +131,8 @@ engine, by a tester), or *to try*.
     player taken from the book; a game in Act 2 or 3 picked up again.
     *Scripted (Act 1); Acts 2 and 3 to try.*
 12. **The credits**, after quitting through the door. *Scripted.*
-13. **Settings:** each of the engine's (frame rate, the island's
-    quality, music, 3D sound, the game's cursor, a joystick) seen to
+13. **Settings:** each of the engine's (frame rate, the 3D device, the
+    island's quality, music, 3D sound, the game's cursor, a joystick) seen to
     take effect. *To try.*
 
 ## Last checked

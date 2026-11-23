@@ -8,9 +8,10 @@ detect.install.game: legoisland LEGO Island (unknown release)  windows
 import.game: legoisland LEGO Island (unknown release)
 import.files: 5 68 6db3f0bf725e7dbc
 import.note: From the CD's LEGO\SCRIPTS folder, not found: ACT2/ACT2MAIN.SI, ACT3/ACT3.SI, BUILD/COPTER.SI, BUILD/DUNECAR.SI, .... The CD's copy may be incomplete, or another release's.
-options: 8
+options: 9
 options.turning: Turning | time By time | frame By frame, as the original (20 frames a second to match)
 options.framerate: Frame rate | 60 60 a second | 20 20 a second | 30 30 a second | 15 15 a second | 0 As many as it draws
+options.device: 3D device | hardware Hardware | software Software (RGB Emulation)
 options.islandquality: Island model quality | 2 High | 1 Medium | 0 Fast
 options.islandtexture: Island texture quality | 1 High | 0 Fast
 options.music: Music [on]
@@ -18,17 +19,17 @@ options.sound3d: 3D sound [on]
 options.drawcursor: The game's own cursor [off]
 options.usejoystick: Use a joystick [off]
 settings.unset: 60 time -
-settings.defaults: 60 time -, Island Quality=2, Island Texture=1, Music=YES, 3DSound=YES, Draw Cursor=NO
+settings.defaults: 60 time -, 3D Device ID=0 0x84e63de0 0x11cf46aa 0x00006f81 0x6e1520c0, 3D Device Name=Direct3D HAL, Island Quality=2, Island Texture=1, Music=YES, 3DSound=YES, Draw Cursor=NO
 settings.original: 20 frame -
-settings.changed: 0 time joystick, Island Quality=1, Island Texture=0, Music=NO, 3DSound=YES, Draw Cursor=YES, UseJoystick=YES, JoystickIndex=0
+settings.changed: 0 time joystick, 3D Device ID=0 0xa4665c60 0x11cf2673 0xaa001aa3 0x5633b900, 3D Device Name=RGB Emulation, Island Quality=1, Island Texture=0, Music=NO, 3DSound=YES, Draw Cursor=YES, UseJoystick=YES, JoystickIndex=0
 settings.unreadable: 60 time -
 settings.negative: 0 time -
 pacing.60: 0 16666 33333 49999 100000 116666 200000
 pacing.20: 0 50000 100000 150000
 pacing.unlimited: 0 0 1000 1000
-process.registry: diskpath=C:\PROGRA~1\LEGOIS~1, cdpath=D:, savepath=C:\PROGRA~1\LEGOIS~1, Island Quality=2, Island Texture=(unset), Music=(unset), 3DSound=(unset), Draw Cursor=(unset), UseJoystick=(unset), JoystickIndex=(unset)
+process.registry: diskpath=C:\PROGRA~1\LEGOIS~1, cdpath=D:, savepath=C:\PROGRA~1\LEGOIS~1, 3D Device ID=0 0x84e63de0 0x11cf46aa 0x00006f81 0x6e1520c0, 3D Device Name=Direct3D HAL, Display Bit Depth=16, Flip Surfaces=NO, Full Screen=YES, Back Buffers in Video RAM=NO, Wide View Angle=YES, Island Quality=2, Island Texture=1, Music=YES, 3DSound=YES, Draw Cursor=NO, UseJoystick=NO, JoystickIndex=-1
 process.joystick: no
-process.registry.set: diskpath=C:\PROGRA~1\LEGOIS~1, cdpath=D:, savepath=C:\PROGRA~1\LEGOIS~1, Island Quality=0, Island Texture=(unset), Music=NO, 3DSound=(unset), Draw Cursor=(unset), UseJoystick=YES, JoystickIndex=0
+process.registry.set: diskpath=C:\PROGRA~1\LEGOIS~1, cdpath=D:, savepath=C:\PROGRA~1\LEGOIS~1, 3D Device ID=0 0xa4665c60 0x11cf2673 0xaa001aa3 0x5633b900, 3D Device Name=RGB Emulation, Display Bit Depth=16, Flip Surfaces=NO, Full Screen=YES, Back Buffers in Video RAM=NO, Wide View Angle=YES, Island Quality=0, Island Texture=1, Music=NO, 3DSound=YES, Draw Cursor=NO, UseJoystick=YES, JoystickIndex=0
 process.joystick.set: yes
 process.load: LEGO1.DLL: Not an executable (no MZ header)
 process.turning: by frame

@@ -4,11 +4,13 @@
 #include "engines/legoisland/host/game_process.h"
 
 #include "engines/legoisland/host/turning.h"
+#include "engines/legoisland/play_settings.h"
 
 #include "common/fs.h"
 #include "common/stream.h"
 
 #include <algorithm>
+#include <utility>
 
 namespace reluva::legoisland {
 
@@ -18,6 +20,31 @@ constexpr const char *kProgram = "ISLE.EXE";
 constexpr const char *kLibrary = "LEGO1.DLL";
 // Where the installer records the game's folders (its log).
 constexpr const char *kRegistryKey = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Mindscape\\LEGO Island";
+
+// What the installer and the setup (CONFIG.EXE) write there, as seen in a
+// registry they wrote (systems/running.md): the install folder by its short
+// name, the saves (History.gsi, Players.gsi) kept in it, the CD's drive, and
+// the setup's defaults; but its 3D device is the hardware one, whose
+// textures are smoothed, unless the settings say (kSoftwareDevice).
+constexpr std::pair<const char *, const char *> kSetupValues[] = {
+    {"cdpath", "D:"},
+    {"diskpath", "C:\\PROGRA~1\\LEGOIS~1"},
+    {"savepath", "C:\\PROGRA~1\\LEGOIS~1"},
+    {"3D Device ID", kHardwareDevice.id},
+    {"3D Device Name", kHardwareDevice.name},
+    {"Display Bit Depth", "16"},
+    {"Flip Surfaces", "NO"},
+    {"Full Screen", "YES"},
+    {"Back Buffers in Video RAM", "NO"},
+    {"Wide View Angle", "YES"},
+    {"3DSound", "YES"},
+    {"Draw Cursor", "NO"},
+    {"Island Quality", "2"},
+    {"Island Texture", "1"},
+    {"UseJoystick", "NO"},
+    {"Music", "YES"},
+    {"JoystickIndex", "-1"},
+};
 
 // `path` with `prefix` taken off, '/' between folders, if it starts with it.
 std::optional<std::string> under(const std::string &path, const std::string &prefix) {
@@ -43,17 +70,9 @@ GameProcess::GameProcess(std::filesystem::path gameDir, uint32_t memoryMb) : _di
     _process->setProgram(kProgram, kInstallFolder);
     _process->timeStampFromClock();
     _process->mapPath = [this](const std::string &path, bool forWriting) { return mapPath(path, forWriting); };
-    // As the installer leaves them: the install folder by its short name,
-    // and the CD's drive.
-    _process->setRegistryString(kRegistryKey, "diskpath", "C:\\PROGRA~1\\LEGOIS~1");
-    _process->setRegistryString(kRegistryKey, "cdpath", "D:");
-    // Where it keeps its saved games (History.gsi, Players.gsi): without
-    // it, C:\, which isn't mapped. The install folder's writes go to the
-    // save folder.
-    _process->setRegistryString(kRegistryKey, "savepath", "C:\\PROGRA~1\\LEGOIS~1");
-    // The island's detailed model (isle_hi: its roads textured, marked and
-    // edged); without it, "1", the plain one.
-    _process->setRegistryString(kRegistryKey, "Island Quality", "2");
+    // The engine's settings change some (setSetting).
+    for (const auto &[name, value] : kSetupValues)
+        _process->setRegistryString(kRegistryKey, name, value);
     _directX = std::make_unique<x86::DirectX>(*_process);
     _directSound = std::make_unique<x86::DirectSound>(*_process);
     _retainedMode = std::make_unique<x86::Direct3DRM>(*_process, *_directX);

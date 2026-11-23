@@ -11,14 +11,14 @@ None yet.
 
 ## Seen running, not traced in the code
 
-None yet.
+- On the setup's RGB Emulation device the game draws its textures
+  unsmoothed, and on the hardware one smoothed: it calls
+  `SetTextureQuality` and `SetRenderMode` only on the hardware one. Why
+  it tells them apart isn't traced. Reluva offers both, the hardware one
+  unless set ([systems/running.md](systems/running.md#in-reluva)).
 
 ## Inferred
 
-- `savepath`, the folder the game writes its players to (`Players.gsi`,
-  seen), is the install folder as `CONFIG.EXE` writes it: Reluva sets it
-  so ([systems/running.md](systems/running.md#in-reluva)). Settled by
-  what `CONFIG.EXE` writes, seen in a registry it ran on.
 - In an SI object, flag `0x08` is a still's transparency and the
   medium's 1 or 0 whether the game manages its palette: the jukebox's
   script sets both together, so they may be the other way round
@@ -51,4 +51,6 @@ None yet.
 
 <!-- Items confirmed or corrected since: the date, and how. Once the page
 it belongs to says so, an item can go. -->
-None yet.
+- November 2026: `savepath` is the install folder, as Reluva sets it:
+  a player's registry, exported after the setup ran, holds it so
+  ([systems/running.md](systems/running.md)).

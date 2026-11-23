@@ -218,6 +218,32 @@ that far.
   16-bit), the Direct3D device, 3D Sound, Music, Draw Cursor, Use
   Joystick, and, advanced, Flip Video Memory Pages and Draw 3D to Video
   Memory.
+- What the installer and `CONFIG.EXE` leave there, as a player's
+  registry holds it after the setup ran with its defaults (a `regedit`
+  export, November 2026), every value a string:
+
+  | Value | Written |
+  |---|---|
+  | `cdpath` | `D:`, the CD's drive |
+  | `diskpath`, `savepath` | `C:\PROGRA~1\LEGOIS~1`, the install folder by its short name |
+  | `3D Device ID` | `0 0xa4665c60 0x11cf2673 0xaa001aa3 0x5633b900` |
+  | `3D Device Name` | `RGB Emulation` |
+  | `Display Bit Depth` | `16` |
+  | `Flip Surfaces`, `Back Buffers in Video RAM` | `NO` |
+  | `Full Screen`, `Wide View Angle`, `3DSound`, `Music` | `YES` |
+  | `Draw Cursor`, `UseJoystick` | `NO` |
+  | `Island Quality` | `2` |
+  | `Island Texture` | `1` |
+  | `JoystickIndex` | `-1` |
+
+  The device's ID is the display driver (0, the primary display), then
+  the device's GUID as four words in hex: `{a4665c60-2673-11cf-a31a-00aa00b93356}`,
+  Direct3D's RGB software emulation. So the setup's island is the
+  detailed one ("2"), not the program's own default ("1"). The game
+  uses the device named: on the hardware one (HAL), it also smooths its
+  textures (`SetTextureQuality`) and sets a render mode; on RGB
+  Emulation it does neither, and its textures are drawn unsmoothed
+  *(seen, not traced)*.
 
 ## In Reluva
 
@@ -242,14 +268,16 @@ Its *Turning* setting gives back the original's way. The engine shows
 at most so many frames a second, its *Frame rate* setting (60 unless
 set: 20, 30, 15, or as many as it draws). Its settings give the setup's choices that matter here: the
 island's model and texture quality, music, 3D sound, the game's own
-cursor and a joystick, each set in the registry when chosen. With *Use a
+cursor, a joystick and the 3D device, each set in the registry when chosen,
+the others as the setup writes them (above). With *Use a
 joystick*, the first one connected is the game's joystick 0
 (`UseJoystick` "YES", `JoystickIndex` 0), through WINMM's
-`joyGetPosEx`. The registry's `Island
-Quality` is "2", the island's detailed model. The registry's `savepath` is
-the install folder, whose writes go to the game's save folder, so its
-saved games are kept with it *(inferred: what `CONFIG.EXE` writes there
-isn't known)*.
+`joyGetPosEx`. The *3D device* is Direct3D's hardware device unless set,
+its textures smoothed (`3D Device ID` `0 0x84e63de0 0x11cf46aa 0x00006f81
+0x6e1520c0`, `Direct3D HAL`, in the setup's form); *Software* is the
+setup's RGB Emulation. The registry's `savepath` is the install folder, as
+the setup writes it, whose writes go to the game's save folder, so its
+saved games are kept with it.
 
 `GameProcess` (`src/engines/legoisland/host/game_process.cpp`) loads and
 starts the program. `reluva-tool legoisland run <game folder>` runs it and
@@ -275,7 +303,8 @@ instructions at an address ([disasm.md](../../../common/x86/disasm.md)).
 ## Sources and checks
 
 - **Where the facts come from:** the executables' import tables; the
-  installer's log, for the registry and the install folder; the
+  installer's log, for the registry and the install folder; a player's
+  registry exported after the setup ran, for what it writes; the
   program running in the interpreter, through `reluva-tool legoisland
   run`, for how far it gets. The sound card message was seen with
   `DirectSoundCreate` made to fail, in a build kept out of the
@@ -285,8 +314,8 @@ instructions at an address ([disasm.md](../../../common/x86/disasm.md)).
 
 ## Open questions
 
-- What `CONFIG.EXE` writes for each choice, and its defaults: its
+- What `CONFIG.EXE` writes for each choice other than its defaults: its
   sliders' values for the island's quality are taken as 0 to 2 and 0 to
   1, as the program reads them.
-- What else the registry holds once `CONFIG.EXE` has run, and which of
-  it the program needs.
+- What `Display Bit Depth`, `Flip Surfaces`, `Back Buffers in Video RAM`
+  and `Wide View Angle` change: Reluva writes the setup's defaults.

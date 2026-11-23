@@ -34,11 +34,12 @@ None yet.
   (render mode 1) unsorted, sets no fog, and uses no decals, frame
   textures, material modes or colour keys; those are drawn as the
   documentation describes, should a later part use them.
-- **The setup dialog's** (`CONFIG.EXE`) video memory, palette and device
-  choices aren't offered: they're the stand-ins' to decide. Its others
-  are the engine's settings, the island's model at High unless set (the
-  game's own default is Medium); its joystick is the first one
-  connected.
+- **The setup dialog's** (`CONFIG.EXE`) video memory and palette
+  choices aren't offered: they're the stand-ins' to decide, and written
+  as the setup's defaults. Its others are the engine's settings, each as
+  the setup's default unless set, but for the 3D device: the hardware
+  one, its textures smoothed, where the setup chose RGB Emulation on a
+  player's machine. Its joystick is the first one connected.
 
 ## Additions outside the game
 

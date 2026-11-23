@@ -10,8 +10,8 @@
 //     scripts beside it;
 //   - the engine's options, and the settings each makes (playSettings);
 //   - frames held to the frame rate, on a made-up clock (FramePacer);
-//   - the process set up: its registry, as the installer and the settings
-//     leave it, and the joystick;
+//   - the process set up: its registry, as the installer and the setup
+//     (CONFIG.EXE) leave it, then with the settings, and the joystick;
 //   - the program loaded, played and run by the engine, each failing as it
 //     should on made-up files.
 // What it does goes into a record (counts, checksums: tests/support/record.h),
@@ -139,6 +139,7 @@ void options(const MetaEngine &engine, Record &rec) {
                    " against " + unset);
     rec.add("settings.original", describe(playSettings({{"turning", "frame"}, {"framerate", "20"}})));
     rec.add("settings.changed", describe(playSettings({{"framerate", "0"},
+                                                       {"device", "software"},
                                                        {"islandquality", "1"},
                                                        {"islandtexture", "0"},
                                                        {"music", "0"},
@@ -178,8 +179,10 @@ void process(const std::filesystem::path &tmp, Record &rec) {
     const std::string key = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Mindscape\\LEGO Island";
     auto registry = [&] {
         std::string out;
-        for (const char *name : {"diskpath", "cdpath", "savepath", "Island Quality", "Island Texture", "Music",
-                                 "3DSound", "Draw Cursor", "UseJoystick", "JoystickIndex"}) {
+        for (const char *name :
+             {"diskpath", "cdpath", "savepath", "3D Device ID", "3D Device Name", "Display Bit Depth", "Flip Surfaces",
+              "Full Screen", "Back Buffers in Video RAM", "Wide View Angle", "Island Quality", "Island Texture",
+              "Music", "3DSound", "Draw Cursor", "UseJoystick", "JoystickIndex"}) {
             const auto v = p.registryValue(key, name);
             std::string text = v ? std::string(v->begin(), v->end()) : "(unset)";
             if (!text.empty() && text.back() == '\0')
@@ -190,7 +193,8 @@ void process(const std::filesystem::path &tmp, Record &rec) {
     };
     rec.add("process.registry", registry());
     rec.add("process.joystick", p.joystick.present ? "yes" : "no");
-    const PlaySettings settings = playSettings({{"islandquality", "0"}, {"music", "0"}, {"usejoystick", "1"}});
+    const PlaySettings settings =
+        playSettings({{"device", "software"}, {"islandquality", "0"}, {"music", "0"}, {"usejoystick", "1"}});
     for (const auto &[name, value] : settings.registry)
         game.setSetting(name, value);
     p.joystick.present = settings.joystick;

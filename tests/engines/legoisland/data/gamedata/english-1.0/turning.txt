@@ -1,4 +1,4 @@
-turning: fc6225f7125f5eb6 | stopped at frame 9501 after 3399354524 instructions, state 88eeb740cdfbcaa2
+turning: 13a42255bcd13681 | stopped at frame 9501 after 3401292156 instructions, state 076af7d2471b17ac
 Players.gsi: a53af3d5ddecddb0
 frame_00001.tga: 16dc43ade655176c
 frame_00501.tga: c8979af185c560b5
@@ -10,14 +10,14 @@ frame_03001.tga: 0c1d2a12218297de
 frame_03501.tga: 9288a07a713acc0b
 frame_04001.tga: 3ce8810fdff19f70
 frame_04501.tga: 3ce8810fdff19f70
-frame_05001.tga: b777a1729156b6fb
-frame_05501.tga: fd80732288434757
-frame_06001.tga: abbd1920508ad603
-frame_06501.tga: 8d90b9d633c3b7bf
-frame_07001.tga: ff5fed9419eb5e77
-frame_07501.tga: 94c43802792b01fd
-frame_08001.tga: 376abdbc206ff894
-frame_08501.tga: f633301ea2b0e476
-frame_09001.tga: 65687eb70b0ab5a2
-frame_09501.tga: df925d65f7921dd3
+frame_05001.tga: c4cac6c3c2a08f40
+frame_05501.tga: 9676dc1220adaf50
+frame_06001.tga: 27fcffecaab3a4b5
+frame_06501.tga: 0ffcd5a1f2e30a59
+frame_07001.tga: 40d5467415ac8cd7
+frame_07501.tga: 1b33c3b3cae84204
+frame_08001.tga: d259d57a2198b55b
+frame_08501.tga: 7783c3502de110e3
+frame_09001.tga: 33cb89ae5d8a21aa
+frame_09501.tga: 00887f91ba3fea4d
 turning by time: yes
