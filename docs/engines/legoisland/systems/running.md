@@ -260,7 +260,9 @@ primary surface), and passes the player's input on: the pointer where it
 is in the game's picture, which fills the window's client area, its
 buttons and wheel, and keys, as window messages and DirectInput's state.
 The program's sound goes to the engine's mixer through the DirectSound
-stand-in. Closing the window asks first. If the program stops where
+stand-in. Each frame is shown when the program gives the next
+(`DirectX::presentLate`), its drawing done while the program works that
+one out. Closing the window asks first. If the program stops where
 Reluva can't follow it (a function nothing stands in for), the launcher
 says so in a message box, naming it. The player turns by time
 (`turnByTime`, `host/turning.cpp`; `reluva-tool legoisland run` says
@@ -292,7 +294,7 @@ module+offset); the frames shown, and how fast it ran. `-trace <count>`
 keeps the last so many instructions for a failure's report too, which,
 as `-at` does, runs the program without the JIT, many times slower;
 `-speed <frames>` prints how many frames a second it shows over each so
-many. `-log` prints
+many, and `-present-late` shows frames late, as the engine does. `-log` prints
 every stand-in called (and, for `QueryInterface`, the interface asked
 for), `-files` each file the program asks for, and
 `-save <folder>` lets it write, `-shots <folder>` saves every

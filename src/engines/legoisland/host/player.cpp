@@ -79,6 +79,8 @@ void Player::work() {
         game.setSaveFolder(_saveDir);
     game.directSound().mixer = _mixer;
     game.process().joystick.present = _joystick;
+    // A frame is shown once the next is given, its drawing done meanwhile.
+    game.directX().presentLate = true;
     for (const auto &[name, value] : _settings)
         game.setSetting(name, value);
     x86::Win32Process &process = game.process();

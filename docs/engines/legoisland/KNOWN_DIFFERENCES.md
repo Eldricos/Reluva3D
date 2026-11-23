@@ -40,6 +40,11 @@ None yet.
   the setup's default unless set, but for the 3D device: the hardware
   one, its textures smoothed, where the setup chose RGB Emulation on a
   player's machine. Its joystick is the first one connected.
+- **Each frame is shown a frame late,** when the program gives the next,
+  so its drawing goes on while the program works that one out: the
+  island's frames are 40 to 54% quicker for it, for a frame's delay
+  (17 ms at 60 frames a second) between the player's input and what's
+  shown.
 
 ## Additions outside the game
 

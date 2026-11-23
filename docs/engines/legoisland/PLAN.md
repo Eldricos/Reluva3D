@@ -63,10 +63,10 @@ Each phase ends with something that runs, is tested and is committed.
    every place on the map reached in Act 1, and its routes run by the
    game-files test; Acts 2 and 3 not yet played. Speed: Render skips
    what's out of view, and the draw threads are woken only once enough
-   is waiting; on four processors the island runs at the game's own most,
-   90 frames a second, above the engine's limit of 60. Next, for slower
-   machines: showing a frame without waiting for its drawing to end, and
-   Retained Mode on the GPU.
+   is waiting, and a frame is shown once the next is given, its drawing
+   done meanwhile; on four processors the island runs at the game's own
+   most, 90 frames a second, above the engine's limit of 60. Next, for
+   slower machines: Retained Mode on the GPU.
 
 ## Decisions
 

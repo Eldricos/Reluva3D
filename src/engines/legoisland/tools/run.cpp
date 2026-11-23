@@ -50,7 +50,7 @@ int cmdRun(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool legoisland run <game folder> [-log] [-files] [-limit instructions] "
-            "[-trace count] [-calls count] [-memory MB] [-save folder] [-shots folder] [-every frames] [-at address]... [-watch address,bytes] [-click frame@x,y]... [-drag frame@x,y:x,y,frames]... [-key frame@key,frames]... [-fixed-clock instructions-per-ms] [-until frame] [-speed frames]\n");
+            "[-trace count] [-calls count] [-memory MB] [-save folder] [-shots folder] [-every frames] [-at address]... [-watch address,bytes] [-click frame@x,y]... [-drag frame@x,y:x,y,frames]... [-key frame@key,frames]... [-fixed-clock instructions-per-ms] [-until frame] [-speed frames] [-present-late]\n");
         return 2;
     }
     // A line at a time: a long run is often stopped, and what it said so far is wanted.
@@ -114,6 +114,8 @@ int cmdRun(int argc, char **argv) {
     uint64_t untilFrame = 0;
     // -speed: how fast frames are shown, over each so many.
     uint64_t speedEvery = 0;
+    // -present-late: DirectX::presentLate, as the player has it.
+    bool presentLate = false;
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
         if (arg == "-log")
@@ -139,6 +141,8 @@ int cmdRun(int argc, char **argv) {
             instructionsPerMs = std::max<uint64_t>(1, std::strtoull(argv[++a], nullptr, 0));
         } else if (arg == "-until" && a + 1 < argc) {
             untilFrame = std::strtoull(argv[++a], nullptr, 0);
+        } else if (arg == "-present-late") {
+            presentLate = true;
         } else if (arg == "-speed" && a + 1 < argc) {
             speedEvery = std::strtoull(argv[++a], nullptr, 0);
         } else if (arg == "-drag" && a + 1 < argc) {
@@ -174,6 +178,7 @@ int cmdRun(int argc, char **argv) {
     }
 
     GameProcess game(argv[2], memoryMb);
+    game.directX().presentLate = presentLate;
     if (!saveDir.empty())
         game.setSaveFolder(saveDir);
     x86::Cpu &cpu = game.cpu();
@@ -422,7 +427,7 @@ const reluva::tool::Commands
                   {"run",
                    "<game folder> [-log] [-files] [-limit instructions] [-trace count] [-calls count] [-shots folder] "
                    "[-click frame@x,y]... [-drag frame@x,y:x,y,frames]... [-key frame@key,frames]... "
-                   "[-fixed-clock instructions-per-ms] [-until frame] [-speed frames]",
+                   "[-fixed-clock instructions-per-ms] [-until frame] [-speed frames] [-present-late]",
                    "run ISLE.EXE and LEGO1.DLL in the x86 interpreter, and say how far they get: what nothing "
                    "stands in for, the stand-ins called, the frames shown, where a failure was",
                    cmdRun},
