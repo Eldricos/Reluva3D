@@ -40,8 +40,9 @@ public:
     const std::vector<std::string> &lines() const { return _lines; }
 
 private:
-    // Draws line `line` with its top at y, across an area w wide.
-    void drawLine(Surface &area, const std::string &line, int y, int w, int opacity) const;
+    // Draws line `line` with its top at y, across an area w wide, its
+    // colours scaled by `brightness`, 0-1.
+    void drawLine(Surface &area, const std::string &line, int y, int w, float brightness) const;
 
     const Font &_font;
     std::vector<std::string> _lines;

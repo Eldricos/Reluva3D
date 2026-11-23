@@ -138,6 +138,10 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
         item.name = stem(path);
         item.printableName = text(def, "Printable Item Name");
         item.iconImage = text(def, "Icon Image");
+        if (const std::string *format = def.value("Count Format String"))
+            item.countFormat = *format;
+        if (const std::string *empty = def.value("Empty String"))
+            item.emptyText = *empty;
         item.type = text(def, "Inventory Type");
         item.displayInInventory = def.integer("Display In Inventory").value_or(0) != 0;
         item.briefingScript = text(def, "Briefing Script");
@@ -189,8 +193,10 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
             item.cantUseCursor = text(*process, "Can't Use Cursor");
         }
         item.hoveringCursor = text(def, "Entity Hovering Cursor");
-        if (def.integer("Show Obscured Cursor").value_or(0) != 0)
-            item.obscuredCursor = text(def, "Obscured Cursor");
+        item.obscuredCursor = text(def, "Obscured Cursor");
+        item.showObscured = def.integer("Show Obscured Cursor").value_or(0) != 0;
+        item.onlyIfHovering = def.integer("Only Execute If Hovering").value_or(0) != 0;
+        item.canTargetPlayers = def.integer("Can Target Players").value_or(1) != 0;
         item.projectile = text(def, "Projectile");
         if (item.projectile == "!Unknown Model")
             item.projectile.clear();

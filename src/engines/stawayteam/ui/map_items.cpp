@@ -526,6 +526,16 @@ void MapScreen::updateItems(float seconds) {
     }
 }
 
+const TextObject *MapScreen::processOfType(size_t part, const std::string &type) const {
+    for (const TextObject *ai : _map.parts[part].activities) {
+        const TextObject *list = ai->className == "CProcessListAI" ? ai->object("Process") : nullptr;
+        for (const TextField *f : list ? list->items() : std::vector<const TextField *>{})
+            if (f->object && (type.empty() || readText(f->object.get(), "Process Type") == type))
+                return f->object.get();
+    }
+    return nullptr;
+}
+
 const TextObject *MapScreen::processFor(size_t part, const Officer &o) const {
     // One for their chosen item (its Required Selected Item), first; else
     // one to Use with none (inferred: the program's choosing isn't traced).

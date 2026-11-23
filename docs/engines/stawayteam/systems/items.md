@@ -171,10 +171,11 @@ by 36).
 
 The chosen item's `Info Renderer` is drawn on the info bar at Rules.txt's
 `Info Renderer Pos` (127, 34): its `Background Sequence`, and what its
-kind shows. Its sequences' places are from its middle (`Phaser Indicator
-Pos` 0, -8; `Indicator Position` -55, 0), its pictures' and words' from
-the info bar's corner, which puts them on it (the phaser's `Stun Pos`
-155, 39; the band's `Button Pos` 116, 13). A `CGenericInfoRenderer` its
+kind shows. Its sequences' places are added to a point the info bar
+gives it (`0x534b52`; Reluva takes the panel's middle: `Phaser Indicator
+Pos` 0, -8; `Indicator Position` -55, 0), its pictures' and words' are
+on the info bar with nothing added (`0x534d61`), which puts them on it
+(the phaser's `Stun Pos` 155, 39; the band's `Button Pos` 116, 13). A `CGenericInfoRenderer` its
 `Text` in `Text Size` at `Text Pos`. The phaser's `CPhaserInfoRenderer`: its `Phaser Power Indicator
 Sequence` at `Phaser Indicator Pos`, its damage and range at `Phaser
 Damage Pos` and `Phaser Range Pos` in `Phaser Font` ("Damage: %3.0f",

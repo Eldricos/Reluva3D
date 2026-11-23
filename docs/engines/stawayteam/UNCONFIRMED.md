@@ -42,14 +42,13 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
   its queue of input, and what goes into the queue isn't traced
   ([systems/startup.md](systems/startup.md#the-opening-movies)).
 - **The menus:** the confirm dialog and the other windows in the
-  middle of the screen, the credits fading to see-through, the toolkit's
-  brightness scaling colours, the
+  middle of the screen, the credits' underlines not fading, the toolkit's
+  brightness scaling colours smoothly outside the credits, the
   gamma brightening dark colours, the slider's texture tiled from the
   screen's corner, the sliders' keys and focus, the keyboard screen's
   keys and tab sizes, voiceovers' and movies'
   volume following the effects',
-  `Button Action` played on a picture button's click, Esc on
-  the main menu asking to quit, a button's sound on the click, the shortcut's
+  Esc on the main menu asking to quit, the shortcut's
   line shown once Alt is pressed, a fixed-width font's cell, and the
   sounds named `.wav` being the `.ogg` files of their names
   ([systems/menus.md](systems/menus.md#open-questions)).
@@ -82,14 +81,13 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
   Cancel Orders drops, how an enemy's sight is chosen and drawn, and the
   escape menu holding the game
   ([systems/maps.md](systems/maps.md#open-questions)).
-- **The interface's pointer, bar and minimap:** which cursor shows
-  where, the inventory's places in the team selection's order and where
-  its More Indicator goes, and the zoom's steps ([systems/maps.md](systems/maps.md#open-questions)).
+- **The interface's pointer, bar and minimap:** the pointer where no
+  process list gives a cursor, the inventory's places in the team
+  selection's order, and the zoom's steps at 30 a second ([systems/maps.md](systems/maps.md#open-questions)).
 - **The gadgets:** an enemy shooting a hologram down by its hit points,
   and what's put down running its model's AIs as a map's part
   ([systems/items.md](systems/items.md#open-questions)).
-- **The item panels' layout:** sequences placed from the panel's middle,
-  pictures and words from the info bar's corner
+- **The item panels' layout:** sequences placed from the panel's middle
   ([systems/items.md](systems/items.md#an-items-panel)).
 - **The enemies' states:** where one stunned by something other than
   an officer goes to look, one running away giving up with no way to

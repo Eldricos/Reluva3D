@@ -457,17 +457,18 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
     // A place for each item type (0x423f70): an empty one darkened (10,
     // 10, 40, half see-through), else its item in its frame, the chosen
     // one on its Selected Icon Background (0x41ae4b), its uses left in its
-    // corner and the More Indicator on a place with more than one
-    // (inferred for where).
+    // corner. The More Indicator is loaded and handed to each place
+    // (0x41ae65, 0x424037), which never draws it (0x423120).
     _slots.clear();
     _fullSlots.clear();
-    // An item in its frame, the chosen one on its Selected Icon Background
-    // (0x41ae4b), its uses left in its corner.
+    // An item in its frame, the chosen one's Selected Icon Background over
+    // that (0x423190, 0x422e2d), its uses left in its corner.
     const auto drawItem = [&](int item, int x, int y) {
         const Held &held = _held[size_t(item)];
         const auto def = _items.find(held.name);
-        image::blit(screen,
-                    picture(item == _heldChosen ? "Inventory/Selected Icon Background" : "Inventory/Item Frame"), x, y);
+        image::blit(screen, picture("Inventory/Item Frame"), x, y);
+        if (item == _heldChosen)
+            image::blit(screen, picture("Inventory/Selected Icon Background"), x, y);
         if (def != _items.end()) {
             auto found = _icons.find(def->second.iconImage);
             if (found == _icons.end())
@@ -478,10 +479,17 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
             const image::Image &icon = found->second;
             image::blit(screen, icon, x + (iw - icon.w) / 2, y + (ih - icon.h) / 2);
         }
-        // Its Count Format String, "%d" (inferred for where).
-        if (held.count >= 0 && _font.loaded()) {
-            const std::string count = std::to_string(held.count);
-            _font.draw(screen, x + iw - _font.width(count) - 1, y + ih - _font.height(), count);
+        // Its uses left by its Count Format String, or its Empty String with
+        // none, at the place's bottom left, 2 in and 3 up (0x422fa2); none
+        // for one that's never used up.
+        if (held.count >= 0 && _font.loaded() && def != _items.end()) {
+            std::string count = def->second.emptyText;
+            if (held.count > 0) {
+                count = def->second.countFormat;
+                if (const size_t at = count.find("%d"); at != std::string::npos)
+                    count.replace(at, 2, std::to_string(held.count));
+            }
+            _font.draw(screen, x + 2, y + ih - _font.height() - 3, count);
         }
     };
     if (_full && _fullLeft && now - _fullLeft >= 1500)
@@ -507,8 +515,6 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
             }
             drawItem(place.item, x, y);
             _slots.push_back({x, y, place.item});
-            if (place.count > 1)
-                image::blit(screen, picture("Inventory/More Indicator"), x, y);
             x += iw + gap;
         }
         // The full inventory: over each place, all the officer's items of

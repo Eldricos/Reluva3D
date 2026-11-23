@@ -106,10 +106,12 @@ struct Mission {
  * mission use it.
  */
 struct ItemDefinition {
-    std::string name;          // the file's name: how officers and missions name it
-    std::string printableName; // the name shown
-    std::string iconImage;     // Cache/Inventory/Icon Frames/<name>.frm16
-    std::string type;          // of Inventory/Item Types
+    std::string name;                // the file's name: how officers and missions name it
+    std::string printableName;       // the name shown
+    std::string iconImage;           // Cache/Inventory/Icon Frames/<name>.frm16
+    std::string countFormat = "%d";  // its uses left on the bar (Count Format String, printf's)
+    std::string emptyText = "EMPTY"; // and none left (Empty String)
+    std::string type;                // of Inventory/Item Types
     bool displayInInventory = false;
     std::string briefingScript; // a script of Levels/, and its entry describing the item
     std::string briefingText;
@@ -201,6 +203,9 @@ struct ItemDefinition {
     std::string cantUseCursor;
     std::string hoveringCursor;
     std::string obscuredCursor;
+    bool showObscured = false;    // its Obscured Cursor shown where it's out of reach or sight
+    bool onlyIfHovering = false;  // Only Execute If Hovering: used on something, never the ground
+    bool canTargetPlayers = true; // Can Target Players: the officers among what it's used on
 };
 
 /**

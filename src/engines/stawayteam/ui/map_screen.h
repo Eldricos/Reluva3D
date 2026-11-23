@@ -676,6 +676,9 @@ private:
     // The process of part `part` (its CProcessListAI's) the chosen officer
     // can go through with their chosen item, or with none; nullptr if none.
     const TextObject *processFor(size_t part, const Officer &o) const;
+    // A part's first process of the Process Type `type` (any, if empty), or
+    // none (0x5474c0).
+    const TextObject *processOfType(size_t part, const std::string &type) const;
     // Sends the chosen officer through the process of the part at (x, y);
     // false if there's none for them.
     bool startProcess(float x, float y);

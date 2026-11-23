@@ -96,25 +96,25 @@ CreditsRoll::CreditsRoll(std::string_view text, const Font &font) : _font(font) 
     }
 }
 
-void CreditsRoll::drawLine(Surface &area, const std::string &line, int y, int w, int opacity) const {
+void CreditsRoll::drawLine(Surface &area, const std::string &line, int y, int w, float brightness) const {
     const int center = w / 2;
     // "Role: name": the role ends at the middle, the name starts there.
     const size_t colon = line.rfind(':');
     if (colon != std::string::npos && colon != 0) {
         const std::string left = line.substr(0, colon);
-        _font.draw(area, center - _font.width(left), y, left, opacity);
-        _font.draw(area, center, y, line.substr(colon + 1), opacity);
+        _font.draw(area, center - _font.width(left), y, left, 255, brightness);
+        _font.draw(area, center, y, line.substr(colon + 1), 255, brightness);
         return;
     }
     if (!line.empty() && (line[0] == '_' || line[0] == '+')) {
         const std::string text = line.substr(1);
         const int width = _font.width(text);
-        _font.draw(area, center - width / 2, y, text, opacity);
+        _font.draw(area, center - width / 2, y, text, 255, brightness);
         const int under = y + _font.height() + 1;
         fillRow(area, center - width / 2, center + width / 2 + 1, under, line[0] == '_' ? kHeadingLine : kRoleLine);
         return;
     }
-    _font.draw(area, center - _font.width(line) / 2, y, line, opacity);
+    _font.draw(area, center - _font.width(line) / 2, y, line, 255, brightness);
 }
 
 void CreditsRoll::draw(Surface &screen, int x, int y, int w, int h, uint64_t now) {
@@ -132,9 +132,14 @@ void CreditsRoll::draw(Surface &screen, int x, int y, int w, int h, uint64_t now
         Surface area = cut(screen, x, y, w, h);
         for (int i = first; i < last && i < count; ++i) {
             const int top = h - offset + i * lineHeight;
-            // Brightest across the middle, fading to nothing at the edges.
+            // Brightest across the middle, darkest at the edges: the
+            // toolkit's brightness, 0-255, shifts each colour right by
+            // 5 less its sixths, darkening it in six steps (0x44c4f0,
+            // 0x44c1e8).
             const float bright = std::clamp(std::sin(float(top) * std::numbers::pi_v<float> / float(h)), 0.0f, 1.0f);
-            drawLine(area, _lines[size_t(i)], top, w, int(std::lround(bright * 255.0f)));
+            const int level = int(std::lround(bright * 255.0f));
+            const int shift = 5 - level * 6 / 256;
+            drawLine(area, _lines[size_t(i)], top, w, 1.0f / float(1 << shift));
         }
         paste(screen, area, x, y);
     }

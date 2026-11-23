@@ -201,8 +201,13 @@ Around the view, each at its place in Rules.txt's Custom Rules (a
   Spacing` apart from `Inventory Bar Offset`, between its previous and
   next buttons. A place with none is darkened, (10, 10, 40) half
   see-through (`0x423fe2`); else one of its items in its `Item Frame`,
-  on the `Selected Icon Background` chosen, with the `More Indicator`
-  (`0x41ae65`). Inventory Next (`]`, the wheel down) goes along the
+  over which the chosen one has its `Selected Icon Background`
+  (`0x423190`, `0x422e2d`), its icon in the middle, and its count at the
+  place's bottom left, 2 in and its text's height and 3 up: the item's
+  `Count Format String` ("%d", the band's "Ready") above 0, its `Empty
+  String` ("EMPTY") at 0, nothing for one that isn't used up
+  (`0x422fa2`). The `More Indicator` (`0x41ae65`) is handed to each
+  place, which never draws it (`0x423120`). Inventory Next (`]`, the wheel down) goes along the
   chosen item's place, and past its last back to its first and on to the
   next place with any, its first (`0x423da0`); Inventory Prev back the
   same way, to the place before's last (`0x423e90`). Either shows the
@@ -235,6 +240,36 @@ their own (`Generic Use` and `Generic Can't Use` for 253). `Out Of Range
 Cursor` is an old key: read from an item file that has it, it's taken as
 a number into the definition (`0x5dacf0`); no file has it, and no cursor
 is shown for a place out of range.
+
+Which is shown is asked of the parts' process lists (`CProcessListAI`'s
+`0x43c7e0`, `0x43cb90`, `0x43cc60`). In reach means within the item's
+`Item Range` of a chosen officer, up and down counted 1.403 times (any
+reach without a range); out of sight, that no chosen officer has it in
+reach with nothing between, which counts only for an item that Shows
+Obscured Cursor (`0x5c7940`, `0x5c6d30`; `Need LOS` would make sight a
+part of reach, but no item has it).
+
+- **Over the ground, an item chosen:** one used `Only Execute If
+  Hovering` (the tricorders, the hypospray: 10 items) its Can't Use
+  Cursor; out of sight, its Obscured Cursor; in reach its Process
+  Cursor, else its Can't Use Cursor.
+- **Over something, an item chosen:** in reach, a part's process of the
+  item's `Process Type`, or else its `Use` process, gives its Process
+  Cursor, or its Can't Use Cursor if its `Required Selected Item` isn't
+  the one chosen or its `Required Item In Inventory` isn't carried.
+  Otherwise, in reach: an officer, for an item that `Can Target Players`
+  0, the pointer; with an Entity Hovering Cursor, its Can't Use Cursor
+  out of sight, else the Entity Hovering Cursor over a character with
+  health left, or for a `Scan`, or its Obscured Cursor over a solid part
+  with an outline. Out of reach, its Obscured Cursor out of sight, else
+  its Can't Use Cursor. Failing those, its Process Cursor over a
+  character or a part with processes.
+- **Over a part, nothing chosen:** its `Use` process's cursor as above,
+  else the pointer.
+
+So the phaser shows `Phaser` on the ground in reach and sight, `Phaser
+Obscured` beyond, `Phaser Active` on an enemy in reach and sight, and
+`Phaser Inactive` on one in reach behind a wall.
 
 Zoom In (keypad +), Zoom Out (keypad -) and Zoom Reset (keypad *) are
 sent to the view as 1, 2 and 4 (`0x5bf25c`), which scales it: its scale,
@@ -836,20 +871,18 @@ and the parts shown of Player or Enemy, not Dead Bodies, as dots, and
 the points of interest pulsing; the chosen officer's items in the inventory's places, the
 places in the team selection's order, the last type's first
 *(inferred)*, Inventory Next and Prev, and the previous and next
-buttons *(inferred)*, going along them as above, the More Indicator on
-a place with more than one, over its frame *(inferred)*, and the item's
-name centred on Inventory Title Pos *(inferred)*; and the pause button.
+buttons *(inferred)*, going along them as above, each place drawn as
+above, no More Indicator, and the item's name centred on Inventory
+Title Pos *(inferred)*; and the pause button.
 
 The mouse pointer (`ui/map_interface.cpp`) is the game's own, as the
 mouse is: the Pointer over the interface and in the menus, the edges'
-arrows, the Vision Cursor choosing; over the map, as a click there would
-go *(inferred)*: with an item chosen, its Entity Hovering Cursor over
-what it's used on, its Obscured Cursor where it's out of sight, its
-Process Cursor elsewhere and its Can't Use Cursor where it can't be;
-over a part with a process for the officer, the process's cursor; over
-an enemy, their weapon's. Zoom In and Out, held, scale the view as the
-program does, a step each of its frames, taken as 30 a second
-*(inferred)*; Zoom Reset back to its size.
+arrows, the Vision Cursor choosing; over the map, as the process lists
+choose them above, reach measured from the officer chosen. Zoom In and
+Out, held, scale the view as the program does, a step each of its
+frames; the program has no rate of its own for them (its frame
+counter shows 30 a second or more green and under 20 red, `0x4d57e0`),
+and Reluva takes 30 a second. Zoom Reset back to its size.
 
 A click on a part with a process for the chosen officer, one for their
 chosen item first, else one to Use with nothing (carrying its Required
@@ -1214,17 +1247,14 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 
 ## Open questions
 
-- **The interface:** what the inventory's places are, and the cursors'
-  choosing: `0x43c7e0` picks one from the held item's definition
-  (its `Process` at `+0xe0`: `Process Cursor` `+0xf4`, `Can't Use
-  Cursor` `+0x110`; `Entity Hovering Cursor` `+0x144`, `Obscured
-  Cursor` `+0x148`, `Show Obscured Cursor` `+0x15a`) and what's under
-  the pointer, by checks of the officer's items (`0x5c7940`,
-  `0x5c77f0`, `0x5c7880`) not yet read.
+- **The interface:** what the inventory's places are, and, for the
+  cursors, what calls the process lists' three cursor functions and
+  what it shows when they give none, and whether reach is any chosen
+  officer's or the one's whose item it is (Reluva: the one's).
 - **Processes:** how the program chooses one, walks to it, and when the
   officer must be in range.
 - **Frames:** how many a second the program's camera and zoom took
-  their steps at.
+  their steps at: as many as the machine drew.
 - **Drawing order:** how the program breaks ties between equal keys,
   and where the polygons' `YSort` puts those drawn standing.
 - **Enemies' sight:** whether anything stops an enemy seeing past what

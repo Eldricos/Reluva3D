@@ -1679,8 +1679,12 @@ void testProcesses() {
     item("Tricorder", "Gadget",
          "\tItem Range=450\n\tProcess=CProcess\n\t{\n\t\tProcess Type=Scan\n"
          "\t\tProcess Cursor=Tricorder Active\n\t\tCan't Use Cursor=Tricorder Inactive\n\t}\n"
-         "\tEntity Hovering Cursor=Tricorder Active\n");
+         "\tEntity Hovering Cursor=Tricorder Active\n\tOnly Execute If Hovering=1\n");
     item("Hypospray", "Gadget", "");
+    item("Rifle", "Gadget",
+         "\tItem Range=50\n\tProcess=CProcess\n\t{\n\t\tProcess Type=Shoot\n\t\tProcess Cursor=Rifle\n"
+         "\t\tCan't Use Cursor=Rifle Inactive\n\t}\n\tEntity Hovering Cursor=Rifle Active\n"
+         "\tShow Obscured Cursor=1\n\tObscured Cursor=Rifle Obscured\n");
     GameMap map;
     CHECK(!loadMap(data, "Levels/Test.zax", map));
     TextObject rules;
@@ -1691,7 +1695,7 @@ void testProcesses() {
     options.pauseWhenHit = false; // the hits here don't stop time
     TeamMember ann;
     ann.firstName = "Ann";
-    ann.inventory = {{"Tricorder", -1}, {"Phaser", -1}, {"Hypospray", 3}};
+    ann.inventory = {{"Tricorder", -1}, {"Phaser", -1}, {"Hypospray", 3}, {"Rifle", -1}};
     MapScreen screen(data, rules, map, options, 0, {ann});
     const MapScreen::Officer &a = screen.officers()[0];
     uint64_t now = 0;
@@ -1701,17 +1705,19 @@ void testProcesses() {
     };
     screen.choose(0);
     // The bar: a place for each type, the last type's first, the
-    // Tricorder and Hypospray sharing the gadgets'.
+    // Tricorder, Hypospray and Rifle sharing the gadgets'.
     const std::vector<std::vector<int>> places = screen.itemPlaces(a);
-    CHECK(places.size() == 2 && places[0] == std::vector<int>{1} && (places[1] == std::vector<int>{0, 2}));
+    CHECK(places.size() == 2 && places[0] == std::vector<int>{1} && (places[1] == std::vector<int>{0, 2, 3}));
     // Inventory Next: along the gadgets, then on to the phaser; Prev back.
     screen.chooseItem(0, 0);
     screen.stepItem(0, 1);
     CHECK(a.item == 2);
     screen.stepItem(0, 1);
+    CHECK(a.item == 3);
+    screen.stepItem(0, 1);
     CHECK(a.item == 1);
     screen.stepItem(0, -1);
-    CHECK(a.item == 2);
+    CHECK(a.item == 3);
     // The pointer: the edge's arrow, the phaser's over the map, the
     // console's process cursor.
     Event mv;
@@ -1752,6 +1758,20 @@ void testProcesses() {
     CHECK(screen.useItem(600.0f, 300.0f));
     run(12000);
     CHECK(screen.scanText() == "A console.");
+    // Over the ground the tricorder, used only on something, can't be; the
+    // rifle out of its reach shows its Obscured Cursor, and over the
+    // console in reach, the console's Use process's.
+    const auto pointAt = [&](float px, float py) {
+        mv.mouseX = int(px - screen.mapX(0));
+        mv.mouseY = int(py - screen.mapY(0));
+        screen.handleEvent(mv, nullptr, now);
+    };
+    pointAt(a.x, a.y + 80.0f);
+    CHECK(screen.cursorName() == "Tricorder Inactive");
+    screen.chooseItem(0, 3);
+    CHECK(screen.cursorName() == "Rifle Obscured");
+    pointAt(600.0f, 300.0f);
+    CHECK(screen.cursorName() == "Generic Use");
     // Zoom Out held a second shows 30 steps more of the map, then no more
     // than 1.5 times; Reset; Zoom In held a little, let go, eases back.
     screen.holdZoom(-1, true);

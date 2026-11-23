@@ -157,57 +157,99 @@ std::string MapScreen::cursorName() {
     const Officer &o = _officers[size_t(_selected)];
     if (o.down())
         return "Pointer";
-    // As a click would go: the chosen item used, an officer chosen, a
-    // part's process, an enemy shot; each with its item's cursors, over
-    // what it's used on its Entity Hovering Cursor, that out of sight its
-    // Obscured Cursor, elsewhere its Process Cursor, and where it can't be
-    // used its Can't Use Cursor (inferred: the program's choosing isn't
-    // traced).
     const float x = mapX(_mouseX);
     const float y = mapY(_mouseY);
     const int enemy = enemyAt(x, y);
     const int officer = officerAt(x, y);
-    const int part = partAt(x, y);
+    const int part = enemy >= 0 || officer >= 0 ? -1 : partAt(x, y);
+    const bool over = enemy >= 0 || officer >= 0 || part >= 0;
+    float tx = x;
+    float ty = y;
+    if (enemy >= 0) {
+        tx = _enemies[size_t(enemy)].x;
+        ty = _enemies[size_t(enemy)].y;
+    } else if (officer >= 0) {
+        tx = _officers[size_t(officer)].x;
+        ty = _officers[size_t(officer)].y;
+    } else if (part >= 0) {
+        placeOf(size_t(part), tx, ty);
+    }
+    // A part's process's cursor: its Process Cursor, or its Can't Use
+    // Cursor if what it needs chosen or carried isn't (0x43cbec).
+    const auto processCursor = [&](const TextObject *process) {
+        const std::string selected = readText(process, "Required Selected Item");
+        const std::string carried = readText(process, "Required Item In Inventory");
+        const ItemDefinition *chosen = itemOf(o);
+        const bool hasSelected = selected.empty() || selected == "!None" || (chosen && chosen->name == selected);
+        const bool carries =
+            carried.empty() || carried == "!None" ||
+            std::any_of(o.items.begin(), o.items.end(), [&](const Officer::Held &h) { return h.name == carried; });
+        return readText(process, hasSelected && carries ? "Process Cursor" : "Can't Use Cursor");
+    };
+    const auto set = [](const std::string &cursor) { return !cursor.empty() && cursor != "!None"; };
     const ItemDefinition *def = itemOf(o);
-    if (def && o.items[size_t(o.item)].count != 0) {
-        const bool scans = def->processType == "Scan" || def->processType == "Medical Scan";
-        if (!def->deployModel.empty() || def->dischargeAction == "CThrowProjectileWeaponAction") {
-            if (!def->obscuredCursor.empty() && !clearSight(o.x, o.y, x, y))
-                return named(def->obscuredCursor);
-            return named(def->processCursor);
-        }
-        if (scans) {
-            if (part >= 0)
-                if (const TextObject *process = processFor(size_t(part), o))
-                    return named(readText(process, "Process Cursor"));
-            return named(part >= 0 || enemy >= 0 ? def->hoveringCursor : def->cantUseCursor);
-        }
-        // A skill (Computer Systems) on a part with a process for it: the
-        // process's cursor, as a click would start it.
-        const TextObject *activity = def->process ? def->process->object("Process Activity") : nullptr;
-        if (part >= 0 && (!activity || activity->items().empty()))
-            if (const TextObject *process = processFor(size_t(part), o))
-                return named(readText(process, "Process Cursor"));
-        if (def->process && def != o.weapon && !def->charged && def->health <= 0.0f)
-            return named(def->processCursor);
-        if (def->health > 0.0f)
-            return named(officer >= 0 && (officer != _selected || def->canUseOnSelf) ? def->hoveringCursor
-                                                                                     : def->cantUseCursor);
-    }
-    if (officer >= 0)
+    if (!def || o.items[size_t(o.item)].count == 0) {
+        // Nothing to use: a part's Use process, else the pointer (0x43cb90).
+        if (part >= 0)
+            if (const TextObject *process = processOfType(size_t(part), "Use"))
+                return named(processCursor(process));
         return "Pointer";
-    if (part >= 0)
-        if (const TextObject *process = processFor(size_t(part), o))
-            return named(readText(process, "Process Cursor"));
-    if (enemy >= 0 && o.weapon) {
-        const Enemy &e = _enemies[size_t(enemy)];
-        if (!o.weapon->obscuredCursor.empty() && !clearSight(o.x, o.y, e.x, e.y))
-            return named(o.weapon->obscuredCursor);
-        return named(o.weapon->hoveringCursor);
     }
-    if (def && def == o.weapon)
-        return named(def->processCursor);
-    return "Pointer";
+    // Within its Item Range of the officer, the view's foreshortening
+    // counted (any reach if it has none), and in their sight; out of sight
+    // is told only for one that Shows Obscured Cursor (0x5c7940, 0x5c6d30).
+    bool inReach = true;
+    bool hidden = false;
+    if (def->range > 0.0f) {
+        const float dx = tx - o.x;
+        const float dy = (ty - o.y) / ParticleSystem::kYToX;
+        inReach = dx * dx + dy * dy <= def->range * def->range;
+        hidden = def->showObscured && (!inReach || !clearSight(o.x, o.y, tx, ty));
+    }
+    if (over) {
+        // Over something (0x43c7e0): in reach, its process for the item's
+        // Process Type, or its Use process.
+        if (inReach && part >= 0) {
+            const TextObject *process = processOfType(size_t(part), def->processType);
+            if (!process)
+                process = processOfType(size_t(part), "Use");
+            if (process && set(processCursor(process)))
+                return processCursor(process);
+        }
+        const bool character =
+            (enemy >= 0 && _enemies[size_t(enemy)].alive()) || (officer >= 0 && _officers[size_t(officer)].alive());
+        if (inReach) {
+            // An officer for an item that can't target them: the pointer.
+            if (officer >= 0 && !def->canTargetPlayers)
+                return "Pointer";
+            if (set(def->hoveringCursor)) {
+                if (hidden)
+                    return named(def->cantUseCursor);
+                if (character || def->processType == "Scan")
+                    return def->hoveringCursor;
+                if (part >= 0 && _partStates[size_t(part)].collideable &&
+                    modelInfo(_map.parts[size_t(part)].model).footprint.size() >= 3 && set(def->obscuredCursor))
+                    return def->obscuredCursor;
+            }
+        } else {
+            const std::string &out = hidden ? def->obscuredCursor : def->cantUseCursor;
+            if (set(out))
+                return out;
+        }
+        if (!set(def->processCursor))
+            return "Pointer";
+        if (character || (part >= 0 && processOfType(size_t(part), "") != nullptr))
+            return def->processCursor;
+    }
+    // Over the ground (0x43cc60): one used only on something can't be;
+    // in reach, its Process Cursor, else its Can't Use Cursor; where it's
+    // out of reach or sight, its Obscured Cursor if it Shows Obscured
+    // Cursor.
+    if (def->onlyIfHovering)
+        return named(def->cantUseCursor);
+    if (hidden)
+        return named(def->obscuredCursor);
+    return named(inReach ? def->processCursor : def->cantUseCursor);
 }
 
 std::vector<GameHud::Mark> MapScreen::minimapMarks() const {

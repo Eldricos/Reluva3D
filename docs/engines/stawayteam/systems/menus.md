@@ -130,8 +130,10 @@ The roll (`0x4873f0` reads it, `0x487530` draws it):
   the top by the area's height, it starts again.
 - **Fading:** each line's brightness is `sin(pi * top / height)` for its
   top in the area, 0 to 1: dark at the bottom and top, full across the
-  middle. The game sets it as a brightness for the drawing (`0x44c4f0`);
-  Reluva draws the text that much opaque over what's behind *(inferred)*.
+  middle. The game sets it as a brightness for the drawing (`0x44c4f0`),
+  as a level of 0 to 255 whose colours are shifted right by 5 less its
+  sixths (`0x44c1e8`): darkened toward black in six steps, a 32nd at the
+  dimmest, not made see-through.
 - **Each line**, centred across the area, as the file's comments say:
   - `Role: Name`: with a `:` (the last, if more than one, and not the
     first character), what's before it ends at the middle and what's
@@ -179,8 +181,13 @@ the placing at `0x40a6d0`):
   menus so far don't draw.
 - **Sounds:** the toolkit loads `UI/Button Action.wav`, `UI/Button
   Switch.wav` and `Error.wav` (`0x4082c5`); `DATA.dat` has the first two
-  as `Sounds/Button Action.ogg` and `Sounds/Button Switch.ogg`. Which it
-  plays when isn't traced.
+  as `Sounds/Button Action.ogg` and `Sounds/Button Switch.ogg`. A button
+  pressed is set off as the mouse is let go over it (`0x4e47c0`), or by
+  the program's key 32 (`0x4e4890`): its sound (slot `0x140`, `Button
+  Action` unless it has its own) and then its action (`0x4e4ab0`).
+  `Button Switch` plays as a group of tabs or toggles changes to another
+  (`0x40786f`, `0x407bd8`) and as a check box changes (`0x4e64b0`).
+  Coming over a button does nothing (`0x5d2330`).
 
 ### The difficulty window
 
@@ -523,15 +530,12 @@ Game/Background`:
   colour to 1 / gamma, brightening the dark ones.
 - **A slider's thumb texture:** where its tiling starts. Reluva tiles it
   from the screen's corner.
-- **Brightness:** whether the toolkit's dims a picture's colours toward
-  black. Reluva scales them.
-- **The credits' fading:** whether to black or to see-through, and
-  whether the lines under headings fade too. Reluva fades the text to
-  see-through and draws the lines whole.
+- **Brightness:** the toolkit's darkens toward black in six steps
+  (`0x44c1e8`); Reluva scales colours smoothly but for the credits.
+- **The credits' fading:** whether the lines under headings fade too.
+  Reluva draws them whole.
 - **Esc in the credits.** Reluva closes them.
 - **Esc on the main menu.** Reluva opens the confirm dialog, as Quit.
-- **When a button's sound plays:** as it's pressed, or once it's let go
-  on. Reluva plays it on the click.
 - **The shortcut's line and the label lit:** when the game shows them,
   and how they look.
 - **Saved games:** how the save screens' rows, time, picture and game
