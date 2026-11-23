@@ -41,7 +41,8 @@ are) won't do: the objects have to be laid out as Visual C++ 6's were.
 function doing what the C++ standard says. `build_msvcp60.sh` builds it
 with clang (`i686-pc-windows-msvc`, freestanding, importing only MSVCRT)
 into a DLL embedded in Reluva and loaded before the program's modules.
-`msvcp60.def` maps each of the 167 names LEGO Alpha Team imports to its function.
+`msvcp60.def` maps each name the programs import (the 167 LEGO Alpha Team
+imports, and Star Trek: Armada's added since) to its function.
 clang was checked to give the same names for the same declarations, but
 plain structs at measured offsets plus the `.def` keep the layouts under
 our control. The tests call it as that game does (`testMsvcp60`).

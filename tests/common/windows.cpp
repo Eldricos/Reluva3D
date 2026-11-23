@@ -316,6 +316,36 @@ static void testMsvcp60(const std::filesystem::path &tmp) {
     const uint32_t missing = process.memory().alloc(0x5c + 0x34);
     method(missing, "??0?$basic_ifstream@DU?$char_traits@D@std@@@std@@QAE@PBDH@Z", {text("C:\\Game\\No.txt"), 1, 1});
     CHECK(cpu.read32(missing + 0x5c + 4) == 2);
+    // getline(stream, string) takes each line, its '\n' but not stored; at
+    // the end, eof and fail. ws skips white space.
+    const uint32_t lines = process.memory().alloc(0x5c + 0x34);
+    method(lines, "??0?$basic_ifstream@DU?$char_traits@D@std@@@std@@QAE@PBDH@Z", {text("C:\\Game\\Lines.txt"), 1, 1});
+    const uint32_t line = process.memory().alloc(16);
+    method(line, kCtorChars, {text(""), 0});
+    const char *kGetline =
+        "?getline@std@@YAAAV?$basic_istream@DU?$char_traits@D@std@@@1@AAV21@AAV?$basic_string@DU?$char_"
+        "traits@D@std@@V?$allocator@D@2@@1@@Z";
+    CHECK(!cpu.call(fn(kGetline), {lines, line}, r) && r == lines && chars(line) == "first line");
+    CHECK(!cpu.call(fn("?ws@std@@YAAAV?$basic_istream@DU?$char_traits@D@std@@@1@AAV21@@Z"), {lines}, r));
+    CHECK(!cpu.call(fn(kGetline), {lines, line}, r) && chars(line) == "second" && cpu.read32(lines + 0x5c + 4) == 0);
+    CHECK(!cpu.call(fn(kGetline), {lines, line}, r) && chars(line).empty() && cpu.read32(lines + 0x5c + 4) == 3);
+    method(lines, "??_D?$basic_ifstream@DU?$char_traits@D@std@@@std@@QAEXXZ", {});
+    // A string from part of another; c_str, empty or not; char_traits::copy.
+    const uint32_t whole = process.memory().alloc(16);
+    const uint32_t part = process.memory().alloc(16);
+    method(whole, kCtorChars, {text("starfleet"), 0});
+    method(part, "??0?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QAE@ABV01@IIABV?$allocator@D@1@@Z",
+           {whole, 4, 5, 0});
+    CHECK(chars(part) == "fleet");
+    const char *kCStr = "?c_str@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QBEPBDXZ";
+    CHECK(cpu.string(method(part, kCStr, {})) == "fleet");
+    method(line, kDtor, {});
+    CHECK(cpu.string(method(line, kCStr, {})).empty());
+    const uint32_t to = process.memory().alloc(8);
+    CHECK(!cpu.call(fn("?copy@?$char_traits@D@std@@SAPADPADPBDI@Z"), {to, text("abc"), 4}, r) && r == to &&
+          cpu.string(to) == "abc");
+    method(whole, kDtor, {});
+    method(part, kDtor, {});
 
     // A strstreambuf as the games build one: the base constructor, their
     // own vftable of the library's functions, then _Init (here growing as
@@ -984,16 +1014,167 @@ static void testArgbConverter() {
     }
 }
 
-static const test::Suite
-    kSuite("common.unit.windows",
-           {
-               {"sound streams", [](const std::filesystem::path &) { testMixerStream(); }},
-               {"threads", [](const std::filesystem::path &) { testThreads(); }},
-               {"msvcrt and files", [](const std::filesystem::path &tmp) { testMsvcrtAndFiles(tmp / "msvcrt"); }},
-               {"msvcp60", [](const std::filesystem::path &tmp) { testMsvcp60(tmp / "msvcp60"); }},
-               {"windows and registry", [](const std::filesystem::path &) { testWindowsAndRegistry(); }},
-               {"directx", [](const std::filesystem::path &) { testDirectX(); }},
-               {"input", [](const std::filesystem::path &) { testInput(); }},
-               {"a3d", [](const std::filesystem::path &) { testA3d(); }},
-               {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
-           });
+// What a hosted program of 2000 asks of Windows besides the above (Star
+// Trek: Armada's start-up): atomics, strings and time, rectangles, focus,
+// GDI's objects and a bitmap from a file, the user's name and registry
+// keys, and the C runtime's fscanf, bsearch, getc, deleting, setlocale
+// and run-time type information.
+static void testHostedProgramNeeds(const std::filesystem::path &tmp) {
+    std::filesystem::create_directories(tmp / "Game");
+    std::filesystem::create_directories(tmp / "Save");
+    {
+        std::ofstream(tmp / "Game" / "Numbers.txt", std::ios::binary) << "12 abc\r\n34\r\n";
+        // A 3 x 2, 24-bit BMP's headers (the pixels aren't read).
+        std::ofstream bmp(tmp / "Game" / "Splash.bmp", std::ios::binary);
+        const uint8_t header[54] = {'B', 'M', 0, 0, 0, 0, 0, 0, 0, 0, 54, 0, 0, 0, 40,
+                                    0,   0,   0, 3, 0, 0, 0, 2, 0, 0, 0,  1, 0, 24};
+        bmp.write(reinterpret_cast<const char *>(header), sizeof header);
+        std::ofstream(tmp / "Save" / "Old.txt") << "x";
+    }
+    x86::Cpu cpu(64u << 20);
+    x86::Win32Process process(cpu);
+    process.setProgram("Prog.exe", "C:\\Game\\");
+    process.mapPath = [&](const std::string &path, bool forWriting) -> std::optional<std::filesystem::path> {
+        if (path.rfind("C:\\Game\\", 0) != 0)
+            return std::nullopt;
+        const std::string rest = path.substr(8);
+        if (forWriting)
+            return tmp / "Save" / rest;
+        return fs::findFile(tmp / "Game", rest).value_or(tmp / "Game" / "missing");
+    };
+    x86::addMsvcrt(process);
+    auto fn = [&](const char *dll, const char *name) { return process.provided(dll, name); };
+    auto text = [&](const std::string &s) {
+        const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
+        cpu.writeString(a, s, uint32_t(s.size() + 1));
+        return a;
+    };
+    uint32_t r = 0;
+    auto call = [&](const char *dll, const char *name, const std::vector<uint32_t> &args) {
+        CHECK(!cpu.call(fn(dll, name), args, r));
+        return r;
+    };
+    const char *k = "KERNEL32.dll";
+    const char *u = "USER32.dll";
+    const char *g = "GDI32.dll";
+    const char *m = "MSVCRT.dll";
+
+    const uint32_t word = process.memory().alloc(4);
+    cpu.write32(word, 5);
+    CHECK(call(k, "InterlockedExchange", {word, 9}) == 5 && cpu.read32(word) == 9);
+    CHECK(call(k, "InterlockedIncrement", {word}) == 10 && call(k, "InterlockedDecrement", {word}) == 9);
+    const uint32_t chars = process.memory().alloc(16);
+    CHECK(call(k, "lstrlenA", {text("armada")}) == 6);
+    CHECK(call(k, "lstrcpyA", {chars, text("borg")}) == chars && cpu.string(chars) == "borg");
+    const uint32_t when = process.memory().alloc(16);
+    call(k, "GetSystemTime", {when});
+    CHECK(cpu.read16(when) >= 2026 && cpu.read16(when + 2) >= 1 && cpu.read16(when + 2) <= 12);
+    call(k, "GetSystemTimeAsFileTime", {when});
+    CHECK(cpu.read32(when + 4) > 0x01d00000); // after 2014
+    CHECK(call(k, "SetErrorMode", {1}) == 0 && call(k, "SetErrorMode", {0}) == 1);
+
+    const uint32_t a = process.memory().alloc(16);
+    const uint32_t b = process.memory().alloc(16);
+    const uint32_t both = process.memory().alloc(16);
+    call(u, "SetRect", {a, 0, 0, 10, 10});
+    call(u, "SetRect", {b, 5, 5, 20, 20});
+    call(u, "OffsetRect", {b, 1, 1});
+    CHECK(call(u, "IntersectRect", {both, a, b}) == 1 && cpu.read32(both) == 6 && cpu.read32(both + 12) == 10);
+    call(u, "OffsetRect", {b, 100, 0});
+    CHECK(call(u, "IntersectRect", {both, a, b}) == 0 && cpu.read32(both + 8) == 0);
+    const uint32_t desktop = call(u, "GetDesktopWindow", {});
+    CHECK(desktop != 0 && call(u, "IsWindow", {desktop}) == 1 && call(u, "IsWindow", {0x1234}) == 0);
+    CHECK(call(u, "SetFocus", {0x10010}) == 0 && call(u, "GetFocus", {}) == 0); // no such window
+
+    const uint32_t dc = call(g, "CreateCompatibleDC", {0});
+    const uint32_t brush = call(g, "CreateSolidBrush", {0xff});
+    CHECK(dc && brush && dc != brush);
+    const uint32_t systemFont = call(g, "SelectObject", {dc, brush});
+    CHECK(call(g, "SelectObject", {dc, systemFont}) == brush);
+    CHECK(call(g, "SetBkMode", {dc, 1}) == 2 && call(g, "SetBkMode", {dc, 2}) == 1);
+    CHECK(call(g, "SetTextColor", {dc, 0xffffff}) == 0);
+    const uint32_t size = process.memory().alloc(8);
+    CHECK(call(g, "GetTextExtentPoint32A", {dc, text("abc"), 3, size}) == 1 && cpu.read32(size) == 24);
+    const uint32_t image = call(u, "LoadImageA", {0, text("C:\\Game\\Splash.bmp"), 0, 0, 0, 0x10});
+    const uint32_t bitmap = process.memory().alloc(24);
+    CHECK(image && call(g, "GetObjectA", {image, 24, bitmap}) == 24 && cpu.read32(bitmap + 4) == 3 &&
+          cpu.read32(bitmap + 8) == 2 && cpu.read16(bitmap + 18) == 24);
+    CHECK(call(u, "LoadImageA", {0, text("C:\\Game\\None.bmp"), 0, 0, 0, 0x10}) == 0);
+
+    const char *adv = "ADVAPI32.dll";
+    const uint32_t nameSize = process.memory().alloc(4);
+    cpu.write32(nameSize, 16);
+    CHECK(call(adv, "GetUserNameA", {chars, nameSize}) == 1 && cpu.string(chars) == "Player");
+    const uint32_t key = process.memory().alloc(4);
+    for (const char *sub : {"Software\\Test\\Beta", "Software\\Test\\Alpha"})
+        CHECK(call(adv, "RegCreateKeyExA", {0x80000001, text(sub), 0, 0, 0, 0, 0, key, 0}) == 0);
+    CHECK(call(adv, "RegOpenKeyExA", {0x80000001, text("Software\\Test"), 0, 0, key}) == 0);
+    const uint32_t parent = cpu.read32(key);
+    const uint32_t name = process.memory().alloc(32);
+    auto enumKey = [&](uint32_t index) {
+        cpu.write32(nameSize, 32);
+        return call(adv, "RegEnumKeyExA", {parent, index, name, nameSize, 0, 0, 0, 0});
+    };
+    CHECK(enumKey(0) == 0 && cpu.string(name) == "Alpha" && cpu.read32(nameSize) == 5);
+    CHECK(enumKey(1) == 0 && cpu.string(name) == "Beta" && enumKey(2) == 259);
+    CHECK(call(adv, "RegDeleteKeyA", {parent, text("Alpha")}) == 0 && enumKey(0) == 0 && cpu.string(name) == "Beta");
+    CHECK(call(adv, "RegDeleteKeyA", {parent, text("Alpha")}) == 2);
+
+    // fscanf leaves the file just after what it took, CR-LF and all.
+    const uint32_t file = call(m, "fopen", {text("C:\\Game\\Numbers.txt"), text("r")});
+    const uint32_t values = process.memory().alloc(64);
+    CHECK(file && call(m, "fscanf", {file, text("%d %s"), values, values + 4}) == 2 && cpu.read32(values) == 12 &&
+          cpu.string(values + 4) == "abc");
+    CHECK(call(m, "getc", {file}) == '\n');
+    CHECK(call(m, "fscanf", {file, text("%d"), values}) == 1 && cpu.read32(values) == 34);
+    CHECK(int32_t(call(m, "fscanf", {file, text("%d"), values})) == -1);
+    call(m, "fclose", {file});
+    // bsearch with the program's own compare: *key - *element.
+    const std::vector<uint8_t> compare = {0x8b, 0x44, 0x24, 0x04, 0x8b, 0x00, 0x8b, 0x4c, 0x24, 0x08, 0x2b, 0x01, 0xc3};
+    const uint32_t code = process.memory().alloc(uint32_t(compare.size()));
+    std::copy(compare.begin(), compare.end(), cpu.memory().begin() + code);
+    const uint32_t sorted = process.memory().alloc(16);
+    for (uint32_t i = 0; i < 4; ++i)
+        cpu.write32(sorted + 4 * i, 10 * (i + 1));
+    cpu.write32(word, 30);
+    CHECK(call(m, "bsearch", {word, sorted, 4, 4, code}) == sorted + 8);
+    cpu.write32(word, 25);
+    CHECK(call(m, "bsearch", {word, sorted, 4, 4, code}) == 0);
+    // Deleting is only where the program may write.
+    CHECK(call(m, "_unlink", {text("C:\\Game\\Old.txt")}) == 0 && !std::filesystem::exists(tmp / "Save" / "Old.txt"));
+    CHECK(int32_t(call(m, "remove", {text("C:\\Game\\Numbers.txt")})) == -1 &&
+          std::filesystem::exists(tmp / "Game" / "Numbers.txt"));
+    CHECK(cpu.string(call(m, "setlocale", {0, text("C")})) == "C" && call(m, "setlocale", {0, text("German")}) == 0);
+    CHECK(call(m, "getenv", {text("PATH")}) == 0);
+
+    // typeid(*object) and its name, from the layout Visual C++ gives them.
+    const uint32_t typeInfo = process.memory().alloc(32);
+    cpu.write32(typeInfo, 0);
+    cpu.write32(typeInfo + 4, 0);
+    cpu.writeString(typeInfo + 8, ".?AVShip@Game@@", 16);
+    const uint32_t locator = process.memory().alloc(20);
+    cpu.write32(locator + 12, typeInfo);
+    const uint32_t vtable = process.memory().alloc(8);
+    cpu.write32(vtable, locator);
+    const uint32_t object = process.memory().alloc(4);
+    cpu.write32(object, vtable + 4);
+    CHECK(call(m, "__RTtypeid", {object}) == typeInfo);
+    cpu.reg[x86::Cpu::ECX] = typeInfo;
+    CHECK(call(m, "?name@type_info@@QBEPBDXZ", {}) && cpu.string(r) == "class Game::Ship" &&
+          cpu.read32(typeInfo + 4) == r);
+}
+
+static const test::Suite kSuite(
+    "common.unit.windows",
+    {
+        {"sound streams", [](const std::filesystem::path &) { testMixerStream(); }},
+        {"threads", [](const std::filesystem::path &) { testThreads(); }},
+        {"msvcrt and files", [](const std::filesystem::path &tmp) { testMsvcrtAndFiles(tmp / "msvcrt"); }},
+        {"msvcp60", [](const std::filesystem::path &tmp) { testMsvcp60(tmp / "msvcp60"); }},
+        {"a hosted program's needs", [](const std::filesystem::path &tmp) { testHostedProgramNeeds(tmp / "needs"); }},
+        {"windows and registry", [](const std::filesystem::path &) { testWindowsAndRegistry(); }},
+        {"directx", [](const std::filesystem::path &) { testDirectX(); }},
+        {"input", [](const std::filesystem::path &) { testInput(); }},
+        {"a3d", [](const std::filesystem::path &) { testA3d(); }},
+        {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
+    });

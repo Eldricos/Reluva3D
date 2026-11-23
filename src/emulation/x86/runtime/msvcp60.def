@@ -5,6 +5,10 @@
 ; msvcp60.cpp that is it. build_msvcp60.sh makes the DLL from these.
 LIBRARY MSVCP60.dll
 EXPORTS
+    ??0?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QAE@ABV01@IIABV?$allocator@D@1@@Z=stringConstructPart
+    ?c_str@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QBEPBDXZ=stringCStr
+    ?copy@?$char_traits@D@std@@SAPADPADPBDI@Z=charTraitsCopy
+    ?ws@std@@YAAAV?$basic_istream@DU?$char_traits@D@std@@@1@AAV21@@Z=istreamWs
     ??0?$basic_filebuf@DU?$char_traits@D@std@@@std@@QAE@PAU_iobuf@@@Z=filebufConstruct
     ??0?$basic_fstream@DU?$char_traits@D@std@@@std@@QAE@PBDH@Z=fstreamConstruct
     ??0?$basic_ifstream@DU?$char_traits@D@std@@@std@@QAE@PBDH@Z=ifstreamConstruct
@@ -141,6 +145,7 @@ EXPORTS
     ?find_last_of@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QBEIPBDII@Z=stringFindLastOf
     ?freeze@strstreambuf@std@@QAEX_N@Z=strstreambufFreeze
     ?get@?$basic_istream@DU?$char_traits@D@std@@@std@@QAEHXZ=istreamGet
+    ?getline@std@@YAAAV?$basic_istream@DU?$char_traits@D@std@@@1@AAV21@AAV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@1@@Z=stringGetline
     ?getline@?$basic_istream@DU?$char_traits@D@std@@@std@@QAEAAV12@PADHD@Z=istreamGetline
     ?getloc@ios_base@std@@QBE?AVlocale@2@XZ=iosBaseGetloc
     ?id@?$ctype@D@std@@2V0locale@2@A=ctypeId DATA

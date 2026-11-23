@@ -36,6 +36,9 @@ enum : uint32_t {
     kWmChar = 0x102,
     kWmSysCommand = 0x112
 };
+// The desktop's window handle: never one of the program's, which count up
+// from 0x10010 in fours.
+constexpr uint32_t kDesktopWindow = 0x0001000e;
 constexpr uint32_t kScClose = 0xf060;
 constexpr uint32_t kWsBorder = 0x00800000;
 constexpr uint32_t kWsDlgFrame = 0x00400000;
@@ -54,6 +57,9 @@ constexpr int kBorder = 1;
 constexpr uint32_t kResourceHandles = 0x20000;
 constexpr uint32_t kStockObjects = 0x28000;
 constexpr uint32_t kDeviceContext = 0x30000;
+// The fonts, brushes, pens, bitmaps, palettes and memory device contexts the
+// program makes, counted up from here.
+constexpr uint32_t kGdiObjects = 0x38000;
 
 std::string lower(std::string s) {
     for (char &c : s)
@@ -633,6 +639,175 @@ void Win32Process::addUserStandIns() {
     stdcall(u, "GetAsyncKeyState", 1, keyState);
 
     // Device contexts.
+    // Rectangles (RECT: left, top, right, bottom).
+    stdcall(u, "SetRect", 5, [rect](Cpu &c) {
+        if (!c.valid(c.arg(0), 16))
+            return 0u;
+        rect(c, c.arg(0), int32_t(c.arg(1)), int32_t(c.arg(2)), int32_t(c.arg(3)), int32_t(c.arg(4)));
+        return 1u;
+    });
+    stdcall(u, "OffsetRect", 3, [rect](Cpu &c) {
+        const uint32_t p = c.arg(0);
+        if (!c.valid(p, 16))
+            return 0u;
+        const int dx = int32_t(c.arg(1));
+        const int dy = int32_t(c.arg(2));
+        rect(c, p, int32_t(c.read32(p)) + dx, int32_t(c.read32(p + 4)) + dy, int32_t(c.read32(p + 8)) + dx,
+             int32_t(c.read32(p + 12)) + dy);
+        return 1u;
+    });
+    // IntersectRect(out, a, b): an empty rectangle (all 0) if they don't meet.
+    stdcall(u, "IntersectRect", 3, [rect](Cpu &c) {
+        const uint32_t a = c.arg(1);
+        const uint32_t b = c.arg(2);
+        if (!c.valid(c.arg(0), 16) || !c.valid(a, 16) || !c.valid(b, 16))
+            return 0u;
+        const int left = std::max(int32_t(c.read32(a)), int32_t(c.read32(b)));
+        const int top = std::max(int32_t(c.read32(a + 4)), int32_t(c.read32(b + 4)));
+        const int right = std::min(int32_t(c.read32(a + 8)), int32_t(c.read32(b + 8)));
+        const int bottom = std::min(int32_t(c.read32(a + 12)), int32_t(c.read32(b + 12)));
+        if (left >= right || top >= bottom) {
+            rect(c, c.arg(0), 0, 0, 0, 0);
+            return 0u;
+        }
+        rect(c, c.arg(0), left, top, right, bottom);
+        return 1u;
+    });
+
+    // The desktop is a window of its own, the screen's size.
+    stdcall(u, "GetDesktopWindow", 0, [](Cpu &) { return kDesktopWindow; });
+    stdcall(u, "IsWindow", 1,
+            [this](Cpu &c) { return uint32_t(c.arg(0) == kDesktopWindow || window(c.arg(0)) != nullptr); });
+    stdcall(u, "IsWindowVisible", 1, [this](Cpu &c) {
+        const Window *w = window(c.arg(0));
+        return uint32_t(w && w->visible);
+    });
+    stdcall(u, "IsIconic", 1, [](Cpu &) { return 0u; }); // nothing is ever minimised
+    stdcall(u, "EnableWindow", 2, [this](Cpu &c) {
+        auto it = _windows.find(c.arg(0));
+        if (it == _windows.end())
+            return 0u;
+        const bool wasDisabled = !it->second.enabled;
+        it->second.enabled = c.arg(1) != 0;
+        return uint32_t(wasDisabled);
+    });
+    // The program's windows are the only ones: the first is active, and has
+    // the keyboard until SetFocus gives it to another.
+    stdcall(u, "GetActiveWindow", 0, [this](Cpu &) { return mainWindow(); });
+    stdcall(u, "GetFocus", 0, [this](Cpu &) { return _focus && window(_focus) ? _focus : mainWindow(); });
+    stdcall(u, "SetFocus", 1, [this](Cpu &c) {
+        const uint32_t old = _focus && window(_focus) ? _focus : mainWindow();
+        _focus = c.arg(0);
+        return old;
+    });
+    // GetWindowLongA(window, index): GWL_WNDPROC (-4), GWL_STYLE (-16),
+    // GWL_EXSTYLE (-20), GWL_USERDATA (-21); SetWindowLongA returns the old.
+    stdcall(u, "GetWindowLongA", 2, [this](Cpu &c) {
+        const Window *w = window(c.arg(0));
+        if (!w)
+            return 0u;
+        switch (int32_t(c.arg(1))) {
+        case -4:
+            return w->proc;
+        case -16:
+            return w->style;
+        case -20:
+            return w->exStyle;
+        case -21:
+            return w->userData;
+        default:
+            return 0u;
+        }
+    });
+    stdcall(u, "SetWindowLongA", 3, [this](Cpu &c) {
+        auto it = _windows.find(c.arg(0));
+        if (it == _windows.end())
+            return 0u;
+        Window &w = it->second;
+        uint32_t *field = nullptr;
+        switch (int32_t(c.arg(1))) {
+        case -4:
+            field = &w.proc;
+            break;
+        case -16:
+            field = &w.style;
+            break;
+        case -20:
+            field = &w.exStyle;
+            break;
+        case -21:
+            field = &w.userData;
+            break;
+        default:
+            return 0u;
+        }
+        const uint32_t old = *field;
+        *field = c.arg(2);
+        return old;
+    });
+    stdcall(u, "SetWindowTextA", 2, [this](Cpu &c) {
+        auto it = _windows.find(c.arg(0));
+        if (it == _windows.end())
+            return 0u;
+        it->second.title = c.string(c.arg(1));
+        return 1u;
+    });
+    stdcall(u, "GetWindowTextA", 3, [this](Cpu &c) {
+        const Window *w = window(c.arg(0));
+        const uint32_t size = c.arg(2);
+        if (!w || size == 0 || !c.valid(c.arg(1), size))
+            return 0u;
+        const std::string t = w->title.substr(0, size - 1);
+        c.writeString(c.arg(1), t, uint32_t(t.size() + 1));
+        return uint32_t(t.size());
+    });
+    stdcall(u, "MoveWindow", 6, [this](Cpu &c) {
+        if (!window(c.arg(0)))
+            return 0u;
+        moveWindow(c.arg(0), int32_t(c.arg(1)), int32_t(c.arg(2)), int32_t(c.arg(3)), int32_t(c.arg(4)));
+        return 1u;
+    });
+    // Nothing is painted through the window's own drawing: the programs here
+    // draw with DirectDraw, so there's nothing to mark for painting.
+    stdcall(u, "InvalidateRect", 3, [](Cpu &) { return 1u; });
+    stdcall(u, "ValidateRect", 2, [](Cpu &) { return 1u; });
+    // A 101- or 102-key keyboard (type 4), 12 function keys.
+    stdcall(u, "GetKeyboardType", 1, [](Cpu &c) {
+        switch (c.arg(0)) {
+        case 0:
+            return 4u;
+        case 2:
+            return 12u;
+        default:
+            return 0u;
+        }
+    });
+    // A program changing the system's own pointer changes nothing here: its
+    // pointer is whatever it draws or sets for its own window.
+    stdcall(u, "SetSystemCursor", 2, [](Cpu &) { return 1u; });
+    // SystemParametersInfoA(action, uiParam, pvParam, winIni): the work
+    // area (SPI_GETWORKAREA, 48) is the whole screen; the screen saver
+    // (SPI_GETSCREENSAVEACTIVE, 16) is off; other settings are taken as set.
+    stdcall(u, "SystemParametersInfoA", 4, [this, rect](Cpu &c) {
+        const uint32_t out = c.arg(2);
+        switch (c.arg(0)) {
+        case 48:
+            if (c.valid(out, 16))
+                rect(c, out, 0, 0, screenWidth, screenHeight);
+            break;
+        case 16:
+            if (c.valid(out, 4))
+                c.write32(out, 0);
+            break;
+        default:
+            break;
+        }
+        return 1u;
+    });
+    // Single-byte text: the next and previous characters are a byte away.
+    stdcall(u, "CharNextA", 1, [](Cpu &c) { return c.read8(c.arg(0)) ? c.arg(0) + 1 : c.arg(0); });
+    stdcall(u, "CharPrevA", 2, [](Cpu &c) { return c.arg(1) > c.arg(0) ? c.arg(1) - 1 : c.arg(0); });
+
     stdcall(u, "GetDC", 1, [](Cpu &c) { return kDeviceContext + (c.arg(0) & 0xffff); });
     stdcall(u, "ReleaseDC", 2, [](Cpu &) { return 1u; });
     // GetDeviceCaps(dc, index): the desktop's.
@@ -679,6 +854,96 @@ void Win32Process::addUserStandIns() {
         return n;
     });
     stdcall(g, "GetStockObject", 1, [](Cpu &c) { return kStockObjects + c.arg(0); });
+
+    // GDI's objects are handles kept with what's selected and the colours,
+    // but nothing is drawn through them: the programs here show their
+    // pictures with DirectDraw, and what they write through GDI (text on a
+    // surface's device context, say) doesn't appear.
+    auto made = [this](Cpu &) { return kGdiObjects + _nextGdiObject++; };
+    for (const char *name :
+         {"CreateFontIndirectA", "CreateSolidBrush", "CreatePalette", "CreateCompatibleDC", "CreatePatternBrush"})
+        stdcall(g, name, 1, made);
+    stdcall(g, "CreatePen", 3, made);
+    stdcall(g, "CreateCompatibleBitmap", 3, made);
+    stdcall(g, "CreateBitmap", 5, made);
+    stdcall(g, "DeleteObject", 1, [](Cpu &) { return 1u; });
+    stdcall(g, "DeleteDC", 1, [](Cpu &) { return 1u; });
+    // SelectObject returns what was selected before of the same kind; kinds
+    // aren't told apart here, so it returns the last selected.
+    stdcall(g, "SelectObject", 2, [this](Cpu &c) {
+        uint32_t &selected = _selected[c.arg(0)];
+        const uint32_t old = selected ? selected : kStockObjects + 13; // SYSTEM_FONT
+        selected = c.arg(1);
+        return old;
+    });
+    stdcall(g, "SelectPalette", 3, [](Cpu &) { return kStockObjects + 15; }); // DEFAULT_PALETTE
+    stdcall(g, "RealizePalette", 1, [](Cpu &) { return 0u; });
+    // The colours and mode return what they replace.
+    stdcall(g, "SetTextColor", 2, [this](Cpu &c) { return std::exchange(_textColour[c.arg(0)], c.arg(1)); });
+    stdcall(g, "SetBkColor", 2, [this](Cpu &c) {
+        auto [it, added] = _backColour.try_emplace(c.arg(0), 0xffffffu);
+        return std::exchange(it->second, c.arg(1));
+    });
+    stdcall(g, "SetBkMode", 2, [this](Cpu &c) {
+        auto [it, added] = _backMode.try_emplace(c.arg(0), 2u); // OPAQUE
+        return std::exchange(it->second, c.arg(1));
+    });
+    stdcall(g, "TextOutA", 5, [](Cpu &) { return 1u; });
+    for (const char *name : {"BitBlt", "PatBlt"})
+        stdcall(g, name, name[0] == 'B' ? 9 : 6, [](Cpu &) { return 1u; });
+
+    // LoadImageA(instance, name, type, width, height, flags): a bitmap from
+    // a file (LR_LOADFROMFILE, 0x10) is a handle that knows the file's size
+    // and bits per pixel, from its BMP header, for GetObjectA; any other
+    // image is a handle only.
+    stdcall(u, "LoadImageA", 6, [this](Cpu &c) {
+        const uint32_t handle = kGdiObjects + _nextGdiObject++;
+        if (c.arg(2) != 0 || !(c.arg(5) & 0x10))
+            return handle;
+        const std::string full = fullPath(c.string(c.arg(1)));
+        const auto host = mapPath ? mapPath(full, false) : std::nullopt;
+        std::FILE *f = host ? std::fopen(host->string().c_str(), "rb") : nullptr;
+        if (fileOpened)
+            fileOpened(full, f != nullptr);
+        if (!f)
+            return 0u;
+        uint8_t header[30] = {};
+        const bool read = std::fread(header, 1, sizeof header, f) == sizeof header;
+        std::fclose(f);
+        if (!read || header[0] != 'B' || header[1] != 'M')
+            return 0u;
+        auto le32 = [&](int at) {
+            return uint32_t(header[at]) | uint32_t(header[at + 1]) << 8 | uint32_t(header[at + 2]) << 16 |
+                   uint32_t(header[at + 3]) << 24;
+        };
+        _bitmaps[handle] = {int32_t(le32(18)), int32_t(le32(22)), int(header[28] | header[29] << 8)};
+        return handle;
+    });
+    // GetObjectA(handle, size, out): a BITMAP for a bitmap LoadImageA read.
+    stdcall(g, "GetObjectA", 3, [this](Cpu &c) {
+        auto it = _bitmaps.find(c.arg(0));
+        const uint32_t out = c.arg(2);
+        if (it == _bitmaps.end() || c.arg(1) < 24 || !c.valid(out, 24))
+            return 0u;
+        const auto &[width, height, bits] = it->second;
+        const int absHeight = height < 0 ? -height : height;
+        c.write32(out, 0);                                             // bmType
+        c.write32(out + 4, uint32_t(width));                           // bmWidth
+        c.write32(out + 8, uint32_t(absHeight));                       // bmHeight
+        c.write32(out + 12, uint32_t(((width * bits + 15) / 16) * 2)); // bmWidthBytes, even
+        c.write16(out + 16, 1);                                        // bmPlanes
+        c.write16(out + 18, uint16_t(bits));                           // bmBitsPixel
+        c.write32(out + 20, 0);                                        // bmBits
+        return 24u;
+    });
+    // A character 8 pixels wide and 16 high, as a stand-in font's.
+    stdcall(g, "GetTextExtentPoint32A", 4, [](Cpu &c) {
+        if (!c.valid(c.arg(3), 8))
+            return 0u;
+        c.write32(c.arg(3), c.arg(2) * 8);
+        c.write32(c.arg(3) + 4, 16);
+        return 1u;
+    });
 }
 
 } // namespace reluva::x86

@@ -531,6 +531,8 @@ public:
         int height = 0;
         bool visible = false;
         uint32_t classStyle = 0; // its class's (CS_DBLCLKS: it gets double clicks)
+        uint32_t userData = 0;   // GWL_USERDATA
+        bool enabled = true;
     };
     /** The window with that handle, or null. */
     const Window *window(uint32_t handle) const;
@@ -630,6 +632,7 @@ private:
     uint32_t _environment = 0;
     uint32_t _environmentW = 0;
     uint32_t _lastError = 0;
+    uint32_t _errorMode = 0;           // SetErrorMode's, kept
     uint32_t _heapHandle = 0x7ffe0000; // HeapCreate's handles: never dereferenced
     uint32_t _exceptionFilter = 0;
     uint64_t _startMs = 0;
@@ -655,6 +658,20 @@ private:
             f(r);
     }
     std::map<uint32_t, Window> _windows;
+    uint32_t _focus = 0; // the window SetFocus gave the keyboard; 0 for the first
+    // GDI (win32_user.cpp): the objects made, and each device context's
+    // selection and colours.
+    uint32_t _nextGdiObject = 0;
+    std::map<uint32_t, uint32_t> _selected;
+    std::map<uint32_t, uint32_t> _textColour;
+    std::map<uint32_t, uint32_t> _backColour;
+    std::map<uint32_t, uint32_t> _backMode;
+    struct BitmapSize {
+        int32_t width = 0;
+        int32_t height = 0; // negative for top-down
+        int bits = 0;
+    };
+    std::map<uint32_t, BitmapSize> _bitmaps; // LoadImageA's from files
     uint32_t _nextWindow = 0x10010;
     struct Message {
         uint32_t window;

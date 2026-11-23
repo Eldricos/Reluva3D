@@ -78,7 +78,7 @@ int lowerAscii(int ch) {
 
 } // namespace
 
-int scanFormat(Cpu &cpu, const std::string &in, const std::string &f, uint32_t args) {
+int scanFormat(Cpu &cpu, const std::string &in, const std::string &f, uint32_t args, size_t *consumed) {
     size_t i = 0;
     size_t fi = 0;
     int stored = 0;
@@ -138,8 +138,11 @@ int scanFormat(Cpu &cpu, const std::string &in, const std::string &f, uint32_t a
                 cpu.write32(nextPointer(), uint32_t(i));
             continue;
         }
-        if (i >= in.size())
+        if (i >= in.size()) {
+            if (consumed)
+                *consumed = i;
             return anyInput || stored ? stored : -1;
+        }
         const size_t limit = width ? std::min(in.size(), i + width) : in.size();
         if (conv == 'd' || conv == 'i' || conv == 'u' || conv == 'o' || conv == 'x' || conv == 'X') {
             const int base = conv == 'o' ? 8 : (conv == 'x' || conv == 'X') ? 16 : conv == 'i' ? 0 : 10;
@@ -250,6 +253,8 @@ int scanFormat(Cpu &cpu, const std::string &in, const std::string &f, uint32_t a
             break; // a conversion not supported
         }
     }
+    if (consumed)
+        *consumed = i;
     return stored;
 }
 
@@ -462,6 +467,37 @@ void addMsvcrt(Win32Process &process) {
     });
     process.provideData(kDll, "?what@exception@@UBEPBDXZ", what);
     thiscall("??1type_info@@UAE@XZ", 0, [](Cpu &, uint32_t) { return 0u; });
+    // type_info::name(): the type's name as the compiler writes it ("class
+    // Foo", "struct A::B"), made once from the decorated name at +8 and kept
+    // at +4. The decorated forms ".?AV" (class), ".?AU" (struct) and their
+    // names nested with '@' are undecorated; others are given as stored.
+    thiscall("?name@type_info@@QBEPBDXZ", 0, [s](Cpu &c, uint32_t self) {
+        if (const uint32_t made = c.read32(self + 4))
+            return made;
+        const std::string decorated = s->str(self + 8);
+        std::string name = decorated;
+        const char *kind = decorated.rfind(".?AV", 0) == 0   ? "class "
+                           : decorated.rfind(".?AU", 0) == 0 ? "struct "
+                                                             : nullptr;
+        if (kind && decorated.size() > 6 && decorated.compare(decorated.size() - 2, 2, "@@") == 0 &&
+            decorated.find('?', 4) == std::string::npos) {
+            std::vector<std::string> parts;
+            size_t at = 4;
+            const size_t end = decorated.size() - 2;
+            while (at < end) {
+                const size_t next = std::min(decorated.find('@', at), end);
+                parts.push_back(decorated.substr(at, next - at));
+                at = next + 1;
+            }
+            name = kind;
+            for (size_t i = parts.size(); i-- > 0;)
+                name += parts[i] + (i ? "::" : "");
+        }
+        const uint32_t text = s->alloc(uint32_t(name.size() + 1));
+        c.writeString(text, name, uint32_t(name.size() + 1));
+        c.write32(self + 4, text);
+        return text;
+    });
 
     // Memory.
     provideCdecl("malloc", [s](Cpu &c) { return s->p.memory().alloc(std::max(c.arg(0), 1u)); });
@@ -601,6 +637,24 @@ void addMsvcrt(Win32Process &process) {
                 return c.arg(0) + uint32_t(i);
         return 0u;
     });
+    // Single-byte text only (no lead bytes), so the multibyte forms are the
+    // plain ones.
+    provideCdecl("_mbschr", [s](Cpu &c) -> uint32_t {
+        const size_t n = s->length(c.arg(0));
+        const char ch = char(c.arg(1));
+        if (!ch)
+            return c.arg(0) + uint32_t(n);
+        const void *hit = std::memchr(s->ptr(c.arg(0)), ch, n);
+        return hit ? c.arg(0) + uint32_t(static_cast<const char *>(hit) - s->ptr(c.arg(0))) : 0u;
+    });
+    provideCdecl("_mbsrchr", [s](Cpu &c) -> uint32_t {
+        const size_t n = s->length(c.arg(0));
+        const char ch = char(c.arg(1));
+        for (size_t i = n + 1; i-- > 0;)
+            if (s->ptr(c.arg(0))[i] == ch)
+                return c.arg(0) + uint32_t(i);
+        return 0u;
+    });
     provideCdecl("strstr", [s](Cpu &c) -> uint32_t {
         const std::string hay = s->str(c.arg(0));
         const std::string needle = s->str(c.arg(1));
@@ -669,6 +723,7 @@ void addMsvcrt(Win32Process &process) {
     ctype("isalpha", [](int ch) { return std::isalpha(ch); });
     ctype("isdigit", [](int ch) { return std::isdigit(ch); });
     ctype("isspace", [](int ch) { return std::isspace(ch); });
+    ctype("isgraph", [](int ch) { return std::isgraph(ch); });
     ctype("isalnum", [](int ch) { return std::isalnum(ch); });
     ctype("isupper", [](int ch) { return std::isupper(ch); });
     ctype("islower", [](int ch) { return std::islower(ch); });
@@ -742,6 +797,45 @@ void addMsvcrt(Win32Process &process) {
     });
     // qsort(base, count, size, compare): a merge sort, which needs only
     // the comparison to order consistently, calling the program's.
+    // Run-time type information, as Visual C++ lays it out: the word before
+    // a polymorphic object's vtable points to its complete object locator,
+    // whose word at +12 is its type_info (the type descriptor).
+    // __RTtypeid(object) is typeid(*object).
+    provideCdecl("__RTtypeid", [](Cpu &c) -> uint32_t {
+        const uint32_t object = c.arg(0);
+        if (!object || !c.valid(object, 4)) {
+            c.abort("typeid of a null pointer (bad_typeid)");
+            return 0u;
+        }
+        const uint32_t vtable = c.read32(object);
+        const uint32_t locator = c.read32(vtable - 4);
+        return c.valid(locator, 16) ? c.read32(locator + 12) : 0u;
+    });
+    // bsearch(key, base, count, size, compare): compare(key, element) < 0
+    // means the key comes before it.
+    provideCdecl("bsearch", [](Cpu &c) -> uint32_t {
+        const uint32_t key = c.arg(0);
+        const uint32_t base = c.arg(1);
+        const uint32_t size = c.arg(3);
+        const uint32_t fn = c.arg(4);
+        uint32_t lo = 0;
+        uint32_t hi = c.arg(2);
+        while (lo < hi) {
+            const uint32_t mid = lo + (hi - lo) / 2;
+            uint32_t r = 0;
+            if (Error e = c.call(fn, {key, base + mid * size}, r)) {
+                c.abort("bsearch's compare: " + e.message);
+                return 0u;
+            }
+            if (int32_t(r) == 0)
+                return base + mid * size;
+            if (int32_t(r) < 0)
+                hi = mid;
+            else
+                lo = mid + 1;
+        }
+        return 0u;
+    });
     provideCdecl("qsort", [s](Cpu &c) {
         const uint32_t base = c.arg(0);
         const uint32_t count = c.arg(1);
@@ -1016,6 +1110,9 @@ void addMsvcrt(Win32Process &process) {
     provideCdecl("fputc", [output](Cpu &c) {
         return output(c.arg(1), std::string(1, char(c.arg(0)))) ? c.arg(0) & 0xff : 0xffffffffu;
     });
+    provideCdecl("putc", [output](Cpu &c) {
+        return output(c.arg(1), std::string(1, char(c.arg(0)))) ? c.arg(0) & 0xff : 0xffffffffu;
+    });
     provideCdecl("fwrite", [s, output](Cpu &c) {
         const uint32_t bytes = c.arg(1) * c.arg(2);
         if (!c.valid(c.arg(0), bytes) || !c.arg(1))
@@ -1043,7 +1140,44 @@ void addMsvcrt(Win32Process &process) {
         const size_t n = std::fread(s->ptr(c.arg(0)) + at, 1, bytes - at, f) + at;
         return uint32_t(n / size);
     });
+    // fscanf reads the rest of the file, scans it as sscanf does, and puts
+    // the file back just after what the conversions took (in text mode
+    // counting each CR-LF read as LF as its two bytes).
+    provideCdecl("fscanf", [s, hostFile, varargs](Cpu &c) {
+        const uint32_t file = c.arg(0);
+        std::FILE *f = hostFile(file);
+        if (!f)
+            return 0xffffffffu;
+        const long start = std::ftell(f);
+        std::string raw;
+        for (int ch; (ch = std::fgetc(f)) != EOF;)
+            raw += char(ch);
+        std::string in;
+        std::vector<size_t> rawEnd; // in[k] ends at raw byte rawEnd[k]
+        const bool ungot = s->ungot.count(file) != 0;
+        if (ungot) {
+            in += char(s->ungot[file]);
+            rawEnd.push_back(0);
+        }
+        const bool text = s->text.count(file) != 0;
+        for (size_t r = 0; r < raw.size(); ++r) {
+            if (text && raw[r] == '\r' && r + 1 < raw.size() && raw[r + 1] == '\n')
+                ++r;
+            in += raw[r];
+            rawEnd.push_back(r + 1);
+        }
+        size_t used = 0;
+        const int n = scanFormat(c, in, s->str(c.arg(1)), varargs(c, 2), &used);
+        if (ungot && used > 0)
+            s->ungot.erase(file);
+        std::fseek(f, start + long(used > 0 ? rawEnd[used - 1] : 0), SEEK_SET);
+        return uint32_t(n);
+    });
     provideCdecl("fgetc", [hostFile, getChar](Cpu &c) {
+        std::FILE *f = hostFile(c.arg(0));
+        return f ? uint32_t(getChar(c.arg(0), f)) : 0xffffffffu;
+    });
+    provideCdecl("getc", [hostFile, getChar](Cpu &c) {
         std::FILE *f = hostFile(c.arg(0));
         return f ? uint32_t(getChar(c.arg(0), f)) : 0xffffffffu;
     });
@@ -1099,6 +1233,18 @@ void addMsvcrt(Win32Process &process) {
     });
     provideCdecl("setvbuf", [](Cpu &) { return 0u; });
 
+    // The environment is empty, and stays so.
+    provideCdecl("getenv", [](Cpu &) { return 0u; });
+    provideCdecl("_putenv", [](Cpu &) { return 0u; });
+    // setlocale(category, locale): only the "C" locale, which every C
+    // program starts in; asked for another, it says no (null).
+    const uint32_t cLocale = s->alloc(2);
+    s->c.writeString(cLocale, "C", 2);
+    provideCdecl("setlocale", [s, cLocale](Cpu &c) {
+        const std::string want = c.arg(1) ? s->str(c.arg(1)) : "C";
+        return want == "C" || want.empty() ? cLocale : 0u;
+    });
+
     // Files by name.
     auto host = [s](uint32_t name, bool writing) {
         const std::string full = s->p.fullPath(s->str(name));
@@ -1107,6 +1253,38 @@ void addMsvcrt(Win32Process &process) {
     // _access(path, mode): 0 if it's there; mode 2 or 6 asks for writing.
     provideCdecl("_access", [s, host](Cpu &c) {
         const auto path = host(c.arg(0), (c.arg(1) & 2) != 0);
+        std::error_code ec;
+        if (!path || !std::filesystem::exists(*path, ec)) {
+            s->setErrno(kErrnoNoEntry);
+            return 0xffffffffu;
+        }
+        return 0u;
+    });
+    // Deleting and making: only where the process may write, so never in
+    // the game's own folders.
+    auto unlink = [s, host](Cpu &c) {
+        const auto path = host(c.arg(0), true);
+        std::error_code ec;
+        if (!path || !std::filesystem::is_regular_file(*path, ec) || !std::filesystem::remove(*path, ec)) {
+            s->setErrno(kErrnoNoEntry);
+            return 0xffffffffu;
+        }
+        return 0u;
+    };
+    provideCdecl("_unlink", unlink);
+    provideCdecl("remove", unlink);
+    provideCdecl("_mkdir", [s, host](Cpu &c) {
+        const auto path = host(c.arg(0), true);
+        std::error_code ec;
+        if (!path || !std::filesystem::create_directory(*path, ec)) {
+            s->setErrno(17); // EEXIST
+            return 0xffffffffu;
+        }
+        return 0u;
+    });
+    // _chmod(path, mode): read-only or not isn't kept; 0 if it's there.
+    provideCdecl("_chmod", [s, host](Cpu &c) {
+        const auto path = host(c.arg(0), false);
         std::error_code ec;
         if (!path || !std::filesystem::exists(*path, ec)) {
             s->setErrno(kErrnoNoEntry);

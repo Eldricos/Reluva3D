@@ -20,6 +20,9 @@ headers' (`directx/interfaces.cpp`).
   - palettes and clippers;
   - the display's gamma ramp (`IDirectDrawGammaControl`, from any
     surface).
+  - `EnumSurfaces` lists none: what's made isn't kept for it, and no
+    surface is ever lost, so a program going through them to restore them
+    has nothing to do.
 
   What reaches the primary surface becomes `DirectX::frame()`, handed to
   the engine, through the gamma ramp. In a window, that's the window's

@@ -49,6 +49,16 @@ C++ library have pages of their own ([directx.md](directx.md),
   - `printf` and `scanf` formatting, and `FILE` files over the process's
     file handles;
   - `_stat` with Visual C++ 6's structure, and time;
+  - `fscanf`, which scans the rest of the file as `sscanf` does and puts
+    the file back just after what it took; `getc`, `putc`, `bsearch` (with
+    the program's compare);
+  - deleting and making files and folders (`_unlink`, `remove`, `_mkdir`),
+    only where the process may write; an empty environment (`getenv`); the
+    "C" locale alone (`setlocale`);
+  - run-time type information: `__RTtypeid` and `type_info::name` (classes
+    and structs, nested names), from Visual C++'s layout: the word before
+    an object's vtable is its complete object locator, whose word at +12
+    is its `type_info`;
   - the start-up helpers (`__getmainargs`, `_initterm`, its variables);
   - `_EH_prolog`'s exception frame, and the `exception` class.
 
@@ -57,7 +67,10 @@ C++ library have pages of their own ([directx.md](directx.md),
 - **`win32_system.cpp`: the system.** System information (one Pentium
   II-class processor, 256 MB), the performance counter (microseconds),
   `MulDiv`, the computer's name, and `GetDateFormatA`/`GetTimeFormatA` with
-  English (United States) pictures. There's one thread, so critical
+  English (United States) pictures. The clock (`GetLocalTime`,
+  `GetSystemTime`, `GetSystemTimeAsFileTime`), English (United States) as
+  the locale, the `Interlocked` functions (atomic as they are, since
+  threads change over between instructions), `lstrlenA` and `lstrcpyA`. There's one thread, so critical
   sections do nothing, `Sleep` returns at once and a wait on an event finds
   it signalled.
 - **`win32_user.cpp`: USER32 and GDI32.** Window classes and windows, kept
@@ -72,9 +85,21 @@ C++ library have pages of their own ([directx.md](directx.md),
   - frames and captions are Windows 98's sizes;
   - the mouse pointer, and the desktop's size and colour depth, which the
     engine sets;
-  - `MessageBoxA` is reported and answered so the program goes on.
+  - `MessageBoxA` is reported and answered so the program goes on;
+  - rectangles (`SetRect`, `OffsetRect`, `IntersectRect`); the desktop as
+    a window of its own; focus, which `SetFocus` moves; `GetWindowLongA`
+    and `SetWindowLongA` for the procedure, styles and user data; a
+    101-key keyboard; `SetSystemCursor` and `SystemParametersInfoA`
+    answered without changing anything;
+  - GDI's objects (fonts, brushes, pens, bitmaps, palettes, memory device
+    contexts) as handles, with each device context's selection and
+    colours; nothing is drawn through them (`TextOutA`, `BitBlt` do
+    nothing), since the programs here show their pictures with
+    DirectDraw. `LoadImageA` reads a BMP file's size for `GetObjectA`.
 - **`win32_registry.cpp`: the registry and COM.** An in-memory registry,
-  seeded with the installed locales. The engine can add an installer's
+  seeded with the installed locales; keys can be listed
+  (`RegEnumKeyExA`) and deleted. The user is called "Player"
+  (`GetUserNameA`). The engine can add an installer's
   values and hear of the program's writes. `CoCreateInstance` asks the
   engine's `createComObject`; with none, no class is registered.
 - **`com.h`, `com.cpp`: COM objects.** An interface is a table of method

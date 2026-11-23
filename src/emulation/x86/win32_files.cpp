@@ -952,9 +952,13 @@ uint32_t Win32Process::openFile(const std::string &windowsPath, const char *mode
     const auto host = mapPath ? mapPath(full, writing) : std::nullopt;
     if (!host) {
         _lastError = writing ? kErrorAccessDenied : kErrorFileNotFound;
+        if (fileOpened)
+            fileOpened(full, false);
         return 0;
     }
     std::FILE *f = std::fopen(host->string().c_str(), mode);
+    if (fileOpened)
+        fileOpened(full, f != nullptr);
     if (!f) {
         _lastError = kErrorFileNotFound;
         return 0;

@@ -503,6 +503,18 @@ EXPORT THISCALL String *stringConstructCopy(String *self, const String *from) {
     stringTidy(self, 0);
     return stringAssignPart(self, from, 0, kNpos);
 }
+EXPORT THISCALL String *stringConstructPart(String *self, const String *from, size_t at, size_t n, const void *) {
+    stringTidy(self, 0);
+    return stringAssignPart(self, from, at, n);
+}
+// c_str(): the characters, or an empty string's when there are none.
+EXPORT THISCALL const char *stringCStr(const String *self) {
+    return self->ptr ? self->ptr : "";
+}
+// char_traits<char>::copy(to, from, n)
+EXPORT char *charTraitsCopy(char *to, const char *from, size_t n) {
+    return n ? (char *)memcpy(to, from, n) : to;
+}
 EXPORT THISCALL String *stringConstructChars(String *self, const char *s, const void *) {
     stringTidy(self, 0);
     return stringAssign(self, s, strlen(s));
@@ -1830,6 +1842,54 @@ EXPORT THISCALL Istream *istreamGetline(Istream *self, char *s, int n, unsigned 
     if (state)
         iosSetstate(ios, state, 0);
     return self;
+}
+// getline(is, str): str emptied, then the characters up to the next '\n',
+// which is taken but not stored; failbit if nothing was taken, eofbit at
+// the end.
+EXPORT Istream *stringGetline(Istream *is, String *str) {
+    Ios *ios = iosOf(is);
+    int state = kGood;
+    size_t taken = 0;
+    stringErase(str, 0, kNpos);
+    if (prefix(is, true)) {
+        char chunk[64];
+        size_t held = 0;
+        for (int c = sgetc(ios->buffer);; c = snextc(ios->buffer)) {
+            if (c == kEof) {
+                state |= kEofBit;
+                break;
+            }
+            ++taken;
+            if (c == '\n') {
+                sbumpc(ios->buffer);
+                break;
+            }
+            chunk[held++] = char(c);
+            if (held == sizeof chunk) {
+                stringAppend(str, chunk, held);
+                held = 0;
+            }
+        }
+        if (held)
+            stringAppend(str, chunk, held);
+    }
+    if (taken == 0)
+        state |= kFailBit;
+    if (state)
+        iosSetstate(ios, state, 0);
+    return is;
+}
+// ws(is): white space skipped; eofbit if the end is reached.
+EXPORT Istream *istreamWs(Istream *is) {
+    Ios *ios = iosOf(is);
+    if (good(ios)) {
+        int c = sgetc(ios->buffer);
+        while (c != kEof && isSpace(c))
+            c = snextc(ios->buffer);
+        if (c == kEof)
+            iosSetstate(ios, kEofBit, 0);
+    }
+    return is;
 }
 EXPORT THISCALL Istream *istreamRead(Istream *self, char *s, int n) {
     // Most reads are a few bytes from a buffer holding the whole file (the

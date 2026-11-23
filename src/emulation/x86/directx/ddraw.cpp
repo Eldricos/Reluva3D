@@ -209,6 +209,11 @@ std::optional<uint32_t> DirectDraw::invoke(const ComInterface &iface, int index,
         return createSurface(c, iface);
     if (m == "EnumDisplayModes")
         return enumModes(c, iface);
+    // EnumSurfaces lists no surfaces: what's been made isn't kept for it,
+    // and none is ever lost here, so a program that goes through them to
+    // restore them has nothing to do.
+    if (m == "EnumSurfaces")
+        return kDDOk;
     if (m == "GetCaps") {
         if (c.arg(1))
             writeCaps(c, c.arg(1), !emulationOnly);

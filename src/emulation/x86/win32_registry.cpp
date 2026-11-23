@@ -135,6 +135,54 @@ void Win32Process::addRegistryStandIns() {
         return it == _openKeys.end() ? nullptr : &_registry.at(it->second);
     };
 
+    stdcall(a, "GetUserNameA", 2, [this](Cpu &c) {
+        static const std::string kName = "Player";
+        const uint32_t size = c.arg(1);
+        if (!c.valid(size, 4))
+            return 0u;
+        if (c.read32(size) < kName.size() + 1 || !c.valid(c.arg(0), uint32_t(kName.size() + 1))) {
+            c.write32(size, uint32_t(kName.size() + 1));
+            setLastError(122); // ERROR_INSUFFICIENT_BUFFER
+            return 0u;
+        }
+        c.writeString(c.arg(0), kName, uint32_t(kName.size() + 1));
+        c.write32(size, uint32_t(kName.size() + 1)); // with its terminator, as Windows counts it here
+        return 1u;
+    });
+    // Nothing is written to disk until the process ends, so a flush has
+    // nothing to do.
+    stdcall(a, "RegFlushKey", 1, [](Cpu &) { return 0u; });
+    // RegDeleteKeyA(key, sub): the key and its values; ERROR_FILE_NOT_FOUND
+    // (2) if there's none.
+    stdcall(a, "RegDeleteKeyA", 2, [this, pathOf](Cpu &c) {
+        const std::string path = lower(pathOf(c, c.arg(0), c.arg(1)));
+        return _registry.erase(path) ? 0u : 2u;
+    });
+    // RegEnumKeyExA(key, index, name, nameSize*, reserved, class, classSize*,
+    // lastWrite): the index-th key directly under it, in name order;
+    // ERROR_NO_MORE_ITEMS (259) past the last.
+    stdcall(a, "RegEnumKeyExA", 8, [this, keyOf](Cpu &c) {
+        const RegistryKey *key = keyOf(c.arg(0));
+        if (!key)
+            return 6u; // ERROR_INVALID_HANDLE
+        const std::string prefix = lower(key->path) + "\\";
+        std::vector<std::string> names;
+        for (const auto &[path, k] : _registry)
+            if (path.rfind(prefix, 0) == 0 && path.find('\\', prefix.size()) == std::string::npos)
+                names.push_back(k.path.substr(prefix.size()));
+        if (c.arg(1) >= names.size())
+            return 259u;
+        const std::string &name = names[c.arg(1)];
+        const uint32_t size = c.arg(3);
+        if (!c.valid(size, 4))
+            return 87u; // ERROR_INVALID_PARAMETER
+        if (c.read32(size) < name.size() + 1 || !c.valid(c.arg(2), uint32_t(name.size() + 1)))
+            return 234u; // ERROR_MORE_DATA
+        c.writeString(c.arg(2), name, uint32_t(name.size() + 1));
+        c.write32(size, uint32_t(name.size()));
+        return 0u;
+    });
+
     // RegOpenKeyExA(key, sub, options, access, result)
     stdcall(a, "RegOpenKeyExA", 5, [this, pathOf, open](Cpu &c) {
         const std::string path = pathOf(c, c.arg(0), c.arg(1));

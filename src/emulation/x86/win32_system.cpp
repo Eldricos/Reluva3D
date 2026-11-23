@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <chrono>
 #include <ctime>
 
 namespace reluva::x86 {
@@ -42,6 +43,27 @@ SystemTime now() {
     localtime_r(&t, &tm);
 #endif
     return {tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_wday, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec};
+}
+
+// The clock as UTC, with its milliseconds.
+void utcNow(SystemTime &t, int &millis) {
+    const auto since = std::chrono::system_clock::now().time_since_epoch();
+    const std::time_t secs = std::time_t(std::chrono::duration_cast<std::chrono::seconds>(since).count());
+    millis = int(std::chrono::duration_cast<std::chrono::milliseconds>(since).count() % 1000);
+    std::tm tm{};
+#ifdef _WIN32
+    gmtime_s(&tm, &secs);
+#else
+    gmtime_r(&secs, &tm);
+#endif
+    t = {tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_wday, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec};
+}
+
+// A SYSTEMTIME's 8 words.
+void writeSystemTime(Cpu &c, uint32_t p, const SystemTime &t, int millis) {
+    const int words[] = {t.year, t.month, t.dayOfWeek, t.day, t.hour, t.minute, t.second, millis};
+    for (int i = 0; i < 8; ++i)
+        c.write16(p + uint32_t(2 * i), uint16_t(words[i]));
 }
 
 SystemTime readSystemTime(Cpu &c, uint32_t p) {
@@ -125,6 +147,91 @@ std::string formatPicture(const std::string &picture, const SystemTime &t) {
 
 void Win32Process::addSystemStandIns() {
     const char *k = "KERNEL32.dll";
+
+    // The program's threads change over between instructions, never inside
+    // a stand-in, so these are atomic as they are.
+    stdcall(k, "InterlockedExchange", 2, [](Cpu &c) {
+        const uint32_t old = c.read32(c.arg(0));
+        c.write32(c.arg(0), c.arg(1));
+        return old;
+    });
+    stdcall(k, "InterlockedIncrement", 1, [](Cpu &c) {
+        const uint32_t v = c.read32(c.arg(0)) + 1;
+        c.write32(c.arg(0), v);
+        return v;
+    });
+    stdcall(k, "InterlockedDecrement", 1, [](Cpu &c) {
+        const uint32_t v = c.read32(c.arg(0)) - 1;
+        c.write32(c.arg(0), v);
+        return v;
+    });
+
+    stdcall(k, "GetLocalTime", 1, [](Cpu &c) {
+        if (c.valid(c.arg(0), 16)) {
+            // The milliseconds are the same in local time as in UTC.
+            SystemTime utc;
+            int millis = 0;
+            utcNow(utc, millis);
+            writeSystemTime(c, c.arg(0), x86::now(), millis);
+        }
+        return 0u;
+    });
+    stdcall(k, "GetSystemTime", 1, [](Cpu &c) {
+        if (c.valid(c.arg(0), 16)) {
+            SystemTime t;
+            int millis = 0;
+            utcNow(t, millis);
+            writeSystemTime(c, c.arg(0), t, millis);
+        }
+        return 0u;
+    });
+    // FILETIME: 100 ns units since 1601 (UTC).
+    stdcall(k, "GetSystemTimeAsFileTime", 1, [](Cpu &c) {
+        if (c.valid(c.arg(0), 8)) {
+            constexpr uint64_t kUnixEpoch = 116444736000000000ULL;
+            const auto since = std::chrono::system_clock::now().time_since_epoch();
+            const uint64_t t =
+                kUnixEpoch + uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(since).count()) * 10;
+            c.write32(c.arg(0), uint32_t(t));
+            c.write32(c.arg(0) + 4, uint32_t(t >> 32));
+        }
+        return 0u;
+    });
+
+    // English (United States), Windows' Western European code page.
+    stdcall(k, "GetSystemDefaultLCID", 0, [](Cpu &) { return 0x409u; });
+    stdcall(k, "GetUserDefaultLCID", 0, [](Cpu &) { return 0x409u; });
+    stdcall(k, "IsValidCodePage", 1, [](Cpu &c) {
+        const uint32_t cp = c.arg(0);
+        return uint32_t(cp == 437 || cp == 850 || cp == 1252);
+    });
+    // The mode is only kept: no error a program could hide shows a box here.
+    stdcall(k, "SetErrorMode", 1, [this](Cpu &c) {
+        const uint32_t old = _errorMode;
+        _errorMode = c.arg(0);
+        return old;
+    });
+    stdcall(k, "SetPriorityClass", 2, [](Cpu &) { return 1u; });
+
+    stdcall(k, "lstrlenA", 1, [](Cpu &c) {
+        uint32_t n = 0;
+        if (c.arg(0))
+            while (c.valid(c.arg(0) + n, 1) && c.read8(c.arg(0) + n))
+                ++n;
+        return n;
+    });
+    stdcall(k, "lstrcpyA", 2, [](Cpu &c) {
+        const uint32_t to = c.arg(0);
+        const uint32_t from = c.arg(1);
+        uint32_t i = 0;
+        for (; c.valid(from + i, 1) && c.valid(to + i, 1); ++i) {
+            const uint8_t b = c.read8(from + i);
+            c.write8(to + i, b);
+            if (!b)
+                return to;
+        }
+        return 0u;
+    });
 
     // A Pentium II-class single processor, 4 KB pages.
     stdcall(k, "GetSystemInfo", 1, [](Cpu &c) {

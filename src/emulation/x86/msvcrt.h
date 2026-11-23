@@ -27,7 +27,9 @@ void addMsvcrt(Win32Process &process);
  * the emulated stack from `args` on: d i u o x X f e E g G (with h, l, L,
  * I64), s c [set] n % and *, with widths. Returns the number of items
  * stored, or -1 if the input ended before the first.
+ * @param consumed if given, set to how many characters of `input` were used
  */
-int scanFormat(Cpu &cpu, const std::string &input, const std::string &format, uint32_t args);
+int scanFormat(Cpu &cpu, const std::string &input, const std::string &format, uint32_t args,
+               size_t *consumed = nullptr);
 
 } // namespace reluva::x86
