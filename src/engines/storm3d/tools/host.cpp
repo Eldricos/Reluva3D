@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file]:
+// reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file]
+//                          [-cd folder] [-cue file] [-cd-label name]:
 // runs the retail Armada.exe in Reluva's x86 emulator, with its own DLLs
 // from the install and Reluva's stand-ins for Windows, DirectX and the C
 // runtimes, as a reference to study, never as the game is played
 // (docs/engines/storm3d/games/armada/systems/hosting.md). It reports the
 // files the program opens, the frames it shows (written as PNG), the
 // imports no stand-in answers, and where and why it stops. The input file
-// is the player's mouse and keys, by the program's clock.
+// is the player's mouse and keys, by the program's clock. The CD is the
+// disc's files on D:, its table of contents from the disc's cue sheet,
+// which the game's CD check reads through MCI.
 
 #include "common/fs.h"
 #include "common/pe.h"
@@ -22,6 +25,7 @@
 #include "image/image.h"
 
 #include <algorithm>
+#include <cctype>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -55,6 +59,9 @@ struct Options {
     uint64_t every = 1; // with framesDir: every Nth frame written
     std::filesystem::path saveDir;
     std::filesystem::path inputFile;
+    std::filesystem::path cdFolder;
+    std::filesystem::path cueFile;
+    std::string cdLabel = "ARMADA";
 };
 
 /** What the player does, when (ms of the program's clock). */
@@ -190,7 +197,7 @@ int cmdHost(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr,
                      "usage: reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] "
-                     "[-input file]\n");
+                     "[-input file] [-cd folder] [-cue file] [-cd-label name]\n");
         return 2;
     }
     Options o;
@@ -207,6 +214,12 @@ int cmdHost(int argc, char **argv) {
             o.saveDir = argv[++a];
         else if (arg == "-input" && a + 1 < argc)
             o.inputFile = argv[++a];
+        else if (arg == "-cd" && a + 1 < argc)
+            o.cdFolder = argv[++a];
+        else if (arg == "-cue" && a + 1 < argc)
+            o.cueFile = argv[++a];
+        else if (arg == "-cd-label" && a + 1 < argc)
+            o.cdLabel = argv[++a];
         else {
             std::fprintf(stderr, "what is %s?\n", arg.c_str());
             return 2;
@@ -230,7 +243,42 @@ int cmdHost(int argc, char **argv) {
     // threads, waits and thread-local storage that come with them.
     process.useHostThreads();
     process.setProgram(kProgram, kInstallFolder);
+    // The CD: its files on D:, read only.
+    if (!o.cdFolder.empty())
+        process.cdLabel = o.cdLabel;
+    if (!o.cueFile.empty()) {
+        std::ifstream in(o.cueFile);
+        const std::string cue((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        std::string why;
+        process.disc = x86::Win32Process::DiscContents::fromCueSheet(
+            cue,
+            [&](const std::string &name) -> std::optional<uint64_t> {
+                std::error_code sizeError;
+                const auto size = std::filesystem::file_size(o.cueFile.parent_path() / name, sizeError);
+                return sizeError ? std::nullopt : std::optional<uint64_t>(size);
+            },
+            why);
+        if (!process.disc) {
+            std::fprintf(stderr, "%s: %s\n", o.cueFile.string().c_str(), why.c_str());
+            return 2;
+        }
+        std::printf("the CD: %zu tracks, %u frames\n", process.disc->tracks.size(), process.disc->end);
+    }
     process.mapPath = [&](const std::string &windowsPath, bool forWriting) -> std::optional<std::filesystem::path> {
+        if (!o.cdFolder.empty() && windowsPath.size() >= 2 &&
+            std::toupper(static_cast<unsigned char>(windowsPath[0])) == 'D' && windowsPath[1] == ':') {
+            if (forWriting)
+                return std::nullopt;
+            std::string rest = windowsPath.substr(2);
+            std::replace(rest.begin(), rest.end(), '\\', '/');
+            while (!rest.empty() && rest.front() == '/')
+                rest.erase(rest.begin());
+            if (rest.empty())
+                return o.cdFolder;
+            if (auto file = fs::findFile(o.cdFolder, rest))
+                return file;
+            return fs::findDirectory(o.cdFolder, rest);
+        }
         const std::string folder = text::toLower(kInstallFolder);
         if (text::toLower(windowsPath).rfind(folder, 0) != 0)
             return std::nullopt;
@@ -348,7 +396,9 @@ int cmdHost(int argc, char **argv) {
 
 const tool::Commands kCommands("storm3d",
                                {
-                                   {"host", "<game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file]",
+                                   {"host",
+                                    "<game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file] "
+                                    "[-cd folder] [-cue file] [-cd-label name]",
                                     "run the retail Armada.exe in the x86 emulator, to study: files "
                                     "opened, frames shown, imports missing, where it stops",
                                     cmdHost},

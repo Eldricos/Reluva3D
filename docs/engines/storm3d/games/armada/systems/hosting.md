@@ -74,7 +74,8 @@ primary surface for the same reason.
 ## In Reluva
 
 `reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N]
-[-save dir] [-input file]` runs the program for `N` milliseconds of its
+[-save dir] [-input file] [-cd folder] [-cue file] [-cd-label name]` runs
+the program for `N` milliseconds of its
 clock (20,000 by default), writes every `N`th frame (and the last) to
 `dir`, and the program's own files to the save folder (by default under
 the system's temporary folder). It prints the imports no stand-in
@@ -84,6 +85,15 @@ The input file is what the player does, a line each, by the program's
 clock: `<ms> move <x> <y>`, `<ms> click <x> <y>` (the left button,
 released 100 ms later) and `<ms> key <virtual key>`, on the 640 × 480
 screen; `#` starts a comment. To start the Federation's first mission:
+
+The CD is the disc's files on D: (`-cd`), its volume label `ARMADA`
+unless `-cd-label` says otherwise *(guessed: the disc's label isn't
+known)*, and its table of contents from the disc's cue sheet (`-cue`),
+for the game's CD check, which reads it through MCI.
+
+The clicks go by the program's clock, which is real time, so a click
+can come before the screen it's for is ready, when loading is slow: give
+them room.
 
 ```text
 4000 move 300 300
@@ -114,7 +124,8 @@ each, its imports, and its classes ([research/](../research/README.md)).
 ## Open questions
 
 - The CD check before a mission reads the disc's table of contents
-  through MCI; the copy of the disc here has its files only.
+  through MCI; the copy of the disc here has its files only, so its cue
+  sheet is still to come.
 - Text: GDI measures text but draws none (there are no fonts), so what
   the menu writes with `DrawTextExA` (in red, at the start) isn't seen.
 - Its sound, while DirectSound isn't stood in for.

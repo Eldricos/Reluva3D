@@ -75,21 +75,32 @@ Federation's panel (130, 150), then at the mission panel's OK button
    (`mbgbaku.sod`, `stalogo.sod`), with their textures. `addon\` isn't in
    the install: a place for add-ons' models to replace the game's
    *(guessed: by the order)*.
-6. No `texture.dat`, looked for in the folder above the install's.
-7. Then the CD check, below.
+6. Then the CD check, below.
 
 ## The CD check
 
-Before the mission, the program checks for its CD (0x4fbb00): it reads
-its own `Armada.exe`, then for each drive `GetDriveTypeA` calls a CD-ROM
-drive it asks MCI (`mciSendCommandA`, 0x4fbdd0) for the disc's number of
-tracks (`MCI_STATUS` 0x814 with `MCI_STATUS_ITEM`, item 3), then about
-each track (`MCI_STATUS` with `MCI_TRACK`). The registry calls after it
-(0x4fbff2 on) weren't traced. With no CD-ROM drive here it writes
-`Track verification failed.` and `[Armada] Please insert Armada CD` to
-the debugger, and asks again, without end. The disc copy here is its
-files only, without the table of contents the check reads, so the run
-goes no further.
+Before the mission, the program checks for its CD (0x4fbb00). It reads
+`texture.dat` beside `Armada.exe` (the path from `GetModuleFileNameA`;
+its size has to be a multiple of 4) and XORs what follows its first 4
+bytes with the 400-byte key the `.ldl` scripts use (0x4eb810 returns the
+key's address, 0x604548; [formats/ldl.md](../formats/ldl.md)). Then for each
+drive letter that `GetDriveTypeA` calls a CD-ROM drive it opens MCI's CD
+audio there (`mciSendCommandA` `MCI_OPEN` with flags 0x3302: by type
+number, 516, the drive as the element) and, in 0x4fbdd0, sets the time
+format (`MCI_SET`, 0x80d) and asks for the disc's number of tracks
+(`MCI_STATUS` 0x814 with `MCI_STATUS_ITEM`, item 3), then about each track
+(`MCI_STATUS` with `MCI_TRACK`). The registry calls after it (0x4fbff2 on)
+weren't traced. What it compares with what isn't known: `texture.dat`'s
+8 bytes are the likely reference *(guessed: it's read and decoded just
+before)*.
+
+When it fails, it writes `Track verification failed.` and
+`[Armada] Please insert Armada CD` to the debugger and asks again, without
+end. A run's first try at this found `texture.dat` a folder too high: the
+host had given the program's folder without its last backslash, which the
+emulator now adds. With the disc's files on D: (`-cd`) but no table of
+contents, MCI finds no disc, and the check fails the same way; the
+table of contents of the disc is still to come.
 
 ## Where the run stops
 
