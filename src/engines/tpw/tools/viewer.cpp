@@ -76,7 +76,8 @@ private:
 // picture, zoomed to its size and back; the next font; the next table, a
 // string down, in the game's font; the next settings file, scrolled; the
 // last model, turned, tilted, nearer, untextured; the next world, turned,
-// without its ground, its objects, then its sky; the next bank, a sound down, played (nothing heard:
+// without its ground, its objects, then its sky; the next script, a line
+// and a screen down; the next bank, a sound down, played (nothing heard:
 // there's no device); the movies' list; a file down. Tab round to the pictures, then Esc.
 int cmdViewerRun(int argc, char **argv) {
     if (argc < 3) {
@@ -118,6 +119,8 @@ int cmdViewerRun(int argc, char **argv) {
         press(k);
     for (uint32_t k :
          {uint32_t(key::kRight), uint32_t('a'), uint32_t('g'), uint32_t('o'), uint32_t('k'), uint32_t(key::kTab)})
+        press(k);
+    for (uint32_t k : {uint32_t(key::kRight), uint32_t(key::kDown), uint32_t(key::kPageDown), uint32_t(key::kTab)})
         press(k);
     for (uint32_t k : {uint32_t(key::kRight), uint32_t(key::kDown), uint32_t(key::kSpace), uint32_t(key::kTab)})
         press(k);

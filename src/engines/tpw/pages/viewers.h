@@ -13,6 +13,7 @@
 #include "engines/tpw/ui/model_view.h"
 #include "engines/tpw/ui/world_view.h"
 #include "engines/tpw/formats/sam.h"
+#include "engines/tpw/formats/rse.h"
 #include "engines/tpw/formats/sdt.h"
 #include "engines/tpw/formats/str.h"
 #include "graphics/soft3d/view3d.h"
@@ -188,6 +189,32 @@ private:
 
     std::vector<std::string> _names;
     std::vector<std::string> _lines;
+    std::string _error;
+    size_t _first = 0;
+};
+
+/**
+ * The ride and shop scripts (.RSE), each as source, in the language of
+ * the sources that ship with the game.
+ *   Up/Down: scroll a line   PageUp/PageDown here: a screen
+ *   Left/Right: the previous and next script
+ */
+class ScriptPage : public Page {
+public:
+    /** Lists the game's scripts and reads the first. */
+    explicit ScriptPage(ViewerContext &context);
+    const char *name() const override { return "Scripts"; }
+    size_t count() const override { return _names.size(); }
+    std::string current() const override;
+    void draw(Surface &screen) override;
+    void handleKey(uint32_t key) override;
+
+private:
+    void selected() override;
+
+    std::vector<std::string> _names;
+    std::vector<std::string> _lines;
+    std::string _summary;
     std::string _error;
     size_t _first = 0;
 };

@@ -35,6 +35,8 @@
 #   terrain  every world's ground (.lnd), attribute map (base.map) and
 #            objects (scape.omp) read, with a checksum of them all (tpw
 #            terrain-check)
+#   scripts  every ride and shop script (.RSE) read, with a checksum of
+#            their disassembly (tpw rse-check)
 #   viewer   the data viewer, headless: every page, a few keys on each,
 #            then Esc; a checksum of every screen shown, and its titles
 #            (tpw viewer-run)
@@ -88,6 +90,8 @@ elseif(STEP STREQUAL "heights")
     record_run(heights "height maps," tpw hmp-check "${game_dir}")
 elseif(STEP STREQUAL "terrain")
     record_run(terrain "grounds," tpw terrain-check "${game_dir}")
+elseif(STEP STREQUAL "scripts")
+    record_run(scripts "scripts," tpw rse-check "${game_dir}")
 elseif(STEP STREQUAL "viewer")
     record_run(viewer "left by:" tpw viewer-run "${game_dir}")
 else()

@@ -55,9 +55,11 @@ format or system worked out.
    drawn as markers, [omp.md](formats/omp.md)); and the skies (drawn by
    a guess, [sky.md](systems/sky.md)): an empty park drawn in 3D in the
    viewer.
-7. **The ride scripts** (next): the rides' and shops' behaviour is in
-   compiled scripts (`RSSE`, `.rse`, 288 of them): a disassembler command, then an
-   interpreter, so rides run in the viewer.
+7. **The ride scripts** (under way): the rides' and shops' behaviour is
+   in compiled scripts (`RSSE`, `.rse`, 288 of them): read and written
+   out as source, checked against the five sources the game ships
+   ([rse.md](formats/rse.md)); then an interpreter, so rides run in the
+   viewer.
 8. **The front end:** the start-up screens (`Data/Init/`), the main menu,
    options, saving and loading, from `ui.wad` and recordings.
 9. **The park running:** building, paths, guests, staff, money, research,

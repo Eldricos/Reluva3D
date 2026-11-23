@@ -14,6 +14,7 @@
 #include "engines/tpw/formats/lnd.h"
 #include "engines/tpw/formats/md2.h"
 #include "engines/tpw/formats/omp.h"
+#include "engines/tpw/formats/rse.h"
 #include "engines/tpw/formats/sam.h"
 #include "engines/tpw/formats/sdt.h"
 #include "engines/tpw/formats/str.h"
@@ -498,6 +499,59 @@ void testOmp() {
     CHECK(objects.parse(toBytes("OBJX")));
 }
 
+// A script as the game's compiler lays one out: a header of its sizes,
+// its code (NAME, a loop testing a variable, ENDSLICE, BRANCH back), its
+// strings and a variable's name; then broken.
+void testRse() {
+    Bytes b = toBytes("RSSEQ");
+    b.insert(b.end(), {0x0f, 0x01, 0x00});
+    put32(b, 0x08, 1);  // variables
+    put32(b, 0x0c, 5);  // stack
+    put32(b, 0x10, 50); // time slice
+    put32(b, 0x14, 10); // limbo
+    put32(b, 0x18, 0);
+    put32(b, 0x1c, 0);
+    const Bytes pad = toBytes("Pad Pad Pad Pad ");
+    b.insert(b.end(), pad.begin(), pad.end());
+    const uint32_t code[] = {0x80000025, 0x10000000,             // NAME "Test"
+                             0x80000026, 0x40000000,             // a2: TEST VAR_X
+                             0x80000003, 0x40000000, 0x0000ffff, // COPY VAR_X -1
+                             0x80000006,                         // ENDSLICE
+                             0x8000001f, 0x20000002};            // BRANCH a2
+    put32(b, b.size(), uint32_t(std::size(code)));
+    for (uint32_t w : code)
+        put32(b, b.size(), w);
+    put32(b, b.size(), 5);
+    const Bytes strings = toBytes("Test");
+    b.insert(b.end(), strings.begin(), strings.end());
+    b.push_back(0);
+    put32(b, b.size(), 6);
+    const Bytes var = toBytes("VAR_X");
+    b.insert(b.end(), var.begin(), var.end());
+    b.push_back(0);
+    Script script;
+    CHECK(!script.parse(b));
+    CHECK(script.stackSize() == 5 && script.limboSize() == 10 && script.timeSlice() == 50);
+    CHECK(script.instructions().size() == 5 && script.variables() == std::vector<std::string>{"VAR_X"});
+    if (script.instructions().size() == 5) {
+        const Script::Instruction &copy = script.instructions()[2];
+        CHECK(copy.opcode == 3 && copy.address == 4 && copy.operands[1].value == -1);
+        CHECK(script.instructions()[4].operands[0].kind == Script::OperandKind::kAddress);
+    }
+    CHECK(script.string(0) == "Test" && script.string(9).empty());
+    CHECK(std::string(Script::opcodeName(17)) == "WAITANIM" && Script::operandCount(76) == 7);
+    CHECK(script.disassemble() == "#setstack 5\n#setlimbo 10\nvariable VAR_X\t\t; 0\n\n\tNAME\t\"Test\"\n"
+                                  ".a2\tTEST\tVAR_X\n\tCOPY\tVAR_X\t-1\n\tENDSLICE\n\tBRANCH\ta2\n");
+    // An opcode not known, an operand of no known kind, the strings cut.
+    Bytes unknown = b;
+    put32(unknown, 0x34 + 7 * 4, 0x80000004);
+    CHECK(script.parse(unknown));
+    Bytes flags = b;
+    put32(flags, 0x34 + 4, 0x30000000);
+    CHECK(script.parse(flags));
+    CHECK(script.parse(Bytes(b.begin(), b.end() - 3)));
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -514,4 +568,5 @@ static const reluva::test::Suite
                                    {"lnd", [](const std::filesystem::path &) { testLnd(); }},
                                    {"attribute-map", [](const std::filesystem::path &) { testAttributeMap(); }},
                                    {"omp", [](const std::filesystem::path &) { testOmp(); }},
+                                   {"rse", [](const std::filesystem::path &) { testRse(); }},
                                });
