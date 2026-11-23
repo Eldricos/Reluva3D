@@ -65,8 +65,13 @@ Each phase ends with something that runs, is tested and is committed.
    what's out of view, and the draw threads are woken only once enough
    is waiting, and a frame is shown once the next is given, its drawing
    done meanwhile; on four processors the island runs at the game's own
-   most, 90 frames a second, above the engine's limit of 60. Next, for
-   slower machines: Retained Mode on the GPU.
+   most, 90 frames a second, above the engine's limit of 60; a
+   triangle's set-up is done on the draw threads too. Next, for slower
+   machines: Retained Mode on the GPU, begun: a compute kernel drawing by
+   the software rasterizer's rules, checked against it
+   ([directx.md](../../common/x86/directx.md#drawing-on-the-gpu)); still
+   to come, the surfaces kept on the GPU between draws, and the engine
+   using it.
 
 ## Decisions
 
