@@ -22,6 +22,7 @@ namespace reluva::storm3d {
  *   Up/Down: tilt   +/-: nearer/further   W/A/S/D: move over the map
  *   N: to the next object on a team (a ship or station), close up
  *   T: from straight above, as the map's picture (`bzn/<map>.bmp`) shows it
+ *   P: to the next of the map's paths   G: as the game looks on starting
  *   Space: turning on/off
  */
 class MapPage : public Page {
@@ -74,6 +75,7 @@ private:
     std::vector<std::string> _names;
     size_t _current = 0;
     size_t _focus = SIZE_MAX; // N's last object, into _map.objects
+    size_t _path = SIZE_MAX;  // P's last path, into _map.paths
     gfx::Renderer3D *_renderer = nullptr;
     Surface _overlay;
     SodMeshes _meshes;

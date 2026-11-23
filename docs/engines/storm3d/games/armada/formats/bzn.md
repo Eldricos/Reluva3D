@@ -158,8 +158,9 @@ as the file says.
   everything (how the game places the background isn't known). An
   object's model is named for its definition, unless the definition says
   `dont_load_SOD = 1`, and scaled by its `scaleSOD` *(inferred)*: the
-  traced mission loads `fente.SOD` for `fente`. N goes from ship to ship;
-  T looks from straight above, as the map's picture does.
+  traced mission loads `fente.SOD` for `fente`. N goes from ship to ship,
+  P from path to path; T looks from straight above, as the map's picture
+  does, and G as the game does on starting, approximately (see below).
 
   An asteroid field (`mafield`, `classLabel "asteroidfield"`) has no
   model: its definition gives 10 to 15 asteroids within a radius of 100.
@@ -194,4 +195,15 @@ as the file says.
 - The header's two flags, the light's three floats, the second word of
   each path and its last float.
 - Whether the area bounds the camera or the ships.
+- The game's camera. "Premonitions"' opening scene ends on its
+  `ZOOMOUT` path's last point, (5,775, 450, 678), 450 being
+  `RTS_CFG.h`'s `OVERVIEW_INIT_HEIGHT`, and its last frame faces +z
+  (`OVERVIEW_INIT_ROTATION` 0): the planet Barisa, 1,600 ahead, to the
+  left of the ships and above them, as the Maps page's G shows it. How
+  far behind the camera sits and how wide it sees isn't known: G puts it
+  √(4 × 200 × 450) = 600 behind, if it rides a parabola of
+  `OVERVIEW_PARABOLA_FOCUS` *(guessed)*, and the original's frame shows
+  Barisa larger and higher, so nearer and more level. Storm3D transforms
+  its vertices itself, so the camera isn't in what it gives Direct3D
+  ([research/startup-trace.md](../research/startup-trace.md#how-it-draws)).
 - How the game places an asteroid field's asteroids, and the background.

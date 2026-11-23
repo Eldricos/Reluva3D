@@ -187,6 +187,26 @@ void MapPage::handleKey(uint32_t key) {
             }
         }
         break;
+    case 'p':
+        if (!_map.paths.empty()) {
+            _path = _path == SIZE_MAX ? 0 : (_path + 1) % _map.paths.size();
+            if (!_map.paths[_path].points.empty())
+                _target = _map.paths[_path].points[0];
+        }
+        break;
+    case 'g': {
+        // The game's own view on starting: from RTS_CFG.h's settings,
+        // OVERVIEW_INIT_HEIGHT above, facing +z (OVERVIEW_INIT_ROTATION
+        // 0). How far behind, if the camera rides a parabola of
+        // OVERVIEW_PARABOLA_FOCUS, is a guess: sqrt(4 * focus * height).
+        const float height = 450;
+        const float back = std::sqrt(4 * 200.0f * height);
+        _yaw = 0;
+        _pitch = std::atan2(height, back);
+        _distance = std::sqrt(height * height + back * back);
+        _turning = false;
+        break;
+    }
     case key::kSpace:
         _turning = !_turning;
         break;
@@ -217,6 +237,7 @@ void MapPage::load() {
     _drawn = 0;
     _effects = 0;
     _focus = SIZE_MAX;
+    _path = SIZE_MAX;
     _error.clear();
     std::vector<uint8_t> data;
     if (Error err = _files.read(_names[_current], data); err || (err = _map.parse(data))) {
