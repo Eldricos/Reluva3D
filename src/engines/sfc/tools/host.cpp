@@ -16,6 +16,7 @@
 #include "image/image.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <chrono>
 #include <cstdio>
@@ -212,14 +213,20 @@ int cmdHost(int argc, char **argv) {
     x86::Cpu &cpu = game.cpu();
     x86::Win32Process &process = game.process();
     // -fixed-clock: the clock follows the instructions run, 40,000 to a
-    // millisecond, and the program's sleeps, not the time: a run with the
+    // millisecond, the program's sleeps and the time every thread waits,
+    // not the time: a run with the
     // same input shows the same frames, so input given at frames lands
     // where it did, however fast the host is.
-    if (fixedClock)
-        process.milliseconds = [&cpu, &process] {
+    // When every thread waits, the clock moves on a millisecond a time,
+    // as nothing runs to move it.
+    std::atomic<uint64_t> idleMs{0};
+    if (fixedClock) {
+        process.milliseconds = [&cpu, &process, &idleMs] {
             constexpr uint64_t kInstructionsPerMs = 40000;
-            return uint32_t(cpu.executed() / kInstructionsPerMs + process.slept());
+            return uint32_t(cpu.executed() / kInstructionsPerMs + process.slept() + idleMs);
         };
+        process.idleTick = [&idleMs] { ++idleMs; };
+    }
     process.output = [](const std::string &text) { std::printf("program: %s", text.c_str()); };
     game.fileOpened = [quiet](const std::string &path, bool found) {
         if (!quiet || !found)
