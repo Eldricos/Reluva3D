@@ -451,7 +451,9 @@ trigger looks at every `Active` entity in its oval or polygon
 (`0x417670`, `0x4f1d30`), so a thrown thing among them, flying or
 lying. No touching trigger in the maps is `Triggered By Anything`, and
 the one `Triggered By Projectiles` (Mission 15's Borg beamer) answers to
-the officers too. The energy weapons' shot is a `CPhaserShot`, a bolt
+the officers too. That one starts inactive and nothing in the mission
+makes it active (no action names it, and the radius actions reach only
+`Enemy`), so in the game as it was sold it never goes. The energy weapons' shot is a `CPhaserShot`, a bolt
 whose head goes on from the muzzle along its way each frame, up to its
 range, meeting what's in its way as it goes (`0x535c00`).
 
