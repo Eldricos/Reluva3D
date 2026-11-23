@@ -241,6 +241,9 @@ void MapPage::handleKey(uint32_t key) {
         _overview = Overview{kOverviewInitHeight, 0};
         draw();
         return;
+    case 'v': // the damage emitters: venting plasma and gas
+        _meshes.showDamage(!_meshes.showingDamage());
+        break;
     case key::kSpace:
         _turning = !_turning;
         break;
@@ -302,7 +305,7 @@ void MapPage::load() {
             ++_unmodelled;
             continue;
         }
-        if (built->parts.empty() && built->sprites.empty()) {
+        if (built->parts.empty() && built->sprites.empty() && built->emitters.empty()) {
             ++_effects;
             continue;
         }
@@ -313,7 +316,7 @@ void MapPage::load() {
     if (text::hasSuffixIgnoreCase(background, ".sod"))
         background.resize(background.size() - 4);
     _background = background.empty() ? nullptr : _meshes.model(background);
-    if (_background && _background->parts.empty() && _background->sprites.empty())
+    if (_background && _background->parts.empty() && _background->sprites.empty() && _background->emitters.empty())
         _background = nullptr;
     // From above the area's middle, far enough to see it whole.
     _target = {(_map.area[0] + _map.area[1]) / 2, 0, (_map.area[4] + _map.area[5]) / 2};
@@ -392,7 +395,7 @@ void MapPage::draw() {
     if (!_error.empty())
         line += "not read: " + _error;
     else
-        line += text::format("\"%s\", %zu objects, %zu drawn, %zu emitters only (not drawn), %zu models not found",
+        line += text::format("\"%s\", %zu objects, %zu drawn, %zu with nothing to draw, %zu models not found",
                              _map.description.c_str(), _map.objects.size(), _drawn, _effects, _unmodelled);
     drawStatus(_overlay, line);
     _renderer->endFrame(&_overlay);

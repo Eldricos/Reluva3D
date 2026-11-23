@@ -160,6 +160,9 @@ void ModelPage::handleKey(uint32_t key) {
     case '-':
         _distance = std::min(_radius * 20, _distance * 1.25f);
         break;
+    case 'v': // the damage emitters: venting plasma and gas
+        _meshes.showDamage(!_meshes.showingDamage());
+        break;
     case key::kSpace:
         _turning = !_turning;
         break;

@@ -73,6 +73,12 @@ int cmdSod(int argc, char **argv) {
         } else if (n.type == SodModel::kEmitter) {
             about = "emitter " + n.emitter;
         }
+        // A node turned in its parent: its three axes, as rows.
+        const auto &t = n.transform;
+        if (t[0] != 1 || t[4] != 1 || t[8] != 1)
+            about += reluva::text::format("  axes (%.2f %.2f %.2f) (%.2f %.2f %.2f) (%.2f %.2f %.2f)", double(t[0]),
+                                          double(t[1]), double(t[2]), double(t[3]), double(t[4]), double(t[5]),
+                                          double(t[6]), double(t[7]), double(t[8]));
         std::printf("node %2d %-24s parent %-20s at %.1f %.1f %.1f  %s\n", n.type, n.name.c_str(), n.parent.c_str(),
                     double(n.transform[9]), double(n.transform[10]), double(n.transform[11]), about.c_str());
     }

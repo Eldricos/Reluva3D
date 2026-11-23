@@ -45,10 +45,29 @@ public:
         bool billboard = false;
         bool additive = true; // else alpha-tested
     };
+    /**
+     * A particle emitter (a node naming a sprite table's `@emitter`): its
+     * particles are its sprite node's sprite, each playing the sprite's
+     * colour animation over its life.
+     */
+    struct EmitterPart {
+        enum class Kind { kSpray, kCloud } kind = Kind::kSpray;
+        SpritePart particle; // its world is the emitter node's: from there, along its front axis
+        float period = 0.1f; // a spray's time between particles (firing_period), seconds
+        float lifespan = 1;  // seconds
+        float velocity = 0;  // units a second
+        float spread = 0;    // a spray's, in degrees about its axis (spread_angle)
+        float expansion = 0; // of its size a second (expansion_rate); below 0 it shrinks
+        int count = 0;       // a cloud's particles (particle_count)
+        float radius = 0;    // a cloud's (cloud_radius)
+        uint32_t seed = 0;   // its particles' directions are chosen from this
+        bool damage = false; // under a ship's system (engines, life...): venting only when it's damaged
+    };
     /** A model's parts, and the box around them in the model. */
     struct Built {
         std::vector<Part> parts;
         std::vector<SpritePart> sprites;
+        std::vector<EmitterPart> emitters;
         gfx::Vec3 lo{1e30f, 1e30f, 1e30f};
         gfx::Vec3 hi{-1e30f, -1e30f, -1e30f};
         bool empty() const { return lo[0] > hi[0]; }
@@ -111,6 +130,23 @@ public:
         m[10] = -1;
         return m;
     }
+    /** Whether the damage emitters run, as if every system were damaged. */
+    void showDamage(bool show) { _showDamage = show; }
+    bool showingDamage() const { return _showDamage; }
+
+    /** A particle of an emitter: where in its model, how large, and its colour. */
+    struct Particle {
+        gfx::Vec3 at{};
+        float size = 1; // of the sprite's own
+        std::array<float, 3> colour{1, 1, 1};
+    };
+    /**
+     * An emitter's particles at a time, as if it had always been running:
+     * a spray's fired each period within the last lifespan, a cloud's
+     * each renewed when its life ends.
+     */
+    static std::vector<Particle> particlesAt(const EmitterPart &emitter, double seconds);
+
     /** A colour animation's colour at a time, looping over its length. */
     static std::array<float, 3> colourAt(const SpriteTable::Animation &a, double seconds);
 
@@ -121,6 +157,7 @@ private:
     const SpriteTable *sprites();
     void addSprites(const SodModel &model, const std::vector<gfx::Mat4> &world, Built &built);
     void addSprite(const SpriteTable::SpriteNode *node, const gfx::Mat4 &world, Built &built);
+    void addEmitters(const SodModel &model, const std::vector<gfx::Mat4> &world, Built &built);
 
     const GameFiles &_files;
     gfx::Renderer3D *_renderer = nullptr;
@@ -132,6 +169,7 @@ private:
     gfx::Vec3 _right{1, 0, 0};
     gfx::Vec3 _up{0, 1, 0};
     double _seconds = 0;
+    bool _showDamage = false;
 };
 
 } // namespace reluva::storm3d

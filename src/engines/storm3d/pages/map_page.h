@@ -25,7 +25,7 @@ namespace reluva::storm3d {
  *   T: from straight above, as the map's picture (`bzn/<map>.bmp`) shows it
  *   P: to the next of the map's paths
  *   G: as the game looks on starting; then +/- and W/A/S/D move as the game's overview does
- *   Space: turning on/off
+ *   Space: turning on/off   V: the damage emitters (venting plasma and gas) on/off
  */
 class MapPage : public Page {
 public:

@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 namespace reluva::storm3d {
 
@@ -121,6 +122,7 @@ SodMeshes::Built SodMeshes::build(const SodModel &model, int level) {
         }
     }
     addSprites(model, world, built);
+    addEmitters(model, world, built);
     return built;
 }
 
@@ -225,6 +227,120 @@ const SodMeshes::Built *SodMeshes::spriteNode(const std::string &name) {
             break;
         }
     return built ? &*built : nullptr;
+}
+
+// Each emitter node's emitter, by name: its settings, and its particles'
+// sprite as a sprite part placed at the node.
+void SodMeshes::addEmitters(const SodModel &model, const std::vector<gfx::Mat4> &world, Built &built) {
+    const SpriteTable *table = sprites();
+    for (size_t i = 0; i < model.nodes.size(); ++i) {
+        if (model.nodes[i].type != SodModel::kEmitter)
+            continue;
+        const SpriteTable::Emitter *emitter = nullptr;
+        for (const SpriteTable::Emitter &e : table->emitters())
+            if (text::equalsIgnoreCase(e.name, model.nodes[i].emitter))
+                emitter = &e;
+        if (!emitter)
+            continue;
+        auto setting = [emitter](const char *key, float fallback) {
+            const auto it = emitter->settings.find(key);
+            return it == emitter->settings.end() ? fallback : float(std::atof(it->second.c_str()));
+        };
+        const auto kind = emitter->settings.find("type");
+        const auto sprite = emitter->settings.find("sprite");
+        if (kind == emitter->settings.end() || sprite == emitter->settings.end() ||
+            (kind->second != "spray" && kind->second != "cloud"))
+            continue; // a beam, or one with no sprite: not drawn
+        Built one;
+        addSprite(table->spriteNodeFor(sprite->second), world[i], one);
+        if (one.sprites.empty())
+            continue;
+        EmitterPart part;
+        part.kind = kind->second == "cloud" ? EmitterPart::Kind::kCloud : EmitterPart::Kind::kSpray;
+        part.particle = one.sprites[0];
+        part.period = std::max(0.001f, setting("firing_period", 0.1f));
+        part.lifespan = std::max(0.01f, setting("lifespan", 1));
+        part.velocity = setting("velocity", 0);
+        part.spread = setting("spread_angle", 0);
+        part.expansion = setting("expansion_rate", 0);
+        part.count = int(setting("particle_count", 0));
+        part.radius = setting("cloud_radius", 0);
+        part.seed = uint32_t(i * 2654435761u) ^ uint32_t(built.emitters.size() + 1);
+        // emitter.spr's "Damage emitters" (plasma and steam venting) hang
+        // under the ship's systems: they run when the system is damaged.
+        static const char *const kSystems[] = {"damage", "crew", "engines", "life", "sensors", "shield", "weapons"};
+        for (const char *system : kSystems)
+            if (text::equalsIgnoreCase(model.nodes[i].parent, system))
+                part.damage = true;
+        built.emitters.push_back(part);
+    }
+}
+
+std::vector<SodMeshes::Particle> SodMeshes::particlesAt(const EmitterPart &e, double seconds) {
+    // A number from 0 to 1 for each particle and draw, the same each time.
+    auto unit = [](uint32_t a, uint32_t b, uint32_t c) {
+        uint32_t h = a * 0x9e3779b1u ^ (b + 0x7f4a7c15u) * 0x85ebca6bu ^ c * 0xc2b2ae35u;
+        h ^= h >> 16;
+        h *= 0x7feb352du;
+        h ^= h >> 15;
+        h *= 0x846ca68bu;
+        h ^= h >> 16;
+        return float(h & 0xffffff) / float(0x1000000);
+    };
+    const gfx::Mat4 &w = e.particle.world;
+    const gfx::Vec3 origin{w[12], w[13], w[14]};
+    const gfx::Vec3 axis{w[8], w[9], w[10]}; // its front: the third row of its transform
+    auto particle = [&](float age, const gfx::Vec3 &from, const gfx::Vec3 &dir) {
+        Particle p;
+        for (size_t d = 0; d < 3; ++d)
+            p.at[d] = from[d] + dir[d] * e.velocity * age;
+        p.size = std::max(0.0f, 1 + e.expansion * age);
+        p.colour = e.particle.colourAnimation ? colourAt(*e.particle.colourAnimation, age) : e.particle.colour;
+        return p;
+    };
+    // A direction within `degrees` of `axis`, or anywhere if it's 180.
+    auto within = [&](float degrees, uint32_t k, uint32_t c) {
+        const float cone = degrees * 3.14159265f / 180 * unit(e.seed, k, c);
+        const float around = 6.2831853f * unit(e.seed, k, c + 1);
+        // Two axes square to the emitter's.
+        gfx::Vec3 a{axis[1], -axis[0], 0};
+        if (std::fabs(axis[2]) > 0.9f)
+            a = {0, axis[2], -axis[1]};
+        const float la = std::sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]);
+        for (float &v : a)
+            v /= la;
+        const gfx::Vec3 b{axis[1] * a[2] - axis[2] * a[1], axis[2] * a[0] - axis[0] * a[2],
+                          axis[0] * a[1] - axis[1] * a[0]};
+        gfx::Vec3 d{};
+        for (size_t i = 0; i < 3; ++i)
+            d[i] = axis[i] * std::cos(cone) + (a[i] * std::cos(around) + b[i] * std::sin(around)) * std::sin(cone);
+        return d;
+    };
+    std::vector<Particle> out;
+    if (e.kind == EmitterPart::Kind::kSpray) {
+        // Fired at each multiple of the period: those of the last lifespan.
+        const double last = std::floor(seconds / e.period);
+        for (int k = 0; k < 400; ++k) {
+            const double n = last - k;
+            const float age = float(seconds - n * e.period);
+            if (age >= e.lifespan)
+                break;
+            const uint32_t id = uint32_t(int64_t(n));
+            out.push_back(particle(age, origin, within(e.spread, id, 0)));
+        }
+    } else {
+        // Each renewed in its own time, somewhere new within the radius.
+        for (int i = 0; i < e.count && i < 400; ++i) {
+            const double t = seconds + double(unit(e.seed, uint32_t(i), 7)) * e.lifespan;
+            const uint32_t round = uint32_t(int64_t(std::floor(t / e.lifespan)));
+            const float age = float(t - std::floor(t / e.lifespan) * e.lifespan);
+            const gfx::Vec3 dir = within(180, uint32_t(i), round * 4 + 11);
+            const float r = e.radius * std::cbrt(unit(e.seed, uint32_t(i), round * 4 + 13));
+            const gfx::Vec3 from{origin[0] + dir[0] * r, origin[1] + dir[1] * r, origin[2] + dir[2] * r};
+            out.push_back(particle(age, from, within(180, uint32_t(i), round * 4 + 17)));
+        }
+    }
+    return out;
 }
 
 std::array<float, 3> SodMeshes::colourAt(const SpriteTable::Animation &a, double seconds) {
@@ -355,6 +471,21 @@ void SodMeshes::draw(const std::vector<std::pair<const Built *, gfx::Mat4>> &bat
     for (const auto &[built, place] : batch)
         for (const SpritePart &sprite : built->sprites)
             drawSprite(sprite, place);
+    for (const auto &[built, place] : batch)
+        for (const EmitterPart &emitter : built->emitters)
+            for (const Particle &p :
+                 emitter.damage && !_showDamage ? std::vector<Particle>{} : particlesAt(emitter, _seconds)) {
+                SpritePart sprite = emitter.particle;
+                // At the particle, with the emitter node's own axes.
+                sprite.world[12] = p.at[0];
+                sprite.world[13] = p.at[1];
+                sprite.world[14] = p.at[2];
+                sprite.width *= p.size;
+                sprite.height *= p.size;
+                sprite.colourAnimation = nullptr;
+                sprite.colour = p.colour;
+                drawSprite(sprite, place);
+            }
 }
 
 } // namespace reluva::storm3d

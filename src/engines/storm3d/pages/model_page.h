@@ -23,6 +23,7 @@ namespace reluva::storm3d {
  * detailed first.
  *   Left/Right: previous/next model   PageUp/PageDown: 10 at a time   Home/End: first/last
  *   Up/Down: tilt   +/-: nearer/further   Space: turning on/off   L: the next level, less detailed
+ *   V: the damage emitters (venting plasma and gas) on/off
  */
 class ModelPage : public Page {
 public:

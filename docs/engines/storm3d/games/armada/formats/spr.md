@@ -71,7 +71,36 @@ font's, chosen by character) and `step` or `linear`. Then either:
 ### Emitters and sprite nodes
 
 `@emitter <name>`, then `key=value` lines (`type=spray`, `velocity=12`,
-`sprite=rift`) to `@end_emitter`: the particles of the effects.
+`sprite=rift`) to `@end_emitter`: the particles of the effects. 28, in
+`emitter.spr`, which a model's emitter nodes name ([sod.md](sod.md)):
+
+| Setting | | |
+|---|---|---|
+| `type` | 28 | `spray` (16), `cloud` (11) or `beam` (1) |
+| `sprite` | 23 | The sprite node each particle is |
+| `pixel` | 22 | A colour, `(0.9,0.9,0.2)`: perhaps for when sprites aren't drawn *(guessed)* |
+| `lifespan` | 27 | A particle's life, in seconds |
+| `velocity` | 28 | How fast a particle moves, in units a second *(inferred)* |
+| `expansion_rate` | 28 | How fast it grows, of its size a second; below 0 it shrinks *(inferred)* |
+| `firing_period` | 17 | A spray's time between particles, in seconds |
+| `spread_angle` | 16 | A spray's spread about its axis, in degrees *(inferred)* |
+| `particle_count`, `cloud_radius` | 11 | A cloud's particles, and how far out they are |
+
+A particle plays its sprite's colour animation over its life: each
+emitter's lifespan is its animation's length (`steammed` 1.999 seconds,
+`steamfade2` 2.0; `plasmamed` 2.999, `fade3` 3.0; `contrail` 0.249,
+`fadefast.25` 0.2499), and the animations fade to black, so a particle
+is gone as it dies *(inferred)*. A spray fires along its node's front
+axis, the third row of its transform: the engines' emitters, at the
+ships' backs, point back, and the hulls' vents point out *(inferred)*.
+
+The table's own headings sort them. "Damage emitters", venting plasma
+(`plasmasml` to `plasmaxl`) and gas (`steamsml` to `steamxl`), hang in
+the models under the ship's systems (`engines`, `life`), so they run
+when that system is damaged *(inferred)*: 132 of the 157 emitter nodes
+in `SOD/`. The rest run always: weapons' trails (`contrail`,
+`rocket`), the special weapons' (`rift`, `riftcloud`, `override`,
+`microorg`), and the Premonition gate's (`premgate`).
 `@sprite_node` lines (183) are the sprites the models' sprite nodes draw
 ([sod.md](sod.md)), as the tables' own comment names their fields:
 
@@ -154,7 +183,7 @@ node's).
 
 ## Open questions
 
-- The emitters' settings, and the materials.
+- The materials; `pixel`, and what a `beam` emitter does.
 - Whether a sprite node's own colour is used when its animation sets a
   colour: the Maps page takes the animation's *(guessed)*.
 - Whether an animation's rows with no `@keyframes` count in the game.

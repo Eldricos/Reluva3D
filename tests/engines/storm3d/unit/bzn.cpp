@@ -208,6 +208,41 @@ void testOverview() {
     CHECK(std::fabs(near.eye[2] - 1900.343f) < 0.1f);
 }
 
+// An emitter's particles: a spray's fired each period within the last
+// lifespan, moving along its axis and growing; a cloud's within its radius.
+void testParticles() {
+    SodMeshes::EmitterPart spray;
+    spray.particle.world = gfx::identity();
+    spray.particle.world[8] = 0, spray.particle.world[9] = 1, spray.particle.world[10] = 0; // fires up
+    spray.particle.world[12] = 5;
+    spray.period = 0.5f;
+    spray.lifespan = 2;
+    spray.velocity = 10;
+    spray.expansion = 1;
+    const auto fired = SodMeshes::particlesAt(spray, 100.25);
+    CHECK(fired.size() == 4); // aged 0.25, 0.75, 1.25 and 1.75
+    CHECK(std::fabs(fired[0].at[0] - 5) < 1e-4f && std::fabs(fired[0].at[1] - 2.5f) < 1e-3f);
+    CHECK(std::fabs(fired[3].at[1] - 17.5f) < 1e-3f && std::fabs(fired[3].size - 2.75f) < 1e-4f);
+    CHECK(SodMeshes::particlesAt(spray, 100.25)[2].at == fired[2].at); // the same each time
+    spray.spread = 30;
+    for (const SodMeshes::Particle &p : SodMeshes::particlesAt(spray, 7.1)) {
+        const float len = std::sqrt((p.at[0] - 5) * (p.at[0] - 5) + p.at[1] * p.at[1] + p.at[2] * p.at[2]);
+        CHECK(len == 0 || p.at[1] / len >= std::cos(30 * 3.14159265f / 180) - 1e-4f); // within its cone
+    }
+
+    SodMeshes::EmitterPart cloud;
+    cloud.kind = SodMeshes::EmitterPart::Kind::kCloud;
+    cloud.particle.world = gfx::identity();
+    cloud.count = 15;
+    cloud.radius = 20;
+    cloud.lifespan = 4;
+    cloud.velocity = 0;
+    const auto drifting = SodMeshes::particlesAt(cloud, 3);
+    CHECK(drifting.size() == 15);
+    for (const SodMeshes::Particle &p : drifting)
+        CHECK(p.at[0] * p.at[0] + p.at[1] * p.at[1] + p.at[2] * p.at[2] <= 20.0f * 20.0f + 1e-2f);
+}
+
 // A sprite's colour over its animation: linear between keyframes, held by
 // a step one, and looping over its length.
 void testColours() {
@@ -236,4 +271,5 @@ static const reluva::test::Suite
                                    {"placing", [](const std::filesystem::path &tmp) { testPlacing(tmp / "placing"); }},
                                    {"colours", [](const std::filesystem::path &) { testColours(); }},
                                    {"overview", [](const std::filesystem::path &) { testOverview(); }},
+                                   {"particles", [](const std::filesystem::path &) { testParticles(); }},
                                });

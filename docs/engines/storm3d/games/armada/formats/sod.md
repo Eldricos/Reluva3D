@@ -144,7 +144,10 @@ its mesh hasn't.
   ([spr.md](spr.md#emitters-and-sprite-nodes)), additive, in their
   animation's colour as it changes. Both sides of every face are drawn,
   while the winding isn't known. z is reversed for the renderer, which
-  is right-handed, so a model isn't mirrored. Emitters aren't drawn.
+  is right-handed, so a model isn't mirrored. Emitters' particles are
+  drawn as `emitter.spr` describes them ([spr.md](spr.md#emitters-and-sprite-nodes)),
+  worked out from the clock alone as if they'd always been running; the
+  damage emitters (venting) only with V.
 - `reluva-tool storm3d sod <game folder> <name.sod>`: a model's
   materials, nodes, meshes and animations.
 - `reluva-tool storm3d sod-check <game folder>`: reads every model whole.
