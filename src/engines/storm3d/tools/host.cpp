@@ -22,6 +22,7 @@
 #include "common/text.h"
 #include "devtools/tool.h"
 #include "emulation/x86/directx/dinput.h"
+#include "emulation/x86/directx/dsound.h"
 #include "emulation/x86/directx/directx.h"
 #include "emulation/x86/msvcp60.h"
 #include "emulation/x86/msvcrt.h"
@@ -354,14 +355,9 @@ int cmdHost(int argc, char **argv) {
     process.fileOpened = [&](const std::string &path, bool found) { opened.push_back({path, found}); };
     process.output = [](const std::string &text) { std::printf("debug output: %s", text.c_str()); };
     x86::addMsvcrt(process);
-    // DirectSoundCreate (DSOUND.dll's first export) fails as on a machine
-    // with no sound device: the reference runs silent.
-    process.provide("DSOUND.dll", "#1", [](x86::Cpu &c) {
-        if (c.arg(1) && c.valid(c.arg(1), 4))
-            c.write32(c.arg(1), 0);
-        c.reg[x86::Cpu::EAX] = 0x88780078; // DSERR_NODRIVER
-        return 12u;
-    });
+    // A silent sound card, whose sounds end when they would have: the
+    // mission's scripts wait for its speech.
+    x86::DirectSound directSound(process);
     x86::DirectX directX(process);
     x86::DirectInput directInput(process);
     directX.presentLate = false;

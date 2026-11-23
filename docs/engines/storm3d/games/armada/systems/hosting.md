@@ -31,7 +31,7 @@ functions from 18 DLLs:
 | `MSVCP60.dll` | 156 | Reluva's rebuilt C++ library ([msvcp60.md](../../../../../common/x86/msvcp60.md)) |
 | `MSVCRT.dll` | 114 | Reluva's stand-ins |
 | `USER32.dll`, `KERNEL32.dll`, `GDI32.dll`, `WINMM.dll`, `ADVAPI32.dll`, `ole32.dll`, `comdlg32.dll`, `SHELL32.dll`, `IMM32.dll`, `COMCTL32.dll`, `AVIFIL32.dll` | 198 | Reluva's stand-ins, as far as they go |
-| `DSOUND.dll` | 1 | the host: `DirectSoundCreate` fails, as on a machine with no sound device |
+| `DSOUND.dll` | 1 | Reluva's silent DirectSound ([directx.md](../../../../../common/x86/directx.md)) |
 | `WonInterface.dll`, `binkw32.dll`, `Strlkup.dll`, `IMAGEHLP.dll` | 57 | the install's own DLLs, loaded and run |
 
 DirectDraw and Direct3D 7 it loads itself, at run time, from Reluva's
@@ -151,4 +151,4 @@ each, its imports, and its classes ([research/](../research/README.md)).
   the same widths.
 - Text: GDI measures text but draws none (there are no fonts), so what
   the menu writes with `DrawTextExA` (in red, at the start) isn't seen.
-- Its sound, while DirectSound isn't stood in for.
+- Its sound: DirectSound is there, but silent.

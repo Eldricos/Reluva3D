@@ -152,7 +152,7 @@ added, and the run went on to the next:
 | `bsearch` | | MSVCRT |
 | `SetSystemCursor` | | USER32 |
 | `IDirectDraw7::EnumSurfaces` | | DirectDraw |
-| `DirectSoundCreate` | | the host: it fails, as with no sound device |
+| `DirectSoundCreate` | | DirectSound: a silent card that keeps time (at first the host made it fail, and the mission then waited for its speech for ever, its screen black) |
 | `__RTtypeid`, `type_info::name` | reading the sprite tables | MSVCRT |
 | `std::getline` | reading `events.odf` | MSVCP60 |
 | `basic_string`'s substring constructor | | MSVCP60 |
@@ -167,6 +167,10 @@ added, and the run went on to the next:
 | (no stop) the mission panel not seen | | GDI's painting shown when the program next looks for a message |
 | `CoCreateGuid` | starting the mission | ole32 |
 | `__RTDynamicCast` | loading the mission | MSVCRT |
+| (no stop) black after the opening scene | the mission's script waiting for speech | DirectSound, silent but in time |
+| `GetWindowThreadProcessId` | with a sound card | USER32 |
+| `mmioOpenA` | its sounds' WAVE files | WINMM's `mmio` |
+| `IDirectSound3DListener::GetPosition` | the mission's 3D sound | DirectSound's 3D values kept |
 
 With those, nothing stops it: at the time asked, the run ends it.
 Until GDI drew, the frames showed only the panels; with GDI the whole
