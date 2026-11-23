@@ -457,6 +457,38 @@ std::map<std::string, Bytes> galaxyAssets() {
     files["s-y-maps.tga"] = image::encodeTga(keyed);
     files["human9.fnt"] = makeFont(10);
     files["human28.fnt"] = makeFont(29);
+    // The game menu, 100 pixels square: six buttons 30 square round a grey
+    // middle, each dark blue, white when lit; two of their tips.
+    Bytes marker;
+    put32(marker, 2);
+    putWidget(marker, 1, 8000, 0, 0, 100, 100, "h_marker.tga");
+    putWindowCounts(marker, {{2, 6}});
+    const std::pair<uint32_t, std::pair<uint32_t, uint32_t>> places[] = {
+        {8001, {35, 0}}, {8002, {70, 30}}, {8003, {0, 65}}, {8004, {70, 65}}, {8005, {0, 30}}, {8006, {35, 70}}};
+    for (const auto &[id, at] : places) {
+        putWidget(marker, 2, id, at.first, at.second, 30, 30, "h_mb.tga");
+        put32(marker, 0xffffffff);
+        marker.push_back(0);
+        put32(marker, 0);
+        put32(marker, 0);
+        putName(marker, "h_mb.tga");
+        putName(marker, "h_mbon.tga");
+    }
+    files["hmarker.wdf"] = marker;
+    image::Image middle;
+    middle.w = middle.h = 100;
+    middle.rgba.assign(100 * 100 * 4, 100);
+    files["h_marker.tga"] = image::encodeTga(middle);
+    image::Image menuButton;
+    menuButton.w = menuButton.h = 30;
+    menuButton.rgba.assign(30 * 30 * 4, 255);
+    for (size_t i = 0; i < menuButton.rgba.size(); i += 4)
+        menuButton.rgba[i] = menuButton.rgba[i + 1] = 0;
+    files["h_mb.tga"] = image::encodeTga(menuButton);
+    menuButton.rgba.assign(30 * 30 * 4, 255);
+    files["h_mbon.tga"] = image::encodeTga(menuButton);
+    files["teachtip.tdb"] = makeTable({{8001, " Click here to bring up the main galactic \nscreen.\n"},
+                                       {8006, " Click here to pause the game and return to \nthe main menu.\n"}});
     return files;
 }
 
@@ -516,6 +548,33 @@ Bytes makeFullSave(uint8_t empire) {
     files.push_back({"TForceCntr", Bytes{1, 0, 0, 0}});
     files.push_back({"result.lst", resultList()});
     return makeLzssArchive("game0.sav", files, {"result.lst"});
+}
+
+// Laid out as docs/engines/botf/formats/tdb.md says.
+Bytes makeTable(const std::vector<std::pair<uint32_t, std::string>> &strings) {
+    Bytes text;
+    std::vector<uint32_t> offsets(strings.size());
+    for (size_t i = strings.size(); i-- > 0;) { // last string first
+        offsets[i] = uint32_t(text.size());
+        text.insert(text.end(), strings[i].second.begin(), strings[i].second.end());
+        text.push_back(0);
+    }
+    Bytes f;
+    uint32_t longest = 0;
+    for (const auto &s : strings)
+        longest = std::max(longest, uint32_t(s.second.size() + 1));
+    put32(f, uint32_t(strings.size()));
+    put32(f, 0x005a0628);
+    put32(f, longest);
+    put32(f, 0);
+    for (size_t i = 0; i < strings.size(); ++i) {
+        put32(f, strings[i].first);
+        put32(f, uint32_t(strings[i].second.size() + 1));
+        put32(f, 0x005a0a02 + uint32_t(i));
+        put32(f, offsets[i]);
+    }
+    f.insert(f.end(), text.begin(), text.end());
+    return f;
 }
 
 } // namespace reluva::botf::test

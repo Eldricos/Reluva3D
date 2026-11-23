@@ -6,8 +6,9 @@
 
 The screens rebuilt so far: the main menu and every screen it opens (the
 options, Load Game and Save Game, the Hall of Fame, Multiplayer Setup),
-and those that start a new game, the game setup
-("Configuration") screen and the empire selection screen. Each is put
+those that start a new game, the game setup
+("Configuration") screen and the empire selection screen, and the game
+menu that moves between the game's own screens. Each is put
 back together from its window layout ([formats/wdf.md](../formats/wdf.md)),
 the manual (what each control does, its choices and defaults),
 `lexicon.dic` ([formats/lexicon.md](../formats/lexicon.md)) for its words,
@@ -291,6 +292,42 @@ game."
 - **Accept** saves into the slot, its old game, if any, replaced; Cancel
   goes back.
 
+### The game menu
+
+A right click on any of the game's screens opens it, and it's how the
+player moves between them (the user, in the game): `?marker.wdf`, the
+player's empire's (`hmarker.wdf` the Federation's), a round picture
+(`h_marker.tga`, 289 by 289, magenta not drawn) with six buttons round a
+cross:
+
+| Button | Pictures | Where | What it does (the user; its tip) |
+|---|---|---|---|
+| 8001 | `h_mmg`, `h_mmgon` | top | the main galactic screen |
+| 8005 | `h_mt`, `h_mton` | top left | Empire Tech Info: research, and the encyclopedia |
+| 8002 | `h_mss`, `h_msson` | top right | the system screen: the selected system if it's the empire's, else its home system |
+| 8003 | `h_md`, `h_mdon` | bottom left | Diplomatic Relations |
+| 8004 | `h_msb`, `h_msbon` | bottom right | Empire Intel Info: the intelligence agents |
+| 8006 | `h_mbof`, `h_mbofon` | bottom, the game's title | the main menu, the game paused: no question asked, and Continue goes back |
+
+- **Where:** centred on where the click was, and kept on the screen: in
+  three screenshots, its corner at (310, 69) round a click at about
+  (454, 213), and at (0, 311), against the left and bottom edges, for
+  clicks near the bottom left corner. Drawn by Reluva there, the menu
+  matches all three pixel for pixel but the pointer.
+- **The button under the pointer** shows its "on" picture, not pulsing:
+  the screenshot's lit button is its picture exactly.
+- **Its tip,** with the options' Tool Tips on, is `teachtip.tdb`'s entry
+  under the button's id ([formats/tdb.md](../formats/tdb.md)): "Click here
+  to bring up the main galactic screen." for 8001. A box 4 pixels right of
+  the pointer's hot spot and 17 below, black, with a 1-pixel border in
+  (99, 77, 181) whose bottom right corner isn't drawn; inside, the tip's
+  lines in `human15.fnt` in the border's colour, 2 pixels in and 3 down,
+  17 apart, broken where the tip has its line breaks; the box 6 pixels
+  wider than its longest line (a trailing space counted) and 17 high a
+  line. Drawn by Reluva, the box and text match the screenshot pixel for
+  pixel *(seen, not traced)*, on one tip, the Federation's. When it
+  appears, and the other empires' colours, aren't known.
+
 ### Multiplayer Setup
 
 `mpsetup.wdf`, opened by the main menu's New Multiplayer Game, over the
@@ -465,8 +502,12 @@ recording:
   slot's file (`gameN.sav`, or the file there in any case, its header
   named in lower case as every save seen is) and goes back to the game,
   as the manual says ([formats/sav.md](../formats/sav.md#writing-a-save)).
-  There's no game to start yet, so the empire screen's Accept comes back
-  to the main menu, and Retire does nothing yet
+  The galaxy screen's right click opens the game menu
+  (`ui/game_menu.cpp`), whose main menu button goes there with the game
+  in progress; its galaxy button closes it, and its other four, whose
+  screens aren't there yet, only close it. There's no game to start yet,
+  so the empire screen's Accept comes back to the main menu, and Retire
+  does nothing yet
   ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
 - **Held buttons** (the user, in the game): the main menu's buttons and
   the screens' Accept and Cancel show their "selected" picture while
@@ -484,7 +525,7 @@ recording:
 ## Sources and checks
 
 - **Where the facts come from:** `gmesetup.wdf`, `emppick.wdf`,
-  `opening.wdf`, `options.wdf` and `loadsave.wdf`; the manual's chapters 4 ("Main Menu"), 5
+  `opening.wdf`, `options.wdf`, `loadsave.wdf` and `hmarker.wdf`; the manual's chapters 4 ("Main Menu"), 5
   ("Single Player Game") and 13 ("Game Options", First Edition, May 1999)
   for each control's job, choices and defaults; a recording of the game ("Let's Play Star Trek Birth of the
   Federation, UFP, p1": the main menu at 0:00-0:57, game setup at
@@ -497,15 +538,19 @@ recording:
   English `lexicon.dic`, laid over stills of the recording (scaled from its
   960x720 to 800x600), every value landing on the game's own; the
   description's line breaks worked out from the font's widths against the
-  recording's. `botf.unit.screens` checks the controls' choices and the
-  menu's buttons, and `botf.engine` goes from the main menu through both
-  screens and back, through the options, cancelled and accepted, and
-  through Load Game with two saves. The options and Load Game screens were
+  recording's. `botf.unit.screens` checks the controls' choices, the
+  menu's buttons and the game menu's, and `botf.engine` goes from the main menu through both
+  screens and back, through the options, cancelled and accepted, through
+  Load Game with two saves, and into a game, out by the game menu, and
+  saved. The options and Load Game screens were
   checked against screenshots of the game after a fresh install (November
   2026): every widget, word, value and colour. Drawn by Reluva from the
   English `stbof.res` with the same games, the Hall of Fame, Load Game and
   the options match the screenshots pixel for pixel but for the pointer,
-  the 16-bit screen's rounding, and a few pixels of `8` and `B`.
+  the 16-bit screen's rounding, and a few pixels of `8` and `B`. The game
+  menu was checked against three screenshots of it on the galaxy screen,
+  open with nothing lit and with the galaxy button lit and its tip, and
+  the user's account of its buttons (November 2026).
 
 ## Open questions
 
@@ -520,3 +565,7 @@ recording:
 - What `Last.sav` is for.
 - What `es_?icn0`, `es_?0` and `es_?1` are for.
 - How the game picks its text colours.
+- The game menu: how long before a tip appears, the other empires' tip
+  colours, whether a click outside it closes it (Reluva closes it), and
+  whether it opens on the right button's press or release (Reluva: the
+  press).

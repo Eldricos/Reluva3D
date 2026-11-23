@@ -39,6 +39,8 @@ multiplayer.network: 81b383611c6ef7bd
 multiplayer.name typed: e8bd9f706260aad6
 menu.after multiplayer: 3650ee45940809d6
 galaxy.loaded: b41a98ce2875b42c
+galaxy.game menu: f67205c9e435c48c
+galaxy.main menu pointed at: 8a28e3d39eed11ad
 menu.game in progress: e89c5674271e5086
 save.shown: 7f83ed6354df0888
 save.typed: b20557489b419b71

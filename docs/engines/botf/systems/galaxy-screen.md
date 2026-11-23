@@ -374,7 +374,7 @@ the scanners' sectors, stars and names, the turn, and the empire's
 panel, and the selected sector's strip, turning. The engine opens it
 with the chosen slot's save from Load Game, or with `Auto.sav` from
 Continue; a click on the map selects a sector, the sector under the
-pointer is named over it, and the Map button's two buttons zoom; Escape goes back to the main menu, the game still in progress, to save it or go on with it ([screens.md](screens.md#in-reluva)). The map is drawn on a
+pointer is named over it, and the Map button's two buttons zoom; a right click opens the game menu, whose main menu button (or Escape) goes back to the main menu, the game still in progress, to save it or go on with it ([screens.md](screens.md#the-game-menu)). The map is drawn on a
 surface the view's size, which cuts it there. The unit tests
 (`botf.unit.screens`: "galaxy") cover the sectors scanned and seen, where
 the backdrop, claims, stars, stellar objects, names, task forces and their

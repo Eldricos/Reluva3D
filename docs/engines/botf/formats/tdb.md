@@ -58,7 +58,10 @@ look structured but aren't understood yet:
   proposal and its two answers in the minor tables). The five diplomacy
   tables share their key layout (61, 63 and 3 keys of the first three kinds
   in the first 2 KB).
-- `teachtip.tdb`: keys under 65,536.
+- `teachtip.tdb`: the ids of the widgets the tips are for (the window
+  layouts', [wdf.md](wdf.md)): 8001 to 8006 the game menu's buttons, as
+  the game shows them, and 1002 the galaxy screen's Map button ("Click
+  here to toggle the zoom level of the galactic map.").
 - the intelligence tables: high words from 648 to 1,340.
 
 ## In Reluva
@@ -85,6 +88,6 @@ font, leaving out the leading space and the closing newline. The unit tests
 
 ## Open questions
 
-- What the keys mean, and which key the game asks for in which situation:
-  for the running game to show.
+- What the other tables' keys mean, and which key the game asks for in
+  which situation: for the running game to show.
 - The header's second value and each record's third.

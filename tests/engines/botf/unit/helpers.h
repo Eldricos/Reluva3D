@@ -84,6 +84,13 @@ Bytes lzssLiterals(const Bytes &raw);
  */
 std::vector<std::pair<std::string, Bytes>> galaxyFiles(int16_t systems, bool withQueue);
 
+/**
+ * A .tdb text table holding `strings` by their keys, as
+ * docs/engines/botf/formats/tdb.md lays it out: the strings stored in
+ * another order than the records.
+ */
+Bytes makeTable(const std::vector<std::pair<uint32_t, std::string>> &strings);
+
 /** The Federation's galaxy screen's files (hmaingal.wdf, its panels, strips and pictures). */
 std::map<std::string, Bytes> galaxyAssets();
 

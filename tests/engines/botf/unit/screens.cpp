@@ -15,6 +15,7 @@
 #include "engines/botf/ui/empire_screen.h"
 #include "engines/botf/ui/fame_screen.h"
 #include "engines/botf/ui/galaxy_screen.h"
+#include "engines/botf/ui/game_menu.h"
 #include "engines/botf/ui/load_save_screen.h"
 #include "engines/botf/ui/main_menu.h"
 #include "engines/botf/ui/multiplayer_screen.h"
@@ -784,6 +785,67 @@ void testMenuMusic() {
     CHECK(std::all_of(seen.begin(), seen.end(), [](int n) { return n > 0; }));
 }
 
+void testGameMenu() {
+    MemoryArchive archive;
+    for (auto &[name, data] : galaxyAssets())
+        archive.files[name] = std::move(data);
+    Assets assets(archive);
+    GameMenu menu(assets);
+    CHECK(!menu.load(1));
+    // Only the Federation's layout is there.
+    GameMenu other(assets);
+    CHECK(bool(other.load(0)));
+    Surface screen;
+    screen.create(800, 600, PixelFormat::kRGBA32);
+    auto at = [&](int x, int y) { return &screen.pixels[size_t(y) * size_t(screen.pitch) + size_t(x) * 4]; };
+    auto event = [](EventType type, int x, int y, MouseButton button = MouseButton::kNone) {
+        Event e;
+        e.type = type;
+        e.mouseX = x;
+        e.mouseY = y;
+        e.button = button;
+        return e;
+    };
+    // Centred on the click, kept on the screen: near the bottom left
+    // corner it's against both edges.
+    menu.open(400, 300);
+    CHECK(menu.isOpen() && menu.corner() == std::make_pair(350, 250));
+    menu.open(10, 590);
+    CHECK(menu.corner() == std::make_pair(0, 500));
+    // The button under the pointer lit (white), the others not (blue); its
+    // tip below and right of the pointer, black in a purple border, the
+    // bottom right corner left as it was.
+    CHECK(menu.handle(event(EventType::kMouseMove, 50, 515)) == GameMenu::Choice::kNone);
+    menu.draw(screen);
+    CHECK(at(50, 505)[0] == 255 && at(50, 505)[2] == 255 && at(10, 540)[0] == 0 && at(10, 540)[2] == 255);
+    CHECK(at(54, 532)[0] == 99 && at(54, 532)[1] == 77 && at(54, 532)[2] == 181);
+    CHECK(at(56, 534)[0] == 0 && at(56, 534)[3] == 255 && at(110, 532)[2] == 181);
+    int right = 54;
+    while (right < 799 && at(right + 1, 532)[2] == 181)
+        ++right;
+    CHECK(right > 60 && at(right, 532 + 33)[2] == 0 && at(right - 1, 532 + 33)[2] == 181);
+    // Tips off: none.
+    std::fill(screen.pixels.begin(), screen.pixels.end(), uint8_t(0));
+    menu.setToolTips(false);
+    menu.draw(screen);
+    CHECK(at(110, 532)[2] == 0);
+    // A click on a button chooses it and closes the menu; a click
+    // elsewhere closes it; a right click opens it there; Escape closes it.
+    CHECK(menu.handle(event(EventType::kMouseDown, 50, 585, MouseButton::kLeft)) == GameMenu::Choice::kMainMenu);
+    CHECK(!menu.isOpen());
+    menu.open(400, 300);
+    CHECK(menu.handle(event(EventType::kMouseDown, 700, 50, MouseButton::kLeft)) == GameMenu::Choice::kNone);
+    CHECK(!menu.isOpen());
+    menu.open(400, 300);
+    CHECK(menu.handle(event(EventType::kMouseDown, 200, 200, MouseButton::kRight)) == GameMenu::Choice::kNone);
+    CHECK(menu.isOpen() && menu.corner() == std::make_pair(150, 150));
+    Event escape;
+    escape.type = EventType::kKeyDown;
+    escape.key = key::kEscape;
+    menu.handle(escape);
+    CHECK(!menu.isOpen());
+}
+
 void testGalaxyScreen() {
     MemoryArchive archive;
     for (auto &[name, data] : galaxyAssets())
@@ -1197,4 +1259,5 @@ static const reluva::test::Suite
                {"game setup", [](const std::filesystem::path &) { testSetupScreen(); }},
                {"empire selection", [](const std::filesystem::path &) { testEmpireScreen(); }},
                {"galaxy", [](const std::filesystem::path &) { testGalaxyScreen(); }},
+               {"game menu", [](const std::filesystem::path &) { testGameMenu(); }},
            });

@@ -14,7 +14,8 @@
 // a lexicon.dic, the Federation's galaxy screen and a saved game to play;
 // the run goes from the main menu through setup and empire selection and
 // back, as starting a new game does, through the other screens, then
-// loads the game, saves it in another slot, goes back to it and quits.
+// loads the game, goes to the main menu by the game menu, saves the game
+// in another slot, goes back to it and quits.
 
 #include "common/headless_system.h"
 #include "engines/botf/formats/save_game.h"
@@ -299,10 +300,10 @@ Event keyDown(int key) {
     return e;
 }
 
-Event click(int x, int y, bool down, uint16_t mods = 0) {
+Event click(int x, int y, bool down, uint16_t mods = 0, MouseButton button = MouseButton::kLeft) {
     Event e;
     e.type = down ? EventType::kMouseDown : EventType::kMouseUp;
-    e.button = MouseButton::kLeft;
+    e.button = button;
     e.mods = mods;
     e.mouseX = x;
     e.mouseY = y;
@@ -441,7 +442,10 @@ void engineTest(const std::filesystem::path &tmp) {
             {"", click(300, 175 + 5 * 26 + 10, false)},
             {"", click(460, 510, true)}, // Accept: its galaxy
             {"", click(460, 510, false)},
-            {"galaxy.loaded", keyDown(key::kEscape)},       // back to the menu, the game in progress
+            {"galaxy.loaded", click(400, 300, true, 0, MouseButton::kRight)}, // the game menu
+            {"galaxy.game menu", pointAt(400, 335)},                          // its main menu button
+            {"galaxy.main menu pointed at", click(400, 335, true)},           // the main menu, the game in progress
+            {"", click(400, 335, false)},
             {"menu.game in progress", menuButton(4, true)}, // Save Game
             {"", menuButton(4, false)},
             {"save.shown", click(300, 175 + 6 * 26 + 10, true)}, // the seventh slot, empty

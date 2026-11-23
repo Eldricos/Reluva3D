@@ -26,35 +26,6 @@ using namespace reluva::botf::test;
 
 namespace {
 
-// A .tdb as docs/engines/botf/formats/tdb.md describes: count, a leftover value,
-// the longest length, 0; per string key, length, a leftover value, offset;
-// the strings, stored in another order than the records.
-Bytes makeTable(const std::vector<std::pair<uint32_t, std::string>> &strings) {
-    Bytes text;
-    std::vector<uint32_t> offsets(strings.size());
-    for (size_t i = strings.size(); i-- > 0;) { // last string first
-        offsets[i] = uint32_t(text.size());
-        text.insert(text.end(), strings[i].second.begin(), strings[i].second.end());
-        text.push_back(0);
-    }
-    Bytes f;
-    uint32_t longest = 0;
-    for (const auto &s : strings)
-        longest = std::max(longest, uint32_t(s.second.size() + 1));
-    put32(f, uint32_t(strings.size()));
-    put32(f, 0x005a0628);
-    put32(f, longest);
-    put32(f, 0);
-    for (size_t i = 0; i < strings.size(); ++i) {
-        put32(f, strings[i].first);
-        put32(f, uint32_t(strings[i].second.size() + 1));
-        put32(f, 0x005a0a02 + uint32_t(i));
-        put32(f, offsets[i]);
-    }
-    f.insert(f.end(), text.begin(), text.end());
-    return f;
-}
-
 void testTextTable() {
     TextTable table;
     const Bytes data = makeTable({{0x00410008, " Greetings from %1.\n"},

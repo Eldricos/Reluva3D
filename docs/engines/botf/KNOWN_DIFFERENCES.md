@@ -12,9 +12,9 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
 
 - **Esc on the main menu leaves the game,** as Quit Game does, or,
   with a game in progress, goes back to it as Continue does.
-- **Escape on the galaxy screen goes back to the main menu,** the game
-  still in progress, where Continue goes back to it and Save Game saves
-  it: Reluva's way to them while the game's own menus aren't there.
+- **Escape on the galaxy screen goes back to the main menu,** as the game
+  menu's main menu button does (a right click opens the game menu), and
+  closes the game menu when it's open.
 
 ## Bugs fixed
 
@@ -24,6 +24,9 @@ None yet.
 
 - **On the main menu,** Retire can't be used, and Save Game only once a
   game has been loaded: a game can't be started yet.
+- **The game menu** leads only to the galaxy screen and the main menu:
+  its system, research, diplomacy and intelligence buttons close it, as
+  those screens aren't there yet.
 - **A loaded game is only shown:** Load Game's Accept and Continue open
   the galaxy screen with the save's map, zoomed out or in, the empire's
   panel and the selected sector's strip (a click on the map selects

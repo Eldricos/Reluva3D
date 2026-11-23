@@ -16,6 +16,7 @@
 #include "engines/botf/ui/empire_screen.h"
 #include "engines/botf/ui/fame_screen.h"
 #include "engines/botf/ui/galaxy_screen.h"
+#include "engines/botf/ui/game_menu.h"
 #include "engines/botf/ui/load_save_screen.h"
 #include "engines/botf/ui/main_menu.h"
 #include "engines/botf/ui/multiplayer_screen.h"
@@ -98,14 +99,16 @@ bool hasAutosave(const std::filesystem::path &dir) {
 }
 
 // Opens the saved game at `path` on the galaxy screen, as its player sees
-// it; fails if the save can't be read.
-Error openSavedGame(const std::filesystem::path &path, GalaxyScreen &galaxy) {
+// it, with its empire's game menu; fails if the save can't be read.
+Error openSavedGame(const std::filesystem::path &path, GalaxyScreen &galaxy, GameMenu &menu) {
     GameState game;
     if (Error err = GameState::load(path, game))
         return err;
     if (game.data().summary.empire < 0)
         return Error::fail(path.string() + ": the player's empire isn't one of the five");
     if (Error err = galaxy.load(game.player()))
+        return err;
+    if (Error err = menu.load(game.player()))
         return err;
     galaxy.open(std::move(game));
     return Error::success();
@@ -236,6 +239,7 @@ public:
         OptionsScreen options(assets, _lexicon);
         LoadSaveScreen loading(assets, _lexicon);
         GalaxyScreen galaxy(assets, _lexicon);
+        GameMenu gameMenu(assets);
         FameScreen fame(assets, _lexicon);
         MultiplayerScreen multiplayer(assets, _lexicon);
         SetupScreen setup(assets, _lexicon);
@@ -309,7 +313,7 @@ public:
                         showing = Showing::kGalaxy;
                     } else if (c == MainMenu::Choice::kContinue) {
                         if (const auto path = saveFile(_target.path, "auto.sav")) {
-                            if (Error err = openSavedGame(*path, galaxy)) {
+                            if (Error err = openSavedGame(*path, galaxy, gameMenu)) {
                                 log::warning("%s", err.message.c_str());
                             } else {
                                 showing = Showing::kGalaxy;
@@ -399,7 +403,7 @@ public:
                     if (r == LoadSaveScreen::Result::kAccepted && loading.mode() == LoadSaveScreen::Mode::kLoad) {
                         const std::string name = "game" + std::to_string(loading.chosen()) + ".sav";
                         if (const auto path = saveFile(_target.path, name)) {
-                            if (Error err = openSavedGame(*path, galaxy)) {
+                            if (Error err = openSavedGame(*path, galaxy, gameMenu)) {
                                 log::warning("%s", err.message.c_str());
                             } else {
                                 showing = Showing::kGalaxy;
@@ -408,14 +412,26 @@ public:
                         }
                     }
                 } else if (showing == Showing::kGalaxy) {
-                    // Escape goes back to the main menu, the game still in
-                    // progress: Reluva's way there, as the game's own
-                    // menus aren't there yet.
-                    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
+                    // A right click opens the game menu, how the game moves
+                    // between its screens; while it's open it takes the
+                    // events. Its main menu button pauses the game there.
+                    // Escape, with the menu closed, goes there too: a
+                    // convenience the game hasn't got.
+                    const bool rightClick = ev.type == EventType::kMouseDown && ev.button == MouseButton::kRight;
+                    if (gameMenu.isOpen()) {
+                        if (gameMenu.handle(ev) == GameMenu::Choice::kMainMenu) {
+                            menu.setGameInProgress(true);
+                            showing = Showing::kMenu;
+                        }
+                    } else if (rightClick) {
+                        gameMenu.setToolTips(_options.toolTips);
+                        gameMenu.open(ev.mouseX, ev.mouseY);
+                    } else if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
                         menu.setGameInProgress(true);
                         showing = Showing::kMenu;
+                    } else {
+                        (void)galaxy.handle(ev);
                     }
-                    (void)galaxy.handle(ev);
                 } else if (showing == Showing::kSetup) {
                     const SetupScreen::Result r = setup.handle(ev);
                     if (r == SetupScreen::Result::kCancelled)
@@ -492,9 +508,10 @@ public:
                     multiplayer.draw(screen);
                 else if (showing == Showing::kSetup)
                     setup.draw(screen);
-                else if (showing == Showing::kGalaxy)
+                else if (showing == Showing::kGalaxy) {
                     galaxy.draw(screen);
-                else
+                    gameMenu.draw(screen);
+                } else
                     empires.draw(screen);
                 redraw = false;
             }
