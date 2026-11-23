@@ -51,11 +51,16 @@ GameProcess::GameProcess(std::filesystem::path install, uint32_t memoryMb) : _di
         }
         if (rest.empty())
             return _dir;
+        // The save folder first, then the install; files, then folders (a
+        // folder only the program made, its campaigns' saves, is in the save
+        // folder alone).
         std::optional<std::filesystem::path> found;
         if (!_saveDir.empty())
             found = fs::findFile(_saveDir, rest);
         if (!found)
             found = fs::findFile(_dir, rest);
+        if (!found && !_saveDir.empty())
+            found = fs::findDirectory(_saveDir, rest);
         if (!found)
             found = fs::findDirectory(_dir, rest);
         if (fileOpened)
