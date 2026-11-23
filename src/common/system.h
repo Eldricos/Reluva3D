@@ -111,6 +111,17 @@ public:
         return false;
     }
     /**
+     * Controller `index`: 0 is readGamepad's, 1 the next pad connected, for
+     * a game with a second player's joystick; false when there's none.
+     * Forces and wheels are the first's only.
+     */
+    virtual bool readGamepad(int index, GamepadState &out) {
+        if (index == 0)
+            return readGamepad(out);
+        out = GamepadState{};
+        return false;
+    }
+    /**
      * The forces the controller readGamepad gives is to give, until called
      * again: a wheel's motor, or a pad's rumble (roughly: its pushes and
      * vibration). A GamepadForce{} stops them.

@@ -4,7 +4,7 @@
 // Game controllers for SdlSystem: the first pad connected (SDL's gamepads),
 // or else the first racing wheel (a joystick SDL knows as one), and the
 // forces they're to give: a wheel's motor through SDL's haptics, a pad's
-// rumble otherwise.
+// rumble otherwise; and a second pad, for a second player's joystick.
 
 #include "backends/platform/sdl3/sdl_controller.h"
 
@@ -51,9 +51,33 @@ void apply(SDL_Haptic *haptic, int &id, const SDL_HapticEffect &e) {
     SDL_UpdateHapticEffect(haptic, id, &e);
 }
 
+// A pad's sticks, triggers, buttons and name, in GamepadState's layout.
+void readPad(SDL_Gamepad *pad, GamepadState &out) {
+    const SDL_GamepadAxis axes[6] = {SDL_GAMEPAD_AXIS_LEFTX,        SDL_GAMEPAD_AXIS_LEFTY,
+                                     SDL_GAMEPAD_AXIS_RIGHTX,       SDL_GAMEPAD_AXIS_RIGHTY,
+                                     SDL_GAMEPAD_AXIS_LEFT_TRIGGER, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER};
+    for (int i = 0; i < 6; ++i)
+        out.axes[i] = std::max(-1.0f, float(SDL_GetGamepadAxis(pad, axes[i])) / 32767.0f);
+    const SDL_GamepadButton buttons[kPadButtons] = {
+        SDL_GAMEPAD_BUTTON_SOUTH,         SDL_GAMEPAD_BUTTON_EAST,           SDL_GAMEPAD_BUTTON_WEST,
+        SDL_GAMEPAD_BUTTON_NORTH,         SDL_GAMEPAD_BUTTON_BACK,           SDL_GAMEPAD_BUTTON_GUIDE,
+        SDL_GAMEPAD_BUTTON_START,         SDL_GAMEPAD_BUTTON_LEFT_STICK,     SDL_GAMEPAD_BUTTON_RIGHT_STICK,
+        SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, SDL_GAMEPAD_BUTTON_DPAD_UP,
+        SDL_GAMEPAD_BUTTON_DPAD_DOWN,     SDL_GAMEPAD_BUTTON_DPAD_LEFT,      SDL_GAMEPAD_BUTTON_DPAD_RIGHT};
+    for (int i = 0; i < kPadButtons; ++i)
+        if (SDL_GetGamepadButton(pad, buttons[i]))
+            out.buttons |= 1u << i;
+    if (const char *name = SDL_GetGamepadName(pad))
+        out.name = name;
+}
+
 } // namespace
 
 void SdlSystem::closeController() {
+    if (_secondPad) {
+        SDL_CloseGamepad(_secondPad);
+        _secondPad = nullptr;
+    }
     if (!_controller)
         return;
     Controller &c = *_controller;
@@ -124,22 +148,7 @@ bool SdlSystem::readGamepad(GamepadState &out) {
     }
 
     if (c.gamepad) {
-        const SDL_GamepadAxis axes[6] = {SDL_GAMEPAD_AXIS_LEFTX,        SDL_GAMEPAD_AXIS_LEFTY,
-                                         SDL_GAMEPAD_AXIS_RIGHTX,       SDL_GAMEPAD_AXIS_RIGHTY,
-                                         SDL_GAMEPAD_AXIS_LEFT_TRIGGER, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER};
-        for (int i = 0; i < 6; ++i)
-            out.axes[i] = std::max(-1.0f, float(SDL_GetGamepadAxis(c.gamepad, axes[i])) / 32767.0f);
-        const SDL_GamepadButton buttons[kPadButtons] = {
-            SDL_GAMEPAD_BUTTON_SOUTH,         SDL_GAMEPAD_BUTTON_EAST,           SDL_GAMEPAD_BUTTON_WEST,
-            SDL_GAMEPAD_BUTTON_NORTH,         SDL_GAMEPAD_BUTTON_BACK,           SDL_GAMEPAD_BUTTON_GUIDE,
-            SDL_GAMEPAD_BUTTON_START,         SDL_GAMEPAD_BUTTON_LEFT_STICK,     SDL_GAMEPAD_BUTTON_RIGHT_STICK,
-            SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, SDL_GAMEPAD_BUTTON_DPAD_UP,
-            SDL_GAMEPAD_BUTTON_DPAD_DOWN,     SDL_GAMEPAD_BUTTON_DPAD_LEFT,      SDL_GAMEPAD_BUTTON_DPAD_RIGHT};
-        for (int i = 0; i < kPadButtons; ++i)
-            if (SDL_GetGamepadButton(c.gamepad, buttons[i]))
-                out.buttons |= 1u << i;
-        if (const char *name = SDL_GetGamepadName(c.gamepad))
-            out.name = name;
+        readPad(c.gamepad, out);
         return true;
     }
 
@@ -190,6 +199,35 @@ bool SdlSystem::readGamepad(GamepadState &out) {
     }
     if (const char *name = SDL_GetJoystickName(j))
         out.name = name;
+    return true;
+}
+
+bool SdlSystem::readGamepad(int index, GamepadState &out) {
+    if (index == 0)
+        return readGamepad(out);
+    out = GamepadState{};
+    if (index != 1)
+        return false;
+    // The first is opened first, so the second is a pad other than it.
+    GamepadState first;
+    readGamepad(first);
+    const SDL_JoystickID firstId = _controller && _controller->gamepad ? SDL_GetGamepadID(_controller->gamepad) : 0;
+    if (_secondPad && (!SDL_GamepadConnected(_secondPad) || SDL_GetGamepadID(_secondPad) == firstId)) {
+        SDL_CloseGamepad(_secondPad);
+        _secondPad = nullptr;
+    }
+    if (!_secondPad) {
+        int count = 0;
+        if (SDL_JoystickID *ids = SDL_GetGamepads(&count)) {
+            for (int i = 0; i < count && !_secondPad; ++i)
+                if (ids[i] != firstId)
+                    _secondPad = SDL_OpenGamepad(ids[i]);
+            SDL_free(ids);
+        }
+    }
+    if (!_secondPad)
+        return false;
+    readPad(_secondPad, out);
     return true;
 }
 

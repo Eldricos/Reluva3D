@@ -65,6 +65,7 @@ public:
     bool desktopMode(int &width, int &height, int &bits) override;
     void setRelativeMouse(bool on) override;
     bool readGamepad(GamepadState &out) override;
+    bool readGamepad(int index, GamepadState &out) override;
     void setGamepadForce(const GamepadForce &force) override;
     void setWheelPedals(int accelerator, int brake) override;
     bool confirmQuit(const std::string &text, bool toLauncher) override;
@@ -104,6 +105,7 @@ private:
     struct Controller;
     std::unique_ptr<Controller> _controller;
     void closeController();
+    SDL_Gamepad *_secondPad = nullptr; // the next pad connected, for readGamepad(1)
     SDL_Joystick *_joystick = nullptr; // the first connected, whose events are passed on
     SDL_JoystickID _joystickId = 0;
     bool _relativeMouse = false; // held by setRelativeMouse, held again when the window changes
