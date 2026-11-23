@@ -73,8 +73,8 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
   still under them, and CONTINUE going to the next mission's briefing
   ([systems/objectives.md](systems/objectives.md#open-questions)).
 - **Items:** the counts for -1, the keys matched to items by name,
-  walking into range before using one, a grenade's straight flight and
-  whom its explosion reaches, healing up to the whole, and where the bar
+  walking into range before using one, whom a grenade's explosion
+  reaches, healing up to the whole, and where the bar
   shows counts; the items' panels' layout and the phaser's switch on
   it, mines put down and set off, and tricorders' scans
   ([systems/items.md](systems/items.md#open-questions)).
@@ -87,16 +87,14 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
   its More Indicator goes, what's marked on the minimap, and the zoom's
   steps ([systems/maps.md](systems/maps.md#open-questions)).
 - **The gadgets:** the band hiding its wearer from the enemies' sight,
-  a grenade's flight (Gravity's units, the bounces' end), the enemies
-  going after decoys, the strikes doing their 50,000 damage rather than
+  the enemies going after decoys, the strikes doing their 50,000 damage rather than
   stunning, and what's put down running its model's AIs as a map's part
   ([systems/items.md](systems/items.md#open-questions)).
 - **The item panels' layout:** sequences placed from the panel's middle,
   pictures and words from the info bar's corner
   ([systems/items.md](systems/items.md#an-items-panel)).
-- **The enemies' states:** the order a state change runs its actions
-  and transitions, an enemy losing its target going to look where it saw
-  them, one up from a stun looking about where it is, where one running
+- **The enemies' states:** an enemy losing its target going to look
+  where it saw them, one up from a stun looking about where it is, where one running
   away runs to, when one looks for bodies, and a recharge's health
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **The triggers and doors:** an enemy setting off a touching trigger as

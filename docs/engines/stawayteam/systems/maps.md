@@ -888,7 +888,8 @@ the officer it's after as their instigator *(inferred)*.
 Each change of an enemy's state runs the state left's End Action, the
 transitions that match it (Every Time; First Time once; Once Per New
 Target when its target's another), and the new state's Start Action,
-in that order, as the program does. One whose Valid Targets don't name Player or
+in that order, as the program does; at once, where the program waits
+for the AI's next run, a frame on. One whose Valid Targets don't name Player or
 Team Member doesn't see the officers. Losing its target, it goes by its
 LostATarget's Had a Target: Investigate, looking about where it saw them
 last *(inferred)*. Up from a stun, its Stun's Next State: Investigate,
@@ -1146,8 +1147,8 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   up, what holding a retreat's place is, what `$Trigger` and the
   instigator are in their states' actions, and how a radius's action
   chooses whom it reaches.
-- **The states:** when the program changes them, and how Got a Target
-  and Lost a Target choose between their choices; what makes a
+- **The states:** how Got a Target and Lost a Target choose between
+  their choices; what makes a
   low-health enemy run
   away (`0x42b0e2`), and when it looks for bodies.
 - **Walking:** how the walkers' outlines are swept against each other
