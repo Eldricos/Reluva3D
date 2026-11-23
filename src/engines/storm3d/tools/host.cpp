@@ -373,10 +373,17 @@ int cmdHost(int argc, char **argv) {
     // The clock: the instructions run, and a millisecond each time every
     // thread waits, when time would otherwise pass on its own.
     std::atomic<uint64_t> idled{0};
+    // What's due by the clock (input, memory to write): from each slice,
+    // and as the clock moves on while every thread waits, as a program
+    // waiting in a dialog for the player does.
+    std::function<void()> deliverDue;
     if (!o.realClock) {
         process.milliseconds = [&] { return uint32_t(cpu->executed() / kInstructionsPerMs + idled); };
         process.idleTick = [&] {
-            if (++idled + cpu->executed() / kInstructionsPerMs >= o.limitMs)
+            ++idled;
+            if (deliverDue)
+                deliverDue();
+            if (idled + cpu->executed() / kInstructionsPerMs >= o.limitMs)
                 process.requestExit();
         };
         process.startDate = kStartDate;
@@ -518,7 +525,7 @@ int cmdHost(int argc, char **argv) {
             return 2;
         }
     size_t nextInput = 0;
-    process.onSlice = [&](x86::Cpu &) {
+    deliverDue = [&] {
         const uint64_t now = process.now();
         while (!o.dumpsAt.empty() && o.dumpsAt.begin()->first <= now) {
             std::ofstream out(o.dumpsAt.begin()->second, std::ios::binary);
@@ -544,7 +551,10 @@ int cmdHost(int argc, char **argv) {
                             ? (e.down ? "button down" : "button up")
                             : text::format("key %d %s", e.x, e.down ? "down" : "up").c_str());
         }
-        if (now >= o.limitMs)
+    };
+    process.onSlice = [&](x86::Cpu &) {
+        deliverDue();
+        if (process.now() >= o.limitMs)
             process.requestExit();
     };
 
