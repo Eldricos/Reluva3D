@@ -147,6 +147,12 @@ that far.
   station, the hospital and the police goes out to the island there, as
   to the pizzeria and the boat; each run on to 30,000 frames or more
   without stopping.
+- **Speed:** on the island at the pizzeria, run by `reluva-tool` (no
+  frame rate limit) on a 4-core machine, it shows 50 to 65 frames a
+  second. Sampled with `gdb`, about half the game thread's time was in
+  Retained Mode's `Render` and its drawing, little in the interpreter
+  running the game's code; skipping the meshes out of view takes
+  `Render` from 9.3 to 6.5 ms a frame on average.
 - **Saving and loading:** quit through the game (the door's green
   brick), it writes `G0.GS` (the game's state, 4,309 bytes), `History.gsi`
   (49) and `Players.gsi` (16, a player registered) to `savepath`, then

@@ -57,8 +57,12 @@ Each phase ends with something that runs, is tested and is committed.
    setup's choices as the engine's settings; the joystick, through
    WINMM; saving and loading, a player and the game's state kept from
    one session to the next.
-8. **A full playthrough**, checked against recordings of the original;
-   then speed (the JIT's hot spots, Retained Mode on the GPU).
+8. **A full playthrough** (in progress), checked against recordings of
+   the original, by the checklist in [TESTING.md](TESTING.md#a-playthrough-by-hand);
+   then speed (the JIT's hot spots, Retained Mode on the GPU). So far:
+   every place on the map reached; Render skips what's out of view, and
+   the game runs at 50 to 65 frames a second on the island, three times
+   the engine's limit of 20, so the GPU can wait.
 
 ## Decisions
 
