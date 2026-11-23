@@ -106,10 +106,14 @@ does is read from the code:
 |---|---|---|---|
 | `0x1` | 3,508 in 123 models | Drawn from behind too. Without it, a face turned away from the camera is skipped while the renderer's culling setting (`0x889f00` bit `0x1`) is on (`0x446548`) | from the code |
 | `0x2` | 14 in 4 models | See-through: drawn at alpha 90 of 255 in Direct3D (`0x43b428`), and by the software renderer's translucent routines (`0x43c559`, `0x43c59a`) | from the code |
-| `0x4` | 129 in 8 models | Not read by the model drawing code: see [Open questions](#open-questions) | from the code |
+| `0x4` | 129 in 8 models: `tieb.3do` 57, `slab1.3do` and `slab2.3do` 15 each, `e2x4.3do` 12, `00tabl.3do` and `01tabl.3do` 11 each, `e4x4_2.3do` 6, `14d8x8.3do` 2 | Kept with the face, and read by nothing in the game: only the format's writer (`0x4450a1`), which nothing in `JK.EXE` calls, reads it. A level's surfaces have it cleared on loading ([jkl.md](jkl.md#face-flags)); a model's keep it | from the code |
 
-The flags go with the face to the renderer (`0x446857`), which reads
-only `0x2` *(from the code)*.
+The flags are kept at byte 4 of the face (`0x4446a6`) and go with it to
+the renderer (`0x446857`), whose drawing routines read only `0x2`
+(`0x43b428` Direct3D; `0x43c559` to `0x43ce31` in 8-bit colour and
+`0x43d069` to `0x43d941` in 16-bit); collision with a model's faces
+(`0x508400`, `0x508d20`) reads only their corners and normals *(from the
+code)*.
 
 ### Vertex intensity
 
@@ -138,16 +142,21 @@ viewer's Models page shows every model. `reluva-tool sith formats
   the models drawn in the data viewer; `JK.EXE`'s loader (`0x443e80`,
   which reads the faces' type with `%x` and the vertices' intensity as
   their fifth number), its mesh and face drawing (`0x446110`,
-  `0x446580`) and its renderers (`0x43b1c0` Direct3D, `0x43c3c0`
-  software).
+  `0x446580`), its renderers (`0x43b1c0` Direct3D, `0x43c3c0`
+  software), its collision with models' faces (`0x508400`), and a
+  writer of the format (`0x444b90`) that nothing calls.
 - **How it was checked:** every model read by `reluva-tool sith
   formats`; the characters drawn with their joints meeting;
   `sith.unit.models` on a model made by the test, with each quirk above;
   the modes, face flags and intensities counted across all 477 files
   with a script, and the files naming `sphere.3do` searched for in the
-  archives.
+  archives. Readers of the face flag `0x4` were searched for across the
+  whole program: every test of a mask with `0x4` on a field at byte 4,
+  each reader of the faces' array (drawing, collision, the writer) and
+  of the renderer's copy of the flags; none was found, and no call to or
+  pointer at the writer.
 
 ## Open questions
 
-- What the face flag `0x4` does: the drawing code doesn't read it, and
-  it isn't known whether other code (collision, say) does.
+- What the face flag `0x4` meant to the tool that wrote the models: the
+  game never reads it.

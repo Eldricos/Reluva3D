@@ -23,6 +23,15 @@ for CD 1, bit 8 for CD 2), as `JK.EXE` works it out (`0x40ec19`)
 neither retail CD has. Nothing else in them is known to mean anything:
 they aren't a count, and the rest of the number is the same on both.
 
+The any-CD marker is `0x69923284` with `0x50000` set (bits 16 and 18),
+not a bit of the `n << (n + 5)` kind. `JK.EXE` compares it first, so a
+CD with it passes every check, for CD 1, CD 2 or either (`0x40ebfe`);
+and `0x40f110` counts it as no CD in particular (0), as it does a
+missing file, so with it the game plays audio tracks 2 and 3 *(from the
+code)*. These two places are the only ones in `JK.EXE` that name it.
+Such a CD would stand in for both, which fits a disc holding the whole
+game, but the code doesn't say which disc that was *(guessed)*.
+
 ## Behaviour
 
 In `JK.EXE`: `0x40ebb0`, `0x40f110`.
@@ -77,5 +86,7 @@ when its `JK_.CD` holds those bytes exactly, whatever the names' case
 
 ## Open questions
 
-- Whether any release's CD holds the any-CD marker, `0x69973284`, and
-  why the markers are the numbers they are.
+- Whether any release's CD holds the any-CD marker, `0x69973284`: not
+  the US retail CDs, and nothing in `JK.EXE` beyond the two comparisons
+  ([Layout](#layout)) says what it was for. Why the base number is
+  `0x69923284` isn't known either.

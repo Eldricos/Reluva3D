@@ -46,18 +46,59 @@ the files.
 | Flag | Meaning | Lines with it |
 |---|---|---|
 | `0x1` | Loops. A sound without it isn't started when the viewer is past maxRadius (`0x4dbac9`), and is let go when it ends (`0x4dc9dc`); when its thing is removed, a looping sound stops and any other plays on where the thing was (`0x4dcf20`, from `0x4cc2be`) *(from the code)* | 23: 18 doors' and lifts' `moving`, a few `activate`s, two `falling`s |
+| `0x4` | Not panned, and not made quieter behind the viewer ([Volume and distance](#volume-and-distance)) (`0x4dcc1a`) *(from the code)* | None |
 | `0x8` | Given the thing's velocity, for the sound card's 3D sound (Doppler), when the thing moves by physics (`0x4dce10`) *(from the code)* | 1 |
 | `0x40` | Played once where the thing is, not following it (`0x4e6d1b`); without it, the sound follows its thing. No file sets it: it is what a line without flags gets *(from the code)* | None |
 | `0x80` | Follows the thing: the game sets it on every sound that does (`0x4dbac4`), so it changes nothing in a file *(from the code)* | 3 |
-| `0x100`, `0x200` | Kept: not cut off to make room for a new sound (`0x4db6b6`), and played even while the character is already speaking (`0x4dbb4b`) *(from the code)* | 56 (death and drowning) and 14 (`deathUnder`) |
+| `0x100`, `0x200` | Kept: not cut off to make room for a new sound (`0x4db6b6`, `0x4dbd75`, `0x4dd42b`), and played even while the character is already speaking (`0x4dbb4b`) *(from the code)*. The game tests them only together: the same *(inferred)* | 56 (death and drowning) and 14 (`deathUnder`) |
 | `0x400` | Not played while the same sound is playing anywhere (`0x4e6cf3`) *(from the code)* | None |
 | `0x800` | Not played while the same sound is playing on the same thing (`0x4e6d01`) *(from the code)* | 2 |
 | `0x4000` | Its sound loaded with the level (`0x4e690c`) *(from the code)* | 404 |
 | `0x10000` | A character's voice: on an actor or the player, a new one isn't played until the last one's length has passed, unless it has `0x100` or `0x200` (`0x4dbb43`) *(from the code)* | 932 |
 
-The difference between `0x100` and `0x200` isn't in these places.
-maxVolume is multiplied by the volume the caller asks for, and the
+Every test of `0x100` or `0x200` in the sound system (`0x4db100` to
+`0x4dd600`) and the sound class's player takes the two together (`0x301`
+or `0x300`); none takes either alone *(from the code)*. maxVolume is multiplied by the volume the caller asks for, and the
 result held to 0 to 1.5 (`0x4dba82`) *(from the code)*.
+
+## Behaviour
+
+### Volume and distance
+
+In `JK.EXE`: `0x4dcc00`, each frame for each sound playing, after
+`0x4dd190` has worked out its distance *(from the code)*.
+
+- **The distance** is from the viewer to the sound: to its thing, or to
+  where it was played for one that doesn't follow its thing. Where any of
+  the three axes is past maxRadius, it is taken as maxRadius + 1
+  (`0x4dd2f4`); else it is an approximate length (`0x449c07`). When one
+  of the sound and the viewer is in an underwater sector
+  ([jkl.md](jkl.md)'s sector flag `0x2`) and the other isn't, the
+  distance is taken 1.5 times (`0x4dd2ac` to `0x4dd2ec`) *(from the
+  code)*.
+- **Panning**, unless the sound has `0x4` or plays through the sound
+  card's 3D sound: the direction to the sound, made a unit vector, times
+  the viewer's right, times 2000 is the pan in hundredths of a decibel
+  (`0x4dcc28` to `0x4dcc6a`, `0x437360`) *(from the code)*.
+- **Behind the viewer**, on the same terms: the volume is multiplied by
+  `1 - 0.3 × c`, where `c` is how far behind the direction points (0 to
+  the side, 1 straight behind): 0.7 straight behind (`0x4dcc83`) *(from
+  the code)*.
+- **Between minRadius and maxRadius** the volume falls in a straight
+  line: multiplied by `1 - (distance - minRadius) / (maxRadius -
+  minRadius)`, the fraction held to 0 to 1, with the `1 / (maxRadius -
+  minRadius)` kept when the sound starts (`0x4dba2d`). Full up to
+  minRadius, silent from maxRadius (`0x4dcc9f` to `0x4dcce9`, and
+  `0x4dcd33` for a 3D sound) *(from the code)*.
+- **To the sound card:** the volume, held to 0 to 1.5, is multiplied by
+  0.75 (`0x4dcd19`), held to 0 to 1 again, and set as `-2500 × (1 -
+  v)²` hundredths of a decibel: -25 dB at 0, about -1.6 dB for a sound
+  at 1. Without the 3D sound option it is 2 dB lower still
+  (`0x437390`, `0x4373fe`) *(from the code)*.
+- **Out of range:** past maxRadius a sound is stopped and its buffer let
+  go; one that doesn't loop is done with, and a looping one starts again
+  when the viewer comes back within maxRadius (`0x4dca4f` to
+  `0x4dcb33`) *(from the code)*.
 
 ## In Reluva
 
@@ -71,8 +112,9 @@ viewer's Sound classes page lists each event and plays its sound.
 
 - **Where the facts come from:** the 102 files, every line of them, and
   their header comments; `JK.EXE`'s sound class reader (`0x4e67f0`), its
-  player (`0x4e6b70` to `0x4e6d62`) and the sound system's (`0x4db600`
-  to `0x4dd0d0`), read from the machine code.
+  player (`0x4e6b70` to `0x4e6d62`) and the sound system's (`0x4db100`
+  to `0x4dd600`, with the sound card's at `0x437360` and `0x437390`),
+  read from the machine code.
 - **How it was checked:** every sound class read by `reluva-tool sith
   formats`, and each line's `.wav` looked for in the archives; every
   line's flags and fields counted by a script, against what the code
@@ -80,7 +122,6 @@ viewer's Sound classes page lists each event and plays its sound.
 
 ## Open questions
 
-- How the volume falls off between minRadius and maxRadius: the game
-  keeps `1 / (maxRadius - minRadius)` for it (`0x4dba2d`), but its use
-  each frame isn't traced.
-- What `0x100` does that `0x200` doesn't, if anything.
+- Whether `0x100` and `0x200` differ anywhere outside the sound system
+  and the sound class's player: neither is tested alone there
+  ([Flags](#flags)), and the rest of `JK.EXE` wasn't searched.

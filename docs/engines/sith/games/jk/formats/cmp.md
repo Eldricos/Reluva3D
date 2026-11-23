@@ -23,7 +23,7 @@ All numbers little-endian.
 | 0 | 4 | `CMP ` |
 | 4 | 4 | Version: 30 (`0x1e`) in every file |
 | 8 | 4 | Flags: bit 0, the blend table follows (`0x44288a`). 1 or 0 in the files. Bit 2, set in none, makes the game build a table of its own from the palette in place of reading the light levels (`0x44272d`) *(from the code)* |
-| 12 | 12 | Three floats, red, green and blue: what the game multiplies a polygon's light by when it's drawn through this colormap (`0x43b9ee`; [Behaviour](#behaviour)) *(from the code)*. 1, 1, 1 in the sixteen with a blend table; 1, 0.2, 0.2 in the red maps and 1, 0.75, 0.2 in `01yellow.cmp` |
+| 12 | 12 | Three floats, red, green and blue: what the game multiplies a polygon's light by when it's drawn through this colormap (`0x43b9ee`), when drawing through Direct3D ([Behaviour](#behaviour)) *(from the code)*. 1, 1, 1 in the sixteen with a blend table; 1, 0.2, 0.2 in the red maps and 1, 0.75, 0.2 in `01yellow.cmp` |
 | 24 | 40 | 0 in every file |
 
 ### Palette
@@ -52,12 +52,19 @@ colour's weight is 0.33 to 0.35 *(inferred)*.
 or one it hasn't the memory for, becomes a grey one named `GREYRAMP.CMP`
 with the floats 1, 1, 1 (`0x443190`) *(from the code)*.
 
-Where the game gives the corners of a polygon a red, green and blue
-light, a polygon drawn through a colormap other than the one it has made
-current (`0x442560`) has each of the three multiplied by that colormap's
-floats, so the red maps make what's drawn through them red
-(`0x43b9d6` to `0x43ba2e`, `0x43bf88` to `0x43bfcb`) *(from the code)*.
-Their palettes and light levels are red already *(inferred)*.
+The three floats are used only when the game draws through Direct3D,
+for a 3D card: that renderer (`0x43b1c0`) is the one the game calls
+while `0x889ef8` is set (`0x43aea7`), which it was with the game running
+through Direct3D and not in software *(confirmed)*. It gives the corners
+of a polygon a red, green and blue colour (the light times 255 for a
+texture, the colour through the light levels and the palette for a plain
+colour: [jkl.md](jkl.md#light)). A polygon drawn through a colormap other
+than the one it has made current (`0x442560`) has each of the three
+multiplied by that colormap's floats, so the red maps make what's drawn
+through them red (`0x43b9d6` to `0x43ba2e`, `0x43bf88` to `0x43bfcb`)
+*(from the code)*. The software renderers draw through the light levels
+and the palette alone, and their palettes and light levels are red
+already *(inferred)*.
 
 ## In Reluva
 
@@ -75,10 +82,6 @@ through a chosen colormap, at a chosen light level. `reluva-tool sith formats <i
   `JK.EXE`'s reader (`0x442660`) and writer (`0x442a50`) of the format,
   and its drawing code.
 - **How it was checked:** every colormap read by `reluva-tool sith
-  formats`; `sith.unit.formats` on a colormap made by the test.
-
-## Open questions
-
-- Which renderer the three floats' tint is used in: the code found
-  works out light as red, green and blue, which the 8-bit drawing
-  doesn't need; seeing the red maps drawn would settle it.
+  formats`; `sith.unit.formats` on a colormap made by the test; which
+  renderer draws, seen in the running game (`reluva-tool sith host` into
+  the first level with and without `-d3d`, reading `0x889ef8`).

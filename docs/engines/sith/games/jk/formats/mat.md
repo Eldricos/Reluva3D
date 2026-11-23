@@ -39,8 +39,8 @@ For each cel, 24 bytes for a colour, 40 for a texture:
 |---|---|---|
 | 0 | 4 | Kind: 0 a colour, 8 a texture |
 | 4 | 4 | The colour, a palette index |
-| 8 | 16 | Four floats, 1 in every file. The game keeps them with the cel (`0x44a383`) and writes them back when it saves a material (`0x44a8e7`), but no code that draws a cel was found to read them *(from the code)* |
-| 24 | 12 | Texture cels only: read and skipped (`0x44a3a3`) *(from the code)*. In 2,133 cels 0, then 0 and `0xbff78482` (a value the header's 48 bytes hold too) one way round or the other; in 22, 3, `0x302` and `0x81`. Left as they were in memory: the game's own saving fills only the texture's number of these 16 bytes (`0x44a946`) *(from the code)* |
+| 8 | 16 | Four floats, 1 in every file. The game keeps them with the cel (`0x44a383`), and only the format's writer reads them (`0x44a8e7`), which nothing in `JK.EXE` calls: everything else that takes a cel reads only its kind, its colour and its texture *(from the code)*: see [Behaviour](#behaviour) |
+| 24 | 12 | Texture cels only: read and skipped (`0x44a3a3`) *(from the code)*. In 2,133 cels 0, then 0 and `0xbff78482` (a value the header's 48 bytes hold too) one way round or the other; in 22, 3, `0x302` and `0x81`. Left as they were in memory: the game's own writer, never called, fills only the texture's number of these 16 bytes (`0x44a946`) *(from the code)* |
 | 36 | 4 | Texture cels only: which texture (`0x44a3bf`); in every file, the cel's own number |
 
 ### Textures
@@ -67,6 +67,16 @@ key of each mip level's picture (`0x44a4fe` to `0x44a508`) *(from the
 code)*. The files agree: colour 0 is in 145 of the 157 transparent
 textures but only 22 of the 1,998 others.
 
+A cel is kept as its kind, colour, four floats, texture number, and a
+pointer to its texture (`0x44a376` to `0x44a3bf`, `0x44a5c9`). Every
+place that picks a cel out of a material, in the Direct3D (`0x43b4a6`)
+and software renderers (`0x43c43c`, `0x43cf4c`, `0x44c8a3`), the level's
+code (`0x4c6907`, `0x4c6e1a`, `0x4e5f0d`, `0x4ec0b9`) and the sprites
+(`0x46cb4c`), reads only the kind, the colour or the texture, and so
+does each drawing routine the renderers hand a cel to (`0x44e150` to
+`0x45b6d0`, `0x45cb80` to `0x46b4e0`, `0x4765d0` to `0x47d370`) *(from
+the code)*.
+
 ## In Reluva
 
 `parseMaterial` (`src/engines/sith/formats/material.h`) reads one into a
@@ -82,11 +92,16 @@ through a chosen colormap and light level. `reluva-tool sith formats <install>` 
   the editing community's published write-ups of the format, which
   agree; the textures drawn in the data viewer; `JK.EXE`'s reader
   (`0x44a260`), which checks for `MAT ` and version 50, and writer
-  (`0x44a830`) of the format.
+  (`0x44a830`, which nothing calls) of the format.
 - **How it was checked:** every material read by `reluva-tool sith
-  formats`; `sith.unit.formats` on a material made by the test.
+  formats`; `sith.unit.formats` on a material made by the test. Readers
+  of the cels' floats were searched for in the whole program: every
+  load of a cel from a material's array of them, the loops over it, and
+  the fields each drawing routine reads of the cel it's given (traced
+  from the routine's arguments); no call to or pointer at the writer
+  was found.
 
 ## Open questions
 
-- What the cels' four floats were for: the game keeps them but nothing
-  found reads them.
+- What the cels' four floats meant to the tool that made the
+  materials: the game never reads them.

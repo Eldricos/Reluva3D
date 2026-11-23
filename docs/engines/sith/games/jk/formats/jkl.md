@@ -153,6 +153,23 @@ The `AMBIENT LIGHT` isn't used for surfaces: a sector's things are lit
 by its `AMBIENT LIGHT` plus its `EXTRA LIGHT`, held to 0 to 1
 (`0x4c7c2a`) *(from the code)*.
 
+With a 3D card the game draws through Direct3D instead, in a renderer
+of its own (`0x43b1c0`), used while `0x889ef8` is set (`0x43aea7`): it
+was 1 with the game running through Direct3D and 0 in software
+*(confirmed)*. That renderer works out a corner's light as above, held
+to 0 to 1 and no less than the sector's `EXTRA LIGHT`, but times 255
+(`0x43b71b` to `0x43b7af`), and makes it the corner's colour, the same
+in red, green and blue (`0x43b9b4`, `0x43bb56`) *(from the code)*; the
+card draws the texture's colours by it *(inferred)*. So a textured
+surface's light isn't stepped in the colormap's 64 light levels. Light
+mode 0 gives 255, unlit, and mode 1 the surface's extra light (`0x43b9c7`,
+`0x43b829`) *(from the code)*. A surface of a plain colour (geometry
+mode 3) still takes its colour through the colormap: the light times 63
+picks the light level, and the palette gives the colour (`0x43bd0c`,
+`0x43bf1a` to `0x43bf4b`) *(from the code)*. Either colour is then
+multiplied by the colormap's three floats if the sector's colormap isn't
+the current one ([cmp.md](cmp.md#behaviour)).
+
 ### Tint
 
 Each frame, the tint of the sector the camera is in becomes the
@@ -162,6 +179,16 @@ added up (`0x428e7b`) and the palette changed by them: each colour's
 red is multiplied by 1 + red − (green + blue) / 2, held to 0 to 255, and
 its green and blue the same way (`0x4290e0`) *(from the code)*. The
 water's 0.4 0.8 1.0 makes red 0.5 times, green 1.1 and blue 1.4.
+
+With a 3D card there is no palette to change: each frame the screen's
+effects are copied to the Direct3D renderer (`0x401f46`, `0x43abb0`)
+while `0x8605ec` is set, which it was with the game running through
+Direct3D *(confirmed)*. That renderer multiplies each corner's red by the
+same 1 + red − (green + blue) / 2, and its green and blue the same way,
+whenever a tint is above 0 (`0x43b209` to `0x43b296`, `0x43ba6d` to
+`0x43baa1`); then by a fourth value the effects hold, when it's below 1
+(1 to start with, `0x42886f`; `0x43baa4`); and holds each to 0 to 255
+(`0x43bae7`) *(from the code)*.
 
 In the files, every underwater sector (flag `0x2`) has a tint, 390 of
 the 461 that one; 143 other sectors have one, 128 of them red (1 0 0).
@@ -194,16 +221,17 @@ Of the 126,639 surfaces:
 | `0x8` | 285 | No floor for walking: the check that a thing's next step has floor under it finds none here (`0x4eb580`, `0x4eb6d7`). The AI makes that check (`0x50ad1d`) *(inferred)* | from the code |
 | `0x10`, `0x20`, `0x40` | 4,143; 5,967; 497 | The texture's scale: their texture vertices are 640, 160 and 40 texels a unit, against 320 for the others. No code was found to read them | inferred |
 | `0x80` | 62 | No damage on impact: else a thing hitting it at over 2.5 units a second takes (speed − 2.5)² × 45 (`0x4e8b7d`, `0x4e949f`) | from the code |
+| `0x100` | 336 | None found: no test of the bit on a surface's flags, and no cog sets, clears or tests it. The word is read whole only by the cog verb `GetSurfaceFlags` (`0x500570`) and copied into network play's message for a changed surface (`0x4f8f80`, `0x4f9050`) | from the code |
 | `0x200` | 1,053 | Horizon sky: placed by the header's horizon settings, drawn unlit (`0x4c74fd`, `0x4f2e30`) | from the code |
 | `0x400` | 686 | Ceiling sky: placed by the ceiling sky's (`0x4c750f`, `0x4f2f60`) | from the code |
 | `0x800` | none | Scrolling: a thing standing on it moves with it (`0x4cc520`, `0x4ce4b8`); stopping the surface's animation clears it (`0x4efa2c`) | from the code |
 | `0x1000` | 21 | Icy: a thing on it has 0.3 of its friction (`0x4f74e3`) | from the code |
 | `0x2000` | 361 | Very icy: 0.1 (`0x4f74d6`) | from the code |
+| `0x4000` | 3,608 | Deflects shots: a weapon whose `typeflags` has `0x400` bounces off it, playing its `deflected` sound, up to 6 times (`0x4d4ebf`, `0x4d4edc`, `0x4d4feb`); a weapon's `typeflags` are kept at its `0x130` (`0x4d43da`). In the files, the bolts of the bryar, crossbow and repeater and `+force_saber` have `0x400`. Mostly on metal (`13wbpipe.mat` 1,522, `00wbig4.mat` 379...); the force fields' cogs set it (`00_forcefield.cog`, `14_forcefield.cog`...) | from the code |
 | `0x10000` | 142 | Metal: steps, landing and hits sound of metal (`0x4e4c09`, `0x4cdfed`, `0x4e8c09`) | from the code |
 | `0x20000` | 4,116 | Water: steps and landing sound of water (`0x4e4c26`, `0x4cdff9`); halves a value of the player's movement, its speed *(inferred)* (`0x4d8aa2`) | from the code |
 | `0x40000` | 57 | Puddle: steps and landing (`0x4e4c43`, `0x4ce005`) | from the code |
 | `0x80000` | 540 | Earth: steps and landing (`0x4e4c60`, `0x4cdfe1`) | from the code |
-| `0x100`, `0x4000` | 336; 3,608 | No code was found to read them | |
 
 A surface whose material is colours only loses `0x200` and `0x400`
 and gets geometry mode 3; a sky gets light mode 0 (`0x4e5e91`,
@@ -238,18 +266,46 @@ change the offsets as a level plays.
 
 | Flag | Surfaces | What the game does | Confidence |
 |---|---|---|---|
-| `0x2` | 532 | See-through: drawn by routines of their own (`0x43c559`), or at an alpha of 90 of 255 in the other drawing path (`0x43b428`). In the files, on water and glass (`13fwater.mat` 260, `00fwater.mat` 81...) | from the code |
+| `0x2` | 532 | See-through: drawn by routines of their own (`0x43c559`), or at an alpha of 90 of 255 through Direct3D (`0x43b428`; [Light](#light)). In the files, on water and glass (`13fwater.mat` 260, `00fwater.mat` 81...) | from the code |
 | `0x4` | 34,598 | Cleared on loading, unless bit 0 is set at `0x8ee668` (`0x4e5e63`). That starts at 0 (`0x4c46d9`), and only a saved game's copy of it is written there (`0x4dac8f`): the game never sees the flag | from the code |
 
 ### Adjoin flags
 
 | Flag | Adjoins | What the game does | Confidence |
 |---|---|---|---|
-| `0x1` | 36,336 | Seen through: the renderer goes on into the next sector only through an adjoin with `0x1` whose surface has no material, geometry mode 0, face flag `0x2`, or a texture with a transparent colour (`0x4c6a64` to `0x4c6a93`). A collision search made with `0x100` or `0x1000` passes only these (`0x4e87ea`) | from the code |
+| `0x1` | 36,336 | Seen through: the renderer goes on into the next sector only through an adjoin with `0x1` whose surface has no material, geometry mode 0, face flag `0x2`, or a texture with a transparent colour (`0x4c6a64` to `0x4c6a93`). A collision search made with `0x100` or `0x1000` passes only these (`0x4e87ea`; [Collision searches](#collision-searches)) | from the code |
 | `0x2` | 35,958 | Passable: a search made without `0x100` passes only these (`0x4e880e`), and collision looks into the next sector only through them (`0x4e836f`) | from the code |
-| `0x10` | 154 | Stops a search made with `0x200` and not `0x100` (`0x4e87f7`). A weapon's search is made with its physics flags (`0x4d4742`), and `_weapon`'s are `0x200`: shots stop there *(inferred)*. 143 of the 154 have no material | from the code |
+| `0x10` | 154 | Stops a search made with `0x200` and not `0x100` (`0x4e87f7`): shots, and the camera's views from outside ([Collision searches](#collision-searches)). 143 of the 154 have no material | from the code |
 | `0x80` | none | Set on loading on an adjoin whose surface can't be seen through, by the renderer's rule (`0x4e5f40`) | from the code |
-| `0x4`, `0x8` | 36,357; 89 | No code was found to read them | |
+| `0x4`, `0x8` | 36,357; 89 | None found: no test of either bit on an adjoin's flags. The word is read whole only by the cog verb `GetAdjoinFlags` (`0x500660`) and copied into network play's message for a changed surface (`0x4f8f80`, `0x4f9050`). Two cogs set and clear `0x8` with `0x2`, as 10, for a force field's "move" and "no move" (`10_ffieldswitch.cog`, `12_ffieldswitch.cog`), which `0x2` alone does | from the code |
+
+### Collision searches
+
+A collision search (`0x4e8160`) follows a line from a sector into the
+next through the adjoins its flags let it pass (`0x4e87dd` to
+`0x4e8810`) *(from the code)*:
+
+- with `0x4`, any adjoin;
+- with `0x100` or `0x1000`, only adjoins with `0x1`;
+- with `0x200` and not `0x100`, none with `0x10`;
+- without `0x100`, only adjoins with `0x2`.
+
+Each of the 21 calls of the search, all direct, was followed back to
+the flags it passes *(from the code)*:
+
+| Flags | Made by |
+|---|---|
+| `0x2122` | The line of sight from one thing to another (`0x4e7500`), for the things `FireProjectile` may aim at (`0x4d5dce`) *(inferred)*, an item the player touches (`0x4fbe2e`, in the item and player collision `0x4fbe10`) and the cog verb `HasLOS` (`0x505086`). One other caller asks for `0x2022` (`0x4fba6b`) |
+| `0x102`, `0x2102` | The AI's checks (`0x4eb090`, `0x4eb300`), made by its instincts `follow`, `circlestrafe`, `blindfire`, `listen`, `randomturn`, `flee`, `withdraw`, `dodge` and `sensedanger`, and through `0x4ead60` and `0x4eaf40` by `lookfortarget`, `turretfire` and `saberfighting` |
+| `0x103`, `0x12a` | Three routines nothing calls: no call of them, and no pointer to them in the program (`0x4e6fb0`, a line from the camera; `0x4e7310`; `0x4e73f0`) |
+| A thing's physics flags | A weapon's move (`0x4d4742`): `0x200` in all 85 weapon templates in the files, none with `0x100` or `0x1000`; the cogs set no physics flag but `0x1` and `0x100000` |
+| `0x2200` | The camera's views of modes 4, `0x20` and `0x40` (`0x4c56b0`, through `0x4c6050`), those other than the first person's *(inferred)* |
+| `0x2802`, `0x2812` | The search for the floor under a thing (`0x4f5715`) |
+| 0, 1, 2, 4, `0x40`, `0x44`, `0x482`, `0x2002` | The rest: things' moves, the sector a point is in (`0x4e71b0`), the AI's check of the floor ahead (`0x4eb4b0`), and others |
+
+So no search is made with `0x1000`. Shots and the camera's outside views
+stop at adjoins with `0x10`; the lines of sight and the AI's checks with
+`0x100` go through any adjoin with `0x1`, passable or not.
 
 ## In Reluva
 
@@ -284,7 +340,9 @@ moves the camera to the next sector marked.
   field's place in the loader to the code that tests it. The names of
   cog messages (`entered`, `sighted`...) and of sounds (`landmetal`...)
   are the program's own, by the numbers it gives them (`0x4de21d`, and
-  its table of sound names at `0x54b4c0`).
+  its table of sound names at `0x54b408`), as are those of cog verbs
+  (`HasLOS`, `FireProjectile`...: where each is registered, `0x501f61`,
+  `0x505832`) and of the AI's instincts (registered from `0x5091b0`).
 - **How it was checked:** every level read by `reluva-tool sith
   formats`; the sectors, adjoins and surfaces checked against each other
   as above; `sith.unit.levels` on a level made by the test, with the
@@ -293,14 +351,20 @@ moves the camera to the next sector marked.
   sectors with `0x1000` against those with a `COLLIDEBOX`; the floors'
   normals; the materials on each flag's surfaces; the texture vertices'
   texels a unit by flag; the underwater sectors' tints.
+- **The flags no code reads** were looked for in every `test`, `and` and
+  `bt` of the program whose mask holds the bit, combined masks too, each
+  traced back to the word it tests (a surface's flags are at its `0x10`,
+  an adjoin's at its `0`); in the cog verbs that get, set and clear them
+  (`0x5004b0` to `0x500693`) and every use of those in the 540 cogs; and
+  where the words are copied whole. The weapons' `typeflags` and physics
+  flags were read from every template in the files, through their bases.
+- **The Direct3D path** was told from the software one in the running
+  game: `reluva-tool sith host` into the first level, with and without
+  `-d3d`, reading `0x8605ec` and `0x889ef8` at the end.
 
 ## Open questions
 
-- What the adjoin flags `0x4` and `0x8`, and the surface flags `0x100`
-  and `0x4000`, do: all are in the files, but no code was found to read
-  them.
-- Which things make the collision searches with `0x100`, `0x200` and
-  `0x1000` that the adjoin flags `0x1`, `0x2` and `0x10` sort; only the
-  weapons' is traced.
-- How the other drawing path, for a 3D card, lights a surface and shows
-  the tint; and what the texture mode does.
+- What the adjoin flags `0x4` and `0x8`, and the surface flag `0x100`,
+  were for: they are in the files, but the program never tests them
+  ([Surface flags](#surface-flags), [Adjoin flags](#adjoin-flags)).
+- What the texture mode does.

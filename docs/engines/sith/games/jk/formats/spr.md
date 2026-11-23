@@ -16,7 +16,7 @@ Plain text: a comment naming the columns, then one line:
 | Column | What |
 |---|---|
 | material | The `.mat` |
-| type | 0 in every file |
+| type | 0 in every file; changes nothing: see [The type](#the-type) |
 | width, height | Its size, in the game's units: 0.0015 (`twinkle.spr`) to 0.6 |
 | geo, light, tex | Geometry, lighting and texture modes, as a model face's ([3do.md](3do.md)): 4, 0, 0 in all but `twinkle.spr` (geometry 3, a plain colour) |
 | extralight | 0.0 in every file |
@@ -53,6 +53,19 @@ thing shows its material's own current cel (`0x46d109`) *(from the
 code)*: in retail, those (bubbles, the force destruction bolt, the TIE
 bomb) have a single cel.
 
+### The type
+
+The type is kept at byte `0x20` of the sprite (`0x46ca54`), and the
+game's sprite code doesn't read it again: not the drawing (`0x46ccf0`),
+the explosions' cels (`0x4fb790`), nor the sizing of a thing by what it
+draws, which takes a sprite's radius (`0x4c7d19`) *(from the code)*. The
+only code that reads byte `0x20` of a sprite is the cog verb
+`SetThingModel`, which returns that byte of whatever a thing draws as
+the number of its old model, without checking that it is a model
+(`0x503950`); a model keeps its number there (`0x4e9918`). On a thing
+drawn with a sprite it so returns the sprite's type, 0 in retail
+*(from the code)*.
+
 ## In Reluva
 
 `parseSprite` (`src/engines/sith/formats/sprite.h`) reads one into a
@@ -63,15 +76,20 @@ its material's cels. `reluva-tool sith formats <install>` reads them all.
 
 - **Where the facts come from:** the 20 files and their column comment;
   the sprites drawn in the data viewer; `JK.EXE`'s sprite reader
-  (`0x4f2458`), its sprite drawing (`0x46ccf0`) and its explosions'
-  cel stepping (`0x4fb790`, `0x4f00a0`, `0x4f0780`), read from the
-  machine code.
+  (`0x4f2458`), which makes the sprite (`0x46ca20`), its sprite drawing
+  (`0x46ccf0`) and its explosions' cel stepping (`0x4fb790`,
+  `0x4f00a0`, `0x4f0780`), read from the machine code.
 - **How it was checked:** every sprite read by `reluva-tool sith
   formats`; `sith.unit.formats` on a sprite made by the test; every
   level's templates that name a sprite listed by a script with their
   type, `typeflags` and `timer`, and each sprite's material's cels
-  counted.
+  counted. Readers of the type were searched for in the sprite code
+  (`0x46ca20` to `0x46d200`, `0x4f23b0`) and at every load of the
+  object a thing draws (a thing's byte `0xc8`) followed by a read of
+  its byte `0x20`: two, `SetThingModel`'s and a polyline's radius
+  (`0x4c7d42`).
 
 ## Open questions
 
-- What the type column (0 in every file) changes.
+- What the type was meant to change: the game checks it is 0 to 2 and
+  keeps it, and reads it nowhere as a sprite's type.

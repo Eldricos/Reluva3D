@@ -93,6 +93,13 @@ In `JK.EXE`: `0x40a580`, `0x402eb0`, `0x402f90`, `0x40dc60`.
 - **The check** is the CD marker's ([jk-cd.md](jk-cd.md#behaviour)): it
   asks "Insert Jedi Knight CD #n and press Enter" until the CD is there
   or the request is given up *(from the code)*.
+- **The prompt** (`0x416970`) is a menu dialog with two buttons, *Ok*
+  (answers 1: check again) and *Cancel* (answers -1: give up). It makes
+  *Ok* the screen's Enter button and *Cancel* its Esc button
+  (`0x416a3a`, `0x416a4c`), and the menus press those for Enter and Esc
+  (`0x5114f9`, `0x511513`); neither button has a key of its own, so
+  Enter answers "again" and Esc "give up", as does a click on either
+  *(from the code)*.
 
 ## In Reluva
 
@@ -114,16 +121,11 @@ checked.
   `JK.EXE`'s machine code for [Behaviour](#behaviour): the episode's
   reader (`0x40d560`, a step 64 bytes, its type from its first letter),
   the step after (`0x40dc60`), the episode's moves (`0x402eb0` to
-  `0x403360`) and the `jkEndLevel` verb (`0x40a580`); the levels' scripts
+  `0x403360`), the CD prompt (`0x416970`) and the menus' keys
+  (`0x5114d0`), and the `jkEndLevel` verb (`0x40a580`); the levels' scripts
   in `JK1.GOB` that call `jkEndLevel(0)`, and the levels that use them;
   the prompts' strings in `ui\jkstrings.uni`.
 - **How it was checked:** every episode read by `reluva-tool sith
   formats`, its steps counted against SEQ; every cut scene a step names
   found on the CD the step gives, by `reluva-tool sith episode`;
   `sith.unit.formats` on an episode made by the test.
-
-## Open questions
-
-- Which keys answer the CD prompt (the dialog at `0x416970` returns
-  "again" or "give up"); not seen running, as Reluva never lets the game
-  ask.

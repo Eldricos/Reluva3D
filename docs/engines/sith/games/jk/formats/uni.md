@@ -55,12 +55,30 @@ quotes) and `0x42f1a0` (up to a space or tab).
 - **The string** is the text between the next two quotes after the
   number. Without them it's empty *(from the code)*: `CREDITS_big_446`
   is read as an empty string, and the credits show no name there
-  *(inferred)*.
+  ([The credits](#the-credits)).
 - **Each string** is widened to 16 bits a character, byte by byte
   (`0x42f400`), and kept in the file's order, with its key and number
   *(from the code)*.
 - **A key twice** gives "The key '%s' is in the string table '%s' more
   than once." for a debugger *(from the code)*.
+
+### The credits
+
+In `JK.EXE`: `0x421c40` to `0x421dae`.
+
+- **Each string is a line**, in the table's order, drawn with
+  `creditlarge.sft` when its key holds `big` and `creditsmall.sft`
+  otherwise (`0x421d0e`) *(from the code)*.
+- **An empty string** is still a line: its height is the lines it takes
+  times the font's line height, and an empty string takes one
+  (`0x4357c0`, `0x4352c0`), so it leaves a blank line of its font. A
+  missing string would be drawn as a space (`0x421d4d`), but the reader
+  never leaves one missing *(from the code)*. The file's own blank lines
+  between sections are empty `big` strings (`CREDITS_big_3 ""`).
+- **`CREDITS_big_446`** (Paul Zabierek) comes right after the last
+  tester, Jason Yunker, and before the blank `CREDITS_big_316`: the
+  running game shows no name there, but two blank lines, one more than
+  between the other sections.
 
 ### Looking strings up
 
@@ -92,13 +110,8 @@ reads them all.
 - **Where the facts come from:** the seven tables, every line of them;
   the comments at their tops (`"<key>" <unused number> "<string>"`);
   `JK.EXE`'s machine code ([Behaviour](#behaviour)) and the keys in its
-  strings.
+  strings; the credits screen run by `reluva-tool sith host` (main
+  menu, *Credits*), a frame every 2 seconds.
 - **How it was checked:** every table read by `reluva-tool sith
   formats`, the count of strings compared with a count by hand;
   `sith.unit.formats` on a table with each of the cases above.
-
-## Open questions
-
-- How the credits screen lays out an empty string, and whether
-  `CREDITS_big_446`'s name is missing from the game's credits as the
-  reader says; not seen running.

@@ -30,8 +30,11 @@ number, and a cel the material hasn't stops the file loading
 (`0x46c4e3`, `0x46c4f6`) *(from the code)*. The files write `0.000000`,
 read as cel 0. RADIUS is the cloud's size, by which the game leaves out
 a cloud out of view (`0x46c78a`) *(from the code)*. INSERT OFFSET is
-read (`0x46c40d`), but the drawing doesn't use it (`0x46c750`) *(from
-the code)*.
+read and kept at bytes `0x44` to `0x4c` of the cloud (`0x46c40d`,
+`0x46c430`), but nothing reads it there but the format's writer
+(`0x46c66b`), which nothing in `JK.EXE` calls: not the drawing
+(`0x46c750`), nor the copy a `type=particle` thing makes of a cloud
+(`0x46c090`) *(from the code)*.
 
 ## Behaviour
 
@@ -42,12 +45,25 @@ In `JK.EXE`: drawing a cloud, `0x46c750`; the clouds the game makes,
 is taken through its thing's position and orientation, then drawn as a
 square SIZE across, facing the camera, with its cel (`0x46c847`,
 `0x46c876`) *(from the code)*. Nothing changes the points: the cloud
-moves and turns only as its thing does. `+force_shield` has
-`move=physics` and `angvel=(60/60/60)`, so it turns 60 degrees a second
-about each axis *(inferred)*: how physics turns a thing attached to
-another isn't traced. It doesn't grow: growing is done only for
-things of `type=particle` ([Clouds the game
+moves and turns only as its thing does. It doesn't grow: growing is
+done only for things of `type=particle` ([Clouds the game
 makes](#clouds-the-game-makes)), and the shield is `type=cog`.
+
+**The shield turns by its `angvel`** while attached to the player
+*(from the code)*. `force_protection.cog` attaches it with
+`AttachThingToThingEx(shield, player, 0x8)`, which gives it the attach
+flags `0x4` (to a thing, `0x4ce2ed`) and `0x8` (`0x503643`). Every
+frame, a thing with `move=physics` gets its physics (`0x4cc44d`)
+whatever it's attached to; one with neither of the attach flags `0x1`
+and `0x2` (`0x4f595a`), as the shield, and not in water
+(`0x4f5972`) takes the general case (`0x4f6270`), which turns it by its
+`angvel` times the frame's time (`0x4f64ea` to `0x4f6569`). Its `angvel`
+is in degrees a second (the angles go through `0x431fbd`, whose
+quarters are 90, 180 and 270), so the shield turns 60 degrees a second
+about each axis. Turning a thing also turns what is attached to it
+(`0x4e768b` to `0x4e76e8`), so the shield turns with the player too.
+Its own velocity doesn't move it, by the attach flag `0x8`
+(`0x4cc4cc`).
 
 ### Clouds the game makes
 
@@ -96,15 +112,22 @@ reads them all.
   clouds drawn in the data viewer; `JK.EXE`'s cloud reader
   (`0x46c230`), its drawing (`0x46c750`), the particle things' template
   fields (`0x4f1a60`), making (`0x4f1da0`), each frame (`0x4f1c30`), end
-  (`0x4f2010`) and cog verbs (`0x504ce0` to `0x504e50`), read from the
-  machine code; every level's templates, and the cogs that use them.
+  (`0x4f2010`) and cog verbs (`0x504ce0` to `0x504e50`); the physics
+  (`0x4f5900`, with `angvel` read into a thing's bytes `0x1e0` to
+  `0x1e8` at `0x4f60a8`) and `AttachThingToThingEx` (`0x503600`), all
+  read from the machine code; every level's templates, and the cogs
+  that use them.
 - **How it was checked:** every file read by `reluva-tool sith formats`;
   `sith.unit.formats` on a cloud made by the test; a script listed every
   template in the 35 levels that names `particle=` (only
-  `+force_shield`) or has `type=particle`, with their fields.
+  `+force_shield`) or has `type=particle`, with their fields. Readers
+  of INSERT OFFSET were searched for in the cloud code (`0x46c000` to
+  `0x46ca20`) and at every load of the object a thing draws; no call to
+  or pointer at the writer was found. The shield's turning isn't seen
+  running.
 
 ## Open questions
 
-- Whether the shield, attached to the player, turns by its `angvel` as
-  a free thing would; a recording of Force Protection would show it.
-- What INSERT OFFSET is for, if anything.
+- What INSERT OFFSET meant to the tool that wrote the files: the game
+  never reads it. A recording of Force Protection would confirm the
+  shield's turning.

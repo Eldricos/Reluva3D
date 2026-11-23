@@ -31,7 +31,7 @@ All numbers little-endian.
 | 0 | 4 | `BM  ` |
 | 4 | 4 | Version: 70 (`0x46`) in every file |
 | 8 | 4 | 0 in every file |
-| 12 | 4 | Flags: bit 0, the transparent colour at 28 is used (`0x42cf89`); bit 1, a palette ends the file (`0x42cfb7`) *(from the code)*. 0, 1 or 2 in the files. They don't say whose palette a picture without its own takes ([Behaviour](#behaviour)) |
+| 12 | 4 | Flags: bit 0, the transparent colour at 28 is used (`0x42cf89`); bit 1, a palette ends the file (`0x42cfb7`) *(from the code)*. 0, 1 or 2 in the files. They don't say whose palette a picture without its own takes: that's where it's drawn ([Behaviour](#behaviour)) |
 | 16 | 4 | How many cels |
 | 20 | 8 | Where the picture goes, x and y: on a menu screen, from the screen's top left; in the HUD, from the top left of the status picture it's drawn into (`sthealth.bm`: 21, 21) ([Behaviour](#behaviour)) *(from the code)*. Set on 41; 0, 0 on the rest |
 | 28 | 4 | The transparent colour, used when bit 0 of the flags is set: 0 in the 8-bit pictures, `0xf81f` (magenta) in the 16-bit ones |
@@ -78,7 +78,7 @@ the code)*.
   only with that palette, and at their x and y each sits in one of the
   screen's sockets.
 - **The buttons, arrows and lists** are drawn on many screens, with each
-  one's palette. Every background but `bkfieldlog.bm` has colours 224 to
+  one's palette ([The shared pictures](#the-shared-pictures)). Every background but `bkfieldlog.bm` has colours 224 to
   255 of the interface's palette (`uicolormap.cmp`'s), and colour 0
   black or nearly, so a picture keeping to those looks the same on any
   of them; 16 of the 72 with a transparent colour do.
@@ -94,6 +94,30 @@ the code)*.
   `bkbuildmulti.bm` (`0x41924d`) *(from the code)*, so they take its
   palette *(inferred)*.
 
+### The shared pictures
+
+Which screens draw each of the 22 shared pictures, read from the
+screens' tables in `JK.EXE`'s data and the background each is opened
+with (`0x4129a0`'s 43 callers) *(from the code)*. A list draws `up15.bm`
+and `down15.bm` (the pair at `0x52b170`), a check box `check.bm` (each
+screen's picture 15, `0x511284`), a slider the pair its table names, a
+picture button its own:
+
+| Pictures | Drawn on (by background) |
+|---|---|
+| `up15.bm`, `down15.bm` | `bkMain.bm` (the players' list), `bkSingle.bm` (2 screens), `bkMulti.bm` (3: the game's settings, the providers, the games), `bkSetup.bm` (8: Setup's pages, the cut scenes' list, the saved games' and the saved controls' lists), `bkBuildLoad.bm` (2) |
+| `check.bm` | `bkMain.bm` (a new player's difficulty), `bkMulti.bm` (the game's settings), `bkSetup.bm` (8 of Setup's pages) |
+| `sliderBack.bm`, `sliderThumb.bm` | `bkSetup.bm` (2 of Setup's pages) |
+| `sliderBack200.bm`, `sliderThumb.bm` | `bkSetup.bm` (2 of Setup's pages) |
+| `arrowLeft.bm`, `arrowRight.bm` | `bkMulti.bm` (the game's settings), `bkBuildMulti.bm` (a multiplayer character), `bkBuildLoad.bm` (a new character) |
+| `flOk.bm` | `bkFieldLog.bm`: the map (by its buttons) and the objectives |
+| `flRotLef.bm` to `flReset.bm` (12) | `bkFieldLog.bm`: the map only |
+| `objectivescheck.bm` | `bkFieldLog.bm`: the objectives, drawn by their screen's own code (`0x417c1c`) |
+
+Two dialogs, the CD prompt and a message with only *Ok* (`0x416970`,
+`0x416a90`), are opened with no background (`0x4168d7`, `0x4168e6`), so
+they keep the palette of the screen under them *(from the code)*.
+
 ### The HUD
 
 `statusleft.bm` and `statusright.bm` sit in the screen's bottom left
@@ -103,6 +127,17 @@ are drawn into them, each at its own x and y from their top left:
 `0x408013`), `stbat.bm`, `stfieldlite.bm`, `stfrc.bm` and
 `stfrcsuper.bm` into the right (`0x407dfa`, `0x407e52`, `0x407ea7`,
 `0x407f0f`) *(from the code)*.
+
+Each piece has an 8-bit and a 16-bit file (`statusLeft.bm`,
+`statusLeft16.bm`; the names at `0x5259ec`), and the HUD loads the
+8-bit ones only when the display is 8-bit (`0x407597`), keeping their
+pixels as they are (`0x42d4b0`) *(from the code)*. So the 8-bit pieces
+are drawn with the display's palette in play, the level's: in
+`01narshadda.jkl` the 132 pixels of `statusleft.bm` and
+`statusright.bm` where `01narsh.cmp`'s palette and `uicolormap.cmp`'s
+differ (colour 95) show `01narsh.cmp`'s colour, in a frame of the
+running game. With Direct3D the display is 16-bit and the 16-bit
+pieces are used, with no palette *(from the code)*.
 
 ## In Reluva
 
@@ -125,10 +160,12 @@ all.
   the pictures.
 - **How it was checked:** every picture read by `reluva-tool sith
   formats`; `sith.unit.formats` on 8-bit and 16-bit pictures made by the
-  test.
+  test; a frame of the first level from `reluva-tool sith host`, its HUD
+  compared pixel by pixel with the 8-bit pieces through each palette.
 
 ## Open questions
 
-- Which palette the HUD's 8-bit pictures take in the game, where no
-  menu screen's background sets it.
-- Which menu screens each of the shared buttons is drawn on.
+- Whether the HUD's 8-bit pieces take the palette of the level's first
+  colormap in every level, or of whichever colormap the game makes the
+  display's: seen in the first level only, where they're the same
+  colormap.
