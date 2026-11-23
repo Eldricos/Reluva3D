@@ -68,6 +68,7 @@ to launcher, stop it. Headless, the same with `reluva-tool sfc host <game folder
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 23 November 2026 | English retail 1.0 | Linux | A campaign's mission finished: Convoy Escort forfeited from Esc's menu, its debriefing, DONE, back on the Dynaverse map, the ship moved again and missions offered again; 38 billion instructions |
 | 23 November 2026 | English retail 1.0 | Linux | A campaign, headless with `-fixed-clock` (the same frames each run, the date fixed too): Federation vs ISC begun, its introduction clicked through, the Dynaverse map shown, the ship moved a hex, MISSIONS opened, Convoy Escort accepted, its briefing and READY, the mission loaded and fought, a freighter lost; 36 billion instructions |
 | 23 November 2026 | English retail 1.0 | Linux | The tutorials, headless with `-fixed-clock`: all six started from their screen and run; Command 190 followed (T targets a container, the next order comes) and, its containers not destroyed, ended "incomplete" with its debriefing; Command 290 to its debriefing; the voice-over captured with `-sound` |
 | 23 November 2026 | English retail 1.0 | Linux | A skirmish played: headless with `-fixed-clock` (the same frames each run) and in the window with `xdotool`, the game imported from the CDs: S for speed, Y to target, R red alert, the helm's turn arrow, Z and the FIRE button hitting the Klingon, keypad 5's high-energy turn |

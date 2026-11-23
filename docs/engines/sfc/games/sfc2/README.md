@@ -47,8 +47,8 @@ Detection signatures (MD5 of each file's start, and its size, as
   ([InstallShield cabinets](../../../../common/installshield.md)).
   `reluva-tool sfc host` runs it headless
   ([systems/hosting.md](systems/hosting.md)).
-- **Not yet:** a skirmish, a tutorial or a campaign's mission played
-  through to its end, and back to the Dynaverse;
+- **Not yet:** a skirmish, a tutorial or a campaign's mission won (a
+  mission forfeited returns to the Dynaverse, which goes on);
   the network; the 2.0.3.6 patch applied as it's imported; the
   `.gf`, `.mct` and `.mvm`
   settings, campaign and map files; the opening movie; the objects in

@@ -243,6 +243,15 @@ destroyed one of our freighters"). The mission and the Dynaverse
 together need more than 256 MB: given that, the game stopped with its
 SmartHeap's "Out of memory" as the mission loaded, so it's given 512.
 
+Esc in a mission pauses it with a menu: FORFEIT MISSION, EXIT TO
+WINDOWS, CANCEL. Forfeited, the mission closes its session and shows
+the Mission Debriefing (the mission, "Forfeit", the prestige gained, 0,
+and the battle report); DONE returns to the Dynaverse map, where the
+stardate goes on, the ship moves again and missions are offered again.
+The game keeps the mission's recording (`Auto1.rec`) and the campaign's
+state (under `MetaAssets/`) in its folder, so in the save folder. A
+mission won, its prestige given, isn't played yet.
+
 A skirmish is played through DirectPlay, single-player too: starting
 one, the game throws a `TLogicError` naming `fDirectPlayObject` each
 time it finds no DirectPlay object, and goes on. As it starts it calls
