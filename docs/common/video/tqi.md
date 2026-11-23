@@ -85,4 +85,6 @@ Each block is coded as an MPEG-1 intra block (ISO/IEC 11172-2):
 
 ## Used by
 
-None yet.
+- **`tpw`**: SimCoaster's EA GAMES logo, played at the start, stretched
+  to 640 × 480 ([tgq.md](../../engines/tpw/games/simcoaster/formats/tgq.md),
+  [opening.md](../../engines/tpw/games/simcoaster/systems/opening.md)).

@@ -119,3 +119,5 @@ than 0.1% of frames); Reluva uses no prediction for them.
 - **`nfs`**: Need for Speed III's sound banks, music and movies
   ([bnk.md](../../engines/nfs/games/nfs3/formats/bnk.md),
   [mus.md](../../engines/nfs/games/nfs3/formats/mus.md)).
+- **`tpw`**: SimCoaster's logo movie's sound
+  ([tgq.md](../../engines/tpw/games/simcoaster/formats/tgq.md)).
