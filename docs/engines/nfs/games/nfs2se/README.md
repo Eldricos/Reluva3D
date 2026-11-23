@@ -8,7 +8,7 @@ code is in `src/engines/nfs/nfs2se/`, and what it shares with NFS III in
 
 | Release | Recognised by | State |
 |---|---|---|
-| US CD (English and Spanish set-up, Windows), and an install from it; both executables built 23 September 1997 | `nfs2sen.exe` and the cars' data, `GameData/Sim/CarData/cardata.viv` (`detectionTable`, `src/engines/nfs/games.cpp`), the same in the install and on the CD | Recognised, not playable: it shows what was found of it |
+| US CD (English and Spanish set-up, Windows), and an install from it; both executables built 23 September 1997 | `nfs2sen.exe` and the cars' data, `GameData/Sim/CarData/cardata.viv` (`detectionTable`, `src/engines/nfs/games.cpp`), the same in the install and on the CD | Plays: both programs hosted, every race type, single player and over a link |
 | Other releases | `nfs2sen.exe` or `nfs2sea.exe`, with `cardata.viv` (`fallbackTable`): "unknown release" | Not checked |
 
 Detection signatures (MD5 of the first 5000 bytes, size):
@@ -26,7 +26,7 @@ the cars' data is in both. The CD's 3dfx program, `NFS2SEA.EXE`, is in
 
 - **Recognised** in its install and on its CD, and its CD's files found
   for an install.
-- **Plays, being finished** (Phase 6 of [PLAN.md](PLAN.md)): the retail
+- **Plays** (Phases 1-8 of [PLAN.md](PLAN.md) done): the retail
   `nfs2sen.exe`, the software program, runs in the x86 emulator as NFS
   III's does: its movies, its front end with the keys and mouse, and
   races, about 39 frames a second on the machine measured

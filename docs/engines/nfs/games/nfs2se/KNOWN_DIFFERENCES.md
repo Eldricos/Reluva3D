@@ -13,9 +13,10 @@ None yet.
 
 ## Not yet as the original
 
-- **The game can't be played yet.** Started, it shows what Reluva found
-  of it (`src/engines/nfs/nfs2se/status_page.cpp`) rather than the
-  game; [PLAN.md](PLAN.md) has what's to come.
+- **The registry has no DirectX key** (`Software\Microsoft\DirectX`):
+  the game asks `dsetup.dll` the DirectX version, finds none, and goes
+  on. What it would do with one isn't known
+  ([research/hosted-spike.md](research/hosted-spike.md)).
 
 ## Additions outside the game
 

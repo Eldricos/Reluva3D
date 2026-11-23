@@ -14,7 +14,7 @@ interfaces; `reluva-viewer` has a data viewer of the games' files.
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
 | [Need for Speed III: Hot Pursuit](games/nfs3/README.md) | `nfs3` | Electronic Arts, 1998 | Windows | US "Classics" CD (English) | Plays: the retail game hosted, every race type, single player and network; a data viewer of its files |
-| [Need for Speed II SE](games/nfs2se/README.md) | `nfs2se` | Electronic Arts, 1997 | Windows | US CD (English and Spanish set-up) | Plays, being finished: the retail software program hosted, its movies, front end and races; a data viewer of its files |
+| [Need for Speed II SE](games/nfs2se/README.md) | `nfs2se` | Electronic Arts, 1997 | Windows | US CD (English and Spanish set-up) | Plays: the retail game hosted, its software and 3dfx programs, every race type, single player and over a link; a data viewer of its files |
 
 ## Where it stands
 
@@ -22,16 +22,18 @@ NFS III plays from its menus through every race type, single player and
 over a network, its own executable run in the emulator; the data viewer
 (`reluva-viewer`) shows every file kind it has. See the game's
 [README](games/nfs3/README.md) and [PLAN.md](games/nfs3/PLAN.md).
-NFS II SE is recognised, with its CD's files, but can't be played yet:
-it shows what was found of it. Its plan is in its
-[PLAN.md](games/nfs2se/PLAN.md).
+NFS II SE plays the same way, its software program or its 3dfx one on
+Reluva's Glide, single player and over a network, serial link or modem;
+the data viewer shows its files. See its
+[README](games/nfs2se/README.md) and [PLAN.md](games/nfs2se/PLAN.md).
 
 ## Using it
 
 Add the game's install in the launcher (*Add Game...*), with a copy of
 its CD's files beside it (NFS III's as `NFS3-CD`, for the music and
 movies; NFS II SE's for its tracks too): NFS III starts straight into the
-game, NFS II SE shows what was found of it. The data viewer is `reluva-viewer` (`reluva-viewer
+game, NFS II SE too (or shows what was found of it, without either of its
+programs). The data viewer is `reluva-viewer` (`reluva-viewer
 <its name in the launcher>` or `reluva-viewer <the install>`); Esc leaves
 it. The game's
 [README](games/nfs3/README.md#using-it) has its keys, the viewer's pages
