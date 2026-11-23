@@ -25,6 +25,8 @@ add_library(reluva_emulation STATIC
     x86/win32_threads.cpp
     x86/win32_user.cpp
     x86/win32_joystick.cpp
+    x86/win32_gdi.cpp
+    x86/win32_midi.cpp
     x86/directx/d3d5.cpp
     x86/directx/d3d7.cpp
     x86/directx/d3drm.cpp

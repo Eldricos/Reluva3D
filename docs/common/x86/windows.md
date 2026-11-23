@@ -92,6 +92,22 @@ C++ library have pages of their own ([directx.md](directx.md),
   - the mouse pointer, and the desktop's size and colour depth, which the
     engine sets;
   - `MessageBoxA` is reported and answered so the program goes on.
+- **`win32_gdi.cpp`: GDI32's text and bitmaps** on device contexts that
+  draw into something of the engine's (`addDeviceContext`: a DirectDraw
+  surface's `GetDC`): fonts (`CreateFontA`, by their height), text in
+  Reluva's own font scaled to it (`ExtTextOutA` with its opaque and
+  clipping rectangle, `GetTextExtentPoint32A`), its colours and
+  background mode; `StretchDIBits` of 8, 16 (555), 24 and 32 bits,
+  `SRCCOPY` only; palettes kept as handles (`CreatePalette`,
+  `SelectPalette`, `RealizePalette`), no system palette being shown. On
+  a window's device context they draw nothing.
+- **Other pieces:** `GetLocaleInfoA` and `GetLocaleInfoW` give US
+  English's values; `OpenFileMappingA` finds no mapping by name (they
+  have none), and `MapViewOfFileEx` maps a view as `MapViewOfFile` does
+  where no address is asked for; `OpenProcess` opens only the program's
+  own process, and `CreateProcessA` runs nothing (not found);
+  `MoveFileA` moves a file where writes go, or copies one from where
+  they don't; WINMM's MIDI is as with no MIDI device (`win32_midi.cpp`).
 - **`win32_registry.cpp`: the registry and COM.** An in-memory registry,
   seeded with the installed locales. The engine can add an installer's
   values and hear of the program's writes. `CoCreateInstance` asks the
@@ -227,6 +243,12 @@ executable's entry point on the main thread until it ends the process.
   extended key as DirectInput numbers it, and WINMM's joystick: unplugged
   until present, then its capabilities and an axis, a button and the hat
   at a diagonal read back.
+- `testUserAndKernelMore` also checks a file moved, not onto one there
+  nor from one not; the locale's values and the room they need; no
+  mapping by name nor view at an address; the own process only; nothing
+  run; no MIDI device. `testDirectX` draws on a surface's device
+  context: text in a colour with nothing behind it, its size, and a
+  bottom-up bitmap stretched.
 - **Confidence:** published unless marked.
 
 - `tests/common/drives.cpp` (`common.unit.drives`) checks the drives'

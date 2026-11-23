@@ -310,6 +310,25 @@ stdfs::path Win32Process::hostPath(const std::string &windowsPath, bool forWriti
     return resolve(drive->root, names);
 }
 
+// A mapping by name, and a view at an address: as on Windows where no
+// other program shares the name (mappings here have none), and the
+// address asked for isn't free (views go where there's room). With no
+// address asked for, MapViewOfFileEx is `mapView`.
+void Win32Process::addMappingLookups(const std::function<uint32_t(Cpu &)> &mapView) {
+    const char *k = "KERNEL32.dll";
+    stdcall(k, "OpenFileMappingA", 3, [this](Cpu &) {
+        _lastError = kErrorFileNotFound;
+        return 0u;
+    });
+    stdcall(k, "MapViewOfFileEx", 6, [this, mapView](Cpu &c) {
+        if (c.arg(5)) {
+            _lastError = 487; // ERROR_INVALID_ADDRESS
+            return 0u;
+        }
+        return mapView(c);
+    });
+}
+
 void Win32Process::addDriveStandIns() {
     const char *k = "KERNEL32.dll";
     auto driveOf = [this](const std::string &full) -> const Drive * {
@@ -886,7 +905,7 @@ void Win32Process::addDriveStandIns() {
             m->data.resize(c.arg(4));
         return addHandle(m);
     });
-    stdcall(k, "MapViewOfFile", 5, [this](Cpu &c) -> uint32_t {
+    auto mapView = [this](Cpu &c) -> uint32_t {
         auto m = object<MappingObject>(c.arg(0));
         if (!m)
             return 0u;
@@ -899,7 +918,9 @@ void Win32Process::addDriveStandIns() {
             std::memcpy(c.memory().data() + p, m->data.data() + offset,
                         std::min<size_t>(bytes, m->data.size() - offset));
         return p;
-    });
+    };
+    stdcall(k, "MapViewOfFile", 5, mapView);
+    addMappingLookups(mapView);
     stdcall(k, "UnmapViewOfFile", 1, [this](Cpu &c) {
         _arena->free(c.arg(0));
         return 1u;
@@ -1091,6 +1112,38 @@ void Win32Process::addFileStandIns() {
         }
         return 1u;
     });
+    // MoveFileA(from, to): fails if `from` isn't there or `to` is. A file
+    // where writes go is renamed; one only where they don't (the game's
+    // own) is copied, as it can't be taken away.
+    stdcall(k, "MoveFileA", 2, [this](Cpu &c) {
+        const std::string from = fullPath(c.string(c.arg(0)));
+        const std::string to = fullPath(c.string(c.arg(1)));
+        const auto source = mapPath ? mapPath(from, false) : std::nullopt;
+        const auto writableSource = mapPath ? mapPath(from, true) : std::nullopt;
+        const auto target = mapPath ? mapPath(to, true) : std::nullopt;
+        std::error_code ec;
+        if (!source || !std::filesystem::is_regular_file(*source, ec)) {
+            _lastError = kErrorFileNotFound;
+            return 0u;
+        }
+        if (!target) {
+            _lastError = kErrorAccessDenied;
+            return 0u;
+        }
+        if (std::filesystem::exists(*target, ec)) {
+            _lastError = kAlreadyExists;
+            return 0u;
+        }
+        if (writableSource && std::filesystem::is_regular_file(*writableSource, ec))
+            std::filesystem::rename(*writableSource, *target, ec);
+        else
+            std::filesystem::copy_file(*source, *target, ec);
+        if (ec) {
+            _lastError = kErrorAccessDenied;
+            return 0u;
+        }
+        return 1u;
+    });
     stdcall(k, "GetFileAttributesA", 1, [this](Cpu &c) {
         const auto host = mapPath ? mapPath(fullPath(c.string(c.arg(0))), false) : std::nullopt;
         std::error_code ec;
@@ -1242,7 +1295,7 @@ void Win32Process::addFileStandIns() {
         _mappings[handle] = m;
         return handle;
     });
-    stdcall(k, "MapViewOfFile", 5, [this](Cpu &c) {
+    auto mapView = [this](Cpu &c) {
         auto it = _mappings.find(c.arg(0));
         if (it == _mappings.end()) {
             _lastError = kErrorInvalidHandle;
@@ -1266,7 +1319,9 @@ void Win32Process::addFileStandIns() {
             std::fseek(f->file, at, SEEK_SET);
         }
         return view;
-    });
+    };
+    stdcall(k, "MapViewOfFile", 5, mapView);
+    addMappingLookups(mapView);
     stdcall(k, "UnmapViewOfFile", 1, [this](Cpu &c) {
         _arena->free(c.arg(0));
         return 1u;

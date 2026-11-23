@@ -230,6 +230,8 @@ Rect Rect::read(Cpu &c, uint32_t p) {
 // Surfaces.
 
 Surface::~Surface() {
+    if (s && dc) // its device context drew into it
+        s->process.removeDeviceContext(dc);
     if (s && d.memory) {
         s->process.memory().free(d.memory);
         if (d.caps[0] & kCapsVideoMemory)
@@ -346,6 +348,29 @@ std::optional<uint32_t> Surface::invoke(const ComInterface &iface, int index, Cp
             else
                 c.write16(ramp + uint32_t(2 * i), s->gamma[i]);
         }
+        return kDDOk;
+    }
+    // GetDC(HDC*): a device context drawing into its pixels, in its own
+    // format, until ReleaseDC(HDC); one at a time.
+    if (m == "GetDC") {
+        if (!c.valid(c.arg(1), 4))
+            return kDDErrInvalidParams;
+        if (!dc) {
+            Win32Process::DrawTarget target;
+            target.width = d.width;
+            target.height = d.height;
+            target.put = [this](int x, int y, uint32_t rgb) { setPixel(x, y, d.format.fromArgb(0xff000000u | rgb)); };
+            dc = s->process.addDeviceContext(std::move(target));
+        }
+        c.write32(c.arg(1), dc);
+        return kDDOk;
+    }
+    if (m == "ReleaseDC") {
+        if (!dc || c.arg(1) != dc)
+            return kDDErrInvalidParams;
+        s->process.removeDeviceContext(dc);
+        dc = 0;
+        touched();
         return kDDOk;
     }
     if (m == "GetSurfaceDesc") {

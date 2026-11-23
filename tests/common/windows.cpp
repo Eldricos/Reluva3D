@@ -584,6 +584,38 @@ static void testUserAndKernelMore(const std::filesystem::path &tmp) {
     std::string written;
     std::getline(std::ifstream(tmp / "data.bin", std::ios::binary), written);
     CHECK(written == "01234567xy");
+    // Moved, as a game shifts its saves along: not onto a file that's
+    // there, nor from one that isn't.
+    CHECK(!cpu.call(fn("KERNEL32.dll", "MoveFileA"), {text("C:\\data.bin"), text("C:\\moved.bin")}, r) && r == 1);
+    CHECK(!std::filesystem::exists(tmp / "data.bin") && std::filesystem::exists(tmp / "moved.bin"));
+    CHECK(!cpu.call(fn("KERNEL32.dll", "MoveFileA"), {text("C:\\data.bin"), text("C:\\other.bin")}, r) && r == 0);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetLastError"), {}, r) && r == 2); // ERROR_FILE_NOT_FOUND
+    { std::ofstream(tmp / "data.bin") << "new"; }
+    CHECK(!cpu.call(fn("KERNEL32.dll", "MoveFileA"), {text("C:\\data.bin"), text("C:\\moved.bin")}, r) && r == 0);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetLastError"), {}, r) && r == 183); // ERROR_ALREADY_EXISTS
+
+    // The locale (US English), as the C runtime asks for it: a length of 0
+    // asks for the room.
+    const uint32_t info = process.memory().alloc(64);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetLocaleInfoA"), {0x409, 0x1004, info, 0}, r) && r == 5);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetLocaleInfoA"), {0x409, 0x1004, info, 16}, r) && r == 5 &&
+          cpu.string(info) == "1252");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetLocaleInfoW"), {0x409, 0x2a, info, 16}, r) && r == 7 &&
+          cpu.read16(info) == 'M' && cpu.read16(info + 12) == 0); // "Monday"
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetLocaleInfoA"), {0x409, 0x7777, info, 16}, r) && r == 0);
+    // No mapping shared by name; no view where one is asked for; the own
+    // process only; no other program run; no MIDI device.
+    CHECK(!cpu.call(fn("KERNEL32.dll", "OpenFileMappingA"), {4, 0, text("SmartHeap")}, r) && r == 0);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "MapViewOfFileEx"), {1, 4, 0, 0, 0, 0x10000000}, r) && r == 0);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetLastError"), {}, r) && r == 487);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "OpenProcess"), {0x1f0fff, 0, 0x100}, r) && r == 0xffffffffu);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "OpenProcess"), {0x1f0fff, 0, 0x200}, r) && r == 0);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "CreateProcessA"), {text("CONFIG.EXE"), 0, 0, 0, 0, 0, 0, 0, info, info}, r) &&
+          r == 0);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetExitCodeProcess"), {0xffffffffu, info}, r) && r == 1 &&
+          cpu.read32(info) == 259);
+    CHECK(!cpu.call(fn("WINMM.dll", "midiOutGetNumDevs"), {}, r) && r == 0);
+    CHECK(!cpu.call(fn("WINMM.dll", "midiStreamOpen"), {info, info, 1, 0, 0, 0}, r) && r == 2);
 
     // VirtualQuery: inside a block VirtualAlloc gave, and beyond memory.
     CHECK(!cpu.call(fn("KERNEL32.dll", "VirtualAlloc"), {0, 0x3000, 0x3000, 4}, r) && r != 0);
@@ -1150,7 +1182,69 @@ static void testDirectX() {
     vertex(2, 40, 48, 0.5f, 0xffffffffu, 0, 1);
     vertex(3, 64, 48, 0.5f, 0xffffffffu, 1, 1);
     CHECK(call(device, 25, {5, fvf, verts, 4, 0}) == 0); // a strip
-    CHECK(call(primary, 11, {0, 1}) == 0);               // Flip
+    // GDI on a surface's device context (GetDC): a red "I" in a font 9 high,
+    // transparent behind, its size measured; a 2x2 bitmap of 24 bits,
+    // bottom-up, stretched twice its size. In 565 once let go (ReleaseDC).
+    clearDesc();
+    cpu.write32(desc + 4, 0x1 | 0x2 | 0x4 | 0x1000);
+    cpu.write32(desc + 8, 16);
+    cpu.write32(desc + 12, 32);
+    cpu.write32(desc + 72, 32);
+    cpu.write32(desc + 76, 0x40); // RGB
+    cpu.write32(desc + 84, 16);
+    cpu.write32(desc + 88, 0xf800);
+    cpu.write32(desc + 92, 0x07e0);
+    cpu.write32(desc + 96, 0x001f);
+    cpu.write32(desc + 104, 0x40); // OFFSCREENPLAIN
+    CHECK(call(dd, 6, {desc, out, 0}) == 0);
+    const uint32_t canvas = cpu.read32(out);
+    CHECK(call(canvas, 17, {out}) == 0); // GetDC
+    const uint32_t hdc = cpu.read32(out);
+    auto gdi = [&](const char *name, const std::vector<uint32_t> &args) {
+        CHECK(!cpu.call(process.provided("GDI32.dll", name), args, r));
+        return r;
+    };
+    const uint32_t font = gdi("CreateFontA", {uint32_t(-9), 0, 0, 0, 400, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+    CHECK(font != 0 && gdi("SelectObject", {hdc, font}) == 0);
+    CHECK(gdi("SetTextColor", {hdc, 0x0000ff}) == 0); // was black; red as COLORREF
+    CHECK(gdi("SetBkMode", {hdc, 1}) == 2);           // TRANSPARENT; was OPAQUE
+    const uint32_t textAt = mem(4);
+    const uint32_t size = mem(8);
+    cpu.writeString(textAt, "I", 4);
+    CHECK(gdi("GetTextExtentPoint32A", {hdc, textAt, 1, size}) == 1 && cpu.read32(size) == 6 &&
+          cpu.read32(size + 4) == 11);
+    CHECK(gdi("ExtTextOutA", {hdc, 0, 0, 0, 0, textAt, 1, 0}) == 1);
+    const uint32_t dib = mem(16);
+    const uint32_t info = mem(40);
+    std::memset(cpu.memory().data() + info, 0, 40);
+    cpu.write32(info, 40);
+    cpu.write32(info + 4, 2);
+    cpu.write32(info + 8, 2); // bottom-up
+    cpu.write16(info + 12, 1);
+    cpu.write16(info + 14, 24);
+    const uint8_t rows[16] = {0, 255, 0,   255, 0,   0,   0, 0,  // bottom: green, blue (B, G, R), padding
+                              0, 0,   255, 255, 255, 255, 0, 0}; // top: red, white
+    for (uint32_t i = 0; i < 16; ++i)
+        cpu.write8(dib + i, rows[i]);
+    CHECK(gdi("StretchDIBits", {hdc, 20, 0, 4, 4, 0, 0, 2, 2, dib, info, 0, 0xcc0020}) == 2);
+    CHECK(call(canvas, 26, {hdc}) == 0); // ReleaseDC
+    std::memset(cpu.memory().data() + desc, 0, 124);
+    cpu.write32(desc, 124);
+    CHECK(call(canvas, 25, {0, desc, 1, 0}) == 0); // Lock
+    const uint32_t canvasPixels = cpu.read32(desc + 36);
+    const uint32_t canvasPitch = cpu.read32(desc + 16);
+    auto canvasAt = [&](int x, int y) {
+        return cpu.read16(canvasPixels + uint32_t(y) * canvasPitch + uint32_t(x) * 2);
+    };
+    bool red = false;
+    for (int y = 0; y < 11; ++y)
+        for (int x = 0; x < 6; ++x)
+            red = red || canvasAt(x, y) == 0xf800;
+    CHECK(red && canvasAt(5, 10) == 0); // the "I" drawn; nothing behind it
+    CHECK(canvasAt(20, 0) == 0xf800 && canvasAt(23, 1) == 0xffff && canvasAt(21, 3) == 0x07e0 &&
+          canvasAt(23, 3) == 0x001f);
+    CHECK(call(canvas, 32, {0}) == 0);     // Unlock
+    CHECK(call(primary, 11, {0, 1}) == 0); // Flip
 
     const x86::DirectX::Frame &f = dx.frame();
     CHECK(f.width == 64 && f.height == 48 && f.number == 1);

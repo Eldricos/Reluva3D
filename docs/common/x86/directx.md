@@ -18,6 +18,9 @@ headers' (`directx/interfaces.cpp`).
   - blits (stretching, colour keys, colour and depth fills) and flipping
     chains;
   - palettes and clippers;
+  - a surface's device context (`GetDC`, `ReleaseDC`), drawing GDI's
+    text and bitmaps into it in its own format
+    ([windows.md](windows.md));
   - the display's gamma ramp (`IDirectDrawGammaControl`, from any
     surface).
 

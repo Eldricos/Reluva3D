@@ -589,6 +589,20 @@ public:
         uint32_t pov = 0xffff; // hundredths of a degree clockwise from forward; 0xffff centred
     };
     Joystick joystick;
+
+    /**
+     * What a device context draws into: a picture of `width` by `height`,
+     * a pixel put as 0x00RRGGBB (as a DirectDraw surface's GetDC gives).
+     */
+    struct DrawTarget {
+        int width = 0;
+        int height = 0;
+        std::function<void(int x, int y, uint32_t rgb)> put;
+    };
+    /** A device context drawing into `target` for GDI's text and bitmaps; its handle. */
+    uint32_t addDeviceContext(DrawTarget target);
+    /** The device context gone (its surface's ReleaseDC). */
+    void removeDeviceContext(uint32_t dc);
     /** A joystick axis (x, y, z, r, u, v by number) moved: -32768 to 32767. */
     void joystickAxis(int axis, int value);
     /** A joystick button, from 0, pressed or let go. */
@@ -658,6 +672,27 @@ private:
     void addUserStandIns();
     void addRegistryStandIns();
     void addJoystickStandIns();
+    void addGdiStandIns();
+    void addMidiStandIns();
+    // GDI's state of a device context of addDeviceContext's, and its
+    // objects (fonts, palettes): win32_gdi.cpp.
+    struct DeviceContext {
+        DrawTarget target;
+        uint32_t font = 0;
+        uint32_t palette = 0;
+        uint32_t textColor = 0;        // COLORREF: 0x00BBGGRR
+        uint32_t backColor = 0xffffff; // white
+        uint32_t backMode = 2;         // OPAQUE
+    };
+    std::map<uint32_t, DeviceContext> _deviceContexts;
+    uint32_t _nextDeviceContext = 0x38000;
+    struct GdiObject {
+        bool font = false;
+        int height = 0; // a font's, in pixels: negative its characters', positive its cells'
+    };
+    std::map<uint32_t, GdiObject> _gdiObjects;
+    uint32_t _nextGdiObject = 0x40000;
+    void addMappingLookups(const std::function<uint32_t(Cpu &)> &mapView);
     struct WindowClass {
         uint32_t proc = 0;
         uint32_t style = 0;

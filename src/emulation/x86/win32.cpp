@@ -4,6 +4,7 @@
 #include "emulation/x86/win32.h"
 
 #include <algorithm>
+#include <map>
 #include <cctype>
 #include <chrono>
 #include <cstring>
@@ -785,6 +786,28 @@ void Win32Process::addStandIns() {
     stdcall(k, "DisableThreadLibraryCalls", 1, [](Cpu &) { return 1u; });
     stdcall(k, "GetCurrentProcess", 0, [](Cpu &) { return 0xffffffffu; });
     stdcall(k, "GetCurrentProcessId", 0, [](Cpu &) { return 0x100u; });
+    // OpenProcess(access, inherit, id): the program's own process is the
+    // only one there is.
+    // CreateProcessA(...): no other program can be run, so it isn't found;
+    // GetExitCodeProcess: the program's own process is still running.
+    stdcall(k, "CreateProcessA", 10, [this](Cpu &) {
+        _lastError = 2; // ERROR_FILE_NOT_FOUND
+        return 0u;
+    });
+    stdcall(k, "GetExitCodeProcess", 2, [this](Cpu &c) {
+        if (c.arg(0) != 0xffffffffu || !c.valid(c.arg(1), 4)) {
+            _lastError = 6; // ERROR_INVALID_HANDLE
+            return 0u;
+        }
+        c.write32(c.arg(1), 259); // STILL_ACTIVE
+        return 1u;
+    });
+    stdcall(k, "OpenProcess", 3, [this](Cpu &c) {
+        if (c.arg(2) == 0x100)
+            return 0xffffffffu; // GetCurrentProcess's handle
+        _lastError = 87;        // ERROR_INVALID_PARAMETER
+        return 0u;
+    });
     stdcall(k, "GetCurrentThreadId", 0, [](Cpu &) { return 0x104u; });
     stdcall(k, "GetLastError", 0, [this](Cpu &) { return _lastError; });
     stdcall(k, "SetLastError", 1, [this](Cpu &c) {
@@ -861,12 +884,139 @@ void Win32Process::addStandIns() {
     addUserStandIns();
     addRegistryStandIns();
     addJoystickStandIns();
+    addGdiStandIns();
+    addMidiStandIns();
 
     // Text: code page 1252, mapped to Unicode's first 256 characters (the
     // C runtime's locale tables are built from these; the "C" locale only
     // looks at ASCII).
     stdcall(k, "GetACP", 0, [](Cpu &) { return 1252u; });
     stdcall(k, "GetOEMCP", 0, [](Cpu &) { return 437u; });
+    // GetLocaleInfoA/W(locale, type, out, its length in characters): the
+    // one locale, US English, its values as Windows gives them; a length
+    // of 0 asks for the room needed. LOCALE_NOUSEROVERRIDE and the like,
+    // in the type's top bits, change nothing here.
+    auto localeInfo = [this](Cpu &c, bool wide) {
+        static const std::map<uint32_t, const char *> kInfo = {
+            {0x01, "0409"},
+            {0x02, "English (United States)"},
+            {0x03, "ENU"},
+            {0x04, "English"},
+            {0x05, "1"},
+            {0x06, "United States"},
+            {0x07, "USA"},
+            {0x08, "United States"},
+            {0x09, "0409"},
+            {0x0a, "1"},
+            {0x0b, "437"},
+            {0x0c, ","},
+            {0x0d, "0"},
+            {0x0e, "."},
+            {0x0f, ","},
+            {0x10, "3;0"},
+            {0x11, "2"},
+            {0x12, "1"},
+            {0x13, "0123456789"},
+            {0x14, "$"},
+            {0x15, "USD"},
+            {0x16, "."},
+            {0x17, ","},
+            {0x18, "3;0"},
+            {0x19, "2"},
+            {0x1a, "2"},
+            {0x1b, "0"},
+            {0x1c, "0"},
+            {0x1d, "/"},
+            {0x1e, ":"},
+            {0x1f, "M/d/yyyy"},
+            {0x20, "dddd, MMMM dd, yyyy"},
+            {0x21, "0"},
+            {0x22, "0"},
+            {0x23, "0"},
+            {0x24, "1"},
+            {0x25, "0"},
+            {0x26, "0"},
+            {0x27, "0"},
+            {0x28, "AM"},
+            {0x29, "PM"},
+            {0x2a, "Monday"},
+            {0x2b, "Tuesday"},
+            {0x2c, "Wednesday"},
+            {0x2d, "Thursday"},
+            {0x2e, "Friday"},
+            {0x2f, "Saturday"},
+            {0x30, "Sunday"},
+            {0x31, "Mon"},
+            {0x32, "Tue"},
+            {0x33, "Wed"},
+            {0x34, "Thu"},
+            {0x35, "Fri"},
+            {0x36, "Sat"},
+            {0x37, "Sun"},
+            {0x38, "January"},
+            {0x39, "February"},
+            {0x3a, "March"},
+            {0x3b, "April"},
+            {0x3c, "May"},
+            {0x3d, "June"},
+            {0x3e, "July"},
+            {0x3f, "August"},
+            {0x40, "September"},
+            {0x41, "October"},
+            {0x42, "November"},
+            {0x43, "December"},
+            {0x44, "Jan"},
+            {0x45, "Feb"},
+            {0x46, "Mar"},
+            {0x47, "Apr"},
+            {0x48, "May"},
+            {0x49, "Jun"},
+            {0x4a, "Jul"},
+            {0x4b, "Aug"},
+            {0x4c, "Sep"},
+            {0x4d, "Oct"},
+            {0x4e, "Nov"},
+            {0x4f, "Dec"},
+            {0x50, ""},
+            {0x51, "-"},
+            {0x52, "3"},
+            {0x53, "0"},
+            {0x54, "1"},
+            {0x55, "0"},
+            {0x56, "1"},
+            {0x57, "0"},
+            {0x1001, "English"},
+            {0x1002, "United States"},
+            {0x1003, "h:mm:ss tt"},
+            {0x1004, "1252"},
+            {0x1009, "1"},
+        };
+        const auto it = kInfo.find(c.arg(1) & 0x0fffffff);
+        if (it == kInfo.end()) {
+            _lastError = 1004; // ERROR_INVALID_FLAGS
+            return 0u;
+        }
+        const std::string_view text = it->second;
+        const uint32_t needed = uint32_t(text.size() + 1);
+        const uint32_t room = c.arg(3);
+        if (room == 0)
+            return needed;
+        const uint32_t unit = wide ? 2 : 1;
+        if (room < needed || !c.valid(c.arg(2), needed * unit)) {
+            _lastError = 122; // ERROR_INSUFFICIENT_BUFFER
+            return 0u;
+        }
+        for (uint32_t i = 0; i < needed; ++i) {
+            const uint8_t ch = i < text.size() ? uint8_t(text[i]) : 0;
+            if (wide)
+                c.write16(c.arg(2) + 2 * i, ch);
+            else
+                c.write8(c.arg(2) + i, ch);
+        }
+        return needed;
+    };
+    stdcall(k, "GetLocaleInfoA", 4, [localeInfo](Cpu &c) { return localeInfo(c, false); });
+    stdcall(k, "GetLocaleInfoW", 4, [localeInfo](Cpu &c) { return localeInfo(c, true); });
     stdcall(k, "GetCPInfo", 2, [](Cpu &c) {
         const uint32_t p = c.arg(1);
         if (!c.valid(p, 20))
