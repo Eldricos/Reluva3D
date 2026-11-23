@@ -689,6 +689,36 @@ void Win32Process::addUserStandIns() {
             _messages.erase(it);
         return 1u;
     });
+    // GetMessageA(out, window, first, last): PeekMessageA's, waiting for a
+    // message. Returns 0 for WM_QUIT, and when the process is ending.
+    stdcall(u, "GetMessageA", 4, [this](Cpu &c) {
+        const uint32_t out = c.arg(0);
+        const uint32_t hwnd = c.arg(1);
+        const uint32_t first = c.arg(2);
+        const uint32_t last = c.arg(3);
+        auto matches = [&](const Message &m) {
+            return (hwnd == 0 || m.window == hwnd || m.message == kWmQuit) &&
+                   ((first == 0 && last == 0) || (m.message >= first && m.message <= last));
+        };
+        auto found = [&] { return std::find_if(_messages.begin(), _messages.end(), matches) != _messages.end(); };
+        while (!found()) {
+            runThreads();
+            if (idle)
+                idle();
+            if (!found() && !wait(found, 10) && ending())
+                return 0u;
+        }
+        auto it = std::find_if(_messages.begin(), _messages.end(), matches);
+        if (!c.valid(out, 28))
+            return uint32_t(-1);
+        const uint32_t fields[7] = {it->window,     it->message,       it->wParam,       it->lParam,
+                                    milliseconds(), uint32_t(cursorX), uint32_t(cursorY)};
+        for (int i = 0; i < 7; ++i)
+            c.write32(out + 4 * uint32_t(i), fields[i]);
+        const bool quit = it->message == kWmQuit;
+        _messages.erase(it);
+        return quit ? 0u : 1u;
+    });
     stdcall(u, "DispatchMessageA", 1, [this](Cpu &c) {
         const uint32_t m = c.arg(0);
         if (!c.valid(m, 16))

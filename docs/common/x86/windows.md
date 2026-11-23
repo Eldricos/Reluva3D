@@ -73,7 +73,9 @@ C++ library have pages of their own ([directx.md](directx.md),
   - `GetWindow` and `GetTopWindow` among windows in the order they were
     made, and `GetClassInfoA` for a class's style and procedure;
   - one message queue, which the engine posts its input to and
-    `PeekMessageA` reads, calling `idle` when it's empty;
+    `PeekMessageA` reads, calling `idle` when it's empty; `GetMessageA`
+    waits for a message (calling `idle`, and letting other threads run),
+    and gives up when the process is ending;
   - `DispatchMessageA` and `TranslateMessage`;
   - `DefWindowProcA` destroys a window it's asked to close;
   - frames and captions are Windows 98's sizes;

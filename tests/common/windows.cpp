@@ -415,6 +415,12 @@ static void testWindowsAndRegistry() {
     CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 1 && cpu.read32(msg + 4) == 0x102 &&
           cpu.read32(msg + 8) == 'q');
     CHECK((seen == std::vector<uint32_t>{0x100}));
+    // GetMessageA takes what's queued, and says 0 for WM_QUIT.
+    process.postMessage(hwnd, 0x400, 7, 0); // WM_USER
+    CHECK(!cpu.call(fn("USER32.dll", "GetMessageA"), {msg, 0, 0, 0}, r) && r == 1 && cpu.read32(msg + 4) == 0x400 &&
+          cpu.read32(msg + 8) == 7);
+    process.postMessage(hwnd, 0x12, 5, 0); // WM_QUIT
+    CHECK(!cpu.call(fn("USER32.dll", "GetMessageA"), {msg, 0, 0, 0}, r) && r == 0 && cpu.read32(msg + 8) == 5);
     CHECK(!cpu.call(fn("USER32.dll", "PostQuitMessage"), {3}, r));
     CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, hwnd, 0, 0, 1}, r) && r == 1 &&
           cpu.read32(msg + 4) == 0x12 && cpu.read32(msg + 8) == 3);
