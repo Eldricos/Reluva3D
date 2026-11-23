@@ -50,7 +50,7 @@ int cmdRun(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool legoisland run <game folder> [-log] [-files] [-limit instructions] "
-            "[-trace count] [-calls count] [-memory MB] [-save folder] [-shots folder] [-every frames] [-at address]... [-watch address,bytes] [-click frame@x,y]... [-drag frame@x,y:x,y,frames]... [-key frame@key,frames]... [-fixed-clock instructions-per-ms] [-until frame]\n");
+            "[-trace count] [-calls count] [-memory MB] [-save folder] [-shots folder] [-every frames] [-at address]... [-watch address,bytes] [-click frame@x,y]... [-drag frame@x,y:x,y,frames]... [-key frame@key,frames]... [-fixed-clock instructions-per-ms] [-until frame] [-speed frames]\n");
         return 2;
     }
     // A line at a time: a long run is often stopped, and what it said so far is wanted.
@@ -58,7 +58,10 @@ int cmdRun(int argc, char **argv) {
     bool log = false;
     bool files = false;
     uint64_t limit = 4000000000ull;
-    size_t traceCount = 32;
+    // -trace: the last so many instructions kept, for a failure's report.
+    // Watching each one runs the program without the JIT or the block
+    // cache, many times slower, so it's off unless asked for.
+    size_t traceCount = 0;
     size_t callCount = 40;
     uint32_t memoryMb = 512;
     std::string saveDir;
@@ -109,6 +112,8 @@ int cmdRun(int argc, char **argv) {
     uint64_t instructionsPerMs = 0;
     // -until: the run stops at this frame shown, as it should.
     uint64_t untilFrame = 0;
+    // -speed: how fast frames are shown, over each so many.
+    uint64_t speedEvery = 0;
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
         if (arg == "-log")
@@ -134,6 +139,8 @@ int cmdRun(int argc, char **argv) {
             instructionsPerMs = std::max<uint64_t>(1, std::strtoull(argv[++a], nullptr, 0));
         } else if (arg == "-until" && a + 1 < argc) {
             untilFrame = std::strtoull(argv[++a], nullptr, 0);
+        } else if (arg == "-speed" && a + 1 < argc) {
+            speedEvery = std::strtoull(argv[++a], nullptr, 0);
         } else if (arg == "-drag" && a + 1 < argc) {
             unsigned long long frame = 0;
             unsigned long long count = 10;
@@ -193,8 +200,20 @@ int cmdRun(int argc, char **argv) {
         };
         process.idleTick = [&idleMs] { ++idleMs; };
     }
+    auto speedFrom = std::chrono::steady_clock::now();
+    uint64_t speedInstructions = 0;
     game.directX().presented = [&](const x86::DirectX::Frame &f) {
         frames++;
+        if (speedEvery && frames % speedEvery == 0) {
+            const auto now = std::chrono::steady_clock::now();
+            const double seconds = std::max(std::chrono::duration<double>(now - speedFrom).count(), 1e-6);
+            std::printf("[speed] frames %llu to %llu: %.1f a second, %.1f million instructions a second\n",
+                        static_cast<unsigned long long>(frames - speedEvery + 1),
+                        static_cast<unsigned long long>(frames), double(speedEvery) / seconds,
+                        double(cpu.executed() - speedInstructions) / 1e6 / seconds);
+            speedFrom = now;
+            speedInstructions = cpu.executed();
+        }
         if (untilFrame && frames == untilFrame)
             cpu.requestStop();
         // A click: pressed at its frame, let go at the next, where the
@@ -256,7 +275,7 @@ int cmdRun(int argc, char **argv) {
 
     // The last instructions and stand-ins, to show where a failure was;
     // with -log, every stand-in called, repeats counted.
-    std::vector<uint32_t> recent(traceCount);
+    std::vector<uint32_t> recent(std::max<size_t>(traceCount, 1));
     size_t recentAt = 0;
     // -at: the registers, and the stack's first words, each time the program
     // gets to an address; text where one points at some.
@@ -283,22 +302,24 @@ int cmdRun(int argc, char **argv) {
             std::printf("[store] %08x <- %08x (%d bytes) at %s\n", address, value, size, where(game, c.eip).c_str());
         };
     }
-    cpu.trace = [&](x86::Cpu &c) {
-        recent[recentAt++ % recent.size()] = c.eip;
-        if (at.empty() || std::find(at.begin(), at.end(), c.eip) == at.end())
-            return;
-        std::printf("[at] %s:", where(game, c.eip).c_str());
-        const char *names[] = {"eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"};
-        for (int r = 0; r < 8; ++r) {
-            std::printf(" %s", names[r]);
-            show(c, c.reg[r]);
-        }
-        std::printf("\n     stack:");
-        for (uint32_t i = 0; i < 6; ++i)
-            if (c.valid(c.reg[x86::Cpu::ESP] + 4 * i, 4))
-                show(c, c.read32(c.reg[x86::Cpu::ESP] + 4 * i));
-        std::printf("\n");
-    };
+    if (traceCount || !at.empty())
+        cpu.trace = [&](x86::Cpu &c) {
+            if (traceCount)
+                recent[recentAt++ % recent.size()] = c.eip;
+            if (at.empty() || std::find(at.begin(), at.end(), c.eip) == at.end())
+                return;
+            std::printf("[at] %s:", where(game, c.eip).c_str());
+            const char *names[] = {"eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"};
+            for (int r = 0; r < 8; ++r) {
+                std::printf(" %s", names[r]);
+                show(c, c.reg[r]);
+            }
+            std::printf("\n     stack:");
+            for (uint32_t i = 0; i < 6; ++i)
+                if (c.valid(c.reg[x86::Cpu::ESP] + 4 * i, 4))
+                    show(c, c.read32(c.reg[x86::Cpu::ESP] + 4 * i));
+            std::printf("\n");
+        };
     std::deque<std::string> calls;
     std::string last;
     unsigned repeats = 0;
@@ -334,9 +355,12 @@ int cmdRun(int argc, char **argv) {
                     static_cast<unsigned long long>(cpu.executed()), e.message.c_str());
         for (const std::string &c : calls)
             std::printf(" %s", c.c_str());
-        std::printf("\nlast instructions:");
-        for (size_t i = recentAt > recent.size() ? recentAt - recent.size() : 0; i < recentAt; ++i)
-            std::printf(" %s", where(game, recent[i % recent.size()]).c_str());
+        std::printf("\nwhere: %s", where(game, cpu.faultEip ? cpu.faultEip : cpu.eip).c_str());
+        if (traceCount) {
+            std::printf("\nlast instructions:");
+            for (size_t i = recentAt > recent.size() ? recentAt - recent.size() : 0; i < recentAt; ++i)
+                std::printf(" %s", where(game, recent[i % recent.size()]).c_str());
+        }
         std::printf("\nframes shown: %llu\n", static_cast<unsigned long long>(frames));
         return 1;
     };
@@ -398,7 +422,7 @@ const reluva::tool::Commands
                   {"run",
                    "<game folder> [-log] [-files] [-limit instructions] [-trace count] [-calls count] [-shots folder] "
                    "[-click frame@x,y]... [-drag frame@x,y:x,y,frames]... [-key frame@key,frames]... "
-                   "[-fixed-clock instructions-per-ms] [-until frame]",
+                   "[-fixed-clock instructions-per-ms] [-until frame] [-speed frames]",
                    "run ISLE.EXE and LEGO1.DLL in the x86 interpreter, and say how far they get: what nothing "
                    "stands in for, the stand-ins called, the frames shown, where a failure was",
                    cmdRun},

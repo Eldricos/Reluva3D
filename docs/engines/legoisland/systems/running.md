@@ -282,8 +282,12 @@ saved games are kept with it.
 `GameProcess` (`src/engines/legoisland/host/game_process.cpp`) loads and
 starts the program. `reluva-tool legoisland run <game folder>` runs it and
 reports how far it gets: the functions nothing stands in for, by DLL; on
-a failure, the last stand-ins called and the last instructions (as
-module+offset); the frames shown, and how fast it ran. `-log` prints
+a failure, the last stand-ins called and where it was (as
+module+offset); the frames shown, and how fast it ran. `-trace <count>`
+keeps the last so many instructions for a failure's report too, which,
+as `-at` does, runs the program without the JIT, many times slower;
+`-speed <frames>` prints how many frames a second it shows over each so
+many. `-log` prints
 every stand-in called (and, for `QueryInterface`, the interface asked
 for), `-files` each file the program asks for, and
 `-save <folder>` lets it write, `-shots <folder>` saves every
