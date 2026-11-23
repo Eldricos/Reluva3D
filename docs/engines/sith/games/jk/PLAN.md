@@ -87,7 +87,12 @@ reaches its menus; then DirectSound; then a level.
    `IDirect3D`, which the emulator hasn't; it runs at 200 to 500 million
    instructions a second ([systems/hosting.md](systems/hosting.md)). See
    [The gate](#the-gate).
-6. **The game** (next), by the gate's choice.
+6. **The game** (under way), hosted, as the gate chose: Direct3D 1's
+   device list, DirectPlay with no connections and windows activated as
+   Windows does take `JK.EXE` to its display mode and first frame
+   ([systems/hosting.md](systems/hosting.md)). Next: GDI's fonts and
+   text, then Direct3D 1's devices, until it reaches its menus; then
+   DirectSound; then a level.
 7. **Mysteries of the Sith.**
 
 ## Decisions
@@ -101,3 +106,4 @@ reaches its menus; then DirectSound; then a level.
 | November 2026 | The data layer and viewer before choosing native or hosted | Needed either way |
 | November 2026 | Published write-ups of the formats by the editing community are used for facts only, each checked on the game's files | Allowed by CONTRIBUTING.md, as for Birth of the Federation's editor |
 | November 2026 | Decompilation-based rebuilds of the game (OpenJKDF2 and the like) aren't read, for facts or code | Their code is a function-for-function rebuild of `JK.EXE`'s; reading it would make copying hard to rule out. `JK.EXE` is studied directly instead |
+| November 2026 | Way B, hosting `JK.EXE`, chosen at the gate; the data layer and viewer kept | The trial showed B's cost bounded and shared with other DirectX 5 games, where A's is the whole engine ([The gate](#the-gate)) |

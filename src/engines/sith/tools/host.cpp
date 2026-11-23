@@ -13,6 +13,7 @@
 #include "emulation/x86/disasm.h"
 #include "emulation/x86/directx/dinput.h"
 #include "emulation/x86/directx/directx.h"
+#include "emulation/x86/dplay.h"
 #include "emulation/x86/win32.h"
 #include "engines/sith/folders.h"
 #include "image/image.h"
@@ -24,6 +25,7 @@
 #include <ctime>
 #include <functional>
 #include <cstdio>
+#include <deque>
 #include <map>
 #include <memory>
 #include <string>
@@ -70,22 +72,6 @@ void addAbsentDevices(x86::Win32Process &process, std::map<std::string, int> &ca
         absent("WINMM.dll", name, 3, 5);
     absent("WINMM.dll", "waveOutSetVolume", 2, 5);
     absent("WINMM.dll", "waveOutGetID", 2, 5);
-    // CoCreateInstance: REGDB_E_CLASSNOTREG; nothing it asks COM for is here.
-    absent("ole32.dll", "CoInitialize", 1, 0);
-    absent("ole32.dll", "CoCreateInstance", 5, 0x80040154);
-}
-
-// Calls the emulator stands in for in another form, answered by that one.
-void addForwards(x86::Win32Process &process, std::map<std::string, int> &calls) {
-    // WNDCLASSEXA is WNDCLASSA after a size, and with a small icon after.
-    const uint32_t registerClass = process.standIn("USER32.dll", "RegisterClassA");
-    process.provideStdcall("USER32.dll", "RegisterClassExA", 1, [&calls, registerClass](x86::Cpu &c) {
-        ++calls["USER32.dll!RegisterClassExA"];
-        uint32_t atom = 0;
-        if (c.call(registerClass, {c.arg(0) + 4}, atom))
-            return 0u;
-        return atom;
-    });
 }
 
 // Calls answered simply, as Windows would for a program that only asks.
@@ -224,7 +210,7 @@ void addSimple(x86::Win32Process &process, std::map<std::string, int> &calls) {
 int cmdHost(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool sith host <install> [-seconds N] [-args \"...\"] [-png file] "
-                             "[-files] [-write folder]\n");
+                             "[-files] [-calls] [-peek address] [-write folder]\n");
         return 2;
     }
     const std::filesystem::path install = argv[2];
@@ -232,6 +218,8 @@ int cmdHost(int argc, char **argv) {
     std::string args;
     std::string png;
     bool listFiles = false;
+    bool listCalls = false;
+    std::vector<uint32_t> peeks;
     std::filesystem::path writable = std::filesystem::temp_directory_path() / "reluva-sith-host";
     for (int i = 3; i < argc; ++i) {
         const std::string a = argv[i];
@@ -243,6 +231,10 @@ int cmdHost(int argc, char **argv) {
             png = argv[++i];
         else if (a == "-files")
             listFiles = true;
+        else if (a == "-calls")
+            listCalls = true;
+        else if (a == "-peek" && i + 1 < argc)
+            peeks.push_back(uint32_t(std::strtoul(argv[++i], nullptr, 16)));
         else if (a == "-write" && i + 1 < argc)
             writable = argv[++i];
     }
@@ -280,9 +272,11 @@ int cmdHost(int argc, char **argv) {
     // The program's and Smacker's threads each on a thread of this machine.
     process.useHostThreads();
     x86::DirectX directX(process);
+    x86::DirectPlay directPlay(process);
+    // The menus are drawn in 8-bit colour, at 640 by 480.
+    directX.modes.insert(directX.modes.begin(), {{640, 480, 8}, {800, 600, 8}, {1024, 768, 8}});
     x86::DirectInput directInput(process);
     addAbsentDevices(process, calls);
-    addForwards(process, calls);
     addSimple(process, calls);
 
     // SMACKW32.DLL as it shipped, then the program.
@@ -321,10 +315,20 @@ int cmdHost(int argc, char **argv) {
         if (std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count() > seconds)
             c.requestStop();
     };
+    // Every stand-in called, and the last few in order.
+    std::map<std::string, uint64_t> called;
+    std::deque<std::string> lastCalled;
+    if (listCalls)
+        cpu.nativeTrace = [&](x86::Cpu &, const std::string &name) {
+            ++called[name];
+            lastCalled.push_back(name);
+            if (lastCalled.size() > 40)
+                lastCalled.pop_front();
+        };
     uint64_t frames = 0;
     directX.presented = [&](const x86::DirectX::Frame &) { ++frames; };
     uint32_t exitCode = 0;
-    const Error err = process.start(*exe, exitCode);
+    const Error err = process.run(*exe, exitCode);
     const double took = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
 
     if (listFiles)
@@ -334,6 +338,12 @@ int cmdHost(int argc, char **argv) {
         std::printf("%zu files opened (-files lists them)\n", opened.size());
     for (const auto &[name, n] : calls)
         std::printf("trial stand-in called: %s x%d\n", name.c_str(), n);
+    for (const auto &[name, n] : called)
+        std::printf("called: %s x%llu\n", name.c_str(), (unsigned long long)n);
+    for (const std::string &name : lastCalled)
+        std::printf("called last: %s\n", name.c_str());
+    for (uint32_t a : peeks)
+        std::printf("at %08x: %08x\n", a, cpu.valid(a, 4) ? cpu.read32(a) : 0u);
     const x86::DirectX::Frame &frame = directX.frame();
     std::printf("frames shown: %llu, the last %dx%d\n", (unsigned long long)frames, frame.width, frame.height);
     if (!png.empty() && frame.width > 0) {
@@ -406,11 +416,13 @@ int cmdDisasm(int argc, char **argv) {
     return 0;
 }
 
-const Commands kCommands("sith", {
-                                     {"host", "<install> [-seconds N] [-args \"...\"] [-png file] [-files]",
-                                      "run the retail JK.EXE in the x86 emulator: how far it gets", cmdHost},
-                                     {"disasm", "<JK.EXE> <address> [count]",
-                                      "the program's instructions from an address (hexadecimal) on", cmdDisasm},
-                                 });
+const Commands kCommands("sith",
+                         {
+                             {"host",
+                              "<install> [-seconds N] [-args \"...\"] [-png file] [-files] [-calls] [-peek address]",
+                              "run the retail JK.EXE in the x86 emulator: how far it gets", cmdHost},
+                             {"disasm", "<JK.EXE> <address> [count]",
+                              "the program's instructions from an address (hexadecimal) on", cmdDisasm},
+                         });
 
 } // namespace

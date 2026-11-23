@@ -9,9 +9,9 @@ the retail `JK.EXE` run as it shipped in Reluva's x86 emulator
 ([docs/common/x86/](../../../../../common/x86/README.md)), with
 `SMACKW32.DLL` from the install, to see how far it gets and what it
 needs that the emulator hasn't. It gets through its start-up, reading its
-archives, strings, fonts and the menus' pictures, and stops where it
-looks for Direct3D's devices: it asks for Direct3D's first interface,
-which the emulator doesn't have.
+archives, strings, fonts and the menus' pictures, lists Direct3D's
+devices, sets the display mode and shows its first frame, and stops where
+it asks GDI for a font.
 
 ## How it works
 
@@ -53,18 +53,37 @@ it uses are DirectX 5's, by the identifiers in its data:
 5. It reads the fonts (`small0.sft`, `small1.sft`...) and the menus'
    pictures (`bkEsc.bm`, the arrows, sliders and buttons).
 6. At `0x429310` it asks its DirectDraw for `IDirect3D` and lists
-   Direct3D's devices with a callback at `0x42ba60`; with no `IDirect3D`
-   it returns 0 *(from the code)*. The list of devices it builds
-   (`0x421fc0`, `0x4273e0`; entries of 680 bytes) is then empty, and it
-   reads through its null pointer at `0x414396`, 51 million instructions
-   in.
+   Direct3D's devices with a callback at `0x42ba60`, which copies the
+   hardware description (204 bytes, DirectX 5's) if its colour model isn't
+   0, and the software one if it is *(from the code)*. With no `IDirect3D`
+   it returned 0, its list of devices (`0x421fc0`, `0x4273e0`; entries of
+   680 bytes) stayed empty, and it read through a null pointer at
+   `0x414396`.
+7. It picks the display mode nearest 640 by 480 in 8-bit colour from
+   those DirectDraw listed (`0x424340`), and says `ERR_NEED_256_COLOR`
+   ("Jedi Knight requires that your display is set to at least 256
+   Colors.") if the nearest isn't 8-bit *(from the code)*.
+8. It creates DirectPlay (`CoCreateInstance`, `IDirectPlay3`) and lists
+   its connections (`0x42fa40`), without checking the object was made.
+9. It sets up DirectInput's keyboard and mouse, and enters its main loop
+   (`0x50e8f0`): `PeekMessageA`, and between messages a step of its
+   state machine (`0x4037e0`). The machine stands still until the window
+   procedure (`0x50ecb0`) has had `WM_ACTIVATEAPP` and `WM_ACTIVATE`
+   *(from the code)*; the window is made with `WS_VISIBLE`, which
+   activates it.
+10. Active, it takes the focus, sets the display to 640 by 480 in 8-bit
+    colour, makes its primary surface and palette and clears the screen
+    (the first frame), then makes an Arial font through GDI
+    (`CreateFontA`) and stops there: GDI's fonts and text aren't stood in
+    for yet.
 
 On the real Windows of the time Direct3D always had its software
-devices, so the program never met an empty list.
+devices, DirectPlay was installed with DirectX, and 8-bit modes were
+offered, so the program never met their absence.
 
 ### Speed
 
-The 51 million instructions ran in 0.1 to 0.2 seconds, 200 to 500
+The 51 million instructions of the start-up ran in 0.1 to 0.2 seconds, 200 to 500
 million a second with the emulator's native code: well beyond the
 Pentiums of 1997 the program was written for.
 
@@ -74,15 +93,16 @@ Pentiums of 1997 the program was written for.
 C) with CD 1's copy as drive D, for up to `-seconds` seconds, and says
 what it opened, wrote to the registry, printed for a debugger or showed
 in a message box, and where it stopped (registers, and the return
-addresses on the stack). `-png` saves the last frame. `reluva-tool sith
-disasm <JK.EXE> <address>` shows the program's instructions from an
-address.
+addresses on the stack). `-png` saves the last frame, `-calls` lists every stand-in called
+and the last 40 in order, and `-peek <address>` prints a word of the
+program's memory at the end. It offers the display modes of 8-bit colour
+too, which the menus need. `reluva-tool sith disasm <JK.EXE> <address>`
+shows the program's instructions from an address.
 
 For the trial, `host.cpp` answers a few things itself, each as Windows
 would: no sound card (`DirectSoundCreate`, `waveOut`), no joystick, no CD
-audio (MCI), no DirectPlay lobby, no COM classes; a few USER32, KERNEL32
-and COMCTL32 calls the emulator lacks (`RegisterClassExA`, the console,
-time conversions, painting). None of this is how the game would be run:
+audio (MCI), no DirectPlay lobby; a few USER32, KERNEL32 and COMCTL32
+calls the emulator lacks (the console, time conversions, painting). None of this is how the game would be run:
 it's to see how far it gets.
 
 What it would take to run the game this way, from what the run and the
@@ -90,11 +110,11 @@ imports show:
 
 | Need | What | How much |
 |---|---|---|
-| Direct3D 1 and 2 | `IDirect3D` and `IDirect3D2`, their devices with execute buffers (`IDirect3DExecuteBuffer`, which version 1 draws with), viewports, materials and textures 1 and 2, on the emulator's Direct3D 7 rasterizer | The most; new shared code, for any DirectX 5 game |
+| Direct3D 1 and 2 | `IDirect3D` and `IDirect3D2` (their device lists are there), their devices with execute buffers (`IDirect3DExecuteBuffer`, which version 1 draws with), viewports, materials and textures 1 and 2, on the emulator's Direct3D 7 rasterizer | The most; new shared code, for any DirectX 5 game |
 | DirectSound | Buffers and 3D buffers on Reluva's mixer | New shared code |
 | Windows | About 75 calls the emulator lacks: GDI's palettes, fonts and DIB sections, dialogs, `GetMessageA`, `CompareString`, WINMM's timer events for Smacker | Small each, in the shared stand-ins |
 | CD audio | MCI's `cdaudio` device, playing the CDs' music tracks, which copies of their files don't hold | To decide: from a CD image's tracks, or none |
-| DirectPlay 3 | Multiplayer sessions, on Reluva's network code | Later |
+| DirectPlay 3 | Multiplayer sessions, on Reluva's network code; for now the class with no connections ([dplay.md](../../../../../common/x86/dplay.md)) | Later |
 
 ## Sources and checks
 
