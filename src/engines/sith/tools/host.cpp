@@ -5,6 +5,7 @@
 // emulator: how far it gets, and what it asks for that nothing stands in
 // for (docs/engines/sith/games/jk/systems/hosting.md).
 
+#include "common/events.h"
 #include "common/fs.h"
 #include "common/stream.h"
 #include "devtools/tool.h"
@@ -20,6 +21,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <cstdlib>
 #include <chrono>
 #include <ctime>
@@ -29,6 +31,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -36,6 +39,7 @@ namespace {
 using namespace reluva::tool;
 using reluva::Error;
 namespace x86 = reluva::x86;
+namespace key = reluva::key;
 namespace sith = reluva::sith;
 
 constexpr const char *kRegistryKey = "HKEY_LOCAL_MACHINE\\Software\\LucasArts Entertainment Company\\JediKnight\\v1.0";
@@ -205,12 +209,51 @@ void addSimple(x86::Win32Process &process, std::map<std::string, int> &calls) {
     simple("USER32.dll", "EndPaint", 2, value(1));
 }
 
+// A key pressed at a moment of the run (-keys).
+struct KeyPress {
+    double at = 0; // seconds from the start
+    uint32_t virtualKey = 0;
+    uint32_t scanCode = 0;
+    bool down = false;
+    bool up = false;
+};
+
+// "<seconds>:<key>,..." as key presses; false if one can't be read.
+bool parseKeys(const std::string &text, std::vector<KeyPress> &out) {
+    static const std::map<std::string, uint32_t> kNames = {
+        {"esc", key::kEscape}, {"enter", key::kReturn}, {"space", key::kSpace}, {"tab", key::kTab},
+        {"up", key::kUp},      {"down", key::kDown},    {"left", key::kLeft},   {"right", key::kRight}};
+    size_t at = 0;
+    while (at < text.size()) {
+        size_t end = text.find(',', at);
+        if (end == std::string::npos)
+            end = text.size();
+        const std::string item = text.substr(at, end - at);
+        at = end + 1;
+        const size_t colon = item.find(':');
+        if (colon == std::string::npos)
+            return false;
+        const std::string name = item.substr(colon + 1);
+        uint32_t code = 0;
+        if (auto it = kNames.find(name); it != kNames.end())
+            code = it->second;
+        else if (name.size() == 1 && std::isalnum(uint8_t(name[0])))
+            code = uint32_t(std::tolower(uint8_t(name[0])));
+        KeyPress k;
+        k.at = std::atof(item.substr(0, colon).c_str());
+        if (!code || !x86::windowsKey(code, k.virtualKey, k.scanCode))
+            return false;
+        out.push_back(k);
+    }
+    return true;
+}
+
 // JK.EXE under the emulator for up to `seconds`, from `install` with CD 1
 // in drive D, saying what it opens, writes and shows.
 int cmdHost(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool sith host <install> [-seconds N] [-args \"...\"] [-png file] "
-                             "[-files] [-calls] [-peek address] [-write folder]\n");
+                             "[-files] [-calls] [-keys \"s:key,...\"] [-peek address] [-write folder]\n");
         return 2;
     }
     const std::filesystem::path install = argv[2];
@@ -220,6 +263,7 @@ int cmdHost(int argc, char **argv) {
     bool listFiles = false;
     bool listCalls = false;
     std::vector<uint32_t> peeks;
+    std::string keysArg;
     std::filesystem::path writable = std::filesystem::temp_directory_path() / "reluva-sith-host";
     for (int i = 3; i < argc; ++i) {
         const std::string a = argv[i];
@@ -233,6 +277,8 @@ int cmdHost(int argc, char **argv) {
             listFiles = true;
         else if (a == "-calls")
             listCalls = true;
+        else if (a == "-keys" && i + 1 < argc)
+            keysArg = argv[++i];
         else if (a == "-peek" && i + 1 < argc)
             peeks.push_back(uint32_t(std::strtoul(argv[++i], nullptr, 16)));
         else if (a == "-write" && i + 1 < argc)
@@ -309,11 +355,37 @@ int cmdHost(int argc, char **argv) {
             return 1;
         }
 
-    // Stopped after `seconds` of this machine's time.
+    std::vector<KeyPress> presses;
+    if (!parseKeys(keysArg, presses)) {
+        std::fprintf(stderr, "-keys: \"<seconds>:<key>,...\", a key being a letter, a digit, esc, enter, space, "
+                             "tab, up, down, left or right\n");
+        return 2;
+    }
+    // Stopped after `seconds` of this machine's time; the keys pressed at
+    // their times, each held a tenth of a second.
     const auto start = std::chrono::steady_clock::now();
-    process.onSlice = [&](x86::Cpu &c) {
-        if (std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count() > seconds)
+    auto tick = [&](x86::Cpu &c) {
+        const double now = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        for (KeyPress &k : presses) {
+            if (!k.down && now >= k.at) {
+                process.key(k.virtualKey, k.scanCode, true);
+                k.down = true;
+            } else if (k.down && !k.up && now >= k.at + 0.1) {
+                process.key(k.virtualKey, k.scanCode, false);
+                k.up = true;
+            }
+        }
+        if (now > seconds) {
             c.requestStop();
+            process.requestExit(); // for a thread waiting on a message
+        }
+    };
+    process.onSlice = tick;
+    // When every thread waits (for a message, say), the clock and the keys
+    // still move.
+    process.idleTick = [&] {
+        tick(cpu);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     };
     // Every stand-in called, and the last few in order.
     std::map<std::string, uint64_t> called;
@@ -416,13 +488,14 @@ int cmdDisasm(int argc, char **argv) {
     return 0;
 }
 
-const Commands kCommands("sith",
-                         {
-                             {"host",
-                              "<install> [-seconds N] [-args \"...\"] [-png file] [-files] [-calls] [-peek address]",
-                              "run the retail JK.EXE in the x86 emulator: how far it gets", cmdHost},
-                             {"disasm", "<JK.EXE> <address> [count]",
-                              "the program's instructions from an address (hexadecimal) on", cmdDisasm},
-                         });
+const Commands kCommands(
+    "sith",
+    {
+        {"host",
+         "<install> [-seconds N] [-args \"...\"] [-png file] [-files] [-calls] [-keys \"s:key,...\"] [-peek address]",
+         "run the retail JK.EXE in the x86 emulator: how far it gets", cmdHost},
+        {"disasm", "<JK.EXE> <address> [count]", "the program's instructions from an address (hexadecimal) on",
+         cmdDisasm},
+    });
 
 } // namespace

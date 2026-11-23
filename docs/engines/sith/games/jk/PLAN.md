@@ -89,10 +89,11 @@ reaches its menus; then DirectSound; then a level.
    [The gate](#the-gate).
 6. **The game** (under way), hosted, as the gate chose: Direct3D 1's
    device list, DirectPlay with no connections, windows activated as
-   Windows does and GDI's text take `JK.EXE` through its start-up to the
-   opening's title and crawl ([systems/hosting.md](systems/hosting.md)).
-   Next: input, to go on to the menus; then Direct3D 1's devices; then
-   DirectSound; then a level.
+   Windows does, GDI's text and `GetMessageA` take `JK.EXE` through its
+   opening to its main menu ([systems/hosting.md](systems/hosting.md)).
+   Next: a level (Direct3D 1's devices, the cut scenes' Smacker and
+   sound); the game in Reluva's window, with its input; then
+   DirectSound.
 7. **Mysteries of the Sith.**
 
 ## Decisions

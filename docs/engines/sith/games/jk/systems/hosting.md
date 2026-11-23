@@ -10,8 +10,9 @@ the retail `JK.EXE` run as it shipped in Reluva's x86 emulator
 `SMACKW32.DLL` from the install, to see how far it gets and what it
 needs that the emulator hasn't. It gets through its start-up, reading its
 archives, strings, fonts and the menus' pictures, lists Direct3D's
-devices, sets the display mode, and shows the opening's title and crawl,
-which it draws itself.
+devices, sets the display mode, shows the opening's title and crawl,
+which it draws itself, and with a few keys pressed reaches its main
+menu.
 
 ## How it works
 
@@ -80,6 +81,13 @@ it uses are DirectX 5's, by the identifiers in its data:
     and then the opening crawl over a field of stars, drawn by its own
     8-bit renderer into surfaces it locks, about 15 frames a second.
     It runs on with no input, past 40 seconds.
+12. Esc ends the crawl. A first run asks for a player (*New Player*:
+    a name, and Easy, Medium or Hard), then shows the main menu
+    (*Single Player*, *Multiplayer*, *Quit*; *Players*, *Cutscenes*,
+    *Setup*, *Credits*). The menus are drawn in 8-bit colour from the
+    install's pictures and fonts, with no Direct3D; while they're up the
+    main loop waits for messages (`GetMessageA`) rather than polling, and
+    typing goes through `WM_CHAR`.
 
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were
@@ -98,8 +106,11 @@ C) with CD 1's copy as drive D, for up to `-seconds` seconds, and says
 what it opened, wrote to the registry, printed for a debugger or showed
 in a message box, and where it stopped (registers, and the return
 addresses on the stack). `-png` saves the last frame, `-calls` lists every stand-in called
-and the last 40 in order, and `-peek <address>` prints a word of the
-program's memory at the end. It offers the display modes of 8-bit colour
+and the last 40 in order, `-keys "<seconds>:<key>,..."` presses keys at
+those moments (letters, digits, `esc`, `enter`, `space`, `tab` and the
+arrows), and `-peek <address>` prints a word of the program's memory at
+the end. `-keys "8:esc,11:k,11.4:y,11.8:l,12.2:e,13:enter"` goes
+through the crawl and the first player's name to the main menu. It offers the display modes of 8-bit colour
 too, which the menus need. `reluva-tool sith disasm <JK.EXE> <address>`
 shows the program's instructions from an address.
 
