@@ -19,9 +19,14 @@ importing only MSVCRT; `loadMsvcp60` loads it into a process.
 - Exported vftables, in order:
   - `ctype<char>`: destructor, `do_tolower` (range), `do_tolower` (char),
     `do_toupper` (range), `do_toupper` (char);
-  - `basic_streambuf`: destructor, `overflow`, `pbackfail`, `showmanyc`,
-    `underflow`, `uflow`, `xsgetn`, `xsputn`, `seekoff`, `seekpos`,
-    `setbuf`, `sync`, `imbue`.
+  - `basic_streambuf` and `basic_stringbuf`: destructor, `overflow`,
+    `pbackfail`, `showmanyc`, `underflow`, `uflow`, `xsgetn`, `xsputn`,
+    `seekoff`, `seekpos`, `setbuf`, `sync`, `imbue`;
+  - the streams: the deleting destructor alone.
+- Reading numbers takes a sign, then the digits of the base set (a `0x`
+  before hex digits), and for `float` a point and an exponent, and
+  converts them with MSVCRT's `strtol`, `strtoul` and `strtod`. A `bool`
+  reads and writes as 0 or 1: `boolalpha` isn't stood in for.
 - Open modes: in 1, out 2, ate 4, app 8, trunc 0x10, binary 0x20. State
   bits: eof 1, fail 2, bad 4.
 - File buffers read and write the `FILE` directly and keep no characters
@@ -63,18 +68,27 @@ reads, the vftables it builds for its own subclasses):
 | `istream`, `ostream` | 8, 4 + the ios | the vbtable pointer (the ios's offset is its second entry), the read count +4 |
 | `ifstream`, `ofstream`, `fstream` | ios at +0x5c, +0x58, +0x60 | filebuf at +8, +4, +0xc |
 | `istrstream`, `ostrstream` | ios at +0x58, +0x54 | |
+| `basic_stringbuf` | 0x4c | built inline by Star Trek: Armada (the streambuf's constructor, then `_Init(chars, n, _Mode(openmode))`); its inline `_Tidy` deletes the get area's start when bit 0 of +0x44 is set, then clears +0x3c and that bit. So the buffer always starts the get area. +0x38, +0x40 and +0x48 are ours |
+| `istringstream` | ios at +0x54 | stringbuf at +8 |
+| `iostream`, `stringstream`, `strstream` | ios at +0xc, +0x58, +0x5c | an istream, then an ostream at +8 (its vbtable gives the ios less 8); the buffer at +0xc. Armada builds `stringstream` and `strstream` inline, and calls `~basic_iostream` with `this` at +0xc, over the buffer it has just destroyed |
 | `ctype<char>` | 0x18 | built inline by LoadComp and a behaviour DLL: the reference count +4, `_Getctype`'s 16 bytes copied to +8, the table +0x10 |
 | `fpos<int>` | 24 | offset, a 64-bit position at +8, state +16 |
 
 ## Sources and checks
 
 - **Where the facts come from:** the C++ standard for what each function
-  does; the layouts were measured from LEGO Alpha Team's code (above).
+  does; the layouts were measured from LEGO Alpha Team's code (above),
+  and the string streams' from Star Trek: Armada's (its inline
+  `stringstream` at 0x484630, `istringstream` at 0x43a5fd, `strstream`
+  at 0x49cbb6, and the inline `_Tidy` at 0x4849aa).
 
 - It loads our MSVCP60 and calls it as a program would: strings in Visual
   C++ 6's layout, an `ifstream` reading lines and bytes, a string stream
   buffer growing as it's written (with a vftable built as the programs
-  build theirs), and `cerr` with numbers and `endl`.
+  build theirs), an `istringstream` reading numbers, a word and `ignore`,
+  a `stringstream` built as Armada builds it inline (written, read back,
+  and the fields its inline `_Tidy` reads), an `ostrstream` with `ends`,
+  and `cerr` with numbers and `endl`.
 - **Confidence:** published (the C++ standard); the layouts from the code unless marked.
 
 ## Used by
@@ -83,5 +97,9 @@ reads, the vftables it builds for its own subclasses):
   ([running.md](../../engines/netimmerse/games/legoalphateam/systems/running.md)).
 - **`storm3d`**: Star Trek: Armada's program imports it too
   ([hosting.md](../../engines/storm3d/games/armada/systems/hosting.md)): for it, `getline` into a string, `ws`,
-  `basic_string`'s constructor from part of another, `c_str` and
-  `char_traits<char>::copy`. Its string streams aren't there yet.
+  `basic_string`'s constructor from part of another, `c_str`,
+  `char_traits<char>::copy`, the string streams (`stringbuf`,
+  `istringstream`, `stringstream`, `iostream`, `ostrstream`'s
+  constructor and `strstream`'s destructor), `>>` for `int`, `unsigned`,
+  `float`, `bool` and a word, `<<` for `unsigned`, `unsigned long`,
+  `bool` and a character, `ends`, `ignore`, and `_FNan`.

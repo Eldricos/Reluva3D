@@ -20,6 +20,7 @@
 #include <set>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace reluva::x86 {
@@ -533,6 +534,17 @@ public:
         uint32_t classStyle = 0; // its class's (CS_DBLCLKS: it gets double clicks)
         uint32_t userData = 0;   // GWL_USERDATA
         bool enabled = true;
+        bool invalid = false; // to be painted again: WM_PAINT is due
+        // A dialog's: its procedure (the window has no other), and the
+        // result EndDialog gave, once it has.
+        uint32_t dialogProc = 0;
+        std::optional<uint32_t> dialogResult;
+        uint32_t owner = 0; // a dialog's
+        // A control's: its dialog, its identifier there, and a button's
+        // check (BST_CHECKED 1).
+        uint32_t parent = 0;
+        uint32_t id = 0;
+        uint32_t checked = 0;
     };
     /** The window with that handle, or null. */
     const Window *window(uint32_t handle) const;
@@ -641,6 +653,7 @@ private:
     void addSystemStandIns();
     void addUserStandIns();
     void addRegistryStandIns();
+    void addDialogStandIns();
     struct WindowClass {
         uint32_t proc = 0;
         uint32_t style = 0;
@@ -658,7 +671,8 @@ private:
             f(r);
     }
     std::map<uint32_t, Window> _windows;
-    uint32_t _focus = 0; // the window SetFocus gave the keyboard; 0 for the first
+    uint32_t _focus = 0;   // the window SetFocus gave the keyboard; 0 for the first
+    uint32_t _capture = 0; // the window SetCapture gave the mouse
     // GDI (win32_user.cpp): the objects made, and each device context's
     // selection and colours.
     uint32_t _nextGdiObject = 0;
@@ -680,6 +694,30 @@ private:
         uint32_t lParam;
     };
     std::vector<Message> _messages;
+    // SetTimer's, by window and identifier: WM_TIMER each `interval` ms.
+    struct WindowTimer {
+        uint32_t interval = 0;
+        uint64_t due = 0;  // in now()
+        uint32_t proc = 0; // TIMERPROC; 0 for the window's procedure
+    };
+    std::map<std::pair<uint32_t, uint32_t>, WindowTimer> _windowTimers;
+    uint32_t _nextWindowTimer = 1;
+    /**
+     * The next message for `window` (0: any) in [first, last] (0, 0: any),
+     * as Windows orders them: posted ones, then WM_PAINT for a window to be
+     * painted, then WM_TIMER for a timer that's due.
+     * @param remove Whether it's taken (a timer then starts over).
+     */
+    bool takeMessage(uint32_t window, uint32_t first, uint32_t last, bool remove, Message &out);
+    /** Hands a message to its window (or WM_TIMER to its TIMERPROC), as DispatchMessageA does. */
+    uint32_t dispatch(const Message &m);
+    /** From the program: lets time pass until a message may be there (one posted, a timer due). */
+    void awaitMessage(Cpu &c);
+    /**
+     * A resource of a module (by its base): `type` and `name` are numbers
+     * or (above 0xffff) the addresses of names. Its address and size.
+     */
+    std::optional<std::pair<uint32_t, uint32_t>> findResource(uint32_t instance, uint32_t type, uint32_t name);
     int _cursorShown = 0;
     struct RegistryKey {
         std::string path; // as first given

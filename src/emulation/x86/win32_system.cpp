@@ -397,6 +397,16 @@ void Win32Process::addSystemStandIns() {
         }
         return formatted(c, formatPicture(picture, t));
     });
+
+    // WINMM's sound outside DirectSound: no wave or auxiliary (CD audio)
+    // device, as on a machine without sound.
+    const char *w = "WINMM.dll";
+    stdcall(w, "PlaySoundA", 3, [](Cpu &) { return 0u; });
+    stdcall(w, "auxGetNumDevs", 0, [](Cpu &) { return 0u; });
+    const uint32_t kBadDeviceId = 2; // MMSYSERR_BADDEVICEID
+    stdcall(w, "auxGetDevCapsA", 3, [](Cpu &) { return kBadDeviceId; });
+    stdcall(w, "auxGetVolume", 2, [](Cpu &) { return kBadDeviceId; });
+    stdcall(w, "auxSetVolume", 2, [](Cpu &) { return kBadDeviceId; });
 }
 
 void Win32Process::trackEvent(uint32_t handle) {

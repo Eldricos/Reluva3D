@@ -377,6 +377,87 @@ static void testMsvcp60(const std::filesystem::path &tmp) {
           cpu.string(back, 3) == "abc");
     method(sb, "??1strstreambuf@std@@UAE@XZ", {});
 
+    // istringstream: its ios at +0x54; numbers, a bool, a word, then
+    // ignore to a delimiter.
+    const char *kIstr = "?$basic_istream@DU?$char_traits@D@std@@@std@@QAEAAV01@";
+    auto get = [&](uint32_t stream, const char *type, uint32_t to) {
+        method(stream, (std::string("??5") + kIstr + type + "@Z").c_str(), {to});
+    };
+    const uint32_t source = process.memory().alloc(16);
+    method(source, kCtorChars, {text(" 12 -7 0x1f 3.25 1 word; rest 9")});
+    const uint32_t iss = process.memory().alloc(0x54 + 0x34);
+    method(iss,
+           "??0?$basic_istringstream@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QAE@ABV?$basic_string@DU?$char_"
+           "traits@D@std@@V?$allocator@D@2@@1@H@Z",
+           {source, 1, 1});
+    const uint32_t issIos = iss + cpu.read32(cpu.read32(iss) + 4);
+    CHECK(issIos == iss + 0x54 && cpu.read32(issIos + 4) == 0);
+    const uint32_t value = process.memory().alloc(64);
+    get(iss, "AAH", value);
+    CHECK(cpu.read32(value) == 12);
+    get(iss, "AAH", value);
+    CHECK(cpu.read32(value) == uint32_t(-7));
+    cpu.write32(issIos + 0xc, 0x801); // hex, skipws
+    get(iss, "AAI", value);
+    CHECK(cpu.read32(value) == 0x1f);
+    cpu.write32(issIos + 0xc, 0x201); // dec, skipws
+    get(iss, "AAM", value);
+    CHECK(cpu.read32(value) == 0x40500000); // 3.25f
+    get(iss, "AA_N", value);
+    CHECK(cpu.read8(value) == 1);
+    CHECK(!cpu.call(fn("??5std@@YAAAV?$basic_istream@DU?$char_traits@D@std@@@0@AAV10@PAD@Z"), {iss, value}, r) &&
+          cpu.string(value) == "word;");
+    method(iss, "?ignore@?$basic_istream@DU?$char_traits@D@std@@@std@@QAEAAV12@HH@Z", {100, 't'});
+    CHECK(cpu.read32(iss + 4) == 5); // " rest"
+    get(iss, "AAH", value);
+    CHECK(cpu.read32(value) == 9 && cpu.read32(issIos + 4) == 1); // eof, not fail
+    get(iss, "AAH", value);
+    CHECK(cpu.read32(issIos + 4) == 3);
+    method(iss, "??_D?$basic_istringstream@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QAEXXZ", {});
+    method(source, kDtor, {});
+
+    // stringstream as the games build it inline: the vbtables, ios_base's
+    // constructor, iostream's, then stringbuf's at +0xc, and the vftable.
+    const char *kSs = "?$basic_stringstream@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@";
+    auto ssName = [&](const char *before, const char *after) { return std::string(before) + kSs + after; };
+    const uint32_t ss = process.memory().alloc(0x58 + 0x34);
+    cpu.write32(ss, fn(ssName("??_8", "7B?$basic_istream@DU?$char_traits@D@std@@@1@@").c_str()));
+    cpu.write32(ss + 8, fn(ssName("??_8", "7B?$basic_ostream@DU?$char_traits@D@std@@@1@@").c_str()));
+    method(ss + 0x58, "??0ios_base@std@@IAE@XZ", {});
+    cpu.write32(ss + 0x58, fn("??_7?$basic_ios@DU?$char_traits@D@std@@@std@@6B@"));
+    method(ss, "??0?$basic_iostream@DU?$char_traits@D@std@@@std@@QAE@PAV?$basic_streambuf@DU?$char_traits@D@std@@@1@@Z",
+           {ss + 0xc, 0});
+    method(ss + 0xc, "??0?$basic_stringbuf@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QAE@H@Z", {3});
+    cpu.write32(ss + 0x58, fn(ssName("??_7", "6B@").c_str()));
+    const uint32_t out = ss + 8;
+    const char *kOstr = "?$basic_ostream@DU?$char_traits@D@std@@@std@@QAEAAV01@";
+    method(out, (std::string("??6") + kOstr + "I@Z").c_str(), {4000000000u});
+    CHECK(!cpu.call(fn("??6std@@YAAAV?$basic_ostream@DU?$char_traits@D@std@@@0@AAV10@D@Z"), {out, ' '}, r));
+    method(out, (std::string("??6") + kOstr + "_N@Z").c_str(), {1});
+    method(out, (std::string("??6") + kOstr + "K@Z").c_str(), {7});
+    const uint32_t str = process.memory().alloc(16);
+    method(ss, ssName("?str@", "QBE?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@2@XZ").c_str(), {str});
+    CHECK(chars(str) == "4000000000 17");
+    method(str, kDtor, {});
+    get(ss, "AAI", value);
+    CHECK(cpu.read32(value) == 4000000000u);
+    // What the games' inline _Tidy reads: the buffer at the get area's
+    // start (its pointer at +0xc), and the mode's lowest bit at +0x44 saying
+    // it's to be deleted.
+    CHECK((cpu.read32(ss + 0xc + 0x44) & 1) == 1 && cpu.read32(cpu.read32(ss + 0xc + 0xc)) != 0);
+    method(ss, ssName("??_D", "QAEXXZ").c_str(), {});
+
+    // ostrstream over a buffer of the caller's, then ends.
+    const uint32_t os = process.memory().alloc(0x54 + 0x34);
+    const uint32_t chars16 = process.memory().alloc(16);
+    method(os, "??0ostrstream@std@@QAE@PADHH@Z", {chars16, 16, 2, 1});
+    CHECK(os + cpu.read32(cpu.read32(os) + 4) == os + 0x54);
+    CHECK(!cpu.call(fn("??6std@@YAAAV?$basic_ostream@DU?$char_traits@D@std@@@0@AAV10@PBD@Z"), {os, text("abc")}, r));
+    CHECK(!cpu.call(fn("?ends@std@@YAAAV?$basic_ostream@DU?$char_traits@D@std@@@1@AAV21@@Z"), {os}, r));
+    CHECK(cpu.string(chars16) == "abc");
+    method(os + 0x54, "??1ostrstream@std@@UAE@XZ", {});
+    CHECK(cpu.read32(fn("_FNan")) == 0x7fc00000);
+
     // cerr << "n = " << 42 << " x = " << 1.5f << endl
     const uint32_t cerr = fn("?cerr@std@@3V?$basic_ostream@DU?$char_traits@D@std@@@1@A");
     const uint32_t putChars = fn("??6std@@YAAAV?$basic_ostream@DU?$char_traits@D@std@@@0@AAV10@PBD@Z");
@@ -389,6 +470,142 @@ static void testMsvcp60(const std::filesystem::path &tmp) {
     method(cerr, "??6?$basic_ostream@DU?$char_traits@D@std@@@std@@QAEAAV01@M@Z", {xbits});
     CHECK(!cpu.call(fn("?endl@std@@YAAAV?$basic_ostream@DU?$char_traits@D@std@@@1@AAV21@@Z"), {cerr}, r));
     CHECK(output == "n = 42 x = 1.5\n");
+}
+
+// A DLL holding one dialog template (resource 7): a pop-up titled "D" with
+// an "OK" button (control 100).
+static std::vector<uint8_t> dialogDll() {
+    std::vector<uint8_t> f(0x400, 0);
+    auto put16 = [&](size_t at, uint32_t v) {
+        f[at] = uint8_t(v);
+        f[at + 1] = uint8_t(v >> 8);
+    };
+    auto put32 = [&](size_t at, uint32_t v) {
+        put16(at, v & 0xffff);
+        put16(at + 2, v >> 16);
+    };
+    f[0] = 'M';
+    f[1] = 'Z';
+    put32(0x3c, 0x80);
+    put32(0x80, 0x00004550);
+    put16(0x84, 0x14c);
+    put16(0x86, 1);
+    put16(0x94, 224);
+    put16(0x96, 0x2102); // an executable DLL
+    put16(0x98, 0x10b);
+    put32(0x98 + 28, 0x10000000); // image base
+    put32(0x98 + 32, 0x1000);
+    put32(0x98 + 36, 0x200);
+    put32(0x98 + 56, 0x2000);
+    put32(0x98 + 60, 0x200);
+    put32(0x98 + 92, 16);
+    put32(0x98 + 96 + 2 * 8, 0x1000);
+    put32(0x98 + 96 + 2 * 8 + 4, 0x100);
+    const size_t sec = 0x98 + 224;
+    std::memcpy(&f[sec], ".rsrc", 5);
+    put32(sec + 8, 0x200);
+    put32(sec + 12, 0x1000);
+    put32(sec + 16, 0x200);
+    put32(sec + 20, 0x200);
+    put32(sec + 36, 0x40000040); // initialised data, readable
+    // type 5 (RT_DIALOG) -> 7 -> language 1033 -> the template
+    const size_t r = 0x200;
+    put16(r + 14, 1);
+    put32(r + 16, 5);
+    put32(r + 20, 0x80000000 | 0x18);
+    put16(r + 0x18 + 14, 1);
+    put32(r + 0x18 + 16, 7);
+    put32(r + 0x18 + 20, 0x80000000 | 0x30);
+    put16(r + 0x30 + 14, 1);
+    put32(r + 0x30 + 16, 1033);
+    put32(r + 0x30 + 20, 0x48);
+    put32(r + 0x48, 0x1060);
+    put32(r + 0x48 + 4, 58);
+    const size_t t = r + 0x60;
+    put32(t, 0x80000000); // WS_POPUP
+    put16(t + 8, 1);      // one control
+    put16(t + 14, 40);    // 40 x 16 dialog units
+    put16(t + 16, 16);
+    put16(t + 22, 'D'); // no menu, the dialog class, "D"
+    const size_t item = t + 28;
+    put32(item, 0x50010000); // WS_CHILD | WS_VISIBLE | WS_TABSTOP
+    put16(item + 8, 4);
+    put16(item + 10, 4);
+    put16(item + 12, 20);
+    put16(item + 14, 8);
+    put16(item + 16, 100);
+    put16(item + 18, 0xffff); // a button
+    put16(item + 20, 0x80);
+    put16(item + 22, 'O');
+    put16(item + 24, 'K');
+    return f;
+}
+
+// A modal dialog from a template: WM_INITDIALOG with its first control,
+// the controls' text and checks, painting, a timer, then EndDialog's
+// result; GetMessageA.
+static void testDialog() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    const x86::Win32Process::Module *dll = nullptr;
+    CHECK(!process.load("Dlg.dll", dialogDll(), dll) && dll);
+    if (!dll)
+        return;
+    auto fn = [&](const char *name) { return process.provided("USER32.dll", name); };
+    uint32_t r = 0;
+    auto call = [&](const char *name, const std::vector<uint32_t> &args) {
+        uint32_t result = 0;
+        CHECK(!cpu.call(fn(name), args, result));
+        return result;
+    };
+    std::vector<uint32_t> seen;
+    uint32_t ticks = 0;
+    uint32_t button = 0;
+    uint32_t number = 0;
+    std::string label;
+    bool checked = false;
+    const uint32_t buffer = process.memory().alloc(64);
+    const uint32_t proc = cpu.addNative("test!DlgProc", [&](x86::Cpu &c) {
+        const uint32_t hwnd = c.arg(0);
+        const uint32_t message = c.arg(1);
+        seen.push_back(message);
+        uint32_t result = 0;
+        if (message == 0x110) { // WM_INITDIALOG
+            button = call("GetDlgItem", {hwnd, 100});
+            CHECK(button && c.arg(2) == button && c.arg(3) == 0x1234);
+            CHECK(call("GetWindow", {hwnd, 5}) == button);
+            call("GetDlgItemTextA", {hwnd, 100, buffer, 64});
+            label = c.string(buffer);
+            call("SetDlgItemInt", {hwnd, 100, uint32_t(-12), 1});
+            number = call("GetDlgItemInt", {hwnd, 100, 0, 1});
+            call("CheckDlgButton", {hwnd, 100, 1});
+            checked = call("IsDlgButtonChecked", {hwnd, 100}) == 1;
+            CHECK(call("SetTimer", {hwnd, 5, 10, 0}) == 5);
+            result = 1;
+        } else if (message == 0xf) { // WM_PAINT
+            const uint32_t ps = process.memory().alloc(64);
+            CHECK(call("BeginPaint", {hwnd, ps}) != 0 && c.read32(ps + 16) == 60 && c.read32(ps + 20) == 26);
+            call("EndPaint", {hwnd, ps});
+            result = 1;
+        } else if (message == 0x113 && c.arg(2) == 5 && ++ticks == 2) { // WM_TIMER
+            call("EndDialog", {hwnd, 42});
+        }
+        c.reg[x86::Cpu::EAX] = result;
+        return 16u;
+    });
+    CHECK(call("DialogBoxParamA", {dll->base, 7, 0, proc, 0x1234}) == 42);
+    CHECK(label == "OK" && number == uint32_t(-12) && checked && ticks == 2);
+    // Shown, painted once, two ticks, destroyed.
+    CHECK((seen == std::vector<uint32_t>{0x110, 0x18, 0xf, 0x113, 0x113, 0x2, 0x82}));
+    CHECK(process.window(button) == nullptr);
+    CHECK(call("DialogBoxParamA", {dll->base, 8, 0, proc, 0}) == uint32_t(-1));
+
+    // GetMessageA takes what's posted; WM_QUIT makes it return 0.
+    const uint32_t msg = process.memory().alloc(28);
+    process.postMessage(0, 0x400, 1, 2);
+    CHECK(!cpu.call(fn("GetMessageA"), {msg, 0, 0, 0}, r) && r == 1 && cpu.read32(msg + 4) == 0x400);
+    process.postMessage(0, 0x12, 0, 0);
+    CHECK(!cpu.call(fn("GetMessageA"), {msg, 0, 0, 0}, r) && r == 0);
 }
 
 // USER32's windows and messages, the registry and COM, called as a
@@ -1162,6 +1379,46 @@ static void testHostedProgramNeeds(const std::filesystem::path &tmp) {
     cpu.reg[x86::Cpu::ECX] = typeInfo;
     CHECK(call(m, "?name@type_info@@QBEPBDXZ", {}) && cpu.string(r) == "class Game::Ship" &&
           cpu.read32(typeInfo + 4) == r);
+
+    // A window's class, placement and tree; capture.
+    const uint32_t proc = cpu.addNative("test!NeedsProc", [](x86::Cpu &c) {
+        c.reg[x86::Cpu::EAX] = c.arg(1) == 0x81 ? 1 : 0;
+        return 16u;
+    });
+    const uint32_t wc = process.memory().alloc(40);
+    cpu.write32(wc, 8); // CS_DBLCLKS
+    cpu.write32(wc + 4, proc);
+    cpu.write32(wc + 36, text("Needs"));
+    CHECK(call(u, "RegisterClassA", {wc}) != 0);
+    const uint32_t hwnd = call(u, "CreateWindowExA", {0, text("Needs"), 0, 0x80000000, 10, 20, 100, 50, 0, 0, 0, 0});
+    CHECK(hwnd && call(u, "GetClassLongA", {hwnd, uint32_t(-26)}) == 8 &&
+          call(u, "GetClassLongA", {hwnd, uint32_t(-24)}) == proc);
+    CHECK(call(u, "GetWindow", {hwnd, 0}) == hwnd && call(u, "GetWindow", {hwnd, 2}) == 0 &&
+          call(u, "GetTopWindow", {0}) == hwnd);
+    const uint32_t place = process.memory().alloc(44);
+    CHECK(call(u, "GetWindowPlacement", {hwnd, place}) == 1 && cpu.read32(place + 8) == 1 &&
+          cpu.read32(place + 28) == 10 && cpu.read32(place + 40) == 70);
+    const uint32_t point = process.memory().alloc(8);
+    cpu.write32(point, 15);
+    cpu.write32(point + 4, 30);
+    CHECK(call(u, "ScreenToClient", {hwnd, point}) == 1 && cpu.read32(point) == 5 && cpu.read32(point + 4) == 10);
+    CHECK(call(u, "SetCapture", {hwnd}) == 0 && call(u, "SetCapture", {hwnd}) == hwnd && call(u, "ReleaseCapture", {}));
+    CHECK(call(u, "UnregisterClassA", {text("NEEDS"), 0}) == 1 && call(u, "UnregisterClassA", {text("Needs"), 0}) == 0);
+    CHECK(call("COMCTL32.dll", "#17", {}) == 0);
+
+    // No sound but DirectSound's: no wave or auxiliary device.
+    const char *w = "WINMM.dll";
+    CHECK(call(w, "PlaySoundA", {text("x.wav"), 0, 0x20000}) == 0 && call(w, "auxGetNumDevs", {}) == 0 &&
+          call(w, "auxGetVolume", {0, values}) == 2);
+
+    // GDI's coordinates are device units; text by the stand-in font, 8 x 16.
+    CHECK(call(g, "GetMapMode", {0x30000}) == 1 && call(g, "SetMapMode", {0x30000, 1}) == 1);
+    const uint32_t box = process.memory().alloc(16);
+    CHECK(call(g, "GetClipBox", {0x30000, box}) == 2 && cpu.read32(box + 8) == 800 && cpu.read32(box + 12) == 600);
+    const uint32_t fit = process.memory().alloc(4);
+    const uint32_t extent = process.memory().alloc(8);
+    CHECK(call(g, "GetTextExtentExPointA", {0x30000, text("abcdef"), 6, 20, fit, 0, extent}) == 1 &&
+          cpu.read32(fit) == 2 && cpu.read32(extent) == 48 && cpu.read32(extent + 4) == 16);
 }
 
 static const test::Suite kSuite(
@@ -1171,6 +1428,7 @@ static const test::Suite kSuite(
         {"threads", [](const std::filesystem::path &) { testThreads(); }},
         {"msvcrt and files", [](const std::filesystem::path &tmp) { testMsvcrtAndFiles(tmp / "msvcrt"); }},
         {"msvcp60", [](const std::filesystem::path &tmp) { testMsvcp60(tmp / "msvcp60"); }},
+        {"a dialog", [](const std::filesystem::path &) { testDialog(); }},
         {"a hosted program's needs", [](const std::filesystem::path &tmp) { testHostedProgramNeeds(tmp / "needs"); }},
         {"windows and registry", [](const std::filesystem::path &) { testWindowsAndRegistry(); }},
         {"directx", [](const std::filesystem::path &) { testDirectX(); }},

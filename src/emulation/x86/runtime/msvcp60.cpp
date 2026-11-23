@@ -47,6 +47,9 @@ __declspec(dllimport) int fgetc(FILE *);
 __declspec(dllimport) int fputc(int, FILE *);
 __declspec(dllimport) int ungetc(int, FILE *);
 __declspec(dllimport) int fputs(const char *, FILE *);
+__declspec(dllimport) long strtol(const char *, char **, int);
+__declspec(dllimport) unsigned long strtoul(const char *, char **, int);
+__declspec(dllimport) double strtod(const char *, char **);
 __declspec(dllimport) void abort();
 __declspec(dllimport) extern char _iob[]; // stdin, stdout, stderr: 32 bytes each
 }
@@ -1544,6 +1547,238 @@ EXPORT THISCALL void strstreambufDestroy(Strstreambuf *self) {
     self->mode = 0;
     streambufDestroy(&self->base);
 }
+namespace {
+THISCALL void *strstreambufDeleting(Strstreambuf *self, unsigned flags) {
+    strstreambufDestroy(self);
+    if (flags & 1)
+        operator delete(self);
+    return self;
+}
+// For ostrstream's constructor, the one strstreambuf made here.
+const void *const strstreambufVftable[] = {
+    (const void *)strstreambufDeleting, (const void *)strstreambufOverflow,  (const void *)strstreambufPbackfail,
+    (const void *)streambufShowmanyc,   (const void *)strstreambufUnderflow, (const void *)streambufUflow,
+    (const void *)streambufXsgetn,      (const void *)streambufXsputn,       (const void *)strstreambufSeekoff,
+    (const void *)strstreambufSeekpos,  (const void *)streambufSetbuf,       (const void *)streambufSync,
+    (const void *)streambufImbue};
+} // namespace
+
+// basic_stringbuf.
+// 0x4c bytes: a streambuf, then ours. The games build them inline and
+// inline _Tidy too: when the mode's lowest bit says the buffer was
+// allocated, they delete the get area's start, then clear +0x3c and that
+// bit. So the buffer always starts the get area, even when it's only
+// written.
+
+struct Stringbuf {
+    Streambuf base;
+    int unused;    // +0x38
+    char *highest; // +0x3c: the furthest anything was written
+    int unused2;   // +0x40
+    int mode;      // +0x44
+    int unused3;   // +0x48
+};
+static_assert(sizeof(Stringbuf) == 0x4c && __builtin_offsetof(Stringbuf, mode) == 0x44, "stringbuf layout");
+
+namespace {
+enum { kOwned = 1, kNoWrite = 2, kNoRead = 4, kAppend = 8 };
+constexpr int kFirstBuffer = 32;
+void noteHighest(Stringbuf *self) {
+    if (pptr(&self->base) && self->highest < pptr(&self->base))
+        self->highest = pptr(&self->base);
+}
+inline char *egptr(Streambuf *b) {
+    return gptr(b) ? gptr(b) + gavail(b) : 0;
+}
+THISCALL void *stringbufDeleting(Stringbuf *self, unsigned flags);
+} // namespace
+
+// _Mode: what an openmode asks of the buffer, as _Init takes it.
+EXPORT THISCALL int stringbufMode(Stringbuf *, int openmode) {
+    int mode = 0;
+    if (!(openmode & kIn))
+        mode |= kNoRead;
+    if (!(openmode & kOut))
+        mode |= kNoWrite;
+    if (openmode & kApp)
+        mode |= kAppend;
+    return mode;
+}
+// _Init(s, n, mode): over a copy of the n characters at s.
+EXPORT THISCALL void stringbufInit(Stringbuf *self, const char *s, size_t n, int mode) {
+    Streambuf *b = &self->base;
+    self->mode = mode;
+    self->highest = 0;
+    self->unused = self->unused2 = self->unused3 = 0;
+    streambufSetg(b, 0, 0, 0);
+    streambufSetp(b, 0, 0);
+    if (n == 0 || (mode & (kNoRead | kNoWrite)) == (kNoRead | kNoWrite))
+        return;
+    char *memory = (char *)operator new(n);
+    memcpy(memory, s, n);
+    self->mode |= kOwned;
+    self->highest = memory + n;
+    streambufSetg(b, memory, memory, mode & kNoRead ? memory : memory + n);
+    if (!(mode & kNoWrite)) {
+        streambufSetp(b, memory, memory + n);
+        if (mode & kAppend)
+            pbump(b, int(n));
+    }
+}
+EXPORT THISCALL void stringbufTidy(Stringbuf *self) {
+    Streambuf *b = &self->base;
+    if (self->mode & kOwned)
+        operator delete(eback(b));
+    streambufSetg(b, 0, 0, 0);
+    streambufSetp(b, 0, 0);
+    self->highest = 0;
+    self->mode &= ~kOwned;
+}
+EXPORT THISCALL int stringbufOverflow(Stringbuf *self, int c) {
+    Streambuf *b = &self->base;
+    if (c == kEof)
+        return 0;
+    if (self->mode & kNoWrite)
+        return kEof;
+    if (pptr(b) && pptr(b) < epptr(b)) {
+        *pptr(b) = char(c);
+        pbump(b, 1);
+        return (unsigned char)c;
+    }
+    // Doubles the buffer, keeping where reading and writing were.
+    noteHighest(self);
+    char *old = eback(b);
+    const int size = old ? int(epptr(b) - old) : 0;
+    const int grown = size ? size * 2 : kFirstBuffer;
+    char *memory = (char *)operator new(size_t(grown));
+    if (size)
+        memcpy(memory, old, size_t(size));
+    const int read = old ? int(gptr(b) - old) : 0;
+    const int readable = old ? int(egptr(b) - old) : 0;
+    const int written = old ? int(pptr(b) - old) : 0;
+    self->highest = memory + (old ? self->highest - old : 0);
+    streambufSetg(b, memory, memory + read, memory + readable);
+    streambufSetp(b, memory, memory + grown);
+    pbump(b, written);
+    if (old && (self->mode & kOwned))
+        operator delete(old);
+    self->mode |= kOwned;
+    *pptr(b) = char(c);
+    pbump(b, 1);
+    return (unsigned char)c;
+}
+EXPORT THISCALL int stringbufPbackfail(Stringbuf *self, int c) {
+    Streambuf *b = &self->base;
+    if (!gptr(b) || gptr(b) <= eback(b))
+        return kEof;
+    if (c != kEof && byte(unsigned(c)) != gptr(b)[-1] && (self->mode & kNoWrite))
+        return kEof;
+    gbump(b, -1);
+    if (c == kEof)
+        return 0;
+    *gptr(b) = char(c);
+    return c;
+}
+EXPORT THISCALL int stringbufUnderflow(Stringbuf *self) {
+    Streambuf *b = &self->base;
+    if ((self->mode & kNoRead) || !gptr(b))
+        return kEof;
+    if (gavail(b) > 0)
+        return (unsigned char)*gptr(b);
+    noteHighest(self);
+    if (self->highest <= gptr(b))
+        return kEof;
+    streambufSetg(b, eback(b), gptr(b), self->highest);
+    return (unsigned char)*gptr(b);
+}
+EXPORT THISCALL Fpos *stringbufSeekoff(Stringbuf *self, Fpos *out, long offset, int way, int which) {
+    Streambuf *b = &self->base;
+    noteHighest(self);
+    *out = position(-1);
+    const bool in = (which & kIn) && !(self->mode & kNoRead);
+    const bool put = (which & kOut) && !(self->mode & kNoWrite);
+    char *start = eback(b);
+    if (!in && !put)
+        return out;
+    if (!start) {
+        if (offset == 0)
+            *out = position(0);
+        return out;
+    }
+    long base;
+    switch (way) {
+    case 0:
+        base = 0;
+        break;
+    case 1: // from the one position asked for; with both, they may differ
+        if (in && put)
+            return out;
+        base = long(in ? gptr(b) - start : pptr(b) - start);
+        break;
+    case 2:
+        base = long(self->highest - start);
+        break;
+    default:
+        return out;
+    }
+    const long to = base + offset;
+    if (to < 0 || to > long(self->highest - start))
+        return out;
+    if (in)
+        streambufSetg(b, start, start + to, self->highest);
+    if (put) {
+        streambufSetp(b, start, epptr(b));
+        pbump(b, int(to));
+    }
+    *out = position(to);
+    return out;
+}
+EXPORT THISCALL Fpos *stringbufSeekpos(Stringbuf *self, Fpos *out, Fpos at, int which) {
+    return stringbufSeekoff(self, out, offsetOf(at), 0, which);
+}
+EXPORT const void *const stringbufVftable[] = {
+    (const void *)stringbufDeleting,  (const void *)stringbufOverflow,  (const void *)stringbufPbackfail,
+    (const void *)streambufShowmanyc, (const void *)stringbufUnderflow, (const void *)streambufUflow,
+    (const void *)streambufXsgetn,    (const void *)streambufXsputn,    (const void *)stringbufSeekoff,
+    (const void *)stringbufSeekpos,   (const void *)streambufSetbuf,    (const void *)streambufSync,
+    (const void *)streambufImbue};
+
+EXPORT THISCALL Stringbuf *stringbufConstruct(Stringbuf *self, int openmode) {
+    streambufConstruct(&self->base);
+    self->base.vf = stringbufVftable;
+    stringbufInit(self, 0, 0, stringbufMode(self, openmode));
+    return self;
+}
+EXPORT THISCALL Stringbuf *stringbufConstructString(Stringbuf *self, const String *s, int openmode) {
+    streambufConstruct(&self->base);
+    self->base.vf = stringbufVftable;
+    stringbufInit(self, chars(s), s->len, stringbufMode(self, openmode));
+    return self;
+}
+EXPORT THISCALL void stringbufDestroy(Stringbuf *self) {
+    self->base.vf = stringbufVftable;
+    stringbufTidy(self);
+    streambufDestroy(&self->base);
+}
+namespace {
+THISCALL void *stringbufDeleting(Stringbuf *self, unsigned flags) {
+    stringbufDestroy(self);
+    if (flags & 1)
+        operator delete(self);
+    return self;
+}
+// What's been written, or for a buffer only read, what there is to read.
+void contents(Stringbuf *self, String *out) {
+    Streambuf *b = &self->base;
+    stringTidy(out, 0);
+    char *start = eback(b);
+    if (!start)
+        return;
+    noteHighest(self);
+    char *end = self->mode & kNoWrite ? egptr(b) : self->highest;
+    stringAssign(out, start, size_t(end - start));
+}
+} // namespace
 
 // Streams.
 // Each stream is a virtual base basic_ios after what's its own, reached by
@@ -1553,7 +1788,10 @@ EXPORT THISCALL void strstreambufDestroy(Strstreambuf *self) {
 // filebuf (+8, so the ios is at +0x5c), ofstream its filebuf (+4; +0x58),
 // fstream (an istream, then an ostream, then its filebuf at +0xc) has the
 // ios at +0x60, istrstream and ostrstream their strstreambufs (ios at +0x58
-// and +0x54). Constructors take a last, hidden argument: whether to make the
+// and +0x54). iostream is an istream, then an ostream (ios at +0xc); its
+// string streams add their buffer at +0xc: stringstream's stringbuf (ios at
+// +0x58), strstream's strstreambuf (+0x5c). istringstream adds its stringbuf
+// at +8 (+0x54). Constructors take a last, hidden argument: whether to make the
 // virtual base (only the most derived class does). Destructors and the
 // vftable entries are called with `this` at the ios, and leave it for the
 // caller (or `vbase destructor') to destroy.
@@ -1741,6 +1979,32 @@ EXPORT Ostream *ostreamEndl(Ostream *os) {
     flush(os);
     return os;
 }
+// ends: a terminating zero, as ostrstream's users write.
+EXPORT Ostream *ostreamEnds(Ostream *os) {
+    Ios *ios = iosOf(os);
+    if (sputc(ios->buffer, 0) == kEof)
+        iosSetstate(ios, kBadBit, 0);
+    return os;
+}
+EXPORT Ostream *ostreamPutChar(Ostream *os, unsigned c) {
+    const char ch = byte(c);
+    return putField(os, &ch, 1);
+}
+EXPORT THISCALL Ostream *ostreamPutUnsigned(Ostream *self, unsigned long value) {
+    const int flags = iosOf(self)->base.flags;
+    const int base = flags & kBasefield;
+    const char *format = base == kOct   ? (flags & kShowbase ? "%#lo" : "%lo")
+                         : base == kHex ? (flags & kUppercase ? (flags & kShowbase ? "%#lX" : "%lX")
+                                                              : (flags & kShowbase ? "%#lx" : "%lx"))
+                                        : "%lu";
+    char text[40];
+    const int n = sprintf(text, format, value);
+    return putField(self, text, size_t(n));
+}
+// A bool as a number: boolalpha isn't stood in for.
+EXPORT THISCALL Ostream *ostreamPutBool(Ostream *self, unsigned value) {
+    return putInteger(self, flag(value) ? 1 : 0);
+}
 
 // istream.
 
@@ -1923,6 +2187,143 @@ EXPORT THISCALL Istream *istreamSeekg(Istream *self, Fpos at) {
     }
     return self;
 }
+// ignore(n, delimiter): up to n characters taken and dropped (no limit
+// with INT_MAX), stopping after the delimiter.
+EXPORT THISCALL Istream *istreamIgnore(Istream *self, int n, int delimiter) {
+    self->count = 0;
+    Ios *ios = iosOf(self);
+    if (n > 0 && prefix(self, true)) {
+        while (n == 0x7fffffff || self->count < n) {
+            const int c = sbumpc(ios->buffer);
+            if (c == kEof) {
+                iosSetstate(ios, kEofBit, 0);
+                break;
+            }
+            ++self->count;
+            if (c == delimiter)
+                break;
+        }
+    }
+    return self;
+}
+
+namespace {
+// Takes the characters that can make up a number into `text`: a sign,
+// then digits of the base (with a 0x before hex ones), and for a real
+// number a point and an exponent. Failbit when no digit was taken.
+bool takeNumber(Istream *is, char (&text)[64], bool real) {
+    Ios *ios = iosOf(is);
+    if (!prefix(is, false))
+        return false;
+    const int base = ios->base.flags & kBasefield;
+    Streambuf *b = ios->buffer;
+    size_t n = 0;
+    bool digits = false;
+    int c = sgetc(b);
+    auto take = [&](int ch) {
+        if (n < sizeof text - 1)
+            text[n++] = char(ch);
+        c = snextc(b);
+    };
+    auto isDigit = [&](int ch) {
+        if (real || base == kDec || base == 0)
+            return ch >= '0' && ch <= '9';
+        if (base == kOct)
+            return ch >= '0' && ch <= '7';
+        return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F');
+    };
+    if (c == '+' || c == '-')
+        take(c);
+    if (!real && base == kHex && c == '0') {
+        take(c);
+        digits = true;
+        if (c == 'x' || c == 'X')
+            take(c);
+    }
+    while (c != kEof && isDigit(c)) {
+        take(c);
+        digits = true;
+    }
+    if (real && c == '.') {
+        take(c);
+        while (c != kEof && isDigit(c)) {
+            take(c);
+            digits = true;
+        }
+    }
+    if (real && digits && (c == 'e' || c == 'E')) {
+        take(c);
+        if (c == '+' || c == '-')
+            take(c);
+        while (c != kEof && isDigit(c))
+            take(c);
+    }
+    text[n] = 0;
+    int state = c == kEof ? kEofBit : kGood;
+    if (!digits)
+        state |= kFailBit;
+    if (state)
+        iosSetstate(ios, state, 0);
+    return digits;
+}
+int baseOf(const Ios *ios) {
+    const int base = ios->base.flags & kBasefield;
+    return base == kOct ? 8 : base == kHex ? 16 : 10;
+}
+} // namespace
+
+EXPORT THISCALL Istream *istreamGetInt(Istream *self, int *value) {
+    char text[64];
+    if (takeNumber(self, text, false))
+        *value = int(strtol(text, 0, baseOf(iosOf(self))));
+    return self;
+}
+EXPORT THISCALL Istream *istreamGetUnsigned(Istream *self, unsigned *value) {
+    char text[64];
+    if (takeNumber(self, text, false))
+        *value = unsigned(strtoul(text, 0, baseOf(iosOf(self))));
+    return self;
+}
+EXPORT THISCALL Istream *istreamGetFloat(Istream *self, float *value) {
+    char text[64];
+    if (takeNumber(self, text, true))
+        *value = float(strtod(text, 0));
+    return self;
+}
+// A bool as a number, 0 or 1 (boolalpha isn't stood in for); failbit for
+// any other number.
+EXPORT THISCALL Istream *istreamGetBool(Istream *self, bool *value) {
+    char text[64];
+    if (takeNumber(self, text, false)) {
+        const long n = strtol(text, 0, baseOf(iosOf(self)));
+        if (n == 0 || n == 1)
+            *value = n == 1;
+        else
+            iosSetstate(iosOf(self), kFailBit, 0);
+    }
+    return self;
+}
+// is >> s: a word, up to the width less one when there is a width.
+EXPORT Istream *istreamGetChars(Istream *is, char *s) {
+    Ios *ios = iosOf(is);
+    char *out = s;
+    if (prefix(is, false)) {
+        const int room = ios->base.width > 0 ? ios->base.width - 1 : 0x7fffffff;
+        int c = sgetc(ios->buffer);
+        while (out - s < room && c != kEof && !isSpace(c)) {
+            *out++ = char(c);
+            c = snextc(ios->buffer);
+        }
+        int state = c == kEof ? kEofBit : kGood;
+        if (out == s)
+            state |= kFailBit;
+        if (state)
+            iosSetstate(ios, state, 0);
+    }
+    *out = 0;
+    ios->base.width = 0;
+    return is;
+}
 
 // File streams.
 
@@ -2021,17 +2422,135 @@ EXPORT THISCALL void fstreamDestroy(Ios *ios) {
     fstreamDestroyIos(ios);
 }
 
-// String streams: the games construct them inline; these are their
-// destructors.
+// iostream.
+
+namespace {
+constexpr int kIostreamIos = 0xc, kIstringstreamIos = 0x54, kStringstreamIos = 0x58, kOstrstreamIos = 0x54;
+const int iostreamVbtable[2] = {0, kIostreamIos};
+const int iostreamOstreamVbtable[2] = {0, kIostreamIos - 8};
+const int ostrstreamVbtable[2] = {0, kOstrstreamIos};
+void iostreamDestroyIos(Ios *ios);
+void istringstreamDestroyIos(Ios *ios);
+void stringstreamDestroyIos(Ios *ios);
+void ostrstreamDestroyIos(Ios *ios);
+} // namespace
+
+EXPORT const void *const iostreamVftable[] = {(const void *)streamDeleting<kIostreamIos, iostreamDestroyIos>};
+EXPORT const void *const istringstreamVftable[] = {
+    (const void *)streamDeleting<kIstringstreamIos, istringstreamDestroyIos>};
+EXPORT const void *const stringstreamVftable[] = {
+    (const void *)streamDeleting<kStringstreamIos, stringstreamDestroyIos>};
+EXPORT const int istringstreamVbtable[2] = {0, kIstringstreamIos};
+EXPORT const int stringstreamVbtable[2] = {0, kStringstreamIos};
+EXPORT const int stringstreamOstreamVbtable[2] = {0, kStringstreamIos - 8};
+namespace {
+const void *const ostrstreamVftable[] = {(const void *)streamDeleting<kOstrstreamIos, ostrstreamDestroyIos>};
+
+void iostreamDestroyIos(Ios *ios) {
+    ios->base.vf = iostreamVftable;
+    destroyOstream(ios);
+    destroyIstream(ios);
+}
+void istringstreamDestroyIos(Ios *ios) {
+    ios->base.vf = istringstreamVftable;
+    stringbufDestroy((Stringbuf *)((char *)ios - sizeof(Stringbuf)));
+    destroyIstream(ios);
+}
+void stringstreamDestroyIos(Ios *ios) {
+    ios->base.vf = stringstreamVftable;
+    stringbufDestroy((Stringbuf *)((char *)ios - sizeof(Stringbuf)));
+    iostreamDestroyIos(ios);
+}
+void ostrstreamDestroyIos(Ios *ios) {
+    ios->base.vf = ostrstreamVftable;
+    strstreambufDestroy((Strstreambuf *)((char *)ios - sizeof(Strstreambuf)));
+    destroyOstream(ios);
+}
+} // namespace
+
+EXPORT THISCALL Istream *iostreamConstruct(Istream *self, Streambuf *buffer, int makeBase) {
+    Ostream *out = (Ostream *)((char *)self + 8);
+    if (makeBase) {
+        self->vbtable = iostreamVbtable;
+        out->vbtable = iostreamOstreamVbtable;
+        iosConstruct(iosOf(self));
+    }
+    istreamConstruct(self, buffer, 0, 0);
+    ostreamConstruct(out, buffer, 0, 0, 0);
+    iosOf(self)->base.vf = iostreamVftable;
+    return self;
+}
+// The games call it from string streams' inline destructors with `this`
+// where an iostream of its own would have its ios (+0xc), over the buffer
+// they've just destroyed; nothing past this word is touched.
+EXPORT THISCALL void iostreamDestroy(Ios *ios) {
+    iostreamDestroyIos(ios);
+}
+
+// String streams: the games build stringstream and strstream inline.
+
+EXPORT THISCALL Istream *istringstreamConstruct(Istream *self, const String *s, int openmode, int makeBase) {
+    Stringbuf *buffer = (Stringbuf *)((char *)self + 8);
+    if (makeBase) {
+        self->vbtable = istringstreamVbtable;
+        iosConstruct(iosOf(self));
+    }
+    istreamConstruct(self, &buffer->base, 0, 0);
+    stringbufConstructString(buffer, s, openmode | kIn);
+    iosOf(self)->base.vf = istringstreamVftable;
+    return self;
+}
+EXPORT THISCALL void istringstreamDestroy(Ios *ios) {
+    istringstreamDestroyIos(ios);
+}
+EXPORT THISCALL void istringstreamVbaseDestroy(Istream *self) {
+    Ios *ios = (Ios *)((char *)self + kIstringstreamIos);
+    istringstreamDestroyIos(ios);
+    iosDestroy(ios);
+}
+EXPORT THISCALL void stringstreamDestroy(Ios *ios) {
+    stringstreamDestroyIos(ios);
+}
+EXPORT THISCALL void stringstreamVbaseDestroy(Istream *self) {
+    Ios *ios = (Ios *)((char *)self + kStringstreamIos);
+    stringstreamDestroyIos(ios);
+    iosDestroy(ios);
+}
+EXPORT THISCALL String *stringstreamStr(Istream *self, String *out) {
+    contents((Stringbuf *)((char *)self + kIostreamIos), out);
+    return out;
+}
 
 EXPORT THISCALL void istrstreamDestroy(Ios *ios) {
     strstreambufDestroy((Strstreambuf *)((char *)ios - sizeof(Strstreambuf)));
     destroyIstream(ios);
 }
+// ostrstream(s, n, mode): writing over the n characters at s, from its
+// terminator with app.
+EXPORT THISCALL Ostream *ostrstreamConstruct(Ostream *self, char *s, int n, int openmode, int makeBase) {
+    Strstreambuf *buffer = (Strstreambuf *)((char *)self + 4);
+    if (makeBase) {
+        self->vbtable = ostrstreamVbtable;
+        iosConstruct(iosOf(self));
+    }
+    ostreamConstruct(self, &buffer->base, 0, 1, 0);
+    streambufConstruct(&buffer->base);
+    buffer->base.vf = strstreambufVftable;
+    strstreambufInit(buffer, n, s, openmode & kApp ? s + strlen(s) : s, 0);
+    iosOf(self)->base.vf = ostrstreamVftable;
+    return self;
+}
 EXPORT THISCALL void ostrstreamDestroy(Ios *ios) {
     strstreambufDestroy((Strstreambuf *)((char *)ios - sizeof(Strstreambuf)));
     destroyOstream(ios);
 }
+EXPORT THISCALL void strstreamDestroy(Ios *ios) {
+    strstreambufDestroy((Strstreambuf *)((char *)ios - sizeof(Strstreambuf)));
+    iostreamDestroyIos(ios);
+}
+
+// _FNan: a float's quiet NaN, which the games load from here.
+EXPORT const unsigned _FNan[3] = {0x7fc00000, 0, 0};
 
 // cerr.
 // An ostream over stderr, unbuffered (unitbuf), made at start-up.

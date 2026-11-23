@@ -809,6 +809,7 @@ void Win32Process::addStandIns() {
     addSystemStandIns();
     addUserStandIns();
     addRegistryStandIns();
+    addDialogStandIns();
 
     // Text: code page 1252, mapped to Unicode's first 256 characters (the
     // C runtime's locale tables are built from these; the "C" locale only

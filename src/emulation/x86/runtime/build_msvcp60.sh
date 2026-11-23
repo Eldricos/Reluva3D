@@ -35,6 +35,9 @@ fputc
 ungetc
 fputs
 abort
+strtol
+strtoul
+strtod
 _iob DATA
 ??2@YAPAXI@Z
 ??3@YAXPAX@Z

@@ -16,6 +16,8 @@
 #include <cctype>
 #include <cstdlib>
 #include <cstring>
+#include <utility>
+#include <vector>
 
 namespace reluva::x86 {
 
@@ -26,6 +28,7 @@ enum : uint32_t {
     kWmDestroy = 0x2,
     kWmActivate = 0x6,
     kWmSetFocus = 0x7,
+    kWmPaint = 0xf,
     kWmClose = 0x10,
     kWmQuit = 0x12,
     kWmShowWindow = 0x18,
@@ -34,7 +37,8 @@ enum : uint32_t {
     kWmNcDestroy = 0x82,
     kWmKeyDown = 0x100,
     kWmChar = 0x102,
-    kWmSysCommand = 0x112
+    kWmSysCommand = 0x112,
+    kWmTimer = 0x113
 };
 // The desktop's window handle: never one of the program's, which count up
 // from 0x10010 in fours.
@@ -286,17 +290,92 @@ void Win32Process::postMessage(uint32_t window, uint32_t message, uint32_t wPara
 
 uint32_t Win32Process::sendMessage(uint32_t window, uint32_t message, uint32_t wParam, uint32_t lParam) {
     auto it = _windows.find(window);
-    if (it == _windows.end() || !it->second.proc)
+    if (it == _windows.end())
+        return 0;
+    // A dialog's window procedure would be the system's, calling the
+    // dialog's own; that's called here, and what it says is returned.
+    const bool dialog = !it->second.proc && it->second.dialogProc;
+    const uint32_t proc = dialog ? it->second.dialogProc : it->second.proc;
+    if (!proc)
         return 0;
     uint32_t result = 0;
     // From inside the program, a fault goes on up through call(); only a
     // call from the engine itself sees it here.
-    if (Error e = _cpu.call(it->second.proc, {window, message, wParam, lParam}, result)) {
+    if (Error e = _cpu.call(proc, {window, message, wParam, lParam}, result)) {
         if (output)
             output("A window procedure failed: " + e.message + "\n");
         return 0;
     }
+    // Painting a dialog that doesn't, the system's procedure would mark it
+    // painted (as DefWindowProcA does).
+    if (dialog && message == kWmPaint && !result)
+        if (auto w = _windows.find(window); w != _windows.end())
+            w->second.invalid = false;
     return result;
+}
+
+bool Win32Process::takeMessage(uint32_t window, uint32_t first, uint32_t last, bool remove, Message &out) {
+    auto inRange = [&](uint32_t message) { return (first == 0 && last == 0) || (message >= first && message <= last); };
+    auto matches = [&](const Message &m) {
+        return (window == 0 || m.window == window || m.message == kWmQuit) && inRange(m.message);
+    };
+    if (auto it = std::find_if(_messages.begin(), _messages.end(), matches); it != _messages.end()) {
+        out = *it;
+        if (remove)
+            _messages.erase(it);
+        return true;
+    }
+    // WM_PAINT stays until the window is painted (BeginPaint, ValidateRect).
+    if (inRange(kWmPaint))
+        for (const auto &[handle, w] : _windows)
+            if (w.invalid && w.visible && (window == 0 || handle == window)) {
+                out = {handle, kWmPaint, 0, 0};
+                return true;
+            }
+    if (inRange(kWmTimer)) {
+        const uint64_t at = now();
+        for (auto &[key, timer] : _windowTimers)
+            if (timer.due <= at && (window == 0 || key.first == window)) {
+                out = {key.first, kWmTimer, key.second, timer.proc};
+                if (remove)
+                    timer.due = at + timer.interval;
+                return true;
+            }
+    }
+    return false;
+}
+
+uint32_t Win32Process::dispatch(const Message &m) {
+    if (m.message == kWmTimer && m.lParam) { // TIMERPROC(window, WM_TIMER, id, time)
+        uint32_t result = 0;
+        if (Error e = _cpu.call(m.lParam, {m.window, kWmTimer, m.wParam, milliseconds()}, result))
+            if (output)
+                output("A timer's procedure failed: " + e.message + "\n");
+        return 0;
+    }
+    return sendMessage(m.window, m.message, m.wParam, m.lParam);
+}
+
+void Win32Process::awaitMessage(Cpu &c) {
+    uint64_t next = UINT64_MAX;
+    for (const auto &[key, timer] : _windowTimers)
+        next = std::min(next, timer.due);
+    if (!hostThreads() || !currentThread()) {
+        // Taking turns, the program's other threads run here, and the
+        // engine's idle() is its chance to post input.
+        runThreads();
+        if (idle)
+            idle();
+        else if (next == UINT64_MAX && _messages.empty())
+            c.abort("the program waits for a message, and nothing could send one");
+        return;
+    }
+    const uint64_t at = now();
+    const uint32_t ms =
+        next == UINT64_MAX ? 0xffffffffu : uint32_t(next > at ? std::min<uint64_t>(next - at, 1000) : 0);
+    const bool queued = wait([this] { return !_messages.empty(); }, ms);
+    if (!queued && ending())
+        c.abort("the process is ending");
 }
 
 void Win32Process::addUserStandIns() {
@@ -508,39 +587,54 @@ void Win32Process::addUserStandIns() {
         postMessage(0, kWmQuit, c.arg(0), 0);
         return 0u;
     });
+    auto writeMessage = [this](Cpu &c, uint32_t out, const Message &m) { // MSG
+        const uint32_t fields[7] = {m.window,       m.message,         m.wParam,         m.lParam,
+                                    milliseconds(), uint32_t(cursorX), uint32_t(cursorY)};
+        for (int i = 0; i < 7; ++i)
+            c.write32(out + 4 * uint32_t(i), fields[i]);
+    };
     // PeekMessageA(msg, window, first, last, remove): the oldest message for
     // the window (0: any) in the range (0, 0: any). WM_QUIT is for any window.
-    stdcall(u, "PeekMessageA", 5, [this](Cpu &c) {
+    stdcall(u, "PeekMessageA", 5, [this, writeMessage](Cpu &c) {
         const uint32_t out = c.arg(0);
         const uint32_t hwnd = c.arg(1);
         const uint32_t first = c.arg(2);
         const uint32_t last = c.arg(3);
         const uint32_t remove = c.arg(4);
-        auto matches = [&](const Message &m) {
-            return (hwnd == 0 || m.window == hwnd || m.message == kWmQuit) &&
-                   ((first == 0 && last == 0) || (m.message >= first && m.message <= last));
-        };
-        runThreads();
-        auto it = std::find_if(_messages.begin(), _messages.end(), matches);
-        if (it == _messages.end() && idle) {
-            idle();
-            it = std::find_if(_messages.begin(), _messages.end(), matches);
-        }
-        if (it == _messages.end() || !c.valid(out, 28))
+        if (!c.valid(out, 28))
             return 0u;
-        const uint32_t fields[7] = {it->window,     it->message,       it->wParam,       it->lParam,
-                                    milliseconds(), uint32_t(cursorX), uint32_t(cursorY)};
-        for (int i = 0; i < 7; ++i)
-            c.write32(out + 4 * uint32_t(i), fields[i]);
-        if (remove & 1) // PM_REMOVE
-            _messages.erase(it);
+        runThreads();
+        Message m;
+        bool found = takeMessage(hwnd, first, last, remove & 1, m); // PM_REMOVE
+        if (!found && idle) {
+            idle();
+            found = takeMessage(hwnd, first, last, remove & 1, m);
+        }
+        if (!found)
+            return 0u;
+        writeMessage(c, out, m);
         return 1u;
+    });
+    // GetMessageA(msg, window, first, last): waits for one; 0 for WM_QUIT.
+    stdcall(u, "GetMessageA", 4, [this, writeMessage](Cpu &c) {
+        const uint32_t out = c.arg(0);
+        if (!c.valid(out, 28))
+            return uint32_t(-1);
+        Message m;
+        while (true) {
+            runThreads();
+            if (takeMessage(c.arg(1), c.arg(2), c.arg(3), true, m))
+                break;
+            awaitMessage(c);
+        }
+        writeMessage(c, out, m);
+        return m.message == kWmQuit ? 0u : 1u;
     });
     stdcall(u, "DispatchMessageA", 1, [this](Cpu &c) {
         const uint32_t m = c.arg(0);
         if (!c.valid(m, 16))
             return 0u;
-        return sendMessage(c.read32(m), c.read32(m + 4), c.read32(m + 8), c.read32(m + 12));
+        return dispatch({c.read32(m), c.read32(m + 4), c.read32(m + 8), c.read32(m + 12)});
     });
     // TranslateMessage: a key that types a character (letters, digits,
     // space, Enter, Backspace, Escape, Tab) queues WM_CHAR for it.
@@ -568,6 +662,11 @@ void Win32Process::addUserStandIns() {
         const uint32_t wParam = c.arg(2);
         if (message == kWmNcCreate)
             return 1u;
+        if (message == kWmPaint) {
+            if (auto it = _windows.find(handle); it != _windows.end())
+                it->second.invalid = false;
+            return 0u;
+        }
         if (message == kWmSysCommand && (wParam & 0xfff0) == kScClose)
             return sendMessage(handle, kWmClose, 0, 0);
         if (message == kWmClose && _windows.count(handle)) {
@@ -674,6 +773,95 @@ void Win32Process::addUserStandIns() {
         return 1u;
     });
 
+    // The windows' tree: a dialog's controls are its children, in the order
+    // they were made; the others are on top, in that order too.
+    auto siblings = [this](uint32_t parent) {
+        std::vector<uint32_t> list;
+        for (const auto &[handle, w] : _windows)
+            if (w.parent == parent)
+                list.push_back(handle);
+        return list;
+    };
+    // GetWindow(window, relation): GW_HWNDFIRST 0, GW_HWNDLAST 1,
+    // GW_HWNDNEXT 2, GW_HWNDPREV 3, GW_OWNER 4, GW_CHILD 5.
+    stdcall(u, "GetWindow", 2, [this, siblings](Cpu &c) {
+        const Window *w = window(c.arg(0));
+        if (!w)
+            return 0u;
+        if (c.arg(1) == 4)
+            return w->owner;
+        if (c.arg(1) == 5) {
+            const std::vector<uint32_t> children = siblings(c.arg(0));
+            return children.empty() ? 0u : children.front();
+        }
+        const std::vector<uint32_t> list = siblings(w->parent);
+        auto at = std::find(list.begin(), list.end(), c.arg(0));
+        switch (c.arg(1)) {
+        case 0:
+            return list.front();
+        case 1:
+            return list.back();
+        case 2:
+            return at + 1 < list.end() ? *(at + 1) : 0u;
+        case 3:
+            return at > list.begin() ? *(at - 1) : 0u;
+        default:
+            return 0u;
+        }
+    });
+    stdcall(u, "GetTopWindow", 1, [siblings](Cpu &c) {
+        const std::vector<uint32_t> list = siblings(c.arg(0) == kDesktopWindow ? 0 : c.arg(0));
+        return list.empty() ? 0u : list.front();
+    });
+    // GetClassLongA: GCL_WNDPROC (-24) and GCL_STYLE (-26) are kept.
+    stdcall(u, "GetClassLongA", 2, [this](Cpu &c) {
+        const Window *w = window(c.arg(0));
+        if (!w)
+            return 0u;
+        const int32_t index = int32_t(c.arg(1));
+        return index == -24 ? w->proc : index == -26 ? w->classStyle : 0u;
+    });
+    stdcall(u, "UnregisterClassA", 2,
+            [this](Cpu &c) { return c.arg(0) > 0xffff && _classes.erase(lower(c.string(c.arg(0)))) ? 1u : 0u; });
+    // GetWindowPlacement: shown normally (SW_SHOWNORMAL), where it is.
+    stdcall(u, "GetWindowPlacement", 2, [this](Cpu &c) {
+        const Window *w = window(c.arg(0));
+        const uint32_t p = c.arg(1);
+        if (!w || !c.valid(p, 44))
+            return 0u;
+        const uint32_t fields[11] = {44,
+                                     0,
+                                     1,
+                                     0,
+                                     0,
+                                     0,
+                                     0,
+                                     uint32_t(w->x),
+                                     uint32_t(w->y),
+                                     uint32_t(w->x + w->width),
+                                     uint32_t(w->y + w->height)};
+        for (int i = 0; i < 11; ++i)
+            c.write32(p + 4 * uint32_t(i), fields[i]);
+        return 1u;
+    });
+    stdcall(u, "ScreenToClient", 2, [this](Cpu &c) {
+        const auto area = clientArea(c.arg(0));
+        if (!area || !c.valid(c.arg(1), 8))
+            return 0u;
+        c.write32(c.arg(1), c.read32(c.arg(1)) - uint32_t((*area)[0]));
+        c.write32(c.arg(1) + 4, c.read32(c.arg(1) + 4) - uint32_t((*area)[1]));
+        return 1u;
+    });
+    stdcall(u, "SetCapture", 1, [this](Cpu &c) { return std::exchange(_capture, c.arg(0)); });
+    stdcall(u, "ReleaseCapture", 0, [this](Cpu &) {
+        _capture = 0;
+        return 1u;
+    });
+
+    // InitCommonControls (COMCTL32's 17th export): the common controls are
+    // never drawn, so there's nothing to register.
+    stdcall("COMCTL32.dll", "#17", 0, [](Cpu &) { return 0u; });
+
     // The desktop is a window of its own, the screen's size.
     stdcall(u, "GetDesktopWindow", 0, [](Cpu &) { return kDesktopWindow; });
     stdcall(u, "IsWindow", 1,
@@ -769,8 +957,16 @@ void Win32Process::addUserStandIns() {
     });
     // Nothing is painted through the window's own drawing: the programs here
     // draw with DirectDraw, so there's nothing to mark for painting.
-    stdcall(u, "InvalidateRect", 3, [](Cpu &) { return 1u; });
-    stdcall(u, "ValidateRect", 2, [](Cpu &) { return 1u; });
+    // Nothing is drawn, so all of a window is painted again or none.
+    auto markInvalid = [this](uint32_t handle, bool invalid) {
+        auto it = _windows.find(handle);
+        if (it == _windows.end())
+            return 0u;
+        it->second.invalid = invalid;
+        return 1u;
+    };
+    stdcall(u, "InvalidateRect", 3, [markInvalid](Cpu &c) { return markInvalid(c.arg(0), true); });
+    stdcall(u, "ValidateRect", 2, [markInvalid](Cpu &c) { return markInvalid(c.arg(0), false); });
     // A 101- or 102-key keyboard (type 4), 12 function keys.
     stdcall(u, "GetKeyboardType", 1, [](Cpu &c) {
         switch (c.arg(0)) {
@@ -810,6 +1006,27 @@ void Win32Process::addUserStandIns() {
 
     stdcall(u, "GetDC", 1, [](Cpu &c) { return kDeviceContext + (c.arg(0) & 0xffff); });
     stdcall(u, "ReleaseDC", 2, [](Cpu &) { return 1u; });
+    // BeginPaint(window, PAINTSTRUCT*): its device context, and the whole
+    // client area to paint (nothing is drawn, so all of it always is); the
+    // window is then painted.
+    stdcall(u, "BeginPaint", 2, [this](Cpu &c) {
+        auto it = _windows.find(c.arg(0));
+        const uint32_t ps = c.arg(1);
+        if (it == _windows.end() || !c.valid(ps, 64))
+            return 0u;
+        it->second.invalid = false;
+        const Insets f = frameOf(it->second.style, false);
+        const uint32_t dc = kDeviceContext + (c.arg(0) & 0xffff);
+        c.write32(ps, dc);
+        c.write32(ps + 4, 0); // fErase: the background is left alone
+        c.write32(ps + 8, 0);
+        c.write32(ps + 12, 0);
+        c.write32(ps + 16, uint32_t(std::max(0, it->second.width - f.left - f.right)));
+        c.write32(ps + 20, uint32_t(std::max(0, it->second.height - f.top - f.bottom)));
+        return dc;
+    });
+    stdcall(u, "EndPaint", 2, [](Cpu &) { return 1u; });
+    stdcall(u, "FillRect", 3, [](Cpu &) { return 1u; });
     // GetDeviceCaps(dc, index): the desktop's.
     stdcall(g, "GetDeviceCaps", 2, [this](Cpu &c) {
         switch (c.arg(1)) {
@@ -944,6 +1161,51 @@ void Win32Process::addUserStandIns() {
         c.write32(c.arg(3) + 4, 16);
         return 1u;
     });
+    // GetTextExtentExPointA(dc, text, n, room, fit*, ends*, size*): how many
+    // characters fit in `room` pixels, and where each ends, by the same font.
+    stdcall(g, "GetTextExtentExPointA", 7, [](Cpu &c) {
+        const uint32_t n = c.arg(2);
+        if (c.arg(4))
+            c.write32(c.arg(4), std::min<uint32_t>(n, int32_t(c.arg(3)) > 0 ? c.arg(3) / 8 : 0));
+        if (c.arg(5) && c.valid(c.arg(5), 4 * n))
+            for (uint32_t i = 0; i < n; ++i)
+                c.write32(c.arg(5) + 4 * i, 8 * (i + 1));
+        if (c.arg(6) && c.valid(c.arg(6), 8)) {
+            c.write32(c.arg(6), 8 * n);
+            c.write32(c.arg(6) + 4, 16);
+        }
+        return 1u;
+    });
+    // Coordinates: only MM_TEXT (1), device units, no origin moved.
+    stdcall(g, "GetMapMode", 1, [](Cpu &) { return 1u; });
+    stdcall(g, "SetMapMode", 2, [](Cpu &) { return 1u; });
+    stdcall(g, "DPtoLP", 3, [](Cpu &) { return 1u; });
+    stdcall(g, "GetDCOrgEx", 2, [](Cpu &c) {
+        if (!c.valid(c.arg(1), 8))
+            return 0u;
+        c.write32(c.arg(1), 0);
+        c.write32(c.arg(1) + 4, 0);
+        return 1u;
+    });
+    // GetClipBox: the screen, as a simple region (2).
+    stdcall(g, "GetClipBox", 2, [this](Cpu &c) {
+        if (!c.valid(c.arg(1), 16))
+            return 0u;
+        c.write32(c.arg(1), 0);
+        c.write32(c.arg(1) + 4, 0);
+        c.write32(c.arg(1) + 8, uint32_t(screenWidth));
+        c.write32(c.arg(1) + 12, uint32_t(screenHeight));
+        return 2u;
+    });
+    stdcall(g, "SetDIBitsToDevice", 12, [](Cpu &c) { return c.arg(8); }); // the lines "drawn"
+    stdcall(g, "SetPixel", 4, [](Cpu &c) { return c.arg(3); });
+    stdcall(g, "GetPixel", 3, [](Cpu &) { return 0u; });
+    stdcall(g, "Polyline", 3, [](Cpu &) { return 1u; });
+    // DrawTextA(dc, text, n, rect, format) and DrawTextExA (with margins):
+    // the height of one line of the stand-in font.
+    stdcall(u, "DrawTextA", 5, [](Cpu &) { return 16u; });
+    stdcall(u, "DrawTextExA", 6, [](Cpu &) { return 16u; });
+    stdcall(u, "LoadBitmapA", 2, [this](Cpu &) { return kGdiObjects + _nextGdiObject++; });
 }
 
 } // namespace reluva::x86

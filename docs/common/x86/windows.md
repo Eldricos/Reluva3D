@@ -79,9 +79,19 @@ C++ library have pages of their own ([directx.md](directx.md),
   first activates it (`WM_ACTIVATEAPP`, `WM_ACTIVATE`, `WM_SETFOCUS`).
   Other pieces:
   - one message queue, which the engine posts its input to and
-    `PeekMessageA` reads, calling `idle` when it's empty;
-  - `DispatchMessageA` and `TranslateMessage`;
+    `PeekMessageA` and `GetMessageA` read, calling `idle` when it's empty.
+    After what's posted come, as Windows orders them, `WM_PAINT` for a
+    window to be painted (`InvalidateRect`; it stays until `BeginPaint`,
+    `ValidateRect` or `DefWindowProcA` paints it) and `WM_TIMER` for a
+    `SetTimer` timer that's due. `GetMessageA` waits for one, letting the
+    other threads run and time pass;
+  - `DispatchMessageA` (a timer's `TIMERPROC` is called itself) and
+    `TranslateMessage`;
   - `DefWindowProcA` destroys a window it's asked to close;
+  - the windows' tree (`GetWindow`, `GetTopWindow`): a dialog's controls
+    are its children, the rest on top, in the order they were made;
+    `GetClassLongA` for the procedure and class style,
+    `GetWindowPlacement`, `ScreenToClient`, capture, `UnregisterClassA`;
   - frames and captions are Windows 98's sizes;
   - the mouse pointer, and the desktop's size and colour depth, which the
     engine sets;
@@ -90,12 +100,30 @@ C++ library have pages of their own ([directx.md](directx.md),
     a window of its own; focus, which `SetFocus` moves; `GetWindowLongA`
     and `SetWindowLongA` for the procedure, styles and user data; a
     101-key keyboard; `SetSystemCursor` and `SystemParametersInfoA`
-    answered without changing anything;
+    answered without changing anything; `InitCommonControls`, with no
+    controls drawn;
   - GDI's objects (fonts, brushes, pens, bitmaps, palettes, memory device
     contexts) as handles, with each device context's selection and
     colours; nothing is drawn through them (`TextOutA`, `BitBlt` do
     nothing), since the programs here show their pictures with
     DirectDraw. `LoadImageA` reads a BMP file's size for `GetObjectA`.
+    Coordinates are device units (`MM_TEXT`, no origin moved); a clip box
+    is the screen; text is measured as 8 x 16 pixels a character
+    (`GetTextExtentPoint32A`, `GetTextExtentExPointA`, `DrawTextA`).
+- **`win32_dialogs.cpp`: dialogs and timers.** `DialogBoxParamA` reads
+  the template (`DLGTEMPLATE` or `DLGTEMPLATEEX`) from the module's
+  resources, makes the dialog and a record of each control (in pixels
+  from dialog units of 6 x 13 pixels a character, MS Sans Serif 8's
+  *(guessed)*), sends `WM_INITDIALOG`, shows it, and runs the messages
+  until `EndDialog`, its owner disabled meanwhile; `WM_QUIT` ends it too
+  and is left for the program. Its procedure is called for its messages
+  as a window procedure would be. The controls keep their text, numbers
+  as text, and checks (`GetDlgItem`, `SetDlgItemTextA` and the like);
+  they have no procedures, so what's sent them gets 0. `SetTimer` and
+  `KillTimer` keep timers for the queue (at least 10 ms).
+- **WINMM's sound** (`win32_system.cpp`): no wave or auxiliary device
+  (`PlaySoundA` fails, `auxGetNumDevs` is 0), as on a machine whose only
+  sound would be DirectSound.
 - **`win32_registry.cpp`: the registry and COM.** An in-memory registry,
   seeded with the installed locales; keys can be listed
   (`RegEnumKeyExA`) and deleted. The user is called "Player"
@@ -212,7 +240,12 @@ executable's entry point on the main thread until it ends the process.
   - a mapped view, a search, and the CD's label;
   - `MulDiv`'s rounding, date and time text, the performance counter.
 - It makes a window with a native window procedure and checks the
-  messages it gets, the queue, frame sizes, and closing. It also checks
+  messages it gets, the queue, frame sizes, and closing.
+- It runs a modal dialog from a template in a DLL made in the test, with
+  a native dialog procedure: the messages in order (`WM_INITDIALOG` with
+  its first control, showing, one `WM_PAINT`, two `WM_TIMER`s, the
+  destruction), its control's text, number and check, `BeginPaint`'s
+  area, and `EndDialog`'s result; then `GetMessageA` with `WM_QUIT`. It also checks
   the registry's keys, values, sizes and enumeration, and
   `CoCreateInstance`.
 - `testInput` checks the messages input becomes, double clicks, key
@@ -235,4 +268,5 @@ executable's entry point on the main thread until it ends the process.
 - **`nfs`**: Need for Speed III's whole program, on drives, with host
   threads ([the game's threads](../../engines/nfs/games/nfs3/systems/threads.md)).
 - **`storm3d`**: Star Trek: Armada's whole program, as a reference to
-  study, as far as its start-up ([hosting.md](../../engines/storm3d/games/armada/systems/hosting.md)).
+  study, as far as its main menu, which is a modal dialog
+  ([hosting.md](../../engines/storm3d/games/armada/systems/hosting.md)).
