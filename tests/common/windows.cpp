@@ -374,7 +374,9 @@ static void testMsvcrtAndFiles(const std::filesystem::path &tmp) {
         if (path.rfind("C:\\Game\\", 0) != 0)
             return std::nullopt;
         if (forWriting)
-            return path == "C:\\Game\\Out.dat" ? std::optional(tmp / "Game" / "Out.dat") : std::nullopt;
+            return path == "C:\\Game\\Out.dat"     ? std::optional(tmp / "Game" / "Out.dat")
+                   : path == "C:\\Game\\Moved.dat" ? std::optional(tmp / "Game" / "Moved.dat")
+                                                   : std::nullopt;
         if (path.size() == 8)
             return tmp / "Game";
         return fs::findFile(tmp / "Game", path.substr(8)).value_or(tmp / "Game" / "missing");
@@ -468,6 +470,19 @@ static void testMsvcrtAndFiles(const std::filesystem::path &tmp) {
     CHECK(!cpu.call(fn("KERNEL32.dll", "FindFirstFileA"), {text("C:\\Game\\DATA.TXT"), find}, r) && r != 0xffffffffu &&
           cpu.string(find + 44) == "DATA.TXT" && cpu.read32(find + 32) == 11);
     CHECK(!cpu.call(fn("KERNEL32.dll", "FindNextFileA"), {r, find}, r) && r == 0);
+    // MoveFileA: what the program wrote is renamed; its own files aren't
+    // moved, nor anything onto a file that's there.
+    std::ofstream(tmp / "Game" / "Out.dat", std::ios::binary) << "moved";
+    const uint32_t move = fn("KERNEL32.dll", "MoveFileA");
+    const uint32_t lastError = fn("KERNEL32.dll", "GetLastError");
+    CHECK(!cpu.call(move, {text("C:\\Game\\Out.dat"), text("C:\\Game\\Other.bin")}, r) && r == 0);
+    CHECK(!cpu.call(lastError, {}, r) && r == 183); // ERROR_ALREADY_EXISTS
+    CHECK(!cpu.call(move, {text("C:\\Game\\Data.txt"), text("C:\\Game\\Moved.dat")}, r) && r == 0);
+    CHECK(!cpu.call(lastError, {}, r) && r == 5); // ERROR_ACCESS_DENIED
+    CHECK(!cpu.call(move, {text("C:\\Game\\Out.dat"), text("C:\\Game\\Moved.dat")}, r) && r == 1);
+    CHECK(!std::filesystem::exists(tmp / "Game" / "Out.dat") &&
+          std::filesystem::file_size(tmp / "Game" / "Moved.dat") == 5);
+    CHECK(std::filesystem::exists(tmp / "Game" / "Data.txt"));
     // The UTF-16 twins, by the ANSI stand-ins; "." in a full path resolved.
     auto wide = [&](const std::string &s) {
         const uint32_t a = process.memory().alloc(uint32_t(2 * s.size() + 2));

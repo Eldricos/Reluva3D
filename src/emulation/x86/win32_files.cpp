@@ -31,6 +31,7 @@ constexpr uint32_t kErrorPathNotFound = 3;
 constexpr uint32_t kErrorAccessDenied = 5;
 constexpr uint32_t kErrorInvalidHandle = 6;
 constexpr uint32_t kErrorNoMoreFiles = 18;
+constexpr uint32_t kErrorAlreadyExists = 183;
 // FILETIME of 1970-01-01, in 100 ns units since 1601.
 constexpr uint64_t kUnixEpoch = 116444736000000000ULL;
 
@@ -1100,6 +1101,34 @@ void Win32Process::addFileStandIns() {
         std::error_code ec;
         if (!host || !std::filesystem::remove(*host, ec)) {
             _lastError = kErrorFileNotFound;
+            return 0u;
+        }
+        return 1u;
+    });
+    // MoveFileA(from, to): renamed where the program can write; a file it
+    // can only read (the game's own) isn't moved; nor onto one that's there.
+    stdcall(k, "MoveFileA", 2, [this](Cpu &c) {
+        const std::string fromName = fullPath(c.string(c.arg(0)));
+        const std::string toName = fullPath(c.string(c.arg(1)));
+        const auto readable = mapPath ? mapPath(fromName, false) : std::nullopt;
+        std::error_code ec;
+        if (!readable || !std::filesystem::exists(*readable, ec)) {
+            _lastError = kErrorFileNotFound;
+            return 0u;
+        }
+        if (const auto there = mapPath(toName, false); there && std::filesystem::exists(*there, ec)) {
+            _lastError = kErrorAlreadyExists;
+            return 0u;
+        }
+        const auto from = mapPath(fromName, true);
+        const auto to = mapPath(toName, true);
+        if (!from || !to || !std::filesystem::exists(*from, ec)) {
+            _lastError = kErrorAccessDenied;
+            return 0u;
+        }
+        std::filesystem::rename(*from, *to, ec);
+        if (ec) {
+            _lastError = kErrorAccessDenied;
             return 0u;
         }
         return 1u;
