@@ -1002,14 +1002,24 @@ Fighting (`ui/map_combat.cpp`): sight is blocked by the outlines (`Bounds
 Poly`) of the parts shown that collide and stand full height, about
 where they stand, a line crossing one's edge *(inferred)*; the enemies
 themselves don't block it. Each character has their model's Hit Points,
-or 100 without *(inferred)*, and the first weapon of theirs that shoots,
-or else one that strikes *(inferred)*. An enemy attacking shoots its
+or 100 without *(inferred)*, and the first weapon of theirs whose
+Inventory Type is Primary, as an enemy attacking takes (`0x42945a`,
+`0x418d70`); without one, the first that shoots, or else one that strikes
+*(inferred)*, which for all 600 of the maps' enemies is the same. An enemy attacking shoots its
 target while it sees them in its weapon's range, aimed within its Max
 Shoot Angle, each Reuse Delay; one it sees further off it walks straight
 at *(inferred)*. A click on an enemy sends the officers chosen to shoot
 it: by the waypoints till it's in range and sight, then each Reuse Delay
 *(inferred)*; walking elsewhere, or the
-enemy fallen, they stop. A shot always hits *(inferred)*: its Shot Sound,
+enemy fallen, they stop. A shot hits the first standing on its line
+from the shooter, by a figure's width either side, the one aimed at if
+no one's before them (lying stunned, only if aimed at); an officer's
+passes the other officers. The program's is a bolt (`CPhaserShot`) going
+at 1500 pixels a second, meeting the first thing standing full height
+in its way, the shooter left out and, for a Team Member's, the Team
+Members (`0x535c19`, `0x535dcf`, `0x535e05`); Reluva's meets them at
+once, as a quarter of a second over a weapon's range *(inferred)*. Its
+Shot Sound,
 its Shot Flash on the shooter and its Hit Flash on the one hit, the
 shooter's `Shoot1` played through, the Weapon Damage taken off. A beam
 weapon's beam is drawn from its muzzle (Forward Position along the way
@@ -1185,8 +1195,9 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   before a noise is heard (perhaps a way there), how the rings are drawn,
   and the investigating AI's rules.
 - **Fighting:** the program's rules for sight (whether the footprints
-  are what blocks it, `Half Height`), for aiming and missing, which
-  weapon a character uses, how long a beam's shown and how high it ends,
+  are what blocks it, `Half Height`), the bolt's hitting someone moving
+  out of its way, a Team Member's shot's noise where it hits (200 for
+  1.5 seconds, `0x535ef4`), how long a beam's shown and how high it ends,
   where on a character the
   flashes go, stunning, death, and the mouse for attacking.
 - **Choosing:** the game's mouse for a box and Shift, and where officers

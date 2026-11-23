@@ -24,6 +24,9 @@ constexpr int kDirections = 12;
 constexpr float kBeamTime = 0.25f;
 // A strike reaches about a figure's width at least (inferred).
 constexpr float kStrikeReach = 30.0f;
+// A shot meets a character this near its line, on the ground
+// unforeshortened: their outline, about 9 either side (inferred).
+constexpr float kHitReach = 9.0f;
 // Of the damage the enemy taken over by the Psychic Rack takes, its holder
 // takes as much, but no more than half the health they have left
 // (0x43b900).
@@ -60,9 +63,15 @@ const ModelInfo &MapScreen::modelInfo(const std::string &model) {
 }
 
 const ItemDefinition *MapScreen::weaponOf(const std::vector<std::string> &items) const {
-    // The first that shoots, or else the first that strikes, as a Targ's
-    // jaws or the neural disrupter (inferred: which a character uses isn't
-    // traced). Mines and grenades are thrown or laid, and aren't here yet.
+    // The first of its inventory whose Inventory Type is Primary, as an
+    // enemy attacking takes (0x42945a, 0x418d70); without one, the first
+    // that shoots, or else the first that strikes (inferred), which for
+    // all the maps' enemies is the same.
+    for (const std::string &name : items) {
+        const auto it = _items.find(name);
+        if (it != _items.end() && it->second.type == "Primary")
+            return &it->second;
+    }
     const ItemDefinition *strikes = nullptr;
     for (const std::string &name : items) {
         const auto it = _items.find(name);
@@ -407,6 +416,54 @@ void MapScreen::officerHit(size_t officer) {
     _paused = true;
 }
 
+int MapScreen::firstInLine(float x0, float y0, float x1, float y1, int shooter) const {
+    // The bolt flies at 1500 pixels a second, meeting the first thing
+    // standing full height on its line, the shooter left out, and, for a
+    // Team Member's, the Team Members (0x535dcf, 0x535e05): an enemy
+    // between an officer and their target is hit, as is anyone between an
+    // enemy and its. Here at once, the characters by a figure's width
+    // either side of the line (inferred: their outlines, and the bolt's
+    // time, a quarter of a second over a weapon's range).
+    const float dx = x1 - x0;
+    const float dy = (y1 - y0) / ParticleSystem::kYToX;
+    const float length = dx * dx + dy * dy;
+    int best = kNobody;
+    float nearest = 2.0f;
+    const auto consider = [&](float cx, float cy, int who) {
+        const float px = cx - x0;
+        const float py = (cy - y0) / ParticleSystem::kYToX;
+        const float t = length > 0.0f ? (px * dx + py * dy) / length : 0.0f;
+        if (t <= 0.0f || t > 1.0f + kHitReach / std::sqrt(std::max(length, 1.0f)))
+            return;
+        if (std::hypot(px - t * dx, py - t * dy) < kHitReach && t < nearest) {
+            nearest = t;
+            best = who;
+        }
+    };
+    // One lying stunned isn't in the way, but is hit aimed at (inferred).
+    const auto aimed = [&](float cx, float cy) { return std::hypot(cx - x1, cy - y1) < 1.0f; };
+    if (shooter < 0)
+        for (size_t i = 0; i < _officers.size(); ++i) {
+            const Officer &o = _officers[i];
+            if (o.present && o.alive() && (o.stunned <= 0.0f || aimed(o.x, o.y)))
+                consider(o.x, o.y, int(i));
+        }
+    for (size_t i = 0; i < _enemies.size(); ++i) {
+        const Enemy &e = _enemies[i];
+        if (kEnemyInstigator - int(i) != shooter && e.alive() && shown(e.part) &&
+            (e.stunned <= 0.0f || aimed(e.x, e.y)))
+            consider(e.x, e.y, kEnemyInstigator - int(i));
+    }
+    return best;
+}
+
+void MapScreen::hitWith(int who, const ItemDefinition &weapon, int shooter, bool stun) {
+    if (who >= 0 && size_t(who) < _officers.size())
+        hurtOfficer(size_t(who), weapon, stun);
+    else if (who <= kEnemyInstigator && size_t(kEnemyInstigator - who) < _enemies.size())
+        hurtEnemy(size_t(kEnemyInstigator - who), weapon, shooter >= 0 ? shooter : -1, stun);
+}
+
 void MapScreen::hurtOfficer(size_t officer, const ItemDefinition &weapon, bool stun) {
     Officer &o = _officers[officer];
     if (!o.alive())
@@ -498,7 +555,11 @@ void MapScreen::updateCombat(float seconds) {
                 shoot(*o.weapon, _team[o.member].bodyModel, o.x, o.y, e.x, e.y, int(&o - _officers.data()));
                 makeNoise(o.x, o.y, o.weapon->shotNoise, o.weapon->shotNoiseTime);
                 o.shooting = 1e-6f;
-                hurtEnemy(i, *o.weapon, int(&o - _officers.data()), stuns(o));
+                const int self = int(&o - _officers.data());
+                if (o.weapon->dischargeAction == "CStrikeTargetAction")
+                    hurtEnemy(i, *o.weapon, self, stuns(o));
+                else
+                    hitWith(firstInLine(o.x, o.y, e.x, e.y, self), *o.weapon, self, stuns(o));
             }
         } else if (o.path.empty()) {
             o.path = route(o, e.x, e.y);

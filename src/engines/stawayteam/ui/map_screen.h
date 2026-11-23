@@ -72,6 +72,8 @@ class MapScreen {
 public:
     /** An instigator that's enemy `e`: kEnemyInstigator - e (officers are 0 up). */
     static constexpr int kEnemyInstigator = -1000;
+    /** An instigator that's neither an officer nor an enemy. */
+    static constexpr int kNobody = -1;
     /** Hit points for a character whose model gives none (inferred). */
     static constexpr float kDefaultHealth = 100.0f;
     /** Held to a task till told it's done. */
@@ -378,6 +380,16 @@ public:
     void hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attacker, bool stun);
     /** A shot at officer `officer` with `weapon`: stunning them with `stun`, else hurting them. */
     void hurtOfficer(size_t officer, const ItemDefinition &weapon, bool stun);
+    /**
+     * Who a shot from (x0, y0) at (x1, y1) by `shooter` (an officer, or
+     * kEnemyInstigator less an enemy) meets first: the first standing
+     * character on its line, the one aimed at if no one's before them; an
+     * officer's passes the other officers. An instigator: an officer, or
+     * kEnemyInstigator less an enemy; kNobody for none.
+     */
+    int firstInLine(float x0, float y0, float x1, float y1, int shooter) const;
+    /** A shot by `shooter` with `weapon` hitting `who` (as firstInLine gives). */
+    void hitWith(int who, const ItemDefinition &weapon, int shooter, bool stun);
     // What officer `officer`'s weapons' damage and range are multiplied by:
     // more while they're enhanced; 1 for anyone else.
     float enhancement(int officer) const;
@@ -567,7 +579,6 @@ private:
     bool placeNamed(const std::string &name, int instigator, int trigger, float &x, float &y) const;
     // An officer (0 up) or enemy (kEnemyInstigator down) by what an action
     // calls them, kNobody for neither.
-    static constexpr int kNobody = -1;
     int whoNamed(const std::string &name, int instigator, int trigger) const;
     // An item given to an officer, `count` of its uses; one used up.
     void giveItem(int officer, const std::string &item, int count);

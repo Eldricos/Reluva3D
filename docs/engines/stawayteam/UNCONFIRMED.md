@@ -62,8 +62,8 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
   by the camera's scripts, a line's time and the beaming in's look; the
   triggers' and the enemies' rules, read from the maps' fields; choosing
   by box and Shift, and where officers sent together stand; fighting:
-  sight blocked by the models' `Bounds Poly`, which weapon a character
-  uses, shots that always hit, stunning, the health bar's cut, and a
+  sight blocked by the models' `Bounds Poly`, a shot meeting those on its
+  line at once, stunning, the health bar's cut, and a
   click on an enemy to attack it; noise: going to look, walls not
   stopping it, and the rings' look; the enemies pursuing, retreating,
   holding the place and acting on their messages, and officers stunned

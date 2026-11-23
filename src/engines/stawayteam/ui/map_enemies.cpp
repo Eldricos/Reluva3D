@@ -855,7 +855,11 @@ void MapScreen::updateEnemies(float seconds) {
             shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, o.x, o.y,
                   kEnemyInstigator - int(&e - _enemies.data()));
             e.shooting = 1e-6f;
-            hurtOfficer(size_t(e.target), *e.weapon, e.stuns);
+            const int self = kEnemyInstigator - int(&e - _enemies.data());
+            if (e.weapon->dischargeAction == "CStrikeTargetAction")
+                hurtOfficer(size_t(e.target), *e.weapon, e.stuns);
+            else
+                hitWith(firstInLine(e.x, e.y, o.x, o.y, self), *e.weapon, self, e.stuns);
         }
     }
 }
@@ -922,7 +926,10 @@ bool MapScreen::fightFoe(size_t self, float seconds) {
     shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, f.x, f.y, kEnemyInstigator - int(&e - _enemies.data()));
     e.shooting = 1e-6f;
     const size_t victim = size_t(e.foe);
-    hurtEnemy(victim, *e.weapon, -1, e.stuns);
+    if (e.weapon->dischargeAction == "CStrikeTargetAction")
+        hurtEnemy(victim, *e.weapon, -1, e.stuns);
+    else
+        hitWith(firstInLine(e.x, e.y, f.x, f.y, kEnemyInstigator - int(&e - _enemies.data())), *e.weapon, -1, e.stuns);
     Enemy &v = _enemies[victim];
     if (int(victim) != _melded && v.alive() && v.foe < 0 && v.target < 0 &&
         inCategory(_map.parts[e.part].category, v.validTargets)) {

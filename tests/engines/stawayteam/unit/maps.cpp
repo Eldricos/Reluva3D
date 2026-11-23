@@ -1972,6 +1972,48 @@ void testDoorWays() {
     }
 }
 
+void testShotLines() {
+    // Ann at 300, Bo at 400, guard B at 450 and guard A at 500, all about
+    // y 500: a shot meets the first standing on its line, an officer's
+    // passing the officers.
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    const auto guard = [](const std::string &name, int x, int y) {
+        return "Level Part=CEntityWalking\n{\nName=" + name +
+               "\nActivity=Array\n{\nItem Count=1\nActivity=CBorgAI\n{\nCurrent State=Patrol\n}\n}\n"
+               "Model=Characters/Guard\nPosition X=" +
+               std::to_string(x) + "\nPosition Y=" + std::to_string(y) + "\n}\n";
+    };
+    const std::string zax =
+        "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=400.000000,500.000000\nTree List=CSortList2D\n{\n" +
+        guard("A", 500, 500) + guard("B", 450, 502) +
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=500\n}\n"
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 2\nPosition X=400\nPosition Y=505\n}\n}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = bytesOf(zax);
+    data.files["Cache/Models/Characters/Guard.mdl16"] = modelFile("Guard", 1, 1);
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    TeamMember bo;
+    bo.firstName = "Bo";
+    MapScreen screen(data, rules, map, options, 0, {ann, bo});
+    const int a = MapScreen::kEnemyInstigator;
+    const int b = MapScreen::kEnemyInstigator - 1;
+    // Ann at guard A: past Bo, guard B's in the way.
+    CHECK(screen.firstInLine(300.0f, 500.0f, 500.0f, 500.0f, 0) == b);
+    // Guard A at Ann: guard B first; guard B at Ann: Bo first.
+    CHECK(screen.firstInLine(500.0f, 500.0f, 300.0f, 500.0f, a) == b);
+    CHECK(screen.firstInLine(450.0f, 502.0f, 300.0f, 500.0f, b) == 1);
+    // Ann at no one, down the map: nothing met.
+    CHECK(screen.firstInLine(300.0f, 500.0f, 300.0f, 700.0f, 0) == MapScreen::kNobody);
+}
+
 void testKit() {
     // Ann with the cloaking band, a decoy to put down, a phaser and a
     // grenade; a guard looking her way, one in a stasis field's oval, one of
@@ -2618,6 +2660,7 @@ static const reluva::test::Suite
                {"standing in the way", [](const std::filesystem::path &) { testStandingInTheWay(); }},
                {"scripts hold actors", [](const std::filesystem::path &) { testScriptsHoldActors(); }},
                {"door ways", [](const std::filesystem::path &) { testDoorWays(); }},
+               {"shot lines", [](const std::filesystem::path &) { testShotLines(); }},
                {"kit", [](const std::filesystem::path &) { testKit(); }},
                {"states", [](const std::filesystem::path &) { testStates(); }},
                {"doors", [](const std::filesystem::path &) { testDoors(); }},
