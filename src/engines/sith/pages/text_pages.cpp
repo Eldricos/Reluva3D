@@ -84,27 +84,32 @@ public:
         y += kGap;
         for (const char *sample : {"The quick brown fox jumps over the lazy dog.", "0123456789 :;!?()-+",
                                    "\xc0\xc9\xcd\xd1\xd6\xdc \xe0\xe7\xe9\xe8\xea\xf1\xf6\xfc\xdf\xbf\xa1"}) {
+            // As the game spaces it (sft.md): white space moves on by the
+            // font's space width, a missing character is drawn as its
+            // fallback, and each glyph is followed by the gap.
             int x = kGap;
             for (const char ch : std::string_view(sample)) {
+                if (ch == ' ') {
+                    x += font.spaceWidth * _scale;
+                    continue;
+                }
                 const Font::Glyph *g = font.glyph(uint8_t(ch));
+                if (!g)
+                    g = font.glyph(font.fallback);
                 if (!g) {
-                    // Characters the font lacks (a space in some) take a quarter of its height.
-                    x += std::max(2, strip.h / 4) * _scale;
+                    x += font.gap * _scale;
                     continue;
                 }
                 if (x + g->width * _scale > kViewerW - kGap)
                     break;
-                // The text fonts' space glyph is a marker block, so a space
-                // only moves on by its width.
-                if (ch != ' ')
-                    blitPart(screen, strip, g->x, 0, g->width, strip.h, x, y, _scale);
-                x += g->width * _scale;
+                blitPart(screen, strip, g->x, 0, g->width, strip.h, x, y, _scale);
+                x += (g->width + font.gap) * _scale;
             }
             y += (strip.h + 6) * _scale;
         }
         line += "  " + std::to_string(font.glyphs.size()) + " glyphs, " + std::to_string(strip.h) + " high, " +
-                std::to_string(font.strip.bitsPerPixel) + "-bit, header " + std::to_string(font.fields[0]) + " " +
-                std::to_string(font.fields[1]) + " " + std::to_string(font.fields[2]);
+                std::to_string(font.strip.bitsPerPixel) + "-bit, gap " + std::to_string(font.gap) + ", space " +
+                std::to_string(font.spaceWidth) + ", fallback " + std::to_string(font.fallback);
         drawStatus(screen, line);
     }
 

@@ -82,11 +82,9 @@ Error parseStrings(const std::vector<uint8_t> &data, StringTable &out) {
         while (!line.empty() && line.front() != ' ' && line.front() != '\t' && line.front() != '"')
             line.remove_prefix(1);
         line = trim(line);
-        if (!quoted(line, value)) {
-            // One credits line has its string unquoted: the rest of the line.
-            const size_t comment = line.find('#');
-            value.assign(trim(line.substr(0, comment)));
-        }
+        // One credits line has its string unquoted, which the game reads as
+        // empty (0x42f210).
+        quoted(line, value);
         out.entries.emplace_back(std::move(key), newLines(std::move(value)));
     }
     if (!counted)

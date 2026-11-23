@@ -98,15 +98,18 @@ void testBitmap8() {
 
     Bitmap bm;
     CHECK(!parseBitmap(data, bm));
-    CHECK(bm.cels.size() == 2 && bm.paletteMode == 2 && bm.x == 5 && bm.y == 6);
+    CHECK(bm.cels.size() == 2 && bm.flags == 2 && bm.x == 5 && bm.y == 6);
     CHECK(bm.cels.size() == 2 && bm.cels[1].w == 1 && bm.cels[1].h == 2 && bm.cels[1].pixels[1] == 6);
     CHECK(bm.palette && (*bm.palette)[4].r == 4);
 
-    // Its own palette wins; the transparent colour (3) comes out clear.
+    // Its own palette wins; the transparent colour (3) is drawn only when
+    // the flags say it's used.
     Palette other{};
     const image::Image img = bitmapToImage(bm, bm.cels[0], other, true);
     CHECK(img.w == 2 && img.pixel(1, 0)[0] == 4 && img.pixel(1, 0)[3] == 255);
-    CHECK(img.pixel(0, 0)[3] == 0);
+    CHECK(img.pixel(0, 0)[3] == 255);
+    bm.flags |= kBitmapTransparent;
+    CHECK(bitmapToImage(bm, bm.cels[0], other, true).pixel(0, 0)[3] == 0);
 
     // Cut short in its palette, or in a cel.
     data.resize(data.size() - 1);
@@ -197,7 +200,7 @@ void testFont() {
 
     Font font;
     CHECK(!parseFont(data, font));
-    CHECK(font.fields[2] == 32 && font.glyphs.size() == 3);
+    CHECK(font.fallback == 32 && font.glyphs.size() == 3);
     CHECK(font.glyph('1') && font.glyph('1')->x == 2 && font.glyph('1')->width == 1);
     CHECK(font.glyph('A') && font.glyph('A')->x == 3);
     CHECK(!font.glyph('B'));
@@ -226,7 +229,7 @@ void testStrings() {
     CHECK(table.find("NAME") && *table.find("NAME") == "%s's Game");
     CHECK(table.find("DIK_BACKSLASH") && *table.find("DIK_BACKSLASH") == "\\");
     CHECK(table.find("ERR") && *table.find("ERR") == "\n\nSee:\n");
-    CHECK(table.find("CREDITS_big_446") && *table.find("CREDITS_big_446") == "Paul Zabierek");
+    CHECK(table.find("CREDITS_big_446") && table.find("CREDITS_big_446")->empty());
     CHECK(!table.find("AFTER"));
 
     const std::string noCount = "\"A\" 0 \"B\"\r\n";
@@ -270,10 +273,11 @@ void testSoundClass() {
                              "moving\t\t19counterweight01.WAV\t0x0001\t0.5     4.0\r\n"
                              "happy\t\tC34BO03N.WAV\t0x010000\t\r\n"
                              "stopmove\tFunicularStop01.wav\r\n"
+                             "corpsehit\tbodyfall.wav\t10\r\n"
                              "hurtimpact\ti00ky01z.wav\t0x14000\t0.5\t2.5\t0.8   # a comment\r\n";
     SoundClass snd;
     CHECK(!parseSoundClass(std::vector<uint8_t>(text.begin(), text.end()), snd));
-    CHECK(snd.entries.size() == 5);
+    CHECK(snd.entries.size() == 6);
     const SoundClass::Entry *moving = snd.find("MOVING");
     CHECK(moving && moving->wav == "19counterweight01.WAV" && moving->flags == 1u && moving->maxRadius == 4.0f);
     const SoundClass::Entry *happy = snd.find("happy");
@@ -282,6 +286,8 @@ void testSoundClass() {
     CHECK(stop && !stop->flags);
     const SoundClass::Entry *hurt = snd.find("hurtimpact");
     CHECK(hurt && hurt->maxVolume == 0.8f);
+    const SoundClass::Entry *corpse = snd.find("corpsehit"); // flags are hexadecimal, written with 0x or not
+    CHECK(corpse && corpse->flags == 0x10u);
 
     const std::string bad = "moving a.wav 0x1 near\n";
     CHECK(parseSoundClass(std::vector<uint8_t>(bad.begin(), bad.end()), snd));
@@ -306,11 +312,11 @@ void testParticles() {
                              "INSERT OFFSET   0.000000   0.000000   0.108216\r\nVERTICES 2\r\n"
                              "# num:     x:         y:         z:         i:\r\n"
                              "    0:  -0.000141  -0.096503   0.000141   0.000000\r\n"
-                             "    1:  -0.023951   0.033595  -0.088717   0.500000\r\n";
+                             "    1:  -0.023951   0.033595  -0.088717   2.000000\r\n";
     Particles par;
     CHECK(!parseParticles(std::vector<uint8_t>(text.begin(), text.end()), par));
     CHECK(par.size == 0.005f && par.material == "00teleport.mat" && par.points.size() == 2);
-    CHECK(par.pointLight.size() == 2 && par.pointLight[1] == 0.5f && par.insertOffset.z == 0.108216f);
+    CHECK(par.pointCel.size() == 2 && par.pointCel[1] == 2 && par.insertOffset.z == 0.108216f);
     const std::string empty = "PAR 1.0\r\nSIZE .005\r\nMATERIAL a.mat\r\nVERTICES 0\r\n";
     CHECK(parseParticles(std::vector<uint8_t>(empty.begin(), empty.end()), par));
 }

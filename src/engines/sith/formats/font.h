@@ -6,7 +6,6 @@
 #include "common/types.h"
 #include "engines/sith/formats/bitmap.h"
 
-#include <array>
 #include <cstdint>
 #include <map>
 #include <vector>
@@ -24,8 +23,12 @@ struct Font {
         int32_t width = 0;
     };
 
-    /** The header's fields 2 to 4, not yet understood. */
-    std::array<uint32_t, 3> fields{};
+    /** Pixels added after each glyph (0x4347d0). */
+    int32_t gap = 0;
+    /** How far white space moves the text, in pixels (0x43470a). */
+    int32_t spaceWidth = 0;
+    /** The character drawn for one the font lacks (0x434734). */
+    uint16_t fallback = 0;
     /** Each character's glyph, by its code (Windows-1252 in the game's fonts). */
     std::map<uint16_t, Glyph> glyphs;
     /** The strip, in its first cel. */

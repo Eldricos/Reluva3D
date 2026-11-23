@@ -151,7 +151,7 @@ public:
         line += info;
         if (bm.bitsPerPixel == 8)
             line += bm.palette ? ", own palette"
-                               : ", palette mode " + std::to_string(bm.paletteMode) + ", drawn with " +
+                               : ", flags " + std::to_string(bm.flags) + ", drawn with " +
                                      (_data.palettes.empty() ? std::string("none") : _data.palettes[_palette].first);
         drawStatus(screen, line);
     }

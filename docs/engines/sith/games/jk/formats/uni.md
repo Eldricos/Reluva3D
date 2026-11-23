@@ -81,8 +81,8 @@ quotes) and `0x42f1a0` (up to a space or tab).
 ## In Reluva
 
 `parseStrings` (`src/engines/sith/formats/strings.h`) reads one into a
-`StringTable`: the string after the number, or the rest of the line when
-it isn't quoted, where the game reads an empty string. The data viewer's
+`StringTable`: the string after the number, empty when it isn't quoted,
+as the game reads it. The data viewer's
 Strings page lists them. `reluva-tool sith strings <install>
 <file.uni>` prints one table, and `reluva-tool sith formats <install>`
 reads them all.

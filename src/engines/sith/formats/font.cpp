@@ -23,8 +23,9 @@ Error parseFont(const std::vector<uint8_t> &data, Font &out) {
         return Error::fail("not a font: no SFNT header");
     if (readLE32(&data[4]) != kVersion)
         return Error::fail("font version " + std::to_string(readLE32(&data[4])) + ", not 10");
-    for (int i = 0; i < 3; ++i)
-        out.fields[i] = readLE32(&data[8 + 4 * i]);
+    out.gap = int32_t(readLE32(&data[8]));
+    out.spaceWidth = int32_t(readLE32(&data[12]));
+    out.fallback = uint16_t(readLE32(&data[16]));
     const uint32_t ranges = readLE32(&data[20]);
 
     size_t pos = kHeaderSize;

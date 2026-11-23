@@ -66,7 +66,7 @@ struct Paint {
     int cel = 0;
     /** The colour when there's no texture: a palette index. */
     int color = -1;
-    /** Whether colour 0 of a transparent texture is left out. */
+    /** Whether the transparent colour of a texture that has one is left out. */
     bool transparent = true;
     /** The colormap to light it through, in place of the Draw3D's own; nullptr for that. */
     const Colormap *colormap = nullptr;

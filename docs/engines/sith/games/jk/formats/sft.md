@@ -49,11 +49,11 @@ in every font.
 ## In Reluva
 
 `parseFont` (`src/engines/sith/formats/font.h`) reads one into a `Font`.
-The data viewer's Fonts page shows the strip, and sample text drawn with
-the font glyph against glyph, with no gap between them; a space moves on
-by its glyph's width without drawing it. The game puts the header's gap
-after each glyph and moves on by its space width
-([Header](#header)), so the viewer's spacing isn't yet the game's. `reluva-tool sith formats <install>` reads them all.
+The data viewer's Fonts page shows the strip, and sample text spaced as
+the game spaces it: the header's gap after each glyph, a space moving on
+by the space width, a missing character drawn as the fallback
+([Header](#header)). `reluva-tool sith formats <install>` reads them
+all.
 
 ## Sources and checks
 

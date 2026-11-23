@@ -13,7 +13,6 @@ namespace reluva::sith {
 namespace {
 
 constexpr uint32_t kVersion = 0x46;
-constexpr uint32_t kOwnPalette = 2;
 
 // A channel of `bits` bits widened to 8, its top bits repeated below.
 uint8_t widen(uint32_t value, uint32_t bits) {
@@ -35,7 +34,7 @@ Error parseBitmap(const uint8_t *data, size_t size, Bitmap &out, size_t *used) {
         return Error::fail("not a .bm picture: no BM header");
     if (readLE32(data + 4) != kVersion)
         return Error::fail(".bm version " + std::to_string(readLE32(data + 4)) + ", not 70");
-    out.paletteMode = readLE32(data + 12);
+    out.flags = readLE32(data + 12);
     const uint32_t count = readLE32(data + 16);
     out.x = int32_t(readLE32(data + 20));
     out.y = int32_t(readLE32(data + 24));
@@ -68,7 +67,7 @@ Error parseBitmap(const uint8_t *data, size_t size, Bitmap &out, size_t *used) {
         pos += size_t(bytes);
         out.cels.push_back(std::move(cel));
     }
-    if (out.paletteMode == kOwnPalette) {
+    if (out.flags & kBitmapOwnPalette) {
         if (pos + 768 > size)
             return Error::fail(".bm cut short in its palette");
         Palette pal;
@@ -84,6 +83,7 @@ Error parseBitmap(const uint8_t *data, size_t size, Bitmap &out, size_t *used) {
 }
 
 image::Image bitmapToImage(const Bitmap &bm, const Bitmap::Cel &cel, const Palette &palette, bool transparent) {
+    const bool keyed = transparent && (bm.flags & kBitmapTransparent);
     image::Image img;
     img.w = cel.w;
     img.h = cel.h;
@@ -106,7 +106,7 @@ image::Image bitmapToImage(const Bitmap &bm, const Bitmap::Cel &cel, const Palet
                     p[c] = widen((value >> bm.channelShifts[c]) & ((1u << bits) - 1), bits);
                 }
             }
-            p[3] = transparent && value == bm.transparentColor ? 0 : 255;
+            p[3] = keyed && value == bm.transparentColor ? 0 : 255;
         }
     return img;
 }

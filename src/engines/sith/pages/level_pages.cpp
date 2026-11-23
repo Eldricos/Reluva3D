@@ -142,7 +142,7 @@ public:
                         corner.u = _level.texVertices[size_t(t)][0];
                         corner.v = _level.texVertices[size_t(t)][1];
                     }
-                    corner.light = std::clamp(surf.intensities[c] + sector.extraLight + surf.extraLight, 0.0f, 1.0f);
+                    corner.light = cornerLight(sector, surf, surf.intensities[c]);
                     corners.push_back(corner);
                 }
                 draw.polygon(corners, paint);
@@ -159,6 +159,18 @@ public:
     }
 
 private:
+    // A surface's corner light as the game's colormap renderer takes it
+    // (jkl.md, Light): the corner's and the surface's, or the sector's extra
+    // light where that's more (0x43c693); the skies unlit (0x4e5eb6); light
+    // mode 1 the surface's extra light alone.
+    static float cornerLight(const Level::Sector &sector, const Level::Surface &surf, float corner) {
+        constexpr uint32_t kSkies = 0x200 | 0x400;
+        if (surf.lightingMode == 0 || (surf.surfaceFlags & kSkies))
+            return 1.0f;
+        const float own = std::clamp((surf.lightingMode == 1 ? 0.0f : corner) + surf.extraLight, 0.0f, 1.0f);
+        return std::max(own, std::clamp(sector.extraLight, 0.0f, 1.0f));
+    }
+
     // The things with a model or a sprite, each at its place, lit through
     // its sector's colormap; in the player's own view, not the player.
     int drawThings(Draw3D &draw) {

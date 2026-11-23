@@ -53,12 +53,13 @@ Error parseParticles(const std::vector<uint8_t> &data, Particles &out) {
                 int num = 0;
                 std::vector<std::string_view> f;
                 Vec3 p;
-                float light = 0;
+                float cel = 0;
                 if (!numbered(lines.next(), num, f) || f.size() < 4 || !toFloat(f[0], p.x) || !toFloat(f[1], p.y) ||
-                    !toFloat(f[2], p.z) || !toFloat(f[3], light))
+                    !toFloat(f[2], p.z) || !toFloat(f[3], cel))
                     return bad("a point");
                 out.points.push_back(p);
-                out.pointLight.push_back(light);
+                // Written as 0.000000; the game takes the whole number before the point.
+                out.pointCel.push_back(int(cel));
             }
         } else
             return bad("an unknown line");

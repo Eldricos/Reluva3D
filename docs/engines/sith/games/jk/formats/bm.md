@@ -108,7 +108,8 @@ are drawn into them, each at its own x and y from their top left:
 
 `parseBitmap` (`src/engines/sith/formats/bitmap.h`) reads one into a
 `Bitmap`; `bitmapToImage` makes a cel RGBA, through its own palette or
-one it's given, its transparent colour clear or not. The data viewer's
+one it's given, its transparent colour clear where its flags say it's
+used and the caller wants it. The data viewer's
 Pictures page shows every cel, with the interface's palette or any
 colormap's or background's. `reluva-tool sith formats <install>` reads them
 all.

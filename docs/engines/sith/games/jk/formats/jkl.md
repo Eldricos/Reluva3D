@@ -237,11 +237,11 @@ surfaces facing away from the camera left out, and the things with a
 model or a sprite in their places (H hides them). `reluva-tool sith formats
 <install>` reads them all.
 
-The viewer lights a corner by its light plus the sector's and the
-surface's extra light, held to 0 to 1, where the game takes the more of
-the corner's light with the surface's, and the sector's
-([Light](#light)). It doesn't yet use the flags, the skies' placing, or
-the tint.
+The viewer lights a corner as the game's colormap renderer does
+([Light](#light)): the more of the corner's light with the surface's,
+and the sector's, each held to 0 to 1; skies and light mode 0 unlit;
+light mode 1 by the surface's extra light alone. It doesn't yet use the
+other flags, the skies' placing, translucent faces, or the tint.
 
 ## Sources and checks
 

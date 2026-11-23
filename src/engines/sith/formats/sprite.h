@@ -27,7 +27,7 @@ struct Sprite {
     int lightingMode = 0;
     int textureMode = 0;
     float extraLight = 0;
-    /** Where it's drawn, about its thing. */
+    /** Where it's drawn from its thing, along the view's axes: x right, y away, z up (0x46cd69). */
     Vec3 offset;
 };
 
@@ -45,8 +45,12 @@ struct Particles {
     float radius = 0;
     Vec3 insertOffset;
     std::vector<Vec3> points;
-    /** Each point's intensity, its fourth column. */
-    std::vector<float> pointLight;
+    /**
+     * Each point's cel of the material, its fourth column: read as a whole
+     * number, and below the material's cels, or the game won't load the
+     * file (0x46c4e3).
+     */
+    std::vector<int> pointCel;
 };
 
 /** Reads a .par file; fails, saying where, if a line can't be read. */

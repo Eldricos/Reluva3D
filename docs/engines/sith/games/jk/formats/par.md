@@ -85,7 +85,8 @@ template and the code above give it *(inferred)*.
 ## In Reluva
 
 `parseParticles` (`src/engines/sith/formats/sprite.h`) reads one into
-`Particles`. The data viewer's Sprites page draws each point as a square
+`Particles`, each point's cel a whole number as the game takes it. The
+data viewer's Sprites page draws each point as a square
 of its size facing the camera. `reluva-tool sith formats <install>`
 reads them all.
 

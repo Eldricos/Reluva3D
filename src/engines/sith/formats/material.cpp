@@ -59,7 +59,8 @@ Error parseMaterial(const std::vector<uint8_t> &data, Material &out) {
         Material::Texture tex;
         tex.w = int(readLE32(&data[pos]));
         tex.h = int(readLE32(&data[pos + 4]));
-        tex.transparent = readLE32(&data[pos + 8]) != 0;
+        tex.transparent = (readLE32(&data[pos + 8]) & 1) != 0;
+        tex.transparentColor = uint8_t(readLE32(&data[pos + 16]));
         const uint32_t mipCount = readLE32(&data[pos + 20]);
         pos += kTextureHeaderSize;
         if (tex.w <= 0 || tex.h <= 0 || mipCount == 0 || mipCount > 16)
@@ -88,7 +89,7 @@ image::Image materialToImage(const Material::Texture &tex, int level, const Pale
         p[0] = c.r;
         p[1] = c.g;
         p[2] = c.b;
-        p[3] = transparent && tex.transparent && pixels[i] == 0 ? 0 : 255;
+        p[3] = transparent && tex.transparent && pixels[i] == tex.transparentColor ? 0 : 255;
     }
     return img;
 }

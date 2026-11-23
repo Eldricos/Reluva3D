@@ -51,7 +51,7 @@ Error describeBitmap(const std::vector<uint8_t> &data, std::string &line) {
         return err;
     line = std::to_string(bm.bitsPerPixel) + "-bit, " + std::to_string(bm.cels.size()) + " cels of " +
            std::to_string(bm.cels.empty() ? 0 : bm.cels[0].w) + "x" +
-           std::to_string(bm.cels.empty() ? 0 : bm.cels[0].h) + ", palette mode " + std::to_string(bm.paletteMode);
+           std::to_string(bm.cels.empty() ? 0 : bm.cels[0].h) + ", flags " + std::to_string(bm.flags);
     return Error::success();
 }
 

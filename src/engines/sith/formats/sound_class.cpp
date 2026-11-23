@@ -40,7 +40,7 @@ Error parseSoundClass(const std::vector<uint8_t> &data, SoundClass &out) {
         std::string word;
         if (in >> word) {
             char *after = nullptr;
-            e.flags = uint32_t(std::strtoul(word.c_str(), &after, 0));
+            e.flags = uint32_t(std::strtoul(word.c_str(), &after, 16)); // always hexadecimal (0x4e68ac)
             if (*after)
                 return bad();
         }

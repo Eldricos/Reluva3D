@@ -31,8 +31,10 @@ struct Material {
     struct Texture {
         int w = 0;
         int h = 0;
-        /** Whether it has transparent pixels (colour 0). */
+        /** Whether it has a transparent colour (bit 0 of its field 8, 0x44a4fe). */
         bool transparent = false;
+        /** That colour, a palette index (its field 16): 0 in every retail file. */
+        uint8_t transparentColor = 0;
         std::vector<std::vector<uint8_t>> mips;
     };
 
@@ -47,7 +49,7 @@ Error parseMaterial(const std::vector<uint8_t> &data, Material &out);
 
 /**
  * A texture's mip `level` (0 the largest) as RGBA, through `palette`.
- * @param transparent Whether colour 0 of a transparent texture comes out
+ * @param transparent Whether the transparent colour of a texture that has one comes out
  *        with alpha 0.
  */
 image::Image materialToImage(const Material::Texture &tex, int level, const Palette &palette, bool transparent);

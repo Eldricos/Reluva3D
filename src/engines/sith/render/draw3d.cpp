@@ -137,7 +137,7 @@ void Draw3D::polygon(const std::vector<Corner> &corners, const Paint &paint) {
             x += x < 0 ? w : 0;
             y += y < 0 ? h : 0;
             index = tex->mips[0][size_t(y) * size_t(w) + size_t(x)];
-            if (keyed && index == 0)
+            if (keyed && index == tex->transparentColor)
                 return false;
         }
         const int level = std::clamp(int(light * (Colormap::kLightLevels - 1) + 0.5f), 0, Colormap::kLightLevels - 1);

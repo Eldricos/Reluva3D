@@ -70,7 +70,8 @@ textures but only 22 of the 1,998 others.
 ## In Reluva
 
 `parseMaterial` (`src/engines/sith/formats/material.h`) reads one into a
-`Material`; `materialToImage` makes a texture's mip level RGBA through a
+`Material`, each texture's transparent colour from its flag and field
+16; `materialToImage` makes a texture's mip level RGBA through a
 colormap's palette. The data viewer's Materials page shows every cel,
 through a chosen colormap and light level. `reluva-tool sith formats <install>` reads them all.
 

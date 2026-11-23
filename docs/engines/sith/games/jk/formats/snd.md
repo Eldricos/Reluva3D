@@ -62,7 +62,8 @@ result held to 0 to 1.5 (`0x4dba82`) *(from the code)*.
 ## In Reluva
 
 `parseSoundClass` (`src/engines/sith/formats/sound_class.h`) reads one
-into a `SoundClass`, leaving out the fields a line hasn't. The data
+into a `SoundClass`, leaving out the fields a line hasn't, the flags
+read as hexadecimal as the game reads them. The data
 viewer's Sound classes page lists each event and plays its sound.
 `reluva-tool sith formats <install>` reads them all.
 
