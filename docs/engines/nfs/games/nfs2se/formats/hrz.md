@@ -18,7 +18,11 @@ The software program reads its sky as `%sTr%02d.hrz` (0x4719a0), the
 3dfx program `%s3Tr%02d.hrz` (`NFS2SEA.EXE` 0x42ce30). **Neither reads
 the `.lgt` files**: neither program has the name or a pattern making it,
 the hosted game opens only the `.hrz` for a race, and the 8 files hold
-the same numbers. What they were for isn't known.
+the same numbers (475 bytes each). What they were for isn't known: their
+lights run the other way from the software program's (15 full light,
+not dark), and their palettes are on a scale of 0 to 127, as a renderer
+taking 128 for a colour unchanged would want (PlayStation-like
+*(guessed)*).
 
 ## Layout
 
@@ -109,9 +113,12 @@ Drawn by 0x470eb0.
   ... 222 at 0, as in memory.
 - **The distances** are the program's depth buckets for sorting
   polygons, 1,240 of them: a polygon's is its four corners' mean depth
-  plus 10, in halves of the unit (0x45c5f0). A distance d is about
-  d / 2 − 10 units away: `TR00` starts darkening about 115 units out
-  (the unit *(inferred)*).
+  plus 10, in halves of the unit (0x45c5f0); the polygons outside 0 to
+  1,239 aren't drawn. A distance d is about d / 2 − 10 units away:
+  `TR00` starts darkening about 101 units out, and is dark from 440. The
+  unit is the track's *(inferred)*: the depths are clipped against the
+  views' far planes of 500, 400 and 150 (0x4339a0), and the 1,240
+  buckets reach 609.5.
 - **Each frame** (0x46f330) a marker goes in at each change's bucket;
   drawing far to near, it sets the light for the polygons after it.
 - **A light L** is one of 16 colour tables (0x4693c0): each palette
@@ -134,8 +141,9 @@ Drawn by [A] 0x42c3c7.
   sun's at the file's angle toward the other, `sun + (opposite − sun) ×
   k / 8` for k to 7, and back the same way (0x42d0a3), so the far side
   reaches 7/8 of the way. They're the shaded sky's colours at its
-  midpoint row, the top's above it; the earth's two below, drawn in one
-  of the program's views only (0x42c470).
+  midpoint row, the top's above it; the earth's two below, drawn only in
+  the rear-view mirror (0x42c056, 0x42c470): the mirror's views end
+  nearer (150 or 400 units), and the earth hides where *(inferred)*.
 - **The pixmap:** 8 slices as the software's, each as tall as its
   picture against the tallest.
 - **The cloud dome** (0x42be50): a 13 × 13 grid, x and z from −1,000 to
@@ -164,7 +172,11 @@ sets Glide's table fog (`grFogMode`), a colour, and 20 tables
 Each frame it picks a table, and on some tracks a colour, by the
 camera's place along the road (0x427690): `TR00`'s colour rising from
 (6, 6, 6) to (62, 62, 62) over a stretch, `TR04`, `TR05` and `TR07`
-denser in places, by lists in the code.
+denser in places, by lists in the code. The rear-view mirror (the
+program's second view, drawn when the rear view is on: 0x46dcd2) takes
+the densest table: always on tracks 0, 1, 2, 3, 6 and 7, on track 5 only
+along a stretch of its road (0x5FD to 0x6AB), and on track 4 never, its
+code having overwritten the choice with the road's place (0x427a72).
 
 ## In Reluva
 
@@ -186,5 +198,3 @@ reads a sky as NFS III's, else as NFS II SE's. Not drawn yet.
 ## Open questions
 
 - What the `.lgt` files were for.
-- The units of the depth buckets for certain, and which of the 3dfx
-  program's views draws the earth and takes the denser fog.

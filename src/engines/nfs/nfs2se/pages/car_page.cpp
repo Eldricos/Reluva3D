@@ -224,6 +224,12 @@ void CarPage::handleEvent(const Event &ev) {
                 build();
             }
             break;
+        case 'b':
+            _braking = !_braking;
+            break;
+        case 'v':
+            _speed = (_speed + 1) % static_cast<int>(kSpeeds.size());
+            break;
         case ' ':
             _spin = !_spin;
             break;
@@ -257,6 +263,24 @@ void CarPage::draw(Surface &s) {
     font::drawText(s, 16, 16 + font::kLineHeight, _unavailable, page::kTextColor);
 }
 
+int CarPage::frameShown(size_t frames, uint64_t nowMs) const {
+    if (frames == 2)
+        return _braking ? 1 : 0; // the tail lights, lit while braking (0x45a2de)
+    // The wheels' faces, by the car's speed (0x45a340): the game steps its
+    // count once a frame it draws; the page at 30 a second.
+    const float speed = kSpeeds[size_t(_speed)];
+    const uint64_t count = nowMs * 30 / 1000;
+    if (speed > 20)
+        return 3;
+    if (speed > 7)
+        return 1 + int(count & 1);
+    if (speed > 2.5f)
+        return 1 + int(count >> 1 & 1);
+    if (speed > 0.2f)
+        return 1 + int(count >> 2 & 1);
+    return 0;
+}
+
 void CarPage::update(uint64_t nowMs) {
     if (!_renderer)
         return;
@@ -280,12 +304,9 @@ void CarPage::update(uint64_t nowMs) {
         call.state.alphaTest = gfx::AlphaTest::kGe128;
         for (const QuadMesh::Run &r : _runs) {
             int texture = r.texture;
-            // What chooses a frame in the game isn't worked out (geo.md):
-            // the wheels' four turn, the lights' two change each second.
             if (texture >= 0 && size_t(texture) < _frames.size() && !_frames[size_t(texture)].empty()) {
                 const auto &frames = _frames[size_t(texture)];
-                const uint64_t period = frames.size() > 2 ? 80 : 1000;
-                texture = frames[size_t(nowMs / period % frames.size())];
+                texture = frames[size_t(std::min<int>(frameShown(frames.size(), nowMs), int(frames.size()) - 1))];
             }
             call.texture = _textured && texture >= 0 ? _textures[size_t(texture)] : 0;
             call.firstIndex = r.firstIndex;
@@ -301,8 +322,11 @@ void CarPage::update(uint64_t nowMs) {
                                     : std::string(kLevelNames[_level]) + " detail, " + std::to_string(_quads) +
                                           " polygons  pictures: " + (_skinName.empty() ? "none" : _skinName) +
                                           (_missing ? "  (" + std::to_string(_missing) + " not in it)" : "") +
-                                          "  paint: " + (_paint < 0 ? "none" : std::to_string(_paint)));
-    lines.push_back("Left/Right: model  drag/WASD: turn  wheel: zoom  L: level  T: textures  P: paint  Space: spin");
+                                          "  paint: " + (_paint < 0 ? "none" : std::to_string(_paint)) +
+                                          "  speed: " + std::to_string(int(kSpeeds[size_t(_speed)])) + " m/s" +
+                                          (_braking ? ", braking" : ""));
+    lines.push_back(
+        "Left/Right: model  drag/WASD: turn  wheel: zoom  L: level  T: textures  P: paint  V: speed  B: brake");
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y =
             i + 1 == lines.size() ? kFrameH - font::kLineHeight - 4 : 4 + static_cast<int>(i) * font::kLineHeight;

@@ -24,6 +24,7 @@ None yet.
   plainly: both faces of every quad, no sky but its colour, no fog, the
   cars lit from one side, their paint the viewer's pick of
   `CARHSVT.TXT`'s colours without `DELTA.SJH`'s changes, and their
-  wheels and tail lights stepped through their frames at rates of the
-  viewer's choosing ([trk.md](formats/trk.md), [geo.md](formats/geo.md),
+  wheels' and brake lights' frames chosen as the game does for a speed
+  and a brake the viewer sets, the wheels' count stepping 30 times a
+  second ([trk.md](formats/trk.md), [geo.md](formats/geo.md),
   In Reluva).

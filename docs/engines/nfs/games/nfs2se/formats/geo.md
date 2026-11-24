@@ -19,7 +19,7 @@ The unit looks like a metre: the F355's body is 2.0 wide and 4.4 long
 
 | Offset | Size | Field |
 |---|---|---|
-| 0 | u32 | 2 in 40, 1 in 7, 0 in 6 (the six are props of one part); the program doesn't read it *(inferred)* |
+| 0 | u32 | 2 in 40 (every car and traffic model, and the props `SOU2`, `SOU3`, `WAGO`, `sm45`, `sm46`, `sm48`), 1 in 7, 0 in 6 (props of one part); neither program reads it: the loader starts at 4 (0x459dc3) and nothing else touches it *(inferred)* |
 | 4 | 32 × u32 | room for the parts' addresses, which the loader writes (0x459dc3); the files hold their maker's (rising by 0x40 in 52 of the 53) |
 | 132 | u32 | room for the model's first entry in the program's table of texture corners (0x461dd4) |
 | 136 | u32 | room for its picture bank's handle (0x461da4) |
@@ -66,10 +66,11 @@ first entry in its table of texture corners in bytes 2-3 (0x461f55,
   | 0x04 | facing the other way: drawn v0, v3, v2, v1 (a triangle v2, v1, v0), the picture's corners reversed with them, so each vertex keeps its corner (0x46dad3, 0x461ee5). The left-hand parts, mirrors of the right's (5 and 6, 7 and 8), and about half the low-detail ones | 1,931 |
   | 0x08 | see-through: the picture's palette entry 255 isn't drawn (the software renderer's span modes 1 and 5, 0x4a1688). Every `m` and `z` picture, and others; the cars' palettes make 255 black | 1,042 |
   | 0x10 | two-sided: never culled (0x46da92, 0x46f836). Every `n` and `x` picture, the tyres' treads (13, 15, 17, 19) | 423 |
-  | 0xE0 | a count of pictures taken in turn, `flags >> 5` (0 meaning one): the file's, then each with its number added to the name's second character (0x461e5c). 2 only on part 11 (`l000` and `l100`: the tail lights, off and on *(inferred)*), 4 only on the wheels' faces (`m000` to `m300`: the wheel turning *(inferred)*) | 46, 64 |
+  | 0xE0 | a count of pictures taken in turn, `flags >> 5` (0 meaning one): the file's, then each with its number added to the name's second character (0x461e5c). 2 only on part 11 (`l000` and `l100`: the brake lights, off and on), 4 only on the wheels' faces (`m000` to `m300`, still, turning and blurred) | 46, 64 |
 
-  Which picture is shown is a byte the program adds as it draws
-  (0x46da64); what sets it wasn't found.
+  Which picture is shown is the polygon's byte 1, which the program
+  rewrites before it draws each car (0x45a220; read at 0x46da64): see
+  The frames.
 - **Texture corners.** A polygon's vertices 0, 1, 2 and 3 take the
   picture's corners (0, h−1), (w−1, h−1), (w−1, 0) and (0, 0) (0x4736a0,
   0x46f841): with the picture's first row at its top, bottom left,
@@ -86,6 +87,36 @@ first entry in its table of texture corners in bytes 2-3 (0x461f55,
   to 146 such entries (the F355's 103, all pure greens from 128 to 255);
   `CHEV` and `DAYT` have none, `IDGO` and `LIMO` one, and the props
   none: those can't be repainted.
+- **The frames** (0x45a220, as each car is drawn; the model's polygons
+  are shared by its cars, so each sets them before it's drawn):
+  - **The brake lights** (part 11's polygons with frames, listed at
+    0x459a80): 1 while the car brakes (its brake byte, which the
+    drivers set and the physics reads: 0x42b5db, 0x452820), else 0.
+  - **The wheels' faces** (parts 12 and 14 in front, 16 and 18 behind,
+    their first polygons: 0x459ad0), by the car's speed and a count the
+    car steps once a frame while the race's clock runs (0x45a32a):
+
+    | Speed (m/s) | Frame |
+    |---|---|
+    | over 20 | 3, blurred |
+    | over 7 | 1 and 2 by turns, every count |
+    | over 2.5 | every 2 counts |
+    | over 0.2 | every 4 counts |
+    | else | 0, still |
+
+    Then: an axle whose wheels spin (the engine more than 1,250 rpm
+    over them, in gear 4 or below: 0x4556e4) shows 3; one whose wheels
+    are locked (a hard brake or the handbrake: 0x454d5f, 0x45343c)
+    shows 0 *(inferred)*; and a car that has finished, under 2 m/s,
+    shows 0 on both.
+- **The wheels' faces moved out** (0x459e0c): as a model loads, the first
+  polygon of the rear wheels' parts (16 and 18) moves 5/256 outward
+  (0x45a750, 0x45a7b0) in all 15 racing cars (the program's model numbers
+  0 to 14, its table at 0x4c3df4), and of the front wheels' (12 and 14)
+  in the Ford Indigo's (`IDGO`) only. The faces sit on the tyres' outer
+  edges in the files; moved, they aren't lost against them when drawn
+  *(guessed)*. The Indigo's front wheels alone stand clear of its body.
+  `MUSC` has no number: the game never loads it *(inferred)*.
 - **The colours' file.** `GameData/CarModel/pc/CARHSVT.TXT` holds the
   table's first 24 colours, the same four numbers each, as commented text.
   `DELTA.SJH` beside it, 5,568 bytes, is 29 cars × 24 colours × two
@@ -105,9 +136,9 @@ by name, their corners as the program lays them, both faces, lit from
 one side. P picks a paint from `CARHSVT.TXT`'s colours, or none (the
 palette's green), and recolours the pictures as the program does
 (`src/engines/nfs/nfs2se/formats/paint.cpp`); `DELTA.SJH` isn't put in.
-Polygons with frames take their pictures in turn, the wheels' 80 ms
-each and the tail lights' a second each: the viewer's own choice, as
-what chooses the frame in the game isn't known.
+The wheels' faces and the brake lights show their frames as the game
+picks them, for a speed chosen with V and the brake with B; the count
+steps 30 times a second, where the game's steps once a frame it draws.
 
 ## Sources and checks
 
@@ -124,7 +155,5 @@ what chooses the frame in the game isn't known.
 
 ## Open questions
 
-- The header's first word, which the program doesn't seem to read.
-- What chooses a polygon's picture among its frames as the car runs.
-- The wheel parts' first polygons, moved by 5/256 across for some cars
-  (0x45a750, by a word of the car's at 0x21c): which cars, and why.
+- What the header's first word meant to its maker.
+- Why the wheels' faces are moved out, and the Indigo's front ones only.

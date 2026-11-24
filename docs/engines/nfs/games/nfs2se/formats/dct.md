@@ -15,8 +15,10 @@ game's replays (its settings, "Player1" at 0xA8, the controls frame by
 frame from 0x5B4), 4 bytes longer than what the program writes
 (`replay.rpy`, 0x45b440): from an earlier build. Neither program opens
 them: the only "demo" either has is `demoav`, with `%s%d.dct`
-(0x40d972), the attract mode playing `demoav0.dct` to `demoav2.dct`
-after a while at the main menu. Recorded races were the attract mode,
+(0x40d972), the attract mode playing `demoav0.dct` to `demoav2.dct` in
+turn after 25 s at the main menu without a key: more than 3,200 ticks
+of its clock (0x40d951), which runs at 128 a second (0x47212c); the
+3dfx program the same (0x40d726). Recorded races were the attract mode,
 perhaps, before the movies *(guessed)*.
 
 ## Layout
@@ -69,8 +71,3 @@ frame came out the same.
   each movie's frames compared with FFmpeg's decoding
   ([mdec.md](../../../../../common/video/mdec.md)); the Movies page played;
   the unit tests (`nfs.unit.nfs2se`).
-
-## Open questions
-
-- How long the main menu waits before the attract mode, in seconds:
-  more than 0xC80 of its ticks (0x40d972).

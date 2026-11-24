@@ -8,6 +8,7 @@
 #include "engines/nfs/nfs2se/pages/quad_mesh.h"
 #include "engines/nfs/pages/viewers.h"
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -19,8 +20,9 @@ namespace reluva::nfs::nfs2se {
  *   Left/Right: model   drag or A/D/W/S: turn   wheel or +/-: zoom
  *   L: level (high, medium, low, all)   T: textures   Space: spin   R: reset
  *   P: paint (carhsvt.txt's colours, or none)
- * Polygons with frames (geo.md: the wheels' faces, the tail lights) take
- * their pictures in turn.
+ *   V: the car's speed, for the wheels' faces   B: brake, for the tail lights
+ * Polygons with frames (geo.md: the wheels' faces, the tail lights) show
+ * them as the game picks them.
  * RELUVA_NFS2SE_CARS_VIEW="model yaw pitch level" opens it so, for
  * screenshots that repeat.
  */
@@ -42,6 +44,10 @@ private:
     void load(int index);
     void build();
     void release();
+    int frameShown(size_t frames, uint64_t nowMs) const;
+
+    // A speed in each of the game's bands for the wheels, in m/s.
+    static constexpr std::array<float, 5> kSpeeds = {0, 1, 5, 10, 30};
 
     const GameFiles &_files;
     std::vector<FileRef> _models;
@@ -60,7 +66,9 @@ private:
     std::vector<std::vector<int>> _frames;
     std::vector<PaintColour> _paints; // carhsvt.txt's
     int _paint = -1;                  // into _paints; -1 the pictures as they are
-    int _missing = 0;                 // polygons whose picture the .qfs hasn't
+    int _speed = 2;                   // into kSpeeds
+    bool _braking = false;
+    int _missing = 0; // polygons whose picture the .qfs hasn't
     gfx::MeshId _mesh = 0;
     std::vector<QuadMesh::Run> _runs;
     size_t _quads = 0;

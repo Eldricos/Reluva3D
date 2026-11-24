@@ -28,7 +28,7 @@ Scripts 01 to 06 are the same on every track.
 | Offset | Size | Field |
 |---|---|---|
 | 0 | u16 | the file's size: 8 + 20 × the keys, in every file |
-| 2 | u16 | 11 values among the files, shared by unrelated ones; not read |
+| 2 | u16 | 11 values among the files, shared by unrelated ones (scripts 01 and 06 all 0x0269, 02 0x828E, 03 0x8357, 04 and 05 0x8320, 00 by track): not a checksum; neither program reads it, only 4, 6 and the keys (0x42db30, 0x42dbf0) |
 | 4 | u16 | number of keys |
 | 6 | u16 | the race clock's ticks to a key: 6 in every file (the program takes 6 for a value outside 1 to 400) |
 | 8 | 20 each | the keys |
@@ -63,8 +63,11 @@ Addresses are `nfs2sen.exe`'s, from its code and the hosted game
   51-key script lasts about 4.7 s (300 ticks), as script 00 did as the
   hosted race started.
 - **Race start** (0x43943a): 00, unless the race is run backward (05)
-  or two of the race's settings say otherwise (04; which settings isn't
-  worked out). The camera is the car's place plus the offset; for 05,
+  or the race is a tournament or a knockout, or played over a network
+  (04): the race type (0x4dd2d8) isn't a single race, or the game type
+  (0x4dd2e8) is 4, the network; both set from the front end's choices.
+  So one player, split screen, the modem and the serial link see 00 in
+  a single race. The camera is the car's place plus the offset; for 05,
   turned by the car's heading as well *(inferred)*.
 - **Race end** (0x4395e3): 01, or 06 backward, for a human's car.
 - **Knocked objects** (0x433650): a car hitting an object that can be
@@ -92,5 +95,4 @@ Read as `AnimationScript` (`src/engines/nfs/nfs2se/formats/can.cpp`);
 
 ## Open questions
 
-- The word at 2.
-- Which race settings choose script 04 over 00.
+- What the word at 2 meant to its maker.
