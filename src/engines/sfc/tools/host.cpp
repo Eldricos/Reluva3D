@@ -415,10 +415,19 @@ int cmdHost(int argc, char **argv) {
     std::printf("%s\n", err ? ("stopped: " + err.message).c_str() : ("ended with " + std::to_string(exitCode)).c_str());
     // Which module the last instruction is in: a mission's DLL is loaded
     // wherever there's room, so its addresses say nothing alone.
-    if (err)
+    if (err) {
+        bool found = false;
         for (const x86::Win32Process::Module *m : game.process().modules())
-            if (cpu.eip >= m->base && cpu.eip - m->base < m->size)
+            if (cpu.eip >= m->base && cpu.eip - m->base < m->size) {
                 std::printf("in %s, at +0x%x (loaded at 0x%x)\n", m->name.c_str(), cpu.eip - m->base, m->base);
+                found = true;
+            }
+        if (!found) {
+            std::printf("in no module; those loaded:\n");
+            for (const x86::Win32Process::Module *m : game.process().modules())
+                std::printf("  %s at 0x%x, 0x%x bytes\n", m->name.c_str(), m->base, m->size);
+        }
+    }
     std::printf("%llu exceptions raised\n", static_cast<unsigned long long>(raised));
     std::printf("%llu instructions in %.2f s (%.1f million a second); %llu frames shown\n",
                 static_cast<unsigned long long>(executed), seconds,
