@@ -1,0 +1,109 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#include "engines/storm3d/shell/options_screen.h"
+
+namespace reluva::storm3d {
+
+namespace {
+
+// Where the game's frame has them (the pictures matched against it).
+constexpr int kSettingsX = 158;
+constexpr int kSettingsWidth = 324;
+constexpr int kSettingsHeight = 32;
+constexpr int kBottomY = 445;
+constexpr int kPreviousX = 5;
+constexpr int kPreviousWidth = 112;
+constexpr int kBottomHeight = 30;
+constexpr int kStartX = 123;
+constexpr int kMainX = 522;
+constexpr int kTitleX = 65;
+constexpr int kTitleY = 6;
+// Arial Bold at sizes the game asks GDI for, fitted to the frame's text:
+// 16 pixels on the buttons, 20 for the title.
+constexpr float kButtonText = 16;
+constexpr float kTitleText = 20;
+constexpr Color kButtonColour{0, 0, 0};
+constexpr Color kTitleColour{255, 255, 255};
+
+} // namespace
+
+const std::vector<OptionsScreen::Button> &OptionsScreen::buttons() {
+    static const std::vector<Button> kButtons = {
+        {OptionsChoice::kGraphics, "graphics", 192},
+        {OptionsChoice::kSound, "sound", 232},
+        {OptionsChoice::kGame, "game", 272},
+    };
+    return kButtons;
+}
+
+OptionsChoice OptionsScreen::choiceAt(int x, int y) {
+    for (const Button &b : buttons())
+        if (x >= kSettingsX && y >= b.y && x < kSettingsX + kSettingsWidth && y < b.y + kSettingsHeight)
+            return b.choice;
+    if (x >= kPreviousX && y >= kBottomY && x < kPreviousX + kPreviousWidth && y < kBottomY + kBottomHeight)
+        return OptionsChoice::kPreviousMenu;
+    return OptionsChoice::kNone;
+}
+
+Error OptionsScreen::load(const GameFiles &files) {
+    if (Error err = loadPicture(files, "bitmaps/wonlogin/wlsBG.bmp", _background))
+        return err;
+    if (Error err = loadPicture(files, "bitmaps/multiset/mpsstart1.bmp", _start))
+        return err;
+    if (Error err = loadPicture(files, "bitmaps/multiset/navmain1.bmp", _main))
+        return err;
+    for (size_t i = 0; i < _settings.size(); ++i)
+        if (Error err = _settings[i].load(files, "bitmaps/wonlogin", "wls324tg", kSettingsX, buttons()[i].y))
+            return err;
+    if (Error err = _previous.load(files, "bitmaps/multiset", "navback", kPreviousX, kBottomY))
+        return err;
+    std::vector<uint8_t> data;
+    if (Error err = files.read("label.map", data))
+        return err;
+    if (Error err = _text.parse(std::string_view(reinterpret_cast<const char *>(data.data()), data.size())))
+        return Error::fail("label.map: " + err.message);
+    _font.load();
+    _hover = _pressed = OptionsChoice::kNone;
+    return Error::success();
+}
+
+bool OptionsScreen::pointerAt(int x, int y) {
+    const OptionsChoice now = choiceAt(x, y);
+    if (now == _hover)
+        return false;
+    _hover = now;
+    return now != OptionsChoice::kNone;
+}
+
+void OptionsScreen::press(int x, int y) {
+    _pressed = choiceAt(x, y);
+}
+
+OptionsChoice OptionsScreen::release(int x, int y) {
+    const OptionsChoice pressed = _pressed;
+    _pressed = OptionsChoice::kNone;
+    const OptionsChoice at = choiceAt(x, y);
+    return at == pressed ? at : OptionsChoice::kNone;
+}
+
+void OptionsScreen::draw(Surface &screen) {
+    drawPicture(screen, _background, 0, 0, false);
+    drawPicture(screen, _start, kStartX, kBottomY, true);
+    drawPicture(screen, _main, kMainX, kBottomY, true);
+    for (size_t i = 0; i < _settings.size(); ++i) {
+        const ShellButton &b = _settings[i];
+        const OptionsChoice choice = buttons()[i].choice;
+        b.draw(screen, _hover == choice, _pressed == choice, true);
+        _font.drawCentred(screen, b.x, b.y, b.looks[0].w, b.looks[0].h, _text.text("escape_menu", buttons()[i].key),
+                          kButtonText, kButtonColour);
+    }
+    _previous.draw(screen, _hover == OptionsChoice::kPreviousMenu, _pressed == OptionsChoice::kPreviousMenu, true);
+    // The escape menu has no Previous Menu of its own: the words are the
+    // ones every other screen's button has.
+    _font.drawCentred(screen, _previous.x, _previous.y, _previous.looks[0].w, _previous.looks[0].h,
+                      _text.text("multiplayer_connection", "previous_menu"), kButtonText, kButtonColour);
+    _font.draw(screen, kTitleX, kTitleY, _text.text("escape_menu", "title"), kTitleText, kTitleColour);
+}
+
+} // namespace reluva::storm3d

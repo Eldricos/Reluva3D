@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Storm3D's unit tests: the front end's main menu, its buttons where the
-// game's frame has them.
+// Storm3D's unit tests: the front end's screens, their buttons where the
+// game's frames have them.
 
 #include "engines/storm3d/shell/loading_screen.h"
 #include "engines/storm3d/shell/main_menu.h"
+#include "engines/storm3d/shell/options_screen.h"
 #include "engines/storm3d/shell/single_player.h"
 
 #include "tests/support/test.h"
@@ -17,6 +18,8 @@
 using reluva::storm3d::LoadingScreen;
 using reluva::storm3d::MainMenu;
 using reluva::storm3d::MenuChoice;
+using reluva::storm3d::OptionsChoice;
+using reluva::storm3d::OptionsScreen;
 using reluva::storm3d::SinglePlayerScreen;
 
 namespace {
@@ -73,6 +76,19 @@ void testCampaigns() {
     CHECK((campaigns[2] == std::vector<std::string>{"finale4.bzn"}));
 }
 
+// The Options screen's buttons, 324 x 32 and 112 x 30, where the game's
+// frame has them; the gaps between them answer nothing.
+void testOptions() {
+    CHECK(OptionsScreen::buttons().size() == 3);
+    CHECK(OptionsScreen::choiceAt(320, 208) == OptionsChoice::kGraphics);
+    CHECK(OptionsScreen::choiceAt(158, 232) == OptionsChoice::kSound);
+    CHECK(OptionsScreen::choiceAt(481, 303) == OptionsChoice::kGame);
+    CHECK(OptionsScreen::choiceAt(320, 228) == OptionsChoice::kNone);
+    CHECK(OptionsScreen::choiceAt(60, 460) == OptionsChoice::kPreviousMenu);
+    CHECK(OptionsScreen::choiceAt(117, 460) == OptionsChoice::kNone);
+    CHECK(OptionsScreen::choiceAt(560, 460) == OptionsChoice::kNone);
+}
+
 // What the loading screen reads for a mission: each definition once,
 // whatever its case, then its model.
 void testLoadingFiles() {
@@ -89,5 +105,6 @@ static const reluva::test::Suite
                                      {"buttons", [](const std::filesystem::path &) { testButtons(); }},
                                      {"races", [](const std::filesystem::path &) { testRaces(); }},
                                      {"campaigns", [](const std::filesystem::path &) { testCampaigns(); }},
+                                     {"options", [](const std::filesystem::path &) { testOptions(); }},
                                      {"loading files", [](const std::filesystem::path &) { testLoadingFiles(); }},
                                  });

@@ -13,6 +13,7 @@
 #include "engines/storm3d/shell/full_screen_movie.h"
 #include "engines/storm3d/shell/loading_screen.h"
 #include "engines/storm3d/shell/main_menu.h"
+#include "engines/storm3d/shell/options_screen.h"
 #include "engines/storm3d/shell/single_player.h"
 
 namespace reluva::storm3d {
@@ -67,9 +68,11 @@ public:
         bool intro = startIntro();
         MainMenu menu;
         SinglePlayerScreen single;
+        OptionsScreen options;
         LoadingScreen loading(_files);
         bool menuOn = false;
         bool singleOn = false;
+        bool optionsOn = false;
         bool loadingOn = false;
         // Back from the loading screen to the single-player screen, in 2D.
         auto endLoading = [&]() -> Error {
@@ -106,17 +109,20 @@ public:
                     }
                 } else if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
                     // Out a screen, as its Previous Menu does; out of the game from the menu.
-                    if (singleOn)
-                        singleOn = false;
+                    if (singleOn || optionsOn)
+                        singleOn = optionsOn = false;
                     else
                         running = false;
                 } else if (ev.type == EventType::kMouseMove) {
-                    if (singleOn ? single.pointerAt(ev.mouseX, ev.mouseY, now)
-                                 : menu.pointerAt(ev.mouseX, ev.mouseY, now))
+                    if (singleOn    ? single.pointerAt(ev.mouseX, ev.mouseY, now)
+                        : optionsOn ? options.pointerAt(ev.mouseX, ev.mouseY)
+                                    : menu.pointerAt(ev.mouseX, ev.mouseY, now))
                         play("sounds/effects/cornron.wav", audio::SoundType::kEffects, false);
                 } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
                     if (singleOn)
                         single.press(ev.mouseX, ev.mouseY);
+                    else if (optionsOn)
+                        options.press(ev.mouseX, ev.mouseY);
                     else
                         menu.press(ev.mouseX, ev.mouseY);
                 } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft && singleOn) {
@@ -137,6 +143,12 @@ public:
                         }
                         loadingOn = true;
                     }
+                } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft && optionsOn) {
+                    const OptionsChoice choice = options.release(ev.mouseX, ev.mouseY);
+                    if (choice != OptionsChoice::kNone)
+                        play("sounds/effects/cornrclk.wav", audio::SoundType::kEffects, false);
+                    if (choice == OptionsChoice::kPreviousMenu)
+                        optionsOn = false;
                 } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
                     const MenuChoice choice = menu.release(ev.mouseX, ev.mouseY);
                     if (choice != MenuChoice::kNone)
@@ -153,6 +165,12 @@ public:
                             return err;
                         }
                         singleOn = true;
+                    } else if (choice == MenuChoice::kOptions) {
+                        if (Error err = options.load(_files)) {
+                            stopAll();
+                            return err;
+                        }
+                        optionsOn = true;
                     }
                 }
             }
@@ -177,6 +195,8 @@ public:
                     intro = stopIntro();
             } else if (singleOn) {
                 single.draw(screen, now);
+            } else if (optionsOn) {
+                options.draw(screen);
             } else if (menuOn) {
                 menu.draw(screen, now);
             }

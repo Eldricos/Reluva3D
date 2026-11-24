@@ -89,6 +89,33 @@ each, and the finale's). A new player has the first open: the
 Federation's is "Premonitions" (`fed1.bzn`). The races' movies stop
 while the panel is up, the one chosen on its lit movie.
 
+### The Options screen
+
+Options on the main menu opens it over `bitmaps\wonlogin\wlsBG.bmp`,
+which has the title bar and the panel painted in. Three buttons,
+`wonlogin\wls324tg1` to `3` (324 × 32), at (158, 192), (158, 232) and
+(158, 272), say "Graphics Settings", "Sound Settings" and "Game
+Settings", black, in Arial Bold of 16 pixels, centred. The title,
+"OPTIONS", is white, in Arial Bold of 20 pixels, its line's top at
+(65, 6). The words are `label.map`'s `escape_menu` section's, the menu
+Esc opens in play, which has these three among its own.
+
+Along the bottom are three plates, all from `bitmaps\multiset\`:
+
+- Previous Menu (`navback1` to `3`, 112 × 30) at (5, 445), in black,
+  16 pixels.
+- A blank `mpsstart1` (394 × 30) at (123, 445).
+- A blank `navmain1` (112 × 30) at (522, 445).
+
+All of these have the front end's magenta colour key.
+
+The settings screens each have the same background and bottom plates.
+Graphics Settings has display mode and driver lists, two switches and a
+slider for detail. Sound Settings has three volume sliders and four
+switches. Game Settings has the difficulty, three speed sliders and
+three switches. Their words are `label.map`'s `graphics_settings`,
+`sound_settings` and `game_settings` sections'.
+
 ### The loading screen
 
 O.K. on the mission panel plays `cornrclk.wav` and shows the loading
@@ -140,8 +167,9 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
   O.K. there shows the loading screen (`shell/loading_screen.h`), which
   reads the mission's map and its objects' definitions and models, its
   bar growing, and comes back to the races, as the mission doesn't run
-  yet; Esc gives up sooner. Multiplayer, Options, Credits and Load Game
-  do nothing yet. The models are drawn as the data viewer's are
+  yet; Esc gives up sooner. Options opens the Options screen
+  (`shell/options_screen.h`); its settings screens aren't there yet.
+  Multiplayer, Credits and Load Game do nothing yet. The models are drawn as the data viewer's are
   (`scene/sod_meshes.h`); the logo's specular glint isn't. The version is in Reluva's own
   font: the "System" font isn't in the install.
 - **The text** is Arial Bold, as the game asks GDI for it: the machine's
@@ -166,14 +194,17 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
   single-player screen likewise, with the pointer over the Borg and with
   the Federation's mission panel up: its tooltip, mission name and
   buttons' words fall on the frame's to the pixel. The loading screen
-  likewise: its background, logo, badge and bar where the game's are. The unit tests
-  (`storm3d.unit.shell`) check which button and race each place is, and
-  reading `mshell.set`.
+  likewise: its background, logo, badge and bar where the game's are.
+  The Options screen is the same as the game's frame in every pixel.
+  The unit tests (`storm3d.unit.shell`) check which button and race each
+  place is, and reading `mshell.set`.
 
 ## Open questions
 
 - Where the program keeps the main menu's places, and the other
   screens' (single player, multiplayer, options, credits).
+- Which `label.map` entry the Options screen's Previous Menu comes from:
+  `escape_menu` has none, and every other screen's says the same.
 - What the third bitmap of a label is for, and whether the second movie
   starts over each time the pointer comes back.
 - Why the movies' chroma is exchanged.
