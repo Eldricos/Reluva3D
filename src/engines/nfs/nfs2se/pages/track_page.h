@@ -8,6 +8,7 @@
 #include "engines/nfs/nfs2se/formats/col.h"
 #include "engines/nfs/nfs2se/formats/hrz.h"
 #include "engines/nfs/nfs2se/formats/trk.h"
+#include "engines/nfs/nfs2se/glide_sky.h"
 #include "engines/nfs/nfs2se/pages/quad_mesh.h"
 #include "engines/nfs/pages/viewers.h"
 
@@ -23,7 +24,8 @@ namespace reluva::nfs::nfs2se {
  * objects, with the 3dfx program's pictures, seen from the virtual road.
  *   PageUp/PageDown: track   Up/Down: along the road (Shift: faster)
  *   Left/Right: look   1/2/3: level   T: textures   O: objects   V: from above
- *   S: the 3dfx program's shades   L: painted lines
+ *   S: the 3dfx program's shades   L: painted lines   H: sky   F: fog
+ * The sky and the fog are the 3dfx program's (3trNN.hrz and its own tables).
  * Animated textures (the .col's) take their pictures in turn, at the game's
  * rate. The placed sounds (extrablock 17) play from the track's
  * TRAMBnn.BNK as the camera passes them, when there's a mixer.
@@ -49,6 +51,8 @@ private:
     void build();
     void release();
     void addLines(QuadMesh &quads) const;
+    void buildDome();
+    void drawSky(const gfx::Vec3 &eye, const gfx::Vec3 &ahead, const GlideFog &fog);
     void loadSounds(const std::string &stem);
     void stopSounds();
     void updateSounds(const gfx::Vec3 &eye, const gfx::Vec3 &right);
@@ -75,6 +79,13 @@ private:
     bool _above = false;
     bool _shaded = true;
     bool _painted = true;
+    bool _skyShown = true;
+    bool _fogged = true;
+    int _trackNumber = 0; // the NN of trNN
+    gfx::MeshId _skyMesh = 0;
+    gfx::MeshId _domeMesh = 0;
+    gfx::TextureId _domeTexture = 0;
+    uint32_t _domeIndices = 0;
     int _point = 0;  // on the virtual road
     float _look = 0; // turned from the road's way, radians
 

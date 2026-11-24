@@ -139,29 +139,51 @@ Drawn by 0x470eb0.
 
 ### The 3dfx sky
 
-Drawn by [A] 0x42c3c7.
+Drawn by [A] 0x42c010 before everything else, never testing or writing
+depth (0x42c9e0), in the main view as in the rear-view mirror.
 
+- **The ring:** 17 points (the last the first again) at the file's angle
+  plus a sixteenth of a turn each, `(r sin θ, y, r cos θ)` for the
+  radius r, centred on the eye and turned with the view but not moved
+  (0x42cc70). Each is drawn as if the flat distance ahead, its depth in
+  the view replaced by it (0x42cb80); a segment is drawn only if its
+  lower points reach a quarter of the radius ahead (0x42c38f). The
+  heights are the eye's plus the file's: the base, the base plus the
+  midpoint, the pixmap's top and bottom, kept as fractions of the height
+  rounded down to 65,536ths (0x42d07b), and the base plus the height.
 - **The colours at the sun and away from it** are laid round the ring,
   not by the player's heading: the 16 ring points' colours go from the
   sun's at the file's angle toward the other, `sun + (opposite − sun) ×
   k / 8` for k to 7, and back the same way (0x42d0a3), so the far side
-  reaches 7/8 of the way. They're the shaded sky's colours at its
-  midpoint row, the top's above it; the earth's two below, drawn only in
-  the rear-view mirror (0x42c056, 0x42c470): the mirror's views end
-  nearer (150 or 400 units), and the earth hides where *(inferred)*.
-- **The pixmap:** 8 slices as the software's, each as tall as its
-  picture against the tallest.
-- **The cloud dome** (0x42be50): a 13 × 13 grid, x and z from −1,000 to
-  800 by 150, at `offset + height × cos(2π r / 4000)` for r its distance
-  from the middle, with `sky.fsh`'s `CLDn` pictures; on tracks 2 to 7
-  only (a table, 0x4eda10).
-- **The clear colour** is the sky's top, or black with black horizon.
+  reaches 7/8 of the way.
+- **Bottom to top** (0x42c3c7, 0x42c479): the shaded sky from the
+  midpoint row in the ring's colours to the top in the sky's top colour;
+  the cloud dome; the earth from the base in its base colour to the
+  midpoint in its top colour; the horizon's pictures between the
+  pixmap's two heights. Above the top is the clear colour: the sky's
+  top, or black with black horizon (0x427440).
+- **The pictures** are the first 8 of the track's `trNN0.qfs`
+  (`trNN0m.qfs` mirrored), `0000` to `0007` (0x445550): segment k takes
+  picture k mod 8, or with the mirror flag (on in all 8 files) segments
+  8 to 15 take 15 − k turned left to right (0x42cd2e). Each covers its
+  segment, its top right corner 3% past the next segment's (0x42c024);
+  their green is see-through as the track's.
+- **The cloud dome** (0x42be50, 0x42b4d0): a 13 × 13 grid, x and z
+  from −1,000 to 800 by 150 round the eye, at `offset + height ×
+  cos(2π r / 4000)` for r its distance from the middle, in true
+  perspective, with `sky.fsh`'s `CLDn` for track n once to each cell;
+  added to what's behind on tracks 2 to 6, half over it on track 7, and
+  none on the others (a table, 0x4eda10).
+- **Black horizon** (`TR08`), and `TR04`'s tunnels (0x42c7a0), draw one
+  black quad instead. There's no sun: `sky.fsh` has only clouds, rain
+  and splashes.
 
 ### The 3dfx fog: the program's own
 
 Nothing of the `.hrz` fogs the 3dfx game. For each track the program
 sets Glide's table fog (`grFogMode`), a colour, and 20 tables
-(`guFogGenerateExp`) of densities from d0 to d1 (0x42b284):
+(`guFogGenerateExp`), table i's density i twentieths of the way from d0
+to d1 (0x42b284):
 
 | Track | Colour | Density |
 |---|---|---|
@@ -174,21 +196,37 @@ sets Glide's table fog (`grFogMode`), a colour, and 20 tables
 | 7 | 132, 130, 132 | 0.005 to 0.025 |
 | 8 | 0, 2, 4 | 0.003 to 0.023 |
 
+A vertex is fogged by its depth in the view in track units: Glide's w,
+the reciprocal of the 65,536 ÷ the 16.16 depth the program gives it
+(0x4932f0). The sky's shaded part is given a depth of 1, so it's barely
+fogged; its earth and pictures 100, but 1 on track 0 (0x42c043).
+
 Each frame it picks a table, and on some tracks a colour, by the
-camera's place along the road (0x427690): `TR00`'s colour rising from
-(6, 6, 6) to (62, 62, 62) over a stretch, `TR04`, `TR05` and `TR07`
-denser in places, by lists in the code. The rear-view mirror (the
-program's second view, drawn when the rear view is on: 0x46dcd2) takes
-the densest table: always on tracks 0, 1, 2, 3, 6 and 7, on track 5 only
-along a stretch of its road (0x5FD to 0x6AB), and on track 4 never, its
-code having overwritten the choice with the road's place (0x427a72).
+camera's road point (0x427690, 0x50f594 *(inferred)*); its lists, run
+over every point: `TR00` table 0, its colour rising to (62, 62, 62)
+from point 481 and back by 655; `TR04` up to table 14 and a bluer grey
+from 576 to 764, then (3, 3, 3) and table 11 from 1,053 to 1,376, red
+(168, 41, 6) from 1,281 to 1,349; `TR05` darker, to (37, 40, 44), from
+1,524 to 1,716; `TR07` up to table 9 from 1,206 to 1,749; the others
+table 0 throughout. The rear-view mirror (the program's second view,
+drawn when the rear view is on: 0x46dcd2) takes the densest table,
+19, with the same colours, on every track but 4, whose code overwrites
+the choice with the road's place (0x427a72).
 
 ## In Reluva
 
 Read as `Sky` and `Lights` (`src/engines/nfs/nfs2se/formats/hrz.cpp`),
 the comments left out as for NFS III's (`commentedNumbers`,
 `src/engines/nfs/formats/commented_text.cpp`). `reluva-tool nfs survey`
-reads a sky as NFS III's, else as NFS II SE's. Not drawn yet.
+reads a sky as NFS III's, else as NFS II SE's.
+
+The data viewer's Tracks page (`src/engines/nfs/nfs2se/pages/track_page.cpp`)
+draws the 3dfx sky and fog of its main view as above (H and F turn them
+off): the fog's colours and tables from the program's lists
+(`src/engines/nfs/nfs2se/glide_sky.cpp`) by the camera's road point,
+and Glide's table fog by the renderer's own (`DrawCall::tableFog`).
+`TR04`'s tunnels aren't blacked out, and the software program's sky
+and depth cueing aren't drawn.
 
 ## Sources and checks
 

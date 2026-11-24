@@ -111,14 +111,21 @@ void TrackPage::deactivate() {
 
 void TrackPage::release() {
     if (_renderer) {
-        if (_mesh)
-            _renderer->destroyMesh(_mesh);
+        for (gfx::MeshId m : {_mesh, _skyMesh, _domeMesh})
+            if (m)
+                _renderer->destroyMesh(m);
+        if (_domeTexture)
+            _renderer->destroyTexture(_domeTexture);
         for (const auto *list : {&_textures, &_lines})
             for (gfx::TextureId t : *list)
                 if (t)
                     _renderer->destroyTexture(t);
     }
     _mesh = 0;
+    _skyMesh = 0;
+    _domeMesh = 0;
+    _domeTexture = 0;
+    _domeIndices = 0;
     _textures.clear();
     _lines.clear();
     _runs.clear();
@@ -184,9 +191,23 @@ void TrackPage::load(int index) {
         break;
     }
     loadSounds(fs::toLower(stem));
+    _trackNumber = stem.size() > 2 ? std::atoi(stem.c_str() + 2) : 0;
     if (const FileRef *hrz = beside(_files.files(), ref, "3" + stem + ".hrz"))
         if (!_files.read(*hrz, data))
             _hasSky = !parseSky(std::string(data.begin(), data.end()), _sky);
+    // The cloud dome's picture, CLDn of Tracks/SE/sky.fsh, on tracks 2 to 7
+    // only (a table, NFS2SEA.EXE 0x4eda10).
+    if (_hasSky && _trackNumber >= 2 && _trackNumber <= 7)
+        if (const FileRef *fsh = beside(_files.files(), ref, "sky.fsh")) {
+            ShapeBank bank;
+            if (!_files.read(*fsh, data) && !parseShapeBank(std::move(data), bank))
+                for (const Shape &s : bank.shapes) {
+                    image::Image img;
+                    if (fs::toLower(s.name) == "cld" + std::to_string(_trackNumber) && !decodeShape(s, img))
+                        _renderer->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), _domeTexture);
+                }
+        }
+    buildDome();
     build();
 }
 
@@ -398,6 +419,194 @@ void TrackPage::updateSounds(const gfx::Vec3 &eye, const gfx::Vec3 &right) {
     }
 }
 
+// The 3dfx program's cloud dome (0x42be50): a 13 × 13 grid of points
+// round the eye, x and z -1,000 to 800 by 150, at the file's offset +
+// its height × cos(2π r / 4,000), r the distance from the middle; its
+// picture once to each cell.
+void TrackPage::buildDome() {
+    if (!_renderer || !_domeTexture)
+        return;
+    std::vector<gfx::Vertex> vertices;
+    std::vector<uint32_t> indices;
+    constexpr float kPi = 3.14159265f;
+    auto point = [&](float x, float z, float u, float v) {
+        gfx::Vertex out{};
+        const float r = std::sqrt(x * x + z * z);
+        out.pos[0] = x;
+        out.pos[1] = static_cast<float>(_sky.cloudDomeOffset) +
+                     static_cast<float>(_sky.cloudDomeHeight) * std::cos(2 * kPi * r / 4000);
+        out.pos[2] = z;
+        out.uv[0] = u;
+        out.uv[1] = v;
+        out.color[0] = out.color[1] = out.color[2] = out.color[3] = 255;
+        vertices.push_back(out);
+    };
+    for (int j = 0; j < 12; ++j)
+        for (int i = 0; i < 12; ++i) {
+            const auto base = static_cast<uint32_t>(vertices.size());
+            const float x = -1000.0f + 150.0f * static_cast<float>(j);
+            const float z = -1000.0f + 150.0f * static_cast<float>(i);
+            point(x, z, 0, 0);
+            point(x + 150, z, 1, 0);
+            point(x + 150, z + 150, 1, 1);
+            point(x, z + 150, 0, 1);
+            indices.insert(indices.end(), {base, base + 1, base + 2, base, base + 2, base + 3});
+        }
+    if (!_renderer->createMesh(vertices, indices, _domeMesh))
+        _domeIndices = static_cast<uint32_t>(indices.size());
+}
+
+// The 3dfx program's sky in its main view (0x42c010; hrz.md, The 3dfx
+// sky): a ring of 16 segments round the eye, turned with the view but
+// not moved with it, each point drawn as if at the flat distance ahead.
+// Bottom to top: the earth's two colours to the midpoint, the ring's
+// colours there to the sky's top, and the horizon's pictures, the track's
+// first 8, between their two heights; the cloud dome after the shaded
+// sky. None of it tests or writes depth. Fogged as the program fogs it:
+// the shaded sky as if 1 unit away, the earth and pictures 100 (1 on
+// track 0), the dome by its depth.
+void TrackPage::drawSky(const gfx::Vec3 &eye, const gfx::Vec3 &ahead, const GlideFog &fog) {
+    if (!_hasSky || _sky.kind != Sky::kGlide || _sky.blackHorizon || !_skyShown)
+        return;
+    auto cross = [](const gfx::Vec3 &a, const gfx::Vec3 &b) {
+        return gfx::Vec3{a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
+    };
+    auto dot = [](const gfx::Vec3 &a, const gfx::Vec3 &b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; };
+    const gfx::Vec3 &f = ahead;
+    gfx::Vec3 side = cross(f, {0, 1, 0});
+    const float length = std::sqrt(dot(side, side));
+    if (length <= 0)
+        return;
+    for (float &c : side)
+        c /= length;
+    const gfx::Vec3 up = cross(side, f);
+    constexpr float kPi = 3.14159265f;
+    const auto radius = static_cast<float>(_sky.radius);
+    const auto flat = static_cast<float>(_sky.flatDistance);
+    const auto base = static_cast<float>(_sky.base);
+    const auto height = static_cast<float>(_sky.height);
+    // The program keeps these heights as fractions of the shaded area's (0x42d07b).
+    const float fraction = height > 0 ? std::floor(65536 / height) / 65536 : 0;
+    auto row = [&](int v) { return base + static_cast<float>(v) * fraction * height; };
+    const float mid = row(_sky.midpoint);
+    const float pictureBottom = row(_sky.pixmapBottom);
+    const float pictureTop = row(_sky.pixmapTop);
+    auto ring = [&](int i) {
+        const float turn = 2 * kPi * (static_cast<float>(_sky.angle) / 360 + static_cast<float>(i) / 16);
+        return gfx::Vec3{radius * std::sin(turn), 0, radius * std::cos(turn)};
+    };
+    auto at = [&](int i, float y) {
+        gfx::Vec3 p = ring(i);
+        p[1] = y;
+        const float x = dot(p, side);
+        const float v = dot(p, up);
+        return gfx::Vec3{eye[0] + side[0] * x + up[0] * v + f[0] * flat, eye[1] + side[1] * x + up[1] * v + f[1] * flat,
+                         eye[2] + side[2] * x + up[2] * v + f[2] * flat};
+    };
+    const std::array<Rgb, 17> colours = skyRingColours(_sky);
+    const float pictureFog = _trackNumber == 0 ? 1.0f : 100.0f;
+    std::vector<gfx::Vertex> vertices(16 * 12);
+    auto put = [&](size_t n, const gfx::Vec3 &p, const Rgb &c, float u, float v, float w) {
+        gfx::Vertex &out = vertices[n];
+        for (int k = 0; k < 3; ++k) {
+            out.pos[k] = p[size_t(k)];
+            out.color[k] = static_cast<uint8_t>(std::clamp(c[size_t(k)], 0, 255));
+        }
+        out.color[3] = 255;
+        out.uv[0] = u;
+        out.uv[1] = v;
+        out.uv2[0] = w;
+    };
+    const Rgb white{255, 255, 255};
+    for (int c = 0; c < 16; ++c) {
+        // Only the segments reaching a quarter of the radius ahead (0x42c38f).
+        auto ahead4 = [&](int i) {
+            gfx::Vec3 p = ring(i);
+            p[1] = base;
+            return dot(p, f) >= radius / 4;
+        };
+        if (!ahead4(c) && !ahead4(c + 1))
+            continue;
+        const auto g = size_t(4 * c);
+        put(g, at(c, mid), colours[size_t(c)], 0, 0, 1);
+        put(g + 1, at(c + 1, mid), colours[size_t(c + 1)], 0, 0, 1);
+        put(g + 2, at(c + 1, base + height), _sky.skyTop, 0, 0, 1);
+        put(g + 3, at(c, base + height), _sky.skyTop, 0, 0, 1);
+        const size_t e = 64 + g;
+        put(e, at(c, base), _sky.earthBase, 0, 0, pictureFog);
+        put(e + 1, at(c + 1, base), _sky.earthBase, 0, 0, pictureFog);
+        put(e + 2, at(c + 1, mid), _sky.earthTop, 0, 0, pictureFog);
+        put(e + 3, at(c, mid), _sky.earthTop, 0, 0, pictureFog);
+        // With the mirror flag the second half takes the first's pictures
+        // the other way round (0x42cd2e); the top right corner a little
+        // past the next segment's (0x42c024).
+        const bool turned = _sky.mirror && c >= 8;
+        const float left = turned ? 1.0f : 0.0f;
+        const gfx::Vec3 topLeft = at(c, pictureTop);
+        const gfx::Vec3 topNext = at(c + 1, pictureTop);
+        gfx::Vec3 topRight;
+        for (int k = 0; k < 3; ++k)
+            topRight[size_t(k)] = topLeft[size_t(k)] + 1.03f * (topNext[size_t(k)] - topLeft[size_t(k)]);
+        const size_t q = 128 + g;
+        put(q, at(c, pictureBottom), white, left, 1, pictureFog);
+        put(q + 1, at(c + 1, pictureBottom), white, 1 - left, 1, pictureFog);
+        put(q + 2, topRight, white, 1 - left, 0, pictureFog);
+        put(q + 3, topLeft, white, left, 0, pictureFog);
+    }
+    if (!_skyMesh) {
+        std::vector<uint32_t> indices;
+        for (uint32_t b = 0; b < vertices.size(); b += 4)
+            indices.insert(indices.end(), {b, b + 1, b + 2, b, b + 2, b + 3});
+        if (_renderer->createMesh(vertices, indices, _skyMesh))
+            return;
+    } else if (_renderer->setMeshVertices(_skyMesh, vertices)) {
+        return;
+    }
+    gfx::DrawCall call;
+    call.state.depthTest = false;
+    call.state.depthWrite = false;
+    call.state.cull = gfx::Cull::kNone;
+    call.rgbSource = gfx::ColorSource::kVertex;
+    if (_fogged && fog.density > 0) {
+        call.tableFog = 1 / fog.density;
+        for (int k = 0; k < 3; ++k)
+            call.tableFogColor[size_t(k)] = static_cast<float>(fog.colour[size_t(k)]) / 255;
+    }
+    auto draw = [&](uint32_t first, uint32_t count, gfx::TextureId texture) {
+        call.mesh = _skyMesh;
+        call.firstIndex = first;
+        call.indexCount = count;
+        call.texture = texture;
+        _renderer->draw(call);
+    };
+    draw(0, 16 * 6, 0);
+    if (_domeMesh) {
+        // Added to the sky on tracks 2 to 6, half over it on 7 (0x42b4d0).
+        gfx::DrawCall dome = call;
+        dome.mesh = _domeMesh;
+        dome.firstIndex = 0;
+        dome.indexCount = _domeIndices;
+        dome.texture = _domeTexture;
+        dome.model = gfx::identity();
+        dome.model[12] = eye[0];
+        dome.model[13] = eye[1];
+        dome.model[14] = eye[2];
+        dome.rgbSource = gfx::ColorSource::kConstant;
+        dome.state.src = gfx::Blend::kSrcAlpha;
+        dome.state.dst = _trackNumber == 7 ? gfx::Blend::kOneMinusSrcAlpha : gfx::Blend::kOne;
+        dome.color = {1, 1, 1, _trackNumber == 7 ? 0.5f : 1.0f};
+        dome.tableFogFromDepth = true;
+        _renderer->draw(dome);
+    }
+    draw(16 * 6, 16 * 6, 0);
+    call.state.alphaTest = gfx::AlphaTest::kGe128;
+    for (int c = 0; c < 16; ++c) {
+        const int slice = _sky.mirror && c >= 8 ? 15 - c : c % 8;
+        draw(static_cast<uint32_t>((32 + c) * 6), 6,
+             _textured && slice < static_cast<int>(_textures.size()) ? _textures[size_t(slice)] : 0);
+    }
+}
+
 void TrackPage::handleKey(uint32_t key, uint16_t mods) {
     const int n = static_cast<int>(_tracks.size());
     const int points = static_cast<int>(_collision.road.size());
@@ -449,6 +658,12 @@ void TrackPage::handleKey(uint32_t key, uint16_t mods) {
         _painted = !_painted;
         build();
         break;
+    case 'h':
+        _skyShown = !_skyShown;
+        break;
+    case 'f':
+        _fogged = !_fogged;
+        break;
     default:
         break;
     }
@@ -485,23 +700,34 @@ void TrackPage::update(uint64_t nowMs) {
         v /= length > 0 ? length : 1;
     const gfx::Mat4 viewProj = gfx::multiply(gfx::perspective(1.1f, float(kFrameW) / float(kFrameH), 0.1f, 2000.0f),
                                              gfx::lookAlong(eye, ahead, {0, 1, 0}));
-    // The clear colour: the 3dfx sky's base, toward the sun.
-    const Color clear =
-        _hasSky ? Color{uint8_t(_sky.skyBaseSun[0]), uint8_t(_sky.skyBaseSun[1]), uint8_t(_sky.skyBaseSun[2])}
-                : Color{70, 74, 82};
-    // To the right of the way the camera looks, as the road's across vector
-    // is of its forward one.
+    // The clear colour: the 3dfx sky's top, or black with a black horizon
+    // (NFS2SEA.EXE 0x427440).
+    Color clear{70, 74, 82};
+    if (_hasSky)
+        clear = _sky.blackHorizon ? Color{0, 0, 0}
+                                  : Color{uint8_t(_sky.skyTop[0]), uint8_t(_sky.skyTop[1]), uint8_t(_sky.skyTop[2])};
+    const GlideFog fog = glideFog(_trackNumber, _point);
+    // The screen's right, level: the way along x the view's sideways axis
+    // (lookAlong's ahead × up) runs.
     const float flat = std::sqrt(ahead[0] * ahead[0] + ahead[2] * ahead[2]);
-    const gfx::Vec3 right = flat > 0 ? gfx::Vec3{ahead[2] / flat, 0, -ahead[0] / flat} : gfx::Vec3{1, 0, 0};
+    const gfx::Vec3 right = flat > 0 ? gfx::Vec3{-ahead[2] / flat, 0, ahead[0] / flat} : gfx::Vec3{1, 0, 0};
     const auto frame = static_cast<uint32_t>(nowMs * 30 / 1000);
     if (frame != _soundFrame) {
         _soundFrame = frame;
         updateSounds(eye, right);
     }
     _renderer->beginFrame(viewProj, eye, clear);
+    drawSky(eye, ahead, fog);
     if (_mesh) {
         gfx::DrawCall call;
         call.mesh = _mesh;
+        // The track fogged by its depth along the view, as Glide's table fog.
+        if (_fogged && fog.density > 0) {
+            call.tableFog = 1 / fog.density;
+            call.tableFogFromDepth = true;
+            for (int k = 0; k < 3; ++k)
+                call.tableFogColor[size_t(k)] = static_cast<float>(fog.colour[size_t(k)]) / 255;
+        }
         call.rgbSource = gfx::ColorSource::kConstant;
         // Which way the quads face isn't worked out: both sides drawn.
         call.state.cull = gfx::Cull::kNone;
@@ -544,7 +770,7 @@ void TrackPage::update(uint64_t nowMs) {
                               std::to_string(_quads) + " polygons" + (_objects ? " with objects" : "") +
                               "  road point " + std::to_string(_point) + "/" + std::to_string(_collision.road.size()));
     lines.push_back("PgUp/PgDn: track  Up/Down: road  Left/Right: look  1-3: level  T: textures  O: objects  V: above"
-                    "  S: shades  L: lines");
+                    "  S: shades  L: lines  H: sky  F: fog");
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y =
             i + 1 == lines.size() ? kFrameH - font::kLineHeight - 4 : 4 + static_cast<int>(i) * font::kLineHeight;

@@ -21,10 +21,13 @@ None yet.
 ## Additions outside the game
 
 - **The data viewer's Tracks and Cars pages** draw the tracks and models
-  plainly: both faces of every quad, no sky but its colour, no fog, the
+  more plainly than the game: both faces of every quad; the tracks with
+  the 3dfx program's sky, fog and shades but `TR04`'s tunnels not
+  blacked out, the painted lines close up at every distance and level,
+  and the placed sounds' one loop the nearest; the
   cars lit from one side, their paint the viewer's pick of
   `CARHSVT.TXT`'s colours without `DELTA.SJH`'s changes, and their
   wheels' and brake lights' frames chosen as the game does for a speed
   and a brake the viewer sets, the wheels' count stepping 30 times a
-  second ([trk.md](formats/trk.md), [geo.md](formats/geo.md),
-  In Reluva).
+  second ([trk.md](formats/trk.md), [hrz.md](formats/hrz.md),
+  [geo.md](formats/geo.md), In Reluva).

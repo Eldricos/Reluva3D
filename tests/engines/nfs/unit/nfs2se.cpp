@@ -14,6 +14,7 @@
 #include "engines/nfs/nfs2se/formats/hrz.h"
 #include "engines/nfs/nfs2se/formats/paint.h"
 #include "engines/nfs/nfs2se/formats/trk.h"
+#include "engines/nfs/nfs2se/glide_sky.h"
 #include "tests/engines/nfs/fixtures.h"
 
 using namespace reluva::nfs::testing;
@@ -263,6 +264,26 @@ void testAnimationScript() {
 }
 
 // carhsvt.txt's colours, and a car's greens painted with them.
+// The 3dfx program's fog by track and road point, and its sky's ring colours.
+void testGlideSky() {
+    // Track 0: table 0 throughout, its colour a grey over a stretch.
+    nfs2se::GlideFog fog = nfs2se::glideFog(0, 100);
+    CHECK(std::abs(fog.density - 0.008f) < 1e-6f && fog.colour == (nfs2se::Rgb{0, 2, 4}));
+    CHECK(nfs2se::glideFog(0, 560).colour == (nfs2se::Rgb{62, 62, 62}));
+    CHECK(nfs2se::glideFog(0, 700).colour == (nfs2se::Rgb{0, 2, 4}));
+    // Track 4's table 14 (of 20, 0.002 to 0.022) in its stretch, 0 after.
+    CHECK(std::abs(nfs2se::glideFog(4, 700).density - (0.002f + 14 * 0.001f)) < 1e-6f);
+    CHECK(std::abs(nfs2se::glideFog(4, 900).density - 0.002f) < 1e-6f);
+    CHECK(nfs2se::glideFog(9, 0).density == 0);
+
+    nfs2se::Sky sky;
+    sky.skyBaseSun = {0, 0, 0};
+    sky.skyBaseOpposite = {80, 160, 240};
+    const auto ring = nfs2se::skyRingColours(sky);
+    CHECK(ring[0] == (nfs2se::Rgb{0, 0, 0}) && ring[16] == ring[0] && ring[15] == ring[0]);
+    CHECK(ring[7] == ring[8] && ring[7] == (nfs2se::Rgb{70, 140, 210}));
+}
+
 void testPaint() {
     std::vector<nfs2se::PaintColour> colours;
     CHECK(!nfs2se::parsePaintColours("/* Color 0 */\n0,0,210,80\n/* Color 1 */\n0,255,200,64\n", colours));
@@ -460,6 +481,7 @@ static const reluva::test::Suite kSuite("nfs.unit.nfs2se",
                                             {"picture corners", [](const stdfs::path &) { testPictureCorners(); }},
                                             {"animation script", [](const stdfs::path &) { testAnimationScript(); }},
                                             {"paint", [](const stdfs::path &) { testPaint(); }},
+                                            {"glide sky", [](const stdfs::path &) { testGlideSky(); }},
                                             {"car model", [](const stdfs::path &) { testCarModel(); }},
                                             {"movie", [](const stdfs::path &) { testMovie(); }},
                                         });
