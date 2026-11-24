@@ -38,6 +38,9 @@ public:
     struct Frame {
         int width = 0;
         int height = 0;
+        /** Where it is on the screen: a window's client area's corner, windowed; 0, 0 full screen. */
+        int x = 0;
+        int y = 0;
         std::vector<uint32_t> pixels;
         uint64_t number = 0; // counts the frames shown
     };

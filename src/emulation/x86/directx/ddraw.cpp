@@ -349,6 +349,9 @@ const DirectX::Frame &DirectX::frame() const {
 
 DirectX::DirectX(Win32Process &process) : _s(std::make_unique<State>(*this, process)) {
     State *s = _s.get();
+    process.windowDrawn = [s](uint32_t window, const uint32_t *pixels, int width, int height) {
+        s->presentWindow(window, pixels, width, height);
+    };
     dx::Interfaces &i = s->interfaces;
     for (ComInterface *f :
          {&i.directDraw, &i.directDraw2,   &i.directDraw4, &i.directDraw7, &i.surface,      &i.surface2,  &i.surface3,

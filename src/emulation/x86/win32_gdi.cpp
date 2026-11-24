@@ -296,6 +296,42 @@ Win32Process::GdiBitmapObject Win32Process::makeBitmap(int width, int height, in
     return o;
 }
 
+Win32Process::DeviceContext &Win32Process::deviceContext(uint32_t dc) {
+    DeviceContext &d = _deviceContexts[dc];
+    // A window's: a surface the size of its client area, made anew when
+    // the window's size has changed. The desktop's (GetDC(0)) has none.
+    if (dc > kWindowDeviceContexts && dc <= kWindowDeviceContexts + 0xffff) {
+        const uint32_t window = 0x10000 | (dc & 0xffff);
+        const auto area = clientArea(window);
+        if (!area || (*area)[2] <= 0 || (*area)[3] <= 0)
+            return d;
+        auto it = _windowSurfaces.find(window);
+        if (it == _windowSurfaces.end() || it->second.bitmap.width != (*area)[2] ||
+            it->second.bitmap.height != (*area)[3]) {
+            if (it != _windowSurfaces.end())
+                _arena->free(it->second.block);
+            it = _windowSurfaces
+                     .insert_or_assign(window,
+                                       makeBitmap((*area)[2], (*area)[3], 32, false, {0xff0000, 0xff00, 0xff}, {}))
+                     .first;
+            std::memset(_cpu.memory().data() + it->second.block, 0, size_t((*area)[2]) * size_t((*area)[3]) * 4);
+        }
+        d.target = it->second.bitmap;
+    }
+    return d;
+}
+
+void Win32Process::drawnOn(uint32_t dc) {
+    if (!windowDrawn || dc <= kWindowDeviceContexts || dc > kWindowDeviceContexts + 0xffff)
+        return;
+    const uint32_t window = 0x10000 | (dc & 0xffff);
+    auto it = _windowSurfaces.find(window);
+    if (it == _windowSurfaces.end())
+        return;
+    const GdiBitmap &b = it->second.bitmap;
+    windowDrawn(window, reinterpret_cast<const uint32_t *>(_cpu.memory().data() + b.memory), b.width, b.height);
+}
+
 uint32_t Win32Process::createDeviceContext(GdiBitmap bitmap) {
     const uint32_t dc = _nextGdiObject++;
     _deviceContexts[dc].target = std::move(bitmap);
@@ -610,10 +646,13 @@ void Win32Process::addGdiStandIns() {
     // Blits. Scaling takes the nearest pixel, as COLORONCOLOR does, whatever
     // the stretch mode; raster operations that use a brush's pattern fail.
 
-    // What a device context draws into, to read from; none for a window's.
+    // What a device context draws into, to read from: a window's own
+    // surface for a window's.
     auto sourceOf = [this](uint32_t dc) -> const GdiBitmap * {
-        auto it = _deviceContexts.find(dc);
-        return it != _deviceContexts.end() && it->second.target ? &*it->second.target : nullptr;
+        if (!_deviceContexts.count(dc) && (dc <= kWindowDeviceContexts || dc > kWindowDeviceContexts + 0xffff))
+            return nullptr;
+        const DeviceContext &d = deviceContext(dc);
+        return d.target ? &*d.target : nullptr;
     };
     // BitBlt(dc, x, y, width, height, source dc, source x, source y, rop)
     stdcall(g, "BitBlt", 9, [this, sourceOf](Cpu &c) {
@@ -623,10 +662,11 @@ void Win32Process::addGdiStandIns() {
             return usesPattern(uint8_t(rop >> 16)) ? 0u : 1u;
         const int w = int32_t(c.arg(3));
         const int h = int32_t(c.arg(4));
-        return blit(c, *dc.target, int32_t(c.arg(1)), int32_t(c.arg(2)), w, h, sourceOf(c.arg(5)), int32_t(c.arg(6)),
-                    int32_t(c.arg(7)), w, h, rop)
-                   ? 1u
-                   : 0u;
+        if (!blit(c, *dc.target, int32_t(c.arg(1)), int32_t(c.arg(2)), w, h, sourceOf(c.arg(5)), int32_t(c.arg(6)),
+                  int32_t(c.arg(7)), w, h, rop))
+            return 0u;
+        drawnOn(c.arg(0));
+        return 1u;
     });
     // StretchBlt(dc, x, y, width, height, source dc, x, y, width, height, rop)
     stdcall(g, "StretchBlt", 11, [this, sourceOf](Cpu &c) {
@@ -634,10 +674,11 @@ void Win32Process::addGdiStandIns() {
         const uint32_t rop = c.arg(10);
         if (!dc.target)
             return usesPattern(uint8_t(rop >> 16)) ? 0u : 1u;
-        return blit(c, *dc.target, int32_t(c.arg(1)), int32_t(c.arg(2)), int32_t(c.arg(3)), int32_t(c.arg(4)),
-                    sourceOf(c.arg(5)), int32_t(c.arg(6)), int32_t(c.arg(7)), int32_t(c.arg(8)), int32_t(c.arg(9)), rop)
-                   ? 1u
-                   : 0u;
+        if (!blit(c, *dc.target, int32_t(c.arg(1)), int32_t(c.arg(2)), int32_t(c.arg(3)), int32_t(c.arg(4)),
+                  sourceOf(c.arg(5)), int32_t(c.arg(6)), int32_t(c.arg(7)), int32_t(c.arg(8)), int32_t(c.arg(9)), rop))
+            return 0u;
+        drawnOn(c.arg(0));
+        return 1u;
     });
     // StretchDIBits(dc, x, y, width, height, source x, y, width, height,
     // bits, info, usage, rop): the scan lines copied. A bottom-up DIB's
@@ -662,6 +703,7 @@ void Win32Process::addGdiStandIns() {
             if (!blit(c, *dc.target, int32_t(c.arg(1)), int32_t(c.arg(2)), int32_t(c.arg(3)), int32_t(c.arg(4)),
                       &source.bitmap, int32_t(c.arg(5)), sy, int32_t(c.arg(7)), sh, c.arg(12)))
                 return 0u;
+            drawnOn(c.arg(0));
         } else if (usesPattern(uint8_t(c.arg(12) >> 16))) {
             return 0u;
         }

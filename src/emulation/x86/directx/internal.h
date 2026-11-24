@@ -436,6 +436,11 @@ struct DirectX::State {
     ///@{
     void present();
     void presentShown();
+    // A window's picture drawn through GDI (Win32Process::windowDrawn), as
+    // a frame: how a game windowed shows its frames.
+    void presentWindow(uint32_t window, const uint32_t *pixels, int width, int height);
+    // The gamma ramp (IDirectDrawGammaControl's) on the frame.
+    void applyGamma();
     ///@}
 
     /** Makes a surface's memory, setting its pitch; 0 if there's no room. */

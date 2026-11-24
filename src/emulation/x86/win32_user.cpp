@@ -61,7 +61,6 @@ constexpr int kBorder = 1;
 // objects, device contexts.
 constexpr uint32_t kResourceHandles = 0x20000;
 constexpr uint32_t kStockObjects = 0x28000;
-constexpr uint32_t kDeviceContext = 0x30000;
 constexpr uint32_t kDesktopWindow = 0x10004; // below the windows the program makes
 
 std::string lower(std::string s) {
@@ -481,7 +480,7 @@ void Win32Process::addUserStandIns() {
     // BeginPaint(window, PAINTSTRUCT*): the window's device context, and
     // nothing to paint.
     stdcall(u, "BeginPaint", 2, [this](Cpu &c) {
-        const uint32_t dc = kDeviceContext + (c.arg(0) & 0xffff);
+        const uint32_t dc = kWindowDeviceContexts + (c.arg(0) & 0xffff);
         if (!_windows.count(c.arg(0)) || !c.valid(c.arg(1), 64))
             return 0u;
         std::memset(c.memory().data() + c.arg(1), 0, 64);
@@ -952,7 +951,7 @@ void Win32Process::addUserStandIns() {
     stdcall(u, "GetAsyncKeyState", 1, keyState);
 
     // Device contexts.
-    stdcall(u, "GetDC", 1, [](Cpu &c) { return kDeviceContext + (c.arg(0) & 0xffff); });
+    stdcall(u, "GetDC", 1, [](Cpu &c) { return kWindowDeviceContexts + (c.arg(0) & 0xffff); });
     stdcall(u, "ReleaseDC", 2, [](Cpu &) { return 1u; });
     // GetDeviceCaps(dc, index): the desktop's.
     stdcall(g, "GetDeviceCaps", 2, [this](Cpu &c) {

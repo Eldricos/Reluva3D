@@ -657,6 +657,14 @@ public:
     uint32_t createDeviceContext(GdiBitmap bitmap);
     void deleteDeviceContext(uint32_t dc);
     ///@}
+    /**
+     * A program's drawing reaching a window through GDI: a blit (BitBlt,
+     * StretchBlt, StretchDIBits) into a device context GetDC or BeginPaint
+     * gave for it. The window's client area's pixels follow, 0x00rrggbb, a
+     * row after another, top first; what a game windowed draws its frames
+     * with.
+     */
+    std::function<void(uint32_t window, const uint32_t *pixels, int width, int height)> windowDrawn;
 
     // COM (ole32).
 
@@ -754,7 +762,16 @@ private:
     GdiBitmapObject makeBitmap(int width, int height, int bits, bool bottomUp, std::array<uint32_t, 3> masks,
                                std::vector<uint32_t> colors, uint32_t memory = 0);
     uint32_t _nextGdiObject = 0x48000;
-    DeviceContext &deviceContext(uint32_t dc) { return _deviceContexts[dc]; }
+    // A device context, made as it's first used; a window's (GetDC's)
+    // draws into its client area's surface.
+    DeviceContext &deviceContext(uint32_t dc);
+    // GetDC's and BeginPaint's device contexts: this and the window's low
+    // 16 bits.
+    static constexpr uint32_t kWindowDeviceContexts = 0x30000;
+    // The windows' surfaces, 32 bits a pixel, each its client area's size.
+    std::map<uint32_t, GdiBitmapObject> _windowSurfaces;
+    // After a blit into `dc`: windowDrawn told, if it's a window's.
+    void drawnOn(uint32_t dc);
     struct WindowClass {
         uint32_t proc = 0;
         uint32_t style = 0;

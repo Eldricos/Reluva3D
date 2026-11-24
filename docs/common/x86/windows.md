@@ -134,7 +134,12 @@ C++ library have pages of their own ([directx.md](directx.md),
   palettes.** A device context draws into a bitmap in the program's
   memory: DirectDraw's surfaces hand them out (`GetDC`), through
   `createDeviceContext`, with how a colour becomes a pixel and back
-  (`GdiBitmap`). A window's draws nowhere and reads as black. Fonts
+  (`GdiBitmap`). A window's (`GetDC`, `BeginPaint`) draws into a surface
+  of 32 bits a pixel the size of its client area, made anew when the
+  window's size changes; after each blit into it (`BitBlt`, `StretchBlt`,
+  `StretchDIBits`) the engine is given the client area's pixels
+  (`Win32Process::windowDrawn`): a game windowed shows its frames so. The
+  desktop's (`GetDC(0)`) draws nowhere and reads as black. Fonts
   (`CreateFontA`) keep their height; `TextOutA` draws in Reluva's built-in
   bitmap font scaled to it, in the text colour, over the background colour
   unless the mode is transparent, and `GetTextExtentPoint32A` measures in

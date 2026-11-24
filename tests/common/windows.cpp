@@ -2290,6 +2290,67 @@ static void testJoysticks() {
     CHECK(call("joyGetPos", {1, info}) == 0);
 }
 
+// A game windowed: an 8-bit DIB blitted into a window's device context
+// reaches the engine as the window's client area's pixels; and again
+// after the window grows.
+static void testWindowDrawing() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    uint32_t r = 0;
+    auto call = [&](const char *dll, const char *name, const std::vector<uint32_t> &args) {
+        CHECK(!cpu.call(process.provided(dll, name), args, r));
+        return r;
+    };
+    const uint32_t proc = cpu.addNative("test!DrawProc", [](x86::Cpu &c) {
+        c.reg[x86::Cpu::EAX] = c.arg(1) == 0x81 ? 1 : 0;
+        return 16u;
+    });
+    const uint32_t wc = process.memory().alloc(40);
+    const uint32_t name = process.memory().alloc(8);
+    cpu.writeString(name, "Game", 8);
+    cpu.write32(wc + 4, proc);
+    cpu.write32(wc + 36, name);
+    call("USER32.dll", "RegisterClassA", {wc});
+    // A child-less popup without a frame: its client area is the window.
+    const uint32_t hwnd = call("USER32.dll", "CreateWindowExA", {0, name, name, 0x80000000, 10, 20, 4, 2, 0, 0, 0, 0});
+    CHECK(hwnd != 0);
+    int seenW = 0;
+    int seenH = 0;
+    std::vector<uint32_t> seen;
+    process.windowDrawn = [&](uint32_t window, const uint32_t *pixels, int w, int h) {
+        CHECK(window == hwnd);
+        seenW = w, seenH = h;
+        seen.assign(pixels, pixels + size_t(w) * size_t(h));
+    };
+    // A 2 by 1 DIB of 8 bits: red, then blue.
+    const uint32_t info = process.memory().alloc(40 + 256 * 4);
+    cpu.write32(info, 40);
+    cpu.write32(info + 4, 2);
+    cpu.write32(info + 8, 1);
+    cpu.write16(info + 12, 1);
+    cpu.write16(info + 14, 8);
+    cpu.write32(info + 32, 2);
+    cpu.write32(info + 40, 0x00ff0000); // RGBQUADs: blue, green, red
+    cpu.write32(info + 44, 0x000000ff);
+    const uint32_t bits = process.memory().alloc(4);
+    cpu.write8(bits, 0);
+    cpu.write8(bits + 1, 1);
+    const uint32_t dc = call("USER32.dll", "GetDC", {hwnd});
+    CHECK(call("GDI32.dll", "StretchDIBits", {dc, 1, 1, 2, 1, 0, 0, 2, 1, bits, info, 0, 0x00cc0020}) == 1);
+    CHECK(seenW == 4 && seenH == 2 && seen.size() == 8);
+    if (seen.size() == 8)
+        CHECK((seen[5] & 0xffffff) == 0xff0000 && (seen[6] & 0xffffff) == 0x0000ff && seen[0] == 0);
+    // Grown, its surface grows with it.
+    process.moveWindow(hwnd, 10, 20, 8, 4);
+    CHECK(call("GDI32.dll", "StretchDIBits", {dc, 0, 0, 2, 1, 0, 0, 2, 1, bits, info, 0, 0x00cc0020}) == 1);
+    CHECK(seenW == 8 && seenH == 4 && (seen[0] & 0xffffff) == 0xff0000);
+    // The desktop's device context draws nowhere.
+    seenW = 0;
+    call("GDI32.dll", "StretchDIBits",
+         {call("USER32.dll", "GetDC", {0}), 0, 0, 2, 1, 0, 0, 2, 1, bits, info, 0, 0x00cc0020});
+    CHECK(seenW == 0);
+}
+
 // GDI's bitmaps as a program uses them: an 8-bit DIB section blitted, mirrored
 // and stretched into a 32-bit one, read back with GetDIBits; palettes.
 static void testGdi() {
@@ -2669,6 +2730,7 @@ static const test::Suite
                {"dialogs", [](const std::filesystem::path &) { testDialogs(); }},
                {"joysticks", [](const std::filesystem::path &) { testJoysticks(); }},
                {"gdi", [](const std::filesystem::path &) { testGdi(); }},
+               {"window drawing", [](const std::filesystem::path &) { testWindowDrawing(); }},
                {"odds and ends", [](const std::filesystem::path &) { testOddsAndEnds(); }},
                {"cd audio", [](const std::filesystem::path &tmp) { testCdAudio(tmp / "cdaudio"); }},
                {"directsound", [](const std::filesystem::path &) { testDirectSound(); }},

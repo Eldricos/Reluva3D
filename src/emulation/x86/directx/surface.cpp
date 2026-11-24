@@ -833,6 +833,20 @@ void DirectX::State::present() {
     presentShown();
 }
 
+void DirectX::State::presentWindow(uint32_t window, const uint32_t *pixels, int width, int height) {
+    frame.width = width, frame.height = height;
+    frame.x = frame.y = 0;
+    if (auto area = process.clientArea(window))
+        frame.x = (*area)[0], frame.y = (*area)[1];
+    frame.pixels.resize(size_t(width) * size_t(height));
+    for (size_t i = 0; i < frame.pixels.size(); ++i)
+        frame.pixels[i] = 0xff000000u | (pixels[i] & 0xffffff);
+    applyGamma();
+    ++frame.number;
+    if (owner.presented)
+        owner.presented(frame);
+}
+
 void DirectX::State::presentShown() {
     auto p = primary.lock();
     if (!p)
@@ -847,6 +861,7 @@ void DirectX::State::presentShown() {
             w = (*area)[2], h = (*area)[3];
         }
     frame.width = w, frame.height = h;
+    frame.x = x0, frame.y = y0;
     frame.pixels.assign(size_t(w) * size_t(h), 0xff000000u);
     // The part of the window on the surface, a row at a time.
     const int from = std::max(0, -x0);
@@ -859,13 +874,17 @@ void DirectX::State::presentShown() {
             continue;
         convert.row(cpu.memory().data() + at, to - from, frame.pixels.data() + size_t(y) * size_t(w) + size_t(from));
     }
+    applyGamma();
+    ++frame.number;
+    if (owner.presented)
+        owner.presented(frame);
+}
+
+void DirectX::State::applyGamma() {
     if (gamma != identityGamma())
         for (uint32_t &px : frame.pixels)
             px = (px & 0xff000000u) | uint32_t(gamma[(px >> 16) & 0xff] >> 8) << 16 |
                  uint32_t(gamma[256 + ((px >> 8) & 0xff)] >> 8) << 8 | uint32_t(gamma[512 + (px & 0xff)] >> 8);
-    ++frame.number;
-    if (owner.presented)
-        owner.presented(frame);
 }
 
 } // namespace reluva::x86

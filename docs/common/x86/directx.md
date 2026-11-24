@@ -26,7 +26,11 @@ headers' (`directx/interfaces.cpp`).
 
   What reaches the primary surface becomes `DirectX::frame()`, handed to
   the engine, through the gamma ramp. In a window, that's the window's
-  client area. With `DirectX::presentLate` a flip hands over the frame
+  client area. A program drawing its window through GDI instead
+  (`Win32Process::windowDrawn`) has each blit's picture handed over the
+  same way. A frame says where it is on the screen (`Frame::x`, `y`: the
+  client area's corner in a window, 0, 0 full screen), so the engine
+  can put the pointer where the player points on the picture. With `DirectX::presentLate` a flip hands over the frame
   before, once its draws are done, and the program goes on while this
   one's are drawn.
 - **Direct3D 1 and 2** (DirectX 3 and 5), on the same DirectDraw object:
