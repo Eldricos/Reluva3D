@@ -4,6 +4,7 @@
 #pragma once
 
 #include "engines/nfs/nfs2se/formats/geo.h"
+#include "engines/nfs/nfs2se/formats/paint.h"
 #include "engines/nfs/nfs2se/pages/quad_mesh.h"
 #include "engines/nfs/pages/viewers.h"
 
@@ -17,6 +18,9 @@ namespace reluva::nfs::nfs2se {
  * the car's .qfs, a level of detail at a time.
  *   Left/Right: model   drag or A/D/W/S: turn   wheel or +/-: zoom
  *   L: level (high, medium, low, all)   T: textures   Space: spin   R: reset
+ *   P: paint (carhsvt.txt's colours, or none)
+ * Polygons with frames (geo.md: the wheels' faces, the tail lights) take
+ * their pictures in turn.
  * RELUVA_NFS2SE_CARS_VIEW="model yaw pitch level" opens it so, for
  * screenshots that repeat.
  */
@@ -50,7 +54,13 @@ private:
     std::string _skinName;
     std::vector<std::string> _pictureNames; // by the textures' numbers
     std::vector<gfx::TextureId> _textures;
-    int _missing = 0; // polygons whose picture the .qfs hasn't
+    // A polygon's frames' textures, for the textures their first is: the
+    // file's picture, then its name with the frame's number in its second
+    // character.
+    std::vector<std::vector<int>> _frames;
+    std::vector<PaintColour> _paints; // carhsvt.txt's
+    int _paint = -1;                  // into _paints; -1 the pictures as they are
+    int _missing = 0;                 // polygons whose picture the .qfs hasn't
     gfx::MeshId _mesh = 0;
     std::vector<QuadMesh::Run> _runs;
     size_t _quads = 0;

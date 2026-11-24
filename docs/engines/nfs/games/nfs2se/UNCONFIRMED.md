@@ -61,7 +61,10 @@ None yet.
 - **The racing cars' green bodies are the paint** (November 2026, from
   the code): the program recolours the car palette's greens, by their
   shade, to the chosen colour as it sets up the car (0x444f80;
-  [geo.md](formats/geo.md), The paint).
+  [geo.md](formats/geo.md), The paint). The Cars page so repainted
+  shows the F355 red with colour 2 and blue with colour 9, its shading
+  kept. What `DELTA.SJH` changes is a guess from its size
+  ([geo.md](formats/geo.md), The colours' file).
 - **How the cars' and the tracks' polygons take their pictures**
   (November 2026, from the code and seen): a car's vertices take the
   picture's bottom left, bottom right, top right and top left

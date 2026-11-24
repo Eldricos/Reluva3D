@@ -12,6 +12,7 @@
 #include "engines/nfs/nfs2se/formats/dct.h"
 #include "engines/nfs/nfs2se/formats/geo.h"
 #include "engines/nfs/nfs2se/formats/hrz.h"
+#include "engines/nfs/nfs2se/formats/paint.h"
 #include "engines/nfs/nfs2se/formats/trk.h"
 #include "tests/engines/nfs/fixtures.h"
 
@@ -261,6 +262,28 @@ void testAnimationScript() {
     CHECK(nfs2se::parseAnimationScript(extra, a)); // not a whole key
 }
 
+// carhsvt.txt's colours, and a car's greens painted with them.
+void testPaint() {
+    std::vector<nfs2se::PaintColour> colours;
+    CHECK(!nfs2se::parsePaintColours("/* Color 0 */\n0,0,210,80\n/* Color 1 */\n0,255,200,64\n", colours));
+    CHECK(colours.size() == 2);
+    CHECK(nfs2se::parsePaintColours("1,2,3", colours));
+    if (colours.size() != 2)
+        return;
+    CHECK(nfs2se::paintRgb(colours[0]) == (std::array<int, 3>{210, 210, 210})); // no saturation: a grey
+    CHECK(nfs2se::paintRgb(colours[1]) == (std::array<int, 3>{200, 0, 0}));     // hue 0: red
+    CHECK(nfs2se::paintRgb({128, 256, 256, 64})[2] > 200);                      // half a turn: toward blue
+    CHECK(nfs2se::isPaint(0, 0x80, 0) && !nfs2se::isPaint(0, 0x7f, 0) && !nfs2se::isPaint(0x56, 0xff, 0));
+    const nfs2se::PaintColour red = colours[1]; // threshold 64
+    // Shade 32, below the threshold: half the red.
+    CHECK(nfs2se::repaint(0, 0x80 + 32, 0, red) == (std::array<uint8_t, 3>{100, 0, 0}));
+    // Shade 127, the brightest: four times the red, as far as 255.
+    CHECK(nfs2se::repaint(0, 0xff, 0, red) == (std::array<uint8_t, 3>{255, 0, 0}));
+    // Red and blue in it whiten it; other colours stay as they are.
+    CHECK(nfs2se::repaint(10, 0x80 + 32, 20, red) == (std::array<uint8_t, 3>{115, 16, 30}));
+    CHECK(nfs2se::repaint(200, 50, 50, red) == (std::array<uint8_t, 3>{200, 50, 50}));
+}
+
 // A picture's corners on a quad's vertices, as the program turns them: 0
 // bottom left, 1 bottom right, 2 top right, 3 top left.
 void testPictureCorners() {
@@ -436,6 +459,7 @@ static const reluva::test::Suite kSuite("nfs.unit.nfs2se",
                                             {"sky", [](const stdfs::path &) { testSky(); }},
                                             {"picture corners", [](const stdfs::path &) { testPictureCorners(); }},
                                             {"animation script", [](const stdfs::path &) { testAnimationScript(); }},
+                                            {"paint", [](const stdfs::path &) { testPaint(); }},
                                             {"car model", [](const stdfs::path &) { testCarModel(); }},
                                             {"movie", [](const stdfs::path &) { testMovie(); }},
                                         });

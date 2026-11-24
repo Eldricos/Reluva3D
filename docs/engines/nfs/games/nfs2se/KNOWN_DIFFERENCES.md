@@ -22,6 +22,8 @@ None yet.
 
 - **The data viewer's Tracks and Cars pages** draw the tracks and models
   plainly: both faces of every quad, no sky but its colour, no fog, the
-  cars lit from one side, their bodies in the palette's green rather than
-  a paint ([trk.md](formats/trk.md), [geo.md](formats/geo.md), In
-  Reluva).
+  cars lit from one side, their paint the viewer's pick of
+  `CARHSVT.TXT`'s colours without `DELTA.SJH`'s changes, and their
+  wheels and tail lights stepped through their frames at rates of the
+  viewer's choosing ([trk.md](formats/trk.md), [geo.md](formats/geo.md),
+  In Reluva).

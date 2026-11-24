@@ -19,6 +19,7 @@ namespace reluva::nfs::nfs2se {
  * objects, with the 3dfx program's pictures, seen from the virtual road.
  *   PageUp/PageDown: track   Up/Down: along the road (Shift: faster)
  *   Left/Right: look   1/2/3: level   T: textures   O: objects   V: from above
+ * Animated textures (the .col's) take their pictures in turn, at the game's rate.
  * RELUVA_NFS2SE_TRACK_VIEW="track point level" opens it there, for
  * screenshots that repeat.
  */

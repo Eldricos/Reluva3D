@@ -86,6 +86,12 @@ first entry in its table of texture corners in bytes 2-3 (0x461f55,
   to 146 such entries (the F355's 103, all pure greens from 128 to 255);
   `CHEV` and `DAYT` have none, `IDGO` and `LIMO` one, and the props
   none: those can't be repainted.
+- **The colours' file.** `GameData/CarModel/pc/CARHSVT.TXT` holds the
+  table's first 24 colours, the same four numbers each, as commented text.
+  `DELTA.SJH` beside it, 5,568 bytes, is 29 cars × 24 colours × two
+  numbers: changes to each colour's value and threshold for each car
+  *(guessed: by its size and a name in the program,
+  `Color_ReadCarDeltaVTFile`; its reader wasn't found)*.
 
 ## In Reluva
 
@@ -96,8 +102,12 @@ Read as `CarModel` (`src/engines/nfs/nfs2se/formats/geo.cpp`);
 The data viewer's Cars page (`src/engines/nfs/nfs2se/pages/car_page.cpp`)
 draws each model a level at a time, its pictures from the car's `.qfs`
 by name, their corners as the program lays them, both faces, lit from
-one side, each polygon's first picture. The paint isn't put in, so the
-racing cars' bodies come out the palette's green.
+one side. P picks a paint from `CARHSVT.TXT`'s colours, or none (the
+palette's green), and recolours the pictures as the program does
+(`src/engines/nfs/nfs2se/formats/paint.cpp`); `DELTA.SJH` isn't put in.
+Polygons with frames take their pictures in turn, the wheels' 80 ms
+each and the tail lights' a second each: the viewer's own choice, as
+what chooses the frame in the game isn't known.
 
 ## Sources and checks
 

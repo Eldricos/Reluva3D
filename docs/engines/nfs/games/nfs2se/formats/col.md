@@ -99,7 +99,9 @@ Read as `Collision` (`src/engines/nfs/nfs2se/formats/col.cpp`);
 `isNfs2Collision` tells it from NFS III's by its 10-byte texture records,
 and `reluva-tool nfs survey` reads each with the reader for its game. The
 Tracks page turns each quad's picture as its record says
-(`pictureCorners`), and keys out the see-through ones' green.
+(`pictureCorners`), keys out the see-through ones' green, and runs the
+animated ones' pictures at their own rate, at 64 ticks a second as the
+hosted game's race clock runs.
 
 ## Sources and checks
 

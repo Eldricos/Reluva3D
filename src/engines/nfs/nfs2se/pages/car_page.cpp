@@ -32,6 +32,12 @@ bool inLevel(size_t p, int level) {
 
 CarPage::CarPage(const GameFiles &files) : _files(files) {
     _models = files.withExtensions({".geo"});
+    for (const FileRef &f : files.withExtensions({".txt"})) {
+        std::vector<uint8_t> data;
+        if (fs::toLower(f.name).ends_with("carhsvt.txt") && !files.read(f, data) &&
+            !parsePaintColours(std::string_view(reinterpret_cast<const char *>(data.data()), data.size()), _paints))
+            break;
+    }
 }
 
 CarPage::~CarPage() {
@@ -78,6 +84,7 @@ void CarPage::release() {
     _mesh = 0;
     _textures.clear();
     _pictureNames.clear();
+    _frames.clear();
     _runs.clear();
 }
 
@@ -108,8 +115,16 @@ void CarPage::load(int index) {
         for (const Shape &s : bank.shapes) {
             image::Image img;
             gfx::TextureId id = 0;
-            if (isPaletteType(s.type) || decodeShape(s, img) ||
-                _renderer->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(true), id))
+            if (isPaletteType(s.type) || decodeShape(s, img))
+                continue;
+            // The paint, a colour at a time: as the game recolours the
+            // palette's entries (0x444f80), the pictures' colours being theirs.
+            if (_paint >= 0)
+                for (size_t i = 0; i + 3 < img.rgba.size(); i += 4) {
+                    const auto c = repaint(img.rgba[i], img.rgba[i + 1], img.rgba[i + 2], _paints[size_t(_paint)]);
+                    std::copy(c.begin(), c.end(), img.rgba.begin() + std::ptrdiff_t(i));
+                }
+            if (_renderer->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(true), id))
                 continue;
             _pictureNames.push_back(s.name);
             _textures.push_back(id);
@@ -130,6 +145,7 @@ void CarPage::build() {
     _mesh = 0;
     QuadMesh quads;
     _missing = 0;
+    _frames.assign(_textures.size(), {});
     for (size_t p = 0; p < _model.parts.size(); ++p) {
         if (!inLevel(p, _level))
             continue;
@@ -138,6 +154,14 @@ void CarPage::build() {
             const auto it = std::find(_pictureNames.begin(), _pictureNames.end(), poly.texture);
             const int texture = it == _pictureNames.end() ? -1 : static_cast<int>(it - _pictureNames.begin());
             _missing += texture < 0;
+            if (texture >= 0 && poly.frames() > 1 && _frames[size_t(texture)].empty())
+                for (int f = 0; f < poly.frames(); ++f) {
+                    std::string name = poly.texture;
+                    name[1] = static_cast<char>(name[1] + f);
+                    const auto at = std::find(_pictureNames.begin(), _pictureNames.end(), name);
+                    _frames[size_t(texture)].push_back(
+                        at == _pictureNames.end() ? texture : static_cast<int>(at - _pictureNames.begin()));
+                }
             std::array<Point, 4> corners;
             for (int k = 0; k < 4; ++k)
                 for (int c = 0; c < 3; ++c)
@@ -190,6 +214,15 @@ void CarPage::handleEvent(const Event &ev) {
             break;
         case 't':
             _textured = !_textured;
+            break;
+        case 'p':
+            if (!_paints.empty() && _renderer) {
+                _paint = _paint + 1 < static_cast<int>(_paints.size()) ? _paint + 1 : -1;
+                const int level = _level;
+                load(_index);
+                _level = level;
+                build();
+            }
             break;
         case ' ':
             _spin = !_spin;
@@ -246,7 +279,15 @@ void CarPage::update(uint64_t nowMs) {
         call.state.cull = gfx::Cull::kNone;
         call.state.alphaTest = gfx::AlphaTest::kGe128;
         for (const QuadMesh::Run &r : _runs) {
-            call.texture = _textured && r.texture >= 0 ? _textures[size_t(r.texture)] : 0;
+            int texture = r.texture;
+            // What chooses a frame in the game isn't worked out (geo.md):
+            // the wheels' four turn, the lights' two change each second.
+            if (texture >= 0 && size_t(texture) < _frames.size() && !_frames[size_t(texture)].empty()) {
+                const auto &frames = _frames[size_t(texture)];
+                const uint64_t period = frames.size() > 2 ? 80 : 1000;
+                texture = frames[size_t(nowMs / period % frames.size())];
+            }
+            call.texture = _textured && texture >= 0 ? _textures[size_t(texture)] : 0;
             call.firstIndex = r.firstIndex;
             call.indexCount = r.indexCount;
             _renderer->draw(call);
@@ -259,8 +300,9 @@ void CarPage::update(uint64_t nowMs) {
     lines.push_back(!_error.empty() ? _error
                                     : std::string(kLevelNames[_level]) + " detail, " + std::to_string(_quads) +
                                           " polygons  pictures: " + (_skinName.empty() ? "none" : _skinName) +
-                                          (_missing ? "  (" + std::to_string(_missing) + " not in it)" : ""));
-    lines.push_back("Left/Right: model  drag/WASD: turn  wheel: zoom  L: level  T: textures  Space: spin");
+                                          (_missing ? "  (" + std::to_string(_missing) + " not in it)" : "") +
+                                          "  paint: " + (_paint < 0 ? "none" : std::to_string(_paint)));
+    lines.push_back("Left/Right: model  drag/WASD: turn  wheel: zoom  L: level  T: textures  P: paint  Space: spin");
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y =
             i + 1 == lines.size() ? kFrameH - font::kLineHeight - 4 : 4 + static_cast<int>(i) * font::kLineHeight;

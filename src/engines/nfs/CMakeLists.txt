@@ -45,6 +45,7 @@ reluva_add_engine(nfs
         nfs2se/formats/dct.cpp
         nfs2se/formats/geo.cpp
         nfs2se/formats/hrz.cpp
+        nfs2se/formats/paint.cpp
         nfs2se/formats/trk.cpp
         nfs2se/status_page.cpp)
 

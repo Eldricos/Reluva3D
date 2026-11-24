@@ -18,6 +18,10 @@ namespace reluva::nfs::nfs2se {
 
 namespace {
 
+// QuadMesh's texture numbers from here on are animated textures': this
+// plus their place in the .col's table.
+constexpr int kAnimated = 1 << 20;
+
 constexpr int kFrameW = 640;
 constexpr int kFrameH = 480;
 constexpr const char *kLevelNames[] = {"low", "medium", "high"};
@@ -137,9 +141,13 @@ void TrackPage::build() {
     _mesh = 0;
     QuadMesh quads;
     // A polygon's texture is a place in the .col's table, which gives its
-    // picture's place in the .qfs.
+    // picture's place in the .qfs; an animated one's quads go apart, under
+    // kAnimated + its place, their picture chosen as they're drawn.
     auto picture = [&](uint16_t texture) {
-        return texture < _collision.textures.size() ? static_cast<int>(_collision.textures[texture].picture) : -1;
+        if (texture >= _collision.textures.size())
+            return -1;
+        const Collision::Texture &t = _collision.textures[texture];
+        return (t.flags & Collision::kAnimated) && t.frames > 1 ? kAnimated + texture : static_cast<int>(t.picture);
     };
     auto add = [&](const std::vector<Quad> &list, const std::vector<Point> &vertices, const Point &at) {
         for (const Quad &q : list) {
@@ -228,7 +236,7 @@ void TrackPage::draw(Surface &s) {
     font::drawText(s, 16, 16 + font::kLineHeight, _unavailable, page::kTextColor);
 }
 
-void TrackPage::update(uint64_t) {
+void TrackPage::update(uint64_t nowMs) {
     if (!_renderer)
         return;
     // The camera on the road point, 1.5 above it, looking along the road
@@ -266,8 +274,15 @@ void TrackPage::update(uint64_t) {
         call.state.cull = gfx::Cull::kNone;
         call.state.alphaTest = gfx::AlphaTest::kGe128;
         for (const QuadMesh::Run &r : _runs) {
-            const bool known = r.texture >= 0 && r.texture < static_cast<int>(_textures.size());
-            call.texture = _textured && known ? _textures[size_t(r.texture)] : 0;
+            int picture = r.texture;
+            // The game's: a picture of the animation each `ticksPerFrame`
+            // of its 64 ticks a second (col.md, Textures).
+            if (picture >= kAnimated) {
+                const Collision::Texture &t = _collision.textures[size_t(picture - kAnimated)];
+                picture = t.picture + int(nowMs * 64 / 1000 / std::max<uint8_t>(t.ticksPerFrame, 1) % t.frames);
+            }
+            const bool known = picture >= 0 && picture < static_cast<int>(_textures.size());
+            call.texture = _textured && known ? _textures[size_t(picture)] : 0;
             call.color =
                 _textured && known ? std::array<float, 4>{1, 1, 1, 1} : std::array<float, 4>{0.6f, 0.6f, 0.6f, 1};
             call.firstIndex = r.firstIndex;
