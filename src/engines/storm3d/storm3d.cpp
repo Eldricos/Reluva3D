@@ -12,10 +12,13 @@
 #include "engines/storm3d/formats/preferences.h"
 #include "engines/storm3d/formats/shell_progress.h"
 #include "engines/storm3d/game_files.h"
+#include "engines/storm3d/shell/credits_screen.h"
 #include "engines/storm3d/player_files.h"
 #include "engines/storm3d/shell/full_screen_movie.h"
+#include "engines/storm3d/shell/load_game_screen.h"
 #include "engines/storm3d/shell/loading_screen.h"
 #include "engines/storm3d/shell/main_menu.h"
+#include "engines/storm3d/shell/multiplayer_screen.h"
 #include "engines/storm3d/shell/options_screen.h"
 #include "engines/storm3d/shell/single_player.h"
 
@@ -75,11 +78,17 @@ public:
         SinglePlayerScreen single;
         OptionsScreen options;
         SettingsScreen settings;
+        MultiplayerScreen connection;
+        LoadGameScreen loadGame;
+        bool loadGameOn = false;
         LoadingScreen loading(_files);
+        CreditsScreen credits(_files);
+        bool creditsOn = false;
         bool menuOn = false;
         bool singleOn = false;
         bool optionsOn = false;
         bool settingsOn = false;
+        bool connectionOn = false;
         bool loadingOn = false;
         // Back from the loading screen to the single-player screen, in 2D.
         auto endLoading = [&]() -> Error {
@@ -106,6 +115,16 @@ public:
                     // Esc, a key or a click ends it, as the game's does.
                     if (ev.type == EventType::kKeyDown || ev.type == EventType::kMouseDown)
                         intro = stopIntro();
+                } else if (creditsOn) {
+                    // "Press any key to exit": a key or a click.
+                    if (ev.type == EventType::kKeyDown || ev.type == EventType::kMouseDown) {
+                        credits.stop();
+                        creditsOn = false;
+                        if (Error err = _sys.initGraphics(kWidth, kHeight, PixelFormat::kRGBA32)) {
+                            stopAll();
+                            return err;
+                        }
+                    }
                 } else if (loadingOn) {
                     // The mission can't run yet: Esc gives up on it.
                     if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
@@ -118,31 +137,56 @@ public:
                     // Out a screen, as its Previous Menu does; out of the game from the menu.
                     if (settingsOn)
                         settingsOn = false;
+                    else if (loadGameOn)
+                        loadGameOn = false;
+                    else if (connectionOn)
+                        connectionOn = leaveConnection();
                     else if (singleOn || optionsOn)
                         singleOn = optionsOn = false;
                     else
                         running = false;
+                } else if (connectionOn && ev.type == EventType::kTextInput) {
+                    connection.type(ev.text);
+                } else if (connectionOn && ev.type == EventType::kKeyDown && ev.key == key::kBackspace) {
+                    connection.erase();
                 } else if (ev.type == EventType::kMouseMove) {
-                    if (singleOn     ? single.pointerAt(ev.mouseX, ev.mouseY, now)
-                        : settingsOn ? settings.pointerAt(ev.mouseX, ev.mouseY)
-                        : optionsOn  ? options.pointerAt(ev.mouseX, ev.mouseY)
-                                     : menu.pointerAt(ev.mouseX, ev.mouseY, now))
+                    if (singleOn       ? single.pointerAt(ev.mouseX, ev.mouseY, now)
+                        : loadGameOn   ? loadGame.pointerAt(ev.mouseX, ev.mouseY)
+                        : settingsOn   ? settings.pointerAt(ev.mouseX, ev.mouseY)
+                        : connectionOn ? connection.pointerAt(ev.mouseX, ev.mouseY)
+                        : optionsOn    ? options.pointerAt(ev.mouseX, ev.mouseY)
+                                       : menu.pointerAt(ev.mouseX, ev.mouseY, now))
                         play("sounds/effects/cornron.wav", audio::SoundType::kEffects, false);
                 } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
-                    if (singleOn)
+                    if (loadGameOn)
+                        loadGame.press(ev.mouseX, ev.mouseY);
+                    else if (singleOn)
                         single.press(ev.mouseX, ev.mouseY);
                     else if (settingsOn)
                         settings.press(ev.mouseX, ev.mouseY);
+                    else if (connectionOn)
+                        connection.press(ev.mouseX, ev.mouseY);
                     else if (optionsOn)
                         options.press(ev.mouseX, ev.mouseY);
                     else
                         menu.press(ev.mouseX, ev.mouseY);
+                } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft && loadGameOn) {
+                    if (loadGame.release(ev.mouseX, ev.mouseY)) {
+                        play("sounds/effects/cornrclk.wav", audio::SoundType::kEffects, false);
+                        loadGameOn = false;
+                    }
                 } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft && singleOn) {
                     const SingleChoice choice = single.release(ev.mouseX, ev.mouseY, now);
                     if (choice != SingleChoice::kNone)
                         play("sounds/effects/cornrclk.wav", audio::SoundType::kEffects, false);
                     if (choice == SingleChoice::kPreviousMenu) {
                         singleOn = false;
+                    } else if (choice == SingleChoice::kLoadGame) {
+                        if (Error err = loadGame.load(_files)) {
+                            stopAll();
+                            return err;
+                        }
+                        loadGameOn = true;
                     } else if (choice == SingleChoice::kStartMission) {
                         gfx::Renderer3D *renderer = nullptr;
                         if (Error err = _sys.init3D(kWidth, kHeight, renderer)) {
@@ -159,6 +203,14 @@ public:
                     if (settings.release(ev.mouseX, ev.mouseY))
                         settingsOn = false;
                     applyVolumes();
+                } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft && connectionOn) {
+                    // The ways to play need the network and the game itself:
+                    // only Previous Menu does anything yet.
+                    const ConnectionChoice choice = connection.release(ev.mouseX, ev.mouseY);
+                    if (choice != ConnectionChoice::kNone)
+                        play("sounds/effects/cornrclk.wav", audio::SoundType::kEffects, false);
+                    if (choice == ConnectionChoice::kPreviousMenu)
+                        connectionOn = leaveConnection();
                 } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft && optionsOn) {
                     const OptionsChoice choice = options.release(ev.mouseX, ev.mouseY);
                     if (choice != OptionsChoice::kNone)
@@ -192,6 +244,24 @@ public:
                         }
                         single.setProgress(_progress);
                         singleOn = true;
+                    } else if (choice == MenuChoice::kCredits) {
+                        gfx::Renderer3D *renderer = nullptr;
+                        if (Error err = _sys.init3D(kWidth, kHeight, renderer)) {
+                            stopAll();
+                            return err;
+                        }
+                        if (Error err = credits.start(renderer, now)) {
+                            stopAll();
+                            return err;
+                        }
+                        creditsOn = true;
+                    } else if (choice == MenuChoice::kMultiplayer) {
+                        if (Error err = connection.load(_files)) {
+                            stopAll();
+                            return err;
+                        }
+                        _sys.setTextInput(true);
+                        connectionOn = true;
                     } else if (choice == MenuChoice::kOptions) {
                         if (Error err = options.load(_files)) {
                             stopAll();
@@ -200,6 +270,19 @@ public:
                         optionsOn = true;
                     }
                 }
+            }
+            if (creditsOn) {
+                // Back to the menu after the last page.
+                if (!credits.draw(now)) {
+                    credits.stop();
+                    creditsOn = false;
+                    if (Error err = _sys.initGraphics(kWidth, kHeight, PixelFormat::kRGBA32)) {
+                        stopAll();
+                        return err;
+                    }
+                }
+                _sys.delayMillis(kFrameMs);
+                continue;
             }
             if (loadingOn) {
                 // The files read, the screen drawn in 3D; the mission
@@ -220,10 +303,14 @@ public:
                     _intro.draw(screen);
                 else
                     intro = stopIntro();
+            } else if (loadGameOn) {
+                loadGame.draw(screen);
             } else if (singleOn) {
                 single.draw(screen, now);
             } else if (settingsOn) {
                 settings.draw(screen);
+            } else if (connectionOn) {
+                connection.draw(screen);
             } else if (optionsOn) {
                 options.draw(screen);
             } else if (menuOn) {
@@ -241,6 +328,11 @@ public:
 
 private:
     PlayerFiles player() const { return PlayerFiles(_files, _target.savePath); }
+    // Back from the Multiplayer Connection screen: typing off again.
+    bool leaveConnection() {
+        _sys.setTextInput(false);
+        return false;
+    }
     // The player's preferences and progress, as the game keeps them; a new
     // player's if they aren't there.
     void loadPlayer() {

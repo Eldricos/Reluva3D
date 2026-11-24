@@ -28,8 +28,16 @@ public:
     Error load(const GameFiles &files);
     /** Whether a point is on Previous Menu. */
     static bool onPrevious(int x, int y);
-    /** Draws it, Previous Menu saying `previous`. */
-    void draw(Surface &screen, ShellFont &font, const std::string &previous, bool lit, bool pressed) const;
+    /** Whether a point is on the middle plate, or the right one. */
+    static bool onStart(int x, int y);
+    static bool onMain(int x, int y);
+    /**
+     * Draws it, Previous Menu saying `previous`; the other plates say
+     * `start` and `main` (the Load Game screen's Load Game and Delete
+     * Game), blank if they're empty.
+     */
+    void draw(Surface &screen, ShellFont &font, const std::string &previous, bool lit, bool pressed,
+              const std::string &start = {}, const std::string &main = {}) const;
 
 private:
     image::Image _start;

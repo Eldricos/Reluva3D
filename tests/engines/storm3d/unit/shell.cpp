@@ -6,6 +6,7 @@
 
 #include "engines/storm3d/shell/loading_screen.h"
 #include "engines/storm3d/shell/main_menu.h"
+#include "engines/storm3d/shell/multiplayer_screen.h"
 #include "engines/storm3d/shell/options_screen.h"
 #include "engines/storm3d/shell/settings_screen.h"
 #include "engines/storm3d/shell/single_player.h"
@@ -18,7 +19,9 @@
 
 using reluva::storm3d::LoadingScreen;
 using reluva::storm3d::MainMenu;
+using reluva::storm3d::ConnectionChoice;
 using reluva::storm3d::MenuChoice;
+using reluva::storm3d::MultiplayerScreen;
 using reluva::storm3d::OptionsChoice;
 using reluva::storm3d::OptionsScreen;
 using reluva::storm3d::SettingsPage;
@@ -127,6 +130,18 @@ void testSettings() {
     CHECK(SettingsScreen::lineOf(SettingsScreen::layoutOf(SettingsPage::kGraphics).controls[4], 3) == 126);
 }
 
+// The Multiplayer Connection screen's buttons where the game's frame has
+// them, and the name box keeping printable letters, 31 at most.
+void testConnection() {
+    CHECK(MultiplayerScreen::choiceAt(320, 178) == ConnectionChoice::kInternet);
+    CHECK(MultiplayerScreen::choiceAt(320, 244) == ConnectionChoice::kLan);
+    CHECK(MultiplayerScreen::choiceAt(320, 310) == ConnectionChoice::kInstantAction);
+    CHECK(MultiplayerScreen::choiceAt(320, 111) == ConnectionChoice::kNone);
+    CHECK(MultiplayerScreen::choiceAt(60, 460) == ConnectionChoice::kPreviousMenu);
+    CHECK(MultiplayerScreen::typed("Pic", "ard\t!") == "Picard!");
+    CHECK(MultiplayerScreen::typed(std::string(30, 'x'), "yz") == std::string(30, 'x') + "y");
+}
+
 // What the loading screen reads for a mission: each definition once,
 // whatever its case, then its model.
 void testLoadingFiles() {
@@ -145,5 +160,6 @@ static const reluva::test::Suite
                                      {"campaigns", [](const std::filesystem::path &) { testCampaigns(); }},
                                      {"options", [](const std::filesystem::path &) { testOptions(); }},
                                      {"settings", [](const std::filesystem::path &) { testSettings(); }},
+                                     {"connection", [](const std::filesystem::path &) { testConnection(); }},
                                      {"loading files", [](const std::filesystem::path &) { testLoadingFiles(); }},
                                  });

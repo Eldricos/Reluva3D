@@ -78,16 +78,20 @@ these phases start from, is in [formats/install.md](formats/install.md).
    play: the fog over what's been seen but isn't now, once ships move
    (phase 7), and the ships' specular highlights, which the renderer
    doesn't draw yet.
-6. **The front end** (in progress): the shell's screens, the opening
-   movie, game setup, options, loading and saving. Done: the game itself
-   starts with the opening movie, then the main menu as the original
-   draws it, its panels' movies, its labels lit under the pointer, its
-   music and sounds ([systems/front-end.md](systems/front-end.md)), the
-   movies' colours as the game shows them; the single-player screen and
-   its mission panel, for a new player; the loading screen, in 3D, as
-   the mission's files are read; the Options screen and its settings
-   screens. Next: the credits, the player's progress, saving and
-   loading; the mission itself waits for phase 7.
+6. **The front end** (done): the shell's screens, the opening movie,
+   game setup, options, loading and saving. The game itself starts with
+   the opening movie, then the main menu as the original draws it, its
+   panels' movies, its labels lit under the pointer, its music and
+   sounds ([systems/front-end.md](systems/front-end.md)), the movies'
+   colours as the game shows them; the single-player screen and its
+   mission panel, the campaigns and missions open as the player's
+   progress says (`shell.set`); the loading screen, in 3D, as the
+   mission's files are read; the Options screen and its settings
+   screens, their values the game's own preferences (`ARMADA.PRF`); the
+   credits, in 3D; the Multiplayer Connection and Load Game screens.
+   What needs play waits: the mission itself and Instant Action (phase
+   7), saved games and the Load Game screen's list (phase 8), the ways
+   to play over the network (phase 9).
 7. **Rules:** units from their object definitions: movement and
    collision avoidance, weapons, shields, crews and boarding, officers,
    mining dilithium, building and research, special weapons, sight and

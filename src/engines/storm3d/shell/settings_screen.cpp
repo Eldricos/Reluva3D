@@ -17,6 +17,8 @@ constexpr int kPreviousX = 5;
 constexpr int kPreviousWidth = 112;
 constexpr int kBottomHeight = 30;
 constexpr int kStartX = 123;
+constexpr int kStartWidth = 394;
+constexpr int kStartTextWidth = 384;
 constexpr int kMainX = 522;
 constexpr int kTitleY = 6;
 // A slider's line: blue, a pixel high, 10 down and 27 in, at most 170
@@ -57,9 +59,22 @@ bool NavigationBar::onPrevious(int x, int y) {
     return inside(x, y, kPreviousX, kBottomY, kPreviousWidth, kBottomHeight);
 }
 
-void NavigationBar::draw(Surface &screen, ShellFont &font, const std::string &previous, bool lit, bool pressed) const {
+bool NavigationBar::onStart(int x, int y) {
+    return inside(x, y, kStartX, kBottomY, kStartWidth, kBottomHeight);
+}
+
+bool NavigationBar::onMain(int x, int y) {
+    return inside(x, y, kMainX, kBottomY, kPreviousWidth, kBottomHeight);
+}
+
+void NavigationBar::draw(Surface &screen, ShellFont &font, const std::string &previous, bool lit, bool pressed,
+                         const std::string &start, const std::string &main) const {
     drawPicture(screen, _start, kStartX, kBottomY, true);
     drawPicture(screen, _main, kMainX, kBottomY, true);
+    // The middle plate's words are centred in 384 of its 394 pixels, as
+    // the Load Game screen's frame has them.
+    font.drawCentred(screen, kStartX, kBottomY, kStartTextWidth, _start.h, start, kText, kPreviousColour);
+    font.drawCentred(screen, kMainX, kBottomY, _main.w, _main.h, main, kText, kPreviousColour);
     _previous.draw(screen, lit, pressed, true);
     font.drawCentred(screen, _previous.x, _previous.y, _previous.looks[0].w, _previous.looks[0].h, previous, kText,
                      kPreviousColour);

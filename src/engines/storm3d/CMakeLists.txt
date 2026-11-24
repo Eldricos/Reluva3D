@@ -11,6 +11,7 @@ reluva_add_engine(storm3d
         player_files.cpp
         formats/bzn.cpp
         formats/config_file.cpp
+        formats/credits_script.cpp
         formats/input_map.cpp
         formats/label_map.cpp
         formats/ldl.cpp
@@ -22,9 +23,12 @@ reluva_add_engine(storm3d
         formats/zfs_archive.cpp
         scene/model_tree.cpp
         scene/sod_meshes.cpp
+        shell/credits_screen.cpp
         shell/full_screen_movie.cpp
         shell/loading_screen.cpp
+        shell/load_game_screen.cpp
         shell/main_menu.cpp
+        shell/multiplayer_screen.cpp
         shell/options_screen.cpp
         shell/panel_movie.cpp
         shell/shell_draw.cpp
@@ -68,6 +72,7 @@ reluva_add_engine_tests(storm3d
     SOURCES
         ${tests}/unit/bzn.cpp
         ${tests}/unit/config.cpp
+        ${tests}/unit/credits.cpp
         ${tests}/unit/detection.cpp
         ${tests}/unit/images.cpp
         ${tests}/unit/input_map.cpp
@@ -81,7 +86,7 @@ reluva_add_engine_tests(storm3d
         ${tests}/unit/zfs.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.bzn unit.config unit.detection unit.images unit.input_map unit.label_map unit.ldl unit.odf unit.player unit.shell unit.sod unit.spr unit.zfs engine)
+        unit.bzn unit.config unit.credits unit.detection unit.images unit.input_map unit.label_map unit.ldl unit.odf unit.player unit.shell unit.sod unit.spr unit.zfs engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

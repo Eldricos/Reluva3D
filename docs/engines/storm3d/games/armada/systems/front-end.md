@@ -161,6 +161,84 @@ with each slider's steps and lengths):
 A label above its control has its line's top 16 above the control's. Graphics Settings also says, at the bottom of its panel,
 "\* Some resolutions may not be supported by your hardware."
 
+### The Multiplayer Connection screen
+
+Multiplayer on the main menu opens it over the Options screen's
+background, `bitmaps\wonlogin\wlsBG.bmp`, with the same bottom bar. Its
+title, "MULTIPLAYER CONNECTION", is white, 20 pixels, from (64, 6).
+"Enter Name:" is white, 16 pixels, from (158, 78), over the name's box,
+`wonlogin\wlstext.bmp` (324 × 31), at (158, 96). Three `wls324tg`
+buttons at (158, 162), (158, 228) and (158, 294) say "Internet", "Local
+Area Network (TCP/IP)" and "Instant Action" (`label.map`'s
+`multiplayer_connection`).
+
+Under the emulator the screen stayed disabled: its buttons in their
+second look, their words and Previous Menu's grey (49, 49, 49 as drawn),
+and neither the pointer nor typing changed anything. Why isn't traced;
+likely the program waiting on its network's start *(guessed)*.
+
+### The Load Game screen
+
+Load Game on the single-player screen opens it over
+`bitmaps\misc\LoadBG.bmp`, its title "LOAD GAME" white, 20 pixels, from
+(64, 6). Beside the list's panel is a scroll bar: `multiset\scrollup1`
+(14 × 21) at (614, 53), its thumb `scrolltb1` (14 × 10) at (614, 74),
+and `scrolldn1` (14 × 20) at (614, 396). The bottom bar's middle plate
+says "Load Game", centred in 384 of its 394 pixels, and its right one
+"Delete Game" (`label.map`'s `load_game`).
+
+The program lists the saved games with `_findfirst` and `_findnext`; it
+names them `save\s<n>.sav`, by its strings *(inferred)*. With no saves,
+or with files there that aren't saves, the list is empty. Saves are made
+in play, so what they hold, and how the list shows them, isn't known
+yet.
+
+### The credits
+
+Credits on the main menu shows the credits, drawn in 3D, until a key or
+a click ends them:
+
+- The camera is at the origin, looking along +z, 45 degrees high, as on
+  the loading screen. Around it is the stars' background model,
+  `mbgstars.sod`, still.
+- The text is `Credits.txt`'s pages, one at a time
+  ([formats/credits.md](../formats/credits.md)). Each letter is a node
+  of `font.sod`, named by its character's code ("65" for A). The glyphs
+  are flat, in a strip along x, their lower-case feet at y 84.4.
+- At the top left is "Press any key to exit", in the sprite font
+  (`font.spr`, [formats/spr.md](../formats/spr.md#fonts)). Its letters
+  are yellow, a pixel apart from (5, 5), over a box from (5, 5) to (119,
+  15) in (80, 0, 48). They're dimmer than the texture: Direct3D samples
+  the sheet where its texels meet, so each pixel is the mean of four.
+
+From the original's draws of pages held at scales 0.8 and 0.5:
+
+- A page's letters lie flat, facing the camera, all at one depth
+  whatever the scale.
+- A font unit is 3.084 pixels on the screen times the page's scale:
+  2.467 at 0.8, 1.542 at 0.5.
+- After each letter's own width comes a gap of 7.19 pixels at either
+  scale; a space is 7 units, scaled.
+- Each line is centred on x 319.5, its last gap counted.
+- The lines are 7.19 pixels and 10.755 scaled units apart (33.71 pixels
+  at 0.8, 23.76 at 0.5), blank ones too. The block is centred down the
+  screen, its middle baseline 0.67 + 8.72 × the scale pixels below y
+  239.5, a line through the two scales *(inferred)*.
+- The letters' colour is the page's, lit: 0.502 + 0.5255 × the script's
+  colour. The first page's (0, 0.3, 0.6) is drawn as (128, 168, 208).
+
+From frames every 100 ms of the program's clock, each page's turn is:
+
+1. 3 seconds of nothing;
+2. a second fading in, linearly;
+3. the page's hold;
+4. 3 seconds going away from the camera at a steady speed, so its size
+   on the screen is 1 / (1 + seconds), about the screen's centre. The
+   last of these seconds fades it out.
+
+The next page's turn follows at once. Under the emulator the first
+page's turn began 3.2 seconds after the click, as the files loaded.
+
 ### The loading screen
 
 O.K. on the mission panel plays `cornrclk.wav` and shows the loading
@@ -221,7 +299,12 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
   The lists show the one mode Reluva draws and its driver, "Reluva", and
   don't open. The player's files are in Reluva's save folder for the
   game, read before the install's (`player_files.h`).
-  Multiplayer, Credits and Load Game do nothing yet. The models are drawn as the data viewer's are
+  Multiplayer opens the Multiplayer Connection screen
+  (`shell/multiplayer_screen.h`), drawn enabled, where a name can be
+  typed; its ways to play need the network and the game, and do nothing
+  yet. Load Game opens the Load Game screen (`shell/load_game_screen.h`),
+  its list empty. Credits shows the credits (`shell/credits_screen.h`),
+  back to the menu after the last page or a key or click. The models are drawn as the data viewer's are
   (`scene/sod_meshes.h`); the logo's specular glint isn't. The version is in Reluva's own
   font: the "System" font isn't in the install.
 - **The text** is Arial Bold, as the game asks GDI for it: the machine's
@@ -254,14 +337,24 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
   anti-aliasing in "Off" and the display driver's name. Given a
   `shell.set` with three Klingon missions open, the mission panel is the
   same as the game's in every pixel.
-  The unit tests (`storm3d.unit.shell`) check which button and race each
-  place is, the sliders' steps and lengths, and reading `mshell.set`.
+  The Multiplayer Connection screen is the same but for its buttons and
+  Previous Menu, which the original showed disabled; the Load Game
+  screen is the same in every pixel. The credits' text falls on the
+  original's frames in fading in, held and going away, within a few
+  hundred pixels; their stars match its frames' to a correlation of
+  0.91.
+  The unit tests (`storm3d.unit.shell`, `storm3d.unit.credits`) check
+  which button and race each place is, the sliders' steps and lengths,
+  reading `mshell.set`, and the credits' script, layout and timing.
 
 ## Open questions
 
 - Where the program keeps the main menu's places, and the other
   screens' (single player, multiplayer, options, credits).
 - What the lists look like open.
+- What the Multiplayer Connection screen looks like enabled, and why it
+  stayed disabled under the emulator.
+- What a saved game holds, and how the Load Game screen lists one.
 - Which sounds the settings screens' controls play.
 - Which `label.map` entry the Options screen's Previous Menu comes from:
   `escape_menu` has none, and every other screen's says the same.
