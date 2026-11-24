@@ -115,7 +115,7 @@ Error parseCollision(const std::vector<uint8_t> &data, Collision &out) {
                 t.picture = le16(p);
                 t.flags = p[2];
                 t.orientation = p[3];
-                std::memcpy(t.unknown.data(), p + 4, 3);
+                std::memcpy(t.colour.data(), p + 4, 3);
                 t.frames = p[7];
                 t.ticksPerFrame = p[8];
                 out.textures.push_back(t);

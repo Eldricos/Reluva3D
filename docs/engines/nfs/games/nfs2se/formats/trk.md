@@ -106,7 +106,7 @@ Each: a u32 size, a u16 id, a u16 record count, the records. Seen:
 | 7, 18, 19 | 1,047, 591, 26 | placements of meshes (below) |
 | 8 | 1,275 | meshes (below) |
 | 9 | 862 | painted lines on the road (below) |
-| 10 | 13 | 16 bytes: a 16.16 point, 8 to 68 units off the road, and a u32 of 1, 2 or 4 (`TR04` one, `TR05` five, `TR08` ten); neither program reads it beyond keeping where it is (0x435a8a): lights or effects for another version *(guessed)* |
+| 10 | 13 | 16 bytes: a 16.16 point, 8 to 68 units off the road, and a u32 of 1, 2 or 4 (`TR04` one, `TR05` five, `TR08` ten); neither program reads it beyond keeping where it is (0x435a8a): effects' places, by what's there *(inferred)*: `TR08`'s 1s on the axes of its chimneys (`BOIL`), a little below their tops, its 2s by its flames (`SFL1`, `MFL1`, `LFL1`), `TR05`'s by its waterfalls; smoke, fire and spray for another version |
 | 11 | 383 | obstacles (below) |
 | 13 | all | 12 bytes: two s16 vectors about 32,767 long (5,322 of the 5,338 checked) |
 | 17 | 17 | sounds (below) |
@@ -130,8 +130,10 @@ block to draw (0x435910).
 - **Painted lines** (9), 4 bytes: a vertex of the block, a road point
   (from the block's first), the line's type, and a quad of the high
   level. Each two records make a quad, from the vertex and the vertex
-  moved across the road, both raised by half the road's up vector; type
-  `0xFF` ends a line. Drawn at the high level only (0x435260) with the
+  moved by the road point's across vector (half a unit to the right),
+  each end pushed out along the road by half its forward vector, so the
+  pieces overlap (0x4353fc); type `0xFF` ends a line. The records run
+  forward along the road, every one of them. Drawn at the high level only (0x435260) with the
   pictures `lin0` to `lin7`; on `TR00`, `TR02`, `TR03` and `TR05`.
   Types 0 to 4 are yellow, 5 to 9 white, each drawn as the type 5 below
   (0x448bcc); up close, each has its own shape (0x448a24), far off one
@@ -143,7 +145,12 @@ block to draw (0x435910).
   | 0, 5 | solid, 5/16 of the quad's width in from each side | 2,525, 11,464 |
   | 1, 6 | broken: each piece from halfway to its end | 344, 5,022 |
   | 2, 7 | two solid | 355, 1,112 |
-  | 3, 8 and 4, 9 | solid beside broken, mirrored | 268, 337 and 288, 181 |
+  | 3, 8 | solid on the right, broken on the left (0x448c50): no passing going forward | 268, 337 |
+  | 4, 9 | broken on the right, solid on the left (0x4491d0) | 288, 181 |
+
+  Types 3 and 4 are only on `TR03`, 8 and 9 only on `TR02`, all on the
+  middle of two-lane roads; right and left as a driver going forward
+  sees them, the across vector pointing right *(inferred)*.
 
   The picture among the worn ones is chosen by the vertex's place
   (0x4c412c). In the 3dfx program the lines take the road's shades,
@@ -208,6 +215,6 @@ colour toward the sun, and there's no fog or lighting.
 
 ## Open questions
 
-- What the header's word at 20 measures, and extrablock 10 was for.
-- Which of the solid-beside-broken lines (types 3 and 4) is broken on
-  which side.
+- What the header's word at 20 measures: no sum or largest of the
+  blocks' sizes and counts searched matches it on all 8 tracks.
+- What extrablock 10's 4, at `TR04`'s rope bridge, would have been.

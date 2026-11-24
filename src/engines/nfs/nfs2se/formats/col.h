@@ -21,8 +21,11 @@ namespace reluva::nfs::nfs2se {
 struct Collision {
     /** Texture::flags (0x433bd0, 0x435090). */
     enum TextureFlag : uint8_t {
-        kAnimated = 0x04,  // frames pictures from `picture` on, in turn
-        kSeeThrough = 0x20 // its keyed colour not drawn
+        kAnimated = 0x04,   // frames pictures from `picture` on, in turn
+        kTwoSided = 0x10,   // never culled
+        kSeeThrough = 0x20, // its keyed colour not drawn
+        // Drawn as any other by both programs; on quads off the drivable road.
+        kOffRoad = 0x40,
     };
     /** Texture::orientation: how its picture is turned on a quad (0x433c34). */
     enum Orientation : uint8_t {
@@ -36,11 +39,11 @@ struct Collision {
     /** What a polygon's texture number stands for (extrablock 2). */
     struct Texture {
         uint16_t picture = 0; // its place in the track's .qfs
-        uint8_t flags = 0;    // TextureFlag; what 0x10 and 0x40 do isn't known
+        uint8_t flags = 0;    // TextureFlag
         uint8_t orientation = 0;
-        std::array<uint8_t, 3> unknown{}; // 178, 178, 178 in most; the program doesn't read them
-        uint8_t frames = 0;               // with kAnimated
-        uint8_t ticksPerFrame = 0;        // of the game's clock, with kAnimated
+        std::array<uint8_t, 3> colour{}; // RGB, 178, 178, 178 in most; neither program reads it
+        uint8_t frames = 0;              // with kAnimated
+        uint8_t ticksPerFrame = 0;       // of the game's clock, with kAnimated
     };
     /** A point of the virtual road (extrablock 15), about 8 to a block. */
     struct RoadPoint {
@@ -51,13 +54,14 @@ struct Collision {
         std::array<int8_t, 3> forward{};
         std::array<int8_t, 3> across{};
         uint16_t block = 0;
-        // Bits the AI tests for a gap (0x43a9a0); what each means isn't known.
+        // Where a car can drive, a bit a lane's width across: 7 the first
+        // right of the point, 8 the first left, outward from there (0x42a450).
         uint16_t laneMask = 0;
         // From the point to the road's edges, in 256ths of the unit.
         uint16_t leftEdge = 0;
         uint16_t rightEdge = 0;
-        // What's beyond each edge (left in the high nibble): 0 nothing, a
-        // wall otherwise, kinds 1 to 7 not told apart.
+        // Each edge's wall's kind, left in the high nibble: 0 none, 2 a
+        // tunnel's (col.md, The walls).
         uint8_t edges = 0;
         uint8_t lanes = 0; // the lanes each way, left in the high nibble
         // Each side's lanes' width, in halves of the unit.

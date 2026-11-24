@@ -62,7 +62,7 @@ Error readRecords(TrackBlock &block) {
             if (!fits(8))
                 return Error::fail("its road rows run past their extrablock");
             for (uint16_t i = 0; i < x.count; ++i, p += 8)
-                block.roadRows.push_back({le16(p), p[2], p[3], le32(p + 4)});
+                block.roadRows.push_back({le16(p), p[2], p[3], le16(p + 4), le16(p + 6)});
         } else if (x.id == 9) {
             if (!fits(4))
                 return Error::fail("its road lines run past their extrablock");

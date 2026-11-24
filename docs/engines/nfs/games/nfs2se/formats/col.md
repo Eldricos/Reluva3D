@@ -38,12 +38,13 @@ The program builds its own table of the pictures' corners from these
 - **Flags:** 0x04, animated (set exactly when bytes 7 and 8 aren't 0,
   34 records); 0x20, see-through, the picture's keyed colour not drawn
   (995 of the 1,054 records with it have the 3dfx picture's green, 6 of
-  the 2,483 without); 0x10, two-sided: its polygons are never culled,
-  as the cars' two-sided ones (the draw record's word at 10 set to 2,
+  the 2,483 without); 0x10, two-sided: its polygons are never culled
+  by the software program, as the cars' two-sided ones (the draw record's word at 10 set to 2,
   0x4351a1; tested at 0x46f836 and the renderer's three other culls):
   fences, and many flat quads; 0x40 sets that word to 0 (1 otherwise,
-  0x10 winning), which the software program draws as 1, and what the
-  3dfx program does with it wasn't found. 0x40 is on 168 records, never
+  0x10 winning), which both programs draw as 1: the 3dfx program culls
+  only the cars' polygons, by the word being 3 (`NFS2SEA.EXE` 0x429be5),
+  and never a track's. 0x40 is on 168 records, never
   the road's: almost all its quads lie off the drivable road (bits at
   24, below).
 - **Turning** (0x433c34, 0x4735a4): 0x10 mirrors the picture left to
@@ -159,4 +160,3 @@ hosted game's race clock runs.
 ## Open questions
 
 - What the walls' effects and events look and sound like.
-- What the 3dfx program does with flag 0x40.

@@ -217,7 +217,7 @@ void testCollision() {
     if (!c.textures.empty()) {
         const nfs2se::Collision::Texture &x = c.textures[0];
         CHECK(x.picture == 7 && (x.flags & nfs2se::Collision::kSeeThrough) && x.orientation == 0x09);
-        CHECK(x.unknown[2] == 178 && x.frames == 3 && x.ticksPerFrame == 5);
+        CHECK(x.colour[2] == 178 && x.frames == 3 && x.ticksPerFrame == 5);
     }
     CHECK(c.meshes.size() == 1 && c.placements.size() == 2);
     CHECK(c.road.size() == 1);

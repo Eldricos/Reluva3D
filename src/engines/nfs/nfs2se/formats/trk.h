@@ -55,7 +55,12 @@ struct RoadRow {
     uint16_t firstQuad = 0; // into the high level's first group
     uint8_t quads = 0;      // the rows together cover the group, in order
     uint8_t music = 0;      // the music's section for this stretch, 2-6 (0x436440) *(inferred)*
-    uint32_t unknown = 0;   // 0xFFFFFFFF in nearly all
+    // The road points of a stretch running beside this one, a car off its
+    // row being put on the nearer (0x437270); kNoRoad for none.
+    uint16_t leftRoad = kNoRoad;
+    uint16_t rightRoad = kNoRoad;
+
+    static constexpr uint16_t kNoRoad = 0xffff;
 };
 
 /** A point of a painted line on the road (extrablock 9), drawn at the high level only (0x435260). */
