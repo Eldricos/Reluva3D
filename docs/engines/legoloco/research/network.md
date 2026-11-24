@@ -104,3 +104,11 @@ above, what remained:
 - **The `I.P.` field** is an `EDIT` box opened on a click (`0x44177a`)
   **seen**; typing a host's address into it hasn't been tried. (Since
   tried, and it works: [running.md](../systems/running.md#network-play).)
+
+## Where the questions went
+
+November 2026: these notes are closed. What's settled is in
+[running.md](../systems/running.md#network-play); what's still open (the
+messages' layout, minifigures crossing, the modem and serial
+connections) is in its open questions, and the network areas' squares,
+sent between the players, in [sav.md](../formats/sav.md#the-squares).

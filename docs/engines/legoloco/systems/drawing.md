@@ -29,8 +29,10 @@ across the drawings. Its frame sets are those of a vehicle of eight
 directions (`W` to `NW`, frames 0 to 7), where the other vehicles' have
 sixteen over sixteen drawings, and its zoom picture is named as the
 van's (resource 8199, `zooms\vehicles\van`): an unfinished vehicle
-*(inferred)*. The game reads its name with the others' at its start;
-it wasn't seen on a board, so how it would look isn't known.
+*(inferred)*. It can come onto a board: the supermarket
+(`building\s-market.dat`) names it with the van among the vehicles it
+sends out (`PossibleMinifigs`, [dat.md](../formats/dat.md#the-placement-part))
+*(seen, not traced)*; how it then looks hasn't been seen.
 
 ### Colours
 
@@ -46,9 +48,11 @@ screen's 5-6-5 or 5-5-5 (red and green shifted into place and masked,
 blue shifted down 3; the shifts set when it found the screen's format,
 `0x45b6a1`), and draws by looking the pixels up in it. Magenta becomes
 the screen's magenta, which surfaces are colour-keyed with, so colour 0
-shows what's below *(from the code)*. Some pictures share one table,
-the first made of those asked for so (`0x48524c`) *(from the code; which
-they are isn't known)*.
+shows what's below *(from the code)*. One table is shared: the first
+picture loaded asking to share keeps its table as the game's
+(`0x48524c`), later ones asking get their own, and pictures the game
+makes in memory (`0x42a850`: the board's, among others) take the shared
+one *(from the code)*; which picture is first isn't known.
 
 ### Squares and placing
 
@@ -116,8 +120,7 @@ bits. The game itself draws in its own code, run in the emulator
 
 ## Open questions
 
-- How the milk float would look on a board, if the game ever puts one
-  there.
-- Which pictures share one colour table.
+- How the milk float looks on a board, sent out by a supermarket.
+- Which picture's colours the shared table holds.
 - How often Windows XP and 98 gave the station master's 10 ms timer its
   `WM_TIMER`, which sets how fast he talks.

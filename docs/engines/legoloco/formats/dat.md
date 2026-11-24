@@ -43,17 +43,17 @@ Read by `loco.exe` at `0x41ea60`, in a loop until `-9`:
 | `physical_occupancy` | columns, rows, layers; then the grids ([below](#occupancy-grids)) | the squares the piece fills |
 | `bitmap_occupancy` | columns, rows; then one grid | which squares its picture covers *(guessed)* |
 | `entry_exit` | four numbers *(seen, not traced)* | where trains or people come and go *(guessed)* |
-| `RMBSeq` | signed 16-bit | a resource number *(guessed)*: what a right click starts |
-| `ClosedFS` | signed 16-bit | |
-| `EEReplayDelay` | 32-bit | |
-| `MaxMinifigForResource`, `MaxMobileForResource` | 16-bit, made 5 if larger | the game compares only their first four letters, `MaxM` (`0x41ec01`) |
-| `LeisureDestination` | 16-bit | |
-| `MaxEmployees` | 16-bit, made 5 if larger | |
-| `PossibleEmployees`, `PossibleMinifigs` | signed 16-bit numbers, up to five *(seen, not traced)* | resource numbers of minifigures, -1 for none |
-| `Shifts` | four two-digit numbers (`07 17 16 43`) *(seen, not traced)* | working hours *(guessed)* |
-| `FreeToRoam` | four 32-bit numbers | a rectangle *(guessed)* |
-| `ButtonVisible` | 16-bit | |
-| `InsertSeq`, `MobileSeq`, `TotalVisits` | a sequence, each with an `EasterEgg` line after it, read by `0x41f2b0` | |
+| `RMBSeq` | signed 16-bit; 0 if not given | what a right click on the piece does (`0x411281`): 0, its next frame set, round to the first; above 0, the piece becomes that resource; below 0 (the CD's 54 `-1`s), nothing *(from the code)* |
+| `ClosedFS` | signed 16-bit; -1 if not given | the frame set shown outside its `Shifts`, by the computer's clock: the game checks the hours each time (`0x458940`) and puts the default set back when they come round *(from the code)*; the CD's shops close so |
+| `EEReplayDelay` | 32-bit; 0 if not given | seconds before the piece's sequences' surprises can play again; below 0, never again (`0x434dd3`) *(from the code)* |
+| `MaxMinifigForResource`, `MaxMobileForResource` | 16-bit, made 5 if larger; 0 if not given | the game compares only their first four letters, `MaxM` (`0x41ec01`), so they're one value: a piece made gets a random 1 to this many visitors (`0x458103`) *(from the code)* |
+| `LeisureDestination` | 8-bit, 0 if not given | 1: a place minifigures go to in their free time (`0x42cfe4`, `0x4342a2`) *(inferred)*; the CD's 37 give 1 |
+| `MaxEmployees` | 16-bit, made 5 if larger | how many may work there: a minifigure is taken on while fewer do and its resource is among `PossibleEmployees` (`0x433d26`) *(from the code)* |
+| `PossibleEmployees`, `PossibleMinifigs` | signed 16-bit numbers, up to five *(seen, not traced)* | resource numbers, -1 for none; an odd number naming a minifigure is made -1 in `PossibleEmployees` (`0x41ecea`). `PossibleMinifigs` also names vehicles and animals: the supermarket's van and milk float, the fire station's engine, a field's cow |
+| `Shifts` | four numbers: the opening hour and minute, the closing hour and minute (`09 30 17 30`); read as `%ld %ld %ld %ld` into two times of day | when it's open, by the computer's clock, as `ClosedFS` uses it *(from the code)*; the CD's 96 `00 00 23 59` never close |
+| `FreeToRoam` | four 32-bit numbers; empty if not given (`SetRectEmpty`) | a rectangle: left, top, right, bottom, in the picture's pixels (`0 30 16 32`); where its minifigures wander *(guessed)* |
+| `ButtonVisible` | 8-bit; 1 if not given | 0: no Toybox button for the piece, unless `Exe\LEGO.INI`'s `[EasterEggs]` lists its resource number (keys `1`, `2` and on, to the first missing; `0x41f7e0`) *(from the code)*. The CD gives 0 to its 58 seasonal pieces only (the desert's, Easter's, Halloween's, winter's and Christmas's trees, ponds and flowers, and roads), which the load events put in place of the usual ones ([ee-ini.md](ee-ini.md)) |
+| `InsertSeq`, `MobileSeq`, `TotalVisits` | a sequence, each with an `EasterEgg` line after it, read by `0x41f2b0` | surprises: `TotalVisits` counts the vehicles that pass, keeping the count with the piece in a board ([sav.md](sav.md#pieces)), and plays its surprise when it passes the sequence's count, starting again from 0 (`0x434f21`) *(from the code)* |
 
 The files' comments describe the sequences: "Sequence count, id, id etc
 where -1 is any and 0 is empty"; `EasterEgg`'s fields as "new
@@ -149,8 +149,10 @@ How the game plays them, from its code:
 
 A frame set of one frame whose next set is itself is given -1 instead
 (`0x425315`). The game also checks that the frames and the next set are
-within the counts, and remembers if one isn't (`0x4251fa`); what it does
-then isn't known.
+within the counts, and remembers if one isn't (`0x4251fa`). Asked to
+show a set beyond its count, or below 0, a piece keeps the set it has
+(`0x405a50`); one being made with such a set isn't made at all
+(`0x4059f7`) *(from the code)*.
 
 A minifigure's (`people\fireman\fireman.dat`):
 
@@ -193,5 +195,5 @@ angry       28 31  3 0    1 5     0 0 0    0
 
 ## Open questions
 
-- What most placement keywords mean in play.
-- What the game does with a frame set out of range.
+- What `entry_exit` and `FreeToRoam` do in play, and how the sequences'
+  `EasterEgg` fields are used.

@@ -443,7 +443,14 @@ doings, and a network game between two computers.
 
 ## Open questions
 
-- Whether the program runs on without a network past its start: it
-  finds none of its four connections, and plays on regardless.
+- Whether the original, with none of its four connections there, still
+  shows the network case: as it starts it makes a DirectPlay object for
+  each in turn (`0x45eb45`, `0x45ebe5`) and lists only those it could
+  (`+0xd6c`) *(from the code)*; with none, the one-player game plays on
+  *(seen, not traced)*.
 - Whether a host is meant to fill in the `I.P.` field too (the host was
   given the port as if it had).
+- The layout of the game's own messages, beyond the cards' (`0x3ed`,
+  `0x3fc`) and the areas' squares ([sav.md](../formats/sav.md#the-squares));
+  whether minifigures cross between boards, as trains do; and the modem
+  and serial connections, never tried.

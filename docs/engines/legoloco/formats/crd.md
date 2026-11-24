@@ -34,9 +34,9 @@ Numbers little-endian.
 | `0x08` | 4 | the card's number, as its file is named |
 | `0x0c` | 21 | the addressee's name, ending in 0: `Anyone`, or a player of a network game |
 | `0x21` | 21 | the sender's name, ending in 0 |
-| `0x36` | 2 | not known: a card whose value is set has its file in `Att_In` deleted, and it cleared (`0x42d931`) |
-| `0x38` | 4 | not known: 1 in every card seen *(seen, not traced)* |
-| `0x3c` | 3 | not known |
+| `0x36` | 2 | set on a card that came with its own file in `Att_In`: filing it deletes that file and clears this (`0x42d931`) *(from the code)* |
+| `0x38` | 4 | 1 on a new card (`0x442876`); copied with the card, read nowhere else found *(from the code)* |
+| `0x3c` | 3 | 0 on a new card; copied with the card, read nowhere else found *(from the code)* |
 | `0x3f` | 80 | the message, ending in 0; `...?` when none was written |
 | `0x8f` | 1 | the stamp: clip art `S0nnn`'s number; 0 for none |
 | `0x90` | 1 | the background: clip art `Rdnnn`'s number; 0 for none |
@@ -112,5 +112,5 @@ card names that it doesn't have (`0x438faa`), which comes in pieces
 
 ## Open questions
 
-- What `+0x04` counts, and what `+0x36`, `+0x38` and `+0x3c` are for.
+- What `+0x04` counts, and whether anything reads `+0x38` and `+0x3c`.
 - The other languages' cards, and how the game draws a card.

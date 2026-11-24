@@ -30,7 +30,7 @@ between them.
 
 | Offset | Size | Field |
 |---|---|---|
-| 0 | 2 | 8 in every file *(seen, not traced)*: a version *(guessed)* |
+| 0 | 2 | the version: 8; the game loads no other (`0x448030`), and its load panel offers no other *(from the code)* |
 | 2 | 2 | columns: 64, or 72 and 80 for the screen saver's wider boards |
 | 4 | 2 | rows: 48, or 54 and 64 |
 | 6 | 2 | 0 in every file |
@@ -41,8 +41,14 @@ between them.
 ### The squares
 
 Columns × rows bytes, row by row: what kind of piece stands on each
-square *(seen, not traced)*. Counting the squares under each piece's
-`physical_occupancy` on the CD's layouts and screen saver boards:
+square. The game writes each square's from the kind of the piece on top
+there (the byte at `+8` of its definition, `0x457080`), and never reads
+them back as it loads a board: it places the pieces, which fill their
+own squares (`0x41d65d`). A network game keeps each area's squares, read
+from its layout (`0x43d77f`) and sent between the players (`0x43f5f7`)
+*(from the code)*, for the map *(guessed)*. Counting the squares under
+each piece's `physical_occupancy` on the CD's layouts and screen saver
+boards:
 
 | Value | Under |
 |---|---|
@@ -67,7 +73,7 @@ As many as the header counts, 128 bytes each, read one at a time at
 | 4 | 2 | its row |
 | 6 | 2 | 0 in every file *(seen, not traced)* |
 | 8 | 4 | the frame set it was showing ([dat.md](dat.md#the-frame-set-table)): a point's way, a tree's noisy or quiet set; given back to it through a method of its own (at its table's `+0x1c`), but for resource 2130 (`0x852`) and some others; the CD's, 0 to 9, are each within their pieces' sets |
-| 12 | 4 | kept by the piece (at its `+0xbc`); 0 in every file |
+| 12 | 4 | how many vehicles have passed it towards its `TotalVisits` surprise ([dat.md](dat.md#the-placement-part)), kept at its `+0xbc` (`0x434f21`) *(from the code)*; 0 in every file, as only one piece has the surprise |
 | 16 | 12 | its name, ending in a zero: `Building` until the player names it (`Hospital`, `Police`), or empty |
 | 28 | 100 | five minifigure slots, 20 bytes each ([below](#minifigure-slots)) |
 
@@ -108,7 +114,10 @@ pieces than they hold. The game reads pieces until the file ends, and a
 read past the end gives nothing, so it places those there are and no
 trains. A network game's area board, as the game keeps it in
 `art-res\~curr`, came out the same in Reluva: 59 pieces counted, 57
-there *(seen, not traced)*: likely how the area layouts were made.
+there. The reason is in the game's writer (`0x41da3f`): the header
+counts every piece the board holds, but only those standing in place
+(their `+0xc0` 1) are written (`0x41db1f`) *(from the code)*; which
+pieces aren't, when a board is saved, isn't known.
 
 ### A player's own boards
 
@@ -149,6 +158,5 @@ long as its counts *(seen, not traced)*.
 
 ## Open questions
 
-- What a piece's value at 12 is for, and how the game uses the squares'
-  values.
-- Why a network area board counts more pieces than it holds.
+- Which pieces a board holds but doesn't write (their `+0xc0` not 1).
+- Whether the map draws a network area's squares.

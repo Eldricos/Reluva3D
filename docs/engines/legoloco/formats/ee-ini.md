@@ -39,7 +39,7 @@ are the resource file's copy's comment's:
 | 9 | resource | what to show: a resource number |
 | 10 | frame set | 16-bit: the set it starts with |
 | 11 | period | seconds: shown again after a random 1 to this many (below) |
-| 12 | type | one letter: World, Random, Centred, Port or Starboard, by the comment; the CD has `S` and `P` |
+| 12 | type | one letter, where the object starts ([below](#what-the-type-letters-do)); the CD has `S` and `P` |
 | 13 | x | |
 | 14 | y | |
 
@@ -52,10 +52,32 @@ resource, frame set, type and position are given to a new object of
 the kind that crosses the screen (`0x423ab0`, `0x422ec0`), made only
 while the game's measured frame rate is above a setting of its own, but
 for resource 14433 (`0x3861`). Its next showing is then a random 1 to
-`period` seconds on (0: a second; below 0, `rand() % (2 − p) + p`). What
-each type letter does there isn't traced *(from the code)*. The CD's
+`period` seconds on (0: a second; below 0, `rand() % (2 − p) + p`)
+*(from the code)*. The CD's
 are clouds, aeroplanes and a UFO, every month from 1:00 to 23:00, every
 5 to 95 minutes.
+
+#### What the type letters do
+
+The object takes the letter in capitals and starts by it (`0x422f84`,
+a switch over `C` to `W`), against the board's width and height
+(`0x4aad0c`, `0x4aad10`) and the picture's own point (its hotspot)
+*(from the code)*:
+
+| Letter | The comment's word | Where it starts |
+|---|---|---|
+| `W` | World | at x, y |
+| `R` | Random | anywhere on the board, by chance |
+| `C` | Centred | in the middle |
+| `P` | Port | at the right edge, at height y, or by chance for -1 |
+| `S` | Starboard | off the left edge, its width outside, at height y, or by chance for -1 |
+| `U` | | at the bottom, at x, or by chance for -1 |
+| `D` | | at the top, at x, or by chance for -1 |
+
+Other letters leave it where it's made. As it moves (`0x423560`), `P`,
+`S`, `U` and `D` each have their own way, likely across the board from
+where they start *(inferred)*; the CD's aeroplanes and clouds go both
+ways (`P` and `S`).
 
 `%c` takes the character straight after the comma, so the letter must
 follow it with no space; the numbers may have spaces before them.
@@ -78,8 +100,9 @@ The game applies them as it starts (`0x41f970`): for each whose dates
 hold, by `localtime(time())`, it puts the second resource's name in the
 first's place (`0x447290`). On 31 October it also marks every resource
 from 6144 to 6542 (`0x1800` to `0x198e`: the trains and wagons among
-them) with `0x400` at their `+0x164` *(from the code; what that does
-isn't traced)*. Seen in Reluva with the game's command line (below): at
+them) with `0x400` at their `+0x164`: the mark a definition's
+`semi-transparent` keyword sets (`0x425084`), so the trains are drawn
+see-through, as ghosts, on Halloween *(from the code)*; not yet seen. Seen in Reluva with the game's command line (below): at
 Easter the board's backdrop green, the pond with eggs and the Toybox's
 handle striped; at Halloween the backdrop dark, the handle a bone,
 skulls in the pond.
@@ -89,9 +112,12 @@ skulls in the pond.
 The game's command line (`0x406790`, from `WinMain` at `0x46308c`) may
 name a season, which it then takes whatever the date: `Easter` (taken
 as 1 April), `Desert` (11 June), `Halloween` (31 October), `Winter`
-(2 December) or `XMas` (25 December). It also knows `/s`, `-s` and `s`
-*(seen in the code; what they do isn't traced: a screen saver's switch
-is likely)*.
+(2 December) or `XMas` (25 December). `/s`, `-s` or `s`, Windows'
+switch for starting a screen saver, starts it as one (`0x4068b5`): it
+takes the resources from the folder it's in rather than `LEGO.INI`'s
+`RemoteRes` (`0x406ab8`), and plays a board from `art-res\ScrSaver` as
+`LEGO.INI`'s `[ScreenSaver]` section says (`0x408876`, `0x4481e1`)
+*(from the code)*.
 
 ```text
 [LoadEvents]
@@ -116,8 +142,8 @@ is likely)*.
   `loco.exe`'s readers at the addresses given, and their names from the
   comment in the resource file's copy; what they do from the code that
   applies the load events, checks the time events and reads the command
-  line, at the addresses given. The type letters' meanings are only the
-  comment's.
+  line, at the addresses given; the type letters' names are the
+  comment's, what they do the code's.
 - **How it was checked:** `reluva-tool legoloco ee` reads every line of
   both copies, and prints the same events from each. The unit tests
   (`legoloco.unit.easter_eggs`) read lines in the files' shape, stop at
@@ -127,5 +153,5 @@ is likely)*.
 
 ## Open questions
 
-- What the time events' type letters and position do (in `0x422ec0`).
-- What the mark Halloween puts on the trains does, and what `/s` does.
+- How each type letter's object moves, and whether the Halloween trains
+  look as their mark says.
