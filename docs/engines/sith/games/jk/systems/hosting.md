@@ -154,6 +154,29 @@ Windows does when it fails, and dialog boxes are made but not drawn
     blending, linear filtering and the depth test (`ZFUNC` less-equal and
     always). The menus stay 8-bit, drawn as before. If a GUID can't be
     read, it goes back to software (`0x414424`) *(from the code)*.
+
+    A frame in play is, in order (seen running, every one of 1,583 frames
+    into Nar Shaddaa, its surface calls logged with their callers; the
+    code at each address read):
+    - the Z-buffer cleared over the view by `Blt` with
+      `DDBLT_DEPTHFILL` (`0x42ac06`), never locked;
+    - one scene: `BeginScene`, the 3D in execute buffers, `EndScene`;
+      new textures' system-memory surfaces locked and loaded in it
+      (`0x42a2f1`);
+    - the back buffer locked whole for the automap, drawn as lines while
+      the map is shown (`0x407d97`, `0x4d92c0`), unlocked;
+    - the two gauges copied into the bottom corners, each with its
+      transparent colour (`0x408c6f`, `0x408c9a`, through `0x4237b0` and
+      `0x424e80`), and text the same way through the fonts' copy
+      (`0x434d06`);
+    - `Flip`.
+
+    What's drawn after the scene only writes: the copies are plain or
+    skip the transparent colour (`0x425176` to `0x425188`), and nothing
+    in a frame of play reads the back buffer, copies from it, or locks
+    the front buffer or the Z-buffer. Only the menus and loading screens
+    copy from the back buffer to the front, a part at a time (`0x424ca3`),
+    and colour-fill it (`0x42656e`), with no scene drawn.
 18. **Multiplayer** goes through DirectPlay 3 (`IDirectPlay3A`, kept at
     `0x55d608`), its calls at `0x42fa40` to `0x4305d2` *(from the code)*:
     - It asks whether a lobby started it (`0x42f840`, from `0x4c993a`):
