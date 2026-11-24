@@ -12,8 +12,9 @@
 namespace reluva::sith {
 
 Player::Player(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer *mixer,
-               x86::DirectPlay::Network network)
-    : _folders(std::move(folders)), _saveFolder(std::move(saveFolder)), _mixer(mixer), _network(std::move(network)) {
+               x86::DirectPlay::Network network, std::string commandLine)
+    : _folders(std::move(folders)), _saveFolder(std::move(saveFolder)), _commandLine(std::move(commandLine)),
+      _mixer(mixer), _network(std::move(network)) {
 }
 
 Player::~Player() {
@@ -94,7 +95,7 @@ std::string Player::takeOutput() {
 }
 
 void Player::work() {
-    GameProcess game(_folders, _saveFolder);
+    GameProcess game(_folders, _saveFolder, _commandLine);
     game.directPlay().network = _network;
     // The game looks for joysticks as it starts.
     offerPads(game);
@@ -123,6 +124,8 @@ void Player::work() {
             std::lock_guard<std::mutex> lock(_mutex);
             _frame = f.pixels;
             _width = f.width;
+            _frameX = f.x;
+            _frameY = f.y;
             _height = f.height;
             ++_frameNumber;
         }
@@ -223,7 +226,7 @@ void Player::drain() {
         switch (ev.type) {
         case EventType::kMouseMove:
             if (pointer) {
-                p.mouseMoveTo(ev.mouseX, ev.mouseY);
+                p.mouseMoveTo(_frameX + ev.mouseX, _frameY + ev.mouseY);
             } else {
                 // In play the game reads the mouse's movement: whole
                 // pixels, the fractions kept for later.
@@ -244,7 +247,7 @@ void Player::drain() {
                                : ev.button == MouseButton::kMiddle ? 2
                                                                    : -1;
             if (pointer) // where it was pressed, as the pointer is there
-                p.mouseMoveTo(ev.mouseX, ev.mouseY);
+                p.mouseMoveTo(_frameX + ev.mouseX, _frameY + ev.mouseY);
             if (button >= 0)
                 p.mouseButton(button, ev.type == EventType::kMouseDown);
             break;

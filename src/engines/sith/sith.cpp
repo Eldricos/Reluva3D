@@ -43,8 +43,11 @@ public:
                     sys.stopAudio();
             }
         } audioStop{_sys, audioOut};
+        // `commandline` (reluva.ini): what follows JK.EXE, as a shortcut on
+        // Windows would give it (-windowGUI, -devMode...).
+        const auto commandLine = _target.settings.find("commandline");
         Player player(findFolders(_target.path, _target.settings), _target.savePath, audioOut ? &mixer : nullptr,
-                      network());
+                      network(), commandLine == _target.settings.end() ? std::string() : commandLine->second);
         // The controllers, if they're offered: the game's two joysticks.
         const auto joystickSetting = _target.settings.find("joystick");
         const bool joystick = joystickSetting == _target.settings.end() || joystickSetting->second != "off";

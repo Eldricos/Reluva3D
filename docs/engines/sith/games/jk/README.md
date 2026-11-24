@@ -118,6 +118,11 @@ Ctrl+F5 goes back to the launcher, after asking, since what isn't saved
 is lost. What the game writes (its players, saves and settings) goes to
 Reluva's folder for the game, never into the install.
 
+`commandline` in the game's section of `reluva.ini` is what follows
+`JK.EXE` on its command line, as a Windows shortcut would give it:
+`commandline=-windowGUI` plays it windowed, drawn through Windows' GDI
+rather than DirectDraw, which looks the same in Reluva's window.
+
 The data viewer is `reluva-viewer` (`reluva-viewer <its name in the
 launcher>`, or `reluva-viewer <the install>`). Tab moves between its
 pages, Esc leaves it, and on each page Left/Right step through the files

@@ -214,6 +214,16 @@ Windows does when it fails, and dialog boxes are made but not drawn
     `GUID_SysMouse` at `0x42e12f`), and the joystick's and force effects'
     identifiers in its data are never used by its code.
 
+20. **Windowed** (`-windowGUI` on its command line, `0x40158c`, which
+    sets `0x860788`) *(from the code)*, it draws through GDI instead of
+    DirectDraw: its 8-bit frame is a DIB section (`CreateDIBSection`,
+    `0x436963`), its colours set with `SetDIBColorTable` (`0x436ad2`),
+    selected into a memory device context; where full screen flips
+    (`0x422920`), it blits the frame into its window's device context
+    (`BitBlt`, `0x422971`) after `GdiFlush`. Run so in the emulator, it
+    showed the opening, its menus answered the mouse, and the first level
+    loaded and played at the same speed as full screen.
+
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were
 offered, so the program never met their absence.
@@ -228,7 +238,11 @@ Pentiums of 1997 the program was written for.
 
 The game is played from the launcher: the engine (`src/engines/sith/sith.cpp`)
 runs `JK.EXE` on a thread of its own (`host/player.h`), shows each frame
-it presents in the window, and passes the keyboard and mouse on.
+it presents in the window, and passes the keyboard and mouse on. A frame
+it draws windowed through GDI is shown the same way, and the pointer put
+where the player points on it, within the game's window
+([windows.md](../../../../../common/x86/windows.md)); `commandline` in
+`reluva.ini` gives the game its command line.
 
 - **The process** (`host/game_process.h`): the install as drive C, what
   the game writes going to Reluva's folder for the game (its player

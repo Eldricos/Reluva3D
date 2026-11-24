@@ -53,7 +53,7 @@ struct KeyPress {
     double at = 0; // seconds from the start
     uint32_t virtualKey = 0;
     uint32_t scanCode = 0;
-    bool click = false; // the left button at (x, y) on the screen, not a key
+    bool click = false; // the left button at (x, y) on the picture shown, not a key
     int x = 0;
     int y = 0;
     bool down = false;
@@ -394,8 +394,8 @@ int cmdHost(int argc, char **argv) {
         }
         for (KeyPress &k : presses) {
             if (!k.down && now >= k.at) {
-                if (k.click) {
-                    process.mouseMoveTo(k.x, k.y);
+                if (k.click) { // on the picture shown, wherever that is on the screen
+                    process.mouseMoveTo(directX.frame().x + k.x, directX.frame().y + k.y);
                     process.mouseButton(0, true);
                 } else {
                     process.key(k.virtualKey, k.scanCode, true);

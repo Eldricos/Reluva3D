@@ -38,10 +38,11 @@ public:
      * What the game writes (its players, saves and settings) goes to
      * `saveFolder`; its sound card plays through `mixer`, if there's one,
      * which must outlive the player; its multiplayer sessions over
-     * `network`, if it has one.
+     * `network`, if it has one. `commandLine` follows "JK.EXE" in its
+     * command line (`-windowGUI`, say).
      */
     Player(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer *mixer = nullptr,
-           x86::DirectPlay::Network network = {});
+           x86::DirectPlay::Network network = {}, std::string commandLine = {});
     /**
      * Closes the game's window, so it ends as it would on Windows (saving its
      * settings), and waits for its thread; stops it if it hasn't ended in
@@ -89,6 +90,7 @@ private:
 
     GameFolders _folders;
     std::filesystem::path _saveFolder;
+    std::string _commandLine;
     audio::Mixer *_mixer;
     x86::DirectPlay::Network _network;
     GameProcess *_game = nullptr; // the game thread's, while it runs
@@ -99,6 +101,10 @@ private:
     int _width = 0;
     int _height = 0;
     uint64_t _frameNumber = 0;
+    // Where the frame shown is on the program's screen (the game thread's):
+    // the pointer, given on the frame, is moved there.
+    int _frameX = 0;
+    int _frameY = 0;
     uint64_t _frameTaken = 0;
     bool _pointerShown = true;
     std::chrono::steady_clock::time_point _nextFlip{}; // the next vertical blank a flip may show at
