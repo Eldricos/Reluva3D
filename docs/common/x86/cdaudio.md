@@ -19,8 +19,9 @@ Played through Reluva's mixer as music.
   - a cue sheet and its image files (`common/cue.h`), the audio tracks
     read from the image as they're played; the data track's image may be
     left out, as when the CD's files have been copied instead; or
-  - tracks ripped from it as `trackNN.wav` or `trackNN.mp3` (track 1 is
-    the data track), as `reluva-tool cue-rip` makes them.
+  - tracks ripped from it as `trackNN.wav`, `.mp3`, `.ogg` (Ogg Vorbis)
+    or `.flac` (track 1 is the data track); `reluva-tool cue-rip` makes
+    `.wav` ones.
 - **MCI commands:** `MCI_OPEN` (by type name `cdaudio` or type ID),
   `MCI_CLOSE`, `MCI_SET` (time format: milliseconds, MSF or TMSF),
   `MCI_PLAY` (from, to, or both; a range past the disc's end is
@@ -50,7 +51,8 @@ Played through Reluva's mixer as music.
   heard through the mixer, its mode as the clock passes its end, the
   volume set to 0 through the auxiliary device, a range off the disc's
   end, another disc put in, the device closed, and another device type
-  refused. `testCue`
+  refused; then a disc of an Ogg Vorbis and a FLAC track, their lengths
+  and sound. `testCue`
   (`common.unit.archives`, its "cd images" case) reads a cue sheet
   without its data track's image.
 - **Confidence:** published.

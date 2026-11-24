@@ -190,10 +190,10 @@ CdAudio::Disc CdAudio::discIn(const std::filesystem::path &folder) {
         };
         return d;
     }
-    // Tracks ripped from it, trackNN.wav or .mp3; the last one found ends
-    // the disc.
+    // Tracks ripped from it, trackNN.wav, .mp3, .ogg or .flac; the last
+    // one found ends the disc.
     auto file = [folder](int n) -> std::filesystem::path {
-        for (const char *ext : {".wav", ".mp3"}) {
+        for (const char *ext : {".wav", ".mp3", ".ogg", ".flac"}) {
             char name[16];
             std::snprintf(name, sizeof name, "track%02d%s", n, ext);
             std::error_code e;
@@ -212,7 +212,7 @@ CdAudio::Disc CdAudio::discIn(const std::filesystem::path &folder) {
             d.tracks = n;
     if (!d.tracks)
         return d;
-    auto mp3Lengths = std::make_shared<std::map<int, uint32_t>>();
+    auto compressedLengths = std::make_shared<std::map<int, uint32_t>>();
     d.load = [file](int n) -> std::shared_ptr<const audio::Sound> {
         const std::filesystem::path p = file(n);
         std::vector<uint8_t> bytes;
@@ -221,20 +221,20 @@ CdAudio::Disc CdAudio::discIn(const std::filesystem::path &folder) {
             return nullptr;
         return s;
     };
-    d.lengthMs = [file, load = d.load, mp3Lengths](int n) -> uint32_t {
+    d.lengthMs = [file, load = d.load, compressedLengths](int n) -> uint32_t {
         const std::filesystem::path p = file(n);
         if (p.empty())
             return 0;
         if (const uint32_t ms = wavLengthMs(p))
             return ms;
-        // An MP3's length is known once decoded.
-        if (auto it = mp3Lengths->find(n); it != mp3Lengths->end())
+        // A compressed track's length is known once decoded.
+        if (auto it = compressedLengths->find(n); it != compressedLengths->end())
             return it->second;
         const auto s = load(n);
         const uint32_t ms =
             s && s->rate > 0 ? uint32_t(s->samples.size() / size_t(std::max(s->channels, 1)) * 1000 / size_t(s->rate))
                              : 0;
-        (*mp3Lengths)[n] = ms;
+        (*compressedLengths)[n] = ms;
         return ms;
     };
     return d;

@@ -100,6 +100,8 @@ void testMusic(const stdfs::path &tmp) {
     makeCd(cd2, 2);
     writeFile(cd2 / "Track02.wav", "");
     writeFile(cd2 / "track3.wav", "");
+    writeFile(cd2 / "TRACK04.flac", "");
+    writeFile(cd2 / "track05.ogg", "");
     std::vector<ImportPlan> plans = planImport(cd1);
     CHECK(plans.size() == 1);
     if (plans.empty())
@@ -110,6 +112,7 @@ void testMusic(const stdfs::path &tmp) {
     CHECK(copies(plan, "cd1/JK1.cue") && copies(plan, "cd1/JK1 (Track 2).bin"));
     CHECK(!copies(plan, "cd1/JK1 (Track 1).bin") && !copies(plan, "cd1/data.cue"));
     CHECK(copies(plan, "cd2/Track02.wav") && !copies(plan, "cd2/track3.wav"));
+    CHECK(copies(plan, "cd2/TRACK04.flac") && copies(plan, "cd2/track05.ogg"));
 
     // The imported CD 1 plays its music from the copies.
     const stdfs::path install = tmp / "imported";

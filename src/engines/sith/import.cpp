@@ -66,7 +66,7 @@ std::string lower(std::string s) {
 // A CD's music beside its files, as the game's CD audio plays it: a cue
 // sheet with the images holding its audio tracks (a data track's alone is
 // left behind, as the files are copied apart), or tracks ripped as
-// trackNN.wav or .mp3.
+// trackNN.wav, .mp3, .ogg or .flac.
 void addCdAudio(ImportPlan &plan, const stdfs::path &cd, const std::string &prefix) {
     std::set<stdfs::path> images;
     for (const stdfs::path &file : filesIn(cd)) {
@@ -85,8 +85,9 @@ void addCdAudio(ImportPlan &plan, const stdfs::path &cd, const std::string &pref
             if (audio)
                 plan.files.push_back(
                     {file, prefix + file.filename().string(), sizeOf(file), std::nullopt, std::nullopt});
-        } else if (name.size() == 11 && name.rfind("track", 0) == 0 && std::isdigit(uint8_t(name[5])) &&
-                   std::isdigit(uint8_t(name[6])) && (ext == ".wav" || ext == ".mp3")) {
+        } else if (name.size() == 7 + ext.size() && name.rfind("track", 0) == 0 && std::isdigit(uint8_t(name[5])) &&
+                   std::isdigit(uint8_t(name[6])) &&
+                   (ext == ".wav" || ext == ".mp3" || ext == ".ogg" || ext == ".flac")) {
             plan.files.push_back({file, prefix + file.filename().string(), sizeOf(file), std::nullopt, std::nullopt});
         }
     }

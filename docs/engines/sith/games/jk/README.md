@@ -86,8 +86,9 @@ The game's music is on the CDs' audio tracks, which a copy of a CD's
 files doesn't hold. Put each CD's tracks in its folder beside its files:
 the CD image's cue sheet and its `.bin` files (the data track's own
 `.bin` isn't needed), or the tracks ripped as `track02.wav`,
-`track03.wav` and so on (`reluva-tool cue-rip <image.cue> <the CD's
-folder>` makes them). *Import Game...* copies them with each CD's files
+`track03.wav` and so on, or as `.mp3`, `.ogg` (Ogg Vorbis) or `.flac`
+files of the same names (`reluva-tool cue-rip <image.cue> <the CD's
+folder>` makes `.wav` ones). *Import Game...* copies them with each CD's files
 when they're in the CD's folder: a copy of the CD's files with its cue
 sheet and images (or ripped tracks) beside them. `reluva-tool sith
 folders` says how much music each CD has. Without them the game plays

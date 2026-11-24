@@ -27,6 +27,8 @@
 #include "emulation/x86/msvcp60.h"
 #include "emulation/x86/msvcrt.h"
 #include "emulation/x86/win32.h"
+#include "tests/common/data/tone440_flac.h"
+#include "tests/common/data/tone440_ogg.h"
 #include "tests/support/test.h"
 
 #include <algorithm>
@@ -1251,6 +1253,16 @@ static void testCdAudio(const std::filesystem::path &tmp) {
     cpu.writeString(type, "waveaudio", 16);
     CHECK(mci(0, 0x803, 0x2000, parms) == 263);            // only the CD
     CHECK(x86::CdAudio::discIn(tmp / "none").tracks == 0); // no disc
+    // Tracks ripped as Ogg Vorbis and FLAC: the 0.2 s tones.
+    std::filesystem::create_directories(tmp / "compressed");
+    CHECK(writeFile(tmp / "compressed" / "Track02.ogg",
+                    std::vector<uint8_t>(std::begin(kTone440Ogg), std::end(kTone440Ogg))));
+    CHECK(writeFile(tmp / "compressed" / "track03.flac",
+                    std::vector<uint8_t>(std::begin(kTone440Flac), std::end(kTone440Flac))));
+    const x86::CdAudio::Disc ripped = x86::CdAudio::discIn(tmp / "compressed");
+    CHECK(ripped.tracks == 3 && ripped.lengthMs(3) == 200 && ripped.lengthMs(2) >= 200);
+    const auto played = ripped.load(2);
+    CHECK(played && played->rate == 22050 && ripped.load(3) && ripped.load(1) == nullptr);
     std::filesystem::remove_all(tmp);
 }
 

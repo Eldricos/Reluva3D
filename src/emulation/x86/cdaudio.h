@@ -38,7 +38,7 @@ public:
     /**
      * A disc of the tracks found in `folder`: a cue sheet's audio tracks,
      * read from its image files (common/cue.h), or else tracks ripped as
-     * `trackNN.wav` or `trackNN.mp3` (track 1 being the data track). No
+     * `trackNN.wav`, `.mp3`, `.ogg` or `.flac` (track 1 being the data track). No
      * disc if there's neither.
      */
     static Disc discIn(const std::filesystem::path &folder);

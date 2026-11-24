@@ -5,11 +5,14 @@
 
 #include "audio/decode.h"
 #include "audio/mixer.h"
+#include "audio/compressed.h"
 #include "audio/mp3.h"
 #include "audio/stream.h"
 #include "audio/wav.h"
 #include "tests/common/data/smacker_videos.h"
+#include "tests/common/data/tone440_flac.h"
 #include "tests/common/data/tone440_mp3.h"
+#include "tests/common/data/tone440_ogg.h"
 #include "tests/common/data/x86_testdll.h"
 #include "common/archive.h"
 #include "image/bmp.h"
@@ -282,6 +285,36 @@ static void testMp3() {
     Sound t;
     CHECK(!decodeSound(tagged, t) && t.samples == s.samples);
     CHECK(bool(decodeMp3(std::vector<uint8_t>(100, 0), t))); // no frames
+}
+
+// The same tone as Ogg Vorbis and as FLAC: their rate, length and
+// pitch, through decodeSound too; and something that isn't either refused.
+static void testVorbisAndFlac() {
+    using namespace reluva::audio;
+    auto crossings = [](const Sound &s) {
+        int n = 0;
+        for (size_t i = 1102; i < 3307 && i < s.samples.size(); ++i)
+            n += (s.samples[i - 1] < 0) != (s.samples[i] < 0);
+        return n;
+    };
+    const std::vector<uint8_t> ogg(std::begin(kTone440Ogg), std::end(kTone440Ogg));
+    Sound v;
+    CHECK(!decodeVorbis(ogg, v));
+    CHECK(v.format == kFormatVorbis && v.rate == 22050 && v.channels == 1);
+    CHECK(v.frames() >= 4410 && v.frames() <= 4410 + 2048);
+    CHECK(crossings(v) >= 84 && crossings(v) <= 92); // 440 Hz in the middle 0.1 s
+    Sound t;
+    CHECK(!decodeSound(ogg, t) && t.samples == v.samples);
+
+    const std::vector<uint8_t> flac(std::begin(kTone440Flac), std::end(kTone440Flac));
+    Sound f;
+    CHECK(!decodeFlac(flac, f));
+    CHECK(f.format == kFormatFlac && f.rate == 22050 && f.channels == 1 && f.frames() == 4410); // lossless: exact
+    CHECK(crossings(f) >= 84 && crossings(f) <= 92);
+    CHECK(!decodeSound(flac, t) && t.samples == f.samples);
+
+    const std::vector<uint8_t> junk(100, 7);
+    CHECK(bool(decodeVorbis(junk, t)) && bool(decodeFlac(junk, t)));
 }
 
 static void testMixer() {
@@ -1364,6 +1397,7 @@ static const reluva::test::Suite
                     {"wav", [](const std::filesystem::path &) { testWav(); }},
                     {"ima without a header", [](const std::filesystem::path &) { testImaWithoutHeader(); }},
                     {"mp3", [](const std::filesystem::path &) { testMp3(); }},
+                    {"vorbis and flac", [](const std::filesystem::path &) { testVorbisAndFlac(); }},
                     {"mixer", [](const std::filesystem::path &) { testMixer(); }},
                     {"streams", [](const std::filesystem::path &) { testAudioStreams(); }},
                     {"mixer streams", [](const std::filesystem::path &) { testMixerStreams(); }},
