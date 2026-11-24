@@ -21,6 +21,39 @@ constexpr int kFrameW = 640;
 constexpr int kFrameH = 480;
 constexpr const char *kLevelNames[] = {"high", "medium", "low", "all"};
 
+// The racing cars, by the program's numbers for them (its table at 0x4c3df4).
+constexpr std::array<std::string_view, 15> kRacingCars = {"mcf1", "ff50", "f355", "gt90", "idgo",
+                                                          "mach", "jagr", "lgt1", "espr", "nazc",
+                                                          "cala", "isde", "chev", "dayt", "futr"};
+
+// The loader moves a pair of wheels' faces 5/256 apart, outward
+// (0x459e0c): the racing cars' rear ones, if quads (0x45a750), and the
+// Indigo's front ones (0x45a7b0). Each of the polygon's four indices
+// moves its vertex, so a repeated one moves twice, as in the game.
+void nudgeWheelFaces(CarModel &model, const std::string &name) {
+    const std::string lower = fs::toLower(name);
+    const auto nudge = [&model](size_t part, float dx, bool quadsOnly) {
+        if (model.parts.size() <= part || model.parts[part].polygons.empty())
+            return;
+        CarModel::Part &p = model.parts[part];
+        const CarModel::Polygon &poly = p.polygons.front();
+        if (quadsOnly && !(poly.flags & CarModel::kQuad))
+            return;
+        for (uint8_t v : poly.vertices)
+            if (v < p.vertices.size())
+                p.vertices[v][0] += dx;
+    };
+    constexpr float kStep = 5.0f / 256;
+    if (lower == "idgo") {
+        nudge(12, kStep, false);
+        nudge(14, -kStep, false);
+    }
+    if (std::find(kRacingCars.begin(), kRacingCars.end(), lower) != kRacingCars.end()) {
+        nudge(16, kStep, true);
+        nudge(18, -kStep, true);
+    }
+}
+
 // Whether part `p` is in level `level` (geo.h: 0-19 high, 20-22 medium,
 // 23-25 low).
 bool inLevel(size_t p, int level) {
@@ -103,6 +136,7 @@ void CarPage::load(int index) {
         _error = err.message;
         return;
     }
+    nudgeWheelFaces(_model, std::filesystem::path(_models[size_t(index)].inner).stem().string());
     // The pictures: the car's own .qfs, by the model's name.
     const std::string stem = fs::toLower(std::filesystem::path(_models[size_t(index)].inner).stem().string());
     for (const FileRef &f : _files.withExtensions({".qfs"})) {

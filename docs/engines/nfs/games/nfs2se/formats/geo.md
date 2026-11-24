@@ -115,7 +115,8 @@ first entry in its table of texture corners in bytes 2-3 (0x461f55,
   0 to 14, its table at 0x4c3df4), and of the front wheels' (12 and 14)
   in the Ford Indigo's (`IDGO`) only. The faces sit on the tyres' outer
   edges in the files; moved, they aren't lost against them when drawn
-  *(guessed)*. The Indigo's front wheels alone stand clear of its body.
+  *(inferred)*: on the Cars page, the F355's rear faces unmoved are half
+  hidden by the tyres, and moved they show whole. The Indigo's front wheels alone stand clear of its body.
   `MUSC` has no number: the game never loads it *(inferred)*.
 - **The colours' file.** `GameData/CarModel/pc/CARHSVT.TXT` holds the
   table's first 24 colours, the same four numbers each, as commented text.
@@ -139,6 +140,7 @@ palette's green), and recolours the pictures as the program does
 The wheels' faces and the brake lights show their frames as the game
 picks them, for a speed chosen with V and the brake with B; the count
 steps 30 times a second, where the game's steps once a frame it draws.
+The wheels' faces are moved out as the game's loader moves them.
 
 ## Sources and checks
 
@@ -156,4 +158,4 @@ steps 30 times a second, where the game's steps once a frame it draws.
 ## Open questions
 
 - What the header's first word meant to its maker.
-- Why the wheels' faces are moved out, and the Indigo's front ones only.
+- Why the Indigo's front wheels' faces alone are moved out.
