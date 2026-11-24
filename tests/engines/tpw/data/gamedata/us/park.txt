@@ -1,1 +1,1 @@
-park: d263b683b22afead | park: 1125 screens shown, left at 45000 ms, 11.Jan.00, cash 50025, 1 visitors, tool 2, md5 3d79f70354a38e170544f87c44538a2a
+park: d986901b77982406 | park: 1125 screens shown, left at 45000 ms, 11.Jan.00, cash 49955, 1 visitors, 17 path cells, 2 briefings, tool 2, md5 5b0bfa9aa962f13065039d8872c596fb

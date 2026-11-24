@@ -6,11 +6,15 @@
 #include "common/archive.h"
 #include "common/events.h"
 #include "common/types.h"
+#include "engines/tpw/formats/bf4.h"
+#include "engines/tpw/formats/str.h"
 #include "engines/tpw/ui/model_view.h"
+#include "engines/tpw/ui/text.h"
 #include "engines/tpw/ui/ui_model.h"
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 
 namespace reluva::tpw {
 
@@ -19,9 +23,10 @@ namespace reluva::tpw {
  * thermometer of the park's mood (empty: its fill isn't drawn yet) and
  * its face, the compass with its turn
  * and zoom buttons, the date's box, the tools down the left and the
- * buttons along the bottom. It follows the mouse over its buttons, and
- * says which are held or chosen; the money and the date are written over
- * it by the park's screen. See
+ * buttons along the bottom, their menus and the buttons' tooltips. It
+ * follows the mouse over its buttons, opens and closes the menus, and
+ * says which buttons are held or chosen and which menu item was picked;
+ * the money and the date are written over it by the park's screen. See
  * docs/engines/tpw/games/simcoaster/systems/park.md#the-hud.
  */
 class ParkHud {
@@ -48,8 +53,14 @@ public:
         bool canZoomOut = true;
     };
 
-    /** Reads the models. */
+    /** A menu item: Park's Objectives, which shows the mission's briefing again. */
+    static constexpr uint32_t kObjectivesItem = 848;
+
+    /** Reads the models, the fonts and the strings. */
     Error load(const SearchSet &files);
+
+    /** Moves its clock on, in milliseconds: menus open over time, tooltips show after a while. */
+    void advance(uint32_t ms) { _clock += ms; }
 
     /**
      * Follows the mouse over the buttons, presses and releases them; a
@@ -61,6 +72,15 @@ public:
 
     /** The tool chosen: the pointer at first. */
     Tool tool() const { return _tool; }
+    /** Whether a point of the screen is on the HUD rather than the park. */
+    bool covers(int x, int y) const;
+    /** Whether one of the bottom buttons' menus is open. */
+    bool menuOpen() const { return _menu >= 0; }
+    /**
+     * The menu item picked since this was last asked, as its string's
+     * number in UITEXT (kObjectivesItem), or 0 for none.
+     */
+    uint32_t takeChoice();
     /** Whether a compass button is held down, as the camera turns and zooms while it is. */
     bool held(CompassButton button) const;
 
@@ -72,6 +92,13 @@ public:
     ///@}
     /** The black field of the date's box, where the date is written. */
     static ScreenRect dateField();
+    /** A menu's panel when open, and one of its items' lines, or an empty rectangle for a button without a menu. */
+    ///@{
+    static ScreenRect menuRect(Gizmo gizmo);
+    static ScreenRect menuItemRect(Gizmo gizmo, size_t item);
+    ///@}
+    /** How long a menu takes to rise, in milliseconds; its items show once it has. */
+    static constexpr uint32_t kMenuOpenMillis = 300;
 
     /** Draws it over an RGBA32 surface of 640 × 480. */
     void draw(Surface &screen, const View &view) const;
@@ -86,6 +113,11 @@ private:
     };
     static Spot spotAt(int x, int y);
     size_t stateOf(const Spot &spot, bool chosen, bool disabled) const;
+    bool menuRisen() const { return _menu >= 0 && _clock - _menuOpened >= kMenuOpenMillis; }
+    int menuItemAt(int x, int y) const;
+    uint32_t tooltipText() const;
+    void drawMenu(Surface &screen) const;
+    void drawTooltip(Surface &screen) const;
 
     LoadedModel _gauge;
     LoadedModel _faces;
@@ -98,10 +130,27 @@ private:
     LoadedModel _gizmoBar;
     std::array<LoadedModel, kGizmos> _gizmos;
     LoadedModel _help;
+    LoadedModel _menuPanel;
+    LoadedModel _menuTail;
+    LoadedModel _tooltip;
+    CharacterSet _characters;
+    Font _titleFont;
+    Font _itemFont;
+    Font _tipFont;
+    StringTable _uiText;
+    StringTable _helpText;
 
     Tool _tool = Tool::kPointer;
     Spot _over;    // under the mouse
     Spot _pressed; // the left button held down on it
+    uint32_t _clock = 0;
+    uint32_t _overSince = 0; // when the mouse came onto what it's over
+    int _mouseX = 0;
+    int _mouseY = 0;
+    int _menu = -1; // the gizmo whose menu is open
+    uint32_t _menuOpened = 0;
+    int _menuLit = -1; // its item under the mouse
+    uint32_t _choice = 0;
 };
 
 } // namespace reluva::tpw

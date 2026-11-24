@@ -95,6 +95,17 @@ None yet.
 
 ## Guessed
 
+- **How the path tool lays a length**: straight, along whichever way
+  is the longer, from the last click to the next
+  ([paths.md](systems/paths.md#laying-it)). Laying path in the running
+  game would settle it.
+
+- **The Finance and Maps menus' order, and when a tooltip shows**: the
+  table's order, the recording never opening them; a tooltip after half
+  a second's rest, a little left of the pointer and above it
+  ([park.md](systems/park.md#menus-and-tooltips)). A recording of them
+  would settle it.
+
 - **How fast a visitor walks, and steps**: a child 12 units a second,
   the others at their type's `SpeedMultiplier`; a walking frame a unit
   walked ([sprites.md](formats/sprites.md#in-reluva)). A recording

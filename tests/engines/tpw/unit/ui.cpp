@@ -407,6 +407,35 @@ void testParkHud() {
     CHECK(!mouse(EventType::kMouseDown, {320, 240, 1, 1}) && !mouse(EventType::kMouseUp, {320, 240, 1, 1}));
     for (size_t i = 0; i < ParkHud::kGizmos; ++i)
         CHECK(mouse(EventType::kMouseMove, ParkHud::gizmoRect(ParkHud::Gizmo(i))));
+
+    // A menu opens on its button; its items pick only once it has risen;
+    // Research Lab is greyed; a click beside it closes it, taken by the HUD.
+    using Gizmo = ParkHud::Gizmo;
+    const tpw::ScreenRect attractions = ParkHud::gizmoRect(Gizmo::kAttractions);
+    CHECK(ParkHud::menuRect(Gizmo::kMessages).w == 0 && ParkHud::menuRect(Gizmo::kAttractions).h == 38 + 4 * 18);
+    mouse(EventType::kMouseDown, attractions);
+    mouse(EventType::kMouseUp, attractions);
+    CHECK(hud.menuOpen());
+    CHECK(mouse(EventType::kMouseDown, ParkHud::menuItemRect(Gizmo::kAttractions, 0)) && hud.takeChoice() == 0);
+    hud.advance(ParkHud::kMenuOpenMillis);
+    CHECK(hud.covers(ParkHud::menuRect(Gizmo::kAttractions).x + 1, ParkHud::menuRect(Gizmo::kAttractions).y + 1));
+    CHECK(mouse(EventType::kMouseDown, ParkHud::menuItemRect(Gizmo::kAttractions, 2)) && hud.takeChoice() == 0);
+    CHECK(hud.menuOpen());
+    CHECK(mouse(EventType::kMouseDown, ParkHud::menuItemRect(Gizmo::kAttractions, 1)) && hud.takeChoice() == 835);
+    CHECK(!hud.menuOpen() && hud.takeChoice() == 0);
+    mouse(EventType::kMouseUp, ParkHud::menuItemRect(Gizmo::kAttractions, 1));
+
+    const tpw::ScreenRect park = ParkHud::gizmoRect(Gizmo::kPark);
+    mouse(EventType::kMouseDown, park);
+    mouse(EventType::kMouseUp, park);
+    hud.advance(ParkHud::kMenuOpenMillis);
+    CHECK(mouse(EventType::kMouseDown, {320, 100, 1, 1}) && !hud.menuOpen());
+    mouse(EventType::kMouseUp, {320, 100, 1, 1});
+    mouse(EventType::kMouseDown, park);
+    mouse(EventType::kMouseUp, park);
+    hud.advance(ParkHud::kMenuOpenMillis);
+    mouse(EventType::kMouseDown, ParkHud::menuItemRect(Gizmo::kPark, 3));
+    CHECK(hud.takeChoice() == ParkHud::kObjectivesItem);
 }
 
 } // namespace

@@ -13,6 +13,7 @@
 #include "engines/tpw/ui/park_screen.h"
 #include "image/image.h"
 
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -127,7 +128,8 @@ int cmdBriefingShot(int argc, char **argv) {
 // and visitors, with a checksum.
 int cmdParkRun(int argc, char **argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool tpw park-run <game folder> <world folder>\n");
+        std::fprintf(stderr,
+                     "usage: reluva-tool tpw park-run <game folder> <world folder> [-shots <folder> <ms>...]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -135,87 +137,128 @@ int cmdParkRun(int argc, char **argv) {
     reluva::tpw::ParkScreen screen;
     if (!newPark(argv[2], argv[3], 0, files, park, screen))
         return 1;
+    // What the run does, in order, each at its time: the briefing turned
+    // to the details and back and Proceed; the path tool chosen, a length
+    // laid from the start's path four cells on, another three across, then
+    // Esc dropping the next; the Park menu opened and its Objectives
+    // chosen, the briefing shown again and Proceed; Up held for a second,
+    // E for the next, Page Down for the third, the compass's left turn for
+    // the fourth; the bulldozer chosen; the Attractions menu opened and
+    // closed by a click beside it; Esc at 45 s.
+    using reluva::EventType;
+    using reluva::tpw::Briefing;
+    using reluva::tpw::ParkHud;
+    using Cell = reluva::tpw::Park::Cell;
+    const reluva::tpw::ParkScreen::Camera start = screen.startCamera(park);
+    auto centre = [](const reluva::tpw::ScreenRect &r) { return std::array<int, 2>{r.x + r.w / 2, r.y + r.h / 2}; };
+    auto onCell = [&](const Cell &c) {
+        std::array<int, 2> at{};
+        screen.cellOnScreen(start, c, at[0], at[1]);
+        return at;
+    };
+    const Cell end = {park.fixedItems().entrance[0].x, park.fixedItems().entrance[0].y + 4};
+    struct Step {
+        uint64_t at;
+        EventType type;
+        uint32_t key;
+        std::array<int, 2> mouse;
+    };
+    std::vector<Step> script;
+    auto click = [&](uint64_t at, std::array<int, 2> where) {
+        script.push_back({at, EventType::kMouseMove, 0, where});
+        script.push_back({at, EventType::kMouseDown, 0, where});
+        script.push_back({at + 50, EventType::kMouseUp, 0, where});
+    };
+    auto key = [&](uint64_t down, uint64_t up, uint32_t k) {
+        script.push_back({down, EventType::kKeyDown, k, {}});
+        if (up)
+            script.push_back({up, EventType::kKeyUp, k, {}});
+    };
+    click(500, centre(Briefing::placeOf(Briefing::Control::kTurn)));
+    click(1000, centre(Briefing::placeOf(Briefing::Control::kTurn)));
+    click(1500, centre(Briefing::placeOf(Briefing::Control::kProceed)));
+    click(2000, centre(ParkHud::toolRect(ParkHud::Tool::kPath)));
+    click(2200, onCell(end));
+    click(2400, onCell({end.x, end.y + 4}));
+    click(2600, onCell({end.x + 3, end.y + 4}));
+    key(2800, 2850, reluva::key::kEscape);
+    click(3000, centre(ParkHud::gizmoRect(ParkHud::Gizmo::kPark)));
+    click(3500, centre(ParkHud::menuItemRect(ParkHud::Gizmo::kPark, 3)));
+    click(4000, centre(Briefing::placeOf(Briefing::Control::kProceed)));
+    key(5000, 6000, reluva::key::kUp);
+    key(6000, 7000, 'e');
+    key(7000, 8000, reluva::key::kPageDown);
+    const std::array<int, 2> turnLeft = centre(ParkHud::compassRect(ParkHud::CompassButton::kTurnLeft));
+    script.push_back({8000, EventType::kMouseMove, 0, turnLeft});
+    script.push_back({8000, EventType::kMouseDown, 0, turnLeft});
+    script.push_back({9000, EventType::kMouseUp, 0, turnLeft});
+    click(9000, centre(ParkHud::toolRect(ParkHud::Tool::kBulldozer)));
+    click(10000, centre(ParkHud::gizmoRect(ParkHud::Gizmo::kAttractions)));
+    click(11000, {320, 200});
+    key(45000, 0, reluva::key::kEscape);
+
     struct Player : reluva::HeadlessSystem {
         reluva::Md5 all;
         int shown = 0;
-        int sent = 0;
+        size_t sent = 0;
+        const std::vector<Step> *script = nullptr;
+        // With -shots, the screen at each of these times, written out.
+        std::vector<uint64_t> shotTimes;
+        std::string shotFolder;
+        size_t shots = 0;
         void updateScreen(const reluva::Surface &s) override {
             HeadlessSystem::updateScreen(s);
             all.update(s.pixels.data(), s.pixels.size());
             ++shown;
+            if (shots < shotTimes.size() && getMillis() >= shotTimes[shots]) {
+                writePng(s, (shotFolder + "/park-" + std::to_string(shotTimes[shots]) + ".png").c_str());
+                ++shots;
+            }
         }
         bool pollEvent(reluva::Event &ev) override {
             ev = reluva::Event{};
-            // The briefing's bar clicked at 0.5 s and 1 s, Proceed at 1.5;
-            // then Up held for a second, E for the next, Page Down for the
-            // third; the compass's left turn held for the next, the
-            // bulldozer chosen; Esc at 45 s.
-            using Control = reluva::tpw::Briefing::Control;
-            using reluva::tpw::ParkHud;
-            using reluva::EventType;
-            enum class On { kNone, kBriefing, kTurnLeft, kBulldozer };
-            static const struct {
-                uint64_t at;
-                EventType type;
-                uint32_t key;
-                On on;
-                Control click;
-            } kScript[] = {{500, EventType::kMouseDown, 0, On::kBriefing, Control::kTurn},
-                           {1000, EventType::kMouseDown, 0, On::kBriefing, Control::kTurn},
-                           {1500, EventType::kMouseDown, 0, On::kBriefing, Control::kProceed},
-                           {2000, EventType::kKeyDown, reluva::key::kUp, On::kNone, Control::kNone},
-                           {3000, EventType::kKeyUp, reluva::key::kUp, On::kNone, Control::kNone},
-                           {3000, EventType::kKeyDown, 'e', On::kNone, Control::kNone},
-                           {4000, EventType::kKeyUp, 'e', On::kNone, Control::kNone},
-                           {4000, EventType::kKeyDown, reluva::key::kPageDown, On::kNone, Control::kNone},
-                           {5000, EventType::kKeyUp, reluva::key::kPageDown, On::kNone, Control::kNone},
-                           {5000, EventType::kMouseMove, 0, On::kTurnLeft, Control::kNone},
-                           {5000, EventType::kMouseDown, 0, On::kTurnLeft, Control::kNone},
-                           {6000, EventType::kMouseUp, 0, On::kTurnLeft, Control::kNone},
-                           {6000, EventType::kMouseMove, 0, On::kBulldozer, Control::kNone},
-                           {6000, EventType::kMouseDown, 0, On::kBulldozer, Control::kNone},
-                           {6100, EventType::kMouseUp, 0, On::kBulldozer, Control::kNone},
-                           {45000, EventType::kKeyDown, reluva::key::kEscape, On::kNone, Control::kNone}};
-            if (sent >= int(std::size(kScript)) || getMillis() < kScript[sent].at)
+            if (sent >= script->size() || getMillis() < (*script)[sent].at)
                 return false;
-            ev.type = kScript[sent].type;
-            ev.key = kScript[sent].key;
-            if (kScript[sent].on != On::kNone) {
-                reluva::tpw::ScreenRect r;
-                switch (kScript[sent].on) {
-                case On::kBriefing:
-                    r = reluva::tpw::Briefing::placeOf(kScript[sent].click);
-                    break;
-                case On::kTurnLeft:
-                    r = ParkHud::compassRect(ParkHud::CompassButton::kTurnLeft);
-                    break;
-                default:
-                    r = ParkHud::toolRect(ParkHud::Tool::kBulldozer);
-                    break;
-                }
-                if (ev.type != EventType::kMouseMove)
-                    ev.button = reluva::MouseButton::kLeft;
-                ev.mouseX = r.x + r.w / 2;
-                ev.mouseY = r.y + r.h / 2;
-            }
-            ++sent;
+            const Step &step = (*script)[sent++];
+            ev.type = step.type;
+            ev.key = step.key;
+            ev.mouseX = step.mouse[0];
+            ev.mouseY = step.mouse[1];
+            if (ev.type == EventType::kMouseDown || ev.type == EventType::kMouseUp)
+                ev.button = reluva::MouseButton::kLeft;
             return true;
         }
     } sys;
+    sys.script = &script;
+    for (int i = 4; i + 1 < argc; ++i)
+        if (std::string(argv[i]) == "-shots") {
+            sys.shotFolder = argv[i + 1];
+            for (int j = i + 2; j < argc; ++j)
+                sys.shotTimes.push_back(std::strtoull(argv[j], nullptr, 10));
+            break;
+        }
     reluva::tpw::Briefing briefing;
     if (reluva::Error err = briefing.load(files)) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }
     reluva::soft3d::Rasterizer rasterizer;
-    const reluva::tpw::ParkScreen::Camera start = screen.startCamera(park);
     const bool briefed = reluva::tpw::showBriefing(
         sys, briefing, park, "Tester", [&](reluva::Surface &s) { screen.draw(s, rasterizer, park, start); });
-    const bool left = briefed && reluva::tpw::playPark(sys, screen, park);
-    std::printf("park: %d screens shown, %s at %llu ms, %s, cash %d, %d visitors, tool %d; md5 %s\n", sys.shown,
-                left ? "left" : "closed", static_cast<unsigned long long>(sys.getMillis()),
-                screen.dateText(park.day()).c_str(), park.cash(), park.visitors(), int(screen.hud().tool()),
-                sys.all.hexDigest().c_str());
+    int briefings = 1;
+    const bool left = briefed && reluva::tpw::playPark(sys, screen, park, [&](const auto &drawPark) {
+                          ++briefings;
+                          return reluva::tpw::showBriefing(sys, briefing, park, "Tester", drawPark);
+                      });
+    int paths = 0;
+    for (int y = 0; y < park.groundHeight(); ++y)
+        for (int x = 0; x < park.groundWidth(); ++x)
+            paths += park.isPath({x, y});
+    std::printf("park: %d screens shown, %s at %llu ms, %s, cash %d, %d visitors, %d path cells, %d briefings, "
+                "tool %d; md5 %s\n",
+                sys.shown, left ? "left" : "closed", static_cast<unsigned long long>(sys.getMillis()),
+                screen.dateText(park.day()).c_str(), park.cash(), park.visitors(), paths, briefings,
+                int(screen.hud().tool()), sys.all.hexDigest().c_str());
     return left ? 0 : 1;
 }
 
@@ -226,9 +269,10 @@ const Commands
                    "set up a new park in a world and draw it, its HUD over it, to a PNG", cmdParkShot},
                   {"briefing-shot", "<game folder> <world folder> <out.png> [player [-details]]",
                    "draw the mission's briefing over a new park, to a PNG", cmdBriefingShot},
-                  {"park-run", "<game folder> <world folder>",
-                   "play a new park headless: its briefing, the camera moved by keys and the compass, a tool chosen, a "
-                   "visitor, Esc",
+                  {"park-run", "<game folder> <world folder> [-shots <folder> <ms>...]",
+                   "play a new park headless: its briefing, path laid, the Park menu's Objectives, the camera moved "
+                   "by keys and the compass, a tool chosen, a menu, a visitor, Esc; -shots writes the screen at those "
+                   "times",
                    cmdParkRun},
               });
 

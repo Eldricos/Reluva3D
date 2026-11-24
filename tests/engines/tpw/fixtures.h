@@ -27,6 +27,26 @@ inline void put32(Bytes &b, size_t at, uint32_t v) {
         b[at + size_t(i)] = uint8_t(v >> (8 * i));
 }
 
+// An attribute map (`terrain/base.map`): its tiles row by row, `width`
+// to a row.
+inline Bytes makeAttributeMap(int width, int height, const Bytes &tiles) {
+    Bytes b = toBytes("TP2MTheme Park 2 Attribute Map File");
+    b.push_back(0);
+    const Bytes map = toBytes("MAP ");
+    b.insert(b.end(), map.begin(), map.end());
+    const size_t size = b.size();
+    put32(b, size, uint32_t(28 + tiles.size()));
+    put32(b, size + 4, uint32_t(width));
+    put32(b, size + 8, uint32_t(height));
+    for (size_t i = 0; i < 5; ++i)
+        put32(b, size + 12 + 4 * i, 8);
+    b.insert(b.end(), tiles.begin(), tiles.end());
+    const Bytes end = toBytes("END ");
+    b.insert(b.end(), end.begin(), end.end());
+    put32(b, b.size(), 0);
+    return b;
+}
+
 // RefPack of only literals: runs of 4 (0xe0), then the rest with the end
 // code. `size` is the header's, the real one unless a test says otherwise.
 inline Bytes refPack(const Bytes &data, size_t size) {

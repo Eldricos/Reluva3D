@@ -100,6 +100,33 @@ public:
     };
     const std::vector<Visitor> &visitorsAbout() const { return _people; }
 
+    /** What a park cell is, by the world's attribute map, and what's been built on it. */
+    enum class Ground : uint8_t {
+        kOutside, // not the park's to build on: its edges, its river, the road
+        kOpen,    // the park's land, bare
+        kPath,
+    };
+    /** The ground's size in cells, x across and y down; 0 for a world without its attribute map. */
+    int groundWidth() const { return _mapWidth; }
+    int groundHeight() const { return _mapHeight; }
+    /** The ground of a cell; kOutside off the map, or for a world without one. */
+    Ground ground(const Cell &cell) const;
+    bool isPath(const Cell &cell) const { return ground(cell) == Ground::kPath; }
+    /** What a cell of path costs (the general settings' `Costs.PathCell`). */
+    int pathCost() const { return _pathCost; }
+    /**
+     * The straight run of cells from `from` towards `to`, along whichever
+     * of x and y they're farther apart in, both ends included: what the
+     * path tool lays in one length.
+     */
+    static std::vector<Cell> pathRun(const Cell &from, const Cell &to);
+    /**
+     * Lays path on the cells of `cells` that are bare land, in order, at
+     * pathCost() each, while the money lasts.
+     * @return How many cells were laid.
+     */
+    int buildPath(const std::vector<Cell> &cells);
+
     /** How many visitors the park draws now: its points, at so many a visitor. */
     int visitorsWanted() const;
     /** The way a visitor walks in, cell by cell: off the bus, over the crossing, past a booth, in. */
@@ -149,6 +176,10 @@ private:
     uint64_t _millis = 0;
     bool _paused = false;
     Arrivals _arrivals;
+    int _pathCost = 0;
+    int _mapWidth = 0; // the ground's cells, x across, y down, as the settings number them
+    int _mapHeight = 0;
+    std::vector<Ground> _ground;
     std::vector<VisitorType> _visitorTypes;
     std::vector<gfx::Vec3> _wayIn;
     std::vector<Visitor> _people;

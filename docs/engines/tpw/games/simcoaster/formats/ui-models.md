@@ -78,6 +78,8 @@ three times, then `filetabd` (the player shown, light; the others grey).
 | `datebox` | The date's box: its black field and a round end |
 | `toolbox`, `tb_pointer`, `tb_path`, `tb_delete`, `tb_camera`, `tb_postcard` | The bar down the left and its tools, in the six states |
 | `gizmo`, `giz_message`, `giz_attract`, `giz_staff`, `giz_visitors`, `giz_finance`, `giz_park`, `giz_maps` | The bar along the bottom and its buttons, in the six states |
+| `!f_plain`, `gizmojoin` | A bottom button's menu: its panel, and the tail down to the button |
+| `!tooltip` | A tooltip's box, four meshes; its textures `tooltip1` to `tooltip8`, pale yellow, more opaque each: its fading in |
 | `researchbulb` | A light bulb, three times: the research's, under the date while research is going (15:00, "9%"; 20:00, "33%") *(inferred)* |
 
 These, like the states, are laid out beside each other, or about (0, 0)

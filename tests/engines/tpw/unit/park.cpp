@@ -7,7 +7,9 @@
 #include "common/archive.h"
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/park/park.h"
+#include "engines/tpw/park/path_tiles.h"
 
+#include "tests/engines/tpw/fixtures.h"
 #include "tests/support/test.h"
 #include "tests/support/zip_writer.h"
 
@@ -106,10 +108,76 @@ void testCalendar() {
     CHECK(c[0] == 475 && c[1] == 0 && c[2] == 175);
 }
 
+// The ground by the attribute map, its tile in row x, column y: path where
+// it says so, bare land, the rest not the park's; lengths of path laid,
+// paid for, over bare land only.
+void testPaths(const std::filesystem::path &tmp) {
+    const std::filesystem::path data = tmp / "game" / "Data";
+    writeText(data / "levels" / "Standard.sam", "BankAccountInfo.InitialCash 100\r\nCosts.PathCell 10\r\n");
+    writeText(data / "missions" / "miss00.sam", "Info.Number 0\r\n");
+    constexpr int kRows = 8;    // x
+    constexpr int kColumns = 6; // y
+    tpw::testing::Bytes tiles(size_t(kRows) * kColumns, 0);
+    tiles[size_t(2) * kColumns + 1] = 8; // cell (2, 1)
+    tiles[size_t(2) * kColumns + 2] = 8; // cell (2, 2)
+    tiles[size_t(5) * kColumns + 4] = 1; // cell (5, 4): not the park's
+    test::writeFile(data / "levels" / "science" / "terrain" / "base.map",
+                    tpw::testing::makeAttributeMap(kColumns, kRows, tiles));
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!mountGame(files, tmp / "game", warnings));
+    Park park;
+    CHECK(!park.load(files, "levels/science", 0));
+    CHECK(park.groundWidth() == kRows && park.groundHeight() == kColumns && park.pathCost() == 10);
+    CHECK(park.isPath({2, 1}) && park.isPath({2, 2}) && park.ground({1, 2}) == Park::Ground::kOpen);
+    CHECK(park.ground({5, 4}) == Park::Ground::kOutside && park.ground({-1, 0}) == Park::Ground::kOutside);
+    CHECK(park.ground({kRows, 0}) == Park::Ground::kOutside);
+
+    // Along whichever way is the longer, from the start.
+    const std::vector<Park::Cell> run = Park::pathRun({2, 2}, {3, 5});
+    CHECK(run.size() == 4 && (run[0] == Park::Cell{2, 2}) && (run[3] == Park::Cell{2, 5}));
+    const std::vector<Park::Cell> back = Park::pathRun({7, 4}, {2, 3});
+    CHECK(back.size() == 6 && (back[5] == Park::Cell{2, 4}));
+    CHECK(park.buildPath(run) == 3 && park.cash() == 70 && park.isPath({2, 5}));
+    // Not over (5, 4), nor again over (2, 4).
+    CHECK(park.buildPath(back) == 4 && park.cash() == 30 && park.isPath({7, 4}) && !park.isPath({5, 4}));
+    // The money runs out three cells along.
+    CHECK(park.buildPath(Park::pathRun({0, 0}, {0, 5})) == 3 && park.cash() == 0 && !park.isPath({0, 3}));
+}
+
+// The texture a path cell takes by its neighbours: alone, an end turned
+// its way, straights from three, a corner with and without its notch, a
+// three-way's notch either side, and a crossroads' notches.
+void testPathTiles() {
+    auto is = [](uint8_t around, const char *name, int turns, uint32_t roll = 0) {
+        const PathTile t = pathTileFor(around, roll);
+        return std::string(kPathTextures[t.texture]) == name && t.turns == turns;
+    };
+    CHECK(is(0, "ns_squ1", 0));
+    CHECK(is(kPathN, "ns_end1", 0));
+    CHECK(is(kPathE, "ns_end1", 1));
+    CHECK(is(kPathW | kPathNE, "ns_end1", 3));
+    CHECK(is(kPathE | kPathW, "ns_str1", 1, 0) && is(kPathE | kPathW, "ns_str2", 1, 1) &&
+          is(kPathE | kPathW, "ns_pathcnr", 1, 2));
+    CHECK(is(kPathN | kPathE | kPathNE, "ns_cnr1", 0));
+    CHECK(is(kPathN | kPathE, "ns_cnr2", 0));
+    CHECK(is(kPathS | kPathW | kPathSW, "ns_cnr1", 2));
+    CHECK(is(kPathN | kPathE | kPathS | kPathNE, "ns_tju3", 0));
+    CHECK(is(kPathN | kPathE | kPathS | kPathSE, "ns_tju4", 2));
+    CHECK(is(kPathN | kPathE | kPathS, "ns_tju1", 0));
+    const uint8_t all = kPathN | kPathE | kPathS | kPathW;
+    CHECK(is(all | kPathNE | kPathSE | kPathSW | kPathNW, "ns_ctr1", 0));
+    CHECK(is(all, "ns_xrd1", 0));
+    CHECK(is(all | kPathNE | kPathSE | kPathNW, "ns_icn1", 0));
+    CHECK(is(all | kPathNE | kPathSW, "ns_icn2", 1));
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("tpw.unit.park",
                                         {
                                             {"new-park", [](const std::filesystem::path &tmp) { testNewPark(tmp); }},
                                             {"calendar", [](const std::filesystem::path &) { testCalendar(); }},
+                                            {"paths", [](const std::filesystem::path &tmp) { testPaths(tmp); }},
+                                            {"path-tiles", [](const std::filesystem::path &) { testPathTiles(); }},
                                         });

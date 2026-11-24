@@ -26,8 +26,12 @@ None yet.
   screen, then the new park: its world, money and date, its clock
   running, the mission's briefing over it, visitors coming by guessed
   rules, drawn by their sprites at a guessed pace, under its HUD, the
-  camera moved by Reluva's own keys and the compass; the HUD's tools
-  and buttons do nothing yet; no fly-in, gates or building yet, its fixed items marked
+  camera moved by Reluva's own keys and the compass; path can be laid, the
+  bottom buttons' menus open, but only the path tool and the Park
+  menu's Objectives do anything yet; a new park has only the attribute
+  map's ten cells of path, where the recording's has many more
+  ([paths.md](systems/paths.md)); no fly-in, gates or other building
+  yet, its fixed items marked
   ([PLAN.md](PLAN.md#phases), [park.md](systems/park.md)). Every park
   is its world's first mission's.
 - **The front end's opening**: its sparkles are drawn by guessed

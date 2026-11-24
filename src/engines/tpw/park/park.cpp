@@ -7,6 +7,7 @@
 
 #include "engines/tpw/park/park.h"
 
+#include "engines/tpw/formats/attribute_map.h"
 #include "engines/tpw/formats/sam.h"
 
 #include <algorithm>
@@ -27,6 +28,10 @@ constexpr int kPathIn = 4;
 // Which waypoint of the way in is the booth's, where a visitor pays, and
 // the entrance's, past which they're in the park.
 constexpr int kVisitorTypes = 24;
+// The attribute map's tiles for the park's bare land and its path
+// (docs/engines/tpw/games/simcoaster/formats/attribute-map.md#the-tiles).
+constexpr uint8_t kOpenTile = 0;
+constexpr uint8_t kPathTile = 8;
 constexpr size_t kBoothLeg = 3;
 constexpr size_t kEntranceLeg = 4;
 
@@ -61,6 +66,7 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
     _arrivals.newParkBonus = int(general.number("Arrival.NewParkBonus"));
     _arrivals.pointsPerVisitor = std::max(1, int(general.number("Arrival.PointsPerVisitor", 1)));
     _nextArrivalMs = _arrivals.everyMs;
+    _pathCost = int(general.number("Costs.PathCell"));
     for (int i = 0; i < kVisitorTypes; ++i) {
         const std::string base = "PeepTypes[" + std::to_string(i) + "].";
         VisitorType type;
@@ -94,6 +100,23 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
                                   cellOf(world, f + "CrossingBSSideBPosX", f + "CrossingBSSideBPosY")};
         _fixed.crossingParkSide = {cellOf(world, f + "CrossingParkSideAPosX", f + "CrossingParkSideAPosY"),
                                    cellOf(world, f + "CrossingParkSideBPosX", f + "CrossingParkSideBPosY")};
+    }
+
+    // The ground: cell (x, y) is the attribute map's tile in row x, column
+    // y. A world without its map has no land to build on.
+    std::vector<uint8_t> mapData;
+    AttributeMap map;
+    if (!files.read(folder + "/terrain/base.map", mapData) && !map.parse(mapData)) {
+        _mapWidth = map.height();
+        _mapHeight = map.width();
+        _ground.assign(size_t(_mapWidth) * size_t(_mapHeight), Ground::kOutside);
+        for (int x = 0; x < _mapWidth; ++x)
+            for (int y = 0; y < _mapHeight; ++y) {
+                const uint8_t tile = map.at(y, x);
+                _ground[size_t(y) * size_t(_mapWidth) + size_t(x)] = tile == kOpenTile   ? Ground::kOpen
+                                                                     : tile == kPathTile ? Ground::kPath
+                                                                                         : Ground::kOutside;
+            }
     }
 
     // The way in: off the bus at its first stop, over the crossing from
@@ -138,6 +161,34 @@ void Park::advance(uint32_t ms) {
         ms -= kStepMillis;
     }
     step(ms);
+}
+
+Park::Ground Park::ground(const Cell &cell) const {
+    if (cell.x < 0 || cell.y < 0 || cell.x >= _mapWidth || cell.y >= _mapHeight)
+        return Ground::kOutside;
+    return _ground[size_t(cell.y) * size_t(_mapWidth) + size_t(cell.x)];
+}
+
+std::vector<Park::Cell> Park::pathRun(const Cell &from, const Cell &to) {
+    std::vector<Cell> out;
+    const bool alongX = std::abs(to.x - from.x) >= std::abs(to.y - from.y);
+    const int length = alongX ? std::abs(to.x - from.x) : std::abs(to.y - from.y);
+    const int step = (alongX ? to.x - from.x : to.y - from.y) < 0 ? -1 : 1;
+    for (int i = 0; i <= length; ++i)
+        out.push_back(alongX ? Cell{from.x + i * step, from.y} : Cell{from.x, from.y + i * step});
+    return out;
+}
+
+int Park::buildPath(const std::vector<Cell> &cells) {
+    int laid = 0;
+    for (const Cell &c : cells) {
+        if (ground(c) != Ground::kOpen || _cash < _pathCost)
+            continue;
+        _ground[size_t(c.y) * size_t(_mapWidth) + size_t(c.x)] = Ground::kPath;
+        _cash -= _pathCost;
+        ++laid;
+    }
+    return laid;
 }
 
 void Park::step(uint32_t ms) {

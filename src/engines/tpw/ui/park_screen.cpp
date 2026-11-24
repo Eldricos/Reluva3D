@@ -7,6 +7,7 @@
 #include "engines/tpw/ui/park_screen.h"
 
 #include "engines/tpw/game_files.h"
+#include "engines/tpw/textures.h"
 #include "engines/tpw/ui/opening.h"
 #include "engines/tpw/ui/text.h"
 #include "engines/tpw/ui/ui_model.h"
@@ -15,7 +16,10 @@
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <optional>
 #include <set>
+#include <utility>
+#include <vector>
 
 namespace reluva::tpw {
 
@@ -75,6 +79,9 @@ constexpr float kUnitsPerWalkFrame = 1;
 // child at 5.7 units (Standard.sam's PersonSpriteUmbrellaModifiers), over
 // sprites 50 to 60 pixels tall.
 constexpr float kSpritePixelUnits = 0.1f;
+constexpr Color kBlockedColour{230, 40, 40}; // a cell the path being laid can't cross
+// How far path lies over the ground, in units.
+constexpr float kPathLift = 0.05f;
 constexpr Color kVisitorColour{255, 255, 255}; // a visitor whose sprite isn't read
 
 void fillRect(Surface &s, const ScreenRect &r, Color c) {
@@ -120,6 +127,10 @@ Error ParkScreen::load(const SearchSet &files, const Park &park) {
         return err;
     _hud = false;
     _furnitureRead = !_furniture.load(files);
+    _pathsRead = true;
+    for (size_t i = 0; i < kPathTextures.size(); ++i)
+        if (loadPicture(files, park.folder() + "/terrain/pathtex/" + kPathTextures[i] + ".fsh", _pathTextures[i]))
+            _pathsRead = false;
     for (size_t generation = 0; generation < kVisitorSprites.size(); ++generation) {
         _visitorLooks[generation].clear();
         for (const char *name : kVisitorSprites[generation]) {
@@ -137,6 +148,98 @@ Error ParkScreen::load(const SearchSet &files, const Park &park) {
            !readGameFont(files, folder, "CASHMED", _cashFont) && !readGameFont(files, folder, "DATESMALL", _dateFont) &&
            !readStringTable(files, folder, "MONTHS", _characters, _months);
     return Error::success();
+}
+
+bool ParkScreen::cellAt(const Camera &camera, int x, int y, Park::Cell &out) const {
+    const soft3d::OrbitCamera eye = worldCamera(_world, viewOf(camera), kWidth, kHeight);
+    // The world's axes in the viewer's, to meet the ground's plane.
+    const soft3d::Vec origin = toViewerWorld({0, 0, 0});
+    const soft3d::Vec alongX = toViewerWorld({1, 0, 0}) - origin;
+    const soft3d::Vec alongZ = toViewerWorld({0, 0, 1}) - origin;
+    const soft3d::Vec upward = toViewerWorld({0, 1, 0}) - origin;
+    const soft3d::Vec ray = eye.forward + eye.right * ((float(x) + 0.5f - eye.halfW) / eye.focal) +
+                            eye.up * ((eye.halfH - float(y) - 0.5f) / eye.focal);
+    const float rise = soft3d::dot(ray, upward);
+    if (rise >= 0)
+        return false;
+    const soft3d::Vec hit = eye.eye + ray * (soft3d::dot(origin - eye.eye, upward) / rise);
+    const float wx = soft3d::dot(hit - origin, alongX) / soft3d::dot(alongX, alongX);
+    const float wz = soft3d::dot(hit - origin, alongZ) / soft3d::dot(alongZ, alongZ);
+    out = {int(std::floor(wx / Park::kCellUnits)), int(std::floor(wz / Park::kCellUnits))};
+    return true;
+}
+
+bool ParkScreen::cellOnScreen(const Camera &camera, const Park::Cell &cell, int &x, int &y) const {
+    const soft3d::OrbitCamera eye = worldCamera(_world, viewOf(camera), kWidth, kHeight);
+    const soft3d::ViewVertex v = eye.toView(toViewerWorld(Park::cellCentre(cell)));
+    if (v.z < eye.nearZ)
+        return false;
+    const soft3d::ScreenVertex s = eye.project(v);
+    x = int(s.x);
+    y = int(s.y);
+    return true;
+}
+
+// Path is drawn as the ground's cells are, flat, a little over the ground
+// so as not to fight it for the nearer.
+void ParkScreen::drawPaths(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const Park &park) const {
+    if (!_pathsRead)
+        return;
+    const soft3d::Vec light = _world.hasSky ? soft3d::normalize(toViewerWorld(_world.sky.light)) : defaultLight();
+    const int w = park.groundWidth();
+    const int h = park.groundHeight();
+    std::vector<uint8_t> laid(size_t(w) * size_t(h), 0);
+    for (int y = 0; y < h; ++y)
+        for (int x = 0; x < w; ++x)
+            laid[size_t(y) * size_t(w) + size_t(x)] = park.isPath({x, y});
+    for (const Park::Cell &c : _preview)
+        if (park.ground(c) != Park::Ground::kOutside)
+            laid[size_t(c.y) * size_t(w) + size_t(c.x)] = 1;
+    auto pathAt = [&](int x, int y) {
+        return x >= 0 && y >= 0 && x < w && y < h && laid[size_t(y) * size_t(w) + size_t(x)];
+    };
+    for (int y = 0; y < h; ++y)
+        for (int x = 0; x < w; ++x) {
+            if (!pathAt(x, y))
+                continue;
+            uint8_t around = 0;
+            const std::array<std::pair<std::array<int, 2>, uint8_t>, 8> sides{{
+                {{0, -1}, kPathN},
+                {{1, 0}, kPathE},
+                {{0, 1}, kPathS},
+                {{-1, 0}, kPathW},
+                {{1, -1}, kPathNE},
+                {{1, 1}, kPathSE},
+                {{-1, 1}, kPathSW},
+                {{-1, -1}, kPathNW},
+            }};
+            for (const auto &[d, bit] : sides)
+                if (pathAt(x + d[0], y + d[1]))
+                    around |= bit;
+            const PathTile tile = pathTileFor(around, uint32_t(x * 73856093) ^ uint32_t(y * 19349663));
+            // A corner of the cell, and the texture's point drawn there, the
+            // texture turned so many quarters clockwise; u along its columns,
+            // v up its rows, as the rasterizer has them.
+            auto corner = [&](int cx, int cy) {
+                float u = float(cx);
+                float v = float(cy);
+                for (int t = 0; t < tile.turns; ++t) {
+                    const float was = u;
+                    u = v;
+                    v = 1 - was;
+                }
+                return std::pair{
+                    toViewerWorld({float(x + cx) * Park::kCellUnits, kPathLift, float(y + cy) * Park::kCellUnits}),
+                    std::array<float, 2>{u, 1 - v}};
+            };
+            const auto [a, ua] = corner(0, 0);
+            const auto [b, ub] = corner(1, 0);
+            const auto [d, ud] = corner(1, 1);
+            const auto [e, ue] = corner(0, 1);
+            const image::Image *texture = &_pathTextures[tile.texture];
+            drawTexturedTriangle(rasterizer, eye, {a, b, d}, {ua, ub, ud}, texture, light);
+            drawTexturedTriangle(rasterizer, eye, {a, d, e}, {ua, ud, ue}, texture, light);
+        }
 }
 
 ParkScreen::Camera ParkScreen::startCamera(const Park &park) const {
@@ -195,6 +298,10 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
     const WorldView view = viewOf(camera);
     drawWorld(screen, rasterizer, _world, view);
     const soft3d::OrbitCamera eye = worldCamera(_world, view, screen.w, screen.h);
+    drawPaths(rasterizer, eye, park);
+    for (const Park::Cell &c : _preview)
+        if (park.ground(c) == Park::Ground::kOutside)
+            mark(screen, eye, c, kBlockedColour);
     const Park::FixedItems &fixed = park.fixedItems();
     for (const Park::Cell &c : fixed.entrance)
         mark(screen, eye, c, kEntranceColour);
@@ -223,21 +330,57 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
     drawGameText(screen, _dateFont, _characters, field.x + (field.w - w) / 2, field.y + 3, date, kHudText);
 }
 
-bool playPark(System &sys, ParkScreen &screen, Park &park) {
+bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShower &showObjectives) {
     Surface surface;
     surface.create(kWidth, kHeight, PixelFormat::kRGBA32);
     soft3d::Rasterizer rasterizer;
     ParkScreen::Camera camera = screen.startCamera(park);
     std::set<uint32_t> held;
     uint64_t last = sys.getMillis();
+    // The path tool's length being laid: from its start to the cell under
+    // the mouse.
+    std::optional<Park::Cell> pathStart;
+    int mouseX = -1;
+    int mouseY = -1;
     for (;;) {
         Event ev;
         while (sys.pollEvent(ev)) {
             if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                 return false;
+            if (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseDown) {
+                mouseX = ev.mouseX;
+                mouseY = ev.mouseY;
+            }
             if (screen.hud().handle(ev))
                 continue;
+            Park::Cell under;
+            const bool onGround = screen.cellAt(camera, mouseX, mouseY, under);
+            const bool laying = screen.hud().tool() == ParkHud::Tool::kPath;
+            if (ev.type == EventType::kMouseDown && laying) {
+                if (ev.button == MouseButton::kRight) {
+                    pathStart.reset();
+                } else if (ev.button == MouseButton::kLeft && onGround) {
+                    if (!pathStart) {
+                        if (park.ground(under) != Park::Ground::kOutside)
+                            pathStart = under;
+                    } else {
+                        // A click onto path already laid finishes; any
+                        // other lays the length and goes on from its end.
+                        const bool ontoPath = park.isPath(under) && !(under == *pathStart);
+                        const std::vector<Park::Cell> run = Park::pathRun(*pathStart, under);
+                        park.buildPath(run);
+                        pathStart.reset();
+                        if (!ontoPath)
+                            pathStart = run.back();
+                    }
+                }
+                continue;
+            }
             if (ev.type == EventType::kKeyDown) {
+                if (ev.key == key::kEscape && pathStart) {
+                    pathStart.reset();
+                    continue;
+                }
                 if (ev.key == key::kEscape)
                     return true;
                 if (ev.key == key::kHome)
@@ -252,7 +395,26 @@ bool playPark(System &sys, ParkScreen &screen, Park &park) {
         const uint64_t now = sys.getMillis();
         const float seconds = float(now - last) / 1000;
         park.advance(uint32_t(now - last));
+        screen.hud().advance(uint32_t(now - last));
         last = now;
+
+        if (screen.hud().takeChoice() == ParkHud::kObjectivesItem && showObjectives) {
+            park.setPaused(true);
+            const ParkScreen::Camera now = camera;
+            const bool open = showObjectives([&](Surface &s) { screen.draw(s, rasterizer, park, now); });
+            park.setPaused(false);
+            last = sys.getMillis();
+            if (!open)
+                return false;
+        }
+        if (screen.hud().tool() != ParkHud::Tool::kPath)
+            pathStart.reset();
+        Park::Cell under;
+        std::vector<Park::Cell> preview;
+        if (screen.hud().tool() == ParkHud::Tool::kPath && !screen.hud().covers(mouseX, mouseY) &&
+            screen.cellAt(camera, mouseX, mouseY, under))
+            preview = pathStart ? Park::pathRun(*pathStart, under) : std::vector<Park::Cell>{under};
+        screen.setPathPreview(std::move(preview));
 
         // The arrows move along the ground as the camera faces; farther
         // out, faster.

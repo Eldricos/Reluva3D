@@ -2,12 +2,17 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // The places are measured on the recording, at 640 × 480, the models
-// matched against its frames at 2:38 and 5:00:
+// matched against its frames at 2:38 and 5:00, the menus at 2:36 to 11:47:
 // docs/engines/tpw/games/simcoaster/systems/park.md#the-hud.
 
 #include "engines/tpw/ui/park_hud.h"
 
+#include "engines/tpw/game_files.h"
+
+#include <algorithm>
+#include <string>
 #include <utility>
+#include <vector>
 
 namespace reluva::tpw {
 
@@ -43,6 +48,66 @@ constexpr int kGizmoSize = 48;
 constexpr std::array<int, ParkHud::kGizmos> kGizmoX{107, 181, 237, 293, 349, 405, 461};
 constexpr int kCompassButtonSize = 40;
 
+// A menu: its title and items as UITEXT numbers them, in the order the
+// recording shows them; Finance's and Maps' are never opened there, so
+// theirs is the table's (guessed). The messages' button has none.
+struct Menu {
+    uint32_t title = 0;
+    std::vector<uint32_t> items;
+};
+const std::array<Menu, ParkHud::kGizmos> &menus() {
+    static const std::array<Menu, ParkHud::kGizmos> kMenus{{
+        {},
+        {832, {833, 835, 834, 836}},
+        {826, {827, 829, 828, 830, 831}},
+        {837, {840, 838, 839}},
+        {841, {842, 843, 844}},
+        {845, {847, 850, 846, ParkHud::kObjectivesItem, 849, 600}},
+        {851, {852, 853, 854}},
+    }};
+    return kMenus;
+}
+// Research Lab: greyed in a park that can't research yet, as the
+// recording's first mission's is.
+constexpr uint32_t kResearchLabItem = 834;
+
+// A menu's panel: its left 49 pixels left of its button, 147 across; its
+// foot on the bar, 38 pixels for its title and 18 an item; its title and
+// items from 10 in. Its tail joins it to the button.
+constexpr int kMenuLeft = -49;
+constexpr int kMenuWidth = 147;
+constexpr int kMenuFoot = 416;
+constexpr int kMenuHead = 38;
+constexpr int kMenuLine = 18;
+constexpr int kMenuIndent = 10;
+constexpr int kMenuTitleY = 10;
+constexpr int kTailWidth = 32;
+constexpr int kTailHeight = 16;
+constexpr int kTailY = 413;
+constexpr Color kMenuTitle{236, 253, 255};
+constexpr Color kMenuItem{166, 193, 218};
+constexpr Color kMenuItemLit{255, 255, 255};
+constexpr Color kMenuItemGreyed{40, 80, 115};
+
+// The tooltips' strings in UIHELPTEXT, for the tools, the bottom buttons
+// and the compass's buttons.
+constexpr std::array<uint32_t, ParkHud::kTools> kToolTips{116, 117, 118, 119, 120};
+constexpr std::array<uint32_t, ParkHud::kGizmos> kGizmoTips{167, 169, 168, 170, 171, 172, 173};
+constexpr std::array<uint32_t, ParkHud::kCompassButtons> kCompassTips{112, 113, 102, 103};
+// A tooltip shows once the mouse has rested so long on a button, fading
+// in through the model's four meshes (guessed); it lies a little left of
+// the pointer and above it, as the recording's two do, give or take, 12
+// wider than its text, 11 high and 10 a line, its text dark.
+constexpr uint32_t kTooltipDelay = 500;
+constexpr uint32_t kTooltipFadeStep = 50;
+constexpr size_t kTooltipMeshes = 4;
+constexpr int kTipLeft = -6;
+constexpr int kTipAbove = -27;
+constexpr int kTipPadding = 6;
+constexpr int kTipLine = 10;
+constexpr int kTipEdge = 11;
+constexpr Color kTipText{48, 48, 40};
+
 constexpr std::array<const char *, ParkHud::kTools> kToolModels{
     "ui/tb_pointer.MD2", "ui/tb_path.MD2", "ui/tb_delete.MD2", "ui/tb_camera.MD2", "ui/tb_postcard.MD2"};
 constexpr std::array<const char *, ParkHud::kGizmos> kGizmoModels{
@@ -54,7 +119,10 @@ constexpr std::array<const char *, ParkHud::kCompassButtons> kCompassModels{
 } // namespace
 
 Error ParkHud::load(const SearchSet &files) {
-    std::array<std::pair<LoadedModel *, const char *>, 8> singles{{
+    std::array<std::pair<LoadedModel *, const char *>, 11> singles{{
+        {&_menuPanel, "ui/!f_plain.MD2"},
+        {&_menuTail, "ui/gizmojoin.MD2"},
+        {&_tooltip, "ui/!tooltip.MD2"},
         {&_gauge, "ui/happyguage.MD2"},
         {&_faces, "ui/face.MD2"},
         {&_compassPlate, "ui/comp.MD2"},
@@ -76,7 +144,57 @@ Error ParkHud::load(const SearchSet &files) {
     for (size_t i = 0; i < kCompassButtons; ++i)
         if (Error err = _compass[i].load(files, kCompassModels[i]))
             return err;
+    const std::string language = languageOf(files);
+    if (language.empty())
+        return Error::fail("no language's folder (Language/<language>/MBToUni.dat)");
+    const std::string folder = "Language/" + language + "/";
+    std::vector<uint8_t> data;
+    if (Error err = files.read(folder + "MBToUni.dat", data))
+        return err;
+    if (Error err = _characters.parse(data))
+        return err;
+    for (auto [font, name] :
+         {std::pair{&_titleFont, "TITLEMED"}, std::pair{&_itemFont, "GAME7AA"}, std::pair{&_tipFont, "GAME8AA"}})
+        if (Error err = readGameFont(files, folder, name, *font))
+            return err;
+    for (auto [table, name] : {std::pair{&_uiText, "UITEXT"}, std::pair{&_helpText, "UIHELPTEXT"}})
+        if (Error err = readStringTable(files, folder, name, _characters, *table))
+            return err;
     return Error::success();
+}
+
+ScreenRect ParkHud::menuRect(Gizmo gizmo) {
+    const Menu &menu = menus()[size_t(gizmo)];
+    if (menu.items.empty())
+        return {};
+    const int height = kMenuHead + kMenuLine * int(menu.items.size());
+    return {gizmoRect(gizmo).x + kMenuLeft, kMenuFoot - height, kMenuWidth, height};
+}
+
+ScreenRect ParkHud::menuItemRect(Gizmo gizmo, size_t item) {
+    const ScreenRect panel = menuRect(gizmo);
+    if (panel.w == 0 || item >= menus()[size_t(gizmo)].items.size())
+        return {};
+    return {panel.x, panel.y + kMenuHead + kMenuLine * int(item) - kMenuLine / 4, panel.w, kMenuLine};
+}
+
+int ParkHud::menuItemAt(int x, int y) const {
+    if (!menuRisen())
+        return -1;
+    const Menu &menu = menus()[size_t(_menu)];
+    for (size_t i = 0; i < menu.items.size(); ++i)
+        if (menuItemRect(Gizmo(_menu), i).contains(x, y) && menu.items[i] != kResearchLabItem)
+            return int(i);
+    return -1;
+}
+
+bool ParkHud::covers(int x, int y) const {
+    return spotAt(x, y).kind != Hit::kNone || (_menu >= 0 && menuRect(Gizmo(_menu)).contains(x, y)) ||
+           kGauge.contains(x, y) || kToolBar.contains(x, y) || kCompass.contains(x, y) || kDateBox.contains(x, y);
+}
+
+uint32_t ParkHud::takeChoice() {
+    return std::exchange(_choice, 0);
 }
 
 ScreenRect ParkHud::toolRect(Tool tool) {
@@ -114,15 +232,36 @@ ParkHud::Spot ParkHud::spotAt(int x, int y) {
 }
 
 bool ParkHud::handle(const Event &ev) {
-    switch (ev.type) {
-    case EventType::kMouseMove: {
-        _over = spotAt(ev.mouseX, ev.mouseY);
-        return _over.kind != Hit::kNone;
+    if (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseDown || ev.type == EventType::kMouseUp) {
+        _mouseX = ev.mouseX;
+        _mouseY = ev.mouseY;
+        const Spot over = spotAt(ev.mouseX, ev.mouseY);
+        if (!(over == _over))
+            _overSince = _clock;
+        _over = over;
     }
+    const bool overMenu = _menu >= 0 && menuRect(Gizmo(_menu)).contains(ev.mouseX, ev.mouseY);
+    switch (ev.type) {
+    case EventType::kMouseMove:
+        _menuLit = menuItemAt(ev.mouseX, ev.mouseY);
+        return _over.kind != Hit::kNone || overMenu;
     case EventType::kMouseDown: {
+        if (_menu >= 0 && !(_over.kind == Hit::kGizmo && int(_over.index) == _menu)) {
+            // A click on an item picks it; any other closes the menu, and
+            // goes no further unless it's on another button.
+            if (ev.button == MouseButton::kLeft && overMenu) {
+                const int item = menuItemAt(ev.mouseX, ev.mouseY);
+                if (item < 0)
+                    return true;
+                _choice = menus()[size_t(_menu)].items[size_t(item)];
+            }
+            _menu = -1;
+            _menuLit = -1;
+            if (_over.kind == Hit::kNone)
+                return true;
+        }
         if (ev.button != MouseButton::kLeft)
-            return false;
-        _over = spotAt(ev.mouseX, ev.mouseY);
+            return _over.kind != Hit::kNone;
         _pressed = _over;
         return _pressed.kind != Hit::kNone || kGauge.contains(ev.mouseX, ev.mouseY) ||
                kToolBar.contains(ev.mouseX, ev.mouseY);
@@ -130,9 +269,21 @@ bool ParkHud::handle(const Event &ev) {
     case EventType::kMouseUp: {
         if (ev.button != MouseButton::kLeft || _pressed.kind == Hit::kNone)
             return false;
-        // A tool is chosen as the button is let go over it.
-        if (_pressed.kind == Hit::kTool && spotAt(ev.mouseX, ev.mouseY) == _pressed)
-            _tool = Tool(_pressed.index);
+        // A tool is chosen, or a menu opened or closed, as the button is
+        // let go over it.
+        if (_over == _pressed) {
+            if (_pressed.kind == Hit::kTool) {
+                _tool = Tool(_pressed.index);
+            } else if (_pressed.kind == Hit::kGizmo && !menus()[_pressed.index].items.empty()) {
+                if (_menu == int(_pressed.index)) {
+                    _menu = -1;
+                } else {
+                    _menu = int(_pressed.index);
+                    _menuOpened = _clock;
+                }
+                _menuLit = -1;
+            }
+        }
         _pressed = {};
         return true;
     }
@@ -184,8 +335,80 @@ void ParkHud::draw(Surface &screen, const View &view) const {
 
     drawUiMesh(screen, _gizmoBar, 0, kGizmoBar);
     for (size_t i = 0; i < kGizmos; ++i)
-        drawUiMesh(screen, _gizmos[i], stateOf({Hit::kGizmo, i}, false, false), gizmoRect(Gizmo(i)));
+        drawUiMesh(screen, _gizmos[i], stateOf({Hit::kGizmo, i}, _menu == int(i), false), gizmoRect(Gizmo(i)));
     drawUiMesh(screen, _help, _over.kind == Hit::kHelp ? kLit : kPlain, kHelp);
+    drawMenu(screen);
+    drawTooltip(screen);
+}
+
+// It rises from the bar, slowing as it comes, its items shown once it's
+// up.
+void ParkHud::drawMenu(Surface &screen) const {
+    if (_menu < 0)
+        return;
+    const Menu &menu = menus()[size_t(_menu)];
+    const ScreenRect full = menuRect(Gizmo(_menu));
+    const float t = std::min(1.0f, float(_clock - _menuOpened) / float(kMenuOpenMillis));
+    const float risen = 1 - (1 - t) * (1 - t);
+    ScreenRect panel = full;
+    panel.h = std::max(1, int(float(full.h) * risen));
+    panel.y = kMenuFoot - panel.h;
+    const ScreenRect button = gizmoRect(Gizmo(_menu));
+    drawUiMesh(screen, _menuTail, 0, {button.x + (button.w - kTailWidth) / 2, kTailY, kTailWidth, kTailHeight});
+    drawUiMesh(screen, _menuPanel, 0, panel);
+    if (t < 1)
+        return;
+    drawGameText(screen, _titleFont, _characters, full.x + kMenuIndent, full.y + kMenuTitleY, _uiText.text(menu.title),
+                 kMenuTitle);
+    for (size_t i = 0; i < menu.items.size(); ++i) {
+        const Color c = menu.items[i] == kResearchLabItem ? kMenuItemGreyed
+                        : int(i) == _menuLit              ? kMenuItemLit
+                                                          : kMenuItem;
+        drawGameText(screen, _itemFont, _characters, full.x + kMenuIndent, full.y + kMenuHead + kMenuLine * int(i),
+                     _uiText.text(menu.items[i]), c);
+    }
+}
+
+uint32_t ParkHud::tooltipText() const {
+    switch (_over.kind) {
+    case Hit::kTool:
+        return kToolTips[_over.index];
+    case Hit::kGizmo:
+        return kGizmoTips[_over.index];
+    case Hit::kCompass:
+        return kCompassTips[_over.index];
+    default:
+        return 0;
+    }
+}
+
+void ParkHud::drawTooltip(Surface &screen) const {
+    const uint32_t text = tooltipText();
+    if (text == 0 || _pressed.kind != Hit::kNone || _clock - _overSince < kTooltipDelay)
+        return;
+    std::vector<std::string> lines;
+    std::string all = _helpText.text(text);
+    for (size_t at = 0;;) {
+        const size_t end = all.find('\n', at);
+        lines.push_back(all.substr(at, end == std::string::npos ? std::string::npos : end - at));
+        if (end == std::string::npos)
+            break;
+        at = end + 1;
+    }
+    int width = 0;
+    for (const std::string &line : lines)
+        width = std::max(width, gameTextWidth(_tipFont, _characters, line));
+    ScreenRect box{_mouseX + kTipLeft, _mouseY + kTipAbove, width + 2 * kTipPadding,
+                   kTipEdge + kTipLine * int(lines.size())};
+    box.x = std::clamp(box.x, 0, screen.w - box.w);
+    box.y = std::clamp(box.y, 0, screen.h - box.h);
+    const size_t fade = std::min<size_t>(kTooltipMeshes - 1, (_clock - _overSince - kTooltipDelay) / kTooltipFadeStep);
+    drawUiMesh(screen, _tooltip, fade, box);
+    for (size_t i = 0; i < lines.size(); ++i) {
+        const int w = gameTextWidth(_tipFont, _characters, lines[i]);
+        drawGameText(screen, _tipFont, _characters, box.x + (box.w - w) / 2, box.y + kTipEdge / 2 + kTipLine * int(i),
+                     lines[i], kTipText);
+    }
 }
 
 } // namespace reluva::tpw

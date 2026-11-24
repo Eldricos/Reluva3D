@@ -89,7 +89,9 @@ public:
         if (!briefing.load(files) && !showBriefing(_sys, briefing, park, player.name,
                                                    [&](Surface &s) { parkScreen.draw(s, rasterizer, park, start); }))
             return Error::success();
-        playPark(_sys, parkScreen, park);
+        playPark(_sys, parkScreen, park, [&](const std::function<void(Surface &)> &drawPark) {
+            return showBriefing(_sys, briefing, park, player.name, drawPark);
+        });
         return Error::success();
     }
 

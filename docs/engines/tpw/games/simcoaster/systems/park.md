@@ -123,6 +123,41 @@ A button shows its states as the models name them: the tool chosen as
 `hilite`, the zoom-out button `disabled`, greyed, with the camera as far
 out as it goes (2:38).
 
+### Menus and tooltips
+
+A click on one of the bottom buttons opens its menu over it: a panel
+(`!f_plain`) 147 pixels wide, its left 49 pixels left of the button, its
+foot at y 416, joined to the button by a tail (`gizmojoin`); 38 pixels
+for its title, in `TITLEMED`, and 18 for each item, in `GAME7AA`, 10 in.
+It rises from the bar over about 0.3 seconds, slowing as it comes, then
+shows its items: grey-blue, white under the mouse, dark where they can't
+be chosen (Research Lab, before a park can research). The menus, as the
+recording opens them (Attractions 4:02, Visitors 9:49, Staff 11:05, Park 11:47) and their strings in
+`UITEXT`:
+
+| Button | Menu |
+|---|---|
+| Attractions | "Attractions": Build Attraction, List All Attractions, Research Lab, Attraction Finance Controls (832, 833, 835, 834, 836) |
+| Staff | "Staff": Hire Staff, List All Staff, Train Staff, Locate Staff, Staff Finance Controls (826 to 831) |
+| Visitors | "Visitors": Visitor Statistics, List All Visitors, Locate Visitors (837, 840, 838, 839) |
+| Park | "Park": Park Gates, Park Awards, Park Statistics, Objectives, Challenges, Close park (845, 847, 850, 846, 848, 849, 600; "Open park" 599) |
+| Finance | "Finance": Financial Statistics, Loans, Share Portfolio (841 to 844), in the table's order, never opened in the recording *(guessed)* |
+| Maps | "Maps": Park Map, Overview Map, Visitor Opinion (851 to 854), likewise *(guessed)* |
+
+The messages' button has none: it's the Message Center's (`UITEXT`
+861). Park's Objectives shows the mission's briefing again
+([briefing.md](briefing.md)), as at 11:47.
+
+A button the mouse rests on shows a tooltip: a pale yellow box
+(`!tooltip`, its textures `tooltip1` to `tooltip8` fading in) with the
+button's help in `GAME8AA`, dark, from `UIHELPTEXT`: the tools' "Selection
+mode", "Path mode", "Delete mode", "Camcorder", "Send email postcard"
+(116 to 120); the bottom buttons' "Message center", "Attractions menu /
+Right-click to Buy Attractions" and the like (167 to 173); the
+compass's "Rotate left", "Rotate right", "Zoom in", "Zoom out" (112,
+113, 102, 103). How long the mouse must rest, and where the box goes
+against the pointer, aren't measured *(guessed)*.
+
 The thermometer's model is full, its liquid light blue; an empty one is
 black above the face. In a bare park it's empty and its face the red
 no-entry sign, until the first attraction is built (the recording's
@@ -145,21 +180,26 @@ loading screen the mission's briefing shows over it
 ([briefing.md](briefing.md)), then `playPark` runs it: the arrow keys
 move the camera, Q and E or the compass's arrows (held) turn it, Page
 Up and Page Down, the compass's magnifiers or the wheel zoom, Home goes
-back, Esc leaves the game. A tool is chosen by clicking it, but does
-nothing yet; the bottom buttons light, but open nothing. Its first mission's, whatever the
+back, Esc leaves the game. A tool is chosen by clicking it: the path
+tool lays path ([paths.md](paths.md)), the others do nothing yet. The
+bottom buttons open their menus; of their items only Park's Objectives
+does anything yet. Its first mission's, whatever the
 player's objective, for now.
 
 `reluva-tool tpw park-shot <game folder> <world folder> <out.png>
 [seconds] [yaw pitch distance]` draws a new park, its clock run on;
 `reluva-tool tpw park-run <game folder> <world folder>` plays one
-headless: its briefing turned to the details and back, Proceed, the
-camera moved by its keys and turned by the compass, the bulldozer
-chosen, until a visitor has come in and paid, with a
+headless: its briefing turned to the details and back, Proceed, path
+laid, the Park menu's Objectives chosen and the briefing proceeded
+from, the camera moved by its keys and turned by the compass, the
+bulldozer chosen, the Attractions menu opened and closed, until a
+visitor has come in and paid (with `-shots`, the screen saved at the
+times given), with a
 checksum of the screens, which the game-files test checks
 (`tpw.gamedata.park`). The
 unit tests (`tpw.unit.park`) set a park up from settings built in the
-test and check its calendar; `tpw.unit.ui` clicks the HUD's tools and
-holds its compass's buttons.
+test and check its calendar; `tpw.unit.ui` clicks the HUD's tools,
+holds its compass's buttons and picks from its menus.
 
 ## Sources and checks
 
@@ -176,10 +216,9 @@ holds its compass's buttons.
 - What the boundary's clicks are measured from, and how the park's
   land and its fence are drawn by them.
 - The fly-in along the road; the gates' model at the entrance.
-- The HUD: the menus its bottom buttons open (the recording's
-  "Attractions": "Build Attraction", "List All Attractions", "Research
-  Lab", "Attraction Finance Controls", with a tooltip "Right-click to Buy
-  Attractions"); the round newspaper button at the date box's right end
+- The HUD: the windows its menus' items open, and what a right click
+  on a bottom button opens ("Right-click to Buy Attractions"); the
+  Finance and Maps menus' order; the round newspaper button at the date box's right end
   (no model of `ui.wad` matched it); whether the dial turns with the
   view, and the small green arrow (`compgizn2`) at its edge; the
   thermometer's level and the faces by the park's mood; `compgiz`'s
