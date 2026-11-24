@@ -53,7 +53,9 @@ the game, one step each:
 The game runs on the machine's clock, not an instruction clock, so the
 hosted steps keep only what the run decides itself, up to a point any
 machine that plays the game reaches in time: two runs of each opened the
-same files in the same order. The records, in
+same files in the same order. A machine busy with other work can run
+the game too slowly to get there in time, and the step then differs
+from its record: run them on a machine left idle. The records, in
 `tests/engines/sith/data/gamedata/<release>/`, hold only counts, names of
 the game's files and checksums. They were made on Linux with the US
 retail CDs (`us-1.0`).
