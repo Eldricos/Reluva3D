@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// reluva-tool storm3d engine-shot <game folder> <out.png> <ms> [event...]:
-// runs the game itself (its front end) without a window, by a clock of
-// its own, the player's moves given as events, and writes the screen at
-// `ms` as PNG, to set beside the original's frames from `host`.
+// reluva-tool storm3d engine-shot <game folder> <out.png> <ms> [-save dir]
+// [event...]: runs the game itself (its front end) without a window, by a
+// clock of its own, the player's moves given as events, its player's files
+// in `dir` if given, and writes the screen at `ms` as PNG, to set beside
+// the original's frames from `host`.
 
 #include "common/headless_system.h"
 #include "common/text.h"
@@ -16,6 +17,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <memory>
 #include <string>
@@ -118,13 +120,17 @@ bool parseEvent(const std::string &text, std::vector<ScriptSystem::Timed> &out) 
 
 int cmdEngineShot(int argc, char **argv) {
     if (argc < 5) {
-        std::fprintf(stderr, "usage: reluva-tool storm3d engine-shot <game folder> <out.png> <ms> [event...]\n");
+        std::fprintf(stderr,
+                     "usage: reluva-tool storm3d engine-shot <game folder> <out.png> <ms> [-save dir] [event...]\n");
         return 2;
     }
     ScriptSystem sys;
     sys.shotAt = std::strtoull(argv[4], nullptr, 10);
+    std::filesystem::path save;
     for (int i = 5; i < argc; ++i)
-        if (!parseEvent(argv[i], sys.events)) {
+        if (std::string(argv[i]) == "-save" && i + 1 < argc)
+            save = argv[++i];
+        else if (!parseEvent(argv[i], sys.events)) {
             std::fprintf(stderr, "not an event: %s\n", argv[i]);
             return 2;
         }
@@ -133,7 +139,7 @@ int cmdEngineShot(int argc, char **argv) {
     const MetaEngine *engine = findEngine("storm3d");
     if (!engine)
         return 1;
-    GameTarget target{"armada", "storm3d", "armada", "Star Trek: Armada", argv[2], {}, {}};
+    GameTarget target{"armada", "storm3d", "armada", "Star Trek: Armada", argv[2], save, {}};
     if (Error err = engine->create(sys, target)->run()) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
@@ -152,11 +158,13 @@ int cmdEngineShot(int argc, char **argv) {
     return out ? 0 : 1;
 }
 
-const tool::Commands kCommands("storm3d", {
-                                              {"engine-shot", "<game folder> <out.png> <ms> [event...]",
-                                               "the game run without a window, events at their times (1500:move:x:y, "
-                                               "2000:click:x:y, 300:key:escape), its screen at ms written as PNG",
-                                               cmdEngineShot},
-                                          });
+const tool::Commands
+    kCommands("storm3d",
+              {
+                  {"engine-shot", "<game folder> <out.png> <ms> [-save dir] [event...]",
+                   "the game run without a window, events at their times (1500:move:x:y, "
+                   "2000:click:x:y, 300:key:escape), the player's files in dir, its screen at ms written as PNG",
+                   cmdEngineShot},
+              });
 
 } // namespace

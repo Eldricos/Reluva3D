@@ -36,14 +36,15 @@ left out:
 | Single Player | `MSsingl` (22, 10) | `Single01.bik`, 226 × 180, (0, 45) |
 | Multiplayer | `MSmulti` (488, 10) | `Multi01.bik`, 226 × 174, (353, 32) |
 | Options | `MSoption` (22, 452) | `Const01.bik`, 370 × 160, (0, 285) |
-| Credits | `MScredit` (513, 433) | `Credit01.bik`, 200 × 200, (408, 217) |
-| Quit | `MSquit` (544, 415) | none |
+| Credits | `MScredit` (513, 433) | none |
+| Quit | `MSquit` (544, 415) | `Credit01.bik`, 200 × 200, (408, 217) |
 | Replay Intro | `MSintro` (439, 451) | none |
 
 The labels' places fit the frame to within 2.5 of 255 a pixel; the
 panels' place their movies' frames on it. A button is its label and its
 panel: with the pointer over the construction yard the game lit
-Options. The label under the pointer is drawn from its second bitmap;
+Options, and over the ship flying off (the movie called `Credit`) it lit
+Quit, and a click there ended the program. The label under the pointer is drawn from its second bitmap;
 the third, by the order, is for it pressed *(guessed)*. The panel under
 the pointer plays its second movie (`Single02.bik`...), its frames
 matching it, 0.88 against 0.84 for the first *(inferred)*.
@@ -69,10 +70,12 @@ Klingons at (360, 30), the Romulans at (0, 250), the Borg at (360,
 correlation of 0.998 or more. `Omega01.bik` (80 × 220), the finale's, is
 read but not shown to a new player.
 
-The campaigns open one after another, the races in that order *(inferred:
-a new player has only the Federation's)*. The pointer over a race not
-open yet writes, centred on its panel, white, in Arial Bold of 16
-pixels, which campaign is to finish first: for a new player,
+The campaigns open one after another, the races in that order, each
+when the one before it is finished, as the player's progress in
+`shell.set` says ([formats/shell-set.md](../formats/shell-set.md)). The
+pointer over a race not open yet writes, centred on its panel, white,
+in Arial Bold of 16 pixels, the last campaign open, to finish first:
+for a new player,
 "Federation campaign not complete" over each of the others
 (`label.map`'s `single_player` section,
 [formats/label-map.md](../formats/label-map.md)).
@@ -80,14 +83,15 @@ pixels, which campaign is to finish first: for a new player,
 Clicking an open race opens the mission panel, a dialog the program
 moves to (224, 46): `SPpanel.bmp`, its heading (`SPselect`, "Select
 Mission") at (243, 75), a bar for each mission open (`SPgame1` to `3`,
-the first at (234, 146)), and O.K. and Cancel (`SPok1` to `3`) at (228,
+at (234, 146), then 27 further down each), and O.K. and Cancel (`SPok1` to `3`) at (228,
 386) and (328, 386). The missions' names and the buttons' words are
 text, black, in Arial Bold of 12 pixels, centred on their bars: the
 names are `label.map`'s `mission_select` entries for each map, the maps
 `mshell.set`'s, six lines a campaign (`none` for none; four missions
 each, and the finale's). A new player has the first open: the
-Federation's is "Premonitions" (`fed1.bzn`). The races' movies stop
-while the panel is up, the one chosen on its lit movie.
+Federation's is "Premonitions" (`fed1.bzn`). With three Klingon
+missions open, the panel opened with none of them chosen. The races'
+movies stop while the panel is up, the one chosen on its lit movie.
 
 ### The Options screen
 
@@ -128,10 +132,15 @@ The controls are of three kinds:
   centred.
 - **Sliders,** `holder\scrollbar.bmp` (224 × 20), − and + at its ends.
   The value is a blue (0, 0, 255) line a pixel high, 10 down and 27 in,
-  170 long at most. A click on − shortens it by 17, a tenth.
+  170 long at most, so many pixels a unit of its value. A click on − or
+  + takes a step off or adds one.
 - **Lists,** `wonlogin\wls324pd1` to `3` (324 × 32), the value's words
   12 pixels, centred. The program reads `pdm324top`, `pdm324hl2` and
   `3` for the list opened, which a click didn't open in the frames.
+
+The values are the player's preferences, `ARMADA.PRF`, which the
+program writes as it quits ([formats/preferences.md](../formats/preferences.md),
+with each slider's steps and lengths):
 
 | Screen | Control | Place | Value in the frames |
 |---|---|---|---|
@@ -199,18 +208,19 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
   (`shell/panel_movie.h`), with its music and sounds. Quit leaves, as
   Esc does; Replay Intro plays the movie again; Single Player opens the
   single-player screen (`shell/single_player.h`), its tooltips and its
-  mission panel, for a new player (saved progress comes with saving);
+  mission panel, the campaigns and missions open as the player's
+  progress (`shell.set`) says;
   O.K. there shows the loading screen (`shell/loading_screen.h`), which
   reads the mission's map and its objects' definitions and models, its
   bar growing, and comes back to the races, as the mission doesn't run
   yet; Esc gives up sooner. Options opens the Options screen
   (`shell/options_screen.h`), and from it the settings screens
-  (`shell/settings_screen.h`). Their switches and sliders work, and the
-  lists turn through their values when clicked *(guessed)*, as the
-  frames never show one open. The values are kept while the game runs; none
-  of them changes the game yet, and they aren't saved. Sound Channels
-  offers 4, 8 and 16 *(guessed)*. The display driver is called
-  "Reluva".
+  (`shell/settings_screen.h`). Their switches and sliders change the
+  player's preferences, which the game reads as it starts and writes as
+  it ends. The volumes set the mixer's; the rest change nothing yet.
+  The lists show the one mode Reluva draws and its driver, "Reluva", and
+  don't open. The player's files are in Reluva's save folder for the
+  game, read before the install's (`player_files.h`).
   Multiplayer, Credits and Load Game do nothing yet. The models are drawn as the data viewer's are
   (`scene/sod_meshes.h`); the logo's specular glint isn't. The version is in Reluva's own
   font: the "System" font isn't in the install.
@@ -218,10 +228,11 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
   Arial if it has one, else Liberation Sans Bold, which has Arial's
   measures (the emulator's frames were drawn with it too); a line as
   tall as the font's size when centred, as the emulated GDI has it.
-- `reluva-tool storm3d engine-shot <game folder> <out.png> <ms>
-  [event...]` runs the game without a window, by a clock of its own,
-  the player's moves at set times (`1500:move:90:18`, `2000:click:90:18`,
-  `300:key:escape`), and writes the screen at `ms`.
+- `reluva-tool storm3d engine-shot <game folder> <out.png> <ms> [-save
+  dir] [event...]` runs the game without a window, by a clock of its
+  own, the player's moves at set times (`1500:move:90:18`,
+  `2000:click:90:18`, `300:key:escape`), its player's files in `dir`,
+  and writes the screen at `ms`.
 - The movies everywhere (the game, the Movies page, `movie-frame`) are
   converted with the exchanged chroma (`bink::Movie::Rgb::kExchanged`).
 
@@ -240,23 +251,23 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
   The Options screen is the same as the game's frame in every pixel, and
   so is Sound Settings, at rest and after the same clicks on a switch
   and a slider. Game and Graphics Settings are too, but for 3 pixels of
-  anti-aliasing in "Off" and the display driver's name.
+  anti-aliasing in "Off" and the display driver's name. Given a
+  `shell.set` with three Klingon missions open, the mission panel is the
+  same as the game's in every pixel.
   The unit tests (`storm3d.unit.shell`) check which button and race each
-  place is, and reading `mshell.set`.
+  place is, the sliders' steps and lengths, and reading `mshell.set`.
 
 ## Open questions
 
 - Where the program keeps the main menu's places, and the other
   screens' (single player, multiplayer, options, credits).
-- Where the program keeps the settings, and the sliders' ranges: Game
-  Speed's 84 and Graphics Detail's 168 aren't whole steps of 17.
-- What the lists look like open, and what Sound Channels offers.
+- What the lists look like open.
 - Which sounds the settings screens' controls play.
 - Which `label.map` entry the Options screen's Previous Menu comes from:
   `escape_menu` has none, and every other screen's says the same.
 - What the third bitmap of a label is for, and whether the second movie
   starts over each time the pointer comes back.
 - Why the movies' chroma is exchanged.
-- Where the player's progress is kept, and the spacing of the mission
-  panel's bars past the first (Reluva puts them 20 apart *(guessed)*); what
-  the bars' second and third bitmaps are for; when Omega's panel shows.
+- What the mission bars' second and third bitmaps are for; whether O.K.
+  with no mission chosen does anything (Reluva waits for one
+  *(guessed)*); when Omega's panel shows.

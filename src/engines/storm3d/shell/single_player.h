@@ -5,6 +5,7 @@
 
 #include "common/types.h"
 #include "engines/storm3d/formats/label_map.h"
+#include "engines/storm3d/formats/shell_progress.h"
 #include "engines/storm3d/game_files.h"
 #include "engines/storm3d/shell/panel_movie.h"
 #include "engines/storm3d/shell/shell_draw.h"
@@ -55,14 +56,10 @@ public:
      * @return a failure if a picture or the text isn't there
      */
     Error load(const GameFiles &files, uint64_t millis);
-    /**
-     * How far the player has come: campaigns finished, and missions open
-     * in the next. A new player has finished none and has one open.
-     */
-    void setProgress(int campaignsDone, int missionsOpen) {
-        _campaignsDone = campaignsDone;
-        _missionsOpen = missionsOpen;
-    }
+    /** How far the player has come (`shell.set`). A new player has the Federation's first mission. */
+    void setProgress(const ShellProgress &progress) { _progress = progress; }
+    /** The missions of a campaign the player can choose, in order. */
+    std::vector<std::string> openMissions(int race) const;
 
     /** @return whether the pointer came onto something (the game plays a sound) */
     bool pointerAt(int x, int y, uint64_t millis);
@@ -82,8 +79,8 @@ private:
         bool operator==(const Target &o) const { return kind == o.kind && index == o.index; }
     };
     Target targetAt(int x, int y) const;
-    bool open(int race) const { return race <= _campaignsDone; }
-    std::vector<std::string> openMissions(int race) const;
+    bool open(int race) const { return race >= 0 && _progress.open(size_t(race)); }
+    int lastOpen() const;
     int barY(int i) const;
 
     image::Image _background;
@@ -100,12 +97,11 @@ private:
     LabelMap _text;
     ShellFont _font;
     std::vector<std::vector<std::string>> _campaigns;
-    int _campaignsDone = 0;
-    int _missionsOpen = 1;
+    ShellProgress _progress;
     Target _hover;
     Target _pressed;
     int _panelRace = -1; // the mission panel's race; -1 while it's closed
-    int _chosen = 0;     // the mission chosen in it
+    int _chosen = 0;     // the mission chosen in it; -1 for none
     std::string _mission;
 };
 

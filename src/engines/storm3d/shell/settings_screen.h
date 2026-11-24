@@ -5,6 +5,7 @@
 
 #include "common/types.h"
 #include "engines/storm3d/formats/label_map.h"
+#include "engines/storm3d/formats/preferences.h"
 #include "engines/storm3d/game_files.h"
 #include "engines/storm3d/shell/shell_draw.h"
 #include "image/image.h"
@@ -42,7 +43,7 @@ private:
  * them its controls: switches (`multiset/nav3but`) that turn through
  * their values when clicked, sliders (`holder/scrollbar.bmp`) whose blue
  * line − and + shorten and lengthen, and lists (`wonlogin/wls324pd`).
- * The values are kept while the program runs. See
+ * The values are the player's preferences (`ARMADA.PRF`). See
  * docs/engines/storm3d/games/armada/systems/front-end.md.
  */
 class SettingsScreen {
@@ -55,15 +56,26 @@ public:
         int top;
         float pixels;
     };
-    /** A control and its values. */
+    /** A switch's value: its words' key in the page's section (shown as it is if it isn't one), and the number kept. */
+    struct Choice {
+        const char *key;
+        double stored;
+    };
+    /** A control, and where its value is kept in the preferences. */
     struct Control {
         enum Kind { kSwitch, kSlider, kList } kind;
         int x;
         int y;
-        // A switch's or list's values, as label.map keys in the page's
-        // section; a value that isn't one ("8") is shown as it is.
-        std::vector<const char *> values;
-        int initial; // a switch's or list's value; a slider's line, in pixels
+        Preferences::Line line;
+        size_t field;
+        std::vector<Choice> choices; // a switch's, in the order clicks turn them
+        // A slider's: its range, a click's step, and how long its line is
+        // a unit, from 0.
+        double min;
+        double max;
+        double step;
+        double pixels;
+        bool fixed; // a click doesn't change it
     };
     /** A page: its label.map section, its Previous Menu's key there, its title's place, its labels and controls. */
     struct Layout {
@@ -76,19 +88,19 @@ public:
     static const Layout &layoutOf(SettingsPage page);
     /** The control of a page at a point; -1 if none. */
     static int controlAt(SettingsPage page, int x, int y);
-    /** A slider's line after a click at `x` across it (from its left): − shortens it a step, + lengthens it. */
-    static int sliderAfterClick(int line, int x);
+    /** A slider's value after a click at `x` across it (from its left): − takes a step off, + adds one. */
+    static double sliderAfterClick(const Control &slider, double value, int x);
+    /** How long a slider's line is for a value. */
+    static int lineOf(const Control &slider, double value);
 
     /**
-     * Reads its pictures and text, the values at their first.
+     * Reads its pictures and text, its values those of `preferences`,
+     * which it changes as the player does.
      * @return a failure if one isn't there
      */
-    Error load(const GameFiles &files);
+    Error load(const GameFiles &files, Preferences *preferences);
     /** Shows a page. */
     void open(SettingsPage page);
-    /** A control's value now. */
-    int value(SettingsPage page, size_t control) const { return _values[size_t(page)][control]; }
-
     /** @return whether the pointer came onto a control (the game plays a sound) */
     bool pointerAt(int x, int y);
     void press(int x, int y);
@@ -104,6 +116,7 @@ private:
     static constexpr int kPrevious = -2;
     int targetAt(int x, int y) const;
     std::string textOf(const char *key) const;
+    std::string shown(const Control &c) const;
 
     image::Image _background;
     NavigationBar _bar;
@@ -112,7 +125,7 @@ private:
     image::Image _slider;
     LabelMap _text;
     ShellFont _font;
-    std::array<std::vector<int>, 3> _values; // each page's controls'
+    Preferences *_preferences = nullptr;
     SettingsPage _page = SettingsPage::kGraphics;
     int _hover = -1;
     int _pressed = -1;

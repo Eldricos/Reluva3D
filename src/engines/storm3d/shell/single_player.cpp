@@ -25,8 +25,8 @@ constexpr int kHeadingX = 243;
 constexpr int kHeadingY = 75;
 constexpr int kBarX = 234;
 constexpr int kBarY = 146;
-// The frames show one mission open: the next bars' spacing is guessed.
-constexpr int kBarStep = 20;
+// The game's frame with three Klingon missions open has them 27 apart.
+constexpr int kBarStep = 27;
 constexpr int kOkX = 228;
 constexpr int kCancelX = 328;
 constexpr int kButtonsY = 386;
@@ -125,9 +125,19 @@ std::vector<std::string> SinglePlayerScreen::openMissions(int race) const {
     if (race < 0 || size_t(race) >= _campaigns.size() || !open(race))
         return {};
     const std::vector<std::string> &all = _campaigns[size_t(race)];
-    // A campaign finished has all its missions open.
-    const size_t count = race < _campaignsDone ? all.size() : std::min(all.size(), size_t(std::max(_missionsOpen, 1)));
+    // A campaign finished has all its missions open; otherwise up to the
+    // last open, which is kept from 0.
+    const size_t count = _progress.finished[size_t(race)]
+                             ? all.size()
+                             : std::min(all.size(), size_t(_progress.lastMission[size_t(race)]) + 1);
     return {all.begin(), all.begin() + long(count)};
+}
+
+int SinglePlayerScreen::lastOpen() const {
+    int race = 0;
+    while (race + 1 < int(races().size()) && open(race + 1))
+        ++race;
+    return race;
 }
 
 int SinglePlayerScreen::barY(int i) const {
@@ -191,7 +201,8 @@ SingleChoice SinglePlayerScreen::release(int x, int y, uint64_t millis) {
     case Target::kRace:
         if (open(at.index) && !openMissions(at.index).empty()) {
             _panelRace = at.index;
-            _chosen = 0;
+            // None chosen as it opens, as the game's frame has it with three.
+            _chosen = openMissions(at.index).size() == 1 ? 0 : -1;
             _hover = Target{};
         }
         return SingleChoice::kNone;
@@ -199,6 +210,9 @@ SingleChoice SinglePlayerScreen::release(int x, int y, uint64_t millis) {
         _chosen = at.index;
         return SingleChoice::kNone;
     case Target::kOk:
+        // With none chosen, O.K. waits for one (a guess: the frames don't say).
+        if (_chosen < 0)
+            return SingleChoice::kNone;
         _mission = openMissions(_panelRace)[size_t(_chosen)];
         _panelRace = -1;
         return SingleChoice::kStartMission;
@@ -230,7 +244,8 @@ void SinglePlayerScreen::draw(Surface &screen, uint64_t millis) {
     _load.draw(screen, _hover.kind == Target::kLoad, _pressed.kind == Target::kLoad, false);
     // A race not open yet says the first campaign there is to finish.
     if (_hover.kind == Target::kRace && !open(_hover.index) && _panelRace < 0) {
-        const Race &r = races()[size_t(_campaignsDone)];
+        // The campaign to finish: the last of those open.
+        const Race &r = races()[size_t(lastOpen())];
         const Race &under = races()[size_t(_hover.index)];
         const std::string tip = _text.text("single_player", std::string(r.name) + "_incomplete");
         _font.drawCentred(screen, under.x, under.y, 280, 190, tip, kTooltipText, kTooltipColour);

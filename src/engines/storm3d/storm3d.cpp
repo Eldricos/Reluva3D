@@ -9,7 +9,10 @@
 #include "audio/wav.h"
 #include "common/settings.h"
 #include "engines/engine.h"
+#include "engines/storm3d/formats/preferences.h"
+#include "engines/storm3d/formats/shell_progress.h"
 #include "engines/storm3d/game_files.h"
+#include "engines/storm3d/player_files.h"
 #include "engines/storm3d/shell/full_screen_movie.h"
 #include "engines/storm3d/shell/loading_screen.h"
 #include "engines/storm3d/shell/main_menu.h"
@@ -62,6 +65,8 @@ public:
         audio::Mixer mixer(_sys.audioRate());
         mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
         _mixer = audio::startMixerOutput(_sys, mixer) ? nullptr : &mixer;
+        loadPlayer();
+        applyVolumes();
         Surface screen;
         screen.create(kWidth, kHeight, PixelFormat::kRGBA32);
 
@@ -153,6 +158,7 @@ public:
                 } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft && settingsOn) {
                     if (settings.release(ev.mouseX, ev.mouseY))
                         settingsOn = false;
+                    applyVolumes();
                 } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft && optionsOn) {
                     const OptionsChoice choice = options.release(ev.mouseX, ev.mouseY);
                     if (choice != OptionsChoice::kNone)
@@ -160,7 +166,7 @@ public:
                     if (choice == OptionsChoice::kPreviousMenu) {
                         optionsOn = false;
                     } else if (choice != OptionsChoice::kNone) {
-                        if (Error err = settings.load(_files)) {
+                        if (Error err = settings.load(_files, &_preferences)) {
                             stopAll();
                             return err;
                         }
@@ -184,6 +190,7 @@ public:
                             stopAll();
                             return err;
                         }
+                        single.setProgress(_progress);
                         singleOn = true;
                     } else if (choice == MenuChoice::kOptions) {
                         if (Error err = options.load(_files)) {
@@ -226,10 +233,35 @@ public:
             _sys.delayMillis(kFrameMs);
         }
         stopAll();
+        // The game writes its preferences as it ends.
+        const std::string prf = _preferences.text();
+        (void)player().write(kPreferences, std::vector<uint8_t>(prf.begin(), prf.end()));
         return Error::success();
     }
 
 private:
+    PlayerFiles player() const { return PlayerFiles(_files, _target.savePath); }
+    // The player's preferences and progress, as the game keeps them; a new
+    // player's if they aren't there.
+    void loadPlayer() {
+        std::vector<uint8_t> data;
+        _preferences = player().read(kPreferences, data)
+                           ? Preferences::defaults(kDriver)
+                           : Preferences::parse(
+                                 std::string_view(reinterpret_cast<const char *>(data.data()), data.size()), kDriver);
+        if (player().read("shell.set", data) || _progress.parse(data))
+            _progress = ShellProgress{};
+    }
+    // The volumes, 0 to 10, on the mixer's scale.
+    void applyVolumes() {
+        if (!_mixer)
+            return;
+        constexpr std::pair<size_t, audio::SoundType> kVolumes[] = {
+            {0, audio::SoundType::kMusic}, {1, audio::SoundType::kEffects}, {2, audio::SoundType::kSpeech}};
+        for (const auto &[field, type] : kVolumes)
+            _mixer->setTypeVolume(type, int(_preferences.number(Preferences::kSound, field) * audio::kMaxVolume / 10));
+    }
+
     // The opening movie: the install's if it's been copied there, as the
     // game looks for it first; the installer leaves it on the CD.
     bool startIntro() {
@@ -266,6 +298,9 @@ private:
         _mixer = nullptr;
     }
 
+    static constexpr const char *kPreferences = "ARMADA.PRF";
+    // The display driver the graphics settings name.
+    static constexpr const char *kDriver = "Reluva";
     static constexpr int kWidth = 640;
     static constexpr int kHeight = 480;
     // About the game's own pace in its menu (59 frames a second).
@@ -277,6 +312,8 @@ private:
     audio::SoundHandle _music = audio::kNoSound;
     audio::SoundHandle _introSound = audio::kNoSound;
     FullScreenMovie _intro;
+    Preferences _preferences = Preferences::defaults(kDriver);
+    ShellProgress _progress;
 };
 
 /**

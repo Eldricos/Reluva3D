@@ -8,12 +8,15 @@ reluva_add_engine(storm3d
     SOURCES
         storm3d.cpp
         game_files.cpp
+        player_files.cpp
         formats/bzn.cpp
         formats/config_file.cpp
         formats/input_map.cpp
         formats/label_map.cpp
         formats/ldl.cpp
         formats/odf.cpp
+        formats/preferences.cpp
+        formats/shell_progress.cpp
         formats/sod.cpp
         formats/sprite_table.cpp
         formats/zfs_archive.cpp
@@ -71,13 +74,14 @@ reluva_add_engine_tests(storm3d
         ${tests}/unit/label_map.cpp
         ${tests}/unit/ldl.cpp
         ${tests}/unit/odf.cpp
+        ${tests}/unit/player.cpp
         ${tests}/unit/shell.cpp
         ${tests}/unit/sod.cpp
         ${tests}/unit/spr.cpp
         ${tests}/unit/zfs.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.bzn unit.config unit.detection unit.images unit.input_map unit.label_map unit.ldl unit.odf unit.shell unit.sod unit.spr unit.zfs engine)
+        unit.bzn unit.config unit.detection unit.images unit.input_map unit.label_map unit.ldl unit.odf unit.player unit.shell unit.sod unit.spr unit.zfs engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

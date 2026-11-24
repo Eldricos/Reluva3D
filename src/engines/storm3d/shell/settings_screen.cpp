@@ -4,6 +4,8 @@
 #include "engines/storm3d/shell/settings_screen.h"
 
 #include <algorithm>
+#include <cmath>
+#include <cstdio>
 
 namespace reluva::storm3d {
 
@@ -18,11 +20,10 @@ constexpr int kStartX = 123;
 constexpr int kMainX = 522;
 constexpr int kTitleY = 6;
 // A slider's line: blue, a pixel high, 10 down and 27 in, at most 170
-// long, a click on − or + moving it 17 (the frames before and after one).
+// long.
 constexpr int kLineX = 27;
 constexpr int kLineY = 10;
 constexpr int kLineMax = 170;
-constexpr int kLineStep = 17;
 constexpr uint8_t kLineColour[3] = {0, 0, 255};
 // − and + are the slider's ends, each 27 across.
 constexpr int kEndWidth = 27;
@@ -66,6 +67,22 @@ void NavigationBar::draw(Surface &screen, ShellFont &font, const std::string &pr
 
 const SettingsScreen::Layout &SettingsScreen::layoutOf(SettingsPage page) {
     using C = Control;
+    using P = Preferences;
+    const std::vector<Choice> onOff = {{"off", 0}, {"on", 1}};
+    auto toggle = [&onOff](int x, int y, P::Line line, size_t field) {
+        return C{C::kSwitch, x, y, line, field, onOff, 0, 0, 0, 0, false};
+    };
+    // Ranges, steps and lengths from the preferences the game wrote and
+    // its frames after clicks: a volume 17 pixels a unit, game speed 28,
+    // detail 42, mouse scroll 80 (it keeps tenths), keyboard scroll 28 for 6.
+    auto slider = [](int x, int y, P::Line line, size_t field, double min, double max, double step, double pixels) {
+        return C{C::kSlider, x, y, line, field, {}, min, max, step, pixels, false};
+    };
+    auto list = [](int x, int y, P::Line line) { return C{C::kList, x, y, line, 0, {}, 0, 0, 0, 0, true}; };
+    std::vector<Choice> channels;
+    static const char *const kDigits[] = {"1", "2", "3", "4", "5", "6", "7", "8"};
+    for (int i = 0; i < 8; ++i)
+        channels.push_back({kDigits[i], double(i + 1)});
     // Labels centred over their controls, or in a column to the left of
     // the switches; their lines' tops 3 above their capitals' (4 at 20
     // pixels), as the frames have them.
@@ -84,12 +101,13 @@ const SettingsScreen::Layout &SettingsScreen::layoutOf(SettingsPage page) {
              {"unsupported", 20, 580, 380, kText},
          },
          {
-             // What the program lists is the machine's own; Reluva's screen is 640 x 480.
-             {C::kList, 20, 116, {"640x480x16"}, 0},
-             {C::kList, 20, 166, {"Reluva"}, 0},
-             {C::kSwitch, 386, 116, {"off", "on"}, 0},
-             {C::kSwitch, 386, 166, {"off", "on"}, 1},
-             {C::kSlider, 338, 216, {}, 168},
+             // What the lists offer is the machine's own; Reluva's screen is 640 x 480.
+             list(20, 116, P::kGraphics),
+             list(20, 166, P::kDriver),
+             toggle(386, 116, P::kGraphics, 10),
+             // A click on it changed nothing in the frames or the file.
+             C{C::kSwitch, 386, 166, P::kGraphics, 9, onOff, 0, 0, 0, 0, true},
+             slider(338, 216, P::kGraphics, 5, 0, 4, 1, 42),
          }},
         {"sound_settings",
          "previous_menu",
@@ -104,14 +122,13 @@ const SettingsScreen::Layout &SettingsScreen::layoutOf(SettingsPage page) {
              {"alert_audio", 100, 230, 340, kText},
          },
          {
-             {C::kSlider, 208, 80, {}, kLineMax},
-             {C::kSlider, 208, 130, {}, kLineMax},
-             {C::kSlider, 208, 180, {}, kLineMax},
-             // The frame shows 8; the others are guessed.
-             {C::kSwitch, 340, 214, {"4", "8", "16"}, 1},
-             {C::kSwitch, 340, 254, {"off", "on"}, 1},
-             {C::kSwitch, 340, 294, {"off", "on"}, 1},
-             {C::kSwitch, 340, 334, {"off", "on"}, 1},
+             slider(208, 80, P::kSound, 0, 0, 10, 1, 17),
+             slider(208, 130, P::kSound, 1, 0, 10, 1, 17),
+             slider(208, 180, P::kSound, 2, 0, 10, 1, 17),
+             C{C::kSwitch, 340, 214, P::kSound, 3, channels, 0, 0, 0, 0, false},
+             toggle(340, 254, P::kSound, 4),
+             toggle(340, 294, P::kSound, 5),
+             toggle(340, 334, P::kSound, 6),
          }},
         {"game_settings",
          "previous",
@@ -126,13 +143,13 @@ const SettingsScreen::Layout &SettingsScreen::layoutOf(SettingsPage page) {
              {"directors_cut", 100, 230, 370, kText},
          },
          {
-             {C::kSwitch, 340, 64, {"easy", "medium", "hard"}, 1},
-             {C::kSlider, 208, 130, {}, 84},
-             {C::kSlider, 208, 180, {}, 80},
-             {C::kSlider, 208, 230, {}, 28},
-             {C::kSwitch, 340, 264, {"right_click", "left_click"}, 0},
-             {C::kSwitch, 340, 314, {"off", "on"}, 1},
-             {C::kSwitch, 340, 364, {"off", "on"}, 0},
+             C{C::kSwitch, 340, 64, P::kGame, 0, {{"easy", 1}, {"medium", 2}, {"hard", 3}}, 0, 0, 0, 0, false},
+             slider(208, 130, P::kGame, 1, 1, 6, 1, 28),
+             slider(208, 180, P::kGame, 2, 0, 2, 0.1, 80),
+             slider(208, 230, P::kGame, 3, 0, 36, 4, 28.0 / 6),
+             C{C::kSwitch, 340, 264, P::kGame, 4, {{"right_click", 1}, {"left_click", 0}}, 0, 0, 0, 0, false},
+             toggle(340, 314, P::kGame, 5),
+             toggle(340, 364, P::kGame, 6),
          }},
     }};
     return kLayouts[size_t(page)];
@@ -148,15 +165,23 @@ int SettingsScreen::controlAt(SettingsPage page, int x, int y) {
     return -1;
 }
 
-int SettingsScreen::sliderAfterClick(int line, int x) {
+double SettingsScreen::sliderAfterClick(const Control &slider, double value, int x) {
+    double v = value;
     if (x < kEndWidth)
-        return std::max(0, line - kLineStep);
-    if (x >= kSizes[Control::kSlider][0] - kEndWidth)
-        return std::min(kLineMax, line + kLineStep);
-    return line;
+        v -= slider.step;
+    else if (x >= kSizes[Control::kSlider][0] - kEndWidth)
+        v += slider.step;
+    // Whole tenths, as the file keeps them, not a sum's rounding.
+    v = std::round(v * 1000) / 1000;
+    return std::clamp(v, slider.min, slider.max);
 }
 
-Error SettingsScreen::load(const GameFiles &files) {
+int SettingsScreen::lineOf(const Control &slider, double value) {
+    return std::clamp(int(value * slider.pixels + 1e-6), 0, kLineMax);
+}
+
+Error SettingsScreen::load(const GameFiles &files, Preferences *preferences) {
+    _preferences = preferences;
     if (Error err = loadPicture(files, "bitmaps/credit/creditsBG.bmp", _background))
         return err;
     if (Error err = _bar.load(files))
@@ -176,10 +201,6 @@ Error SettingsScreen::load(const GameFiles &files) {
     if (Error err = _text.parse(std::string_view(reinterpret_cast<const char *>(data.data()), data.size())))
         return Error::fail("label.map: " + err.message);
     _font.load();
-    for (size_t p = 0; p < _values.size(); ++p)
-        if (_values[p].empty())
-            for (const Control &c : layoutOf(SettingsPage(p)).controls)
-                _values[p].push_back(c.initial);
     return Error::success();
 }
 
@@ -215,16 +236,42 @@ bool SettingsScreen::release(int x, int y) {
     if (at == kPrevious)
         return true;
     const Control &c = layoutOf(_page).controls[size_t(at)];
-    int &v = _values[size_t(_page)][size_t(at)];
-    if (c.kind == Control::kSlider)
-        v = sliderAfterClick(v, x - c.x);
-    else
-        v = (v + 1) % int(c.values.size());
+    if (c.fixed || !_preferences)
+        return false;
+    const double v = _preferences->number(c.line, c.field);
+    if (c.kind == Control::kSlider) {
+        _preferences->setNumber(c.line, c.field, sliderAfterClick(c, v, x - c.x));
+    } else {
+        // The next choice after the one kept; the first if it's none of them.
+        size_t i = 0;
+        while (i < c.choices.size() && c.choices[i].stored != v)
+            ++i;
+        _preferences->setNumber(c.line, c.field, c.choices[(i + 1) % c.choices.size()].stored);
+    }
     return false;
 }
 
 std::string SettingsScreen::textOf(const char *key) const {
     return _text.text(layoutOf(_page).section, key, key);
+}
+
+std::string SettingsScreen::shown(const Control &c) const {
+    if (!_preferences)
+        return {};
+    if (c.kind == Control::kList) {
+        if (c.line == Preferences::kDriver)
+            return _preferences->line(Preferences::kDriver);
+        // The mode: width, height and depth, the graphics line's 7th to 9th.
+        char mode[40];
+        std::snprintf(mode, sizeof mode, "%dx%dx%d", int(_preferences->number(c.line, 6)),
+                      int(_preferences->number(c.line, 7)), int(_preferences->number(c.line, 8)));
+        return mode;
+    }
+    const double v = _preferences->number(c.line, c.field);
+    for (const Choice &choice : c.choices)
+        if (choice.stored == v)
+            return textOf(choice.key);
+    return textOf(c.choices.front().key);
 }
 
 void SettingsScreen::draw(Surface &screen) {
@@ -237,11 +284,11 @@ void SettingsScreen::draw(Surface &screen) {
     }
     for (size_t i = 0; i < layout.controls.size(); ++i) {
         const Control &c = layout.controls[i];
-        const int v = _values[size_t(_page)][i];
         if (c.kind == Control::kSlider) {
             drawPicture(screen, _slider, c.x, c.y, true);
+            const int length = _preferences ? lineOf(c, _preferences->number(c.line, c.field)) : 0;
             uint8_t *row = screen.row(c.y + kLineY);
-            for (int x = c.x + kLineX; x < c.x + kLineX + v && x < screen.w; ++x) {
+            for (int x = c.x + kLineX; x < c.x + kLineX + length && x < screen.w; ++x) {
                 uint8_t *p = row + size_t(x) * 4;
                 p[0] = kLineColour[0], p[1] = kLineColour[1], p[2] = kLineColour[2], p[3] = 255;
             }
@@ -250,8 +297,8 @@ void SettingsScreen::draw(Surface &screen) {
         const std::array<image::Image, 3> &looks = c.kind == Control::kSwitch ? _switch : _list;
         const image::Image &look = _pressed == int(i) ? looks[2] : _hover == int(i) ? looks[1] : looks[0];
         drawPicture(screen, look, c.x, c.y, true);
-        _font.drawCentred(screen, c.x, c.y, look.w, look.h, textOf(c.values[size_t(v)]),
-                          c.kind == Control::kList ? kListText : kText, kTextColour);
+        _font.drawCentred(screen, c.x, c.y, look.w, look.h, shown(c), c.kind == Control::kList ? kListText : kText,
+                          kTextColour);
     }
     _bar.draw(screen, _font, textOf(layout.previous), _hover == kPrevious, _pressed == kPrevious);
 }
