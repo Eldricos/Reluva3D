@@ -76,12 +76,12 @@ void DefinitionPage::load() {
             _lines.push_back(std::to_string(_definition.totalFrames) + " frames, cursor frame sets " +
                              std::to_string(_definition.cursorFrameSets[0]) + " " +
                              std::to_string(_definition.cursorFrameSets[1]));
-            _lines.push_back("  set             start   end delay split restart  next  sound  replay tenth flip");
+            _lines.push_back("  set             start   end delay split restart  next  sound  replay volume flip");
             for (const auto &s : _definition.frameSets) {
                 char buf[160];
-                std::snprintf(buf, sizeof buf, "  %-14s %6u %5u %5u %5u %7d %5d %6d %7d %5u %4u", s.name.c_str(),
+                std::snprintf(buf, sizeof buf, "  %-14s %6u %5u %5u %5u %7d %5d %6d %7d %6u %4u", s.name.c_str(),
                               s.start, s.end, s.delay, s.split, s.restartDelay, s.next, s.sound, s.replayDelay,
-                              s.unnamed, s.flipX);
+                              s.soundCategory, s.flipX);
                 _lines.push_back(buf);
             }
         }

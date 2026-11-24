@@ -41,20 +41,20 @@ struct Occupancy {
 
 /**
  * One line of the frame-set table: a named run of the picture's frames, and
- * what follows it. The names of the fields after `split` are from the
- * files' own comments.
+ * what follows it, as the game steps it (0x405c40) a tick of 28 ms at a
+ * time (docs/engines/legoloco/formats/dat.md).
  */
 struct FrameSet {
     std::string name;
     uint16_t start = 0;
-    uint16_t end = 0;
-    uint16_t delay = 1; // the game makes 0 into 1
-    uint8_t split = 0;
-    int32_t restartDelay = 0;
-    int16_t next = -1; // the frame set after this one, or -1
-    int16_t sound = 0;
-    int32_t replayDelay = 0;
-    uint16_t unnamed = 0; // read by the game; the files' comments leave it out
+    uint16_t end = 0;           // below the start, the frames run backwards
+    uint16_t delay = 1;         // ticks a frame; the game makes 0 into 1
+    uint8_t split = 0;          // set: two steps a tick, even frames only
+    int32_t restartDelay = 0;   // seconds the last frame is held before the next set
+    int16_t next = -1;          // the frame set after this one, or -1
+    int16_t sound = 0;          // played as the set starts: a resource number, 0 for none
+    int32_t replayDelay = 0;    // the sound again after a random 1 to this many seconds; 0 once
+    uint16_t soundCategory = 0; // which of the sound player's four volumes it plays at (1-4)
     uint8_t flipX = 0;
 };
 

@@ -52,11 +52,11 @@ void print(const legoloco::ObjectDefinition &def) {
         return;
     std::printf("%d frames; cursor frame sets %d %d\n", def.totalFrames, def.cursorFrameSets[0],
                 def.cursorFrameSets[1]);
-    std::printf("  %-14s %5s %5s %5s %5s %7s %5s %6s %7s %5s %4s\n", "frame set", "start", "end", "delay", "split",
-                "restart", "next", "sound", "replay", "tenth", "flip");
+    std::printf("  %-14s %5s %5s %5s %5s %7s %5s %6s %7s %6s %4s\n", "frame set", "start", "end", "delay", "split",
+                "restart", "next", "sound", "replay", "volume", "flip");
     for (const auto &s : def.frameSets)
-        std::printf("  %-14s %5u %5u %5u %5u %7d %5d %6d %7d %5u %4u\n", s.name.c_str(), s.start, s.end, s.delay,
-                    s.split, s.restartDelay, s.next, s.sound, s.replayDelay, s.unnamed, s.flipX);
+        std::printf("  %-14s %5u %5u %5u %5u %7d %5d %6d %7d %6u %4u\n", s.name.c_str(), s.start, s.end, s.delay,
+                    s.split, s.restartDelay, s.next, s.sound, s.replayDelay, s.soundCategory, s.flipX);
 }
 
 // With a name, that definition in full; without, every one read, and those that fail.

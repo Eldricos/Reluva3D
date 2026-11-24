@@ -86,7 +86,7 @@ void testFrameSets() {
           left.flipX == 1);
     const FrameSet &angry = def.frameSets[2];
     CHECK(angry.restartDelay == -1 && angry.next == -1 && angry.sound == 20777 && angry.replayDelay == 70000 &&
-          angry.unnamed == 2);
+          angry.soundCategory == 2);
 }
 
 void testNoFrames() {

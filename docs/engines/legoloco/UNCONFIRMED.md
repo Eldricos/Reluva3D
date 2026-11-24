@@ -7,7 +7,11 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
 
 ## Read from the code, not seen running
 
-None yet.
+- **A frame set's delay counts the game's 28 ms timer ticks, and its
+  restart delay seconds:** the viewer plays frame sets so. It rests on
+  the timer, the main loop and the stepper (`0x405c40`); timing an
+  animation in the original would settle it
+  ([systems/drawing.md](systems/drawing.md#animation)).
 
 ## Seen running, not traced in the code
 
@@ -23,9 +27,6 @@ None yet.
 
 ## Guessed
 
-- **A frame set's delay counts the game's 28 ms timer ticks:** the
-  viewer plays frame sets at that speed. Timing an animation in the
-  original would settle it ([systems/drawing.md](systems/drawing.md)).
 - **A board naming no backdrop has `backdrop.bmp`:** the viewer draws it
   so ([systems/data-viewer.md](systems/data-viewer.md)).
 

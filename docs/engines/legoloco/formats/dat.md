@@ -108,19 +108,44 @@ start frame, end frame, animation delay, split frames? 1 = TRUE, 0 =
 FALSE" and "restart delay, next frame Set, sound, replay delay, flip X?
 1 = TRUE, 0 = FALSE"), which leave the ninth number out:
 
-| # | Read as | Field |
-|---|---|---|
-| | word | name (`default`, `walk-left`, `angry`...) |
-| 1 | 16-bit | start frame |
-| 2 | 16-bit | end frame: below the start, the frames run backwards *(inferred)* |
-| 3 | 16-bit | delay between frames; 0 is made 1 |
-| 4 | byte | split frames |
-| 5 | 32-bit | restart delay |
-| 6 | signed 16-bit | next frame set, or -1 |
-| 7 | signed 16-bit | sound: a resource number *(guessed)* |
-| 8 | 32-bit | replay delay |
-| 9 | 16-bit | unnamed |
-| 10 | byte | flip X: the frames drawn mirrored *(guessed)* |
+| # | Read as | Kept at | Field |
+|---|---|---|---|
+| | word | | name (`default`, `walk-left`, `angry`...) |
+| 1 | 16-bit | `+0x00` | start frame |
+| 2 | 16-bit | `+0x02` | end frame: at or below the start, the frames run backwards |
+| 3 | 16-bit | `+0x04` | delay: ticks of 28 ms a frame; 0 is made 1 |
+| 4 | byte | `+0x17` | split frames: the frames go two at a time, even ones only |
+| 5 | 32-bit | `+0x08` | restart delay: seconds the last frame is held before the next set |
+| 6 | signed 16-bit | `+0x0c` | next frame set, or -1 |
+| 7 | signed 16-bit | `+0x0e` | sound, played as the set starts: a resource number, 0 for none |
+| 8 | 32-bit | `+0x10` | replay delay: the sound again after a while, in seconds (below) |
+| 9 | 16-bit | `+0x14` | the sound's category: which of four volumes it plays at |
+| 10 | byte | `+0x16` | flip X: the frames drawn mirrored *(guessed)* |
+
+How the game plays them, from its code:
+
+- **Stepping** (`0x405c40`), once a tick of its 28 ms timer
+  ([drawing.md](../systems/drawing.md#animation)): a counter goes up one
+  (two with split frames), and the frame is the start plus the counter
+  over the delay, or the start less it when the end is at or below the
+  start; with split frames, rounded down to even. A set of one frame, or
+  at its end, with no next set, stays.
+- **At the end:** past its end frame the set holds the end, and the game
+  notes the C runtime's `time()`, in seconds, plus the restart delay;
+  once that's passed it starts the next set (`0x405d9c`, `0x405db2`).
+- **Its sound** (`0x405ab0`), as a set starts: the sound of that number,
+  played at the object's place. With no replay delay it's played once,
+  so (the last argument 1); with one above 0, again after a random 1 to
+  that many seconds, and so on; below 0, after `rand() % (2 − r) + r`
+  seconds, a second or so (348 sets have -1).
+- **The category** is kept on the voice playing it (`0x40f070`), where
+  it picks one of four volumes the sound player keeps (`+0x28` to
+  `+0x34`), and where a new sound looks for a voice to take over it's
+  compared (`0x413447`). The CD's sets use 1 (scenery, animals, 109
+  sets), 2 (people, aeroplanes, the zooms, 257), 3 (the pointers, the
+  crashes, 14) and 4 (the Toybox's buttons and the loading screen, 25):
+  ambient sounds, voices, effects and the interface's *(inferred, from
+  which use them)*; 0 in the rest, taken as 3's volume (`0x40f10d`).
 
 A frame set of one frame whose next set is itself is given -1 instead
 (`0x425315`). The game also checks that the frames and the next set are
@@ -156,7 +181,9 @@ angry       28 31  3 0    1 5     0 0 0    0
 
 - **Where the facts come from:** the keywords and their order from the
   CD's 627 files; how each value is read, and the corrections, from
-  `loco.exe`'s readers at the addresses given. The fields' names are the
+  `loco.exe`'s readers at the addresses given; what a frame set's fields
+  do from the code that steps an animation (`0x405c40`) and starts its
+  sound (`0x405ab0`), and the values' spread over the CD's 1,595 sets. The fields' names are the
   files' own comments'.
 - **How it was checked:** `reluva-tool legoloco dat` reads all 627
   without a failure; in all 551 with frame sets the table has the number
@@ -166,6 +193,5 @@ angry       28 31  3 0    1 5     0 0 0    0
 
 ## Open questions
 
-- What the unnamed ninth number of a frame set does, and what most
-  placement keywords mean in play.
+- What most placement keywords mean in play.
 - What the game does with a frame set out of range.

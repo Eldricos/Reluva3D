@@ -122,7 +122,8 @@ Error readFrameSet(Reader &r, FrameSet &out) {
         (err = r.number("a frame set's restart delay", out.restartDelay)) ||
         (err = r.number("a frame set's next set", out.next)) || (err = r.number("a frame set's sound", out.sound)) ||
         (err = r.number("a frame set's replay delay", out.replayDelay)) ||
-        (err = r.number("a frame set's tenth field", out.unnamed)) || (err = r.number("a frame set's flip", out.flipX)))
+        (err = r.number("a frame set's sound category", out.soundCategory)) ||
+        (err = r.number("a frame set's flip", out.flipX)))
         return err;
     if (out.delay == 0)
         out.delay = 1;

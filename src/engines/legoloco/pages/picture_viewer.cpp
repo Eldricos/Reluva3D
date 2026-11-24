@@ -11,9 +11,8 @@ namespace reluva::legoloco {
 
 namespace {
 
-// How long a frame-set delay of 1 lasts: one tick of the game's timer,
-// which it sets to 28 ms (0x406e54). That a delay counts these ticks is a
-// guess.
+// The game's tick, its timer's period (0x406e54): it steps every
+// animation once a tick, and a frame set's delay counts them (0x405c40).
 constexpr uint64_t kTickMs = 28;
 
 void drawBackground(Surface &s, int bottom) {
@@ -59,10 +58,17 @@ void PicturePage::startSet(size_t set) {
     _set = set;
     const auto &sets = _picture.definition.frameSets;
     _frame = set < sets.size() ? sets[set].start : 0;
-    _nextStepMs = _sys.getMillis() + (set < sets.size() ? sets[set].delay : 1) * kTickMs;
+    _ticks = 0;
+    _holdUntilMs = 0;
+    _nextStepMs = _sys.getMillis() + kTickMs;
 }
 
-// The next frame of the set; at its end, the set it names next, or a stop.
+// A tick of the set, as the game's stepper (0x405c40) takes it: its
+// counter goes up one (two for split frames), and the frame is the start
+// and the counter over the delay, toward the end (split frames even).
+// Past the end it holds the end for the restart delay, in seconds, then
+// starts the next set; one of one frame, or at its end with no next set,
+// stays.
 void PicturePage::step() {
     const auto &sets = _picture.definition.frameSets;
     if (_set >= sets.size()) {
@@ -70,15 +76,32 @@ void PicturePage::step() {
         return;
     }
     const FrameSet &s = sets[_set];
-    if (_frame != s.end) {
-        _frame += s.end > s.start ? 1 : -1;
-        _nextStepMs += s.delay * kTickMs;
+    _nextStepMs += kTickMs;
+    if ((s.start == s.end || _frame == s.end) && s.next < 0) {
+        _playing = false;
         return;
     }
-    if (s.next >= 0 && size_t(s.next) < sets.size())
-        startSet(size_t(s.next));
-    else
-        _playing = false;
+    if (_holdUntilMs) {
+        if (_nextStepMs < _holdUntilMs)
+            return;
+        if (s.next >= 0 && size_t(s.next) < sets.size())
+            startSet(size_t(s.next));
+        else
+            _playing = false;
+        return;
+    }
+    _ticks += s.split ? 2 : 1;
+    const bool forward = s.start < s.end;
+    const int moved = _ticks / std::max<int>(s.delay, 1);
+    int frame = forward ? s.start + moved : s.start - moved + (s.split ? 1 : 0);
+    if (s.split)
+        frame &= ~1;
+    if (forward ? frame > s.end : frame < s.end) {
+        _frame = s.end;
+        _holdUntilMs = _nextStepMs + uint64_t(std::max(s.restartDelay, 0)) * 1000;
+        return;
+    }
+    _frame = frame;
 }
 
 void PicturePage::update(uint64_t nowMs) {

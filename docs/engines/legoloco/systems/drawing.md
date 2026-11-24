@@ -25,14 +25,30 @@ The pieces bear this out: in 219 of the 220 definitions with a
 The milk float's definition (`vehicles\milkflot.dat`) says 20 frames
 where its picture has 16 drawings 24 pixels apart, as the other four
 vehicles' say 16: cut by the rule, its frames are 19 pixels wide and fall
-across the drawings. Whether the game shows it so isn't known.
+across the drawings. Its frame sets are those of a vehicle of eight
+directions (`W` to `NW`, frames 0 to 7), where the other vehicles' have
+sixteen over sixteen drawings, and its zoom picture is named as the
+van's (resource 8199, `zooms\vehicles\van`): an unfinished vehicle
+*(inferred)*. The game reads its name with the others' at its start;
+it wasn't seen on a board, so how it would look isn't known.
 
 ### Colours
 
 Each picture has its own palette: the CD's 1,511 pictures have 1,268
 different ones. Colour 0 is transparent: it's magenta (255, 0, 255) in
-1,471 of them *(inferred)*. How the game brings the palettes to its
-8-bit screen isn't known yet.
+1,471 of them *(inferred)*.
+
+The game draws at the desktop's colour depth, 16 bits
+([running.md](running.md)), so the palettes are never put together:
+loading an 8-bit picture (`0x42af30`), it makes the picture a table of
+its 256 colours in the screen's own pixels, each colour cut to the
+screen's 5-6-5 or 5-5-5 (red and green shifted into place and masked,
+blue shifted down 3; the shifts set when it found the screen's format,
+`0x45b6a1`), and draws by looking the pixels up in it. Magenta becomes
+the screen's magenta, which surfaces are colour-keyed with, so colour 0
+shows what's below *(from the code)*. Some pictures share one table,
+the first made of those asked for so (`0x48524c`) *(from the code; which
+they are isn't known)*.
 
 ### Squares and placing
 
@@ -47,23 +63,35 @@ track meets track, and buildings sit on their plots.
 ### Animation
 
 A frame set runs from its start frame to its end, backwards if the end
-is lower ([dat.md](../formats/dat.md#the-frame-set-table)), each frame
-shown for its delay. The game's clock is a multimedia timer every 28 ms
-(`timeSetEvent` at `0x406e54`, at 14 ms resolution, as seen running);
-that a delay counts these ticks is *(guessed)*.
+is lower, each frame shown for its delay, then holds its end for its
+restart delay before the next set
+([dat.md](../formats/dat.md#the-frame-set-table)). The game's clock is a
+multimedia timer every 28 ms (`timeSetEvent` at `0x406e54`, at 14 ms
+resolution, as seen running), which only raises a flag (`0x45c520`);
+the main loop, finding it raised, runs one tick of the game
+(`0x45c3c0`), whose updates step each animation once (`0x405c40`), so a
+delay counts these ticks *(from the code)*. The restart delay counts
+seconds, by the C runtime's `time()`.
 
 ## In Reluva
 
 The data viewer draws pictures this way
 ([data-viewer.md](data-viewer.md)): `drawFrame` in
 `src/engines/legoloco/pages/draw.cpp` cuts frames by `frameWidth`
-(`src/engines/legoloco/formats/object_definition.h`), and the boards
-page places pieces as above. The game itself isn't drawn yet.
+(`src/engines/legoloco/formats/object_definition.h`), the boards page
+places pieces as above, and the pictures page plays frame sets as the
+game steps them, a tick of 28 ms at a time, split frames and the
+restart delay too. Its colours are the pictures' own, not cut to 16
+bits. The game itself draws in its own code, run in the emulator
+([running.md](running.md)).
 
 ## Sources and checks
 
 - **Where the facts come from:** the frame rule from the three places in
   `loco.exe` that divide a picture's width by its frame count; the
+  colours from its picture loader and its look at the screen's format;
+  the animation from its timer, its main loop and the stepper, at the
+  addresses given; the
   square's size and the placing from the CD's data: the pieces' grids
   against their pictures, and the boards drawn.
 - **How it was checked:** the CD's boards drawn by the viewer, each
@@ -72,6 +100,6 @@ page places pieces as above. The game itself isn't drawn yet.
 
 ## Open questions
 
-- How the milk float is drawn, given its definition's frame count.
-- How the game maps each picture's palette to the screen's.
-- Whether a frame set's delay counts the 28 ms ticks.
+- How the milk float would look on a board, if the game ever puts one
+  there.
+- Which pictures share one colour table.

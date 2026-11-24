@@ -118,7 +118,9 @@ private:
     size_t _set = 0;
     int _frame = 0;
     bool _playing = false;
-    uint64_t _nextStepMs = 0;
+    uint64_t _nextStepMs = 0;  // the next tick
+    int _ticks = 0;            // the set's counter, as the game keeps it
+    uint64_t _holdUntilMs = 0; // at the set's end: when the next set starts, 0 if not held
     bool _whole = false;
     int _zoom = 0; // 0: fitted to the screen
     bool _transparent = true;
