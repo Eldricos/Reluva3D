@@ -62,6 +62,11 @@ is in degrees a second (the angles go through `0x431fbd`, whose
 quarters are 90, 180 and 270), so the shield turns 60 degrees a second
 about each axis. Turning a thing also turns what is attached to it
 (`0x4e768b` to `0x4e76e8`), so the shield turns with the player too.
+Seen running: the shield around a standing Kyle turned about the axis
+(1, 1, 1) at about 104.5 degrees a second, read from its orientation in
+memory at 44, 46, 48 and 50 seconds, +209 degrees each time; turning 60
+degrees a second about each of the three axes together is 60 × √3 =
+103.9 degrees a second about that axis *(confirmed)*.
 Its own velocity doesn't move it, by the attach flag `0x8`
 (`0x4cc4cc`).
 
@@ -123,11 +128,14 @@ reads them all.
   `+force_shield`) or has `type=particle`, with their fields. Readers
   of INSERT OFFSET were searched for in the cloud code (`0x46c000` to
   `0x46ca20`) and at every load of the object a thing draws; no call to
-  or pointer at the writer was found. The shield's turning isn't seen
-  running.
+  or pointer at the writer was found. The shield's turning was seen
+  running: Kyle in the first level given the light side's powers and
+  mana by the game's own cheats (`imayoda`, `yodajammies`), Force
+  Protection started with `activate 29` (`0x4eeb90`, its item number in
+  `items.dat`), and the shield thing's orientation read with
+  `reluva-tool sith host -peek`.
 
 ## Open questions
 
 - What INSERT OFFSET meant to the tool that wrote the files: the game
-  never reads it. A recording of Force Protection would confirm the
-  shield's turning.
+  never reads it.

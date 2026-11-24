@@ -449,13 +449,17 @@ int cmdHost(int argc, char **argv) {
     double nextSaved = 0;
     if (framesEvery > 0)
         std::filesystem::create_directories(framesFolder);
-    // With -frames, one frame each so many seconds, named by the second.
+    // With -frames, one frame each so many seconds, named by the second,
+    // or by the millisecond (00012-250.png) when they're closer together.
     directX.presented = [&](const x86::DirectX::Frame &f) {
         ++frames;
         const double now = elapsed();
         if (framesEvery > 0 && now >= nextSaved && f.width > 0) {
             char name[32];
-            std::snprintf(name, sizeof name, "%05d.png", int(now));
+            if (framesEvery >= 1)
+                std::snprintf(name, sizeof name, "%05d.png", int(now));
+            else
+                std::snprintf(name, sizeof name, "%05d-%03d.png", int(now), int(now * 1000) % 1000);
             savePng(framesFolder / name, f);
             nextSaved = now + framesEvery;
         }

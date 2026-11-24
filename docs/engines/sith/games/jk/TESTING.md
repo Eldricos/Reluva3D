@@ -94,6 +94,7 @@ That the US release's signatures match a real install: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | Force Protection: in the first level, `imayoda` and `yodajammies` typed, then `activate 29`; the shield's points around Kyle in third person, and its orientation read at 44, 46, 48 and 50 seconds: turning about (1, 1, 1) at about 104.5 degrees a second, as 60 a second about each axis gives |
 | November 2026 | US retail | Linux | A death watched: Kyle `warp`ed into the first level's gunfire and killed; `-peek` read his puppet's tracks, his death held at its last frame (86) at full weight from 65 to 75 seconds, and his 17 nodes' matrices, each the death's last frame though another track played at full weight below it |
 | November 2026 | US retail | Linux | The game's software drawing against the viewer's: Nar Shaddaa's first frame from the player's start, the same view with the game's 90 degrees, colours within 2 of 255; under the water in Baron's Hed (`warp` typed), the tinted palette the formula's to the pixel; a full subtitle the same to the pixel; the HUD's gauge and pieces rebuilt from the files through the level's palette, the same but for its numbers |
 | November 2026 | US retail | Linux | The game-files test: its five steps made from an install with both CDs' copies beside it and run again, also two at a time, as recorded. An install imported from the CDs' images, their music copied with them (7 and 11 tracks), passes `release`, `formats` and `start` |
