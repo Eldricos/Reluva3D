@@ -32,8 +32,10 @@ public:
      * Adds a quad with the texture `texture`; points as the files give them
      * (x, height, y). `pictureCorners`: the corner each vertex takes, 0
      * bottom left, 1 bottom right, 2 top right, 3 top left (col.h).
+     * `greys`: each vertex's colour, a grey, 255 for white.
      */
-    void add(int texture, const std::array<Point, 4> &corners, const std::array<uint8_t, 4> &pictureCorners) {
+    void add(int texture, const std::array<Point, 4> &corners, const std::array<uint8_t, 4> &pictureCorners,
+             const std::array<uint8_t, 4> &greys = {255, 255, 255, 255}) {
         const auto base = static_cast<uint32_t>(_vertices.size());
         const Point &a = corners[0];
         const Point &b = corners[1];
@@ -54,7 +56,8 @@ public:
             }
             v.uv[0] = kUv[pictureCorners[size_t(k)] & 3][0];
             v.uv[1] = kUv[pictureCorners[size_t(k)] & 3][1];
-            v.color[0] = v.color[1] = v.color[2] = v.color[3] = 255;
+            v.color[0] = v.color[1] = v.color[2] = greys[size_t(k)];
+            v.color[3] = 255;
             _vertices.push_back(v);
         }
         auto &indices = _byTexture[texture];

@@ -21,6 +21,8 @@ namespace {
 // QuadMesh's texture numbers from here on are animated textures': this
 // plus their place in the .col's table.
 constexpr int kAnimated = 1 << 20;
+// And painted lines': this plus the number of their lin picture.
+constexpr int kLine = 1 << 21;
 
 constexpr int kFrameW = 640;
 constexpr int kFrameH = 480;
@@ -35,9 +37,41 @@ const FileRef *beside(const std::vector<FileRef> &all, const FileRef &ref, const
     return nullptr;
 }
 
+// Where a painted line's stripes lie across its quad, 0 at the record's
+// vertex and 1 at the vertex moved across the road (the right), and along
+// it, 0 at this record and 1 at the next; by type, 5 to 9 as 0 to 4
+// (0x448a24). The 5/16 inset is the drawers' (0x449ff0); the double and
+// mixed lines' stripes along the edges *(inferred)*.
+struct Stripe {
+    float from;
+    float to;
+    float start;
+    bool second; // the second picture (0x4c4134)
+};
+const std::vector<Stripe> &stripes(int kind) {
+    static const std::vector<Stripe> kStripes[5] = {
+        {{5 / 16.0f, 11 / 16.0f, 0, false}},
+        {{5 / 16.0f, 11 / 16.0f, 0.5f, false}},
+        {{0, 5 / 16.0f, 0, false}, {11 / 16.0f, 1, 0, true}},
+        {{11 / 16.0f, 1, 0, false}, {0, 5 / 16.0f, 0.5f, true}},
+        {{11 / 16.0f, 1, 0.5f, false}, {0, 5 / 16.0f, 0, true}},
+    };
+    return kStripes[kind];
+}
+
+// About the distance, as the game reckons it for its placed sounds
+// (0x42df30): the largest of each pair plus a quarter of the other.
+float roughDistance(float dx, float dy, float dz) {
+    const float ax = std::abs(dx);
+    const float az = std::abs(dz);
+    const float across = std::max(ax, az) + std::min(ax, az) / 4;
+    const float ay = std::abs(dy);
+    return std::max(across, ay) + std::min(across, ay) / 4;
+}
+
 } // namespace
 
-TrackPage::TrackPage(const GameFiles &files) : _files(files) {
+TrackPage::TrackPage(const GameFiles &files, audio::Mixer *mixer) : _files(files), _mixer(mixer) {
     // The tracks the game races on, not TmpTrk's stand-in.
     for (const FileRef &f : files.withExtensions({".trk"}))
         if (fs::toLower(f.name).find("tracks/se/") != std::string::npos)
@@ -71,6 +105,7 @@ void TrackPage::activate(System &sys) {
 
 void TrackPage::deactivate() {
     release();
+    stopSounds();
     _renderer = nullptr;
 }
 
@@ -78,12 +113,14 @@ void TrackPage::release() {
     if (_renderer) {
         if (_mesh)
             _renderer->destroyMesh(_mesh);
-        for (gfx::TextureId t : _textures)
-            if (t)
-                _renderer->destroyTexture(t);
+        for (const auto *list : {&_textures, &_lines})
+            for (gfx::TextureId t : *list)
+                if (t)
+                    _renderer->destroyTexture(t);
     }
     _mesh = 0;
     _textures.clear();
+    _lines.clear();
     _runs.clear();
 }
 
@@ -129,6 +166,24 @@ void TrackPage::load(int index) {
                 _textures.push_back(id);
             }
     }
+    // The painted lines' pictures, lin0 to lin7, by their number.
+    for (const FileRef &f : _files.withExtensions({".fsh"})) {
+        if (fs::toLower(f.name).find("render/pc/dtexture.fsh") == std::string::npos)
+            continue;
+        ShapeBank bank;
+        if (_files.read(f, data) || parseShapeBank(std::move(data), bank))
+            break;
+        _lines.assign(8, 0);
+        for (const Shape &s : bank.shapes) {
+            image::Image img;
+            if (s.name.size() == 4 && s.name.compare(0, 3, "lin") == 0 && s.name[3] >= '0' && s.name[3] <= '7' &&
+                !decodeShape(s, img))
+                _renderer->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(),
+                                         _lines[size_t(s.name[3] - '0')]);
+        }
+        break;
+    }
+    loadSounds(fs::toLower(stem));
     if (const FileRef *hrz = beside(_files.files(), ref, "3" + stem + ".hrz"))
         if (!_files.read(*hrz, data))
             _hasSky = !parseSky(std::string(data.begin(), data.end()), _sky);
@@ -157,7 +212,13 @@ void TrackPage::build() {
                     corners[size_t(k)][size_t(c)] = vertices[q.vertices[size_t(k)]][size_t(c)] + at[size_t(c)];
             const uint8_t orientation =
                 q.texture < _collision.textures.size() ? _collision.textures[q.texture].orientation : 0;
-            quads.add(picture(q.texture), corners, pictureCorners(orientation));
+            const int texture = picture(q.texture);
+            // The 3dfx program's greys; an animated picture's all 7's (0x4468d7).
+            std::array<uint8_t, 4> greys{255, 255, 255, 255};
+            if (_shaded)
+                for (int k = 0; k < 4; ++k)
+                    greys[size_t(k)] = texture >= kAnimated ? cornerGrey(Quad{0, 0xffff, {}}, 0) : cornerGrey(q, k);
+            quads.add(texture, corners, pictureCorners(orientation), greys);
         }
     };
     auto place = [&](const std::vector<Mesh> &meshes, const std::vector<Placement> &placements) {
@@ -176,10 +237,165 @@ void TrackPage::build() {
     }
     if (_objects)
         place(_collision.meshes, _collision.placements);
+    if (_painted)
+        addLines(quads);
     _quads = quads.quads();
     if (_renderer)
         if (Error err = quads.build(*_renderer, _mesh, _runs))
             _error = err.message;
+}
+
+// The painted lines (extrablock 9; trk.md): a quad from each record to
+// the next, from its vertex to that moved by the road point's across
+// vector, each end pushed out along the road by half its forward vector
+// (0x4353fc); the stripes as its type draws them close up. Lifted 2 cm
+// off the road, where the game draws them after it.
+void TrackPage::addLines(QuadMesh &quads) const {
+    const auto &road = _collision.road;
+    std::vector<int> first(_track.blocks.size(), -1);
+    for (size_t i = 0; i < road.size(); ++i)
+        if (road[i].block < first.size() && first[road[i].block] < 0)
+            first[road[i].block] = static_cast<int>(i);
+    // Their pictures' numbers: by the colour and the vertex's place
+    // (0x4c412c), the second stripe's two on from the first's.
+    constexpr int kPictures[10] = {2, 3, 4, 5, 6, 7, 4, 5, 2, 3};
+    for (size_t b = 0; b < _track.blocks.size(); ++b) {
+        const TrackBlock &block = _track.blocks[b];
+        if (first[b] < 0)
+            continue;
+        struct End {
+            Point left, right;
+        };
+        auto end = [&](const RoadLine &l, float push, End &out) {
+            const size_t at = size_t(first[b]) + l.roadPoint;
+            if (at >= road.size() || l.vertex >= block.vertices.size())
+                return false;
+            const Collision::RoadPoint &r = road[at];
+            for (int c = 0; c < 3; ++c) {
+                const float base = block.vertices[l.vertex][size_t(c)] + push * r.forward[size_t(c)] / 512.0f +
+                                   0.02f * r.up[size_t(c)] / 127.0f;
+                out.left[size_t(c)] = base;
+                out.right[size_t(c)] = base + r.across[size_t(c)] / 256.0f;
+            }
+            return true;
+        };
+        const auto &lines = block.roadLines;
+        for (size_t i = 0; i + 1 < lines.size(); ++i) {
+            const RoadLine &line = lines[i];
+            End from;
+            End to;
+            if (line.type > 9 || !end(line, -1, from) || !end(lines[i + 1], 1, to))
+                continue;
+            const int colour = line.type > 4 ? 1 : 0;
+            const int z = static_cast<int>(std::floor(block.vertices[line.vertex][2] * 256));
+            const int picture = kPictures[(z & 6) | colour];
+            auto at = [&](float across, float along) {
+                Point p;
+                for (int c = 0; c < 3; ++c) {
+                    const float a = from.left[size_t(c)] + (from.right[size_t(c)] - from.left[size_t(c)]) * across;
+                    const float e = to.left[size_t(c)] + (to.right[size_t(c)] - to.left[size_t(c)]) * across;
+                    p[size_t(c)] = a + (e - a) * along;
+                }
+                return p;
+            };
+            for (const Stripe &s : stripes(line.type % 5))
+                quads.add(kLine + (s.second ? kPictures[picture + 2] : picture),
+                          {at(s.from, s.start), at(s.to, s.start), at(s.to, 1), at(s.from, 1)}, {0, 1, 2, 3});
+        }
+    }
+}
+
+// The track's own bank of placed sounds: TRAMBnn.BNK for trNN.
+void TrackPage::loadSounds(const std::string &stem) {
+    stopSounds();
+    _soundData.clear();
+    _soundBank = {};
+    _sounds.clear();
+    if (!_mixer || stem.size() < 4)
+        return;
+    const std::string name = "audio/sfx/pc/tramb" + stem.substr(2) + ".bnk";
+    for (const FileRef &f : _files.withExtensions({".bnk"})) {
+        if (fs::toLower(f.name).find(name) == std::string::npos)
+            continue;
+        if (_files.read(f, _soundData) || parseSoundBank(_soundData, _soundBank)) {
+            _soundData.clear();
+            _soundBank = {};
+        }
+        break;
+    }
+}
+
+void TrackPage::stopSounds() {
+    if (_mixer && _loop != audio::kNoSound)
+        _mixer->stop(_loop);
+    _loop = audio::kNoSound;
+    _loopSound = -1;
+}
+
+// The placed sounds as the game plays them (0x434030): the volume 2^18 /
+// the distance squared, at most 127; the pan by how far to the side. One
+// loop at a time, on its own voice, the game's the first it comes to, this
+// page's the nearest; a one-shot when the program's frame count, in
+// eighths of 64, comes round to a number picked at random 0 to 7, picked
+// again after it plays. The count steps 30 times a second here.
+void TrackPage::updateSounds(const gfx::Vec3 &eye, const gfx::Vec3 &right) {
+    if (!_mixer || _soundData.empty())
+        return;
+    auto decoded = [&](int slot) -> std::shared_ptr<audio::Sound> {
+        if (slot < 0 || slot >= static_cast<int>(_soundBank.slots.size()) || !_soundBank.slots[size_t(slot)])
+            return nullptr;
+        auto &sound = _sounds[slot];
+        if (!sound) {
+            sound = std::make_shared<audio::Sound>();
+            if (decodeBankSound(_soundData, *_soundBank.slots[size_t(slot)], *sound))
+                sound = std::make_shared<audio::Sound>();
+        }
+        return sound->samples.empty() ? nullptr : sound;
+    };
+    const bool oneShotDue = ((_soundFrame & 63) >> 3) == static_cast<uint32_t>(_oneShotPhase);
+    bool oneShotPlayed = false;
+    int loop = -1;
+    float loopDistance = 0;
+    int loopVolume = 0;
+    int loopPan = 0;
+    for (const TrackBlock &b : _track.blocks)
+        for (const AmbientSound &s : b.sounds) {
+            const float dx = s.position[0] - eye[0];
+            const float dy = s.position[1] - eye[1];
+            const float dz = s.position[2] - eye[2];
+            const float d = roughDistance(dx, dy, dz);
+            const int volume = d > 0 ? static_cast<int>(std::min(127.0f, 262144.0f / (d * d))) : 127;
+            if (volume < 1)
+                continue;
+            const float side = d > 0 ? std::clamp((dx * right[0] + dz * right[2]) / d, -1.0f, 1.0f) : 0;
+            const int pan = static_cast<int>(side * audio::kMaxPan);
+            if (s.random == 1) {
+                if (oneShotDue && !oneShotPlayed)
+                    if (auto sound = decoded(s.sound)) {
+                        _mixer->play(sound, audio::SoundType::kEffects, volume * audio::kMaxVolume / 127, pan, false);
+                        oneShotPlayed = true;
+                    }
+            } else if (loop < 0 || d < loopDistance) {
+                loop = s.sound;
+                loopDistance = d;
+                loopVolume = volume * audio::kMaxVolume / 127;
+                loopPan = pan;
+            }
+        }
+    if (oneShotPlayed) {
+        _soundRandom = _soundRandom * 1103515245u + 12345u;
+        _oneShotPhase = static_cast<int>(_soundRandom >> 16 & 7);
+    }
+    if (loop != _loopSound) {
+        stopSounds();
+        if (auto sound = decoded(loop)) {
+            _loop = _mixer->play(sound, audio::SoundType::kEffects, loopVolume, loopPan, true);
+            _loopSound = loop;
+        }
+    } else if (_loop != audio::kNoSound) {
+        _mixer->setVolume(_loop, loopVolume);
+        _mixer->setPan(_loop, loopPan);
+    }
 }
 
 void TrackPage::handleKey(uint32_t key, uint16_t mods) {
@@ -225,6 +441,14 @@ void TrackPage::handleKey(uint32_t key, uint16_t mods) {
     case 'v':
         _above = !_above;
         break;
+    case 's':
+        _shaded = !_shaded;
+        build();
+        break;
+    case 'l':
+        _painted = !_painted;
+        build();
+        break;
     default:
         break;
     }
@@ -265,6 +489,15 @@ void TrackPage::update(uint64_t nowMs) {
     const Color clear =
         _hasSky ? Color{uint8_t(_sky.skyBaseSun[0]), uint8_t(_sky.skyBaseSun[1]), uint8_t(_sky.skyBaseSun[2])}
                 : Color{70, 74, 82};
+    // To the right of the way the camera looks, as the road's across vector
+    // is of its forward one.
+    const float flat = std::sqrt(ahead[0] * ahead[0] + ahead[2] * ahead[2]);
+    const gfx::Vec3 right = flat > 0 ? gfx::Vec3{ahead[2] / flat, 0, -ahead[0] / flat} : gfx::Vec3{1, 0, 0};
+    const auto frame = static_cast<uint32_t>(nowMs * 30 / 1000);
+    if (frame != _soundFrame) {
+        _soundFrame = frame;
+        updateSounds(eye, right);
+    }
     _renderer->beginFrame(viewProj, eye, clear);
     if (_mesh) {
         gfx::DrawCall call;
@@ -277,6 +510,16 @@ void TrackPage::update(uint64_t nowMs) {
             int picture = r.texture;
             // The game's: a picture of the animation each `ticksPerFrame`
             // of its 64 ticks a second (col.md, Textures).
+            if (picture >= kLine) {
+                const size_t k = size_t(picture - kLine);
+                call.texture = _textured && k < _lines.size() ? _lines[k] : 0;
+                call.rgbSource = gfx::ColorSource::kConstant;
+                call.color = {1, 1, 1, 1};
+                call.firstIndex = r.firstIndex;
+                call.indexCount = r.indexCount;
+                _renderer->draw(call);
+                continue;
+            }
             if (picture >= kAnimated) {
                 const Collision::Texture &t = _collision.textures[size_t(picture - kAnimated)];
                 picture = t.picture + int(nowMs * 64 / 1000 / std::max<uint8_t>(t.ticksPerFrame, 1) % t.frames);
@@ -285,6 +528,7 @@ void TrackPage::update(uint64_t nowMs) {
             call.texture = _textured && known ? _textures[size_t(picture)] : 0;
             call.color =
                 _textured && known ? std::array<float, 4>{1, 1, 1, 1} : std::array<float, 4>{0.6f, 0.6f, 0.6f, 1};
+            call.rgbSource = _shaded ? gfx::ColorSource::kVertex : gfx::ColorSource::kConstant;
             call.firstIndex = r.firstIndex;
             call.indexCount = r.indexCount;
             _renderer->draw(call);
@@ -299,7 +543,8 @@ void TrackPage::update(uint64_t nowMs) {
                         : std::to_string(_track.blocks.size()) + " blocks, " + kLevelNames[_level] + " detail, " +
                               std::to_string(_quads) + " polygons" + (_objects ? " with objects" : "") +
                               "  road point " + std::to_string(_point) + "/" + std::to_string(_collision.road.size()));
-    lines.push_back("PgUp/PgDn: track  Up/Down: road  Left/Right: look  1-3: level  T: textures  O: objects  V: above");
+    lines.push_back("PgUp/PgDn: track  Up/Down: road  Left/Right: look  1-3: level  T: textures  O: objects  V: above"
+                    "  S: shades  L: lines");
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y =
             i + 1 == lines.size() ? kFrameH - font::kLineHeight - 4 : 4 + static_cast<int>(i) * font::kLineHeight;

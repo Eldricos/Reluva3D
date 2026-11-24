@@ -21,13 +21,21 @@ using Point = std::array<float, 3>;
 struct Quad {
     uint16_t texture = 0; // into the .col's texture table (col.h)
     // Four 3-bit values above the low 4 bits, one for each of vertices 1,
-    // 0, 3 and 2 from the low end: the same for a vertex in nearly every
-    // quad that has it, 7 the most (0xFFFF), a shade by corner
-    // *(guessed)*. The low 4 bits are 0xF, 1 or 2 (2 with all four the
-    // same), not worked out.
+    // 0, 3 and 2 from the low end: light baked by corner, 7 the most, which
+    // the 3dfx program draws as greys (cornerGrey). The low 4 bits are
+    // 0xF, 1 or 2, read by neither program.
     uint16_t shades = 0;
     std::array<uint8_t, 4> vertices{};
 };
+
+/**
+ * The grey the 3dfx program draws a quad's vertex `k` (0-3) in, its texture
+ * times it: 24 × its shade + 50, 50 to 218 (NFS2SEA.EXE 0x429cea).
+ */
+inline uint8_t cornerGrey(const Quad &quad, int k) {
+    constexpr int kShift[4] = {7, 4, 13, 10}; // vertices 0-3's shades
+    return static_cast<uint8_t>(24 * ((quad.shades >> kShift[k]) & 7) + 50);
+}
 
 /** One of the objects' meshes (extrablock 8, in a block or the .col): its vertices relative to where it's placed. */
 struct Mesh {
@@ -135,7 +143,7 @@ struct TrackBlock {
 struct Track {
     // After TRAC: 22 in all; then the largest superblock's size, the
     // largest block's, the most a block's neighbourhood (extrablock 4)
-    // sums to, and a fourth not worked out. The program doesn't use them.
+    // sums to, and a fourth not worked out. Neither program uses them.
     std::array<uint32_t, 5> header{};
     std::vector<TrackBlock> blocks;
     std::vector<uint16_t> superblockOf; // each block's superblock (8 blocks to one)

@@ -194,8 +194,15 @@ virtual road ([col.md](col.md)). Each quad has its picture laid across
 it whole, turned as its texture's record says ([col.md](col.md),
 Textures); unturned, its vertices take the picture's top left, top
 right, bottom right and bottom left. The signs' lettering reads as in the
-hosted game. Both faces are drawn, the background is the 3dfx sky's
-colour toward the sun, and there's no fog or lighting.
+hosted game. Both faces are drawn. The quads take the 3dfx program's
+greys from their shades (S turns them off). The painted lines are drawn
+at every level, where the game draws them at the high one only, each
+type's stripes as the program draws them close up, 2 cm above the road where the game
+draws them after it (L turns them off); their far-off single quads
+aren't. The placed sounds play from the track's `TRAMBnn.BNK` as the
+game plays them, by the camera's place: the volume and pan by its
+rule, the nearest loop where the game takes the first it comes to, and
+the frame count the one-shots wait on stepping 30 times a second.
 
 ## Sources and checks
 

@@ -678,7 +678,7 @@ std::vector<std::unique_ptr<Page>> makePages(const GameInfo &game, const GameFol
             play->setKeysLine("Keys and mouse go to the game   Tab: next page   Ctrl+F5: back");
             pages.push_back(std::move(play));
         }
-        pages.push_back(std::make_unique<nfs2se::TrackPage>(files));
+        pages.push_back(std::make_unique<nfs2se::TrackPage>(files, mixer));
         pages.push_back(std::make_unique<nfs2se::CarPage>(files));
         break;
     }
