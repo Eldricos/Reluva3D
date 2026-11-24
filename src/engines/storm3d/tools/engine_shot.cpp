@@ -8,6 +8,7 @@
 
 #include "common/headless_system.h"
 #include "common/text.h"
+#include "devtools/soft_renderer.h"
 #include "devtools/tool.h"
 #include "engines/registry.h"
 #include "image/image.h"
@@ -16,6 +17,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -24,6 +26,8 @@ namespace {
 using namespace reluva;
 
 // Gives the events at their times, keeps the screen at `shotAt`, then quits.
+// 3D screens (the loading screen) are drawn in software, so their frames
+// can be kept too.
 class ScriptSystem : public HeadlessSystem {
 public:
     struct Timed {
@@ -34,12 +38,25 @@ public:
     uint64_t shotAt = 0;
     Surface shot;
 
+    Error initGraphics(int width, int height, PixelFormat format) override {
+        _in3D = false;
+        return HeadlessSystem::initGraphics(width, height, format);
+    }
+    Error init3D(int width, int height, gfx::Renderer3D *&out) override {
+        if (!_renderer || _renderer->width() != width || _renderer->height() != height)
+            _renderer = std::make_unique<tools::SoftRenderer3D>(width, height);
+        out = _renderer.get();
+        _in3D = true;
+        return Error::success();
+    }
     void updateScreen(const Surface &s) override {
         HeadlessSystem::updateScreen(s);
-        if (shot.pixels.empty() && getMillis() >= shotAt)
-            shot = s;
+        _last = s;
     }
     bool pollEvent(Event &ev) override {
+        // The screen as it was last shown, before this frame's events.
+        if (shot.pixels.empty() && getMillis() >= shotAt)
+            shot = _in3D && _renderer ? _renderer->frame() : _last;
         if (_next < events.size() && events[_next].at <= getMillis()) {
             ev = events[_next++].ev;
             return true;
@@ -56,6 +73,9 @@ public:
 private:
     size_t _next = 0;
     bool _quit = false;
+    bool _in3D = false;
+    Surface _last;
+    std::unique_ptr<tools::SoftRenderer3D> _renderer;
 };
 
 // "1500:move:90:18", "2000:click:90:18" (down, up a tenth of a second

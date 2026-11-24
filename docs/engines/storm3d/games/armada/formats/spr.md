@@ -115,16 +115,21 @@ in `SOD/`. The rest run always: weapons' trails (`contrail`,
   markers (`assimbigftur1`) *(inferred)*.
 - **The sprite**, and **an animation**: `const` (87) for none, a colour
   animation (`red1.colour`, `inoutpurple`), or another (`fire`, `strobe`).
-- **The size** in the model's units, as half the width and height: an
-  asteroid 1.5 to 4, a nebula's ion cloud 80. Half, because the planets'
-  glows (below) are 495 for planets of about 450 from the centre (the
-  mesh's name, `earth450`, and its size drawn agree): their soft discs
-  show as the rims just outside the planets that the original draws
-  only if they reach 495 from the centre *(inferred)*.
+- **The size** in the model's units: for a billboard, half the width
+  and height (an asteroid 1.5 to 4, a nebula's ion cloud 80); for
+  another, the whole. Half for a billboard, because the planets' glows
+  (below) are 495 for planets of about 450 from the centre (the mesh's
+  name, `earth450`, and its size drawn agree): their soft discs show as
+  the rims just outside the planets that the original draws only if
+  they reach 495 from the centre. The whole for another, because the
+  loading screen's badge, `stabadge` (16, 16), not a billboard, is drawn
+  16 across, measured on its draw: a rule from those two *(inferred)*.
 - **A colour**: RGB from 0 to 1.
 - **`billboard`** (132): turned to face the camera; without it, the
-  sprite lies as its node does *(inferred)*. One table writes
-  `//billboard`, taken as the flag commented out.
+  sprite lies as its node does, across the node's second axis and up
+  its first: the badge's node swaps x and y, and the game draws it
+  upright *(inferred)*. One table writes `//billboard`, taken as the
+  flag commented out.
 
 A sprite node can also be an object's own: `planets.spr`'s "Nimbus for
 planets" are named for the planets' definitions (`Mbarisa`, `Mearth`),

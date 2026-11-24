@@ -6,7 +6,7 @@
 #include "engines/storm3d/formats/sod.h"
 #include "engines/storm3d/game_files.h"
 #include "engines/storm3d/pages/page.h"
-#include "engines/storm3d/pages/sod_meshes.h"
+#include "engines/storm3d/scene/sod_meshes.h"
 #include "graphics/gfx3d.h"
 
 #include <cstdint>
@@ -38,31 +38,6 @@ public:
     void deactivate() override;
     void handleKey(uint32_t key) override;
     void update(uint64_t millis) override;
-
-    /**
-     * A node's transform as a matrix that places it in its parent:
-     * the 3 x 3 part applied to a point as a row (p * M), then the
-     * translation.
-     */
-    static gfx::Mat4 toMatrix(const SodModel::Transform &t);
-    /**
-     * Each node's place in the model, its parents' applied; a node whose
-     * parent isn't there is placed as a root.
-     */
-    static std::vector<gfx::Mat4> worldMatrices(const SodModel &model);
-    /**
-     * The levels of detail: the numbers of the nodes named `lod<n>`,
-     * lowest first; empty if there are none.
-     */
-    static std::vector<int> detailLevels(const SodModel &model);
-    /** Whether a node is shown at a level of detail: not under another level's `lod` node. */
-    static bool shownAtLevel(const SodModel &model, size_t node, int level);
-    /**
-     * Whether a node is one of the parts a ship or station has once the
-     * Borg assimilate it: under the node `borg`, which nearly every ship and
-     * station has, and which the game's skirmish doesn't draw on its own.
-     */
-    static bool assimilationPart(const SodModel &model, size_t node);
 
 private:
     void load();

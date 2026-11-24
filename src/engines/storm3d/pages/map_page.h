@@ -6,7 +6,7 @@
 #include "engines/storm3d/formats/bzn.h"
 #include "engines/storm3d/game_files.h"
 #include "engines/storm3d/pages/page.h"
-#include "engines/storm3d/pages/sod_meshes.h"
+#include "engines/storm3d/scene/sod_meshes.h"
 #include "graphics/gfx3d.h"
 
 #include <map>

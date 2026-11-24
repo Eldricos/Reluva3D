@@ -17,7 +17,10 @@ reluva_add_engine(storm3d
         formats/sod.cpp
         formats/sprite_table.cpp
         formats/zfs_archive.cpp
+        scene/model_tree.cpp
+        scene/sod_meshes.cpp
         shell/full_screen_movie.cpp
+        shell/loading_screen.cpp
         shell/main_menu.cpp
         shell/panel_movie.cpp
         shell/shell_draw.cpp
@@ -33,7 +36,6 @@ reluva_add_engine_viewers(storm3d
         pages/model_page.cpp
         pages/movie_page.cpp
         pages/page.cpp
-        pages/sod_meshes.cpp
         pages/sound_page.cpp
         pages/sprite_page.cpp
         pages/text_page.cpp)

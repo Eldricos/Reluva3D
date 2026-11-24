@@ -5,8 +5,8 @@
 // here, and how the Models page places their nodes and picks a level of
 // detail.
 
+#include "engines/storm3d/scene/model_tree.h"
 #include "engines/storm3d/formats/sod.h"
-#include "engines/storm3d/pages/model_page.h"
 #include "tests/engines/storm3d/sod_writer.h"
 
 #include "tests/support/test.h"
@@ -14,7 +14,7 @@
 #include <cmath>
 
 using namespace reluva;
-using reluva::storm3d::ModelPage;
+using reluva::storm3d::ModelTree;
 using reluva::storm3d::SodModel;
 namespace sodtest = reluva::storm3d::testing;
 
@@ -99,12 +99,12 @@ void testRefused() {
 void testPlacing() {
     // 90 degrees about z: the rows are where x and y go.
     const SodModel::Transform turn = {0, 1, 0, -1, 0, 0, 0, 0, 1, 10, 0, 0};
-    const gfx::Vec3 p = gfx::transformPoint(ModelPage::toMatrix(turn), {1, 0, 0});
+    const gfx::Vec3 p = gfx::transformPoint(ModelTree::toMatrix(turn), {1, 0, 0});
     CHECK(near(p[0], 10) && near(p[1], 1) && near(p[2], 0));
 
     SodModel m;
     CHECK(!m.parse(sodtest::modelV18("Bbase")));
-    const std::vector<gfx::Mat4> world = ModelPage::worldMatrices(m);
+    const std::vector<gfx::Mat4> world = ModelTree::worldMatrices(m);
     // redstrobe1 is 1 up in square, which is 2 along in root.
     const gfx::Vec3 strobe = gfx::transformPoint(world[2], {0, 0, 0});
     CHECK(near(strobe[0], 2) && near(strobe[1], 1));
@@ -122,10 +122,10 @@ void testLevels() {
     w.u16(0).u16(0);
     SodModel m;
     CHECK(!m.parse(w.bytes));
-    CHECK((ModelPage::detailLevels(m) == std::vector<int>{0, 2}));
-    CHECK(!ModelPage::shownAtLevel(m, 3, 0));
-    CHECK(ModelPage::shownAtLevel(m, 3, 2));
-    CHECK(ModelPage::shownAtLevel(m, 0, 0));
+    CHECK((ModelTree::detailLevels(m) == std::vector<int>{0, 2}));
+    CHECK(!ModelTree::shownAtLevel(m, 3, 0));
+    CHECK(ModelTree::shownAtLevel(m, 3, 2));
+    CHECK(ModelTree::shownAtLevel(m, 0, 0));
 }
 
 // The parts a ship gets once assimilated: under its node borg, however
@@ -141,8 +141,8 @@ void testAssimilation() {
     w.u16(0).u16(0);
     SodModel m;
     CHECK(!m.parse(w.bytes));
-    CHECK(ModelPage::assimilationPart(m, 2) && ModelPage::assimilationPart(m, 3));
-    CHECK(!ModelPage::assimilationPart(m, 1) && !ModelPage::assimilationPart(m, 4));
+    CHECK(ModelTree::assimilationPart(m, 2) && ModelTree::assimilationPart(m, 3));
+    CHECK(!ModelTree::assimilationPart(m, 1) && !ModelTree::assimilationPart(m, 4));
 }
 
 } // namespace

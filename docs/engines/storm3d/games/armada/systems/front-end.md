@@ -89,6 +89,31 @@ each, and the finale's). A new player has the first open: the
 Federation's is "Premonitions" (`fed1.bzn`). The races' movies stop
 while the panel is up, the one chosen on its lit movie.
 
+### The loading screen
+
+O.K. on the mission panel plays `cornrclk.wav` and shows the loading
+screen while the mission loads (its map, every object's definition and
+model, the computer players). It's drawn in 3D: the program's camera at
+the origin, looking along +z, 45 degrees high, as in play
+([camera.md](camera.md)), with no ambient light and none of the map's.
+
+- Around the camera, the Baku nebula's background model, `mbgbaku.sod`,
+  drawn as a map's background is ([formats/bzn.md](../formats/bzn.md#lighting)).
+- 35 ahead, unturned, the game's logo, `stalogo.sod`: its draws' vertices,
+  placed back through the camera (a depth of 1.208 / rhw), fall on the
+  model's 28.3 × 5 × 0.86 to within its own size. It's lit by one light
+  from up, left and in front, (−0.457, 0.548, −0.701) towards it, its
+  colour near white, about (0.94, 0.96, 0.94): fitted to the logo's
+  vertex colours, its own material's ambient the darkest *(inferred)*.
+  The light isn't in the scene's list once the frame is drawn.
+- The logo's badge, its sprite node `stabadge`, 16 across, upright
+  ([formats/spr.md](../formats/spr.md)).
+- Along the bottom, a bar, 10 high at y 455 from x 20, (204, 102, 51),
+  growing as the files are read: the frames saw it from 7 to 500 long;
+  600 when done, the same margin both sides *(guessed)*.
+
+The program looks for both models in `addon\` first, then `SOD\`.
+
 ### The movies' colours
 
 Armada's movies, all Bink revision `f`, come out of its `binkw32.dll`
@@ -112,8 +137,12 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
   Esc does; Replay Intro plays the movie again; Single Player opens the
   single-player screen (`shell/single_player.h`), its tooltips and its
   mission panel, for a new player (saved progress comes with saving);
-  O.K. there doesn't start the mission yet. Multiplayer, Options,
-  Credits and Load Game do nothing yet. The version is in Reluva's own
+  O.K. there shows the loading screen (`shell/loading_screen.h`), which
+  reads the mission's map and its objects' definitions and models, its
+  bar growing, and comes back to the races, as the mission doesn't run
+  yet; Esc gives up sooner. Multiplayer, Options, Credits and Load Game
+  do nothing yet. The models are drawn as the data viewer's are
+  (`scene/sod_meshes.h`); the logo's specular glint isn't. The version is in Reluva's own
   font: the "System" font isn't in the install.
 - **The text** is Arial Bold, as the game asks GDI for it: the machine's
   Arial if it has one, else Liberation Sans Bold, which has Arial's
@@ -136,7 +165,8 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
   panels, the labels and their looks are where the game has them. The
   single-player screen likewise, with the pointer over the Borg and with
   the Federation's mission panel up: its tooltip, mission name and
-  buttons' words fall on the frame's to the pixel. The unit tests
+  buttons' words fall on the frame's to the pixel. The loading screen
+  likewise: its background, logo, badge and bar where the game's are. The unit tests
   (`storm3d.unit.shell`) check which button and race each place is, and
   reading `mshell.set`.
 

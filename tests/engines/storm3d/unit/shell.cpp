@@ -4,6 +4,7 @@
 // Storm3D's unit tests: the front end's main menu, its buttons where the
 // game's frame has them.
 
+#include "engines/storm3d/shell/loading_screen.h"
 #include "engines/storm3d/shell/main_menu.h"
 #include "engines/storm3d/shell/single_player.h"
 
@@ -13,6 +14,7 @@
 #include <string>
 #include <vector>
 
+using reluva::storm3d::LoadingScreen;
 using reluva::storm3d::MainMenu;
 using reluva::storm3d::MenuChoice;
 using reluva::storm3d::SinglePlayerScreen;
@@ -71,11 +73,21 @@ void testCampaigns() {
     CHECK((campaigns[2] == std::vector<std::string>{"finale4.bzn"}));
 }
 
+// What the loading screen reads for a mission: each definition once,
+// whatever its case, then its model.
+void testLoadingFiles() {
+    const std::vector<std::string> files =
+        LoadingScreen::filesOf({"fente", "MBarisa", "fente", "mbarisa", "", "dlight"});
+    CHECK((files == std::vector<std::string>{"fente.odf", "SOD/fente.sod", "MBarisa.odf", "SOD/MBarisa.sod",
+                                             "dlight.odf", "SOD/dlight.sod"}));
+}
+
 } // namespace
 
-static const reluva::test::Suite kSuite("storm3d.unit.shell",
-                                        {
-                                            {"buttons", [](const std::filesystem::path &) { testButtons(); }},
-                                            {"races", [](const std::filesystem::path &) { testRaces(); }},
-                                            {"campaigns", [](const std::filesystem::path &) { testCampaigns(); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("storm3d.unit.shell", {
+                                     {"buttons", [](const std::filesystem::path &) { testButtons(); }},
+                                     {"races", [](const std::filesystem::path &) { testRaces(); }},
+                                     {"campaigns", [](const std::filesystem::path &) { testCampaigns(); }},
+                                     {"loading files", [](const std::filesystem::path &) { testLoadingFiles(); }},
+                                 });

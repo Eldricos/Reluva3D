@@ -11,6 +11,7 @@
 #include "engines/engine.h"
 #include "engines/storm3d/game_files.h"
 #include "engines/storm3d/shell/full_screen_movie.h"
+#include "engines/storm3d/shell/loading_screen.h"
 #include "engines/storm3d/shell/main_menu.h"
 #include "engines/storm3d/shell/single_player.h"
 
@@ -66,8 +67,16 @@ public:
         bool intro = startIntro();
         MainMenu menu;
         SinglePlayerScreen single;
+        LoadingScreen loading(_files);
         bool menuOn = false;
         bool singleOn = false;
+        bool loadingOn = false;
+        // Back from the loading screen to the single-player screen, in 2D.
+        auto endLoading = [&]() -> Error {
+            loading.stop();
+            loadingOn = false;
+            return _sys.initGraphics(kWidth, kHeight, PixelFormat::kRGBA32);
+        };
         for (bool running = true; running;) {
             const uint64_t now = _sys.getMillis();
             if (!intro && !menuOn) {
@@ -87,6 +96,14 @@ public:
                     // Esc, a key or a click ends it, as the game's does.
                     if (ev.type == EventType::kKeyDown || ev.type == EventType::kMouseDown)
                         intro = stopIntro();
+                } else if (loadingOn) {
+                    // The mission can't run yet: Esc gives up on it.
+                    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
+                        if (Error err = endLoading()) {
+                            stopAll();
+                            return err;
+                        }
+                    }
                 } else if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
                     // Out a screen, as its Previous Menu does; out of the game from the menu.
                     if (singleOn)
@@ -106,8 +123,20 @@ public:
                     const SingleChoice choice = single.release(ev.mouseX, ev.mouseY, now);
                     if (choice != SingleChoice::kNone)
                         play("sounds/effects/cornrclk.wav", audio::SoundType::kEffects, false);
-                    if (choice == SingleChoice::kPreviousMenu)
+                    if (choice == SingleChoice::kPreviousMenu) {
                         singleOn = false;
+                    } else if (choice == SingleChoice::kStartMission) {
+                        gfx::Renderer3D *renderer = nullptr;
+                        if (Error err = _sys.init3D(kWidth, kHeight, renderer)) {
+                            stopAll();
+                            return err;
+                        }
+                        if (Error err = loading.start(renderer, single.mission())) {
+                            stopAll();
+                            return err;
+                        }
+                        loadingOn = true;
+                    }
                 } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
                     const MenuChoice choice = menu.release(ev.mouseX, ev.mouseY);
                     if (choice != MenuChoice::kNone)
@@ -126,6 +155,20 @@ public:
                         singleOn = true;
                     }
                 }
+            }
+            if (loadingOn) {
+                // The files read, the screen drawn in 3D; the mission
+                // itself doesn't run yet, so it ends back at the races.
+                const bool more = loading.step();
+                loading.draw(now);
+                if (!more) {
+                    if (Error err = endLoading()) {
+                        stopAll();
+                        return err;
+                    }
+                }
+                _sys.delayMillis(kFrameMs);
+                continue;
             }
             if (intro) {
                 if (_intro.update(now))

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
+#include "engines/storm3d/scene/model_tree.h"
 #include "engines/storm3d/pages/map_page.h"
 
 #include "common/events.h"
@@ -208,7 +209,7 @@ std::vector<bool> MapPage::seenOf(const BznMap &map, int cells, const std::vecto
 gfx::Mat4 MapPage::placeOf(const BznMap::Object &o, float scale) {
     gfx::Mat4 s = gfx::identity();
     s[0] = s[5] = s[10] = scale;
-    return gfx::multiply(ModelPage::toMatrix(o.transform), s);
+    return gfx::multiply(ModelTree::toMatrix(o.transform), s);
 }
 
 MapPage::MapPage(System &sys, Surface &screen, const GameFiles &files)

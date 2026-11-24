@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "engines/storm3d/pages/sod_meshes.h"
+#include "engines/storm3d/scene/sod_meshes.h"
 
 #include "common/text.h"
-#include "engines/storm3d/pages/model_page.h"
+#include "engines/storm3d/scene/model_tree.h"
 #include "image/image.h"
 
 #include <algorithm>
@@ -50,11 +50,11 @@ SodMeshes::Built SodMeshes::build(const SodModel &model, int level) {
     Built built;
     if (!_renderer)
         return built;
-    const std::vector<gfx::Mat4> world = ModelPage::worldMatrices(model);
+    const std::vector<gfx::Mat4> world = ModelTree::worldMatrices(model);
     for (size_t i = 0; i < model.nodes.size(); ++i) {
         const SodModel::Node &node = model.nodes[i];
-        if (node.mesh < 0 || ModelPage::assimilationPart(model, i) ||
-            (level >= 0 && !ModelPage::shownAtLevel(model, i, level)))
+        if (node.mesh < 0 || ModelTree::assimilationPart(model, i) ||
+            (level >= 0 && !ModelTree::shownAtLevel(model, i, level)))
             continue;
         const SodModel::Mesh &mesh = model.meshes[size_t(node.mesh)];
         // Normals by vertex: the faces' around it added up, each counting
@@ -181,7 +181,7 @@ bool underSystem(const SodModel &model, size_t node) {
 
 void SodMeshes::addSprites(const SodModel &model, const std::vector<gfx::Mat4> &world, Built &built) {
     for (size_t i = 0; i < model.nodes.size(); ++i)
-        if (model.nodes[i].type == SodModel::kSprite && !ModelPage::assimilationPart(model, i)) {
+        if (model.nodes[i].type == SodModel::kSprite && !ModelTree::assimilationPart(model, i)) {
             const size_t before = built.sprites.size();
             addSprite(sprites()->spriteNodeFor(model.nodes[i].name), world[i], built);
             for (size_t k = before; k < built.sprites.size(); ++k)
@@ -227,10 +227,13 @@ void SodMeshes::addSprite(const SpriteTable::SpriteNode *node, const gfx::Mat4 &
     }
     part.quad = quad->second;
     part.world = world;
-    // A sprite node's size is half its width and height: the planets'
-    // glows, 495 for planets of 450, show as rims just outside them only so.
-    part.width = float(node->width) * 2;
-    part.height = float(node->height) * 2;
+    // A billboard's size is half its width and height: the planets' glows,
+    // 495 for planets of 450, show as rims just outside them only so.
+    // Another's is its whole: the loading screen's badge, (16, 16), is drawn
+    // 16 across (inferred, from those two).
+    const float scale = node->billboard ? 2.0f : 1.0f;
+    part.width = float(node->width) * scale;
+    part.height = float(node->height) * scale;
     for (size_t k = 0; k < 3; ++k)
         part.colour[k] = float(node->colour[k]);
     const SpriteTable::Animation *a = table->animation(node->animation);
@@ -272,7 +275,7 @@ const SodMeshes::Built *SodMeshes::spriteNode(const std::string &name) {
 void SodMeshes::addEmitters(const SodModel &model, const std::vector<gfx::Mat4> &world, Built &built) {
     const SpriteTable *table = sprites();
     for (size_t i = 0; i < model.nodes.size(); ++i) {
-        if (model.nodes[i].type != SodModel::kEmitter || ModelPage::assimilationPart(model, i))
+        if (model.nodes[i].type != SodModel::kEmitter || ModelTree::assimilationPart(model, i))
             continue;
         const SpriteTable::Emitter *emitter = nullptr;
         for (const SpriteTable::Emitter &e : table->emitters())
@@ -412,7 +415,7 @@ const SodMeshes::Built *SodMeshes::model(const std::string &name) {
     SodModel model;
     if (_files.read("SOD/" + name + ".sod", data) || model.parse(data))
         return nullptr;
-    const std::vector<int> levels = ModelPage::detailLevels(model);
+    const std::vector<int> levels = ModelTree::detailLevels(model);
     // The higher a level's number, the more detailed it is.
     built = build(model, levels.empty() ? -1 : levels.back());
     return &*built;
@@ -475,10 +478,14 @@ void SodMeshes::drawSprite(const SpritePart &sprite, const gfx::Mat4 &place) con
         }
         m[10] = 1;
     } else {
-        gfx::Mat4 size = gfx::identity();
-        size[0] = sprite.width;
-        size[5] = sprite.height;
-        m = gfx::multiply(node, size);
+        // Across the node's second axis and up its first (inferred: the
+        // loading screen's badge, whose node swaps x and y, shows upright).
+        for (size_t d = 0; d < 3; ++d) {
+            m[d] = node[4 + d] * sprite.width;
+            m[4 + d] = node[d] * sprite.height;
+            m[8 + d] = node[8 + d];
+            m[12 + d] = node[12 + d];
+        }
     }
     gfx::DrawCall call;
     call.mesh = sprite.quad;

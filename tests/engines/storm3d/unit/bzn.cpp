@@ -6,7 +6,7 @@
 #include "common/archive.h"
 #include "engines/storm3d/formats/bzn.h"
 #include "engines/storm3d/pages/map_page.h"
-#include "engines/storm3d/pages/sod_meshes.h"
+#include "engines/storm3d/scene/sod_meshes.h"
 
 #include "tests/support/test.h"
 
