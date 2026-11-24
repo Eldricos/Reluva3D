@@ -45,7 +45,7 @@ read from the code, and was watched on Kyle's puppet in the running game
 | `0x1` | The animation doesn't run on time (its speed is set to 0, `0x4e4964`): the walking code moves it on as the character moves (`0x4e3e4e`), 280 frames for each unit (`0x4e3e70`). Seen: Kyle's walk, moved by a tenth of a second of the forward key, stopped at 280.5, 280.5 and 281.3 frames a unit moved in three runs; a Rodian's walk and run tracks had speed 0 too | 226: `walk`, `run`, `walkback`, the strafes, the crouched walks and turns | confirmed |
 | `0x2` | It stops at its end, and its track is freed (`0x4e4935`, `0x43eb1e`). Seen: Kyle's `drawfists` freed at frame 7 (`kydrawft.key`'s last), and the level's first draw (1 and 3) at 10 (`kydrawgn.key`'s), each still at full weight: no fade | 8: the weapon draws (with `0x20`) and two `fire`s | confirmed |
 | `0x20` | At its end it holds its last frame and fades out over a quarter of a second, then its track is freed (`0x4e493e`, `0x43eb47`, `0x43ee1c`). Seen: Kyle's `fire` held frame 7 (`kyfire.key`'s last) while its weight fell 4 a second, then its track was freed; `land` (`kyland.key`, 4 frames) and a `fidget` (`kyidle2.key`, 155) the same | 219: `hit`, `fire`, `land`, `fidget`... | confirmed |
-| `0x4` | It holds its last frame (`0x4e494a`, `0x43eb34`). Seen: Kyle's `holster` held frame 5 (`kyhlstr.key`'s last) at full weight, its track kept, until the next weapon's draw took the track | 146: `rising`, `drop`, the deaths | confirmed; the deaths not seen |
+| `0x4` | It holds its last frame (`0x4e494a`, `0x43eb34`). Seen: Kyle's `holster` held frame 5 (`kyhlstr.key`'s last) at full weight, its track kept, until the next weapon's draw took the track Seen dying: Kyle's `death` (`kygndth0.key`, `0x14`) held frame 86, its last, at full weight, its track kept, from 65 to 75 seconds | 146: `rising`, `drop`, the deaths | confirmed |
 | `0x8` | If the same animation is already on a track, it starts again there, not on another track (`0x4e48c5`, `0x43ee60`). Seen: Kyle firing again and again kept one `fire` track, which went back to frame 0 keeping its weight (1 at frame 0.8, where a new track weighs about a half) | 190: `hit`, `fire`, `land`, `victory`... | confirmed |
 | `0x10` | It starts at full weight; otherwise it fades in over a tenth of a second (`0x4e496c`, `0x43e920`, `0x43e950`). Seen: 0.02 seconds into Kyle's `land` (`0x38`) it weighed 1, and the `stand` (`0`) begun with it 0.22; a `fire` weighed 0.54 at 0.05 seconds | 115: the deaths, `jump`, `land` | confirmed |
 
@@ -73,7 +73,10 @@ or 1 and 3, so they take the upper body from a walk (2) and leave it
 the legs. Seen from Kyle's third-person camera: firing as he strafed
 (`kyfire.key`, `TYPE 0xF`, 1 and 3, with `kystrafl.key`, 2 and 2, both
 at full weight), his legs kept the strafe's stride and his arm the
-shot's aim; strafing without firing, the arm hung by his side.
+shot's aim; strafing without firing, the arm hung by his side. Read from
+memory, once Kyle was killed: his death (5 and 5) and another track
+playing at 0 and 0 both weighed 1, and each of the 17 nodes under his
+root was the death's last frame, within 0.002 (the game's sines) ([key.md](key.md#priorities-and-body-parts)).
 
 ## In Reluva
 
@@ -105,7 +108,4 @@ based on. `reluva-tool sith formats <install>` reads them all.
 
 ## Open questions
 
-- A death (`0x14`) holding its last frame was not seen: no character
-  was killed in the runs.
-- Which track each of the model's nodes follows was seen only in the
-  pictures; the per-node results weren't read from memory.
+None.

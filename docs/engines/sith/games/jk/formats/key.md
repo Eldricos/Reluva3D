@@ -73,6 +73,15 @@ Kyle's `fire` (`kyfire.key`, `TYPE 0xF`, priorities 1 and 3) so takes
 his torso, arms and head from his walk (2), and leaves it his legs, as
 `ky.pup`'s comment has it: "firing (upper body only)".
 
+Read from memory: a character's node matrices are kept at offset `0x20`
+of its model instance (offset `0xc4` of its thing; the puppet at its
+`0x14`), one 3 by 4 matrix a node, in the world, the mesh moved by its
+pivot (written at `0x43f610`, the instance passed to `0x43eeb0`). Kyle
+killed, his death at priority 5 and another track at 0 both weighing 1,
+each node's matrix against its parent's was `kygndth0.key`'s last
+frame, its values in place of the model's: within 0.002 in rotation and
+0.00004 in position, for all 17 nodes under the root.
+
 ### Markers
 
 As a track's frame passes a marker, the puppet's handler (`0x4e4b10`)
