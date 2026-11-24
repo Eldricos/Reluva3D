@@ -89,13 +89,14 @@ is in [the first survey](research/first-survey.md).
       ([TESTING.md](TESTING.md#the-game-files-test)).
    5. *Later, if wanted:* playing with the original game on Windows,
       over DirectPlay's own protocol as Microsoft has published it
-      ([MC-DPL4CS], [MC-DPL4R]). Begun: each finds the other's games
-      (the "Find games of the original on Windows" setting, `run
-      -original`), checked against the specification's examples and
-      Reluva against itself, not yet against Windows. Left: joining
-      (`DPSP_MSG_REQUESTPLAYERID`, `ADDFORWARDREQUEST`,
-      `SUPERENUMPLAYERSREPLY`), players and messages, and the reliable
-      layer LEGO Loco's sessions ask for.
+      ([MC-DPL4CS], [MC-DPL4R]). Done, but for trying it against
+      Windows: each finds, joins and hosts the other's games (the "Find
+      games of the original on Windows" setting, `run -original`):
+      joining, players and messages, and the reliable protocol LEGO
+      Loco's sessions ask for, checked against the specification's
+      layouts and Reluva against itself. Left: a game against the
+      original on Windows, and a new host taking over when the host
+      leaves (`DPSP_MSG_IAMNAMESERVER`).
 7. **Checking against the original:** recordings of the game running,
    [TESTING.md](TESTING.md)'s playthrough,
    [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md), and speed. Done so

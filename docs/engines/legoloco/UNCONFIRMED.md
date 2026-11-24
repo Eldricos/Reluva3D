@@ -21,6 +21,13 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
 
 ## Inferred
 
+- **Playing the original on Windows by DirectPlay 4's own protocol:**
+  joining, players, messages and the reliable protocol, as Microsoft
+  publishes them, with the readings taken where the specification
+  leaves room; checked only between copies of Reluva. A game against
+  the original on Windows would settle it
+  ([common/x86/dplay.md](../../common/x86/dplay.md#directplay-4s-own-protocol-the-originals-games)).
+
 - **A square is 16 pixels, and a piece's picture stands on the bottom of
   its squares:** the viewer draws boards so; it rests on the pieces'
   grids and pictures and on the boards coming out whole. A screenshot

@@ -22,8 +22,10 @@ The shared code that runs the game has its own tests, in `common.unit.*`;
 those LEGO Loco leans on most: `windows` (windows, input, scroll bars,
 the pointer), `cursors` (the busy pointer's file format), `gdi`,
 `dsound`, `mci`, `dplay` (DirectPlay, two objects meeting on a network)
-and `dplay_session` (its sessions over UDP: loss, routers, a meeting
-server, a new host taking over).
+`dplay_session` (its sessions over UDP: loss, routers, a meeting
+server, a new host taking over; and sessions of DirectPlay 4's own
+protocol, the original's) and `dplay4` (DirectPlay 4's messages and its
+reliable protocol).
 
 ### The basic engine test
 

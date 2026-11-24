@@ -9,8 +9,10 @@ Written from the DirectX SDK's documentation of DirectPlay and its lobby;
 the interfaces' methods are in the order `dplay.h` and `dplobby.h`
 declare them. Its sessions between computers are
 `src/emulation/x86/dplay_session.{h,cpp}`'s, over UDP, with a protocol
-of Reluva's own: copies of Reluva play each other, not the original
-DirectPlay.
+of Reluva's own: copies of Reluva play each other. With the system's
+TCP given, they also speak DirectPlay 4's own protocol, as Microsoft
+publishes it, to find, join and host the original program's games
+([below](#directplay-4s-own-protocol-the-originals-games)).
 
 ## What Reluva supports
 
@@ -188,29 +190,82 @@ players then. A search
 asks the server for the list too; a session found only there is
 introduced (`MeetingSocket::connect`) when it's joined.
 
-### DirectPlay 4's own protocol: finding the original's games
+### DirectPlay 4's own protocol: the original's games
 
 With the system's TCP given (`Transport::tcp`), an endpoint also speaks
-the part of DirectPlay 4's own protocol that finds games, as Microsoft
-publishes it ([MC-DPL4CS]; `src/emulation/x86/dplay4_wire.cpp`), so it
-and the original program on Windows can see each other's games. Only
-that: neither can join the other's yet. The original's sessions also
-use DirectPlay 4's reliable layer ([MC-DPL4R]), which isn't done.
+DirectPlay 4's own protocol, as Microsoft publishes it ([MC-DPL4CS],
+[MC-DPL4R]; `src/emulation/x86/dplay4_wire.cpp`,
+`dplay4_reliable.cpp`), so it and the original program on Windows can
+find, join and host each other's games. A session holds machines of
+one protocol or the other, never both.
 
 - **A search** also sends `DPSP_MSG_ENUMSESSIONS` (command 2, asking
-  for sessions with room) by UDP to port 47624 at each broadcast
-  address, or the address given. Its header gives a TCP port of ours in
-  the range 2300 to 2400, where it listens; each
-  `DPSP_MSG_ENUMSESSIONSREPLY` (command 1) that comes there is a session
-  found, marked the original's. Joining one is refused
-  (`Status::kOriginal`, and DirectPlay says so). A Reluva host answers
-  both ways, and its own answer is the one kept.
+  for sessions with room, and those needing a password) by UDP to port
+  47624 at each broadcast address, or the address given. Its header
+  gives a TCP port of ours in the range 2300 to 2400, where it listens;
+  each `DPSP_MSG_ENUMSESSIONSREPLY` (command 1) that comes there is a
+  session found, marked the original's, its host reached at the TCP
+  port the answer's header gives. A Reluva host answers both ways, and
+  its own answer is the one kept.
 - **A host** listens on UDP 47624 too, if that isn't its own port
-  already, and answers a `DPSP_MSG_ENUMSESSIONS` of its application (or
-  of any) with its session, by TCP to the port in the search's header at
-  the address it came from: not when it's full and only sessions with
-  room are asked for, nor when it has a password the search hasn't, but
-  for searches that want those too.
+  already, and on TCP and UDP ports of its own in the range 2300 to
+  2400. It answers a `DPSP_MSG_ENUMSESSIONS` of its application (or of
+  any) with its session, by TCP to the port in the search's header at
+  the address it came from, its own TCP port in the answer's header: not
+  when it's full and only sessions with room are asked for, nor when it
+  has a password the search hasn't, but for searches that want those
+  too.
+- **Joining** ([MC-DPL4CS] 3.1.4.2, 3.2.5.4 to 3.2.5.6, 4.3): the
+  joiner asks the host for a system player (`DPSP_MSG_REQUESTPLAYERID`,
+  its flags the system player's), and the host gives it an id
+  (`REQUESTPLAYERREPLY`), or `DPERR_NONEWPLAYERS` when the session is
+  full, closed to joiners, or has Reluva's own joiners in it. The joiner
+  then sends its system player, its TCP and UDP ports (its address
+  0.0.0.0, for the one it's heard from) and the password
+  (`ADDFORWARDREQUEST`); the host checks the password (turning it down
+  with `ADDFORWARDREPLY`), tells every other machine of it
+  (`ADDFORWARD`, each answering `ADDFORWARDACK`), and once all have, or
+  15 seconds on, sends it the session, its system players with their
+  addresses and every player (`SUPERENUMPLAYERSREPLY`). These go by TCP,
+  each machine sending on a connection of its own to the other's port.
+- **Ids:** the host makes each as the specification says (3.2.5.4): an
+  index no other id has in the low 16 bits, a count above, the whole
+  masked with the session's `Reserved1`. A Reluva host's own players
+  keep its own ids, their indexes counted among those taken.
+- **Players:** a joiner asks the host for each player's id
+  (`REQUESTPLAYERID`, waiting up to 5 seconds), then sends the player to
+  every machine (`CREATEPLAYER`); destroying one, and leaving, send
+  `DELETEPLAYER` (a machine leaving deletes its system player too, which
+  the others take as its going). Groups aren't carried: a session of
+  this protocol refuses to make one.
+- **Messages** go straight from the player's machine to each player's.
+  In a session made with `DPSESSION_DIRECTPLAYPROTOCOL` (`0x2000`, as
+  LEGO Loco's `0xa040` is), everything between joined machines goes by
+  the reliable protocol over UDP: DirectPlay's own messages without the
+  header's size and address, starting at `play`, between the machines'
+  system players' indexes, and players' data as it is, between the
+  players' indexes, wrapped (`DPSP_MSG_PLAYERWRAPPER`) when it starts as
+  DirectPlay's own messages do. Otherwise a guaranteed message goes by
+  TCP and the rest by UDP, each a `DPSP_MSG_PLAYERMESSAGE`: the header,
+  the players' ids unless the session has `DPSESSION_NOMESSAGEID`, the
+  data.
+- **The reliable protocol** ([MC-DPL4R]): each frame starts with the
+  players' indexes (1 to 3 bytes each). A message is cut into frames
+  under 1,200 bytes, each numbered in sequence (8 bits, from 1) and the
+  message by its id (from 1); no more than 24 ids are out at once.
+  Reliable frames go again until acknowledged: after a second at first,
+  then after the measured round trip and three times its spread, each
+  retry waiting longer, up to eight times. The receiver acknowledges the
+  end of a message and any frame asking (`SAK`), and the same frame come
+  again; with frames missing it says which (a `NACK`, its mask's clear
+  bits those that came), and the sender sends those again at once.
+  Reliable messages are handed on in order, unreliable ones as soon as
+  they're whole.
+- **Keeping in touch:** a machine not heard from in 2 seconds is pinged
+  (`DPSP_MSG_PING`, answered with `PINGREPLY`); one silent past the
+  transport's timeout is let go with its players. The host gone, the
+  session is lost: DirectPlay 4's way of another taking over
+  (`DPSP_MSG_IAMNAMESERVER`) isn't followed.
 - **The messages:** a header of the size (20 bits) and token (`0xFAB`,
   12 bits), the sender's `SOCKADDR_IN` (its port and address in network
   order, the address 0 for the one the message came from), `play`, the
@@ -218,8 +273,16 @@ use DirectPlay 4's reliable layer ([MC-DPL4R]), which isn't done.
   little-endian, GUIDs as Windows lays them out, text as UTF-16 with its
   terminator, offsets counted from the `play` signature. An answer holds
   a `DPSESSIONDESC2` (80 bytes; `Reserved1`, from which the host makes
-  ids, a random number of the host's) and the session's name. On TCP a
-  message's length is its header's size.
+  ids, a random number of the host's) and the session's name. Players
+  go as `DPLAYI_PACKEDPLAYER` in the messages that make one, and as
+  `DPLAYI_SUPERPACKEDPLAYER` in the session sent to a joiner, with the
+  Winsock provider's data: the machine's TCP and UDP `SOCKADDR_IN`. On
+  TCP a message's length is its header's size.
+- **Not done:** secure sessions (`DPSESSION_SECURESERVER`: signing,
+  encryption, logons), sessions through the host
+  (`DPSESSION_MULTICASTSERVER`), client-server ones, groups, players'
+  names and data changed, chat, voice, and the large messages of
+  `DPSP_MSG_PACKET` outside the reliable protocol.
 
 ## Sources and checks
 
@@ -228,7 +291,10 @@ use DirectPlay 4's reliable layer ([MC-DPL4R]), which isn't done.
   codes. DirectPlay 4's own messages from Microsoft's published
   specification [MC-DPL4CS] (v20240423): their layouts (2.2), how a
   search is sent and answered (3.1.4.1, 3.2.5.3) and its two examples
-  (4.1, 4.2), which settled that offsets count from the signature. Where
+  (4.1, 4.2), which settled that offsets count from the signature; how a
+  machine joins, makes players and sends (3.1.4, 3.1.5, 3.2.5, 4.3); the
+  reliable protocol from [MC-DPL4R] (v20240423), its frames (2.2) and
+  rules (3.1). Where
   a player message's header ends, and that the `SOCKADDR_IN`'s port and
   address are in network order, from Wireshark's DirectPlay dissector,
   read for those facts only. The interfaces' IIDs, the classes' and the address types' are
@@ -259,14 +325,38 @@ use DirectPlay 4's reliable layer ([MC-DPL4R]), which isn't done.
   and checks their sizes, fields and offsets byte by byte, and reads
   them back; `original-on-tcp`, over the machine's own TCP, has the test
   stand in for the original with the same messages: a search answered
-  and the game found (and not joined), and a host answering a search.
+  and the game found (its joining under way), and a host answering a
+  search. `original-reliable` and `original-plain` have two endpoints
+  speak DirectPlay 4 to each other, each on a thread of its own, the
+  joiner finding the host only by DirectPlay 4's search: joined, players
+  made both ways, messages short, long and looking like DirectPlay's own
+  both ways, guaranteed ones in order, a player destroyed, a joiner of
+  Reluva's own protocol turned away, and the joiner leaving; by the
+  reliable protocol and without it. `original-password` is turned down
+  with the wrong password, then joins with the right one.
+  `tests/common/dplay4.cpp` (`common.unit.dplay4`) builds the joining
+  messages and reads them back, checking their offsets and the players'
+  records against the specification, and runs the reliable protocol's
+  link on a network that loses, repeats and reorders frames: messages
+  in order, whole and once, the 24-message window, the retry times, a
+  `NACK` answered, and an unreliable message lost.
   `reluva-tool legoloco pair` runs two copies of LEGO Loco on one network
   in memory or over the system's UDP, and `run -udp` one each in two
   processes, one hosting and one joining
   ([running.md](../../engines/legoloco/systems/running.md#network-play)).
-- **Confidence:** published unless marked. DirectPlay 4's own messages
-  haven't been tried against the original on Windows: only against the
-  specification's examples, and Reluva against itself. How the sessions
+- **Confidence:** published unless marked. DirectPlay 4's own protocol
+  hasn't been tried against the original on Windows: only against the
+  specification's examples, and Reluva against itself. Where the
+  specification leaves room, these readings were taken *(inferred)*:
+  everything between joined machines in a reliable session goes inside
+  that protocol, DirectPlay's own messages bare and players' data
+  without ids; a joined machine asks for a player's id inside it too;
+  the extended flags' `nNACK` is bits 5 and 6; message ids start at 1
+  (the specification's examples start at 0); a frame missing 3 seconds
+  was an unreliable one, and a message never seen holding up a reliable
+  one 5 seconds was too; a password turned down, like a full session,
+  answers `DPERR_NONEWPLAYERS`; a host's players' records' size counts
+  every part. How the sessions
   travel between computers is otherwise Reluva's own, as is what DirectPlay leaves to its
   service provider: how long a search waits, which endpoint takes over
   as host, ids and instance GUIDs numbered as it likes.

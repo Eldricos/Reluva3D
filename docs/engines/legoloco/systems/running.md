@@ -368,10 +368,11 @@ calls named were seen made, from the addresses given:
   `-meeting host[:port]` adds a meeting server (`reluva-tool
   meet-server` runs one), `-nobroadcast` searches only at the
   address typed into the game's `I.P.` field, and `-original` also
-  finds the original program's games, and answers its searches, by
-  DirectPlay's own protocol (as the engine's "Find games of the
-  original on Windows" setting, `find_original`, does;
-  [dplay.md](../../../common/x86/dplay.md)).
+  finds the original program's games, and lets them be joined and the
+  original join its own, by DirectPlay's own protocol (as the engine's
+  "Find games of the original on Windows" setting, `find_original`,
+  does; [dplay.md](../../../common/x86/dplay.md); untried against
+  Windows).
 - `reluva-tool legoloco pair <game folder> [options] [A's steps] --
   [B's steps]` runs two copies, A and B, each on a thread of its own,
   their DirectPlay on one network, in memory unless `-udp` is given
