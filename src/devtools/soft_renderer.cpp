@@ -332,8 +332,16 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                     for (size_t k = 0; k < 3; ++k)
                         fill[k] += call.fillLight[f][k] * faces;
                 }
-                for (int k = 0; k < 3; ++k)
-                    c[size_t(k)] *= call.ambientLight[size_t(k)] + call.directedLight[size_t(k)] * facing + fill[k];
+                for (int k = 0; k < 3; ++k) {
+                    const float directed = call.directedLight[size_t(k)] * facing + fill[k];
+                    if (call.materialLit) // as Direct3D lights a material, the GPU's shader too
+                        c[size_t(k)] = std::clamp(call.materialEmissive[size_t(k)] +
+                                                      call.materialAmbient[size_t(k)] * call.ambientLight[size_t(k)] +
+                                                      c[size_t(k)] * directed,
+                                                  0.0f, 1.0f);
+                    else
+                        c[size_t(k)] *= call.ambientLight[size_t(k)] + directed;
+                }
             }
         } else if (call.rgbSource == gfx::ColorSource::kShadow) {
             const float dx = out.wx - call.shadowLight[0];
