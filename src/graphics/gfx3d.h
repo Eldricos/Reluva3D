@@ -93,6 +93,7 @@ struct DrawState {
     Blend dst = Blend::kZero;
     bool depthTest = true;   // passes when nearer or equal
     bool depthEqual = false; // with depthTest: passes only when equal, for extra passes over drawn geometry
+    bool depthLess = false;  // with depthTest: passes only when nearer, not when equal
     bool depthWrite = true;
     bool depthBias = false; // pulled towards the camera, for decals on walls
     Cull cull = Cull::kBack;
@@ -288,6 +289,10 @@ struct DrawCall {
     // fogDistance measured by depth in the view instead (Direct3D's table
     // fog, as UE1's renderer uses).
     bool fogByViewDepth = false;
+    // The depth (0 near to 1 far) from each vertex's uv2[1] instead of the
+    // position, interpolated straight across the screen: for vertices
+    // given already on the screen with Direct3D's z.
+    bool screenDepth = false;
     // > 0: the fragment's colour is blended towards tableFogColor by a 3D
     // card's table fog, (1 - e^(-w / tableFog)) / (1 - e^(-52428.8 /
     // tableFog)) clamped to 0..1, w from the vertices' uv2[0] (their

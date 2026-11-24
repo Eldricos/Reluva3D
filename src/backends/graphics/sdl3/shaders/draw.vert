@@ -54,7 +54,8 @@ layout(set = 1, binding = 0) uniform Draw {
     vec4 fillDir[2];   // xyz: towards each, world space
     vec4 matAmbient;   // xyz: the material's ambient colour; w: 1 to light as Direct3D does
     vec4 matEmissive;  // xyz: its emissive colour
-    vec4 linearFog;    // x, y: where the fog mixed in starts and is complete (y 0: none)
+    vec4 linearFog;    // x, y: where the fog mixed in starts and is complete (y 0: none);
+                       // z: 1 for the depth from uv2.y (DrawCall::screenDepth)
     vec4 vlPos[6];   // vertex lights (gfx::kMaxVertexLights): xyz, radius
     vec4 vlColor[6];
     vec4 vlParams;   // x: how many, y: scale, z: specular, w: 1 lit as surfaces are
@@ -242,6 +243,8 @@ void main() {
     if (linearFog.y > 0.0)
         outLinearFog = clamp((distance(world, eye.xyz) - linearFog.x) / max(linearFog.y - linearFog.x, 0.001), 0.0, 1.0);
     gl_Position = viewProj * placed;
+    if (linearFog.z > 0.5)
+        gl_Position.z = inUv2.y * gl_Position.w; // the screen's depth, as Direct3D interpolates it
     outFogW = mode2.w > 0.5 ? gl_Position.w : inUv2.x;
     outFog = vec2(0.0);
     if (mode2.z > 0.0) {
