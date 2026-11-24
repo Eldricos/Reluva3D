@@ -14,15 +14,20 @@ as NFS III's `-drive CAR:road` does its own.
 Worked out from the code and checked on the hosted game, each by a run
 that printed or changed it:
 
-- **The controls:** a human car's input function, `car+0x370`, is
-  0x45b3a0 (the keys, joystick or a replay), set for every human car at
-  0x43c942. It fills a record at 0x4ddb18: s8 steering (negative left),
-  u8 gas, u8 brake, u8 buttons (0x02 shift up, 0x01 down: the automatic
-  box steps through reverse, neutral and drive). 0x445440 then copies
-  them into the car (`+0x2e0`, `+0x2d4`, `+0x2d5`). The driver puts a
-  native function in 0x45b3a0's place (the constant at 0x43c948): it
-  calls the game's own, then writes the record over. No instruction
-  trace is needed: the race runs at the interpreter's full speed.
+- **The controls:** the local player's, sampled from the keys into a
+  record at 0x4ddb10 (s8 steering, negative left; u8 gas; u8 brake; u8
+  buttons, 0x02 shift up and 0x01 down: the automatic box steps through
+  reverse, neutral and drive), go each frame into a ring of every
+  player's (0x448720), on a link over it too
+  ([network-play.md](network-play.md)). Each car's input function
+  (`car+0x370`, 0x45b3a0) takes its player's back from the ring into
+  0x4ddb18 (0x45e8a0), and 0x445440 into the car (`+0x2e0`, `+0x2d4`,
+  `+0x2d5`). The driver puts a native function at the call of 0x448720
+  (0x4403a9): it writes the record, then calls the game's own. No
+  instruction trace is needed: the race runs at the interpreter's full
+  speed. (A first version wrote 0x4ddb18 after the car's input
+  function: alone it drove as well, but its controls never reached the
+  other copy on a link.)
 - **The cars:** pointers at 0x4dcbe8 by slot, the player's slot at
   0x4dd2ec, the race's cars at 0x4dcf64. A car's place `+0x9c`/`+0xa4`
   (16.16 metres), its right and forward rows `+0xc4` and `+0xdc`, its
@@ -37,7 +42,8 @@ that printed or changed it:
 ## How it drives
 
 - **Where:** at the road's middle, from each point's distances to its
-  edges, about 8 + v/2 metres ahead (up to 40). The points themselves
+  edges, about 10 + 0.6 v metres ahead (up to 48): the controls reach
+  the car a few frames after they're written, through the ring. The points themselves
   jog sideways where the edges change (`TR00`'s 1190, 4.5 m), and a few
   forward vectors are far off (the same point's, 50°): both made the
   first versions brake hard on straights, so the road's way is taken
@@ -66,6 +72,10 @@ The knockout was set up by the keys alone: Enter (the title movie),
 Enter (*game setup*), Down, Right, Right (*race type*: knockout), four
 Downs and Enter (*DONE*), two Downs and Enter (*RACE*); after the race,
 Enter three times through the summary and lap times to the standings.
+
+Later, through the ring, the one-lap race again 2nd (92.1 s); and two
+copies on a serial link, both driven, to the race's end
+([network-play.md](network-play.md)).
 
 ## Left open
 

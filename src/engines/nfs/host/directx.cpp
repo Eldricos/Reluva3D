@@ -189,7 +189,9 @@ void GameHost::present(const DdSurface &s) {
 void GameHost::presentPendingFront() {
     // 4 ms of the game's clock with no more writing: NFS II SE writes a
     // race's strips well within that, and draws at most 40 frames a second.
-    if (!_pendingFront || _process->now() < _pendingFrontMs + 4)
+    // Or 25 ms since the first writing, for drawing that doesn't stop.
+    const uint64_t now = _process->now();
+    if (!_pendingFront || (now < _pendingFrontMs + 4 && now < _pendingFrontSince + 25))
         return;
     const auto it = _surfaces.find(_pendingFront);
     _pendingFront = 0;
@@ -445,6 +447,8 @@ void GameHost::addDirectX() {
             if (!s || !s->primary)
                 return kOk;
             if (s->back) {
+                if (!_pendingFront)
+                    _pendingFrontSince = _process->now();
                 _pendingFront = c.arg(0);
                 _pendingFrontMs = _process->now();
             } else {

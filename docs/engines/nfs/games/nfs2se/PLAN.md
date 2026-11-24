@@ -285,9 +285,18 @@ with what it found written on the game's pages in `formats/` and
    copies by what their frames showed: on a clock of instructions their
    clocks drift apart and the game's own timeouts fire.
 
-   Left open: races and tournaments run to their end over a link, lost
-   packets and a player leaving, copies on two machines, the 3dfx
-   program on a link.
+   Later (November 2026), with the road driver: races on the serial
+   link run to their end, the same result on both copies, with packets
+   lost too; a copy leaving ends the race for the other (*aborted*); the
+   3dfx program linked to another and racing
+   ([research/network-play.md](research/network-play.md), Races to their
+   end). The lobby and race end needed two fixes: the host showing a
+   front surface drawn without pause, and the driver's controls going
+   round the link.
+
+   Left open: a tournament over a link, IPX and the modem to a race's
+   end, the software and 3dfx programs linked to each other, a copy that
+   hangs connecting late, copies on two machines.
 
 ## Decisions
 

@@ -18,8 +18,9 @@ namespace reluva::nfs::nfs2se {
 /**
  * Drives the player's car in the hosted retail nfs2sen.exe along the
  * track's virtual road, for races run to their end without hands
- * (docs/engines/nfs/games/nfs2se/research/road-driver.md): the car's
- * controls, as the game reads them, replaced each time it does. It aims a
+ * (docs/engines/nfs/games/nfs2se/research/road-driver.md): the controls
+ * the game samples from the keys replaced each frame before it passes them
+ * on, so that a replay and the other copies on a link have them too. It aims a
  * little ahead along the road, slows for the bends it sees coming, and
  * backs off a wall it's stuck against.
  */
@@ -34,10 +35,9 @@ public:
     };
 
     /**
-     * Puts the driver into `host`, loaded and not yet run: in place of the
-     * human cars' input function, which the game sets at 0x43c942. Fails
-     * if the program isn't the retail nfs2sen.exe, as the driver's
-     * addresses are its own.
+     * Puts the driver into `host`, loaded and not yet run: at the game's
+     * call passing on the local player's controls (0x4403a9). Fails if the program isn't the
+     * retail nfs2sen.exe, as the driver's addresses are its own.
      */
     Error install(GameHost &host, const Options &options);
 

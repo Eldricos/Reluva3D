@@ -15,10 +15,14 @@ namespace reluva::nfs::nfs2se {
 namespace {
 
 // nfs2sen.exe's, from its code (road-driver.md).
-constexpr uint32_t kInputSetter = 0x43c942; // mov dword [ecx+0x370], 0x45b3a0
-constexpr uint32_t kReadInput = 0x45b3a0;   // a human car's input function: keys, joystick or replay
-constexpr uint32_t kReplayMode = 0x4fd3d4;  // 0 or 1 live; else a replay plays
-constexpr uint32_t kControls = 0x4ddb18;    // s8 steering, u8 gas, u8 brake, u8 buttons
+// The local player's controls, sampled from the keys and joystick into a
+// record, go each frame (0x448720) into a ring of every player's, by
+// frame, which drives the cars (0x45e8a0) and the replay; on a link, sent
+// to the other copies too (0x45dae0). The driver writes the record just
+// before, at that call, so that all of them have its controls.
+constexpr uint32_t kStoreInputCall = 0x4403a9; // call 0x448720
+constexpr uint32_t kStoreInput = 0x448720;
+constexpr uint32_t kControls = 0x4ddb10; // s8 steering, u8 gas, u8 brake, u8 buttons
 constexpr uint8_t kShiftDown = 0x01;
 constexpr uint8_t kShiftUp = 0x02;
 constexpr uint32_t kCars = 0x4dcbe8; // pointers, by slot
@@ -52,32 +56,30 @@ constexpr float kTopSpeed = 102.0f;
 
 Error RoadDriver::install(GameHost &host, const Options &options) {
     x86::Cpu &cpu = host.cpu();
-    const std::array<uint8_t, 10> expected = {0xc7, 0x81, 0x70, 0x03, 0x00, 0x00, 0xa0, 0xb3, 0x45, 0x00};
+    const std::array<uint8_t, 5> expected = {0xe8, 0x72, 0x83, 0x00, 0x00};
     for (size_t i = 0; i < expected.size(); ++i)
-        if (!cpu.valid(kInputSetter + uint32_t(i), 1) || cpu.read8(kInputSetter + uint32_t(i)) != expected[i])
+        if (!cpu.valid(kStoreInputCall + uint32_t(i), 1) || cpu.read8(kStoreInputCall + uint32_t(i)) != expected[i])
             return Error::fail("the road driver needs the retail nfs2sen.exe");
     _options = options;
     const uint32_t native = cpu.addNative("nfs2se road driver", [this, &host](x86::Cpu &c) {
-        // The game's own input first (the keys, a replay), then ours over
-        // it. The car comes in EAX, as the game passes it.
-        const uint32_t car = c.reg[x86::Cpu::EAX];
+        // Ours over the keys' for the local player's car, then on as the
+        // game's.
+        if (const uint32_t car = c.read32(kCars + 4 * c.read32(kPlayerSlot)))
+            drive(host, car);
         uint32_t ignored = 0;
-        if (Error e = c.call(kReadInput, {}, ignored); e && log)
-            log("road driver: the game's input function failed: " + e.message);
-        drive(host, car);
+        if (Error e = c.call(kStoreInput, {}, ignored); e && log)
+            log("road driver: the game's storing of the controls failed: " + e.message);
         return 0u;
     });
     if (!native)
         return Error::fail("the road driver: no room for a native function");
-    cpu.write32(kInputSetter + 6, native);
+    cpu.write32(kStoreInputCall + 1, native - (kStoreInputCall + 5));
     return Error::success();
 }
 
 void RoadDriver::drive(GameHost &host, uint32_t car) {
     x86::Cpu &c = host.cpu();
     const uint64_t now = host.process().now();
-    if (car != c.read32(kCars + 4 * c.read32(kPlayerSlot)) || c.read32(kReplayMode) > 1)
-        return;
     auto fixed = [&](uint32_t a) { return float(int32_t(c.read32(a))) / 65536.0f; };
     auto s8 = [&](uint32_t a) { return float(int8_t(c.read8(a))); };
 
@@ -131,7 +133,7 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
 
     // Aim at the road a little ahead, farther the faster; the points are
     // 2 to 5 m apart.
-    const float lookahead = std::clamp(8.0f + v * 0.5f, 8.0f, 40.0f);
+    const float lookahead = std::clamp(10.0f + v * 0.6f, 10.0f, 48.0f);
     uint32_t j = slice;
     for (float along = 0; along < lookahead && j < slice + n; ++j)
         along += distance(point(j), point(j + 1));

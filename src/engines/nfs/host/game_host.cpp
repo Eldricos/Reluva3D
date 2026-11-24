@@ -135,9 +135,14 @@ GameHost::GameHost(GameFolders folders, Options options) : _folders(std::move(fo
             applyInput();
         presentPendingFront();
     };
-    // Before each native function: input that's due, and the log. Kept
-    // cheap: the game makes millions of these calls.
+    // Before each native function: input that's due, a picture drawn into
+    // the front that's done, and the log. Kept cheap: the game makes
+    // millions of these calls. The picture too, as at a change of threads:
+    // NFS II SE's network lobby runs one thread, polling the link, and
+    // would never show what it draws.
     _cpu->nativeTrace = [this](Cpu &cpu, const std::string &name) {
+        if (_pendingFront)
+            presentPendingFront();
         if (_inputQueued.load(std::memory_order_relaxed) && name.find("CriticalSection") == std::string::npos &&
             name.find("Tls") == std::string::npos) {
             applyInput();

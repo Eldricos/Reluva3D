@@ -559,6 +559,14 @@ void testHostWindows(const stdfs::path &tmp) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     host.process().onSlice(cpu);
     CHECK(frames == 2); // the Flip showed it
+    // Written without a pause of 4 ms (NFS II SE's network lobby): shown
+    // all the same, within 25 ms. Natives come between the writes, as the
+    // lobby's polling of the link does.
+    for (int i = 0; i < 12 && frames == 2; ++i) {
+        CHECK(method(front, 25, {0, desc, 1, 0}) == 0 && method(front, 32, {0}) == 0);
+        std::this_thread::sleep_for(std::chrono::milliseconds(3));
+    }
+    CHECK(frames == 3);
 }
 
 // A renderer is told from the game's other DLLs by its exports: NFS III's

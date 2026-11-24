@@ -576,7 +576,8 @@ private:
     // A flipping pair's front surface written through a lock (Unlock), shown
     // once the writing stops, by the game's clock: its object, and when.
     uint32_t _pendingFront = 0;
-    uint64_t _pendingFrontMs = 0;
+    uint64_t _pendingFrontMs = 0;    // when it was last written
+    uint64_t _pendingFrontSince = 0; // when it was first written since it was last shown
     void presentPendingFront();
     Surface _frame;
 

@@ -93,6 +93,7 @@ That the real release is recognised by its hashes: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US CD and an install from it | Linux | Two copies on the serial link, both driven (`-roaddrive`): Proving Grounds, 4 laps, to the race summary, the same on both; again with `-netdrop 10`; one copy killed mid-race (the other's race *aborted*); two copies of the 3dfx program linked and racing ([research/network-play.md](research/network-play.md)) |
 | November 2026 | US CD and an install from it | Linux | The road driver (`-roaddrive`) on the host, deterministic: Proving Grounds, a one-lap race 2nd of 8; the knockout's first round 7th of 9, the player advancing on the knockout standings ([research/road-driver.md](research/road-driver.md)) |
 | November 2026 | US CD and an install from it | Linux | A knockout to its end on the host: round 1 (Proving Grounds, 2 laps, 9 cars) quit from the pause menu, the player eliminated, the knockout standings, then the main menu back to a single race (PLAN.md, Phase 6) |
 | November 2026 | US CD and an install from it | Linux | A tournament to its end on the host (`-keysfile`): seven races, the first driven with Up held (8th, 8:19.46), the rest quit from the pause menu; each race's summary and standings, then the tournament summary and the main menu (PLAN.md, Phase 6) |
