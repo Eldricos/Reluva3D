@@ -156,6 +156,18 @@ Windows does when it fails, and dialog boxes are made but not drawn
     read, it goes back to software (`0x414424`) *(from the code)*.
 18. **Multiplayer** goes through DirectPlay 3 (`IDirectPlay3A`, kept at
     `0x55d608`), its calls at `0x42fa40` to `0x4305d2` *(from the code)*:
+    - It asks whether a lobby started it (`0x42f840`, from `0x4c993a`):
+      `DirectPlayLobbyCreateA` (`DPLAYX.dll`'s ordinal 4: no service
+      provider, no outer object, no data), `QueryInterface` for
+      `IDirectPlayLobby2` (the Unicode one, its identifier at
+      `0x5226b8`), and `GetConnectionSettings` of itself (application 0)
+      with no buffer, to learn the size. Any answer but
+      `DPERR_BUFFERTOOSMALL`, or the lobby not made, and it releases
+      the lobby and goes on as not lobbied. Lobbied, it would read the
+      settings, set `DPSESSION_KEEPALIVE` and `DPSESSION_NODATAMESSAGES`
+      and clear `DPSESSION_MIGRATEHOST` in them
+      (`SetConnectionSettings`), `Connect`, and ask what that gives for
+      `IDirectPlay3`.
     - *Host Game* and *Join Game* list the connections
       (`EnumConnections`, up to 16, by name) for *Choose a network
       provider*, and the one chosen is initialized
@@ -244,8 +256,9 @@ it presents in the window, and passes the keyboard and mouse on.
   CD's audio
   ([cdaudio.md](../../../../../common/x86/cdaudio.md)) are the
   emulator's, the sound card's output and the music played through
-  Reluva's mixer. There's no `waveOut` device and no DirectPlay lobby:
-  the game is told so, as on a machine without them.
+  Reluva's mixer. There's no `waveOut` device: the game is told so, as
+  on a machine without one. DirectPlay's lobby is there, and tells the
+  game no lobby started it, as when it's run from its own menu.
 - **The joysticks:** the player's game controller, connected when the
   game starts or later, is its first joystick, and a second pad, or
   else a racing wheel, its second ([joystick.md](../../../../../common/x86/joystick.md)): the

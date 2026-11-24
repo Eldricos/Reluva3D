@@ -36,7 +36,7 @@ None yet.
 - **Multiplayer:** over TCP/IP only, and between copies of Reluva: its
   DirectPlay plays sessions over a protocol of its own, so it can't meet
   a game on Windows' DirectPlay. There's no IPX, modem or serial
-  connection, no lobby, and the host's address, where
+  connection, no lobby to start it from, and the host's address, where
   Windows' TCP/IP asked for it in a box, is the `joinaddress` setting.
   The host's leaving ends the session, as the game asked.
 - **Direct3D:** *Setup*'s hardware drawing is done by the emulator's

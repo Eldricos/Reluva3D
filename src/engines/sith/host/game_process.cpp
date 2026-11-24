@@ -19,15 +19,14 @@ namespace {
 
 constexpr const char *kRegistryKey = "HKEY_LOCAL_MACHINE\\Software\\LucasArts Entertainment Company\\JediKnight\\v1.0";
 
-// What a machine of the time without the device answers: no DirectPlay
-// lobby, no waveOut device. The program learns it has
-// none, as it would there.
+// What a machine of the time without the device answers: no waveOut
+// device. The program learns it has none, as it would there. (DirectPlay's
+// lobby is DirectPlay's own: it tells the game no lobby started it.)
 void addAbsentDevices(x86::Win32Process &process) {
     auto absent = [&](const char *dll, const char *name, int args, uint32_t result) {
         process.provideStdcall(dll, name, args, [result](x86::Cpu &) { return result; });
     };
-    absent("DPLAYX.dll", "#4", 5, 0x887700fa); // DirectPlayLobbyCreateA: DPERR_UNAVAILABLE
-    absent("WINMM.dll", "waveOutOpen", 6, 2);  // MMSYSERR_BADDEVICEID
+    absent("WINMM.dll", "waveOutOpen", 6, 2); // MMSYSERR_BADDEVICEID
     for (const char *name : {"waveOutClose", "waveOutReset"})
         absent("WINMM.dll", name, 1, 5); // MMSYSERR_INVALHANDLE
     for (const char *name : {"waveOutPrepareHeader", "waveOutUnprepareHeader", "waveOutWrite"})
