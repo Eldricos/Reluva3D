@@ -26,6 +26,7 @@ namespace reluva::storm3d {
  *   P: to the next of the map's paths
  *   G: as the game looks on starting; then +/- and W/A/S/D move as the game's overview does
  *   H: the game's grid over the map on/off
+ *   F: with starting units, the shroud over what the first player hasn't seen on/off
  *   R: the players' starting units, as a skirmish makes them: Federation, Klingon, Romulan, Borg or none
  *   Space: turning on/off   V: the damage emitters (venting plasma and gas) on/off
  */
@@ -78,6 +79,7 @@ public:
     struct Look {
         std::string model; // empty: none (dont_load_SOD, or no definition)
         float scale = 1;
+        float scanRange = 0; // rangeScan: how far it sees, which clears the shroud
         // An asteroid field's (classLabel "asteroidfield"): how many
         // asteroids, and within what radius.
         int minAsteroids = 0;
@@ -103,6 +105,7 @@ public:
     struct StartUnit {
         std::string odf;
         gfx::Vec3 at{};
+        int slot = 0; // the player's: its path Camera_<slot>
     };
     /**
      * Where a skirmish makes each player's starting units, as the game
@@ -125,12 +128,29 @@ public:
      */
     static std::optional<gfx::Vec3> teamColourOf(const std::string &name, const SearchSet &files);
 
+    /** What sees, for the shroud: where, and how far (its rangeScan). */
+    struct Sight {
+        gfx::Vec3 at{};
+        float range = 0;
+    };
+    /**
+     * The cells of a map's area a player has seen, as the game's shroud
+     * has them: `cells` x `cells` of the area's square, row 0 at its far
+     * (highest) z. A cell is seen when it's within a unit's range of the
+     * unit's own cell, counted in whole cells, with a little more reach than
+     * the range (the game's frame: between 716 and 721 for a range of 700).
+     */
+    static std::vector<bool> seenOf(const BznMap &map, int cells, const std::vector<Sight> &sights);
+
 private:
     void load();
     void draw();
     void makeGrid();
     void freeGrid();
-    Camera orbit() const; // the camera the keys move
+    void makeShroud(const std::vector<bool> &seen);
+    bool shrouded(const gfx::Vec3 &at) const;    // above the plane, in a cell not seen
+    const Look &lookFor(const std::string &odf); // lookOf's, kept in _looks
+    Camera orbit() const;                        // the camera the keys move
     void showMessage(const std::string &line);
 
     System &_sys;
@@ -171,6 +191,12 @@ private:
     gfx::MeshId _gridMesh = 0;
     gfx::TextureId _gridTexture = 0;
     bool _showGrid = true;
+    // The shroud on the same plane: the cells not seen, in gshroud's
+    // picture stretched over the area.
+    gfx::MeshId _shroudMesh = 0;
+    gfx::TextureId _shroudTexture = 0;
+    std::vector<bool> _seen; // seenOf's, while the shroud's shown
+    bool _showShroud = true;
     uint64_t _lastMillis = 0;
 };
 

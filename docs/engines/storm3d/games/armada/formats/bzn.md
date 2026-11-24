@@ -182,6 +182,30 @@ tested but not written, drawn after the background and the planets and
 before the ships. How far out the game draws them isn't known (its
 lines are cut at the screen's edges; `GRID_FAR_CLIP_PLANE` is 10,000).
 
+### The shroud and the fog
+
+What a player hasn't seen is covered *(seen in the skirmish's draws and
+memory)*. The game keeps two 128 × 128 textures of the map's area, a
+texel a 50-unit cell, row 0 at the far (highest) z: the shroud's,
+`gshroud.tga`'s picture with the cells the player has seen in black, and
+the fog's, `gfog.tga`'s with the cells it sees now in black. Each is
+drawn as one square over the area on the plane y = 0, as the grid is,
+its texture's u = x / 6400 and v = 1 - z / 6400, black left out: the
+fog first, 70% opaque (its vertices' alpha 0xb2, blended by alpha),
+then the grid, then the shroud, opaque, depth tested but not written,
+so it covers the grid and what's below the plane (the planets) where
+it lies. The map's ships and nebulae in it aren't drawn. Past the
+area's edge there's neither.
+
+At the skirmish's start the two are the same: a disc about each of the
+player's units, of its `rangeScan` (the starbase's 700, from
+`station.odf`; a ship's 500, from `craft.odf`). Counted in whole cells
+from the unit's own cell, a cell is seen when it's within 716 to 721
+units of it, a little more than the range: the 596 cells the starbase
+and the two construction ships cleared on `4first.bzn`, cut by the
+area's edge, fit that and nothing simpler. The game's own record of
+what's seen wasn't found in its memory.
+
 ### Start positions (`.mdf`)
 
 A skirmish map's `.mdf` is text:
@@ -272,6 +296,12 @@ as the file says.
   the area, its texture a line on two edges each 100 units, so it fades
   at a distance as lines wouldn't; H hides it.
 
+  With the starting units comes the shroud, over what the first
+  player's units don't see, as above, with 718 units' reach for 700's
+  range (`MapPage::seenOf`); the map's objects above the plane in it
+  aren't drawn. F turns it off. The fog isn't drawn: at the start it's
+  hidden under the shroud.
+
   R adds each player's starting units, a race's standard set, as the
   game makes them (`MapPage::startUnitsOf`), but without its test that a
   unit fits: Federation, Klingon, Romulan, Borg, then none. Their team
@@ -296,12 +326,14 @@ as the file says.
   the paths to theirs (1,238). The unit tests (`storm3d.unit.bzn`) build
   maps in the layout: objects with a weapon's definition among their own
   fields, paths of one and of two points, a map with none, and broken
-  ones; and the starting units against where the game's memory had
-  them. No published description of the format was used.
+  ones; the starting units against where the game's memory had them,
+  and the shroud's cells against its texture's. No published description of the format was used.
 
 ## Open questions
 
 - How ships are lit (above), and how far out the grid goes.
+- How far a unit sees exactly (between 716 and 721 for a range of 700),
+  and where the game keeps what's been seen.
 - How the game tests that a starting unit fits where the spiral puts it,
   and how a player's colour is chosen.
 - Each kind of object's own fields, and what follows the objects.

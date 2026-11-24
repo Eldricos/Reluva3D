@@ -75,8 +75,10 @@ these phases start from, is in [formats/install.md](formats/install.md).
    colour. The ships' lighting, checked against the game's draws, isn't
    the maps' formula, and isn't worked out
    ([formats/bzn.md](formats/bzn.md#lighting)). The game's grid over the
-   map is drawn as its frame shows it. Next: the shroud, then the
-   ships' lighting from the code.
+   map is drawn as its frame shows it, and the shroud over what the
+   player's units haven't seen. Next: the ships' lighting from the code,
+   and the fog of what's been seen but isn't now, which needs time to
+   pass.
 6. **The front end:** the shell's screens, the opening movie, game setup,
    options, loading and saving.
 7. **Rules:** units from their object definitions: movement and

@@ -8,6 +8,7 @@
 #include "engines/storm3d/formats/odf.h"
 #include "engines/storm3d/pages/model_page.h"
 #include "graphics/font.h"
+#include "image/image.h"
 
 #include <algorithm>
 #include <cmath>
@@ -57,6 +58,12 @@ constexpr float kGridSpacing = 100;
 constexpr uint8_t kGridColour[3] = {38, 33, 0};
 // Texels across a square of the grid's texture: its line one wide.
 constexpr int kGridTexels = 64;
+// The shroud's cells: 50 units square, as the .mdf's, 128 across a map
+// (every map's area is 6400 square). A unit sees a little beyond its
+// range: the game's frame clears cells between 716 and 721 units from a
+// starbase's, whose range is 700.
+constexpr float kShroudCell = 50;
+constexpr float kShroudReach = 18;
 
 // Reads definitions (an .odf and what it includes) from the game's files.
 Odf::Loader loaderFor(const SearchSet &files) {
@@ -81,6 +88,7 @@ MapPage::Look MapPage::lookOf(const std::string &odf, const SearchSet &files) {
     if (definition.number("dont_load_SOD") != 0)
         look.model.clear();
     look.scale = float(definition.number("scaleSOD", 1));
+    look.scanRange = float(definition.number("rangeScan"));
     if (look.scale <= 0)
         look.scale = 1;
     if (text::equalsIgnoreCase(definition.string("classLabel"), "asteroidfield")) {
@@ -167,7 +175,7 @@ std::vector<MapPage::StartUnit> MapPage::startUnitsOf(const BznMap &map, const s
         const gfx::Vec3 middle = path->points[0];
         double r = kSpiralStart;
         for (const std::string &odf : units) {
-            StartUnit unit{odf, middle};
+            StartUnit unit{odf, middle, slot};
             if (r <= kSpiralEnd) {
                 const double angle = r * kPi * 2;
                 unit.at[0] = float(middle[0] + std::sin(angle) * r * kSpiralRadius);
@@ -178,6 +186,28 @@ std::vector<MapPage::StartUnit> MapPage::startUnitsOf(const BznMap &map, const s
         }
     }
     return out;
+}
+
+std::vector<bool> MapPage::seenOf(const BznMap &map, int cells, const std::vector<Sight> &sights) {
+    std::vector<bool> seen(size_t(cells * cells), false);
+    const float size = map.area[1] - map.area[0];
+    if (cells <= 0 || size <= 0)
+        return seen;
+    const float cell = size / float(cells);
+    for (const Sight &sight : sights) {
+        // Counted from the unit's cell; rows from the area's near edge.
+        const int uc = int(std::floor((sight.at[0] - map.area[0]) / cell));
+        const int ur = int(std::floor((sight.at[2] - map.area[4]) / cell));
+        const float reach = (sight.range + kShroudReach) / cell;
+        for (int r = 0; r < cells; ++r)
+            for (int c = 0; c < cells; ++c) {
+                const float dc = float(c - uc);
+                const float dr = float(r - ur);
+                if (dc * dc + dr * dr <= reach * reach)
+                    seen[size_t((cells - 1 - r) * cells + c)] = true;
+            }
+    }
+    return seen;
 }
 
 gfx::Mat4 MapPage::placeOf(const BznMap::Object &o, float scale) {
@@ -334,6 +364,10 @@ void MapPage::handleKey(uint32_t key) {
     case 'h':
         _showGrid = !_showGrid;
         break;
+    case 'f':
+        _showShroud = !_showShroud;
+        load();
+        break;
     case 'v': // the damage emitters: venting plasma and gas
         _meshes.showDamage(!_meshes.showingDamage());
         break;
@@ -358,15 +392,78 @@ void MapPage::update(uint64_t millis) {
         draw();
 }
 
+// The grid's and the shroud's, which are made together.
 void MapPage::freeGrid() {
     if (_renderer) {
-        if (_gridMesh)
-            _renderer->destroyMesh(_gridMesh);
-        if (_gridTexture)
-            _renderer->destroyTexture(_gridTexture);
+        for (const gfx::MeshId m : {_gridMesh, _shroudMesh})
+            if (m)
+                _renderer->destroyMesh(m);
+        for (const gfx::TextureId t : {_gridTexture, _shroudTexture})
+            if (t)
+                _renderer->destroyTexture(t);
     }
-    _gridMesh = 0;
-    _gridTexture = 0;
+    _gridMesh = _shroudMesh = 0;
+    _gridTexture = _shroudTexture = 0;
+}
+
+bool MapPage::shrouded(const gfx::Vec3 &at) const {
+    const float size = _map.area[1] - _map.area[0];
+    const int cells = int(std::lround(size / kShroudCell));
+    if (_seen.empty() || at[1] < 0 || size <= 0)
+        return false;
+    const int c = int(std::floor((at[0] - _map.area[0]) / kShroudCell));
+    const int r = int(std::floor((at[2] - _map.area[4]) / kShroudCell));
+    // Outside the area there's no shroud: the game's frame shows space
+    // past its edge clear.
+    if (c < 0 || r < 0 || c >= cells || r >= cells)
+        return false;
+    return !_seen[size_t((cells - 1 - r) * cells + c)];
+}
+
+void MapPage::makeShroud(const std::vector<bool> &seen) {
+    const float size = _map.area[1] - _map.area[0];
+    const int cells = int(std::lround(size / kShroudCell));
+    if (!_renderer || seen.size() != size_t(cells * cells) || cells <= 0)
+        return;
+    // gshroud's picture, a texel a cell (it's 128 square), with the cells
+    // seen left out.
+    image::Image picture;
+    std::vector<uint8_t> data;
+    if (_files.read("Textures/RGB/gshroud.tga", data) || image::decode(data, picture) || picture.w <= 0)
+        picture = {};
+    std::vector<uint8_t> rgba(size_t(cells * cells) * 4, 128);
+    for (int r = 0; r < cells; ++r)
+        for (int c = 0; c < cells; ++c) {
+            uint8_t *t = &rgba[size_t(r * cells + c) * 4];
+            if (picture.w > 0) {
+                const size_t from = size_t((r * picture.h / cells) * picture.w + c * picture.w / cells) * 4;
+                std::copy_n(&picture.rgba[from], 3, t);
+            }
+            t[3] = seen[size_t(r * cells + c)] ? 0 : 255;
+        }
+    gfx::TextureParams params;
+    params.clamp = true;
+    params.mipmaps = false;
+    if (_renderer->createTexture(cells, cells, rgba.data(), params, _shroudTexture))
+        _shroudTexture = 0;
+    // Over the area on the plane y = 0, its texture's top row the far edge.
+    const float x0 = _map.area[0];
+    const float x1 = _map.area[1];
+    const float z0 = _map.area[4];
+    const float z1 = _map.area[5];
+    std::vector<gfx::Vertex> corners(4);
+    const float xs[4] = {x0, x1, x1, x0};
+    const float zs[4] = {z0, z0, z1, z1};
+    for (size_t i = 0; i < 4; ++i) {
+        gfx::Vertex &v = corners[i];
+        v.pos[0] = xs[i], v.pos[1] = 0, v.pos[2] = zs[i];
+        v.normal[1] = 1;
+        v.uv[0] = (xs[i] - x0) / (x1 - x0);
+        v.uv[1] = 1 - (zs[i] - z0) / (z1 - z0);
+        std::fill(std::begin(v.color), std::end(v.color), uint8_t(255));
+    }
+    if (_renderer->createMesh(corners, {0, 1, 2, 0, 2, 3}, _shroudMesh))
+        _shroudMesh = 0;
 }
 
 void MapPage::makeGrid() {
@@ -406,6 +503,14 @@ void MapPage::makeGrid() {
         _gridMesh = 0;
 }
 
+const MapPage::Look &MapPage::lookFor(const std::string &odf) {
+    const std::string key = text::toLower(odf);
+    auto look = _looks.find(key);
+    if (look == _looks.end())
+        look = _looks.emplace(key, lookOf(odf, _files.files())).first;
+    return look->second;
+}
+
 void MapPage::load() {
     if (!_renderer)
         return;
@@ -424,13 +529,27 @@ void MapPage::load() {
         _map = BznMap{};
         _error = err.message;
     }
+    // The starting units, and what the first player's units see of the map:
+    // what the shroud leaves out.
+    const std::vector<StartUnit> units = _race < std::size(kRaces)
+                                             ? startUnitsOf(_map, standardUnitsOf(kRaces[_race], _files.files()))
+                                             : std::vector<StartUnit>{};
+    _seen.clear();
+    if (_showShroud && !units.empty()) {
+        std::vector<Sight> sights;
+        for (const StartUnit &unit : units)
+            if (unit.slot == units.front().slot)
+                sights.push_back({unit.at, lookFor(unit.odf).scanRange});
+        _seen = seenOf(_map, int(std::lround((_map.area[1] - _map.area[0]) / kShroudCell)), sights);
+    }
     for (const BznMap::Object &o : _map.objects) {
-        const std::string key = text::toLower(o.odf);
-        auto look = _looks.find(key);
-        if (look == _looks.end())
-            look = _looks.emplace(key, lookOf(o.odf, _files.files())).first;
+        // The game draws nothing of the map in the shroud but what's below
+        // its plane, which the shroud covers.
+        if (shrouded(o.position))
+            continue;
+        const Look &look = lookFor(o.odf);
         const size_t before = _placed.size();
-        for (const auto &[model, place] : asteroidsOf(o, look->second))
+        for (const auto &[model, place] : asteroidsOf(o, look))
             if (const SodMeshes::Built *built = _meshes.model(model))
                 _placed.push_back({built, place});
         if (_placed.size() > before)
@@ -438,10 +557,10 @@ void MapPage::load() {
         // A sprite node named for the definition is the object's too, at
         // its centre: the planets' glows ("Nimbus for planets", planets.spr).
         if (const SodMeshes::Built *glow = _meshes.spriteNode(o.odf))
-            _placed.push_back({glow, placeOf(o, look->second.scale)});
-        if (look->second.model.empty())
+            _placed.push_back({glow, placeOf(o, look.scale)});
+        if (look.model.empty())
             continue;
-        const SodMeshes::Built *built = _meshes.model(look->second.model);
+        const SodMeshes::Built *built = _meshes.model(look.model);
         if (!built) {
             ++_unmodelled;
             continue;
@@ -450,31 +569,29 @@ void MapPage::load() {
             ++_effects;
             continue;
         }
-        _placed.push_back({built, placeOf(o, look->second.scale)});
+        _placed.push_back({built, placeOf(o, look.scale)});
         ++_drawn;
     }
     _starting = 0;
-    if (_race < std::size(kRaces))
-        for (const StartUnit &unit : startUnitsOf(_map, standardUnitsOf(kRaces[_race], _files.files()))) {
-            const std::string key = text::toLower(unit.odf);
-            auto look = _looks.find(key);
-            if (look == _looks.end())
-                look = _looks.emplace(key, lookOf(unit.odf, _files.files())).first;
-            const SodMeshes::Built *built = look->second.model.empty() ? nullptr : _meshes.model(look->second.model);
-            if (!built)
-                continue;
-            // Facing +z, as the game makes them.
-            gfx::Mat4 place = gfx::identity();
-            place[0] = place[5] = place[10] = look->second.scale;
-            place[12] = unit.at[0], place[13] = unit.at[1], place[14] = unit.at[2];
-            _placed.push_back({built, place});
-            ++_starting;
-        }
+    for (const StartUnit &unit : units) {
+        const Look &look = lookFor(unit.odf);
+        const SodMeshes::Built *built = look.model.empty() ? nullptr : _meshes.model(look.model);
+        if (!built || shrouded(unit.at))
+            continue;
+        // Facing +z, as the game makes them.
+        gfx::Mat4 place = gfx::identity();
+        place[0] = place[5] = place[10] = look.scale;
+        place[12] = unit.at[0], place[13] = unit.at[1], place[14] = unit.at[2];
+        _placed.push_back({built, place});
+        ++_starting;
+    }
     // The team parts in the chosen race's colour, or the map's race's: the
     // game's frames show the Federation's grey on the player's ships.
     _meshes.setTeamColour(teamColourOf(_race < std::size(kRaces) ? kRaceNames[_race] : _map.race, _files.files()));
     _meshes.setLighting(lightingOf(_map));
     makeGrid();
+    if (!_seen.empty())
+        makeShroud(_seen);
     std::string background = _map.background;
     if (text::hasSuffixIgnoreCase(background, ".sod"))
         background.resize(background.size() - 4);
@@ -595,6 +712,18 @@ void MapPage::draw() {
         grid.state.dst = gfx::Blend::kOne;
         grid.state.depthWrite = false;
         _renderer->draw(grid);
+    }
+    // The shroud after the grid, over it and what's below the plane.
+    if (_shroudMesh && _shroudTexture) {
+        gfx::DrawCall shroud;
+        shroud.mesh = _shroudMesh;
+        shroud.indexCount = 6;
+        shroud.model = gfx::identity();
+        shroud.texture = _shroudTexture;
+        shroud.state.cull = gfx::Cull::kNone;
+        shroud.state.alphaTest = gfx::AlphaTest::kGe128;
+        shroud.state.depthWrite = false;
+        _renderer->draw(shroud);
     }
     _meshes.draw(_placed);
 

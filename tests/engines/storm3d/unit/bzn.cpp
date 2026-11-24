@@ -223,11 +223,32 @@ void testStartingUnits(const std::filesystem::path &tmp) {
         return std::fabs(a[0] - x) < 0.02f && a[1] == y && std::fabs(a[2] - z) < 0.02f;
     };
     // The first a whole turn out: 100 ahead, in z.
-    CHECK(made[0].odf == "fconst" && near(made[0].at, 576.599f, 38.5f, 544.5f));
+    CHECK(made[0].odf == "fconst" && near(made[0].at, 576.599f, 38.5f, 544.5f) && made[0].slot == 1);
     CHECK(near(made[1].at, 576.599f + 54.17f, 38.5f, 444.5f + 93.82f));
     CHECK(made[2].odf == "fbase" && near(made[2].at, 677.64f, 38.5f, 502.83f));
     // The other player's, as memory had them: its second and third.
-    CHECK(near(made[4].at, 5956.2f, 38.5f, 578.62f) && near(made[5].at, 6003.07f, 38.5f, 543.13f));
+    CHECK(near(made[4].at, 5956.2f, 38.5f, 578.62f) && near(made[5].at, 6003.07f, 38.5f, 543.13f) && made[5].slot == 4);
+}
+
+// The shroud's cells at the start of the skirmish on "The Very First
+// Map", as the game's shroud texture had them: a row's first and last
+// cell seen, rows 103 to 127 (the area's near edge); none elsewhere.
+void testShroud() {
+    BznMap map;
+    map.area = {0, 6400, -28.5f, 105.5f, 0, 6400};
+    const std::vector<MapPage::Sight> sights = {
+        {{677.64f, 38.5f, 502.83f}, 700}, {{624.96f, 32.0f, 546.64f}, 500}, {{571.07f, 40.01f, 544.65f}, 500}};
+    const std::vector<bool> seen = MapPage::seenOf(map, 128, sights);
+    static const int kSpans[][2] = {{10, 16}, {7, 19}, {6, 20}, {4, 22}, {3, 23}, {2, 24}, {2, 24}, {1, 25}, {0, 26},
+                                    {0, 26},  {0, 26}, {0, 27}, {0, 27}, {0, 27}, {0, 27}, {0, 27}, {0, 27}, {0, 27},
+                                    {0, 26},  {0, 26}, {0, 26}, {1, 25}, {2, 24}, {2, 24}, {3, 23}};
+    int wrong = 0;
+    for (int r = 0; r < 128; ++r)
+        for (int c = 0; c < 128; ++c) {
+            const bool game = r >= 103 && c >= kSpans[r - 103][0] && c <= kSpans[r - 103][1];
+            wrong += seen[size_t(r * 128 + c)] != game;
+        }
+    CHECK(wrong == 0);
 }
 
 // The game's overview camera on starting, as its memory held it in
@@ -342,5 +363,6 @@ static const reluva::test::Suite
                {"overview", [](const std::filesystem::path &) { testOverview(); }},
                {"particles", [](const std::filesystem::path &) { testParticles(); }},
                {"lighting", [](const std::filesystem::path &) { testLighting(); }},
+               {"shroud", [](const std::filesystem::path &) { testShroud(); }},
                {"starting units", [](const std::filesystem::path &tmp) { testStartingUnits(tmp / "starting"); }},
            });
