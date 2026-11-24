@@ -57,9 +57,11 @@ SodMeshes::Built SodMeshes::build(const SodModel &model, int level) {
             (level >= 0 && !ModelPage::shownAtLevel(model, i, level)))
             continue;
         const SodModel::Mesh &mesh = model.meshes[size_t(node.mesh)];
-        // Normals by vertex, the faces' around it added up, for smooth
-        // shading. The faces wind so that (c - a) x (b - a) points out: the
-        // other way, 4first's moon is dark where the game's draws light it.
+        // Normals by vertex: the faces' around it added up, each counting
+        // as much whatever its size, as the game's draws of a starbase fit
+        // (the median vertex within 0.001). The faces wind so that
+        // (c - a) x (b - a) points out: the other way, 4first's moon is dark
+        // where the game's draws light it.
         std::vector<gfx::Vec3> normals(mesh.vertices.size(), gfx::Vec3{0, 0, 0});
         for (const SodModel::Group &g : mesh.groups)
             for (const SodModel::Face &f : g.faces) {
@@ -69,9 +71,12 @@ SodMeshes::Built SodMeshes::build(const SodModel &model, int level) {
                 const gfx::Vec3 u{b[0] - a[0], b[1] - a[1], b[2] - a[2]};
                 const gfx::Vec3 v{c[0] - a[0], c[1] - a[1], c[2] - a[2]};
                 const gfx::Vec3 n{v[1] * u[2] - v[2] * u[1], v[2] * u[0] - v[0] * u[2], v[0] * u[1] - v[1] * u[0]};
+                const float len = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+                if (len <= 0)
+                    continue;
                 for (const uint16_t k : f.vertex)
                     for (int d = 0; d < 3; ++d)
-                        normals[k][size_t(d)] += n[size_t(d)];
+                        normals[k][size_t(d)] += n[size_t(d)] / len;
             }
         std::vector<gfx::Vertex> vertices;
         std::vector<uint32_t> indices;
@@ -103,9 +108,11 @@ SodMeshes::Built SodMeshes::build(const SodModel &model, int level) {
                 }
             part.indexCount = uint32_t(indices.size()) - part.firstIndex;
             for (const SodModel::LightingMaterial &m : model.materials)
-                if (m.name == g.material)
+                if (m.name == g.material) {
                     part.colour = {std::min(1.0f, m.diffuse[0]), std::min(1.0f, m.diffuse[1]),
                                    std::min(1.0f, m.diffuse[2]), 1};
+                    part.ambient = {m.ambient[0], m.ambient[1], m.ambient[2]};
+                }
             part.team = text::equalsIgnoreCase(std::string_view(g.material).substr(0, 5), "team_");
             parts.push_back(part);
         }
@@ -430,7 +437,12 @@ void SodMeshes::drawPart(const Part &part, const gfx::Mat4 &place, bool behind) 
         call.state.dst = gfx::Blend::kOne;
         call.state.depthWrite = false;
     } else {
+        // As the game lights a vertex (0x5835b0, 0x59a290): the material's
+        // ambient and the scene's added, then its diffuse by each light.
         call.rgbSource = gfx::ColorSource::kLighting;
+        call.materialLit = true;
+        call.materialEmissive = part.ambient;
+        call.materialAmbient = {1, 1, 1};
         call.ambientLight = _lighting.ambient;
         for (size_t i = 0; i < _lighting.lights.size() && i < 3; ++i) {
             const Lighting::Directed &l = _lighting.lights[i];

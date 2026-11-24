@@ -55,7 +55,7 @@ these phases start from, is in [formats/install.md](formats/install.md).
    hears the mouse's motion (`motion` in the input), closes the
    objectives and plays on. Next: the files it reads in play, for phase
    5; where its pointer starts; input that waits for what's shown.
-5. **Maps and the scene** (in progress): `.bzn` and `.mdf`, the
+5. **Maps and the scene** (done): `.bzn` and `.mdf`, the
    starfield and nebulae, planets, moons and asteroids, the camera
    (`RTS_CFG.h`'s limits), the ships. A skirmish map shown and moved
    around, checked against the original in the emulator. Done: the maps
@@ -72,18 +72,19 @@ these phases start from, is in [formats/install.md](formats/install.md).
    and its frame matches the Maps page's, the players' starting units
    too, made where the game's code puts them
    ([formats/bzn.md](formats/bzn.md#starting-units)), in their team's
-   colour. The ships' lighting, checked against the game's draws, isn't
-   the maps' formula, and isn't worked out
-   ([formats/bzn.md](formats/bzn.md#lighting)). The game's grid over the
-   map is drawn as its frame shows it, and the shroud over what the
-   player's units haven't seen. Next: the ships' lighting from the code,
-   and the fog of what's been seen but isn't now, which needs time to
-   pass.
+   colour; the game's grid and the shroud over what the player's units
+   haven't seen; and the models lit as the game's code lights them,
+   to within 0.002 of its draws. Phase 5 is done but for what needs
+   play: the fog over what's been seen but isn't now, once ships move
+   (phase 7), and the ships' specular highlights, which the renderer
+   doesn't draw yet.
 6. **The front end:** the shell's screens, the opening movie, game setup,
    options, loading and saving.
 7. **Rules:** units from their object definitions: movement and
    collision avoidance, weapons, shields, crews and boarding, officers,
-   mining dilithium, building and research, special weapons; then
+   mining dilithium, building and research, special weapons, sight and
+   the fog over what's been seen but isn't now, the ships' specular
+   highlights as they turn in the light; then
    skirmish against the computer player (its scheduler, the `.aip`
    personalities, its DLLs). The largest phase, checked against the
    original and recordings, with the manual for the rules.

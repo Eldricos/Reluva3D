@@ -47,9 +47,11 @@ themselves.
 ### Lighting materials
 
 A 2-byte count, then for each: a name, 10 floats and a byte. The floats
-look like three colours and a power: the ambient, the diffuse, the
-specular, and a power from 0 to 300, mostly 50 *(inferred)*; the byte is
-0, 1 or 2. A
+are three colours and a power, which the game lights a vertex with *(from
+the code, [bzn.md](bzn.md#lighting))*: the ambient, added whatever the
+lights; the diffuse, by each light; the specular, by each light's
+highlight; and the highlight's power, from 0 to 300, mostly 50. The byte
+is 0, 1 or 2. A
 mesh's groups of faces name them (`base_borg`, `team_Bglow`); the
 executable says it reads "a lighting material palette (material.sod)".
 
@@ -160,7 +162,8 @@ its mesh hasn't.
   `src/engines/storm3d/pages/model_page.h`, its drawing in `SodMeshes`,
   shared with the Maps page) draws each model turning, its
   most detailed level, with its textures and the lighting materials'
-  diffuse colours, lit from one direction,
+  diffuse colours, lit from one direction as the game lights a model
+  (its ambient added, its diffuse by the light; no specular),
   without its `borg` parts; `additive` and `wormhole`
   meshes are added over the rest, then the sprite nodes' sprites
   ([spr.md](spr.md#emitters-and-sprite-nodes)), additive, in their
@@ -192,7 +195,7 @@ its mesh hasn't.
 
 ## Open questions
 
-- The texture table's use, the lighting materials' byte 1 against 2, the meshes'
+- The texture table's use, the lighting materials' byte, the meshes'
   flag and list of vertices, the animations' 2 bytes, and the texture
   animations' byte and float.
 - 14 textures that meshes name aren't in the install (`nebu4`, `soft`,

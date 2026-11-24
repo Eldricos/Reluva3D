@@ -271,7 +271,7 @@ void testOverview() {
 }
 
 // A map's lighting: its directional lights, each its colour along its
-// front axis, and its settings' colour as the ambient, all 1.75 times.
+// front axis, and its settings' colour as the ambient, as they are.
 void testLighting() {
     BznMap map;
     map.light = {0.2f, 0.2f, 0.2f};
@@ -289,9 +289,9 @@ void testLighting() {
     map.fields.push_back({BznMap::kVector, std::vector<uint8_t>(12)});
     map.objects.push_back(light);
     const SodMeshes::Lighting lit = MapPage::lightingOf(map);
-    CHECK(lit.lights.size() == 1 && std::fabs(lit.lights[0].colour[0] - 0.7f) < 1e-5f &&
-          std::fabs(lit.lights[0].colour[1] - 0.35f) < 1e-5f && lit.lights[0].colour[2] == 0);
-    CHECK(lit.lights[0].toLight[1] == 1 && std::fabs(lit.ambient[0] - 0.35f) < 1e-5f); // towards it: up
+    CHECK(lit.lights.size() == 1 && lit.lights[0].colour[0] == 0.4f && lit.lights[0].colour[1] == 0.2f &&
+          lit.lights[0].colour[2] == 0);
+    CHECK(lit.lights[0].toLight[1] == 1 && lit.ambient[0] == 0.2f); // towards it: up
     // A map with no lights of its own: the page's.
     BznMap none;
     CHECK(MapPage::lightingOf(none).lights.size() == 1 && MapPage::lightingOf(none).ambient[0] > 0.3f);

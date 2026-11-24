@@ -136,35 +136,39 @@ point is its first.
 
 Storm3D lights its vertices itself and hands them to Direct3D coloured
 ([research/startup-trace.md](../research/startup-trace.md#how-it-draws)),
-so a frame's draws (the host's `-draws`) show its lighting. The planet
-Barisa's 198 vertices in frame 6,100 of "Premonitions", each placed
-back in the world through the camera read
-from memory ([systems/camera.md](../systems/camera.md)), have the colour
+so a frame's draws (the host's `-draws`) show its lighting, and the code
+that colours them was found by watching a vertex's colour being written
+(the host's `-watch`) back to where it's worked out *(from the code,
+0x59a290 and 0x599e10, each light's part 0x5837a0 and 0x5835b0)*. For
+each vertex of a model, with the model's materials
+([sod.md](sod.md#lighting-materials)):
 
-> 1.75 × (the settings' colour + Σ each light's colour × max(0, n · towards it))
+> diffuse = the map's ambient (its settings' colour) + the material's
+> ambient + Σ over the lights of max(0, n · towards it) × the light's
+> colour × the material's diffuse
+>
+> specular = Σ over the lights of s / (p − p × s + s) × the light's
+> colour × the material's specular, where s = max(0, n · h), h the way
+> to the light and the camera's forward added and made one long, and p
+> the material's power
 
-where n is the vertex's direction from the planet's centre: on average
-within 0.014 (of 1), at worst 0.094. Fitted channel by channel instead,
-the lights come out 1.69, 1.61 and 1.60 times, the ambient 0.47 to 0.50:
-so one factor fits about as well. The planet's darkest vertices, lit by
-neither light, are 119 of 255: 1.75 × 0.267, the ambient alone.
+each held between 0 and 1. The lights are the map's directional lights,
+their colour as the map has it; each is turned into the model's own
+space by the transpose of the model's turn (0x553950), so a model's
+scale, if it had one, would brighten it. n is the vertex's normal: the
+faces' about it added up, each made one long first, so a big face counts
+as much as a small one *(inferred)*: so made, the starbase's vertices in
+the skirmish's frame 4,100 come out as the game's, the median within
+0.001 of 1 (three in four within 0.02).
 
-A skirmish on `4first.bzn` (no ambient; lights (1, 0.737, 0.608) and
-0.886 grey, both shining down) agrees: 164 of the lava moon's 198
-vertices in its frame 4,100 are white, the sum over 1 and held there.
-Every one of the 49 maps has directional lights. Where 1.75 comes from
-isn't known: the planet's 0.467 is as well its material's ambient, 0.2,
-added to the map's 0.267, so the factor may be only the lights'.
-
-A ship isn't lit the same way, or not with the normals Reluva makes.
-The starbase's vertices in the skirmish's frame 4,100, placed back in
-the world through the camera and matched to the model's, all within 0.5
-of one: facing down, away from both lights, they're black, as the
-formula has them; facing up, white, as it has them too; but between,
-facing sideways, they're about twice as bright, and no factor, nor the
-materials' ambient added, fits every material. Placing a draw's
-vertices back takes their depth as 1.208 / rhw, not 1 / rhw: so the
-vertices fall on the model, to 0.4 at the median.
+The planet Barisa's 198 vertices in frame 6,100 of "Premonitions" fit
+it to 0.002 on average: its material's ambient 0.2 and the map's 0.267
+make its darkest vertices 119 of 255, and a light's part comes out 1.002
+times the formula's. (A factor of 1.75 fitted them before, from the
+vertices placed back in the world wrongly: a draw's vertex is at a depth
+of 1.208 / rhw from the camera, not 1 / rhw; so placed, the planet's are
+on a sphere, to 2 units.) Every one of the 49 maps has directional
+lights.
 
 The map's background model isn't lit: in the same frame its vertices are
 its material's diffuse colour (255, 253, 255). Its star sphere is drawn
@@ -181,6 +185,8 @@ multiple of 100, in 0x262100 (38, 33, 0), added on (one, one), depth
 tested but not written, drawn after the background and the planets and
 before the ships. How far out the game draws them isn't known (its
 lines are cut at the screen's edges; `GRID_FAR_CLIP_PLANE` is 10,000).
+In the mission's opening scenes there's none, as `ART_CFG.h`'s
+`DETAIL_<n>_cinematic_show_grid = 0` has it for the cinematic view.
 
 ### The shroud and the fog
 
@@ -204,7 +210,9 @@ from the unit's own cell, a cell is seen when it's within 716 to 721
 units of it, a little more than the range: the 596 cells the starbase
 and the two construction ships cleared on `4first.bzn`, cut by the
 area's edge, fit that and nothing simpler. The game's own record of
-what's seen wasn't found in its memory.
+what's seen wasn't found in its memory. The fog shows only once a
+unit has moved from where it saw: until ships move, which is phase 7's,
+it lies under the shroud.
 
 ### Start positions (`.mdf`)
 
@@ -279,9 +287,11 @@ as the file says.
   does, and G as the game does on starting
   ([systems/camera.md](../systems/camera.md)).
 
-  A map is lit by its own lights, as above (`MapPage::lightingOf`). Set
+  A map is lit by its own lights, as above (`MapPage::lightingOf`), its
+  models' diffuse light as the game's; the specular isn't drawn. Set
   beside the game's skirmish on `4first.bzn` and its mission
-  "Premonitions", the planets, moon and backgrounds match.
+  "Premonitions", the planets, moon, starbase and backgrounds match: the
+  planet's mean colour (93, 54, 35) against the game's (92, 53, 33).
 
   An asteroid field (`mafield`, `classLabel "asteroidfield"`) has no
   model: its definition gives 10 to 15 asteroids within a radius of 100.
@@ -331,7 +341,7 @@ as the file says.
 
 ## Open questions
 
-- How ships are lit (above), and how far out the grid goes.
+- How far out the grid goes.
 - How far a unit sees exactly (between 716 and 721 for a range of 700),
   and where the game keeps what's been seen.
 - How the game tests that a starting unit fits where the spiral puts it,

@@ -25,11 +25,6 @@ constexpr float kTurnPerSecond = 0.15f; // radians
 // memory, and the planets of a frame land where the original has them.
 constexpr float kFieldOfView = 0.7853982f; // radians
 constexpr float kStep = 0.1f;              // of the distance, a W/A/S/D press
-// The map's lights, its settings' colour and its directional lights',
-// are this much brighter in what the game draws: one factor fits the
-// planet Barisa's 198 vertex colours in a frame of "Premonitions" to
-// within 0.014 on average. Where it comes from isn't known.
-constexpr float kLightScale = 1.75f;
 // The game's overview camera, from RTS_CFG.h: its height above the plane,
 // at first and at most and least, and the parabola it rides.
 constexpr float kOverviewInitHeight = 450; // OVERVIEW_INIT_HEIGHT
@@ -615,7 +610,6 @@ SodMeshes::Lighting MapPage::lightingOf(const BznMap &map) {
             const BznMap::Field &f = map.fields[o.firstField + 7 + k];
             if (f.type == BznMap::kFloat && f.data.size() == 4)
                 std::memcpy(&light.colour[k], f.data.data(), 4);
-            light.colour[k] *= kLightScale;
         }
         // It shines along its front axis, the third row of its transform.
         float len = 0;
@@ -632,7 +626,7 @@ SodMeshes::Lighting MapPage::lightingOf(const BznMap &map) {
     if (lighting.lights.empty())
         return own;
     for (size_t k = 0; k < 3; ++k)
-        lighting.ambient[k] = map.light[k] * kLightScale;
+        lighting.ambient[k] = map.light[k];
     return lighting;
 }
 

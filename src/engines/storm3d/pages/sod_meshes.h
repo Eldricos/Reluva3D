@@ -32,7 +32,8 @@ public:
         uint32_t indexCount = 0;
         std::array<float, 4> colour{1, 1, 1, 1};
         std::string drawMode;
-        bool team = false; // its material's named team_...: drawn in the team's colour
+        bool team = false;   // its material's named team_...: drawn in the team's colour
+        gfx::Vec3 ambient{}; // its material's ambient colour, added whatever the lights
     };
     /** A sprite node's sprite, placed in the model (SpriteTable::spriteNodeFor). */
     struct SpritePart {
