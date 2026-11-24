@@ -52,7 +52,8 @@ Detection signatures (MD5 of each file's start, and its size, as
   of Reluva over TCP/IP, started into its mission ([systems/hosting.md](systems/hosting.md#its-multiplayer)).
 - **Not yet:** a skirmish, a tutorial or a campaign's mission won (a
   mission forfeited returns to the Dynaverse, which goes on);
-  a multiplayer game played to its end between machines; the 2.0.3.6 patch applied as it's imported; the
+  a multiplayer game between separate machines (tried only between
+  copies on one); the 2.0.3.6 patch applied as it's imported; the
   `.gf`, `.mct` and `.mvm`
   settings, campaign and map files; the objects in
   `sprites.q3`.

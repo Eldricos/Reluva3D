@@ -110,8 +110,9 @@ on their pages in `formats/` and `systems/`.
    mission ([systems/hosting.md](systems/hosting.md#its-multiplayer)).
    Joined from another copy over TCP/IP
    ([dplay.md](../../../../common/x86/dplay.md#the-network)) and started
-   in both, the two exchanging the battle's messages. Next: a game played
-   to its end between two machines.
+   in both, the two exchanging the battle's messages, and played to its
+   end: in Free For All, the joining player forfeiting, the host winning.
+   Next: two machines, and a game won in battle.
 8. **Importing** (done for the CDs): InstallShield 5's headers in
    `src/common/installshield.cpp` ([its page](../../../../common/installshield.md)),
    and the `MetaEngine`'s `planImport` and `addToImport`, from the two

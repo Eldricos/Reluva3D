@@ -150,7 +150,10 @@ as its size (32 bits) then its bytes.
   copies of the host tool on one machine (`-net`): the session found on
   Select Game, joined, both players listed on both with their pings,
   and the mission started in both, their messages passing through the
-  battle; the joining copy's stopping removed its player at the host
+  battle; the joining copy's stopping removed its player at the host. Played to
+  its end: in Free For All, the joining player forfeiting (its last
+  message, its player destroyed, its session closed), the host told it
+  had left, winning, and closing its own
   ([hosting.md](../../engines/sfc/games/sfc2/systems/hosting.md#its-multiplayer)).
 - `testDirectPlayLobby` (`tests/common/windows.cpp`) makes the lobby
   through `CoCreateInstance`, checks another class still goes on, and

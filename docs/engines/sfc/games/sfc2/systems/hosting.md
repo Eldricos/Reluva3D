@@ -351,6 +351,20 @@ had gone, and its sends to it after were refused
 (`DPERR_INVALIDPLAYER`, which it throws and catches). The game's other
 Winsock functions weren't called: it plays through DirectPlay alone.
 
+A game played to its end: Esc in a multiplayer mission shows FORFEIT
+MISSION, EXIT TO MAIN MENU, EXIT TO WINDOWS and CANCEL, and doesn't
+pause it (both copies' mission clocks ran on). The joining player's
+FORFEIT MISSION sends a last message, destroys its player and closes
+the session ("Closing Session. Please wait."), and its Mission
+Debriefing says "Disconnect. You have disconnected early." In Free For
+All ("until one (1) side is left standing") the host is then told
+"Mission complete. Player Left: Player", destroys its own player,
+closes the session and shows its debriefing: "Congratulations! You are
+the winner!", the enemy fleet's losses 40 (the BPV of the ship that
+left). In Base Assault the host is told "Defending ship has been
+destroyed." and plays on, the starbase still standing; it goes on
+sending to the player that left, each send refused and caught.
+
 ### Its mouse and keys
 
 The game asks where the pointer is with `GetCursorPos` (and
@@ -465,8 +479,8 @@ known.
 - **Multiplayer:** DirectPlay's TCP/IP between copies of Reluva
   ([dplay.md](../../../../../common/x86/dplay.md#the-network)); the
   engine gives it the system's sockets, the host tool `-net`.
-- **Not yet:** a multiplayer game played to its end over the network,
-  or with players on separate machines (only on one). The opening movie isn't
+- **Not yet:** a multiplayer game between separate machines (only
+  copies on one), or ended in battle rather than by a player leaving. The opening movie isn't
   hosted: the engine plays it itself before the game
   ([formats/intro.md](../formats/intro.md)).
 
