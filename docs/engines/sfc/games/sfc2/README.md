@@ -50,11 +50,10 @@ Detection signatures (MD5 of each file's start, and its size, as
   ([systems/hosting.md](systems/hosting.md)).
 - **Multiplayer**, started: a game against AI players, or between copies
   of Reluva over TCP/IP, started into its mission ([systems/hosting.md](systems/hosting.md#its-multiplayer)).
-- **A mission won:** a skirmish, against a Klingon frigate, by firing on
-  it until it's destroyed
+- **Missions won:** a skirmish, against a Klingon frigate, and a
+  campaign's Convoy Escort, an "Astounding Victory" worth 300 prestige
   ([systems/hosting.md](systems/hosting.md#its-missions)).
-- **Not yet:** a tutorial or a campaign's mission won (a mission
-  forfeited returns to the Dynaverse, which goes on);
+- **Not yet:** a tutorial passed;
   a multiplayer game between separate machines (tried only between
   copies on one); the 2.0.3.6 patch applied as it's imported; the
   `.gf`, `.mct` and `.mvm`

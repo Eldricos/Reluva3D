@@ -290,22 +290,30 @@ folder (`DeleteFileA`, `RemoveDirectoryA`). Deleted, Auto Save is made
 again straight away, of the campaign as it is; a save by name stays
 gone.
 
-A campaign mission played to its end: Convoy Escort, from a new
-Federation campaign at CAPTAIN, its game speed raised (`]`), red alert,
-full speed, and the nearest enemy targeted (the backquote) and fired on
-every 120 frames. Played that way it ended after 5 minutes 4 of its
-time: "Your team has disengaged. Mission completed.", and its debriefing
-"Draw: Some of the freighters have made it to their destination.
-However, losing so many does not bode well for us, or your career." The
-battle report: 201 damage scored on the raiders (62 internal), none
-destroyed; 46 of the convoy's BPV lost; and 150 prestige gained, which
-the Dynaverse's prestige shows on DONE (50 to 200). Its outcomes, as the
-mission's own text has them, go by the freighters that get through, from
-"This is a dark day for us all" to "Astounding Victory" ("the convoy
-through without a single loss"). The same run from a fresh save folder
-played the same way. Without the game's speed raised, 23 minutes of the
-mission's time went by without it ending; Y, which targets each ship in
-turn, the convoy's too, left the player firing at nothing.
+A campaign mission won: Convoy Escort, from a new Federation campaign
+at CAPTAIN, its game speed raised (`]`), red alert, full speed, and the
+nearest enemy targeted (the backquote) and fired on every 120 frames.
+After 5 minutes 5 of its time: "Convoy Escort: Astounding Victory. You
+managed to get the convoy through without a single loss. This is an
+outstanding performance." The battle report: 379 damage scored on the
+raiders (79 internal), the player's ship 380 (83 internal), no losses on
+either side; 300 prestige gained, which the Dynaverse's prestige shows on
+DONE (50 to 350). Its outcomes, as the mission's own text has them, go
+by the freighters that get through, from "This is a dark day for us
+all" to "Astounding Victory". The same run from a fresh save folder
+plays the same way.
+
+Before missions were unloaded (`FreeLibrary` did nothing), the same
+input ended in a draw ("Some of the freighters have made it to their
+destination...", 150 prestige): the mission was played by the copy of
+its DLL its listing had left, not a fresh one. A second mission played
+that way, Patrol (`Met_17Patrol.scr`), read through a null pointer as it
+loaded (+0x1b8cd). Without the game's speed raised, 23 minutes of
+Convoy Escort's time went by without it ending; Y, which targets each
+ship in turn, the convoy's too, left the player firing at nothing. The
+next missions offered after the victory were Convoy Escort and Monster;
+against Monster the frigate was destroyed within a minute: "Devastating
+Defeat", 0 prestige.
 
 A skirmish is played through DirectPlay, single-player too: starting
 one, the game throws a `TLogicError` naming `fDirectPlayObject` each
