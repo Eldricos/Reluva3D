@@ -147,7 +147,7 @@ Light mode 0 draws the texels as they are, unlit; mode 1 by the
 surface's extra light alone, held the same way (`0x43c59a`, `0x43c4dc`)
 *(from the code)*. The surface's geometry, light and texture modes are
 each held to the most the renderer's settings allow (`0x4c72b3` to
-`0x4c72f9`) *(from the code)*.
+`0x4c72f9`) *(from the code)*: the texture mode's, below.
 
 The `AMBIENT LIGHT` isn't used for surfaces: a sector's things are lit
 by its `AMBIENT LIGHT` plus its `EXTRA LIGHT`, held to 0 to 1
@@ -169,6 +169,26 @@ picks the light level, and the palette gives the colour (`0x43bd0c`,
 `0x43bf1a` to `0x43bf4b`) *(from the code)*. Either colour is then
 multiplied by the colormap's three floats if the sector's colormap isn't
 the current one ([cmp.md](cmp.md#behaviour)).
+
+### Texture mode
+
+The texture mode says how a textured surface's texels follow its
+texture vertices across the screen, in the software renderer
+(`0x43c3c0`: its texture mode held to the setting at `0x43c3eb`, the
+way of drawing chosen by it at `0x43c765`) *(from the code)*:
+
+| Mode | Drawn | Surfaces | Confidence |
+|---|---|---|---|
+| 0 | Affine: the texture's coordinates stepped evenly along each span, with no division (the span loops from `0x47dc40`, through `0x4500b0`), so a surface seen at a slant swims | 7: 3 untextured, 4 textured | from the code |
+| 1 | Corrected for perspective: each span is cut into steps of 16 pixels (`0x4833e9` to `0x483451`), the texture's coordinates divided by the depth at each step's end and stepped evenly within it (the span loops from `0x480270`) | 126,617, all but 22 | from the code |
+| 2 | As 1, the setting holding it to 1; were it not held, nothing would be drawn (`0x43c771`) | 15 | from the code |
+
+The setting is *Setup*'s "Texture" detail (`GUI_TEXTURE`, "Set texture
+mapping detail"): `Affine` holds every surface to mode 0 and `Perspect`
+(the default, `0x401029`) to mode 1 (its items at `0x4154f0` and
+`0x41550d`, the choice kept at `0x8606b4` and given to the renderer at
+`0x401e8d`) *(from the code)*. Through Direct3D no read of a polygon's
+texture mode was found: the card's texturing decides.
 
 ### Tint
 
@@ -332,6 +352,10 @@ as the game places them ([Skies](#skies)), the camera having no roll; see-throug
 faces are drawn at 90/255 after the rest, the farthest first; and the
 sector the camera is in tints the view as the game tints its palette,
 rounding as it does ([Tint](#tint)), the status line giving that sector's flags and tint. The
+viewer textures every surface corrected for perspective at each pixel,
+as the game's default does each 16 pixels: the four textured surfaces of
+mode 0, which the game draws affine, differ a little at a slant
+([Texture mode](#texture-mode)). The
 other flags change how the game plays, not what it draws: M marks the
 surfaces or sectors with each in turn (floors, skies, scrolling, ice, the
 four step sounds, see-through faces, underwater sectors, pits...), and J
@@ -378,4 +402,4 @@ moves the camera to the next sector marked.
 
 ## Open questions
 
-- What the texture mode does.
+None.

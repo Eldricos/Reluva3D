@@ -81,7 +81,9 @@ come apart otherwise: drawn in the data viewer.
 A mesh is drawn with each face's geometry, lighting and texture modes
 cut to the mesh's, and to the renderer's own limits (`0x4465a0`); a
 mesh of geometry mode 0 isn't drawn at all (`0x44612c`) *(from the
-code)*. The software renderer draws them so (`0x43c46d`, and `0x43cf89`
+code)*. A face's texture mode is drawn as a level surface's: 0 affine,
+1 and above corrected for perspective, as *Setup*'s "Texture" detail
+allows ([jkl.md](jkl.md#texture-mode)). The software renderer draws them so (`0x43c46d`, and `0x43cf89`
 in 16-bit colour):
 
 | Mode | Drawn as | Confidence |
