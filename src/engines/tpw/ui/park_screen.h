@@ -103,6 +103,12 @@ public:
     std::string dateText(uint32_t day) const;
 
 private:
+    /** A visitor seen on a ride, and where their feet are, in the world's units. */
+    struct Rider {
+        int id = 0;
+        gfx::Vec3 feet{};
+    };
+    std::vector<Rider> riders(const Park &park) const;
     void drawVisitors(Surface &screen, const soft3d::OrbitCamera &eye, const Park &park, float yaw) const;
     void drawPaths(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const Park &park) const;
     void drawObjects(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const Park &park) const;
@@ -128,7 +134,9 @@ private:
     mutable SignPainter _signs;
     std::vector<std::unique_ptr<RideRun>> _runs; // by the park's objects: their scripts, those that have one
     uint64_t _ranTo = 0;                         // the park's time they're run to
-    size_t _prebuilt = 0;                        // the objects there as the park opened
+    // Attractions without a script, by their queues: whom they have, and till when (the park's time).
+    std::map<int, std::vector<std::pair<int, uint64_t>>> _unscripted;
+    size_t _prebuilt = 0; // the objects there as the park opened
     const SearchSet *_files = nullptr;
     Attractions _attractions;
     BuyWindow _buy;

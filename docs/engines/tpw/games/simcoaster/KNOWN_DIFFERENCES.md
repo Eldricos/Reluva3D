@@ -31,9 +31,10 @@ None yet.
   menu's Objectives do anything yet; a new park has the prebuilt park's
   path, queue, ride and other objects ([paths.md](systems/paths.md)),
   standing still; attractions can be bought and placed, their
-  queues laid, and they run their scripts; visitors walk the paths and
-  queue for and ride the rides by guessed rules, but don't use shops or
-  sideshows and have no wants ([visitors.md](systems/visitors.md)); their
+  queues laid, and they run their scripts; visitors choose, queue for
+  and use rides, shops and toilets by guessed rules, riders drawn over
+  the rides whether a part of the model hides them or not, and with no
+  weather, litter, vomit, pranks or thoughts ([visitors.md](systems/visitors.md)); their
   signs are lettered by guessed rules ([sgn.md](formats/sgn.md)); some show their settings' names, or
   another world's, the game's own not being found for them
   ([building.md](systems/building.md#their-names)), and the Buy window

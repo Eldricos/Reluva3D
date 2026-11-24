@@ -111,11 +111,16 @@ None yet.
   ([building.md](systems/building.md#running)). The recording's robot
   and fountain, already standing at 2:35, fit it.
 
-- **How visitors walk and ride**: about the paths by chance, into a
-  ride's queue one time in two as they pass its end, three to a cell,
-  on when its script takes them, off at its exit and straight to the
-  nearest path ([visitors.md](systems/visitors.md)). The game's own
-  visitors, watched, would settle it.
+- **How visitors choose, walk and ride**: what they make for, scored
+  from the settings' weights and needs; how fast their needs grow; how
+  long they stay; three to a queue's cell; off at the exit and straight
+  to the nearest path; a park's points with its attractions' values
+  ([visitors.md](systems/visitors.md), [park.md](systems/park.md#visitors)).
+  The game's own visitors, watched, would settle it.
+
+- **Where riders are drawn**: a seat's helper as the rider's head, a
+  bouncer's as their middle ([md2.md](formats/md2.md#the-nodes)). A
+  recording close to a ride would settle it.
 
 - **How a sign is lettered**: its lines centred on a canvas 512 × 256
   split into its two textures, their letters widened to the font

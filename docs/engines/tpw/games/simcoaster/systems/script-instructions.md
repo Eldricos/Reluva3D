@@ -51,12 +51,12 @@ plays its winner's lane with `WAITANIM 5 VAR_TEMP`, a roll of 0 to 3.
 | `HOP` | *v* | Takes the next rider off, into *v*: "Wait until AI has taken him", `test.rss` says after it, testing `VAR_LETMEOFF` until the game clears it |
 | `WALKOFF` | *g* | The guest walks off the ride |
 | `WALKGET` | *v* | Gives a guest who has walked off and is clear, into *v*; 0 (and the zero flag) while none is |
-| `LIMBO` | *g*, milliseconds | Takes the guest out of sight for so long: inside a shop |
+| `LIMBO` | *g*, seconds | Takes the guest out of sight for so long: inside a shop. Seconds, as the shops' 5 and the arcades' 15 would be too short as milliseconds *(inferred)* |
 | `INLIMBO` | *v* | How many are in limbo |
 | `LIMBOSPACE` | 0 | Answers whether there's room in limbo (its size is the script's `#setlimbo`): the balloon stall tests it before letting a guest in |
 | `UNLIMBO` | *v* | The next guest whose time is up, into *v*: "get next person out (if any)" |
 | `FORCEUNLIMBO` | *v* | The next guest, time up or not: when the shop closes |
-| `BOUNCE` | *g*, milliseconds | A guest onto a bouncy ride for so long |
+| `BOUNCE` | *g*, seconds | A guest onto a bouncy ride for so long, as `LIMBO`: its `VAR_DURATION`, 3 *(inferred)* |
 | `BOUNCING` | *v* | How many are bouncing |
 | `UNBOUNCE`, `FORCEUNBOUNCE` | *v* | As `UNLIMBO` and `FORCEUNLIMBO`, for the bouncers |
 | `BOUNCESETBASE`, `BOUNCESETNODE` | *n* | Set once at the start, on the bouncy rides alone: 8 to 20, and node 5: the bouncers' height and the model's node they bounce on, perhaps *(guessed)* |
@@ -135,7 +135,10 @@ the effects, screams and music are only traced. `reluva-tool tpw rse-run
 Nights' `arabride.RSE` loads two riders, runs its three laps, lets them
 off 350 ms apart and loads the next. In the park, its guests are the
 park's visitors instead, offered one at a time from the ride's queue
-([visitors.md](visitors.md#riding)).
+([visitors.md](visitors.md#riding)); those `ADDHEAD` shows, until
+`DELHEAD` or they're let off, take the seats from the first, and those
+bouncing are drawn at the model's helpers
+([md2.md](../formats/md2.md#the-nodes)).
 
 ## Sources and checks
 

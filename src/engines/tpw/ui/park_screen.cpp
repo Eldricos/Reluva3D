@@ -15,8 +15,12 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
+#include <string>
+#include <string_view>
 #include <optional>
 #include <set>
 #include <utility>
@@ -108,6 +112,20 @@ constexpr float kObjectLift = 0.1f;
 // How far the scripts of the objects there from the start are run on at
 // once, past their building (guessed: none's building takes so long).
 constexpr uint32_t kSettledMillis = 20000;
+// How long an attraction without a script keeps a visitor, as the shops'
+// scripts do (`WAIT 3000`).
+constexpr uint64_t kUnscriptedUseMillis = 3000;
+// A rider's sprite hangs from its head, at the model's SpriteHead helper:
+// this far from the head to the feet (a sprite stands about 5 units tall).
+constexpr float kHeadToFeet = 4.5f;
+// The helpers riders' heads are put at, numbered from 1 by their seats:
+// "Head01" on most rides, "SpriteHead01" on the robot.
+constexpr std::string_view kHeadHelper = "head";
+constexpr std::string_view kSpritePrefix = "sprite";
+// A bouncy ride's bouncers are at its "Sprite 01" helpers, in the order
+// they got on, the sprite's middle there: the helpers stand about this
+// far over the cushion they bounce on, and its animation moves them.
+constexpr float kSpriteMiddle = 2.5f;
 constexpr Color kVisitorColour{255, 255, 255}; // a visitor whose sprite isn't read
 
 void fillRect(Surface &s, const ScreenRect &r, Color c) {
@@ -148,8 +166,9 @@ WorldView viewOf(const ParkScreen::Camera &camera) {
 
 // A model laid from a cell's corner, turned about that cell's middle by
 // `angle` degrees, posed by an animation at a frame (−1 for none).
-void drawPlaced(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const LoadedModel &model,
-                const Park::Cell &at, int angle, const soft3d::Vec &light, int animation = -1, float frame = 0) {
+// A model's place in the park: laid from its first cell's corner, turned
+// about that cell's middle.
+gfx::Mat4 placeOf(const Park::Cell &at, int angle) {
     const float half = Park::kCellUnits / 2;
     const float turn = float(angle) * kRadiansPerDegree;
     const float c = std::cos(turn);
@@ -159,8 +178,13 @@ void drawPlaced(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, 
     // the cell's middle.
     const float cx = float(at.x) * Park::kCellUnits + half;
     const float cz = float(at.y) * Park::kCellUnits + half;
-    const gfx::Mat4 place{
-        c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0, cx - (c * half - s * half), kObjectLift, cz - (s * half + c * half), 1};
+    return {c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0, cx - (c * half - s * half), kObjectLift, cz - (s * half + c * half),
+            1};
+}
+
+void drawPlaced(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const LoadedModel &model,
+                const Park::Cell &at, int angle, const soft3d::Vec &light, int animation = -1, float frame = 0) {
+    const gfx::Mat4 place = placeOf(at, angle);
     std::vector<gfx::Mat4> transforms = meshTransforms(model, animation, frame);
     for (gfx::Mat4 &m : transforms)
         m = gfx::multiply(place, m);
@@ -182,6 +206,7 @@ Error ParkScreen::load(const SearchSet &files, const Park &park) {
     loadObjects(files, park);
     _runs.clear();
     _ranTo = park.millis();
+    _unscripted.clear();
     _prebuilt = park.objects().size();
     _pathsRead = true;
     for (size_t i = 0; i < kPathTextures.size(); ++i)
@@ -319,9 +344,21 @@ void ParkScreen::advance(Park &park) {
     // it will, and lets its riders off.
     for (size_t i = 0; i < _runs.size(); ++i) {
         RideRun *run = _runs[i].get();
-        if (!run)
-            continue;
         const int queue = park.queueOf(i);
+        if (!run) {
+            // Without a script: each visitor in turn, a few seconds.
+            if (queue < 0)
+                continue;
+            std::vector<std::pair<int, uint64_t>> &users = _unscripted[queue];
+            if (users.empty())
+                if (const int waiting = park.waitingAt(queue); waiting && park.board(queue, waiting))
+                    users.emplace_back(waiting, park.millis() + kUnscriptedUseMillis);
+            while (!users.empty() && users.front().second <= park.millis()) {
+                park.letOff(queue, users.front().first);
+                users.erase(users.begin());
+            }
+            continue;
+        }
         SimulatedHost *host = run->host();
         if (queue >= 0 && host && !host->hasOffered()) {
             if (const int waiting = park.waitingAt(queue))
@@ -351,6 +388,8 @@ void ParkScreen::drawObjects(soft3d::Rasterizer &rasterizer, const soft3d::Orbit
     }
     // The queue being laid drawn as it would be, in its own's place.
     for (const Park::Queue &queue : park.queues()) {
+        if (queue.kiosk)
+            continue;
         const bool laying = _queuePreview && _queuePreview->entrance == queue.entrance;
         for (const Park::QueuePiece &q : Park::queuePieces(laying ? *_queuePreview : queue)) {
             const auto model = _queueModels.find(int(q.model));
@@ -497,20 +536,82 @@ std::string ParkScreen::dateText(uint32_t day) const {
     return text;
 }
 
+// Where each object's riders are, the model posed as it plays: in their
+// seats as its script shows them (ADDHEAD), at its head helpers; or
+// bouncing (BOUNCE), at its sprite helpers.
+std::vector<ParkScreen::Rider> ParkScreen::riders(const Park &park) const {
+    std::vector<Rider> out;
+    for (size_t i = 0; i < _runs.size() && i < park.objects().size(); ++i) {
+        const RideRun *run = _runs[i].get();
+        if (!run || !run->host() || (run->host()->heads().empty() && run->host()->bouncers().empty()))
+            continue;
+        const Park::PlacedObject &o = park.objects()[i];
+        const LoadedModel *model = objectModel(o.id);
+        if (!model)
+            continue;
+        ModelView pose;
+        run->pose(*model, pose);
+        const std::vector<gfx::Mat4> nodes = nodeTransforms(*model, pose.animation, pose.frame);
+        const std::vector<int> &heads = run->host()->heads();
+        const std::vector<int> bouncers = run->host()->bouncers();
+        for (size_t n = 0; n < model->model.nodes().size() && n < nodes.size(); ++n) {
+            std::string name;
+            for (char c : model->model.nodes()[n].name)
+                if (c != ' ')
+                    name.push_back(char(std::tolower(static_cast<unsigned char>(c))));
+            // "SpriteHead07" and "Head07" a seat; "Sprite 07" a bouncer's place.
+            std::string rest = name;
+            const bool sprite = rest.compare(0, kSpritePrefix.size(), kSpritePrefix.data(), kSpritePrefix.size()) == 0;
+            if (sprite)
+                rest = rest.substr(kSpritePrefix.size());
+            const bool seat = rest.compare(0, kHeadHelper.size(), kHeadHelper.data(), kHeadHelper.size()) == 0;
+            if (seat)
+                rest = rest.substr(kHeadHelper.size());
+            if ((!seat && !sprite) || rest.empty() || rest.find_first_not_of("0123456789") != std::string::npos)
+                continue;
+            const size_t place = size_t(std::atoi(rest.c_str()));
+            const std::vector<int> &who = seat ? heads : bouncers;
+            if (place < 1 || place > who.size() || who[place - 1] == 0)
+                continue;
+            const gfx::Vec3 at = gfx::transformPoint(gfx::multiply(placeOf(o.at, o.angle), nodes[n]), {0, 0, 0});
+            out.push_back({who[place - 1], {at[0], seat ? at[1] - kHeadToFeet : at[1] - kSpriteMiddle, at[2]}});
+        }
+    }
+    return out;
+}
+
 void ParkScreen::drawVisitors(Surface &screen, const soft3d::OrbitCamera &eye, const Park &park, float yaw) const {
-    // Farthest first, each at the point it stands on.
+    // Farthest first, each at the point it stands on: those about the
+    // park, riders in their seats, and those an attraction keeps in sight
+    // while they use it.
     struct Seen {
         float depth;
         const Park::Visitor *visitor;
         soft3d::ScreenVertex at;
+        bool seated;
     };
     std::vector<Seen> seen;
-    for (const Park::Visitor &v : park.visitorsAbout()) {
-        if (v.doing == Park::Doing::kRiding)
-            continue;
-        const soft3d::ViewVertex view = eye.toView(toViewerWorld({v.x, 0, v.z}));
+    auto see = [&](const Park::Visitor &v, const gfx::Vec3 &at, bool seated) {
+        const soft3d::ViewVertex view = eye.toView(toViewerWorld(at));
         if (view.z >= eye.nearZ)
-            seen.push_back({view.z, &v, eye.project(view)});
+            seen.push_back({view.z, &v, eye.project(view), seated});
+    };
+    const std::vector<Rider> seated = riders(park);
+    for (const Park::Visitor &v : park.visitorsAbout()) {
+        if (v.doing != Park::Doing::kRiding) {
+            see(v, {v.x, 0, v.z}, false);
+            continue;
+        }
+        const auto rider = std::find_if(seated.begin(), seated.end(), [&](const Rider &r) { return r.id == v.id; });
+        if (rider != seated.end()) {
+            see(v, rider->feet, true);
+            continue;
+        }
+        const Park::Queue &q = park.queues()[size_t(v.queue)];
+        const Attractions::Attraction *a =
+            q.object >= 0 ? _attractions.find(park.objects()[size_t(q.object)].id) : nullptr;
+        if (a && a->handlesSprite)
+            see(v, {v.x, 0, v.z}, false);
     }
     std::sort(seen.begin(), seen.end(), [](const Seen &a, const Seen &b) { return a.depth > b.depth; });
     for (const Seen &s : seen) {
@@ -521,7 +622,7 @@ void ParkScreen::drawVisitors(Surface &screen, const soft3d::OrbitCamera &eye, c
             continue;
         }
         const LoadedSprite &look = looks[v.look % looks.size()];
-        const bool walking = v.headingX != 0 || v.headingZ != 0;
+        const bool walking = !s.seated && (v.headingX != 0 || v.headingZ != 0);
         const auto &animation = look.set.animations()[walking ? kWalkAnimation : kStandAnimation];
         // The heading as the camera sees it: 0 away from it, a quarter
         // turn to its right.

@@ -196,14 +196,14 @@ void testHost() {
 // The stand-in for the park: animations take a second; a guest in the
 // queue goes into limbo and comes out when its time is up.
 void testSimulatedHost() {
-    const Script script = build({kOp | 17, num(0), num(0),      // 0 WAITANIM 0 0
-                                 kOp | 38, kVar | 0,            // 3 TEST VAR_LETMEON
-                                 kOp | 32, kAddr | 3,           // 5 BRANCH_Z 3
-                                 kOp | 58, kVar | 0, num(2000), // 7 LIMBO VAR_LETMEON 2000
-                                 kOp | 3, kVar | 0, num(0),     // 10 COPY VAR_LETMEON 0
-                                 kOp | 59, kVar | 1,            // 13 UNLIMBO VAR_LETMEOFF
-                                 kOp | 32, kAddr | 13,          // 15 BRANCH_Z 13
-                                 kOp | 52},                     // 17 END
+    const Script script = build({kOp | 17, num(0), num(0),   // 0 WAITANIM 0 0
+                                 kOp | 38, kVar | 0,         // 3 TEST VAR_LETMEON
+                                 kOp | 32, kAddr | 3,        // 5 BRANCH_Z 3
+                                 kOp | 58, kVar | 0, num(2), // 7 LIMBO VAR_LETMEON 2 (seconds)
+                                 kOp | 3, kVar | 0, num(0),  // 10 COPY VAR_LETMEON 0
+                                 kOp | 59, kVar | 1,         // 13 UNLIMBO VAR_LETMEOFF
+                                 kOp | 32, kAddr | 13,       // 15 BRANCH_Z 13
+                                 kOp | 52},                  // 17 END
                                 2);
     SearchSet files;
     SimulatedHost host(files, "");
@@ -310,6 +310,36 @@ void testRiders() {
     CHECK(host.playing().number == 5 && host.playing().variant == 1);
 }
 
+// The park's own guests: one offered goes in VAR_LETMEON, the script
+// takes them, showing them in a seat (ADDHEAD), and lets them off into
+// VAR_LETMEOFF; the stand-in reports both and clears the seat.
+void testOfferedGuests() {
+    const Script script = build({kOp | 38, kVar | 0,            // 0 TEST V0
+                                 kOp | 32, kAddr | 0,           // 2 BRANCH_Z 0
+                                 kOp | 56, kVar | 0,            // 4 ADDHEAD V0
+                                 kOp | 3,  kVar | 2,  kVar | 0, // 6 COPY V2 V0
+                                 kOp | 3,  kVar | 0,  num(0),   // 9 COPY V0 0
+                                 kOp | 44, num(500),            // 12 WAIT 500
+                                 kOp | 3,  kVar | 1,  kVar | 2, // 14 COPY V1 V2
+                                 kOp | 44, num(100),            // 17 WAIT 100
+                                 kOp | 52},                     // 19 END
+                                3);
+    SearchSet files;
+    SimulatedHost host(files, "");
+    ScriptMachine m(script, host);
+    runFor(m, host, 200);
+    CHECK(m.variable(0) == 0 && !host.hasOffered()); // none made up
+    host.offerGuest(42);
+    host.offerGuest(43); // one at a time: ignored
+    CHECK(host.hasOffered());
+    runFor(m, host, 100);
+    CHECK(host.takeBoarded() == std::vector<int>{42} && host.heads() == std::vector<int>{42});
+    CHECK(!host.hasOffered() && host.takeBoarded().empty());
+    runFor(m, host, 600);
+    CHECK(host.takeLetOff() == std::vector<int>{42} && host.heads() == std::vector<int>{0});
+    CHECK(m.variable(1) == 0 && m.state() == ScriptMachine::State::kEnded);
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -322,4 +352,5 @@ static const reluva::test::Suite
                                   {"playing", [](const std::filesystem::path &) { testPlaying(); }},
                                   {"compare", [](const std::filesystem::path &) { testCompareRandWaitAbs(); }},
                                   {"riders", [](const std::filesystem::path &) { testRiders(); }},
+                                  {"offered", [](const std::filesystem::path &) { testOfferedGuests(); }},
                               });

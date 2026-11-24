@@ -1,3 +1,3 @@
-park: 0d2a7c542f0eb2c5 | park: 1125 screens shown, left at 45000 ms, 11.Jan.00, cash 48730, 1 visitors, 83 path cells, 15 objects, 6 queues of 14 cells, 2 briefings, tool 2, md5 fa7d8dc9cbab2c8623f1689d125a5564
+park: cbf5f264bb863af8 | park: 1125 screens shown, left at 45000 ms, 11.Jan.00, cash 48730, 1 visitors, 83 path cells, 15 objects, 6 queues of 14 cells, 0 kiosks, 2 briefings, tool 2, md5 fa7d8dc9cbab2c8623f1689d125a5564
 signs: 78558e9135531a98 | 26 signs lettered
 signs.png: e5fa9ca352e1e856

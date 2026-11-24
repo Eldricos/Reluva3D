@@ -83,18 +83,43 @@ public:
      * 8 of each generation.
      */
     struct VisitorType {
-        int generation = 0; // 0 children, 1 parents, 2 grandparents
-        float speed = 1;    // SpeedMultiplier: of the children's pace
+        int generation = 0;  // 0 children, 1 parents, 2 grandparents
+        float speed = 1;     // SpeedMultiplier: of the children's pace
+        int excitement = 50; // PreferredExcitement, 0 to 100
+        int cash = 0;        // StartingCash
+        int boredom = 50;    // BoredomThreshold: days with nothing to do before they go home (guessed)
     };
     const std::vector<VisitorType> &visitorTypes() const { return _visitorTypes; }
 
+    /** How visitors behave, by the general settings' `PeepInfo` (see visitors.md). */
+    struct VisitorRules {
+        int cashSpreadPercent = 0;                        // StartingCashVarPc: each one's cash this much either way
+        std::array<int, 3> generationPercent{70, 20, 10}; // PercentageOfKids, OfParents, OfGrandparents
+        // A ride's happiness by how near its excitement is to what they like:
+        // within PerfectExcitementMatch, PerfectRide; and so on.
+        std::array<int, 3> rideMatch{5, 15, 40};
+        std::array<int, 3> rideHappiness{25, 15, 5};
+        // How much each counts in choosing where to go (DecisionVar...Weight).
+        int distanceWeight = 1;
+        int queueWeight = 1;
+        int excitementWeight = 1;
+        int thirstWeight = 2;
+        int hungerWeight = 2;
+        int toiletWeight = 2;
+        int exitDays = 400;  // ExitLevel: how long they stay, in days (guessed)
+        int exitSpread = 60; // ExitLevelVar, either way
+        int needy = 80;      // ThoughtBubbleHungry and the like: a need this high makes them unhappy
+    };
+    const VisitorRules &visitorRules() const { return _rules; }
+
     /** What a visitor is doing. */
     enum class Doing : uint8_t {
-        kComing,   // on their way in
-        kWalking,  // about the paths
-        kQueueing, // in a ride's queue, or at its entrance to get on
-        kRiding,   // on the ride, not seen
-        kLeaving,  // from a ride's exit to the path
+        kComing,    // on their way in
+        kWalking,   // about the paths
+        kQueueing,  // in a ride's queue, or at its entrance to get on
+        kRiding,    // on the ride, or in the shop
+        kLeaving,   // from a ride's exit to the path
+        kGoingHome, // out along the way in, then gone
     };
     /** A visitor coming in, or in the park. */
     struct Visitor {
@@ -118,7 +143,22 @@ public:
         int lastQueue = -1;   // the queue of the ride last ridden, not joined again straight away
         int rides = 0;        // how many rides they've had
         uint32_t choices = 0; // how many ways they've chosen, which picks the next
+        int type = 0;         // in visitorTypes()
+        int cash = 0;
+        // 0 to 100: how happy they are, and how hungry, thirsty and in
+        // need of the toilet.
+        float happiness = kStartingHappiness;
+        float hunger = 0;
+        float thirst = 0;
+        float toilet = 0;
+        float bored = 0;         // days since they last did something
+        float daysLeft = 0;      // before they go home
+        int target = -1;         // the queue they're making for; −1 for none
+        std::vector<Cell> route; // walking to it: the path cells on to its end, the next last
+        bool gone = false;       // home: taken away at the end of the step
     };
+    /** How happy a visitor is as they come in (guessed). */
+    static constexpr float kStartingHappiness = 50;
     const std::vector<Visitor> &visitorsAbout() const { return _people; }
 
     /** What a park cell is, by the world's attribute map, and what's been built on it. */
@@ -152,7 +192,13 @@ public:
         std::vector<Cell> cells;
         bool atPath = false;
         Cell pathEnd;
-        int object = -1;      // its attraction, in objects(); −1 where it isn't known
+        int object = -1; // its attraction, in objects(); −1 where it isn't known
+        /**
+         * An attraction without a queue (a shop, a sideshow, a toilet):
+         * visitors walk from the path beside its entrance straight to it.
+         * Not drawn, nor laid.
+         */
+        bool kiosk = false;
         int fare = 0;         // what a ride costs: its UsageInfo.InitPricePerUse
         bool hasExit = false; // where its riders come off
         Cell exit;
@@ -267,6 +313,11 @@ public:
     /** Room in a queue: this many visitors to a cell (guessed). */
     static constexpr int kVisitorsPerQueueCell = 3;
 
+    /**
+     * The park's points for drawing visitors: FixedRate, NewParkBonus and
+     * each of its attractions' AttractionValue (guessed).
+     */
+    int points() const;
     /** How many visitors the park draws now: its points, at so many a visitor. */
     int visitorsWanted() const;
     /** The way a visitor walks in, cell by cell: off the bus, over the crossing, past a booth, in. */
@@ -315,6 +366,12 @@ private:
     void linkQueue(size_t object, const Footprint &footprint);
     void moveVisitor(Visitor &v, float left);
     void chooseWay(Visitor &v);
+    void chooseTarget(Visitor &v);
+    void useUp(Visitor &v, float days);
+    void goHome(Visitor &v);
+    void findKioskPaths();
+    std::vector<Cell> routeTo(const Cell &from, const Cell &to) const;
+    void addVisitor();
     std::vector<gfx::Vec3> queueRoute(const Queue &queue) const;
 
     std::string _folder;
@@ -335,6 +392,7 @@ private:
     std::vector<Queue> _queues;
     int _queueCost = 0;
     std::vector<VisitorType> _visitorTypes;
+    VisitorRules _rules;
     std::vector<gfx::Vec3> _wayIn;
     std::vector<Visitor> _people;
     Attractions _attractions;

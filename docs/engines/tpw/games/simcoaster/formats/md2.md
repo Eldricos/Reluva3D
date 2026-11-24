@@ -109,6 +109,17 @@ The models are made of a tree of nodes, from the one at the header's
 A helper then has its number (4 bytes) and where its name is (4 bytes):
 0x58 bytes in all.
 
+Helpers mark places in the model by their names. On the rides, the
+seats: `Head01` on (the Tesla Tastic Spinner's 8, the Craazy Clock's
+24), `SpriteHead01` on the robot's 16, numbered by seat and moving with
+it; a bouncy ride's bouncers' places, `Sprite 01` (the Bellows
+Bouncer's 8, over its cushion); where riders walk on, `sprite position
+01` or `Sprite pos1`, on the ground; `entrance01` and `exit01`, at
+the entrance and exit; and `smoke emitter1`, `particle01`, `camera`,
+`Destroy`, for effects. What a seat's helper marks is a rider's head,
+it seems by its name; what the bouncers' mark, their middle, as they
+stand about 4 units over the cushion *(inferred)*.
+
 The 281 nodes of type 0x401 are meshes as type 1's are, laid out the
 same and drawn: the front end's hall has its right wall so
 (`sidewallright`, [front-end.md](../systems/front-end.md)). What the

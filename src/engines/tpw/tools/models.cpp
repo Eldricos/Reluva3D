@@ -156,6 +156,21 @@ int cmdMd2Check(int argc, char **argv) {
             }
         }
     }
+    // One model's nodes too: its helpers, with their places in the model.
+    if (argc > 3 && models == 1) {
+        std::vector<uint8_t> data;
+        Model model;
+        if (!files.read(argv[3], data) && !model.parse(data))
+            for (size_t i = 0; i < model.nodes().size(); ++i) {
+                const Model::Node &n = model.nodes()[i];
+                reluva::gfx::Mat4 world = n.local;
+                for (int p = n.parent; p >= 0 && size_t(p) < model.nodes().size(); p = model.nodes()[size_t(p)].parent)
+                    world = reluva::gfx::multiply(model.nodes()[size_t(p)].local, world);
+                const reluva::gfx::Vec3 at = reluva::gfx::transformPoint(world, {0, 0, 0});
+                std::printf("node %3zu %-20s type %#x parent %d at %.1f, %.1f, %.1f\n", i, n.name.c_str(), n.type,
+                            n.parent, at[0], at[1], at[2]);
+            }
+    }
     for (const auto &[kind, n] : kinds)
         std::printf("  %-24s %d\n", kind.c_str(), n);
     std::printf("%d failed; %zu models, %zu meshes, %zu faces; %d of them fill their header's box; md5 %s\n", failed,

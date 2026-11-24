@@ -21,7 +21,8 @@ namespace reluva::tpw {
  * trace. Animations last as long as the model's own of their number and
  * variant, or kAnimationMs. Guests can be sent to the ride's queue; the
  * ride keeps them as the scripts' instructions say: in its limbo (LIMBO,
- * INLIMBO, UNLIMBO, FORCEUNLIMBO, LIMBOSPACE), on it (HUSH, HOP),
+ * INLIMBO, UNLIMBO, FORCEUNLIMBO, LIMBOSPACE), on it (HUSH, HOP), seen
+ * on it (ADDHEAD, DELHEAD),
  * bouncing (BOUNCE, UNBOUNCE, FORCEUNBOUNCE, BOUNCING), walking off
  * (WALKOFF, then WALKGET once they're clear). Each script has a timer
  * (SETTIMER, GETTIMER) and animation channels (TRIGANIM_CH, GETANIM_CH).
@@ -98,6 +99,18 @@ public:
     /** The guests offered that it has let off since last asked, in order. */
     std::vector<int> takeLetOff() { return std::exchange(_letOff, {}); }
     /**
+     * The riders shown on the ride (ADDHEAD, until DELHEAD or they're let
+     * off), by their seats from the first: 0 for a seat empty.
+     */
+    const std::vector<int> &heads() const { return _heads; }
+    /** The guests bouncing on a bouncy ride (BOUNCE), in the order they got on. */
+    std::vector<int> bouncers() const {
+        std::vector<int> ids;
+        for (const auto &[id, until] : _bouncing)
+            ids.push_back(id);
+        return ids;
+    }
+    /**
      * Does the guests' part, between the script's turns, unless it's
      * locked: the ride's settings given once, a guest put on, one let off
      * taken away.
@@ -125,6 +138,7 @@ private:
     int _offered = 0;       // in VAR_LETMEON, not yet taken
     std::vector<int> _boarded;
     std::vector<int> _letOff;
+    std::vector<int> _heads;
     uint32_t animationMs(int number, int variant) const;
     uint32_t remainingMs() const; // of the animation playing, once
 

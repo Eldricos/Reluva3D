@@ -331,18 +331,35 @@ void testPlacing() {
     CHECK(bare.place(1101, 0, shape, true, {1, 1}, 0) == Park::kNotPlaced);
 }
 
-// Visitors on a line of path: into a ride's queue as they pass its end,
-// up it to the entrance, on when the ride takes them, paying its fare,
-// off by its exit and back to the path.
+// Visitors on a line of path, all children liking excitement 60: to the
+// ride that matches it, up its queue, on when the ride takes them,
+// paying its fare, off by its exit, happier; then to the balloon kiosk,
+// which has no queue, for the happiness it gives (they're not thirsty or
+// hungry, which it wouldn't help); home when their days are up.
 void testRiders(const std::filesystem::path &tmp) {
     const std::filesystem::path data = tmp / "game" / "Data";
+    std::string types;
+    for (int i = 0; i < 24; ++i)
+        types += "PeepTypes[" + std::to_string(i) +
+                 "].PreferredExcitement.StartingCash.BoredomThreshold.Generation 60 "
+                 "100 200 " +
+                 std::to_string(i / 8) + "\r\n";
     writeText(data / "levels" / "Standard.sam",
               "BankAccountInfo.InitialCash 1000\r\nCosts.QueueCell 10\r\nArrival.MinPeople 1\r\n"
-              "Arrival.TimeBetweenArrivals 1\r\nArrival.FixedRate 6\r\nArrival.PointsPerVisitor 1\r\n");
+              "Arrival.TimeBetweenArrivals 1\r\nArrival.FixedRate 1\r\nArrival.PointsPerVisitor 1\r\n"
+              "PeepInfo.PercentageOfKids 100\r\nPeepInfo.PercentageOfParents 0\r\n"
+              "PeepInfo.PercentageOfGrandparents 0\r\nPeepInfo.ExitLevel 100\r\nPeepInfo.ExitLevelVar 0\r\n" +
+                  types);
     writeText(data / "missions" / "miss00.sam", "Info.Number 0\r\n");
-    writeText(data / "levels" / "science" / "rides" / "Rides.sam", "Info.HasQueue 1\r\n");
-    writeText(data / "levels" / "science" / "rides" / "robot" / "robot.sam",
-              "Info.Id 1101\r\nUsageInfo.InitPricePerUse 10\r\nInfo.Shape\r\n---\r\n2N\r\n---\r\n");
+    const std::filesystem::path world = data / "levels" / "science";
+    writeText(world / "rides" / "Rides.sam", "Info.HasQueue 1\r\nInfo.IsChoosable 1\r\nInfo.AttractionValue 3\r\n");
+    writeText(world / "rides" / "robot" / "robot.sam",
+              "Info.Id 1101\r\nUsageInfo.InitPricePerUse 10\r\nUsageInfo.ExcitementLevel 60\r\n"
+              "Info.Shape\r\n---\r\n2N\r\n---\r\n");
+    writeText(world / "shops" / "Shops.sam", "Info.HasQueue 0\r\nInfo.IsChoosable 1\r\n");
+    writeText(world / "shops" / "balloon" / "balloon.sam",
+              "Info.Id 1209\r\nUsageInfo.InitPricePerUse 5\r\nUsageInfo.HappinessEffect 20\r\n"
+              "Info.Shape\r\n---\r\n*2\r\n---\r\n");
     // Without the world's settings its way in ends at (0, 4): path from
     // there along y = 4.
     constexpr int kRows = 8;    // x
@@ -350,16 +367,24 @@ void testRiders(const std::filesystem::path &tmp) {
     tpw::testing::Bytes tiles(size_t(kRows) * kColumns, 0);
     for (int x = 0; x < 7; ++x)
         tiles[size_t(x) * kColumns + 4] = 8;
-    test::writeFile(data / "levels" / "science" / "terrain" / "base.map",
-                    tpw::testing::makeAttributeMap(kColumns, kRows, tiles));
+    test::writeFile(world / "terrain" / "base.map", tpw::testing::makeAttributeMap(kColumns, kRows, tiles));
     SearchSet files;
     std::vector<std::string> warnings;
     CHECK(!mountGame(files, tmp / "game", warnings));
     Park park;
     CHECK(!park.load(files, "levels/science", 0));
+    CHECK(park.points() == 1 && park.visitorTypes()[3].cash == 100 && park.visitorTypes()[3].excitement == 60);
     const int q = park.place(1101, 0, {"2N"}, true, {2, 2}, 0);
-    CHECK(q >= 0 && park.queueOf(0) == q);
+    CHECK(q >= 0 && park.queueOf(0) == q && park.points() == 4 && park.visitorsWanted() == 4);
     if (q < 0)
+        return;
+    // The kiosk: its entrance at (5, 3), by the path at (5, 4).
+    CHECK(park.place(1209, 0, {"*2"}, false, {4, 3}, 0) == -1);
+    const int shop = park.queueOf(1);
+    CHECK(shop >= 0 && park.queues()[size_t(shop)].kiosk && park.queues()[size_t(shop)].atPath);
+    CHECK(shop >= 0 && (park.queues()[size_t(shop)].pathEnd == Park::Cell{5, 4}));
+    CHECK(park.queuePieces().empty() && park.queueFrom({5, 3}) == -1);
+    if (shop < 0)
         return;
     CHECK(park.layQueue(q, Park::pathRun({2, 2}, {2, 4})) == 1 && park.queues()[size_t(q)].atPath);
     const Park::Queue &queue = park.queues()[size_t(q)];
@@ -377,19 +402,42 @@ void testRiders(const std::filesystem::path &tmp) {
         return;
     const Park::Visitor *v = park.visitor(waiting);
     CHECK(v && v->doing == Park::Doing::kQueueing && v->x == 25 && v->z == 25);
+    CHECK(v && v->generation == 0 && v->cash == 100); // these settings charge no admission
     const int cash = park.cash();
     CHECK(park.board(q, waiting) && park.cash() == cash + 10);
     v = park.visitor(waiting);
-    CHECK(v && v->doing == Park::Doing::kRiding && v->rides == 1);
+    CHECK(v && v->doing == Park::Doing::kRiding && v->cash == 90 && v->rides == 0);
     CHECK(!park.board(q, waiting) && !park.letOff(q, waiting + 100));
     park.advance(1000);
     CHECK(park.visitor(waiting)->doing == Park::Doing::kRiding);
     CHECK(park.letOff(q, waiting));
     v = park.visitor(waiting);
+    // A perfect match: 25 happier.
     CHECK(v && v->doing == Park::Doing::kLeaving && v->x == 35 && v->z == 25 && (v->cell == Park::Cell{3, 4}));
-    park.advance(5000);
+    CHECK(v && v->rides == 1 && v->happiness == Park::kStartingHappiness + 25 && v->lastQueue == q);
+
+    // Then the kiosk, the ride just ridden not chosen again at once.
+    int atShop = 0;
+    for (int t = 0; t < 300 && atShop != waiting; ++t) {
+        park.advance(100);
+        atShop = park.waitingAt(shop);
+        if (atShop && atShop != waiting && park.board(shop, atShop))
+            park.letOff(shop, atShop);
+    }
+    CHECK(atShop == waiting && park.board(shop, waiting) && park.letOff(shop, waiting));
     v = park.visitor(waiting);
-    CHECK(v && v->doing == Park::Doing::kWalking && park.isPath(v->cell));
+    CHECK(v && v->cash == 85 && v->rides == 2 && v->happiness == Park::kStartingHappiness + 25 + 20);
+    CHECK(v && v->x == 55 && v->z == 35 && (v->cell == Park::Cell{5, 4}));
+
+    // A hundred days on (400 s), they've gone home, and others come.
+    for (int t = 0; t < 6000; ++t) {
+        park.advance(100);
+        for (int k : {q, shop})
+            if (const int id = park.waitingAt(k); id && park.board(k, id))
+                park.letOff(k, id);
+    }
+    CHECK(!park.visitor(waiting) && !park.visitorsAbout().empty());
+    CHECK(park.visitors() <= park.visitorsWanted());
 }
 
 } // namespace

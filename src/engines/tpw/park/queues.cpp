@@ -79,6 +79,8 @@ std::vector<Park::QueuePiece> Park::queuePieces(const Queue &queue) {
 std::vector<Park::QueuePiece> Park::queuePieces() const {
     std::vector<QueuePiece> out;
     for (const Queue &q : _queues) {
+        if (q.kiosk)
+            continue;
         const std::vector<QueuePiece> pieces = queuePieces(q);
         out.insert(out.end(), pieces.begin(), pieces.end());
     }
@@ -167,8 +169,10 @@ int Park::place(int id, int price, const std::vector<std::string> &shape, bool h
     for (const Cell &c : f.cells)
         _ground[size_t(c.y) * size_t(_mapWidth) + size_t(c.x)] = Ground::kTaken;
     _objects.push_back({id, at, ((angle % 360) + 360) % 360});
-    if (!hasQueue || !f.hasEntrance)
+    if (!hasQueue || !f.hasEntrance) {
+        linkQueue(_objects.size() - 1, f);
         return -1;
+    }
     Queue q;
     q.entrance = f.entrance;
     _queues.push_back(q);
@@ -179,7 +183,7 @@ int Park::place(int id, int price, const std::vector<std::string> &shape, bool h
 int Park::queueFrom(const Cell &cell) const {
     for (size_t i = 0; i < _queues.size(); ++i) {
         const Queue &q = _queues[i];
-        if (q.atPath)
+        if (q.atPath || q.kiosk)
             continue;
         if ((q.cells.empty() && q.entrance == cell) || (!q.cells.empty() && q.cells.back() == cell))
             return int(i);

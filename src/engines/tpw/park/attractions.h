@@ -38,9 +38,19 @@ public:
          * free, `2` its entrance, `N` its exit, anything else its own.
          */
         std::vector<std::string> shape;
-        int excitement = -1;  // UsageInfo.ExcitementLevel, 0 to 100; −1 without
-        int capacity = -1;    // Upgrades[0].InitCapacity
-        int workingLife = -1; // Info.WorkingLife, 0 to 100
+        int excitement = -1;     // UsageInfo.ExcitementLevel, 0 to 100; −1 without
+        int capacity = -1;       // Upgrades[0].InitCapacity
+        int workingLife = -1;    // Info.WorkingLife, 0 to 100
+        int attractionValue = 0; // Info.AttractionValue: the visitors it draws to the park
+        bool choosable = false;  // Info.IsChoosable: visitors choose to use it
+        // What using it does to a visitor (UsageInfo's): their thirst and
+        // hunger taken away, their need of the toilet and happiness added.
+        int thirstEffect = 0;
+        int hungerEffect = 0;
+        int toiletEffect = 0;
+        int happinessEffect = 0;
+        bool relief = false;        // UsageInfo.ProvidesRelief: a toilet
+        bool handlesSprite = false; // UsageInfo.RideHandlesSprite: its user stays seen, as its script has them
     };
 
     /**

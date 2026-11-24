@@ -79,11 +79,15 @@ The general settings say how visitors come (`Arrival`): `MinPeople` 1,
 (90, 80, 75 and 120 percent). How the game uses them isn't known.
 Reluva reads them so *(guessed)*: a park draws as many visitors as its
 points pay for, at `PointsPerVisitor` a visitor and never fewer than
-`MinPeople`, its points `FixedRate` and `NewParkBonus` (and, once there
-is building, what it has); while it has fewer, one comes every
-`TimeBetweenArrivals` seconds. A bare new park draws (15 + 20) / 25,
-one: the recording's first visitor paid by 2:32, under a minute in,
-and its money stayed § 50025 until the player built.
+`MinPeople`, its points `FixedRate` and `NewParkBonus` and each of its
+attractions' `Info.AttractionValue` (rides 25 by their kind's settings,
+the robot 15, features 10); while it has fewer, one comes every
+`TimeBetweenArrivals` seconds. Land of Invention's new park, with the
+prebuilt park's attractions, has 330 points and draws 13. The
+recording's first visitor paid by 2:32, under a minute in; it had 6 at
+5:40 and 10 at 7:20, as one every 25 seconds would give, but 34 at
+9:56, faster than that: how a park's points grow with its building, or
+how many come at once, isn't known.
 
 The recording's visitors in the park, from the Visitor Statistics
 window: 6 at 5:40, 10 at 7:20, 34 at 9:56, 64 at 21:40, 67 at 22:25,

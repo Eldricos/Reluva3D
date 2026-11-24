@@ -72,13 +72,34 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
         // One line gives four values, the generation last.
         const SamFile::Entry *line =
             general.find(base + "PreferredExcitement.StartingCash.BoredomThreshold.Generation");
-        if (line && line->values.size() >= 4)
+        if (line && line->values.size() >= 4) {
+            type.excitement = int(line->values[0].number);
+            type.cash = int(line->values[1].number);
+            type.boredom = int(line->values[2].number);
             type.generation = std::clamp(int(line->values[3].number), 0, 2);
-        else
+        } else {
             type.generation = i / (kVisitorTypes / 3);
+        }
         type.speed = float(general.number(base + "SpeedMultiplier", 1));
         _visitorTypes.push_back(type);
     }
+    const std::string p = "PeepInfo.";
+    auto rule = [&](const std::string &name, int fallback) { return int(general.number(p + name, fallback)); };
+    _rules.cashSpreadPercent = rule("StartingCashVarPc", 0);
+    _rules.generationPercent = {rule("PercentageOfKids", 70), rule("PercentageOfParents", 20),
+                                rule("PercentageOfGrandparents", 10)};
+    _rules.rideMatch = {rule("PerfectExcitementMatch", 5), rule("GoodExcitementMatch", 15),
+                        rule("OKExcitementMatch", 40)};
+    _rules.rideHappiness = {rule("PerfectRide", 25), rule("GoodRide", 15), rule("OKRide", 5)};
+    _rules.distanceWeight = rule("DecisionVarDistWeight", 1);
+    _rules.queueWeight = rule("DecisionVarQueueWeight", 1);
+    _rules.excitementWeight = rule("DecisionVarExcitementWeight", 1);
+    _rules.thirstWeight = rule("DecisionVarThirstWeight", 2);
+    _rules.hungerWeight = rule("DecisionVarHungerWeight", 2);
+    _rules.toiletWeight = rule("DecisionVarToiletWeight", 2);
+    _rules.exitDays = rule("ExitLevel", 400);
+    _rules.exitSpread = rule("ExitLevelVar", 60);
+    _rules.needy = rule("ThoughtBubbleHungry", 80);
 
     // The world's fixed items; a world without its settings has none.
     SamFile world;
@@ -150,9 +171,16 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
     return Error::success();
 }
 
+int Park::points() const {
+    int points = _arrivals.fixedRate + _arrivals.newParkBonus;
+    for (const PlacedObject &o : _objects)
+        if (const Attractions::Attraction *a = _attractions.find(o.id))
+            points += a->attractionValue;
+    return points;
+}
+
 int Park::visitorsWanted() const {
-    const int points = _arrivals.fixedRate + _arrivals.newParkBonus;
-    return std::max(_arrivals.minPeople, points / _arrivals.pointsPerVisitor);
+    return std::max(_arrivals.minPeople, points() / _arrivals.pointsPerVisitor);
 }
 
 void Park::advance(uint32_t ms) {
@@ -234,6 +262,7 @@ int Park::buildPath(const std::vector<Cell> &cells) {
         _cash -= _pathCost;
         ++laid;
     }
+    findKioskPaths();
     return laid;
 }
 
@@ -241,25 +270,15 @@ void Park::step(uint32_t ms) {
     _millis += ms;
     while (_millis >= _nextArrivalMs) {
         _nextArrivalMs += _arrivals.everyMs;
-        if (int(_people.size()) < visitorsWanted() && !_wayIn.empty()) {
-            Visitor v;
-            v.id = _nextId++;
-            // A type and look spread over the ids, the same each run.
-            const uint32_t roll = uint32_t(v.id) * 2654435761u >> 16;
-            if (!_visitorTypes.empty()) {
-                const VisitorType &type = _visitorTypes[roll % _visitorTypes.size()];
-                v.generation = type.generation;
-                v.speed = type.speed;
-            }
-            v.look = roll / uint32_t(kVisitorTypes);
-            v.x = _wayIn[0][0];
-            v.z = _wayIn[0][2];
-            v.leg = 1;
-            _people.push_back(v);
-        }
+        if (int(_people.size()) < visitorsWanted() && !_wayIn.empty())
+            addVisitor();
     }
-    for (Visitor &v : _people)
+    for (Visitor &v : _people) {
+        useUp(v, float(ms) / float(kDayMillis));
         moveVisitor(v, kWalkPerSecond * v.speed * float(ms) / 1000);
+    }
+    _people.erase(std::remove_if(_people.begin(), _people.end(), [](const Visitor &v) { return v.gone; }),
+                  _people.end());
 }
 
 Park::Date Park::dateOf(uint32_t days) {

@@ -64,7 +64,7 @@ bool newPark(const char *game, const char *world, int mission, reluva::SearchSet
 int cmdParkShot(int argc, char **argv) {
     if (argc < 5) {
         std::fprintf(stderr, "usage: reluva-tool tpw park-shot <game folder> <world folder> <out.png> [seconds] [yaw "
-                             "pitch distance [x y]]\n");
+                             "pitch distance [x y]] [-place <id>]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -72,21 +72,66 @@ int cmdParkShot(int argc, char **argv) {
     reluva::tpw::ParkScreen screen;
     if (!newPark(argv[2], argv[3], 0, files, park, screen))
         return 1;
+    // -place <id>: that attraction placed first, where it fits nearest the
+    // entrance with its entrance by the path.
+    for (int i = 5; i + 1 < argc; ++i) {
+        if (std::string(argv[i]) != "-place")
+            continue;
+        const reluva::tpw::Attractions::Attraction *a = park.attractions().find(std::atoi(argv[i + 1]));
+        if (!a) {
+            std::fprintf(stderr, "no attraction %s\n", argv[i + 1]);
+            return 1;
+        }
+        const reluva::tpw::Park::Cell in = park.fixedItems().entrance[0];
+        int best = -1;
+        reluva::tpw::Park::Cell at;
+        int angle = 0;
+        for (int y = 0; y < park.groundHeight(); ++y)
+            for (int x = 0; x < park.groundWidth(); ++x)
+                for (int turn = 0; turn < 360; turn += 90) {
+                    const auto f = reluva::tpw::Park::footprint(a->shape, {x, y}, turn);
+                    if (!f.hasEntrance || !park.canPlace(f))
+                        continue;
+                    bool byPath = false;
+                    for (const auto &[dx, dy] : {std::pair{1, 0}, {-1, 0}, {0, 1}, {0, -1}})
+                        byPath = byPath || park.isPath({f.entrance.x + dx, f.entrance.y + dy});
+                    const int d = std::abs(x - in.x) + std::abs(y - in.y);
+                    if (byPath && (best < 0 || d < best)) {
+                        best = d;
+                        at = {x, y};
+                        angle = turn;
+                    }
+                }
+        const int queue =
+            best < 0 ? reluva::tpw::Park::kNotPlaced : park.place(a->id, a->price, a->shape, a->hasQueue, at, angle);
+        if (queue == reluva::tpw::Park::kNotPlaced) {
+            std::fprintf(stderr, "nowhere to place %d\n", a->id);
+            return 1;
+        }
+        // A ride's queue, joined straight to the path beside its entrance.
+        if (queue >= 0) {
+            const reluva::tpw::Park::Cell e = park.queues()[size_t(queue)].entrance;
+            for (const auto &[dx, dy] : {std::pair{1, 0}, {-1, 0}, {0, 1}, {0, -1}})
+                if (park.isPath({e.x + dx, e.y + dy}) && !park.queues()[size_t(queue)].atPath)
+                    park.layQueue(queue, {e, {e.x + dx, e.y + dy}});
+        }
+        std::printf("placed %d at %d, %d, %d degrees\n", a->id, at.x, at.y, angle);
+    }
     // In frames, so that the rides' scripts and the visitors keep step.
     constexpr uint32_t kFrameMs = 50;
-    const uint32_t runMs = argc > 5 ? uint32_t(std::strtof(argv[5], nullptr) * 1000) : 0;
+    const uint32_t runMs = argc > 5 && argv[5][0] != '-' ? uint32_t(std::strtof(argv[5], nullptr) * 1000) : 0;
     screen.advance(park);
     for (uint32_t t = 0; t < runMs; t += kFrameMs) {
         park.advance(std::min(kFrameMs, runMs - t));
         screen.advance(park);
     }
     reluva::tpw::ParkScreen::Camera camera = screen.startCamera(park);
-    if (argc > 8) {
+    if (argc > 8 && argv[6][0] != '-') {
         camera.yaw = std::strtof(argv[6], nullptr);
         camera.pitch = std::strtof(argv[7], nullptr);
         camera.distance = std::strtof(argv[8], nullptr);
     }
-    if (argc > 10)
+    if (argc > 10 && argv[9][0] != '-')
         camera.target = reluva::tpw::Park::cellCentre({std::atoi(argv[9]), std::atoi(argv[10])});
     reluva::Surface surface;
     surface.create(640, 480, reluva::PixelFormat::kRGBA32);
@@ -99,10 +144,13 @@ int cmdParkShot(int argc, char **argv) {
                 argv[3], park.mission().number, park.mission().statistic, park.mission().target, park.cash(),
                 park.admissionFee(), screen.dateText(park.day()).c_str(), fixed.entrance[0].x, fixed.entrance[0].y,
                 fixed.entrance[1].x, fixed.entrance[1].y, fixed.ticketBooths.size(), park.mission().boundary.size());
-    static constexpr const char *kDoing[] = {"coming", "walking", "queueing", "riding", "leaving"};
+    static constexpr const char *kDoing[] = {"coming", "walking", "queueing", "riding", "leaving", "going home"};
+    std::printf("%d points, %d visitors wanted\n", park.points(), park.visitorsWanted());
     for (const reluva::tpw::Park::Visitor &v : park.visitorsAbout())
-        std::printf("visitor %d: %s at %.1f, %.1f, %d rides\n", v.id, kDoing[size_t(v.doing)], double(v.x), double(v.z),
-                    v.rides);
+        std::printf("visitor %d (type %d): %s at %.1f, %.1f, %d rides, cash %d, happiness %.0f, hunger %.0f, thirst "
+                    "%.0f, toilet %.0f\n",
+                    v.id, v.type, kDoing[size_t(v.doing)], double(v.x), double(v.z), v.rides, v.cash,
+                    double(v.happiness), double(v.hunger), double(v.thirst), double(v.toilet));
     return 0;
 }
 
@@ -289,13 +337,18 @@ int cmdParkRun(int argc, char **argv) {
         for (int x = 0; x < park.groundWidth(); ++x)
             paths += park.isPath({x, y});
     size_t queueCells = 0;
-    for (const reluva::tpw::Park::Queue &q : park.queues())
+    size_t queues = 0;
+    size_t kiosks = 0;
+    for (const reluva::tpw::Park::Queue &q : park.queues()) {
         queueCells += q.cells.size();
+        queues += !q.kiosk;
+        kiosks += q.kiosk;
+    }
     std::printf("park: %d screens shown, %s at %llu ms, %s, cash %d, %d visitors, %d path cells, %zu objects, %zu "
-                "queues of %zu cells, %d briefings, tool %d; md5 %s\n",
+                "queues of %zu cells, %zu kiosks, %d briefings, tool %d; md5 %s\n",
                 sys.shown, left ? "left" : "closed", static_cast<unsigned long long>(sys.getMillis()),
-                screen.dateText(park.day()).c_str(), park.cash(), park.visitors(), paths, park.objects().size(),
-                park.queues().size(), queueCells, briefings, int(screen.hud().tool()), sys.all.hexDigest().c_str());
+                screen.dateText(park.day()).c_str(), park.cash(), park.visitors(), paths, park.objects().size(), queues,
+                queueCells, kiosks, briefings, int(screen.hud().tool()), sys.all.hexDigest().c_str());
     return left ? 0 : 1;
 }
 
@@ -504,8 +557,10 @@ const Commands kCommands(
          "read a saved park (.TPWS), the prebuilt one unless named: its cells, its path, its objects (listed with "
          "-objects) and its world",
          cmdTpwsCheck},
-        {"park-shot", "<game folder> <world folder> <out.png> [seconds] [yaw pitch distance [x y]]",
-         "set up a new park in a world and draw it, its HUD over it, to a PNG", cmdParkShot},
+        {"park-shot", "<game folder> <world folder> <out.png> [seconds] [yaw pitch distance [x y]] [-place <id>]",
+         "set up a new park in a world, -place an attraction by its entrance's path, run it on and draw it, "
+         "its HUD over it, to a PNG; and list its visitors",
+         cmdParkShot},
         {"briefing-shot", "<game folder> <world folder> <out.png> [player [-details]]",
          "draw the mission's briefing over a new park, to a PNG", cmdBriefingShot},
         {"park-run", "<game folder> <world folder> [-shots <folder> <ms>...]",

@@ -32,6 +32,8 @@ constexpr uint16_t kHop = 43;
 constexpr uint16_t kWait4Anim = 46;
 constexpr uint16_t kTour = 53;
 constexpr uint16_t kBump = 54;
+constexpr uint16_t kAddHead = 56;
+constexpr uint16_t kDelHead = 57;
 constexpr uint16_t kLimbo = 58;
 constexpr uint16_t kUnlimbo = 59;
 constexpr uint16_t kForceUnlimbo = 60;
@@ -50,6 +52,9 @@ constexpr uint16_t kGetTimer = 96;
 // commands: TOUR 10, a car in the station; BUMP 5, the track valid.
 constexpr int kTourCarInStation = 10;
 constexpr int kBumpTrackValid = 5;
+// LIMBO's and BOUNCE's times are seconds: the shops' 5 and the arcades' 15
+// would be too short as milliseconds, as would the bouncy rides' durations of 3.
+constexpr uint32_t kMillisPerSecond = 1000;
 
 // The opcodes that wait for their own animation to end. TRIGWAITANIM
 // waits for the one playing instead, then starts its own and goes on.
@@ -215,8 +220,8 @@ HostResult SimulatedHost::perform(ScriptMachine &machine, const Script::Instruct
         r.value = value(0) == kBumpTrackValid;
         break;
     case kLimbo:
-        // LIMBO guest time: the guest is inside for that long.
-        _limbo.emplace_back(value(0), _now + uint32_t(value(1)));
+        // LIMBO guest time: the guest is inside for that long, in seconds.
+        _limbo.emplace_back(value(0), _now + uint32_t(std::max(0, value(1))) * kMillisPerSecond);
         break;
     case kInLimbo:
         r.value = int(_limbo.size());
@@ -234,7 +239,7 @@ HostResult SimulatedHost::perform(ScriptMachine &machine, const Script::Instruct
         setResult(0, r.value);
         break;
     case kBounce:
-        _bouncing.emplace_back(value(0), _now + uint32_t(value(1)));
+        _bouncing.emplace_back(value(0), _now + uint32_t(std::max(0, value(1))) * kMillisPerSecond);
         break;
     case kBouncing:
         r.value = int(_bouncing.size());
@@ -244,6 +249,19 @@ HostResult SimulatedHost::perform(ScriptMachine &machine, const Script::Instruct
     case kForceUnbounce:
         r.value = takeDue(_bouncing, _now, instruction.opcode == kForceUnbounce);
         setResult(0, r.value);
+        break;
+    case kAddHead:
+        // The rider shown in the first seat free, or a new one.
+        if (value(0)) {
+            const auto free = std::find(_heads.begin(), _heads.end(), 0);
+            if (free != _heads.end())
+                *free = value(0);
+            else
+                _heads.push_back(value(0));
+        }
+        break;
+    case kDelHead:
+        std::replace(_heads.begin(), _heads.end(), value(0), 0);
         break;
     case kHush:
         if (value(0))
@@ -318,8 +336,11 @@ void SimulatedHost::queueGuest(ScriptMachine &machine) {
             _offered = std::exchange(_pending, 0);
             machine.setVariable(kLetMeOn, _offered);
         }
-        if (machine.variable(kLetMeOff) != 0)
+        if (machine.variable(kLetMeOff) != 0) {
             _letOff.push_back(machine.variable(kLetMeOff));
+            // Off the ride, out of their seat, whether the script said so or not.
+            std::replace(_heads.begin(), _heads.end(), machine.variable(kLetMeOff), 0);
+        }
     } else if (_guests && machine.variable(kLetMeOn) == 0) {
         machine.setVariable(kLetMeOn, _nextGuest++);
     }

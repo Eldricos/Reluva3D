@@ -110,6 +110,14 @@ Error Attractions::load(const SearchSet &files, const std::string &folder) {
             a.fare = int(number("UsageInfo.InitPricePerUse", 0));
             a.capacity = int(number("Upgrades[0].InitCapacity", -1));
             a.workingLife = int(number("Info.WorkingLife", -1));
+            a.attractionValue = int(number("Info.AttractionValue", 0));
+            a.choosable = number("Info.IsChoosable", 0) != 0;
+            a.thirstEffect = int(number("UsageInfo.ThirstEffect", 0));
+            a.hungerEffect = int(number("UsageInfo.HungerEffect", 0));
+            a.toiletEffect = int(number("UsageInfo.ToiletEffect", 0));
+            a.happinessEffect = int(number("UsageInfo.HappinessEffect", 0));
+            a.relief = number("UsageInfo.ProvidesRelief", 0) != 0;
+            a.handlesSprite = number("UsageInfo.RideHandlesSprite", 0) != 0;
             _all.push_back(std::move(a));
         }
     }
