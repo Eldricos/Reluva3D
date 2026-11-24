@@ -34,8 +34,13 @@ on after the name with their arguments' kinds (`"ERR_CANNOT_FIND_FILE %s
 %s"`), and 4 in `credits.uni` have a space in them (`"CREDITS_ small_7"`).
 
 A string runs to the next quote: there's no escape for a quote, and
-`"\"` is a backslash. `\n` in a string is a new line *(inferred: the
-error messages use it between paragraphs)*. One credits line,
+`"\"` is a backslash, and `\n` is kept as written, a backslash and an
+`n`: the reader has no escapes (`0x42f400` copies the string byte by
+byte) *(from the code)*. The one string with `\n` in the files,
+`ERR_MAY_BE_RELATED_TO` in `jkstrings.uni`, is never shown: `JK.EXE`
+doesn't name its key, nor builds it (its built keys are `COG_%05d`,
+`GOAL_%05d` and the ranks'), and no other file names it *(from the
+code)*. One credits line,
 `CREDITS_big_446`, has its string without quotes (`Paul Zabierek`),
 which the game reads as empty ([Reading a table](#reading-a-table)).
 
@@ -100,7 +105,7 @@ In `JK.EXE`: `0x421c40` to `0x421dae`.
 
 `parseStrings` (`src/engines/sith/formats/strings.h`) reads one into a
 `StringTable`: the string after the number, empty when it isn't quoted,
-as the game reads it. The data viewer's
+`\n` kept as written, as the game reads it. The data viewer's
 Strings page lists them. `reluva-tool sith strings <install>
 <file.uni>` prints one table, and `reluva-tool sith formats <install>`
 reads them all.

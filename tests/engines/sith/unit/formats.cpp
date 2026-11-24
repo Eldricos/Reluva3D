@@ -228,7 +228,8 @@ void testStrings() {
     CHECK(table.find("gui_ok") && *table.find("gui_ok") == "OK");
     CHECK(table.find("NAME") && *table.find("NAME") == "%s's Game");
     CHECK(table.find("DIK_BACKSLASH") && *table.find("DIK_BACKSLASH") == "\\");
-    CHECK(table.find("ERR") && *table.find("ERR") == "\n\nSee:\n");
+    // \n kept as written, as the game keeps it.
+    CHECK(table.find("ERR") && *table.find("ERR") == "\\n\\nSee:\\n");
     CHECK(table.find("CREDITS_big_446") && table.find("CREDITS_big_446")->empty());
     CHECK(!table.find("AFTER"));
 

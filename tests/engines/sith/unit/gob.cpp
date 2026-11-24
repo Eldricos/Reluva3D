@@ -80,9 +80,10 @@ void testGameFiles(const stdfs::path &tmp) {
         CHECK(files.archives()[1]->describe() == "Res2.gob");
         CHECK(files.archives()[2]->describe() == "JK1.GOB");
     }
+    // An episode's archive before the resources', as the game searches.
     std::vector<uint8_t> out;
     CHECK(!files.read("misc/cmp/dflt.cmp", out));
-    CHECK(out == bytesOf("res2"));
+    CHECK(out == bytesOf("episode"));
     CHECK(files.find("ui/jkstrings.uni") == files.archives()[0].get());
     CHECK(files.read("nothing", out));
 }

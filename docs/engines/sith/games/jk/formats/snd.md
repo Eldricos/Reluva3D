@@ -50,7 +50,7 @@ the files.
 | `0x8` | Given the thing's velocity, for the sound card's 3D sound (Doppler), when the thing moves by physics (`0x4dce10`) *(from the code)* | 1 |
 | `0x40` | Played once where the thing is, not following it (`0x4e6d1b`); without it, the sound follows its thing. No file sets it: it is what a line without flags gets *(from the code)* | None |
 | `0x80` | Follows the thing: the game sets it on every sound that does (`0x4dbac4`), so it changes nothing in a file *(from the code)* | 3 |
-| `0x100`, `0x200` | Kept: not cut off to make room for a new sound (`0x4db6b6`, `0x4dbd75`, `0x4dd42b`), and played even while the character is already speaking (`0x4dbb4b`) *(from the code)*. The game tests them only together: the same *(inferred)* | 56 (death and drowning) and 14 (`deathUnder`) |
+| `0x100`, `0x200` | Kept: not cut off to make room for a new sound (`0x4db6b6`, `0x4dbd75`, `0x4dd42b`), and played even while the character is already speaking (`0x4dbb4b`) *(from the code)*. The game tests them only together: the same *(from the code)* | 56 (death and drowning) and 14 (`deathUnder`) |
 | `0x400` | Not played while the same sound is playing anywhere (`0x4e6cf3`) *(from the code)* | None |
 | `0x800` | Not played while the same sound is playing on the same thing (`0x4e6d01`) *(from the code)* | 2 |
 | `0x4000` | Its sound loaded with the level (`0x4e690c`) *(from the code)* | 404 |
@@ -58,7 +58,12 @@ the files.
 
 Every test of `0x100` or `0x200` in the sound system (`0x4db100` to
 `0x4dd600`) and the sound class's player takes the two together (`0x301`
-or `0x300`); none takes either alone *(from the code)*. maxVolume is multiplied by the volume the caller asks for, and the
+or `0x300`); none takes either alone *(from the code)*. Nothing else
+reads them: the sounds playing are 32 records of `0x5c` bytes at
+`0x835ff4`, their flags first, and every reference to that array is in
+the sound system; the class's flags are read only by its loader and its
+player (`0x4e6cd0`); and no other test in the program of one of the two
+bits without the other is on a sound's flags *(from the code)*. maxVolume is multiplied by the volume the caller asks for, and the
 result held to 0 to 1.5 (`0x4dba82`) *(from the code)*.
 
 ## Behaviour
@@ -122,6 +127,4 @@ viewer's Sound classes page lists each event and plays its sound.
 
 ## Open questions
 
-- Whether `0x100` and `0x200` differ anywhere outside the sound system
-  and the sound class's player: neither is tested alone there
-  ([Flags](#flags)), and the rest of `JK.EXE` wasn't searched.
+None.

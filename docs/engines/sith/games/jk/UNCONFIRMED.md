@@ -19,20 +19,21 @@ What Reluva does that hasn't been checked against the running original.
 
 ## Inferred
 
-- **`\n` in strings** is taken for a new line
-  ([formats/uni.md](formats/uni.md#layout)).
+None.
 
 ## Guessed
 
-- **Which archive a name comes from:** Reluva looks in the install's
-  `Resource` archives, then its `Episode` ones, each folder's in name
-  order ([formats/gob.md](formats/gob.md#in-reluva)). The game was seen to
-  try loose files first, then its archives
-  ([formats/gob.md](formats/gob.md#behaviour)); which archive wins when
-  two have a name would be settled by tracing how `JK.EXE` searches them.
+None.
 
 ## Settled
 
+- **November 2026: `\n` in strings.** `JK.EXE` keeps it as written, and
+  never shows the one string that has it; Reluva now keeps it too
+  ([formats/uni.md](formats/uni.md#layout)).
+- **November 2026: which archive a name comes from.** `JK.EXE` searches
+  five places, the episode's archives before the resources', one
+  episode open at a time; Reluva now searches in that order
+  ([formats/gob.md](formats/gob.md#behaviour)).
 - **November 2026: how a level's surfaces are lit.** The game's first
   frame of Nar Shaddaa and the viewer's, from the same start with the
   game's 90-degree view, agree within 2 of 255

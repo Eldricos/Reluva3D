@@ -32,13 +32,6 @@ bool quoted(std::string_view &s, std::string &out) {
     return true;
 }
 
-// The game's messages write a new line as \n.
-std::string newLines(std::string s) {
-    for (size_t at = s.find("\\n"); at != std::string::npos; at = s.find("\\n", at + 1))
-        s.replace(at, 2, "\n");
-    return s;
-}
-
 } // namespace
 
 const std::string *StringTable::find(std::string_view key) const {
@@ -85,7 +78,7 @@ Error parseStrings(const std::vector<uint8_t> &data, StringTable &out) {
         // One credits line has its string unquoted, which the game reads as
         // empty (0x42f210).
         quoted(line, value);
-        out.entries.emplace_back(std::move(key), newLines(std::move(value)));
+        out.entries.emplace_back(std::move(key), std::move(value));
     }
     if (!counted)
         return Error::fail("string table without its MSGS line");

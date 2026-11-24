@@ -12,7 +12,10 @@ namespace reluva::sith {
 
 Error GameFiles::open(const std::filesystem::path &install) {
     _archives.clear();
+    _firstEpisode = 0;
     for (const char *folder : {"Resource", "Episode"}) {
+        if (std::string_view(folder) == "Episode")
+            _firstEpisode = _archives.size();
         const auto dir = fs::findDirectory(install, folder);
         if (!dir)
             continue;
@@ -37,9 +40,12 @@ Error GameFiles::open(const std::filesystem::path &install) {
 }
 
 const GobArchive *GameFiles::find(std::string_view name) const {
-    for (const auto &gob : _archives)
-        if (gob->has(name))
-            return gob.get();
+    for (size_t i = _firstEpisode; i < _archives.size(); ++i)
+        if (_archives[i]->has(name))
+            return _archives[i].get();
+    for (size_t i = 0; i < _firstEpisode; ++i)
+        if (_archives[i]->has(name))
+            return _archives[i].get();
     return nullptr;
 }
 

@@ -140,12 +140,9 @@ public:
         _top = std::min(_top, table.entries.empty() ? 0 : table.entries.size() - 1);
         for (size_t i = 0; i < kLines && _top + i < table.entries.size(); ++i) {
             const auto &[key, value] = table.entries[_top + i];
-            std::string shown = value;
-            for (size_t at = shown.find('\n'); at != std::string::npos; at = shown.find('\n', at))
-                shown.replace(at, 1, "\\n");
             const int y = kGap + int(i) * 12;
             font::drawText(screen, kGap, y, key, {150, 200, 255});
-            font::drawText(screen, kGap + 200, y, shown, {230, 230, 230});
+            font::drawText(screen, kGap + 200, y, value, {230, 230, 230});
         }
         line += "  strings " + std::to_string(table.entries.empty() ? 0 : _top + 1) + "-" +
                 std::to_string(std::min(_top + kLines, table.entries.size())) + " of " +

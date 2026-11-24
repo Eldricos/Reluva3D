@@ -50,17 +50,39 @@ file" when the version is wrong. Run in the emulator, it opens the
 install's `Resource\Res1hi.gob` and `Resource\Res2.gob`, and for each
 file it wants tries a loose file first: at the install's root, in its
 `resource` folder, then in the CD's `gamedata\resource`; then the
-archives ([systems/hosting.md](../systems/hosting.md)). Which archive
-wins when two have a name isn't traced yet.
+archives ([systems/hosting.md](../systems/hosting.md)).
+
+The game looks for a name in five places in turn (`0x40f4c0`), each a
+folder with up to 64 archives (`0x5541e0`, `0x184` bytes apart): a
+loose file in the folder, then the folder's archives in the order its
+listing gave them (`0x40f190`, by the pattern `gob`), the first that has
+the name winning *(from the code)*:
+
+| Order | Folder | Archives |
+|---|---|---|
+| 1 | The `-path` (or `/path`) option's (`0x4014dc`, `0x401782`) | Its `.gob`s, if it's given (`0x40e44c`) |
+| 2 | `episode\<the episode>` in the install (`0x40e66a`) | The episode's own, `<the episode>.gob` (`0x40e64e`, `0x40e741`) |
+| 3 | `<CD>\gamedata\episode\<the episode>` (`0x40e819`) | Those of the episode's folder on the CD |
+| 4 | `resource` in the install (`0x40e460`) | `Res1hi.gob`, `Res2.gob` |
+| 5 | `<CD>\gamedata
+esource` (`0x40e9e5`) | The CD's, unless the registry's `InstallType` is 9 (`0x40ea04`), which it is when it isn't set (`0x41ec53`) |
+
+One episode is open at a time: opening one closes the archives of
+places 2 and 3 first (`0x40e5c0`) *(from the code)*. So an episode's
+files come before the resources'. In the US retail files no name is in
+two archives that are open together: of the 4,791 names, only
+`episode.jk` and `misc\cogstrings.uni` are in more than one archive,
+each in all three episodes'.
 
 ## In Reluva
 
 - `GobArchive` (`src/engines/sith/formats/gob.h`) reads the index and
   reads each file from the archive when asked, as an `Archive`.
 - `GameFiles` (`src/engines/sith/game_files.h`) opens every `.gob` in the
-  install's `Resource` and `Episode` folders, and finds a name in the
-  first that has it: an order of Reluva's own until the game's is known
-  ([UNCONFIRMED.md](../UNCONFIRMED.md#guessed)).
+  install's `Resource` and `Episode` folders, and finds a name as the
+  game does, in the episodes' archives before the resources'. It has all
+  the episodes open where the game has one, so for the two names they
+  share the first by name, `JK1.GOB`, the single-player game's, wins.
 - `reluva-tool sith gob <archive.gob>` prints the index.
 
 ## Sources and checks
