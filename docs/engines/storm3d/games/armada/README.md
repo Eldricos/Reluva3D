@@ -13,7 +13,7 @@ multiplayer games.
 
 | Release | Recognised by | State |
 |---|---|---|
-| English retail 1.0 (`Armada.exe` of 10 March 2000) | `Armada.exe`, `assets.zfs` and `objtxt.zfs` by their hashes ([formats/install.md](formats/install.md)) | Recognised; nothing runs yet |
+| English retail 1.0 (`Armada.exe` of 10 March 2000) | `Armada.exe`, `assets.zfs` and `objtxt.zfs` by their hashes ([formats/install.md](formats/install.md)) | Recognised; its front end runs: the opening movie, the main menu, the single-player screen |
 | Other releases (the 1.1 and 1.2 patches, other languages) | `Armada.exe`, `assets.zfs` and `objtxt.zfs` by their names, found as "unknown release" | Not seen: only the English 1.0 install has been |
 
 ## Where it stands
@@ -33,8 +33,9 @@ far as its first mission, as a reference to study
 - **The game:** add the install folder in the launcher (*Add Game...*).
   It plays the opening movie, if it's been copied from the CD's
   `setup/animations/` into the install's `animations/`, then shows the
-  main menu ([systems/front-end.md](systems/front-end.md)); Quit or Esc
-  goes back to the launcher.
+  main menu and from it the single-player screen
+  ([systems/front-end.md](systems/front-end.md)); Quit or Esc goes back
+  to the launcher.
 - **The data viewer:** `reluva-viewer` with the game. Tab moves between
   its pages, Esc leaves:
   - **Images:** Left/Right step through the pictures, PageUp/PageDown 10
@@ -61,7 +62,7 @@ far as its first mission, as a reference to study
 |---|---|
 | This page | Where it stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases and the decisions taken |
-| [formats/](formats/) | The game's own files, a page each: [install.md](formats/install.md) (what the install and the CD hold), [zfs.md](formats/zfs.md) (the archives), [odf.md](formats/odf.md) (object definitions), [config.md](formats/config.md) (settings in C), [ldl.md](formats/ldl.md) (the installer's scripts), [input-map.md](formats/input-map.md) (the keys and mouse), [textures.md](formats/textures.md) (textures and pictures), [sounds.md](formats/sounds.md), [movies.md](formats/movies.md), [spr.md](formats/spr.md) (sprite tables and fonts), [sod.md](formats/sod.md) (models), [bzn.md](formats/bzn.md) (maps) |
+| [formats/](formats/) | The game's own files, a page each: [install.md](formats/install.md) (what the install and the CD hold), [zfs.md](formats/zfs.md) (the archives), [odf.md](formats/odf.md) (object definitions), [config.md](formats/config.md) (settings in C), [ldl.md](formats/ldl.md) (the installer's scripts), [input-map.md](formats/input-map.md) (the keys and mouse), [label-map.md](formats/label-map.md) (the front end's text), [textures.md](formats/textures.md) (textures and pictures), [sounds.md](formats/sounds.md), [movies.md](formats/movies.md), [spr.md](formats/spr.md) (sprite tables and fonts), [sod.md](formats/sod.md) (models), [bzn.md](formats/bzn.md) (maps) |
 | [systems/](systems/) | How the game behaves, a page per part: [hosting.md](systems/hosting.md) (the original run in the emulator, as a reference), [camera.md](systems/camera.md) (the camera), [front-end.md](systems/front-end.md) (the opening movie and the menus) |
 | [research/](research/README.md) | Working notes: the missions' API, the program's classes, its start-up traced |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |

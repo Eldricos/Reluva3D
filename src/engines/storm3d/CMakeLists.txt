@@ -11,6 +11,7 @@ reluva_add_engine(storm3d
         formats/bzn.cpp
         formats/config_file.cpp
         formats/input_map.cpp
+        formats/label_map.cpp
         formats/ldl.cpp
         formats/odf.cpp
         formats/sod.cpp
@@ -18,7 +19,9 @@ reluva_add_engine(storm3d
         formats/zfs_archive.cpp
         shell/full_screen_movie.cpp
         shell/main_menu.cpp
-        shell/panel_movie.cpp)
+        shell/panel_movie.cpp
+        shell/shell_draw.cpp
+        shell/single_player.cpp)
 
 # Its data viewer, for reluva-viewer: a page for each kind of file.
 reluva_add_engine_viewers(storm3d
@@ -61,6 +64,7 @@ reluva_add_engine_tests(storm3d
         ${tests}/unit/detection.cpp
         ${tests}/unit/images.cpp
         ${tests}/unit/input_map.cpp
+        ${tests}/unit/label_map.cpp
         ${tests}/unit/ldl.cpp
         ${tests}/unit/odf.cpp
         ${tests}/unit/shell.cpp
@@ -69,7 +73,7 @@ reluva_add_engine_tests(storm3d
         ${tests}/unit/zfs.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.bzn unit.config unit.detection unit.images unit.input_map unit.ldl unit.odf unit.shell unit.sod unit.spr unit.zfs engine)
+        unit.bzn unit.config unit.detection unit.images unit.input_map unit.label_map unit.ldl unit.odf unit.shell unit.sod unit.spr unit.zfs engine)
 
 # Its engine test with the game's own files, when it has one (see
 # docs/DEVELOPMENT.md, Engine tests):

@@ -3,10 +3,10 @@
 
 #include "engines/storm3d/shell/main_menu.h"
 
+#include "engines/storm3d/shell/shell_draw.h"
 #include "graphics/font.h"
 
 #include <algorithm>
-#include <cstring>
 
 namespace reluva::storm3d {
 
@@ -18,30 +18,6 @@ constexpr const char *kVersion = "v1.0";
 constexpr int kVersionX = 605;
 constexpr int kVersionY = 467;
 constexpr Color kVersionColour{181, 0, 0};
-
-// A label's pixels of this colour are left out (its mask's colour key).
-bool keyed(const uint8_t *p) {
-    return p[0] == 255 && p[1] == 0 && p[2] == 255;
-}
-
-void copy(Surface &screen, const uint8_t *rgba, int w, int h, int x, int y, bool key) {
-    for (int row = 0; row < h; ++row) {
-        const int sy = y + row;
-        if (sy < 0 || sy >= screen.h)
-            continue;
-        for (int col = 0; col < w; ++col) {
-            const int sx = x + col;
-            if (sx < 0 || sx >= screen.w)
-                continue;
-            const uint8_t *from = rgba + (size_t(row) * size_t(w) + size_t(col)) * 4;
-            if (key && keyed(from))
-                continue;
-            uint8_t *to = screen.row(sy) + size_t(sx) * 4;
-            std::memcpy(to, from, 3);
-            to[3] = 255;
-        }
-    }
-}
 
 } // namespace
 
@@ -73,23 +49,15 @@ int MainMenu::buttonAt(int x, int y, const std::vector<std::array<int, 4>> &size
 }
 
 Error MainMenu::load(const GameFiles &files, uint64_t millis) {
-    auto picture = [&files](const std::string &name, image::Image &out) -> Error {
-        std::vector<uint8_t> data;
-        if (Error err = files.read(name, data))
-            return err;
-        if (Error err = image::decode(data, out))
-            return Error::fail(name + ": " + err.message);
-        return Error::success();
-    };
-    if (Error err = picture("bitmaps/main/mainbk.bmp", _background))
+    if (Error err = loadPicture(files, "bitmaps/main/mainbk.bmp", _background))
         return err;
     _shown.clear();
     _shown.resize(buttons().size());
     for (size_t i = 0; i < buttons().size(); ++i) {
         const Button &b = buttons()[i];
         for (size_t look = 0; look < 3; ++look)
-            if (Error err = picture("bitmaps/ms/" + std::string(b.label) + std::to_string(look + 1) + ".bmp",
-                                    _shown[i].looks[look]))
+            if (Error err = loadPicture(files, "bitmaps/ms/" + std::string(b.label) + std::to_string(look + 1) + ".bmp",
+                                        _shown[i].looks[look]))
                 return err;
         if (!b.movie)
             continue;
@@ -139,18 +107,18 @@ MenuChoice MainMenu::release(int x, int y) {
 void MainMenu::draw(Surface &screen, uint64_t millis) {
     if (screen.format != PixelFormat::kRGBA32)
         return;
-    copy(screen, _background.rgba.data(), _background.w, _background.h, 0, 0, false);
+    drawPicture(screen, _background, 0, 0, false);
     for (size_t i = 0; i < _shown.size(); ++i) {
         const Button &b = buttons()[i];
         PanelMovie &movie = int(i) == _hover && _shown[i].lit.isOpen() ? _shown[i].lit : _shown[i].rest;
         if (b.movie && movie.isOpen() && movie.update(millis) && !movie.rgba().empty())
-            copy(screen, movie.rgba().data(), movie.width(), movie.height(), b.panelX, b.panelY, false);
+            drawPixels(screen, movie.rgba().data(), movie.width(), movie.height(), b.panelX, b.panelY, false);
     }
     for (size_t i = 0; i < _shown.size(); ++i) {
         const Button &b = buttons()[i];
         const size_t look = int(i) == _pressed && int(i) == _hover ? 2 : int(i) == _hover ? 1 : 0;
         const image::Image &label = _shown[i].looks[look];
-        copy(screen, label.rgba.data(), label.w, label.h, b.labelX, b.labelY, true);
+        drawPicture(screen, label, b.labelX, b.labelY, true);
     }
     font::drawText(screen, kVersionX, kVersionY, kVersion, kVersionColour);
 }

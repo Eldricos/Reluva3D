@@ -11,7 +11,8 @@ files):
 | Suite | What it checks |
 |---|---|
 | `storm3d.unit.detection` | An empty folder, and the executable alone, aren't the game; Armada's three files by name are found as an unknown release |
-| `storm3d.unit.shell` | The main menu's buttons: each place's, a label's and its panel's, Quit's over a panel's edge |
+| `storm3d.unit.label_map` | The front end's text: sections, entries, comments, a Windows-1252 character; broken forms refused with their line |
+| `storm3d.unit.shell` | The main menu's buttons: each place's, a label's and its panel's, Quit's over a panel's edge; the single-player screen's races; `mshell.set`'s campaigns |
 | `storm3d.unit.sod` | Models of 1.0, 1.2, 1.6 and 1.8 written and read; damaged ones refused; nodes placed in their parents; levels of detail; the parts an assimilated ship has |
 | `storm3d.unit.spr` | Sprite tables: each directive, sprites, an include, each kind of keyframe, an emitter; a font's and a flipbook's frames |
 | `storm3d.unit.zfs` | ZFS archives over two blocks: names, a name filling its field, decoding with an unencoded tail; damaged archives refused |
@@ -60,8 +61,9 @@ decode, and last as long as they should.
 1. Add the install in the launcher: it's found as "Star Trek: Armada".
 2. Start it: the opening movie if the install has it (a key or a click
    ends it), then the main menu: its four panels playing, the label
-   under the pointer lit, its music; Quit or Esc goes back to the
-   launcher.
+   under the pointer lit, its music; Single Player opens the races'
+   screen, the Federation's mission panel with "Premonitions"; Quit or
+   Esc goes back to the launcher.
 3. The data viewer's Models page: ships, stations and planets drawn
    whole, with their textures, turning; L shows less detailed levels.
    Without a display, run `reluva-viewer` under Xvfb on Mesa's software
@@ -93,3 +95,4 @@ decode, and last as long as they should.
 | November 2026 | English retail 1.0, its disc's `.mds` | Linux | The skirmish scrolled to the area's edge (right arrow held 4 seconds): its shroud and fog textures read from memory, their draws placed on the plane y = 0; `map-shot` with R set beside both frames, the start's view clear and the shroud grey up to x = 6400 |
 | November 2026 | English retail 1.0, its disc's `.mds` | Linux | The lighting code found by watching a vertex's colour written (`-watch`, with registers) and read; the formula checked against the planet Barisa's 198 vertices in "Premonitions" (0.002 on average) and the starbase's in the skirmish (median 0.001); `map-shot` of both set beside the game's frames |
 | November 2026 | English retail 1.0, its disc's `.mds` | Linux | The game's main menu with `engine-shot`, set beside the original's frames at rest and with the pointer over Single Player: the background, the panels' movies (their colours, against the background), the labels and their looks where the game has them |
+| November 2026 | English retail 1.0, its disc's `.mds` | Linux | The single-player screen with `engine-shot`, set beside the original's frames with the pointer over the Borg and with the Federation's mission panel up: the races' panels, the tooltip, the mission name and the buttons' words to the pixel |

@@ -5,14 +5,17 @@
 // game's frame has them.
 
 #include "engines/storm3d/shell/main_menu.h"
+#include "engines/storm3d/shell/single_player.h"
 
 #include "tests/support/test.h"
 
 #include <array>
+#include <string>
 #include <vector>
 
 using reluva::storm3d::MainMenu;
 using reluva::storm3d::MenuChoice;
+using reluva::storm3d::SinglePlayerScreen;
 
 namespace {
 
@@ -43,9 +46,36 @@ void testButtons() {
     CHECK(at(639, 479) == MenuChoice::kNone);
 }
 
+// The single-player screen's races: each panel 280 x 190, as the game's
+// frame has them.
+void testRaces() {
+    CHECK(SinglePlayerScreen::races().size() == 4);
+    CHECK(SinglePlayerScreen::raceAt(130, 150) == 0);
+    CHECK(SinglePlayerScreen::raceAt(600, 100) == 1);
+    CHECK(SinglePlayerScreen::raceAt(10, 430) == 2);
+    CHECK(SinglePlayerScreen::raceAt(600, 300) == 3);
+    CHECK(SinglePlayerScreen::raceAt(320, 240) == -1);
+    CHECK(SinglePlayerScreen::raceAt(100, 445) == -1);
+}
+
+// mshell.set: six map names a campaign, "none" for none, as the
+// install's (its last line without an end, a stray space).
+void testCampaigns() {
+    const std::string mshell = "fed1.bzn\r\nfed2.bzn\r\nfed5.bzn\r\nfed3.bzn\r\nnone\r\nnone\r\n"
+                               "kling3.bzn\r\nkling1.bzn\r\nkling4.bzn\r\nkling5.bzn\r\nnone \r\nnone \r\n"
+                               "finale4.bzn\r\nnone\r\nnone\r\nnone\r\nnone\r\nnone";
+    const auto campaigns = SinglePlayerScreen::campaignsOf(mshell);
+    CHECK(campaigns.size() == 3);
+    CHECK((campaigns[0] == std::vector<std::string>{"fed1.bzn", "fed2.bzn", "fed5.bzn", "fed3.bzn"}));
+    CHECK(campaigns[1].size() == 4 && campaigns[1][0] == "kling3.bzn");
+    CHECK((campaigns[2] == std::vector<std::string>{"finale4.bzn"}));
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("storm3d.unit.shell",
                                         {
                                             {"buttons", [](const std::filesystem::path &) { testButtons(); }},
+                                            {"races", [](const std::filesystem::path &) { testRaces(); }},
+                                            {"campaigns", [](const std::filesystem::path &) { testCampaigns(); }},
                                         });

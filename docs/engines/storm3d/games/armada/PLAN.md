@@ -83,8 +83,9 @@ these phases start from, is in [formats/install.md](formats/install.md).
    starts with the opening movie, then the main menu as the original
    draws it, its panels' movies, its labels lit under the pointer, its
    music and sounds ([systems/front-end.md](systems/front-end.md)), the
-   movies' colours as the game shows them. Next: the single-player
-   screens, up to starting a mission.
+   movies' colours as the game shows them; the single-player screen and
+   its mission panel, for a new player. Next: starting a mission from it
+   (the loading screen), then the options and the player's progress.
 7. **Rules:** units from their object definitions: movement and
    collision avoidance, weapons, shields, crews and boarding, officers,
    mining dilithium, building and research, special weapons, sight and

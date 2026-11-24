@@ -57,6 +57,38 @@ music, played over and over, `PlaySoundA`'s flags 0x201f having
 `SND_LOOP` (0x546195) *(from the code)*; as the pointer comes onto
 a button, `cornron.wav`; a click, `cornrclk.wav`.
 
+### The single-player screen
+
+Single Player opens it over `bitmaps\single\singlebk.bmp`: its title
+(`bitmaps\sp\SPtitle.bmp`) at (256, 12), Previous Menu (`SPprev1` to `3`)
+at (28, 451), Load Game (`SPload`) at (507, 452), and a panel for each
+race's campaign, 280 × 190, playing `animations\<race>01.bik` (`02`
+under the pointer, its emblem lit): the Federation at (0, 30), the
+Klingons at (360, 30), the Romulans at (0, 250), the Borg at (360,
+250). Their movies, matched against the frame, sit there to a
+correlation of 0.998 or more. `Omega01.bik` (80 × 220), the finale's, is
+read but not shown to a new player.
+
+The campaigns open one after another, the races in that order *(inferred:
+a new player has only the Federation's)*. The pointer over a race not
+open yet writes, centred on its panel, white, in Arial Bold of 16
+pixels, which campaign is to finish first: for a new player,
+"Federation campaign not complete" over each of the others
+(`label.map`'s `single_player` section,
+[formats/label-map.md](../formats/label-map.md)).
+
+Clicking an open race opens the mission panel, a dialog the program
+moves to (224, 46): `SPpanel.bmp`, its heading (`SPselect`, "Select
+Mission") at (243, 75), a bar for each mission open (`SPgame1` to `3`,
+the first at (234, 146)), and O.K. and Cancel (`SPok1` to `3`) at (228,
+386) and (328, 386). The missions' names and the buttons' words are
+text, black, in Arial Bold of 12 pixels, centred on their bars: the
+names are `label.map`'s `mission_select` entries for each map, the maps
+`mshell.set`'s, six lines a campaign (`none` for none; four missions
+each, and the finale's). A new player has the first open: the
+Federation's is "Premonitions" (`fed1.bzn`). The races' movies stop
+while the panel is up, the one chosen on its lit movie.
+
 ### The movies' colours
 
 Armada's movies, all Bink revision `f`, come out of its `binkw32.dll`
@@ -77,9 +109,16 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
   (`shell/full_screen_movie.h`), then the main menu
   (`shell/main_menu.h`), its panels' movies played by the clock
   (`shell/panel_movie.h`), with its music and sounds. Quit leaves, as
-  Esc does; Replay Intro plays the movie again; the other buttons do
-  nothing yet. The version is in Reluva's own font: the "System" font
-  isn't in the install.
+  Esc does; Replay Intro plays the movie again; Single Player opens the
+  single-player screen (`shell/single_player.h`), its tooltips and its
+  mission panel, for a new player (saved progress comes with saving);
+  O.K. there doesn't start the mission yet. Multiplayer, Options,
+  Credits and Load Game do nothing yet. The version is in Reluva's own
+  font: the "System" font isn't in the install.
+- **The text** is Arial Bold, as the game asks GDI for it: the machine's
+  Arial if it has one, else Liberation Sans Bold, which has Arial's
+  measures (the emulator's frames were drawn with it too); a line as
+  tall as the font's size when centred, as the emulated GDI has it.
 - `reluva-tool storm3d engine-shot <game folder> <out.png> <ms>
   [event...]` runs the game without a window, by a clock of its own,
   the player's moves at set times (`1500:move:90:18`, `2000:click:90:18`,
@@ -95,7 +134,11 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
 - **How it was checked:** `engine-shot` set beside the original's frames,
   at rest and with the pointer over Single Player: the background, the
   panels, the labels and their looks are where the game has them. The
-  unit tests (`storm3d.unit.shell`) check which button each place is.
+  single-player screen likewise, with the pointer over the Borg and with
+  the Federation's mission panel up: its tooltip, mission name and
+  buttons' words fall on the frame's to the pixel. The unit tests
+  (`storm3d.unit.shell`) check which button and race each place is, and
+  reading `mshell.set`.
 
 ## Open questions
 
@@ -104,3 +147,6 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
 - What the third bitmap of a label is for, and whether the second movie
   starts over each time the pointer comes back.
 - Why the movies' chroma is exchanged.
+- Where the player's progress is kept, and the spacing of the mission
+  panel's bars past the first (Reluva puts them 20 apart *(guessed)*); what
+  the bars' second and third bitmaps are for; when Omega's panel shows.
