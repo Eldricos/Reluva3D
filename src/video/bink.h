@@ -104,9 +104,12 @@ public:
      * How toRgba converts. Rounded: each pixel in fixed point, rounded
      * once. Binkw32: as binkw32.dll's MMX path converts (each term
      * truncated on its own; the AWE engine's movies were checked against it
-     * frame by frame).
+     * frame by frame). Exchanged: rounded, with U and V's parts exchanged
+     * (red takes 2.017 V, blue 1.596 U, green -0.813 U and -0.392 V), as
+     * Star Trek: Armada's revision f movies are shown: so its front end's
+     * panels meet the pictures around them, to within 2 to 4 of 255.
      */
-    enum class Rgb { kRounded, kBinkw32 };
+    enum class Rgb { kRounded, kBinkw32, kExchanged };
     /**
      * The last frame decoded as RGBA, width x height, rows top first
      * (BT.601, studio range), its alpha the alpha plane's if it has one,

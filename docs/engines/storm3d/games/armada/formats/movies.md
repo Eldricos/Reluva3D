@@ -37,7 +37,9 @@ Hz. The opening movie's is 44,100 Hz stereo.
 ## In Reluva
 
 Movies are read with the shared Bink decoder (`bink::Movie`,
-`src/video/bink.h`).
+`src/video/bink.h`), their colours converted as the game shows them, the
+chroma's parts exchanged (`Rgb::kExchanged`,
+[systems/front-end.md](../systems/front-end.md#the-movies-colours)).
 
 - **The data viewer's Movies page** (`MoviePage`,
   `src/engines/storm3d/pages/movie_page.h`) plays each in the install,
@@ -59,7 +61,9 @@ Movies are read with the shared Bink decoder (`bink::Movie`,
 
 ## Open questions
 
-- Whether every pixel matches Armada's own `binkw32.dll`. The awe
+- Why the game's colours have the chroma's parts exchanged
+  ([systems/front-end.md](../systems/front-end.md#the-movies-colours)),
+  and whether every pixel matches Armada's own `binkw32.dll`. The awe
   engine's checker (`reluva-tool awe bink-check`), which compares the two
   on Murder on the Orient Express's revision `i` movies, can't run this
   older DLL yet: it starts a thread as it opens a movie

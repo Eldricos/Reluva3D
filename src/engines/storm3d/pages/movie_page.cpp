@@ -58,7 +58,7 @@ void MoviePage::handleKey(uint32_t key) {
                     _error = err.message;
                     break;
                 }
-                _movie->toRgba(_rgba);
+                _movie->toRgba(_rgba, bink::Movie::Rgb::kExchanged);
             }
             const uint64_t frameMillis =
                 uint64_t(_movie->frameNumber()) * 1000 * _movie->rateDenominator() / _movie->rateNumerator();
@@ -102,7 +102,7 @@ void MoviePage::update(uint64_t millis) {
         changed = changed || more;
     }
     if (changed)
-        _movie->toRgba(_rgba);
+        _movie->toRgba(_rgba, bink::Movie::Rgb::kExchanged);
     if (!more)
         pause();
     if (changed || !more)
@@ -136,7 +136,7 @@ void MoviePage::open() {
         _error = err.message;
         return;
     }
-    movie->toRgba(_rgba);
+    movie->toRgba(_rgba, bink::Movie::Rgb::kExchanged);
     _movie = std::move(movie);
 }
 

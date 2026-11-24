@@ -410,16 +410,18 @@ void Movie::toRgba(std::vector<uint8_t> &out, Rgb how) const {
             }
         return;
     }
+    // Exchanged: each chroma plane takes the other's part, and red blue's.
+    const bool exchanged = how == Rgb::kExchanged;
     for (int row = 0; row < _height; ++row)
         for (int col = 0; col < _width; ++col) {
             const int Y = (y[size_t(row) * size_t(_lumaPitch) + size_t(col)] - 16) * 298;
             const size_t c = size_t(row / 2) * size_t(_chromaPitch) + size_t(col / 2);
-            const int U = u[c] - 128;
-            const int V = v[c] - 128;
+            const int U = (exchanged ? v[c] : u[c]) - 128;
+            const int V = (exchanged ? u[c] : v[c]) - 128;
             uint8_t *o = &out[(size_t(row) * size_t(_width) + size_t(col)) * 4];
-            o[0] = clampByte((Y + 409 * V + 128) >> 8);
+            o[exchanged ? 2 : 0] = clampByte((Y + 409 * V + 128) >> 8);
             o[1] = clampByte((Y - 100 * U - 208 * V + 128) >> 8);
-            o[2] = clampByte((Y + 516 * U + 128) >> 8);
+            o[exchanged ? 0 : 2] = clampByte((Y + 516 * U + 128) >> 8);
             o[3] = _alpha ? a[size_t(row) * size_t(_lumaPitch) + size_t(col)] : 255;
         }
 }

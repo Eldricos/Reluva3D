@@ -92,7 +92,7 @@ int cmdMovieCheck(int argc, char **argv) {
         for (bool more = true; !err && more;) {
             err = movie.nextFrame(more);
             if (!err && more) {
-                movie.toRgba(rgba);
+                movie.toRgba(rgba, reluva::bink::Movie::Rgb::kExchanged);
                 ++frames;
             }
         }
@@ -141,7 +141,7 @@ int cmdMovieFrame(int argc, char **argv) {
     reluva::image::Image img;
     img.w = movie.width();
     img.h = movie.height();
-    movie.toRgba(img.rgba);
+    movie.toRgba(img.rgba, reluva::bink::Movie::Rgb::kExchanged);
     const std::vector<uint8_t> png = reluva::image::encodePng(img);
     std::ofstream out(argv[5], std::ios::binary);
     if (!out.write(reinterpret_cast<const char *>(png.data()), std::streamsize(png.size()))) {
