@@ -6,6 +6,7 @@
 
 #include "engines/tpw/ui/park_screen.h"
 
+#include "engines/tpw/formats/sam.h"
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/textures.h"
 #include "engines/tpw/ui/opening.h"
@@ -80,8 +81,20 @@ constexpr float kUnitsPerWalkFrame = 1;
 // sprites 50 to 60 pixels tall.
 constexpr float kSpritePixelUnits = 0.1f;
 constexpr Color kBlockedColour{230, 40, 40}; // a cell the path being laid can't cross
-// How far path lies over the ground, in units.
+// The queue's pieces' models by the save's numbers for them: 2 straight,
+// 4 a bend, 5 where the queue meets the path (inferred: the straight
+// with white posts at one end, its other piece-like models a bend with a
+// bin, a dead end).
+const std::array<std::pair<int, const char *>, 3> kQueueModels{{
+    {2, "questra.MD2"},
+    {4, "quebnd1.MD2"},
+    {5, "queend.MD2"},
+}};
+constexpr float kRadiansPerDegree = 3.14159265f / 180;
+// How far path lies over the ground, in units, and objects' models (their
+// bases flat at 0, as the ground) over the path.
 constexpr float kPathLift = 0.05f;
+constexpr float kObjectLift = 0.1f;
 constexpr Color kVisitorColour{255, 255, 255}; // a visitor whose sprite isn't read
 
 void fillRect(Surface &s, const ScreenRect &r, Color c) {
@@ -120,6 +133,27 @@ WorldView viewOf(const ParkScreen::Camera &camera) {
     return view;
 }
 
+// A model laid from a cell's corner, turned about that cell's middle by
+// `angle` degrees.
+void drawPlaced(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const LoadedModel &model,
+                const Park::Cell &at, int angle, const soft3d::Vec &light) {
+    const float half = Park::kCellUnits / 2;
+    const float turn = float(angle) * kRadiansPerDegree;
+    const float c = std::cos(turn);
+    const float s = std::sin(turn);
+    // A positive angle turns east (+x) towards south (+z), as the save's
+    // path corners do. Column-major: x' = c x − s z, z' = s x + c z, about
+    // the cell's middle.
+    const float cx = float(at.x) * Park::kCellUnits + half;
+    const float cz = float(at.y) * Park::kCellUnits + half;
+    const gfx::Mat4 place{
+        c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0, cx - (c * half - s * half), kObjectLift, cz - (s * half + c * half), 1};
+    std::vector<gfx::Mat4> transforms = meshTransforms(model, -1, 0);
+    for (gfx::Mat4 &m : transforms)
+        m = gfx::multiply(place, m);
+    drawMeshes(rasterizer, eye, model, true, light, &transforms);
+}
+
 } // namespace
 
 Error ParkScreen::load(const SearchSet &files, const Park &park) {
@@ -127,6 +161,7 @@ Error ParkScreen::load(const SearchSet &files, const Park &park) {
         return err;
     _hud = false;
     _furnitureRead = !_furniture.load(files);
+    loadObjects(files, park);
     _pathsRead = true;
     for (size_t i = 0; i < kPathTextures.size(); ++i)
         if (loadPicture(files, park.folder() + "/terrain/pathtex/" + kPathTextures[i] + ".fsh", _pathTextures[i]))
@@ -167,6 +202,64 @@ bool ParkScreen::cellAt(const Camera &camera, int x, int y, Park::Cell &out) con
     const float wz = soft3d::dot(hit - origin, alongZ) / soft3d::dot(alongZ, alongZ);
     out = {int(std::floor(wx / Park::kCellUnits)), int(std::floor(wz / Park::kCellUnits))};
     return true;
+}
+
+// The objects' models, by their numbers: each object's folder of the
+// world's (`rides/robot/`) has its settings, `robot.sam`, its number their
+// `Info.Id`, and its model, `robot.MD2`. Only those standing in the park
+// are read.
+void ParkScreen::loadObjects(const SearchSet &files, const Park &park) {
+    _objectModels.clear();
+    _queueModels.clear();
+    std::set<int> wanted;
+    for (const Park::PlacedObject &o : park.objects())
+        wanted.insert(o.id);
+    const std::string prefix = park.folder() + "/";
+    for (const std::string &name : files.list()) {
+        if (wanted.empty())
+            break;
+        if (name.size() < prefix.size() + 4 || name.compare(0, prefix.size(), prefix) != 0 ||
+            name.compare(name.size() - 4, 4, ".sam") != 0)
+            continue;
+        // <kind>/<object>/<object>.sam
+        const std::string rest = name.substr(prefix.size(), name.size() - prefix.size() - 4);
+        const size_t a = rest.find('/');
+        const size_t b = a == std::string::npos ? a : rest.find('/', a + 1);
+        if (b == std::string::npos || rest.find('/', b + 1) != std::string::npos ||
+            rest.compare(a + 1, b - a - 1, rest, b + 1, std::string::npos) != 0)
+            continue;
+        std::vector<uint8_t> data;
+        SamFile settings;
+        if (files.read(name, data) || settings.parse(data))
+            continue;
+        const int id = int(settings.number("Info.Id", -1));
+        if (!wanted.count(id))
+            continue;
+        LoadedModel model;
+        if (!model.load(files, name.substr(0, name.size() - 4) + ".MD2")) {
+            _objectModels.emplace(id, std::move(model));
+            wanted.erase(id);
+        }
+    }
+    for (const auto &[piece, file] : kQueueModels) {
+        LoadedModel model;
+        if (!model.load(files, prefix + "queue/" + file))
+            _queueModels.emplace(piece, std::move(model));
+    }
+}
+
+void ParkScreen::drawObjects(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const Park &park) const {
+    const soft3d::Vec light = _world.hasSky ? soft3d::normalize(toViewerWorld(_world.sky.light)) : defaultLight();
+    for (const Park::PlacedObject &o : park.objects()) {
+        const auto model = _objectModels.find(o.id);
+        if (model != _objectModels.end())
+            drawPlaced(rasterizer, eye, model->second, o.at, o.angle, light);
+    }
+    for (const Park::QueuePiece &q : park.queuePieces()) {
+        const auto model = _queueModels.find(q.piece);
+        if (model != _queueModels.end())
+            drawPlaced(rasterizer, eye, model->second, q.at, q.angle, light);
+    }
 }
 
 bool ParkScreen::cellOnScreen(const Camera &camera, const Park::Cell &cell, int &x, int &y) const {
@@ -299,6 +392,7 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
     drawWorld(screen, rasterizer, _world, view);
     const soft3d::OrbitCamera eye = worldCamera(_world, view, screen.w, screen.h);
     drawPaths(rasterizer, eye, park);
+    drawObjects(rasterizer, eye, park);
     for (const Park::Cell &c : _preview)
         if (park.ground(c) == Park::Ground::kOutside)
             mark(screen, eye, c, kBlockedColour);

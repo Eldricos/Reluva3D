@@ -121,6 +121,19 @@ int cmdMd2Check(int argc, char **argv) {
             if (argc > 3) {
                 std::printf("mesh %-20s %5zu positions %5zu vertices %5zu faces\n", mesh.name.c_str(),
                             mesh.positions.size(), mesh.uv.size(), mesh.faces.size());
+                // Its bounds through its own transform, x, y and z.
+                std::array<float, 3> lo{1e30f, 1e30f, 1e30f};
+                std::array<float, 3> hi{-1e30f, -1e30f, -1e30f};
+                for (const auto &p : mesh.positions) {
+                    const reluva::gfx::Vec3 q = reluva::gfx::transformPoint(mesh.transform, {p[0], p[1], p[2]});
+                    for (size_t i = 0; i < 3; ++i) {
+                        lo[i] = std::min(lo[i], q[i]);
+                        hi[i] = std::max(hi[i], q[i]);
+                    }
+                }
+                if (!mesh.positions.empty())
+                    std::printf("  bounds x %.1f to %.1f, y %.1f to %.1f, z %.1f to %.1f\n", lo[0], hi[0], lo[1], hi[1],
+                                lo[2], hi[2]);
                 for (const Model::Group &g : mesh.groups)
                     std::printf("  faces %4zu-%-4zu %s\n", g.firstFace, g.firstFace + g.faceCount,
                                 g.texture == Model::Group::kNoTexture ? "(none)"

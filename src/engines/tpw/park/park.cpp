@@ -166,7 +166,7 @@ void Park::advance(uint32_t ms) {
     step(ms);
 }
 
-// The prebuilt park's path and queues, where it's this world's: its cells'
+// The prebuilt park's path, queues and objects, where it's this world's: its cells'
 // tiles are the world's attribute map's, every one. The recording's new
 // park has its path as its briefing closes, before anything is spent.
 void Park::layPrebuilt(const SearchSet &files, const AttributeMap &map) {
@@ -181,13 +181,21 @@ void Park::layPrebuilt(const SearchSet &files, const AttributeMap &map) {
                 return;
     for (int x = 0; x < _mapWidth; ++x)
         for (int y = 0; y < _mapHeight; ++y) {
-            const SavedPark::Built built = saved.cell(x, y).built;
+            const SavedPark::Cell &c = saved.cell(x, y);
             Ground &g = _ground[size_t(y) * size_t(_mapWidth) + size_t(x)];
-            if (built == SavedPark::Built::kPath)
+            if (c.built == SavedPark::Built::kPath) {
                 g = Ground::kPath;
-            else if (built == SavedPark::Built::kQueue)
+            } else if (c.built == SavedPark::Built::kQueue) {
                 g = Ground::kQueue;
+                _queuePieces.push_back({{x, y}, c.piece, c.angle});
+            } else if (g == Ground::kOpen && (c.fill == SavedPark::kFillObject || c.fill == SavedPark::kFillEntrance ||
+                                              c.fill == SavedPark::kFillExit)) {
+                g = Ground::kTaken;
+            }
         }
+    for (const SavedPark::Object &o : saved.objects())
+        if (o.placed())
+            _objects.push_back({o.id, {int(std::floor(o.x)), int(std::floor(o.y))}, int(o.angle)});
     _prebuilt = true;
 }
 

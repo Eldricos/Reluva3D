@@ -69,9 +69,13 @@ the rest kind 3.
 | 1 | 1 | Flags, not worked out (0x01, 0x10, 0x40 in some) |
 | 2 | 1 | Bits, 0x40 or 0xC0 outside the park: not worked out |
 | 8 | 2 | On path: nine bits, the cell and its eight neighbours, which are path, it seems (0x1FF in a path's middle) *(inferred)* |
+| 4 | 1 | On a queue: its cells' order, counting up from the ride (0x36 to 0x3A) |
 | 13 | 1 | What's built: 0 nothing, 1 path, 2 a queue; 1 on the entrance's path and on the recording's, 2 on a short run to a ride beside the path *(inferred)* |
-| 21 | 1 | On path: 0x5A or 0xB4 (90, 180), an angle perhaps *(guessed)* |
+| 17 | 1 | The piece it's drawn as. On a queue: 2 straight, 4 a bend, 5 where it meets the path. On path, the game's own tile: 9 a corner, 10 and 20 an edge, 11 and 12 a middle *(inferred)* |
+| 21 | 2 | That piece's angle, degrees: 0, 90, 180 or 270. At 0 a path's corner opens east and south, at 90 south and west: an angle turns east (+x) towards south (+y), as every corner of the prebuilt park's does *(inferred)* |
+| 25 | 1 | What fills it: 1 path, 3 a queue, 4 an object, 9 and 10 an attraction's entrance and exit (its shape's `2` and `N`) |
 | 46 | 1 | The cell's tile of the world's attribute map *(confirmed)* |
+| 51 | 1 | On an object's first cell, a number of its, not worked out (0x21 to 0x25 for the robot, fountain and rocks) |
 | 73 | 1 | 1 on the park's own land, it seems *(guessed)* |
 
 The rest vary but aren't worked out: some trace the river, the lake and
@@ -81,19 +85,50 @@ The prebuilt park's cells: 76 path, 5 queue, its tiles Land of
 Invention's. Its path runs two cells wide from the entrance's two cells
 up to y 42, with branches, as the recording's new park has it as its
 briefing closes (2:34), the same shape *(confirmed)*. Its queue leads
-to a ride beside the path that the recording shows standing there at
-the start, among the sections not read.
+from the path at (47, 24) along to (43, 24), turns, and ends at the
+entrance of the Giant Robot Swing, a ride the recording shows standing
+there at the start.
+
+### The objects
+
+Each object the park has is a record of the section tagged `LDMT` then
+`EJBO` ("TMDL", "OBJE"), after the grid. From the `LDMT`:
+
+| Offset | Size | Field |
+|---|---|---|
+| 8 | 2 | Its first cell's x, 8.8 fixed point: the cell and a half |
+| 10 | 2 | Its first cell's y, likewise |
+| 16 | 4 | Its angle, degrees |
+| 20 | 2 | Its number: its settings' `Info.Id` (`rides/robot/robot.sam`'s 1101), as `Data/Objects.txt` allots them (1100s rides, 1400s features, 1700s obstacles), each an object of the world's *(confirmed)* |
+| 22 | 2 | 2000 in all |
+
+Then its name in UTF-16, each character followed by two bytes of 0xCD,
+and much more, not worked out. The prebuilt park has 24: 14 placed,
+among them the Giant Robot Swing at (42, 26), the Electric Fountain at
+(49, 23), three rocks, the mission's fence (1700) at (41, 48) and four
+more obstacles, and four rides in the park's other areas; ten kept
+aside at (0.5, 0.5), the gates (1601) and others the game places
+itself, it seems *(inferred)*.
+
+An object's first cell is the corner its model is laid from: its model
+covers x and z from 0 to 10 a cell of its shape (the robot's 40 by 50,
+its `Info.Shape` four cells by five) *(confirmed)*. The robot's cells
+in the grid are its shape turned end over end, its last row, `*2N*`,
+at y 26: its first cell is that row's first, its entrance `2` at
+(43, 26) by the queue's end.
 
 ## In Reluva
 
 `SavedPark` (`src/engines/tpw/formats/saved_park.cpp`) reads a save's
-version, inflates its state and reads the grid: each cell's kind, flags,
-tile and what's built on it. `Park` lays the prebuilt park's path and
-queue over a new park of the world it matches
-([paths.md](../systems/paths.md)).
+version, inflates its state and reads the grid (each cell's kind,
+flags, tile, what's built on it and fills it, its piece and angle) and
+the objects. `Park` lays the prebuilt park's path, queue and objects
+over a new park of the world it matches
+([paths.md](../systems/paths.md)), and `ParkScreen` draws them.
 
-`reluva-tool tpw tpws-check <game folder> [save]` reads the prebuilt
-park, or another save, and says what's in its grid and which world's it
+`reluva-tool tpw tpws-check <game folder> [save] [-objects]` reads the
+prebuilt park, or another save, and says what's in its grid, how many
+objects it has (and, with `-objects`, lists them) and which world's it
 is; the game-files test runs it (`tpw.gamedata.saves`). The unit tests
 (`tpw.unit.formats`) read a save built in the test, and fail a cut one.
 
@@ -103,16 +138,19 @@ is; the game-files test runs it (`tpw.gamedata.saves`). The unit tests
   release (November 2026): its chunk inflated; the grid found by the
   period of its records; its fields by drawing each byte of every cell as
   a picture of the park, and setting them beside the world's attribute
-  map and the recording.
+  map and the recording; the objects by their numbers, against the
+  world's objects' settings and models' sizes.
 - **How it was checked:** `tpws-check`: 16,384 cells read to the first
-  section, every tile the attribute map's; the path laid in a new park
-  drawn beside the recording at 2:35.
+  section, every tile the attribute map's; the path, queue and objects
+  laid in a new park drawn beside the recording at 2:35: the robot left
+  of the path beyond its cross-piece, the fountain right, the rocks where
+  the recording's are.
 
 ## Open questions
 
 - Everything else in the state: the records before the grid, the
-  sections after (the objects, the money, the visitors), the cells'
-  other fields and their entries.
+  sections after (the objects' other fields, the money, the visitors),
+  the cells' other fields and their entries.
 - Whether every new park of Land of Invention starts from it, and what
   the other worlds start from.
 - Saving a park: a save of the game's own, to set beside this one.

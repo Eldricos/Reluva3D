@@ -16,7 +16,7 @@ None yet.
 ## Inferred
 
 - **A new park of Land of Invention starts as the prebuilt park**: its
-  path and queue, the shape of the recording's at 2:34
+  path, queue and objects, the shape of the recording's at 2:34
   ([paths.md](systems/paths.md#where-path-can-go)); the other worlds
   with their attribute maps' path. A new park in another world, seen
   running, would settle it.
@@ -100,6 +100,11 @@ None yet.
   spelt two ways ([sam.md](formats/sam.md#a-setting)).
 
 ## Guessed
+
+- **Which queue models the saved pieces are**: 2 `questra`, 4
+  `quebnd1` (not its mirror, `quebnd2`), 5 `queend`
+  ([paths.md](systems/paths.md#queues)). A queue seen close in the
+  running game, or a save with more pieces, would settle it.
 
 - **How the path tool lays a length**: straight, along whichever way
   is the longer, from the last click to the next

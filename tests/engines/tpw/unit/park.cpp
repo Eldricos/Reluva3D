@@ -127,16 +127,23 @@ void testPaths(const std::filesystem::path &tmp) {
     // The prebuilt park, of this world: its tiles the map's; path at (6, 1),
     // a queue at (6, 2).
     auto prebuilt = [&](bool sameWorld) {
-        return tpw::testing::makeSavedPark([&](int x, int y, tpw::testing::Bytes &body) {
-            if (x < kRows && y < kColumns)
-                body[46] = tiles[size_t(x) * kColumns + size_t(y)];
-            if (!sameWorld && x == 0 && y == 0)
-                body[46] = 3;
-            if (x == 6 && y == 1)
-                body[13] = 1;
-            if (x == 6 && y == 2)
-                body[13] = 2;
-        });
+        return tpw::testing::makeSavedPark(
+            [&](int x, int y, tpw::testing::Bytes &body) {
+                if (x < kRows && y < kColumns)
+                    body[46] = tiles[size_t(x) * kColumns + size_t(y)];
+                if (!sameWorld && x == 0 && y == 0)
+                    body[46] = 3;
+                if (x == 6 && y == 1)
+                    body[13] = 1;
+                if (x == 6 && y == 2) {
+                    body[13] = 2; // where the queue meets the path, turned
+                    body[17] = 5;
+                    body[21] = 90;
+                }
+                if (x == 4 && y == 3)
+                    body[25] = 4; // an object's
+            },
+            {{1101, 0x480, 0x380, 0}, {1601, 0x80, 0x80, 0}});
     };
     test::writeFile(data / "PreBuilt" / "prebuilt.TPWS", prebuilt(true));
     SearchSet files;
@@ -145,6 +152,9 @@ void testPaths(const std::filesystem::path &tmp) {
     Park park;
     CHECK(!park.load(files, "levels/science", 0));
     CHECK(park.prebuilt() && park.isPath({6, 1}) && park.ground({6, 2}) == Park::Ground::kQueue);
+    CHECK(park.ground({4, 3}) == Park::Ground::kTaken);
+    CHECK(park.queuePieces().size() == 1 && park.queuePieces()[0].piece == 5 && park.queuePieces()[0].angle == 90);
+    CHECK(park.objects().size() == 1 && park.objects()[0].id == 1101 && (park.objects()[0].at == Park::Cell{4, 3}));
     CHECK(park.groundWidth() == kRows && park.groundHeight() == kColumns && park.pathCost() == 10);
     CHECK(park.isPath({2, 1}) && park.isPath({2, 2}) && park.ground({1, 2}) == Park::Ground::kOpen);
     CHECK(park.ground({5, 4}) == Park::Ground::kOutside && park.ground({-1, 0}) == Park::Ground::kOutside);
@@ -167,6 +177,7 @@ void testPaths(const std::filesystem::path &tmp) {
     CHECK(!mountGame(other, tmp / "game", warnings));
     CHECK(!park.load(other, "levels/science", 0));
     CHECK(!park.prebuilt() && !park.isPath({6, 1}) && park.ground({6, 2}) == Park::Ground::kOpen);
+    CHECK(park.objects().empty() && park.queuePieces().empty());
 }
 
 // The texture a path cell takes by its neighbours: alone, an end turned

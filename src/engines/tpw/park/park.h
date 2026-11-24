@@ -56,8 +56,8 @@ public:
     /**
      * Sets up a new park in the world of `folder` (`levels/science`) for
      * mission `mission`: the general and the world's settings, the
-     * mission's; its ground by the world's attribute map, with the path and
-     * queues of the game's prebuilt park (`PreBuilt/prebuilt.TPWS`) where
+     * mission's; its ground by the world's attribute map, with the path,
+     * queues and objects of the game's prebuilt park (`PreBuilt/prebuilt.TPWS`) where
      * that is of this world. Fails if the general settings or the mission
      * can't be read.
      */
@@ -109,7 +109,8 @@ public:
         kOutside, // not the park's to build on: its edges, its river, the road
         kOpen,    // the park's land, bare
         kPath,
-        kQueue, // a ride's queue (not drawn yet)
+        kQueue, // a ride's queue
+        kTaken, // an object's: a ride, a feature, an obstacle
     };
     /** The ground's size in cells, x across and y down; 0 for a world without its attribute map. */
     int groundWidth() const { return _mapWidth; }
@@ -117,7 +118,23 @@ public:
     /** The ground of a cell; kOutside off the map, or for a world without one. */
     Ground ground(const Cell &cell) const;
     bool isPath(const Cell &cell) const { return ground(cell) == Ground::kPath; }
-    /** Whether the prebuilt park's path and queues were laid. */
+    /** An object standing in the park, by its number (its settings' `Info.Id`). */
+    struct PlacedObject {
+        int id = 0;
+        Cell at;       // its first cell, the corner its model is laid from
+        int angle = 0; // degrees
+    };
+    const std::vector<PlacedObject> &objects() const { return _objects; }
+
+    /** A cell of a queue: the piece it's drawn as (2 straight, 4 a bend, 5 where it meets the path), turned. */
+    struct QueuePiece {
+        Cell at;
+        int piece = 0;
+        int angle = 0; // degrees
+    };
+    const std::vector<QueuePiece> &queuePieces() const { return _queuePieces; }
+
+    /** Whether the prebuilt park's path, queues and objects were laid. */
     bool prebuilt() const { return _prebuilt; }
     /** What a cell of path costs (the general settings' `Costs.PathCell`). */
     int pathCost() const { return _pathCost; }
@@ -189,6 +206,8 @@ private:
     int _mapHeight = 0;
     std::vector<Ground> _ground;
     bool _prebuilt = false;
+    std::vector<PlacedObject> _objects;
+    std::vector<QueuePiece> _queuePieces;
     std::vector<VisitorType> _visitorTypes;
     std::vector<gfx::Vec3> _wayIn;
     std::vector<Visitor> _people;

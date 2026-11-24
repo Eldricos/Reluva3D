@@ -50,10 +50,17 @@ inline Bytes makeAttributeMap(int width, int height, const Bytes &tiles) {
 // A saved park (.TPWS): its version, then its state in a BILZ chunk, as a
 // zlib stream of stored blocks; the state some bytes, the grid of 128 x
 // 128 cells, each its 86 bytes and -1 (`entries` of 10 bytes before the
-// cells of kind 7), then the first tagged section. `cell` fills each
-// cell's body, given (x, y).
+// cells of kind 7), then the first tagged section, then `objects`' records:
+// each a number, a place in cells (8.8 fixed point) and an angle. `cell`
+// fills each cell's body, given (x, y).
+struct SavedObject {
+    uint16_t id;
+    uint16_t x;
+    uint16_t y;
+    uint32_t angle;
+};
 template<typename Fill>
-inline Bytes makeSavedPark(Fill cell) {
+inline Bytes makeSavedPark(Fill cell, const std::vector<SavedObject> &objects = {}) {
     Bytes state(40, 0xcd);
     for (int y = 0; y < 128; ++y)
         for (int x = 0; x < 128; ++x) {
@@ -72,6 +79,20 @@ inline Bytes makeSavedPark(Fill cell) {
     put32(state, state.size(), 37);
     state.insert(state.end(), after.begin(), after.end());
     state.resize(state.size() + 36, 0);
+    for (const SavedObject &o : objects) {
+        put32(state, state.size(), 3);
+        const Bytes tag = toBytes("LDMTEJBO");
+        const size_t at = state.size();
+        state.insert(state.end(), tag.begin(), tag.end());
+        state.resize(at + 8 + 0x40, 0);
+        state[at + 8] = uint8_t(o.x);
+        state[at + 9] = uint8_t(o.x >> 8);
+        state[at + 10] = uint8_t(o.y);
+        state[at + 11] = uint8_t(o.y >> 8);
+        put32(state, at + 16, o.angle);
+        state[at + 20] = uint8_t(o.id);
+        state[at + 21] = uint8_t(o.id >> 8);
+    }
 
     Bytes stream{0x78, 0x9c};
     for (size_t at = 0; at < state.size(); at += 0xffff) {

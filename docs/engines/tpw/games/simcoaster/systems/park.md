@@ -48,10 +48,14 @@ x 610 to 950 and z 130 to 460 in Land of Invention. The ground's cells
   says), the obstacle it clears (`Obstacle.Type` 1700), and the park's
   land as `BoundaryClicks`, 43 corners in the first mission, from (0, 0)
   to (−50, 66): offsets from the entrance, it seems *(guessed)*.
-- **The prebuilt park's path and queue**, in Land of Invention: 76
-  cells of path from the entrance and 5 of a queue, from the game's own
-  saved park ([paths.md](paths.md#where-path-can-go),
-  [tpws.md](../formats/tpws.md)). Its ride isn't read yet.
+- **The prebuilt park's path, queue and objects**, in Land of
+  Invention, from the game's own saved park
+  ([paths.md](paths.md#where-path-can-go), [tpws.md](../formats/tpws.md)):
+  76 cells of path from the entrance; the Giant Robot Swing beside it
+  with its queue of 5; the Electric Fountain, three rocks, the mission's
+  fence and other obstacles, and four rides in the park's further areas,
+  each its world's model, laid from its first cell and turned by its
+  angle. They stand still: their scripts and animations don't run yet.
 - **Its money**: `BankAccountInfo.InitialCash` 50000 of the general
   settings (`levels/Standard.sam`), and what each visitor pays to come
   in, `InitialAdmissionFee` 25. The recording's money is § 50025 as the

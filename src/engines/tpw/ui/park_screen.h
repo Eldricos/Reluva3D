@@ -17,6 +17,7 @@
 
 #include <array>
 #include <functional>
+#include <map>
 #include <utility>
 #include <vector>
 
@@ -72,6 +73,8 @@ public:
 private:
     void drawVisitors(Surface &screen, const soft3d::OrbitCamera &eye, const Park &park, float yaw) const;
     void drawPaths(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const Park &park) const;
+    void drawObjects(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const Park &park) const;
+    void loadObjects(const SearchSet &files, const Park &park);
 
     LoadedWorld _world;
     CharacterSet _characters;
@@ -83,6 +86,8 @@ private:
     std::array<image::Image, kPathTextures.size()> _pathTextures;
     bool _pathsRead = false;
     std::vector<Park::Cell> _preview;
+    std::map<int, LoadedModel> _objectModels; // by the objects' numbers, those read
+    std::map<int, LoadedModel> _queueModels;  // by the queue's pieces, those read
     bool _furnitureRead = false;
     std::array<std::vector<LoadedSprite>, 3> _visitorLooks; // each generation's sprites, those read
 };

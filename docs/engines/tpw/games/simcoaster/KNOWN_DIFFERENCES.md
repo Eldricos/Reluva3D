@@ -29,8 +29,8 @@ None yet.
   camera moved by Reluva's own keys and the compass; path can be laid, the
   bottom buttons' menus open, but only the path tool and the Park
   menu's Objectives do anything yet; a new park has the prebuilt park's
-  path ([paths.md](systems/paths.md)), but not its ride, and its queue
-  isn't drawn; no fly-in, gates or other building
+  path, queue, ride and other objects ([paths.md](systems/paths.md)),
+  standing still; no fly-in, gates or other building
   yet, its fixed items marked
   ([PLAN.md](PLAN.md#phases), [park.md](systems/park.md)). Every park
   is its world's first mission's.

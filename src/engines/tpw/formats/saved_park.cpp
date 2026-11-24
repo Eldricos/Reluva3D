@@ -28,6 +28,18 @@ constexpr size_t kEntry = 10;
 constexpr size_t kMostEntries = 16;
 constexpr size_t kTileAt = 46;
 constexpr size_t kBuiltAt = 13;
+constexpr size_t kPieceAt = 17;
+constexpr size_t kAngleAt = 21;
+constexpr size_t kFillAt = 25;
+// An object's record ("TMDL", "OBJE" backwards), and in it its place in
+// cells, 8.8 fixed point, its angle and its number.
+constexpr char kObjectTag[] = "LDMTEJBO";
+constexpr size_t kObjectX = 8;
+constexpr size_t kObjectY = 10;
+constexpr size_t kObjectAngle = 16;
+constexpr size_t kObjectId = 20;
+constexpr size_t kObjectFields = 22;
+constexpr float kFixedOne = 256;
 constexpr uint8_t kPlainCell = 3;
 constexpr uint8_t kCellWithEntry = 7;
 // The first tagged section after the grid ("CTAE" backwards), its size
@@ -106,6 +118,24 @@ Error SavedPark::parse(const std::vector<uint8_t> &data) {
         c.flags = _state[bodies[i] + 1];
         c.tile = _state[bodies[i] + kTileAt];
         c.built = Built(_state[bodies[i] + kBuiltAt]);
+        c.piece = _state[bodies[i] + kPieceAt];
+        c.angle = uint16_t(_state[bodies[i] + kAngleAt] | _state[bodies[i] + kAngleAt + 1] << 8);
+        c.fill = _state[bodies[i] + kFillAt];
+    }
+
+    const size_t tagSize = std::strlen(kObjectTag);
+    for (auto at = after; (at = std::search(at, _state.end(), kObjectTag, kObjectTag + tagSize)) != _state.end();
+         at += long(tagSize)) {
+        const size_t p = size_t(at - _state.begin());
+        if (p + kObjectFields > _state.size())
+            break;
+        auto u16 = [&](size_t o) { return uint16_t(_state[p + o] | _state[p + o + 1] << 8); };
+        Object o;
+        o.x = float(u16(kObjectX)) / kFixedOne;
+        o.y = float(u16(kObjectY)) / kFixedOne;
+        o.angle = le32(_state, p + kObjectAngle);
+        o.id = u16(kObjectId);
+        _objects.push_back(o);
     }
     return Error::success();
 }

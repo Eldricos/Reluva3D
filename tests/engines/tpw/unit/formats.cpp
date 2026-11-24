@@ -471,25 +471,36 @@ void testAttributeMap() {
 }
 
 // A saved park: its version; its cells by (x, y), their tiles, what's
-// built on them, those of kind 7 with an entry before; then cut short, and
-// without its cells' end.
+// built on them and how it's drawn, those of kind 7 with an entry before;
+// its objects, one of them kept aside; then cut short, and without its
+// cells' end.
 void testSavedPark() {
-    const Bytes data = tpw::testing::makeSavedPark([](int x, int y, Bytes &body) {
-        body[46] = uint8_t(x == 5 ? 1 : 0); // a row of tiles 1
-        if (y == 7 && x < 4)
-            body[13] = 1; // path
-        if (x == 9 && y == 9) {
-            body[0] = 7;
-            body[13] = 2; // a queue
-        }
-    });
+    const Bytes data = tpw::testing::makeSavedPark(
+        [](int x, int y, Bytes &body) {
+            body[46] = uint8_t(x == 5 ? 1 : 0); // a row of tiles 1
+            if (y == 7 && x < 4)
+                body[13] = 1; // path
+            if (x == 9 && y == 9) {
+                body[0] = 7;
+                body[13] = 2; // a queue's bend, turned 270 degrees
+                body[17] = 4;
+                body[21] = 0x0e;
+                body[22] = 1;
+                body[25] = 3;
+            }
+        },
+        {{1101, 0x2a80, 0x1a80, 0}, {1413, 0x3180, 0x1d80, 90}, {1601, 0x80, 0x80, 0}});
     SavedPark saved;
     CHECK(!saved.parse(data));
     CHECK(saved.version() == "Test_1" && !saved.state().empty());
     CHECK(saved.cell(5, 100).tile == 1 && saved.cell(6, 100).tile == 0);
     CHECK(saved.cell(3, 7).built == SavedPark::Built::kPath && saved.cell(4, 7).built == SavedPark::Built::kNothing);
     CHECK(saved.cell(9, 9).kind == 7 && saved.cell(9, 9).built == SavedPark::Built::kQueue);
+    CHECK(saved.cell(9, 9).piece == 4 && saved.cell(9, 9).angle == 270 && saved.cell(9, 9).fill == 3);
     CHECK(saved.cell(127, 127).kind == 3);
+    const std::vector<SavedPark::Object> &objects = saved.objects();
+    CHECK(objects.size() == 3 && objects[0].id == 1101 && objects[0].x == 42.5f && objects[0].y == 26.5f);
+    CHECK(objects.size() == 3 && objects[1].angle == 90 && objects[0].placed() && !objects[2].placed());
     CHECK(saved.parse(Bytes(data.begin(), data.end() - 2000)));
     CHECK(saved.parse(toBytes("TPWS")));
 }

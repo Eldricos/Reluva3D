@@ -65,6 +65,20 @@ each length straight, along whichever way it's the longer
 already path costs nothing; the length stops being laid when the money
 runs out.
 
+### Queues
+
+A queue is drawn by models, a cell each, of the world's `queue.wad`
+(`levels/science/queue/`): 10 units square, laid from a corner, planks
+with rails: `questra` a straight (along z unturned), `quebnd1` and
+`quebnd2` bends (open to +x and +z), `queend` a straight with white
+posts at one end, `quebin1` and `quebin2` bends with bins, `quedead`
+closed but at one end. The saved park says each cell's piece and angle
+([tpws.md](../formats/tpws.md#the-grid)): 2 a straight, 4 a bend, 5
+where the queue meets the path. Reluva draws 2 as `questra`, 4 as
+`quebnd1`, 5 as `queend`, its posts by the path: the shapes fit, the
+bend's open sides and the posts' end with the angles turned as the
+path's corners *(inferred)*.
+
 ## In Reluva
 
 `Park` (`src/engines/tpw/park/park.cpp`) reads each cell's ground from
@@ -74,7 +88,8 @@ the attribute map (bare, path, or not the park's), lays lengths
 turn; `ParkScreen` draws the path a twentieth of a unit over the ground,
 and, while the path tool is chosen, the length that would be laid, the
 cells it can't cross marked red, and finds the cell under the mouse.
-`playPark` takes the tool's clicks.
+`playPark` takes the tool's clicks. The prebuilt park's queue is drawn by
+its pieces, and its cells and its objects' can't be laid over.
 
 `reluva-tool tpw park-run` lays two lengths on the open land beside the
 prebuilt path, four cells and three; the unit tests (`tpw.unit.park`) lay path on a map
@@ -96,4 +111,5 @@ built in the test, and check each kind of tile's texture and turn.
   land it can't cross.
 - Which of the textures that fit alike the game picks; what `dark` and
   `spathtex/` are for (a lower detail's, it seems, as `stexture/`).
-- Queues (`Costs.QueueCell` 25) and their models (`queue.wad`).
+- Laying queues (`Costs.QueueCell` 25), and the queue's other models:
+  which save numbers `quebnd2`, `quebin1`, `quebin2`, `quedead` have.

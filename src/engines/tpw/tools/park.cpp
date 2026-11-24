@@ -55,12 +55,12 @@ bool newPark(const char *game, const char *world, int mission, reluva::SearchSet
 }
 
 // A new park in a world, its clock run on so many seconds, drawn from the
-// camera's start (or turned, tilted and as far as given) to a PNG; its
+// camera's start (or turned, tilted and as far as given, looking at a cell) to a PNG; its
 // money, date and fixed items printed.
 int cmdParkShot(int argc, char **argv) {
     if (argc < 5) {
         std::fprintf(stderr, "usage: reluva-tool tpw park-shot <game folder> <world folder> <out.png> [seconds] [yaw "
-                             "pitch distance]\n");
+                             "pitch distance [x y]]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -76,6 +76,8 @@ int cmdParkShot(int argc, char **argv) {
         camera.pitch = std::strtof(argv[7], nullptr);
         camera.distance = std::strtof(argv[8], nullptr);
     }
+    if (argc > 10)
+        camera.target = reluva::tpw::Park::cellCentre({std::atoi(argv[9]), std::atoi(argv[10])});
     reluva::Surface surface;
     surface.create(640, 480, reluva::PixelFormat::kRGBA32);
     reluva::soft3d::Rasterizer rasterizer;
@@ -269,7 +271,7 @@ int cmdParkRun(int argc, char **argv) {
 // its tiles are.
 int cmdTpwsCheck(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool tpw tpws-check <game folder> [save in Data]\n");
+        std::fprintf(stderr, "usage: reluva-tool tpw tpws-check <game folder> [save in Data] [-objects]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -278,7 +280,8 @@ int cmdTpwsCheck(int argc, char **argv) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }
-    const std::string name = argc > 3 ? argv[3] : "PreBuilt/prebuilt.TPWS";
+    const bool listing = argc > 3 && std::string(argv[argc - 1]) == "-objects";
+    const std::string name = argc > 3 && !(listing && argc == 4) ? argv[3] : "PreBuilt/prebuilt.TPWS";
     std::vector<uint8_t> data;
     reluva::tpw::SavedPark saved;
     reluva::Error err = files.read(name, data);
@@ -316,19 +319,28 @@ int cmdTpwsCheck(int argc, char **argv) {
     }
     reluva::Md5 md5;
     md5.update(saved.state().data(), saved.state().size());
-    std::printf("%s: version %s, state %zu bytes, %d cells (%d of kind 3, %d of 7), %d path, %d queue, world %s; md5 "
-                "%s\n",
+    size_t placed = 0;
+    for (const reluva::tpw::SavedPark::Object &o : saved.objects()) {
+        placed += o.placed();
+        if (listing)
+            std::printf("  object %u at %.1f, %.1f, %u degrees%s\n", o.id, o.x, o.y, o.angle,
+                        o.placed() ? "" : " (not placed)");
+    }
+    std::printf("%s: version %s, state %zu bytes, %d cells (%d of kind 3, %d of 7), %d path, %d queue, %zu objects "
+                "(%zu placed), world %s; md5 %s\n",
                 name.c_str(), saved.version().c_str(), saved.state().size(), kSide * kSide, kinds[3], kinds[7], path,
-                queues, world.c_str(), md5.hexDigest().c_str());
+                queues, saved.objects().size(), placed, world.c_str(), md5.hexDigest().c_str());
     return 0;
 }
 
 const Commands kCommands(
     "tpw",
     {
-        {"tpws-check", "<game folder> [save in Data]",
-         "read a saved park (.TPWS), the prebuilt one unless named: its cells, its path and its world", cmdTpwsCheck},
-        {"park-shot", "<game folder> <world folder> <out.png> [seconds] [yaw pitch distance]",
+        {"tpws-check", "<game folder> [save in Data] [-objects]",
+         "read a saved park (.TPWS), the prebuilt one unless named: its cells, its path, its objects (listed with "
+         "-objects) and its world",
+         cmdTpwsCheck},
+        {"park-shot", "<game folder> <world folder> <out.png> [seconds] [yaw pitch distance [x y]]",
          "set up a new park in a world and draw it, its HUD over it, to a PNG", cmdParkShot},
         {"briefing-shot", "<game folder> <world folder> <out.png> [player [-details]]",
          "draw the mission's briefing over a new park, to a PNG", cmdBriefingShot},
