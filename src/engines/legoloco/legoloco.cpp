@@ -44,6 +44,10 @@ constexpr const char *kColours = "colours";
 // Whether searches also find the original program's games, on Windows
 // ("1" or "0"): found only, they can't be joined yet.
 constexpr const char *kFindOriginal = "find_original";
+// The season, whatever the date: "" (the date's), or one of the words the
+// game's command line takes ("Easter", "Desert", "Halloween", "Winter",
+// "XMas").
+constexpr const char *kSeason = "season";
 
 const std::vector<GameVariant> kVariants = {
     {"legoloco",
@@ -98,6 +102,7 @@ private:
         player.setLook(setting(kColours, "98") == "xp" ? x86::Gdi::ColourScheme::kWindowsXp
                                                        : x86::Gdi::ColourScheme::kWindows98,
                        setting(kFont, "arial") == "arial");
+        player.setSeason(setting(kSeason, ""));
         // A postcard's attachment is picked, or saved, in the system's own
         // dialog; a web page the game asks for, opened if the player agrees.
         player.chooseFile = [this](const x86::Win32Process::FileRequest &request,
@@ -267,6 +272,17 @@ public:
                  "frame): Windows 98's, of the game's time, or Windows XP's.",
                  true,
                  {{"98", "Windows 98"}, {"xp", "Windows XP"}}},
+                {kSeason,
+                 "Season",
+                 "The game dresses for the time of year: Easter in April, the desert in June, Halloween,\n"
+                 "winter and Christmas in December. Choose one to have it whatever the date.",
+                 true,
+                 {{"", "As the date says"},
+                  {"Easter", "Easter"},
+                  {"Desert", "Desert"},
+                  {"Halloween", "Halloween"},
+                  {"Winter", "Winter"},
+                  {"XMas", "Christmas"}}},
                 {kFindOriginal,
                  "Find games of the original on Windows",
                  "Also look for network games hosted by the original LEGO Loco, on Windows, and answer its\n"

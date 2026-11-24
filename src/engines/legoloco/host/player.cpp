@@ -169,6 +169,7 @@ void Player::work() {
     };
     game.video().frameDrawn = [&game] { game.directX().show(); };
     game.directPlay().network = _network;
+    game.setSeason(_season);
     game.process().gdi().colours = _colours;
     if (_ownArial)
         game.process().gdi().arial = ttf::installedArial;

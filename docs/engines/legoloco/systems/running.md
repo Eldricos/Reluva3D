@@ -315,7 +315,9 @@ calls named were seen made, from the addresses given:
   (`desktop`), 800 by 600; Windows' colours by its "Windows colours"
   setting (`colours`: `98` or `xp`), and the text in the player's own
   Arial where it's installed by its "Text font" setting (`font`:
-  `arial` or `liberation`):
+  `arial` or `liberation`), and a season whatever the date by its
+  "Season" setting (`season`: the word the game's command line takes,
+  [ee-ini.md](../formats/ee-ini.md#the-season-on-the-command-line)):
   - each frame presented (a blit or flip onto the primary surface, in the
     game's window) is kept for the engine; a movie's frames, drawn into
     the screen's pixels, are presented as they're drawn
@@ -343,8 +345,8 @@ calls named were seen made, from the addresses given:
   `-nomovies` ends each movie as it starts. `-desktop 1024x768` gives
   the program a desktop of that size, as the engine does; the tool's
   is 800 by 600 otherwise, which the clicks in these pages are for.
-  `-xp` gives it Windows XP's colours and `-arial` the player's own
-  Arial; without them the tool's are Windows 98's and Liberation Sans,
+  `-season word` gives it a season whatever the date, `-xp` Windows XP's
+  colours and `-arial` the player's own Arial; without them the tool's are Windows 98's and Liberation Sans,
   as the game-files test needs.
   `-deterministic n` gives the program a clock of n instructions a
   millisecond, moved on a millisecond whenever every thread waits, and a

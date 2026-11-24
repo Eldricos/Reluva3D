@@ -55,6 +55,11 @@ GameProcess::GameProcess(std::filesystem::path gameDir, std::filesystem::path sa
 // folder's copy, which the program reads first, names C:'s instead; the
 // rest is the player's own: the copy's at first (the language), then what
 // the game and the player keep there.
+void GameProcess::setSeason(const std::string &season) {
+    const std::string program = std::string("\"") + kExeFolder + kProgram + "\"";
+    _process->setCommandLine(season.empty() ? program : program + " " + season);
+}
+
 Error GameProcess::writeIni() {
     std::string text;
     const std::filesystem::path saved = _saveDir / "Exe" / "LEGO.INI";

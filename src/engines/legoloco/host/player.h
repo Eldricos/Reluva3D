@@ -16,6 +16,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <utility>
 #include <thread>
 #include <vector>
 
@@ -53,6 +54,8 @@ public:
      * Sans). Before start().
      */
     void setLook(x86::Gdi::ColourScheme colours, bool ownArial) { _colours = colours, _ownArial = ownArial; }
+    /** The season the game takes whatever the date (GameProcess::setSeason); empty for the date's. Before start(). */
+    void setSeason(std::string season) { _season = std::move(season); }
     /**
      * Shows the player a dialog for the game's Open or Save (a postcard's
      * attachment), on the engine's thread, in serve(); `done` is called
@@ -117,6 +120,7 @@ private:
     int _desktopHeight = 768;
     x86::Gdi::ColourScheme _colours = x86::Gdi::ColourScheme::kWindows98;
     bool _ownArial = false;
+    std::string _season;
     GameProcess *_game = nullptr; // the game thread's, while it runs
     std::thread _thread;
     std::mutex _mutex;

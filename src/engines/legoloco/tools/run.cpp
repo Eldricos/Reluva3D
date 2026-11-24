@@ -98,6 +98,7 @@ struct Copy {
     int desktopHeight = 0;
     bool xpColours = false;
     bool ownArial = false;
+    std::string season; // a word for the game's command line: Easter, Halloween...
 
     // Reads one option at argv[i] that's a copy's own, moving i past its
     // arguments; false if it isn't one.
@@ -115,6 +116,8 @@ struct Copy {
             xpColours = true;
         } else if (!std::strcmp(a, "-arial")) {
             ownArial = true;
+        } else if (!std::strcmp(a, "-season") && i + 1 < argc) {
+            season = argv[++i];
         } else if (!std::strcmp(a, "-desktop") && i + 1 < argc) {
             std::sscanf(argv[++i], "%dx%d", &desktopWidth, &desktopHeight);
         } else if ((!std::strcmp(a, "-click") || !std::strcmp(a, "-rclick")) && i + 3 < argc) {
@@ -184,6 +187,7 @@ struct Copy {
         legoloco::GameProcess game(gameDir, save);
         game.video().endAtOnce = noMovies;
         game.directPlay().network = network;
+        game.setSeason(season);
         if (xpColours)
             game.process().gdi().colours = x86::Gdi::ColourScheme::kWindowsXp;
         if (ownArial)
@@ -419,12 +423,13 @@ std::shared_ptr<x86::DirectPlay::Network> systemNetwork(const std::string &meeti
 // button over half a second, -key s vk presses and releases a key (a
 // virtual-key code, in hex), and -shot s file.ppm saves the screen
 // (-shot file.ppm, at the end). -xp gives it Windows XP's colours, -arial
-// the player's own Arial where it's installed.
+// the player's own Arial where it's installed, -season word a season
+// whatever the date (Easter, Desert, Halloween, Winter, XMas).
 int cmdRun(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(
             stderr,
-            "usage: reluva-tool legoloco run <game folder> -save <folder> [-log] [-xp] [-arial] [-limit millions] "
+            "usage: reluva-tool legoloco run <game folder> -save <folder> [-log] [-xp] [-arial] [-season word] [-limit millions] "
             "[-seconds n] [-nomovies] [-deterministic n] [-udp] [-nobroadcast] [-original] [-meeting host] [-click|-rclick|-move s x y] "
             "[-drag s x1 y1 x2 y2] "
             "[-key s vk] [-shot [s] file.ppm]...\n");
@@ -484,7 +489,7 @@ const Commands kCommands(
     "legoloco",
     {
         {"run",
-         "<game folder> -save <folder> [-log] [-xp] [-arial] [-limit millions] [-seconds n] [-nomovies] [-deterministic n] [-udp] [-nobroadcast] [-original] [-meeting host] "
+         "<game folder> -save <folder> [-log] [-xp] [-arial] [-season word] [-limit millions] [-seconds n] [-nomovies] [-deterministic n] [-udp] [-nobroadcast] [-original] [-meeting host] "
          "[-click|-rclick|-move s x y] [-drag s x1 y1 x2 y2] [-key s vk] [-shot [s] file.ppm]...",
          "run the game's own loco.exe and report how far it gets", cmdRun},
         {"pair",

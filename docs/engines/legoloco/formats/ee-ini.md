@@ -37,11 +37,25 @@ are the resource file's copy's comment's:
 | 7 | end hour | |
 | 8 | end minute | |
 | 9 | resource | what to show: a resource number |
-| 10 | frame set | 16-bit |
-| 11 | period | |
+| 10 | frame set | 16-bit: the set it starts with |
+| 11 | period | seconds: shown again after a random 1 to this many (below) |
 | 12 | type | one letter: World, Random, Centred, Port or Starboard, by the comment; the CD has `S` and `P` |
 | 13 | x | |
 | 14 | y | |
+
+How the game uses them, from its code: as it reads an event
+(`0x41fbe0`) it makes the months 0-based (so 0, "any", becomes -1), and
+sets the event's first showing a random 0 to `period` seconds from the
+C runtime's `time()`. Each time it checks them (`0x41ff20`), an event
+whose dates and hours hold and whose time has come is shown: its
+resource, frame set, type and position are given to a new object of
+the kind that crosses the screen (`0x423ab0`, `0x422ec0`), made only
+while the game's measured frame rate is above a setting of its own, but
+for resource 14433 (`0x3861`). Its next showing is then a random 1 to
+`period` seconds on (0: a second; below 0, `rand() % (2 − p) + p`). What
+each type letter does there isn't traced *(from the code)*. The CD's
+are clouds, aeroplanes and a UFO, every month from 1:00 to 23:00, every
+5 to 95 minutes.
 
 `%c` takes the character straight after the comma, so the letter must
 follow it with no space; the numbers may have spaces before them.
@@ -55,9 +69,29 @@ follow it with no space; the numbers may have spaces before them.
 
 In `loco.exe`: `0x41fb20`, six numbers by `%ld,%ld,%ld,%ld,%ld,%ld`:
 the start day and month, the end day and month, a resource number and
-another to use in its place *(guessed)* between those dates. The CD's
-date ranges are 1 to 14 April, 11 June to 11 July, 30 October to 1
-November, and in December.
+another to use in its place between those dates. The CD's date ranges
+are 1 to 14 April, 11 June to 11 July, 30 October to 1 November, and
+in December: Easter's backdrop, pond and Toybox handle, the desert's,
+Halloween's and winter's and Christmas's in place of the usual ones.
+
+The game applies them as it starts (`0x41f970`): for each whose dates
+hold, by `localtime(time())`, it puts the second resource's name in the
+first's place (`0x447290`). On 31 October it also marks every resource
+from 6144 to 6542 (`0x1800` to `0x198e`: the trains and wagons among
+them) with `0x400` at their `+0x164` *(from the code; what that does
+isn't traced)*. Seen in Reluva with the game's command line (below): at
+Easter the board's backdrop green, the pond with eggs and the Toybox's
+handle striped; at Halloween the backdrop dark, the handle a bone,
+skulls in the pond.
+
+### The season on the command line
+
+The game's command line (`0x406790`, from `WinMain` at `0x46308c`) may
+name a season, which it then takes whatever the date: `Easter` (taken
+as 1 April), `Desert` (11 June), `Halloween` (31 October), `Winter`
+(2 December) or `XMas` (25 December). It also knows `/s`, `-s` and `s`
+*(seen in the code; what they do isn't traced: a screen saver's switch
+is likely)*.
 
 ```text
 [LoadEvents]
@@ -72,20 +106,26 @@ November, and in December.
   fails, where the game would take the fields before the fault *(inferred)*;
   the CD has none.
 - `reluva-tool legoloco ee <game folder>` prints both sections.
+- The engine's "Season" setting (`season`), and `reluva-tool legoloco run
+  -season <word>`, give the game one of the command line's seasons
+  (`GameProcess::setSeason`).
 
 ## Sources and checks
 
 - **Where the facts come from:** the fields and their order from
   `loco.exe`'s readers at the addresses given, and their names from the
-  comment in the resource file's copy. The type letters' meanings are
-  only the comment's.
+  comment in the resource file's copy; what they do from the code that
+  applies the load events, checks the time events and reads the command
+  line, at the addresses given. The type letters' meanings are only the
+  comment's.
 - **How it was checked:** `reluva-tool legoloco ee` reads every line of
   both copies, and prints the same events from each. The unit tests
   (`legoloco.unit.easter_eggs`) read lines in the files' shape, stop at
-  a missing key, and refuse a short line.
+  a missing key, and refuse a short line. The game run with `-season
+  Easter` and `-season Halloween`, beside a run with neither, showed the
+  replacements on the board and the Toybox.
 
 ## Open questions
 
-- What the time events' period, type and position do, and what the load
-  events' second number does: seen running on those dates, or in the
-  code that uses them.
+- What the time events' type letters and position do (in `0x422ec0`).
+- What the mark Halloween puts on the trains does, and what `/s` does.

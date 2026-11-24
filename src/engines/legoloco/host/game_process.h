@@ -47,6 +47,13 @@ public:
 
     /** The interpreter, the Windows process, and the stand-ins for DirectX, the movies, DirectSound and DirectPlay. */
     ///@{
+    /**
+     * Has the game take a season whatever the date: `Easter`, `Desert`,
+     * `Halloween`, `Winter` or `XMas`, the words its command line takes
+     * (docs/engines/legoloco/formats/ee-ini.md); empty for the date's.
+     * Before load().
+     */
+    void setSeason(const std::string &season);
     x86::Cpu &cpu() { return *_cpu; }
     x86::Win32Process &process() { return *_process; }
     x86::DirectX &directX() { return *_directX; }
