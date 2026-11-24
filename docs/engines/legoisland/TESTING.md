@@ -141,6 +141,7 @@ engine, by a tester), or *to try*.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | English 1.0 | A tester's machine, with a GPU | Played in the engine with *3D drawn by* the GPU: nothing drawn wrong seen. Its speed against the processor's not yet compared |
 | November 2026 | English 1.0 | Linux | Importing the CD; the data viewer on every SI file: the jukebox's stills, the intro's Smacker movie, the history book's letters, by eye |
 | November 2026 | English 1.0 | Linux (virtual display) | Played in the engine: the intro (its logos and movie), skipped with a click; the Information Center, animating |
 | November 2026 | English 1.0 | Linux | `reluva-tool legoisland run` with `-click` and `-shots`, by eye: the Infomaniac drawn and walking; a portrait's film; a name registered; the door's question, its bricks, the green one picked and the credits; the elevator and the island through its window; the score cube |
