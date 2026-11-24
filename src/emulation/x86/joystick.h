@@ -14,10 +14,12 @@
 namespace reluva::x86 {
 
 /**
- * WINMM's joystick functions (joyGetNumDevs, joyGetDevCapsA, joyGetPos,
- * joyGetPosEx), written from Microsoft's documentation: the joysticks a
- * program of the 1990s reads, here up to two, whose state the engine sets
- * from the player's controllers. Any thread may set it.
+ * WINMM's joystick functions (joyGetNumDevs, joyGetDevCapsA and W,
+ * joyGetPos, joyGetPosEx, the thresholds, capture), written from
+ * Microsoft's documentation: the joysticks a program of the 1990s reads,
+ * here up to two, whose state the engine sets from the player's
+ * controllers. Any thread may connect and set them; update() runs on the
+ * emulator's.
  */
 class Joysticks {
 public:
@@ -29,6 +31,8 @@ public:
     static constexpr uint16_t kCentre = 32767;
     /** The hat's position when it isn't pushed (JOY_POVCENTERED). */
     static constexpr uint32_t kPovCentred = 0xffff;
+    /** The registry key the caps name (szRegKey), under REGSTR_PATH_JOYCONFIG. */
+    static constexpr const char *kRegistryKey = "Reluva";
 
     /** What a joystick has, as joyGetDevCapsA tells it. */
     struct Device {
@@ -58,6 +62,13 @@ public:
     void connect(int id, const Device *device);
     /** Joystick `id`'s state now. */
     void set(int id, const State &state);
+    /**
+     * On the emulator's thread, as the program runs: posts a captured
+     * joystick's messages (joySetCapture) at most once a period, and
+     * writes a newly connected joystick's registry settings. `nowMs` is
+     * the program's clock.
+     */
+    void update(uint32_t nowMs);
 
     /**
      * A game controller as WINMM's joystick: X and Y the left stick, Z the

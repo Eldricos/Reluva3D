@@ -1637,7 +1637,8 @@ static void testDirectPlay() {
 }
 
 // WINMM's joysticks: none plugged in, then a game controller as the first,
-// its caps, axes, buttons and hat as JK.EXE reads them, and a second.
+// its caps, axes, buttons and hat as JK.EXE reads them, and a second; the
+// Unicode caps, the registry's settings, thresholds and capture.
 static void testJoysticks() {
     x86::Cpu cpu(16u << 20);
     x86::Win32Process process(cpu);
@@ -1690,6 +1691,82 @@ static void testJoysticks() {
     CHECK(call("joyGetPosEx", {1, info}) == 0 && cpu.read32(info + 8) == 0 && cpu.read32(info + 32) == 0);
     CHECK(call("joyGetPosEx", {0, info}) == 0 && cpu.read32(info + 8) == 65535);
     CHECK(call("joyGetPos", {2, info}) == 167); // a third isn't offered
+
+    // The Unicode caps: the name in 16-bit characters, the numbers 32 bytes on.
+    const uint32_t wcaps = process.memory().alloc(728);
+    CHECK(call("joyGetDevCapsW", {0, wcaps, 404}) == 165);
+    CHECK(call("joyGetDevCapsW", {0, wcaps, 728}) == 0);
+    CHECK(cpu.read16(wcaps + 4) == 'T' && cpu.read16(wcaps + 6) == 'e' && cpu.read32(wcaps + 72) == 65535);
+    CHECK(cpu.read32(wcaps + 140) == 10 && cpu.read16(wcaps + 144) == 'R'); // wMaxButtons, szRegKey
+
+    // Its settings in the registry once update() has run, as Windows 95 keeps them.
+    joysticks.update(0);
+    const std::string current = "HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Control\\MediaResources\\Joystick\\"
+                                "Reluva\\CurrentJoystickSettings";
+    const auto oemName = process.registryValue(current, "Joystick1OEMName");
+    CHECK(oemName && std::string(oemName->begin(), oemName->end()) == std::string("Test pad", 9));
+    uint32_t type = 0;
+    const auto config = process.registryValue(current, "Joystick1Configuration", &type);
+    CHECK(config && type == 3 && config->size() == 112 && (*config)[36] == 0xff && (*config)[37] == 0xff);
+    CHECK(process.registryValue("HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Control\\MediaProperties\\"
+                                "PrivateProperties\\Joystick\\OEM\\Test pad",
+                                "OEMName"));
+
+    // Thresholds.
+    const uint32_t value = process.memory().alloc(4);
+    CHECK(call("joySetThreshold", {0, 1000}) == 0);
+    CHECK(call("joyGetThreshold", {0, value}) == 0 && cpu.read32(value) == 1000);
+    CHECK(call("joySetThreshold", {5, 1000}) == 165);
+
+    // Captured by a window: its messages each period, the moves only past
+    // the threshold.
+    const uint32_t proc = cpu.addNative("test!JoyProc", [](x86::Cpu &c) {
+        c.reg[x86::Cpu::EAX] = c.arg(1) == 0x81 ? 1 : 0;
+        return 16u;
+    });
+    const uint32_t wc = process.memory().alloc(40);
+    const uint32_t name = process.memory().alloc(8);
+    cpu.writeString(name, "Joy", 8);
+    cpu.write32(wc + 4, proc);
+    cpu.write32(wc + 36, name);
+    CHECK(!cpu.call(process.provided("USER32.dll", "RegisterClassA"), {wc}, r) && r != 0);
+    CHECK(
+        !cpu.call(process.provided("USER32.dll", "CreateWindowExA"), {0, name, name, 0, 0, 0, 64, 64, 0, 0, 0, 0}, r) &&
+        r != 0);
+    const uint32_t hwnd = r;
+    const uint32_t msg = process.memory().alloc(28);
+    auto messages = [&] {
+        std::vector<std::array<uint32_t, 3>> got;
+        while (!cpu.call(process.provided("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r)
+            if (cpu.read32(msg + 4) >= 0x3a0 && cpu.read32(msg + 4) <= 0x3b8)
+                got.push_back({cpu.read32(msg + 4), cpu.read32(msg + 8), cpu.read32(msg + 12)});
+        return got;
+    };
+    messages();
+    joysticks.set(0, x86::Joysticks::State());
+    CHECK(call("joySetCapture", {0x1234, 0, 50, 1}) == 165); // no such window
+    CHECK(call("joySetCapture", {hwnd, 0, 50, 1}) == 0);
+    CHECK(call("joySetCapture", {hwnd, 0, 50, 1}) == 166); // captured already
+    GamepadState now;
+    now.buttons = 1u << kPadSouth;
+    now.axes[0] = 0.01f; // less than the threshold
+    joysticks.set(0, x86::Joysticks::stateOf(now));
+    joysticks.update(100);
+    auto got = messages();
+    CHECK(got.size() == 1 && got[0][0] == 0x3b5 && got[0][1] == (0x1 | 0x100)); // button 1 down, and changed
+    joysticks.update(120);                                                      // within the period: nothing
+    now.axes[0] = 1;
+    joysticks.set(0, x86::Joysticks::stateOf(now));
+    joysticks.update(130);
+    CHECK(messages().empty());
+    joysticks.update(150);
+    got = messages();
+    CHECK(got.size() == 1 && got[0][0] == 0x3a0 && got[0][1] == 1 && (got[0][2] & 0xffff) == 65535);
+    CHECK(call("joyReleaseCapture", {0}) == 0);
+    now.buttons = 0;
+    joysticks.set(0, x86::Joysticks::stateOf(now));
+    joysticks.update(300);
+    CHECK(messages().empty());
 
     joysticks.connect(0, nullptr);
     CHECK(call("joyGetPos", {0, info}) == 167);

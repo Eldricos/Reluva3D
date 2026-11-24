@@ -73,14 +73,17 @@ GameProcess::GameProcess(const GameFolders &folders, const std::filesystem::path
     // No joystick until the player's controller is connected (Player).
     _joysticks = std::make_unique<x86::Joysticks>(p);
     // The network answered between the game's own calls to DirectPlay too,
-    // so players can join a host whose menus aren't asking.
+    // so players can join a host whose menus aren't asking; and a captured
+    // joystick's messages posted, though the game captures none.
     p.onSlice = [this](x86::Cpu &) {
         const int64_t now =
             std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
                 .count();
         int64_t last = _networkAt.load();
-        if (now - last >= 20 && _networkAt.compare_exchange_strong(last, now))
+        if (now - last >= 20 && _networkAt.compare_exchange_strong(last, now)) {
             _directPlay->update();
+            _joysticks->update(uint32_t(now));
+        }
     };
     _directSound = std::make_unique<x86::DirectSound>(p);
     // The music of the CD in drive D: its audio tracks, from a cue sheet and
