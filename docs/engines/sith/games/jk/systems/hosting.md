@@ -151,15 +151,18 @@ Windows does when it fails, and dialog boxes are made but not drawn
     `DrawPrimitive`. Its textures are surfaces it fills, and loads into
     the device's with `IDirect3DTexture::Load`, naming them by
     `GetHandle`. The render states it sets include modulated texture
-    blending, linear filtering and the depth test (`ZFUNC` less-equal and
-    always). The menus stay 8-bit, drawn as before. If a GUID can't be
+    blending, linear filtering and the depth test. Its vertices come on
+    the screen, x and y in whole pixels, with z half of 1/w: nearer is
+    greater, and it tests with `ZFUNC` greater, or always without
+    writing, never blending (seen running into Nar Shaddaa, every draw's
+    states logged). The menus stay 8-bit, drawn as before. If a GUID can't be
     read, it goes back to software (`0x414424`) *(from the code)*.
 
     A frame in play is, in order (seen running, every one of 1,583 frames
     into Nar Shaddaa, its surface calls logged with their callers; the
     code at each address read):
     - the Z-buffer cleared over the view by `Blt` with
-      `DDBLT_DEPTHFILL` (`0x42ac06`), never locked;
+      `DDBLT_DEPTHFILL` (`0x42ac06`) to 0, the far end, never locked;
     - one scene: `BeginScene`, the 3D in execute buffers, `EndScene`;
       new textures' system-memory surfaces locked and loaded in it
       (`0x42a2f1`);
@@ -246,6 +249,29 @@ Windows does when it fails, and dialog boxes are made but not drawn
     (`BitBlt`, `0x422971`) after `GdiFlush`. Run so in the emulator, it
     showed the opening, its menus answered the mouse, and the first level
     loaded and played at the same speed as full screen.
+21. **On the graphics card:** since the game's 3D is never read back
+    (step 17), its scenes can be drawn on the GPU rather than by the
+    emulator (the *3D drawing* setting). The emulator keeps each scene
+    instead of drawing it, the pixels it would cover marked in the back
+    buffer, so the gauges, text and automap drawn after it lie over it
+    ([directx.md](../../../../../common/x86/directx.md#scenes-for-the-gpu)).
+    The engine draws the scene's triangles as given
+    (`render/scene_gpu.h`): on the screen, the depth from their z, the
+    test the other way round (its greater as the renderer's less, the
+    clear to 0 as the renderer's to the far end), half a pixel over
+    (Direct3D's pixel centres are on whole numbers), the texture times
+    the vertices' colour as the first stage has it, untextured
+    otherwise, the colour key's texels left out. The back buffer is laid
+    over it, its alpha 0 where the scene shows.
+
+    Checked against the emulator's own drawing, scene by scene
+    (`reluva-tool sith host -gpu`), at 640 by 480 on Mesa's software
+    Vulkan (llvmpipe), into Nar Shaddaa: of 440 scenes, where each
+    scene's triangles fall, 0.0001% of pixels differ by more than one
+    step of the game's 16-bit colours, the most in a scene 11 pixels,
+    along one row where two triangles meet; the rest within a step,
+    from the GPU's own rounding and filtering. Drawn as play draws it
+    (`-gpuplay`), the gauges lie over the level as in software.
 
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were
@@ -261,7 +287,9 @@ Pentiums of 1997 the program was written for.
 
 The game is played from the launcher: the engine (`src/engines/sith/sith.cpp`)
 runs `JK.EXE` on a thread of its own (`host/player.h`), shows each frame
-it presents in the window, and passes the keyboard and mouse on. A frame
+it presents in the window (with its scene drawn on the GPU under it,
+when *3D drawing* is on the graphics card: step 21), and passes the
+keyboard and mouse on. A frame
 it draws windowed through GDI is shown the same way, and the pointer put
 where the player points on it, within the game's window
 ([windows.md](../../../../../common/x86/windows.md)); `commandline` in

@@ -60,6 +60,12 @@ void Player::input(const Event &event) {
 }
 
 bool Player::frame(std::vector<uint32_t> &pixels, int &width, int &height) {
+    std::shared_ptr<const x86::DirectX::Scene> scene;
+    return frame(pixels, width, height, scene);
+}
+
+bool Player::frame(std::vector<uint32_t> &pixels, int &width, int &height,
+                   std::shared_ptr<const x86::DirectX::Scene> &scene) {
     std::lock_guard<std::mutex> lock(_mutex);
     if (_frameNumber == _frameTaken)
         return false;
@@ -67,6 +73,7 @@ bool Player::frame(std::vector<uint32_t> &pixels, int &width, int &height) {
     pixels = _frame;
     width = _width;
     height = _height;
+    scene = _scene;
     return true;
 }
 
@@ -97,6 +104,8 @@ std::string Player::takeOutput() {
 void Player::work() {
     GameProcess game(_folders, _saveFolder, _commandLine);
     game.directPlay().network = _network;
+    if (_keepScenes)
+        game.directX().sceneCapture = x86::DirectX::SceneCapture::kInstead;
     // The game looks for joysticks as it starts.
     offerPads(game);
     x86::Win32Process &process = game.process();
@@ -123,6 +132,7 @@ void Player::work() {
         {
             std::lock_guard<std::mutex> lock(_mutex);
             _frame = f.pixels;
+            _scene = f.scene;
             _width = f.width;
             _frameX = f.x;
             _frameY = f.y;

@@ -41,7 +41,14 @@ None yet.
   The host's leaving ends the session, as the game asked.
 - **Direct3D:** *Setup*'s hardware drawing is done by the emulator's
   software rasterizer, not a graphics card: its filtering and precision
-  are Reluva's, not those of the cards of 1997.
+  are Reluva's, not those of the cards of 1997. With *3D drawing* on the
+  graphics card, it's the GPU's instead, its colours 8 bits a channel
+  where the game's buffer has 5 or 6, and its depth finer than the
+  game's 16 bits, so surfaces nearly at the same depth may hide each
+  other otherwise. The display's gamma ramp, which the game doesn't set,
+  isn't applied to the scene there. Specular colour, fog and the alpha
+  test's exact reference aren't drawn on the card, as the game doesn't
+  use them ([systems/hosting.md](systems/hosting.md), step 21).
 
 ## Additions outside the game
 

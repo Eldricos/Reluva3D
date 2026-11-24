@@ -14,6 +14,7 @@ reluva_add_engine(sith
         host/game_process.cpp
         host/player.cpp
         render/draw3d.cpp
+        render/scene_gpu.cpp
         formats/bitmap.cpp
         formats/colormap.cpp
         formats/episode.cpp
@@ -43,8 +44,10 @@ reluva_add_engine_viewers(sith
         pages/sprite_pages.cpp
         pages/text_pages.cpp)
 
-# Its reluva-tool commands (reluva-tool help sith lists them).
-reluva_add_engine_tools(sith
+# Its reluva-tool commands (reluva-tool help sith lists them). WITH_SDL:
+# the host command's -gpu draws the game's scenes on the GPU, through the
+# SDL backend.
+reluva_add_engine_tools(sith WITH_SDL
     SOURCES
         tools/files.cpp
         tools/formats.cpp

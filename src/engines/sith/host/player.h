@@ -4,6 +4,7 @@
 #pragma once
 
 #include "common/events.h"
+#include "emulation/x86/directx/directx.h"
 #include "emulation/x86/dplay.h"
 #include "emulation/x86/joystick.h"
 #include "engines/sith/folders.h"
@@ -13,6 +14,7 @@
 #include <cstdint>
 #include <deque>
 #include <filesystem>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -50,6 +52,12 @@ public:
      */
     ~Player();
 
+    /**
+     * Whether the game's Direct3D scenes come with its frames, for the
+     * engine to draw on the GPU (x86::DirectX::SceneCapture::kInstead),
+     * rather than drawn in the frames. Before start().
+     */
+    void keepScenes(bool keep) { _keepScenes = keep; }
     /** Starts the game's thread, which loads and runs the program; call once. */
     void start();
     /**
@@ -70,6 +78,12 @@ public:
      * @return False, leaving the arguments alone, if none was shown since the last asked for.
      */
     bool frame(std::vector<uint32_t> &pixels, int &width, int &height);
+    /**
+     * The same, with the scene to draw under it (keepScenes); none if the
+     * frame has none, its alpha then 255 throughout.
+     */
+    bool frame(std::vector<uint32_t> &pixels, int &width, int &height,
+               std::shared_ptr<const x86::DirectX::Scene> &scene);
     /** How many frames the game has shown so far. */
     uint64_t framesShown();
     /** Whether the game shows the mouse pointer: the menus do, play doesn't. */
@@ -97,7 +111,9 @@ private:
     std::thread _thread;
     std::mutex _mutex;
     std::deque<Event> _events;
+    bool _keepScenes = false;
     std::vector<uint32_t> _frame;
+    std::shared_ptr<const x86::DirectX::Scene> _scene; // the frame's
     int _width = 0;
     int _height = 0;
     uint64_t _frameNumber = 0;

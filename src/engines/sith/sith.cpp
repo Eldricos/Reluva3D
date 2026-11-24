@@ -12,8 +12,11 @@
 #include "engines/sith/games.h"
 #include "engines/sith/host/player.h"
 #include "engines/sith/import.h"
+#include "engines/sith/render/scene_gpu.h"
+#include "graphics/gfx3d.h"
 
 #include <cstdio>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -67,21 +70,45 @@ public:
                 player.gamepad(i, joystick && _sys.readGamepad(i, pad) ? &pad : nullptr);
         };
         pollPad();
-        player.start();
+        // `drawing` gpu: the game's Direct3D scenes drawn on the GPU, its 2D
+        // over them; in software, as the game's own, without a GPU.
+        const auto drawing = _target.settings.find("drawing");
+        const bool wantGpu = drawing != _target.settings.end() && drawing->second == "gpu";
         int width = 640;
         int height = 480;
+        bool gpu = false;
         auto screen = [&] {
-            _sys.initGraphics(width, height, PixelFormat::kRGBA32);
+            _scenes.setRenderer(nullptr);
+            gfx::Renderer3D *renderer = nullptr;
+            if (wantGpu && !_sys.init3D(width, height, renderer) && renderer) {
+                gpu = true;
+                _scenes.setRenderer(renderer);
+            } else {
+                gpu = false;
+                _sys.initGraphics(width, height, PixelFormat::kRGBA32);
+            }
             _screen.create(width, height, PixelFormat::kRGBA32);
         };
         screen();
-        _sys.updateScreen(_screen); // black while it starts
+        struct RendererGone {
+            SceneGpu &scenes;
+            ~RendererGone() { scenes.setRenderer(nullptr); }
+        } rendererGone{_scenes};
+        // Asked for once: the game can't change how it's drawn as it goes.
+        player.keepScenes(gpu);
+        player.start();
+        // black while it starts
+        if (gpu)
+            _scenes.draw(nullptr, _screen);
+        else
+            _sys.updateScreen(_screen);
         _sys.setWindowTitle("Reluva - " + _target.description);
         // The menus show the system's pointer, which the game moves; in
         // play the mouse turns the view, so the window holds it.
         bool pointer = true;
         _sys.setMouseCursorVisible(true);
         std::vector<uint32_t> pixels;
+        std::shared_ptr<const x86::DirectX::Scene> scene;
         while (true) {
             if (const bool shown = player.pointerShown(); shown != pointer) {
                 pointer = shown;
@@ -99,13 +126,14 @@ public:
             pollPad();
             int w = 0;
             int h = 0;
-            if (player.frame(pixels, w, h)) {
+            if (player.frame(pixels, w, h, scene)) {
                 if (w != width || h != height) {
                     width = w;
                     height = h;
                     screen();
                 }
-                // 0xAARRGGBB to R, G, B, A in memory.
+                // 0xAARRGGBB to R, G, B, A in memory: the alpha 0 where the
+                // scene shows through.
                 for (int y = 0; y < height; ++y) {
                     uint8_t *row = _screen.row(y);
                     for (int x = 0; x < width; ++x, row += 4) {
@@ -113,10 +141,13 @@ public:
                         row[0] = uint8_t(v >> 16);
                         row[1] = uint8_t(v >> 8);
                         row[2] = uint8_t(v);
-                        row[3] = 255;
+                        row[3] = gpu && scene ? uint8_t(v >> 24) : 255;
                     }
                 }
-                _sys.updateScreen(_screen);
+                if (gpu)
+                    _scenes.draw(scene.get(), _screen);
+                else
+                    _sys.updateScreen(_screen);
             }
             if (const std::string out = player.takeOutput(); !out.empty())
                 std::fputs(out.c_str(), stderr);
@@ -163,6 +194,7 @@ private:
     System &_sys;
     GameTarget _target;
     Surface _screen;
+    SceneGpu _scenes;
 };
 
 /**
@@ -193,7 +225,13 @@ public:
         joystick.label = "Game controller";
         joystick.tooltip = "Connected controllers offered to the game as its joysticks, two at most.";
         joystick.choices = {{"on", "Offered to the game"}, {"off", "Left out"}};
-        return {joystick};
+        GameOption drawing;
+        drawing.key = "drawing";
+        drawing.label = "3D drawing";
+        drawing.tooltip = "The game's Direct3D drawn in software, as the game draws it itself; or on the "
+                          "graphics card, its menus and gauges over it.";
+        drawing.choices = {{"software", "In software"}, {"gpu", "On the graphics card"}};
+        return {joystick, drawing};
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {

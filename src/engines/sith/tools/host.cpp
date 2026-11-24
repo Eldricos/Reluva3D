@@ -8,6 +8,7 @@
 #include "common/events.h"
 #include "audio/mixer.h"
 #include "audio/wav.h"
+#include "backends/platform/sdl3/sdl_system.h"
 #include "backends/networking/sockets/socket_net.h"
 #include "common/fs.h"
 #include "common/stream.h"
@@ -21,12 +22,14 @@
 #include "emulation/x86/win32.h"
 #include "engines/sith/folders.h"
 #include "engines/sith/host/game_process.h"
+#include "engines/sith/render/scene_gpu.h"
 #include "image/image.h"
 
 #include <algorithm>
 #include <array>
 #include <atomic>
 #include <cctype>
+#include <cmath>
 #include <cstdlib>
 #include <chrono>
 #include <ctime>
@@ -103,7 +106,7 @@ int cmdHost(int argc, char **argv) {
                      "usage: reluva-tool sith host <install> [-seconds N] [-args \"...\"] [-png file] "
                      "[-files] [-calls] [-d3d] [-net] [-join address] [-keys \"s:key,...\"] [-skim] [-cheat word] "
                      "[-pad \"s:control=value,...\"] [-close seconds] [-frames N folder] [-peek address] [-wav file] "
-                     "[-write folder]\n");
+                     "[-write folder] [-gpu folder] [-gpuplay folder]\n");
         return 2;
     }
     const std::filesystem::path install = argv[2];
@@ -125,6 +128,8 @@ int cmdHost(int argc, char **argv) {
     double framesEvery = 0;
     std::filesystem::path framesFolder;
     std::filesystem::path writable = std::filesystem::temp_directory_path() / "reluva-sith-host";
+    std::filesystem::path gpuFolder;
+    bool gpuPlay = false;
     for (int i = 3; i < argc; ++i) {
         const std::string a = argv[i];
         if (a == "-seconds" && i + 1 < argc)
@@ -161,6 +166,10 @@ int cmdHost(int argc, char **argv) {
             peeks.push_back(uint32_t(std::strtoul(argv[++i], nullptr, 16)));
         else if (a == "-write" && i + 1 < argc)
             writable = argv[++i];
+        else if (a == "-gpu" && i + 1 < argc)
+            gpuFolder = argv[++i];
+        else if (a == "-gpuplay" && i + 1 < argc)
+            gpuFolder = argv[++i], gpuPlay = true;
     }
     if (!reluva::fs::findFile(install, "JK.EXE")) {
         std::fprintf(stderr, "no JK.EXE in %s\n", install.string().c_str());
@@ -445,6 +454,145 @@ int cmdHost(int argc, char **argv) {
         }
         reluva::writeFile(path, reluva::image::encodePng(img));
     };
+    // With -gpu, the scenes drawn in software and on the GPU, compared.
+    std::unique_ptr<reluva::SdlSystem> window;
+    sith::SceneGpu sceneGpu;
+    reluva::Surface clear;
+    struct Compared {
+        uint64_t frames = 0;
+        uint64_t pixels = 0;
+        uint64_t differing = 0; // a channel more than a step of the game's 16 bits apart
+        double worst = -1;      // the share of a frame's pixels differing
+        uint64_t worstFrame = 0;
+    } compared;
+    if (!gpuFolder.empty()) {
+        window = std::make_unique<reluva::SdlSystem>();
+        reluva::gfx::Renderer3D *renderer = nullptr;
+        if (Error e = window->init(); !e)
+            e = window->init3D(640, 480, renderer);
+        if (!renderer) {
+            std::fprintf(stderr, "-gpu: no GPU renderer\n");
+            return 1;
+        }
+        std::printf("GPU: %s\n", renderer->deviceName().c_str());
+        sceneGpu.setRenderer(renderer);
+        clear.create(640, 480, reluva::PixelFormat::kRGBA32);
+        std::filesystem::create_directories(gpuFolder);
+        directX.sceneCapture = gpuPlay ? x86::DirectX::SceneCapture::kInstead : x86::DirectX::SceneCapture::kAlso;
+    }
+    auto writeRgba = [](const std::filesystem::path &path, int w, int h, std::vector<uint8_t> rgba) {
+        reluva::image::Image img;
+        img.w = w;
+        img.h = h;
+        img.rgba = std::move(rgba);
+        reluva::writeFile(path, reluva::image::encodePng(img));
+    };
+    auto compare = [&](const x86::DirectX::Scene &scene) {
+        if (scene.width != 640 || scene.height != 480 || scene.software.size() != size_t(640 * 480))
+            return;
+        sceneGpu.captureNext();
+        sceneGpu.draw(&scene, clear);
+        std::vector<uint8_t> gpu;
+        if (!sceneGpu.capture(gpu) || gpu.size() != scene.software.size() * 4)
+            return;
+        // Only where the scene draws, by its triangles' bounds (as
+        // SceneCapture::kInstead covers): around them the buffer has what
+        // the game left there.
+        std::vector<uint8_t> inside(scene.software.size(), 0);
+        auto mark = [&](int x0, int y0, int x1, int y1, const int *vp) {
+            for (int y = std::max({0, y0, vp[1]}); y <= std::min({479, y1, vp[1] + vp[3] - 1}); ++y)
+                for (int x = std::max({0, x0, vp[0]}); x <= std::min({639, x1, vp[0] + vp[2] - 1}); ++x)
+                    inside[size_t(y) * 640 + size_t(x)] = 1;
+        };
+        for (const x86::DirectX::Scene::Step &st : scene.steps) {
+            if (st.clearColor)
+                mark(0, 0, 639, 479, st.viewport);
+            for (uint32_t t = st.first; t + 2 < st.first + st.count && t + 2 < scene.vertices.size(); t += 3) {
+                const x86::DirectX::Scene::Vertex *v = &scene.vertices[t];
+                const auto [x0, x1] = std::minmax({v[0].x, v[1].x, v[2].x});
+                const auto [y0, y1] = std::minmax({v[0].y, v[1].y, v[2].y});
+                mark(int(std::ceil(x0)), int(std::ceil(y0)), int(std::floor(x1)), int(std::floor(y1)), st.viewport);
+            }
+        }
+        std::vector<uint8_t> cpu(gpu.size());
+        std::vector<uint8_t> diff(gpu.size());
+        uint64_t differing = 0;
+        uint64_t pixels = 0;
+        for (size_t i = 0; i < scene.software.size(); ++i) {
+            const uint32_t p = scene.software[i];
+            const uint8_t c[3] = {uint8_t(p >> 16), uint8_t(p >> 8), uint8_t(p)};
+            // In the steps of JK.EXE's 16-bit buffer (5, 6 and 5 bits):
+            // more than one apart is a difference, not rounding.
+            constexpr int kDrop[3] = {3, 2, 3};
+            int most = 0;
+            for (int k = 0; k < 3; ++k) {
+                cpu[4 * i + size_t(k)] = c[k];
+                most = std::max(most, std::abs((int(c[k]) >> kDrop[k]) - (int(gpu[4 * i + size_t(k)]) >> kDrop[k])));
+            }
+            cpu[4 * i + 3] = gpu[4 * i + 3] = diff[4 * i + 3] = 255;
+            if (!inside[i])
+                continue;
+            ++pixels;
+            diff[4 * i] = diff[4 * i + 1] = diff[4 * i + 2] = uint8_t(std::min(255, most * 64));
+            differing += most > 1;
+        }
+        if (!pixels)
+            return;
+        ++compared.frames;
+        compared.pixels += pixels;
+        compared.differing += differing;
+        const double share = double(differing) / double(pixels);
+        const bool worst = share > compared.worst;
+        if (worst)
+            compared.worst = share, compared.worstFrame = compared.frames;
+        // The first of every 20, and the worst so far.
+        if (compared.frames % 20 == 1 || worst) {
+            char name[32];
+            std::snprintf(name, sizeof name, "%s%05llu", worst ? "worst-" : "", (unsigned long long)compared.frames);
+            writeRgba(gpuFolder / (std::string(name) + "-cpu.png"), 640, 480, cpu);
+            writeRgba(gpuFolder / (std::string(name) + "-gpu.png"), 640, 480, gpu);
+            writeRgba(gpuFolder / (std::string(name) + "-diff.png"), 640, 480, diff);
+        }
+    };
+    // -gpuplay: each frame drawn as the engine draws it with `drawing` gpu,
+    // the scene on the GPU under the 2D; one in 60 written.
+    reluva::Surface overlay;
+    uint64_t played = 0;
+    uint64_t playedScenes = 0;
+    auto play = [&](const x86::DirectX::Frame &f) {
+        if (f.width != 640 || f.height != 480)
+            return;
+        overlay.create(640, 480, reluva::PixelFormat::kRGBA32);
+        for (int y = 0; y < 480; ++y) {
+            uint8_t *row = overlay.row(y);
+            for (int x = 0; x < 640; ++x, row += 4) {
+                const uint32_t v = f.pixels[size_t(y) * 640 + size_t(x)];
+                row[0] = uint8_t(v >> 16), row[1] = uint8_t(v >> 8), row[2] = uint8_t(v);
+                row[3] = f.scene ? uint8_t(v >> 24) : 255;
+            }
+        }
+        playedScenes += f.scene != nullptr;
+        const bool keep = ++played % 60 == 0;
+        if (keep)
+            sceneGpu.captureNext();
+        sceneGpu.draw(f.scene.get(), overlay);
+        std::vector<uint8_t> rgba;
+        if (!keep || !sceneGpu.capture(rgba) || rgba.size() != size_t(640 * 480 * 4))
+            return;
+        // The capture is without the overlay: put over it as the renderer does.
+        for (int y = 0; y < 480; ++y) {
+            const uint8_t *o = overlay.row(y);
+            for (int x = 0; x < 640; ++x, o += 4) {
+                uint8_t *p = &rgba[(size_t(y) * 640 + size_t(x)) * 4];
+                for (int k = 0; k < 3; ++k)
+                    p[k] = uint8_t((o[k] * o[3] + p[k] * (255 - o[3]) + 127) / 255);
+                p[3] = 255;
+            }
+        }
+        char name[32];
+        std::snprintf(name, sizeof name, "play-%05llu.png", (unsigned long long)played);
+        writeRgba(gpuFolder / name, 640, 480, std::move(rgba));
+    };
     uint64_t frames = 0;
     double nextSaved = 0;
     if (framesEvery > 0)
@@ -453,6 +601,10 @@ int cmdHost(int argc, char **argv) {
     // or by the millisecond (00012-250.png) when they're closer together.
     directX.presented = [&](const x86::DirectX::Frame &f) {
         ++frames;
+        if (window && gpuPlay)
+            play(f);
+        else if (f.scene && window)
+            compare(*f.scene);
         const double now = elapsed();
         if (framesEvery > 0 && now >= nextSaved && f.width > 0) {
             char name[32];
@@ -493,6 +645,16 @@ int cmdHost(int argc, char **argv) {
     }
     const x86::DirectX::Frame &frame = directX.frame();
     std::printf("frames shown: %llu, the last %dx%d\n", (unsigned long long)frames, frame.width, frame.height);
+    if (window && gpuPlay)
+        std::printf("frames drawn on the GPU: %llu, %llu with a scene\n", (unsigned long long)played,
+                    (unsigned long long)playedScenes);
+    else if (window) {
+        std::printf("scenes compared: %llu; pixels differing: %.4f%%; the worst, scene %llu: %.4f%%\n",
+                    (unsigned long long)compared.frames,
+                    compared.pixels ? 100.0 * double(compared.differing) / double(compared.pixels) : 0.0,
+                    (unsigned long long)compared.worstFrame, 100.0 * std::max(0.0, compared.worst));
+    }
+    sceneGpu.setRenderer(nullptr);
     if (!png.empty() && frame.width > 0)
         savePng(png, frame);
     if (err) {
@@ -562,7 +724,7 @@ const Commands kCommands(
         {"host",
          "<install> [-seconds N] [-args \"...\"] [-png file] [-files] [-calls] [-d3d] [-net] [-join address] [-keys "
          "\"s:key,...\"] [-skim] [-cheat word] [-pad \"s:control=value,...\"] [-close seconds] [-frames N folder] "
-         "[-peek address] [-wav file]",
+         "[-peek address] [-wav file] [-write folder] [-gpu folder] [-gpuplay folder]",
          "run the retail JK.EXE in the x86 emulator: how far it gets", cmdHost},
         {"disasm", "<JK.EXE> <address> [count]", "the program's instructions from an address (hexadecimal) on",
          cmdDisasm},
