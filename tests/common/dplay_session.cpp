@@ -18,10 +18,13 @@
 #include "emulation/x86/dplay_session.h"
 #include "tests/support/test.h"
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <vector>
 
@@ -570,7 +573,9 @@ void testOriginalOnTcp() {
     }
     tcp->close(answer);
     CHECK(found.size() == 1 && found[0].name == "On Windows" && found[0].application == kApplication);
-    CHECK(searcher.join(theirs.guid, "") == Endpoint::Status::kOriginal);
+    // Joined by asking its host for a system player: under way, its host
+    // not answering here.
+    CHECK(searcher.join(theirs.guid, "") == Endpoint::Status::kConnecting);
 
     // Ours, hosted (on the search port, freed): the original's search
     // answered at the TCP port it gives.
@@ -616,6 +621,167 @@ void testOriginalOnTcp() {
     tcp->close(listen);
 }
 
+// Waits, on the endpoints' own threads, until `done`; false after 5 s.
+bool waitFor(const std::function<bool()> &done) {
+    for (int i = 0; i < 500; ++i) {
+        if (done())
+            return true;
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return done();
+}
+
+// Two endpoints of Reluva's speaking DirectPlay 4's own protocol, as the
+// original does: the host on its own port with its search port apart,
+// the joiner finding it only by DirectPlay 4's search, over the machine's
+// TCP and a UDP network in memory, each on a thread of its own and the
+// steady clock. A session with `flags`: by the reliable protocol
+// (0xa040, LEGO Loco's) or without it (0).
+void originalSession(uint32_t flags) {
+    std::shared_ptr<net::LoopbackNetwork> network = net::LoopbackNetwork::create();
+    auto transport = [&](uint16_t port) {
+        Transport t;
+        t.open = [network](uint16_t p) { return network->open(p); };
+        t.port = port;
+        t.tcp = net::systemSockets();
+        t.broadcast = {0x7f000001u};
+        t.timeoutMs = 5000;
+        return t;
+    };
+    Endpoint host(transport(47000));
+    Endpoint guest(transport(47001)); // where no host is: only DirectPlay 4's search finds it
+    SessionInfo info;
+    info.application = kApplication;
+    info.name = "Original";
+    info.flags = flags;
+    info.maxPlayers = 4;
+    CHECK(host.host(info, 0) == Endpoint::Status::kOk);
+    uint32_t hostPlayer = 0;
+    CHECK(host.create(player("Host"), hostPlayer) == Endpoint::Status::kOk);
+
+    std::vector<SessionInfo> found;
+    CHECK(waitFor([&] {
+        guest.search(kAnyApplication, {});
+        found = guest.found();
+        return !found.empty();
+    }));
+    if (found.empty())
+        return;
+    CHECK(found[0].guid == info.guid && found[0].name == "Original");
+    Endpoint::Status status = Endpoint::Status::kConnecting;
+    CHECK(waitFor([&] { return (status = guest.join(info.guid, "")) != Endpoint::Status::kConnecting; }));
+    CHECK(status == Endpoint::Status::kOk);
+    if (status != Endpoint::Status::kOk)
+        return;
+    CHECK(guest.session() && guest.session()->flags == flags && guest.session()->name == "Original");
+    CHECK(guest.members().size() == 1 && guest.members()[hostPlayer].longName == "Host long");
+    CHECK(guest.members()[hostPlayer].data == player("Host").data);
+
+    // A player made: its id the host's to give, and the host told.
+    uint32_t guestPlayer = 0;
+    CHECK(guest.create(player("Guest"), guestPlayer) == Endpoint::Status::kOk && guestPlayer);
+    std::vector<Received> atHost;
+    CHECK(waitFor([&] {
+        for (const Received &r : drain(host))
+            atHost.push_back(r);
+        return has(atHost, Event::kCreated, guestPlayer);
+    }));
+    CHECK(host.members().size() == 2 && host.members()[guestPlayer].shortName == "Guest");
+
+    // Both ways, guaranteed and not, short and long.
+    std::vector<uint8_t> big(3000);
+    for (size_t i = 0; i < big.size(); ++i)
+        big[i] = uint8_t(i * 13);
+    const std::vector<uint8_t> play{'p', 'l', 'a', 'y', 14, 0, 0x19, 0, 1, 2}; // looks like DirectPlay's own
+    CHECK(host.send(hostPlayer, guestPlayer, {1, 2, 3}, true) == Endpoint::Status::kOk);
+    CHECK(host.send(hostPlayer, 0, {4}, false) == Endpoint::Status::kOk);
+    CHECK(host.send(hostPlayer, guestPlayer, big, true) == Endpoint::Status::kOk);
+    CHECK(host.send(hostPlayer, guestPlayer, play, true) == Endpoint::Status::kOk);
+    CHECK(guest.send(guestPlayer, hostPlayer, {5, 6}, true) == Endpoint::Status::kOk);
+    CHECK(guest.send(guestPlayer, 0, {7}, false) == Endpoint::Status::kOk);
+    std::vector<Received> atGuest;
+    CHECK(waitFor([&] {
+        for (const Received &r : drain(guest))
+            atGuest.push_back(r);
+        return hasData(atGuest, hostPlayer, {1, 2, 3}) && hasData(atGuest, hostPlayer, {4}) &&
+               hasData(atGuest, hostPlayer, big) && hasData(atGuest, hostPlayer, play);
+    }));
+    CHECK(waitFor([&] {
+        for (const Received &r : drain(host))
+            atHost.push_back(r);
+        return hasData(atHost, guestPlayer, {5, 6}) && hasData(atHost, guestPlayer, {7});
+    }));
+    // The guaranteed ones in the order sent.
+    std::vector<size_t> order;
+    for (size_t i = 0; i < atGuest.size(); ++i)
+        if (!atGuest[i].event && atGuest[i].data != std::vector<uint8_t>{4})
+            order.push_back(atGuest[i].data.size());
+    CHECK((order == std::vector<size_t>{3, 3000, play.size()}));
+
+    // Ours alone can be destroyed; the host told.
+    CHECK(guest.destroy(hostPlayer) == Endpoint::Status::kInvalidMember);
+    CHECK(guest.destroy(guestPlayer) == Endpoint::Status::kOk);
+    CHECK(waitFor([&] {
+        for (const Received &r : drain(host))
+            atHost.push_back(r);
+        return has(atHost, Event::kDestroyed, guestPlayer);
+    }));
+
+    // A joiner of Reluva's own protocol is turned away from a session of
+    // the original's.
+    Endpoint ours(transport(47000));
+    ours.search(kAnyApplication, {});
+    CHECK(waitFor([&] { return !ours.found().empty(); }));
+    status = Endpoint::Status::kConnecting;
+    CHECK(waitFor([&] { return (status = ours.join(info.guid, "")) != Endpoint::Status::kConnecting; }));
+    CHECK(status == Endpoint::Status::kRefused);
+
+    // The joiner leaving: its players and itself gone at the host.
+    uint32_t again = 0;
+    CHECK(guest.create(player("Again"), again) == Endpoint::Status::kOk);
+    CHECK(waitFor([&] { return host.members().count(again) > 0; }));
+    guest.leave();
+    CHECK(waitFor([&] {
+        for (const Received &r : drain(host))
+            atHost.push_back(r);
+        return has(atHost, Event::kDestroyed, again);
+    }));
+    CHECK(host.members().size() == 1 && host.session());
+}
+
+// Asking with the wrong password, the original's way: turned down.
+void testOriginalPassword() {
+    std::shared_ptr<net::LoopbackNetwork> network = net::LoopbackNetwork::create();
+    auto transport = [&](uint16_t port) {
+        Transport t;
+        t.open = [network](uint16_t p) { return network->open(p); };
+        t.port = port;
+        t.tcp = net::systemSockets();
+        t.broadcast = {0x7f000001u};
+        return t;
+    };
+    Endpoint host(transport(47000));
+    Endpoint guest(transport(47001));
+    SessionInfo info;
+    info.application = kApplication;
+    info.password = "right";
+    info.flags = 0x400; // DPSESSION_PASSWORDREQUIRED
+    CHECK(host.host(info, 0) == Endpoint::Status::kOk);
+    CHECK(waitFor([&] {
+        guest.search(kAnyApplication, {});
+        return !guest.found().empty();
+    }));
+    Endpoint::Status status = Endpoint::Status::kConnecting;
+    CHECK(waitFor([&] { return (status = guest.join(info.guid, "wrong")) != Endpoint::Status::kConnecting; }));
+    CHECK(status == Endpoint::Status::kRefused);
+    CHECK(waitFor([&] {
+        guest.search(kAnyApplication, {});
+        return !guest.found().empty();
+    }));
+    CHECK(waitFor([&] { return (status = guest.join(info.guid, "right")) != Endpoint::Status::kConnecting; }));
+    CHECK(status == Endpoint::Status::kOk);
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -630,4 +796,7 @@ static const reluva::test::Suite
                {"new-host-meeting", [](const std::filesystem::path &) { testNewHostMeeting(); }},
                {"original-messages", [](const std::filesystem::path &) { testOriginalMessages(); }},
                {"original-on-tcp", [](const std::filesystem::path &) { testOriginalOnTcp(); }},
+               {"original-reliable", [](const std::filesystem::path &) { originalSession(0xa040); }},
+               {"original-plain", [](const std::filesystem::path &) { originalSession(0); }},
+               {"original-password", [](const std::filesystem::path &) { testOriginalPassword(); }},
            });

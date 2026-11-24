@@ -41,8 +41,9 @@ constexpr const char *kFont = "font";
 // Windows' colours: "98" (its standard scheme, of the game's time) or "xp"
 // (Windows XP's blue, as in a recording of the original).
 constexpr const char *kColours = "colours";
-// Whether searches also find the original program's games, on Windows
-// ("1" or "0"): found only, they can't be joined yet.
+// Whether searches also find the original program's games, on Windows,
+// and the original can join ours ("1" or "0"), by DirectPlay 4's own
+// protocol.
 constexpr const char *kFindOriginal = "find_original";
 // The season, whatever the date: "" (the date's), or one of the words the
 // game's command line takes ("Easter", "Desert", "Halloween", "Winter",
@@ -285,8 +286,8 @@ public:
                   {"XMas", "Christmas"}}},
                 {kFindOriginal,
                  "Find games of the original on Windows",
-                 "Also look for network games hosted by the original LEGO Loco, on Windows, and answer its\n"
-                 "searches, by DirectPlay's own protocol. They're listed, but can't be joined yet.",
+                 "Also find network games hosted by the original LEGO Loco, on Windows, and let it join\n"
+                 "yours, by DirectPlay's own protocol. Not yet tried against Windows itself.",
                  false,
                  {}},
                 {kMapPort,

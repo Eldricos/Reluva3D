@@ -3,6 +3,7 @@
 
 #include "emulation/x86/dplay_session.h"
 
+#include "emulation/x86/dplay4_reliable.h"
 #include "emulation/x86/dplay4_wire.h"
 
 #include <algorithm>
@@ -47,6 +48,11 @@ enum Message : uint8_t {
 
 // DPSESSION_MIGRATEHOST: when the host goes, another takes over.
 constexpr uint32_t kMigrateHost = 4;
+// DPSESSION_NOMESSAGEID: players' messages go without their ids.
+constexpr uint32_t kNoMessageId = 8;
+// DPSESSION_DIRECTPLAYPROTOCOL: everything between joined machines goes
+// by the reliable protocol ([MC-DPL4R]).
+constexpr uint32_t kReliableProtocol = 0x2000;
 
 constexpr size_t kPiece = 1024;           // a datagram's share of a long message, well inside any network's
 constexpr uint64_t kResendMs = 200;       // a piece not acknowledged by then goes again
@@ -323,6 +329,18 @@ Endpoint::Status Endpoint::host(SessionInfo &info, uint16_t port) {
     _idSeed = randomNumber();
     if (_transport.tcp && _socket->port() != dp4::kEnumPort && _transport.open)
         _originalEnum = _transport.open(dp4::kEnumPort);
+    // The original's joiners come to its TCP port, then talk over its UDP.
+    if (_transport.tcp) {
+        openOriginalListen();
+        openDatagramSocket();
+    }
+    _original = false;
+    _peers.clear();
+    _arriving.clear();
+    _reserved.clear();
+    _system = 0;
+    _hostSystem = 0;
+    _uniqueness = uint16_t(randomNumber());
     _publishedMs = 0;
     char guid[48];
     std::snprintf(guid, sizeof guid, "{%08x-5245-4c55-%04x-%04x%08x}", randomNumber(), randomNumber() & 0xffff,
@@ -358,8 +376,26 @@ Endpoint::Status Endpoint::join(const std::string &guid, const std::string &pass
     auto it = _found.find(guid);
     if (it == _found.end() || !_socket)
         return Status::kNoSession;
-    if (it->second.original)
-        return Status::kOriginal;
+    if (it->second.original) {
+        // Its host is asked for this machine's system player, then told
+        // where to find it ([MC-DPL4CS] 3.1.4.2).
+        if (!_transport.tcp || !openOriginalListen() || !openDatagramSocket())
+            return Status::kNoSocket;
+        closeLinks();
+        _session = it->second.info;
+        _members.clear();
+        _peers.clear();
+        _queue.clear();
+        _refused = false;
+        _original = true;
+        _role = Role::kJoining;
+        _hostStream = it->second.address;
+        _password = password;
+        _step = Step::kAskedId;
+        _stepMs = now();
+        streamTo(_hostStream, dp4::requestPlayerId(_originalPort, dp4::kSystemPlayer | dp4::kLocal));
+        return Status::kConnecting;
+    }
     if (!it->second.address.ip && it->second.listed && _meeting)
         it->second.address = _meeting->connect(it->second.listed);
     closeLinks();
@@ -397,6 +433,8 @@ void Endpoint::closeLinks() {
 
 void Endpoint::leave() {
     std::lock_guard<std::mutex> lock(_mutex);
+    if (_original || !_peers.empty())
+        leaveOriginal();
     if (_role == Role::kHost) {
         Writer w;
         w.u8(kLost);
@@ -447,9 +485,11 @@ std::optional<SessionInfo> Endpoint::session() {
 }
 
 Endpoint::Status Endpoint::create(const Member &member, uint32_t &id) {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::unique_lock<std::mutex> lock(_mutex);
     if (_role != Role::kHost && _role != Role::kJoined)
         return Status::kNotInSession;
+    if (_original || !_peers.empty())
+        return createOriginal(lock, member, id);
     // Unique without asking the host: the node's number above, a count below.
     id = (_node << 16) | (_nextId++ & 0xffff);
     Member m = member;
@@ -473,6 +513,15 @@ Endpoint::Status Endpoint::destroy(uint32_t id) {
         return Status::kNotInSession;
     if (!_members.count(id))
         return Status::kInvalidMember;
+    if (_original || !_peers.empty()) {
+        // Only its own: DirectPlay 4 has no way to destroy another's.
+        if (_members[id].node != _node)
+            return Status::kInvalidMember;
+        _members.erase(id);
+        for (auto &[system, peer] : _peers)
+            toPeer(peer, dp4::deletePlayer(_originalPort, id), true);
+        return Status::kOk;
+    }
     Writer w;
     w.u8(kDestroy);
     w.u32(id);
@@ -489,7 +538,7 @@ Endpoint::Status Endpoint::membership(uint32_t group, uint32_t player, bool add)
     if (_role != Role::kHost && _role != Role::kJoined)
         return Status::kNotInSession;
     auto g = _members.find(group);
-    if (g == _members.end() || !g->second.group || !_members.count(player))
+    if (g == _members.end() || !g->second.group || !_members.count(player) || _original || !_peers.empty())
         return Status::kInvalidMember;
     Writer w;
     w.u8(add ? kAdd : kRemove);
@@ -549,6 +598,46 @@ Endpoint::Status Endpoint::send(uint32_t from, uint32_t to, const std::vector<ui
         return Status::kNotInSession;
     if (to != 0 && !_members.count(to))
         return Status::kInvalidMember;
+    if (_original || !_peers.empty()) {
+        // Peer to peer: each player's machine sent to straight.
+        std::set<uint32_t> targets;
+        if (to == 0) {
+            for (const auto &[id, m] : _members)
+                if (!m.group)
+                    targets.insert(id);
+        } else if (_members[to].group) {
+            targets = _members[to].members;
+        } else {
+            targets.insert(to);
+        }
+        targets.erase(from);
+        const bool ids = !(_session.flags & kNoMessageId);
+        for (uint32_t t : targets) {
+            const uint32_t node = _members[t].node;
+            if (node == _node) {
+                _queue.push_back({from, t, data, std::nullopt});
+                continue;
+            }
+            auto peer = _peers.find(node);
+            if (peer == _peers.end())
+                continue;
+            if (peer->second.link) {
+                std::vector<uint8_t> payload = data;
+                // Data that starts as DirectPlay's own messages do goes wrapped.
+                if (dp4::isSystem(payload)) {
+                    payload = {'p', 'l', 'a', 'y', uint8_t(dp4::kDialect), 0, uint8_t(dp4::kPlayerWrapper), 0};
+                    payload.insert(payload.end(), data.begin(), data.end());
+                }
+                peer->second.link->send(payload, guaranteed, indexOf(from), indexOf(t));
+                flushLink(peer->second);
+            } else if (guaranteed) {
+                streamTo(peer->second.stream, dp4::playerMessage(_originalPort, from, t, data, ids));
+            } else if (_datagrams) {
+                _datagrams->send(peer->second.datagram, dp4::playerMessage(_originalPort, from, t, data, ids));
+            }
+        }
+        return Status::kOk;
+    }
     if (_role == Role::kHost) {
         deliver(from, to, data, guaranteed, 0);
         return Status::kOk;
@@ -836,7 +925,10 @@ void Endpoint::hostMessage(Link &link, const std::vector<uint8_t> &data) {
         const SessionInfo s = current();
         const bool full = s.maxPlayers && s.players >= s.maxPlayers;
         // DPSESSION_NEWPLAYERSDISABLED (1), DPSESSION_JOINDISABLED (0x20)
-        if (!r.ok || guid != _session.guid || (_session.flags & 0x21) || full || password != _session.password) {
+        // A session of the original's protocol takes no joiner of ours.
+        const bool original = !_peers.empty() || !_arriving.empty();
+        if (!r.ok || guid != _session.guid || (_session.flags & 0x21) || full || password != _session.password ||
+            original) {
             Writer w;
             w.u8(kRefuse);
             sendReliable(link, w.b);
@@ -1112,8 +1204,12 @@ void Endpoint::update() {
         datagram(from, data, true);
     for (int i = 0; _originalEnum && i < 1000 && _originalEnum->receive(from, data); ++i)
         originalDatagram(from, data);
-    if (_transport.tcp)
+    for (int i = 0; _datagrams && i < 1000 && _datagrams->receive(from, data); ++i)
+        originalDatagramFrom(from, data);
+    if (_transport.tcp) {
         originalWork();
+        originalUpdate();
+    }
     if (_meeting)
         meetingWork();
     const uint64_t t = now();
@@ -1171,25 +1267,13 @@ void Endpoint::update() {
 // DirectPlay 4's own search, beside ours: to its hosts' port, by UDP,
 // the answers to come to a TCP port of ours in its players' range.
 void Endpoint::searchOriginal(const std::string &application, const net::Address &where) {
-    net::Sockets &tcp = *_transport.tcp;
-    if (_originalListen < 0) {
-        _originalListen = tcp.open(net::Sockets::kStream);
-        for (uint16_t port = dp4::kFirstPort; _originalListen >= 0 && port <= dp4::kLastPort; ++port)
-            if (tcp.bind(_originalListen, {0, port}) == net::Sockets::kOk) {
-                _originalPort = port;
-                break;
-            }
-        if (!_originalPort || tcp.listen(_originalListen, 8) != net::Sockets::kOk) {
-            if (_originalListen >= 0)
-                tcp.close(_originalListen);
-            _originalListen = -1;
-            _originalPort = 0;
-            return;
-        }
-    }
+    if (!openOriginalListen())
+        return;
     dp4::EnumRequest request;
     request.application = application;
-    request.flags = 1; // DPENUMSESSIONS_AVAILABLE
+    // DPENUMSESSIONS_AVAILABLE, and DPENUMSESSIONS_PASSWORDREQUIRED: those
+    // needing a password are listed, as our own search lists them.
+    request.flags = 1 | 0x40;
     request.replyPort = _originalPort;
     const std::vector<uint8_t> message = dp4::enumSessions(request);
     if (where.ip)
@@ -1224,8 +1308,15 @@ bool Endpoint::originalDatagram(const net::Address &from, const std::vector<uint
     if (answer.socket < 0)
         return true;
     answer.peer = {request.replyIp ? request.replyIp : from.ip, request.replyPort};
-    answer.pending = dp4::enumSessionsReply(s, dp4::kEnumPort, _idSeed);
+    if (!openOriginalListen()) {
+        _transport.tcp->close(answer.socket);
+        return true;
+    }
+    // Its header says where the joiner then comes: our TCP port.
+    answer.pending = dp4::enumSessionsReply(s, _originalPort, _idSeed);
     answer.connecting = true;
+    answer.outgoing = true;
+    answer.closeWhenSent = true;
     answer.sinceMs = now();
     const net::Sockets::Result r = _transport.tcp->connect(answer.socket, answer.peer);
     if (r != net::Sockets::kOk && r != net::Sockets::kInProgress && r != net::Sockets::kWouldBlock) {
@@ -1236,9 +1327,10 @@ bool Endpoint::originalDatagram(const net::Address &from, const std::vector<uint
     return true;
 }
 
-// The connections of DirectPlay 4's: answers sent once connected, then
-// closed; the original's answers to our searches read, a session found
-// for each. One gone quiet a while is let go.
+// The connections of DirectPlay 4's: what's waiting sent once connected
+// (an answer to a search, then closed), and what comes in read: answers
+// to our searches found, the rest taken as the session's messages. One
+// gone quiet a while is let go, unless it's one of the session's.
 void Endpoint::originalWork() {
     constexpr uint64_t kStreamMs = 10000;
     net::Sockets &tcp = *_transport.tcp;
@@ -1254,9 +1346,11 @@ void Endpoint::originalWork() {
         }
     }
     const uint64_t t = now();
+    std::vector<std::pair<std::vector<uint8_t>, uint32_t>> messages;
     for (auto it = _streams.begin(); it != _streams.end();) {
         Stream &st = *it;
-        bool done = t - st.sinceMs > kStreamMs;
+        const bool kept = _original && !st.closeWhenSent;
+        bool done = !kept && t - st.sinceMs > kStreamMs;
         const net::Sockets::Ready ready = tcp.ready(st.socket);
         if (ready.failed)
             done = true;
@@ -1269,7 +1363,7 @@ void Endpoint::originalWork() {
                 st.pending.erase(st.pending.begin(), st.pending.begin() + long(sent));
             else if (r != net::Sockets::kWouldBlock)
                 done = true;
-            if (st.pending.empty())
+            if (st.pending.empty() && st.closeWhenSent)
                 done = true; // an answer is all there is to say
         }
         if (!done && ready.read) {
@@ -1282,23 +1376,11 @@ void Endpoint::originalWork() {
                 st.received.insert(st.received.end(), buffer, buffer + got);
             else if (r != net::Sockets::kWouldBlock)
                 done = true;
+            st.sinceMs = t;
         }
         for (int length = dp4::messageLength(st.received); length > 0; length = dp4::messageLength(st.received)) {
-            const std::vector<uint8_t> message(st.received.begin(), st.received.begin() + length);
+            messages.emplace_back(std::vector<uint8_t>(st.received.begin(), st.received.begin() + length), st.peer.ip);
             st.received.erase(st.received.begin(), st.received.begin() + length);
-            SessionInfo found;
-            // A Reluva host answers both ways: its own answer is the one to join by.
-            const bool read = dp4::readEnumSessionsReply(message, found);
-            const auto known = _found.find(found.guid);
-            const bool ours = known != _found.end() && !known->second.original;
-            if (read && !ours) {
-                Found &f = _found[found.guid];
-                f.info = found;
-                f.address = {st.peer.ip, dp4::kEnumPort};
-                f.heardMs = t;
-                f.original = true;
-                ++_answers;
-            }
         }
         if (dp4::messageLength(st.received) < 0)
             done = true;
@@ -1309,6 +1391,629 @@ void Endpoint::originalWork() {
             ++it;
         }
     }
+    // Taken once the streams are gone through, as what they do may add one.
+    for (const auto &[message, ip] : messages) {
+        SessionInfo found;
+        if (dp4::readEnumSessionsReply(message, found)) {
+            // A Reluva host answers both ways: its own answer is the one to join by.
+            const auto known = _found.find(found.guid);
+            const bool ours = known != _found.end() && !known->second.original;
+            if (!ours) {
+                Found &f = _found[found.guid];
+                f.info = found;
+                f.address = {ip, dp4::senderPort(message)};
+                f.heardMs = t;
+                f.original = true;
+                ++_answers;
+            }
+            continue;
+        }
+        Peer *peer = nullptr;
+        for (auto &[system, p] : _peers)
+            if (p.stream.ip == ip && p.stream.port == dp4::senderPort(message))
+                peer = &p;
+        if (peer)
+            peer->heardMs = t;
+        if (dp4::isSystem(message) && dp4::command(message) != dp4::kPlayerWrapper) {
+            originalMessage(message, ip, peer);
+            continue;
+        }
+        uint32_t from = 0;
+        uint32_t to = 0;
+        std::vector<uint8_t> bytes;
+        if (_original && dp4::readPlayerMessage(message, !(_session.flags & kNoMessageId), from, to, bytes))
+            _queue.push_back({from, to, bytes, std::nullopt});
+    }
+}
+
+bool Endpoint::openOriginalListen() {
+    if (_originalListen >= 0)
+        return true;
+    if (!_transport.tcp)
+        return false;
+    net::Sockets &tcp = *_transport.tcp;
+    _originalListen = tcp.open(net::Sockets::kStream);
+    for (uint16_t port = dp4::kFirstPort; _originalListen >= 0 && port <= dp4::kLastPort; ++port)
+        if (tcp.bind(_originalListen, {0, port}) == net::Sockets::kOk) {
+            _originalPort = port;
+            break;
+        }
+    if (!_originalPort || tcp.listen(_originalListen, 8) != net::Sockets::kOk) {
+        if (_originalListen >= 0)
+            tcp.close(_originalListen);
+        _originalListen = -1;
+        _originalPort = 0;
+        return false;
+    }
+    return true;
+}
+
+// The machine's UDP, in the range DirectPlay 4's players use
+// ([MC-DPL4CS] 2.1).
+bool Endpoint::openDatagramSocket() {
+    for (uint16_t port = dp4::kFirstPort; !_datagrams && _transport.open && port <= dp4::kLastPort; ++port)
+        _datagrams = _transport.open(port);
+    return _datagrams != nullptr;
+}
+
+// DirectPlay's Winsock provider sends on a connection of its own to the
+// other's TCP port, kept for what follows.
+void Endpoint::streamTo(const net::Address &to, const std::vector<uint8_t> &message) {
+    for (Stream &st : _streams)
+        if (st.outgoing && !st.closeWhenSent && st.peer == to) {
+            st.pending.insert(st.pending.end(), message.begin(), message.end());
+            return;
+        }
+    Stream st;
+    st.socket = _transport.tcp->open(net::Sockets::kStream);
+    if (st.socket < 0)
+        return;
+    st.peer = to;
+    st.outgoing = true;
+    st.connecting = true;
+    st.sinceMs = now();
+    st.pending = message;
+    _transport.tcp->setOption(st.socket, net::Sockets::kNoDelay, 1);
+    const net::Sockets::Result r = _transport.tcp->connect(st.socket, to);
+    if (r != net::Sockets::kOk && r != net::Sockets::kInProgress && r != net::Sockets::kWouldBlock) {
+        _transport.tcp->close(st.socket);
+        return;
+    }
+    _streams.push_back(std::move(st));
+}
+
+// What's waiting goes now, as far as the connections take it, for a
+// machine about to close them.
+void Endpoint::flushStreams() {
+    for (int tries = 0; tries < 50; ++tries) {
+        bool waiting = false;
+        for (Stream &st : _streams) {
+            if (st.pending.empty())
+                continue;
+            const net::Sockets::Ready ready = _transport.tcp->ready(st.socket, tries ? 10 : 0);
+            if (ready.failed)
+                continue;
+            if (st.connecting && ready.write)
+                st.connecting = false;
+            waiting = true;
+            if (st.connecting)
+                continue;
+            size_t sent = 0;
+            if (_transport.tcp->send(st.socket, st.pending.data(), st.pending.size(), sent) == net::Sockets::kOk)
+                st.pending.erase(st.pending.begin(), st.pending.begin() + long(sent));
+        }
+        if (!waiting)
+            return;
+    }
+}
+
+uint16_t Endpoint::indexOf(uint32_t id) const {
+    return uint16_t((id ^ _idSeed) & 0xffff);
+}
+
+uint32_t Endpoint::idAt(uint16_t index) const {
+    if (indexOf(_system) == index)
+        return _system;
+    for (const auto &[id, m] : _members)
+        if (indexOf(id) == index)
+            return id;
+    for (const auto &[system, peer] : _peers)
+        if (indexOf(system) == index)
+            return system;
+    return 0;
+}
+
+// A new id, as a DirectPlay 4 host makes them: an index no other id has
+// below, a count above, the whole masked with the session's seed
+// ([MC-DPL4CS] 3.2.5.4).
+uint32_t Endpoint::newId() {
+    std::set<uint16_t> used{indexOf(_system)};
+    for (const auto &[id, m] : _members)
+        used.insert(indexOf(id));
+    for (const auto &[system, peer] : _peers)
+        used.insert(indexOf(system));
+    for (uint32_t id : _reserved)
+        used.insert(indexOf(id));
+    uint16_t index = 0;
+    while (used.count(index) && index < 0xffff)
+        ++index;
+    return (uint32_t(++_uniqueness) << 16 | index) ^ _idSeed;
+}
+
+// A member's machine as DirectPlay 4 names it: its system player. A
+// host's own members are its node's.
+uint32_t Endpoint::systemOf(uint32_t node) const {
+    return node == _node ? _system : node;
+}
+
+dp4::Player Endpoint::record(uint32_t id, const Member &member) const {
+    dp4::Player p;
+    p.id = id;
+    p.shortName = member.shortName;
+    p.longName = member.longName;
+    p.data = member.data;
+    p.systemPlayer = systemOf(member.node);
+    if (member.group)
+        p.players.assign(member.members.begin(), member.members.end());
+    return p;
+}
+
+// This machine's system player: its addresses 0.0.0.0, the others taking
+// the one it's heard from ([MC-DPL4CS] 2.2.2).
+dp4::Player Endpoint::ourSystem(bool nameServer) const {
+    dp4::Player p;
+    p.id = _system;
+    p.systemPlayer = _system;
+    p.flags = dp4::kSystemPlayer | dp4::kLocal | (nameServer ? uint32_t(dp4::kNameServer) : 0u);
+    p.addresses = true;
+    p.stream = {0, _originalPort};
+    p.datagram = {0, _datagrams ? _datagrams->port() : uint16_t(0)};
+    return p;
+}
+
+Endpoint::Peer *Endpoint::peerAt(const net::Address &datagram) {
+    for (auto &[system, peer] : _peers)
+        if (peer.datagram == datagram)
+            return &peer;
+    return nullptr;
+}
+
+// A machine joined to the session; its addresses' 0.0.0.0 is the one it
+// was heard from.
+Endpoint::Peer &Endpoint::addPeer(const dp4::Player &system, uint32_t fromIp, uint16_t streamPort) {
+    Peer &peer = _peers[system.id];
+    peer.system = system.id;
+    peer.stream = {system.stream.ip ? system.stream.ip : fromIp, streamPort ? streamPort : system.stream.port};
+    peer.datagram = {system.datagram.ip ? system.datagram.ip : fromIp, system.datagram.port};
+    peer.heardMs = now();
+    if ((_session.flags & kReliableProtocol) && !peer.link)
+        peer.link = std::make_shared<dp4::ReliableLink>([this] { return now(); });
+    return peer;
+}
+
+// A machine gone: its players with it. The host gone, the session is
+// lost: DirectPlay 4's way of another taking over isn't followed.
+void Endpoint::dropPeer(uint32_t system) {
+    std::vector<uint32_t> ids;
+    for (const auto &[id, m] : _members)
+        if (m.node == system)
+            ids.push_back(id);
+    for (uint32_t id : ids) {
+        Writer w;
+        w.u8(kDestroy);
+        w.u32(id);
+        apply(w.b, true);
+    }
+    _peers.erase(system);
+    _arriving.erase(system);
+    for (auto &[joining, arriving] : _arriving)
+        arriving.awaiting.erase(system);
+    if (system == _hostSystem && _role != Role::kHost && _role != Role::kNone)
+        lost();
+}
+
+// Between joined machines, by the reliable protocol where the session
+// uses it (without the header's size and address), else guaranteed by
+// TCP and the rest by UDP.
+void Endpoint::toPeer(Peer &peer, const std::vector<uint8_t> &message, bool guaranteed) {
+    if (peer.link) {
+        peer.link->send(dp4::bare(message), guaranteed, indexOf(_system), indexOf(peer.system));
+        flushLink(peer);
+    } else if (guaranteed || !_datagrams) {
+        streamTo(peer.stream, message);
+    } else {
+        _datagrams->send(peer.datagram, message);
+    }
+}
+
+void Endpoint::flushLink(Peer &peer) {
+    for (const std::vector<uint8_t> &frame : peer.link->takeFrames())
+        if (_datagrams)
+            _datagrams->send(peer.datagram, frame);
+}
+
+void Endpoint::originalDatagramFrom(const net::Address &from, const std::vector<uint8_t> &data) {
+    Peer *peer = peerAt(from);
+    if (peer)
+        peer->heardMs = now();
+    if (peer && peer->link) {
+        peer->link->receive(data);
+        const uint32_t system = peer->system;
+        flushLink(*peer);
+        while (true) {
+            auto it = _peers.find(system);
+            if (it == _peers.end())
+                break;
+            auto delivered = it->second.link->take();
+            if (!delivered)
+                break;
+            originalDelivered(it->second, delivered->from, delivered->to, delivered->data);
+        }
+        return;
+    }
+    if (dp4::isSystem(data) && dp4::command(data) != dp4::kPlayerWrapper) {
+        originalMessage(data, from.ip, peer);
+        return;
+    }
+    uint32_t sender = 0;
+    uint32_t to = 0;
+    std::vector<uint8_t> bytes;
+    if (dp4::readPlayerMessage(data, !(_session.flags & kNoMessageId), sender, to, bytes))
+        _queue.push_back({sender, to, bytes, std::nullopt});
+}
+
+// A message the reliable protocol has brought whole: one of DirectPlay's,
+// or a player's, its players' indexes in the frames.
+void Endpoint::originalDelivered(Peer &peer, uint16_t from, uint16_t to, const std::vector<uint8_t> &data) {
+    if (dp4::isSystem(data)) {
+        if (dp4::command(data) != dp4::kPlayerWrapper) {
+            originalMessage(data, peer.datagram.ip, &peer);
+            return;
+        }
+        _queue.push_back({idAt(from), idAt(to), {data.begin() + 8, data.end()}, std::nullopt});
+        return;
+    }
+    _queue.push_back({idAt(from), idAt(to), data, std::nullopt});
+}
+
+// DirectPlay 4's messages, whichever way they came, `peer` the machine
+// they're from when it's known.
+void Endpoint::originalMessage(const std::vector<uint8_t> &message, uint32_t fromIp, Peer *peer) {
+    const std::optional<uint16_t> command = dp4::command(message);
+    if (!command)
+        return;
+    const net::Address replyTo{fromIp, dp4::senderPort(message)};
+    const auto reply = [&](const std::vector<uint8_t> &answer) {
+        if (peer)
+            toPeer(*peer, answer, true);
+        else
+            streamTo(replyTo, answer);
+    };
+    switch (*command) {
+    case dp4::kRequestPlayerId: {
+        uint32_t flags = 0;
+        if (_role != Role::kHost || !dp4::readRequestPlayerId(message, flags))
+            return;
+        const SessionInfo s = current();
+        const bool full = s.maxPlayers && s.players >= s.maxPlayers;
+        // DPSESSION_NEWPLAYERSDISABLED (1); joining, DPSESSION_JOINDISABLED
+        // (0x20) too, and a session of Reluva's own joiners.
+        const bool system = flags & dp4::kSystemPlayer;
+        const bool closed = (s.flags & 1) || (system && ((s.flags & 0x20) || !_links.empty()));
+        if (full || closed) {
+            reply(dp4::requestPlayerReply(_originalPort, 0, dp4::kNoNewPlayers));
+            return;
+        }
+        if (!_system) // the host's own, when the first machine comes
+            _system = newId();
+        const uint32_t id = newId();
+        if (system)
+            _reserved.insert(id);
+        reply(dp4::requestPlayerReply(_originalPort, id, 0));
+        return;
+    }
+    case dp4::kRequestPlayerReply: {
+        uint32_t id = 0;
+        uint32_t result = 0;
+        if (!dp4::readRequestPlayerReply(message, id, result))
+            return;
+        if (_role == Role::kJoining && _step == Step::kAskedId) {
+            if (result || !id) {
+                _refused = true;
+                _role = Role::kNone;
+                _step = Step::kNone;
+                return;
+            }
+            _system = id;
+            _node = id;
+            _step = Step::kForwarded;
+            _stepMs = now();
+            streamTo(_hostStream,
+                     dp4::addForwardRequest(_originalPort, 0, ourSystem(false), _password, uint32_t(now())));
+        } else if (_asking) {
+            _granted = result ? 0 : id;
+            _asking = false;
+        }
+        return;
+    }
+    case dp4::kAddForwardRequest: {
+        dp4::Player system;
+        std::string password;
+        if (_role != Role::kHost || !dp4::readAddForwardRequest(message, system, password) ||
+            !_reserved.count(system.id))
+            return;
+        _reserved.erase(system.id);
+        if (password != _session.password) {
+            streamTo(replyTo, dp4::addForwardReply(_originalPort, dp4::kNoNewPlayers));
+            return;
+        }
+        // The others told of it, its answer once they've all said they
+        // have ([MC-DPL4CS] 3.2.5.5).
+        Arriving arriving;
+        arriving.stream = replyTo;
+        arriving.sinceMs = now();
+        for (auto &[other, p] : _peers)
+            arriving.awaiting.insert(other);
+        Peer &added = addPeer(system, fromIp, replyTo.port);
+        dp4::Player told = system;
+        told.flags &= ~uint32_t(dp4::kLocal);
+        told.addresses = true;
+        told.stream = added.stream;
+        told.datagram = added.datagram;
+        for (uint32_t other : arriving.awaiting)
+            toPeer(_peers[other], dp4::addForward(_originalPort, other, told), true);
+        _arriving[system.id] = arriving;
+        if (arriving.awaiting.empty())
+            welcome(system.id);
+        return;
+    }
+    case dp4::kAddForward: {
+        dp4::Player system;
+        if (!dp4::readAddForward(message, system) || system.id == _system)
+            return;
+        addPeer(system, fromIp, 0);
+        if (auto host = _peers.find(_hostSystem); host != _peers.end())
+            toPeer(host->second, dp4::addForwardAck(_originalPort, system.id), true);
+        return;
+    }
+    case dp4::kAddForwardAck: {
+        uint32_t id = 0;
+        if (!dp4::readAddForwardAck(message, id) || !peer)
+            return;
+        auto it = _arriving.find(id);
+        if (it == _arriving.end())
+            return;
+        it->second.awaiting.erase(peer->system);
+        if (it->second.awaiting.empty())
+            welcome(id);
+        return;
+    }
+    case dp4::kAddForwardReply:
+        if (_role == Role::kJoining) {
+            _refused = true;
+            _role = Role::kNone;
+            _step = Step::kNone;
+        }
+        return;
+    case dp4::kSuperEnumPlayersReply: {
+        SessionInfo session;
+        uint32_t seed = 0;
+        std::vector<dp4::Player> players;
+        if (_role != Role::kJoining || _step != Step::kForwarded ||
+            !dp4::readSuperEnumPlayersReply(message, session, seed, players))
+            return;
+        _idSeed = seed;
+        _session.flags = session.flags;
+        _session.maxPlayers = session.maxPlayers;
+        _session.name = session.name;
+        _session.user = session.user;
+        _members.clear();
+        _peers.clear();
+        for (const dp4::Player &p : players) {
+            if (p.flags & dp4::kSystemPlayer) {
+                if (p.flags & dp4::kNameServer)
+                    _hostSystem = p.id;
+                if (p.id == _system)
+                    continue;
+                // The host's own addresses may be 0.0.0.0: it's where this came from.
+                addPeer(p, fromIp, 0);
+                continue;
+            }
+            Member m;
+            m.group = !p.players.empty();
+            m.shortName = p.shortName;
+            m.longName = p.longName;
+            m.data = p.data;
+            m.members.insert(p.players.begin(), p.players.end());
+            m.node = p.systemPlayer;
+            _members[p.id] = m;
+        }
+        _step = Step::kNone;
+        _nextId = 1;
+        _role = Role::kJoined;
+        return;
+    }
+    case dp4::kCreatePlayer:
+    case dp4::kCreatePlayerVerify: {
+        dp4::Player p;
+        if (!dp4::readCreatePlayer(message, p) || (p.flags & dp4::kSystemPlayer) || _members.count(p.id))
+            return;
+        Writer w;
+        w.u8(kCreate);
+        w.u32(p.id);
+        Member m;
+        m.shortName = p.shortName;
+        m.longName = p.longName;
+        m.data = p.data;
+        m.node = p.systemPlayer;
+        w.member(m);
+        apply(w.b, true);
+        return;
+    }
+    case dp4::kDeletePlayer: {
+        uint32_t id = 0;
+        if (!dp4::readDeletePlayer(message, id))
+            return;
+        if (_peers.count(id)) {
+            dropPeer(id);
+            return;
+        }
+        Writer w;
+        w.u8(kDestroy);
+        w.u32(id);
+        apply(w.b, true);
+        return;
+    }
+    case dp4::kPing: {
+        uint32_t from = 0;
+        uint32_t tick = 0;
+        if (peer && dp4::readPing(message, from, tick))
+            toPeer(*peer, dp4::ping(_originalPort, from, tick, true), false);
+        return;
+    }
+    case dp4::kYouAreDead:
+        if (_role == Role::kJoined)
+            lost();
+        return;
+    default:
+        return;
+    }
+}
+
+// The machine joining is sent the session as it is now: its system
+// players, this one's as the name server, and every player and group.
+void Endpoint::welcome(uint32_t system) {
+    auto it = _arriving.find(system);
+    if (it == _arriving.end())
+        return;
+    const net::Address to = it->second.stream;
+    _arriving.erase(it);
+    std::vector<dp4::Player> players{ourSystem(true)};
+    for (const auto &[other, peer] : _peers) {
+        dp4::Player p;
+        p.id = other;
+        p.systemPlayer = other;
+        p.flags = dp4::kSystemPlayer;
+        p.addresses = true;
+        p.stream = peer.stream;
+        p.datagram = peer.datagram;
+        players.push_back(p);
+    }
+    for (const auto &[id, m] : _members)
+        players.push_back(record(id, m));
+    SessionInfo s = current();
+    s.password = _session.password;
+    streamTo(to, dp4::superEnumPlayersReply(_originalPort, s, _idSeed, players));
+    _original = true;
+}
+
+// A wait for the host's answer, with the lock let go so the answer can
+// come in: by the endpoint's own thread, or, without one, by updating
+// here. DirectPlay waits 5 seconds ([MC-DPL4CS] 3.1.2.2).
+void Endpoint::originalWait(std::unique_lock<std::mutex> &lock, const std::function<bool()> &done) {
+    const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (!done() && std::chrono::steady_clock::now() < until) {
+        lock.unlock();
+        if (_transport.thread)
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        else
+            update();
+        lock.lock();
+    }
+}
+
+// A player made in a session of DirectPlay 4's: its id the host's to
+// give, then every machine told ([MC-DPL4CS] 3.1.4.4, 3.1.5.1). Groups
+// aren't carried.
+Endpoint::Status Endpoint::createOriginal(std::unique_lock<std::mutex> &lock, const Member &member, uint32_t &id) {
+    if (member.group)
+        return Status::kInvalidMember;
+    if (_role == Role::kHost) {
+        if (!_system)
+            _system = newId();
+        id = newId();
+    } else {
+        auto host = _peers.find(_hostSystem);
+        if (host == _peers.end())
+            return Status::kNotInSession;
+        _granted.reset();
+        _asking = true;
+        toPeer(host->second, dp4::requestPlayerId(_originalPort, 0), true);
+        originalWait(lock, [this] { return _granted.has_value() || _role != Role::kJoined; });
+        _asking = false;
+        if (!_granted || !*_granted)
+            return Status::kRefused;
+        id = *_granted;
+    }
+    Member m = member;
+    m.node = _node;
+    m.members.clear();
+    _members[id] = m;
+    for (auto &[system, peer] : _peers)
+        toPeer(peer, dp4::createPlayer(_originalPort, record(id, m)), true);
+    return Status::kOk;
+}
+
+// Its players and its system player deleted on every machine, so they
+// needn't wait for it to go quiet.
+void Endpoint::leaveOriginal() {
+    std::vector<uint32_t> ours;
+    for (const auto &[id, m] : _members)
+        if (m.node == _node)
+            ours.push_back(id);
+    if (_system)
+        ours.push_back(_system);
+    for (auto &[system, peer] : _peers)
+        for (uint32_t id : ours)
+            toPeer(peer, dp4::deletePlayer(_originalPort, id), true);
+    if (_transport.tcp)
+        flushStreams();
+    _peers.clear();
+    _arriving.clear();
+    _reserved.clear();
+    _original = false;
+    _step = Step::kNone;
+    _system = 0;
+    _hostSystem = 0;
+    for (Stream &st : _streams)
+        if (!st.closeWhenSent)
+            _transport.tcp->close(st.socket);
+    _streams.erase(std::remove_if(_streams.begin(), _streams.end(), [](const Stream &st) { return !st.closeWhenSent; }),
+                   _streams.end());
+}
+
+// Each machine's link kept going, the quiet ones pinged, the silent ones
+// let go; a join that gets no answer given up.
+void Endpoint::originalUpdate() {
+    constexpr uint64_t kPingMs = 2000;
+    constexpr uint64_t kPopulateMs = 15000; // the host's wait for the others to be told ([MC-DPL4CS] 3.2.2.1)
+    const uint64_t t = now();
+    if (_step != Step::kNone && t - _stepMs > _transport.timeoutMs) {
+        _refused = true;
+        _role = Role::kNone;
+        _step = Step::kNone;
+    }
+    std::vector<uint32_t> late;
+    for (const auto &[system, arriving] : _arriving)
+        if (t - arriving.sinceMs > kPopulateMs)
+            late.push_back(system);
+    for (uint32_t system : late)
+        welcome(system);
+    std::vector<uint32_t> gone;
+    for (auto &[system, peer] : _peers) {
+        if (peer.link) {
+            peer.link->update();
+            flushLink(peer);
+        }
+        if (t - peer.heardMs > _transport.timeoutMs) {
+            gone.push_back(system);
+        } else if (t - peer.heardMs >= kPingMs && t - peer.pingedMs >= kPingMs) {
+            toPeer(peer, dp4::ping(_originalPort, _system, uint32_t(t), false), false);
+            peer.pingedMs = t;
+        }
+    }
+    for (uint32_t system : gone)
+        dropPeer(system);
 }
 
 void Endpoint::closeOriginal() {
@@ -1322,6 +2027,7 @@ void Endpoint::closeOriginal() {
     _originalListen = -1;
     _originalPort = 0;
     _originalEnum.reset();
+    _datagrams.reset();
 }
 
 } // namespace reluva::x86::dplay

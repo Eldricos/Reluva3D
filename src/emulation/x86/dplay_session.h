@@ -25,6 +25,11 @@
 #include <thread>
 #include <vector>
 
+namespace reluva::x86::dp4 {
+class ReliableLink;
+struct Player;
+} // namespace reluva::x86::dp4
+
 namespace reluva::x86::dplay {
 
 /** A session as EnumSessions shows it: DPSESSIONDESC2's fields. */
@@ -98,11 +103,11 @@ struct Transport {
     std::function<std::shared_ptr<void>(uint16_t port)> mapPort;
     /**
      * The system's TCP, for DirectPlay 4's own protocol ([MC-DPL4CS],
-     * dplay4_wire.h): a search also asks for the original program's games
-     * (DirectPlay on Windows), their answers coming over TCP, and a host
-     * answers the original's searches. Only finding games: none of the
-     * original's can be joined, nor ours by it. None, Reluva's own
-     * protocol only.
+     * [MC-DPL4R]; dplay4_wire.h, dplay4_reliable.h): a search also asks
+     * for the original program's games (DirectPlay on Windows), which can
+     * be joined, and a host answers the original's searches and takes it
+     * in. A session is of one protocol or the other, never both. None,
+     * Reluva's own protocol only.
      */
     std::shared_ptr<net::Sockets> tcp;
 };
@@ -124,7 +129,6 @@ public:
         kNotInSession,
         kInvalidMember,
         kNoSocket,
-        kOriginal, ///< joining: a game of the original program's, which can't be joined yet
     };
 
     /** On `transport`; in no session until it hosts or joins one. */
@@ -200,16 +204,37 @@ private:
         uint32_t listed = 0;   // its id at the meeting server, if it's there
         bool original = false; // the original program's, found by DirectPlay 4's own protocol
     };
-    // A TCP connection of DirectPlay 4's: an answer to the original's
-    // search going out, or the original's answers to ours coming in.
+    // A TCP connection of DirectPlay 4's: one to another machine's port,
+    // or one it made to ours. An answer to a search is closed once sent.
     struct Stream {
         int socket = -1;
         net::Address peer;
         std::vector<uint8_t> pending; // to send, once connected
         std::vector<uint8_t> received;
         bool connecting = false;
+        bool outgoing = false;
+        bool closeWhenSent = false;
         uint64_t sinceMs = 0;
     };
+    // Another machine in a session of DirectPlay 4's protocol: its system
+    // player, where it takes TCP and UDP, and the reliable protocol's link
+    // to it when the session uses that.
+    struct Peer {
+        uint32_t system = 0;
+        net::Address stream;
+        net::Address datagram;
+        std::shared_ptr<dp4::ReliableLink> link;
+        uint64_t heardMs = 0;
+        uint64_t pingedMs = 0;
+    };
+    // At a host, a machine joining by DirectPlay 4: where its answer goes,
+    // and the others still to say they've been told of it.
+    struct Arriving {
+        net::Address stream;
+        std::set<uint32_t> awaiting;
+        uint64_t sinceMs = 0;
+    };
+    enum class Step { kNone, kAskedId, kForwarded };
     enum class Role { kNone, kHost, kJoining, kJoined, kLost };
 
     uint64_t now() const;
@@ -235,6 +260,29 @@ private:
     bool originalDatagram(const net::Address &from, const std::vector<uint8_t> &data);
     void originalWork();
     void closeOriginal();
+    bool openOriginalListen();
+    bool openDatagramSocket();
+    void streamTo(const net::Address &to, const std::vector<uint8_t> &message);
+    void flushStreams();
+    void originalMessage(const std::vector<uint8_t> &message, uint32_t fromIp, Peer *peer);
+    void originalDatagramFrom(const net::Address &from, const std::vector<uint8_t> &data);
+    void originalDelivered(Peer &peer, uint16_t from, uint16_t to, const std::vector<uint8_t> &data);
+    Peer *peerAt(const net::Address &datagram);
+    Peer &addPeer(const dp4::Player &system, uint32_t fromIp, uint16_t streamPort);
+    void dropPeer(uint32_t system);
+    void toPeer(Peer &peer, const std::vector<uint8_t> &message, bool guaranteed);
+    void flushLink(Peer &peer);
+    uint16_t indexOf(uint32_t id) const;
+    uint32_t idAt(uint16_t index) const;
+    uint32_t newId();
+    uint32_t systemOf(uint32_t node) const;
+    dp4::Player record(uint32_t id, const Member &member) const;
+    dp4::Player ourSystem(bool nameServer) const;
+    void welcome(uint32_t system);
+    void originalWait(std::unique_lock<std::mutex> &lock, const std::function<bool()> &done);
+    Status createOriginal(std::unique_lock<std::mutex> &lock, const Member &member, uint32_t &id);
+    void leaveOriginal();
+    void originalUpdate();
     void closeLinks();
     SessionInfo current() const;
 
@@ -253,6 +301,23 @@ private:
     std::unique_ptr<net::UdpSocket> _originalEnum;
     std::vector<Stream> _streams;
     uint32_t _idSeed = 0;
+    // A session of DirectPlay 4's protocol: its machines by their system
+    // players, this one's system player and the host's, the UDP socket
+    // they're reached on, and, joining, how far it's got.
+    bool _original = false;
+    std::map<uint32_t, Peer> _peers;
+    uint32_t _system = 0;
+    uint32_t _hostSystem = 0;
+    std::unique_ptr<net::UdpSocket> _datagrams;
+    Step _step = Step::kNone;
+    uint64_t _stepMs = 0;
+    net::Address _hostStream;
+    std::string _password;
+    std::map<uint32_t, Arriving> _arriving;
+    std::set<uint32_t> _reserved;     // a host's ids given out for machines still joining
+    std::optional<uint32_t> _granted; // a player's id the host has given; 0 when it refused
+    bool _asking = false;
+    uint16_t _uniqueness = 0;
     std::shared_ptr<void> _mapping; // the router's port, while hosting
     uint64_t _publishedMs = 0;      // when a host last published, or a seeker last asked for the list
     uint64_t _listHeardMs = 0;

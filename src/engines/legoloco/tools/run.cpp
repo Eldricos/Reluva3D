@@ -354,8 +354,9 @@ struct Copy {
 // seconds (a program waiting for messages runs no instructions);
 // -nomovies ends each movie as it starts; -nobroadcast (over UDP) searches
 // only at the address typed into the game; -original (over UDP) also finds
-// the original program's games, by DirectPlay 4's own protocol; -deterministic n gives the
-// program a clock of n instructions a millisecond.
+// the original program's games and lets it join, by DirectPlay 4's own
+// protocol; -deterministic n gives the program a clock of n instructions
+// a millisecond.
 struct Common {
     uint64_t limit = 2000;
     uint32_t seconds = 0;
