@@ -81,7 +81,8 @@ Reluva reads them so *(guessed)*: a park draws as many visitors as its
 points pay for, at `PointsPerVisitor` a visitor and never fewer than
 `MinPeople`, its points `FixedRate` and `NewParkBonus` and each of its
 attractions' `Info.AttractionValue` (rides 25 by their kind's settings,
-the robot 15, features 10); while it has fewer, one comes every
+the robot 15, features 10), scaled by the weather
+([weather.md](weather.md)); while it has fewer, one comes every
 `TimeBetweenArrivals` seconds. Land of Invention's new park, with the
 prebuilt park's attractions, has 330 points and draws 13. The
 recording's first visitor paid by 2:32, under a minute in; it had 6 at

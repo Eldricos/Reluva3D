@@ -106,10 +106,14 @@ private:
     /** A visitor seen on a ride, and where their feet are, in the world's units. */
     struct Rider {
         int id = 0;
-        gfx::Vec3 feet{};
+        gfx::Vec3 at{}; // a seated rider's head; a bouncer's feet
+        bool seated = false;
+        float headingX = 0; // the way a seated rider faces, along the ground
+        float headingZ = 1;
     };
     std::vector<Rider> riders(const Park &park) const;
-    void drawVisitors(Surface &screen, const soft3d::OrbitCamera &eye, const Park &park, float yaw) const;
+    void drawVisitors(Surface &screen, const soft3d::OrbitCamera &eye, const Park &park, const Camera &camera) const;
+    void drawWeather(Surface &screen, const Park &park) const;
     void drawPaths(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const Park &park) const;
     void drawObjects(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const Park &park) const;
     void drawPlacement(Surface &screen, const soft3d::OrbitCamera &eye) const;
@@ -147,7 +151,17 @@ private:
     std::optional<Park::Queue> _queuePreview;
     std::map<int, LoadedModel> _queueModels; // by Park::QueueModel, those read
     bool _furnitureRead = false;
-    std::array<std::vector<LoadedSprite>, 3> _visitorLooks; // each generation's sprites, those read
+    std::array<std::optional<LoadedSprite>, Park::kPeople> _personLooks; // by Park::Visitor::person, those read
+    std::array<std::optional<LoadedSprite>, Park::kPeople> _personHeads; // their heads alone, for riders
+    std::array<float, Park::kPeople> _umbrellaHeights{};
+    std::optional<LoadedSprite> _litterSprite;
+    std::optional<LoadedSprite> _thoughtSprite;
+    std::optional<LoadedSprite> _moreThoughtSprite;
+    std::optional<LoadedSprite> _umbrellaSprite;
+    std::optional<LoadedSprite> _balloonSprite;
+    std::optional<LoadedSprite> _particleSprite;
+    image::Image _snow;      // four flakes, a quarter each
+    image::Image _lightning; // a bolt, top to bottom
 };
 
 /** Shows the mission's briefing over a background it's given a way to draw. */

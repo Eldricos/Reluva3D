@@ -22,7 +22,17 @@ that fit them.
 Each visitor is a child, a parent or a grandparent by the settings'
 shares (`PeepInfo.PercentageOfKids` 70, `OfParents` 20,
 `OfGrandparents` 10), and one of that generation's 8 types
-(`PeepTypes`), by chance. A type has the excitement it likes (1 to 99),
+(`PeepTypes`), by chance. Who they are is one of the settings' people,
+numbered as the umbrellas' heights over them are
+(`PersonSpriteUmbrellaModifiers[n]`), whose comments say who: 0 a boy,
+1 a girl with brunette pigtails, 2 a blonde girl with a cap, 3 a boy
+with a yellow cap; 4 the fat bloke, 5 the tall woman; 8 the old biddy,
+9 the old bloke. Each is drawn by their sprite
+([sprites.md](../formats/sprites.md)): `SPR_BD`, `SPR_GB`, `SPR_GK`,
+`SPR_KB`, `SPR_FA`, `SPR_MO`, `SPR_GM`, `SPR_GR`, matched to the comments
+by their look *(inferred)*. Toilets are for one or the other
+(`Info.GenderSpecific`: 1 "for boys", 2 "for girls", their comments
+say), and visitors use only theirs. A type has the excitement it likes (1 to 99),
 its money (100 to 900, give or take `StartingCashVarPc`, 15 percent),
 its boredom threshold (30 to 95) and its pace. They pay the admission
 from their money.
@@ -51,7 +61,12 @@ above nothing:
   half the need past 30; a shop meeting none (balloons, gifts) its
   `HappinessEffect`;
 - less `DecisionVarDistWeight` (1) for each two cells of path to walk,
-  and `DecisionVarQueueWeight` (1) for each one in its queue.
+  and `DecisionVarQueueWeight` (1) for each one in its queue;
+- scaled by its `WeatherModifier` percentage in the weather
+  ([weather.md](weather.md)).
+
+A shop selling what they carry already (`UsageInfo.AppearanceEffect`:
+1 a balloon, 2 a costume, 3 an umbrella) isn't chosen.
 
 What they used last isn't chosen again until, one turn in eight, they
 forget it. They follow the shortest path to it; without a place to go
@@ -90,20 +105,68 @@ Coming off, what it did to them is done:
   `OKExcitementMatch` (40), as the settings' comments say *(inferred)*;
 - its `HappinessEffect` added, its `HungerEffect` and `ThirstEffect`
   taken from their hunger and thirst, its `ToiletEffect` added to their
-  need of the toilet, which a toilet (`ProvidesRelief`) empties.
+  need of the toilet, which a toilet (`ProvidesRelief`) empties;
+- a ride's excitement over `RideVomitDivisor` (10) added to their
+  sickness, as that setting's comment says, and its `VomitEffect`;
+- its `LitterEffect` carried away as litter; what it sells
+  (`AppearanceEffect`) carried, an umbrella over them, a balloon on a
+  string;
+- a ride's "I liked that!", or "I didn't like that" if its excitement
+  was more than `OKExcitementMatch` from what they like.
 
 ### On the ride
 
 The models mark their seats with helpers ([md2.md](../formats/md2.md#the-nodes)):
 `Head01` up, `SpriteHead01` on the robot. A ride's script shows its
 rider (`ADDHEAD` as it seats them, `DELHEAD` as they leave); each is
-drawn in the first seat free, by their sprite, standing, their head at
-the seat's helper, moving with the ride. A bouncy ride's bouncers
+drawn in the first seat free, by their head alone, the heads' sprites
+(`Kidsheads/SPR_KB` and the like, [sprites.md](../formats/sprites.md#heads)),
+at the seat's helper, moving with the ride: the head's tilt by how the
+camera looks down on it, its heading by the way the seat faces, the
+model's front *(guessed)*. A bouncy ride's bouncers
 (`BOUNCE`) are drawn at its `Sprite 01` helpers in the order they got on,
 their middle there, bouncing as its animation moves them. Those
 `UsageInfo.RideHandlesSprite` keeps in sight, as most sideshows do,
 stand at the entrance while they use it; the rest are out of sight
 inside.
+
+### Litter and sickness
+
+Litter carried is dropped into a bin (`UsageInfo.HoldsLitter`: the litter
+bin) within 2 cells as they pass, or else onto the path, one cell in so
+many by its `LitterEffect` (a chip shop's 40: one cell in ten). At a
+cell with their sickness past `VomitCapacity` (100), they're sick on
+the path: they lose `MediumHappinessChange` (15), those near them
+`SmallHappinessChange` (5) and think it "Too messy". Sickness wears off a
+tenth a day. Each day a visitor near litter loses a point of happiness.
+Litter is drawn from `Litter/Spr_li`'s first 10 frames, sickness from
+its last 2, by their look *(guessed)*. Nobody clears it yet: the
+handymen aren't done.
+
+### Pranks and whining
+
+One visitor in `PrankeryLikelihood` (10) of a hundred is a prankster.
+Each day, a prankster under `PrankHappinessThreshold` (15) happiness,
+with no security camera (`UsageInfo.ProvidesSecurity`) within 6 cells,
+plays a prank `PrankLikelihood` (10) percent of the time: a stink bomb
+`StinkbombLikelihood` (25) percent of those, its cloud drawn by the
+particles' white puff for 10 seconds, every visitor within 2 cells
+`MediumHappinessChange` less happy and angry; otherwise litter thrown
+down. Unhappy grown-ups whine, and those within `ViciousRumoursArea` (2)
+cells of them lose a point a day ("whining", the thoughts say).
+
+### Thoughts
+
+Every 20 seconds or so, a visitor thinks how they are, shown for 4
+seconds in a bubble over them: the first of sick (`ThoughtBubbleSick`
+80), needing the bathroom, hungry and thirsty, hungry, thirsty (80 each),
+disliking the weather, too messy, unhappy or whining (`ThoughtBubbleUnhappy`
+20), bored, the line too long, liking the weather, very happy, happy
+(`ThoughtBubbleHappy` 80), okay. What happens to them is thought at
+once: a ride liked or not, being sick, a prank. The 21 thoughts are
+`THOUGHTS.str`'s first, its bubbles the blue ones of `Thoughts/Spr_tb`
+(16) and `Spr_tc` (its first 5; its pink ones are the staff's), matched
+by what they show *(inferred)*; which comes first is guessed.
 
 ### Going home
 
@@ -126,8 +189,8 @@ and tells the park whom it took on (`Park::board`) and let off
 (`Park::letOff`); `ParkScreen` draws riders at the seats the script
 shows them in (`SimulatedHost::heads`) and bouncers where they bounce.
 Sprites are drawn over the models, so a rider behind a part of one
-still shows. Weather, litter, vomit, pranks, the visitors' thoughts and
-their opinions of prices aren't done.
+still shows. Their opinions of prices, their costumes' look, staff
+clearing litter, and the `GenerationModifier` scores aren't done.
 
 `reluva-tool tpw park-shot <game folder> levels/science <out.png> 300
 [yaw pitch distance x y] [-place <id>]` runs a new park five minutes
@@ -158,6 +221,7 @@ seat them and let them off.
   measures; how fast needs grow, and how happy they start.
 - What `ExitLevel`'s "gameticks/4" are.
 - Whether a ride's exit needs a path, and where riders go from it.
-- How many stand in a queue's cell; how they're drawn in it and in the
-  seats (sitting, turned with the ride).
-- Gender: the toilets' `GenderSpecific`.
+- How many stand in a queue's cell; which way riders' heads face.
+- How the game chooses which thought to show, and how often; which
+  litter frames are what; how fast sickness wears off; what
+  `ThoughtBubbleMess` (0.3) measures; `WhingeDuration`.

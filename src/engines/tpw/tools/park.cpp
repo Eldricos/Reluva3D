@@ -23,6 +23,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -64,7 +65,7 @@ bool newPark(const char *game, const char *world, int mission, reluva::SearchSet
 int cmdParkShot(int argc, char **argv) {
     if (argc < 5) {
         std::fprintf(stderr, "usage: reluva-tool tpw park-shot <game folder> <world folder> <out.png> [seconds] [yaw "
-                             "pitch distance [x y]] [-place <id>]\n");
+                             "pitch distance [x y]] [-place <id>] [-weather <fine|heatwave|rain|storm|snow>]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -117,6 +118,13 @@ int cmdParkShot(int argc, char **argv) {
         }
         std::printf("placed %d at %d, %d, %d degrees\n", a->id, at.x, at.y, angle);
     }
+    // -weather <fine|heatwave|rain|storm|snow>: set first; it holds till its next change.
+    static constexpr const char *kWeathers[] = {"fine", "heatwave", "rain", "storm", "snow"};
+    for (int i = 5; i + 1 < argc; ++i)
+        if (std::string(argv[i]) == "-weather")
+            for (size_t w = 0; w < std::size(kWeathers); ++w)
+                if (std::string(argv[i + 1]) == kWeathers[w])
+                    park.setWeather(reluva::tpw::Park::Weather(w));
     // In frames, so that the rides' scripts and the visitors keep step.
     constexpr uint32_t kFrameMs = 50;
     const uint32_t runMs = argc > 5 && argv[5][0] != '-' ? uint32_t(std::strtof(argv[5], nullptr) * 1000) : 0;
@@ -145,12 +153,21 @@ int cmdParkShot(int argc, char **argv) {
                 park.admissionFee(), screen.dateText(park.day()).c_str(), fixed.entrance[0].x, fixed.entrance[0].y,
                 fixed.entrance[1].x, fixed.entrance[1].y, fixed.ticketBooths.size(), park.mission().boundary.size());
     static constexpr const char *kDoing[] = {"coming", "walking", "queueing", "riding", "leaving", "going home"};
-    std::printf("%d points, %d visitors wanted\n", park.points(), park.visitorsWanted());
+    size_t vomit = 0;
+    for (const auto &l : park.litter())
+        vomit += l.vomit;
+    std::printf("%d points, %d visitors wanted; %s; %zu litter, %zu of it vomit; %zu stink bombs\n", park.points(),
+                park.visitorsWanted(), kWeathers[size_t(park.weather())], park.litter().size(), vomit,
+                park.stinkBombs().size());
     for (const reluva::tpw::Park::Visitor &v : park.visitorsAbout())
-        std::printf("visitor %d (type %d): %s at %.1f, %.1f, %d rides, cash %d, happiness %.0f, hunger %.0f, thirst "
-                    "%.0f, toilet %.0f\n",
-                    v.id, v.type, kDoing[size_t(v.doing)], double(v.x), double(v.z), v.rides, v.cash,
-                    double(v.happiness), double(v.hunger), double(v.thirst), double(v.toilet));
+        std::printf("visitor %d (type %d, person %d): %s at %.1f, %.1f, %d rides, cash %d, happiness %.0f, hunger "
+                    "%.0f, thirst %.0f, toilet %.0f, sickness %.0f%s, thinking %d\n",
+                    v.id, v.type, v.person, kDoing[size_t(v.doing)], double(v.x), double(v.z), v.rides, v.cash,
+                    double(v.happiness), double(v.hunger), double(v.thirst), double(v.toilet), double(v.sickness),
+                    v.appearance == 3   ? ", an umbrella"
+                    : v.appearance == 1 ? ", a balloon"
+                                        : "",
+                    v.thoughtUntil > park.millis() ? int(v.thought) : 0);
     return 0;
 }
 
@@ -557,8 +574,10 @@ const Commands kCommands(
          "read a saved park (.TPWS), the prebuilt one unless named: its cells, its path, its objects (listed with "
          "-objects) and its world",
          cmdTpwsCheck},
-        {"park-shot", "<game folder> <world folder> <out.png> [seconds] [yaw pitch distance [x y]] [-place <id>]",
-         "set up a new park in a world, -place an attraction by its entrance's path, run it on and draw it, "
+        {"park-shot",
+         "<game folder> <world folder> <out.png> [seconds] [yaw pitch distance [x y]] [-place <id>] [-weather <w>]",
+         "set up a new park in a world, -place an attraction by its entrance's path, set the -weather, run it on "
+         "and draw it, "
          "its HUD over it, to a PNG; and list its visitors",
          cmdParkShot},
         {"briefing-shot", "<game folder> <world folder> <out.png> [player [-details]]",

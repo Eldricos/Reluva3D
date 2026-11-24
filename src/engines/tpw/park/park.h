@@ -109,8 +109,86 @@ public:
         int exitDays = 400;  // ExitLevel: how long they stay, in days (guessed)
         int exitSpread = 60; // ExitLevelVar, either way
         int needy = 80;      // ThoughtBubbleHungry and the like: a need this high makes them unhappy
+        int happy = 80;      // ThoughtBubbleHappy
+        int unhappy = 20;    // ThoughtBubbleUnhappy
+        int sick = 80;       // ThoughtBubbleSick: a sickness this high, they think so
+        int smallChange = 5; // Small, Medium and BigHappinessChange
+        int mediumChange = 15;
+        int bigChange = 25;
+        int vomitDivisor = 10;     // RideVomitDivisor: a ride's excitement over this adds to sickness
+        int vomitCapacity = 100;   // VomitCapacity: past this they're sick
+        int prankersPercent = 10;  // PrankeryLikelihood: of a hundred visitors, the pranksters
+        int stinkBombPercent = 25; // StinkbombLikelihood: of their pranks, stink bombs
+        int prankUnhappy = 15;     // PrankHappinessThreshold: a prankster this unhappy plays them
+        int prankPercent = 10;     // PrankLikelihood: a chance each day
+        int rumourCells = 2;       // ViciousRumoursArea: how far whining is heard
+        int weatherDays = 4;       // WeatherModifierFrequency: how often the weather tells on them
+        int umbrellaShelter = 1;   // UmbrellaModifier: the unhappiness an umbrella saves
+        // By generation and Park::Weather: the weather's effects on their
+        // happiness, thirst and hunger (PeepHappinessWeatherEffects and
+        // the like).
+        std::array<std::array<float, 5>, 3> weatherHappiness{};
+        std::array<std::array<float, 5>, 3> weatherThirst{};
+        std::array<std::array<float, 5>, 3> weatherHunger{};
+        std::array<int, 5> weatherArrivals{100, 100, 100, 100, 100}; // Arrival's percentage modifiers
     };
     const VisitorRules &visitorRules() const { return _rules; }
+
+    /** The weather: the world's seasons' chances (Seasons[n].PercentageChanceFor...). */
+    enum class Weather : uint8_t { kFine, kHeatwave, kRain, kStorm, kSnow };
+    Weather weather() const { return _weather; }
+    /** Sets the weather until its next change: for tests and the tools. */
+    void setWeather(Weather weather) { _weather = weather; }
+
+    /**
+     * What a visitor thinks, shown in a bubble over them: THOUGHTS.str's
+     * strings by these numbers.
+     */
+    enum class Thought : uint8_t {
+        kNone,
+        kHungry,
+        kThirsty,
+        kHungryAndThirsty,
+        kToilet,
+        kLiked,
+        kDisliked,
+        kMessy,
+        kVeryHappy,
+        kHappy,
+        kOkay,
+        kUnhappy,
+        kBored,
+        kAngry,
+        kSick,
+        kScared,
+        kLineTooLong,
+        kConfused,
+        kWhining,
+        kLikeWeather,
+        kDislikeWeather,
+        kNaughty,
+    };
+    /** How long a thought shows. */
+    static constexpr uint64_t kThoughtMillis = 4000;
+
+    /** Something on the ground: litter dropped, or where a visitor was sick. */
+    struct Litter {
+        float x = 0;
+        float z = 0;
+        int frame = 0; // in the litter's sprite sheet
+        bool vomit = false;
+    };
+    const std::vector<Litter> &litter() const { return _litter; }
+    /** A prankster's stink bomb, and when it went off and clears (the park's time). */
+    struct StinkBomb {
+        float x = 0;
+        float z = 0;
+        uint64_t since = 0;
+        uint64_t until = 0;
+    };
+    const std::vector<StinkBomb> &stinkBombs() const { return _stinkBombs; }
+    /** The most litter the park keeps: the oldest goes past it. */
+    static constexpr size_t kMostLitter = 1000;
 
     /** What a visitor is doing. */
     enum class Doing : uint8_t {
@@ -124,7 +202,6 @@ public:
     /** A visitor coming in, or in the park. */
     struct Visitor {
         int id = 0;
-        uint32_t look = 0; // which of their generation's looks they have: the screen picks by it
         int generation = 0;
         float speed = 1;  // of kWalkPerSecond
         float walked = 0; // units walked since they came, which steps their walk
@@ -156,7 +233,23 @@ public:
         int target = -1;         // the queue they're making for; −1 for none
         std::vector<Cell> route; // walking to it: the path cells on to its end, the next last
         bool gone = false;       // home: taken away at the end of the step
+        /**
+         * Who they are, by the settings' numbering of people
+         * (PersonSpriteUmbrellaModifiers): 0 to 3 children, 4 and 5
+         * parents, 8 and 9 grandparents; the screen draws them by it.
+         */
+        int person = 0;
+        bool female = false;
+        float sickness = 0; // past VomitCapacity, they're sick
+        int carrying = 0;   // litter from what they used: a shop's LitterEffect
+        int appearance = 0; // what they've bought to carry: 1 a balloon, 2 a costume, 3 an umbrella
+        bool prankster = false;
+        Thought thought = Thought::kNone;
+        uint64_t thoughtUntil = 0; // the park's time it shows till
+        uint64_t nextThought = 0;  // when they next think of how they are
     };
+    /** The settings' people are numbered from 0 to 9 (Visitor::person). */
+    static constexpr size_t kPeople = 10;
     /** How happy a visitor is as they come in (guessed). */
     static constexpr float kStartingHappiness = 50;
     const std::vector<Visitor> &visitorsAbout() const { return _people; }
@@ -372,6 +465,13 @@ private:
     void findKioskPaths();
     std::vector<Cell> routeTo(const Cell &from, const Cell &to) const;
     void addVisitor();
+    void newDay();
+    void rollWeather();
+    void think(Visitor &v, Thought thought) const;
+    Thought howTheyAre(const Visitor &v) const;
+    void dropLitter(Visitor &v);
+    int litterNear(float x, float z, float cells) const;
+    bool objectNear(const Visitor &v, bool (*what)(const Attractions::Attraction &), int cells) const;
     std::vector<gfx::Vec3> queueRoute(const Queue &queue) const;
 
     std::string _folder;
@@ -393,6 +493,11 @@ private:
     int _queueCost = 0;
     std::vector<VisitorType> _visitorTypes;
     VisitorRules _rules;
+    std::array<std::array<int, 4>, 4> _seasons{}; // each season's chance of heatwave, rain, storm and snow, percent
+    Weather _weather = Weather::kFine;
+    uint32_t _lastDay = 0;
+    std::vector<Litter> _litter;
+    std::vector<StinkBomb> _stinkBombs;
     std::vector<gfx::Vec3> _wayIn;
     std::vector<Visitor> _people;
     Attractions _attractions;

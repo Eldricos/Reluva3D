@@ -122,6 +122,27 @@ The guards' have more: 4 holding up a card with a red cross, 5 a sign,
 8 walking with a sack over the shoulder (eight frames), 7 and 9 lifting
 and putting down the sack.
 
+### Heads
+
+The heads' sets (`Kidsheads`, `Parentsheads`, `Grandparentsheads`, and
+the costumes') have one animation, 8 frames in 7 directions: the head
+turned round, its first frame facing the viewer, its fifth away, by
+eighths; each direction tilted by a further 30 degrees, from seen
+straight from above, through level (the fourth), to seen from below, as
+the frames show *(inferred)*. Their point is about the neck. They
+are riders seen in their seats ([visitors.md](../systems/visitors.md#on-the-ride)).
+
+### Things people carry and leave
+
+| Sprite | Frames | What |
+|---|---|---|
+| `Litter/Spr_li` | 12, one each | Wrappers, cups, cans; the last two puddles, sick, it seems *(guessed)* |
+| `Thoughts/Spr_tb` | 16 | Visitors' thought bubbles, blue: faces from very happy to angry, sick, food, drink, thumbs up and down, a queue's hourglass, the toilet, litter. Their point is 64 pixels below, so a bubble drawn at the feet floats over the head |
+| `Thoughts/Spr_tc` | 14 | Five more visitors' (confused, whining, the weather liked and not, naughty), then the staff's, pink |
+| `Umbrellas/Spr_um` | 3 | Umbrellas, their point the stick's end |
+| `Balloons/Spr_bl` | 8 | Balloons, their point 75 pixels below, at the hand |
+| `Particles/Spr_pa` | 108 | Effects' puffs, smoke, flames, sparkles; 16 animations |
+
 ## In Reluva
 
 `SpriteSheet` and `SpriteSet` (`src/engines/tpw/formats/sprites.cpp`)
@@ -134,6 +155,9 @@ look each of their generation's, 0.1 units a pixel. Their walk steps a
 frame each unit walked, its eight frames over 8 units, about one and a
 half of an adult's heights *(guessed)*.
 
+`reluva-tool tpw sprite-shot <game folder> <sprite> <out.png>` draws a
+sheet's frames, ten to a row, and lists its animations
+(`esprites/Generic/Thoughts/Spr_tb`).
 `reluva-tool tpw sprite-check <game folder>` reads every sheet and
 animation set, and checks each animation's frames are in its sheet;
 the game-files test runs it (`tpw.gamedata.sprites`). The unit tests

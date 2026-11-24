@@ -33,8 +33,10 @@ None yet.
   standing still; attractions can be bought and placed, their
   queues laid, and they run their scripts; visitors choose, queue for
   and use rides, shops and toilets by guessed rules, riders drawn over
-  the rides whether a part of the model hides them or not, and with no
-  weather, litter, vomit, pranks or thoughts ([visitors.md](systems/visitors.md)); their
+  the rides whether a part of the model hides them or not; litter, sickness,
+  pranks and thoughts by guessed rules, and nobody to clear up; the
+  weather's rolls and look guessed ([visitors.md](systems/visitors.md),
+  [weather.md](systems/weather.md)); their
   signs are lettered by guessed rules ([sgn.md](formats/sgn.md)); some show their settings' names, or
   another world's, the game's own not being found for them
   ([building.md](systems/building.md#their-names)), and the Buy window

@@ -28,6 +28,8 @@ constexpr int kMostTicketBooths = 8;
 // attribute map.
 constexpr int kPathIn = 4;
 constexpr int kVisitorTypes = 24;
+// The weathers but fine, in Park::Weather's order, as the settings name them.
+constexpr std::array<const char *, 4> kWeathers{"Heatwave", "Rain", "Storm", "Snow"};
 // The attribute map's tiles for the park's bare land and its path
 // (docs/engines/tpw/games/simcoaster/formats/attribute-map.md#the-tiles).
 constexpr uint8_t kOpenTile = 0;
@@ -100,10 +102,40 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
     _rules.exitDays = rule("ExitLevel", 400);
     _rules.exitSpread = rule("ExitLevelVar", 60);
     _rules.needy = rule("ThoughtBubbleHungry", 80);
+    _rules.happy = rule("ThoughtBubbleHappy", 80);
+    _rules.unhappy = rule("ThoughtBubbleUnhappy", 20);
+    _rules.sick = rule("ThoughtBubbleSick", 80);
+    _rules.smallChange = rule("SmallHappinessChange", 5);
+    _rules.mediumChange = rule("MediumHappinessChange", 15);
+    _rules.bigChange = rule("BigHappinessChange", 25);
+    _rules.vomitDivisor = std::max(1, rule("RideVomitDivisor", 10));
+    _rules.vomitCapacity = rule("VomitCapacity", 100);
+    _rules.prankersPercent = rule("PrankeryLikelihood", 10);
+    _rules.stinkBombPercent = rule("StinkbombLikelihood", 25);
+    _rules.prankUnhappy = rule("PrankHappinessThreshold", 15);
+    _rules.prankPercent = rule("PrankLikelihood", 10);
+    _rules.rumourCells = rule("ViciousRumoursArea", 2);
+    _rules.weatherDays = std::max(1, rule("WeatherModifierFrequency", 4));
+    _rules.umbrellaShelter = rule("UmbrellaModifier", 1);
+    for (size_t g = 0; g < 3; ++g)
+        for (size_t w = 0; w < kWeathers.size(); ++w) {
+            const std::string at = "[" + std::to_string(g) + "]." + kWeathers[w];
+            _rules.weatherHappiness[g][w + 1] = float(general.number("PeepHappinessWeatherEffects" + at));
+            _rules.weatherThirst[g][w + 1] = float(general.number("PeepThirstWeatherEffects" + at));
+            _rules.weatherHunger[g][w + 1] = float(general.number("PeepHungerWeatherEffects" + at));
+        }
+    for (size_t w = 0; w < kWeathers.size(); ++w)
+        _rules.weatherArrivals[w + 1] =
+            int(general.number(std::string("Arrival.") + kWeathers[w] + "PercentageModifier", 100));
 
     // The world's fixed items; a world without its settings has none.
     SamFile world;
     if (!readSettings(files, folder + "/Standard.sam", world)) {
+        // Each season's weather: a quarter of the year each, from January.
+        for (size_t season = 0; season < _seasons.size(); ++season)
+            for (size_t w = 0; w < kWeathers.size(); ++w)
+                _seasons[season][w] = int(world.number(
+                    "Seasons[" + std::to_string(season) + "].PercentageChanceFor" + std::string(kWeathers[w]), 0));
         const int booths = std::min(kMostTicketBooths, int(world.number("FixedItemInfo.NumTicketBooths")));
         for (int i = 0; i < booths; ++i) {
             const std::string base = "TicketBooth[" + std::to_string(i) + "].";
@@ -153,6 +185,8 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
                           _fixed.ticketBooths.empty() ? in : _fixed.ticketBooths[0], in, Cell{in.x, in.y + kPathIn}})
         _wayIn.push_back(cellCentre(c));
 
+    rollWeather();
+
     char name[32];
     std::snprintf(name, sizeof name, "missions/miss%02d.sam", mission);
     SamFile m;
@@ -180,7 +214,8 @@ int Park::points() const {
 }
 
 int Park::visitorsWanted() const {
-    return std::max(_arrivals.minPeople, points() / _arrivals.pointsPerVisitor);
+    const int wanted = points() / _arrivals.pointsPerVisitor * _rules.weatherArrivals[size_t(_weather)] / 100;
+    return std::max(_arrivals.minPeople, wanted);
 }
 
 void Park::advance(uint32_t ms) {
@@ -268,6 +303,13 @@ int Park::buildPath(const std::vector<Cell> &cells) {
 
 void Park::step(uint32_t ms) {
     _millis += ms;
+    while (_lastDay < day()) {
+        ++_lastDay;
+        newDay();
+    }
+    _stinkBombs.erase(std::remove_if(_stinkBombs.begin(), _stinkBombs.end(),
+                                     [this](const StinkBomb &b) { return b.until <= _millis; }),
+                      _stinkBombs.end());
     while (_millis >= _nextArrivalMs) {
         _nextArrivalMs += _arrivals.everyMs;
         if (int(_people.size()) < visitorsWanted() && !_wayIn.empty())

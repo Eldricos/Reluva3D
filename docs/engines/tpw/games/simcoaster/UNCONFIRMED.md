@@ -118,6 +118,13 @@ None yet.
   ([visitors.md](systems/visitors.md), [park.md](systems/park.md#visitors)).
   The game's own visitors, watched, would settle it.
 
+- **Weather, litter, sickness, pranks and thoughts**: when the weather
+  changes and how it's drawn; how litter and sickness come about and
+  wear off; which thought shows when; which sprite frames are litter and
+  sickness ([weather.md](systems/weather.md),
+  [visitors.md](systems/visitors.md#litter-and-sickness)). A recording
+  of the game in rain, and close on its visitors, would settle it.
+
 - **Where riders are drawn**: a seat's helper as the rider's head, a
   bouncer's as their middle ([md2.md](formats/md2.md#the-nodes)). A
   recording close to a ride would settle it.

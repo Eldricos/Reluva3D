@@ -212,6 +212,72 @@ int cmdSpriteCheck(int argc, char **argv) {
     return failed || sheets == 0 ? 1 : 0;
 }
 
+// A sprite sheet's frames side by side, ten to a row, on grey, to a PNG;
+// its animations listed from its set beside it.
+int cmdSpriteShot(int argc, char **argv) {
+    if (argc < 5) {
+        std::fprintf(stderr,
+                     "usage: reluva-tool tpw sprite-shot <game folder> <sprite, e.g. esprites/Generic/Litter/Spr_li> "
+                     "<out.png>\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    std::vector<std::string> warnings;
+    if (reluva::Error err = reluva::tpw::mountGame(files, argv[2], warnings)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    const std::string base = argv[3];
+    std::vector<uint8_t> data;
+    reluva::tpw::SpriteSheet sheet;
+    reluva::Error err = files.read(base + ".tpc", data);
+    if (!err)
+        err = sheet.parse(data);
+    if (err) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    reluva::tpw::SpriteSet set;
+    if (!files.read(base + ".esp", data) && !set.parse(data))
+        for (size_t i = 0; i < set.animations().size(); ++i) {
+            const auto &a = set.animations()[i];
+            if (a.frames)
+                std::printf("animation %zu: from frame %d, %d frames, %d directions\n", i, a.first, a.frames,
+                            a.directions);
+        }
+    constexpr int kColumns = 10;
+    constexpr uint8_t kGrey = 96;
+    int cellW = 1;
+    int cellH = 1;
+    for (const auto &f : sheet.frames()) {
+        cellW = std::max(cellW, f.width + 2);
+        cellH = std::max(cellH, f.height + 2);
+    }
+    const int count = int(sheet.frames().size());
+    reluva::image::Image out;
+    out.w = kColumns * cellW;
+    out.h = std::max(1, (count + kColumns - 1) / kColumns) * cellH;
+    out.rgba.assign(size_t(out.w) * size_t(out.h) * 4, kGrey);
+    for (int i = 0; i < count; ++i) {
+        const auto &f = sheet.frames()[size_t(i)];
+        for (int y = 0; y < f.height; ++y)
+            for (int x = 0; x < f.width; ++x) {
+                const uint8_t index = f.pixels[size_t(y) * size_t(f.width) + size_t(x)];
+                if (index == 0)
+                    continue;
+                const auto &c = sheet.palette()[index];
+                uint8_t *to = out.pixel((i % kColumns) * cellW + 1 + x, (i / kColumns) * cellH + 1 + y);
+                to[0] = uint8_t((c.r * c.a + to[0] * (255 - c.a)) / 255);
+                to[1] = uint8_t((c.g * c.a + to[1] * (255 - c.a)) / 255);
+                to[2] = uint8_t((c.b * c.a + to[2] * (255 - c.a)) / 255);
+            }
+        std::printf("frame %d: %d x %d, point at %d, %d\n", i, f.width, f.height, -f.left, -f.top);
+    }
+    const std::vector<uint8_t> png = reluva::image::encodePng(out);
+    std::ofstream(argv[4], std::ios::binary).write(reinterpret_cast<const char *>(png.data()), long(png.size()));
+    return 0;
+}
+
 const Commands kCommands(
     "tpw",
     {
@@ -219,6 +285,8 @@ const Commands kCommands(
         {"picture-dump", "<game folder> <name in Data> <out.tga>", "write one picture out as a TGA", cmdPictureDump},
         {"sprite-check", "<game folder>", "read every sprite sheet (.TPC, .FPC) and its animations (.ESP)",
          cmdSpriteCheck},
+        {"sprite-shot", "<game folder> <sprite> <out.png>",
+         "draw a sprite sheet's frames (.TPC), ten to a row, and list its animations (.ESP)", cmdSpriteShot},
         {"loading-screen", "<game folder> [out.png]",
          "put the loading screen together as the game shows it; write it out", cmdLoadingScreen},
     });

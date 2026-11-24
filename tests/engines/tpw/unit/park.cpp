@@ -14,6 +14,7 @@
 #include "tests/support/test.h"
 #include "tests/support/zip_writer.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -440,6 +441,69 @@ void testRiders(const std::filesystem::path &tmp) {
     CHECK(park.visitors() <= park.visitorsWanted());
 }
 
+// A park in snow, its January's only weather: fewer come. A kiosk sells
+// umbrellas, which its buyer then carries; it leaves them litter to drop
+// and makes them sick, which they are on the path at their next cell,
+// thinking so.
+void testConditions(const std::filesystem::path &tmp) {
+    const std::filesystem::path data = tmp / "game" / "Data";
+    std::string types;
+    for (int i = 0; i < 24; ++i)
+        types += "PeepTypes[" + std::to_string(i) +
+                 "].PreferredExcitement.StartingCash.BoredomThreshold.Generation 60 "
+                 "100 200 " +
+                 std::to_string(i / 8) + "\r\n";
+    writeText(data / "levels" / "Standard.sam",
+              "BankAccountInfo.InitialCash 1000\r\nArrival.MinPeople 1\r\nArrival.TimeBetweenArrivals 1\r\n"
+              "Arrival.FixedRate 8\r\nArrival.PointsPerVisitor 1\r\nArrival.SnowPercentageModifier 50\r\n"
+              "PeepInfo.PercentageOfKids 100\r\nPeepInfo.VomitCapacity 100\r\nPeepInfo.PrankeryLikelihood 0\r\n" +
+                  types);
+    writeText(data / "missions" / "miss00.sam", "Info.Number 0\r\n");
+    const std::filesystem::path world = data / "levels" / "science";
+    writeText(world / "Standard.sam", "Seasons[0].PercentageChanceForSnow 100\r\n");
+    writeText(world / "shops" / "Shops.sam", "Info.HasQueue 0\r\nInfo.IsChoosable 1\r\n");
+    writeText(world / "shops" / "brolly" / "brolly.sam",
+              "Info.Id 1201\r\nUsageInfo.InitPricePerUse 5\r\nUsageInfo.HappinessEffect 30\r\n"
+              "UsageInfo.AppearanceEffect 3\r\nUsageInfo.LitterEffect 400\r\nUsageInfo.VomitEffect 150\r\n"
+              "WeatherModifier.SnowPercentage 200\r\nInfo.Shape\r\n---\r\n*2\r\n---\r\n");
+    constexpr int kRows = 8;    // x
+    constexpr int kColumns = 6; // y
+    tpw::testing::Bytes tiles(size_t(kRows) * kColumns, 0);
+    for (int x = 0; x < 7; ++x)
+        tiles[size_t(x) * kColumns + 4] = 8;
+    test::writeFile(world / "terrain" / "base.map", tpw::testing::makeAttributeMap(kColumns, kRows, tiles));
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!mountGame(files, tmp / "game", warnings));
+    Park park;
+    CHECK(!park.load(files, "levels/science", 0));
+    CHECK(park.weather() == Park::Weather::kSnow && park.visitorsWanted() == 4); // half of 8
+    CHECK(park.place(1201, 0, {"*2"}, false, {4, 3}, 0) == -1);
+    const int shop = park.queueOf(0);
+    CHECK(shop >= 0);
+    if (shop < 0)
+        return;
+    int waiting = 0;
+    for (int t = 0; t < 600 && !waiting; ++t) {
+        park.advance(100);
+        waiting = park.waitingAt(shop);
+    }
+    CHECK(waiting != 0 && park.board(shop, waiting) && park.letOff(shop, waiting));
+    const Park::Visitor *v = park.visitor(waiting);
+    CHECK(v && v->appearance == 3 && v->carrying == 400 && v->sickness >= 100);
+    CHECK(v && (v->person >= 0 && v->person <= 3) && v->female == (v->person == 1 || v->person == 2));
+    // Off at the entrance, to the path at (5, 4): sick there, and their litter dropped.
+    for (int t = 0; t < 50 && park.litter().size() < 2; ++t)
+        park.advance(100);
+    CHECK(park.litter().size() == 2);
+    const auto vomit =
+        std::count_if(park.litter().begin(), park.litter().end(), [](const Park::Litter &l) { return l.vomit; });
+    CHECK(vomit == 1);
+    v = park.visitor(waiting);
+    CHECK(v && v->sickness == 0 && v->carrying == 0 && v->thought == Park::Thought::kSick &&
+          v->thoughtUntil > park.millis());
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -452,4 +516,5 @@ static const reluva::test::Suite
                                 {"attractions", [](const std::filesystem::path &tmp) { testAttractions(tmp); }},
                                 {"placing", [](const std::filesystem::path &) { testPlacing(); }},
                                 {"riders", [](const std::filesystem::path &tmp) { testRiders(tmp); }},
+                                {"conditions", [](const std::filesystem::path &tmp) { testConditions(tmp); }},
                             });

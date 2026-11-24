@@ -66,14 +66,72 @@ constexpr float kWheelZoom = 1.15f;
 constexpr Color kEntranceColour{255, 220, 0};
 constexpr Color kBoothColour{255, 80, 40};
 constexpr Color kBusStopColour{80, 160, 255};
-// The visitors' sprites (esprites.wad), by generation: the children's, the
-// parents', the grandparents'.
-constexpr std::array<std::array<const char *, 4>, 3> kVisitorSprites{{
-    {"esprites/Generic/Kids/SPR_KB", "esprites/Generic/Kids/SPR_GK", "esprites/Generic/Kids/SPR_BD",
-     "esprites/Generic/Kids/SPR_GB"},
-    {"esprites/Generic/Parents/SPR_FA", "esprites/Generic/Parents/SPR_MO"},
-    {"esprites/Generic/Grandparents/SPR_GR", "esprites/Generic/Grandparents/SPR_GM"},
-}};
+// The visitors' sprites (esprites.wad), whole and their heads alone, by
+// the settings' numbering of people (Park::Visitor::person), as their
+// comments describe them: the boy, the girl with pigtails, the girl with
+// a cap, the boy with a cap; the fat bloke, the tall woman; the old
+// biddy, the old bloke.
+constexpr std::array<const char *, Park::kPeople> kPersonSprites{
+    "esprites/Generic/Kids/SPR_BD",
+    "esprites/Generic/Kids/SPR_GB",
+    "esprites/Generic/Kids/SPR_GK",
+    "esprites/Generic/Kids/SPR_KB",
+    "esprites/Generic/Parents/SPR_FA",
+    "esprites/Generic/Parents/SPR_MO",
+    nullptr,
+    nullptr,
+    "esprites/Generic/Grandparents/SPR_GM",
+    "esprites/Generic/Grandparents/SPR_GR",
+};
+constexpr std::array<const char *, Park::kPeople> kPersonHeads{
+    "esprites/Generic/Kidsheads/Spr_bd",
+    "esprites/Generic/Kidsheads/Spr_gb",
+    "esprites/Generic/Kidsheads/SPR_GK",
+    "esprites/Generic/Kidsheads/SPR_KB",
+    "esprites/Generic/Parentsheads/SPR_FA",
+    "esprites/Generic/Parentsheads/SPR_MO",
+    nullptr,
+    nullptr,
+    "esprites/Generic/Grandparentsheads/SPR_GM",
+    "esprites/Generic/Grandparentsheads/SPR_GR",
+};
+// What else the people carry and leave about.
+constexpr const char *kLitterSprite = "esprites/Generic/Litter/Spr_li";
+constexpr const char *kThoughtSprite = "esprites/Generic/Thoughts/Spr_tb";
+constexpr const char *kMoreThoughtSprite = "esprites/Generic/Thoughts/Spr_tc";
+constexpr const char *kUmbrellaSprite = "esprites/Generic/Umbrellas/Spr_um";
+constexpr const char *kBalloonSprite = "esprites/Generic/Balloons/Spr_bl";
+constexpr const char *kParticleSprite = "esprites/Generic/Particles/Spr_pa";
+// Each thought's bubble, by Park::Thought: its frame of Spr_tb, or of
+// Spr_tc past kThoughtFrames (matched by what they show: the 21 visitors'
+// bubbles, blue, for the 21 thoughts of THOUGHTS.str).
+constexpr int kThoughtFrames = 16;
+constexpr std::array<int, 22> kThoughtBubbles{-1, 8, 9, 10, 14, 11, 12, 15, 0,  1,  2,
+                                              3,  7, 4, 6,  5,  13, 16, 17, 18, 19, 20};
+// A stink bomb's cloud: the particles' white puff growing (animation 3).
+constexpr size_t kStinkAnimation = 3;
+// The umbrellas' size against their sprite (GenericUmbrellaModifiers.ScalingFactor),
+// and how far the stick comes below the height the settings give (guessed).
+constexpr float kUmbrellaScale = 1.25f;
+constexpr float kUmbrellaBelow = 4.25f;
+// A head sprite's tilts: from straight above, by 30 degrees, to from below;
+// its 8 headings, the first facing the viewer.
+constexpr int kHeadTilts = 7;
+constexpr int kHeadHeadings = 8;
+// Weather on the screen: so many raindrops, so long, falling so fast and
+// slanting so (WeatherEffects.MaxRaindrops in a storm, half in rain);
+// snowflakes; a lightning flash so often, so long (all guessed but the most).
+constexpr int kStormDrops = 600;
+constexpr int kDropLength = 18;
+constexpr float kDropPixelsPerSecond = 700;
+constexpr float kDropSlant = 0.15f;
+constexpr int kSnowflakes = 220;
+constexpr float kSnowPixelsPerSecond = 60;
+constexpr int kFlakeSize = 10;
+constexpr uint64_t kLightningEveryMillis = 7000;
+constexpr uint64_t kLightningMillis = 250;
+constexpr Color kRainColour{170, 190, 230};
+constexpr int kRainAlpha = 170;
 constexpr size_t kWalkAnimation = 1;
 constexpr size_t kStandAnimation = 0;
 // A walking frame each unit walked: a step cycle of 8 units, about one
@@ -115,9 +173,6 @@ constexpr uint32_t kSettledMillis = 20000;
 // How long an attraction without a script keeps a visitor, as the shops'
 // scripts do (`WAIT 3000`).
 constexpr uint64_t kUnscriptedUseMillis = 3000;
-// A rider's sprite hangs from its head, at the model's SpriteHead helper:
-// this far from the head to the feet (a sprite stands about 5 units tall).
-constexpr float kHeadToFeet = 4.5f;
 // The helpers riders' heads are put at, numbered from 1 by their seats:
 // "Head01" on most rides, "SpriteHead01" on the robot.
 constexpr std::string_view kHeadHelper = "head";
@@ -212,14 +267,37 @@ Error ParkScreen::load(const SearchSet &files, const Park &park) {
     for (size_t i = 0; i < kPathTextures.size(); ++i)
         if (loadPicture(files, park.folder() + "/terrain/pathtex/" + kPathTextures[i] + ".fsh", _pathTextures[i]))
             _pathsRead = false;
-    for (size_t generation = 0; generation < kVisitorSprites.size(); ++generation) {
-        _visitorLooks[generation].clear();
-        for (const char *name : kVisitorSprites[generation]) {
-            LoadedSprite sprite;
-            if (name && !sprite.load(files, name))
-                _visitorLooks[generation].push_back(std::move(sprite));
-        }
+    for (size_t person = 0; person < Park::kPeople; ++person) {
+        _personLooks[person].reset();
+        _personHeads[person].reset();
+        LoadedSprite sprite;
+        if (kPersonSprites[person] && !sprite.load(files, kPersonSprites[person]))
+            _personLooks[person] = std::move(sprite);
+        LoadedSprite head;
+        if (kPersonHeads[person] && !head.load(files, kPersonHeads[person]))
+            _personHeads[person] = std::move(head);
     }
+    for (auto [sprite, name] :
+         {std::pair{&_litterSprite, kLitterSprite}, std::pair{&_thoughtSprite, kThoughtSprite},
+          std::pair{&_moreThoughtSprite, kMoreThoughtSprite}, std::pair{&_umbrellaSprite, kUmbrellaSprite},
+          std::pair{&_balloonSprite, kBalloonSprite}, std::pair{&_particleSprite, kParticleSprite}}) {
+        sprite->reset();
+        LoadedSprite loaded;
+        if (!loaded.load(files, name))
+            *sprite = std::move(loaded);
+    }
+    for (auto [picture, name] :
+         {std::pair{&_snow, "generic/weather/snow.tga"}, std::pair{&_lightning, "generic/weather/lightning.tga"}})
+        if (loadPicture(files, name, *picture))
+            *picture = {};
+    // Where each person holds their umbrella (PersonSpriteUmbrellaModifiers[n].Y).
+    SamFile general;
+    std::vector<uint8_t> settings;
+    _umbrellaHeights.fill(5.7f);
+    if (!files.read("levels/Standard.sam", settings) && !general.parse(settings))
+        for (size_t person = 0; person < Park::kPeople; ++person)
+            _umbrellaHeights[person] = float(general.number(
+                "PersonSpriteUmbrellaModifiers[" + std::to_string(person) + "].Y", _umbrellaHeights[person]));
     const std::string language = languageOf(files);
     if (language.empty())
         return Error::success();
@@ -573,65 +651,194 @@ std::vector<ParkScreen::Rider> ParkScreen::riders(const Park &park) const {
             const std::vector<int> &who = seat ? heads : bouncers;
             if (place < 1 || place > who.size() || who[place - 1] == 0)
                 continue;
-            const gfx::Vec3 at = gfx::transformPoint(gfx::multiply(placeOf(o.at, o.angle), nodes[n]), {0, 0, 0});
-            out.push_back({who[place - 1], {at[0], seat ? at[1] - kHeadToFeet : at[1] - kSpriteMiddle, at[2]}});
+            const gfx::Mat4 placed = gfx::multiply(placeOf(o.at, o.angle), nodes[n]);
+            const gfx::Vec3 at = gfx::transformPoint(placed, {0, 0, 0});
+            // Facing the model's front, as turned with its seat (guessed).
+            const gfx::Vec3 ahead = gfx::transformPoint(placed, {0, 0, -1});
+            const float fx = ahead[0] - at[0];
+            const float fz = ahead[2] - at[2];
+            const float length = std::max(1e-6f, std::sqrt(fx * fx + fz * fz));
+            out.push_back(
+                {who[place - 1], {at[0], seat ? at[1] : at[1] - kSpriteMiddle, at[2]}, seat, fx / length, fz / length});
         }
     }
     return out;
 }
 
-void ParkScreen::drawVisitors(Surface &screen, const soft3d::OrbitCamera &eye, const Park &park, float yaw) const {
-    // Farthest first, each at the point it stands on: those about the
-    // park, riders in their seats, and those an attraction keeps in sight
-    // while they use it.
+void ParkScreen::drawVisitors(Surface &screen, const soft3d::OrbitCamera &eye, const Park &park,
+                              const Camera &camera) const {
+    const float yaw = camera.yaw;
+    // A frame of a sheet at a point of the world, farthest drawn first.
     struct Seen {
         float depth;
-        const Park::Visitor *visitor;
+        const SpriteSheet *sheet;
+        size_t frame;
         soft3d::ScreenVertex at;
-        bool seated;
+        bool mirror;
+        float scale;
     };
     std::vector<Seen> seen;
-    auto see = [&](const Park::Visitor &v, const gfx::Vec3 &at, bool seated) {
+    auto see = [&](const LoadedSprite &sprite, size_t frame, const gfx::Vec3 &at, bool mirror, float size = 1,
+                   float nearer = 0) {
+        if (frame >= sprite.sheet.frames().size())
+            return;
         const soft3d::ViewVertex view = eye.toView(toViewerWorld(at));
         if (view.z >= eye.nearZ)
-            seen.push_back({view.z, &v, eye.project(view), seated});
+            seen.push_back({view.z - nearer, &sprite.sheet, frame, eye.project(view), mirror, size});
     };
+    // The way someone faces as the camera sees it: 0 away from it, a quarter turn to its right.
+    auto turned = [&](float hx, float hz) {
+        const float forward = hx * std::sin(yaw) + hz * std::cos(yaw);
+        const float right = hx * std::cos(yaw) - hz * std::sin(yaw);
+        return std::atan2(right, forward);
+    };
+
+    // What's on the ground, and stink bombs going off.
+    if (_litterSprite)
+        for (const Park::Litter &l : park.litter())
+            see(*_litterSprite, size_t(l.frame), {l.x, 0, l.z}, false, 1, -1);
+    if (_particleSprite)
+        for (const Park::StinkBomb &b : park.stinkBombs()) {
+            const auto &puff = _particleSprite->set.animations()[kStinkAnimation];
+            const uint64_t span = std::max<uint64_t>(1, b.until - b.since);
+            const int frame = int((park.millis() - b.since) * uint64_t(std::max(1, puff.frames)) / span);
+            see(*_particleSprite, size_t(puff.first + std::min(frame, std::max(0, puff.frames - 1))), {b.x, 1, b.z},
+                false, 2);
+        }
+
     const std::vector<Rider> seated = riders(park);
     for (const Park::Visitor &v : park.visitorsAbout()) {
-        if (v.doing != Park::Doing::kRiding) {
-            see(v, {v.x, 0, v.z}, false);
-            continue;
+        const size_t person = size_t(std::clamp(v.person, 0, int(Park::kPeople) - 1));
+        gfx::Vec3 feet{v.x, 0, v.z};
+        bool shown = v.doing != Park::Doing::kRiding;
+        if (!shown) {
+            const auto rider = std::find_if(seated.begin(), seated.end(), [&](const Rider &r) { return r.id == v.id; });
+            if (rider != seated.end() && rider->seated) {
+                // Seated: their head alone, at the seat, by how the camera
+                // looks down on it and the way they face.
+                if (_personHeads[person]) {
+                    const LoadedSprite &head = *_personHeads[person];
+                    const float down = std::clamp(camera.pitch, 0.0f, 1.5707964f);
+                    const int tilt =
+                        std::clamp(kHeadTilts / 2 - int(std::lround(down / 0.5235988f)), 0, kHeadTilts - 1);
+                    // Facing the viewer at the first heading, round to the right.
+                    const float away = turned(rider->headingX, rider->headingZ);
+                    const int step = int(std::lround((3.14159265f - away) / (3.14159265f / 4)));
+                    const int heading = ((step % kHeadHeadings) + kHeadHeadings) % kHeadHeadings;
+                    see(head, size_t(head.set.animations()[0].first + tilt * kHeadHeadings + heading), rider->at,
+                        false);
+                }
+                continue;
+            }
+            if (rider != seated.end()) {
+                feet = rider->at;
+                shown = true;
+            } else {
+                const Park::Queue &q = park.queues()[size_t(v.queue)];
+                const Attractions::Attraction *a =
+                    q.object >= 0 ? _attractions.find(park.objects()[size_t(q.object)].id) : nullptr;
+                shown = a && a->handlesSprite;
+            }
         }
-        const auto rider = std::find_if(seated.begin(), seated.end(), [&](const Rider &r) { return r.id == v.id; });
-        if (rider != seated.end()) {
-            see(v, rider->feet, true);
+        if (!shown)
             continue;
-        }
-        const Park::Queue &q = park.queues()[size_t(v.queue)];
-        const Attractions::Attraction *a =
-            q.object >= 0 ? _attractions.find(park.objects()[size_t(q.object)].id) : nullptr;
-        if (a && a->handlesSprite)
-            see(v, {v.x, 0, v.z}, false);
-    }
-    std::sort(seen.begin(), seen.end(), [](const Seen &a, const Seen &b) { return a.depth > b.depth; });
-    for (const Seen &s : seen) {
-        const Park::Visitor &v = *s.visitor;
-        const std::vector<LoadedSprite> &looks = _visitorLooks[size_t(std::clamp(v.generation, 0, 2))];
-        if (looks.empty()) {
+        if (!_personLooks[person]) {
             mark(screen, eye, {v.x, 1, v.z}, 2, kVisitorColour);
             continue;
         }
-        const LoadedSprite &look = looks[v.look % looks.size()];
-        const bool walking = !s.seated && (v.headingX != 0 || v.headingZ != 0);
+        const LoadedSprite &look = *_personLooks[person];
+        const bool walking = v.doing != Park::Doing::kRiding && (v.headingX != 0 || v.headingZ != 0);
         const auto &animation = look.set.animations()[walking ? kWalkAnimation : kStandAnimation];
-        // The heading as the camera sees it: 0 away from it, a quarter
-        // turn to its right.
-        const float forward = v.headingX * std::sin(yaw) + v.headingZ * std::cos(yaw);
-        const float right = v.headingX * std::cos(yaw) - v.headingZ * std::sin(yaw);
-        const SpritePose pose = spritePose(animation, walking ? std::atan2(right, forward) : 3.14159265f,
+        const SpritePose pose = spritePose(animation, walking ? turned(v.headingX, v.headingZ) : 3.14159265f,
                                            walking ? uint32_t(v.walked / kUnitsPerWalkFrame) : 0);
-        drawSpriteFrame(screen, look.sheet, pose.frame, s.at.x, s.at.y, kSpritePixelUnits * eye.focal / s.depth,
-                        pose.mirror);
+        see(look, pose.frame, feet, pose.mirror);
+        // What they carry over them, just nearer than they are, and their thought.
+        if (v.appearance == 3 && _umbrellaSprite)
+            see(*_umbrellaSprite, size_t(v.id) % _umbrellaSprite->sheet.frames().size(),
+                {feet[0], feet[1] + _umbrellaHeights[person] - kUmbrellaBelow, feet[2]}, false, kUmbrellaScale, 0.1f);
+        if (v.appearance == 1 && _balloonSprite)
+            see(*_balloonSprite, size_t(v.id) % _balloonSprite->sheet.frames().size(), feet, false, 1, 0.1f);
+        const size_t bubble = size_t(v.thought);
+        if (v.thoughtUntil > park.millis() && bubble < kThoughtBubbles.size() && kThoughtBubbles[bubble] >= 0) {
+            const int frame = kThoughtBubbles[bubble];
+            const std::optional<LoadedSprite> &sheet = frame < kThoughtFrames ? _thoughtSprite : _moreThoughtSprite;
+            if (sheet)
+                see(*sheet, size_t(frame < kThoughtFrames ? frame : frame - kThoughtFrames), feet, false, 1, 0.2f);
+        }
+    }
+    std::sort(seen.begin(), seen.end(), [](const Seen &a, const Seen &b) { return a.depth > b.depth; });
+    for (const Seen &s : seen)
+        drawSpriteFrame(screen, *s.sheet, s.frame, s.at.x, s.at.y, s.scale * kSpritePixelUnits * eye.focal / s.depth,
+                        s.mirror);
+}
+
+// The weather over the park, on the screen: rain falling in streaks, a
+// storm's more, with lightning now and then; snow drifting down. Each
+// drop and flake by its number, so the same at the same time.
+void ParkScreen::drawWeather(Surface &screen, const Park &park) const {
+    const Park::Weather weather = park.weather();
+    const float seconds = float(park.millis() % 1000000) / 1000;
+    auto hash = [](uint32_t n) {
+        n = (n ^ 61u) ^ (n >> 16);
+        n *= 9u;
+        n ^= n >> 4;
+        n *= 0x27d4eb2du;
+        return n ^ (n >> 15);
+    };
+    auto blend = [&](int x, int y, Color c, int alpha) {
+        if (x < 0 || y < 0 || x >= screen.w || y >= screen.h)
+            return;
+        uint8_t *p = screen.row(y) + size_t(x) * 4;
+        p[0] = uint8_t((c.r * alpha + p[0] * (255 - alpha)) / 255);
+        p[1] = uint8_t((c.g * alpha + p[1] * (255 - alpha)) / 255);
+        p[2] = uint8_t((c.b * alpha + p[2] * (255 - alpha)) / 255);
+    };
+    if (weather == Park::Weather::kRain || weather == Park::Weather::kStorm) {
+        const int drops = weather == Park::Weather::kStorm ? kStormDrops : kStormDrops / 2;
+        const int fall = screen.h + kDropLength;
+        for (int i = 0; i < drops; ++i) {
+            const uint32_t h = hash(uint32_t(i));
+            const float speed = kDropPixelsPerSecond * (0.8f + float(h % 40) / 100);
+            const int y = int(float(h >> 8) + seconds * speed) % fall - kDropLength;
+            const int x = int(h % uint32_t(screen.w + screen.h)) - int(float(y) * kDropSlant);
+            for (int k = 0; k < kDropLength; ++k)
+                blend(x - int(float(k) * kDropSlant), y + k, kRainColour, kRainAlpha * k / kDropLength);
+        }
+    }
+    if (weather == Park::Weather::kStorm && _lightning.w > 0) {
+        const uint64_t at = park.millis() % kLightningEveryMillis;
+        if (at < kLightningMillis) {
+            // The bolt down the screen, at a place of its own each time, the sky lit.
+            const int x = int(hash(uint32_t(park.millis() / kLightningEveryMillis)) % uint32_t(screen.w));
+            for (int y = 0; y < screen.h; ++y)
+                for (int dx = 0; dx < _lightning.w / 2; ++dx) {
+                    const uint8_t *t = _lightning.pixel(_lightning.w / 4 + dx,
+                                                        std::min(_lightning.h - 1, y * _lightning.h / screen.h));
+                    blend(x + dx - _lightning.w / 4, y, Color{t[0], t[1], t[2]}, t[3] * t[0] / 255);
+                }
+            for (int y = 0; y < screen.h; ++y)
+                for (int x2 = 0; x2 < screen.w; ++x2)
+                    blend(x2, y, Color{255, 255, 255}, 60);
+        }
+    }
+    if (weather == Park::Weather::kSnow && _snow.w > 0) {
+        const int half = _snow.w / 2;
+        for (int i = 0; i < kSnowflakes; ++i) {
+            const uint32_t h = hash(uint32_t(i) + 7919u);
+            const int size = kFlakeSize / 2 + int(h % uint32_t(kFlakeSize));
+            const int y =
+                int(float(h >> 8) + seconds * kSnowPixelsPerSecond * (0.6f + float(h % 50) / 100)) % (screen.h + size) -
+                size;
+            const int x = int(h % uint32_t(screen.w)) + int(8 * std::sin(seconds + float(i)));
+            // One of the four flakes, scaled to its size.
+            const int qx = int(h >> 3 & 1u) * half;
+            const int qy = int(h >> 4 & 1u) * half;
+            for (int fy = 0; fy < size; ++fy)
+                for (int fx = 0; fx < size; ++fx) {
+                    const uint8_t *t = _snow.pixel(qx + fx * half / size, qy + fy * half / size);
+                    blend(x + fx, y + fy, Color{t[0], t[1], t[2]}, t[3]);
+                }
+        }
     }
 }
 
@@ -653,7 +860,8 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
         mark(screen, eye, c, kBoothColour);
     for (const Park::Cell &c : fixed.busStops)
         mark(screen, eye, c, kBusStopColour);
-    drawVisitors(screen, eye, park, camera.yaw);
+    drawVisitors(screen, eye, park, camera);
+    drawWeather(screen, park);
     if (_furnitureRead) {
         ParkHud::View hudView;
         hudView.canZoomIn = camera.distance > kNearest;

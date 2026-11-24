@@ -118,6 +118,17 @@ Error Attractions::load(const SearchSet &files, const std::string &folder) {
             a.happinessEffect = int(number("UsageInfo.HappinessEffect", 0));
             a.relief = number("UsageInfo.ProvidesRelief", 0) != 0;
             a.handlesSprite = number("UsageInfo.RideHandlesSprite", 0) != 0;
+            a.litterEffect = int(number("UsageInfo.LitterEffect", 0));
+            a.vomitEffect = int(number("UsageInfo.VomitEffect", 0));
+            a.appearance = int(number("UsageInfo.AppearanceEffect", 0));
+            a.gender = int(number("Info.GenderSpecific", 0));
+            a.holdsLitter = number("UsageInfo.HoldsLitter", 0) != 0;
+            a.indoors = number("UsageInfo.ISIndoors", 0) != 0;
+            a.security = number("UsageInfo.ProvidesSecurity", 0) != 0;
+            a.weatherPercent = {100, int(number("WeatherModifier.HeatWavePercentage", 100)),
+                                int(number("WeatherModifier.RainPercentage", 100)),
+                                int(number("WeatherModifier.StormPercentage", 100)),
+                                int(number("WeatherModifier.SnowPercentage", 100))};
             _all.push_back(std::move(a));
         }
     }

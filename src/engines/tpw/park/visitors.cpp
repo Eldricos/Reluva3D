@@ -36,6 +36,33 @@ constexpr float kNeedWorth = 0.5f;
 constexpr float kNeedFloor = 30;
 // Making for home, not for an attraction.
 constexpr int kHome = -2;
+// Who comes of each generation, by the settings' numbering of people
+// (PersonSpriteUmbrellaModifiers, whose comments say who they are): the
+// boy, the girl with pigtails, the girl with a cap, the boy with a cap;
+// the fat bloke, the tall woman; the old biddy, the old bloke.
+constexpr std::array<std::array<int, 4>, 3> kOfGeneration{{{0, 1, 2, 3}, {4, 5, -1, -1}, {8, 9, -1, -1}}};
+constexpr std::array<bool, 10> kFemale{false, true, true, false, false, true, false, false, true, false};
+// How long the weather holds before it's rolled again, in days (guessed).
+constexpr uint32_t kWeatherSpellDays = 12;
+// How far apart thoughts come, about, and how far a visitor's mood
+// carries: litter or a stink bomb within it, in cells (guessed).
+constexpr uint64_t kThoughtEveryMillis = 20000;
+constexpr float kNearCells = 1.5f;
+// How a stink bomb lasts, and how far it reaches, in cells (guessed).
+constexpr uint64_t kStinkBombMillis = 10000;
+constexpr float kStinkBombCells = 2;
+// How far a security camera sees, in cells, and how far a bin is reached (guessed).
+constexpr int kCameraCells = 6;
+constexpr int kBinCells = 2;
+// Sickness wears off a day, and litter carried is dropped on a path
+// cell one time in this many over its LitterEffect (guessed).
+constexpr float kSicknessPerDay = 0.1f;
+constexpr int kLitterChance = 400;
+// The litter sheet's frames: litter, and vomit (guessed by their look).
+constexpr int kLitterFrames = 10;
+constexpr std::array<int, 2> kVomitFrames{10, 11};
+// A prank of litter drops this much.
+constexpr int kPrankLitter = 3;
 
 constexpr std::array<Park::Cell, 4> kSteps{{{1, 0}, {0, 1}, {-1, 0}, {0, -1}}};
 
@@ -179,7 +206,13 @@ void Park::addVisitor() {
         const int percent = 100 - spread + int((r >> 4) % uint32_t(2 * spread + 1));
         v.cash = type.cash * percent / 100;
     }
-    v.look = r >> 20;
+    // Who they are, of their generation; a missing slot counts again.
+    const auto &people = kOfGeneration[size_t(std::clamp(v.generation, 0, 2))];
+    const int count = people[2] < 0 ? 2 : 4;
+    v.person = people[size_t((r >> 20) % uint32_t(count))];
+    v.female = kFemale[size_t(v.person)];
+    v.prankster = int((r >> 3) % 100) < _rules.prankersPercent;
+    v.nextThought = _millis + kThoughtEveryMillis / 2 + (r >> 6) % kThoughtEveryMillis;
     const int days = std::max(0, _rules.exitSpread);
     v.daysLeft = float(_rules.exitDays - days + int((r >> 12) % uint32_t(2 * days + 1)));
     v.x = _wayIn[0][0];
@@ -240,12 +273,21 @@ bool Park::letOff(int queue, int id) {
         if (a) {
             if (a->excitement >= 0 && v.type < int(_visitorTypes.size())) {
                 const int miss = std::abs(_visitorTypes[size_t(v.type)].excitement - a->excitement);
+                bool liked = false;
                 for (size_t m = 0; m < _rules.rideMatch.size(); ++m)
                     if (miss <= _rules.rideMatch[m]) {
                         v.happiness += float(_rules.rideHappiness[m]);
+                        liked = true;
                         break;
                     }
+                think(v, liked ? Thought::kLiked : Thought::kDisliked);
+                // Excitement makes them queasy: RideVomitDivisor's comment.
+                v.sickness += float(a->excitement / _rules.vomitDivisor);
             }
+            v.sickness += float(a->vomitEffect);
+            v.carrying = std::max(v.carrying, a->litterEffect);
+            if (a->appearance)
+                v.appearance = a->appearance;
             v.happiness += float(a->happinessEffect);
             v.hunger -= float(a->hungerEffect);
             v.thirst -= float(a->thirstEffect);
@@ -295,6 +337,11 @@ void Park::useUp(Visitor &v, float days) {
     const int needs = int(v.hunger >= needy) + int(v.thirst >= needy) + int(v.toilet >= needy);
     v.happiness = std::max(0.0f, v.happiness - float(needs) * kUnhappyPerDay * days);
     v.daysLeft -= days;
+    v.sickness = std::max(0.0f, v.sickness - kSicknessPerDay * days);
+    if (v.doing != Doing::kRiding && _millis >= v.nextThought) {
+        think(v, howTheyAre(v));
+        v.nextThought = _millis + kThoughtEveryMillis;
+    }
     if (v.doing == Doing::kWalking || v.doing == Doing::kLeaving)
         v.bored += days;
     // Out of time or happiness in a queue, they leave it, back to the path.
@@ -380,6 +427,10 @@ void Park::chooseTarget(Visitor &v) {
         const Attractions::Attraction *a = _attractions.find(_objects[size_t(q.object)].id);
         if (d < 0 || q.line.size() >= room || !a || !a->choosable)
             continue;
+        // Not the other's toilet, nor what they already carry.
+        if ((a->gender == 1 && v.female) || (a->gender == 2 && !v.female) ||
+            (a->appearance && a->appearance == v.appearance))
+            continue;
         float score = 0;
         if (a->excitement >= 0 && type)
             score += kRideWorth + float(_rules.excitementWeight) *
@@ -395,6 +446,9 @@ void Park::chooseTarget(Visitor &v) {
         // A shop meeting no need (balloons, gifts) for the happiness it gives.
         if (!meetsNeed)
             score += float(a->happinessEffect);
+        // The weather makes it more or less wanted (its WeatherModifier percentages).
+        if (score > 0)
+            score = score * float(a->weatherPercent[size_t(_weather)]) / 100;
         score -= float(_rules.distanceWeight) * float(d) * kCellCost + float(_rules.queueWeight) * float(q.line.size());
         if (score > best) {
             best = score;
@@ -513,6 +567,7 @@ void Park::moveVisitor(Visitor &v, float left) {
             if (!walkTo(v, to[0], to[2], left))
                 return;
             v.doing = Doing::kWalking;
+            dropLitter(v);
             const Cell was = v.cell;
             chooseWay(v);
             if (v.doing == Doing::kWalking && v.cell == was) {
@@ -551,6 +606,171 @@ void Park::moveVisitor(Visitor &v, float left) {
         case Doing::kRiding:
             return;
         }
+    }
+}
+
+void Park::think(Visitor &v, Thought thought) const {
+    if (thought == Thought::kNone)
+        return;
+    v.thought = thought;
+    v.thoughtUntil = _millis + kThoughtMillis;
+}
+
+// What weighs on them most, first: sickness, needs, the weather, mess,
+// boredom; then how happy they are. THOUGHTS.str's order of them is
+// kept where it can be (guessed: the game's own isn't known).
+Park::Thought Park::howTheyAre(const Visitor &v) const {
+    const float needy = float(_rules.needy);
+    const bool outside = v.doing != Doing::kRiding;
+    const bool badWeather = _weather == Weather::kRain || _weather == Weather::kStorm || _weather == Weather::kSnow;
+    const int boredom = v.type < int(_visitorTypes.size()) ? _visitorTypes[size_t(v.type)].boredom : 50;
+    if (v.sickness >= float(_rules.sick))
+        return Thought::kSick;
+    if (v.toilet >= needy)
+        return Thought::kToilet;
+    if (v.hunger >= needy && v.thirst >= needy)
+        return Thought::kHungryAndThirsty;
+    if (v.hunger >= needy)
+        return Thought::kHungry;
+    if (v.thirst >= needy)
+        return Thought::kThirsty;
+    if (outside && badWeather && v.appearance != 3)
+        return Thought::kDislikeWeather;
+    if (litterNear(v.x, v.z, kNearCells) > 0)
+        return Thought::kMessy;
+    if (v.happiness <= float(_rules.unhappy))
+        return v.generation > 0 ? Thought::kWhining : Thought::kUnhappy;
+    if (v.bored > float(boredom) / 2)
+        return Thought::kBored;
+    if (v.doing == Doing::kQueueing && v.queue >= 0 &&
+        _queues[size_t(v.queue)].line.size() > size_t(2 * kVisitorsPerQueueCell))
+        return Thought::kLineTooLong;
+    if (outside && _weather == Weather::kFine && v.happiness >= float(_rules.happy))
+        return Thought::kLikeWeather;
+    if (v.happiness >= float(_rules.happy) + (100 - float(_rules.happy)) / 2)
+        return Thought::kVeryHappy;
+    if (v.happiness >= float(_rules.happy))
+        return Thought::kHappy;
+    return Thought::kOkay;
+}
+
+int Park::litterNear(float x, float z, float cells) const {
+    const float reach = cells * kCellUnits;
+    int count = 0;
+    for (const Litter &l : _litter)
+        count += std::hypot(l.x - x, l.z - z) <= reach;
+    return count;
+}
+
+bool Park::objectNear(const Visitor &v, bool (*what)(const Attractions::Attraction &), int cells) const {
+    for (const PlacedObject &o : _objects) {
+        const Attractions::Attraction *a = _attractions.find(o.id);
+        if (a && what(*a) && std::abs(o.at.x - v.cell.x) + std::abs(o.at.y - v.cell.y) <= cells)
+            return true;
+    }
+    return false;
+}
+
+// On a path cell's middle: sick, if they've had too much, on the path;
+// their litter into a bin near enough, or now and then onto the path.
+// Those nearby like neither.
+void Park::dropLitter(Visitor &v) {
+    const auto drop = [&](int frame, bool vomit, float spread) {
+        Litter l;
+        const uint32_t r = roll(v);
+        l.x = v.x + (float(r % 100) / 100 - 0.5f) * spread;
+        l.z = v.z + (float(r / 100 % 100) / 100 - 0.5f) * spread;
+        l.frame = frame;
+        l.vomit = vomit;
+        if (_litter.size() >= kMostLitter)
+            _litter.erase(_litter.begin());
+        _litter.push_back(l);
+    };
+    if (v.sickness >= float(_rules.vomitCapacity)) {
+        drop(kVomitFrames[roll(v) % kVomitFrames.size()], true, 2);
+        v.sickness = 0;
+        v.happiness = std::max(0.0f, v.happiness - float(_rules.mediumChange));
+        think(v, Thought::kSick);
+        for (Visitor &other : _people)
+            if (other.id != v.id && other.inPark &&
+                std::hypot(other.x - v.x, other.z - v.z) <= kNearCells * kCellUnits) {
+                other.happiness = std::max(0.0f, other.happiness - float(_rules.smallChange));
+                think(other, Thought::kMessy);
+            }
+    }
+    if (v.carrying <= 0)
+        return;
+    if (objectNear(v, [](const Attractions::Attraction &a) { return a.holdsLitter; }, kBinCells)) {
+        v.carrying = 0;
+        return;
+    }
+    if (int(roll(v) % uint32_t(kLitterChance)) < v.carrying) {
+        drop(int(roll(v) % kLitterFrames), false, kCellUnits / 2);
+        v.carrying = 0;
+    }
+}
+
+// Once a day: the weather, now and then; its effects on those out in it;
+// pranksters' pranks; unhappy grown-ups' whining heard around them; mess.
+// The season's weather: fine, or one of its chances.
+void Park::rollWeather() {
+    const size_t season = size_t(dateOf(_lastDay).month / 3) % _seasons.size();
+    const int r = int((uint32_t(_lastDay + 1) * 2654435761u >> 8) % 100);
+    _weather = Weather::kFine;
+    for (int w = 0, sum = 0; w < 4; ++w) {
+        sum += _seasons[season][size_t(w)];
+        if (r < sum) {
+            _weather = Weather(w + 1);
+            break;
+        }
+    }
+}
+
+void Park::newDay() {
+    if (_lastDay % kWeatherSpellDays == 0)
+        rollWeather();
+    const bool weatherDay = _lastDay % uint32_t(_rules.weatherDays) == 0;
+    const bool wet = _weather == Weather::kRain || _weather == Weather::kStorm || _weather == Weather::kSnow;
+    for (Visitor &v : _people) {
+        if (!v.inPark || v.doing == Doing::kGoingHome)
+            continue;
+        if (weatherDay && v.doing != Doing::kRiding) {
+            const size_t g = size_t(std::clamp(v.generation, 0, 2));
+            float change = _rules.weatherHappiness[g][size_t(_weather)];
+            if (wet && change < 0 && v.appearance == 3)
+                change = std::min(0.0f, change + float(_rules.umbrellaShelter));
+            v.happiness = std::clamp(v.happiness + change, 0.0f, 100.0f);
+            v.thirst = std::clamp(v.thirst + _rules.weatherThirst[g][size_t(_weather)], 0.0f, 100.0f);
+            v.hunger = std::clamp(v.hunger + _rules.weatherHunger[g][size_t(_weather)], 0.0f, 100.0f);
+        }
+        if (v.doing == Doing::kWalking && litterNear(v.x, v.z, kNearCells) > 0)
+            v.happiness = std::max(0.0f, v.happiness - 1);
+        if (v.prankster && v.doing == Doing::kWalking && v.happiness < float(_rules.prankUnhappy) &&
+            int(roll(v) % 100) < _rules.prankPercent &&
+            !objectNear(v, [](const Attractions::Attraction &a) { return a.security; }, kCameraCells)) {
+            think(v, Thought::kNaughty);
+            if (int(roll(v) % 100) < _rules.stinkBombPercent) {
+                _stinkBombs.push_back({v.x, v.z, _millis, _millis + kStinkBombMillis});
+                for (Visitor &other : _people)
+                    if (other.id != v.id && other.inPark &&
+                        std::hypot(other.x - v.x, other.z - v.z) <= kStinkBombCells * kCellUnits) {
+                        other.happiness = std::max(0.0f, other.happiness - float(_rules.mediumChange));
+                        think(other, Thought::kAngry);
+                    }
+            } else {
+                for (int i = 0; i < kPrankLitter; ++i) {
+                    v.carrying = kLitterChance;
+                    dropLitter(v);
+                }
+            }
+        }
+        // Whining, heard about them.
+        if (v.generation > 0 && v.happiness <= float(_rules.unhappy) && v.doing == Doing::kWalking)
+            for (Visitor &other : _people)
+                if (other.id != v.id && other.inPark &&
+                    std::abs(other.x - v.x) <= float(_rules.rumourCells) * kCellUnits &&
+                    std::abs(other.z - v.z) <= float(_rules.rumourCells) * kCellUnits)
+                    other.happiness = std::max(0.0f, other.happiness - 1);
     }
 }
 
