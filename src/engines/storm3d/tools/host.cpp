@@ -192,9 +192,9 @@ void writeDraws(const std::vector<x86::DirectX::Draw> &draws, const std::filesys
         const x86::DirectX::Draw &d = draws[i];
         out << "draw " << i << " primitive " << d.primitive << " fvf " << text::format("%x", d.fvf) << " vertices "
             << (d.stride ? d.vertices.size() / d.stride : 0) << " indices " << d.indices.size() << " texture "
-            << text::format("%x", d.texture) << ' ' << d.textureWidth << 'x' << d.textureHeight << " blend "
-            << d.srcBlend << ' ' << d.destBlend << " depth " << (d.depthTest ? "test" : "-")
-            << (d.depthWrite ? " write" : "") << '\n';
+            << text::format("%x", d.texture) << ' ' << d.textureWidth << 'x' << d.textureHeight << " at "
+            << text::format("%x", d.vertexAddress) << " blend " << d.srcBlend << ' ' << d.destBlend << " depth "
+            << (d.depthTest ? "test" : "-") << (d.depthWrite ? " write" : "") << '\n';
         const bool known = d.fvf == 0x44 || d.fvf == 0x144;
         for (size_t at = 0; d.stride && at + d.stride <= d.vertices.size(); at += d.stride) {
             const uint8_t *v = d.vertices.data() + at;
@@ -386,9 +386,13 @@ int cmdHost(int argc, char **argv) {
             // The stack's top words, among them the callers' return addresses.
             const uint32_t esp = c.reg[x86::Cpu::ESP];
             std::string stack;
-            for (uint32_t k = 0; k < 256 && c.valid(esp + 4 * k, 4); ++k)
+            for (uint32_t k = 0; k < 64 && c.valid(esp + 4 * k, 4); ++k)
                 stack += text::format(" %08x", c.read32(esp + 4 * k));
-            std::printf("store %08x <- %08x (%d bytes) at %08x; stack%s\n", address, value, size, c.eip, stack.c_str());
+            std::printf("store %08x <- %08x (%d bytes) at %08x; eax %08x ecx %08x edx %08x ebx %08x esi %08x edi "
+                        "%08x ebp %08x; stack%s\n",
+                        address, value, size, c.eip, c.reg[x86::Cpu::EAX], c.reg[x86::Cpu::ECX], c.reg[x86::Cpu::EDX],
+                        c.reg[x86::Cpu::EBX], c.reg[x86::Cpu::ESI], c.reg[x86::Cpu::EDI], c.reg[x86::Cpu::EBP],
+                        stack.c_str());
         };
     }
     // The clock: the instructions run, and a millisecond each time every
