@@ -331,7 +331,7 @@ tests/               the tests (reluva-tests) and their data: shared code's in c
                      engine's in engines/<engine>/
 tools/               scripts for working on Reluva (docs checks, moving files)
 third_party/         outside code built in, each with its licence (minimp3, stb_image,
-                     stb_truetype)
+                     stb_truetype, stb_vorbis, dr_flac)
 docs/                documentation: shared in docs/common/, each engine's in docs/engines/<engine>/
 ```
 
