@@ -72,6 +72,7 @@ int cmdParkShot(int argc, char **argv) {
         return 1;
     if (argc > 5)
         park.advance(uint32_t(std::strtof(argv[5], nullptr) * 1000));
+    screen.advance(park);
     reluva::tpw::ParkScreen::Camera camera = screen.startCamera(park);
     if (argc > 8) {
         camera.yaw = std::strtof(argv[6], nullptr);

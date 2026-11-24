@@ -22,7 +22,7 @@ std::string tail(const std::string &path) {
 
 } // namespace
 
-Error RideRun::start(const SearchSet &files, const std::string &model) {
+Error RideRun::start(const SearchSet &files, const std::string &model, bool guests) {
     _machine.reset();
     _host.reset();
     const size_t slash = model.rfind('/');
@@ -36,7 +36,7 @@ Error RideRun::start(const SearchSet &files, const std::string &model) {
     if (Error err = _script.parse(data))
         return err;
     _host = std::make_unique<SimulatedHost>(files, folder);
-    _host->setGuests(true);
+    _host->setGuests(guests);
     _host->readAnimationLengths(_scriptName);
     _host->readSettings(_scriptName);
     _machine = std::make_unique<ScriptMachine>(_script, *_host);

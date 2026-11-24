@@ -13,6 +13,7 @@
 #include "engines/tpw/park/path_tiles.h"
 #include "engines/tpw/ui/buy_window.h"
 #include "engines/tpw/ui/park_hud.h"
+#include "engines/tpw/ui/ride_run.h"
 #include "engines/tpw/ui/sprites.h"
 #include "engines/tpw/ui/world_view.h"
 #include "graphics/soft3d/rasterizer.h"
@@ -20,6 +21,7 @@
 #include <array>
 #include <functional>
 #include <map>
+#include <memory>
 #include <optional>
 #include <set>
 #include <utility>
@@ -85,6 +87,12 @@ public:
         _placementPrice = price;
     }
 
+    /**
+     * Runs the placed objects' scripts on to the park's time: rides,
+     * shops and features moving as their scripts have them.
+     */
+    void advance(const Park &park);
+
     /** The HUD's buttons, which take the mouse before the park does. */
     ParkHud &hud() { return _furniture; }
 
@@ -97,6 +105,7 @@ private:
     void drawObjects(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const Park &park) const;
     void drawPlacement(Surface &screen, const soft3d::OrbitCamera &eye) const;
     void loadObjects(const SearchSet &files, const Park &park);
+    const LoadedModel *objectModel(int id) const;
 
     LoadedWorld _world;
     CharacterSet _characters;
@@ -110,6 +119,10 @@ private:
     std::vector<Park::Cell> _preview;
     mutable std::map<int, LoadedModel> _objectModels; // by the objects' numbers, those read
     mutable std::set<int> _missingModels;             // those that couldn't be, not tried again
+    mutable std::map<int, std::string> _objectPaths;  // their models' names
+    std::vector<std::unique_ptr<RideRun>> _runs;      // by the park's objects: their scripts, those that have one
+    uint64_t _ranTo = 0;                              // the park's time they're run to
+    size_t _prebuilt = 0;                             // the objects there as the park opened
     const SearchSet *_files = nullptr;
     Attractions _attractions;
     BuyWindow _buy;

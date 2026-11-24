@@ -24,9 +24,10 @@ class RideRun {
 public:
     /**
      * Starts the script beside `model` of its name (`wateride.MD2`:
-     * `Wateride.RSE`). Fails when there is none, or it can't be read.
+     * `Wateride.RSE`), the stand-in's guests coming if `guests`. Fails when
+     * there is none, or it can't be read.
      */
-    Error start(const SearchSet &files, const std::string &model);
+    Error start(const SearchSet &files, const std::string &model, bool guests = true);
 
     /** Runs the script on for `ms` milliseconds, in turns of 20. */
     void advance(uint32_t ms);

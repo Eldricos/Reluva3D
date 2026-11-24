@@ -31,7 +31,8 @@ None yet.
   menu's Objectives do anything yet; a new park has the prebuilt park's
   path, queue, ride and other objects ([paths.md](systems/paths.md)),
   standing still; attractions can be bought and placed, their
-  queues laid, but they don't run; some show their settings' names, or
+  queues laid, and they run their scripts, but without riders, and
+  their signs blank; some show their settings' names, or
   another world's, the game's own not being found for them
   ([building.md](systems/building.md#their-names)), and the Buy window
   has no descriptions; no fly-in, gates or other building

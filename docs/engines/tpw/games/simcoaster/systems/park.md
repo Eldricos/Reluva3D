@@ -55,7 +55,7 @@ x 610 to 950 and z 130 to 460 in Land of Invention. The ground's cells
   with its queue of 5; the Electric Fountain, three rocks, the mission's
   fence and other obstacles, and four rides in the park's further areas,
   each its world's model, laid from its first cell and turned by its
-  angle. They stand still: their scripts and animations don't run yet.
+  angle, and run by its script ([building.md](building.md#running)).
 - **Its money**: `BankAccountInfo.InitialCash` 50000 of the general
   settings (`levels/Standard.sam`), and what each visitor pays to come
   in, `InitialAdmissionFee` 25. The recording's money is § 50025 as the

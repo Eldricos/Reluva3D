@@ -91,6 +91,18 @@ under the money while it's placed, is half the money's size, in yellow:
 the recording's "§ 500" is half as wide as "§ 500" in the money's font,
 and no font of the game's is that size *(guessed)*.
 
+### Running
+
+Once placed, an attraction runs by its own script beside its model
+(`robot.RSE`, [scripts.md](scripts.md)): it builds itself, its animation
+0 (the Bellows Bouncer rising out of the ground over 3 seconds, the
+robot over 5), then plays what it plays while it waits for riders, a
+loop of its own (the robot's swing rocking, the fountain's top turning),
+as its scripts run without guests *(inferred)*. With riders it runs
+its rides' cycles; the park's visitors don't ride yet. Its sign shows
+its name, written over its `SIGN1`, `SIGN2` texture by the `.sgn` file
+beside it (a font and its lettering), which Reluva doesn't do yet.
+
 ## In Reluva
 
 `Attractions` (`src/engines/tpw/park/attractions.cpp`) reads a world's
@@ -102,7 +114,11 @@ are bare land and the money's there, red where not; `<` and `>` (or
 `,` and `.`) turn it; a click places it (`Park::place`), its price
 paid, its cells taken, its model drawn; a ride's queue is then laid
 from its entrance, as the path tool lays one. A right click or Esc
-drops it.
+drops it. `ParkScreen` runs each placed object's script on the park's
+clock (`RideRun`, [script-instructions.md](script-instructions.md#in-reluva),
+without its guests), and draws its model posed by what it plays; those
+standing as the park opens are run 20 seconds on at once, past their
+building *(guessed)*.
 
 `reluva-tool tpw buy-shot <game folder> <world folder> <out.png> [tab
 [row]]` draws the window over a new park and lists what's on sale;
@@ -129,3 +145,4 @@ attractions built in the test, place them, and click the window.
   several; what placing does to the ground (the hoardings, the
   particle effect on building, `Info.CreateParticleEffect`).
 - Exits: where visitors leave, and the path they need.
+- The signs: how the `.sgn` files write the name on `SIGN1`, `SIGN2`.

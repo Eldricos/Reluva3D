@@ -106,6 +106,11 @@ None yet.
 
 ## Guessed
 
+- **The prebuilt park's objects are past their building as it
+  opens**: their scripts run 20 seconds on at once
+  ([building.md](systems/building.md#running)). The recording's robot
+  and fountain, already standing at 2:35, fit it.
+
 - **The Buy window's ratings and the price while placing**: the
   settings' excitement and working life as bars, out of 100; the price
   in the money's font at half size

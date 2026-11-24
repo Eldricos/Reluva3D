@@ -105,6 +105,9 @@ constexpr float kRadiansPerDegree = 3.14159265f / 180;
 // bases flat at 0, as the ground) over the path.
 constexpr float kPathLift = 0.05f;
 constexpr float kObjectLift = 0.1f;
+// How far the scripts of the objects there from the start are run on at
+// once, past their building (guessed: none's building takes so long).
+constexpr uint32_t kSettledMillis = 20000;
 constexpr Color kVisitorColour{255, 255, 255}; // a visitor whose sprite isn't read
 
 void fillRect(Surface &s, const ScreenRect &r, Color c) {
@@ -144,9 +147,9 @@ WorldView viewOf(const ParkScreen::Camera &camera) {
 }
 
 // A model laid from a cell's corner, turned about that cell's middle by
-// `angle` degrees.
+// `angle` degrees, posed by an animation at a frame (−1 for none).
 void drawPlaced(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const LoadedModel &model,
-                const Park::Cell &at, int angle, const soft3d::Vec &light) {
+                const Park::Cell &at, int angle, const soft3d::Vec &light, int animation = -1, float frame = 0) {
     const float half = Park::kCellUnits / 2;
     const float turn = float(angle) * kRadiansPerDegree;
     const float c = std::cos(turn);
@@ -158,10 +161,11 @@ void drawPlaced(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, 
     const float cz = float(at.y) * Park::kCellUnits + half;
     const gfx::Mat4 place{
         c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0, cx - (c * half - s * half), kObjectLift, cz - (s * half + c * half), 1};
-    std::vector<gfx::Mat4> transforms = meshTransforms(model, -1, 0);
+    std::vector<gfx::Mat4> transforms = meshTransforms(model, animation, frame);
     for (gfx::Mat4 &m : transforms)
         m = gfx::multiply(place, m);
-    drawMeshes(rasterizer, eye, model, true, light, &transforms);
+    const std::vector<std::vector<gfx::Vec3>> positions = meshPositions(model, animation, frame);
+    drawMeshes(rasterizer, eye, model, true, light, &transforms, &positions);
 }
 
 } // namespace
@@ -173,6 +177,9 @@ Error ParkScreen::load(const SearchSet &files, const Park &park) {
     _furnitureRead = !_furniture.load(files);
     _files = &files;
     loadObjects(files, park);
+    _runs.clear();
+    _ranTo = park.millis();
+    _prebuilt = park.objects().size();
     _attractions.load(files, park.folder());
     _buyRead = !_buy.load(files);
     _pathsRead = true;
@@ -250,8 +257,10 @@ void ParkScreen::loadObjects(const SearchSet &files, const Park &park) {
         if (!wanted.count(id))
             continue;
         LoadedModel model;
-        if (!model.load(files, name.substr(0, name.size() - 4) + ".MD2")) {
+        const std::string path = name.substr(0, name.size() - 4) + ".MD2";
+        if (!model.load(files, path)) {
             _objectModels.emplace(id, std::move(model));
+            _objectPaths[id] = path;
             wanted.erase(id);
         }
     }
@@ -262,21 +271,57 @@ void ParkScreen::loadObjects(const SearchSet &files, const Park &park) {
     }
 }
 
+// One placed since the park opened is read as it's first wanted.
+const LoadedModel *ParkScreen::objectModel(int id) const {
+    auto model = _objectModels.find(id);
+    if (model == _objectModels.end() && _files && !_missingModels.count(id)) {
+        const Attractions::Attraction *a = _attractions.find(id);
+        LoadedModel loaded;
+        if (a && !a->model.empty() && !loaded.load(*_files, a->model)) {
+            model = _objectModels.emplace(id, std::move(loaded)).first;
+            _objectPaths[id] = a->model;
+        } else {
+            _missingModels.insert(id);
+        }
+    }
+    return model == _objectModels.end() ? nullptr : &model->second;
+}
+
+// Each object's script, beside its model, run on the stand-in for the park
+// without its guests, the park's visitors not riding yet: it builds itself
+// (its animation 0), then plays what it plays while it waits. Those there
+// as the park opens are run on past their building.
+void ParkScreen::advance(const Park &park) {
+    const uint32_t ms = uint32_t(park.millis() - std::min(park.millis(), _ranTo));
+    _ranTo = park.millis();
+    for (size_t i = _runs.size(); i < park.objects().size(); ++i) {
+        std::unique_ptr<RideRun> run;
+        const int id = park.objects()[i].id;
+        if (objectModel(id) && _files) {
+            run = std::make_unique<RideRun>();
+            if (run->start(*_files, _objectPaths[id], false))
+                run.reset();
+            else if (i < _prebuilt)
+                run->advance(kSettledMillis);
+        }
+        _runs.push_back(std::move(run));
+    }
+    for (std::unique_ptr<RideRun> &run : _runs)
+        if (run)
+            run->advance(ms);
+}
+
 void ParkScreen::drawObjects(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const Park &park) const {
     const soft3d::Vec light = _world.hasSky ? soft3d::normalize(toViewerWorld(_world.sky.light)) : defaultLight();
-    for (const Park::PlacedObject &o : park.objects()) {
-        auto model = _objectModels.find(o.id);
-        // One placed since the park opened, read as it's first drawn.
-        if (model == _objectModels.end() && _files && !_missingModels.count(o.id)) {
-            const Attractions::Attraction *a = _attractions.find(o.id);
-            LoadedModel loaded;
-            if (a && !a->model.empty() && !loaded.load(*_files, a->model))
-                model = _objectModels.emplace(o.id, std::move(loaded)).first;
-            else
-                _missingModels.insert(o.id);
-        }
-        if (model != _objectModels.end())
-            drawPlaced(rasterizer, eye, model->second, o.at, o.angle, light);
+    for (size_t i = 0; i < park.objects().size(); ++i) {
+        const Park::PlacedObject &o = park.objects()[i];
+        const LoadedModel *model = objectModel(o.id);
+        if (!model)
+            continue;
+        ModelView pose;
+        if (i < _runs.size() && _runs[i])
+            _runs[i]->pose(*model, pose);
+        drawPlaced(rasterizer, eye, *model, o.at, o.angle, light, pose.animation, pose.frame);
     }
     // The queue being laid drawn as it would be, in its own's place.
     for (const Park::Queue &queue : park.queues()) {
@@ -660,6 +705,7 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
         const uint64_t now = sys.getMillis();
         const float seconds = float(now - last) / 1000;
         park.advance(uint32_t(now - last));
+        screen.advance(park);
         screen.hud().advance(uint32_t(now - last));
         screen.buyWindow().advance(uint32_t(now - last));
         last = now;
