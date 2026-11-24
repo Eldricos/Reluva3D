@@ -1296,7 +1296,8 @@ static void testDirectX() {
     CHECK(call(device, 20, {14, 1}) == 0);
     dx.drawn = nullptr;
     CHECK(draws.size() == 3);
-    CHECK(draws[0].primitive == 4 && draws[0].fvf == fvf && draws[0].vertices.size() == 3 * 28);
+    CHECK(draws[0].primitive == 4 && draws[0].fvf == fvf && draws[0].vertices.size() == 3 * 28 &&
+          draws[0].vertexAddress == verts);
     CHECK(draws[0].srcBlend == 0 && draws[0].destBlend == 0 && draws[0].depthTest && draws[0].depthWrite);
     CHECK(draws[2].primitive == 5 && draws[2].textureWidth == 2 && draws[2].textureHeight == 2);
     CHECK(draws[2].srcBlend == 2 && draws[2].destBlend == 1 && draws[2].depthTest && !draws[2].depthWrite);

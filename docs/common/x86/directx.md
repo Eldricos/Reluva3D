@@ -37,8 +37,8 @@ headers' (`directx/interfaces.cpp`).
   handed over too (`DirectX::transformSet`): with the view and the
   projection, its camera can be read. So is each draw
   (`DirectX::drawn`): its primitive, vertex format, vertices and indices
-  as the program gave them, its first texture, its blending, and its
-  depth test and write. In a window, that's the window's
+  as the program gave them, and where they are in its memory, its first
+  texture, its blending, and its depth test and write. In a window, that's the window's
   client area. With `DirectX::presentLate` a flip hands over the frame
   before, once its draws are done, and the program goes on while this
   one's are drawn.

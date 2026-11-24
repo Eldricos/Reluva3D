@@ -470,6 +470,7 @@ void Device::draw(uint32_t primitive, uint32_t fvf, uint32_t vertices, uint32_t 
         d.fvf = fvf;
         d.stride = stride;
         Cpu &cpu = s->cpu;
+        d.vertexAddress = vertices;
         if (cpu.valid(vertices, vertexCount * stride))
             d.vertices.assign(cpu.memory().data() + vertices, cpu.memory().data() + vertices + vertexCount * stride);
         for (uint32_t i = 0; indices && i < indexCount && cpu.valid(indices + 2 * i, 2); ++i)

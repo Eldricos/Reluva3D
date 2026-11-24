@@ -58,6 +58,7 @@ public:
         uint32_t fvf = 0;
         uint32_t stride = 0;
         std::vector<uint8_t> vertices; // vertexCount * stride bytes, as in memory
+        uint32_t vertexAddress = 0;    // where they are in the process
         std::vector<uint16_t> indices;
         // The first stage's texture: where its pixels are in the process
         // (telling one texture from another), and its size; 0 for none.
