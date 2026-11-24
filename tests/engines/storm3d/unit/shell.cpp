@@ -30,7 +30,7 @@ namespace {
 // The labels' and the panels' sizes as the install's bitmaps and movies
 // have them, in buttons()' order.
 const std::vector<std::array<int, 4>> kSizes = {
-    {136, 16, 226, 180}, {137, 16, 226, 174}, {100, 16, 370, 160}, {84, 15, 200, 200}, {67, 16, 0, 0}, {140, 16, 0, 0},
+    {136, 16, 226, 180}, {137, 16, 226, 174}, {100, 16, 370, 160}, {84, 15, 0, 0}, {67, 16, 200, 200}, {140, 16, 0, 0},
 };
 
 MenuChoice at(int x, int y) {
@@ -38,17 +38,20 @@ MenuChoice at(int x, int y) {
     return i < 0 ? MenuChoice::kNone : MainMenu::buttons()[size_t(i)].choice;
 }
 
-// A label is its button, and so is its panel: the game's frame lit
-// Options with the pointer over the construction yard.
+// A label is its button, and so is its panel: the game's frames lit
+// Options with the pointer over the construction yard, and Quit over the
+// ship flying off.
 void testButtons() {
     CHECK(MainMenu::buttons().size() == kSizes.size());
     CHECK(at(90, 18) == MenuChoice::kSinglePlayer);
     CHECK(at(100, 100) == MenuChoice::kSinglePlayer);
     CHECK(at(552, 18) == MenuChoice::kMultiplayer);
     CHECK(at(300, 300) == MenuChoice::kOptions);
-    CHECK(at(450, 300) == MenuChoice::kCredits);
+    CHECK(at(450, 300) == MenuChoice::kQuit);
+    CHECK(at(555, 441) == MenuChoice::kCredits);
     CHECK(at(470, 458) == MenuChoice::kReplayIntro);
-    // Quit's label is over the Credits panel's bottom rows: Quit.
+    // Credits' label is over Quit's panel's bottom rows: Credits.
+    CHECK(at(520, 440) == MenuChoice::kCredits);
     CHECK(at(560, 416) == MenuChoice::kQuit);
     CHECK(at(320, 10) == MenuChoice::kNone);
     CHECK(at(639, 479) == MenuChoice::kNone);
@@ -92,9 +95,10 @@ void testOptions() {
     CHECK(OptionsScreen::choiceAt(560, 460) == OptionsChoice::kNone);
 }
 
-// The settings pages' controls where the game's frames have them, and a
-// slider's line a step of 17 shorter or longer for a click on its ends.
+// The settings pages' controls where the game's frames have them, and
+// sliders' steps and lines as the game's preferences and frames had them.
 void testSettings() {
+    using Control = SettingsScreen::Control;
     CHECK(SettingsScreen::controlAt(SettingsPage::kGraphics, 100, 130) == 0);
     CHECK(SettingsScreen::controlAt(SettingsPage::kGraphics, 450, 180) == 3);
     CHECK(SettingsScreen::controlAt(SettingsPage::kGraphics, 340, 225) == 4);
@@ -103,13 +107,24 @@ void testSettings() {
     CHECK(SettingsScreen::controlAt(SettingsPage::kGame, 400, 79) == 0);
     CHECK(SettingsScreen::controlAt(SettingsPage::kGame, 400, 379) == 6);
     CHECK(SettingsScreen::controlAt(SettingsPage::kGame, 200, 300) == -1);
-    CHECK(SettingsScreen::sliderAfterClick(170, 9) == 153);
-    CHECK(SettingsScreen::sliderAfterClick(10, 9) == 0);
-    CHECK(SettingsScreen::sliderAfterClick(160, 214) == 170);
-    CHECK(SettingsScreen::sliderAfterClick(84, 100) == 84);
-    for (SettingsPage page : {SettingsPage::kGraphics, SettingsPage::kSound, SettingsPage::kGame})
-        for (const SettingsScreen::Control &c : SettingsScreen::layoutOf(page).controls)
-            CHECK(c.kind == SettingsScreen::Control::kSlider ? c.values.empty() : size_t(c.initial) < c.values.size());
+    const Control &music = SettingsScreen::layoutOf(SettingsPage::kSound).controls[0];
+    CHECK(SettingsScreen::sliderAfterClick(music, 10, 9) == 9);
+    CHECK(SettingsScreen::lineOf(music, 9) == 153);
+    CHECK(SettingsScreen::sliderAfterClick(music, 10, 214) == 10);
+    CHECK(SettingsScreen::sliderAfterClick(music, 4, 100) == 4);
+    const std::vector<Control> &game = SettingsScreen::layoutOf(SettingsPage::kGame).controls;
+    CHECK(SettingsScreen::lineOf(game[1], 3) == 84);
+    CHECK(SettingsScreen::lineOf(game[2], 1) == 80);
+    CHECK(SettingsScreen::lineOf(game[3], 6) == 28);
+    // Mouse scroll keeps tenths: 1 and three clicks of + is 1.3.
+    double scroll = 1;
+    for (int i = 0; i < 3; ++i)
+        scroll = SettingsScreen::sliderAfterClick(game[2], scroll, 214);
+    CHECK(scroll == 1.3);
+    // Keyboard scroll, 6 and two clicks of −, stops at 0; game speed at 1.
+    CHECK(SettingsScreen::sliderAfterClick(game[3], SettingsScreen::sliderAfterClick(game[3], 6, 3), 3) == 0);
+    CHECK(SettingsScreen::sliderAfterClick(game[1], 1, 3) == 1);
+    CHECK(SettingsScreen::lineOf(SettingsScreen::layoutOf(SettingsPage::kGraphics).controls[4], 3) == 126);
 }
 
 // What the loading screen reads for a mission: each definition once,

@@ -28,8 +28,10 @@ const std::vector<MainMenu::Button> &MainMenu::buttons() {
         {MenuChoice::kSinglePlayer, "MSsingl", 22, 10, "Single", 0, 45},
         {MenuChoice::kMultiplayer, "MSmulti", 488, 10, "Multi", 353, 32},
         {MenuChoice::kOptions, "MSoption", 22, 452, "Const", 0, 285},
-        {MenuChoice::kCredits, "MScredit", 513, 433, "Credit", 408, 217},
-        {MenuChoice::kQuit, "MSquit", 544, 415, nullptr, 0, 0},
+        // The ship flying off is Quit's: the game lit Quit under it, and
+        // a click there ended the program.
+        {MenuChoice::kCredits, "MScredit", 513, 433, nullptr, 0, 0},
+        {MenuChoice::kQuit, "MSquit", 544, 415, "Credit", 408, 217},
         {MenuChoice::kReplayIntro, "MSintro", 439, 451, nullptr, 0, 0},
     };
     return kButtons;
@@ -38,7 +40,7 @@ const std::vector<MainMenu::Button> &MainMenu::buttons() {
 int MainMenu::buttonAt(int x, int y, const std::vector<std::array<int, 4>> &sizes) {
     const std::vector<Button> &all = buttons();
     auto inside = [x, y](int rx, int ry, int w, int h) { return x >= rx && y >= ry && x < rx + w && y < ry + h; };
-    // The labels first: Quit's runs over the Credits panel's bottom edge.
+    // The labels first: Credits' runs over Quit's panel's bottom edge.
     for (size_t i = 0; i < all.size() && i < sizes.size(); ++i)
         if (inside(all[i].labelX, all[i].labelY, sizes[i][0], sizes[i][1]))
             return int(i);
