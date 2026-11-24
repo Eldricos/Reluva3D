@@ -294,9 +294,14 @@ with what it found written on the game's pages in `formats/` and
    front surface drawn without pause, and the driver's controls going
    round the link.
 
+   Then: keys no longer lost in the menus (the host delivering input
+   before the main thread's functions only); the software and 3dfx
+   programs linked and racing; and connecting late isn't a hang but the
+   game giving up on a tie of two counters that copies started together
+   share ([research/network-play.md](research/network-play.md)).
+
    Left open: a tournament over a link, IPX and the modem to a race's
-   end, the software and 3dfx programs linked to each other, a copy that
-   hangs connecting late, copies on two machines.
+   end, copies on two machines.
 
 ## Decisions
 

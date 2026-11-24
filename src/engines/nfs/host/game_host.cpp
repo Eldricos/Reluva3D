@@ -124,14 +124,20 @@ GameHost::GameHost(GameFolders folders, Options options) : _folders(std::move(fo
     _process->setCommandLine(_options.commandLine);
     // Input that's due reaches the game as Windows' would, by the clock,
     // its window's thread (of higher priority, as games make it) running
-    // at once to take it: at a change of threads, wherever the running one
-    // is; and before a native function, for when none runs long enough to
-    // change over. Not before the critical sections and TLS, which take no
-    // time on Windows: NFS II SE's menus read their keys twice with only a
-    // critical section between (0x405900), and a key that comes in
-    // between is lost.
+    // at once to take it: before a native function of the main thread's;
+    // and at a change of threads, wherever the running one is, once it's
+    // 20 ms late, for when the main thread calls none. Not before the
+    // critical sections and TLS, which take no time on Windows, nor before
+    // other threads' functions: NFS II SE's menus read their keys, then
+    // read again and throw away what came in between (0x405900), with only
+    // a critical section in each read, and the sound's threads call
+    // functions while the main thread may be between the two. The main
+    // thread's own loop calls DirectInput (0x422d71) before the first
+    // read, where a key lands safely.
     _process->onSlice = [this](Cpu &) {
-        if (_inputQueued.load(std::memory_order_relaxed))
+        if (_describeThreads.exchange(false, std::memory_order_relaxed))
+            say(_process->describeThreads());
+        if (_inputQueued.load(std::memory_order_relaxed) && inputOverdue(20))
             applyInput();
         presentPendingFront();
     };
@@ -143,8 +149,13 @@ GameHost::GameHost(GameFolders folders, Options options) : _folders(std::move(fo
     _cpu->nativeTrace = [this](Cpu &cpu, const std::string &name) {
         if (_pendingFront)
             presentPendingFront();
-        if (_inputQueued.load(std::memory_order_relaxed) && name.find("CriticalSection") == std::string::npos &&
-            name.find("Tls") == std::string::npos) {
+        if (_describeThreads.load(std::memory_order_relaxed) && _describeThreads.exchange(false))
+            say(_process->describeThreads());
+        const auto *thread = _process->currentThread();
+        if (!_mainThread && thread)
+            _mainThread = thread->id;
+        if (_inputQueued.load(std::memory_order_relaxed) && (!thread || thread->id == _mainThread) &&
+            name.find("CriticalSection") == std::string::npos && name.find("Tls") == std::string::npos) {
             applyInput();
             _process->preempt();
         }
@@ -340,6 +351,15 @@ std::map<std::string, uint64_t> GameHost::callCounts() const {
     for (auto &[name, count] : _cpu->nativeCallCounts())
         out[name] += count;
     return out;
+}
+
+bool GameHost::inputOverdue(uint64_t lateMs) {
+    std::lock_guard<std::mutex> lock(_inputMutex);
+    const uint64_t t = _process->now();
+    auto late = [&](uint64_t atMs) { return atMs + lateMs <= t; };
+    return (!_pendingKeys.empty() && late(_pendingKeys.front().atMs)) ||
+           (!_pendingJoystick.empty() && late(_pendingJoystick.front().first)) ||
+           (!_pendingMouse.empty() && late(_pendingMouse.front().atMs));
 }
 
 void GameHost::applyInput() {

@@ -291,6 +291,8 @@ public:
      * for a name not known.
      */
     bool queueKey(const std::string &name, bool down, uint64_t atMs = 0);
+    /** From any thread: logs each of the game's threads' state, at its next turn (Win32Process::describeThreads). */
+    void describeThreadsSoon() { _describeThreads = true; }
     /** The mouse moved by (dx, dy), or its first button pressed or let go, as queueKey. */
     ///@{
     void queueMouseMove(int dx, int dy, uint64_t atMs = 0);
@@ -458,6 +460,7 @@ private:
     };
     std::mutex _inputMutex;
     std::atomic<bool> _inputQueued{false}; // something in the pending queues below
+    std::atomic<bool> _describeThreads{false};
     std::deque<KeyEvent> _pendingKeys;
     std::deque<KeyEvent> _bufferedKeys; // for DirectInput's GetDeviceData
     // The mouse, as DirectInput reports it: buffered moves and buttons
@@ -518,6 +521,8 @@ private:
     uint32_t _mouseEvent = 0;
     uint32_t _inputSequence = 0;
     void applyInput();
+    bool inputOverdue(uint64_t lateMs); // some input due at least this long ago
+    uint32_t _mainThread = 0;           // the first to call a native function: the program's own
 
     // Native modules for LoadLibraryA: lower-case name -> handle, and each
     // handle's exports.

@@ -424,6 +424,12 @@ public:
     /** The thread running, or null if none runs on a host thread. */
     Thread *currentThread() const { return _running; }
     /**
+     * Each thread's state, a line each: its id, priority, whether it runs,
+     * waits or is ready, the instructions run on it, and where it is. From
+     * the running thread, between instructions.
+     */
+    std::string describeThreads() const;
+    /**
      * From the running thread: waits until `ready` is true or `timeoutMs`
      * passes (0xffffffff: never), letting the others run.
      * @return False if it timed out, or if the process is ending (ending():

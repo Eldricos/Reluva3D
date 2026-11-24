@@ -93,19 +93,42 @@ What was found on the way:
   changes, and its drawing into the front surface never paused for the
   4 ms the host waited for before showing it. The host now shows it
   too before a native function, and after 25 ms at most of drawing.
-- **Connecting** needs both *connect...* clicked within a few seconds
-  of each other: clicked about 15 s apart, the waiting copy stayed on
-  *connecting...* and then stopped drawing and taking keys, and the
-  other *failed to connect*; the same with a software and a 3dfx copy.
-  Not worked out whether the game or the host stops so.
-- **Keys** from `-keysfile` are often lost in the menus on the real
-  clock (a press or two in ten): each step was checked on a frame.
+- **Connecting, and a tie.** Clicked 15-25 s apart, the copies
+  sometimes didn't reach the lobby: the one that waited went back to the
+  link's screen, the other stayed on *connecting...*. A copy alone waits
+  on *connecting...* for as long as it's left, Esc taking it back. The
+  link's traffic (`-netlog`) shows the way: the `+++` and `ATE1` of the
+  modem's commands, then each copy's name in a packet
+  (`fe 14 01 ...`), in it at 10 a u16 that counts up at about 126 a
+  second from the program's start. The copies' values differed by 1 to
+  3 whenever they went on (`fe 5e 02 ...`, the lobby's settings, from
+  the one that waited), and were equal each time they didn't: then the
+  one that waited sent `fe 00 ff 01 ...` and gave up. Two copies started
+  together on one machine count alike; two players' machines would
+  rarely be within a count. Started 3 s apart, the values
+  differed by about 0x380 and the late connects all went on. Not traced
+  in the code which copy is chosen, or why a tie gives up
+  *(inferred)*. The copies stopping to draw was the static
+  *connecting...* box and lobby, not a hang: `threads` in the keys file
+  (each thread's state, logged) showed the main thread at work and the
+  link's packets going.
+- **Keys** from `-keysfile` were lost in the menus on the real clock,
+  4 of 64 a copy: the menus read their key buffer (0x475f20), act on a
+  key, and read again, throwing away what came in between (0x405900);
+  a key delivered while the main thread was between the two reads, at a
+  function of another thread's (the sound's), was thrown away. The host
+  now delivers input before the main thread's functions only (and at a
+  change of threads once 20 ms late): 0 of 64 lost, on both copies.
+  NFS II SE's game-files host records change with it (the keys land a
+  little differently on the instruction clock; the run is the same).
+- **The software and the 3dfx programs** linked (A `nfs2sen.exe`, driven;
+  B `NFS2SEA.EXE`, Up held), clicked together: the lobby, and the race,
+  the two clocks 0.1 s apart.
 
 ## Left open
 
 - A tournament over a link; IPX and the modem to a race's end (the
   serial link only).
-- The software and the 3dfx programs linked to each other, and the hang
-  connecting late.
+- Where the game decides who hosts the link, and gives up on a tie.
 - Copies on two machines; DirectPlay (not installed on the host, and
   the program offered no other protocol).
