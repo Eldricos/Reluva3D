@@ -171,9 +171,20 @@ int cmdParkShot(int argc, char **argv) {
     std::printf("%d points, %d visitors wanted; %s; %zu litter, %zu of it vomit; %zu stink bombs\n", park.points(),
                 park.visitorsWanted(), kWeathers[size_t(park.weather())], park.litter().size(), vomit,
                 park.stinkBombs().size());
+    static constexpr const char *kStaffDoing[] = {"working",        "going to rest", "resting",
+                                                  "going to train", "training",      "striking"};
     for (const reluva::tpw::Park::StaffMember &m : park.staff())
-        std::printf("staff %d: %s, %d experience, $ %d a month, at %.1f, %.1f%s\n", m.id, kKinds[size_t(m.kind)],
-                    m.experience, m.wage, double(m.x), double(m.z), m.working ? ", sweeping" : "");
+        std::printf("staff %d: %s, %s, %d experience, $ %d a month, energy %.0f, happiness %.0f, motivation %.0f, at "
+                    "%.1f, %.1f%s\n",
+                    m.id, kKinds[size_t(m.kind)], kStaffDoing[size_t(m.doing)], m.experience, m.wage, double(m.energy),
+                    double(m.happiness), double(m.motivation), double(m.x), double(m.z), m.working ? ", at work" : "");
+    for (size_t i = 0; i < park.objects().size(); ++i) {
+        const reluva::tpw::Park::PlacedObject &o = park.objects()[i];
+        const reluva::tpw::Attractions::Attraction *a = park.attractions().find(o.id);
+        if (a && (a->wearRate > 0 || a->requiresWatering))
+            std::printf("object %zu (%d): repair %.0f%s, water %.0f, %d users last month, $ %d taken\n", i, o.id,
+                        double(o.repair), o.broken ? ", broken" : "", double(o.water), o.lastUsers, o.lastTakings);
+    }
     for (const reluva::tpw::Park::Visitor &v : park.visitorsAbout())
         std::printf("visitor %d (type %d, person %d): %s at %.1f, %.1f, %d rides, cash %d, happiness %.0f, hunger "
                     "%.0f, thirst %.0f, toilet %.0f, sickness %.0f%s, thinking %d\n",
@@ -615,6 +626,64 @@ int cmdHireShot(int argc, char **argv) {
     return 0;
 }
 
+// One of the park's smaller windows over a new park whose staff are one of
+// each kind but scientists, run on so many seconds, to a PNG.
+int cmdWindowShot(int argc, char **argv) {
+    if (argc < 6) {
+        std::fprintf(stderr, "usage: reluva-tool tpw window-shot <game folder> <world folder> <out.png> "
+                             "<attraction|gates|staff|list|training|finance|demand|menu> [seconds]\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    reluva::tpw::Park park;
+    reluva::tpw::ParkScreen screen;
+    if (!newPark(argv[2], argv[3], 0, files, park, screen))
+        return 1;
+    using Kind = reluva::tpw::Park::StaffKind;
+    for (Kind k : {Kind::kEngineer, Kind::kJanitor, Kind::kGardener, Kind::kGuard, Kind::kEntertainer})
+        park.hire(k, 0);
+    const uint32_t runMs = argc > 6 ? uint32_t(std::strtof(argv[6], nullptr) * 1000) : 60000;
+    screen.advance(park);
+    for (uint32_t t = 0; t < runMs; t += 50) {
+        park.advance(50);
+        screen.advance(park);
+    }
+    const std::string which = argv[5];
+    // The robot: the prebuilt park's ride with a queue.
+    size_t ride = 0;
+    for (size_t i = 0; i < park.objects().size(); ++i)
+        if (park.queueOf(i) >= 0 && park.objects()[i].id == 1101)
+            ride = i;
+    if (which == "attraction")
+        screen.attractionWindow().open(park, ride, screen.nameOf(park, ride), screen.modelOf(park, ride));
+    else if (which == "gates")
+        screen.gateWindow().open();
+    else if (which == "staff" && !park.staff().empty())
+        screen.staffWindow().open(park.staff()[0].id);
+    else if (which == "list")
+        screen.staffList().open(Kind::kJanitor);
+    else if (which == "training")
+        screen.trainingWindow().open();
+    else if (which == "finance")
+        screen.staffFinance().open();
+    else if (which == "demand" && park.wageDemand())
+        screen.wageDemand().open(park.wageDemand()->raise);
+    else if (which == "menu")
+        screen.popup().open(screen.nameOf(park, ride), {524, 526, 531}, 260, 160);
+    else {
+        std::fprintf(stderr, "no %s to show\n", which.c_str());
+        return 1;
+    }
+    screen.attractionWindow().advance(1500);
+    screen.staffWindow().advance(1500);
+    reluva::Surface surface;
+    surface.create(640, 480, reluva::PixelFormat::kRGBA32);
+    reluva::soft3d::Rasterizer rasterizer;
+    screen.draw(surface, rasterizer, park, screen.startCamera(park));
+    writePng(surface, argv[4]);
+    return 0;
+}
+
 const Commands kCommands(
     "tpw",
     {
@@ -623,6 +692,10 @@ const Commands kCommands(
         {"hire-shot", "<game folder> <world folder> <out.png> [tab [row]]",
          "draw the Hire Staff window over a new park, on a tab, a row chosen, to a PNG, and list the candidates",
          cmdHireShot},
+        {"window-shot",
+         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu> [seconds]",
+         "draw one of the park's smaller windows over a new park, its staff one of each kind, run on, to a PNG",
+         cmdWindowShot},
         {"sign-shot", "<game folder> <world folder> <out.png>",
          "letter every attraction's sign of a world, to a PNG, half size, and list their fonts and lines", cmdSignShot},
         {"tpws-check", "<game folder> [save in Data] [-objects]",

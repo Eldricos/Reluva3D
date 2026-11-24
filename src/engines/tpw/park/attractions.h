@@ -49,16 +49,22 @@ public:
         int hungerEffect = 0;
         int toiletEffect = 0;
         int happinessEffect = 0;
-        bool relief = false;        // UsageInfo.ProvidesRelief: a toilet
-        bool handlesSprite = false; // UsageInfo.RideHandlesSprite: its user stays seen, as its script has them
-        int litterEffect = 0;       // UsageInfo.LitterEffect: the litter its users carry away
-        int vomitEffect = 0;        // UsageInfo.VomitEffect: what it adds to their sickness
-        int appearance = 0;         // UsageInfo.AppearanceEffect: 1 a balloon, 2 a costume, 3 an umbrella
-        int gender = 0;             // Info.GenderSpecific: 1 boys only, 2 girls only
-        bool holdsLitter = false;   // UsageInfo.HoldsLitter: a bin
-        bool indoors = false;       // UsageInfo.ISIndoors: shelter from the rain
-        bool security = false;      // UsageInfo.ProvidesSecurity: a camera
-        bool lab = false;           // UsageInfo.ThinkingSpace: a research room, which scientists need
+        bool relief = false;           // UsageInfo.ProvidesRelief: a toilet
+        bool handlesSprite = false;    // UsageInfo.RideHandlesSprite: its user stays seen, as its script has them
+        int litterEffect = 0;          // UsageInfo.LitterEffect: the litter its users carry away
+        int vomitEffect = 0;           // UsageInfo.VomitEffect: what it adds to their sickness
+        int appearance = 0;            // UsageInfo.AppearanceEffect: 1 a balloon, 2 a costume, 3 an umbrella
+        int gender = 0;                // Info.GenderSpecific: 1 boys only, 2 girls only
+        bool holdsLitter = false;      // UsageInfo.HoldsLitter: a bin
+        bool indoors = false;          // UsageInfo.ISIndoors: shelter from the rain
+        bool security = false;         // UsageInfo.ProvidesSecurity: a camera
+        bool lab = false;              // UsageInfo.ThinkingSpace: a research room, which scientists need
+        bool trainingRoom = false;     // UsageInfo.TrainingRoom
+        bool requiresWatering = false; // UsageInfo.RequiresWatering: a plant
+        int wearRate = 0;              // Upgrades[0].WearRate, out of 10: a ride's wear
+        int runningCost = 0;           // Upgrades[0].RunningCost, a month
+        // Upgrades[0].ScrapValueYear1 to 4: what it fetches scrapped, percent of its price.
+        std::array<int, 4> scrapPercent{50, 30, 20, 10};
         // How much more or less it's wanted in each weather, by Park::Weather:
         // its WeatherModifier percentages.
         std::array<int, 5> weatherPercent{100, 100, 100, 100, 100};

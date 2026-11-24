@@ -8,7 +8,10 @@
 
 #include <algorithm>
 #include <array>
+#include <climits>
 #include <cmath>
+#include <cstdlib>
+#include <utility>
 
 namespace reluva::tpw {
 
@@ -26,13 +29,35 @@ constexpr int kNamesPerKind = 35;
 // as the recording's window lists Cut Price Recruitment and Staff U Like
 // (guessed).
 constexpr int kPromotionLevel = 1;
-// A wage is the agency's InitialWageModifier, raised by experience: half
-// again at the most, which fits the recording's § 11 and § 24 (guessed).
-constexpr float kWageForExperience = 0.5f;
+// A wage is what their experience expects (their kind's MaxWage at the
+// most) by the agency's InitialWageModifier plus this, percent: it fits all
+// the recording's, the gardeners' § 11 and § 24 and the guards' § 48 and
+// § 72 by their experience bars (guessed).
+constexpr int kWageBase = 50;
 // Experience in grades of this much: 0 to 4 (guessed).
 constexpr int kExperiencePerGrade = 20000;
 // An entertainer's cheer a day, of HappinessEffectOnCell (guessed).
 constexpr float kCheerPerDay = 0.25f;
+// Energy a day about the paths, and a job's worth: sweeping, mending,
+// watering (guessed).
+constexpr float kTiringPerDay = 0.25f;
+constexpr float kJobEnergy = 2;
+constexpr float kMendingEnergy = 5;
+// Recuperation rates are taken as tenths of a day's rest: so much energy
+// a day at the rate (guessed).
+constexpr float kRestPerRate = 10;
+// Tired staff lose happiness, so much a day.
+constexpr float kTiredUnhappiness = 1;
+// How long training takes, in days (guessed).
+constexpr float kTrainingDays = 30;
+// The staff room is the one object without a mark of its own: its number.
+constexpr int kStaffRoom = 1400;
+// A plant dries a little each day: from full to dry over this many (guessed).
+constexpr float kDryingDays = 60;
+// A gardener sees a plant wanting water below this.
+constexpr float kThirstyPlant = 50;
+// What one rider wears a ride: its WearRate (out of 10) by this, percent (guessed).
+constexpr float kWearPerRider = 0.2f;
 
 constexpr std::array<Park::Cell, 4> kSteps{{{1, 0}, {0, 1}, {-1, 0}, {0, -1}}};
 
@@ -42,6 +67,10 @@ uint32_t mix(uint32_t n) {
     n ^= n >> 4;
     n *= 0x27d4eb2du;
     return n ^ (n >> 15);
+}
+
+float range(float from, float to, float along) {
+    return from + (to - from) * along;
 }
 
 // How far along from the least experienced to the most, 0 to 1.
@@ -64,6 +93,7 @@ void Park::loadStaffRules(const SamFile &general) {
         r.maxRange = float(general.number(own + (entertainer ? "MaxActiveRange" : "MaxDetectionRange"), r.maxRange));
         r.minWork = float(general.number(own + "MinWorkDuration", r.minWork));
         r.maxWork = float(general.number(own + "MaxWorkDuration", r.maxWork));
+        r.maxWage = int(general.number(own + "MaxWage", r.maxWage));
     }
     _agencies.clear();
     for (int i = 0;; ++i) {
@@ -72,7 +102,10 @@ void Park::loadStaffRules(const SamFile &general) {
             break;
         _agencies.push_back({int(general.number(base + "RequiredPromotionLevel")),
                              int(general.number(base + "InitialWageModifier", 10)),
-                             int(general.number(base + "InitialExperienceModifier", 10))});
+                             int(general.number(base + "InitialExperienceModifier", 10)),
+                             int(general.number(base + "RecuperationModifier", 10)),
+                             int(general.number(base + "HappinessRecuperationModifier", 10)),
+                             int(general.number(base + "TrainingExperienceGainModifier", 10))});
     }
     if (_agencies.empty())
         _agencies.push_back({});
@@ -80,6 +113,28 @@ void Park::loadStaffRules(const SamFile &general) {
     _experienceSpread = int(general.number(pool + "AvgWageDifference", 15000));
     _fastest = float(general.number("AllStaffConstants.MaxSpeedDifference", 150)) / 100;
     _poolDays = uint32_t(std::max(1.0, general.number(pool + "TimeBetweenStaffUpdates", 90)));
+    const std::string all = "AllStaffConstants.";
+    StaffConstants &c = _constants;
+    auto number = [&](const std::string &name, double fallback) { return general.number(name, fallback); };
+    c.minWage = int(number(all + "MinWage", c.minWage));
+    c.maxWage = int(number(all + "MaxWage", c.maxWage));
+    c.badWagePercent = int(number(all + "PercentageForBadWageDecision", c.badWagePercent));
+    c.minExperienceForTraining = int(number(all + "MinExperienceForTraining", c.minExperienceForTraining));
+    c.happyWage = int(number(all + "HappyWageVal", c.happyWage));
+    c.unhappyWage = int(number(all + "UnHappyWageVal", c.unhappyWage));
+    c.lowestWageHappiness = int(number(all + "LowestWageHappiness", c.lowestWageHappiness));
+    c.slackingEnergy = int(number(all + "StaffSlackingEnergy", c.slackingEnergy));
+    c.slackingCells = int(number(all + "MinDistanceForSlacking", c.slackingCells));
+    c.trainingExperience = int(number(all + "TrainingExtraExperience", c.trainingExperience));
+    c.minRecuperation = float(number(all + "MinRecuperationRate", c.minRecuperation));
+    c.maxRecuperation = float(number(all + "MaxRecuperationRate", c.maxRecuperation));
+    c.minHappinessRecuperation = float(number(all + "MinHappinessRecuperationRate", c.minHappinessRecuperation));
+    c.maxHappinessRecuperation = float(number(all + "MaxHappinessRecuperationRate", c.maxHappinessRecuperation));
+    c.strikeMonths = int(number("Strike.MinMonthsForStrike", c.strikeMonths));
+    c.strikeStaff = int(number("Strike.MinStaffOfTypeForStrike", c.strikeStaff));
+    c.strikeEnergy = int(number("Strike.EnergyPercentToStrike", c.strikeEnergy));
+    c.strikeHappiness = int(number("Strike.HappyPercentToStrike", c.strikeHappiness));
+    c.strikeMotivation = int(number("Strike.MotivationPercentToStrike", c.strikeMotivation));
     for (size_t g = 0; g < _entertaining.size(); ++g)
         _entertaining[g] = int(general.number(
             "EntertainerConstsPerGrade[" + std::to_string(g) + "].HappinessEffectOnCell", _entertaining[g]));
@@ -89,9 +144,8 @@ void Park::loadStaffRules(const SamFile &general) {
 // topped up to it now and then, never past the kind's Max. Each from an
 // agency open to the park, their experience about the kind's average
 // (give or take AvgWageDifference, not below MinExperience) raised by the
-// agency's InitialExperienceModifier percent, their wage the agency's
-// InitialWageModifier raised by their experience (guessed: it fits the
-// recording's window at 11:06).
+// agency's InitialExperienceModifier percent, their wage short of what
+// their experience expects, by the agency (kWageBase).
 void Park::fillPool(bool start) {
     std::vector<int> open;
     for (size_t a = 0; a < _agencies.size(); ++a)
@@ -123,8 +177,8 @@ void Park::fillPool(bool start) {
             const int base =
                 std::max(_minExperience, r.averageExperience - spread + int((h >> 12) % uint32_t(2 * spread + 1)));
             c.experience = std::min(kMostExperience, base * (100 + agency.experience) / 100);
-            c.wage = int(std::lround(float(agency.wage) *
-                                     (1 + kWageForExperience * float(c.experience) / float(kMostExperience))));
+            const float expected = float(r.maxWage) * float(c.experience) / float(kMostExperience);
+            c.wage = std::max(_constants.minWage, int(std::lround(expected * float(agency.wage + kWageBase) / 100)));
             pool.push_back(c);
         }
     }
@@ -134,16 +188,16 @@ Park::Hiring Park::hire(StaffKind kind, size_t candidate) {
     std::vector<Candidate> &pool = _pool[size_t(kind)];
     if (candidate >= pool.size())
         return Hiring::kNoSuchCandidate;
-    if (kind == StaffKind::kScientist && std::none_of(_objects.begin(), _objects.end(), [&](const PlacedObject &o) {
-            const Attractions::Attraction *a = _attractions.find(o.id);
-            return a && a->lab;
-        }))
+    if (striking(kind))
+        return Hiring::kStrike;
+    if (kind == StaffKind::kScientist && findObject([](const Attractions::Attraction &a) { return a.lab; }) < 0)
         return Hiring::kNeedsLab;
     StaffMember m;
     static_cast<Candidate &>(m) = pool[candidate];
     pool.erase(pool.begin() + long(candidate));
     m.id = _nextStaffId++;
     m.kind = kind;
+    m.hiredDay = day();
     // In at the entrance's path, where the visitors' way in ends.
     const gfx::Vec3 in = _wayIn.empty() ? cellCentre({0, 0}) : _wayIn.back();
     m.x = in[0];
@@ -160,50 +214,340 @@ int Park::wages() const {
     return total;
 }
 
-// Whether a guard is near enough to see: within their kind's
+const Park::StaffMember *Park::staffMember(int id) const {
+    for (const StaffMember &m : _staff)
+        if (m.id == id)
+            return &m;
+    return nullptr;
+}
+
+void Park::fire(int id) {
+    for (PlacedObject &o : _objects) {
+        if (o.engineer == id)
+            o.engineer = 0;
+        if (o.gardener == id)
+            o.gardener = 0;
+    }
+    _demands.erase(std::remove_if(_demands.begin(), _demands.end(), [&](const WageDemand &d) { return d.staff == id; }),
+                   _demands.end());
+    _staff.erase(std::remove_if(_staff.begin(), _staff.end(), [&](const StaffMember &m) { return m.id == id; }),
+                 _staff.end());
+}
+
+// A raise cheers them: their motivation and happiness up by its share of
+// what they had (guessed).
+void Park::setWage(int id, int wage) {
+    for (StaffMember &m : _staff) {
+        if (m.id != id)
+            continue;
+        const int was = m.wage;
+        m.wage = std::clamp(wage, _constants.minWage, _constants.maxWage);
+        if (m.wage > was) {
+            const float lift = 100 * float(m.wage - was) / float(std::max(1, was));
+            m.motivation = std::min(100.0f, m.motivation + lift);
+            m.happiness = std::min(100.0f, m.happiness + lift / 2);
+        }
+    }
+}
+
+void Park::adjustWages(StaffKind kind, Adjustment how, int amount) {
+    for (const StaffMember &m : std::vector<StaffMember>(_staff)) {
+        if (m.kind != kind)
+            continue;
+        const int wage = how == Adjustment::kSetTo      ? amount
+                         : how == Adjustment::kChangeBy ? m.wage + amount
+                                                        : int(std::lround(float(m.wage) * float(100 + amount) / 100));
+        setWage(m.id, wage);
+    }
+}
+
+Park::Training Park::sendForTraining(int id) {
+    for (StaffMember &m : _staff) {
+        if (m.id != id)
+            continue;
+        if (m.experience < _constants.minExperienceForTraining)
+            return Training::kTooInexperienced;
+        const int room = findObject([](const Attractions::Attraction &a) { return a.trainingRoom; });
+        if (room < 0)
+            return Training::kNoRoom;
+        if (m.doing != StaffDoing::kWorking)
+            return Training::kNotNow;
+        m.trained = 0;
+        m.working = false;
+        sendTo(m, room, StaffDoing::kGoingToTrain);
+        return Training::kSent;
+    }
+    return Training::kNotNow;
+}
+
+float Park::trainingProgress(const StaffMember &m) const {
+    return m.doing == StaffDoing::kTraining ? std::clamp(m.trained / kTrainingDays, 0.0f, 1.0f) : 0;
+}
+
+void Park::setPatrol(int id, const Cell &from, const Cell &to) {
+    for (StaffMember &m : _staff)
+        if (m.id == id) {
+            m.patrolling = true;
+            m.patrolFrom = {std::min(from.x, to.x), std::min(from.y, to.y)};
+            m.patrolTo = {std::max(from.x, to.x), std::max(from.y, to.y)};
+        }
+}
+
+void Park::clearPatrol(int id) {
+    for (StaffMember &m : _staff)
+        if (m.id == id)
+            m.patrolling = false;
+}
+
+Park::Offer Park::offer(int raise) {
+    if (_demands.empty())
+        return Offer::kRefused;
+    const WageDemand d = _demands.front();
+    // Within PercentageForBadWageDecision of it, "they'll just about live with it".
+    const bool whole = raise >= d.raise;
+    if (!whole && raise * 100 < d.raise * (100 - _constants.badWagePercent))
+        return Offer::kRefused;
+    _demands.erase(_demands.begin());
+    for (StaffMember &m : _staff)
+        if (m.id == d.staff) {
+            m.wage = std::clamp(m.wage + raise, _constants.minWage, _constants.maxWage);
+            m.motivation = whole ? 100 : 50;
+        }
+    return whole ? Offer::kAccepted : Offer::kStays;
+}
+
+void Park::refuseDemand() {
+    if (!_demands.empty())
+        fire(_demands.front().staff);
+}
+
+// Whether a guard at work is near enough to see: within their kind's
 // MinDetectionRange to MaxDetectionRange, by experience.
 bool Park::guarded(float x, float z) const {
     const StaffRules &r = _staffRules[size_t(StaffKind::kGuard)];
     for (const StaffMember &m : _staff)
-        if (m.kind == StaffKind::kGuard &&
-            std::hypot(m.x - x, m.z - z) <= (r.minRange + (r.maxRange - r.minRange) * skill(m)) * kCellUnits)
+        if (m.kind == StaffKind::kGuard && m.doing == StaffDoing::kWorking &&
+            std::hypot(m.x - x, m.z - z) <= range(r.minRange, r.maxRange, skill(m)) * kCellUnits)
             return true;
     return false;
 }
 
+int Park::findObject(bool (*what)(const Attractions::Attraction &)) const {
+    for (size_t i = 0; i < _objects.size(); ++i)
+        if (const Attractions::Attraction *a = _attractions.find(_objects[i].id); a && what(*a))
+            return int(i);
+    return -1;
+}
+
+// The path cell to work on an object from: its queue's or kiosk's end, or
+// the path cell nearest any of its cells.
+Park::Cell Park::pathBeside(size_t object) const {
+    for (const Queue &q : _queues)
+        if (q.object == int(object) && q.atPath)
+            return q.pathEnd;
+    const PlacedObject &o = _objects[object];
+    std::vector<Cell> cells{o.at};
+    if (const Attractions::Attraction *a = _attractions.find(o.id))
+        cells = footprint(a->shape, o.at, o.angle).cells;
+    Cell best = o.at;
+    int nearest = INT_MAX;
+    for (int y = 0; y < _mapHeight; ++y)
+        for (int x = 0; x < _mapWidth; ++x) {
+            if (!isPath({x, y}))
+                continue;
+            for (const Cell &c : cells) {
+                const int d = std::abs(x - c.x) + std::abs(y - c.y);
+                if (d < nearest) {
+                    nearest = d;
+                    best = {x, y};
+                }
+            }
+        }
+    return best;
+}
+
+int Park::nearestFree(StaffKind kind, const Cell &to) const {
+    int best = 0;
+    int nearest = INT_MAX;
+    for (const StaffMember &m : _staff) {
+        if (m.kind != kind || m.doing != StaffDoing::kWorking || m.target >= 0 || m.working)
+            continue;
+        const int d = std::abs(m.cell.x - to.x) + std::abs(m.cell.y - to.y);
+        if (d < nearest) {
+            nearest = d;
+            best = m.id;
+        }
+    }
+    return best;
+}
+
+void Park::sendTo(StaffMember &m, int object, StaffDoing doing) {
+    m.target = object;
+    m.doing = doing;
+    m.route = routeTo(m.cell, pathBeside(size_t(object)));
+}
+
+void Park::callEngineer(size_t object) {
+    if (object >= _objects.size() || _objects[object].engineer)
+        return;
+    const int id = nearestFree(StaffKind::kEngineer, pathBeside(object));
+    for (StaffMember &m : _staff)
+        if (m.id == id) {
+            sendTo(m, int(object), StaffDoing::kWorking);
+            _objects[object].engineer = id;
+        }
+}
+
+void Park::cancelEngineer(size_t object) {
+    if (object >= _objects.size())
+        return;
+    for (StaffMember &m : _staff)
+        if (m.id == _objects[object].engineer && m.target == int(object)) {
+            m.target = -1;
+            m.route.clear();
+            m.working = false;
+        }
+    _objects[object].engineer = 0;
+}
+
+void Park::callGardener(size_t object) {
+    if (object >= _objects.size() || _objects[object].gardener)
+        return;
+    const int id = nearestFree(StaffKind::kGardener, pathBeside(object));
+    for (StaffMember &m : _staff)
+        if (m.id == id) {
+            sendTo(m, int(object), StaffDoing::kWorking);
+            _objects[object].gardener = id;
+        }
+}
+
+void Park::setOpen(size_t object, bool open) {
+    if (object < _objects.size())
+        _objects[object].open = open;
+}
+
+int Park::scrapValue(size_t object) const {
+    if (object >= _objects.size())
+        return 0;
+    const Attractions::Attraction *a = _attractions.find(_objects[object].id);
+    if (!a)
+        return 0;
+    const uint32_t years = (day() - _objects[object].placedDay) / 365;
+    return a->price * a->scrapPercent[std::min<size_t>(years, a->scrapPercent.size() - 1)] / 100;
+}
+
+// One rider's wear on a ride: its WearRate by kWearPerRider, broken at 0.
+void Park::wear(size_t object) {
+    PlacedObject &o = _objects[object];
+    const Attractions::Attraction *a = _attractions.find(o.id);
+    if (!a || a->wearRate <= 0)
+        return;
+    o.repair = std::max(0.0f, o.repair - float(a->wearRate) * kWearPerRider);
+    if (o.repair <= 0)
+        o.broken = true;
+}
+
+// Each day: plants dry; a ride worn below RideBreakDown.Imminent ("call
+// engineer automatically when repairstate falls below this", its comment
+// says), or broken, has an engineer sent, if one's free.
+void Park::objectsDay() {
+    for (size_t i = 0; i < _objects.size(); ++i) {
+        PlacedObject &o = _objects[i];
+        const Attractions::Attraction *a = _attractions.find(o.id);
+        if (!a)
+            continue;
+        if (a->requiresWatering)
+            o.water = std::max(0.0f, o.water - 100 / kDryingDays);
+        if ((o.broken || (a->wearRate > 0 && o.repair < _constants.breakdownImminent)) && !o.engineer)
+            callEngineer(i);
+    }
+}
+
 // At a path cell's middle. A janitor with litter within their range (their
 // kind's MinDetectionRange to MaxDetectionRange by experience) makes for
-// the nearest they can reach, and sweeps it up there, for their kind's
-// MinWorkDuration to MaxWorkDuration; the rest walk on by chance, as
-// visitors do.
+// the nearest they can reach, and sweeps it up there; a gardener likewise
+// a plant wanting water; an engineer goes where they're sent, to mend.
+// Each works for their kind's MinWorkDuration to MaxWorkDuration. Staff
+// with a patrol area keep to it; the rest walk on by chance, as visitors do.
 void Park::staffWay(StaffMember &m) {
     const StaffRules &r = _staffRules[size_t(m.kind)];
+    const auto inPatrol = [&](const Cell &c) {
+        return !m.patrolling ||
+               (c.x >= m.patrolFrom.x && c.x <= m.patrolTo.x && c.y >= m.patrolFrom.y && c.y <= m.patrolTo.y);
+    };
+    const auto startWork = [&]() {
+        m.working = true;
+        m.headingX = m.headingZ = 0;
+        const float tenths = range(r.minWork, r.maxWork, skill(m));
+        m.workUntil = _millis + uint64_t(std::max(1.0f, tenths) * 100);
+        m.route.clear();
+    };
+    if (!m.route.empty()) {
+        m.from = m.cell;
+        m.cell = m.route.back();
+        m.route.pop_back();
+        return;
+    }
+    switch (m.doing) {
+    case StaffDoing::kGoingToRest:
+        m.doing = StaffDoing::kResting;
+        return;
+    case StaffDoing::kGoingToTrain:
+        m.doing = StaffDoing::kTraining;
+        return;
+    case StaffDoing::kResting:
+    case StaffDoing::kTraining:
+    case StaffDoing::kStriking:
+        return;
+    case StaffDoing::kWorking:
+        break;
+    }
+    // Arrived where they were sent.
+    if (m.target >= 0) {
+        startWork();
+        return;
+    }
+    const float reach = range(r.minRange, r.maxRange, skill(m)) * kCellUnits;
     if (m.kind == StaffKind::kJanitor) {
-        const float range = (r.minRange + (r.maxRange - r.minRange) * skill(m)) * kCellUnits;
         const auto here = [&](const Litter &l) {
             return int(std::floor(l.x / kCellUnits)) == m.cell.x && int(std::floor(l.z / kCellUnits)) == m.cell.y;
         };
         if (std::any_of(_litter.begin(), _litter.end(), here)) {
-            m.working = true;
-            m.headingX = m.headingZ = 0;
-            const float tenths = r.minWork + (r.maxWork - r.minWork) * skill(m);
-            m.workUntil = _millis + uint64_t(std::max(1.0f, tenths) * 100);
-            m.route.clear();
+            startWork();
             return;
         }
-        if (m.route.empty()) {
-            float best = range + 1;
-            for (const Litter &l : _litter) {
-                const float d = std::hypot(l.x - m.x, l.z - m.z);
-                const Cell at{int(std::floor(l.x / kCellUnits)), int(std::floor(l.z / kCellUnits))};
-                if (d < best && isPath(at)) {
-                    std::vector<Cell> route = routeTo(m.cell, at);
-                    if (!route.empty()) {
-                        best = d;
-                        m.route = std::move(route);
-                    }
+        float best = reach + 1;
+        for (const Litter &l : _litter) {
+            const float d = std::hypot(l.x - m.x, l.z - m.z);
+            const Cell at{int(std::floor(l.x / kCellUnits)), int(std::floor(l.z / kCellUnits))};
+            if (d < best && isPath(at) && inPatrol(at)) {
+                std::vector<Cell> route = routeTo(m.cell, at);
+                if (!route.empty()) {
+                    best = d;
+                    m.route = std::move(route);
                 }
             }
+        }
+    }
+    if (m.kind == StaffKind::kGardener) {
+        float best = reach + 1;
+        int plant = -1;
+        for (size_t i = 0; i < _objects.size(); ++i) {
+            const PlacedObject &o = _objects[i];
+            const Attractions::Attraction *a = _attractions.find(o.id);
+            const gfx::Vec3 at = cellCentre(o.at);
+            const float d = std::hypot(at[0] - m.x, at[2] - m.z);
+            if (a && a->requiresWatering && o.water < kThirstyPlant && !o.gardener && d < best && inPatrol(o.at)) {
+                best = d;
+                plant = int(i);
+            }
+        }
+        if (plant >= 0) {
+            _objects[size_t(plant)].gardener = m.id;
+            sendTo(m, plant, StaffDoing::kWorking);
+            if (m.route.empty())
+                startWork();
+            return;
         }
     }
     if (!m.route.empty()) {
@@ -216,7 +560,7 @@ void Park::staffWay(StaffMember &m) {
     size_t count = 0;
     for (const Cell &step : kSteps) {
         const Cell next{m.cell.x + step.x, m.cell.y + step.y};
-        if (isPath(next) && !(next == m.from))
+        if (isPath(next) && !(next == m.from) && (inPatrol(next) || !inPatrol(m.cell)))
             ways[count++] = next;
     }
     if (count == 0 && isPath(m.from) && !(m.from == m.cell))
@@ -227,20 +571,45 @@ void Park::staffWay(StaffMember &m) {
     m.cell = ways[mix(uint32_t(m.id) * 7919u + uint32_t(m.walked)) % count];
 }
 
+// A job done: litter swept, a ride mended, a plant watered.
+void Park::finishWork(StaffMember &m) {
+    m.working = false;
+    if (m.kind == StaffKind::kJanitor) {
+        _litter.erase(std::remove_if(_litter.begin(), _litter.end(),
+                                     [&](const Litter &l) {
+                                         return int(std::floor(l.x / kCellUnits)) == m.cell.x &&
+                                                int(std::floor(l.z / kCellUnits)) == m.cell.y;
+                                     }),
+                      _litter.end());
+        m.energy = std::max(0.0f, m.energy - kJobEnergy);
+    }
+    if (m.target >= 0 && size_t(m.target) < _objects.size()) {
+        PlacedObject &o = _objects[size_t(m.target)];
+        if (m.kind == StaffKind::kEngineer && o.engineer == m.id) {
+            o.repair = 100;
+            o.broken = false;
+            o.engineer = 0;
+            m.energy = std::max(0.0f, m.energy - kMendingEnergy);
+        }
+        if (m.kind == StaffKind::kGardener && o.gardener == m.id) {
+            o.water = 100;
+            o.gardener = 0;
+            m.energy = std::max(0.0f, m.energy - kJobEnergy);
+        }
+    }
+    m.target = -1;
+}
+
 // Faster with experience, up to MaxSpeedDifference percent of a child's pace.
 void Park::moveStaff(StaffMember &m, float left) {
+    if (m.doing == StaffDoing::kResting || m.doing == StaffDoing::kTraining)
+        return;
     left *= 1 + (_fastest - 1) * skill(m);
     for (int pass = 0; pass < 16 && left > 0; ++pass) {
         if (m.working) {
             if (_millis < m.workUntil)
                 return;
-            m.working = false;
-            _litter.erase(std::remove_if(_litter.begin(), _litter.end(),
-                                         [&](const Litter &l) {
-                                             return int(std::floor(l.x / kCellUnits)) == m.cell.x &&
-                                                    int(std::floor(l.z / kCellUnits)) == m.cell.y;
-                                         }),
-                          _litter.end());
+            finishWork(m);
         }
         const gfx::Vec3 to = cellCentre(m.cell);
         const float dx = to[0] - m.x;
@@ -269,25 +638,159 @@ void Park::moveStaff(StaffMember &m, float left) {
     }
 }
 
-// Each day: an entertainer cheers those near (within their kind's range
+// Each day. An entertainer cheers those near (within their kind's range
 // by experience) by their grade's HappinessEffectOnCell, a quarter of it a
-// day (guessed); each month's first day the wages are paid; now and then
-// the agencies offer more.
+// day (guessed). Staff tire about their work; below StaffSlackingEnergy,
+// with a staff room within MinDistanceForSlacking cells, they go to rest
+// ("then member of staff will go and rest for a bit", the settings say),
+// else they grow unhappy. Resting, they recover energy and happiness by
+// their Min..Max RecuperationRate and HappinessRecuperationRate, by
+// experience and their agency's modifiers (tenths); training, they gain
+// TrainingExtraExperience by their agency's TrainingExperienceGainModifier.
+// A strike ends when its kind's averages are past Strike's again. Each
+// month's first day comes the month's reckoning; now and then the
+// agencies offer more.
 void Park::staffDay() {
-    for (const StaffMember &m : _staff) {
-        if (m.kind != StaffKind::kEntertainer)
-            continue;
-        const StaffRules &r = _staffRules[size_t(m.kind)];
-        const float range = (r.minRange + (r.maxRange - r.minRange) * skill(m)) * kCellUnits;
-        const size_t grade = size_t(std::clamp(m.experience / kExperiencePerGrade, 0, 4));
-        for (Visitor &v : _people)
-            if (v.inPark && v.doing != Doing::kRiding && std::hypot(v.x - m.x, v.z - m.z) <= range)
-                v.happiness = std::min(100.0f, v.happiness + float(_entertaining[grade]) * kCheerPerDay);
+    const int room = findObject([](const Attractions::Attraction &a) { return a.id == kStaffRoom; });
+    for (StaffMember &m : _staff) {
+        const Agency &agency = _agencies[size_t(std::clamp(m.agency, 0, int(_agencies.size()) - 1))];
+        switch (m.doing) {
+        case StaffDoing::kResting:
+            m.energy += range(_constants.minRecuperation, _constants.maxRecuperation, skill(m)) * kRestPerRate *
+                        float(agency.recuperation) / 10;
+            m.happiness = std::min(100.0f, m.happiness + range(_constants.minHappinessRecuperation,
+                                                               _constants.maxHappinessRecuperation, skill(m)) *
+                                                             float(agency.happinessRecuperation) / 10);
+            if (m.energy >= 100) {
+                m.energy = 100;
+                m.doing = StaffDoing::kWorking;
+                m.target = -1;
+            }
+            break;
+        case StaffDoing::kTraining:
+            m.trained += 1;
+            if (m.trained >= kTrainingDays) {
+                m.experience =
+                    std::min(kMostExperience, m.experience + _constants.trainingExperience * agency.training / 10);
+                m.doing = StaffDoing::kWorking;
+                m.target = -1;
+            }
+            break;
+        case StaffDoing::kWorking:
+            m.energy = std::max(0.0f, m.energy - kTiringPerDay);
+            if (m.energy < float(_constants.slackingEnergy) && m.target < 0 && !m.working) {
+                if (room >= 0) {
+                    const Cell at = _objects[size_t(room)].at;
+                    if (std::abs(at.x - m.cell.x) + std::abs(at.y - m.cell.y) <= _constants.slackingCells)
+                        sendTo(m, room, StaffDoing::kGoingToRest);
+                }
+                if (m.doing == StaffDoing::kWorking)
+                    m.happiness = std::max(0.0f, m.happiness - kTiredUnhappiness);
+            }
+            if (m.kind == StaffKind::kEntertainer) {
+                const StaffRules &r = _staffRules[size_t(m.kind)];
+                const float reach = range(r.minRange, r.maxRange, skill(m)) * kCellUnits;
+                const size_t grade = size_t(std::clamp(m.experience / kExperiencePerGrade, 0, 4));
+                for (Visitor &v : _people)
+                    if (v.inPark && v.doing != Doing::kRiding && std::hypot(v.x - m.x, v.z - m.z) <= reach)
+                        v.happiness = std::min(100.0f, v.happiness + float(_entertaining[grade]) * kCheerPerDay);
+            }
+            break;
+        default:
+            break;
+        }
     }
+    for (size_t k = 0; k < kStaffKinds; ++k)
+        if (_strikes[k] && !wantsToStrike(StaffKind(k))) {
+            _strikes[k] = false;
+            for (StaffMember &m : _staff)
+                if (m.kind == StaffKind(k) && m.doing == StaffDoing::kStriking) {
+                    m.doing = StaffDoing::kWorking;
+                    const gfx::Vec3 in = _wayIn.empty() ? cellCentre({0, 0}) : _wayIn.back();
+                    m.cell = m.from = {int(std::floor(in[0] / kCellUnits)), int(std::floor(in[2] / kCellUnits))};
+                }
+        }
     if (dateOf(_lastDay).day == 1)
-        _cash -= wages();
+        staffMonth();
     if (_lastDay % _poolDays == 0)
         fillPool(false);
+}
+
+// Whether a kind would strike, by the Strike settings: at least
+// MinStaffOfTypeForStrike of them, their average energy, happiness or
+// motivation below its percent.
+bool Park::wantsToStrike(StaffKind kind) const {
+    int count = 0;
+    float energy = 0;
+    float happiness = 0;
+    float motivation = 0;
+    for (const StaffMember &m : _staff)
+        if (m.kind == kind) {
+            ++count;
+            energy += m.energy;
+            happiness += m.happiness;
+            motivation += m.motivation;
+        }
+    if (count < _constants.strikeStaff)
+        return false;
+    const float n = float(count);
+    return energy / n < float(_constants.strikeEnergy) || happiness / n < float(_constants.strikeHappiness) ||
+           motivation / n < float(_constants.strikeMotivation);
+}
+
+// The month's first day: wages paid; each one's wage set against what
+// their experience expects (their kind's MaxWage at the most), their
+// motivation and happiness up by HappyWageVal or down by UnHappyWageVal;
+// below LowestWageHappiness, a demand for the difference. After
+// MinMonthsForStrike months, a kind that would strikes, at the world's
+// strike area. The attractions' month closes, their running costs
+// (Upgrades[0].RunningCost) paid.
+void Park::staffMonth() {
+    _cash -= wages();
+    for (StaffMember &m : _staff) {
+        const StaffRules &r = _staffRules[size_t(m.kind)];
+        const int expected = std::max(_constants.minWage, int(float(r.maxWage) * skill(m)));
+        const float change = float(m.wage >= expected ? _constants.happyWage : -_constants.unhappyWage);
+        m.motivation = std::clamp(m.motivation + change, 0.0f, 100.0f);
+        m.happiness = std::clamp(m.happiness + change, 0.0f, 100.0f);
+        const bool asked =
+            std::any_of(_demands.begin(), _demands.end(), [&](const WageDemand &d) { return d.staff == m.id; });
+        if (m.motivation < float(_constants.lowestWageHappiness) && !asked)
+            _demands.push_back({m.id, std::max(1, expected - m.wage)});
+    }
+    const Date d = dateOf(_lastDay);
+    const int months = (d.year - 2000) * 12 + d.month;
+    if (months >= _constants.strikeMonths)
+        for (size_t k = 0; k < kStaffKinds; ++k) {
+            if (_strikes[k] || !wantsToStrike(StaffKind(k)))
+                continue;
+            _strikes[k] = true;
+            int place = 0;
+            for (StaffMember &m : _staff)
+                if (m.kind == StaffKind(k)) {
+                    m.doing = StaffDoing::kStriking;
+                    m.working = false;
+                    m.route.clear();
+                    if (m.target >= 0 && size_t(m.target) < _objects.size()) {
+                        if (_objects[size_t(m.target)].engineer == m.id)
+                            _objects[size_t(m.target)].engineer = 0;
+                        if (_objects[size_t(m.target)].gardener == m.id)
+                            _objects[size_t(m.target)].gardener = 0;
+                    }
+                    m.target = -1;
+                    const Cell &from = _constants.strikeFrom;
+                    const Cell &size = _constants.strikeSize;
+                    const int w = std::max(1, size.x);
+                    m.cell = {from.x + place % w, from.y + (place / w) % std::max(1, size.y)};
+                    ++place;
+                }
+        }
+    for (PlacedObject &o : _objects) {
+        if (const Attractions::Attraction *a = _attractions.find(o.id))
+            _cash -= a->runningCost;
+        o.lastUsers = std::exchange(o.users, 0);
+        o.lastTakings = std::exchange(o.takings, 0);
+    }
 }
 
 } // namespace reluva::tpw

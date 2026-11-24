@@ -274,6 +274,9 @@ int Park::waitingAt(int queue) const {
     const Visitor *v = visitor(q.line.front());
     if (!v || v->doing != Doing::kQueueing || v->along < lengthOf(queueRoute(q)))
         return 0;
+    // None get on a ride broken or closed.
+    if (q.object >= 0 && (_objects[size_t(q.object)].broken || !_objects[size_t(q.object)].open))
+        return 0;
     return v->id;
 }
 
@@ -289,6 +292,12 @@ bool Park::board(int queue, int id) {
             const int fare = std::min(q.fare, std::max(0, v.cash));
             v.cash -= fare;
             _cash += fare;
+            if (q.object >= 0) {
+                PlacedObject &o = _objects[size_t(q.object)];
+                ++o.users;
+                o.takings += fare;
+                wear(size_t(q.object));
+            }
             if (const Attractions::Attraction *a =
                     q.object >= 0 ? _attractions.find(_objects[size_t(q.object)].id) : nullptr)
                 v.happiness =
@@ -466,6 +475,8 @@ void Park::chooseTarget(Visitor &v) {
         const size_t room = (q.cells.size() + 1) * size_t(kVisitorsPerQueueCell);
         const Attractions::Attraction *a = _attractions.find(_objects[size_t(q.object)].id);
         if (d < 0 || q.line.size() >= room || !a || !a->choosable)
+            continue;
+        if (_objects[size_t(q.object)].broken || !_objects[size_t(q.object)].open)
             continue;
         // Not the other's toilet, nor what they already carry; costumes are
         // children's, the only costumed sprites being of a child (guessed).
@@ -791,6 +802,7 @@ void Park::rollWeather() {
 void Park::newDay() {
     if (_lastDay % kWeatherSpellDays == 0)
         rollWeather();
+    objectsDay();
     staffDay();
     const bool weatherDay = _lastDay % uint32_t(_rules.weatherDays) == 0;
     const bool wet = _weather == Weather::kRain || _weather == Weather::kStorm || _weather == Weather::kSnow;

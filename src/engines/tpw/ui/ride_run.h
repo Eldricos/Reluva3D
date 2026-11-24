@@ -43,6 +43,8 @@ public:
     std::string status() const;
 
     const ScriptMachine *machine() const { return _machine.get(); }
+    /** The script's machine, to set what the park tells it. */
+    ScriptMachine *machine() { return _machine.get(); }
     const SimulatedHost *host() const { return _host.get(); }
     /** The stand-in, to offer it the park's guests. */
     SimulatedHost *host() { return _host.get(); }

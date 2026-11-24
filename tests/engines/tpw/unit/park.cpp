@@ -543,14 +543,15 @@ void testStaff(const std::filesystem::path &tmp) {
     Park park;
     CHECK(!park.load(files, "levels/science", 0));
 
-    // Three janitors offered, at the average experience, paid 10 raised by it.
+    // Three janitors offered, at the average experience, paid 60% of what
+    // it expects: 80 a fifth of the way up, 16, by 10 + 50 percent.
     const auto &janitors = park.candidates(Park::StaffKind::kJanitor);
-    CHECK(janitors.size() == 3 && janitors[0].experience == 20000 && janitors[0].wage == 11);
+    CHECK(janitors.size() == 3 && janitors[0].experience == 20000 && janitors[0].wage == 10);
     CHECK(janitors.size() == 3 && janitors[0].name != janitors[1].name);
     CHECK(park.hire(Park::StaffKind::kScientist, 0) == Park::Hiring::kNeedsLab);
     CHECK(park.hire(Park::StaffKind::kJanitor, 5) == Park::Hiring::kNoSuchCandidate);
     CHECK(park.hire(Park::StaffKind::kJanitor, 0) == Park::Hiring::kHired);
-    CHECK(park.staff().size() == 1 && park.candidates(Park::StaffKind::kJanitor).size() == 2 && park.wages() == 11);
+    CHECK(park.staff().size() == 1 && park.candidates(Park::StaffKind::kJanitor).size() == 2 && park.wages() == 10);
 
     // Prices: up to 0.75 of fair cheap, to 1.25 about right, below twice too high.
     CHECK(park.priceOpinion(7, 10) == Park::PriceOpinion::kCheap);
@@ -585,6 +586,152 @@ void testStaff(const std::filesystem::path &tmp) {
     CHECK(dear.visitors() == 0 && dear.cash() == 1000);
 }
 
+// Upkeep: a ride worn out by a rider, broken, so none get on, till the
+// engineer sent mends it; a plant drying and watered by a gardener; a
+// gardener trained; patrols, wages, firing; underpaid staff demanding a
+// raise, and a kind striking after a year; the park closed.
+void testUpkeep(const std::filesystem::path &tmp) {
+    const std::filesystem::path data = tmp / "game" / "Data";
+    std::string types;
+    for (int i = 0; i < 24; ++i)
+        types += "PeepTypes[" + std::to_string(i) +
+                 "].PreferredExcitement.StartingCash.BoredomThreshold.Generation 60 "
+                 "1000 2000 " +
+                 std::to_string(i / 8) + "\r\n";
+    writeText(
+        data / "levels" / "Standard.sam",
+        "BankAccountInfo.InitialCash 100000\r\nCosts.QueueCell 10\r\nArrival.MinPeople 1\r\n"
+        "Arrival.TimeBetweenArrivals 1\r\nArrival.FixedRate 2\r\nArrival.PointsPerVisitor 1\r\n"
+        "PeepInfo.PercentageOfKids 100\r\nPeepInfo.ExitLevel 5000\r\n"
+        "StaffPoolInfo.BeginningNumberOfMechanics 2\r\nStaffPoolInfo.BeginningNumberOfGardeners 2\r\n"
+        "StaffPoolInfo.BeginningNumberOfHandymen 4\r\nStaffPoolInfo.AvgExperienceOfMechanics 40000\r\n"
+        "StaffPoolInfo.AvgExperienceOfGardeners 40000\r\nStaffPoolInfo.AvgExperienceOfHandymen 1000\r\n"
+        "StaffPoolInfo.AvgWageDifference 0\r\nStaffPoolInfo.MinExperience 1000\r\n"
+        "StaffAgencies[0].InitialWageModifier 10\r\nStaffAgencies[0].InitialExperienceModifier 0\r\n"
+        "StaffAgencies[0].TrainingExperienceGainModifier 10\r\nAllStaffConstants.MinExperienceForTraining 30000\r\n"
+        "AllStaffConstants.TrainingExtraExperience 5000\r\nGardener.MinDetectionRange 10\r\n"
+        "Gardener.MaxDetectionRange 10\r\nStrike.MinMonthsForStrike 12\r\nStrike.MinStaffOfTypeForStrike 3\r\n" +
+            types);
+    writeText(data / "missions" / "miss00.sam", "Info.Number 0\r\n");
+    const std::filesystem::path world = data / "levels" / "science";
+    writeText(world / "rides" / "Rides.sam", "Info.HasQueue 1\r\nInfo.IsChoosable 1\r\n");
+    writeText(world / "rides" / "robot" / "robot.sam",
+              "Info.Id 1101\r\nUsageInfo.InitPricePerUse 10\r\nUsageInfo.ExcitementLevel 60\r\n"
+              "Upgrades[0].WearRate 500\r\nUpgrades[0].CostOfUpgrade 1000\r\nUpgrades[0].ScrapValueYear1 50\r\n"
+              "Info.Shape\r\n---\r\n2N\r\n---\r\n");
+    writeText(world / "features" / "flobed" / "flobed.sam",
+              "Info.Id 1401\r\nUsageInfo.RequiresWatering 1\r\nInfo.Shape\r\n---\r\n*\r\n---\r\n");
+    writeText(world / "Facilities" / "train_rm" / "train_rm.sam",
+              "Info.Id 1440\r\nUsageInfo.TrainingRoom 1\r\nInfo.Shape\r\n---\r\n*2\r\n---\r\n");
+    constexpr int kRows = 8;    // x
+    constexpr int kColumns = 6; // y
+    tpw::testing::Bytes tiles(size_t(kRows) * kColumns, 0);
+    for (int x = 0; x < 7; ++x)
+        tiles[size_t(x) * kColumns + 4] = 8;
+    test::writeFile(world / "terrain" / "base.map", tpw::testing::makeAttributeMap(kColumns, kRows, tiles));
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!mountGame(files, tmp / "game", warnings));
+    Park park;
+    CHECK(!park.load(files, "levels/science", 0));
+    const int q = park.place(1101, 0, {"2N"}, true, {2, 2}, 0);
+    CHECK(q >= 0 && park.layQueue(q, Park::pathRun({2, 2}, {2, 4})) == 1);
+    CHECK(park.place(1401, 0, {"*"}, false, {5, 5}, 0) == -1);
+    CHECK(park.place(1440, 0, {"*2"}, false, {5, 2}, 0) == -1);
+    CHECK(park.scrapValue(0) == 500);
+
+    // Staff: two engineers and gardeners able to be trained; janitors not.
+    CHECK(park.hire(Park::StaffKind::kEngineer, 0) == Park::Hiring::kHired);
+    CHECK(park.hire(Park::StaffKind::kGardener, 0) == Park::Hiring::kHired);
+    CHECK(park.hire(Park::StaffKind::kGardener, 0) == Park::Hiring::kHired);
+    CHECK(park.hire(Park::StaffKind::kJanitor, 0) == Park::Hiring::kHired);
+    CHECK(park.staff().size() == 4);
+    const int engineer = park.staff()[0].id;
+    const int gardener = park.staff()[1].id;
+    const int trainee = park.staff()[2].id;
+    const int janitor = park.staff()[3].id;
+    CHECK(park.sendForTraining(janitor) == Park::Training::kTooInexperienced);
+    CHECK(park.sendForTraining(trainee) == Park::Training::kSent);
+    CHECK(park.staffMember(trainee)->doing == Park::StaffDoing::kGoingToTrain);
+
+    // Wages: set, clamped, changed by a percentage; patrols.
+    park.setWage(janitor, 20);
+    CHECK(park.staffMember(janitor)->wage == 20);
+    park.adjustWages(Park::StaffKind::kJanitor, Park::Adjustment::kPercent, 50);
+    CHECK(park.staffMember(janitor)->wage == 30);
+    park.setPatrol(janitor, {3, 4}, {0, 4});
+    const Park::StaffMember *j = park.staffMember(janitor);
+    CHECK(j && j->patrolling && (j->patrolFrom == Park::Cell{0, 4}) && (j->patrolTo == Park::Cell{3, 4}));
+    park.clearPatrol(janitor);
+    CHECK(!park.staffMember(janitor)->patrolling);
+
+    // The first rider wears the ride out: broken, none get on; the engineer
+    // is sent the next day, and mends it.
+    int waiting = 0;
+    for (int t = 0; t < 600 && !waiting; ++t) {
+        park.advance(100);
+        waiting = park.waitingAt(q);
+    }
+    CHECK(waiting && park.board(q, waiting) && park.objects()[0].broken && park.objects()[0].users == 1);
+    CHECK(park.letOff(q, waiting));
+    bool sent = false;
+    for (int t = 0; t < 600 && park.objects()[0].broken; ++t) {
+        park.advance(100);
+        sent = sent || park.objects()[0].engineer == engineer;
+        CHECK(park.waitingAt(q) == 0 || !park.objects()[0].broken);
+    }
+    CHECK(sent && !park.objects()[0].broken && park.objects()[0].repair == 100 && !park.objects()[0].engineer);
+
+    // Closed, none get on either.
+    park.setOpen(0, false);
+    for (int t = 0; t < 100; ++t) {
+        park.advance(100);
+        CHECK(park.waitingAt(q) == 0);
+    }
+    park.setOpen(0, true);
+
+    // A month and more on: the plant dried below half and was watered; the
+    // trainee is trained, 5000 the more experienced.
+    for (int t = 0; t < 1500; ++t)
+        park.advance(100);
+    CHECK(park.objects()[1].water > 50);
+    const Park::StaffMember *t = park.staffMember(trainee);
+    CHECK(t && t->doing == Park::StaffDoing::kWorking && t->experience == 45000);
+
+    // Fired, gone.
+    park.fire(gardener);
+    CHECK(!park.staffMember(gardener) && park.staff().size() == 3);
+
+    // Underpaid a year, staff demand a raise; refused at too little, taken
+    // at the whole.
+    for (int t = 0; t < 4000 && !park.wageDemand(); ++t)
+        park.advance(1000);
+    const Park::WageDemand *demand = park.wageDemand();
+    CHECK(demand != nullptr);
+    if (demand) {
+        const int who = demand->staff;
+        const int raise = demand->raise;
+        const int was = park.staffMember(who)->wage;
+        CHECK(park.offer(0) == Park::Offer::kRefused && park.wageDemand());
+        CHECK(park.offer(raise) == Park::Offer::kAccepted && park.staffMember(who)->wage == was + raise);
+    }
+
+    // Three janitors, worn out a year on: on strike, none hired the while.
+    CHECK(park.hire(Park::StaffKind::kJanitor, 0) == Park::Hiring::kHired);
+    CHECK(park.hire(Park::StaffKind::kJanitor, 0) == Park::Hiring::kHired);
+    for (int t = 0; t < 1600 && !park.striking(Park::StaffKind::kJanitor); ++t)
+        park.advance(1000);
+    CHECK(park.striking(Park::StaffKind::kJanitor));
+    CHECK(park.hire(Park::StaffKind::kJanitor, 0) == Park::Hiring::kStrike);
+
+    // The park closed: nobody more comes.
+    park.setParkOpen(false);
+    const size_t about = park.visitorsAbout().size();
+    for (int t = 0; t < 600; ++t)
+        park.advance(100);
+    CHECK(park.visitorsAbout().size() <= about);
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -599,4 +746,5 @@ static const reluva::test::Suite
                                 {"riders", [](const std::filesystem::path &tmp) { testRiders(tmp); }},
                                 {"conditions", [](const std::filesystem::path &tmp) { testConditions(tmp); }},
                                 {"staff", [](const std::filesystem::path &tmp) { testStaff(tmp); }},
+                                {"upkeep", [](const std::filesystem::path &tmp) { testUpkeep(tmp); }},
                             });

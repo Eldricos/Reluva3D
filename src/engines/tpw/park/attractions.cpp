@@ -126,6 +126,13 @@ Error Attractions::load(const SearchSet &files, const std::string &folder) {
             a.indoors = number("UsageInfo.ISIndoors", 0) != 0;
             a.security = number("UsageInfo.ProvidesSecurity", 0) != 0;
             a.lab = number("UsageInfo.ThinkingSpace", 0) != 0;
+            a.trainingRoom = number("UsageInfo.TrainingRoom", 0) != 0;
+            a.requiresWatering = number("UsageInfo.RequiresWatering", 0) != 0;
+            a.wearRate = int(number("Upgrades[0].WearRate", 0));
+            a.runningCost = int(number("Upgrades[0].RunningCost", 0));
+            for (size_t y = 0; y < a.scrapPercent.size(); ++y)
+                a.scrapPercent[y] =
+                    int(number(("Upgrades[0].ScrapValueYear" + std::to_string(y + 1)).c_str(), a.scrapPercent[y]));
             a.generationPercent = {int(number("GenerationModifier.KidScorePercentage", 100)),
                                    int(number("GenerationModifier.ParentScorePercentage", 100)),
                                    int(number("GenerationModifier.GrandparentScorePercentage", 100))};

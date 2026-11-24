@@ -106,6 +106,52 @@ its name, its pair of `OBJECT_NAMES` in two lines, lettered over its
 `SIGN1`, `SIGN2` textures as the `.sgn` file beside it has it: a font of
 the game's, sizes and colours ([sgn.md](../formats/sgn.md)).
 
+### Its window and menu
+
+Clicking an attraction opens its window, right-clicking it its menu, as
+the recording does at 11:16 to 11:28.
+
+The menu (at 640 × 480, the menus' see-through panel at the point
+clicked, the attraction's name over its items): "Call engineer",
+"Cancel called engineer", "Build/Edit line", "Buy upgrade", "Close",
+"Delete (scrap value: $500)", "Ride", "View financial summary", "Edit
+name", "Buy another (cost: $1000)", "View opinion summary" (`UITEXT` 524
+to 535). Reluva's has those it does: call or cancel an engineer, build
+or edit the line, open or close; a plant's, call a gardener (583, 584).
+
+The window (`!window_s`, (90, 62), 515 × 296; the name at (118, 69)):
+its model turning in a frame at (108, 104), "Not Upgraded" under it;
+its ratings and accounts in a frame at (242, 104), a line every 16
+pixels, values at x 372: "Users last month", "Excitement rating",
+"Customer satisfaction", "Reliability", "State of repair", "Remaining
+life" (bars), "Monthly running cost", "Scrap value" (117 to 124); a
+shop's and sideshow's their own (128 to 143); the weather icons under
+the model; sliders for speed, capacity and duration at the right; and
+its price in a box at (286, 250): − and + about it, "Entry Price"
+(428), a shop's "Sale price", a sideshow's "Price of game"; the door, open
+or shut, at the bottom left; the tick. Reluva draws the model, the ratings
+it has (users last month, excitement, reliability as 1 less its
+`WearRate` tenths *(guessed)*, the state of repair, the running cost, the
+scrap value), the capacity, the price, which − and + change by § 1, and
+the door, which opens and closes it; not the sliders, customer
+satisfaction, remaining life or the weather icons.
+
+What it brings in, a month's users and takings, its `RunningCost`
+paid each month, and its scrap value, its price by
+`Upgrades[0].ScrapValueYear1` to `4` percent as it ages a year, are
+kept.
+
+### Wear and breakdowns
+
+Each rider wears a ride by a fifth of its `Upgrades[0].WearRate` ("out
+of 10", its comment says) percent of repair *(guessed)*. At 0 it's
+broken: none get on, and its script is told so in `VAR_BREAKSTAT`,
+which the scripts test before each cycle, playing their breakdown (the
+robot's branch at `a333`). Below `RideBreakDown.Imminent` (10), or
+broken, an engineer is called ([staff.md](staff.md#their-work)), who
+mends it whole. Closed, none get on either, and its script is told in
+`VAR_RIDECLOSED`.
+
 ## In Reluva
 
 `Attractions` (`src/engines/tpw/park/attractions.cpp`) reads a world's
@@ -148,5 +194,7 @@ attractions built in the test, place them, and click the window.
   several; what placing does to the ground (the hoardings, the
   particle effect on building, `Info.CreateParticleEffect`).
 - Exits: where visitors leave, and the path they need.
+- How wear comes, by rider or by cycle; `RideBreakDown.WarnPlayer`;
+  upgrades; the sliders; deleting and buying another from the menu.
 - The signs: how close Reluva's lettering is to the game's
   ([sgn.md](../formats/sgn.md#open-questions)).

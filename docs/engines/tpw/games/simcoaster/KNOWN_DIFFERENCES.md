@@ -28,7 +28,10 @@ None yet.
   rules, drawn by their sprites at a guessed pace, under its HUD, the
   camera moved by Reluva's own keys and the compass; path can be laid, the
   bottom buttons' menus open, but only the path tool, the Park
-  menu's Objectives, Build Attraction and Hire Staff do anything yet; a new park has the prebuilt park's
+  menu's Objectives, Park Gates and Close Park, Build Attraction and the
+  Staff menu do anything yet; attractions', staff's and the gates'
+  windows and menus have only some of their controls, and the staff's
+  windows are laid out by guess; a new park has the prebuilt park's
   path, queue, ride and other objects ([paths.md](systems/paths.md)),
   standing still; attractions can be bought and placed, their
   queues laid, and they run their scripts; visitors choose, queue for

@@ -40,6 +40,7 @@ reluva_add_engine(tpw
         ui/ui_model.cpp
         ui/buy_window.cpp
         ui/park_hud.cpp
+        ui/park_windows.cpp
         ui/park_screen.cpp
         ui/personnel_file.cpp
         ui/world_view.cpp

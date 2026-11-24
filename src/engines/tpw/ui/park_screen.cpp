@@ -108,6 +108,31 @@ constexpr const char *kParticleSprite = "esprites/Generic/Particles/Spr_pa";
 constexpr int kThoughtFrames = 16;
 constexpr std::array<int, 22> kThoughtBubbles{-1, 8, 9, 10, 14, 11, 12, 15, 0,  1,  2,
                                               3,  7, 4, 6,  5,  13, 16, 17, 18, 19, 20};
+// The menus' items acted on, UITEXT's: the Staff and Park menus', and the
+// right-click menus' of an attraction, a plant, a member of staff and the
+// gates.
+constexpr uint32_t kTrainStaffItem = 828;
+constexpr uint32_t kListStaffItem = 829;
+constexpr uint32_t kLocateStaffItem = 830;
+constexpr uint32_t kStaffFinanceItem = 831;
+constexpr uint32_t kParkGatesItem = 847;
+constexpr uint32_t kCallEngineerItem = 524;
+constexpr uint32_t kCancelEngineerItem = 525;
+constexpr uint32_t kEditLineItem = 526;
+constexpr uint32_t kOpenItem = 530;
+constexpr uint32_t kCloseItem = 531;
+constexpr uint32_t kCallGardenerItem = 583;
+constexpr uint32_t kCancelGardenerItem = 584;
+constexpr uint32_t kEntryPriceItem = 597;
+constexpr uint32_t kOpenParkItem = 599;
+constexpr uint32_t kCloseParkItem = 600;
+constexpr uint32_t kSetPatrolItem = 603;
+constexpr uint32_t kClearPatrolItem = 605;
+constexpr uint32_t kTrainItem = 606;
+constexpr uint32_t kFireItem = 608;
+// A member of staff is picked within this of their feet, in units.
+constexpr float kStaffPickHalfWidth = 1.5f;
+constexpr float kStaffPickHeight = 5;
 // A visitor in a costume (Park::Visitor::appearance), drawn by the world's.
 constexpr int kCostumed = 2;
 // A stink bomb's cloud: the particles' white puff growing (animation 3).
@@ -139,6 +164,7 @@ constexpr size_t kStandAnimation = 0;
 // A janitor sweeping up: the handyman's fifth animation, a frame this often.
 constexpr size_t kSweepAnimation = 4;
 constexpr uint64_t kSweepFrameMillis = 200;
+constexpr size_t kStrikeAnimation = 5;
 // A walking frame each unit walked: a step cycle of 8 units, about one
 // and a half of an adult's heights (guessed).
 constexpr float kUnitsPerWalkFrame = 1;
@@ -264,6 +290,7 @@ Error ParkScreen::load(const SearchSet &files, const Park &park) {
     _attractions.load(files, park.folder());
     _buyRead = !_buy.load(files);
     _hireRead = !_hire.load(files, park.folder());
+    _kitRead = !_kit.load(files);
     loadObjects(files, park);
     _runs.clear();
     _ranTo = park.millis();
@@ -464,6 +491,19 @@ void ParkScreen::advance(Park &park) {
         if (queue >= 0 && host && !host->hasOffered()) {
             if (const int waiting = park.waitingAt(queue))
                 host->offerGuest(waiting);
+        }
+        // What the park tells the script: broken, or closed (its variables by their names).
+        if (ScriptMachine *machine = run->machine(); machine && i < park.objects().size()) {
+            const Park::PlacedObject &o = park.objects()[i];
+            const auto &names = machine->script().variables();
+            for (size_t v = 0; v < names.size(); ++v) {
+                if (names[v] == "VAR_BREAKSTAT")
+                    machine->setVariable(v, o.broken ? 1 : 0);
+                if (names[v] == "VAR_RIDECLOSED")
+                    machine->setVariable(v, o.open ? 0 : 1);
+                if (names[v] == "VAR_BROKEN" && !o.broken)
+                    machine->setVariable(v, 0);
+            }
         }
         run->advance(ms);
         if (queue < 0 || !host)
@@ -796,19 +836,27 @@ void ParkScreen::drawVisitors(Surface &screen, const soft3d::Rasterizer &rasteri
     // The staff, by their kind's sprite: walking, standing, a janitor
     // sweeping (its fifth animation, stooping with pan and brush).
     for (const Park::StaffMember &m : park.staff()) {
+        if (m.doing == Park::StaffDoing::kResting || m.doing == Park::StaffDoing::kTraining)
+            continue;
         const LoadedSprite *look = _hire.spriteOf(m.kind);
         if (!look) {
             mark(screen, eye, {m.x, 1, m.z}, 2, kVisitorColour);
             continue;
         }
         const bool walking = !m.working && (m.headingX != 0 || m.headingZ != 0);
-        const size_t slot = m.working ? kSweepAnimation : walking ? kWalkAnimation : kStandAnimation;
+        // On strike, once there, they hold up a sign: their sixth animation, where they have it.
+        const bool picketing =
+            m.doing == Park::StaffDoing::kStriking && !walking && look->set.animations()[kStrikeAnimation].frames > 0;
+        const size_t slot = picketing   ? kStrikeAnimation
+                            : m.working ? kSweepAnimation
+                            : walking   ? kWalkAnimation
+                                        : kStandAnimation;
         const auto &animation = look->set.animations()[slot];
         const SpritePose pose =
             spritePose(animation, walking || m.working ? turned(m.headingX, m.headingZ) : 3.14159265f,
-                       m.working ? uint32_t(park.millis() / kSweepFrameMillis)
-                       : walking ? uint32_t(m.walked / kUnitsPerWalkFrame)
-                                 : 0);
+                       m.working || picketing ? uint32_t(park.millis() / kSweepFrameMillis)
+                       : walking              ? uint32_t(m.walked / kUnitsPerWalkFrame)
+                                              : 0);
         see(*look, pose.frame, {m.x, 0, m.z}, pose.mirror);
     }
     std::sort(seen.begin(), seen.end(), [](const Seen &a, const Seen &b) { return a.depth > b.depth; });
@@ -962,6 +1010,62 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
         _buy.draw(screen);
     if (_hireRead)
         _hire.draw(screen);
+    if (_kitRead) {
+        _attractionWindow.draw(screen, _kit, park);
+        _gateWindow.draw(screen, _kit, park);
+        _staffList.draw(screen, _kit, park, _hire);
+        _trainingWindow.draw(screen, _kit, park, _hire);
+        _staffFinance.draw(screen, _kit, park);
+        _staffWindow.draw(screen, _kit, park, _hire);
+        _wageDemand.draw(screen, _kit, park, _hire);
+        _popup.draw(screen, _kit);
+    }
+}
+
+bool ParkScreen::windowOpen() const {
+    return _popup.isOpen() || _attractionWindow.isOpen() || _gateWindow.isOpen() || _staffWindow.isOpen() ||
+           _staffList.isOpen() || _trainingWindow.isOpen() || _staffFinance.isOpen() || _wageDemand.isOpen();
+}
+
+int ParkScreen::objectAt(const Park &park, const Park::Cell &cell) const {
+    for (size_t i = 0; i < park.objects().size(); ++i) {
+        const Park::PlacedObject &o = park.objects()[i];
+        const Attractions::Attraction *a = park.attractions().find(o.id);
+        const std::vector<Park::Cell> cells =
+            a ? Park::footprint(a->shape, o.at, o.angle).cells : std::vector<Park::Cell>{o.at};
+        if (std::find(cells.begin(), cells.end(), cell) != cells.end())
+            return int(i);
+    }
+    return -1;
+}
+
+// Within a sprite's half-width of where their feet are drawn, and up to
+// their height above (guessed: about 5 units tall, 3 across).
+int ParkScreen::staffAt(const Park &park, const Camera &camera, int x, int y) const {
+    const soft3d::OrbitCamera eye = worldCamera(_world, viewOf(camera), kWidth, kHeight);
+    for (const Park::StaffMember &m : park.staff()) {
+        if (m.doing == Park::StaffDoing::kResting || m.doing == Park::StaffDoing::kTraining)
+            continue;
+        const soft3d::ViewVertex view = eye.toView(toViewerWorld({m.x, 0, m.z}));
+        if (view.z < eye.nearZ)
+            continue;
+        const soft3d::ScreenVertex at = eye.project(view);
+        const float scale = eye.focal / view.z;
+        if (std::fabs(float(x) - at.x) <= kStaffPickHalfWidth * scale && float(y) <= at.y &&
+            float(y) >= at.y - kStaffPickHeight * scale)
+            return m.id;
+    }
+    return 0;
+}
+
+std::string ParkScreen::nameOf(const Park &park, size_t object) const {
+    const Attractions::Attraction *a =
+        object < park.objects().size() ? park.attractions().find(park.objects()[object].id) : nullptr;
+    return a && _buyRead ? _buy.names().shown(*a) : a ? a->name : std::string();
+}
+
+const LoadedModel *ParkScreen::modelOf(const Park &park, size_t object) const {
+    return object < park.objects().size() ? objectModel(park.objects()[object].id) : nullptr;
 }
 
 bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShower &showObjectives) {
@@ -984,6 +1088,35 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
     // The attraction being placed, bought in the Buy window, and its turn.
     const Attractions::Attraction *placing = nullptr;
     int placingAngle = 0;
+    // What the right-click menu is of: an object, a member of staff, or the gates.
+    int menuObject = -1;
+    int menuStaff = 0;
+    // A patrol area being set: whose, and its first corner once clicked.
+    int patrolling = 0;
+    std::optional<Park::Cell> patrolCorner;
+    size_t located = 0; // Locate Staff's last
+    auto onGates = [&](const Park::Cell &c) {
+        const auto &gates = park.fixedItems().entrance;
+        return std::find(gates.begin(), gates.end(), c) != gates.end();
+    };
+    // A right-click menu's items, by what it's of (UITEXT's).
+    auto objectItems = [&](size_t object) {
+        std::vector<uint32_t> items;
+        const Park::PlacedObject &o = park.objects()[object];
+        const Attractions::Attraction *a = park.attractions().find(o.id);
+        if (a && a->requiresWatering) {
+            items.push_back(o.gardener ? kCancelGardenerItem : kCallGardenerItem);
+            return items;
+        }
+        const int queue = park.queueOf(object);
+        if (queue >= 0 && !park.queues()[size_t(queue)].kiosk) {
+            items.push_back(o.engineer ? kCancelEngineerItem : kCallEngineerItem);
+            items.push_back(kEditLineItem);
+        }
+        if (queue >= 0)
+            items.push_back(o.open ? kCloseItem : kOpenItem);
+        return items;
+    };
     for (;;) {
         Event ev;
         while (sys.pollEvent(ev)) {
@@ -992,6 +1125,68 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
             if (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseDown) {
                 mouseX = ev.mouseX;
                 mouseY = ev.mouseY;
+            }
+            // The smaller windows and the right-click menu take the mouse, and
+            // Esc, while open: the uppermost first.
+            if (screen.windowOpen()) {
+                if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
+                    screen.popup().close();
+                    screen.attractionWindow().close();
+                    screen.gateWindow().close();
+                    screen.staffWindow().close();
+                    screen.staffList().close();
+                    screen.trainingWindow().close();
+                    screen.staffFinance().close();
+                } else if (screen.wageDemand().isOpen()) {
+                    screen.wageDemand().handle(ev, park);
+                } else if (screen.popup().isOpen()) {
+                    if (screen.popup().handle(ev) == WindowResult::kChose) {
+                        const uint32_t item = screen.popup().chosen();
+                        if (menuObject >= 0) {
+                            const size_t object = size_t(menuObject);
+                            if (item == kCallEngineerItem)
+                                park.callEngineer(object);
+                            else if (item == kCancelEngineerItem)
+                                park.cancelEngineer(object);
+                            else if (item == kCallGardenerItem)
+                                park.callGardener(object);
+                            else if (item == kEditLineItem)
+                                queueLaying = park.queueOf(object);
+                            else if (item == kOpenItem || item == kCloseItem)
+                                park.setOpen(object, item == kOpenItem);
+                        } else if (menuStaff) {
+                            if (item == kSetPatrolItem) {
+                                patrolling = menuStaff;
+                                patrolCorner.reset();
+                            } else if (item == kClearPatrolItem) {
+                                park.clearPatrol(menuStaff);
+                            } else if (item == kTrainItem) {
+                                park.sendForTraining(menuStaff);
+                            } else if (item == kFireItem) {
+                                park.fire(menuStaff);
+                            }
+                        } else if (item == kEntryPriceItem) {
+                            screen.gateWindow().open();
+                        } else if (item == kOpenParkItem || item == kCloseParkItem) {
+                            park.setParkOpen(item == kOpenParkItem);
+                        }
+                    }
+                } else if (screen.staffWindow().isOpen()) {
+                    screen.staffWindow().handle(ev, park);
+                } else if (screen.staffList().isOpen()) {
+                    if (screen.staffList().handle(ev, park) == WindowResult::kChose)
+                        screen.staffWindow().open(screen.staffList().chosen());
+                } else if (screen.trainingWindow().isOpen()) {
+                    screen.trainingWindow().handle(ev);
+                } else if (screen.staffFinance().isOpen()) {
+                    screen.staffFinance().handle(ev, park);
+                } else if (screen.attractionWindow().isOpen()) {
+                    screen.attractionWindow().handle(ev, park);
+                } else if (screen.gateWindow().isOpen()) {
+                    screen.gateWindow().handle(ev, park);
+                }
+                if (ev.type != EventType::kKeyUp)
+                    continue;
             }
             // The Hire Staff window likewise; its tick hires, and it stays open.
             HireWindow &hiring = screen.hireWindow();
@@ -1041,6 +1236,67 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                 if (ev.type == EventType::kKeyDown &&
                     (ev.key == ',' || ev.key == '<' || ev.key == '.' || ev.key == '>')) {
                     placingAngle = (placingAngle + (ev.key == ',' || ev.key == '<' ? 270 : 90)) % 360;
+                    continue;
+                }
+            }
+            // A patrol area: two corners clicked on the ground; a right click or Esc drops it.
+            if (patrolling) {
+                if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft && onGround) {
+                    if (!patrolCorner) {
+                        patrolCorner = under;
+                    } else {
+                        park.setPatrol(patrolling, *patrolCorner, under);
+                        patrolling = 0;
+                    }
+                    continue;
+                }
+                if ((ev.type == EventType::kMouseDown && ev.button == MouseButton::kRight) ||
+                    (ev.type == EventType::kKeyDown && ev.key == key::kEscape)) {
+                    patrolling = 0;
+                    continue;
+                }
+            }
+            // With the pointer, a click on an attraction, a member of staff or
+            // the gates opens their window; a right click, their menu.
+            if (ev.type == EventType::kMouseDown && screen.hud().tool() == ParkHud::Tool::kPointer && queueLaying < 0 &&
+                (ev.button == MouseButton::kLeft || ev.button == MouseButton::kRight)) {
+                const bool left = ev.button == MouseButton::kLeft;
+                const int staff = screen.staffAt(park, camera, mouseX, mouseY);
+                const int object = onGround ? screen.objectAt(park, under) : -1;
+                menuObject = -1;
+                menuStaff = 0;
+                if (staff) {
+                    if (left) {
+                        screen.staffWindow().open(staff);
+                    } else {
+                        menuStaff = staff;
+                        const Park::StaffMember *m = park.staffMember(staff);
+                        screen.popup().open(
+                            m ? screen.hireWindow().nameOf(m->kind, m->name) : std::string(),
+                            {m && m->patrolling ? kClearPatrolItem : kSetPatrolItem, kTrainItem, kFireItem}, mouseX,
+                            mouseY);
+                    }
+                    continue;
+                }
+                if (object >= 0) {
+                    const std::vector<uint32_t> items = objectItems(size_t(object));
+                    if (left && park.queueOf(size_t(object)) >= 0) {
+                        screen.attractionWindow().open(park, size_t(object), screen.nameOf(park, size_t(object)),
+                                                       screen.modelOf(park, size_t(object)));
+                    } else if (!left && !items.empty()) {
+                        menuObject = object;
+                        screen.popup().open(screen.nameOf(park, size_t(object)), items, mouseX, mouseY);
+                    }
+                    if (left || !items.empty())
+                        continue;
+                }
+                if (onGround && onGates(under)) {
+                    if (left)
+                        screen.gateWindow().open();
+                    else
+                        screen.popup().open(screen.kit().ui(kParkGatesItem),
+                                            {kEntryPriceItem, park.parkOpen() ? kCloseParkItem : kOpenParkItem}, mouseX,
+                                            mouseY);
                     continue;
                 }
             }
@@ -1104,6 +1360,8 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
         screen.hud().advance(uint32_t(now - last));
         screen.buyWindow().advance(uint32_t(now - last));
         screen.hireWindow().advance(uint32_t(now - last));
+        screen.attractionWindow().advance(uint32_t(now - last));
+        screen.staffWindow().advance(uint32_t(now - last));
         last = now;
 
         const uint32_t choice = screen.hud().takeChoice();
@@ -1111,6 +1369,25 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
             screen.buyWindow().open(screen.attractions(), Attractions::Kind::kRide, park);
         if (choice == ParkHud::kHireStaffItem)
             screen.hireWindow().open(park, Park::StaffKind::kJanitor);
+        if (choice == kListStaffItem)
+            screen.staffList().open(Park::StaffKind::kJanitor);
+        if (choice == kTrainStaffItem)
+            screen.trainingWindow().open();
+        if (choice == kStaffFinanceItem)
+            screen.staffFinance().open();
+        if (choice == kParkGatesItem)
+            screen.gateWindow().open();
+        if (choice == kCloseParkItem)
+            park.setParkOpen(!park.parkOpen());
+        // Locate Staff: the camera to each in turn.
+        if (choice == kLocateStaffItem && !park.staff().empty()) {
+            located = (located + 1) % park.staff().size();
+            const Park::StaffMember &m = park.staff()[located];
+            camera.target = {m.x, 0, m.z};
+        }
+        // A wage demand comes up of itself.
+        if (const Park::WageDemand *demand = park.wageDemand(); demand && !screen.wageDemand().isOpen())
+            screen.wageDemand().open(demand->raise);
         if (choice == ParkHud::kObjectivesItem && showObjectives) {
             park.setPaused(true);
             const ParkScreen::Camera now = camera;
@@ -1128,6 +1405,16 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
         if (placing && !screen.hud().covers(mouseX, mouseY) && screen.cellAt(camera, mouseX, mouseY, under)) {
             footprint = Park::footprint(placing->shape, under, placingAngle);
             fits = park.canPlace(*footprint) && park.cash() >= placing->price;
+        }
+        // A patrol area being set shows as the footprint does, from its
+        // first corner to the cell under the mouse.
+        if (patrolling && patrolCorner && screen.cellAt(camera, mouseX, mouseY, under)) {
+            Park::Footprint area;
+            for (int y = std::min(patrolCorner->y, under.y); y <= std::max(patrolCorner->y, under.y); ++y)
+                for (int x = std::min(patrolCorner->x, under.x); x <= std::max(patrolCorner->x, under.x); ++x)
+                    area.cells.push_back({x, y});
+            footprint = std::move(area);
+            fits = true;
         }
         screen.setPlacement(std::move(footprint), fits, placing ? placing->price : 0);
         std::vector<Park::Cell> preview;

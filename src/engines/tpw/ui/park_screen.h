@@ -13,6 +13,7 @@
 #include "engines/tpw/park/path_tiles.h"
 #include "engines/tpw/ui/buy_window.h"
 #include "engines/tpw/ui/hire_window.h"
+#include "engines/tpw/ui/park_windows.h"
 #include "engines/tpw/ui/park_hud.h"
 #include "engines/tpw/ui/ride_run.h"
 #include "engines/tpw/ui/sign_painter.h"
@@ -100,6 +101,28 @@ public:
     /** The Hire Staff window, which takes the mouse before the HUD while it's open; the staff's sprites. */
     HireWindow &hireWindow() { return _hire; }
 
+    /** The park's smaller windows and right-click menu, and what draws them. */
+    ///@{
+    const WindowKit &kit() const { return _kit; }
+    PopupMenu &popup() { return _popup; }
+    AttractionWindow &attractionWindow() { return _attractionWindow; }
+    GateWindow &gateWindow() { return _gateWindow; }
+    StaffWindow &staffWindow() { return _staffWindow; }
+    StaffListWindow &staffList() { return _staffList; }
+    TrainingWindow &trainingWindow() { return _trainingWindow; }
+    StaffFinanceWindow &staffFinance() { return _staffFinance; }
+    WageDemandWindow &wageDemand() { return _wageDemand; }
+    ///@}
+    /** Whether any of the windows is open, which take the mouse before the HUD. */
+    bool windowOpen() const;
+    /** The object one of whose cells a cell is; −1 for none. */
+    int objectAt(const Park &park, const Park::Cell &cell) const;
+    /** The member of staff drawn under a point of the screen, seen through `camera`; 0 for none. */
+    int staffAt(const Park &park, const Camera &camera, int x, int y) const;
+    /** An object's name as the game shows it, and its model; nullptr if it hasn't one. */
+    std::string nameOf(const Park &park, size_t object) const;
+    const LoadedModel *modelOf(const Park &park, size_t object) const;
+
     /** The HUD's buttons, which take the mouse before the park does. */
     ParkHud &hud() { return _furniture; }
 
@@ -152,6 +175,16 @@ private:
     bool _buyRead = false;
     HireWindow _hire;
     bool _hireRead = false;
+    WindowKit _kit;
+    bool _kitRead = false;
+    PopupMenu _popup;
+    AttractionWindow _attractionWindow;
+    GateWindow _gateWindow;
+    StaffWindow _staffWindow;
+    StaffListWindow _staffList;
+    TrainingWindow _trainingWindow;
+    StaffFinanceWindow _staffFinance;
+    WageDemandWindow _wageDemand;
     std::optional<Park::Footprint> _placement;
     bool _placementFits = false;
     int _placementPrice = 0;

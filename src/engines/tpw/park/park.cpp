@@ -151,6 +151,8 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
             _fixed.ticketBoothAngles.push_back(int(world.number(base + "Angle")));
         }
         const std::string f = "FixedItemInfo.";
+        _constants.strikeFrom = cellOf(world, f + "StrikeAreaStartX", f + "StrikeAreaStartY");
+        _constants.strikeSize = cellOf(world, f + "StrikeAreaSizeX", f + "StrikeAreaSizeY");
         _fixed.entrance = {cellOf(world, f + "EntranceAPosX", f + "EntranceAPosY"),
                            cellOf(world, f + "EntranceBPosX", f + "EntranceBPosY")};
         _fixed.busStops = {cellOf(world, f + "BusStopAPosX", f + "BusStopAPosY"),
@@ -216,8 +218,9 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
 
 int Park::points() const {
     int points = _arrivals.fixedRate + _arrivals.newParkBonus;
+    // A plant gone dry adds nothing (guessed).
     for (const PlacedObject &o : _objects)
-        if (const Attractions::Attraction *a = _attractions.find(o.id))
+        if (const Attractions::Attraction *a = _attractions.find(o.id); a && !(a->requiresWatering && o.water <= 0))
             points += a->attractionValue;
     return points;
 }
@@ -321,7 +324,7 @@ void Park::step(uint32_t ms) {
                       _stinkBombs.end());
     while (_millis >= _nextArrivalMs) {
         _nextArrivalMs += _arrivals.everyMs;
-        if (int(_people.size()) < visitorsWanted() && !_wayIn.empty())
+        if (_parkOpen && int(_people.size()) < visitorsWanted() && !_wayIn.empty())
             addVisitor();
     }
     for (Visitor &v : _people) {

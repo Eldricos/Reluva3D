@@ -169,6 +169,7 @@ int Park::place(int id, int price, const std::vector<std::string> &shape, bool h
     for (const Cell &c : f.cells)
         _ground[size_t(c.y) * size_t(_mapWidth) + size_t(c.x)] = Ground::kTaken;
     _objects.push_back({id, at, ((angle % 360) + 360) % 360});
+    _objects.back().placedDay = day();
     if (!hasQueue || !f.hasEntrance) {
         linkQueue(_objects.size() - 1, f);
         return -1;

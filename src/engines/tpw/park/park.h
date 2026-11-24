@@ -157,6 +157,17 @@ public:
     };
     /** The most experience staff have (the general settings' comment). */
     static constexpr int kMostExperience = 100000;
+    /** What a member of staff is about. */
+    enum class StaffDoing : uint8_t {
+        kWorking,     // about the paths, at their work
+        kGoingToRest, // to the staff room
+        kResting,     // in it, unseen
+        kGoingToTrain,
+        kTraining, // in the training room, unseen
+        kStriking, // at the strike area, holding a sign
+    };
+    /** How content a member of staff starts (guessed). */
+    static constexpr float kStaffStartingMood = 80;
     /** Those to be hired of a kind. */
     const std::vector<Candidate> &candidates(StaffKind kind) const { return _pool[size_t(kind)]; }
     /** A member of staff, walking the paths and doing their work. */
@@ -171,12 +182,23 @@ public:
         Cell cell;
         Cell from;
         std::vector<Cell> route; // the path cells on to their work, the next last
-        bool working = false;    // a janitor sweeping
+        bool working = false;    // at work where they stand: sweeping, mending, watering
         uint64_t workUntil = 0;
+        StaffDoing doing = StaffDoing::kWorking;
+        // 0 to 100: their energy, happiness and motivation.
+        float energy = 100;
+        float happiness = kStaffStartingMood;
+        float motivation = kStaffStartingMood;
+        uint32_t hiredDay = 0;
+        int target = -1;         // the object they make for: a room, a ride to mend, a plant to water; −1 for none
+        float trained = 0;       // days of training done
+        bool patrolling = false; // kept to their patrol area, its corners' cells
+        Cell patrolFrom;
+        Cell patrolTo;
     };
     const std::vector<StaffMember> &staff() const { return _staff; }
     /** What hiring came to. */
-    enum class Hiring { kHired, kNoSuchCandidate, kNeedsLab };
+    enum class Hiring { kHired, kNoSuchCandidate, kNeedsLab, kStrike };
     /**
      * Hires a candidate: they come in at the entrance's path and start
      * work, paid their wage each month. Scientists want a research room.
@@ -184,6 +206,65 @@ public:
     Hiring hire(StaffKind kind, size_t candidate);
     /** What the staff are paid a month, all told. */
     int wages() const;
+    /** A member of staff by their number; nullptr if they're not employed. */
+    const StaffMember *staffMember(int id) const;
+    /** Lets a member of staff go. */
+    void fire(int id);
+    /** Sets a member of staff's monthly wage, between AllStaffConstants' MinWage and MaxWage. */
+    void setWage(int id, int wage);
+    /** How the Staff Finance Controls change a kind's wages (UITEXT 262 to 264). */
+    enum class Adjustment { kSetTo, kChangeBy, kPercent };
+    /** Changes all of a kind's wages so. */
+    void adjustWages(StaffKind kind, Adjustment how, int amount);
+    /** What sending for training came to (UITEXT 232, 233). */
+    enum class Training { kSent, kTooInexperienced, kNoRoom, kNotNow };
+    /**
+     * Sends a member of staff to the training room, for
+     * AllStaffConstants.TrainingExtraExperience more experience; they
+     * need MinExperienceForTraining first.
+     */
+    Training sendForTraining(int id);
+    /** How far through their training, 0 to 1. */
+    float trainingProgress(const StaffMember &m) const;
+    /** Keeps a member of staff to the cells between two corners, or lets them go anywhere. */
+    void setPatrol(int id, const Cell &from, const Cell &to);
+    void clearPatrol(int id);
+    /** Whether a kind's on strike. */
+    bool striking(StaffKind kind) const { return _strikes[size_t(kind)]; }
+    /**
+     * A member of staff demanding a raise (UITEXT 253), the first of those
+     * waiting to be answered; nullptr for none.
+     */
+    struct WageDemand {
+        int staff = 0;
+        int raise = 0;
+    };
+    const WageDemand *wageDemand() const { return _demands.empty() ? nullptr : &_demands.front(); }
+    /** How an offer was taken (UITEXT 255 to 257). */
+    enum class Offer { kAccepted, kStays, kRefused };
+    /**
+     * Answers the first demand with a raise: the whole of it, or within
+     * PercentageForBadWageDecision of it, they stay; short of that they
+     * still want the whole, and the demand stands.
+     */
+    Offer offer(int raise);
+    /** Lets the one demanding go. */
+    void refuseDemand();
+
+    /** Sends the nearest engineer free to mend an object, or calls them off. */
+    void callEngineer(size_t object);
+    void cancelEngineer(size_t object);
+    /** Sends the nearest gardener free to water a plant. */
+    void callGardener(size_t object);
+    /** Opens or closes an attraction to visitors. */
+    void setOpen(size_t object, bool open);
+    /** What an object would fetch scrapped: its price by its Upgrades[0].ScrapValueYear percentages. */
+    int scrapValue(size_t object) const;
+    /** Opens or closes the park's gates: closed, none come in. */
+    void setParkOpen(bool open) { _parkOpen = open; }
+    bool parkOpen() const { return _parkOpen; }
+
+    /** Those to be hired of a kind. */
 
     /** What a visitor thinks of a price against what they think fair. */
     enum class PriceOpinion : uint8_t { kCheap, kAboutRight, kTooHigh, kMuchTooHigh };
@@ -336,8 +417,19 @@ public:
     /** An object standing in the park, by its number (its settings' `Info.Id`). */
     struct PlacedObject {
         int id = 0;
-        Cell at;       // its first cell, the corner its model is laid from
-        int angle = 0; // degrees
+        Cell at;             // its first cell, the corner its model is laid from
+        int angle = 0;       // degrees
+        float repair = 100;  // its state of repair, percent: worn by use, broken at 0
+        bool broken = false; // till an engineer mends it
+        bool open = true;    // closed by the player, none get on
+        float water = 100;   // a plant's: dry at 0
+        int engineer = 0;    // the staff member called to mend it; 0 for none
+        int gardener = 0;    // to water it
+        int users = 0;       // this month's, and last month's
+        int lastUsers = 0;
+        int takings = 0; // likewise, its fares
+        int lastTakings = 0;
+        uint32_t placedDay = 0;
     };
     const std::vector<PlacedObject> &objects() const { return _objects; }
 
@@ -538,6 +630,15 @@ private:
     void moveStaff(StaffMember &m, float left);
     void staffWay(StaffMember &m);
     void staffDay();
+    void staffMonth();
+    void objectsDay();
+    void wear(size_t object);
+    Cell pathBeside(size_t object) const;
+    int nearestFree(StaffKind kind, const Cell &to) const;
+    int findObject(bool (*what)(const Attractions::Attraction &)) const;
+    void sendTo(StaffMember &m, int object, StaffDoing doing);
+    void finishWork(StaffMember &m);
+    bool wantsToStrike(StaffKind kind) const;
     bool guarded(float x, float z) const;
     void think(Visitor &v, Thought thought) const;
     Thought howTheyAre(const Visitor &v) const;
@@ -578,13 +679,46 @@ private:
         float maxRange = 5;
         float minWork = 40; // MinWorkDuration and MaxWorkDuration: tenths of a second (guessed)
         float maxWork = 5;
+        int maxWage = 80; // <Kind>.MaxWage: what the most experienced expect
     };
     std::array<StaffRules, kStaffKinds> _staffRules{};
     struct Agency {
         int level = 0;
         int wage = 10;
         int experience = 10;
+        int recuperation = 10; // RecuperationModifier and HappinessRecuperationModifier, tenths
+        int happinessRecuperation = 10;
+        int training = 10; // TrainingExperienceGainModifier, tenths
     };
+    // AllStaffConstants', Strike's and RideBreakDown's.
+    struct StaffConstants {
+        int minWage = 1;
+        int maxWage = 500;
+        int badWagePercent = 10;
+        int minExperienceForTraining = 30000;
+        int happyWage = 2;
+        int unhappyWage = 5;
+        int lowestWageHappiness = 20;
+        int slackingEnergy = 50;
+        int slackingCells = 10;
+        int trainingExperience = 5000;
+        float minRecuperation = 0.2f;
+        float maxRecuperation = 0.75f;
+        float minHappinessRecuperation = 1;
+        float maxHappinessRecuperation = 3;
+        int strikeMonths = 12;
+        int strikeStaff = 3;
+        int strikeEnergy = 20;
+        int strikeHappiness = 30;
+        int strikeMotivation = 30;
+        float breakdownImminent = 10;
+        Cell strikeFrom; // the world's FixedItemInfo.StrikeArea
+        Cell strikeSize{1, 1};
+    };
+    StaffConstants _constants;
+    std::array<bool, kStaffKinds> _strikes{};
+    std::vector<WageDemand> _demands;
+    bool _parkOpen = true;
     std::vector<Agency> _agencies;
     int _minExperience = 1000;
     int _experienceSpread = 15000;

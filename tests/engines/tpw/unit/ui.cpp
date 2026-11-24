@@ -15,6 +15,7 @@
 #include "engines/tpw/ui/briefing.h"
 #include "engines/tpw/ui/buy_window.h"
 #include "engines/tpw/ui/hire_window.h"
+#include "engines/tpw/ui/park_windows.h"
 #include "engines/tpw/ui/front_end_audio.h"
 #include "engines/tpw/ui/front_end_effects.h"
 #include "engines/tpw/ui/front_end_overlay.h"
@@ -495,6 +496,40 @@ void testHireWindow() {
     CHECK(!window.spriteOf(tpw::Park::StaffKind::kJanitor));
 }
 
+// The right-click menu: an item clicked is chosen, a click elsewhere
+// closes it. The gates' window: + raises the entry price, the door shuts
+// the park.
+void testParkWindows() {
+    auto at = [](EventType type, const tpw::ScreenRect &r, MouseButton button = MouseButton::kLeft) {
+        Event ev;
+        ev.type = type;
+        ev.button = button;
+        ev.mouseX = r.x + r.w / 2;
+        ev.mouseY = r.y + r.h / 2;
+        return ev;
+    };
+    tpw::PopupMenu menu;
+    menu.open("Dizzy Droid", {524, 526, 531}, 600, 470); // kept on the screen
+    CHECK(menu.isOpen() && menu.itemRect(2).y + menu.itemRect(2).h <= 480 && menu.itemRect(0).x + 130 <= 640);
+    CHECK(menu.handle(at(EventType::kMouseMove, menu.itemRect(1))) == tpw::WindowResult::kNone);
+    CHECK(menu.handle(at(EventType::kMouseDown, menu.itemRect(1))) == tpw::WindowResult::kChose);
+    CHECK(menu.chosen() == 526 && !menu.isOpen());
+    menu.open("Dizzy Droid", {524}, 100, 100);
+    CHECK(menu.handle(at(EventType::kMouseDown, {0, 0, 2, 2})) == tpw::WindowResult::kClosed && !menu.isOpen());
+
+    tpw::Park park;
+    tpw::GateWindow gates;
+    gates.open();
+    const int fee = park.admissionFee();
+    gates.handle(at(EventType::kMouseDown, tpw::GateWindow::placeOf(tpw::GateWindow::Control::kPlus)), park);
+    CHECK(park.admissionFee() == fee + 1);
+    gates.handle(at(EventType::kMouseDown, tpw::GateWindow::placeOf(tpw::GateWindow::Control::kDoor)), park);
+    CHECK(!park.parkOpen());
+    CHECK(gates.handle(at(EventType::kMouseDown, tpw::GateWindow::placeOf(tpw::GateWindow::Control::kOk)), park) ==
+              tpw::WindowResult::kClosed &&
+          !gates.isOpen());
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -512,4 +547,5 @@ static const reluva::test::Suite
                               {"park-hud", [](const std::filesystem::path &) { testParkHud(); }},
                               {"buy-window", [](const std::filesystem::path &) { testBuyWindow(); }},
                               {"hire-window", [](const std::filesystem::path &) { testHireWindow(); }},
+                              {"park-windows", [](const std::filesystem::path &) { testParkWindows(); }},
                           });
