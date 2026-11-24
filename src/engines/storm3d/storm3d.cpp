@@ -69,10 +69,12 @@ public:
         MainMenu menu;
         SinglePlayerScreen single;
         OptionsScreen options;
+        SettingsScreen settings;
         LoadingScreen loading(_files);
         bool menuOn = false;
         bool singleOn = false;
         bool optionsOn = false;
+        bool settingsOn = false;
         bool loadingOn = false;
         // Back from the loading screen to the single-player screen, in 2D.
         auto endLoading = [&]() -> Error {
@@ -109,18 +111,23 @@ public:
                     }
                 } else if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
                     // Out a screen, as its Previous Menu does; out of the game from the menu.
-                    if (singleOn || optionsOn)
+                    if (settingsOn)
+                        settingsOn = false;
+                    else if (singleOn || optionsOn)
                         singleOn = optionsOn = false;
                     else
                         running = false;
                 } else if (ev.type == EventType::kMouseMove) {
-                    if (singleOn    ? single.pointerAt(ev.mouseX, ev.mouseY, now)
-                        : optionsOn ? options.pointerAt(ev.mouseX, ev.mouseY)
-                                    : menu.pointerAt(ev.mouseX, ev.mouseY, now))
+                    if (singleOn     ? single.pointerAt(ev.mouseX, ev.mouseY, now)
+                        : settingsOn ? settings.pointerAt(ev.mouseX, ev.mouseY)
+                        : optionsOn  ? options.pointerAt(ev.mouseX, ev.mouseY)
+                                     : menu.pointerAt(ev.mouseX, ev.mouseY, now))
                         play("sounds/effects/cornron.wav", audio::SoundType::kEffects, false);
                 } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
                     if (singleOn)
                         single.press(ev.mouseX, ev.mouseY);
+                    else if (settingsOn)
+                        settings.press(ev.mouseX, ev.mouseY);
                     else if (optionsOn)
                         options.press(ev.mouseX, ev.mouseY);
                     else
@@ -143,12 +150,25 @@ public:
                         }
                         loadingOn = true;
                     }
+                } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft && settingsOn) {
+                    if (settings.release(ev.mouseX, ev.mouseY))
+                        settingsOn = false;
                 } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft && optionsOn) {
                     const OptionsChoice choice = options.release(ev.mouseX, ev.mouseY);
                     if (choice != OptionsChoice::kNone)
                         play("sounds/effects/cornrclk.wav", audio::SoundType::kEffects, false);
-                    if (choice == OptionsChoice::kPreviousMenu)
+                    if (choice == OptionsChoice::kPreviousMenu) {
                         optionsOn = false;
+                    } else if (choice != OptionsChoice::kNone) {
+                        if (Error err = settings.load(_files)) {
+                            stopAll();
+                            return err;
+                        }
+                        settings.open(choice == OptionsChoice::kGraphics ? SettingsPage::kGraphics
+                                      : choice == OptionsChoice::kSound  ? SettingsPage::kSound
+                                                                         : SettingsPage::kGame);
+                        settingsOn = true;
+                    }
                 } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
                     const MenuChoice choice = menu.release(ev.mouseX, ev.mouseY);
                     if (choice != MenuChoice::kNone)
@@ -195,6 +215,8 @@ public:
                     intro = stopIntro();
             } else if (singleOn) {
                 single.draw(screen, now);
+            } else if (settingsOn) {
+                settings.draw(screen);
             } else if (optionsOn) {
                 options.draw(screen);
             } else if (menuOn) {

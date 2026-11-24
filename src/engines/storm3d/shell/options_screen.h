@@ -6,6 +6,7 @@
 #include "common/types.h"
 #include "engines/storm3d/formats/label_map.h"
 #include "engines/storm3d/game_files.h"
+#include "engines/storm3d/shell/settings_screen.h"
 #include "engines/storm3d/shell/shell_draw.h"
 #include "image/image.h"
 
@@ -53,10 +54,8 @@ public:
 
 private:
     image::Image _background;
-    image::Image _start; // the bottom's plates, blank on this screen
-    image::Image _main;
     std::array<ShellButton, 3> _settings; // as buttons()
-    ShellButton _previous;
+    NavigationBar _bar;
     LabelMap _text;
     ShellFont _font;
     OptionsChoice _hover = OptionsChoice::kNone;

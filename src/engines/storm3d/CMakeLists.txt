@@ -25,6 +25,7 @@ reluva_add_engine(storm3d
         shell/options_screen.cpp
         shell/panel_movie.cpp
         shell/shell_draw.cpp
+        shell/settings_screen.cpp
         shell/single_player.cpp)
 
 # Its data viewer, for reluva-viewer: a page for each kind of file.

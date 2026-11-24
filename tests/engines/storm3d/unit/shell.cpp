@@ -7,6 +7,7 @@
 #include "engines/storm3d/shell/loading_screen.h"
 #include "engines/storm3d/shell/main_menu.h"
 #include "engines/storm3d/shell/options_screen.h"
+#include "engines/storm3d/shell/settings_screen.h"
 #include "engines/storm3d/shell/single_player.h"
 
 #include "tests/support/test.h"
@@ -20,6 +21,8 @@ using reluva::storm3d::MainMenu;
 using reluva::storm3d::MenuChoice;
 using reluva::storm3d::OptionsChoice;
 using reluva::storm3d::OptionsScreen;
+using reluva::storm3d::SettingsPage;
+using reluva::storm3d::SettingsScreen;
 using reluva::storm3d::SinglePlayerScreen;
 
 namespace {
@@ -89,6 +92,26 @@ void testOptions() {
     CHECK(OptionsScreen::choiceAt(560, 460) == OptionsChoice::kNone);
 }
 
+// The settings pages' controls where the game's frames have them, and a
+// slider's line a step of 17 shorter or longer for a click on its ends.
+void testSettings() {
+    CHECK(SettingsScreen::controlAt(SettingsPage::kGraphics, 100, 130) == 0);
+    CHECK(SettingsScreen::controlAt(SettingsPage::kGraphics, 450, 180) == 3);
+    CHECK(SettingsScreen::controlAt(SettingsPage::kGraphics, 340, 225) == 4);
+    CHECK(SettingsScreen::controlAt(SettingsPage::kSound, 422, 89) == 0);
+    CHECK(SettingsScreen::controlAt(SettingsPage::kSound, 400, 269) == 4);
+    CHECK(SettingsScreen::controlAt(SettingsPage::kGame, 400, 79) == 0);
+    CHECK(SettingsScreen::controlAt(SettingsPage::kGame, 400, 379) == 6);
+    CHECK(SettingsScreen::controlAt(SettingsPage::kGame, 200, 300) == -1);
+    CHECK(SettingsScreen::sliderAfterClick(170, 9) == 153);
+    CHECK(SettingsScreen::sliderAfterClick(10, 9) == 0);
+    CHECK(SettingsScreen::sliderAfterClick(160, 214) == 170);
+    CHECK(SettingsScreen::sliderAfterClick(84, 100) == 84);
+    for (SettingsPage page : {SettingsPage::kGraphics, SettingsPage::kSound, SettingsPage::kGame})
+        for (const SettingsScreen::Control &c : SettingsScreen::layoutOf(page).controls)
+            CHECK(c.kind == SettingsScreen::Control::kSlider ? c.values.empty() : size_t(c.initial) < c.values.size());
+}
+
 // What the loading screen reads for a mission: each definition once,
 // whatever its case, then its model.
 void testLoadingFiles() {
@@ -106,5 +129,6 @@ static const reluva::test::Suite
                                      {"races", [](const std::filesystem::path &) { testRaces(); }},
                                      {"campaigns", [](const std::filesystem::path &) { testCampaigns(); }},
                                      {"options", [](const std::filesystem::path &) { testOptions(); }},
+                                     {"settings", [](const std::filesystem::path &) { testSettings(); }},
                                      {"loading files", [](const std::filesystem::path &) { testLoadingFiles(); }},
                                  });

@@ -109,12 +109,48 @@ Along the bottom are three plates, all from `bitmaps\multiset\`:
 
 All of these have the front end's magenta colour key.
 
-The settings screens each have the same background and bottom plates.
-Graphics Settings has display mode and driver lists, two switches and a
-slider for detail. Sound Settings has three volume sliders and four
-switches. Game Settings has the difficulty, three speed sliders and
-three switches. Their words are `label.map`'s `graphics_settings`,
-`sound_settings` and `game_settings` sections'.
+### The settings screens
+
+Each of the three buttons opens a settings screen over
+`bitmaps\credit\creditsBG.bmp`, with the Options screen's bottom bar.
+The title is white, in Arial Bold of 20 pixels, at the top as on the
+Options screen (Graphics Settings' a little further left, at x 59). The
+labels are yellow, (255, 190, 0) as drawn, in Arial Bold of 16 pixels
+(Graphics Settings' two column headings 20), centred over their
+controls, or in a column centred at x 215 left of the switches. All the
+words are `label.map`'s `graphics_settings`, `sound_settings` and
+`game_settings` sections'.
+
+The controls are of three kinds:
+
+- **Switches,** `multiset\nav3but1` to `3` (126 × 30). A click turns
+  them to their next value ("On" to "Off"), its words black, 16 pixels,
+  centred.
+- **Sliders,** `holder\scrollbar.bmp` (224 × 20), − and + at its ends.
+  The value is a blue (0, 0, 255) line a pixel high, 10 down and 27 in,
+  170 long at most. A click on − shortens it by 17, a tenth.
+- **Lists,** `wonlogin\wls324pd1` to `3` (324 × 32), the value's words
+  12 pixels, centred. The program reads `pdm324top`, `pdm324hl2` and
+  `3` for the list opened, which a click didn't open in the frames.
+
+| Screen | Control | Place | Value in the frames |
+|---|---|---|---|
+| Graphics | Display Mode* (list) | (20, 116) | 640x480x16 |
+| Graphics | Display Driver (list) | (20, 166) | the machine's |
+| Graphics | Use Alternate Font | (386, 116) | Off |
+| Graphics | Cinematic Window | (386, 166) | On |
+| Graphics | Graphics Detail (slider) | (338, 216) | 168 |
+| Sound | Music, Effects, Voice Volume (sliders) | (208, 80), (208, 130), (208, 180) | 170 |
+| Sound | Sound Channels | (340, 214) | 8 |
+| Sound | Stereo Sound, Unit Speech, Alert Audio | (340, 254), (340, 294), (340, 334) | On |
+| Game | Game Difficulty | (340, 64) | Medium |
+| Game | Game, Mouse Scroll, Keyboard Scroll Speed (sliders) | (208, 130), (208, 180), (208, 230) | 84, 80, 28 |
+| Game | Mouse Button Interface | (340, 264) | Right Click |
+| Game | Mouse Camera Control | (340, 314) | On |
+| Game | Directors Cut | (340, 364) | Off |
+
+A label above its control has its line's top 16 above the control's. Graphics Settings also says, at the bottom of its panel,
+"\* Some resolutions may not be supported by your hardware."
 
 ### The loading screen
 
@@ -168,7 +204,13 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
   reads the mission's map and its objects' definitions and models, its
   bar growing, and comes back to the races, as the mission doesn't run
   yet; Esc gives up sooner. Options opens the Options screen
-  (`shell/options_screen.h`); its settings screens aren't there yet.
+  (`shell/options_screen.h`), and from it the settings screens
+  (`shell/settings_screen.h`). Their switches and sliders work, and the
+  lists turn through their values when clicked *(guessed)*, as the
+  frames never show one open. The values are kept while the game runs; none
+  of them changes the game yet, and they aren't saved. Sound Channels
+  offers 4, 8 and 16 *(guessed)*. The display driver is called
+  "Reluva".
   Multiplayer, Credits and Load Game do nothing yet. The models are drawn as the data viewer's are
   (`scene/sod_meshes.h`); the logo's specular glint isn't. The version is in Reluva's own
   font: the "System" font isn't in the install.
@@ -195,7 +237,10 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
   the Federation's mission panel up: its tooltip, mission name and
   buttons' words fall on the frame's to the pixel. The loading screen
   likewise: its background, logo, badge and bar where the game's are.
-  The Options screen is the same as the game's frame in every pixel.
+  The Options screen is the same as the game's frame in every pixel, and
+  so is Sound Settings, at rest and after the same clicks on a switch
+  and a slider. Game and Graphics Settings are too, but for 3 pixels of
+  anti-aliasing in "Off" and the display driver's name.
   The unit tests (`storm3d.unit.shell`) check which button and race each
   place is, and reading `mshell.set`.
 
@@ -203,6 +248,10 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
 
 - Where the program keeps the main menu's places, and the other
   screens' (single player, multiplayer, options, credits).
+- Where the program keeps the settings, and the sliders' ranges: Game
+  Speed's 84 and Graphics Detail's 168 aren't whole steps of 17.
+- What the lists look like open, and what Sound Channels offers.
+- Which sounds the settings screens' controls play.
 - Which `label.map` entry the Options screen's Previous Menu comes from:
   `escape_menu` has none, and every other screen's says the same.
 - What the third bitmap of a label is for, and whether the second movie

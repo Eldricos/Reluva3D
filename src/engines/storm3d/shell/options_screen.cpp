@@ -11,12 +11,6 @@ namespace {
 constexpr int kSettingsX = 158;
 constexpr int kSettingsWidth = 324;
 constexpr int kSettingsHeight = 32;
-constexpr int kBottomY = 445;
-constexpr int kPreviousX = 5;
-constexpr int kPreviousWidth = 112;
-constexpr int kBottomHeight = 30;
-constexpr int kStartX = 123;
-constexpr int kMainX = 522;
 constexpr int kTitleX = 65;
 constexpr int kTitleY = 6;
 // Arial Bold at sizes the game asks GDI for, fitted to the frame's text:
@@ -41,7 +35,7 @@ OptionsChoice OptionsScreen::choiceAt(int x, int y) {
     for (const Button &b : buttons())
         if (x >= kSettingsX && y >= b.y && x < kSettingsX + kSettingsWidth && y < b.y + kSettingsHeight)
             return b.choice;
-    if (x >= kPreviousX && y >= kBottomY && x < kPreviousX + kPreviousWidth && y < kBottomY + kBottomHeight)
+    if (NavigationBar::onPrevious(x, y))
         return OptionsChoice::kPreviousMenu;
     return OptionsChoice::kNone;
 }
@@ -49,15 +43,11 @@ OptionsChoice OptionsScreen::choiceAt(int x, int y) {
 Error OptionsScreen::load(const GameFiles &files) {
     if (Error err = loadPicture(files, "bitmaps/wonlogin/wlsBG.bmp", _background))
         return err;
-    if (Error err = loadPicture(files, "bitmaps/multiset/mpsstart1.bmp", _start))
-        return err;
-    if (Error err = loadPicture(files, "bitmaps/multiset/navmain1.bmp", _main))
+    if (Error err = _bar.load(files))
         return err;
     for (size_t i = 0; i < _settings.size(); ++i)
         if (Error err = _settings[i].load(files, "bitmaps/wonlogin", "wls324tg", kSettingsX, buttons()[i].y))
             return err;
-    if (Error err = _previous.load(files, "bitmaps/multiset", "navback", kPreviousX, kBottomY))
-        return err;
     std::vector<uint8_t> data;
     if (Error err = files.read("label.map", data))
         return err;
@@ -89,8 +79,6 @@ OptionsChoice OptionsScreen::release(int x, int y) {
 
 void OptionsScreen::draw(Surface &screen) {
     drawPicture(screen, _background, 0, 0, false);
-    drawPicture(screen, _start, kStartX, kBottomY, true);
-    drawPicture(screen, _main, kMainX, kBottomY, true);
     for (size_t i = 0; i < _settings.size(); ++i) {
         const ShellButton &b = _settings[i];
         const OptionsChoice choice = buttons()[i].choice;
@@ -98,11 +86,10 @@ void OptionsScreen::draw(Surface &screen) {
         _font.drawCentred(screen, b.x, b.y, b.looks[0].w, b.looks[0].h, _text.text("escape_menu", buttons()[i].key),
                           kButtonText, kButtonColour);
     }
-    _previous.draw(screen, _hover == OptionsChoice::kPreviousMenu, _pressed == OptionsChoice::kPreviousMenu, true);
     // The escape menu has no Previous Menu of its own: the words are the
     // ones every other screen's button has.
-    _font.drawCentred(screen, _previous.x, _previous.y, _previous.looks[0].w, _previous.looks[0].h,
-                      _text.text("multiplayer_connection", "previous_menu"), kButtonText, kButtonColour);
+    _bar.draw(screen, _font, _text.text("multiplayer_connection", "previous_menu"),
+              _hover == OptionsChoice::kPreviousMenu, _pressed == OptionsChoice::kPreviousMenu);
     _font.draw(screen, kTitleX, kTitleY, _text.text("escape_menu", "title"), kTitleText, kTitleColour);
 }
 
