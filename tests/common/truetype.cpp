@@ -8,9 +8,12 @@
 //
 //   reluva-tests common.unit.truetype
 
+#include "graphics/truetype.h"
 #include "graphics/truetype_hinting.h"
 #include "tests/support/test.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <string>
@@ -39,13 +42,14 @@ struct TestGlyph {
 // A TrueType font of these glyphs (glyph 0 empty), its control values,
 // font program and control value program.
 std::vector<uint8_t> testFont(const std::vector<TestGlyph> &glyphs, const std::vector<int> &cvt,
-                              const std::vector<uint8_t> &fpgm, const std::vector<uint8_t> &prep) {
-    std::vector<std::pair<std::string, std::vector<uint8_t>>> tables;
+                              const std::vector<uint8_t> &fpgm, const std::vector<uint8_t> &prep,
+                              std::vector<std::pair<std::string, std::vector<uint8_t>>> tables = {}) {
     std::vector<uint8_t> head(54, 0);
     head[18] = 1024 >> 8; // unitsPerEm
     head[19] = 1024 & 255;
     tables.push_back({"head", head});
     std::vector<uint8_t> hhea(36, 0);
+    hhea[4] = 1024 >> 8; // ascent: an em, with no descent
     hhea[34] = uint8_t((glyphs.size() + 1) >> 8);
     hhea[35] = uint8_t((glyphs.size() + 1) & 255);
     tables.push_back({"hhea", hhea});
@@ -102,6 +106,8 @@ std::vector<uint8_t> testFont(const std::vector<TestGlyph> &glyphs, const std::v
     tables.push_back({"fpgm", fpgm});
     tables.push_back({"prep", prep});
 
+    // The directory's tables in their tags' order, as fonts have them.
+    std::sort(tables.begin(), tables.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
     std::vector<uint8_t> font;
     put32(font, 0x00010000);
     put16(font, int(tables.size()));
@@ -206,9 +212,41 @@ void testHinting() {
     CHECK(!none.load(std::vector<uint8_t>(64, 0)));
 }
 
+// A font's name, as Windows finds it, and its letters' average width.
+void testNames() {
+    std::vector<uint8_t> cmap; // a Windows Unicode map, of nothing
+    put16(cmap, 0);
+    put16(cmap, 1);
+    put16(cmap, 3);
+    put16(cmap, 1);
+    put32(cmap, 12);
+    for (int v : {4, 24, 0, 2, 2, 0, 0, 0xffff, 0, 0xffff, 1, 0})
+        put16(cmap, v);
+    std::vector<uint8_t> name;
+    const std::string family = "Plain Test";
+    put16(name, 0);
+    put16(name, 1);
+    put16(name, 6 + 12);
+    for (int v : {3, 1, 0x409, 1, int(family.size() * 2), 0})
+        put16(name, v);
+    for (char c : family)
+        put16(name, c);
+    std::vector<uint8_t> os2(78, 0);
+    os2[2] = 512 >> 8; // xAvgCharWidth: half an em
+    os2[3] = 512 & 255;
+    std::vector<uint8_t> data = testFont({}, {}, {}, {}, {{"cmap", cmap}, {"name", name}, {"OS/2", os2}});
+    ttf::Font font;
+    CHECK(!font.load(data));
+    CHECK(font.familyName() == family);
+    CHECK(std::fabs(font.averageWidth(20) - 10) < 0.01f);
+    ttf::Font none;
+    CHECK(none.familyName().empty() && none.averageWidth(10) == 0);
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("common.unit.truetype",
                                         {
                                             {"hinting", [](const std::filesystem::path &) { testHinting(); }},
+                                            {"names", [](const std::filesystem::path &) { testNames(); }},
                                         });

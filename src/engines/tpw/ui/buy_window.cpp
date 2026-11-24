@@ -118,37 +118,9 @@ Error BuyWindow::load(const SearchSet &files) {
     for (auto [font, name] : {std::pair{&_titleFont, "TITLEMED"}, std::pair{&_font, "GAME7AA"}})
         if (Error err = readGameFont(files, folder, name, *font))
             return err;
-    for (auto [table, name] :
-         {std::pair{&_ui, "UITEXT"}, std::pair{&_names, "OBJECT_NAMES"}, std::pair{&_oldNames, "OLD_OBJECT_NAMES"}})
-        if (Error err = readStringTable(files, folder, name, _characters, *table))
-            return err;
-    return Error::success();
-}
-
-// The game's names are pairs of OBJECT_NAMES, first word and the rest; the
-// pairs of OLD_OBJECT_NAMES, at the same places, hold older names, mostly
-// those the objects' settings have. An object's shown name is the pair
-// whose old name is its own, whole or by its first word; else its own.
-// Not all are right: Land of Invention's TV sim has a Polar Zone's old
-// name, and its log flume its own.
-std::string BuyWindow::shownName(const Attractions::Attraction &a) const {
-    const std::string own = lower(a.name);
-    auto pair = [](const StringTable &t, size_t k) {
-        const std::string first = t.text(2 * k);
-        const std::string rest = t.text(2 * k + 1);
-        return rest.empty() ? first : first.empty() ? rest : first + " " + rest;
-    };
-    const size_t pairs = _oldNames.size() / 2;
-    for (int pass = 0; pass < 2; ++pass)
-        for (size_t k = 0; k < pairs && 2 * k + 1 < _names.size(); ++k) {
-            const std::string old = lower(pass == 0 ? pair(_oldNames, k) : _oldNames.text(2 * k));
-            if (!old.empty() && old == own) {
-                const std::string shown = pair(_names, k);
-                if (!shown.empty())
-                    return shown;
-            }
-        }
-    return a.name;
+    if (Error err = readStringTable(files, folder, "UITEXT", _characters, _ui))
+        return err;
+    return _names.load(files, folder, _characters);
 }
 
 void BuyWindow::open(const Attractions &attractions, Attractions::Kind kind, const Park &park) {
@@ -159,7 +131,7 @@ void BuyWindow::open(const Attractions &attractions, Attractions::Kind kind, con
     _list = attractions.onSale(kind);
     std::stable_sort(_list.begin(), _list.end(),
                      [&](const Attractions::Attraction *a, const Attractions::Attraction *b) {
-                         return lower(shownName(*a)) < lower(shownName(*b));
+                         return lower(_names.shown(*a)) < lower(_names.shown(*b));
                      });
     _owned.clear();
     for (const Attractions::Attraction *a : _list) {
@@ -311,7 +283,7 @@ void BuyWindow::draw(Surface &screen) const {
         const ScreenRect row = placeOf(Control::kRow, i);
         if (i == _row)
             fill(screen, row, kChosenRow);
-        drawGameText(screen, _font, _characters, kRowX, row.y + 1, shownName(*_list[i]), kWhite);
+        drawGameText(screen, _font, _characters, kRowX, row.y + 1, _names.shown(*_list[i]), kWhite);
         const std::string price = "$ " + std::to_string(_list[i]->price);
         drawGameText(screen, _font, _characters, kPriceRight - gameTextWidth(_font, _characters, price), row.y + 1,
                      price, kWhite);
@@ -323,7 +295,7 @@ void BuyWindow::draw(Surface &screen) const {
     drawPreview(screen);
     drawUiMesh(screen, _frame, 0, kStats);
     if (const Attractions::Attraction *a = chosen()) {
-        const std::string name = shownName(*a);
+        const std::string name = _names.shown(*a);
         drawGameText(screen, _font, _characters,
                      kPreview.x + (kPreview.w - gameTextWidth(_font, _characters, name)) / 2, kPreviewTitleY, name,
                      kWhite);

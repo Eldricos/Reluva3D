@@ -38,6 +38,8 @@ public:
     Error load(std::vector<uint8_t> data);
     /** Whether a font was loaded. */
     bool loaded() const { return !_data.empty(); }
+    /** Its family's name as Windows knows it ("Victorian Plain"); empty without one. */
+    std::string familyName() const;
 
     /** From one line to the next, the font's line gap included: whole pixels, rounded up. */
     int lineHeight(float pixels) const;
@@ -49,6 +51,11 @@ public:
     float sizeForPoints(float points) const;
     /** From the top of a line to its baseline, in whole pixels. */
     int ascent(float pixels) const;
+    /**
+     * Its letters' average width as the font gives it (its OS/2 table's),
+     * in pixels: what Windows sets a font's width by. 0 without one.
+     */
+    float averageWidth(float pixels) const;
     /** How far the text advances, in whole pixels rounded up. */
     int width(std::string_view utf8, float pixels);
 

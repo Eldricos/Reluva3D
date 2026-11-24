@@ -20,6 +20,7 @@
 #include "engines/tpw/formats/sam.h"
 #include "engines/tpw/formats/sdt.h"
 #include "engines/tpw/formats/saved_park.h"
+#include "engines/tpw/formats/sign.h"
 #include "engines/tpw/formats/sound_map.h"
 #include "engines/tpw/formats/sprites.h"
 #include "engines/tpw/formats/str.h"
@@ -893,6 +894,55 @@ void testSprites() {
     CHECK(set.parse(Bytes(esp.begin(), esp.end() - 1)));
 }
 
+// A sign as Land of Invention's are laid out: its font, two lines' records,
+// and their fills, each 16 rows of 128, one row ARGB a colour.
+void testSign() {
+    std::vector<uint8_t> d(0x3A1, 0);
+    auto put = [&d](size_t at, int32_t v) {
+        for (int i = 0; i < 4; ++i)
+            d[at + size_t(i)] = uint8_t(uint32_t(v) >> (8 * i));
+    };
+    put(0, 101);
+    std::memcpy(&d[0x11], "Victorian Plain", 15);
+    std::memcpy(&d[0x51], "VICTP___.TTF", 12);
+    for (size_t k = 0; k < 2; ++k) {
+        const size_t at = 0x155 + k * 0x1B4;
+        put(at, k == 0 ? 100 : 127);
+        put(at + 4, k == 0 ? 10 : 85);
+        put(at + 8, k == 0 ? -106 : -137);
+        put(at + 12, k == 0 ? 0 : 68);
+        put(at + 24, 700);
+        std::memcpy(&d[at + 36], k == 0 ? "Victorian Plain" : "Baylac", k == 0 ? 15 : 6);
+    }
+    for (int k = 0; k < 2; ++k) {
+        const size_t at = d.size();
+        d.resize(at + 12 + 16 * 128 * 4);
+        put(at, 16);
+        put(at + 4, 128);
+        put(at + 8, 4);
+        for (size_t px = 0; px < 16 * 128; ++px) {
+            const size_t row = px / 128;
+            const uint8_t argb[4] = {255, uint8_t(k == 0 ? 200 : 10), uint8_t(row * 10), 30};
+            std::memcpy(&d[at + 12 + px * 4], argb, 4);
+        }
+    }
+    SignStyle sign;
+    CHECK(!sign.parse(d));
+    CHECK(sign.fontName() == "Victorian Plain" && sign.fontFile() == "VICTP___.TTF");
+    const SignStyle::Line &first = sign.lines()[0];
+    const SignStyle::Line &second = sign.lines()[1];
+    CHECK(first.stretch == 100 && first.top == 10 && first.height == 106 && first.width == 0 && first.weight == 700);
+    CHECK(second.stretch == 127 && second.top == 85 && second.height == 137 && second.width == 68);
+    CHECK(first.face == "Victorian Plain" && second.face == "Baylac");
+    CHECK(first.fill.w == 128 && first.fill.h == 16);
+    const uint8_t *p = second.fill.pixel(5, 3);
+    CHECK(p[0] == 10 && p[1] == 30 && p[2] == 30 && p[3] == 255);
+    CHECK(first.fill.pixel(0, 0)[0] == 200);
+    CHECK(sign.parse(std::vector<uint8_t>(d.begin(), d.end() - 1)));
+    d[0] = 100;
+    CHECK(sign.parse(d));
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -916,4 +966,5 @@ static const reluva::test::Suite
                                    {"saved-park", [](const std::filesystem::path &) { testSavedPark(); }},
                                    {"omp", [](const std::filesystem::path &) { testOmp(); }},
                                    {"rse", [](const std::filesystem::path &) { testRse(); }},
+                                   {"sign", [](const std::filesystem::path &) { testSign(); }},
                                });

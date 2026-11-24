@@ -26,10 +26,12 @@ reluva_add_engine(tpw
         ui/globe.cpp
         ui/loading_screen.cpp
         ui/main_menu.cpp
+        ui/object_names.cpp
         ui/model_view.cpp
         ui/opening.cpp
         ui/ride_run.cpp
         ui/sprites.cpp
+        ui/sign_painter.cpp
         ui/sky.cpp
         ui/text.cpp
         ui/ui_model.cpp
@@ -50,6 +52,7 @@ reluva_add_engine(tpw
         formats/sam.cpp
         formats/sdt.cpp
         formats/saved_park.cpp
+        formats/sign.cpp
         formats/sound_map.cpp
         formats/sprites.cpp
         formats/str.cpp

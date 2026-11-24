@@ -57,7 +57,8 @@
 #            moved by keys and the compass, a tool chosen, a menu, a
 #            visitor, then Esc; the screens shown, the date, money,
 #            visitors, path, briefings and tool, with a checksum (tpw
-#            park-run)
+#            park-run); and the world's signs lettered, their fonts and
+#            lines, with a checksum of them drawn (tpw sign-shot)
 #   viewer   the data viewer, headless: every page, a few keys on each,
 #            then Esc; a checksum of every screen shown, and its titles
 #            (tpw viewer-run)
@@ -127,6 +128,9 @@ elseif(STEP STREQUAL "scripts")
     record_run(scripts "scripts," tpw rse-check "${game_dir}")
 elseif(STEP STREQUAL "park")
     record_run(park "screens shown" tpw park-run "${game_dir}" levels/science)
+    file(MAKE_DIRECTORY "${OUTPUT}/park")
+    record_run(signs "signs lettered" tpw sign-shot "${game_dir}" levels/science "${OUTPUT}/park/signs.png")
+    record_file(signs.png "${OUTPUT}/park/signs.png")
 elseif(STEP STREQUAL "viewer")
     record_run(viewer "left by:" tpw viewer-run "${game_dir}")
 else()

@@ -100,8 +100,9 @@ robot over 5), then plays what it plays while it waits for riders, a
 loop of its own (the robot's swing rocking, the fountain's top turning),
 as its scripts run without guests *(inferred)*. With riders it runs
 its rides' cycles; the park's visitors don't ride yet. Its sign shows
-its name, written over its `SIGN1`, `SIGN2` texture by the `.sgn` file
-beside it (a font and its lettering), which Reluva doesn't do yet.
+its name, its pair of `OBJECT_NAMES` in two lines, lettered over its
+`SIGN1`, `SIGN2` textures as the `.sgn` file beside it has it: a font of
+the game's, sizes and colours ([sgn.md](../formats/sgn.md)).
 
 ## In Reluva
 
@@ -145,4 +146,5 @@ attractions built in the test, place them, and click the window.
   several; what placing does to the ground (the hoardings, the
   particle effect on building, `Info.CreateParticleEffect`).
 - Exits: where visitors leave, and the path they need.
-- The signs: how the `.sgn` files write the name on `SIGN1`, `SIGN2`.
+- The signs: how close Reluva's lettering is to the game's
+  ([sgn.md](../formats/sgn.md#open-questions)).

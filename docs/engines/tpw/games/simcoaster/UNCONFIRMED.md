@@ -111,6 +111,12 @@ None yet.
   ([building.md](systems/building.md#running)). The recording's robot
   and fountain, already standing at 2:35, fit it.
 
+- **How a sign is lettered**: its lines centred on a canvas 512 × 256
+  split into its two textures, their letters widened to the font
+  description's width and stretched by the line's percent
+  ([sgn.md](formats/sgn.md#lettering-it)). A recording close enough to
+  read a sign would settle it.
+
 - **The Buy window's ratings and the price while placing**: the
   settings' excitement and working life as bars, out of 100; the price
   in the money's font at half size

@@ -176,12 +176,13 @@ Error ParkScreen::load(const SearchSet &files, const Park &park) {
     _hud = false;
     _furnitureRead = !_furniture.load(files);
     _files = &files;
+    // The attractions and their names first: the objects' signs want them.
+    _attractions.load(files, park.folder());
+    _buyRead = !_buy.load(files);
     loadObjects(files, park);
     _runs.clear();
     _ranTo = park.millis();
     _prebuilt = park.objects().size();
-    _attractions.load(files, park.folder());
-    _buyRead = !_buy.load(files);
     _pathsRead = true;
     for (size_t i = 0; i < kPathTextures.size(); ++i)
         if (loadPicture(files, park.folder() + "/terrain/pathtex/" + kPathTextures[i] + ".fsh", _pathTextures[i]))
@@ -259,6 +260,7 @@ void ParkScreen::loadObjects(const SearchSet &files, const Park &park) {
         LoadedModel model;
         const std::string path = name.substr(0, name.size() - 4) + ".MD2";
         if (!model.load(files, path)) {
+            letterSign(id, path, model);
             _objectModels.emplace(id, std::move(model));
             _objectPaths[id] = path;
             wanted.erase(id);
@@ -271,6 +273,12 @@ void ParkScreen::loadObjects(const SearchSet &files, const Park &park) {
     }
 }
 
+void ParkScreen::letterSign(int id, const std::string &path, LoadedModel &model) const {
+    const Attractions::Attraction *a = _attractions.find(id);
+    if (_files && a && _buyRead)
+        _signs.letter(*_files, path, _buy.names().lines(*a), model);
+}
+
 // One placed since the park opened is read as it's first wanted.
 const LoadedModel *ParkScreen::objectModel(int id) const {
     auto model = _objectModels.find(id);
@@ -278,6 +286,7 @@ const LoadedModel *ParkScreen::objectModel(int id) const {
         const Attractions::Attraction *a = _attractions.find(id);
         LoadedModel loaded;
         if (a && !a->model.empty() && !loaded.load(*_files, a->model)) {
+            letterSign(id, a->model, loaded);
             model = _objectModels.emplace(id, std::move(loaded)).first;
             _objectPaths[id] = a->model;
         } else {

@@ -15,6 +15,7 @@
 #include "engines/tpw/ui/buy_window.h"
 #include "engines/tpw/ui/park_hud.h"
 #include "engines/tpw/ui/park_screen.h"
+#include "engines/tpw/ui/sign_painter.h"
 #include "image/image.h"
 
 #include <array>
@@ -416,8 +417,69 @@ int cmdBuyShot(int argc, char **argv) {
     writePng(surface, argv[4]);
     for (size_t kind = 0; kind < reluva::tpw::Attractions::kKinds; ++kind)
         for (const reluva::tpw::Attractions::Attraction *a : attractions.onSale(reluva::tpw::Attractions::Kind(kind)))
-            std::printf("tab %zu: %d %s, %s, $ %d%s\n", kind, a->id, window.shownName(*a).c_str(), a->name.c_str(),
+            std::printf("tab %zu: %d %s, %s, $ %d%s\n", kind, a->id, window.names().shown(*a).c_str(), a->name.c_str(),
                         a->price, a->hasQueue ? ", a queue" : "");
+    return 0;
+}
+
+// Every attraction's sign of a world as Reluva letters it, half size, on
+// grey, to a PNG; each one's font and lines printed.
+int cmdSignShot(int argc, char **argv) {
+    if (argc < 5) {
+        std::fprintf(stderr, "usage: reluva-tool tpw sign-shot <game folder> <world folder> <out.png>\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    std::vector<std::string> warnings;
+    reluva::tpw::Attractions attractions;
+    reluva::tpw::BuyWindow window;
+    reluva::Error err = reluva::tpw::mountGame(files, argv[2], warnings);
+    if (!err)
+        err = attractions.load(files, argv[3]);
+    if (!err)
+        err = window.load(files);
+    if (err) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    constexpr int kColumns = 3;
+    constexpr int kCellW = reluva::tpw::SignPainter::kCanvasWidth / 2;
+    constexpr int kCellH = reluva::tpw::SignStyle::kCanvasHeight / 2;
+    constexpr uint8_t kGrey = 96;
+    reluva::tpw::SignPainter painter;
+    std::vector<reluva::image::Image> signs;
+    for (const reluva::tpw::Attractions::Attraction &a : attractions.all()) {
+        const size_t dot = a.model.rfind('.');
+        std::vector<uint8_t> data;
+        reluva::tpw::SignStyle style;
+        if (dot == std::string::npos || files.read(a.model.substr(0, dot) + ".sgn", data) || style.parse(data))
+            continue;
+        const std::array<std::string, 2> lines = window.names().lines(a);
+        std::printf("%d %s: \"%s\" / \"%s\"; %s (%s) %d at %d, %s %d at %d\n", a.id, a.folder.c_str(), lines[0].c_str(),
+                    lines[1].c_str(), style.fontFile().c_str(), style.lines()[0].face.c_str(), style.lines()[0].height,
+                    style.lines()[0].top, style.lines()[1].face.c_str(), style.lines()[1].height, style.lines()[1].top);
+        signs.push_back(painter.paint(files, style, lines));
+    }
+    const int rows = int((signs.size() + kColumns - 1) / kColumns);
+    reluva::Surface sheet;
+    sheet.create(kColumns * kCellW, std::max(1, rows) * kCellH, reluva::PixelFormat::kRGBA32);
+    for (size_t i = 0; i < signs.size(); ++i)
+        for (int y = 0; y < kCellH; ++y)
+            for (int x = 0; x < kCellW; ++x) {
+                uint8_t *to = sheet.row(int(i / kColumns) * kCellH + y) + (int(i % kColumns) * kCellW + x) * 4;
+                // The four pixels it halves, over grey.
+                for (int c = 0; c < 3; ++c) {
+                    int sum = 0;
+                    for (int q = 0; q < 4; ++q) {
+                        const uint8_t *p = signs[i].pixel(2 * x + (q & 1), 2 * y + (q >> 1));
+                        sum += (p[c] * p[3] + kGrey * (255 - p[3])) / 255;
+                    }
+                    to[c] = uint8_t(sum / 4);
+                }
+                to[3] = 255;
+            }
+    writePng(sheet, argv[4]);
+    std::printf("%zu signs lettered\n", signs.size());
     return 0;
 }
 
@@ -426,6 +488,8 @@ const Commands kCommands(
     {
         {"buy-shot", "<game folder> <world folder> <out.png> [tab [row]]",
          "draw the Buy window over a new park, on a tab, a row chosen, to a PNG, and list what's on sale", cmdBuyShot},
+        {"sign-shot", "<game folder> <world folder> <out.png>",
+         "letter every attraction's sign of a world, to a PNG, half size, and list their fonts and lines", cmdSignShot},
         {"tpws-check", "<game folder> [save in Data] [-objects]",
          "read a saved park (.TPWS), the prebuilt one unless named: its cells, its path, its objects (listed with "
          "-objects) and its world",

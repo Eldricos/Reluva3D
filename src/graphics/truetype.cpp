@@ -71,8 +71,43 @@ Error Font::load(std::vector<uint8_t> data) {
     return Error::success();
 }
 
+float Font::averageWidth(float pixels) const {
+    if (!_info)
+        return 0;
+    // xAvgCharWidth, signed, 2 bytes in.
+    const uint32_t os2 = stbtt__find_table(_info->font.data, uint32_t(_info->font.fontstart), "OS/2");
+    if (os2 == 0 || size_t(os2) + 4 > _data.size())
+        return 0;
+    const int16_t average = int16_t(uint16_t(_data[os2 + 2]) << 8 | _data[os2 + 3]);
+    return float(average) * scale(pixels);
+}
+
 float Font::scale(float pixels) const {
     return _info ? stbtt_ScaleForPixelHeight(&_info->font, pixels) : 0;
+}
+
+std::string Font::familyName() const {
+    if (!_info)
+        return {};
+    // Windows' own record of it, in UTF-16 big-endian: Microsoft, Unicode, US English.
+    int size = 0;
+    const char *name = stbtt_GetFontNameString(&_info->font, &size, STBTT_PLATFORM_ID_MICROSOFT,
+                                               STBTT_MS_EID_UNICODE_BMP, STBTT_MS_LANG_ENGLISH, 1);
+    std::string out;
+    for (int i = 0; name && i + 1 < size; i += 2) {
+        const uint32_t c = uint32_t(uint8_t(name[i])) << 8 | uint8_t(name[i + 1]);
+        if (c < 0x80) {
+            out.push_back(char(c));
+        } else if (c < 0x800) {
+            out.push_back(char(0xC0 | c >> 6));
+            out.push_back(char(0x80 | (c & 0x3F)));
+        } else {
+            out.push_back(char(0xE0 | c >> 12));
+            out.push_back(char(0x80 | (c >> 6 & 0x3F)));
+            out.push_back(char(0x80 | (c & 0x3F)));
+        }
+    }
+    return out;
 }
 
 int Font::lineHeight(float pixels) const {

@@ -11,6 +11,7 @@
 #include "engines/tpw/park/attractions.h"
 #include "engines/tpw/park/park.h"
 #include "engines/tpw/ui/model_view.h"
+#include "engines/tpw/ui/object_names.h"
 #include "engines/tpw/ui/ui_model.h"
 #include "graphics/soft3d/rasterizer.h"
 #include "image/image.h"
@@ -51,8 +52,8 @@ public:
     Result handle(const Event &ev);
     /** The attraction chosen in the list; nullptr if the list is empty. */
     const Attractions::Attraction *chosen() const;
-    /** The name the game shows for an attraction. */
-    std::string shownName(const Attractions::Attraction &a) const;
+    /** The names the game shows for the attractions. */
+    const ObjectNames &names() const { return _names; }
 
     /** Moves its clock on, in milliseconds: the chosen one turns. */
     void advance(uint32_t ms) { _clock += ms; }
@@ -83,8 +84,7 @@ private:
     Font _titleFont;
     Font _font;
     StringTable _ui;
-    StringTable _names;
-    StringTable _oldNames;
+    ObjectNames _names;
 
     const Attractions *_attractions = nullptr;
     const Park *_park = nullptr;
