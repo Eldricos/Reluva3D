@@ -51,7 +51,8 @@ None yet.
 - **Not everything has been played.** The front end, skirmishes, the
   tutorials, a campaign's first missions with its saves, and
   multiplayer (against AI players, and between copies of Reluva to a
-  game's end) run; no mission has been won by fighting, and the Film
+  game's end) run, and a skirmish has been won; no tutorial or campaign
+  mission has been won, and the Film
   Room, Credits, Hot Keys and Vessel Library screens haven't been
   opened ([systems/hosting.md](systems/hosting.md)).
 - **Multiplayer sessions don't pass on to a new host.** When the host

@@ -98,7 +98,7 @@ on their pages in `formats/` and `systems/`.
    - DirectSound 3D buffers, if Miles doesn't take all the sound.
 6. **The game hosted** (started): the front end (done), a skirmish
    (it runs and is played: steering, targeting and firing with the
-   game's keys and its panels), the tutorials (each runs, its orders
+   game's keys and its panels; won against a frigate), the tutorials (each runs, its orders
    following what's done, to its debriefing), a campaign (started: its
    introduction, the Dynaverse map, moving from hex to hex, a mission
    offered, accepted and played into, forfeited and back to the map,

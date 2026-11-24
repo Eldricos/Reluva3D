@@ -206,6 +206,23 @@ grouped isn't traced. 35 billion instructions (about
 models missing, the run stopped at a null part of a ship the game
 couldn't build (0x415269).
 
+A skirmish won: CUSTOMIZE on the Select Skirmish screen opens the
+Advanced Custom Skirmish, which sets each of up to five AI opponents'
+team, empire, smallest and largest hull (Frigate, Destroyer, War
+Destroyer, Light Cruiser, Heavy Cruiser, New Heavy Cruiser, Heavy
+Battlecruiser, Carrier, Dreadnought, Battleship, each arrow stepping to
+the next and round), BPV (LOW, MED, HIGH, MAX) and number of units, and
+the skill level (CAPTAIN, COMMODORE, ADMIRAL), the start positions and
+the era. With one Klingon frigate at LOW and CAPTAIN against the
+player's heavy cruiser, red alert, the enemy targeted (Y) and the
+weapons fired (Z) every 120 frames: the Klingon closed, the phasers hit
+it, and at 4 minutes 21 of the mission's time it was destroyed. "Hostile
+Skirmish: Congratulations! You are the winner!", its battle report: 136
+damage scored on the enemy (59 of it internal), its shields' efficiency
+56%, its fleet's losses 40 (its BPV); 65 on the player, none internal,
+no losses. 60 billion instructions (20 minutes headless) ran without a
+failure.
+
 The six tutorials (`Tut_*.scr`), listed under Single Player's
 Tutorials (Command 190 and 290, Science 310, Weapons 380, Weapons
 Advanced 480, Command 590, all the Federation's), each load and run:
