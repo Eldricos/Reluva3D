@@ -539,6 +539,8 @@ Error Win32Process::load(const std::string &name, const std::vector<uint8_t> &fi
             if (f.iatRva + 4 <= size)
                 _cpu.write32(base + f.iatRva, bind(dll.name, f.name, f.ordinal));
     m->entry = pe.entryPoint ? base + pe.entryPoint : 0;
+    // Its addresses may have held a DLL freed before.
+    _cpu.noteWrite(base, size);
     _modules.push_back(std::move(m));
     out = _modules.back().get();
     return Error::success();
@@ -725,16 +727,51 @@ void Win32Process::addStandIns() {
     });
     // LoadLibraryA: a module loaded or stood in for already, or else one
     // in the program's folder (or where the name says), loaded and started.
+    // Each load is counted, as Windows counts them, for FreeLibrary.
     stdcall(k, "LoadLibraryA", 1, [this](Cpu &c) {
         const std::string name = c.string(c.arg(0));
+        if (const Module *loaded = module(name)) {
+            for (auto &m : _modules)
+                if (m.get() == loaded && m->loads)
+                    ++m->loads;
+            return loaded->base;
+        }
         if (const uint32_t h = moduleHandle(name))
             return h;
-        if (const Module *m = loadFromDisk(name))
+        if (const Module *m = loadFromDisk(name)) {
+            for (auto &own : _modules)
+                if (own.get() == m)
+                    own->loads = 1;
             return m->base;
+        }
         _lastError = 126; // ERROR_MOD_NOT_FOUND
         return 0u;
     });
-    stdcall(k, "FreeLibrary", 1, [](Cpu &) { return 1u; });
+    // FreeLibrary(module): once its last LoadLibraryA is freed, its DllMain
+    // is told it's leaving (DLL_PROCESS_DETACH, 0) and it's unmapped, so a
+    // later load starts it afresh, as Windows does: Starfleet Command II
+    // loads every mission to list it, frees it, and loads it again to play
+    // it, its start-up run again. What it imported stays loaded. A module
+    // not loaded by LoadLibraryA (the program, a stand-in) stays too.
+    stdcall(k, "FreeLibrary", 1, [this](Cpu &c) {
+        const uint32_t handle = c.arg(0);
+        auto it = std::find_if(_modules.begin(), _modules.end(),
+                               [&](const std::unique_ptr<Module> &m) { return m->base == handle; });
+        if (it == _modules.end() || (*it)->loads == 0)
+            return 1u;
+        if (--(*it)->loads)
+            return 1u;
+        if ((*it)->entry) {
+            uint32_t result = 0;
+            if (Error e = c.call((*it)->entry, {handle, 0 /* DLL_PROCESS_DETACH */, 0}, result); e) {
+                if (output)
+                    output("FreeLibrary: " + (*it)->name + "'s DllMain failed: " + e.message + "\n");
+            }
+        }
+        _arena->free(handle);
+        _modules.erase(it);
+        return 1u;
+    });
     stdcall(k, "DisableThreadLibraryCalls", 1, [](Cpu &) { return 1u; });
     stdcall(k, "GetCurrentProcess", 0, [](Cpu &) { return 0xffffffffu; });
     stdcall(k, "GetCurrentProcessId", 0, [](Cpu &) { return 0x100u; });

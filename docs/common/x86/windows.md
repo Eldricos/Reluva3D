@@ -153,8 +153,17 @@ C++ library have pages of their own ([directx.md](directx.md),
     once, so the critical sections can stay no-ops. `testThreads` checks
     the turns.
 - `LoadLibraryA` loads a DLL from the program's files (through
-  `mapPath`) and runs its start-up. `GetProcAddress` reports the names it
-  can't find to `output`.
+  `mapPath`) and runs its start-up, or counts another load of one already
+  there. `FreeLibrary` undoes a load; at the last, the DLL's `DllMain` is
+  told it's leaving (`DLL_PROCESS_DETACH`, 0) and it's unmapped, so a later
+  `LoadLibraryA` maps it again and starts it afresh, as Windows does. What
+  a DLL imported, and modules not loaded by `LoadLibraryA` (the program,
+  its imports, the stand-ins), stay. Starfleet Command II loads each of its
+  missions to list it, frees it, and loads it again to play it; without
+  unloading, all 104 stayed loaded and a mission was played with what its
+  listing left behind. `testDllUnload` loads a DLL built in the test twice,
+  frees it twice (its `DllMain` told of each), and loads it again.
+  `GetProcAddress` reports the names it can't find to `output`.
 
 ### Drives (`addDrive`)
 

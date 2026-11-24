@@ -140,6 +140,9 @@ public:
         uint32_t base = 0;
         uint32_t size = 0;
         uint32_t entry = 0; // the address of DllMain (its C runtime's start-up); 0 if none
+        // LoadLibraryA's loads not yet freed (FreeLibrary); 0 for a module
+        // loaded otherwise (the program, what it imports), which stays.
+        uint32_t loads = 0;
         PeImage image;
         /** The address of the function exported by that name; 0 if none (or it's forwarded). */
         uint32_t exportAddress(const std::string &name) const;

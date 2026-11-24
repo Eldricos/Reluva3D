@@ -1207,6 +1207,77 @@ static void testInput() {
 
 // A3D created as a program creates it, a source made, filled through Lock,
 // played once and looped, as the clock moves.
+// A DLL loaded with LoadLibraryA twice, freed twice (its DllMain told it's
+// leaving at the second), and loaded again, started afresh: as Starfleet
+// Command II loads its missions to list them, frees them, and loads them
+// to play.
+static void testDllUnload(const std::filesystem::path &tmp) {
+    x86::Cpu cpu(32u << 20);
+    x86::Win32Process process(cpu);
+    process.setProgram("Prog.exe", "C:\\Game\\");
+    std::filesystem::create_directories(tmp / "Dll");
+    process.mapPath = [&](const std::string &path, bool) -> std::optional<std::filesystem::path> {
+        if (path == "C:\\Game\\Counter.dll")
+            return tmp / "Dll" / "Counter.dll";
+        return std::nullopt;
+    };
+    // DllMain counts its calls by reason, outside the DLL (counts[reason]).
+    const uint32_t counts = process.memory().alloc(16);
+    for (uint32_t i = 0; i < 16; i += 4)
+        cpu.write32(counts + i, 0);
+    std::vector<uint8_t> dll(0x400, 0);
+    auto put16 = [&](size_t at, uint16_t v) { std::memcpy(dll.data() + at, &v, 2); };
+    auto put32 = [&](size_t at, uint32_t v) { std::memcpy(dll.data() + at, &v, 4); };
+    dll[0] = 'M', dll[1] = 'Z';
+    put32(0x3c, 0x40);
+    std::memcpy(dll.data() + 0x40, "PE\0\0", 4);
+    put16(0x44, 0x14c);  // i386
+    put16(0x46, 1);      // one section
+    put16(0x54, 0xe0);   // the optional header's size
+    put16(0x56, 0x2102); // a DLL, executable, 32-bit
+    const size_t opt = 0x58;
+    put16(opt, 0x10b);
+    put32(opt + 16, 0x1000);     // its entry point
+    put32(opt + 28, 0x10000000); // its base
+    put32(opt + 32, 0x1000);     // section alignment
+    put32(opt + 36, 0x200);      // file alignment
+    put32(opt + 56, 0x2000);     // its size in memory
+    put32(opt + 60, 0x200);      // its headers' size
+    put32(opt + 92, 16);         // data directories
+    const size_t sec = opt + 0xe0;
+    std::memcpy(dll.data() + sec, ".text", 5);
+    put32(sec + 8, 0x1000);
+    put32(sec + 12, 0x1000);
+    put32(sec + 16, 0x200);
+    put32(sec + 20, 0x200);
+    put32(sec + 36, 0x60000020);
+    // mov eax, [esp+8]; inc dword [eax*4 + counts]; mov eax, 1; ret 12
+    const uint8_t code[] = {0x8b, 0x44, 0x24, 0x08, 0xff, 0x04, 0x85, 0, 0, 0, 0, 0xb8, 1, 0, 0, 0, 0xc2, 0x0c, 0};
+    std::memcpy(dll.data() + 0x200, code, sizeof code);
+    put32(0x200 + 7, counts);
+    {
+        std::ofstream out(tmp / "Dll" / "Counter.dll", std::ios::binary);
+        out.write(reinterpret_cast<const char *>(dll.data()), std::streamsize(dll.size()));
+    }
+    uint32_t r = 0;
+    auto call = [&](const char *name, uint32_t arg) {
+        CHECK(!cpu.call(process.provided("KERNEL32.dll", name), {arg}, r));
+        return r;
+    };
+    const uint32_t name = process.memory().alloc(32);
+    cpu.writeString(name, "Counter.dll", 32);
+    const uint32_t first = call("LoadLibraryA", name);
+    CHECK(first != 0 && cpu.read32(counts + 4) == 1); // DLL_PROCESS_ATTACH, once
+    CHECK(call("LoadLibraryA", name) == first && cpu.read32(counts + 4) == 1);
+    CHECK(call("FreeLibrary", first) == 1 && cpu.read32(counts) == 0); // still loaded once
+    CHECK(call("FreeLibrary", first) == 1 && cpu.read32(counts) == 1); // DLL_PROCESS_DETACH
+    CHECK(process.modules().size() == 0);
+    const uint32_t again = call("LoadLibraryA", name);
+    CHECK(again != 0 && cpu.read32(counts + 4) == 2); // started again
+    CHECK(call("FreeLibrary", 0x12345678) == 1);      // not one of its modules: nothing done
+    CHECK(process.modules().size() == 1);
+}
+
 static void testDirectPlayLobby() {
     x86::Cpu cpu(32u << 20);
     x86::Win32Process process(cpu);
@@ -1611,6 +1682,7 @@ static const test::Suite
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
                {"miles", [](const std::filesystem::path &) { testMiles(); }},
                {"directplay lobby", [](const std::filesystem::path &) { testDirectPlayLobby(); }},
+               {"dll unload", [](const std::filesystem::path &tmp) { testDllUnload(tmp); }},
                {"directplay session", [](const std::filesystem::path &) { testDirectPlaySession(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
            });
