@@ -88,7 +88,9 @@ C++ library have pages of their own ([directx.md](directx.md),
     `PeekMessageA` reads, calling `idle` when it's empty; `GetMessageA`
     waits for a message (calling `idle`, and letting other threads run),
     and gives up when the process is ending;
-  - `DispatchMessageA` and `TranslateMessage`;
+  - `DispatchMessageA` and `TranslateMessage` (a key that types makes
+    `WM_CHAR`: letters, digits, the marks and the keypad's, unshifted, as
+    on a US keyboard);
   - `DefWindowProcA` destroys a window it's asked to close;
   - frames and captions are Windows 98's sizes;
   - the mouse pointer, and the desktop's size and colour depth, which the

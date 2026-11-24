@@ -422,6 +422,14 @@ static void testWindowsAndRegistry() {
     CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 1 && cpu.read32(msg + 4) == 0x102 &&
           cpu.read32(msg + 8) == 'q');
     CHECK((seen == std::vector<uint32_t>{0x100}));
+    // A mark and the keypad's digits type their characters too.
+    for (const auto &[vk, ch] : std::vector<std::pair<uint32_t, uint32_t>>{{0xbe, '.'}, {0xbd, '-'}, {0x67, '7'}}) {
+        process.postMessage(hwnd, 0x100, vk, 0);
+        CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 1);
+        CHECK(!cpu.call(fn("USER32.dll", "TranslateMessage"), {msg}, r) && r == 1);
+        CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 1 &&
+              cpu.read32(msg + 4) == 0x102 && cpu.read32(msg + 8) == ch);
+    }
     // GetMessageA takes what's queued, and says 0 for WM_QUIT.
     process.postMessage(hwnd, 0x400, 7, 0); // WM_USER
     CHECK(!cpu.call(fn("USER32.dll", "GetMessageA"), {msg, 0, 0, 0}, r) && r == 1 && cpu.read32(msg + 4) == 0x400 &&

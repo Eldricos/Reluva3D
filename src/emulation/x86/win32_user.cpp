@@ -17,6 +17,7 @@
 #include <cctype>
 #include <cstdlib>
 #include <cstring>
+#include <map>
 
 namespace reluva::x86 {
 
@@ -754,17 +755,26 @@ void Win32Process::addUserStandIns() {
         return sendMessage(c.read32(m), c.read32(m + 4), c.read32(m + 8), c.read32(m + 12));
     });
     // TranslateMessage: a key that types a character (letters, digits,
-    // space, Enter, Backspace, Escape, Tab) queues WM_CHAR for it.
+    // marks, the keypad's, space, Enter, Backspace, Escape, Tab) queues
+    // WM_CHAR for it, unshifted, as on a US keyboard.
     stdcall(u, "TranslateMessage", 1, [this](Cpu &c) {
         const uint32_t m = c.arg(0);
         if (!c.valid(m, 16) || c.read32(m + 4) != kWmKeyDown)
             return 0u;
         const uint32_t key = c.read32(m + 8);
+        static const std::map<uint32_t, char> kMarks = {
+            {0xba, ';'},  {0xbb, '='}, {0xbc, ','},  {0xbd, '-'}, {0xbe, '.'}, {0xbf, '/'}, {0xc0, '`'}, {0xdb, '['},
+            {0xdc, '\\'}, {0xdd, ']'}, {0xde, '\''}, {0x6a, '*'}, {0x6b, '+'}, {0x6d, '-'}, {0x6e, '.'}, {0x6f, '/'},
+        };
         uint32_t ch = 0;
         if (key >= 'A' && key <= 'Z')
             ch = key - 'A' + 'a';
         else if ((key >= '0' && key <= '9') || key == ' ' || key == 8 || key == 9 || key == 13 || key == 27)
             ch = key;
+        else if (key >= 0x60 && key <= 0x69) // the keypad's digits
+            ch = '0' + (key - 0x60);
+        else if (auto mark = kMarks.find(key); mark != kMarks.end())
+            ch = uint8_t(mark->second);
         if (!ch)
             return 0u;
         postMessage(c.read32(m), kWmChar, ch, c.read32(m + 12));
