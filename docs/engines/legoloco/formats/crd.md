@@ -30,7 +30,7 @@ Numbers little-endian.
 | Offset | Size | Value |
 |---|---|---|
 | `0x00` | 2 | `0x66`: the game refuses a card without it |
-| `0x04` | 4 | not known: set from the player's profile when a card is made (`0x442880`); `0x5d` in the CD's cards, 0 in cards made here |
+| `0x04` | 4 | set from the player's profile when a card is made (`0x442880`): its `+0x18`, which, if the profile keeps its file at `+4` as a card does, is the number at `+0x14` of the player's `<name>.usr` *(inferred)*; 1 for a player who had sent a card, 0 for one who hadn't *(seen, not traced)*: perhaps the cards sent so far; `0x5d` in the CD's cards |
 | `0x08` | 4 | the card's number, as its file is named |
 | `0x0c` | 21 | the addressee's name, ending in 0: `Anyone`, or a player of a network game |
 | `0x21` | 21 | the sender's name, ending in 0 |
@@ -112,5 +112,5 @@ card names that it doesn't have (`0x438faa`), which comes in pieces
 
 ## Open questions
 
-- What `+0x04`, `+0x36`, `+0x38` and `+0x3c` are for.
+- What `+0x04` counts, and what `+0x36`, `+0x38` and `+0x3c` are for.
 - The other languages' cards, and how the game draws a card.
