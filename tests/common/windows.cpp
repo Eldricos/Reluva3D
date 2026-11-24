@@ -1109,6 +1109,14 @@ static void testInput() {
     CHECK(vkScan('a') == 0x41 && vkScan('A') == 0x141 && vkScan('5') == 0x35 && vkScan('%') == 0x135);
     CHECK(vkScan(']') == 0xdd && vkScan('`') == 0xc0 && vkScan(';') == 0xba && vkScan('?') == 0x1bf);
     CHECK(vkScan(char(0xe9)) == 0xffff);
+    // MapVirtualKeyA: scan codes both ways, and the character a key types.
+    auto mapKey = [&](uint32_t code, uint32_t how) {
+        CHECK(!cpu.call(fn("USER32.dll", "MapVirtualKeyA"), {code, how}, r));
+        return r;
+    };
+    CHECK(mapKey(0x41, 0) == 0x1e && mapKey(0x1e, 1) == 0x41 && mapKey(0x2a, 1) == 0x10 && mapKey(0x2a, 3) == 0xa0);
+    CHECK(mapKey(0xdd, 2) == ']' && mapKey(0xc0, 2) == '`' && mapKey(0x41, 2) == 'A' && mapKey(0x35, 2) == '5');
+    CHECK(mapKey(0x70, 2) == 0); // F1 types nothing
     // ClipCursor keeps the pointer in.
     const uint32_t rc = process.memory().alloc(16);
     for (uint32_t i = 0; i < 4; ++i)

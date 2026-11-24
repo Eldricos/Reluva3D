@@ -387,7 +387,6 @@ void GameProcess::addSystem() {
         c.write32(c.arg(1), 0x5100); // its device context
         return 0x5100u;
     });
-    stdcall(u, "MapVirtualKeyA", 2, [](Cpu &c) { return c.arg(0); });
     stdcall(u, "ScreenToClient", 2, [](Cpu &) { return 1u; });
     const char *g = "GDI32.dll";
     // Text and pictures drawn with GDI (its debug console, error boxes): accepted, not drawn.

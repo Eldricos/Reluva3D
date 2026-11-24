@@ -693,6 +693,40 @@ void Win32Process::addUserStandIns() {
                     return vk | (shift ? 0x100u : 0u);
         return 0xffffu;
     });
+    // MapVirtualKeyA(code, how): a virtual key's scan code (0), a scan
+    // code's virtual key (1; 3 tells left and right Shift, Ctrl and Alt
+    // apart), or the character a virtual key types unshifted (2, letters
+    // in capitals), on a US keyboard; 0 for none. Starfleet Command II
+    // turns a key with no name of its own into its character this way, as
+    // its bindings name them (`]`, the backquote).
+    stdcall(u, "MapVirtualKeyA", 2, [](Cpu &c) {
+        const uint32_t code = c.arg(0);
+        const uint32_t how = c.arg(1);
+        if (how == 2) {
+            if (code >= 'A' && code <= 'Z')
+                return code;
+            return typedCharacter(code, false);
+        }
+        for (uint32_t k = 1; k < 0x200; ++k) {
+            uint32_t vk = 0;
+            uint32_t scan = 0;
+            if (!windowsKey(k, vk, scan))
+                continue;
+            if (how == 0 && vk == code)
+                return scan & 0xffu;
+            if ((how == 1 || how == 3) && scan == code) {
+                // VK_LSHIFT/RSHIFT, LCONTROL/RCONTROL and LMENU/RMENU.
+                static const std::pair<uint32_t, uint32_t> kSided[] = {{0x2a, 0xa0},  {0x36, 0xa1}, {0x1d, 0xa2},
+                                                                       {0x11d, 0xa3}, {0x38, 0xa4}, {0x138, 0xa5}};
+                if (how == 3)
+                    for (const auto &[s, v] : kSided)
+                        if (s == scan)
+                            return v;
+                return vk;
+            }
+        }
+        return 0u;
+    });
 
     // Device contexts.
     stdcall(u, "GetDC", 1, [](Cpu &c) { return kDeviceContext + (c.arg(0) & 0xffff); });
