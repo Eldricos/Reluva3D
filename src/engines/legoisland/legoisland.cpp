@@ -183,9 +183,9 @@ public:
         return {turning,
                 o,
                 choice("drawing", "3D drawn by",
-                       "Who draws the game's 3D: the processor, as Reluva has, or the GPU, by the same rules "
-                       "(the same pictures but for a little rounding). Without a GPU, the processor draws it.",
-                       {{"processor", "The processor"}, {"gpu", "The GPU"}}),
+                       "Who draws the game's 3D: the GPU, or the processor, by the same rules (the same "
+                       "pictures but for a little rounding). Without a GPU, the processor draws it.",
+                       {{"gpu", "The GPU"}, {"processor", "The processor"}}),
                 choice("device", "3D device",
                        "The setup's 3D device. Hardware smooths the game's textures; software, the setup's "
                        "RGB Emulation, draws them unsmoothed.",

@@ -22,7 +22,7 @@ PlaySettings playSettings(const std::map<std::string, std::string> &settings) {
             out.frameRate = std::max(0, rate);
     }
     if (const std::string *v = set("drawing"))
-        out.gpu = *v == "gpu";
+        out.gpu = *v != "processor";
     if (const std::string *v = set("turning"))
         out.turningByTime = *v != "frame";
     if (const std::string *v = set("device")) {

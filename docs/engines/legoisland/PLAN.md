@@ -71,9 +71,9 @@ Each phase ends with something that runs, is tested and is committed.
    the software rasterizer's rules, checked against it
    ([directx.md](../../common/x86/directx.md#drawing-on-the-gpu)), the
    surfaces it draws into kept there between batches, clears, fills and
-   copies drawn there too; the engine's *3D drawn by* setting chooses it,
-   the processor where there's no GPU. Still to come: its speed measured
-   on a GPU, and then whether it's the default.
+   copies drawn there too; the engine draws on the GPU unless its *3D
+   drawn by* setting says the processor, or there's no GPU. A tester
+   found it right, and as smooth as the processor on their machine.
 
 ## Decisions
 

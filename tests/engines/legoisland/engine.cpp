@@ -137,7 +137,8 @@ void options(const MetaEngine &engine, Record &rec) {
     if (describe(fromDefaults) != describe(fromNothing))
         test::fail("the options' defaults aren't what the game plays with unset: " + describe(fromDefaults) +
                    " against " + unset);
-    rec.add("settings.original", describe(playSettings({{"turning", "frame"}, {"framerate", "20"}})));
+    rec.add("settings.original",
+            describe(playSettings({{"turning", "frame"}, {"framerate", "20"}, {"drawing", "processor"}})));
     rec.add("settings.changed", describe(playSettings({{"framerate", "0"},
                                                        {"drawing", "gpu"},
                                                        {"device", "software"},

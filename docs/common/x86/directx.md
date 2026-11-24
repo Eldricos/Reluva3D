@@ -129,8 +129,8 @@ software rasterizer's own rules (`dx::GpuRaster`, `directx/gpu_raster.cpp`,
 does ([glide.md](../graphics/glide.md#the-gpu-backend)), through
 `gfx::Compute` on a GPU device of its own. Where there's none, the first
 draw finds out, says so in the process's output (as it names the GPU when
-there is one), and `drawThreads` becomes `kAuto`. LEGO Island uses it when
-its *3D drawn by* setting is *The GPU*; `reluva-tool legoisland run -gpu`
+there is one), and `drawThreads` becomes `kAuto`. LEGO Island uses it unless
+its *3D drawn by* setting is *The processor*; `reluva-tool legoisland run -gpu`
 does too.
 
 - **Set-up on the CPU, as the software one does it** (`Draw::rasterize`'s

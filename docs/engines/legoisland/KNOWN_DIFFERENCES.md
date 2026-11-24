@@ -40,9 +40,10 @@ None yet.
   the setup's default unless set, but for the 3D device: the hardware
   one, its textures smoothed, where the setup chose RGB Emulation on a
   player's machine. Its joystick is the first one connected.
-- **3D drawn on the GPU** (the *3D drawn by* setting, off unless set):
-  the same pictures as drawn by the processor but for a little rounding,
-  about 1 pixel in 130 a colour step off on the island.
+- **3D drawn on the GPU** (the *3D drawn by* setting, the GPU unless
+  set; the processor where there's none): the same pictures as drawn by
+  the processor but for a little rounding, about 1 pixel in 130 a colour
+  step off on the island.
 - **Each frame is shown a frame late,** when the program gives the next,
   so its drawing goes on while the program works that one out: the
   island's frames are 40 to 54% quicker for it, for a frame's delay
