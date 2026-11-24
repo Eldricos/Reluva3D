@@ -73,6 +73,9 @@ so they're added in the order the program needs them.
   each store into it, by an instruction or by a native function (as
   `memcpy`), with where it was made, the registers then, and the stack's
   top words, among them its callers' return addresses.
+- `-draws-ms <ms> <file>` writes the draws of the first frame shown from
+  that moment of the program's clock, for when the frame's number isn't
+  known.
 - **Its memory**, with `-dump <frame> <file>` or `-dump-ms <ms> <file>`
   (as often as wanted): the whole of it, written as that frame is shown
   or at that moment of its clock, to look for what it keeps there (its
@@ -94,10 +97,13 @@ primary surface for the same reason.
 ## In Reluva
 
 `reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N]
-[-save dir] [-input file] [-cd folder] [-toc file] [-cd-label name]
-[-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file] [-draws frame file] [-watch address bytes]` runs the program for `N`
-milliseconds of its clock (20,000 by default), writes every `N`th frame
-(and the last) to `dir`, and the program's own files to the save folder
+[-every-ms N] [-save dir] [-input file] [-cd folder] [-toc file]
+[-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame
+file] [-dump-ms ms file] [-draws frame file] [-draws-ms ms file] [-watch
+address bytes]` runs the program for `N` milliseconds of its clock
+(20,000 by default), writes every `N`th frame (and the last) to `dir`,
+or with `-every-ms` the first frame after each `N` milliseconds of its
+clock, named by the moment (`ms012300.png`), and the program's own files to the save folder
 (by default under the system's temporary folder). It prints the imports
 no stand-in answers, the files opened, the frames shown, and where it
 stopped.

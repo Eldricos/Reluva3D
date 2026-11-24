@@ -174,7 +174,7 @@ its mesh hasn't.
   worked out from the clock alone as if they'd always been running; the
   damage emitters (venting) and the crew's fires only with V.
 - `reluva-tool storm3d sod <game folder> <name.sod>`: a model's
-  materials, nodes, meshes and animations.
+  materials, nodes, meshes (with their extents) and animations.
 - `reluva-tool storm3d sod-check <game folder>`: reads every model whole.
 
 ## Sources and checks

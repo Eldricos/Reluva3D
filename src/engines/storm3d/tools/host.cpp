@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file]
-//                          [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file] [-draws frame file] [-watch address bytes]:
+// reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-every-ms N] [-save dir] [-input file]
+//                          [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file] [-draws frame file] [-draws-ms ms file] [-watch address bytes]:
 // runs the retail Armada.exe in Reluva's x86 emulator, with its own DLLs
 // from the install and Reluva's stand-ins for Windows, DirectX and the C
 // runtimes, as a reference to study, never as the game is played
@@ -62,7 +62,8 @@ struct Options {
     std::filesystem::path dir;
     uint64_t limitMs = 20000; // of the program's clock
     std::filesystem::path framesDir;
-    uint64_t every = 1; // with framesDir: every Nth frame written
+    uint64_t every = 1;   // with framesDir: every Nth frame written
+    uint64_t everyMs = 0; // with framesDir: instead, the first frame after each N ms of the program's clock
     std::filesystem::path saveDir;
     std::filesystem::path inputFile;
     std::filesystem::path cdFolder;
@@ -76,6 +77,8 @@ struct Options {
     std::map<uint64_t, std::filesystem::path> draws;
     // -dump-ms <ms> <file>: the same at a moment of the program's clock.
     std::map<uint64_t, std::filesystem::path> dumpsAt;
+    // -draws-ms <ms> <file>: the draws of the first frame shown from then.
+    std::map<uint64_t, std::filesystem::path> drawsAt;
     // -watch <address> <bytes>: each store into it, with where it was made
     // from, to find what the program keeps there.
     uint32_t watchAddress = 0;
@@ -316,8 +319,8 @@ int cmdHost(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(
             stderr,
-            "usage: reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-save dir] "
-            "[-input file] [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file] [-draws frame file] [-watch address bytes]\n");
+            "usage: reluva-tool storm3d host <game folder> [-ms N] [-frames dir] [-every N] [-every-ms N] [-save dir] "
+            "[-input file] [-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file] [-draws frame file] [-draws-ms ms file] [-watch address bytes]\n");
         return 2;
     }
     Options o;
@@ -337,11 +340,16 @@ int cmdHost(int argc, char **argv) {
         } else if (arg == "-dump-ms" && a + 2 < argc) {
             const uint64_t ms = std::strtoull(argv[++a], nullptr, 10);
             o.dumpsAt[ms] = argv[++a];
+        } else if (arg == "-draws-ms" && a + 2 < argc) {
+            const uint64_t ms = std::strtoull(argv[++a], nullptr, 10);
+            o.drawsAt[ms] = argv[++a];
         } else if (arg == "-dump" && a + 2 < argc) {
             const uint64_t frame = std::strtoull(argv[++a], nullptr, 10);
             o.dumps[frame] = argv[++a];
         } else if (arg == "-every" && a + 1 < argc)
             o.every = std::max<uint64_t>(1, std::strtoull(argv[++a], nullptr, 10));
+        else if (arg == "-every-ms" && a + 1 < argc)
+            o.everyMs = std::strtoull(argv[++a], nullptr, 10);
         else if (arg == "-save" && a + 1 < argc)
             o.saveDir = argv[++a];
         else if (arg == "-input" && a + 1 < argc)
@@ -527,12 +535,17 @@ int cmdHost(int argc, char **argv) {
     // The draws since the last frame shown, while one of -draws' frames may
     // be the next.
     std::vector<x86::DirectX::Draw> drawsSince;
-    if (!o.draws.empty())
+    if (!o.draws.empty() || !o.drawsAt.empty())
         directX.drawn = [&](const x86::DirectX::Draw &d) { drawsSince.push_back(d); };
+    uint64_t nextFrameAt = 0;
     directX.presented = [&](const x86::DirectX::Frame &f) {
         ++frames;
         if (auto wanted = o.draws.find(f.number); wanted != o.draws.end())
             writeDraws(drawsSince, wanted->second);
+        if (!o.drawsAt.empty() && o.drawsAt.begin()->first <= process.now()) {
+            writeDraws(drawsSince, o.drawsAt.begin()->second);
+            o.drawsAt.erase(o.drawsAt.begin());
+        }
         drawsSince.clear();
         if (auto dump = o.dumps.find(f.number); dump != o.dumps.end()) {
             std::ofstream out(dump->second, std::ios::binary);
@@ -540,8 +553,15 @@ int cmdHost(int argc, char **argv) {
             std::printf("memory at frame %llu written to %s\n", (unsigned long long)f.number,
                         dump->second.string().c_str());
         }
-        if (!o.framesDir.empty() && f.number % o.every == 0)
+        if (!o.framesDir.empty() && o.everyMs) {
+            const uint64_t now = process.now();
+            if (now >= nextFrameAt) {
+                writeFrame(f, o.framesDir / text::format("ms%06llu.png", (unsigned long long)now));
+                nextFrameAt = (now / o.everyMs + 1) * o.everyMs;
+            }
+        } else if (!o.framesDir.empty() && f.number % o.every == 0) {
             writeFrame(f, o.framesDir / text::format("frame%05llu.png", (unsigned long long)f.number));
+        }
     };
     std::vector<InputEvent> input;
     if (!o.inputFile.empty())
@@ -633,8 +653,8 @@ const tool::Commands kCommands(
     "storm3d",
     {
         {"host",
-         "<game folder> [-ms N] [-frames dir] [-every N] [-save dir] [-input file] "
-         "[-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file] [-draws frame file] [-watch address bytes]",
+         "<game folder> [-ms N] [-frames dir] [-every N] [-every-ms N] [-save dir] [-input file] "
+         "[-cd folder] [-toc file] [-cd-label name] [-fonts folder] [-clock instructions|real] [-dump frame file] [-dump-ms ms file] [-draws frame file] [-draws-ms ms file] [-watch address bytes]",
          "run the retail Armada.exe in the x86 emulator, to study: files "
          "opened, frames shown, imports missing, where it stops",
          cmdHost},

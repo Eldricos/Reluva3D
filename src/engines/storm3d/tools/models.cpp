@@ -12,6 +12,8 @@
 #include "engines/storm3d/game_files.h"
 #include "devtools/tool.h"
 
+#include <algorithm>
+#include <array>
 #include <cstdio>
 #include <map>
 #include <string>
@@ -70,6 +72,18 @@ int cmdSod(int argc, char **argv) {
             about = reluva::text::format("mesh %s%s%s, %zu vertices, %zu faces", mesh.texture.c_str(),
                                          mesh.drawMode.empty() ? "" : " ", mesh.drawMode.c_str(), mesh.vertices.size(),
                                          faces);
+            // Its extent in its node's own axes.
+            if (!mesh.vertices.empty()) {
+                std::array<float, 3> lo = mesh.vertices[0];
+                std::array<float, 3> hi = lo;
+                for (const auto &v : mesh.vertices)
+                    for (size_t i = 0; i < 3; ++i) {
+                        lo[i] = std::min(lo[i], v[i]);
+                        hi[i] = std::max(hi[i], v[i]);
+                    }
+                about += reluva::text::format(", x %.3f..%.3f y %.3f..%.3f z %.3f..%.3f", double(lo[0]), double(hi[0]),
+                                              double(lo[1]), double(hi[1]), double(lo[2]), double(hi[2]));
+            }
         } else if (n.type == SodModel::kEmitter) {
             about = "emitter " + n.emitter;
         }
