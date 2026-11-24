@@ -47,6 +47,61 @@ inline Bytes makeAttributeMap(int width, int height, const Bytes &tiles) {
     return b;
 }
 
+// A saved park (.TPWS): its version, then its state in a BILZ chunk, as a
+// zlib stream of stored blocks; the state some bytes, the grid of 128 x
+// 128 cells, each its 86 bytes and -1 (`entries` of 10 bytes before the
+// cells of kind 7), then the first tagged section. `cell` fills each
+// cell's body, given (x, y).
+template<typename Fill>
+inline Bytes makeSavedPark(Fill cell) {
+    Bytes state(40, 0xcd);
+    for (int y = 0; y < 128; ++y)
+        for (int x = 0; x < 128; ++x) {
+            Bytes body(86, 0);
+            body[0] = 3;
+            cell(x, y, body);
+            if (body[0] == 7) {
+                const Bytes entry{1, 0, 0xff, 0xff, 0, 0, 0, 0, 0, 0};
+                state.insert(state.end(), entry.begin(), entry.end());
+            }
+            state.insert(state.end(), body.begin(), body.end());
+            state.push_back(0xff);
+            state.push_back(0xff);
+        }
+    const Bytes after = toBytes("EATC");
+    put32(state, state.size(), 37);
+    state.insert(state.end(), after.begin(), after.end());
+    state.resize(state.size() + 36, 0);
+
+    Bytes stream{0x78, 0x9c};
+    for (size_t at = 0; at < state.size(); at += 0xffff) {
+        const size_t n = std::min<size_t>(0xffff, state.size() - at);
+        stream.push_back(at + n == state.size() ? 1 : 0);
+        stream.push_back(uint8_t(n));
+        stream.push_back(uint8_t(n >> 8));
+        stream.push_back(uint8_t(~n));
+        stream.push_back(uint8_t(~n >> 8));
+        stream.insert(stream.end(), state.begin() + long(at), state.begin() + long(at + n));
+    }
+    stream.resize(stream.size() + 4, 0); // the Adler-32, not checked
+
+    Bytes b{0xf4, 0x01, 0, 0, 0x01, 0x13, 0, 0, 0};
+    const Bytes version = toBytes("Version: Test_1\r\n");
+    b.insert(b.end(), version.begin(), version.end());
+    b.resize(b.size() + 64, 0);
+    const Bytes tag = toBytes("BILZ");
+    const size_t chunk = b.size();
+    b.insert(b.end(), tag.begin(), tag.end());
+    put32(b, chunk + 4, uint32_t(state.size()));
+    put32(b, chunk + 8, uint32_t(28 + stream.size()));
+    put32(b, chunk + 12, 15);
+    put32(b, chunk + 16, 9);
+    put32(b, chunk + 20, 0);
+    put32(b, chunk + 24, 0);
+    b.insert(b.end(), stream.begin(), stream.end());
+    return b;
+}
+
 // RefPack of only literals: runs of 4 (0xe0), then the rest with the end
 // code. `size` is the header's, the real one unless a test says otherwise.
 inline Bytes refPack(const Bytes &data, size_t size) {

@@ -47,6 +47,8 @@
 #   terrain  every world's ground (.lnd), attribute map (base.map) and
 #            objects (scape.omp) read, with a checksum of them all (tpw
 #            terrain-check)
+#   saves    the prebuilt park (PreBuilt/prebuilt.TPWS) read: its cells,
+#            path and world, with a checksum of its state (tpw tpws-check)
 #   scripts  every ride and shop script (.RSE) read, with a checksum of
 #            their disassembly (tpw rse-check)
 #   park     a new park in Land of Invention played headless: its
@@ -118,6 +120,8 @@ elseif(STEP STREQUAL "heights")
     record_run(heights "height maps," tpw hmp-check "${game_dir}")
 elseif(STEP STREQUAL "terrain")
     record_run(terrain "grounds," tpw terrain-check "${game_dir}")
+elseif(STEP STREQUAL "saves")
+    record_run(saves "cells" tpw tpws-check "${game_dir}")
 elseif(STEP STREQUAL "scripts")
     record_run(scripts "scripts," tpw rse-check "${game_dir}")
 elseif(STEP STREQUAL "park")

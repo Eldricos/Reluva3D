@@ -17,14 +17,17 @@ neighbours are path.
 
 ### Where path can go
 
-A new park's path is the attribute map's tiles 8
-([attribute-map.md](../formats/attribute-map.md#the-tiles)): the
-entrance's two cells and the four rows in from them. The recording's
-park has much more as its briefing closes at 2:34, before the player has
-spent anything: a long path from the entrance, turning, and a T. Where
-that comes from isn't known; `Data/PreBuilt/prebuilt.TPWS` is a saved
-park ("Version: Beta_21", then a notice, then compressed data), perhaps
-the one every new park starts from *(guessed)*.
+The attribute map marks the entrance's path, tiles 8
+([attribute-map.md](../formats/attribute-map.md#the-tiles)): its two
+cells and the four rows in from them. The recording's new park has much
+more as its briefing closes at 2:34, before the player has spent
+anything: a long path from the entrance, two cells wide, turning, with
+branches. It's the game's prebuilt park's, `Data/PreBuilt/prebuilt.TPWS`
+([tpws.md](../formats/tpws.md)), a saved park of Land of Invention: 76
+cells of path, the same shape, and 5 of a queue to a ride beside it
+*(inferred)*. Reluva lays its path and queue in a new park of the world
+it's of, its cells' tiles being that world's attribute map's; the other
+worlds start with their maps' path *(guessed)*.
 
 Reluva lays path on the attribute map's open tiles (0), the park's own
 bare land, and nowhere else *(inferred: the edges, river and road are
@@ -73,8 +76,8 @@ and, while the path tool is chosen, the length that would be laid, the
 cells it can't cross marked red, and finds the cell under the mouse.
 `playPark` takes the tool's clicks.
 
-`reluva-tool tpw park-run` lays two lengths from the start's path, four
-cells and three; the unit tests (`tpw.unit.park`) lay path on a map
+`reluva-tool tpw park-run` lays two lengths on the open land beside the
+prebuilt path, four cells and three; the unit tests (`tpw.unit.park`) lay path on a map
 built in the test, and check each kind of tile's texture and turn.
 
 ## Sources and checks
@@ -87,8 +90,8 @@ built in the test, and check each kind of tile's texture and turn.
 
 ## Open questions
 
-- Where a new park's path comes from: `prebuilt.TPWS`, and how a saved
-  park is stored.
+- What the other worlds' new parks start with, and the prebuilt park's
+  ride and the rest of its state.
 - Whether a length can bend, and what the game does with a length over
   land it can't cross.
 - Which of the textures that fit alike the game picks; what `dark` and

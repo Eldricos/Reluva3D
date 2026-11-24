@@ -28,9 +28,9 @@ None yet.
   rules, drawn by their sprites at a guessed pace, under its HUD, the
   camera moved by Reluva's own keys and the compass; path can be laid, the
   bottom buttons' menus open, but only the path tool and the Park
-  menu's Objectives do anything yet; a new park has only the attribute
-  map's ten cells of path, where the recording's has many more
-  ([paths.md](systems/paths.md)); no fly-in, gates or other building
+  menu's Objectives do anything yet; a new park has the prebuilt park's
+  path ([paths.md](systems/paths.md)), but not its ride, and its queue
+  isn't drawn; no fly-in, gates or other building
   yet, its fixed items marked
   ([PLAN.md](PLAN.md#phases), [park.md](systems/park.md)). Every park
   is its world's first mission's.

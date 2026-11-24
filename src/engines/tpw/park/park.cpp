@@ -9,6 +9,7 @@
 
 #include "engines/tpw/formats/attribute_map.h"
 #include "engines/tpw/formats/sam.h"
+#include "engines/tpw/formats/saved_park.h"
 
 #include <algorithm>
 #include <array>
@@ -20,6 +21,7 @@ namespace reluva::tpw {
 namespace {
 
 constexpr const char *kGeneralSettings = "levels/Standard.sam";
+constexpr const char *kPrebuiltPark = "PreBuilt/prebuilt.TPWS";
 constexpr int kMostBoundaryClicks = 256;
 constexpr int kMostTicketBooths = 8;
 // How far the entrance's path runs in, in cells: its tiles, in the
@@ -117,6 +119,7 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
                                                                      : tile == kPathTile ? Ground::kPath
                                                                                          : Ground::kOutside;
             }
+        layPrebuilt(files, map);
     }
 
     // The way in: off the bus at its first stop, over the crossing from
@@ -161,6 +164,31 @@ void Park::advance(uint32_t ms) {
         ms -= kStepMillis;
     }
     step(ms);
+}
+
+// The prebuilt park's path and queues, where it's this world's: its cells'
+// tiles are the world's attribute map's, every one. The recording's new
+// park has its path as its briefing closes, before anything is spent.
+void Park::layPrebuilt(const SearchSet &files, const AttributeMap &map) {
+    std::vector<uint8_t> data;
+    SavedPark saved;
+    if (files.read(kPrebuiltPark, data) || saved.parse(data) || _mapWidth > SavedPark::kSide ||
+        _mapHeight > SavedPark::kSide)
+        return;
+    for (int x = 0; x < _mapWidth; ++x)
+        for (int y = 0; y < _mapHeight; ++y)
+            if (saved.cell(x, y).tile != map.at(y, x))
+                return;
+    for (int x = 0; x < _mapWidth; ++x)
+        for (int y = 0; y < _mapHeight; ++y) {
+            const SavedPark::Built built = saved.cell(x, y).built;
+            Ground &g = _ground[size_t(y) * size_t(_mapWidth) + size_t(x)];
+            if (built == SavedPark::Built::kPath)
+                g = Ground::kPath;
+            else if (built == SavedPark::Built::kQueue)
+                g = Ground::kQueue;
+        }
+    _prebuilt = true;
 }
 
 Park::Ground Park::ground(const Cell &cell) const {

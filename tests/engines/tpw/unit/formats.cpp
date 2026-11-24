@@ -19,6 +19,7 @@
 #include "engines/tpw/formats/rse.h"
 #include "engines/tpw/formats/sam.h"
 #include "engines/tpw/formats/sdt.h"
+#include "engines/tpw/formats/saved_park.h"
 #include "engines/tpw/formats/sound_map.h"
 #include "engines/tpw/formats/sprites.h"
 #include "engines/tpw/formats/str.h"
@@ -469,6 +470,30 @@ void testAttributeMap() {
     CHECK(attributes.parse(toBytes("TP2X")));
 }
 
+// A saved park: its version; its cells by (x, y), their tiles, what's
+// built on them, those of kind 7 with an entry before; then cut short, and
+// without its cells' end.
+void testSavedPark() {
+    const Bytes data = tpw::testing::makeSavedPark([](int x, int y, Bytes &body) {
+        body[46] = uint8_t(x == 5 ? 1 : 0); // a row of tiles 1
+        if (y == 7 && x < 4)
+            body[13] = 1; // path
+        if (x == 9 && y == 9) {
+            body[0] = 7;
+            body[13] = 2; // a queue
+        }
+    });
+    SavedPark saved;
+    CHECK(!saved.parse(data));
+    CHECK(saved.version() == "Test_1" && !saved.state().empty());
+    CHECK(saved.cell(5, 100).tile == 1 && saved.cell(6, 100).tile == 0);
+    CHECK(saved.cell(3, 7).built == SavedPark::Built::kPath && saved.cell(4, 7).built == SavedPark::Built::kNothing);
+    CHECK(saved.cell(9, 9).kind == 7 && saved.cell(9, 9).built == SavedPark::Built::kQueue);
+    CHECK(saved.cell(127, 127).kind == 3);
+    CHECK(saved.parse(Bytes(data.begin(), data.end() - 2000)));
+    CHECK(saved.parse(toBytes("TPWS")));
+}
+
 // Two objects, then the names of the files their numbers came from; then
 // cut short.
 void testOmp() {
@@ -877,6 +902,7 @@ static const reluva::test::Suite
                                    {"hmp", [](const std::filesystem::path &) { testHmp(); }},
                                    {"lnd", [](const std::filesystem::path &) { testLnd(); }},
                                    {"attribute-map", [](const std::filesystem::path &) { testAttributeMap(); }},
+                                   {"saved-park", [](const std::filesystem::path &) { testSavedPark(); }},
                                    {"omp", [](const std::filesystem::path &) { testOmp(); }},
                                    {"rse", [](const std::filesystem::path &) { testRse(); }},
                                });

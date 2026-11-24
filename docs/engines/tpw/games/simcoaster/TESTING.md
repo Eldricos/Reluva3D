@@ -48,6 +48,7 @@ With your own copy, installed or imported from the CD:
 | `models` | Every model read, with a checksum of every mesh (`reluva-tool tpw md2-check`) |
 | `animations` | Every model animation read and set against its model (`reluva-tool tpw anim-check`) |
 | `sprites` | Every sprite sheet and animation set read, each animation's frames within its sheet, with a checksum (`reluva-tool tpw sprite-check`) |
+| `saves` | The prebuilt park read: its cells, path and queues, the world it's of, with a checksum of its state (`reluva-tool tpw tpws-check`) |
 | `heights` | Every height map read, with a checksum of them all (`reluva-tool tpw hmp-check`) |
 | `terrain` | Every world's ground, attribute map and placed objects read, with a checksum of them all (`reluva-tool tpw terrain-check`) |
 | `scripts` | Every ride and shop script read, and run for a simulated minute with guests; a checksum of their disassembly and of what each asked of the game (`reluva-tool tpw rse-check`) |

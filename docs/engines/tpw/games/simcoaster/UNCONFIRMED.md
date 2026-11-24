@@ -15,6 +15,12 @@ None yet.
 
 ## Inferred
 
+- **A new park of Land of Invention starts as the prebuilt park**: its
+  path and queue, the shape of the recording's at 2:34
+  ([paths.md](systems/paths.md#where-path-can-go)); the other worlds
+  with their attribute maps' path. A new park in another world, seen
+  running, would settle it.
+
 - **A sprite's pixel is a tenth of a unit**: the recording's visitors
   half a path's cell high, and the settings' umbrellas over each kind
   of visitor ([sprites.md](formats/sprites.md#how-large)). The game's

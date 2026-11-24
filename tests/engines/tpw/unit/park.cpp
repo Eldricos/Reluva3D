@@ -109,8 +109,9 @@ void testCalendar() {
 }
 
 // The ground by the attribute map, its tile in row x, column y: path where
-// it says so, bare land, the rest not the park's; lengths of path laid,
-// paid for, over bare land only.
+// it says so, bare land, the rest not the park's; the prebuilt park's path
+// and queue over it, if it's the world's; lengths of path laid, paid for,
+// over bare land only.
 void testPaths(const std::filesystem::path &tmp) {
     const std::filesystem::path data = tmp / "game" / "Data";
     writeText(data / "levels" / "Standard.sam", "BankAccountInfo.InitialCash 100\r\nCosts.PathCell 10\r\n");
@@ -123,11 +124,27 @@ void testPaths(const std::filesystem::path &tmp) {
     tiles[size_t(5) * kColumns + 4] = 1; // cell (5, 4): not the park's
     test::writeFile(data / "levels" / "science" / "terrain" / "base.map",
                     tpw::testing::makeAttributeMap(kColumns, kRows, tiles));
+    // The prebuilt park, of this world: its tiles the map's; path at (6, 1),
+    // a queue at (6, 2).
+    auto prebuilt = [&](bool sameWorld) {
+        return tpw::testing::makeSavedPark([&](int x, int y, tpw::testing::Bytes &body) {
+            if (x < kRows && y < kColumns)
+                body[46] = tiles[size_t(x) * kColumns + size_t(y)];
+            if (!sameWorld && x == 0 && y == 0)
+                body[46] = 3;
+            if (x == 6 && y == 1)
+                body[13] = 1;
+            if (x == 6 && y == 2)
+                body[13] = 2;
+        });
+    };
+    test::writeFile(data / "PreBuilt" / "prebuilt.TPWS", prebuilt(true));
     SearchSet files;
     std::vector<std::string> warnings;
     CHECK(!mountGame(files, tmp / "game", warnings));
     Park park;
     CHECK(!park.load(files, "levels/science", 0));
+    CHECK(park.prebuilt() && park.isPath({6, 1}) && park.ground({6, 2}) == Park::Ground::kQueue);
     CHECK(park.groundWidth() == kRows && park.groundHeight() == kColumns && park.pathCost() == 10);
     CHECK(park.isPath({2, 1}) && park.isPath({2, 2}) && park.ground({1, 2}) == Park::Ground::kOpen);
     CHECK(park.ground({5, 4}) == Park::Ground::kOutside && park.ground({-1, 0}) == Park::Ground::kOutside);
@@ -143,6 +160,13 @@ void testPaths(const std::filesystem::path &tmp) {
     CHECK(park.buildPath(back) == 4 && park.cash() == 30 && park.isPath({7, 4}) && !park.isPath({5, 4}));
     // The money runs out three cells along.
     CHECK(park.buildPath(Park::pathRun({0, 0}, {0, 5})) == 3 && park.cash() == 0 && !park.isPath({0, 3}));
+
+    // Another world's prebuilt park isn't laid.
+    test::writeFile(data / "PreBuilt" / "prebuilt.TPWS", prebuilt(false));
+    SearchSet other;
+    CHECK(!mountGame(other, tmp / "game", warnings));
+    CHECK(!park.load(other, "levels/science", 0));
+    CHECK(!park.prebuilt() && !park.isPath({6, 1}) && park.ground({6, 2}) == Park::Ground::kOpen);
 }
 
 // The texture a path cell takes by its neighbours: alone, an end turned

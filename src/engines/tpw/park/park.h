@@ -5,6 +5,7 @@
 
 #include "common/archive.h"
 #include "common/types.h"
+#include "engines/tpw/formats/attribute_map.h"
 #include "graphics/gfx3d.h"
 
 #include <array>
@@ -55,7 +56,10 @@ public:
     /**
      * Sets up a new park in the world of `folder` (`levels/science`) for
      * mission `mission`: the general and the world's settings, the
-     * mission's. Fails if the general settings or the mission can't be read.
+     * mission's; its ground by the world's attribute map, with the path and
+     * queues of the game's prebuilt park (`PreBuilt/prebuilt.TPWS`) where
+     * that is of this world. Fails if the general settings or the mission
+     * can't be read.
      */
     Error load(const SearchSet &files, const std::string &folder, int mission);
 
@@ -105,6 +109,7 @@ public:
         kOutside, // not the park's to build on: its edges, its river, the road
         kOpen,    // the park's land, bare
         kPath,
+        kQueue, // a ride's queue (not drawn yet)
     };
     /** The ground's size in cells, x across and y down; 0 for a world without its attribute map. */
     int groundWidth() const { return _mapWidth; }
@@ -112,6 +117,8 @@ public:
     /** The ground of a cell; kOutside off the map, or for a world without one. */
     Ground ground(const Cell &cell) const;
     bool isPath(const Cell &cell) const { return ground(cell) == Ground::kPath; }
+    /** Whether the prebuilt park's path and queues were laid. */
+    bool prebuilt() const { return _prebuilt; }
     /** What a cell of path costs (the general settings' `Costs.PathCell`). */
     int pathCost() const { return _pathCost; }
     /**
@@ -165,6 +172,7 @@ public:
 
 private:
     static constexpr uint32_t kStepMillis = 100;
+    void layPrebuilt(const SearchSet &files, const AttributeMap &map);
     void step(uint32_t ms);
 
     std::string _folder;
@@ -180,6 +188,7 @@ private:
     int _mapWidth = 0; // the ground's cells, x across, y down, as the settings number them
     int _mapHeight = 0;
     std::vector<Ground> _ground;
+    bool _prebuilt = false;
     std::vector<VisitorType> _visitorTypes;
     std::vector<gfx::Vec3> _wayIn;
     std::vector<Visitor> _people;

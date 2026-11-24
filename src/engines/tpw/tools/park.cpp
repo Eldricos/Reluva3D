@@ -6,6 +6,8 @@
 #include "common/headless_system.h"
 #include "common/md5.h"
 #include "devtools/tool.h"
+#include "engines/tpw/formats/attribute_map.h"
+#include "engines/tpw/formats/saved_park.h"
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/park/park.h"
 #include "engines/tpw/ui/briefing.h"
@@ -139,8 +141,8 @@ int cmdParkRun(int argc, char **argv) {
         return 1;
     // What the run does, in order, each at its time: the briefing turned
     // to the details and back and Proceed; the path tool chosen, a length
-    // laid from the start's path four cells on, another three across, then
-    // Esc dropping the next; the Park menu opened and its Objectives
+    // of four laid across the open land beside the path, another of three
+    // on from it, then Esc dropping the next; the Park menu opened and its Objectives
     // chosen, the briefing shown again and Proceed; Up held for a second,
     // E for the next, Page Down for the third, the compass's left turn for
     // the fourth; the bulldozer chosen; the Attractions menu opened and
@@ -178,9 +180,9 @@ int cmdParkRun(int argc, char **argv) {
     click(1000, centre(Briefing::placeOf(Briefing::Control::kTurn)));
     click(1500, centre(Briefing::placeOf(Briefing::Control::kProceed)));
     click(2000, centre(ParkHud::toolRect(ParkHud::Tool::kPath)));
-    click(2200, onCell(end));
-    click(2400, onCell({end.x, end.y + 4}));
-    click(2600, onCell({end.x + 3, end.y + 4}));
+    click(2200, onCell({end.x + 2, end.y + 5}));
+    click(2400, onCell({end.x + 5, end.y + 5}));
+    click(2600, onCell({end.x + 5, end.y + 8}));
     key(2800, 2850, reluva::key::kEscape);
     click(3000, centre(ParkHud::gizmoRect(ParkHud::Gizmo::kPark)));
     click(3500, centre(ParkHud::menuItemRect(ParkHud::Gizmo::kPark, 3)));
@@ -262,18 +264,79 @@ int cmdParkRun(int argc, char **argv) {
     return left ? 0 : 1;
 }
 
-const Commands
-    kCommands("tpw",
-              {
-                  {"park-shot", "<game folder> <world folder> <out.png> [seconds] [yaw pitch distance]",
-                   "set up a new park in a world and draw it, its HUD over it, to a PNG", cmdParkShot},
-                  {"briefing-shot", "<game folder> <world folder> <out.png> [player [-details]]",
-                   "draw the mission's briefing over a new park, to a PNG", cmdBriefingShot},
-                  {"park-run", "<game folder> <world folder> [-shots <folder> <ms>...]",
-                   "play a new park headless: its briefing, path laid, the Park menu's Objectives, the camera moved "
-                   "by keys and the compass, a tool chosen, a menu, a visitor, Esc; -shots writes the screen at those "
-                   "times",
-                   cmdParkRun},
-              });
+// A saved park read: its version, its state's size and checksum, its
+// cells' kinds and what's built on them, and the world whose attribute map
+// its tiles are.
+int cmdTpwsCheck(int argc, char **argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool tpw tpws-check <game folder> [save in Data]\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    std::vector<std::string> warnings;
+    if (reluva::Error err = reluva::tpw::mountGame(files, argv[2], warnings)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    const std::string name = argc > 3 ? argv[3] : "PreBuilt/prebuilt.TPWS";
+    std::vector<uint8_t> data;
+    reluva::tpw::SavedPark saved;
+    reluva::Error err = files.read(name, data);
+    if (!err)
+        err = saved.parse(data);
+    if (err) {
+        std::fprintf(stderr, "%s: %s\n", name.c_str(), err.message.c_str());
+        return 1;
+    }
+    using Built = reluva::tpw::SavedPark::Built;
+    constexpr int kSide = reluva::tpw::SavedPark::kSide;
+    std::array<int, 256> kinds{};
+    int path = 0;
+    int queues = 0;
+    for (int y = 0; y < kSide; ++y)
+        for (int x = 0; x < kSide; ++x) {
+            const reluva::tpw::SavedPark::Cell &c = saved.cell(x, y);
+            ++kinds[c.kind];
+            path += c.built == Built::kPath;
+            queues += c.built == Built::kQueue;
+        }
+    std::string world = "none";
+    for (const char *folder : {"levels/science", "levels/arabian", "levels/water", "levels/wIntro"}) {
+        std::vector<uint8_t> mapData;
+        reluva::tpw::AttributeMap map;
+        if (files.read(std::string(folder) + "/terrain/base.map", mapData) || map.parse(mapData) ||
+            map.width() != kSide || map.height() != kSide)
+            continue;
+        bool same = true;
+        for (int x = 0; x < kSide && same; ++x)
+            for (int y = 0; y < kSide && same; ++y)
+                same = saved.cell(x, y).tile == map.at(y, x);
+        if (same)
+            world = folder;
+    }
+    reluva::Md5 md5;
+    md5.update(saved.state().data(), saved.state().size());
+    std::printf("%s: version %s, state %zu bytes, %d cells (%d of kind 3, %d of 7), %d path, %d queue, world %s; md5 "
+                "%s\n",
+                name.c_str(), saved.version().c_str(), saved.state().size(), kSide * kSide, kinds[3], kinds[7], path,
+                queues, world.c_str(), md5.hexDigest().c_str());
+    return 0;
+}
+
+const Commands kCommands(
+    "tpw",
+    {
+        {"tpws-check", "<game folder> [save in Data]",
+         "read a saved park (.TPWS), the prebuilt one unless named: its cells, its path and its world", cmdTpwsCheck},
+        {"park-shot", "<game folder> <world folder> <out.png> [seconds] [yaw pitch distance]",
+         "set up a new park in a world and draw it, its HUD over it, to a PNG", cmdParkShot},
+        {"briefing-shot", "<game folder> <world folder> <out.png> [player [-details]]",
+         "draw the mission's briefing over a new park, to a PNG", cmdBriefingShot},
+        {"park-run", "<game folder> <world folder> [-shots <folder> <ms>...]",
+         "play a new park headless: its briefing, path laid, the Park menu's Objectives, the camera moved "
+         "by keys and the compass, a tool chosen, a menu, a visitor, Esc; -shots writes the screen at those "
+         "times",
+         cmdParkRun},
+    });
 
 } // namespace
