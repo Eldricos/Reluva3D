@@ -288,7 +288,24 @@ NEW SAVED GAME name box and SAVE, LOAD and DELETE. SAVE makes
 (`CopyFileA`); DELETE deletes the save's two files and removes its
 folder (`DeleteFileA`, `RemoveDirectoryA`). Deleted, Auto Save is made
 again straight away, of the campaign as it is; a save by name stays
-gone. A mission won, its prestige given, isn't played yet.
+gone.
+
+A campaign mission played to its end: Convoy Escort, from a new
+Federation campaign at CAPTAIN, its game speed raised (`]`), red alert,
+full speed, and the nearest enemy targeted (the backquote) and fired on
+every 120 frames. Played that way it ended after 5 minutes 4 of its
+time: "Your team has disengaged. Mission completed.", and its debriefing
+"Draw: Some of the freighters have made it to their destination.
+However, losing so many does not bode well for us, or your career." The
+battle report: 201 damage scored on the raiders (62 internal), none
+destroyed; 46 of the convoy's BPV lost; and 150 prestige gained, which
+the Dynaverse's prestige shows on DONE (50 to 200). Its outcomes, as the
+mission's own text has them, go by the freighters that get through, from
+"This is a dark day for us all" to "Astounding Victory" ("the convoy
+through without a single loss"). The same run from a fresh save folder
+played the same way. Without the game's speed raised, 23 minutes of the
+mission's time went by without it ending; Y, which targets each ship in
+turn, the convoy's too, left the player firing at nothing.
 
 A skirmish is played through DirectPlay, single-player too: starting
 one, the game throws a `TLogicError` naming `fDirectPlayObject` each
