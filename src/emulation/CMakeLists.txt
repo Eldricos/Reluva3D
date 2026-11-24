@@ -22,6 +22,7 @@ add_library(reluva_emulation STATIC
     x86/msvcrt.cpp
     x86/pokes.cpp
     x86/win32.cpp
+    x86/win32_dialog.cpp
     x86/win32_files.cpp
     x86/win32_gdi.cpp
     x86/win32_registry.cpp

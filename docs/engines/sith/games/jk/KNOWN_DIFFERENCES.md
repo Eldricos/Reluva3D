@@ -28,9 +28,11 @@ None yet.
   game ignores the failure (`0x41edb0`) *(from the code)*. Reluva's
   joysticks need no calibration: their ranges are always 0 to 65535,
   centred.
-- **Windows' dialog boxes:** none is shown. Where the game would make one
-  (`CreateDialogParamA`), the call fails, and the game goes on as it does
-  when Windows can't make it. None has been met in play.
+- **Windows' dialog boxes:** none is shown. The game makes one only
+  with both `-devMode` and `-windowGUI` on its command line, its "Jedi
+  Console" (template 112, `0x41f11c`); the emulator makes it and runs its
+  procedure, but draws nothing
+  ([windows.md](../../../../common/x86/windows.md)).
 - **Multiplayer:** over TCP/IP only, and between copies of Reluva: its
   DirectPlay plays sessions over a protocol of its own, so it can't meet
   a game on Windows' DirectPlay. There's no IPX, modem or serial

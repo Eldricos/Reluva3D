@@ -104,10 +104,32 @@ C++ library have pages of their own ([directx.md](directx.md),
     image in memory, as Latin-1 ('?' beyond);
   - `wsprintfA` formats as MSVCRT's `sprintf` does (a superset of its
     conversions: it would print no floating point), at most 1024 bytes;
-  - no dialog box can be shown: `CreateDialogParamA` fails, returning
-    NULL (saying so to `output`); `GetDlgItem`, `SetDlgItemTextA` and
-    `GetDlgItemTextA` find no dialog, and `IsDialogMessageA` says no
-    message is a dialog's, so the program dispatches it.
+  - a window's text: `SetWindowTextA`, `GetWindowTextA`,
+    `GetWindowTextLengthA`; `GetParent`; `DestroyWindow` destroys a
+    window's children with it.
+- **`win32_dialog.cpp`: dialog boxes.** Made from their templates
+  (`DLGTEMPLATE` and `DLGTEMPLATEEX`), a resource of the module's
+  (`CreateDialogParamA`, `DialogBoxParamA`) or in memory (their
+  `Indirect` forms), as windows of class `#32770` with their controls
+  (buttons, edits, statics, list and combo boxes) as child windows; the
+  program's dialog procedure gets `WM_INITDIALOG` and `WM_COMMAND`, and
+  reads and sets the controls: `GetDlgItem`, `GetDlgCtrlID`,
+  `SendDlgItemMessageA`, `Set`/`GetDlgItemTextA`, `Set`/`GetDlgItemInt`,
+  `CheckDlgButton`, `IsDlgButtonChecked`, `CheckRadioButton`, and the
+  controls' messages (text, `BM_GETCHECK` and `BM_SETCHECK`, list and
+  combo boxes' strings and choice). Dialog units are pixels by MS Sans
+  Serif's average size where the template names a font (6 by 13), the
+  system font's otherwise (8 by 16).
+  - Nothing is drawn. The engine is told of each dialog, its caption and
+    controls (`Win32Process::dialogBox`); unset, they go to `output`.
+  - A modal dialog (`DialogBoxParamA`) is answered at once: by the
+    button `dialogBox` names, else its default button (the one marked
+    `BS_DEFPUSHBUTTON`, or IDOK), as a player pressing Enter would; if
+    that doesn't end it, IDCANCEL; if nor that, it ends as cancelled. It
+    returns what the procedure gave `EndDialog`.
+  - A modeless one runs as the program runs: `IsDialogMessageA` takes
+    the messages for it and its controls, Enter pressing its default
+    button and Escape IDCANCEL; `EndDialog` hides it.
 - **`win32_gdi.cpp`: GDI's device contexts, fonts and text, bitmaps and
   palettes.** A device context draws into a bitmap in the program's
   memory: DirectDraw's surfaces hand them out (`GetDC`), through
@@ -279,10 +301,15 @@ executable's entry point on the main thread until it ends the process.
   raster operations and a changed colour table, stretches a 24-bit DIB
   over it, reads it back with `GetDIBits`, and checks palettes.
   `testOddsAndEnds` checks `CompareStringA` and `CompareStringW`,
-  `LocalAlloc`, `wsprintfA`, the dialogs and programs that fail,
-  `RegDeleteKeyA` and `DebugBreak`. `tests/common/windows_resources.cpp`
-  (`common.unit.windows_resources`) loads a module with a string table
-  and checks `LoadStringA`.
+  `LocalAlloc`, `wsprintfA`, a dialog that isn't there and programs that
+  fail, `RegDeleteKeyA` and `DebugBreak`. `testDialogs` makes a dialog
+  from a `DLGTEMPLATE` and a `DLGTEMPLATEEX` in memory, its procedure
+  filling and reading its controls, modal (answered by its default
+  button, then by the engine's Cancel) and modeless (Enter through
+  `IsDialogMessageA`, then destroyed with its controls).
+  `tests/common/windows_resources.cpp` (`common.unit.windows_resources`)
+  loads a module with a string table and checks `LoadStringA`, and one
+  with a dialog found by its name.
 - **Confidence:** published unless marked.
 
 - `tests/common/drives.cpp` (`common.unit.drives`) checks the drives'

@@ -44,9 +44,9 @@ identifiers of `IDirect3D2`, `IDirect3DDevice2`, `IDirect3DTexture2`,
 `SMACKW32.DLL` plays sound through WINMM's `waveOut`, and asks for
 0x400000 as `JK.EXE` does (it can be relocated; `JK.EXE` can't).
 
-The emulator stands in for every function the two import. Dialog boxes
-and running another program (`WinExec`, for the joystick control panel)
-answer as Windows does when they fail
+The emulator stands in for every function the two import. Running
+another program (`WinExec`, for the joystick control panel) answers as
+Windows does when it fails, and dialog boxes are made but not drawn
 ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
 
 ### Its start-up, as run

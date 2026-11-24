@@ -412,17 +412,28 @@ void Win32Process::addUserStandIns() {
         }
         return handle;
     });
+    // DestroyWindow(window): its children first, as Windows does.
     stdcall(u, "DestroyWindow", 1, [this](Cpu &c) {
         const uint32_t handle = c.arg(0);
         if (!_windows.count(handle))
             return 0u;
-        sendMessage(handle, kWmDestroy, 0, 0);
-        sendMessage(handle, kWmNcDestroy, 0, 0);
-        _windows.erase(handle);
-        if (_focus == handle)
-            _focus = 0;
-        if (_active == handle)
-            _active = 0;
+        std::vector<uint32_t> gone{handle};
+        for (size_t k = 0; k < gone.size(); ++k)
+            for (const auto &[h, w] : _windows)
+                if (w.parent == gone[k] && (w.style & kWsChild))
+                    gone.push_back(h);
+        for (auto it = gone.rbegin(); it != gone.rend(); ++it) {
+            if (!_windows.count(*it))
+                continue;
+            sendMessage(*it, kWmDestroy, 0, 0);
+            sendMessage(*it, kWmNcDestroy, 0, 0);
+            _windows.erase(*it);
+            _dialogs.erase(*it);
+            if (_focus == *it)
+                _focus = 0;
+            if (_active == *it)
+                _active = 0;
+        }
         return 1u;
     });
     // FindWindowA(class, title): either may be 0, matching any.
@@ -820,36 +831,6 @@ void Win32Process::addUserStandIns() {
         return 1u; // IDOK
     });
     stdcall(u, "MessageBeep", 1, [](Cpu &) { return 1u; });
-
-    // Dialog boxes aren't made: CreateDialogParamA(instance, template,
-    // parent, procedure, parameter) fails, as Windows does when it can't
-    // make one, and the dialog calls find no dialog.
-    stdcall(u, "CreateDialogParamA", 5, [this](Cpu &c) {
-        if (output) {
-            const uint32_t name = c.arg(1);
-            output("dialog box not made: " + (name > 0xffff ? c.string(name) : "#" + std::to_string(name)) + "\n");
-        }
-        _lastError = kErrorCallNotImplemented;
-        return 0u;
-    });
-    stdcall(u, "GetDlgItem", 2, [this](Cpu &) {
-        _lastError = kErrorInvalidWindowHandle;
-        return 0u;
-    });
-    stdcall(u, "SetDlgItemTextA", 3, [this](Cpu &) {
-        _lastError = kErrorInvalidWindowHandle;
-        return 0u;
-    });
-    // GetDlgItemTextA(dialog, item, buffer, size): nothing, an empty string.
-    stdcall(u, "GetDlgItemTextA", 4, [this](Cpu &c) {
-        if (c.arg(3) && c.valid(c.arg(2), 1))
-            c.write8(c.arg(2), 0);
-        _lastError = kErrorInvalidWindowHandle;
-        return 0u;
-    });
-    // IsDialogMessageA(dialog, message): never a dialog's, so the program
-    // dispatches it as usual.
-    stdcall(u, "IsDialogMessageA", 2, [](Cpu &) { return 0u; });
 
     // LoadStringA(instance, id, buffer, size): from the module's string
     // table resources (RT_STRING, 6: blocks of 16 strings, block n holding

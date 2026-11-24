@@ -534,6 +534,10 @@ public:
         uint32_t parent = 0;
         uint32_t id = 0;       // a child's identifier (CreateWindowExA's menu)
         uint32_t userData = 0; // GWL_USERDATA
+        // A dialog's control's state (win32_dialog.cpp).
+        uint32_t checked = 0;           // a button's: BST_CHECKED 1
+        std::vector<std::string> items; // a list box's or combo box's
+        int selection = -1;             // which item is chosen, -1 none
     };
     /** The window with that handle, or null. */
     const Window *window(uint32_t handle) const;
@@ -584,6 +588,30 @@ public:
 
     // What MessageBoxA shows: by default, passed to `output`.
     std::function<void(const std::string &caption, const std::string &text)> messageBox;
+
+    /** A dialog box the program has made, as the engine is told of it. */
+    struct DialogShown {
+        uint32_t window = 0;
+        std::string caption;
+        /** Its controls: identifier, class (Button, Edit, Static...) and text. */
+        struct Control {
+            uint32_t id = 0;
+            std::string className;
+            std::string text;
+        };
+        std::vector<Control> controls;
+        /** The button Enter presses: the one marked default, else IDOK (1). */
+        uint32_t defaultButton = 1;
+        /** Made by DialogBoxParamA, which waits for its answer. */
+        bool modal = false;
+    };
+    /**
+     * Told of each dialog box made, once its procedure has set it up; for
+     * a modal one, returns the button to press, 0 for its default. Unset,
+     * the dialog is passed to `output` and the default pressed, as a
+     * player pressing Enter would (docs/common/x86/windows.md).
+     */
+    std::function<uint32_t(const DialogShown &dialog)> dialogBox;
 
     // The registry (ADVAPI32).
 
@@ -672,6 +700,27 @@ private:
     void addUserStandIns();
     void addRegistryStandIns();
     void addGdiStandIns();
+    void addDialogStandIns();
+    // A dialog box: its procedure (DLGPROC), and its end (EndDialog).
+    struct Dialog {
+        uint32_t proc = 0;
+        uint32_t defaultButton = 1;
+        bool ended = false;
+        uint32_t result = 0;
+        int baseX = 8; // pixels for 4 dialog units across, 8 down
+        int baseY = 16;
+    };
+    std::map<uint32_t, Dialog> _dialogs;
+    uint32_t _dialogProc = 0;  // the dialogs' window procedure: DefDlgProc's work
+    uint32_t _controlProc = 0; // the controls': buttons, edits, lists
+    // A module's resource of a type and a name (a string) or id (below
+    // 0x10000): its address, and its size in `size`; 0 if there's none.
+    uint32_t findResource(uint32_t module, uint32_t type, uint32_t name, uint32_t *size);
+    // Makes a dialog from its template (DLGTEMPLATE or DLGTEMPLATEEX in
+    // memory) and runs its WM_INITDIALOG; the window, 0 if it can't.
+    uint32_t makeDialog(uint32_t dialogTemplate, uint32_t parent, uint32_t proc, uint32_t param);
+    // Tells dialogBox (or `output`) of a dialog: the button it answers.
+    uint32_t showDialog(uint32_t dialog, bool modal);
     struct DeviceContext {
         std::optional<GdiBitmap> target; // none: a window's, drawn nowhere
         uint32_t font = 0;

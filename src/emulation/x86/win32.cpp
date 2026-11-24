@@ -843,6 +843,7 @@ void Win32Process::addStandIns() {
     addFileStandIns();
     addSystemStandIns();
     addUserStandIns();
+    addDialogStandIns();
     addRegistryStandIns();
     addGdiStandIns();
 

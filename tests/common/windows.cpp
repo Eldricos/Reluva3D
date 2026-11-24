@@ -1636,6 +1636,158 @@ static void testDirectPlay() {
     CHECK(!host.receive(data, from, to));
 }
 
+// Dialog boxes from templates in memory: their controls, the procedure's
+// WM_INITDIALOG and WM_COMMAND, a modal one answered by its default
+// button or by the engine, a modeless one through IsDialogMessageA.
+static void testDialogs() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    uint32_t r = 0;
+    auto user = [&](const char *name, const std::vector<uint32_t> &args) {
+        CHECK(!cpu.call(process.provided("USER32.dll", name), args, r));
+        return r;
+    };
+    auto text = [&](const std::string &s) {
+        const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
+        cpu.writeString(a, s, uint32_t(s.size() + 1));
+        return a;
+    };
+    // A DLGTEMPLATE, or a DLGTEMPLATEEX, of words.
+    auto build = [&](bool extended) {
+        std::vector<uint16_t> w;
+        auto dword = [&](uint32_t v) {
+            w.push_back(uint16_t(v));
+            w.push_back(uint16_t(v >> 16));
+        };
+        auto string = [&](const std::string &s) {
+            for (char ch : s)
+                w.push_back(uint8_t(ch));
+            w.push_back(0);
+        };
+        auto align = [&] {
+            if (w.size() % 2)
+                w.push_back(0);
+        };
+        struct Item {
+            uint32_t style;
+            uint16_t id;
+            uint16_t atom;
+            const char *text;
+        };
+        const Item items[] = {{0x50000000, 100, 0x82, "Pick one"}, {0x50010000, 101, 0x81, "5"},
+                              {0x50010003, 102, 0x80, "Again"},    {0x50010000, 103, 0x83, ""},
+                              {0x50010001, 1, 0x80, "OK"},         {0x50010000, 2, 0x80, "Cancel"}};
+        if (extended) {
+            w = {1, 0xffff};
+            dword(0);
+            dword(0);
+            dword(0x80c80000);
+        } else {
+            dword(0x80c80000); // WS_POPUP, WS_CAPTION, WS_SYSMENU
+            dword(0);
+        }
+        w.push_back(uint16_t(std::size(items)));
+        for (uint16_t v : {10, 10, 200, 100})
+            w.push_back(v);
+        w.push_back(0); // no menu
+        w.push_back(0); // the dialogs' class
+        string("Choose");
+        for (const Item &it : items) {
+            align();
+            if (extended) {
+                dword(0);
+                dword(0);
+                dword(it.style);
+            } else {
+                dword(it.style);
+                dword(0);
+            }
+            for (uint16_t v : {5, 5, 50, 14})
+                w.push_back(v);
+            if (extended)
+                dword(it.id);
+            else
+                w.push_back(it.id);
+            w.push_back(0xffff);
+            w.push_back(it.atom);
+            string(it.text);
+            w.push_back(0); // no creation data
+        }
+        const uint32_t a = process.memory().alloc(uint32_t(w.size() * 2));
+        for (size_t k = 0; k < w.size(); ++k)
+            cpu.write16(a + 2 * uint32_t(k), w[k]);
+        return a;
+    };
+    // The procedure: fills the controls when made; OK ends with the edit's
+    // number, Cancel with 0.
+    uint32_t initParam = 0;
+    const uint32_t proc = cpu.addNative("test!DlgProc", [&](x86::Cpu &c) {
+        const uint32_t dlg = c.arg(0);
+        uint32_t v = 0;
+        c.reg[x86::Cpu::EAX] = 0;
+        if (c.arg(1) == 0x110) { // WM_INITDIALOG
+            initParam = c.arg(3);
+            CHECK(!c.call(process.provided("USER32.dll", "SetDlgItemTextA"), {dlg, 101, text("42")}, v) && v);
+            CHECK(!c.call(process.provided("USER32.dll", "CheckDlgButton"), {dlg, 102, 1}, v));
+            for (const char *s : {"red", "blue"})
+                CHECK(!c.call(process.provided("USER32.dll", "SendDlgItemMessageA"), {dlg, 103, 0x180, 0, text(s)}, v));
+            CHECK(!c.call(process.provided("USER32.dll", "SendDlgItemMessageA"), {dlg, 103, 0x186, 1, 0}, v));
+            c.reg[x86::Cpu::EAX] = 1;
+        } else if (c.arg(1) == 0x111) { // WM_COMMAND
+            const uint32_t id = c.arg(2) & 0xffff;
+            if (id == 1 || id == 2) {
+                uint32_t n = 0;
+                if (id == 1)
+                    CHECK(!c.call(process.provided("USER32.dll", "GetDlgItemInt"), {dlg, 101, 0, 0}, n));
+                CHECK(!c.call(process.provided("USER32.dll", "EndDialog"), {dlg, n}, v) && v);
+                c.reg[x86::Cpu::EAX] = 1;
+            }
+        }
+        return 16u;
+    });
+
+    // Modal, answered by its default button: OK, the edit's 42.
+    std::vector<x86::Win32Process::DialogShown> shown;
+    for (const bool extended : {false, true}) {
+        process.dialogBox = [&](const x86::Win32Process::DialogShown &d) {
+            shown.push_back(d);
+            return 0u;
+        };
+        CHECK(user("DialogBoxIndirectParamA", {0, build(extended), 0, proc, 77}) == 42);
+        CHECK(initParam == 77);
+    }
+    CHECK(shown.size() == 2 && shown[0].modal && shown[0].caption == "Choose" && shown[0].defaultButton == 1);
+    CHECK(shown.size() == 2 && shown[1].controls.size() == 6 && shown[1].controls[1].text == "42" &&
+          shown[1].controls[3].className == "ListBox");
+    // The engine pressing Cancel.
+    process.dialogBox = [](const x86::Win32Process::DialogShown &) { return 2u; };
+    CHECK(user("DialogBoxIndirectParamA", {0, build(false), 0, proc, 0}) == 0);
+
+    // Modeless: its controls read back; Enter, through IsDialogMessageA,
+    // presses OK.
+    const uint32_t dlg = user("CreateDialogIndirectParamA", {0, build(false), 0, proc, 5});
+    CHECK(dlg != 0);
+    const uint32_t list = user("GetDlgItem", {dlg, 103});
+    CHECK(list != 0 && user("GetDlgCtrlID", {list}) == 103);
+    CHECK(user("SendMessageA", {list, 0x18b, 0, 0}) == 2 && user("SendMessageA", {list, 0x188, 0, 0}) == 1);
+    const uint32_t buffer = process.memory().alloc(16);
+    CHECK(user("SendMessageA", {list, 0x189, 1, buffer}) == 4 && cpu.string(buffer) == "blue");
+    CHECK(user("IsDlgButtonChecked", {dlg, 102}) == 1);
+    CHECK(user("GetDlgItemTextA", {dlg, 101, buffer, 16}) == 2 && cpu.string(buffer) == "42");
+    CHECK(user("GetDlgItem", {dlg, 999}) == 0);
+    const uint32_t msg = process.memory().alloc(28);
+    cpu.write32(msg, list);
+    cpu.write32(msg + 4, 0x100); // WM_KEYDOWN
+    cpu.write32(msg + 8, 0x0d);  // VK_RETURN
+    CHECK(user("IsDialogMessageA", {dlg, msg}) == 1);
+    CHECK(process.window(dlg) && !process.window(dlg)->visible); // ended: hidden
+    CHECK(user("IsDialogMessageA", {0x1234, msg}) == 0);
+    CHECK(user("DestroyWindow", {dlg}) == 1 && process.window(list) == nullptr);
+
+    // No such resource.
+    CHECK(user("DialogBoxParamA", {0, 7, 0, proc, 0}) == 0xffffffffu);
+}
+
 // WINMM's joysticks: none plugged in, then a game controller as the first,
 // its caps, axes, buttons and hat as JK.EXE reads them, and a second; the
 // Unicode caps, the registry's settings, thresholds and capture.
@@ -1899,7 +2051,7 @@ static void testGdi() {
 }
 
 // KERNEL32's, USER32's and ADVAPI32's odds and ends: string comparison,
-// LocalAlloc, wsprintfA, the dialogs and programs that can't be had,
+// LocalAlloc, wsprintfA, a dialog that isn't there, programs that can't be had,
 // RegDeleteKeyA and DebugBreak.
 static void testOddsAndEnds() {
     x86::Cpu cpu(16u << 20);
@@ -1942,7 +2094,7 @@ static void testOddsAndEnds() {
     CHECK(call(u, "wsprintfA", {buffer, text("%s"), text(std::string(1500, 'x'))}) == 1023 &&
           cpu.string(buffer, 4096).size() == 1023);
 
-    // What can't be had: other programs, and dialog boxes.
+    // What can't be had: other programs, and a dialog not in the resources.
     std::string said;
     process.output = [&](const std::string &s) { said += s; };
     CHECK(call(k, "WinExec", {text("control joy.cpl"), 1}) == 2);
@@ -2146,6 +2298,7 @@ static const test::Suite
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
                {"direct3d 1", [](const std::filesystem::path &) { testDirect3D1(); }},
                {"directplay", [](const std::filesystem::path &) { testDirectPlay(); }},
+               {"dialogs", [](const std::filesystem::path &) { testDialogs(); }},
                {"joysticks", [](const std::filesystem::path &) { testJoysticks(); }},
                {"gdi", [](const std::filesystem::path &) { testGdi(); }},
                {"odds and ends", [](const std::filesystem::path &) { testOddsAndEnds(); }},
