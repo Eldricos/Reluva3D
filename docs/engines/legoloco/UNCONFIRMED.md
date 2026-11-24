@@ -15,7 +15,9 @@ it (a recording, a screenshot, a trace), with a link to its page. -->
 
 ## Seen running, not traced in the code
 
-None yet.
+- Why the station master talks slower in the original than his 10 ms
+  timer asks: Windows' timer messages coming less often, by its clock
+  ([systems/drawing.md](systems/drawing.md#animation)).
 
 ## Inferred
 

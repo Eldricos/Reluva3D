@@ -98,7 +98,13 @@ is in [the first survey](research/first-survey.md).
       layer LEGO Loco's sessions ask for.
 7. **Checking against the original:** recordings of the game running,
    [TESTING.md](TESTING.md)'s playthrough,
-   [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md), and speed.
+   [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md), and speed. Done so
+   far, against one published recording (Windows XP, 1024 by 768):
+   the screens it shows, and speed by its frames (the 28 ms tick
+   agrees; the station master talks faster in Reluva). Left: a recording
+   of play on Windows 98, of a network game, and of trains running,
+   whose laps would time the game's movement; one copy leaving a
+   network game.
 
 ## Decisions
 

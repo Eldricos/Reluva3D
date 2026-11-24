@@ -73,6 +73,20 @@ the main loop, finding it raised, runs one tick of the game
 delay counts these ticks *(from the code)*. The restart delay counts
 seconds, by the C runtime's `time()`.
 
+The station master in the tutorial's bubbles is the exception: he
+talks on a window timer of his own, not the tick. His bubble sets
+`SetTimer` id `0x54` every 10 ms (`0x45035b`); each `WM_TIMER` for it
+(`0x451880`) counts up to 100 and round again (`+0x3064`), and on every
+second one (`0x450450`), while his voice's buffer still says it's
+playing (`GetStatus`, by `0x40eeb0`), his frame steps from the set's
+start to its end and round; once it has stopped, he shows the second
+set's start frame. `tutorial\tutor.dat`'s sets, frames 2 to 4 and 2
+alone, give the frames; their delay of 5 isn't used *(from the code)*.
+In a published recording of the original, on Windows XP, his face
+changes about 23 times a second while he speaks, not the 50 the timer
+asks for: Windows gives `WM_TIMER` no more often than its clock ticks,
+and only when nothing else is queued *(seen, not traced)*.
+
 ## In Reluva
 
 The data viewer draws pictures this way
@@ -96,10 +110,14 @@ bits. The game itself draws in its own code, run in the emulator
   against their pictures, and the boards drawn.
 - **How it was checked:** the CD's boards drawn by the viewer, each
   looking whole (`reluva-tool legoloco view <game folder> boards <n>
-  <out.png>`); not yet against the original running.
+  <out.png>`). Against a published recording of the original, at 60
+  frames a second: its screen changes at most about 36 times a second,
+  as ticks of 28 ms give; the station master's talking as above.
 
 ## Open questions
 
 - How the milk float would look on a board, if the game ever puts one
   there.
 - Which pictures share one colour table.
+- How often Windows XP and 98 gave the station master's 10 ms timer its
+  `WM_TIMER`, which sets how fast he talks.

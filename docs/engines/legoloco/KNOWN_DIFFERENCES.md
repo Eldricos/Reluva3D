@@ -80,6 +80,10 @@ None yet.
   active window's, always active, without the window's icon (its
   picture isn't read); its minimize button does nothing, there being no
   taskbar to bring the window back from.
+- **The station master's talking:** his face changes with every frame
+  Reluva draws, about 36 times a second, as its timers come every 10 ms
+  as asked; in a recording of the original on Windows XP it changes
+  about 23 times a second ([systems/drawing.md](systems/drawing.md#animation)).
 
 ## Additions outside the game
 
