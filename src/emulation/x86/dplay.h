@@ -23,7 +23,9 @@ constexpr uint16_t kDirectPlayPort = 47624;
  * connection, TCP/IP, when it has a network: sessions are found on the
  * local network or at a given host, and played over Reluva's own protocol
  * on UDP (docs/common/x86/dplay.md), between copies of Reluva. Without a
- * network it offers none, as on a machine without one.
+ * network it offers none, as on a machine without one. It provides
+ * DPLAYX.dll's DirectPlayLobbyCreateA and W too: a lobby that tells the
+ * program no lobby started it, and makes and reads DirectPlay addresses.
  */
 class DirectPlay {
 public:
@@ -64,7 +66,10 @@ public:
     /**
      * Answers what has arrived and resends what hasn't been acknowledged,
      * for each object the program has made. Calls to the objects do this
-     * too; this is for when the program makes none for a while. Any thread.
+     * too; this is for when the program makes none for a while. It sets a
+     * player's Win32 event when a message comes for it, so it's called
+     * where the process's events may be set: on the program's turn (as
+     * Win32Process::onSlice is), or from a process's one thread.
      */
     void update();
 
