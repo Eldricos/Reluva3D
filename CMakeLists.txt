@@ -191,7 +191,9 @@ reluva_add_tests(common
 # reluva-viewer's Tests window's planning (src/devtools/test_runs.h).
 reluva_add_tests(devtools
     SOURCES ${PROJECT_SOURCE_DIR}/tests/devtools/test_runs.cpp
-    TOPICS unit.test_runs)
+        ${PROJECT_SOURCE_DIR}/tests/devtools/soft_renderer.cpp
+        ${PROJECT_SOURCE_DIR}/src/devtools/soft_renderer.cpp
+    TOPICS unit.test_runs unit.soft_renderer)
 reluva_finish_tests()
 if(RELUVA_BUILD_TESTS)
     target_link_libraries(reluva-tests PRIVATE reluva_test_runs)

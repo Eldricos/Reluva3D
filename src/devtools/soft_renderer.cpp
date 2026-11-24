@@ -420,17 +420,45 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
             auto edge = [](const Screen &p, const Screen &q, float x, float y) {
                 return (q.x - p.x) * (y - p.y) - (q.y - p.y) * (x - p.x);
             };
+            // Whether a pixel is in is decided exactly: the corners snapped to
+            // sixteenths of a pixel, the edges in integers. A centre on an edge
+            // belongs to one of the two triangles sharing it (by the edge's
+            // direction), not both: drawn twice, an added quad's diagonal shows.
+            struct Fixed {
+                int64_t x, y;
+            };
+            auto snap = [](const Screen &p) {
+                return Fixed{int64_t(std::llround(double(p.x) * 16)), int64_t(std::llround(double(p.y) * 16))};
+            };
+            const Fixed f0 = snap(*v0);
+            const Fixed f1 = snap(*v1);
+            const Fixed f2 = snap(*v2);
+            auto fixedEdge = [](const Fixed &p, const Fixed &q, int64_t x, int64_t y) {
+                return (q.x - p.x) * (y - p.y) - (q.y - p.y) * (x - p.x);
+            };
+            auto owns = [](const Fixed &p, const Fixed &q) { return q.y - p.y > 0 || (q.y == p.y && q.x - p.x > 0); };
+            const bool own0 = owns(f1, f2);
+            const bool own1 = owns(f2, f0);
+            const bool own2 = owns(f0, f1);
+            // The snapped corners can wind the other way for a sliver: none of it drawn.
+            if (fixedEdge(f0, f1, f2.x, f2.y) < 0)
+                continue;
             const float inv = 1 / area;
             for (int y = y0; y <= y1; ++y) {
                 uint8_t *row = _color.row(y);
                 for (int x = x0; x <= x1; ++x) {
                     const float px = float(x) + 0.5f;
                     const float py = float(y) + 0.5f;
+                    const int64_t cx = int64_t(x) * 16 + 8;
+                    const int64_t cy = int64_t(y) * 16 + 8;
+                    const int64_t e0 = fixedEdge(f1, f2, cx, cy);
+                    const int64_t e1 = fixedEdge(f2, f0, cx, cy);
+                    const int64_t e2 = fixedEdge(f0, f1, cx, cy);
+                    if (e0 < 0 || e1 < 0 || e2 < 0 || (e0 == 0 && !own0) || (e1 == 0 && !own1) || (e2 == 0 && !own2))
+                        continue;
                     const float w0 = edge(*v1, *v2, px, py);
                     const float w1 = edge(*v2, *v0, px, py);
                     const float w2 = edge(*v0, *v1, px, py);
-                    if (w0 < 0 || w1 < 0 || w2 < 0)
-                        continue;
                     const float b0 = w0 * inv;
                     const float b1 = w1 * inv;
                     const float b2 = w2 * inv;
