@@ -107,24 +107,38 @@ objects that aren't any one block's. Their placements are of types 1 and
 - **The walls** (the byte at 30). A car is kept a quarter of a unit
   inside an edge whose kind isn't 0 (0x456dd0), bounced (0x457190), and
   the hit given to two tables by kind (0x43e31d): an effect at the
-  point of contact (0x4c34dc, 0x460c20) and an event with the hit's
-  force (0x4c34fc), the crash's look and sound *(inferred)*:
+  point of contact (0x4c34dc, 0x460c20), and a sound with the hit's
+  force (0x4c34fc, 0x43f9d0; played from `GEN.BNK` by 0x431b60):
 
-  | Kind | Points, left / right | Does |
-  |---|---|---|
-  | 0 | 55 / 130 | no wall: the car isn't held, and the drivers keep no margin (0x438bbf) |
-  | 1, 4 | 6,719 / 8,037, 3,580 / 2,602 | a wall, as each other |
-  | 2 | 1,691 / 1,731 | a wall, and a tunnel *(inferred)*: a roof 10 units over the road (14 and 24 along stretches of `TR04`, 20 on `TR08`: 0x44c660), a sound turned up inside (0x42f91f), the camera's own setting (0x470fdb), a car put back on the road dropped from half the height (0x43ee8e), and no rain (0x473cc0) |
-  | 3, 7 | 798 / 456, 51 / 60 | a wall, with an effect and an event of their own |
-  | 5 | 1,060 / 1,020 | a wall, with another of each |
-  | 6 | 268 / 186 | no bounce: a car past a certain force is shaken instead (0x457231) |
-  | 7 | | for some cars, above a speed of 10, a wreck: the car's damage raised, and past 200 it's wrecked (0x456f8b) |
+  | Kind | Points, left / right | Effect | Sound | Does |
+  |---|---|---|---|---|
+  | 0 | 55 / 130 | | | no wall: the car isn't held, and the drivers keep no margin (0x438bbf) |
+  | 1, 4 | 6,719 / 8,037, 3,580 / 2,602 | sparks | a crash: sample 33 when loud, else 30 or 32; and a scrape, 32, 34, 35 or 37 | a wall |
+  | 2 | 1,691 / 1,731 | sparks | as 1 | a wall, and a tunnel *(inferred)*: a roof 10 units over the road (14 and 24 along stretches of `TR04`, 20 on `TR08`: 0x44c660), a sound turned up inside (0x42f91f), the camera's own setting (0x470fdb), a car put back on the road dropped from half the height (0x43ee8e), and no rain (0x473cc0) |
+  | 3 | 798 / 456 | dust | a dull thud, 30 | a wall |
+  | 5 | 1,060 / 1,020 | grit | a sharp bang, 29 | a wall |
+  | 6 | 268 / 186 | | as 3 | a drop past the wall: a car more than 3 units above the road (0x44e970) crashes, tumbling (0x457231), and is put back on the road; lower, a wall |
+  | 7 | 51 / 60 | dust | as 3 | for some cars, above a speed of 10, a wreck: the car's damage raised, and past 200 it's wrecked (0x456f8b) |
+
+  - **The effects** (0x45f340, 0x472650) are pictures of `sfx.fsh` and
+    `sfxlut.fsh` (`GameData/Render/pc`), 3 to 16 of the game's updates
+    each: sparks (`sp00` to `sp07`), streaks drawn back along the car's
+    way; dust (`di00` to `di07`), a cloud rising and growing; grit
+    (`ga00` to `ga02`), brown specks carried with the car. On `TR08` the
+    sparks are blue-white (`ms00` to `ms07`).
+  - **The sounds:** the samples' numbers in `GEN.BNK` *(inferred: the
+    numbers the program picks, 29 to 37, are those the bank has)*; their
+    kind as they sound by their length and brightness *(inferred)*. On
+    `TR08` every wall plays `TRAMB08.BNK`'s 4, a clang; on `TR07`, along
+    its trestle bridge (points 1,430 to 1,492), 5 or 6 of `TRAMB07.BNK`,
+    a creak, with 29 quietly.
 
   Most tracks have one kind for most of their walls: `TR04` 5, `TR02`
   and `TR07` 4, the others 1. Kind 2 is almost always on both sides.
-  On `TR06` and `TR07` long stretches take kind 7 whatever the file
-  says once cars have hit each other hard (0x440b78). The materials the
-  kinds stand for aren't known.
+  Kind 6 is along `TR07`'s high wooden bridge (points 1,386 to 1,516)
+  and `TR08`'s raised road over its crest (656 to 779). On `TR06` and
+  `TR07` long stretches take kind 7 whatever the file says once cars
+  have hit each other hard (0x440b78).
 - **The lanes:** the program puts the cars in them by the point, the
   across vector, and the lanes' count and width (0x4366c0, 0x436840).
   They fit inside the edges at all but 3 points; a side without lanes
@@ -159,4 +173,5 @@ hosted game's race clock runs.
 
 ## Open questions
 
-- What the walls' effects and events look and sound like.
+- The wall sounds as heard: their kinds are judged by their length and
+  brightness only.
