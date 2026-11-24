@@ -388,10 +388,6 @@ void GameProcess::addSystem() {
         return 0x5100u;
     });
     stdcall(u, "MapVirtualKeyA", 2, [](Cpu &c) { return c.arg(0); });
-    stdcall(u, "VkKeyScanA", 1, [](Cpu &c) {
-        const uint8_t ch = uint8_t(c.arg(0));
-        return uint32_t(ch >= 'a' && ch <= 'z' ? ch - 32 : ch);
-    });
     stdcall(u, "ScreenToClient", 2, [](Cpu &) { return 1u; });
     const char *g = "GDI32.dll";
     // Text and pictures drawn with GDI (its debug console, error boxes): accepted, not drawn.

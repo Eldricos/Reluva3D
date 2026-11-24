@@ -681,6 +681,18 @@ void Win32Process::addUserStandIns() {
     };
     stdcall(u, "GetKeyState", 1, keyState);
     stdcall(u, "GetAsyncKeyState", 1, keyState);
+    // VkKeyScanA(character): the virtual key that types it on a US
+    // keyboard, Shift in the high byte (1); -1 when no key does.
+    // Starfleet Command II reads its key bindings' characters (`]`, `;`)
+    // through it.
+    stdcall(u, "VkKeyScanA", 1, [](Cpu &c) {
+        const uint32_t ch = c.arg(0) & 0xff;
+        for (const bool shift : {false, true})
+            for (uint32_t vk = 1; vk < 256; ++vk)
+                if (typedCharacter(vk, shift) == ch)
+                    return vk | (shift ? 0x100u : 0u);
+        return 0xffffu;
+    });
 
     // Device contexts.
     stdcall(u, "GetDC", 1, [](Cpu &c) { return kDeviceContext + (c.arg(0) & 0xffff); });

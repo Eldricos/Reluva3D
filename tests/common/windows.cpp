@@ -1101,6 +1101,14 @@ static void testInput() {
     k = next();
     CHECK(k[1] == 0x101 && k[3] == (1 | 0x1eu << 16 | 3u << 30));
     CHECK(!cpu.call(fn("USER32.dll", "GetKeyState"), {0x41}, r) && !(r & 0x8000));
+    // VkKeyScanA: a character's key on a US keyboard, Shift in the high byte.
+    auto vkScan = [&](char ch) {
+        CHECK(!cpu.call(fn("USER32.dll", "VkKeyScanA"), {uint32_t(uint8_t(ch))}, r));
+        return r;
+    };
+    CHECK(vkScan('a') == 0x41 && vkScan('A') == 0x141 && vkScan('5') == 0x35 && vkScan('%') == 0x135);
+    CHECK(vkScan(']') == 0xdd && vkScan('`') == 0xc0 && vkScan(';') == 0xba && vkScan('?') == 0x1bf);
+    CHECK(vkScan(char(0xe9)) == 0xffff);
     // ClipCursor keeps the pointer in.
     const uint32_t rc = process.memory().alloc(16);
     for (uint32_t i = 0; i < 4; ++i)

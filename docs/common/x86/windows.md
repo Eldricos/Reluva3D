@@ -129,6 +129,11 @@ C++ library have pages of their own ([directx.md](directx.md),
     what `GetKeyState` and `GetAsyncKeyState` report.
   - `rawInput` listeners (DirectInput) hear the same movements, buttons
     and keys.
+  - `VkKeyScanA` gives the virtual key that types a character on a US
+    keyboard, Shift in its high byte (`]` 0xDD, `` ` `` 0xC0, `?` 0x1BF),
+    -1 for none: Starfleet Command II reads its key bindings' characters
+    through it, and with each character's own code instead, its
+    punctuation keys (game speed, the nearest enemy) did nothing.
 - Threads (`_beginthread`) take turns with the main thread, so no two
   ever run at once (`Win32Process::startThread`, `runThreads`):
   - Each has its own registers, stack and thread information block (a
