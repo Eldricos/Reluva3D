@@ -121,6 +121,60 @@ Park::Queue Park::followQueue(const Cell &entrance) const {
     return q;
 }
 
+Park::Footprint Park::footprint(const std::vector<std::string> &shape, const Cell &at, int angle) {
+    Footprint f;
+    const int rows = int(shape.size());
+    const int turns = ((angle / kQuarter) % 4 + 4) % 4;
+    for (int r = 0; r < rows; ++r)
+        for (int c = 0; c < int(shape[size_t(r)].size()); ++c) {
+            const char mark = shape[size_t(r)][size_t(c)];
+            if (mark == '.' || mark == ' ')
+                continue;
+            int dx = c;
+            int dy = rows - 1 - r;
+            for (int t = 0; t < turns; ++t) {
+                const int was = dx;
+                dx = -dy;
+                dy = was;
+            }
+            const Cell cell{at.x + dx, at.y + dy};
+            f.cells.push_back(cell);
+            if (mark == '2') {
+                f.hasEntrance = true;
+                f.entrance = cell;
+            } else if (mark == 'N') {
+                f.hasExit = true;
+                f.exit = cell;
+            }
+        }
+    if (f.cells.empty())
+        f.cells.push_back(at);
+    return f;
+}
+
+bool Park::canPlace(const Footprint &footprint) const {
+    for (const Cell &c : footprint.cells)
+        if (ground(c) != Ground::kOpen)
+            return false;
+    return true;
+}
+
+int Park::place(int id, int price, const std::vector<std::string> &shape, bool hasQueue, const Cell &at, int angle) {
+    const Footprint f = footprint(shape, at, angle);
+    if (!canPlace(f) || _cash < price)
+        return kNotPlaced;
+    _cash -= price;
+    for (const Cell &c : f.cells)
+        _ground[size_t(c.y) * size_t(_mapWidth) + size_t(c.x)] = Ground::kTaken;
+    _objects.push_back({id, at, ((angle % 360) + 360) % 360});
+    if (!hasQueue || !f.hasEntrance)
+        return -1;
+    Queue q;
+    q.entrance = f.entrance;
+    _queues.push_back(q);
+    return int(_queues.size()) - 1;
+}
+
 int Park::queueFrom(const Cell &cell) const {
     for (size_t i = 0; i < _queues.size(); ++i) {
         const Queue &q = _queues[i];

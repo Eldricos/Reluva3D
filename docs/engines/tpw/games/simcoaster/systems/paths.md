@@ -95,13 +95,12 @@ each cell's piece and angle too ([tpws.md](../formats/tpws.md#the-grid)),
 Reluva works out from its queue's shape are those, every one, at those
 angles, 5 of 5 *(confirmed)*.
 
-A queue costs `Costs.QueueCell`, 25 a cell. In the game a new
-attraction's queue is laid as it's placed: "Edit line. Click to build a
+A queue costs `Costs.QueueCell`, 25 a cell. A new attraction's queue
+is laid as it's placed ([building.md](building.md)): "Edit line. Click to build a
 line. Click again to finish. Click onto existing path to connect"
-(`UIHELPTEXT` 149, 150). Reluva, without placing attractions yet, lays
-it with the path tool: a click on an attraction's entrance that has no
-queue, or on the loose end of one that doesn't reach the path, starts a
-line; each further click lays a straight length on from its end, over
+(`UIHELPTEXT` 149, 150). Reluva lays it so once a ride's placed, and with the path tool too: a
+click on an attraction's entrance that has no queue, or on the loose
+end of one that doesn't reach the path, starts a line; each further click lays a straight length on from its end, over
 bare land, joining the path if it meets it, which finishes it; a click
 on its end finishes it short *(guessed)*. The prebuilt park's one
 entrance without its queue is behind its hoardings, so has none to

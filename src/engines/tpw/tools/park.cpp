@@ -10,7 +10,9 @@
 #include "engines/tpw/formats/saved_park.h"
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/park/park.h"
+#include "engines/tpw/park/attractions.h"
 #include "engines/tpw/ui/briefing.h"
+#include "engines/tpw/ui/buy_window.h"
 #include "engines/tpw/ui/park_hud.h"
 #include "engines/tpw/ui/park_screen.h"
 #include "image/image.h"
@@ -144,7 +146,10 @@ int cmdParkRun(int argc, char **argv) {
     // What the run does, in order, each at its time: the briefing turned
     // to the details and back and Proceed; the path tool chosen, a length
     // of four laid across the open land beside the path, another of three
-    // on from it, then Esc dropping the next; the Park menu opened and its Objectives
+    // on from it, then Esc dropping the next; Build Attraction chosen from
+    // the Attractions menu, the second ride bought, turned and back,
+    // placed right of the entrance's path, its queue laid down a cell,
+    // along, up a cell and into the path; the Park menu opened and its Objectives
     // chosen, the briefing shown again and Proceed; Up held for a second,
     // E for the next, Page Down for the third, the compass's left turn for
     // the fourth; the bulldozer chosen; the Attractions menu opened and
@@ -186,19 +191,32 @@ int cmdParkRun(int argc, char **argv) {
     click(2400, onCell({end.x + 5, end.y + 5}));
     click(2600, onCell({end.x + 5, end.y + 8}));
     key(2800, 2850, reluva::key::kEscape);
-    click(3000, centre(ParkHud::gizmoRect(ParkHud::Gizmo::kPark)));
-    click(3500, centre(ParkHud::menuItemRect(ParkHud::Gizmo::kPark, 3)));
-    click(4000, centre(Briefing::placeOf(Briefing::Control::kProceed)));
-    key(5000, 6000, reluva::key::kUp);
-    key(6000, 7000, 'e');
-    key(7000, 8000, reluva::key::kPageDown);
+    using reluva::tpw::BuyWindow;
+    const Cell ride{end.x + 7, end.y - 2};
+    click(3000, centre(ParkHud::gizmoRect(ParkHud::Gizmo::kAttractions)));
+    click(3400, centre(ParkHud::menuItemRect(ParkHud::Gizmo::kAttractions, 0)));
+    click(3600, centre(BuyWindow::placeOf(BuyWindow::Control::kRow, 1)));
+    click(3800, centre(BuyWindow::placeOf(BuyWindow::Control::kBuy)));
+    key(4000, 4050, '.');
+    key(4100, 4150, ',');
+    click(4300, onCell(ride));
+    click(4500, onCell({ride.x + 2, ride.y - 1}));
+    click(4600, onCell({end.x + 3, ride.y - 1}));
+    click(4700, onCell({end.x + 3, ride.y}));
+    click(4800, onCell({end.x + 1, ride.y}));
+    click(5000, centre(ParkHud::gizmoRect(ParkHud::Gizmo::kPark)));
+    click(5500, centre(ParkHud::menuItemRect(ParkHud::Gizmo::kPark, 3)));
+    click(6000, centre(Briefing::placeOf(Briefing::Control::kProceed)));
+    key(7000, 8000, reluva::key::kUp);
+    key(8000, 9000, 'e');
+    key(9000, 10000, reluva::key::kPageDown);
     const std::array<int, 2> turnLeft = centre(ParkHud::compassRect(ParkHud::CompassButton::kTurnLeft));
-    script.push_back({8000, EventType::kMouseMove, 0, turnLeft});
-    script.push_back({8000, EventType::kMouseDown, 0, turnLeft});
-    script.push_back({9000, EventType::kMouseUp, 0, turnLeft});
-    click(9000, centre(ParkHud::toolRect(ParkHud::Tool::kBulldozer)));
-    click(10000, centre(ParkHud::gizmoRect(ParkHud::Gizmo::kAttractions)));
-    click(11000, {320, 200});
+    script.push_back({10000, EventType::kMouseMove, 0, turnLeft});
+    script.push_back({10000, EventType::kMouseDown, 0, turnLeft});
+    script.push_back({11000, EventType::kMouseUp, 0, turnLeft});
+    click(11000, centre(ParkHud::toolRect(ParkHud::Tool::kBulldozer)));
+    click(12000, centre(ParkHud::gizmoRect(ParkHud::Gizmo::kAttractions)));
+    click(13000, {320, 200});
     key(45000, 0, reluva::key::kEscape);
 
     struct Player : reluva::HeadlessSystem {
@@ -258,11 +276,14 @@ int cmdParkRun(int argc, char **argv) {
     for (int y = 0; y < park.groundHeight(); ++y)
         for (int x = 0; x < park.groundWidth(); ++x)
             paths += park.isPath({x, y});
-    std::printf("park: %d screens shown, %s at %llu ms, %s, cash %d, %d visitors, %d path cells, %d briefings, "
-                "tool %d; md5 %s\n",
+    size_t queueCells = 0;
+    for (const reluva::tpw::Park::Queue &q : park.queues())
+        queueCells += q.cells.size();
+    std::printf("park: %d screens shown, %s at %llu ms, %s, cash %d, %d visitors, %d path cells, %zu objects, %zu "
+                "queues of %zu cells, %d briefings, tool %d; md5 %s\n",
                 sys.shown, left ? "left" : "closed", static_cast<unsigned long long>(sys.getMillis()),
-                screen.dateText(park.day()).c_str(), park.cash(), park.visitors(), paths, briefings,
-                int(screen.hud().tool()), sys.all.hexDigest().c_str());
+                screen.dateText(park.day()).c_str(), park.cash(), park.visitors(), paths, park.objects().size(),
+                park.queues().size(), queueCells, briefings, int(screen.hud().tool()), sys.all.hexDigest().c_str());
     return left ? 0 : 1;
 }
 
@@ -352,9 +373,58 @@ int cmdTpwsCheck(int argc, char **argv) {
     return 0;
 }
 
+// The Buy window over a new park, on a tab, a row chosen; what it lists
+// printed.
+int cmdBuyShot(int argc, char **argv) {
+    if (argc < 5) {
+        std::fprintf(stderr, "usage: reluva-tool tpw buy-shot <game folder> <world folder> <out.png> [tab [row]]\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    reluva::tpw::Park park;
+    reluva::tpw::ParkScreen screen;
+    if (!newPark(argv[2], argv[3], 0, files, park, screen))
+        return 1;
+    reluva::tpw::Attractions attractions;
+    reluva::tpw::BuyWindow window;
+    reluva::Error err = attractions.load(files, argv[3]);
+    if (!err)
+        err = window.load(files);
+    if (err) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    const int tab = argc > 5 ? std::atoi(argv[5]) : 0;
+    window.open(attractions, reluva::tpw::Attractions::Kind(tab), park);
+    if (argc > 6) {
+        reluva::Event click;
+        click.type = reluva::EventType::kMouseDown;
+        click.button = reluva::MouseButton::kLeft;
+        const reluva::tpw::ScreenRect r =
+            reluva::tpw::BuyWindow::placeOf(reluva::tpw::BuyWindow::Control::kRow, size_t(std::atoi(argv[6])));
+        click.mouseX = r.x + r.w / 2;
+        click.mouseY = r.y + r.h / 2;
+        window.handle(click);
+    }
+    reluva::Surface surface;
+    surface.create(640, 480, reluva::PixelFormat::kRGBA32);
+    reluva::soft3d::Rasterizer rasterizer;
+    screen.draw(surface, rasterizer, park, screen.startCamera(park));
+    window.advance(1500);
+    window.draw(surface);
+    writePng(surface, argv[4]);
+    for (size_t kind = 0; kind < reluva::tpw::Attractions::kKinds; ++kind)
+        for (const reluva::tpw::Attractions::Attraction *a : attractions.onSale(reluva::tpw::Attractions::Kind(kind)))
+            std::printf("tab %zu: %d %s, %s, $ %d%s\n", kind, a->id, window.shownName(*a).c_str(), a->name.c_str(),
+                        a->price, a->hasQueue ? ", a queue" : "");
+    return 0;
+}
+
 const Commands kCommands(
     "tpw",
     {
+        {"buy-shot", "<game folder> <world folder> <out.png> [tab [row]]",
+         "draw the Buy window over a new park, on a tab, a row chosen, to a PNG, and list what's on sale", cmdBuyShot},
         {"tpws-check", "<game folder> [save in Data] [-objects]",
          "read a saved park (.TPWS), the prebuilt one unless named: its cells, its path, its objects (listed with "
          "-objects) and its world",

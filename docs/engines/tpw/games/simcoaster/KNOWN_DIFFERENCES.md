@@ -30,8 +30,11 @@ None yet.
   bottom buttons' menus open, but only the path tool and the Park
   menu's Objectives do anything yet; a new park has the prebuilt park's
   path, queue, ride and other objects ([paths.md](systems/paths.md)),
-  standing still; queues are laid with the path tool from an entrance,
-  attractions not being placed yet; no fly-in, gates or other building
+  standing still; attractions can be bought and placed, their
+  queues laid, but they don't run; some show their settings' names, or
+  another world's, the game's own not being found for them
+  ([building.md](systems/building.md#their-names)), and the Buy window
+  has no descriptions; no fly-in, gates or other building
   yet, its fixed items marked
   ([PLAN.md](PLAN.md#phases), [park.md](systems/park.md)). Every park
   is its world's first mission's.

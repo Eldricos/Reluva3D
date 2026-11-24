@@ -8,8 +8,10 @@
 #include "common/types.h"
 #include "engines/tpw/formats/bf4.h"
 #include "engines/tpw/formats/str.h"
+#include "engines/tpw/park/attractions.h"
 #include "engines/tpw/park/park.h"
 #include "engines/tpw/park/path_tiles.h"
+#include "engines/tpw/ui/buy_window.h"
 #include "engines/tpw/ui/park_hud.h"
 #include "engines/tpw/ui/sprites.h"
 #include "engines/tpw/ui/world_view.h"
@@ -19,6 +21,7 @@
 #include <functional>
 #include <map>
 #include <optional>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -67,6 +70,21 @@ public:
     /** A queue drawn as it would be with the length being laid, in place of the park's of its entrance. */
     void setQueuePreview(std::optional<Park::Queue> queue) { _queuePreview = std::move(queue); }
 
+    /** The world's attractions, for the Buy window and placing them. */
+    const Attractions &attractions() const { return _attractions; }
+    /** The Buy window, which takes the mouse before the HUD while it's open. */
+    BuyWindow &buyWindow() { return _buy; }
+    /**
+     * The footprint of an attraction being placed, drawn on the ground,
+     * blue where it fits, red where it doesn't; and its price under the
+     * money (0 for none).
+     */
+    void setPlacement(std::optional<Park::Footprint> footprint, bool fits, int price) {
+        _placement = std::move(footprint);
+        _placementFits = fits;
+        _placementPrice = price;
+    }
+
     /** The HUD's buttons, which take the mouse before the park does. */
     ParkHud &hud() { return _furniture; }
 
@@ -77,6 +95,7 @@ private:
     void drawVisitors(Surface &screen, const soft3d::OrbitCamera &eye, const Park &park, float yaw) const;
     void drawPaths(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const Park &park) const;
     void drawObjects(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const Park &park) const;
+    void drawPlacement(Surface &screen, const soft3d::OrbitCamera &eye) const;
     void loadObjects(const SearchSet &files, const Park &park);
 
     LoadedWorld _world;
@@ -89,7 +108,15 @@ private:
     std::array<image::Image, kPathTextures.size()> _pathTextures;
     bool _pathsRead = false;
     std::vector<Park::Cell> _preview;
-    std::map<int, LoadedModel> _objectModels; // by the objects' numbers, those read
+    mutable std::map<int, LoadedModel> _objectModels; // by the objects' numbers, those read
+    mutable std::set<int> _missingModels;             // those that couldn't be, not tried again
+    const SearchSet *_files = nullptr;
+    Attractions _attractions;
+    BuyWindow _buy;
+    bool _buyRead = false;
+    std::optional<Park::Footprint> _placement;
+    bool _placementFits = false;
+    int _placementPrice = 0;
     std::optional<Park::Queue> _queuePreview;
     std::map<int, LoadedModel> _queueModels; // by Park::QueueModel, those read
     bool _furnitureRead = false;

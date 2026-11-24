@@ -1,0 +1,133 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+// Which are on sale from the start is set against the recording's Buy
+// window: docs/engines/tpw/games/simcoaster/systems/building.md.
+
+#include "engines/tpw/park/attractions.h"
+
+#include "engines/tpw/formats/sam.h"
+
+#include <algorithm>
+#include <cctype>
+#include <map>
+
+namespace reluva::tpw {
+
+namespace {
+
+// The kinds' folders of a world, as their names are (any case).
+const std::array<std::pair<const char *, Attractions::Kind>, 5> kKindFolders{{
+    {"rides", Attractions::Kind::kRide},
+    {"sideshow", Attractions::Kind::kSideshow},
+    {"shops", Attractions::Kind::kShop},
+    {"facilities", Attractions::Kind::kFacility},
+    {"features", Attractions::Kind::kFeature},
+}};
+constexpr const char *kOnline = "online_"; // the online game's settings, beside the kinds'
+
+std::string lower(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return char(std::tolower(c)); });
+    return s;
+}
+
+std::vector<std::string> split(const std::string &path) {
+    std::vector<std::string> parts;
+    size_t at = 0;
+    for (size_t slash; (slash = path.find('/', at)) != std::string::npos; at = slash + 1)
+        parts.push_back(path.substr(at, slash - at));
+    parts.push_back(path.substr(at));
+    return parts;
+}
+
+Error readSam(const SearchSet &files, const std::string &name, SamFile &out) {
+    std::vector<uint8_t> data;
+    if (Error err = files.read(name, data))
+        return err;
+    return out.parse(data);
+}
+
+} // namespace
+
+Error Attractions::load(const SearchSet &files, const std::string &folder) {
+    _all.clear();
+    const std::string prefix = lower(folder) + "/";
+    // The world's files by their parts: <kind>/<kind>.sam, and
+    // <kind>/<object>/<object>.sam with its model beside it.
+    std::map<std::string, std::string> kindSettings; // by kind folder, lower case
+    std::map<std::string, std::string> models;       // by object folder, lower case
+    std::vector<std::string> objects;
+    for (const std::string &name : files.list()) {
+        const std::string low = lower(name);
+        if (low.compare(0, prefix.size(), prefix) != 0)
+            continue;
+        const std::vector<std::string> parts = split(low.substr(prefix.size()));
+        if (parts.size() == 2 && parts[1].size() > 4 && parts[1].compare(parts[1].size() - 4, 4, ".sam") == 0 &&
+            parts[1].compare(0, std::char_traits<char>::length(kOnline), kOnline) != 0)
+            kindSettings[parts[0]] = name;
+        if (parts.size() != 3)
+            continue;
+        const std::string stem = parts[2].size() > 4 ? parts[2].substr(0, parts[2].size() - 4) : "";
+        const std::string ending = parts[2].size() > 4 ? parts[2].substr(parts[2].size() - 4) : "";
+        if (stem != parts[1])
+            continue;
+        if (ending == ".sam")
+            objects.push_back(name);
+        else if (ending == ".md2")
+            models[parts[0] + "/" + parts[1]] = name;
+    }
+    for (const auto &[kindName, kind] : kKindFolders) {
+        SamFile defaults;
+        const auto k = kindSettings.find(kindName);
+        if (k != kindSettings.end() && readSam(files, k->second, defaults))
+            continue;
+        for (const std::string &name : objects) {
+            const std::vector<std::string> parts = split(lower(name).substr(prefix.size()));
+            if (parts[0] != kindName)
+                continue;
+            SamFile own;
+            if (readSam(files, name, own))
+                continue;
+            auto number = [&](const char *key, double fallback) {
+                return own.number(key, defaults.number(key, fallback));
+            };
+            Attraction a;
+            a.id = int(own.number("Info.Id", -1));
+            if (a.id < 0)
+                continue;
+            a.kind = kind;
+            a.folder = name.substr(0, name.rfind('/'));
+            const auto model = models.find(parts[0] + "/" + parts[1]);
+            if (model != models.end())
+                a.model = model->second;
+            a.name = own.text("Info.Name");
+            a.price = int(number("Upgrades[0].CostOfUpgrade", 0));
+            a.hasQueue = number("Info.HasQueue", 0) != 0;
+            a.available = number("Research.Group", -1) == 0 && a.price > 0;
+            if (const SamFile::Entry *shape = own.find("Info.Shape"))
+                a.shape = shape->grid;
+            a.excitement = int(number("UsageInfo.ExcitementLevel", -1));
+            a.capacity = int(number("Upgrades[0].InitCapacity", -1));
+            a.workingLife = int(number("Info.WorkingLife", -1));
+            _all.push_back(std::move(a));
+        }
+    }
+    return Error::success();
+}
+
+const Attractions::Attraction *Attractions::find(int id) const {
+    for (const Attraction &a : _all)
+        if (a.id == id)
+            return &a;
+    return nullptr;
+}
+
+std::vector<const Attractions::Attraction *> Attractions::onSale(Kind kind) const {
+    std::vector<const Attraction *> out;
+    for (const Attraction &a : _all)
+        if (a.kind == kind && a.available)
+            out.push_back(&a);
+    return out;
+}
+
+} // namespace reluva::tpw

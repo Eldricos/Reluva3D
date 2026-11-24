@@ -43,7 +43,7 @@ With your own copy, installed or imported from the CD:
 | `movies` | Every `.tgq` movie decoded, frames and sound (`reluva-tool tpw movie-check`) |
 | `loading` | The loading screen put together, with a checksum of it (`reluva-tool tpw loading-screen`) |
 | `sounds` | Every sound bank decoded, those that can't listed (`reluva-tool tpw sdt-check`) |
-| `park` | A new park in Land of Invention played headless: its briefing turned to the details and back, Proceed, two lengths of path laid, the Park menu's Objectives chosen and proceeded from, the camera moved by keys and turned by the compass, the bulldozer chosen, the Attractions menu opened and closed, a visitor come in, then Esc; the screens shown, the date, money, visitors, path cells, briefings shown and tool, with a checksum (`reluva-tool tpw park-run`) |
+| `park` | A new park in Land of Invention played headless: its briefing turned to the details and back, Proceed, two lengths of path laid, a ride bought from the Buy window, turned, placed and its queue laid to the path, the Park menu's Objectives chosen and proceeded from, the camera moved by keys and turned by the compass, the bulldozer chosen, the Attractions menu opened and closed, a visitor come in, then Esc; the screens shown, the date, money, visitors, path cells, objects, queues, briefings shown and tool, with a checksum (`reluva-tool tpw park-run`) |
 | `soundmaps` | Every sound category read, each sound found in its bank and its length set against the bank's, with a checksum (`reluva-tool tpw sfx-check`) |
 | `models` | Every model read, with a checksum of every mesh (`reluva-tool tpw md2-check`) |
 | `animations` | Every model animation read and set against its model (`reluva-tool tpw anim-check`) |

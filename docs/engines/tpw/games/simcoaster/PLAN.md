@@ -85,7 +85,8 @@ format or system worked out.
 9. **The park running** (under way: a new park set up from its
    settings and mission, shown running with its money and date under a
    camera that moves under its HUD and its menus, path laid
-   ([paths.md](systems/paths.md)), visitors arriving, drawn by their sprites
+   ([paths.md](systems/paths.md)), attractions bought and placed
+   ([building.md](systems/building.md)), visitors arriving, drawn by their sprites
    ([sprites.md](formats/sprites.md)), the mission's briefing,
    [park.md](systems/park.md), [briefing.md](systems/briefing.md)): building, paths,
    guests, staff, money, research,

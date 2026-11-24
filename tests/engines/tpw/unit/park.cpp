@@ -6,6 +6,7 @@
 
 #include "common/archive.h"
 #include "engines/tpw/game_files.h"
+#include "engines/tpw/park/attractions.h"
 #include "engines/tpw/park/park.h"
 #include "engines/tpw/park/path_tiles.h"
 
@@ -204,6 +205,18 @@ void testPaths(const std::filesystem::path &tmp) {
     // On to the path at (6, 1): it joins it at once.
     CHECK(park.layQueue(q, Park::pathRun({7, 1}, {3, 1})) == 0 && park.queues()[size_t(q)].atPath);
     CHECK((park.queues()[size_t(q)].pathEnd == Park::Cell{6, 1}) && park.queueFrom({7, 1}) == -1);
+
+    // An attraction placed on bare land, paid for, its queue begun at its
+    // entrance; not over path, nor for more than the money.
+    const std::vector<std::string> stall{"*2"};
+    CHECK(park.place(1300, 10, stall, true, {2, 2}, 0) == Park::kNotPlaced); // (2, 2) is path
+    const int cash = park.cash();
+    const int started = park.place(1300, 10, stall, true, {0, 4}, 0);
+    CHECK(started >= 0 && park.cash() == cash - 10 && park.ground({1, 4}) == Park::Ground::kTaken);
+    CHECK(started >= 0 && (park.queues()[size_t(started)].entrance == Park::Cell{1, 4}) &&
+          park.queueFrom({1, 4}) == started && park.objects().back().id == 1300);
+    CHECK(park.place(1300, 1000, stall, false, {0, 5}, 0) == Park::kNotPlaced);
+    CHECK(park.place(1209, 0, {"*"}, false, {3, 4}, 0) == -1);
 }
 
 // A queue's pieces by its shape: straights, a bend each way, the piece by
@@ -270,13 +283,63 @@ void testPathTiles() {
     CHECK(is(all | kPathNE | kPathSW, "ns_icn2", 1));
 }
 
+// A world's attractions by their settings, over their kind's: on sale
+// with a price and research group 0; their shape, queue and ratings.
+void testAttractions(const std::filesystem::path &tmp) {
+    const std::filesystem::path world = tmp / "game" / "Data" / "levels" / "science";
+    writeText(world / "rides" / "Rides.sam", "Info.HasQueue 1\r\nResearch.Group 0\r\n");
+    writeText(world / "rides" / "robot" / "robot.sam",
+              "Info.Id 1101\r\nInfo.Name \"Giant Robot Swing\"\r\nInfo.Shape\r\n---\r\n.**.\r\n*2N*\r\n---\r\n"
+              "Upgrades[0].CostOfUpgrade 1400\r\nUpgrades[0].InitCapacity 8\r\nUsageInfo.ExcitementLevel 70\r\n"
+              "Info.WorkingLife 75\r\n");
+    test::writeFile(world / "rides" / "robot" / "robot.MD2", tpw::testing::Bytes{0});
+    writeText(world / "rides" / "wheel" / "wheel.sam", "Info.Id 1160\r\nUpgrades[0].CostOfUpgrade 0\r\n");
+    writeText(world / "shops" / "Shops.sam", "Info.HasQueue 0\r\nResearch.Group 0\r\n");
+    writeText(world / "shops" / "drinks" / "drinks.sam", "Info.Id 1203\r\nUpgrades[0].CostOfUpgrade 500\r\n");
+    writeText(world / "shops" / "gift" / "gift.sam",
+              "Info.Id 1211\r\nUpgrades[0].CostOfUpgrade 750\r\nResearch.Group 5\r\n");
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!mountGame(files, tmp / "game", warnings));
+    Attractions attractions;
+    CHECK(!attractions.load(files, "levels/science"));
+    CHECK(attractions.all().size() == 4);
+    const Attractions::Attraction *robot = attractions.find(1101);
+    CHECK(robot && robot->kind == Attractions::Kind::kRide && robot->hasQueue && robot->available);
+    CHECK(robot && robot->price == 1400 && robot->name == "Giant Robot Swing" && robot->shape.size() == 2);
+    CHECK(robot && robot->capacity == 8 && robot->excitement == 70 && robot->workingLife == 75);
+    CHECK(robot && robot->model.size() > 9 && robot->model.compare(robot->model.size() - 9, 9, "robot.MD2") == 0);
+    CHECK(attractions.find(1160) && !attractions.find(1160)->available);
+    CHECK(attractions.onSale(Attractions::Kind::kRide).size() == 1);
+    const std::vector<const Attractions::Attraction *> shops = attractions.onSale(Attractions::Kind::kShop);
+    CHECK(shops.size() == 1 && shops[0]->id == 1203 && !shops[0]->hasQueue);
+}
+
+// A shape's footprint, its last row at the first cell, turned east
+// towards south; placed where it fits, paid for, its queue begun.
+void testPlacing() {
+    const std::vector<std::string> shape{".**.", "*2N*"};
+    Park::Footprint f = Park::footprint(shape, {10, 10}, 0);
+    CHECK(f.cells.size() == 6 && f.hasEntrance && (f.entrance == Park::Cell{11, 10}) && (f.exit == Park::Cell{12, 10}));
+    CHECK((f.cells[0] == Park::Cell{11, 11}) && (f.cells[5] == Park::Cell{13, 10}));
+    f = Park::footprint(shape, {10, 10}, 90);
+    CHECK((f.entrance == Park::Cell{10, 11}) && (f.exit == Park::Cell{10, 12}));
+    CHECK(Park::footprint({}, {3, 4}, 0).cells.size() == 1);
+
+    Park bare; // without a map: nothing fits
+    CHECK(!bare.canPlace(Park::footprint(shape, {1, 1}, 0)));
+    CHECK(bare.place(1101, 0, shape, true, {1, 1}, 0) == Park::kNotPlaced);
+}
+
 } // namespace
 
-static const reluva::test::Suite kSuite("tpw.unit.park",
-                                        {
-                                            {"new-park", [](const std::filesystem::path &tmp) { testNewPark(tmp); }},
-                                            {"calendar", [](const std::filesystem::path &) { testCalendar(); }},
-                                            {"paths", [](const std::filesystem::path &tmp) { testPaths(tmp); }},
-                                            {"path-tiles", [](const std::filesystem::path &) { testPathTiles(); }},
-                                            {"queue-pieces", [](const std::filesystem::path &) { testQueuePieces(); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("tpw.unit.park", {
+                                {"new-park", [](const std::filesystem::path &tmp) { testNewPark(tmp); }},
+                                {"calendar", [](const std::filesystem::path &) { testCalendar(); }},
+                                {"paths", [](const std::filesystem::path &tmp) { testPaths(tmp); }},
+                                {"path-tiles", [](const std::filesystem::path &) { testPathTiles(); }},
+                                {"queue-pieces", [](const std::filesystem::path &) { testQueuePieces(); }},
+                                {"attractions", [](const std::filesystem::path &tmp) { testAttractions(tmp); }},
+                                {"placing", [](const std::filesystem::path &) { testPlacing(); }},
+                            });

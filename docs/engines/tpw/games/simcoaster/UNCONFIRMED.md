@@ -15,6 +15,11 @@ None yet.
 
 ## Inferred
 
+- **An attraction's shown name is the pair of `OBJECT_NAMES` whose
+  old name is its settings'**, whole or by its first word
+  ([building.md](systems/building.md#their-names)). Where the game finds
+  the pair would settle it.
+
 - **A new park of Land of Invention starts as the prebuilt park**: its
   path, queue and objects, the shape of the recording's at 2:34
   ([paths.md](systems/paths.md#where-path-can-go)); the other worlds
@@ -100,6 +105,12 @@ None yet.
   spelt two ways ([sam.md](formats/sam.md#a-setting)).
 
 ## Guessed
+
+- **The Buy window's ratings and the price while placing**: the
+  settings' excitement and working life as bars, out of 100; the price
+  in the money's font at half size
+  ([building.md](systems/building.md#the-buy-window)). The game's own
+  sums, or a closer recording, would settle it.
 
 - **Which of the queue's two bends is which way, and how a line is
   laid**: `quebnd1` where the bend's east side faces the path; a line

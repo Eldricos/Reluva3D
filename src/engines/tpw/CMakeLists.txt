@@ -11,6 +11,7 @@ reluva_add_engine(tpw
         game_files.cpp
         park/park.cpp
         park/path_tiles.cpp
+        park/attractions.cpp
         park/queues.cpp
         players.cpp
         sound_effects.cpp
@@ -32,6 +33,7 @@ reluva_add_engine(tpw
         ui/sky.cpp
         ui/text.cpp
         ui/ui_model.cpp
+        ui/buy_window.cpp
         ui/park_hud.cpp
         ui/park_screen.cpp
         ui/personnel_file.cpp

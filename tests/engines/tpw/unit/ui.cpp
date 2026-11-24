@@ -13,6 +13,7 @@
 #include "engines/tpw/players.h"
 #include "engines/tpw/ui/loading_screen.h"
 #include "engines/tpw/ui/briefing.h"
+#include "engines/tpw/ui/buy_window.h"
 #include "engines/tpw/ui/front_end_audio.h"
 #include "engines/tpw/ui/front_end_effects.h"
 #include "engines/tpw/ui/front_end_overlay.h"
@@ -438,6 +439,33 @@ void testParkHud() {
     CHECK(hud.takeChoice() == ParkHud::kObjectivesItem);
 }
 
+// The Buy window: shut, it takes nothing; open on an empty list, its tick
+// buys nothing and its cross closes it; its tabs side by side.
+void testBuyWindow() {
+    using tpw::BuyWindow;
+    BuyWindow window;
+    auto click = [&](BuyWindow::Control c, size_t index = 0) {
+        const tpw::ScreenRect r = BuyWindow::placeOf(c, index);
+        Event ev;
+        ev.type = EventType::kMouseDown;
+        ev.button = MouseButton::kLeft;
+        ev.mouseX = r.x + r.w / 2;
+        ev.mouseY = r.y + r.h / 2;
+        return window.handle(ev);
+    };
+    CHECK(click(BuyWindow::Control::kCancel) == BuyWindow::Result::kNone);
+    const tpw::Attractions none;
+    const tpw::Park park;
+    window.open(none, tpw::Attractions::Kind::kShop, park);
+    CHECK(window.isOpen() && !window.chosen());
+    CHECK(click(BuyWindow::Control::kBuy) == BuyWindow::Result::kNone && window.isOpen());
+    CHECK(click(BuyWindow::Control::kTab, 4) == BuyWindow::Result::kNone && window.isOpen());
+    CHECK(click(BuyWindow::Control::kCancel) == BuyWindow::Result::kClosed && !window.isOpen());
+    const tpw::ScreenRect first = BuyWindow::placeOf(BuyWindow::Control::kTab, 0);
+    const tpw::ScreenRect second = BuyWindow::placeOf(BuyWindow::Control::kTab, 1);
+    CHECK(second.x == first.x + first.w && second.y == first.y);
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -453,4 +481,5 @@ static const reluva::test::Suite
                               {"front-end-audio", [](const std::filesystem::path &tmp) { testFrontEndAudio(tmp); }},
                               {"briefing", [](const std::filesystem::path &) { testBriefingControls(); }},
                               {"park-hud", [](const std::filesystem::path &) { testParkHud(); }},
+                              {"buy-window", [](const std::filesystem::path &) { testBuyWindow(); }},
                           });

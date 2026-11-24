@@ -163,6 +163,32 @@ public:
     /** Every queue's pieces. */
     std::vector<QueuePiece> queuePieces() const;
 
+    /**
+     * The cells a shape (`Info.Shape`) takes with its first cell at `at`,
+     * turned `angle` degrees (east towards south): its rows from the last,
+     * at `at`'s y, each further one y + 1; its columns x + 1 on; turned
+     * about the first cell.
+     */
+    struct Footprint {
+        std::vector<Cell> cells; // all it takes, its entrance and exit among them
+        bool hasEntrance = false;
+        Cell entrance;
+        bool hasExit = false;
+        Cell exit;
+    };
+    static Footprint footprint(const std::vector<std::string> &shape, const Cell &at, int angle);
+    static constexpr int kNotPlaced = -2;
+    /** Whether every cell of a footprint is bare land. */
+    bool canPlace(const Footprint &footprint) const;
+    /**
+     * Places an attraction, if it fits and the money's there: its price
+     * paid, its cells taken, and, if it has a queue, one begun at its
+     * entrance.
+     * @return The new queue's index, or −1 if it has none; kNotPlaced if
+     *     it wasn't placed.
+     */
+    int place(int id, int price, const std::vector<std::string> &shape, bool hasQueue, const Cell &at, int angle);
+
     /** What a cell of queue costs (the general settings' `Costs.QueueCell`). */
     int queueCost() const { return _queueCost; }
     /**

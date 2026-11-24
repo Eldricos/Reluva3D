@@ -81,6 +81,15 @@ constexpr float kUnitsPerWalkFrame = 1;
 // sprites 50 to 60 pixels tall.
 constexpr float kSpritePixelUnits = 0.1f;
 constexpr Color kBlockedColour{230, 40, 40}; // a cell the path being laid can't cross
+// An attraction's footprint being placed, see-through blue, as the
+// recording's at 2:55.
+constexpr Color kPlacingColour{40, 110, 230};
+constexpr int kPlacingAlpha = 110;
+// What it costs, under the money: the recording's at 2:55, yellow, smaller.
+constexpr int kPriceY = 57;
+constexpr int kPriceRightIn = 4; // its right edge, left of the money's
+constexpr int kPriceDrawn = 48;  // the money font's rows drawn, before halving
+constexpr Color kPriceColour{255, 222, 0};
 // The queue's models, by the pieces they draw.
 const std::array<std::pair<Park::QueueModel, const char *>, 7> kQueueModels{{
     {Park::QueueModel::kStraight, "questra.MD2"},
@@ -162,7 +171,10 @@ Error ParkScreen::load(const SearchSet &files, const Park &park) {
         return err;
     _hud = false;
     _furnitureRead = !_furniture.load(files);
+    _files = &files;
     loadObjects(files, park);
+    _attractions.load(files, park.folder());
+    _buyRead = !_buy.load(files);
     _pathsRead = true;
     for (size_t i = 0; i < kPathTextures.size(); ++i)
         if (loadPicture(files, park.folder() + "/terrain/pathtex/" + kPathTextures[i] + ".fsh", _pathTextures[i]))
@@ -182,6 +194,7 @@ Error ParkScreen::load(const SearchSet &files, const Park &park) {
     std::vector<uint8_t> data;
     _hud = !files.read(folder + "MBToUni.dat", data) && !_characters.parse(data) &&
            !readGameFont(files, folder, "CASHMED", _cashFont) && !readGameFont(files, folder, "DATESMALL", _dateFont) &&
+
            !readStringTable(files, folder, "MONTHS", _characters, _months);
     return Error::success();
 }
@@ -252,7 +265,16 @@ void ParkScreen::loadObjects(const SearchSet &files, const Park &park) {
 void ParkScreen::drawObjects(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const Park &park) const {
     const soft3d::Vec light = _world.hasSky ? soft3d::normalize(toViewerWorld(_world.sky.light)) : defaultLight();
     for (const Park::PlacedObject &o : park.objects()) {
-        const auto model = _objectModels.find(o.id);
+        auto model = _objectModels.find(o.id);
+        // One placed since the park opened, read as it's first drawn.
+        if (model == _objectModels.end() && _files && !_missingModels.count(o.id)) {
+            const Attractions::Attraction *a = _attractions.find(o.id);
+            LoadedModel loaded;
+            if (a && !a->model.empty() && !loaded.load(*_files, a->model))
+                model = _objectModels.emplace(o.id, std::move(loaded)).first;
+            else
+                _missingModels.insert(o.id);
+        }
         if (model != _objectModels.end())
             drawPlaced(rasterizer, eye, model->second, o.at, o.angle, light);
     }
@@ -263,6 +285,54 @@ void ParkScreen::drawObjects(soft3d::Rasterizer &rasterizer, const soft3d::Orbit
             const auto model = _queueModels.find(int(q.model));
             if (model != _queueModels.end())
                 drawPlaced(rasterizer, eye, model->second, q.at, q.angle, light);
+        }
+    }
+}
+
+// Each cell a quad on the ground, filled over what's drawn, see-through.
+void ParkScreen::drawPlacement(Surface &screen, const soft3d::OrbitCamera &eye) const {
+    if (!_placement)
+        return;
+    const Color c = _placementFits ? kPlacingColour : kBlockedColour;
+    for (const Park::Cell &cell : _placement->cells) {
+        std::array<soft3d::ScreenVertex, 4> corner;
+        bool seen = true;
+        const std::array<std::array<int, 2>, 4> at{{{0, 0}, {1, 0}, {1, 1}, {0, 1}}};
+        for (size_t i = 0; i < 4; ++i) {
+            const soft3d::ViewVertex v =
+                eye.toView(toViewerWorld({float(cell.x + at[i][0]) * Park::kCellUnits, kObjectLift,
+                                          float(cell.y + at[i][1]) * Park::kCellUnits}));
+            seen = seen && v.z >= eye.nearZ;
+            if (seen)
+                corner[i] = eye.project(v);
+        }
+        if (!seen)
+            continue;
+        float top = corner[0].y;
+        float bottom = corner[0].y;
+        for (const auto &p : corner) {
+            top = std::min(top, p.y);
+            bottom = std::max(bottom, p.y);
+        }
+        for (int y = std::max(0, int(std::ceil(top))); y < std::min(screen.h, int(std::ceil(bottom))); ++y) {
+            // The quad's span on this row, between its edges crossing it.
+            float left = 1e9f;
+            float right = -1e9f;
+            for (size_t i = 0; i < 4; ++i) {
+                const auto &a = corner[i];
+                const auto &b = corner[(i + 1) % 4];
+                if ((a.y <= float(y) && b.y > float(y)) || (b.y <= float(y) && a.y > float(y))) {
+                    const float x = a.x + (float(y) - a.y) / (b.y - a.y) * (b.x - a.x);
+                    left = std::min(left, x);
+                    right = std::max(right, x);
+                }
+            }
+            for (int x = std::max(0, int(std::ceil(left))); x < std::min(screen.w, int(std::ceil(right))); ++x) {
+                uint8_t *p = screen.row(y) + x * 4;
+                p[0] = uint8_t((p[0] * (255 - kPlacingAlpha) + c.r * kPlacingAlpha) / 255);
+                p[1] = uint8_t((p[1] * (255 - kPlacingAlpha) + c.g * kPlacingAlpha) / 255);
+                p[2] = uint8_t((p[2] * (255 - kPlacingAlpha) + c.b * kPlacingAlpha) / 255);
+            }
         }
     }
 }
@@ -398,6 +468,7 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
     const soft3d::OrbitCamera eye = worldCamera(_world, view, screen.w, screen.h);
     drawPaths(rasterizer, eye, park);
     drawObjects(rasterizer, eye, park);
+    drawPlacement(screen, eye);
     for (const Park::Cell &c : _preview)
         if (park.ground(c) == Park::Ground::kOutside)
             mark(screen, eye, c, kBlockedColour);
@@ -421,12 +492,46 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
     const std::string cash = "$ " + std::to_string(park.cash());
     drawGameText(screen, _cashFont, _characters, kCashX + kShadow, kCashY + kShadow, cash, kHudShadow);
     drawGameText(screen, _cashFont, _characters, kCashX, kCashY, cash, kHudText);
+    if (_placementPrice > 0) {
+        // The price of what's being placed, under the money, its right
+        // edge by the money's.
+        // In the money's font at half its size: the recording's is half as
+        // wide as the same text in it (guessed: no font of the game's is
+        // that size).
+        const std::string price = "$ " + std::to_string(_placementPrice);
+        const int right = kCashX + gameTextWidth(_cashFont, _characters, cash);
+        const int wide = gameTextWidth(_cashFont, _characters, price);
+        Surface text;
+        text.create(wide + 2, kPriceDrawn, PixelFormat::kRGBA32);
+        drawGameText(text, _cashFont, _characters, 0, 0, price, kPriceColour);
+        const int x0 = right - kPriceRightIn - wide / 2;
+        for (int y = 0; y < kPriceDrawn / 2 && kPriceY + y < screen.h; ++y)
+            for (int x = 0; x < wide / 2 && x0 + x < screen.w; ++x) {
+                int sum[3] = {0, 0, 0};
+                for (int dy = 0; dy < 2; ++dy)
+                    for (int dx = 0; dx < 2; ++dx) {
+                        const uint8_t *q = text.row(2 * y + dy) + (2 * x + dx) * 4;
+                        for (int i = 0; i < 3; ++i)
+                            sum[i] += q[i];
+                    }
+                // Yellow on black: how bright it is, how much it covers.
+                const int alpha = std::min(255, std::max({sum[0], sum[1], sum[2]}) / 4 * 255 / kPriceColour.r);
+                if (alpha == 0 || x0 + x < 0)
+                    continue;
+                uint8_t *p = screen.row(kPriceY + y) + (x0 + x) * 4;
+                const uint8_t c[3] = {kPriceColour.r, kPriceColour.g, kPriceColour.b};
+                for (int i = 0; i < 3; ++i)
+                    p[i] = uint8_t((p[i] * (255 - alpha) + c[i] * alpha) / 255);
+            }
+    }
     const ScreenRect field = ParkHud::dateField();
     if (!_furnitureRead)
         fillRect(screen, field, Color{0, 0, 0});
     const std::string date = dateText(park.day());
     const int w = gameTextWidth(_dateFont, _characters, date);
     drawGameText(screen, _dateFont, _characters, field.x + (field.w - w) / 2, field.y + 3, date, kHudText);
+    if (_buyRead)
+        _buy.draw(screen);
 }
 
 bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShower &showObjectives) {
@@ -446,6 +551,9 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
     };
     int mouseX = -1;
     int mouseY = -1;
+    // The attraction being placed, bought in the Buy window, and its turn.
+    const Attractions::Attraction *placing = nullptr;
+    int placingAngle = 0;
     for (;;) {
         Event ev;
         while (sys.pollEvent(ev)) {
@@ -455,11 +563,48 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                 mouseX = ev.mouseX;
                 mouseY = ev.mouseY;
             }
+            // The Buy window takes the mouse, and Esc, while it's open.
+            BuyWindow &buy = screen.buyWindow();
+            if (buy.isOpen()) {
+                if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
+                    buy.close();
+                } else if (buy.handle(ev) == BuyWindow::Result::kBuy) {
+                    placing = buy.chosen();
+                    placingAngle = 0;
+                    pathStart.reset();
+                    queueLaying = -1;
+                }
+                if (ev.type != EventType::kKeyUp)
+                    continue;
+            }
             if (screen.hud().handle(ev))
                 continue;
             Park::Cell under;
             const bool onGround = screen.cellAt(camera, mouseX, mouseY, under);
-            const bool laying = screen.hud().tool() == ParkHud::Tool::kPath;
+            if (placing) {
+                // "Rotate using < and >, click to build" (UIHELPTEXT 146).
+                if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft && onGround) {
+                    const int queue =
+                        park.place(placing->id, placing->price, placing->shape, placing->hasQueue, under, placingAngle);
+                    if (queue != Park::kNotPlaced) {
+                        placing = nullptr;
+                        // A ride's queue is laid at once, from its entrance ("Edit line").
+                        queueLaying = queue;
+                    }
+                    continue;
+                }
+                if ((ev.type == EventType::kMouseDown && ev.button == MouseButton::kRight) ||
+                    (ev.type == EventType::kKeyDown && ev.key == key::kEscape)) {
+                    placing = nullptr;
+                    continue;
+                }
+                if (ev.type == EventType::kKeyDown &&
+                    (ev.key == ',' || ev.key == '<' || ev.key == '.' || ev.key == '>')) {
+                    placingAngle = (placingAngle + (ev.key == ',' || ev.key == '<' ? 270 : 90)) % 360;
+                    continue;
+                }
+            }
+            const bool laying = screen.hud().tool() == ParkHud::Tool::kPath || queueLaying >= 0;
             if (ev.type == EventType::kMouseDown && laying) {
                 if (ev.button == MouseButton::kRight) {
                     pathStart.reset();
@@ -516,9 +661,13 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
         const float seconds = float(now - last) / 1000;
         park.advance(uint32_t(now - last));
         screen.hud().advance(uint32_t(now - last));
+        screen.buyWindow().advance(uint32_t(now - last));
         last = now;
 
-        if (screen.hud().takeChoice() == ParkHud::kObjectivesItem && showObjectives) {
+        const uint32_t choice = screen.hud().takeChoice();
+        if (choice == ParkHud::kBuildAttractionItem)
+            screen.buyWindow().open(screen.attractions(), Attractions::Kind::kRide, park);
+        if (choice == ParkHud::kObjectivesItem && showObjectives) {
             park.setPaused(true);
             const ParkScreen::Camera now = camera;
             const bool open = showObjectives([&](Surface &s) { screen.draw(s, rasterizer, park, now); });
@@ -527,15 +676,20 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
             if (!open)
                 return false;
         }
-        if (screen.hud().tool() != ParkHud::Tool::kPath) {
+        if (screen.hud().tool() != ParkHud::Tool::kPath)
             pathStart.reset();
-            queueLaying = -1;
-        }
         Park::Cell under;
+        std::optional<Park::Footprint> footprint;
+        bool fits = false;
+        if (placing && !screen.hud().covers(mouseX, mouseY) && screen.cellAt(camera, mouseX, mouseY, under)) {
+            footprint = Park::footprint(placing->shape, under, placingAngle);
+            fits = park.canPlace(*footprint) && park.cash() >= placing->price;
+        }
+        screen.setPlacement(std::move(footprint), fits, placing ? placing->price : 0);
         std::vector<Park::Cell> preview;
         std::optional<Park::Queue> queuePreview;
-        if (screen.hud().tool() == ParkHud::Tool::kPath && !screen.hud().covers(mouseX, mouseY) &&
-            screen.cellAt(camera, mouseX, mouseY, under)) {
+        if (!placing && (screen.hud().tool() == ParkHud::Tool::kPath || queueLaying >= 0) &&
+            !screen.hud().covers(mouseX, mouseY) && screen.cellAt(camera, mouseX, mouseY, under)) {
             if (queueLaying >= 0)
                 queuePreview = park.queueWith(queueLaying, Park::pathRun(queueEnd(queueLaying), under));
             else

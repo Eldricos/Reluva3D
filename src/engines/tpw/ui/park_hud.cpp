@@ -260,8 +260,13 @@ bool ParkHud::handle(const Event &ev) {
             if (_over.kind == Hit::kNone)
                 return true;
         }
-        if (ev.button != MouseButton::kLeft)
+        if (ev.button != MouseButton::kLeft) {
+            // "Right-click to Buy Attractions" (UIHELPTEXT 169).
+            if (ev.button == MouseButton::kRight && _over.kind == Hit::kGizmo &&
+                Gizmo(_over.index) == Gizmo::kAttractions)
+                _choice = kBuildAttractionItem;
             return _over.kind != Hit::kNone;
+        }
         _pressed = _over;
         return _pressed.kind != Hit::kNone || kGauge.contains(ev.mouseX, ev.mouseY) ||
                kToolBar.contains(ev.mouseX, ev.mouseY);
