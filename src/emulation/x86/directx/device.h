@@ -92,6 +92,9 @@ struct DecodedTexture {
     std::vector<Level> levels;
     std::vector<uint64_t> versions; // each level's surface's, when decoded
     std::weak_ptr<Surface> owner;
+    // The top level as scenes kept for the engine take it, made once (by
+    // a draw holding the texture as it's bound, const).
+    mutable std::shared_ptr<const DirectX::Scene::Texture> scene;
 };
 
 class Device;
@@ -334,8 +337,20 @@ public:
      *        viewport; 0 for the whole viewport.
      */
     void clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t color, float z);
+    /** EndScene: with DirectX::SceneCapture::kAlso, the scene kept gets the picture drawn. */
+    void endScene();
+    /** The Z buffer filled with `value` (Blt's depth fill), in the scene kept if there is one. */
+    void depthFilled(uint32_t value);
 
 private:
+    // The scene kept for the target, made if need be; none if draws into it
+    // are drawn here (DirectX::sceneCapture).
+    DirectX::Scene *capturing();
+    // With SceneCapture::kInstead: what the batch's triangles would draw
+    // over filled with sceneKey, by each one's pixels' bounds.
+    void cover();
+    // The batch's triangles kept in the scene, with the states.
+    void keep(DirectX::Scene &scene);
     void setRenderState(uint32_t state, uint32_t value);
     void transformAndLight(const VertexLayout &layout, uint32_t vertices, uint32_t stride, uint32_t count,
                            std::vector<ClipVertex> &out);

@@ -666,6 +666,8 @@ uint32_t Surface::blt(Cpu &c) {
         if (!c.valid(fx, 84))
             return kDDErrInvalidParams;
         fill(to, c.read32(fx + 80));
+        if ((flags & kBltDepthFill) && d.format.isZ())
+            s->depthFilled(*this, c.read32(fx + 80));
     } else {
         Surface *src = s->com.as<Surface>(srcPtr);
         if (!src)
@@ -838,6 +840,7 @@ void DirectX::State::presentWindow(uint32_t window, const uint32_t *pixels, int 
     frame.x = frame.y = 0;
     if (auto area = process.clientArea(window))
         frame.x = (*area)[0], frame.y = (*area)[1];
+    frame.scene.reset();
     frame.pixels.resize(size_t(width) * size_t(height));
     for (size_t i = 0; i < frame.pixels.size(); ++i)
         frame.pixels[i] = 0xff000000u | (pixels[i] & 0xffffff);
@@ -873,6 +876,24 @@ void DirectX::State::presentShown() {
         if (!cpu.valid(at, uint32_t(to - from) * bytes))
             continue;
         convert.row(cpu.memory().data() + at, to - from, frame.pixels.data() + size_t(y) * size_t(w) + size_t(from));
+    }
+    // The scene drawn into this buffer, if one was kept: shown through
+    // where the buffer still has the colour it was covered with.
+    frame.scene.reset();
+    if (auto it = scenes.find(p->d.memory); it != scenes.end()) {
+        std::shared_ptr<DirectX::Scene> scene = std::move(it->second);
+        scenes.erase(it);
+        bool through = owner.sceneCapture == DirectX::SceneCapture::kAlso;
+        if (owner.sceneCapture == DirectX::SceneCapture::kInstead) {
+            const uint32_t key = convert(dx::sceneKey(p->d.format));
+            for (uint32_t &px : frame.pixels)
+                if (px == key) {
+                    px &= 0xffffffu;
+                    through = true;
+                }
+        }
+        if (through)
+            frame.scene = std::move(scene);
     }
     applyGamma();
     ++frame.number;

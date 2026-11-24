@@ -778,6 +778,40 @@ static void testDirectX() {
     const std::vector<uint8_t> one = scene(x86::DirectX::DrawThreads::kOne);
     CHECK(scene(x86::DirectX::DrawThreads::kAlways) == one);
     CHECK(std::adjacent_find(one.begin(), one.end(), std::not_equal_to<>()) != one.end()); // something was drawn
+    // The scene kept for the engine instead of drawn (SceneCapture::kInstead):
+    // its Z clear and its triangle as given, the buffer showing it through
+    // under the triangle, and 2D drawn after it on top.
+    dx.drawThreads = x86::DirectX::DrawThreads::kOne;
+    dx.sceneCapture = x86::DirectX::SceneCapture::kInstead;
+    CHECK(call(device, 20, {27, 0}) == 0);                               // ALPHABLENDENABLE off
+    CHECK(call(device, 10, {0, 0, 2, 0xff000000u, bits(1.0f), 0}) == 0); // Clear Z
+    vertex(0, 0, 0, 0.25f, 0xffff0000u, 0, 0);
+    vertex(1, 32, 0, 0.25f, 0xffff0000u, 1, 0);
+    vertex(2, 0, 32, 0.25f, 0xffff0000u, 0, 1);
+    CHECK(call(device, 25, {4, fvf, verts, 3, 0}) == 0);
+    const uint32_t fx = mem(100);
+    cpu.write32(fx, 100);
+    cpu.write32(fx + 80, 0xffff); // white
+    const uint32_t box = mem(16);
+    cpu.write32(box, 2), cpu.write32(box + 4, 2), cpu.write32(box + 8, 6), cpu.write32(box + 12, 6);
+    CHECK(call(back, 5, {box, 0, 0, 0x400, fx}) == 0); // Blt: a colour fill
+    CHECK(call(primary, 11, {0, 1}) == 0);             // Flip
+    CHECK(f.scene && f.scene->width == 64 && f.scene->steps.size() == 2);
+    if (f.scene && f.scene->steps.size() == 2) {
+        const x86::DirectX::Scene::Step &cleared = f.scene->steps[0];
+        CHECK(cleared.clearDepth && !cleared.clearColor && cleared.depth == 1.0f);
+        const x86::DirectX::Scene::Step &drawn = f.scene->steps[1];
+        CHECK(drawn.first == 0 && drawn.count == 3 && drawn.zTest && drawn.colorOp == 4 && drawn.texture &&
+              drawn.texture->width == 2 && drawn.linear);
+        CHECK(f.scene->vertices.size() == 3 && f.scene->vertices[1].x == 32 && f.scene->vertices[2].y == 32 &&
+              f.scene->vertices[0].z == 0.25f && f.scene->vertices[0].diffuse == 0xffff0000u &&
+              f.scene->vertices[2].v == 1);
+    }
+    CHECK(f.pixels[size_t(10 * f.width + 10)] >> 24 == 0);    // the scene, through
+    CHECK(f.pixels[size_t(3 * f.width + 3)] == 0xffffffffu);  // the fill, over it
+    CHECK(f.pixels[size_t(40 * f.width + 40)] >> 24 == 0xff); // around the triangle, as it was
+    CHECK(call(primary, 11, {0, 1}) == 0 && !f.scene);        // nothing drawn since
+    dx.sceneCapture = x86::DirectX::SceneCapture::kNone;
     // Release the device and the DirectDraw object's.
     CHECK(call(device, 2, {}) == 0);
 }

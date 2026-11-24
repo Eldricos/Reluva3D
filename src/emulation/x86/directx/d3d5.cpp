@@ -712,6 +712,8 @@ std::optional<uint32_t> LegacyDevice::invoke(const ComInterface &iface, int inde
     if (m == "BeginScene" || m == "EndScene") {
         if (m == "BeginScene" && !s->fpuPreserve)
             c.fpu.control &= ~0x300; // single precision, as Direct3D leaves it
+        if (m == "EndScene")
+            device->endScene();
         return kDDOk;
     }
     if (m == "GetDirect3D") {

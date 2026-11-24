@@ -87,6 +87,16 @@ struct PixelFormat {
     uint32_t fromArgb(uint32_t argb) const;
     ///@}
 };
+
+/**
+ * The value a buffer is filled with where a scene kept for the engine
+ * shows through (DirectX::SceneCapture::kInstead): the faintest red,
+ * green and blue together, a colour programs rarely draw.
+ */
+inline uint32_t sceneKey(const PixelFormat &f) {
+    return (f.r & (~f.r + 1)) | (f.g & (~f.g + 1)) | (f.b & (~f.b + 1));
+}
+
 /**
  * PixelFormat::toArgb for many pixels of one format: each channel's
  * position worked out once, its scaling to 8 bits a table.
@@ -423,6 +433,9 @@ struct DirectX::State {
     std::map<uint32_t, std::weak_ptr<dx::Surface>> textureHandles;
     std::map<uint32_t, std::weak_ptr<ComObject>> materialHandles;
     uint32_t nextHandle = 1;
+    // With DirectX::sceneCapture: the scene being drawn into each buffer of
+    // the flipping chain (by its memory), until it's shown.
+    std::map<uint32_t, std::shared_ptr<DirectX::Scene>> scenes;
 
     /** The state of `o`, whose objects live in `p`. */
     State(DirectX &o, Win32Process &p) : owner(o), process(p), cpu(p.cpu()), com(p) {}
@@ -442,6 +455,8 @@ struct DirectX::State {
     // The gamma ramp (IDirectDrawGammaControl's) on the frame.
     void applyGamma();
     ///@}
+    /** A Z buffer filled with `value` (Blt's depth fill): the scenes kept that use it clear their depth. */
+    void depthFilled(dx::Surface &z, uint32_t value);
 
     /** Makes a surface's memory, setting its pitch; 0 if there's no room. */
     uint32_t allocate(dx::SurfaceData &d);

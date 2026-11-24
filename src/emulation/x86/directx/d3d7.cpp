@@ -357,6 +357,8 @@ std::optional<uint32_t> Device::invoke(const ComInterface &iface, int index, Cpu
         singlePrecision(*s, c);
         return kDDOk;
     }
+    if (m == "EndScene")
+        endScene();
     if (m == "EndScene" || m == "PreLoad")
         return kDDOk;
     if (m == "GetDirect3D") {

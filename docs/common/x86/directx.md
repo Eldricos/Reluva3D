@@ -132,6 +132,40 @@ Alpha Team lock and blit surfaces as well as drawing into them, and doing
 both in one place keeps them consistent. It also lets the frames be
 checked without a GPU.
 
+### Scenes for the GPU
+
+An engine whose game allows it can have Direct3D's triangles kept for
+it instead (`DirectX::sceneCapture`, `kInstead`), to draw on the GPU.
+It's for a game that never reads back what Direct3D drew. Software stays
+the default, and is what every other game, the tests and the records
+use.
+
+- **What's kept:** for each buffer of the display's flipping chain
+  (its primary, back and front buffers), the scene drawn into it until
+  it's shown (`DirectX::Scene`). That's each draw's triangles as the
+  device had them after clipping, projection and culling: screen x and
+  y with pixel centres on whole numbers, z as the viewport maps it, 1/w,
+  the colours, and the first stage's texture coordinates. Each draw
+  also keeps its render states and its first stage's texture (its top
+  level, made once each time the texture changes, with the colour key's
+  texels marked), as do the clears of the target and Z-buffer, and a
+  `Blt` depth fill of the Z-buffer, in order. Draws into any other
+  surface (a texture, an off-screen buffer) are drawn in software as
+  before.
+- **The 2D over it:** a kept draw isn't drawn. Instead the pixels its
+  triangles span (each triangle's bounds within the viewport) are filled
+  with a key colour, the faintest red, green and blue together
+  (`dx::sceneKey`); a colour clear fills its viewport the same way. What
+  the program draws or copies there afterwards (gauges, text) replaces
+  the key; what it drew before is under the scene, as the triangles
+  would have drawn over it. When the buffer is shown, the frame
+  (`Frame::pixels`) has alpha 0 where the key is left, and `Frame::scene`
+  is the scene, for the engine to draw under the frame. A frame with no
+  key left has no scene.
+- **Comparing:** with `kAlso` the scene is kept and drawn in software
+  too, and at `EndScene` the target as drawn goes into the scene
+  (`Scene::software`), for the GPU's picture to be checked against.
+
 ## Sources and checks
 
 - **Where the facts come from:** the DirectX 7 documentation, and the SDK
@@ -158,4 +192,5 @@ checked without a GPU.
   It doesn't read DirectInput
   ([input.md](../../engines/netimmerse/games/legoalphateam/systems/input.md)).
 - **`sith`**: Jedi Knight's DirectDraw, Direct3D 1's devices (when its
-  Setup chooses 3D acceleration) and DirectInput ([hosting.md](../../engines/sith/games/jk/systems/hosting.md)).
+  Setup chooses 3D acceleration) and DirectInput, and the scenes kept for
+  the GPU ([hosting.md](../../engines/sith/games/jk/systems/hosting.md)).
