@@ -300,7 +300,7 @@ const LoadedModel *ParkScreen::objectModel(int id) const {
 // without its guests, the park's visitors not riding yet: it builds itself
 // (its animation 0), then plays what it plays while it waits. Those there
 // as the park opens are run on past their building.
-void ParkScreen::advance(const Park &park) {
+void ParkScreen::advance(Park &park) {
     const uint32_t ms = uint32_t(park.millis() - std::min(park.millis(), _ranTo));
     _ranTo = park.millis();
     for (size_t i = _runs.size(); i < park.objects().size(); ++i) {
@@ -315,9 +315,26 @@ void ParkScreen::advance(const Park &park) {
         }
         _runs.push_back(std::move(run));
     }
-    for (std::unique_ptr<RideRun> &run : _runs)
-        if (run)
-            run->advance(ms);
+    // Each ride's script takes the visitor waiting at its entrance when
+    // it will, and lets its riders off.
+    for (size_t i = 0; i < _runs.size(); ++i) {
+        RideRun *run = _runs[i].get();
+        if (!run)
+            continue;
+        const int queue = park.queueOf(i);
+        SimulatedHost *host = run->host();
+        if (queue >= 0 && host && !host->hasOffered()) {
+            if (const int waiting = park.waitingAt(queue))
+                host->offerGuest(waiting);
+        }
+        run->advance(ms);
+        if (queue < 0 || !host)
+            continue;
+        for (int id : host->takeBoarded())
+            park.board(queue, id);
+        for (int id : host->takeLetOff())
+            park.letOff(queue, id);
+    }
 }
 
 void ParkScreen::drawObjects(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const Park &park) const {
@@ -489,6 +506,8 @@ void ParkScreen::drawVisitors(Surface &screen, const soft3d::OrbitCamera &eye, c
     };
     std::vector<Seen> seen;
     for (const Park::Visitor &v : park.visitorsAbout()) {
+        if (v.doing == Park::Doing::kRiding)
+            continue;
         const soft3d::ViewVertex view = eye.toView(toViewerWorld({v.x, 0, v.z}));
         if (view.z >= eye.nearZ)
             seen.push_back({view.z, &v, eye.project(view)});

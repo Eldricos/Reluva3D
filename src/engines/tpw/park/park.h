@@ -6,6 +6,7 @@
 #include "common/archive.h"
 #include "common/types.h"
 #include "engines/tpw/formats/attribute_map.h"
+#include "engines/tpw/park/attractions.h"
 #include "graphics/gfx3d.h"
 
 #include <array>
@@ -87,6 +88,14 @@ public:
     };
     const std::vector<VisitorType> &visitorTypes() const { return _visitorTypes; }
 
+    /** What a visitor is doing. */
+    enum class Doing : uint8_t {
+        kComing,   // on their way in
+        kWalking,  // about the paths
+        kQueueing, // in a ride's queue, or at its entrance to get on
+        kRiding,   // on the ride, not seen
+        kLeaving,  // from a ride's exit to the path
+    };
     /** A visitor coming in, or in the park. */
     struct Visitor {
         int id = 0;
@@ -98,9 +107,17 @@ public:
         float z = 0;
         float headingX = 0; // the way they walk, a unit along the ground; 0, 0 standing
         float headingZ = 0;
-        size_t leg = 0; // the waypoint they walk to next
+        size_t leg = 0; // coming: the waypoint they walk to next
         bool paid = false;
         bool inPark = false;
+        Doing doing = Doing::kComing;
+        Cell cell;            // walking: the path cell walked to; leaving: the one they make for
+        Cell from;            // walking: the one they came from
+        int queue = -1;       // queueing, riding: the ride's queue
+        float along = 0;      // queueing: units along the queue, from the path
+        int lastQueue = -1;   // the queue of the ride last ridden, not joined again straight away
+        int rides = 0;        // how many rides they've had
+        uint32_t choices = 0; // how many ways they've chosen, which picks the next
     };
     const std::vector<Visitor> &visitorsAbout() const { return _people; }
 
@@ -135,6 +152,11 @@ public:
         std::vector<Cell> cells;
         bool atPath = false;
         Cell pathEnd;
+        int object = -1;      // its attraction, in objects(); −1 where it isn't known
+        int fare = 0;         // what a ride costs: its UsageInfo.InitPricePerUse
+        bool hasExit = false; // where its riders come off
+        Cell exit;
+        std::vector<int> line; // the visitors in it, the first at its entrance first
     };
     const std::vector<Queue> &queues() const { return _queues; }
 
@@ -227,6 +249,24 @@ public:
      */
     int buildPath(const std::vector<Cell> &cells);
 
+    /** The world's attractions, which the park's objects are. */
+    const Attractions &attractions() const { return _attractions; }
+    /** The queue of the attraction objects()[object]; −1 for none. */
+    int queueOf(size_t object) const;
+    /** A visitor by their number; nullptr if they're not about. */
+    const Visitor *visitor(int id) const;
+    /**
+     * The visitor first in a queue, at its ride's entrance waiting to get
+     * on; 0 for none.
+     */
+    int waitingAt(int queue) const;
+    /** A visitor waiting at a queue's entrance gets on its ride, paying its fare; false if they weren't. */
+    bool board(int queue, int id);
+    /** A rider gets off, by the ride's exit, and makes for the path; false if they weren't on it. */
+    bool letOff(int queue, int id);
+    /** Room in a queue: this many visitors to a cell (guessed). */
+    static constexpr int kVisitorsPerQueueCell = 3;
+
     /** How many visitors the park draws now: its points, at so many a visitor. */
     int visitorsWanted() const;
     /** The way a visitor walks in, cell by cell: off the bus, over the crossing, past a booth, in. */
@@ -265,9 +305,17 @@ public:
 
 private:
     static constexpr uint32_t kStepMillis = 100;
+    // Which waypoint of the way in is the booth's, where a visitor pays, and
+    // the entrance's, past which they're in the park.
+    static constexpr size_t kBoothLeg = 3;
+    static constexpr size_t kEntranceLeg = 4;
     void layPrebuilt(const SearchSet &files, const AttributeMap &map);
     Queue followQueue(const Cell &entrance) const;
     void step(uint32_t ms);
+    void linkQueue(size_t object, const Footprint &footprint);
+    void moveVisitor(Visitor &v, float left);
+    void chooseWay(Visitor &v);
+    std::vector<gfx::Vec3> queueRoute(const Queue &queue) const;
 
     std::string _folder;
     FixedItems _fixed;
@@ -289,6 +337,7 @@ private:
     std::vector<VisitorType> _visitorTypes;
     std::vector<gfx::Vec3> _wayIn;
     std::vector<Visitor> _people;
+    Attractions _attractions;
     uint64_t _nextArrivalMs = 0;
     int _nextId = 1;
 };

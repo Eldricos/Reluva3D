@@ -90,9 +90,11 @@ public:
 
     /**
      * Runs the placed objects' scripts on to the park's time: rides,
-     * shops and features moving as their scripts have them.
+     * shops and features moving as their scripts have them, the rides
+     * taking the park's visitors waiting at their entrances and letting
+     * them off.
      */
-    void advance(const Park &park);
+    void advance(Park &park);
 
     /** The HUD's buttons, which take the mouse before the park does. */
     ParkHud &hud() { return _furniture; }

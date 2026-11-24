@@ -96,7 +96,8 @@ of the general settings: off the
 bus at the first stop, over the crossing from the bus's side to the
 park's, past the first booth, paying, through the entrance's first cell
 and up the path four cells in, the attribute map's path tiles
-([attribute-map.md](../formats/attribute-map.md)).
+([attribute-map.md](../formats/attribute-map.md)). Once in, they walk
+the paths and ride the rides ([visitors.md](visitors.md)).
 
 The settings have 24 types of visitor (`PeepTypes`), 8 of each
 generation (children, parents, grandparents), each with the excitement
@@ -234,4 +235,4 @@ holds its compass's buttons and picks from its menus.
 - How fast the clock runs at each of the game's speeds, and when it
   stops.
 - How the game turns its `Arrival` settings into visitors, and the
-  way they walk in; what they do once in: the rest of this phase.
+  way they walk in; what they do once in ([visitors.md](visitors.md)).

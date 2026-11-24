@@ -30,6 +30,7 @@ public:
         std::string model;      // its folder's model, robot.MD2
         std::string name;       // Info.Name, as the settings have it: "Giant Robot Swing"
         int price = 0;          // Upgrades[0].CostOfUpgrade
+        int fare = 0;           // what a visitor pays for a go: UsageInfo.InitPricePerUse
         bool hasQueue = false;  // Info.HasQueue
         bool available = false; // on sale from the start: Research.Group 0, and a price
         /**

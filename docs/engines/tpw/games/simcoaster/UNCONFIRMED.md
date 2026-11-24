@@ -111,6 +111,12 @@ None yet.
   ([building.md](systems/building.md#running)). The recording's robot
   and fountain, already standing at 2:35, fit it.
 
+- **How visitors walk and ride**: about the paths by chance, into a
+  ride's queue one time in two as they pass its end, three to a cell,
+  on when its script takes them, off at its exit and straight to the
+  nearest path ([visitors.md](systems/visitors.md)). The game's own
+  visitors, watched, would settle it.
+
 - **How a sign is lettered**: its lines centred on a canvas 512 × 256
   split into its two textures, their letters widened to the font
   description's width and stretched by the line's percent

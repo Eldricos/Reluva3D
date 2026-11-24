@@ -13,6 +13,7 @@ reluva_add_engine(tpw
         park/path_tiles.cpp
         park/attractions.cpp
         park/queues.cpp
+        park/visitors.cpp
         players.cpp
         sound_effects.cpp
         textures.cpp

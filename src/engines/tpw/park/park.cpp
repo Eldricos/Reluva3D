@@ -27,15 +27,11 @@ constexpr int kMostTicketBooths = 8;
 // How far the entrance's path runs in, in cells: its tiles, in the
 // attribute map.
 constexpr int kPathIn = 4;
-// Which waypoint of the way in is the booth's, where a visitor pays, and
-// the entrance's, past which they're in the park.
 constexpr int kVisitorTypes = 24;
 // The attribute map's tiles for the park's bare land and its path
 // (docs/engines/tpw/games/simcoaster/formats/attribute-map.md#the-tiles).
 constexpr uint8_t kOpenTile = 0;
 constexpr uint8_t kPathTile = 8;
-constexpr size_t kBoothLeg = 3;
-constexpr size_t kEntranceLeg = 4;
 
 Error readSettings(const SearchSet &files, const std::string &name, SamFile &out) {
     std::vector<uint8_t> data;
@@ -104,6 +100,10 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
         _fixed.crossingParkSide = {cellOf(world, f + "CrossingParkSideAPosX", f + "CrossingParkSideAPosY"),
                                    cellOf(world, f + "CrossingParkSideBPosX", f + "CrossingParkSideBPosY")};
     }
+
+    // Its attractions: the prebuilt park's want their footprints. A world
+    // without them has nothing to build or ride.
+    _attractions.load(files, folder);
 
     // The ground: cell (x, y) is the attribute map's tile in row x, column
     // y. A world without its map has no land to build on.
@@ -198,9 +198,14 @@ void Park::layPrebuilt(const SearchSet &files, const AttributeMap &map) {
         for (int y = 0; y < _mapHeight; ++y)
             if (saved.cell(x, y).fill == SavedPark::kFillEntrance)
                 _queues.push_back(followQueue({x, y}));
-    for (const SavedPark::Object &o : saved.objects())
-        if (o.placed())
-            _objects.push_back({o.id, {int(std::floor(o.x)), int(std::floor(o.y))}, int(o.angle)});
+    for (const SavedPark::Object &o : saved.objects()) {
+        if (!o.placed())
+            continue;
+        _objects.push_back({o.id, {int(std::floor(o.x)), int(std::floor(o.y))}, int(o.angle)});
+        const PlacedObject &placed = _objects.back();
+        if (const Attractions::Attraction *a = _attractions.find(o.id))
+            linkQueue(_objects.size() - 1, footprint(a->shape, placed.at, placed.angle));
+    }
     _prebuilt = true;
 }
 
@@ -253,39 +258,8 @@ void Park::step(uint32_t ms) {
             _people.push_back(v);
         }
     }
-    for (Visitor &v : _people) {
-        float left = kWalkPerSecond * v.speed * float(ms) / 1000;
-        if (v.leg >= _wayIn.size())
-            v.headingX = v.headingZ = 0;
-        while (left > 0 && v.leg < _wayIn.size()) {
-            const float dx = _wayIn[v.leg][0] - v.x;
-            const float dz = _wayIn[v.leg][2] - v.z;
-            const float d = std::sqrt(dx * dx + dz * dz);
-            if (d > 0) {
-                v.headingX = dx / d;
-                v.headingZ = dz / d;
-            }
-            if (d > left) {
-                v.x += dx / d * left;
-                v.z += dz / d * left;
-                v.walked += left;
-                break;
-            }
-            v.x = _wayIn[v.leg][0];
-            v.z = _wayIn[v.leg][2];
-            v.walked += d;
-            left -= d;
-            if (v.leg == kBoothLeg && !v.paid) {
-                v.paid = true;
-                _cash += _admissionFee;
-            }
-            if (v.leg == kEntranceLeg && !v.inPark) {
-                v.inPark = true;
-                ++_visitors;
-            }
-            ++v.leg;
-        }
-    }
+    for (Visitor &v : _people)
+        moveVisitor(v, kWalkPerSecond * v.speed * float(ms) / 1000);
 }
 
 Park::Date Park::dateOf(uint32_t days) {

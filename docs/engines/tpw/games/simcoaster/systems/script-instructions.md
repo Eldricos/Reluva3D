@@ -133,7 +133,9 @@ its settings. `TOUR`, `BUMP` and `COAST` answer only the checks above;
 the effects, screams and music are only traced. `reluva-tool tpw rse-run
 <game folder> <script> [seconds] -guests` runs a ride so: Arabian
 Nights' `arabride.RSE` loads two riders, runs its three laps, lets them
-off 350 ms apart and loads the next.
+off 350 ms apart and loads the next. In the park, its guests are the
+park's visitors instead, offered one at a time from the ride's queue
+([visitors.md](visitors.md#riding)).
 
 ## Sources and checks
 

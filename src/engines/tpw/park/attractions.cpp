@@ -107,6 +107,7 @@ Error Attractions::load(const SearchSet &files, const std::string &folder) {
             if (const SamFile::Entry *shape = own.find("Info.Shape"))
                 a.shape = shape->grid;
             a.excitement = int(number("UsageInfo.ExcitementLevel", -1));
+            a.fare = int(number("UsageInfo.InitPricePerUse", 0));
             a.capacity = int(number("Upgrades[0].InitCapacity", -1));
             a.workingLife = int(number("Info.WorkingLife", -1));
             _all.push_back(std::move(a));

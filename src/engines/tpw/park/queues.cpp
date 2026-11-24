@@ -172,6 +172,7 @@ int Park::place(int id, int price, const std::vector<std::string> &shape, bool h
     Queue q;
     q.entrance = f.entrance;
     _queues.push_back(q);
+    linkQueue(_objects.size() - 1, f);
     return int(_queues.size()) - 1;
 }
 

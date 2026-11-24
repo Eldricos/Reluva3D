@@ -18,6 +18,7 @@
 #include "engines/tpw/ui/sign_painter.h"
 #include "image/image.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdio>
 #include <cstdlib>
@@ -71,9 +72,14 @@ int cmdParkShot(int argc, char **argv) {
     reluva::tpw::ParkScreen screen;
     if (!newPark(argv[2], argv[3], 0, files, park, screen))
         return 1;
-    if (argc > 5)
-        park.advance(uint32_t(std::strtof(argv[5], nullptr) * 1000));
+    // In frames, so that the rides' scripts and the visitors keep step.
+    constexpr uint32_t kFrameMs = 50;
+    const uint32_t runMs = argc > 5 ? uint32_t(std::strtof(argv[5], nullptr) * 1000) : 0;
     screen.advance(park);
+    for (uint32_t t = 0; t < runMs; t += kFrameMs) {
+        park.advance(std::min(kFrameMs, runMs - t));
+        screen.advance(park);
+    }
     reluva::tpw::ParkScreen::Camera camera = screen.startCamera(park);
     if (argc > 8) {
         camera.yaw = std::strtof(argv[6], nullptr);
@@ -93,6 +99,10 @@ int cmdParkShot(int argc, char **argv) {
                 argv[3], park.mission().number, park.mission().statistic, park.mission().target, park.cash(),
                 park.admissionFee(), screen.dateText(park.day()).c_str(), fixed.entrance[0].x, fixed.entrance[0].y,
                 fixed.entrance[1].x, fixed.entrance[1].y, fixed.ticketBooths.size(), park.mission().boundary.size());
+    static constexpr const char *kDoing[] = {"coming", "walking", "queueing", "riding", "leaving"};
+    for (const reluva::tpw::Park::Visitor &v : park.visitorsAbout())
+        std::printf("visitor %d: %s at %.1f, %.1f, %d rides\n", v.id, kDoing[size_t(v.doing)], double(v.x), double(v.z),
+                    v.rides);
     return 0;
 }
 

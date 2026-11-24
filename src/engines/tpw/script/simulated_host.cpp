@@ -9,6 +9,7 @@
 #include "engines/tpw/formats/sam.h"
 
 #include <algorithm>
+#include <utility>
 #include <string>
 
 namespace reluva::tpw {
@@ -290,8 +291,14 @@ HostResult SimulatedHost::perform(ScriptMachine &machine, const Script::Instruct
     return r;
 }
 
+void SimulatedHost::offerGuest(int id) {
+    _offering = true;
+    if (_pending == 0 && id != 0)
+        _pending = id;
+}
+
 void SimulatedHost::queueGuest(ScriptMachine &machine) {
-    if (!_guests || machine.locked() || machine.variables().size() <= kLetMeOff)
+    if (machine.locked() || machine.variables().size() <= kLetMeOff)
         return;
     // The ride's settings, once, before its script's first turn.
     if (std::find(_given.begin(), _given.end(), &machine) == _given.end()) {
@@ -304,10 +311,21 @@ void SimulatedHost::queueGuest(ScriptMachine &machine) {
                 machine.setVariable(i, _duration);
         }
     }
-    if (machine.variable(kLetMeOn) == 0)
+    if (_offering) {
+        if (machine.variable(kLetMeOn) == 0 && _offered != 0)
+            _boarded.push_back(std::exchange(_offered, 0));
+        if (machine.variable(kLetMeOn) == 0 && _pending != 0) {
+            _offered = std::exchange(_pending, 0);
+            machine.setVariable(kLetMeOn, _offered);
+        }
+        if (machine.variable(kLetMeOff) != 0)
+            _letOff.push_back(machine.variable(kLetMeOff));
+    } else if (_guests && machine.variable(kLetMeOn) == 0) {
         machine.setVariable(kLetMeOn, _nextGuest++);
+    }
     // The guest let off walks away, freeing the exit.
-    machine.setVariable(kLetMeOff, 0);
+    if (_guests || _offering)
+        machine.setVariable(kLetMeOff, 0);
 }
 
 void runFor(ScriptMachine &machine, SimulatedHost &host, uint32_t ms, uint32_t turnMs) {

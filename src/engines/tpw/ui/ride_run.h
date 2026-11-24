@@ -44,6 +44,8 @@ public:
 
     const ScriptMachine *machine() const { return _machine.get(); }
     const SimulatedHost *host() const { return _host.get(); }
+    /** The stand-in, to offer it the park's guests. */
+    SimulatedHost *host() { return _host.get(); }
 
 private:
     std::string _scriptName;

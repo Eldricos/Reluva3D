@@ -99,7 +99,8 @@ Once placed, an attraction runs by its own script beside its model
 robot over 5), then plays what it plays while it waits for riders, a
 loop of its own (the robot's swing rocking, the fountain's top turning),
 as its scripts run without guests *(inferred)*. With riders it runs
-its rides' cycles; the park's visitors don't ride yet. Its sign shows
+its rides' cycles, taking the park's visitors from its queue
+([visitors.md](visitors.md#riding)). Its sign shows
 its name, its pair of `OBJECT_NAMES` in two lines, lettered over its
 `SIGN1`, `SIGN2` textures as the `.sgn` file beside it has it: a font of
 the game's, sizes and colours ([sgn.md](../formats/sgn.md)).

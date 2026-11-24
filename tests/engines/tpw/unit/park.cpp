@@ -331,6 +331,67 @@ void testPlacing() {
     CHECK(bare.place(1101, 0, shape, true, {1, 1}, 0) == Park::kNotPlaced);
 }
 
+// Visitors on a line of path: into a ride's queue as they pass its end,
+// up it to the entrance, on when the ride takes them, paying its fare,
+// off by its exit and back to the path.
+void testRiders(const std::filesystem::path &tmp) {
+    const std::filesystem::path data = tmp / "game" / "Data";
+    writeText(data / "levels" / "Standard.sam",
+              "BankAccountInfo.InitialCash 1000\r\nCosts.QueueCell 10\r\nArrival.MinPeople 1\r\n"
+              "Arrival.TimeBetweenArrivals 1\r\nArrival.FixedRate 6\r\nArrival.PointsPerVisitor 1\r\n");
+    writeText(data / "missions" / "miss00.sam", "Info.Number 0\r\n");
+    writeText(data / "levels" / "science" / "rides" / "Rides.sam", "Info.HasQueue 1\r\n");
+    writeText(data / "levels" / "science" / "rides" / "robot" / "robot.sam",
+              "Info.Id 1101\r\nUsageInfo.InitPricePerUse 10\r\nInfo.Shape\r\n---\r\n2N\r\n---\r\n");
+    // Without the world's settings its way in ends at (0, 4): path from
+    // there along y = 4.
+    constexpr int kRows = 8;    // x
+    constexpr int kColumns = 6; // y
+    tpw::testing::Bytes tiles(size_t(kRows) * kColumns, 0);
+    for (int x = 0; x < 7; ++x)
+        tiles[size_t(x) * kColumns + 4] = 8;
+    test::writeFile(data / "levels" / "science" / "terrain" / "base.map",
+                    tpw::testing::makeAttributeMap(kColumns, kRows, tiles));
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!mountGame(files, tmp / "game", warnings));
+    Park park;
+    CHECK(!park.load(files, "levels/science", 0));
+    const int q = park.place(1101, 0, {"2N"}, true, {2, 2}, 0);
+    CHECK(q >= 0 && park.queueOf(0) == q);
+    if (q < 0)
+        return;
+    CHECK(park.layQueue(q, Park::pathRun({2, 2}, {2, 4})) == 1 && park.queues()[size_t(q)].atPath);
+    const Park::Queue &queue = park.queues()[size_t(q)];
+    CHECK(queue.fare == 10 && queue.hasExit && (queue.exit == Park::Cell{3, 2}));
+    CHECK(park.waitingAt(q) == 0 && !park.board(q, 1));
+
+    int waiting = 0;
+    for (int t = 0; t < 600 && !waiting; ++t) {
+        park.advance(100);
+        waiting = park.waitingAt(q);
+        CHECK(queue.line.size() <= size_t(2 * Park::kVisitorsPerQueueCell));
+    }
+    CHECK(waiting != 0);
+    if (!waiting)
+        return;
+    const Park::Visitor *v = park.visitor(waiting);
+    CHECK(v && v->doing == Park::Doing::kQueueing && v->x == 25 && v->z == 25);
+    const int cash = park.cash();
+    CHECK(park.board(q, waiting) && park.cash() == cash + 10);
+    v = park.visitor(waiting);
+    CHECK(v && v->doing == Park::Doing::kRiding && v->rides == 1);
+    CHECK(!park.board(q, waiting) && !park.letOff(q, waiting + 100));
+    park.advance(1000);
+    CHECK(park.visitor(waiting)->doing == Park::Doing::kRiding);
+    CHECK(park.letOff(q, waiting));
+    v = park.visitor(waiting);
+    CHECK(v && v->doing == Park::Doing::kLeaving && v->x == 35 && v->z == 25 && (v->cell == Park::Cell{3, 4}));
+    park.advance(5000);
+    v = park.visitor(waiting);
+    CHECK(v && v->doing == Park::Doing::kWalking && park.isPath(v->cell));
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -342,4 +403,5 @@ static const reluva::test::Suite
                                 {"queue-pieces", [](const std::filesystem::path &) { testQueuePieces(); }},
                                 {"attractions", [](const std::filesystem::path &tmp) { testAttractions(tmp); }},
                                 {"placing", [](const std::filesystem::path &) { testPlacing(); }},
+                                {"riders", [](const std::filesystem::path &tmp) { testRiders(tmp); }},
                             });

@@ -80,12 +80,28 @@ public:
     /** Moves the clock on. */
     void advance(uint32_t ms) { _now += ms; }
     /**
-     * Whether guests come: each time the script takes one (clears
-     * VAR_LETMEON), the next is put there, numbered from 1; each one it
-     * lets off (VAR_LETMEOFF) walks away.
+     * Whether guests come of themselves: each time the script takes one
+     * (clears VAR_LETMEON), the next is put there, numbered from 1; each
+     * one it lets off (VAR_LETMEOFF) walks away.
      */
     void setGuests(bool on) { _guests = on; }
-    /** Does the guests' part, between the script's turns, if guests come and it isn't locked. */
+    /**
+     * A guest of the park's at the ride's entrance, put in VAR_LETMEON
+     * once it's free: guests then come only so. Ignored while another
+     * waits to be offered.
+     */
+    void offerGuest(int id);
+    /** Whether a guest offered hasn't yet been taken. */
+    bool hasOffered() const { return _pending != 0 || _offered != 0; }
+    /** The guests offered that the script has taken since last asked, in order. */
+    std::vector<int> takeBoarded() { return std::exchange(_boarded, {}); }
+    /** The guests offered that it has let off since last asked, in order. */
+    std::vector<int> takeLetOff() { return std::exchange(_letOff, {}); }
+    /**
+     * Does the guests' part, between the script's turns, unless it's
+     * locked: the ride's settings given once, a guest put on, one let off
+     * taken away.
+     */
     void queueGuest(ScriptMachine &machine);
 
     /**
@@ -104,6 +120,11 @@ private:
     uint32_t _seed = 1;
     bool _guests = false;
     int _nextGuest = 1;
+    bool _offering = false; // guests come only as offered
+    int _pending = 0;       // offered, not yet in VAR_LETMEON
+    int _offered = 0;       // in VAR_LETMEON, not yet taken
+    std::vector<int> _boarded;
+    std::vector<int> _letOff;
     uint32_t animationMs(int number, int variant) const;
     uint32_t remainingMs() const; // of the animation playing, once
 
