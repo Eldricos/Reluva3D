@@ -33,6 +33,14 @@ it uses are DirectX 5's, by the identifiers in its data:
 | DirectSound | 3D buffers and listener |
 | DirectPlay | `IDirectPlay3`, `IDirectPlayLobby2A` |
 
+Not all those identifiers are asked for: they come with the table of
+them the program was built with. Its code asks `QueryInterface` for
+`IDirect3D` (`0x429326`), `IDirect3DTexture` (`0x42a553`, `0x42a70d`)
+and `IDirectDraw2` (`0x4296f0`, `0x42aa37`), and nothing refers to the
+identifiers of `IDirect3D2`, `IDirect3DDevice2`, `IDirect3DTexture2`,
+`IDirect3DViewport2`, `IDirect3DMaterial2` or `IDirectDrawSurface2`
+*(from the code)*: the game uses Direct3D 1, as the runs did.
+
 `SMACKW32.DLL` plays sound through WINMM's `waveOut`, and asks for
 0x400000 as `JK.EXE` does (it can be relocated; `JK.EXE` can't).
 
@@ -344,5 +352,4 @@ in a second copy, with a save folder of its own, joins it. `reluva-tool sith dis
 
 ## Open questions
 
-- What `IDirect3D2` and its devices are asked for, if ever: the runs
-  only used Direct3D 1's.
+None.
