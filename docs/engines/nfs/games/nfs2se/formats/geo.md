@@ -116,7 +116,12 @@ first entry in its table of texture corners in bytes 2-3 (0x461f55,
   in the Ford Indigo's (`IDGO`) only. The faces sit on the tyres' outer
   edges in the files; moved, they aren't lost against them when drawn
   *(inferred)*: on the Cars page, the F355's rear faces unmoved are half
-  hidden by the tyres, and moved they show whole. The Indigo's front wheels alone stand clear of its body.
+  hidden by the tyres, and moved they show whole. The Indigo's wheels
+  alone have a see-through disc (`n005`) the size of the face 3/256
+  inside it, front and rear; moved, the two are 8/256 apart, which is
+  why its front faces are moved too *(inferred)*. Every other car's
+  front faces lie flush with their treads, as their rear ones do: why
+  only the rear ones are moved isn't known.
   `MUSC` has no number: the game never loads it *(inferred)*.
 - **The colours' file.** `GameData/CarModel/pc/CARHSVT.TXT` holds the
   table's first 24 colours, the same four numbers each, as commented text.
@@ -158,4 +163,4 @@ The wheels' faces are moved out as the game's loader moves them.
 ## Open questions
 
 - What the header's first word meant to its maker.
-- Why the Indigo's front wheels' faces alone are moved out.
+- Why every car's rear wheels' faces are moved out, and not the front ones.

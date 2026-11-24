@@ -21,8 +21,13 @@ the hosted game opens only the `.hrz` for a race, and the 8 files hold
 the same numbers (475 bytes each). What they were for isn't known: their
 lights run the other way from the software program's (15 full light,
 not dark), and their palettes are on a scale of 0 to 127, as a renderer
-taking 128 for a colour unchanged would want (PlayStation-like
-*(guessed)*).
+taking 128 for a colour unchanged would want: the PlayStation's
+graphics chip lights a texture by its colour × the light ÷ 128 (the
+psx-spx description of its GPU). Their wording is in neither program
+nor the other text files, and they're only beside the tracks rebuilt for
+the SE. So another renderer's template *(inferred)*, the PlayStation's
+*(guessed)*: a `.lgt` beside a PlayStation release's tracks would settle
+it.
 
 ## Layout
 
@@ -190,7 +195,9 @@ reads a sky as NFS III's, else as NFS II SE's. Not drawn yet.
 - **Where the facts come from:** the files' own comments, which name
   every value; the layout counted on all of them (November 2026). How
   the game uses them from both programs, disassembled and read, and the
-  software program's tables in the hosted game's memory.
+  software program's tables in the hosted game's memory. For the `.lgt`
+  files' scale, the PlayStation's texture lighting from psx-spx's
+  description of its GPU (prose, read only).
 - **How it was checked:** every file split by its comments into named
   groups, each kind's counts the same on all; the readers on all 42; the
   unit tests (`nfs.unit.nfs2se`).
