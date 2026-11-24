@@ -25,7 +25,7 @@ like a metre, as the cars' sizes do ([geo.md](geo.md)) *(inferred)*.
 | 8 | u32 | the largest superblock's size |
 | 12 | u32 | the largest block's size |
 | 16 | u32 | the most that a block's neighbourhood (extrablock 4) adds up to |
-| 20 | u32 | not worked out: 19,800 to 38,800 more than 16 |
+| 20 | u32 | 19,800 to 38,800 more than 16; neither program reads it, nor 16 (the header is kept at 0x4ffeac, these two never read): another buffer's size *(guessed)* |
 | 24 | u32 | number of superblocks |
 | 28 | u32 | number of blocks |
 | 32 | 4 × superblocks | each superblock's offset in the file |
@@ -79,9 +79,16 @@ block's offset from the superblock's start.
   quad's vertices in (0x435090). A vertex gets the same value from every
   high-level quad that has it in 96.6% of vertices; no other order gets
   above 78%. 7 is the most common, all four 7 being `0xFFFF`: a shade or
-  light by corner *(guessed)*. The low 4 bits are `0xF`, 1 or 2, all four
-  values alike with 2; not worked out. The value goes with the polygon
-  into the program's draw list (0x4351a7); where it's used wasn't found.
+  light baked by corner. The software program copies them into its draw
+  list (0x4351b8) but never draws with them. The 3dfx program makes each
+  a grey for its vertex, 24 × the value + 50, 50 to 218 (`NFS2SEA.EXE`
+  0x429cea): 7 is the picture as it is, 0 the darkest, the shadows; an
+  animated picture's are all taken as 7 (0x4468d7). A car takes the mean
+  of the shades under it, and in the 3dfx program is drawn that much
+  darker (0x45a490, 0x46dcb0; [A] 0x47e720). The low 4 bits are `0xF`
+  (139,230 of the high level's), 1 (33,347) or 2 (3,930, all four values
+  0 with it), on the same pictures in the same blocks; neither program
+  reads them: the lighting tool's mark *(guessed)*.
 
 The counts at 76 are pairs of u16, not u32: in 539 blocks the second of
 a pair isn't 0, and only adding both puts the extrablock table after the
@@ -99,7 +106,7 @@ Each: a u32 size, a u16 id, a u16 record count, the records. Seen:
 | 7, 18, 19 | 1,047, 591, 26 | placements of meshes (below) |
 | 8 | 1,275 | meshes (below) |
 | 9 | 862 | painted lines on the road (below) |
-| 10 | 13 | 16 bytes: a 16.16 point, 8 to 68 units off the road, and a u32 of 1, 2 or 4; the program keeps where it is but doesn't read it |
+| 10 | 13 | 16 bytes: a 16.16 point, 8 to 68 units off the road, and a u32 of 1, 2 or 4 (`TR04` one, `TR05` five, `TR08` ten); neither program reads it beyond keeping where it is (0x435a8a): lights or effects for another version *(guessed)* |
 | 11 | 383 | obstacles (below) |
 | 13 | all | 12 bytes: two s16 vectors about 32,767 long (5,322 of the 5,338 checked) |
 | 17 | 17 | sounds (below) |
@@ -112,16 +119,35 @@ block to draw (0x435910).
   level's first-group quads across the road there; u8, how many (the
   rows cover the group in order, in all 1,780 blocks); u8, 2 to 6, the
   music's section for that stretch, looked up ahead of the car by its
-  speed (0x436440) and handed to the music player *(inferred)*; u32
-  `0xFFFFFFFF` in 14,141 of them, not worked out. A car keeps the row
-  it's on (0x4378f0).
+  speed (0x436440) and handed to the music player *(inferred)*; two u16
+  road points, of a stretch of the road running beside this one on the
+  left and on the right, `0xFFFF` for none (81 of the 14,222 have one,
+  never both, each with its partner pointing back: `TR03`, `TR05`, and
+  `TR08`'s hairpin). A car keeps the row it's on (0x4378f0); one off its
+  row is put on the nearer of these roads, if there's one (0x437270),
+  so a car leaving the road where another runs alongside is taken up by
+  that one.
 - **Painted lines** (9), 4 bytes: a vertex of the block, a road point
   (from the block's first), the line's type, and a quad of the high
   level. Each two records make a quad, from the vertex and the vertex
   moved across the road, both raised by half the road's up vector; type
   `0xFF` ends a line. Drawn at the high level only (0x435260) with the
-  pictures `lin0` to `lin7`; on `TR00`, `TR02`, `TR03` and `TR05`. What
-  each type looks like isn't worked out.
+  pictures `lin0` to `lin7`; on `TR00`, `TR02`, `TR03` and `TR05`.
+  Types 0 to 4 are yellow, 5 to 9 white, each drawn as the type 5 below
+  (0x448bcc); up close, each has its own shape (0x448a24), far off one
+  plain quad (beyond 0x6E0000 deep, 0x448a93). The shapes are as the
+  code builds them *(inferred)*:
+
+  | Type | Line | Records |
+  |---|---|---|
+  | 0, 5 | solid, 5/16 of the quad's width in from each side | 2,525, 11,464 |
+  | 1, 6 | broken: each piece from halfway to its end | 344, 5,022 |
+  | 2, 7 | two solid | 355, 1,112 |
+  | 3, 8 and 4, 9 | solid beside broken, mirrored | 268, 337 and 288, 181 |
+
+  The picture among the worn ones is chosen by the vertex's place
+  (0x4c412c). In the 3dfx program the lines take the road's shades,
+  a little darker (0x446ec3).
 - **Obstacles** (11), 20 bytes, what a car can hit (0x44042c): a 16.16
   point (its type 4 placement's, 784 of 784), u16 its radius in 256ths
   of the unit (the mesh's, across), u16 its number over the track (its
@@ -173,14 +199,15 @@ colour toward the sun, and there's no fog or lighting.
   vertices inside its level, the first vertices against the next
   block's; then the reader on all 8; the unit tests (`nfs.unit.nfs2se`).
 - **The fields worked out later** (November 2026) from `nfs2sen.exe`'s
-  loading and drawing code, disassembled and read, each checked over the
+  loading and drawing code, and `NFS2SEA.EXE`'s, disassembled and read;
+  the two programs' track code is the same but for the 3dfx drawing (the
+  shades, the lines' shading): the 3dfx program reads no field the
+  software one doesn't, each checked over the
   8 tracks as given above; the pictures' way round against the hosted
   game's frames.
 
 ## Open questions
 
-- The header's word at 20.
-- What the shades do, and their low 4 bits.
-- Extrablock 6's last word, 9's line types, 10's use.
-- Whether the 3dfx program reads any of these that the software one
-  doesn't.
+- What the header's word at 20 measures, and extrablock 10 was for.
+- Which of the solid-beside-broken lines (types 3 and 4) is broken on
+  which side.
