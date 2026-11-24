@@ -5,7 +5,13 @@
 // making an Engine to run one) and its Engine, which shows an empty screen
 // so far. Star Trek: Armada is its first game.
 
+#include "audio/mixer.h"
+#include "audio/wav.h"
+#include "common/settings.h"
 #include "engines/engine.h"
+#include "engines/storm3d/game_files.h"
+#include "engines/storm3d/shell/full_screen_movie.h"
+#include "engines/storm3d/shell/main_menu.h"
 
 namespace reluva::storm3d {
 
@@ -36,35 +42,131 @@ const std::vector<GameVariant> kFallback = {
 };
 
 /**
- * The game running: for now an empty screen until the player quits.
+ * The game running: the opening movie, then the front end's main menu
+ * (shell/main_menu.h), until the player quits. See
+ * docs/engines/storm3d/games/armada/systems/front-end.md.
  */
 class Storm3dEngine : public Engine {
 public:
     Storm3dEngine(System &system, const GameTarget &target) : _sys(system), _target(target) {}
 
     Error run() override {
-        if (Error err = _sys.initGraphics(kWidth, kHeight, PixelFormat::kCLUT8))
+        if (Error err = _files.open(_target.path))
+            return err;
+        if (Error err = _sys.initGraphics(kWidth, kHeight, PixelFormat::kRGBA32))
             return err;
         _sys.setWindowTitle(("Reluva - " + _target.description).c_str());
+        audio::Mixer mixer(_sys.audioRate());
+        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
+        _mixer = audio::startMixerOutput(_sys, mixer) ? nullptr : &mixer;
         Surface screen;
-        screen.create(kWidth, kHeight, PixelFormat::kCLUT8);
+        screen.create(kWidth, kHeight, PixelFormat::kRGBA32);
+
+        bool intro = startIntro();
+        MainMenu menu;
+        bool menuOn = false;
         for (bool running = true; running;) {
+            const uint64_t now = _sys.getMillis();
+            if (!intro && !menuOn) {
+                if (Error err = menu.load(_files, now)) {
+                    stopAll();
+                    return err;
+                }
+                menuOn = true;
+                // The shell's music, over and over (PlaySoundA's SND_LOOP, 0x546195).
+                _music = play("sounds/effects/shellsd0.wav", audio::SoundType::kMusic, true);
+            }
             Event ev;
-            while (_sys.pollEvent(ev))
-                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher ||
-                    (ev.type == EventType::kKeyDown && ev.key == key::kEscape))
+            while (_sys.pollEvent(ev)) {
+                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher) {
                     running = false;
+                } else if (intro) {
+                    // Esc, a key or a click ends it, as the game's does.
+                    if (ev.type == EventType::kKeyDown || ev.type == EventType::kMouseDown)
+                        intro = stopIntro();
+                } else if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
+                    running = false;
+                } else if (ev.type == EventType::kMouseMove) {
+                    if (menu.pointerAt(ev.mouseX, ev.mouseY, now))
+                        play("sounds/effects/cornron.wav", audio::SoundType::kEffects, false);
+                } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
+                    menu.press(ev.mouseX, ev.mouseY);
+                } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
+                    const MenuChoice choice = menu.release(ev.mouseX, ev.mouseY);
+                    if (choice != MenuChoice::kNone)
+                        play("sounds/effects/cornrclk.wav", audio::SoundType::kEffects, false);
+                    if (choice == MenuChoice::kQuit) {
+                        running = false;
+                    } else if (choice == MenuChoice::kReplayIntro) {
+                        stopSound(_music);
+                        menuOn = false;
+                        intro = startIntro();
+                    }
+                }
+            }
+            if (intro) {
+                if (_intro.update(now))
+                    _intro.draw(screen);
+                else
+                    intro = stopIntro();
+            } else if (menuOn) {
+                menu.draw(screen, now);
+            }
             _sys.updateScreen(screen);
-            _sys.delayMillis(1);
+            _sys.delayMillis(kFrameMs);
         }
+        stopAll();
         return Error::success();
     }
 
 private:
+    // The opening movie: the install's if it's been copied there, as the
+    // game looks for it first; the installer leaves it on the CD.
+    bool startIntro() {
+        if (_intro.open(_files, "animations/stintro.bik"))
+            return false;
+        _intro.start(_sys.getMillis());
+        if (_mixer && _intro.sound())
+            _introSound = _mixer->play(_intro.sound(), audio::SoundType::kMusic);
+        return true;
+    }
+    bool stopIntro() {
+        stopSound(_introSound);
+        return false;
+    }
+    audio::SoundHandle play(const std::string &name, audio::SoundType type, bool loop) {
+        if (!_mixer)
+            return audio::kNoSound;
+        auto sound = std::make_shared<audio::Sound>();
+        std::vector<uint8_t> data;
+        if (_files.read(name, data) || audio::decodeWav(data, *sound))
+            return audio::kNoSound;
+        return _mixer->play(sound, type, audio::kMaxVolume, 0, loop);
+    }
+    void stopSound(audio::SoundHandle &handle) {
+        if (_mixer && handle != audio::kNoSound)
+            _mixer->stop(handle);
+        handle = audio::kNoSound;
+    }
+    void stopAll() {
+        stopSound(_music);
+        stopSound(_introSound);
+        if (_mixer)
+            _sys.stopAudio();
+        _mixer = nullptr;
+    }
+
     static constexpr int kWidth = 640;
     static constexpr int kHeight = 480;
+    // About the game's own pace in its menu (59 frames a second).
+    static constexpr uint32_t kFrameMs = 16;
     System &_sys;
     GameTarget _target;
+    GameFiles _files;
+    audio::Mixer *_mixer = nullptr;
+    audio::SoundHandle _music = audio::kNoSound;
+    audio::SoundHandle _introSound = audio::kNoSound;
+    FullScreenMovie _intro;
 };
 
 /**

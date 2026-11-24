@@ -78,8 +78,13 @@ these phases start from, is in [formats/install.md](formats/install.md).
    play: the fog over what's been seen but isn't now, once ships move
    (phase 7), and the ships' specular highlights, which the renderer
    doesn't draw yet.
-6. **The front end:** the shell's screens, the opening movie, game setup,
-   options, loading and saving.
+6. **The front end** (in progress): the shell's screens, the opening
+   movie, game setup, options, loading and saving. Done: the game itself
+   starts with the opening movie, then the main menu as the original
+   draws it, its panels' movies, its labels lit under the pointer, its
+   music and sounds ([systems/front-end.md](systems/front-end.md)), the
+   movies' colours as the game shows them. Next: the single-player
+   screens, up to starting a mission.
 7. **Rules:** units from their object definitions: movement and
    collision avoidance, weapons, shields, crews and boarding, officers,
    mining dilithium, building and research, special weapons, sight and
