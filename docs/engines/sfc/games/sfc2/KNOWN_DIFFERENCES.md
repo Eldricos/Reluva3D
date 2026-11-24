@@ -27,6 +27,18 @@ systems (a CD check, a mode the hardware no longer has). -->
   ([PLAN.md](PLAN.md#decisions)), nor setup's uninstall log
   (`sfc2.isu`). The game is otherwise as setup installs it
   ([README.md](README.md#using-it)).
+- **The opening movie is played by Reluva.** The original's launcher
+  runs `SFC2Intro.exe`, a small player with the movie inside; Reluva
+  takes the movie out of it and plays it itself before the game, a key
+  or click skipping it ([formats/intro.md](formats/intro.md)).
+- **Multiplayer is between copies of Reluva.** The original's DirectPlay
+  speaks Microsoft's protocol; Reluva's speaks its own, on port 28541,
+  so it plays other copies of Reluva, not the game running on Windows
+  ([dplay.md](../../../../common/x86/dplay.md#the-network)).
+- **The machine is named RELUVA.** Hosting or joining a multiplayer
+  game, the original names its player by the computer's name; hosted,
+  it's told the name Reluva gives every program, and the machine's own
+  address, 127.0.0.1 ([systems/hosting.md](systems/hosting.md#its-multiplayer)).
 
 ## Bugs fixed
 
@@ -36,9 +48,19 @@ None yet.
 ## Not yet as the original
 
 <!-- Known gaps: behaviour not done yet, or done differently for now. -->
-The game runs as far as its main menus; nothing past them has been
-tried, and it has no network yet
-([systems/hosting.md](systems/hosting.md)).
+- **Not everything has been played.** The front end, skirmishes, the
+  tutorials, a campaign's first missions with its saves, and
+  multiplayer (against AI players, and between copies of Reluva to a
+  game's end) run; no mission has been won by fighting, and the Film
+  Room, Credits, Hot Keys and Vessel Library screens haven't been
+  opened ([systems/hosting.md](systems/hosting.md)).
+- **Multiplayer sessions don't pass on to a new host.** When the host
+  leaves, the others' session is lost, where DirectPlay could make
+  another player the host; groups and chat messages aren't there
+  ([dplay.md](../../../../common/x86/dplay.md)).
+- **Online play isn't there.** Dynaverse II and MPlayer were services
+  that have closed; the Winsock functions the game imports, perhaps
+  theirs, aren't stood in for.
 
 ## Additions outside the game
 

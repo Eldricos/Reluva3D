@@ -87,8 +87,11 @@ on their pages in `formats/` and `systems/`.
      they're settled;
    - DirectPlay's lobby (done): told no lobby started it, the game shows
      its main menu ([dplay.md](../../../../common/x86/dplay.md));
-   - Winsock (`nfs` has one in its host) and DirectPlay 4, for the
-     network;
+   - DirectPlay 4 (done), its sessions over TCP/IP between copies of
+     Reluva ([dplay.md](../../../../common/x86/dplay.md)); Winsock only
+     for `gethostname` and `gethostbyname`, as a game over TCP/IP calls
+     nothing else of it (the rest perhaps for the online services, which
+     have closed);
    - Miles' 25 `AIL_*` sample functions, on the shared mixer (done): the
      menu music plays, byte for byte the music's WAVs
      ([miles.md](../../../../common/x86/miles.md));
