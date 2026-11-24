@@ -117,6 +117,14 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
     _rules.rumourCells = rule("ViciousRumoursArea", 2);
     _rules.weatherDays = std::max(1, rule("WeatherModifierFrequency", 4));
     _rules.umbrellaShelter = rule("UmbrellaModifier", 1);
+    _rules.cheapPrice = float(general.number(p + "CheapPriceMultiplier", 0.75));
+    _rules.averagePrice = float(general.number(p + "AveragePriceMultiplier", 1.25));
+    _rules.expensivePrice = float(general.number(p + "ExpensivePriceMultiplier", 2));
+    _rules.priceOpinion = {rule("OpinionForTooLow", 100), rule("OpinionForAboutRight", 50),
+                           rule("OpinionForTooHigh", 20), rule("OpinionForMuchTooHigh", 0)};
+    _rules.minimumEntryFee = rule("MinimumEntryFee", 20);
+    _rules.excitementToCost = std::max(1, rule("ExcitementToCostDivisor", 6));
+    loadStaffRules(general);
     for (size_t g = 0; g < 3; ++g)
         for (size_t w = 0; w < kWeathers.size(); ++w) {
             const std::string at = "[" + std::to_string(g) + "]." + kWeathers[w];
@@ -186,6 +194,7 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
         _wayIn.push_back(cellCentre(c));
 
     rollWeather();
+    fillPool(true);
 
     char name[32];
     std::snprintf(name, sizeof name, "missions/miss%02d.sam", mission);
@@ -319,6 +328,8 @@ void Park::step(uint32_t ms) {
         useUp(v, float(ms) / float(kDayMillis));
         moveVisitor(v, kWalkPerSecond * v.speed * float(ms) / 1000);
     }
+    for (StaffMember &m : _staff)
+        moveStaff(m, kWalkPerSecond * float(ms) / 1000);
     _people.erase(std::remove_if(_people.begin(), _people.end(), [](const Visitor &v) { return v.gone; }),
                   _people.end());
 }

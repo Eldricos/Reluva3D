@@ -12,6 +12,7 @@
 #include "engines/tpw/park/park.h"
 #include "engines/tpw/park/path_tiles.h"
 #include "engines/tpw/ui/buy_window.h"
+#include "engines/tpw/ui/hire_window.h"
 #include "engines/tpw/ui/park_hud.h"
 #include "engines/tpw/ui/ride_run.h"
 #include "engines/tpw/ui/sign_painter.h"
@@ -96,6 +97,9 @@ public:
      */
     void advance(Park &park);
 
+    /** The Hire Staff window, which takes the mouse before the HUD while it's open; the staff's sprites. */
+    HireWindow &hireWindow() { return _hire; }
+
     /** The HUD's buttons, which take the mouse before the park does. */
     ParkHud &hud() { return _furniture; }
 
@@ -112,7 +116,8 @@ private:
         float headingZ = 1;
     };
     std::vector<Rider> riders(const Park &park) const;
-    void drawVisitors(Surface &screen, const soft3d::OrbitCamera &eye, const Park &park, const Camera &camera) const;
+    void drawVisitors(Surface &screen, const soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye,
+                      const Park &park, const Camera &camera) const;
     void drawWeather(Surface &screen, const Park &park) const;
     void drawPaths(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const Park &park) const;
     void drawObjects(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const Park &park) const;
@@ -145,6 +150,8 @@ private:
     Attractions _attractions;
     BuyWindow _buy;
     bool _buyRead = false;
+    HireWindow _hire;
+    bool _hireRead = false;
     std::optional<Park::Footprint> _placement;
     bool _placementFits = false;
     int _placementPrice = 0;
@@ -160,6 +167,8 @@ private:
     std::optional<LoadedSprite> _umbrellaSprite;
     std::optional<LoadedSprite> _balloonSprite;
     std::optional<LoadedSprite> _particleSprite;
+    std::optional<LoadedSprite> _costume; // the world's, whole and its head
+    std::optional<LoadedSprite> _costumeHead;
     image::Image _snow;      // four flakes, a quarter each
     image::Image _lightning; // a bolt, top to bottom
 };

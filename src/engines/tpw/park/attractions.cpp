@@ -125,6 +125,11 @@ Error Attractions::load(const SearchSet &files, const std::string &folder) {
             a.holdsLitter = number("UsageInfo.HoldsLitter", 0) != 0;
             a.indoors = number("UsageInfo.ISIndoors", 0) != 0;
             a.security = number("UsageInfo.ProvidesSecurity", 0) != 0;
+            a.lab = number("UsageInfo.ThinkingSpace", 0) != 0;
+            a.generationPercent = {int(number("GenerationModifier.KidScorePercentage", 100)),
+                                   int(number("GenerationModifier.ParentScorePercentage", 100)),
+                                   int(number("GenerationModifier.GrandparentScorePercentage", 100))};
+            a.expectedPrice = int(number("Info.ExpectedPrice", a.fare));
             a.weatherPercent = {100, int(number("WeatherModifier.HeatWavePercentage", 100)),
                                 int(number("WeatherModifier.RainPercentage", 100)),
                                 int(number("WeatherModifier.StormPercentage", 100)),

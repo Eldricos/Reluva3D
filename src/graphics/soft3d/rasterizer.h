@@ -99,6 +99,16 @@ public:
         }
     }
 
+    /**
+     * The depth drawn at a pixel, as 1 / view-space depth (larger is
+     * nearer); 0 where nothing is, or off the surface.
+     */
+    float depthAt(int x, int y) const {
+        if (!_target || x < 0 || y < 0 || x >= _target->w || y >= _target->h)
+            return 0;
+        return _depth[size_t(y) * size_t(_target->w) + size_t(x)];
+    }
+
 private:
     // Twice the signed area of (p, q, (x, y)); its gradient points into the
     // triangle when the triangle's area is positive.

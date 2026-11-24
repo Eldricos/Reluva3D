@@ -57,6 +57,8 @@ public:
     static constexpr uint32_t kObjectivesItem = 848;
     /** Attractions' Build Attraction, which opens the Buy window; a right click on the button picks it too. */
     static constexpr uint32_t kBuildAttractionItem = 833;
+    /** The Staff menu's Hire Staff. */
+    static constexpr uint32_t kHireStaffItem = 827;
 
     /** Reads the models, the fonts and the strings. */
     Error load(const SearchSet &files);

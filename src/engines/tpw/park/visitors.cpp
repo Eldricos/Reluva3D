@@ -36,6 +36,10 @@ constexpr float kNeedWorth = 0.5f;
 constexpr float kNeedFloor = 30;
 // Making for home, not for an attraction.
 constexpr int kHome = -2;
+// What a costume shop sells (UsageInfo.AppearanceEffect).
+constexpr int kCostume = 2;
+// An opinion of a price, 0 to 100, against happiness: this much a point.
+constexpr float kOpinionPerHappiness = 10;
 // Who comes of each generation, by the settings' numbering of people
 // (PersonSpriteUmbrellaModifiers, whose comments say who they are): the
 // boy, the girl with pigtails, the girl with a cap, the boy with a cap;
@@ -116,6 +120,38 @@ float lengthOf(const std::vector<gfx::Vec3> &route) {
 }
 
 } // namespace
+
+Park::PriceOpinion Park::priceOpinion(int price, int fair) const {
+    const float f = float(std::max(1, fair));
+    if (float(price) <= f * _rules.cheapPrice)
+        return PriceOpinion::kCheap;
+    if (float(price) <= f * _rules.averagePrice)
+        return PriceOpinion::kAboutRight;
+    if (float(price) < f * _rules.expensivePrice)
+        return PriceOpinion::kTooHigh;
+    return PriceOpinion::kMuchTooHigh;
+}
+
+int Park::fairEntryFee() const {
+    int excitement = 0;
+    for (const PlacedObject &o : _objects)
+        if (const Attractions::Attraction *a = _attractions.find(o.id))
+            excitement += std::max(0, a->excitement);
+    return std::max(_rules.minimumEntryFee, excitement / _rules.excitementToCost);
+}
+
+void Park::setFare(int queue, int fare) {
+    if (queue >= 0 && size_t(queue) < _queues.size())
+        _queues[size_t(queue)].fare = std::max(0, fare);
+}
+
+// A price's opinion as a change of happiness: about right none, cheaper
+// more, dearer less, by its OpinionFor... value's distance from about
+// right's, a tenth of it (guessed).
+float Park::priceFeeling(PriceOpinion opinion) const {
+    return float(_rules.priceOpinion[size_t(opinion)] - _rules.priceOpinion[size_t(PriceOpinion::kAboutRight)]) /
+           kOpinionPerHappiness;
+}
 
 // A queue's attraction is the object whose entrance is its; one without
 // a queue gets a kiosk, if visitors can choose it.
@@ -253,6 +289,10 @@ bool Park::board(int queue, int id) {
             const int fare = std::min(q.fare, std::max(0, v.cash));
             v.cash -= fare;
             _cash += fare;
+            if (const Attractions::Attraction *a =
+                    q.object >= 0 ? _attractions.find(_objects[size_t(q.object)].id) : nullptr)
+                v.happiness =
+                    std::clamp(v.happiness + priceFeeling(priceOpinion(q.fare, a->expectedPrice)), 0.0f, 100.0f);
         }
     return true;
 }
@@ -427,9 +467,10 @@ void Park::chooseTarget(Visitor &v) {
         const Attractions::Attraction *a = _attractions.find(_objects[size_t(q.object)].id);
         if (d < 0 || q.line.size() >= room || !a || !a->choosable)
             continue;
-        // Not the other's toilet, nor what they already carry.
+        // Not the other's toilet, nor what they already carry; costumes are
+        // children's, the only costumed sprites being of a child (guessed).
         if ((a->gender == 1 && v.female) || (a->gender == 2 && !v.female) ||
-            (a->appearance && a->appearance == v.appearance))
+            (a->appearance && a->appearance == v.appearance) || (a->appearance == kCostume && v.generation != 0))
             continue;
         float score = 0;
         if (a->excitement >= 0 && type)
@@ -446,9 +487,18 @@ void Park::chooseTarget(Visitor &v) {
         // A shop meeting no need (balloons, gifts) for the happiness it gives.
         if (!meetsNeed)
             score += float(a->happinessEffect);
-        // The weather makes it more or less wanted (its WeatherModifier percentages).
+        // Much too dear isn't thought of; dearer or cheaper, it's less or
+        // more wanted, by their opinion of it against about right's.
+        const PriceOpinion opinion = priceOpinion(q.fare, a->expectedPrice);
+        if (opinion == PriceOpinion::kMuchTooHigh && q.fare > 0)
+            continue;
+        if (score > 0 && q.fare > 0)
+            score = score * float(_rules.priceOpinion[size_t(opinion)] + 50) / 100;
+        // The weather and their generation make it more or less wanted
+        // (its WeatherModifier and GenerationModifier percentages).
         if (score > 0)
-            score = score * float(a->weatherPercent[size_t(_weather)]) / 100;
+            score = score * float(a->weatherPercent[size_t(_weather)]) / 100 *
+                    float(a->generationPercent[size_t(std::clamp(v.generation, 0, 2))]) / 100;
         score -= float(_rules.distanceWeight) * float(d) * kCellCost + float(_rules.queueWeight) * float(q.line.size());
         if (score > best) {
             best = score;
@@ -535,10 +585,22 @@ void Park::moveVisitor(Visitor &v, float left) {
             if (!walkTo(v, _wayIn[v.leg][0], _wayIn[v.leg][2], left))
                 return;
             if (v.leg == kBoothLeg && !v.paid) {
+                // Below MinimumEntryFee they pay happily; much too dear,
+                // they turn back; otherwise they pay, thinking of it.
+                const PriceOpinion opinion = _admissionFee < _rules.minimumEntryFee
+                                                 ? PriceOpinion::kAboutRight
+                                                 : priceOpinion(_admissionFee, fairEntryFee());
+                if (opinion == PriceOpinion::kMuchTooHigh) {
+                    think(v, Thought::kAngry);
+                    v.doing = Doing::kGoingHome;
+                    v.leg = kBoothLeg;
+                    break;
+                }
                 v.paid = true;
                 const int fee = std::min(_admissionFee, std::max(0, v.cash));
                 v.cash -= fee;
                 _cash += fee;
+                v.happiness = std::clamp(v.happiness + priceFeeling(opinion), 0.0f, 100.0f);
             }
             if (v.leg == kEntranceLeg && !v.inPark) {
                 v.inPark = true;
@@ -729,6 +791,7 @@ void Park::rollWeather() {
 void Park::newDay() {
     if (_lastDay % kWeatherSpellDays == 0)
         rollWeather();
+    staffDay();
     const bool weatherDay = _lastDay % uint32_t(_rules.weatherDays) == 0;
     const bool wet = _weather == Weather::kRain || _weather == Weather::kStorm || _weather == Weather::kSnow;
     for (Visitor &v : _people) {
@@ -747,7 +810,9 @@ void Park::newDay() {
             v.happiness = std::max(0.0f, v.happiness - 1);
         if (v.prankster && v.doing == Doing::kWalking && v.happiness < float(_rules.prankUnhappy) &&
             int(roll(v) % 100) < _rules.prankPercent &&
-            !objectNear(v, [](const Attractions::Attraction &a) { return a.security; }, kCameraCells)) {
+            !objectNear(
+                v, [](const Attractions::Attraction &a) { return a.security; }, kCameraCells) &&
+            !guarded(v.x, v.z)) {
             think(v, Thought::kNaughty);
             if (int(roll(v) % 100) < _rules.stinkBombPercent) {
                 _stinkBombs.push_back({v.x, v.z, _millis, _millis + kStinkBombMillis});

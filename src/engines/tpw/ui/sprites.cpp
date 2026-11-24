@@ -52,8 +52,14 @@ SpritePose spritePose(const SpriteSet::Animation &animation, float heading, uint
     return pose;
 }
 
-void drawSpriteFrame(Surface &screen, const SpriteSheet &sheet, size_t frame, float x, float y, float scale,
-                     bool mirror) {
+namespace {
+
+// So much nearer the scene must be to hide a sprite: the ground it stands
+// on, and the seat a head sits in, are as near as it.
+constexpr float kDepthSlack = 1.03f;
+
+void drawFrame(Surface &screen, const SpriteSheet &sheet, size_t frame, float x, float y, float scale, bool mirror,
+               const soft3d::Rasterizer *depth, float invZ) {
     if (frame >= sheet.frames().size() || scale <= 0)
         return;
     const SpriteSheet::Frame &f = sheet.frames()[frame];
@@ -75,7 +81,7 @@ void drawSpriteFrame(Surface &screen, const SpriteSheet &sheet, size_t frame, fl
             if (mirror)
                 fx = f.width - 1 - fx;
             const SpriteSheet::Colour &c = sheet.palette()[f.pixels[size_t(fy) * size_t(f.width) + size_t(fx)]];
-            if (c.a == 0)
+            if (c.a == 0 || (depth && depth->depthAt(sx, sy) > invZ * kDepthSlack))
                 continue;
             uint8_t *p = row + 4 * sx;
             p[0] = uint8_t((p[0] * (255 - c.a) + c.r * c.a) / 255);
@@ -83,6 +89,18 @@ void drawSpriteFrame(Surface &screen, const SpriteSheet &sheet, size_t frame, fl
             p[2] = uint8_t((p[2] * (255 - c.a) + c.b * c.a) / 255);
         }
     }
+}
+
+} // namespace
+
+void drawSpriteFrame(Surface &screen, const SpriteSheet &sheet, size_t frame, float x, float y, float scale,
+                     bool mirror) {
+    drawFrame(screen, sheet, frame, x, y, scale, mirror, nullptr, 0);
+}
+
+void drawSpriteFrame(Surface &screen, const SpriteSheet &sheet, size_t frame, float x, float y, float scale,
+                     bool mirror, const soft3d::Rasterizer &depth, float invZ) {
+    drawFrame(screen, sheet, frame, x, y, scale, mirror, &depth, invZ);
 }
 
 } // namespace reluva::tpw

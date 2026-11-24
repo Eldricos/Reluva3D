@@ -27,14 +27,15 @@ None yet.
   running, the mission's briefing over it, visitors coming by guessed
   rules, drawn by their sprites at a guessed pace, under its HUD, the
   camera moved by Reluva's own keys and the compass; path can be laid, the
-  bottom buttons' menus open, but only the path tool and the Park
-  menu's Objectives do anything yet; a new park has the prebuilt park's
+  bottom buttons' menus open, but only the path tool, the Park
+  menu's Objectives, Build Attraction and Hire Staff do anything yet; a new park has the prebuilt park's
   path, queue, ride and other objects ([paths.md](systems/paths.md)),
   standing still; attractions can be bought and placed, their
   queues laid, and they run their scripts; visitors choose, queue for
-  and use rides, shops and toilets by guessed rules, riders drawn over
-  the rides whether a part of the model hides them or not; litter, sickness,
-  pranks and thoughts by guessed rules, and nobody to clear up; the
+  and use rides, shops and toilets by guessed rules; litter, sickness,
+  pranks, thoughts and opinions of prices by guessed rules; staff hired
+  in the Hire Staff window, the janitors sweeping, guards and
+  entertainers at work, the others only walking ([staff.md](systems/staff.md)); the
   weather's rolls and look guessed ([visitors.md](systems/visitors.md),
   [weather.md](systems/weather.md)); their
   signs are lettered by guessed rules ([sgn.md](formats/sgn.md)); some show their settings' names, or

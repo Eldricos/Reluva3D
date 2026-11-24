@@ -108,6 +108,8 @@ constexpr const char *kParticleSprite = "esprites/Generic/Particles/Spr_pa";
 constexpr int kThoughtFrames = 16;
 constexpr std::array<int, 22> kThoughtBubbles{-1, 8, 9, 10, 14, 11, 12, 15, 0,  1,  2,
                                               3,  7, 4, 6,  5,  13, 16, 17, 18, 19, 20};
+// A visitor in a costume (Park::Visitor::appearance), drawn by the world's.
+constexpr int kCostumed = 2;
 // A stink bomb's cloud: the particles' white puff growing (animation 3).
 constexpr size_t kStinkAnimation = 3;
 // The umbrellas' size against their sprite (GenericUmbrellaModifiers.ScalingFactor),
@@ -134,6 +136,9 @@ constexpr Color kRainColour{170, 190, 230};
 constexpr int kRainAlpha = 170;
 constexpr size_t kWalkAnimation = 1;
 constexpr size_t kStandAnimation = 0;
+// A janitor sweeping up: the handyman's fifth animation, a frame this often.
+constexpr size_t kSweepAnimation = 4;
+constexpr uint64_t kSweepFrameMillis = 200;
 // A walking frame each unit walked: a step cycle of 8 units, about one
 // and a half of an adult's heights (guessed).
 constexpr float kUnitsPerWalkFrame = 1;
@@ -258,6 +263,7 @@ Error ParkScreen::load(const SearchSet &files, const Park &park) {
     // The attractions and their names first: the objects' signs want them.
     _attractions.load(files, park.folder());
     _buyRead = !_buy.load(files);
+    _hireRead = !_hire.load(files, park.folder());
     loadObjects(files, park);
     _runs.clear();
     _ranTo = park.millis();
@@ -285,6 +291,23 @@ Error ParkScreen::load(const SearchSet &files, const Park &park) {
         LoadedSprite loaded;
         if (!loaded.load(files, name))
             *sprite = std::move(loaded);
+    }
+    // The world's costume, whole and its head (esprites/Science/Costumes/SPR_GK).
+    _costume.reset();
+    _costumeHead.reset();
+    const std::string world = park.folder().substr(park.folder().rfind('/') + 1);
+    for (const std::string &name : files.list()) {
+        std::string low = name;
+        std::transform(low.begin(), low.end(), low.begin(), [](unsigned char c) { return char(std::tolower(c)); });
+        for (auto [sprite, part] : {std::pair{&_costume, "/costumes/"}, std::pair{&_costumeHead, "/costumeheads/"}}) {
+            const std::string prefix = "esprites/" + world + part;
+            if (sprite->has_value() || low.compare(0, prefix.size(), prefix) != 0 || low.size() < 4 ||
+                low.compare(low.size() - 4, 4, ".esp") != 0)
+                continue;
+            LoadedSprite loaded;
+            if (!loaded.load(files, name.substr(0, name.size() - 4)))
+                *sprite = std::move(loaded);
+        }
     }
     for (auto [picture, name] :
          {std::pair{&_snow, "generic/weather/snow.tga"}, std::pair{&_lightning, "generic/weather/lightning.tga"}})
@@ -665,8 +688,8 @@ std::vector<ParkScreen::Rider> ParkScreen::riders(const Park &park) const {
     return out;
 }
 
-void ParkScreen::drawVisitors(Surface &screen, const soft3d::OrbitCamera &eye, const Park &park,
-                              const Camera &camera) const {
+void ParkScreen::drawVisitors(Surface &screen, const soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye,
+                              const Park &park, const Camera &camera) const {
     const float yaw = camera.yaw;
     // A frame of a sheet at a point of the world, farthest drawn first.
     struct Seen {
@@ -716,8 +739,10 @@ void ParkScreen::drawVisitors(Surface &screen, const soft3d::OrbitCamera &eye, c
             if (rider != seated.end() && rider->seated) {
                 // Seated: their head alone, at the seat, by how the camera
                 // looks down on it and the way they face.
-                if (_personHeads[person]) {
-                    const LoadedSprite &head = *_personHeads[person];
+                const std::optional<LoadedSprite> &headSprite =
+                    v.appearance == kCostumed && _costumeHead ? _costumeHead : _personHeads[person];
+                if (headSprite) {
+                    const LoadedSprite &head = *headSprite;
                     const float down = std::clamp(camera.pitch, 0.0f, 1.5707964f);
                     const int tilt =
                         std::clamp(kHeadTilts / 2 - int(std::lround(down / 0.5235988f)), 0, kHeadTilts - 1);
@@ -742,11 +767,13 @@ void ParkScreen::drawVisitors(Surface &screen, const soft3d::OrbitCamera &eye, c
         }
         if (!shown)
             continue;
-        if (!_personLooks[person]) {
+        const std::optional<LoadedSprite> &looks =
+            v.appearance == kCostumed && _costume ? _costume : _personLooks[person];
+        if (!looks) {
             mark(screen, eye, {v.x, 1, v.z}, 2, kVisitorColour);
             continue;
         }
-        const LoadedSprite &look = *_personLooks[person];
+        const LoadedSprite &look = *looks;
         const bool walking = v.doing != Park::Doing::kRiding && (v.headingX != 0 || v.headingZ != 0);
         const auto &animation = look.set.animations()[walking ? kWalkAnimation : kStandAnimation];
         const SpritePose pose = spritePose(animation, walking ? turned(v.headingX, v.headingZ) : 3.14159265f,
@@ -766,10 +793,29 @@ void ParkScreen::drawVisitors(Surface &screen, const soft3d::OrbitCamera &eye, c
                 see(*sheet, size_t(frame < kThoughtFrames ? frame : frame - kThoughtFrames), feet, false, 1, 0.2f);
         }
     }
+    // The staff, by their kind's sprite: walking, standing, a janitor
+    // sweeping (its fifth animation, stooping with pan and brush).
+    for (const Park::StaffMember &m : park.staff()) {
+        const LoadedSprite *look = _hire.spriteOf(m.kind);
+        if (!look) {
+            mark(screen, eye, {m.x, 1, m.z}, 2, kVisitorColour);
+            continue;
+        }
+        const bool walking = !m.working && (m.headingX != 0 || m.headingZ != 0);
+        const size_t slot = m.working ? kSweepAnimation : walking ? kWalkAnimation : kStandAnimation;
+        const auto &animation = look->set.animations()[slot];
+        const SpritePose pose =
+            spritePose(animation, walking || m.working ? turned(m.headingX, m.headingZ) : 3.14159265f,
+                       m.working ? uint32_t(park.millis() / kSweepFrameMillis)
+                       : walking ? uint32_t(m.walked / kUnitsPerWalkFrame)
+                                 : 0);
+        see(*look, pose.frame, {m.x, 0, m.z}, pose.mirror);
+    }
     std::sort(seen.begin(), seen.end(), [](const Seen &a, const Seen &b) { return a.depth > b.depth; });
     for (const Seen &s : seen)
+        // Hidden where the models are nearer.
         drawSpriteFrame(screen, *s.sheet, s.frame, s.at.x, s.at.y, s.scale * kSpritePixelUnits * eye.focal / s.depth,
-                        s.mirror);
+                        s.mirror, rasterizer, s.at.invZ);
 }
 
 // The weather over the park, on the screen: rain falling in streaks, a
@@ -860,7 +906,7 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
         mark(screen, eye, c, kBoothColour);
     for (const Park::Cell &c : fixed.busStops)
         mark(screen, eye, c, kBusStopColour);
-    drawVisitors(screen, eye, park, camera);
+    drawVisitors(screen, rasterizer, eye, park, camera);
     drawWeather(screen, park);
     if (_furnitureRead) {
         ParkHud::View hudView;
@@ -914,6 +960,8 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
     drawGameText(screen, _dateFont, _characters, field.x + (field.w - w) / 2, field.y + 3, date, kHudText);
     if (_buyRead)
         _buy.draw(screen);
+    if (_hireRead)
+        _hire.draw(screen);
 }
 
 bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShower &showObjectives) {
@@ -944,6 +992,16 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
             if (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseDown) {
                 mouseX = ev.mouseX;
                 mouseY = ev.mouseY;
+            }
+            // The Hire Staff window likewise; its tick hires, and it stays open.
+            HireWindow &hiring = screen.hireWindow();
+            if (hiring.isOpen()) {
+                if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
+                    hiring.close();
+                else if (hiring.handle(ev) == HireWindow::Result::kHire)
+                    park.hire(hiring.kind(), hiring.chosen());
+                if (ev.type != EventType::kKeyUp)
+                    continue;
             }
             // The Buy window takes the mouse, and Esc, while it's open.
             BuyWindow &buy = screen.buyWindow();
@@ -1045,11 +1103,14 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
         screen.advance(park);
         screen.hud().advance(uint32_t(now - last));
         screen.buyWindow().advance(uint32_t(now - last));
+        screen.hireWindow().advance(uint32_t(now - last));
         last = now;
 
         const uint32_t choice = screen.hud().takeChoice();
         if (choice == ParkHud::kBuildAttractionItem)
             screen.buyWindow().open(screen.attractions(), Attractions::Kind::kRide, park);
+        if (choice == ParkHud::kHireStaffItem)
+            screen.hireWindow().open(park, Park::StaffKind::kJanitor);
         if (choice == ParkHud::kObjectivesItem && showObjectives) {
             park.setPaused(true);
             const ParkScreen::Camera now = camera;

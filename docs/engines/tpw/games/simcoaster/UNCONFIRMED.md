@@ -118,6 +118,14 @@ None yet.
   ([visitors.md](systems/visitors.md), [park.md](systems/park.md#visitors)).
   The game's own visitors, watched, would settle it.
 
+- **The staff**: the candidates' experience and wages, the pools'
+  refilling, the work's ranges and times by experience, an
+  entertainer's cheer ([staff.md](systems/staff.md)). The game's hiring
+  watched over time would settle it.
+
+- **Prices**: what's fair, and opinions as happiness and choice
+  ([visitors.md](systems/visitors.md#what-they-think-of-prices)).
+
 - **Weather, litter, sickness, pranks and thoughts**: when the weather
   changes and how it's drawn; how litter and sickness come about and
   wear off; which thought shows when; which sprite frames are litter and

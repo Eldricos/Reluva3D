@@ -13,6 +13,7 @@
 #include "engines/tpw/park/attractions.h"
 #include "engines/tpw/ui/briefing.h"
 #include "engines/tpw/ui/buy_window.h"
+#include "engines/tpw/ui/hire_window.h"
 #include "engines/tpw/ui/park_hud.h"
 #include "engines/tpw/ui/park_screen.h"
 #include "engines/tpw/ui/sign_painter.h"
@@ -64,8 +65,10 @@ bool newPark(const char *game, const char *world, int mission, reluva::SearchSet
 // money, date and fixed items printed.
 int cmdParkShot(int argc, char **argv) {
     if (argc < 5) {
-        std::fprintf(stderr, "usage: reluva-tool tpw park-shot <game folder> <world folder> <out.png> [seconds] [yaw "
-                             "pitch distance [x y]] [-place <id>] [-weather <fine|heatwave|rain|storm|snow>]\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool tpw park-shot <game folder> <world folder> <out.png> [seconds] [yaw "
+            "pitch distance [x y]] [-place <id>] [-weather <fine|heatwave|rain|storm|snow>] [-hire <kind> <n>]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -125,6 +128,15 @@ int cmdParkShot(int argc, char **argv) {
             for (size_t w = 0; w < std::size(kWeathers); ++w)
                 if (std::string(argv[i + 1]) == kWeathers[w])
                     park.setWeather(reluva::tpw::Park::Weather(w));
+    // -hire <engineer|janitor|gardener|guard|entertainer|scientist> <count>: the first so many candidates hired.
+    static constexpr const char *kKinds[] = {"engineer", "janitor", "gardener", "guard", "entertainer", "scientist"};
+    for (int i = 5; i + 2 < argc; ++i)
+        if (std::string(argv[i]) == "-hire")
+            for (size_t k = 0; k < std::size(kKinds); ++k)
+                if (std::string(argv[i + 1]) == kKinds[k])
+                    for (int n = std::atoi(argv[i + 2]); n > 0; --n)
+                        if (park.hire(reluva::tpw::Park::StaffKind(k), 0) != reluva::tpw::Park::Hiring::kHired)
+                            std::printf("couldn't hire a %s\n", kKinds[k]);
     // In frames, so that the rides' scripts and the visitors keep step.
     constexpr uint32_t kFrameMs = 50;
     const uint32_t runMs = argc > 5 && argv[5][0] != '-' ? uint32_t(std::strtof(argv[5], nullptr) * 1000) : 0;
@@ -159,12 +171,16 @@ int cmdParkShot(int argc, char **argv) {
     std::printf("%d points, %d visitors wanted; %s; %zu litter, %zu of it vomit; %zu stink bombs\n", park.points(),
                 park.visitorsWanted(), kWeathers[size_t(park.weather())], park.litter().size(), vomit,
                 park.stinkBombs().size());
+    for (const reluva::tpw::Park::StaffMember &m : park.staff())
+        std::printf("staff %d: %s, %d experience, $ %d a month, at %.1f, %.1f%s\n", m.id, kKinds[size_t(m.kind)],
+                    m.experience, m.wage, double(m.x), double(m.z), m.working ? ", sweeping" : "");
     for (const reluva::tpw::Park::Visitor &v : park.visitorsAbout())
         std::printf("visitor %d (type %d, person %d): %s at %.1f, %.1f, %d rides, cash %d, happiness %.0f, hunger "
                     "%.0f, thirst %.0f, toilet %.0f, sickness %.0f%s, thinking %d\n",
                     v.id, v.type, v.person, kDoing[size_t(v.doing)], double(v.x), double(v.z), v.rides, v.cash,
                     double(v.happiness), double(v.hunger), double(v.thirst), double(v.toilet), double(v.sickness),
                     v.appearance == 3   ? ", an umbrella"
+                    : v.appearance == 2 ? ", a costume"
                     : v.appearance == 1 ? ", a balloon"
                                         : "",
                     v.thoughtUntil > park.millis() ? int(v.thought) : 0);
@@ -563,11 +579,50 @@ int cmdSignShot(int argc, char **argv) {
     return 0;
 }
 
+// The Hire Staff window over a new park, on a tab, a row chosen, to a
+// PNG; the candidates of every kind printed.
+int cmdHireShot(int argc, char **argv) {
+    if (argc < 5) {
+        std::fprintf(stderr, "usage: reluva-tool tpw hire-shot <game folder> <world folder> <out.png> [tab [row]]\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    reluva::tpw::Park park;
+    reluva::tpw::ParkScreen screen;
+    if (!newPark(argv[2], argv[3], 0, files, park, screen))
+        return 1;
+    reluva::tpw::HireWindow &window = screen.hireWindow();
+    window.open(park, reluva::tpw::Park::StaffKind(argc > 5 ? std::atoi(argv[5]) : 0));
+    if (argc > 6) {
+        reluva::Event click;
+        click.type = reluva::EventType::kMouseDown;
+        click.button = reluva::MouseButton::kLeft;
+        const reluva::tpw::ScreenRect r =
+            reluva::tpw::HireWindow::placeOf(reluva::tpw::HireWindow::Control::kRow, size_t(std::atoi(argv[6])));
+        click.mouseX = r.x + r.w / 2;
+        click.mouseY = r.y + r.h / 2;
+        window.handle(click);
+    }
+    reluva::Surface surface;
+    surface.create(640, 480, reluva::PixelFormat::kRGBA32);
+    reluva::soft3d::Rasterizer rasterizer;
+    screen.draw(surface, rasterizer, park, screen.startCamera(park));
+    writePng(surface, argv[4]);
+    for (size_t k = 0; k < reluva::tpw::Park::kStaffKinds; ++k)
+        for (const reluva::tpw::Park::Candidate &c : park.candidates(reluva::tpw::Park::StaffKind(k)))
+            std::printf("tab %zu: %s, %d experience, $ %d a month, agency %d\n", k,
+                        window.nameOf(reluva::tpw::Park::StaffKind(k), c.name).c_str(), c.experience, c.wage, c.agency);
+    return 0;
+}
+
 const Commands kCommands(
     "tpw",
     {
         {"buy-shot", "<game folder> <world folder> <out.png> [tab [row]]",
          "draw the Buy window over a new park, on a tab, a row chosen, to a PNG, and list what's on sale", cmdBuyShot},
+        {"hire-shot", "<game folder> <world folder> <out.png> [tab [row]]",
+         "draw the Hire Staff window over a new park, on a tab, a row chosen, to a PNG, and list the candidates",
+         cmdHireShot},
         {"sign-shot", "<game folder> <world folder> <out.png>",
          "letter every attraction's sign of a world, to a PNG, half size, and list their fonts and lines", cmdSignShot},
         {"tpws-check", "<game folder> [save in Data] [-objects]",
@@ -575,8 +630,9 @@ const Commands kCommands(
          "-objects) and its world",
          cmdTpwsCheck},
         {"park-shot",
-         "<game folder> <world folder> <out.png> [seconds] [yaw pitch distance [x y]] [-place <id>] [-weather <w>]",
-         "set up a new park in a world, -place an attraction by its entrance's path, set the -weather, run it on "
+         "<game folder> <world folder> <out.png> [seconds] [yaw pitch distance [x y]] [-place <id>] [-weather <w>] [-hire <kind> <n>]",
+         "set up a new park in a world, -place an attraction by its entrance's path, set the -weather, -hire "
+         "staff, run it on "
          "and draw it, "
          "its HUD over it, to a PNG; and list its visitors",
          cmdParkShot},

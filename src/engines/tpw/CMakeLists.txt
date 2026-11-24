@@ -14,6 +14,7 @@ reluva_add_engine(tpw
         park/attractions.cpp
         park/queues.cpp
         park/visitors.cpp
+        park/staff.cpp
         players.cpp
         sound_effects.cpp
         textures.cpp
@@ -21,6 +22,7 @@ reluva_add_engine(tpw
         script/simulated_host.cpp
         ui/briefing.cpp
         ui/front_end.cpp
+        ui/hire_window.cpp
         ui/front_end_audio.cpp
         ui/front_end_effects.cpp
         ui/front_end_overlay.cpp

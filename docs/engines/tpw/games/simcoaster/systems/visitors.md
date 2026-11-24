@@ -63,15 +63,37 @@ above nothing:
 - less `DecisionVarDistWeight` (1) for each two cells of path to walk,
   and `DecisionVarQueueWeight` (1) for each one in its queue;
 - scaled by its `WeatherModifier` percentage in the weather
-  ([weather.md](weather.md)).
+  ([weather.md](weather.md)), and by its `GenerationModifier` percentage
+  for their generation (`KidScorePercentage`, `ParentScorePercentage`,
+  `GrandparentScorePercentage`: 0 for the grandparents on some rides);
+- scaled by what they think of its price (below).
 
 A shop selling what they carry already (`UsageInfo.AppearanceEffect`:
-1 a balloon, 2 a costume, 3 an umbrella) isn't chosen.
+1 a balloon, 2 a costume, 3 an umbrella) isn't chosen, nor a costume by
+a grown-up: the costume shop's comment says "give the kid a costume",
+and the worlds' costumed sprites (`Science/Costumes/SPR_GK`, and its
+head) are a child's, which a costumed child is drawn as.
 
 What they used last isn't chosen again until, one turn in eight, they
 forget it. They follow the shortest path to it; without a place to go
 they wander, by chance, not back the way they came unless it's the only
 way.
+
+### What they think of prices
+
+What they think fair for an attraction is its `Info.ExpectedPrice`; for
+coming in, the park's attractions' excitement over
+`PeepInfo.ExcitementToCostDivisor` (6, "scaling factor for entry fee"),
+not below `MinimumEntryFee` (20, "below which everybody always pays up
+happily") *(guessed)*. A price up to `CheapPriceMultiplier` (0.75) of
+fair is cheap, to `AveragePriceMultiplier` (1.25) about right, below
+`ExpensivePriceMultiplier` (2) too high, and from it much too high, as
+the settings' comments say; their opinions of each are
+`OpinionForTooLow` 100, `AboutRight` 50, `TooHigh` 20, `MuchTooHigh` 0.
+Reluva makes an opinion a change of happiness as they pay, a tenth of
+its difference from about right's (cheap +5, too high −3); scales what
+they want of an attraction by it; and has them pass by an attraction,
+or turn back at the gate, that is much too dear *(guessed)*.
 
 ### Queueing
 
@@ -140,8 +162,8 @@ the path: they lose `MediumHappinessChange` (15), those near them
 `SmallHappinessChange` (5) and think it "Too messy". Sickness wears off a
 tenth a day. Each day a visitor near litter loses a point of happiness.
 Litter is drawn from `Litter/Spr_li`'s first 10 frames, sickness from
-its last 2, by their look *(guessed)*. Nobody clears it yet: the
-handymen aren't done.
+its last 2, by their look *(guessed)*. Janitors sweep it up
+([staff.md](staff.md)).
 
 ### Pranks and whining
 
@@ -188,9 +210,9 @@ attraction's script, run by `RideRun` (`SimulatedHost::offerGuest`),
 and tells the park whom it took on (`Park::board`) and let off
 (`Park::letOff`); `ParkScreen` draws riders at the seats the script
 shows them in (`SimulatedHost::heads`) and bouncers where they bounce.
-Sprites are drawn over the models, so a rider behind a part of one
-still shows. Their opinions of prices, their costumes' look, staff
-clearing litter, and the `GenerationModifier` scores aren't done.
+Sprites are hidden where the models drawn are nearer, by the
+rasterizer's depth: the ground and a seat as near as a sprite don't hide
+it. Staff clear the litter ([staff.md](staff.md)).
 
 `reluva-tool tpw park-shot <game folder> levels/science <out.png> 300
 [yaw pitch distance x y] [-place <id>]` runs a new park five minutes
@@ -221,6 +243,8 @@ seat them and let them off.
   measures; how fast needs grow, and how happy they start.
 - What `ExitLevel`'s "gameticks/4" are.
 - Whether a ride's exit needs a path, and where riders go from it.
+- How the game judges prices, and what `PcOfGoodPriceIsCheap` (70)
+  does.
 - How many stand in a queue's cell; which way riders' heads face.
 - How the game chooses which thought to show, and how often; which
   litter frames are what; how fast sickness wears off; what

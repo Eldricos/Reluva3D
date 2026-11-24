@@ -14,6 +14,7 @@
 #include "engines/tpw/ui/loading_screen.h"
 #include "engines/tpw/ui/briefing.h"
 #include "engines/tpw/ui/buy_window.h"
+#include "engines/tpw/ui/hire_window.h"
 #include "engines/tpw/ui/front_end_audio.h"
 #include "engines/tpw/ui/front_end_effects.h"
 #include "engines/tpw/ui/front_end_overlay.h"
@@ -466,6 +467,34 @@ void testBuyWindow() {
     CHECK(second.x == first.x + first.w && second.y == first.y);
 }
 
+// The Hire Staff window's clicks: an empty pool hires nobody; scientists
+// want a research room; its tabs change the kind; cancel closes it.
+void testHireWindow() {
+    using tpw::HireWindow;
+    HireWindow window;
+    auto click = [&](HireWindow::Control c, size_t index = 0) {
+        const tpw::ScreenRect r = HireWindow::placeOf(c, index);
+        Event ev;
+        ev.type = EventType::kMouseDown;
+        ev.button = MouseButton::kLeft;
+        ev.mouseX = r.x + r.w / 2;
+        ev.mouseY = r.y + r.h / 2;
+        return window.handle(ev);
+    };
+    CHECK(click(HireWindow::Control::kCancel) == HireWindow::Result::kNone);
+    const tpw::Park park; // not loaded: no candidates
+    window.open(park, tpw::Park::StaffKind::kJanitor);
+    CHECK(window.isOpen() && window.kind() == tpw::Park::StaffKind::kJanitor);
+    CHECK(click(HireWindow::Control::kHire) == HireWindow::Result::kNone && window.isOpen());
+    CHECK(click(HireWindow::Control::kTab, 5) == HireWindow::Result::kNone &&
+          window.kind() == tpw::Park::StaffKind::kScientist);
+    CHECK(click(HireWindow::Control::kCancel) == HireWindow::Result::kClosed && !window.isOpen());
+    const tpw::ScreenRect first = HireWindow::placeOf(HireWindow::Control::kTab, 0);
+    const tpw::ScreenRect second = HireWindow::placeOf(HireWindow::Control::kTab, 1);
+    CHECK(second.x == first.x + first.w && second.y == first.y);
+    CHECK(!window.spriteOf(tpw::Park::StaffKind::kJanitor));
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -482,4 +511,5 @@ static const reluva::test::Suite
                               {"briefing", [](const std::filesystem::path &) { testBriefingControls(); }},
                               {"park-hud", [](const std::filesystem::path &) { testParkHud(); }},
                               {"buy-window", [](const std::filesystem::path &) { testBuyWindow(); }},
+                              {"hire-window", [](const std::filesystem::path &) { testHireWindow(); }},
                           });

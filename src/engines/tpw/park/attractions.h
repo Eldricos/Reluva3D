@@ -58,9 +58,14 @@ public:
         bool holdsLitter = false;   // UsageInfo.HoldsLitter: a bin
         bool indoors = false;       // UsageInfo.ISIndoors: shelter from the rain
         bool security = false;      // UsageInfo.ProvidesSecurity: a camera
+        bool lab = false;           // UsageInfo.ThinkingSpace: a research room, which scientists need
         // How much more or less it's wanted in each weather, by Park::Weather:
         // its WeatherModifier percentages.
         std::array<int, 5> weatherPercent{100, 100, 100, 100, 100};
+        // How much each generation wants it, percent: GenerationModifier's Kid,
+        // Parent and GrandparentScorePercentage.
+        std::array<int, 3> generationPercent{100, 100, 100};
+        int expectedPrice = 0; // Info.ExpectedPrice: what visitors think a go is worth; its fare without one
     };
 
     /**

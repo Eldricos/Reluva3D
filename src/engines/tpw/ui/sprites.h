@@ -6,6 +6,7 @@
 #include "common/archive.h"
 #include "common/types.h"
 #include "engines/tpw/formats/sprites.h"
+#include "graphics/soft3d/rasterizer.h"
 
 #include <cstdint>
 #include <string>
@@ -45,5 +46,11 @@ SpritePose spritePose(const SpriteSet::Animation &animation, float heading, uint
  */
 void drawSpriteFrame(Surface &screen, const SpriteSheet &sheet, size_t frame, float x, float y, float scale,
                      bool mirror);
+/**
+ * The same, hidden where the scene drawn by `depth` is nearer than
+ * `invZ` (1 / view-space depth, the sprite's as a whole).
+ */
+void drawSpriteFrame(Surface &screen, const SpriteSheet &sheet, size_t frame, float x, float y, float scale,
+                     bool mirror, const soft3d::Rasterizer &depth, float invZ);
 
 } // namespace reluva::tpw

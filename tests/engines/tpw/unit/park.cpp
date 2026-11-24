@@ -504,6 +504,87 @@ void testConditions(const std::filesystem::path &tmp) {
           v->thoughtUntil > park.millis());
 }
 
+// The staff agencies' candidates by the settings; a janitor hired, paid
+// on the month's first day, sweeping up litter dropped near; scientists
+// wanting a research room. Prices against what's fair, and a gate too
+// dear turning visitors back.
+void testStaff(const std::filesystem::path &tmp) {
+    const std::filesystem::path data = tmp / "game" / "Data";
+    std::string types;
+    for (int i = 0; i < 24; ++i)
+        types += "PeepTypes[" + std::to_string(i) +
+                 "].PreferredExcitement.StartingCash.BoredomThreshold.Generation 60 "
+                 "100 200 " +
+                 std::to_string(i / 8) + "\r\n";
+    writeText(data / "levels" / "Standard.sam",
+              "BankAccountInfo.InitialCash 1000\r\nArrival.MinPeople 1\r\nArrival.TimeBetweenArrivals 1\r\n"
+              "Arrival.FixedRate 3\r\nArrival.PointsPerVisitor 1\r\nPeepInfo.PercentageOfKids 100\r\n"
+              "PeepInfo.MinimumEntryFee 20\r\nStaffPoolInfo.BeginningNumberOfHandymen 3\r\n"
+              "StaffPoolInfo.AvgExperienceOfHandymen 20000\r\nStaffPoolInfo.AvgWageDifference 0\r\n"
+              "StaffAgencies[0].RequiredPromotionLevel 0\r\nStaffAgencies[0].InitialWageModifier 10\r\n"
+              "StaffAgencies[0].InitialExperienceModifier 0\r\nHandyman.MinDetectionRange 5\r\n"
+              "Handyman.MaxDetectionRange 5\r\n" +
+                  types);
+    writeText(data / "missions" / "miss00.sam", "Info.Number 0\r\n");
+    const std::filesystem::path world = data / "levels" / "science";
+    writeText(world / "shops" / "Shops.sam", "Info.HasQueue 0\r\nInfo.IsChoosable 1\r\n");
+    writeText(world / "shops" / "balloon" / "balloon.sam",
+              "Info.Id 1209\r\nUsageInfo.InitPricePerUse 5\r\nInfo.ExpectedPrice 5\r\nUsageInfo.HappinessEffect 30\r\n"
+              "UsageInfo.LitterEffect 400\r\nInfo.Shape\r\n---\r\n*2\r\n---\r\n");
+    constexpr int kRows = 8;    // x
+    constexpr int kColumns = 6; // y
+    tpw::testing::Bytes tiles(size_t(kRows) * kColumns, 0);
+    for (int x = 0; x < 7; ++x)
+        tiles[size_t(x) * kColumns + 4] = 8;
+    test::writeFile(world / "terrain" / "base.map", tpw::testing::makeAttributeMap(kColumns, kRows, tiles));
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!mountGame(files, tmp / "game", warnings));
+    Park park;
+    CHECK(!park.load(files, "levels/science", 0));
+
+    // Three janitors offered, at the average experience, paid 10 raised by it.
+    const auto &janitors = park.candidates(Park::StaffKind::kJanitor);
+    CHECK(janitors.size() == 3 && janitors[0].experience == 20000 && janitors[0].wage == 11);
+    CHECK(janitors.size() == 3 && janitors[0].name != janitors[1].name);
+    CHECK(park.hire(Park::StaffKind::kScientist, 0) == Park::Hiring::kNeedsLab);
+    CHECK(park.hire(Park::StaffKind::kJanitor, 5) == Park::Hiring::kNoSuchCandidate);
+    CHECK(park.hire(Park::StaffKind::kJanitor, 0) == Park::Hiring::kHired);
+    CHECK(park.staff().size() == 1 && park.candidates(Park::StaffKind::kJanitor).size() == 2 && park.wages() == 11);
+
+    // Prices: up to 0.75 of fair cheap, to 1.25 about right, below twice too high.
+    CHECK(park.priceOpinion(7, 10) == Park::PriceOpinion::kCheap);
+    CHECK(park.priceOpinion(12, 10) == Park::PriceOpinion::kAboutRight);
+    CHECK(park.priceOpinion(19, 10) == Park::PriceOpinion::kTooHigh);
+    CHECK(park.priceOpinion(20, 10) == Park::PriceOpinion::kMuchTooHigh);
+    CHECK(park.fairEntryFee() == 20);
+
+    // The kiosk by the path: its buyers drop its litter at once, which the
+    // janitor sweeps up.
+    CHECK(park.place(1209, 0, {"*2"}, false, {4, 3}, 0) == -1);
+    const int shop = park.queueOf(0);
+    bool littered = false;
+    for (int t = 0; t < 1200; ++t) {
+        park.advance(100);
+        if (const int id = park.waitingAt(shop); id && park.board(shop, id))
+            park.letOff(shop, id);
+        littered = littered || !park.litter().empty();
+    }
+    CHECK(littered && park.litter().empty());
+    // 120 seconds is 30 days: the 1st of February paid the wage.
+    const int before = park.cash();
+    for (int t = 0; t < 10 && park.cash() >= before; ++t)
+        park.advance(4000);
+    CHECK(park.cash() < before);
+
+    // Far too dear to come in: they turn back at the booth, paying nothing.
+    Park dear;
+    CHECK(!dear.load(files, "levels/science", 0));
+    dear.setAdmissionFee(100);
+    dear.advance(60000);
+    CHECK(dear.visitors() == 0 && dear.cash() == 1000);
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -517,4 +598,5 @@ static const reluva::test::Suite
                                 {"placing", [](const std::filesystem::path &) { testPlacing(); }},
                                 {"riders", [](const std::filesystem::path &tmp) { testRiders(tmp); }},
                                 {"conditions", [](const std::filesystem::path &tmp) { testConditions(tmp); }},
+                                {"staff", [](const std::filesystem::path &tmp) { testStaff(tmp); }},
                             });

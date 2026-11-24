@@ -196,8 +196,9 @@ move the camera, Q and E or the compass's arrows (held) turn it, Page
 Up and Page Down, the compass's magnifiers or the wheel zoom, Home goes
 back, Esc leaves the game. A tool is chosen by clicking it: the path
 tool lays path ([paths.md](paths.md)), the others do nothing yet. The
-bottom buttons open their menus; of their items only Park's Objectives
-does anything yet. Its first mission's, whatever the
+bottom buttons open their menus; of their items Park's Objectives,
+Attractions' Build Attraction and Staff's Hire Staff do anything yet
+([staff.md](staff.md)). Its first mission's, whatever the
 player's objective, for now.
 
 `reluva-tool tpw park-shot <game folder> <world folder> <out.png>

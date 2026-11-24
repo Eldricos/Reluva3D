@@ -6,6 +6,7 @@
 #include "common/archive.h"
 #include "common/types.h"
 #include "engines/tpw/formats/attribute_map.h"
+#include "engines/tpw/formats/sam.h"
 #include "engines/tpw/park/attractions.h"
 #include "graphics/gfx3d.h"
 
@@ -131,8 +132,72 @@ public:
         std::array<std::array<float, 5>, 3> weatherThirst{};
         std::array<std::array<float, 5>, 3> weatherHunger{};
         std::array<int, 5> weatherArrivals{100, 100, 100, 100, 100}; // Arrival's percentage modifiers
+        // Prices against what visitors think fair: below CheapPriceMultiplier
+        // of it cheap, to AveragePriceMultiplier about right, from
+        // ExpensivePriceMultiplier much too high; and their opinions of each,
+        // OpinionForTooLow, AboutRight, TooHigh, MuchTooHigh, 0 to 100.
+        float cheapPrice = 0.75f;
+        float averagePrice = 1.25f;
+        float expensivePrice = 2.0f;
+        std::array<int, 4> priceOpinion{100, 50, 20, 0};
+        int minimumEntryFee = 20; // MinimumEntryFee: below it everybody pays up happily
+        int excitementToCost = 6; // ExcitementToCostDivisor: the park's excitement to a fair entry fee
     };
     const VisitorRules &visitorRules() const { return _rules; }
+
+    /** The staff's kinds, in the Hire Staff window's tabs' order. */
+    enum class StaffKind : uint8_t { kEngineer, kJanitor, kGardener, kGuard, kEntertainer, kScientist };
+    static constexpr size_t kStaffKinds = 6;
+    /** Someone the staff agencies offer: their name's number in their kind's names table. */
+    struct Candidate {
+        int name = 0;
+        int experience = 0; // 0 to kMostExperience
+        int wage = 0;       // a month
+        int agency = 0;     // StaffAgencies[n]
+    };
+    /** The most experience staff have (the general settings' comment). */
+    static constexpr int kMostExperience = 100000;
+    /** Those to be hired of a kind. */
+    const std::vector<Candidate> &candidates(StaffKind kind) const { return _pool[size_t(kind)]; }
+    /** A member of staff, walking the paths and doing their work. */
+    struct StaffMember : Candidate {
+        int id = 0;
+        StaffKind kind = StaffKind::kJanitor;
+        float x = 0;
+        float z = 0;
+        float headingX = 0;
+        float headingZ = 0;
+        float walked = 0;
+        Cell cell;
+        Cell from;
+        std::vector<Cell> route; // the path cells on to their work, the next last
+        bool working = false;    // a janitor sweeping
+        uint64_t workUntil = 0;
+    };
+    const std::vector<StaffMember> &staff() const { return _staff; }
+    /** What hiring came to. */
+    enum class Hiring { kHired, kNoSuchCandidate, kNeedsLab };
+    /**
+     * Hires a candidate: they come in at the entrance's path and start
+     * work, paid their wage each month. Scientists want a research room.
+     */
+    Hiring hire(StaffKind kind, size_t candidate);
+    /** What the staff are paid a month, all told. */
+    int wages() const;
+
+    /** What a visitor thinks of a price against what they think fair. */
+    enum class PriceOpinion : uint8_t { kCheap, kAboutRight, kTooHigh, kMuchTooHigh };
+    PriceOpinion priceOpinion(int price, int fair) const;
+    /**
+     * What visitors think a fair entry fee: the park's attractions'
+     * excitement over ExcitementToCostDivisor, not below MinimumEntryFee
+     * (guessed).
+     */
+    int fairEntryFee() const;
+    /** Sets what visitors pay to come in. */
+    void setAdmissionFee(int fee) { _admissionFee = std::max(0, fee); }
+    /** Sets what a go of a queue's attraction costs. */
+    void setFare(int queue, int fare);
 
     /** The weather: the world's seasons' chances (Seasons[n].PercentageChanceFor...). */
     enum class Weather : uint8_t { kFine, kHeatwave, kRain, kStorm, kSnow };
@@ -467,6 +532,13 @@ private:
     void addVisitor();
     void newDay();
     void rollWeather();
+    float priceFeeling(PriceOpinion opinion) const;
+    void loadStaffRules(const SamFile &general);
+    void fillPool(bool start);
+    void moveStaff(StaffMember &m, float left);
+    void staffWay(StaffMember &m);
+    void staffDay();
+    bool guarded(float x, float z) const;
     void think(Visitor &v, Thought thought) const;
     Thought howTheyAre(const Visitor &v) const;
     void dropLitter(Visitor &v);
@@ -497,6 +569,32 @@ private:
     Weather _weather = Weather::kFine;
     uint32_t _lastDay = 0;
     std::vector<Litter> _litter;
+    /** By kind: StaffPoolInfo's, and their work's by the kind's settings. */
+    struct StaffRules {
+        int averageExperience = 20000;
+        int beginning = 5;
+        int most = 6;
+        float minRange = 3; // MinDetectionRange, or MinActiveRange for entertainers: cells
+        float maxRange = 5;
+        float minWork = 40; // MinWorkDuration and MaxWorkDuration: tenths of a second (guessed)
+        float maxWork = 5;
+    };
+    std::array<StaffRules, kStaffKinds> _staffRules{};
+    struct Agency {
+        int level = 0;
+        int wage = 10;
+        int experience = 10;
+    };
+    std::vector<Agency> _agencies;
+    int _minExperience = 1000;
+    int _experienceSpread = 15000;
+    float _fastest = 1.5f;                              // MaxSpeedDifference: how much faster the most experienced walk
+    uint32_t _poolDays = 90;                            // TimeBetweenStaffUpdates
+    std::array<int, 5> _entertaining{5, 8, 12, 16, 20}; // EntertainerConstsPerGrade[n].HappinessEffectOnCell
+    std::array<std::vector<Candidate>, kStaffKinds> _pool;
+    std::vector<StaffMember> _staff;
+    uint32_t _candidatesMade = 0;
+    int _nextStaffId = 1;
     std::vector<StinkBomb> _stinkBombs;
     std::vector<gfx::Vec3> _wayIn;
     std::vector<Visitor> _people;
