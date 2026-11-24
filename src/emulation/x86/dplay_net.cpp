@@ -133,6 +133,15 @@ Node::Node(std::shared_ptr<net::Sockets> sockets, std::vector<uint32_t> broadcas
 Node::~Node() {
     if (!_net)
         return;
+    // What's still to be sent goes first (a program leaving sends its last
+    // word, then closes), for up to half a second.
+    const Clock::time_point until = Clock::now() + std::chrono::milliseconds(500);
+    for (auto &[i, c] : _connections)
+        while (!c.out.empty() && Clock::now() < until) {
+            flush(c);
+            if (!c.out.empty())
+                _net->ready(c.socket, 50);
+        }
     for (auto &[i, c] : _connections)
         _net->close(c.socket);
     if (_udp >= 0)
