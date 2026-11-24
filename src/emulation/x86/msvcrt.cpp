@@ -14,6 +14,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <vector>
 
 namespace reluva::x86 {
 
@@ -44,6 +45,8 @@ struct State {
     uint32_t argv = 0;
     uint32_t envp = 0;
     uint32_t exceptionVftable = 0;
+    std::map<uint32_t, std::vector<Win32Process::Found>> searches; // _findfirst's handle -> what's left to give
+    uint32_t nextSearch = 1;
 
     uint32_t alloc(uint32_t n) { return p.memory().alloc(std::max(n, 1u)); }
     void setErrno(uint32_t e) { c.write32(errnoAt, e); }
@@ -1375,6 +1378,47 @@ void addMsvcrt(Win32Process &process) {
             c.write32(out + at, uint32_t(std::max<int64_t>(unix, 0)));
         return 0u;
     });
+    // _findfirst(spec, struct _finddata_t*), _findnext(handle, data),
+    // _findclose(handle). Visual C++ 6's _finddata_t (280 bytes): attrib,
+    // time_create, time_access, time_write, size, name[260].
+    auto fillFound = [s](Cpu &c, uint32_t out, const Win32Process::Found &f) {
+        std::memset(s->ptr(out), 0, 280);
+        std::error_code ec;
+        const bool dir = std::filesystem::is_directory(f.host, ec);
+        c.write32(out, dir ? 0x10 : 0x20);
+        const auto t = std::filesystem::last_write_time(f.host, ec);
+        const int64_t unix = std::chrono::duration_cast<std::chrono::seconds>(
+                                 (t - std::filesystem::file_time_type::clock::now() + std::chrono::system_clock::now())
+                                     .time_since_epoch())
+                                 .count();
+        for (uint32_t at : {4u, 8u, 12u})
+            c.write32(out + at, uint32_t(std::max<int64_t>(unix, 0)));
+        c.write32(out + 16, dir ? 0 : uint32_t(std::filesystem::file_size(f.host, ec)));
+        c.writeString(out + 20, f.name, 260);
+    };
+    provideCdecl("_findfirst", [s, fillFound](Cpu &c) {
+        std::vector<Win32Process::Found> found = s->p.findFiles(s->str(c.arg(0)));
+        if (found.empty() || !c.valid(c.arg(1), 280)) {
+            s->setErrno(kErrnoNoEntry);
+            return 0xffffffffu;
+        }
+        fillFound(c, c.arg(1), found.front());
+        found.erase(found.begin());
+        const uint32_t handle = s->nextSearch++;
+        s->searches[handle] = std::move(found);
+        return handle;
+    });
+    provideCdecl("_findnext", [s, fillFound](Cpu &c) {
+        auto it = s->searches.find(c.arg(0));
+        if (it == s->searches.end() || it->second.empty() || !c.valid(c.arg(1), 280)) {
+            s->setErrno(kErrnoNoEntry);
+            return 0xffffffffu;
+        }
+        fillFound(c, c.arg(1), it->second.front());
+        it->second.erase(it->second.begin());
+        return 0u;
+    });
+    provideCdecl("_findclose", [s](Cpu &c) { return s->searches.erase(c.arg(0)) ? 0u : 0xffffffffu; });
     provideCdecl("_chdir", [s](Cpu &c) {
         s->p.setCurrentFolder(s->str(c.arg(0)));
         return 0u;

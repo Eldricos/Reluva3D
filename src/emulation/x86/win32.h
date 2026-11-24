@@ -399,6 +399,17 @@ public:
      * isn't there).
      */
     std::filesystem::path hostPath(const std::string &windowsPath, bool forWriting) const;
+    /** A file a search found: its name, and where it is on this machine. */
+    struct Found {
+        std::string name;
+        std::filesystem::path host;
+    };
+    /**
+     * The files a search finds ("C:\\GAME\\SAVE\\*.sav", * and ? matching
+     * any letters and one, ignoring case), on the drives (each name once,
+     * a writable copy before the drive's) or through mapPath, by name.
+     */
+    std::vector<Found> findFiles(const std::string &windowsPattern);
     // Each file the program opens, and whether it was there.
     std::function<void(const std::string &windowsPath, bool found)> fileOpened;
     // Each read from a file (ReadFile, _lread, the C runtime's fread in

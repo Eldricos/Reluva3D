@@ -50,7 +50,9 @@ C++ library have pages of their own ([directx.md](directx.md),
     x87 stack, `_ftol` and `_controlfp`;
   - `printf` and `scanf` formatting, and `FILE` files over the process's
     file handles;
-  - `_stat` with Visual C++ 6's structure, and time (`_ftime` in UTC,
+  - `_stat` with Visual C++ 6's structure; searches (`_findfirst`,
+    `_findnext`, `_findclose`) with its `_finddata_t`, the names in
+    order, on the drives or through the process's paths; and time (`_ftime` in UTC,
     `strftime` in the "C" locale);
   - `fscanf`, which scans the rest of the file as `sscanf` does and puts
     the file back just after what it took; `getc`, `putc`, `bsearch` (with

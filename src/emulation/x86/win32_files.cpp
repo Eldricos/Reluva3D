@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
+#include <set>
 
 namespace reluva::x86 {
 
@@ -81,6 +82,34 @@ uint64_t fileTimeOf(const std::filesystem::path &path) {
 }
 
 } // namespace
+
+std::vector<Win32Process::Found> Win32Process::findFiles(const std::string &windowsPattern) {
+    const std::string full = fullPath(windowsPattern);
+    const size_t slash = full.rfind('\\');
+    const std::string folder = full.substr(0, slash + 1);
+    const std::string pattern = full.substr(slash + 1);
+    std::vector<std::filesystem::path> dirs;
+    if (!_drives.empty()) {
+        for (const std::filesystem::path &d : {hostPath(folder, true), hostPath(folder, false)})
+            if (!d.empty() && std::find(dirs.begin(), dirs.end(), d) == dirs.end())
+                dirs.push_back(d);
+    } else if (mapPath) {
+        if (auto d = mapPath(folder, false))
+            dirs.push_back(*d);
+    }
+    std::vector<Found> found;
+    std::set<std::string> seen;
+    for (const std::filesystem::path &d : dirs) {
+        std::error_code ec;
+        for (std::filesystem::directory_iterator it(d, ec), end; !ec && it != end; it.increment(ec)) {
+            const std::string name = it->path().filename().string();
+            if (wildcard(pattern, name) && seen.insert(upper(name)).second)
+                found.push_back({name, it->path()});
+        }
+    }
+    std::sort(found.begin(), found.end(), [](const Found &a, const Found &b) { return upper(a.name) < upper(b.name); });
+    return found;
+}
 
 // Drives (addDrive): their stand-ins, put in place of those for mapPath below.
 

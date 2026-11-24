@@ -212,6 +212,15 @@ static void testMsvcrtAndFiles(const std::filesystem::path &tmp) {
     CHECK(!cpu.call(fn("KERNEL32.dll", "FindFirstFileA"), {text("C:\\Game\\*.txt"), find}, r) && r != 0xffffffffu &&
           cpu.string(find + 44) == "Data.txt" && cpu.read32(find + 32) == 11);
     CHECK(!cpu.call(fn("KERNEL32.dll", "FindNextFileA"), {r, find}, r) && r == 0);
+    // The C runtime's search: _finddata_t's name at 20, its size at 16,
+    // the names in order; -1 when there are no more.
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_findfirst"), {text("*.DAT"), find}, r) && r != 0xffffffffu &&
+          cpu.string(find + 20) == "Lines.dat" && cpu.read32(find + 16) == 8);
+    const uint32_t search = r;
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_findnext"), {search, find}, r) && r == 0 && cpu.string(find + 20) == "Out.dat");
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_findnext"), {search, find}, r) && r == 0xffffffffu);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_findclose"), {search}, r) && r == 0);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_findfirst"), {text("*.sav"), find}, r) && r == 0xffffffffu);
     const uint32_t label = process.memory().alloc(32);
     CHECK(!cpu.call(fn("KERNEL32.dll", "GetVolumeInformationA"), {text("D:\\"), label, 32, 0, 0, 0, 0, 0}, r) &&
           r == 1 && cpu.string(label) == "LEGOATEN");
