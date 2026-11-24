@@ -73,7 +73,7 @@ the rest kind 3.
 | 13 | 1 | What's built: 0 nothing, 1 path, 2 a queue; 1 on the entrance's path and on the recording's, 2 on a short run to a ride beside the path *(inferred)* |
 | 17 | 1 | The piece it's drawn as. On a queue: 2 straight, 4 a bend, 5 where it meets the path. On path, the game's own tile: 9 a corner, 10 and 20 an edge, 11 and 12 a middle *(inferred)* |
 | 21 | 2 | That piece's angle, degrees: 0, 90, 180 or 270. At 0 a path's corner opens east and south, at 90 south and west: an angle turns east (+x) towards south (+y), as every corner of the prebuilt park's does *(inferred)* |
-| 25 | 1 | What fills it: 1 path, 3 a queue, 4 an object, 9 and 10 an attraction's entrance and exit (its shape's `2` and `N`) |
+| 25 | 1 | What fills it: 0 bare land, 1 path, 3 a queue, 4 an object, 9 and 10 an attraction's entrance and exit (its shape's `2` and `N`), 5 a margin kept clear about the lake, the river, the park's edges and the attractions behind hoardings, 7 outside the park, as they lie drawn as a picture of the park *(inferred)*; 8, 21 and 30 not worked out |
 | 46 | 1 | The cell's tile of the world's attribute map *(confirmed)* |
 | 51 | 1 | On an object's first cell, a number of its, not worked out (0x21 to 0x25 for the robot, fountain and rocks) |
 | 73 | 1 | 1 on the park's own land, it seems *(guessed)* |
@@ -89,6 +89,24 @@ from the path at (47, 24) along to (43, 24), turns, and ends at the
 entrance of the Giant Robot Swing, a ride the recording shows standing
 there at the start.
 
+### The sections
+
+After the grid, each section has its size, then its tag, backwards; an
+object's record is `LDMT` with a second tag. In order: `EATC`, the
+objects (`EJBO`, 23 of them, then `HJBO`), `STUC`, `QHHC`, `SMIU`,
+`KNAB` ("BANK"), `TAEW` ("WEAT", the weather, it seems), `RNRT`,
+`BALR`, `KRAP` ("PARK", 0x20EE bytes), `SGAT`, `IVDA` ("ADVI", the
+advisor), `QHEM` and `FATS` ("STAF", the staff). None for visitors: the
+prebuilt park has none.
+
+The `BANK` section holds the park's balance, 47,375, twice, and
+−2,625, then a table of loans of 20 bytes each: an amount, a rate and
+months, then a word not worked out; the first three the general
+settings' `LoanInfo`, 100,000, 50,000 and 25,000 at 20% over 36 months,
+the same numbers *(inferred)*, then 10,000 likewise and 18,000 at 23%
+over 24. A new park's money is the settings'
+50,000 whatever the save's, as the recording's is.
+
 ### The objects
 
 Each object the park has is a record of the section tagged `LDMT` then
@@ -102,8 +120,10 @@ Each object the park has is a record of the section tagged `LDMT` then
 | 20 | 2 | Its number: its settings' `Info.Id` (`rides/robot/robot.sam`'s 1101), as `Data/Objects.txt` allots them (1100s rides, 1400s features, 1700s obstacles), each an object of the world's *(confirmed)* |
 | 22 | 2 | 2000 in all |
 
-Then its name in UTF-16, each character followed by two bytes of 0xCD,
-and much more, not worked out. The prebuilt park has 24: 14 placed,
+Then its name, at 0x3C: UTF-16 characters four bytes apart, with older
+text between them where the buffer was written twice ("Giant " and
+"Swing" alternating, then "Robot"), so not to be read as it is; and
+much more, not worked out. The prebuilt park has 24: 14 placed,
 among them the Giant Robot Swing at (42, 26), the Electric Fountain at
 (49, 23), three rocks, the mission's fence (1700) at (41, 48) and four
 more obstacles, and four rides in the park's other areas; ten kept
@@ -149,8 +169,10 @@ is; the game-files test runs it (`tpw.gamedata.saves`). The unit tests
 ## Open questions
 
 - Everything else in the state: the records before the grid, the
-  sections after (the objects' other fields, the money, the visitors),
-  the cells' other fields and their entries.
+  sections' fields (the bank's other numbers, the park's, the staff's),
+  the objects' other fields, the cells' other fields and their entries.
+- A save the game wrote of a park played, with visitors and money
+  spent, to set the sections against.
 - Whether every new park of Land of Invention starts from it, and what
   the other worlds start from.
-- Saving a park: a save of the game's own, to set beside this one.
+- Saving a park.

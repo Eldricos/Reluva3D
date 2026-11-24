@@ -30,7 +30,8 @@ None yet.
   bottom buttons' menus open, but only the path tool and the Park
   menu's Objectives do anything yet; a new park has the prebuilt park's
   path, queue, ride and other objects ([paths.md](systems/paths.md)),
-  standing still; no fly-in, gates or other building
+  standing still; queues are laid with the path tool from an entrance,
+  attractions not being placed yet; no fly-in, gates or other building
   yet, its fixed items marked
   ([PLAN.md](PLAN.md#phases), [park.md](systems/park.md)). Every park
   is its world's first mission's.

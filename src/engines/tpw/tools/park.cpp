@@ -317,6 +317,25 @@ int cmdTpwsCheck(int argc, char **argv) {
         if (same)
             world = folder;
     }
+    // The queues' pieces as Reluva works them out from their shapes, set
+    // against those the save gives: its 2, 4 and 5 are the straight, the
+    // bend and the piece by the path; a straight turned a half is the same.
+    int agree = 0;
+    int pieces = 0;
+    reluva::tpw::Park park;
+    if (world != "none" && !park.load(files, world, 0)) {
+        using Model = reluva::tpw::Park::QueueModel;
+        for (const reluva::tpw::Park::QueuePiece &q : park.queuePieces()) {
+            const reluva::tpw::SavedPark::Cell &c = saved.cell(q.at.x, q.at.y);
+            const int number = q.model == Model::kStraight ? 2
+                               : q.model == Model::kBend   ? 4
+                               : q.model == Model::kJoin   ? 5
+                                                           : -1;
+            const int half = q.model == Model::kStraight ? 180 : 360;
+            ++pieces;
+            agree += number == c.piece && q.angle % half == c.angle % half;
+        }
+    }
     reluva::Md5 md5;
     md5.update(saved.state().data(), saved.state().size());
     size_t placed = 0;
@@ -326,10 +345,10 @@ int cmdTpwsCheck(int argc, char **argv) {
             std::printf("  object %u at %.1f, %.1f, %u degrees%s\n", o.id, o.x, o.y, o.angle,
                         o.placed() ? "" : " (not placed)");
     }
-    std::printf("%s: version %s, state %zu bytes, %d cells (%d of kind 3, %d of 7), %d path, %d queue, %zu objects "
-                "(%zu placed), world %s; md5 %s\n",
+    std::printf("%s: version %s, state %zu bytes, %d cells (%d of kind 3, %d of 7), %d path, %d queue (%d of %d "
+                "pieces as saved), %zu objects (%zu placed), world %s; md5 %s\n",
                 name.c_str(), saved.version().c_str(), saved.state().size(), kSide * kSide, kinds[3], kinds[7], path,
-                queues, saved.objects().size(), placed, world.c_str(), md5.hexDigest().c_str());
+                queues, agree, pieces, saved.objects().size(), placed, world.c_str(), md5.hexDigest().c_str());
     return 0;
 }
 

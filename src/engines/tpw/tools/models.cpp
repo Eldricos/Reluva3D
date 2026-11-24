@@ -134,10 +134,25 @@ int cmdMd2Check(int argc, char **argv) {
                 if (!mesh.positions.empty())
                     std::printf("  bounds x %.1f to %.1f, y %.1f to %.1f, z %.1f to %.1f\n", lo[0], hi[0], lo[1], hi[1],
                                 lo[2], hi[2]);
-                for (const Model::Group &g : mesh.groups)
-                    std::printf("  faces %4zu-%-4zu %s\n", g.firstFace, g.firstFace + g.faceCount,
+                for (const Model::Group &g : mesh.groups) {
+                    // The group's bounds through the mesh's transform.
+                    std::array<float, 3> glo{1e30f, 1e30f, 1e30f};
+                    std::array<float, 3> ghi{-1e30f, -1e30f, -1e30f};
+                    for (size_t f = g.firstFace; f < g.firstFace + g.faceCount && f < mesh.faces.size(); ++f)
+                        for (uint16_t v : mesh.faces[f].vertex) {
+                            const auto &p = mesh.positions[mesh.positionOf[v]];
+                            const reluva::gfx::Vec3 q = reluva::gfx::transformPoint(mesh.transform, {p[0], p[1], p[2]});
+                            for (size_t i = 0; i < 3; ++i) {
+                                glo[i] = std::min(glo[i], q[i]);
+                                ghi[i] = std::max(ghi[i], q[i]);
+                            }
+                        }
+                    std::printf("  faces %4zu-%-4zu %-16s x %.1f to %.1f, y %.1f to %.1f, z %.1f to %.1f\n",
+                                g.firstFace, g.firstFace + g.faceCount,
                                 g.texture == Model::Group::kNoTexture ? "(none)"
-                                                                      : model.textures()[g.texture].name.c_str());
+                                                                      : model.textures()[g.texture].name.c_str(),
+                                glo[0], ghi[0], glo[1], ghi[1], glo[2], ghi[2]);
+                }
             }
         }
     }

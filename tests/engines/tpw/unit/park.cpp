@@ -114,7 +114,8 @@ void testCalendar() {
 // over bare land only.
 void testPaths(const std::filesystem::path &tmp) {
     const std::filesystem::path data = tmp / "game" / "Data";
-    writeText(data / "levels" / "Standard.sam", "BankAccountInfo.InitialCash 100\r\nCosts.PathCell 10\r\n");
+    writeText(data / "levels" / "Standard.sam",
+              "BankAccountInfo.InitialCash 100\r\nCosts.PathCell 10\r\nCosts.QueueCell 10\r\n");
     writeText(data / "missions" / "miss00.sam", "Info.Number 0\r\n");
     constexpr int kRows = 8;    // x
     constexpr int kColumns = 6; // y
@@ -125,8 +126,9 @@ void testPaths(const std::filesystem::path &tmp) {
     test::writeFile(data / "levels" / "science" / "terrain" / "base.map",
                     tpw::testing::makeAttributeMap(kColumns, kRows, tiles));
     // The prebuilt park, of this world: its tiles the map's; path at (6, 1),
-    // a queue at (6, 2).
-    auto prebuilt = [&](bool sameWorld) {
+    // a queue at (6, 2) to an entrance at (6, 3); and another entrance at
+    // (7, 3), without a queue.
+    auto prebuilt = [&](bool sameWorld, bool second = false) {
         return tpw::testing::makeSavedPark(
             [&](int x, int y, tpw::testing::Bytes &body) {
                 if (x < kRows && y < kColumns)
@@ -136,10 +138,11 @@ void testPaths(const std::filesystem::path &tmp) {
                 if (x == 6 && y == 1)
                     body[13] = 1;
                 if (x == 6 && y == 2) {
-                    body[13] = 2; // where the queue meets the path, turned
-                    body[17] = 5;
-                    body[21] = 90;
+                    body[13] = 2; // a queue's one cell, from the path to an entrance
+                    body[25] = 3;
                 }
+                if ((x == 6 || (second && x == 7)) && y == 3)
+                    body[25] = 9;
                 if (x == 4 && y == 3)
                     body[25] = 4; // an object's
             },
@@ -152,8 +155,13 @@ void testPaths(const std::filesystem::path &tmp) {
     Park park;
     CHECK(!park.load(files, "levels/science", 0));
     CHECK(park.prebuilt() && park.isPath({6, 1}) && park.ground({6, 2}) == Park::Ground::kQueue);
-    CHECK(park.ground({4, 3}) == Park::Ground::kTaken);
-    CHECK(park.queuePieces().size() == 1 && park.queuePieces()[0].piece == 5 && park.queuePieces()[0].angle == 90);
+    CHECK(park.ground({4, 3}) == Park::Ground::kTaken && park.ground({6, 3}) == Park::Ground::kTaken);
+    // Its queue followed from the entrance to the path: the piece by the
+    // path, its posts north to it.
+    CHECK(park.queues().size() == 1 && park.queues()[0].atPath && (park.queues()[0].pathEnd == Park::Cell{6, 1}));
+    const std::vector<Park::QueuePiece> pieces = park.queuePieces();
+    CHECK(pieces.size() == 1 && pieces[0].model == Park::QueueModel::kJoin && pieces[0].angle == 0);
+    CHECK(park.queueFrom({6, 3}) == -1);
     CHECK(park.objects().size() == 1 && park.objects()[0].id == 1101 && (park.objects()[0].at == Park::Cell{4, 3}));
     CHECK(park.groundWidth() == kRows && park.groundHeight() == kColumns && park.pathCost() == 10);
     CHECK(park.isPath({2, 1}) && park.isPath({2, 2}) && park.ground({1, 2}) == Park::Ground::kOpen);
@@ -177,7 +185,62 @@ void testPaths(const std::filesystem::path &tmp) {
     CHECK(!mountGame(other, tmp / "game", warnings));
     CHECK(!park.load(other, "levels/science", 0));
     CHECK(!park.prebuilt() && !park.isPath({6, 1}) && park.ground({6, 2}) == Park::Ground::kOpen);
-    CHECK(park.objects().empty() && park.queuePieces().empty());
+    CHECK(park.objects().empty() && park.queues().empty());
+
+    // A queue laid from the other entrance: up two cells, then towards the
+    // path, which it meets and joins; at 10 a cell.
+    test::writeFile(data / "PreBuilt" / "prebuilt.TPWS", prebuilt(true, true));
+    SearchSet laying;
+    CHECK(!mountGame(laying, tmp / "game", warnings));
+    CHECK(!park.load(laying, "levels/science", 0));
+    const int q = park.queueFrom({7, 3});
+    CHECK(q >= 0 && park.queueCost() == 10 && park.queueFrom({6, 3}) == -1);
+    if (q < 0)
+        return;
+    const Park::Queue preview = park.queueWith(q, Park::pathRun({7, 3}, {7, 0}));
+    CHECK(preview.cells.size() == 3 && !preview.atPath && park.queues()[size_t(q)].cells.empty());
+    CHECK(park.layQueue(q, Park::pathRun({7, 3}, {7, 1})) == 2 && park.cash() == 80);
+    CHECK(park.queueFrom({7, 1}) == q && park.ground({7, 2}) == Park::Ground::kQueue);
+    // On to the path at (6, 1): it joins it at once.
+    CHECK(park.layQueue(q, Park::pathRun({7, 1}, {3, 1})) == 0 && park.queues()[size_t(q)].atPath);
+    CHECK((park.queues()[size_t(q)].pathEnd == Park::Cell{6, 1}) && park.queueFrom({7, 1}) == -1);
+}
+
+// A queue's pieces by its shape: straights, a bend each way, the piece by
+// the path straight or bent (its posts towards the path), a dead end.
+void testQueuePieces() {
+    using Model = Park::QueueModel;
+    Park::Queue q;
+    q.entrance = {5, 10};
+    q.cells = {{5, 9}, {5, 8}, {6, 8}, {7, 8}};
+    q.atPath = true;
+    q.pathEnd = {8, 8};
+    std::vector<Park::QueuePiece> p = Park::queuePieces(q);
+    CHECK(p.size() == 4 && p[0].model == Model::kStraight && p[0].angle == 0);
+    CHECK(p.size() == 4 && p[1].model == Model::kBend && p[1].angle == 0);
+    CHECK(p.size() == 4 && p[2].model == Model::kStraight && p[2].angle == 90);
+    CHECK(p.size() == 4 && p[3].model == Model::kJoin && p[3].angle == 90);
+    q.atPath = false;
+    p = Park::queuePieces(q);
+    CHECK(p.size() == 4 && p[3].model == Model::kDeadEnd && p[3].angle == 90);
+
+    Park::Queue bent;
+    bent.entrance = {6, 9};
+    bent.cells = {{5, 9}, {5, 10}};
+    bent.atPath = true;
+    bent.pathEnd = {4, 10};
+    p = Park::queuePieces(bent);
+    CHECK(p.size() == 2 && p[0].model == Model::kBendOther && p[0].angle == 0);
+    // In from the north, out west to the path: the bend turned a half, its
+    // east side, with the posts, west.
+    CHECK(p.size() == 2 && p[1].model == Model::kJoinBendEast && p[1].angle == 180);
+    bent.cells = {{5, 9}};
+    bent.pathEnd = {5, 8};
+    p = Park::queuePieces(bent);
+    CHECK(p.size() == 1 && p[0].model == Model::kJoinBendEast && p[0].angle == 270);
+    bent.pathEnd = {5, 10};
+    p = Park::queuePieces(bent);
+    CHECK(p.size() == 1 && p[0].model == Model::kJoinBendSouth && p[0].angle == 0);
 }
 
 // The texture a path cell takes by its neighbours: alone, an end turned
@@ -215,4 +278,5 @@ static const reluva::test::Suite kSuite("tpw.unit.park",
                                             {"calendar", [](const std::filesystem::path &) { testCalendar(); }},
                                             {"paths", [](const std::filesystem::path &tmp) { testPaths(tmp); }},
                                             {"path-tiles", [](const std::filesystem::path &) { testPathTiles(); }},
+                                            {"queue-pieces", [](const std::filesystem::path &) { testQueuePieces(); }},
                                         });

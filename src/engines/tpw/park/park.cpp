@@ -69,6 +69,7 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
     _arrivals.pointsPerVisitor = std::max(1, int(general.number("Arrival.PointsPerVisitor", 1)));
     _nextArrivalMs = _arrivals.everyMs;
     _pathCost = int(general.number("Costs.PathCell"));
+    _queueCost = int(general.number("Costs.QueueCell"));
     for (int i = 0; i < kVisitorTypes; ++i) {
         const std::string base = "PeepTypes[" + std::to_string(i) + "].";
         VisitorType type;
@@ -187,12 +188,16 @@ void Park::layPrebuilt(const SearchSet &files, const AttributeMap &map) {
                 g = Ground::kPath;
             } else if (c.built == SavedPark::Built::kQueue) {
                 g = Ground::kQueue;
-                _queuePieces.push_back({{x, y}, c.piece, c.angle});
             } else if (g == Ground::kOpen && (c.fill == SavedPark::kFillObject || c.fill == SavedPark::kFillEntrance ||
                                               c.fill == SavedPark::kFillExit)) {
                 g = Ground::kTaken;
             }
         }
+    // Each attraction's queue, followed from its entrance.
+    for (int x = 0; x < _mapWidth; ++x)
+        for (int y = 0; y < _mapHeight; ++y)
+            if (saved.cell(x, y).fill == SavedPark::kFillEntrance)
+                _queues.push_back(followQueue({x, y}));
     for (const SavedPark::Object &o : saved.objects())
         if (o.placed())
             _objects.push_back({o.id, {int(std::floor(o.x)), int(std::floor(o.y))}, int(o.angle)});

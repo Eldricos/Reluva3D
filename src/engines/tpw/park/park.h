@@ -126,13 +126,63 @@ public:
     };
     const std::vector<PlacedObject> &objects() const { return _objects; }
 
-    /** A cell of a queue: the piece it's drawn as (2 straight, 4 a bend, 5 where it meets the path), turned. */
+    /**
+     * A queue: its cells from the one by its attraction's entrance out,
+     * and where it meets the path, if it does.
+     */
+    struct Queue {
+        Cell entrance;
+        std::vector<Cell> cells;
+        bool atPath = false;
+        Cell pathEnd;
+    };
+    const std::vector<Queue> &queues() const { return _queues; }
+
+    /** The models a queue is drawn with, a cell each (`queue/` of the world's). */
+    enum class QueueModel {
+        kStraight,      // questra
+        kBend,          // quebnd1: its side towards the path east, unturned
+        kBendOther,     // quebnd2: south
+        kJoin,          // queend: a straight, its white posts north, by the path
+        kJoinBendSouth, // quebin1: a bend, its posts at its south side, by the path
+        kJoinBendEast,  // quebin2: a bend, its posts at its east side
+        kDeadEnd,       // quedead: open south alone
+    };
+    /** A queue's cell: its model, turned so many degrees (east towards south). */
     struct QueuePiece {
         Cell at;
-        int piece = 0;
-        int angle = 0; // degrees
+        QueueModel model = QueueModel::kStraight;
+        int angle = 0;
     };
-    const std::vector<QueuePiece> &queuePieces() const { return _queuePieces; }
+    /**
+     * The pieces a queue is drawn with, by its shape: straights and bends
+     * along it, the piece by the path with its posts towards it, a dead end
+     * where it stops short. See docs/engines/tpw/games/simcoaster/systems/paths.md#queues.
+     */
+    static std::vector<QueuePiece> queuePieces(const Queue &queue);
+    /** Every queue's pieces. */
+    std::vector<QueuePiece> queuePieces() const;
+
+    /** What a cell of queue costs (the general settings' `Costs.QueueCell`). */
+    int queueCost() const { return _queueCost; }
+    /**
+     * The queue a length of queue can be laid on from a cell: one whose
+     * entrance it is, while it has no cells, or whose last cell it is,
+     * while it doesn't meet the path.
+     * @return The queue's index, or −1.
+     */
+    int queueFrom(const Cell &cell) const;
+    /**
+     * The queue `index` with a length laid on from its end, through
+     * `run` (pathRun()'s cells, its first the end): over bare land, until
+     * it meets path, which it joins, or something it can't cross.
+     */
+    Queue queueWith(int index, const std::vector<Cell> &run) const;
+    /**
+     * Lays it, at queueCost() a cell while the money lasts.
+     * @return How many cells were laid.
+     */
+    int layQueue(int index, const std::vector<Cell> &run);
 
     /** Whether the prebuilt park's path, queues and objects were laid. */
     bool prebuilt() const { return _prebuilt; }
@@ -190,6 +240,7 @@ public:
 private:
     static constexpr uint32_t kStepMillis = 100;
     void layPrebuilt(const SearchSet &files, const AttributeMap &map);
+    Queue followQueue(const Cell &entrance) const;
     void step(uint32_t ms);
 
     std::string _folder;
@@ -207,7 +258,8 @@ private:
     std::vector<Ground> _ground;
     bool _prebuilt = false;
     std::vector<PlacedObject> _objects;
-    std::vector<QueuePiece> _queuePieces;
+    std::vector<Queue> _queues;
+    int _queueCost = 0;
     std::vector<VisitorType> _visitorTypes;
     std::vector<gfx::Vec3> _wayIn;
     std::vector<Visitor> _people;

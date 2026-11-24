@@ -101,8 +101,9 @@ None yet.
 
 ## Guessed
 
-- **Which queue models the saved pieces are**: 2 `questra`, 4
-  `quebnd1` (not its mirror, `quebnd2`), 5 `queend`
+- **Which of the queue's two bends is which way, and how a line is
+  laid**: `quebnd1` where the bend's east side faces the path; a line
+  laid with the path tool from an entrance
   ([paths.md](systems/paths.md#queues)). A queue seen close in the
   running game, or a save with more pieces, would settle it.
 

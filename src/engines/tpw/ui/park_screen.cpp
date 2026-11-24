@@ -81,14 +81,15 @@ constexpr float kUnitsPerWalkFrame = 1;
 // sprites 50 to 60 pixels tall.
 constexpr float kSpritePixelUnits = 0.1f;
 constexpr Color kBlockedColour{230, 40, 40}; // a cell the path being laid can't cross
-// The queue's pieces' models by the save's numbers for them: 2 straight,
-// 4 a bend, 5 where the queue meets the path (inferred: the straight
-// with white posts at one end, its other piece-like models a bend with a
-// bin, a dead end).
-const std::array<std::pair<int, const char *>, 3> kQueueModels{{
-    {2, "questra.MD2"},
-    {4, "quebnd1.MD2"},
-    {5, "queend.MD2"},
+// The queue's models, by the pieces they draw.
+const std::array<std::pair<Park::QueueModel, const char *>, 7> kQueueModels{{
+    {Park::QueueModel::kStraight, "questra.MD2"},
+    {Park::QueueModel::kBend, "quebnd1.MD2"},
+    {Park::QueueModel::kBendOther, "quebnd2.MD2"},
+    {Park::QueueModel::kJoin, "queend.MD2"},
+    {Park::QueueModel::kJoinBendSouth, "quebin1.MD2"},
+    {Park::QueueModel::kJoinBendEast, "quebin2.MD2"},
+    {Park::QueueModel::kDeadEnd, "quedead.MD2"},
 }};
 constexpr float kRadiansPerDegree = 3.14159265f / 180;
 // How far path lies over the ground, in units, and objects' models (their
@@ -244,7 +245,7 @@ void ParkScreen::loadObjects(const SearchSet &files, const Park &park) {
     for (const auto &[piece, file] : kQueueModels) {
         LoadedModel model;
         if (!model.load(files, prefix + "queue/" + file))
-            _queueModels.emplace(piece, std::move(model));
+            _queueModels.emplace(int(piece), std::move(model));
     }
 }
 
@@ -255,10 +256,14 @@ void ParkScreen::drawObjects(soft3d::Rasterizer &rasterizer, const soft3d::Orbit
         if (model != _objectModels.end())
             drawPlaced(rasterizer, eye, model->second, o.at, o.angle, light);
     }
-    for (const Park::QueuePiece &q : park.queuePieces()) {
-        const auto model = _queueModels.find(q.piece);
-        if (model != _queueModels.end())
-            drawPlaced(rasterizer, eye, model->second, q.at, q.angle, light);
+    // The queue being laid drawn as it would be, in its own's place.
+    for (const Park::Queue &queue : park.queues()) {
+        const bool laying = _queuePreview && _queuePreview->entrance == queue.entrance;
+        for (const Park::QueuePiece &q : Park::queuePieces(laying ? *_queuePreview : queue)) {
+            const auto model = _queueModels.find(int(q.model));
+            if (model != _queueModels.end())
+                drawPlaced(rasterizer, eye, model->second, q.at, q.angle, light);
+        }
     }
 }
 
@@ -432,8 +437,13 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
     std::set<uint32_t> held;
     uint64_t last = sys.getMillis();
     // The path tool's length being laid: from its start to the cell under
-    // the mouse.
+    // the mouse; or the queue it's laying ("Edit line"), on from its end.
     std::optional<Park::Cell> pathStart;
+    int queueLaying = -1;
+    auto queueEnd = [&](int index) {
+        const Park::Queue &q = park.queues()[size_t(index)];
+        return q.cells.empty() ? q.entrance : q.cells.back();
+    };
     int mouseX = -1;
     int mouseY = -1;
     for (;;) {
@@ -453,9 +463,24 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
             if (ev.type == EventType::kMouseDown && laying) {
                 if (ev.button == MouseButton::kRight) {
                     pathStart.reset();
+                    queueLaying = -1;
+                } else if (ev.button == MouseButton::kLeft && onGround && queueLaying >= 0) {
+                    // A click on its end finishes it; any other lays a length
+                    // on, which finishes it if it meets path.
+                    const Park::Cell end = queueEnd(queueLaying);
+                    if (under == end) {
+                        queueLaying = -1;
+                    } else {
+                        park.layQueue(queueLaying, Park::pathRun(end, under));
+                        if (park.queues()[size_t(queueLaying)].atPath)
+                            queueLaying = -1;
+                    }
                 } else if (ev.button == MouseButton::kLeft && onGround) {
                     if (!pathStart) {
-                        if (park.ground(under) != Park::Ground::kOutside)
+                        // On an attraction's entrance, or a queue's loose end,
+                        // it lays queue.
+                        queueLaying = park.queueFrom(under);
+                        if (queueLaying < 0 && park.ground(under) != Park::Ground::kOutside)
                             pathStart = under;
                     } else {
                         // A click onto path already laid finishes; any
@@ -471,8 +496,9 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                 continue;
             }
             if (ev.type == EventType::kKeyDown) {
-                if (ev.key == key::kEscape && pathStart) {
+                if (ev.key == key::kEscape && (pathStart || queueLaying >= 0)) {
                     pathStart.reset();
+                    queueLaying = -1;
                     continue;
                 }
                 if (ev.key == key::kEscape)
@@ -501,14 +527,22 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
             if (!open)
                 return false;
         }
-        if (screen.hud().tool() != ParkHud::Tool::kPath)
+        if (screen.hud().tool() != ParkHud::Tool::kPath) {
             pathStart.reset();
+            queueLaying = -1;
+        }
         Park::Cell under;
         std::vector<Park::Cell> preview;
+        std::optional<Park::Queue> queuePreview;
         if (screen.hud().tool() == ParkHud::Tool::kPath && !screen.hud().covers(mouseX, mouseY) &&
-            screen.cellAt(camera, mouseX, mouseY, under))
-            preview = pathStart ? Park::pathRun(*pathStart, under) : std::vector<Park::Cell>{under};
+            screen.cellAt(camera, mouseX, mouseY, under)) {
+            if (queueLaying >= 0)
+                queuePreview = park.queueWith(queueLaying, Park::pathRun(queueEnd(queueLaying), under));
+            else
+                preview = pathStart ? Park::pathRun(*pathStart, under) : std::vector<Park::Cell>{under};
+        }
         screen.setPathPreview(std::move(preview));
+        screen.setQueuePreview(std::move(queuePreview));
 
         // The arrows move along the ground as the camera faces; farther
         // out, faster.

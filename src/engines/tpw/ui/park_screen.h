@@ -18,6 +18,7 @@
 #include <array>
 #include <functional>
 #include <map>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -63,6 +64,8 @@ public:
      * is laying; those it can't build on drawn marked red.
      */
     void setPathPreview(std::vector<Park::Cell> cells) { _preview = std::move(cells); }
+    /** A queue drawn as it would be with the length being laid, in place of the park's of its entrance. */
+    void setQueuePreview(std::optional<Park::Queue> queue) { _queuePreview = std::move(queue); }
 
     /** The HUD's buttons, which take the mouse before the park does. */
     ParkHud &hud() { return _furniture; }
@@ -87,7 +90,8 @@ private:
     bool _pathsRead = false;
     std::vector<Park::Cell> _preview;
     std::map<int, LoadedModel> _objectModels; // by the objects' numbers, those read
-    std::map<int, LoadedModel> _queueModels;  // by the queue's pieces, those read
+    std::optional<Park::Queue> _queuePreview;
+    std::map<int, LoadedModel> _queueModels; // by Park::QueueModel, those read
     bool _furnitureRead = false;
     std::array<std::vector<LoadedSprite>, 3> _visitorLooks; // each generation's sprites, those read
 };

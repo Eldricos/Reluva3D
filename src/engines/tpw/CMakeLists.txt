@@ -11,6 +11,7 @@ reluva_add_engine(tpw
         game_files.cpp
         park/park.cpp
         park/path_tiles.cpp
+        park/queues.cpp
         players.cpp
         sound_effects.cpp
         textures.cpp
