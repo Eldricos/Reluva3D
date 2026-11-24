@@ -221,7 +221,11 @@ Skirmish: Congratulations! You are the winner!", its battle report: 136
 damage scored on the enemy (59 of it internal), its shields' efficiency
 56%, its fleet's losses 40 (its BPV); 65 on the player, none internal,
 no losses. 60 billion instructions (20 minutes headless) ran without a
-failure.
+failure. DONE on the debriefing goes back to the Select Skirmish screen.
+The same input from a fresh save folder played another battle (other
+surroundings, the Klingon met later): what the save folder holds from
+earlier runs changes the game's choices, so a run repeats only from the
+same folder's contents.
 
 The six tutorials (`Tut_*.scr`), listed under Single Player's
 Tutorials (Command 190 and 290, Science 310, Weapons 380, Weapons
