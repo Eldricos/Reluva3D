@@ -39,7 +39,7 @@ For each cel, 24 bytes for a colour, 40 for a texture:
 |---|---|---|
 | 0 | 4 | Kind: 0 a colour, 8 a texture |
 | 4 | 4 | The colour, a palette index |
-| 8 | 16 | Four floats, 1 in every file. The game keeps them with the cel (`0x44a383`), and only the format's writer reads them (`0x44a8e7`), which nothing in `JK.EXE` calls: everything else that takes a cel reads only its kind, its colour and its texture *(from the code)*: see [Behaviour](#behaviour) |
+| 8 | 16 | Four floats, 1 in every file. The game keeps them with the cel (`0x44a383`), and only the format's writer reads them (`0x44a8e7`), which nothing in `JK.EXE` calls: everything else that takes a cel reads only its kind, its colour and its texture *(from the code)*: see [Behaviour](#behaviour). What it meant to the tool that wrote the files can't be told from the game, and changes nothing in it |
 | 24 | 12 | Texture cels only: read and skipped (`0x44a3a3`) *(from the code)*. In 2,133 cels 0, then 0 and `0xbff78482` (a value the header's 48 bytes hold too) one way round or the other; in 22, 3, `0x302` and `0x81`. Left as they were in memory: the game's own writer, never called, fills only the texture's number of these 16 bytes (`0x44a946`) *(from the code)* |
 | 36 | 4 | Texture cels only: which texture (`0x44a3bf`); in every file, the cel's own number |
 
@@ -103,5 +103,4 @@ through a chosen colormap and light level. `reluva-tool sith formats <install>` 
 
 ## Open questions
 
-- What the cels' four floats meant to the tool that made the
-  materials: the game never reads them.
+None.

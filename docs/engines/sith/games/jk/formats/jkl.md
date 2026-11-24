@@ -225,7 +225,7 @@ Of the 126,639 surfaces:
 | `0x8` | 285 | No floor for walking: the check that a thing's next step has floor under it finds none here (`0x4eb580`, `0x4eb6d7`). The AI makes that check (`0x50ad1d`) *(inferred)* | from the code |
 | `0x10`, `0x20`, `0x40` | 4,143; 5,967; 497 | The texture's scale: their texture vertices are 640, 160 and 40 texels a unit, against 320 for the others. No code was found to read them | inferred |
 | `0x80` | 62 | No damage on impact: else a thing hitting it at over 2.5 units a second takes (speed − 2.5)² × 45 (`0x4e8b7d`, `0x4e949f`) | from the code |
-| `0x100` | 336 | None found: no test of the bit on a surface's flags, and no cog sets, clears or tests it. The word is read whole only by the cog verb `GetSurfaceFlags` (`0x500570`) and copied into network play's message for a changed surface (`0x4f8f80`, `0x4f9050`) | from the code |
+| `0x100` | 336 | None found: no test of the bit on a surface's flags, and no cog sets, clears or tests it. The word is read whole only by the cog verb `GetSurfaceFlags` (`0x500570`) and copied into network play's message for a changed surface (`0x4f8f80`, `0x4f9050`). What it meant to the tool that wrote the files can't be told from the game, and changes nothing in it | from the code |
 | `0x200` | 1,053 | Horizon sky: placed by the header's horizon settings, drawn unlit (`0x4c74fd`, `0x4f2e30`) | from the code |
 | `0x400` | 686 | Ceiling sky: placed by the ceiling sky's (`0x4c750f`, `0x4f2f60`) | from the code |
 | `0x800` | none | Scrolling: a thing standing on it moves with it (`0x4cc520`, `0x4ce4b8`); stopping the surface's animation clears it (`0x4efa2c`) | from the code |
@@ -281,7 +281,7 @@ change the offsets as a level plays.
 | `0x2` | 35,958 | Passable: a search made without `0x100` passes only these (`0x4e880e`), and collision looks into the next sector only through them (`0x4e836f`) | from the code |
 | `0x10` | 154 | Stops a search made with `0x200` and not `0x100` (`0x4e87f7`): shots, and the camera's views from outside ([Collision searches](#collision-searches)). 143 of the 154 have no material | from the code |
 | `0x80` | none | Set on loading on an adjoin whose surface can't be seen through, by the renderer's rule (`0x4e5f40`) | from the code |
-| `0x4`, `0x8` | 36,357; 89 | None found: no test of either bit on an adjoin's flags. The word is read whole only by the cog verb `GetAdjoinFlags` (`0x500660`) and copied into network play's message for a changed surface (`0x4f8f80`, `0x4f9050`). Two cogs set and clear `0x8` with `0x2`, as 10, for a force field's "move" and "no move" (`10_ffieldswitch.cog`, `12_ffieldswitch.cog`), which `0x2` alone does | from the code |
+| `0x4`, `0x8` | 36,357; 89 | None found: no test of either bit on an adjoin's flags. The word is read whole only by the cog verb `GetAdjoinFlags` (`0x500660`) and copied into network play's message for a changed surface (`0x4f8f80`, `0x4f9050`). Two cogs set and clear `0x8` with `0x2`, as 10, for a force field's "move" and "no move" (`10_ffieldswitch.cog`, `12_ffieldswitch.cog`), which `0x2` alone does. What either meant to the tool that wrote the files can't be told from the game, and changes nothing in it | from the code |
 
 ### Collision searches
 
@@ -378,7 +378,4 @@ moves the camera to the next sector marked.
 
 ## Open questions
 
-- What the adjoin flags `0x4` and `0x8`, and the surface flag `0x100`,
-  were for: they are in the files, but the program never tests them
-  ([Surface flags](#surface-flags), [Adjoin flags](#adjoin-flags)).
 - What the texture mode does.

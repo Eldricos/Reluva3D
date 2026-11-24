@@ -106,7 +106,7 @@ does is read from the code:
 |---|---|---|---|
 | `0x1` | 3,508 in 123 models | Drawn from behind too. Without it, a face turned away from the camera is skipped while the renderer's culling setting (`0x889f00` bit `0x1`) is on (`0x446548`) | from the code |
 | `0x2` | 14 in 4 models | See-through: drawn at alpha 90 of 255 in Direct3D (`0x43b428`), and by the software renderer's translucent routines (`0x43c559`, `0x43c59a`) | from the code |
-| `0x4` | 129 in 8 models: `tieb.3do` 57, `slab1.3do` and `slab2.3do` 15 each, `e2x4.3do` 12, `00tabl.3do` and `01tabl.3do` 11 each, `e4x4_2.3do` 6, `14d8x8.3do` 2 | Kept with the face, and read by nothing in the game: only the format's writer (`0x4450a1`), which nothing in `JK.EXE` calls, reads it. A level's surfaces have it cleared on loading ([jkl.md](jkl.md#face-flags)); a model's keep it | from the code |
+| `0x4` | 129 in 8 models: `tieb.3do` 57, `slab1.3do` and `slab2.3do` 15 each, `e2x4.3do` 12, `00tabl.3do` and `01tabl.3do` 11 each, `e4x4_2.3do` 6, `14d8x8.3do` 2 | Kept with the face, and read by nothing in the game: only the format's writer (`0x4450a1`), which nothing in `JK.EXE` calls, reads it. A level's surfaces have it cleared on loading ([jkl.md](jkl.md#face-flags)); a model's keep it. What it meant to the tool that wrote the files can't be told from the game, and changes nothing in it | from the code |
 
 The flags are kept at byte 4 of the face (`0x4446a6`) and go with it to
 the renderer (`0x446857`), whose drawing routines read only `0x2`
@@ -158,5 +158,4 @@ viewer's Models page shows every model. `reluva-tool sith formats
 
 ## Open questions
 
-- What the face flag `0x4` meant to the tool that wrote the models: the
-  game never reads it.
+None.

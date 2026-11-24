@@ -17,7 +17,7 @@ Line by line; a `#` starts a comment to the line's end.
 
 | Line | What |
 |---|---|
-| `FLAGS <hex>` | Written in hexadecimal: `0x0000` in 338 files, `0x0003` in 163, `0x0001` in 2, `0x000b` in 1. The game reads it as a decimal number (`flags %d`, `0x44ad44`), so it stops at the `x` and every retail file's flags read as 0. The value is kept at byte `0x24` of the animation, and nothing reads it there but the format's writer (`FLAGS 0x%04x`, `0x44b258`), which nothing in `JK.EXE` calls *(from the code)* |
+| `FLAGS <hex>` | Written in hexadecimal: `0x0000` in 338 files, `0x0003` in 163, `0x0001` in 2, `0x000b` in 1. The game reads it as a decimal number (`flags %d`, `0x44ad44`), so it stops at the `x` and every retail file's flags read as 0. The value is kept at byte `0x24` of the animation, and nothing reads it there but the format's writer (`FLAGS 0x%04x`, `0x44b258`), which nothing in `JK.EXE` calls *(from the code)*. What it meant to the tool that wrote the files can't be told from the game, and changes nothing in it |
 | `TYPE <hex>` | Body parts, as the bits of the models' node types ([3do.md](3do.md#hierarchydef)): `0xFFFF` (all) in 393 files, `0xF` (torso, arms, head) in 91, `0x7F` (the seven parts) in 16; `0x4` (right arm), `0x1D`, `0x1F`, `0x7D` in one each. They choose which priority each node takes: see [Priorities and body parts](#priorities-and-body-parts) |
 | `FRAMES <n>` | Its length in frames: the track loops, stops or holds when it gets there (`0x43eb1c`) *(from the code)* |
 | `FPS <n>` | Frames a second: 15 in 498 files, 8 to 55 in the rest |
@@ -133,5 +133,4 @@ all the model's. `reluva-tool sith formats <install>` reads them all.
 
 ## Open questions
 
-- What the header's flags meant to the tool that wrote them: the game
-  reads them all as 0, and nothing in it reads the value it keeps.
+None.

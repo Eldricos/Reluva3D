@@ -34,7 +34,8 @@ read and kept at bytes `0x44` to `0x4c` of the cloud (`0x46c40d`,
 `0x46c430`), but nothing reads it there but the format's writer
 (`0x46c66b`), which nothing in `JK.EXE` calls: not the drawing
 (`0x46c750`), nor the copy a `type=particle` thing makes of a cloud
-(`0x46c090`) *(from the code)*.
+(`0x46c090`) *(from the code)*. What INSERT OFFSET meant to the tool that wrote the files
+can't be told from the game, and changes nothing in it.
 
 ## Behaviour
 
@@ -137,5 +138,4 @@ reads them all.
 
 ## Open questions
 
-- What INSERT OFFSET meant to the tool that wrote the files: the game
-  never reads it.
+None.

@@ -64,7 +64,8 @@ only code that reads byte `0x20` of a sprite is the cog verb
 the number of its old model, without checking that it is a model
 (`0x503950`); a model keeps its number there (`0x4e9918`). On a thing
 drawn with a sprite it so returns the sprite's type, 0 in retail
-*(from the code)*.
+*(from the code)*. What the type was meant to change can't be told from
+the game, and changes nothing in it.
 
 ## In Reluva
 
@@ -91,5 +92,4 @@ its material's cels. `reluva-tool sith formats <install>` reads them all.
 
 ## Open questions
 
-- What the type was meant to change: the game checks it is 0 to 2 and
-  keeps it, and reads it nowhere as a sprite's type.
+None.

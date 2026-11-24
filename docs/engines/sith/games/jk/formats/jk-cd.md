@@ -32,6 +32,13 @@ code)*. These two places are the only ones in `JK.EXE` that name it.
 Such a CD would stand in for both, which fits a disc holding the whole
 game, but the code doesn't say which disc that was *(guessed)*.
 
+Whether any release's CD holds the any-CD marker, and why the base
+number is `0x69923284`, can't be told from the US retail CDs or
+`JK.EXE`; another release's `JK_.CD` might. Neither changes how the
+US release plays. Reluva's own search for the CDs doesn't take the
+any-CD marker ([In Reluva](#in-reluva)): a CD found to hold it would
+have to be taken there as both.
+
 ## Behaviour
 
 In `JK.EXE`: `0x40ebb0`, `0x40f110`.
@@ -86,7 +93,4 @@ when its `JK_.CD` holds those bytes exactly, whatever the names' case
 
 ## Open questions
 
-- Whether any release's CD holds the any-CD marker, `0x69973284`: not
-  the US retail CDs, and nothing in `JK.EXE` beyond the two comparisons
-  ([Layout](#layout)) says what it was for. Why the base number is
-  `0x69923284` isn't known either.
+None.
