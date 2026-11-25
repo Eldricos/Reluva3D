@@ -50,6 +50,15 @@ public:
      * it asks for in drive D (insertCd).
      */
     Error load();
+    /**
+     * Has the game move its world at every frame at least 10 ms after the
+     * last, rather than only more than 20 ms after (0x403d67): up to 100
+     * times a second against the game's 47 at most; 100 is the most its
+     * clock keeps the right speed at (0x4dd640). After load(); only where
+     * JK.EXE is the US release's.
+     * @return False where JK.EXE isn't the US release's, left as it is.
+     */
+    bool updateEveryFrame();
     /** Puts CD `number` (1 or 2) in drive D, if it was found; false if it wasn't. */
     bool insertCd(int number);
     /**

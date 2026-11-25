@@ -118,12 +118,12 @@ void Player::work() {
     // input is also taken whenever the program looks for a message and
     // finds none, as it does while its menus wait.
     game.directX().presented = [this](const x86::DirectX::Frame &f) {
-        // No more frames than a 60 Hz display shows: the game's flips
-        // waited for its vertical blank. A late frame doesn't make the next
-        // ones hurry.
+        // No more frames than a display of the rate set shows: the game's
+        // flips waited for its vertical blank. A late frame doesn't make
+        // the next ones hurry.
         {
             using namespace std::chrono;
-            constexpr auto kFrame = duration_cast<steady_clock::duration>(duration<double>(1.0 / 60));
+            const auto kFrame = duration_cast<steady_clock::duration>(duration<double>(1.0 / _framesPerSecond));
             const auto now = steady_clock::now();
             if (_nextFlip > now)
                 std::this_thread::sleep_until(_nextFlip);
@@ -159,6 +159,8 @@ void Player::work() {
     const audio::SoundHandle sound =
         _mixer ? _mixer->playOutput(game.directSound().output(), audio::SoundType::kEffects) : audio::kNoSound;
     Error e = game.load();
+    if (!e && _updateEveryFrame)
+        game.updateEveryFrame();
     uint32_t exitCode = 0;
     if (!e)
         e = game.run(exitCode);

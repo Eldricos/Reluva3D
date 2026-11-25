@@ -102,11 +102,12 @@ bool parseKeys(const std::string &text, std::vector<KeyPress> &out) {
 // in drive D, saying what it opens, writes and shows.
 int cmdHost(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(stderr,
-                     "usage: reluva-tool sith host <install> [-seconds N] [-args \"...\"] [-png file] "
-                     "[-files] [-calls] [-d3d] [-net] [-join address] [-keys \"s:key,...\"] [-skim] [-cheat word] "
-                     "[-pad \"s:control=value,...\"] [-close seconds] [-frames N folder] [-peek address] [-wav file] "
-                     "[-write folder] [-gpu folder] [-gpuplay folder] [-gpuscale N] [-gpuaa N]\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool sith host <install> [-seconds N] [-args \"...\"] [-png file] "
+            "[-files] [-calls] [-d3d] [-net] [-join address] [-keys \"s:key,...\"] [-skim] [-cheat word] "
+            "[-pad \"s:control=value,...\"] [-close seconds] [-frames N folder] [-peek address] [-wav file] "
+            "[-write folder] [-gpu folder] [-gpuplay folder] [-gpuscale N] [-gpuaa N] [-fps N] [-everyframe]\n");
         return 2;
     }
     const std::filesystem::path install = argv[2];
@@ -130,8 +131,10 @@ int cmdHost(int argc, char **argv) {
     std::filesystem::path writable = std::filesystem::temp_directory_path() / "reluva-sith-host";
     std::filesystem::path gpuFolder;
     bool gpuPlay = false;
-    int gpuScale = 1;   // the GPU's picture this many times the game's
-    int gpuSamples = 1; // multisampling, as the device has it
+    int gpuScale = 1;           // the GPU's picture this many times the game's
+    int gpuSamples = 1;         // multisampling, as the device has it
+    double framesPerSecond = 0; // the most frames a second shown; 0: as fast as they come
+    bool everyFrame = false;
     for (int i = 3; i < argc; ++i) {
         const std::string a = argv[i];
         if (a == "-seconds" && i + 1 < argc)
@@ -176,6 +179,10 @@ int cmdHost(int argc, char **argv) {
             gpuScale = std::clamp(std::atoi(argv[++i]), 1, 4);
         else if (a == "-gpuaa" && i + 1 < argc)
             gpuSamples = std::clamp(std::atoi(argv[++i]), 1, 4);
+        else if (a == "-fps" && i + 1 < argc)
+            framesPerSecond = std::atof(argv[++i]);
+        else if (a == "-everyframe")
+            everyFrame = true;
     }
     if (!reluva::fs::findFile(install, "JK.EXE")) {
         std::fprintf(stderr, "no JK.EXE in %s\n", install.string().c_str());
@@ -237,6 +244,8 @@ int cmdHost(int argc, char **argv) {
     }
     for (const std::string &m : process.missingImports())
         std::printf("not stood in for: %s\n", m.c_str());
+    if (everyFrame)
+        std::printf("the world moved at every frame: %s\n", game.updateEveryFrame() ? "yes" : "not this JK.EXE");
 
     std::vector<KeyPress> presses;
     if (!parseKeys(keysArg, presses)) {
@@ -623,6 +632,10 @@ int cmdHost(int argc, char **argv) {
         writeRgba(gpuFolder / name, w, h, std::move(rgba));
     };
     uint64_t frames = 0;
+    // Frames that differ from the one before: the game's world moved.
+    uint64_t changed = 0;
+    uint64_t lastHash = 0;
+    auto nextFlip = std::chrono::steady_clock::now();
     double nextSaved = 0;
     if (framesEvery > 0)
         std::filesystem::create_directories(framesFolder);
@@ -630,6 +643,20 @@ int cmdHost(int argc, char **argv) {
     // or by the millisecond (00012-250.png) when they're closer together.
     directX.presented = [&](const x86::DirectX::Frame &f) {
         ++frames;
+        // -fps: paced as the player paces them.
+        if (framesPerSecond > 0) {
+            using namespace std::chrono;
+            const auto now = steady_clock::now();
+            if (nextFlip > now)
+                std::this_thread::sleep_until(nextFlip);
+            nextFlip =
+                std::max(nextFlip, now) + duration_cast<steady_clock::duration>(duration<double>(1 / framesPerSecond));
+        }
+        uint64_t hash = 14695981039346656037ull; // FNV-1a
+        for (uint32_t px : f.pixels)
+            hash = (hash ^ px) * 1099511628211ull;
+        changed += hash != lastHash;
+        lastHash = hash;
         if (window && gpuPlay)
             play(f);
         else if (f.scene && window)
@@ -673,7 +700,8 @@ int cmdHost(int argc, char **argv) {
             std::fprintf(stderr, "can't write %s\n", wav.c_str());
     }
     const x86::DirectX::Frame &frame = directX.frame();
-    std::printf("frames shown: %llu, the last %dx%d\n", (unsigned long long)frames, frame.width, frame.height);
+    std::printf("frames shown: %llu, the last %dx%d; %llu differing from the one before\n", (unsigned long long)frames,
+                frame.width, frame.height, (unsigned long long)changed);
     if (window && gpuPlay)
         std::printf("frames drawn on the GPU: %llu, %llu with a scene\n", (unsigned long long)played,
                     (unsigned long long)playedScenes);
@@ -753,7 +781,7 @@ const Commands kCommands(
         {"host",
          "<install> [-seconds N] [-args \"...\"] [-png file] [-files] [-calls] [-d3d] [-net] [-join address] [-keys "
          "\"s:key,...\"] [-skim] [-cheat word] [-pad \"s:control=value,...\"] [-close seconds] [-frames N folder] "
-         "[-peek address] [-wav file] [-write folder] [-gpu folder] [-gpuplay folder] [-gpuscale N] [-gpuaa N]",
+         "[-peek address] [-wav file] [-write folder] [-gpu folder] [-gpuplay folder] [-gpuscale N] [-gpuaa N] [-fps N] [-everyframe]",
          "run the retail JK.EXE in the x86 emulator: how far it gets", cmdHost},
         {"disasm", "<JK.EXE> <address> [count]", "the program's instructions from an address (hexadecimal) on",
          cmdDisasm},

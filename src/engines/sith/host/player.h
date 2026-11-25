@@ -58,6 +58,17 @@ public:
      * rather than drawn in the frames. Before start().
      */
     void keepScenes(bool keep) { _keepScenes = keep; }
+    /**
+     * At most `framesPerSecond` frames a second (60 by default: the game's
+     * flips waited for a display's vertical blank), and whether the game
+     * moves its world at every frame, up to 100 times a second, rather
+     * than as it does, only more than 20 ms after the last
+     * (GameProcess::updateEveryFrame). Before start().
+     */
+    void setPacing(int framesPerSecond, bool updateEveryFrame) {
+        _framesPerSecond = framesPerSecond > 0 ? framesPerSecond : 60;
+        _updateEveryFrame = updateEveryFrame;
+    }
     /** Starts the game's thread, which loads and runs the program; call once. */
     void start();
     /**
@@ -112,6 +123,8 @@ private:
     std::mutex _mutex;
     std::deque<Event> _events;
     bool _keepScenes = false;
+    int _framesPerSecond = 60;
+    bool _updateEveryFrame = false;
     std::vector<uint32_t> _frame;
     std::shared_ptr<const x86::DirectX::Scene> _scene; // the frame's
     int _width = 0;

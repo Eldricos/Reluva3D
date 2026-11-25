@@ -78,6 +78,11 @@ of every 20th scene and the worst go into the folder. `-gpuplay
 then averages each N by N back to one pixel to compare. `-gpuaa N`
 draws with N samples a pixel (2 or 4, as the device has).
 
+The frame rate: `-fps N` shows at most N frames a second, as the player
+does, and `-everyframe` has the world move at every frame. The run ends
+with how many frames differed from the one before: the world's steps
+shown.
+
 ## A playthrough by hand
 
 - *Add Game...* on the install finds "Jedi Knight: Dark Forces II (US,
@@ -109,6 +114,7 @@ draws with N samples a pixel (2 or 4, as the device has).
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | The game's timing: `reluva-tool sith host -fps N [-everyframe]` in Nar Shaddaa, turning for 12 seconds: as the game, 335 new pictures in 618 frames at 60; every frame, 624 of 626 at 60, 988 of 1,043 at 100. With the player logged at each step (temporary code), the same walking speed, stop and jump at about 42 and 79 steps a second |
 | November 2026 | US retail | Linux | Anti-aliasing on the graphics card (llvmpipe, 4 samples a pixel, 640x480): `-gpu -gpuaa 4` into Nar Shaddaa, 349 scenes against the emulator's drawing, 2.1% of pixels more than a 16-bit step apart, along the polygons' edges; `-gpuplay -gpuaa 4`: the level and gauges as without, the edges smoothed |
 | November 2026 | US retail | Linux | Direct3D on the graphics card at twice the size (llvmpipe, 1280x960): `-gpu -gpuscale 2` into Nar Shaddaa, 107 scenes averaged back to 640x480 against the emulator's drawing, 3.2% of pixels more than a 16-bit step apart, at edges and fine detail; `-gpuplay -gpuscale 2`: the same picture, finer, the gauges enlarged over it. `sith.unit.render`'s *scene scaled*: viewports, pixel centres and the 2D at twice the size |
 | November 2026 | US retail | Linux | Direct3D on the graphics card (Mesa's llvmpipe Vulkan, 640x480): `reluva-tool sith host -d3d -gpu` into Nar Shaddaa, 440 scenes drawn on the GPU against the emulator's drawing: 0.0001% of the pixels where they draw more than a 16-bit step apart, the worst scene 11 pixels along one edge; `-gpuplay`: the gauges over the level. `common.unit.windows`: a scene kept instead of drawn, its triangle and Z clear as given, the 2D after it on top |

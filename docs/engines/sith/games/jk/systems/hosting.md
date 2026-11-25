@@ -295,6 +295,46 @@ Windows does when it fails, and dialog boxes are made but not drawn
     pixel (`-gpuaa 4`) at 640 by 480, 349 scenes differ by more than a
     step at 2.1% of their pixels, along the polygons' edges, which are
     smoothed; within them the pictures agree as without.
+22. **Timing** *(confirmed)*. The
+    game's clock is `timeGetTime`. Its world moves in steps (`0x4c4c00`): the step's
+    count kept at `0x8ee640`, the clock read (`0x4dd640`), then input,
+    things, physics, scripts and sound each given the step, in seconds
+    (`0x836c0c`) and milliseconds (`0x836c08`). The clock takes the
+    milliseconds since the last step, held to between 10 and 500, adds
+    them to the level's time (`0x836c14`, and in seconds `0x836c18`),
+    and keeps the step's reciprocal (`0x836c10`); a flag (`0x8ee66c`
+    bit `0x400`) takes a fifth of it, slow motion. Paused time is left
+    out (`0x4dd710`, `0x4dd730`).
+
+    Play's frame (`0x403d40`) moves the world only when more than 20 ms
+    have passed since it last did (`0x403d62` to `0x403d74`), then
+    draws (`0x404900`) and flips, whether it moved or not. So it shows a
+    new picture at most every 21 ms, about 47 a second, whatever the
+    display: at 60 frames a second, every other frame. Counted running
+    (each frame shown hashed, and the step's count read), a frame
+    differs from the one before only when a step was taken between
+    them, and never more than one step is. The time spent on the steps
+    and on drawing is added up at `0x552b5c` and `0x552b58`. Cut scenes
+    are timed by `SMACKW32.DLL`, which waits on `timeGetTime` itself.
+
+    Reluva shows at most 60 frames a second, as a 60 Hz display would.
+    Its *Frame rate* setting can instead have the world move at every
+    frame at least 10 ms after the last (`GameProcess::updateEveryFrame`:
+    the 20 at `0x403d69` made 9, where the bytes are the US release's),
+    at 60, 75, 85 or 100 frames a second: up to 100 steps a second,
+    since steps closer than 10 ms would be taken as 10 by the clock and
+    the game would run fast. The steps' lengths are measured, so the
+    world moves at the same speed at either rate: seen running, with
+    the player's position and velocity (the first thing's, `+0xb8` and
+    `+0x1d4`) logged at each step, about 42 and 79 steps a second gave
+    the same walking speed (0.279 against 0.279 units a second over the
+    same half second of game time, 0.297 against 0.294 over the next),
+    the same stop after letting go (1.514 against 1.511 seconds after
+    starting), and the same jump, to its highest point (-1.0150 from
+    -1.1299 both times). Over 12 seconds in Nar Shaddaa, turning
+    (`reluva-tool sith host -fps N [-everyframe]`), 618 frames at 60
+    as the game has it showed 335 new pictures; at 60 with every frame,
+    624 of 626; at 100, 988 of 1,043.
 
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were

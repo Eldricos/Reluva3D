@@ -57,6 +57,15 @@ None yet.
 
 ## Additions outside the game
 
+- **Frame rate:** by default the game shows at most 60 frames a second,
+  its world moving on about every other one, as on a 60 Hz display.
+  The *Frame rate* setting can have it move at every frame instead, at
+  60 to 100 frames a second, by changing one number in the game's code
+  as it runs: how long it waits between moving its world. Its speed is
+  unchanged ([systems/hosting.md](systems/hosting.md), step 22), though
+  only Nar Shaddaa's walking and jumping were measured, and the
+  multiplayer games haven't been played at it.
+
 - **Copies of the CDs:** the original reads its cut scenes from the CD in
   the drive; Reluva finds copies of both CDs' files in or beside the
   install, or where the `cd1path` and `cd2path` settings say

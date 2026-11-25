@@ -201,6 +201,21 @@ bool GameProcess::saveSettings() {
     return !e;
 }
 
+bool GameProcess::updateEveryFrame() {
+    // mov eax, [last update]; add eax, 20; cmp esi, eax: the US release's,
+    // in play's frame (0x403d40), before it updates the world (0x4c4c00).
+    constexpr uint32_t kAt = 0x403d62;
+    const uint8_t expected[] = {0xa1, 0x9c, 0x2b, 0x55, 0x00, 0x83, 0xc0, 0x14, 0x3b, 0xf0};
+    x86::Cpu &c = *_cpu;
+    for (uint32_t i = 0; i < sizeof expected; ++i)
+        if (!c.valid(kAt + i, 1) || c.read8(kAt + i) != expected[i])
+            return false;
+    // More than 9 ms: at least 10, the shortest step its clock takes as it
+    // is, below which the game would run fast.
+    c.write8(kAt + 7, 9);
+    return true;
+}
+
 void GameProcess::hookCdCheck() {
     constexpr uint32_t kCheck = 0x40ebb0;
     // sub esp, 0x18c; push ebx; push ebp: the US release's.

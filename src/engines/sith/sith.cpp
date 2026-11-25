@@ -109,6 +109,16 @@ public:
         } rendererGone{_scenes};
         // Asked for once: the game can't change how it's drawn as it goes.
         player.keepScenes(gpu);
+        // `framerate`: game, 60 frames a second, the world moved as the
+        // game moves it (more than 20 ms apart, so about every other
+        // frame); or 60, 75, 85 or 100, the world moved at each.
+        int framesPerSecond = 60;
+        bool everyFrame = false;
+        if (const auto r = _target.settings.find("framerate"); r != _target.settings.end() && r->second != "game") {
+            framesPerSecond = std::clamp(std::atoi(r->second.c_str()), 60, 100);
+            everyFrame = true;
+        }
+        player.setPacing(framesPerSecond, everyFrame);
         player.start();
         // black while it starts
         if (gpu)
@@ -178,7 +188,8 @@ public:
             std::string error;
             if (player.finished(ended, error))
                 return error.empty() ? Error::success() : Error::fail(_target.description + " stopped: " + error);
-            _sys.delayMillis(5);
+            // Soon enough not to miss a frame at the rate set.
+            _sys.delayMillis(framesPerSecond > 60 ? 1 : 5);
         }
     }
 
@@ -267,7 +278,14 @@ public:
         smoothing.tooltip = "With the 3D on the graphics card, the edges of its polygons smoothed by "
                             "multisampling, as far as the card can.";
         smoothing.choices = {{"4", "4x"}, {"2", "2x"}, {"off", "Off"}};
-        return {joystick, drawing, size, smoothing};
+        GameOption rate;
+        rate.key = "framerate";
+        rate.label = "Frame rate";
+        rate.tooltip = "As the game: 60 frames a second, its world moved only every other one. Or that many "
+                       "frames a second, its world moved at each (100 at most, the game's limit). A display "
+                       "slower than the rate shows no more than its own.";
+        rate.choices = {{"game", "As the game"}, {"60", "60"}, {"75", "75"}, {"85", "85"}, {"100", "100"}};
+        return {joystick, drawing, size, smoothing, rate};
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
