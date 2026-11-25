@@ -11,6 +11,7 @@
 #include "common/text.h"
 #include "engines/storm3d/game_files.h"
 #include "engines/storm3d/pages/map_page.h"
+#include "engines/storm3d/scene/map_scene.h"
 #include "engines/viewer_registry.h"
 #include "devtools/soft_renderer.h"
 #include "devtools/tool.h"
@@ -142,7 +143,7 @@ int cmdMapShot(int argc, char **argv) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }
-    storm3d::MapPage::Camera camera;
+    storm3d::MapScene::Camera camera;
     for (size_t i = 0; i < 3; ++i) {
         camera.eye[i] = float(std::atof(argv[5 + i]));
         camera.forward[i] = float(std::atof(argv[8 + i]));

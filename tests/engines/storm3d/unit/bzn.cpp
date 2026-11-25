@@ -5,7 +5,7 @@
 
 #include "common/archive.h"
 #include "engines/storm3d/formats/bzn.h"
-#include "engines/storm3d/pages/map_page.h"
+#include "engines/storm3d/scene/map_scene.h"
 #include "engines/storm3d/scene/sod_meshes.h"
 
 #include "tests/support/test.h"
@@ -20,7 +20,7 @@
 
 using namespace reluva;
 using reluva::storm3d::BznMap;
-using reluva::storm3d::MapPage;
+using reluva::storm3d::MapScene;
 using reluva::storm3d::SodMeshes;
 using reluva::storm3d::SpriteTable;
 
@@ -158,25 +158,25 @@ void testPlacing(const std::filesystem::path &tmp) {
     auto folder = std::make_unique<DirectoryArchive>();
     CHECK(!folder->open(tmp, 0));
     files.add(std::move(folder), 0);
-    const MapPage::Look big = MapPage::lookOf("big", files);
+    const MapScene::Look big = MapScene::lookOf("big", files);
     CHECK(big.model == "big" && big.scale == 2.0f);
-    CHECK(MapPage::lookOf("field", files).model.empty());
-    const MapPage::Look none = MapPage::lookOf("ship", files); // no definition: the model by its name
+    CHECK(MapScene::lookOf("field", files).model.empty());
+    const MapScene::Look none = MapScene::lookOf("ship", files); // no definition: the model by its name
     CHECK(none.model == "ship" && none.scale == 1.0f);
 
     BznMap::Object o;
     // Turned a quarter about y: right is -z, front is +x; at (100, 0, 50).
     o.transform = {0, 0, -1, 0, 1, 0, 1, 0, 0, 100, 0, 50};
-    const gfx::Vec3 p = gfx::transformPoint(MapPage::placeOf(o, 2), {1, 0, 0});
+    const gfx::Vec3 p = gfx::transformPoint(MapScene::placeOf(o, 2), {1, 0, 0});
     CHECK(std::fabs(p[0] - 100) < 1e-4f && std::fabs(p[2] - 48) < 1e-4f);
 
     // An asteroid field: its asteroids within its radius, as many as it
     // says, of the eight models; the same each time for the same object.
-    const MapPage::Look field = MapPage::lookOf("afield", files);
+    const MapScene::Look field = MapScene::lookOf("afield", files);
     CHECK(field.model.empty() && field.minAsteroids == 10 && field.maxAsteroids == 15 && field.fieldRadius == 100);
     o.handle = 0x80012345;
     o.position = {1000, 38.5f, 2000};
-    const auto rocks = MapPage::asteroidsOf(o, field);
+    const auto rocks = MapScene::asteroidsOf(o, field);
     CHECK(rocks.size() >= 10 && rocks.size() <= 15);
     for (const auto &[model, m] : rocks) {
         CHECK(model == "master" ||
@@ -186,8 +186,8 @@ void testPlacing(const std::filesystem::path &tmp) {
         CHECK(dx * dx + dz * dz <= 100.0f * 100.0f + 1e-2f);
         CHECK(std::fabs(std::sqrt(m[0] * m[0] + m[1] * m[1] + m[2] * m[2]) - 1.5f) < 1e-4f);
     }
-    CHECK(MapPage::asteroidsOf(o, field) == rocks);
-    CHECK(MapPage::asteroidsOf(o, big).empty());
+    CHECK(MapScene::asteroidsOf(o, field) == rocks);
+    CHECK(MapScene::asteroidsOf(o, big).empty());
 }
 
 // A skirmish's starting units: a race's, from its definition, made on a
@@ -206,18 +206,18 @@ void testStartingUnits(const std::filesystem::path &tmp) {
     auto folder = std::make_unique<DirectoryArchive>();
     CHECK(!folder->open(tmp, 0));
     files.add(std::move(folder), 0);
-    const std::vector<std::string> units = MapPage::standardUnitsOf("fed", files);
+    const std::vector<std::string> units = MapScene::standardUnitsOf("fed", files);
     CHECK((units == std::vector<std::string>{"fconst", "fconst", "fbase"}));
-    CHECK(MapPage::standardUnitsOf("dom", files).empty());
-    const std::optional<gfx::Vec3> green = MapPage::teamColourOf("klingon", files);
+    CHECK(MapScene::standardUnitsOf("dom", files).empty());
+    const std::optional<gfx::Vec3> green = MapScene::teamColourOf("klingon", files);
     CHECK(green && (*green)[0] == 0.2f && (*green)[1] == 0.6f && (*green)[2] == 0.2f);
-    CHECK(!MapPage::teamColourOf("romulan", files));
+    CHECK(!MapScene::teamColourOf("romulan", files));
 
     BznMap map;
     map.paths.push_back({"Camera_1", {{576.599f, 38.5f, 444.5f}}, 0});
     map.paths.push_back({"path_3", {{0, 0, 0}}, 0});
     map.paths.push_back({"Camera_4", {{5902.03f, 38.5f, 484.8f}}, 0});
-    const std::vector<MapPage::StartUnit> made = MapPage::startUnitsOf(map, units);
+    const std::vector<MapScene::StartUnit> made = MapScene::startUnitsOf(map, units);
     CHECK(made.size() == 6);
     auto near = [](const gfx::Vec3 &a, float x, float y, float z) {
         return std::fabs(a[0] - x) < 0.02f && a[1] == y && std::fabs(a[2] - z) < 0.02f;
@@ -236,9 +236,9 @@ void testStartingUnits(const std::filesystem::path &tmp) {
 void testShroud() {
     BznMap map;
     map.area = {0, 6400, -28.5f, 105.5f, 0, 6400};
-    const std::vector<MapPage::Sight> sights = {
+    const std::vector<MapScene::Sight> sights = {
         {{677.64f, 38.5f, 502.83f}, 700}, {{624.96f, 32.0f, 546.64f}, 500}, {{571.07f, 40.01f, 544.65f}, 500}};
-    const std::vector<bool> seen = MapPage::seenOf(map, 128, sights);
+    const std::vector<bool> seen = MapScene::seenOf(map, 128, sights);
     static const int kSpans[][2] = {{10, 16}, {7, 19}, {6, 20}, {4, 22}, {3, 23}, {2, 24}, {2, 24}, {1, 25}, {0, 26},
                                     {0, 26},  {0, 26}, {0, 27}, {0, 27}, {0, 27}, {0, 27}, {0, 27}, {0, 27}, {0, 27},
                                     {0, 26},  {0, 26}, {0, 26}, {1, 25}, {2, 24}, {2, 24}, {3, 23}};
@@ -254,7 +254,7 @@ void testShroud() {
 // The game's overview camera on starting, as its memory held it in
 // "Premonitions": over the Camera_1 path's point, 450 up and 300 behind.
 void testOverview() {
-    const MapPage::Camera c = MapPage::overviewOf({5750.98f, 39.93f, 1042.75f});
+    const MapScene::Camera c = MapScene::overviewOf({5750.98f, 39.93f, 1042.75f});
     CHECK(std::fabs(c.eye[0] - 5750.98f) < 1e-3f && c.eye[1] == 450 && std::fabs(c.eye[2] - 742.75f) < 1e-3f);
     // Memory's forward: 0, -0.808, 0.589.
     CHECK(std::fabs(c.forward[0]) < 1e-6f && std::fabs(c.forward[1] + 0.808f) < 2e-3f &&
@@ -263,10 +263,10 @@ void testOverview() {
     CHECK(std::fabs(c.fovY - 0.7853982f) < 1e-6f);
     // Zoomed out to the most, and turned: memory had its eye at (5580.605,
     // 700, 2071.604) over (5469.319, 38.5, 2428.837), turned 5.981 radians.
-    const MapPage::Camera far = MapPage::overviewOf({5469.319f, 38.5f, 2428.837f}, 900, 5.981f);
+    const MapScene::Camera far = MapScene::overviewOf({5469.319f, 38.5f, 2428.837f}, 900, 5.981f);
     CHECK(far.eye[1] == 700 && std::fabs(far.eye[0] - 5580.605f) < 0.1f && std::fabs(far.eye[2] - 2071.604f) < 0.1f);
     // Zoomed in: 333.362 up, 258.2 behind (memory's distance 421.666).
-    const MapPage::Camera near = MapPage::overviewOf({4601.699f, 38.5f, 2158.552f}, 333.362f, 0);
+    const MapScene::Camera near = MapScene::overviewOf({4601.699f, 38.5f, 2158.552f}, 333.362f, 0);
     CHECK(std::fabs(near.eye[2] - 1900.343f) < 0.1f);
 }
 
@@ -288,13 +288,13 @@ void testLighting() {
     }
     map.fields.push_back({BznMap::kVector, std::vector<uint8_t>(12)});
     map.objects.push_back(light);
-    const SodMeshes::Lighting lit = MapPage::lightingOf(map);
+    const SodMeshes::Lighting lit = MapScene::lightingOf(map);
     CHECK(lit.lights.size() == 1 && lit.lights[0].colour[0] == 0.4f && lit.lights[0].colour[1] == 0.2f &&
           lit.lights[0].colour[2] == 0);
     CHECK(lit.lights[0].toLight[1] == 1 && lit.ambient[0] == 0.2f); // towards it: up
     // A map with no lights of its own: the page's.
     BznMap none;
-    CHECK(MapPage::lightingOf(none).lights.size() == 1 && MapPage::lightingOf(none).ambient[0] > 0.3f);
+    CHECK(MapScene::lightingOf(none).lights.size() == 1 && MapScene::lightingOf(none).ambient[0] > 0.3f);
 }
 
 // An emitter's particles: a spray's fired each period within the last

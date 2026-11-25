@@ -1,0 +1,185 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#pragma once
+
+#include "common/types.h"
+#include "engines/storm3d/formats/bzn.h"
+#include "engines/storm3d/game_files.h"
+#include "engines/storm3d/scene/sod_meshes.h"
+#include "graphics/gfx3d.h"
+
+#include <map>
+#include <optional>
+#include <string>
+#include <vector>
+
+namespace reluva::storm3d {
+
+/**
+ * A map (a `.bzn`) in 3D, as the game draws it: each object's model
+ * where the map places it, over the map's background model, lit by the
+ * map's lights; the players' starting units in a skirmish, the grid on
+ * the map's plane, and the shroud over what the player hasn't seen. The
+ * viewer's Maps page and the game's missions draw through it. See
+ * docs/engines/storm3d/games/armada/formats/bzn.md.
+ */
+class MapScene {
+public:
+    /** A camera in the game's coordinates: where, which way, and how wide. */
+    struct Camera {
+        gfx::Vec3 eye{};
+        gfx::Vec3 forward{0, 0, 1};
+        gfx::Vec3 up{0, 1, 0};
+        float fovY = 0.9f; // radians, top to bottom
+    };
+    /**
+     * The game's overview camera, looking at `target`: `height` above the
+     * plane (kept within 10 to 700), behind the target by sqrt(200 x
+     * height), facing (sin turn, cos turn) in x and z, as the game's
+     * memory shows it. 450 and 0 are how it starts.
+     */
+    static Camera overviewOf(const gfx::Vec3 &target, float height = 450, float turn = 0);
+
+    /**
+     * How the game lights a map: its directional lights ("dlight"), each
+     * its colour shining along its front axis, and its settings' colour as
+     * the ambient light (a material's own ambient is added to it); a map
+     * with none is lit as the Models page is.
+     */
+    static SodMeshes::Lighting lightingOf(const BznMap &map);
+
+    /** How an object's definition is drawn: its model, and the scale. */
+    struct Look {
+        std::string model; // empty: none (dont_load_SOD, or no definition)
+        float scale = 1;
+        float scanRange = 0; // rangeScan: how far it sees, which clears the shroud
+        // An asteroid field's (classLabel "asteroidfield"): how many
+        // asteroids, and within what radius.
+        int minAsteroids = 0;
+        int maxAsteroids = 0;
+        float fieldRadius = 0;
+    };
+    /**
+     * The model a definition is drawn with: the definition's own name
+     * unless it says `dont_load_SOD = 1`, scaled by its `scaleSOD`.
+     */
+    static Look lookOf(const std::string &odf, const SearchSet &files);
+    /** An object's place: its transform, scaled about its position. */
+    static gfx::Mat4 placeOf(const BznMap::Object &o, float scale);
+    /**
+     * An asteroid field's asteroids: models `master` to `master7`, as many
+     * as its definition says, scattered within its radius about it, each
+     * turned and scaled. The game's own choice isn't known: this one is
+     * made from the object's number, so a map looks the same each time.
+     */
+    static std::vector<std::pair<std::string, gfx::Mat4>> asteroidsOf(const BznMap::Object &o, const Look &look);
+
+    /** A unit a skirmish starts a player with: its definition, and where. */
+    struct StartUnit {
+        std::string odf;
+        gfx::Vec3 at{};
+        int slot = 0; // the player's: its path Camera_<slot>
+    };
+    /**
+     * Where a skirmish makes each player's starting units, as the game
+     * does (0x440e47): about the first point of the map's path
+     * `Camera_<n>`, the player's, on a spiral, one turn each 100 units
+     * further out, the first 100 out, a twelfth of a turn apart, in the
+     * order of `units`. The game passes over a place where the unit
+     * doesn't fit; this doesn't, so units may overlap where the map has
+     * something in the way.
+     */
+    static std::vector<StartUnit> startUnitsOf(const BznMap &map, const std::vector<std::string> &units);
+    /**
+     * A race's starting units in a skirmish (its `standardUnits1` to `9`):
+     * `race` its definition, "fed", "kling", "rom" or "borg".
+     */
+    static std::vector<std::string> standardUnitsOf(const std::string &race, const SearchSet &files);
+    /**
+     * A colour of `teamcolor.odf`, by its name there ("white", or a race's,
+     * "federation"); none if it isn't there.
+     */
+    static std::optional<gfx::Vec3> teamColourOf(const std::string &name, const SearchSet &files);
+
+    /** What sees, for the shroud: where, and how far (its rangeScan). */
+    struct Sight {
+        gfx::Vec3 at{};
+        float range = 0;
+    };
+    /**
+     * The cells of a map's area a player has seen, as the game's shroud
+     * has them: `cells` x `cells` of the area's square, row 0 at its far
+     * (highest) z. A cell is seen when it's within a unit's range of the
+     * unit's own cell, counted in whole cells, with a little more reach than
+     * the range (the game's frame: between 716 and 721 for a range of 700).
+     */
+    static std::vector<bool> seenOf(const BznMap &map, int cells, const std::vector<Sight> &sights);
+
+    explicit MapScene(const GameFiles &files) : _files(files), _meshes(files) {}
+    ~MapScene() { attach(nullptr); }
+    MapScene(const MapScene &) = delete;
+    MapScene &operator=(const MapScene &) = delete;
+
+    /** The renderer to draw through; null lets go of it and what it made. */
+    void attach(gfx::Renderer3D *renderer);
+    /**
+     * Places a map's objects, and `units` (a skirmish's starting units)
+     * in `teamColour` (a name of teamcolor.odf; empty: the map's race's).
+     * With `sights`, the shroud covers what they don't see, and what's
+     * above the plane in it isn't drawn; with none, there's no shroud.
+     */
+    void build(const BznMap &map, const std::vector<StartUnit> &units, const std::string &teamColour,
+               const std::vector<Sight> &sights);
+    /** What a player's units see: the first slot's of `units`, and the map's objects on `team` (-1: none). */
+    std::vector<Sight> sightsOf(const BznMap &map, const std::vector<StartUnit> &units, int team);
+    /** Lets go of what build made. */
+    void clear();
+    /**
+     * Begins a frame through `camera`, `seconds` the scene's clock, `range`
+     * how far it's looking (its near and far planes follow), and draws the
+     * scene; the caller draws over it and ends the frame.
+     */
+    void draw(const Camera &camera, double seconds, float range, Color clear, bool grid);
+
+    const BznMap &map() const { return _map; }
+    SodMeshes &meshes() { return _meshes; }
+    /** lookOf's, kept. */
+    const Look &lookFor(const std::string &odf);
+    /** Objects drawn (an asteroid field counts once), with nothing to draw, and whose model isn't there. */
+    size_t drawn() const { return _drawn; }
+    size_t effects() const { return _effects; }
+    size_t unmodelled() const { return _unmodelled; }
+    /** Starting units drawn. */
+    size_t starting() const { return _starting; }
+
+private:
+    void makeGrid();
+    void freeGrid();
+    void makeShroud(const std::vector<bool> &seen);
+    bool shrouded(const gfx::Vec3 &at) const; // above the plane, in a cell not seen
+
+    const GameFiles &_files;
+    SodMeshes _meshes;
+    gfx::Renderer3D *_renderer = nullptr;
+    BznMap _map;
+    std::map<std::string, Look> _looks; // by lower-case definition
+    // What's drawn: each object's model and place; the background's.
+    std::vector<std::pair<const SodMeshes::Built *, gfx::Mat4>> _placed;
+    const SodMeshes::Built *_background = nullptr;
+    size_t _drawn = 0;
+    size_t _unmodelled = 0;
+    size_t _effects = 0;
+    size_t _starting = 0;
+    // The grid on the plane y = 0: one quad over the map's area, a line
+    // each 100 units in its repeating texture.
+    gfx::MeshId _gridMesh = 0;
+    gfx::TextureId _gridTexture = 0;
+    // The shroud on the same plane: the cells not seen, in gshroud's
+    // picture stretched over the area.
+    gfx::MeshId _shroudMesh = 0;
+    gfx::TextureId _shroudTexture = 0;
+    std::vector<bool> _seen; // seenOf's, while there's a shroud
+};
+
+} // namespace reluva::storm3d

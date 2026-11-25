@@ -12,6 +12,7 @@
 #include "engines/storm3d/formats/preferences.h"
 #include "engines/storm3d/formats/shell_progress.h"
 #include "engines/storm3d/game_files.h"
+#include "engines/storm3d/play/mission_view.h"
 #include "engines/storm3d/shell/credits_screen.h"
 #include "engines/storm3d/player_files.h"
 #include "engines/storm3d/shell/full_screen_movie.h"
@@ -90,10 +91,15 @@ public:
         bool settingsOn = false;
         bool connectionOn = false;
         bool loadingOn = false;
-        // Back from the loading screen to the single-player screen, in 2D.
+        MissionView mission(_files);
+        bool missionOn = false;
+        gfx::Renderer3D *renderer3D = nullptr;
+        // Back from the loading screen or the mission to the single-player
+        // screen, in 2D.
         auto endLoading = [&]() -> Error {
             loading.stop();
-            loadingOn = false;
+            mission.stop();
+            loadingOn = missionOn = false;
             return _sys.initGraphics(kWidth, kHeight, PixelFormat::kRGBA32);
         };
         for (bool running = true; running;) {
@@ -125,8 +131,10 @@ public:
                             return err;
                         }
                     }
-                } else if (loadingOn) {
-                    // The mission can't run yet: Esc gives up on it.
+                } else if (missionOn && !(ev.type == EventType::kKeyDown && ev.key == key::kEscape)) {
+                    mission.handleEvent(ev);
+                } else if (loadingOn || missionOn) {
+                    // Esc gives up on the mission: its own menu comes later.
                     if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
                         if (Error err = endLoading()) {
                             stopAll();
@@ -188,12 +196,11 @@ public:
                         }
                         loadGameOn = true;
                     } else if (choice == SingleChoice::kStartMission) {
-                        gfx::Renderer3D *renderer = nullptr;
-                        if (Error err = _sys.init3D(kWidth, kHeight, renderer)) {
+                        if (Error err = _sys.init3D(kWidth, kHeight, renderer3D)) {
                             stopAll();
                             return err;
                         }
-                        if (Error err = loading.start(renderer, single.mission())) {
+                        if (Error err = loading.start(renderer3D, single.mission())) {
                             stopAll();
                             return err;
                         }
@@ -284,16 +291,27 @@ public:
                 _sys.delayMillis(kFrameMs);
                 continue;
             }
+            if (missionOn) {
+                mission.draw(now);
+                _sys.delayMillis(kFrameMs);
+                continue;
+            }
             if (loadingOn) {
-                // The files read, the screen drawn in 3D; the mission
-                // itself doesn't run yet, so it ends back at the races.
+                // The files read, the screen drawn in 3D; then the mission,
+                // seen from Camera_1, the campaign's player's ("Premonitions"'
+                // first frame of play). Its script moves the player's ships
+                // before play, which can't run yet (phase 8), so there's no
+                // shroud: it would be cast from where the map leaves them.
                 const bool more = loading.step();
                 loading.draw(now);
                 if (!more) {
-                    if (Error err = endLoading()) {
+                    loading.stop();
+                    loadingOn = false;
+                    if (Error err = mission.start(renderer3D, single.mission(), 1, -1, now)) {
                         stopAll();
                         return err;
                     }
+                    missionOn = true;
                 }
                 _sys.delayMillis(kFrameMs);
                 continue;
