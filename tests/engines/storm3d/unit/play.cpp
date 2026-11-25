@@ -133,6 +133,47 @@ void testSelection() {
     CHECK(MissionView::unitAt(units, viewProj, camera, 600, 300) == -1);
 }
 
+// The display's facts from a definition, as the starbase and the
+// construction ship show them.
+void testDisplay() {
+    const std::map<std::string, std::string> files = {
+        {"fbase.odf", "[StarbaseClass]\nunitName = \"Starbase\"\nrace = \"federation\"\nofficerCost = 0\n"
+                      "crewCost = 800\nmaximumCrew = 1500\nenginesHitPoints = 0\nenginesCrewLoss = 0.0f\n"
+                      "lifeSupportCrewLoss = 10.0f\nweaponsCrewLoss = 5.0f\nshieldGeneratorCrewLoss = 15.0f\n"
+                      "sensorsCrewLoss = 5.0f\npossibleCraftNames = \"Starbase 612\" \"Starbase 473\"\n"
+                      "weapon1 = \"fbpulse\"\nbuildItem0 = \"fconst\"\nclassLabel = \"starbase\"\n"},
+        {"fconst.odf", "[CraftClass]\nunitName = \"Construction Ship\"\nrace = \"federation\"\n"
+                       "officerCost = 2\ncrewCost = 500\nenginesHitPoints = 10\nenginesCrewLoss = 5.0f\n"
+                       "buildItem0 = \"fbase\"\nclassLabel = \"constructionrig\"\n"},
+    };
+    const reluva::storm3d::Odf::Loader loader = [&files](std::string_view name, std::string &text) {
+        auto it = files.find(std::string(name));
+        if (it == files.end())
+            return reluva::Error::fail("not found");
+        text = it->second;
+        return reluva::Error::success();
+    };
+    const Hud hud;
+    const Hud::Unit base = MissionView::displayOf("fbase", loader, hud, 1);
+    CHECK(base.className == "Starbase" && base.name == "Starbase 473" && base.raceIcon == "federation_icon");
+    CHECK(base.crew == 800 && base.maxCrew == 1500 && base.officers == 0 && base.wireframe == "FWbase");
+    CHECK(base.systems[0] && !base.systems[1] && base.systems[2] && base.systems[3] && base.systems[4]);
+    std::map<int, std::pair<std::string, bool>> controls;
+    for (const Hud::Unit::Button &b : base.controls)
+        controls[b.slot] = {b.sprite, b.enabled};
+    CHECK(!controls[1].second && controls[2].second && controls.count(4) == 0);
+    CHECK(controls[9].first == "b_fedoff" && controls.count(10) && controls.count(11));
+
+    const Hud::Unit ship = MissionView::displayOf("fconst", loader, hud, 0);
+    CHECK(ship.crew == 500 && ship.maxCrew == 500 && ship.officers == 2 && ship.wireframe == "FWconst");
+    CHECK(ship.name.empty() && ship.systems[1] && !ship.systems[0]);
+    controls.clear();
+    for (const Hud::Unit::Button &b : ship.controls)
+        controls[b.slot] = {b.sprite, b.enabled};
+    CHECK(controls[1].second && !controls[2].second && controls.count(4) && !controls[4].second);
+    CHECK(controls.count(9) == 0 && controls.count(10) && controls.count(11) == 0);
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("storm3d.unit.play",
@@ -143,4 +184,5 @@ static const reluva::test::Suite kSuite("storm3d.unit.play",
                                             {"layout", [](const std::filesystem::path &) { testLayout(); }},
                                             {"counters", [](const std::filesystem::path &) { testCounters(); }},
                                             {"selection", [](const std::filesystem::path &) { testSelection(); }},
+                                            {"display", [](const std::filesystem::path &) { testDisplay(); }},
                                         });

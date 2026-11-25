@@ -94,6 +94,33 @@ frame after a click on the starbase, and after `N`:
   eight corners: the starbase's bar from 381 to 490, its box from 381.4
   to 489.4. Its top is 6 pixels above the box's top there.
 
+### The selected unit's display
+
+With one unit selected, the original drew its display over the info
+panel, its orders on the control panel and its special weapons on the
+rail above ([gui-config.md](../formats/gui-config.md) has where and in
+what colours). What each shows, from its definition, as the starbase's
+and a construction ship's draws have them:
+
+- **Its words:** its `unitName` and a name of its `possibleCraftNames`,
+  a different one each game.
+- **Its crew:** `crewCost` of `maximumCrew`, "800/1500"; a ship without
+  `maximumCrew` shows its `crewCost` twice, "500/500". Its officers,
+  `officerCost`, on a line only when it costs some: the starbase has
+  none.
+- **Its systems:** an icon lit for each it has; the starbase's engines
+  are dark. A system is lit when its `<system>CrewLoss` is more than 0,
+  as the starbase's engines' 0 is the one it lacks *(inferred)*.
+- **Its orders:** move, lit when it has engines (`enginesHitPoints`);
+  attack, lit when it has a weapon without a button of its own; stop,
+  orders and stand down, always lit. A ship has repair too, dark on the
+  construction ship. The starbase has recrew, its race's officers'
+  button (`b_fedoff`, with the border `bb_build`) and the rally point;
+  a unit that builds (`buildItem0`) has the build button.
+- **Its special weapons:** each weapon with a button sprite of its own,
+  `b_<weapon>` (the construction ship's `gtracbm`, its tractor beam), on
+  the rail.
+
 Half a second after the starbase's, the original drew bars over the
 two construction ships too, unselected. A ship chosen with `N` had its
 ring but no bar in that frame.
@@ -141,7 +168,11 @@ before and after each ([camera.md](camera.md#the-overview)):
   pointer, of those whose box reaches it on the screen (the game's own
   choice isn't known); a click where there's none clears it, and clicks
   on the panels don't reach the map. The selected unit has its ring and
-  its bar, full; the cursor is the game's.
+  its bar, full; the cursor is the game's. Its display, orders and
+  special weapons are drawn as the original's, its name the first of
+  its possible names counted on by its place in the scene, as the
+  game's random choice isn't known. The orders' buttons don't do
+  anything yet.
 - **A skirmish** (`MissionView::startSkirmish`) starts from the Game
   Setup screen's slots: each player's race (one left Random takes the
   races in turn by its slot *(guessed)*), their colour, and slot *n* on
@@ -161,7 +192,11 @@ before and after each ([camera.md](camera.md#the-overview)):
   are. The Maps
   page drew the same images before and after its drawing moved into
   `MapScene`. The unit tests (`storm3d.unit.play`) check the keys and
-  the camera's moves against the program's memory.
+  the camera's moves against the program's memory, and the display's
+  facts from the starbase's and construction ship's definitions. The
+  starbase's and a construction ship's displays, drawn by `engine-shot`,
+  were set beside the original's frames: the same in every part but
+  their names, a few pixels' colours at the sprites' edges apart.
 
 ## Open questions
 
@@ -174,3 +209,5 @@ before and after each ([camera.md](camera.md#the-overview)):
 - When the health bars show: why the unselected ships had theirs, and
   the ship chosen with `N` none yet.
 - What the ring's height is: near the plane for both, but not the same.
+- When a ship's repair order is lit, and what the display shows of
+  other ships and of a group.

@@ -37,6 +37,16 @@ constexpr float kRingHeight = 5;
 // Pixels between the health bar's top and its unit's box's top.
 constexpr int kBarAbove = 6;
 
+Odf::Loader loaderOf(const SearchSet &files) {
+    return [&files](std::string_view name, std::string &text) {
+        std::vector<uint8_t> data;
+        if (Error err = files.read(name, data))
+            return err;
+        text.assign(data.begin(), data.end());
+        return Error::success();
+    };
+}
+
 } // namespace
 
 int MissionView::actionOf(uint32_t key) {
@@ -83,13 +93,7 @@ Hud::Resources MissionView::resourcesOf(const Hud::Resources &start, const std::
                                         const SearchSet &files) {
     Hud::Resources r = start;
     r.officers = 0;
-    const Odf::Loader loader = [&files](std::string_view name, std::string &text) {
-        std::vector<uint8_t> data;
-        if (Error err = files.read(name, data))
-            return err;
-        text.assign(data.begin(), data.end());
-        return Error::success();
-    };
+    const Odf::Loader loader = loaderOf(files);
     for (const std::string &unit : units) {
         Odf odf;
         if (odf.load(unit + ".odf", loader))
@@ -98,6 +102,66 @@ Hud::Resources MissionView::resourcesOf(const Hud::Resources &start, const std::
         r.maxOfficers += int(odf.number("officerGain"));
     }
     return r;
+}
+
+Hud::Unit MissionView::displayOf(const std::string &odfName, const Odf::Loader &loader, const Hud &hud, size_t pick) {
+    Hud::Unit u;
+    Odf odf;
+    if (odf.load(odfName + ".odf", loader))
+        return u;
+    const std::string race = text::toLower(odf.string("race", "federation"));
+    u.raceIcon = race + "_icon";
+    u.className = odf.string("unitName");
+    const std::vector<std::string> names = odf.strings("possibleCraftNames");
+    if (!names.empty())
+        u.name = names[pick % names.size()];
+    u.crew = int(odf.number("crewCost"));
+    // A ship without maximumCrew has room for no more than it comes with:
+    // the construction ship's 500/500.
+    u.maxCrew = int(odf.number("maximumCrew", u.crew));
+    u.officers = int(odf.number("officerCost"));
+    // Its wireframe: the race's letter, W, the rest of its name (FWbase).
+    if (!odfName.empty())
+        u.wireframe =
+            std::string(1, char(std::toupper(static_cast<unsigned char>(odfName[0])))) + "W" + odfName.substr(1);
+    // A system it has costs crew when hit; the starbase, without engines,
+    // loses none to them.
+    static const char *const kSystems[] = {"shieldGenerator", "engines", "weapons", "lifeSupport", "sensors"};
+    for (size_t i = 0; i < u.systems.size(); ++i)
+        u.systems[i] = odf.number(std::string(kSystems[i]) + "CrewLoss") > 0;
+    bool attacks = false;
+    for (int i = 1;; ++i) {
+        const std::string weapon = odf.string("weapon" + std::to_string(i));
+        if (weapon.empty())
+            break;
+        const std::string button = "b_" + text::toLower(weapon);
+        if (!hud.hasSprite(button))
+            attacks = true;
+        else if (std::find(u.specials.begin(), u.specials.end(), button) == u.specials.end())
+            u.specials.push_back(button);
+    }
+    const bool starbase = text::equalsIgnoreCase(odf.string("classLabel"), "starbase");
+    const bool moves = odf.number("enginesHitPoints") > 0;
+    u.controls.push_back({1, "b_move", "bb_standard", moves});
+    u.controls.push_back({2, "b_attack", "bb_standard", attacks});
+    u.controls.push_back({3, "b_stop", "bb_standard", true});
+    // Seen dark on the construction ship, the one ship seen yet.
+    if (!starbase)
+        u.controls.push_back({4, "b_repair", "bb_standard", false});
+    u.controls.push_back({5, "b_order", "bb_standard", true});
+    u.controls.push_back({6, "b_standdown", "bb_standard", true});
+    if (starbase) {
+        static const std::map<std::string, std::string> kOfficers = {
+            {"federation", "b_fedoff"}, {"klingon", "b_klingoff"}, {"romulan", "b_romoff"}, {"borg", "b_borgoff"}};
+        auto officers = kOfficers.find(race);
+        u.controls.push_back({7, "b_recrew", "bb_standard", true});
+        u.controls.push_back({9, officers == kOfficers.end() ? "b_fedoff" : officers->second, "bb_build", true});
+    }
+    if (!odf.string("buildItem0").empty())
+        u.controls.push_back({10, "b_build", "bb_standard", true});
+    if (starbase)
+        u.controls.push_back({11, "b_rally", "bb_standard", true});
+    return u;
 }
 
 std::string MissionView::hudRaceOf(const std::string &race) {
@@ -286,7 +350,7 @@ void MissionView::stop() {
     }
     _ringMesh = 0;
     _ringTexture = 0;
-    _selected = _hover = -1;
+    _selected = _hover = _displayed = -1;
     _scene.attach(nullptr);
     _renderer = nullptr;
 }
@@ -359,6 +423,14 @@ void MissionView::draw(uint64_t millis) {
             _hud.drawHealthBar(_overlay, bar[0], bar[1], bar[2], 1);
     }
     _hud.draw(_overlay, _resources.value_or(Hud::Resources{}), _scene.seen(), _resources.has_value());
+    if (chosen) {
+        if (_displayed != _selected) {
+            // The game picks a name at random; any one of them will do.
+            _display = displayOf(chosen->odf, loaderOf(_files.files()), _hud, size_t(_selected));
+            _displayed = _selected;
+        }
+        _hud.drawUnit(_overlay, _display);
+    }
     _hud.drawCursor(_overlay, _mouseX, _mouseY, double(millis) / 1000, _hover >= 0);
     _renderer->endFrame(&_overlay);
 }

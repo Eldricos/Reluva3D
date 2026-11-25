@@ -5,6 +5,7 @@
 
 #include "common/events.h"
 #include "common/types.h"
+#include "engines/storm3d/formats/odf.h"
 #include "engines/storm3d/game_files.h"
 #include "engines/storm3d/play/hud.h"
 #include "engines/storm3d/scene/map_scene.h"
@@ -79,6 +80,12 @@ public:
                                       const SearchSet &files);
     /** The interface's layout's name for a race's definition ("fed" for "fed", "kli" for "kling"). */
     static std::string hudRaceOf(const std::string &race);
+    /**
+     * What the display shows of a unit, from its definition `odf` ("fbase")
+     * as `loader` reads it: `hud` says which weapons are special (those with
+     * a button sprite b_<weapon>), `pick` which of its possible names it has.
+     */
+    static Hud::Unit displayOf(const std::string &odf, const Odf::Loader &loader, const Hud &hud, size_t pick);
     /** Lets go of the renderer and what it made. */
     void stop();
     /** A key pressed or let go, the mouse moved or clicked. */
@@ -116,6 +123,8 @@ private:
     int _pressY = -1;
     int _selected = -1;
     int _hover = -1;
+    int _displayed = -1; // the unit _display is of
+    Hud::Unit _display;
     gfx::MeshId _ringMesh = 0;
     gfx::TextureId _ringTexture = 0;
     MapScene::Camera camera() const;

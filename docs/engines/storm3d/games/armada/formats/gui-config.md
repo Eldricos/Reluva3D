@@ -45,8 +45,11 @@ The names come in families, by the panel they start with (`speed`,
 - `<panel>BlackArea`: drawn black, under what the panel shows.
 - `<counter>Icon`, `<counter>IconArea`, `<counter>TextArea`: the
   counters' icons, drawn in (229, 229, 229), and the numbers, in the
-  sprite font in (128, 128, 128), centred as if each character were 6
-  wide, as "3000", "3569" and "4/120" all fall *(inferred)*.
+  sprite font in (128, 128, 128), centred in their area: x is the
+  area's left plus half of its width less the text's (each character's
+  width and a pixel, and a pixel more), y the area's top plus half of
+  its height less 11, each half cut to a whole pixel, as "3000", "3569",
+  "4/120" and the info panel's words all fall *(inferred)*.
 - `minimapDisplayArea` with `minimapBackgroundSprite`,
   `minimapFogSprite`, `minimapShroudSprite`: the minimap's layers, a
   texel a cell of the map's shroud.
@@ -54,9 +57,35 @@ The names come in families, by the panel they start with (`speed`,
   view's two buttons, `cinematicCommButton` and `cinematicMenuButton`,
   each over its border, in (153, 178, 171) and (128, 152, 149).
 
-Others (the info panel's single ship and groups, the control panel's
-twelve buttons, the comm screen in `gui_glob.cfg`) wait for what fills
-them.
+- `infoSingle…`: the info panel's display of one unit, its areas
+  from the info panel's corner, in the draws' order: the pieces of
+  `infoSingleBackground`; `infoSingleRaceIcon` and the race's own
+  (`federation_icon`) at `…RaceIconDisplayArea`, both in (229, 229,
+  229); the class's and the name's words in black on their backgrounds;
+  the `CREW` and `OFFICERS` labels, the words `Dynamic_Localized_Strings.h`
+  gives their keys (`infoSingleCrewTextLabel`), in black; the crew as
+  "800/1500" in green, the officers in grey; `infoSingleCrewDot` in
+  green; `infoSingleShieldBar` and `infoSingleConstructionBar`, each in
+  (77, 77, 77) under its colour, green and (255, 153, 51), as far as
+  it's full; then the wireframe, `<race letter>W<rest of the
+  definition's name>` (`FWbase`), five 40-texel squares of the 128
+  texture drawn over each other at `infoSingleWireframeIconArea`, from
+  (40, 0), (0, 40), (40, 40), (80, 0) and (0, 0) *(inferred)*.
+- `infoSystem` and `infoSystem_<i>`: the systems' icons down the info
+  panel's side, `info_system.<i>`, added on in (51, 51, 51) and then in
+  green if the unit has it: 0 shields, 1 engines, 2 weapons, 3 life
+  support, 4 sensors.
+- `controlButton<n>` (1 to 12): the control panel's orders, from its
+  corner. Each is its icon, in (153, 178, 171), and its border added on
+  in (128, 152, 149); both in (26, 31, 28) when the unit can't.
+- `speedSingleButtonArea`, `speedSingleButtonGap`, `speedSeparator`,
+  `speedSeparatorArea`: the rail over the info panel: the unit's special
+  weapons' buttons from the left, a step of the button's width and the
+  gap each, each with the border `bb_dweapon`; past five of them the
+  separator, and past it the transport button.
+
+The info panel's groups and the comm screen in `gui_glob.cfg` wait
+for what fills them.
 
 ## In Reluva
 
