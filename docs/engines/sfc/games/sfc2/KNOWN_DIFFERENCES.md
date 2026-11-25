@@ -59,6 +59,9 @@ None yet.
   leaves, the others' session is lost, where DirectPlay could make
   another player the host; groups and chat messages aren't there
   ([dplay.md](../../../../common/x86/dplay.md)).
+- **The 2.0.3.6 patch's own changes are barely played.** It applies,
+  and the patched game runs to its main menu; its missions and its
+  multiplayer haven't been played ([systems/patching.md](systems/patching.md)).
 - **Online play isn't there.** Dynaverse II and MPlayer were services
   that have closed; the Winsock functions the game imports, perhaps
   theirs, aren't stood in for.

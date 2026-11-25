@@ -12,7 +12,9 @@
 #include "common/settings.h"
 #include "engines/engine.h"
 #include "common/stream.h"
+#include "common/mscab.h"
 #include "engines/sfc/formats/intro_movie.h"
+#include "engines/sfc/host/patcher.h"
 #include "engines/sfc/host/game_process.h"
 #include "engines/sfc/host/player.h"
 #include "video/movie.h"
@@ -38,6 +40,14 @@ const std::vector<GameVariant> kVariants = {
      "windows",
      {{"StarFleet2.exe", "e78f2d2c9c9c51f2077bb5c10cbaf617", 4149248},
       {"Assets/Sprites/sprites.q3", "7eaeae9272f5d82ac6523a3d6191a45a", 78253026}}},
+    // 1.0 with the 2.0.3.6 patch applied (as its setup applies it, or as
+    // it's imported).
+    {"sfc2",
+     "Star Trek: Starfleet Command II (2.0.3.6)",
+     "en",
+     "windows",
+     {{"StarFleet2.exe", "b6a6eceb75466ed9da02f2c9ed1a9c90", 4681728},
+      {"Assets/Sprites/sprites.q3", "32fdd0199a0c9bfa2fc60f49f1f0cb35", 80550682}}},
 };
 
 // The same game by its files' names alone, for releases not in kVariants:
@@ -204,18 +214,55 @@ public:
         ImportPlan plan;
         plan.game = {id(), variant->gameId, variant->description, variant->language, variant->platform};
         planInstallShield(plan, cabinet, groups);
-        plan.addPatchLabel.clear();
+        plan.addPatchTooltip = "Apply the 2.0.3.6 patch (sfc2patch20022036.exe) as the game's imported";
         plan.addFolderLabel = "Add other disc...";
         plan.addFolderTooltip = "Copy the game's second CD too (or a copy of it)";
         return {plan};
     }
 
-    bool addToImport(ImportPlan &plan, const std::filesystem::path &folder, std::string &message) const override {
+    // The second CD (a folder), or the 2.0.3.6 patch's download (a file),
+    // applied once the CDs' files are copied: its Patch.exe run on them in
+    // the emulator (Patcher). The script kit it adds to is taken out again,
+    // as the import leaves it out.
+    bool addToImport(ImportPlan &plan, const std::filesystem::path &path, std::string &message) const override {
+        std::error_code ec;
+        if (std::filesystem::is_regular_file(path, ec)) {
+            std::vector<uint8_t> file;
+            std::vector<CabinetFile> setup;
+            bool isPatch = false;
+            if (readFile(path, file) && !readMicrosoftCabinets(file, setup))
+                for (const CabinetFile &f : setup)
+                    isPatch = isPatch || fs::toLower(f.name).find("data1.hdr") != std::string::npos;
+            if (!isPatch) {
+                message = "not the 2.0.3.6 patch (sfc2patch20022036.exe)";
+                return false;
+            }
+            plan.game.description = "Star Trek: Starfleet Command II (2.0.3.6)";
+            plan.notes.push_back("The 2.0.3.6 patch is applied once the game's copied (a minute or so)");
+            plan.afterCopy = [download = path](const std::filesystem::path &dest) -> Error {
+                std::error_code e;
+                const std::filesystem::path work = dest / ".reluva-patch";
+                std::filesystem::remove_all(work, e);
+                if (Error err = Patcher::unpack(download, work / "files"))
+                    return err;
+                Patcher patcher(dest, work / "files", work / "scratch");
+                uint32_t exitCode = 0;
+                if (Error err = patcher.run(exitCode))
+                    return Error::fail("The 2.0.3.6 patch stopped: " + err.message);
+                std::filesystem::remove_all(work, e);
+                std::filesystem::remove_all(dest / "API", e);
+                if (exitCode != 0)
+                    return Error::fail("The 2.0.3.6 patch failed (Patch.exe ended with " + std::to_string(exitCode) +
+                                       ")");
+                return Error::success();
+            };
+            return true;
+        }
         if (!plan.cabinet) {
             message = "not a file Reluva can use for this game";
             return false;
         }
-        return addInstallShieldVolumes(plan, folder, installShieldGroups(*plan.cabinet, kSetupGroups), message);
+        return addInstallShieldVolumes(plan, path, installShieldGroups(*plan.cabinet, kSetupGroups), message);
     }
 };
 

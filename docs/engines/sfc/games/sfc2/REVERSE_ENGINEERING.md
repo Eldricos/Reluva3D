@@ -38,7 +38,8 @@ text files, and the installers' headers.
   holding an InstallShield 5 setup whose `data1.cab` holds
   `PATCHSFC2-2002-2036.RTP` (22,748,524 bytes), `Patch.exe`,
   `Patchw32.dll`, a batch file and a readme dated 28 October 2002. The
-  `.RTP`'s file names list what it changes; it hasn't been applied yet.
+  `.RTP`'s file names list what it changes; it's applied by running
+  `Patch.exe` in the emulator ([systems/patching.md](systems/patching.md)).
 - **The readmes:** the game's (26 November 2000) and the patch's: the
   releases, the patches' changes, the known issues.
 - **Taldren's mission-script kit:** its folders' file list was seen, and
@@ -78,7 +79,8 @@ text files, and the installers' headers.
   (`-newcode`), which finds what a click runs
   ([systems/hosting.md](systems/hosting.md)).
 - **Installers:** the patch's Microsoft cabinet listed and taken apart
-  with a short script; its InstallShield 5 cabinet, and the CDs', listed
+  with a short script, written from Microsoft's description of the
+  format, and since by Reluva ([mscab.md](../../../../common/mscab.md)); its InstallShield 5 cabinet, and the CDs', listed
   with `unshield` (a free tool, MIT licence) as the check on Reluva's
   reading of version 5, worked out from the CDs' own bytes with short
   Python scripts ([InstallShield cabinets](../../../../common/installshield.md));
@@ -107,6 +109,7 @@ text files, and the installers' headers.
 | `reluva-tool sfc table` | Shows a tab-separated or string table |
 | `reluva-tool sfc intro` | Reads the opening movie out of SFC2Intro.exe, decodes it and writes frames as PNGs |
 | `reluva-tool sfc host` | Runs StarFleet2.exe in the x86 emulator, headless, and says how far it gets |
+| `reluva-tool sfc patch` | Copies a game and applies the 2.0.3.6 patch to the copy, running its Patch.exe in the emulator |
 | `reluva-tool sfc disasm` | Disassembles StarFleet2.exe, or another program given by its path (a mission's DLL), between two addresses |
 
 ## Working files not included

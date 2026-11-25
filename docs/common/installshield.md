@@ -185,4 +185,6 @@ What differs in version 5's (0x01005201 in the common header, 5 in bits
   None's CDs ([README](../engines/awe/games/motoe/README.md),
   [README](../engines/awe/games/attwn/README.md)).
 - **`sfc`**: Starfleet Command II's CDs, version 5
-  ([README](../engines/sfc/games/sfc2/README.md#using-it)).
+  ([README](../engines/sfc/games/sfc2/README.md#using-it)), and the
+  setup inside its 2.0.3.6 patch
+  ([patching.md](../engines/sfc/games/sfc2/systems/patching.md)).

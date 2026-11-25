@@ -13,6 +13,7 @@ reluva_add_engine(sfc
         formats/sprite_archive.cpp
         formats/text_tables.cpp
         host/game_process.cpp
+        host/patcher.cpp
         host/player.cpp
         host/system.cpp)
 

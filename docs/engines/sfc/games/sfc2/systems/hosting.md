@@ -22,6 +22,8 @@ registry, which Reluva keeps in the game's save folder, shows its full
 title screen, and starts its sound, through Miles, and its menu music.
 Run again, it finds the key and doesn't ask. Told by DirectPlay's lobby
 that no lobby started it, it shows its main menu, whose buttons work.
+The program the 2.0.3.6 patch leaves runs as far as its main menu too
+([patching.md](patching.md#in-reluva)).
 
 ## How it works
 

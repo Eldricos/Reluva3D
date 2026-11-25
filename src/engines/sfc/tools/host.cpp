@@ -11,6 +11,7 @@
 #include "devtools/tool.h"
 #include "emulation/x86/disasm.h"
 #include "engines/sfc/host/game_process.h"
+#include "engines/sfc/host/patcher.h"
 #include "common/stream.h"
 #include "audio/sound.h"
 #include "audio/wav.h"
@@ -425,7 +426,7 @@ int cmdHost(int argc, char **argv) {
                 std::printf("in %s, at +0x%x (loaded at 0x%x)\n", m->name.c_str(), at - m->base, m->base);
                 found = true;
             }
-        if (!found) {
+        if (!found && !cpu.nativeName(at)) { // a stand-in names itself
             std::printf("in no module; those loaded:\n");
             for (const x86::Win32Process::Module *m : game.process().modules())
                 std::printf("  %s at 0x%x, 0x%x bytes\n", m->name.c_str(), m->base, m->size);
@@ -500,6 +501,52 @@ int cmdDisasm(int argc, char **argv) {
     return 1;
 }
 
+// sfc patch: copies an install and applies the 2.0.3.6 patch to the copy.
+int cmdPatch(int argc, char **argv) {
+    if (argc < 5) {
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool sfc patch <game folder> <sfc2patch20022036.exe or its files> <out folder> [-calls]\n");
+        return 2;
+    }
+    const std::filesystem::path out = argv[4];
+    std::error_code ec;
+    if (std::filesystem::exists(out, ec) && !std::filesystem::is_empty(out, ec)) {
+        std::fprintf(stderr, "%s isn't empty\n", out.string().c_str());
+        return 1;
+    }
+    std::filesystem::create_directories(out / "SFC2", ec);
+    std::filesystem::copy(argv[2], out / "SFC2", std::filesystem::copy_options::recursive, ec);
+    if (ec) {
+        std::fprintf(stderr, "can't copy %s: %s\n", argv[2], ec.message().c_str());
+        return 1;
+    }
+    // The patch's download, unpacked first, or a folder of its files.
+    std::filesystem::path patchFiles = argv[3];
+    if (std::filesystem::is_regular_file(patchFiles, ec)) {
+        patchFiles = out / "patch";
+        if (Error e = sfc::Patcher::unpack(argv[3], patchFiles)) {
+            std::fprintf(stderr, "%s\n", e.message.c_str());
+            return 1;
+        }
+    }
+    sfc::Patcher patcher(out / "SFC2", patchFiles, out / "scratch");
+    for (int a = 5; a < argc; ++a)
+        if (std::string(argv[a]) == "-calls")
+            patcher.logCalls = true;
+    patcher.output = [](const std::string &text) { std::fputs(text.c_str(), stdout); };
+    uint32_t exitCode = 0;
+    const auto start = std::chrono::steady_clock::now();
+    const Error err = patcher.run(exitCode);
+    const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    if (err) {
+        std::printf("stopped: %s (%.1f s)\n", err.message.c_str(), seconds);
+        return 1;
+    }
+    std::printf("Patch.exe ended with %u (%.1f s)\n", exitCode, seconds);
+    return exitCode == 0 ? 0 : 1;
+}
+
 const Commands
     kCommands("sfc",
               {
@@ -512,6 +559,8 @@ const Commands
                    cmdHost},
                   {"disasm", "<game folder or program> <start> <end>",
                    "disassemble StarFleet2.exe (or another program) from one address to another", cmdDisasm},
+                  {"patch", "<game folder> <sfc2patch20022036.exe or its files> <out folder> [-calls]",
+                   "copy an install and apply the 2.0.3.6 patch to the copy, running its Patch.exe", cmdPatch},
               });
 
 } // namespace

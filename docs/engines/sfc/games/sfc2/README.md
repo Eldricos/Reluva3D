@@ -10,7 +10,7 @@ on a strategic map (the Dynaverse) and multiplayer.
 | Release | Recognised by | State |
 |---|---|---|
 | English retail 1.0 (`StarFleet2.exe` version 1.0.0.2, built 27 November 2000), two CDs, and an install from them | `StarFleet2.exe` and `Assets/Sprites/sprites.q3` (`kVariants`, `src/engines/sfc/sfc.cpp`); on the CDs, by their sizes in the first CD's cabinet | Recognised; imported from its CDs |
-| Patch 2.0.3.6 (October 2002), over the retail install | The same files' names (`kFallback`): "unknown release", as the patch rewrites both | Surveyed; its patched files not yet hashed |
+| Patch 2.0.3.6 (October 2002), over the retail install | `StarFleet2.exe` and `sprites.q3` as the patch leaves them (`kVariants`) | Recognised; applied as the game's imported ([systems/patching.md](systems/patching.md)) |
 | Other releases | The same files' names: "unknown release" | Not checked |
 
 Detection signatures (MD5 of each file's start, and its size, as
@@ -20,11 +20,13 @@ Detection signatures (MD5 of each file's start, and its size, as
 |---|---|---|
 | `StarFleet2.exe` 1.0 | `e78f2d2c9c9c51f2077bb5c10cbaf617` | 4149248 |
 | `Assets/Sprites/sprites.q3` 1.0 | `7eaeae9272f5d82ac6523a3d6191a45a` | 78253026 |
+| `StarFleet2.exe` 2.0.3.6 | `b6a6eceb75466ed9da02f2c9ed1a9c90` | 4681728 |
+| `Assets/Sprites/sprites.q3` 2.0.3.6 | `32fdd0199a0c9bfa2fc60f49f1f0cb35` | 80550682 |
 
 ## Where it stands
 
-- **Recognising it:** the launcher recognises the 1.0 install, and any
-  other as an unknown release.
+- **Recognising it:** the launcher recognises the 1.0 install and the
+  2.0.3.6 patch's, and any other as an unknown release.
 - **Reading its files:** the interface's pictures (`sprites.q3`), the
   fonts, the models and their textures, the ship, fighter, sound and
   music tables, the string tables, and the sounds; every retail file of
@@ -45,7 +47,10 @@ Detection signatures (MD5 of each file's start, and its size, as
   ([systems/hosting.md](systems/hosting.md#its-missions)).
 - **Importing from the CDs:** the launcher's import takes the game from
   its two CDs, as their setup installs it
-  ([InstallShield cabinets](../../../../common/installshield.md)).
+  ([InstallShield cabinets](../../../../common/installshield.md)), and
+  applies the 2.0.3.6 patch to it, running the patch's own program
+  ([systems/patching.md](systems/patching.md)); the patched game runs to
+  its main menu.
   `reluva-tool sfc host` runs it headless
   ([systems/hosting.md](systems/hosting.md)).
 - **Multiplayer**, started: a game against AI players, or between copies
@@ -55,7 +60,7 @@ Detection signatures (MD5 of each file's start, and its size, as
   ([systems/hosting.md](systems/hosting.md#its-missions)).
 - **Not yet:** a tutorial passed;
   a multiplayer game between separate machines (tried only between
-  copies on one); the 2.0.3.6 patch applied as it's imported; the
+  copies on one); the 2.0.3.6 patch's missions played; the
   `.gf`, `.mct` and `.mvm`
   settings, campaign and map files; the objects in
   `sprites.q3`.
@@ -70,7 +75,9 @@ launcher with the first CD (or a copy of it: `data1.hdr` and
 the game's files, 3,356 of them (900 MB), are taken out of the CDs'
 cabinets as their setup installs them, but for Taldren's script kit,
 which isn't used (`reluva-tool import <first CD> <folder> -patch
-<second CD>` does the same). Or *Add Game...* with the folder of an
+<second CD>` does the same). *Add patch...* with the 2.0.3.6 patch's
+download (`sfc2patch20022036.exe`) applies it once they're copied,
+which takes a minute more ([systems/patching.md](systems/patching.md)). Or *Add Game...* with the folder of an
 install made on Windows. Starting it plays the opening movie, out of `SFC2Intro.exe` (a key or
 click skips it; [formats/intro.md](formats/intro.md)), then runs the game's own program, which takes
 11 to 18 seconds to load to its title screen; its CD key dialog takes

@@ -45,7 +45,7 @@ on their pages in `formats/` and `systems/`.
    for a family of games.
 2. **Detection** (done for 1.0): `StarFleet2.exe` and `sprites.q3`
    hashed; other releases found by their names as "(unknown release)".
-   2.0.3.6's to be hashed from a patched install.
+   2.0.3.6's hashed from the import, patched as it's imported.
 3. **Readers and a data viewer** (done but for some files): `sprites.q3`'s
    images ([formats/sprites-q3.md](formats/sprites-q3.md)), the `.bft`
    fonts ([formats/bft.md](formats/bft.md)), the `.mod` models with their
@@ -120,9 +120,10 @@ on their pages in `formats/` and `systems/`.
 8. **Importing** (done for the CDs): InstallShield 5's headers in
    `src/common/installshield.cpp` ([its page](../../../../common/installshield.md)),
    and the `MetaEngine`'s `planImport` and `addToImport`, from the two
-   CDs: the import is byte for byte an install made by setup. Still to
-   do: applying the 2.0.3.6 patch as it's imported, by running its
-   `Patchw32.dll` in the emulator, if RTPatch's format can't be read.
+   CDs: the import is byte for byte an install made by setup. The
+   2.0.3.6 patch applied as it's imported, its download taken apart
+   ([mscab.md](../../../../common/mscab.md)) and its own `Patch.exe`
+   run on the game in the emulator ([systems/patching.md](systems/patching.md)).
 9. **Native, part by part:** the game's own code replaced where that
    pays (drawing, sound, the interface, the simulation), each part hooked
    at the functions that do it, as `nfs` draws THRASH's triangles and mixes
