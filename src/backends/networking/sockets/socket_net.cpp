@@ -258,6 +258,15 @@ public:
             break;
         case kReuseAddress:
             name = SO_REUSEADDR;
+#if defined(_WIN32)
+            // Windows' SO_REUSEADDR lets a stream socket take a port another
+            // is listening on; elsewhere that's refused. A port closed is
+            // bound again without it on Windows, so exclusive use gives the
+            // same as elsewhere. Datagram sockets share either way.
+            if (int type = 0, size = int(sizeof type);
+                getsockopt(s, SOL_SOCKET, SO_TYPE, reinterpret_cast<char *>(&type), &size) == 0 && type == SOCK_STREAM)
+                name = SO_EXCLUSIVEADDRUSE;
+#endif
             break;
         case kKeepAlive:
             name = SO_KEEPALIVE;

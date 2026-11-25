@@ -83,7 +83,10 @@ public:
     };
     /** TCP or UDP. */
     enum Type { kStream, kDatagram };
-    /** The socket options a game may set: SO_BROADCAST, TCP_NODELAY, SO_REUSEADDR... */
+    /**
+     * The socket options a game may set: SO_BROADCAST, TCP_NODELAY, SO_REUSEADDR... kReuseAddress means what it
+     * does on POSIX on every system: a port closed bound again, not one another socket is listening on taken.
+     */
     enum Option { kBroadcast, kNoDelay, kReuseAddress, kKeepAlive, kReceiveBuffer, kSendBuffer, kLinger };
     /** A new socket, -1 if there can't be one. */
     virtual int open(Type type) = 0;
