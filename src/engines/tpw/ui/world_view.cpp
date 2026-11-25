@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numbers>
 
 namespace reluva::tpw {
 
@@ -132,7 +133,7 @@ void drawObjects(Surface &screen, const soft3d::OrbitCamera &camera, const Objec
             plot(screen, int(s.x), int(s.y), size, colour);
         };
         for (int i = 0; i < kRingDots; ++i) {
-            const float a = float(i) * 2 * float(M_PI) / kRingDots;
+            const float a = float(i) * 2 * std::numbers::pi_v<float> / kRingDots;
             at({o.position[0] + o.radius * std::cos(a), o.position[1], o.position[2] + o.radius * std::sin(a)}, 2);
         }
         at(o.position, 6);
