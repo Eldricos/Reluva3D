@@ -53,6 +53,12 @@ private:
     // it backs off.
     uint64_t _slowSince = 0;
     uint64_t _reverseUntil = 0;
+    // Then, until when it aims this far to the side (metres), to get past
+    // what it hit; the other side each time.
+    uint64_t _asideUntil = 0;
+    float _aside = 0;
+    int _backOffs = 0;
+    bool _shifted = false; // a shift button sent last frame: the game takes a press, not a hold
     int _laps = 0;
 };
 

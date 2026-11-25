@@ -52,8 +52,18 @@ that printed or changed it:
   `sqrt(grip / curve)`, and the braking (9 m/s²) there's room for before
   it; at most 102 m/s, the McLaren F1's 228 mph. A grip of 3 × 14 m/s²
   was quickest on `TR00` (4× no faster).
-- **Stuck:** slow or turned round for 1.5 s, it backs off in reverse,
-  steering the other way, for 1.5 s.
+- **Where the road splits** round something (its lane mask's drivable
+  slots with a gap between: [col.md](../formats/col.md), Where a car can
+  drive), at the middle of the slots on the right, as the game's own
+  drivers keep to their side (0x43a9a0). `TR02`'s rock pillars stand on
+  its road's middle; aiming there, both cars stopped against them.
+- **Stuck:** slow or turned round for 1.5 s (not timed while it backs
+  off: going backwards it's slow too), it backs off in reverse for
+  2.5 s at full lock the other way, then aims 3 m to one side for 4 s,
+  the other side the next time. A shift is a press, not a hold: held,
+  the gear stopped at neutral, short of reverse, so the button goes
+  every other frame. A road sign on the inside of a `TR02` bend held
+  both cars until all of these were in.
 
 ## Races run
 
@@ -81,4 +91,6 @@ copies on a serial link, both driven, to the race's end
 
 - Its time lost: at `TR00`'s chicane before the line it still scrapes
   the left wall, down to 27 m/s; other cars aren't seen, only bumped.
-- The other tracks, a whole tournament, and the knockout's later rounds.
+- The tracks a tournament didn't reach, and the knockout's later rounds.
+- `TR02` (the Outback) at about 2 min 20 s a lap, against 1 min on
+  `TR00`: slow through its splits and rock pillars.

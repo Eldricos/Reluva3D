@@ -119,15 +119,44 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
         return std::hypot(fixed(a) - fixed(b), fixed(a + 8) - fixed(b + 8));
     };
     // The middle of the road at a point, from its distances to the edges
-    // (col.md, The virtual road), and right of it as asked: the points
+    // (col.md, The virtual road), or of its right side where it splits, and
+    // right of it as asked: the points
     // themselves jog sideways where the edges change (TR00's 1190, 4.5 m),
     // the road's middle doesn't.
     struct Flat {
         float x;
         float z;
     };
+    // Where the road splits round something (its drivable slots, each a
+    // lane wide, with a gap between: col.md, Where a car can drive), the
+    // middle of the drivable slots on its right, as the game's drivers keep
+    // to their side (0x43a9a0); bit 7 the first right of the point, 6 the
+    // next.
+    auto rightSide = [&](uint32_t q, float &centre) {
+        const uint32_t mask = c.read16(q + 24);
+        const uint32_t low = mask & (0u - mask);
+        if (mask == 0 || ((mask + low) & mask) == 0)
+            return false;
+        int first = -1;
+        int last = -1;
+        for (int k = 0; k < 8; ++k)
+            if (mask & (0x80u >> k)) {
+                if (first < 0)
+                    first = k;
+                last = k;
+            } else if (first >= 0) {
+                break;
+            }
+        if (first < 0)
+            return false;
+        centre = float(first + last + 1) / 2 * float(c.read8(q + 33)) / 2;
+        return true;
+    };
     auto middle = [&](uint32_t q) {
-        const float off = (float(c.read16(q + 28)) - float(c.read16(q + 26))) / 512.0f + _options.right;
+        float centre = 0;
+        if (!rightSide(q, centre))
+            centre = (float(c.read16(q + 28)) - float(c.read16(q + 26))) / 512.0f;
+        const float off = centre + _options.right + (now < _asideUntil ? _aside : 0.0f);
         return Flat{fixed(q) + off * s8(q + 18) / 128, fixed(q + 8) + off * s8(q + 20) / 128};
     };
 
@@ -179,26 +208,37 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
     uint8_t buttons = 0;
     const uint8_t gear = c.read8(car + kGear);
     // Stuck (against a wall, or turned round): back off for a while,
-    // steering the other way, then on again.
-    if (std::fabs(angle) > kPi / 2 || v < 2.0f) {
+    // steering hard the other way, then on again a little to one side.
+    // Not while backing off: going backwards, it's slow too, and would
+    // only back off again.
+    if (now >= _reverseUntil && (std::fabs(angle) > kPi / 2 || v < 2.0f)) {
         if (!_slowSince)
             _slowSince = now;
     } else {
         _slowSince = 0;
     }
     if (_slowSince && now > _slowSince + 1500 && now >= _reverseUntil && now > _options.fromMs + 4000) {
-        _reverseUntil = now + 1500;
+        _reverseUntil = now + 2500;
+        _aside = _backOffs++ % 2 == 0 ? 3.0f : -3.0f;
+        _asideUntil = _reverseUntil + 4000;
         _slowSince = 0;
     }
     if (now < _reverseUntil) {
         if (gear != 0)
             buttons = kShiftDown;
-        steer = -steer;
+        // Full lock the other way, so that backing off turns its nose to
+        // the road: a little only backs it into what it hit again.
+        steer = angle > 0 ? -128 : 124;
         gas = 255;
         brake = 0;
     } else if (gear < 2) {
         buttons = kShiftUp;
     }
+    // A shift is taken as the button goes down: held, from 2 it stops at
+    // neutral, short of reverse. So every other frame.
+    if (buttons && _shifted)
+        buttons = 0;
+    _shifted = buttons != 0;
     c.write8(kControls, uint8_t(int8_t(steer)));
     c.write8(kControls + 1, uint8_t(gas));
     c.write8(kControls + 2, uint8_t(brake));
