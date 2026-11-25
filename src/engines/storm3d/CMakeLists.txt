@@ -8,11 +8,13 @@ reluva_add_engine(storm3d
     SOURCES
         storm3d.cpp
         game_files.cpp
+        play/hud.cpp
         play/mission_view.cpp
         player_files.cpp
         formats/bzn.cpp
         formats/config_file.cpp
         formats/credits_script.cpp
+        formats/gui_config.cpp
         formats/input_map.cpp
         formats/label_map.cpp
         formats/ldl.cpp
@@ -25,6 +27,7 @@ reluva_add_engine(storm3d
         scene/map_scene.cpp
         scene/model_tree.cpp
         scene/sod_meshes.cpp
+        scene/sprite_font.cpp
         shell/credits_screen.cpp
         shell/full_screen_movie.cpp
         shell/loading_screen.cpp

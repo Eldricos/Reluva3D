@@ -61,6 +61,10 @@ public:
      * the four in turn by the slot (the game's own choice isn't known).
      */
     static std::string raceOf(const Slot &slot, size_t index);
+    /** The starting dilithium, crew and most officers chosen (their options' numbers). */
+    int dilithium() const { return amount(4); }
+    int crew() const { return amount(5); }
+    int officers() const { return amount(6); }
     /** Whether the shroud is on (its option says "Shroud On"). */
     bool shroud() const;
     /** How many players a map takes: its `Camera_<n>` paths. */
@@ -88,6 +92,7 @@ public:
 
 private:
     std::string whoText(const Slot &slot) const;
+    int amount(size_t option) const; // the number an option's value says
 
     image::Image _background;
     std::array<std::array<image::Image, 3>, 3> _slotLooks;   // who, side, team: at rest, lit, pressed

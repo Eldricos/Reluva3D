@@ -5,7 +5,6 @@
 
 #include "common/text.h"
 #include "engines/storm3d/formats/sod.h"
-#include "engines/storm3d/formats/sprite_table.h"
 
 #include <algorithm>
 #include <cmath>
@@ -41,15 +40,13 @@ constexpr double kFadeOut = 1;
 // The camera: at the origin looking along +z, 45 degrees high, as the
 // loading screen's (the stars' background matches the frame so).
 constexpr float kFieldOfView = 0.7853982f;
-// The caption: a box, then the sprite font's letters, each 10 high and a
-// pixel apart, in yellow.
+// The caption: a box, then the sprite font's letters, in yellow.
 constexpr int kCaptionX = 5;
 constexpr int kCaptionY = 5;
 constexpr int kCaptionRight = 119;
 constexpr int kCaptionBottom = 15;
 constexpr uint8_t kBoxColour[3] = {0x50, 0x00, 0x30};
 constexpr uint8_t kCaptionColour[3] = {255, 255, 0};
-constexpr int kLetterHeight = 10;
 constexpr const char *kCaption = "Press any key to exit";
 
 // D3D's screen coordinates (a pixel's centre at whole numbers) to clip space.
@@ -149,31 +146,8 @@ Error CreditsScreen::start(gfx::Renderer3D *renderer, uint64_t millis) {
         g.width = right - g.left;
         _font[char(code)] = std::move(g);
     }
-    // The caption's letters: the sprite font's places and widths.
-    _captionLetters.clear();
-    SpriteTable table;
-    const SpriteTable::Loader loader = [this](std::string_view name, std::string &text) {
-        std::vector<uint8_t> bytes;
-        if (Error err = _files.read("Sprites/" + std::string(name), bytes))
-            return err;
-        text.assign(bytes.begin(), bytes.end());
-        return Error::success();
-    };
-    if (!table.load("font.spr", loader)) {
-        auto uv = table.animations().find("font_uv");
-        auto w = table.animations().find("font_w");
-        if (uv != table.animations().end() && w != table.animations().end())
-            for (size_t i = 0; i < uv->second.keyframes.size(); ++i) {
-                const auto &at = uv->second.keyframes[i];
-                const int width = i < w->second.keyframes.size() && !w->second.keyframes[i].empty()
-                                      ? int(w->second.keyframes[i][0])
-                                      : 0;
-                if (at.size() >= 2)
-                    _captionLetters.push_back({int(at[0]), int(at[1]), width});
-            }
-    }
-    if (_files.read("Textures/RGB/font.tga", data) || image::decode(data, _letters))
-        _letters = {};
+    if (_caption.load(_files))
+        _caption = SpriteFont{};
     _renderer = renderer;
     _meshes.attach(renderer);
     _background = _meshes.model("mbgstars");
@@ -266,31 +240,7 @@ bool CreditsScreen::draw(uint64_t millis) {
             uint8_t *p = _overlay.row(y) + size_t(x) * 4;
             p[0] = kBoxColour[0], p[1] = kBoxColour[1], p[2] = kBoxColour[2], p[3] = 255;
         }
-    int pen = kCaptionX;
-    for (const char *c = kCaption; *c; ++c) {
-        const size_t i = size_t(uint8_t(*c)) - 32;
-        if (i >= _captionLetters.size() || _letters.w == 0)
-            break;
-        const auto &[lx, ly, lw] = _captionLetters[i];
-        // Sampled where texels meet, as Direct3D's pixel centres fall on
-        // the quad's whole coordinates: each pixel the mean of four.
-        auto alphaAt = [this](int x, int y) {
-            if (x < 0 || y < 0 || x >= _letters.w || y >= _letters.h)
-                return 0;
-            return int(_letters.rgba[(size_t(y) * size_t(_letters.w) + size_t(x)) * 4 + 3]);
-        };
-        for (int y = 0; y < kLetterHeight; ++y)
-            for (int x = 0; x < lw; ++x) {
-                const int tx = lx + x;
-                const int ty = ly + y;
-                const int a =
-                    (alphaAt(tx - 1, ty - 1) + alphaAt(tx, ty - 1) + alphaAt(tx - 1, ty) + alphaAt(tx, ty) + 2) / 4;
-                uint8_t *p = _overlay.row(kCaptionY + y) + size_t(pen + x) * 4;
-                for (size_t k = 0; k < 3; ++k)
-                    p[k] = uint8_t((kCaptionColour[k] * a + p[k] * (255 - a)) / 255);
-            }
-        pen += lw + 1;
-    }
+    _caption.draw(_overlay, kCaptionX, kCaptionY, kCaption, {kCaptionColour[0], kCaptionColour[1], kCaptionColour[2]});
     _renderer->endFrame(&_overlay);
     return true;
 }

@@ -6,6 +6,7 @@
 #include "engines/storm3d/formats/odf.h"
 
 #include <cstdio>
+#include <cstdlib>
 
 namespace reluva::storm3d {
 
@@ -149,6 +150,12 @@ const char *GameSetupScreen::colourName(int colour) {
 std::string GameSetupScreen::raceOf(const Slot &slot, size_t index) {
     static const char *const kRaces[] = {"fed", "kling", "rom", "borg"};
     return kRaces[slot.side > 0 ? size_t(slot.side - 1) % 4 : index % 4];
+}
+
+int GameSetupScreen::amount(size_t option) const {
+    const std::string value = options()[option].values[size_t(_values[option])];
+    const size_t bar = value.find('|');
+    return std::atoi(_text.text(kSection, bar == std::string::npos ? value : value.substr(bar + 1)).c_str());
 }
 
 bool GameSetupScreen::shroud() const {

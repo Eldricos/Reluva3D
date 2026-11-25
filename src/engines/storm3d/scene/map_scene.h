@@ -151,6 +151,8 @@ public:
     size_t drawn() const { return _drawn; }
     size_t effects() const { return _effects; }
     size_t unmodelled() const { return _unmodelled; }
+    /** The cells the player's units see, as seenOf has them; empty with no shroud. */
+    const std::vector<bool> &seen() const { return _seen; }
     /** Starting units drawn. */
     size_t starting() const { return _starting; }
 

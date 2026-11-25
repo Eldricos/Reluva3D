@@ -3,8 +3,12 @@
 
 #include "engines/storm3d/play/mission_view.h"
 
+#include "common/text.h"
+#include "engines/storm3d/formats/odf.h"
+
 #include <algorithm>
 #include <cmath>
+#include <map>
 
 namespace reluva::storm3d {
 
@@ -66,6 +70,35 @@ MissionView::Overview MissionView::moved(Overview o, const std::set<int> &action
     return o;
 }
 
+Hud::Resources MissionView::resourcesOf(const Hud::Resources &start, const std::vector<std::string> &units,
+                                        const SearchSet &files) {
+    Hud::Resources r = start;
+    r.officers = 0;
+    const Odf::Loader loader = [&files](std::string_view name, std::string &text) {
+        std::vector<uint8_t> data;
+        if (Error err = files.read(name, data))
+            return err;
+        text.assign(data.begin(), data.end());
+        return Error::success();
+    };
+    for (const std::string &unit : units) {
+        Odf odf;
+        if (odf.load(unit + ".odf", loader))
+            continue;
+        r.officers += int(odf.number("officerCost"));
+        r.maxOfficers += int(odf.number("officerGain"));
+    }
+    return r;
+}
+
+std::string MissionView::hudRaceOf(const std::string &race) {
+    static const std::map<std::string, std::string> kNames = {
+        {"fed", "fed"}, {"federation", "fed"}, {"kling", "kli"}, {"klingon", "kli"},
+        {"rom", "rom"}, {"romulan", "rom"},    {"borg", "bor"},  {"bor", "bor"}};
+    auto it = kNames.find(race);
+    return it == kNames.end() ? "fed" : it->second;
+}
+
 MissionView::Overview MissionView::startOf(const BznMap &map, int slot) {
     Overview o;
     o.target = {(map.area[0] + map.area[1]) / 2, 0, (map.area[4] + map.area[5]) / 2};
@@ -90,13 +123,16 @@ Error MissionView::start(gfx::Renderer3D *renderer, const std::string &map, int 
     _scene.attach(renderer);
     _scene.build(parsed, {}, "", team >= 0 ? _scene.sightsOf(parsed, {}, team) : std::vector<MapScene::Sight>{});
     _overview = startOf(parsed, slot);
+    if (_hud.load(_files, hudRaceOf(text::toLower(parsed.race))))
+        _hud = Hud{};
+    _resources.reset();
     _held.clear();
     _last = millis;
     return Error::success();
 }
 
 Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &map, const std::vector<Player> &players,
-                                 bool shroud, uint64_t millis) {
+                                 bool shroud, const Hud::Resources &start, uint64_t millis) {
     stop();
     BznMap parsed;
     std::vector<uint8_t> data;
@@ -123,6 +159,16 @@ Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &m
     _scene.build(parsed, units, "",
                  shroud && !mine.empty() ? _scene.sightsOf(parsed, mine, -1) : std::vector<MapScene::Sight>{});
     _overview = startOf(parsed, slot);
+    std::vector<std::string> myUnits;
+    std::string myRace = "fed";
+    for (const Player &p : players)
+        if (p.human)
+            myRace = p.race;
+    for (const MapScene::StartUnit &u : mine)
+        myUnits.push_back(u.odf);
+    if (_hud.load(_files, hudRaceOf(myRace)))
+        _hud = Hud{};
+    _resources = resourcesOf(start, myUnits, _files.files());
     _held.clear();
     _last = millis;
     return Error::success();
@@ -152,7 +198,11 @@ void MissionView::draw(uint64_t millis) {
     _last = millis;
     const MapScene::Camera camera = MapScene::overviewOf(_overview.target, _overview.height, _overview.turn);
     _scene.draw(camera, double(millis) / 1000, 1000, kClear, true);
-    _renderer->endFrame(nullptr);
+    if (_overlay.w != 640)
+        _overlay.create(640, 480, PixelFormat::kRGBA32);
+    std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), uint8_t(0));
+    _hud.draw(_overlay, _resources.value_or(Hud::Resources{}), _scene.seen(), _resources.has_value());
+    _renderer->endFrame(&_overlay);
 }
 
 } // namespace reluva::storm3d

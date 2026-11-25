@@ -99,6 +99,7 @@ public:
         // A skirmish launched, waiting for its loading screen: its players.
         std::vector<MissionView::Player> skirmish;
         bool shroud = true;
+        Hud::Resources start;
         gfx::Renderer3D *renderer3D = nullptr;
         // Back from the loading screen or the mission to the single-player
         // screen, in 2D.
@@ -215,6 +216,7 @@ public:
                             skirmish.push_back(p);
                         }
                         shroud = setup.shroud();
+                        start = {setup.dilithium(), setup.crew(), 0, setup.officers()};
                         if (Error err = _sys.init3D(kWidth, kHeight, renderer3D)) {
                             stopAll();
                             return err;
@@ -367,7 +369,7 @@ public:
                     loadingOn = false;
                     Error err = skirmish.empty()
                                     ? mission.start(renderer3D, single.mission(), 1, -1, now)
-                                    : mission.startSkirmish(renderer3D, setup.map(), skirmish, shroud, now);
+                                    : mission.startSkirmish(renderer3D, setup.map(), skirmish, shroud, start, now);
                     if (err) {
                         stopAll();
                         return err;

@@ -42,8 +42,8 @@ The game's page says how to add it: [Star Trek: Armada](games/armada/README.md#u
 | `game_files.cpp` | A game's files searched as one: the install's folders, then its archives |
 | `player_files.cpp` | The files the game writes (preferences, progress), kept in Reluva's save folder |
 | `pages/` | The data viewer, for `reluva-viewer`: a page per kind of file |
-| `scene/` | Models drawn in 3D (`SodMeshes`), their trees of nodes (`ModelTree`), and a map's whole scene (`MapScene`): the game's and the data viewer's |
-| `play/` | A mission in play (`MissionView`): the map from the overview camera |
+| `scene/` | Models drawn in 3D (`SodMeshes`), their trees of nodes (`ModelTree`), a map's whole scene (`MapScene`), and the sprite font (`SpriteFont`): the game's and the data viewer's |
+| `play/` | A mission in play (`MissionView`): the map from the overview camera, and the interface over it (`Hud`) |
 | `shell/` | The front end: the opening movie, the main menu, the single-player, Options, settings, Multiplayer Connection and Load Game screens, the loading screen, the credits |
 | `formats/` | Reading the games' files: ZFS archives, object definitions, settings in C, `Input.map`, `.ldl` files, sprite tables, models, the player's preferences and progress |
 | `tools/` | `reluva-tool storm3d` commands (`reluva-tool help storm3d` lists them), the original hosted in the emulator among them |

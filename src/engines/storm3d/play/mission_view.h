@@ -6,10 +6,12 @@
 #include "common/events.h"
 #include "common/types.h"
 #include "engines/storm3d/game_files.h"
+#include "engines/storm3d/play/hud.h"
 #include "engines/storm3d/scene/map_scene.h"
 #include "graphics/gfx3d.h"
 
 #include <cstdint>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -65,7 +67,16 @@ public:
      * @return a failure if the map can't be read
      */
     Error startSkirmish(gfx::Renderer3D *renderer, const std::string &map, const std::vector<Player> &players,
-                        bool shroud, uint64_t millis);
+                        bool shroud, const Hud::Resources &start, uint64_t millis);
+    /**
+     * The player's counters at the start: `start`'s dilithium and crew; the
+     * officers their units cost (officerCost), of `start`'s most and what
+     * their units add (officerGain), as the game's first frame of play has it.
+     */
+    static Hud::Resources resourcesOf(const Hud::Resources &start, const std::vector<std::string> &units,
+                                      const SearchSet &files);
+    /** The interface's layout's name for a race's definition ("fed" for "fed", "kli" for "kling"). */
+    static std::string hudRaceOf(const std::string &race);
     /** Lets go of the renderer and what it made. */
     void stop();
     /** A key pressed or let go. */
@@ -79,6 +90,9 @@ private:
     MapScene _scene;
     gfx::Renderer3D *_renderer = nullptr;
     Overview _overview;
+    Hud _hud;
+    Surface _overlay;
+    std::optional<Hud::Resources> _resources; // none: not known (a campaign's are its script's)
     std::set<int> _held;
     uint64_t _last = 0;
 };

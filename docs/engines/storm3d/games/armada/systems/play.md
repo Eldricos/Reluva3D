@@ -39,6 +39,36 @@ over what the player's units don't see. Run in the emulator, "The Very
 First Map" opens with the player's starbase and two construction ships
 before the lava moon.
 
+### The interface
+
+Over the map, the program draws its interface from the race's layout
+([formats/gui-config.md](../formats/gui-config.md)). Along the bottom
+are five panels:
+
+- the minimap (0, 334);
+- the speed rail (146, 327), over the ship's display (146, 367), black
+  inside;
+- the cinematic view (393, 356), a live 3D view of a ship, with COMM
+  and MENU buttons;
+- the control panel (524, 334), black inside.
+
+Along the top right are the dilithium (395, 0), crew (477, 0) and
+officers (559, 0). Each is drawn over the frame after the scene, from
+256 × 256 textures (`Fguia04` to `Fguif04` for the Federation) at half
+their size.
+
+The counters in a skirmish start at the Game Setup screen's amounts:
+3000 dilithium, 3500 crew. The officers read "used/most": the starting
+units' `officerCost` added up, out of the setting plus their
+`officerGain`. Two construction ships (2 each) and a starbase (which
+adds 20) on 100 make the "4/120" of the original's frame. Its crew had
+grown to 3569 by then.
+
+The minimap shows the map's picture (`gminimap`) where the player's
+units have seen, and the shroud's (`gshroud`) where they haven't, a
+texel a cell. The circle the original's frame clears about the start is
+the same as Reluva's, to the pixel.
+
 ### The camera's keys
 
 `Input.map` gives the overview camera its keys: the keypad's + and −
@@ -72,6 +102,12 @@ before and after each ([camera.md](camera.md#the-overview)):
   which they'd cast from the wrong places. Esc goes back to the
   single-player screen. The interface and the objectives aren't drawn
   yet.
+- **The interface** (`Hud`, `play/hud.h`) is drawn over the map in
+  play: the panels, the counters (blank in a campaign mission, whose
+  script sets them) and the minimap's shroud. The cinematic view shows
+  its panel's own picture, the race's emblem, as the layout has it for
+  no view; the minimap has no units' icons yet, and the cursor is the
+  system's.
 - **A skirmish** (`MissionView::startSkirmish`) starts from the Game
   Setup screen's slots: each player's race (one left Random takes the
   races in turn by its slot *(guessed)*), their colour, and slot *n* on
@@ -100,3 +136,4 @@ before and after each ([camera.md](camera.md#the-overview)):
 - How long the program waits on its first frame of play, and what the
   cut scene's camera follows.
 - How Random sides and Random Placement choose.
+- How fast the crew grows.

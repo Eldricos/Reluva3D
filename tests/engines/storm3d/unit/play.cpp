@@ -4,14 +4,21 @@
 // Storm3D's unit tests: a mission in play, its overview camera moved by
 // the keys as the camera in the game's memory moved (camera.md).
 
+#include "engines/storm3d/formats/gui_config.h"
+#include "engines/storm3d/play/hud.h"
 #include "engines/storm3d/play/mission_view.h"
 
 #include "tests/support/test.h"
 
 #include <cmath>
+#include <array>
+#include <map>
 #include <set>
+#include <string>
 
 using reluva::storm3d::BznMap;
+using reluva::storm3d::GuiConfig;
+using reluva::storm3d::Hud;
 using reluva::storm3d::MissionView;
 namespace key = reluva::key;
 
@@ -64,6 +71,42 @@ void testStart() {
     CHECK(MissionView::startOf(map, 2).target[0] == 3200);
 }
 
+// The interface's layout, as gui_fed.cfg writes it: tabs between, quoted
+// names, comments, and the file it includes read in its place.
+void testLayout() {
+    const std::map<std::string, std::string> files = {
+        {"misc/gui_fed.cfg", "// FEDERATION INTERFACE\r\n#include \"gui_glob.cfg\"\r\n"
+                             "speedPanelArea\t\t\t=\t\t\t146\t327\t247\t40\r\n"
+                             "speedBackgroundPanel\t=\t\"speed_panel\"\t// the rail\r\n"
+                             "infoSingleEnergyBarColor\t=\t1       1     0\r\n"},
+        {"misc/gui_glob.cfg", "objectivesTextColor\t\t=\t1.0\t0.47\t0.0\r\nspeedPanelArea = 1 2 3 4\r\n"},
+    };
+    GuiConfig layout;
+    CHECK(!layout.load("misc/gui_fed.cfg", [&files](std::string_view name, std::string &text) {
+        auto it = files.find(std::string(name));
+        if (it == files.end())
+            return reluva::Error::fail("missing");
+        text = it->second;
+        return reluva::Error::success();
+    }));
+    CHECK((layout.area("speedPanelArea") == std::array<int, 4>{146, 327, 247, 40}));
+    CHECK(layout.text("speedBackgroundPanel") == "speed_panel");
+    CHECK(layout.number("objectivesTextColor", 1) == 0.47);
+    CHECK(layout.number("infoSingleEnergyBarColor", 2, 9) == 0);
+    CHECK(layout.number("nothing", 0, 7) == 7 && !layout.find("nothing"));
+}
+
+// The counters as the original's first frame of play says them: two
+// construction ships (officerCost 2) and a starbase (officerGain 20) on
+// 3000, 3500 and 100 officers make "4/120".
+void testCounters() {
+    Hud::Resources r{3000, 3500, 4, 120};
+    CHECK(Hud::counterText(r, 0) == "3000" && Hud::counterText(r, 1) == "3500" && Hud::counterText(r, 2) == "4/120");
+    CHECK(Hud::panels().size() == 8);
+    CHECK(MissionView::hudRaceOf("kling") == "kli" && MissionView::hudRaceOf("federation") == "fed" &&
+          MissionView::hudRaceOf("dominion") == "fed");
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("storm3d.unit.play",
@@ -71,4 +114,6 @@ static const reluva::test::Suite kSuite("storm3d.unit.play",
                                             {"keys", [](const std::filesystem::path &) { testKeys(); }},
                                             {"moves", [](const std::filesystem::path &) { testMoves(); }},
                                             {"start", [](const std::filesystem::path &) { testStart(); }},
+                                            {"layout", [](const std::filesystem::path &) { testLayout(); }},
+                                            {"counters", [](const std::filesystem::path &) { testCounters(); }},
                                         });

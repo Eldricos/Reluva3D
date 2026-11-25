@@ -7,6 +7,7 @@
 #include "engines/storm3d/formats/credits_script.h"
 #include "engines/storm3d/game_files.h"
 #include "engines/storm3d/scene/sod_meshes.h"
+#include "engines/storm3d/scene/sprite_font.h"
 #include "graphics/gfx3d.h"
 #include "image/image.h"
 
@@ -84,8 +85,7 @@ private:
     const SodMeshes::Built *_background = nullptr;
     CreditsScript _script;
     std::map<char, Glyph> _font;
-    image::Image _letters;                           // the sprite font's sheet
-    std::vector<std::array<int, 3>> _captionLetters; // x, y and width on the sheet, from the space up
+    SpriteFont _caption;
     Surface _overlay;
     gfx::MeshId _pageMesh = 0;
     uint32_t _pageIndices = 0;
