@@ -69,6 +69,35 @@ units have seen, and the shroud's (`gshroud`) where they haven't, a
 texel a cell. The circle the original's frame clears about the start is
 the same as Reluva's, to the pixel.
 
+### Selecting
+
+The game draws its own cursor over the frame, not through Direct3D:
+`cursor.spr`'s `c_arrow`, or `c_select` over a unit, from `curs_24`,
+black its colour key, its tip at the pointer; its four frames step
+along a row, a second for the four (`tex_anim.spr`'s `cursor4x1`). In
+play its cursor follows the mouse's movement, not its place (see
+[hosting.md](hosting.md)), so the host's runs click with its keys too:
+`N` (`select_next_ship`) selects the next ship.
+
+A unit selected gets two marks, from the original's draws of the
+frame after a click on the starbase, and after `N`:
+
+- **The ring:** `Gshadow.tga`, the texture in the program's memory
+  that the draw used, on a square lying flat under the unit, added on
+  in (229, 229, 229), turned a quarter. Placed back in the world, the
+  starbase's square is 105.2 across and a construction ship's 54.5:
+  each its model's box's diagonal across (x and z), twice. Both lie near
+  the map's plane, at y 3.2 and 7.0.
+- **The health bar:** the info panel's `large_shield_bar` sprite, 4
+  high, in dark grey (51, 51, 51) and then in green (0, 128, 0) as far as
+  its health. It spans the unit's box as it falls on the screen, all
+  eight corners: the starbase's bar from 381 to 490, its box from 381.4
+  to 489.4. Its top is 6 pixels above the box's top there.
+
+Half a second after the starbase's, the original drew bars over the
+two construction ships too, unselected. A ship chosen with `N` had its
+ring but no bar in that frame.
+
 ### The camera's keys
 
 `Input.map` gives the overview camera its keys: the keypad's + and −
@@ -108,6 +137,11 @@ before and after each ([camera.md](camera.md#the-overview)):
   its panel's own picture, the race's emblem, as the layout has it for
   no view; the minimap has no units' icons yet, and the cursor is the
   system's.
+- **Selecting:** a click picks the unit whose middle is nearest the
+  pointer, of those whose box reaches it on the screen (the game's own
+  choice isn't known); a click where there's none clears it, and clicks
+  on the panels don't reach the map. The selected unit has its ring and
+  its bar, full; the cursor is the game's.
 - **A skirmish** (`MissionView::startSkirmish`) starts from the Game
   Setup screen's slots: each player's race (one left Random takes the
   races in turn by its slot *(guessed)*), their colour, and slot *n* on
@@ -137,3 +171,6 @@ before and after each ([camera.md](camera.md#the-overview)):
   cut scene's camera follows.
 - How Random sides and Random Placement choose.
 - How fast the crew grows.
+- When the health bars show: why the unselected ships had theirs, and
+  the ship chosen with `N` none yet.
+- What the ring's height is: near the plane for both, but not the same.

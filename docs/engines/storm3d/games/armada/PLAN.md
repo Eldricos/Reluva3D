@@ -104,7 +104,8 @@ these phases start from, is in [formats/install.md](formats/install.md).
    overview camera, which the keys move
    ([systems/play.md](systems/play.md)); a skirmish launched from the
    Game Setup screen, each player's starting units in their colour; the
-   interface over it, its panels, counters and minimap.
+   interface over it, its panels, counters and minimap; selecting a
+   unit with the game's cursor, its ring and health bar.
 8. **The campaign:** the functions `Armada.exe` exports for the missions,
    the missions themselves ([Decisions](#decisions)), the cut scenes and
    the bridge scenes, and saved games.

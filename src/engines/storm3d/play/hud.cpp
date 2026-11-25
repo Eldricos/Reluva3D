@@ -6,6 +6,7 @@
 #include "common/text.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace reluva::storm3d {
 
@@ -19,6 +20,11 @@ constexpr std::array<uint8_t, 3> kCounterTint = {128, 128, 128};
 constexpr std::array<uint8_t, 3> kButtonTint = {153, 178, 171};
 constexpr std::array<uint8_t, 3> kBorderTint = {128, 152, 149};
 constexpr int kCounterCell = 6;
+constexpr int kCursorFrames = 4;
+// The health bar over a unit: 4 high, dark grey under green (the draws').
+constexpr int kHealthBarHeight = 4;
+constexpr std::array<uint8_t, 3> kHealthBack = {51, 51, 51};
+constexpr std::array<uint8_t, 3> kHealthFront = {0, 128, 0};
 // The minimap: a texel a cell, 128 across.
 constexpr int kMinimapCells = 128;
 // What the game's alpha test keeps of an interface texel.
@@ -74,8 +80,8 @@ Error Hud::load(const GameFiles &files, const std::string &race) {
         return Error::success();
     };
     auto table = kTables.find(race);
-    for (const std::string &name :
-         {table == kTables.end() ? std::string("gui_federation.spr") : table->second, std::string("gui_global.spr")})
+    for (const std::string &name : {table == kTables.end() ? std::string("gui_federation.spr") : table->second,
+                                    std::string("gui_global.spr"), std::string("cursor.spr")})
         if (Error err = _tables.emplace_back().load(name, loader))
             return err;
     if (_font.load(files))
@@ -128,6 +134,51 @@ void Hud::drawSprite(Surface &screen, const std::string &name, int x, int y, int
             uint8_t *p = screen.row(py) + size_t(px) * 4;
             for (size_t k = 0; k < 3; ++k)
                 p[k] = uint8_t(t[k] * tint[k] / 255);
+            p[3] = 255;
+        }
+}
+
+bool Hud::covers(int x, int y) const {
+    for (const char *panel : panels()) {
+        const std::array<int, 4> a = _layout.area(std::string(panel) + "PanelArea");
+        if (x >= a[0] && y >= a[1] && x < a[0] + a[2] && y < a[1] + a[3])
+            return true;
+    }
+    return false;
+}
+
+void Hud::drawHealthBar(Surface &screen, int left, int top, int width, float health) {
+    drawSprite(screen, "large_shield_bar", left, top, width, kHealthBarHeight, kHealthBack);
+    const int full = int(std::lround(width * std::clamp(health, 0.0f, 1.0f)));
+    drawSprite(screen, "large_shield_bar", left, top, full, kHealthBarHeight, kHealthFront);
+}
+
+void Hud::drawCursor(Surface &screen, int x, int y, double seconds, bool overUnit) {
+    const SpriteTable::Sprite *s = sprite(overUnit ? "c_select" : "c_arrow");
+    const image::Image *tex = s ? texture(s->texture) : nullptr;
+    if (!tex)
+        return;
+    // cursor4x1 (tex_anim.spr): four frames along a row, a second for the
+    // four, stepped.
+    const int frame = int(seconds * kCursorFrames) % kCursorFrames;
+    const double sx = s->referenceWidth > 0 ? double(tex->w) / s->referenceWidth : 1;
+    const double sy = s->referenceHeight > 0 ? double(tex->h) / s->referenceHeight : 1;
+    const int u = int((s->u + s->w * frame) * sx);
+    const int v = int(s->v * sy);
+    const int w = int(s->w * sx);
+    const int h = int(s->h * sy);
+    for (int j = 0; j < h; ++j)
+        for (int i = 0; i < w; ++i) {
+            const int px = x + i;
+            const int py = y + j;
+            if (px < 0 || py < 0 || px >= screen.w || py >= screen.h || u + i >= tex->w || v + j >= tex->h)
+                continue;
+            const uint8_t *t = &tex->rgba[(size_t(v + j) * size_t(tex->w) + size_t(u + i)) * 4];
+            // Black is its colour key (@skip=(0,0,0)).
+            if (t[0] == 0 && t[1] == 0 && t[2] == 0)
+                continue;
+            uint8_t *p = screen.row(py) + size_t(px) * 4;
+            std::copy_n(t, 3, p);
             p[3] = 255;
         }
 }

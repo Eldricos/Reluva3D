@@ -107,6 +107,32 @@ void testCounters() {
           MissionView::hudRaceOf("dominion") == "fed");
 }
 
+// The starbase a skirmish on "The Very First Map" starts the first player
+// with, seen from the overview's start: its bar spans its box on the
+// screen, 381 to 490 with its top at 104, as the original's draw; its ring
+// is as wide as its box's diagonal across (52.6 each side, placed back);
+// a click on it picks it, one beside it nothing.
+void testSelection() {
+    reluva::storm3d::MapScene::Unit base;
+    base.odf = "fbase";
+    base.at = {677.6f, 38.5f, 502.8f};
+    const float lo[3] = {-38.106f, -29.02f, -35.862f};
+    const float hi[3] = {37.195f, 63.333f, 37.323f};
+    for (size_t k = 0; k < 3; ++k) {
+        base.lo[k] = base.at[k] + lo[k];
+        base.hi[k] = base.at[k] + hi[k];
+    }
+    const auto camera = reluva::storm3d::MapScene::overviewOf({576.6f, 38.5f, 444.5f});
+    const auto viewProj = reluva::storm3d::MapScene::viewProjOf(camera, 1000);
+    const std::array<int, 3> bar = MissionView::healthBarOf(base, viewProj);
+    CHECK(std::abs(bar[0] - 381) <= 1 && std::abs(bar[1] - 104) <= 1 && std::abs(bar[2] - 109) <= 2);
+    CHECK(std::abs(MissionView::ringHalfOf(base) - 52.6f) < 0.3f);
+    CHECK(MissionView::ringMiddleOf(base)[0] == base.at[0] && MissionView::ringMiddleOf(base)[2] == base.at[2]);
+    const std::vector<reluva::storm3d::MapScene::Unit> units = {base};
+    CHECK(MissionView::unitAt(units, viewProj, camera, 430, 185) == 0);
+    CHECK(MissionView::unitAt(units, viewProj, camera, 600, 300) == -1);
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("storm3d.unit.play",
@@ -116,4 +142,5 @@ static const reluva::test::Suite kSuite("storm3d.unit.play",
                                             {"start", [](const std::filesystem::path &) { testStart(); }},
                                             {"layout", [](const std::filesystem::path &) { testLayout(); }},
                                             {"counters", [](const std::filesystem::path &) { testCounters(); }},
+                                            {"selection", [](const std::filesystem::path &) { testSelection(); }},
                                         });

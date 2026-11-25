@@ -384,6 +384,7 @@ void MapScene::clear() {
     _meshes.clear();
     _placed.clear();
     _teams.clear();
+    _units.clear();
     _background = nullptr;
     _seen.clear();
     _drawn = _unmodelled = _effects = _starting = 0;
@@ -451,6 +452,15 @@ void MapScene::build(const BznMap &map, const std::vector<StartUnit> &units, con
         _teams.resize(_placed.size());
         _placed.push_back({built, place});
         _teams.push_back(unit.colour);
+        Unit u;
+        u.odf = unit.odf;
+        u.slot = unit.slot;
+        u.at = unit.at;
+        for (size_t k = 0; k < 3; ++k) {
+            u.lo[k] = unit.at[k] + built->lo[k] * look.scale;
+            u.hi[k] = unit.at[k] + built->hi[k] * look.scale;
+        }
+        _units.push_back(u);
         ++_starting;
     }
     // The team parts in the chosen race's colour, or the map's race's: the
@@ -468,18 +478,39 @@ void MapScene::build(const BznMap &map, const std::vector<StartUnit> &units, con
         _background = nullptr;
 }
 
-void MapScene::draw(const Camera &camera, double seconds, float range, Color clear, bool grid) {
-    if (!_renderer)
-        return;
+float MapScene::Unit::radius() const {
+    const float dx = (hi[0] - lo[0]) / 2;
+    const float dy = (hi[1] - lo[1]) / 2;
+    const float dz = (hi[2] - lo[2]) / 2;
+    return std::sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+gfx::Mat4 MapScene::viewProjOf(const Camera &camera, float range) {
     // The renderer is right-handed, the game left-handed: the camera's
     // place and axes have z reversed for it (SodMeshes::mirrorZ), and what
     // it draws is in the game's coordinates.
     auto flip = [](const gfx::Vec3 &v) { return gfx::Vec3{v[0], v[1], -v[2]}; };
+    return gfx::multiply(gfx::multiply(gfx::perspective(camera.fovY, 640.0f / 480.0f, range * 0.02f, range * 4 + 20000),
+                                       gfx::lookAlong(flip(camera.eye), flip(camera.forward), flip(camera.up))),
+                         SodMeshes::mirrorZ());
+}
+
+std::optional<gfx::Vec3> MapScene::project(const gfx::Mat4 &viewProj, const gfx::Vec3 &point) {
+    // Column-major, as gfx's matrices are.
+    const float x = viewProj[0] * point[0] + viewProj[4] * point[1] + viewProj[8] * point[2] + viewProj[12];
+    const float y = viewProj[1] * point[0] + viewProj[5] * point[1] + viewProj[9] * point[2] + viewProj[13];
+    const float z = viewProj[2] * point[0] + viewProj[6] * point[1] + viewProj[10] * point[2] + viewProj[14];
+    const float w = viewProj[3] * point[0] + viewProj[7] * point[1] + viewProj[11] * point[2] + viewProj[15];
+    if (w <= 0)
+        return std::nullopt;
+    return gfx::Vec3{(x / w * 0.5f + 0.5f) * 640, (0.5f - y / w * 0.5f) * 480, z / w};
+}
+
+void MapScene::draw(const Camera &camera, double seconds, float range, Color clear, bool grid) {
+    if (!_renderer)
+        return;
     const gfx::Vec3 &eye = camera.eye;
-    const gfx::Mat4 viewProj =
-        gfx::multiply(gfx::multiply(gfx::perspective(camera.fovY, 640.0f / 480.0f, range * 0.02f, range * 4 + 20000),
-                                    gfx::lookAlong(flip(eye), flip(camera.forward), flip(camera.up))),
-                      SodMeshes::mirrorZ());
+    const gfx::Mat4 viewProj = viewProjOf(camera, range);
     _renderer->beginFrame(viewProj, eye, clear);
     // Right, in the game's left-handed coordinates, is up × forward.
     const gfx::Vec3 &u = camera.up;

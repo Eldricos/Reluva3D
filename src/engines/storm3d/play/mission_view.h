@@ -9,8 +9,10 @@
 #include "engines/storm3d/play/hud.h"
 #include "engines/storm3d/scene/map_scene.h"
 #include "graphics/gfx3d.h"
+#include "image/image.h"
 
 #include <cstdint>
+#include <array>
 #include <optional>
 #include <set>
 #include <string>
@@ -79,8 +81,22 @@ public:
     static std::string hudRaceOf(const std::string &race);
     /** Lets go of the renderer and what it made. */
     void stop();
-    /** A key pressed or let go. */
+    /** A key pressed or let go, the mouse moved or clicked. */
     void handleEvent(const Event &ev);
+    /** The unit selected, into the scene's units; -1 for none. */
+    int selected() const { return _selected; }
+    /**
+     * The unit under a point of the screen, seen through `viewProj`: the
+     * one whose middle is nearest it, of those whose box reaches it there;
+     * -1 for none.
+     */
+    static int unitAt(const std::vector<MapScene::Unit> &units, const gfx::Mat4 &viewProj,
+                      const MapScene::Camera &camera, int x, int y);
+    /** Where the selection's ring lies: its middle, and half its side, from a unit's box. */
+    static gfx::Vec3 ringMiddleOf(const MapScene::Unit &unit);
+    static float ringHalfOf(const MapScene::Unit &unit);
+    /** A unit's health bar's place on the screen, from its box there: left, top and width. */
+    static std::array<int, 3> healthBarOf(const MapScene::Unit &unit, const gfx::Mat4 &viewProj);
     /** Moves on to `millis` and draws. */
     void draw(uint64_t millis);
     const Overview &overview() const { return _overview; }
@@ -94,6 +110,16 @@ private:
     Surface _overlay;
     std::optional<Hud::Resources> _resources; // none: not known (a campaign's are its script's)
     std::set<int> _held;
+    int _mouseX = 320;
+    int _mouseY = 240;
+    int _pressX = -1; // where the left button went down; -1 while it's up
+    int _pressY = -1;
+    int _selected = -1;
+    int _hover = -1;
+    gfx::MeshId _ringMesh = 0;
+    gfx::TextureId _ringTexture = 0;
+    MapScene::Camera camera() const;
+    void makeRing();
     uint64_t _last = 0;
 };
 

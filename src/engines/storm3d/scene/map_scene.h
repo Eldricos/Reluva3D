@@ -143,6 +143,26 @@ public:
      */
     void draw(const Camera &camera, double seconds, float range, Color clear, bool grid);
 
+    /** A unit placed: a starting unit's definition, its place, and its model's box, in the world. */
+    struct Unit {
+        std::string odf;
+        int slot = 0;
+        gfx::Vec3 at{};
+        gfx::Vec3 lo{}; // the model's box, scaled and placed
+        gfx::Vec3 hi{};
+        /** How far its box's corners reach from its middle. */
+        float radius() const;
+        gfx::Vec3 middle() const { return {(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2}; }
+    };
+    /** The starting units drawn, in build's order. */
+    const std::vector<Unit> &units() const { return _units; }
+    /** The camera's view and projection, as draw uses them: the game's coordinates to the renderer's clip space. */
+    static gfx::Mat4 viewProjOf(const Camera &camera, float range);
+    /**
+     * Where a point of the world falls on the 640 × 480 screen, in pixels
+     * (a pixel's centre at .5); none behind the camera.
+     */
+    static std::optional<gfx::Vec3> project(const gfx::Mat4 &viewProj, const gfx::Vec3 &point);
     const BznMap &map() const { return _map; }
     SodMeshes &meshes() { return _meshes; }
     /** lookOf's, kept. */
@@ -170,6 +190,7 @@ private:
     // What's drawn: each object's model and place; the background's.
     std::vector<std::pair<const SodMeshes::Built *, gfx::Mat4>> _placed;
     std::vector<std::optional<gfx::Vec3>> _teams; // as _placed: each one's own team colour, if any
+    std::vector<Unit> _units;
     const SodMeshes::Built *_background = nullptr;
     size_t _drawn = 0;
     size_t _unmodelled = 0;

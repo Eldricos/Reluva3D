@@ -36,6 +36,14 @@ public:
     };
     /** The panels drawn, in the game's order, by their names in the layout ("minimap"). */
     static const std::vector<const char *> &panels();
+    /** Whether a point of the screen is on one of the panels (where clicks don't reach the map). */
+    bool covers(int x, int y) const;
+    /**
+     * Draws a unit's health bar from (left, top), `width` across and 4
+     * high: the info panel's large_shield_bar sprite in dark grey, then in
+     * green as far as `health` (0 to 1), as the game's draws do.
+     */
+    void drawHealthBar(Surface &screen, int left, int top, int width, float health);
     /** A counter's words: the number, and "used/most" for the officers. */
     static std::string counterText(const Resources &r, int counter);
 
@@ -52,6 +60,12 @@ public:
      * (a campaign's aren't known yet).
      */
     void draw(Surface &screen, const Resources &resources, const std::vector<bool> &seen, bool counters = true);
+    /**
+     * Draws the game's cursor with its tip at (x, y), `seconds` into its
+     * animation: the arrow, or over a unit the select cursor (`cursor.spr`'s
+     * c_arrow and c_select), black left out.
+     */
+    void drawCursor(Surface &screen, int x, int y, double seconds, bool overUnit);
 
 private:
     // A sprite drawn into a rectangle of the screen: its texture's
