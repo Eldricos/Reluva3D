@@ -29,6 +29,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <memory>
 #include <string>
 #include <vector>
@@ -1278,6 +1279,105 @@ static void testDllUnload(const std::filesystem::path &tmp) {
     CHECK(process.modules().size() == 1);
 }
 
+// What running Starfleet Command II 2.0.3.6's patcher and the patched game
+// asked of Windows: a file opened OPEN_ALWAYS starting as the install's,
+// a seek before a file's start refused as Windows refuses it, a writable
+// file mapping's view written back, MoveFileExA replacing a file, the
+// time conversions, the wide command line, and wvsprintfA.
+static void testPatcherCalls(const std::filesystem::path &tmp) {
+    namespace stdfs = std::filesystem;
+    stdfs::create_directories(tmp / "Install");
+    stdfs::create_directories(tmp / "Save");
+    std::ofstream(tmp / "Install" / "Old.txt", std::ios::binary) << "install";
+    x86::Cpu cpu(32u << 20);
+    {
+        x86::Win32Process process(cpu);
+        process.setProgram("Prog.exe", "C:\\Game\\");
+        // The install read, the save folder written, as the game has them.
+        process.mapPath = [&](const std::string &path, bool forWriting) -> std::optional<stdfs::path> {
+            if (path.rfind("C:\\Game\\", 0) != 0)
+                return std::nullopt;
+            const std::string name = path.substr(8);
+            if (forWriting)
+                return tmp / "Save" / name;
+            if (stdfs::exists(tmp / "Save" / name))
+                return tmp / "Save" / name;
+            return tmp / "Install" / name;
+        };
+        uint32_t r = 0;
+        auto fn = [&](const char *dll, const char *name) { return process.provided(dll, name); };
+        const uint32_t name = process.memory().alloc(32);
+        cpu.writeString(name, "Old.txt", 32);
+        CHECK(!cpu.call(fn("KERNEL32.dll", "CreateFileA"), {name, 0xc0000000u, 3, 0, 4, 0x80, 0}, r));
+        const uint32_t h = r;
+        CHECK(h != 0xffffffffu);
+        const uint32_t buffer = process.memory().alloc(16);
+        const uint32_t done = process.memory().alloc(4);
+        CHECK(!cpu.call(fn("KERNEL32.dll", "ReadFile"), {h, buffer, 7, done, 0}, r) && r == 1 &&
+              cpu.read32(done) == 7 && cpu.string(buffer, 7) == "install");
+        CHECK(!cpu.call(fn("KERNEL32.dll", "SetFilePointer"), {h, uint32_t(-100), 0, 0}, r) && r == 0xffffffffu);
+        CHECK(!cpu.call(fn("KERNEL32.dll", "GetLastError"), {}, r) && r == 131); // ERROR_NEGATIVE_SEEK
+        CHECK(!cpu.call(fn("KERNEL32.dll", "CloseHandle"), {h}, r));
+        // Time: SYSTEMTIME to FILETIME and back (28 October 2002, 12:34:56).
+        const uint32_t st = process.memory().alloc(16);
+        const uint16_t fields[8] = {2002, 10, 1, 28, 12, 34, 56, 0};
+        for (int i = 0; i < 8; ++i)
+            cpu.write16(st + 2 * uint32_t(i), fields[i]);
+        const uint32_t ft = process.memory().alloc(8);
+        CHECK(!cpu.call(fn("KERNEL32.dll", "SystemTimeToFileTime"), {st, ft}, r) && r == 1);
+        CHECK((cpu.read32(ft) | uint64_t(cpu.read32(ft + 4)) << 32) ==
+              uint64_t(1035808496) * 10000000 + 116444736000000000ull);
+        const uint32_t back = process.memory().alloc(16);
+        CHECK(!cpu.call(fn("KERNEL32.dll", "FileTimeToSystemTime"), {ft, back}, r) && r == 1);
+        for (int i = 0; i < 7; ++i)
+            CHECK(cpu.read16(back + 2 * uint32_t(i)) == fields[i]);
+        // The command line, wide.
+        process.setCommandLine("patch.exe C:\\");
+        CHECK(!cpu.call(fn("KERNEL32.dll", "GetCommandLineW"), {}, r) && cpu.read16(r) == 'p' &&
+              cpu.read16(r + 2 * 10) == 'C' && cpu.read16(r + 2 * 13) == 0);
+        // wvsprintfA(out, format, arguments)
+        const uint32_t format = process.memory().alloc(16);
+        cpu.writeString(format, "%s=%d", 16);
+        const uint32_t args = process.memory().alloc(8);
+        cpu.write32(args, name);
+        cpu.write32(args + 4, 42);
+        CHECK(!cpu.call(fn("USER32.dll", "wvsprintfA"), {buffer, format, args}, r) && r == 10 &&
+              cpu.string(buffer, 16) == "Old.txt=42");
+    }
+    // Drives: a writable mapping's view goes back to its file; MoveFileExA
+    // replaces a file with MOVEFILE_REPLACE_EXISTING.
+    x86::Win32Process process(cpu);
+    x86::Win32Process::Drive c;
+    c.letter = 'C';
+    c.root = tmp / "Install";
+    process.addDrive(c);
+    uint32_t r = 0;
+    auto fn = [&](const char *name) { return process.provided("KERNEL32.dll", name); };
+    const uint32_t name = process.memory().alloc(32);
+    cpu.writeString(name, "C:\\New.bin", 32);
+    CHECK(!cpu.call(fn("CreateFileA"), {name, 0xc0000000u, 0, 0, 2, 0x80, 0}, r) && r != 0xffffffffu);
+    const uint32_t file = r;
+    CHECK(!cpu.call(fn("CreateFileMappingA"), {file, 0, 4, 0, 16, 0}, r) && r != 0);
+    const uint32_t mapping = r;
+    CHECK(!cpu.call(fn("MapViewOfFile"), {mapping, 2, 0, 0, 0}, r) && r != 0);
+    const uint32_t view = r;
+    for (uint32_t i = 0; i < 16; ++i)
+        cpu.write8(view + i, uint8_t('a' + i));
+    CHECK(!cpu.call(fn("UnmapViewOfFile"), {view}, r) && r == 1);
+    CHECK(!cpu.call(fn("CloseHandle"), {mapping}, r));
+    CHECK(!cpu.call(fn("CloseHandle"), {file}, r));
+    {
+        std::ifstream in(tmp / "Install" / "New.bin", std::ios::binary);
+        const std::string bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        CHECK(bytes == "abcdefghijklmnop");
+    }
+    const uint32_t old = process.memory().alloc(32);
+    cpu.writeString(old, "C:\\Old.txt", 32);
+    CHECK(!cpu.call(fn("MoveFileExA"), {name, old, 0}, r) && r == 0); // there already
+    CHECK(!cpu.call(fn("MoveFileExA"), {name, old, 1}, r) && r == 1);
+    CHECK(!stdfs::exists(tmp / "Install" / "New.bin") && stdfs::file_size(tmp / "Install" / "Old.txt") == 16);
+}
+
 static void testDirectPlayLobby() {
     x86::Cpu cpu(32u << 20);
     x86::Win32Process process(cpu);
@@ -1683,6 +1783,7 @@ static const test::Suite
                {"miles", [](const std::filesystem::path &) { testMiles(); }},
                {"directplay lobby", [](const std::filesystem::path &) { testDirectPlayLobby(); }},
                {"dll unload", [](const std::filesystem::path &tmp) { testDllUnload(tmp); }},
+               {"patcher calls", [](const std::filesystem::path &tmp) { testPatcherCalls(tmp); }},
                {"directplay session", [](const std::filesystem::path &) { testDirectPlaySession(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
            });

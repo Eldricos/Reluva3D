@@ -22,12 +22,21 @@ C++ library have pages of their own ([directx.md](directx.md),
   functions a Visual C++ 6 C runtime calls are stood in for:
   - the heap and pages;
   - the version: Windows XP, so the runtime uses the system's heap;
-  - the command line, environment and start-up details;
+  - the command line (`GetCommandLineW` as well), environment and
+    start-up details;
   - text conversion for code page 1252;
   - the standard handles, whose output is passed on.
 
-  An import nothing stands in for is bound to a function that fails the
-  run, naming it. Threads and windows aren't there yet.
+  A DLL a module imports that's neither loaded nor stood in for is loaded
+  from the program's files first, and started, as Windows does (Starfleet
+  Command II 2.0.3.6 imports `ImportExportTable.dll` from its folder); one
+  with stand-ins keeps them (its `Mss32.dll` beside it). A module's static
+  TLS (`__declspec(thread)`, its TLS directory) gets a TLS slot of its own,
+  its number written to the module's index variable, and each thread a
+  copy of its template in that slot, `fs:[0x2C]` being the slots as on
+  Windows 95. `FreeLibrary` undoes a `LoadLibraryA` (below). An import
+  nothing stands in for is bound to a function that fails the run, naming
+  it.
 - **`win32_files.cpp`: files.** The program's Windows paths become paths on
   this machine through `mapPath`, which the engine provides. These are
   stood in for:
@@ -40,7 +49,21 @@ C++ library have pages of their own ([directx.md](directx.md),
   - full paths (`fullPath`) with `.` and `..` resolved, from the drive's
     root or the current folder, as Windows resolves them; a name starting
     `\\` (a device's, a network path) as it is;
-  - memory-mapped views: copies, as these programs only read them;
+  - memory-mapped views: copies; on drives, a view of a writable mapping
+    (`PAGE_READWRITE`) is written back to its file when it's flushed or
+    unmapped, the file growing to the mapping's size, as RTPatch builds
+    each file it patches in one;
+  - `OPEN_ALWAYS` opens a file to change it, not to append to it, and,
+    where the program writes elsewhere than it reads (a save folder),
+    starts its copy as the file was; `SetFilePointer` before a file's
+    start fails with `ERROR_NEGATIVE_SEEK`, which a C runtime opening a
+    file with `"a+"` checks for (Starfleet Command II 2.0.3.6 opens
+    `Above8BitTextures.txt` so);
+  - on drives, `MoveFileExA` (replacing a file with
+    `MOVEFILE_REPLACE_EXISTING`; with no new name, deleting it now),
+    `GetShortPathNameA` (names as they are), `GetTempPathA` (`tempFolder`),
+    `SetFileTime` (the host file keeps its times), and the file API mode
+    (ANSI);
   - the current folder;
   - the drives: C: and a CD-ROM drive, whose volume label the engine sets
     so a game's CD check passes; `GetVolumeInformationA` and `W` answer
@@ -84,7 +107,10 @@ C++ library have pages of their own ([directx.md](directx.md),
   or reaching their exception handler, ends the run naming the type
   thrown: they don't raise it for `win32_exceptions.cpp` to dispatch yet.
 - **`win32_system.cpp`: the system.** System information (one Pentium
-  II-class processor, 256 MB), the performance counter (microseconds),
+  II-class processor, 256 MB), the performance counter (microseconds), the
+  date and time (`GetLocalTime`, `GetSystemTime` and their FILETIME
+  conversions) by `wallClockMicros` (the host's unless the engine fixes
+  it), in UTC with no time zone,
   `MulDiv`, the computer's name, and `GetDateFormatA`/`GetTimeFormatA` with
   English (United States) pictures. There's one thread, so critical
   sections do nothing, `Sleep` returns at once and a wait on an event finds
@@ -93,6 +119,9 @@ C++ library have pages of their own ([directx.md](directx.md),
   as records (procedure, place, size, visibility) that the engine can show
   as it likes. Making one sends `WM_NCCREATE` and `WM_CREATE`. Showing it
   first activates it (`WM_ACTIVATEAPP`, `WM_ACTIVATE`, `WM_SETFOCUS`).
+  Windows hooks (`SetWindowsHookExA`) are given a handle and never
+  called, input coming as messages. `wsprintfA` and `wvsprintfA` format as
+  printf does. The console's `WriteConsoleA` passes its text on.
   Other pieces:
   - one message queue, which the engine posts its input to and
     `PeekMessageA` reads, calling `idle` when it's empty;
@@ -254,6 +283,13 @@ executable's entry point on the main thread until it ends the process.
 - `testInput` checks the messages input becomes, double clicks, key
   states and `ClipCursor`. It also checks DirectInput's mouse (its state,
   its movement since the last read, its buffer) and keyboard.
+- `testPatcherCalls` opens with `OPEN_ALWAYS` a file only the install
+  has (its copy starting as it was), seeks before its start
+  (`ERROR_NEGATIVE_SEEK`), converts a SYSTEMTIME to a FILETIME and back,
+  reads the wide command line and formats with `wvsprintfA`; then, on a
+  drive, writes a file through a writable mapping and moves it over
+  another with `MoveFileExA`. Static TLS and the DLLs a module imports
+  were checked by running Starfleet Command II 2.0.3.6, which needs both.
 - **Confidence:** published unless marked.
 
 - `tests/common/drives.cpp` (`common.unit.drives`) checks the drives'

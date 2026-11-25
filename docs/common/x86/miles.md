@@ -11,7 +11,8 @@ doesn't load it, and stands in for the functions they import from it.
 ## What Reluva supports
 
 Only the functions a program asks for: those Starfleet Command II
-imports, 25 of them. Each is found by its decorated name, as programs
+imports, 25 of them, and `AIL_sample_volume`, which its 2.0.3.6 patch's
+program imports too. Each is found by its decorated name, as programs
 import them (`_AIL_load_sample_buffer@16`: its arguments' bytes after
 the `@`).
 

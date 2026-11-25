@@ -334,6 +334,11 @@ Miles::Miles(Win32Process &process) : _s(std::make_unique<State>(process, *this)
         }
         return 0u;
     });
+    // AIL_sample_volume(sample): its volume, as set (0 to 127).
+    fn("_AIL_sample_volume@4", [sampleArg](Cpu &c) {
+        const State::Sample *sample = sampleArg(c);
+        return sample ? uint32_t(sample->volume) : 0u;
+    });
     fn("_AIL_set_sample_pan@8", [s, sampleArg](Cpu &c) {
         if (State::Sample *sample = sampleArg(c)) {
             sample->pan = std::clamp(int32_t(c.arg(1)), 0, kMilesMaxVolume);

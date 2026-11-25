@@ -44,6 +44,32 @@ SystemTime now() {
     return {tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_wday, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec};
 }
 
+// A SYSTEMTIME's eight 16-bit fields for a moment, as UTC or local time.
+void writeSystemTime(Cpu &c, uint32_t at, std::time_t t, bool local) {
+    std::tm tm{};
+#if defined(_WIN32)
+    local ? localtime_s(&tm, &t) : gmtime_s(&tm, &t);
+#else
+    local ? localtime_r(&t, &tm) : gmtime_r(&t, &tm);
+#endif
+    const uint16_t fields[8] = {
+        uint16_t(tm.tm_year + 1900), uint16_t(tm.tm_mon + 1), uint16_t(tm.tm_wday), uint16_t(tm.tm_mday),
+        uint16_t(tm.tm_hour),        uint16_t(tm.tm_min),     uint16_t(tm.tm_sec),  0};
+    for (int i = 0; i < 8; ++i)
+        c.write16(at + 2 * uint32_t(i), fields[i]);
+}
+
+// A FILETIME counts 100-nanosecond intervals from 1601; 1970's is this.
+constexpr uint64_t kFileTime1970 = 116444736000000000ull;
+
+uint64_t readFileTime(Cpu &c, uint32_t at) {
+    return c.read32(at) | uint64_t(c.read32(at + 4)) << 32;
+}
+void writeFileTime(Cpu &c, uint32_t at, uint64_t t) {
+    c.write32(at, uint32_t(t));
+    c.write32(at + 4, uint32_t(t >> 32));
+}
+
 SystemTime readSystemTime(Cpu &c, uint32_t p) {
     return {c.read16(p),     c.read16(p + 2),  c.read16(p + 4), c.read16(p + 6),
             c.read16(p + 8), c.read16(p + 10), c.read16(p + 12)};
@@ -125,6 +151,56 @@ std::string formatPicture(const std::string &picture, const SystemTime &t) {
 
 void Win32Process::addSystemStandIns() {
     const char *k = "KERNEL32.dll";
+
+    // The date and time, by wallClockMicros. Times are UTC: no time zone,
+    // no daylight saving (TIME_ZONE_ID_UNKNOWN), local time the same.
+    stdcall(k, "GetLocalTime", 1, [this](Cpu &c) {
+        writeSystemTime(c, c.arg(0), std::time_t(wallClockMicros() / 1000000), false);
+        return 0u;
+    });
+    stdcall(k, "GetSystemTime", 1, [this](Cpu &c) {
+        writeSystemTime(c, c.arg(0), std::time_t(wallClockMicros() / 1000000), false);
+        return 0u;
+    });
+    stdcall(k, "GetSystemTimeAsFileTime", 1, [this](Cpu &c) {
+        writeFileTime(c, c.arg(0), wallClockMicros() * 10 + kFileTime1970);
+        return 0u;
+    });
+    stdcall(k, "GetTimeZoneInformation", 1, [](Cpu &c) {
+        for (uint32_t i = 0; i < 172; i += 4)
+            c.write32(c.arg(0) + i, 0);
+        return 0u;
+    });
+    stdcall(k, "FileTimeToLocalFileTime", 2, [](Cpu &c) {
+        writeFileTime(c, c.arg(1), readFileTime(c, c.arg(0)));
+        return 1u;
+    });
+    stdcall(k, "LocalFileTimeToFileTime", 2, [](Cpu &c) {
+        writeFileTime(c, c.arg(1), readFileTime(c, c.arg(0)));
+        return 1u;
+    });
+    stdcall(k, "FileTimeToSystemTime", 2, [](Cpu &c) {
+        const uint64_t t = readFileTime(c, c.arg(0));
+        if (t < kFileTime1970)
+            return 0u;
+        writeSystemTime(c, c.arg(1), std::time_t((t - kFileTime1970) / 10000000), false);
+        return 1u;
+    });
+    stdcall(k, "SystemTimeToFileTime", 2, [](Cpu &c) {
+        const SystemTime s = readSystemTime(c, c.arg(0));
+        // Days from 1970 by the proleptic Gregorian calendar.
+        const int y = s.year - (s.month <= 2);
+        const int era = (y >= 0 ? y : y - 399) / 400;
+        const int yoe = y - era * 400;
+        const int doy = (153 * (s.month + (s.month > 2 ? -3 : 9)) + 2) / 5 + s.day - 1;
+        const int doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+        const int64_t days = int64_t(era) * 146097 + doe - 719468;
+        const int64_t seconds = days * 86400 + s.hour * 3600 + s.minute * 60 + s.second;
+        if (seconds < 0)
+            return 0u;
+        writeFileTime(c, c.arg(1), uint64_t(seconds) * 10000000 + kFileTime1970);
+        return 1u;
+    });
 
     // A Pentium II-class single processor, 4 KB pages.
     stdcall(k, "GetSystemInfo", 1, [](Cpu &c) {

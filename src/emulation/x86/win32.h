@@ -8,6 +8,7 @@
 #include "emulation/x86/cpu.h"
 
 #include <array>
+#include <chrono>
 #include <atomic>
 #include <condition_variable>
 #include <cstdio>
@@ -363,6 +364,17 @@ public:
      */
     void addDrive(Drive drive);
     /**
+     * The date and time of day the program is told (GetLocalTime and the
+     * like), in microseconds since 1970: the host's unless set.
+     */
+    std::function<uint64_t()> wallClockMicros = [] {
+        return uint64_t(
+            std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+                .count());
+    };
+    /** Where GetTempPathA says temporary files go, on the drives; with its last backslash. */
+    std::string tempFolder = "C:\\WINDOWS\\TEMP\\";
+    /**
      * The host file a Windows path names on the drives: for reading, the
      * writable copy if there is one, else the drive's (empty if the drive
      * isn't there).
@@ -638,6 +650,7 @@ private:
     std::string _exeName;
     std::string _programFolder = "C:\\STVEF\\";
     uint32_t _commandLine = 0;
+    uint32_t _commandLineW = 0; // GetCommandLineW's copy
     uint32_t _environment = 0;
     uint32_t _environmentW = 0;
     uint32_t _lastError = 0;
@@ -766,6 +779,15 @@ private:
     uint32_t runTimers();
     uint32_t _nextThreadId = 0x104;
     std::vector<bool> _tlsUsed = std::vector<bool>(64);
+    // A module's static TLS (__declspec(thread)): the slot it was given and
+    // its template, copied for each thread.
+    struct StaticTls {
+        uint32_t index = 0;
+        std::vector<uint8_t> data;
+    };
+    std::vector<StaticTls> _staticTls;
+    // Gives a thread (its information block) its copy of a module's static TLS.
+    void giveStaticTls(uint32_t tib, const StaticTls &tls);
 };
 
 } // namespace reluva::x86

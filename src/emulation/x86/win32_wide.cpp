@@ -97,6 +97,40 @@ void Win32Process::addWideStandIns() {
         });
     }
 
+    // MoveFileW and MoveFileExW: both names narrowed.
+    stdcall(k, "MoveFileW", 2, [this, ansi](Cpu &c) {
+        Strings strings{*_arena, {}};
+        return ansi(c, "MoveFileA", {strings(c, c.arg(0)), strings(c, c.arg(1))});
+    });
+    stdcall(k, "MoveFileExW", 3, [this, ansi](Cpu &c) {
+        Strings strings{*_arena, {}};
+        return ansi(c, "MoveFileExA", {strings(c, c.arg(0)), strings(c, c.arg(1)), c.arg(2)});
+    });
+    // GetFullPathNameW(name, size, buffer, filePart*) and GetShortPathNameW(
+    // long, short, size): the A one's answer widened.
+    stdcall(k, "GetFullPathNameW", 4, [this, ansi](Cpu &c) {
+        Strings strings{*_arena, {}};
+        const uint32_t buffer = _arena->alloc(520);
+        const uint32_t length = ansi(c, "GetFullPathNameA", {strings(c, c.arg(0)), 520, buffer, 0});
+        const std::string full = length && length < 520 ? c.string(buffer, 520) : std::string();
+        _arena->free(buffer);
+        if (full.empty())
+            return length;
+        if (c.arg(1) <= full.size())
+            return uint32_t(full.size() + 1);
+        writeWide(c, c.arg(2), full, c.arg(1));
+        if (c.arg(3))
+            c.write32(c.arg(3), c.arg(2) + 2 * uint32_t(full.rfind('\\') + 1));
+        return uint32_t(full.size());
+    });
+    stdcall(k, "GetShortPathNameW", 3, [](Cpu &c) {
+        const std::string name = readWide(c, c.arg(0));
+        if (c.arg(2) <= name.size())
+            return uint32_t(name.size() + 1);
+        writeWide(c, c.arg(1), name, c.arg(2));
+        return uint32_t(name.size());
+    });
+
     // GetCurrentDirectoryW(size in characters, buffer)
     stdcall(k, "GetCurrentDirectoryW", 2, [this, ansi](Cpu &c) {
         const uint32_t buffer = _arena->alloc(260);

@@ -534,10 +534,49 @@ Error Win32Process::load(const std::string &name, const std::vector<uint8_t> &fi
                 v += delta;
                 std::memcpy(image + rva, &v, 4);
             }
+    // A DLL it imports that's neither loaded nor stood in for is loaded from
+    // the program's files first, and started, as Windows does: Starfleet
+    // Command II 2.0.3.6 imports ImportExportTable.dll from its folder. One
+    // with stand-ins (Mss32.dll beside the game) keeps them.
+    for (const PeImage::ImportedDll &dll : pe.imports) {
+        if (module(dll.name))
+            continue;
+        const std::string prefix = dllKey(dll.name) + "!";
+        const auto stood = _provided.lower_bound(prefix);
+        if (stood != _provided.end() && stood->first.rfind(prefix, 0) == 0)
+            continue;
+        loadFromDisk(dll.name);
+    }
     for (const PeImage::ImportedDll &dll : pe.imports)
         for (const PeImage::Import &f : dll.functions)
             if (f.iatRva + 4 <= size)
                 _cpu.write32(base + f.iatRva, bind(dll.name, f.name, f.ordinal));
+    // Static TLS (__declspec(thread)): its template copied for each thread,
+    // in a TLS slot of its own whose number goes in its index variable, as
+    // the TLS array (fs:[0x2c]) is the slots here, as on Windows 95. The
+    // TLS directory's addresses are relocated with the image.
+    if (pe.tlsRva && pe.tlsRva + 24 <= size) {
+        const uint32_t start = _cpu.read32(base + pe.tlsRva);
+        const uint32_t end = _cpu.read32(base + pe.tlsRva + 4);
+        const uint32_t indexAt = _cpu.read32(base + pe.tlsRva + 8);
+        const uint32_t zeroFill = _cpu.read32(base + pe.tlsRva + 16);
+        const auto slot = std::find(_tlsUsed.begin(), _tlsUsed.end(), false);
+        if (end >= start && end - start < 0x100000 && _cpu.valid(start, end - start) && slot != _tlsUsed.end() &&
+            _cpu.valid(indexAt, 4)) {
+            *slot = true;
+            StaticTls s;
+            s.index = uint32_t(slot - _tlsUsed.begin());
+            s.data.assign(_cpu.memory().data() + start, _cpu.memory().data() + end);
+            s.data.resize(s.data.size() + std::min<uint32_t>(zeroFill, 0x100000));
+            _cpu.write32(indexAt, s.index);
+            // The threads there are already: the main one, and any started.
+            giveStaticTls(_tib, s);
+            for (const auto &t : _threads)
+                if (t->tib && t->tib != _tib)
+                    giveStaticTls(t->tib, s);
+            _staticTls.push_back(std::move(s));
+        }
+    }
     m->entry = pe.entryPoint ? base + pe.entryPoint : 0;
     // Its addresses may have held a DLL freed before.
     _cpu.noteWrite(base, size);
@@ -671,6 +710,19 @@ void Win32Process::addStandIns() {
 
     // The process: its command line, environment (empty), start-up details.
     stdcall(k, "GetCommandLineA", 0, [this](Cpu &) { return _commandLine; });
+    // GetCommandLineW: the same, in UTF-16 (its characters below 0x80 widened),
+    // made each time it's asked as the command line may have changed.
+    stdcall(k, "GetCommandLineW", 0, [this](Cpu &c) {
+        const std::string line = c.string(_commandLine);
+        const uint32_t size = 2 * uint32_t(line.size() + 1);
+        if (_arena->size(_commandLineW) < size) {
+            _arena->free(_commandLineW);
+            _commandLineW = _arena->alloc(size);
+        }
+        for (size_t i = 0; i <= line.size(); ++i)
+            c.write16(_commandLineW + 2 * uint32_t(i), i < line.size() ? uint8_t(line[i]) : 0);
+        return _commandLineW;
+    });
     stdcall(k, "GetEnvironmentStrings", 0, [this](Cpu &) { return _environment; });
     stdcall(k, "GetEnvironmentStringsA", 0, [this](Cpu &) { return _environment; });
     stdcall(k, "GetEnvironmentStringsW", 0, [this](Cpu &) { return _environmentW; });
@@ -813,6 +865,19 @@ void Win32Process::addStandIns() {
         return which >= -12 && which <= -10 ? kStdHandles + uint32_t(-10 - which) : kInvalidHandle;
     });
     stdcall(k, "SetStdHandle", 2, [](Cpu &) { return 1u; });
+    // The console: what's written passed on; its mode as the program sets it.
+    stdcall(k, "WriteConsoleA", 5, [say](Cpu &c) {
+        say(c.string(c.arg(1), c.arg(2)).substr(0, c.arg(2)));
+        if (c.arg(3))
+            c.write32(c.arg(3), c.arg(2));
+        return 1u;
+    });
+    stdcall(k, "GetConsoleMode", 2, [](Cpu &c) {
+        if (c.arg(1))
+            c.write32(c.arg(1), 3); // ENABLE_PROCESSED_INPUT | ENABLE_LINE_INPUT
+        return 1u;
+    });
+    stdcall(k, "SetConsoleMode", 2, [](Cpu &) { return 1u; });
     stdcall(k, "GetFileType", 1, [](Cpu &c) {
         return c.arg(0) >= kStdHandles && c.arg(0) <= kStdHandles + 2 ? 2u : 0u; // FILE_TYPE_CHAR
     });

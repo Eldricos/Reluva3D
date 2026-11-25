@@ -71,7 +71,8 @@ struct PeImage {
 
     uint32_t relocationCount = 0;      // base relocations (to load it at another address)
     std::vector<uint32_t> relocations; // the RVAs of the 32-bit ones (HIGHLOW), which are all a PE32 has
-    bool hasTls = false;               // thread-local storage callbacks
+    bool hasTls = false;               // thread-local storage: data or callbacks
+    uint32_t tlsRva = 0;               // its directory (IMAGE_TLS_DIRECTORY), if it has one
     // the resource directory
     uint32_t resourceRva = 0;
     uint32_t resourceSize = 0;

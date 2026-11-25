@@ -130,6 +130,8 @@ struct FindObject : KernelObject {
 
 struct MappingObject : KernelObject {
     std::vector<uint8_t> data;
+    std::shared_ptr<FileObject> file; // none for memory alone
+    bool writable = false;            // PAGE_READWRITE: views written back
 };
 
 // "*.viv" and "tr0?.frd" against a name, ignoring case.
@@ -782,6 +784,62 @@ void Win32Process::addDriveStandIns() {
         setCurrentFolder(full);
         return 1u;
     });
+    // MoveFileExA(from, to, flags): as MoveFileA, onto a file that's there
+    // with MOVEFILE_REPLACE_EXISTING (1); with no `to` (and
+    // MOVEFILE_DELAY_UNTIL_REBOOT, 4, as there's no reboot) the file's
+    // deleted now.
+    stdcall(k, "MoveFileExA", 3, [this, writable, writableCopy](Cpu &c) {
+        const std::string from = c.string(c.arg(0));
+        if (!writable(drivePath(from))) {
+            _lastError = kAccessDenied;
+            return 0u;
+        }
+        std::error_code ec;
+        if (!c.arg(1)) {
+            const stdfs::path gone = hostPath(from, true);
+            return stdfs::remove(gone, ec) ? 1u : 0u;
+        }
+        const std::string to = c.string(c.arg(1));
+        if (!writable(drivePath(to))) {
+            _lastError = kAccessDenied;
+            return 0u;
+        }
+        const stdfs::path source = writableCopy(from, true);
+        const stdfs::path target = hostPath(to, true);
+        if (stdfs::exists(target, ec)) {
+            if (!(c.arg(2) & 1)) {
+                _lastError = 183; // ERROR_ALREADY_EXISTS
+                return 0u;
+            }
+            stdfs::remove(target, ec);
+        }
+        stdfs::create_directories(target.parent_path(), ec);
+        stdfs::rename(source, target, ec);
+        return ec ? 0u : 1u;
+    });
+    // GetShortPathNameA(long, short, size): the name as it is, all names
+    // being short enough.
+    stdcall(k, "GetShortPathNameA", 3, [](Cpu &c) {
+        const std::string name = c.string(c.arg(0));
+        if (c.arg(2) <= name.size())
+            return uint32_t(name.size() + 1);
+        c.writeString(c.arg(1), name, c.arg(2));
+        return uint32_t(name.size());
+    });
+    // GetTempPathA(size, buffer): tempFolder.
+    stdcall(k, "GetTempPathA", 2, [this](Cpu &c) {
+        if (c.arg(0) <= tempFolder.size())
+            return uint32_t(tempFolder.size() + 1);
+        c.writeString(c.arg(1), tempFolder, c.arg(0));
+        return uint32_t(tempFolder.size());
+    });
+    // The file functions take ANSI names, as Reluva's names are.
+    stdcall(k, "AreFileApisANSI", 0, [](Cpu &) { return 1u; });
+    stdcall(k, "SetFileApisToANSI", 0, [](Cpu &) { return 0u; });
+    stdcall(k, "SetFileApisToOEM", 0, [](Cpu &) { return 0u; });
+    // SetFileTime(handle, created, accessed, written): the host file keeps
+    // its own times.
+    stdcall(k, "SetFileTime", 4, [](Cpu &) { return 1u; });
     // GetFullPathNameA(name, size, buffer, filePart*)
     stdcall(k, "GetFullPathNameA", 4, [this](Cpu &c) {
         const std::string full = drivePath(c.string(c.arg(0)));
@@ -871,9 +929,20 @@ void Win32Process::addDriveStandIns() {
     // File mappings, read as a copy: CreateFileMappingA(file, security,
     // protect, sizeHigh, sizeLow, name), MapViewOfFile(mapping, access,
     // offsetHigh, offsetLow, bytes).
+    // File mappings: a view is a copy of the file's bytes; a view of a
+    // writable mapping (PAGE_READWRITE, 4) goes back to the file when it's
+    // flushed or unmapped, the file growing to the mapping's size as on
+    // Windows. RTPatch builds each file it patches in a view this way.
+    struct View {
+        std::shared_ptr<MappingObject> mapping;
+        uint32_t offset = 0;
+        uint32_t size = 0;
+    };
+    auto views = std::make_shared<std::map<uint32_t, View>>();
     stdcall(k, "CreateFileMappingA", 6, [this](Cpu &c) -> uint32_t {
         auto m = std::make_shared<MappingObject>();
         if (auto f = object<FileObject>(c.arg(0))) {
+            m->file = f;
             const long at = std::ftell(f->file);
             std::fseek(f->file, 0, SEEK_END);
             m->data.resize(size_t(std::ftell(f->file)));
@@ -883,11 +952,13 @@ void Win32Process::addDriveStandIns() {
         } else {
             m->data.resize(c.arg(4)); // memory only (a handle of -1)
         }
+        const uint32_t protect = c.arg(2) & 0xff;
+        m->writable = protect == 0x04 || protect == 0x40; // PAGE_READWRITE, PAGE_EXECUTE_READWRITE
         if (c.arg(4) > m->data.size())
             m->data.resize(c.arg(4));
         return addHandle(m);
     });
-    stdcall(k, "MapViewOfFile", 5, [this](Cpu &c) -> uint32_t {
+    stdcall(k, "MapViewOfFile", 5, [this, views](Cpu &c) -> uint32_t {
         auto m = object<MappingObject>(c.arg(0));
         if (!m)
             return 0u;
@@ -896,12 +967,37 @@ void Win32Process::addDriveStandIns() {
             return 0u;
         const uint32_t bytes = c.arg(4) ? c.arg(4) : uint32_t(m->data.size() - offset);
         const uint32_t p = _arena->alloc(std::max(bytes, 1u), 0x10000);
-        if (p)
+        if (p) {
             std::memcpy(c.memory().data() + p, m->data.data() + offset,
                         std::min<size_t>(bytes, m->data.size() - offset));
+            (*views)[p] = {m, offset, bytes};
+        }
         return p;
     });
-    stdcall(k, "UnmapViewOfFile", 1, [this](Cpu &c) {
+    // A view's bytes back to its file, where it's one of a writable mapping.
+    auto writeBack = [](Cpu &c, uint32_t at, const View &v) {
+        if (!v.mapping->writable || !v.mapping->file || !v.mapping->file->file)
+            return;
+        std::FILE *f = v.mapping->file->file;
+        const long was = std::ftell(f);
+        std::fseek(f, long(v.offset), SEEK_SET);
+        std::fwrite(c.memory().data() + at, 1, v.size, f);
+        std::fflush(f);
+        std::fseek(f, was, SEEK_SET);
+        std::memcpy(v.mapping->data.data() + v.offset, c.memory().data() + at,
+                    std::min<size_t>(v.size, v.mapping->data.size() - v.offset));
+    };
+    stdcall(k, "FlushViewOfFile", 2, [views, writeBack](Cpu &c) {
+        for (const auto &[at, v] : *views)
+            if (c.arg(0) >= at && c.arg(0) - at < std::max(v.size, 1u))
+                writeBack(c, at, v);
+        return 1u;
+    });
+    stdcall(k, "UnmapViewOfFile", 1, [this, views, writeBack](Cpu &c) {
+        if (auto it = views->find(c.arg(0)); it != views->end()) {
+            writeBack(c, it->first, it->second);
+            views->erase(it);
+        }
         _arena->free(c.arg(0));
         return 1u;
     });
@@ -963,6 +1059,16 @@ uint32_t Win32Process::openFile(const std::string &windowsPath, const char *mode
         _lastError = writing ? kErrorAccessDenied : kErrorFileNotFound;
         return 0;
     }
+    // A file opened to be changed, not replaced, where the program writes
+    // elsewhere than it reads (a save folder beside the install): its copy
+    // there starts as the file was.
+    if (writing && mode[0] != 'w') {
+        std::error_code ec;
+        const auto readable = mapPath(full, false);
+        if (readable && *readable != *host && std::filesystem::exists(*readable, ec) &&
+            !std::filesystem::exists(*host, ec))
+            std::filesystem::copy_file(*readable, *host, ec);
+    }
     std::FILE *f = std::fopen(host->string().c_str(), mode);
     if (!f) {
         _lastError = kErrorFileNotFound;
@@ -1004,15 +1110,17 @@ void Win32Process::addFileStandIns() {
             mode = write ? "w+b" : "wb";
             break;
         case 4: // OPEN_ALWAYS
-            mode = write ? "a+b" : "rb";
+            mode = write ? "r+b" : "rb";
             break;
         default: // OPEN_EXISTING, TRUNCATE_EXISTING
             mode = write ? "r+b" : "rb";
             break;
         }
-        const uint32_t h = openFile(name, mode);
-        if (h && disposition == 4 && write)
-            std::fseek(file(h)->file, 0, SEEK_SET);
+        uint32_t h = openFile(name, mode);
+        // OPEN_ALWAYS makes the file that isn't there (not append mode, whose
+        // writes would all go to its end).
+        if (!h && disposition == 4 && write)
+            h = openFile(name, "w+b");
         return h ? h : kInvalidHandle;
     });
     // A file opened here is a disk file; a statically linked C runtime's
@@ -1047,8 +1155,16 @@ void Win32Process::addFileStandIns() {
         }
         static const int kWhence[3] = {SEEK_SET, SEEK_CUR, SEEK_END};
         const int32_t distance = int32_t(c.arg(1));
-        if (c.arg(3) > 2 || std::fseek(f->file, distance, kWhence[c.arg(3)]) != 0)
+        if (c.arg(3) > 2) {
+            _lastError = 87; // ERROR_INVALID_PARAMETER
             return 0xffffffffu;
+        }
+        // Before the start: ERROR_NEGATIVE_SEEK, which a C runtime opening
+        // a file to append checks for (seeking back a byte for a Ctrl-Z).
+        if (std::fseek(f->file, distance, kWhence[c.arg(3)]) != 0) {
+            _lastError = 131;
+            return 0xffffffffu;
+        }
         if (c.arg(2))
             c.write32(c.arg(2), 0);
         return uint32_t(std::ftell(f->file));

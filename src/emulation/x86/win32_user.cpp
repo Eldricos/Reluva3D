@@ -9,6 +9,7 @@
 // The sizes of frames and captions are Windows 98's at 96 dpi.
 
 #include "emulation/x86/win32.h"
+#include "emulation/x86/format.h"
 
 #include "common/events.h"
 
@@ -681,6 +682,24 @@ void Win32Process::addUserStandIns() {
     };
     stdcall(u, "GetKeyState", 1, keyState);
     stdcall(u, "GetAsyncKeyState", 1, keyState);
+    // wsprintfA(out, format, ...) (cdecl: the caller pops) and
+    // wvsprintfA(out, format, arguments): printf's formatting, to at most
+    // 1024 characters as Windows' does.
+    auto wsprintf = [](Cpu &c, uint32_t out, uint32_t format, uint32_t arguments) {
+        std::string text = formatPrintf(c, format, arguments);
+        if (text.size() > 1023)
+            text.resize(1023);
+        c.writeString(out, text, uint32_t(text.size() + 1));
+        return uint32_t(text.size());
+    };
+    stdcall(u, "wsprintfA", 0, [wsprintf](Cpu &c) { return wsprintf(c, c.arg(0), c.arg(1), c.reg[Cpu::ESP] + 12); });
+    stdcall(u, "wvsprintfA", 3, [wsprintf](Cpu &c) { return wsprintf(c, c.arg(0), c.arg(1), c.arg(2)); });
+    // Windows hooks (SetWindowsHookExA(kind, procedure, module, thread)):
+    // given a handle and never called, the program's input coming as its
+    // window's messages. Starfleet Command II 2.0.3.6 sets one as it starts.
+    stdcall(u, "SetWindowsHookExA", 4, [](Cpu &c) { return c.arg(1) ? 0x7300u : 0u; });
+    stdcall(u, "UnhookWindowsHookEx", 1, [](Cpu &) { return 1u; });
+    stdcall(u, "CallNextHookEx", 4, [](Cpu &) { return 0u; });
     // VkKeyScanA(character): the virtual key that types it on a US
     // keyboard, Shift in the high byte (1); -1 when no key does.
     // Starfleet Command II reads its key bindings' characters (`]`, `;`)

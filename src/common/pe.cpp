@@ -189,6 +189,7 @@ Error parsePe(const std::vector<uint8_t> &file, PeImage &out) {
         }
     }
     out.hasTls = dir(9).first != 0;
+    out.tlsRva = dir(9).first;
     out.resourceRva = dir(2).first;
     out.resourceSize = dir(2).second;
     for (int i = 0; i < int(dirCount); ++i)

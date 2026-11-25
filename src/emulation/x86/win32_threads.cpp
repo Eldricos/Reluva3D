@@ -66,7 +66,17 @@ uint32_t Win32Process::allocTib(uint32_t stackTop, uint32_t stackBottom, uint32_
     _cpu.write32(tib + 0x24, id);
     _cpu.write32(tib + 0x2c, tib + 0xe10); // the TLS array (as Windows 95's)
     _cpu.write32(tib + 0x30, _peb);
+    for (const StaticTls &s : _staticTls)
+        giveStaticTls(tib, s);
     return tib;
+}
+
+void Win32Process::giveStaticTls(uint32_t tib, const StaticTls &tls) {
+    const uint32_t block = _arena->alloc(std::max<uint32_t>(uint32_t(tls.data.size()), 4));
+    if (!block)
+        return;
+    std::memcpy(_cpu.memory().data() + block, tls.data.data(), tls.data.size());
+    _cpu.write32(tib + 0xe10 + 4 * tls.index, block);
 }
 
 // NOLINTNEXTLINE(readability-make-member-function-const): changes one of its event objects
