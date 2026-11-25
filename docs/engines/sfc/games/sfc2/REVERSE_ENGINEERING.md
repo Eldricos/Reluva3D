@@ -78,7 +78,8 @@ text files, and the installers' headers.
   made it (`-writes`); the code first run between two frames
   (`-newcode`), which finds what a click runs; how many instructions ran
   in each 16 bytes of code between two frames (`-profile`), which finds
-  where a busy program is busy
+  where a busy program is busy; with `-watch`, the callers too, by the
+  frame pointers' chain
   ([systems/hosting.md](systems/hosting.md)).
 - **Installers:** the patch's Microsoft cabinet listed and taken apart
   with a short script, written from Microsoft's description of the

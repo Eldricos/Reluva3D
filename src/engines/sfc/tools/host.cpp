@@ -361,6 +361,18 @@ int cmdHost(int argc, char **argv) {
             for (uint32_t i = 0; i < 8; ++i)
                 std::printf(" %x", c.read32(c.reg[x86::Cpu::ESP] + 4 * i));
             std::printf("\n");
+            // The callers, by the frame pointers' chain: right where the
+            // functions on it keep EBP as their frame, as the game's do.
+            std::printf("  callers:");
+            for (uint32_t frame = c.reg[x86::Cpu::EBP], depth = 0;
+                 depth < 16 && frame >= c.reg[x86::Cpu::ESP] && c.valid(frame, 8); ++depth) {
+                std::printf(" %x", c.read32(frame + 4));
+                const uint32_t next = c.read32(frame);
+                if (next <= frame)
+                    break;
+                frame = next;
+            }
+            std::printf("\n");
             // What EAX points to (an object a call returned, say).
             if (const uint32_t p = c.reg[x86::Cpu::EAX]; p >= 0x10000 && c.valid(p, 128)) {
                 std::printf("  eax->");
