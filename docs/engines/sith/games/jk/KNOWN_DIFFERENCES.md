@@ -64,7 +64,11 @@ None yet.
   as it runs: how long it waits between moving its world. Its speed is
   unchanged ([systems/hosting.md](systems/hosting.md), step 22), though
   only Nar Shaddaa's walking and jumping were measured, and the
-  multiplayer games haven't been played at it.
+  multiplayer games haven't been played at it. With it on, Reluva has
+  crashed as the ending's cut scene starts (after Jerec) in 3 of 6
+  skims through the game, in the emulator's native code (its JIT): not
+  yet found, and not seen with the game's own frame rate
+  ([TESTING.md](TESTING.md#last-checked)).
 
 - **Copies of the CDs:** the original reads its cut scenes from the CD in
   the drive; Reluva finds copies of both CDs' files in or beside the
