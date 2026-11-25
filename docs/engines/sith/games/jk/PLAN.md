@@ -97,12 +97,12 @@ reaches its menus; then DirectSound; then a level.
    and both endings have been gone through with the game's cheats
    ([TESTING.md](TESTING.md#last-checked)). Its Direct3D can be drawn on
    the graphics card, at 640 by 480 matching the software drawing, and
-   up to 4 times larger
+   up to 4 times larger, its edges smoothed
    ([systems/hosting.md](systems/hosting.md), step 21). Next: levels
    played through by a person, and the multiplayer games at length, to
-   find what differs; on the graphics card, anti-aliasing and frame
-   rates above 60 (larger pictures, the 2D over them, are done); then
-   Mysteries of the Sith.
+   find what differs; on the graphics card, frame rates above 60
+   (larger pictures, the 2D over them, and anti-aliasing are done);
+   then Mysteries of the Sith.
 7. **Mysteries of the Sith.**
 
 ## Decisions

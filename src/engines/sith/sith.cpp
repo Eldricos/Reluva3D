@@ -81,6 +81,11 @@ public:
         int scale = 2;
         if (const auto s = _target.settings.find("renderscale"); s != _target.settings.end())
             scale = std::clamp(std::atoi(s->second.c_str()), 1, 4);
+        // `antialiasing` (off, 2 or 4): the GPU's samples a pixel, as many
+        // of them as the device has.
+        int samples = 4;
+        if (const auto a = _target.settings.find("antialiasing"); a != _target.settings.end())
+            samples = a->second == "off" ? 1 : std::clamp(std::atoi(a->second.c_str()), 1, 4);
         int width = 640;
         int height = 480;
         bool gpu = false;
@@ -89,6 +94,7 @@ public:
             gfx::Renderer3D *renderer = nullptr;
             if (wantGpu && !_sys.init3D(width * scale, height * scale, renderer) && renderer) {
                 gpu = true;
+                renderer->setMultisampling(samples);
                 _scenes.setRenderer(renderer);
             } else {
                 gpu = false;
@@ -255,7 +261,13 @@ public:
                        "the same picture with finer 3D. The menus and gauges are enlarged as they are.";
         size.choices = {
             {"2", "2x (1280x960)"}, {"1", "1x (640x480)"}, {"3", "3x (1920x1440)"}, {"4", "4x (2560x1920)"}};
-        return {joystick, drawing, size};
+        GameOption smoothing;
+        smoothing.key = "antialiasing";
+        smoothing.label = "Anti-aliasing";
+        smoothing.tooltip = "With the 3D on the graphics card, the edges of its polygons smoothed by "
+                            "multisampling, as far as the card can.";
+        smoothing.choices = {{"4", "4x"}, {"2", "2x"}, {"off", "Off"}};
+        return {joystick, drawing, size, smoothing};
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {

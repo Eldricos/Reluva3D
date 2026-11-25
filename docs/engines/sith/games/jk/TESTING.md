@@ -75,7 +75,8 @@ colours where the scenes draw. Software, GPU and difference pictures
 of every 20th scene and the worst go into the folder. `-gpuplay
 <folder>` draws the frames as play does, the 2D over the scene, one in
 60 written there. `-gpuscale N` draws them N times the size; `-gpu`
-then averages each N by N back to one pixel to compare.
+then averages each N by N back to one pixel to compare. `-gpuaa N`
+draws with N samples a pixel (2 or 4, as the device has).
 
 ## A playthrough by hand
 
@@ -108,6 +109,7 @@ then averages each N by N back to one pixel to compare.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | Anti-aliasing on the graphics card (llvmpipe, 4 samples a pixel, 640x480): `-gpu -gpuaa 4` into Nar Shaddaa, 349 scenes against the emulator's drawing, 2.1% of pixels more than a 16-bit step apart, along the polygons' edges; `-gpuplay -gpuaa 4`: the level and gauges as without, the edges smoothed |
 | November 2026 | US retail | Linux | Direct3D on the graphics card at twice the size (llvmpipe, 1280x960): `-gpu -gpuscale 2` into Nar Shaddaa, 107 scenes averaged back to 640x480 against the emulator's drawing, 3.2% of pixels more than a 16-bit step apart, at edges and fine detail; `-gpuplay -gpuscale 2`: the same picture, finer, the gauges enlarged over it. `sith.unit.render`'s *scene scaled*: viewports, pixel centres and the 2D at twice the size |
 | November 2026 | US retail | Linux | Direct3D on the graphics card (Mesa's llvmpipe Vulkan, 640x480): `reluva-tool sith host -d3d -gpu` into Nar Shaddaa, 440 scenes drawn on the GPU against the emulator's drawing: 0.0001% of the pixels where they draw more than a 16-bit step apart, the worst scene 11 pixels along one edge; `-gpuplay`: the gauges over the level. `common.unit.windows`: a scene kept instead of drawn, its triangle and Z clear as given, the 2D after it on top |
 | November 2026 | US retail | Linux | Windowed: `reluva-tool sith host -args -windowGUI`: the opening, the logo and loading screen, *New Player* typed and clicked, *Single Player*, *New Game*, the cut scene and Nar Shaddaa, each frame blitted through GDI and shown, the first level reached at 26 seconds as full screen. `common.unit.windows`'s *window drawing* test: a DIB blitted into a window's device context reaches the engine, and again once the window grows |

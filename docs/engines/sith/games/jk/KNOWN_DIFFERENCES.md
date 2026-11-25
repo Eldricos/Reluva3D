@@ -51,7 +51,9 @@ None yet.
   use them ([systems/hosting.md](systems/hosting.md), step 21). At a
   larger *Picture size* the 3D is finer than any card of the time drew
   it at 640x480, while the menus, gauges and text keep their pixels,
-  enlarged.
+  enlarged. *Anti-aliasing* smooths the polygons' edges, which the cards
+  of 1997 left stepped; the edges of a texture's transparent holes stay
+  stepped.
 
 ## Additions outside the game
 

@@ -273,6 +273,12 @@ Windows does when it fails, and dialog boxes are made but not drawn
     pixels, and are divided back down, so the pointer lands where it
     points and the view turns as fast as at 1 times.
 
+    Its polygons' edges can be smoothed (*Anti-aliasing*, 2 or 4 samples
+    a pixel, as many as the card has): the renderer's multisampling, set
+    each time its frame is made. Only the edges of polygons are smoothed;
+    the holes of textures with a transparent colour (grates, railings),
+    left out by the alpha test, keep their steps.
+
     Checked against the emulator's own drawing, scene by scene
     (`reluva-tool sith host -gpu`), at 640 by 480 on Mesa's software
     Vulkan (llvmpipe), into Nar Shaddaa: of 440 scenes, where each
@@ -285,7 +291,10 @@ Windows does when it fails, and dialog boxes are made but not drawn
     pixel, 107 scenes differ from the software drawing by more than a
     16-bit step at 3.2% of their pixels: at edges and in fine texture
     detail, where the finer sampling sees more; the frames at 1280 by
-    960 show the same picture, the gauges over it.
+    960 show the same picture, the gauges over it. With 4 samples a
+    pixel (`-gpuaa 4`) at 640 by 480, 349 scenes differ by more than a
+    step at 2.1% of their pixels, along the polygons' edges, which are
+    smoothed; within them the pictures agree as without.
 
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were

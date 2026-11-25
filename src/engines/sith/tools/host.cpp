@@ -106,7 +106,7 @@ int cmdHost(int argc, char **argv) {
                      "usage: reluva-tool sith host <install> [-seconds N] [-args \"...\"] [-png file] "
                      "[-files] [-calls] [-d3d] [-net] [-join address] [-keys \"s:key,...\"] [-skim] [-cheat word] "
                      "[-pad \"s:control=value,...\"] [-close seconds] [-frames N folder] [-peek address] [-wav file] "
-                     "[-write folder] [-gpu folder] [-gpuplay folder] [-gpuscale N]\n");
+                     "[-write folder] [-gpu folder] [-gpuplay folder] [-gpuscale N] [-gpuaa N]\n");
         return 2;
     }
     const std::filesystem::path install = argv[2];
@@ -130,7 +130,8 @@ int cmdHost(int argc, char **argv) {
     std::filesystem::path writable = std::filesystem::temp_directory_path() / "reluva-sith-host";
     std::filesystem::path gpuFolder;
     bool gpuPlay = false;
-    int gpuScale = 1; // the GPU's picture this many times the game's
+    int gpuScale = 1;   // the GPU's picture this many times the game's
+    int gpuSamples = 1; // multisampling, as the device has it
     for (int i = 3; i < argc; ++i) {
         const std::string a = argv[i];
         if (a == "-seconds" && i + 1 < argc)
@@ -173,6 +174,8 @@ int cmdHost(int argc, char **argv) {
             gpuFolder = argv[++i], gpuPlay = true;
         else if (a == "-gpuscale" && i + 1 < argc)
             gpuScale = std::clamp(std::atoi(argv[++i]), 1, 4);
+        else if (a == "-gpuaa" && i + 1 < argc)
+            gpuSamples = std::clamp(std::atoi(argv[++i]), 1, 4);
     }
     if (!reluva::fs::findFile(install, "JK.EXE")) {
         std::fprintf(stderr, "no JK.EXE in %s\n", install.string().c_str());
@@ -477,7 +480,8 @@ int cmdHost(int argc, char **argv) {
             std::fprintf(stderr, "-gpu: no GPU renderer\n");
             return 1;
         }
-        std::printf("GPU: %s\n", renderer->deviceName().c_str());
+        std::printf("GPU: %s, %d samples a pixel\n", renderer->deviceName().c_str(),
+                    renderer->setMultisampling(gpuSamples));
         sceneGpu.setRenderer(renderer);
         clear.create(640, 480, reluva::PixelFormat::kRGBA32);
         std::filesystem::create_directories(gpuFolder);
@@ -749,7 +753,7 @@ const Commands kCommands(
         {"host",
          "<install> [-seconds N] [-args \"...\"] [-png file] [-files] [-calls] [-d3d] [-net] [-join address] [-keys "
          "\"s:key,...\"] [-skim] [-cheat word] [-pad \"s:control=value,...\"] [-close seconds] [-frames N folder] "
-         "[-peek address] [-wav file] [-write folder] [-gpu folder] [-gpuplay folder] [-gpuscale N]",
+         "[-peek address] [-wav file] [-write folder] [-gpu folder] [-gpuplay folder] [-gpuscale N] [-gpuaa N]",
          "run the retail JK.EXE in the x86 emulator: how far it gets", cmdHost},
         {"disasm", "<JK.EXE> <address> [count]", "the program's instructions from an address (hexadecimal) on",
          cmdDisasm},

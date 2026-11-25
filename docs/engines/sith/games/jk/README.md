@@ -125,7 +125,8 @@ gauges and menus over it as before. Software is the default, and what's
 used when there's no graphics card Reluva can draw with. On the graphics
 card, *Picture size* draws the 3D at 1 to 4 times the game's 640x480
 (2 times by default): the same picture, finer; the menus and gauges are
-enlarged as they are.
+enlarged as they are. *Anti-aliasing* (4 samples a pixel by default, 2,
+or off) smooths the edges of its polygons.
 
 `commandline` in the game's section of `reluva.ini` is what follows
 `JK.EXE` on its command line, as a Windows shortcut would give it:
