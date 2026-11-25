@@ -14,8 +14,8 @@
 #include <filesystem>
 #include <functional>
 #include <memory>
+#include <random>
 #include <thread>
-#include <unistd.h>
 
 namespace {
 
@@ -47,7 +47,7 @@ bool waitFor(Node &node, std::vector<Event> &seen, const std::function<bool(cons
 void runAll() {
     auto sockets = net::systemSockets();
     // A port of its own, so runs side by side don't meet.
-    const uint16_t port = uint16_t(30000 + getpid() % 20000);
+    const uint16_t port = uint16_t(30000 + std::random_device{}() % 20000);
     auto hostNode = std::make_unique<Node>(sockets, std::vector<uint32_t>{}, port);
     Node &host = *hostNode;
     SessionInfo session;
