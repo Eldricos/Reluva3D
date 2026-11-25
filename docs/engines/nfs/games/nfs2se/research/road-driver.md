@@ -42,7 +42,9 @@ that printed or changed it:
 ## How it drives
 
 - **Where:** at the road's middle, from each point's distances to its
-  edges, about 10 + 0.6 v metres ahead (up to 48): the controls reach
+  edges, about 10 + 0.6 v metres ahead (up to 48), but no farther than
+  where the road has turned 30° (round Pacific Spirit's hairpin at its
+  point 281 it aimed across the inside, into the wall): the controls reach
   the car a few frames after they're written, through the ring. The points themselves
   jog sideways where the edges change (`TR00`'s 1190, 4.5 m), and a few
   forward vectors are far off (the same point's, 50°): both made the
@@ -57,10 +59,14 @@ that printed or changed it:
   drive), at the middle of the slots on the right, as the game's own
   drivers keep to their side (0x43a9a0). `TR02`'s rock pillars stand on
   its road's middle; aiming there, both cars stopped against them.
-- **Stuck:** slow or turned round for 1.5 s (not timed while it backs
-  off: going backwards it's slow too), it backs off in reverse for
-  2.5 s at full lock the other way, then aims 3 m to one side for 4 s,
-  the other side the next time. A shift is a press, not a hold: held,
+- **Round other cars:** one up to 30 m ahead and within 2.5 m of its
+  line, it aims 3 m past it on the side with more road.
+- **Stuck:** slow, turned round, or no farther round the road for 3 s
+  (against a wall its wheels spin, and its speed doesn't stay low), for
+  1.5 s more (not timed while it backs off), it backs off in reverse for
+  2.5 s at full lock the other way, then aims to one side: 3 m, then the
+  other side, then 6 m and 9 m, each held a second longer, until it's
+  30 points farther on. A shift is a press, not a hold: held,
   the gear stopped at neutral, short of reverse, so the button goes
   every other frame. A road sign on the inside of a `TR02` bend held
   both cars until all of these were in.
@@ -91,9 +97,10 @@ copies on a serial link, both driven, to the race's end
 
 - Its time lost: at `TR00`'s chicane before the line it still scrapes
   the left wall, down to 27 m/s; other cars aren't seen, only bumped.
-- The tracks a tournament didn't reach, and the knockout's later rounds.
-- `TR02` (the Outback) at about 2 min 20 s a lap, against 1 min on
-  `TR00`: slow through its splits and rock pillars.
-- Off the road and up a grass slope (a tournament's fifth track,
-  around its point 375), it can't get back: aimed at the road, its
-  wheels spin, and backing off brings it round to the same place.
+- Its pace off `TR00`: a 4-lap single race on each track, in the
+  McLaren (late November 2026), laps of about 65 s on Proving Grounds,
+  2 min 13 s to 2 min 30 s on Last Resort, Mediterraneo and the Outback,
+  2 min 50 s to 3 min on North Country and Mystic Peaks, and 3 min 30 s
+  to 4 min 30 s on Pacific Spirit, every race to its end. Most of the
+  time is lost getting free of walls and objects it runs into.
+- The knockout's later rounds.

@@ -58,6 +58,9 @@ private:
     uint64_t _asideUntil = 0;
     float _aside = 0;
     int _backOffs = 0;
+    int32_t _progressMark = 0; // the car's progress (laps times points) when last well on its way
+    int32_t _bestProgress = 0; // the farthest it has been, and when it got there
+    uint64_t _advancedAt = 0;
     bool _shifted = false; // a shift button sent last frame: the game takes a press, not a hold
     int _laps = 0;
 };

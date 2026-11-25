@@ -160,14 +160,65 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
         return Flat{fixed(q) + off * s8(q + 18) / 128, fixed(q + 8) + off * s8(q + 20) / 128};
     };
 
-    // Aim at the road a little ahead, farther the faster; the points are
-    // 2 to 5 m apart.
+    // The road's way at a point, from its middle, not its points' forward
+    // vectors: a few of those are far off (TR00's 1190, 50°).
+    auto heading = [&](uint32_t i) {
+        const Flat a = middle(point(i));
+        const Flat b = middle(point(i + 2));
+        return std::atan2(b.x - a.x, b.z - a.z);
+    };
+    auto turnBetween = [&](uint32_t a, uint32_t b) {
+        float turn = std::fabs(heading(b) - heading(a));
+        return turn > kPi ? 2 * kPi - turn : turn;
+    };
+
+    // Aim at the road a little ahead, farther the faster (the points are 2
+    // to 5 m apart), but not past where it has turned 30°: aimed round a
+    // hairpin, it cut across the inside into the wall (Pacific Spirit's
+    // point 281).
     const float lookahead = std::clamp(10.0f + v * 0.6f, 10.0f, 48.0f);
     uint32_t j = slice;
-    for (float along = 0; along < lookahead && j < slice + n; ++j)
+    for (float along = 0; along < lookahead && j < slice + n; ++j) {
+        if (j > slice + 1 && turnBetween(slice, j) > 0.52f)
+            break;
         along += distance(point(j), point(j + 1));
+    }
     const uint32_t p = point(j);
-    const Flat target = middle(p);
+    Flat target = middle(p);
+    // Round a car close ahead in its way: aimed to the side of it with
+    // more of the road, 3 m off its line, kept inside the road's edges.
+    {
+        const float fx = fixed(car + kForward);
+        const float fz = fixed(car + kForward + 8);
+        const float rx = fixed(car + kRight);
+        const float rz = fixed(car + kRight + 8);
+        const uint32_t cars = std::min<uint32_t>(c.read32(kRaceCars), 16);
+        float nearest = 30.0f;
+        float side = 0;
+        for (uint32_t i = 0; i < cars; ++i) {
+            const uint32_t other = c.read32(kCars + 4 * i);
+            if (!other || other == car)
+                continue;
+            const float ox = fixed(other + kX) - x;
+            const float oz = fixed(other + kZ) - z;
+            const float ahead = ox * fx + oz * fz;
+            const float across = ox * rx + oz * rz;
+            if (ahead > 3.0f && ahead < nearest && std::fabs(across) < 2.5f) {
+                nearest = ahead;
+                side = across;
+            }
+        }
+        if (nearest < 30.0f) {
+            const uint32_t q = point(slice);
+            const float right = float(c.read16(q + 28)) / 256.0f - 1.5f;
+            const float left = float(c.read16(q + 26)) / 256.0f - 1.5f;
+            // Where the other car is, across the road from the point, and
+            // which way there's more room past it.
+            const float at = (fixed(q) - x) * s8(q + 18) / -128 + (fixed(q + 8) - z) * s8(q + 20) / -128 + side;
+            const float pass = right - at > left + at ? std::min(at + 3.0f, right) : std::max(at - 3.0f, -left);
+            target = Flat{fixed(p) + pass * s8(p + 18) / 128, fixed(p + 8) + pass * s8(p + 20) / 128};
+        }
+    }
     const float dx = target.x - x;
     const float dz = target.z - z;
     const float angle = std::atan2(dx * fixed(car + kRight) + dz * fixed(car + kRight + 8),
@@ -175,13 +226,7 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
 
     // As fast as the bends ahead allow: each one's speed by its curve (the
     // turn of the road over about 15 m), and the braking there is room for
-    // before it. The road's way from its middle, not its points' forward
-    // vectors: a few of those are far off (TR00's 1190, 50°).
-    auto heading = [&](uint32_t i) {
-        const Flat a = middle(point(i));
-        const Flat b = middle(point(i + 2));
-        return std::atan2(b.x - a.x, b.z - a.z);
-    };
+    // before it.
     float wanted = kTopSpeed;
     float along = 0;
     const float seen = v * v / (2 * kBraking) + 30.0f;
@@ -192,10 +237,7 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
             span += distance(point(m), point(m + 1));
             ++m;
         }
-        float turn = std::fabs(heading(m) - heading(k));
-        if (turn > kPi)
-            turn = 2 * kPi - turn;
-        const float curve = turn / std::max(span, 1.0f);
+        const float curve = turnBetween(k, m) / std::max(span, 1.0f);
         const float corner = curve > 1e-4f ? std::sqrt(kGrip * _options.grip / curve) : kTopSpeed;
         wanted = std::min(wanted, std::sqrt(corner * corner + 2 * kBraking * along));
         along += distance(point(k), point(k + 1));
@@ -211,17 +253,38 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
     // steering hard the other way, then on again a little to one side.
     // Not while backing off: going backwards, it's slow too, and would
     // only back off again.
-    if (now >= _reverseUntil && (std::fabs(angle) > kPi / 2 || v < 2.0f)) {
+    // Going on along the road again, the next back off starts afresh.
+    const int32_t progress = int32_t(c.read32(car + kProgress));
+    if (progress > _progressMark + 30 || progress < _progressMark - 100) { // or a new race
+        _progressMark = progress;
+        _backOffs = 0;
+    }
+    // No farther along the road for 3 s is stuck too: pushing against
+    // something, its wheels spinning, its speed doesn't stay under 2 m/s.
+    if (progress > _bestProgress || progress < _bestProgress - 100) {
+        _bestProgress = progress;
+        _advancedAt = now;
+    }
+    const bool noFurther = now > _advancedAt + 3000;
+    if (now >= _reverseUntil && (std::fabs(angle) > kPi / 2 || v < 2.0f || noFurther)) {
         if (!_slowSince)
             _slowSince = now;
     } else {
         _slowSince = 0;
     }
     if (_slowSince && now > _slowSince + 1500 && now >= _reverseUntil && now > _options.fromMs + 4000) {
+        // Each time, a little wider and longer, to either side by turns:
+        // what it hit may stand in the road's middle (Mystic Peaks' rock
+        // columns).
+        constexpr float kAside[] = {3, -3, 6, -6, 9, -9};
+        const int tries = _backOffs++;
         _reverseUntil = now + 2500;
-        _aside = _backOffs++ % 2 == 0 ? 3.0f : -3.0f;
-        _asideUntil = _reverseUntil + 4000;
+        _aside = kAside[tries % 6];
+        _asideUntil = _reverseUntil + 4000 + 1000 * uint64_t(tries % 6);
         _slowSince = 0;
+        // Given 3 s from the end of backing off to get past where it was.
+        _bestProgress = progress;
+        _advancedAt = _reverseUntil;
     }
     if (now < _reverseUntil) {
         if (gear != 0)
