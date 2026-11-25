@@ -1,0 +1,2 @@
+import: 9072d3171faad703 | sfc/sfc2: Star Trek: Starfleet Command II (1.0) (en, windows)
+the same as the install: 3356 of 3356 files

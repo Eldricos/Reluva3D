@@ -28,9 +28,26 @@ themselves.
 
 ### The game-files test
 
-<!-- Once it has one: with your own copy of the game, what it runs and
-what its records hold. See docs/DEVELOPMENT.md, "Engine tests". -->
-Not yet.
+With your own copy: `RELUVA_SFC2=<the game's folder> ctest -L gamedata
+-R sfc`, and `RELUVA_SFC2_CDS=<a folder holding the two CDs, each in a
+folder of its own>` for the import step.
+`tests/engines/sfc/gamedata.cmake` runs `reluva-tool` on the game, a
+step each:
+
+| Step | What it checks |
+|---|---|
+| `sfc.gamedata.release` | What the game is (`detect`) |
+| `sfc.gamedata.files` | Every file by name, size and MD5, as one checksum |
+| `sfc.gamedata.formats` | Every picture in `sprites.q3`, font, model and sound read and decoded (`sfc sprites`, `fonts`, `models`, `sounds`) |
+| `sfc.gamedata.intro` | The opening movie decoded out of `SFC2Intro.exe`, and its 1000th frame |
+| `sfc.gamedata.host` | `StarFleet2.exe` run on a fixed clock to its CD key dialog, a made-up key typed and refused: the frames shown, where it stopped, and the dialog before and after (no key is needed or kept) |
+| `sfc.gamedata.import` | The game imported from its two CDs, each file compared with the install's |
+
+The records, in `tests/engines/sfc/data/gamedata/<release>/`, hold only
+counts and checksums; a step passes when its record is the same.
+Records so far: `english-1.0`, an install by the CDs' own setup (3,357
+files), its import the same file for file (3,356, all but setup's
+`sfc2.isu`), made on Linux. The whole test takes about two minutes.
 
 ### Reading every retail file
 
@@ -68,6 +85,7 @@ to launcher, stop it. Headless, the same with `reluva-tool sfc host <game folder
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 25 November 2026 | English retail 1.0 | Linux | The game-files test (`ctest -L gamedata -R sfc`), its six steps recorded from an install by setup and run again the same: 3,357 files; 19,353 pictures, 126 fonts, 317 models and the sounds read, none failing; 2,721 frames of the opening movie; the CD key dialog and a made-up key refused; the import from the CDs the same as the install, 3,356 of 3,356 files |
 | 25 November 2026 | English retail 1.0 | Linux | The skirmish won again, headless with `-fixed-clock`, firing every 120 frames (at 4:22) and every 60 (8:02): "You are the winner!" |
 | 25 November 2026 | English retail 1.0 | Linux | A loaded campaign: from the second win's auto-save, Base Defense accepted hangs as Patrol does, the same without the JIT; from the first win's, Convoy Escort won, then no missions offered in the same run |
 | 25 November 2026 | English retail 1.0 | Linux | Further into a campaign, headless with `-fixed-clock`: Convoy Escort won firing every 60 frames ("Astounding Victory", 350 prestige; every 120 now loses the frigate); Monster lost, then forfeited (prestige 350 to 250, a new frigate); Patrol loaded and played, lost outnumbered; the auto-save loaded and Convoy Escort won again (650); MEDALS, SUPPLY and SHIPYARD shown. Each input repeats exactly, also with other runs loading the machine. The second win's auto-save loaded, a hex moved, Patrol alone offered and accepted: it never starts (`-profile` finding the program busy each frame from the click) |

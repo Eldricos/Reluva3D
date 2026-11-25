@@ -48,10 +48,10 @@ reluva_add_engine_tests(sfc
     TOPICS
         unit.detection unit.formats engine)
 
-# Its engine test with the game's own files, when it has one (see
-# docs/DEVELOPMENT.md, Engine tests):
-# reluva_add_gamedata_test(sfc
-#     GAME <game id>
-#     ENV RELUVA_<GAME>
-#     SCRIPT ${tests}/gamedata.cmake
-#     STEPS release ...)
+# Its engine test with the game's own files (see docs/DEVELOPMENT.md,
+# Engine tests, and tests/engines/sfc/gamedata.cmake).
+reluva_add_gamedata_test(sfc
+    GAME sfc2
+    ENV RELUVA_SFC2
+    SCRIPT ${tests}/gamedata.cmake
+    STEPS release files formats intro host import)
