@@ -60,8 +60,9 @@ Detection signatures (MD5 of each file's start, and its size, as
   prestige, its auto-save loaded between; Patrol and Monster played and
   lost, a mission forfeited
   ([systems/hosting.md](systems/hosting.md#its-missions)).
-- **Not yet:** a tutorial passed;
-  a multiplayer game between two physical machines (tried between
+- **Tutorials:** Command 190 passed
+  ([systems/hosting.md](systems/hosting.md#its-missions)).
+- **Not yet:** the other five tutorials passed; a multiplayer game between two physical machines (tried between
   copies on one, each with a network and address of its own); the
   2.0.3.6 patch's missions played; the
   `.gf`, `.mct` and `.mvm`

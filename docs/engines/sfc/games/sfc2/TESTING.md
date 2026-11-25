@@ -85,6 +85,7 @@ to launcher, stop it. Headless, the same with `reluva-tool sfc host <game folder
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 25 November 2026 | English retail 1.0 | Linux | The Command 190 tutorial passed, headless with `-fixed-clock`: red alert, a click on the 3D view, the containers targeted (T) and followed (keypad *), fired on (Z); "You have passed course: Command 190 Basic Controls" at 2:48 |
 | 25 November 2026 | English retail 1.0 | Linux | The game-files test (`ctest -L gamedata -R sfc`), its six steps recorded from an install by setup and run again the same: 3,357 files; 19,353 pictures, 126 fonts, 317 models and the sounds read, none failing; 2,721 frames of the opening movie; the CD key dialog and a made-up key refused; the import from the CDs the same as the install, 3,356 of 3,356 files |
 | 25 November 2026 | English retail 1.0 | Linux | The skirmish won again, headless with `-fixed-clock`, firing every 120 frames (at 4:22) and every 60 (8:02): "You are the winner!" |
 | 25 November 2026 | English retail 1.0 | Linux | A loaded campaign: from the second win's auto-save, Base Defense accepted hangs as Patrol does, the same without the JIT; from the first win's, Convoy Escort won, then no missions offered in the same run |

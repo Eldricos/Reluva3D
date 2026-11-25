@@ -240,9 +240,17 @@ sample beside the music), the lesson moving on as an order is followed
 it isn't ("C'mon Lieutenant"), and, with orders left undone, "Mission
 incomplete. Closing Session." and the Mission Debriefing: the battle
 report, and "you have failed to follow orders. You must repeat course",
-with VIEW REPLAY and DONE. Passing one is a matter of flying the ship
-(Command 190 wants three containers destroyed, the phasers brought to
-bear on each), not yet done by a scripted run.
+with VIEW REPLAY and DONE. Command 190 passed, headless with
+`-fixed-clock`, its orders followed as its text gives them (turn by a
+click on the 3D view, target a container with T, fire with Z, "Now
+destroy all three targets"): red alert, a click on the view, T and the
+keypad's * (follow the target) every 2,500 frames, Z every 60. At 2:48
+of its time: "You have passed course: Command 190 Basic Controls. You
+may now proceed to course: Command 290 Intermediate Helm Controls", 75
+damage scored, the three containers' 2,997 lost. Pressing T every 600
+frames instead, without red alert, kept changing the target before the
+phasers, never charged, could destroy one, and the course went on with
+nothing destroyed.
 
 A single-player campaign starts from Campaign's Campaign Selector (its
 saved games, LOAD GAME, NEW GAME, DELETE GAME): NEW GAME lists the twelve
