@@ -76,6 +76,39 @@ Two copies on the serial link, each driven by the road driver
 | B's process killed after A's second lap | A's race ended there: the race summary at once, both players *aborted* |
 | Both the 3dfx program (`-program NFS2SEA.EXE`), Up held | Linked, the lobby, the race: the two race clocks within 0.06 s, each car seen in the other copy |
 
+The other two links, the same way (late November 2026):
+
+| Link | Result |
+|---|---|
+| Network (IPX), A creating, B joining | The race to its end, the summary and lap times the same on both: Player1 2nd, 4:06.90, Player2 5th, 4:07.28 |
+| Modem, A answering, B dialling 555 | The same: Player2 2nd, 4:19.93, Player1 3rd, 4:20.06 |
+
+**A tournament over IPX.** The race type is set in *game setup* before
+connecting (in the lobby only the car, the gearbox and the colour can
+be changed; the race's settings are the host's, greyed on the other).
+After each race the summary, the lap times and the tournament's
+standings, the same on both copies; *comms menu* takes both back to
+the lobby, and RACE on both starts the next track. Each race's car
+class is the tournament's (B's at Last Resort, Ford Indigos).
+
+Four races of one run, both copies driven, every summary and standings
+the same on both:
+
+| Race | Track, cars | Player1 | Player2 ("2") |
+|---|---|---|---|
+| 1 | Proving Grounds, McLaren F1 | 6th, 4:22.68 | 5th, 4:22.59 |
+| 2 | Outback, McLaren F1 | 7th, 9:30.71 | 8th, 9:30.93 |
+| 3 | Last Resort, Ford Indigo | 7th, 10:09.59 | 8th, 10:11.71 |
+| 4 | North Country, Mustang Mach III | 8th, 11:27.43 | 7th, 11:27.28 |
+
+After the fourth, both 16 points, 7th and 8th. In the fifth the road
+driver left Player1's car on a grass slope off the road, which it
+couldn't climb back from ([road-driver.md](road-driver.md)); the link
+held, the other copy racing on, and the run was stopped there. The
+first runs found the road driver's other faults: on the Outback it
+stopped for good against a sign and the rock pillars on the road's
+middle, until it was mended.
+
 What was found on the way:
 
 - **The controls go round the link, not the cars.** Each copy keeps a
@@ -127,8 +160,6 @@ What was found on the way:
 
 ## Left open
 
-- A tournament over a link; IPX and the modem to a race's end (the
-  serial link only).
 - Where the game decides who hosts the link, and gives up on a tie.
 - Copies on two machines; DirectPlay (not installed on the host, and
   the program offered no other protocol).

@@ -300,8 +300,12 @@ with what it found written on the game's pages in `formats/` and
    game giving up on a tie of two counters that copies started together
    share ([research/network-play.md](research/network-play.md)).
 
-   Left open: a tournament over a link, IPX and the modem to a race's
-   end, copies on two machines.
+   Later: IPX and the modem raced to the end as the serial link was,
+   and a tournament over IPX, four races with the same results on both
+   copies, until the road driver lost a car off the fifth track's road.
+
+   Left open: a whole tournament over a link (it needs a road driver
+   that gets back onto the road), copies on two machines.
 
 ## Decisions
 

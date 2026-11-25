@@ -94,3 +94,6 @@ copies on a serial link, both driven, to the race's end
 - The tracks a tournament didn't reach, and the knockout's later rounds.
 - `TR02` (the Outback) at about 2 min 20 s a lap, against 1 min on
   `TR00`: slow through its splits and rock pillars.
+- Off the road and up a grass slope (a tournament's fifth track,
+  around its point 375), it can't get back: aimed at the road, its
+  wheels spin, and backing off brings it round to the same place.
