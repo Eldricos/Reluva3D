@@ -111,8 +111,10 @@ struct InputEvent {
 // An input file's lines: `<ms> move <x> <y>`, `<ms> motion <dx> <dy>`
 // (the mouse moved by that much), `<ms> click [<x> <y>]` (the left button,
 // released 100 ms later; where the pointer is, without a place),
-// `<ms> key <virtual key> [held ms]` (pressed, and released after 100 ms
-// or as long as said). '#' starts a comment.
+// `<ms> down [<x> <y>]` and `<ms> up [<x> <y>]` (the left button pressed
+// and let go, for a drag), `<ms> rclick [<x> <y>]` (the right button, as
+// click), `<ms> key <virtual key> [held ms]` (pressed, and released after
+// 100 ms or as long as said). '#' starts a comment.
 // A key's scan code, as a US keyboard gives it: 0x100 marks an extended
 // key (the grey arrows, Insert, the keypad's /), which Input.map tells
 // from the keypad's ("GreyRightArrow"). 0 for one not listed.
@@ -164,13 +166,18 @@ Error readInput(const std::filesystem::path &path, std::vector<InputEvent> &out)
                 a -= dx;
                 b -= dy;
             }
-        } else if (action == "click") {
+        } else if (action == "click" || action == "rclick" || action == "down" || action == "up") {
             if (words >> a >> b)
                 out.push_back({at, InputEvent::Kind::kMove, a, b, false});
             else if (!words.eof())
                 return Error::fail(path.string() + ": line " + std::to_string(number) + " isn't understood");
-            out.push_back({at, InputEvent::Kind::kButton, 0, 0, true});
-            out.push_back({at + 100, InputEvent::Kind::kButton, 0, 0, false});
+            const int button = action == "rclick" ? 1 : 0;
+            if (action != "up")
+                out.push_back({at, InputEvent::Kind::kButton, button, 0, true});
+            if (action == "up")
+                out.push_back({at, InputEvent::Kind::kButton, button, 0, false});
+            else if (action != "down")
+                out.push_back({at + 100, InputEvent::Kind::kButton, button, 0, false});
         } else if (action == "key" && words >> a) {
             int hold = 100;
             if (!(words >> hold))

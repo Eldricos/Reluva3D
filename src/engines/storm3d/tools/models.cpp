@@ -10,6 +10,7 @@
 #include "common/text.h"
 #include "engines/storm3d/formats/sod.h"
 #include "engines/storm3d/game_files.h"
+#include "engines/storm3d/scene/model_tree.h"
 #include "devtools/tool.h"
 
 #include <algorithm>
@@ -56,6 +57,26 @@ int cmdSod(int argc, char **argv) {
                 "animations\n",
                 model.magic.c_str(), double(model.version), model.textureRefs.size(), model.materials.size(),
                 model.nodes.size(), model.meshes.size(), model.animations.size(), model.textureAnimations.size());
+    // The whole model's box, its meshes placed by their nodes.
+    {
+        const std::vector<reluva::gfx::Mat4> world = reluva::storm3d::ModelTree::worldMatrices(model);
+        reluva::gfx::Vec3 lo{1e30f, 1e30f, 1e30f};
+        reluva::gfx::Vec3 hi{-1e30f, -1e30f, -1e30f};
+        for (size_t i = 0; i < model.nodes.size() && i < world.size(); ++i) {
+            if (model.nodes[i].mesh < 0)
+                continue;
+            for (const auto &v : model.meshes[size_t(model.nodes[i].mesh)].vertices) {
+                const reluva::gfx::Vec3 p = reluva::gfx::transformPoint(world[i], {v[0], v[1], v[2]});
+                for (size_t k = 0; k < 3; ++k) {
+                    lo[k] = std::min(lo[k], p[k]);
+                    hi[k] = std::max(hi[k], p[k]);
+                }
+            }
+        }
+        if (lo[0] <= hi[0])
+            std::printf("box x %.3f..%.3f y %.3f..%.3f z %.3f..%.3f\n", double(lo[0]), double(hi[0]), double(lo[1]),
+                        double(hi[1]), double(lo[2]), double(hi[2]));
+    }
     for (const auto &m : model.materials)
         std::printf("material %-20s ambient %.2f %.2f %.2f  diffuse %.2f %.2f %.2f  specular %.2f %.2f %.2f  power "
                     "%g  mode %d\n",

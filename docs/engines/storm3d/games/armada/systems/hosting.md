@@ -133,7 +133,9 @@ The input file is what the player does, a line each, by the program's
 clock: `<ms> move <x> <y>` (the pointer to a place), `<ms> motion <dx>
 <dy>` (the mouse moved by that much), `<ms> click [<x> <y>]` (the left
 button, released 100 ms later, at the place given or where the pointer
-is) and `<ms> key <virtual key> [held ms]` (100 ms unless said), on the
+is), `<ms> down` and `<ms> up` (the left button pressed and let go, for
+a drag, with a place or not), `<ms> rclick` (the right button, as click)
+and `<ms> key <virtual key> [held ms]` (100 ms unless said), on the
 640 × 480 screen; `#` starts a comment. A key goes with its scan code
 as a US keyboard gives it, the grey keys (the arrows' block, Insert, the
 keypad's /) as extended keys: `Input.map` tells them from the keypad's.
