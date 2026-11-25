@@ -26,7 +26,7 @@ None yet.
   the painted lines near or far a block at a time, and the placed
   sounds' one loop the nearest; the
   cars lit from one side, their paint the viewer's pick of
-  `CARHSVT.TXT`'s colours without `DELTA.SJH`'s changes, and their
+  `CARHSVT.TXT`'s 24 colours, not the 111 of the game's own table, and their
   wheels' and brake lights' frames chosen as the game does for a speed
   and a brake the viewer sets, the wheels' count stepping 30 times a
   second ([trk.md](formats/trk.md), [hrz.md](formats/hrz.md),

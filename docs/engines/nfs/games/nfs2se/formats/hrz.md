@@ -14,7 +14,9 @@ with other values ([hrz.md](../../nfs3/formats/hrz.md)).
 - **The 3dfx program's skies:** `GameData/Tracks/se/3trNN.hrz`: 27 values.
 - **Lights:** `GameData/Tracks/se/trNN.lgt`: 65 values.
 
-The software program reads its sky as `%sTr%02d.hrz` (0x4719a0), the
+The software program reads its sky as `%sTr%02d.hrz` (0x4719a0), from
+`GameData/Tracks/pc` with the track's pictures `Tr000.qfs` beside it
+(seen in the hosted game's files opened for a race at `TR00`), the
 3dfx program `%s3Tr%02d.hrz` (`NFS2SEA.EXE` 0x42ce30). **Neither reads
 the `.lgt` files**: neither program has the name or a pattern making it,
 the hosted game opens only the `.hrz` for a race, and the 8 files hold

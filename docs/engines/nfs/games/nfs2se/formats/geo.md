@@ -128,12 +128,16 @@ first entry in its table of texture corners in bytes 2-3 (0x461f55,
   front faces lie flush with their treads, as their rear ones do: why
   only the rear ones are moved isn't known.
   `MUSC` has no number: the game never loads it *(inferred)*.
-- **The colours' file.** `GameData/CarModel/pc/CARHSVT.TXT` holds the
+- **The colours' files.** `GameData/CarModel/pc/CARHSVT.TXT` holds the
   table's first 24 colours, the same four numbers each, as commented text.
   `DELTA.SJH` beside it, 5,568 bytes, is 29 cars × 24 colours × two
-  numbers: changes to each colour's value and threshold for each car
-  *(guessed: by its size and a name in the program,
-  `Color_ReadCarDeltaVTFile`; its reader wasn't found)*.
+  numbers, by its size changes to each colour's value and threshold for
+  each car *(guessed)*. **Neither program reads either**: `CARHSVT`'s
+  name isn't in them, and `Delta.sjh`, `Color_ReadCarDeltaVTFile() loadfileadr %s`
+  and `Color_gVt` are left among `color.c`'s strings (`nfs2sen.exe` at
+  file offset 0xB7D28, `NFS2SEA.EXE` 0xC7E28) with nothing in either
+  program referring to them; the hosted game, from its menus through a
+  race, opens neither file. The game's colours are its own table only.
 
 ## In Reluva
 
@@ -146,7 +150,8 @@ draws each model a level at a time, its pictures from the car's `.qfs`
 by name, their corners as the program lays them, both faces, lit from
 one side. P picks a paint from `CARHSVT.TXT`'s colours, or none (the
 palette's green), and recolours the pictures as the program does
-(`src/engines/nfs/nfs2se/formats/paint.cpp`); `DELTA.SJH` isn't put in.
+(`src/engines/nfs/nfs2se/formats/paint.cpp`): the text file's 24, where
+the game has its table's 111, the first 24 the same.
 The wheels' faces and the brake lights show their frames as the game
 picks them, for a speed chosen with V and the brake with B; the count
 steps 30 times a second, where the game's steps once a frame it draws.
@@ -168,5 +173,8 @@ The wheels' faces are moved out as the game's loader moves them.
 ## Open questions
 
 - What the header's first word meant to its maker.
-- Why every car's rear wheels' faces are moved out, and not the front ones.
+- Why every car's rear wheels' faces are moved out, and not the front
+  ones: with the move skipped in the hosted game (its branch at
+  0x459e4e made a jump), the chase view shows no difference to see, the
+  rear faces nearly edge on from behind.
 - Where a car's pictures are turned half round from a track's.

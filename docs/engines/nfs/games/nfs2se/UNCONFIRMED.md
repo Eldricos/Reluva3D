@@ -63,8 +63,8 @@ None yet.
   shade, to the chosen colour as it sets up the car (0x444f80;
   [geo.md](formats/geo.md), The paint). The Cars page so repainted
   shows the F355 red with colour 2 and blue with colour 9, its shading
-  kept. What `DELTA.SJH` changes is a guess from its size
-  ([geo.md](formats/geo.md), The colours' file).
+  kept. What `DELTA.SJH` holds is a guess from its size, and neither
+  program reads it ([geo.md](formats/geo.md), The colours' files).
 - **How the cars' and the tracks' polygons take their pictures**
   (November 2026, from the code and seen): the program gives a
   polygon's corners texels from (0, 0) on (0x46f841, 0x433bd0); a

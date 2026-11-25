@@ -28,7 +28,7 @@ Scripts 01 to 06 are the same on every track.
 | Offset | Size | Field |
 |---|---|---|
 | 0 | u16 | the file's size: 8 + 20 × the keys, in every file |
-| 2 | u16 | 11 values among the files, shared by unrelated ones (scripts 01 and 06 all 0x0269, 02 0x828E, 03 0x8357, 04 and 05 0x8320, 00 by track): not a checksum; neither program reads it, only 4, 6 and the keys (0x42db30, 0x42dbf0) |
+| 2 | u16 | 11 values among the files, shared by unrelated ones (scripts 01 and 06 all 0x0269, 02 0x828E, 03 0x8357, 04 and 05 0x8320, 00 by track): not a checksum; neither program reads it, only 4, 6 and the keys (0x42db30, 0x42dbf0). Bit 15 set on 02 to 05 and most 00s, clear on 01, 06 and `TR00`'s, `TR06`'s and `TR08`'s 00; the low 15 bits all from 0x164 to 0x357: a flag and a number of the maker's tool *(guessed)* |
 | 4 | u16 | number of keys |
 | 6 | u16 | the race clock's ticks to a key: 6 in every file (the program takes 6 for a value outside 1 to 400) |
 | 8 | 20 each | the keys |
