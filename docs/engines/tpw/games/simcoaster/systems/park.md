@@ -198,8 +198,11 @@ back, Esc leaves the game. A tool is chosen by clicking it: the path
 tool lays path ([paths.md](paths.md)), the others do nothing yet. The
 bottom buttons open their menus; of their items Park's Objectives, Park
 Gates (the entry price, and the gates opened and closed) and Close Park,
-Attractions' Build Attraction and the Staff menu's do anything yet
-([staff.md](staff.md)). Clicking the gates opens their window,
+Attractions' Build Attraction, Research Lab and Attraction Finance
+Controls, the Staff menu's and the Finance menu's do anything yet
+([staff.md](staff.md), [research.md](research.md), [finance.md](finance.md)).
+The park's messages show one at a time over it, the Message Center not
+built yet. Clicking the gates opens their window,
 right-clicking them their menu: "View entry price details", "Open park"
 or "Close park" (`UITEXT` 597, 599, 600); closed, no visitors come. Its first mission's, whatever the
 player's objective, for now.

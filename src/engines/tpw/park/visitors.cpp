@@ -292,14 +292,21 @@ bool Park::board(int queue, int id) {
             v.headingX = v.headingZ = 0;
             const int fare = std::min(q.fare, std::max(0, v.cash));
             v.cash -= fare;
-            _cash += fare;
+            const Attractions::Attraction *taker =
+                q.object >= 0 ? _attractions.find(_objects[size_t(q.object)].id) : nullptr;
+            const Attractions::Kind kind = taker ? taker->kind : Attractions::Kind::kRide;
+            book(kind == Attractions::Kind::kShop       ? Ledger::kShops
+                 : kind == Attractions::Kind::kSideshow ? Ledger::kSideshows
+                 : kind == Attractions::Kind::kRide     ? Ledger::kRides
+                                                        : Ledger::kFacilities,
+                 fare);
             if (q.object >= 0) {
                 PlacedObject &o = _objects[size_t(q.object)];
                 ++o.users;
                 o.takings += fare;
                 if (const Attractions::Attraction *a = _attractions.find(o.id)) {
                     o.goods += a->costOfGoods;
-                    _cash -= a->costOfGoods;
+                    book(Ledger::kRunning, a->costOfGoods);
                 }
                 wear(size_t(q.object));
             }
@@ -616,7 +623,9 @@ void Park::moveVisitor(Visitor &v, float left) {
                 v.paid = true;
                 const int fee = std::min(_admissionFee, std::max(0, v.cash));
                 v.cash -= fee;
-                _cash += fee;
+                book(Ledger::kGate, fee);
+                ++_totalVisitors;
+                ++_yearVisitors;
                 v.happiness = std::clamp(v.happiness + priceFeeling(opinion), 0.0f, 100.0f);
             }
             if (v.leg == kEntranceLeg && !v.inPark) {
@@ -811,6 +820,7 @@ void Park::newDay() {
     objectsDay();
     staffDay();
     researchDay();
+    financeDay();
     const bool weatherDay = _lastDay % uint32_t(_rules.weatherDays) == 0;
     const bool wet = _weather == Weather::kRain || _weather == Weather::kStorm || _weather == Weather::kSnow;
     for (Visitor &v : _people) {

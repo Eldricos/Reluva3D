@@ -839,7 +839,7 @@ bool Park::wantsToStrike(StaffKind kind) const {
 // strike area. The attractions' month closes, their running costs
 // (Upgrades[0].RunningCost) paid.
 void Park::staffMonth() {
-    _cash -= wages();
+    book(Ledger::kWages, wages());
     for (StaffMember &m : _staff) {
         const StaffRules &r = _staffRules[size_t(m.kind)];
         // Experience at work: their grade's ExperiencePerMonth, by their
@@ -889,7 +889,7 @@ void Park::staffMonth() {
     for (size_t i = 0; i < _objects.size(); ++i) {
         PlacedObject &o = _objects[i];
         if (const Attractions::Attraction::Level *level = levelOf(i)) {
-            _cash -= level->runningCost;
+            book(Ledger::kRunning, level->runningCost);
             o.costs += level->runningCost;
         }
         o.profit += o.takings - o.costs - o.goods;

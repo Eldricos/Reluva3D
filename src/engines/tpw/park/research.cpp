@@ -60,7 +60,7 @@ Park::Upgrading Park::upgrade(size_t object) {
         return Upgrading::kNeedsEngineer;
     if (_cash < next->cost)
         return Upgrading::kNoMoney;
-    _cash -= next->cost;
+    book(Ledger::kBuilding, next->cost);
     o.costs += next->cost;
     o.upgrading = std::max(1.0f, float(next->days) * kUpgradeDays);
     return Upgrading::kStarted;
@@ -71,7 +71,7 @@ void Park::cancelUpgrade(size_t object) {
         return;
     PlacedObject &o = _objects[object];
     if (const Attractions::Attraction::Level *next = levelOf(object, o.level + 1)) {
-        _cash += next->cost;
+        book(Ledger::kBuilding, -next->cost);
         o.costs -= next->cost;
     }
     o.upgrading = 0;
@@ -83,7 +83,7 @@ void Park::cancelUpgrade(size_t object) {
 void Park::remove(size_t object) {
     if (object >= _objects.size())
         return;
-    _cash += scrapValue(object);
+    book(Ledger::kBuilding, -scrapValue(object));
     const PlacedObject gone = _objects[object];
     if (const Attractions::Attraction *a = _attractions.find(gone.id))
         for (const Cell &c : footprint(a->shape, gone.at, gone.angle).cells)
@@ -287,7 +287,7 @@ void Park::researchDay() {
             continue;
         const float points = std::min(researchPerDay(slot), float(p->cost) - p->done);
         p->done += points;
-        _cash -= int(std::lround(points));
+        book(Ledger::kResearch, int(std::lround(points)));
         if (p->done >= float(p->cost)) {
             p->finished = true;
             _researched.emplace_back(p->id, p->level);

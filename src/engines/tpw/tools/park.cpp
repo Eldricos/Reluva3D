@@ -626,6 +626,16 @@ int cmdHireShot(int argc, char **argv) {
     return 0;
 }
 
+// A left click at the middle of a place on the screen.
+reluva::Event clickOn(const reluva::tpw::ScreenRect &r) {
+    reluva::Event ev;
+    ev.type = reluva::EventType::kMouseDown;
+    ev.button = reluva::MouseButton::kLeft;
+    ev.mouseX = r.x + r.w / 2;
+    ev.mouseY = r.y + r.h / 2;
+    return ev;
+}
+
 // One of the park's smaller windows over a new park whose staff are one of
 // each kind but scientists, run on so many seconds, to a PNG.
 int cmdWindowShot(int argc, char **argv) {
@@ -633,7 +643,7 @@ int cmdWindowShot(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool tpw window-shot <game folder> <world folder> <out.png> "
-            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename> [seconds]\n");
+            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report> [seconds]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -703,7 +713,27 @@ int cmdWindowShot(int argc, char **argv) {
         screen.financeSummary().open(ride, screen.nameOf(park, ride));
     else if (which == "rename")
         screen.renameWindow().open(ride, screen.nameOf(park, ride));
-    else {
+    else if (which == "stats")
+        screen.financeStats().open();
+    else if (which == "loans" || which == "owing") {
+        if (which == "owing")
+            park.takeLoan(park.availableLoans().front().offer);
+        screen.loansWindow().open();
+        if (which == "owing")
+            screen.loansWindow().handle(
+                clickOn(reluva::tpw::LoansWindow::placeOf(reluva::tpw::LoansWindow::Control::kOutstanding)), park);
+    } else if (which == "portfolio")
+        screen.portfolio().open("Tester", 1);
+    else if (which == "prices")
+        screen.attractionFinance().open();
+    else if (which == "report") {
+        // On to the new year's first day, for its annual report.
+        while (park.day() < 367)
+            park.advance(1000);
+        for (const reluva::tpw::Park::Message &m : park.takeMessages())
+            if (m.title == 262)
+                screen.messageWindow().open(m);
+    } else {
         std::fprintf(stderr, "no %s to show\n", which.c_str());
         return 1;
     }
@@ -726,7 +756,7 @@ const Commands kCommands(
          "draw the Hire Staff window over a new park, on a tab, a row chosen, to a PNG, and list the candidates",
          cmdHireShot},
         {"window-shot",
-         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename> [seconds]",
+         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report> [seconds]",
          "draw one of the park's smaller windows over a new park, its staff one of each kind, run on, to a PNG",
          cmdWindowShot},
         {"sign-shot", "<game folder> <world folder> <out.png>",

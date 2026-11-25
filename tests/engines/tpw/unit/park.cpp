@@ -845,6 +845,99 @@ void testResearch(const std::filesystem::path &tmp) {
     CHECK(park.ground({2, 2}) == Park::Ground::kOpen && park.hasResearchLab());
 }
 
+// Money: a loan taken, repaid a month with its interest, paid off; prices
+// set by kind; the money running out, warned of, and the park bankrupt
+// after six months in the red; a year's report, the share price as it was
+// for a year that made nothing.
+void testFinance(const std::filesystem::path &tmp) {
+    const std::filesystem::path data = tmp / "game" / "Data";
+    writeText(data / "levels" / "Standard.sam",
+              "BankAccountInfo.InitialCash 1000\r\nBankAccountInfo.InitialAdmissionFee 25\r\n"
+              "Arrival.MinPeople 0\r\nArrival.FixedRate 0\r\n"
+              "LoanInfo[0].LoanAmount 12000\r\nLoanInfo[0].APRInPercent 12\r\n"
+              "LoanInfo[0].RepaymentPeriodInMonths 12\r\nLoanInfo[0].Lendername 2\r\n"
+              "LoanInfo[1].LoanAmount 5000\r\nLoanInfo[1].APRInPercent 0\r\n"
+              "LoanInfo[1].RepaymentPeriodInMonths 5\r\nLoanInfo[1].Lendername 1\r\n"
+              "ShareInfo.CompanySharesIssued 30000\r\nShareInfo.InitialSharesOwned 1000\r\n"
+              "ShareInfo.InitialSharePrice 100\r\n");
+    writeText(data / "missions" / "miss00.sam", "Info.Number 0\r\n");
+    const std::filesystem::path world = data / "levels" / "science";
+    writeText(world / "Standard.sam", "LoanInfo[1].Lendername 7\r\n");
+    writeText(world / "rides" / "Rides.sam", "Info.HasQueue 1\r\nInfo.IsChoosable 1\r\n");
+    writeText(world / "rides" / "robot" / "robot.sam",
+              "Info.Id 1101\r\nUpgrades[0].CostOfUpgrade 100\r\nUpgrades[0].RunningCost 2000\r\n"
+              "Upgrades[0].ScrapValueYear1 50\r\nInfo.Shape\r\n---\r\n2N\r\n---\r\n");
+    constexpr int kRows = 8;    // x
+    constexpr int kColumns = 6; // y
+    tpw::testing::Bytes tiles(size_t(kRows) * kColumns, 0);
+    for (int x = 0; x < 7; ++x)
+        tiles[size_t(x) * kColumns + 4] = 8;
+    test::writeFile(world / "terrain" / "base.map", tpw::testing::makeAttributeMap(kColumns, kRows, tiles));
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!mountGame(files, tmp / "game", warnings));
+    Park park;
+    CHECK(!park.load(files, "levels/science", 0));
+    auto toDay = [&](uint32_t day) {
+        while (park.day() < day)
+            park.advance(1000);
+    };
+    auto posted = [](const std::vector<Park::Message> &messages, uint32_t text) {
+        return std::any_of(messages.begin(), messages.end(), [&](const Park::Message &m) { return m.text == text; });
+    };
+
+    // The offers: 12,000 over a year at 12% is 1,066 a month; the world's
+    // lender over the general one's.
+    std::vector<Park::Loan> offers = park.availableLoans();
+    CHECK(offers.size() == 2);
+    CHECK(offers.size() == 2 && offers[0].repayment == 1066 && offers[0].totalPayable() == 12792 &&
+          offers[0].lender == 2);
+    CHECK(offers.size() == 2 && offers[1].repayment == 1000 && offers[1].lender == 7);
+    CHECK(park.shares().issued == 30000 && park.shares().owned == 1000 && park.shares().price == 100);
+
+    // Taken once; on 1 February a month's interest is added and a repayment made.
+    CHECK(park.takeLoan(0) && !park.takeLoan(0) && park.cash() == 13000 && park.owed() == 12000);
+    CHECK(park.availableLoans().size() == 1);
+    toDay(31);
+    CHECK(park.loans().size() == 1 && park.loans()[0].balance == 11054 && park.loans()[0].monthsLeft == 11);
+    CHECK(park.cash() == 11934 && park.lastMonth()[size_t(Park::Ledger::kLoans)] == 1066);
+    CHECK(Park::expenditure(park.lastMonth()) == 1066 && Park::income(park.lastMonth()) == 0);
+    CHECK(park.repayLoan(0) && park.cash() == 880 && park.loans().empty() && park.owed() == 0);
+
+    // Prices by kind: the entry fee set, the rides' raised half again.
+    const int q = park.place(1101, 100, {"2N"}, true, {2, 2}, 0);
+    CHECK(q >= 0 && park.thisYear()[size_t(Park::Ledger::kBuilding)] == 100 && park.parkValue() == 50);
+    park.setFare(q, 10);
+    park.adjustPrices(Park::PriceKind::kEntry, Park::Adjustment::kSetTo, 30);
+    park.adjustPrices(Park::PriceKind::kRide, Park::Adjustment::kPercent, 50);
+    CHECK(park.admissionFee() == 30 && park.queues()[size_t(q)].fare == 15);
+
+    // The ride's running cost puts the park in the red on 1 March: warned
+    // when the money ran low, then out, after three months and five; six,
+    // and it's bankrupt.
+    std::vector<Park::Message> messages;
+    for (uint32_t day = park.day(); day < 400 && !park.bankrupt(); day += 1) {
+        toDay(day + 1);
+        for (Park::Message &m : park.takeMessages())
+            messages.push_back(std::move(m));
+    }
+    CHECK(posted(messages, 106) && posted(messages, 34) && posted(messages, 36) && posted(messages, 37));
+    CHECK(park.bankrupt() && park.monthsInRed() == 6 && posted(messages, 166));
+    CHECK(Park::dateOf(park.day()).month == 7); // 1 August
+
+    // A year of nothing: the report has its five lines and the share news,
+    // which is that the price is as it was; the year's accounts begin again.
+    Park quiet;
+    CHECK(!quiet.load(files, "levels/science", 0));
+    while (quiet.day() < 366)
+        quiet.advance(1000);
+    const std::vector<Park::Message> news = quiet.takeMessages();
+    const auto report = std::find_if(news.begin(), news.end(), [](const Park::Message &m) { return m.title == 262; });
+    CHECK(report != news.end() && report->text == 263 && report->lines.size() == 6);
+    CHECK(report != news.end() && report->lines.size() == 6 && report->lines[5].text == 267);
+    CHECK(quiet.shares().price == 100 && Park::income(quiet.thisYear()) == 0);
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -861,4 +954,5 @@ static const reluva::test::Suite
                                 {"staff", [](const std::filesystem::path &tmp) { testStaff(tmp); }},
                                 {"upkeep", [](const std::filesystem::path &tmp) { testUpkeep(tmp); }},
                                 {"research", [](const std::filesystem::path &tmp) { testResearch(tmp); }},
+                                {"finance", [](const std::filesystem::path &tmp) { testFinance(tmp); }},
                             });

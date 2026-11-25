@@ -165,7 +165,7 @@ int Park::place(int id, int price, const std::vector<std::string> &shape, bool h
     const Footprint f = footprint(shape, at, angle);
     if (!canPlace(f) || _cash < price)
         return kNotPlaced;
-    _cash -= price;
+    book(Ledger::kBuilding, price);
     for (const Cell &c : f.cells)
         _ground[size_t(c.y) * size_t(_mapWidth) + size_t(c.x)] = Ground::kTaken;
     _objects.push_back({id, at, ((angle % 360) + 360) % 360});
@@ -219,7 +219,7 @@ int Park::layQueue(int index, const std::vector<Cell> &run) {
             return laid;
         const Cell &c = wanted.cells[i];
         _ground[size_t(c.y) * size_t(_mapWidth) + size_t(c.x)] = Ground::kQueue;
-        _cash -= _queueCost;
+        book(Ledger::kBuilding, _queueCost);
         q.cells.push_back(c);
         ++laid;
     }

@@ -129,6 +129,12 @@ None yet.
   chasing ([staff.md](systems/staff.md),
   [building.md](systems/building.md#wear-and-breakdowns)).
 
+- **Money**: how loans are repaid, how the annual report moves the
+  share price, what the park's value counts, when the director warns of
+  a low balance, how months in the red are counted, and the finance
+  windows' looks ([finance.md](systems/finance.md)). A recording of the
+  game's Finance menu and a year's report would settle much of it.
+
 - **Research and upgrades**: how fast research goes and what it costs,
   the staff kinds of `RStaff[0].SType` past 1, 3 and 5, which staff
   member consults, that training teaches engineers Ride Upgrading, how

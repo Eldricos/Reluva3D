@@ -23,6 +23,7 @@
 
 #include <array>
 #include <functional>
+#include <deque>
 #include <map>
 #include <memory>
 #include <optional>
@@ -119,7 +120,23 @@ public:
     AssignWindow &assignWindow() { return _assignWindow; }
     FinanceSummaryWindow &financeSummary() { return _financeSummary; }
     RenameWindow &renameWindow() { return _renameWindow; }
+    FinanceStatsWindow &financeStats() { return _financeStats; }
+    LoansWindow &loansWindow() { return _loansWindow; }
+    PortfolioWindow &portfolio() { return _portfolio; }
+    AttractionFinanceWindow &attractionFinance() { return _attractionFinance; }
+    MessageWindow &messageWindow() { return _messageWindow; }
     ///@}
+    /** The player whose park it is, for their share portfolio: their name and rank (PROMOTIONLEVELS.str's). */
+    void setPlayer(std::string name, int rank) {
+        _playerName = std::move(name);
+        _playerRank = rank;
+    }
+    const std::string &playerName() const { return _playerName; }
+    int playerRank() const { return _playerRank; }
+    /** Takes the park's new messages, and shows the next waiting once none is showing. */
+    void takeMessages(Park &park);
+    /** Whether a message is showing or waiting. */
+    bool messagesWaiting() const { return _messageWindow.isOpen() || !_messages.empty(); }
     /** Shows a message, UITEXT's, over the park for a few seconds of the park's time. */
     void notify(const Park &park, uint32_t text);
     /** Forgets what it ran for an object `Park::remove` just took away, and its queue, −1 for none. */
@@ -201,6 +218,14 @@ private:
     AssignWindow _assignWindow;
     FinanceSummaryWindow _financeSummary;
     RenameWindow _renameWindow;
+    FinanceStatsWindow _financeStats;
+    LoansWindow _loansWindow;
+    PortfolioWindow _portfolio;
+    AttractionFinanceWindow _attractionFinance;
+    MessageWindow _messageWindow;
+    std::deque<Park::Message> _messages; // waiting to be shown
+    std::string _playerName;
+    int _playerRank = 1;
     uint32_t _notice = 0;      // UITEXT's; 0 for none
     uint64_t _noticeUntil = 0; // the park's time
     std::optional<Park::Footprint> _placement;

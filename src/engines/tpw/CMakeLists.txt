@@ -15,6 +15,7 @@ reluva_add_engine(tpw
         park/queues.cpp
         park/visitors.cpp
         park/staff.cpp
+        park/finance.cpp
         park/research.cpp
         players.cpp
         sound_effects.cpp

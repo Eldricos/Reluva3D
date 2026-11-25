@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <optional>
 #include <string_view>
 #include <tuple>
@@ -201,8 +202,9 @@ void fill(Surface &s, const ScreenRect &r, Color c) {
         }
 }
 
+// Below nothing, the minus before the sign, as "Cash  -$ {39}" (967) has it.
 std::string money(int amount) {
-    return "$ " + std::to_string(amount);
+    return (amount < 0 ? "-$ " : "$ ") + std::to_string(std::abs(amount));
 }
 
 // A price box: its label under, the amount between − and +.
@@ -263,7 +265,17 @@ Error WindowKit::load(const SearchSet &files) {
         return err;
     if (Error err = readStringTable(files, folder, "STAFFSTATES", _characters, _staffStates))
         return err;
+    if (Error err = readStringTable(files, folder, "TAG_SYSTEM", _characters, _tags))
+        return err;
+    if (Error err = readStringTable(files, folder, "LOANNAMES", _characters, _lenders))
+        return err;
+    if (Error err = readStringTable(files, folder, "PROMOTIONLEVELS", _characters, _ranks))
+        return err;
     return readStringTable(files, folder, "THOUGHTS", _characters, _thoughts);
+}
+
+std::string WindowKit::tag(uint32_t index, const std::map<int, std::string> &values) const {
+    return fillGameString(_tags, index, values);
 }
 
 void WindowKit::window(Surface &screen, const ScreenRect &r, const std::string &title) const {
@@ -1654,6 +1666,489 @@ void RenameWindow::draw(Surface &screen, const WindowKit &kit) const {
     kit.frame(screen, kRenameField);
     kit.text(screen, kRenameField.x + 6, kRenameField.y + 9, _typed + "_");
     kit.button(screen, WindowKit::Button::kOk, kRenameOk, WindowKit::kPlain);
+}
+
+// The money's windows, laid out by guess in the others' style: the
+// recording opens none of them.
+
+namespace {
+
+constexpr uint32_t kFinancialStatisticsTitle = 386;
+constexpr uint32_t kBankBalanceText = 387;
+constexpr uint32_t kParkValueText = 388;
+constexpr uint32_t kTotalIncomeText = 389;
+constexpr uint32_t kGateTakingsText = 390; // then rides', shops', sideshows', facilities'
+constexpr uint32_t kTotalExpenditureText = 395;
+constexpr uint32_t kNewAttractionsText = 396; // then running costs, wages
+constexpr uint32_t kLastMonthText = 399;
+constexpr uint32_t kTakingsText = 400; // then less expenditure, balance
+constexpr uint32_t kAvailableLoansText = 403;
+constexpr uint32_t kOutstandingLoansText = 404;
+constexpr std::array<uint32_t, 6> kAvailableColumns{407, 408, 409, 410, 411, 412};
+constexpr std::array<uint32_t, 5> kOutstandingColumns{407, 413, 411, 414, 415};
+constexpr uint32_t kRepayTitle = 416;
+constexpr uint32_t kRepayText = 417;
+constexpr uint32_t kCantRepayText = 419;
+constexpr uint32_t kTakeTitle = 420;
+constexpr uint32_t kTakeText = 421;
+constexpr uint32_t kSharePortfolioTitle = 844;
+constexpr uint32_t kPortfolioFor = 469;
+constexpr uint32_t kSharePriceText = 466;
+constexpr uint32_t kSharesOwnedText = 467;
+constexpr uint32_t kPortfolioValueText = 468;
+constexpr uint32_t kStakeText = 470;
+constexpr uint32_t kAttractionFinanceTitle = 179;
+constexpr uint32_t kPriceKindText = 184; // ride, shop, sideshow, bathroom, photo, park entry
+constexpr uint32_t kAdjustmentTypeText = 180;
+constexpr uint32_t kSetToAmountText = 181; // then $ change, % change
+
+constexpr ScreenRect kStatsWindow{120, 30, 400, 420};
+constexpr ScreenRect kStatsFrame{135, 68, 370, 316};
+constexpr ScreenRect kStatsOk{478, 404, 28, 28};
+constexpr int kStatsLine = 17;
+
+constexpr ScreenRect kLoansWindow{55, 50, 530, 380};
+constexpr ScreenRect kLoansClose{548, 54, 26, 26};
+constexpr ScreenRect kAvailableTab{78, 88, 180, 24};
+constexpr ScreenRect kOutstandingTab{266, 88, 180, 24};
+constexpr std::array<ScreenRect, 6> kAvailableHeaders{{{78, 120, 120, 30},
+                                                       {200, 120, 70, 30},
+                                                       {272, 120, 70, 30},
+                                                       {344, 120, 66, 30},
+                                                       {412, 120, 80, 30},
+                                                       {494, 120, 76, 30}}};
+constexpr std::array<ScreenRect, 5> kOutstandingHeaders{
+    {{78, 120, 120, 30}, {200, 120, 90, 30}, {292, 120, 90, 30}, {384, 120, 90, 30}, {476, 120, 94, 30}}};
+constexpr ScreenRect kLoanList{76, 154, 496, 196};
+constexpr ScreenRect kLoanAct{78, 362, 160, 26};
+constexpr ScreenRect kLoansOk{544, 394, 28, 28};
+constexpr ScreenRect kAskWindow{180, 160, 280, 160};
+constexpr ScreenRect kAskYes{368, 282, 28, 28};
+constexpr ScreenRect kAskNo{402, 284, 26, 26};
+
+constexpr ScreenRect kPortfolioWindow{150, 130, 340, 200};
+constexpr ScreenRect kPortfolioFrame{165, 168, 310, 108};
+constexpr ScreenRect kPortfolioOk{452, 290, 28, 28};
+
+constexpr ScreenRect kPricesWindow{150, 110, 340, 250};
+constexpr ScreenRect kPricesClose{456, 114, 26, 26};
+constexpr ScreenRect kPricesKindLeft{170, 156, 26, 26};
+constexpr ScreenRect kPricesKindRight{444, 156, 26, 26};
+constexpr ScreenRect kPricesCurrent{170, 190, 300, 26};
+constexpr ScreenRect kPricesLeft{170, 250, 26, 26};
+constexpr ScreenRect kPricesRight{444, 250, 26, 26};
+constexpr ScreenRect kPricesMinus{250, 284, 26, 26};
+constexpr ScreenRect kPricesPlus{364, 284, 26, 26};
+constexpr ScreenRect kPricesOk{452, 322, 28, 28};
+// The kinds of price the arrows go through; photos aren't sold yet.
+constexpr std::array<Park::PriceKind, 5> kPriceKinds{Park::PriceKind::kRide, Park::PriceKind::kShop,
+                                                     Park::PriceKind::kSideshow, Park::PriceKind::kBathroom,
+                                                     Park::PriceKind::kEntry};
+
+constexpr int kMessageWidth = 400;
+constexpr int kMessageX = 120;
+constexpr int kMessageY = 60;
+
+// A label at the left of a frame, its value at the right.
+void row(Surface &screen, const WindowKit &kit, const ScreenRect &frame, int y, const std::string &label,
+         const std::string &value, int indent = 0) {
+    kit.text(screen, frame.x + 8 + indent, y, label);
+    kit.text(screen, frame.x + frame.w - 10 - kit.textWidth(value), y, value);
+}
+
+} // namespace
+
+// Financial Statistics.
+
+ScreenRect FinanceStatsWindow::okRect() {
+    return kStatsOk;
+}
+
+WindowResult FinanceStatsWindow::handle(const Event &ev) {
+    if (!_open || !isClick(ev) || !kStatsOk.contains(ev.mouseX, ev.mouseY))
+        return WindowResult::kNone;
+    _open = false;
+    return WindowResult::kClosed;
+}
+
+void FinanceStatsWindow::draw(Surface &screen, const WindowKit &kit, const Park &park) const {
+    if (!_open)
+        return;
+    kit.window(screen, kStatsWindow, kit.ui(kFinancialStatisticsTitle));
+    kit.frame(screen, kStatsFrame);
+    const Park::Accounts &year = park.thisYear();
+    const Park::Accounts &month = park.lastMonth();
+    int y = kStatsFrame.y + 8;
+    auto line = [&](uint32_t label, int amount, int indent = 0) {
+        row(screen, kit, kStatsFrame, y, kit.ui(label), money(amount), indent);
+        y += kStatsLine;
+    };
+    constexpr int kIndent = 14;
+    line(kBankBalanceText, park.cash());
+    line(kParkValueText, park.parkValue());
+    y += kStatsLine / 2;
+    line(kTotalIncomeText, Park::income(year));
+    for (size_t i = 0; i < Park::kIncomeLines; ++i)
+        line(kGateTakingsText + uint32_t(i), year[i], kIndent);
+    y += kStatsLine / 2;
+    line(kTotalExpenditureText, Park::expenditure(year));
+    for (Park::Ledger l : {Park::Ledger::kBuilding, Park::Ledger::kRunning, Park::Ledger::kWages})
+        line(kNewAttractionsText + uint32_t(size_t(l) - size_t(Park::Ledger::kBuilding)), year[size_t(l)], kIndent);
+    y += kStatsLine / 2;
+    kit.text(screen, kStatsFrame.x + 8, y, kit.ui(kLastMonthText));
+    y += kStatsLine;
+    line(kTakingsText, Park::income(month), kIndent);
+    line(kTakingsText + 1, -Park::expenditure(month), kIndent);
+    line(kTakingsText + 2, Park::income(month) - Park::expenditure(month), kIndent);
+    kit.button(screen, WindowKit::Button::kOk, kStatsOk, WindowKit::kPlain);
+}
+
+// Loans.
+
+ScreenRect LoansWindow::placeOf(Control control, size_t row) {
+    switch (control) {
+    case Control::kAvailable:
+        return kAvailableTab;
+    case Control::kOutstanding:
+        return kOutstandingTab;
+    case Control::kRow:
+        return {kLoanList.x + 2, kLoanList.y + 3 + int(row) * kRowHeight, kLoanList.w - 4, kRowHeight};
+    case Control::kAct:
+        return kLoanAct;
+    case Control::kYes:
+        return kAskYes;
+    case Control::kNo:
+        return kAskNo;
+    case Control::kOk:
+        return kLoansOk;
+    case Control::kClose:
+        return kLoansClose;
+    default:
+        return {};
+    }
+}
+
+WindowResult LoansWindow::handle(const Event &ev, Park &park) {
+    if (!_open || (ev.type != EventType::kMouseMove && ev.type != EventType::kMouseDown))
+        return WindowResult::kNone;
+    _over = Control::kNone;
+    // Asking, only its buttons count.
+    if (_asking != Asking::kNothing) {
+        for (Control c : {Control::kYes, Control::kNo})
+            if (placeOf(c).contains(ev.mouseX, ev.mouseY))
+                _over = c;
+        if (!isClick(ev) || _over == Control::kNone)
+            return WindowResult::kNone;
+        if (_over == Control::kYes && _asking == Asking::kTake) {
+            const std::vector<Park::Loan> offers = park.availableLoans();
+            if (_row < offers.size())
+                park.takeLoan(offers[_row].offer);
+        } else if (_over == Control::kYes && _asking == Asking::kRepay) {
+            park.repayLoan(_row);
+        }
+        _asking = Asking::kNothing;
+        _row = 0;
+        return WindowResult::kNone;
+    }
+    const size_t rows = _outstanding ? park.loans().size() : park.availableLoans().size();
+    size_t under = 0;
+    for (size_t i = 0; i < rows; ++i)
+        if (placeOf(Control::kRow, i).contains(ev.mouseX, ev.mouseY)) {
+            _over = Control::kRow;
+            under = i;
+        }
+    for (Control c : {Control::kAvailable, Control::kOutstanding, Control::kAct, Control::kOk, Control::kClose})
+        if (placeOf(c).contains(ev.mouseX, ev.mouseY))
+            _over = c;
+    if (!isClick(ev))
+        return WindowResult::kNone;
+    switch (_over) {
+    case Control::kAvailable:
+    case Control::kOutstanding:
+        _outstanding = _over == Control::kOutstanding;
+        _row = 0;
+        return WindowResult::kNone;
+    case Control::kRow:
+        _row = under;
+        return WindowResult::kNone;
+    case Control::kAct:
+        if (_row >= rows)
+            return WindowResult::kNone;
+        _asking = !_outstanding                               ? Asking::kTake
+                  : park.cash() >= park.loans()[_row].balance ? Asking::kRepay
+                                                              : Asking::kCantRepay;
+        return WindowResult::kNone;
+    case Control::kOk:
+    case Control::kClose:
+        _open = false;
+        return WindowResult::kClosed;
+    default:
+        return WindowResult::kNone;
+    }
+}
+
+void LoansWindow::draw(Surface &screen, const WindowKit &kit, const Park &park) const {
+    if (!_open)
+        return;
+    kit.window(screen, kLoansWindow, kit.ui(843));
+    kit.button(screen, WindowKit::Button::kClose, kLoansClose,
+               _over == Control::kClose ? WindowKit::kLit : WindowKit::kPlain);
+    kit.header(screen, kAvailableTab, kit.ui(kAvailableLoansText));
+    kit.header(screen, kOutstandingTab, kit.ui(kOutstandingLoansText));
+    // The list shown marked under its tab.
+    const ScreenRect &tab = _outstanding ? kOutstandingTab : kAvailableTab;
+    fill(screen, {tab.x + 4, tab.y + tab.h, tab.w - 8, 3}, kChosenRow);
+    kit.frame(screen, kLoanList);
+    std::vector<std::vector<std::string>> cells;
+    if (_outstanding) {
+        for (size_t c = 0; c < kOutstandingColumns.size(); ++c)
+            kit.header(screen, kOutstandingHeaders[c], kit.ui(kOutstandingColumns[c]));
+        for (const Park::Loan &l : park.loans())
+            cells.push_back({kit.lender(l.lender), money(l.amount), money(l.repayment), std::to_string(l.monthsLeft),
+                             money(l.balance)});
+    } else {
+        for (size_t c = 0; c < kAvailableColumns.size(); ++c)
+            kit.header(screen, kAvailableHeaders[c], kit.ui(kAvailableColumns[c]));
+        for (const Park::Loan &l : park.availableLoans()) {
+            char rate[16];
+            std::snprintf(rate, sizeof rate, "%g %%", double(l.rate));
+            cells.push_back({kit.lender(l.lender), std::to_string(l.months), money(l.amount), rate, money(l.repayment),
+                             money(l.totalPayable())});
+        }
+    }
+    for (size_t r = 0; r < cells.size(); ++r) {
+        const ScreenRect place = placeOf(Control::kRow, r);
+        if (r == _row)
+            fill(screen, place, kChosenRow);
+        for (size_t c = 0; c < cells[r].size(); ++c) {
+            const ScreenRect &h = _outstanding ? kOutstandingHeaders[c] : kAvailableHeaders[c];
+            // Names from the left; numbers to the right.
+            const int x = c == 0 ? h.x + 2 : h.x + h.w - 8 - kit.textWidth(cells[r][c]);
+            kit.text(screen, x, place.y + 1, cells[r][c]);
+        }
+    }
+    if (!cells.empty())
+        kit.header(screen, kLoanAct, kit.ui(_outstanding ? kRepayTitle : kTakeTitle));
+    kit.button(screen, WindowKit::Button::kOk, kLoansOk, _over == Control::kOk ? WindowKit::kLit : WindowKit::kPlain);
+    if (_asking == Asking::kNothing)
+        return;
+    // The question, over the list.
+    const bool taking = _asking == Asking::kTake;
+    kit.window(screen, kAskWindow, kit.ui(taking ? kTakeTitle : kRepayTitle));
+    int amount = 0;
+    if (taking && _row < park.availableLoans().size())
+        amount = park.availableLoans()[_row].amount;
+    else if (!taking && _row < park.loans().size())
+        amount = park.loans()[_row].balance;
+    // The strings' first line is their title; the question follows.
+    std::string text = kit.ui(taking                      ? kTakeText
+                              : _asking == Asking::kRepay ? kRepayText
+                                                          : kCantRepayText,
+                              {{18, std::to_string(amount)}});
+    if (const size_t start = text.find_first_not_of('\n'); start != std::string::npos)
+        text = text.substr(start);
+    kit.paragraph(screen, kAskWindow.x + 18, kAskWindow.y + 40, kAskWindow.w - 36, text);
+    kit.button(screen, WindowKit::Button::kOk, kAskYes, _over == Control::kYes ? WindowKit::kLit : WindowKit::kPlain);
+    if (_asking != Asking::kCantRepay)
+        kit.button(screen, WindowKit::Button::kCancel, kAskNo,
+                   _over == Control::kNo ? WindowKit::kLit : WindowKit::kPlain);
+}
+
+// The Share Portfolio.
+
+ScreenRect PortfolioWindow::okRect() {
+    return kPortfolioOk;
+}
+
+WindowResult PortfolioWindow::handle(const Event &ev) {
+    if (!_open || !isClick(ev) || !kPortfolioOk.contains(ev.mouseX, ev.mouseY))
+        return WindowResult::kNone;
+    _open = false;
+    return WindowResult::kClosed;
+}
+
+void PortfolioWindow::draw(Surface &screen, const WindowKit &kit, const Park &park) const {
+    if (!_open)
+        return;
+    // "Portfolio details for {0}, {12}": the player's name and rank (guessed).
+    kit.window(screen, kPortfolioWindow,
+               _owner.empty() ? kit.ui(kSharePortfolioTitle)
+                              : kit.ui(kPortfolioFor, {{0, _owner}, {12, kit.rank(_rank)}}));
+    kit.frame(screen, kPortfolioFrame);
+    const Park::Shares &shares = park.shares();
+    int y = kPortfolioFrame.y + 8;
+    for (auto [label, value] :
+         {std::pair{kSharePriceText, money(shares.price)}, std::pair{kSharesOwnedText, std::to_string(shares.owned)},
+          std::pair{kPortfolioValueText, money(shares.owned * shares.price)}}) {
+        row(screen, kit, kPortfolioFrame, y, kit.ui(label), value);
+        y += kStatsLine;
+    }
+    // A whole percent, as the Personnel File shows it ("3%" for 1,000 of 30,000).
+    const int stake = shares.issued > 0 ? shares.owned * 100 / shares.issued : 0;
+    kit.paragraph(screen, kPortfolioFrame.x + 8, y + 6, kPortfolioFrame.w - 16,
+                  kit.ui(kStakeText, {{21, std::to_string(stake)}}));
+    kit.button(screen, WindowKit::Button::kOk, kPortfolioOk, WindowKit::kPlain);
+}
+
+// Attraction Finance Controls.
+
+ScreenRect AttractionFinanceWindow::placeOf(Control control) {
+    switch (control) {
+    case Control::kKindLeft:
+        return kPricesKindLeft;
+    case Control::kKindRight:
+        return kPricesKindRight;
+    case Control::kLeft:
+        return kPricesLeft;
+    case Control::kRight:
+        return kPricesRight;
+    case Control::kMinus:
+        return kPricesMinus;
+    case Control::kPlus:
+        return kPricesPlus;
+    case Control::kOk:
+        return kPricesOk;
+    case Control::kClose:
+        return kPricesClose;
+    default:
+        return {};
+    }
+}
+
+WindowResult AttractionFinanceWindow::handle(const Event &ev, Park &park) {
+    if (!_open || (ev.type != EventType::kMouseMove && ev.type != EventType::kMouseDown))
+        return WindowResult::kNone;
+    _over = Control::kNone;
+    for (Control c : {Control::kKindLeft, Control::kKindRight, Control::kLeft, Control::kRight, Control::kMinus,
+                      Control::kPlus, Control::kOk, Control::kClose})
+        if (placeOf(c).contains(ev.mouseX, ev.mouseY))
+            _over = c;
+    if (!isClick(ev))
+        return WindowResult::kNone;
+    constexpr int kHows = 3;
+    const size_t at = size_t(std::find(kPriceKinds.begin(), kPriceKinds.end(), _kind) - kPriceKinds.begin());
+    switch (_over) {
+    case Control::kKindLeft:
+    case Control::kKindRight:
+        _kind = kPriceKinds[(at + (_over == Control::kKindRight ? 1 : kPriceKinds.size() - 1)) % kPriceKinds.size()];
+        return WindowResult::kNone;
+    case Control::kLeft:
+    case Control::kRight:
+        _how = Park::Adjustment((int(_how) + (_over == Control::kRight ? 1 : kHows - 1)) % kHows);
+        return WindowResult::kNone;
+    case Control::kMinus:
+    case Control::kPlus:
+        _amount += _over == Control::kPlus ? 1 : -1;
+        return WindowResult::kNone;
+    case Control::kOk:
+        park.adjustPrices(_kind, _how, _amount);
+        _amount = 0;
+        return WindowResult::kChose;
+    case Control::kClose:
+        _open = false;
+        return WindowResult::kClosed;
+    default:
+        return WindowResult::kNone;
+    }
+}
+
+void AttractionFinanceWindow::draw(Surface &screen, const WindowKit &kit, const Park &park) const {
+    if (!_open)
+        return;
+    kit.window(screen, kPricesWindow, kit.ui(kAttractionFinanceTitle));
+    kit.button(screen, WindowKit::Button::kClose, kPricesClose,
+               _over == Control::kClose ? WindowKit::kLit : WindowKit::kPlain);
+    auto picker = [&](const ScreenRect &left, const ScreenRect &right, Control l, Control r, const std::string &label) {
+        kit.button(screen, WindowKit::Button::kLeft, left, _over == l ? WindowKit::kLit : WindowKit::kPlain);
+        kit.button(screen, WindowKit::Button::kRight, right, _over == r ? WindowKit::kLit : WindowKit::kPlain);
+        kit.text(screen, (left.x + left.w + right.x - kit.textWidth(label)) / 2, left.y + 8, label);
+    };
+    picker(kPricesKindLeft, kPricesKindRight, Control::kKindLeft, Control::kKindRight,
+           kit.ui(kPriceKindText + uint32_t(_kind)));
+    // The kind's prices as they stand: their average.
+    int total = 0;
+    int count = 0;
+    if (_kind == Park::PriceKind::kEntry) {
+        total = park.admissionFee();
+        count = 1;
+    }
+    for (const Park::Queue &q : park.queues()) {
+        const Attractions::Attraction *a =
+            q.object >= 0 ? park.attractions().find(park.objects()[size_t(q.object)].id) : nullptr;
+        const bool match = a && ((_kind == Park::PriceKind::kRide && a->kind == Attractions::Kind::kRide) ||
+                                 (_kind == Park::PriceKind::kShop && a->kind == Attractions::Kind::kShop) ||
+                                 (_kind == Park::PriceKind::kSideshow && a->kind == Attractions::Kind::kSideshow) ||
+                                 (_kind == Park::PriceKind::kBathroom && a->kind == Attractions::Kind::kFacility));
+        if (match) {
+            total += q.fare;
+            ++count;
+        }
+    }
+    kit.frame(screen, kPricesCurrent);
+    const std::string current = count ? money(total / count) : "-";
+    kit.text(screen, kPricesCurrent.x + (kPricesCurrent.w - kit.textWidth(current)) / 2, kPricesCurrent.y + 9, current);
+    kit.text(screen, kPricesLeft.x, kPricesLeft.y - 18, kit.ui(kAdjustmentTypeText));
+    picker(kPricesLeft, kPricesRight, Control::kLeft, Control::kRight, kit.ui(kSetToAmountText + uint32_t(_how)));
+    kit.button(screen, WindowKit::Button::kMinus, kPricesMinus,
+               _over == Control::kMinus ? WindowKit::kLit : WindowKit::kPlain);
+    kit.button(screen, WindowKit::Button::kPlus, kPricesPlus,
+               _over == Control::kPlus ? WindowKit::kLit : WindowKit::kPlain);
+    const std::string amount = _how == Park::Adjustment::kPercent ? std::to_string(_amount) + " %" : money(_amount);
+    kit.text(screen, (kPricesMinus.x + kPricesMinus.w + kPricesPlus.x - kit.textWidth(amount)) / 2, kPricesMinus.y + 8,
+             amount);
+    kit.button(screen, WindowKit::Button::kOk, kPricesOk, _over == Control::kOk ? WindowKit::kLit : WindowKit::kPlain);
+}
+
+// A message.
+
+namespace {
+
+// Its text and lines, as they're drawn.
+std::vector<std::string> messageLines(const WindowKit &kit, const Park::Message &m) {
+    std::vector<std::string> out{kit.tag(m.text, m.values)};
+    for (const Park::Message::Line &line : m.lines)
+        out.push_back(kit.tag(line.text, line.values) + (line.suffix ? kit.tag(line.suffix, line.values) : ""));
+    return out;
+}
+
+// How tall it is: measured by drawing it where it can't be seen.
+int messageHeight(const WindowKit &kit, const Park::Message &m) {
+    Surface scratch;
+    scratch.create(kMessageWidth, 1, PixelFormat::kRGBA32);
+    int y = 44;
+    for (const std::string &text : messageLines(kit, m))
+        y = kit.paragraph(scratch, 18, y, kMessageWidth - 36, text) + 4;
+    return y + 56;
+}
+
+ScreenRect messageOk(int height) {
+    return {kMessageX + kMessageWidth - 44, kMessageY + height - 40, 28, 28};
+}
+
+} // namespace
+
+ScreenRect MessageWindow::okRect() const {
+    return messageOk(_height);
+}
+
+WindowResult MessageWindow::handle(const Event &ev) {
+    if (!_open || !isClick(ev) || !okRect().contains(ev.mouseX, ev.mouseY))
+        return WindowResult::kNone;
+    _open = false;
+    return WindowResult::kClosed;
+}
+
+void MessageWindow::draw(Surface &screen, const WindowKit &kit) const {
+    if (!_open)
+        return;
+    const int height = messageHeight(kit, _message);
+    _height = height;
+    kit.window(screen, {kMessageX, kMessageY, kMessageWidth, height}, kit.tag(_message.title, _message.values));
+    kit.frame(screen, {kMessageX + 12, kMessageY + 36, kMessageWidth - 24, height - 84});
+    int y = kMessageY + 44;
+    for (const std::string &text : messageLines(kit, _message))
+        y = kit.paragraph(screen, kMessageX + 18, y, kMessageWidth - 36, text) + 4;
+    kit.button(screen, WindowKit::Button::kOk, messageOk(height), WindowKit::kPlain);
 }
 
 } // namespace reluva::tpw

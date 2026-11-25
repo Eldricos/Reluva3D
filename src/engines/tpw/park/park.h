@@ -12,9 +12,11 @@
 
 #include <algorithm>
 #include <array>
-#include <optional>
 #include <cstdint>
+#include <map>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace reluva::tpw {
@@ -320,9 +322,9 @@ public:
     /** Points a day a slot's project makes now; and, if it can't go on, why (UITEXT 300 to 304), else 0. */
     float researchPerDay(size_t slot) const;
     uint32_t projectHeldUp(size_t slot) const;
-    /** Whether an attraction, or an upgrade of it, has been researched. */
     /** Whether the park has a Research Lab, which research and scientists need. */
     bool hasResearchLab() const;
+    /** Whether an attraction, or an upgrade of it, has been researched. */
     bool researched(int id, int level = 0) const;
     /** The staff kind a consultant of the game's numbering is (RStaff[0].SType); nullopt for none. */
     static std::optional<StaffKind> consultantKind(int stype);
@@ -652,6 +654,96 @@ public:
 
     /** Money in the bank. */
     int cash() const { return _cash; }
+
+    /**
+     * The park's accounts' lines: its takings by what took them, then what
+     * it spends on. See docs/engines/tpw/games/simcoaster/systems/finance.md.
+     */
+    enum class Ledger : uint8_t {
+        kGate,
+        kRides,
+        kShops,
+        kSideshows,
+        kFacilities,
+        kBuilding, // attractions, upgrades, path and queue; scrap sold off against it
+        kRunning,  // running costs and the cost of goods
+        kWages,
+        kResearch,
+        kLoans, // repayments
+    };
+    static constexpr size_t kLedgerLines = 10;
+    static constexpr size_t kIncomeLines = 5; // the lines before kBuilding
+    using Accounts = std::array<int, kLedgerLines>;
+    /** This year's accounts so far, and last month's. */
+    const Accounts &thisYear() const { return _thisYear; }
+    const Accounts &lastMonth() const { return _lastMonth; }
+    static int income(const Accounts &a);
+    static int expenditure(const Accounts &a);
+    /** What the park's attractions are worth: their scrap values (guessed). */
+    int parkValue() const;
+    /** How many visitors have come in. */
+    int totalVisitors() const { return _totalVisitors; }
+
+    /** A loan on offer (LoanInfo[n]), or taken. */
+    struct Loan {
+        int offer = 0;  // its LoanInfo number
+        int lender = 0; // in LOANNAMES.str
+        int amount = 0;
+        float rate = 0; // APRInPercent
+        int months = 0;
+        int repayment = 0;  // monthly
+        int monthsLeft = 0; // taken: months still to pay
+        int balance = 0;    // taken: what's owed, less interest not yet due
+        int totalPayable() const { return repayment * months; }
+    };
+    /** The loans on offer, those not taken. */
+    std::vector<Loan> availableLoans() const;
+    /** The loans taken and not paid off. */
+    const std::vector<Loan> &loans() const { return _loans; }
+    /** What the loans taken still owe. */
+    int owed() const;
+    /** Takes an offer: its amount paid in, repaid monthly from the next month. */
+    bool takeLoan(int offer);
+    /** Pays off a loan taken, by its place in loans(); false if the money isn't there (UITEXT 419). */
+    bool repayLoan(size_t loan);
+
+    /** The company's shares: those issued, the player's, and their price. */
+    struct Shares {
+        int issued = 30000;
+        int owned = 1000;
+        int price = 100;
+    };
+    const Shares &shares() const { return _shares; }
+    /** Sets them: the player's, as their file keeps them. */
+    void setShares(const Shares &shares) { _shares = shares; }
+
+    /** How each kind of price is set in Attraction Finance Controls (UITEXT 184 to 189). */
+    enum class PriceKind : uint8_t { kRide, kShop, kSideshow, kBathroom, kPhoto, kEntry };
+    /** Changes every price of a kind so, as adjustWages does the wages. */
+    void adjustPrices(PriceKind kind, Adjustment how, int amount);
+
+    /**
+     * A message to the player, in TAG_SYSTEM.str: its title and text, their
+     * parameters, and lines that follow it (the annual report's).
+     */
+    struct Message {
+        /** A line, and the change since last year after it (TAG_SYSTEM 271 to 273; 0 for none). */
+        struct Line {
+            uint32_t text = 0;
+            std::map<int, std::string> values;
+            uint32_t suffix = 0;
+        };
+        uint32_t title = 0;
+        uint32_t text = 0;
+        std::map<int, std::string> values;
+        std::vector<Line> lines;
+    };
+    /** The messages since last asked, oldest first. */
+    std::vector<Message> takeMessages() { return std::exchange(_messages, {}); }
+    /** Months the park's ended in the red, in a row. */
+    int monthsInRed() const { return _monthsInRed; }
+    /** Whether the park has been in the red six months, and is closed down (TAG_SYSTEM 166). */
+    bool bankrupt() const { return _bankrupt; }
     /** What a visitor pays to come in. */
     int admissionFee() const { return _admissionFee; }
     /** How many visitors are in the park. */
@@ -714,6 +806,12 @@ private:
     void sendTo(StaffMember &m, int object, StaffDoing doing);
     void finishWork(StaffMember &m);
     void researchDay();
+    void loadFinance(const SamFile &general, const SamFile *world);
+    void book(Ledger line, int amount);
+    void financeDay();
+    void financeMonth();
+    void annualReport();
+    void post(uint32_t title, uint32_t text, std::map<int, std::string> values = {});
     void chase(Visitor &v);
     bool wantsToStrike(StaffKind kind) const;
     bool guarded(float x, float z) const;
@@ -728,6 +826,26 @@ private:
     FixedItems _fixed;
     Mission _mission;
     int _cash = 0;
+    Accounts _thisMonth{};
+    Accounts _lastMonth{};
+    Accounts _thisYear{};
+    // Last year's, for the annual report: revenue, profit, park value, visitors, satisfaction.
+    std::array<int, 5> _lastReport{};
+    bool _reported = false; // there's a last year to compare with
+    int _totalVisitors = 0;
+    int _yearVisitors = 0;
+    std::vector<Loan> _offers;
+    std::vector<Loan> _loans;
+    Shares _shares;
+    int _similarPercent = 3;    // ShareInfo.AnnRptSimilarPercentage
+    int _bigChangePercent = 45; // AnnRptBigChangePercentage
+    int _monthsInRed = 0;
+    bool _wasInRed = false;
+    bool _beenInRed = false;
+    bool _bankrupt = false;
+    bool _lowWarned = false;
+    bool _repayAdvised = false;
+    std::vector<Message> _messages;
     int _admissionFee = 0;
     int _visitors = 0;
     uint64_t _millis = 0;

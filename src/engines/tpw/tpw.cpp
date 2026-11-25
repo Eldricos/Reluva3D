@@ -13,6 +13,7 @@
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/games.h"
 #include "engines/tpw/park/park.h"
+#include "engines/tpw/players.h"
 #include "engines/tpw/ui/briefing.h"
 #include "engines/tpw/ui/globe.h"
 #include "engines/tpw/ui/loading_screen.h"
@@ -82,6 +83,10 @@ public:
             return err;
         if (Error err = parkScreen.load(files, park))
             return err;
+        // The player's shares are the company's they hold, as their file keeps them.
+        parkScreen.setPlayer(player.name, player.rank);
+        if (player.sharesIssued > 0)
+            park.setShares({player.sharesIssued, player.sharesOwned, player.sharePrice});
         // The mission's briefing over the park as it opens.
         Briefing briefing;
         soft3d::Rasterizer rasterizer;
@@ -92,7 +97,17 @@ public:
         playPark(_sys, parkScreen, park, [&](const std::function<void(Surface &)> &drawPark) {
             return showBriefing(_sys, briefing, park, player.name, drawPark);
         });
-        return Error::success();
+        // What the park did to the share price stays with the player.
+        if (_target.savePath.empty() || !player.exists())
+            return Error::success();
+        PlayerSlots players = readPlayers(_target.savePath, {});
+        for (PlayerFile &p : players)
+            if (p.exists() && p.name == player.name) {
+                p.sharesIssued = park.shares().issued;
+                p.sharesOwned = park.shares().owned;
+                p.sharePrice = park.shares().price;
+            }
+        return writePlayers(_target.savePath, players);
     }
 
 private:

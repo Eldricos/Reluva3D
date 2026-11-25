@@ -138,7 +138,9 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
 
     // The world's fixed items; a world without its settings has none.
     SamFile world;
-    if (!readSettings(files, folder + "/Standard.sam", world)) {
+    const bool hasWorld = !readSettings(files, folder + "/Standard.sam", world);
+    loadFinance(general, hasWorld ? &world : nullptr);
+    if (hasWorld) {
         // Each season's weather: a quarter of the year each, from January.
         for (size_t season = 0; season < _seasons.size(); ++season)
             for (size_t w = 0; w < kWeathers.size(); ++w)
@@ -306,7 +308,7 @@ int Park::buildPath(const std::vector<Cell> &cells) {
         if (ground(c) != Ground::kOpen || _cash < _pathCost)
             continue;
         _ground[size_t(c.y) * size_t(_mapWidth) + size_t(c.x)] = Ground::kPath;
-        _cash -= _pathCost;
+        book(Ledger::kBuilding, _pathCost);
         ++laid;
     }
     findKioskPaths();

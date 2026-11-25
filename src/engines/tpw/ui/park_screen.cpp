@@ -116,6 +116,10 @@ constexpr uint32_t kListStaffItem = 829;
 constexpr uint32_t kLocateStaffItem = 830;
 constexpr uint32_t kStaffFinanceItem = 831;
 constexpr uint32_t kParkGatesItem = 847;
+constexpr uint32_t kAttractionFinanceItem = 836;
+constexpr uint32_t kFinancialStatisticsItem = 842;
+constexpr uint32_t kLoansItem = 843;
+constexpr uint32_t kSharePortfolioItem = 844;
 constexpr uint32_t kCallEngineerItem = 524;
 constexpr uint32_t kCancelEngineerItem = 525;
 constexpr uint32_t kEditLineItem = 526;
@@ -1016,7 +1020,7 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
     if (!_hud)
         return;
     // The money font's "$" is the game's currency sign, drawn like a "§".
-    const std::string cash = "$ " + std::to_string(park.cash());
+    const std::string cash = (park.cash() < 0 ? "-$ " : "$ ") + std::to_string(std::abs(park.cash()));
     drawGameText(screen, _cashFont, _characters, kCashX + kShadow, kCashY + kShadow, cash, kHudShadow);
     drawGameText(screen, _cashFont, _characters, kCashX, kCashY, cash, kHudText);
     if (_placementPrice > 0) {
@@ -1073,6 +1077,11 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
         _assignWindow.draw(screen, _kit, park, _hire, _buy.names());
         _financeSummary.draw(screen, _kit, park);
         _renameWindow.draw(screen, _kit);
+        _financeStats.draw(screen, _kit, park);
+        _loansWindow.draw(screen, _kit, park);
+        _portfolio.draw(screen, _kit, park);
+        _attractionFinance.draw(screen, _kit, park);
+        _messageWindow.draw(screen, _kit);
         _wageDemand.draw(screen, _kit, park, _hire);
         _popup.draw(screen, _kit);
         if (_notice && park.millis() < _noticeUntil)
@@ -1084,7 +1093,17 @@ bool ParkScreen::windowOpen() const {
     return _popup.isOpen() || _attractionWindow.isOpen() || _gateWindow.isOpen() || _staffWindow.isOpen() ||
            _staffList.isOpen() || _trainingWindow.isOpen() || _staffFinance.isOpen() || _wageDemand.isOpen() ||
            _researchLab.isOpen() || _projectWindow.isOpen() || _assignWindow.isOpen() || _financeSummary.isOpen() ||
-           _renameWindow.isOpen();
+           _renameWindow.isOpen() || _financeStats.isOpen() || _loansWindow.isOpen() || _portfolio.isOpen() ||
+           _attractionFinance.isOpen() || _messageWindow.isOpen();
+}
+
+void ParkScreen::takeMessages(Park &park) {
+    for (Park::Message &m : park.takeMessages())
+        _messages.push_back(std::move(m));
+    if (!_messageWindow.isOpen() && !_messages.empty()) {
+        _messageWindow.open(std::move(_messages.front()));
+        _messages.pop_front();
+    }
 }
 
 void ParkScreen::notify(const Park &park, uint32_t text) {
@@ -1233,10 +1252,25 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                     screen.projectWindow().close();
                     screen.assignWindow().close();
                     screen.financeSummary().close();
+                    screen.financeStats().close();
+                    screen.loansWindow().close();
+                    screen.portfolio().close();
+                    screen.attractionFinance().close();
+                    screen.messageWindow().close();
                     if (screen.renameWindow().isOpen()) {
                         screen.renameWindow().close();
                         sys.setTextInput(false);
                     }
+                } else if (screen.messageWindow().isOpen()) {
+                    screen.messageWindow().handle(ev);
+                } else if (screen.loansWindow().isOpen()) {
+                    screen.loansWindow().handle(ev, park);
+                } else if (screen.financeStats().isOpen()) {
+                    screen.financeStats().handle(ev);
+                } else if (screen.portfolio().isOpen()) {
+                    screen.portfolio().handle(ev);
+                } else if (screen.attractionFinance().isOpen()) {
+                    screen.attractionFinance().handle(ev, park);
                 } else if (screen.renameWindow().isOpen()) {
                     if (screen.renameWindow().handle(ev) == WindowResult::kChose) {
                         park.rename(screen.renameWindow().object(), screen.renameWindow().typed());
@@ -1544,6 +1578,19 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
             screen.gateWindow().open();
         if (choice == ParkHud::kResearchLabMenuItem)
             screen.researchLab().open();
+        if (choice == kFinancialStatisticsItem)
+            screen.financeStats().open();
+        if (choice == kLoansItem)
+            screen.loansWindow().open();
+        if (choice == kSharePortfolioItem)
+            screen.portfolio().open(screen.playerName(), screen.playerRank());
+        if (choice == kAttractionFinanceItem)
+            screen.attractionFinance().open();
+        // The park's messages, one at a time; once the bankruptcy's letter
+        // is put away, the park's over.
+        screen.takeMessages(park);
+        if (park.bankrupt() && !screen.messagesWaiting())
+            return true;
         screen.hud().setResearchLab(park.hasResearchLab());
         if (choice == kCloseParkItem)
             park.setParkOpen(!park.parkOpen());

@@ -75,6 +75,12 @@ public:
     std::string staffType(Park::StaffKind kind) const;
     /** What a member of staff is doing, as STAFFSTATES.str has it: "Resting". */
     std::string staffState(const Park::StaffMember &m) const;
+    /** TAG_SYSTEM.str's string, the park's messages, with its parameters filled. */
+    std::string tag(uint32_t index, const std::map<int, std::string> &values = {}) const;
+    /** A lender's name, LOANNAMES.str's: "Cash Unlimited". */
+    std::string lender(int index) const { return _lenders.text(uint32_t(index)); }
+    /** A rank, PROMOTIONLEVELS.str's: 1 "Assistant Manager". */
+    std::string rank(int index) const { return _ranks.text(uint32_t(index)); }
 
 private:
     LoadedModel _window;
@@ -91,6 +97,9 @@ private:
     StringTable _months;
     StringTable _staffTypes;
     StringTable _staffStates;
+    StringTable _tags;
+    StringTable _lenders;
+    StringTable _ranks;
     LoadedModel _panel;
 };
 
@@ -418,6 +427,121 @@ private:
     bool _open = false;
     size_t _object = 0;
     std::string _typed;
+};
+
+/**
+ * Financial Statistics (UITEXT 386 to 402): the bank balance and the
+ * park's value, this year's income and expenditure by line, and last
+ * month's in summary.
+ */
+class FinanceStatsWindow {
+public:
+    void open() { _open = true; }
+    void close() { _open = false; }
+    bool isOpen() const { return _open; }
+    WindowResult handle(const Event &ev);
+    void draw(Surface &screen, const WindowKit &kit, const Park &park) const;
+    static ScreenRect okRect();
+
+private:
+    bool _open = false;
+};
+
+/**
+ * Loans (UITEXT 403 to 421): those available and those outstanding, each
+ * a list; a row chosen is taken or repaid, once confirmed.
+ */
+class LoansWindow {
+public:
+    enum class Control { kNone, kAvailable, kOutstanding, kRow, kAct, kYes, kNo, kOk, kClose };
+    void open() {
+        _open = true;
+        _outstanding = false;
+        _row = 0;
+        _asking = Asking::kNothing;
+    }
+    void close() { _open = false; }
+    bool isOpen() const { return _open; }
+    WindowResult handle(const Event &ev, Park &park);
+    void draw(Surface &screen, const WindowKit &kit, const Park &park) const;
+    static ScreenRect placeOf(Control control, size_t row = 0);
+
+private:
+    // The confirmation over it: to take a loan, to repay one, or that it can't be.
+    enum class Asking { kNothing, kTake, kRepay, kCantRepay };
+    bool _open = false;
+    bool _outstanding = false; // which list shows
+    size_t _row = 0;
+    Asking _asking = Asking::kNothing;
+    Control _over = Control::kNone;
+};
+
+/** The Share Portfolio (UITEXT 466 to 470): the share price, the player's shares, their value and stake. */
+class PortfolioWindow {
+public:
+    void open(std::string owner, int rank) {
+        _open = true;
+        _owner = std::move(owner);
+        _rank = rank;
+    }
+    void close() { _open = false; }
+    bool isOpen() const { return _open; }
+    WindowResult handle(const Event &ev);
+    void draw(Surface &screen, const WindowKit &kit, const Park &park) const;
+    static ScreenRect okRect();
+
+private:
+    bool _open = false;
+    std::string _owner; // empty for none known
+    int _rank = 1;
+};
+
+/**
+ * Attraction Finance Controls (UITEXT 179 to 189): a kind of price, as
+ * StaffFinanceWindow does the wages, set, changed by so much or by a
+ * percentage.
+ */
+class AttractionFinanceWindow {
+public:
+    enum class Control { kNone, kKindLeft, kKindRight, kLeft, kRight, kMinus, kPlus, kOk, kClose };
+    void open() {
+        _open = true;
+        _amount = 0;
+    }
+    void close() { _open = false; }
+    bool isOpen() const { return _open; }
+    WindowResult handle(const Event &ev, Park &park);
+    void draw(Surface &screen, const WindowKit &kit, const Park &park) const;
+    static ScreenRect placeOf(Control control);
+
+private:
+    bool _open = false;
+    Park::PriceKind _kind = Park::PriceKind::kRide;
+    Park::Adjustment _how = Park::Adjustment::kChangeBy;
+    int _amount = 0;
+    Control _over = Control::kNone;
+};
+
+/** A message to the player, TAG_SYSTEM's: its title, its text and lines; the tick puts it away. */
+class MessageWindow {
+public:
+    void open(Park::Message message) {
+        _open = true;
+        _message = std::move(message);
+    }
+    void close() { _open = false; }
+    bool isOpen() const { return _open; }
+    const Park::Message &message() const { return _message; }
+    WindowResult handle(const Event &ev);
+    /** Draws it, as tall as its text; the tick at its foot. */
+    void draw(Surface &screen, const WindowKit &kit) const;
+    /** The tick, where it was last drawn. */
+    ScreenRect okRect() const;
+
+private:
+    bool _open = false;
+    Park::Message _message;
+    mutable int _height = 0; // as last drawn
 };
 
 } // namespace reluva::tpw

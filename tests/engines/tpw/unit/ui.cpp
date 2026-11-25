@@ -559,6 +559,34 @@ void testParkWindows() {
     CHECK(rename.handle(press) == tpw::WindowResult::kChose && !rename.isOpen());
     CHECK(rename.object() == 3 && rename.typed() == "Dizzy Droid!");
 
+    // Attraction Finance Controls: on to the entry price, set to an amount,
+    // + twice and the tick sets it.
+    using Prices = tpw::AttractionFinanceWindow;
+    Prices prices;
+    prices.open();
+    prices.handle(at(EventType::kMouseDown, Prices::placeOf(Prices::Control::kKindLeft)), park);
+    prices.handle(at(EventType::kMouseDown, Prices::placeOf(Prices::Control::kLeft)), park);
+    for (int i = 0; i < 2; ++i)
+        prices.handle(at(EventType::kMouseDown, Prices::placeOf(Prices::Control::kPlus)), park);
+    CHECK(prices.handle(at(EventType::kMouseDown, Prices::placeOf(Prices::Control::kOk)), park) ==
+              tpw::WindowResult::kChose &&
+          park.admissionFee() == 2);
+    prices.handle(at(EventType::kMouseDown, Prices::placeOf(Prices::Control::kClose)), park);
+    CHECK(!prices.isOpen());
+
+    // The loans: with none on offer, there's nothing to take.
+    using Loans = tpw::LoansWindow;
+    Loans loans;
+    loans.open();
+    loans.handle(at(EventType::kMouseDown, Loans::placeOf(Loans::Control::kAct)), park);
+    CHECK(park.loans().empty() && loans.handle(at(EventType::kMouseDown, Loans::placeOf(Loans::Control::kOk)), park) ==
+                                      tpw::WindowResult::kClosed);
+
+    tpw::MessageWindow message;
+    message.open({262, 263, {}, {}});
+    CHECK(message.handle(at(EventType::kMouseDown, message.okRect())) == tpw::WindowResult::kClosed &&
+          !message.isOpen());
+
     tpw::FinanceSummaryWindow summary;
     summary.open(0, "Dizzy Droid");
     CHECK(summary.handle(at(EventType::kMouseDown, tpw::FinanceSummaryWindow::okRect())) ==

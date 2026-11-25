@@ -39,7 +39,10 @@ None yet.
   pranks, thoughts and opinions of prices by guessed rules; staff hired
   in the Hire Staff window and at work by guessed rules
   ([staff.md](systems/staff.md)); research and upgrades by guessed
-  rates, the Assign staff, financial summary and naming windows laid out
+  rates; the money's accounts, loans, share price and bankruptcy by
+  guessed rules, their windows laid out by guess, and the finance
+  director's messages shown over the park, not in a Message Center
+  ([finance.md](systems/finance.md)); the Assign staff, financial summary and naming windows laid out
   by guess, and a ride's view only the camera brought close
   ([research.md](systems/research.md), [building.md](systems/building.md#its-window-and-menu)); the
   weather's rolls and look guessed ([visitors.md](systems/visitors.md),
