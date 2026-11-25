@@ -155,6 +155,9 @@ as its size (32 bits) then its bytes.
   message, its player destroyed, its session closed), the host told it
   had left, winning, and closing its own
   ([hosting.md](../../engines/sfc/games/sfc2/systems/hosting.md#its-multiplayer)).
+  The same between two Linux network namespaces joined by a virtual
+  link, each with an address of its own: the session found by
+  broadcast, as on a network between machines.
 - `testDirectPlayLobby` (`tests/common/windows.cpp`) makes the lobby
   through `CoCreateInstance`, checks another class still goes on, and
   that `GetConnectionSettings` answers `DPERR_NOTLOBBIED` with the size

@@ -116,7 +116,9 @@ on their pages in `formats/` and `systems/`.
    ([dplay.md](../../../../common/x86/dplay.md#the-network)) and started
    in both, the two exchanging the battle's messages, and played to its
    end: in Free For All, the joining player forfeiting, the host winning.
-   Next: two machines, and a game won in battle.
+   The same between two network namespaces, each with an address of
+   its own, joined by a virtual link: as two machines on a network.
+   Next: two physical machines, and a game won in battle.
 8. **Importing** (done for the CDs): InstallShield 5's headers in
    `src/common/installshield.cpp` ([its page](../../../../common/installshield.md)),
    and the `MetaEngine`'s `planImport` and `addToImport`, from the two

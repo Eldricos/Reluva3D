@@ -413,6 +413,16 @@ left). In Base Assault the host is told "Defending ship has been
 destroyed." and plays on, the starbase still standing; it goes on
 sending to the player that left, each send refused and caught.
 
+Between two machines on a network, as far as the network goes: the
+two copies each in a Linux network namespace of its own (its own
+network stack and address, 10.9.0.1 and 10.9.0.2, its own loopback), the
+two joined by a virtual Ethernet link and nothing else. The joining copy
+found the host's session by broadcast, the only way it could (its
+question to this machine's own address reached only itself), joined
+it, saw a ping of 31, and the Free For All game went as between copies
+on one machine: started in both, the joining player forfeiting, the
+host winning. Two physical machines haven't been tried.
+
 ### Its mouse and keys
 
 The game asks where the pointer is with `GetCursorPos` (and
@@ -527,8 +537,10 @@ known.
 - **Multiplayer:** DirectPlay's TCP/IP between copies of Reluva
   ([dplay.md](../../../../../common/x86/dplay.md#the-network)); the
   engine gives it the system's sockets, the host tool `-net`.
-- **Not yet:** a multiplayer game between separate machines (only
-  copies on one), or ended in battle rather than by a player leaving. The opening movie isn't
+- **Not yet:** a multiplayer game between two physical machines (only
+  copies in network namespaces of their own, as two machines on a
+  network; [Its multiplayer](#its-multiplayer)), or ended in battle
+  rather than by a player leaving. The opening movie isn't
   hosted: the engine plays it itself before the game
   ([formats/intro.md](../formats/intro.md)).
 
