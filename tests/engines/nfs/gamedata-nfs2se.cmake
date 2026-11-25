@@ -29,6 +29,10 @@
 #   host_glide  the same with the 3dfx program, nfs2sea.exe (the
 #            install's, or the CD's), on Reluva's Glide stand-in as a
 #            Voodoo Graphics, drawn by its software rasterizer
+#   drive    nfs2sen.exe again, a knockout's first round at Proving
+#            Grounds (2 laps, 9 cars) driven to its end by the road
+#            driver (-roaddrive): each lap's place and the finishing
+#            place, with the end state and last frame as for host
 # A command that fails fails the step. The records, in
 # tests/engines/nfs/data/gamedata/nfs2se-<release>/<step>.txt, hold only
 # counts and checksums. The step passes when its record is the same as the
@@ -59,8 +63,9 @@ set(slug "nfs2se-${slug}")
 # The hosted game from its title movie into a race at Proving Grounds, on
 # a clock of instructions: Enter skips the movie, four Downs and Enter
 # start the race, Up held from 40 s
-# (docs/engines/nfs/games/nfs2se/research/hosted-spike.md). ARGN: the
-# program, the limit and which frames are written. Its end state, its
+# (docs/engines/nfs/games/nfs2se/research/hosted-spike.md); or the keys
+# in host_keys. ARGN: the program, the limit and which frames are
+# written. Its end state, its
 # system calls and the last frame written go into the record as
 # checksums.
 function(record_host name)
@@ -71,7 +76,7 @@ function(record_host name)
     # failure (1); anything else fails the step.
     execute_process(COMMAND "${TOOL}" nfs host "${game_dir}" -save "${out}/save" -deterministic 300000
                     -frames "${out}/frames" ${ARGN}
-                    -keys "6000:enter,14000:down,14500:down,15000:down,15500:down,17000:enter,40000:+up"
+                    -keys "${host_keys}"
                     OUTPUT_VARIABLE log ERROR_VARIABLE log RESULT_VARIABLE rc TIMEOUT 3000)
     string(REPLACE "${game_dir}" "<game>" log "${log}")
     if(NOT cd_dir STREQUAL "")
@@ -91,6 +96,11 @@ function(record_host name)
     string(SUBSTRING "${sum}" 0 16 sum)
     string(REGEX MATCH "state: [0-9a-f]+ after [0-9]+ instructions" state "${log}")
     set(record "${record}${name}: ${sum} | ${state}\n")
+    # The road driver's laps and places, as it reports them.
+    string(REGEX MATCHALL "road driver: lap [^\n]*" laps "${flat}")
+    foreach(lap IN LISTS laps)
+        set(record "${record}${name}.${lap}\n")
+    endforeach()
     # The last frame written (in the race), then the frames go.
     file(GLOB written "${out}/frames/*.tga")
     list(SORT written)
@@ -105,6 +115,8 @@ function(record_host name)
     file(REMOVE_RECURSE "${out}/frames" "${out}/save")
     set(record "${record}" PARENT_SCOPE)
 endfunction()
+
+set(host_keys "6000:enter,14000:down,14500:down,15000:down,15500:down,17000:enter,40000:+up")
 
 if(STEP STREQUAL "release")
     set(record "${record}release: ${release}\n")
@@ -165,6 +177,14 @@ elseif(STEP STREQUAL "host_glide")
         message(FATAL_ERROR "No nfs2sea.exe in the install or on the CD")
     endif()
     record_host(host_glide -program "${program}" -limit 16000000000 -every 50)
+elseif(STEP STREQUAL "drive")
+    # Enter skips the movie, Enter opens game setup, Down and Right twice
+    # make the race type a knockout, four Downs and Enter are DONE, two
+    # Downs and Enter RACE; the road driver from the start, round the
+    # road's middle (docs/engines/nfs/games/nfs2se/research/road-driver.md).
+    # The race is over by 170 s of the game's clock.
+    set(host_keys "6000:enter,14000:enter,15000:down,15700:right,16400:right,17100:down,17800:down,18500:down,19200:down,19900:enter,22000:down,22700:down,23400:enter")
+    record_host(drive -limit 60000000000 -every 1000 -roaddrive 0:999999999:0:3)
 else()
     message(FATAL_ERROR "Unknown step ${STEP}")
 endif()

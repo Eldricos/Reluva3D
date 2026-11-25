@@ -93,6 +93,13 @@ Later, through the ring, the one-lap race again 2nd (92.1 s); and two
 copies on a serial link, both driven, to the race's end
 ([network-play.md](network-play.md)).
 
+After the driver learnt to get free (late November 2026), the same
+knockout round, now the game-files test's `drive` step
+([TESTING.md](../TESTING.md)): laps of about 65 s, 9th of 9, the last
+place eliminated; the knockout's cars quicker than the driver. Aiming as
+far as a 45° turn of the road instead of 30° made it 8th, but the race
+slower.
+
 ## Left open
 
 - Its time lost: at `TR00`'s chicane before the line it still scrapes

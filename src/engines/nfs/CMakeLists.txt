@@ -104,4 +104,4 @@ reluva_add_gamedata_test(nfs
     GAME nfs2se
     ENV RELUVA_NFS2SE
     SCRIPT ${tests}/gamedata-nfs2se.cmake
-    STEPS release survey formats host host_glide)
+    STEPS release survey formats host host_glide drive)
