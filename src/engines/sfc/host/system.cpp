@@ -28,27 +28,6 @@ using x86::Cpu;
 
 constexpr uint32_t kLcidEnglishUs = 0x409;
 
-// A SYSTEMTIME's eight 16-bit fields for a moment, as UTC or local time.
-void writeSystemTime(Cpu &c, uint32_t at, std::time_t t, bool local) {
-    std::tm tm{};
-#if defined(_WIN32)
-    local ? localtime_s(&tm, &t) : gmtime_s(&tm, &t);
-#else
-    local ? localtime_r(&t, &tm) : gmtime_r(&t, &tm);
-#endif
-    const uint16_t fields[8] = {
-        uint16_t(tm.tm_year + 1900), uint16_t(tm.tm_mon + 1), uint16_t(tm.tm_wday), uint16_t(tm.tm_mday),
-        uint16_t(tm.tm_hour),        uint16_t(tm.tm_min),     uint16_t(tm.tm_sec),  0};
-    for (int i = 0; i < 8; ++i)
-        c.write16(at + 2 * uint32_t(i), fields[i]);
-}
-
-// 100-nanosecond intervals since 1601, as a FILETIME counts them, from
-// microseconds since 1970.
-uint64_t fileTime(uint64_t since1970) {
-    return since1970 * 10 + 116444736000000000ull;
-}
-
 // What GetPrivateProfileString reads: a key's value in a section of an INI
 // file, the names compared without case; nothing if there's none.
 bool iniValue(const std::filesystem::path &file, const std::string &section, const std::string &key, std::string &out) {
@@ -206,26 +185,6 @@ void GameProcess::addSystem() {
             c.write8(c.arg(2) + uint32_t(i), i < value.size() ? uint8_t(value[i]) : 0);
         return uint32_t(value.size() + 1);
     });
-    stdcall(k, "GetLocalTime", 1, [this](Cpu &c) {
-        writeSystemTime(c, c.arg(0), std::time_t(wallClockMicros() / 1000000), true);
-        return 0u;
-    });
-    stdcall(k, "GetSystemTime", 1, [this](Cpu &c) {
-        writeSystemTime(c, c.arg(0), std::time_t(wallClockMicros() / 1000000), false);
-        return 0u;
-    });
-    stdcall(k, "GetSystemTimeAsFileTime", 1, [this](Cpu &c) {
-        const uint64_t t = fileTime(wallClockMicros());
-        c.write32(c.arg(0), uint32_t(t));
-        c.write32(c.arg(0) + 4, uint32_t(t >> 32));
-        return 0u;
-    });
-    stdcall(k, "GetTimeZoneInformation", 1, [](Cpu &c) {
-        // UTC, no daylight saving: TIME_ZONE_ID_UNKNOWN.
-        for (uint32_t i = 0; i < 172; i += 4)
-            c.write32(c.arg(0) + i, 0);
-        return 0u;
-    });
     stdcall(k, "GetWindowsDirectoryA", 2, [](Cpu &c) {
         const std::string dir = "C:\\WINDOWS";
         if (c.arg(1) <= dir.size())
@@ -286,16 +245,6 @@ void GameProcess::addSystem() {
         };
         const int r = get(c.arg(2), c.arg(3)).compare(get(c.arg(4), c.arg(5)));
         return r < 0 ? 1u : r == 0 ? 2u : 3u;
-    });
-    stdcall(k, "FileTimeToLocalFileTime", 2, [](Cpu &c) {
-        c.write32(c.arg(1), c.read32(c.arg(0)));
-        c.write32(c.arg(1) + 4, c.read32(c.arg(0) + 4));
-        return 1u;
-    });
-    stdcall(k, "FileTimeToSystemTime", 2, [](Cpu &c) {
-        const uint64_t t = c.read32(c.arg(0)) | uint64_t(c.read32(c.arg(0) + 4)) << 32;
-        writeSystemTime(c, c.arg(1), std::time_t((t - 116444736000000000ull) / 10000000), false);
-        return 1u;
     });
     stdcall("USER32.dll", "wsprintfA", 0, [](Cpu &c) {
         // cdecl: the caller pops; the output, the format, then its arguments.

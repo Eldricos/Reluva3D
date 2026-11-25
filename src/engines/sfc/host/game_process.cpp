@@ -5,6 +5,7 @@
 
 #include "common/fs.h"
 #include "common/stream.h"
+#include "emulation/x86/msvcrt.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -23,6 +24,8 @@ GameProcess::GameProcess(std::filesystem::path install, uint32_t memoryMb) : _di
     // Its threads wait on each other (events, mutexes, the multimedia
     // timer): each runs on a host thread of its own.
     _process->useHostThreads();
+    // The date and time it's told, as a tool may fix it.
+    _process->wallClockMicros = [this] { return wallClockMicros(); };
     // The install is the program's folder. What the program writes there
     // (its logs, its settings, saved games) goes to the save folder, which
     // is read first; the install isn't written to.
@@ -77,6 +80,9 @@ GameProcess::GameProcess(std::filesystem::path install, uint32_t memoryMb) : _di
         if (registryWritten)
             registryWritten(key, name);
     };
+    // Microsoft's C runtime, which 2.0.3.6's ImportExportTable.dll imports
+    // (1.0 has its own, linked in).
+    x86::addMsvcrt(*_process);
     _directX = std::make_unique<x86::DirectX>(*_process);
     _directInput = std::make_unique<x86::DirectInput>(*_process);
     _miles = std::make_unique<x86::Miles>(*_process);
