@@ -333,7 +333,7 @@ prestige 350 to 650. MEDALS shows the ranks (the first earned), mission
 and special medals. SUPPLY (repairs, the ship's trade-in value, its
 shuttles, missiles, fighters) and SHIPYARD (each class, its BPV and
 price) opened for a new ship at its base, but not out in the sector
-after a win *(inferred: they need a base)*.
+after a win: they need a base *(inferred)*.
 
 A skirmish is played through DirectPlay, single-player too: starting
 one, the game throws a `TLogicError` naming `fDirectPlayObject` each
