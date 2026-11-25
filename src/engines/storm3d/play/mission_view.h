@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <set>
 #include <string>
+#include <vector>
 
 namespace reluva::storm3d {
 
@@ -50,6 +51,21 @@ public:
      * @return a failure if the map can't be read
      */
     Error start(gfx::Renderer3D *renderer, const std::string &map, int slot, int team, uint64_t millis);
+    /** A skirmish's player: where they start, their race's definition, their colour. */
+    struct Player {
+        int slot = 1;     // their map path Camera_<slot>
+        std::string race; // "fed", "kling", "rom", "borg"
+        gfx::Vec3 colour{};
+        bool human = false;
+    };
+    /**
+     * Starts a skirmish on `map`: each player's starting units as the game
+     * makes them, in their colour; the camera over the human player's
+     * Camera_<slot>; with `shroud`, the shroud over what their units don't see.
+     * @return a failure if the map can't be read
+     */
+    Error startSkirmish(gfx::Renderer3D *renderer, const std::string &map, const std::vector<Player> &players,
+                        bool shroud, uint64_t millis);
     /** Lets go of the renderer and what it made. */
     void stop();
     /** A key pressed or let go. */

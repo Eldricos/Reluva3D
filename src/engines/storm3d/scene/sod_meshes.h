@@ -119,8 +119,12 @@ public:
      *               added up, unlit, and no depth tested or written
      */
     void draw(const Built &built, const gfx::Mat4 &place, bool behind = false) const;
-    /** The same for many: each model with its place. */
-    void draw(const std::vector<std::pair<const Built *, gfx::Mat4>> &batch, bool behind = false) const;
+    /**
+     * The same for many: each model with its place; `teams`, if given,
+     * each one's team colour (none: setTeamColour's), as the batch's.
+     */
+    void draw(const std::vector<std::pair<const Built *, gfx::Mat4>> &batch, bool behind = false,
+              const std::vector<std::optional<gfx::Vec3>> *teams = nullptr) const;
 
     /**
      * The game's coordinates are left-handed, as Direct3D's are: seen from
@@ -175,7 +179,8 @@ public:
 
 private:
     gfx::TextureId texture(const std::string &name);
-    void drawPart(const Part &part, const gfx::Mat4 &place, bool behind) const;
+    void drawPart(const Part &part, const gfx::Mat4 &place, bool behind,
+                  const std::optional<gfx::Vec3> *team = nullptr) const; // team: none, setTeamColour's
     void drawSprite(const SpritePart &sprite, const gfx::Mat4 &place) const;
     const SpriteTable *sprites();
     void addSprites(const SodModel &model, const std::vector<gfx::Mat4> &world, Built &built);

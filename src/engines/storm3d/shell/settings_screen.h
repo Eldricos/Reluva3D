@@ -26,11 +26,17 @@ enum class SettingsPage { kGraphics, kSound, kGame };
 class NavigationBar {
 public:
     Error load(const GameFiles &files);
-    /** Whether a point is on Previous Menu. */
-    static bool onPrevious(int x, int y);
+    /** Whether a point is on Previous Menu, the bar moved by (dx, dy). */
+    static bool onPrevious(int x, int y, int dx = 0, int dy = 0);
     /** Whether a point is on the middle plate, or the right one. */
-    static bool onStart(int x, int y);
-    static bool onMain(int x, int y);
+    static bool onStart(int x, int y, int dx = 0, int dy = 0);
+    static bool onMain(int x, int y, int dx = 0, int dy = 0);
+    /**
+     * Moves the bar from where most screens have it, its right plate by
+     * `mainDx` across; `wholeStart`: the middle plate's words centred on
+     * all of it (the Game Setup screen's bar is so).
+     */
+    void setOffset(int dx, int dy, int mainDx, bool wholeStart);
     /**
      * Draws it, Previous Menu saying `previous`; the other plates say
      * `start` and `main` (the Load Game screen's Load Game and Delete
@@ -43,6 +49,10 @@ private:
     image::Image _start;
     image::Image _main;
     ShellButton _previous;
+    int _dx = 0;
+    int _dy = 0;
+    int _mainDx = 0;
+    bool _wholeStart = false;
 };
 
 /**

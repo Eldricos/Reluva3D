@@ -55,26 +55,36 @@ Error NavigationBar::load(const GameFiles &files) {
     return _previous.load(files, "bitmaps/multiset", "navback", kPreviousX, kBottomY);
 }
 
-bool NavigationBar::onPrevious(int x, int y) {
-    return inside(x, y, kPreviousX, kBottomY, kPreviousWidth, kBottomHeight);
+bool NavigationBar::onPrevious(int x, int y, int dx, int dy) {
+    return inside(x, y, kPreviousX + dx, kBottomY + dy, kPreviousWidth, kBottomHeight);
 }
 
-bool NavigationBar::onStart(int x, int y) {
-    return inside(x, y, kStartX, kBottomY, kStartWidth, kBottomHeight);
+void NavigationBar::setOffset(int dx, int dy, int mainDx, bool wholeStart) {
+    _dx = dx;
+    _dy = dy;
+    _mainDx = mainDx;
+    _wholeStart = wholeStart;
+    _previous.x = kPreviousX + dx;
+    _previous.y = kBottomY + dy;
 }
 
-bool NavigationBar::onMain(int x, int y) {
-    return inside(x, y, kMainX, kBottomY, kPreviousWidth, kBottomHeight);
+bool NavigationBar::onStart(int x, int y, int dx, int dy) {
+    return inside(x, y, kStartX + dx, kBottomY + dy, kStartWidth, kBottomHeight);
+}
+
+bool NavigationBar::onMain(int x, int y, int dx, int dy) {
+    return inside(x, y, kMainX + dx, kBottomY + dy, kPreviousWidth, kBottomHeight);
 }
 
 void NavigationBar::draw(Surface &screen, ShellFont &font, const std::string &previous, bool lit, bool pressed,
                          const std::string &start, const std::string &main, Color words) const {
-    drawPicture(screen, _start, kStartX, kBottomY, true);
-    drawPicture(screen, _main, kMainX, kBottomY, true);
+    drawPicture(screen, _start, kStartX + _dx, kBottomY + _dy, true);
+    drawPicture(screen, _main, kMainX + _mainDx, kBottomY + _dy, true);
     // The middle plate's words are centred in 384 of its 394 pixels, as
     // the Load Game screen's frame has them.
-    font.drawCentred(screen, kStartX, kBottomY, kStartTextWidth, _start.h, start, kText, words);
-    font.drawCentred(screen, kMainX, kBottomY, _main.w, _main.h, main, kText, words);
+    font.drawCentred(screen, kStartX + _dx, kBottomY + _dy, _wholeStart ? _start.w : kStartTextWidth, _start.h, start,
+                     kText, words);
+    font.drawCentred(screen, kMainX + _mainDx, kBottomY + _dy, _main.w, _main.h, main, kText, words);
     _previous.draw(screen, lit, pressed, true);
     font.drawCentred(screen, _previous.x, _previous.y, _previous.looks[0].w, _previous.looks[0].h, previous, kText,
                      words);

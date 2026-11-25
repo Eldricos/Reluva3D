@@ -383,6 +383,7 @@ void MapScene::clear() {
     freeGrid();
     _meshes.clear();
     _placed.clear();
+    _teams.clear();
     _background = nullptr;
     _seen.clear();
     _drawn = _unmodelled = _effects = _starting = 0;
@@ -447,7 +448,9 @@ void MapScene::build(const BznMap &map, const std::vector<StartUnit> &units, con
         gfx::Mat4 place = gfx::identity();
         place[0] = place[5] = place[10] = look.scale;
         place[12] = unit.at[0], place[13] = unit.at[1], place[14] = unit.at[2];
+        _teams.resize(_placed.size());
         _placed.push_back({built, place});
+        _teams.push_back(unit.colour);
         ++_starting;
     }
     // The team parts in the chosen race's colour, or the map's race's: the
@@ -513,7 +516,8 @@ void MapScene::draw(const Camera &camera, double seconds, float range, Color cle
         shroud.state.depthWrite = false;
         _renderer->draw(shroud);
     }
-    _meshes.draw(_placed);
+    _teams.resize(_placed.size());
+    _meshes.draw(_placed, false, &_teams);
 }
 
 } // namespace reluva::storm3d

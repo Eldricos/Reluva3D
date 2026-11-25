@@ -16,6 +16,7 @@
 #include "engines/storm3d/shell/credits_screen.h"
 #include "engines/storm3d/player_files.h"
 #include "engines/storm3d/shell/full_screen_movie.h"
+#include "engines/storm3d/shell/game_setup_screen.h"
 #include "engines/storm3d/shell/load_game_screen.h"
 #include "engines/storm3d/shell/loading_screen.h"
 #include "engines/storm3d/shell/main_menu.h"
@@ -80,6 +81,8 @@ public:
         OptionsScreen options;
         SettingsScreen settings;
         MultiplayerScreen connection;
+        GameSetupScreen setup;
+        bool setupOn = false;
         LoadGameScreen loadGame;
         bool loadGameOn = false;
         LoadingScreen loading(_files);
@@ -93,6 +96,9 @@ public:
         bool loadingOn = false;
         MissionView mission(_files);
         bool missionOn = false;
+        // A skirmish launched, waiting for its loading screen: its players.
+        std::vector<MissionView::Player> skirmish;
+        bool shroud = true;
         gfx::Renderer3D *renderer3D = nullptr;
         // Back from the loading screen or the mission to the single-player
         // screen, in 2D.
@@ -143,7 +149,9 @@ public:
                     }
                 } else if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
                     // Out a screen, as its Previous Menu does; out of the game from the menu.
-                    if (settingsOn)
+                    if (setupOn)
+                        setupOn = false;
+                    else if (settingsOn)
                         settingsOn = false;
                     else if (loadGameOn)
                         loadGameOn = false;
@@ -159,6 +167,7 @@ public:
                     connection.erase();
                 } else if (ev.type == EventType::kMouseMove) {
                     if (singleOn       ? single.pointerAt(ev.mouseX, ev.mouseY, now)
+                        : setupOn      ? setup.pointerAt(ev.mouseX, ev.mouseY)
                         : loadGameOn   ? loadGame.pointerAt(ev.mouseX, ev.mouseY)
                         : settingsOn   ? settings.pointerAt(ev.mouseX, ev.mouseY)
                         : connectionOn ? connection.pointerAt(ev.mouseX, ev.mouseY)
@@ -166,7 +175,9 @@ public:
                                        : menu.pointerAt(ev.mouseX, ev.mouseY, now))
                         play("sounds/effects/cornron.wav", audio::SoundType::kEffects, false);
                 } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
-                    if (loadGameOn)
+                    if (setupOn)
+                        setup.press(ev.mouseX, ev.mouseY);
+                    else if (loadGameOn)
                         loadGame.press(ev.mouseX, ev.mouseY);
                     else if (singleOn)
                         single.press(ev.mouseX, ev.mouseY);
@@ -178,6 +189,43 @@ public:
                         options.press(ev.mouseX, ev.mouseY);
                     else
                         menu.press(ev.mouseX, ev.mouseY);
+                } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft && setupOn) {
+                    const SetupChoice choice = setup.release(ev.mouseX, ev.mouseY);
+                    if (choice != SetupChoice::kNone)
+                        play("sounds/effects/cornrclk.wav", audio::SoundType::kEffects, false);
+                    if (choice == SetupChoice::kPreviousMenu) {
+                        setupOn = false;
+                    } else if (choice == SetupChoice::kMainMenu) {
+                        setupOn = false;
+                        connectionOn = leaveConnection();
+                    } else if (choice == SetupChoice::kLaunch) {
+                        skirmish.clear();
+                        for (size_t i = 0; i < setup.slots().size(); ++i) {
+                            const GameSetupScreen::Slot &slot = setup.slots()[i];
+                            if (slot.who == GameSetupScreen::Who::kEmpty)
+                                continue;
+                            // Slot n starts at Camera_<n+1>: what Random
+                            // Placement does isn't known.
+                            MissionView::Player p;
+                            p.slot = int(i) + 1;
+                            p.race = GameSetupScreen::raceOf(slot, i);
+                            p.colour = MapScene::teamColourOf(GameSetupScreen::colourName(slot.colour), _files.files())
+                                           .value_or(gfx::Vec3{0.5f, 0.5f, 0.5f});
+                            p.human = slot.who == GameSetupScreen::Who::kPlayer;
+                            skirmish.push_back(p);
+                        }
+                        shroud = setup.shroud();
+                        if (Error err = _sys.init3D(kWidth, kHeight, renderer3D)) {
+                            stopAll();
+                            return err;
+                        }
+                        if (Error err = loading.start(renderer3D, setup.map())) {
+                            stopAll();
+                            return err;
+                        }
+                        setupOn = false;
+                        loadingOn = true;
+                    }
                 } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft && loadGameOn) {
                     if (loadGame.release(ev.mouseX, ev.mouseY)) {
                         play("sounds/effects/cornrclk.wav", audio::SoundType::kEffects, false);
@@ -200,6 +248,7 @@ public:
                             stopAll();
                             return err;
                         }
+                        skirmish.clear();
                         if (Error err = loading.start(renderer3D, single.mission())) {
                             stopAll();
                             return err;
@@ -216,8 +265,17 @@ public:
                     const ConnectionChoice choice = connection.release(ev.mouseX, ev.mouseY);
                     if (choice != ConnectionChoice::kNone)
                         play("sounds/effects/cornrclk.wav", audio::SoundType::kEffects, false);
-                    if (choice == ConnectionChoice::kPreviousMenu)
+                    if (choice == ConnectionChoice::kPreviousMenu) {
                         connectionOn = leaveConnection();
+                    } else if (choice == ConnectionChoice::kInstantAction) {
+                        // The name typed, or the one the player's progress keeps.
+                        const std::string name = connection.name().empty() ? _progress.player : connection.name();
+                        if (Error err = setup.load(_files, name)) {
+                            stopAll();
+                            return err;
+                        }
+                        setupOn = true;
+                    }
                 } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft && optionsOn) {
                     const OptionsChoice choice = options.release(ev.mouseX, ev.mouseY);
                     if (choice != OptionsChoice::kNone)
@@ -307,7 +365,10 @@ public:
                 if (!more) {
                     loading.stop();
                     loadingOn = false;
-                    if (Error err = mission.start(renderer3D, single.mission(), 1, -1, now)) {
+                    Error err = skirmish.empty()
+                                    ? mission.start(renderer3D, single.mission(), 1, -1, now)
+                                    : mission.startSkirmish(renderer3D, setup.map(), skirmish, shroud, now);
+                    if (err) {
                         stopAll();
                         return err;
                     }
@@ -321,6 +382,8 @@ public:
                     _intro.draw(screen);
                 else
                     intro = stopIntro();
+            } else if (setupOn) {
+                setup.draw(screen);
             } else if (loadGameOn) {
                 loadGame.draw(screen);
             } else if (singleOn) {

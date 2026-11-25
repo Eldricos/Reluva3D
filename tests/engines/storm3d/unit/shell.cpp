@@ -4,6 +4,7 @@
 // Storm3D's unit tests: the front end's screens, their buttons where the
 // game's frames have them.
 
+#include "engines/storm3d/shell/game_setup_screen.h"
 #include "engines/storm3d/shell/loading_screen.h"
 #include "engines/storm3d/shell/main_menu.h"
 #include "engines/storm3d/shell/multiplayer_screen.h"
@@ -17,6 +18,7 @@
 #include <string>
 #include <vector>
 
+using reluva::storm3d::GameSetupScreen;
 using reluva::storm3d::LoadingScreen;
 using reluva::storm3d::MainMenu;
 using reluva::storm3d::ConnectionChoice;
@@ -142,6 +144,37 @@ void testConnection() {
     CHECK(MultiplayerScreen::typed(std::string(30, 'x'), "yz") == std::string(30, 'x') + "y");
 }
 
+// The Game Setup screen's controls where the game's frame has them: the
+// slots' three lists, the options, the bottom bar a pixel right and down.
+void testGameSetup() {
+    CHECK(GameSetupScreen::targetAt(70, 63) == 0);
+    CHECK(GameSetupScreen::targetAt(200, 82) == 101);
+    CHECK(GameSetupScreen::targetAt(290, 196) == 702);
+    CHECK(GameSetupScreen::targetAt(580, 66) == 1000);
+    CHECK(GameSetupScreen::targetAt(580, 380) == 1013);
+    CHECK(GameSetupScreen::targetAt(450, 280) == 1014);
+    CHECK(GameSetupScreen::targetAt(590, 428) == 1019);
+    CHECK(GameSetupScreen::targetAt(5, 460) == -1);
+    CHECK(GameSetupScreen::targetAt(6, 460) == 2000);
+    CHECK(GameSetupScreen::targetAt(320, 461) == 2001);
+    CHECK(GameSetupScreen::targetAt(580, 461) == 2002);
+    CHECK(GameSetupScreen::options().size() == 20);
+    // Random sides take the races in turn by slot; a side chosen is its own.
+    GameSetupScreen::Slot slot;
+    CHECK(GameSetupScreen::raceOf(slot, 0) == "fed" && GameSetupScreen::raceOf(slot, 5) == "kling");
+    slot.side = 4;
+    CHECK(GameSetupScreen::raceOf(slot, 0) == "borg");
+    CHECK(std::string(GameSetupScreen::colourName(2)) == "red" &&
+          std::string(GameSetupScreen::colourName(9)) == "empty");
+    reluva::storm3d::BznMap map;
+    for (const char *name : {"Camera_1", "Camera_2", "Camera_4", "Camera_9", "ZOOMOUT"}) {
+        reluva::storm3d::BznMap::Path p;
+        p.name = name;
+        map.paths.push_back(p);
+    }
+    CHECK(GameSetupScreen::playersOf(map) == 3);
+}
+
 // What the loading screen reads for a mission: each definition once,
 // whatever its case, then its model.
 void testLoadingFiles() {
@@ -161,5 +194,6 @@ static const reluva::test::Suite
                                      {"options", [](const std::filesystem::path &) { testOptions(); }},
                                      {"settings", [](const std::filesystem::path &) { testSettings(); }},
                                      {"connection", [](const std::filesystem::path &) { testConnection(); }},
+                                     {"game setup", [](const std::filesystem::path &) { testGameSetup(); }},
                                      {"loading files", [](const std::filesystem::path &) { testLoadingFiles(); }},
                                  });

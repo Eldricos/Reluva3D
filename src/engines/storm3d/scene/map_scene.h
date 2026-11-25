@@ -79,7 +79,8 @@ public:
     struct StartUnit {
         std::string odf;
         gfx::Vec3 at{};
-        int slot = 0; // the player's: its path Camera_<slot>
+        int slot = 0;                    // the player's: its path Camera_<slot>
+        std::optional<gfx::Vec3> colour; // its player's team colour; none: build's
     };
     /**
      * Where a skirmish makes each player's starting units, as the game
@@ -166,6 +167,7 @@ private:
     std::map<std::string, Look> _looks; // by lower-case definition
     // What's drawn: each object's model and place; the background's.
     std::vector<std::pair<const SodMeshes::Built *, gfx::Mat4>> _placed;
+    std::vector<std::optional<gfx::Vec3>> _teams; // as _placed: each one's own team colour, if any
     const SodMeshes::Built *_background = nullptr;
     size_t _drawn = 0;
     size_t _unmodelled = 0;

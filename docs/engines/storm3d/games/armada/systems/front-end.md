@@ -179,6 +179,45 @@ and teams, the map, and the game's options, with LAUNCH. (A run that
 had pressed Esc over the main menu first left this screen unanswering;
 without it, the screen works.)
 
+### The Game Setup screen
+
+Instant Action opens it over `bitmaps\multiset\mpsBG.bmp`, which has
+its panels and boxes painted in. Its title, "GAME SETUP", is white, 20
+pixels, from (64, 6); its headings ("Player Name", "Side", "Teams",
+"Game Name", "Messages") yellow, 16 pixels. Its words are `label.map`'s
+`multiplayer_setup`.
+
+- **Eight slots,** 19 apart from y 54, each three lists: who
+  (`mpsplapd`, 145 × 19, at x 5), their side (`mpsracpd`, 111 × 19, x
+  150) and team (`mpsteapd`, 58 × 19, x 261), the words black, 12
+  pixels, centred. The game opens it with the player (their name in
+  red, (255, 0, 0)), a computer at medium and six empty slots, every
+  side Random, the computer on Team 2. Before a name, a bullet (•, 20
+  pixels) in that player's colour: white for the player, red for the
+  computer.
+- **The colours,** nine swatches 27 × 16, 29 apart from (16, 209):
+  `teamcolor.odf`'s empty, white, red, blue, green, yellow, purple,
+  cyan and brown. One a player has is dark, (25, 24, 25); the first
+  is framed in black.
+- **The messages' panel,** its scroll bar's arrows at (325, 250) and
+  (325, 377), its thumb at (325, 271); who they go to, "ALL", in a
+  `mpsteapd` list at (563, 421).
+- **The map,** its file's name and how many it takes (its `Camera_<n>`
+  paths: "4 Players"), yellow, 16 pixels, centred over its picture's
+  place. The game opens it on `4first.bzn`, "The Very First Map".
+- **The options,** fourteen 111 × 20 controls down the right, 24 apart
+  from (524, 60), and five 128 × 20 below the map, 23 apart from (385,
+  272). Lists (`mps111pd`, `mps128pd`, an arrow at their right end)
+  for the game's type, its most players, the ping filter, the starting
+  dilithium, crew and officers ("Dilithium:   3000", three spaces),
+  the units, the technology, what the map shows and the shroud and fog;
+  toggles (`mps111tg`, `mps128tg`) for the rest and SELECT MAP. A few
+  of `label.map`'s keys name the other state: `ferengi_off` says
+  "Ferengi On".
+- **The bottom bar,** a pixel right and down of the other screens' (its
+  right plate two), saying Previous Menu, LAUNCH (centred on its whole
+  plate) and Main Menu.
+
 ### The Load Game screen
 
 Load Game on the single-player screen opens it over
@@ -308,7 +347,10 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
   game, read before the install's (`player_files.h`).
   Multiplayer opens the Multiplayer Connection screen
   (`shell/multiplayer_screen.h`), where a name can be typed; its ways
-  to play do nothing yet (Instant Action's Game Setup screen is next). Load Game opens the Load Game screen (`shell/load_game_screen.h`),
+  to play do nothing yet but Instant Action, which opens the Game Setup
+  screen (`shell/game_setup_screen.h`). There, clicking a list turns it
+  to its next value *(guessed)*, as the frames never show one open, and
+  LAUNCH starts a skirmish on its map ([play.md](play.md)). Load Game opens the Load Game screen (`shell/load_game_screen.h`),
   its list empty. Credits shows the credits (`shell/credits_screen.h`),
   back to the menu after the last page or a key or click. The models are drawn as the data viewer's are
   (`scene/sod_meshes.h`); the logo's specular glint isn't. The version is in Reluva's own
@@ -344,7 +386,9 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
   `shell.set` with three Klingon missions open, the mission panel is the
   same as the game's in every pixel.
   The Multiplayer Connection screen, with the pointer over Instant
-  Action, and the Load Game screen are the same in every pixel. The credits' text falls on the
+  Action, and the Load Game screen are the same in every pixel; the Game
+  Setup screen, with the pointer over ALL, but for LAUNCH a pixel left
+  and six pixels of the stars. The credits' text falls on the
   original's frames in fading in, held and going away, within a few
   hundred pixels; their stars match its frames' to a correlation of
   0.91.

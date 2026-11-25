@@ -29,6 +29,16 @@ their `...START` paths, not where the map leaves them (the Enterprise's
 (`missions\Federation1S.dsl` and `R.drl`) are Windows DLLs, run by the
 program; see the plan's phase 8.
 
+### How a skirmish starts
+
+LAUNCH on the Game Setup screen loads the map, then plays it: each
+player's starting units as the game makes them, about their
+`Camera_<n>` path's first point ([formats/bzn.md](../formats/bzn.md#starting-units)),
+in their colour; the overview over the player's own; and the shroud
+over what the player's units don't see. Run in the emulator, "The Very
+First Map" opens with the player's starbase and two construction ships
+before the lava moon.
+
 ### The camera's keys
 
 `Input.map` gives the overview camera its keys: the keypad's + and −
@@ -62,6 +72,11 @@ before and after each ([camera.md](camera.md#the-overview)):
   which they'd cast from the wrong places. Esc goes back to the
   single-player screen. The interface and the objectives aren't drawn
   yet.
+- **A skirmish** (`MissionView::startSkirmish`) starts from the Game
+  Setup screen's slots: each player's race (one left Random takes the
+  races in turn by its slot *(guessed)*), their colour, and slot *n* on
+  `Camera_<n+1>` *(guessed)*, as what Random Placement does isn't known.
+  The scene draws each player's units in their own colour.
 
 ## Sources and checks
 
@@ -70,7 +85,10 @@ before and after each ([camera.md](camera.md#the-overview)):
   camera in the program's memory ([camera.md](camera.md)).
 - **How it was checked:** `engine-shot` past the mission panel set
   beside the original's first frame of play: the planets and the grid
-  where the game's are, behind its objectives and interface. The Maps
+  where the game's are, behind its objectives and interface. Launched
+  from the Game Setup screen, the skirmish beside the original's: its
+  starbase, construction ships, the moon and the grid where the game's
+  are. The Maps
   page drew the same images before and after its drawing moved into
   `MapScene`. The unit tests (`storm3d.unit.play`) check the keys and
   the camera's moves against the program's memory.
@@ -81,3 +99,4 @@ before and after each ([camera.md](camera.md#the-overview)):
   the input's clock, and the frames fall between.
 - How long the program waits on its first frame of play, and what the
   cut scene's camera follows.
+- How Random sides and Random Placement choose.

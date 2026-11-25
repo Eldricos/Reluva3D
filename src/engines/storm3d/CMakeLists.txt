@@ -28,6 +28,7 @@ reluva_add_engine(storm3d
         shell/credits_screen.cpp
         shell/full_screen_movie.cpp
         shell/loading_screen.cpp
+        shell/game_setup_screen.cpp
         shell/load_game_screen.cpp
         shell/main_menu.cpp
         shell/multiplayer_screen.cpp

@@ -95,6 +95,39 @@ Error MissionView::start(gfx::Renderer3D *renderer, const std::string &map, int 
     return Error::success();
 }
 
+Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &map, const std::vector<Player> &players,
+                                 bool shroud, uint64_t millis) {
+    stop();
+    BznMap parsed;
+    std::vector<uint8_t> data;
+    if (Error err = _files.read("bzn/" + map, data))
+        return err;
+    if (Error err = parsed.parse(data))
+        return Error::fail(map + ": " + err.message);
+    _renderer = renderer;
+    _scene.attach(renderer);
+    std::vector<MapScene::StartUnit> units;
+    std::vector<MapScene::StartUnit> mine;
+    int slot = 1;
+    for (const Player &p : players) {
+        for (MapScene::StartUnit &u : MapScene::startUnitsOf(parsed, MapScene::standardUnitsOf(p.race, _files.files())))
+            if (u.slot == p.slot) {
+                u.colour = p.colour;
+                units.push_back(u);
+                if (p.human)
+                    mine.push_back(u);
+            }
+        if (p.human)
+            slot = p.slot;
+    }
+    _scene.build(parsed, units, "",
+                 shroud && !mine.empty() ? _scene.sightsOf(parsed, mine, -1) : std::vector<MapScene::Sight>{});
+    _overview = startOf(parsed, slot);
+    _held.clear();
+    _last = millis;
+    return Error::success();
+}
+
 void MissionView::stop() {
     _scene.attach(nullptr);
     _renderer = nullptr;

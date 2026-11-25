@@ -421,7 +421,9 @@ const SodMeshes::Built *SodMeshes::model(const std::string &name) {
     return &*built;
 }
 
-void SodMeshes::drawPart(const Part &part, const gfx::Mat4 &place, bool behind) const {
+void SodMeshes::drawPart(const Part &part, const gfx::Mat4 &place, bool behind,
+                         const std::optional<gfx::Vec3> *team) const {
+    const std::optional<gfx::Vec3> &colour = team && *team ? *team : _team;
     // A background is added up, onto the frame cleared black: the game draws
     // MbgKlin3's star sphere (one, zero) and its nebula's cube over it (one,
     // one), which comes to the same.
@@ -432,7 +434,7 @@ void SodMeshes::drawPart(const Part &part, const gfx::Mat4 &place, bool behind) 
     call.indexCount = part.indexCount;
     call.model = gfx::multiply(place, part.world);
     call.texture = part.texture;
-    call.color = part.team && _team ? std::array<float, 4>{(*_team)[0], (*_team)[1], (*_team)[2], 1} : part.colour;
+    call.color = part.team && colour ? std::array<float, 4>{(*colour)[0], (*colour)[1], (*colour)[2], 1} : part.colour;
     // Both sides drawn: whether the game culls the back ones isn't known.
     call.state.cull = gfx::Cull::kNone;
     if (additive) {
@@ -510,15 +512,16 @@ void SodMeshes::draw(const Built &built, const gfx::Mat4 &place, bool behind) co
     draw({{&built, place}}, behind);
 }
 
-void SodMeshes::draw(const std::vector<std::pair<const Built *, gfx::Mat4>> &batch, bool behind) const {
+void SodMeshes::draw(const std::vector<std::pair<const Built *, gfx::Mat4>> &batch, bool behind,
+                     const std::vector<std::optional<gfx::Vec3>> *teams) const {
     if (!_renderer)
         return;
     // Opaque parts first, then the additive ones and the sprites over them.
     for (int pass = 0; pass < 2; ++pass)
-        for (const auto &[built, place] : batch)
-            for (const Part &part : built->parts)
+        for (size_t i = 0; i < batch.size(); ++i)
+            for (const Part &part : batch[i].first->parts)
                 if ((part.drawMode == "additive" || part.drawMode == "wormhole") == (pass == 1))
-                    drawPart(part, place, behind);
+                    drawPart(part, batch[i].second, behind, teams && i < teams->size() ? &(*teams)[i] : nullptr);
     if (behind)
         return;
     for (const auto &[built, place] : batch)
