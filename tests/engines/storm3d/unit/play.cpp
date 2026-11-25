@@ -174,6 +174,50 @@ void testDisplay() {
     CHECK(controls.count(9) == 0 && controls.count(10) && controls.count(11) == 0);
 }
 
+// A box keeps the ships that move, leaving out the starbase with them;
+// alone, the starbase; and only the player's own.
+void testBox() {
+    using reluva::storm3d::MapScene;
+    auto unit = [](const char *odf, int slot, float x, float z) {
+        MapScene::Unit u;
+        u.odf = odf;
+        u.slot = slot;
+        u.at = {x, 38.5f, z};
+        u.lo = {x - 10, 30, z - 10};
+        u.hi = {x + 10, 50, z + 10};
+        return u;
+    };
+    const std::vector<MapScene::Unit> units = {unit("fbase", 1, 677.6f, 502.8f), unit("fconst", 1, 560, 520),
+                                               unit("fconst", 1, 600, 520), unit("fconst", 2, 620, 500)};
+    const std::vector<bool> moves = {false, true, true, true};
+    const auto viewProj = MapScene::viewProjOf(MapScene::overviewOf({576.6f, 38.5f, 444.5f}), 1000);
+    CHECK((MissionView::boxed(units, moves, viewProj, 1, 0, 0, 640, 330) == std::vector<int>{1, 2}));
+    CHECK((MissionView::boxed(units, moves, viewProj, -1, 640, 330, 0, 0) == std::vector<int>{1, 2, 3}));
+    const auto base = MapScene::project(viewProj, units[0].middle());
+    CHECK(base.has_value());
+    if (base) {
+        const int x = int((*base)[0]);
+        const int y = int((*base)[1]);
+        CHECK((MissionView::boxed(units, moves, viewProj, 1, x - 5, y - 5, x + 5, y + 5) == std::vector<int>{0}));
+    }
+    CHECK(MissionView::boxed(units, moves, viewProj, 1, 0, 0, 5, 5).empty());
+}
+
+// Two construction ships' orders: theirs, build dark, the tractor beam once.
+void testGroupOrders() {
+    Hud::Unit ship;
+    ship.controls = {{2, "b_attack", "bb_standard", false},
+                     {1, "b_move", "bb_standard", true},
+                     {10, "b_build", "bb_standard", true}};
+    ship.specials = {"b_gtracbm"};
+    Hud::Unit other = ship;
+    other.controls[0].enabled = true;
+    const Hud::Unit orders = MissionView::ordersOf({ship, other});
+    CHECK(orders.controls.size() == 3 && orders.controls[0].slot == 1 && orders.controls[1].enabled);
+    CHECK(!orders.controls[2].enabled && orders.specials.size() == 1);
+    CHECK(MissionView::ordersOf({ship}).controls[2].enabled);
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("storm3d.unit.play",
@@ -185,4 +229,6 @@ static const reluva::test::Suite kSuite("storm3d.unit.play",
                                             {"counters", [](const std::filesystem::path &) { testCounters(); }},
                                             {"selection", [](const std::filesystem::path &) { testSelection(); }},
                                             {"display", [](const std::filesystem::path &) { testDisplay(); }},
+                                            {"box", [](const std::filesystem::path &) { testBox(); }},
+                                            {"group orders", [](const std::filesystem::path &) { testGroupOrders(); }},
                                         });

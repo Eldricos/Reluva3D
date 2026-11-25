@@ -195,6 +195,29 @@ void Hud::drawText(Surface &screen, const std::array<int, 4> &area, const std::s
     _font.draw(screen, x, y, text, tint, true);
 }
 
+void Hud::drawBox(Surface &screen, int x0, int y0, int x1, int y1) {
+    // From a pixel up and left of its top left to its bottom right: so the
+    // original's fell, within a pixel, its pointer between pixels.
+    const int left = std::min(x0, x1) - 1;
+    const int right = std::max(x0, x1);
+    const int top = std::min(y0, y1) - 1;
+    const int bottom = std::max(y0, y1);
+    auto plot = [&screen](int x, int y) {
+        if (x < 0 || y < 0 || x >= screen.w || y >= screen.h)
+            return;
+        uint8_t *p = screen.row(y) + size_t(x) * 4;
+        p[0] = p[1] = p[2] = p[3] = 255;
+    };
+    for (int x = left; x <= right; ++x) {
+        plot(x, top);
+        plot(x, bottom);
+    }
+    for (int y = top; y <= bottom; ++y) {
+        plot(left, y);
+        plot(right, y);
+    }
+}
+
 bool Hud::hasSprite(const std::string &name) const {
     return sprite(name) != nullptr;
 }
@@ -204,7 +227,51 @@ std::string Hud::word(const std::string &key, const std::string &fallback) const
     return it == _words.end() ? fallback : it->second;
 }
 
-void Hud::drawUnit(Surface &screen, const Unit &unit) {
+void Hud::drawSelection(Surface &screen, const std::vector<Unit> &units, const Unit &orders) {
+    if (units.empty())
+        return;
+    if (units.size() == 1)
+        drawInfo(screen, units.front());
+    else
+        drawGroup(screen, units);
+    drawOrders(screen, orders);
+}
+
+void Hud::drawWireframe(Surface &screen, const std::string &name, const std::array<int, 4> &area) {
+    // Five 40-texel squares of its 128 texture, over each other, in the
+    // draws' order.
+    const image::Image *wire = texture(name);
+    if (!wire)
+        return;
+    const double scale = wire->w / 128.0;
+    for (const auto &[tu, tv] : kWireframeTiles)
+        drawTexels(screen, *wire, tu * scale, tv * scale, kWireframeTile * scale, kWireframeTile * scale, area[0],
+                   area[1], area[2], area[3], {255, 255, 255}, false);
+}
+
+void Hud::drawGroup(Surface &screen, const std::vector<Unit> &units) {
+    // A place each, from the info panel's corner, for as many as it has:
+    // the crew dot, the shield bar over its dark grey, the wireframe.
+    const std::array<int, 4> info = _layout.area("infoPanelArea");
+    const std::array<int, 4> dot = _layout.area("infoMultiCrewDotArea");
+    const std::array<int, 4> bar = _layout.area("infoMultiShieldBarArea");
+    const std::array<int, 4> wire = _layout.area("infoMultiWireframeIconArea");
+    const std::string barSprite = _layout.text("infoMultiShieldBar");
+    for (size_t i = 0; i < units.size(); ++i) {
+        const std::string place = "infoMultiShipIcon_" + std::to_string(i);
+        if (!_layout.find(place))
+            break;
+        const std::array<int, 4> icon = _layout.area(place);
+        const int x = info[0] + icon[0];
+        const int y = info[1] + icon[1];
+        drawSprite(screen, _layout.text("infoMultiCrewDot"), x + dot[0], y + dot[1], dot[2], dot[3], kGreen);
+        drawSprite(screen, barSprite, x + bar[0], y + bar[1], bar[2], bar[3], kDisabled);
+        drawSprite(screen, barSprite, x + bar[0], y + bar[1], bar[2], bar[3], kGreen, false, units[i].shields);
+        drawWireframe(screen, units[i].wireframe, {x + wire[0], y + wire[1], wire[2], wire[3]});
+    }
+}
+
+void Hud::drawInfo(Surface &screen, const Unit &unit) {
     const std::array<int, 4> info = _layout.area("infoPanelArea");
     auto at = [this, &info](const std::string &name) {
         std::array<int, 4> a = _layout.area(name);
@@ -243,15 +310,7 @@ void Hud::drawUnit(Surface &screen, const Unit &unit) {
     sprite(_layout.text("infoSingleConstructionBar"), "infoSingleConstructionBarArea", kDisabled);
     sprite(_layout.text("infoSingleConstructionBar"), "infoSingleConstructionBarArea", kConstruction, false,
            unit.construction);
-    // The wireframe: five 40-texel squares of its 128 texture, over each
-    // other, in the draws' order.
-    if (const image::Image *wire = texture(unit.wireframe)) {
-        const std::array<int, 4> a = at("infoSingleWireframeIconArea");
-        const double scale = wire->w / 128.0;
-        for (const auto &[tu, tv] : kWireframeTiles)
-            drawTexels(screen, *wire, tu * scale, tv * scale, kWireframeTile * scale, kWireframeTile * scale, a[0],
-                       a[1], a[2], a[3], {255, 255, 255}, false);
-    }
+    drawWireframe(screen, unit.wireframe, at("infoSingleWireframeIconArea"));
     // The systems: each icon added on in dark grey, then in green if the
     // unit has it.
     for (size_t i = 0; i < unit.systems.size(); ++i) {
@@ -261,6 +320,9 @@ void Hud::drawUnit(Surface &screen, const Unit &unit) {
         if (unit.systems[i])
             drawSprite(screen, icon, a[0], a[1], a[2], a[3], kGreen, true);
     }
+}
+
+void Hud::drawOrders(Surface &screen, const Unit &unit) {
     // Its orders' buttons: the icon, then its border added on, in their
     // greys, or both near black when the unit can't.
     const std::array<int, 4> control = _layout.area("controlPanelArea");

@@ -90,8 +90,8 @@ public:
     void stop();
     /** A key pressed or let go, the mouse moved or clicked. */
     void handleEvent(const Event &ev);
-    /** The unit selected, into the scene's units; -1 for none. */
-    int selected() const { return _selected; }
+    /** The units selected, into the scene's units. */
+    const std::vector<int> &selection() const { return _selection; }
     /**
      * The unit under a point of the screen, seen through `viewProj`: the
      * one whose middle is nearest it, of those whose box reaches it there;
@@ -99,6 +99,19 @@ public:
      */
     static int unitAt(const std::vector<MapScene::Unit> &units, const gfx::Mat4 &viewProj,
                       const MapScene::Camera &camera, int x, int y);
+    /**
+     * The units a box dragged from (x0, y0) to (x1, y1) selects: of
+     * `slot`'s (-1: anyone's), those whose middle falls in it on the
+     * screen; only those that move (`moves`, by unit), if any do.
+     */
+    static std::vector<int> boxed(const std::vector<MapScene::Unit> &units, const std::vector<bool> &moves,
+                                  const gfx::Mat4 &viewProj, int slot, int x0, int y0, int x1, int y1);
+    /**
+     * A group's orders: each button any of them has, lit if any of them
+     * can; build dark, as one unit builds at a time; their special
+     * weapons once each.
+     */
+    static Hud::Unit ordersOf(const std::vector<Hud::Unit> &units);
     /** Where the selection's ring lies: its middle, and half its side, from a unit's box. */
     static gfx::Vec3 ringMiddleOf(const MapScene::Unit &unit);
     static float ringHalfOf(const MapScene::Unit &unit);
@@ -121,10 +134,15 @@ private:
     int _mouseY = 240;
     int _pressX = -1; // where the left button went down; -1 while it's up
     int _pressY = -1;
-    int _selected = -1;
+    std::vector<int> _selection;
+    bool _dragging = false; // the left button held and moved past a click
+    bool _clicked = false;  // the selection is a click's, which has a health bar
     int _hover = -1;
-    int _displayed = -1; // the unit _display is of
-    Hud::Unit _display;
+    int _slot = -1;              // the player's, whose units a box selects; -1: anyone's
+    std::vector<bool> _moves;    // by unit: whether it has engines
+    std::vector<int> _displayed; // the units _display is of
+    std::vector<Hud::Unit> _display;
+    Hud::Unit _orders;
     gfx::MeshId _ringMesh = 0;
     gfx::TextureId _ringTexture = 0;
     MapScene::Camera camera() const;

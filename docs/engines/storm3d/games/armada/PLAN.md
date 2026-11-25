@@ -106,7 +106,7 @@ these phases start from, is in [formats/install.md](formats/install.md).
    Game Setup screen, each player's starting units in their colour; the
    interface over it, its panels, counters and minimap; selecting a
    unit with the game's cursor, its ring and health bar, its display,
-   orders and special weapons.
+   orders and special weapons; selecting with a box, a group's display.
 8. **The campaign:** the functions `Armada.exe` exports for the missions,
    the missions themselves ([Decisions](#decisions)), the cut scenes and
    the bridge scenes, and saved games.

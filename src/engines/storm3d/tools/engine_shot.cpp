@@ -81,19 +81,25 @@ private:
 };
 
 // "1500:move:90:18", "2000:click:90:18" (down, up a tenth of a second
-// later), "300:key:escape".
+// later), "2000:down:90:18" and "2500:up:200:100" for a drag,
+// "300:key:escape".
 bool parseEvent(const std::string &text, std::vector<ScriptSystem::Timed> &out) {
     const std::vector<std::string> parts = text::split(text, ':');
     if (parts.size() < 3)
         return false;
     const uint64_t at = std::strtoull(parts[0].c_str(), nullptr, 10);
     Event ev;
-    if ((parts[1] == "move" || parts[1] == "click") && parts.size() == 4) {
+    const bool mouse = parts[1] == "move" || parts[1] == "click" || parts[1] == "down" || parts[1] == "up";
+    if (mouse && parts.size() == 4) {
         ev.mouseX = std::atoi(parts[2].c_str());
         ev.mouseY = std::atoi(parts[3].c_str());
         ev.button = MouseButton::kLeft;
         ev.type = EventType::kMouseMove;
         out.push_back({at, ev});
+        if (parts[1] == "down" || parts[1] == "up") {
+            ev.type = parts[1] == "down" ? EventType::kMouseDown : EventType::kMouseUp;
+            out.push_back({at, ev});
+        }
         if (parts[1] == "click") {
             ev.type = EventType::kMouseDown;
             out.push_back({at, ev});
@@ -158,13 +164,13 @@ int cmdEngineShot(int argc, char **argv) {
     return out ? 0 : 1;
 }
 
-const tool::Commands
-    kCommands("storm3d",
-              {
-                  {"engine-shot", "<game folder> <out.png> <ms> [-save dir] [event...]",
-                   "the game run without a window, events at their times (1500:move:x:y, "
-                   "2000:click:x:y, 300:key:escape), the player's files in dir, its screen at ms written as PNG",
-                   cmdEngineShot},
-              });
+const tool::Commands kCommands(
+    "storm3d",
+    {
+        {"engine-shot", "<game folder> <out.png> <ms> [-save dir] [event...]",
+         "the game run without a window, events at their times (1500:move:x:y, "
+         "2000:click:x:y, 2000:down:x:y, 2500:up:x:y, 300:key:escape), the player's files in dir, its screen at ms written as PNG",
+         cmdEngineShot},
+    });
 
 } // namespace

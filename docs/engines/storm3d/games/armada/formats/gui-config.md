@@ -84,8 +84,14 @@ The names come in families, by the panel they start with (`speed`,
   gap each, each with the border `bb_dweapon`; past five of them the
   separator, and past it the transport button.
 
-The info panel's groups and the comm screen in `gui_glob.cfg` wait
-for what fills them.
+- `infoMultiShipIcon_<i>` (0 to 7): a group's ships' places on the
+  info panel, four to a row; in each, from its corner,
+  `infoMultiCrewDot` in green at `…CrewDotArea`, `infoMultiShieldBar`
+  in (77, 77, 77) and then green at `…ShieldBarArea`, and the
+  wireframe at `infoMultiWireframeIconArea`, in the draws' order. The
+  construction ships' draws had no `infoMultiEnergyBar`.
+
+The comm screen in `gui_glob.cfg` waits for what fills it.
 
 ## In Reluva
 

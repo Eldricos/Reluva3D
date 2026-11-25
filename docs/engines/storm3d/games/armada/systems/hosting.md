@@ -150,7 +150,31 @@ it may be the game's mouse speed setting)*, and stops at the screen's
 edges, where the map scrolls. So in a mission the pointer is moved with
 `motion`, which the host breaks into steps the screen holds, 50 ms
 apart: first far into a corner, which puts it at a known place, then to
-where it's wanted.
+where it's wanted. The corner scrolls the map, though, so where that
+matters the pointer is moved from where it starts instead: after a
+skirmish launched from the Game Setup screen, it stood at (320, 349),
+found by matching the cursor's sprite in the frames. A `move` in a
+mission is taken as motion too, by its distance from the centre.
+
+A skirmish: Multiplayer, a name typed (`PLAYER`), Instant Action, then
+the Game Setup screen's launch:
+
+```text
+4000 move 552 18
+5000 click 552 18    # Multiplayer
+8000 move 320 110
+8500 click 320 110   # the name's field
+9000 key 80
+9300 key 76
+9600 key 65
+9900 key 89
+10200 key 69
+10500 key 82
+11500 move 320 310
+12000 click 320 310  # Instant Action
+15000 move 320 460
+16000 click 320 460  # LAUNCH
+```
 
 To start "Premonitions", the mission first on the Federation's panel
 (its map `bzn\fed1.bzn`), skip its two opening scenes (Escape, virtual
@@ -195,8 +219,9 @@ each, its imports, and its classes ([research/](../research/README.md)).
 
 - Clicks by the clock can come before the screen they're for; a run that
   goes further will want input that waits for what's shown.
-- Where a mission's pointer starts, so that it needn't be pushed into a
-  corner first (which scrolls the map there).
+- Where a mission's pointer starts, and why: (320, 349) after the
+  skirmish's launch, seen once; a campaign mission's isn't known, so its
+  pointer is pushed into a corner first (which scrolls the map there).
 - Fonts: without Windows' own (`-fonts`), text is in look-alikes with
   the same widths.
 - Its sound: DirectSound is there, but silent.

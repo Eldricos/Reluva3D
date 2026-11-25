@@ -123,7 +123,30 @@ and a construction ship's draws have them:
 
 Half a second after the starbase's, the original drew bars over the
 two construction ships too, unselected. A ship chosen with `N` had its
-ring but no bar in that frame.
+ring but no bar in that frame, and neither had units a box selected.
+
+### Selecting with a box
+
+Dragged with the left button, the original draws the box over the map,
+under the panels: four lines, white, a pixel wide, from a pixel up and
+left of where the drag started to the pointer, within a pixel (its
+pointer moves in half pixels). As it's dragged, what it holds is
+selected already: the rings and the display change before the button
+is let go, and stay as they are after.
+
+What a box selects, from three drags in a skirmish's first minute:
+
+- Around the starbase and both construction ships, the ships alone:
+  the starbase was left out. Around the starbase alone, the starbase.
+  So a box holding units that move keeps only those *(inferred)*.
+- A unit is in the box when its middle falls in it on the screen
+  *(guessed)*: each unit in these drags was well inside or outside.
+
+The info panel shows a group as the layout's `infoMulti…` places say
+([gui-config.md](../formats/gui-config.md)): each ship's wireframe,
+its shield bar and its crew dot, side by side, without the single
+display's words and systems. The control panel had the construction
+ship's orders, but with build dark; the rail had the tractor beam once.
 
 ### The camera's keys
 
@@ -173,6 +196,12 @@ before and after each ([camera.md](camera.md#the-overview)):
   its possible names counted on by its place in the scene, as the
   game's random choice isn't known. The orders' buttons don't do
   anything yet.
+- **A box** drawn as the original's selects as it's dragged: the
+  player's units whose middles it holds, only those that move if any
+  do. A group shows each ship on the info panel, and its orders: each
+  button any of them has, lit if any of them can, build dark
+  *(guessed)*; their special weapons once each. A unit clicked on has
+  its health bar; units a box selected don't.
 - **A skirmish** (`MissionView::startSkirmish`) starts from the Game
   Setup screen's slots: each player's race (one left Random takes the
   races in turn by its slot *(guessed)*), their colour, and slot *n* on
@@ -196,7 +225,10 @@ before and after each ([camera.md](camera.md#the-overview)):
   facts from the starbase's and construction ship's definitions. The
   starbase's and a construction ship's displays, drawn by `engine-shot`,
   were set beside the original's frames: the same in every part but
-  their names, a few pixels' colours at the sprites' edges apart.
+  their names, a few pixels' colours at the sprites' edges apart. Boxes
+  dragged by `engine-shot` (`down`, `move`, `up`), set beside the
+  original's: the box, the rings, the group's display, orders and rail
+  where the original's are.
 
 ## Open questions
 
@@ -207,7 +239,10 @@ before and after each ([camera.md](camera.md#the-overview)):
 - How Random sides and Random Placement choose.
 - How fast the crew grows.
 - When the health bars show: why the unselected ships had theirs, and
-  the ship chosen with `N` none yet.
+  the ship chosen with `N`, or a box, none yet.
+- Which point of a unit the box has to hold, and how a group's orders
+  are lit when its ships can do different things.
+- How the info panel shows more than eight ships.
 - What the ring's height is: near the plane for both, but not the same.
 - When a ship's repair order is lit, and what the display shows of
   other ships and of a group.

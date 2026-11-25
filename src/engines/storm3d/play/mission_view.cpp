@@ -164,6 +164,53 @@ Hud::Unit MissionView::displayOf(const std::string &odfName, const Odf::Loader &
     return u;
 }
 
+std::vector<int> MissionView::boxed(const std::vector<MapScene::Unit> &units, const std::vector<bool> &moves,
+                                    const gfx::Mat4 &viewProj, int slot, int x0, int y0, int x1, int y1) {
+    std::vector<int> inside;
+    bool anyMoves = false;
+    for (size_t i = 0; i < units.size(); ++i) {
+        if (slot >= 0 && units[i].slot != slot)
+            continue;
+        const auto at = MapScene::project(viewProj, units[i].middle());
+        if (!at || (*at)[0] < std::min(x0, x1) || (*at)[0] > std::max(x0, x1) || (*at)[1] < std::min(y0, y1) ||
+            (*at)[1] > std::max(y0, y1))
+            continue;
+        inside.push_back(int(i));
+        anyMoves = anyMoves || (i < moves.size() && moves[i]);
+    }
+    // The starbase in a box with the construction ships was left out of
+    // it; alone, a box selected it.
+    if (anyMoves)
+        std::erase_if(inside, [&moves](int i) { return size_t(i) >= moves.size() || !moves[size_t(i)]; });
+    return inside;
+}
+
+Hud::Unit MissionView::ordersOf(const std::vector<Hud::Unit> &units) {
+    if (units.size() == 1)
+        return units.front();
+    Hud::Unit orders;
+    for (const Hud::Unit &u : units) {
+        for (const Hud::Unit::Button &b : u.controls) {
+            auto same = std::find_if(orders.controls.begin(), orders.controls.end(),
+                                     [&b](const Hud::Unit::Button &o) { return o.slot == b.slot; });
+            if (same == orders.controls.end())
+                orders.controls.push_back(b);
+            else
+                same->enabled = same->enabled || b.enabled;
+        }
+        for (const std::string &s : u.specials)
+            if (std::find(orders.specials.begin(), orders.specials.end(), s) == orders.specials.end())
+                orders.specials.push_back(s);
+    }
+    // Two construction ships had their build button dark.
+    for (Hud::Unit::Button &b : orders.controls)
+        if (b.sprite == "b_build")
+            b.enabled = false;
+    std::sort(orders.controls.begin(), orders.controls.end(),
+              [](const Hud::Unit::Button &a, const Hud::Unit::Button &b) { return a.slot < b.slot; });
+    return orders;
+}
+
 std::string MissionView::hudRaceOf(const std::string &race) {
     static const std::map<std::string, std::string> kNames = {
         {"fed", "fed"}, {"federation", "fed"}, {"kling", "kli"}, {"klingon", "kli"},
@@ -232,6 +279,17 @@ Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &m
     _scene.build(parsed, units, "",
                  shroud && !mine.empty() ? _scene.sightsOf(parsed, mine, -1) : std::vector<MapScene::Sight>{});
     _overview = startOf(parsed, slot);
+    _slot = slot;
+    std::map<std::string, bool> engines;
+    const Odf::Loader loader = loaderOf(_files.files());
+    for (const MapScene::Unit &u : _scene.units()) {
+        auto it = engines.find(u.odf);
+        if (it == engines.end()) {
+            Odf odf;
+            it = engines.emplace(u.odf, !odf.load(u.odf + ".odf", loader) && odf.number("enginesHitPoints") > 0).first;
+        }
+        _moves.push_back(it->second);
+    }
     std::vector<std::string> myUnits;
     std::string myRace = "fed";
     for (const Player &p : players)
@@ -350,7 +408,12 @@ void MissionView::stop() {
     }
     _ringMesh = 0;
     _ringTexture = 0;
-    _selected = _hover = _displayed = -1;
+    _selection.clear();
+    _displayed.clear();
+    _moves.clear();
+    _slot = -1;
+    _dragging = false;
+    _hover = -1;
     _scene.attach(nullptr);
     _renderer = nullptr;
 }
@@ -365,11 +428,24 @@ void MissionView::handleEvent(const Event &ev) {
         _pressY = ev.mouseY;
         return;
     }
-    if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft && _pressX >= 0) {
-        // A click, not a drag: the unit under it, or none.
-        if (std::abs(ev.mouseX - _pressX) + std::abs(ev.mouseY - _pressY) <= kClickSlop)
-            _selected = unitAt(_scene.units(), MapScene::viewProjOf(camera(), kRange), camera(), ev.mouseX, ev.mouseY);
-        _pressX = _pressY = -1;
+    if (_pressX >= 0 && (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseUp)) {
+        // Past a click's slop it's a box, and what it holds is selected as
+        // it's dragged, as the original's frames show.
+        if (std::abs(ev.mouseX - _pressX) + std::abs(ev.mouseY - _pressY) > kClickSlop)
+            _dragging = true;
+        const gfx::Mat4 viewProj = MapScene::viewProjOf(camera(), kRange);
+        if (_dragging)
+            _selection = boxed(_scene.units(), _moves, viewProj, _slot, _pressX, _pressY, ev.mouseX, ev.mouseY);
+        if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
+            if (!_dragging) {
+                // A click: the unit under it, or none.
+                const int unit = unitAt(_scene.units(), viewProj, camera(), ev.mouseX, ev.mouseY);
+                _selection = unit < 0 ? std::vector<int>{} : std::vector<int>{unit};
+            }
+            _clicked = !_dragging;
+            _pressX = _pressY = -1;
+            _dragging = false;
+        }
         return;
     }
     if (ev.type != EventType::kKeyDown && ev.type != EventType::kKeyUp)
@@ -393,13 +469,17 @@ void MissionView::draw(uint64_t millis) {
     const gfx::Mat4 viewProj = MapScene::viewProjOf(view, kRange);
     const std::vector<MapScene::Unit> &units = _scene.units();
     _hover = _hud.covers(_mouseX, _mouseY) ? -1 : unitAt(units, viewProj, view, _mouseX, _mouseY);
-    const MapScene::Unit *chosen =
-        _selected >= 0 && size_t(_selected) < units.size() ? &units[size_t(_selected)] : nullptr;
+    std::vector<const MapScene::Unit *> chosen;
+    for (int i : _selection)
+        if (i >= 0 && size_t(i) < units.size())
+            chosen.push_back(&units[size_t(i)]);
     makeRing();
-    if (chosen && _ringMesh && _ringTexture) {
+    for (const MapScene::Unit *unit : chosen) {
+        if (!_ringMesh || !_ringTexture)
+            break;
         // Added on in (229, 229, 229), as the draw is.
-        const gfx::Vec3 middle = ringMiddleOf(*chosen);
-        const float half = ringHalfOf(*chosen);
+        const gfx::Vec3 middle = ringMiddleOf(*unit);
+        const float half = ringHalfOf(*unit);
         gfx::DrawCall ring;
         ring.mesh = _ringMesh;
         ring.indexCount = 6;
@@ -417,20 +497,25 @@ void MissionView::draw(uint64_t millis) {
     if (_overlay.w != 640)
         _overlay.create(640, 480, PixelFormat::kRGBA32);
     std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), uint8_t(0));
-    if (chosen) {
-        const std::array<int, 3> bar = healthBarOf(*chosen, viewProj);
+    // A unit clicked on has its bar; the original drew none over units a
+    // box selected.
+    if (_clicked && chosen.size() == 1) {
+        const std::array<int, 3> bar = healthBarOf(*chosen.front(), viewProj);
         if (bar[2] > 0)
             _hud.drawHealthBar(_overlay, bar[0], bar[1], bar[2], 1);
     }
+    if (_dragging)
+        Hud::drawBox(_overlay, _pressX, _pressY, _mouseX, _mouseY);
     _hud.draw(_overlay, _resources.value_or(Hud::Resources{}), _scene.seen(), _resources.has_value());
-    if (chosen) {
-        if (_displayed != _selected) {
-            // The game picks a name at random; any one of them will do.
-            _display = displayOf(chosen->odf, loaderOf(_files.files()), _hud, size_t(_selected));
-            _displayed = _selected;
-        }
-        _hud.drawUnit(_overlay, _display);
+    if (_displayed != _selection) {
+        _display.clear();
+        // The game picks a name at random; any one of them will do.
+        for (int i : _selection)
+            _display.push_back(displayOf(units[size_t(i)].odf, loaderOf(_files.files()), _hud, size_t(i)));
+        _orders = ordersOf(_display);
+        _displayed = _selection;
     }
+    _hud.drawSelection(_overlay, _display, _orders);
     _hud.drawCursor(_overlay, _mouseX, _mouseY, double(millis) / 1000, _hover >= 0);
     _renderer->endFrame(&_overlay);
 }

@@ -58,10 +58,16 @@ public:
         std::vector<Button> controls;
         std::vector<std::string> specials; // its special weapons' buttons' sprites: "b_gtracbm"
     };
+    /** Draws the box a drag selects with: white lines from a pixel up and left of its top left to its bottom right. */
+    static void drawBox(Surface &screen, int x0, int y0, int x1, int y1);
     /** Whether the interface's sprite tables have a sprite of this name. */
     bool hasSprite(const std::string &name) const;
-    /** Draws a selected unit's display, orders and special weapons over the panels. */
-    void drawUnit(Surface &screen, const Unit &unit);
+    /**
+     * Draws what's selected over the panels: one unit's display, or a
+     * group's ships side by side; then `orders`' buttons and special
+     * weapons.
+     */
+    void drawSelection(Surface &screen, const std::vector<Unit> &units, const Unit &orders);
     /** Whether a point of the screen is on one of the panels (where clicks don't reach the map). */
     bool covers(int x, int y) const;
     /**
@@ -117,6 +123,10 @@ private:
     std::map<std::string, image::Image> _textures; // by lower-case name; empty if not there
     std::map<std::string, std::string> _words;     // Dynamic_Localized_Strings.h's, by key
     std::string word(const std::string &key, const std::string &fallback) const;
+    void drawInfo(Surface &screen, const Unit &unit);
+    void drawGroup(Surface &screen, const std::vector<Unit> &units);
+    void drawOrders(Surface &screen, const Unit &unit);
+    void drawWireframe(Surface &screen, const std::string &name, const std::array<int, 4> &area);
 };
 
 } // namespace reluva::storm3d
