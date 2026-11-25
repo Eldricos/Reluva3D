@@ -47,6 +47,7 @@ reluva_add_engine(nfs
         nfs2se/formats/hrz.cpp
         nfs2se/formats/paint.cpp
         nfs2se/glide_sky.cpp
+        nfs2se/track_sounds.cpp
         nfs2se/formats/trk.cpp
         nfs2se/status_page.cpp)
 

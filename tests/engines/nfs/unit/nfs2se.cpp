@@ -276,6 +276,12 @@ void testGlideSky() {
     CHECK(std::abs(nfs2se::glideFog(4, 900).density - 0.002f) < 1e-6f);
     CHECK(nfs2se::glideFog(9, 0).density == 0);
 
+    // TR04's tunnels: inside, black either way; at the ends, by the way it looks.
+    CHECK(nfs2se::skyInTunnel(4, 0x500, 1) && nfs2se::skyInTunnel(4, 0x500, -1));
+    CHECK(nfs2se::skyInTunnel(4, 0x400, 1) && !nfs2se::skyInTunnel(4, 0x400, -1));
+    CHECK(nfs2se::skyInTunnel(4, 0x570, -1) && !nfs2se::skyInTunnel(4, 0x570, 1));
+    CHECK(!nfs2se::skyInTunnel(4, 0x300, 1) && !nfs2se::skyInTunnel(3, 0x500, 1));
+
     nfs2se::Sky sky;
     sky.skyBaseSun = {0, 0, 0};
     sky.skyBaseOpposite = {80, 160, 240};

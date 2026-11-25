@@ -134,7 +134,10 @@ block to draw (0x435910).
   each end pushed out along the road by half its forward vector, so the
   pieces overlap (0x4353fc); type `0xFF` ends a line. The records run
   forward along the road, every one of them. Drawn at the high level only (0x435260) with the
-  pictures `lin0` to `lin7`; on `TR00`, `TR02`, `TR03` and `TR05`.
+  pictures `lin0` to `lin7`; on `TR00`, `TR02`, `TR03` and `TR05`. A
+  line whose vertex is more than 110 units deep in the view (0x6E0000,
+  0x448a93) is drawn as the whole quad, `lin0` for types 0 to 4 and
+  `lin1` for the others; nearer, as its type's stripes.
   Types 0 to 4 are yellow, 5 to 9 white, each drawn as the type 5 below
   (0x448bcc); up close, each has its own shape (0x448a24), far off one
   plain quad (beyond 0x6E0000 deep, 0x448a93). The shapes are as the
@@ -197,13 +200,19 @@ Textures), and the view mirrored left to right, as the hosted game shows
 it ([col.md](col.md), In Reluva). The signs' lettering reads as in the
 hosted game. Both faces are drawn. The quads take the 3dfx program's
 greys from their shades (S turns them off). The painted lines are drawn
-at every level, where the game draws them at the high one only, each
-type's stripes as the program draws them close up, 2 cm above the road where the game
-draws them after it (L turns them off); their far-off single quads
-aren't. The placed sounds play from the track's `TRAMBnn.BNK` as the
-game plays them, by the camera's place: the volume and pan by its
+at the high level only, as the game draws them: each type's stripes
+close up, the single quad far off, 2 cm above the road where the game
+draws them after it (L turns them off); a block's lines are near or far
+together, by how deep its first one is, where the game takes each line
+by itself. The placed sounds play from the track's `TRAMBnn.BNK` as the
+game plays them, by the camera's place
+(`src/engines/nfs/nfs2se/track_sounds.cpp`): the volume and pan by its
 rule, the nearest loop where the game takes the first it comes to, and
 the frame count the one-shots wait on stepping 30 times a second.
+`reluva-tool nfs track-sounds` mixes them as heard at a road point into
+a WAV file, without an audio device: `TR03` to `TR07` place 1 to 8
+sounds, heard as their bank's loops and one-shots where the track puts
+them; `TR00`, `TR02` and `TR08` place none.
 
 ## Sources and checks
 

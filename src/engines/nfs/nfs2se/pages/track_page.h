@@ -3,13 +3,12 @@
 
 #pragma once
 
-#include "audio/mixer.h"
-#include "engines/nfs/formats/bnk.h"
 #include "engines/nfs/nfs2se/formats/col.h"
 #include "engines/nfs/nfs2se/formats/hrz.h"
 #include "engines/nfs/nfs2se/formats/trk.h"
 #include "engines/nfs/nfs2se/glide_sky.h"
 #include "engines/nfs/nfs2se/pages/quad_mesh.h"
+#include "engines/nfs/nfs2se/track_sounds.h"
 #include "engines/nfs/pages/viewers.h"
 
 #include <map>
@@ -50,12 +49,9 @@ private:
     void load(int index);
     void build();
     void release();
-    void addLines(QuadMesh &quads) const;
+    void buildLines();
     void buildDome();
     void drawSky(const gfx::Vec3 &eye, const gfx::Vec3 &ahead, const GlideFog &fog);
-    void loadSounds(const std::string &stem);
-    void stopSounds();
-    void updateSounds(const gfx::Vec3 &eye, const gfx::Vec3 &right);
 
     const GameFiles &_files;
     std::vector<FileRef> _tracks;
@@ -72,6 +68,13 @@ private:
     std::vector<gfx::TextureId> _lines;    // dtexture.fsh's lin0-lin7, by number
     gfx::MeshId _mesh = 0;
     std::vector<QuadMesh::Run> _runs;
+    // The painted lines, as they're drawn close up and far off, by block
+    // and picture; and where each block's first line starts.
+    gfx::MeshId _nearLines = 0;
+    gfx::MeshId _farLines = 0;
+    std::vector<QuadMesh::Run> _nearLineRuns;
+    std::vector<QuadMesh::Run> _farLineRuns;
+    std::vector<Point> _lineStart;
     size_t _quads = 0;
     int _level = TrackBlock::kHigh;
     bool _textured = true;
@@ -89,15 +92,7 @@ private:
     int _point = 0;  // on the virtual road
     float _look = 0; // turned from the road's way, radians
 
-    audio::Mixer *_mixer;
-    std::vector<uint8_t> _soundData; // TRAMBnn.BNK
-    SoundBank _soundBank;
-    std::map<int, std::shared_ptr<audio::Sound>> _sounds; // decoded, by place in the bank
-    audio::SoundHandle _loop = audio::kNoSound;
-    int _loopSound = -1;
-    uint32_t _soundFrame = 0;
-    uint32_t _soundRandom = 1;
-    int _oneShotPhase = 0;
+    TrackSounds _sounds;
 };
 
 } // namespace reluva::nfs::nfs2se

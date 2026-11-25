@@ -175,7 +175,11 @@ depth (0x42c9e0), in the main view as in the rear-view mirror.
   added to what's behind on tracks 2 to 6, half over it on track 7, and
   none on the others (a table, 0x4eda10).
 - **Black horizon** (`TR08`), and `TR04`'s tunnels (0x42c7a0), draw one
-  black quad instead. There's no sun: `sky.fsh` has only clouds, rain
+  black quad instead: on track 4, at road points 0x448 to 0x555, either
+  way; from 0x3F6 to 0x445 looking on along the road (the view's way
+  against the point's forward vector, 0x42c8d0); from 0x556 to 0x599
+  looking back (0x42c820). The view's way is taken to be its forward
+  vector *(inferred)*. There's no sun: `sky.fsh` has only clouds, rain
   and splashes.
 
 ### The 3dfx fog: the program's own
@@ -225,8 +229,11 @@ draws the 3dfx sky and fog of its main view as above (H and F turn them
 off): the fog's colours and tables from the program's lists
 (`src/engines/nfs/nfs2se/glide_sky.cpp`) by the camera's road point,
 and Glide's table fog by the renderer's own (`DrawCall::tableFog`).
-`TR04`'s tunnels aren't blacked out, and the software program's sky
-and depth cueing aren't drawn.
+`TR04`'s tunnels black as above (`skyInTunnel`). The software
+program's sky and depth cueing aren't drawn: its pictures (`Tracks/PC`)
+don't line up with the 3dfx program's by place (`TR02`'s eighth is
+`0008` against `HBRK`, and it has a `0116` more), and how it finds them
+from the `.col`'s records isn't worked out.
 
 ## Sources and checks
 

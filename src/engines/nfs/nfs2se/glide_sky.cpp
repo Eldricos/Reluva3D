@@ -110,6 +110,17 @@ GlideFog glideFog(int track, int roadPoint) {
     return {f.first + static_cast<float>(table) * 0.05f * (f.last - f.first), colour};
 }
 
+bool skyInTunnel(int track, int roadPoint, float along) {
+    if (track != 4)
+        return false;
+    // Inside; entering, looking on along the road; leaving, looking back.
+    if (roadPoint > 0x447 && roadPoint < 0x556)
+        return true;
+    if (roadPoint > 0x3f5 && roadPoint < 0x446 && along > 0)
+        return true;
+    return roadPoint > 0x555 && roadPoint < 0x59a && along < 0;
+}
+
 std::array<Rgb, 17> skyRingColours(const Sky &sky) {
     std::array<Rgb, 17> out{};
     for (int k = 0; k < 8; ++k)

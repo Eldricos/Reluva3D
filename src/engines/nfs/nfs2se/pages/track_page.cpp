@@ -21,8 +21,11 @@ namespace {
 // QuadMesh's texture numbers from here on are animated textures': this
 // plus their place in the .col's table.
 constexpr int kAnimated = 1 << 20;
-// And painted lines': this plus the number of their lin picture.
-constexpr int kLine = 1 << 21;
+// The line meshes' texture numbers: the block times this, plus the
+// number of the lin picture.
+constexpr int kLineBlock = 16;
+// Past this deep in the view, a line is drawn as one plain quad (0x448a93).
+constexpr float kFarLine = 110.0f;
 
 // The game's world is left-handed and the renderer's right-handed: the
 // view mirrored left to right, as the hosted game shows it, the road's
@@ -64,19 +67,9 @@ const std::vector<Stripe> &stripes(int kind) {
     return kStripes[kind];
 }
 
-// About the distance, as the game reckons it for its placed sounds
-// (0x42df30): the largest of each pair plus a quarter of the other.
-float roughDistance(float dx, float dy, float dz) {
-    const float ax = std::abs(dx);
-    const float az = std::abs(dz);
-    const float across = std::max(ax, az) + std::min(ax, az) / 4;
-    const float ay = std::abs(dy);
-    return std::max(across, ay) + std::min(across, ay) / 4;
-}
-
 } // namespace
 
-TrackPage::TrackPage(const GameFiles &files, audio::Mixer *mixer) : _files(files), _mixer(mixer) {
+TrackPage::TrackPage(const GameFiles &files, audio::Mixer *mixer) : _files(files), _sounds(files, mixer) {
     // The tracks the game races on, not TmpTrk's stand-in.
     for (const FileRef &f : files.withExtensions({".trk"}))
         if (fs::toLower(f.name).find("tracks/se/") != std::string::npos)
@@ -110,13 +103,13 @@ void TrackPage::activate(System &sys) {
 
 void TrackPage::deactivate() {
     release();
-    stopSounds();
+    _sounds.stop();
     _renderer = nullptr;
 }
 
 void TrackPage::release() {
     if (_renderer) {
-        for (gfx::MeshId m : {_mesh, _skyMesh, _domeMesh})
+        for (gfx::MeshId m : {_mesh, _skyMesh, _domeMesh, _nearLines, _farLines})
             if (m)
                 _renderer->destroyMesh(m);
         if (_domeTexture)
@@ -127,6 +120,10 @@ void TrackPage::release() {
                     _renderer->destroyTexture(t);
     }
     _mesh = 0;
+    _nearLines = 0;
+    _farLines = 0;
+    _nearLineRuns.clear();
+    _farLineRuns.clear();
     _skyMesh = 0;
     _domeMesh = 0;
     _domeTexture = 0;
@@ -195,7 +192,7 @@ void TrackPage::load(int index) {
         }
         break;
     }
-    loadSounds(fs::toLower(stem));
+    _sounds.load(fs::toLower(stem), _track);
     _trackNumber = stem.size() > 2 ? std::atoi(stem.c_str() + 2) : 0;
     if (const FileRef *hrz = beside(_files.files(), ref, "3" + stem + ".hrz"))
         if (!_files.read(*hrz, data))
@@ -263,31 +260,42 @@ void TrackPage::build() {
     }
     if (_objects)
         place(_collision.meshes, _collision.placements);
-    if (_painted)
-        addLines(quads);
     _quads = quads.quads();
     if (_renderer)
         if (Error err = quads.build(*_renderer, _mesh, _runs))
             _error = err.message;
+    buildLines();
 }
 
 // The painted lines (extrablock 9; trk.md): a quad from each record to
 // the next, from its vertex to that moved by the road point's across
 // vector, each end pushed out along the road by half its forward vector
-// (0x4353fc); the stripes as its type draws them close up. Lifted 2 cm
-// off the road, where the game draws them after it.
-void TrackPage::addLines(QuadMesh &quads) const {
+// (0x4353fc). Close up, its stripes as its type draws them; far off, the
+// whole quad, lin0 or lin1 by its colour (0x448a93). Lifted 2 cm off the
+// road, where the game draws them after it.
+void TrackPage::buildLines() {
+    if (!_renderer)
+        return;
+    for (gfx::MeshId *m : {&_nearLines, &_farLines})
+        if (*m) {
+            _renderer->destroyMesh(*m);
+            *m = 0;
+        }
+    QuadMesh nearQuads;
+    QuadMesh farQuads;
+    _lineStart.assign(_track.blocks.size(), Point{});
     const auto &road = _collision.road;
     std::vector<int> first(_track.blocks.size(), -1);
     for (size_t i = 0; i < road.size(); ++i)
         if (road[i].block < first.size() && first[road[i].block] < 0)
             first[road[i].block] = static_cast<int>(i);
-    // Their pictures' numbers: by the colour and the vertex's place
-    // (0x4c412c), the second stripe's two on from the first's.
+    // The stripes' pictures by the colour and the vertex's place: the
+    // first stripe's from one table (0x4c412c), the second's from the one
+    // after it (0x4c4134), which begins two entries on.
     constexpr int kPictures[10] = {2, 3, 4, 5, 6, 7, 4, 5, 2, 3};
     for (size_t b = 0; b < _track.blocks.size(); ++b) {
         const TrackBlock &block = _track.blocks[b];
-        if (first[b] < 0)
+        if (first[b] < 0 || block.roadLines.empty())
             continue;
         struct End {
             Point left, right;
@@ -306,6 +314,9 @@ void TrackPage::addLines(QuadMesh &quads) const {
             return true;
         };
         const auto &lines = block.roadLines;
+        if (lines[0].vertex < block.vertices.size())
+            _lineStart[b] = block.vertices[lines[0].vertex];
+        const int key = static_cast<int>(b) * kLineBlock;
         for (size_t i = 0; i + 1 < lines.size(); ++i) {
             const RoadLine &line = lines[i];
             End from;
@@ -314,7 +325,7 @@ void TrackPage::addLines(QuadMesh &quads) const {
                 continue;
             const int colour = line.type > 4 ? 1 : 0;
             const int z = static_cast<int>(std::floor(block.vertices[line.vertex][2] * 256));
-            const int picture = kPictures[(z & 6) | colour];
+            const int index = (z & 6) | colour;
             auto at = [&](float across, float along) {
                 Point p;
                 for (int c = 0; c < 3; ++c) {
@@ -325,103 +336,15 @@ void TrackPage::addLines(QuadMesh &quads) const {
                 return p;
             };
             for (const Stripe &s : stripes(line.type % 5))
-                quads.add(kLine + (s.second ? kPictures[picture + 2] : picture),
-                          {at(s.from, s.start), at(s.to, s.start), at(s.to, 1), at(s.from, 1)}, {0, 1, 2, 3});
+                nearQuads.add(key + kPictures[s.second ? index + 2 : index],
+                              {at(s.from, s.start), at(s.to, s.start), at(s.to, 1), at(s.from, 1)}, {0, 1, 2, 3});
+            farQuads.add(key + colour, {at(0, 0), at(1, 0), at(1, 1), at(0, 1)}, {0, 1, 2, 3});
         }
     }
-}
-
-// The track's own bank of placed sounds: TRAMBnn.BNK for trNN.
-void TrackPage::loadSounds(const std::string &stem) {
-    stopSounds();
-    _soundData.clear();
-    _soundBank = {};
-    _sounds.clear();
-    if (!_mixer || stem.size() < 4)
-        return;
-    const std::string name = "audio/sfx/pc/tramb" + stem.substr(2) + ".bnk";
-    for (const FileRef &f : _files.withExtensions({".bnk"})) {
-        if (fs::toLower(f.name).find(name) == std::string::npos)
-            continue;
-        if (_files.read(f, _soundData) || parseSoundBank(_soundData, _soundBank)) {
-            _soundData.clear();
-            _soundBank = {};
-        }
-        break;
-    }
-}
-
-void TrackPage::stopSounds() {
-    if (_mixer && _loop != audio::kNoSound)
-        _mixer->stop(_loop);
-    _loop = audio::kNoSound;
-    _loopSound = -1;
-}
-
-// The placed sounds as the game plays them (0x434030): the volume 2^18 /
-// the distance squared, at most 127; the pan by how far to the side. One
-// loop at a time, on its own voice, the game's the first it comes to, this
-// page's the nearest; a one-shot when the program's frame count, in
-// eighths of 64, comes round to a number picked at random 0 to 7, picked
-// again after it plays. The count steps 30 times a second here.
-void TrackPage::updateSounds(const gfx::Vec3 &eye, const gfx::Vec3 &right) {
-    if (!_mixer || _soundData.empty())
-        return;
-    auto decoded = [&](int slot) -> std::shared_ptr<audio::Sound> {
-        if (slot < 0 || slot >= static_cast<int>(_soundBank.slots.size()) || !_soundBank.slots[size_t(slot)])
-            return nullptr;
-        auto &sound = _sounds[slot];
-        if (!sound) {
-            sound = std::make_shared<audio::Sound>();
-            if (decodeBankSound(_soundData, *_soundBank.slots[size_t(slot)], *sound))
-                sound = std::make_shared<audio::Sound>();
-        }
-        return sound->samples.empty() ? nullptr : sound;
-    };
-    const bool oneShotDue = ((_soundFrame & 63) >> 3) == static_cast<uint32_t>(_oneShotPhase);
-    bool oneShotPlayed = false;
-    int loop = -1;
-    float loopDistance = 0;
-    int loopVolume = 0;
-    int loopPan = 0;
-    for (const TrackBlock &b : _track.blocks)
-        for (const AmbientSound &s : b.sounds) {
-            const float dx = s.position[0] - eye[0];
-            const float dy = s.position[1] - eye[1];
-            const float dz = s.position[2] - eye[2];
-            const float d = roughDistance(dx, dy, dz);
-            const int volume = d > 0 ? static_cast<int>(std::min(127.0f, 262144.0f / (d * d))) : 127;
-            if (volume < 1)
-                continue;
-            const float side = d > 0 ? std::clamp((dx * right[0] + dz * right[2]) / d, -1.0f, 1.0f) : 0;
-            const int pan = static_cast<int>(side * audio::kMaxPan);
-            if (s.random == 1) {
-                if (oneShotDue && !oneShotPlayed)
-                    if (auto sound = decoded(s.sound)) {
-                        _mixer->play(sound, audio::SoundType::kEffects, volume * audio::kMaxVolume / 127, pan, false);
-                        oneShotPlayed = true;
-                    }
-            } else if (loop < 0 || d < loopDistance) {
-                loop = s.sound;
-                loopDistance = d;
-                loopVolume = volume * audio::kMaxVolume / 127;
-                loopPan = pan;
-            }
-        }
-    if (oneShotPlayed) {
-        _soundRandom = _soundRandom * 1103515245u + 12345u;
-        _oneShotPhase = static_cast<int>(_soundRandom >> 16 & 7);
-    }
-    if (loop != _loopSound) {
-        stopSounds();
-        if (auto sound = decoded(loop)) {
-            _loop = _mixer->play(sound, audio::SoundType::kEffects, loopVolume, loopPan, true);
-            _loopSound = loop;
-        }
-    } else if (_loop != audio::kNoSound) {
-        _mixer->setVolume(_loop, loopVolume);
-        _mixer->setPan(_loop, loopPan);
-    }
+    if (Error err = nearQuads.build(*_renderer, _nearLines, _nearLineRuns))
+        _error = err.message;
+    if (Error err = farQuads.build(*_renderer, _farLines, _farLineRuns))
+        _error = err.message;
 }
 
 // The 3dfx program's cloud dome (0x42be50): a 13 × 13 grid of points
@@ -661,7 +584,6 @@ void TrackPage::handleKey(uint32_t key, uint16_t mods) {
         break;
     case 'l':
         _painted = !_painted;
-        build();
         break;
     case 'h':
         _skyShown = !_skyShown;
@@ -708,22 +630,28 @@ void TrackPage::update(uint64_t nowMs) {
                       gfx::lookAlong(eye, ahead, {0, 1, 0}));
     // The clear colour: the 3dfx sky's top, or black with a black horizon
     // (NFS2SEA.EXE 0x427440).
+    // In TR04's tunnels the sky is black instead (0x42c7a0).
+    float along = 0;
+    if (!_collision.road.empty()) {
+        const Collision::RoadPoint &r = _collision.road[size_t(_point)];
+        along = ahead[0] * r.forward[0] + ahead[1] * r.forward[1] + ahead[2] * r.forward[2];
+    }
+    const bool tunnel = skyInTunnel(_trackNumber, _point, along);
     Color clear{70, 74, 82};
     if (_hasSky)
-        clear = _sky.blackHorizon ? Color{0, 0, 0}
-                                  : Color{uint8_t(_sky.skyTop[0]), uint8_t(_sky.skyTop[1]), uint8_t(_sky.skyTop[2])};
+        clear = _sky.blackHorizon || tunnel
+                    ? Color{0, 0, 0}
+                    : Color{uint8_t(_sky.skyTop[0]), uint8_t(_sky.skyTop[1]), uint8_t(_sky.skyTop[2])};
     const GlideFog fog = glideFog(_trackNumber, _point);
     // The screen's right, level: as the road's across vector is to its
     // forward one.
     const float flat = std::sqrt(ahead[0] * ahead[0] + ahead[2] * ahead[2]);
     const gfx::Vec3 right = flat > 0 ? gfx::Vec3{ahead[2] / flat, 0, -ahead[0] / flat} : gfx::Vec3{1, 0, 0};
     const auto frame = static_cast<uint32_t>(nowMs * 30 / 1000);
-    if (frame != _soundFrame) {
-        _soundFrame = frame;
-        updateSounds(eye, right);
-    }
+    _sounds.update(frame, eye, right);
     _renderer->beginFrame(viewProj, eye, clear);
-    drawSky(eye, ahead, fog);
+    if (!tunnel)
+        drawSky(eye, ahead, fog);
     if (_mesh) {
         gfx::DrawCall call;
         call.mesh = _mesh;
@@ -742,16 +670,6 @@ void TrackPage::update(uint64_t nowMs) {
             int picture = r.texture;
             // The game's: a picture of the animation each `ticksPerFrame`
             // of its 64 ticks a second (col.md, Textures).
-            if (picture >= kLine) {
-                const size_t k = size_t(picture - kLine);
-                call.texture = _textured && k < _lines.size() ? _lines[k] : 0;
-                call.rgbSource = gfx::ColorSource::kConstant;
-                call.color = {1, 1, 1, 1};
-                call.firstIndex = r.firstIndex;
-                call.indexCount = r.indexCount;
-                _renderer->draw(call);
-                continue;
-            }
             if (picture >= kAnimated) {
                 const Collision::Texture &t = _collision.textures[size_t(picture - kAnimated)];
                 picture = t.picture + int(nowMs * 64 / 1000 / std::max<uint8_t>(t.ticksPerFrame, 1) % t.frames);
@@ -764,6 +682,33 @@ void TrackPage::update(uint64_t nowMs) {
             call.firstIndex = r.firstIndex;
             call.indexCount = r.indexCount;
             _renderer->draw(call);
+        }
+        // The painted lines, at the high level only (0x435260): each
+        // block's close up or far off by how deep its first line starts
+        // in the view, where the game takes each line by its own.
+        if (_painted && _level == TrackBlock::kHigh) {
+            call.rgbSource = gfx::ColorSource::kConstant;
+            call.color = {1, 1, 1, 1};
+            auto drawLines = [&](gfx::MeshId mesh, const std::vector<QuadMesh::Run> &runs, bool farOff) {
+                call.mesh = mesh;
+                for (const QuadMesh::Run &r : runs) {
+                    const auto b = size_t(r.texture / kLineBlock);
+                    const auto k = size_t(r.texture % kLineBlock);
+                    if (b >= _lineStart.size())
+                        continue;
+                    const Point &p = _lineStart[b];
+                    const float depth =
+                        (p[0] - eye[0]) * ahead[0] + (p[1] - eye[1]) * ahead[1] + (p[2] - eye[2]) * ahead[2];
+                    if ((depth > kFarLine) != farOff)
+                        continue;
+                    call.texture = _textured && k < _lines.size() ? _lines[k] : 0;
+                    call.firstIndex = r.firstIndex;
+                    call.indexCount = r.indexCount;
+                    _renderer->draw(call);
+                }
+            };
+            drawLines(_nearLines, _nearLineRuns, false);
+            drawLines(_farLines, _farLineRuns, true);
         }
     }
 

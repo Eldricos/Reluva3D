@@ -28,6 +28,14 @@ struct GlideFog {
 GlideFog glideFog(int track, int roadPoint);
 
 /**
+ * Whether the 3dfx program draws its sky as one black quad, its view in a
+ * tunnel (NFS2SEA.EXE 0x42c7a0): on track 4 only, by the camera's road
+ * point, and near the tunnels' ends by which way it looks along the road
+ * (`along`: its view's way · the road point's forward vector).
+ */
+bool skyInTunnel(int track, int roadPoint, float along);
+
+/**
  * The 17 colours round the 3dfx sky's ring at its midpoint row (0x42d0a3):
  * from the sun's colour at the file's angle toward the other's and back,
  * the far side 7/8 of the way; the 17th the first again.
