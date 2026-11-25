@@ -223,7 +223,9 @@ Skirmish: Congratulations! You are the winner!", its battle report: 136
 damage scored on the enemy (59 of it internal), its shields' efficiency
 56%, its fleet's losses 40 (its BPV); 65 on the player, none internal,
 no losses. 60 billion instructions (20 minutes headless) ran without a
-failure. DONE on the debriefing goes back to the Select Skirmish screen.
+failure. Re-run since Reluva's Windows changed for the 2.0.3.6
+patch, it still wins: at 4:22 firing every 120 frames, at 8:02 every
+60. DONE on the debriefing goes back to the Select Skirmish screen.
 The same input from a fresh save folder played another battle (other
 surroundings, the Klingon met later): what the save folder holds from
 earlier runs changes the game's choices, so a run repeats only from the
@@ -610,17 +612,21 @@ isn't measured.
 - What the folders `dmp3dDLL_Release`, `DLL` and `DRIVERS` are looked for,
   and what it loads from them.
 - How many instructions a second a mission needs.
-- Why Patrol, the only mission offered after the second win (the
-  auto-save loaded, a hex moved), never starts: ACCEPT blanks its button
-  and the Mission Selector stays, the stardate going on (2275.3 to 2278.1
-  in 16,000 frames), the same each run and with a second click. From the
-  click on, the program never waits for its next frame: each frame it
-  runs about a million instructions, most in code testing a list of
-  conditions in turn (0x54c700) and the reference counting at 0x427150,
-  as the Dynaverse's searches of its database do *(inferred)*. Whether
-  the game itself searches for something this campaign doesn't have, or
-  Reluva gets a comparison wrong, isn't known. Patrol accepted after the
-  first win, with Convoy Escort offered too, starts.
+- Why no mission starts once one has been played in a campaign that was
+  loaded. Loaded from the first win's auto-save, Convoy Escort is offered,
+  accepted and won; after it, in the same run, a move brings no missions,
+  and its auto-save, loaded, offers Patrol or Base Defense (by the hex),
+  but ACCEPT blanks its button and the mission never starts, the stardate
+  going on. A campaign begun anew plays its next missions after a win
+  (Monster, Patrol after a forfeit). From the click on, the program never
+  waits for its next frame: its campaign database (`Sfc2Spd.sds`) is
+  written four bytes at a time (at 0x7e3aa), and a message handler
+  (0x5481b5) runs a search through it each frame, as it does when a
+  mission starts. Ruled out: the JIT (the same with `RELUVA_NO_JIT`), file
+  handles left open (one at a time, each closed), the database cut short
+  (it grows as when a mission starts). The 1.0 readme's known issues
+  include "a random crash occurs during instances when accepting a
+  mission". Whether this is the game's or Reluva's isn't known.
 - What the game's own Winsock functions are for (sockets, `connect`,
   `select`...): a game played over TCP/IP didn't call them; perhaps the
   online services' (Dynaverse II, MPlayer).

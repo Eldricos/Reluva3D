@@ -59,9 +59,9 @@ None yet.
   leaves, the others' session is lost, where DirectPlay could make
   another player the host; groups and chat messages aren't there
   ([dplay.md](../../../../common/x86/dplay.md)).
-- **A campaign mission that doesn't start.** After a second win, Patrol,
-  accepted, never starts; whether the game or Reluva is at fault isn't
-  known yet ([systems/hosting.md](systems/hosting.md#open-questions)).
+- **A loaded campaign stops starting missions.** Once a mission has been
+  played in a campaign that was loaded, no later mission starts; whether
+  the game or Reluva is at fault isn't known yet ([systems/hosting.md](systems/hosting.md#open-questions)).
 - **The 2.0.3.6 patch's own changes are barely played.** It applies,
   and the patched game runs to its main menu; its missions and its
   multiplayer haven't been played ([systems/patching.md](systems/patching.md)).
