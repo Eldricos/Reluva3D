@@ -76,7 +76,9 @@ text files, and the installers' headers.
   for by; the registers and memory where the program gets to an address
   (`-watch`); each change to a word of memory and the instruction that
   made it (`-writes`); the code first run between two frames
-  (`-newcode`), which finds what a click runs
+  (`-newcode`), which finds what a click runs; how many instructions ran
+  in each 16 bytes of code between two frames (`-profile`), which finds
+  where a busy program is busy
   ([systems/hosting.md](systems/hosting.md)).
 - **Installers:** the patch's Microsoft cabinet listed and taken apart
   with a short script, written from Microsoft's description of the

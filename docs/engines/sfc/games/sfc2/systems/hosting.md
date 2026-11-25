@@ -610,6 +610,17 @@ isn't measured.
 - What the folders `dmp3dDLL_Release`, `DLL` and `DRIVERS` are looked for,
   and what it loads from them.
 - How many instructions a second a mission needs.
+- Why Patrol, the only mission offered after the second win (the
+  auto-save loaded, a hex moved), never starts: ACCEPT blanks its button
+  and the Mission Selector stays, the stardate going on (2275.3 to 2278.1
+  in 16,000 frames), the same each run and with a second click. From the
+  click on, the program never waits for its next frame: each frame it
+  runs about a million instructions, most in code testing a list of
+  conditions in turn (0x54c700) and the reference counting at 0x427150,
+  as the Dynaverse's searches of its database do *(inferred)*. Whether
+  the game itself searches for something this campaign doesn't have, or
+  Reluva gets a comparison wrong, isn't known. Patrol accepted after the
+  first win, with Convoy Escort offered too, starts.
 - What the game's own Winsock functions are for (sockets, `connect`,
   `select`...): a game played over TCP/IP didn't call them; perhaps the
   online services' (Dynaverse II, MPlayer).
