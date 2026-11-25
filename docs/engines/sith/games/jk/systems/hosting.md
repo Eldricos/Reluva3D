@@ -335,6 +335,19 @@ Windows does when it fails, and dialog boxes are made but not drawn
     (`reluva-tool sith host -fps N [-everyframe]`), 618 frames at 60
     as the game has it showed 335 new pictures; at 60 with every frame,
     624 of 626; at 100, 988 of 1,043.
+23. **Saves** *(confirmed)*: the player's folder (`player\<name>\`)
+    holds them as `.jks` files: its *Save* writes `save%04d.jks`, its
+    quick save `quicksave.jks`, and each level's start an autosave,
+    `_JKAUTO_<level>.jks` (the names from the code). *Load Game*
+    (`0x41ddd0`) lists the folder's `.jks` files but those whose names
+    start `_JKAUTO_` (`0x41de47`, before opening them), reads each
+    one's first 0x62c bytes, and keeps those of version 6 (the first
+    four bytes) whose title (UTF-16 at 0x42c) has a `~`, showing the
+    title after it. An autosave's title is its file name, without a
+    `~`: one renamed is still left out. Seen running: with the level 21
+    autosave copied in as `save0001.jks` it's opened but not listed;
+    with `x~Level 21` written as its title, it's listed as "Level 21",
+    and loads.
 
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were
