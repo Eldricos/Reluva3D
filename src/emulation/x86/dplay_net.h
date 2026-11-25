@@ -48,6 +48,7 @@ struct FoundSession {
 
 /** What the session's other programs did, as poll() reports it. */
 struct Event {
+    /** What happened: a player joined, left or changed its data, a message, the session's settings, or the session lost. */
     enum Kind { kPlayerAdded, kPlayerRemoved, kPlayerData, kMessage, kSession, kSessionLost };
     Kind kind = kMessage;
     PlayerInfo player; // added; removed and data: its id (and data)
