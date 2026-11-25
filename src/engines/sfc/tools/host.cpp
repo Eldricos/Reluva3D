@@ -27,6 +27,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace {
@@ -119,7 +120,7 @@ int cmdHost(int argc, char **argv) {
             "usage: reluva-tool sfc host <game folder> [-limit instructions] [-trace count] "
             "[-frame out.png] [-quiet] [-save folder] [-calls address] [-watch address]... "
             "[-type frame text] [-click frame x y] [-shot frame out.png]... [-sound folder] [-writes address]... "
-            "[-newcode from to] [-fixed-clock] [-key frame name]... [-net]\n");
+            "[-newcode from to] [-profile from to] [-fixed-clock] [-key frame name]... [-net]\n");
         return 2;
     }
     uint64_t limit = 2000000000ull;
@@ -137,6 +138,10 @@ int cmdHost(int argc, char **argv) {
     bool network = false;
     uint64_t newFrom = 0;
     uint64_t newTo = 0;
+    // With -profile, how many instructions ran in each 16 bytes of code
+    // between two frames: where a program that's busy is busy.
+    uint64_t profileFrom = 0;
+    uint64_t profileTo = 0;
     std::filesystem::path soundFolder; // each sample's sound, as WAVs
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
@@ -173,6 +178,10 @@ int cmdHost(int argc, char **argv) {
                 if (k)
                     steps.push_back(s);
             }
+            a += 2;
+        } else if (arg == "-profile" && a + 2 < argc) {
+            profileFrom = std::strtoull(argv[a + 1], nullptr, 0);
+            profileTo = std::strtoull(argv[a + 2], nullptr, 0);
             a += 2;
         } else if (arg == "-newcode" && a + 2 < argc) {
             newFrom = std::strtoull(argv[a + 1], nullptr, 0);
@@ -318,7 +327,8 @@ int cmdHost(int argc, char **argv) {
     constexpr uint32_t kImageStart = 0x400000;
     constexpr uint32_t kImageEnd = 0x800000;
     std::vector<bool> ran(newTo ? kImageEnd - kImageStart : 0);
-    std::vector<uint32_t> firstRun; // in order, between the frames
+    std::vector<uint32_t> firstRun;                 // in order, between the frames
+    std::unordered_map<uint32_t, uint64_t> profile; // by address / 16
     std::vector<uint32_t> recent(size_t(std::max(traceCount, 1)));
     size_t recentAt = 0;
     // With -calls, each call into a stand-in from the moment the program
@@ -340,6 +350,8 @@ int cmdHost(int argc, char **argv) {
             if (frames >= newFrom && frames < newTo)
                 firstRun.push_back(c.eip);
         }
+        if (profileTo && frames >= profileFrom && frames < profileTo)
+            ++profile[c.eip >> 4];
         if (callsFrom && c.eip == callsFrom)
             logging = true;
         if (std::find(watch.begin(), watch.end(), c.eip) != watch.end()) {
@@ -440,6 +452,20 @@ int cmdHost(int argc, char **argv) {
     for (size_t i = recentAt > recent.size() ? recentAt - recent.size() : 0; i < recentAt; ++i)
         std::printf(" %08x", recent[i % recent.size()]);
     std::printf("\n");
+    if (profileTo) {
+        std::vector<std::pair<uint64_t, uint32_t>> hot;
+        uint64_t all = 0;
+        for (const auto &[block, count] : profile) {
+            hot.emplace_back(count, block << 4);
+            all += count;
+        }
+        std::sort(hot.rbegin(), hot.rend());
+        std::printf("instructions run between frames %llu and %llu: %llu; the most run, by 16 bytes:\n",
+                    static_cast<unsigned long long>(profileFrom), static_cast<unsigned long long>(profileTo),
+                    static_cast<unsigned long long>(all));
+        for (size_t i = 0; i < hot.size() && i < 40; ++i)
+            std::printf("  %08x %llu\n", hot[i].second, static_cast<unsigned long long>(hot[i].first));
+    }
     if (newTo) {
         // Runs of consecutive first-run instructions, as where each began.
         std::printf("code first run between frames %llu and %llu:", static_cast<unsigned long long>(newFrom),
@@ -553,7 +579,8 @@ const Commands
                   {"host",
                    "<game folder> [-limit n] [-trace n] [-frame out.png] [-quiet] [-save folder] [-calls address] "
                    "[-watch address]... [-type frame text] [-click frame x y] [-shot frame out.png]... [-sound folder] "
-                   "[-writes address]... [-newcode from to] [-fixed-clock] [-key frame name]... [-net]",
+                   "[-writes address]... [-newcode from to] [-profile from to] [-fixed-clock] [-key frame name]... "
+                   "[-net]",
                    "run StarFleet2.exe in the x86 emulator, headless, and say how far it gets; keys and clicks "
                    "given at frames it shows",
                    cmdHost},
