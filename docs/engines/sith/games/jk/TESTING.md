@@ -74,7 +74,8 @@ prints how many pixels differ by more than a step of the game's 16-bit
 colours where the scenes draw. Software, GPU and difference pictures
 of every 20th scene and the worst go into the folder. `-gpuplay
 <folder>` draws the frames as play does, the 2D over the scene, one in
-60 written there.
+60 written there. `-gpuscale N` draws them N times the size; `-gpu`
+then averages each N by N back to one pixel to compare.
 
 ## A playthrough by hand
 
@@ -107,6 +108,7 @@ of every 20th scene and the worst go into the folder. `-gpuplay
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | Direct3D on the graphics card at twice the size (llvmpipe, 1280x960): `-gpu -gpuscale 2` into Nar Shaddaa, 107 scenes averaged back to 640x480 against the emulator's drawing, 3.2% of pixels more than a 16-bit step apart, at edges and fine detail; `-gpuplay -gpuscale 2`: the same picture, finer, the gauges enlarged over it. `sith.unit.render`'s *scene scaled*: viewports, pixel centres and the 2D at twice the size |
 | November 2026 | US retail | Linux | Direct3D on the graphics card (Mesa's llvmpipe Vulkan, 640x480): `reluva-tool sith host -d3d -gpu` into Nar Shaddaa, 440 scenes drawn on the GPU against the emulator's drawing: 0.0001% of the pixels where they draw more than a 16-bit step apart, the worst scene 11 pixels along one edge; `-gpuplay`: the gauges over the level. `common.unit.windows`: a scene kept instead of drawn, its triangle and Z clear as given, the 2D after it on top |
 | November 2026 | US retail | Linux | Windowed: `reluva-tool sith host -args -windowGUI`: the opening, the logo and loading screen, *New Player* typed and clicked, *Single Player*, *New Game*, the cut scene and Nar Shaddaa, each frame blitted through GDI and shown, the first level reached at 26 seconds as full screen. `common.unit.windows`'s *window drawing* test: a DIB blitted into a window's device context reaches the engine, and again once the window grows |
 | November 2026 | US retail | Linux | Force Protection: in the first level, `imayoda` and `yodajammies` typed, then `activate 29`; the shield's points around Kyle in third person, and its orientation read at 44, 46, 48 and 50 seconds: turning about (1, 1, 1) at about 104.5 degrees a second, as 60 a second about each axis gives |

@@ -264,6 +264,15 @@ Windows does when it fails, and dialog boxes are made but not drawn
     otherwise, the colour key's texels left out. The back buffer is laid
     over it, its alpha 0 where the scene shows.
 
+    The scene can be drawn larger than the game's 640 by 480 (*Picture
+    size*, 1 to 4 times): its coordinates stay the game's, scaled into
+    the renderer's frame with the viewports, so the 3D has that many
+    times the pixels while the picture is the same. The back buffer's 2D
+    is enlarged to match, each pixel to the nearest, as sharp as the game
+    drew it. The mouse's place and movement come in the larger frame's
+    pixels, and are divided back down, so the pointer lands where it
+    points and the view turns as fast as at 1 times.
+
     Checked against the emulator's own drawing, scene by scene
     (`reluva-tool sith host -gpu`), at 640 by 480 on Mesa's software
     Vulkan (llvmpipe), into Nar Shaddaa: of 440 scenes, where each
@@ -271,7 +280,12 @@ Windows does when it fails, and dialog boxes are made but not drawn
     step of the game's 16-bit colours, the most in a scene 11 pixels,
     along one row where two triangles meet; the rest within a step,
     from the GPU's own rounding and filtering. Drawn as play draws it
-    (`-gpuplay`), the gauges lie over the level as in software.
+    (`-gpuplay`), the gauges lie over the level as in software. Drawn at
+    twice the size (`-gpuscale 2`) and each 2x2 averaged back to one
+    pixel, 107 scenes differ from the software drawing by more than a
+    16-bit step at 3.2% of their pixels: at edges and in fine texture
+    detail, where the finer sampling sees more; the frames at 1280 by
+    960 show the same picture, the gauges over it.
 
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were

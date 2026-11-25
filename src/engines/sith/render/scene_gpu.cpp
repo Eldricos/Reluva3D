@@ -3,6 +3,7 @@
 
 #include "engines/sith/render/scene_gpu.h"
 
+#include <cmath>
 #include <numeric>
 
 namespace reluva::sith {
@@ -203,8 +204,16 @@ void SceneGpu::draw(const Scene *scene, const Surface &overlay) {
     ++_frame;
     const int width = _renderer->width();
     const int height = _renderer->height();
+    // The game's picture drawn at the renderer's size: its coordinates
+    // stay the game's, its viewports' pixels are the renderer's.
+    const int gameW = scene ? scene->width : overlay.w;
+    const int gameH = scene ? scene->height : overlay.h;
+    if (gameW <= 0 || gameH <= 0)
+        return;
+    const double sx = double(width) / gameW;
+    const double sy = double(height) / gameH;
     const bool ok = scene && upload(*scene);
-    _renderer->beginFrame(screenToClip(0, 0, width, height), {0, 0, 0}, Color{0, 0, 0});
+    _renderer->beginFrame(screenToClip(0, 0, gameW, gameH), {0, 0, 0}, Color{0, 0, 0});
     if (ok) {
         const bool reversed = depthReversed(*scene);
         uint32_t clearAt = uint32_t(scene->vertices.size());
@@ -213,7 +222,10 @@ void SceneGpu::draw(const Scene *scene, const Surface &overlay) {
             const int h = s.viewport[3];
             if (w <= 0 || h <= 0)
                 continue;
-            _renderer->setViewport(s.viewport[0], s.viewport[1], w, h);
+            const int x0 = int(std::lround(s.viewport[0] * sx));
+            const int y0 = int(std::lround(s.viewport[1] * sy));
+            _renderer->setViewport(x0, y0, int(std::lround((s.viewport[0] + w) * sx)) - x0,
+                                   int(std::lround((s.viewport[1] + h) * sy)) - y0);
             _renderer->setView(screenToClip(s.viewport[0], s.viewport[1], w, h), {0, 0, 0});
             gfx::DrawCall call;
             call.mesh = _mesh;
@@ -269,7 +281,20 @@ void SceneGpu::draw(const Scene *scene, const Surface &overlay) {
             _renderer->draw(call);
         }
     }
-    _renderer->endFrame(&overlay);
+    // The 2D enlarged to the renderer's size, each of its pixels to the
+    // nearest: as sharp as the game drew it.
+    const Surface *over = &overlay;
+    if (overlay.w != width || overlay.h != height) {
+        _scaledOverlay.create(width, height, PixelFormat::kRGBA32);
+        for (int y = 0; y < height; ++y) {
+            const auto *src = reinterpret_cast<const uint32_t *>(overlay.row(y * overlay.h / height));
+            auto *dst = reinterpret_cast<uint32_t *>(_scaledOverlay.row(y));
+            for (int x = 0; x < width; ++x)
+                dst[x] = src[x * overlay.w / width];
+        }
+        over = &_scaledOverlay;
+    }
+    _renderer->endFrame(over);
     // Textures not drawn with for a while: the game has let go of them, or
     // will make them again.
     for (auto it = _textures.begin(); it != _textures.end();)

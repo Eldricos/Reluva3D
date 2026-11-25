@@ -29,7 +29,9 @@ public:
     void setRenderer(gfx::Renderer3D *renderer);
     /**
      * Draws `scene` (none: the overlay alone) and shows it, with `overlay`
-     * (RGBA32, the renderer's size) over it, blended by its alpha.
+     * (RGBA32, the game's picture's size) over it, blended by its alpha.
+     * The game's picture fills the renderer's frame, whatever its size:
+     * the 3D drawn at the renderer's, the overlay's pixels enlarged.
      */
     void draw(const x86::DirectX::Scene *scene, const Surface &overlay);
     /** The next frame drawn, kept for capture() (RGBA, the renderer's size, without the overlay). */
@@ -64,6 +66,7 @@ private:
     gfx::MeshId _mesh = 0;
     size_t _indexCapacity = 0; // indices 0, 1, 2... set this far
     std::vector<gfx::Vertex> _vertices;
+    Surface _scaledOverlay; // the overlay at the renderer's size
     std::map<std::pair<const void *, Variant>, Made> _textures;
     uint64_t _frame = 0;
 };

@@ -106,7 +106,7 @@ int cmdHost(int argc, char **argv) {
                      "usage: reluva-tool sith host <install> [-seconds N] [-args \"...\"] [-png file] "
                      "[-files] [-calls] [-d3d] [-net] [-join address] [-keys \"s:key,...\"] [-skim] [-cheat word] "
                      "[-pad \"s:control=value,...\"] [-close seconds] [-frames N folder] [-peek address] [-wav file] "
-                     "[-write folder] [-gpu folder] [-gpuplay folder]\n");
+                     "[-write folder] [-gpu folder] [-gpuplay folder] [-gpuscale N]\n");
         return 2;
     }
     const std::filesystem::path install = argv[2];
@@ -130,6 +130,7 @@ int cmdHost(int argc, char **argv) {
     std::filesystem::path writable = std::filesystem::temp_directory_path() / "reluva-sith-host";
     std::filesystem::path gpuFolder;
     bool gpuPlay = false;
+    int gpuScale = 1; // the GPU's picture this many times the game's
     for (int i = 3; i < argc; ++i) {
         const std::string a = argv[i];
         if (a == "-seconds" && i + 1 < argc)
@@ -170,6 +171,8 @@ int cmdHost(int argc, char **argv) {
             gpuFolder = argv[++i];
         else if (a == "-gpuplay" && i + 1 < argc)
             gpuFolder = argv[++i], gpuPlay = true;
+        else if (a == "-gpuscale" && i + 1 < argc)
+            gpuScale = std::clamp(std::atoi(argv[++i]), 1, 4);
     }
     if (!reluva::fs::findFile(install, "JK.EXE")) {
         std::fprintf(stderr, "no JK.EXE in %s\n", install.string().c_str());
@@ -469,7 +472,7 @@ int cmdHost(int argc, char **argv) {
         window = std::make_unique<reluva::SdlSystem>();
         reluva::gfx::Renderer3D *renderer = nullptr;
         if (Error e = window->init(); !e)
-            e = window->init3D(640, 480, renderer);
+            e = window->init3D(640 * gpuScale, 480 * gpuScale, renderer);
         if (!renderer) {
             std::fprintf(stderr, "-gpu: no GPU renderer\n");
             return 1;
@@ -493,8 +496,26 @@ int cmdHost(int argc, char **argv) {
         sceneGpu.captureNext();
         sceneGpu.draw(&scene, clear);
         std::vector<uint8_t> gpu;
-        if (!sceneGpu.capture(gpu) || gpu.size() != scene.software.size() * 4)
+        if (!sceneGpu.capture(gpu) || gpu.size() != scene.software.size() * 4 * size_t(gpuScale * gpuScale))
             return;
+        // Drawn larger: each of the game's pixels the average of its own.
+        if (gpuScale > 1) {
+            std::vector<uint8_t> small(scene.software.size() * 4);
+            const int n = gpuScale * gpuScale;
+            for (int y = 0; y < 480; ++y)
+                for (int x = 0; x < 640; ++x)
+                    for (int k = 0; k < 4; ++k) {
+                        int sum = 0;
+                        for (int dy = 0; dy < gpuScale; ++dy)
+                            for (int dx = 0; dx < gpuScale; ++dx)
+                                sum += gpu[(size_t(y * gpuScale + dy) * size_t(640 * gpuScale) +
+                                            size_t(x * gpuScale + dx)) *
+                                               4 +
+                                           size_t(k)];
+                        small[(size_t(y) * 640 + size_t(x)) * 4 + size_t(k)] = uint8_t((sum + n / 2) / n);
+                    }
+            gpu = std::move(small);
+        }
         // Only where the scene draws, by its triangles' bounds (as
         // SceneCapture::kInstead covers): around them the buffer has what
         // the game left there.
@@ -577,13 +598,17 @@ int cmdHost(int argc, char **argv) {
             sceneGpu.captureNext();
         sceneGpu.draw(f.scene.get(), overlay);
         std::vector<uint8_t> rgba;
-        if (!keep || !sceneGpu.capture(rgba) || rgba.size() != size_t(640 * 480 * 4))
+        const int w = 640 * gpuScale;
+        const int h = 480 * gpuScale;
+        if (!keep || !sceneGpu.capture(rgba) || rgba.size() != size_t(w) * size_t(h) * 4)
             return;
-        // The capture is without the overlay: put over it as the renderer does.
-        for (int y = 0; y < 480; ++y) {
-            const uint8_t *o = overlay.row(y);
-            for (int x = 0; x < 640; ++x, o += 4) {
-                uint8_t *p = &rgba[(size_t(y) * 640 + size_t(x)) * 4];
+        // The capture is without the overlay: put over it as the renderer
+        // does, enlarged as SceneGpu enlarges it.
+        for (int y = 0; y < h; ++y) {
+            const uint8_t *row = overlay.row(y / gpuScale);
+            for (int x = 0; x < w; ++x) {
+                const uint8_t *o = row + size_t(x / gpuScale) * 4;
+                uint8_t *p = &rgba[(size_t(y) * size_t(w) + size_t(x)) * 4];
                 for (int k = 0; k < 3; ++k)
                     p[k] = uint8_t((o[k] * o[3] + p[k] * (255 - o[3]) + 127) / 255);
                 p[3] = 255;
@@ -591,7 +616,7 @@ int cmdHost(int argc, char **argv) {
         }
         char name[32];
         std::snprintf(name, sizeof name, "play-%05llu.png", (unsigned long long)played);
-        writeRgba(gpuFolder / name, 640, 480, std::move(rgba));
+        writeRgba(gpuFolder / name, w, h, std::move(rgba));
     };
     uint64_t frames = 0;
     double nextSaved = 0;
@@ -724,7 +749,7 @@ const Commands kCommands(
         {"host",
          "<install> [-seconds N] [-args \"...\"] [-png file] [-files] [-calls] [-d3d] [-net] [-join address] [-keys "
          "\"s:key,...\"] [-skim] [-cheat word] [-pad \"s:control=value,...\"] [-close seconds] [-frames N folder] "
-         "[-peek address] [-wav file] [-write folder] [-gpu folder] [-gpuplay folder]",
+         "[-peek address] [-wav file] [-write folder] [-gpu folder] [-gpuplay folder] [-gpuscale N]",
          "run the retail JK.EXE in the x86 emulator: how far it gets", cmdHost},
         {"disasm", "<JK.EXE> <address> [count]", "the program's instructions from an address (hexadecimal) on",
          cmdDisasm},

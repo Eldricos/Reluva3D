@@ -122,7 +122,10 @@ Reluva's folder for the game, never into the install.
 With *Setup*'s 3D acceleration on, the launcher's *3D drawing* setting
 draws the game's 3D on the graphics card rather than in software, the
 gauges and menus over it as before. Software is the default, and what's
-used when there's no graphics card Reluva can draw with.
+used when there's no graphics card Reluva can draw with. On the graphics
+card, *Picture size* draws the 3D at 1 to 4 times the game's 640x480
+(2 times by default): the same picture, finer; the menus and gauges are
+enlarged as they are.
 
 `commandline` in the game's section of `reluva.ini` is what follows
 `JK.EXE` on its command line, as a Windows shortcut would give it:

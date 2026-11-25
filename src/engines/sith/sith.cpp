@@ -15,7 +15,9 @@
 #include "engines/sith/render/scene_gpu.h"
 #include "graphics/gfx3d.h"
 
+#include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <memory>
 #include <string>
 #include <vector>
@@ -74,13 +76,18 @@ public:
         // over them; in software, as the game's own, without a GPU.
         const auto drawing = _target.settings.find("drawing");
         const bool wantGpu = drawing != _target.settings.end() && drawing->second == "gpu";
+        // `renderscale` (1 to 4): the GPU's picture this many times the
+        // game's size.
+        int scale = 2;
+        if (const auto s = _target.settings.find("renderscale"); s != _target.settings.end())
+            scale = std::clamp(std::atoi(s->second.c_str()), 1, 4);
         int width = 640;
         int height = 480;
         bool gpu = false;
         auto screen = [&] {
             _scenes.setRenderer(nullptr);
             gfx::Renderer3D *renderer = nullptr;
-            if (wantGpu && !_sys.init3D(width, height, renderer) && renderer) {
+            if (wantGpu && !_sys.init3D(width * scale, height * scale, renderer) && renderer) {
                 gpu = true;
                 _scenes.setRenderer(renderer);
             } else {
@@ -120,8 +127,18 @@ public:
                 const bool leaving = ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher;
                 if (leaving && confirmQuit(ev.type == EventType::kReturnToLauncher))
                     return Error::success();
-                if (!leaving)
-                    player.input(ev);
+                if (leaving)
+                    continue;
+                // The mouse in the GPU's frame, larger than the game's, put
+                // back into the game's pixels; its movement too, which
+                // comes scaled the same way, so the view turns as fast.
+                if (gpu && scale > 1) {
+                    ev.mouseX /= scale;
+                    ev.mouseY /= scale;
+                    ev.moveX /= float(scale);
+                    ev.moveY /= float(scale);
+                }
+                player.input(ev);
             }
             pollPad();
             int w = 0;
@@ -231,7 +248,14 @@ public:
         drawing.tooltip = "The game's Direct3D drawn in software, as the game draws it itself; or on the "
                           "graphics card, its menus and gauges over it.";
         drawing.choices = {{"software", "In software"}, {"gpu", "On the graphics card"}};
-        return {joystick, drawing};
+        GameOption size;
+        size.key = "renderscale";
+        size.label = "Picture size";
+        size.tooltip = "With the 3D on the graphics card, the game's 640x480 drawn at this many times its size: "
+                       "the same picture with finer 3D. The menus and gauges are enlarged as they are.";
+        size.choices = {
+            {"2", "2x (1280x960)"}, {"1", "1x (640x480)"}, {"3", "3x (1920x1440)"}, {"4", "4x (2560x1920)"}};
+        return {joystick, drawing, size};
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {

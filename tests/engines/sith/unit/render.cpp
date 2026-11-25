@@ -1,14 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Sith's unit tests: the data viewer's 3D drawing as the game draws.
+// Sith's unit tests: the data viewer's 3D drawing as the game draws, and
+// the game's own Direct3D scenes as drawn on the GPU.
 //
 //   reluva-tests sith.unit.render
 
 #include "engines/sith/render/draw3d.h"
+#include "engines/sith/render/scene_gpu.h"
 
 #include "tests/support/test.h"
 
+#include <array>
+#include <cmath>
+#include <cstring>
 #include <vector>
 
 using namespace reluva;
@@ -143,6 +148,129 @@ void testHorizonSky() {
     CHECK(a == drawn(2, 0)); // two, the width of the texture
 }
 
+// A renderer that keeps what it's given: the vertices, viewports, draws
+// and the overlay shown.
+class Recorder : public gfx::Renderer3D {
+public:
+    Recorder(int w, int h) : _w(w), _h(h) {}
+    std::vector<gfx::Vertex> vertices;
+    std::vector<std::array<int, 4>> viewports;
+    std::vector<gfx::DrawCall> draws;
+    Surface shown;
+    Error createTexture(int, int, const uint8_t *, const gfx::TextureParams &, gfx::TextureId &out) override {
+        out = gfx::TextureId(++_next);
+        return Error::success();
+    }
+    void destroyTexture(gfx::TextureId) override {}
+    Error createMesh(const std::vector<gfx::Vertex> &v, const std::vector<uint32_t> &, gfx::MeshId &out) override {
+        vertices = v;
+        out = gfx::MeshId(++_next);
+        return Error::success();
+    }
+    Error createIndexedMesh(gfx::MeshId, const std::vector<uint32_t> &, gfx::MeshId &out) override {
+        out = gfx::MeshId(++_next);
+        return Error::success();
+    }
+    Error setMeshIndices(gfx::MeshId, const std::vector<uint32_t> &) override { return Error::success(); }
+    Error setMeshVertices(gfx::MeshId, const std::vector<gfx::Vertex> &v) override {
+        vertices = v;
+        return Error::success();
+    }
+    void destroyMesh(gfx::MeshId) override {}
+    int width() const override { return _w; }
+    int height() const override { return _h; }
+    std::string deviceName() const override { return "recorder"; }
+    void beginFrame(const gfx::Mat4 &m, const gfx::Vec3 &, Color) override { _view = m; }
+    void draw(const gfx::DrawCall &call) override { draws.push_back(call); }
+    void setView(const gfx::Mat4 &m, const gfx::Vec3 &) override { _view = m; }
+    void setDynamicLights(const std::vector<gfx::DynamicLight> &) override {}
+    void setViewport(int x, int y, int w, int h) override {
+        viewports.push_back({x, y, w, h});
+        _port = {x, y, w, h};
+    }
+    void setDepthRange(float) override {}
+    void clearDepth() override {}
+    bool hasStencil() const override { return false; }
+    void setStencilMode(StencilMode) override {}
+    void setMirrored(bool) override {}
+    void setGamma(float) override {}
+    void endFrame(const Surface *overlay) override {
+        if (overlay)
+            shown = *overlay;
+    }
+    void captureNextFrame() override {}
+    bool takeCapture(std::vector<uint8_t> &) override { return false; }
+    // Where a vertex lands in the frame, in pixels, through the view and
+    // viewport set last.
+    std::array<float, 2> place(const gfx::Vertex &v) const {
+        const gfx::Mat4 &m = _view;
+        const float x = m[0] * v.pos[0] + m[4] * v.pos[1] + m[8] * v.pos[2] + m[12];
+        const float y = m[1] * v.pos[0] + m[5] * v.pos[1] + m[9] * v.pos[2] + m[13];
+        const float w = m[3] * v.pos[0] + m[7] * v.pos[1] + m[11] * v.pos[2] + m[15];
+        return {float(_port[0]) + (x / w + 1) / 2 * float(_port[2]),
+                float(_port[1]) + (1 - y / w) / 2 * float(_port[3])};
+    }
+
+private:
+    int _w;
+    int _h;
+    uint32_t _next = 0;
+    gfx::Mat4 _view{};
+    std::array<int, 4> _port{};
+};
+
+// A scene of the game's 640x480, drawn on a renderer twice the size: its
+// viewport and pixels where they'd be at the larger size (Direct3D's pixel
+// centres, on whole numbers, at the middle of the GPU's 2x2), depths
+// turned round for its greater test, and the 2D enlarged.
+void testSceneScaled() {
+    using Scene = x86::DirectX::Scene;
+    Scene scene;
+    scene.width = 640;
+    scene.height = 480;
+    // x, y, z, 1/w, diffuse, specular, u, v
+    scene.vertices = {{10, 20, 0.25f, 0.5f, 0xffffffffu, 0, 0, 0},
+                      {100, 20, 0.25f, 0.5f, 0xffffffffu, 0, 1, 0},
+                      {10, 60, 0.75f, 0.5f, 0xffffffffu, 0, 0, 1}};
+    Scene::Step depth;
+    depth.clearDepth = true;
+    depth.viewport[2] = 640, depth.viewport[3] = 480;
+    Scene::Step step;
+    step.count = 3;
+    step.viewport[0] = 8, step.viewport[1] = 4, step.viewport[2] = 600, step.viewport[3] = 400;
+    step.zTest = true, step.zWrite = true, step.zFunc = 5; // greater
+    scene.steps = {depth, step};
+    Surface overlay;
+    overlay.create(640, 480, PixelFormat::kRGBA32);
+    std::memset(overlay.row(0), 0, size_t(overlay.pitch) * 480);
+    overlay.row(1)[4 * 1 + 0] = 200; // pixel (1, 1): red, opaque
+    overlay.row(1)[4 * 1 + 3] = 255;
+
+    Recorder r(1280, 960);
+    SceneGpu gpu;
+    gpu.setRenderer(&r);
+    gpu.draw(&scene, overlay);
+    CHECK(r.viewports.size() == 2);
+    if (r.viewports.size() == 2)
+        CHECK((r.viewports[1] == std::array<int, 4>{16, 8, 1200, 800}));
+    CHECK(r.draws.size() == 1 && r.vertices.size() >= 3);
+    if (r.draws.size() == 1 && r.vertices.size() >= 3) {
+        const gfx::DrawCall &d = r.draws[0];
+        CHECK(d.screenDepth && d.state.depthTest && d.state.depthLess && !d.state.depthEqual);
+        const auto a = r.place(r.vertices[0]);
+        const auto b = r.place(r.vertices[1]);
+        CHECK(std::abs(a[0] - 21) < 1e-3f && std::abs(a[1] - 41) < 1e-3f);
+        CHECK(std::abs(b[0] - 201) < 1e-3f && std::abs(b[1] - 41) < 1e-3f);
+        CHECK(r.vertices[0].uv2[1] == 0.75f && r.vertices[2].uv2[1] == 0.25f); // nearer is less
+    }
+    CHECK(r.shown.w == 1280 && r.shown.h == 960);
+    if (r.shown.w == 1280) {
+        CHECK(r.shown.row(2)[4 * 2] == 200 && r.shown.row(3)[4 * 3 + 3] == 255); // (1, 1) is (2, 2) to (3, 3)
+        CHECK(r.shown.row(4)[4 * 4 + 3] == 0 && r.shown.row(1)[4 * 1 + 3] == 0);
+    }
+    gpu.setRenderer(nullptr);
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("sith.unit.render",
@@ -150,4 +278,5 @@ static const reluva::test::Suite kSuite("sith.unit.render",
                                             {"translucent", [](const std::filesystem::path &) { testTranslucent(); }},
                                             {"culling", [](const std::filesystem::path &) { testCulling(); }},
                                             {"horizon sky", [](const std::filesystem::path &) { testHorizonSky(); }},
+                                            {"scene scaled", [](const std::filesystem::path &) { testSceneScaled(); }},
                                         });

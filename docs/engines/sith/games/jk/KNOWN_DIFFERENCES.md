@@ -48,7 +48,10 @@ None yet.
   other otherwise. The display's gamma ramp, which the game doesn't set,
   isn't applied to the scene there. Specular colour, fog and the alpha
   test's exact reference aren't drawn on the card, as the game doesn't
-  use them ([systems/hosting.md](systems/hosting.md), step 21).
+  use them ([systems/hosting.md](systems/hosting.md), step 21). At a
+  larger *Picture size* the 3D is finer than any card of the time drew
+  it at 640x480, while the menus, gauges and text keep their pixels,
+  enlarged.
 
 ## Additions outside the game
 
