@@ -243,7 +243,12 @@ page's turn began 3.2 seconds after the click, as the files loaded.
 
 O.K. on the mission panel plays `cornrclk.wav` and shows the loading
 screen while the mission loads (its map, every object's definition and
-model, the computer players). It's drawn in 3D: the program's camera at
+model, the computer players). There's no briefing screen between: run
+past O.K. under the emulator, the program never opened the
+`single_briefing` pictures its strings name (`spmainbc.bmp` and the
+like), and the mission opened on a cut scene in the game's own 3D, a
+ship passing a planet, to `sounds\music\Mfed25.wav`. What the briefing
+pictures are for isn't known. It's drawn in 3D: the program's camera at
 the origin, looking along +z, 45 degrees high, as in play
 ([camera.md](camera.md)), with no ambient light and none of the map's.
 
