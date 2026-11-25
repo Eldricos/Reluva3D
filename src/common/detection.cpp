@@ -222,6 +222,8 @@ Error runImport(const ImportPlan &plan, const std::filesystem::path &dest,
     }
     if (progress)
         progress(total, total);
+    if (plan.afterCopy)
+        return plan.afterCopy(dest);
     return Error::success();
 }
 

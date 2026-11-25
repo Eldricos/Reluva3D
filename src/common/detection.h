@@ -72,6 +72,9 @@ struct ImportPlan {
     // one: kept while the plan waits for its other volumes, too.
     std::shared_ptr<const InstallShieldCabinet> cabinet;
     std::vector<std::string> notes;
+    // Run once the files are copied, in their folder: a patch applied by
+    // running the patch's own program, say. Its error is the import's.
+    std::function<Error(const std::filesystem::path &dest)> afterCopy;
     // What else the person importing may add (MetaEngine::addToImport): a
     // patch's installer, and a folder (an expansion's CD, say), with how the
     // launcher offers them; an empty label offers none.
@@ -93,7 +96,8 @@ struct ImportPlan {
  * ".part" file renamed when whole, so an import stopped halfway leaves no
  * file cut short. `progress` is told the bytes copied so far and the total,
  * often; returning false stops the import (what was copied stays). Fails
- * on the first file that can't be read or written.
+ * on the first file that can't be read or written. Then the plan's
+ * afterCopy, if it has one.
  */
 Error runImport(const ImportPlan &plan, const std::filesystem::path &dest,
                 const std::function<bool(uint64_t done, uint64_t total)> &progress);
