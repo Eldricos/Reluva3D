@@ -17,6 +17,11 @@ namespace reluva::nfs::nfs2se {
 
 namespace {
 
+// The game's world is left-handed and the renderer's right-handed: the
+// view mirrored left to right, as the hosted game shows it, the road's
+// across vector to the right (col.md, The virtual road).
+const gfx::Mat4 kMirror = {-1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+
 constexpr int kFrameW = 640;
 constexpr int kFrameH = 480;
 constexpr const char *kLevelNames[] = {"high", "medium", "low", "all"};
@@ -201,8 +206,10 @@ void CarPage::build() {
                 for (int c = 0; c < 3; ++c)
                     corners[size_t(k)][size_t(c)] =
                         part.vertices[poly.vertices[size_t(k)]][size_t(c)] + part.position[size_t(c)];
-            // In turn, as the program lays a car's pictures (0x4736a0).
-            quads.add(texture, corners, {0, 1, 2, 3});
+            // In turn as the program lays a car's pictures (0x4736a0,
+            // 0x46f841), from its texel (0, 0) on; a car's pictures come out
+            // turned half round from a track's, so from the bottom right.
+            quads.add(texture, corners, {2, 3, 0, 1});
         }
     }
     _quads = quads.quads();
@@ -323,8 +330,9 @@ void CarPage::update(uint64_t nowMs) {
     _lastMs = nowMs;
     const gfx::Vec3 offset{std::cos(_pitch) * std::sin(_yaw), std::sin(_pitch), std::cos(_pitch) * std::cos(_yaw)};
     const gfx::Vec3 eye{offset[0] * _distance, offset[1] * _distance + 0.5f, offset[2] * _distance};
-    const gfx::Mat4 viewProj = gfx::multiply(gfx::perspective(0.8f, float(kFrameW) / float(kFrameH), 0.05f, 500.0f),
-                                             gfx::lookAlong(eye, {-offset[0], -offset[1], -offset[2]}, {0, 1, 0}));
+    const gfx::Mat4 viewProj =
+        gfx::multiply(gfx::multiply(gfx::perspective(0.8f, float(kFrameW) / float(kFrameH), 0.05f, 500.0f), kMirror),
+                      gfx::lookAlong(eye, {-offset[0], -offset[1], -offset[2]}, {0, 1, 0}));
     _renderer->beginFrame(viewProj, eye, {70, 74, 82});
     if (_mesh) {
         gfx::DrawCall call;

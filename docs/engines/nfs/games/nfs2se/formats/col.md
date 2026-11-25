@@ -51,8 +51,11 @@ The program builds its own table of the pictures' corners from these
   right, 0x40 top to bottom; then 0x02 turns it a quarter, 0x04 a half,
   0x08 three quarters, the quarter turns the other way round once
   mirrored. 0x01 is set whenever neither mirror is, and isn't read.
-  Unturned, a quad's vertices 0, 1, 2 and 3 take the picture's top left,
-  top right, bottom right and bottom left. The road's surface is mostly
+  Unturned, a quad's vertices 0, 1, 2 and 3 take the picture's top
+  right, top left, bottom left and bottom right: the program's corners
+  from texel (0, 0) on, the top left (0x433bd0), its vertices drawn 1,
+  0, 3, 2 (0x435090). Seen so: `TR00`'s *SLOW* sign reads and its trees
+  stand on the Tracks page, shown as the hosted game shows the track. The road's surface is mostly
   0x01, its sides 0x09 or 0x03.
 
 A polygon's texture number is a place in this table. The pictures are
@@ -89,6 +92,10 @@ objects that aren't any one block's. Their placements are of types 1 and
   0.3 units of a vertex of the point's cross-section ([trk.md](trk.md),
   Extrablocks, 6) at 14,159 of the points on the left, 14,066 on the
   right.
+- **Right and left** are a driver's going forward: the road driver held
+  4 units along the across vector, on `TR00`'s start straight in the
+  hosted game, drives on the right of the road, and −4 units on the
+  left, against the pits' building.
 - **Where a car can drive** (the word at 24): a bit for each slot a
   lane's width across: bit 7 the first right of the point, 6 the next
   out; bit 8 the first left, 9 the next out (0x42a450, 0x42a4f0). Set
@@ -153,7 +160,9 @@ Read as `Collision` (`src/engines/nfs/nfs2se/formats/col.cpp`);
 `isNfs2Collision` tells it from NFS III's by its 10-byte texture records,
 and `reluva-tool nfs survey` reads each with the reader for its game. The
 Tracks page turns each quad's picture as its record says
-(`pictureCorners`), keys out the see-through ones' green, and runs the
+(`pictureCorners`), shown mirrored left to right: the game's world is
+left-handed, the renderer's right-handed. It keys out the see-through
+ones' green, and runs the
 animated ones' pictures at their own rate, at 64 ticks a second as the
 hosted game's race clock runs.
 

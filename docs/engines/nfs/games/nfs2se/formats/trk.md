@@ -150,7 +150,8 @@ block to draw (0x435910).
 
   Types 3 and 4 are only on `TR03`, 8 and 9 only on `TR02`, all on the
   middle of two-lane roads; right and left as a driver going forward
-  sees them, the across vector pointing right *(inferred)*.
+  sees them, the across vector pointing right ([col.md](col.md), The
+  virtual road).
 
   The picture among the worn ones is chosen by the vertex's place
   (0x4c412c). In the 3dfx program the lines take the road's shades,
@@ -192,8 +193,8 @@ draws a track at a level, its objects placed (an animated one where its
 animation starts), with the 3dfx program's pictures, from points of the
 virtual road ([col.md](col.md)). Each quad has its picture laid across
 it whole, turned as its texture's record says ([col.md](col.md),
-Textures); unturned, its vertices take the picture's top left, top
-right, bottom right and bottom left. The signs' lettering reads as in the
+Textures), and the view mirrored left to right, as the hosted game shows
+it ([col.md](col.md), In Reluva). The signs' lettering reads as in the
 hosted game. Both faces are drawn. The quads take the 3dfx program's
 greys from their shades (S turns them off). The painted lines are drawn
 at every level, where the game draws them at the high one only, each

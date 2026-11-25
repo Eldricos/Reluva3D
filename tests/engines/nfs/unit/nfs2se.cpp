@@ -309,16 +309,16 @@ void testPaint() {
 // bottom left, 1 bottom right, 2 top right, 3 top left.
 void testPictureCorners() {
     using C = std::array<uint8_t, 4>;
-    CHECK(nfs2se::pictureCorners(0x01) == (C{3, 2, 1, 0})); // top left first
+    CHECK(nfs2se::pictureCorners(0x01) == (C{1, 0, 3, 2})); // top right first
     CHECK(nfs2se::pictureCorners(0x00) == nfs2se::pictureCorners(0x01));
-    CHECK(nfs2se::pictureCorners(0x10) == (C{2, 3, 0, 1}));
-    CHECK(nfs2se::pictureCorners(0x40) == (C{0, 1, 2, 3}));
-    CHECK(nfs2se::pictureCorners(0x05) == (C{1, 0, 3, 2}));
+    CHECK(nfs2se::pictureCorners(0x10) == (C{0, 1, 2, 3}));
+    CHECK(nfs2se::pictureCorners(0x40) == (C{2, 3, 0, 1}));
+    CHECK(nfs2se::pictureCorners(0x05) == (C{3, 2, 1, 0}));
     // The turns, and after a mirror the other way round.
-    CHECK(nfs2se::pictureCorners(0x03) == (C{0, 3, 2, 1}));
-    CHECK(nfs2se::pictureCorners(0x09) == (C{2, 1, 0, 3}));
-    CHECK(nfs2se::pictureCorners(0x12) == (C{3, 0, 1, 2}));
-    CHECK(nfs2se::pictureCorners(0x18) == (C{1, 2, 3, 0}));
+    CHECK(nfs2se::pictureCorners(0x03) == (C{2, 1, 0, 3}));
+    CHECK(nfs2se::pictureCorners(0x09) == (C{0, 3, 2, 1}));
+    CHECK(nfs2se::pictureCorners(0x12) == (C{1, 2, 3, 0}));
+    CHECK(nfs2se::pictureCorners(0x18) == (C{3, 0, 1, 2}));
 }
 
 void testSky() {

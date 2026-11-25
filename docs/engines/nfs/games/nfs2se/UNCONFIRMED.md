@@ -66,17 +66,24 @@ None yet.
   kept. What `DELTA.SJH` changes is a guess from its size
   ([geo.md](formats/geo.md), The colours' file).
 - **How the cars' and the tracks' polygons take their pictures**
-  (November 2026, from the code and seen): a car's vertices take the
-  picture's bottom left, bottom right, top right and top left
-  ([geo.md](formats/geo.md)); a track's quads are turned and mirrored
-  by their texture's record, unturned their vertices taking the top
-  left first ([col.md](formats/col.md), Textures). The Tracks page so
-  shows `TR00`'s billboards' lettering reading and its trees standing
-  as the hosted game does, and the Cars page the beer crate's lettering
-  reading; either way round, they don't.
-- **The pages show the world the right way round**, not mirrored
-  (November 2026): with the lettering reading, `TR00`'s billboards stand
-  on the same side of the road as in the hosted game.
+  (November 2026, from the code and seen): the program gives a
+  polygon's corners texels from (0, 0) on (0x46f841, 0x433bd0); a
+  track's quads, drawn 1, 0, 3, 2 and turned by their texture's record,
+  take their pictures so ([col.md](formats/col.md), Textures), a car's
+  turned half round from that ([geo.md](formats/geo.md), Texture
+  corners), and what turns them wasn't found. The Tracks page so shows
+  `TR00`'s *SLOW* sign reading and its trees standing, and the Cars page
+  the beer crate upright, its original side reading.
+- **The pages show the world as the hosted game does** (late November
+  2026): mirrored left to right from how the renderer would draw the
+  files' numbers, the game's world being left-handed. Earlier the pages
+  weren't mirrored, the pictures' corners laid the other way across to
+  make the lettering read, and this note said they were the right way
+  round: they weren't. On `TR00`'s start straight the pits' building is
+  on the left and the grass on the right in the hosted game, and on the
+  page now; the road driver held right of the road along the across
+  vector drives on its right ([col.md](formats/col.md), The virtual
+  road).
 - **The 3dfx program's see-through texels** (November 2026, on the
   host): they aren't chroma-keyed. `nfs2sea.exe` uploads its track
   pictures to Glide as ARGB 1555 (`grTexDownloadMipMap`, format 11),

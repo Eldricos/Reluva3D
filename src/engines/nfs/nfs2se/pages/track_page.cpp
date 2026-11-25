@@ -24,6 +24,11 @@ constexpr int kAnimated = 1 << 20;
 // And painted lines': this plus the number of their lin picture.
 constexpr int kLine = 1 << 21;
 
+// The game's world is left-handed and the renderer's right-handed: the
+// view mirrored left to right, as the hosted game shows it, the road's
+// across vector to the right (col.md, The virtual road).
+const gfx::Mat4 kMirror = {-1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+
 constexpr int kFrameW = 640;
 constexpr int kFrameH = 480;
 constexpr const char *kLevelNames[] = {"low", "medium", "high"};
@@ -698,8 +703,9 @@ void TrackPage::update(uint64_t nowMs) {
     const float length = std::sqrt(ahead[0] * ahead[0] + ahead[1] * ahead[1] + ahead[2] * ahead[2]);
     for (float &v : ahead)
         v /= length > 0 ? length : 1;
-    const gfx::Mat4 viewProj = gfx::multiply(gfx::perspective(1.1f, float(kFrameW) / float(kFrameH), 0.1f, 2000.0f),
-                                             gfx::lookAlong(eye, ahead, {0, 1, 0}));
+    const gfx::Mat4 viewProj =
+        gfx::multiply(gfx::multiply(gfx::perspective(1.1f, float(kFrameW) / float(kFrameH), 0.1f, 2000.0f), kMirror),
+                      gfx::lookAlong(eye, ahead, {0, 1, 0}));
     // The clear colour: the 3dfx sky's top, or black with a black horizon
     // (NFS2SEA.EXE 0x427440).
     Color clear{70, 74, 82};
@@ -707,10 +713,10 @@ void TrackPage::update(uint64_t nowMs) {
         clear = _sky.blackHorizon ? Color{0, 0, 0}
                                   : Color{uint8_t(_sky.skyTop[0]), uint8_t(_sky.skyTop[1]), uint8_t(_sky.skyTop[2])};
     const GlideFog fog = glideFog(_trackNumber, _point);
-    // The screen's right, level: the way along x the view's sideways axis
-    // (lookAlong's ahead × up) runs.
+    // The screen's right, level: as the road's across vector is to its
+    // forward one.
     const float flat = std::sqrt(ahead[0] * ahead[0] + ahead[2] * ahead[2]);
-    const gfx::Vec3 right = flat > 0 ? gfx::Vec3{-ahead[2] / flat, 0, ahead[0] / flat} : gfx::Vec3{1, 0, 0};
+    const gfx::Vec3 right = flat > 0 ? gfx::Vec3{ahead[2] / flat, 0, -ahead[0] / flat} : gfx::Vec3{1, 0, 0};
     const auto frame = static_cast<uint32_t>(nowMs * 30 / 1000);
     if (frame != _soundFrame) {
         _soundFrame = frame;

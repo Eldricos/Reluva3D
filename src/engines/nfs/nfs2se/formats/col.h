@@ -77,9 +77,9 @@ struct Collision {
 
 /**
  * The picture corner each of a quad's four vertices takes, for a texture's
- * orientation: 0 bottom left, 1 bottom right, 2 top right, 3 top left, as
- * the program lays them (0x4735a4): unturned, top left, top right, bottom
- * right, bottom left.
+ * orientation: 0 top left (the program's texel (0, 0)), 1 top right, 2
+ * bottom right, 3 bottom left, as the program lays them (0x4735a4):
+ * unturned, top right, top left, bottom left, bottom right.
  */
 std::array<uint8_t, 4> pictureCorners(uint8_t orientation);
 

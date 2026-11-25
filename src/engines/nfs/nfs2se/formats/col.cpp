@@ -82,11 +82,8 @@ std::array<uint8_t, 4> pictureCorners(uint8_t orientation) {
         else
             reorder(3, 0, 1, 2);
     }
-    // It draws a quad's vertices 1, 0, 3, 2 (0x435090), and a track's
-    // pictures come out turned half round from a car's: the corners as a
-    // car's are counted (geo.md), checked against the signs' lettering.
-    auto car = [](uint8_t corner) { return static_cast<uint8_t>((corner + 2) & 3); };
-    return {car(c[1]), car(c[0]), car(c[3]), car(c[2])};
+    // It draws a quad's vertices 1, 0, 3, 2 (0x435090).
+    return {c[1], c[0], c[3], c[2]};
 }
 
 bool isNfs2Collision(const std::vector<uint8_t> &data) {

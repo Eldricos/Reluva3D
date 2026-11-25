@@ -72,10 +72,15 @@ first entry in its table of texture corners in bytes 2-3 (0x461f55,
   rewrites before it draws each car (0x45a220; read at 0x46da64): see
   The frames.
 - **Texture corners.** A polygon's vertices 0, 1, 2 and 3 take the
-  picture's corners (0, h−1), (w−1, h−1), (w−1, 0) and (0, 0) (0x4736a0,
-  0x46f841): with the picture's first row at its top, bottom left,
-  bottom right, top right, top left. Seen so: the beer crate's
-  lettering reads on the Cars page laid this way, and not the other.
+  texels (0, 0), (w−1, 0), (w−1, h−1) and (0, h−1) (0x4736a0, 0x46f841).
+  Shown as the hosted game shows a world, they come out as the decoded
+  picture's bottom right, bottom left, top left and top right: turned
+  half round from that, where a track's pictures aren't
+  ([col.md](col.md), Textures) *(inferred)*: so laid, the beer crate
+  stands upright, its slot and bottles at the top, and its original
+  side's lettering reads (its left side, a mirror copy, the 0x04
+  polygons, reads backwards in the model itself). What turns them
+  wasn't found.
 - **The paint.** Every entry of the car's palette with red and blue under
   0x56 and green from 0x80 is the paint's: the program recolours it as it
   sets up the car's palette (0x444f80), its shade from the green
@@ -164,3 +169,4 @@ The wheels' faces are moved out as the game's loader moves them.
 
 - What the header's first word meant to its maker.
 - Why every car's rear wheels' faces are moved out, and not the front ones.
+- Where a car's pictures are turned half round from a track's.

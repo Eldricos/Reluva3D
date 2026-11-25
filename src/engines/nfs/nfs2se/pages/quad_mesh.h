@@ -31,7 +31,7 @@ public:
     /**
      * Adds a quad with the texture `texture`; points as the files give them
      * (x, height, y). `pictureCorners`: the corner each vertex takes, 0
-     * bottom left, 1 bottom right, 2 top right, 3 top left (col.h).
+     * top left, 1 top right, 2 bottom right, 3 bottom left (col.h).
      * `greys`: each vertex's colour, a grey, 255 for white.
      */
     void add(int texture, const std::array<Point, 4> &corners, const std::array<uint8_t, 4> &pictureCorners,
@@ -47,7 +47,7 @@ public:
         const float length = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
         for (float &v : n)
             v = length > 0 ? v / length : 0;
-        constexpr float kUv[4][2] = {{0, 1}, {1, 1}, {1, 0}, {0, 0}};
+        constexpr float kUv[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
         for (int k = 0; k < 4; ++k) {
             gfx::Vertex v{};
             for (int i = 0; i < 3; ++i) {
