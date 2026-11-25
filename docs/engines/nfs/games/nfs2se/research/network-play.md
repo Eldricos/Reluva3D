@@ -109,6 +109,23 @@ first runs found the road driver's other faults: on the Outback it
 stopped for good against a sign and the rock pillars on the road's
 middle, until it was mended.
 
+**The whole tournament** (late November 2026), once the driver got free
+of everything on every track: seven races, about 2 h 15 min on the
+real clock, Proving Grounds, the Outback, Last Resort, North Country,
+Pacific Spirit, Mediterraneo and Mystic Peaks, both copies driven to
+every finish:
+
+| Race | Player1 | Player2 ("2") |
+|---|---|---|
+| 1, Proving Grounds | 6th, 4:26.40 | 7th, 4:28.46 |
+| 2 to 7 | 7th or 8th | 7th or 8th |
+
+The tournament summary: Zipper champion with 195 points, Player2 7th
+with 20, Player1 8th with 16. Each race's results, lap times and
+standings were the same on both copies wherever both were seen (one
+copy often a screen behind the other between races, the lobby putting
+them in step again).
+
 What was found on the way:
 
 - **The controls go round the link, not the cars.** Each copy keeps a

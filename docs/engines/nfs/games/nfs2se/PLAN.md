@@ -304,8 +304,11 @@ with what it found written on the game's pages in `formats/` and
    and a tournament over IPX, four races with the same results on both
    copies, until the road driver lost a car off the fifth track's road.
 
-   Left open: a whole tournament over a link (it needs a road driver
-   that gets back onto the road), copies on two machines.
+   Then a whole tournament over IPX, seven races, once the road driver
+   got free of everything on every track; and a game-files step driving
+   a knockout round.
+
+   Left open: copies on two machines.
 
 ## Decisions
 
