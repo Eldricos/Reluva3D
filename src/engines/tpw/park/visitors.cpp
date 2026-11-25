@@ -274,8 +274,9 @@ int Park::waitingAt(int queue) const {
     const Visitor *v = visitor(q.line.front());
     if (!v || v->doing != Doing::kQueueing || v->along < lengthOf(queueRoute(q)))
         return 0;
-    // None get on a ride broken or closed.
-    if (q.object >= 0 && (_objects[size_t(q.object)].broken || !_objects[size_t(q.object)].open))
+    // None get on a ride broken, closed, or being upgraded.
+    if (q.object >= 0 && (_objects[size_t(q.object)].broken || !_objects[size_t(q.object)].open ||
+                          _objects[size_t(q.object)].upgrading > 0))
         return 0;
     return v->id;
 }
@@ -296,6 +297,10 @@ bool Park::board(int queue, int id) {
                 PlacedObject &o = _objects[size_t(q.object)];
                 ++o.users;
                 o.takings += fare;
+                if (const Attractions::Attraction *a = _attractions.find(o.id)) {
+                    o.goods += a->costOfGoods;
+                    _cash -= a->costOfGoods;
+                }
                 wear(size_t(q.object));
             }
             if (const Attractions::Attraction *a =
@@ -476,7 +481,8 @@ void Park::chooseTarget(Visitor &v) {
         const Attractions::Attraction *a = _attractions.find(_objects[size_t(q.object)].id);
         if (d < 0 || q.line.size() >= room || !a || !a->choosable)
             continue;
-        if (_objects[size_t(q.object)].broken || !_objects[size_t(q.object)].open)
+        if (_objects[size_t(q.object)].broken || !_objects[size_t(q.object)].open ||
+            _objects[size_t(q.object)].upgrading > 0)
             continue;
         // Not the other's toilet, nor what they already carry; costumes are
         // children's, the only costumed sprites being of a child (guessed).
@@ -804,6 +810,7 @@ void Park::newDay() {
         rollWeather();
     objectsDay();
     staffDay();
+    researchDay();
     const bool weatherDay = _lastDay % uint32_t(_rules.weatherDays) == 0;
     const bool wet = _weather == Weather::kRain || _weather == Weather::kStorm || _weather == Weather::kSnow;
     for (Visitor &v : _people) {
@@ -826,6 +833,7 @@ void Park::newDay() {
                 v, [](const Attractions::Attraction &a) { return a.security; }, kCameraCells) &&
             !guarded(v.x, v.z)) {
             think(v, Thought::kNaughty);
+            chase(v);
             if (int(roll(v) % 100) < _rules.stinkBombPercent) {
                 _stinkBombs.push_back({v.x, v.z, _millis, _millis + kStinkBombMillis});
                 for (Visitor &other : _people)

@@ -130,6 +130,27 @@ constexpr uint32_t kSetPatrolItem = 603;
 constexpr uint32_t kClearPatrolItem = 605;
 constexpr uint32_t kTrainItem = 606;
 constexpr uint32_t kFireItem = 608;
+constexpr uint32_t kBuyAnotherItem = 514;
+constexpr uint32_t kDeleteItem = 516;
+constexpr uint32_t kBuyUpgradeItem = 529;
+constexpr uint32_t kCancelUpgradeItem = 127;
+constexpr uint32_t kRideItem = 532;
+constexpr uint32_t kFinanceSummaryItem = 533;
+constexpr uint32_t kEditNameItem = 534;
+constexpr uint32_t kKioskOpenItem = 547;
+constexpr uint32_t kKioskCloseItem = 548;
+constexpr uint32_t kKioskFinanceItem = 549;
+constexpr uint32_t kKioskNameItem = 550;
+// What an upgrade refused says, by Park::Upgrading: "fully upgraded" (125),
+// "hired some engineers and trained them" (11), "You need to research a
+// solution" (103, guessed for an upgrade not researched); none for want of
+// money.
+constexpr uint32_t kFullyUpgradedText = 125;
+constexpr uint32_t kNeedEngineersText = 11;
+constexpr uint32_t kNeedResearchText = 103;
+// A message's time over the park (guessed).
+constexpr uint64_t kNoticeMillis = 6000;
+constexpr ScreenRect kNoticeBox{120, 40, 400, 44};
 // A member of staff is picked within this of their feet, in units.
 constexpr float kStaffPickHalfWidth = 1.5f;
 constexpr float kStaffPickHeight = 5;
@@ -276,6 +297,12 @@ void drawPlaced(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, 
         m = gfx::multiply(place, m);
     const std::vector<std::vector<gfx::Vec3>> positions = meshPositions(model, animation, frame);
     drawMeshes(rasterizer, eye, model, true, light, &transforms, &positions);
+}
+
+// A message over the park, broken to fit its frame.
+void drawNotice(Surface &screen, const WindowKit &kit, const std::string &text) {
+    kit.frame(screen, kNoticeBox);
+    kit.paragraph(screen, kNoticeBox.x + 8, kNoticeBox.y + 8, kNoticeBox.w - 16, text);
 }
 
 } // namespace
@@ -503,6 +530,13 @@ void ParkScreen::advance(Park &park) {
                     machine->setVariable(v, o.open ? 0 : 1);
                 if (names[v] == "VAR_BROKEN" && !o.broken)
                     machine->setVariable(v, 0);
+                // Upgraded, its level's; before, the script's host gives its own settings'.
+                if (const Attractions::Attraction::Level *level = park.levelOf(i); level && o.level > 0) {
+                    if (names[v] == "VAR_CAPACITY")
+                        machine->setVariable(v, level->capacity);
+                    if (names[v] == "VAR_DURATION")
+                        machine->setVariable(v, level->duration);
+                }
             }
         }
         run->advance(ms);
@@ -666,6 +700,23 @@ ParkScreen::Camera ParkScreen::startCamera(const Park &park) const {
     const gfx::Vec3 a = Park::cellCentre(entrance[0]);
     const gfx::Vec3 b = Park::cellCentre(entrance[1]);
     return {{(a[0] + b[0]) / 2, 0, (a[2] + b[2]) / 2 + kStartInside}, kStartYaw, kStartPitch, kStartDistance};
+}
+
+// How the game's view from a ride is placed isn't worked out: close in
+// over its middle, as the camera faced.
+ParkScreen::Camera ParkScreen::rideCamera(const Park &park, size_t object, const Camera &from) const {
+    if (object >= park.objects().size())
+        return from;
+    const Park::PlacedObject &o = park.objects()[object];
+    const Attractions::Attraction *a = park.attractions().find(o.id);
+    const std::vector<Park::Cell> cells = a ? Park::footprint(a->shape, o.at, o.angle).cells : std::vector{o.at};
+    gfx::Vec3 middle{};
+    for (const Park::Cell &c : cells) {
+        const gfx::Vec3 at = Park::cellCentre(c);
+        middle[0] += at[0] / float(cells.size());
+        middle[2] += at[2] / float(cells.size());
+    }
+    return {middle, from.yaw, from.pitch, kNearest};
 }
 
 std::string ParkScreen::dateText(uint32_t day) const {
@@ -1017,14 +1068,43 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
         _trainingWindow.draw(screen, _kit, park, _hire);
         _staffFinance.draw(screen, _kit, park);
         _staffWindow.draw(screen, _kit, park, _hire);
+        _researchLab.draw(screen, _kit, park, _hire, _buy.names());
+        _projectWindow.draw(screen, _kit, park, _buy.names());
+        _assignWindow.draw(screen, _kit, park, _hire, _buy.names());
+        _financeSummary.draw(screen, _kit, park);
+        _renameWindow.draw(screen, _kit);
         _wageDemand.draw(screen, _kit, park, _hire);
         _popup.draw(screen, _kit);
+        if (_notice && park.millis() < _noticeUntil)
+            drawNotice(screen, _kit, _kit.ui(_notice));
     }
 }
 
 bool ParkScreen::windowOpen() const {
     return _popup.isOpen() || _attractionWindow.isOpen() || _gateWindow.isOpen() || _staffWindow.isOpen() ||
-           _staffList.isOpen() || _trainingWindow.isOpen() || _staffFinance.isOpen() || _wageDemand.isOpen();
+           _staffList.isOpen() || _trainingWindow.isOpen() || _staffFinance.isOpen() || _wageDemand.isOpen() ||
+           _researchLab.isOpen() || _projectWindow.isOpen() || _assignWindow.isOpen() || _financeSummary.isOpen() ||
+           _renameWindow.isOpen();
+}
+
+void ParkScreen::notify(const Park &park, uint32_t text) {
+    _notice = text;
+    _noticeUntil = park.millis() + kNoticeMillis;
+}
+
+// The scripts and the unscripted rides' users go by the objects' and queues' places.
+void ParkScreen::removed(size_t object, int queue) {
+    if (object < _runs.size())
+        _runs.erase(_runs.begin() + long(object));
+    if (object < _prebuilt)
+        --_prebuilt;
+    if (queue < 0)
+        return;
+    std::map<int, std::vector<std::pair<int, uint64_t>>> users;
+    for (auto &[q, on] : _unscripted)
+        if (q != queue)
+            users.emplace(q > queue ? q - 1 : q, std::move(on));
+    _unscripted = std::move(users);
 }
 
 int ParkScreen::objectAt(const Park &park, const Park::Cell &cell) const {
@@ -1059,6 +1139,8 @@ int ParkScreen::staffAt(const Park &park, const Camera &camera, int x, int y) co
 }
 
 std::string ParkScreen::nameOf(const Park &park, size_t object) const {
+    if (object < park.objects().size() && !park.objects()[object].name.empty())
+        return park.objects()[object].name;
     const Attractions::Attraction *a =
         object < park.objects().size() ? park.attractions().find(park.objects()[object].id) : nullptr;
     return a && _buyRead ? _buy.names().shown(*a) : a ? a->name : std::string();
@@ -1104,17 +1186,27 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
         std::vector<uint32_t> items;
         const Park::PlacedObject &o = park.objects()[object];
         const Attractions::Attraction *a = park.attractions().find(o.id);
-        if (a && a->requiresWatering) {
+        if (a && a->requiresWatering)
             items.push_back(o.gardener ? kCancelGardenerItem : kCallGardenerItem);
-            return items;
-        }
         const int queue = park.queueOf(object);
-        if (queue >= 0 && !park.queues()[size_t(queue)].kiosk) {
+        const bool ride = queue >= 0 && !park.queues()[size_t(queue)].kiosk;
+        if (ride) {
             items.push_back(o.engineer ? kCancelEngineerItem : kCallEngineerItem);
             items.push_back(kEditLineItem);
-        }
-        if (queue >= 0)
+            if (park.levelOf(object, o.level + 1))
+                items.push_back(o.upgrading > 0 ? kCancelUpgradeItem : kBuyUpgradeItem);
             items.push_back(o.open ? kCloseItem : kOpenItem);
+            items.push_back(kRideItem);
+            items.push_back(kFinanceSummaryItem);
+            items.push_back(kEditNameItem);
+        } else if (queue >= 0) {
+            items.push_back(o.open ? kKioskCloseItem : kKioskOpenItem);
+            items.push_back(kKioskFinanceItem);
+            items.push_back(kKioskNameItem);
+        }
+        if (a && a->price > 0 && a->available)
+            items.push_back(kBuyAnotherItem);
+        items.push_back(kDeleteItem);
         return items;
     };
     for (;;) {
@@ -1137,6 +1229,19 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                     screen.staffList().close();
                     screen.trainingWindow().close();
                     screen.staffFinance().close();
+                    screen.researchLab().close();
+                    screen.projectWindow().close();
+                    screen.assignWindow().close();
+                    screen.financeSummary().close();
+                    if (screen.renameWindow().isOpen()) {
+                        screen.renameWindow().close();
+                        sys.setTextInput(false);
+                    }
+                } else if (screen.renameWindow().isOpen()) {
+                    if (screen.renameWindow().handle(ev) == WindowResult::kChose) {
+                        park.rename(screen.renameWindow().object(), screen.renameWindow().typed());
+                        sys.setTextInput(false);
+                    }
                 } else if (screen.wageDemand().isOpen()) {
                     screen.wageDemand().handle(ev, park);
                 } else if (screen.popup().isOpen()) {
@@ -1152,8 +1257,44 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                                 park.callGardener(object);
                             else if (item == kEditLineItem)
                                 queueLaying = park.queueOf(object);
-                            else if (item == kOpenItem || item == kCloseItem)
-                                park.setOpen(object, item == kOpenItem);
+                            else if (item == kOpenItem || item == kCloseItem || item == kKioskOpenItem ||
+                                     item == kKioskCloseItem)
+                                park.setOpen(object, item == kOpenItem || item == kKioskOpenItem);
+                            else if (item == kBuyUpgradeItem)
+                                switch (park.upgrade(object)) {
+                                case Park::Upgrading::kFullyUpgraded:
+                                    screen.notify(park, kFullyUpgradedText);
+                                    break;
+                                case Park::Upgrading::kNeedsEngineer:
+                                    screen.notify(park, kNeedEngineersText);
+                                    break;
+                                case Park::Upgrading::kNotResearched:
+                                    screen.notify(park, kNeedResearchText);
+                                    break;
+                                default:
+                                    break;
+                                }
+                            else if (item == kCancelUpgradeItem)
+                                park.cancelUpgrade(object);
+                            else if (item == kRideItem)
+                                camera = screen.rideCamera(park, object, camera);
+                            else if (item == kFinanceSummaryItem || item == kKioskFinanceItem)
+                                screen.financeSummary().open(object, screen.nameOf(park, object));
+                            else if (item == kEditNameItem || item == kKioskNameItem) {
+                                screen.renameWindow().open(object, screen.nameOf(park, object));
+                                sys.setTextInput(true);
+                            } else if (item == kBuyAnotherItem) {
+                                placing = park.attractions().find(park.objects()[object].id);
+                                placingAngle = park.objects()[object].angle;
+                            } else if (item == kDeleteItem) {
+                                const int queue = park.queueOf(object);
+                                park.remove(object);
+                                screen.removed(object, queue);
+                                if (queueLaying == queue)
+                                    queueLaying = -1;
+                                else if (queueLaying > queue && queue >= 0)
+                                    --queueLaying;
+                            }
                         } else if (menuStaff) {
                             if (item == kSetPatrolItem) {
                                 patrolling = menuStaff;
@@ -1171,6 +1312,25 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                             park.setParkOpen(item == kOpenParkItem);
                         }
                     }
+                } else if (screen.assignWindow().isOpen()) {
+                    screen.assignWindow().handle(ev, park);
+                } else if (screen.projectWindow().isOpen()) {
+                    // A project chosen, scientists are assigned to it.
+                    if (screen.projectWindow().handle(ev, park) == WindowResult::kChose)
+                        screen.assignWindow().open(screen.researchLab().slot());
+                } else if (screen.researchLab().isOpen()) {
+                    switch (screen.researchLab().handle(ev, park)) {
+                    case ResearchLabWindow::Wants::kChoose:
+                        screen.projectWindow().open(screen.researchLab().slot());
+                        break;
+                    case ResearchLabWindow::Wants::kAssign:
+                        screen.assignWindow().open(screen.researchLab().slot());
+                        break;
+                    default:
+                        break;
+                    }
+                } else if (screen.financeSummary().isOpen()) {
+                    screen.financeSummary().handle(ev);
                 } else if (screen.staffWindow().isOpen()) {
                     screen.staffWindow().handle(ev, park);
                 } else if (screen.staffList().isOpen()) {
@@ -1285,7 +1445,12 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                                                        screen.modelOf(park, size_t(object)));
                     } else if (!left && !items.empty()) {
                         menuObject = object;
-                        screen.popup().open(screen.nameOf(park, size_t(object)), items, mouseX, mouseY);
+                        const Park::PlacedObject &o = park.objects()[size_t(object)];
+                        const Attractions::Attraction *a = park.attractions().find(o.id);
+                        screen.popup().open(screen.nameOf(park, size_t(object)), items, mouseX, mouseY,
+                                            {{3, std::to_string(o.level + 1)},
+                                             {25, std::to_string(a ? a->price : 0)},
+                                             {27, std::to_string(park.scrapValue(size_t(object)))}});
                     }
                     if (left || !items.empty())
                         continue;
@@ -1366,7 +1531,7 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
 
         const uint32_t choice = screen.hud().takeChoice();
         if (choice == ParkHud::kBuildAttractionItem)
-            screen.buyWindow().open(screen.attractions(), Attractions::Kind::kRide, park);
+            screen.buyWindow().open(park.attractions(), Attractions::Kind::kRide, park);
         if (choice == ParkHud::kHireStaffItem)
             screen.hireWindow().open(park, Park::StaffKind::kJanitor);
         if (choice == kListStaffItem)
@@ -1377,6 +1542,9 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
             screen.staffFinance().open();
         if (choice == kParkGatesItem)
             screen.gateWindow().open();
+        if (choice == ParkHud::kResearchLabMenuItem)
+            screen.researchLab().open();
+        screen.hud().setResearchLab(park.hasResearchLab());
         if (choice == kCloseParkItem)
             park.setParkOpen(!park.parkOpen());
         // Locate Staff: the camera to each in turn.

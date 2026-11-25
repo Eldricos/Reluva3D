@@ -37,8 +37,11 @@ None yet.
   queues laid, and they run their scripts; visitors choose, queue for
   and use rides, shops and toilets by guessed rules; litter, sickness,
   pranks, thoughts and opinions of prices by guessed rules; staff hired
-  in the Hire Staff window, the janitors sweeping, guards and
-  entertainers at work, the others only walking ([staff.md](systems/staff.md)); the
+  in the Hire Staff window and at work by guessed rules
+  ([staff.md](systems/staff.md)); research and upgrades by guessed
+  rates, the Assign staff, financial summary and naming windows laid out
+  by guess, and a ride's view only the camera brought close
+  ([research.md](systems/research.md), [building.md](systems/building.md#its-window-and-menu)); the
   weather's rolls and look guessed ([visitors.md](systems/visitors.md),
   [weather.md](systems/weather.md)); their
   signs are lettered by guessed rules ([sgn.md](formats/sgn.md)); some show their settings' names, or

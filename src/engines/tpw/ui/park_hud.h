@@ -59,6 +59,9 @@ public:
     static constexpr uint32_t kBuildAttractionItem = 833;
     /** The Staff menu's Hire Staff. */
     static constexpr uint32_t kHireStaffItem = 827;
+    /** Attractions' Research Lab, greyed till there's a research room. */
+    static constexpr uint32_t kResearchLabMenuItem = 834;
+    void setResearchLab(bool there) { _researchLab = there; }
 
     /** Reads the models, the fonts and the strings. */
     Error load(const SearchSet &files);
@@ -155,6 +158,7 @@ private:
     uint32_t _menuOpened = 0;
     int _menuLit = -1; // its item under the mouse
     uint32_t _choice = 0;
+    bool _researchLab = false; // the research room built: its menu item usable
 };
 
 } // namespace reluva::tpw

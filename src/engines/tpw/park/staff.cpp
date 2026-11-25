@@ -58,6 +58,12 @@ constexpr float kDryingDays = 60;
 constexpr float kThirstyPlant = 50;
 // What one rider wears a ride: its WearRate (out of 10) by this, percent (guessed).
 constexpr float kWearPerRider = 0.2f;
+// A guard chasing runs a third faster than they walk, and has caught a
+// prankster this near, in units; they chase for their kind's
+// MinWorkDuration to MaxWorkDuration, "how long the guard pursues the
+// thug", taken as seconds (guessed).
+constexpr float kChaseSpeed = 1.33f;
+constexpr float kCaughtUnits = 1.5f;
 
 constexpr std::array<Park::Cell, 4> kSteps{{{1, 0}, {0, 1}, {-1, 0}, {0, -1}}};
 
@@ -105,7 +111,8 @@ void Park::loadStaffRules(const SamFile &general) {
                              int(general.number(base + "InitialExperienceModifier", 10)),
                              int(general.number(base + "RecuperationModifier", 10)),
                              int(general.number(base + "HappinessRecuperationModifier", 10)),
-                             int(general.number(base + "TrainingExperienceGainModifier", 10))});
+                             int(general.number(base + "TrainingExperienceGainModifier", 10)),
+                             int(general.number(base + "ExperienceGainModifier", 10))});
     }
     if (_agencies.empty())
         _agencies.push_back({});
@@ -135,6 +142,21 @@ void Park::loadStaffRules(const SamFile &general) {
     c.strikeEnergy = int(number("Strike.EnergyPercentToStrike", c.strikeEnergy));
     c.strikeHappiness = int(number("Strike.HappyPercentToStrike", c.strikeHappiness));
     c.strikeMotivation = int(number("Strike.MotivationPercentToStrike", c.strikeMotivation));
+    // Experience gained a month at work, by grade: each kind's own
+    // constants, the gardeners' by the handymen's (they have none).
+    static constexpr std::array<const char *, kStaffKinds> kGrades{
+        "MechanicConstsPerGrade", "HandymanConstsPerGrade",    "HandymanConstsPerGrade",
+        "GuardConstsPerGrade",    "EntertainerConstsPerGrade", "ResearcherConstsPerGrade"};
+    for (size_t k = 0; k < kStaffKinds; ++k)
+        for (size_t g = 0; g < _experiencePerMonth[k].size(); ++g)
+            _experiencePerMonth[k][g] =
+                int(number(std::string(kGrades[k]) + "[" + std::to_string(g) + "].ExperiencePerMonth", 0));
+    _staffRoomCapacity = int(number(all + "StaffRoomCapacity", _staffRoomCapacity));
+    _workRate = int(number("Research.StartingWorkLoad", _workRate));
+    _researchSpeed = float(number("Research.SpeedScaleDown", _researchSpeed));
+    _researchCost = float(number("Research.CostScaleUp", _researchCost));
+    _minResearchAbility = float(number("Researcher.MinResearchAbility", _minResearchAbility));
+    _maxResearchAbility = float(number("Researcher.MaxResearchAbility", _maxResearchAbility));
     for (size_t g = 0; g < _entertaining.size(); ++g)
         _entertaining[g] = int(general.number(
             "EntertainerConstsPerGrade[" + std::to_string(g) + "].HappinessEffectOnCell", _entertaining[g]));
@@ -332,6 +354,27 @@ bool Park::guarded(float x, float z) const {
     return false;
 }
 
+// A prank seen by a guard at work within twice their range: the nearest
+// gives chase.
+void Park::chase(Visitor &v) {
+    const StaffRules &r = _staffRules[size_t(StaffKind::kGuard)];
+    StaffMember *best = nullptr;
+    float nearest = 0;
+    for (StaffMember &m : _staff) {
+        if (m.kind != StaffKind::kGuard || m.doing != StaffDoing::kWorking || m.chasing)
+            continue;
+        const float d = std::hypot(m.x - v.x, m.z - v.z);
+        if (d <= 2 * range(r.minRange, r.maxRange, skill(m)) * kCellUnits && (!best || d < nearest)) {
+            best = &m;
+            nearest = d;
+        }
+    }
+    if (best) {
+        best->chasing = v.id;
+        best->chaseUntil = _millis + uint64_t(range(r.minWork, r.maxWork, skill(*best)) * 1000);
+    }
+}
+
 int Park::findObject(bool (*what)(const Attractions::Attraction &)) const {
     for (size_t i = 0; i < _objects.size(); ++i)
         if (const Attractions::Attraction *a = _attractions.find(_objects[i].id); a && what(*a))
@@ -439,10 +482,10 @@ int Park::scrapValue(size_t object) const {
 // One rider's wear on a ride: its WearRate by kWearPerRider, broken at 0.
 void Park::wear(size_t object) {
     PlacedObject &o = _objects[object];
-    const Attractions::Attraction *a = _attractions.find(o.id);
-    if (!a || a->wearRate <= 0)
+    const Attractions::Attraction::Level *level = levelOf(object);
+    if (!level || level->wearRate <= 0)
         return;
-    o.repair = std::max(0.0f, o.repair - float(a->wearRate) * kWearPerRider);
+    o.repair = std::max(0.0f, o.repair - float(level->wearRate) * kWearPerRider);
     if (o.repair <= 0)
         o.broken = true;
 }
@@ -495,8 +538,12 @@ void Park::staffWay(StaffMember &m) {
     case StaffDoing::kGoingToTrain:
         m.doing = StaffDoing::kTraining;
         return;
+    case StaffDoing::kGoingToResearch:
+        m.doing = StaffDoing::kResearching;
+        return;
     case StaffDoing::kResting:
     case StaffDoing::kTraining:
+    case StaffDoing::kResearching:
     case StaffDoing::kStriking:
         return;
     case StaffDoing::kWorking:
@@ -602,8 +649,46 @@ void Park::finishWork(StaffMember &m) {
 
 // Faster with experience, up to MaxSpeedDifference percent of a child's pace.
 void Park::moveStaff(StaffMember &m, float left) {
-    if (m.doing == StaffDoing::kResting || m.doing == StaffDoing::kTraining)
+    if (m.doing == StaffDoing::kResting || m.doing == StaffDoing::kTraining || m.doing == StaffDoing::kResearching)
         return;
+    // A guard after a prankster, straight at them, a third faster, till
+    // caught or their WorkDuration's up: caught, they're seen out.
+    if (m.chasing) {
+        Visitor *v = nullptr;
+        for (Visitor &p : _people)
+            if (p.id == m.chasing && p.inPark && p.doing != Doing::kGoingHome)
+                v = &p;
+        if (!v || _millis >= m.chaseUntil) {
+            m.chasing = 0;
+        } else {
+            const float dx = v->x - m.x;
+            const float dz = v->z - m.z;
+            const float d = std::sqrt(dx * dx + dz * dz);
+            const float step = left * kChaseSpeed;
+            if (d <= kCaughtUnits + step) {
+                v->happiness = 0;
+                think(*v, Thought::kAngry);
+                if (v->doing == Doing::kQueueing) {
+                    std::vector<int> &line = _queues[size_t(v->queue)].line;
+                    line.erase(std::remove(line.begin(), line.end(), v->id), line.end());
+                    v->queue = -1;
+                }
+                v->doing = Doing::kWalking;
+                v->cell = {int(std::floor(v->x / kCellUnits)), int(std::floor(v->z / kCellUnits))};
+                goHome(*v);
+                m.chasing = 0;
+                m.cell = m.from = {int(std::floor(m.x / kCellUnits)), int(std::floor(m.z / kCellUnits))};
+                m.route.clear();
+            } else {
+                m.headingX = dx / d;
+                m.headingZ = dz / d;
+                m.x += m.headingX * step;
+                m.z += m.headingZ * step;
+                m.walked += step;
+            }
+            return;
+        }
+    }
     left *= 1 + (_fastest - 1) * skill(m);
     for (int pass = 0; pass < 16 && left > 0; ++pass) {
         if (m.working) {
@@ -672,6 +757,10 @@ void Park::staffDay() {
             if (m.trained >= kTrainingDays) {
                 m.experience =
                     std::min(kMostExperience, m.experience + _constants.trainingExperience * agency.training / 10);
+                // An engineer comes out able to upgrade rides (guessed: the
+                // Training Room's "Ability To Learn").
+                if (m.kind == StaffKind::kEngineer)
+                    m.ability = kRideUpgrading;
                 m.doing = StaffDoing::kWorking;
                 m.target = -1;
             }
@@ -679,7 +768,11 @@ void Park::staffDay() {
         case StaffDoing::kWorking:
             m.energy = std::max(0.0f, m.energy - kTiringPerDay);
             if (m.energy < float(_constants.slackingEnergy) && m.target < 0 && !m.working) {
-                if (room >= 0) {
+                // Not to a staff room already full (StaffRoomCapacity).
+                const int resting = int(std::count_if(_staff.begin(), _staff.end(), [](const StaffMember &s) {
+                    return s.doing == StaffDoing::kResting || s.doing == StaffDoing::kGoingToRest;
+                }));
+                if (room >= 0 && resting < _staffRoomCapacity) {
                     const Cell at = _objects[size_t(room)].at;
                     if (std::abs(at.x - m.cell.x) + std::abs(at.y - m.cell.y) <= _constants.slackingCells)
                         sendTo(m, room, StaffDoing::kGoingToRest);
@@ -749,6 +842,14 @@ void Park::staffMonth() {
     _cash -= wages();
     for (StaffMember &m : _staff) {
         const StaffRules &r = _staffRules[size_t(m.kind)];
+        // Experience at work: their grade's ExperiencePerMonth, by their
+        // agency's ExperienceGainModifier (tenths); none on strike.
+        if (m.doing != StaffDoing::kStriking) {
+            const Agency &agency = _agencies[size_t(std::clamp(m.agency, 0, int(_agencies.size()) - 1))];
+            const size_t grade = size_t(std::clamp(m.experience / kExperiencePerGrade, 0, 4));
+            m.experience = std::min(kMostExperience, m.experience + _experiencePerMonth[size_t(m.kind)][grade] *
+                                                                        agency.experienceGain / 10);
+        }
         const int expected = std::max(_constants.minWage, int(float(r.maxWage) * skill(m)));
         const float change = float(m.wage >= expected ? _constants.happyWage : -_constants.unhappyWage);
         m.motivation = std::clamp(m.motivation + change, 0.0f, 100.0f);
@@ -785,11 +886,17 @@ void Park::staffMonth() {
                     ++place;
                 }
         }
-    for (PlacedObject &o : _objects) {
-        if (const Attractions::Attraction *a = _attractions.find(o.id))
-            _cash -= a->runningCost;
+    for (size_t i = 0; i < _objects.size(); ++i) {
+        PlacedObject &o = _objects[i];
+        if (const Attractions::Attraction::Level *level = levelOf(i)) {
+            _cash -= level->runningCost;
+            o.costs += level->runningCost;
+        }
+        o.profit += o.takings - o.costs - o.goods;
         o.lastUsers = std::exchange(o.users, 0);
         o.lastTakings = std::exchange(o.takings, 0);
+        o.lastCosts = std::exchange(o.costs, 0);
+        o.lastGoods = std::exchange(o.goods, 0);
     }
 }
 

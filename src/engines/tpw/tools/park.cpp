@@ -630,8 +630,10 @@ int cmdHireShot(int argc, char **argv) {
 // each kind but scientists, run on so many seconds, to a PNG.
 int cmdWindowShot(int argc, char **argv) {
     if (argc < 6) {
-        std::fprintf(stderr, "usage: reluva-tool tpw window-shot <game folder> <world folder> <out.png> "
-                             "<attraction|gates|staff|list|training|finance|demand|menu> [seconds]\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool tpw window-shot <game folder> <world folder> <out.png> "
+            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename> [seconds]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -642,13 +644,32 @@ int cmdWindowShot(int argc, char **argv) {
     using Kind = reluva::tpw::Park::StaffKind;
     for (Kind k : {Kind::kEngineer, Kind::kJanitor, Kind::kGardener, Kind::kGuard, Kind::kEntertainer})
         park.hire(k, 0);
+    const std::string which = argv[5];
+    // For the research windows: a lab where one fits, two scientists, a
+    // project begun with one of them on it.
+    if (which == "lab" || which == "projects" || which == "assign") {
+        for (const reluva::tpw::Attractions::Attraction &a : park.attractions().all())
+            for (int y = 0; a.lab && !park.hasResearchLab() && y < park.groundHeight(); ++y)
+                for (int x = 0; x < park.groundWidth() && !park.hasResearchLab(); ++x)
+                    if (park.canPlace(reluva::tpw::Park::footprint(a.shape, {x, y}, 0)))
+                        park.place(a.id, 0, a.shape, a.hasQueue, {x, y}, 0);
+        park.hire(Kind::kScientist, 0);
+        park.hire(Kind::kScientist, 0);
+        if (const auto choices = park.projectChoices(); !choices.empty() && which != "projects") {
+            park.startProject(0, choices.front());
+            for (const reluva::tpw::Park::StaffMember &m : park.staff())
+                if (m.kind == Kind::kScientist) {
+                    park.assign(0, m.id);
+                    break;
+                }
+        }
+    }
     const uint32_t runMs = argc > 6 ? uint32_t(std::strtof(argv[6], nullptr) * 1000) : 60000;
     screen.advance(park);
     for (uint32_t t = 0; t < runMs; t += 50) {
         park.advance(50);
         screen.advance(park);
     }
-    const std::string which = argv[5];
     // The robot: the prebuilt park's ride with a queue.
     size_t ride = 0;
     for (size_t i = 0; i < park.objects().size(); ++i)
@@ -669,7 +690,19 @@ int cmdWindowShot(int argc, char **argv) {
     else if (which == "demand" && park.wageDemand())
         screen.wageDemand().open(park.wageDemand()->raise);
     else if (which == "menu")
-        screen.popup().open(screen.nameOf(park, ride), {524, 526, 531}, 260, 160);
+        screen.popup().open(
+            screen.nameOf(park, ride), {524, 526, 529, 531, 532, 533, 534, 514, 516}, 260, 100,
+            {{25, std::to_string(park.attractions().find(1101)->price)}, {27, std::to_string(park.scrapValue(ride))}});
+    else if (which == "lab")
+        screen.researchLab().open();
+    else if (which == "projects")
+        screen.projectWindow().open(0);
+    else if (which == "assign")
+        screen.assignWindow().open(0);
+    else if (which == "summary")
+        screen.financeSummary().open(ride, screen.nameOf(park, ride));
+    else if (which == "rename")
+        screen.renameWindow().open(ride, screen.nameOf(park, ride));
     else {
         std::fprintf(stderr, "no %s to show\n", which.c_str());
         return 1;
@@ -693,7 +726,7 @@ const Commands kCommands(
          "draw the Hire Staff window over a new park, on a tab, a row chosen, to a PNG, and list the candidates",
          cmdHireShot},
         {"window-shot",
-         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu> [seconds]",
+         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename> [seconds]",
          "draw one of the park's smaller windows over a new park, its staff one of each kind, run on, to a PNG",
          cmdWindowShot},
         {"sign-shot", "<game folder> <world folder> <out.png>",

@@ -32,6 +32,7 @@
 #include "tests/support/zip_writer.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <vector>
 
 using namespace reluva;
@@ -528,6 +529,41 @@ void testParkWindows() {
     CHECK(gates.handle(at(EventType::kMouseDown, tpw::GateWindow::placeOf(tpw::GateWindow::Control::kOk)), park) ==
               tpw::WindowResult::kClosed &&
           !gates.isOpen());
+
+    // The Research Lab: + raises the work rate; Start New Project wants a
+    // project chosen for the first slot; the tick closes it.
+    using Lab = tpw::ResearchLabWindow;
+    Lab lab;
+    lab.open();
+    const int rate = park.workRate();
+    lab.handle(at(EventType::kMouseDown, Lab::placeOf(Lab::Control::kRateUp)), park);
+    CHECK(park.workRate() == std::min(100, rate + 5));
+    CHECK(lab.handle(at(EventType::kMouseDown, Lab::placeOf(Lab::Control::kStart)), park) == Lab::Wants::kChoose &&
+          lab.slot() == 0);
+    CHECK(lab.handle(at(EventType::kMouseDown, Lab::placeOf(Lab::Control::kEdit, 1)), park) == Lab::Wants::kNothing);
+    lab.handle(at(EventType::kMouseDown, Lab::placeOf(Lab::Control::kOk)), park);
+    CHECK(!lab.isOpen());
+
+    // Naming: a character off, two typed, Return keeps it.
+    tpw::RenameWindow rename;
+    rename.open(3, "Dizzy Droid");
+    Event press;
+    press.type = EventType::kKeyDown;
+    press.key = key::kBackspace;
+    rename.handle(press);
+    Event typed;
+    typed.type = EventType::kTextInput;
+    std::snprintf(typed.text, sizeof typed.text, "d!");
+    rename.handle(typed);
+    press.key = key::kReturn;
+    CHECK(rename.handle(press) == tpw::WindowResult::kChose && !rename.isOpen());
+    CHECK(rename.object() == 3 && rename.typed() == "Dizzy Droid!");
+
+    tpw::FinanceSummaryWindow summary;
+    summary.open(0, "Dizzy Droid");
+    CHECK(summary.handle(at(EventType::kMouseDown, tpw::FinanceSummaryWindow::okRect())) ==
+              tpw::WindowResult::kClosed &&
+          !summary.isOpen());
 }
 
 } // namespace

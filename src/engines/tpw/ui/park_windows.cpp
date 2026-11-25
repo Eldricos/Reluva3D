@@ -15,6 +15,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
+#include <string_view>
+#include <tuple>
 #include <utility>
 
 namespace reluva::tpw {
@@ -80,16 +83,9 @@ constexpr uint32_t kSetToText = 262; // then $ change, % change
 constexpr uint32_t kNotExperiencedText = 232;
 constexpr uint32_t kNoTrainingRoomText = 233;
 constexpr uint32_t kStaffListTitle = 829;
-// The staff's states in THOUGHTS.str (its staff's thoughts, 22 on).
-constexpr uint32_t kHappyThought = 22;
-constexpr uint32_t kTiredThought = 24;
-constexpr uint32_t kStrikeThought = 25;
-constexpr uint32_t kTrainingThought = 26;
-constexpr uint32_t kStaffRoomThought = 28;
-constexpr uint32_t kJobThought = 29;
 
 // The right-click menu: its title's line, then a line an item.
-constexpr int kMenuWidth = 130;
+constexpr int kMenuWidth = 150;
 constexpr int kMenuHead = 36;
 constexpr int kMenuLine = 16;
 constexpr int kMenuIndent = 6;
@@ -108,6 +104,8 @@ constexpr int kValueX = 372;
 constexpr int kBarWidth = 75;
 constexpr ScreenRect kPriceBox{286, 250, 124, 50};
 constexpr ScreenRect kSideBox{462, 104, 133, 55};
+constexpr uint32_t kNotUpgradedText = 37;
+constexpr uint32_t kUpgradedText = 38;
 constexpr ScreenRect kAttractionMinus{290, 257, 18, 18};
 constexpr ScreenRect kAttractionPlus{388, 257, 18, 18};
 constexpr ScreenRect kAttractionDoor{128, 306, 36, 36};
@@ -145,6 +143,7 @@ constexpr std::array<ScreenRect, 4> kListColumnRects{
 constexpr ScreenRect kListFrame{90, 180, 470, 160};
 constexpr int kListRowY = 183;
 constexpr int kRowHeight = 13;
+constexpr int kLineHeight = 12; // a paragraph's lines
 constexpr ScreenRect kListOk{506, 352, 28, 28};
 constexpr ScreenRect kListClose{540, 66, 26, 26};
 
@@ -260,6 +259,10 @@ Error WindowKit::load(const SearchSet &files) {
         return err;
     if (Error err = readStringTable(files, folder, "MONTHS", _characters, _months))
         return err;
+    if (Error err = readStringTable(files, folder, "STAFF_TYPES", _characters, _staffTypes))
+        return err;
+    if (Error err = readStringTable(files, folder, "STAFFSTATES", _characters, _staffStates))
+        return err;
     return readStringTable(files, folder, "THOUGHTS", _characters, _thoughts);
 }
 
@@ -281,6 +284,39 @@ void WindowKit::title(Surface &screen, int x, int y, const std::string &s, Color
     drawGameText(screen, _titleFont, _characters, x, y, s, c);
 }
 
+std::string WindowKit::staffType(Park::StaffKind kind) const {
+    // STAFF_TYPES.str: each kind's name, then its plural; janitors first.
+    static constexpr std::array<size_t, Park::kStaffKinds> kTypes{2, 0, 10, 6, 4, 8};
+    return _staffTypes.text(kTypes[size_t(kind)]);
+}
+
+std::string WindowKit::staffState(const Park::StaffMember &m) const {
+    // STAFFSTATES.str: idle, looking for work, working, resting, on strike,
+    // picked up, -, researching, training.
+    size_t state = 1;
+    switch (m.doing) {
+    case Park::StaffDoing::kWorking:
+        state = m.working || m.target >= 0 || m.chasing ? 2 : 1;
+        break;
+    case Park::StaffDoing::kGoingToRest:
+    case Park::StaffDoing::kResting:
+        state = 3;
+        break;
+    case Park::StaffDoing::kStriking:
+        state = 4;
+        break;
+    case Park::StaffDoing::kGoingToResearch:
+    case Park::StaffDoing::kResearching:
+        state = 7;
+        break;
+    case Park::StaffDoing::kGoingToTrain:
+    case Park::StaffDoing::kTraining:
+        state = 8;
+        break;
+    }
+    return _staffStates.text(state);
+}
+
 std::string WindowKit::date(uint32_t day) const {
     const Park::Date d = Park::dateOf(day);
     const std::string month =
@@ -294,6 +330,33 @@ void WindowKit::text(Surface &screen, int x, int y, const std::string &s, Color 
 
 int WindowKit::textWidth(const std::string &s) const {
     return gameTextWidth(_font, _characters, s);
+}
+
+int WindowKit::paragraph(Surface &screen, int x, int y, int width, const std::string &s) const {
+    size_t start = 0;
+    while (start <= s.size()) {
+        const size_t end = std::min(s.find('\n', start), s.size());
+        std::string line;
+        size_t word = start;
+        while (word < end) {
+            size_t next = s.find(' ', word);
+            next = next == std::string::npos || next > end ? end : next;
+            const std::string with =
+                line.empty() ? s.substr(word, next - word) : line + " " + s.substr(word, next - word);
+            if (!line.empty() && textWidth(with) > width) {
+                text(screen, x, y, line);
+                y += kLineHeight;
+                line = s.substr(word, next - word);
+            } else {
+                line = with;
+            }
+            word = next + 1;
+        }
+        text(screen, x, y, line);
+        y += kLineHeight;
+        start = end + 1;
+    }
+    return y;
 }
 
 void WindowKit::bar(Surface &screen, int x, int y, int width, float level) const {
@@ -328,8 +391,9 @@ std::string WindowKit::ui(uint32_t index, const std::map<int, std::string> &valu
 
 // The menu.
 
-void PopupMenu::open(std::string title, std::vector<uint32_t> items, int x, int y) {
+void PopupMenu::open(std::string title, std::vector<uint32_t> items, int x, int y, std::map<int, std::string> values) {
     _open = true;
+    _values = std::move(values);
     _title = std::move(title);
     _items = std::move(items);
     _x = x;
@@ -372,7 +436,7 @@ void PopupMenu::draw(Surface &screen, const WindowKit &kit) const {
     kit.panel(screen, p);
     kit.title(screen, p.x + kMenuIndent, p.y + kMenuTitleY, _title, kMenuTitle);
     for (size_t i = 0; i < _items.size(); ++i)
-        kit.text(screen, p.x + kMenuIndent, itemRect(i).y + 2, kit.ui(_items[i]),
+        kit.text(screen, p.x + kMenuIndent, itemRect(i).y + 2, kit.ui(_items[i], _values),
                  int(i) == _lit ? kMenuItemLit : kMenuItem);
 }
 
@@ -476,13 +540,19 @@ void AttractionWindow::draw(Surface &screen, const WindowKit &kit, const Park &p
         rating(kReliabilityText, 1 - float(a->wearRate) / 10);
         rating(kRepairText, o.repair / 100);
     }
-    line(kRunningCostText, money(a ? a->runningCost : 0));
+    const Attractions::Attraction::Level *level = park.levelOf(_object);
+    line(kRunningCostText, money(level ? level->runningCost : 0));
     line(kScrapText, money(park.scrapValue(_object)));
     if (a && a->capacity >= 0) {
         kit.frame(screen, kSideBox);
-        const std::string capacity = kit.ui(kCapacityText) + " : " + std::to_string(a->capacity);
-        kit.text(screen, kSideBox.x + (kSideBox.w - kit.textWidth(capacity)) / 2, kSideBox.y + kSideBox.h / 2 - 4,
+        const std::string capacity =
+            kit.ui(kCapacityText) + " : " + std::to_string(level ? level->capacity : a->capacity);
+        const std::string upgraded =
+            o.level > 0 ? kit.ui(kUpgradedText, {{3, std::to_string(o.level)}}) : kit.ui(kNotUpgradedText);
+        kit.text(screen, kSideBox.x + (kSideBox.w - kit.textWidth(capacity)) / 2, kSideBox.y + kSideBox.h / 2 - 10,
                  capacity);
+        kit.text(screen, kSideBox.x + (kSideBox.w - kit.textWidth(upgraded)) / 2, kSideBox.y + kSideBox.h / 2 + 4,
+                 upgraded);
     }
     // Its price, and the door: lit while it's open.
     const int queue = park.queueOf(_object);
@@ -642,24 +712,7 @@ void StaffWindow::draw(Surface &screen, const WindowKit &kit, const Park &park, 
     // Employed since the day they were hired.
     line(kEmployedText, kit.date(m->hiredDay));
     line(kWageText, money(m->wage));
-    uint32_t status = kJobThought;
-    switch (m->doing) {
-    case Park::StaffDoing::kGoingToRest:
-    case Park::StaffDoing::kResting:
-        status = kStaffRoomThought;
-        break;
-    case Park::StaffDoing::kGoingToTrain:
-    case Park::StaffDoing::kTraining:
-        status = kTrainingThought;
-        break;
-    case Park::StaffDoing::kStriking:
-        status = kStrikeThought;
-        break;
-    case Park::StaffDoing::kWorking:
-        status = m->energy < 50 ? kTiredThought : m->working ? kJobThought : kHappyThought;
-        break;
-    }
-    line(kStatusText, kit.thought(status));
+    line(kStatusText, kit.staffState(*m));
     rating(kExperienceText, float(m->experience) / float(Park::kMostExperience));
     rating(kEnergyText, m->energy / 100);
     rating(kHappinessText, m->happiness / 100);
@@ -1052,6 +1105,555 @@ void WageDemandWindow::draw(Surface &screen, const WindowKit &kit, const Park &p
                  _over == Control::kLetGo ? kMenuItemLit : kMenuItem);
     }
     kit.button(screen, WindowKit::Button::kOk, kDemandOk, _over == Control::kOk ? WindowKit::kLit : WindowKit::kPlain);
+}
+
+// The Research Lab.
+
+namespace {
+
+constexpr uint32_t kResearchLabText = 285;
+constexpr uint32_t kEditProjectText = 286;
+constexpr uint32_t kCancelProjectText = 288;
+constexpr uint32_t kStartProjectText = 290;
+constexpr uint32_t kNoProjectText = 291;
+constexpr uint32_t kWorkRateText = 294;
+constexpr uint32_t kProgressText = 295;
+constexpr uint32_t kDaysToGoText = 296;
+constexpr uint32_t kExpenditureText = 297;
+constexpr uint32_t kAssignedText = 298;
+constexpr uint32_t kFinishedText = 305;
+constexpr uint32_t kNewProjectText = 306;
+constexpr uint32_t kChooseText = 307;
+constexpr std::array<uint32_t, 5> kChooserColumns{308, 309, 312, 311, 310};
+constexpr uint32_t kRideTypeText = 313; // then sideshow, shop, feature, facility
+constexpr uint32_t kUpgradeTypeText = 319;
+constexpr uint32_t kAssignTitle = 321;
+constexpr uint32_t kAvailableText = 322;
+constexpr uint32_t kAssignedListText = 323;
+constexpr uint32_t kNoConsultantNeededText = 293;
+constexpr uint32_t kConsultantText = 299;
+constexpr uint32_t kConsultingText = 324;
+constexpr uint32_t kNoneConsultingText = 325;
+constexpr uint32_t kOthersAssignedText = 326;
+constexpr uint32_t kNoOthersAssignedText = 327;
+constexpr uint32_t kNoScientistsText = 329;
+constexpr uint32_t kNoConsultantText = 331;
+constexpr uint32_t kNoneText = 36;
+constexpr uint32_t kFinanceSummaryTitle = 45;
+constexpr std::array<uint32_t, 6> kFinanceRows{173, 170, 174, 175, 177, 178};
+constexpr uint32_t kEditNameText = 534;
+
+// As the recording's at 14:52.
+constexpr ScreenRect kLabWindow{65, 20, 563, 378};
+constexpr int kLabSlotStep = 145;
+constexpr ScreenRect kLabSlot{83, 66, 434, 134};
+constexpr ScreenRect kLabInfo{90, 103, 275, 88};
+constexpr ScreenRect kLabEdit{374, 118, 135, 22};
+constexpr ScreenRect kLabCancel{374, 152, 135, 22};
+constexpr ScreenRect kLabStart{228, 355, 145, 30};
+constexpr ScreenRect kLabRate{560, 86, 20, 150};
+constexpr ScreenRect kLabRateUp{561, 64, 18, 18};
+constexpr ScreenRect kLabRateDown{561, 240, 18, 18};
+constexpr ScreenRect kLabRateLabel{528, 320, 85, 22};
+constexpr ScreenRect kLabOk{586, 357, 26, 26};
+constexpr ScreenRect kLabClose{597, 24, 26, 26};
+constexpr int kRateStep = 5;
+constexpr Color kRateFill{90, 200, 90};
+
+// As the recording's at 14:42.
+constexpr ScreenRect kChooserWindow{65, 62, 563, 320};
+constexpr std::array<ScreenRect, 5> kChooserHeaders{
+    {{95, 118, 130, 30}, {231, 118, 78, 30}, {315, 118, 105, 30}, {426, 118, 73, 30}, {505, 118, 67, 30}}};
+constexpr ScreenRect kChooserList{88, 153, 488, 145};
+constexpr int kChooserRowY = 157;
+constexpr ScreenRect kChooserMessage{85, 312, 452, 42};
+constexpr ScreenRect kChooserOk{546, 322, 28, 28};
+constexpr ScreenRect kChooserCancel{580, 324, 26, 26};
+// The estimated time's bar is full at this cost (guessed).
+constexpr float kLongestProject = 1200;
+
+constexpr ScreenRect kAssignWindow{110, 90, 420, 300};
+constexpr ScreenRect kAvailableList{125, 150, 170, 120};
+constexpr ScreenRect kAssignedList{345, 150, 170, 120};
+constexpr ScreenRect kAssignArrow{306, 180, 28, 28};
+constexpr ScreenRect kUnassignArrow{306, 220, 28, 28};
+constexpr ScreenRect kAssignNote{125, 280, 390, 56};
+constexpr ScreenRect kAssignOk{484, 346, 28, 28};
+
+constexpr ScreenRect kSummaryWindow{150, 110, 340, 230};
+constexpr ScreenRect kSummaryFrame{165, 150, 310, 120};
+constexpr ScreenRect kSummaryOk{440, 292, 28, 28};
+
+constexpr ScreenRect kRenameWindow{170, 170, 300, 130};
+constexpr ScreenRect kRenameField{185, 215, 270, 26};
+constexpr ScreenRect kRenameOk{426, 256, 28, 28};
+// The longest name kept.
+constexpr size_t kLongestName = 30;
+
+// A project's name: its attraction's, and an upgrade's level.
+std::string projectName(const Park &park, const Park::Project &p, const ObjectNames &names) {
+    const Attractions::Attraction *a = park.attractions().find(p.id);
+    std::string name = a ? names.shown(*a) : std::to_string(p.id);
+    if (p.kind == Park::ProjectKind::kUpgrade)
+        name += " " + std::to_string(p.level);
+    return name;
+}
+
+uint32_t typeText(const Park &park, const Park::Project &p) {
+    if (p.kind == Park::ProjectKind::kUpgrade)
+        return kUpgradeTypeText;
+    const Attractions::Attraction *a = park.attractions().find(p.id);
+    if (!a)
+        return kRideTypeText;
+    switch (a->kind) {
+    case Attractions::Kind::kRide:
+        return kRideTypeText;
+    case Attractions::Kind::kSideshow:
+        return kRideTypeText + 1;
+    case Attractions::Kind::kShop:
+        return kRideTypeText + 2;
+    case Attractions::Kind::kFeature:
+        return kRideTypeText + 3;
+    case Attractions::Kind::kFacility:
+        return kRideTypeText + 4;
+    }
+    return kRideTypeText;
+}
+
+std::optional<Park::StaffKind> consultantKind(const Park &park, const Park::Project &p) {
+    const Attractions::Attraction *a = park.attractions().find(p.id);
+    return a ? Park::consultantKind(a->consultant) : std::nullopt;
+}
+
+std::string consultantOf(const WindowKit &kit, const Park &park, const Park::Project &p) {
+    const std::optional<Park::StaffKind> kind = consultantKind(park, p);
+    return kind ? kit.staffType(*kind) : kit.ui(kNoneText);
+}
+
+// Who consults: the first of the kind employed (guessed).
+const Park::StaffMember *consultant(const Park &park, const Park::Project &p) {
+    const std::optional<Park::StaffKind> kind = consultantKind(park, p);
+    for (const Park::StaffMember &m : park.staff())
+        if (kind && m.kind == *kind)
+            return &m;
+    return nullptr;
+}
+
+// A consultant's parameters: {0} their name, {15} their kind (guessed by
+// "Consultant: {0}, {15}"); {17} unknown.
+std::map<int, std::string> consultantValues(const WindowKit &kit, const HireWindow &staffNames,
+                                            const Park::StaffMember &m) {
+    return {{0, staffNames.nameOf(m.kind, m.name)}, {15, kit.staffType(m.kind)}, {17, ""}};
+}
+
+} // namespace
+
+ScreenRect ResearchLabWindow::placeOf(Control control, size_t slot) {
+    const int dy = int(slot) * kLabSlotStep;
+    switch (control) {
+    case Control::kEdit:
+        return {kLabEdit.x, kLabEdit.y + dy, kLabEdit.w, kLabEdit.h};
+    case Control::kCancel:
+        return {kLabCancel.x, kLabCancel.y + dy, kLabCancel.w, kLabCancel.h};
+    case Control::kStart:
+        return kLabStart;
+    case Control::kRateUp:
+        return kLabRateUp;
+    case Control::kRateDown:
+        return kLabRateDown;
+    case Control::kOk:
+        return kLabOk;
+    case Control::kClose:
+        return kLabClose;
+    default:
+        return {};
+    }
+}
+
+ResearchLabWindow::Wants ResearchLabWindow::handle(const Event &ev, Park &park) {
+    if (!_open || (ev.type != EventType::kMouseMove && ev.type != EventType::kMouseDown))
+        return Wants::kNothing;
+    _over = Control::kNone;
+    for (size_t slot = 0; slot < Park::kProjectSlots; ++slot)
+        for (Control c : {Control::kEdit, Control::kCancel})
+            if (placeOf(c, slot).contains(ev.mouseX, ev.mouseY)) {
+                _over = c;
+                _overSlot = slot;
+            }
+    for (Control c : {Control::kStart, Control::kRateUp, Control::kRateDown, Control::kOk, Control::kClose})
+        if (placeOf(c).contains(ev.mouseX, ev.mouseY))
+            _over = c;
+    if (!isClick(ev))
+        return Wants::kNothing;
+    switch (_over) {
+    case Control::kEdit:
+        if (!park.projects()[_overSlot] || park.projects()[_overSlot]->finished)
+            return Wants::kNothing;
+        _slot = _overSlot;
+        return Wants::kAssign;
+    case Control::kCancel:
+        park.cancelProject(_overSlot);
+        return Wants::kNothing;
+    case Control::kStart:
+        // Into the first slot free, or one finished.
+        for (size_t slot = 0; slot < Park::kProjectSlots; ++slot)
+            if (!park.projects()[slot] || park.projects()[slot]->finished) {
+                _slot = slot;
+                return Wants::kChoose;
+            }
+        return Wants::kNothing;
+    case Control::kRateUp:
+    case Control::kRateDown:
+        park.setWorkRate(park.workRate() + (_over == Control::kRateUp ? kRateStep : -kRateStep));
+        return Wants::kNothing;
+    case Control::kOk:
+    case Control::kClose:
+        _open = false;
+        return Wants::kNothing;
+    default:
+        return Wants::kNothing;
+    }
+}
+
+void ResearchLabWindow::draw(Surface &screen, const WindowKit &kit, const Park &park, const HireWindow &staffNames,
+                             const ObjectNames &names) const {
+    if (!_open)
+        return;
+    kit.window(screen, kLabWindow, kit.ui(kResearchLabText));
+    kit.button(screen, WindowKit::Button::kClose, kLabClose,
+               _over == Control::kClose ? WindowKit::kLit : WindowKit::kPlain);
+    for (size_t slot = 0; slot < Park::kProjectSlots; ++slot) {
+        const int dy = int(slot) * kLabSlotStep;
+        const ScreenRect info{kLabInfo.x, kLabInfo.y + dy, kLabInfo.w, kLabInfo.h};
+        kit.panel(screen, {kLabSlot.x, kLabSlot.y + dy, kLabSlot.w, kLabSlot.h});
+        kit.frame(screen, info);
+        const std::optional<Park::Project> &p = park.projects()[slot];
+        kit.title(screen, kLabSlot.x + 8, kLabSlot.y + dy + 8,
+                  p ? "'" + projectName(park, *p, names) + "'" : kit.ui(kNoProjectText), kWhite);
+        int y = info.y + 22;
+        auto line = [&](const std::string &text) { y = kit.paragraph(screen, info.x + 6, y, info.w - 12, text); };
+        if (!p) {
+            line(kit.ui(kNewProjectText));
+        } else if (p->finished) {
+            line(kit.ui(kFinishedText));
+        } else {
+            const float perDay = park.researchPerDay(slot);
+            const float left = float(p->cost) - p->done;
+            const auto value = [](float v) { return std::map<int, std::string>{{14, std::to_string(int(v))}}; };
+            line(kit.ui(kProgressText, value(100 * p->done / float(std::max(1, p->cost)))));
+            line(kit.ui(kDaysToGoText, {{14, perDay > 0 ? std::to_string(int(std::ceil(left / perDay))) : "-"}}));
+            line(kit.ui(kExpenditureText, value(left)));
+            line(kit.ui(kAssignedText, value(float(p->scientists.size()))));
+            if (const Park::StaffMember *adviser = consultant(park, *p))
+                line(kit.ui(kConsultantText, consultantValues(kit, staffNames, *adviser)));
+            else if (!consultantKind(park, *p))
+                line(kit.ui(kNoConsultantNeededText));
+            if (const uint32_t held = park.projectHeldUp(slot))
+                line(kit.ui(held));
+        }
+        kit.header(screen, placeOf(Control::kEdit, slot), kit.ui(kEditProjectText));
+        kit.header(screen, placeOf(Control::kCancel, slot), kit.ui(kCancelProjectText));
+    }
+    kit.header(screen, kLabStart, kit.ui(kStartProjectText));
+    // The work rate, a bar from the foot up.
+    kit.frame(screen, kLabRate);
+    const int filled = (kLabRate.h - 6) * park.workRate() / 100;
+    fill(screen, {kLabRate.x + 3, kLabRate.y + kLabRate.h - 3 - filled, kLabRate.w - 6, filled}, kRateFill);
+    kit.button(screen, WindowKit::Button::kPlus, kLabRateUp,
+               _over == Control::kRateUp ? WindowKit::kLit : WindowKit::kPlain);
+    kit.button(screen, WindowKit::Button::kMinus, kLabRateDown,
+               _over == Control::kRateDown ? WindowKit::kLit : WindowKit::kPlain);
+    kit.frame(screen, kLabRateLabel);
+    const std::string rate = kit.ui(kWorkRateText);
+    kit.text(screen, kLabRateLabel.x + (kLabRateLabel.w - kit.textWidth(rate)) / 2, kLabRateLabel.y + 7, rate);
+    kit.button(screen, WindowKit::Button::kOk, kLabOk, _over == Control::kOk ? WindowKit::kLit : WindowKit::kPlain);
+}
+
+// Choosing a project.
+
+ScreenRect ProjectWindow::placeOf(Control control, size_t row) {
+    switch (control) {
+    case Control::kRow:
+        return {kChooserList.x + 2, kChooserRowY + int(row) * kRowHeight, kChooserList.w - 4, kRowHeight};
+    case Control::kOk:
+        return kChooserOk;
+    case Control::kCancel:
+        return kChooserCancel;
+    default:
+        return {};
+    }
+}
+
+WindowResult ProjectWindow::handle(const Event &ev, Park &park) {
+    if (!_open || (ev.type != EventType::kMouseMove && ev.type != EventType::kMouseDown))
+        return WindowResult::kNone;
+    const std::vector<Park::Project> choices = park.projectChoices();
+    _over = Control::kNone;
+    size_t row = 0;
+    for (size_t i = 0; i < choices.size(); ++i)
+        if (placeOf(Control::kRow, i).contains(ev.mouseX, ev.mouseY)) {
+            _over = Control::kRow;
+            row = i;
+        }
+    for (Control c : {Control::kOk, Control::kCancel})
+        if (placeOf(c).contains(ev.mouseX, ev.mouseY))
+            _over = c;
+    if (!isClick(ev))
+        return WindowResult::kNone;
+    switch (_over) {
+    case Control::kRow:
+        _row = row;
+        _message = 0;
+        return WindowResult::kNone;
+    case Control::kOk:
+        if (_row >= choices.size())
+            return WindowResult::kNone;
+        // "You need to hire some scientists before you can carry out any
+        // research!"; "You cannot start this project as you don't have anyone
+        // with the required ability to act as consultant".
+        if (std::none_of(park.staff().begin(), park.staff().end(),
+                         [](const Park::StaffMember &m) { return m.kind == Park::StaffKind::kScientist; })) {
+            _message = kNoScientistsText;
+            return WindowResult::kNone;
+        }
+        if (consultantKind(park, choices[_row]) && !consultant(park, choices[_row])) {
+            _message = kNoConsultantText;
+            return WindowResult::kNone;
+        }
+        park.startProject(_slot, choices[_row]);
+        _open = false;
+        return WindowResult::kChose;
+    case Control::kCancel:
+        _open = false;
+        return WindowResult::kClosed;
+    default:
+        return WindowResult::kNone;
+    }
+}
+
+void ProjectWindow::draw(Surface &screen, const WindowKit &kit, const Park &park, const ObjectNames &names) const {
+    if (!_open)
+        return;
+    kit.window(screen, kChooserWindow, kit.ui(kChooseText));
+    for (size_t c = 0; c < kChooserHeaders.size(); ++c)
+        kit.header(screen, kChooserHeaders[c], kit.ui(kChooserColumns[c]));
+    kit.frame(screen, kChooserList);
+    const std::vector<Park::Project> choices = park.projectChoices();
+    for (size_t i = 0; i < choices.size(); ++i) {
+        const ScreenRect row = placeOf(Control::kRow, i);
+        if (row.y + row.h > kChooserList.y + kChooserList.h)
+            break;
+        if (i == _row)
+            fill(screen, row, kChosenRow);
+        const Park::Project &p = choices[i];
+        auto centred = [&](size_t column, const std::string &text) {
+            const ScreenRect &h = kChooserHeaders[column];
+            kit.text(screen, h.x + (h.w - kit.textWidth(text)) / 2, row.y + 1, text);
+        };
+        kit.text(screen, kChooserHeaders[0].x, row.y + 1, projectName(park, p, names));
+        centred(1, kit.ui(typeText(park, p)));
+        centred(2, consultantOf(kit, park, p));
+        kit.bar(screen, kChooserHeaders[3].x, row.y + 3, kChooserHeaders[3].w, float(p.cost) / kLongestProject);
+        const std::string cost = money(p.cost);
+        kit.text(screen, kChooserHeaders[4].x + kChooserHeaders[4].w - 6 - kit.textWidth(cost), row.y + 1, cost);
+    }
+    kit.frame(screen, kChooserMessage);
+    if (_message)
+        kit.paragraph(screen, kChooserMessage.x + 8, kChooserMessage.y + 8, kChooserMessage.w - 16, kit.ui(_message));
+    kit.button(screen, WindowKit::Button::kOk, kChooserOk, _over == Control::kOk ? WindowKit::kLit : WindowKit::kPlain);
+    kit.button(screen, WindowKit::Button::kCancel, kChooserCancel,
+               _over == Control::kCancel ? WindowKit::kLit : WindowKit::kPlain);
+}
+
+// Assigning scientists.
+
+ScreenRect AssignWindow::placeOf(Control control, size_t row) {
+    switch (control) {
+    case Control::kAvailableRow:
+        return {kAvailableList.x + 2, kAvailableList.y + 3 + int(row) * kRowHeight, kAvailableList.w - 4, kRowHeight};
+    case Control::kAssignedRow:
+        return {kAssignedList.x + 2, kAssignedList.y + 3 + int(row) * kRowHeight, kAssignedList.w - 4, kRowHeight};
+    case Control::kAssign:
+        return kAssignArrow;
+    case Control::kUnassign:
+        return kUnassignArrow;
+    case Control::kOk:
+        return kAssignOk;
+    default:
+        return {};
+    }
+}
+
+std::vector<int> AssignWindow::available(const Park &park) const {
+    const std::vector<int> on = assigned(park);
+    std::vector<int> ids;
+    for (const Park::StaffMember &m : park.staff())
+        if (m.kind == Park::StaffKind::kScientist && std::find(on.begin(), on.end(), m.id) == on.end())
+            ids.push_back(m.id);
+    return ids;
+}
+
+std::vector<int> AssignWindow::assigned(const Park &park) const {
+    const std::optional<Park::Project> &p = park.projects()[_slot];
+    return p ? p->scientists : std::vector<int>{};
+}
+
+WindowResult AssignWindow::handle(const Event &ev, Park &park) {
+    if (!_open || (ev.type != EventType::kMouseMove && ev.type != EventType::kMouseDown))
+        return WindowResult::kNone;
+    const std::vector<int> left = available(park);
+    const std::vector<int> right = assigned(park);
+    _over = Control::kNone;
+    int under = 0;
+    for (size_t i = 0; i < left.size(); ++i)
+        if (placeOf(Control::kAvailableRow, i).contains(ev.mouseX, ev.mouseY)) {
+            _over = Control::kAvailableRow;
+            under = left[i];
+        }
+    for (size_t i = 0; i < right.size(); ++i)
+        if (placeOf(Control::kAssignedRow, i).contains(ev.mouseX, ev.mouseY)) {
+            _over = Control::kAssignedRow;
+            under = right[i];
+        }
+    for (Control c : {Control::kAssign, Control::kUnassign, Control::kOk})
+        if (placeOf(c).contains(ev.mouseX, ev.mouseY))
+            _over = c;
+    if (!isClick(ev))
+        return WindowResult::kNone;
+    switch (_over) {
+    case Control::kAvailableRow:
+    case Control::kAssignedRow:
+        _chosen = under;
+        return WindowResult::kNone;
+    case Control::kAssign:
+        if (std::find(left.begin(), left.end(), _chosen) != left.end())
+            park.assign(_slot, _chosen);
+        return WindowResult::kNone;
+    case Control::kUnassign:
+        if (std::find(right.begin(), right.end(), _chosen) != right.end())
+            park.unassign(_slot, _chosen);
+        return WindowResult::kNone;
+    case Control::kOk:
+        _open = false;
+        return WindowResult::kClosed;
+    default:
+        return WindowResult::kNone;
+    }
+}
+
+void AssignWindow::draw(Surface &screen, const WindowKit &kit, const Park &park, const HireWindow &staffNames,
+                        const ObjectNames &names) const {
+    const std::optional<Park::Project> &p = park.projects()[_slot];
+    if (!_open || !p)
+        return;
+    kit.window(screen, kAssignWindow, kit.ui(kAssignTitle, {{16, "'" + projectName(park, *p, names) + "'"}}));
+    for (auto [list, label, ids, control] :
+         {std::tuple{kAvailableList, kAvailableText, available(park), Control::kAvailableRow},
+          std::tuple{kAssignedList, kAssignedListText, assigned(park), Control::kAssignedRow}}) {
+        kit.text(screen, list.x, list.y - 14, kit.ui(label));
+        kit.frame(screen, list);
+        for (size_t i = 0; i < ids.size(); ++i) {
+            const ScreenRect row = placeOf(control, i);
+            if (ids[i] == _chosen)
+                fill(screen, row, kChosenRow);
+            if (const Park::StaffMember *m = park.staffMember(ids[i]))
+                kit.text(screen, row.x + 2, row.y + 1, staffNames.nameOf(m->kind, m->name));
+        }
+    }
+    kit.button(screen, WindowKit::Button::kRight, kAssignArrow,
+               _over == Control::kAssign ? WindowKit::kLit : WindowKit::kPlain);
+    kit.button(screen, WindowKit::Button::kLeft, kUnassignArrow,
+               _over == Control::kUnassign ? WindowKit::kLit : WindowKit::kPlain);
+    kit.frame(screen, kAssignNote);
+    int y = kAssignNote.y + 6;
+    const Park::StaffMember *adviser = consultant(park, *p);
+    if (adviser)
+        y = kit.paragraph(screen, kAssignNote.x + 6, y, kAssignNote.w - 12,
+                          kit.ui(kConsultingText, consultantValues(kit, staffNames, *adviser)));
+    else if (!consultantKind(park, *p))
+        y = kit.paragraph(screen, kAssignNote.x + 6, y, kAssignNote.w - 12, kit.ui(kNoneConsultingText));
+    size_t others = 0;
+    for (size_t slot = 0; slot < Park::kProjectSlots; ++slot)
+        if (slot != _slot && park.projects()[slot])
+            others += park.projects()[slot]->scientists.size();
+    kit.paragraph(screen, kAssignNote.x + 6, y, kAssignNote.w - 12,
+                  others ? kit.ui(kOthersAssignedText, {{14, std::to_string(others)}}) : kit.ui(kNoOthersAssignedText));
+    kit.button(screen, WindowKit::Button::kOk, kAssignOk, _over == Control::kOk ? WindowKit::kLit : WindowKit::kPlain);
+}
+
+// An attraction's financial summary.
+
+ScreenRect FinanceSummaryWindow::okRect() {
+    return kSummaryOk;
+}
+
+WindowResult FinanceSummaryWindow::handle(const Event &ev) {
+    if (!_open || !isClick(ev) || !kSummaryOk.contains(ev.mouseX, ev.mouseY))
+        return WindowResult::kNone;
+    _open = false;
+    return WindowResult::kClosed;
+}
+
+void FinanceSummaryWindow::draw(Surface &screen, const WindowKit &kit, const Park &park) const {
+    if (!_open || _object >= park.objects().size())
+        return;
+    const Park::PlacedObject &o = park.objects()[_object];
+    kit.window(screen, kSummaryWindow, kit.ui(kFinanceSummaryTitle, {{4, _name}}));
+    kit.frame(screen, kSummaryFrame);
+    // Users, takings, less its costs, profit last month; profit to date.
+    const std::array<std::string, 6> values{std::to_string(o.lastUsers),
+                                            money(o.lastTakings),
+                                            money(-o.lastCosts),
+                                            money(-o.lastGoods),
+                                            money(o.lastTakings - o.lastCosts - o.lastGoods),
+                                            money(o.profit)};
+    int y = kSummaryFrame.y + 8;
+    for (size_t i = 0; i < kFinanceRows.size(); ++i) {
+        kit.text(screen, kSummaryFrame.x + 8, y, kit.ui(kFinanceRows[i]));
+        kit.text(screen, kSummaryFrame.x + kSummaryFrame.w - 10 - kit.textWidth(values[i]), y, values[i]);
+        y += 17;
+    }
+    kit.button(screen, WindowKit::Button::kOk, kSummaryOk, WindowKit::kPlain);
+}
+
+// Naming an attraction.
+
+ScreenRect RenameWindow::okRect() {
+    return kRenameOk;
+}
+
+WindowResult RenameWindow::handle(const Event &ev) {
+    if (!_open)
+        return WindowResult::kNone;
+    if (ev.type == EventType::kTextInput) {
+        for (char c : std::string_view(ev.text))
+            if (_typed.size() < kLongestName && static_cast<unsigned char>(c) >= ' ')
+                _typed.push_back(c);
+        return WindowResult::kNone;
+    }
+    if (ev.type == EventType::kKeyDown && ev.key == key::kBackspace) {
+        // A whole character off, its UTF-8 continuation bytes and all.
+        while (!_typed.empty() && (static_cast<unsigned char>(_typed.back()) & 0xC0) == 0x80)
+            _typed.pop_back();
+        if (!_typed.empty())
+            _typed.pop_back();
+        return WindowResult::kNone;
+    }
+    if ((ev.type == EventType::kKeyDown && ev.key == key::kReturn) ||
+        (isClick(ev) && kRenameOk.contains(ev.mouseX, ev.mouseY))) {
+        _open = false;
+        return WindowResult::kChose;
+    }
+    return WindowResult::kNone;
+}
+
+void RenameWindow::draw(Surface &screen, const WindowKit &kit) const {
+    if (!_open)
+        return;
+    kit.window(screen, kRenameWindow, kit.ui(kEditNameText));
+    kit.frame(screen, kRenameField);
+    kit.text(screen, kRenameField.x + 6, kRenameField.y + 9, _typed + "_");
+    kit.button(screen, WindowKit::Button::kOk, kRenameOk, WindowKit::kPlain);
 }
 
 } // namespace reluva::tpw

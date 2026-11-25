@@ -10,7 +10,9 @@
 #include "engines/tpw/park/attractions.h"
 #include "graphics/gfx3d.h"
 
+#include <algorithm>
 #include <array>
+#include <optional>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -165,6 +167,8 @@ public:
         kGoingToTrain,
         kTraining, // in the training room, unseen
         kStriking, // at the strike area, holding a sign
+        kGoingToResearch,
+        kResearching, // a scientist in the research lab, unseen
     };
     /** How content a member of staff starts (guessed). */
     static constexpr float kStaffStartingMood = 80;
@@ -195,6 +199,9 @@ public:
         bool patrolling = false; // kept to their patrol area, its corners' cells
         Cell patrolFrom;
         Cell patrolTo;
+        int ability = 0; // trained in: ABILITIES.str's, 1 Ride Upgrading; 0 none
+        int chasing = 0; // a guard's: the visitor chased; 0 none
+        uint64_t chaseUntil = 0;
     };
     const std::vector<StaffMember> &staff() const { return _staff; }
     /** What hiring came to. */
@@ -260,6 +267,66 @@ public:
     void setOpen(size_t object, bool open);
     /** What an object would fetch scrapped: its price by its Upgrades[0].ScrapValueYear percentages. */
     int scrapValue(size_t object) const;
+    /** A level's settings of an object: its current one's by default. */
+    const Attractions::Attraction::Level *levelOf(size_t object, int level = -1) const;
+    /** ABILITIES.str's Ride Upgrading, which engineers learn in training (guessed). */
+    static constexpr int kRideUpgrading = 1;
+    /** Why research is held up: UITEXT's numbers. */
+    static constexpr uint32_t kHeldUpByStrike = 300;
+    static constexpr uint32_t kHeldUpByNoneAssigned = 301;
+    static constexpr uint32_t kHeldUpByNoScientists = 302;
+    static constexpr uint32_t kHeldUpByConsultantStrike = 303;
+    static constexpr uint32_t kHeldUpByNoConsultant = 304;
+    /** What an upgrade came to (UITEXT 11, 125). */
+    enum class Upgrading { kStarted, kFullyUpgraded, kNotResearched, kNeedsEngineer, kNoMoney, kBusy };
+    /**
+     * Buys an object's next level: researched first where it costs
+     * research, an engineer trained in Ride Upgrading in the park, its
+     * CostOfUpgrade paid; closed for its DurationOfUpgrade the while.
+     */
+    Upgrading upgrade(size_t object);
+    /** Stops an upgrade being made, its cost given back. */
+    void cancelUpgrade(size_t object);
+    /** Deletes an object, for its scrap value: its cells and queue cleared, its riders let off. */
+    void remove(size_t object);
+    /** Names an object; empty gives it back its own. */
+    void rename(size_t object, std::string name);
+
+    /** A research project of the lab's two (UITEXT 285 on). */
+    enum class ProjectKind : uint8_t { kAttraction, kUpgrade };
+    struct Project {
+        ProjectKind kind = ProjectKind::kAttraction;
+        int id = 0;    // the attraction researched
+        int level = 0; // an upgrade's, 1 or 2
+        int cost = 0;  // its CostOfResearch: points, and dollars spent on them
+        float done = 0;
+        std::vector<int> scientists; // assigned
+        bool finished = false;
+    };
+    static constexpr size_t kProjectSlots = 2;
+    /** The lab's projects; empty slots without. */
+    const std::array<std::optional<Project>, kProjectSlots> &projects() const { return _projects; }
+    /** What could be researched: attractions not on sale, and upgrades not researched. */
+    std::vector<Project> projectChoices() const;
+    /** Sets a project going in a slot. */
+    void startProject(size_t slot, const Project &project);
+    void cancelProject(size_t slot);
+    /** Assigns a scientist to a slot's project, or takes them off it. */
+    void assign(size_t slot, int scientist);
+    void unassign(size_t slot, int scientist);
+    /** The lab's work rate, percent: Research.StartingWorkLoad at first. */
+    int workRate() const { return _workRate; }
+    void setWorkRate(int rate) { _workRate = std::clamp(rate, 0, 100); }
+    /** Points a day a slot's project makes now; and, if it can't go on, why (UITEXT 300 to 304), else 0. */
+    float researchPerDay(size_t slot) const;
+    uint32_t projectHeldUp(size_t slot) const;
+    /** Whether an attraction, or an upgrade of it, has been researched. */
+    /** Whether the park has a Research Lab, which research and scientists need. */
+    bool hasResearchLab() const;
+    bool researched(int id, int level = 0) const;
+    /** The staff kind a consultant of the game's numbering is (RStaff[0].SType); nullopt for none. */
+    static std::optional<StaffKind> consultantKind(int stype);
+
     /** Opens or closes the park's gates: closed, none come in. */
     void setParkOpen(bool open) { _parkOpen = open; }
     bool parkOpen() const { return _parkOpen; }
@@ -429,7 +496,15 @@ public:
         int lastUsers = 0;
         int takings = 0; // likewise, its fares
         int lastTakings = 0;
+        int costs = 0; // likewise: its running cost and upgrades
+        int lastCosts = 0;
+        int goods = 0; // likewise: the cost of what it sold
+        int lastGoods = 0;
+        int profit = 0; // to date: takings less costs and goods, its months closed
         uint32_t placedDay = 0;
+        int level = 0;       // its upgrades bought, 0 to 2
+        float upgrading = 0; // days left of an upgrade being made; 0 for none
+        std::string name;    // the player's name for it; empty for its own
     };
     const std::vector<PlacedObject> &objects() const { return _objects; }
 
@@ -638,6 +713,8 @@ private:
     int findObject(bool (*what)(const Attractions::Attraction &)) const;
     void sendTo(StaffMember &m, int object, StaffDoing doing);
     void finishWork(StaffMember &m);
+    void researchDay();
+    void chase(Visitor &v);
     bool wantsToStrike(StaffKind kind) const;
     bool guarded(float x, float z) const;
     void think(Visitor &v, Thought thought) const;
@@ -688,7 +765,8 @@ private:
         int experience = 10;
         int recuperation = 10; // RecuperationModifier and HappinessRecuperationModifier, tenths
         int happinessRecuperation = 10;
-        int training = 10; // TrainingExperienceGainModifier, tenths
+        int training = 10;       // TrainingExperienceGainModifier, tenths
+        int experienceGain = 10; // ExperienceGainModifier, tenths
     };
     // AllStaffConstants', Strike's and RideBreakDown's.
     struct StaffConstants {
@@ -716,6 +794,16 @@ private:
         Cell strikeSize{1, 1};
     };
     StaffConstants _constants;
+    // By kind and grade: ExperiencePerMonth (<Kind>ConstsPerGrade[n]).
+    std::array<std::array<int, 5>, kStaffKinds> _experiencePerMonth{};
+    int _staffRoomCapacity = 10;
+    std::array<std::optional<Project>, kProjectSlots> _projects;
+    std::vector<std::pair<int, int>> _researched; // (id, level)
+    int _workRate = 85;
+    float _researchSpeed = 0.005f; // Research.SpeedScaleDown
+    float _researchCost = 1;       // Research.CostScaleUp
+    float _minResearchAbility = 2;
+    float _maxResearchAbility = 6;
     std::array<bool, kStaffKinds> _strikes{};
     std::vector<WageDemand> _demands;
     bool _parkOpen = true;

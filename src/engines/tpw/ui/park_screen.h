@@ -53,6 +53,8 @@ public:
 
     /** The camera a new park starts with: over its entrance, looking in. */
     Camera startCamera(const Park &park) const;
+    /** A ride's view (its menu's Ride): close in over it, turned as `from`. */
+    Camera rideCamera(const Park &park, size_t object, const Camera &from) const;
 
     /** Draws the park through `camera` over the whole of an RGBA32 surface. */
     void draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Park &park, const Camera &camera) const;
@@ -112,7 +114,16 @@ public:
     TrainingWindow &trainingWindow() { return _trainingWindow; }
     StaffFinanceWindow &staffFinance() { return _staffFinance; }
     WageDemandWindow &wageDemand() { return _wageDemand; }
+    ResearchLabWindow &researchLab() { return _researchLab; }
+    ProjectWindow &projectWindow() { return _projectWindow; }
+    AssignWindow &assignWindow() { return _assignWindow; }
+    FinanceSummaryWindow &financeSummary() { return _financeSummary; }
+    RenameWindow &renameWindow() { return _renameWindow; }
     ///@}
+    /** Shows a message, UITEXT's, over the park for a few seconds of the park's time. */
+    void notify(const Park &park, uint32_t text);
+    /** Forgets what it ran for an object `Park::remove` just took away, and its queue, −1 for none. */
+    void removed(size_t object, int queue);
     /** Whether any of the windows is open, which take the mouse before the HUD. */
     bool windowOpen() const;
     /** The object one of whose cells a cell is; −1 for none. */
@@ -185,6 +196,13 @@ private:
     TrainingWindow _trainingWindow;
     StaffFinanceWindow _staffFinance;
     WageDemandWindow _wageDemand;
+    ResearchLabWindow _researchLab;
+    ProjectWindow _projectWindow;
+    AssignWindow _assignWindow;
+    FinanceSummaryWindow _financeSummary;
+    RenameWindow _renameWindow;
+    uint32_t _notice = 0;      // UITEXT's; 0 for none
+    uint64_t _noticeUntil = 0; // the park's time
     std::optional<Park::Footprint> _placement;
     bool _placementFits = false;
     int _placementPrice = 0;

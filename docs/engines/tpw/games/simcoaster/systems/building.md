@@ -116,11 +116,29 @@ clicked, the attraction's name over its items): "Call engineer",
 "Cancel called engineer", "Build/Edit line", "Buy upgrade", "Close",
 "Delete (scrap value: $500)", "Ride", "View financial summary", "Edit
 name", "Buy another (cost: $1000)", "View opinion summary" (`UITEXT` 524
-to 535). Reluva's has those it does: call or cancel an engineer, build
-or edit the line, open or close; a plant's, call a gardener (583, 584).
+to 535). Reluva's has all but the opinion summary:
+
+- **Buy upgrade**, or cancel it while it's being made (127)
+  ([research.md](research.md#upgrades)).
+- **Ride** moves the camera close in over it; how the game's view from
+  a ride is placed isn't worked out.
+- **View financial summary**: "Financial Statistics - {4}" (45), the
+  users, takings, running cost, cost of goods and profit last month,
+  and the profit to date (170 to 178), in a window laid out by guess.
+- **Edit name**: typed into a window of its own, Return or the tick to
+  keep it, Backspace to take a character off; its windows and menu then
+  show it. Its window is laid out by guess.
+- **Buy another** starts placing another at its price, turned as it is.
+- **Delete** sells it for its scrap value: its cells bare, its queue
+  gone, those in it or on it back to the path.
+
+A shop's and sideshow's menu has its own open, close, summary and name
+(547 to 550); a plant's, call a gardener (583, 584); each, buy another
+and delete.
 
 The window (`!window_s`, (90, 62), 515 × 296; the name at (118, 69)):
-its model turning in a frame at (108, 104), "Not Upgraded" under it;
+its model turning in a frame at (108, 104), "Not Upgraded" (37) or
+"Upgraded to level {3}" (38) under it;
 its ratings and accounts in a frame at (242, 104), a line every 16
 pixels, values at x 372: "Users last month", "Excitement rating",
 "Customer satisfaction", "Reliability", "State of repair", "Remaining
@@ -133,11 +151,14 @@ or shut, at the bottom left; the tick. Reluva draws the model, the ratings
 it has (users last month, excitement, reliability as 1 less its
 `WearRate` tenths *(guessed)*, the state of repair, the running cost, the
 scrap value), the capacity, the price, which − and + change by § 1, and
-the door, which opens and closes it; not the sliders, customer
-satisfaction, remaining life or the weather icons.
+the door, which opens and closes it, and its level by the capacity;
+not the sliders, customer satisfaction, remaining life or the weather
+icons.
 
-What it brings in, a month's users and takings, its `RunningCost`
-paid each month, and its scrap value, its price by
+What it brings in, a month's users and takings; what it costs, its
+level's `RunningCost` paid each month, its upgrades, and its
+`UsageInfo.InitCostOfGoods` paid for each sale *(guessed)*; its profit
+to date; and its scrap value, its price by
 `Upgrades[0].ScrapValueYear1` to `4` percent as it ages a year, are
 kept.
 
@@ -172,8 +193,10 @@ building *(guessed)*.
 `reluva-tool tpw buy-shot <game folder> <world folder> <out.png> [tab
 [row]]` draws the window over a new park and lists what's on sale;
 `park-run` buys the Bellows Bouncer, places it and lays its queue to
-the path. The unit tests (`tpw.unit.park`, `tpw.unit.ui`) read a world's
-attractions built in the test, place them, and click the window.
+the path. `window-shot ... summary` and `rename` draw the financial summary and
+naming windows. The unit tests (`tpw.unit.park`, `tpw.unit.ui`) read a
+world's attractions built in the test, place, rename and delete them,
+and click the windows.
 
 ## Sources and checks
 
@@ -195,6 +218,7 @@ attractions built in the test, place them, and click the window.
   particle effect on building, `Info.CreateParticleEffect`).
 - Exits: where visitors leave, and the path they need.
 - How wear comes, by rider or by cycle; `RideBreakDown.WarnPlayer`;
-  upgrades; the sliders; deleting and buying another from the menu.
+  the sliders; the opinion summary; the game's view from a ride; the
+  financial summary's and naming windows' looks.
 - The signs: how close Reluva's lettering is to the game's
   ([sgn.md](../formats/sgn.md#open-questions)).

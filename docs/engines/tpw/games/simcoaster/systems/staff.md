@@ -76,7 +76,12 @@ between by experience:
   to 5, taken as tenths of a second *(guessed)*), stooping with pan and
   brush, their sprite's fifth animation.
 - **Guards**: no prank is played within their `MinDetectionRange` to
-  `MaxDetectionRange` (5 to 10) cells.
+  `MaxDetectionRange` (5 to 10) cells. One played within twice that,
+  the nearest guard at work gives chase, a third faster than they walk,
+  for their `MinWorkDuration` to `MaxWorkDuration` (10 to 75, taken as
+  seconds *(guessed)*); caught, within 1.5 units, the troublemaker is
+  made angry and sent home *(guessed)*.
+- **Scientists** research in the lab ([research.md](research.md)).
 - **Entertainers**: those within their `MinActiveRange` to
   `MaxActiveRange` (2 to 5) cells are cheered by a quarter of their
   grade's `EntertainerConstsPerGrade[n].HappinessEffectOnCell` (5 to 20)
@@ -110,6 +115,15 @@ and at 80 and 80 *(guessed)*:
   their agency's `RecuperationModifier` and
   `HappinessRecuperationModifier` (tenths), till full. Tired and with no
   room to rest in, they lose a point of happiness a day.
+- **Experience** grows each month at work by their grade's
+  `ExperiencePerMonth` (`MechanicConstsPerGrade`,
+  `HandymanConstsPerGrade` and the like; the gardeners have none, and
+  take the handymen's *(guessed)*), by their agency's
+  `ExperienceGainModifier` (tenths: Cut Price Recruitment's 30), their
+  grade their experience by 20,000s *(guessed: the settings' comments
+  speak of other steps)*; none on strike.
+- **The staff room** holds `AllStaffConstants.StaffRoomCapacity` (10);
+  full, the tired go on working.
 - **Wages**: on each month's first day, what they're paid is set
   against what their experience expects: their motivation and happiness
   rise by `HappyWageVal` (2) if it's enough, fall by `UnHappyWageVal`
@@ -153,8 +167,8 @@ pieces (`b_minus`, `b_plus`, `b_train`, `b_fire`, `b_arleft`,
 
 - **A member of staff's**, clicking them: their sprite turning; employed
   since (190), monthly wage (191) with − and +, current status (192, the
-  staff's states of `THOUGHTS.str`: happy, tired, going on strike, to the
-  training room, to the staff room, to a job), experience, energy,
+  states of `STAFFSTATES.str`: idle, looking for work, working, resting,
+  on strike, researching, training), experience, energy,
   happiness and motivation as bars (193 to 196), their agency (197); train
   and fire.
 - **Their menu**, right-clicking them: set or clear their patrol area
@@ -188,7 +202,8 @@ draws a window over a new park with one of each kind of staff.
 (`tpw.unit.park`) set the pools from settings built in the test, hire,
 pay, and have a janitor sweep up a kiosk's litter; break a ride for an
 engineer to mend, dry a plant for a gardener to water, train, set
-patrols and wages, answer a wage demand, and strike.
+patrols and wages, answer a wage demand, and strike; and see a
+scientist's experience grow by the month.
 
 ## Sources and checks
 
@@ -204,7 +219,7 @@ patrols and wages, answer a wage demand, and strike.
 - How the game makes its candidates, their experience and wages, and
   when the pools change; the promotion levels.
 - How fast staff tire, recover and learn, and how the game measures
-  `MinWorkDuration` and the recuperation rates; experience gained at
-  work (`HandymanConstsPerGrade[n].ExperiencePerMonth`); staff rooms'
-  capacity; what the windows the recording doesn't open look like.
-- The guards' chasing (`WorkDuration`), the scientists' research.
+  `MinWorkDuration` and the recuperation rates; the grades' steps (the
+  settings' comments: "costs 1000 to get up to grade 1 from grade 0");
+  what the windows the recording doesn't open look like.
+- How guards chase and what a caught troublemaker does.

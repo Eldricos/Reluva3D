@@ -128,8 +128,25 @@ Error Attractions::load(const SearchSet &files, const std::string &folder) {
             a.lab = number("UsageInfo.ThinkingSpace", 0) != 0;
             a.trainingRoom = number("UsageInfo.TrainingRoom", 0) != 0;
             a.requiresWatering = number("UsageInfo.RequiresWatering", 0) != 0;
-            a.wearRate = int(number("Upgrades[0].WearRate", 0));
-            a.runningCost = int(number("Upgrades[0].RunningCost", 0));
+            for (size_t l = 0; l < a.levels.size(); ++l) {
+                const std::string at = "Upgrades[" + std::to_string(l) + "].";
+                auto value = [&](const char *name, double fallback) {
+                    return int(number((at + name).c_str(), fallback));
+                };
+                Attraction::Level &level = a.levels[l];
+                level.capacity = value("InitCapacity", -1);
+                level.duration = value("InitDuration", 0);
+                level.wearRate = value("WearRate", 0);
+                level.runningCost = value("RunningCost", 0);
+                level.cost = value("CostOfUpgrade", 0);
+                level.research = value("CostOfResearch", 0);
+                level.days = value("DurationOfUpgrade", 0);
+            }
+            a.wearRate = a.levels[0].wearRate;
+            a.runningCost = a.levels[0].runningCost;
+            a.costOfGoods = int(number("UsageInfo.InitCostOfGoods", 0));
+            a.researchGroup = int(number("Research.Group", 0));
+            a.consultant = int(number("RStaff[0].SType", 0));
             for (size_t y = 0; y < a.scrapPercent.size(); ++y)
                 a.scrapPercent[y] =
                     int(number(("Upgrades[0].ScrapValueYear" + std::to_string(y + 1)).c_str(), a.scrapPercent[y]));
@@ -152,6 +169,12 @@ const Attractions::Attraction *Attractions::find(int id) const {
         if (a.id == id)
             return &a;
     return nullptr;
+}
+
+void Attractions::markAvailable(int id) {
+    for (Attraction &a : _all)
+        if (a.id == id)
+            a.available = a.price > 0;
 }
 
 std::vector<const Attractions::Attraction *> Attractions::onSale(Kind kind) const {

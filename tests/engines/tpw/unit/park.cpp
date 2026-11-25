@@ -732,6 +732,119 @@ void testUpkeep(const std::filesystem::path &tmp) {
     CHECK(park.visitorsAbout().size() <= about);
 }
 
+// Research: a ride researched, its consultant needed, put on sale; an
+// upgrade researched, then bought, needing an engineer trained, and made;
+// experience gained by the month; an attraction renamed and deleted.
+void testResearch(const std::filesystem::path &tmp) {
+    const std::filesystem::path data = tmp / "game" / "Data";
+    writeText(data / "levels" / "Standard.sam",
+              "BankAccountInfo.InitialCash 100000\r\nArrival.MinPeople 0\r\nArrival.FixedRate 0\r\n"
+              "StaffPoolInfo.BeginningNumberOfMechanics 2\r\nStaffPoolInfo.BeginningNumberOfResearchers 2\r\n"
+              "StaffPoolInfo.AvgExperienceOfMechanics 40000\r\nStaffPoolInfo.AvgExperienceOfResearchers 20000\r\n"
+              "StaffPoolInfo.AvgWageDifference 0\r\nStaffAgencies[0].InitialWageModifier 10\r\n"
+              "StaffAgencies[0].InitialExperienceModifier 0\r\nStaffAgencies[0].ExperienceGainModifier 10\r\n"
+              "StaffAgencies[0].TrainingExperienceGainModifier 10\r\n"
+              "AllStaffConstants.MinExperienceForTraining 30000\r\nAllStaffConstants.TrainingExtraExperience 5000\r\n"
+              "ResearcherConstsPerGrade[1].ExperiencePerMonth 600\r\nResearch.StartingWorkLoad 85\r\n");
+    writeText(data / "missions" / "miss00.sam", "Info.Number 0\r\n");
+    const std::filesystem::path world = data / "levels" / "science";
+    writeText(world / "rides" / "Rides.sam", "Info.HasQueue 1\r\nInfo.IsChoosable 1\r\nResearch.Group 0\r\n");
+    writeText(world / "rides" / "robot" / "robot.sam",
+              "Info.Id 1101\r\nUpgrades[0].CostOfUpgrade 1000\r\nUpgrades[0].InitCapacity 8\r\n"
+              "Upgrades[0].ScrapValueYear1 50\r\nUpgrades[1].CostOfUpgrade 300\r\nUpgrades[1].CostOfResearch 10\r\n"
+              "Upgrades[1].DurationOfUpgrade 1\r\nUpgrades[1].InitCapacity 12\r\nInfo.Shape\r\n---\r\n2N\r\n---\r\n");
+    writeText(world / "rides" / "rocket" / "rocket.sam",
+              "Info.Id 1102\r\nResearch.Group 1\r\nUpgrades[0].CostOfUpgrade 2000\r\n"
+              "Upgrades[0].CostOfResearch 20\r\nRStaff[0].SType 3\r\nInfo.Shape\r\n---\r\n2N\r\n---\r\n");
+    writeText(world / "Facilities" / "lab" / "lab.sam",
+              "Info.Id 1450\r\nUsageInfo.ThinkingSpace 1\r\nInfo.Shape\r\n---\r\n*2\r\n---\r\n");
+    writeText(world / "Facilities" / "train_rm" / "train_rm.sam",
+              "Info.Id 1440\r\nUsageInfo.TrainingRoom 1\r\nInfo.Shape\r\n---\r\n*2\r\n---\r\n");
+    constexpr int kRows = 8;    // x
+    constexpr int kColumns = 6; // y
+    tpw::testing::Bytes tiles(size_t(kRows) * kColumns, 0);
+    for (int x = 0; x < 7; ++x)
+        tiles[size_t(x) * kColumns + 4] = 8;
+    test::writeFile(world / "terrain" / "base.map", tpw::testing::makeAttributeMap(kColumns, kRows, tiles));
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!mountGame(files, tmp / "game", warnings));
+    Park park;
+    CHECK(!park.load(files, "levels/science", 0));
+    const int q = park.place(1101, 0, {"2N"}, true, {2, 2}, 0);
+    CHECK(q >= 0 && park.layQueue(q, Park::pathRun({2, 2}, {2, 4})) == 1);
+    CHECK(park.place(1440, 0, {"*2"}, false, {5, 2}, 0) == -1);
+    CHECK(!park.attractions().find(1102)->available);
+
+    // Upgrades want research first; the rocket and the robot's upgrade are
+    // the projects to choose from.
+    CHECK(park.upgrade(0) == Park::Upgrading::kNotResearched);
+    std::vector<Park::Project> choices = park.projectChoices();
+    CHECK(choices.size() == 2);
+    CHECK(choices.size() == 2 && choices[0].kind == Park::ProjectKind::kUpgrade && choices[0].id == 1101 &&
+          choices[0].level == 1 && choices[0].cost == 10);
+    CHECK(choices.size() == 2 && choices[1].kind == Park::ProjectKind::kAttraction && choices[1].id == 1102 &&
+          choices[1].cost == 20);
+
+    // A lab, then a scientist: on the rocket, held up for want of an
+    // engineer to consult till one's hired.
+    CHECK(park.hire(Park::StaffKind::kScientist, 0) == Park::Hiring::kNeedsLab);
+    CHECK(!park.hasResearchLab() && park.place(1450, 0, {"*2"}, false, {0, 2}, 0) == -1 && park.hasResearchLab());
+    CHECK(park.hire(Park::StaffKind::kScientist, 0) == Park::Hiring::kHired);
+    const int scientist = park.staff().back().id;
+    const int learnt = park.staff().back().experience;
+    CHECK(park.projectHeldUp(0) == 0);
+    park.startProject(0, choices[1]);
+    CHECK(park.projectHeldUp(0) == Park::kHeldUpByNoneAssigned);
+    park.assign(0, scientist);
+    CHECK(park.projectHeldUp(0) == Park::kHeldUpByNoConsultant);
+    CHECK(park.hire(Park::StaffKind::kEngineer, 0) == Park::Hiring::kHired);
+    const int engineer = park.staff().back().id;
+    CHECK(park.projectHeldUp(0) == 0);
+    const int cash = park.cash();
+    for (int t = 0; t < 2000 && !park.projects()[0]->finished; ++t)
+        park.advance(100);
+    CHECK(park.projects()[0]->finished && park.researched(1102) && park.attractions().find(1102)->available);
+    CHECK(park.cash() <= cash - 20 && park.staffMember(scientist)->doing != Park::StaffDoing::kResearching);
+
+    // The upgrade, in the other slot.
+    choices = park.projectChoices();
+    CHECK(choices.size() == 1);
+    park.startProject(1, choices[0]);
+    park.assign(1, scientist);
+    for (int t = 0; t < 2000 && !park.projects()[1]->finished; ++t)
+        park.advance(100);
+    CHECK(park.researched(1101, 1) && park.projectChoices().empty());
+
+    // Bought only once an engineer's trained; made in its days, its
+    // capacity the next level's.
+    CHECK(park.upgrade(0) == Park::Upgrading::kNeedsEngineer);
+    CHECK(park.sendForTraining(engineer) == Park::Training::kSent);
+    for (int t = 0; t < 200 && park.staffMember(engineer)->ability != Park::kRideUpgrading; ++t)
+        park.advance(1000);
+    const int before = park.cash();
+    CHECK(park.upgrade(0) == Park::Upgrading::kStarted && park.cash() == before - 300);
+    CHECK(park.upgrade(0) == Park::Upgrading::kBusy);
+    for (int t = 0; t < 100 && park.objects()[0].level == 0; ++t)
+        park.advance(1000);
+    CHECK(park.objects()[0].level == 1 && park.levelOf(0)->capacity == 12);
+    CHECK(park.upgrade(0) == Park::Upgrading::kFullyUpgraded);
+
+    // Months gone by: the scientist the more experienced by 600 a month.
+    const int gained = park.staffMember(scientist)->experience - learnt;
+    CHECK(gained >= 600 && gained % 600 == 0);
+
+    // Renamed; deleted for its scrap value, its queue with it.
+    park.rename(0, "Tester's Swing");
+    CHECK(park.objects()[0].name == "Tester's Swing");
+    const size_t objects = park.objects().size();
+    const int scrap = park.scrapValue(0);
+    const int had = park.cash();
+    park.remove(0);
+    CHECK(park.objects().size() == objects - 1 && park.cash() == had + scrap && park.queueOf(0) < 0);
+    CHECK(park.ground({2, 2}) == Park::Ground::kOpen && park.hasResearchLab());
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -747,4 +860,5 @@ static const reluva::test::Suite
                                 {"conditions", [](const std::filesystem::path &tmp) { testConditions(tmp); }},
                                 {"staff", [](const std::filesystem::path &tmp) { testStaff(tmp); }},
                                 {"upkeep", [](const std::filesystem::path &tmp) { testUpkeep(tmp); }},
+                                {"research", [](const std::filesystem::path &tmp) { testResearch(tmp); }},
                             });

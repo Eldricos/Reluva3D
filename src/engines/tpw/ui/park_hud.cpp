@@ -69,6 +69,8 @@ const std::array<Menu, ParkHud::kGizmos> &menus() {
 }
 // Research Lab: greyed in a park that can't research yet, as the
 // recording's first mission's is.
+// Greyed till the park has a research room ("You need to build a
+// research lab", UITEXT 104).
 constexpr uint32_t kResearchLabItem = 834;
 
 // A menu's panel: its left 49 pixels left of its button, 147 across; its
@@ -183,7 +185,7 @@ int ParkHud::menuItemAt(int x, int y) const {
         return -1;
     const Menu &menu = menus()[size_t(_menu)];
     for (size_t i = 0; i < menu.items.size(); ++i)
-        if (menuItemRect(Gizmo(_menu), i).contains(x, y) && menu.items[i] != kResearchLabItem)
+        if (menuItemRect(Gizmo(_menu), i).contains(x, y) && (menu.items[i] != kResearchLabItem || _researchLab))
             return int(i);
     return -1;
 }
@@ -366,9 +368,9 @@ void ParkHud::drawMenu(Surface &screen) const {
     drawGameText(screen, _titleFont, _characters, full.x + kMenuIndent, full.y + kMenuTitleY, _uiText.text(menu.title),
                  kMenuTitle);
     for (size_t i = 0; i < menu.items.size(); ++i) {
-        const Color c = menu.items[i] == kResearchLabItem ? kMenuItemGreyed
-                        : int(i) == _menuLit              ? kMenuItemLit
-                                                          : kMenuItem;
+        const Color c = menu.items[i] == kResearchLabItem && !_researchLab ? kMenuItemGreyed
+                        : int(i) == _menuLit                               ? kMenuItemLit
+                                                                           : kMenuItem;
         drawGameText(screen, _itemFont, _characters, full.x + kMenuIndent, full.y + kMenuHead + kMenuLine * int(i),
                      _uiText.text(menu.items[i]), c);
     }

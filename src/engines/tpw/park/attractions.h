@@ -65,6 +65,25 @@ public:
         int runningCost = 0;           // Upgrades[0].RunningCost, a month
         // Upgrades[0].ScrapValueYear1 to 4: what it fetches scrapped, percent of its price.
         std::array<int, 4> scrapPercent{50, 30, 20, 10};
+        /** A level of it, bought as an upgrade: Upgrades[n]'s settings. */
+        struct Level {
+            int capacity = -1; // InitCapacity
+            int duration = 0;  // InitDuration
+            int wearRate = 0;
+            int runningCost = 0;
+            int cost = 0;     // CostOfUpgrade: 0, none to buy
+            int research = 0; // CostOfResearch: what researching it costs; 0, none needed
+            int days = 0;     // DurationOfUpgrade
+        };
+        std::array<Level, 3> levels{};
+        int costOfGoods = 0;   // UsageInfo.InitCostOfGoods: what a sale costs a shop
+        int researchGroup = 0; // Research.Group: 0 on sale from the start, 1 on by research
+        /**
+         * RStaff[0].SType: the kind of staff to consult on researching it,
+         * by the game's numbering (1 a gardener, 3 an engineer, 5 a guard,
+         * by the recording's list); 0 none.
+         */
+        int consultant = 0;
         // How much more or less it's wanted in each weather, by Park::Weather:
         // its WeatherModifier percentages.
         std::array<int, 5> weatherPercent{100, 100, 100, 100, 100};
@@ -86,6 +105,8 @@ public:
     const Attraction *find(int id) const;
     /** Those of a kind on sale, in the order read. */
     std::vector<const Attraction *> onSale(Kind kind) const;
+    /** Puts one on sale, researched. */
+    void markAvailable(int id);
 
 private:
     std::vector<Attraction> _all;

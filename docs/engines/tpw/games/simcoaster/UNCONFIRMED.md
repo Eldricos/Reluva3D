@@ -125,8 +125,15 @@ None yet.
 
 - **Staff's lives, wear and plants**: how fast staff tire, rest, learn
   and grow restless; wages short of what's expected; how rides wear and
-  plants dry; the staff windows' look ([staff.md](systems/staff.md),
+  plants dry; the staff windows' look; experience's grades; guards'
+  chasing ([staff.md](systems/staff.md),
   [building.md](systems/building.md#wear-and-breakdowns)).
+
+- **Research and upgrades**: how fast research goes and what it costs,
+  the staff kinds of `RStaff[0].SType` past 1, 3 and 5, which staff
+  member consults, that training teaches engineers Ride Upgrading, how
+  long an upgrade takes ([research.md](systems/research.md)). The game's
+  lab watched through a project would settle the rates.
 
 - **Prices**: what's fair, and opinions as happiness and choice
   ([visitors.md](systems/visitors.md#what-they-think-of-prices)).
