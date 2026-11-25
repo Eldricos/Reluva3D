@@ -10,13 +10,17 @@ for the cache's blocks is [jit.md](jit.md).
 ## What Reluva supports
 
 - **`cpu.h`, `cpu.cpp`: the processor.** The 32-bit integer instructions
-  (with 16-bit operands), string instructions with `rep`, the bit
+  (with 16-bit operands: `push dx` and `pop cx` move a word), string
+  instructions with `rep`, the bit
   instructions, `CPUID` (it reports a Pentium; see below) and the FS segment
   (Windows' thread information block). The segment registers hold their
   selectors and are pushed, popped and moved, but the model is flat. Its memory is one flat arena from
   address 0 whose first page faults, so null pointers are caught. Faults
   (bad memory, division by zero, an instruction not implemented) end the
-  call with an error naming the address.
+  call with an error naming the address. The address-size prefix (0x67)
+  is done for `JCXZ` and the `LOOP`s alone, which then count with CX
+  (Pocket Soft's RTPatch uses `JCXZ`); with any other instruction it's a
+  fault, 16-bit addressing not being done.
 - **`fpu.cpp`: the x87 floating point unit.** Its registers are doubles:
   Windows runs the x87 at 53-bit precision, at which its results are a
   double's. The 80-bit format is converted where it's loaded or stored.
@@ -191,7 +195,8 @@ was decoded (the test of it in `common.unit.x86_more` has the jump).
 
 - `tests/common/x86_more.cpp` (`common.unit.x86_more`) checks the exact
   64-bit copies, the segment registers, code written over, the readable
-  first page (native code included) and pokes; `tests/common/mmx.cpp`
+  first page (native code included), words pushed and popped (`push dx`)
+  and `JCXZ`, and pokes; `tests/common/mmx.cpp`
   (`common.unit.mmx`) each MMX instruction against values worked out
   from Intel's reference: the saturation edges, shifts past the width,
   packs and unpacks, the memory forms, the aliasing with the x87, the

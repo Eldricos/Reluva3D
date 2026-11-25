@@ -812,10 +812,14 @@ void Cpu::execute() {
         else if (op == 0x26 || op == 0x2e || op == 0x36 || op == 0x3e || op == 0x65 || op == 0xf0)
             continue; // flat segments; LOCK means nothing here
         else if (op == 0x67)
-            fault("16-bit addressing not implemented");
+            _d.addrSize16 = true;
         else
             break;
     }
+    // The address-size prefix: only JCXZ and LOOP's (CX for ECX, as
+    // Patchw32.dll uses JCXZ) are done; 16-bit addressing of memory isn't.
+    if (_d.addrSize16 && (op < 0xe0 || op > 0xe3))
+        fault("16-bit addressing not implemented");
     const int osz = _d.opSize16 ? 2 : 4;
 
     // The eight ALU operations, in their six forms each.
@@ -860,12 +864,25 @@ void Cpu::execute() {
         eflags = (eflags & ~CF) | cf;
         return;
     }
+    // PUSH and POP r: a word with the operand-size prefix (push dx), the
+    // register's high half left as it is.
     if (op >= 0x50 && op <= 0x57) {
-        push(reg[op & 7]);
+        if (osz == 2) {
+            reg[ESP] -= 2;
+            store(reg[ESP], reg[op & 7] & 0xffff, 2);
+        } else {
+            push(reg[op & 7]);
+        }
         return;
     }
     if (op >= 0x58 && op <= 0x5f) {
-        reg[op & 7] = pop();
+        if (osz == 2) {
+            const uint32_t v = load(reg[ESP], 2);
+            reg[ESP] += 2;
+            writeReg(2, op & 7, v);
+        } else {
+            reg[op & 7] = pop();
+        }
         return;
     }
     if (op >= 0x70 && op <= 0x7f) { // Jcc rel8
@@ -1156,15 +1173,21 @@ void Cpu::execute() {
     case 0xe1:
     case 0xe2: { // LOOPNE, LOOPE, LOOP
         const uint32_t rel = uint32_t(int32_t(int8_t(fetch8())));
-        --reg[ECX];
+        uint32_t count;
+        if (_d.addrSize16) {
+            count = (reg[ECX] - 1) & 0xffff;
+            reg[ECX] = (reg[ECX] & 0xffff0000u) | count;
+        } else {
+            count = --reg[ECX];
+        }
         const bool zf = (eflags & ZF) != 0;
-        if (reg[ECX] && (op == 0xe2 || (op == 0xe1 ? zf : !zf)))
+        if (count && (op == 0xe2 || (op == 0xe1 ? zf : !zf)))
             eip += rel;
         return;
     }
-    case 0xe3: { // JECXZ
+    case 0xe3: { // JECXZ, or JCXZ with the address-size prefix
         const uint32_t rel = uint32_t(int32_t(int8_t(fetch8())));
-        if (!reg[ECX])
+        if (!(_d.addrSize16 ? reg[ECX] & 0xffff : reg[ECX]))
             eip += rel;
         return;
     }

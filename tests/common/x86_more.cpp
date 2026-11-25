@@ -3,7 +3,8 @@
 
 // The x86 processor's additions for whole programs of the late 1990s:
 // 64-bit integers through the x87 unit kept exact, segment registers in a
-// flat model, code written over, reads of the first page, and pokes
+// flat model, code written over, reads of the first page, words pushed
+// and popped, and pokes
 // (memory written at a moment of a run).
 //
 //   reluva-tests common.unit.x86_more
@@ -86,6 +87,21 @@ void testFirstPage(x86::Cpu &cpu) {
     cpu.readableFirstPage = false;
 }
 
+void testWordPush(x86::Cpu &cpu) {
+    // PUSH and POP r with the operand-size prefix move a word, as
+    // Patchw32.dll makes room for a dword with two: mov edx, 0x11112222;
+    // mov ecx, 0xaaaabbbb; mov ebx, 0x55667788; push dx; push dx; pop eax;
+    // push ebx; pop cx (its high half kept); add esp, 2; ret.
+    runX86(cpu, {0xba, 0x22, 0x22, 0x11, 0x11, 0xb9, 0xbb, 0xbb, 0xaa, 0xaa, 0xbb, 0x88, 0x77, 0x66,
+                 0x55, 0x66, 0x52, 0x66, 0x52, 0x58, 0x53, 0x66, 0x59, 0x83, 0xc4, 0x02, 0xc3});
+    CHECK(cpu.reg[x86::Cpu::EAX] == 0x22222222);
+    CHECK(cpu.reg[x86::Cpu::ECX] == 0xaaaa7788);
+    // JCXZ (JECXZ with the address-size prefix) tests CX alone:
+    // mov eax, 7; mov ecx, 0x10000; jcxz +5; mov eax, 1; ret.
+    runX86(cpu, {0xb8, 7, 0, 0, 0, 0xb9, 0, 0, 1, 0, 0x67, 0xe3, 5, 0xb8, 1, 0, 0, 0, 0xc3});
+    CHECK(cpu.reg[x86::Cpu::EAX] == 7);
+}
+
 void runAll() {
     x86::Cpu cpu(16u << 20);
     cpu.setStack(0x100000);
@@ -93,6 +109,7 @@ void runAll() {
     testWrittenOver(cpu);
     testSegments(cpu);
     testFirstPage(cpu);
+    testWordPush(cpu);
 }
 
 void testPokes() {

@@ -433,6 +433,7 @@ private:
     // The instruction being run: prefixes, and its ModRM operand.
     struct Decoded {
         bool opSize16 = false;
+        bool addrSize16 = false; // the address-size prefix (JCXZ and LOOP's alone)
         bool rep = false;
         bool repne = false;
         uint32_t segment = 0; // a segment override's base (FS)
