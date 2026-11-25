@@ -43,6 +43,7 @@
 #include "emulation/x86/win32.h"
 #include "common/zip.h"
 #include "common/inflate.h"
+#include "common/mscab.h"
 #include "common/installshield.h"
 #include "common/wise.h"
 #include "tests/support/installshield_writer.h"
@@ -403,6 +404,71 @@ static void testInflateAndWise(const std::filesystem::path &tmp) {
     exe[0x120] = 'X'; // not Wise's
     test::writeFile(tmp / "other.exe", exe);
     CHECK(readWiseInstaller(tmp / "other.exe", streams));
+}
+
+// A Microsoft cabinet in a program, as the 2.0.3.6 patch's download has
+// one: a stored folder, and an MSZIP one whose second block refers back
+// into its first.
+static void testMicrosoftCabinet() {
+    std::vector<uint8_t> cab(36, 0);
+    auto put16 = [&cab](size_t at, uint16_t v) { cab[at] = uint8_t(v), cab[at + 1] = uint8_t(v >> 8); };
+    auto put32 = [&cab, &put16](size_t at, uint32_t v) { put16(at, uint16_t(v)), put16(at + 2, uint16_t(v >> 16)); };
+    auto add = [&cab](const void *data, size_t size) {
+        cab.insert(cab.end(), static_cast<const uint8_t *>(data), static_cast<const uint8_t *>(data) + size);
+    };
+    std::memcpy(cab.data(), "MSCF", 4);
+    put16(24, 0x0103);
+    put16(26, 2); // folders
+    put16(28, 3); // files
+    cab.resize(36 + 2 * 8);
+    put16(36 + 4, 1);
+    put16(36 + 8 + 4, 2);
+    put16(36 + 8 + 6, 1); // MSZIP
+    put32(16, uint32_t(cab.size()));
+    const struct {
+        uint32_t size;
+        uint32_t offset;
+        uint16_t folder;
+        const char *name;
+    } files[] = {{5, 0, 0, "\\loose.txt"}, {13, 0, 1, "\\Data\\first.txt"}, {19, 13, 1, "\\Data\\again.txt"}};
+    for (const auto &f : files) {
+        const size_t at = cab.size();
+        cab.resize(at + 16);
+        put32(at, f.size);
+        put32(at + 4, f.offset);
+        put16(at + 8, f.folder);
+        add(f.name, std::strlen(f.name) + 1);
+    }
+    auto block = [&](size_t folder, const std::vector<uint8_t> &data, uint16_t unpacked) {
+        if (folder != SIZE_MAX)
+            put32(36 + 8 * folder, uint32_t(cab.size()));
+        const size_t at = cab.size();
+        cab.resize(at + 8);
+        put16(at + 4, uint16_t(data.size()));
+        put16(at + 6, unpacked);
+        add(data.data(), data.size());
+    };
+    block(0, test::toBytes("hello"), 5);
+    std::vector<uint8_t> first = {'C', 'K'};
+    first.insert(first.end(), kStored, kStored + sizeof kStored - 1);
+    block(1, first, 13);
+    // "stored block! again", most of it a copy from the block before.
+    const uint8_t again[] = {'C', 'K', 0x2b, 0x46, 0xe6, 0x28, 0x24, 0xa6, 0x27, 0x66, 0xe6, 0x01, 0x00};
+    block(SIZE_MAX, std::vector<uint8_t>(std::begin(again), std::end(again)), 19);
+    put32(8, uint32_t(cab.size()));
+
+    // After bytes that only look like a cabinet's start.
+    std::vector<uint8_t> exe = test::toBytes("MZ program MSCF");
+    exe.insert(exe.end(), {0, 0, 0, 0, 0xff, 0xff, 0xff, 0x7f});
+    exe.insert(exe.end(), cab.begin(), cab.end());
+    std::vector<CabinetFile> out;
+    CHECK(!readMicrosoftCabinets(exe, out));
+    CHECK(out.size() == 3 && out[0].name == "\\loose.txt" && out[0].data == test::toBytes("hello"));
+    CHECK(out.size() == 3 && out[1].data == test::toBytes("stored block!") &&
+          out[2].data == test::toBytes("stored block! again"));
+    CHECK(!readMicrosoftCabinets(test::toBytes("no cabinet here"), out) && out.empty());
+    exe[exe.size() - 1] ^= 0xff; // the second block damaged
+    CHECK(readMicrosoftCabinets(exe, out));
 }
 
 // Version 5's layout (Starfleet Command II's CDs): an offset for each
@@ -1351,6 +1417,7 @@ static const reluva::test::Suite
                        {"zip", [](const std::filesystem::path &tmp) { testZip(tmp / "zip"); }},
                        {"inflate and wise", [](const std::filesystem::path &tmp) { testInflateAndWise(tmp / "wise"); }},
                        {"installshield", [](const std::filesystem::path &tmp) { testInstallShield(tmp / "is"); }},
+                       {"microsoft cabinet", [](const std::filesystem::path &) { testMicrosoftCabinet(); }},
                        {"installshield 5", [](const std::filesystem::path &tmp) { testInstallShield5(tmp / "is5"); }},
                        {"dcl", [](const std::filesystem::path &) { testDcl(); }},
                        {"cd images", [](const std::filesystem::path &tmp) { testCue(tmp / "cue"); }},

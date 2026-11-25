@@ -7,6 +7,7 @@
 
 #include "common/inflate.h"
 
+#include <algorithm>
 #include <array>
 
 namespace reluva {
@@ -135,8 +136,9 @@ bool codes(Inflater &in, const Huffman &lit, const Huffman &dist) {
 
 } // namespace
 
-Error inflateStream(const uint8_t *data, size_t dataSize, std::vector<uint8_t> &out, size_t &consumed, size_t maxSize) {
-    out.clear();
+Error inflateStream(const uint8_t *data, size_t dataSize, std::vector<uint8_t> &out, size_t &consumed, size_t maxSize,
+                    size_t history) {
+    out.resize(std::min(history, out.size()));
     consumed = 0;
     Inflater in{data, dataSize, 0, 0, 0, false, out, maxSize};
     static const Huffman kFixedLit = [] {

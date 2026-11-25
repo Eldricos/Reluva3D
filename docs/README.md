@@ -43,6 +43,8 @@ Laid out as `src/common/` is, a page per component:
   running them.
 - **[installshield.md](common/installshield.md):** InstallShield
   cabinets (`data1.hdr`, `data1.cab`...), as games' CDs held their files.
+- **[mscab.md](common/mscab.md):** Microsoft cabinets, as a patch's
+  self-extracting program holds its files.
 - **[truetype.md](common/truetype.md):** TrueType fonts drawn as Windows
   draws them: their hinting programs run by Reluva's own interpreter.
 - **[winhelp.md](common/winhelp.md):** Windows Help files (`.hlp`): their

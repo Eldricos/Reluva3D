@@ -14,6 +14,7 @@ add_library(reluva_common STATIC
     fs.cpp
     inflate.cpp
     installshield.cpp
+    mscab.cpp
     log.cpp
     md4.cpp
     crypto.cpp
