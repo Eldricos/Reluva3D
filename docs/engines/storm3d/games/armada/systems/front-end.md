@@ -362,7 +362,8 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
 - `reluva-tool storm3d engine-shot <game folder> <out.png> <ms> [-save
   dir] [event...]` runs the game without a window, by a clock of its
   own, the player's moves at set times (`1500:move:90:18`,
-  `2000:click:90:18`, a drag's `2000:down:90:18` and `2500:up:200:100`,
+  `2000:click:90:18`, the right button's `2000:rclick:90:18`, a drag's
+  `2000:down:90:18` and `2500:up:200:100`,
   `300:key:escape`), its player's files in `dir`,
   and writes the screen at `ms`.
 - The movies everywhere (the game, the Movies page, `movie-frame`) are

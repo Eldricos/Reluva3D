@@ -10,6 +10,7 @@ reluva_add_engine(storm3d
         game_files.cpp
         play/hud.cpp
         play/mission_view.cpp
+        play/movement.cpp
         player_files.cpp
         formats/bzn.cpp
         formats/config_file.cpp

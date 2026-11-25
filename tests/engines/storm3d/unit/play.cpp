@@ -7,6 +7,7 @@
 #include "engines/storm3d/formats/gui_config.h"
 #include "engines/storm3d/play/hud.h"
 #include "engines/storm3d/play/mission_view.h"
+#include "engines/storm3d/play/movement.h"
 
 #include "tests/support/test.h"
 
@@ -218,6 +219,81 @@ void testGroupOrders() {
     CHECK(MissionView::ordersOf({ship}).controls[2].enabled);
 }
 
+// A construction ship's flight, as the original's: straight ahead 145,
+// it's at full speed in about a second and stopped near the point in
+// about five; and its physics from its file.
+void testMovement() {
+    using reluva::storm3d::Movement;
+    const std::map<std::string, std::string> files = {
+        {"fconst.odf", "[CraftClass]\nphysicsFile = \"cnstphys.odf\"\n"},
+        {"cnstphys.odf", "[Physics]\nimpulseSpeed = 20\nwarpSpeed = 50\nyawRotationRate = 0.72\n"
+                         "headingCloseEnoughForWarp = 30;\n"},
+    };
+    const reluva::storm3d::Odf::Loader loader = [&files](std::string_view name, std::string &text) {
+        auto it = files.find(std::string(name));
+        if (it == files.end())
+            return reluva::Error::fail("not found");
+        text = it->second;
+        return reluva::Error::success();
+    };
+    reluva::storm3d::Odf unit;
+    CHECK(!unit.load("fconst.odf", loader));
+    const Movement::Physics physics = Movement::physicsOf(unit, loader);
+    CHECK(physics.topSpeed == 50 && physics.cornerSpeed == 20 && std::abs(physics.turnRate - 0.72f) < 1e-6f);
+    CHECK(std::abs(physics.wideTurn - 0.5236f) < 1e-3f);
+
+    Movement::Ship ship;
+    ship.at = {0, 38.5f, 0};
+    ship.goal = reluva::gfx::Vec3{0, 38.5f, 145};
+    ship.waiting = Movement::kSetOff;
+    float fastest = 0;
+    double stopped = -1;
+    for (int i = 1; i <= 1000; ++i) {
+        Movement::step(ship, physics, 0.01);
+        if (i == 150)
+            CHECK(ship.speed > 40);
+        fastest = std::max(fastest, ship.speed);
+        if (stopped < 0 && !ship.goal && ship.speed < 0.5f)
+            stopped = i * 0.01;
+    }
+    CHECK(fastest > 45 && fastest <= 50);
+    CHECK(stopped > 3.5 && stopped < 6);
+    CHECK(std::abs(ship.at[2] - 145) < 8 && std::abs(ship.at[0]) < 0.01f);
+
+    // Round the starbase in its way, on the side away from it.
+    const std::vector<Movement::Obstacle> base = {{{677.6f, 38.5f, 502.8f}, 52.6f}};
+    const auto way = Movement::routeAround({624.4f, 38.5f, 548.7f}, {777.7f, 38.5f, 568.9f}, base, 27.3f);
+    CHECK(way.size() == 1 && way[0][2] > 600);
+    CHECK(Movement::routeAround({624.4f, 38.5f, 548.7f}, {624.4f, 38.5f, 700}, base, 27.3f).empty());
+}
+
+// The click's point on the plane is the point the camera shows there.
+void testPointOn() {
+    using reluva::storm3d::MapScene;
+    const auto camera = MapScene::overviewOf({576.6f, 38.5f, 444.5f});
+    const auto viewProj = MapScene::viewProjOf(camera, 1000);
+    const reluva::gfx::Vec3 point{700, 38.5f, 560};
+    const auto at = MapScene::project(viewProj, point);
+    CHECK(at.has_value());
+    if (at) {
+        const auto back = MapScene::pointOn(camera, 38.5f, int(std::lround((*at)[0])), int(std::lround((*at)[1])));
+        CHECK(back && std::abs((*back)[0] - 700) < 2 && std::abs((*back)[2] - 560) < 3);
+    }
+}
+
+// A group sent somewhere keeps its shape.
+void testSendGroup() {
+    using reluva::storm3d::Movement;
+    std::vector<Movement::Ship> ships(3);
+    ships[0].at = {0, 38.5f, 0};
+    ships[1].at = {20, 38.5f, 0};
+    ships[2].at = {500, 38.5f, 0};
+    MissionView::sendTo(ships, {}, {0, 1, 2}, {true, true, false}, {110, 38.5f, 100});
+    CHECK(ships[0].goal && ships[1].goal && !ships[2].goal);
+    CHECK((*ships[0].goal)[0] == 100 && (*ships[1].goal)[0] == 120 && (*ships[1].goal)[2] == 100);
+    CHECK(ships[0].waiting == Movement::kSetOff);
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("storm3d.unit.play",
@@ -231,4 +307,7 @@ static const reluva::test::Suite kSuite("storm3d.unit.play",
                                             {"display", [](const std::filesystem::path &) { testDisplay(); }},
                                             {"box", [](const std::filesystem::path &) { testBox(); }},
                                             {"group orders", [](const std::filesystem::path &) { testGroupOrders(); }},
+                                            {"movement", [](const std::filesystem::path &) { testMovement(); }},
+                                            {"point on", [](const std::filesystem::path &) { testPointOn(); }},
+                                            {"send group", [](const std::filesystem::path &) { testSendGroup(); }},
                                         });

@@ -385,6 +385,7 @@ void MapScene::clear() {
     _placed.clear();
     _teams.clear();
     _units.clear();
+    _unitModels.clear();
     _background = nullptr;
     _seen.clear();
     _drawn = _unmodelled = _effects = _starting = 0;
@@ -445,22 +446,23 @@ void MapScene::build(const BznMap &map, const std::vector<StartUnit> &units, con
         const SodMeshes::Built *built = look.model.empty() ? nullptr : _meshes.model(look.model);
         if (!built || shrouded(unit.at))
             continue;
-        // Facing +z, as the game makes them.
-        gfx::Mat4 place = gfx::identity();
-        place[0] = place[5] = place[10] = look.scale;
-        place[12] = unit.at[0], place[13] = unit.at[1], place[14] = unit.at[2];
         _teams.resize(_placed.size());
-        _placed.push_back({built, place});
+        _placed.push_back({built, gfx::identity()});
         _teams.push_back(unit.colour);
         Unit u;
         u.odf = unit.odf;
         u.slot = unit.slot;
-        u.at = unit.at;
-        for (size_t k = 0; k < 3; ++k) {
-            u.lo[k] = unit.at[k] + built->lo[k] * look.scale;
-            u.hi[k] = unit.at[k] + built->hi[k] * look.scale;
-        }
         _units.push_back(u);
+        UnitModel m;
+        m.placed = _placed.size() - 1;
+        m.scale = look.scale;
+        for (size_t k = 0; k < 3; ++k) {
+            m.lo[k] = built->lo[k] * look.scale;
+            m.hi[k] = built->hi[k] * look.scale;
+        }
+        _unitModels.push_back(m);
+        // Facing +z, as the game makes them.
+        moveUnit(_units.size() - 1, unit.at, 0);
         ++_starting;
     }
     // The team parts in the chosen race's colour, or the map's race's: the
@@ -483,6 +485,46 @@ float MapScene::Unit::radius() const {
     const float dy = (hi[1] - lo[1]) / 2;
     const float dz = (hi[2] - lo[2]) / 2;
     return std::sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+void MapScene::moveUnit(size_t unit, const gfx::Vec3 &at, float heading) {
+    if (unit >= _units.size())
+        return;
+    const UnitModel &m = _unitModels[unit];
+    // Its model's +z along its heading, +x to its right: (cos, 0, -sin).
+    const float s = std::sin(heading);
+    const float c = std::cos(heading);
+    gfx::Mat4 &place = _placed[m.placed].second;
+    place = gfx::identity();
+    place[0] = c * m.scale, place[2] = -s * m.scale;
+    place[5] = m.scale;
+    place[8] = s * m.scale, place[10] = c * m.scale;
+    place[12] = at[0], place[13] = at[1], place[14] = at[2];
+    Unit &u = _units[unit];
+    u.at = at;
+    u.heading = heading;
+    // The box about its turned corners.
+    u.lo = {at[0] + std::min(c * m.lo[0], c * m.hi[0]) + std::min(s * m.lo[2], s * m.hi[2]), at[1] + m.lo[1],
+            at[2] + std::min(-s * m.lo[0], -s * m.hi[0]) + std::min(c * m.lo[2], c * m.hi[2])};
+    u.hi = {at[0] + std::max(c * m.lo[0], c * m.hi[0]) + std::max(s * m.lo[2], s * m.hi[2]), at[1] + m.hi[1],
+            at[2] + std::max(-s * m.lo[0], -s * m.hi[0]) + std::max(c * m.lo[2], c * m.hi[2])};
+}
+
+std::optional<gfx::Vec3> MapScene::pointOn(const Camera &camera, float height, int x, int y) {
+    // Right, in the game's left-handed coordinates: up x forward.
+    const gfx::Vec3 &u = camera.up;
+    const gfx::Vec3 &f = camera.forward;
+    const gfx::Vec3 right{u[1] * f[2] - u[2] * f[1], u[2] * f[0] - u[0] * f[2], u[0] * f[1] - u[1] * f[0]};
+    const float focal = 240 / std::tan(camera.fovY / 2);
+    gfx::Vec3 ray{};
+    for (size_t k = 0; k < 3; ++k)
+        ray[k] = f[k] + right[k] * (float(x) - 320) / focal + u[k] * (240 - float(y)) / focal;
+    if (std::abs(ray[1]) < 1e-6f)
+        return std::nullopt;
+    const float t = (height - camera.eye[1]) / ray[1];
+    if (t <= 0)
+        return std::nullopt;
+    return gfx::Vec3{camera.eye[0] + ray[0] * t, height, camera.eye[2] + ray[2] * t};
 }
 
 gfx::Mat4 MapScene::viewProjOf(const Camera &camera, float range) {

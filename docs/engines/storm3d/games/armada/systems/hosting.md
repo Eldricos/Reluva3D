@@ -75,7 +75,8 @@ so they're added in the order the program needs them.
   top words, among them its callers' return addresses.
 - `-draws-ms <ms> <file>` writes the draws of the first frame shown from
   that moment of the program's clock, for when the frame's number isn't
-  known.
+  known Either file starts with the frame's number and its
+  time on the program's clock (`frame 4123 at 45512 ms`).
 - **Its memory**, with `-dump <frame> <file>` or `-dump-ms <ms> <file>`
   (as often as wanted): the whole of it, written as that frame is shown
   or at that moment of its clock, to look for what it keeps there (its

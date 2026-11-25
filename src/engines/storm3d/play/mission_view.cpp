@@ -164,6 +164,36 @@ Hud::Unit MissionView::displayOf(const std::string &odfName, const Odf::Loader &
     return u;
 }
 
+void MissionView::sendTo(std::vector<Movement::Ship> &ships, const std::vector<MapScene::Unit> &units,
+                         const std::vector<int> &selection, const std::vector<bool> &moves, const gfx::Vec3 &point) {
+    // Ships keep the rings' half sides apart, as the original's way round
+    // the starbase did.
+    std::vector<Movement::Obstacle> standing;
+    for (size_t i = 0; i < units.size(); ++i)
+        if (i >= moves.size() || !moves[i])
+            standing.push_back({ringMiddleOf(units[i]), ringHalfOf(units[i])});
+    std::vector<size_t> going;
+    gfx::Vec3 middle{};
+    for (int i : selection)
+        if (size_t(i) < ships.size() && size_t(i) < moves.size() && moves[size_t(i)]) {
+            going.push_back(size_t(i));
+            for (size_t k = 0; k < 3; ++k)
+                middle[k] += ships[size_t(i)].at[k];
+        }
+    if (going.empty())
+        return;
+    for (float &m : middle)
+        m /= float(going.size());
+    for (size_t i : going) {
+        ships[i].goal =
+            gfx::Vec3{point[0] + ships[i].at[0] - middle[0], ships[i].at[1], point[2] + ships[i].at[2] - middle[2]};
+        ships[i].waiting = Movement::kSetOff;
+        ships[i].route = i < units.size()
+                             ? Movement::routeAround(ships[i].at, *ships[i].goal, standing, ringHalfOf(units[i]))
+                             : std::vector<gfx::Vec3>{};
+    }
+}
+
 std::vector<int> MissionView::boxed(const std::vector<MapScene::Unit> &units, const std::vector<bool> &moves,
                                     const gfx::Mat4 &viewProj, int slot, int x0, int y0, int x1, int y1) {
     std::vector<int> inside;
@@ -280,15 +310,23 @@ Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &m
                  shroud && !mine.empty() ? _scene.sightsOf(parsed, mine, -1) : std::vector<MapScene::Sight>{});
     _overview = startOf(parsed, slot);
     _slot = slot;
-    std::map<std::string, bool> engines;
+    std::map<std::string, std::optional<Movement::Physics>> physics;
     const Odf::Loader loader = loaderOf(_files.files());
     for (const MapScene::Unit &u : _scene.units()) {
-        auto it = engines.find(u.odf);
-        if (it == engines.end()) {
+        auto it = physics.find(u.odf);
+        if (it == physics.end()) {
             Odf odf;
-            it = engines.emplace(u.odf, !odf.load(u.odf + ".odf", loader) && odf.number("enginesHitPoints") > 0).first;
+            std::optional<Movement::Physics> p;
+            if (!odf.load(u.odf + ".odf", loader) && odf.number("enginesHitPoints") > 0)
+                p = Movement::physicsOf(odf, loader);
+            it = physics.emplace(u.odf, p).first;
         }
-        _moves.push_back(it->second);
+        _moves.push_back(it->second.has_value());
+        _physics.push_back(it->second);
+        Movement::Ship ship;
+        ship.at = u.at;
+        ship.heading = u.heading;
+        _ships.push_back(ship);
     }
     std::vector<std::string> myUnits;
     std::string myRace = "fed";
@@ -411,6 +449,8 @@ void MissionView::stop() {
     _selection.clear();
     _displayed.clear();
     _moves.clear();
+    _physics.clear();
+    _ships.clear();
     _slot = -1;
     _dragging = false;
     _hover = -1;
@@ -426,6 +466,15 @@ void MissionView::handleEvent(const Event &ev) {
     if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft && !_hud.covers(ev.mouseX, ev.mouseY)) {
         _pressX = ev.mouseX;
         _pressY = ev.mouseY;
+        return;
+    }
+    if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kRight && !_hud.covers(ev.mouseX, ev.mouseY)) {
+        // Sent to the point under the pointer, on the plane the selected
+        // units fly in.
+        if (!_selection.empty() && size_t(_selection.front()) < _ships.size())
+            if (auto point =
+                    MapScene::pointOn(camera(), _ships[size_t(_selection.front())].at[1], ev.mouseX, ev.mouseY))
+                sendTo(_ships, _scene.units(), _selection, _moves, *point);
         return;
     }
     if (_pressX >= 0 && (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseUp)) {
@@ -462,8 +511,20 @@ void MissionView::handleEvent(const Event &ev) {
 void MissionView::draw(uint64_t millis) {
     if (!_renderer)
         return;
-    _overview = moved(_overview, _held, double(millis - _last) / 1000);
+    const double seconds = double(millis - _last) / 1000;
+    _overview = moved(_overview, _held, seconds);
     _last = millis;
+    // The ships fly on, in steps of no more than a twentieth of a second.
+    const int steps = std::max(1, int(std::ceil(seconds / 0.05)));
+    for (size_t i = 0; i < _ships.size(); ++i) {
+        if (!_physics[i] || (!_ships[i].goal && _ships[i].speed == 0))
+            continue;
+        for (int s = 0; s < steps; ++s)
+            Movement::step(_ships[i], *_physics[i], seconds / steps);
+        if (!_ships[i].goal && std::abs(_ships[i].speed) < 0.01f)
+            _ships[i].speed = 0;
+        _scene.moveUnit(i, _ships[i].at, _ships[i].heading);
+    }
     const MapScene::Camera view = camera();
     _scene.draw(view, double(millis) / 1000, kRange, kClear, true);
     const gfx::Mat4 viewProj = MapScene::viewProjOf(view, kRange);
@@ -516,7 +577,13 @@ void MissionView::draw(uint64_t millis) {
         _displayed = _selection;
     }
     _hud.drawSelection(_overlay, _display, _orders);
-    _hud.drawCursor(_overlay, _mouseX, _mouseY, double(millis) / 1000, _hover >= 0);
+    // Over a unit, the select cursor; over the map with ships selected,
+    // the move cursor (the original's, with a construction ship).
+    bool sending = false;
+    for (int i : _selection)
+        sending = sending || (size_t(i) < _moves.size() && _moves[size_t(i)]);
+    const char *cursor = _hover >= 0 ? "c_select" : sending && !_hud.covers(_mouseX, _mouseY) ? "c_move" : "c_arrow";
+    _hud.drawCursor(_overlay, _mouseX, _mouseY, double(millis) / 1000, cursor);
     _renderer->endFrame(&_overlay);
 }
 

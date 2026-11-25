@@ -7,6 +7,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 
 namespace reluva::storm3d {
 
@@ -19,7 +21,6 @@ constexpr std::array<uint8_t, 3> kIconTint = {229, 229, 229};
 constexpr std::array<uint8_t, 3> kCounterTint = {128, 128, 128};
 constexpr std::array<uint8_t, 3> kButtonTint = {153, 178, 171};
 constexpr std::array<uint8_t, 3> kBorderTint = {128, 152, 149};
-constexpr int kCursorFrames = 4;
 // The ship's display's colours, as its draws have them: black words,
 // green crew and full bars, dark grey under them (the layout's disable
 // colour, 0.3), the construction bar's orange (its 1, 0.6, 0.2), the
@@ -365,14 +366,27 @@ void Hud::drawHealthBar(Surface &screen, int left, int top, int width, float hea
     drawSprite(screen, "large_shield_bar", left, top, width, kHealthBarHeight, kHealthFront, false, health);
 }
 
-void Hud::drawCursor(Surface &screen, int x, int y, double seconds, bool overUnit) {
-    const SpriteTable::Sprite *s = sprite(overUnit ? "c_select" : "c_arrow");
+void Hud::drawCursor(Surface &screen, int x, int y, double seconds, const std::string &name) {
+    const SpriteTable::Sprite *s = sprite(name);
     const image::Image *tex = s ? texture(s->texture) : nullptr;
     if (!tex)
         return;
-    // cursor4x1 (tex_anim.spr): four frames along a row, a second for the
-    // four, stepped.
-    const int frame = int(seconds * kCursorFrames) % kCursorFrames;
+    // Its animation, cursor<n>x1 (tex_anim.spr): n frames along a row, a
+    // second for them all, stepped; none, one frame.
+    int frames = 1;
+    for (const std::string &anim : s->animations)
+        if (anim.rfind("cursor", 0) == 0)
+            frames = std::max(1, std::atoi(anim.c_str() + 6));
+    const int frame = int(seconds * frames) % frames;
+    // Its origin, the pointer's place in it: "(16,16)" for those centred on it.
+    if (auto origin = s->parameters.find("origin"); origin != s->parameters.end()) {
+        int ox = 0;
+        int oy = 0;
+        if (std::sscanf(origin->second.c_str(), "(%d,%d)", &ox, &oy) == 2) {
+            x -= ox;
+            y -= oy;
+        }
+    }
     const double sx = s->referenceWidth > 0 ? double(tex->w) / s->referenceWidth : 1;
     const double sy = s->referenceHeight > 0 ? double(tex->h) / s->referenceHeight : 1;
     const int u = int((s->u + s->w * frame) * sx);

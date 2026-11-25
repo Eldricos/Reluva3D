@@ -93,11 +93,11 @@ public:
      */
     void draw(Surface &screen, const Resources &resources, const std::vector<bool> &seen, bool counters = true);
     /**
-     * Draws the game's cursor with its tip at (x, y), `seconds` into its
-     * animation: the arrow, or over a unit the select cursor (`cursor.spr`'s
-     * c_arrow and c_select), black left out.
+     * Draws one of the game's cursors (`cursor.spr`'s `name`: "c_arrow",
+     * "c_select", "c_move") with its origin at (x, y), `seconds` into its
+     * animation, black left out.
      */
-    void drawCursor(Surface &screen, int x, int y, double seconds, bool overUnit);
+    void drawCursor(Surface &screen, int x, int y, double seconds, const std::string &name);
 
 private:
     // A sprite drawn into a rectangle of the screen: its texture's

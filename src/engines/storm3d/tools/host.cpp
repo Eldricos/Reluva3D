@@ -192,12 +192,15 @@ Error readInput(const std::filesystem::path &path, std::vector<InputEvent> &out)
     return Error::success();
 }
 
-// A frame's draws as text: each draw's primitive, vertex format and
+// A frame's draws as text: its number and its time on the program's
+// clock, then each draw's primitive, vertex format and
 // texture, then its vertices: screen x, y, z and 1/w, colour (ARGB) and
 // texture coordinates for the formats Armada uses (D3DFVF_XYZRHW with
 // D3DFVF_DIFFUSE, and D3DFVF_TEX1 perhaps), else their bytes in hex.
-void writeDraws(const std::vector<x86::DirectX::Draw> &draws, const std::filesystem::path &path) {
+void writeDraws(const std::vector<x86::DirectX::Draw> &draws, uint64_t frame, uint64_t ms,
+                const std::filesystem::path &path) {
     std::ofstream out(path);
+    out << "frame " << frame << " at " << ms << " ms\n";
     for (size_t i = 0; i < draws.size(); ++i) {
         const x86::DirectX::Draw &d = draws[i];
         out << "draw " << i << " primitive " << d.primitive << " fvf " << text::format("%x", d.fvf) << " vertices "
@@ -548,9 +551,9 @@ int cmdHost(int argc, char **argv) {
     directX.presented = [&](const x86::DirectX::Frame &f) {
         ++frames;
         if (auto wanted = o.draws.find(f.number); wanted != o.draws.end())
-            writeDraws(drawsSince, wanted->second);
+            writeDraws(drawsSince, f.number, process.now(), wanted->second);
         if (!o.drawsAt.empty() && o.drawsAt.begin()->first <= process.now()) {
-            writeDraws(drawsSince, o.drawsAt.begin()->second);
+            writeDraws(drawsSince, f.number, process.now(), o.drawsAt.begin()->second);
             o.drawsAt.erase(o.drawsAt.begin());
         }
         drawsSince.clear();

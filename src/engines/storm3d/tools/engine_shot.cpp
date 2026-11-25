@@ -81,7 +81,8 @@ private:
 };
 
 // "1500:move:90:18", "2000:click:90:18" (down, up a tenth of a second
-// later), "2000:down:90:18" and "2500:up:200:100" for a drag,
+// later), "2000:rclick:90:18" (the right button), "2000:down:90:18" and
+// "2500:up:200:100" for a drag,
 // "300:key:escape".
 bool parseEvent(const std::string &text, std::vector<ScriptSystem::Timed> &out) {
     const std::vector<std::string> parts = text::split(text, ':');
@@ -89,7 +90,8 @@ bool parseEvent(const std::string &text, std::vector<ScriptSystem::Timed> &out) 
         return false;
     const uint64_t at = std::strtoull(parts[0].c_str(), nullptr, 10);
     Event ev;
-    const bool mouse = parts[1] == "move" || parts[1] == "click" || parts[1] == "down" || parts[1] == "up";
+    const bool mouse =
+        parts[1] == "move" || parts[1] == "click" || parts[1] == "rclick" || parts[1] == "down" || parts[1] == "up";
     if (mouse && parts.size() == 4) {
         ev.mouseX = std::atoi(parts[2].c_str());
         ev.mouseY = std::atoi(parts[3].c_str());
@@ -100,7 +102,9 @@ bool parseEvent(const std::string &text, std::vector<ScriptSystem::Timed> &out) 
             ev.type = parts[1] == "down" ? EventType::kMouseDown : EventType::kMouseUp;
             out.push_back({at, ev});
         }
-        if (parts[1] == "click") {
+        if (parts[1] == "click" || parts[1] == "rclick") {
+            if (parts[1] == "rclick")
+                ev.button = MouseButton::kRight;
             ev.type = EventType::kMouseDown;
             out.push_back({at, ev});
             ev.type = EventType::kMouseUp;
@@ -169,7 +173,7 @@ const tool::Commands kCommands(
     {
         {"engine-shot", "<game folder> <out.png> <ms> [-save dir] [event...]",
          "the game run without a window, events at their times (1500:move:x:y, "
-         "2000:click:x:y, 2000:down:x:y, 2500:up:x:y, 300:key:escape), the player's files in dir, its screen at ms written as PNG",
+         "2000:click:x:y, 2000:rclick:x:y, 2000:down:x:y, 2500:up:x:y, 300:key:escape), the player's files in dir, its screen at ms written as PNG",
          cmdEngineShot},
     });
 

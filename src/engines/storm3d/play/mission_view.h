@@ -8,6 +8,7 @@
 #include "engines/storm3d/formats/odf.h"
 #include "engines/storm3d/game_files.h"
 #include "engines/storm3d/play/hud.h"
+#include "engines/storm3d/play/movement.h"
 #include "engines/storm3d/scene/map_scene.h"
 #include "graphics/gfx3d.h"
 #include "image/image.h"
@@ -112,6 +113,14 @@ public:
      * weapons once each.
      */
     static Hud::Unit ordersOf(const std::vector<Hud::Unit> &units);
+    /**
+     * Sends the units selected that move to a point on the plane: each to
+     * the point plus its place from the group's middle, so a group keeps
+     * its shape; round a unit that doesn't move (`units`, as `ships`) in
+     * its way.
+     */
+    static void sendTo(std::vector<Movement::Ship> &ships, const std::vector<MapScene::Unit> &units,
+                       const std::vector<int> &selection, const std::vector<bool> &moves, const gfx::Vec3 &point);
     /** Where the selection's ring lies: its middle, and half its side, from a unit's box. */
     static gfx::Vec3 ringMiddleOf(const MapScene::Unit &unit);
     static float ringHalfOf(const MapScene::Unit &unit);
@@ -138,8 +147,11 @@ private:
     bool _dragging = false; // the left button held and moved past a click
     bool _clicked = false;  // the selection is a click's, which has a health bar
     int _hover = -1;
-    int _slot = -1;              // the player's, whose units a box selects; -1: anyone's
-    std::vector<bool> _moves;    // by unit: whether it has engines
+    int _slot = -1;           // the player's, whose units a box selects; -1: anyone's
+    std::vector<bool> _moves; // by unit: whether it has engines
+    // By unit, those that move: how they fly, and where they are.
+    std::vector<std::optional<Movement::Physics>> _physics;
+    std::vector<Movement::Ship> _ships;
     std::vector<int> _displayed; // the units _display is of
     std::vector<Hud::Unit> _display;
     Hud::Unit _orders;

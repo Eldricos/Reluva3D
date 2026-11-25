@@ -202,6 +202,8 @@ before and after each ([camera.md](camera.md#the-overview)):
   button any of them has, lit if any of them can, build dark
   *(guessed)*; their special weapons once each. A unit clicked on has
   its health bar; units a box selected don't.
+- **Moving:** the right button sends the ships selected to a point, as
+  [movement.md](movement.md) has it.
 - **A skirmish** (`MissionView::startSkirmish`) starts from the Game
   Setup screen's slots: each player's race (one left Random takes the
   races in turn by its slot *(guessed)*), their colour, and slot *n* on

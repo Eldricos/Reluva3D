@@ -148,7 +148,8 @@ public:
         std::string odf;
         int slot = 0;
         gfx::Vec3 at{};
-        gfx::Vec3 lo{}; // the model's box, scaled and placed
+        float heading = 0; // radians from +z towards +x
+        gfx::Vec3 lo{};    // the model's box, scaled, turned and placed
         gfx::Vec3 hi{};
         /** How far its box's corners reach from its middle. */
         float radius() const;
@@ -156,6 +157,13 @@ public:
     };
     /** The starting units drawn, in build's order. */
     const std::vector<Unit> &units() const { return _units; }
+    /** Puts a unit somewhere else, turned to `heading` (radians from +z towards +x). */
+    void moveUnit(size_t unit, const gfx::Vec3 &at, float heading);
+    /**
+     * Where the ray from the camera through a point of the screen meets the
+     * plane y = `height`; none if it doesn't, ahead.
+     */
+    static std::optional<gfx::Vec3> pointOn(const Camera &camera, float height, int x, int y);
     /** The camera's view and projection, as draw uses them: the game's coordinates to the renderer's clip space. */
     static gfx::Mat4 viewProjOf(const Camera &camera, float range);
     /**
@@ -191,6 +199,14 @@ private:
     std::vector<std::pair<const SodMeshes::Built *, gfx::Mat4>> _placed;
     std::vector<std::optional<gfx::Vec3>> _teams; // as _placed: each one's own team colour, if any
     std::vector<Unit> _units;
+    // Each unit's draw, in _placed, and its model's box, scaled, about it.
+    struct UnitModel {
+        size_t placed = 0;
+        float scale = 1;
+        gfx::Vec3 lo{};
+        gfx::Vec3 hi{};
+    };
+    std::vector<UnitModel> _unitModels;
     const SodMeshes::Built *_background = nullptr;
     size_t _drawn = 0;
     size_t _unmodelled = 0;
