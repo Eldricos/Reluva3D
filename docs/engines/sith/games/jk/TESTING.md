@@ -110,6 +110,34 @@ shown.
   sounds and cut scenes play with their sound, the cut scenes' picture
   keeping pace with it.
 
+### On the graphics card, and the frame rate
+
+On a machine with a graphics card, the game's *Setup*, *Display*,
+*Enable 3D Acceleration* on, and in the launcher *3D drawing* on the
+graphics card:
+
+- The launcher shows *3D drawing*, *Picture size*, *Anti-aliasing* and
+  *Frame rate* for the game, and keeps what's chosen when Reluva is
+  started again.
+- Nar Shaddaa looks as in software, at 1x; the gauges, text and the
+  automap (Tab) lie over the 3D; the menus look as before.
+- At 2x to 4x the 3D is finer and the picture the same; the menus'
+  pointer lands where it's pointed, and the mouse turns the view as
+  fast as at 1x. With *Anti-aliasing* 4x the polygons' edges are smooth
+  and nothing else changes; off, they're stepped.
+- At *Frame rate* 100 (on a display of 100 Hz or more) and 60, play is
+  smoother than *As the game*, at the same speed: a door, a lift or
+  the walk across the bar takes as long timed by hand at each; a fight
+  with the bar's thugs and the level's first troopers plays as at *As
+  the game*; music and sound stay with the picture.
+- A multiplayer game between two copies at *Frame rate* 100, and at
+  one 100 and one *As the game*: players move at the same speed on
+  both screens.
+- On a display slower than the frame rate, and with vsync on and off:
+  no tearing beyond the display's own, no slowing down.
+- A level or two played through at length at 100, to find anything
+  that runs differently (scripted events, enemies, the Force powers).
+
 ## Last checked
 
 | Date | Release | Platform | What was checked |
