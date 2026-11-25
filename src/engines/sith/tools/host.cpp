@@ -82,6 +82,9 @@ bool parseKeys(const std::string &text, std::vector<KeyPress> &out) {
         uint32_t code = 0;
         if (auto it = kNames.find(name); it != kNames.end())
             code = it->second;
+        else if (name.size() >= 2 && name[0] == 'f' && std::atoi(name.c_str() + 1) >= 1 &&
+                 std::atoi(name.c_str() + 1) <= 12)
+            code = key::kF1 + uint32_t(std::atoi(name.c_str() + 1) - 1); // f1 to f12
         else if (name.size() == 1 && std::isgraph(uint8_t(name[0])))
             code = uint32_t(std::tolower(uint8_t(name[0])));
         KeyPress k;
