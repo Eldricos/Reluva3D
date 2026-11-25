@@ -56,7 +56,9 @@ Detection signatures (MD5 of each file's start, and its size, as
 - **Multiplayer**, started: a game against AI players, or between copies
   of Reluva over TCP/IP, started into its mission ([systems/hosting.md](systems/hosting.md#its-multiplayer)).
 - **Missions won:** a skirmish, against a Klingon frigate, and a
-  campaign's Convoy Escort, an "Astounding Victory" worth 300 prestige
+  campaign's Convoy Escort twice, each an "Astounding Victory" worth 300
+  prestige, its auto-save loaded between; Patrol and Monster played and
+  lost, a mission forfeited
   ([systems/hosting.md](systems/hosting.md#its-missions)).
 - **Not yet:** a tutorial passed;
   a multiplayer game between two physical machines (tried between

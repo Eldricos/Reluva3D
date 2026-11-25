@@ -294,28 +294,46 @@ gone.
 
 A campaign mission won: Convoy Escort, from a new Federation campaign
 at CAPTAIN, its game speed raised (`]`), red alert, full speed, and the
-nearest enemy targeted (the backquote) and fired on every 120 frames.
+nearest enemy targeted (the backquote) and fired on every 60 frames.
 After 5 minutes 5 of its time: "Convoy Escort: Astounding Victory. You
 managed to get the convoy through without a single loss. This is an
-outstanding performance." The battle report: 379 damage scored on the
-raiders (79 internal), the player's ship 380 (83 internal), no losses on
-either side; 300 prestige gained, which the Dynaverse's prestige shows on
-DONE (50 to 350). Its outcomes, as the mission's own text has them, go
-by the freighters that get through, from "This is a dark day for us
-all" to "Astounding Victory". The same run from a fresh save folder
-plays the same way.
+outstanding performance." The battle report: 402 damage scored on the
+raiders (152 internal), one of them destroyed, the player's ship 85;
+300 prestige gained, which the Dynaverse's prestige shows on DONE (50 to
+350). Its outcomes, as the mission's own text has them, go by the
+freighters that get through, from "This is a dark day for us all" to
+"Astounding Victory". The same input plays the same way each run, from
+a fresh save folder, and with other runs loading the machine.
 
-Before missions were unloaded (`FreeLibrary` did nothing), the same
-input ended in a draw ("Some of the freighters have made it to their
-destination...", 150 prestige): the mission was played by the copy of
-its DLL its listing had left, not a fresh one. A second mission played
-that way, Patrol (`Met_17Patrol.scr`), read through a null pointer as it
-loaded (+0x1b8cd). Without the game's speed raised, 23 minutes of
-Convoy Escort's time went by without it ending; Y, which targets each
-ship in turn, the convoy's too, left the player firing at nothing. The
-next missions offered after the victory were Convoy Escort and Monster;
-against Monster the frigate was destroyed within a minute: "Devastating
-Defeat", 0 prestige.
+A battle turns on small things. Firing every 120 frames won it before
+Reluva's Windows changed for the 2.0.3.6 patch; since, the same input
+loses the frigate after 4 minutes ("Devastating Defeat", -75 prestige).
+At half speed it's a "Victory" (225 prestige). Losing its ship, the
+player is given another frigate (the USS Viking) and goes down from
+Lieutenant Commander, the rank a campaign starts at, to Lieutenant. Before missions were unloaded (`FreeLibrary` did nothing), it
+ended in a draw ("Some of the freighters have made it to their
+destination...", 150 prestige), played by the copy of its DLL its
+listing had left; and Patrol (`Met_17Patrol.scr`) read through a null
+pointer as it loaded (+0x1b8cd). Without the game's speed raised, 23
+minutes of Convoy Escort's time went by without it ending; Y, which
+targets each ship in turn, the convoy's too, left the player firing at
+nothing.
+
+Further into the campaign: after the win only Monster was offered ("An
+unknown alien creature has been rampaging through this sector"), and
+the frigate was destroyed within a minute ("Devastating Defeat").
+Forfeited from the Mission Selector instead: "In forfeiting, you have
+lost your most powerful ship and suffered a loss of prestige", 350 to
+250, and a new frigate. Then Patrol, which now loads and plays: several
+enemy ships at once, the frigate destroyed in 55 seconds, as its
+briefing warns ("If you are heavily outnumbered you should
+disengage"). The auto-save after the win, loaded, offers Convoy Escort
+and Patrol; Convoy Escort won again the same way, "Astounding Victory",
+prestige 350 to 650. MEDALS shows the ranks (the first earned), mission
+and special medals. SUPPLY (repairs, the ship's trade-in value, its
+shuttles, missiles, fighters) and SHIPYARD (each class, its BPV and
+price) opened for a new ship at its base, but not out in the sector
+after a win *(inferred: they need a base)*.
 
 A skirmish is played through DirectPlay, single-player too: starting
 one, the game throws a `TLogicError` naming `fDirectPlayObject` each
