@@ -68,16 +68,16 @@ bool NavigationBar::onMain(int x, int y) {
 }
 
 void NavigationBar::draw(Surface &screen, ShellFont &font, const std::string &previous, bool lit, bool pressed,
-                         const std::string &start, const std::string &main) const {
+                         const std::string &start, const std::string &main, Color words) const {
     drawPicture(screen, _start, kStartX, kBottomY, true);
     drawPicture(screen, _main, kMainX, kBottomY, true);
     // The middle plate's words are centred in 384 of its 394 pixels, as
     // the Load Game screen's frame has them.
-    font.drawCentred(screen, kStartX, kBottomY, kStartTextWidth, _start.h, start, kText, kPreviousColour);
-    font.drawCentred(screen, kMainX, kBottomY, _main.w, _main.h, main, kText, kPreviousColour);
+    font.drawCentred(screen, kStartX, kBottomY, kStartTextWidth, _start.h, start, kText, words);
+    font.drawCentred(screen, kMainX, kBottomY, _main.w, _main.h, main, kText, words);
     _previous.draw(screen, lit, pressed, true);
     font.drawCentred(screen, _previous.x, _previous.y, _previous.looks[0].w, _previous.looks[0].h, previous, kText,
-                     kPreviousColour);
+                     words);
 }
 
 const SettingsScreen::Layout &SettingsScreen::layoutOf(SettingsPage page) {

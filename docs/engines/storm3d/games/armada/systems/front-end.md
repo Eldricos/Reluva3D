@@ -170,12 +170,14 @@ title, "MULTIPLAYER CONNECTION", is white, 20 pixels, from (64, 6).
 `wonlogin\wlstext.bmp` (324 × 31), at (158, 96). Three `wls324tg`
 buttons at (158, 162), (158, 228) and (158, 294) say "Internet", "Local
 Area Network (TCP/IP)" and "Instant Action" (`label.map`'s
-`multiplayer_connection`).
+`multiplayer_connection`). Unlike the Options screen's, they rest in
+their second look and light in their third under the pointer, and their
+words and Previous Menu's are dark grey, (49, 49, 49) as drawn.
 
-Under the emulator the screen stayed disabled: its buttons in their
-second look, their words and Previous Menu's grey (49, 49, 49 as drawn),
-and neither the pointer nor typing changed anything. Why isn't traced;
-likely the program waiting on its network's start *(guessed)*.
+Instant Action opens the Game Setup screen: the players and their sides
+and teams, the map, and the game's options, with LAUNCH. (A run that
+had pressed Esc over the main menu first left this screen unanswering;
+without it, the screen works.)
 
 ### The Load Game screen
 
@@ -305,9 +307,8 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
   don't open. The player's files are in Reluva's save folder for the
   game, read before the install's (`player_files.h`).
   Multiplayer opens the Multiplayer Connection screen
-  (`shell/multiplayer_screen.h`), drawn enabled, where a name can be
-  typed; its ways to play need the network and the game, and do nothing
-  yet. Load Game opens the Load Game screen (`shell/load_game_screen.h`),
+  (`shell/multiplayer_screen.h`), where a name can be typed; its ways
+  to play do nothing yet (Instant Action's Game Setup screen is next). Load Game opens the Load Game screen (`shell/load_game_screen.h`),
   its list empty. Credits shows the credits (`shell/credits_screen.h`),
   back to the menu after the last page or a key or click. The models are drawn as the data viewer's are
   (`scene/sod_meshes.h`); the logo's specular glint isn't. The version is in Reluva's own
@@ -342,9 +343,8 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
   anti-aliasing in "Off" and the display driver's name. Given a
   `shell.set` with three Klingon missions open, the mission panel is the
   same as the game's in every pixel.
-  The Multiplayer Connection screen is the same but for its buttons and
-  Previous Menu, which the original showed disabled; the Load Game
-  screen is the same in every pixel. The credits' text falls on the
+  The Multiplayer Connection screen, with the pointer over Instant
+  Action, and the Load Game screen are the same in every pixel. The credits' text falls on the
   original's frames in fading in, held and going away, within a few
   hundred pixels; their stars match its frames' to a correlation of
   0.91.
@@ -357,8 +357,8 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
 - Where the program keeps the main menu's places, and the other
   screens' (single player, multiplayer, options, credits).
 - What the lists look like open.
-- What the Multiplayer Connection screen looks like enabled, and why it
-  stayed disabled under the emulator.
+- Why the Multiplayer Connection screen stopped answering after Esc
+  over the main menu.
 - What a saved game holds, and how the Load Game screen lists one.
 - Which sounds the settings screens' controls play.
 - Which `label.map` entry the Options screen's Previous Menu comes from:

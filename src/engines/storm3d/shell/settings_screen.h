@@ -34,10 +34,10 @@ public:
     /**
      * Draws it, Previous Menu saying `previous`; the other plates say
      * `start` and `main` (the Load Game screen's Load Game and Delete
-     * Game), blank if they're empty.
+     * Game), blank if they're empty; the words in `words`.
      */
     void draw(Surface &screen, ShellFont &font, const std::string &previous, bool lit, bool pressed,
-              const std::string &start = {}, const std::string &main = {}) const;
+              const std::string &start = {}, const std::string &main = {}, Color words = {0, 0, 0}) const;
 
 private:
     image::Image _start;

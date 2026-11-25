@@ -21,7 +21,8 @@ constexpr int kTitleY = 6;
 constexpr int kNameInset = 8;
 constexpr float kText = 16;
 constexpr float kTitleText = 20;
-constexpr Color kButtonColour{0, 0, 0};
+// The words on its buttons and its Previous Menu, dark grey as drawn.
+constexpr Color kButtonColour{49, 49, 49};
 constexpr Color kWhite{255, 255, 255};
 constexpr const char *kSection = "multiplayer_connection";
 
@@ -99,14 +100,15 @@ void MultiplayerScreen::draw(Surface &screen) {
     for (size_t i = 0; i < _ways.size(); ++i) {
         const ShellButton &b = _ways[i];
         const ConnectionChoice choice = buttons()[i].choice;
-        // Drawn as the Options screen's buttons are: the original's, under
-        // the emulator, stayed disabled (second look, grey words).
-        b.draw(screen, _hover == choice, _pressed == choice, true);
-        _font.drawCentred(screen, b.x, b.y, b.looks[0].w, b.looks[0].h, _text.text(kSection, buttons()[i].key), kText,
+        // This screen's buttons rest in their second look and light in
+        // their third, as the game's frames have them.
+        const image::Image &look = _hover == choice || _pressed == choice ? b.looks[2] : b.looks[1];
+        drawPicture(screen, look, b.x, b.y, true);
+        _font.drawCentred(screen, b.x, b.y, look.w, look.h, _text.text(kSection, buttons()[i].key), kText,
                           kButtonColour);
     }
     _bar.draw(screen, _font, _text.text(kSection, "previous_menu"), _hover == ConnectionChoice::kPreviousMenu,
-              _pressed == ConnectionChoice::kPreviousMenu);
+              _pressed == ConnectionChoice::kPreviousMenu, {}, {}, kButtonColour);
 }
 
 } // namespace reluva::storm3d
