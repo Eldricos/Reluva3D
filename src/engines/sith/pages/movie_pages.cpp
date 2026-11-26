@@ -233,9 +233,9 @@ private:
 
     // Centred in the game's rectangle (10, 360, 620, 120), below the
     // picture, in the subtitle font through the video's palette, as the
-    // game's 8-bit screen draws it; wrapped at the rectangle's width, a
-    // line broken at a space centred with that space, the lines a font's
-    // height apart, as the game was seen to (smk.md).
+    // game's 8-bit screen draws it; broken into lines as the game breaks
+    // them (subtitleLines), the lines the font's height and gap apart
+    // (0x434d34) (smk.md).
     void drawSubtitle(Surface &screen, const std::string &text, int ox, int oy, const uint8_t *pal) const {
         if (!_hasFont)
             return;
@@ -243,34 +243,12 @@ private:
         for (int i = 0; i < 256; ++i)
             palette[size_t(i)] = {pal[i * 3], pal[i * 3 + 1], pal[i * 3 + 2]};
         const image::Image strip = bitmapToImage(_font.strip, _font.strip.cels[0], palette, true);
-        std::vector<std::string> lines;
-        std::string current;
-        for (size_t at = 0; at <= text.size();) {
-            size_t end = text.find_first_of(" \n", at);
-            if (end == std::string::npos)
-                end = text.size();
-            const std::string word = text.substr(at, end - at);
-            const std::string tried = current.empty() ? word : current + " " + word;
-            if (!current.empty() && fontTextWidth(_font, tried) > kSubtitleW) {
-                lines.push_back(current + " ");
-                current = word;
-            } else {
-                current = tried;
-            }
-            if (end < text.size() && text[end] == '\n') {
-                lines.push_back(current);
-                current.clear();
-            }
-            at = end + 1;
-        }
-        if (!current.empty())
-            lines.push_back(current);
         int y = oy + 360;
-        for (const std::string &l : lines) {
+        for (const std::string &l : subtitleLines(_font, text, kSubtitleW)) {
             if (y + strip.h > oy + 360 + 120)
                 break;
             drawFontText(screen, _font, strip, ox + 10 + (kSubtitleW - fontTextWidth(_font, l)) / 2, y, l);
-            y += strip.h;
+            y += strip.h + _font.gap;
         }
     }
     static constexpr int kSubtitleW = 620;

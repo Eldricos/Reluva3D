@@ -12,6 +12,7 @@
 #include "image/image.h"
 
 #include <algorithm>
+#include <cctype>
 #include <string>
 
 namespace reluva::sith {
@@ -161,10 +162,16 @@ private:
 
 } // namespace
 
+// White space as the game takes it: the C library's (0x512d30, with the
+// space mask).
+static bool isWhite(char ch) {
+    return std::isspace(static_cast<unsigned char>(ch)) != 0;
+}
+
 // A character's glyph as the game finds it: the font's own, else its
 // fallback's; nullptr for white space, or if the font has neither.
 static const Font::Glyph *glyphFor(const Font &font, char ch) {
-    if (ch == ' ' || ch == '\t')
+    if (isWhite(ch))
         return nullptr;
     const Font::Glyph *g = font.glyph(uint8_t(ch));
     return g ? g : font.glyph(font.fallback);
@@ -173,7 +180,7 @@ static const Font::Glyph *glyphFor(const Font &font, char ch) {
 int fontTextWidth(const Font &font, std::string_view text) {
     int w = 0;
     for (const char ch : text) {
-        if (ch == ' ' || ch == '\t')
+        if (isWhite(ch))
             w += font.spaceWidth;
         else if (const Font::Glyph *g = glyphFor(font, ch))
             w += g->width + font.gap;
@@ -188,7 +195,7 @@ void drawFontText(Surface &s, const Font &font, const image::Image &strip, int x
     for (const char ch : text) {
         const Font::Glyph *g = glyphFor(font, ch);
         if (!g) {
-            x += ((ch == ' ' || ch == '\t') ? font.spaceWidth : font.gap) * scale;
+            x += (isWhite(ch) ? font.spaceWidth : font.gap) * scale;
             continue;
         }
         if (x + g->width * scale > right)
@@ -196,6 +203,31 @@ void drawFontText(Surface &s, const Font &font, const image::Image &strip, int x
         blitPart(s, strip, g->x, 0, g->width, strip.h, x, y, scale);
         x += (g->width + font.gap) * scale;
     }
+}
+
+std::vector<std::string> subtitleLines(const Font &font, std::string_view text, int width) {
+    std::vector<std::string> lines;
+    size_t at = 0;
+    while (at < text.size()) {
+        size_t end = at; // the line so far: words and the white space after each
+        int taken = 0;
+        for (size_t i = at; i < text.size();) {
+            size_t wordEnd = i;
+            while (wordEnd < text.size() && !isWhite(text[wordEnd]))
+                ++wordEnd;
+            const int word = fontTextWidth(font, text.substr(i, wordEnd - i));
+            if (end > at && taken + word >= width)
+                break;
+            size_t spaceEnd = wordEnd;
+            while (spaceEnd < text.size() && isWhite(text[spaceEnd]))
+                ++spaceEnd;
+            taken += word + fontTextWidth(font, text.substr(wordEnd, spaceEnd - wordEnd));
+            end = i = spaceEnd;
+        }
+        lines.emplace_back(text.substr(at, end - at));
+        at = end;
+    }
+    return lines;
 }
 
 std::unique_ptr<Page> makeFontPage(const ViewerData &data) {

@@ -14,11 +14,14 @@
 #include "engines/sith/formats/sound_class.h"
 #include "engines/sith/formats/sprite.h"
 #include "engines/sith/formats/strings.h"
+#include "engines/sith/pages/pages.h"
+#include "tests/engines/sith/fixtures.h"
 
 #include "tests/support/test.h"
 
 #include <cstring>
 #include <string>
+#include <vector>
 
 using namespace reluva;
 using namespace reluva::sith;
@@ -210,6 +213,24 @@ void testFont() {
     CHECK(parseFont(data, font));
 }
 
+// Subtitles broken into lines as the game breaks them (0x4352c0): in a
+// font of 4-pixel glyphs and 8-pixel spaces, a line ends before a word
+// that would reach the width, keeping its white space; a line break is a
+// space like any other.
+void testSubtitleLines() {
+    Font font;
+    CHECK(!parseFont(testing::makeFontFile(), font));
+    using Lines = std::vector<std::string>;
+    CHECK(fontTextWidth(font, "AB\nCD") == 24);
+    CHECK((subtitleLines(font, "AB CD", 20) == Lines{"AB ", "CD"}));
+    CHECK((subtitleLines(font, "AB CD", 24) == Lines{"AB ", "CD"})); // reaching the width is too far
+    CHECK((subtitleLines(font, "AB CD", 25) == Lines{"AB CD"}));
+    CHECK((subtitleLines(font, "AB  CD", 20) == Lines{"AB  ", "CD"}));
+    CHECK((subtitleLines(font, "AB\nCD", 100) == Lines{"AB\nCD"}));
+    CHECK((subtitleLines(font, "ABCDEFGH", 10) == Lines{"ABCDEFGH"})); // a line's first word, whatever its width
+    CHECK(subtitleLines(font, "", 20).empty());
+}
+
 void testStrings() {
     const std::string text = "MSGS 9\t  # <--- a count\r\n"
                              "\r\n"
@@ -324,16 +345,17 @@ void testParticles() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("sith.unit.formats",
-                                        {
-                                            {"colormap", [](const std::filesystem::path &) { testColormap(); }},
-                                            {"8-bit bitmap", [](const std::filesystem::path &) { testBitmap8(); }},
-                                            {"16-bit bitmap", [](const std::filesystem::path &) { testBitmap16(); }},
-                                            {"material", [](const std::filesystem::path &) { testMaterial(); }},
-                                            {"font", [](const std::filesystem::path &) { testFont(); }},
-                                            {"strings", [](const std::filesystem::path &) { testStrings(); }},
-                                            {"episode", [](const std::filesystem::path &) { testEpisode(); }},
-                                            {"sound class", [](const std::filesystem::path &) { testSoundClass(); }},
-                                            {"sprite", [](const std::filesystem::path &) { testSprite(); }},
-                                            {"particles", [](const std::filesystem::path &) { testParticles(); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("sith.unit.formats", {
+                                    {"colormap", [](const std::filesystem::path &) { testColormap(); }},
+                                    {"8-bit bitmap", [](const std::filesystem::path &) { testBitmap8(); }},
+                                    {"16-bit bitmap", [](const std::filesystem::path &) { testBitmap16(); }},
+                                    {"material", [](const std::filesystem::path &) { testMaterial(); }},
+                                    {"font", [](const std::filesystem::path &) { testFont(); }},
+                                    {"subtitle lines", [](const std::filesystem::path &) { testSubtitleLines(); }},
+                                    {"strings", [](const std::filesystem::path &) { testStrings(); }},
+                                    {"episode", [](const std::filesystem::path &) { testEpisode(); }},
+                                    {"sound class", [](const std::filesystem::path &) { testSoundClass(); }},
+                                    {"sprite", [](const std::filesystem::path &) { testSprite(); }},
+                                    {"particles", [](const std::filesystem::path &) { testParticles(); }},
+                                });

@@ -123,8 +123,9 @@ bool stepIndex(uint32_t pressed, size_t n, size_t &index);
 /**
  * How wide `text` is in `font`, in the font's pixels, spaced as the game
  * spaces it (docs/engines/sith/games/jk/formats/sft.md): each glyph and the
- * font's gap after it, white space the font's space width, a character the
- * font lacks its fallback's; a tab is taken as a space.
+ * font's gap after it, white space (the C library's, a line break among it)
+ * the font's space width, a character the font lacks its fallback's; a tab
+ * is taken as a space.
  */
 int fontTextWidth(const Font &font, std::string_view text);
 /**
@@ -134,5 +135,13 @@ int fontTextWidth(const Font &font, std::string_view text);
  */
 void drawFontText(Surface &s, const Font &font, const image::Image &strip, int x, int y, std::string_view text,
                   int scale = 1, int right = 1 << 30);
+/**
+ * `text` broken into lines `width` pixels wide in `font`, as the game breaks
+ * a subtitle (0x4352c0): word by word, a word with the white space after it;
+ * a line ends before a word that would take it to `width` or past, unless
+ * it's the line's first. A line keeps the white space it ends with, which
+ * counts when it's centred; a line break is white space like any other.
+ */
+std::vector<std::string> subtitleLines(const Font &font, std::string_view text, int width);
 
 } // namespace reluva::sith

@@ -4,18 +4,13 @@ What Reluva does that hasn't been checked against the running original.
 
 ## Read from the code, not seen running
 
-- **A missing character drawn as a font's fallback**
-  ([formats/sft.md](formats/sft.md)): the fonts' spacing was seen
-  running, but no text met had a character its font lacks.
 - **Which textures are transparent:** a texture's transparent colour from
   its own flag and colour ([formats/mat.md](formats/mat.md)); the
   pictures' was seen running.
 
 ## Seen running, not traced in the code
 
-- **How a long subtitle is laid out:** its lines a font's height apart,
-  a line broken at a space centred with that space in its width; seen in
-  one subtitle of `03-04A` ([formats/smk.md](formats/smk.md#behaviour)).
+None.
 
 ## Inferred
 
@@ -27,6 +22,17 @@ None.
 
 ## Settled
 
+- **November 2026: a missing character.** It's drawn as the font's
+  fallback's glyph, which for 32 is the marker block, not a space: a
+  player named with a byte no font has, in the *Players* list
+  ([formats/sft.md](formats/sft.md#header)).
+- **November 2026: how a long subtitle is laid out.** Traced in the
+  code (`0x4349d0`, `0x4352c0`): white space, a line break among it,
+  goes with the word before it; a line ends before a word that would
+  reach the width; lines are the strip's height and gap apart. Reluva's
+  viewer now breaks lines by the same rules, which no subtitle of the
+  game's tells from the ones seen before
+  ([formats/smk.md](formats/smk.md#behaviour)).
 - **November 2026: `\n` in strings.** `JK.EXE` keeps it as written, and
   never shows the one string that has it; Reluva now keeps it too
   ([formats/uni.md](formats/uni.md#layout)).

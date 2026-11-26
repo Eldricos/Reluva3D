@@ -56,11 +56,21 @@ and `0x4269c0` (the calls to `SMACKW32.DLL`).
   That setting is off for a new player (`0x401487`) *(from the code)*,
   so by default only the Nar Shaddaa title shows, as it does in the
   emulator at 2 seconds into `03-04A`. With the setting on, every line
-  shows: in `03-04A` the first spoken line at about 76 seconds. A line
-  too wide for the area is broken between words, the lines a font's
-  height apart (17 rows), each centred, a line broken at a space with
-  that space counted in its width (the first line 2 pixels further left
-  than without it). Seen in Reluva's emulator.
+  shows: in `03-04A` the first spoken line at about 76 seconds. The text
+  is drawn by `0x4349d0`, broken into lines by `0x4352c0` *(confirmed:
+  read in the code and seen in Reluva's emulator)*:
+  - a word runs to the next white space (the C library's, so a line
+    break is white space too, U+2028 and U+2029 among it), and takes
+    the white space after it with it;
+  - a line ends before a word that would take it to the area's width
+    or past (620: `>=`), unless that word is the line's first;
+  - each line is centred by its width, the white space it ends with
+    counted (the first line of `03-04A`'s first spoken line 2 pixels
+    further left than without it), at x = 10 + (620 - width) / 2,
+    rounded towards 0;
+  - the lines are the font's strip's height and its gap apart: 17 rows
+    for `subtitlefont.sft` (17 and 0); a line past the area's bottom is
+    cut there (`0x434cca`). No subtitle has more than three lines.
 - **Keys:** space pauses and goes on, "Paused" (`GUI_PAUSED`) in the
   strip at the top (0, 10, 640, 40); Escape ends the cut scene
   (`0x4215c0`) *(from the code)*.
@@ -72,11 +82,13 @@ Read by the shared decoder (`smacker::Decoder`, `src/video/smacker.h`).
 the CDs found for an install. The data viewer's Cut scenes page plays
 them with their sound, the picture following the clock, placed as on the
 game's 640x480 screen, with the subtitles below it as the game draws
-them: the titles, or every line with S, as the game's full subtitles. A
-line too wide for the area is broken between words onto centred lines,
-as the game breaks, spaces and centres them: the same frame of `03-04A`,
-the game's and the viewer's, is the same to the pixel below the
-picture.
+them: the titles, or every line with S, as the game's full subtitles,
+broken into lines by the game's rules above (`subtitleLines`,
+`src/engines/sith/pages/pages.h`) and spaced and centred as it does: the
+same frame of `03-04A`, the game's and the viewer's, is the same to the
+pixel below the picture, and each of the 376 subtitles breaks where the
+earlier, seen-only rules broke it. A line past the area's bottom, which
+no subtitle reaches, the viewer leaves out rather than cutting.
 `reluva-tool sith movies <install> -all`
 decodes every frame and its sound.
 

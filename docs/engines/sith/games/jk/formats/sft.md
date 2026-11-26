@@ -23,7 +23,7 @@ All numbers little-endian.
 | 4 | 4 | Version: 10 in every file |
 | 8 | 4 | The gap after each glyph, in pixels: 0 to 3 (`0x4347d0`) *(from the code)* |
 | 12 | 4 | A space's width, in pixels: 0 to 8. A character the C library counts as white space moves the text on this far (`0x43470a`); a tab, to the next multiple of eight spaces, or of 16 pixels where eight spaces are less (`0x4346d3`) *(from the code)* |
-| 16 | 4 | The character drawn for one the font lacks: 32 or 63 (a space or `?`), 0 in the digit fonts. If the font lacks it too, the text moves on by the gap alone (`0x434734`) *(from the code)* |
+| 16 | 4 | The character drawn for one the font lacks: 32 or 63 (a space or `?`), 0 in the digit fonts. If the font lacks it too, the text moves on by the gap alone (`0x434734`) *(from the code)*. A fallback of 32 draws glyph 32, the marker block, not a space: seen in the *Players* list, a player's name with the byte `0x81`, which no font has, drawn with a hollow block in its place *(confirmed)* |
 | 20 | 4 | How many ranges of characters |
 | 24 | 16 | 0 in every file |
 
