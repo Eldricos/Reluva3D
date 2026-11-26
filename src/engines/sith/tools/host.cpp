@@ -192,7 +192,8 @@ int cmdHost(int argc, char **argv) {
         std::fprintf(stderr, "no JK.EXE or JKM.EXE in %s\n", install.string().c_str());
         return 1;
     }
-    sith::GameProcess game(sith::findFolders(install, {}), writable, args);
+    const sith::GameFolders folders = sith::findFolders(install, {});
+    sith::GameProcess game(folders, writable, args);
     x86::Cpu &cpu = game.cpu();
     x86::Win32Process &process = game.process();
     x86::DirectX &directX = game.directX();
@@ -321,10 +322,14 @@ int cmdHost(int argc, char **argv) {
     // Each level and cut scene said as the game first looks for it (a loose
     // file before the archives'); with -skim, a cut scene skipped after a
     // few seconds, and a level after it has loaded and played a little, by
-    // the cheat that ends it (thereisnotry, in the program XOR 0xc5 at
-    // 0x53c760).
+    // the cheat that ends it: Jedi Knight's thereisnotry (in the program
+    // XOR 0xc5 at 0x53c760), Mysteries of the Sith's gameover (at
+    // 0x595e20, each byte XORed with those before it and 0xda; its handler,
+    // 0x4235c0, ends the level with 0x403160).
     std::string lastNamed;
-    // In a level: invulnerable once it has loaded (jediwannabe), then the
+    const bool mots = folders.game && std::string(folders.game->gameId) == "mots";
+    // In a level: invulnerable once it has loaded (Jedi Knight's
+    // jediwannabe, Mysteries of the Sith's boinga, at 0x595d80), then the
     // cheat that ends it tried every half minute until another level or cut
     // scene comes, in case the level had the controls when it was typed.
     // After a level, the screens' Ok clicked every few seconds (the tally,
@@ -345,7 +350,8 @@ int cmdHost(int argc, char **argv) {
         opened.push_back(path + (found ? "" : "  (not found)"));
         const std::string lower = reluva::fs::toLower(path);
         const bool level = lower.size() > 4 && lower.compare(lower.size() - 4, 4, ".jkl") == 0;
-        const bool movie = lower.size() > 4 && lower.compare(lower.size() - 4, 4, ".smk") == 0;
+        const bool movie = lower.size() > 4 && (lower.compare(lower.size() - 4, 4, ".smk") == 0 ||
+                                                lower.compare(lower.size() - 4, 4, ".san") == 0);
         const std::string name = lower.substr(lower.find_last_of("\\/") + 1);
         if ((!level && !movie) || name == lastNamed || name == "static.jkl")
             return;
@@ -355,9 +361,12 @@ int cmdHost(int argc, char **argv) {
         std::fflush(stdout);
         if (!skim)
             return;
-        inLevel = level;
+        // Mysteries of the Sith plays a level's cut scenes from inside it,
+        // its opening after it has loaded: the level goes on after them.
+        inLevel = level || (mots && inLevel);
         if (movie) {
             parseKeys(std::to_string(now + 4) + ":esc", presses);
+            nextCheat = std::max(nextCheat, now + 12);
             return;
         }
         invulnerable = false;
@@ -391,11 +400,11 @@ int cmdHost(int argc, char **argv) {
         if (skim && inLevel && now >= nextCheat) {
             double at = now;
             if (!invulnerable) {
-                parseKeys(typed(at, "jediwannabe"), presses);
+                parseKeys(typed(at, mots ? "boinga" : "jediwannabe"), presses);
                 for (const std::string &cheat : cheats)
                     parseKeys(typed(at += 4.5, cheat), presses);
             }
-            parseKeys(typed(at + 4.5, "thereisnotry"), presses);
+            parseKeys(typed(at + 4.5, mots ? "gameover" : "thereisnotry"), presses);
             invulnerable = true;
             nextCheat = now + 30;
         }

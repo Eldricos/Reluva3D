@@ -493,7 +493,10 @@ said as the game first looks for it; a cut scene is skipped after four
 seconds, and in a level the game's own cheats are typed through its chat
 key (T): `jediwannabe` (invulnerable) once it has loaded, then
 `thereisnotry` (the level ends) every half minute until the next level
-or cut scene comes; between levels the screens' *Ok* is clicked.
+or cut scene comes; between levels the screens' *Ok* is clicked. For
+Mysteries of the Sith the words are its own, `boinga` and `gameover`,
+and as it plays a level's cut scenes from inside the level, the cheats
+go on after them ([../../mots/README.md](../../mots/README.md#its-cheats)).
 `-cheat <word>` types another cheat in each level (`sithlord`, the dark
 side's powers, takes the game down the dark side's branch), and
 `-frames <seconds> <folder>` saves a frame each so many seconds. The

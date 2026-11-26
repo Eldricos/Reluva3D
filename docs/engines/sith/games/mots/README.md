@@ -121,6 +121,27 @@ there are the US release's (`kPrograms`,
   from its end at `0x4013d5`, as Jedi Knight's at `0x4148f0`) run for it
   *(confirmed)*.
 
+### Its cheats
+
+Typed as Jedi Knight's are, through the chat key (T) in a level. The
+words aren't kept as text: each is stored with every byte XORed with
+all the bytes before it and with `0xda`, and what's typed is encoded the
+same way and looked up (`0x4231f0`) *(from the code)*. Sixteen, tied to
+their handlers as the console starts (`0x422500` to `0x422a2f`):
+
+| Word | Handler | What it does |
+|---|---|---|
+| `statuesque` | `0x423450` | The game's name for it is *Disable AI* |
+| `freebird` | `0x423480` | *Unknown* |
+| `boinga` | `0x4234b0` | Invulnerable, the game's *Invul* *(confirmed)* |
+| `youarehere` | `0x4234e0` | *Unknown* |
+| `makeitwork` | `0x423530` | *Unknown* |
+| `gospeedgo` | `0x423560` | The game's *Slowmo* |
+| `quickzap` | `0x423590` | *Unknown* |
+| `gameover` | `0x4235c0` | Ends the level (`0x403160`) *(confirmed)* |
+| `diediedie` | `0x4235e0` | *Unknown* |
+| `gimmestuff`, `iamagod`, `trainme`, `morelife`, `cartograph`, `trixie`, `takemeto` | `0x423870`, `0x423ba0`, `0x423f00`, `0x4240f0`, `0x424140`, `0x424180`, `0x423400` | Registered with their words (`0x423170`); *unknown* |
+
 ## Using it
 
 Make the install from the CD with *Import Game...*: choose the CD, a
