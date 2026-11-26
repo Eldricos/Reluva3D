@@ -59,6 +59,14 @@ public:
      * @return False where JK.EXE isn't the US release's, left as it is.
      */
     bool updateEveryFrame();
+    /**
+     * Turns on Setup's 3D acceleration where it's off, as Setup's *Enable
+     * 3D Acceleration* keeps it: the primary display, Direct3D's HAL
+     * device, 640 by 480 in 16-bit colour; where it's on, the mode chosen
+     * stays. Before run().
+     * @return Whether it was off.
+     */
+    bool useDirect3D();
     /** Puts CD `number` (1 or 2) in drive D, if it was found; false if it wasn't. */
     bool insertCd(int number);
     /**

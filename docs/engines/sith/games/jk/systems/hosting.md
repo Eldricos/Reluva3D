@@ -251,7 +251,9 @@ Windows does when it fails, and dialog boxes are made but not drawn
     loaded and played at the same speed as full screen.
 21. **On the graphics card:** since the game's 3D is never read back
     (step 17), its scenes can be drawn on the GPU rather than by the
-    emulator (the *3D drawing* setting). The emulator keeps each scene
+    emulator (the *3D drawing* setting, which turns *Setup*'s 3D
+    acceleration on first where it's off: `GameProcess::useDirect3D`,
+    the registry values above, 640 by 480). The emulator keeps each scene
     instead of drawing it, the pixels it would cover marked in the back
     buffer, so the gauges, text and automap drawn after it lie over it
     ([directx.md](../../../../../common/x86/directx.md#scenes-for-the-gpu)).

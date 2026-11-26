@@ -119,9 +119,11 @@ Ctrl+F5 goes back to the launcher, after asking, since what isn't saved
 is lost. What the game writes (its players, saves and settings) goes to
 Reluva's folder for the game, never into the install.
 
-With *Setup*'s 3D acceleration on, the launcher's *3D drawing* setting
-draws the game's 3D on the graphics card rather than in software, the
-gauges and menus over it as before. Software is the default, and what's
+The launcher's *3D drawing* setting draws the game's 3D on the graphics
+card rather than in software, the gauges and menus over it as before.
+It turns on the game's own 3D acceleration (*Setup*, *Display*, *Enable
+3D Acceleration*) where it's off, at 640x480; a display mode chosen
+there with it on is kept. Software is the default, and what's
 used when there's no graphics card Reluva can draw with. On the graphics
 card, *Picture size* draws the 3D at 1 to 4 times the game's 640x480
 (2 times by default): the same picture, finer; the menus and gauges are

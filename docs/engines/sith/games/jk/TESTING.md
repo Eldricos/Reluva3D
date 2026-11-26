@@ -112,9 +112,11 @@ shown.
 
 ### On the graphics card, and the frame rate
 
-On a machine with a graphics card, the game's *Setup*, *Display*,
-*Enable 3D Acceleration* on, and in the launcher *3D drawing* on the
+On a machine with a graphics card, in the launcher *3D drawing* on the
 graphics card:
+
+- With the game's *Enable 3D Acceleration* off in *Setup*, it's on when
+  the game starts, and the 3D is drawn on the card.
 
 - The launcher shows *3D drawing*, *Picture size*, *Anti-aliasing* and
   *Frame rate* for the game, and keeps what's chosen when Reluva is
@@ -142,6 +144,7 @@ graphics card:
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | *3D drawing* on the graphics card with *Setup*'s 3D acceleration off in the game's registry (`reluva` on a virtual display): turned on as the game started (`b3DAccel` 1 after), Nar Shaddaa drawn through Direct3D on the GPU; `host -d3d`, now the same code, reached the level drawing through Direct3D |
 | November 2026 | US retail | Linux | The new settings through `reluva` itself on a virtual display (Xvfb, llvmpipe), driven by `xdotool`, with *3D drawing* on the graphics card, 2x, 4x anti-aliasing and *Frame rate* 100: the opening skipped, *Players*, *Single Player* and *New Game* by mouse clicks at 2x, the cut scene skipped, Nar Shaddaa walked, turned by the mouse and jumped in, the automap (Tab) over the 3D, the game's menu (Esc) and back; the same route with the defaults (software, *As the game*). The whole light side skimmed (`host -skim -fps 100 -everyframe`, on the GPU with `-gpuplay -gpuscale 2 -gpuaa 4` and in software): every level and cut scene reached; but in 3 of 12 skims Reluva crashed as the ending's cut scene (`52-53a.smk`) started, in the JIT's native code (gdb): the first three, run within the same hour; the nine since (three of them with a build reporting the crash, two with the JIT's buffer clears logged, of which there were none, two keeping a core, and two with the build of the first three rebuilt) ended normally. Not seen in a skim at the game's own rate, nor in one with the JIT off (`RELUVA_NO_JIT`), one run each. The *Load Game* list leaves out autosaves as the game means it to ([systems/hosting.md](systems/hosting.md), step 23). Level 21 (the light side's) loaded from an autosave given a listed title (`x~...`) and skimmed into the ending: 24 times without a crash, so the crash needs the long run before |
 | November 2026 | US retail | Linux | The game's timing: `reluva-tool sith host -fps N [-everyframe]` in Nar Shaddaa, turning for 12 seconds: as the game, 335 new pictures in 618 frames at 60; every frame, 624 of 626 at 60, 988 of 1,043 at 100. With the player logged at each step (temporary code), the same walking speed, stop and jump at about 42 and 79 steps a second |
 | November 2026 | US retail | Linux | Anti-aliasing on the graphics card (llvmpipe, 4 samples a pixel, 640x480): `-gpu -gpuaa 4` into Nar Shaddaa, 349 scenes against the emulator's drawing, 2.1% of pixels more than a 16-bit step apart, along the polygons' edges; `-gpuplay -gpuaa 4`: the level and gauges as without, the edges smoothed |

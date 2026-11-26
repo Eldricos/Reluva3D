@@ -201,6 +201,22 @@ bool GameProcess::saveSettings() {
     return !e;
 }
 
+bool GameProcess::useDirect3D() {
+    x86::Win32Process &p = *_process;
+    const auto on = p.registryValue(kRegistryKey, "b3DAccel");
+    if (on && on->size() >= 4 && (*on)[0] != 0)
+        return false;
+    // REG_BINARY, as the game keeps them all.
+    constexpr uint32_t kBinary = 3;
+    p.setRegistryValue(kRegistryKey, "b3DAccel", kBinary, {1, 0, 0, 0});
+    p.setRegistryValue(kRegistryKey, "displayDeviceGUID", kBinary, std::vector<uint8_t>(16, 0)); // the primary
+    p.setRegistryValue(kRegistryKey, "displayMode", kBinary, {3, 0, 0, 0}); // of the modes it lists: 640x480, 16-bit
+    // IID_IDirect3DHALDevice, {84e63de0-46aa-11cf-816f-0000c020156e}
+    p.setRegistryValue(kRegistryKey, "3DDeviceGUID", kBinary,
+                       {0xe0, 0x3d, 0xe6, 0x84, 0xaa, 0x46, 0xcf, 0x11, 0x81, 0x6f, 0, 0, 0xc0, 0x20, 0x15, 0x6e});
+    return true;
+}
+
 bool GameProcess::updateEveryFrame() {
     // mov eax, [last update]; add eax, 20; cmp esi, eax: the US release's,
     // in play's frame (0x403d40), before it updates the world (0x4c4c00).

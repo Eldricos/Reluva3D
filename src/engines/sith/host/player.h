@@ -55,7 +55,8 @@ public:
     /**
      * Whether the game's Direct3D scenes come with its frames, for the
      * engine to draw on the GPU (x86::DirectX::SceneCapture::kInstead),
-     * rather than drawn in the frames. Before start().
+     * rather than drawn in the frames; Setup's 3D acceleration is then
+     * turned on if it's off (GameProcess::useDirect3D). Before start().
      */
     void keepScenes(bool keep) { _keepScenes = keep; }
     /**

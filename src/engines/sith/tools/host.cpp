@@ -205,17 +205,8 @@ int cmdHost(int argc, char **argv) {
         if (kept)
             kept(key, name);
     };
-    if (direct3d) {
-        // Setup's 3D acceleration on, on the primary display with Direct3D's
-        // HAL device, as the game keeps them.
-        const std::string key = "HKEY_LOCAL_MACHINE\\Software\\LucasArts Entertainment Company\\JediKnight\\v1.0";
-        process.setRegistryValue(key, "b3DAccel", 3, {1, 0, 0, 0});
-        process.setRegistryValue(key, "displayDeviceGUID", 3, std::vector<uint8_t>(16, 0)); // the primary display
-        process.setRegistryValue(key, "displayMode", 3, {3, 0, 0, 0}); // 640 by 480 in 16-bit colour
-        process.setRegistryValue(
-            key, "3DDeviceGUID", 3,
-            {0xe0, 0x3d, 0xe6, 0x84, 0xaa, 0x46, 0xcf, 0x11, 0x81, 0x6f, 0, 0, 0xc0, 0x20, 0x15, 0x6e});
-    }
+    if (direct3d)
+        game.useDirect3D(); // Setup's 3D acceleration, on the primary display with Direct3D's HAL device
     if (network) {
         // Multiplayer over this machine's network: sessions looked for on
         // the local networks, on this machine and at -join's address.

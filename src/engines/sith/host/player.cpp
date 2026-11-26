@@ -104,8 +104,12 @@ std::string Player::takeOutput() {
 void Player::work() {
     GameProcess game(_folders, _saveFolder, _commandLine);
     game.directPlay().network = _network;
-    if (_keepScenes)
+    // Drawn on the GPU: the game's 3D acceleration on, without which it
+    // draws in software and there'd be no scene to draw.
+    if (_keepScenes) {
         game.directX().sceneCapture = x86::DirectX::SceneCapture::kInstead;
+        game.useDirect3D();
+    }
     // The game looks for joysticks as it starts.
     offerPads(game);
     x86::Win32Process &process = game.process();
