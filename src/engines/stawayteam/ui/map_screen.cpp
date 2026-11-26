@@ -960,7 +960,12 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
         }
     }
     if (_objectivesWindow) {
-        if (_objectivesWindow->handleEvent(ev, mixer))
+        // The objectives button closes it again, and its key with it
+        // (0x476ab4).
+        const int i = actionIndex("Display Objectives");
+        const bool again = ev.type == EventType::kKeyDown && i >= 0 && scanCode(ev.key) != 0 &&
+                           _options.controls.binding(size_t(i)).key == scanCode(ev.key);
+        if (again || _objectivesWindow->handleEvent(ev, mixer))
             _objectivesWindow.reset();
         return Choice::kNone;
     }

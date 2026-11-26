@@ -57,8 +57,8 @@ None now.
   look; the enemies pursuing, retreating,
   holding the place and acting on their messages, and officers stunned
   ([systems/maps.md](systems/maps.md#open-questions)).
-- **Objectives:** the windows' places and the game held still under
-  them, and CONTINUE going to the next mission's briefing
+- **Objectives:** the game held still under the End Game Menu, and
+  CONTINUE going to the next mission's briefing
   ([systems/objectives.md](systems/objectives.md#open-questions)).
 - **Items:** the counts for -1, the keys matched to items by name,
   walking into range before using one, what a grenade's explosion's

@@ -205,10 +205,16 @@ one living on the team holding its item. A rescue's "%s" is their name
 *(inferred)*. A part's Destroyed Action runs as an enemy is killed.
 
 The objectives window (`ui/objectives_window.cpp`) opens from the
-objectives button and O, listing the objectives shown; RESUME or Esc
-closes it. The End Game Menu shows as a mission ends. Both are in the
-middle of the screen *(inferred)*, and hold the game still while they're
-open *(inferred)*. CONTINUE goes to the mission the triggers named next,
+objectives button and O, listing the objectives shown; RESUME, Esc, or
+the button or O again closes it (`0x476ab4`). The button does nothing
+while another window has the map's input (`0x476ad3`). The End Game
+Menu shows as a mission ends. Both open in the middle of the screen
+(the game's window opening with mode 6, `0x4d5570`, from `0x476b0c`
+and `0x50d434`). The objectives window holds the game still while it's
+open: it counts itself on the program's holds (`0x51ad9b`, `0x4d53e0`),
+and while any are counted the frame doesn't run the map (`0x4f645c`).
+The End Game Menu takes the map's input away (`0x5ca130`); the game is
+held still under it as well *(inferred)*. CONTINUE goes to the mission the triggers named next,
 from its briefing, or to the main menu without one *(inferred)*; RESTART
 starts the mission's map again with the same team; END GAME goes to the
 main menu. LOAD GAME opens the Load Game screen

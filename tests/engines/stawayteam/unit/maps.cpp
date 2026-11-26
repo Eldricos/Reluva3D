@@ -1636,6 +1636,14 @@ void testInterface() {
     screen.draw(s, 3100);
     screen.handleEvent(esc, nullptr, 3200);
     CHECK(!screen.escapeShown());
+    // O opens the objectives, and O again closes them.
+    Event o;
+    o.type = EventType::kKeyDown;
+    o.key = 'o';
+    screen.handleEvent(o, nullptr, 3300);
+    CHECK(screen.objectivesShown());
+    screen.handleEvent(o, nullptr, 3400);
+    CHECK(!screen.objectivesShown());
 }
 
 void testGadgets() {
