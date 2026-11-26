@@ -776,15 +776,15 @@ void testResearch(const std::filesystem::path &tmp) {
     CHECK(park.place(1440, 0, {"*2"}, false, {5, 2}, 0) == -1);
     CHECK(!park.attractions().find(1102)->available);
 
-    // Upgrades want research first; the rocket and the robot's upgrade are
-    // the projects to choose from.
+    // Upgrades want research first; the rocket and, after it, the robot's
+    // upgrade are the projects to choose from.
     CHECK(park.upgrade(0) == Park::Upgrading::kNotResearched);
     std::vector<Park::Project> choices = park.projectChoices();
     CHECK(choices.size() == 2);
-    CHECK(choices.size() == 2 && choices[0].kind == Park::ProjectKind::kUpgrade && choices[0].id == 1101 &&
-          choices[0].level == 1 && choices[0].cost == 10);
-    CHECK(choices.size() == 2 && choices[1].kind == Park::ProjectKind::kAttraction && choices[1].id == 1102 &&
-          choices[1].cost == 20);
+    CHECK(choices.size() == 2 && choices[0].kind == Park::ProjectKind::kAttraction && choices[0].id == 1102 &&
+          choices[0].cost == 20);
+    CHECK(choices.size() == 2 && choices[1].kind == Park::ProjectKind::kUpgrade && choices[1].id == 1101 &&
+          choices[1].level == 1 && choices[1].cost == 10);
 
     // A lab, then a scientist: on the rocket, held up for want of an
     // engineer to consult till one's hired.
@@ -794,7 +794,7 @@ void testResearch(const std::filesystem::path &tmp) {
     const int scientist = park.staff().back().id;
     const int learnt = park.staff().back().experience;
     CHECK(park.projectHeldUp(0) == 0);
-    park.startProject(0, choices[1]);
+    park.startProject(0, choices[0]);
     CHECK(park.projectHeldUp(0) == Park::kHeldUpByNoneAssigned);
     park.assign(0, scientist);
     CHECK(park.projectHeldUp(0) == Park::kHeldUpByNoConsultant);
@@ -938,6 +938,156 @@ void testFinance(const std::filesystem::path &tmp) {
     CHECK(quiet.shares().price == 100 && Park::income(quiet.thisYear()) == 0);
 }
 
+// The campaign: Operation Expand!'s visitors open the gates and allow
+// research; Plughole's lake researched as a Park Expansion, a gardener
+// trained in Water/Drainage for it, then drained; Manager's promotion
+// opens Polar Zone, where the next objective is. A park set up later in
+// the campaign has what the missions done there left it.
+void testMissions(const std::filesystem::path &tmp) {
+    const std::filesystem::path data = tmp / "game" / "Data";
+    std::string types;
+    for (int i = 0; i < 24; ++i)
+        types += "PeepTypes[" + std::to_string(i) +
+                 "].PreferredExcitement.StartingCash.BoredomThreshold.Generation 60 "
+                 "1000 2000 " +
+                 std::to_string(i / 8) + "\r\n";
+    writeText(data / "levels" / "Standard.sam",
+              "BankAccountInfo.InitialCash 100000\r\nArrival.MinPeople 1\r\nArrival.TimeBetweenArrivals 1\r\n"
+              "Arrival.FixedRate 2\r\nArrival.PointsPerVisitor 1\r\nPeepInfo.PercentageOfKids 100\r\n"
+              "StaffPoolInfo.BeginningNumberOfGardeners 2\r\nStaffPoolInfo.BeginningNumberOfResearchers 2\r\n"
+              "StaffPoolInfo.AvgExperienceOfGardeners 40000\r\nStaffPoolInfo.AvgWageDifference 0\r\n"
+              "StaffAgencies[0].InitialWageModifier 10\r\nStaffAgencies[0].InitialExperienceModifier 0\r\n"
+              "StaffAgencies[0].TrainingExperienceGainModifier 10\r\n"
+              "AllStaffConstants.MinExperienceForTraining 30000\r\n" +
+                  types);
+    const std::filesystem::path missions = data / "missions";
+    writeText(missions / "miss00.sam", "Info.Number 0\r\nInfo.NoResearch 1\r\nCompletion.EndingTheme 1\r\n"
+                                       "Completion.ObstacleOpened 1700\r\nExitStatistic[0].Type 8\r\n"
+                                       "ExitStatistic[0].TargetValue 1\r\nObstacle.Type 1700\r\n");
+    writeText(missions / "miss01.sam",
+              "Info.Number 1\r\nInfo.NoResearch 0\r\nTechLevel.NewMaxGroup 1\r\nTechLevel.Theme 1\r\n"
+              "Completion.EndingTheme 1\r\nExitStatistic[0].Type 0\r\nObstacle.Type 1703\r\n"
+              "Obstacle.ResearchEffort 20\r\nObstacle.GoldenTickets 0\r\nObstacleStaff[0].Ability 10\r\n"
+              "ObstacleStaff[0].StaffType 5\r\nObstacleStaff[0].Number 1\r\n");
+    writeText(missions / "miss02.sam", "Info.Number 2\r\nCompletion.EndingTheme 1\r\nCompletion.ThemeOpened 1\r\n"
+                                       "Completion.ThemeNumber 2\r\nExitStatistic[0].Type 0\r\nPromotion.Number 2\r\n");
+    writeText(missions / "miss03.sam", "Info.Number 3\r\nCompletion.EndingTheme 2\r\nExitStatistic[0].Type 8\r\n"
+                                       "ExitStatistic[0].TargetValue 50\r\n");
+    const std::filesystem::path world = data / "levels" / "science";
+    writeText(world / "rides" / "Rides.sam", "Info.HasQueue 1\r\nInfo.IsChoosable 1\r\nResearch.Group 0\r\n");
+    for (auto [id, group] : {std::pair{1102, 1}, std::pair{1103, 2}})
+        writeText(world / "rides" / ("r" + std::to_string(id)) / ("r" + std::to_string(id) + ".sam"),
+                  "Info.Id " + std::to_string(id) + "\r\nResearch.Group " + std::to_string(group) +
+                      "\r\nUpgrades[0].CostOfUpgrade 1000\r\nUpgrades[0].CostOfResearch 10\r\n"
+                      "Info.Shape\r\n---\r\n2N\r\n---\r\n");
+    writeText(world / "Facilities" / "lab" / "lab.sam",
+              "Info.Id 1450\r\nUsageInfo.ThinkingSpace 1\r\nUpgrades[0].CostOfUpgrade 500\r\n"
+              "Research.Group 0\r\nInfo.Shape\r\n---\r\n*2\r\n---\r\n");
+    writeText(world / "Facilities" / "train_rm" / "train_rm.sam",
+              "Info.Id 1440\r\nUsageInfo.TrainingRoom 1\r\nUpgrades[0].CostOfUpgrade 500\r\n"
+              "Research.Group 0\r\nInfo.Shape\r\n---\r\n*2\r\n---\r\n");
+    writeText(world / "obstacles" / "gatesobstacle" / "gatesobstacle.sam",
+              "Info.Id 1700\r\nInfo.IsObstacle 1\r\nObstacle.OpenedAutomaticly 1\r\nUpgrades[0].CostOfUpgrade 150\r\n");
+    writeText(world / "obstacles" / "lake" / "lake.sam",
+              "Info.Id 1703\r\nInfo.IsObstacle 1\r\nObstacle.ReplaceWithID 1704\r\nUpgrades[0].CostOfUpgrade 150\r\n");
+    writeText(world / "obstacles" / "dlake" / "dlake.sam", "Info.Id 1704\r\nInfo.IsObstacle 1\r\n");
+    constexpr int kRows = 8;    // x
+    constexpr int kColumns = 6; // y
+    tpw::testing::Bytes tiles(size_t(kRows) * kColumns, 0);
+    for (int x = 0; x < 7; ++x)
+        tiles[size_t(x) * kColumns + 4] = 8;
+    test::writeFile(world / "terrain" / "base.map", tpw::testing::makeAttributeMap(kColumns, kRows, tiles));
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!mountGame(files, tmp / "game", warnings));
+    Park park;
+    CHECK(!park.load(files, "levels/science", 0));
+    CHECK(park.theme() == 1 && park.missions().size() == 4 && park.mission().number == 0);
+    std::vector<Park::Message> messages;
+    auto advance = [&](uint32_t ms) {
+        park.advance(ms);
+        for (Park::Message &m : park.takeMessages())
+            messages.push_back(std::move(m));
+    };
+    auto letter = [&](uint32_t mission) {
+        return std::any_of(messages.begin(), messages.end(),
+                           [&](const Park::Message &m) { return m.objectiveLetter && m.text == mission; });
+    };
+
+    // Operation Expand!: no research, nothing on offer to research; the
+    // obstacles stand.
+    const Attractions::Attraction *lab = park.attractions().find(1450);
+    CHECK(!park.researchAllowed() && park.projectChoices().empty() && lab && !lab->available);
+    CHECK(park.attractions().find(1700) && park.attractions().find(1700)->obstacle &&
+          !park.attractions().find(1700)->available);
+    CHECK(park.place(1700, 0, {}, false, {6, 1}, 0) == -1 && park.place(1703, 0, {}, false, {6, 5}, 0) == -1);
+    CHECK(park.proceedWithSolution() == Park::Solution::kNoObstacle);
+
+    // The first visitor in, it's done: its letter, the gates gone, Plughole's begun.
+    for (int t = 0; t < 600 && park.mission().number == 0; ++t)
+        advance(100);
+    CHECK(letter(0) && park.mission().number == 1 && park.progress() == 1);
+    CHECK(park.objects().size() == 1 && park.objects()[0].id == 1703);
+    CHECK(park.researchAllowed() && park.attractions().find(1450)->available &&
+          !park.attractions().find(1440)->available);
+
+    // Its choices: the lake first, then the group 1 ride, not group 2's.
+    std::vector<Park::Project> choices = park.projectChoices();
+    const auto chosen = [&](int id) {
+        return std::find_if(choices.begin(), choices.end(), [&](const Park::Project &p) { return p.id == id; });
+    };
+    CHECK(!choices.empty() && choices[0].id == 1703);
+    CHECK(chosen(1102) != choices.end() && chosen(1103) == choices.end());
+    CHECK(chosen(1703) != choices.end() && chosen(1703)->kind == Park::ProjectKind::kExpansion &&
+          chosen(1703)->cost == 20);
+
+    // Researched: a training room on offer, gardeners to learn Water/Drainage (10).
+    CHECK(park.proceedWithSolution() == Park::Solution::kNotResearched);
+    CHECK(park.place(1450, 0, {"*2"}, false, {0, 2}, 0) == -1);
+    CHECK(park.hire(Park::StaffKind::kScientist, 0) == Park::Hiring::kHired);
+    park.startProject(0, *chosen(1703));
+    park.assign(0, park.staff().back().id);
+    for (int t = 0; t < 3000 && !park.obstacleResearched(); ++t)
+        advance(100);
+    CHECK(park.obstacleResearched() && park.attractions().find(1440)->available);
+    CHECK(std::any_of(messages.begin(), messages.end(), [](const Park::Message &m) { return m.text == 255; }));
+    CHECK(park.abilityToLearn(Park::StaffKind::kGardener) == 10 &&
+          park.abilityToLearn(Park::StaffKind::kEngineer) == 0);
+    CHECK(park.proceedWithSolution() == Park::Solution::kNeedsStaff);
+
+    // A gardener trained, the lake's drained: the drained lake in its
+    // place, its cost paid, Manager's begun.
+    CHECK(park.place(1440, 0, {"*2"}, false, {5, 2}, 0) == -1);
+    CHECK(park.hire(Park::StaffKind::kGardener, 0) == Park::Hiring::kHired);
+    const int gardener = park.staff().back().id;
+    CHECK(park.sendForTraining(gardener) == Park::Training::kSent);
+    for (int t = 0; t < 200 && park.staffMember(gardener)->ability != 10; ++t)
+        advance(1000);
+    CHECK(park.obstacleStaffReady() && park.obstacleStaff()[0] == std::vector<int>{gardener});
+    const int cash = park.cash();
+    CHECK(park.proceedWithSolution() == Park::Solution::kCleared && park.cash() == cash - 150);
+    advance(0);
+    CHECK(park.objects()[0].id == 1704 && letter(1) && park.mission().number == 2);
+
+    // Manager's wants a promotion; given it, Polar Zone opens, and the
+    // next objective's there: none here.
+    advance(8000);
+    CHECK(park.mission().number == 2);
+    park.setPlayer(0, 2);
+    advance(8000);
+    CHECK(letter(2) && park.progress() == 3 && park.mission().number == -1);
+    CHECK(park.themesOpened() == std::vector<int>{2});
+
+    // Set up as Manager's: Plughole's group to research, the training room
+    // on offer; no lake to research.
+    Park later;
+    CHECK(!later.load(files, "levels/science", 2));
+    choices = later.projectChoices();
+    CHECK(later.mission().number == 2 && chosen(1102) != choices.end() && chosen(1103) == choices.end() &&
+          chosen(1703) == choices.end());
+    CHECK(later.attractions().find(1440)->available);
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -955,4 +1105,5 @@ static const reluva::test::Suite
                                 {"upkeep", [](const std::filesystem::path &tmp) { testUpkeep(tmp); }},
                                 {"research", [](const std::filesystem::path &tmp) { testResearch(tmp); }},
                                 {"finance", [](const std::filesystem::path &tmp) { testFinance(tmp); }},
+                                {"missions", [](const std::filesystem::path &tmp) { testMissions(tmp); }},
                             });

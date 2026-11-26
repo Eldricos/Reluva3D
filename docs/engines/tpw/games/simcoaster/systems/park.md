@@ -204,8 +204,9 @@ Controls, the Staff menu's and the Finance menu's do anything yet
 The park's messages show one at a time over it, the Message Center not
 built yet. Clicking the gates opens their window,
 right-clicking them their menu: "View entry price details", "Open park"
-or "Close park" (`UITEXT` 597, 599, 600); closed, no visitors come. Its first mission's, whatever the
-player's objective, for now.
+or "Close park" (`UITEXT` 597, 599, 600); closed, no visitors come. The
+park is set up as the player's missions done leave it, their objective
+played if it's in this world ([missions.md](missions.md)).
 
 `reluva-tool tpw park-shot <game folder> <world folder> <out.png>
 [seconds] [yaw pitch distance]` draws a new park, its clock run on;

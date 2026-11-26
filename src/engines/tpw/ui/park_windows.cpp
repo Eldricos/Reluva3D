@@ -271,6 +271,8 @@ Error WindowKit::load(const SearchSet &files) {
         return err;
     if (Error err = readStringTable(files, folder, "PROMOTIONLEVELS", _characters, _ranks))
         return err;
+    if (Error err = readStringTable(files, folder, "OBJECTIVE_COMPLETE", _characters, _objectiveLetters))
+        return err;
     return readStringTable(files, folder, "THOUGHTS", _characters, _thoughts);
 }
 
@@ -1139,6 +1141,7 @@ constexpr uint32_t kChooseText = 307;
 constexpr std::array<uint32_t, 5> kChooserColumns{308, 309, 312, 311, 310};
 constexpr uint32_t kRideTypeText = 313; // then sideshow, shop, feature, facility
 constexpr uint32_t kUpgradeTypeText = 319;
+constexpr uint32_t kExpansionTypeText = 318;
 constexpr uint32_t kAssignTitle = 321;
 constexpr uint32_t kAvailableText = 322;
 constexpr uint32_t kAssignedListText = 323;
@@ -1214,6 +1217,8 @@ std::string projectName(const Park &park, const Park::Project &p, const ObjectNa
 uint32_t typeText(const Park &park, const Park::Project &p) {
     if (p.kind == Park::ProjectKind::kUpgrade)
         return kUpgradeTypeText;
+    if (p.kind == Park::ProjectKind::kExpansion)
+        return kExpansionTypeText;
     const Attractions::Attraction *a = park.attractions().find(p.id);
     if (!a)
         return kRideTypeText;
@@ -2105,7 +2110,7 @@ namespace {
 
 // Its text and lines, as they're drawn.
 std::vector<std::string> messageLines(const WindowKit &kit, const Park::Message &m) {
-    std::vector<std::string> out{kit.tag(m.text, m.values)};
+    std::vector<std::string> out{m.objectiveLetter ? kit.objectiveLetter(int(m.text)) : kit.tag(m.text, m.values)};
     for (const Park::Message::Line &line : m.lines)
         out.push_back(kit.tag(line.text, line.values) + (line.suffix ? kit.tag(line.suffix, line.values) : ""));
     return out;

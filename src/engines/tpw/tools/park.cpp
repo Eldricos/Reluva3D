@@ -45,6 +45,15 @@ void writePng(const reluva::Surface &surface, const char *path) {
 
 // Mounts the game and sets up a new park in a world for a mission, with
 // its screen; false, having said why, if it can't.
+// The mission a command's arguments name with -mission <n>, the player's
+// progress through the campaign; 0 without.
+int missionArgument(int argc, char **argv) {
+    for (int i = 1; i + 1 < argc; ++i)
+        if (std::string(argv[i]) == "-mission")
+            return std::atoi(argv[i + 1]);
+    return 0;
+}
+
 bool newPark(const char *game, const char *world, int mission, reluva::SearchSet &files, reluva::tpw::Park &park,
              reluva::tpw::ParkScreen &screen) {
     std::vector<std::string> warnings;
@@ -68,13 +77,13 @@ int cmdParkShot(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool tpw park-shot <game folder> <world folder> <out.png> [seconds] [yaw "
-            "pitch distance [x y]] [-place <id>] [-weather <fine|heatwave|rain|storm|snow>] [-hire <kind> <n>]\n");
+            "pitch distance [x y]] [-place <id>] [-weather <fine|heatwave|rain|storm|snow>] [-hire <kind> <n>] [-mission <n>]\n");
         return 2;
     }
     reluva::SearchSet files;
     reluva::tpw::Park park;
     reluva::tpw::ParkScreen screen;
-    if (!newPark(argv[2], argv[3], 0, files, park, screen))
+    if (!newPark(argv[2], argv[3], missionArgument(argc, argv), files, park, screen))
         return 1;
     // -place <id>: that attraction placed first, where it fits nearest the
     // entrance with its entrance by the path.
@@ -204,13 +213,13 @@ int cmdBriefingShot(int argc, char **argv) {
     if (argc < 5) {
         std::fprintf(
             stderr,
-            "usage: reluva-tool tpw briefing-shot <game folder> <world folder> <out.png> [player [-details]]\n");
+            "usage: reluva-tool tpw briefing-shot <game folder> <world folder> <out.png> [player [-details]] [-mission <n>]\n");
         return 2;
     }
     reluva::SearchSet files;
     reluva::tpw::Park park;
     reluva::tpw::ParkScreen screen;
-    if (!newPark(argv[2], argv[3], 0, files, park, screen))
+    if (!newPark(argv[2], argv[3], missionArgument(argc, argv), files, park, screen))
         return 1;
     reluva::tpw::Briefing briefing;
     if (reluva::Error err = briefing.load(files)) {
@@ -643,13 +652,13 @@ int cmdWindowShot(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool tpw window-shot <game folder> <world folder> <out.png> "
-            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report> [seconds]\n");
+            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report> [seconds] [-mission <n>]\n");
         return 2;
     }
     reluva::SearchSet files;
     reluva::tpw::Park park;
     reluva::tpw::ParkScreen screen;
-    if (!newPark(argv[2], argv[3], 0, files, park, screen))
+    if (!newPark(argv[2], argv[3], missionArgument(argc, argv), files, park, screen))
         return 1;
     using Kind = reluva::tpw::Park::StaffKind;
     for (Kind k : {Kind::kEngineer, Kind::kJanitor, Kind::kGardener, Kind::kGuard, Kind::kEntertainer})
@@ -674,7 +683,7 @@ int cmdWindowShot(int argc, char **argv) {
                 }
         }
     }
-    const uint32_t runMs = argc > 6 ? uint32_t(std::strtof(argv[6], nullptr) * 1000) : 60000;
+    const uint32_t runMs = argc > 6 && argv[6][0] != '-' ? uint32_t(std::strtof(argv[6], nullptr) * 1000) : 60000;
     screen.advance(park);
     for (uint32_t t = 0; t < runMs; t += 50) {
         park.advance(50);
@@ -756,7 +765,7 @@ const Commands kCommands(
          "draw the Hire Staff window over a new park, on a tab, a row chosen, to a PNG, and list the candidates",
          cmdHireShot},
         {"window-shot",
-         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report> [seconds]",
+         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report> [seconds] [-mission <n>]",
          "draw one of the park's smaller windows over a new park, its staff one of each kind, run on, to a PNG",
          cmdWindowShot},
         {"sign-shot", "<game folder> <world folder> <out.png>",
@@ -766,14 +775,14 @@ const Commands kCommands(
          "-objects) and its world",
          cmdTpwsCheck},
         {"park-shot",
-         "<game folder> <world folder> <out.png> [seconds] [yaw pitch distance [x y]] [-place <id>] [-weather <w>] [-hire <kind> <n>]",
-         "set up a new park in a world, -place an attraction by its entrance's path, set the -weather, -hire "
-         "staff, run it on "
+         "<game folder> <world folder> <out.png> [seconds] [yaw pitch distance [x y]] [-place <id>] [-weather <w>] [-hire <kind> <n>] [-mission <n>]",
+         "set up a new park in a world, as a -mission leaves it, -place an attraction by its entrance's path, "
+         "set the -weather, -hire staff, run it on "
          "and draw it, "
          "its HUD over it, to a PNG; and list its visitors",
          cmdParkShot},
-        {"briefing-shot", "<game folder> <world folder> <out.png> [player [-details]]",
-         "draw the mission's briefing over a new park, to a PNG", cmdBriefingShot},
+        {"briefing-shot", "<game folder> <world folder> <out.png> [player [-details]] [-mission <n>]",
+         "draw the mission's briefing over a new park, the player's campaign at a -mission, to a PNG", cmdBriefingShot},
         {"park-run", "<game folder> <world folder> [-shots <folder> <ms>...]",
          "play a new park headless: its briefing, path laid, the Park menu's Objectives, the camera moved "
          "by keys and the compass, a tool chosen, a menu, a visitor, Esc; -shots writes the screen at those "

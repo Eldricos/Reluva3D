@@ -18,7 +18,8 @@ is laid next, from its entrance ([paths.md](paths.md#queues)).
 
 Each attraction is a folder of its world's, by its kind: `rides/`,
 `sideshow/`, `shops/`, `Facilities/`, `features/` (Land of Invention's
-`levels/science/rides/robot/`). In it, its settings (`robot.sam`), its
+`levels/science/rides/robot/`); the missions' obstacles are in
+`obstacles/`, never on sale ([missions.md](missions.md#obstacles)). In it, its settings (`robot.sam`), its
 model (`robot.MD2`), its script and the rest. The kind's folder has the
 kind's settings too (`rides/Rides.sam`), which an object's own override
 ([sam.md](../formats/sam.md)):

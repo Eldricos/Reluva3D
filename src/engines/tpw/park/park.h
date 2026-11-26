@@ -50,13 +50,49 @@ public:
         std::array<Cell, 2> crossingParkSide{};
     };
 
-    /** The mission the park is played for (`missions/missNN.sam`). */
+    /** The staff's kinds, in the Hire Staff window's tabs' order. */
+    enum class StaffKind : uint8_t { kEngineer, kJanitor, kGardener, kGuard, kEntertainer, kScientist };
+    static constexpr size_t kStaffKinds = 6;
+
+    /**
+     * A mission (`missions/missNN.sam`): the campaign's objectives, in
+     * order. See docs/engines/tpw/games/simcoaster/systems/missions.md.
+     */
     struct Mission {
         int number = -1;
-        int statistic = 0; // what the objective counts: 8 the visitors in the park at once
+        // Where it's played (Completion.EndingTheme): 0 Arabian Nights, 1
+        // Land of Invention, 2 Polar Zone; −1 any.
+        int theme = -1;
+        /** A statistic to reach (ExitStatistic[n]): its Type and TargetValue. */
+        struct Objective {
+            int statistic = 0; // 2 profit, 6 park awards, 7 percent of the shares, 8 visitors in the park at once
+            int target = 0;
+        };
+        std::vector<Objective> objectives;
+        int statistic = 0; // the first objective's, or 0
         int target = 0;
-        int obstacle = 0;           // the obstacle it clears, by its object number
-        std::vector<Cell> boundary; // the park's land, as clicks from the entrance (inferred)
+        bool noResearch = false; // Info.NoResearch
+        int techGroup = -1;      // TechLevel.NewMaxGroup: the research groups it allows; −1 none set
+        int techTheme = -1;      // in that world
+        /** Staff an obstacle needs (ObstacleStaff[n]): so many of a kind, in the game's numbering, able so. */
+        struct StaffNeed {
+            int ability = 0; // in ABILITIES.str
+            int staffType = 0;
+            int number = 1;
+        };
+        int obstacle = 0;       // Obstacle.Type: the object it clears
+        int obstacleEffort = 0; // Obstacle.ResearchEffort: its Park Expansion project's points
+        std::vector<StaffNeed> staffNeeded;
+        int goldenTickets = 0;  // Obstacle.GoldenTickets: needed to finish it
+        int opens = 0;          // Completion.ObstacleOpened: an object that opens as it's done
+        int themeOpened = -1;   // Completion.ThemeNumber, with ThemeOpened
+        bool endOfGame = false; // Completion.EndOfGame
+        int promotion = 0;      // Promotion.Number: the rank it needs, in PROMOTIONLEVELS.str
+        int challenges = 0;     // RequiredChallenges.Number, won in RequiredChallenges.Theme
+        int challengesTheme = -1;
+        std::vector<Cell> boundary; // the park's land as it's done, as clicks from the entrance (inferred)
+        /** Whether its obstacle wants a solution: research, or trained staff. Others open of themselves. */
+        bool needsSolution() const { return obstacle && (obstacleEffort > 0 || !staffNeeded.empty()); }
     };
 
     /**
@@ -71,7 +107,50 @@ public:
 
     const std::string &folder() const { return _folder; }
     const FixedItems &fixedItems() const { return _fixed; }
+    /** The mission played here: the current objective, if it's in this world; else one numbered −1. */
     const Mission &mission() const { return _mission; }
+    /** Every mission, by number. */
+    const std::vector<Mission> &missions() const { return _missions; }
+    /** The world's theme, as missions number them: 0 Arabian Nights, 1 Land of Invention, 2 Polar Zone. */
+    int theme() const { return _theme; }
+    /** The first mission not done: the player's objective, wherever it's played. */
+    int progress() const { return _progress; }
+    /** The themes the missions done here have opened. */
+    const std::vector<int> &themesOpened() const { return _themesOpened; }
+    /** Whether the last mission is done: the game's won. */
+    bool won() const { return _won; }
+
+    /** The player's golden tickets and rank, as their file keeps them. */
+    void setPlayer(int goldenTickets, int rank) {
+        _goldenTickets = goldenTickets;
+        _rank = rank;
+    }
+    int goldenTickets() const { return _goldenTickets; }
+    int rank() const { return _rank; }
+    /** What a statistic stands at (Mission::Objective::statistic). */
+    int statisticValue(int statistic) const;
+    /** Whether the park may research: not in a mission with Info.NoResearch. */
+    bool researchAllowed() const;
+    /** Whether the mission's obstacle has been researched, and its staff are trained. */
+    bool obstacleResearched() const { return _obstacleResearched; }
+    /**
+     * The staff trained for each of the obstacle's needs, as many as it
+     * needs of them, each once, the first trained first (the game has the
+     * player pick them: guessed).
+     */
+    std::vector<std::vector<int>> obstacleStaff() const;
+    bool obstacleStaffReady() const;
+    /** What "Proceed with solution" (UITEXT 592) on the obstacle came to. */
+    enum class Solution { kCleared, kNoObstacle, kNotResearched, kNeedsStaff, kNeedsTickets, kNoMoney };
+    Solution proceedWithSolution();
+    /** The objects removed since last asked, and their queues (−1 for none), in order. */
+    std::vector<std::pair<size_t, int>> takeRemovals() { return std::exchange(_removals, {}); }
+    /** The ability a member of staff learns in training: what the obstacle wants of their kind, else 0. */
+    int abilityToLearn(StaffKind kind) const;
+    /** A theme's name's number in THEMENAMES.str: 0 Land of Invention, 1 Polar Zone, 3 Arabian Nights. */
+    static int themeName(int theme);
+    /** A staff kind by the missions' numbering (ObstacleStaff[n].StaffType). */
+    static std::optional<StaffKind> missionStaffKind(int staffType);
 
     /** How visitors come, by the general settings' `Arrival` (guessed: see park.md). */
     struct Arrivals {
@@ -149,9 +228,6 @@ public:
     };
     const VisitorRules &visitorRules() const { return _rules; }
 
-    /** The staff's kinds, in the Hire Staff window's tabs' order. */
-    enum class StaffKind : uint8_t { kEngineer, kJanitor, kGardener, kGuard, kEntertainer, kScientist };
-    static constexpr size_t kStaffKinds = 6;
     /** Someone the staff agencies offer: their name's number in their kind's names table. */
     struct Candidate {
         int name = 0;
@@ -290,12 +366,12 @@ public:
     /** Stops an upgrade being made, its cost given back. */
     void cancelUpgrade(size_t object);
     /** Deletes an object, for its scrap value: its cells and queue cleared, its riders let off. */
-    void remove(size_t object);
+    void remove(size_t object, bool sell = true);
     /** Names an object; empty gives it back its own. */
     void rename(size_t object, std::string name);
 
     /** A research project of the lab's two (UITEXT 285 on). */
-    enum class ProjectKind : uint8_t { kAttraction, kUpgrade };
+    enum class ProjectKind : uint8_t { kAttraction, kUpgrade, kExpansion }; // kExpansion: the mission's obstacle
     struct Project {
         ProjectKind kind = ProjectKind::kAttraction;
         int id = 0;    // the attraction researched
@@ -737,6 +813,7 @@ public:
         uint32_t text = 0;
         std::map<int, std::string> values;
         std::vector<Line> lines;
+        bool objectiveLetter = false; // its text is OBJECTIVE_COMPLETE.str's, by the mission done
     };
     /** The messages since last asked, oldest first. */
     std::vector<Message> takeMessages() { return std::exchange(_messages, {}); }
@@ -807,6 +884,14 @@ private:
     void finishWork(StaffMember &m);
     void researchDay();
     void loadFinance(const SamFile &general, const SamFile *world);
+    Error loadMissions(const SearchSet &files, int mission);
+    void startMission(int number);
+    void missionDay();
+    void completeMission();
+    void researchedObstacle();
+    int techCap() const;
+    void clearObstacle(int id);
+    void setResearchables();
     void book(Ledger line, int amount);
     void financeDay();
     void financeMonth();
@@ -825,6 +910,15 @@ private:
     std::string _folder;
     FixedItems _fixed;
     Mission _mission;
+    std::vector<Mission> _missions;
+    int _theme = -1;
+    int _progress = 0;
+    bool _obstacleResearched = false;
+    std::vector<int> _themesOpened;
+    std::vector<std::pair<size_t, int>> _removals;
+    bool _won = false;
+    int _goldenTickets = 0;
+    int _rank = 1;
     int _cash = 0;
     Accounts _thisMonth{};
     Accounts _lastMonth{};

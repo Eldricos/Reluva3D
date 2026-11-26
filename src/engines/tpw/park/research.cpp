@@ -80,10 +80,11 @@ void Park::cancelUpgrade(size_t object) {
 // Its scrap value back; its cells bare; its queue's cells bare, those in
 // it back to the path, its riders off at its entrance; everything that
 // counts the objects or queues by their places moved down past it.
-void Park::remove(size_t object) {
+void Park::remove(size_t object, bool sell) {
     if (object >= _objects.size())
         return;
-    book(Ledger::kBuilding, -scrapValue(object));
+    if (sell)
+        book(Ledger::kBuilding, -scrapValue(object));
     const PlacedObject gone = _objects[object];
     if (const Attractions::Attraction *a = _attractions.find(gone.id))
         for (const Cell &c : footprint(a->shape, gone.at, gone.angle).cells)
@@ -113,6 +114,7 @@ void Park::remove(size_t object) {
         _queues.erase(_queues.begin() + queue);
     }
     _objects.erase(_objects.begin() + long(object));
+    _removals.emplace_back(object, queue);
     for (Queue &q : _queues)
         if (q.object == int(object))
             q.object = -1;
@@ -153,15 +155,32 @@ bool Park::researched(int id, int level) const {
 // What's not on sale but would be by research (Research.Group past 0,
 // a price), and the upgrades of what's on sale that cost research; not
 // those being researched.
+
+// The research groups the missions here allow so far
+// (TechLevel.NewMaxGroup, "group to activate"), as the recording's
+// Plughole offers only group 1's; −1 for no limit, where none says.
+int Park::techCap() const {
+    int cap = -1;
+    const int last = _mission.number >= 0 ? _mission.number : _progress - 1;
+    for (const Mission &m : _missions)
+        if (m.number <= last && m.techTheme == _theme && m.techGroup >= 0)
+            cap = std::max(cap, m.techGroup);
+    return cap;
+}
+
 std::vector<Park::Project> Park::projectChoices() const {
     std::vector<Project> out;
+    if (!researchAllowed())
+        return out;
+    const int cap = techCap();
     const auto underway = [&](int id, int level) {
         return std::any_of(_projects.begin(), _projects.end(), [&](const std::optional<Project> &p) {
             return p && !p->finished && p->id == id && p->level == level;
         });
     };
     for (const Attractions::Attraction &a : _attractions.all()) {
-        if (!a.available && a.researchGroup > 0 && a.price > 0 && !researched(a.id) && !underway(a.id, 0))
+        if (!a.available && !a.obstacle && a.researchGroup > 0 && (cap < 0 || a.researchGroup <= cap) && a.price > 0 &&
+            !researched(a.id) && !underway(a.id, 0))
             out.push_back({ProjectKind::kAttraction,
                            a.id,
                            0,
@@ -183,6 +202,22 @@ std::vector<Park::Project> Park::projectChoices() const {
                                false});
         }
     }
+    // As the recording lists them: the attractions by kind, ride to
+    // feature, then the upgrades; the mission's obstacle, a Park
+    // Expansion (UITEXT 318), first, once.
+    const auto rank = [&](const Project &p) {
+        const Attractions::Attraction *a = _attractions.find(p.id);
+        return p.kind == ProjectKind::kUpgrade ? int(Attractions::kKinds) : a ? int(a->kind) : 0;
+    };
+    std::stable_sort(out.begin(), out.end(), [&](const Project &x, const Project &y) { return rank(x) < rank(y); });
+    if (_mission.obstacle && _mission.obstacleEffort > 0 && !_obstacleResearched && !underway(_mission.obstacle, 0))
+        out.insert(out.begin(), {ProjectKind::kExpansion,
+                                 _mission.obstacle,
+                                 0,
+                                 int(std::lround(float(_mission.obstacleEffort) * _researchCost)),
+                                 0,
+                                 {},
+                                 false});
     return out;
 }
 
@@ -293,6 +328,8 @@ void Park::researchDay() {
             _researched.emplace_back(p->id, p->level);
             if (p->kind == ProjectKind::kAttraction)
                 _attractions.markAvailable(p->id);
+            else if (p->kind == ProjectKind::kExpansion)
+                researchedObstacle();
             for (int id : std::vector<int>(p->scientists))
                 unassign(slot, id);
         }

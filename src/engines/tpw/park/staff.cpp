@@ -757,9 +757,12 @@ void Park::staffDay() {
             if (m.trained >= kTrainingDays) {
                 m.experience =
                     std::min(kMostExperience, m.experience + _constants.trainingExperience * agency.training / 10);
-                // An engineer comes out able to upgrade rides (guessed: the
+                // They learn what the mission's obstacle wants of their kind;
+                // an engineer, else, to upgrade rides (guessed: the
                 // Training Room's "Ability To Learn").
-                if (m.kind == StaffKind::kEngineer)
+                if (const int ability = abilityToLearn(m.kind))
+                    m.ability = ability;
+                else if (m.kind == StaffKind::kEngineer)
                     m.ability = kRideUpgrading;
                 m.doing = StaffDoing::kWorking;
                 m.target = -1;

@@ -17,20 +17,37 @@ player builds a lab, hires scientists and starts a project from 14:40 to
 
 ### Projects
 
-The projects to choose from (*inferred* from the recording's list at
-14:42):
+The projects to choose from, as the recording's list at 14:42, in
+Operation Plughole!, has them *(inferred)*:
 
+- the mission's obstacle, first: "'Operation Plughole'", a Park
+  expansion, with no consultant, at its `Obstacle.ResearchEffort` (§ 100)
+  ([missions.md](missions.md#obstacles));
 - each attraction of the world not on sale whose `Research.Group` is past
-  0 and which has a price; its cost, its `Upgrades[0].CostOfResearch`;
+  0, no more than the missions here so far allow (`TechLevel.NewMaxGroup`
+  in `TechLevel.Theme`: Plughole's 1, and the recording's list is group
+  1's alone), and which has a price; its cost, its
+  `Upgrades[0].CostOfResearch`; listed by kind, rides, sideshows, shops,
+  facilities, then features, as the recording's are;
 - each upgrade of an attraction on sale, `Upgrades[1]` and `[2]` with a
   `CostOfUpgrade`, whose `CostOfResearch` is past 0; its cost, that.
+  The recording's first ten rows show none; Reluva lists them last
+  *(guessed)*.
 
-Both are scaled by `Research.CostScaleUp` (1). The list's columns are
+The costs are scaled by `Research.CostScaleUp` (1). The list's columns are
 the project, its type (`UITEXT` 313 to 320: Ride, Sideshow, Shop,
 Feature, Facility, Park expansion, Ride upgrade), its consultant, its
-estimated time as a bar, and its cost. The recording's rows match the
-settings: the Bellows Bouncer's upgrades at § 100, the Bungee Boing at
-§ 300.
+estimated time as a bar, and its cost. Most of the recording's costs are
+the settings' (the Goldmine's § 600, the Hot Dog Stand's § 100, the Info
+Kiosk's § 150, the Security Camera's § 75, the Trimmed Hedge's § 50),
+but the Hypno Clock's and Freefaller's are § 600 where their kind's
+default is 300, and the Shooting Gallery's § 300 where its own is 150;
+why isn't known. A park with no mission's limit offers every group, as
+the unit tests' do.
+
+No project can be started in a mission with `Info.NoResearch` (Operation
+Expand!), whose lab isn't on sale ("The research lab will be available
+once you've completed the 'Operation Expand!' objective").
 
 The lab has two projects at a time *(inferred: its window's two
 slots)*.
@@ -110,8 +127,12 @@ made.
   14:40 to 14:52.
 - **How it was checked:** the lab's and chooser's pieces placed where
   the recording shows them, and `window-shot`'s pictures looked over;
-  the chooser's projects and costs set against the recording's list.
-  The pictures haven't been laid over the recording's frames.
+  the chooser's projects, types, consultants and order set against the
+  recording's list at 14:42 (`window-shot ... projects -mission 1`): the
+  same rows, but for three costs and the Flower Bed, which the recording
+  offers to research though its settings put it on sale from the start
+  (`Research.Group` 0). The pictures
+  haven't been laid over the recording's frames.
 
 ## Open questions
 
@@ -120,4 +141,5 @@ made.
 - `RStaff`'s kinds past 1, 3 and 5; which staff member consults; what
   `{17}` in 324 is.
 - What training gives Ride Upgrading; how long an upgrade takes.
-- Park expansions (318) and "Something else" (320).
+- Why some costs are twice the settings'; why the Flower Bed is to be
+  researched; where upgrades come in the list; "Something else" (320).

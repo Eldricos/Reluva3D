@@ -17,12 +17,14 @@ namespace reluva::tpw {
 namespace {
 
 // The kinds' folders of a world, as their names are (any case).
-const std::array<std::pair<const char *, Attractions::Kind>, 5> kKindFolders{{
+// Obstacles are features no one can buy.
+const std::array<std::pair<const char *, Attractions::Kind>, 6> kKindFolders{{
     {"rides", Attractions::Kind::kRide},
     {"sideshow", Attractions::Kind::kSideshow},
     {"shops", Attractions::Kind::kShop},
     {"facilities", Attractions::Kind::kFacility},
     {"features", Attractions::Kind::kFeature},
+    {"obstacles", Attractions::Kind::kFeature},
 }};
 constexpr const char *kOnline = "online_"; // the online game's settings, beside the kinds'
 
@@ -103,9 +105,14 @@ Error Attractions::load(const SearchSet &files, const std::string &folder) {
             a.name = own.text("Info.Name");
             a.price = int(number("Upgrades[0].CostOfUpgrade", 0));
             a.hasQueue = number("Info.HasQueue", 0) != 0;
-            a.available = number("Research.Group", -1) == 0 && a.price > 0;
-            if (const SamFile::Entry *shape = own.find("Info.Shape"))
+            a.obstacle = number("Info.IsObstacle", 0) != 0;
+            a.available = !a.obstacle && number("Research.Group", -1) == 0 && a.price > 0;
+            // An obstacle's shape marks land its own way, which isn't worked
+            // out: it stands on its first cell.
+            if (const SamFile::Entry *shape = own.find("Info.Shape"); shape && !a.obstacle)
                 a.shape = shape->grid;
+            a.replaceWith = int(number("Obstacle.ReplaceWithID", 0));
+            a.openedAutomatically = number("Obstacle.OpenedAutomaticly", 0) != 0;
             a.excitement = int(number("UsageInfo.ExcitementLevel", -1));
             a.fare = int(number("UsageInfo.InitPricePerUse", 0));
             a.capacity = int(number("Upgrades[0].InitCapacity", -1));
@@ -169,6 +176,12 @@ const Attractions::Attraction *Attractions::find(int id) const {
         if (a.id == id)
             return &a;
     return nullptr;
+}
+
+void Attractions::setAvailable(int id, bool available) {
+    for (Attraction &a : _all)
+        if (a.id == id)
+            a.available = available && a.price > 0;
 }
 
 void Attractions::markAvailable(int id) {

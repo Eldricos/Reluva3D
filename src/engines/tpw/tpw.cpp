@@ -67,8 +67,8 @@ public:
             return Error::success();
 
         // The loading screen while the chosen world's park loads, then the
-        // park. Its first mission's for now: missions after the first wait
-        // for the park to be won.
+        // park, set up as the player's missions done leave it, with their
+        // objective if it's in this world.
         Surface screen;
         screen.create(kWidth, kHeight, PixelFormat::kRGBA32);
         image::Image loading;
@@ -79,7 +79,7 @@ public:
         Park park;
         ParkScreen parkScreen;
         const std::string folder = Globe::worlds()[size_t(world)].folder;
-        if (Error err = park.load(files, folder.substr(0, folder.size() - 1), 0))
+        if (Error err = park.load(files, folder.substr(0, folder.size() - 1), std::max(0, player.objective)))
             return err;
         if (Error err = parkScreen.load(files, park))
             return err;
@@ -87,6 +87,7 @@ public:
         parkScreen.setPlayer(player.name, player.rank);
         if (player.sharesIssued > 0)
             park.setShares({player.sharesIssued, player.sharesOwned, player.sharePrice});
+        park.setPlayer(player.goldenTickets, player.rank);
         // The mission's briefing over the park as it opens.
         Briefing briefing;
         soft3d::Rasterizer rasterizer;
@@ -106,6 +107,16 @@ public:
                 p.sharesIssued = park.shares().issued;
                 p.sharesOwned = park.shares().owned;
                 p.sharePrice = park.shares().price;
+                p.goldenTickets = park.goldenTickets();
+                // Their objective now, where it's played, and the worlds opened.
+                if (park.progress() < int(park.missions().size())) {
+                    p.objective = park.progress();
+                    p.objectiveTheme = Park::themeName(park.missions()[size_t(park.progress())].theme);
+                }
+                for (const int theme : park.themesOpened())
+                    for (PlayerFile::World &w : p.worlds)
+                        if (w.theme == Park::themeName(theme))
+                            w.open = true;
             }
         return writePlayers(_target.savePath, players);
     }

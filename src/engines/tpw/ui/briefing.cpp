@@ -36,18 +36,58 @@ constexpr size_t kPresidentText = 173;
 constexpr size_t kPresidentTitleText = 174;
 
 // An objective's statistic, by its number in the mission, to its pair of
-// STAT_TITLES strings, the requirement then the status: the missions'
-// targets give these (40 and 200 people, a profit of 50,000); the others
-// aren't known.
+// STAT_TITLES strings, the requirement then the status, as the missions'
+// comments and targets match them: 2 a profit ("Make a profit of ${0}"),
+// 6 park awards, 7 a share of the shares, 8 people in the park.
 int statisticTitle(int statistic) {
     switch (statistic) {
     case 2:
         return 7;
+    case 6:
+        return 5;
+    case 7:
+        return 9;
     case 8:
         return 11;
     default:
         return -1;
     }
+}
+
+// UITEXT's, for the objectives other than statistics.
+constexpr size_t kElsewhereText = 75;
+constexpr size_t kDoneGoText = 76;
+constexpr size_t kResearchNeededText = 77;
+constexpr size_t kPromotionText = 79;
+constexpr size_t kChallengesNeededText = 80;
+constexpr size_t kSolutionFoundText = 81;
+constexpr size_t kTrainedStaffText = 84;
+constexpr size_t kTicketsNeededText = 85;
+constexpr size_t kResearchExpansionText = 90;
+constexpr size_t kResearchingText = 91;
+constexpr size_t kStaffMissingText = 92;
+constexpr size_t kStaffReadyText = 93;
+constexpr size_t kPositionText = 98;
+constexpr size_t kAllDoneText = 493;
+// STAT_TITLES': golden tickets, one, several, and those the player has.
+constexpr size_t kOneTicketText = 13;
+constexpr size_t kTicketsText = 14;
+constexpr size_t kTicketsHeldText = 15;
+// Operation Plughole!'s letter as it goes on: being researched; its
+// solution found; its staff trained (MISSION_DESC 19 to 21).
+constexpr int kPlughole = 1;
+constexpr size_t kPlugholeResearching = 19;
+constexpr size_t kPlugholeSolved = 20;
+constexpr size_t kPlugholeReady = 21;
+// STAFF_TYPES.str's singular, by Park::StaffKind; the plural follows it.
+constexpr std::array<size_t, Park::kStaffKinds> kStaffTypeNames{2, 0, 10, 6, 4, 8};
+
+// The project researching the mission's obstacle, if one is.
+const Park::Project *expansion(const Park &park) {
+    for (const std::optional<Park::Project> &p : park.projects())
+        if (p && p->kind == Park::ProjectKind::kExpansion && !p->finished)
+            return &*p;
+    return nullptr;
 }
 
 // The window's places at 640 × 480.
@@ -131,7 +171,9 @@ Error Briefing::load(const SearchSet &files) {
             return err;
     for (auto [table, name] :
          {std::pair{&_ui, "UITEXT"}, std::pair{&_operations, "OPERATION"}, std::pair{&_missions, "MISSION_DESC"},
-          std::pair{&_statistics, "STAT_TITLES"}, std::pair{&_tags, "TAG_SYSTEM"}})
+          std::pair{&_statistics, "STAT_TITLES"}, std::pair{&_tags, "TAG_SYSTEM"}, std::pair{&_themes, "THEMENAMES"},
+          std::pair{&_abilities, "ABILITIES"}, std::pair{&_staffTypes, "STAFF_TYPES"},
+          std::pair{&_ranks, "PROMOTIONLEVELS"}})
         if (Error err = readStringTable(files, folder, name, _characters, *table))
             return err;
     return Error::success();
@@ -147,25 +189,112 @@ void Briefing::drawCentred(Surface &screen, const Font &font, const ScreenRect &
 }
 
 std::vector<std::string> Briefing::letter(const Park &park, const std::string &player) const {
-    const int m = park.mission().number;
-    const std::string target = std::to_string(park.mission().target);
-    std::vector<std::string> out{_tags.text(kPresidentText), player, _operations.text(size_t(std::max(0, m)))};
-    std::string body = fillGameString(_missions, size_t(std::max(0, m)), {{0, target}});
+    const Park::Mission &mission = park.mission();
+    const int m = mission.number;
+    std::vector<std::string> out{_tags.text(kPresidentText), player,
+                                 _operations.text(size_t(std::max(0, m >= 0 ? m : park.progress())))};
+    std::string body;
+    if (m < 0) {
+        body = noObjective(park);
+    } else {
+        // Plughole's letter tells how its obstacle's going; the others say
+        // a solution's found (UITEXT 81).
+        size_t text = size_t(m);
+        if (m == kPlughole)
+            text = park.obstacleResearched() && park.obstacleStaffReady() ? kPlugholeReady
+                   : park.obstacleResearched()                            ? kPlugholeSolved
+                   : expansion(park)                                      ? kPlugholeResearching
+                                                                          : text;
+        body = fillGameString(_missions, text, {{0, std::to_string(mission.target)}});
+        if (m != kPlughole && mission.obstacle && park.obstacleResearched())
+            body += _ui.text(kSolutionFoundText);
+    }
     body += "\n\n" + _tags.text(kPresidentText) + "\n" + _tags.text(kPresidentTitleText);
     for (const std::string &line : wrapGameText(_label, _characters, body, kLetterWidth))
         out.push_back(line);
     return out;
 }
 
+// With no objective here: that it's done, and where the next is, or that
+// all are.
+std::string Briefing::noObjective(const Park &park) const {
+    const std::vector<Park::Mission> &missions = park.missions();
+    const int next = park.progress();
+    if (next >= int(missions.size()))
+        return _ui.text(kAllDoneText);
+    const std::string where = _themes.text(size_t(Park::themeName(missions[size_t(next)].theme)));
+    const bool doneHere = next > 0 && missions[size_t(next - 1)].theme == park.theme();
+    return fillGameString(_ui, doneHere ? kDoneGoText : kElsewhereText, {{5, where}});
+}
+
 std::vector<std::string> Briefing::details(const Park &park) const {
-    const int title = statisticTitle(park.mission().statistic);
-    std::vector<std::string> out{_ui.text(kRequirementsText)};
-    if (title >= 0)
-        out.push_back(fillGameString(_statistics, size_t(title), {{0, std::to_string(park.mission().target)}}));
-    out.emplace_back();
-    out.push_back(_ui.text(kStatusText));
-    if (title >= 0)
-        out.push_back(fillGameString(_statistics, size_t(title + 1), {{0, std::to_string(park.visitors())}}));
+    const Park::Mission &mission = park.mission();
+    std::vector<std::string> lines{_ui.text(kRequirementsText)};
+    std::vector<std::string> status{_ui.text(kStatusText)};
+    if (mission.number < 0) {
+        lines.push_back(noObjective(park));
+        status.clear();
+    }
+    for (const Park::Mission::Objective &o : mission.objectives) {
+        const int title = statisticTitle(o.statistic);
+        if (title < 0)
+            continue;
+        lines.push_back(fillGameString(_statistics, size_t(title), {{0, std::to_string(o.target)}}));
+        status.push_back(
+            fillGameString(_statistics, size_t(title + 1), {{0, std::to_string(park.statisticValue(o.statistic))}}));
+    }
+    if (mission.promotion > 0) {
+        lines.push_back(fillGameString(
+            _ui, kPromotionText,
+            {{7, _ranks.text(size_t(mission.promotion))}, {8, _ranks.text(size_t(std::max(1, park.rank())))}}));
+        status.push_back(fillGameString(_ui, kPositionText, {{12, _ranks.text(size_t(std::max(1, park.rank())))}}));
+    }
+    if (mission.challenges > 0)
+        lines.push_back(fillGameString(_ui, kChallengesNeededText,
+                                       {{9, std::to_string(mission.challenges)},
+                                        {5, _themes.text(size_t(Park::themeName(mission.challengesTheme)))},
+                                        {10, "0"}}));
+    if (mission.obstacle && mission.obstacleEffort > 0) {
+        lines.push_back(_ui.text(kResearchExpansionText));
+        if (park.obstacleResearched()) {
+            lines.push_back(_ui.text(kTrainedStaffText));
+            // Each need: so many of a kind, able so, and those trained.
+            const std::vector<std::vector<int>> staff = park.obstacleStaff();
+            for (size_t i = 0; i < mission.staffNeeded.size(); ++i) {
+                const Park::Mission::StaffNeed &need = mission.staffNeeded[i];
+                const std::optional<Park::StaffKind> kind = Park::missionStaffKind(need.staffType);
+                const std::string who =
+                    kind ? _staffTypes.text(kStaffTypeNames[size_t(*kind)] + (need.number > 1 ? 1 : 0)) : "";
+                lines.push_back(std::to_string(need.number) + " " + who + ": " + _abilities.text(size_t(need.ability)) +
+                                " (" + std::to_string(staff[i].size()) + "/" + std::to_string(need.number) + ")");
+            }
+            status.push_back(_ui.text(park.obstacleStaffReady() ? kStaffReadyText : kStaffMissingText));
+        } else if (const Park::Project *p = expansion(park)) {
+            status.push_back(fillGameString(_ui, kResearchingText,
+                                            {{11, std::to_string(int(100 * p->done / float(std::max(1, p->cost))))}}));
+        } else {
+            status.push_back(_ui.text(kResearchNeededText));
+        }
+    }
+    if (mission.goldenTickets > 0) {
+        lines.push_back(_ui.text(kTicketsNeededText));
+        lines.push_back(fillGameString(_statistics, mission.goldenTickets == 1 ? kOneTicketText : kTicketsText,
+                                       {{0, std::to_string(mission.goldenTickets)}}));
+        status.push_back(fillGameString(_statistics, kTicketsHeldText, {{0, std::to_string(park.goldenTickets())}}));
+    }
+    // Broken to the letter's width, the status after a blank line.
+    std::vector<std::string> out;
+    auto add = [&](const std::string &text) {
+        for (const std::string &line : wrapGameText(_label, _characters, text, kLetterWidth))
+            out.push_back(line);
+    };
+    for (const std::string &line : lines)
+        add(line);
+    if (!status.empty()) {
+        out.emplace_back();
+        for (const std::string &line : status)
+            add(line);
+    }
     return out;
 }
 

@@ -42,7 +42,11 @@ None yet.
   rates; the money's accounts, loans, share price and bankruptcy by
   guessed rules, their windows laid out by guess, and the finance
   director's messages shown over the park, not in a Message Center
-  ([finance.md](systems/finance.md)); the Assign staff, financial summary and naming windows laid out
+  ([finance.md](systems/finance.md)); the missions played as far as
+  challenges, promotions, golden tickets and park awards allow, none of
+  which are played yet, an obstacle cleared at once by the first staff
+  trained, and each park set up anew as the missions done leave it
+  ([missions.md](systems/missions.md)); the Assign staff, financial summary and naming windows laid out
   by guess, and a ride's view only the camera brought close
   ([research.md](systems/research.md), [building.md](systems/building.md#its-window-and-menu)); the
   weather's rolls and look guessed ([visitors.md](systems/visitors.md),
@@ -52,8 +56,7 @@ None yet.
   ([building.md](systems/building.md#their-names)), and the Buy window
   has no descriptions; no fly-in, gates or other building
   yet, its fixed items marked
-  ([PLAN.md](PLAN.md#phases), [park.md](systems/park.md)). Every park
-  is its world's first mission's.
+  ([PLAN.md](PLAN.md#phases), [park.md](systems/park.md)).
 - **The front end's opening**: its sparkles are drawn by guessed
   numbers, size and speed, without the emitters' flares; the white burst
   in the well isn't drawn; the advisor's portrait shows by the

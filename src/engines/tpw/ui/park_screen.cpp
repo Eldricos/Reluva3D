@@ -145,6 +145,14 @@ constexpr uint32_t kKioskOpenItem = 547;
 constexpr uint32_t kKioskCloseItem = 548;
 constexpr uint32_t kKioskFinanceItem = 549;
 constexpr uint32_t kKioskNameItem = 550;
+constexpr uint32_t kViewObjectivesItem = 591;
+constexpr uint32_t kProceedItem = 592;
+// What a solution refused says (UITEXT): "You need to research a
+// solution.", "You currently don't have all the staff of the required
+// type or ability", "GOLDEN TICKETS NEEDED:".
+constexpr uint32_t kNeedSolutionText = 103;
+constexpr uint32_t kNeedStaffText = 92;
+constexpr uint32_t kNeedTicketsText = 85;
 // What an upgrade refused says, by Park::Upgrading: "fully upgraded" (125),
 // "hired some engineers and trained them" (11), "You need to research a
 // solution" (103, guessed for an upgrade not researched); none for want of
@@ -324,6 +332,7 @@ Error ParkScreen::load(const SearchSet &files, const Park &park) {
     _kitRead = !_kit.load(files);
     loadObjects(files, park);
     _runs.clear();
+    _runIds.clear();
     _ranTo = park.millis();
     _unscripted.clear();
     _prebuilt = park.objects().size();
@@ -487,7 +496,9 @@ const LoadedModel *ParkScreen::objectModel(int id) const {
 void ParkScreen::advance(Park &park) {
     const uint32_t ms = uint32_t(park.millis() - std::min(park.millis(), _ranTo));
     _ranTo = park.millis();
-    for (size_t i = _runs.size(); i < park.objects().size(); ++i) {
+    for (const auto &[object, queue] : park.takeRemovals())
+        removed(object, queue);
+    auto runOf = [&](size_t i) {
         std::unique_ptr<RideRun> run;
         const int id = park.objects()[i].id;
         if (objectModel(id) && _files) {
@@ -497,7 +508,17 @@ void ParkScreen::advance(Park &park) {
             else if (i < _prebuilt)
                 run->advance(kSettledMillis);
         }
-        _runs.push_back(std::move(run));
+        return run;
+    };
+    // An object changed for another (an obstacle cleared) runs the other's script.
+    for (size_t i = 0; i < _runs.size() && i < park.objects().size(); ++i)
+        if (_runIds[i] != park.objects()[i].id) {
+            _runIds[i] = park.objects()[i].id;
+            _runs[i] = runOf(i);
+        }
+    for (size_t i = _runs.size(); i < park.objects().size(); ++i) {
+        _runs.push_back(runOf(i));
+        _runIds.push_back(park.objects()[i].id);
     }
     // Each ride's script takes the visitor waiting at its entrance when
     // it will, and lets its riders off.
@@ -1113,8 +1134,10 @@ void ParkScreen::notify(const Park &park, uint32_t text) {
 
 // The scripts and the unscripted rides' users go by the objects' and queues' places.
 void ParkScreen::removed(size_t object, int queue) {
-    if (object < _runs.size())
+    if (object < _runs.size()) {
         _runs.erase(_runs.begin() + long(object));
+        _runIds.erase(_runIds.begin() + long(object));
+    }
     if (object < _prebuilt)
         --_prebuilt;
     if (queue < 0)
@@ -1196,6 +1219,8 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
     int patrolling = 0;
     std::optional<Park::Cell> patrolCorner;
     size_t located = 0; // Locate Staff's last
+    bool wantObjectives = false;
+    int shownMission = park.mission().number; // the mission whose briefing was last shown
     auto onGates = [&](const Park::Cell &c) {
         const auto &gates = park.fixedItems().entrance;
         return std::find(gates.begin(), gates.end(), c) != gates.end();
@@ -1205,6 +1230,13 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
         std::vector<uint32_t> items;
         const Park::PlacedObject &o = park.objects()[object];
         const Attractions::Attraction *a = park.attractions().find(o.id);
+        // An obstacle: the objectives, and, if it's the mission's, its solution.
+        if (a && a->obstacle) {
+            items.push_back(kViewObjectivesItem);
+            if (o.id == park.mission().obstacle && park.mission().needsSolution())
+                items.push_back(kProceedItem);
+            return items;
+        }
         if (a && a->requiresWatering)
             items.push_back(o.gardener ? kCancelGardenerItem : kCallGardenerItem);
         const int queue = park.queueOf(object);
@@ -1310,6 +1342,22 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                                 }
                             else if (item == kCancelUpgradeItem)
                                 park.cancelUpgrade(object);
+                            else if (item == kViewObjectivesItem)
+                                wantObjectives = true;
+                            else if (item == kProceedItem)
+                                switch (park.proceedWithSolution()) {
+                                case Park::Solution::kNotResearched:
+                                    screen.notify(park, kNeedSolutionText);
+                                    break;
+                                case Park::Solution::kNeedsStaff:
+                                    screen.notify(park, kNeedStaffText);
+                                    break;
+                                case Park::Solution::kNeedsTickets:
+                                    screen.notify(park, kNeedTicketsText);
+                                    break;
+                                default:
+                                    break;
+                                }
                             else if (item == kRideItem)
                                 camera = screen.rideCamera(park, object, camera);
                             else if (item == kFinanceSummaryItem || item == kKioskFinanceItem)
@@ -1323,7 +1371,6 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                             } else if (item == kDeleteItem) {
                                 const int queue = park.queueOf(object);
                                 park.remove(object);
-                                screen.removed(object, queue);
                                 if (queueLaying == queue)
                                     queueLaying = -1;
                                 else if (queueLaying > queue && queue >= 0)
@@ -1603,7 +1650,12 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
         // A wage demand comes up of itself.
         if (const Park::WageDemand *demand = park.wageDemand(); demand && !screen.wageDemand().isOpen())
             screen.wageDemand().open(demand->raise);
-        if (choice == ParkHud::kObjectivesItem && showObjectives) {
+        // A new mission's briefing shows of itself, once the messages are read.
+        if (park.mission().number != shownMission && !screen.messagesWaiting()) {
+            shownMission = park.mission().number;
+            wantObjectives = wantObjectives || shownMission >= 0;
+        }
+        if ((choice == ParkHud::kObjectivesItem || std::exchange(wantObjectives, false)) && showObjectives) {
             park.setPaused(true);
             const ParkScreen::Camera now = camera;
             const bool open = showObjectives([&](Surface &s) { screen.draw(s, rasterizer, park, now); });

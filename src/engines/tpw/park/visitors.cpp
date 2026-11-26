@@ -821,6 +821,7 @@ void Park::newDay() {
     staffDay();
     researchDay();
     financeDay();
+    missionDay();
     const bool weatherDay = _lastDay % uint32_t(_rules.weatherDays) == 0;
     const bool wet = _weather == Weather::kRain || _weather == Weather::kStorm || _weather == Weather::kSnow;
     for (Visitor &v : _people) {

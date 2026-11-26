@@ -79,6 +79,8 @@ public:
     std::string tag(uint32_t index, const std::map<int, std::string> &values = {}) const;
     /** A lender's name, LOANNAMES.str's: "Cash Unlimited". */
     std::string lender(int index) const { return _lenders.text(uint32_t(index)); }
+    /** The president's letter on a mission done, OBJECTIVE_COMPLETE.str's, by the mission. */
+    std::string objectiveLetter(int mission) const { return _objectiveLetters.text(uint32_t(mission)); }
     /** A rank, PROMOTIONLEVELS.str's: 1 "Assistant Manager". */
     std::string rank(int index) const { return _ranks.text(uint32_t(index)); }
 
@@ -100,6 +102,7 @@ private:
     StringTable _tags;
     StringTable _lenders;
     StringTable _ranks;
+    StringTable _objectiveLetters;
     LoadedModel _panel;
 };
 

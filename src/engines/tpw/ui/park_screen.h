@@ -193,6 +193,7 @@ private:
     mutable std::map<int, std::string> _objectPaths;  // their models' names
     mutable SignPainter _signs;
     std::vector<std::unique_ptr<RideRun>> _runs; // by the park's objects: their scripts, those that have one
+    std::vector<int> _runIds;                    // the objects they're of
     uint64_t _ranTo = 0;                         // the park's time they're run to
     // Attractions without a script, by their queues: whom they have, and till when (the park's time).
     std::map<int, std::vector<std::pair<int, uint64_t>>> _unscripted;

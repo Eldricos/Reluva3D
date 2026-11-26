@@ -147,7 +147,9 @@ and at 80 and 80 *(guessed)*:
   for 30 days *(guessed)*, they come out `TrainingExtraExperience` (5,000)
   more experienced, by their agency's `TrainingExperienceGainModifier`
   (tenths). They need `MinExperienceForTraining` (30,000) first (232), and
-  the park a training room (233).
+  the park a training room (233). They learn an ability: what the
+  mission's obstacle still wants of their kind ([missions.md](missions.md#obstacles)),
+  else, for an engineer, Ride Upgrading *(guessed)*.
 - **Patrol areas**: kept to a rectangle of cells, two corners clicked,
   they wander and look for work only within it.
 - **Firing**: gone at once.

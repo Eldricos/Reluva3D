@@ -59,6 +59,8 @@ public:
     std::vector<std::string> letter(const Park &park, const std::string &player) const;
     /** The details' lines: the requirement, then the status. */
     std::vector<std::string> details(const Park &park) const;
+    /** What the letter says with no objective here: that it's done and where the next is, or all are. */
+    std::string noObjective(const Park &park) const;
 
 private:
     void drawText(Surface &screen, const Font &font, int x, int y, const std::string &text, Color c) const;
@@ -86,6 +88,10 @@ private:
     StringTable _missions;
     StringTable _statistics;
     StringTable _tags;
+    StringTable _themes;
+    StringTable _abilities;
+    StringTable _staffTypes;
+    StringTable _ranks;
 };
 
 /**

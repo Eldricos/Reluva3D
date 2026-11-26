@@ -26,7 +26,7 @@ Operation Expand!):
 | The letter, its target in its `{0}` | `MISSION_DESC`, by the mission's number; the target is the mission's `ExitStatistic[0].TargetValue` |
 | From, and the signature: "Mr Maybury", "President, SimCoaster" | `TAG_SYSTEM` 173, 174 |
 | To | The player's name, as the Personnel File has it ([personnel-file.md](personnel-file.md)) |
-| The requirement and its status: "Get 40 people in the park at once.", "Number of people currently in the park: 0" | `STAT_TITLES`, a pair for each kind of objective: 11 and 12 for the mission's statistic 8, the visitors in the park; 7 and 8 for statistic 2, a profit, as the missions' targets say (40 and 200 people, 50,000 of profit) *(inferred)*. The others' pairs aren't matched |
+| The requirement and its status: "Get 40 people in the park at once.", "Number of people currently in the park: 0" | `STAT_TITLES`, a pair for each kind of objective: 11 and 12 for the mission's statistic 8, the visitors in the park; 7 and 8 for statistic 2, a profit, as the missions' targets say (40 and 200 people, 50,000 of profit) *(inferred)*; 5 and 6 for 6, park awards, and 9 and 10 for 7, the shares, by the missions' comments; the other requirements' as [missions.md](missions.md#the-briefing) has them |
 
 The letter is broken into lines 258 pixels wide in `GAME8AA`, as the
 recording's are: its first line ends "but we won't buy you", the next
@@ -65,7 +65,8 @@ above; `showBriefing` shows it over the new park until it's closed (by
 Proceed, either cross, Esc or Enter), the park's clock stopped
 meanwhile. The Challenges tab is drawn but not yet shown.
 `reluva-tool tpw briefing-shot <game folder> <world folder> <out.png>
-[player [-details]]` draws it over a new park and prints its text;
+[player [-details]] [-mission <n>]` draws it over a new park, the
+player's campaign at a mission, and prints its text;
 `park-run` turns it to the details and back and proceeds
 ([park.md](park.md#in-reluva)).
 
@@ -80,7 +81,7 @@ meanwhile. The Challenges tab is drawn but not yet shown.
 
 ## Open questions
 
-- The other missions' pictures; the objectives' other kinds' strings.
+- The other missions' pictures.
 - The Challenges tab: the park's challenges (`Challenges.sam`).
 - When the game shows the briefing again, and what the window's help
   button opens.

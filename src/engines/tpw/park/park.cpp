@@ -22,7 +22,6 @@ namespace {
 
 constexpr const char *kGeneralSettings = "levels/Standard.sam";
 constexpr const char *kPrebuiltPark = "PreBuilt/prebuilt.TPWS";
-constexpr int kMostBoundaryClicks = 256;
 constexpr int kMostTicketBooths = 8;
 // How far the entrance's path runs in, in cells: its tiles, in the
 // attribute map.
@@ -200,21 +199,10 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
     rollWeather();
     fillPool(true);
 
-    char name[32];
-    std::snprintf(name, sizeof name, "missions/miss%02d.sam", mission);
-    SamFile m;
-    if (Error err = readSettings(files, name, m))
+    if (Error err = loadMissions(files, mission))
         return err;
-    _mission.number = int(m.number("Info.Number", mission));
-    _mission.statistic = int(m.number("ExitStatistic[0].Type"));
-    _mission.target = int(m.number("ExitStatistic[0].TargetValue"));
-    _mission.obstacle = int(m.number("Obstacle.Type"));
-    for (int i = 0; i < kMostBoundaryClicks; ++i) {
-        const std::string base = "BoundaryClicks[" + std::to_string(i) + "].";
-        if (!m.find(base + "X"))
-            break;
-        _mission.boundary.push_back(cellOf(m, base + "X", base + "Y"));
-    }
+    // The screen sets out from the park as it's set up.
+    _removals.clear();
     return Error::success();
 }
 

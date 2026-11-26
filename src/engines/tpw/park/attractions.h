@@ -61,8 +61,15 @@ public:
         bool lab = false;              // UsageInfo.ThinkingSpace: a research room, which scientists need
         bool trainingRoom = false;     // UsageInfo.TrainingRoom
         bool requiresWatering = false; // UsageInfo.RequiresWatering: a plant
-        int wearRate = 0;              // Upgrades[0].WearRate, out of 10: a ride's wear
-        int runningCost = 0;           // Upgrades[0].RunningCost, a month
+        // An obstacle (Info.IsObstacle, the world's obstacles folder): what
+        // clearing it leaves, Obstacle.ReplaceWithID's object or nothing
+        // (DeleteAfterUse); and whether it opens of itself as its mission's
+        // done (OpenedAutomaticly).
+        bool obstacle = false;
+        int replaceWith = 0;
+        bool openedAutomatically = false;
+        int wearRate = 0;    // Upgrades[0].WearRate, out of 10: a ride's wear
+        int runningCost = 0; // Upgrades[0].RunningCost, a month
         // Upgrades[0].ScrapValueYear1 to 4: what it fetches scrapped, percent of its price.
         std::array<int, 4> scrapPercent{50, 30, 20, 10};
         /** A level of it, bought as an upgrade: Upgrades[n]'s settings. */
@@ -107,6 +114,8 @@ public:
     std::vector<const Attraction *> onSale(Kind kind) const;
     /** Puts one on sale, researched. */
     void markAvailable(int id);
+    /** Puts one on sale, if it has a price, or takes it off. */
+    void setAvailable(int id, bool available);
 
 private:
     std::vector<Attraction> _all;

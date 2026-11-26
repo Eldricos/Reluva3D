@@ -28,7 +28,9 @@ has been played would settle it.
 
 The players are kept in `players.txt` in the game's save folder (the
 launcher's for the game), written whenever one is made, deleted, or
-given their first objective (`src/engines/tpw/players.cpp`). Its lines:
+given their first objective (`src/engines/tpw/players.cpp`), and as a
+park closes, with its objective, golden tickets, worlds opened and share
+price ([missions.md](missions.md), [finance.md](finance.md)). Its lines:
 
 ```
 # Reluva's SimCoaster players: docs/engines/tpw/games/simcoaster/systems/players.md

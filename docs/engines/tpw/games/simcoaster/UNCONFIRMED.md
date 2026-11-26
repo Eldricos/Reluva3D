@@ -129,6 +129,12 @@ None yet.
   chasing ([staff.md](systems/staff.md),
   [building.md](systems/building.md#wear-and-breakdowns)).
 
+- **Missions**: how an obstacle's staff are chosen and work, what
+  clearing costs, which ability training teaches, and the staff numbering
+  of `ObstacleStaff[n].StaffType` past 0, 1 and 5
+  ([missions.md](systems/missions.md)). The game's Plughole played through
+  would settle most of it.
+
 - **Money**: how loans are repaid, how the annual report moves the
   share price, what the park's value counts, when the director warns of
   a low balance, how months in the red are counted, and the finance
