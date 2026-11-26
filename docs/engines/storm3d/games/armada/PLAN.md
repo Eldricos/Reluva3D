@@ -112,7 +112,9 @@ these phases start from, is in [formats/install.md](formats/install.md).
    close-up of a unit; the build menu, and ships built
    ([systems/building.md](systems/building.md)); stations placed and
    built; mining dilithium ([systems/mining.md](systems/mining.md));
-   attacking, shields and hulls ([systems/combat.md](systems/combat.md)).
+   attacking, shields and hulls ([systems/combat.md](systems/combat.md));
+   the computer player building by its build list
+   ([systems/computer-player.md](systems/computer-player.md)).
 8. **The campaign:** the functions `Armada.exe` exports for the missions,
    the missions themselves ([Decisions](#decisions)), the cut scenes and
    the bridge scenes, and saved games.

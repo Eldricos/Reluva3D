@@ -8,6 +8,7 @@
 #include "engines/storm3d/formats/odf.h"
 #include "engines/storm3d/game_files.h"
 #include "engines/storm3d/play/combat.h"
+#include "engines/storm3d/play/computer_player.h"
 #include "engines/storm3d/play/hud.h"
 #include "engines/storm3d/play/movement.h"
 #include "engines/storm3d/scene/map_scene.h"
@@ -246,7 +247,6 @@ private:
     Hud _hud;
     Surface _overlay;
     std::optional<Hud::Resources> _resources; // none: not known (a campaign's are its script's)
-    int _starbases = 0;                       // the player's, which bring them crew
     double _crewCarry = 0;                    // crew grown, not yet a whole one
     std::set<int> _held;
     int _mouseX = 320;
@@ -309,7 +309,21 @@ private:
     // By sprite: its texture, and its rectangle in it (u0, v0, u1, v1).
     std::map<std::string, std::pair<gfx::TextureId, std::array<float, 4>>> _shotLooks;
     std::optional<Footprint> footprintOf(const std::string &odf, const gfx::Vec3 &at, float fallback);
-    bool placeable(const gfx::Vec3 &site) const;
+    bool placeable(const gfx::Vec3 &site, const Footprint &station) const;
+    Hud::Resources *bankOf(int slot); // a player's counters: the player's, or a computer's
+    void startSite(size_t builder, const gfx::Vec3 &at, const std::string &item, const Footprint &station);
+    std::optional<gfx::Vec3> siteFor(int slot, const ComputerPlayer::Element &e, const Footprint &station);
+    void think(double seconds); // the computer players'
+    // A computer player: its slot, its build list, its counters.
+    struct Computer {
+        int slot = 0;
+        std::vector<ComputerPlayer::Element> list;
+        Hud::Resources bank;
+        double crewCarry = 0;
+        double think = 0; // seconds to its next look
+    };
+    std::vector<Computer> _computers;
+    std::vector<std::string> _classes; // by unit: its classLabel, lower case
     void drawPlacement(const MapScene::Camera &view);
     std::vector<std::string> ownedOdfs() const; // the player's units' definitions
     void makeRing();

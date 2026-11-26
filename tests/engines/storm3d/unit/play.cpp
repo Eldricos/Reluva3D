@@ -6,6 +6,7 @@
 
 #include "engines/storm3d/formats/gui_config.h"
 #include "engines/storm3d/play/combat.h"
+#include "engines/storm3d/play/computer_player.h"
 #include "engines/storm3d/play/hud.h"
 #include "engines/storm3d/play/mission_view.h"
 #include "engines/storm3d/play/movement.h"
@@ -555,6 +556,37 @@ void testCombat() {
     CHECK(volleys == 7 && std::abs(died - 27) < 0.01);
 }
 
+// The computer player's build list: read as the game's, and its next
+// entry the first not yet met, counting each type's entries together.
+void testBuildList() {
+    using reluva::storm3d::ComputerPlayer;
+    CHECK(ComputerPlayer::buildListFileOf("kling") == "klingon_build_list.aip");
+    const std::map<std::string, std::string> files = {
+        {"aipdef.h", "struct Better_Build_List_Element\n{\n char unit_type_name[80];\n double units_to_build;\n"
+                     " int m_base_num;\n};\n#define MAX_ELEMENTS 200\n"},
+        {"federation_build_list.aip",
+         "#include \"aipdef.h\"\nBetter_Build_List_Element the_build_list[MAX_ELEMENTS] =\n{\n"
+         " \"fbase\", 1,0, // first base\n \"fconst\", 1,0,\n \"fmining\", 1,1,\n \"ffreight\", 2,0,\n"
+         " \"fmining\", 1,2,\n};\n"},
+    };
+    const reluva::storm3d::ConfigFile::Loader loader = [&files](std::string_view name, std::string &text) {
+        auto it = files.find(std::string(name));
+        if (it == files.end())
+            return reluva::Error::fail("not found");
+        text = it->second;
+        return reluva::Error::success();
+    };
+    const auto list = ComputerPlayer::buildListOf("federation_build_list.aip", loader);
+    CHECK(list.size() == 5 && list[2].type == "fmining" && list[2].count == 1 && list[2].base == 1);
+    CHECK(list[3].count == 2 && list[4].base == 2);
+    // The skirmish's start: a starbase and two construction ships meet the
+    // first two; a mining station is next.
+    CHECK(ComputerPlayer::nextOf(list, {{"fbase", 1}, {"fconst", 2}}) == 2u);
+    CHECK(ComputerPlayer::nextOf(list, {{"fbase", 1}, {"fconst", 2}, {"fmining", 1}, {"ffreight", 1}}) == 3u);
+    CHECK(ComputerPlayer::nextOf(list, {{"fbase", 1}, {"fconst", 2}, {"fmining", 1}, {"ffreight", 2}}) == 4u);
+    CHECK(!ComputerPlayer::nextOf(list, {{"fbase", 1}, {"fconst", 1}, {"fmining", 2}, {"ffreight", 2}}));
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("storm3d.unit.play",
@@ -580,4 +612,5 @@ static const reluva::test::Suite kSuite("storm3d.unit.play",
                                             {"map icons", [](const std::filesystem::path &) { testMapIcons(); }},
                                             {"freighter", [](const std::filesystem::path &) { testFreighter(); }},
                                             {"combat", [](const std::filesystem::path &) { testCombat(); }},
+                                            {"build list", [](const std::filesystem::path &) { testBuildList(); }},
                                         });

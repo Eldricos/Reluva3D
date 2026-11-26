@@ -403,9 +403,9 @@ std::optional<MissionView::Footprint> MissionView::footprintOf(const std::string
     return f;
 }
 
-bool MissionView::placeable(const gfx::Vec3 &site) const {
+bool MissionView::placeable(const gfx::Vec3 &site, const Footprint &station) const {
     const auto taken = takenCellsOf(_footprints);
-    for (const auto &c : siteCellsOf(site, _placingFootprint))
+    for (const auto &c : siteCellsOf(site, station))
         if (taken.count(c))
             return false;
     return true;
@@ -559,17 +559,147 @@ void MissionView::place(int x, int y) {
     const auto at = MapScene::pointOn(camera(), _ships[builder].at[1], x, y);
     if (!at)
         return;
-    if (!placeable(*at))
+    if (!placeable(*at, _placingFootprint))
         return;
+    startSite(builder, *at, *_placing, _placingFootprint);
+    _placing.reset();
+}
+
+Hud::Resources *MissionView::bankOf(int slot) {
+    if (slot == _slot)
+        return _resources ? &*_resources : nullptr;
+    for (Computer &c : _computers)
+        if (c.slot == slot)
+            return &c.bank;
+    return nullptr;
+}
+
+void MissionView::startSite(size_t builder, const gfx::Vec3 &at, const std::string &item, const Footprint &station) {
     Site site;
     site.builder = builder;
-    site.at = *at;
-    site.order = orderOf(*_placing, loaderOf(_files.files()));
+    site.at = at;
+    site.order = orderOf(item, loaderOf(_files.files()));
     _sites.push_back(site);
-    _ships[builder].goal = standOffOf(*at, _ships[builder].at, standOffDistanceOf(_placingFootprint));
+    _ships[builder].goal = standOffOf(at, _ships[builder].at, standOffDistanceOf(station));
     _ships[builder].route.clear();
     _ships[builder].waiting = Movement::kSetOff;
-    _placing.reset();
+}
+
+std::optional<gfx::Vec3> MissionView::siteFor(int slot, const ComputerPlayer::Element &e, const Footprint &station) {
+    const std::vector<MapScene::Unit> &units = _scene.units();
+    // Its home: its first starbase standing, else its first unit.
+    std::optional<gfx::Vec3> home;
+    for (size_t i = 0; i < units.size() && !home; ++i)
+        if (units[i].slot == slot && !_dead[i] && _classes[i] == "starbase")
+            home = units[i].at;
+    for (size_t i = 0; i < units.size() && !home; ++i)
+        if (units[i].slot == slot && !_dead[i])
+            home = units[i].at;
+    if (!home)
+        return std::nullopt;
+    Odf def;
+    const bool mining = !def.load(e.type + ".odf", loaderOf(_files.files())) &&
+                        text::equalsIgnoreCase(def.string("classLabel"), "mining");
+    auto nearestMoon = [this](const gfx::Vec3 &to) {
+        const gfx::Vec3 *best = nullptr;
+        for (const gfx::Vec3 &m : _moons)
+            if (!best || std::hypot(m[0] - to[0], m[2] - to[2]) < std::hypot((*best)[0] - to[0], (*best)[2] - to[2]))
+                best = &m;
+        return best;
+    };
+    gfx::Vec3 anchor = *home;
+    float from = 150;
+    if (mining && !_moons.empty()) {
+        // A mining station near its base-th moon from home, the nearest 1:
+        // the original's first stood 357 from the nearest (guessed).
+        std::vector<gfx::Vec3> moons = _moons;
+        std::sort(moons.begin(), moons.end(), [&home](const gfx::Vec3 &a, const gfx::Vec3 &b) {
+            return std::hypot(a[0] - (*home)[0], a[2] - (*home)[2]) < std::hypot(b[0] - (*home)[0], b[2] - (*home)[2]);
+        });
+        anchor = moons[size_t(std::clamp(e.base - 1, 0, int(moons.size()) - 1))];
+        anchor[1] = (*home)[1];
+    } else if (e.base > 0) {
+        // Another station "for" a base: at the middle of the base-th mining
+        // station and its moon, as the original's pulse cannon stood.
+        int seen = 0;
+        for (size_t i = 0; i < units.size(); ++i)
+            if (units[i].slot == slot && !_dead[i] && _classes[i] == "mining" && ++seen == e.base)
+                if (const gfx::Vec3 *moon = nearestMoon(units[i].at)) {
+                    anchor = {(units[i].at[0] + (*moon)[0]) / 2, (*home)[1], (units[i].at[2] + (*moon)[2]) / 2};
+                    from = 0;
+                }
+    }
+    // The nearest site to it that's free, going round from the side of home.
+    const float toward = std::atan2((*home)[0] - anchor[0], (*home)[2] - anchor[2]);
+    for (float r = from; r <= from + 1500; r += 50) {
+        const int around = r <= 0 ? 1 : std::max(8, int(2 * std::numbers::pi * r / 50));
+        for (int k = 0; k < around; ++k) {
+            // 0, +1, -1, +2, -2, ... steps either side of the way home.
+            const int step = (k + 1) / 2 * (k % 2 ? 1 : -1);
+            const float angle = toward + float(step) * 2 * std::numbers::pi_v<float> / float(around);
+            const gfx::Vec3 at{anchor[0] + std::sin(angle) * r, anchor[1], anchor[2] + std::cos(angle) * r};
+            if (placeable(at, station))
+                return at;
+        }
+    }
+    return std::nullopt;
+}
+
+void MissionView::think(double seconds) {
+    // Each computer player looks once a second at what to build next.
+    const std::vector<MapScene::Unit> &units = _scene.units();
+    const Odf::Loader loader = loaderOf(_files.files());
+    for (Computer &c : _computers) {
+        c.think -= seconds;
+        if (c.think > 0)
+            continue;
+        c.think = 1;
+        // What it has, built or on order.
+        std::map<std::string, int> owned;
+        for (size_t i = 0; i < units.size(); ++i)
+            if (units[i].slot == c.slot && !_dead[i])
+                ++owned[text::toLower(units[i].odf)];
+        for (const auto &[builder, queue] : _queues)
+            if (builder < units.size() && units[builder].slot == c.slot)
+                for (const Order &o : queue)
+                    ++owned[text::toLower(o.item)];
+        for (const Site &s : _sites)
+            if (s.builder < units.size() && units[s.builder].slot == c.slot)
+                ++owned[text::toLower(s.order.item)];
+        const auto next = ComputerPlayer::nextOf(c.list, owned);
+        if (!next)
+            continue;
+        const ComputerPlayer::Element &e = c.list[*next];
+        Odf def;
+        if (def.load(e.type + ".odf", loader))
+            continue;
+        if (def.number("enginesHitPoints") > 0) {
+            // A ship: from a builder of its with nothing on order.
+            for (size_t i = 0; i < units.size(); ++i) {
+                if (units[i].slot != c.slot || _dead[i] || !_queues[i].empty())
+                    continue;
+                const std::vector<std::string> items = buildListOf(units[i].odf, loader);
+                if (std::find(items.begin(), items.end(), e.type) == items.end())
+                    continue;
+                const Order order = orderOf(e.type, loader);
+                if (pay(c.bank, order))
+                    _queues[i].push_back(order);
+                break;
+            }
+            continue;
+        }
+        // A station: by an idle construction ship of its, where there's room.
+        for (size_t i = 0; i < units.size(); ++i) {
+            if (units[i].slot != c.slot || _dead[i] || _classes[i] != "constructionrig" || _ships[i].goal)
+                continue;
+            if (std::any_of(_sites.begin(), _sites.end(), [i](const Site &s) { return s.builder == i; }))
+                continue;
+            const Footprint station = footprintOf(e.type, {}, 0).value_or(Footprint{});
+            if (auto at = siteFor(c.slot, e, station))
+                startSite(i, *at, e.type, station);
+            break;
+        }
+    }
 }
 
 void MissionView::raise(const Site &site) {
@@ -612,6 +742,7 @@ void MissionView::addFighter(const std::string &odf) {
     _weapons.push_back(read ? Combat::weaponsOf(def, loader) : std::vector<Combat::Weapon>{});
     _targets.push_back(-1);
     _dead.push_back(false);
+    _classes.push_back(read ? text::toLower(def.string("classLabel")) : std::string());
 }
 
 int MissionView::liveUnitAt(const gfx::Mat4 &viewProj, int x, int y) const {
@@ -684,10 +815,10 @@ void MissionView::destroy(size_t unit) {
     // Its officers go back to the count: the original's 4 of 120 became 2
     // as its construction ship went.
     const MapScene::Unit &u = _scene.units()[unit];
-    if (u.slot == _slot && _resources) {
+    if (Hud::Resources *bank = bankOf(u.slot)) {
         Odf def;
         if (!def.load(u.odf + ".odf", loaderOf(_files.files())))
-            _resources->officers = std::max(0, _resources->officers - int(def.number("officerCost")));
+            bank->officers = std::max(0, bank->officers - int(def.number("officerCost")));
     }
     std::erase(_selection, int(unit));
     for (int &t : _targets)
@@ -728,7 +859,8 @@ std::optional<size_t> MissionView::addShip(const std::string &odf, const gfx::Ve
 void MissionView::build(double seconds) {
     // The freighters, each at its nearest moon.
     for (Freighter &f : _freighters) {
-        if (f.unit >= _ships.size() || f.station >= _ships.size() || _moons.empty() || !_resources)
+        Hud::Resources *bank = f.station < _scene.units().size() ? bankOf(_scene.units()[f.station].slot) : nullptr;
+        if (f.unit >= _ships.size() || f.station >= _ships.size() || _moons.empty() || !bank)
             continue;
         const gfx::Vec3 &station = _ships[f.station].at;
         const gfx::Vec3 *moon = &_moons.front();
@@ -736,13 +868,14 @@ void MissionView::build(double seconds) {
             if (std::hypot(m[0] - station[0], m[2] - station[2]) <
                 std::hypot((*moon)[0] - station[0], (*moon)[2] - station[2]))
                 moon = &m;
-        work(f, _ships[f.unit], *moon, station, _resources->dilithium, seconds);
+        work(f, _ships[f.unit], *moon, station, bank->dilithium, seconds);
     }
     // The stations: begun, and paid for, when the builder has got there.
     for (size_t i = 0; i < _sites.size();) {
         Site &site = _sites[i];
         const Movement::Ship &ship = _ships[site.builder];
-        if (!site.started && !ship.goal && _resources && pay(*_resources, site.order))
+        Hud::Resources *bank = bankOf(_scene.units()[site.builder].slot);
+        if (!site.started && !ship.goal && bank && pay(*bank, site.order))
             site.started = true;
         if (site.started)
             site.order.elapsed += seconds;
@@ -869,7 +1002,6 @@ Error MissionView::start(gfx::Renderer3D *renderer, const std::string &map, int 
         _hud = Hud{};
     _mapIcons = mapIconsOf(parsed, loaderOf(_files.files()));
     _resources.reset();
-    _starbases = 0;
     _held.clear();
     _last = millis;
     return Error::success();
@@ -955,12 +1087,29 @@ Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &m
     if (_hud.load(_files, hudRaceOf(myRace)))
         _hud = Hud{};
     _resources = resourcesOf(start, myUnits, _files.files());
-    _starbases = 0;
     _crewCarry = 0;
-    for (const std::string &u : myUnits) {
-        Odf odf;
-        if (!odf.load(u + ".odf", loader) && text::equalsIgnoreCase(odf.string("classLabel"), "starbase"))
-            ++_starbases;
+    // The computer players, each with its race's build list and its own
+    // counters, starting as the player does.
+    _computers.clear();
+    const ConfigFile::Loader aiLoader = [this](std::string_view name, std::string &text) {
+        std::vector<uint8_t> bytes;
+        if (Error err = _files.read("AI/AIPs/" + std::string(name), bytes))
+            return err;
+        text.assign(bytes.begin(), bytes.end());
+        return Error::success();
+    };
+    for (const Player &p : players) {
+        if (p.human)
+            continue;
+        Computer c;
+        c.slot = p.slot;
+        c.list = ComputerPlayer::buildListOf(ComputerPlayer::buildListFileOf(p.race), aiLoader);
+        std::vector<std::string> theirs;
+        for (const MapScene::StartUnit &u : units)
+            if (u.slot == p.slot)
+                theirs.push_back(u.odf);
+        c.bank = resourcesOf(start, theirs, _files.files());
+        _computers.push_back(c);
     }
     _held.clear();
     _last = millis;
@@ -1227,7 +1376,7 @@ void MissionView::drawPlacement(const MapScene::Camera &view) {
     // The station's own cells, one frame over them all: green where it can
     // go, red where it can't.
     const int across = int(std::lround(std::sqrt(double(site.size()))));
-    cell(site.front(), across, placeable(*at) ? _cellFree : _cellBlocked);
+    cell(site.front(), across, placeable(*at, _placingFootprint) ? _cellFree : _cellBlocked);
 }
 
 void MissionView::stop() {
@@ -1264,6 +1413,8 @@ void MissionView::stop() {
     _physics.clear();
     _ships.clear();
     _vitals.clear();
+    _classes.clear();
+    _computers.clear();
     _weapons.clear();
     _targets.clear();
     _dead.clear();
@@ -1367,8 +1518,18 @@ void MissionView::draw(uint64_t millis) {
     const double seconds = double(millis - _last) / 1000;
     _overview = moved(_overview, _held, seconds);
     _last = millis;
+    // Each player's crew, by the starbases it has standing.
+    auto starbasesOf = [this](int slot) {
+        int n = 0;
+        for (size_t i = 0; i < _scene.units().size() && i < _dead.size(); ++i)
+            n += _scene.units()[i].slot == slot && !_dead[i] && _classes[i] == "starbase";
+        return n;
+    };
     if (_resources)
-        _resources->crew = grownCrew(_resources->crew, _crewCarry, _starbases, seconds);
+        _resources->crew = grownCrew(_resources->crew, _crewCarry, starbasesOf(_slot), seconds);
+    for (Computer &c : _computers)
+        c.bank.crew = grownCrew(c.bank.crew, c.crewCarry, starbasesOf(c.slot), seconds);
+    think(seconds);
     build(seconds);
     fight(seconds);
     // The ships fly on, in steps of no more than a twentieth of a second.
