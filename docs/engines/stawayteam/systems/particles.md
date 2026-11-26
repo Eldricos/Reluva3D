@@ -64,7 +64,10 @@ Each particle:
     `Inside Radius` out to `Inside Radius` + `Outside Radius`, the first
     way across scaled by its `YX Ratio` (the point (cos a, -sin a) on
     the two ways across, `0x522782`); with `Use Cone Angle For Start
-    Pos`, at the particle's own turn (`0x522640`).
+    Pos`, on the side the particle goes: its direction's part across
+    the axis made 1 long (`0x52264f`), which is (sin t, -cos t) times
+    the sine of its angle off the axis at the game's turn t
+    (`0x525040`), so (cos a, sin a) at Reluva's.
   - `CCylinderParticleStartPositionType`: the disk's, and up the axis by
     up to its `Height of Cylinder` (`0x523740`).
 
@@ -130,10 +133,6 @@ second lies still *(inferred)*.
 
 ## Open questions
 
-- The sign of a disk's ring point when it follows the cone (`Use Cone
-  Angle For Start`, `0x52264f`): the game keeps the sign of the
-  particle's own direction across the axis; Reluva puts the second way
-  across's part the other way *(inferred)*.
 - How particles sort among the models.
 - `Rotate Velocity`, `Tries To Collide`, `Collidable` and `Use Particle
   As Shot` aren't there.

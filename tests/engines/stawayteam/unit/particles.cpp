@@ -195,6 +195,22 @@ void testShapes() {
     for (const ParticleSystem::Particle &p : l.particles())
         widest = std::max(widest, std::hypot(p.u, p.v, p.z));
     CHECK(widest <= 60.01f && widest > 30.0f);
+    // A disk following the cone starts on the side its particle goes.
+    std::string coned =
+        system("Start Point Type=CDiskParticleStartPositionType\n{\n" + envelope("Inside Radius", 20, 0, 0) +
+                   envelope("Outside Radius", 0, 0, 0) + "YX Ratio=1\nUse Cone Angle For Start Pos=1\n}\n",
+               "CFloatParticleAI\n{\n}", 20, 1.0f);
+    for (const char *key : {"Outer Cone Angle", "Inner Cone Angle"}) {
+        const std::string flat = envelope(key, 0, 0, 0);
+        coned.replace(coned.find(flat), flat.size(), envelope(key, 45, 45, 0));
+    }
+    ParticleSystem c(objectOf(coned), 17);
+    firstBurst(c);
+    CHECK(c.particles().size() == 20);
+    for (const ParticleSystem::Particle &p : c.particles()) {
+        const float along = (p.u * p.vu + p.v * p.vv) / (std::hypot(p.u, p.v) * std::hypot(p.vu, p.vv));
+        CHECK(along > 0.99f);
+    }
 }
 
 void testOnMap() {

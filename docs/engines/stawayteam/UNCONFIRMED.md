@@ -22,8 +22,8 @@ None now.
 - **The Psychic Rack:** walking into range, the enemy chosen in
   Slovaak's place, its orders, and its going back on patrol
   ([systems/items.md](systems/items.md#in-reluva)).
-- **Particle systems:** a disk's ring point following the cone, the particles drawn
-  over the models, a slow bounce
+- **Particle systems:** the particles drawn over the models, a slow
+  bounce
   stopping ([systems/particles.md](systems/particles.md#open-questions)).
 - **Mines' sequences:** a mine's Deploy Sequence once as it's put down,
   and its Activate held at its last frame once set off

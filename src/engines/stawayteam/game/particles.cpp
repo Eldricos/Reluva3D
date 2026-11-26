@@ -267,10 +267,14 @@ void ParticleSystem::burst(float ownerAngle) {
             if (_shape == Shape::kLine) {
                 at = third * (_inside.now() * random(-1.0f, 1.0f));
             } else if (_shape == Shape::kDisk || _shape == Shape::kCylinder) {
+                // Following the cone, on the side of the particle's own
+                // direction across the axis (its (y, z) made 1 long,
+                // 0x52264f); else at any turn, (cos a, -sin a) (0x522710).
                 const float angle = _useCone ? turn : random(0.0f, 2.0f * std::numbers::pi_v<float>);
                 const float inside = _inside.now();
                 const float r = random(inside, inside + _outside.now());
-                at = across * (std::cos(angle) * r * _yxRatio) + third * (-std::sin(angle) * r);
+                const float sense = _useCone ? 1.0f : -1.0f;
+                at = across * (std::cos(angle) * r * _yxRatio) + third * (sense * std::sin(angle) * r);
                 if (_shape == Shape::kCylinder)
                     at = at + axis * random(0.0f, _length.now());
             }
