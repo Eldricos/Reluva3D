@@ -173,14 +173,83 @@ bool GameProcess::insertCd(int number) {
     return true;
 }
 
-bool GameProcess::saveSettings() {
-    constexpr uint32_t kSave = 0x4148f0;
-    // mov eax, [0x556588]; push eax: the US release's.
-    const uint8_t expected[] = {0xa1, 0x88, 0x65, 0x55, 0x00, 0x50};
-    x86::Cpu &c = *_cpu;
-    for (uint32_t i = 0; i < sizeof expected; ++i)
-        if (!c.valid(kSave + i, 1) || c.read8(kSave + i) != expected[i])
+namespace {
+
+// Where the host reaches into each program, as the US releases have them.
+struct ProgramCode {
+    const char *program;
+    // The CD check: where it starts, its first instructions (the first six
+    // a sub esp, which the trampoline runs in its place), what its first
+    // argument asks for (the CD to put in the drive, 0 for none), and
+    // whether its second is the drive to search after, to be searched from
+    // the first instead.
+    uint32_t cdCheck;
+    uint8_t cdCheckStart[8];
+    int (*cdFor)(uint32_t argument);
+    bool fromFirstDrive;
+    // The saving of Setup's settings to the registry, a step of the
+    // program's end, and its first instruction: mov eax, [...]; push eax.
+    uint32_t saveSettings;
+    uint8_t saveSettingsStart[6];
+    // Each frame's check, before the world is moved, that more than 20 ms
+    // have passed since it last was: mov eax, [last update]; add eax, 20;
+    // cmp esi, eax. Unused places 0.
+    uint32_t worldCheck[3];
+    uint32_t lastUpdate;
+};
+
+constexpr ProgramCode kPrograms[] = {
+    // CD check (0x40ebb0): the CD a step of the episode is on, 0 for
+    // either; it reads gamedata\resource\jk_.cd from each CD drive and, if
+    // it isn't that CD's, asks for it and waits. Play's frame (0x403d40)
+    // moves the world with 0x4c4c00. (docs/engines/sith/games/jk/systems/hosting.md)
+    {"JK.EXE",
+     0x40ebb0,
+     {0x81, 0xec, 0x8c, 0x01, 0x00, 0x00, 0x53, 0x55}, // sub esp, 0x18c; push ebx; push ebp
+     [](uint32_t a) { return int(a); },
+     false,
+     0x4148f0,
+     {0xa1, 0x88, 0x65, 0x55, 0x00, 0x50},
+     {0x403d62, 0, 0},
+     0x552b9c},
+    // CD check (0x410db0): 2 for Jedi Knight's CD 2, which it asks for
+    // once, 0x13 for its own; it looks from the drive after its second
+    // argument's letter, so right after finding Jedi Knight's CD it would
+    // miss its own in the same drive. Three kinds of frame (0x403c80,
+    // 0x4042e0 and one ending at 0x404662) each move the world with 0x510b80.
+    // (docs/engines/sith/games/mots/README.md)
+    {"JKM.EXE",
+     0x410db0,
+     {0x81, 0xec, 0x5c, 0x02, 0x00, 0x00, 0x53, 0x8b}, // sub esp, 0x25c; push ebx; mov ebx, [esp + 0x264]
+     [](uint32_t a) { return a == 2 ? 2 : 1; },
+     true,
+     0x417560,
+     {0xa1, 0xa0, 0x11, 0x5b, 0x00, 0x50},
+     {0x403cd6, 0x404302, 0x40455f},
+     0x5ad42c},
+};
+
+} // namespace
+
+const void *GameProcess::code() const {
+    for (const ProgramCode &c : kPrograms)
+        if (fs::toLower(c.program) == fs::toLower(_game.program))
+            return &c;
+    return nullptr;
+}
+
+bool GameProcess::matches(uint32_t at, const uint8_t *bytes, size_t n) const {
+    for (uint32_t i = 0; i < n; ++i)
+        if (!_cpu->valid(at + i, 1) || _cpu->read8(at + i) != bytes[i])
             return false;
+    return true;
+}
+
+bool GameProcess::saveSettings() {
+    const auto *code = static_cast<const ProgramCode *>(this->code());
+    if (!code || !matches(code->saveSettings, code->saveSettingsStart, sizeof code->saveSettingsStart))
+        return false;
+    x86::Cpu &c = *_cpu;
     // The stopped thread's stack may be anywhere: a fresh one for the call.
     constexpr uint32_t kStack = 0x10000;
     const uint32_t stack = _process->memory().alloc(kStack);
@@ -190,7 +259,7 @@ bool GameProcess::saveSettings() {
     c.reg[x86::Cpu::ESP] = stack + kStack - 16;
     uint32_t result = 0;
     c.clearStop();
-    const Error e = c.call(kSave, {}, result);
+    const Error e = c.call(code->saveSettings, {}, result);
     c.reg[x86::Cpu::ESP] = esp;
     _process->memory().free(stack);
     return !e;
@@ -213,70 +282,31 @@ bool GameProcess::useDirect3D() {
 }
 
 bool GameProcess::updateEveryFrame() {
-    // mov eax, [last update]; add eax, 20; cmp esi, eax: the US release's,
-    // in play's frame (0x403d40), before it updates the world (0x4c4c00).
-    constexpr uint32_t kAt = 0x403d62;
-    const uint8_t expected[] = {0xa1, 0x9c, 0x2b, 0x55, 0x00, 0x83, 0xc0, 0x14, 0x3b, 0xf0};
-    x86::Cpu &c = *_cpu;
-    for (uint32_t i = 0; i < sizeof expected; ++i)
-        if (!c.valid(kAt + i, 1) || c.read8(kAt + i) != expected[i])
+    const auto *code = static_cast<const ProgramCode *>(this->code());
+    if (!code)
+        return false;
+    const uint8_t last[4] = {uint8_t(code->lastUpdate), uint8_t(code->lastUpdate >> 8), uint8_t(code->lastUpdate >> 16),
+                             uint8_t(code->lastUpdate >> 24)};
+    const uint8_t expected[] = {0xa1, last[0], last[1], last[2], last[3], 0x83, 0xc0, 0x14, 0x3b, 0xf0};
+    for (uint32_t at : code->worldCheck)
+        if (at && !matches(at, expected, sizeof expected))
             return false;
     // More than 9 ms: at least 10, the shortest step its clock takes as it
     // is, below which the game would run fast.
-    c.write8(kAt + 7, 9);
+    for (uint32_t at : code->worldCheck)
+        if (at)
+            _cpu->write8(at + 7, 9);
     return true;
 }
-
-namespace {
-
-// Each program's CD check, as the US releases have it: where it starts,
-// its first instructions (the first six a sub esp, which the trampoline
-// runs in its place), and what its first argument asks for.
-struct CdCheck {
-    const char *program;
-    uint32_t at;
-    uint8_t start[8];
-    // The CD to put in the drive for the argument; 0 for none.
-    int (*cdFor)(uint32_t argument);
-    // Where the check's second argument is the drive to search after
-    // (Mysteries of the Sith's): searched from the first instead.
-    bool fromFirstDrive;
-};
-
-constexpr CdCheck kCdChecks[] = {
-    // 0x40ebb0: the CD a step of the episode is on, 0 for either; it reads
-    // gamedata\resource\jk_.cd from each CD drive and, if it isn't that
-    // CD's, asks for it and waits (docs/engines/sith/games/jk/systems/hosting.md).
-    // sub esp, 0x18c; push ebx; push ebp
-    {"JK.EXE", 0x40ebb0, {0x81, 0xec, 0x8c, 0x01, 0x00, 0x00, 0x53, 0x55}, [](uint32_t a) { return int(a); }, false},
-    // 0x410db0: 2 for Jedi Knight's CD 2, which it asks for once, 0x13 for
-    // its own (docs/engines/sith/games/mots/README.md). It looks from the
-    // drive after its second argument's letter, so right after finding
-    // Jedi Knight's CD it would miss its own in the same drive.
-    // sub esp, 0x25c; push ebx; mov ebx, [esp + 0x264]
-    {"JKM.EXE",
-     0x410db0,
-     {0x81, 0xec, 0x5c, 0x02, 0x00, 0x00, 0x53, 0x8b},
-     [](uint32_t a) { return a == 2 ? 2 : 1; },
-     true},
-};
-
-} // namespace
 
 // A trampoline at the CD check's start puts the CD it asks for in drive D
 // first, as a player would have, then runs the instruction it replaced
 // and goes on.
 void GameProcess::hookCdCheck() {
-    const CdCheck *check = nullptr;
-    for (const CdCheck &c : kCdChecks)
-        if (fs::toLower(c.program) == fs::toLower(_game.program))
-            check = &c;
-    if (!check)
+    const auto *check = static_cast<const ProgramCode *>(code());
+    if (!check || !matches(check->cdCheck, check->cdCheckStart, sizeof check->cdCheckStart))
         return;
     x86::Cpu &c = *_cpu;
-    for (uint32_t i = 0; i < sizeof check->start; ++i)
-        if (!c.valid(check->at + i, 1) || c.read8(check->at + i) != check->start[i])
-            return;
     // cdecl, called from the trampoline: its return address, the check's
     // caller's, then the check's arguments.
     const uint32_t native = c.addNative("CD check", [this, check](x86::Cpu &cpu) {
@@ -290,12 +320,12 @@ void GameProcess::hookCdCheck() {
         return;
     const uint8_t code[16] = {0xe8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xe9, 0, 0, 0, 0};
     for (uint32_t i = 0; i < 16; ++i)
-        c.write8(trampoline + i, i >= 5 && i < 11 ? check->start[i - 5] : code[i]);
-    c.write32(trampoline + 1, native - (trampoline + 5));            // call the native
-    c.write32(trampoline + 12, (check->at + 6) - (trampoline + 16)); // jmp back after sub esp
-    c.write8(check->at, 0xe9);                                       // jmp trampoline
-    c.write32(check->at + 1, trampoline - (check->at + 5));
-    c.write8(check->at + 5, 0x90);
+        c.write8(trampoline + i, i >= 5 && i < 11 ? check->cdCheckStart[i - 5] : code[i]);
+    c.write32(trampoline + 1, native - (trampoline + 5));                 // call the native
+    c.write32(trampoline + 12, (check->cdCheck + 6) - (trampoline + 16)); // jmp back after sub esp
+    c.write8(check->cdCheck, 0xe9);                                       // jmp trampoline
+    c.write32(check->cdCheck + 1, trampoline - (check->cdCheck + 5));
+    c.write8(check->cdCheck + 5, 0x90);
 }
 
 Error GameProcess::run(uint32_t &exitCode) {

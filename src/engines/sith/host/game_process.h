@@ -122,6 +122,11 @@ private:
     const x86::Win32Process::Module *_exe = nullptr;
     int _cdInDrive = 0;
     void hookCdCheck();
+    // The program's addresses (a ProgramCode in game_process.cpp), or null
+    // where they aren't known.
+    const void *code() const;
+    // Whether the program's bytes at `at` are `bytes`: its release's code.
+    bool matches(uint32_t at, const uint8_t *bytes, size_t n) const;
     // The game's registry key, kept in the save folder between runs: the
     // file, and the names of the values in it.
     std::filesystem::path _registryFile;

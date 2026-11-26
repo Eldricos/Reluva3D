@@ -81,15 +81,45 @@ The game keeps `InstallData` in its registry (the save folder's
   its files, or its image (the files taken off the image's data track),
   with its cut scenes and music; Jedi Knight's CD 2 is added with *Add
   other disc...* for the game's check of it.
-- **The game:** the retail `JKM.EXE` runs in Reluva's x86 emulator, as
-  Jedi Knight's does, with nothing new in the emulator: imported from
-  the CD's image, its first start checks Jedi Knight's CD 2 and its own,
-  plays the opening (`jkmintro.san`, picture and sound), the menus, and
-  a new game's cut scene and first level (`s1l1_rebelbase.jkl`), its
-  music asked of the CD *(confirmed)*. The engine's *Frame rate* setting
-  and its saving of *Setup*'s settings when Reluva is closed don't reach
-  `JKM.EXE` yet ([PLAN.md](PLAN.md), phase 3).
+- **The game:** played. The retail `JKM.EXE` runs in Reluva's x86
+  emulator, as Jedi Knight's does, with nothing new in the emulator.
+  Imported from the CD's image, its first start checks Jedi Knight's CD 2
+  and its own, plays the opening (`jkmintro.san`, picture and sound),
+  the menus, and a new game's cut scene and first level
+  (`s1l1_rebelbase.jkl`), its music asked of the CD *(confirmed)*. A game
+  saved from the in-game menu (`player\<name>\msav0000.jks`) is listed
+  by *Load Game* and loads; the autosave is made as a level starts. Its
+  Direct3D drawn on the graphics card matches its own drawing (154
+  scenes, 0.0013% of pixels differing at most). Two copies played
+  multiplayer on one machine: one hosted *Kill The Fool With The
+  Ysalamiri*, the other listed it, joined with a character of its own,
+  and each saw the other's in the level *(confirmed)*. The engine's
+  settings act on it as on Jedi Knight ([Where Reluva reaches into the
+  program](#where-reluva-reaches-into-the-program)).
 - **The data viewer:** not yet for this game.
+
+### Where Reluva reaches into the program
+
+As for Jedi Knight ([../jk/systems/hosting.md](../jk/systems/hosting.md)),
+the host changes `JKM.EXE` in a few places, each only where the bytes
+there are the US release's (`kPrograms`,
+`src/engines/sith/host/game_process.cpp`):
+
+- **The CD check** (`0x410db0`): the CD asked for put in drive D first
+  ([Proof of owning Jedi Knight](#proof-of-owning-jedi-knight)).
+- **The world's moves** (*Frame rate* other than *As the game*): the
+  game moves its world only when more than 20 ms have passed since it
+  last did, in each of its three kinds of frame (the checks at
+  `0x403cd6`, `0x404302` and `0x40455f`, then `0x510b80`); Reluva makes
+  that more than 9 ms, as for Jedi Knight. Its clock takes steps of 10
+  to 500 ms (`0x510d60`, the bounds at `0x5a1ef8` and `0x5a1ef4`,
+  changed only by two command-line options at `0x401760`). At 100 frames
+  a second the world moved 354 times in a stretch of play where it moved
+  159 and 169 times without *(confirmed)*.
+- ***Setup*'s settings saved** when Reluva is closed with the game
+  running: its own saving of them to the registry (`0x417560`, called
+  from its end at `0x4013d5`, as Jedi Knight's at `0x4148f0`) run for it
+  *(confirmed)*.
 
 ## Using it
 

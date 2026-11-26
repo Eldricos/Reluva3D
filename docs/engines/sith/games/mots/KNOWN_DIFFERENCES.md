@@ -20,12 +20,12 @@ None yet.
 
 ## Not yet as the original
 
-- The engine's *Frame rate* setting and the saving of *Setup*'s
-  settings when Reluva is closed act only on Jedi Knight's program so
-  far ([PLAN.md](PLAN.md), phase 3).
 - The data viewer doesn't show this game's files ([PLAN.md](PLAN.md),
   phase 5).
 
 ## Additions outside the game
 
-None yet.
+- The engine's settings, as for Jedi Knight
+  ([../jk/KNOWN_DIFFERENCES.md](../jk/KNOWN_DIFFERENCES.md)): the 3D on the
+  graphics card, larger and smoothed, and *Frame rate*, the world moved
+  at each frame up to 100 a second ([README.md](README.md#where-reluva-reaches-into-the-program)).

@@ -24,8 +24,9 @@ Not yet.
 
 ### What the automated checks don't cover
 
-Running the game: the CD checks, its cut scenes, levels and music, by
-hand ([PLAN.md](PLAN.md), phases 3 and 4).
+Running the game: the CD checks, its cut scenes, levels and music,
+saves, the graphics card, multiplayer, by hand with `reluva-tool sith
+host` ([PLAN.md](PLAN.md), phase 4 next).
 
 ## A playthrough by hand
 
@@ -37,3 +38,4 @@ Not yet.
 |---|---|---|---|
 | November 2026 | US retail | Linux, the emulator by hand (`reluva-tool sith host`, changed for `JKM.EXE`) | The CD checks, the opening, the menus and the first level's start ([README.md](README.md#where-it-stands)) |
 | November 2026 | US retail, from its CD's image | Linux, `reluva-tool import` with Jedi Knight's CD 2, then `reluva-tool sith host` on the import, its save folder new | Files the same as the install's; 13 music tracks found; on its first start both CD checks passed without a request, the opening, a new game's cut scene, and play in the first level with its music asked for |
+| November 2026 | US retail, from its CD's image | Linux, `reluva-tool sith host` | A game saved from the in-game menu, listed and loaded; *Setup*'s settings saved when stopped; `-everyframe -fps 100`, the world moved about twice as often; `-d3d -gpu`, 154 scenes matching; two copies with `-net`, one hosting *Kill The Fool With The Ysalamiri*, the other joining with its own character, each seeing the other in the level |

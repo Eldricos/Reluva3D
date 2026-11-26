@@ -41,12 +41,14 @@ reaches into the program.
    ([README](README.md#using-it)). Imported from the CD's image, the
    game started, checked both CDs, and reached its first level with its
    music.
-3. **Play.** The trial made the game: its window, sound, music, the
+3. **Play** (done). The trial made the game: its window, sound, music, the
    pointer and mouse, the joysticks, saves in the save folder, the
    registry kept; the engine's options carried over where `JKM.EXE` has
    the same code at its own addresses (the world moved at every frame,
    *Setup*'s settings saved when Reluva is closed, Direct3D on the
-   graphics card); multiplayer through the emulator's DirectPlay.
+   graphics card); multiplayer through the emulator's DirectPlay. Each
+   checked running ([README](README.md#where-it-stands)); the addresses
+   are in the [README](README.md#where-reluva-reaches-into-the-program).
 4. **Every level and cut scene.** Gone through with the game's cheats,
    as Jedi Knight's were ([jk/TESTING.md](../jk/TESTING.md)).
 5. **The data viewer.** The `.goo` archives read as `.gob`; each kind of
@@ -64,4 +66,5 @@ reaches into the program.
 | November 2026 | The game's check of Jedi Knight's CD 2 answered with that CD's own marker, linked with *Add other disc...* when the game is imported, as its `cd2`; never by writing `InstallData` for it | The check is the game's proof that its owner has Jedi Knight; answering it with the CD is what a player did. The import is where the person has their CDs to hand, and the game needs it on its first start |
 | November 2026 | Only Jedi Knight's CD 2's marker is copied for Mysteries of the Sith, not its cut scenes or music | The game reads nothing else from it |
 | November 2026 | The CD check made to search from the first drive each time | Right after Jedi Knight's CD 2 it searches from the drive after it, so with Reluva's one drive it would ask for its own CD once more; a player swapping CDs pressed *Ok* there for the same result |
+| November 2026 | Each program's addresses in one table in the host, checked against its bytes before any change | One host for both games; a release whose bytes differ is left as it is, as Jedi Knight's were |
 | November 2026 | Disc images read by Reluva itself (ISO 9660 on a cue sheet's data track or an `.iso`), for importing | Players keep their CDs as images; the cut scenes are on the CD only, and an image holds its music too |
