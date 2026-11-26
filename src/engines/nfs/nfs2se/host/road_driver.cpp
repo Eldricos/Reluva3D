@@ -135,32 +135,159 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
     // lane wide, with a gap between: col.md, Where a car can drive), the
     // middle of the drivable slots on its right, as the game's drivers keep
     // to their side (0x43a9a0); bit 7 the first right of the point, 6 the
-    // next.
-    auto rightSide = [&](uint32_t q, float &centre) {
+    // next, 8 the first left. But a car already well inside those on the
+    // left keeps to them: put there passing, it pressed against the
+    // Outback's median at its point 1670, steering for the other side.
+    auto splitSide = [&](uint32_t q, float &centre) {
         const uint32_t mask = c.read16(q + 24);
         const uint32_t low = mask & (0u - mask);
         if (mask == 0 || ((mask + low) & mask) == 0)
             return false;
-        int first = -1;
-        int last = -1;
-        for (int k = 0; k < 8; ++k)
-            if (mask & (0x80u >> k)) {
-                if (first < 0)
-                    first = k;
-                last = k;
-            } else if (first >= 0) {
-                break;
-            }
+        auto run = [&](uint32_t bitOf0, int step, int &first, int &last) {
+            first = -1;
+            last = -1;
+            for (int k = 0; k < 8; ++k)
+                if (mask & (step > 0 ? bitOf0 << k : bitOf0 >> k)) {
+                    if (first < 0)
+                        first = k;
+                    last = k;
+                } else if (first >= 0) {
+                    break;
+                }
+        };
+        int first = 0;
+        int last = 0;
+        run(0x100u, 1, first, last);
+        const float left = float(c.read8(q + 32)) / 2;
+        const float mine = (x - fixed(q)) * s8(q + 18) / 128 + (z - fixed(q + 8)) * s8(q + 20) / 128;
+        if (first >= 0 && mine < -float(first) * left - 1.0f && mine > -float(last + 1) * left) {
+            centre = -float(first + last + 1) / 2 * left;
+            return true;
+        }
+        run(0x80u, -1, first, last);
         if (first < 0)
             return false;
         centre = float(first + last + 1) / 2 * float(c.read8(q + 33)) / 2;
         return true;
     };
-    auto middle = [&](uint32_t q) {
+    // How far from the point a car's middle can go across its lanes (byte
+    // 31, each way's lanes; 32 and 33 their widths in half metres), a
+    // little over half a car's width inside: the road's edges take in
+    // verges and car parks (Pacific Spirit's at its point 275, signposts
+    // standing in it).
+    struct Lanes {
+        float left;
+        float right;
+    };
+    auto lanesAt = [&](uint32_t q) {
+        const uint8_t lanes = c.read8(q + 31);
+        Lanes room{float(lanes >> 4) * float(c.read8(q + 32)) / 2, float(lanes & 15) * float(c.read8(q + 33)) / 2};
+        if (lanes == 0)
+            room = Lanes{float(c.read16(q + 26)) / 256.0f, float(c.read16(q + 28)) / 256.0f};
+        return Lanes{room.left - 1.2f, room.right - 1.2f};
+    };
+    auto across = [&](uint32_t q, float px, float pz) {
+        return (px - fixed(q)) * s8(q + 18) / 128 + (pz - fixed(q + 8)) * s8(q + 20) / 128;
+    };
+    // Off the slots that stop being drivable over the next 12 points (a
+    // gap in the word at 24, where something stands in the road: Mystic
+    // Peaks' at its points 1797 and 1806), to the middle of the nearest
+    // slot that stays drivable: at its edge, half a car and a little off,
+    // it still caught them. The slots their widths at the point.
+    auto clear = [&](uint32_t q, float off) {
+        const uint32_t i = (q - points) / 36;
+        uint32_t mask = 0xffff;
+        for (uint32_t k = 0; k < 12; ++k)
+            if (const uint32_t m = c.read16(point(i + k) + 24))
+                mask &= m;
+        const float right = float(c.read8(q + 33)) / 2;
+        const float left = float(c.read8(q + 32)) / 2;
+        if (mask == 0 || right <= 0 || left <= 0)
+            return off;
+        auto drivable = [&](float a) {
+            const int bit = a >= 0 ? 7 - std::min(int(a / right), 7) : 8 + std::min(int(-a / left), 7);
+            return (mask >> bit) & 1;
+        };
+        if (drivable(off - 1.5f) && drivable(off + 1.5f))
+            return off;
+        float best = off;
+        float nearest = 1e9f;
+        for (int k = 0; k < 8; ++k) {
+            const float slots[2] = {(float(k) + 0.5f) * right, -(float(k) + 0.5f) * left};
+            for (float a : slots)
+                if (drivable(a) && std::fabs(a - off) < nearest) {
+                    nearest = std::fabs(a - off);
+                    best = a;
+                }
+        }
+        return best;
+    };
+    auto line = [&](uint32_t q) {
         float centre = 0;
-        if (!rightSide(q, centre))
+        if (!splitSide(q, centre))
             centre = (float(c.read16(q + 28)) - float(c.read16(q + 26))) / 512.0f;
-        const float off = centre + _options.right + (now < _asideUntil ? _aside : 0.0f);
+        return clear(q, centre + _options.right) + (now < _asideUntil ? _aside : 0.0f);
+    };
+
+    // Past a car ahead in its way, and faster or close: 3 m to the side of
+    // its line nearer ours, if the lanes have room, moved over at 4 m/s
+    // and held 1.5 s after it's no longer ahead, so as not to turn back
+    // into it alongside; with room on neither side, behind it at its
+    // speed. Aimed past it at one point instead, as far as the road's
+    // edges, it swerved into Pacific Spirit's car park.
+    float follow = kTopSpeed;
+    {
+        const uint32_t q = point(slice);
+        const float fx = fixed(car + kForward);
+        const float fz = fixed(car + kForward + 8);
+        const float rx = fixed(car + kRight);
+        const float rz = fixed(car + kRight + 8);
+        const uint32_t cars = std::min<uint32_t>(c.read32(kRaceCars), 16);
+        float nearest = 40.0f;
+        uint32_t ahead = 0;
+        for (uint32_t i = 0; i < cars; ++i) {
+            const uint32_t other = c.read32(kCars + 4 * i);
+            if (!other || other == car)
+                continue;
+            const float ox = fixed(other + kX) - x;
+            const float oz = fixed(other + kZ) - z;
+            const float along = ox * fx + oz * fz;
+            const float side = ox * rx + oz * rz;
+            if (along > 3.0f && along < nearest && std::fabs(side) < 2.5f &&
+                (along < 15.0f || v > fixed(other + kSpeed) + 1.0f)) {
+                nearest = along;
+                ahead = other;
+            }
+        }
+        if (ahead) {
+            const Lanes lanes = lanesAt(q);
+            const float at = across(q, fixed(ahead + kX), fixed(ahead + kZ));
+            const float mine = across(q, x, z);
+            const float right = at + 3.0f;
+            const float left = at - 3.0f;
+            const bool rightFits = right <= lanes.right;
+            const bool leftFits = left >= -lanes.left;
+            if (rightFits || leftFits) {
+                const float to =
+                    rightFits && (!leftFits || std::fabs(right - mine) < std::fabs(left - mine)) ? right : left;
+                _passWanted = to - line(q);
+                _passUntil = now + 1500;
+            } else {
+                follow = fixed(ahead + kSpeed);
+            }
+        }
+        if (now >= _passUntil)
+            _passWanted = 0;
+        const float step = 4.0f * float(std::min<uint64_t>(now - std::min(now, _lastMs), 100)) / 1000.0f;
+        _pass += std::clamp(_passWanted - _pass, -step, step);
+        _lastMs = now;
+    }
+    auto middle = [&](uint32_t q) {
+        float off = line(q);
+        if (_pass != 0) {
+            const Lanes lanes = lanesAt(q);
+            off = std::clamp(off + _pass, -lanes.left, std::max(-lanes.left, lanes.right));
+        }
         return Flat{fixed(q) + off * s8(q + 18) / 128, fixed(q + 8) + off * s8(q + 20) / 128};
     };
 
@@ -189,40 +316,6 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
     }
     const uint32_t p = point(j);
     Flat target = middle(p);
-    // Round a car close ahead in its way: aimed to the side of it with
-    // more of the road, 3 m off its line, kept inside the road's edges.
-    {
-        const float fx = fixed(car + kForward);
-        const float fz = fixed(car + kForward + 8);
-        const float rx = fixed(car + kRight);
-        const float rz = fixed(car + kRight + 8);
-        const uint32_t cars = std::min<uint32_t>(c.read32(kRaceCars), 16);
-        float nearest = 30.0f;
-        float side = 0;
-        for (uint32_t i = 0; i < cars; ++i) {
-            const uint32_t other = c.read32(kCars + 4 * i);
-            if (!other || other == car)
-                continue;
-            const float ox = fixed(other + kX) - x;
-            const float oz = fixed(other + kZ) - z;
-            const float ahead = ox * fx + oz * fz;
-            const float across = ox * rx + oz * rz;
-            if (ahead > 3.0f && ahead < nearest && std::fabs(across) < 2.5f) {
-                nearest = ahead;
-                side = across;
-            }
-        }
-        if (nearest < 30.0f) {
-            const uint32_t q = point(slice);
-            const float right = float(c.read16(q + 28)) / 256.0f - 1.5f;
-            const float left = float(c.read16(q + 26)) / 256.0f - 1.5f;
-            // Where the other car is, across the road from the point, and
-            // which way there's more room past it.
-            const float at = (fixed(q) - x) * s8(q + 18) / -128 + (fixed(q + 8) - z) * s8(q + 20) / -128 + side;
-            const float pass = right - at > left + at ? std::min(at + 3.0f, right) : std::max(at - 3.0f, -left);
-            target = Flat{fixed(p) + pass * s8(p + 18) / 128, fixed(p + 8) + pass * s8(p + 20) / 128};
-        }
-    }
     const float dx = target.x - x;
     const float dz = target.z - z;
     const float angle = std::atan2(dx * fixed(car + kRight) + dz * fixed(car + kRight + 8),
@@ -257,12 +350,15 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
         }
     }
 
+    wanted = std::min(wanted, follow);
+
     int steer = int(std::clamp(angle / 0.35f * 127.0f, -128.0f, 124.0f));
     int gas = v < wanted ? 255 : 0;
     int brake = v > wanted + 2 ? 255 : 0;
     uint8_t buttons = 0;
     const uint8_t gear = c.read8(car + kGear);
-    // Stuck (against a wall, or turned round): back off for a while,
+    // Stuck (against a wall, or turned round, or crawling along one under
+    // 5 m/s, as against the Outback's median): back off for a while,
     // steering hard the other way, then on again a little to one side.
     // Not while backing off: going backwards, it's slow too, and would
     // only back off again.
@@ -273,13 +369,13 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
         _backOffs = 0;
     }
     // No farther along the road for 3 s is stuck too: pushing against
-    // something, its wheels spinning, its speed doesn't stay under 2 m/s.
+    // something, its wheels spinning, its speed doesn't stay low.
     if (progress > _bestProgress || progress < _bestProgress - 100) {
         _bestProgress = progress;
         _advancedAt = now;
     }
     const bool noFurther = now > _advancedAt + 3000;
-    if (now >= _reverseUntil && (std::fabs(angle) > kPi / 2 || v < 2.0f || noFurther)) {
+    if (now >= _reverseUntil && (std::fabs(angle) > kPi / 2 || v < 5.0f || noFurther)) {
         if (!_slowSince)
             _slowSince = now;
     } else {
@@ -321,11 +417,12 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
     c.write8(kControls + 3, buttons);
     if (log && now >= _logged + 1000) {
         _logged = now;
-        char line[160];
+        char line[200];
         std::snprintf(line, sizeof line,
                       "road driver at %llu ms: slice %u, %.1f m/s (wanted %.1f), %.2f rad, steer %d gas %d brake %d"
-                      " gear %u",
-                      (unsigned long long)now, slice, v, wanted, angle, steer, gas, brake, gear);
+                      " gear %u off %.1f",
+                      (unsigned long long)now, slice, v, wanted, angle, steer, gas, brake, gear,
+                      across(point(slice), x, z));
         log(line);
     }
 }

@@ -59,6 +59,12 @@ private:
     uint64_t _asideUntil = 0;
     float _aside = 0;
     int _backOffs = 0;
+    // Past a car ahead: how far to the side of its line it is (metres,
+    // right), where it's going, and until when.
+    float _pass = 0;
+    float _passWanted = 0;
+    uint64_t _passUntil = 0;
+    uint64_t _lastMs = 0;
     int32_t _progressMark = 0; // the car's progress (laps times points) when last well on its way
     int32_t _bestProgress = 0; // the farthest it has been, and when it got there
     uint64_t _advancedAt = 0;

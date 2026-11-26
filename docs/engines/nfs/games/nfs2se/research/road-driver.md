@@ -76,10 +76,27 @@ safe.
   slots with a gap between: [col.md](../formats/col.md), Where a car can
   drive), at the middle of the slots on the right, as the game's own
   drivers keep to their side (0x43a9a0). `TR02`'s rock pillars stand on
-  its road's middle; aiming there, both cars stopped against them.
-- **Round other cars:** one up to 30 m ahead and within 2.5 m of its
-  line, it aims 3 m past it on the side with more road.
-- **Stuck:** slow, turned round, or no farther round the road for 3 s
+  its road's middle; aiming there, both cars stopped against them. A car
+  already well inside the slots on the left keeps to them: put there by
+  a pass, it pressed against the Outback's median (its points 1662 to
+  1690) for 17 s, steering for the other side.
+- **Off what stands in the road:** where a slot stops being drivable in
+  the next 12 points, the line moves to the middle of the nearest slot
+  that stays drivable. Mystic Peaks' rock columns stand in the first
+  slot right of its points 1797 and 1806, on the line the road's edges
+  gave; it stopped against them twice a lap, and still caught them when
+  moved only to the slot's edge and half a car and a little more.
+- **Round other cars:** one up to 40 m ahead, within 2.5 m of its line,
+  and slower (or within 15 m), it moves its whole line 3 m to the side
+  of it nearer its own, at 4 m/s across, and holds it 1.5 s after the
+  car is no longer ahead, so as not to turn back into it alongside;
+  with no room on either side, it follows at the car's speed. Its line
+  is kept to the road's lanes (bytes 31 to 33, less 1.2 m), not its
+  edges: those take in verges and car parks. Aimed 3 m past the car at
+  one point, as far as the edges, it swerved at 64 m/s into Pacific
+  Spirit's car park at its point 275, into the signposts standing in it,
+  and was there half a minute a lap.
+- **Stuck:** slow (under 5 m/s), turned round, or no farther round the road for 3 s
   (against a wall its wheels spin, and its speed doesn't stay low), for
   1.5 s more (not timed while it backs off), it backs off in reverse for
   2.5 s at full lock the other way, then aims to one side: 3 m, then the
@@ -118,27 +135,29 @@ place eliminated; the knockout's cars quicker than the driver. Aiming as
 far as a 45° turn of the road instead of 30° made it 8th, but the race
 slower.
 
-A single race of 4 laps on each track in the McLaren, before and after
-the driver took the computer cars' speeds (late November 2026; laps
-after the first, which has the start; places at the end, or the last lap
-run):
+A single race of 4 laps on each track in the McLaren (late November
+2026): before the driver took the computer cars' speeds, after, and
+then with the passing, the slots kept clear and the sides of a split
+road above. Laps after the first, which has the start; places at the
+end, or at the last lap run.
 
-| Track | Laps before | Place | Laps after | Place |
-|---|---|---|---|---|
-| Proving Grounds | about 65 s | 5th to 6th | 53 s | **1st** |
-| Outback | 148 s | 8th | 105 to 124 s | 5th |
-| Last Resort | 133 s | 1st to 2nd | 120 s | **1st** |
-| North Country | 170 to 174 s | 6th | 137 s | **1st** |
-| Pacific Spirit | 209 to 273 s | 8th | 166 to 198 s | 4th after 3 laps |
-| Mediterraneo | 134 to 136 s | 4th | 114 to 126 s | **1st** |
-| Mystic Peaks | 178 to 188 s | 4th to 5th | 179 to 190 s | 6th |
+| Track | Before | Place | Their speeds | Place | Now | Place |
+|---|---|---|---|---|---|---|
+| Proving Grounds | about 65 s | 5th to 6th | 53 s | **1st** | 53 s | **1st** |
+| Outback | 148 s | 8th | 105 to 124 s | 5th | 94 to 96 s | **1st** |
+| Last Resort | 133 s | 1st to 2nd | 120 s | **1st** | 120 s | **1st** |
+| North Country | 170 to 174 s | 6th | 137 s | **1st** | 133 to 135 s | **1st** |
+| Pacific Spirit | 209 to 273 s | 8th | 166 to 198 s | 4th after 3 laps | 135 to 169 s | 3rd |
+| Mediterraneo | 134 to 136 s | 4th | 114 to 126 s | **1st** | 118 to 120 s | 4th |
+| Mystic Peaks | 178 to 188 s | 4th to 5th | 179 to 190 s | 6th | 173 to 180 s | **1st** |
 
-The knockout's first round, the `drive` step: 4th of 9, a lap of 57 s
-(9th before).
+The knockout's first round, the `drive` step: 9th of 9 before, 4th
+with the computer cars' speeds (a lap of 57 s), now 3rd (53 s).
 
 ## Left open
 
-- Its time lost getting free of walls and objects it runs into, most of
-  what's left on Pacific Spirit and Mystic Peaks; the computer cars'
-  slots across the road (`[0x4c2b0c]`), which it doesn't keep to.
+- Its time lost getting free of walls: about 25 s a race still on
+  Mystic Peaks, round its points 120 and 240.
+- The computer cars' slots across the road (`[0x4c2b0c]`): zero at
+  every point of the tables the single races loaded, so not taken.
 - The knockout's later rounds.
