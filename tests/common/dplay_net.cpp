@@ -10,6 +10,7 @@
 #include "emulation/x86/dplay_net.h"
 #include "tests/support/test.h"
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <functional>
@@ -159,9 +160,82 @@ void runAll() {
     CHECK(wait(b, [](const Event &e) { return e.kind == Event::kSessionLost; }));
 }
 
+// A session that asks for a new host when its host goes
+// (DPSESSION_MIGRATEHOST): the first program to join takes over, the
+// other rejoins it, and they go on: a message, a player renamed.
+void runMigration() {
+    auto sockets = net::systemSockets();
+    const uint16_t port = uint16_t(30000 + std::random_device{}() % 20000);
+    auto hostNode = std::make_unique<Node>(sockets, std::vector<uint32_t>{}, port);
+    SessionInfo session;
+    session.instance = "{aaaaaaaa-0000-0000-0000-000000000002}";
+    session.application = kApplication;
+    session.name = "Migrating";
+    session.flags = 0x4;
+    CHECK(hostNode->host(session));
+    hostNode->addPlayer({0x100001, 0, "Kirk", "", {}});
+    Node a(sockets, {}, port);
+    Node b(sockets, {}, port);
+    const auto join = [&](Node &n, uint32_t &firstId) {
+        for (int i = 0; i < 100 && n.found().empty(); ++i) {
+            n.find("127.0.0.1", kApplication, 0);
+            hostNode->poll();
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
+        bool done = false;
+        std::thread hosting([&] {
+            while (!done) {
+                hostNode->poll();
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            }
+        });
+        SessionInfo got;
+        std::vector<PlayerInfo> players;
+        const uint32_t r = n.join(session.instance, "", 2000, got, players, firstId);
+        done = true;
+        hosting.join();
+        return r;
+    };
+    uint32_t firstA = 0;
+    uint32_t firstB = 0;
+    CHECK(join(a, firstA) == 0);
+    CHECK(join(b, firstB) == 0 && firstB > firstA);
+    std::vector<Event> seen;
+    a.addPlayer({firstA, 0, "Spock", "", {}});
+    CHECK(waitFor(
+        b, seen, [&](const Event &e) { return e.kind == Event::kPlayerAdded && e.player.id == firstA; },
+        hostNode.get()));
+    b.addPlayer({firstB, 0, "McCoy", "", {}});
+    CHECK(waitFor(
+        a, seen, [&](const Event &e) { return e.kind == Event::kPlayerAdded && e.player.id == firstB; },
+        hostNode.get()));
+
+    // The host gone: A, the first to join, hosts; Kirk's gone for both.
+    hostNode.reset();
+    CHECK(waitFor(a, seen, [](const Event &e) { return e.kind == Event::kBecameHost; }, nullptr));
+    CHECK(std::any_of(seen.begin(), seen.end(),
+                      [](const Event &e) { return e.kind == Event::kPlayerRemoved && e.player.id == 0x100001; }));
+    seen.clear();
+    // B rejoins A; then a message from B reaches A's player, and A's
+    // player renamed reaches B.
+    CHECK(waitFor(
+        b, seen, [](const Event &e) { return e.kind == Event::kPlayerRemoved && e.player.id == 0x100001; }, nullptr));
+    CHECK(a.open() && b.open());
+    b.send(firstB, firstA, {5});
+    CHECK(waitFor(a, seen, [&](const Event &e) { return e.kind == Event::kMessage && e.from == firstB; }, nullptr));
+    a.setPlayerName(firstA, "Spock", "Mr. Spock");
+    CHECK(waitFor(
+        b, seen,
+        [&](const Event &e) {
+            return e.kind == Event::kPlayerName && e.player.id == firstA && e.player.longName == "Mr. Spock";
+        },
+        &a));
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("common.unit.dplay_net",
                                         {
                                             {"all", [](const std::filesystem::path &) { runAll(); }},
+                                            {"host migration", [](const std::filesystem::path &) { runMigration(); }},
                                         });

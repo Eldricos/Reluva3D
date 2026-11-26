@@ -4,6 +4,7 @@
 #include "emulation/x86/dplay_net.h"
 
 #include <algorithm>
+#include <thread>
 #include <cstring>
 
 namespace reluva::x86::dplay {
@@ -21,6 +22,9 @@ const char kAnswer[4] = {'R', 'D', 'P', 'S'};
 constexpr uint32_t kFirstId = 0x00100001;
 constexpr uint32_t kBlock = 0x10000;
 constexpr size_t kMaxFrame = 1u << 20;
+constexpr uint32_t kMigrateHost = 0x4; // DPSESSION_MIGRATEHOST
+constexpr int kMigrateWaitMs = 5000;   // for the successor to listen
+constexpr int kMigrateRetryMs = 100;
 // DirectPlay's errors for a join refused (MAKE_DPHRESULT's).
 constexpr uint32_t kNoSessions = 0x88770000u + 220;
 constexpr uint32_t kAccessDenied = 0x88770000u + 10;
@@ -335,6 +339,10 @@ uint32_t Node::join(const std::string &instance, const std::string &password, in
         c.joined = true;
         _hostConnection = index;
         _session = session;
+        _firstId = firstId;
+        _players.clear();
+        for (const PlayerInfo &p : players)
+            _players[p.id] = p;
         return 0;
     }
     _net->close(s);
@@ -406,8 +414,8 @@ void Node::forward(Frame kind, const std::vector<uint8_t> &payload, int except) 
 void Node::addPlayer(const PlayerInfo &p) {
     Writer w;
     putPlayer(w, p);
+    _players[p.id] = p;
     if (_hosting) {
-        _players[p.id] = p;
         forward(kAdd, w.b, -1);
     } else if (_hostConnection >= 0) {
         frame(_connections[_hostConnection], kAdd, w.b);
@@ -417,8 +425,8 @@ void Node::addPlayer(const PlayerInfo &p) {
 void Node::removePlayer(uint32_t id) {
     Writer w;
     w.u32(id);
+    _players.erase(id);
     if (_hosting) {
-        _players.erase(id);
         forward(kRemove, w.b, -1);
     } else if (_hostConnection >= 0) {
         frame(_connections[_hostConnection], kRemove, w.b);
@@ -429,12 +437,28 @@ void Node::setPlayerData(uint32_t id, const std::vector<uint8_t> &data) {
     Writer w;
     w.u32(id);
     w.bytes(data);
+    if (auto it = _players.find(id); it != _players.end())
+        it->second.data = data;
     if (_hosting) {
-        if (auto it = _players.find(id); it != _players.end())
-            it->second.data = data;
         forward(kData, w.b, -1);
     } else if (_hostConnection >= 0) {
         frame(_connections[_hostConnection], kData, w.b);
+    }
+}
+
+void Node::setPlayerName(uint32_t id, const std::string &shortName, const std::string &longName) {
+    Writer w;
+    w.u32(id);
+    w.str(shortName);
+    w.str(longName);
+    if (auto it = _players.find(id); it != _players.end()) {
+        it->second.shortName = shortName;
+        it->second.longName = longName;
+    }
+    if (_hosting) {
+        forward(kName, w.b, -1);
+    } else if (_hostConnection >= 0) {
+        frame(_connections[_hostConnection], kName, w.b);
     }
 }
 
@@ -473,7 +497,9 @@ std::vector<Event> Node::poll() {
         net::Address from;
         while (_net->accept(_listen, accepted, from) == Result::kOk && accepted >= 0) {
             _net->setOption(accepted, net::Sockets::kNoDelay, 1);
-            _connections[_nextConnection++].socket = accepted;
+            Connection &c = _connections[_nextConnection++];
+            c.socket = accepted;
+            c.address = from;
         }
     }
     std::vector<int> closed;
@@ -525,15 +551,17 @@ void Node::handle(int index, Frame kind, const std::vector<uint8_t> &payload, st
                 putPlayer(w, p);
         }
         frame(c, kWelcome, w.b);
+        if (c.joined)
+            announceSuccessor();
         return;
     }
     case kAdd: {
         PlayerInfo p = getPlayer(r);
         if (r.bad || (!fromHost && !_hosting) || (_hosting && !c.joined))
             return;
+        _players[p.id] = p;
         if (_hosting) {
             _owners[p.id] = index;
-            _players[p.id] = p;
             forward(kAdd, payload, index);
         }
         Event e;
@@ -546,9 +574,9 @@ void Node::handle(int index, Frame kind, const std::vector<uint8_t> &payload, st
         const uint32_t id = r.u32();
         if (r.bad || (_hosting && ownerOf(id) != index))
             return;
+        _players.erase(id);
         if (_hosting) {
             _owners.erase(id);
-            _players.erase(id);
             forward(kRemove, payload, index);
         }
         Event e;
@@ -564,10 +592,24 @@ void Node::handle(int index, Frame kind, const std::vector<uint8_t> &payload, st
         e.player.data = r.bytes();
         if (r.bad || (_hosting && ownerOf(e.player.id) != index))
             return;
-        if (_hosting) {
-            _players[e.player.id].data = e.player.data;
+        _players[e.player.id].data = e.player.data;
+        if (_hosting)
             forward(kData, payload, index);
-        }
+        events.push_back(std::move(e));
+        return;
+    }
+    case kName: {
+        Event e;
+        e.kind = Event::kPlayerName;
+        e.player.id = r.u32();
+        e.player.shortName = r.str();
+        e.player.longName = r.str();
+        if (r.bad || (_hosting && ownerOf(e.player.id) != index))
+            return;
+        _players[e.player.id].shortName = e.player.shortName;
+        _players[e.player.id].longName = e.player.longName;
+        if (_hosting)
+            forward(kName, payload, index);
         events.push_back(std::move(e));
         return;
     }
@@ -590,6 +632,34 @@ void Node::handle(int index, Frame kind, const std::vector<uint8_t> &payload, st
                 return;
         }
         events.push_back(std::move(e));
+        return;
+    }
+    case kNext: {
+        // The host's successor: where it is, and its players' first ID.
+        if (!fromHost)
+            return;
+        const uint32_t ip = r.u32();
+        const uint16_t port = r.u16();
+        const uint32_t firstId = r.u32();
+        if (r.bad)
+            return;
+        _successor = {ip, port};
+        _successorFirstId = firstId;
+        return;
+    }
+    case kRejoin: {
+        // A program of the session, after the host it had went: its
+        // players are known already, by their IDs' block.
+        const std::string instance = r.str();
+        const uint32_t firstId = r.u32();
+        if (r.bad || !_hosting || c.joined || instance != _session.instance)
+            return;
+        c.joined = true;
+        c.firstId = firstId;
+        for (const auto &[id, p] : _players)
+            if (id >= firstId && id - firstId < kBlock)
+                _owners[id] = index;
+        announceSuccessor();
         return;
     }
     case kSession: {
@@ -619,9 +689,7 @@ void Node::dropConnection(int index, std::vector<Event> &events) {
     _connections.erase(it);
     if (index == _hostConnection) {
         _hostConnection = -1;
-        Event e;
-        e.kind = Event::kSessionLost;
-        events.push_back(std::move(e));
+        migrate(events);
         return;
     }
     // Its players are gone, for everyone.
@@ -640,6 +708,111 @@ void Node::dropConnection(int index, std::vector<Event> &events) {
         e.player.id = id;
         events.push_back(std::move(e));
     }
+    announceSuccessor();
+}
+
+void Node::announceSuccessor() {
+    const Connection *next = nullptr;
+    for (const auto &[i, c] : _connections)
+        if (c.joined && (!next || c.firstId < next->firstId))
+            next = &c;
+    if (!next)
+        return;
+    // A program on this machine is reached where the others reach the
+    // host.
+    Writer w;
+    w.u32(next->address.ip);
+    w.u16(_port);
+    w.u32(next->firstId);
+    forward(kNext, w.b, -1);
+}
+
+void Node::migrate(std::vector<Event> &events) {
+    const auto lost = [&events] {
+        Event e;
+        e.kind = Event::kSessionLost;
+        events.push_back(std::move(e));
+    };
+    if (!(_session.flags & kMigrateHost) || !_successorFirstId) {
+        lost();
+        return;
+    }
+    // The host's players are gone with it.
+    std::vector<uint32_t> gone;
+    for (const auto &[id, p] : _players)
+        if (id - kFirstId < kBlock)
+            gone.push_back(id);
+    for (uint32_t id : gone) {
+        _players.erase(id);
+        Event e;
+        e.kind = Event::kPlayerRemoved;
+        e.player.id = id;
+        events.push_back(std::move(e));
+    }
+    if (_successorFirstId == _firstId) {
+        // This program hosts it now: it listens, the others rejoin.
+        const int udp = _net->open(net::Sockets::kDatagram);
+        const int tcp = _net->open(net::Sockets::kStream);
+        bool ok = udp >= 0 && tcp >= 0;
+        if (ok) {
+            _net->setOption(udp, net::Sockets::kBroadcast, 1);
+            _net->setOption(udp, net::Sockets::kReuseAddress, 1);
+            _net->setOption(tcp, net::Sockets::kReuseAddress, 1);
+            ok = _net->bind(udp, {0, _port}) == Result::kOk && _net->bind(tcp, {0, _port}) == Result::kOk &&
+                 _net->listen(tcp, 8) == Result::kOk;
+        }
+        if (!ok) {
+            if (udp >= 0)
+                _net->close(udp);
+            if (tcp >= 0)
+                _net->close(tcp);
+            lost();
+            return;
+        }
+        if (_udp >= 0)
+            _net->close(_udp);
+        _udp = udp;
+        _listen = tcp;
+        _hosting = true;
+        _owners.clear();
+        uint32_t lastBlock = 0;
+        for (const auto &[id, p] : _players)
+            lastBlock = std::max(lastBlock, (id - kFirstId) / kBlock);
+        _nextBlock = lastBlock + 1;
+        Event e;
+        e.kind = Event::kBecameHost;
+        events.push_back(std::move(e));
+        return;
+    }
+    // Another takes over: this program rejoins it, once it listens.
+    const Clock::time_point until = Clock::now() + std::chrono::milliseconds(kMigrateWaitMs);
+    while (Clock::now() < until) {
+        const int s = _net->open(net::Sockets::kStream);
+        if (s < 0)
+            break;
+        Result r = _net->connect(s, _successor);
+        if (r == Result::kInProgress || r == Result::kWouldBlock) {
+            const net::Sockets::Ready ready = _net->ready(s, kMigrateRetryMs * 5);
+            r = ready.failed ? Result::kRefused : ready.write ? Result::kOk : Result::kWouldBlock;
+        }
+        if (r == Result::kOk) {
+            _net->setOption(s, net::Sockets::kNoDelay, 1);
+            const int index = _nextConnection++;
+            Connection &c = _connections[index];
+            c.socket = s;
+            c.joined = true;
+            Writer w;
+            w.str(_session.instance);
+            w.u32(_firstId);
+            frame(c, kRejoin, w.b);
+            flush(c);
+            _hostConnection = index;
+            return;
+        }
+        _net->close(s);
+        std::this_thread::sleep_for(std::chrono::milliseconds(kMigrateRetryMs));
+    }
+    lost();
 }
 
 } // namespace reluva::x86::dplay

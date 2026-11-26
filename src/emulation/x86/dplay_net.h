@@ -48,8 +48,12 @@ struct FoundSession {
 
 /** What the session's other programs did, as poll() reports it. */
 struct Event {
-    /** What happened: a player joined, left or changed its data, a message, the session's settings, or the session lost. */
-    enum Kind { kPlayerAdded, kPlayerRemoved, kPlayerData, kMessage, kSession, kSessionLost };
+    /**
+     * What happened: a player joined, left, or changed its data or name; a
+     * message; the session's settings; the session lost; or this program
+     * made its host, the host gone.
+     */
+    enum Kind { kPlayerAdded, kPlayerRemoved, kPlayerData, kMessage, kSession, kSessionLost, kPlayerName, kBecameHost };
     Kind kind = kMessage;
     PlayerInfo player; // added; removed and data: its id (and data)
     uint32_t from = 0; // a message's
@@ -105,6 +109,8 @@ public:
     void addPlayer(const PlayerInfo &p);
     void removePlayer(uint32_t id);
     void setPlayerData(uint32_t id, const std::vector<uint8_t> &data);
+    /** One of this program's players renamed, for the other programs. */
+    void setPlayerName(uint32_t id, const std::string &shortName, const std::string &longName);
     ///@}
     /** A message from a player of this program's to player `to` (0: every one), for the others' players. */
     void send(uint32_t from, uint32_t to, const std::vector<uint8_t> &bytes);
@@ -118,7 +124,7 @@ public:
      * The frames and datagrams' layout, for tests: a TCP frame's kind,
      * after its size.
      */
-    enum Frame : uint8_t { kJoin = 1, kWelcome, kAdd, kRemove, kData, kMessage, kSession };
+    enum Frame : uint8_t { kJoin = 1, kWelcome, kAdd, kRemove, kData, kMessage, kSession, kName, kNext, kRejoin };
 
 private:
     struct Connection {
@@ -127,6 +133,7 @@ private:
         std::vector<uint8_t> out;
         bool joined = false;
         uint32_t firstId = 0; // the IDs its players have, as the host gave it
+        net::Address address; // its program's, as the host accepted it
     };
     void frame(Connection &to, Frame kind, const std::vector<uint8_t> &payload);
     void flush(Connection &c);
@@ -141,6 +148,11 @@ private:
     // To every joined connection but `except` (-1: all).
     void forward(Frame kind, const std::vector<uint8_t> &payload, int except);
     int ownerOf(uint32_t id) const;
+    // The host: who takes over if it goes, for every program.
+    void announceSuccessor();
+    // A joining program, its host gone: the session goes on, the successor
+    // hosting it, or it's lost.
+    void migrate(std::vector<Event> &events);
 
     std::shared_ptr<net::Sockets> _net;
     std::vector<uint32_t> _broadcast;
@@ -153,7 +165,10 @@ private:
     int _nextConnection = 0;
     int _hostConnection = -1;                // a joining program's connection to its host
     std::map<uint32_t, int> _owners;         // remote players' connections (host) ...
-    std::map<uint32_t, PlayerInfo> _players; // every player the host knows of, to tell those who join
+    std::map<uint32_t, PlayerInfo> _players; // every player (a joining program's too, to host if it must)
+    uint32_t _firstId = 0;                   // a joining program's first ID for its players
+    net::Address _successor;                 // the program that takes over if the host goes
+    uint32_t _successorFirstId = 0;          // its first ID; 0 for none
     uint32_t _nextBlock = 1;
     std::map<std::string, FoundSession> _found;
     std::chrono::steady_clock::time_point _asked;

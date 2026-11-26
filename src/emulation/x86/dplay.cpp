@@ -62,6 +62,8 @@ constexpr uint32_t kSysDestroy = 0x0005;
 constexpr uint32_t kSysSetData = 0x0102;
 constexpr uint32_t kSysSessionLost = 0x0031;
 constexpr uint32_t kSysSetSessionDesc = 0x0104;
+constexpr uint32_t kSysSetName = 0x0106;
+constexpr uint32_t kSysHost = 0x0101;
 constexpr uint32_t kEnumAsync = 0x10;
 constexpr uint32_t kEnumStopAsync = 0x20;
 
@@ -564,6 +566,16 @@ public:
                 systemMessage(set.bytes, set.pointers, 0);
                 break;
             }
+            case dplay::Event::kPlayerName: {
+                Player *p = player(e.player.id);
+                if (!p || p->local)
+                    break;
+                p->shortName = e.player.shortName;
+                p->longName = e.player.longName;
+                const Message set = nameMessage(*p);
+                systemMessage(set.bytes, set.pointers, 0);
+                break;
+            }
             case dplay::Event::kMessage:
                 for (const auto &[id, p] : session->players)
                     if (p.local && (e.to == 0 || id == e.to))
@@ -577,6 +589,15 @@ public:
                 systemMessage(m.bytes, m.pointers, 0);
                 break;
             }
+            case dplay::Event::kBecameHost: {
+                // The host gone, this program hosts the session now
+                // (DPSESSION_MIGRATEHOST): DPMSG_HOST, the type alone.
+                session->host = true;
+                Message m;
+                put32(m.bytes, kSysHost);
+                systemMessage(m.bytes, m.pointers, 0);
+                break;
+            }
             case dplay::Event::kSessionLost: {
                 Message m;
                 put32(m.bytes, kSysSessionLost);
@@ -587,6 +608,25 @@ public:
         }
     }
     // DPMSG_SETPLAYERORGROUPDATA for `p`'s data every player sees.
+    // DPMSG_SETPLAYERORGROUPNAME for player `p`: its DPNAME, the strings
+    // after the structure.
+    static Message nameMessage(const Player &p) {
+        Message m;
+        std::vector<uint8_t> &b = m.bytes;
+        put32(b, kSysSetName);
+        put32(b, 1); // DPPLAYERTYPE_PLAYER
+        put32(b, p.id);
+        put32(b, 16);
+        put32(b, 0);
+        put32(b, 0);
+        put32(b, 0);
+        for (const auto &[field, text] : {std::pair{size_t(20), &p.shortName}, std::pair{size_t(24), &p.longName}})
+            if (const uint32_t at = putString(b, *text, true)) {
+                set32(b, field, at);
+                m.pointers.push_back(uint32_t(field));
+            }
+        return m;
+    }
     static Message dataMessage(const Player &p) {
         Message set;
         put32(set.bytes, kSysSetData);
@@ -678,7 +718,8 @@ std::optional<uint32_t> Play::invoke(const ComInterface &iface, int index, Cpu &
         const uint32_t caps = c.arg(1);
         if (!c.valid(caps, 40) || c.read32(caps) < 40)
             return kDpErrInvalidParams;
-        const uint32_t values[] = {40, 0, kMaxMessage, 0, 64, 0, 50, 64, 0, 5000};
+        // DPCAPS_ISHOST (2) in its flags while this program hosts.
+        const uint32_t values[] = {40, session && session->host ? 2u : 0u, kMaxMessage, 0, 64, 0, 50, 64, 0, 5000};
         for (uint32_t i = 0; i < 10; ++i)
             c.write32(caps + 4 * i, values[i]);
         return kSOk;
@@ -1029,6 +1070,27 @@ std::optional<uint32_t> Play::invoke(const ComInterface &iface, int index, Cpu &
     // SetPlayerData(player, data, size, flags): its local data (DPSET_LOCAL,
     // 1), else what every player sees, the session's others told
     // (DPSYS_SETPLAYERORGROUPDATA).
+    // SetPlayerName(player, DPNAME*, flags): one of this program's players
+    // renamed, for its other players and every other program's.
+    if (m == "SetPlayerName") {
+        Player *p = player(c.arg(1));
+        if (!p || !p->local)
+            return kDpErrInvalidPlayer;
+        const uint32_t name = c.arg(2);
+        p->shortName.clear();
+        p->longName.clear();
+        if (name) {
+            if (!c.valid(name, 16))
+                return kDpErrInvalidParams;
+            p->shortName = c.read32(name + 8) ? c.string(c.read32(name + 8), 256) : std::string();
+            p->longName = c.read32(name + 12) ? c.string(c.read32(name + 12), 256) : std::string();
+        }
+        const Message set = nameMessage(*p);
+        systemMessage(set.bytes, set.pointers, p->id);
+        if (node)
+            node->setPlayerName(p->id, p->shortName, p->longName);
+        return kSOk;
+    }
     if (m == "SetPlayerData") {
         Player *p = player(c.arg(1));
         if (!p || !p->local)
