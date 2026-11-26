@@ -835,6 +835,13 @@ void GameHost::addSystem() {
     // gives the general path.
     if (lower(_options.presentedRenderer.empty() ? _options.renderer : _options.presentedRenderer) == "d3da.dll")
         (*registry)["software\\electronic arts\\need for speed iii"]["3d device description"] = {1, "Direct3D HAL"};
+    // DirectX's own key, with the version Windows 98 (as above) came with,
+    // 5.2: NFS II SE's dsetup.dll reports it to the game, which goes on
+    // only from DirectX 5 (0x472308). Without the key the DLL would work
+    // 5 out from the version of Windows. Not put in for NFS III, whose
+    // runs haven't been checked with it.
+    if (lower(_options.program).rfind("nfs2se", 0) == 0)
+        (*registry)["software\\microsoft\\directx"] = {{"version", {1, "4.05.01.1998"}}};
     auto keys = std::make_shared<std::map<uint32_t, std::string>>();
     const char *a = "ADVAPI32.dll";
     provide(a, "RegOpenKeyExA", 5, [this, registry, keys](Cpu &c) {

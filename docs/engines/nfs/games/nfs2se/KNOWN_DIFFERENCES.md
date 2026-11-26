@@ -13,10 +13,7 @@ None yet.
 
 ## Not yet as the original
 
-- **The registry has no DirectX key** (`Software\Microsoft\DirectX`):
-  the game asks `dsetup.dll` the DirectX version, finds none, and goes
-  on. What it would do with one isn't known
-  ([research/hosted-spike.md](research/hosted-spike.md)).
+None yet.
 
 ## Additions outside the game
 

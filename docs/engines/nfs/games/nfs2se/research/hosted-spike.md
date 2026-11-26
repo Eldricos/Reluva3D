@@ -24,8 +24,15 @@ meant for the title movie can land before or after it.
 ## What it does
 
 - **Start-up:** reads `install.win`; loads the install's `dsetup.dll`
-  (DirectX's set-up) and asks it the DirectX version, which it finds in
-  the registry (`Software\Microsoft\DirectX`, not there: it goes on);
+  (DirectX's set-up) and asks it the DirectX version (0x4722c0), and
+  goes on only from DirectX 5 (the version's low word at least 5,
+  0x472308): without the DLL, or with less, a message in the chosen
+  language and it quits. The DLL reads the version from the registry
+  (`Software\Microsoft\DirectX`, `Version`, "4.05.01.1998" as 4.05 and
+  1.1998), or without it works it out from Windows': 4.05 on Windows
+  98 and on NT after 4. The host first had no key and got 4.05 that
+  way; it now has DirectX 5.2's, as Windows 98 came with
+  (late November 2026);
   checks the free memory and disk; makes its window on a thread of its
   own, which runs the message loop, while the main thread runs the game.
 - **DirectDraw:** 640x480 in 16 bits, a primary surface with one back
@@ -89,7 +96,8 @@ of them its software renderer's (its PLAN.md, Phase 4).
   screen, 9 times a frame in a race. Once a frame would do: at the last
   strip, or on the host's own clock.
 - **The registry** has no `Software\Microsoft\DirectX`: what the game
-  does with the version `dsetup.dll` reports isn't known.
+  does with the version `dsetup.dll` reports isn't known. (Since
+  settled: a check for DirectX 5, above.)
 - **The drives** are labelled `NFS3`, NFS III's CD's label; the save
   folder the tool uses by default is named for NFS III.
 - **Sound** wasn't listened to, nor the 3dfx program (`nfs2sea.exe`)
