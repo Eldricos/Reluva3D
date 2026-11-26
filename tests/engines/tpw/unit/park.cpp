@@ -1217,6 +1217,108 @@ void testChallenges(const std::filesystem::path &tmp) {
     CHECK(doomed.fired() && doomed.failuresLeft() == 0);
 }
 
+// Special rides: a boating lake boarded up, wanting a guard in First Aid
+// and a gardener in Landfill, which the swamp's research discovers, and a
+// golden ticket. Activated, it opens, and its challenge, a special
+// ride's, is offered and won for a promotion. The player's rides
+// activated are set again on a new park.
+void testSpecialRides(const std::filesystem::path &tmp) {
+    const std::filesystem::path data = tmp / "game" / "Data";
+    std::string types;
+    for (int i = 0; i < 24; ++i)
+        types += "PeepTypes[" + std::to_string(i) +
+                 "].PreferredExcitement.StartingCash.BoredomThreshold.Generation 60 "
+                 "1000 2000 " +
+                 std::to_string(i / 8) + "\r\n";
+    writeText(data / "levels" / "Standard.sam",
+              "BankAccountInfo.InitialCash 100000\r\nArrival.MinPeople 2\r\nArrival.TimeBetweenArrivals 1\r\n"
+              "Arrival.FixedRate 4\r\nArrival.PointsPerVisitor 1\r\nPeepInfo.PercentageOfKids 100\r\n"
+              "PeepInfo.PrankeryLikelihood 0\r\nChallenges.DaysBetweenOffers 1\r\n"
+              "StaffPoolInfo.BeginningNumberOfGardeners 2\r\nStaffPoolInfo.BeginningNumberOfGuards 2\r\n"
+              "StaffPoolInfo.AvgExperienceOfGardeners 40000\r\nStaffPoolInfo.AvgExperienceOfGuards 40000\r\n"
+              "StaffPoolInfo.AvgWageDifference 0\r\nStaffAgencies[0].InitialWageModifier 10\r\n"
+              "StaffAgencies[0].InitialExperienceModifier 0\r\nAllStaffConstants.MinExperienceForTraining 30000\r\n" +
+                  types);
+    writeText(data / "Challenges.sam", "Challenges[20].Type 48\r\nChallenges[20].TargetTime 3\r\n"
+                                       "Challenges[20].TargetVal 1\r\nChallenges[20].TargetObj 1110\r\n"
+                                       "Challenges[20].PromoGiven 3\r\nChallenges[20].Sender 4\r\n");
+    // The swamp's mission, done in Polar Zone, needs Landfill (11).
+    writeText(data / "missions" / "miss00.sam", "Info.Number 0\r\nCompletion.EndingTheme 2\r\n"
+                                                "Obstacle.Type 2700\r\nObstacle.ResearchEffort 10\r\n"
+                                                "ObstacleStaff[0].Ability 11\r\nObstacleStaff[0].StaffType 5\r\n");
+    writeText(data / "missions" / "miss01.sam", "Info.Number 1\r\nCompletion.EndingTheme 2\r\n");
+    const std::filesystem::path world = data / "levels" / "science";
+    writeText(world / "Standard.sam", "ChallengesInThisLevel[0].ChallengeType 20\r\n");
+    writeText(world / "rides" / "Rides.sam", "Info.HasQueue 1\r\nInfo.IsChoosable 1\r\nResearch.Group 0\r\n");
+    writeText(world / "rides" / "vict_hs" / "vict_hs.sam",
+              "Info.Id 1110\r\nInfo.IsSpecial 1\r\nUsageInfo.GoldenTicketCost 1\r\nSkillSet[9].Num 1\r\n"
+              "SkillSet[11].Num 1\r\nUsageInfo.ExcitementLevel 40\r\nInfo.Shape\r\n---\r\n2N\r\n---\r\n");
+    writeText(world / "Facilities" / "train_rm" / "train_rm.sam",
+              "Info.Id 1440\r\nUsageInfo.TrainingRoom 1\r\nInfo.Shape\r\n---\r\n*2\r\n---\r\n");
+    constexpr int kRows = 8;    // x
+    constexpr int kColumns = 6; // y
+    tpw::testing::Bytes tiles(size_t(kRows) * kColumns, 0);
+    for (int x = 0; x < 7; ++x)
+        tiles[size_t(x) * kColumns + 4] = 8;
+    test::writeFile(world / "terrain" / "base.map", tpw::testing::makeAttributeMap(kColumns, kRows, tiles));
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!mountGame(files, tmp / "game", warnings));
+
+    // Before the swamp's mission's done, Landfill isn't known.
+    Park early;
+    CHECK(!early.load(files, "levels/science", 0));
+    const int q0 = early.place(1110, 0, {"2N"}, true, {2, 2}, 0);
+    CHECK(q0 >= 0 && early.awaitsActivation(0) && !early.objects()[0].open);
+    CHECK(early.abilityDiscovered(9) && !early.abilityDiscovered(11));
+    CHECK(early.activate(0) == Park::Activation::kUndiscovered);
+
+    Park park;
+    CHECK(!park.load(files, "levels/science", 1));
+    CHECK(park.abilityDiscovered(11) && Park::abilityKind(11) == Park::StaffKind::kGardener &&
+          Park::abilityKind(9) == Park::StaffKind::kGuard);
+    const int q = park.place(1110, 0, {"2N"}, true, {2, 2}, 0);
+    CHECK(q >= 0 && park.layQueue(q, Park::pathRun({2, 2}, {2, 4})) == 1);
+    CHECK(park.awaitsActivation(0) && park.challenges()[0].status == Park::ChallengeStatus::kNotYet);
+    park.setOpen(0, true);
+    CHECK(!park.objects()[0].open);
+    CHECK(park.activate(0) == Park::Activation::kNeedsStaff);
+
+    // A guard and a gardener trained: each learns the ride's ability of their kind.
+    CHECK(park.place(1440, 0, {"*2"}, false, {5, 2}, 0) == -1);
+    CHECK(park.hire(Park::StaffKind::kGuard, 0) == Park::Hiring::kHired);
+    const int guard = park.staff().back().id;
+    CHECK(park.hire(Park::StaffKind::kGardener, 0) == Park::Hiring::kHired);
+    const int gardener = park.staff().back().id;
+    CHECK(park.abilityToLearn(Park::StaffKind::kGuard) == 9 && park.abilityToLearn(Park::StaffKind::kGardener) == 11);
+    CHECK(park.sendForTraining(guard) == Park::Training::kSent);
+    CHECK(park.sendForTraining(gardener) == Park::Training::kSent);
+    for (int t = 0; t < 200 && (park.staffMember(guard)->ability != 9 || park.staffMember(gardener)->ability != 11);
+         ++t)
+        park.advance(1000);
+    CHECK(park.staffMember(guard)->ability == 9 && park.staffMember(gardener)->ability == 11);
+    CHECK(park.activationStaff(0) == (std::vector<std::vector<int>>{{guard}, {gardener}}));
+
+    // Its golden ticket, then it's open; its challenge's set off.
+    CHECK(park.activate(0) == Park::Activation::kNeedsTickets);
+    park.setPlayer(1, 2);
+    CHECK(park.activate(0) == Park::Activation::kActivated && park.goldenTickets() == 0 && park.objects()[0].open);
+    CHECK(park.ridesActivated() == std::vector<int>{1110});
+    for (int t = 0; t < 10 && park.challenges()[0].status != Park::ChallengeStatus::kAvailable; ++t)
+        park.advance(Park::kDayMillis);
+    CHECK(park.acceptChallenge(0));
+    for (int t = 0; t < 10 && park.challenges()[0].status != Park::ChallengeStatus::kComplete; ++t)
+        park.advance(Park::kDayMillis);
+    CHECK(park.challenges()[0].status == Park::ChallengeStatus::kComplete && park.rank() == 3);
+
+    // A new park of the player's has it open from the start.
+    Park again;
+    CHECK(!again.load(files, "levels/science", 1));
+    CHECK(again.place(1110, 0, {"2N"}, true, {2, 2}, 0) >= 0 && again.awaitsActivation(0));
+    again.setRidesActivated({1110});
+    CHECK(!again.awaitsActivation(0) && again.objects()[0].open);
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -1236,4 +1338,5 @@ static const reluva::test::Suite
                                 {"finance", [](const std::filesystem::path &tmp) { testFinance(tmp); }},
                                 {"missions", [](const std::filesystem::path &tmp) { testMissions(tmp); }},
                                 {"challenges", [](const std::filesystem::path &tmp) { testChallenges(tmp); }},
+                                {"special-rides", [](const std::filesystem::path &tmp) { testSpecialRides(tmp); }},
                             });

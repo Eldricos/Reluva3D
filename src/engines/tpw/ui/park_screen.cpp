@@ -1120,6 +1120,7 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
         _attractionList.draw(screen, _kit, park, _buy.names());
         _parkStats.draw(screen, _kit, park);
         _awards.draw(screen, _kit);
+        _activateRide.draw(screen, _kit, park, _hire);
         _parkMap.draw(screen, _kit, park,
                       {int(std::floor(camera.target[0] / Park::kCellUnits)),
                        int(std::floor(camera.target[2] / Park::kCellUnits))});
@@ -1140,7 +1141,8 @@ bool ParkScreen::windowOpen() const {
            _renameWindow.isOpen() || _financeStats.isOpen() || _loansWindow.isOpen() || _portfolio.isOpen() ||
            _attractionFinance.isOpen() || _messageWindow.isOpen() || _visitorStats.isOpen() ||
            _visitorWindow.isOpen() || _visitorList.isOpen() || _attractionList.isOpen() || _parkStats.isOpen() ||
-           _awards.isOpen() || _messageCenter.isOpen() || _gameMenu.isOpen() || _parkMap.isOpen();
+           _awards.isOpen() || _messageCenter.isOpen() || _gameMenu.isOpen() || _parkMap.isOpen() ||
+           _activateRide.isOpen();
 }
 
 // Every message goes to the Message Center, unread; the president's
@@ -1342,6 +1344,7 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                     screen.parkStats().close();
                     screen.awards().close();
                     screen.parkMap().close();
+                    screen.activateRide().close();
                     screen.messageCenter().close();
                     screen.popup().close();
                     screen.attractionWindow().close();
@@ -1391,6 +1394,8 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                     screen.parkStats().handle(ev);
                 } else if (screen.awards().isOpen()) {
                     screen.awards().handle(ev);
+                } else if (screen.activateRide().isOpen()) {
+                    screen.activateRide().handle(ev, park);
                 } else if (screen.parkMap().isOpen()) {
                     // A click on the map takes the camera there; the map stays.
                     if (screen.parkMap().handle(ev) == WindowResult::kChose)
@@ -1642,6 +1647,12 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                             {m && m->patrolling ? kClearPatrolItem : kSetPatrolItem, kTrainItem, kFireItem}, mouseX,
                             mouseY);
                     }
+                    continue;
+                }
+                // A special ride waiting to be activated: its window, by
+                // either click (guessed).
+                if (object >= 0 && park.awaitsActivation(size_t(object))) {
+                    screen.activateRide().open(size_t(object), screen.nameOf(park, size_t(object)));
                     continue;
                 }
                 if (object >= 0) {

@@ -272,6 +272,8 @@ Error WindowKit::load(const SearchSet &files) {
         return err;
     if (Error err = readStringTable(files, folder, "CHALLENGE_TITLES", _characters, _challengeTitles))
         return err;
+    if (Error err = readStringTable(files, folder, "ABILITIES", _characters, _abilities))
+        return err;
     if (Error err = readGameFont(files, folder, "MENUBIG", _menuFont))
         return err;
     // The other windows' tabs and buttons.

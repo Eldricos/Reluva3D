@@ -27,6 +27,7 @@ struct PlayerFile {
     int goldenTickets = 0;
     std::vector<int> challengesWon; // by their numbers in Challenges.sam
     int challengesFailed = 0;
+    std::vector<int> ridesActivated; // special rides, by their objects' numbers
     int sharesOwned = 0;
     int sharesIssued = 0;
     int sharePrice = 0;

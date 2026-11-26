@@ -89,6 +89,7 @@ public:
             park.setShares({player.sharesIssued, player.sharesOwned, player.sharePrice});
         park.setPlayer(player.goldenTickets, player.rank);
         park.setChallengeRecord(player.challengesWon, player.challengesFailed);
+        park.setRidesActivated(player.ridesActivated);
         // The mission's briefing over the park as it opens.
         Briefing briefing;
         soft3d::Rasterizer rasterizer;
@@ -112,6 +113,10 @@ public:
                 p.rank = park.rank();
                 p.challengesWon = park.challengesWon();
                 p.challengesFailed = park.challengesFailed();
+                // The special rides activated in this world, with the others' kept.
+                for (int id : park.ridesActivated())
+                    if (std::find(p.ridesActivated.begin(), p.ridesActivated.end(), id) == p.ridesActivated.end())
+                        p.ridesActivated.push_back(id);
                 // Their objective now, where it's played, and the worlds opened.
                 if (park.progress() < int(park.missions().size())) {
                     p.objective = park.progress();

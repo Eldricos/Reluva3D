@@ -223,13 +223,24 @@ bool Park::obstacleStaffReady() const {
 
 // What the obstacle still wants of a kind, once its solution's found.
 int Park::abilityToLearn(StaffKind kind) const {
-    if (!_obstacleResearched)
-        return 0;
-    const std::vector<std::vector<int>> staff = obstacleStaff();
-    for (size_t i = 0; i < staff.size(); ++i) {
-        const Mission::StaffNeed &need = _mission.staffNeeded[i];
-        if (missionStaffKind(need.staffType) == kind && int(staff[i].size()) < need.number)
-            return need.ability;
+    if (_obstacleResearched) {
+        const std::vector<std::vector<int>> staff = obstacleStaff();
+        for (size_t i = 0; i < staff.size(); ++i) {
+            const Mission::StaffNeed &need = _mission.staffNeeded[i];
+            if (missionStaffKind(need.staffType) == kind && int(staff[i].size()) < need.number)
+                return need.ability;
+        }
+    }
+    for (size_t object = 0; object < _objects.size(); ++object) {
+        if (!awaitsActivation(object))
+            continue;
+        const Attractions::Attraction *a = _attractions.find(_objects[object].id);
+        const std::vector<std::vector<int>> staff = activationStaff(object);
+        for (size_t i = 0; i < a->skills.size(); ++i) {
+            const auto [ability, count] = a->skills[i];
+            if (abilityKind(ability) == kind && abilityDiscovered(ability) && int(staff[i].size()) < count)
+                return ability;
+        }
     }
     return 0;
 }

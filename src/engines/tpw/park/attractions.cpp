@@ -27,6 +27,8 @@ const std::array<std::pair<const char *, Attractions::Kind>, 6> kKindFolders{{
     {"obstacles", Attractions::Kind::kFeature},
 }};
 constexpr const char *kOnline = "online_"; // the online game's settings, beside the kinds'
+// ABILITIES.str's abilities, 0 "None" to 14 "Logging".
+constexpr int kAbilities = 15;
 
 std::string lower(std::string s) {
     std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return char(std::tolower(c)); });
@@ -107,6 +109,11 @@ Error Attractions::load(const SearchSet &files, const std::string &folder) {
             a.hasQueue = number("Info.HasQueue", 0) != 0;
             a.obstacle = number("Info.IsObstacle", 0) != 0;
             a.shopType = int(number("UsageInfo.ShopType", -1));
+            a.ticketCost = int(own.number("UsageInfo.GoldenTicketCost", 0));
+            a.special = own.number("Info.IsSpecial", 0) != 0 || a.ticketCost > 0;
+            for (int ability = 0; ability < kAbilities; ++ability)
+                if (const int count = int(own.number("SkillSet[" + std::to_string(ability) + "].Num", 0)); count > 0)
+                    a.skills.emplace_back(ability, count);
             a.available = !a.obstacle && number("Research.Group", -1) == 0 && a.price > 0;
             // An obstacle's shape marks land its own way, which isn't worked
             // out: it stands on its first cell.

@@ -146,11 +146,10 @@ Plughole and Manager on a small world built in the test.
 
 ## Open questions
 
-- The special rides aren't opened yet, so their challenges and their
-  promotions to Senior Manager and above can't be won, nor missions 4,
-  10 and 14, which need them; park awards aren't given, so neither can
-  the last. Challenges give the other missions' golden tickets and
-  promotions ([challenges.md](challenges.md)).
+- Park awards aren't given yet, so the last mission can't be done.
+  Challenges give the golden tickets and promotions, the special rides'
+  the promotions past Manager ([challenges.md](challenges.md),
+  [special-rides.md](special-rides.md)).
 - How the park's land and fence change (`BoundaryClicks`, `hoardings.map`,
   `Hoardings.sam`, `EndHoardings.sam`), and what an obstacle's shape and
   `AfterShape` mark.

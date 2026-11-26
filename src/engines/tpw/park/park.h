@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <initializer_list>
 #include <map>
 #include <optional>
 #include <string>
@@ -145,8 +146,31 @@ public:
     Solution proceedWithSolution();
     /** The objects removed since last asked, and their queues (−1 for none), in order. */
     std::vector<std::pair<size_t, int>> takeRemovals() { return std::exchange(_removals, {}); }
-    /** The ability a member of staff learns in training: what the obstacle wants of their kind, else 0. */
+    /**
+     * The ability a member of staff learns in training: what the
+     * obstacle wants of their kind, else what a special ride waiting to
+     * be activated does, else 0.
+     */
     int abilityToLearn(StaffKind kind) const;
+    /** The kind of staff who learn an ability (ABILITIES.str's); nullopt for none. */
+    static std::optional<StaffKind> abilityKind(int ability);
+    /**
+     * Whether an ability's been discovered: Ride Upgrading, Firefighting
+     * and First Aid from the start; the others with the research of an
+     * obstacle that needs them (guessed).
+     */
+    bool abilityDiscovered(int ability) const;
+
+    /** Whether an object's a special ride not yet activated. */
+    bool awaitsActivation(size_t object) const;
+    /** The staff trained for each of a special ride's abilities, as obstacleStaff() does an obstacle's. */
+    std::vector<std::vector<int>> activationStaff(size_t object) const;
+    /** What activating a special ride ("Activate Ride", UITEXT 984) came to. */
+    enum class Activation { kActivated, kNotSpecial, kUndiscovered, kNeedsStaff, kNeedsTickets };
+    Activation activate(size_t object);
+    /** The special rides activated, by their objects' numbers: the player's file keeps them. */
+    std::vector<int> ridesActivated() const;
+    void setRidesActivated(const std::vector<int> &ids);
     /** A theme's name's number in THEMENAMES.str: 0 Land of Invention, 1 Polar Zone, 3 Arabian Nights. */
     static int themeName(int theme);
     /** A staff kind by the missions' numbering (ObstacleStaff[n].StaffType). */
@@ -596,6 +620,7 @@ public:
         float upgrading = 0;   // days left of an upgrade being made; 0 for none
         std::string name;      // the player's name for it; empty for its own
         bool prebuilt = false; // the prebuilt park's, there as it opened
+        bool active = true;    // a special ride: activated, and so open
     };
     const std::vector<PlacedObject> &objects() const { return _objects; }
 
@@ -849,6 +874,7 @@ public:
         int time = 0;          // TargetTime: days it runs
         int target = 0;        // TargetVal
         int targetObject = 0;  // TargetObj: the attraction it's about
+        int target2 = 0;       // TargetVal2: a special ride's second measure
         int preparation = 0;   // GracePeriodLimit: days to prepare before it runs
         int cash = 0;          // CashPrize
         int tickets = 1;       // GTPrize: golden tickets won
@@ -869,6 +895,7 @@ public:
         int failures = 0;
         int daysLeft = 0;   // preparing or active
         int baseline = 0;   // its count as it began, for those that count
+        int baseline2 = 0;  // a second count: the pranks, or the visitors come in
         int triggered = -1; // the day its trigger was met; −1 not yet
         bool warned = false;
     };
@@ -878,6 +905,8 @@ public:
     bool acceptChallenge(size_t index);
     /** Where a challenge's measure stands: what's sold, used, kept; the lowest of what's watched. */
     int challengeValue(size_t index) const;
+    /** A special ride's challenge's second measure: its ride's state of repair, or satisfaction. */
+    int challengeValue2(size_t index) const;
     /** The challenges the player may still fail before they're fired (FiringLineForRank[rank].Limit). */
     int failuresLeft() const;
     /** The player's record, as their file keeps it: the challenges won, by number, and those failed. */
@@ -964,6 +993,10 @@ private:
     void challengeDay();
     bool challengeTriggered(const Challenge &c) const;
     bool challengeKept(const Challenge &c, int value) const;
+    int challengeOutcome(size_t index, bool timeUp) const;
+    void startCounting(size_t index);
+    bool amongTopThoughts(std::initializer_list<Thought> thoughts) const;
+    int satisfaction() const;
     void endChallenge(ChallengeState &state, bool won);
     void postChallenge(const Challenge &c, int event);
     int techCap() const;

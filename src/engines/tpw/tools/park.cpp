@@ -673,7 +673,7 @@ int cmdWindowShot(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool tpw window-shot <game folder> <world folder> <out.png> "
-            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map> [seconds] [-mission <n>]\n");
+            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|activate> [seconds] [-mission <n>]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -783,7 +783,12 @@ int cmdWindowShot(int argc, char **argv) {
         screen.gameMenu().open();
     else if (which == "map")
         screen.parkMap().open();
-    else if (which == "report") {
+    else if (which == "activate") {
+        // The first special ride waiting to be activated.
+        for (size_t i = park.objects().size(); i-- > 0;)
+            if (park.awaitsActivation(i))
+                screen.activateRide().open(i, screen.nameOf(park, i));
+    } else if (which == "report") {
         // On to the new year's first day, for its annual report.
         while (park.day() < 367)
             park.advance(1000);
@@ -813,7 +818,7 @@ const Commands kCommands(
          "draw the Hire Staff window over a new park, on a tab, a row chosen, to a PNG, and list the candidates",
          cmdHireShot},
         {"window-shot",
-         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map> [seconds] [-mission <n>]",
+         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|activate> [seconds] [-mission <n>]",
          "draw one of the park's smaller windows over a new park, its staff one of each kind, run on, to a PNG",
          cmdWindowShot},
         {"sign-shot", "<game folder> <world folder> <out.png>",

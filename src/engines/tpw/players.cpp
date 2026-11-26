@@ -47,6 +47,10 @@ PlayerSlots readPlayers(const std::filesystem::path &folder, const PlayerFile &f
                 p->challengesWon.push_back(n);
         } else if (key == "challenges-failed") {
             words >> p->challengesFailed;
+        } else if (key == "rides-activated") {
+            p->ridesActivated.clear();
+            for (int n; words >> n;)
+                p->ridesActivated.push_back(n);
         } else if (key == "shares-owned") {
             words >> p->sharesOwned;
         } else if (key == "share-price") {
@@ -88,6 +92,10 @@ Error writePlayers(const std::filesystem::path &folder, const PlayerSlots &playe
             out << ' ' << n;
         out << '\n';
         out << "challenges-failed " << p.challengesFailed << '\n';
+        out << "rides-activated";
+        for (int n : p.ridesActivated)
+            out << ' ' << n;
+        out << '\n';
         out << "shares-owned " << p.sharesOwned << '\n';
         out << "share-price " << p.sharePrice << '\n';
         for (const PlayerFile::World &w : p.worlds)

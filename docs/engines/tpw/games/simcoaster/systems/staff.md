@@ -149,7 +149,9 @@ and at 80 and 80 *(guessed)*:
   (tenths). They need `MinExperienceForTraining` (30,000) first (232), and
   the park a training room (233). They learn an ability: what the
   mission's obstacle still wants of their kind ([missions.md](missions.md#obstacles)),
-  else, for an engineer, Ride Upgrading *(guessed)*.
+  else what a special ride waiting to be activated needs
+  ([special-rides.md](special-rides.md#abilities)), else, for an engineer,
+  Ride Upgrading *(guessed)*.
 - **Patrol areas**: kept to a rectangle of cells, two corners clicked,
   they wander and look for work only within it.
 - **Firing**: gone at once.

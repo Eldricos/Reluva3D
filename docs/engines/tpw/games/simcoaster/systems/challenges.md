@@ -65,7 +65,7 @@ prepared for, and while it runs. They tell what each type asks:
 | 42 | the hot dog stands shut "for a while", hunger not among the three commonest thoughts |
 | 43 | no litter |
 | 46 | the Safety Review: every ride's state of repair above so much |
-| 48, 50 to 58 | a special ride's: its satisfaction, excitement, repair, users, photos, loops |
+| 48, 50 to 58 | a special ride's: its satisfaction, excitement, repair, users, photos, loops ([special-rides.md](special-rides.md#their-challenges)) |
 
 A count (2, 3, 6, 17, 45) is won as soon as it's reached and failed if
 time runs out; a kept measure is failed as soon as it slips and won if
@@ -79,10 +79,10 @@ Checked each day:
    mission is `MissionNeededToActivate` and its trigger is met: the
    hot dog stands built, the visitors in the park, the visitors to date,
    last month's profit, the pranks, the heatwaves, as its type reads
-   `TriggerData`; an attraction's, once that attraction's built. Triggers
-   Reluva can't tell are met at once *(guessed)*. The special rides'
-   challenges wait for their rides to be opened, which Reluva can't do
-   yet.
+   `TriggerData`; an attraction's, once that attraction's there and
+   open, a special ride once it's activated
+   ([special-rides.md](special-rides.md)). Triggers Reluva can't tell are
+   met at once *(guessed)*.
 2. `DaysDelay` days on, and `DaysBetweenOffers` since the last offer, it's
    offered: "New Challenge Available!" (`TAG_SYSTEM` 42) from its sender,
    ending with its title, as the recording's at 24:00 is from Miss Moody,
@@ -149,8 +149,8 @@ fail, win and promote on a world built in the test.
 
 ## Open questions
 
-- The special rides: opening them, and their challenges (types 48 and 50
-  to 58: satisfaction, photos, loops).
+- The coaster's loops and the photos (types 51 and 57), which Reluva
+  never offers.
 - What each `TriggerData` means where its comment doesn't say; whether
   offers wait while one is under way; whether one may be declined.
 - Whether a kept measure fails at once or only at the end

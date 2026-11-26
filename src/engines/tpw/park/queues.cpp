@@ -170,6 +170,9 @@ int Park::place(int id, int price, const std::vector<std::string> &shape, bool h
         _ground[size_t(c.y) * size_t(_mapWidth) + size_t(c.x)] = Ground::kTaken;
     _objects.push_back({id, at, ((angle % 360) + 360) % 360});
     _objects.back().placedDay = day();
+    // A special ride stands closed till it's activated.
+    if (const Attractions::Attraction *a = _attractions.find(id); a && a->special)
+        _objects.back().active = _objects.back().open = false;
     if (!hasQueue || !f.hasEntrance) {
         linkQueue(_objects.size() - 1, f);
         return -1;

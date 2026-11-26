@@ -70,6 +70,12 @@ public:
         // hot dogs (and chips), 4 drinks (and candy floss), 6 balloons, 5
         // costumes; −1 for none.
         int shopType = -1;
+        // A special ride: closed till it's activated with its golden
+        // tickets (UsageInfo.GoldenTicketCost) and staff of its abilities
+        // (SkillSet[ability].Num: so many, an ability of ABILITIES.str).
+        bool special = false;
+        int ticketCost = 0;
+        std::vector<std::pair<int, int>> skills; // ability, how many
         int replaceWith = 0;
         bool openedAutomatically = false;
         int wearRate = 0;    // Upgrades[0].WearRate, out of 10: a ride's wear

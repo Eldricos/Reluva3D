@@ -38,9 +38,18 @@ enum Type : int {
     kNoStrikes = 41,
     kHotDogScare = 42, // hot dog stands shut, hunger not among the three commonest thoughts
     kNoLitter = 43,
-    kDrinkProfit = 45,  // drinks' and ices' takings less their goods
-    kRideRepair = 46,   // the lowest state of repair of the rides
-    kSpecialRides = 48, // and after: a special ride's, which aren't opened yet
+    kDrinkProfit = 45,          // drinks' and ices' takings less their goods
+    kRideRepair = 46,           // the lowest state of repair of the rides
+    kSpecialRides = 48,         // and after: a special ride's (TargetObj), once it's activated
+    kRideLoved = 48,            // its satisfaction, and no pranks
+    kHappyThoughts = 50,        // happiness among the three commonest thoughts
+    kCoasterLoops = 51,         // the coaster's loops: no coasters yet
+    kRideSafeAndUsed = 52,      // so many users, its repair above TargetVal2
+    kRideFastAndSafe = 53,      // its excitement, its repair above TargetVal2
+    kRideExcitingNotMessy = 55, // its excitement, "Too messy" not among the commonest thoughts
+    kRideExcitingAndLiked = 56, // its excitement, satisfaction above TargetVal2
+    kRidePhotos = 57,           // its users buying photos: no photos yet
+    kRideWidelyUsed = 58,       // so many percent of the park's visitors use it
 };
 
 // The shops' ShopType numbers they count.
@@ -69,7 +78,7 @@ enum Event { kOffered, kUnderWay, kWon, kFailed, kTimeShort };
 // else it keeps a measure, failed as soon as it slips.
 bool counts(int type) {
     return type == kHotDogsSold || type == kDrinksSold || type == kBalloonsSold || type == kRideUsers ||
-           type == kDrinkProfit;
+           type == kDrinkProfit || type == kRideSafeAndUsed;
 }
 
 } // namespace
@@ -107,6 +116,7 @@ void Park::loadChallenges(const SearchSet &files, const SamFile &general, const 
         c.time = number("TargetTime", 30);
         c.target = number("TargetVal", 0);
         c.targetObject = number("TargetObj", 0);
+        c.target2 = number("TargetVal2", 0);
         c.preparation = number("GracePeriodLimit", 0);
         c.cash = number("CashPrize", 0);
         c.tickets = std::max(1, number("GTPrize", 1)); // "This has a minimum value of 1"
@@ -160,14 +170,18 @@ bool Park::challengeTriggered(const Challenge &c) const {
         return _kidPranks + _adultPranks >= c.trigger;
     case kDrinkProfit:
         return _heatwaves >= c.trigger; // "after nth heatwave"
+    case kCoasterLoops:
+    case kRidePhotos:
+        return false;
     case kRideUsers:
-        // Once its ride's built: the special rides standing in the prebuilt
-        // park are opened, not built, which Reluva can't do yet; the
-        // recording's first mission offers none of them.
-        return std::any_of(_objects.begin(), _objects.end(),
-                           [&](const PlacedObject &o) { return o.id == c.targetObject && !o.prebuilt; });
     default:
-        return c.type < kSpecialRides;
+        // An attraction's, once it's there and open to visitors: a special
+        // ride once it's activated, as the recording's first mission, its
+        // special rides boarded up, offers none.
+        if (c.type != kRideUsers && c.type < kSpecialRides)
+            return true;
+        return std::any_of(_objects.begin(), _objects.end(),
+                           [&](const PlacedObject &o) { return o.id == c.targetObject && o.active; });
     }
 }
 
@@ -211,10 +225,29 @@ bool Park::acceptChallenge(size_t index) {
     } else {
         state.status = ChallengeStatus::kActive;
         state.daysLeft = c.time;
-        state.baseline = 0;
-        state.baseline = challengeValue(index);
+        startCounting(index);
     }
     return true;
+}
+
+// What a challenge counts from as it begins: its count, the pranks or
+// the visitors come in so far.
+void Park::startCounting(size_t index) {
+    ChallengeState &state = _challenges[index];
+    const int type = state.challenge.type;
+    state.baseline = 0;
+    state.baseline2 = 0;
+    const bool countsUses = type == kRideSafeAndUsed || type == kRideWidelyUsed;
+    if (counts(type) || type == kNoPranks || type == kNoAdultPranks || type == kNoChildPranks) {
+        state.baseline = challengeValue(index);
+    } else if (countsUses) {
+        const auto uses = _usesById.find(state.challenge.targetObject);
+        state.baseline = uses == _usesById.end() ? 0 : uses->second;
+    }
+    if (type == kRideLoved)
+        state.baseline2 = _kidPranks + _adultPranks;
+    if (type == kRideWidelyUsed)
+        state.baseline2 = _totalVisitors;
 }
 
 // A count since it began; or what it keeps watch on now.
@@ -287,27 +320,117 @@ int Park::challengeValue(size_t index) const {
                 lowest = std::min(lowest, int(o.repair));
         return lowest;
     }
-    case kHotDogScare: {
-        // Hunger's place among the visitors' thoughts: 1 to 3 if it's one
-        // of the three commonest, else 0.
-        std::array<int, 64> thoughts{};
-        for (const Visitor &v : _people)
-            if (v.inPark)
-                if (const auto t = size_t(v.thought != Thought::kNone ? v.thought : howTheyAre(v)); t < thoughts.size())
-                    ++thoughts[t];
-        std::array<size_t, 64> order{};
-        for (size_t i = 0; i < order.size(); ++i)
-            order[i] = i;
-        std::stable_sort(order.begin() + 1, order.end(), [&](size_t a, size_t b) { return thoughts[a] > thoughts[b]; });
-        for (int place = 1; place <= 3; ++place) {
-            const auto t = Thought(order[size_t(place)]);
-            if (thoughts[size_t(t)] > 0 && (t == Thought::kHungry || t == Thought::kHungryAndThirsty))
-                return place;
-        }
-        return 0;
+    case kHotDogScare:
+        return amongTopThoughts({Thought::kHungry, Thought::kHungryAndThirsty}) ? 1 : 0;
+    case kRideLoved:
+        return satisfaction();
+    case kRideSafeAndUsed: {
+        const auto uses = _usesById.find(c.targetObject);
+        return (uses == _usesById.end() ? 0 : uses->second) - state.baseline;
+    }
+    case kRideFastAndSafe:
+    case kRideExcitingNotMessy:
+    case kRideExcitingAndLiked: {
+        const Attractions::Attraction *a = _attractions.find(c.targetObject);
+        return a ? std::max(0, a->excitement) : 0;
+    }
+    case kRideWidelyUsed: {
+        // Its users since it began, of the visitors come in since.
+        const auto uses = _usesById.find(c.targetObject);
+        const int users = (uses == _usesById.end() ? 0 : uses->second) - state.baseline;
+        const int visitors = _totalVisitors - state.baseline2;
+        return visitors > 0 ? users * 100 / visitors : 0;
     }
     default:
         return 0;
+    }
+}
+
+int Park::challengeValue2(size_t index) const {
+    if (index >= _challenges.size())
+        return 0;
+    const Challenge &c = _challenges[index].challenge;
+    if (c.type == kRideExcitingAndLiked)
+        return satisfaction();
+    int lowest = 100;
+    for (const PlacedObject &o : _objects)
+        if (o.id == c.targetObject)
+            lowest = std::min(lowest, int(o.repair));
+    return lowest;
+}
+
+// Visitors' satisfaction isn't kept: their average happiness stands in (guessed).
+int Park::satisfaction() const {
+    int count = 0;
+    float sum = 0;
+    for (const Visitor &v : _people)
+        if (v.inPark) {
+            ++count;
+            sum += v.happiness;
+        }
+    return count ? int(sum / float(count)) : 0;
+}
+
+// Whether any of the thoughts is among the three the most visitors in
+// the park have now.
+bool Park::amongTopThoughts(std::initializer_list<Thought> wanted) const {
+    std::array<int, 64> thoughts{};
+    for (const Visitor &v : _people)
+        if (v.inPark)
+            if (const auto t = size_t(v.thought != Thought::kNone ? v.thought : howTheyAre(v)); t < thoughts.size())
+                ++thoughts[t];
+    std::array<size_t, 64> order{};
+    for (size_t i = 0; i < order.size(); ++i)
+        order[i] = i;
+    std::stable_sort(order.begin() + 1, order.end(), [&](size_t a, size_t b) { return thoughts[a] > thoughts[b]; });
+    for (size_t place = 1; place <= 3; ++place)
+        if (thoughts[order[place]] > 0 &&
+            std::find(wanted.begin(), wanted.end(), Thought(order[place])) != wanted.end())
+            return true;
+    return false;
+}
+
+// How a challenge under way stands: won (1), failed (−1), or on (0). A
+// count is won on reaching its target and failed with time up; a kept
+// measure failed as it slips and won with time up; a special ride's as
+// its letter asks.
+int Park::challengeOutcome(size_t index, bool timeUp) const {
+    const ChallengeState &state = _challenges[index];
+    const Challenge &c = state.challenge;
+    const int value = challengeValue(index);
+    switch (c.type) {
+    case kRideSafeAndUsed:
+        if (challengeValue2(index) < c.target2)
+            return -1;
+        return value >= c.target ? 1 : timeUp ? -1 : 0;
+    case kRideLoved:
+        if (value < c.target || _kidPranks + _adultPranks > state.baseline2)
+            return -1;
+        return timeUp ? 1 : 0;
+    case kHappyThoughts:
+        if (!amongTopThoughts({Thought::kVeryHappy, Thought::kHappy}))
+            return -1;
+        return timeUp ? 1 : 0;
+    case kRideFastAndSafe:
+        if (value < c.target || challengeValue2(index) < c.target2)
+            return -1;
+        return timeUp ? 1 : 0;
+    case kRideExcitingNotMessy:
+        if (value < c.target || amongTopThoughts({Thought::kMessy}))
+            return -1;
+        return timeUp ? 1 : 0;
+    case kRideExcitingAndLiked:
+        if (value < c.target || challengeValue2(index) < c.target2)
+            return -1;
+        return timeUp ? 1 : 0;
+    case kRideWidelyUsed:
+        return timeUp ? (value >= c.target ? 1 : -1) : 0;
+    default:
+        if (counts(c.type))
+            return value >= c.target ? 1 : timeUp ? -1 : 0;
+        if (!challengeKept(c, value))
+            return -1;
+        return timeUp ? 1 : 0;
     }
 }
 
@@ -354,28 +477,18 @@ void Park::challengeDay() {
                 continue;
             state.status = ChallengeStatus::kActive;
             state.daysLeft = c.time;
-            state.baseline = 0;
-            state.baseline =
-                counts(c.type) || c.type == kNoPranks || c.type == kNoAdultPranks || c.type == kNoChildPranks
-                    ? challengeValue(i)
-                    : 0;
+            startCounting(i);
             postChallenge(c, kUnderWay);
             continue;
         }
         if (state.status != ChallengeStatus::kActive)
             continue;
-        const int value = challengeValue(i);
-        if (counts(c.type) && value >= c.target) {
-            endChallenge(state, true);
+        if (const int outcome = challengeOutcome(i, false)) {
+            endChallenge(state, outcome > 0);
             continue;
         }
-        if (!counts(c.type) && !challengeKept(c, value)) {
-            endChallenge(state, false);
-            continue;
-        }
-        --state.daysLeft;
-        if (state.daysLeft <= 0) {
-            endChallenge(state, !counts(c.type));
+        if (--state.daysLeft <= 0) {
+            endChallenge(state, challengeOutcome(i, true) > 0);
             continue;
         }
         if (!state.warned && state.daysLeft * 100 <= c.time * _warningPercent) {

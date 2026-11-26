@@ -925,6 +925,98 @@ void ParkMapWindow::draw(Surface &screen, const WindowKit &kit, const Park &park
     kit.button(screen, Button::kOk, kMapOk, WindowKit::kPlain);
 }
 
+// Activating a special ride, laid out by guess: the recording opens none.
+
+namespace {
+
+constexpr uint32_t kActivateRideText = 984;
+constexpr uint32_t kActivateNoteText = 985;
+constexpr uint32_t kOneTicketNeededText = 986;
+constexpr uint32_t kTicketsNeededText = 987;
+constexpr uint32_t kStaffTypeText = 982;
+constexpr uint32_t kAbilityText = 697;
+constexpr uint32_t kAssignedText = 983;
+constexpr uint32_t kUndiscoveredText = 114;
+constexpr uint32_t kUndiscoveredNoteText = 115;
+constexpr uint32_t kSpecialRideText = 116;
+constexpr ScreenRect kActivateWindow{90, 60, 460, 350};
+constexpr ScreenRect kActivateNote{105, 98, 430, 62};
+constexpr std::array<ScreenRect, 3> kActivateHeaders{{{105, 168, 110, 30}, {217, 168, 140, 30}, {359, 168, 176, 30}}};
+constexpr ScreenRect kActivateList{105, 200, 430, 110};
+constexpr ScreenRect kActivateFoot{105, 316, 430, 50};
+constexpr ScreenRect kActivateOk{474, 372, 28, 28};
+constexpr ScreenRect kActivateCancel{508, 374, 26, 26};
+
+} // namespace
+
+ScreenRect ActivateRideWindow::okRect() {
+    return kActivateOk;
+}
+ScreenRect ActivateRideWindow::cancelRect() {
+    return kActivateCancel;
+}
+
+WindowResult ActivateRideWindow::handle(const Event &ev, Park &park) {
+    if (!_open || !WindowKit::isClick(ev))
+        return WindowResult::kNone;
+    if (kActivateCancel.contains(ev.mouseX, ev.mouseY)) {
+        _open = false;
+        return WindowResult::kClosed;
+    }
+    if (!kActivateOk.contains(ev.mouseX, ev.mouseY) || park.activate(_object) != Park::Activation::kActivated)
+        return WindowResult::kNone;
+    _open = false;
+    return WindowResult::kChose;
+}
+
+void ActivateRideWindow::draw(Surface &screen, const WindowKit &kit, const Park &park, const HireWindow &names) const {
+    if (!_open || _object >= park.objects().size())
+        return;
+    const Attractions::Attraction *a = park.attractions().find(park.objects()[_object].id);
+    if (!a)
+        return;
+    kit.window(screen, kActivateWindow, kit.ui(kSpecialRideText, {{0, _name}}));
+    kit.frame(screen, kActivateNote);
+    kit.paragraph(screen, kActivateNote.x + 6, kActivateNote.y + 6, kActivateNote.w - 12,
+                  kit.ui(kActivateRideText) + ": " + kit.ui(kActivateNoteText));
+    for (auto [rect, text] :
+         {std::pair{kActivateHeaders[0], kStaffTypeText}, std::pair{kActivateHeaders[1], kAbilityText},
+          std::pair{kActivateHeaders[2], kAssignedText}})
+        kit.header(screen, rect, kit.ui(text));
+    kit.frame(screen, kActivateList);
+    // A row for each member of staff needed: their kind, the ability, who's assigned.
+    const std::vector<std::vector<int>> staff = park.activationStaff(_object);
+    int y = kActivateList.y + 4;
+    bool undiscovered = false;
+    for (size_t i = 0; i < a->skills.size(); ++i) {
+        const auto [ability, count] = a->skills[i];
+        const std::optional<Park::StaffKind> kind = Park::abilityKind(ability);
+        const bool known = park.abilityDiscovered(ability);
+        undiscovered = undiscovered || !known;
+        for (int n = 0; n < count; ++n) {
+            if (y + WindowKit::kRowHeight > kActivateList.y + kActivateList.h)
+                break;
+            if (kind)
+                kit.text(screen, kActivateHeaders[0].x + 4, y, kit.staffType(*kind));
+            kit.text(screen, kActivateHeaders[1].x + 4, y, known ? kit.ability(ability) : kit.ui(kUndiscoveredText));
+            if (size_t(n) < staff[i].size())
+                if (const Park::StaffMember *m = park.staffMember(staff[i][size_t(n)]))
+                    kit.text(screen, kActivateHeaders[2].x + 4, y, names.nameOf(m->kind, m->name));
+            y += WindowKit::kRowHeight;
+        }
+    }
+    kit.frame(screen, kActivateFoot);
+    y = kActivateFoot.y + 6;
+    if (a->ticketCost > 0)
+        y = kit.paragraph(screen, kActivateFoot.x + 6, y, kActivateFoot.w - 12,
+                          kit.ui(a->ticketCost == 1 ? kOneTicketNeededText : kTicketsNeededText,
+                                 {{50, std::to_string(a->ticketCost)}, {51, std::to_string(park.goldenTickets())}}));
+    if (undiscovered)
+        kit.paragraph(screen, kActivateFoot.x + 6, y, kActivateFoot.w - 12, kit.ui(kUndiscoveredNoteText));
+    kit.button(screen, Button::kOk, kActivateOk, WindowKit::kPlain);
+    kit.button(screen, Button::kCancel, kActivateCancel, WindowKit::kPlain);
+}
+
 // The game's menu.
 
 ScreenRect GameMenu::itemRect(size_t item) {

@@ -42,9 +42,12 @@ None yet.
   ([staff.md](systems/staff.md)); research and upgrades by guessed
   rates; the money's accounts, loans, share price and bankruptcy by
   guessed rules, their windows laid out by guess
-  ([finance.md](systems/finance.md)); the missions played as far as the
-  special rides and park awards, not yet there, allow; challenges by
-  guessed rules, their triggers partly ([challenges.md](systems/challenges.md)); an obstacle cleared at once by the first staff
+  ([finance.md](systems/finance.md)); the missions played as far as park
+  awards, not yet given, allow; challenges by guessed rules, their
+  triggers partly ([challenges.md](systems/challenges.md)); special rides
+  activated in a window laid out by guess, abilities discovered and
+  learnt by guessed rules, their hoardings not drawn
+  ([special-rides.md](systems/special-rides.md)); an obstacle cleared at once by the first staff
   trained, and each park set up anew as the missions done leave it
   ([missions.md](systems/missions.md)); the Assign staff, financial summary and naming windows laid out
   by guess, and a ride's view only the camera brought close

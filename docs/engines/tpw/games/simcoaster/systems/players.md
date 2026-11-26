@@ -57,7 +57,9 @@ objective 0 0
 - `objective <mission> <theme>`: in `OPERATION.str` (−1 none) and where.
 - `challenges-won <n>...`, `challenges-failed <n>`: the challenges won, by
   their numbers in `Challenges.sam`, and how many failed
-  ([challenges.md](challenges.md)); a world's line counts its won.
+    ([challenges.md](challenges.md)); a world's line counts its won.
+- `rides-activated <id>...`: the special rides activated, by their
+  objects' numbers ([special-rides.md](special-rides.md)).
 
 Lines it doesn't know are passed over, and what a player's lines leave
 out is a new player's, so a later Reluva can add to them. The shares

@@ -100,6 +100,8 @@ public:
     /** A park's message as it reads: its title; its text and lines, and the challenge it's about. */
     std::string messageTitle(const Park::Message &m) const;
     std::vector<std::string> messageText(const Park::Message &m) const;
+    /** An ability's name, ABILITIES.str's: 10 "Water/Drainage". */
+    std::string ability(int index) const { return _abilities.text(uint32_t(index)); }
     /** A challenge's title, CHALLENGE_TITLES.str's, by its number. */
     std::string challengeTitle(int number) const { return _challengeTitles.text(uint32_t(number)); }
     /** A world's name, THEMENAMES.str's, by the missions' theme number (Park::theme): 1 "Land of Invention". */
@@ -129,6 +131,7 @@ private:
     StringTable _kidStates;
     StringTable _worlds;
     StringTable _challengeTitles;
+    StringTable _abilities;
     Font _menuFont;
     std::map<std::string, LoadedModel> _pieces;
     LoadedModel _panel;

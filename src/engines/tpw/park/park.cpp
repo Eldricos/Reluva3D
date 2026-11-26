@@ -269,6 +269,9 @@ void Park::layPrebuilt(const SearchSet &files, const AttributeMap &map) {
             continue;
         _objects.push_back({o.id, {int(std::floor(o.x)), int(std::floor(o.y))}, int(o.angle)});
         _objects.back().prebuilt = true;
+        // A special ride stands boarded up, closed, till it's activated.
+        if (const Attractions::Attraction *a = _attractions.find(o.id); a && a->special)
+            _objects.back().active = _objects.back().open = false;
         const PlacedObject &placed = _objects.back();
         if (const Attractions::Attraction *a = _attractions.find(o.id))
             linkQueue(_objects.size() - 1, footprint(a->shape, placed.at, placed.angle));

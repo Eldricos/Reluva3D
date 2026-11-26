@@ -483,8 +483,8 @@ std::vector<std::string> Briefing::challengeDetails(const Park &park, size_t ind
         {1, std::to_string(state.status == Park::ChallengeStatus::kActive ? state.daysLeft : c.time)},
         {2, std::to_string(c.target)},
         {3, std::to_string(c.target)},
-        {5, std::to_string(c.target)},
-        {6, std::to_string(c.target)}};
+        {5, std::to_string(c.target2)},
+        {6, std::to_string(c.target2)}};
     std::string text =
         _challengeGeneric.text(kChallengeDetailsText) + fillGameString(_challengeSpecific, first, values);
     // The prizes: golden tickets, shares, cash, the share price's rise and fall, a promotion.
@@ -501,6 +501,7 @@ std::vector<std::string> Briefing::challengeDetails(const Park &park, size_t ind
     text += _challengeGeneric.text(kChallengeStatusLabel);
     std::map<int, std::string> now = values;
     now[2] = std::to_string(park.challengeValue(index));
+    now[5] = std::to_string(park.challengeValue2(index));
     now[4] = "";
     switch (state.status) {
     case Park::ChallengeStatus::kPreparing:

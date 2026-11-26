@@ -134,6 +134,10 @@ None yet.
   park's rating, the map's fit to the park's cells, the camcorder's view
   ([park-windows.md](systems/park-windows.md)).
 
+- **Special rides**: which staff kind learns each ability, how abilities
+  are discovered, the player's choice of what to learn, what the special
+  rides' challenges measure ([special-rides.md](systems/special-rides.md)).
+
 - **Challenges**: what the triggers mean where their comments don't say,
   one challenge at a time, a kept measure failing at once, customer
   satisfaction as happiness, a failed one offered again

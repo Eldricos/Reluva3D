@@ -135,6 +135,7 @@ public:
     MessageCenterWindow &messageCenter() { return _messageCenter; }
     GameMenu &gameMenu() { return _gameMenu; }
     ParkMapWindow &parkMap() { return _parkMap; }
+    ActivateRideWindow &activateRide() { return _activateRide; }
     /** The messages received, oldest first; marks them all read. */
     std::vector<MessageCenterWindow::Received> &inbox() { return _inbox; }
     void markRead() {
@@ -253,6 +254,7 @@ private:
     MessageCenterWindow _messageCenter;
     GameMenu _gameMenu;
     ParkMapWindow _parkMap;
+    ActivateRideWindow _activateRide;
     std::vector<MessageCenterWindow::Received> _inbox;
     std::deque<Park::Message> _messages; // waiting to be shown
     std::string _playerName;

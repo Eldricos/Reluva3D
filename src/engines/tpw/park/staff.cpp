@@ -464,9 +464,10 @@ void Park::callGardener(size_t object) {
         }
 }
 
+// A special ride opens only once it's activated.
 void Park::setOpen(size_t object, bool open) {
     if (object < _objects.size())
-        _objects[object].open = open;
+        _objects[object].open = open && _objects[object].active;
 }
 
 int Park::scrapValue(size_t object) const {

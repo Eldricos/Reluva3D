@@ -186,6 +186,33 @@ private:
 };
 
 /**
+ * Activating a special ride ("Activate Ride", UITEXT 984 to 987): the
+ * staff its abilities need and those assigned, the golden tickets it
+ * costs; the tick activates it once all's there.
+ */
+class ActivateRideWindow {
+public:
+    void open(size_t object, std::string name) {
+        _open = true;
+        _object = object;
+        _name = std::move(name);
+    }
+    void close() { _open = false; }
+    bool isOpen() const { return _open; }
+    size_t object() const { return _object; }
+    /** kChose once it's activated. */
+    WindowResult handle(const Event &ev, Park &park);
+    void draw(Surface &screen, const WindowKit &kit, const Park &park, const HireWindow &names) const;
+    static ScreenRect okRect();
+    static ScreenRect cancelRect();
+
+private:
+    bool _open = false;
+    size_t _object = 0;
+    std::string _name;
+};
+
+/**
  * The Park Map (UITEXT 852): the world's map picture (`2dmap.tga`), its
  * attractions' marks (`2dmap/map_ride.tga` and the like), the visitors as
  * dots and the camera's place; a click on it takes the camera there.
