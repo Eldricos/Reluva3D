@@ -84,6 +84,29 @@ without a stop. It loads `ImportExportTable.dll`, which the patch adds
 and which imports the C runtime's DLL, and a thread of it uses static
 thread-local storage; both are stood in for.
 
+It plays as 1.0 does, with its own changes:
+
+- **A skirmish:** Select Skirmish lists four more ("Sulu 1: The Road" to
+  "Sulu 4: End Game"); the Advanced Custom Skirmish starts at another
+  skill level, so the clicks that set CAPTAIN on 1.0 set ADMIRAL. One
+  Klingon frigate at LOW and ADMIRAL, targeted (Y) and fired on (Z)
+  every 120 frames: "You are the winner!" at 5:38, the frigate's BPV 43
+  (40 on 1.0).
+- **A campaign:** a new Federation one, the USS Yamamoto, its first
+  mission a new one, Scan ("You are to scan the planets in this sector
+  and then retreat. You may defend yourself if attacked. To complete the
+  scan, get within a distance of 10 and scan with your deep scanners").
+  Red alert, the deep scanners on (I), each target in turn followed
+  (T, the keypad's *) every 1,500 frames, fire every 60: "Victory" at
+  10:54, 20 prestige and a bonus of 180, an enemy destroyed. Fought
+  without red alert, or without scanning, the frigate was lost.
+- **Multiplayer:** Free For All between two copies over TCP/IP, won in
+  battle as on 1.0: "You are the winner!" at 6:08, the other "Defeat!".
+
+A 1.0 campaign's save isn't loaded by it: LOAD GAME on one stopped at a
+read through a null pointer *(inferred)*, perhaps as the patch changed
+the save's layout.
+
 ## Sources and checks
 
 - **Worked out** by running the patch's own program and following what

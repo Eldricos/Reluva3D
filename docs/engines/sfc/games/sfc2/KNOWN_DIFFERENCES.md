@@ -63,9 +63,10 @@ haven't been passed, and the Film
 - **A loaded campaign stops starting missions.** Once a mission has been
   played in a campaign that was loaded, no later mission starts; whether
   the game or Reluva is at fault isn't known yet ([systems/hosting.md](systems/hosting.md#open-questions)).
-- **The 2.0.3.6 patch's own changes are barely played.** It applies,
-  and the patched game runs to its main menu; its missions and its
-  multiplayer haven't been played ([systems/patching.md](systems/patching.md)).
+- **The 2.0.3.6 patch's own changes are partly played.** A skirmish,
+  its new Scan mission and a multiplayer battle are won; its other new
+  missions and its Sulu skirmishes haven't been played, and a 1.0
+  campaign's save isn't loaded by it ([systems/patching.md](systems/patching.md)).
 - **Online play isn't there.** Dynaverse II and MPlayer were services
   that have closed; the Winsock functions the game imports, perhaps
   theirs, aren't stood in for.

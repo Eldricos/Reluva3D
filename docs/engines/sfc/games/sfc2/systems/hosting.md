@@ -345,6 +345,17 @@ shuttles, missiles, fighters) and SHIPYARD (each class, its BPV and
 price) opened for a new ship at its base, but not out in the sector
 after a win: they need a base *(inferred)*.
 
+Another empire's campaign, Klingon vs the ISC (the fifth on New
+Campaign's list): the Klingon map and interface in red, the IKV Fury, a
+frigate, and Monster and Patrol offered. Monster, played as Convoy
+Escort is: "Astounding Victory", the monster destroyed (losses 94), 300
+prestige (50 to 350); then, a hex moved, Shipyard Defense ("Enemies are
+threatening to destroy your shipyard. Defend it at all costs"), started
+in the same run and lost in 46 seconds ("Unfortunately, the enemy got
+the best of the shipyard. Live to fight another day"). A campaign starts
+its ship away from a base: SUPPLY and SHIPYARD are dimmed from the start,
+for the Klingons as for the Federation.
+
 A skirmish is played through DirectPlay, single-player too: starting
 one, the game throws a `TLogicError` naming `fDirectPlayObject` each
 time it finds no DirectPlay object, and goes on. As it starts it calls
@@ -450,6 +461,21 @@ question to this machine's own address reached only itself), joined
 it, saw a ping of 31, and the Free For All game went as between copies
 on one machine: started in both, the joining player forfeiting, the
 host winning. Two physical machines haven't been tried.
+
+A game won in battle: Free For All between two copies on one machine,
+the joining copy idle, the host at red alert, half speed, the joining
+player's ship targeted (the backquote) and followed (the keypad's *)
+every 600 frames and fired on every 60. The host: "Congratulations! You
+are the winner!", 89 damage scored, all of it internal, the enemy
+fleet's losses 40 (the frigate's BPV); the joining copy: "Defeat! You
+have lost this battle, but perhaps not the war.", its fleet's losses
+40. Without following the target, at full speed, the host drew away
+(to 75) and left the map, which counts as disengaging: its debriefing
+said "Defeat!", the joining copy's "You are the winner!". The joining
+copy has to find the session before it clicks it: Select Game asks on
+the host's clock, not the game's, so on a busy machine the session came
+too late for a click at frame 6,000, and the host started alone,
+"winning" at 0:04; clicks from frame 9,000 found it.
 
 ### Its mouse and keys
 

@@ -53,18 +53,20 @@ Detection signatures (MD5 of each file's start, and its size, as
   its main menu.
   `reluva-tool sfc host` runs it headless
   ([systems/hosting.md](systems/hosting.md)).
-- **Multiplayer**, started: a game against AI players, or between copies
-  of Reluva over TCP/IP, started into its mission ([systems/hosting.md](systems/hosting.md#its-multiplayer)).
+- **Multiplayer**: a game against AI players, or between copies of
+  Reluva over TCP/IP, played to its end, by a player leaving or won in
+  battle ([systems/hosting.md](systems/hosting.md#its-multiplayer)).
 - **Missions won:** a skirmish, against a Klingon frigate, and a
   campaign's Convoy Escort twice, each an "Astounding Victory" worth 300
   prestige, its auto-save loaded between; Patrol and Monster played and
-  lost, a mission forfeited
+  lost, a mission forfeited; the Klingons' campaign's Monster; on
+  2.0.3.6, a skirmish, the new Scan mission and a multiplayer battle
   ([systems/hosting.md](systems/hosting.md#its-missions)).
 - **Tutorials:** Command 190 passed
   ([systems/hosting.md](systems/hosting.md#its-missions)).
 - **Not yet:** the other five tutorials passed; a multiplayer game between two physical machines (tried between
-  copies on one, each with a network and address of its own); the
-  2.0.3.6 patch's missions played; the
+  copies on one, each with a network and address of its own); a ship
+  bought at a shipyard; the
   `.gf`, `.mct` and `.mvm`
   settings, campaign and map files; the objects in
   `sprites.q3`.

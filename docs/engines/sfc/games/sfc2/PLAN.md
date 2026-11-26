@@ -118,7 +118,8 @@ on their pages in `formats/` and `systems/`.
    end: in Free For All, the joining player forfeiting, the host winning.
    The same between two network namespaces, each with an address of
    its own, joined by a virtual link: as two machines on a network.
-   Next: two physical machines, and a game won in battle.
+   Won in battle too, on 1.0 and on 2.0.3.6. Next: two physical
+   machines.
 8. **Importing** (done for the CDs): InstallShield 5's headers in
    `src/common/installshield.cpp` ([its page](../../../../common/installshield.md)),
    and the `MetaEngine`'s `planImport` and `addToImport`, from the two
