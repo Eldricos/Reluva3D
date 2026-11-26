@@ -194,15 +194,17 @@ loading screen the mission's briefing shows over it
 ([briefing.md](briefing.md)), then `playPark` runs it: the arrow keys
 move the camera, Q and E or the compass's arrows (held) turn it, Page
 Up and Page Down, the compass's magnifiers or the wheel zoom, Home goes
-back, Esc leaves the game. A tool is chosen by clicking it: the path
-tool lays path ([paths.md](paths.md)), the others do nothing yet. The
+back, Esc opens the game's menu. A tool is chosen by clicking it: the
+path tool lays path ([paths.md](paths.md)); the bulldozer and the
+camcorder are in [park-windows.md](park-windows.md#the-tools). The
 bottom buttons open their menus; of their items Park's Objectives, Park
 Gates (the entry price, and the gates opened and closed) and Close Park,
-Attractions' Build Attraction, Research Lab and Attraction Finance
-Controls, the Staff menu's and the Finance menu's do anything yet
-([staff.md](staff.md), [research.md](research.md), [finance.md](finance.md)).
-The park's messages show one at a time over it, the Message Center not
-built yet. Clicking the gates opens their window,
+all the Attractions', Staff, Visitors' and Finance menus' items, and
+the Park Map, do something; the Park menu's Challenges and the Maps
+menu's Overview Map and Visitor Opinion don't yet ([staff.md](staff.md),
+[research.md](research.md), [finance.md](finance.md),
+[park-windows.md](park-windows.md)). The park's messages arrive in the
+Message Center. Clicking the gates opens their window,
 right-clicking them their menu: "View entry price details", "Open park"
 or "Close park" (`UITEXT` 597, 599, 600); closed, no visitors come. The
 park is set up as the player's missions done leave it, their objective

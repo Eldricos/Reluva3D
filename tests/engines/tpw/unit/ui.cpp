@@ -15,6 +15,7 @@
 #include "engines/tpw/ui/briefing.h"
 #include "engines/tpw/ui/buy_window.h"
 #include "engines/tpw/ui/hire_window.h"
+#include "engines/tpw/ui/info_windows.h"
 #include "engines/tpw/ui/park_windows.h"
 #include "engines/tpw/ui/front_end_audio.h"
 #include "engines/tpw/ui/front_end_effects.h"
@@ -586,6 +587,64 @@ void testParkWindows() {
     message.open({262, 263, {}, {}});
     CHECK(message.handle(at(EventType::kMouseDown, message.okRect())) == tpw::WindowResult::kClosed &&
           !message.isOpen());
+
+    // The game's menu: only resuming and quitting answer; Esc resumes.
+    tpw::GameMenu game;
+    game.open();
+    CHECK(game.handle(at(EventType::kMouseDown, tpw::GameMenu::itemRect(0))) == tpw::GameMenu::Choice::kNone &&
+          game.isOpen());
+    CHECK(game.handle(at(EventType::kMouseDown, tpw::GameMenu::itemRect(6))) == tpw::GameMenu::Choice::kResume &&
+          !game.isOpen());
+    game.open();
+    CHECK(game.handle(at(EventType::kMouseDown, tpw::GameMenu::itemRect(7))) == tpw::GameMenu::Choice::kQuit);
+    game.open();
+    Event escape;
+    escape.type = EventType::kKeyDown;
+    escape.key = key::kEscape;
+    CHECK(game.handle(escape) == tpw::GameMenu::Choice::kResume && !game.isOpen());
+
+    // The Message Center: the second listed deleted, the first left.
+    std::vector<tpw::MessageCenterWindow::Received> inbox{{{262, 263, {}, {}, false}, 3, false},
+                                                          {{168, 0, {}, {}, true}, 9, false}};
+    using Center = tpw::MessageCenterWindow;
+    Center center;
+    center.open();
+    center.handle(at(EventType::kMouseDown, Center::placeOf(Center::Control::kRow, 1)), inbox);
+    center.handle(at(EventType::kMouseDown, Center::placeOf(Center::Control::kDelete)), inbox);
+    CHECK(inbox.size() == 1 && inbox[0].message.title == 168);
+    CHECK(center.handle(at(EventType::kMouseDown, Center::placeOf(Center::Control::kOk)), inbox) ==
+              tpw::WindowResult::kClosed &&
+          !center.isOpen());
+
+    // The Park Map: a cell's place on it is that cell's; a click there chooses it.
+    using Map = tpw::ParkMapWindow;
+    const tpw::Park::Cell cell{47, 17};
+    const Map::Spot spot = Map::placeOf(cell);
+    CHECK(Map::cellAt(spot.x, spot.y) == cell);
+    Map map;
+    map.open();
+    CHECK(map.handle(at(EventType::kMouseDown, {spot.x, spot.y, 1, 1})) == tpw::WindowResult::kChose &&
+          map.target() == cell);
+    CHECK(map.handle(at(EventType::kMouseDown, Map::okRect())) == tpw::WindowResult::kClosed);
+
+    // Visitor Statistics and the visitors' list close by their buttons;
+    // a visitor's arrows do nothing with none in the park.
+    tpw::VisitorStatsWindow stats;
+    stats.open();
+    stats.handle(
+        at(EventType::kMouseDown, tpw::VisitorStatsWindow::placeOf(tpw::VisitorStatsWindow::Control::kTab, 2)));
+    CHECK(stats.handle(
+              at(EventType::kMouseDown, tpw::VisitorStatsWindow::placeOf(tpw::VisitorStatsWindow::Control::kClose))) ==
+          tpw::WindowResult::kClosed);
+    tpw::VisitorWindow visitor;
+    visitor.open(7);
+    visitor.handle(at(EventType::kMouseDown, tpw::VisitorWindow::placeOf(tpw::VisitorWindow::Control::kNext)), park);
+    CHECK(visitor.visitor() == 7 && visitor.isOpen());
+    tpw::VisitorListWindow visitors;
+    visitors.open();
+    CHECK(visitors.handle(
+              at(EventType::kMouseDown, tpw::VisitorListWindow::placeOf(tpw::VisitorListWindow::Control::kOk)), park) ==
+          tpw::WindowResult::kClosed);
 
     tpw::FinanceSummaryWindow summary;
     summary.open(0, "Dizzy Droid");

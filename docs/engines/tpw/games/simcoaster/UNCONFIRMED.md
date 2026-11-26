@@ -129,6 +129,11 @@ None yet.
   chasing ([staff.md](systems/staff.md),
   [building.md](systems/building.md#wear-and-breakdowns)).
 
+- **The park's windows of information**: which messages show over the
+  park, the visitors' happy and unhappy bounds, the arrival rate and the
+  park's rating, the map's fit to the park's cells, the camcorder's view
+  ([park-windows.md](systems/park-windows.md)).
+
 - **Missions**: how an obstacle's staff are chosen and work, what
   clearing costs, which ability training teaches, and the staff numbering
   of `ObstacleStaff[n].StaffType` past 0, 1 and 5

@@ -290,6 +290,18 @@ std::vector<Park::Cell> Park::pathRun(const Cell &from, const Cell &to) {
     return out;
 }
 
+// A queue that met the path there meets it no more.
+bool Park::removePath(const Cell &cell) {
+    if (!isPath(cell))
+        return false;
+    _ground[size_t(cell.y) * size_t(_mapWidth) + size_t(cell.x)] = Ground::kOpen;
+    for (Queue &q : _queues)
+        if (q.atPath && q.pathEnd == cell)
+            q.atPath = false;
+    findKioskPaths();
+    return true;
+}
+
 int Park::buildPath(const std::vector<Cell> &cells) {
     int laid = 0;
     for (const Cell &c : cells) {

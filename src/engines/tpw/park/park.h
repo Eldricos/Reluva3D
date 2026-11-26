@@ -538,12 +538,24 @@ public:
         Thought thought = Thought::kNone;
         uint64_t thoughtUntil = 0; // the park's time it shows till
         uint64_t nextThought = 0;  // when they next think of how they are
+        // What their window and the visitors' statistics show: the rides
+        // they've been on, what they've bought, the sideshows they've
+        // played and won, what they've spent, and when they came in (the
+        // park's time).
+        int ridden = 0;
+        int purchases = 0;
+        int sideshowsPlayed = 0;
+        int sideshowsWon = 0;
+        int spent = 0;
+        uint64_t arrived = 0;
     };
     /** The settings' people are numbered from 0 to 9 (Visitor::person). */
     static constexpr size_t kPeople = 10;
     /** How happy a visitor is as they come in (guessed). */
     static constexpr float kStartingHappiness = 50;
     const std::vector<Visitor> &visitorsAbout() const { return _people; }
+    /** How a visitor is, as the thought they'd have of it (Thought: very happy to angry). */
+    Thought mood(const Visitor &v) const { return howTheyAre(v); }
 
     /** What a park cell is, by the world's attribute map, and what's been built on it. */
     enum class Ground : uint8_t {
@@ -697,6 +709,8 @@ public:
      * @return How many cells were laid.
      */
     int buildPath(const std::vector<Cell> &cells);
+    /** Takes up a cell of path, as the bulldozer does: the land bare again, nothing paid back (guessed). */
+    bool removePath(const Cell &cell);
 
     /** The world's attractions, which the park's objects are. */
     const Attractions &attractions() const { return _attractions; }
@@ -757,8 +771,11 @@ public:
     static int expenditure(const Accounts &a);
     /** What the park's attractions are worth: their scrap values (guessed). */
     int parkValue() const;
-    /** How many visitors have come in. */
+    /** How many visitors have come in; of a generation (0 children, 1 adults, 2 seniors). */
     int totalVisitors() const { return _totalVisitors; }
+    int totalVisitors(int generation) const {
+        return generation >= 0 && generation < 3 ? _generationVisitors[size_t(generation)] : 0;
+    }
 
     /** A loan on offer (LoanInfo[n]), or taken. */
     struct Loan {
@@ -927,6 +944,7 @@ private:
     std::array<int, 5> _lastReport{};
     bool _reported = false; // there's a last year to compare with
     int _totalVisitors = 0;
+    std::array<int, 3> _generationVisitors{};
     int _yearVisitors = 0;
     std::vector<Loan> _offers;
     std::vector<Loan> _loans;

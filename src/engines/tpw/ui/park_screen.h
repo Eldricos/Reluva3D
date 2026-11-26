@@ -13,6 +13,7 @@
 #include "engines/tpw/park/path_tiles.h"
 #include "engines/tpw/ui/buy_window.h"
 #include "engines/tpw/ui/hire_window.h"
+#include "engines/tpw/ui/info_windows.h"
 #include "engines/tpw/ui/park_windows.h"
 #include "engines/tpw/ui/park_hud.h"
 #include "engines/tpw/ui/ride_run.h"
@@ -125,6 +126,21 @@ public:
     PortfolioWindow &portfolio() { return _portfolio; }
     AttractionFinanceWindow &attractionFinance() { return _attractionFinance; }
     MessageWindow &messageWindow() { return _messageWindow; }
+    VisitorStatsWindow &visitorStats() { return _visitorStats; }
+    VisitorWindow &visitorWindow() { return _visitorWindow; }
+    VisitorListWindow &visitorList() { return _visitorList; }
+    AttractionListWindow &attractionList() { return _attractionList; }
+    ParkStatsWindow &parkStats() { return _parkStats; }
+    AwardsWindow &awards() { return _awards; }
+    MessageCenterWindow &messageCenter() { return _messageCenter; }
+    GameMenu &gameMenu() { return _gameMenu; }
+    ParkMapWindow &parkMap() { return _parkMap; }
+    /** The messages received, oldest first; marks them all read. */
+    std::vector<MessageCenterWindow::Received> &inbox() { return _inbox; }
+    void markRead() {
+        for (MessageCenterWindow::Received &m : _inbox)
+            m.read = true;
+    }
     ///@}
     /** The player whose park it is, for their share portfolio: their name and rank (PROMOTIONLEVELS.str's). */
     void setPlayer(std::string name, int rank) {
@@ -147,6 +163,10 @@ public:
     int objectAt(const Park &park, const Park::Cell &cell) const;
     /** The member of staff drawn under a point of the screen, seen through `camera`; 0 for none. */
     int staffAt(const Park &park, const Camera &camera, int x, int y) const;
+    /** Likewise a visitor in the park, walking or queueing; 0 for none. */
+    int visitorAt(const Park &park, const Camera &camera, int x, int y) const;
+    /** The camcorder's view (the tool's): at a visitor's eye height over a cell, turned as `from`. */
+    Camera groundCamera(const Park::Cell &cell, const Camera &from) const;
     /** An object's name as the game shows it, and its model; nullptr if it hasn't one. */
     std::string nameOf(const Park &park, size_t object) const;
     const LoadedModel *modelOf(const Park &park, size_t object) const;
@@ -224,6 +244,16 @@ private:
     PortfolioWindow _portfolio;
     AttractionFinanceWindow _attractionFinance;
     MessageWindow _messageWindow;
+    VisitorStatsWindow _visitorStats;
+    VisitorWindow _visitorWindow;
+    VisitorListWindow _visitorList;
+    AttractionListWindow _attractionList;
+    ParkStatsWindow _parkStats;
+    AwardsWindow _awards;
+    MessageCenterWindow _messageCenter;
+    GameMenu _gameMenu;
+    ParkMapWindow _parkMap;
+    std::vector<MessageCenterWindow::Received> _inbox;
     std::deque<Park::Message> _messages; // waiting to be shown
     std::string _playerName;
     int _playerRank = 1;

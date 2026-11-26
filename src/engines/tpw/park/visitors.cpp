@@ -292,9 +292,17 @@ bool Park::board(int queue, int id) {
             v.headingX = v.headingZ = 0;
             const int fare = std::min(q.fare, std::max(0, v.cash));
             v.cash -= fare;
+            v.spent += fare;
             const Attractions::Attraction *taker =
                 q.object >= 0 ? _attractions.find(_objects[size_t(q.object)].id) : nullptr;
             const Attractions::Kind kind = taker ? taker->kind : Attractions::Kind::kRide;
+            // Sideshows' prizes aren't played for yet: none are won.
+            if (kind == Attractions::Kind::kRide)
+                ++v.ridden;
+            else if (kind == Attractions::Kind::kShop)
+                ++v.purchases;
+            else if (kind == Attractions::Kind::kSideshow)
+                ++v.sideshowsPlayed;
             book(kind == Attractions::Kind::kShop       ? Ledger::kShops
                  : kind == Attractions::Kind::kSideshow ? Ledger::kSideshows
                  : kind == Attractions::Kind::kRide     ? Ledger::kRides
@@ -623,8 +631,12 @@ void Park::moveVisitor(Visitor &v, float left) {
                 v.paid = true;
                 const int fee = std::min(_admissionFee, std::max(0, v.cash));
                 v.cash -= fee;
+                v.spent += fee;
+                v.arrived = _millis;
                 book(Ledger::kGate, fee);
                 ++_totalVisitors;
+                if (v.generation >= 0 && v.generation < 3)
+                    ++_generationVisitors[size_t(v.generation)];
                 ++_yearVisitors;
                 v.happiness = std::clamp(v.happiness + priceFeeling(opinion), 0.0f, 100.0f);
             }

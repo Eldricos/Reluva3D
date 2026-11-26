@@ -27,11 +27,12 @@ None yet.
   running, the mission's briefing over it, visitors coming by guessed
   rules, drawn by their sprites at a guessed pace, under its HUD, the
   camera moved by Reluva's own keys and the compass; path can be laid, the
-  bottom buttons' menus open, but only the path tool, the Park
-  menu's Objectives, Park Gates and Close Park, Build Attraction and the
-  Staff menu do anything yet; attractions', staff's and the gates'
-  windows and menus have only some of their controls, and the staff's
-  windows are laid out by guess; a new park has the prebuilt park's
+  bottom buttons' menus open, and all their items do something but the
+  Challenges, Overview Map and Visitor Opinion; the game's menu resumes
+  and quits, nothing else; attractions', staff's and the gates' windows
+  and menus have only some of their controls, and the windows the
+  recording doesn't show are laid out by guess
+  ([park-windows.md](systems/park-windows.md)); a new park has the prebuilt park's
   path, queue, ride and other objects ([paths.md](systems/paths.md)),
   standing still; attractions can be bought and placed, their
   queues laid, and they run their scripts; visitors choose, queue for
@@ -40,8 +41,7 @@ None yet.
   in the Hire Staff window and at work by guessed rules
   ([staff.md](systems/staff.md)); research and upgrades by guessed
   rates; the money's accounts, loans, share price and bankruptcy by
-  guessed rules, their windows laid out by guess, and the finance
-  director's messages shown over the park, not in a Message Center
+  guessed rules, their windows laid out by guess
   ([finance.md](systems/finance.md)); the missions played as far as
   challenges, promotions, golden tickets and park awards allow, none of
   which are played yet, an obstacle cleared at once by the first staff

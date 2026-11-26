@@ -51,7 +51,10 @@ public:
         size_t mood = kMoods - 1;
         bool canZoomIn = true;
         bool canZoomOut = true;
+        int unread = 0; // messages, counted by the envelope
     };
+    /** The Message Center (UITEXT 861), picked by the envelope's button, which has no menu. */
+    static constexpr uint32_t kMessageCenterItem = 861;
 
     /** A menu item: Park's Objectives, which shows the mission's briefing again. */
     static constexpr uint32_t kObjectivesItem = 848;

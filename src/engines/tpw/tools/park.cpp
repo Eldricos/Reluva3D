@@ -330,7 +330,9 @@ int cmdParkRun(int argc, char **argv) {
     click(11000, centre(ParkHud::toolRect(ParkHud::Tool::kBulldozer)));
     click(12000, centre(ParkHud::gizmoRect(ParkHud::Gizmo::kAttractions)));
     click(13000, {320, 200});
+    // Esc opens the game's menu; its Quit Game leaves.
     key(45000, 0, reluva::key::kEscape);
+    click(45200, centre(reluva::tpw::GameMenu::itemRect(7)));
 
     struct Player : reluva::HeadlessSystem {
         reluva::Md5 all;
@@ -652,7 +654,7 @@ int cmdWindowShot(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool tpw window-shot <game folder> <world folder> <out.png> "
-            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report> [seconds] [-mission <n>]\n");
+            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map> [seconds] [-mission <n>]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -735,6 +737,33 @@ int cmdWindowShot(int argc, char **argv) {
         screen.portfolio().open("Tester", 1);
     else if (which == "prices")
         screen.attractionFinance().open();
+    else if (which == "visitors")
+        screen.visitorStats().open();
+    else if (which == "visitor" || which == "visitorlist") {
+        int first = 0;
+        for (const reluva::tpw::Park::Visitor &v : park.visitorsAbout())
+            if (v.inPark && !first)
+                first = v.id;
+        if (which == "visitor")
+            screen.visitorWindow().open(first);
+        else
+            screen.visitorList().open();
+    } else if (which == "attractions")
+        screen.attractionList().open();
+    else if (which == "parkstats")
+        screen.parkStats().open();
+    else if (which == "awards")
+        screen.awards().open(screen.kit().worldName(park.theme()));
+    else if (which == "messages") {
+        // Messages to read: the park's own, to its first annual report.
+        while (park.day() < 367)
+            park.advance(1000);
+        screen.takeMessages(park);
+        screen.messageCenter().open();
+    } else if (which == "gamemenu")
+        screen.gameMenu().open();
+    else if (which == "map")
+        screen.parkMap().open();
     else if (which == "report") {
         // On to the new year's first day, for its annual report.
         while (park.day() < 367)
@@ -765,7 +794,7 @@ const Commands kCommands(
          "draw the Hire Staff window over a new park, on a tab, a row chosen, to a PNG, and list the candidates",
          cmdHireShot},
         {"window-shot",
-         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report> [seconds] [-mission <n>]",
+         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map> [seconds] [-mission <n>]",
          "draw one of the park's smaller windows over a new park, its staff one of each kind, run on, to a PNG",
          cmdWindowShot},
         {"sign-shot", "<game folder> <world folder> <out.png>",

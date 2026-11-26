@@ -281,6 +281,8 @@ bool ParkHud::handle(const Event &ev) {
         if (_over == _pressed) {
             if (_pressed.kind == Hit::kTool) {
                 _tool = Tool(_pressed.index);
+            } else if (_pressed.kind == Hit::kGizmo && Gizmo(_pressed.index) == Gizmo::kMessages) {
+                _choice = kMessageCenterItem;
             } else if (_pressed.kind == Hit::kGizmo && !menus()[_pressed.index].items.empty()) {
                 if (_menu == int(_pressed.index)) {
                     _menu = -1;
@@ -343,6 +345,21 @@ void ParkHud::draw(Surface &screen, const View &view) const {
     drawUiMesh(screen, _gizmoBar, 0, kGizmoBar);
     for (size_t i = 0; i < kGizmos; ++i)
         drawUiMesh(screen, _gizmos[i], stateOf({Hit::kGizmo, i}, _menu == int(i), false), gizmoRect(Gizmo(i)));
+    // The unread messages' count by the envelope, as the recording's "1"
+    // at its foot, on a dark spot.
+    if (view.unread > 0) {
+        const ScreenRect envelope = gizmoRect(Gizmo::kMessages);
+        const std::string count = std::to_string(view.unread);
+        const int w = gameTextWidth(_itemFont, _characters, count);
+        const ScreenRect spot{envelope.x + 26, envelope.y + 28, std::max(14, w + 6), 14};
+        for (int y = spot.y; y < spot.y + spot.h && y < screen.h; ++y)
+            for (int x = spot.x; x < spot.x + spot.w && x < screen.w; ++x) {
+                uint8_t *p = screen.row(y) + x * 4;
+                p[0] = p[1] = p[2] = 16;
+            }
+        drawGameText(screen, _itemFont, _characters, spot.x + (spot.w - w) / 2, spot.y + 3, count,
+                     Color{255, 255, 255});
+    }
     drawUiMesh(screen, _help, _over.kind == Hit::kHelp ? kLit : kPlain, kHelp);
     drawMenu(screen);
     drawTooltip(screen);

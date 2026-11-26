@@ -121,8 +121,7 @@ so Reluva leaves that kind out.
 `LoansWindow`, `PortfolioWindow`, `AttractionFinanceWindow` and
 `MessageWindow` (`src/engines/tpw/ui/park_windows.cpp`) are its windows,
 laid out by guess in the style of those the recording shows; the
-messages show one at a time over the park, as the Message Center isn't
-built yet. `reluva-tool tpw window-shot <game folder> <world folder>
+messages arrive in the Message Center ([park-windows.md](park-windows.md#the-message-center)). `reluva-tool tpw window-shot <game folder> <world folder>
 <out.png> <stats|loans|owing|portfolio|prices|report>` draws them; `report`
 runs the park to its first annual report. The unit tests
 (`tpw.unit.park`, `tpw.unit.ui`) take, repay and pay off a loan, set

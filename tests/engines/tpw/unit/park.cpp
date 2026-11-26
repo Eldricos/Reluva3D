@@ -1027,6 +1027,10 @@ void testMissions(const std::filesystem::path &tmp) {
     for (int t = 0; t < 600 && park.mission().number == 0; ++t)
         advance(100);
     CHECK(letter(0) && park.mission().number == 1 && park.progress() == 1);
+    // The visitor counted as they came in, a child, what they paid kept.
+    CHECK(park.totalVisitors() >= 1 && park.totalVisitors(0) == park.totalVisitors() && park.totalVisitors(1) == 0);
+    CHECK(std::any_of(park.visitorsAbout().begin(), park.visitorsAbout().end(),
+                      [](const Park::Visitor &v) { return v.inPark && v.arrived > 0; }));
     CHECK(park.objects().size() == 1 && park.objects()[0].id == 1703);
     CHECK(park.researchAllowed() && park.attractions().find(1450)->available &&
           !park.attractions().find(1440)->available);
@@ -1077,6 +1081,10 @@ void testMissions(const std::filesystem::path &tmp) {
     advance(8000);
     CHECK(letter(2) && park.progress() == 3 && park.mission().number == -1);
     CHECK(park.themesOpened() == std::vector<int>{2});
+
+    // The bulldozer takes up path, not bare land.
+    CHECK(park.isPath({6, 4}) && park.removePath({6, 4}) && park.ground({6, 4}) == Park::Ground::kOpen);
+    CHECK(!park.removePath({6, 4}) && !park.removePath({6, 5}));
 
     // Set up as Manager's: Plughole's group to research, the training room
     // on offer; no lake to research.

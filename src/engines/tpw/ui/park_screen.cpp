@@ -50,6 +50,7 @@ constexpr int kShadow = 2;
 // go in and out.
 constexpr float kStartYaw = 0;
 constexpr float kStartPitch = 0.45f;
+constexpr float kGroundPitch = 0.08f; // the camcorder's: a visitor's eye height at the nearest
 constexpr float kStartDistance = 200;
 constexpr float kStartInside = 10; // units past the entrance it looks at
 constexpr float kNearest = 60;
@@ -117,6 +118,13 @@ constexpr uint32_t kLocateStaffItem = 830;
 constexpr uint32_t kStaffFinanceItem = 831;
 constexpr uint32_t kParkGatesItem = 847;
 constexpr uint32_t kAttractionFinanceItem = 836;
+constexpr uint32_t kListAttractionsItem = 835;
+constexpr uint32_t kListVisitorsItem = 838;
+constexpr uint32_t kLocateVisitorsItem = 839;
+constexpr uint32_t kVisitorStatisticsItem = 840;
+constexpr uint32_t kParkStatisticsItem = 846;
+constexpr uint32_t kParkAwardsItem = 850;
+constexpr uint32_t kParkMapItem = 852;
 constexpr uint32_t kFinancialStatisticsItem = 842;
 constexpr uint32_t kLoansItem = 843;
 constexpr uint32_t kSharePortfolioItem = 844;
@@ -330,6 +338,7 @@ Error ParkScreen::load(const SearchSet &files, const Park &park) {
     _buyRead = !_buy.load(files);
     _hireRead = !_hire.load(files, park.folder());
     _kitRead = !_kit.load(files);
+    _parkMap.load(files, park.folder());
     loadObjects(files, park);
     _runs.clear();
     _runIds.clear();
@@ -1036,6 +1045,8 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
         ParkHud::View hudView;
         hudView.canZoomIn = camera.distance > kNearest;
         hudView.canZoomOut = camera.distance < kFarthest;
+        hudView.unread = int(std::count_if(_inbox.begin(), _inbox.end(),
+                                           [](const MessageCenterWindow::Received &m) { return !m.read; }));
         _furniture.draw(screen, hudView);
     }
     if (!_hud)
@@ -1102,11 +1113,22 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
         _loansWindow.draw(screen, _kit, park);
         _portfolio.draw(screen, _kit, park);
         _attractionFinance.draw(screen, _kit, park);
+        _visitorStats.draw(screen, _kit, park);
+        _visitorList.draw(screen, _kit, park);
+        _visitorWindow.draw(screen, _kit, park);
+        _attractionList.draw(screen, _kit, park, _buy.names());
+        _parkStats.draw(screen, _kit, park);
+        _awards.draw(screen, _kit);
+        _parkMap.draw(screen, _kit, park,
+                      {int(std::floor(camera.target[0] / Park::kCellUnits)),
+                       int(std::floor(camera.target[2] / Park::kCellUnits))});
+        _messageCenter.draw(screen, _kit, _inbox, _playerName, [&](uint32_t day) { return dateText(day); });
         _messageWindow.draw(screen, _kit);
         _wageDemand.draw(screen, _kit, park, _hire);
         _popup.draw(screen, _kit);
         if (_notice && park.millis() < _noticeUntil)
             drawNotice(screen, _kit, _kit.ui(_notice));
+        _gameMenu.draw(screen, _kit);
     }
 }
 
@@ -1115,12 +1137,23 @@ bool ParkScreen::windowOpen() const {
            _staffList.isOpen() || _trainingWindow.isOpen() || _staffFinance.isOpen() || _wageDemand.isOpen() ||
            _researchLab.isOpen() || _projectWindow.isOpen() || _assignWindow.isOpen() || _financeSummary.isOpen() ||
            _renameWindow.isOpen() || _financeStats.isOpen() || _loansWindow.isOpen() || _portfolio.isOpen() ||
-           _attractionFinance.isOpen() || _messageWindow.isOpen();
+           _attractionFinance.isOpen() || _messageWindow.isOpen() || _visitorStats.isOpen() ||
+           _visitorWindow.isOpen() || _visitorList.isOpen() || _attractionList.isOpen() || _parkStats.isOpen() ||
+           _awards.isOpen() || _messageCenter.isOpen() || _gameMenu.isOpen() || _parkMap.isOpen();
 }
 
+// Every message goes to the Message Center, unread; the president's
+// letters on an objective done and the game's end show over the park
+// too (guessed: the recording's Message Center has an "Objective
+// Complete!" in it).
 void ParkScreen::takeMessages(Park &park) {
-    for (Park::Message &m : park.takeMessages())
-        _messages.push_back(std::move(m));
+    constexpr std::array<uint32_t, 3> kShown{168, 163, 165};
+    for (Park::Message &m : park.takeMessages()) {
+        const bool shown = std::find(kShown.begin(), kShown.end(), m.title) != kShown.end();
+        _inbox.push_back({m, park.day(), shown});
+        if (shown)
+            _messages.push_back(std::move(m));
+    }
     if (!_messageWindow.isOpen() && !_messages.empty()) {
         _messageWindow.open(std::move(_messages.front()));
         _messages.pop_front();
@@ -1163,6 +1196,30 @@ int ParkScreen::objectAt(const Park &park, const Park::Cell &cell) const {
 
 // Within a sprite's half-width of where their feet are drawn, and up to
 // their height above (guessed: about 5 units tall, 3 across).
+// As staff are picked, but for those in the park walking or queueing.
+int ParkScreen::visitorAt(const Park &park, const Camera &camera, int x, int y) const {
+    const soft3d::OrbitCamera eye = worldCamera(_world, viewOf(camera), kWidth, kHeight);
+    for (const Park::Visitor &v : park.visitorsAbout()) {
+        if (!v.inPark || v.doing == Park::Doing::kRiding)
+            continue;
+        const soft3d::ViewVertex view = eye.toView(toViewerWorld({v.x, 0, v.z}));
+        if (view.z < eye.nearZ)
+            continue;
+        const soft3d::ScreenVertex at = eye.project(view);
+        const float scale = eye.focal / view.z;
+        if (std::fabs(float(x) - at.x) <= kStaffPickHalfWidth * scale && float(y) <= at.y &&
+            float(y) >= at.y - kStaffPickHeight * scale)
+            return v.id;
+    }
+    return 0;
+}
+
+// Low over the ground, as the recording's camcorder looks at 11:50 (the
+// camera's lowest tilt, its nearest).
+ParkScreen::Camera ParkScreen::groundCamera(const Park::Cell &cell, const Camera &from) const {
+    return {Park::cellCentre(cell), from.yaw, kGroundPitch, kNearest};
+}
+
 int ParkScreen::staffAt(const Park &park, const Camera &camera, int x, int y) const {
     const soft3d::OrbitCamera eye = worldCamera(_world, viewOf(camera), kWidth, kHeight);
     for (const Park::StaffMember &m : park.staff()) {
@@ -1218,7 +1275,8 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
     // A patrol area being set: whose, and its first corner once clicked.
     int patrolling = 0;
     std::optional<Park::Cell> patrolCorner;
-    size_t located = 0; // Locate Staff's last
+    size_t located = 0;        // Locate Staff's last
+    size_t locatedVisitor = 0; // Locate Visitors' last
     bool wantObjectives = false;
     int shownMission = park.mission().number; // the mission whose briefing was last shown
     auto onGates = [&](const Park::Cell &c) {
@@ -1272,7 +1330,18 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
             // The smaller windows and the right-click menu take the mouse, and
             // Esc, while open: the uppermost first.
             if (screen.windowOpen()) {
-                if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
+                if (screen.gameMenu().isOpen()) {
+                    if (screen.gameMenu().handle(ev) == GameMenu::Choice::kQuit)
+                        return true;
+                } else if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
+                    screen.visitorStats().close();
+                    screen.visitorWindow().close();
+                    screen.visitorList().close();
+                    screen.attractionList().close();
+                    screen.parkStats().close();
+                    screen.awards().close();
+                    screen.parkMap().close();
+                    screen.messageCenter().close();
                     screen.popup().close();
                     screen.attractionWindow().close();
                     screen.gateWindow().close();
@@ -1295,6 +1364,36 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                     }
                 } else if (screen.messageWindow().isOpen()) {
                     screen.messageWindow().handle(ev);
+                } else if (screen.messageCenter().isOpen()) {
+                    screen.messageCenter().handle(ev, screen.inbox());
+                } else if (screen.visitorWindow().isOpen()) {
+                    // Its left button takes the camera to them.
+                    if (screen.visitorWindow().handle(ev, park) == WindowResult::kChose)
+                        for (const Park::Visitor &v : park.visitorsAbout())
+                            if (v.id == screen.visitorWindow().visitor())
+                                camera.target = {v.x, 0, v.z};
+                } else if (screen.visitorList().isOpen()) {
+                    if (screen.visitorList().handle(ev, park) == WindowResult::kChose)
+                        screen.visitorWindow().open(screen.visitorList().chosen());
+                } else if (screen.visitorStats().isOpen()) {
+                    screen.visitorStats().handle(ev);
+                } else if (screen.attractionList().isOpen()) {
+                    if (screen.attractionList().handle(ev, park) == WindowResult::kChose) {
+                        const size_t object = size_t(screen.attractionList().chosen());
+                        if (park.queueOf(object) >= 0)
+                            screen.attractionWindow().open(park, object, screen.nameOf(park, object),
+                                                           screen.modelOf(park, object));
+                        else
+                            camera.target = Park::cellCentre(park.objects()[object].at);
+                    }
+                } else if (screen.parkStats().isOpen()) {
+                    screen.parkStats().handle(ev);
+                } else if (screen.awards().isOpen()) {
+                    screen.awards().handle(ev);
+                } else if (screen.parkMap().isOpen()) {
+                    // A click on the map takes the camera there; the map stays.
+                    if (screen.parkMap().handle(ev) == WindowResult::kChose)
+                        camera.target = Park::cellCentre(screen.parkMap().target());
                 } else if (screen.loansWindow().isOpen()) {
                     screen.loansWindow().handle(ev, park);
                 } else if (screen.financeStats().isOpen()) {
@@ -1497,6 +1596,26 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                     continue;
                 }
             }
+            // The bulldozer ("Delete mode") takes up what's clicked: an
+            // attraction, sold for its scrap value, or a cell of path; not
+            // an obstacle. The camcorder looks from the ground where it's
+            // clicked.
+            const ParkHud::Tool tool = screen.hud().tool();
+            if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft && onGround && queueLaying < 0 &&
+                (tool == ParkHud::Tool::kBulldozer || tool == ParkHud::Tool::kCamera)) {
+                if (tool == ParkHud::Tool::kCamera) {
+                    camera = screen.groundCamera(under, camera);
+                    continue;
+                }
+                const int object = screen.objectAt(park, under);
+                const Attractions::Attraction *a =
+                    object >= 0 ? park.attractions().find(park.objects()[size_t(object)].id) : nullptr;
+                if (object >= 0 && !(a && a->obstacle))
+                    park.remove(size_t(object));
+                else if (object < 0)
+                    park.removePath(under);
+                continue;
+            }
             // With the pointer, a click on an attraction, a member of staff or
             // the gates opens their window; a right click, their menu.
             if (ev.type == EventType::kMouseDown && screen.hud().tool() == ParkHud::Tool::kPointer && queueLaying < 0 &&
@@ -1506,6 +1625,11 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                 const int object = onGround ? screen.objectAt(park, under) : -1;
                 menuObject = -1;
                 menuStaff = 0;
+                // A visitor's window, clicking them.
+                if (const int visitor = left && !staff ? screen.visitorAt(park, camera, mouseX, mouseY) : 0) {
+                    screen.visitorWindow().open(visitor);
+                    continue;
+                }
                 if (staff) {
                     if (left) {
                         screen.staffWindow().open(staff);
@@ -1588,8 +1712,11 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                     queueLaying = -1;
                     continue;
                 }
-                if (ev.key == key::kEscape)
-                    return true;
+                // Esc opens the game's menu, which leaves the game.
+                if (ev.key == key::kEscape) {
+                    screen.gameMenu().open();
+                    continue;
+                }
                 if (ev.key == key::kHome)
                     camera = screen.startCamera(park);
                 held.insert(ev.key);
@@ -1642,6 +1769,35 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
         if (choice == kCloseParkItem)
             park.setParkOpen(!park.parkOpen());
         // Locate Staff: the camera to each in turn.
+        if (choice == kListAttractionsItem)
+            screen.attractionList().open();
+        if (choice == kVisitorStatisticsItem)
+            screen.visitorStats().open();
+        if (choice == kListVisitorsItem)
+            screen.visitorList().open();
+        if (choice == kParkStatisticsItem)
+            screen.parkStats().open();
+        if (choice == kParkMapItem)
+            screen.parkMap().open();
+        if (choice == kParkAwardsItem)
+            screen.awards().open(screen.kit().worldName(park.theme()));
+        if (choice == ParkHud::kMessageCenterItem) {
+            screen.messageCenter().open();
+            screen.markRead();
+        }
+        // Locate Visitors: the camera to each in the park in turn.
+        if (choice == kLocateVisitorsItem) {
+            std::vector<const Park::Visitor *> in;
+            for (const Park::Visitor &v : park.visitorsAbout())
+                if (v.inPark)
+                    in.push_back(&v);
+            if (!in.empty()) {
+                locatedVisitor = (locatedVisitor + 1) % in.size();
+                camera.target = {in[locatedVisitor]->x, 0, in[locatedVisitor]->z};
+            }
+        }
+        // The game's menu stops the park's clock while it's open.
+        park.setPaused(screen.gameMenu().isOpen());
         if (choice == kLocateStaffItem && !park.staff().empty()) {
             located = (located + 1) % park.staff().size();
             const Park::StaffMember &m = park.staff()[located];

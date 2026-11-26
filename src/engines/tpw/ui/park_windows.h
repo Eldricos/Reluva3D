@@ -79,8 +79,26 @@ public:
     std::string tag(uint32_t index, const std::map<int, std::string> &values = {}) const;
     /** A lender's name, LOANNAMES.str's: "Cash Unlimited". */
     std::string lender(int index) const { return _lenders.text(uint32_t(index)); }
+    /** What a visitor's doing, as KIDSTATES.str has it: 6 "Doing nothing". */
+    std::string kidState(uint32_t index, const std::map<int, std::string> &values = {}) const;
+    /** One of the interface's other models (`ui/<name>.MD2`, read with the rest), a mesh of it. */
+    void piece(Surface &screen, const std::string &name, size_t mesh, const ScreenRect &r) const;
+    /** A line in the big menus' font (MENUBIG), and its width. */
+    void menuText(Surface &screen, int x, int y, const std::string &s, Color c) const;
+    int menuTextWidth(const std::string &s) const;
+    /** A rectangle filled with a colour. */
+    static void fill(Surface &screen, const ScreenRect &r, Color c);
+    /** Money as the windows show it: "$ 500", "-$ 500". */
+    static std::string money(int amount);
+    /** Whether an event is a left click. */
+    static bool isClick(const Event &ev);
+    /** The windows' list rows' height, and a chosen row's colour. */
+    static constexpr int kRowHeight = 13;
+    static constexpr Color kChosenRow{106, 125, 150};
     /** The president's letter on a mission done, OBJECTIVE_COMPLETE.str's, by the mission. */
     std::string objectiveLetter(int mission) const { return _objectiveLetters.text(uint32_t(mission)); }
+    /** A world's name, THEMENAMES.str's, by the missions' theme number (Park::theme): 1 "Land of Invention". */
+    std::string worldName(int theme) const { return _worlds.text(uint32_t(Park::themeName(theme))); }
     /** A rank, PROMOTIONLEVELS.str's: 1 "Assistant Manager". */
     std::string rank(int index) const { return _ranks.text(uint32_t(index)); }
 
@@ -103,6 +121,10 @@ private:
     StringTable _lenders;
     StringTable _ranks;
     StringTable _objectiveLetters;
+    StringTable _kidStates;
+    StringTable _worlds;
+    Font _menuFont;
+    std::map<std::string, LoadedModel> _pieces;
     LoadedModel _panel;
 };
 

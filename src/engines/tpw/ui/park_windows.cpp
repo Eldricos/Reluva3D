@@ -180,7 +180,7 @@ constexpr int kInset = 5;
 constexpr uint32_t kSpriteTurnMillis = 400;
 
 bool isClick(const Event &ev) {
-    return ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft;
+    return WindowKit::isClick(ev);
 }
 
 // The control under the mouse, of those given.
@@ -193,18 +193,11 @@ Control under(const Event &ev, const std::array<std::pair<Control, ScreenRect>, 
 }
 
 void fill(Surface &s, const ScreenRect &r, Color c) {
-    for (int y = std::max(0, r.y); y < std::min(s.h, r.y + r.h); ++y)
-        for (int x = std::max(0, r.x); x < std::min(s.w, r.x + r.w); ++x) {
-            uint8_t *p = s.row(y) + x * 4;
-            p[0] = c.r;
-            p[1] = c.g;
-            p[2] = c.b;
-        }
+    WindowKit::fill(s, r, c);
 }
 
-// Below nothing, the minus before the sign, as "Cash  -$ {39}" (967) has it.
 std::string money(int amount) {
-    return (amount < 0 ? "-$ " : "$ ") + std::to_string(std::abs(amount));
+    return WindowKit::money(amount);
 }
 
 // A price box: its label under, the amount between − and +.
@@ -273,7 +266,54 @@ Error WindowKit::load(const SearchSet &files) {
         return err;
     if (Error err = readStringTable(files, folder, "OBJECTIVE_COMPLETE", _characters, _objectiveLetters))
         return err;
+    if (Error err = readStringTable(files, folder, "KIDSTATES", _characters, _kidStates))
+        return err;
+    if (Error err = readStringTable(files, folder, "THEMENAMES", _characters, _worlds))
+        return err;
+    if (Error err = readGameFont(files, folder, "MENUBIG", _menuFont))
+        return err;
+    // The other windows' tabs and buttons.
+    for (const char *name : {"tab_vall", "tab_vchild", "tab_vadult", "tab_vsenior", "tab_arides", "tab_asshows",
+                             "tab_ashops", "tab_afeatures", "tab_afacility", "b_goto", "b_delete"})
+        if (Error err = _pieces[name].load(files, std::string("ui/") + name + ".MD2"))
+            return err;
     return readStringTable(files, folder, "THOUGHTS", _characters, _thoughts);
+}
+
+bool WindowKit::isClick(const Event &ev) {
+    return ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft;
+}
+
+void WindowKit::fill(Surface &screen, const ScreenRect &r, Color c) {
+    for (int y = std::max(0, r.y); y < std::min(screen.h, r.y + r.h); ++y)
+        for (int x = std::max(0, r.x); x < std::min(screen.w, r.x + r.w); ++x) {
+            uint8_t *p = screen.row(y) + x * 4;
+            p[0] = c.r;
+            p[1] = c.g;
+            p[2] = c.b;
+        }
+}
+
+// Below nothing, the minus before the sign, as "Cash  -$ {39}" (967) has it.
+std::string WindowKit::money(int amount) {
+    return (amount < 0 ? "-$ " : "$ ") + std::to_string(std::abs(amount));
+}
+
+std::string WindowKit::kidState(uint32_t index, const std::map<int, std::string> &values) const {
+    return fillGameString(_kidStates, index, values);
+}
+
+void WindowKit::piece(Surface &screen, const std::string &name, size_t mesh, const ScreenRect &r) const {
+    if (const auto p = _pieces.find(name); p != _pieces.end())
+        drawUiMesh(screen, p->second, mesh, r);
+}
+
+void WindowKit::menuText(Surface &screen, int x, int y, const std::string &s, Color c) const {
+    drawGameText(screen, _menuFont, _characters, x, y, s, c);
+}
+
+int WindowKit::menuTextWidth(const std::string &s) const {
+    return gameTextWidth(_menuFont, _characters, s);
 }
 
 std::string WindowKit::tag(uint32_t index, const std::map<int, std::string> &values) const {
@@ -390,9 +430,23 @@ void WindowKit::button(Surface &screen, Button b, const ScreenRect &r, size_t st
     drawUiMesh(screen, _buttons[size_t(b)], state, r);
 }
 
+// Its label centred, a line at a time where it breaks ("Users\nLast Month").
 void WindowKit::header(Surface &screen, const ScreenRect &r, const std::string &label) const {
     drawUiMesh(screen, _header, 0, r);
-    text(screen, r.x + (r.w - textWidth(label)) / 2, r.y + r.h / 2 - 4, label);
+    std::vector<std::string> lines;
+    for (size_t at = 0;;) {
+        const size_t end = label.find('\n', at);
+        lines.push_back(label.substr(at, end == std::string::npos ? std::string::npos : end - at));
+        if (end == std::string::npos)
+            break;
+        at = end + 1;
+    }
+    constexpr int kLine = 10;
+    int y = r.y + r.h / 2 - 4 - (int(lines.size()) - 1) * kLine / 2;
+    for (const std::string &line : lines) {
+        text(screen, r.x + (r.w - textWidth(line)) / 2, y, line);
+        y += kLine;
+    }
 }
 
 void WindowKit::staffTab(Surface &screen, Park::StaffKind kind, const ScreenRect &r, size_t state) const {
