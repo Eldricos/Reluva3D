@@ -75,9 +75,13 @@ From the same run's frames and draws:
   beams), with their ordnance's damage, variance, speed and sprite. A
   hit takes the shields first, and what gets past them twice over off
   the hull, within the original's 1.6 to 2.5 *(guessed)*.
-- **Fighting** (`MissionView`): the attack button arms the attack cursor
+- **Fighting** (`MissionView`): the attack button, or A (`Input.map`'s
+  `attack` shortcut, for one unit or a group), arms the attack cursor
   (`c_attack`); a click on a unit makes it the target of the selected
-  units with weapons. Each weapon fires when it's ready and in range,
+  units with weapons. A right click on another player's unit does the
+  same *(guessed: the game's settings call its default the right-click
+  interface; no enemy was near enough to try)*, and a right click on
+  the map sends the ships there, giving their attack up. Each weapon fires when it's ready and in range,
   its damage rolled by a generator of Reluva's own; the shot flies to
   the target's middle and hits there. A unit whose hull goes is hidden,
   out of the selection and the minimap, its officers back to the count.
@@ -118,6 +122,7 @@ From the same run's frames and draws:
 - The debris, the shockwave (`xshock`), the blue sparks of hull hits,
   and when the fires start: by the systems' damage, likely.
 - The hit chance's part (`hitChance`, 1 for these).
-- Ships that chase what they attack, and right-clicking an enemy.
+- Ships that chase what they attack, and what a right click on an
+  enemy does in the original.
 - The systems (engines, weapons, shields, life support, sensors) and
   their hit points.

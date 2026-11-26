@@ -357,6 +357,7 @@ private:
     void fight(double seconds);
     int liveUnitAt(const gfx::Mat4 &viewProj, int x, int y) const; // unitAt's, but not a destroyed one
     void destroy(size_t unit, int by);                             // by: the slot of the player whose shot it was
+    bool attack(int target); // the selected units with weapons take it as their target: whether any did
     std::optional<size_t> addShip(const std::string &odf, const gfx::Vec3 &at, float heading,
                                   const MapScene::Unit &owner);
     void makeCells();

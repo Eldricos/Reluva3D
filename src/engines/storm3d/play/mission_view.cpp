@@ -1644,13 +1644,8 @@ void MissionView::handleEvent(const Event &ev) {
         // The unit clicked on is what the selected units attack; the right
         // button gives up.
         _targeting = false;
-        if (ev.button == MouseButton::kLeft) {
-            const int t = liveUnitAt(MapScene::viewProjOf(camera(), kRange), ev.mouseX, ev.mouseY);
-            if (t >= 0 && size_t(t) < _dead.size() && !_dead[size_t(t)])
-                for (int i : _selection)
-                    if (i != t && size_t(i) < _targets.size() && !_weapons[size_t(i)].empty())
-                        _targets[size_t(i)] = t;
-        }
+        if (ev.button == MouseButton::kLeft)
+            attack(liveUnitAt(MapScene::viewProjOf(camera(), kRange), ev.mouseX, ev.mouseY));
         return;
     }
     if (_placing && ev.type == EventType::kMouseDown && !_hud.covers(ev.mouseX, ev.mouseY)) {
@@ -1667,8 +1662,17 @@ void MissionView::handleEvent(const Event &ev) {
         return;
     }
     if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kRight && !_hud.covers(ev.mouseX, ev.mouseY)) {
+        // On another player's unit, the selected units that can attack it
+        // do *(guessed: the original's right-click interface, as its
+        // settings name it; there was no enemy near to try)*.
+        const int unit = liveUnitAt(MapScene::viewProjOf(camera(), kRange), ev.mouseX, ev.mouseY);
+        if (unit >= 0 && _scene.units()[size_t(unit)].slot != _slot && attack(unit))
+            return;
         // Sent to the point under the pointer, on the plane the selected
-        // units fly in.
+        // units fly in; an order to go gives up their attack.
+        for (int i : _selection)
+            if (size_t(i) < _targets.size() && size_t(i) < _moves.size() && _moves[size_t(i)])
+                _targets[size_t(i)] = -1;
         if (!_selection.empty() && size_t(_selection.front()) < _ships.size())
             if (auto point =
                     MapScene::pointOn(camera(), _ships[size_t(_selection.front())].at[1], ev.mouseX, ev.mouseY))
@@ -1699,6 +1703,14 @@ void MissionView::handleEvent(const Event &ev) {
     }
     if (ev.type != EventType::kKeyDown && ev.type != EventType::kKeyUp)
         return;
+    // A, the attack shortcut (Input.map's attack): the next click on a unit
+    // is the target of the selected units that can attack.
+    if (ev.type == EventType::kKeyDown && ev.key == 'a' && ev.mods == 0) {
+        for (int i : _selection)
+            if (size_t(i) < _weapons.size() && !_weapons[size_t(i)].empty())
+                _targeting = true;
+        return;
+    }
     const int action = actionOf(ev.key);
     if (action < 0)
         return;
@@ -1706,6 +1718,18 @@ void MissionView::handleEvent(const Event &ev) {
         _held.insert(action);
     else
         _held.erase(action);
+}
+
+bool MissionView::attack(int target) {
+    if (target < 0 || size_t(target) >= _dead.size() || _dead[size_t(target)])
+        return false;
+    bool any = false;
+    for (int i : _selection)
+        if (i != target && size_t(i) < _targets.size() && !_weapons[size_t(i)].empty()) {
+            _targets[size_t(i)] = target;
+            any = true;
+        }
+    return any;
 }
 
 MissionView::Ending MissionView::ending() const {
