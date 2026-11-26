@@ -771,9 +771,12 @@ int cmdWindowShot(int argc, char **argv) {
         screen.attractionList().open();
     else if (which == "parkstats")
         screen.parkStats().open();
-    else if (which == "awards")
+    else if (which == "awards") {
         screen.awards().open(screen.kit().worldName(park.theme()));
-    else if (which == "messages") {
+        for (const reluva::tpw::Park::AwardStanding &a : park.awards())
+            std::printf("%s %d of %d%s\n", a.measured ? "measured" : "unmeasured", a.value, a.needed,
+                        a.held ? " held" : "");
+    } else if (which == "messages") {
         // Messages to read: the park's own, to its first annual report.
         while (park.day() < 367)
             park.advance(1000);

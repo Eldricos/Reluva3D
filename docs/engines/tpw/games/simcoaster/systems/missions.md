@@ -42,7 +42,8 @@ own:
 The objectives' statistics are counted as their names say: the visitors
 in the park now; the bank balance less what's owed ("Profit = Bank
 Balance less Outstanding Loans", `MISSION_DESC` 7; `STAT_TITLES` 7, "Make
-a profit of ${0}"); the player's percentage of the shares; park awards.
+a profit of ${0}"); the player's percentage of the shares; the park awards held
+([park-awards.md](park-awards.md)).
 
 `StaffType` numbers staff otherwise than the attractions' consultants
 do ([research.md](research.md#consultants)): 0 a handyman ("Cleaner"),
@@ -146,7 +147,8 @@ Plughole and Manager on a small world built in the test.
 
 ## Open questions
 
-- Park awards aren't given yet, so the last mission can't be done.
+- The last mission's six park awards: only four can be won till coasters,
+  go-kart tracks and water rides are built ([park-awards.md](park-awards.md)).
   Challenges give the golden tickets and promotions, the special rides'
   the promotions past Manager ([challenges.md](challenges.md),
   [special-rides.md](special-rides.md)).

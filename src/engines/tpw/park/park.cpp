@@ -140,6 +140,7 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
     const bool hasWorld = !readSettings(files, folder + "/Standard.sam", world);
     loadFinance(general, hasWorld ? &world : nullptr);
     loadChallenges(files, general, hasWorld ? &world : nullptr);
+    loadAwards(general);
     if (hasWorld) {
         // Each season's weather: a quarter of the year each, from January.
         for (size_t season = 0; season < _seasons.size(); ++season)

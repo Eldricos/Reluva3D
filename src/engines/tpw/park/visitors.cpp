@@ -55,8 +55,7 @@ constexpr float kNearCells = 1.5f;
 // How a stink bomb lasts, and how far it reaches, in cells (guessed).
 constexpr uint64_t kStinkBombMillis = 10000;
 constexpr float kStinkBombCells = 2;
-// How far a security camera sees, in cells, and how far a bin is reached (guessed).
-constexpr int kCameraCells = 6;
+// How far a bin is reached, in cells (guessed).
 constexpr int kBinCells = 2;
 // Sickness wears off a day, and litter carried is dropped on a path
 // cell one time in this many over its LitterEffect (guessed).

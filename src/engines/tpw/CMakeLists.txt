@@ -19,6 +19,7 @@ reluva_add_engine(tpw
         park/missions.cpp
         park/challenges.cpp
         park/special_rides.cpp
+        park/awards.cpp
         park/research.cpp
         players.cpp
         sound_effects.cpp

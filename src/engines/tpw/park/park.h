@@ -32,6 +32,8 @@ class Park {
 public:
     /** A park cell is 10 units square; cell (x, y) covers x 10x to 10x + 10 and z 10y to 10y + 10. */
     static constexpr float kCellUnits = 10;
+    /** How far a security camera sees, in cells, deterring pranks and counting for Best Security (guessed). */
+    static constexpr int kCameraCells = 6;
     /** How long a day lasts at the game's own pace, in milliseconds (inferred from the recording). */
     static constexpr uint32_t kDayMillis = 4000;
 
@@ -917,6 +919,28 @@ public:
     int challengesFailed() const { return _challengesFailed; }
     /** Whether the player's failed too many challenges and been fired (TAG_SYSTEM 167). */
     bool fired() const { return _fired; }
+    /** The park awards (UITEXT 453 to 460), in their order. */
+    enum class Award : uint8_t {
+        kHighestCoaster,
+        kFastestCoaster,
+        kCleanestPark,
+        kMostDecoration,
+        kBestSecurity,
+        kBestStaffTraining,
+        kFastestGokart,
+        kLongestWaterRide,
+    };
+    static constexpr size_t kAwardCount = 8;
+    /** How the park stands for an award: whether it's measured yet, its measure, what's needed, and if it's held. */
+    struct AwardStanding {
+        bool measured = false; // the coasters', go-kart tracks' and water rides' aren't: there are none yet
+        int value = 0;         // percent
+        int needed = 0;
+        bool held = false;
+    };
+    /** Each award as the park stands now. See docs/engines/tpw/games/simcoaster/systems/park-awards.md. */
+    std::array<AwardStanding, kAwardCount> awards() const;
+    int awardsHeld() const;
     /** Months the park's ended in the red, in a row. */
     int monthsInRed() const { return _monthsInRed; }
     /** Whether the park has been in the red six months, and is closed down (TAG_SYSTEM 166). */
@@ -990,6 +1014,7 @@ private:
     void completeMission();
     void researchedObstacle();
     void loadChallenges(const SearchSet &files, const SamFile &general, const SamFile *world);
+    void loadAwards(const SamFile &general);
     void challengeDay();
     bool challengeTriggered(const Challenge &c) const;
     bool challengeKept(const Challenge &c, int value) const;
@@ -1052,6 +1077,20 @@ private:
     bool _repayAdvised = false;
     std::vector<Message> _messages;
     std::vector<ChallengeState> _challenges;
+    /** ParkAward's settings. */
+    struct AwardRules {
+        int coasterHeight = 110;
+        int coasterSpeed = 100;
+        int hygiene = 90;           // percent of the paths' cells unlittered
+        int hygieneMinCells = 1000; // HygieneMinParkSize: cells covered by objects
+        int security = 25;          // percent patrolled plus percent watched
+        int decoration = 15;        // percent of the covered cells features'
+        int training = 50;          // percent of the staff with an ability
+        int trainingMinStaff = 10;
+        int gokartSpeed = 5;
+        int waterLength = 50;
+    };
+    AwardRules _awardRules;
     std::vector<int> _challengesWon;
     std::map<int, int> _challengeThemes; // each challenge's world, by number
     int _challengesFailed = 0;

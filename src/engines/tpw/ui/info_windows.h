@@ -135,7 +135,10 @@ private:
     bool _open = false;
 };
 
-/** Park Awards ("Park Awards - {20}", 452): the awards (453 to 460) and the park's of them. */
+/**
+ * Park Awards ("Park Awards - {20}", 452): the awards (453 to 460), each
+ * held with its measure, else "None" (472).
+ */
 class AwardsWindow {
 public:
     void open(std::string park) {
@@ -145,7 +148,7 @@ public:
     void close() { _open = false; }
     bool isOpen() const { return _open; }
     WindowResult handle(const Event &ev);
-    void draw(Surface &screen, const WindowKit &kit) const;
+    void draw(Surface &screen, const WindowKit &kit, const Park &park) const;
     static ScreenRect okRect();
 
 private:

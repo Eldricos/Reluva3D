@@ -1119,7 +1119,7 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
         _visitorWindow.draw(screen, _kit, park);
         _attractionList.draw(screen, _kit, park, _buy.names());
         _parkStats.draw(screen, _kit, park);
-        _awards.draw(screen, _kit);
+        _awards.draw(screen, _kit, park);
         _activateRide.draw(screen, _kit, park, _hire);
         _parkMap.draw(screen, _kit, park,
                       {int(std::floor(camera.target[0] / Park::kCellUnits)),

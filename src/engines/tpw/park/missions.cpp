@@ -187,7 +187,7 @@ int Park::statisticValue(int statistic) const {
         // "Profit = Bank Balance less Outstanding Loans" (MISSION_DESC 7).
         return _cash - owed();
     case kAwards:
-        return 0;
+        return awardsHeld();
     case kShares:
         return _shares.issued > 0 ? _shares.owned * 100 / _shares.issued : 0;
     case kVisitors:

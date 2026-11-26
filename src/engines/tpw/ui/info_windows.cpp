@@ -50,7 +50,7 @@ constexpr uint32_t kParkRatingText = 425;
 constexpr uint32_t kTotalVisitorsText = 426;
 constexpr uint32_t kParkAwardsText = 452;
 constexpr uint32_t kFirstAwardText = 453;
-constexpr size_t kAwards = 8;
+constexpr size_t kAwards = Park::kAwardCount;
 constexpr uint32_t kNoneText = 472;
 constexpr uint32_t kMessageCenterText = 861;
 constexpr uint32_t kSubjectText = 209;
@@ -708,17 +708,19 @@ WindowResult AwardsWindow::handle(const Event &ev) {
     return WindowResult::kClosed;
 }
 
-// The park holds none: the awards aren't given yet.
-void AwardsWindow::draw(Surface &screen, const WindowKit &kit) const {
+// A held award's measure is shown as a percent, by guess: the recording
+// never opens the window.
+void AwardsWindow::draw(Surface &screen, const WindowKit &kit, const Park &park) const {
     if (!_open)
         return;
     kit.window(screen, kAwardsWindow, kit.ui(kParkAwardsText, {{20, _park}}));
     kit.frame(screen, kAwardsFrame);
     int y = kAwardsFrame.y + 10;
-    const std::string none = kit.ui(kNoneText);
+    const std::array<Park::AwardStanding, Park::kAwardCount> standing = park.awards();
     for (size_t i = 0; i < kAwards; ++i) {
         kit.text(screen, kAwardsFrame.x + 8, y, kit.ui(kFirstAwardText + uint32_t(i)));
-        kit.text(screen, kAwardsFrame.x + kAwardsFrame.w - 10 - kit.textWidth(none), y, none);
+        const std::string held = standing[i].held ? std::to_string(standing[i].value) + "%" : kit.ui(kNoneText);
+        kit.text(screen, kAwardsFrame.x + kAwardsFrame.w - 10 - kit.textWidth(held), y, held);
         y += 20;
     }
     kit.button(screen, Button::kOk, kAwardsOk, WindowKit::kPlain);

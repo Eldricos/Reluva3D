@@ -42,8 +42,10 @@ None yet.
   ([staff.md](systems/staff.md)); research and upgrades by guessed
   rates; the money's accounts, loans, share price and bankruptcy by
   guessed rules, their windows laid out by guess
-  ([finance.md](systems/finance.md)); the missions played as far as park
-  awards, not yet given, allow; challenges by guessed rules, their
+  ([finance.md](systems/finance.md)); the missions played as far as the park
+  awards allow, four of the eight measured by guessed rules and the
+  rides' never held, so the last mission can't be done
+  ([park-awards.md](systems/park-awards.md)); challenges by guessed rules, their
   triggers partly ([challenges.md](systems/challenges.md)); special rides
   activated in a window laid out by guess, abilities discovered and
   learnt by guessed rules, their hoardings not drawn

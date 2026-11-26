@@ -1319,6 +1319,66 @@ void testSpecialRides(const std::filesystem::path &tmp) {
     CHECK(!again.awaitsActivation(0) && again.objects()[0].open);
 }
 
+void testAwards(const std::filesystem::path &tmp) {
+    const std::filesystem::path data = tmp / "game" / "Data";
+    writeText(
+        data / "levels" / "Standard.sam",
+        "BankAccountInfo.InitialCash 100000\r\nArrival.MinPeople 0\r\nStaffPoolInfo.BeginningNumberOfMechanics 2\r\n"
+        "StaffPoolInfo.AvgExperienceOfMechanics 40000\r\nStaffPoolInfo.AvgWageDifference 0\r\n"
+        "StaffAgencies[0].InitialWageModifier 10\r\nStaffAgencies[0].InitialExperienceModifier 0\r\n"
+        "AllStaffConstants.MinExperienceForTraining 30000\r\nParkAward.Hygiene 90\r\n"
+        "ParkAward.HygieneMinParkSize 5\r\nParkAward.Decoration 50\r\nParkAward.Security 25\r\n"
+        "ParkAward.Training 50\r\nParkAward.TrainingMinStaff 2\r\n");
+    writeText(data / "missions" / "miss00.sam", "Info.Number 0\r\nExitStatistic[0].Type 6\r\n"
+                                                "ExitStatistic[0].TargetValue 3\r\n");
+    writeText(data / "missions" / "miss01.sam", "Info.Number 1\r\n");
+    const std::filesystem::path world = data / "levels" / "science";
+    writeText(world / "features" / "statue" / "statue.sam", "Info.Id 1500\r\nInfo.Shape\r\n---\r\n*2\r\n---\r\n");
+    writeText(world / "Facilities" / "camera" / "camera.sam",
+              "Info.Id 1450\r\nUsageInfo.ProvidesSecurity 1\r\nInfo.Shape\r\n---\r\n*2\r\n---\r\n");
+    writeText(world / "Facilities" / "train_rm" / "train_rm.sam",
+              "Info.Id 1440\r\nUsageInfo.TrainingRoom 1\r\nInfo.Shape\r\n---\r\n*2\r\n---\r\n");
+    constexpr int kRows = 8;    // x
+    constexpr int kColumns = 6; // y
+    tpw::testing::Bytes tiles(size_t(kRows) * kColumns, 0);
+    for (int x = 0; x < 7; ++x)
+        tiles[size_t(x) * kColumns + 4] = 8;
+    test::writeFile(world / "terrain" / "base.map", tpw::testing::makeAttributeMap(kColumns, kRows, tiles));
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!mountGame(files, tmp / "game", warnings));
+    Park park;
+    CHECK(!park.load(files, "levels/science", 0));
+    const auto held = [&](Park::Award a) { return park.awards()[size_t(a)].held; };
+
+    // An empty park holds none; the rides' awards aren't measured.
+    CHECK(park.awardsHeld() == 0 && !park.awards()[size_t(Park::Award::kHighestCoaster)].measured);
+    CHECK(park.awards()[size_t(Park::Award::kHighestCoaster)].needed == 110);
+
+    // A statue and a camera: half the covered cells a feature's, the park
+    // watched; too few cells covered to be the cleanest till the Training
+    // Room's built, which leaves the statue too few.
+    CHECK(park.place(1500, 0, {"*2"}, false, {1, 1}, 0) == -1);
+    CHECK(park.place(1450, 0, {"*2"}, false, {3, 1}, 0) == -1);
+    CHECK(held(Park::Award::kMostDecoration) && held(Park::Award::kBestSecurity));
+    CHECK(park.awards()[size_t(Park::Award::kMostDecoration)].value == 50);
+    CHECK(!held(Park::Award::kCleanestPark));
+    CHECK(park.place(1440, 0, {"*2"}, false, {5, 1}, 0) == -1);
+    CHECK(held(Park::Award::kCleanestPark) && !held(Park::Award::kMostDecoration));
+    CHECK(park.awardsHeld() == 2 && park.statisticValue(6) == 2);
+
+    // Half of two engineers trained.
+    CHECK(park.hire(Park::StaffKind::kEngineer, 0) == Park::Hiring::kHired);
+    const int engineer = park.staff().back().id;
+    CHECK(park.hire(Park::StaffKind::kEngineer, 0) == Park::Hiring::kHired);
+    CHECK(!held(Park::Award::kBestStaffTraining));
+    CHECK(park.sendForTraining(engineer) == Park::Training::kSent);
+    for (int t = 0; t < 200 && park.staffMember(engineer)->ability == 0; ++t)
+        park.advance(1000);
+    CHECK(held(Park::Award::kBestStaffTraining) && park.awardsHeld() == 3);
+    CHECK(park.statisticValue(6) == 3);
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -1339,4 +1399,5 @@ static const reluva::test::Suite
                                 {"missions", [](const std::filesystem::path &tmp) { testMissions(tmp); }},
                                 {"challenges", [](const std::filesystem::path &tmp) { testChallenges(tmp); }},
                                 {"special-rides", [](const std::filesystem::path &tmp) { testSpecialRides(tmp); }},
+                                {"awards", [](const std::filesystem::path &tmp) { testAwards(tmp); }},
                             });

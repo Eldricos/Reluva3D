@@ -39,7 +39,7 @@ Down the HUD's left (`UIHELPTEXT` 116 to 120):
 | Visitors: List All Visitors (838) | a tab a generation (`tab_vall`, `tab_vchild`, `tab_vadult`, `tab_vsenior`); each visitor's number, cash, days in the park, rides ridden, thought and happiness (366 to 371); a row and the tick open their window |
 | Visitors: Locate Visitors (839) | the camera to each visitor in the park in turn |
 | Park: Park Statistics (846) | the visitors in the park, the arrival rate, the park's rating and the visitors to date (423 to 426): the rate as the visitors the park draws now, the rating as its points *(guessed)* |
-| Park: Park Awards (850) | "Park Awards - {20}", the world's name, and the eight awards (453 to 460), each "None": awards aren't given yet |
+| Park: Park Awards (850) | "Park Awards - {20}", the world's name, and the eight awards (453 to 460), each held with its measure, else "None" ([park-awards.md](park-awards.md)) |
 | Maps: Park Map (852) | below |
 | The envelope | the Message Center (861), below |
 

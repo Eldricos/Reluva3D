@@ -138,6 +138,10 @@ None yet.
   are discovered, the player's choice of what to learn, what the special
   rides' challenges measure ([special-rides.md](systems/special-rides.md)).
 
+- **Park awards**: how each is measured, the cells counted as the
+  park's, whether one is announced, what `MinCellsOwned` and
+  `MinCellsCovered` limit ([park-awards.md](systems/park-awards.md)).
+
 - **Challenges**: what the triggers mean where their comments don't say,
   one challenge at a time, a kept measure failing at once, customer
   satisfaction as happiness, a failed one offered again
