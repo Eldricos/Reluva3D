@@ -85,13 +85,30 @@ public:
      * @return a failure if the layout or a sprite table can't be read
      */
     Error load(const GameFiles &files, const std::string &race);
+    /** What the minimap shows over the map's picture. */
+    struct Minimap {
+        float left = 0; // the map's area, x and z, that it spans
+        float right = 0;
+        float near = 0;
+        float far = 0;
+        /** A unit: where it is on the plane, in its player's colour; a station's mark is bigger. */
+        struct Mark {
+            float x = 0;
+            float z = 0;
+            std::array<uint8_t, 3> colour{};
+            bool station = false;
+        };
+        std::vector<Mark> marks;
+        std::vector<std::array<float, 2>> view; // where the screen's corners fall on the plane, x and z, in turn
+    };
     /**
      * Draws it onto `screen` (an RGBA overlay, left clear where the map
      * shows through): the minimap's cells `seen` (128 × 128, row 0 the
-     * map's far edge; empty: all seen); `counters`: the numbers written
-     * (a campaign's aren't known yet).
+     * map's far edge; empty: all seen) and `minimap`'s units and view;
+     * `counters`: the numbers written (a campaign's aren't known yet).
      */
-    void draw(Surface &screen, const Resources &resources, const std::vector<bool> &seen, bool counters = true);
+    void draw(Surface &screen, const Resources &resources, const std::vector<bool> &seen, bool counters,
+              const Minimap &minimap);
     /**
      * Draws one of the game's cursors (`cursor.spr`'s `name`: "c_arrow",
      * "c_select", "c_move") with its origin at (x, y), `seconds` into its

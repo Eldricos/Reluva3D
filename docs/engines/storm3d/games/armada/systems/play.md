@@ -148,6 +148,30 @@ its shield bar and its crew dot, side by side, without the single
 display's words and systems. The control panel had the construction
 ship's orders, but with build dark; the rail had the tractor beam once.
 
+### The minimap
+
+Over the map's picture (`minimapBackgroundSprite`), the original's
+draws put, in turn: a 128 × 128 layer added on, with the units in it;
+a 5 × 5 sprite, blue, near the starting units (a map object's mark,
+not yet known which); the fog and the shroud; and four lines, added on
+in (128, 128, 128), round where the camera looks.
+
+- **The units** are in their player's colour: the player's, white,
+  `teamcolor.odf`'s 0.9 (230). With the map's 6400 across the 128
+  pixels, each construction ship is the pixel its place falls in and
+  those up and to the left of it, 2 × 2, and the starbase the 3 × 3
+  about its own, to the pixel in two frames, before and after a ship
+  moved. Whether it goes by size or by kind is *(guessed)*: stations
+  bigger.
+- **The view:** its top edge is where the screen's top corners' rays
+  meet the plane the camera looks at (y 38.5), to a tenth of a pixel.
+  Its bottom edge is a pixel and a half higher, and wider, than the
+  screen's bottom corners' would be, on any plane: how the program
+  makes it isn't known.
+
+A grey pixel (123, 125, 123) under the starbase's mark isn't
+accounted for.
+
 ### The crew
 
 In a skirmish the crew counter grows on its own. Read from the
@@ -196,7 +220,8 @@ before and after each ([camera.md](camera.md#the-overview)):
   play: the panels, the counters (blank in a campaign mission, whose
   script sets them) and the minimap's shroud. The cinematic view shows
   its panel's own picture, the race's emblem, as the layout has it for
-  no view; the minimap has no units' icons yet. In a skirmish the crew
+  no view. The minimap has the units and the view as above, the bottom
+  of the view on the screen's bottom corners. In a skirmish the crew
   grows by 3.5 a second for each of the player's starbases.
 - **Selecting:** a click picks the unit whose middle is nearest the
   pointer, of those whose box reaches it on the screen (the game's own
@@ -250,6 +275,8 @@ before and after each ([camera.md](camera.md#the-overview)):
 - How long the program waits on its first frame of play, and what the
   cut scene's camera follows.
 - How Random sides and Random Placement choose.
+- The minimap's blue sprite, its grey pixel, and how the view's bottom
+  edge is made.
 - What makes the crew grow: one starbase gave 3.5 a second; more, or
   none, haven't been seen.
 - When the health bars show: why the unselected ships had theirs, and

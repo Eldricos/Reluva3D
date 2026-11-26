@@ -40,6 +40,8 @@ constexpr size_t kRailSlots = 5;
 constexpr int kHealthBarHeight = 4;
 constexpr std::array<uint8_t, 3> kHealthBack = {51, 51, 51};
 constexpr std::array<uint8_t, 3> kHealthFront = {0, 128, 0};
+// The minimap's view lines' grey, added on.
+constexpr int kViewLine = 128;
 // The minimap: a texel a cell, 128 across.
 constexpr int kMinimapCells = 128;
 // What the game's alpha test keeps of an interface texel.
@@ -423,7 +425,8 @@ void Hud::drawPanel(Surface &screen, const std::string &name) {
         fill(screen, _layout.area(name + "BlackArea"), area[0], area[1]);
 }
 
-void Hud::draw(Surface &screen, const Resources &resources, const std::vector<bool> &seen, bool counters) {
+void Hud::draw(Surface &screen, const Resources &resources, const std::vector<bool> &seen, bool counters,
+               const Minimap &map) {
     for (const char *panel : panels())
         drawPanel(screen, panel);
     // The cinematic view: its picture until there's a view, and its two buttons.
@@ -458,6 +461,34 @@ void Hud::draw(Surface &screen, const Resources &resources, const std::vector<bo
     const int mx = minimap[0] + display[0];
     const int my = minimap[1] + display[1];
     drawSprite(screen, _layout.text("minimapBackgroundSprite"), mx, my, display[2], display[3]);
+    // Where a point of the plane falls on it: the map's area across it,
+    // its far edge at the top.
+    const float across = map.right - map.left;
+    const float down = map.far - map.near;
+    auto onMinimap = [&](float x, float z) {
+        return std::array<float, 2>{float(mx) + (x - map.left) * float(display[2]) / across,
+                                    float(my) + (map.far - z) * float(display[3]) / down};
+    };
+    auto plot = [&](int x, int y, const std::array<uint8_t, 3> &colour) {
+        if (x < mx || y < my || x >= mx + display[2] || y >= my + display[3] || x >= screen.w || y >= screen.h)
+            return;
+        uint8_t *p = screen.row(y) + size_t(x) * 4;
+        std::copy_n(colour.data(), 3, p);
+        p[3] = 255;
+    };
+    // The units, under the shroud: a ship the pixel it's in and those up
+    // and left of it, 2 x 2; a station 3 x 3 about its own, as the
+    // original's construction ships and starbase were.
+    if (across > 0 && down > 0)
+        for (const Minimap::Mark &m : map.marks) {
+            const auto at = onMinimap(m.x, m.z);
+            const int px = int(std::floor(at[0]));
+            const int py = int(std::floor(at[1]));
+            const int last = m.station ? 1 : 0;
+            for (int dy = -1; dy <= last; ++dy)
+                for (int dx = -1; dx <= last; ++dx)
+                    plot(px + dx, py + dy, m.colour);
+        }
     if (seen.size() == size_t(kMinimapCells * kMinimapCells)) {
         Surface shroud;
         shroud.create(display[2], display[3], PixelFormat::kRGBA32);
@@ -469,6 +500,25 @@ void Hud::draw(Surface &screen, const Resources &resources, const std::vector<bo
                     std::copy_n(shroud.row(y) + size_t(x) * 4, 4, screen.row(my + y) + size_t(mx + x) * 4);
             }
     }
+    // The view: lines between where the screen's corners fall, added on in
+    // mid grey.
+    if (across > 0 && down > 0 && map.view.size() >= 2)
+        for (size_t i = 0; i < map.view.size(); ++i) {
+            const auto a = onMinimap(map.view[i][0], map.view[i][1]);
+            const auto b = onMinimap(map.view[(i + 1) % map.view.size()][0], map.view[(i + 1) % map.view.size()][1]);
+            const int steps = std::max(1, int(std::ceil(std::max(std::abs(b[0] - a[0]), std::abs(b[1] - a[1])))));
+            for (int s = 0; s <= steps; ++s) {
+                const float t = float(s) / float(steps);
+                const int x = int(std::floor(a[0] + (b[0] - a[0]) * t + 0.5f));
+                const int y = int(std::floor(a[1] + (b[1] - a[1]) * t + 0.5f));
+                if (x < mx || y < my || x >= mx + display[2] || y >= my + display[3])
+                    continue;
+                uint8_t *p = screen.row(y) + size_t(x) * 4;
+                for (int k = 0; k < 3; ++k)
+                    p[k] = uint8_t(std::min(255, p[k] + kViewLine));
+                p[3] = 255;
+            }
+        }
 }
 
 } // namespace reluva::storm3d

@@ -159,7 +159,7 @@ std::vector<MapScene::StartUnit> MapScene::startUnitsOf(const BznMap &map, const
         const gfx::Vec3 middle = path->points[0];
         double r = kSpiralStart;
         for (const std::string &odf : units) {
-            StartUnit unit{odf, middle, slot};
+            StartUnit unit{odf, middle, slot, std::nullopt};
             if (r <= kSpiralEnd) {
                 const double angle = r * kPi * 2;
                 unit.at[0] = float(middle[0] + std::sin(angle) * r * kSpiralRadius);
@@ -452,6 +452,7 @@ void MapScene::build(const BznMap &map, const std::vector<StartUnit> &units, con
         Unit u;
         u.odf = unit.odf;
         u.slot = unit.slot;
+        u.colour = unit.colour;
         _units.push_back(u);
         UnitModel m;
         m.placed = _placed.size() - 1;

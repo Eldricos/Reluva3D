@@ -52,7 +52,8 @@ The names come in families, by the panel they start with (`speed`,
   "4/120" and the info panel's words all fall *(inferred)*.
 - `minimapDisplayArea` with `minimapBackgroundSprite`,
   `minimapFogSprite`, `minimapShroudSprite`: the minimap's layers, a
-  texel a cell of the map's shroud.
+  texel a cell of the map's shroud. The units and the camera's view are drawn
+  between them ([play.md](../systems/play.md#the-minimap)).
 - `cinematicDefaultBackground`, `cinematicBackgroundArea`, and the
   view's two buttons, `cinematicCommButton` and `cinematicMenuButton`,
   each over its border, in (153, 178, 171) and (128, 152, 149).

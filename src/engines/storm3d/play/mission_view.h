@@ -85,6 +85,13 @@ public:
      * kept in `carry`, up to RTS_CFG.h's cfgMaxCrew.
      */
     static int grownCrew(int crew, double &carry, int starbases, double seconds);
+    /**
+     * What the minimap shows: each unit in its player's colour, a station
+     * (one that doesn't move) bigger, and where the camera's view falls on
+     * the plane at `plane`'s height.
+     */
+    static Hud::Minimap minimapOf(const BznMap &map, const std::vector<MapScene::Unit> &units,
+                                  const std::vector<bool> &moves, const MapScene::Camera &camera, float plane);
     /** The interface's layout's name for a race's definition ("fed" for "fed", "kli" for "kling"). */
     static std::string hudRaceOf(const std::string &race);
     /**

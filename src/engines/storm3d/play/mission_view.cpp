@@ -252,6 +252,34 @@ int MissionView::grownCrew(int crew, double &carry, int starbases, double second
     return int(std::min<double>(kMaxCrew, crew + whole));
 }
 
+Hud::Minimap MissionView::minimapOf(const BznMap &map, const std::vector<MapScene::Unit> &units,
+                                    const std::vector<bool> &moves, const MapScene::Camera &camera, float plane) {
+    Hud::Minimap m;
+    m.left = map.area[0];
+    m.right = map.area[1];
+    m.near = map.area[4];
+    m.far = map.area[5];
+    for (size_t i = 0; i < units.size(); ++i) {
+        // In its player's colour: the original's, white (teamcolor.odf's 0.9).
+        const gfx::Vec3 c = units[i].colour.value_or(gfx::Vec3{0.9f, 0.9f, 0.9f});
+        Hud::Minimap::Mark mark;
+        mark.x = units[i].at[0];
+        mark.z = units[i].at[2];
+        for (size_t k = 0; k < 3; ++k)
+            mark.colour[k] = uint8_t(std::lround(std::clamp(c[k], 0.0f, 1.0f) * 255));
+        mark.station = i >= moves.size() || !moves[i];
+        m.marks.push_back(mark);
+    }
+    // The screen's corners on the plane the camera looks at: the top edge
+    // as the original's, the bottom a pixel or two lower.
+    for (const auto &[x, y] : {std::pair{0, 0}, {640, 0}, {640, 480}, {0, 480}})
+        if (auto p = MapScene::pointOn(camera, plane, x, y))
+            m.view.push_back({(*p)[0], (*p)[2]});
+    if (m.view.size() != 4)
+        m.view.clear();
+    return m;
+}
+
 std::string MissionView::hudRaceOf(const std::string &race) {
     static const std::map<std::string, std::string> kNames = {
         {"fed", "fed"}, {"federation", "fed"}, {"kling", "kli"}, {"klingon", "kli"},
@@ -588,7 +616,8 @@ void MissionView::draw(uint64_t millis) {
     }
     if (_dragging)
         Hud::drawBox(_overlay, _pressX, _pressY, _mouseX, _mouseY);
-    _hud.draw(_overlay, _resources.value_or(Hud::Resources{}), _scene.seen(), _resources.has_value());
+    _hud.draw(_overlay, _resources.value_or(Hud::Resources{}), _scene.seen(), _resources.has_value(),
+              minimapOf(_scene.map(), units, _moves, view, _overview.target[1]));
     if (_displayed != _selection) {
         _display.clear();
         // The game picks a name at random; any one of them will do.

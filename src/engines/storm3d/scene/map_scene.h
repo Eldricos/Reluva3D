@@ -148,8 +148,9 @@ public:
         std::string odf;
         int slot = 0;
         gfx::Vec3 at{};
-        float heading = 0; // radians from +z towards +x
-        gfx::Vec3 lo{};    // the model's box, scaled, turned and placed
+        float heading = 0;               // radians from +z towards +x
+        std::optional<gfx::Vec3> colour; // its player's, 0 to 1; none: the map's race's
+        gfx::Vec3 lo{};                  // the model's box, scaled, turned and placed
         gfx::Vec3 hi{};
         /** How far its box's corners reach from its middle. */
         float radius() const;

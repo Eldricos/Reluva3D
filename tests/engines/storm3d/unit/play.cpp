@@ -307,6 +307,32 @@ void testCrew() {
     CHECK(MissionView::grownCrew(99990, carry, 2, 10) == 99999);
 }
 
+// The minimap's marks and view: a unit in its player's colour, white
+// without one, a station bigger; the view's top edge where the
+// original's lines fell, (12.5, 454.6) to (28.6, 454.6) on 4first.bzn.
+void testMinimap() {
+    using reluva::storm3d::MapScene;
+    reluva::storm3d::BznMap map;
+    map.area = {0, 6400, -28.5f, 105.5f, 0, 6400};
+    MapScene::Unit base;
+    base.at = {677.6f, 38.5f, 502.8f};
+    MapScene::Unit ship;
+    ship.at = {570, 38.5f, 546};
+    ship.colour = reluva::gfx::Vec3{1, 0, 0};
+    const auto camera = MapScene::overviewOf({576.6f, 38.5f, 444.5f});
+    const Hud::Minimap m = MissionView::minimapOf(map, {base, ship}, {false, true}, camera, 38.5f);
+    CHECK(m.right == 6400 && m.far == 6400 && m.marks.size() == 2);
+    CHECK(m.marks[0].station && (m.marks[0].colour == std::array<uint8_t, 3>{230, 230, 230}));
+    CHECK(!m.marks[1].station && (m.marks[1].colour == std::array<uint8_t, 3>{255, 0, 0}));
+    CHECK(m.view.size() == 4);
+    if (m.view.size() == 4) {
+        auto px = [](float x) { return 9 + x / 50; };
+        auto py = [](float z) { return 343 + (6400 - z) / 50; };
+        CHECK(std::abs(px(m.view[0][0]) - 12.5f) < 0.3f && std::abs(px(m.view[1][0]) - 28.6f) < 0.3f);
+        CHECK(std::abs(py(m.view[0][1]) - 454.6f) < 0.3f);
+    }
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("storm3d.unit.play",
@@ -324,4 +350,5 @@ static const reluva::test::Suite kSuite("storm3d.unit.play",
                                             {"point on", [](const std::filesystem::path &) { testPointOn(); }},
                                             {"send group", [](const std::filesystem::path &) { testSendGroup(); }},
                                             {"crew", [](const std::filesystem::path &) { testCrew(); }},
+                                            {"minimap", [](const std::filesystem::path &) { testMinimap(); }},
                                         });
