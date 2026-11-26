@@ -11,6 +11,12 @@
 
 namespace reluva::tpw {
 
+namespace {
+
+constexpr const char *kAdvisorFolder = "global/Advisor/";
+
+} // namespace
+
 std::string findTexture(const SearchSet &files, const std::string &model, const std::string &texture) {
     const size_t slash = model.rfind('/');
     const std::string folder = slash == std::string::npos ? std::string() : model.substr(0, slash + 1);
@@ -27,6 +33,11 @@ std::string findTexture(const SearchSet &files, const std::string &model, const 
     folders.push_back(folder + "stexture/");
     if (!world.empty())
         folders.push_back(world + "ssharete/");
+    // The worlds' advisors wear the advisor's own, from the front end's.
+    if (!world.empty() && fs::toLower(folder) == fs::toLower(world) + "advisor/") {
+        folders.push_back(std::string(kAdvisorFolder) + "textures/");
+        folders.push_back(std::string(kAdvisorFolder) + "stexture/");
+    }
     const size_t dot = texture.rfind('.');
     const std::string stem = dot == std::string::npos ? texture : texture.substr(0, dot);
     for (const std::string &f : folders)

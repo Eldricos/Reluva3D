@@ -88,7 +88,11 @@ same name. Of the 9,529 textures the models name, Reluva finds:
 | Only in another model's or another world's folders, as `generic/sweather/lightning.fsh` | 423 |
 | Nowhere | 160 |
 
-and looks in that order, a bank before a `.tga` of the name. `stexture/`
+and looks in that order, a bank before a `.tga` of the name. A world's
+advisor (`levels/science/advisor/Advisor_SCI.MD2`) wears the front end's
+advisor's textures, in `global/Advisor/textures/`, where Reluva looks for
+them last: they were among the 423 found only elsewhere
+([advisor.md](../systems/advisor.md)). `stexture/`
 and `ssharete/` hold the same pictures smaller ([fsh.md](fsh.md)): for
 a lower detail setting *(guessed)*, so last. Where the game looks for
 the 583 not found so is not worked out; Reluva draws them grey.
@@ -100,7 +104,7 @@ The models are made of a tree of nodes, from the one at the header's
 
 | Offset | Size | Field |
 |---|---|---|
-| 0x00 | 4 | Its type: 1 or 0x401 a mesh; 0x200 a helper (`baseobject`, `Head01`, a camera); 4, 0x208, 0x300 and 0x600 others, not worked out |
+| 0x00 | 4 | Its type: 1 or 0x401 a mesh; 0x200 a helper (`baseobject`, `Head01`, a camera); 0x208 a spline ([below](#a-spline)); 4, 0x300 and 0x600 others, not worked out |
 | 0x04 | 4 | Its parent node, or 0 |
 | 0x08 | 4 | The next node of the same parent, or 0 |
 | 0x0C | 4 | Its first child, or 0 |
@@ -139,7 +143,29 @@ matrices alone. Of the
 others, some boxes have their axes swapped (`levels/science/features/water/water.MD2`)
 and some are slightly off; what makes them differ is not worked out.
 
+### A spline
+
+The worlds' camera paths (`levels/science/obstacles/Camera/camera.MD2`,
+the same file in all three) have a node of type 0x208, `Camera pathr`:
+the spline the fly-in's camera follows ([fly-in.md](../systems/fly-in.md)).
+Its points lie between the textures' names (the header's 0x54) and the
+first mesh's positions (0x58):
+
+| Offset | Size | Field |
+|---|---|---|
+| 0x00 | 20 | 0, 0, 0x10000, 0xC0 and 0, in all three: not worked out |
+| 0x14 | 12 each | The points: x, y and z, in the spline's node's space |
+| then | 16 | A record: 2, how many points (36), where they start (0x14 on from the block), 0 |
+
+The 36 points are 12 knots, each with its handles: the in handle, the
+knot, the out handle, as 3ds Max keeps a Bézier spline's: each knot lies
+between its two in line with them, and the path drawn so runs along the
+worlds' road *(inferred)*. The last knot's out handle is the first point
+again. The front end's camera path has a block there too, of other
+words, not read.
+
 ### A mesh
+
 
 After its 0x50 bytes of node, a mesh has, from the node's start:
 

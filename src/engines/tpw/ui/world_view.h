@@ -76,5 +76,8 @@ soft3d::OrbitCamera worldCamera(const LoadedWorld &world, const WorldView &view,
  * ring of dots, coloured by its kind.
  */
 void drawWorld(Surface &screen, soft3d::Rasterizer &rasterizer, const LoadedWorld &world, const WorldView &view);
+/** Likewise, through `camera` rather than the view's own. */
+void drawWorld(Surface &screen, soft3d::Rasterizer &rasterizer, const LoadedWorld &world, const WorldView &view,
+               const soft3d::OrbitCamera &camera);
 
 } // namespace reluva::tpw

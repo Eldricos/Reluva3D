@@ -41,7 +41,10 @@ x 610 to 950 and z 130 to 460 in Land of Invention. The ground's cells
   bus's side and the park's, and a strike area. The entrance's and the first booth's cells are the
   same in all three playable worlds. All but the gates are the world's own model's
   (`terrain/base.MD2`); the gates are the world's `features/Gates`
-  object, `ParkName.GateObjectId` 1601 in its `global.sam`.
+  object, `ParkName.GateObjectId` 1601 in its `global.sam`, one of the
+  fixed items the prebuilt park lists unplaced, with the bunting and the
+  booths' building, drawn from the world's corner
+  ([fly-in.md](fly-in.md#the-fixed-items)).
 - **The mission's** (`missions/missNN.sam`; Operation Expand!, the first,
   is `miss00`): its objective (`ExitStatistic[0]`: `Type` 8 with
   `TargetValue` 40, "Get 40 people in the park at once", as its briefing
@@ -239,7 +242,7 @@ holds its compass's buttons and picks from its menus.
 ## Open questions
 
 - How the park's fence is drawn ([land.md](land.md)).
-- The fly-in along the road; the gates' model at the entrance.
+- The fly-in's details ([fly-in.md](fly-in.md#open-questions)).
 - The HUD: the windows its menus' items open, and what a right click
   on a bottom button opens ("Right-click to Buy Attractions"); the
   Finance and Maps menus' order; the round newspaper button at the date box's right end

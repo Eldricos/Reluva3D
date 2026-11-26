@@ -242,6 +242,11 @@ constexpr float kRadiansPerDegree = 3.14159265f / 180;
 // bases flat at 0, as the ground) over the path.
 constexpr float kPathLift = 0.05f;
 constexpr float kObjectLift = 0.1f;
+// The world's fixed items lie within so many units of its corner; beyond,
+// a model is a scene of its own (the cash machine's lobby, at 8,000).
+constexpr float kFixedItemsWithin = 4000;
+// The gates' script, by its NAME.
+constexpr const char *kGatesScript = "Gates";
 // How far the scripts of the objects there from the start are run on at
 // once, past their building (guessed: none's building takes so long).
 constexpr uint32_t kSettledMillis = 20000;
@@ -342,8 +347,13 @@ Error ParkScreen::load(const SearchSet &files, const Park &park) {
     _hireRead = !_hire.load(files, park.folder());
     _kitRead = !_kit.load(files);
     _parkMap.load(files, park.folder());
+    // A world without its advisor goes without.
+    _advisor = Advisor();
+    if (_advisor.load(files, park.folder()))
+        _advisor = Advisor();
     loadObjects(files, park);
     _runs.clear();
+    _fixedRuns.clear();
     _runIds.clear();
     _ranTo = park.millis();
     _unscripted.clear();
@@ -441,6 +451,7 @@ void ParkScreen::loadObjects(const SearchSet &files, const Park &park) {
     std::set<int> wanted;
     for (const Park::PlacedObject &o : park.objects())
         wanted.insert(o.id);
+    wanted.insert(park.fixedObjects().begin(), park.fixedObjects().end());
     const std::string prefix = park.folder() + "/";
     for (const std::string &name : files.list()) {
         if (wanted.empty())
@@ -508,6 +519,7 @@ const LoadedModel *ParkScreen::objectModel(int id) const {
 void ParkScreen::advance(Park &park) {
     const uint32_t ms = uint32_t(park.millis() - std::min(park.millis(), _ranTo));
     _ranTo = park.millis();
+    _advisor.advance(ms);
     for (const auto &[object, queue] : park.takeRemovals())
         removed(object, queue);
     auto runOf = [&](size_t i) {
@@ -532,6 +544,36 @@ void ParkScreen::advance(Park &park) {
         _runs.push_back(runOf(i));
         _runIds.push_back(park.objects()[i].id);
     }
+    // The gates' script opens them on VAR_COMMAND 1 and shuts them on 0:
+    // open while the park is, as the park's there from the start.
+    auto command = [&](RideRun &run) {
+        if (ScriptMachine *machine = run.machine(); machine && machine->name() == kGatesScript) {
+            const auto &names = machine->script().variables();
+            for (size_t v = 0; v < names.size(); ++v)
+                if (names[v] == "VAR_COMMAND")
+                    machine->setVariable(v, park.parkOpen() ? 1 : 0);
+        }
+    };
+    for (size_t i = _fixedRuns.size(); i < park.fixedObjects().size(); ++i) {
+        std::unique_ptr<RideRun> run;
+        const int id = park.fixedObjects()[i];
+        if (objectModel(id) && _files) {
+            run = std::make_unique<RideRun>();
+            if (run->start(*_files, _objectPaths[id], false)) {
+                run.reset();
+            } else {
+                run->advance(1);
+                command(*run);
+                run->advance(kSettledMillis);
+            }
+        }
+        _fixedRuns.push_back(std::move(run));
+    }
+    for (const std::unique_ptr<RideRun> &run : _fixedRuns)
+        if (run) {
+            command(*run);
+            run->advance(ms);
+        }
     // Each ride's script takes the visitor waiting at its entrance when
     // it will, and lets its riders off.
     for (size_t i = 0; i < _runs.size(); ++i) {
@@ -586,6 +628,16 @@ void ParkScreen::advance(Park &park) {
     }
 }
 
+void ParkScreen::advanceScripts(Park &park, uint32_t ms) {
+    advance(park);
+    for (const std::unique_ptr<RideRun> &run : _runs)
+        if (run)
+            run->advance(ms);
+    for (const std::unique_ptr<RideRun> &run : _fixedRuns)
+        if (run)
+            run->advance(ms);
+}
+
 void ParkScreen::drawObjects(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const Park &park) const {
     const soft3d::Vec light = _world.hasSky ? soft3d::normalize(toViewerWorld(_world.sky.light)) : defaultLight();
     for (size_t i = 0; i < park.objects().size(); ++i) {
@@ -597,6 +649,31 @@ void ParkScreen::drawObjects(soft3d::Rasterizer &rasterizer, const soft3d::Orbit
         if (i < _runs.size() && _runs[i])
             _runs[i]->pose(*model, pose);
         drawPlaced(rasterizer, eye, *model, o.at, o.angle, light, pose.animation, pose.frame);
+    }
+    // The fixed items, each as its script poses it: in the world's own
+    // space, or, given a cell, stood up from there, as a model whose z is
+    // up: so the gates fill the entrance's cells, centred on them
+    // (inferred). Those far off the map, as the cash machine's lobby, are
+    // scenes of their own.
+    for (size_t i = 0; i < park.fixedObjects().size(); ++i) {
+        const int id = park.fixedObjects()[i];
+        const LoadedModel *model = objectModel(id);
+        const Attractions::Attraction *a = park.attractions().find(id);
+        if (!model || !a || std::sqrt(soft3d::dot(model->centre, model->centre)) > kFixedItemsWithin)
+            continue;
+        const bool atCell = a->fixedX != 0 || a->fixedY != 0;
+        const float x = float(a->fixedX) * Park::kCellUnits;
+        const float z = float(a->fixedY) * Park::kCellUnits;
+        const gfx::Mat4 place = atCell ? gfx::Mat4{1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 0, 0, x, 0, z, 1}
+                                       : gfx::Mat4{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+        ModelView pose;
+        if (i < _fixedRuns.size() && _fixedRuns[i])
+            _fixedRuns[i]->pose(*model, pose);
+        std::vector<gfx::Mat4> transforms = meshTransforms(*model, pose.animation, pose.frame);
+        for (gfx::Mat4 &m : transforms)
+            m = gfx::multiply(place, m);
+        const std::vector<std::vector<gfx::Vec3>> positions = meshPositions(*model, pose.animation, pose.frame);
+        drawMeshes(rasterizer, eye, *model, true, light, &transforms, &positions);
     }
     // The queue being laid drawn as it would be, in its own's place.
     for (const Park::Queue &queue : park.queues()) {
@@ -1096,6 +1173,7 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
     const std::string date = dateText(park.day());
     const int w = gameTextWidth(_dateFont, _characters, date);
     drawGameText(screen, _dateFont, _characters, field.x + (field.w - w) / 2, field.y + 3, date, kHudText);
+    _advisor.draw(screen);
     if (_buyRead)
         _buy.draw(screen);
     if (_hireRead)
@@ -1150,6 +1228,18 @@ std::vector<OverviewMapWindow::World> ParkScreen::worlds(const Park &park) const
     return out;
 }
 
+void ParkScreen::drawScene(Surface &screen, soft3d::Rasterizer &rasterizer, const Park &park,
+                           const soft3d::OrbitCamera &eye, float yaw) const {
+    std::fill(screen.pixels.begin(), screen.pixels.end(), uint8_t(0));
+    Camera facing;
+    facing.yaw = yaw;
+    drawWorld(screen, rasterizer, _world, viewOf(facing), eye);
+    drawPaths(rasterizer, eye, park);
+    drawObjects(rasterizer, eye, park);
+    drawVisitors(screen, rasterizer, eye, park, facing);
+    drawWeather(screen, park);
+}
+
 bool ParkScreen::windowOpen() const {
     return _popup.isOpen() || _attractionWindow.isOpen() || _gateWindow.isOpen() || _staffWindow.isOpen() ||
            _staffList.isOpen() || _trainingWindow.isOpen() || _staffFinance.isOpen() || _wageDemand.isOpen() ||
@@ -1169,6 +1259,8 @@ void ParkScreen::takeMessages(Park &park) {
     constexpr std::array<uint32_t, 4> kShown{168, 163, 165, 169};
     for (Park::Message &m : park.takeMessages()) {
         const bool shown = std::find(kShown.begin(), kShown.end(), m.title) != kShown.end();
+        if (m.title == kShown[0])
+            _advisor.cue(Advisor::Cue::kMissionDone);
         _inbox.push_back({m, park.day(), shown});
         if (shown)
             _messages.push_back(std::move(m));
@@ -1851,6 +1943,8 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
             wantObjectives = wantObjectives || shownMission >= 0;
         }
         const bool challenges = choice == kChallengesItem;
+        if (challenges)
+            screen.advisor().cue(Advisor::Cue::kChallenges);
         if ((choice == ParkHud::kObjectivesItem || challenges || std::exchange(wantObjectives, false)) &&
             showObjectives) {
             park.setPaused(true);
@@ -1861,6 +1955,17 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
             if (!open)
                 return false;
         }
+        // The advisor's first words on each.
+        if (screen.buyWindow().isOpen())
+            screen.advisor().cue(Advisor::Cue::kBuyWindow);
+        if (screen.visitorStats().isOpen())
+            screen.advisor().cue(Advisor::Cue::kVisitorStats);
+        if (screen.researchLab().isOpen())
+            screen.advisor().cue(Advisor::Cue::kResearchLab);
+        if (screen.hud().tool() == ParkHud::Tool::kPath)
+            screen.advisor().cue(Advisor::Cue::kPathTool);
+        if (placing)
+            screen.advisor().cue(Advisor::Cue::kPlacing);
         if (screen.hud().tool() != ParkHud::Tool::kPath)
             pathStart.reset();
         Park::Cell under;

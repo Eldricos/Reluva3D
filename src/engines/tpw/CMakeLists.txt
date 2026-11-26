@@ -29,6 +29,8 @@ reluva_add_engine(tpw
         script/simulated_host.cpp
         ui/briefing.cpp
         ui/front_end.cpp
+        ui/fly_in.cpp
+        ui/advisor.cpp
         ui/hire_window.cpp
         ui/front_end_audio.cpp
         ui/front_end_effects.cpp

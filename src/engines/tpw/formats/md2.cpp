@@ -95,6 +95,26 @@ size_t animatedRun(const std::vector<std::string> &names, size_t first) {
     return names.size();
 }
 
+// The block after the textures' names, up to the first mesh's positions:
+// a camera path's spline. 20 bytes, its points, then a record of 2, their
+// count and where they start, which must agree (inferred).
+std::vector<gfx::Vec3> readSpline(const Reader &r, size_t from, size_t to) {
+    constexpr size_t kHead = 20;
+    constexpr size_t kRecord = 16;
+    constexpr uint32_t kSplineRecord = 2;
+    std::vector<gfx::Vec3> points;
+    if (to < from + kHead + kRecord || !r.has(from, to - from))
+        return points;
+    const size_t record = to - kRecord;
+    const size_t count = r.u32(record + 4);
+    const size_t start = r.u32(record + 8);
+    if (r.u32(record) != kSplineRecord || start != from + kHead || start + 12 * count != record)
+        return points;
+    for (size_t i = 0; i < count; ++i)
+        points.push_back({r.f32(start + 12 * i), r.f32(start + 12 * i + 4), r.f32(start + 12 * i + 8)});
+    return points;
+}
+
 Error readMesh(const Reader &r, size_t node, size_t textureTable, size_t textures, Model::Mesh &mesh) {
     const size_t m = node + kNodeSize;
     const size_t nameAt = r.u32(m + 4);
@@ -210,6 +230,7 @@ Error Model::parse(const std::vector<uint8_t> &data) {
     std::vector<std::string> nameList(names);
     for (size_t i = 0; i < names; ++i)
         nameList[i] = r.text(namesAt + kTextureNameSize * i, kTextureNameSize);
+    _spline = readSpline(r, namesEnd, r.u32(0x58));
     _textures.resize(textures);
     size_t lastAnimated = textures;
     for (size_t i = 0; i < textures; ++i)

@@ -140,6 +140,9 @@ Error Attractions::load(const SearchSet &files, const std::string &folder) {
             a.holdsLitter = number("UsageInfo.HoldsLitter", 0) != 0;
             a.indoors = number("UsageInfo.ISIndoors", 0) != 0;
             a.security = number("UsageInfo.ProvidesSecurity", 0) != 0;
+            a.fixedInWorld = number("Info.DontApplyOffset", 0) != 0;
+            a.fixedX = int(number("Info.EngineMapOffsetOverrideX", 0));
+            a.fixedY = int(number("Info.EngineMapOffsetOverrideY", 0));
             a.lab = number("UsageInfo.ThinkingSpace", 0) != 0;
             a.trainingRoom = number("UsageInfo.TrainingRoom", 0) != 0;
             a.requiresWatering = number("UsageInfo.RequiresWatering", 0) != 0;

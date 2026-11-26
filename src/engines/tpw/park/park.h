@@ -636,6 +636,13 @@ public:
         bool active = true;    // a special ride: activated, and so open
     };
     const std::vector<PlacedObject> &objects() const { return _objects; }
+    /**
+     * The world's fixed items, as the prebuilt park lists them unplaced:
+     * the gates, the ticket booths' building, the bunting and the like,
+     * by their numbers, each laid out from the world's corner
+     * (Attraction::fixedInWorld).
+     */
+    const std::vector<int> &fixedObjects() const { return _fixedObjects; }
 
     /**
      * A queue: its cells from the one by its attraction's entrance out,
@@ -1132,6 +1139,7 @@ private:
     std::vector<Ground> _ground;
     std::vector<uint8_t> _owned; // by cell, as _ground; 1 where it's the park's
     bool _prebuilt = false;
+    std::vector<int> _fixedObjects;
     std::vector<PlacedObject> _objects;
     std::vector<Queue> _queues;
     int _queueCost = 0;

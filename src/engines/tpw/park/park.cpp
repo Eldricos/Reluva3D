@@ -267,8 +267,11 @@ void Park::layPrebuilt(const SearchSet &files, const AttributeMap &map) {
             if (saved.cell(x, y).fill == SavedPark::kFillEntrance)
                 _queues.push_back(followQueue({x, y}));
     for (const SavedPark::Object &o : saved.objects()) {
-        if (!o.placed())
+        if (!o.placed()) {
+            if (const Attractions::Attraction *a = _attractions.find(o.id); a && a->fixedInWorld)
+                _fixedObjects.push_back(o.id);
             continue;
+        }
         _objects.push_back({o.id, {int(std::floor(o.x)), int(std::floor(o.y))}, int(o.angle)});
         _objects.back().prebuilt = true;
         // A special ride stands boarded up, closed, till it's activated.

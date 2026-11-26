@@ -75,6 +75,13 @@ public:
         // (SkillSet[ability].Num: so many, an ability of ABILITIES.str).
         bool special = false;
         int ticketCost = 0;
+        // Info.DontApplyOffset: a fixed item, its model laid out from the
+        // world's corner rather than its cell ("a fixed item whose animation
+        // should be played relative to world (0,0)"), or from the cell
+        // Info.EngineMapOffsetOverrideX and Y give (the gates' (46, 17)).
+        bool fixedInWorld = false;
+        int fixedX = 0;
+        int fixedY = 0;
         std::vector<std::pair<int, int>> skills; // ability, how many
         int replaceWith = 0;
         bool openedAutomatically = false;

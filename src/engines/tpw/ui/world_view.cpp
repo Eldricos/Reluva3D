@@ -170,7 +170,11 @@ soft3d::OrbitCamera worldCamera(const LoadedWorld &world, const WorldView &view,
 }
 
 void drawWorld(Surface &screen, soft3d::Rasterizer &rasterizer, const LoadedWorld &world, const WorldView &view) {
-    const soft3d::OrbitCamera camera = worldCamera(world, view, screen.w, screen.h);
+    drawWorld(screen, rasterizer, world, view, worldCamera(world, view, screen.w, screen.h));
+}
+
+void drawWorld(Surface &screen, soft3d::Rasterizer &rasterizer, const LoadedWorld &world, const WorldView &view,
+               const soft3d::OrbitCamera &camera) {
     soft3d::Vec light = defaultLight();
     if (view.sky && world.hasSky) {
         drawSky(screen, camera, world.sky);

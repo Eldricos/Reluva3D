@@ -54,7 +54,7 @@ void RideRun::pose(const LoadedModel &loaded, ModelView &view) const {
     if (!_host || _host->playing().number < 0)
         return;
     const SimulatedHost::Playing &p = _host->playing();
-    const std::string file = tail(_host->animationFile(p.number));
+    const std::string file = tail(_host->animationFile(p.number, p.variant));
     for (size_t i = 0; i < loaded.animationNames.size(); ++i)
         if (!file.empty() && fs::toLower(loaded.animationNames[i]) == file) {
             const float length = float(std::max(1u, loaded.animations[i].frames()));
@@ -77,7 +77,7 @@ std::string RideRun::status() const {
         text::format("%.1f s  %s %s", double(_host->now()) / 1000,
                      _machine->name().empty() ? tail(_scriptName).c_str() : _machine->name().c_str(), state);
     if (p.number >= 0) {
-        const std::string file = tail(_host->animationFile(p.number));
+        const std::string file = tail(_host->animationFile(p.number, p.variant));
         line += text::format(", animation %d (%s)%s", p.number, file.empty() ? "not known" : file.c_str(),
                              p.loop ? " looping" : "");
     }

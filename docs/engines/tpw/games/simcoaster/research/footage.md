@@ -118,7 +118,7 @@ line.
 
 ## The road into the park
 
-1:34 to 1:50: the camera flies low along a road with a white line, past a
+1:34 to 1:50 ([fly-in.md](../systems/fly-in.md)): the camera flies low along a road with a white line, past a
 tunnel, a monorail and the park's fence, and stops at its gates, golden,
 with blue globes on posts. The Intro World's features include a bus, a
 ferry and a seaplane (`levels/wIntro/features/`): the visitors' arrival
@@ -145,7 +145,7 @@ From 1:50, the main screen (full frame at 5:00):
   with their skills and wages); a shop's window; "Visitor Statistics"; a
   visitor's own; "Research Lab".
 - A blue creature with a mortarboard (the in-game advisor) appears at the
-  bottom right with tips.
+  bottom right with tips ([advisor.md](../systems/advisor.md)).
 - The view is from above at an angle; the camera can go down to the
   ground, by the gates (11:40) and among the visitors (13:40).
 

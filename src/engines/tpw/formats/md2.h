@@ -103,6 +103,13 @@ public:
     /** Every node of the tree, each before its children, children before the next of their parent's. */
     const std::vector<Node> &nodes() const { return _nodes; }
     /**
+     * A spline's points, in its node's space, as the camera path keeps
+     * one for its camera to fly along: each knot between its in and out
+     * handles. Empty for a model without one. See
+     * docs/engines/tpw/games/simcoaster/formats/md2.md#a-spline.
+     */
+    const std::vector<gfx::Vec3> &spline() const { return _spline; }
+    /**
      * The nodes as an animation numbers them (indices into nodes()): the
      * meshes' first, then the others', each by its record's place in the
      * file; kNoNode for a number no node of the tree has.
@@ -121,6 +128,7 @@ private:
     std::vector<Texture> _textures;
     std::vector<Mesh> _meshes;
     std::vector<Node> _nodes;
+    std::vector<gfx::Vec3> _spline;
     std::vector<size_t> _animationOrder;
     size_t _otherNodes = 0;
 };

@@ -59,8 +59,12 @@ None yet.
   signs are lettered by guessed rules ([sgn.md](formats/sgn.md)); some show their settings' names, or
   another world's, the game's own not being found for them
   ([building.md](systems/building.md#their-names)), and the Buy window
-  has no descriptions; no fly-in, gates or other building
-  yet, its fixed items marked
+  has no descriptions; no building but attractions and path yet, its
+  fixed items' cells marked; the fly-in under the world's sky, where the
+  recording's is black, and ended by a click or a key, a guess
+  ([fly-in.md](systems/fly-in.md)); the advisor bare, with no lip-sync,
+  saying seven of his lines, each once a park
+  ([advisor.md](systems/advisor.md))
   ([PLAN.md](PLAN.md#phases), [park.md](systems/park.md)).
 - **The front end's opening**: its sparkles are drawn by guessed
   numbers, size and speed, without the emitters' flares; the white burst

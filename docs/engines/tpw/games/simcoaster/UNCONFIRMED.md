@@ -142,6 +142,13 @@ None yet.
   are discovered, the player's choice of what to learn, what the special
   rides' challenges measure ([special-rides.md](systems/special-rides.md)).
 
+- **The fly-in**: its pace along the path, 26 ms a frame, the fixed
+  items with a cell stood up from it ([fly-in.md](systems/fly-in.md)).
+
+- **The advisor**: what sets off each line, by one sighting each in the
+  recording; his body alone shown; where he stands
+  ([advisor.md](systems/advisor.md)).
+
 - **Park awards**: how each is measured, the cells counted as the
   park's, whether one is announced, what `MinCellsOwned` and
   `MinCellsCovered` limit ([park-awards.md](systems/park-awards.md)).

@@ -330,6 +330,16 @@ void testMd2() {
     CHECK(mesh.groups.size() == 2 && mesh.groups[0].texture == 1 && mesh.groups[0].faceCount == 1);
     CHECK(mesh.groups[1].texture == Model::Group::kNoTexture && mesh.groups[1].firstFace == 1 &&
           mesh.groups[1].flags == 1);
+    CHECK(model.spline().empty());
+
+    // A camera path's spline, its points after the names; a record that
+    // doesn't agree with them gives none.
+    Bytes path = makeModel(false, true);
+    CHECK(!model.parse(path) && model.spline().size() == 6 && (model.spline()[4] == gfx::Vec3{40, 0, 4}));
+    CHECK(model.meshes().size() == 1 && model.meshes()[0].positions.size() == 5);
+    const size_t positions = size_t(path[0x58]) | size_t(path[0x59]) << 8;
+    put32(path, positions - 12, 7);
+    CHECK(!model.parse(path) && model.spline().empty());
 
     // An animated texture: its frames' names, then the animation's, take
     // the places of the names after it.

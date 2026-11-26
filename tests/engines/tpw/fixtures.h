@@ -207,7 +207,9 @@ inline void putNode(Bytes &b, size_t at, uint32_t type, size_t parent, size_t ne
 // moved 5 up: five positions, four vertices, two faces, in two groups,
 // the second untextured. With `animated`, a third texture, and the second
 // animated: its frames "fr01" and "fr02", then the animation's name "fr".
-inline Bytes makeModel(bool animated = false) {
+// With `spline`, a camera path's spline after the names: two knots, each
+// with its handles.
+inline Bytes makeModel(bool animated = false, bool spline = false) {
     Bytes b(0xb8);
     put32(b, 0, 0x1cd15d46);
     put32(b, 4, 221);
@@ -233,8 +235,24 @@ inline Bytes makeModel(bool animated = false) {
     b.resize(namesAt + 20 * names.size());
     for (size_t i = 0; i < names.size(); ++i)
         std::copy(names[i].begin(), names[i].end(), b.begin() + long(namesAt + 20 * i));
-    // Where the names end: the first mesh's positions, next.
+    // Where the names end, then the spline, then the first mesh's positions.
     put32(b, 0x54, uint32_t(b.size()));
+    if (spline) {
+        const size_t head = b.size();
+        b.resize(head + 20);
+        const size_t points = b.size();
+        for (int i = 0; i < 6; ++i) {
+            b.resize(b.size() + 12);
+            putFloat(b, b.size() - 12, float(10 * i));
+            putFloat(b, b.size() - 4, float(i));
+        }
+        const size_t record = b.size();
+        b.resize(record + 16);
+        put32(b, record, 2);
+        put32(b, record + 4, 6);
+        put32(b, record + 8, uint32_t(points));
+    }
+    put32(b, 0x58, uint32_t(b.size()));
 
     // Two blocks of four positions, x then y then z; the last three unused.
     const size_t positions = b.size();

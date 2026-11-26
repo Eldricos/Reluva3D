@@ -11,6 +11,7 @@
 #include "engines/tpw/park/attractions.h"
 #include "engines/tpw/park/park.h"
 #include "engines/tpw/park/path_tiles.h"
+#include "engines/tpw/ui/advisor.h"
 #include "engines/tpw/ui/buy_window.h"
 #include "engines/tpw/ui/hire_window.h"
 #include "engines/tpw/ui/info_windows.h"
@@ -60,6 +61,13 @@ public:
 
     /** Draws the park through `camera` over the whole of an RGBA32 surface. */
     void draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Park &park, const Camera &camera) const;
+    /**
+     * Draws the park alone, its world, paths, objects, visitors and
+     * weather, without the HUD, through `eye`, as the fly-in sees it;
+     * `yaw` the way it faces, as Camera::yaw.
+     */
+    void drawScene(Surface &screen, soft3d::Rasterizer &rasterizer, const Park &park, const soft3d::OrbitCamera &eye,
+                   float yaw) const;
 
     /**
      * The park's cell under a point of the screen, on the ground (y = 0),
@@ -101,6 +109,8 @@ public:
      * them off.
      */
     void advance(Park &park);
+    /** Runs the objects' scripts on by `ms`, the park's clock standing still, as in the fly-in. */
+    void advanceScripts(Park &park, uint32_t ms);
 
     /** The Hire Staff window, which takes the mouse before the HUD while it's open; the staff's sprites. */
     HireWindow &hireWindow() { return _hire; }
@@ -136,6 +146,8 @@ public:
     GameMenu &gameMenu() { return _gameMenu; }
     ParkMapWindow &parkMap() { return _parkMap; }
     OverviewMapWindow &overviewMap() { return _overviewMap; }
+    Advisor &advisor() { return _advisor; }
+    const Advisor &advisor() const { return _advisor; }
     ActivateRideWindow &activateRide() { return _activateRide; }
     /** The messages received, oldest first; marks them all read. */
     std::vector<MessageCenterWindow::Received> &inbox() { return _inbox; }
@@ -230,9 +242,10 @@ private:
     mutable std::set<int> _missingModels;             // those that couldn't be, not tried again
     mutable std::map<int, std::string> _objectPaths;  // their models' names
     mutable SignPainter _signs;
-    std::vector<std::unique_ptr<RideRun>> _runs; // by the park's objects: their scripts, those that have one
-    std::vector<int> _runIds;                    // the objects they're of
-    uint64_t _ranTo = 0;                         // the park's time they're run to
+    std::vector<std::unique_ptr<RideRun>> _runs;      // by the park's objects: their scripts, those that have one
+    std::vector<int> _runIds;                         // the objects they're of
+    std::vector<std::unique_ptr<RideRun>> _fixedRuns; // by Park::fixedObjects()
+    uint64_t _ranTo = 0;                              // the park's time they're run to
     // Attractions without a script, by their queues: whom they have, and till when (the park's time).
     std::map<int, std::vector<std::pair<int, uint64_t>>> _unscripted;
     size_t _prebuilt = 0; // the objects there as the park opened
@@ -272,6 +285,7 @@ private:
     GameMenu _gameMenu;
     ParkMapWindow _parkMap;
     OverviewMapWindow _overviewMap;
+    Advisor _advisor;
     std::array<bool, 3> _worldOpen{};
     std::array<int, 3> _worldChallenges{10, 10, 10}; // ChallengesInThisLevel's ten each
     int _travel = -1;

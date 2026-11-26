@@ -14,6 +14,7 @@
 #include "engines/tpw/ui/briefing.h"
 #include "engines/tpw/ui/buy_window.h"
 #include "engines/tpw/ui/hire_window.h"
+#include "engines/tpw/ui/fly_in.h"
 #include "engines/tpw/ui/park_hud.h"
 #include "engines/tpw/ui/park_screen.h"
 #include "engines/tpw/ui/sign_painter.h"
@@ -673,7 +674,7 @@ int cmdWindowShot(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool tpw window-shot <game folder> <world folder> <out.png> "
-            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|opinion|overview|activate> [seconds] [-mission <n>]\n");
+            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|opinion|overview|advisor|activate> [seconds] [-mission <n>]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -790,6 +791,10 @@ int cmdWindowShot(int argc, char **argv) {
         // As a player who's opened Polar Zone, too, would see it.
         screen.setWorld(2, true, 10);
         screen.overviewMap().open(screen.worlds(park), park.theme());
+    } else if (which == "advisor") {
+        screen.advisor().cue(reluva::tpw::Advisor::Cue::kPathTool);
+        screen.advisor().advance(500);
+        std::printf("advisor says %u\n", screen.advisor().said().empty() ? 0 : screen.advisor().said().back());
     } else if (which == "opinion")
         screen.parkMap().open(reluva::tpw::ParkMapWindow::Mode::kOpinion);
     else if (which == "activate") {
@@ -818,6 +823,34 @@ int cmdWindowShot(int argc, char **argv) {
     return 0;
 }
 
+int cmdFlyinShot(int argc, char **argv) {
+    if (argc < 5) {
+        std::fprintf(stderr, "usage: reluva-tool tpw flyin-shot <game folder> <world folder> <out.png> [frame]\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    reluva::tpw::Park park;
+    reluva::tpw::ParkScreen screen;
+    if (!newPark(argv[2], argv[3], missionArgument(argc, argv), files, park, screen))
+        return 1;
+    reluva::tpw::FlyIn flyIn;
+    if (reluva::Error err = flyIn.load(files, argv[3])) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    const float frame = argc > 5 && argv[5][0] != '-' ? std::strtof(argv[5], nullptr) : 0;
+    screen.advance(park);
+    reluva::Surface surface;
+    surface.create(640, 480, reluva::PixelFormat::kRGBA32);
+    reluva::soft3d::Rasterizer rasterizer;
+    const reluva::soft3d::OrbitCamera eye = flyIn.camera(frame, surface.w, surface.h);
+    screen.drawScene(surface, rasterizer, park, eye, flyIn.yaw(frame));
+    writePng(surface, argv[4]);
+    std::printf("frame %.0f of %.0f: eye %.1f, %.1f, %.1f, looking %.2f, %.2f, %.2f\n", frame, flyIn.frames(),
+                eye.eye.x, eye.eye.y, eye.eye.z, eye.forward.x, eye.forward.y, eye.forward.z);
+    return 0;
+}
+
 const Commands kCommands(
     "tpw",
     {
@@ -827,7 +860,7 @@ const Commands kCommands(
          "draw the Hire Staff window over a new park, on a tab, a row chosen, to a PNG, and list the candidates",
          cmdHireShot},
         {"window-shot",
-         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|opinion|overview|activate> [seconds] [-mission <n>]",
+         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|opinion|overview|advisor|activate> [seconds] [-mission <n>]",
          "draw one of the park's smaller windows over a new park, its staff one of each kind, run on, to a PNG",
          cmdWindowShot},
         {"sign-shot", "<game folder> <world folder> <out.png>",
@@ -845,6 +878,8 @@ const Commands kCommands(
          cmdParkShot},
         {"briefing-shot", "<game folder> <world folder> <out.png> [player [-details | -challenges]] [-mission <n>]",
          "draw the mission's briefing over a new park, the player's campaign at a -mission, to a PNG", cmdBriefingShot},
+        {"flyin-shot", "<game folder> <world folder> <out.png> [frame]",
+         "draw the fly-in along the road into a new park at a frame of its camera's path, to a PNG", cmdFlyinShot},
         {"park-run", "<game folder> <world folder> [-shots <folder> <ms>...]",
          "play a new park headless: its briefing, path laid, the Park menu's Objectives, the camera moved "
          "by keys and the compass, a tool chosen, a menu, a visitor, Esc; -shots writes the screen at those "

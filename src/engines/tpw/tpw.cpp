@@ -15,6 +15,7 @@
 #include "engines/tpw/park/park.h"
 #include "engines/tpw/players.h"
 #include "engines/tpw/ui/briefing.h"
+#include "engines/tpw/ui/fly_in.h"
 #include "engines/tpw/ui/globe.h"
 #include "engines/tpw/ui/loading_screen.h"
 #include "engines/tpw/ui/park_screen.h"
@@ -67,9 +68,11 @@ public:
             return Error::success();
 
         // Each world's park in turn, as the Overview Map moves between them.
+        _mixer = audioOut ? &mixer : nullptr;
         for (int next = world; next >= 0;)
             if (Error err = playWorld(files, next, player))
                 return err;
+        _mixer = nullptr;
         return Error::success();
     }
 
@@ -99,6 +102,7 @@ private:
             return err;
         // The player's shares are the company's they hold, as their file keeps them.
         parkScreen.setPlayer(player.name, player.rank);
+        parkScreen.advisor().setMixer(_mixer);
         for (const PlayerFile::World &w : player.worlds)
             for (int theme = 0; theme < 3; ++theme)
                 if (Park::themeName(theme) == w.theme)
@@ -108,7 +112,13 @@ private:
         park.setPlayer(player.goldenTickets, player.rank);
         park.setChallengeRecord(player.challengesWon, player.challengesFailed);
         park.setRidesActivated(player.ridesActivated);
-        // The mission's briefing over the park as it opens.
+        // The fly-in along the road to the gates, then the mission's
+        // briefing over the park as it opens.
+        FlyIn flyIn;
+        if (!flyIn.load(files, folder.substr(0, folder.size() - 1)) && !playFlyIn(_sys, flyIn, parkScreen, park)) {
+            world = -1;
+            return Error::success();
+        }
         Briefing briefing;
         soft3d::Rasterizer rasterizer;
         const ParkScreen::Camera start = parkScreen.startCamera(park);
@@ -185,6 +195,7 @@ private:
     static constexpr int kHeight = kOpeningHeight;
     System &_sys;
     GameTarget _target;
+    audio::Mixer *_mixer = nullptr; // while the parks play, if the sound's on
 };
 
 /**

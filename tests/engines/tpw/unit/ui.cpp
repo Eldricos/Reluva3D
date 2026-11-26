@@ -12,6 +12,7 @@
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/players.h"
 #include "engines/tpw/ui/loading_screen.h"
+#include "engines/tpw/ui/advisor.h"
 #include "engines/tpw/ui/briefing.h"
 #include "engines/tpw/ui/buy_window.h"
 #include "engines/tpw/ui/hire_window.h"
@@ -633,6 +634,17 @@ void testParkWindows() {
     CHECK(map.handle(at(EventType::kMouseDown, Map::okRect())) == tpw::WindowResult::kClosed);
     map.open(Map::Mode::kOpinion);
     CHECK(map.isOpen() && map.mode() == Map::Mode::kOpinion);
+
+    // The advisor says each cue's line once, one after another.
+    tpw::Advisor advisor;
+    advisor.cue(tpw::Advisor::Cue::kBuyWindow);
+    advisor.cue(tpw::Advisor::Cue::kBuyWindow);
+    advisor.cue(tpw::Advisor::Cue::kPathTool);
+    CHECK(advisor.talking() && advisor.said() == std::vector<uint32_t>{380});
+    advisor.advance(6000);
+    CHECK(advisor.said() == (std::vector<uint32_t>{380, 376}));
+    advisor.advance(6000);
+    CHECK(!advisor.talking());
 
     // The Overview Map goes to another open world, not a closed one or
     // the park's own.
