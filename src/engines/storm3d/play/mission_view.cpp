@@ -1075,17 +1075,31 @@ Hud::Minimap MissionView::minimapOf(const BznMap &map, const std::vector<MapScen
 }
 
 std::vector<Hud::Minimap::Icon> MissionView::mapIconsOf(const BznMap &map, const Odf::Loader &loader) {
-    std::map<std::string, std::string> icons; // by definition
+    // Each definition's mark (mapIcon), or its patch (mapSprite, mapSize).
+    std::map<std::string, Hud::Minimap::Icon> icons;
     std::vector<Hud::Minimap::Icon> out;
     for (const BznMap::Object &o : map.objects) {
         const std::string odf = text::toLower(o.odf);
         auto it = icons.find(odf);
         if (it == icons.end()) {
             Odf def;
-            it = icons.emplace(odf, def.load(odf + ".odf", loader) ? std::string() : def.string("mapIcon")).first;
+            Hud::Minimap::Icon icon;
+            if (!def.load(odf + ".odf", loader)) {
+                icon.sprite = def.string("mapIcon");
+                if (icon.sprite.empty() && !def.string("mapSprite").empty()) {
+                    icon.sprite = def.string("mapSprite");
+                    icon.size = std::max(1, int(def.number("mapSize", 5)));
+                    icon.pattern = text::equalsIgnoreCase(def.string("classLabel"), "nebula_obj");
+                }
+            }
+            it = icons.emplace(odf, icon).first;
         }
-        if (!it->second.empty())
-            out.push_back({o.position[0], o.position[2], it->second});
+        if (!it->second.sprite.empty()) {
+            Hud::Minimap::Icon icon = it->second;
+            icon.x = o.position[0];
+            icon.z = o.position[2];
+            out.push_back(icon);
+        }
     }
     return out;
 }
@@ -1775,7 +1789,7 @@ void MissionView::draw(uint64_t millis) {
         if ((i < _dead.size() && _dead[i]) || !_scene.shown(i))
             minimap.marks.erase(minimap.marks.begin() + std::ptrdiff_t(i));
     for (const Hud::Minimap::Icon &icon : _mapIcons)
-        if (!_scene.covered({icon.x, 0, icon.z}))
+        if (icon.size > 0 || !_scene.covered({icon.x, 0, icon.z}))
             minimap.icons.push_back(icon);
     _hud.draw(_overlay, _resources.value_or(Hud::Resources{}),
               _scene.cover().shroud ? _scene.seen() : std::vector<bool>{},

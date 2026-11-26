@@ -195,9 +195,20 @@ turns each on or off.
   picture with the cells the player's units see now in black: 628 of
   them, as a ship had moved off a little.
 - **The minimap's fog** is `minimapFogSprite`'s picture (`map_fog`,
-  `gfog`'s) 70% over the map's picture, in the cells not seen now: its
+  `gfog`'s) 70% over what's under it, in the cells not seen now: its
   pixels, set beside the frame without the fog, fit that to a unit or
-  two.
+  two. Under it the map's nebulae and asteroid fields still show, dimmed;
+  its moons', wormholes' and black holes' marks don't.
+- **The minimap's picture,** read from memory, is `gminimap` with a
+  layer added on, `gui_map.spr`'s "minimap layers": a nebula
+  (`mapSprite` `map_nebula3`, `mapSize` 5) shows its pattern, `gmneb3`,
+  as large as the minimap, a texel a pixel, where a soft disc about it
+  reaches: 0.87 of the texel within a pixel of its place, none past 3.6,
+  the most of the discs where they overlap *(inferred: fitted to the
+  layer)*. The asteroid fields' (`map_abelt`) fit neither that nor
+  their discs added up. The map's `.bmp` beside its `.bzn` (128 square)
+  is a finished picture of all of it, marks and all, for the setup
+  screen *(inferred)*; the minimap isn't drawn from it.
 
 ### The cinematic view
 
@@ -308,7 +319,10 @@ before and after each ([camera.md](camera.md#the-overview)):
   goes under the cover leaves the selection. The planets and suns are
   drawn first, then the fog, the grid, the shroud, and the rest, as the
   original's order. Whether the asteroid fields and nebulae hide under
-  the fog as the moon did is *(guessed)*.
+  the fog as the moon did is *(guessed)*. The minimap's layer is drawn
+  as above; the asteroid fields there are their sprite drawn small,
+  `mapSize` square, added on *(guessed)*, and the marks at their
+  sprite's own size (a wormhole's 8).
 - **A skirmish** (`MissionView::startSkirmish`) starts from the Game
   Setup screen's slots: each player's race (one left Random takes the
   races in turn by its slot *(guessed)*), their colour, and slot *n* on

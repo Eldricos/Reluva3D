@@ -124,6 +124,14 @@ public:
             float x = 0;
             float z = 0;
             std::string sprite;
+            // A patch of the map (a nebula's, an asteroid field's mapSprite),
+            // this many pixels across, added on under the units and never
+            // covered; 0: a mark (mapIcon), at its sprite's own size.
+            int size = 0;
+            // A nebula's: its sprite, a pattern as large as the minimap, shows
+            // a texel a pixel where a soft disc about it reaches; else the
+            // sprite is drawn whole, size square.
+            bool pattern = false;
         };
         std::vector<Icon> icons;
         std::vector<std::array<float, 2>> view; // where the screen's corners fall on the plane, x and z, in turn

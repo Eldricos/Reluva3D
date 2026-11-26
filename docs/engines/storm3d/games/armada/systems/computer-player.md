@@ -132,5 +132,3 @@ takes the nearest enemy in its weapons' reach *(guessed)*.
   once there: none of its warships were seen in the minutes watched.
 - Where Random Placement puts the computer player (`Camera_4` in the
   game seen; Reluva puts slot n on `Camera_<n+1>`).
-- The minimap without the shroud: the original shows a picture of the
-  map; Reluva its background.

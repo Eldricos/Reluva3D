@@ -550,6 +550,59 @@ void Hud::draw(Surface &screen, const Resources &resources, const std::vector<bo
         std::copy_n(colour.data(), 3, p);
         p[3] = 255;
     };
+    // The map's nebulae and asteroid fields, added on under the units: the
+    // original's layer. A nebula shows its pattern (map_nebula3's gmneb3, as
+    // large as the minimap) where it lies: its texel times a soft disc
+    // about each one, mapSize across, the most of them where they overlap,
+    // as fitted to the original's layer read from its memory (0.87 within a
+    // pixel of its place, none past 3.6 for a size of 5). An asteroid field
+    // is its sprite drawn small, mapSize square, as near as that layer
+    // allowed.
+    if (across > 0 && down > 0) {
+        std::map<std::string, std::vector<float>> covers; // by pattern
+        for (const Minimap::Icon &patch : map.icons) {
+            if (patch.size <= 0)
+                continue;
+            const auto at = onMinimap(patch.x, patch.z);
+            if (!patch.pattern) {
+                drawSprite(screen, patch.sprite, int(std::lround(at[0] - float(patch.size) / 2)),
+                           int(std::lround(at[1] - float(patch.size) / 2)), patch.size, patch.size, {255, 255, 255},
+                           true);
+                continue;
+            }
+            std::vector<float> &cover = covers[patch.sprite];
+            cover.resize(size_t(display[2] * display[3]), 0);
+            const float inner = float(patch.size) / 5;
+            const float outer = 3.6f * float(patch.size) / 5;
+            for (int y = int(at[1] - outer) - 1; y <= int(at[1] + outer) + 1; ++y)
+                for (int x = int(at[0] - outer) - 1; x <= int(at[0] + outer) + 1; ++x) {
+                    if (x < mx || y < my || x >= mx + display[2] || y >= my + display[3])
+                        continue;
+                    const float d = std::hypot(float(x) + 0.5f - at[0], float(y) + 0.5f - at[1]);
+                    const float t = std::clamp((outer - d) / (outer - inner), 0.0f, 1.0f);
+                    float &c = cover[size_t((y - my) * display[2] + (x - mx))];
+                    c = std::max(c, 0.87f * t * t * (3 - 2 * t));
+                }
+        }
+        for (const auto &[name, cover] : covers) {
+            const SpriteTable::Sprite *s = sprite(name);
+            const image::Image *tex = s ? texture(s->texture) : nullptr;
+            if (!tex || tex->w <= 0 || tex->h <= 0)
+                continue;
+            for (int y = 0; y < display[3] && my + y < screen.h; ++y)
+                for (int x = 0; x < display[2] && mx + x < screen.w; ++x) {
+                    const float c = cover[size_t(y * display[2] + x)];
+                    if (c <= 0)
+                        continue;
+                    const uint8_t *t = &tex->rgba[(size_t(y * tex->h / display[3]) * size_t(tex->w) +
+                                                   size_t(x * tex->w / display[2])) *
+                                                  4];
+                    uint8_t *p = screen.row(my + y) + size_t(mx + x) * 4;
+                    for (size_t k = 0; k < 3; ++k)
+                        p[k] = uint8_t(std::min(255.0f, float(p[k]) + float(t[k]) * c + 0.5f));
+                }
+        }
+    }
     // The units, under the shroud: a ship the pixel it's in and those up
     // and left of it, 2 x 2; a station 3 x 3 about its own, as the
     // original's construction ships and starbase were.
@@ -564,14 +617,20 @@ void Hud::draw(Surface &screen, const Resources &resources, const std::vector<bo
                     plot(px + dx, py + dy, m.colour);
         }
     // The map's objects with a mark of their own (their definitions'
-    // mapIcon: a dilithium moon's map_dmoon), 5 x 5 about their place,
+    // mapIcon: a dilithium moon's map_dmoon), its sprite's size about their place,
     // added on; the original's frame has it a row lower than its draw's
     // corners would.
     if (across > 0 && down > 0)
         for (const Minimap::Icon &icon : map.icons) {
+            if (icon.size > 0)
+                continue;
+            // At its sprite's own size: a moon's 5, a wormhole's 8.
+            const SpriteTable::Sprite *s = sprite(icon.sprite);
+            const int w = s && s->w > 0 ? int(s->w) : 5;
+            const int h = s && s->h > 0 ? int(s->h) : 5;
             const auto at = onMinimap(icon.x, icon.z);
-            drawSprite(screen, icon.sprite, int(std::lround(at[0] - 2.5f)), int(std::lround(at[1] - 1.5f)), 5, 5,
-                       {255, 255, 255}, true);
+            drawSprite(screen, icon.sprite, int(std::lround(at[0] - float(w) / 2)),
+                       int(std::lround(at[1] - float(h) / 2 + 1)), w, h, {255, 255, 255}, true);
         }
     // The fog over the cells not seen now, 70% of it over what's there
     // (the original's pixels, against its frame without the fog, fit
