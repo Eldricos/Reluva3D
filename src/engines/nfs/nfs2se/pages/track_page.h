@@ -68,13 +68,17 @@ private:
     std::vector<gfx::TextureId> _lines;    // dtexture.fsh's lin0-lin7, by number
     gfx::MeshId _mesh = 0;
     std::vector<QuadMesh::Run> _runs;
-    // The painted lines, as they're drawn close up and far off, by block
-    // and picture; and where each block's first line starts.
-    gfx::MeshId _nearLines = 0;
-    gfx::MeshId _farLines = 0;
-    std::vector<QuadMesh::Run> _nearLineRuns;
-    std::vector<QuadMesh::Run> _farLineRuns;
-    std::vector<Point> _lineStart;
+    // The painted lines, each as it's drawn close up and far off; and far
+    // off a block's at once, for a block whose lines are all far.
+    struct LineMesh {
+        gfx::MeshId mesh = 0;
+        std::vector<std::vector<QuadMesh::Run>> runs; // by line, or by block
+    };
+    LineMesh _nearLines;
+    LineMesh _farLines;
+    LineMesh _farBlocks;
+    std::vector<Point> _lineStart;                  // each line's vertex
+    std::vector<std::array<size_t, 2>> _blockLines; // each block's lines, first and end
     size_t _quads = 0;
     int _level = TrackBlock::kHigh;
     bool _textured = true;

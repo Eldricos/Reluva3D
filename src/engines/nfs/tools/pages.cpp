@@ -174,7 +174,7 @@ int cmdNfsPage(int argc, char **argv) {
 }
 
 // An NFS II SE track's placed sounds as heard at a point of its virtual
-// road, 1.5 above it, facing along it: mixed as the Tracks page plays
+// road, 1.5 above it, facing along it, in its block: mixed as the Tracks page plays
 // them (track_sounds.h), the game's frames counted 30 a second, into a
 // WAV file. For listening to them, and checking they play, without an
 // audio device.
@@ -228,7 +228,7 @@ int cmdTrackSounds(int argc, char **argv) {
     const int frames = int(seconds * 30);
     int peak = 0;
     for (int f = 0; f < frames; ++f) {
-        sounds.update(uint32_t(f), eye, right);
+        sounds.update(uint32_t(f), r.block, eye, right);
         const int count = (f + 1) * kRate / 30 - f * kRate / 30;
         const size_t at = out.samples.size();
         out.samples.resize(at + size_t(count) * 2);

@@ -21,8 +21,8 @@ namespace {
 // QuadMesh's texture numbers from here on are animated textures': this
 // plus their place in the .col's table.
 constexpr int kAnimated = 1 << 20;
-// The line meshes' texture numbers: the block times this, plus the
-// number of the lin picture.
+// The line meshes' texture numbers: the line's (or block's) number times
+// this, plus the number of the lin picture.
 constexpr int kLineBlock = 16;
 // Past this deep in the view, a line is drawn as one plain quad (0x448a93).
 constexpr float kFarLine = 110.0f;
@@ -109,7 +109,7 @@ void TrackPage::deactivate() {
 
 void TrackPage::release() {
     if (_renderer) {
-        for (gfx::MeshId m : {_mesh, _skyMesh, _domeMesh, _nearLines, _farLines})
+        for (gfx::MeshId m : {_mesh, _skyMesh, _domeMesh, _nearLines.mesh, _farLines.mesh, _farBlocks.mesh})
             if (m)
                 _renderer->destroyMesh(m);
         if (_domeTexture)
@@ -120,10 +120,9 @@ void TrackPage::release() {
                     _renderer->destroyTexture(t);
     }
     _mesh = 0;
-    _nearLines = 0;
-    _farLines = 0;
-    _nearLineRuns.clear();
-    _farLineRuns.clear();
+    _nearLines = {};
+    _farLines = {};
+    _farBlocks = {};
     _skyMesh = 0;
     _domeMesh = 0;
     _domeTexture = 0;
@@ -276,14 +275,16 @@ void TrackPage::build() {
 void TrackPage::buildLines() {
     if (!_renderer)
         return;
-    for (gfx::MeshId *m : {&_nearLines, &_farLines})
-        if (*m) {
-            _renderer->destroyMesh(*m);
-            *m = 0;
-        }
+    for (LineMesh *m : {&_nearLines, &_farLines, &_farBlocks}) {
+        if (m->mesh)
+            _renderer->destroyMesh(m->mesh);
+        *m = {};
+    }
     QuadMesh nearQuads;
     QuadMesh farQuads;
-    _lineStart.assign(_track.blocks.size(), Point{});
+    QuadMesh farBlockQuads;
+    _lineStart.clear();
+    _blockLines.assign(_track.blocks.size(), {0, 0});
     const auto &road = _collision.road;
     std::vector<int> first(_track.blocks.size(), -1);
     for (size_t i = 0; i < road.size(); ++i)
@@ -314,15 +315,15 @@ void TrackPage::buildLines() {
             return true;
         };
         const auto &lines = block.roadLines;
-        if (lines[0].vertex < block.vertices.size())
-            _lineStart[b] = block.vertices[lines[0].vertex];
-        const int key = static_cast<int>(b) * kLineBlock;
+        _blockLines[b][0] = _lineStart.size();
         for (size_t i = 0; i + 1 < lines.size(); ++i) {
             const RoadLine &line = lines[i];
             End from;
             End to;
             if (line.type > 9 || !end(line, -1, from) || !end(lines[i + 1], 1, to))
                 continue;
+            const int key = static_cast<int>(_lineStart.size()) * kLineBlock;
+            _lineStart.push_back(block.vertices[line.vertex]);
             const int colour = line.type > 4 ? 1 : 0;
             const int z = static_cast<int>(std::floor(block.vertices[line.vertex][2] * 256));
             const int index = (z & 6) | colour;
@@ -339,12 +340,24 @@ void TrackPage::buildLines() {
                 nearQuads.add(key + kPictures[s.second ? index + 2 : index],
                               {at(s.from, s.start), at(s.to, s.start), at(s.to, 1), at(s.from, 1)}, {0, 1, 2, 3});
             farQuads.add(key + colour, {at(0, 0), at(1, 0), at(1, 1), at(0, 1)}, {0, 1, 2, 3});
+            farBlockQuads.add(static_cast<int>(b) * kLineBlock + colour, {at(0, 0), at(1, 0), at(1, 1), at(0, 1)},
+                              {0, 1, 2, 3});
         }
+        _blockLines[b][1] = _lineStart.size();
     }
-    if (Error err = nearQuads.build(*_renderer, _nearLines, _nearLineRuns))
-        _error = err.message;
-    if (Error err = farQuads.build(*_renderer, _farLines, _farLineRuns))
-        _error = err.message;
+    // Each mesh's runs by the line or block they're of.
+    auto make = [&](QuadMesh &quads, LineMesh &out, size_t count) {
+        std::vector<QuadMesh::Run> runs;
+        if (Error err = quads.build(*_renderer, out.mesh, runs))
+            _error = err.message;
+        out.runs.assign(count, {});
+        for (const QuadMesh::Run &r : runs)
+            if (size_t(r.texture / kLineBlock) < count)
+                out.runs[size_t(r.texture / kLineBlock)].push_back(r);
+    };
+    make(nearQuads, _nearLines, _lineStart.size());
+    make(farQuads, _farLines, _lineStart.size());
+    make(farBlockQuads, _farBlocks, _track.blocks.size());
 }
 
 // The 3dfx program's cloud dome (0x42be50): a 13 × 13 grid of points
@@ -648,7 +661,8 @@ void TrackPage::update(uint64_t nowMs) {
     const float flat = std::sqrt(ahead[0] * ahead[0] + ahead[2] * ahead[2]);
     const gfx::Vec3 right = flat > 0 ? gfx::Vec3{ahead[2] / flat, 0, -ahead[0] / flat} : gfx::Vec3{1, 0, 0};
     const auto frame = static_cast<uint32_t>(nowMs * 30 / 1000);
-    _sounds.update(frame, eye, right);
+    if (!_collision.road.empty())
+        _sounds.update(frame, _collision.road[size_t(_point)].block, eye, right);
     _renderer->beginFrame(viewProj, eye, clear);
     if (!tunnel)
         drawSky(eye, ahead, fog);
@@ -683,32 +697,39 @@ void TrackPage::update(uint64_t nowMs) {
             call.indexCount = r.indexCount;
             _renderer->draw(call);
         }
-        // The painted lines, at the high level only (0x435260): each
-        // block's close up or far off by how deep its first line starts
-        // in the view, where the game takes each line by its own.
+        // The painted lines, at the high level only (0x435260), each close
+        // up or far off by how deep its vertex is in the view; a block's
+        // all at once where they're all far.
         if (_painted && _level == TrackBlock::kHigh) {
             call.rgbSource = gfx::ColorSource::kConstant;
             call.color = {1, 1, 1, 1};
-            auto drawLines = [&](gfx::MeshId mesh, const std::vector<QuadMesh::Run> &runs, bool farOff) {
-                call.mesh = mesh;
-                for (const QuadMesh::Run &r : runs) {
-                    const auto b = size_t(r.texture / kLineBlock);
+            auto draw = [&](const LineMesh &m, size_t at) {
+                call.mesh = m.mesh;
+                for (const QuadMesh::Run &r : m.runs[at]) {
                     const auto k = size_t(r.texture % kLineBlock);
-                    if (b >= _lineStart.size())
-                        continue;
-                    const Point &p = _lineStart[b];
-                    const float depth =
-                        (p[0] - eye[0]) * ahead[0] + (p[1] - eye[1]) * ahead[1] + (p[2] - eye[2]) * ahead[2];
-                    if ((depth > kFarLine) != farOff)
-                        continue;
                     call.texture = _textured && k < _lines.size() ? _lines[k] : 0;
                     call.firstIndex = r.firstIndex;
                     call.indexCount = r.indexCount;
                     _renderer->draw(call);
                 }
             };
-            drawLines(_nearLines, _nearLineRuns, false);
-            drawLines(_farLines, _farLineRuns, true);
+            auto farOff = [&](size_t line) {
+                const Point &p = _lineStart[line];
+                return (p[0] - eye[0]) * ahead[0] + (p[1] - eye[1]) * ahead[1] + (p[2] - eye[2]) * ahead[2] > kFarLine;
+            };
+            for (size_t b = 0; b < _blockLines.size(); ++b) {
+                const auto [first, end] = _blockLines[b];
+                bool allFar = true;
+                for (size_t l = first; l < end && allFar; ++l)
+                    allFar = farOff(l);
+                if (allFar) {
+                    if (end > first)
+                        draw(_farBlocks, b);
+                    continue;
+                }
+                for (size_t l = first; l < end; ++l)
+                    draw(farOff(l) ? _farLines : _nearLines, l);
+            }
         }
     }
 

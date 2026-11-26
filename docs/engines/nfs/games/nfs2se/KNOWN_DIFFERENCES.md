@@ -23,8 +23,8 @@ None yet.
 - **The data viewer's Tracks and Cars pages** draw the tracks and models
   more plainly than the game: both faces of every quad; the tracks with
   the 3dfx program's sky, fog and shades, not the software program's,
-  the painted lines near or far a block at a time, and the placed
-  sounds' one loop the nearest; the
+  the painted lines and placed sounds as the game has them, but the
+  sounds' frame count at 30 a second; the
   cars lit from one side, their paint the viewer's pick of
   each car's own colours, and their
   wheels' and brake lights' frames chosen as the game does for a speed

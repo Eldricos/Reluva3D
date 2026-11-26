@@ -31,9 +31,19 @@ void TrackSounds::load(const std::string &stem, const Track &track) {
     _bank = {};
     _sounds.clear();
     _placed.clear();
+    _first.clear();
+    _nearby.clear();
     _frame = ~0u;
-    for (const TrackBlock &b : track.blocks)
+    for (const TrackBlock &b : track.blocks) {
+        _first.push_back(b.sounds.empty() ? -1 : static_cast<int>(_placed.size()));
         _placed.insert(_placed.end(), b.sounds.begin(), b.sounds.end());
+        std::vector<uint16_t> near;
+        for (const ExtraBlock &e : b.extra)
+            if (e.id == 4)
+                for (size_t i = 0; i + 1 < e.data.size() && near.size() < e.count; i += 2)
+                    near.push_back(uint16_t(e.data[i] | e.data[i + 1] << 8));
+        _nearby.push_back(std::move(near));
+    }
     if (stem.size() < 4)
         return;
     const std::string name = "audio/sfx/pc/tramb" + stem.substr(2) + ".bnk";
@@ -67,48 +77,44 @@ std::shared_ptr<audio::Sound> TrackSounds::decoded(int slot) {
     return sound->samples.empty() ? nullptr : sound;
 }
 
-// The placed sounds as the game plays them (0x434030): the volume 2^18 /
-// the distance squared, at most 127; the pan by how far to the side. One
-// loop at a time, on its own voice, the game's the first it comes to, this
-// class's the nearest; a one-shot when the program's frame count, in
-// eighths of 64, comes round to a number picked at random 0 to 7, picked
-// again after it plays.
-void TrackSounds::update(uint32_t frame, const std::array<float, 3> &eye, const std::array<float, 3> &right) {
-    if (!_mixer || _data.empty() || frame == _frame)
+// The placed sounds as the game plays them (0x434e7d, 0x434030): the
+// listener's block's neighbourhood in its order, each block's first sound;
+// the volume 2^18 / the distance squared, at most 127; the pan by how far
+// to the side. The first loop met plays on its own voice, the rest not;
+// none met, that voice stops (0x434f26). A one-shot plays when the
+// program's frame count, in eighths of 64, comes round to a number picked
+// at random 0 to 7, picked again after each that plays (0x4340d1).
+void TrackSounds::update(uint32_t frame, size_t block, const std::array<float, 3> &eye,
+                         const std::array<float, 3> &right) {
+    if (!_mixer || _data.empty() || frame == _frame || block >= _nearby.size())
         return;
     _frame = frame;
-    const bool oneShotDue = ((frame & 63) >> 3) == static_cast<uint32_t>(_oneShotPhase);
-    bool oneShotPlayed = false;
     int loop = -1;
-    float loopDistance = 0;
     int loopVolume = 0;
     int loopPan = 0;
-    for (const AmbientSound &s : _placed) {
+    for (uint16_t b : _nearby[block]) {
+        if (b >= _first.size() || _first[b] < 0)
+            continue;
+        const AmbientSound &s = _placed[size_t(_first[b])];
         const float dx = s.position[0] - eye[0];
         const float dy = s.position[1] - eye[1];
         const float dz = s.position[2] - eye[2];
         const float d = roughDistance(dx, dy, dz);
         const int volume = d > 0 ? static_cast<int>(std::min(127.0f, 262144.0f / (d * d))) : 127;
-        if (volume < 1)
-            continue;
         const float side = d > 0 ? std::clamp((dx * right[0] + dz * right[2]) / d, -1.0f, 1.0f) : 0;
         const int pan = static_cast<int>(side * audio::kMaxPan);
         if (s.random == 1) {
-            if (oneShotDue && !oneShotPlayed)
-                if (auto sound = decoded(s.sound)) {
+            if (((frame & 63) >> 3) == static_cast<uint32_t>(_oneShotPhase)) {
+                if (auto sound = decoded(s.sound))
                     _mixer->play(sound, audio::SoundType::kEffects, volume * audio::kMaxVolume / 127, pan, false);
-                    oneShotPlayed = true;
-                }
-        } else if (loop < 0 || d < loopDistance) {
+                _random = _random * 1103515245u + 12345u;
+                _oneShotPhase = static_cast<int>(_random >> 16 & 7);
+            }
+        } else if (loop < 0) {
             loop = s.sound;
-            loopDistance = d;
             loopVolume = volume * audio::kMaxVolume / 127;
             loopPan = pan;
         }
-    }
-    if (oneShotPlayed) {
-        _random = _random * 1103515245u + 12345u;
-        _oneShotPhase = static_cast<int>(_random >> 16 & 7);
     }
     if (loop != _loopSound) {
         stop();

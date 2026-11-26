@@ -168,6 +168,10 @@ block to draw (0x435910).
   which plays an animation script: [can.md](can.md)).
 - **Sounds** (17), 16 bytes: a 16.16 point, u16 the sound's place in the
   track's `TRAMBnn.BNK`, u16 1 to play it now and then, 0 to loop it.
+  The program plays only each block's first, for the blocks of the
+  camera's block's neighbourhood (extrablock 4) in its order (0x434e7d);
+  the first loop met takes the loop voice and the rest aren't heard, and
+  with none met the voice stops (0x434f26).
   The program sets each one's volume by its distance and its pan by its
   direction (0x434030). The banks agree: every looped one is a looping
   sound.
@@ -202,13 +206,12 @@ hosted game. Both faces are drawn. The quads take the 3dfx program's
 greys from their shades (S turns them off). The painted lines are drawn
 at the high level only, as the game draws them: each type's stripes
 close up, the single quad far off, 2 cm above the road where the game
-draws them after it (L turns them off); a block's lines are near or far
-together, by how deep its first one is, where the game takes each line
-by itself. The placed sounds play from the track's `TRAMBnn.BNK` as the
-game plays them, by the camera's place
-(`src/engines/nfs/nfs2se/track_sounds.cpp`): the volume and pan by its
-rule, the nearest loop where the game takes the first it comes to, and
-the frame count the one-shots wait on stepping 30 times a second.
+draws them after it (L turns them off), each line near or far by its
+own vertex's depth. The placed sounds play from the track's `TRAMBnn.BNK`
+as the game plays them (`src/engines/nfs/nfs2se/track_sounds.cpp`): each
+block's first, over the camera's block's neighbourhood in its order, the
+first loop met on its voice and the one-shots by the frame count, with
+the game's volume and pan; the count steps 30 times a second.
 `reluva-tool nfs track-sounds` mixes them as heard at a road point into
 a WAV file, without an audio device: `TR03` to `TR07` place 1 to 8
 sounds, heard as their bank's loops and one-shots where the track puts
