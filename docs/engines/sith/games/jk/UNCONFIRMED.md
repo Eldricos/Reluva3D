@@ -4,9 +4,7 @@ What Reluva does that hasn't been checked against the running original.
 
 ## Read from the code, not seen running
 
-- **Which textures are transparent:** a texture's transparent colour from
-  its own flag and colour ([formats/mat.md](formats/mat.md)); the
-  pictures' was seen running.
+None.
 
 ## Seen running, not traced in the code
 
@@ -22,6 +20,11 @@ None.
 
 ## Settled
 
+- **November 2026: which textures are transparent.** Those whose flag
+  bit 0 is set, clear where their colour is 0: through Direct3D they're
+  loaded with a bit of alpha, clear just there, and drawn with the alpha
+  test, every one seen through the light side matching a flagged
+  texture ([formats/mat.md](formats/mat.md#behaviour)).
 - **November 2026: a missing character.** It's drawn as the font's
   fallback's glyph, which for 32 is the marker block, not a space: a
   player named with a byte no font has, in the *Players* list

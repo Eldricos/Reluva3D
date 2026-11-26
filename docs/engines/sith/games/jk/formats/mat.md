@@ -67,6 +67,17 @@ key of each mip level's picture (`0x44a4fe` to `0x44a508`) *(from the
 code)*. The files agree: colour 0 is in 145 of the 157 transparent
 textures but only 22 of the 1,998 others.
 
+Drawn through Direct3D, a transparent texture is loaded in a 16-bit
+format with a bit of alpha (5-5-5-1), clear where its colour is 0, and
+the rest in 5-6-5 without; the game draws with the alpha test on, so
+the clear texels are left out *(confirmed)*. Seen running, every
+texture the game loaded logged as it was drawn: the 71 loaded at Nar
+Shaddaa's start (none of its 8 transparent ones in view) all 5-6-5;
+through all 21 of the light side's levels, 37 loaded with alpha, each
+one's clear texels as many as the colour-0 texels of a transparent
+texture of its size, and in 36 of them of no other texture's (the 37th,
+128x128, has none clear, like some textures of either kind).
+
 A cel is kept as its kind, colour, four floats, texture number, and a
 pointer to its texture (`0x44a376` to `0x44a3bf`, `0x44a5c9`). Every
 place that picks a cel out of a material, in the Direct3D (`0x43b4a6`)
