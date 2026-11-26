@@ -190,8 +190,10 @@ depth (0x42c9e0), in the main view as in the rear-view mirror.
   black quad instead: on track 4, at road points 0x448 to 0x555, either
   way; from 0x3F6 to 0x445 looking on along the road (the view's way
   against the point's forward vector, 0x42c8d0); from 0x556 to 0x599
-  looking back (0x42c820). The view's way is taken to be its forward
-  vector *(inferred)*. There's no sun: `sky.fsh` has only clouds, rain
+  looking back (0x42c820). The view's way is its forward row (its
+  matrix at 0x5200c0, the main view's the camera's own, 0x4d3ab8 for
+  player 0), not the car's: they agree only from the bumper or the
+  cockpit. The mirror skips it (0x42c056). There's no sun: `sky.fsh` has only clouds, rain
   and splashes.
 
 ### The 3dfx fog: the program's own
@@ -218,7 +220,11 @@ the reciprocal of the 65,536 ÷ the 16.16 depth the program gives it
 fogged; its earth and pictures 100, but 1 on track 0 (0x42c043).
 
 Each frame it picks a table, and on some tracks a colour, by the
-camera's road point (0x427690, 0x50f594 *(inferred)*); its lists, run
+camera's road point (0x427690): the point of the view's eye, a road
+locator moved to it each frame and copied to 0x50f594 (0x446ffc), so
+trailing the car by the camera's distance in the chase views, and in
+replays and the TV cameras wherever the camera is; the mirror takes the
+main view's. Its lists, run
 over every point: `TR00` table 0, its colour rising to (62, 62, 62)
 from point 481 and back by 655; `TR04` up to table 14 and a bluer grey
 from 576 to 764, then (3, 3, 3) and table 11 from 1,053 to 1,376, red
