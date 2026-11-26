@@ -35,7 +35,13 @@ like a metre, as the cars' sizes do ([geo.md](geo.md)) *(inferred)*.
 The words at 8 to 16 are exact on all 8 tracks: room to keep in memory,
 for a loader that streams the track. The program reads the track whole
 (0x46d7c0), checks that the version is 22, and throws away what it reads
-of 8 and 12 (0x436013); 16 and 20 it doesn't read.
+of 8 and 12 (0x436013); 16 and 20 it doesn't read. It keeps the
+header (0x4ffeac) and has getters for 8, 12, 24 and 28 only (0x460160
+to 0x4601f0), their messages naming a stream reader (`stmrd.c`, its
+memory tagged `StmChunkF`, `StmCenter`, `StmMetaI`); the 3dfx program
+alike (its copy at 0x542f90). The word at 20 is 1.15 to 1.26 times the
+one at 16, about the size of the largest run of 40 to 43 blocks: one
+more of a streaming loader's buffers *(inferred)*, by a rule not found.
 
 ### Superblocks
 
@@ -106,7 +112,7 @@ Each: a u32 size, a u16 id, a u16 record count, the records. Seen:
 | 7, 18, 19 | 1,047, 591, 26 | placements of meshes (below) |
 | 8 | 1,275 | meshes (below) |
 | 9 | 862 | painted lines on the road (below) |
-| 10 | 13 | 16 bytes: a 16.16 point, 8 to 68 units off the road, and a u32 of 1, 2 or 4 (`TR04` one, `TR05` five, `TR08` ten); neither program reads it beyond keeping where it is (0x435a8a): effects' places, by what's there *(inferred)*: `TR08`'s 1s on the axes of its chimneys (`BOIL`), a little below their tops, its 2s by its flames (`SFL1`, `MFL1`, `LFL1`), `TR05`'s by its waterfalls; smoke, fire and spray for another version |
+| 10 | 13 | 16 bytes: a 16.16 point, 8 to 68 units off the road, and a u32 of 1, 2 or 4 (`TR04` one, `TR05` five, `TR08` ten); neither program reads it beyond keeping where it is (0x435a8a): effects' places, by what's there *(inferred)*: `TR08`'s 1s on the axes of its chimneys (`BOIL`), a little below their tops, its 2s by its flames (`SFL1`, `MFL1`, `LFL1`), `TR05`'s by its waterfalls; smoke, fire and spray for another version. `TR04`'s 4 is 18 units over its rope bridge's deck and 10 right of the road, above the river in the gorge, within 0.3 units of the track's one placed sound, a loop of rushing water that `TR05` places by its waterfalls' 1s (its bank's sample the same): spray or mist over the river *(guessed)* |
 | 11 | 383 | obstacles (below) |
 | 13 | all | 12 bytes: two s16 vectors about 32,767 long (5,322 of the 5,338 checked) |
 | 17 | 17 | sounds (below) |
@@ -235,6 +241,6 @@ them; `TR00`, `TR02` and `TR08` place none.
 
 ## Open questions
 
-- What the header's word at 20 measures: no sum or largest of the
-  blocks' sizes and counts searched matches it on all 8 tracks.
-- What extrablock 10's 4, at `TR04`'s rope bridge, would have been.
+- The rule of the header's word at 20: no sum or largest of the
+  blocks' sizes and counts searched matches it on all 8 tracks, nor runs
+  of blocks, neighbourhoods with their superblocks, or sizes rounded.
