@@ -115,6 +115,23 @@ C++ library have pages of their own ([directx.md](directx.md),
   English (United States) pictures. There's one thread, so critical
   sections do nothing, `Sleep` returns at once and a wait on an event finds
   it signalled.
+- **`win32_desktop.cpp`: the rest of the desktop.** Global memory as
+  fixed blocks (a handle is its address), interlocked operations,
+  `lstrlenA`, the locale (English (United States), code page 1252:
+  `GetLocaleInfoA`/`W` give the code pages the C runtime asks for),
+  `CompareStringA`/`W` (with `NORM_IGNORECASE`), `VirtualQuery` (one
+  committed read-write region), the window's menus as empty handles,
+  rectangles, the focus and the active window as one, and GDI's text and
+  blits as calls that draw nothing. Where a game would get a feature
+  Reluva hasn't, it gets Windows' answer when it isn't there: no other
+  copy running (`OpenMutexA`), no program started (`CreateProcessA`,
+  `WinExec`) or opened, the file dialogs cancelled
+  (`CommDlgExtendedError` 0), no clipboard, no display mode but the one
+  it's in, no serial port or console to set up, an event log written to
+  nowhere. The INI files (`GetPrivateProfileStringA`, `...IntA`, in
+  `win32_files.cpp`) are read as Windows reads them: names without
+  case, the value trimmed and unquoted, a comment after it kept, a file
+  named without a path in the Windows folder.
 - **`win32_user.cpp`: USER32 and GDI32.** Window classes and windows, kept
   as records (procedure, place, size, visibility) that the engine can show
   as it likes. Making one sends `WM_NCCREATE` and `WM_CREATE`. Showing it
@@ -290,6 +307,12 @@ executable's entry point on the main thread until it ends the process.
   drive, writes a file through a writable mapping and moves it over
   another with `MoveFileExA`. Static TLS and the DLLs a module imports
   were checked by running Starfleet Command II 2.0.3.6, which needs both.
+- `testDesktop` reads an INI file (case, spaces, quotes, a comment kept,
+  a default, a value cut to fit, a name without a path not found in the
+  game's folder), resizes a global block keeping its bytes, compares
+  strings with and without case, reads a locale's code page and the
+  system folder (wide), sets the focus, and is refused a program, a file
+  dialog and the clipboard.
 - **Confidence:** published unless marked.
 
 - `tests/common/drives.cpp` (`common.unit.drives`) checks the drives'

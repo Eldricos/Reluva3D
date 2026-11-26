@@ -900,6 +900,7 @@ void Win32Process::addStandIns() {
     addFileStandIns();
     addSystemStandIns();
     addUserStandIns();
+    addDesktopStandIns();
     addRegistryStandIns();
     addExceptionStandIns();
     addWideStandIns();

@@ -1378,6 +1378,93 @@ static void testPatcherCalls(const std::filesystem::path &tmp) {
     CHECK(!stdfs::exists(tmp / "Install" / "New.bin") && stdfs::file_size(tmp / "Install" / "Old.txt") == 16);
 }
 
+// The desktop's stand-ins (win32_desktop.cpp) and the INI files'
+// (win32_files.cpp): what a game finds of Windows around it.
+static void testDesktop(const std::filesystem::path &tmp) {
+    namespace stdfs = std::filesystem;
+    stdfs::create_directories(tmp);
+    std::ofstream(tmp / "game.ini", std::ios::binary) << "; settings\r\n[Video]\r\n  Width = 640 \r\n"
+                                                         "Name=\"Two words\"\r\nRescale=1\t; a comment\r\n[Other]\r\n"
+                                                         "Width=800\r\n";
+    x86::Cpu cpu(32u << 20);
+    x86::Win32Process process(cpu);
+    process.setProgram("Prog.exe", "C:\\Game\\");
+    process.mapPath = [&](const std::string &path, bool) -> std::optional<stdfs::path> {
+        if (path.rfind("C:\\Game\\", 0) != 0)
+            return std::nullopt;
+        return tmp / path.substr(8);
+    };
+    uint32_t r = 0;
+    auto fn = [&](const char *dll, const char *name) { return process.provided(dll, name); };
+    const auto text = [&](const std::string &s) {
+        const uint32_t at = process.memory().alloc(uint32_t(s.size() + 1));
+        cpu.writeString(at, s, uint32_t(s.size() + 1));
+        return at;
+    };
+    const uint32_t buffer = process.memory().alloc(64);
+
+    // INI files: names and sections without case, the value trimmed and
+    // unquoted, a comment after it kept (as Windows does), the default
+    // where there's no key, and no file named without a path in the game's
+    // folder (Windows looks in its own).
+    const uint32_t ini = text("C:\\Game\\game.ini");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetPrivateProfileIntA"), {text("video"), text("WIDTH"), 5, ini}, r) &&
+          r == 640);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetPrivateProfileIntA"), {text("Video"), text("Rescale"), 5, ini}, r) &&
+          r == 1);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetPrivateProfileStringA"),
+                    {text("Video"), text("Name"), text("x"), buffer, 64, ini}, r) &&
+          r == 9 && cpu.string(buffer) == "Two words");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetPrivateProfileStringA"),
+                    {text("Video"), text("Rescale"), text("x"), buffer, 64, ini}, r) &&
+          cpu.string(buffer) == "1\t; a comment");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetPrivateProfileStringA"),
+                    {text("Video"), text("Depth"), text("16"), buffer, 3, ini}, r) &&
+          r == 2 && cpu.string(buffer) == "16");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetPrivateProfileStringA"),
+                    {text("Video"), text("Name"), text("none"), buffer, 4, ini}, r) &&
+          r == 3 && cpu.string(buffer) == "Two");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetPrivateProfileIntA"), {text("Video"), text("Width"), 5, text("game.ini")},
+                    r) &&
+          r == 5);
+
+    // Global memory: a handle is its block, kept on a resize.
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GlobalAlloc"), {0, 8}, r) && r != 0);
+    const uint32_t block = r;
+    cpu.writeString(block, "global", 8);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GlobalLock"), {block}, r) && r == block);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GlobalReAlloc"), {block, 64, 0}, r) && r != 0 && cpu.string(r) == "global");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GlobalFree"), {r}, r) && r == 0);
+
+    // Strings and the locale.
+    const uint32_t word = text("Word");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "lstrlenA"), {word}, r) && r == 4);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "CompareStringA"), {0x409, 1, word, uint32_t(-1), text("WORD"), uint32_t(-1)},
+                    r) &&
+          r == 2);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "CompareStringA"), {0x409, 0, word, uint32_t(-1), text("Wore"), 3}, r) &&
+          r == 3);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetLocaleInfoA"), {0x409, 0x1004, buffer, 8}, r) && r == 5 &&
+          cpu.string(buffer) == "1252");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetLocaleInfoA"), {0x409, 0x1004, buffer, 2}, r) && r == 0);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "InterlockedCompareExchange"), {block, 7, 0}, r));
+
+    // The folders, the focus, and what isn't there: no program started,
+    // the file dialogs cancelled, the clipboard closed.
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetWindowsDirectoryA"), {buffer, 64}, r) && r == 10 &&
+          cpu.string(buffer) == "C:\\WINDOWS");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetSystemDirectoryW"), {buffer, 64}, r) && r == 17 &&
+          cpu.read16(buffer + 2 * 16) == 'M' && cpu.read16(buffer + 2 * 17) == 0);
+    CHECK(!cpu.call(fn("USER32.dll", "SetFocus"), {0x1234}, r) && r == 0);
+    CHECK(!cpu.call(fn("USER32.dll", "GetActiveWindow"), {}, r) && r == 0x1234);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "CreateProcessA"), {0, text("notepad.exe"), 0, 0, 0, 0, 0, 0, 0, 0}, r) &&
+          r == 0);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetLastError"), {}, r) && r == 2);
+    CHECK(!cpu.call(fn("comdlg32.dll", "GetOpenFileNameA"), {buffer}, r) && r == 0);
+    CHECK(!cpu.call(fn("comdlg32.dll", "CommDlgExtendedError"), {}, r) && r == 0);
+    CHECK(!cpu.call(fn("USER32.dll", "OpenClipboard"), {0}, r) && r == 0);
+}
+
 static void testDirectPlayLobby() {
     x86::Cpu cpu(32u << 20);
     x86::Win32Process process(cpu);
@@ -1784,6 +1871,7 @@ static const test::Suite
                {"directplay lobby", [](const std::filesystem::path &) { testDirectPlayLobby(); }},
                {"dll unload", [](const std::filesystem::path &tmp) { testDllUnload(tmp); }},
                {"patcher calls", [](const std::filesystem::path &tmp) { testPatcherCalls(tmp); }},
+               {"desktop", [](const std::filesystem::path &tmp) { testDesktop(tmp / "desktop"); }},
                {"directplay session", [](const std::filesystem::path &) { testDirectPlaySession(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
            });

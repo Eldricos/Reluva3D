@@ -13,12 +13,16 @@
 // are there too.
 
 #include "emulation/x86/win32.h"
+#include "common/stream.h"
+#include "common/fs.h"
 
 #include <algorithm>
 #include <cctype>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <optional>
+#include <cstdlib>
 #include <ctime>
 
 namespace reluva::x86 {
@@ -1096,6 +1100,111 @@ bool Win32Process::closeFile(uint32_t handle) {
 
 void Win32Process::addFileStandIns() {
     const char *k = "KERNEL32.dll";
+
+    // Paths, folders and room, where the program sees no drives (mapPath):
+    // the drives' stand-ins, added with them, take over.
+    stdcall(k, "GetFullPathNameA", 4, [this](Cpu &c) {
+        const std::string full = fullPath(c.string(c.arg(0)));
+        if (c.arg(1) <= full.size())
+            return uint32_t(full.size() + 1);
+        c.writeString(c.arg(2), full, c.arg(1));
+        if (c.arg(3))
+            c.write32(c.arg(3), c.arg(2) + uint32_t(full.rfind('\\') + 1));
+        return uint32_t(full.size());
+    });
+    for (const auto &[name, folder] : {std::pair<const char *, const char *>{"GetWindowsDirectory", "C:\\WINDOWS"},
+                                       {"GetSystemDirectory", "C:\\WINDOWS\\SYSTEM"}}) {
+        const std::string path = folder;
+        stdcall(k, (std::string(name) + "A").c_str(), 2, [path](Cpu &c) {
+            if (c.arg(1) <= path.size())
+                return uint32_t(path.size() + 1);
+            c.writeString(c.arg(0), path, c.arg(1));
+            return uint32_t(path.size());
+        });
+        stdcall(k, (std::string(name) + "W").c_str(), 2, [path](Cpu &c) {
+            if (c.arg(1) <= path.size())
+                return uint32_t(path.size() + 1);
+            for (size_t i = 0; i <= path.size(); ++i)
+                c.write16(c.arg(0) + 2 * uint32_t(i), i < path.size() ? uint16_t(path[i]) : 0);
+            return uint32_t(path.size());
+        });
+    }
+    // GetDiskFreeSpaceA(root, sectorsPerCluster*, bytesPerSector*, free*,
+    // total*): a gigabyte free of two, what a program of the time could
+    // count.
+    stdcall(k, "GetDiskFreeSpaceA", 5, [](Cpu &c) {
+        const uint32_t values[] = {8, 512, 0x40000, 0x80000};
+        for (int i = 0; i < 4; ++i)
+            if (c.arg(i + 1))
+                c.write32(c.arg(i + 1), values[i]);
+        return 1u;
+    });
+    // SetFileTime(handle, created, accessed, written): the host file keeps
+    // its own times.
+    stdcall(k, "SetFileTime", 4, [](Cpu &) { return 1u; });
+
+    // GetPrivateProfileString and GetPrivateProfileInt: a key's value in a
+    // section of an INI file, names compared without case, the file in the
+    // Windows folder when it's named without a path. The value is the rest
+    // of its line, without the spaces around it, or the quotes.
+    const auto profileValue = [this](Cpu &c, uint32_t section, uint32_t key,
+                                     uint32_t file) -> std::optional<std::string> {
+        if (!section || !key || !file)
+            return std::nullopt;
+        std::string name = c.string(file);
+        if (name.find_first_of("\\/:") == std::string::npos)
+            name = "C:\\WINDOWS\\" + name;
+        const auto host = mapPath ? mapPath(fullPath(name), false) : std::nullopt;
+        std::vector<uint8_t> data;
+        if (!host || !readFile(*host, data))
+            return std::nullopt;
+        const std::string wantSection = fs::toLower(c.string(section));
+        const std::string wantKey = fs::toLower(c.string(key));
+        const auto trim = [](const std::string &s) {
+            const size_t first = s.find_first_not_of(" \t\r");
+            const size_t last = s.find_last_not_of(" \t\r");
+            return first == std::string::npos ? std::string() : s.substr(first, last - first + 1);
+        };
+        bool inSection = false;
+        const std::string text(data.begin(), data.end());
+        for (size_t start = 0; start < text.size();) {
+            size_t end = text.find('\n', start);
+            if (end == std::string::npos)
+                end = text.size();
+            const std::string line = trim(text.substr(start, end - start));
+            start = end + 1;
+            if (!line.empty() && line[0] == '[') {
+                const size_t close = line.find(']');
+                inSection = close != std::string::npos && fs::toLower(trim(line.substr(1, close - 1))) == wantSection;
+                continue;
+            }
+            const size_t eq = line.find('=');
+            if (!inSection || eq == std::string::npos || fs::toLower(trim(line.substr(0, eq))) != wantKey)
+                continue;
+            std::string value = trim(line.substr(eq + 1));
+            if (value.size() >= 2 && (value.front() == '"' || value.front() == '\'') && value.back() == value.front())
+                value = value.substr(1, value.size() - 2);
+            return value;
+        }
+        return std::nullopt;
+    };
+    // GetPrivateProfileStringA(section, key, default, buffer, size, file):
+    // the length copied, cut to fit with its NUL.
+    stdcall(k, "GetPrivateProfileStringA", 6, [profileValue](Cpu &c) {
+        std::string value = profileValue(c, c.arg(0), c.arg(1), c.arg(5)).value_or(c.arg(2) ? c.string(c.arg(2)) : "");
+        if (c.arg(4) == 0)
+            return 0u;
+        if (value.size() >= c.arg(4))
+            value.resize(c.arg(4) - 1);
+        c.writeString(c.arg(3), value, c.arg(4));
+        return uint32_t(value.size());
+    });
+    // GetPrivateProfileIntA(section, key, default, file): the value's
+    // leading digits.
+    stdcall(k, "GetPrivateProfileIntA", 4, [profileValue](Cpu &c) {
+        const auto value = profileValue(c, c.arg(0), c.arg(1), c.arg(3));
+        return value ? uint32_t(std::strtol(value->c_str(), nullptr, 10)) : c.arg(2);
+    });
 
     // CreateFileA(name, access, share, security, disposition, flags, template)
     stdcall(k, "CreateFileA", 7, [this](Cpu &c) {

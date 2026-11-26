@@ -654,6 +654,7 @@ private:
     uint32_t _environment = 0;
     uint32_t _environmentW = 0;
     uint32_t _lastError = 0;
+    uint32_t _focus = 0;               // SetFocus and SetActiveWindow's window
     uint32_t _heapHandle = 0x7ffe0000; // HeapCreate's handles: never dereferenced
     uint32_t _exceptionFilter = 0;
     uint64_t _startMs = 0;
@@ -661,6 +662,7 @@ private:
     void addFileStandIns();
     void addSystemStandIns();
     void addUserStandIns();
+    void addDesktopStandIns();
     void addRegistryStandIns();
     void addExceptionStandIns();
     void addWideStandIns();
