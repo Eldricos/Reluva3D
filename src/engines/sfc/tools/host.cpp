@@ -120,7 +120,8 @@ int cmdHost(int argc, char **argv) {
             "usage: reluva-tool sfc host <game folder> [-limit instructions] [-trace count] "
             "[-frame out.png] [-quiet] [-save folder] [-calls address] [-watch address]... "
             "[-type frame text] [-click frame x y] [-shot frame out.png]... [-sound folder] [-writes address]... "
-            "[-newcode from to] [-profile from to] [-fixed-clock] [-key frame name]... [-net]\n");
+            "[-newcode from to] [-profile from to] [-rate from to] [-fixed-clock] [-key frame name]... "
+            "[-net]\n");
         return 2;
     }
     uint64_t limit = 2000000000ull;
@@ -142,6 +143,11 @@ int cmdHost(int argc, char **argv) {
     // between two frames: where a program that's busy is busy.
     uint64_t profileFrom = 0;
     uint64_t profileTo = 0;
+    // With -rate, how fast the program ran between two frames, untraced:
+    // instructions and frames a second of the host's time, and the
+    // program's own time (its clock, its sleeps) gone by.
+    uint64_t rateFrom = 0;
+    uint64_t rateTo = 0;
     std::filesystem::path soundFolder; // each sample's sound, as WAVs
     for (int a = 3; a < argc; ++a) {
         const std::string arg = argv[a];
@@ -178,6 +184,10 @@ int cmdHost(int argc, char **argv) {
                 if (k)
                     steps.push_back(s);
             }
+            a += 2;
+        } else if (arg == "-rate" && a + 2 < argc) {
+            rateFrom = std::strtoull(argv[a + 1], nullptr, 0);
+            rateTo = std::strtoull(argv[a + 2], nullptr, 0);
             a += 2;
         } else if (arg == "-profile" && a + 2 < argc) {
             profileFrom = std::strtoull(argv[a + 1], nullptr, 0);
@@ -280,6 +290,13 @@ int cmdHost(int argc, char **argv) {
             std::printf("raised %s\n", sfc::GameProcess::describeException(c, record).c_str());
     };
     uint64_t frames = 0;
+    struct RateMark {
+        std::chrono::steady_clock::time_point at;
+        uint64_t instructions = 0;
+        uint64_t clockMs = 0;
+        uint64_t sleptMs = 0;
+    };
+    RateMark rateStart;
     std::stable_sort(steps.begin(), steps.end(), [](const Step &a, const Step &b) { return a.frame < b.frame; });
     size_t nextStep = 0;
     game.directX().presented = [&](const x86::DirectX::Frame &f) {
@@ -306,6 +323,23 @@ int cmdHost(int argc, char **argv) {
                 writeFrame(f, s.path);
                 std::printf("frame %llu written to %s\n", static_cast<unsigned long long>(frames), s.path.c_str());
                 break;
+            }
+        }
+        if (rateTo && (frames == rateFrom || frames == rateTo)) {
+            const RateMark now{std::chrono::steady_clock::now(), cpu.executed(), process.milliseconds(),
+                               process.slept()};
+            if (frames == rateFrom) {
+                rateStart = now;
+            } else {
+                const double seconds = std::chrono::duration<double>(now.at - rateStart.at).count();
+                const double ran = double(now.instructions - rateStart.instructions);
+                std::printf("between frames %llu and %llu: %.0f million instructions in %.2f s (%.1f million a "
+                            "second, %.1f frames a second); the program's clock %llu ms on, %llu ms of it slept\n",
+                            static_cast<unsigned long long>(rateFrom), static_cast<unsigned long long>(rateTo),
+                            ran / 1e6, seconds, seconds > 0 ? ran / seconds / 1e6 : 0.0,
+                            seconds > 0 ? double(rateTo - rateFrom) / seconds : 0.0,
+                            static_cast<unsigned long long>(now.clockMs - rateStart.clockMs),
+                            static_cast<unsigned long long>(now.sleptMs - rateStart.sleptMs));
             }
         }
         ++frames;
@@ -587,7 +621,8 @@ const Commands
                   {"host",
                    "<game folder> [-limit n] [-trace n] [-frame out.png] [-quiet] [-save folder] [-calls address] "
                    "[-watch address]... [-type frame text] [-click frame x y] [-shot frame out.png]... [-sound folder] "
-                   "[-writes address]... [-newcode from to] [-profile from to] [-fixed-clock] [-key frame name]... "
+                   "[-writes address]... [-newcode from to] [-profile from to] [-rate from to] [-fixed-clock] "
+                   "[-key frame name]... "
                    "[-net]",
                    "run StarFleet2.exe in the x86 emulator, headless, and say how far it gets; keys and clicks "
                    "given at frames it shows",
