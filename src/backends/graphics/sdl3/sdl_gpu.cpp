@@ -49,15 +49,16 @@ struct VertexUniforms {
     float fillDir[2][4];
     float matAmbient[4]; // w: 1 to light as Direct3D does
     float matEmissive[4];
-    float linearFog[4]; // x, y: where the fog starts and is complete (y 0: none); z: 1 for screenDepth
+    float linearFog[4]; // x, y: where the fog starts and is complete (y 0: none); z: 1 for screenDepth;
+                        // w: 1 for specularFromNormal
     float vlPos[gfx::kMaxVertexLights][4];   // xyz, radius
     float vlColor[gfx::kMaxVertexLights][4]; // rgb
     float vlParams[4];                       // count, scale, specular
 };
 struct FragmentUniforms {
     float params[4];
-    float fog[4];   // rgb, and DrawCall::tableFog
-    float blend[4]; // blendOut's factors (draw)
+    float fog[4];   // rgb, and DrawCall::tableFog (-1: vertex fog)
+    float blend[4]; // blendOut's factors (draw); z, w: AlphaTest::kCompare's function and reference (0-255)
     float lightCount[4];
     float lightPos[gfx::kMaxDynamicLights][4]; // xyz, radius
     float lightColor[gfx::kMaxDynamicLights][4];
@@ -1049,6 +1050,7 @@ void SdlGpuRenderer::draw(const gfx::DrawCall &call) {
     vu.linearFog[0] = call.fogNear;
     vu.linearFog[1] = call.fogFar;
     vu.linearFog[2] = call.screenDepth ? 1.0f : 0.0f;
+    vu.linearFog[3] = call.specularFromNormal ? 1.0f : 0.0f;
     for (size_t i = 0; i < call.deforms.size(); ++i) {
         const gfx::Deform &d = call.deforms[i];
         DeformUniforms &u = vu.deforms[i];
@@ -1073,8 +1075,10 @@ void SdlGpuRenderer::draw(const gfx::DrawCall &call) {
     fu.params[3] = call.fogDepth > 0 ? 1.0f : 0.0f;
     fu.blend[0] = blendSrc;
     fu.blend[1] = blendDst;
+    fu.blend[2] = float(call.alphaFunc);
+    fu.blend[3] = std::floor(std::clamp(call.alphaRef, 0.0f, 1.0f) * 255 + 0.5f);
     std::copy(call.tableFogColor.begin(), call.tableFogColor.end(), fu.fog);
-    fu.fog[3] = call.tableFog;
+    fu.fog[3] = call.vertexFog ? -1.0f : call.tableFog;
     std::copy(call.fogColor.begin(), call.fogColor.end(), fu.linearFogColor);
     if (call.texture == _frameTexture) {
         fu.params[1] = 2; // the brightness pass

@@ -485,8 +485,9 @@ renderer and compares them with the reference frames there:
 
 - **The frames.** The first is a grid of cells, each trying one feature:
   textures and filtering, vertex colours, blending, the alpha test, depth,
-  culling, lighting, mipmaps, texture-coordinate transforms, the stencil and
-  vertex deforms. The second tries the brightness pass.
+  culling, lighting, mipmaps, texture-coordinate transforms, the stencil,
+  vertex deforms, Direct3D's specular colour and vertex fog, and an alpha
+  test of a function and reference. The second tries the brightness pass.
 - **The comparison.** Probe points must match within a tolerance, and the
   whole frame must match in 4×4 blocks, but for a few at edges, which GPUs
   rasterize slightly differently.

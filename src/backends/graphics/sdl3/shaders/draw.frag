@@ -14,17 +14,19 @@ layout(location = 2) in vec3 inWorld;
 layout(location = 3) in vec2 inFog;
 layout(location = 4) in float inFogW;
 layout(location = 5) in float inLinearFog;
+layout(location = 6) in vec3 inSpecular;
 
 layout(location = 0) out vec4 outColor;
 
 layout(set = 2, binding = 0) uniform sampler2D tex;
 
 layout(set = 3, binding = 0) uniform Fragment {
-    vec4 params; // x: alpha test (0 none, 1 > 0, 2 < 0.5, 3 >= 0.5), y: dynamic lights instead (1),
+    vec4 params; // x: alpha test (0 none, 1 > 0, 2 < 0.5, 3 >= 0.5, 4 blend.z's), y: dynamic lights instead (1),
                  // times the texture (3), the brightness pass (2, z: 1 / gamma), or volume lights (4),
                  // w: a fog volume pass (1)
-    vec4 fog;    // rgb: table fog's colour, w: its value (0 none; DrawCall::tableFog)
-    vec4 blend;  // x, y: blendOut's factors (y 0: none)
+    vec4 fog;    // rgb: table fog's colour, w: its value (0 none; DrawCall::tableFog; -1 vertex fog, inFogW)
+    vec4 blend;  // x, y: blendOut's factors (y 0: none); z, w: alpha test 4's function (Compare) and
+                 // reference (0-255)
     vec4 lightCount; // x; yzw: the camera, for volume lights
     vec4 lightPos[16]; // xyz, w: radius
     vec4 lightColor[16];
@@ -63,6 +65,18 @@ float volumeGlow(vec3 eye, vec3 at, vec4 l) {
 // pipelines (blend.y > 0): the source's factor applied here (blend.x: 0
 // zero, 1 one, 2 its alpha), and the destination's as one minus the alpha
 // put out (blend.y: 1 zero, 2 one, 3 one minus the source's alpha).
+// Direct3D's comparisons (gfx::Compare): a against b.
+bool compare(int func, float a, float b) {
+    if (func == 0) return false;
+    if (func == 1) return a < b;
+    if (func == 2) return a == b;
+    if (func == 3) return a <= b;
+    if (func == 4) return a > b;
+    if (func == 5) return a != b;
+    if (func == 6) return a >= b;
+    return true;
+}
+
 vec4 blendOut(vec4 c) {
     int d = int(blend.y + 0.5);
     if (d == 0)
@@ -111,10 +125,14 @@ void main() {
         return;
     }
     vec4 c = texture(tex, inUv) * inColor;
+    c.rgb = min(c.rgb + inSpecular, vec3(1.0));
     int test = int(params.x + 0.5);
-    if ((test == 1 && c.a <= 0.0) || (test == 2 && c.a >= 0.5) || (test == 3 && c.a < 0.5))
+    if ((test == 1 && c.a <= 0.0) || (test == 2 && c.a >= 0.5) || (test == 3 && c.a < 0.5) ||
+        (test == 4 && !compare(int(blend.z + 0.5), floor(c.a * 255.0 + 0.5), blend.w)))
         discard;
-    if (fog.w > 0.0) {
+    if (fog.w < 0.0)
+        c.rgb = mix(fog.rgb, c.rgb, clamp(inFogW, 0.0, 1.0));
+    else if (fog.w > 0.0) {
         float d = 1.0 / fog.w;
         float f = clamp((1.0 - exp(-d * inFogW)) / (1.0 - exp(-d * 52428.8)), 0.0, 1.0);
         c.rgb = mix(c.rgb, fog.rgb, f);

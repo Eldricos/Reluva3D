@@ -20,6 +20,7 @@ layout(location = 2) out vec3 outWorld; // the position in the world, for dynami
 layout(location = 3) out vec2 outFog;   // fog volumes: view depth over the fog's, and the depth under its surface
 layout(location = 4) out float outFogW; // w for table fog: uv2.x, or the depth (mode2.w)
 layout(location = 5) out float outLinearFog; // how far into the linear fog (linearFog), 0-1
+layout(location = 6) out vec3 outSpecular;   // added after texturing (linearFog.w: from the normal)
 
 struct DeformData {
     vec4 a; // x: type (0 none, 1 wave, 2 bulge, 3 move, 4 normal), y: wave function, z: base, w: amplitude
@@ -55,7 +56,8 @@ layout(set = 1, binding = 0) uniform Draw {
     vec4 matAmbient;   // xyz: the material's ambient colour; w: 1 to light as Direct3D does
     vec4 matEmissive;  // xyz: its emissive colour
     vec4 linearFog;    // x, y: where the fog mixed in starts and is complete (y 0: none);
-                       // z: 1 for the depth from uv2.y (DrawCall::screenDepth)
+                       // z: 1 for the depth from uv2.y (DrawCall::screenDepth);
+                       // w: 1 for the specular colour from the normal (DrawCall::specularFromNormal)
     vec4 vlPos[6];   // vertex lights (gfx::kMaxVertexLights): xyz, radius
     vec4 vlColor[6];
     vec4 vlParams;   // x: how many, y: scale, z: specular, w: 1 lit as surfaces are
@@ -240,6 +242,7 @@ void main() {
         outColor = vec4(color.rgb, clamp((viewProj * vec4(point, 1.0)).w / -mode.w, 0.0, 1.0));
     outWorld = world;
     outLinearFog = 0.0;
+    outSpecular = linearFog.w > 0.5 ? inNormal : vec3(0.0);
     if (linearFog.y > 0.0)
         outLinearFog = clamp((distance(world, eye.xyz) - linearFog.x) / max(linearFog.y - linearFog.x, 0.001), 0.0, 1.0);
     gl_Position = viewProj * placed;
