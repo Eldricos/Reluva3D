@@ -227,7 +227,8 @@ void MapPage::load() {
         racing ? MapScene::startUnitsOf(map, MapScene::standardUnitsOf(kRaces[_race], _files.files()))
                : std::vector<MapScene::StartUnit>{};
     _scene.build(map, units, racing ? kRaceNames[_race] : "",
-                 _showShroud && !units.empty() ? _scene.sightsOf(map, units, -1) : std::vector<MapScene::Sight>{});
+                 _showShroud && !units.empty() ? _scene.sightsOf(map, units, -1) : std::vector<MapScene::Sight>{},
+                 MapScene::Cover{});
     // From above the area's middle, far enough to see it whole.
     _target = {(map.area[0] + map.area[1]) / 2, 0, (map.area[4] + map.area[5]) / 2};
     _distance = std::max(1000.0f, std::max(map.area[1] - map.area[0], map.area[5] - map.area[4]));

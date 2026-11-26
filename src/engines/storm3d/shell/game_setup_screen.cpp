@@ -179,6 +179,10 @@ bool GameSetupScreen::shroud() const {
     return _values[kShroudOption] % 2 == 0;
 }
 
+bool GameSetupScreen::fog() const {
+    return _values[kShroudOption] < 2;
+}
+
 int GameSetupScreen::playersOf(const BznMap &map) {
     int players = 0;
     for (int n = 1; n <= 8; ++n)

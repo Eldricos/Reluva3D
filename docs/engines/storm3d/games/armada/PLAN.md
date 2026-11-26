@@ -94,8 +94,7 @@ these phases start from, is in [formats/install.md](formats/install.md).
    to play over the network (phase 9).
 7. **Rules** (in progress): units from their object definitions: movement and
    collision avoidance, weapons, shields, crews and boarding, officers,
-   mining dilithium, building and research, special weapons, sight and
-   the fog over what's been seen but isn't now, the ships' specular
+   mining dilithium, building and research, special weapons, the ships' specular
    highlights as they turn in the light; then
    skirmish against the computer player (its scheduler, the `.aip`
    personalities, its DLLs). The largest phase, checked against the
@@ -113,8 +112,12 @@ these phases start from, is in [formats/install.md](formats/install.md).
    ([systems/building.md](systems/building.md)); stations placed and
    built; mining dilithium ([systems/mining.md](systems/mining.md));
    attacking, shields and hulls ([systems/combat.md](systems/combat.md));
-   the computer player building by its build list
-   ([systems/computer-player.md](systems/computer-player.md)).
+   the computer player building by its build list and sending its ships
+   to its scheduler's goals
+   ([systems/computer-player.md](systems/computer-player.md)); the
+   shields' glow, fires and explosions; sight, the shroud lifting and
+   the fog over what isn't seen now
+   ([systems/play.md](systems/play.md#sight-and-the-fog)).
 8. **The campaign:** the functions `Armada.exe` exports for the missions,
    the missions themselves ([Decisions](#decisions)), the cut scenes and
    the bridge scenes, and saved games.

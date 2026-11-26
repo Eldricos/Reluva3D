@@ -178,6 +178,27 @@ A left click on the minimap moves the camera there: clicked at about
 (925, 575), the original's target was (845, 595) after, within the
 pointer's error of a pixel or two on the minimap.
 
+### Sight and the fog
+
+The shroud covers what the player's units have never seen, the fog what
+they don't see now ([formats/bzn.md](../formats/bzn.md) has their
+textures and how they're drawn). The Game Setup screen's shroud list
+turns each on or off.
+
+- **Under the fog:** with the shroud off and the fog on, the camera
+  taken to the computer player's base (`Camera_4`) showed none of it:
+  not its starbase, its ships or its dilithium moon (`mdmoon`, whose
+  class is `scrap`, below the plane). The planet there (`MQonos`,
+  `planet_obj`) was drawn, under the fog, 70% of `gfog` over it. The
+  minimap showed neither the computer's marks nor the moon's icon there.
+- **The fog's texture,** read from memory a minute in, is `gfog`'s
+  picture with the cells the player's units see now in black: 628 of
+  them, as a ship had moved off a little.
+- **The minimap's fog** is `minimapFogSprite`'s picture (`map_fog`,
+  `gfog`'s) 70% over the map's picture, in the cells not seen now: its
+  pixels, set beside the frame without the fog, fit that to a unit or
+  two.
+
 ### The cinematic view
 
 The panel over the control panel's left shows the battle in 3D in its
@@ -278,6 +299,16 @@ before and after each ([camera.md](camera.md#the-overview)):
   [movement.md](movement.md) has it.
 - **Building:** the build button opens a unit's build menu, as
   [building.md](building.md) has it.
+- **Sight:** each frame the player's living units' places and
+  `rangeScan`s give the cells seen now, by the starting shroud's rule; the
+  shroud lifts where they've been, and the fog lies where they don't see
+  now. Other players' units and the map's objects but its planets and
+  suns (`planet_obj`, `background_obj`) aren't drawn where they're
+  covered, nor marked on the minimap, nor picked; a unit selected that
+  goes under the cover leaves the selection. The planets and suns are
+  drawn first, then the fog, the grid, the shroud, and the rest, as the
+  original's order. Whether the asteroid fields and nebulae hide under
+  the fog as the moon did is *(guessed)*.
 - **A skirmish** (`MissionView::startSkirmish`) starts from the Game
   Setup screen's slots: each player's race (one left Random takes the
   races in turn by its slot *(guessed)*), their colour, and slot *n* on
@@ -313,6 +344,8 @@ before and after each ([camera.md](camera.md#the-overview)):
 - How long the program waits on its first frame of play, and what the
   cut scene's camera follows.
 - How Random sides and Random Placement choose.
+- Whether the fog hides the asteroid fields and nebulae, and what of an
+  enemy's station once seen (a last sight of it, or nothing).
 - The minimap's grey pixel, and how the view's bottom
   edge is made.
 - The cinematic view's director: what it shows when, its shots and

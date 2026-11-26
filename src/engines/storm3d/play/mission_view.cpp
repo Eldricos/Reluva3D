@@ -848,7 +848,8 @@ void MissionView::addFighter(const std::string &odf) {
 
 int MissionView::liveUnitAt(const gfx::Mat4 &viewProj, int x, int y) const {
     const int unit = unitAt(_scene.units(), viewProj, camera(), x, y);
-    return unit >= 0 && size_t(unit) < _dead.size() && _dead[size_t(unit)] ? -1 : unit;
+    return unit >= 0 && ((size_t(unit) < _dead.size() && _dead[size_t(unit)]) || !_scene.shown(size_t(unit))) ? -1
+                                                                                                              : unit;
 }
 
 void MissionView::fight(double seconds) {
@@ -1119,7 +1120,8 @@ Error MissionView::start(gfx::Renderer3D *renderer, const std::string &map, int 
         return Error::fail(map + ": " + err.message);
     _renderer = renderer;
     _scene.attach(renderer);
-    _scene.build(parsed, {}, "", team >= 0 ? _scene.sightsOf(parsed, {}, team) : std::vector<MapScene::Sight>{});
+    _scene.build(parsed, {}, "", team >= 0 ? _scene.sightsOf(parsed, {}, team) : std::vector<MapScene::Sight>{},
+                 MapScene::Cover{});
     _overview = startOf(parsed, slot);
     if (_hud.load(_files, hudRaceOf(text::toLower(parsed.race))))
         _hud = Hud{};
@@ -1131,7 +1133,7 @@ Error MissionView::start(gfx::Renderer3D *renderer, const std::string &map, int 
 }
 
 Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &map, const std::vector<Player> &players,
-                                 bool shroud, const Hud::Resources &start, uint64_t millis) {
+                                 MapScene::Cover cover, const Hud::Resources &start, uint64_t millis) {
     stop();
     BznMap parsed;
     std::vector<uint8_t> data;
@@ -1155,8 +1157,11 @@ Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &m
         if (p.human)
             slot = p.slot;
     }
+    cover.slot = slot;
     _scene.build(parsed, units, "",
-                 shroud && !mine.empty() ? _scene.sightsOf(parsed, mine, -1) : std::vector<MapScene::Sight>{});
+                 (cover.shroud || cover.fog) && !mine.empty() ? _scene.sightsOf(parsed, mine, -1)
+                                                              : std::vector<MapScene::Sight>{},
+                 cover);
     _overview = startOf(parsed, slot);
     _slot = slot;
     _mapIcons = mapIconsOf(parsed, loaderOf(_files.files()));
@@ -1689,6 +1694,13 @@ void MissionView::draw(uint64_t millis) {
             _ships[i].speed = 0;
         _scene.moveUnit(i, _ships[i].at, _ships[i].heading);
     }
+    // What the player's units see now, after they've moved.
+    std::vector<MapScene::Sight> sights;
+    for (size_t i = 0; i < _scene.units().size() && i < _dead.size() && i < _scans.size(); ++i)
+        if (_scene.units()[i].slot == _slot && !_dead[i])
+            sights.push_back({_scene.units()[i].at, _scans[i]});
+    _scene.see(sights);
+    std::erase_if(_selection, [this](int i) { return i < 0 || !_scene.shown(size_t(i)); });
     const MapScene::Camera view = camera();
     _scene.draw(view, double(millis) / 1000, kRange, kClear, true);
     const gfx::Mat4 viewProj = MapScene::viewProjOf(view, kRange);
@@ -1747,7 +1759,7 @@ void MissionView::draw(uint64_t millis) {
         if (_targets[i] >= 0 && !_dead[i])
             barred.insert(_targets[i]);
     for (int b : barred) {
-        if (b < 0 || size_t(b) >= units.size() || _dead[size_t(b)])
+        if (b < 0 || size_t(b) >= units.size() || _dead[size_t(b)] || !_scene.shown(size_t(b)))
             continue;
         const std::array<int, 3> bar = healthBarOf(units[size_t(b)], viewProj);
         const Combat::Vitals &v = _vitals[size_t(b)];
@@ -1757,11 +1769,17 @@ void MissionView::draw(uint64_t millis) {
     if (_dragging)
         Hud::drawBox(_overlay, _pressX, _pressY, _mouseX, _mouseY);
     Hud::Minimap minimap = minimapOf(_scene.map(), units, _moves, view, _overview.target[1]);
+    // What the cover hides isn't on the minimap either: the original's
+    // showed neither the computer's units nor its moon's mark under the fog.
     for (size_t i = minimap.marks.size(); i-- > 0;)
-        if (i < _dead.size() && _dead[i])
+        if ((i < _dead.size() && _dead[i]) || !_scene.shown(i))
             minimap.marks.erase(minimap.marks.begin() + std::ptrdiff_t(i));
-    minimap.icons = _mapIcons;
-    _hud.draw(_overlay, _resources.value_or(Hud::Resources{}), _scene.seen(), _resources.has_value(), minimap);
+    for (const Hud::Minimap::Icon &icon : _mapIcons)
+        if (!_scene.covered({icon.x, 0, icon.z}))
+            minimap.icons.push_back(icon);
+    _hud.draw(_overlay, _resources.value_or(Hud::Resources{}),
+              _scene.cover().shroud ? _scene.seen() : std::vector<bool>{},
+              _scene.cover().fog ? _scene.seenNow() : std::vector<bool>{}, _resources.has_value(), minimap);
     if (_displayed != _selection) {
         _display.clear();
         // The game picks a name at random; any one of them will do.

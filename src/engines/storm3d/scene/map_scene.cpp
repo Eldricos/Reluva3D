@@ -73,6 +73,8 @@ MapScene::Look MapScene::lookOf(const std::string &odf, const SearchSet &files) 
         look.model.clear();
     look.scale = float(definition.number("scaleSOD", 1));
     look.scanRange = float(definition.number("rangeScan"));
+    look.scenery = text::equalsIgnoreCase(definition.string("classLabel"), "planet_obj") ||
+                   text::equalsIgnoreCase(definition.string("classLabel"), "background_obj");
     if (look.scale <= 0)
         look.scale = 1;
     if (text::equalsIgnoreCase(definition.string("classLabel"), "asteroidfield")) {
@@ -183,8 +185,9 @@ std::vector<bool> MapScene::seenOf(const BznMap &map, int cells, const std::vect
         const int uc = int(std::floor((sight.at[0] - map.area[0]) / cell));
         const int ur = int(std::floor((sight.at[2] - map.area[4]) / cell));
         const float reach = (sight.range + kShroudReach) / cell;
-        for (int r = 0; r < cells; ++r)
-            for (int c = 0; c < cells; ++c) {
+        const int span = int(std::ceil(reach));
+        for (int r = std::max(0, ur - span); r <= std::min(cells - 1, ur + span); ++r)
+            for (int c = std::max(0, uc - span); c <= std::min(cells - 1, uc + span); ++c) {
                 const float dc = float(c - uc);
                 const float dr = float(r - ur);
                 if (dc * dc + dr * dr <= reach * reach)
@@ -206,54 +209,94 @@ void MapScene::freeGrid() {
         for (const gfx::MeshId m : {_gridMesh, _shroudMesh})
             if (m)
                 _renderer->destroyMesh(m);
-        for (const gfx::TextureId t : {_gridTexture, _shroudTexture})
+        for (const gfx::TextureId t : {_gridTexture, _shroudTexture, _fogTexture})
             if (t)
                 _renderer->destroyTexture(t);
     }
     _gridMesh = _shroudMesh = 0;
-    _gridTexture = _shroudTexture = 0;
+    _gridTexture = _shroudTexture = _fogTexture = 0;
 }
 
-bool MapScene::shrouded(const gfx::Vec3 &at) const {
+bool MapScene::covered(const gfx::Vec3 &at) const {
     const float size = _map.area[1] - _map.area[0];
     const int cells = int(std::lround(size / kShroudCell));
-    if (_seen.empty() || at[1] < 0 || size <= 0)
+    if (_seen.empty() || size <= 0)
         return false;
     const int c = int(std::floor((at[0] - _map.area[0]) / kShroudCell));
     const int r = int(std::floor((at[2] - _map.area[4]) / kShroudCell));
-    // Outside the area there's no shroud: the game's frame shows space
+    // Outside the area there's no cover: the game's frame shows space
     // past its edge clear.
     if (c < 0 || r < 0 || c >= cells || r >= cells)
         return false;
-    return !_seen[size_t((cells - 1 - r) * cells + c)];
+    const size_t cell = size_t((cells - 1 - r) * cells + c);
+    return (_cover.shroud && !_seen[cell]) || (_cover.fog && cell < _now.size() && !_now[cell]);
 }
 
-void MapScene::makeShroud(const std::vector<bool> &seen) {
+bool MapScene::shown(size_t unit) const {
+    if (unit >= _unitModels.size())
+        return false;
+    const Hiding &h = _hiding[_unitModels[unit].placed];
+    return !h.hides || !covered(h.at);
+}
+
+void MapScene::see(const std::vector<Sight> &sights) {
+    if (_seen.empty() || !_renderer)
+        return;
+    const int cells = int(std::lround((_map.area[1] - _map.area[0]) / kShroudCell));
+    // The same units where they were see the same cells.
+    if (sights.size() == _sights.size() &&
+        std::equal(sights.begin(), sights.end(), _sights.begin(),
+                   [](const Sight &a, const Sight &b) { return a.at == b.at && a.range == b.range; }))
+        return;
+    _sights = sights;
+    std::vector<bool> now = seenOf(_map, cells, sights);
+    bool changed = now != _now;
+    for (size_t i = 0; i < now.size() && i < _seen.size(); ++i)
+        if (now[i] && !_seen[i])
+            _seen[i] = true, changed = true;
+    if (!changed)
+        return;
+    _now = std::move(now);
+    makeCover();
+}
+
+void MapScene::makeCover() {
     const float size = _map.area[1] - _map.area[0];
     const int cells = int(std::lround(size / kShroudCell));
-    if (!_renderer || seen.size() != size_t(cells * cells) || cells <= 0)
+    if (!_renderer || _seen.size() != size_t(cells * cells) || cells <= 0)
         return;
-    // gshroud's picture, a texel a cell (it's 128 square), with the cells
-    // seen left out.
-    image::Image picture;
-    std::vector<uint8_t> data;
-    if (_files.read("Textures/RGB/gshroud.tga", data) || image::decode(data, picture) || picture.w <= 0)
-        picture = {};
-    std::vector<uint8_t> rgba(size_t(cells * cells) * 4, 128);
-    for (int r = 0; r < cells; ++r)
-        for (int c = 0; c < cells; ++c) {
-            uint8_t *t = &rgba[size_t(r * cells + c) * 4];
-            if (picture.w > 0) {
-                const size_t from = size_t((r * picture.h / cells) * picture.w + c * picture.w / cells) * 4;
-                std::copy_n(&picture.rgba[from], 3, t);
+    // A picture, a texel a cell (gshroud and gfog are 128 square), with the
+    // cells left out.
+    auto make = [&](const std::string &name, const std::vector<bool> &out, gfx::TextureId &texture) {
+        if (texture)
+            _renderer->destroyTexture(texture);
+        texture = 0;
+        image::Image picture;
+        std::vector<uint8_t> data;
+        if (_files.read("Textures/RGB/" + name + ".tga", data) || image::decode(data, picture) || picture.w <= 0)
+            picture = {};
+        std::vector<uint8_t> rgba(size_t(cells * cells) * 4, 128);
+        for (int r = 0; r < cells; ++r)
+            for (int c = 0; c < cells; ++c) {
+                uint8_t *t = &rgba[size_t(r * cells + c) * 4];
+                if (picture.w > 0) {
+                    const size_t from = size_t((r * picture.h / cells) * picture.w + c * picture.w / cells) * 4;
+                    std::copy_n(&picture.rgba[from], 3, t);
+                }
+                t[3] = out[size_t(r * cells + c)] ? 0 : 255;
             }
-            t[3] = seen[size_t(r * cells + c)] ? 0 : 255;
-        }
-    gfx::TextureParams params;
-    params.clamp = true;
-    params.mipmaps = false;
-    if (_renderer->createTexture(cells, cells, rgba.data(), params, _shroudTexture))
-        _shroudTexture = 0;
+        gfx::TextureParams params;
+        params.clamp = true;
+        params.mipmaps = false;
+        if (_renderer->createTexture(cells, cells, rgba.data(), params, texture))
+            texture = 0;
+    };
+    if (_cover.shroud)
+        make("gshroud", _seen, _shroudTexture);
+    if (_cover.fog && _now.size() == _seen.size())
+        make("gfog", _now, _fogTexture);
+    if (_shroudMesh)
+        return;
     // Over the area on the plane y = 0, its texture's top row the far edge.
     const float x0 = _map.area[0];
     const float x1 = _map.area[1];
@@ -388,10 +431,13 @@ void MapScene::clear() {
     _placed.clear();
     _teams.clear();
     _damaged.clear();
+    _hiding.clear();
     _units.clear();
     _unitModels.clear();
     _background = nullptr;
     _seen.clear();
+    _now.clear();
+    _sights.clear();
     _drawn = _unmodelled = _effects = _starting = 0;
 }
 
@@ -407,29 +453,36 @@ std::vector<MapScene::Sight> MapScene::sightsOf(const BznMap &map, const std::ve
 }
 
 void MapScene::build(const BznMap &map, const std::vector<StartUnit> &units, const std::string &teamColour,
-                     const std::vector<Sight> &sights) {
+                     const std::vector<Sight> &sights, const Cover &cover) {
     clear();
     _map = map;
     if (!_renderer)
         return;
-    if (!sights.empty())
+    _cover = cover;
+    if (_cover.slot < 0 && !units.empty())
+        _cover.slot = units.front().slot;
+    if (!sights.empty() && (cover.shroud || cover.fog)) {
+        _sights = sights;
         _seen = seenOf(_map, int(std::lround((_map.area[1] - _map.area[0]) / kShroudCell)), sights);
+        _now = _seen;
+    }
     for (const BznMap::Object &o : _map.objects) {
-        // The game draws nothing of the map in the shroud but what's below
-        // its plane, which the shroud covers.
-        if (shrouded(o.position))
-            continue;
         const Look &look = lookFor(o.odf);
+        // Each drawn with whether the cover hides it, where it is.
+        auto place = [&](const SodMeshes::Built *built, const gfx::Mat4 &at) {
+            _placed.push_back({built, at});
+            _hiding.push_back({look.scenery, !look.scenery, {at[12], at[13], at[14]}});
+        };
         const size_t before = _placed.size();
-        for (const auto &[model, place] : asteroidsOf(o, look))
+        for (const auto &[model, at] : asteroidsOf(o, look))
             if (const SodMeshes::Built *built = _meshes.model(model))
-                _placed.push_back({built, place});
+                place(built, at);
         if (_placed.size() > before)
             ++_drawn;
         // A sprite node named for the definition is the object's too, at
         // its centre: the planets' glows ("Nimbus for planets", planets.spr).
         if (const SodMeshes::Built *glow = _meshes.spriteNode(o.odf))
-            _placed.push_back({glow, placeOf(o, look.scale)});
+            place(glow, placeOf(o, look.scale));
         if (look.model.empty())
             continue;
         const SodMeshes::Built *built = _meshes.model(look.model);
@@ -441,12 +494,12 @@ void MapScene::build(const BznMap &map, const std::vector<StartUnit> &units, con
             ++_effects;
             continue;
         }
-        _placed.push_back({built, placeOf(o, look.scale)});
+        place(built, placeOf(o, look.scale));
         ++_drawn;
     }
     _starting = 0;
     for (const StartUnit &unit : units)
-        if (!shrouded(unit.at) && addUnit(unit, 0))
+        if (addUnit(unit, 0))
             ++_starting;
     // The team parts in the chosen race's colour, or the map's race's: the
     // game's frames show the Federation's grey on the player's ships.
@@ -454,7 +507,7 @@ void MapScene::build(const BznMap &map, const std::vector<StartUnit> &units, con
     _meshes.setLighting(lightingOf(_map));
     makeGrid();
     if (!_seen.empty())
-        makeShroud(_seen);
+        makeCover();
     std::string background = _map.background;
     if (text::hasSuffixIgnoreCase(background, ".sod"))
         background.resize(background.size() - 4);
@@ -502,6 +555,7 @@ bool MapScene::addUnit(const StartUnit &unit, float heading) {
     _teams.resize(_placed.size());
     _placed.push_back({built, gfx::identity()});
     _teams.push_back(unit.colour);
+    _hiding.push_back({false, unit.slot != _cover.slot, unit.at});
     Unit u;
     u.odf = unit.odf;
     u.slot = unit.slot;
@@ -567,6 +621,7 @@ void MapScene::moveUnit(size_t unit, const gfx::Vec3 &at, float heading) {
     place[5] = m.scale;
     place[8] = s * m.scale, place[10] = c * m.scale;
     place[12] = at[0], place[13] = at[1], place[14] = at[2];
+    _hiding[m.placed].at = at;
     Unit &u = _units[unit];
     u.at = at;
     u.heading = heading;
@@ -674,6 +729,32 @@ void MapScene::drawContents(const Camera &camera, double seconds, bool grid, boo
         at[12] = eye[0], at[13] = eye[1], at[14] = eye[2];
         _meshes.draw(*_background, at, true);
     }
+    // The planets and suns before the cover, which lies over them (the
+    // original's frame has its planet under the fog).
+    drawPlaced(true);
+    auto cover = [&](gfx::TextureId texture, bool fog) {
+        if (!_shroudMesh || !texture)
+            return;
+        gfx::DrawCall call;
+        call.mesh = _shroudMesh;
+        call.indexCount = 6;
+        call.model = gfx::identity();
+        call.texture = texture;
+        call.state.cull = gfx::Cull::kNone;
+        call.state.depthWrite = false;
+        if (fog) {
+            // 70% over what's there: its vertices' alpha 0xb2, blended by alpha.
+            call.color = {1, 1, 1, float(0xb2) / 255};
+            call.state.src = gfx::Blend::kSrcAlpha;
+            call.state.dst = gfx::Blend::kOneMinusSrcAlpha;
+        } else {
+            call.state.alphaTest = gfx::AlphaTest::kGe128;
+        }
+        _renderer->draw(call);
+    };
+    // The fog before the grid, as the original draws it.
+    if (withShroud && _cover.fog)
+        cover(_fogTexture, true);
     if (grid && _gridMesh && _gridTexture) {
         gfx::DrawCall grid;
         grid.mesh = _gridMesh;
@@ -687,20 +768,27 @@ void MapScene::drawContents(const Camera &camera, double seconds, bool grid, boo
         _renderer->draw(grid);
     }
     // The shroud after the grid, over it and what's below the plane.
-    if (withShroud && _shroudMesh && _shroudTexture) {
-        gfx::DrawCall shroud;
-        shroud.mesh = _shroudMesh;
-        shroud.indexCount = 6;
-        shroud.model = gfx::identity();
-        shroud.texture = _shroudTexture;
-        shroud.state.cull = gfx::Cull::kNone;
-        shroud.state.alphaTest = gfx::AlphaTest::kGe128;
-        shroud.state.depthWrite = false;
-        _renderer->draw(shroud);
-    }
+    if (withShroud && _cover.shroud)
+        cover(_shroudTexture, false);
+    drawPlaced(false);
+}
+
+void MapScene::drawPlaced(bool scenery) {
     _teams.resize(_placed.size());
     _damaged.resize(_placed.size());
-    _meshes.draw(_placed, false, &_teams, &_damaged);
+    _hiding.resize(_placed.size());
+    _batch.clear();
+    _batchTeams.clear();
+    _batchDamaged.clear();
+    for (size_t i = 0; i < _placed.size(); ++i) {
+        const Hiding &h = _hiding[i];
+        if (h.scenery != scenery || (h.hides && covered(h.at)))
+            continue;
+        _batch.push_back(_placed[i]);
+        _batchTeams.push_back(_teams[i]);
+        _batchDamaged.push_back(_damaged[i]);
+    }
+    _meshes.draw(_batch, false, &_batchTeams, &_batchDamaged);
 }
 
 } // namespace reluva::storm3d

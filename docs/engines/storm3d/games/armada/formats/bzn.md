@@ -211,8 +211,8 @@ units of it, a little more than the range: the 596 cells the starbase
 and the two construction ships cleared on `4first.bzn`, cut by the
 area's edge, fit that and nothing simpler. The game's own record of
 what's seen wasn't found in its memory. The fog shows only once a
-unit has moved from where it saw: until ships move, which is phase 7's,
-it lies under the shroud.
+unit has moved from where it saw: until then it lies under the shroud.
+In play the two follow the player's units ([play.md](../systems/play.md#sight-and-the-fog)).
 
 ### Start positions (`.mdf`)
 

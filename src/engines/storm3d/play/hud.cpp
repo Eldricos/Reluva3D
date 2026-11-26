@@ -495,8 +495,8 @@ void Hud::drawPanel(Surface &screen, const std::string &name) {
         fill(screen, _layout.area(name + "BlackArea"), area[0], area[1]);
 }
 
-void Hud::draw(Surface &screen, const Resources &resources, const std::vector<bool> &seen, bool counters,
-               const Minimap &map) {
+void Hud::draw(Surface &screen, const Resources &resources, const std::vector<bool> &seen, const std::vector<bool> &now,
+               bool counters, const Minimap &map) {
     for (const char *panel : panels())
         drawPanel(screen, panel);
     // The cinematic view: its picture until there's a view, and its two
@@ -573,15 +573,33 @@ void Hud::draw(Surface &screen, const Resources &resources, const std::vector<bo
             drawSprite(screen, icon.sprite, int(std::lround(at[0] - 2.5f)), int(std::lround(at[1] - 1.5f)), 5, 5,
                        {255, 255, 255}, true);
         }
-    if (seen.size() == size_t(kMinimapCells * kMinimapCells)) {
+    // The fog over the cells not seen now, 70% of it over what's there
+    // (the original's pixels, against its frame without the fog, fit
+    // that); the shroud over those never seen.
+    const size_t cells = size_t(kMinimapCells * kMinimapCells);
+    const bool shrouded = seen.size() == cells;
+    const bool fogged = now.size() == cells;
+    if (shrouded || fogged) {
         Surface shroud;
+        Surface fog;
         shroud.create(display[2], display[3], PixelFormat::kRGBA32);
+        fog.create(display[2], display[3], PixelFormat::kRGBA32);
         drawSprite(shroud, _layout.text("minimapShroudSprite"), 0, 0, display[2], display[3]);
+        drawSprite(fog, _layout.text("minimapFogSprite"), 0, 0, display[2], display[3]);
+        constexpr int kFog = 0xb2;
         for (int y = 0; y < display[3] && my + y < screen.h; ++y)
             for (int x = 0; x < display[2] && mx + x < screen.w; ++x) {
-                const int cell = (y * kMinimapCells / display[3]) * kMinimapCells + x * kMinimapCells / display[2];
-                if (!seen[size_t(cell)])
-                    std::copy_n(shroud.row(y) + size_t(x) * 4, 4, screen.row(my + y) + size_t(mx + x) * 4);
+                const size_t cell =
+                    size_t((y * kMinimapCells / display[3]) * kMinimapCells + x * kMinimapCells / display[2]);
+                uint8_t *p = screen.row(my + y) + size_t(mx + x) * 4;
+                if (shrouded && !seen[cell]) {
+                    std::copy_n(shroud.row(y) + size_t(x) * 4, 4, p);
+                } else if (fogged && !now[cell]) {
+                    const uint8_t *f = fog.row(y) + size_t(x) * 4;
+                    for (size_t k = 0; k < 3; ++k)
+                        p[k] = uint8_t((f[k] * kFog + p[k] * (255 - kFog) + 127) / 255);
+                    p[3] = 255;
+                }
             }
     }
     // The view: lines between where the screen's corners fall, added on in

@@ -131,11 +131,12 @@ public:
     /**
      * Draws it onto `screen` (an RGBA overlay, left clear where the map
      * shows through): the minimap's cells `seen` (128 × 128, row 0 the
-     * map's far edge; empty: all seen) and `minimap`'s units and view;
-     * `counters`: the numbers written (a campaign's aren't known yet).
+     * map's far edge; empty: all seen), those seen now `now` (as seen;
+     * empty: no fog) and `minimap`'s units and view; `counters`: the
+     * numbers written (a campaign's aren't known yet).
      */
-    void draw(Surface &screen, const Resources &resources, const std::vector<bool> &seen, bool counters,
-              const Minimap &minimap);
+    void draw(Surface &screen, const Resources &resources, const std::vector<bool> &seen, const std::vector<bool> &now,
+              bool counters, const Minimap &minimap);
     /**
      * Draws one of the game's cursors (`cursor.spr`'s `name`: "c_arrow",
      * "c_select", "c_move") with its origin at (x, y), `seconds` into its

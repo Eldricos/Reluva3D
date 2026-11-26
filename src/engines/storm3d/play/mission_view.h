@@ -71,11 +71,12 @@ public:
     /**
      * Starts a skirmish on `map`: each player's starting units as the game
      * makes them, in their colour; the camera over the human player's
-     * Camera_<slot>; with `shroud`, the shroud over what their units don't see.
+     * Camera_<slot>; `cover`'s shroud and fog over what their units don't
+     * see (its slot is theirs).
      * @return a failure if the map can't be read
      */
     Error startSkirmish(gfx::Renderer3D *renderer, const std::string &map, const std::vector<Player> &players,
-                        bool shroud, const Hud::Resources &start, uint64_t millis);
+                        MapScene::Cover cover, const Hud::Resources &start, uint64_t millis);
     /**
      * The player's counters at the start: `start`'s dilithium and crew; the
      * officers their units cost (officerCost), of `start`'s most and what

@@ -54,7 +54,8 @@ public:
     struct Look {
         std::string model; // empty: none (dont_load_SOD, or no definition)
         float scale = 1;
-        float scanRange = 0; // rangeScan: how far it sees, which clears the shroud
+        float scanRange = 0;  // rangeScan: how far it sees, which clears the shroud
+        bool scenery = false; // a planet or a sun (classLabel planet_obj, background_obj): never covered
         // An asteroid field's (classLabel "asteroidfield"): how many
         // asteroids, and within what radius.
         int minAsteroids = 0;
@@ -126,13 +127,32 @@ public:
     /** The renderer to draw through; null lets go of it and what it made. */
     void attach(gfx::Renderer3D *renderer);
     /**
+     * What covers the map where a player's units haven't looked: the
+     * shroud where they never have, the fog where they don't now.
+     */
+    struct Cover {
+        bool shroud = true;
+        bool fog = false;
+        int slot = -1; // the player's, whose units are never hidden; -1: the first of build's units'
+    };
+    /**
      * Places a map's objects, and `units` (a skirmish's starting units)
      * in `teamColour` (a name of teamcolor.odf; empty: the map's race's).
-     * With `sights`, the shroud covers what they don't see, and what's
-     * above the plane in it isn't drawn; with none, there's no shroud.
+     * With `sights`, `cover` covers what they don't see, and what's under
+     * it, but the planets and suns, isn't drawn; with none, nothing's
+     * covered.
      */
     void build(const BznMap &map, const std::vector<StartUnit> &units, const std::string &teamColour,
-               const std::vector<Sight> &sights);
+               const std::vector<Sight> &sights, const Cover &cover);
+    /**
+     * What the player's units see now: the fog moves with them, and the
+     * shroud lifts where they've been. Nothing, without build's sights.
+     */
+    void see(const std::vector<Sight> &sights);
+    /** Whether a point of the world is under the cover: its cell never seen under a shroud, or not seen now under a fog. */
+    bool covered(const gfx::Vec3 &at) const;
+    /** Whether a unit is drawn: the player's own always, another's where it isn't covered. */
+    bool shown(size_t unit) const;
     /** What a player's units see: the first slot's of `units`, and the map's objects on `team` (-1: none). */
     std::vector<Sight> sightsOf(const BznMap &map, const std::vector<StartUnit> &units, int team);
     /** Lets go of what build made. */
@@ -221,6 +241,9 @@ public:
     size_t unmodelled() const { return _unmodelled; }
     /** The cells the player's units see, as seenOf has them; empty with no shroud. */
     const std::vector<bool> &seen() const { return _seen; }
+    const Cover &cover() const { return _cover; }
+    /** The cells they see now, as seen(); empty with no fog. */
+    const std::vector<bool> &seenNow() const { return _now; }
     /** Starting units drawn. */
     size_t starting() const { return _starting; }
 
@@ -228,8 +251,8 @@ private:
     void drawContents(const Camera &camera, double seconds, bool grid, bool withShroud);
     void makeGrid();
     void freeGrid();
-    void makeShroud(const std::vector<bool> &seen);
-    bool shrouded(const gfx::Vec3 &at) const; // above the plane, in a cell not seen
+    void makeCover();
+    void drawPlaced(bool scenery); // the planets and suns, or the rest of what's shown
 
     const GameFiles &_files;
     SodMeshes _meshes;
@@ -240,6 +263,14 @@ private:
     std::vector<std::pair<const SodMeshes::Built *, gfx::Mat4>> _placed;
     std::vector<std::optional<gfx::Vec3>> _teams; // as _placed: each one's own team colour, if any
     std::vector<bool> _damaged;                   // as _placed: its damage emitters run
+    // As _placed: whether the cover can hide it (not the planets and suns,
+    // nor the player's units), and where it is.
+    struct Hiding {
+        bool scenery = false; // a planet or a sun: drawn first, under the cover, and never hidden
+        bool hides = true;
+        gfx::Vec3 at{};
+    };
+    std::vector<Hiding> _hiding;
     std::vector<Unit> _units;
     gfx::MeshId _insetMesh = 0; // drawInset's black square
     // Each unit's draw, in _placed, and its model's box, scaled, about it.
@@ -259,11 +290,20 @@ private:
     // each 100 units in its repeating texture.
     gfx::MeshId _gridMesh = 0;
     gfx::TextureId _gridTexture = 0;
-    // The shroud on the same plane: the cells not seen, in gshroud's
-    // picture stretched over the area.
+    // The shroud and the fog on the same plane, one square: the cells not
+    // seen, in gshroud's picture, and those not seen now, in gfog's.
     gfx::MeshId _shroudMesh = 0;
     gfx::TextureId _shroudTexture = 0;
-    std::vector<bool> _seen; // seenOf's, while there's a shroud
+    gfx::TextureId _fogTexture = 0;
+    Cover _cover;
+    std::vector<Sight> _sights; // the last seen
+    std::vector<bool> _seen;    // seenOf's, ever, while there's a cover
+    std::vector<bool> _now;     // and now, while there's a fog
+    // A batch of _placed drawn, and its team colours and damage, kept so a
+    // frame doesn't allocate.
+    std::vector<std::pair<const SodMeshes::Built *, gfx::Mat4>> _batch;
+    std::vector<std::optional<gfx::Vec3>> _batchTeams;
+    std::vector<bool> _batchDamaged;
 };
 
 } // namespace reluva::storm3d

@@ -71,6 +71,8 @@ public:
     int officers() const { return amount(6); }
     /** Whether the shroud is on (its option says "Shroud On"). */
     bool shroud() const;
+    /** Whether the fog is on (its option says "Fog On"). */
+    bool fog() const;
     /** How many players a map takes: its `Camera_<n>` paths. */
     static int playersOf(const BznMap &map);
 
