@@ -148,6 +148,17 @@ its shield bar and its crew dot, side by side, without the single
 display's words and systems. The control panel had the construction
 ship's orders, but with build dark; the rail had the tractor beam once.
 
+### The crew
+
+In a skirmish the crew counter grows on its own. Read from the
+original's frames every second of a skirmish's first minute, with the
+player's one starbase: 3502 at 21.0 seconds of its clock, then 3 or 4
+more each second, steadily, to 3607 at 51.0: 3.5 a second. The
+starbase's own crew stayed 800 of 1500. `RTS_CFG.h` gives the most,
+`cfgMaxCrew` (99999), but no rate. That it's the starbase's, a "Command
+Center for additional personnel" as its tooltip says, and so 3.5 for
+each, is *(guessed)*.
+
 ### The camera's keys
 
 `Input.map` gives the overview camera its keys: the keypad's + and −
@@ -185,8 +196,8 @@ before and after each ([camera.md](camera.md#the-overview)):
   play: the panels, the counters (blank in a campaign mission, whose
   script sets them) and the minimap's shroud. The cinematic view shows
   its panel's own picture, the race's emblem, as the layout has it for
-  no view; the minimap has no units' icons yet, and the cursor is the
-  system's.
+  no view; the minimap has no units' icons yet. In a skirmish the crew
+  grows by 3.5 a second for each of the player's starbases.
 - **Selecting:** a click picks the unit whose middle is nearest the
   pointer, of those whose box reaches it on the screen (the game's own
   choice isn't known); a click where there's none clears it, and clicks
@@ -239,7 +250,8 @@ before and after each ([camera.md](camera.md#the-overview)):
 - How long the program waits on its first frame of play, and what the
   cut scene's camera follows.
 - How Random sides and Random Placement choose.
-- How fast the crew grows.
+- What makes the crew grow: one starbase gave 3.5 a second; more, or
+  none, haven't been seen.
 - When the health bars show: why the unselected ships had theirs, and
   the ship chosen with `N`, or a box, none yet.
 - Which point of a unit the box has to hold, and how a group's orders

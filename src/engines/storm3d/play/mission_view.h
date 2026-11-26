@@ -79,6 +79,12 @@ public:
      */
     static Hud::Resources resourcesOf(const Hud::Resources &start, const std::vector<std::string> &units,
                                       const SearchSet &files);
+    /**
+     * The crew after `seconds` more of play: each of the player's
+     * starbases adds 3.5 a second, whole ones to the counter, the rest
+     * kept in `carry`, up to RTS_CFG.h's cfgMaxCrew.
+     */
+    static int grownCrew(int crew, double &carry, int starbases, double seconds);
     /** The interface's layout's name for a race's definition ("fed" for "fed", "kli" for "kling"). */
     static std::string hudRaceOf(const std::string &race);
     /**
@@ -138,6 +144,8 @@ private:
     Hud _hud;
     Surface _overlay;
     std::optional<Hud::Resources> _resources; // none: not known (a campaign's are its script's)
+    int _starbases = 0;                       // the player's, which bring them crew
+    double _crewCarry = 0;                    // crew grown, not yet a whole one
     std::set<int> _held;
     int _mouseX = 320;
     int _mouseY = 240;

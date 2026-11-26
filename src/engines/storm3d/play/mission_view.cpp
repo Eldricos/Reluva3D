@@ -241,6 +241,17 @@ Hud::Unit MissionView::ordersOf(const std::vector<Hud::Unit> &units) {
     return orders;
 }
 
+int MissionView::grownCrew(int crew, double &carry, int starbases, double seconds) {
+    // 3.5 a second with one starbase: the original's counter went from
+    // 3502 to 3607 in 30 seconds, steadily; per starbase is a guess.
+    constexpr double kPerSecond = 3.5;
+    constexpr int kMaxCrew = 99999; // RTS_CFG.h's cfgMaxCrew
+    carry += kPerSecond * starbases * seconds;
+    const double whole = std::floor(carry);
+    carry -= whole;
+    return int(std::min<double>(kMaxCrew, crew + whole));
+}
+
 std::string MissionView::hudRaceOf(const std::string &race) {
     static const std::map<std::string, std::string> kNames = {
         {"fed", "fed"}, {"federation", "fed"}, {"kling", "kli"}, {"klingon", "kli"},
@@ -276,6 +287,7 @@ Error MissionView::start(gfx::Renderer3D *renderer, const std::string &map, int 
     if (_hud.load(_files, hudRaceOf(text::toLower(parsed.race))))
         _hud = Hud{};
     _resources.reset();
+    _starbases = 0;
     _held.clear();
     _last = millis;
     return Error::success();
@@ -338,6 +350,13 @@ Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &m
     if (_hud.load(_files, hudRaceOf(myRace)))
         _hud = Hud{};
     _resources = resourcesOf(start, myUnits, _files.files());
+    _starbases = 0;
+    _crewCarry = 0;
+    for (const std::string &u : myUnits) {
+        Odf odf;
+        if (!odf.load(u + ".odf", loader) && text::equalsIgnoreCase(odf.string("classLabel"), "starbase"))
+            ++_starbases;
+    }
     _held.clear();
     _last = millis;
     return Error::success();
@@ -514,6 +533,8 @@ void MissionView::draw(uint64_t millis) {
     const double seconds = double(millis - _last) / 1000;
     _overview = moved(_overview, _held, seconds);
     _last = millis;
+    if (_resources)
+        _resources->crew = grownCrew(_resources->crew, _crewCarry, _starbases, seconds);
     // The ships fly on, in steps of no more than a twentieth of a second.
     const int steps = std::max(1, int(std::ceil(seconds / 0.05)));
     for (size_t i = 0; i < _ships.size(); ++i) {

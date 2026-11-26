@@ -294,6 +294,19 @@ void testSendGroup() {
     CHECK(ships[0].waiting == Movement::kSetOff);
 }
 
+// The crew as the original's counter grew with one starbase: 3502 to
+// 3607 in 30 seconds; none without one; never past cfgMaxCrew.
+void testCrew() {
+    double carry = 0;
+    int crew = 3502;
+    for (int i = 0; i < 300; ++i)
+        crew = MissionView::grownCrew(crew, carry, 1, 0.1);
+    CHECK(crew == 3607);
+    carry = 0;
+    CHECK(MissionView::grownCrew(3500, carry, 0, 10) == 3500);
+    CHECK(MissionView::grownCrew(99990, carry, 2, 10) == 99999);
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("storm3d.unit.play",
@@ -310,4 +323,5 @@ static const reluva::test::Suite kSuite("storm3d.unit.play",
                                             {"movement", [](const std::filesystem::path &) { testMovement(); }},
                                             {"point on", [](const std::filesystem::path &) { testPointOn(); }},
                                             {"send group", [](const std::filesystem::path &) { testSendGroup(); }},
+                                            {"crew", [](const std::filesystem::path &) { testCrew(); }},
                                         });
