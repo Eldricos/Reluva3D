@@ -77,6 +77,11 @@ From the definitions:
   the five Tachyon Detection Grids, whose weapons say "Detect Cloak"
   *(inferred)*. Before research, the original's Defiant had its mines'
   button dark.
+- **Researching, seen:** a Research Facility built, its menu had four
+  pods lit and Corbomite Reflector (`fedpod1`) dark. Antimatter Mines
+  ordered took 200 dilithium and 10 officers at once (24 to 34), was
+  built as a model on one of the facility's arms, growing, and done 40
+  seconds on, its button in the menu was dark: a pod is built once.
 - **Antimatter Mines** (`gamine`, its ordnance `amine`, an `antimine`):
   a mine left where the ship is, seeing ships within its `detectRadius`
   (250), going for them at its `shotSpeed` (45), for 30 seconds
@@ -131,7 +136,8 @@ From the same run's frames and draws:
   Antimatter Mines, each going for the nearest ship of another's in its
   sight and hitting it when within half its size *(guessed)*; and the
   cannons and launchers whose ordnance does damage, as a shot. A pod
-  built gives its player its weapon instead of a ship.
+  built gives its player its weapon instead of a ship, and goes dark in
+  its station's menu.
 - **Chasing:** a ship whose target is out of its weapons' reach flies
   to the point on its way at 0.95 of that reach from the target, set
   afresh as the target moves, and stops there; within reach it holds
@@ -177,8 +183,8 @@ From the same run's frames and draws:
   area weapons and the rest, each its own; and how many mines a ship
   drops, how they move (`omegaTurn`, `shotAccel`) and what they do to
   shields.
-- How a pod shows on its station (`podHardpoints`), and whether one
-  researched leaves the menu.
+- The pod's model on its station (`podHardpoints`), not drawn yet; and
+  why Corbomite Reflector was dark before any research.
 - What `RTS_CFG.h`'s `DOGFIGHT_RANGE` (70) and anchor settings do: the
   destroyer chasing a construction ship didn't circle it. And what a
   right click on an enemy does.

@@ -506,6 +506,16 @@ void MissionView::pressControl(int slot) {
             if (b.slot == slot && b.sprite == "b_build" && b.enabled) {
                 _buildItems = buildListOf(_scene.units()[size_t(_selection.front())].odf, loaderOf(_files.files()));
                 _buildMenu = buildMenuOf(_buildItems, loaderOf(_files.files()), ownedOdfs());
+                // A pod researched goes dark, as the original's Antimatter
+                // Mines did once built.
+                for (Hud::Unit::Button &b : _buildMenu.controls)
+                    if (b.slot >= 1 && size_t(b.slot) <= _buildItems.size()) {
+                        Odf item;
+                        if (!item.load(_buildItems[size_t(b.slot) - 1] + ".odf", loaderOf(_files.files())) &&
+                            text::equalsIgnoreCase(item.string("classLabel"), "pod") &&
+                            _researched[_slot].count(Combat::researchKeyOf(item.string("tooltip"))))
+                            b.enabled = false;
+                    }
                 _building = true;
             }
         return;
