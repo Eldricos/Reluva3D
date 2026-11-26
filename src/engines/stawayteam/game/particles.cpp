@@ -182,12 +182,15 @@ int ParticleSystem::update(float seconds, float ownerAngle) {
         p.z += p.vz * seconds;
         if (k.motion == Motion::kGravity && p.z < 0.0f && p.vz < 0.0f) {
             p.z = 0.0f;
+            // As anything bouncing (0x51fc10): too slow along the ground and
+            // it stops there, too slow a bounce and it stays on it.
             p.vz = -p.vz * k.bounceFactor;
             p.vu *= 1.0f - k.bounceFriction;
             p.vv *= 1.0f - k.bounceFriction;
-            // Too slow a bounce and it lies there (inferred: as a grenade).
-            if (p.vz < 1.0f)
-                p.vz = p.vu = p.vv = 0.0f;
+            if (std::hypot(p.vu, p.vv) < k.minBounceFriction)
+                p.vu = p.vv = 0.0f;
+            if (p.vz <= k.minBounce)
+                p.vz = 0.0f;
         }
         if (k.motion == Motion::kSwirl && p.omega != 0.0f) {
             const float turn = p.omega * seconds;

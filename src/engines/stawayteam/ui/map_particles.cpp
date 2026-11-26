@@ -33,6 +33,8 @@ void MapScreen::addEmitter(size_t part, const TextObject *ai) {
         const ModelInfo &info = modelInfo(kind.model);
         kind.bounceFactor = info.bounceFactor;
         kind.bounceFriction = info.bounceFriction;
+        kind.minBounce = info.minBounce;
+        kind.minBounceFriction = info.minBounceFriction;
     }
     _emitters.push_back(std::move(e));
 }

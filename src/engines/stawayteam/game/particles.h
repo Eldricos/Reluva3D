@@ -66,6 +66,8 @@ public:
         int countVariance = 0;
         float bounceFactor = 0.0f; // its model's, for a falling one: kept of its fall as it bounces
         float bounceFriction = 0.0f;
+        float minBounce = 0.0f;         // a bounce slower than this, pixels a second, doesn't leave the ground
+        float minBounceFriction = 0.0f; // slower than this along the ground, it stops
     };
     /** One particle. */
     struct Particle {

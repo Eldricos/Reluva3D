@@ -82,7 +82,10 @@ A particle's `AI` moves it:
 - **`CFloatParticleAI`**: the base particle's: straight on at its speed.
 - **`CGravityParticleAI`**: falling by its `Gravity` × 20.749 pixels a
   second each second (`0x51faa0`), bouncing off the ground by its
-  model's bounce (`0x51fc10`).
+  model's bounce as a thrown item does (`0x51fc10`): its fall's speed
+  times `Bounce Factor`, none if that's no more than `Min Bounce`; its
+  speed along the ground times 1 − `Bounce Friction`, none if that's
+  under `Min Bounce Friction`.
 - **`CSwirlParticleAI`**: turning about the emitter point at its `Angular
   Velocity` give or take its `Angular Velocity Variance`, radians a
   second, worked out unforeshortened and by the start shape's `YX Ratio`
@@ -113,8 +116,7 @@ parts its models put down, and of the entities actions make
 deleted. Its random numbers are its own (the game's come from its
 shared generators, `0x770ea0`, so only their sequence differs); a
 burst's sound is one of its Sounds as above. The particles are drawn over the models, not sorted among
-them *(inferred)*; a falling one that bounces slower than 1 pixel a
-second lies still *(inferred)*.
+them *(inferred)*.
 
 ## Sources and checks
 

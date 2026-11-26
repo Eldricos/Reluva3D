@@ -148,6 +148,21 @@ void testMotions() {
         bounced = bounced || (p.z < 1.0f && p.vz > 0.0f);
     }
     CHECK(lowest >= 0.0f && lowest < 1.0f && bounced);
+    // With a Min Bounce over its fall's speed, it stays on the ground.
+    ParticleSystem flat(fall, 5);
+    flat.kind(0).bounceFactor = 0.5f;
+    flat.kind(0).minBounce = 1000.0f;
+    firstBurst(flat);
+    bool landed = false;
+    float after = 0.0f;
+    for (int i = 0; i < 2000 && !flat.particles().empty(); ++i) {
+        flat.update(0.001f);
+        const float z = flat.particles()[0].z;
+        if (landed)
+            after = std::max(after, z);
+        landed = landed || z == 0.0f;
+    }
+    CHECK(landed && after < 0.01f);
     // In free fall, 207 pixels a second each second for a Gravity of 10.
     const TextObject drop = objectOf(system("Height=1000\n", "CGravityParticleAI\n{\nGravity=10\n}", 1, 10.0f, 0.0f));
     ParticleSystem d(drop, 5);
