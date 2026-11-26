@@ -33,6 +33,7 @@ reluva_add_engine(storm3d
         scene/sod_meshes.cpp
         scene/sprite_font.cpp
         shell/credits_screen.cpp
+        shell/debriefing_screen.cpp
         shell/full_screen_movie.cpp
         shell/loading_screen.cpp
         shell/game_setup_screen.cpp

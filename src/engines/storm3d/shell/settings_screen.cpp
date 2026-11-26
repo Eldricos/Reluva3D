@@ -48,10 +48,12 @@ constexpr int kSizes[3][2] = {{126, 30}, {224, 20}, {324, 32}};
 } // namespace
 
 Error NavigationBar::load(const GameFiles &files) {
-    if (Error err = loadPicture(files, "bitmaps/multiset/mpsstart1.bmp", _start))
-        return err;
-    if (Error err = loadPicture(files, "bitmaps/multiset/navmain1.bmp", _main))
-        return err;
+    for (size_t i = 0; i < 3; ++i) {
+        if (Error err = loadPicture(files, "bitmaps/multiset/mpsstart" + std::to_string(i + 1) + ".bmp", _start[i]))
+            return err;
+        if (Error err = loadPicture(files, "bitmaps/multiset/navmain" + std::to_string(i + 1) + ".bmp", _main[i]))
+            return err;
+    }
     return _previous.load(files, "bitmaps/multiset", "navback", kPreviousX, kBottomY);
 }
 
@@ -78,16 +80,23 @@ bool NavigationBar::onMain(int x, int y, int dx, int dy) {
 
 void NavigationBar::draw(Surface &screen, ShellFont &font, const std::string &previous, bool lit, bool pressed,
                          const std::string &start, const std::string &main, Color words) const {
-    drawPicture(screen, _start, kStartX + _dx, kBottomY + _dy, true);
-    drawPicture(screen, _main, kMainX + _mainDx, kBottomY + _dy, true);
-    // The middle plate's words are centred in 384 of its 394 pixels, as
-    // the Load Game screen's frame has them.
-    font.drawCentred(screen, kStartX + _dx, kBottomY + _dy, _wholeStart ? _start.w : kStartTextWidth, _start.h, start,
-                     kText, words);
-    font.drawCentred(screen, kMainX + _mainDx, kBottomY + _dy, _main.w, _main.h, main, kText, words);
+    drawPlates(screen, font, start, main, words);
     _previous.draw(screen, lit, pressed, true);
     font.drawCentred(screen, _previous.x, _previous.y, _previous.looks[0].w, _previous.looks[0].h, previous, kText,
                      words);
+}
+
+void NavigationBar::drawPlates(Surface &screen, ShellFont &font, const std::string &start, const std::string &main,
+                               Color words, int startLook, int mainLook) const {
+    const image::Image &startPlate = _start[size_t(std::clamp(startLook, 0, 2))];
+    const image::Image &mainPlate = _main[size_t(std::clamp(mainLook, 0, 2))];
+    drawPicture(screen, startPlate, kStartX + _dx, kBottomY + _dy, true);
+    drawPicture(screen, mainPlate, kMainX + _mainDx, kBottomY + _dy, true);
+    // The middle plate's words are centred in 384 of its 394 pixels, as
+    // the Load Game screen's frame has them.
+    font.drawCentred(screen, kStartX + _dx, kBottomY + _dy, _wholeStart ? startPlate.w : kStartTextWidth, startPlate.h,
+                     start, kText, words);
+    font.drawCentred(screen, kMainX + _mainDx, kBottomY + _dy, mainPlate.w, mainPlate.h, main, kText, words);
 }
 
 const SettingsScreen::Layout &SettingsScreen::layoutOf(SettingsPage page) {

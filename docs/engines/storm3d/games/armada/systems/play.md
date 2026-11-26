@@ -247,6 +247,41 @@ starbase's own crew stayed 800 of 1500. `RTS_CFG.h` gives the most,
 Center for additional personnel" as its tooltip says, and so 3.5 for
 each, is *(guessed)*.
 
+### The menu, surrendering and the debriefing
+
+The cinematic view's MENU button opens the game's menu, a dialog of the
+program's own over the paused game: the Options screen
+([front-end.md](front-end.md#the-options-screen)) with six buttons, 40
+apart from y 152, `label.map`'s `escape_menu` words: Surrender, Graphics
+Settings, Sound Settings, Game Settings, Abort Mission, Return to Game;
+the bottom bar's three plates empty.
+
+Surrender went straight to the debriefing, no word of defeat between,
+within a second. Over `bitmaps\credit\creditsBG.bmp`, its title
+"DEBRIEFING" where the Options screen's is, it has a row for each
+player and eight columns, `label.map`'s `multiplayer_debriefing` words
+in Arial Bold, as measured on its frame:
+
+- **The columns:** "Dilithium" (Collected, Spent), "Created", "Lost" and
+  "Destroyed" (each Ships, Stations), in (255, 190, 0): the headings 16
+  pixels, their lines' tops at y 64, centred over their two columns; the
+  columns' words 12 pixels at y 80, centred on x 215, then each 48 on.
+- **A row** for each player, 40 apart from y 100, in their colour (the
+  player's white, 230; the computer's red): their name ("Player", the
+  name typed; a computer's in the program's own words, "Computer
+  Medium", not the setup's "Computer AI:Medium") and side
+  ("Federation") on two lines 16 apart, centred on x 108, and their
+  numbers, 16 pixels, at y 108, centred on their columns. All were 0
+  in a game a minute old, its starting units not counted as created.
+- **Continue** on the bottom bar's middle plate (`mpsstart`, lit under
+  the pointer) went back to the Multiplayer Connection screen, and
+  **Quit To Windows** is on the right one (`navmain`), its words wider
+  than the plate.
+
+"Allied Victory", on the communications panel, says an ally's victory
+is enough to win (`Dynamic_Localized_Strings.h`), and the program has
+"%s surrendered." and "eliminated or quit" among its words.
+
 ### The camera's keys
 
 `Input.map` gives the overview camera its keys: the keypad's + and −
@@ -323,6 +358,18 @@ before and after each ([camera.md](camera.md#the-overview)):
   as above; the asteroid fields there are their sprite drawn small,
   `mapSize` square, added on *(guessed)*, and the marks at their
   sprite's own size (a wormhole's 8).
+- **Ending a skirmish:** the MENU button, or Esc, opens the menu over the
+  paused game, as above; its settings open the settings screens, and
+  Return to Game or Esc goes back. Surrender opens the debriefing, as
+  does the end: the player lost once they've no unit left, or won once
+  no player on another team has any *(guessed: the original wasn't
+  played to an end; whether it counts freighters, or Allied Victory's
+  part, isn't known)*. Abort Mission goes back to the Multiplayer
+  Connection screen without a debriefing *(guessed)*. The debriefing
+  counts each player's dilithium brought in by freighters and spent
+  (given back as a build is cancelled), the ships and stations they
+  built, those they lost, and those of other players their shots
+  destroyed.
 - **A skirmish** (`MissionView::startSkirmish`) starts from the Game
   Setup screen's slots: each player's race (one left Random takes the
   races in turn by its slot *(guessed)*), their colour, and slot *n* on
@@ -358,6 +405,9 @@ before and after each ([camera.md](camera.md#the-overview)):
 - How long the program waits on its first frame of play, and what the
   cut scene's camera follows.
 - How Random sides and Random Placement choose.
+- How the original ends a skirmish that's won or lost, rather than
+  surrendered: what it shows first, and when a player counts as out.
+- Where Abort Mission goes.
 - Whether the fog hides the asteroid fields and nebulae, and what of an
   enemy's station once seen (a last sight of it, or nothing).
 - The minimap's grey pixel, and how the view's bottom

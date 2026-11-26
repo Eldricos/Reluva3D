@@ -420,6 +420,19 @@ void Hud::drawOrders(Surface &screen, const Unit &unit) {
     drawSprite(screen, "bb_standard", transportX, rail[1] + slot[1], slot[2], slot[3], kBorderTint, true);
 }
 
+int Hud::cinematicButtonAt(int x, int y) const {
+    const std::array<int, 4> cinematic = _layout.area("cinematicPanelArea");
+    int n = 0;
+    for (const char *button : {"Comm", "Menu"}) {
+        ++n;
+        const std::array<int, 4> r = _layout.area(std::string("cinematic") + button + "ButtonArea");
+        if (x >= cinematic[0] + r[0] && y >= cinematic[1] + r[1] && x < cinematic[0] + r[0] + r[2] &&
+            y < cinematic[1] + r[1] + r[3])
+            return n;
+    }
+    return 0;
+}
+
 bool Hud::covers(int x, int y) const {
     for (const char *panel : panels()) {
         const std::array<int, 4> a = _layout.area(std::string(panel) + "PanelArea");

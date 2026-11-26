@@ -22,6 +22,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace reluva::storm3d {
@@ -67,7 +68,23 @@ public:
         std::string race; // "fed", "kling", "rom", "borg"
         gfx::Vec3 colour{};
         bool human = false;
+        int team = 0;     // players on a team win together
+        std::string name; // as the Game Setup screen says them: "Computer Medium"
+        std::string side; // "Federation"
     };
+    /** What a player did, as the debriefing counts it. */
+    struct Tally {
+        int collected = 0; // dilithium brought in by freighters
+        int spent = 0;
+        int shipsCreated = 0; // built, not started with
+        int stationsCreated = 0;
+        int shipsLost = 0;
+        int stationsLost = 0;
+        int shipsDestroyed = 0; // of other players'
+        int stationsDestroyed = 0;
+    };
+    /** How a skirmish has ended for the player: not yet, or they've won or lost. */
+    enum class Ending { kNone, kWon, kLost };
     /**
      * Starts a skirmish on `map`: each player's starting units as the game
      * makes them, in their colour; the camera over the human player's
@@ -239,6 +256,23 @@ public:
     static std::array<int, 3> healthBarOf(const MapScene::Unit &unit, const gfx::Mat4 &viewProj);
     /** Moves on to `millis` and draws. */
     void draw(uint64_t millis);
+    /**
+     * Shows a 2D screen in the mission's place (its menu, its debriefing),
+     * the mission waiting meanwhile: its clock doesn't run on.
+     */
+    void drawScreen(const Surface &screen, uint64_t millis);
+    /** The skirmish's players, in their slots' order; each one's tally, by slot. */
+    const std::vector<Player> &players() const { return _players; }
+    const std::map<int, Tally> &tallies() const { return _tallies; }
+    /**
+     * Whether it's over for the player: lost once they've surrendered or
+     * have no units left; won once no other team has any.
+     */
+    Ending ending() const;
+    /** The player gives up. */
+    void surrender() { _surrendered = true; }
+    /** Whether the MENU button was clicked since this was last asked (it's then forgotten). */
+    bool takeMenuRequest() { return std::exchange(_menuWanted, false); }
     const Overview &overview() const { return _overview; }
 
 private:
@@ -300,6 +334,10 @@ private:
         double began = 0;
     };
     std::vector<Explosion> _explosions;
+    std::vector<Player> _players;
+    std::map<int, Tally> _tallies; // by slot
+    bool _surrendered = false;
+    bool _menuWanted = false;
     bool _targeting = false; // the attack button pressed: the next click picks the target
     uint32_t _roll = 12345;  // the shots' damage rolls
     std::vector<Site> _sites;
@@ -318,7 +356,7 @@ private:
     void addFighter(const std::string &odf);
     void fight(double seconds);
     int liveUnitAt(const gfx::Mat4 &viewProj, int x, int y) const; // unitAt's, but not a destroyed one
-    void destroy(size_t unit);
+    void destroy(size_t unit, int by);                             // by: the slot of the player whose shot it was
     std::optional<size_t> addShip(const std::string &odf, const gfx::Vec3 &at, float heading,
                                   const MapScene::Unit &owner);
     void makeCells();

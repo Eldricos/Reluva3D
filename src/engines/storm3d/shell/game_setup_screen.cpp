@@ -354,6 +354,11 @@ std::string GameSetupScreen::whoText(const Slot &slot) const {
     }
 }
 
+std::string GameSetupScreen::sideText(const Slot &slot, size_t index) const {
+    const size_t side = slot.side > 0 ? size_t(slot.side) : 1 + index % 4;
+    return _text.text(kSection, sides()[side < sides().size() ? side : 1]);
+}
+
 void GameSetupScreen::draw(Surface &screen) {
     drawPicture(screen, _background, 0, 0, false);
     _font.draw(screen, 64, 6, _text.text(kSection, "title"), kTitle, kWhite);

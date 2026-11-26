@@ -102,7 +102,8 @@ which has the title bar and the panel painted in. Three buttons,
 Settings", black, in Arial Bold of 16 pixels, centred. The title,
 "OPTIONS", is white, in Arial Bold of 20 pixels, its line's top at
 (65, 6). The words are `label.map`'s `escape_menu` section's, the menu
-Esc opens in play, which has these three among its own.
+a game's MENU button opens, which has these three among its own
+([play.md](play.md#the-menu-surrendering-and-the-debriefing)).
 
 Along the bottom are three plates, all from `bitmaps\multiset\`:
 

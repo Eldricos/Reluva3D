@@ -96,8 +96,12 @@ public:
 
     void draw(Surface &screen);
 
-private:
+    /** Who a slot is, in words: the player's name, "Computer Medium"... */
     std::string whoText(const Slot &slot) const;
+    /** A slot's side, in words ("Federation"): raceOf's for Random. */
+    std::string sideText(const Slot &slot, size_t index) const;
+
+private:
     int amount(size_t option) const; // the number an option's value says
 
     image::Image _background;

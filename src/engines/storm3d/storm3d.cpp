@@ -21,6 +21,7 @@
 #include "engines/storm3d/shell/loading_screen.h"
 #include "engines/storm3d/shell/main_menu.h"
 #include "engines/storm3d/shell/multiplayer_screen.h"
+#include "engines/storm3d/shell/debriefing_screen.h"
 #include "engines/storm3d/shell/options_screen.h"
 #include "engines/storm3d/shell/single_player.h"
 
@@ -96,6 +97,14 @@ public:
         bool loadingOn = false;
         MissionView mission(_files);
         bool missionOn = false;
+        // Over a skirmish, its own screens: its menu (the Options screen
+        // with Surrender, Abort Mission and Return to Game), the settings
+        // from it, and the debriefing it ends on.
+        OptionsScreen gameMenu;
+        bool gameMenuOn = false;
+        bool gameSettingsOn = false;
+        DebriefingScreen debriefing;
+        bool debriefingOn = false;
         // A skirmish launched, waiting for its loading screen: its players.
         std::vector<MissionView::Player> skirmish;
         bool shroud = true;
@@ -108,7 +117,34 @@ public:
             loading.stop();
             mission.stop();
             loadingOn = missionOn = false;
+            gameMenuOn = gameSettingsOn = debriefingOn = false;
             return _sys.initGraphics(kWidth, kHeight, PixelFormat::kRGBA32);
+        };
+        // The debriefing, its rows the players' as the Game Setup screen
+        // named them, in their colours.
+        auto openDebriefing = [&]() -> Error {
+            if (Error err = debriefing.load(_files))
+                return err;
+            std::vector<DebriefingScreen::Row> rows;
+            for (const MissionView::Player &p : mission.players()) {
+                DebriefingScreen::Row row;
+                row.name = p.name;
+                row.side = p.side;
+                row.colour = {uint8_t(std::lround(std::clamp(p.colour[0], 0.0f, 1.0f) * 255)),
+                              uint8_t(std::lround(std::clamp(p.colour[1], 0.0f, 1.0f) * 255)),
+                              uint8_t(std::lround(std::clamp(p.colour[2], 0.0f, 1.0f) * 255))};
+                auto t = mission.tallies().find(p.slot);
+                if (t != mission.tallies().end()) {
+                    const MissionView::Tally &n = t->second;
+                    row.numbers = {n.collected, n.spent,        n.shipsCreated,   n.stationsCreated,
+                                   n.shipsLost, n.stationsLost, n.shipsDestroyed, n.stationsDestroyed};
+                }
+                rows.push_back(row);
+            }
+            debriefing.setRows(rows);
+            gameMenuOn = gameSettingsOn = false;
+            debriefingOn = true;
+            return Error::success();
         };
         for (bool running = true; running;) {
             const uint64_t now = _sys.getMillis();
@@ -139,10 +175,96 @@ public:
                             return err;
                         }
                     }
+                } else if (missionOn && debriefingOn) {
+                    if (ev.type == EventType::kMouseMove && debriefing.pointerAt(ev.mouseX, ev.mouseY))
+                        play("sounds/effects/cornron.wav", audio::SoundType::kEffects, false);
+                    else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft)
+                        debriefing.press(ev.mouseX, ev.mouseY);
+                    else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
+                        const DebriefingChoice choice = debriefing.release(ev.mouseX, ev.mouseY);
+                        if (choice != DebriefingChoice::kNone)
+                            play("sounds/effects/cornrclk.wav", audio::SoundType::kEffects, false);
+                        if (choice == DebriefingChoice::kQuit) {
+                            running = false;
+                        } else if (choice == DebriefingChoice::kContinue) {
+                            // Back to the Multiplayer Connection screen, as the
+                            // original's Continue went.
+                            if (Error err = endLoading()) {
+                                stopAll();
+                                return err;
+                            }
+                            setupOn = false;
+                            _sys.setTextInput(true);
+                            connectionOn = true;
+                        }
+                    }
+                } else if (missionOn && gameSettingsOn) {
+                    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
+                        gameSettingsOn = false;
+                    } else if (ev.type == EventType::kMouseMove && settings.pointerAt(ev.mouseX, ev.mouseY)) {
+                        play("sounds/effects/cornron.wav", audio::SoundType::kEffects, false);
+                    } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
+                        settings.press(ev.mouseX, ev.mouseY);
+                    } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
+                        if (settings.release(ev.mouseX, ev.mouseY))
+                            gameSettingsOn = false;
+                        applyVolumes();
+                    }
+                } else if (missionOn && gameMenuOn) {
+                    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
+                        gameMenuOn = false;
+                    } else if (ev.type == EventType::kMouseMove && gameMenu.pointerAt(ev.mouseX, ev.mouseY)) {
+                        play("sounds/effects/cornron.wav", audio::SoundType::kEffects, false);
+                    } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
+                        gameMenu.press(ev.mouseX, ev.mouseY);
+                    } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
+                        const OptionsChoice choice = gameMenu.release(ev.mouseX, ev.mouseY);
+                        if (choice != OptionsChoice::kNone)
+                            play("sounds/effects/cornrclk.wav", audio::SoundType::kEffects, false);
+                        if (choice == OptionsChoice::kReturn) {
+                            gameMenuOn = false;
+                        } else if (choice == OptionsChoice::kSurrender) {
+                            // Straight to the debriefing, as the original went.
+                            mission.surrender();
+                            if (Error err = openDebriefing()) {
+                                stopAll();
+                                return err;
+                            }
+                        } else if (choice == OptionsChoice::kAbort) {
+                            // Out of the game without a debriefing, back where
+                            // it was launched from *(guessed)*.
+                            if (Error err = endLoading()) {
+                                stopAll();
+                                return err;
+                            }
+                            setupOn = false;
+                            _sys.setTextInput(true);
+                            connectionOn = true;
+                        } else if (choice == OptionsChoice::kGraphics || choice == OptionsChoice::kSound ||
+                                   choice == OptionsChoice::kGame) {
+                            if (Error err = settings.load(_files, &_preferences)) {
+                                stopAll();
+                                return err;
+                            }
+                            settings.open(choice == OptionsChoice::kGraphics ? SettingsPage::kGraphics
+                                          : choice == OptionsChoice::kSound  ? SettingsPage::kSound
+                                                                             : SettingsPage::kGame);
+                            gameSettingsOn = true;
+                        }
+                    }
+                } else if (missionOn && ev.type == EventType::kKeyDown && ev.key == key::kEscape &&
+                           !mission.players().empty()) {
+                    // A skirmish's menu, as its MENU button opens it.
+                    if (Error err = gameMenu.load(_files, true)) {
+                        stopAll();
+                        return err;
+                    }
+                    gameMenuOn = true;
                 } else if (missionOn && !(ev.type == EventType::kKeyDown && ev.key == key::kEscape)) {
                     mission.handleEvent(ev);
                 } else if (loadingOn || missionOn) {
-                    // Esc gives up on the mission: its own menu comes later.
+                    // Esc gives up on a campaign mission: its own menu comes
+                    // later.
                     if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
                         if (Error err = endLoading()) {
                             stopAll();
@@ -214,6 +336,14 @@ public:
                             p.colour = MapScene::teamColourOf(GameSetupScreen::colourName(slot.colour), _files.files())
                                            .value_or(gfx::Vec3{0.5f, 0.5f, 0.5f});
                             p.human = slot.who == GameSetupScreen::Who::kPlayer;
+                            p.team = slot.team;
+                            // The debriefing names a computer in the program's
+                            // own words ("Computer Medium"), not the setup's.
+                            p.name = slot.who == GameSetupScreen::Who::kComputerEasy     ? "Computer Easy"
+                                     : slot.who == GameSetupScreen::Who::kComputerMedium ? "Computer Medium"
+                                     : slot.who == GameSetupScreen::Who::kComputerHard   ? "Computer Hard"
+                                                                                         : setup.whoText(slot);
+                            p.side = setup.sideText(slot, i);
                             skirmish.push_back(p);
                         }
                         shroud = setup.shroud();
@@ -354,7 +484,29 @@ public:
                 continue;
             }
             if (missionOn) {
-                mission.draw(now);
+                if (debriefingOn || gameSettingsOn || gameMenuOn) {
+                    if (debriefingOn)
+                        debriefing.draw(screen);
+                    else if (gameSettingsOn)
+                        settings.draw(screen);
+                    else
+                        gameMenu.draw(screen);
+                    mission.drawScreen(screen, now);
+                } else {
+                    mission.draw(now);
+                    if (mission.takeMenuRequest()) {
+                        if (Error err = gameMenu.load(_files, true)) {
+                            stopAll();
+                            return err;
+                        }
+                        gameMenuOn = true;
+                    } else if (mission.ending() != MissionView::Ending::kNone) {
+                        if (Error err = openDebriefing()) {
+                            stopAll();
+                            return err;
+                        }
+                    }
+                }
                 _sys.delayMillis(kFrameMs);
                 continue;
             }

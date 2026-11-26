@@ -4,6 +4,7 @@
 // Storm3D's unit tests: the front end's screens, their buttons where the
 // game's frames have them.
 
+#include "engines/storm3d/shell/debriefing_screen.h"
 #include "engines/storm3d/shell/game_setup_screen.h"
 #include "engines/storm3d/shell/loading_screen.h"
 #include "engines/storm3d/shell/main_menu.h"
@@ -18,6 +19,8 @@
 #include <string>
 #include <vector>
 
+using reluva::storm3d::DebriefingChoice;
+using reluva::storm3d::DebriefingScreen;
 using reluva::storm3d::GameSetupScreen;
 using reluva::storm3d::LoadingScreen;
 using reluva::storm3d::MainMenu;
@@ -89,15 +92,34 @@ void testCampaigns() {
 
 // The Options screen's buttons, 324 x 32 and 112 x 30, where the game's
 // frame has them; the gaps between them answer nothing.
+// The debriefing's two plates: Continue across the middle, Quit To
+// Windows on the right; nothing on the left, where others have Previous
+// Menu.
+void testDebriefing() {
+    CHECK(DebriefingScreen::choiceAt(320, 460) == DebriefingChoice::kContinue);
+    CHECK(DebriefingScreen::choiceAt(123, 445) == DebriefingChoice::kContinue);
+    CHECK(DebriefingScreen::choiceAt(580, 460) == DebriefingChoice::kQuit);
+    CHECK(DebriefingScreen::choiceAt(60, 460) == DebriefingChoice::kNone);
+    CHECK(DebriefingScreen::choiceAt(320, 300) == DebriefingChoice::kNone);
+}
+
 void testOptions() {
-    CHECK(OptionsScreen::buttons().size() == 3);
-    CHECK(OptionsScreen::choiceAt(320, 208) == OptionsChoice::kGraphics);
-    CHECK(OptionsScreen::choiceAt(158, 232) == OptionsChoice::kSound);
-    CHECK(OptionsScreen::choiceAt(481, 303) == OptionsChoice::kGame);
-    CHECK(OptionsScreen::choiceAt(320, 228) == OptionsChoice::kNone);
-    CHECK(OptionsScreen::choiceAt(60, 460) == OptionsChoice::kPreviousMenu);
-    CHECK(OptionsScreen::choiceAt(117, 460) == OptionsChoice::kNone);
-    CHECK(OptionsScreen::choiceAt(560, 460) == OptionsChoice::kNone);
+    CHECK(OptionsScreen::buttons(false).size() == 3);
+    CHECK(OptionsScreen::choiceAt(320, 208, false) == OptionsChoice::kGraphics);
+    CHECK(OptionsScreen::choiceAt(158, 232, false) == OptionsChoice::kSound);
+    CHECK(OptionsScreen::choiceAt(481, 303, false) == OptionsChoice::kGame);
+    CHECK(OptionsScreen::choiceAt(320, 228, false) == OptionsChoice::kNone);
+    CHECK(OptionsScreen::choiceAt(60, 460, false) == OptionsChoice::kPreviousMenu);
+    CHECK(OptionsScreen::choiceAt(117, 460, false) == OptionsChoice::kNone);
+    CHECK(OptionsScreen::choiceAt(560, 460, false) == OptionsChoice::kNone);
+    // In a game: Surrender above, Abort Mission and Return to Game below,
+    // and no Previous Menu.
+    CHECK(OptionsScreen::buttons(true).size() == 6);
+    CHECK(OptionsScreen::choiceAt(320, 168, true) == OptionsChoice::kSurrender);
+    CHECK(OptionsScreen::choiceAt(320, 208, true) == OptionsChoice::kGraphics);
+    CHECK(OptionsScreen::choiceAt(320, 328, true) == OptionsChoice::kAbort);
+    CHECK(OptionsScreen::choiceAt(320, 368, true) == OptionsChoice::kReturn);
+    CHECK(OptionsScreen::choiceAt(60, 460, true) == OptionsChoice::kNone);
 }
 
 // The settings pages' controls where the game's frames have them, and
@@ -192,6 +214,7 @@ static const reluva::test::Suite
                                      {"races", [](const std::filesystem::path &) { testRaces(); }},
                                      {"campaigns", [](const std::filesystem::path &) { testCampaigns(); }},
                                      {"options", [](const std::filesystem::path &) { testOptions(); }},
+                                     {"debriefing", [](const std::filesystem::path &) { testDebriefing(); }},
                                      {"settings", [](const std::filesystem::path &) { testSettings(); }},
                                      {"connection", [](const std::filesystem::path &) { testConnection(); }},
                                      {"game setup", [](const std::filesystem::path &) { testGameSetup(); }},

@@ -520,6 +520,7 @@ void MissionView::pressControl(int slot) {
         // paid for *(guessed)*.
         if (slot == 11) {
             if (site->started && _resources) {
+                _tallies[_slot].spent -= site->order.dilithium;
                 _resources->dilithium += site->order.dilithium;
                 _resources->crew += site->order.crew;
                 _resources->officers -= site->order.officers;
@@ -531,6 +532,7 @@ void MissionView::pressControl(int slot) {
         const Order o = _queues[builder].back();
         _queues[builder].pop_back();
         if (_resources) {
+            _tallies[_slot].spent -= o.dilithium;
             _resources->dilithium += o.dilithium;
             _resources->crew += o.crew;
             _resources->officers -= o.officers;
@@ -544,8 +546,10 @@ void MissionView::pressControl(int slot) {
                 _placingFootprint = footprintOf(*_placing, {}, 0).value_or(Footprint{});
             } else if (b.slot == slot && b.enabled && _resources) {
                 const Order o = orderOf(_buildItems[size_t(slot) - 1], loaderOf(_files.files()));
-                if (pay(*_resources, o))
+                if (pay(*_resources, o)) {
+                    _tallies[_slot].spent += o.dilithium;
                     _queues[builder].push_back(o);
+                }
             }
     }
 }
@@ -782,8 +786,10 @@ void MissionView::think(double seconds) {
                 if (std::find(items.begin(), items.end(), e.type) == items.end())
                     continue;
                 const Order order = orderOf(e.type, loader);
-                if (pay(c.bank, order))
+                if (pay(c.bank, order)) {
+                    _tallies[c.slot].spent += order.dilithium;
                     _queues[i].push_back(order);
+                }
                 break;
             }
             continue;
@@ -813,6 +819,7 @@ void MissionView::raise(const Site &site) {
     unit.colour = from.colour;
     if (!_scene.addUnit(unit, 0))
         return;
+    ++_tallies[from.slot].stationsCreated;
     _moves.push_back(false);
     _physics.emplace_back();
     addFighter(site.order.item);
@@ -878,12 +885,12 @@ void MissionView::fight(double seconds) {
             // A roll from a little generator of our own, the same each game.
             _roll = _roll * 1664525u + 1013904223u;
             const float roll = float(_roll >> 8) / float(1u << 24);
-            _shots.push_back({size_t(t), from, w.speed, Combat::damageOf(w, roll), w.sprite, from});
+            _shots.push_back({size_t(t), from, w.speed, Combat::damageOf(w, roll), w.sprite, from, units[i].slot});
             w.ready = w.delay;
         }
     }
     // The shots fly to their targets' middles, and hit there.
-    std::vector<size_t> killed;
+    std::vector<std::pair<size_t, int>> killed; // and by whom
     for (size_t s = 0; s < _shots.size();) {
         Combat::Shot &shot = _shots[s];
         if (shot.target >= count || _dead[shot.target]) {
@@ -911,20 +918,27 @@ void MissionView::fight(double seconds) {
             // original's ship was burning after its sixth volley, not its fifth).
             _scene.setDamaged(shot.target, v.hull < v.maxHull * 2 / 3);
             if (!v.alive())
-                killed.push_back(shot.target);
+                killed.emplace_back(shot.target, shot.slot);
             _shots.erase(_shots.begin() + std::ptrdiff_t(s));
             continue;
         }
         shot.at = {shot.at[0] + dx / left * step, shot.at[1] + dy / left * step, shot.at[2] + dz / left * step};
         ++s;
     }
-    for (size_t k : killed)
+    for (const auto &[k, by] : killed)
         if (!_dead[k])
-            destroy(k);
+            destroy(k, by);
 }
 
-void MissionView::destroy(size_t unit) {
+void MissionView::destroy(size_t unit, int by) {
     _dead[unit] = true;
+    // Counted as the debriefing does: lost by its player, destroyed by the
+    // other's (its own ships' kills not counted *(guessed)*).
+    const int slot = _scene.units()[unit].slot;
+    const bool ship = unit < _moves.size() && _moves[unit];
+    ++(ship ? _tallies[slot].shipsLost : _tallies[slot].stationsLost);
+    if (by != slot)
+        ++(ship ? _tallies[by].shipsDestroyed : _tallies[by].stationsDestroyed);
     // It explodes where it was: its fireball's model (craft.odf's xfirebmd,
     // whose dbName is xplode).
     {
@@ -992,15 +1006,19 @@ void MissionView::build(double seconds) {
             if (std::hypot(m[0] - station[0], m[2] - station[2]) <
                 std::hypot((*moon)[0] - station[0], (*moon)[2] - station[2]))
                 moon = &m;
+        const int before = bank->dilithium;
         work(f, _ships[f.unit], *moon, station, bank->dilithium, seconds);
+        _tallies[_scene.units()[f.station].slot].collected += std::max(0, bank->dilithium - before);
     }
     // The stations: begun, and paid for, when the builder has got there.
     for (size_t i = 0; i < _sites.size();) {
         Site &site = _sites[i];
         const Movement::Ship &ship = _ships[site.builder];
         Hud::Resources *bank = bankOf(_scene.units()[site.builder].slot);
-        if (!site.started && !ship.goal && bank && pay(*bank, site.order))
+        if (!site.started && !ship.goal && bank && pay(*bank, site.order)) {
             site.started = true;
+            _tallies[_scene.units()[site.builder].slot].spent += site.order.dilithium;
+        }
         if (site.started)
             site.order.elapsed += seconds;
         if (site.started && site.order.elapsed >= site.order.time) {
@@ -1034,7 +1052,10 @@ void MissionView::launch(size_t builder, const std::string &item) {
     at[1] = to[1];
     const float heading = std::atan2(to[0] - at[0], to[2] - at[2]);
     // It flies out of the builder, through it.
-    if (auto unit = addShip(item, at, heading, from); unit && _physics[*unit])
+    const std::optional<size_t> unit = addShip(item, at, heading, from);
+    if (unit)
+        ++_tallies[from.slot].shipsCreated;
+    if (unit && _physics[*unit])
         _ships[*unit].goal = to;
 }
 
@@ -1149,6 +1170,7 @@ Error MissionView::start(gfx::Renderer3D *renderer, const std::string &map, int 
 Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &map, const std::vector<Player> &players,
                                  MapScene::Cover cover, const Hud::Resources &start, uint64_t millis) {
     stop();
+    _players = players;
     BznMap parsed;
     std::vector<uint8_t> data;
     if (Error err = _files.read("bzn/" + map, data))
@@ -1583,6 +1605,12 @@ void MissionView::stop() {
     _targets.clear();
     _dead.clear();
     _shots.clear();
+    _shieldHits.clear();
+    _explosions.clear();
+    _players.clear();
+    _tallies.clear();
+    _surrendered = false;
+    _menuWanted = false;
     _targeting = false;
     _slot = -1;
     _dragging = false;
@@ -1603,6 +1631,10 @@ void MissionView::handleEvent(const Event &ev) {
         if (auto at = _hud.minimapPointAt(ev.mouseX, ev.mouseY, map.area[0], map.area[1], map.area[4], map.area[5])) {
             _overview.target[0] = (*at)[0];
             _overview.target[2] = (*at)[1];
+            return;
+        }
+        if (_hud.cinematicButtonAt(ev.mouseX, ev.mouseY) == 2) {
+            _menuWanted = true;
             return;
         }
         pressControl(_hud.controlAt(ev.mouseX, ev.mouseY));
@@ -1674,6 +1706,39 @@ void MissionView::handleEvent(const Event &ev) {
         _held.insert(action);
     else
         _held.erase(action);
+}
+
+MissionView::Ending MissionView::ending() const {
+    if (_players.empty())
+        return Ending::kNone;
+    if (_surrendered)
+        return Ending::kLost;
+    // A player is out with nothing left: every unit of theirs destroyed
+    // (whether the original counts its freighters isn't known).
+    auto standing = [this](int slot) {
+        for (size_t i = 0; i < _scene.units().size() && i < _dead.size(); ++i)
+            if (_scene.units()[i].slot == slot && !_dead[i])
+                return true;
+        return false;
+    };
+    int team = -1;
+    for (const Player &p : _players)
+        if (p.human)
+            team = p.team;
+    if (!standing(_slot))
+        return Ending::kLost;
+    for (const Player &p : _players)
+        if (p.team != team && standing(p.slot))
+            return Ending::kNone;
+    return Ending::kWon;
+}
+
+void MissionView::drawScreen(const Surface &screen, uint64_t millis) {
+    if (!_renderer)
+        return;
+    _renderer->beginFrame(gfx::identity(), {0, 0, 0}, kClear);
+    _renderer->endFrame(&screen);
+    _last = millis;
 }
 
 void MissionView::draw(uint64_t millis) {

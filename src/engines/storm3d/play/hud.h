@@ -90,6 +90,8 @@ public:
     void drawSelection(Surface &screen, const std::vector<Unit> &units, const Unit &orders);
     /** Whether a point of the screen is on one of the panels (where clicks don't reach the map). */
     bool covers(int x, int y) const;
+    /** The cinematic view's button under a point: 1 COMM, 2 MENU, 0 none. */
+    int cinematicButtonAt(int x, int y) const;
     /**
      * Draws a unit's health bar from (left, top), `width` across and 4
      * high: the info panel's large_shield_bar sprite in dark grey, then in

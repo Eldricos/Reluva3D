@@ -53,6 +53,7 @@ public:
         float damage = 0;
         std::string sprite;
         gfx::Vec3 from{}; // where it was fired from
+        int slot = 0;     // whose it is: the player's slot
     };
 
     /** Damage taken: by the shields while they last, then by the hull, twice as much. */

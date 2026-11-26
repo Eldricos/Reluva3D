@@ -44,10 +44,17 @@ public:
      */
     void draw(Surface &screen, ShellFont &font, const std::string &previous, bool lit, bool pressed,
               const std::string &start = {}, const std::string &main = {}, Color words = {0, 0, 0}) const;
+    /**
+     * Draws only its middle and right plates, saying `start` and `main`
+     * (the debriefing has no Previous Menu); `startLook` and `mainLook`:
+     * 0 at rest, 1 under the pointer, 2 pressed.
+     */
+    void drawPlates(Surface &screen, ShellFont &font, const std::string &start, const std::string &main,
+                    Color words = {0, 0, 0}, int startLook = 0, int mainLook = 0) const;
 
 private:
-    image::Image _start;
-    image::Image _main;
+    std::array<image::Image, 3> _start; // mpsstart1 to 3: at rest, lit, pressed
+    std::array<image::Image, 3> _main;  // navmain1 to 3
     ShellButton _previous;
     int _dx = 0;
     int _dy = 0;
