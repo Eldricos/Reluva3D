@@ -624,7 +624,12 @@ known.
   like) from 1 January 2001 moving on with that clock (the game seeds its
   random numbers from them: a campaign's ship names and missions came out
   different each run), so a run with the same input repeats
-  frame for frame and input lands on the same screens.
+  frame for frame and input lands on the same screens. Its count starts
+  where the last run with the same save folder stopped
+  (`reluva-clock.txt` in the folder), as a machine's goes on from one run
+  of a program to the next: started from 0 every run, a loaded campaign
+  never started its next mission ([Questions
+  answered](#questions-answered)). A new folder starts at 0.
 - **Multiplayer:** DirectPlay's TCP/IP between copies of Reluva
   ([dplay.md](../../../../../common/x86/dplay.md#the-network)); the
   engine gives it the system's sockets, the host tool `-net`.
@@ -711,6 +716,25 @@ time isn't measured.
 - **The game's own Winsock functions:** Dynaverse II's, for its login
   ([Its multiplayer](#its-multiplayer)), and the machine's name and
   address for DirectPlay.
+- **Why a loaded campaign stopped starting missions:** Reluva's clock.
+  A campaign loaded from a save made late in an earlier run (two missions
+  in) offered missions, but once one was accepted it never started: the
+  program stopped waiting for its frames, wrote its campaign database
+  (`Sfc2Spd.sds`) four bytes at a time (at 0x7e3aa) and ran a search
+  through it each frame (a message handler, 0x5481b5), the stardate going
+  on. The game keeps `timeGetTime`'s count in its campaign: at READY it
+  takes it as the mission's start (0x46eb02, by a clock object whose
+  method is `timeGetTime` itself) *(from the code)*. Windows counts from
+  the machine's start, so a later run's count is higher; Reluva counted
+  from the program's, 0 each run, so a run that reached READY about as
+  far into it as the saving run had begun the campaign stuck. Loaded with
+  the tick count moved on (by 0.5, 1, 2 or 36 million ms, the date left as
+  it was) the same save started its mission each time, and moved back (0)
+  it stuck each time; on the host's clock, started later into its run,
+  it started *(confirmed)*. Which value the game compares, and how, isn't
+  traced. Reluva now counts from the host machine's start, and the fixed
+  clock goes on from the save folder's last run: a campaign of two
+  missions, saved, loaded and the next mission accepted, starts it.
 
 ## Open questions
 
@@ -722,18 +746,3 @@ time isn't measured.
   key (`DDERR_NOCOLORKEY`, "the surface does not currently have a color
   key"), but doesn't list it among `Blt`'s; Reluva fails such a blit, as
   that error says.
-- Why no mission starts once one has been played in a campaign that was
-  loaded. Loaded from the first win's auto-save, Convoy Escort is offered,
-  accepted and won; after it, in the same run, a move brings no missions,
-  and its auto-save, loaded, offers Patrol or Base Defense (by the hex),
-  but ACCEPT blanks its button and the mission never starts, the stardate
-  going on. A campaign begun anew plays its next missions after a win
-  (Monster, Patrol after a forfeit). From the click on, the program never
-  waits for its next frame: its campaign database (`Sfc2Spd.sds`) is
-  written four bytes at a time (at 0x7e3aa), and a message handler
-  (0x5481b5) runs a search through it each frame, as it does when a
-  mission starts. Ruled out: the JIT (the same with `RELUVA_NO_JIT`), file
-  handles left open (one at a time, each closed), the database cut short
-  (it grows as when a mission starts). The 1.0 readme's known issues
-  include "a random crash occurs during instances when accepting a
-  mission". Whether this is the game's or Reluva's isn't known.

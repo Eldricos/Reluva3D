@@ -24,6 +24,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <map>
 #include <optional>
 #include <string>
@@ -248,11 +249,21 @@ int cmdHost(int argc, char **argv) {
     // where it did, however fast the host is.
     // When every thread waits, the clock moves on a millisecond a time,
     // as nothing runs to move it.
+    // It starts where the last run with the same save folder stopped
+    // (kept in the folder's reluva-clock.txt), as a machine's clock goes on
+    // from one run of a program to the next: the game keeps the count in
+    // its campaign saves, and when a run starts from 0 below a save's, the
+    // next mission accepted never starts
+    // (docs/engines/sfc/games/sfc2/systems/hosting.md). A new folder starts
+    // at 0, so a run with one shows the same frames each time.
     std::atomic<uint64_t> idleMs{0};
+    const std::filesystem::path clockFile = saveFolder / "reluva-clock.txt";
+    uint64_t clockStart = 0;
     if (fixedClock) {
-        process.milliseconds = [&cpu, &process, &idleMs] {
+        std::ifstream(clockFile) >> clockStart;
+        process.milliseconds = [&cpu, &process, &idleMs, clockStart] {
             constexpr uint64_t kInstructionsPerMs = 40000;
-            return uint32_t(cpu.executed() / kInstructionsPerMs + process.slept() + idleMs);
+            return uint32_t(clockStart + cpu.executed() / kInstructionsPerMs + process.slept() + idleMs);
         };
         process.idleTick = [&idleMs] { ++idleMs; };
         // And the date, from 1 January 2001, moving on with that clock.
@@ -487,6 +498,8 @@ int cmdHost(int argc, char **argv) {
                 std::printf("  %s at 0x%x, 0x%x bytes\n", m->name.c_str(), m->base, m->size);
         }
     }
+    if (fixedClock)
+        std::ofstream(clockFile) << process.milliseconds() << "\n";
     std::printf("%llu exceptions raised\n", static_cast<unsigned long long>(raised));
     std::printf("%llu instructions in %.2f s (%.1f million a second); %llu frames shown\n",
                 static_cast<unsigned long long>(executed), seconds,

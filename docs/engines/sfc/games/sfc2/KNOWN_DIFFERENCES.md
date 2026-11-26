@@ -59,9 +59,6 @@ haven't been passed, and the Film Room's playback hasn't been
   messages, which the game doesn't use; a new host, across machines,
   needs the first to join to be on another machine than the host
   ([dplay.md](../../../../common/x86/dplay.md)).
-- **A loaded campaign stops starting missions.** Once a mission has been
-  played in a campaign that was loaded, no later mission starts; whether
-  the game or Reluva is at fault isn't known yet ([systems/hosting.md](systems/hosting.md#open-questions)).
 - **The 2.0.3.6 patch's own changes are partly played.** A skirmish,
   its new Scan mission and a multiplayer battle are won; its other new
   missions and its Sulu skirmishes haven't been played, and a 1.0
