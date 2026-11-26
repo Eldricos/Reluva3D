@@ -131,6 +131,9 @@ station's model coming bit by bit aren't drawn yet.
 
 ## Open questions
 
+- Where a shipyard (`fyard`) may go: the original refused one at a site
+  whose square Reluva finds clear, left of the start, and drew its
+  square's right edge 20 pixels further right than Reluva's at another.
 - What makes other items dark, and whether a menu item is dark without
   the dilithium or crew for it.
 - What cancel takes off and pays back, and how the queue is shown past

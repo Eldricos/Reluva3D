@@ -1734,11 +1734,24 @@ bool MissionView::attack(int target) {
     return any;
 }
 
+std::optional<gfx::Vec3> MissionView::chasePointOf(const gfx::Vec3 &from, const gfx::Vec3 &to, float reach,
+                                                   float height) {
+    // The original's destroyer, its target flown from 186 to 300 away,
+    // moved 93 towards it and fired from 246: just inside its reach of
+    // 250; within reach it held where it was.
+    constexpr float kInside = 0.95f;
+    const float dx = to[0] - from[0];
+    const float dz = to[2] - from[2];
+    if (std::hypot(dx, to[1] - from[1], dz) <= reach)
+        return std::nullopt;
+    const float flat = std::max(1e-3f, std::hypot(dx, dz));
+    const float keep = reach * kInside;
+    return gfx::Vec3{to[0] - dx / flat * keep, height, to[2] - dz / flat * keep};
+}
+
 void MissionView::pursue() {
-    // Out of its weapons' reach, a ship flies to a point well inside it on
-    // the way to its target, set afresh as the target moves; within it,
-    // it stops there.
-    constexpr float kInside = 0.8f;
+    // Out of its weapons' reach, a ship flies to the edge of it on the way
+    // to its target, set afresh as the target moves; within it, it stops.
     const std::vector<MapScene::Unit> &units = _scene.units();
     for (size_t i = 0; i < units.size() && i < _targets.size() && i < _chasing.size() && i < _ships.size(); ++i) {
         const int t = _targets[i];
@@ -1752,18 +1765,11 @@ void MissionView::pursue() {
         float reach = 0;
         for (const Combat::Weapon &w : _weapons[i])
             reach = std::max(reach, w.range);
-        const gfx::Vec3 from = units[i].middle();
-        const gfx::Vec3 to = units[size_t(t)].middle();
-        const float dx = to[0] - from[0];
-        const float dz = to[2] - from[2];
-        const float distance = std::hypot(dx, to[1] - from[1], dz);
-        if (distance > reach) {
-            const float flat = std::max(1e-3f, std::hypot(dx, dz));
-            const float keep = reach * kInside;
-            ship.goal = gfx::Vec3{to[0] - dx / flat * keep, ship.at[1], to[2] - dz / flat * keep};
+        if (auto point = chasePointOf(units[i].middle(), units[size_t(t)].middle(), reach, ship.at[1])) {
+            ship.goal = point;
             ship.route.clear();
             _chasing[i] = true;
-        } else if (_chasing[i] && distance <= reach * kInside + 1) {
+        } else if (_chasing[i]) {
             ship.goal.reset();
             _chasing[i] = false;
         }

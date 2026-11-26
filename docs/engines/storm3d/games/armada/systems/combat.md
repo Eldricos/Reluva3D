@@ -41,6 +41,17 @@ every second from then to 140 seconds.
 - **Destroyed,** it left debris and its officers went back to the count
   (4 to 2 of 120); the selection lost it.
 
+### Chasing
+
+A shipyard built, and a destroyer (`fdestroy`, its `dpulse` reaching
+250) from it, the destroyer was told to attack a construction ship 186
+away (A, then a click on the ship). It fired from where it was. The
+ship was then flown 300 away: the destroyer moved 93 towards it,
+stopped 246 from it, just inside its reach, and fired again from
+there, the ship's crew falling (492 to 479 over 30 seconds). Their
+places were measured on the frames against the shipyard's site, to
+about ten units.
+
 ### What's drawn
 
 From the same run's frames and draws:
@@ -83,12 +94,9 @@ From the same run's frames and draws:
   right-click interface, and no enemy was near enough to try. A right
   click on the map sends the ships there, giving their attack up.
 - **Chasing:** a ship whose target is out of its weapons' reach flies
-  to the point on its way at 0.8 of that reach from the target, set
-  afresh as the target moves, and stops once it's that close
-  *(guessed)*: the original's chase is still to be measured. Each weapon fires when it's ready and in range,
-  its damage rolled by a generator of Reluva's own; the shot flies to
-  the target's middle and hits there. A unit whose hull goes is hidden,
-  out of the selection and the minimap, its officers back to the count.
+  to the point on its way at 0.95 of that reach from the target, set
+  afresh as the target moves, and stops there; within reach it holds
+  where it is, as the original's destroyer did.
 - **Shown:** the bar over a unit being attacked, and the info panel's
   shield bar, with their colours; the shots as their sprite, added on,
   along their way and turned to the camera.
@@ -126,8 +134,8 @@ From the same run's frames and draws:
 - The debris, the shockwave (`xshock`), the blue sparks of hull hits,
   and when the fires start: by the systems' damage, likely.
 - The hit chance's part (`hitChance`, 1 for these).
-- How the original's ships chase what they attack (how close, whether
-  they circle it: `RTS_CFG.h`'s `DOGFIGHT_RANGE` 70 and its anchor
-  settings suggest so), and what a right click on an enemy does.
+- What `RTS_CFG.h`'s `DOGFIGHT_RANGE` (70) and anchor settings do: the
+  destroyer chasing a construction ship didn't circle it. And what a
+  right click on an enemy does.
 - The systems (engines, weapons, shields, life support, sensors) and
   their hit points.

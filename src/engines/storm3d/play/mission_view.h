@@ -261,6 +261,12 @@ public:
      * the mission waiting meanwhile: its clock doesn't run on.
      */
     void drawScreen(const Surface &screen, uint64_t millis);
+    /**
+     * Where a ship at `from` chasing a target at `to` flies, at `height`:
+     * the edge of its weapons' `reach` on the way to it; none while the
+     * target is within reach, where it holds.
+     */
+    static std::optional<gfx::Vec3> chasePointOf(const gfx::Vec3 &from, const gfx::Vec3 &to, float reach, float height);
     /** The skirmish's players, in their slots' order; each one's tally, by slot. */
     const std::vector<Player> &players() const { return _players; }
     const std::map<int, Tally> &tallies() const { return _tallies; }

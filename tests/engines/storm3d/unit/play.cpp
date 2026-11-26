@@ -628,6 +628,15 @@ void testStrategy() {
 
 } // namespace
 
+// The original's destroyer: within its reach of 250 it held; its target
+// flown to 300 away, it flew to the edge of its reach on the way.
+void testChase() {
+    CHECK(!MissionView::chasePointOf({0, 0, 0}, {186, 0, 0}, 250, 0));
+    const auto point = MissionView::chasePointOf({0, 40, 0}, {0, 40, 300}, 250, 40);
+    CHECK(point && std::fabs((*point)[0]) < 1e-3f && std::fabs((*point)[1] - 40) < 1e-3f);
+    CHECK(point && std::fabs(300 - (*point)[2] - 250 * 0.95f) < 1e-2f);
+}
+
 static const reluva::test::Suite kSuite("storm3d.unit.play",
                                         {
                                             {"keys", [](const std::filesystem::path &) { testKeys(); }},
@@ -648,6 +657,7 @@ static const reluva::test::Suite kSuite("storm3d.unit.play",
                                             {"build menu", [](const std::filesystem::path &) { testBuildMenu(); }},
                                             {"orders", [](const std::filesystem::path &) { testOrders(); }},
                                             {"placing", [](const std::filesystem::path &) { testPlacing(); }},
+                                            {"chase", [](const std::filesystem::path &) { testChase(); }},
                                             {"map icons", [](const std::filesystem::path &) { testMapIcons(); }},
                                             {"freighter", [](const std::filesystem::path &) { testFreighter(); }},
                                             {"combat", [](const std::filesystem::path &) { testCombat(); }},
