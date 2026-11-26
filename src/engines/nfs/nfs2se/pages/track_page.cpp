@@ -109,17 +109,22 @@ void TrackPage::deactivate() {
 
 void TrackPage::release() {
     if (_renderer) {
-        for (gfx::MeshId m : {_mesh, _skyMesh, _domeMesh, _nearLines.mesh, _farLines.mesh, _farBlocks.mesh})
+        for (gfx::MeshId m :
+             {_mesh, _skyMesh, _domeMesh, _softwareSkyMesh, _nearLines.mesh, _farLines.mesh, _farBlocks.mesh})
             if (m)
                 _renderer->destroyMesh(m);
         if (_domeTexture)
             _renderer->destroyTexture(_domeTexture);
-        for (const auto *list : {&_textures, &_lines})
+        for (const auto *list : {&_textures, &_lines, &_softwareTextures})
             for (gfx::TextureId t : *list)
                 if (t)
                     _renderer->destroyTexture(t);
     }
     _mesh = 0;
+    _softwareSkyMesh = 0;
+    _softwareTextures.clear();
+    _hasSoftwareSky = false;
+    _cued = false;
     _nearLines = {};
     _farLines = {};
     _farBlocks = {};
@@ -193,6 +198,29 @@ void TrackPage::load(int index) {
     }
     _sounds.load(fs::toLower(stem), _track);
     _trackNumber = stem.size() > 2 ? std::atoi(stem.c_str() + 2) : 0;
+    // The software program's: its pictures by place, each texel of the
+    // file's !pal, 255 clear (fsh.md, NFS II SE); its sky and its lights.
+    for (const FileRef &f : _files.files()) {
+        const std::string name = fs::toLower(f.name);
+        if (!f.inner.empty())
+            continue;
+        if (name.ends_with("tracks/pc/" + fs::toLower(stem) + "0.qfs")) {
+            ShapeBank bank;
+            if (!_files.read(f, data) && !parseShapeBank(std::move(data), bank))
+                for (const Shape &sh : bank.shapes) {
+                    image::Image img;
+                    gfx::TextureId id = 0;
+                    if (!isPaletteType(sh.type) && !decodeShape(sh, img))
+                        _renderer->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), id);
+                    _softwareTextures.push_back(id);
+                }
+        } else if (name.ends_with("tracks/pc/" + fs::toLower(stem) + ".hrz") && !_files.read(f, data)) {
+            _hasSoftwareSky =
+                !parseSky(std::string(data.begin(), data.end()), _softwareSky) && _softwareSky.kind == Sky::kSoftware;
+            if (_hasSoftwareSky)
+                _lights = depthCueLights(_softwareSky);
+        }
+    }
     if (const FileRef *hrz = beside(_files.files(), ref, "3" + stem + ".hrz"))
         if (!_files.read(*hrz, data))
             _hasSky = !parseSky(std::string(data.begin(), data.end()), _sky);
@@ -226,8 +254,10 @@ void TrackPage::build() {
         const Collision::Texture &t = _collision.textures[texture];
         return (t.flags & Collision::kAnimated) && t.frames > 1 ? kAnimated + texture : static_cast<int>(t.picture);
     };
-    auto add = [&](const std::vector<Quad> &list, const std::vector<Point> &vertices, const Point &at) {
+    _quadLists.clear();
+    auto add = [&](const std::vector<Quad> &list, const std::vector<Point> &vertices, const Point &at, List in) {
         for (const Quad &q : list) {
+            _quadLists.push_back(in);
             std::array<Point, 4> corners;
             for (int k = 0; k < 4; ++k)
                 for (int c = 0; c < 3; ++c)
@@ -243,23 +273,32 @@ void TrackPage::build() {
             quads.add(texture, corners, pictureCorners(orientation), greys);
         }
     };
-    auto place = [&](const std::vector<Mesh> &meshes, const std::vector<Placement> &placements) {
+    // The software program's lists (0x434690): the ground and extrablock
+    // 18's objects, the second group and 7's, the .col's objects, and 19's
+    // *(inferred)*.
+    auto place = [&](const std::vector<Mesh> &meshes, const std::vector<Placement> &placements, bool collision) {
         for (const Placement &p : placements) {
             // An animated one where its animation starts.
             const Point at = p.type == 3 && !p.keys.empty() ? p.keys[0].position : p.position;
-            add(meshes[p.mesh].quads, meshes[p.mesh].vertices, at);
+            const List in = collision      ? List::kCollision
+                            : p.list == 18 ? List::kGround
+                            : p.list == 19 ? List::kVariable
+                                           : List::kSecond;
+            add(meshes[p.mesh].quads, meshes[p.mesh].vertices, at, in);
         }
     };
     for (const TrackBlock &b : _track.blocks) {
         const TrackBlock::Level &level = b.levels[size_t(_level)];
-        add(level.first, b.vertices, {0, 0, 0});
-        add(level.second, b.vertices, {0, 0, 0});
+        add(level.first, b.vertices, {0, 0, 0}, List::kGround);
+        add(level.second, b.vertices, {0, 0, 0}, List::kSecond);
         if (_objects)
-            place(b.meshes, b.placements);
+            place(b.meshes, b.placements, false);
     }
     if (_objects)
-        place(_collision.meshes, _collision.placements);
+        place(_collision.meshes, _collision.placements, true);
     _quads = quads.quads();
+    _vertices = quads.vertices();
+    _cued = false;
     if (_renderer)
         if (Error err = quads.build(*_renderer, _mesh, _runs))
             _error = err.message;
@@ -548,6 +587,149 @@ void TrackPage::drawSky(const gfx::Vec3 &eye, const gfx::Vec3 &ahead, const Glid
     }
 }
 
+// The software program's depth cueing on the track's quads, worked out
+// again when the camera moves: each quad's light from its depth bucket
+// (its corners' mean depth, less its list's bias; 0x45c5f0), as its
+// vertices' colour, L/16 grey, for the two passes that mix its picture
+// toward the sky file's colour; alpha 0 for one outside the buckets, which
+// the game doesn't draw.
+void TrackPage::cue(const gfx::Vec3 &eye, const gfx::Vec3 &ahead) {
+    if (_cued && eye == _cuedEye && ahead == _cuedAhead)
+        return;
+    _cued = true;
+    _cuedEye = eye;
+    _cuedAhead = ahead;
+    // The lists' biases, in units (0x434f40): 0, 6, 10, and the last's 0
+    // but on track 2 (-12) and on track 3 near its start (-16).
+    float variable = 0;
+    if (_trackNumber == 2)
+        variable = -12;
+    else if (_trackNumber == 3 && _point > 51 && _point < 99)
+        variable = -16;
+    const float bias[] = {0, 6, 10, variable};
+    std::vector<gfx::Vertex> vertices = _vertices;
+    for (size_t q = 0; q < _quadLists.size() && 4 * q + 3 < vertices.size(); ++q) {
+        float depth = 0;
+        for (size_t k = 0; k < 4; ++k) {
+            const float *p = vertices[4 * q + k].pos;
+            depth += (p[0] - eye[0]) * ahead[0] + (p[1] - eye[1]) * ahead[1] + (p[2] - eye[2]) * ahead[2];
+        }
+        const int bucket = depthBucket(depth / 4, bias[size_t(_quadLists[q])]);
+        const bool drawn = bucket >= 0 && bucket < kDepthBuckets;
+        const auto grey = static_cast<uint8_t>(drawn ? _lights[size_t(bucket)] * 255 / 16 : 0);
+        for (size_t k = 0; k < 4; ++k) {
+            uint8_t *c = vertices[4 * q + k].color;
+            c[0] = c[1] = c[2] = grey;
+            c[3] = drawn ? 255 : 0;
+        }
+    }
+    _renderer->setMeshVertices(_mesh, vertices);
+}
+
+// The software program's sky (0x470eb0; hrz.md, The software sky): a ring
+// of 16 segments round the eye, as the 3dfx one's, each the sky's colour
+// from the upper ring to ten heights above, the horizon base's from the
+// lower ring to ten heights below, and between them its slice of the
+// horizon, the track's first 8 pictures, turned left to right on the
+// second half with the mirror flag. Not depth cued, nor depth tested.
+void TrackPage::drawSoftwareSky(const gfx::Vec3 &eye, const gfx::Vec3 &ahead) {
+    if (!_hasSoftwareSky || _softwareSky.blackHorizon || !_skyShown)
+        return;
+    auto cross = [](const gfx::Vec3 &a, const gfx::Vec3 &b) {
+        return gfx::Vec3{a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
+    };
+    auto dot = [](const gfx::Vec3 &a, const gfx::Vec3 &b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; };
+    const gfx::Vec3 &f = ahead;
+    gfx::Vec3 side = cross(f, {0, 1, 0});
+    const float length = std::sqrt(dot(side, side));
+    if (length <= 0)
+        return;
+    for (float &c : side)
+        c /= length;
+    const gfx::Vec3 up = cross(side, f);
+    constexpr float kPi = 3.14159265f;
+    const Sky &sky = _softwareSky;
+    const auto radius = static_cast<float>(sky.radius);
+    const auto flat = static_cast<float>(sky.flatDistance);
+    const auto base = static_cast<float>(sky.base);
+    const auto height = static_cast<float>(sky.height);
+    auto ring = [&](int i) {
+        const float turn = 2 * kPi * (static_cast<float>(sky.angle) / 360 + static_cast<float>(i) / 16);
+        return gfx::Vec3{radius * std::sin(turn), 0, radius * std::cos(turn)};
+    };
+    auto at = [&](int i, float y) {
+        gfx::Vec3 p = ring(i);
+        p[1] = y;
+        const float x = dot(p, side);
+        const float v = dot(p, up);
+        return gfx::Vec3{eye[0] + side[0] * x + up[0] * v + f[0] * flat, eye[1] + side[1] * x + up[1] * v + f[1] * flat,
+                         eye[2] + side[2] * x + up[2] * v + f[2] * flat};
+    };
+    std::vector<gfx::Vertex> vertices(16 * 12);
+    auto put = [&](size_t n, const gfx::Vec3 &p, const Rgb &c, float u, float v) {
+        gfx::Vertex &out = vertices[n];
+        for (int k = 0; k < 3; ++k) {
+            out.pos[k] = p[size_t(k)];
+            out.color[k] = static_cast<uint8_t>(std::clamp(c[size_t(k)], 0, 255));
+        }
+        out.color[3] = 255;
+        out.uv[0] = u;
+        out.uv[1] = v;
+    };
+    const Rgb white{255, 255, 255};
+    std::array<bool, 16> shown{};
+    for (int c = 0; c < 16; ++c) {
+        // Dropped only when behind the eye.
+        shown[size_t(c)] = dot(ring(c), f) > 0 || dot(ring(c + 1), f) > 0;
+        const auto g = size_t(4 * c);
+        const float top = base + height;
+        put(g, at(c, top), sky.skyColour, 0, 0);
+        put(g + 1, at(c + 1, top), sky.skyColour, 0, 0);
+        put(g + 2, at(c + 1, top + 10 * height), sky.skyColour, 0, 0);
+        put(g + 3, at(c, top + 10 * height), sky.skyColour, 0, 0);
+        const size_t e = 64 + g;
+        put(e, at(c, base - 10 * height), sky.baseColour, 0, 0);
+        put(e + 1, at(c + 1, base - 10 * height), sky.baseColour, 0, 0);
+        put(e + 2, at(c + 1, base), sky.baseColour, 0, 0);
+        put(e + 3, at(c, base), sky.baseColour, 0, 0);
+        const bool turned = sky.mirror && c >= 8;
+        const float left = turned ? 1.0f : 0.0f;
+        const size_t q = 128 + g;
+        put(q, at(c, base), white, left, 1);
+        put(q + 1, at(c + 1, base), white, 1 - left, 1);
+        put(q + 2, at(c + 1, top), white, 1 - left, 0);
+        put(q + 3, at(c, top), white, left, 0);
+    }
+    if (!_softwareSkyMesh) {
+        std::vector<uint32_t> indices;
+        for (uint32_t b = 0; b < vertices.size(); b += 4)
+            indices.insert(indices.end(), {b, b + 1, b + 2, b, b + 2, b + 3});
+        if (_renderer->createMesh(vertices, indices, _softwareSkyMesh))
+            return;
+    } else if (_renderer->setMeshVertices(_softwareSkyMesh, vertices)) {
+        return;
+    }
+    gfx::DrawCall call;
+    call.mesh = _softwareSkyMesh;
+    call.state.depthTest = false;
+    call.state.depthWrite = false;
+    call.state.cull = gfx::Cull::kNone;
+    call.rgbSource = gfx::ColorSource::kVertex;
+    for (int c = 0; c < 16; ++c) {
+        if (!shown[size_t(c)])
+            continue;
+        const int slice = sky.mirror && c >= 8 ? 15 - c : c % 8;
+        for (int part = 0; part < 3; ++part) {
+            call.firstIndex = static_cast<uint32_t>((part * 16 + c) * 6);
+            call.indexCount = 6;
+            call.texture = part == 2 && _textured && slice < static_cast<int>(_softwareTextures.size())
+                               ? _softwareTextures[size_t(slice)]
+                               : 0;
+            _renderer->draw(call);
+        }
+    }
+}
+
 void TrackPage::handleKey(uint32_t key, uint16_t mods) {
     const int n = static_cast<int>(_tracks.size());
     const int points = static_cast<int>(_collision.road.size());
@@ -604,6 +786,12 @@ void TrackPage::handleKey(uint32_t key, uint16_t mods) {
     case 'f':
         _fogged = !_fogged;
         break;
+    case 'g':
+        _software = !_software;
+        if (!_software && _mesh)
+            _renderer->setMeshVertices(_mesh, _vertices);
+        _cued = false;
+        break;
     default:
         break;
     }
@@ -655,6 +843,11 @@ void TrackPage::update(uint64_t nowMs) {
         clear = _sky.blackHorizon || tunnel
                     ? Color{0, 0, 0}
                     : Color{uint8_t(_sky.skyTop[0]), uint8_t(_sky.skyTop[1]), uint8_t(_sky.skyTop[2])};
+    if (_software && _hasSoftwareSky)
+        clear = _softwareSky.blackHorizon
+                    ? Color{0, 0, 0}
+                    : Color{uint8_t(_softwareSky.skyColour[0]), uint8_t(_softwareSky.skyColour[1]),
+                            uint8_t(_softwareSky.skyColour[2])};
     const GlideFog fog = glideFog(_trackNumber, _point);
     // The screen's right, level: as the road's across vector is to its
     // forward one.
@@ -664,13 +857,18 @@ void TrackPage::update(uint64_t nowMs) {
     if (!_collision.road.empty())
         _sounds.update(frame, _collision.road[size_t(_point)].block, eye, right);
     _renderer->beginFrame(viewProj, eye, clear);
-    if (!tunnel)
+    if (_software)
+        drawSoftwareSky(eye, ahead);
+    else if (!tunnel)
         drawSky(eye, ahead, fog);
+    const bool cueing = _software && _hasSoftwareSky && _mesh;
+    if (cueing)
+        cue(eye, ahead);
     if (_mesh) {
         gfx::DrawCall call;
         call.mesh = _mesh;
         // The track fogged by its depth along the view, as Glide's table fog.
-        if (_fogged && fog.density > 0) {
+        if (!_software && _fogged && fog.density > 0) {
             call.tableFog = 1 / fog.density;
             call.tableFogFromDepth = true;
             for (int k = 0; k < 3; ++k)
@@ -688,15 +886,42 @@ void TrackPage::update(uint64_t nowMs) {
                 const Collision::Texture &t = _collision.textures[size_t(picture - kAnimated)];
                 picture = t.picture + int(nowMs * 64 / 1000 / std::max<uint8_t>(t.ticksPerFrame, 1) % t.frames);
             }
-            const bool known = picture >= 0 && picture < static_cast<int>(_textures.size());
-            call.texture = _textured && known ? _textures[size_t(picture)] : 0;
+            const auto &pictures = _software ? _softwareTextures : _textures;
+            const bool known = picture >= 0 && picture < static_cast<int>(pictures.size());
+            call.texture = _textured && known ? pictures[size_t(picture)] : 0;
             call.color =
                 _textured && known ? std::array<float, 4>{1, 1, 1, 1} : std::array<float, 4>{0.6f, 0.6f, 0.6f, 1};
-            call.rgbSource = _shaded ? gfx::ColorSource::kVertex : gfx::ColorSource::kConstant;
+            // The software program's: its picture moved its light's
+            // sixteenths toward the sky file's colour, the light the
+            // vertices' grey (cue); the 3dfx program's: its shades.
+            call.rgbSource = cueing                  ? gfx::ColorSource::kOneMinusVertex
+                             : _software || !_shaded ? gfx::ColorSource::kConstant
+                                                     : gfx::ColorSource::kVertex;
+            call.alphaSource = cueing ? gfx::ColorSource::kVertex : gfx::ColorSource::kConstant;
             call.firstIndex = r.firstIndex;
             call.indexCount = r.indexCount;
             _renderer->draw(call);
         }
+        if (cueing) {
+            // Then the sky file's colour added, by the light, over what's drawn.
+            gfx::DrawCall add = call;
+            add.texture = 0;
+            add.rgbSource = gfx::ColorSource::kVertex;
+            add.alphaSource = gfx::ColorSource::kVertex;
+            for (int k = 0; k < 3; ++k)
+                add.color[size_t(k)] = static_cast<float>(_softwareSky.colourValue[size_t(k)]) / 255;
+            add.color[3] = 1;
+            add.state.src = gfx::Blend::kOne;
+            add.state.dst = gfx::Blend::kOne;
+            add.state.depthEqual = true;
+            add.state.depthWrite = false;
+            for (const QuadMesh::Run &r : _runs) {
+                add.firstIndex = r.firstIndex;
+                add.indexCount = r.indexCount;
+                _renderer->draw(add);
+            }
+        }
+        call.alphaSource = gfx::ColorSource::kConstant;
         // The painted lines, at the high level only (0x435260), each close
         // up or far off by how deep its vertex is in the view; a block's
         // all at once where they're all far.
@@ -742,7 +967,7 @@ void TrackPage::update(uint64_t nowMs) {
                               std::to_string(_quads) + " polygons" + (_objects ? " with objects" : "") +
                               "  road point " + std::to_string(_point) + "/" + std::to_string(_collision.road.size()));
     lines.push_back("PgUp/PgDn: track  Up/Down: road  Left/Right: look  1-3: level  T: textures  O: objects  V: above"
-                    "  S: shades  L: lines  H: sky  F: fog");
+                    "  S: shades  L: lines  H: sky  F: fog  G: software");
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y =
             i + 1 == lines.size() ? kFrameH - font::kLineHeight - 4 : 4 + static_cast<int>(i) * font::kLineHeight;

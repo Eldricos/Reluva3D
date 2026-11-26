@@ -253,10 +253,14 @@ Error parseTrack(const std::vector<uint8_t> &data, Track &out) {
                 if (Error err = readMeshes(x.data.data(), x.data.data() + x.data.size(), x.count, block.meshes))
                     return bad("block " + std::to_string(b) + ": " + err.message);
         for (const ExtraBlock &x : block.extra)
-            if (x.id == 7 || x.id == 18 || x.id == 19)
+            if (x.id == 7 || x.id == 18 || x.id == 19) {
+                const size_t first = block.placements.size();
                 if (Error err = readPlacements(x.data.data(), x.data.data() + x.data.size(), x.count,
                                                block.meshes.size(), block.placements))
                     return bad("block " + std::to_string(b) + ": " + err.message);
+                for (size_t i = first; i < block.placements.size(); ++i)
+                    block.placements[i].list = static_cast<uint8_t>(x.id);
+            }
         if (Error err = readRecords(block))
             return bad("block " + std::to_string(b) + ": " + err.message);
         out.blocks.push_back(std::move(block));

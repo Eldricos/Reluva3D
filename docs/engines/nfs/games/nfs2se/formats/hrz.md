@@ -104,8 +104,13 @@ Drawn by 0x470eb0.
   (15 − k) flipped left to right. The pixmap's base percentage sets a
   row between the rings (0x448250) *(inferred)*.
 - **The colours** become the palette's nearest entries (0x4718f0).
+- **The slices** are the track's first 8 pictures of `Tracks/pc/trNN0.qfs`
+  (0x471980), painted sky and all, with no see-through texels: 128 × 256
+  on `TR00` and `TR02`, 85 × 150 on `TR03`, 80 × 150 on `TR07`.
 - **Black horizon** (or the horizon turned off, 0x4716d0) fills the view
   with one polygon instead: black, or the sky's colour.
+- **The sky isn't depth cued**: its polygons go on the list drawn
+  directly, not into the depth buckets (0x45acd0).
 
 ### The software depth cueing
 
@@ -128,6 +133,11 @@ Drawn by 0x470eb0.
   buckets reach 609.5.
 - **Each frame** (0x46f330) a marker goes in at each change's bucket;
   drawing far to near, it sets the light for the polygons after it.
+- **The lists** sort by the depth less a bias of their own (0x434f40),
+  so the bias moves a polygon's light too: the track's ground 0, its
+  second group 6 units, 10 and a fourth that's 0 but −12 on track 2 and
+  −16 on track 3 while the player is at road points 52 to 98 (0x434fe0),
+  and the cars 4 (0x4489f6).
 - **A light L** is one of 16 colour tables (0x4693c0): each palette
   colour moved L/16 of the way to the file's last colour, then the
   nearest entry (entry 255, see-through, kept). 0 changes nothing.
@@ -231,11 +241,25 @@ draws the 3dfx sky and fog of its main view as above (H and F turn them
 off): the fog's colours and tables from the program's lists
 (`src/engines/nfs/nfs2se/glide_sky.cpp`) by the camera's road point,
 and Glide's table fog by the renderer's own (`DrawCall::tableFog`).
-`TR04`'s tunnels black as above (`skyInTunnel`). The software
-program's sky and depth cueing aren't drawn: its pictures (`Tracks/PC`)
-don't line up with the 3dfx program's by place (`TR02`'s eighth is
-`0008` against `HBRK`, and it has a `0116` more), and how it finds them
-from the `.col`'s records isn't worked out.
+`TR04`'s tunnels black as above (`skyInTunnel`).
+
+G shows the software program's look instead
+(`src/engines/nfs/nfs2se/software_sky.cpp`): its pictures, its sky as
+above, from `Tracks/pc/trNN.hrz` and the first 8 pictures, and its depth
+cueing. A quad's light comes from its depth bucket: its corners' mean
+depth in the view, less its list's bias (`depthBucket`, `depthCueLights`).
+The quad's picture is drawn times 1 − L/16, then the file's colour times
+L/16 added over it; a quad outside the buckets isn't drawn. The colours
+aren't snapped to the screen's palette, and the painted lines aren't
+cued. The lists' biases (0x434f40):
+- 0 for the ground and extrablock 18's objects;
+- 6 for the second group and 7's objects;
+- 10 for the `.col`'s objects;
+- 19's objects: 0, but −12 on track 2 and −16 on track 3 near its start.
+
+Which list holds which objects is *(inferred)*. In `TR00`, compared
+with the hosted software game's frames at the same road points, the
+pictures, the sky's slices and the darkening agree.
 
 ## Sources and checks
 

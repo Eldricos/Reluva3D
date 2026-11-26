@@ -15,6 +15,7 @@
 #include "engines/nfs/nfs2se/formats/paint.h"
 #include "engines/nfs/nfs2se/formats/trk.h"
 #include "engines/nfs/nfs2se/glide_sky.h"
+#include "engines/nfs/nfs2se/software_sky.h"
 #include "tests/engines/nfs/fixtures.h"
 
 #include <cstring>
@@ -334,6 +335,19 @@ std::vector<uint8_t> paintProgram() {
     return exe;
 }
 
+// The software program's depth cueing: TR00's points give the lights the
+// game had in memory, changing at buckets 1,239 (15), 899 (14) ... 222 (0)
+// (hrz.md), give or take a bucket where it rounds.
+void testDepthCue() {
+    nfs2se::Sky sky;
+    sky.depthDistances = {0, 250, 500, 900};
+    sky.depthLights = {0, 0, 10, 15};
+    const auto lights = nfs2se::depthCueLights(sky);
+    CHECK(lights[1239] == 15 && lights[900] == 15 && lights[899] == 14 && lights[821] == 13);
+    CHECK(lights[443] == 6 && lights[275] == 1 && lights[223] == 1 && lights[222] == 0 && lights[0] == 0);
+    CHECK(nfs2se::depthBucket(100, 0) == 220 && nfs2se::depthBucket(100, 6) == 208 && nfs2se::depthBucket(-20, 0) < 0);
+}
+
 void testPaintTable() {
     std::vector<uint8_t> exe = paintProgram();
     nfs2se::PaintTable table;
@@ -546,6 +560,7 @@ static const reluva::test::Suite kSuite("nfs.unit.nfs2se",
                                             {"animation script", [](const stdfs::path &) { testAnimationScript(); }},
                                             {"paint", [](const stdfs::path &) { testPaint(); }},
                                             {"paint table", [](const stdfs::path &) { testPaintTable(); }},
+                                            {"depth cue", [](const stdfs::path &) { testDepthCue(); }},
                                             {"glide sky", [](const stdfs::path &) { testGlideSky(); }},
                                             {"car model", [](const stdfs::path &) { testCarModel(); }},
                                             {"movie", [](const stdfs::path &) { testMovie(); }},

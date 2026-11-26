@@ -64,6 +64,9 @@ public:
         indices.insert(indices.end(), {base, base + 1, base + 2, base, base + 2, base + 3});
     }
 
+    /** The vertices, four to a quad in the order added. */
+    const std::vector<gfx::Vertex> &vertices() const { return _vertices; }
+
     /** How many quads were added. */
     size_t quads() const { return _vertices.size() / 4; }
 

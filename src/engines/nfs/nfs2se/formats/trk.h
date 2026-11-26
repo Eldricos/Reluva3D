@@ -49,6 +49,10 @@ struct Placement {
     uint8_t mesh = 0;      // into the same block's (or the .col's) meshes
     Point position{};      // for 1 and 4
     uint32_t obstacle = 0; // type 4's: its place in the block's obstacles
+    // The extrablock it's of, 7, 18 or 19 (the .col's: 7): which of the
+    // software program's lists it's drawn in, sorted by its depth less a
+    // bias of its own (hrz.md, The software depth cueing).
+    uint8_t list = 7;
     /** Type 3: a key of its animation. */
     struct Key {
         Point position{};

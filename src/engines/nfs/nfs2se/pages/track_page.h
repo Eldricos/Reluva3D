@@ -7,6 +7,7 @@
 #include "engines/nfs/nfs2se/formats/hrz.h"
 #include "engines/nfs/nfs2se/formats/trk.h"
 #include "engines/nfs/nfs2se/glide_sky.h"
+#include "engines/nfs/nfs2se/software_sky.h"
 #include "engines/nfs/nfs2se/pages/quad_mesh.h"
 #include "engines/nfs/nfs2se/track_sounds.h"
 #include "engines/nfs/pages/viewers.h"
@@ -24,7 +25,11 @@ namespace reluva::nfs::nfs2se {
  *   PageUp/PageDown: track   Up/Down: along the road (Shift: faster)
  *   Left/Right: look   1/2/3: level   T: textures   O: objects   V: from above
  *   S: the 3dfx program's shades   L: painted lines   H: sky   F: fog
- * The sky and the fog are the 3dfx program's (3trNN.hrz and its own tables).
+ *   G: the software program's look, not the 3dfx program's
+ * The 3dfx program's look: its pictures (Tracks/SE/trNN0.qfs), sky and fog
+ * (3trNN.hrz and its own tables). The software program's: its pictures
+ * (Tracks/pc/trNN0.qfs, by the same places), sky (Tracks/pc/trNN.hrz) and
+ * depth cueing (hrz.md).
  * Animated textures (the .col's) take their pictures in turn, at the game's
  * rate. The placed sounds (extrablock 17) play from the track's
  * TRAMBnn.BNK as the camera passes them, when there's a mixer.
@@ -52,6 +57,8 @@ private:
     void buildLines();
     void buildDome();
     void drawSky(const gfx::Vec3 &eye, const gfx::Vec3 &ahead, const GlideFog &fog);
+    void drawSoftwareSky(const gfx::Vec3 &eye, const gfx::Vec3 &ahead);
+    void cue(const gfx::Vec3 &eye, const gfx::Vec3 &ahead);
 
     const GameFiles &_files;
     std::vector<FileRef> _tracks;
@@ -87,6 +94,23 @@ private:
     bool _shaded = true;
     bool _painted = true;
     bool _skyShown = true;
+    bool _software = false;
+
+    // The software program's look: its pictures by place, its sky, the
+    // light of each depth bucket; each quad's vertices as built and the
+    // list it's drawn in, whose bias sorts it; where the light was last
+    // worked out from.
+    enum class List : uint8_t { kGround, kSecond, kCollision, kVariable };
+    std::vector<gfx::TextureId> _softwareTextures;
+    Sky _softwareSky;
+    bool _hasSoftwareSky = false;
+    std::array<uint8_t, kDepthBuckets> _lights{};
+    std::vector<gfx::Vertex> _vertices;
+    std::vector<List> _quadLists;
+    gfx::Vec3 _cuedEye{};
+    gfx::Vec3 _cuedAhead{};
+    bool _cued = false;
+    gfx::MeshId _softwareSkyMesh = 0;
     bool _fogged = true;
     int _trackNumber = 0; // the NN of trNN
     gfx::MeshId _skyMesh = 0;

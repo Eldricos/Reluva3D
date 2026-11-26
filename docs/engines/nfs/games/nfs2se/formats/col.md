@@ -34,6 +34,14 @@ record count, the records.
 
 The program builds its own table of the pictures' corners from these
 (0x433bd0), and looks each polygon's up as it draws it (0x435090).
+The picture is by place in the program's own file: the 3dfx program's
+`Tracks/SE/trNN0.qfs`, the software program's `Tracks/pc/trNN0.qfs`
+(0x433f00, an entry for every picture in order, its name never read).
+The software files hold the same pictures at the same places, larger
+and not square, with the file's 128-colour `!pal` last; their names
+don't always follow the places. A record with flag 0x20 has a picture
+with texels of 255, the software program's see-through (0x4a17f4), and
+no record without it does.
 
 - **Flags:** 0x04, animated (set exactly when bytes 7 and 8 aren't 0,
   34 records); 0x20, see-through, the picture's keyed colour not drawn
