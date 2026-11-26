@@ -66,9 +66,12 @@ haven't been passed, and the Film Room's playback hasn't been
   its new Scan mission and a multiplayer battle are won; its other new
   missions and its Sulu skirmishes haven't been played, and a 1.0
   campaign's save isn't loaded by it ([systems/patching.md](systems/patching.md)).
-- **Online play isn't there.** Dynaverse II and MPlayer were services
-  that have closed; the Winsock functions the game imports, perhaps
-  theirs, aren't stood in for.
+- **Online play isn't there,** as it isn't on Windows now: Dynaverse
+  II's login can't find WON's directory servers, which have closed, and
+  says so; MPlayer's button opens a site that's gone, and ends the game.
+  A server of the time's protocol would be reached as on Windows, its
+  address set in `WONServerSetup.gf`
+  ([systems/hosting.md](systems/hosting.md#its-multiplayer)).
 
 ## Additions outside the game
 

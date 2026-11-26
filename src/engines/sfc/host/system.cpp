@@ -2,8 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // What hosting StarFleet2.exe needs of its own, besides the shared stand-ins
-// (src/emulation/x86/): its C++ exceptions described, and Winsock's two
-// functions a multiplayer game over TCP/IP calls
+// (src/emulation/x86/): its C++ exceptions described
 // (docs/engines/sfc/games/sfc2/systems/hosting.md).
 
 #include "engines/sfc/host/game_process.h"
@@ -16,14 +15,6 @@
 namespace reluva::sfc {
 
 using x86::Cpu;
-
-void GameProcess::stdcall(const char *dll, const char *name, int args, std::function<uint32_t(x86::Cpu &)> fn) {
-    const uint32_t pop = uint32_t(args) * 4;
-    _process->provide(dll, name, [fn = std::move(fn), pop](Cpu &c) {
-        c.reg[Cpu::EAX] = fn(c);
-        return pop;
-    });
-}
 
 std::string GameProcess::describeException(x86::Cpu &c, uint32_t record) {
     char buf[96];
@@ -55,42 +46,6 @@ std::string GameProcess::describeException(x86::Cpu &c, uint32_t record) {
     if (text.size() > 8)
         what += " text: " + text;
     return what;
-}
-
-void GameProcess::addSystem() {
-    // Winsock's gethostname (#57, as WSOCK32 is imported by ordinal) and
-    // gethostbyname (#52) of that name: hosting a multiplayer game, the game
-    // names its player by the machine (to its first dot) and keeps its
-    // address. The name is GetComputerNameA's; the address the machine
-    // itself (127.0.0.1) until the rest of Winsock the game imports is
-    // stood in for.
-    static const std::string kHostName = "RELUVA";
-    stdcall("WSOCK32.dll", "#57", 2, [](Cpu &c) {
-        if (c.arg(1) < kHostName.size() + 1 || !c.valid(c.arg(0), uint32_t(kHostName.size() + 1)))
-            return 0xffffffffu; // SOCKET_ERROR
-        c.writeString(c.arg(0), kHostName, uint32_t(kHostName.size() + 1));
-        return 0u;
-    });
-    stdcall("WSOCK32.dll", "#52", 1, [this](Cpu &c) {
-        if (fs::toLower(c.string(c.arg(0), 256)) != fs::toLower(kHostName))
-            return 0u; // not found
-        // A hostent (name, aliases, AF_INET and 4, addresses), made once.
-        if (!_hostent) {
-            const uint32_t h = _process->memory().alloc(64);
-            c.writeString(h + 32, kHostName, 16);
-            c.write32(h, h + 32);
-            c.write32(h + 4, h + 20); // no aliases: a list holding only its end
-            c.write16(h + 8, 2);
-            c.write16(h + 10, 4);
-            c.write32(h + 12, h + 24);
-            c.write32(h + 20, 0);
-            c.write32(h + 24, h + 48);
-            c.write32(h + 28, 0);
-            c.write32(h + 48, 0x0100007fu); // 127.0.0.1, in network order
-            _hostent = h;
-        }
-        return _hostent;
-    });
 }
 
 } // namespace reluva::sfc

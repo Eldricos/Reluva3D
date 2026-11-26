@@ -6,6 +6,7 @@
 #include "common/fs.h"
 #include "common/stream.h"
 #include "emulation/x86/msvcrt.h"
+#include "emulation/x86/winsock.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -87,7 +88,10 @@ GameProcess::GameProcess(std::filesystem::path install, uint32_t memoryMb) : _di
     _directInput = std::make_unique<x86::DirectInput>(*_process);
     _miles = std::make_unique<x86::Miles>(*_process);
     _directPlay = std::make_unique<x86::DirectPlay>(*_process);
-    addSystem();
+    // Its sockets (Dynaverse II's, and the machine's name and address for
+    // DirectPlay), started as DirectPlay's TCP/IP provider starts them.
+    _winsock = std::make_unique<x86::Winsock>(*_process, x86::Winsock::Options{});
+    _winsock->start();
 }
 
 void GameProcess::setSaveFolder(std::filesystem::path folder) {

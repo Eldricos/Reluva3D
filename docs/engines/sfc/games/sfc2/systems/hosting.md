@@ -495,6 +495,21 @@ both, "Player : hello". The host forfeiting a battle, the joining copy
 took the session over and won: "Congratulations! You are the winner!",
 the enemy fleet's losses 40; before, the session was lost to it.
 
+Online play, from Game Connections: Dynaverse II's LOG IN opens the
+Dynaverse II Login (an account name and password, Flipside's logo) and
+starts Winsock (`WSAStartup`), then looks for WON's directory servers by
+name, as `MetaAssets/ServerProfiles/Multiplayer/WONServerSetup.gf`
+lists them (`sfc2.west.won.net`, `sfc2.central.won.net` and
+`sfc2.east.won.net`, port 15101), each twice (`inet_addr`, then
+`gethostbyname`). The service closed long ago, and none is found: "Welcome
+to Online Dynaverse II. Checking for a patch... Failed to locate the
+directory servers. Please check your connection or talk to your system
+administrator." Standard Multiplayer's LOG IN, MPlayer, starts
+`rundll32.exe url.dll,FileProtocolHandler http://www.mplayer.com/`,
+MPlayer's site in the browser, and ends the game, as MPlayer's own
+program took over from there; Reluva starts nothing. LAN's IPX searches
+for sessions through DirectPlay as TCP/IP does.
+
 ### Its mouse and keys
 
 The game asks where the pointer is with `GetCursorPos` (and
@@ -557,13 +572,13 @@ known.
   the program writes in its folder goes to a save folder
   (`setSaveFolder`): its files are read there first, its folders in the
   install first (a search lists both); the install isn't written to.
-  Winsock's `gethostname` and `gethostbyname`, for the name and address
-  of the machine, are the engine's own (`src/engines/sfc/host/system.cpp`).
-  Of the functions the program imports, 32 aren't stood in for, none
-  called in any run: 23 of Winsock's (the closed online services'), a
-  message wait (`GetMessageA`), named and placed file mappings, DIB
-  sections, `RegDeleteKeyA`, a DirectDraw clipper and DirectSound (its
-  sound is Miles').
+  Winsock is the shared one ([winsock.md](../../../../../common/x86/winsock.md)),
+  started as DirectPlay's TCP/IP provider starts it, on the network the
+  engine gives it (the host tool's `-net`). Of the functions the program
+  imports, 9 aren't stood in for, none called in any run: a message wait
+  (`GetMessageA`), named and placed file mappings, DIB sections,
+  `RegDeleteKeyA`, a DirectDraw clipper and DirectSound (its sound is
+  Miles').
   `describeException` names an exception raised: for a C++ throw, the
   types thrown and the text in the object (a `tErrInfo`'s message).
 - **What it needed of the shared layer** (`src/emulation/x86/`):

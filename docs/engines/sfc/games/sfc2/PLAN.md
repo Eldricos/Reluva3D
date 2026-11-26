@@ -88,7 +88,9 @@ on their pages in `formats/` and `systems/`.
      to the shared layer (done: `win32_desktop.cpp` and the INI files in
      `win32_files.cpp`), with the answers Windows gives where a feature
      isn't there for the rest the game imports (file dialogs, clipboard,
-     display modes, other programs); left in the engine, Winsock's two;
+     display modes, other programs); and Winsock, Need for Speed III's
+     moved to the shared layer, for Dynaverse II's login and the
+     machine's name for DirectPlay;
    - DirectPlay's lobby (done): told no lobby started it, the game shows
      its main menu ([dplay.md](../../../../common/x86/dplay.md));
    - DirectPlay 4 (done), its sessions over TCP/IP between copies of

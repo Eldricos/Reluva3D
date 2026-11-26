@@ -237,6 +237,7 @@ int cmdHost(int argc, char **argv) {
     // tool (each with a save folder of its own) can play each other.
     if (network)
         game.directPlay().setNetwork(net::systemSockets(), net::systemBroadcastAddresses());
+    game.winsock().setSockets(net::systemSockets());
     std::printf("writes go to %s\n", saveFolder.string().c_str());
     x86::Cpu &cpu = game.cpu();
     x86::Win32Process &process = game.process();

@@ -85,6 +85,7 @@ to launcher, stop it. Headless, the same with `reluva-tool sfc host <game folder
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 26 November 2026 | English retail 1.0 | Linux | Online play: Dynaverse II's login on the shared Winsock, its directory servers not found and said so; MPlayer's button starting its site and ending the game; IPX searching; two copies joining over TCP/IP as before |
 | 26 November 2026 | English retail 1.0 | Linux | Multiplayer between two copies, headless with `-fixed-clock -net`: chat typed in the joining copy's lobby shown in both; the host forfeiting, the joining copy taking the session over and winning (`DPSESSION_MIGRATEHOST`) |
 | 26 November 2026 | English retail 1.0 and 2.0.3.6 | Linux | The settings files (40 and 48, none failing), the campaign maps (4 and 9) and `sprites.q3`'s objects (32,789 and 33,056 records, ten kinds) read; the game-files test's formats step re-recorded |
 | 26 November 2026 | English retail 1.0 | Linux | A mission's speed: a skirmish's battle on the real clock, 48.1 million instructions and 38.6 frames a second (`-rate`); its work and Convoy Escort's, 31 and 36 million a second, by the share of their instructions not waiting for the next frame (`-profile` on the fixed clock) |

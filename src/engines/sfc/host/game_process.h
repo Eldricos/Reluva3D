@@ -10,6 +10,7 @@
 #include "emulation/x86/dplay.h"
 #include "emulation/x86/miles.h"
 #include "emulation/x86/win32.h"
+#include "emulation/x86/winsock.h"
 
 #include <chrono>
 #include <cstdint>
@@ -62,6 +63,7 @@ public:
     x86::DirectX &directX() { return *_directX; }
     x86::Miles &miles() { return *_miles; }
     x86::DirectPlay &directPlay() { return *_directPlay; }
+    x86::Winsock &winsock() { return *_winsock; }
     ///@}
 
     /** Told of each file or folder the program looks for in its folder, and whether it was there. */
@@ -91,14 +93,10 @@ public:
     static constexpr const char *kRegistryFile = "registry.txt";
 
 private:
-    /** The Windows functions the shared stand-ins don't have (system.cpp). */
-    void addSystem();
     /** Reads back the registry values kept in the save folder. */
     void loadRegistry();
     /** Keeps a value the program wrote, rewriting the save folder's file. */
     void keepRegistryValue(const std::string &key, const std::string &name);
-    /** Stands in for a function taking `args` 32-bit arguments, popping them; `fn` gives EAX. */
-    void stdcall(const char *dll, const char *name, int args, std::function<uint32_t(x86::Cpu &)> fn);
 
     std::filesystem::path _dir;
     std::filesystem::path _saveDir;
@@ -108,8 +106,8 @@ private:
     std::unique_ptr<x86::DirectInput> _directInput;
     std::unique_ptr<x86::Miles> _miles;
     std::unique_ptr<x86::DirectPlay> _directPlay;
+    std::unique_ptr<x86::Winsock> _winsock;
     const x86::Win32Process::Module *_exe = nullptr;
-    uint32_t _hostent = 0; // gethostbyname's answer, made the first time
     /** A registry value kept, as the program wrote it. */
     struct RegistryValue {
         std::string key;

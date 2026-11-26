@@ -65,6 +65,7 @@ void Player::work() {
     game.setSaveFolder(_saveDir);
     game.miles().mixer = _mixer;
     game.directPlay().setNetwork(_sockets, _broadcast);
+    game.winsock().setSockets(_sockets);
     x86::Win32Process &process = game.process();
     process.output = [this](const std::string &text) {
         std::lock_guard<std::mutex> lock(_mutex);
