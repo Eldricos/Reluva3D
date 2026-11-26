@@ -678,18 +678,50 @@ how fast they'd go in the window isn't measured. Hosted, loading takes
 11 to 18 seconds; how long the original takes on the hardware of its
 time isn't measured.
 
+### Questions answered
+
+- **"v2.0.0.2" on the title screen,** where the program's version
+  resource says 1.0.0.2: it's the game's own version, a string in its
+  data (0x7c5e34) by the interface's `VersionString`, not the file's.
+  The patches go on from it: 2.0.0.3, then 2.0.3.6 *(from the code)*.
+- **DirectInput:** only to tell which DirectX is installed. A function
+  at 0x6b04f0, as Microsoft's `GetDXVersion` sample checks, loads
+  `DINPUT.DLL`, finds `DirectInputCreateA`, frees it again, and counts
+  DirectX 3 (0x300) if it's there; `DirectInputCreateA` is never called,
+  before the title screen or in a battle. Its input is Windows' messages
+  *(from the code)*.
+- **The folders `dmp3dDLL_Release`, `DLL` and `DRIVERS`:** a DLL manager
+  (`twDLLMgrBase`, 0x6b87b0 on 0xbb3290) loads plug-ins from them:
+  `dmp3d_*.dll` from `dmp3dDLL_Release` (or `\work\dmp3d`, a developer's
+  folder), and any `*.dll` from `DRIVERS` and `DLL` (a `QSDRIVERS` setting
+  by them). No install has the first or last, and `Drivers` holds Miles'
+  providers (`.asi`, `.m3d`, `.flt`), no `.dll` but `Mss32.dll`, which
+  Reluva stands in for; so nothing is loaded *(from the code; what the
+  plug-ins were is guessed: renderers, by the name)*.
+- **`uibitmaps.zip`:** added as an archive of the interface's pictures,
+  by the call that adds `assets/fonts.zip` for the fonts (0x62b400), on
+  the pictures' own manager (0x83f508). Retail keeps them in `sprites.q3`
+  instead; the zip is a leftover from before it *(inferred)*.
+- **`uq3.txt`:** read by the interface's object loader (0x677500), beside
+  its messages for its string table; a text form of the objects
+  `sprites.q3` holds, for development *(guessed)*.
+- **The CD key's 16 bytes:** left alone. They're part of the game's copy
+  protection: working out how they're made is close to how keys are
+  checked, and checking it would need an owner's key.
+- **The game's own Winsock functions:** Dynaverse II's, for its login
+  ([Its multiplayer](#its-multiplayer)), and the machine's name and
+  address for DirectPlay.
+
 ## Open questions
 
-- Whether the game also asks for other files no install has, as it does
-  `uibitmaps.zip` and `uq3.txt`.
-- Why the title screen says "v2.0.0.2" when the program's version
-  resource says 1.0.0.2.
-- How the 16 bytes kept for the CD key are made from it.
+- Whether the game also asks for other files no install has, besides
+  `uibitmaps.zip` and `uq3.txt` ([answered](#questions-answered)).
 - What the original's display drivers did with a blit keyed by a source
   with no colour key, as the game's pointer is drawn with `hwblit=1`.
-- What the game uses DirectInput for, past its title screen.
-- What the folders `dmp3dDLL_Release`, `DLL` and `DRIVERS` are looked for,
-  and what it loads from them.
+  Microsoft's documentation has an error for a surface without a colour
+  key (`DDERR_NOCOLORKEY`, "the surface does not currently have a color
+  key"), but doesn't list it among `Blt`'s; Reluva fails such a blit, as
+  that error says.
 - Why no mission starts once one has been played in a campaign that was
   loaded. Loaded from the first win's auto-save, Convoy Escort is offered,
   accepted and won; after it, in the same run, a move brings no missions,
@@ -705,6 +737,3 @@ time isn't measured.
   (it grows as when a mission starts). The 1.0 readme's known issues
   include "a random crash occurs during instances when accepting a
   mission". Whether this is the game's or Reluva's isn't known.
-- What the game's own Winsock functions are for (sockets, `connect`,
-  `select`...): a game played over TCP/IP didn't call them; perhaps the
-  online services' (Dynaverse II, MPlayer).
